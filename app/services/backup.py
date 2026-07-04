@@ -201,16 +201,19 @@ def _folder_exists_via_ssh(client, folder: str, username: str) -> bool:
     return False
 
 
-def run_backup(server: Server, user_id: int | None = None) -> dict:
+def run_backup(server: Server, user_id: int | None = None, sources_override: Optional[List[dict]] = None) -> dict:
     """Main entry for a backup job. Replicates original backup_script.sh closely.
     Now supports the richer source format with dest_name and enabled flag.
 
     rsync is run with delta detection: by default it only transfers files that differ
     in size or modification time (plus --delete for exact mirror). It will skip files
     that already exist and are identical on the destination.
+
+    sources_override: if provided, use this list instead of server.get_backup_sources()
+    (used for per-source backup runs without mutating the persisted Server.backup_paths).
     """
     hostname = server.hostname
-    sources = server.get_backup_sources()
+    sources = sources_override if sources_override is not None else server.get_backup_sources()
     results = []
     backup_root = get_backup_root_for_server(server)
     try:
@@ -351,7 +354,6 @@ def run_backup(server: Server, user_id: int | None = None) -> dict:
                     # Provide better diagnostics for common remote issues (HAOS, minimal systems, etc.)
                     error_detail = "rsync non-zero"
                     try:
-                        # Use the helper so it works with Redis-backed progress
                         prog = get_backup_progress(hostname)
                         lines = prog.get("log_lines", [])
                         recent = " ".join(lines[-10:])
@@ -448,7 +450,7 @@ def get_last_backup_time(hostname: str, source: str) -> Optional[datetime]:
     if marker.exists():
         try:
             mtime = marker.stat().st_mtime
-            return datetime.from_timestamp(mtime)
+            return datetime.fromtimestamp(mtime)
         except Exception:
             return None
     return None
