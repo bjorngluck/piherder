@@ -15,6 +15,12 @@ services:
     depends_on:
       - db
       - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
 
   db:
     image: postgres:16-alpine
@@ -50,6 +56,12 @@ services:
     depends_on:
       - db
       - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 45s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
 
   caddy:
     image: caddy:2
