@@ -417,6 +417,87 @@ def run_retention(server: Server) -> dict:
 
 # === Backup Profiles / Flexibility helpers ===
 
+GLOBAL_BACKUP_DEFAULTS_FILE = Path(settings.BACKUP_ROOT) / ".global_backup_defaults.json"
+
+def get_global_backup_defaults() -> dict:
+    """Load globally configured default backup config.
+    Returns dict with 'sources', 'dest_root', 'folder_name' (folder_name may be None to use hostname).
+    """
+    try:
+        if GLOBAL_BACKUP_DEFAULTS_FILE.exists():
+            data = json.loads(GLOBAL_BACKUP_DEFAULTS_FILE.read_text())
+            if isinstance(data, dict):
+                return {
+                    "sources": data.get("sources", []),
+                    "dest_root": data.get("dest_root"),
+                    "folder_name": data.get("folder_name"),
+                }
+            if isinstance(data, list):
+                # legacy sources only
+                return {"sources": data, "dest_root": None, "folder_name": None}
+    except Exception:
+        pass
+    # Fallback to sensible defaults
+    return {
+        "sources": ["/home/bjorn/docker/", "/var/lib/docker/volumes/"],
+        "dest_root": "/backups",
+        "folder_name": None,
+    }
+
+def save_global_backup_defaults(config: dict):
+    """Save global defaults. Accepts dict or just list of sources for compat."""
+    GLOBAL_BACKUP_DEFAULTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    if isinstance(config, list):
+        config = {"sources": config}
+    GLOBAL_BACKUP_DEFAULTS_FILE.write_text(json.dumps(config, indent=2))
+
+def get_backup_profiles(server: Server) -> List[Dict]:
+    """Return rich backup profile info for UI:
+    - source path
+    - computed or custom destination
+    - last successful backup time (from .last_backup marker)
+    - enabled status
+    """
+    sources = server.get_backup_sources()
+    if not sources:
+        g = get_global_backup_defaults()
+        gsrc = g.get("sources", []) if isinstance(g, dict) else g
+        if gsrc:
+            sources = [{"source": s, "dest_name": None, "enabled": True} for s in gsrc]
+    profiles = []
+
+    for item in sources:
+        src = item["source"]
+        dest_name = item.get("dest_name") or Path(src).name or "root"
+        enabled = item.get("enabled", True)
+        dest = str(get_backup_root_for_server(server) / dest_name)
+        last = get_last_backup_time_for_dest(server.hostname, dest_name)
+        profiles.append({
+            "source": src,
+            "dest_name": dest_name,
+            "destination": dest,
+            "enabled": enabled,
+            "last_backup": last,
+            "last_backup_str": format_datetime_in_app_tz(last) if last else "Never",
+            "folder_name": dest_name
+        })
+    return profiles
+
+def get_last_backup_time_for_dest(hostname: str, dest_name: str) -> Optional[datetime]:
+    """Check .last_backup for a specific dest subfolder.
+    mtime is stored as unix time; we treat it as UTC for consistent display under selected TZ.
+    """
+    dest = Path(get_backup_root_for_server(hostname)) / dest_name
+    marker = dest / ".last_backup"
+    if marker.exists():
+        try:
+            ts = marker.stat().st_mtime
+            return datetime.utcfromtimestamp(ts)
+        except Exception:
+            pass
+    return None
+
+
 def get_backup_root_for_server(server_or_hostname) -> Path:
     """Return the root path for backups.
     Accepts Server object (for per-host overrides) or hostname str.
@@ -429,7 +510,6 @@ def get_backup_root_for_server(server_or_hostname) -> Path:
         return Path(root) / folder
     else:
         hostname = server_or_hostname
-        # for str, try global too for folder
         g = get_global_backup_defaults()
         folder = g.get("folder_name") or hostname.replace("/", "_")
         root = g.get("dest_root") or settings.BACKUP_ROOT
@@ -453,22 +533,6 @@ def get_last_backup_time(hostname: str, source: str) -> Optional[datetime]:
             return datetime.fromtimestamp(mtime)
         except Exception:
             return None
-    return None
-
-
-def get_last_backup_time_for_dest(hostname: str, dest_name: str) -> Optional[datetime]:
-    """Check .last_backup for a specific dest subfolder.
-    mtime is stored as unix time; we treat it as UTC for consistent display under selected TZ.
-    """
-    dest = Path(get_backup_root_for_server(hostname)) / dest_name
-    marker = dest / ".last_backup"
-    if marker.exists():
-        try:
-            # Unix mtime -> treat as UTC instant; return naive (our convention for formatter)
-            ts = marker.stat().st_mtime
-            return datetime.utcfromtimestamp(ts)
-        except Exception:
-            pass
     return None
 
 
@@ -513,7 +577,7 @@ def add_backup_source(server: Server, source: str, dest_name: Optional[str] = No
         "dest_name": dest_name.strip() if dest_name else None,
         "enabled": True
     })
-    server.set_backup_sources(sources)  # use model helper if available, fallback below
+    server.set_backup_sources(sources)
     if hasattr(server, 'backup_paths'):
         server.backup_paths = json.dumps(sources)
     if session:
