@@ -24,7 +24,8 @@ _backup_locks: dict[int, threading.Lock] = {}
 
 _redis_client = None
 
-_last_progress_update: dict[str, float] = {}   # for throttling
+_last_progress_update: dict[str, float] = {}
+_progress_cache: dict[str, tuple[float, dict]] = {}   # (timestamp, data) for lightweight caching
 
 
 def _get_redis():
@@ -77,44 +78,61 @@ _backup_progress: dict[str, dict] = {}  # in-memory fallback
 def get_backup_progress(hostname: str) -> dict:
     """Return current backup progress for UI polling / SSE.
     Tries Redis first (works across web + Celery processes), falls back to memory.
+    Uses a short internal cache to reduce pressure during long backups.
     """
+    now = time.time()
+
+    # Lightweight in-process cache (1.5s TTL)
+    if hostname in _progress_cache:
+        ts, data = _progress_cache[hostname]
+        if now - ts < 1.5:
+            return data
+
     r = _get_redis()
     if r:
         try:
             data = r.get(f"piherder:backup_progress:{hostname}")
             if data:
-                return json.loads(data)
+                parsed = json.loads(data)
+                _progress_cache[hostname] = (now, parsed)
+                return parsed
         except Exception:
             pass
-    # Fallback
-    return _backup_progress.get(hostname, {"current": None, "log_lines": []})
+
+    # Fallback to memory
+    data = _backup_progress.get(hostname, {"current": None, "log_lines": []})
+    _progress_cache[hostname] = (now, data)
+    return data
 
 
 def _set_progress(hostname: str, current: str | None = None, log_line: str | None = None):
-    """Update progress.
+    """Update progress with stronger throttling for long-running backups.
 
-    Writes to Redis when available so Celery runs are visible in web modal.
-    Throttled: we only do the expensive Redis write + log append every ~200ms
-    unless the line looks important (error, complete, etc.).
-    This prevents UI freeze on very large backups (thousands of files).
+    - 'current' (which file) can update more frequently (helps UI feel responsive)
+    - Full log line appends + Redis writes are heavily throttled (~800ms)
+      unless the line is important (error/complete/etc).
+    - This prevents the web container from being overwhelmed during
+      very large backups (1TB+, 10k+ files).
     """
     now = time.time()
     last = _last_progress_update.get(hostname, 0)
 
-    # Always keep an in-memory 'current' so the modal can show what is happening right now
+    # Always keep in-memory 'current' fresh
     if hostname not in _backup_progress:
         _backup_progress[hostname] = {"current": None, "log_lines": []}
     if current is not None:
         _backup_progress[hostname]["current"] = current
 
-    # Decide if we should do the heavier Redis + list append work
+    # Decide whether to do the expensive work (Redis write + log append)
     force = False
     if log_line:
         low = log_line.lower()
         if any(kw in low for kw in ("error", "fail", "denied", "complete", "finished", "skipped", "done", "warning")):
             force = True
 
-    if not force and (now - last) < 0.2:   # 200 ms throttle
+    # Much more aggressive throttle for long jobs
+    THROTTLE_SECONDS = 0.8
+    if not force and (now - last) < THROTTLE_SECONDS:
         return _backup_progress[hostname]
 
     _last_progress_update[hostname] = now
@@ -132,9 +150,10 @@ def _set_progress(hostname: str, current: str | None = None, log_line: str | Non
                 if len(p["log_lines"]) > 40:
                     p["log_lines"] = p["log_lines"][-40:]
             r.set(key, json.dumps(p), ex=3600)
+            _progress_cache[hostname] = (now, p)   # update cache
             return p
         except Exception:
-            pass  # fall through to memory
+            pass
 
     # In-memory fallback
     p = _backup_progress[hostname]
@@ -142,6 +161,7 @@ def _set_progress(hostname: str, current: str | None = None, log_line: str | Non
         p["log_lines"].append(log_line)
         if len(p["log_lines"]) > 40:
             p["log_lines"] = p["log_lines"][-40:]
+    _progress_cache[hostname] = (now, p)
     return p
 
 
@@ -154,6 +174,7 @@ def _clear_progress(hostname: str):
             pass
     _backup_progress.pop(hostname, None)
     _last_progress_update.pop(hostname, None)
+    _progress_cache.pop(hostname, None)
 
 
 def _build_rsync_ssh_cmd(key_path: str) -> str:
