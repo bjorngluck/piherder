@@ -12,6 +12,7 @@ import logging
 import os
 import threading
 import shlex
+import time
 
 # Use app selected TZ for display strings
 from .herder_backup import format_datetime_in_app_tz
@@ -22,6 +23,8 @@ _active_backup_procs: dict[str, subprocess.Popen] = {}
 _backup_locks: dict[int, threading.Lock] = {}
 
 _redis_client = None
+
+_last_progress_update: dict[str, float] = {}   # for throttling
 
 
 def _get_redis():
@@ -88,7 +91,34 @@ def get_backup_progress(hostname: str) -> dict:
 
 
 def _set_progress(hostname: str, current: str | None = None, log_line: str | None = None):
-    """Update progress. Writes to Redis when available so Celery runs are visible in web modal."""
+    """Update progress.
+
+    Writes to Redis when available so Celery runs are visible in web modal.
+    Throttled: we only do the expensive Redis write + log append every ~200ms
+    unless the line looks important (error, complete, etc.).
+    This prevents UI freeze on very large backups (thousands of files).
+    """
+    now = time.time()
+    last = _last_progress_update.get(hostname, 0)
+
+    # Always keep an in-memory 'current' so the modal can show what is happening right now
+    if hostname not in _backup_progress:
+        _backup_progress[hostname] = {"current": None, "log_lines": []}
+    if current is not None:
+        _backup_progress[hostname]["current"] = current
+
+    # Decide if we should do the heavier Redis + list append work
+    force = False
+    if log_line:
+        low = log_line.lower()
+        if any(kw in low for kw in ("error", "fail", "denied", "complete", "finished", "skipped", "done", "warning")):
+            force = True
+
+    if not force and (now - last) < 0.2:   # 200 ms throttle
+        return _backup_progress[hostname]
+
+    _last_progress_update[hostname] = now
+
     r = _get_redis()
     if r:
         try:
@@ -101,17 +131,13 @@ def _set_progress(hostname: str, current: str | None = None, log_line: str | Non
                 p["log_lines"].append(log_line)
                 if len(p["log_lines"]) > 40:
                     p["log_lines"] = p["log_lines"][-40:]
-            r.set(key, json.dumps(p), ex=3600)  # 1 hour TTL safety
+            r.set(key, json.dumps(p), ex=3600)
             return p
         except Exception:
             pass  # fall through to memory
 
     # In-memory fallback
-    if hostname not in _backup_progress:
-        _backup_progress[hostname] = {"current": None, "log_lines": []}
     p = _backup_progress[hostname]
-    if current is not None:
-        p["current"] = current
     if log_line:
         p["log_lines"].append(log_line)
         if len(p["log_lines"]) > 40:
@@ -127,6 +153,7 @@ def _clear_progress(hostname: str):
         except Exception:
             pass
     _backup_progress.pop(hostname, None)
+    _last_progress_update.pop(hostname, None)
 
 
 def _build_rsync_ssh_cmd(key_path: str) -> str:
