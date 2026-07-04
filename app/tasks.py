@@ -37,17 +37,19 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
 
             hostname = server.hostname
 
-            # Optional per-source filter (matches previous _run_backup_job behavior)
+            # Compute filtered sources WITHOUT mutating the persisted server.backup_paths
+            sources_override = None
             if source_filter:
                 try:
-                    filtered = [s for s in server.get_backup_sources() if s.get("source") == source_filter]
+                    all_sources = server.get_backup_sources()
+                    filtered = [s for s in all_sources if s.get("source") == source_filter]
                     if filtered:
-                        server.backup_paths = json.dumps(filtered)
+                        sources_override = filtered
                 except Exception as e:
                     logger.warning(f"Could not apply source_filter: {e}")
 
-            # Run the actual (potentially long) backup
-            result = run_backup(server)
+            # Run the actual (potentially long) backup - pass override if filtering
+            result = run_backup(server, sources_override=sources_override)
 
             summary = json.dumps(result) if isinstance(result, dict) else str(result)
 
