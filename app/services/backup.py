@@ -1,18 +1,3 @@
-"""
-Backup service — replicates logic from ~/docker/backup_script.sh + backup_cleanup.sh
-
-Core behaviors replicated:
-- rsync -aHvz --delete --numeric-ids -P
-  (sudo -n only used for privileged paths like /var/lib/docker/volumes; normal paths use direct access)
-  (preserves hardlinks + numeric ids; delta copy using size+mtime by default)
-- existence checks: try direct first, sudo only for privileged paths (via SSH or local)
-- For the host running PiHerder itself: add it as a normal Server and use SSH ("ssh out and back").
-  This avoids complicated volume mounts for source paths. Local mode is disabled inside the container.
-- touch .last_backup on success
-- retention via dry-run rsync + prune empty dirs
-- Uses temp SSH keyfile + subprocess rsync for parity with original
-- Basic webhook notification support
-"""
 from ..models import Server
 from ..services.ssh import get_private_key_plain, temp_key_file, LEGACY_SSH_OPTS_STR, get_ssh_client, run_command
 import subprocess
@@ -36,13 +21,40 @@ logger = logging.getLogger(__name__)
 _active_backup_procs: dict[str, subprocess.Popen] = {}
 _backup_locks: dict[int, threading.Lock] = {}
 
+_redis_client = None
+
+
+def _get_redis():
+    """Return a Redis client (shared with Celery) or None if unavailable."""
+    global _redis_client
+    if _redis_client is not None:
+        return _redis_client
+    try:
+        import redis
+        url = (
+            os.getenv("CELERY_BROKER_URL")
+            or os.getenv("CELERY_RESULT_BACKEND")
+            or "redis://localhost:6379/0"
+        )
+        client = redis.from_url(url, decode_responses=True)
+        client.ping()
+        _redis_client = client
+        logger.debug("[backup] Using Redis for cross-process progress tracking")
+    except Exception as e:
+        logger.debug(f"[backup] Redis not available for progress, using in-memory only: {e}")
+        _redis_client = None
+    return _redis_client
+
+
 def _get_backup_lock(server_id: int) -> threading.Lock:
     if server_id not in _backup_locks:
         _backup_locks[server_id] = threading.Lock()
     return _backup_locks[server_id]
 
+
 def is_backup_running(hostname: str) -> bool:
     return hostname in _active_backup_procs
+
 
 def stop_backup(hostname: str):
     proc = _active_backup_procs.get(hostname)
@@ -53,15 +65,48 @@ def stop_backup(hostname: str):
         except Exception:
             pass
 
-# Simple in-memory progress tracker for backup modals (keyed by hostname).
-# Updated during run_backup; cleared on finish.
-_backup_progress: dict[str, dict] = {}
+
+# Progress tracking - now Redis-backed when available (so Celery worker updates are visible to web UI)
+# Falls back to in-memory dict when Redis is unreachable.
+_backup_progress: dict[str, dict] = {}  # in-memory fallback
+
 
 def get_backup_progress(hostname: str) -> dict:
-    """Return current backup progress for UI polling."""
+    """Return current backup progress for UI polling / SSE.
+    Tries Redis first (works across web + Celery processes), falls back to memory.
+    """
+    r = _get_redis()
+    if r:
+        try:
+            data = r.get(f"piherder:backup_progress:{hostname}")
+            if data:
+                return json.loads(data)
+        except Exception:
+            pass
+    # Fallback
     return _backup_progress.get(hostname, {"current": None, "log_lines": []})
 
+
 def _set_progress(hostname: str, current: str | None = None, log_line: str | None = None):
+    """Update progress. Writes to Redis when available so Celery runs are visible in web modal."""
+    r = _get_redis()
+    if r:
+        try:
+            key = f"piherder:backup_progress:{hostname}"
+            existing = r.get(key)
+            p = json.loads(existing) if existing else {"current": None, "log_lines": []}
+            if current is not None:
+                p["current"] = current
+            if log_line:
+                p["log_lines"].append(log_line)
+                if len(p["log_lines"]) > 40:
+                    p["log_lines"] = p["log_lines"][-40:]
+            r.set(key, json.dumps(p), ex=3600)  # 1 hour TTL safety
+            return p
+        except Exception:
+            pass  # fall through to memory
+
+    # In-memory fallback
     if hostname not in _backup_progress:
         _backup_progress[hostname] = {"current": None, "log_lines": []}
     p = _backup_progress[hostname]
@@ -69,11 +114,18 @@ def _set_progress(hostname: str, current: str | None = None, log_line: str | Non
         p["current"] = current
     if log_line:
         p["log_lines"].append(log_line)
-        if len(p["log_lines"]) > 30:  # keep last 30 lines
-            p["log_lines"] = p["log_lines"][-30:]
+        if len(p["log_lines"]) > 40:
+            p["log_lines"] = p["log_lines"][-40:]
     return p
 
+
 def _clear_progress(hostname: str):
+    r = _get_redis()
+    if r:
+        try:
+            r.delete(f"piherder:backup_progress:{hostname}")
+        except Exception:
+            pass
     _backup_progress.pop(hostname, None)
 
 
@@ -299,7 +351,9 @@ def run_backup(server: Server, user_id: int | None = None) -> dict:
                     # Provide better diagnostics for common remote issues (HAOS, minimal systems, etc.)
                     error_detail = "rsync non-zero"
                     try:
-                        lines = _backup_progress.get(hostname, {}).get("log_lines", [])
+                        # Use the helper so it works with Redis-backed progress
+                        prog = get_backup_progress(hostname)
+                        lines = prog.get("log_lines", [])
                         recent = " ".join(lines[-10:])
                         if "command not found" in recent.lower() or ("rsync" in recent.lower() and "not found" in recent.lower()):
                             error_detail = "rsync command not found on remote. Install rsync on the target (via SSH add-on on HAOS etc.)"
@@ -394,80 +448,10 @@ def get_last_backup_time(hostname: str, source: str) -> Optional[datetime]:
     if marker.exists():
         try:
             mtime = marker.stat().st_mtime
-            return datetime.fromtimestamp(mtime)
+            return datetime.from_timestamp(mtime)
         except Exception:
             return None
     return None
-
-
-GLOBAL_BACKUP_DEFAULTS_FILE = Path(settings.BACKUP_ROOT) / ".global_backup_defaults.json"
-
-
-def get_global_backup_defaults() -> dict:
-    """Load globally configured default backup config.
-    Returns dict with 'sources', 'dest_root', 'folder_name' (folder_name may be None to use hostname).
-    """
-    try:
-        if GLOBAL_BACKUP_DEFAULTS_FILE.exists():
-            data = json.loads(GLOBAL_BACKUP_DEFAULTS_FILE.read_text())
-            if isinstance(data, dict):
-                return {
-                    "sources": data.get("sources", []),
-                    "dest_root": data.get("dest_root"),
-                    "folder_name": data.get("folder_name"),
-                }
-            if isinstance(data, list):
-                # legacy sources only
-                return {"sources": data, "dest_root": None, "folder_name": None}
-    except Exception:
-        pass
-    # Fallback to sensible defaults: root /home/$USER/backup/ + server folder (hostname)
-    return {
-        "sources": ["/home/bjorn/docker/", "/var/lib/docker/volumes/"],
-        "dest_root": "/backups",  # container-internal. Add bind in compose e.g. - /home/bjorn/backup:/backups then use /backups here
-        "folder_name": None,
-    }
-
-
-def save_global_backup_defaults(config: dict):
-    """Save global defaults. Accepts dict or just list of sources for compat."""
-    GLOBAL_BACKUP_DEFAULTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    if isinstance(config, list):
-        config = {"sources": config}
-    GLOBAL_BACKUP_DEFAULTS_FILE.write_text(json.dumps(config, indent=2))
-
-
-def get_backup_profiles(server: Server) -> List[Dict]:
-    """Return rich backup profile info for UI:
-    - source path
-    - computed or custom destination
-    - last successful backup time (from .last_backup marker)
-    - enabled status
-    """
-    sources = server.get_backup_sources()
-    if not sources:
-        g = get_global_backup_defaults()
-        gsrc = g.get("sources", []) if isinstance(g, dict) else g
-        if gsrc:
-            sources = [{"source": s, "dest_name": None, "enabled": True} for s in gsrc]
-    profiles = []
-
-    for item in sources:
-        src = item["source"]
-        dest_name = item.get("dest_name") or Path(src).name or "root"
-        enabled = item.get("enabled", True)
-        dest = str(get_backup_root_for_server(server) / dest_name)
-        last = get_last_backup_time_for_dest(server.hostname, dest_name)
-        profiles.append({
-            "source": src,
-            "dest_name": dest_name,
-            "destination": dest,
-            "enabled": enabled,
-            "last_backup": last,
-            "last_backup_str": format_datetime_in_app_tz(last) if last else "Never",
-            "folder_name": dest_name
-        })
-    return profiles
 
 
 def get_last_backup_time_for_dest(hostname: str, dest_name: str) -> Optional[datetime]:
