@@ -1,0 +1,94 @@
+# PiHerder docker-compose.yml
+# No top-level `version` key (obsolete)
+
+services:
+  web:
+    build: .
+    container_name: piherder-web
+    ports:
+      - "8000:8000"
+    # extra_hosts:
+    #   - "my-pi-hostname:host-gateway"   # allows container to SSH to this host by name
+    environment:
+      - PIHERDER_MASTER_KEY=${PIHERDER_MASTER_KEY}
+      - DATABASE_URL=postgresql://piherder:piherder@db:5432/piherder
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-prod}
+      # Timezone: set TZ=Your/Zone (e.g. Africa/Johannesburg) to match host.
+      # Also uncomment the localtime mounts below if you want the container to fully inherit host TZ files.
+      - TZ=${TZ:-Etc/UTC}
+      # Optional: configure webhook similar to legacy scripts
+      - WEBHOOK_URL=${WEBHOOK_URL:-}
+      - WEBHOOK_NUMBER=${WEBHOOK_NUMBER:-}
+      - WEBHOOK_RECIPIENTS=${WEBHOOK_RECIPIENTS:-}
+      - BACKUP_ROOT=/backups
+    volumes:
+      # Map to your existing ~/backup dir so the legacy backup jobs can see/write there
+      - ~/:/backups
+      # NEW: Host-mapped dir for PiHerder self-backups (config, server keys (encrypted), optional audit).
+      # The app writes compressed archives here on schedule or manual trigger.
+      # IMPORTANT: If you see permission errors, pre-create on host:
+      #   mkdir -p ~/piherder_backups
+      #   sudo chown -R 1000:1000 ~/piherder_backups   # match container piherder uid=1000, or use chmod 777
+      # Then the dedicated mount will be writable. Code falls back to writing under ~/ if needed.
+      - ./piherder_backups:/herder_backups
+      # Timezone mapping (uncomment to make container use host TZ files):
+      # - /etc/localtime:/etc/localtime:ro
+      # - /etc/timezone:/etc/timezone:ro
+      # Optional for testing localhost servers:
+      # - ~/.ssh:/home/piherder/.ssh:ro
+      #
+      # For backing up *this host* (the machine running PiHerder) via SSH:
+      # Add an extra_hosts entry so the container can reach the host by name.
+      # Then add this host as a normal Server using that name (or its IP).
+      # Example:
+      # extra_hosts:
+      #   - "my-pi:host-gateway"
+      # In the Server entry use hostname "my-pi" (SSH user must be set up with key).
+      # This is preferred over "local" mode because it avoids extra volume mounts
+      # for source paths and keeps folder mapping simple.
+    depends_on:
+      - db
+    restart: unless-stopped
+    # Healthcheck + restart policy make the web app more robust.
+    # If it becomes unresponsive (e.g. after many blocking SSH calls), compose can restart it.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).status==200 else 1)"]
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 25s
+
+  db:
+    image: postgres:16-alpine
+    container_name: piherder-db
+    environment:
+      - POSTGRES_USER=piherder
+      - POSTGRES_PASSWORD=piherder
+      - POSTGRES_DB=piherder
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    container_name: piherder-caddy
+    ports:
+      # Use non-standard ports because other services on this host (pi-hole, etc.)
+      # are already using 80 and 443.
+      # Access PiHerder via:
+      #   http://your-pi:8888
+      #   https://your-pi:8443   (self-signed cert warning is normal for local testing)
+      - "8888:80"
+      - "8443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    depends_on:
+      - web
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

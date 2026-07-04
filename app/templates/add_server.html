@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-xl">
+  <div class="flex items-center gap-3 mb-2">
+    <span class="text-4xl">🐑</span>
+    <h1 class="text-3xl">Add Server</h1>
+  </div>
+  <p class="text-sm text-zinc-400 mb-6">SSH private key will be encrypted with the master key immediately.</p>
+
+  <form method="post" action="/servers/add" class="space-y-4 bg-zinc-900 p-6 rounded-xl border border-zinc-800">
+    <div>
+      <label class="block text-sm mb-1">Name</label>
+      <input name="name" required class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded">
+    </div>
+    <div>
+      <label class="block text-sm mb-1">Hostname or IP</label>
+      <input name="hostname" required placeholder="rpi5-2.hacknow.info" class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded">
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm mb-1">SSH Username</label>
+        <input name="ssh_username" value="bjorn" class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded">
+      </div>
+      <div>
+        <label class="block text-sm mb-1">Port</label>
+        <input name="ssh_port" type="number" value="22" class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded">
+      </div>
+    </div>
+
+    <div class="pt-2">
+      <div class="font-medium mb-1">Auth method (keys strongly preferred)</div>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="radio" name="key_mode" value="generate" checked> Generate new keypair (recommended)
+      </label>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="radio" name="key_mode" value="upload"> Upload private key
+      </label>
+      <label class="flex items-center gap-2 text-sm text-amber-400">
+        <input type="radio" name="key_mode" value="password"> Use password (discouraged)
+      </label>
+    </div>
+
+    <div>
+      <label class="block text-sm mb-1">Private key (only if uploading)</label>
+      <textarea name="private_key" rows="8" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..." class="w-full font-mono text-xs bg-zinc-950 border border-zinc-700 p-3 rounded"></textarea>
+    </div>
+
+    <div>
+      <label class="block text-sm mb-1 text-amber-400">Password (only if using password auth)</label>
+      <input type="password" name="ssh_password" class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded" placeholder="SSH password (will be encrypted)">
+    </div>
+
+    <button type="submit"
+            class="mt-2 px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-sm font-medium rounded">Add Server &amp; Encrypt Key</button>
+  </form>
+
+  <p class="mt-4 text-xs text-zinc-500">After adding you will see the public key to put into <code>~/.ssh/authorized_keys</code> on the target.</p>
+</div>
+{% endblock %}

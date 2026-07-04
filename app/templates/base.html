@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ title or "PiHerder" }}</title>
+
+  <!-- Favicon (self-contained, no external requests) -->
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+
+  <!--
+    Fully offline / air-gapped friendly.
+
+    All JavaScript (Tailwind Play, HTMX, Alpine) is vendored into app/static/
+    via scripts/vendor_cdns.sh or at Docker build time.
+
+    Tailwind Play is optional — if the file is missing or invalid (very common
+    when Pi-hole blocks cdn.tailwindcss.com), we fall back to a large hand-written
+    <style> block that covers the classes used by the app.
+  -->
+  <!-- Load Tailwind Play defensively. onerror keeps the page working if the
+       file is absent. A bad file (Pi-hole HTML) usually won't execute as JS. -->
+  <script src="/static/tailwind.js" onerror="console.warn('Tailwind Play not available — using built-in fallback styles')"></script>
+  <script>
+    // Tailwind play config — only applies when the vendored script is present
+    if (typeof tailwind !== 'undefined') {
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              zinc: { 950: '#18181b', 900: '#27272a', 800: '#3f3f46', 700: '#52525b' }
+            }
+          }
+        }
+      };
+    }
+  </script>
+
+  <!-- HTMX (for fragments, auto-refresh, etc.) -->
+  <script src="/static/htmx.min.js"></script>
+
+  <!-- Alpine.js (light usage for a few interactions) -->
+  <script defer src="/static/alpine.min.js"></script>
+  <style>
+    /* Robust fallback + base styles so UI looks decent even if Tailwind CDN fails to load (prevents "1998 white screen" look).
+       This emulates the most-used Tailwind utilities from the app (especially docker.html cards, buttons, modals, flex/grid).
+       When the local or CDN Tailwind script loads, it will take over and provide the full JIT classes + config. */
+    :root { color-scheme: dark; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #18181b; color: #e4e4e7; line-height: 1.5; margin: 0; }
+    a { color: #34d399; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .card { background: #27272a; border: 1px solid #3f3f46; border-radius: 12px; }
+    nav { background: #27272a; border-bottom: 1px solid #3f3f46; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #3f3f46; }
+    th { background: #27272a; font-weight: 500; color: #a1a1aa; font-size: 0.75rem; }
+    input, textarea, select { background: #18181b; border: 1px solid #3f3f46; color: #e4e4e7; border-radius: 6px; }
+    button { cursor: pointer; }
+    h1, h2, h3 { font-weight: 600; }
+
+    /* Layout */
+    .flex { display: flex; }
+    .inline-flex { display: inline-flex; }
+    .inline-block { display: inline-block; }
+    .grid { display: grid; }
+    .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+    .items-center { align-items: center; }
+    .justify-center { justify-content: center; }
+    .justify-between { justify-content: space-between; }
+    .justify-end { justify-content: flex-end; }
+    .flex-wrap { flex-wrap: wrap; }
+    .gap-1 { gap: .25rem; }
+    .gap-1\.5 { gap: .375rem; }
+    .gap-2 { gap: .5rem; }
+    .gap-3 { gap: .75rem; }
+    .gap-4 { gap: 1rem; }
+    .space-y-1 > * + * { margin-top: .25rem; }
+    .space-y-1\.5 > * + * { margin-top: .375rem; }
+
+    /* Spacing */
+    .mt-0\.5 { margin-top: .125rem; }
+    .mt-1 { margin-top: .25rem; }
+    .mt-2 { margin-top: .5rem; }
+    .mt-3 { margin-top: .75rem; }
+    .mt-6 { margin-top: 1.5rem; }
+    .mt-8 { margin-top: 2rem; }
+    .mt-10 { margin-top: 2.5rem; }
+    .mb-1 { margin-bottom: .25rem; }
+    .mb-2 { margin-bottom: .5rem; }
+    .mb-3 { margin-bottom: .75rem; }
+    .mb-4 { margin-bottom: 1rem; }
+    .mb-6 { margin-bottom: 1.5rem; }
+    .mx-4 { margin-left: 1rem; margin-right: 1rem; }
+    .mx-auto { margin-left: auto; margin-right: auto; }
+    .px-1 { padding-left: .25rem; padding-right: .25rem; }
+    .px-2 { padding-left: .5rem; padding-right: .5rem; }
+    .px-3 { padding-left: .75rem; padding-right: .75rem; }
+    .px-4 { padding-left: 1rem; padding-right: 1rem; }
+    .py-0\.5 { padding-top: .125rem; padding-bottom: .125rem; }
+    .py-1 { padding-top: .25rem; padding-bottom: .25rem; }
+    .py-1\.5 { padding-top: .375rem; padding-bottom: .375rem; }
+    .py-2 { padding-top: .5rem; padding-bottom: .5rem; }
+    .py-3 { padding-top: .75rem; padding-bottom: .75rem; }
+    .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+    .py-6 { padding-top: 1.5rem; padding-bottom: 1.5rem; }
+    .p-2 { padding: .5rem; }
+    .p-3 { padding: .75rem; }
+    .p-4 { padding: 1rem; }
+    .p-5 { padding: 1.25rem; }
+    .p-6 { padding: 1.5rem; }
+    .pl-2 { padding-left: .5rem; }
+    .pl-4 { padding-left: 1rem; }
+    .pl-5 { padding-left: 1.25rem; }
+
+    /* Sizing */
+    .w-full { width: 100%; }
+    .max-w-sm { max-width: 24rem; }
+    .max-w-md { max-width: 28rem; }
+    .max-w-3xl { max-width: 48rem; }
+    .max-w-5xl { max-width: 64rem; }
+    .max-w-6xl { max-width: 72rem; }
+    .h-7 { height: 1.75rem; }
+    .min-w-\[4rem\] { min-width: 4rem; }
+    .min-w-\[4\.25rem\] { min-width: 4.25rem; }
+    .min-w-\[5rem\] { min-width: 5rem; }
+    .min-w-\[7rem\] { min-width: 7rem; }
+
+    /* Typography & misc */
+    .text-xs { font-size: .75rem; line-height: 1rem; }
+    .text-sm { font-size: .875rem; line-height: 1.25rem; }
+    .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+    .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+    .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+    .text-\[10px\] { font-size: 10px; }
+    .text-\[11px\] { font-size: 11px; }
+    .font-semibold { font-weight: 600; }
+    .font-medium { font-weight: 500; }
+    .font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    .tracking-tighter { letter-spacing: -.05em; }
+    .whitespace-pre-wrap { white-space: pre-wrap; }
+    .whitespace-normal { white-space: normal; }
+    .break-words { overflow-wrap: break-word; }
+    .break-all { word-break: break-all; }
+
+    /* Positioning & layers */
+    .fixed { position: fixed; }
+    .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+    .z-50 { z-index: 50; }
+    .z-\[70\] { z-index: 70; }
+    .hidden { display: none !important; }
+
+    /* Overflow & scroll */
+    .overflow-auto { overflow: auto; }
+    .overflow-x-auto { overflow-x: auto; }
+    .max-h-\[85vh\] { max-height: 85vh; }
+    .max-h-40 { max-height: 10rem; }
+    .max-h-60 { max-height: 15rem; }
+
+    /* Borders & radius */
+    .border { border-width: 1px; border-style: solid; }
+    .border-b { border-bottom-width: 1px; }
+    .rounded { border-radius: .25rem; }
+    .rounded-xl { border-radius: .75rem; }
+
+    /* Animation */
+    .animate-spin { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Backgrounds (core zinc + accent palette) */
+    .bg-zinc-950 { background-color: #18181b; }
+    .bg-zinc-900 { background-color: #27272a; }
+    .bg-zinc-800 { background-color: #3f3f46; }
+    .bg-zinc-700 { background-color: #52525b; }
+    .bg-black { background-color: #000; }
+    .bg-black\/70 { background-color: rgba(0, 0, 0, 0.70); }
+    .bg-emerald-500 { background-color: #10b981; }
+    .bg-emerald-600 { background-color: #059669; }
+    .bg-emerald-700 { background-color: #047857; }
+    .bg-emerald-800 { background-color: #065f46; }
+    .bg-emerald-900 { background-color: #064e3b; }
+    .bg-emerald-950\/30 { background-color: rgba(16, 185, 129, .3); }
+    .bg-amber-600 { background-color: #d97706; }
+    .bg-amber-700 { background-color: #b45309; }
+    .bg-amber-800 { background-color: #92400e; }
+    .bg-amber-900 { background-color: #78350f; }
+    .bg-red-600 { background-color: #dc2626; }
+    .bg-red-700 { background-color: #b91c1c; }
+    .bg-red-900 { background-color: #7f1d1d; }
+    .bg-blue-600 { background-color: #2563eb; }
+    .bg-blue-700 { background-color: #1d4ed8; }
+
+    /* Text colors */
+    .text-zinc-200 { color: #e4e4e7; }
+    .text-zinc-300 { color: #d4d4d8; }
+    .text-zinc-400 { color: #a1a1aa; }
+    .text-zinc-500 { color: #71717a; }
+    .text-zinc-600 { color: #52525b; }
+    .text-emerald-200 { color: #a7f3d0; }
+    .text-emerald-300 { color: #6ee7b7; }
+    .text-emerald-400 { color: #34d399; }
+    .text-emerald-500 { color: #10b981; }
+    .text-amber-300 { color: #fcd34d; }
+    .text-red-300 { color: #fca5a5; }
+    .text-red-400 { color: #f87171; }
+
+    /* Borders */
+    .border-zinc-700 { border-color: #52525b; }
+    .border-zinc-800 { border-color: #3f3f46; }
+    .border-zinc-900 { border-color: #27272a; }
+
+    /* Hover states (approximate for key interactive elements) */
+    .hover\:bg-zinc-700:hover { background-color: #52525b; }
+    .hover\:bg-zinc-800:hover { background-color: #3f3f46; }
+    .hover\:bg-emerald-600:hover { background-color: #059669; }
+    .hover\:bg-emerald-700:hover { background-color: #047857; }
+    .hover\:bg-amber-600:hover { background-color: #d97706; }
+    .hover\:bg-amber-700:hover { background-color: #b45309; }
+    .hover\:bg-red-600:hover { background-color: #dc2626; }
+    .hover\:bg-red-700:hover { background-color: #b91c1c; }
+    .hover\:bg-blue-600:hover { background-color: #2563eb; }
+    .hover\:text-white:hover { color: #fff; }
+
+    /* Misc used in docker/containers/modals */
+    .text-emerald-400 { color: #34d399; }
+    .divide-y > * + * { border-top: 1px solid #3f3f46; }
+    .bg-emerald-950\/30 { background-color: rgba(16,185,129,.30); }
+  </style>
+</head>
+<body class="bg-zinc-950 text-zinc-200">
+  <nav class="border-b border-zinc-800 bg-zinc-900">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <span class="text-3xl">🐑</span>
+          <div>
+            <a href="/" class="font-semibold text-2xl tracking-tighter">PiHerder</a>
+            <div class="text-[10px] text-emerald-500 -mt-1 font-mono">FLEET CONTROL</div>
+          </div>
+        </div>
+        <div class="hidden md:block text-xs text-zinc-500 pl-2 border-l border-zinc-800">
+          Secure Raspberry Pi cluster management
+        </div>
+      </div>
+      <div class="flex items-center gap-4 text-sm">
+        <a href="/" class="hover:text-white transition">Dashboard</a>
+        <a href="/servers" class="hover:text-white transition">Servers</a>
+        <a href="/audit" class="hover:text-white transition">Audit</a>
+        <a href="/herder-backups" class="hover:text-white transition text-xs self-center">Settings</a>
+
+        {% if user %}
+          <span class="text-zinc-500 text-xs">· {{ user.email.split('@')[0] }}</span>
+          <a href="/auth/login" class="text-zinc-400 hover:text-red-400 transition text-xs">Sign out</a>
+        {% else %}
+          <a href="/auth/login" class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-xs transition">Login</a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-5xl mx-auto px-6 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="text-center text-xs text-zinc-500 py-8 border-t border-zinc-900 mt-12">
+    PiHerder • Secure fleet management for Raspberry Pi clusters<br>
+    <span class="text-[10px] text-zinc-600">Zero plaintext secrets • All actions audited</span>
+  </footer>
+
+  <!-- Use the globally selected Timezone (from Settings) for all log/backup/audit times.
+       Falls back to UTC. data-utc attributes contain the original UTC ISO. -->
+  <script>
+  window.PIHERDER_TZ = "{{ get_app_timezone() }}";
+  (function localizeTimes() {
+    let isConverting = false;
+    function convert(el) {
+      const iso = el.dataset.utc || (el.textContent || '').trim();
+      if (!iso || iso.length < 10) return;
+      if (!el.dataset.utc && !/^\d{4}-\d{2}-\d{2}/.test(iso)) return;
+      try {
+        const d = new Date(iso);
+        if (!isNaN(d)) {
+          const tz = window.PIHERDER_TZ || 'UTC';
+          // Format in the selected app timezone, not browser local
+          const opts = { timeZone: tz };
+          el.textContent = d.toLocaleString(undefined, opts);
+          if (!el.title) el.title = iso + ' (UTC) shown in ' + tz;
+        }
+      } catch (e) {}
+    }
+    function run() {
+      if (isConverting) return;
+      isConverting = true;
+      try {
+        document.querySelectorAll('[data-utc], .utc-time').forEach(convert);
+      } finally {
+        isConverting = false;
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', run);
+    } else {
+      run();
+    }
+    const obs = new MutationObserver(() => {
+      obs.disconnect();
+      run();
+      obs.observe(document.body, {childList: true, subtree: true});
+    });
+    obs.observe(document.body, {childList: true, subtree: true});
+    window.PiHerderLocalizeTimes = run;
+  })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- PiHerder favicon - sheep themed, matches the dark + emerald palette -->
+  <rect width="32" height="32" rx="6" fill="#18181b"/>
+  <circle cx="16" cy="16" r="11" fill="#27272a" stroke="#34d399" stroke-width="3"/>
+  <!-- Simple sheep face suggestion -->
+  <circle cx="11" cy="13" r="2" fill="#34d399"/>
+  <circle cx="21" cy="13" r="2" fill="#34d399"/>
+  <path d="M10 20 Q16 24 22 20" stroke="#34d399" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+</svg>

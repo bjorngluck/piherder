@@ -1,0 +1,1249 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div>
+  <a href="/servers" class="text-xs text-emerald-400 hover:underline">← All servers</a>
+  <div class="flex items-center gap-3 mt-1">
+    <span class="text-3xl">🐑</span>
+    <h1 class="text-3xl font-semibold">{{ server.name }}</h1>
+    <button type="button"
+            onclick="showEditServerModal()"
+            class="ml-2 text-xs px-3 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded">
+      Edit
+    </button>
+    {% if server.ssh_public_key %}
+    <button type="button"
+            onclick="showSshKeyModal()"
+            class="text-xs px-2 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded"
+            title="View/copy the SSH public key for initial setup">
+      SSH key
+    </button>
+    {% endif %}
+  </div>
+  <div class="text-zinc-400">{{ server.hostname }} ({{ server.ssh_username }})</div>
+</div>
+
+<!-- SSH Key Modal -->
+<div id="ssh-key-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-semibold">SSH Public Key for {{ server.name }}</h3>
+      <button type="button" onclick="hideSshKeyModal()" class="text-zinc-400 hover:text-white">✕</button>
+    </div>
+    <p class="text-xs text-zinc-400 mb-2">Copy this and add to <code>~/.ssh/authorized_keys</code> on the target host.</p>
+
+    <textarea id="modal-pubkey" readonly
+              class="w-full font-mono text-xs bg-black border border-zinc-700 p-3 rounded h-40 resize-y">{{ server.ssh_public_key or '' }}</textarea>
+
+    <div class="flex gap-2 mt-3">
+      <button type="button" onclick="copyModalPubKey(this)"
+              class="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-600 rounded text-sm">Copy to clipboard</button>
+      <button type="button" onclick="selectModalPubKey()"
+              class="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 rounded text-sm">Select All</button>
+      <button type="button" onclick="hideSshKeyModal()"
+              class="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-sm ml-auto">Close</button>
+    </div>
+    <p class="text-[10px] text-zinc-500 mt-2">
+      Key is only visible while this modal is open.
+      If the Copy button does nothing, use <strong>Select All</strong> then Ctrl+C (or Cmd+C).
+    </p>
+  </div>
+</div>
+
+<script>
+function showSshKeyModal() {
+  const modal = document.getElementById('ssh-key-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    // Auto-select the key so user can immediately Ctrl+C
+    setTimeout(() => {
+      const ta = document.getElementById('modal-pubkey');
+      if (ta) {
+        ta.focus();
+        ta.select();
+      }
+    }, 50);
+  }
+}
+function hideSshKeyModal() {
+  const modal = document.getElementById('ssh-key-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+}
+function copyModalPubKey(btn) {
+  const ta = document.getElementById('modal-pubkey');
+  if (!ta || !ta.value) return;
+
+  const text = ta.value;
+  const original = btn.innerText;
+  btn.disabled = true;
+
+  // Try modern Clipboard API (best experience)
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => {
+      btn.innerText = 'Copied!';
+      setTimeout(() => {
+        btn.innerText = original;
+        btn.disabled = false;
+      }, 1400);
+    }).catch(() => {
+      // API available but blocked → fall back to execCommand
+      execCommandCopy(btn, text, original);
+    });
+    return;
+  }
+
+  // No Clipboard API (common over plain HTTP in Docker) → use execCommand
+  execCommandCopy(btn, text, original);
+}
+
+function execCommandCopy(btn, text, original) {
+  const temp = document.createElement('textarea');
+  temp.value = text;
+  temp.setAttribute('readonly', '');
+  temp.style.position = 'fixed';
+  temp.style.top = '-9999px';
+  temp.style.left = '-9999px';
+  document.body.appendChild(temp);
+
+  temp.focus();
+  temp.select();
+
+  let success = false;
+  try {
+    success = document.execCommand('copy');
+  } catch (e) {
+    console.warn('execCommand failed', e);
+  }
+
+  document.body.removeChild(temp);
+
+  if (success) {
+    btn.innerText = 'Copied!';
+  } else {
+    // Still failed → make the key easy to copy manually inside the modal
+    const ta = document.getElementById('modal-pubkey');
+    if (ta) {
+      ta.focus();
+      ta.select();
+    }
+    btn.innerText = 'Selected - Ctrl+C';
+  }
+
+  setTimeout(() => {
+    btn.innerText = original;
+    btn.disabled = false;
+  }, 1600);
+}
+</script>
+
+<div class="mt-6">
+  <h3 class="font-medium mb-2">Features</h3>
+  <div class="flex flex-wrap gap-2 text-sm">
+    <div class="px-3 py-1 bg-zinc-800 rounded">Backups: <strong>{{ 'on' if server.backup_enabled else 'off' }}</strong></div>
+    <div class="px-3 py-1 bg-zinc-800 rounded">Container Patching: <strong>{{ 'on' if server.container_patch_enabled else 'off' }}</strong></div>
+    <div class="px-3 py-1 bg-zinc-800 rounded">OS Patching: <strong>{{ 'on' if server.os_patch_enabled else 'off' }}</strong></div>
+
+    {% if backup_profiles and overall_last_backup %}
+    <div class="px-3 py-1 bg-zinc-800 rounded text-xs">
+      Last backup: <span class="text-emerald-300">{{ overall_last_backup | app_tz }}</span>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% if reboot_initiated %}
+<div class="mt-3 p-3 bg-emerald-900/60 border border-emerald-700 rounded text-sm flex items-center gap-2">
+  <span>⏻</span>
+  <strong>Reboot command sent.</strong> The server is restarting. Refresh this page in a minute or two.
+</div>
+{% endif %}
+
+{% if diagnostics and diagnostics.reboot_pending %}
+<div class="mt-3 p-3 bg-orange-900/70 border border-orange-600 rounded text-sm flex items-center gap-2">
+  <span>⚠️</span>
+  <strong>This server is pending a reboot</strong> (detected after last OS update).
+  <form method="post" action="/servers/{{ server.id }}/reboot" class="ml-auto" onsubmit="return confirm('Reboot {{ server.name }} now?');">
+    <button class="px-3 py-1 bg-orange-700 hover:bg-orange-600 rounded text-sm font-medium">Reboot Now</button>
+  </form>
+</div>
+{% endif %}
+
+<!-- System info is now in a modal (less noise on the main screen).
+     Click to view OS, kernel, and a summarized drive usage focused on root + usable space. -->
+<div class="mt-3">
+  <button type="button"
+          onclick="showSystemInfoModal()"
+          class="text-xs px-3 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded">
+    🖥️ System Info (OS, drives, space)
+  </button>
+  <span class="ml-2 text-[10px] text-zinc-500">Click for details + usable space summary</span>
+</div>
+
+<!-- Docker quick access -->
+<div class="mt-4">
+  <a href="/servers/{{ server.id }}/docker?nocache=1" 
+     class="inline-flex items-center gap-2 px-4 py-2 bg-violet-700 hover:bg-violet-600 rounded text-sm font-medium">
+    🐳 Docker Management
+  </a>
+  <span class="ml-2 text-xs text-zinc-500">Containers, compose, logs, actions</span>
+</div>
+
+<div class="mt-8">
+  <h3 class="font-medium mb-3">Run Jobs (replicates your legacy scripts)</h3>
+
+  {% if server.container_patch_enabled %}
+  <div class="mb-3">
+    <a href="/servers/{{ server.id }}/docker?nocache=1" 
+       class="inline-flex items-center gap-2 px-3 py-1.5 text-sm bg-violet-700 hover:bg-violet-600 rounded">
+      🐳 Open full Docker Management
+    </a>
+    <span class="text-xs text-zinc-500">(live status, compose editor, logs streaming)</span>
+  </div>
+  {% endif %}
+
+  <div class="flex flex-wrap gap-3">
+    <form method="post" action="/servers/{{ server.id }}/run/backup">
+      <button class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm">▶ Run Backup</button>
+    </form>
+
+    <form method="post" action="/servers/{{ server.id }}/run/container_patch">
+      <button class="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded text-sm">▶ Run Container Patch</button>
+    </form>
+    <span class="text-xs text-zinc-500">(schedules not yet supported)</span>
+
+    <button type="button" onclick="showOsPatchModal()" class="px-4 py-2 bg-amber-600 hover:bg-amber-500 rounded text-sm">▶ Run OS Patch</button>
+    <span class="text-xs text-zinc-500">(schedules not yet supported)</span>
+
+    <form method="post" action="/servers/{{ server.id }}/run/retention">
+      <button class="px-4 py-2 bg-teal-600 hover:bg-teal-500 rounded text-sm">▶ Run Retention Cleanup</button>
+    </form>
+
+    <form method="post" action="/servers/{{ server.id }}/reboot" onsubmit="return confirm('Reboot {{ server.name }} now? The server will go offline and restart.');">
+      <button class="px-4 py-2 bg-red-700 hover:bg-red-600 rounded text-sm">⏻ Reboot</button>
+    </form>
+  </div>
+
+  <!-- Persistent OS patch status banner (re-open logs while running) -->
+  <div id="active-os-patch-status" class="hidden mt-2 p-2 bg-amber-900/60 border border-amber-700 rounded flex items-center gap-2 text-sm">
+    <span class="font-medium">OS Patch in progress</span>
+    <button onclick="showOsPatchProgressModal()" class="ml-2 px-2 py-0.5 text-xs bg-amber-700 hover:bg-amber-600 rounded">Show logs</button>
+  </div>
+
+  <p class="text-xs mt-3 text-zinc-400">Jobs are logged to AuditLog.</p>
+</div>
+
+<!-- Compact backup status on main server screen. Full config, sources, add/remove, schedules etc. live on the dedicated backups page. -->
+<div class="mt-6 bg-zinc-900 border border-zinc-800 p-4 rounded-xl">
+  <div class="flex items-center justify-between">
+    <div>
+      <span class="font-medium">Backups</span>
+      <span class="text-xs px-2 py-0.5 rounded bg-zinc-800">{{ 'enabled' if server.backup_enabled else 'disabled' }}</span>
+      {% if backup_profiles %}
+        <span class="text-xs text-zinc-400">• {{ backup_profiles|length }} source(s)</span>
+      {% endif %}
+      {% if last_backup_status %}
+        <span class="ml-2 text-xs px-1.5 py-0.5 rounded {{ 'bg-emerald-800 text-emerald-300' if last_backup_status == 'success' else 'bg-red-800 text-red-300' }}">last: {{ last_backup_status }}</span>
+      {% endif %}
+    </div>
+    <a href="/servers/{{ server.id }}/backups" class="px-3 py-1 bg-blue-700 hover:bg-blue-600 text-sm rounded">Manage Backups &amp; Config →</a>
+  </div>
+
+  <div class="mt-3 flex flex-wrap gap-2">
+    <form method="post" action="/servers/{{ server.id }}/run/backup">
+      <button class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm">▶ Run Backup</button>
+    </form>
+    <span class="text-[10px] text-zinc-500 self-center">Full source management, schedules, history on the backups page.</span>
+  </div>
+
+  <!-- Lightweight active banner (reused from old, kept for convenience) -->
+  <div id="active-backup-status" class="hidden mt-2 p-1 bg-blue-900/60 border border-blue-700 rounded flex items-center gap-2 text-xs">
+    <span>Backup running:</span> <span id="active-source-name" class="font-mono"></span>
+    <button onclick="showBackupProgressModal()" class="px-1 bg-blue-700 rounded text-[10px]">logs</button>
+  </div>
+</div>
+
+<div class="mt-2 text-xs text-zinc-400">
+  <a href="/audit?server_id={{ server.id }}" class="text-emerald-400 hover:underline">All logs for this server</a>
+  |
+  <a href="/audit?server_id={{ server.id }}&action=backup" class="text-emerald-400 hover:underline">backups</a>
+  |
+  <a href="/audit?server_id={{ server.id }}&action=container_patch" class="text-emerald-400 hover:underline">container patches</a>
+  |
+  <a href="/audit?server_id={{ server.id }}&action=os_patch" class="text-emerald-400 hover:underline">OS patches</a>
+</div>
+
+<div class="mt-8 text-xs">
+  <a href="/servers">Back</a>
+</div>
+
+<!-- Edit Server Modal -->
+<div id="edit-server-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-lg mx-4">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-semibold text-lg">Edit Server</h3>
+      <button type="button" onclick="hideEditServerModal()" class="text-zinc-400 hover:text-white">✕</button>
+    </div>
+
+    <form method="post" action="/servers/{{ server.id }}/update" class="space-y-4">
+      <div>
+        <label class="block text-xs text-zinc-400 mb-1">Name</label>
+        <input name="name" value="{{ server.name }}" required class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs text-zinc-400 mb-1">Hostname / IP</label>
+          <input name="hostname" value="{{ server.hostname }}" required class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm font-mono">
+        </div>
+        <div>
+          <label class="block text-xs text-zinc-400 mb-1">SSH Port</label>
+          <input name="ssh_port" type="number" value="{{ server.ssh_port }}" class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs text-zinc-400 mb-1">SSH Username</label>
+        <input name="ssh_username" value="{{ server.ssh_username }}" class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm font-mono">
+      </div>
+
+      <div class="border-t border-zinc-700 pt-3">
+        <label class="block text-xs text-amber-400 mb-1 font-medium">Password Authentication (discouraged)</label>
+        <p class="text-[10px] text-zinc-500 mb-2">Prefer SSH keys. Passwords are stored encrypted but are less secure and not recommended for automation/fleet use.</p>
+        <input name="ssh_password" type="password" placeholder="Leave blank to keep current (key auth preferred)" class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm">
+        <label class="flex items-center gap-2 mt-2 text-xs">
+          <input type="checkbox" name="clear_password" value="1"> Clear password (force key-only)
+        </label>
+      </div>
+
+      <div class="border-t border-zinc-700 pt-3">
+        <label class="block text-xs text-zinc-400 mb-1">Enabled Features</label>
+        <div class="flex flex-wrap gap-3 text-sm">
+          <label class="flex items-center gap-1">
+            <input type="checkbox" name="backup_enabled" {% if server.backup_enabled %}checked{% endif %}> Backups
+          </label>
+          <label class="flex items-center gap-1">
+            <input type="checkbox" name="container_patch_enabled" {% if server.container_patch_enabled %}checked{% endif %}> Container Patch
+          </label>
+          <label class="flex items-center gap-1">
+            <input type="checkbox" name="os_patch_enabled" {% if server.os_patch_enabled %}checked{% endif %}> OS Patch
+          </label>
+        </div>
+      </div>
+
+      {% if server.ssh_public_key %}
+      <div class="border-t border-zinc-700 pt-3 text-xs">
+        <button type="button"
+                onclick="hideEditServerModal(); showSshKeyModal();"
+                class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded">
+          View / Copy SSH Public Key
+        </button>
+        <span class="ml-2 text-zinc-500">(needed for initial authorized_keys setup on the target)</span>
+      </div>
+      {% endif %}
+
+      <div class="flex gap-2 pt-2">
+        <button type="submit" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded text-sm">Save Changes</button>
+        <button type="button" onclick="hideEditServerModal()" class="px-4 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded text-sm ml-auto">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- OS Patch Modal -->
+<div id="os-patch-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-md">
+    <div class="flex justify-between mb-3">
+      <h3 class="font-semibold">Run OS Patch</h3>
+      <button onclick="hideOsPatchModal()" class="text-zinc-400">✕</button>
+    </div>
+    <form method="post" action="/servers/{{ server.id }}/run/os_patch" id="os-patch-form">
+      <div class="mb-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="steps" value="update" checked> Look for OS updates (sudo apt update)
+        </label>
+      </div>
+      <div class="mb-2">
+        <div class="text-sm mb-1">Upgrade type (toggle between):</div>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="steps" value="upgrade" checked> Upgrade (apt upgrade - keep local config)
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="steps" value="full-upgrade"> Full-Upgrade (apt full-upgrade)
+        </label>
+      </div>
+      <div class="mb-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="steps" value="autoremove" checked> Remove Redundant Packages (sudo apt autoremove)
+        </label>
+      </div>
+      <p class="text-[10px] text-zinc-500 mb-3">Defaults keep local configs and restart services. Live logs will stream in progress modal.</p>
+      <div class="flex gap-2">
+        <button type="submit" class="px-4 py-1 bg-amber-600 hover:bg-amber-500 rounded text-sm">Run Selected Steps</button>
+        <button type="button" onclick="hideOsPatchModal()" class="px-4 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-sm ml-auto">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function showEditServerModal() {
+  const modal = document.getElementById('edit-server-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+function hideEditServerModal() {
+  const modal = document.getElementById('edit-server-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+}
+
+function showOsPatchModal() {
+  const modal = document.getElementById('os-patch-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+
+function hideOsPatchModal() {
+  const modal = document.getElementById('os-patch-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+}
+
+// Backup Config Modal
+function showBackupConfigModal() {
+  const modal = document.getElementById('backup-config-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    // Initialize cron builder from existing value if present
+    const cronInput = document.getElementById('cron-input');
+    if (cronInput && cronInput.value) {
+      parseAndSetCronBuilder(cronInput.value);
+    } else {
+      // default to daily at 2am
+      document.getElementById('schedule-freq').value = 'daily';
+      document.getElementById('schedule-hour').value = '2';
+      document.getElementById('schedule-min').value = '0';
+      updateCronBuilder();
+    }
+  }
+}
+
+function updateCronBuilder() {
+  const freq = document.getElementById('schedule-freq').value;
+  const hour = document.getElementById('schedule-hour').value || '2';
+  const min = document.getElementById('schedule-min').value || '0';
+
+  const weeklyWrap = document.getElementById('schedule-weekday-wrap');
+  const domWrap = document.getElementById('schedule-dom-wrap');
+  const cronInput = document.getElementById('cron-input');
+
+  weeklyWrap.classList.add('hidden');
+  domWrap.classList.add('hidden');
+
+  let cron = '';
+  if (freq === 'daily') {
+    cron = `${min} ${hour} * * *`;
+  } else if (freq === 'weekly') {
+    weeklyWrap.classList.remove('hidden');
+    const wd = document.getElementById('schedule-weekday').value || '0';
+    cron = `${min} ${hour} * * ${wd}`;
+  } else if (freq === 'monthly') {
+    domWrap.classList.remove('hidden');
+    const dom = document.getElementById('schedule-dom').value || '1';
+    cron = `${min} ${hour} ${dom} * *`;
+  } else {
+    // custom - leave cron input as-is for user
+    return;
+  }
+
+  if (cronInput && freq !== 'custom') {
+    cronInput.value = cron;
+  }
+}
+
+function parseAndSetCronBuilder(cronStr) {
+  const parts = cronStr.trim().split(/\s+/);
+  if (parts.length < 5) return;
+
+  const min = parts[0];
+  const hour = parts[1];
+  const dom = parts[2];
+  const month = parts[3];
+  const wd = parts[4];
+
+  const freqSel = document.getElementById('schedule-freq');
+  const hSel = document.getElementById('schedule-hour');
+  const mSel = document.getElementById('schedule-min');
+  const wdWrap = document.getElementById('schedule-weekday-wrap');
+  const domWrap = document.getElementById('schedule-dom-wrap');
+  const wdSel = document.getElementById('schedule-weekday');
+  const domIn = document.getElementById('schedule-dom');
+
+  // set time
+  if (hSel) hSel.value = hour;
+  if (mSel) mSel.value = min;
+
+  if (wd !== '*' && dom === '*') {
+    freqSel.value = 'weekly';
+    wdWrap.classList.remove('hidden');
+    if (wdSel) wdSel.value = wd;
+  } else if (dom !== '*') {
+    freqSel.value = 'monthly';
+    domWrap.classList.remove('hidden');
+    if (domIn) domIn.value = dom;
+  } else {
+    freqSel.value = 'daily';
+  }
+
+  updateCronBuilder();
+}
+function hideBackupConfigModal() {
+  const modal = document.getElementById('backup-config-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+    const err = document.getElementById('config-error');
+    if (err) {
+      err.classList.add('hidden');
+      err.textContent = '';
+    }
+  }
+}
+
+// Handle config form via JS to show errors in modal
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.querySelector('#backup-config-modal form');
+  if (form) {
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const errDiv = document.getElementById('config-error');
+      if (errDiv) {
+        errDiv.classList.add('hidden');
+        errDiv.textContent = '';
+      }
+      // ensure cron builder has pushed latest value into the named input (unless custom)
+      const freqEl = document.getElementById('schedule-freq');
+      if (freqEl && freqEl.value !== 'custom') {
+        updateCronBuilder();
+      }
+      const formData = new FormData(form);
+      try {
+        const resp = await fetch(form.action, {
+          method: 'POST',
+          body: formData
+        });
+        if (resp.ok || (resp.status >= 300 && resp.status < 400)) {
+          hideBackupConfigModal();
+          location.reload();
+        } else {
+          let msg = 'Error saving configuration';
+          try {
+            const data = await resp.json();
+            msg = (data && (data.detail || (Array.isArray(data.detail) ? data.detail.map(d=>d.msg||d).join(', ') : ''))) || msg;
+          } catch(_) {}
+          if (errDiv) {
+            errDiv.textContent = msg;
+            errDiv.classList.remove('hidden');
+          }
+        }
+      } catch (e) {
+        if (errDiv) {
+          errDiv.textContent = 'Network error saving configuration';
+          errDiv.classList.remove('hidden');
+        }
+      }
+    });
+  }
+
+  // Handle add source form via JS for better error display
+  const addForm = document.querySelector('form[action$="/backup/add"]');
+  if (addForm) {
+    addForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const errDiv = document.getElementById('add-source-error');
+      if (errDiv) {
+        errDiv.classList.add('hidden');
+        errDiv.textContent = '';
+      }
+      const formData = new FormData(addForm);
+      try {
+        const resp = await fetch(addForm.action, { method: 'POST', body: formData });
+        if (resp.ok) {
+          location.reload();
+        } else {
+          const data = await resp.json();
+          const msg = data.detail ? (Array.isArray(data.detail) ? data.detail.map(d => d.msg || d).join(', ') : data.detail) : 'Error adding source';
+          if (errDiv) {
+            errDiv.textContent = msg;
+            errDiv.classList.remove('hidden');
+          }
+        }
+      } catch (e) {
+        if (errDiv) {
+          errDiv.textContent = 'Network error adding source';
+          errDiv.classList.remove('hidden');
+        }
+      }
+    });
+  }
+
+  // Handle OS patch form - submit and show progress modal
+  const osForm = document.getElementById('os-patch-form');
+  if (osForm) {
+    osForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      hideOsPatchModal();
+      // show a os progress modal (reuse or simple)
+      showOsPatchProgressModal();
+      const fd = new FormData(osForm);
+      fetch(osForm.action, {method: 'POST', body: fd}).catch(()=>{});
+    });
+  }
+});
+
+let osPollInterval = null;
+
+function showOsPatchProgressModal() {
+  const modal = document.getElementById('backup-progress-modal');  // reuse for simplicity
+  if (!modal) return;
+  modal.querySelector('#backup-progress-title').innerText = 'OS Patch in progress';
+  const logEl = modal.querySelector('#backup-progress-log');
+  const currentDiv = modal.querySelector('#backup-current-source');
+  logEl.innerText = 'Starting OS patch steps...\n';
+  if (currentDiv) currentDiv.innerText = '';
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  // configure contextual stop button (no real stop yet for patch, just label)
+  const stopBtn = modal.querySelector('#progress-stop-btn');
+  if (stopBtn) {
+    stopBtn.textContent = 'Stop Patching';
+    stopBtn.onclick = function() {
+      if (confirm('Stop OS patching? (best effort)')) {
+        // No server-side stop implemented for patching yet; just close UI state
+        logEl.innerText += '\n[Stop requested - note: patch process may continue on host]\n';
+        hideBackupProgressModal();
+      }
+    };
+  }
+
+  if (osPollInterval) clearInterval(osPollInterval);
+  // SSE for live streaming logs (primary). Poll only for current step (lighter).
+  let osEs = null;
+  try {
+    osEs = new EventSource(`/servers/{{ server.id }}/os-patch/logs/stream`);
+    osEs.onmessage = function(e) {
+      if (logEl && e.data) {
+        logEl.innerText += e.data + '\n';
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+    };
+    osEs.onerror = () => { if (osEs) { osEs.close(); } };
+    modal._osEs = osEs;
+  } catch(e) {}
+  const poll = async () => {
+    try {
+      const res = await fetch('/servers/{{ server.id }}/os-patch-progress');
+      if (res.ok) {
+        const data = await res.json();
+        if (currentDiv && data.current) currentDiv.innerText = `Current step: ${data.current}`;
+        // Only seed the log from poll if SSE never delivered anything yet (fallback)
+        if (logEl && data.log_lines && data.log_lines.length && (!osEs || logEl.innerText.trim() === 'Starting OS patch steps...')) {
+          logEl.innerText = data.log_lines.join('\n') + '\n';
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+      }
+    } catch(e) {}
+  };
+  poll();
+  osPollInterval = setInterval(poll, 4000);
+}
+
+// Backup progress modal (shows while job runs, polls status)
+let backupPollInterval = null;
+
+async function updateBackupProgressUI(data, modalLogEl, modalCurrentDiv, isModalOpen) {
+  if (!data) return;
+
+  // Update modal if open
+  if (modalCurrentDiv) {
+    if (data.current && data.current !== 'preparing' && data.current !== 'starting') {
+      modalCurrentDiv.innerText = `Currently backing up: ${data.current}`;
+    } else {
+      modalCurrentDiv.innerText = data.current ? `Status: ${data.current}` : '';
+    }
+  }
+  if (modalLogEl && isModalOpen) {
+    let text = '';
+    if (data.log_lines && data.log_lines.length > 0) {
+      text = data.log_lines.join('\n') + '\n';
+    } else {
+      text = 'Backup in progress...\n';
+    }
+    modalLogEl.innerText = text;
+    modalLogEl.scrollTop = modalLogEl.scrollHeight;
+  }
+
+  // Update persistent banner (always)
+  const banner = document.getElementById('active-backup-status');
+  const bannerName = document.getElementById('active-source-name');
+  if (banner && bannerName) {
+    if (data.current && data.current !== 'preparing' && data.current !== 'starting') {
+      bannerName.textContent = data.current;
+      banner.classList.remove('hidden');
+      banner.classList.add('flex');
+    } else {
+      banner.classList.remove('flex');
+      banner.classList.add('hidden');
+    }
+  }
+
+  // Highlight the running source in the table
+  document.querySelectorAll('tr[data-source]').forEach(tr => {
+    if (data.current && tr.dataset.source === data.current) {
+      tr.classList.add('bg-blue-950', 'border-l-4', 'border-blue-500');
+    } else {
+      tr.classList.remove('bg-blue-950', 'border-l-4', 'border-blue-500');
+    }
+  });
+}
+
+function showBackupProgressModal(title = "Backup running", initialSource = null) {
+  const modal = document.getElementById('backup-progress-modal');
+  if (!modal) return;
+  modal.querySelector('#backup-progress-title').innerText = title;
+  const logEl = modal.querySelector('#backup-progress-log');
+  const currentDiv = modal.querySelector('#backup-current-source');
+  logEl.innerText = initialSource ? `Preparing to back up: ${initialSource}\n` : 'Starting backup job...\n';
+  if (currentDiv && initialSource) {
+    currentDiv.innerText = `Currently backing up: ${initialSource}`;
+  }
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  // configure contextual stop for backup
+  const stopBtn = modal.querySelector('#progress-stop-btn');
+  if (stopBtn) {
+    stopBtn.textContent = 'Stop Backup';
+    stopBtn.onclick = stopCurrentBackup;
+  }
+
+  if (backupPollInterval) clearInterval(backupPollInterval);
+
+  // SSE for live log streaming
+  let es = null;
+  try {
+    es = new EventSource(`/servers/{{ server.id }}/backup/logs/stream`);
+    es.onmessage = (e) => {
+      if (logEl) {
+        logEl.innerText += e.data + '\n';
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+    };
+    es.onerror = () => {
+      if (logEl) logEl.innerText += '[live stream disconnected]\n';
+      if (es) es.close();
+    };
+  } catch(e) {
+    if (logEl) logEl.innerText += '[SSE not available, using poll]\n';
+  }
+
+  // Poll for current source (every 4s)
+  const poll = async () => {
+    try {
+      const res = await fetch('/servers/{{ server.id }}/backup-progress');
+      if (res.ok) {
+        const data = await res.json();
+        updateBackupProgressUI(data, logEl, currentDiv, true);
+      }
+    } catch(e) {}
+  };
+  poll();
+  backupPollInterval = setInterval(poll, 4000);
+
+  // store es to close on hide
+  modal._es = es;
+}
+
+function hideBackupProgressModal() {
+  const modal = document.getElementById('backup-progress-modal');
+  if (modal) {
+    if (modal._es) {
+      modal._es.close();
+      modal._es = null;
+    }
+    if (modal._osEs) {
+      modal._osEs.close();
+      modal._osEs = null;
+    }
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+  if (backupPollInterval) {
+    clearInterval(backupPollInterval);
+    backupPollInterval = null;
+  }
+  if (osPollInterval) {
+    clearInterval(osPollInterval);
+    osPollInterval = null;
+  }
+  // User can still monitor via the persistent banner above the sources list.
+  // The page-level poll keeps the banner and table highlight updated.
+}
+
+// Remove backup source modal
+let removeBackupSource = '';
+
+function showRemoveBackupModal(source) {
+  removeBackupSource = source;
+  const display = document.getElementById('remove-source-display');
+  const input = document.getElementById('remove-source-input');
+  if (display) display.textContent = source;
+  if (input) input.value = source;
+  const modal = document.getElementById('remove-backup-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+
+function hideRemoveBackupModal() {
+  const modal = document.getElementById('remove-backup-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+}
+
+function confirmRemoveBackupSource() {
+  const form = document.getElementById('remove-backup-form');
+  if (form) form.submit();
+}
+
+function selectModalPubKey() {
+  const ta = document.getElementById('modal-pubkey');
+  if (ta) {
+    ta.focus();
+    ta.select();
+  }
+}
+
+function applyCronPreset(val, selectEl) {
+  const input = document.getElementById('cron-input');
+  if (!input) return;
+  if (val) {
+    input.value = val;
+  }
+  // Optional: reset select if user edits input later
+}
+
+// Attach to backup forms (full + per-source)
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('form[action*="run/backup"]').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      const sourceInput = form.querySelector('input[name="source"]');
+      const isIndividual = !!sourceInput;
+      const currentSource = isIndividual ? sourceInput.value : null;
+      const title = isIndividual ? `Backing up: ${currentSource}` : 'Running full backup...';
+      e.preventDefault();
+      showBackupProgressModal(title, currentSource);
+
+      // Submit in background
+      const fd = new FormData(form);
+      fetch(form.action, { method: 'POST', body: fd })
+        .then(() => {
+          const logEl = document.getElementById('backup-progress-log');
+          if (logEl) logEl.innerText += 'Job submitted. Polling for progress...\n';
+        })
+        .catch(() => {
+          const logEl = document.getElementById('backup-progress-log');
+          if (logEl) logEl.innerText += 'Error submitting job.\n';
+        });
+    });
+  });
+
+  // Initial status check + light background polling for banner (8s)
+  startPageBackupPolling();
+  // Also poll for active OS patch to allow reopening logs
+  startPageOsPatchPolling();
+
+  // Auto-show the SSH key modal right after adding a server (when we generated a key).
+  // Critical one-time step so the user can copy the pubkey immediately.
+  {% if show_ssh_key %}
+  setTimeout(() => { showSshKeyModal(); }, 350);
+  {% endif %}
+});
+
+let pageBackupPoll = null;
+function startPageBackupPolling() {
+  if (pageBackupPoll) clearInterval(pageBackupPoll);
+  updateBackupStatusFromServer();
+  pageBackupPoll = setInterval(updateBackupStatusFromServer, 8000);
+}
+
+async function updateBackupStatusFromServer() {
+  try {
+    const res = await fetch('/servers/{{ server.id }}/backup-progress');
+    if (!res.ok) return;
+    const data = await res.json();
+    updateBackupProgressUI(data, null, null, false);  // updates only banner + highlights
+  } catch(e) {}
+}
+
+async function stopCurrentBackup() {
+  if (!confirm('Stop the current backup job?')) return;
+  try {
+    await fetch('/servers/{{ server.id }}/backup/stop', {method: 'POST'});
+    const logEl = document.getElementById('backup-progress-log');
+    if (logEl) logEl.innerText += '\n[Stop requested]\n';
+    // the poll will pick up
+  } catch(e) {
+    alert('Failed to stop');
+  }
+}
+
+let pageOsPoll = null;
+function startPageOsPatchPolling() {
+  if (pageOsPoll) clearInterval(pageOsPoll);
+  updateOsPatchStatusFromServer();
+  pageOsPoll = setInterval(updateOsPatchStatusFromServer, 6000);
+}
+
+async function updateOsPatchStatusFromServer() {
+  try {
+    const res = await fetch('/servers/{{ server.id }}/os-patch-progress');
+    if (!res.ok) return;
+    const data = await res.json();
+    const banner = document.getElementById('active-os-patch-status');
+    if (banner) {
+      if (data && data.current) {
+        banner.classList.remove('hidden');
+        banner.classList.add('flex');
+      } else {
+        banner.classList.remove('flex');
+        banner.classList.add('hidden');
+      }
+    }
+  } catch(e) {}
+}
+
+function showBackupDetailsModal(data) {
+  const modal = document.getElementById('backup-details-modal');
+  const pre = document.getElementById('backup-details-content');
+  if (!modal || !pre) return;
+  let obj = data;
+  if (typeof data === 'string') {
+    try { obj = JSON.parse(data); } catch(e) { obj = data; }
+  }
+  try {
+    pre.textContent = (typeof obj === 'string') ? obj : JSON.stringify(obj, null, 2);
+  } catch (e) {
+    pre.textContent = String(data || '');
+  }
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function hideBackupDetailsModal() {
+  const modal = document.getElementById('backup-details-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+}
+
+let _lastSystemInfo = null;
+
+function showSystemInfoModal() {
+  const modal = document.getElementById('system-info-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  loadSystemInfoIntoModal();
+}
+
+function hideSystemInfoModal() {
+  const modal = document.getElementById('system-info-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+}
+
+async function loadSystemInfoIntoModal(useCache = true) {
+  const container = document.getElementById('sysinfo-content');
+  if (!container) return;
+  container.innerHTML = '<div class="text-sm text-zinc-400">Loading system info...</div>';
+
+  try {
+    const url = useCache ? '/servers/{{ server.id }}/diagnostics' : '/servers/{{ server.id }}/diagnostics?force=1';
+    const res = await fetch(url);
+    const data = await res.json();
+    _lastSystemInfo = data;
+
+    if (data.error) {
+      container.innerHTML = `<div class="text-red-400 text-sm">Error: ${data.error}</div>`;
+      return;
+    }
+
+    let html = '';
+
+    // OS / Kernel summary
+    html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm">
+      <div class="bg-zinc-950 border border-zinc-800 p-3 rounded">
+        <div class="text-xs text-zinc-400 mb-1">System</div>
+        <div><span class="text-zinc-400">OS:</span> ${data.os_version || 'n/a'}</div>
+        <div><span class="text-zinc-400">Kernel:</span> ${data.kernel || 'n/a'}</div>
+        ${data.reboot_pending ? '<div class="mt-1 text-orange-400 text-xs">⚠️ Reboot pending</div>' : ''}
+      </div>`;
+
+    // Usable space summary (root focused) - prefer server computed if present
+    const srvSummary = data.summary || {};
+    const summary = srvSummary.root ? srvSummary : computeUsableSummary(data.drives || []);
+    html += `<div class="bg-zinc-950 border border-zinc-800 p-3 rounded">
+      <div class="text-xs text-zinc-400 mb-1">Usable Space (root focused)</div>`;
+    const r = summary.root || srvSummary.root;
+    if (r) {
+      html += `<div class="font-mono text-sm">
+        / &nbsp; ${r.used || '?'} / ${r.size || '?'} &nbsp; (${r.pcent || ''})
+        <span class="text-emerald-400 ml-2">free: ${r.avail || '?'}</span>
+      </div>`;
+    } else {
+      html += `<div class="text-xs text-zinc-500">Root (/) not detected in df output.</div>`;
+    }
+    html += `<div class="text-[10px] mt-1 text-zinc-500">Main volumes shown below (filtered). Other partitions hidden for clarity.</div>`;
+    html += `</div></div>`;
+
+    // Drives list (filtered)
+    html += `<div>
+      <div class="text-xs text-zinc-400 mb-1">Drives / Mounts (filtered)</div>
+      <div class="bg-black border border-zinc-800 p-2 rounded text-xs font-mono max-h-[220px] overflow-auto">`;
+    const mains = (summary.main_drives && summary.main_drives.length ? summary.main_drives : (srvSummary.main_drives || [])) || (data.drives || []);
+    if (mains && mains.length) {
+      for (const d of mains) {
+        const isRoot = d.target === '/';
+        html += `<div class="flex justify-between py-0.5 ${isRoot ? 'text-emerald-300 font-semibold' : ''} border-b border-zinc-800 last:border-0">
+          <span class="truncate pr-2">${d.target} (${d.filesystem})</span>
+          <span>${d.used} / ${d.size} (${d.pcent})</span>
+        </div>`;
+      }
+    } else {
+      html += `<div class="text-zinc-500">No drive data</div>`;
+    }
+    html += `</div></div>`;
+
+    container.innerHTML = html;
+  } catch (e) {
+    container.innerHTML = `<div class="text-red-400">Failed to load diagnostics: ${e}</div>`;
+  }
+}
+
+function refreshSystemInfo() {
+  loadSystemInfoIntoModal(false);
+}
+
+function computeUsableSummary(drives) {
+  // Lightweight mirror of backend summarize (kept in sync for instant render if we had data).
+  // But we just received raw, so do client filter here too for the modal.
+  if (!drives || !drives.length) return {root: null, main_drives: []};
+
+  const noise = ['/dev','/run','/sys','/proc','/snap','/boot','tmpfs','overlay','cgroup'];
+  const main = drives.filter(d => {
+    const t = (d.target || '').toLowerCase();
+    const f = (d.filesystem || '').toLowerCase();
+    if (noise.some(n => t.includes(n) || f.includes(n))) return false;
+    return true;
+  });
+
+  const root = main.find(d => d.target === '/') || main.find(d => d.target === '') || null;
+  return { root, main_drives: main.slice(0, 8) };
+}
+</script>
+
+<!-- Backup Config Modal (global vs host) -->
+<div id="backup-config-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-xl mx-4">
+    <div class="flex justify-between mb-3">
+      <h3 class="font-semibold">Configure Backups</h3>
+      <button onclick="hideBackupConfigModal()" class="text-zinc-400">✕</button>
+    </div>
+
+    <form method="post" action="/servers/{{ server.id }}/backup-config">
+      <div class="mb-3">
+        <label class="text-xs text-zinc-400">Sources (one per line)</label>
+        <textarea name="backup_paths" class="w-full font-mono text-xs bg-black border border-zinc-700 p-2 rounded h-20" placeholder="/home/user/docker/
+/var/lib/docker/volumes/">{% set gsrc = current_sources if current_sources else (global_backup_defaults.sources if global_backup_defaults and global_backup_defaults.sources is defined else global_backup_defaults) %}
+{% for p in (gsrc or []) %}{{ p }}
+{% endfor %}</textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-zinc-400">Retention days</label>
+          <input type="number" name="retention_days" value="{{ server.retention_days or 7 }}" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded">
+        </div>
+        <div>
+          <label class="text-xs text-zinc-400">Schedule</label>
+          <div class="flex flex-wrap gap-2 mb-1">
+            <select id="schedule-freq" onchange="updateCronBuilder()" class="bg-black border border-zinc-700 px-2 py-1 rounded text-sm">
+              <option value="daily">Every day</option>
+              <option value="weekly">Every week</option>
+              <option value="monthly">Every month</option>
+              <option value="custom">Custom / Advanced</option>
+            </select>
+
+            <!-- Time -->
+            <span class="text-xs self-center">at</span>
+            <select id="schedule-hour" onchange="updateCronBuilder()" class="bg-black border border-zinc-700 px-1 py-1 rounded text-sm w-14">
+              {% for h in range(24) %}<option value="{{ h }}">{{ '%02d'|format(h) }}</option>{% endfor %}
+            </select>
+            <span class="self-center">:</span>
+            <select id="schedule-min" onchange="updateCronBuilder()" class="bg-black border border-zinc-700 px-1 py-1 rounded text-sm w-14">
+              {% for m in [0,5,10,15,20,25,30,35,40,45,50,55] %}<option value="{{ m }}">{{ '%02d'|format(m) }}</option>{% endfor %}
+            </select>
+
+            <!-- Weekly day -->
+            <div id="schedule-weekday-wrap" class="hidden flex items-center gap-1">
+              <span class="text-xs">on</span>
+              <select id="schedule-weekday" onchange="updateCronBuilder()" class="bg-black border border-zinc-700 px-2 py-1 rounded text-sm">
+                <option value="0">Sun</option><option value="1">Mon</option><option value="2">Tue</option>
+                <option value="3">Wed</option><option value="4">Thu</option><option value="5">Fri</option>
+                <option value="6">Sat</option>
+              </select>
+            </div>
+
+            <!-- Monthly day -->
+            <div id="schedule-dom-wrap" class="hidden flex items-center gap-1">
+              <span class="text-xs">on day</span>
+              <input id="schedule-dom" type="number" min="1" max="31" value="1" onchange="updateCronBuilder()" class="w-14 bg-black border border-zinc-700 px-2 py-1 rounded text-sm">
+            </div>
+          </div>
+
+          <input type="text" name="backup_schedule" id="cron-input" value="{{ server.backup_schedule or '' }}" placeholder="0 2 * * *" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded font-mono text-xs">
+          <p class="text-[9px] text-zinc-500 mt-0.5">Presets build the cron. Use Custom for complex repeats.</p>
+        </div>
+      </div>
+
+      <div class="mt-3 border-t border-zinc-700 pt-2">
+        <div class="text-xs text-zinc-400 mb-1 font-medium">Destination config</div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-zinc-400 block">Default destination path root</label>
+            {% set g = global_backup_defaults if global_backup_defaults is defined else {} %}
+            <input name="dest_root" value="{{ server.backup_dest_root or g.dest_root or settings.BACKUP_ROOT }}" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded text-sm font-mono" placeholder="/backups">
+          </div>
+          <div>
+            <label class="text-xs text-zinc-400 block">Server folder name</label>
+            <input name="folder_name" value="{{ server.backup_folder_name or g.folder_name or '' }}" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded text-sm font-mono" placeholder="use hostname if empty">
+          </div>
+        </div>
+        <p class="text-[10px] text-zinc-500 mt-1">
+          <strong>dest_root</strong> = path *inside container* (recommend /backups).<br>
+          In docker-compose.yml: <code>- /home/bjorn/backup:/backups</code><br>
+          Set dest_root=/backups , folder_name=rpi5-2.hacknow.info<br>
+          → files land on host at /home/bjorn/backup/rpi5-2.hacknow.info/...
+        </p>
+      </div>
+
+      <div class="mt-3">
+        <div class="text-xs text-zinc-400 mb-1">Save scope</div>
+        <label class="flex gap-2 text-sm"><input type="radio" name="scope" value="this_host" checked> This host only</label>
+        <label class="flex gap-2 text-sm"><input type="radio" name="scope" value="global"> Global default (new servers + apply to this)</label>
+      </div>
+
+      <div id="config-error" class="text-red-400 text-sm mb-2 hidden"></div>
+      <div class="flex gap-2 mt-4">
+        <button type="submit" class="px-4 py-1 bg-emerald-700 hover:bg-emerald-600 rounded text-sm">Save</button>
+        <button type="button" onclick="hideBackupConfigModal()" class="px-4 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-sm ml-auto">Cancel</button>
+      </div>
+    </form>
+
+    <div class="text-[10px] text-zinc-500 mt-3">
+      Global defaults are stored and used for new servers. Per-host overrides the global for this machine.
+    </div>
+  </div>
+</div>
+
+<!-- Backup Progress Modal -->
+<div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4">
+    <div class="flex justify-between items-center mb-2">
+      <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
+      <div class="flex gap-1">
+        <button id="progress-stop-btn" class="text-xs px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-white">Stop</button>
+        <button onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 bg-zinc-800 rounded">Close</button>
+      </div>
+    </div>
+    <div id="backup-current-source" class="text-sm mb-1 text-emerald-300 font-mono min-h-[1.25rem]"></div>
+    <div class="text-xs text-zinc-400 mb-1">Live output (updates every 3s while modal open)</div>
+    <pre id="backup-progress-log" class="bg-black p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border border-zinc-800 rounded">Starting...</pre>
+    <p class="text-[10px] text-zinc-500 mt-2">
+      rsync uses size+mtime to skip unchanged files (delta). With --delete it mirrors exactly.
+      It will still scan everything. Current source shown above. Full details in container logs.
+    </p>
+  </div>
+</div>
+
+<!-- Remove Backup Source Confirmation Modal -->
+<div id="remove-backup-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-md mx-4">
+    <h3 class="font-semibold mb-2">Confirm Remove Backup Source</h3>
+    <p class="text-sm text-zinc-400 mb-2">You are about to remove this backup source:</p>
+    <div id="remove-source-display" class="font-mono text-sm bg-black border border-zinc-700 p-2 rounded mb-4 break-all"></div>
+    <p class="text-xs text-red-400 mb-4">This cannot be undone. The source will no longer be backed up.</p>
+    
+    <form id="remove-backup-form" method="post" action="/servers/{{ server.id }}/backup/remove">
+      <input type="hidden" name="path" id="remove-source-input">
+    </form>
+    
+    <div class="flex gap-2 justify-end">
+      <button type="button" onclick="hideRemoveBackupModal()" class="px-4 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-sm">Cancel</button>
+      <button type="button" onclick="confirmRemoveBackupSource()" class="px-4 py-1 bg-red-700 hover:bg-red-600 rounded text-sm text-white">Confirm Remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- Backup Details Modal -->
+<div id="backup-details-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-3xl mx-4 max-h-[80vh] flex flex-col">
+    <div class="flex justify-between mb-2">
+      <h3 class="font-semibold">Backup Details</h3>
+      <button onclick="hideBackupDetailsModal()" class="text-xs px-2 py-1 bg-zinc-800 rounded">Close</button>
+    </div>
+    <pre id="backup-details-content" class="flex-1 overflow-auto bg-black p-3 text-xs font-mono whitespace-pre border border-zinc-800 rounded"></pre>
+  </div>
+</div>
+
+<!-- System Info Modal (moved out of main screen to reduce clutter) -->
+<div id="system-info-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[85vh] overflow-auto">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-semibold">System Info — {{ server.name }}</h3>
+      <div class="flex gap-2">
+        <button onclick="refreshSystemInfo()" class="text-xs px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded border border-zinc-700">Refresh</button>
+        <button onclick="hideSystemInfoModal()" class="text-xs px-2 py-1 bg-zinc-800 rounded">Close</button>
+      </div>
+    </div>
+
+    <div id="sysinfo-content">
+      <div class="text-sm text-zinc-400">Loading...</div>
+    </div>
+
+    <div class="mt-4 text-[10px] text-zinc-500">
+      Summary focuses on root (/) and main user volumes. Noise partitions (tmpfs, /run, /dev, boot etc.) are filtered.
+    </div>
+  </div>
+</div>
+{% endblock %}

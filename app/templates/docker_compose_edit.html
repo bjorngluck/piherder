@@ -1,0 +1,797 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  /* Editor specific styles (not Tailwind scanned for dynamic spans) */
+  .compose-editor-wrap { font-variant-ligatures: none; }
+  .compose-editor-wrap .gutter {
+    color: #52525b;
+    font-size: 10px;
+    line-height: 1.45;
+    user-select: none;
+    background: #09090b;
+    border-right: 1px solid #27272a;
+  }
+  /* Ensure the code area (after gutter) and gutter rows share exact vertical rhythm */
+  .compose-editor-wrap pre#highlight,
+  .compose-editor-wrap textarea#editor {
+    line-height: 1.45 !important;
+  }
+  .compose-editor-wrap {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  /* Overlay editor styles - pre under transparent textarea for colours */
+  .compose-editor-wrap pre#highlight {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+    color: #e4e4e7 !important;
+    tab-size: 2 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    background: #09090b;
+    padding: 12px 12px 12px 16px !important;
+    pointer-events: none;
+    white-space: pre;
+  }
+  .compose-editor-wrap textarea#editor {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+    font-size: 13px !important;
+    line-height: 1.45 !important;
+    tab-size: 2 !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+    color: transparent !important;
+    background: transparent !important;
+    caret-color: #10b981;
+    padding: 12px 12px 12px 16px !important;
+  }
+  .tok-comment { color: #64748b; }
+  .tok-key     { color: #34d399; }
+  .tok-string  { color: #f59e0b; }
+  .tok-number  { color: #7dd3fc; }
+  .tok-bool    { color: #38bdf8; }
+  .tok-punct   { color: #52525b; }
+  .error-line {
+    background: rgba(185, 28, 28, 0.35) !important;
+    color: #f87171 !important;
+    font-weight: 600;
+    border-left: 3px solid #f87171;
+  }
+  .compose-errors .err-item {
+    font-size: 12px;
+  }
+
+  .compose-editor-wrap.editor-tall {
+    height: min(920px, calc(100vh - 140px));
+    min-height: 420px;
+    max-height: 920px;
+  }
+
+  /* Mobile tweaks for the editor */
+  @media (max-width: 640px) {
+    .compose-editor-wrap.editor-tall {
+      height: min(520px, calc(100vh - 120px));
+      min-height: 380px;
+    }
+  }
+</style>
+
+<div class="max-w-6xl mx-auto">
+  <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-xs text-emerald-400 hover:underline">← Docker Management</a>
+
+  <div class="flex items-end justify-between mt-2 mb-2">
+    <div>
+      {% if is_dockerfile %}
+      <h1 class="text-2xl font-semibold">Edit Dockerfile — {{ project.name }}</h1>
+      {% else %}
+      <h1 class="text-2xl font-semibold">Edit Compose — {{ project.name }}</h1>
+      {% endif %}
+      <div class="text-xs text-zinc-400 font-mono">{{ project.path }}</div>
+    </div>
+    <div class="text-[10px] text-zinc-500">
+      {% if is_dockerfile %}Dockerfile editor • basic syntax check on save{% else %}At least 50 lines visible • YAML syntax • validator{% endif %}
+    </div>
+  </div>
+
+  {% if request.query_params.get('saved') %}
+  <div class="mb-3 p-2.5 bg-emerald-900/30 border border-emerald-800 text-emerald-300 text-sm rounded">File saved successfully.</div>
+  {% endif %}
+  {% if request.query_params.get('saved') and request.query_params.get('version') %}
+  <div class="mb-3 p-2.5 bg-emerald-900/30 border border-emerald-800 text-emerald-300 text-sm rounded">Deployed as version {{ request.query_params.get('version') }}.</div>
+  {% endif %}
+
+  {% if errors and errors|length > 0 %}
+  <div class="mb-3 p-3 bg-red-900/30 border border-red-800 text-red-300 text-sm rounded">
+    <strong>YAML validation failed.</strong> Fix issues below before saving.
+  </div>
+  {% endif %}
+
+  <!-- Versioning bar: Live vs Drafts + history -->
+  <div class="mb-3 p-2 bg-zinc-900 border border-zinc-700 rounded text-xs flex flex-wrap gap-2 items-center">
+    <span class="font-medium">Live on host:</span> <span class="font-mono text-emerald-400">{{ project.name }} (current)</span>
+    {% if live_version %}
+    <span class="text-emerald-400">(matches live v{{ live_version.version }})</span>
+    {% endif %}
+    <span class="mx-2">|</span>
+    <span class="text-zinc-400">Versions:</span>
+    {% for d in drafts[:5] %}
+      {% set label = 'draft (db only)' if d.is_draft else ('live (current on host)' if live_version and d.id == live_version.id else 'inactive (previous live)') %}
+      <a href="?load_draft={{ d.id }}" class="px-1.5 py-0.5 {{ 'bg-amber-800' if d.is_draft else ('bg-emerald-700' if 'live (current' in label else 'bg-zinc-700') }} rounded hover:bg-zinc-600" title="{{ label }}">v{{ d.version }} {{ 'draft' if d.is_draft else ('live' if live_version and d.id == live_version.id else 'inactive') }}</a>
+    {% endfor %}
+    {% if drafts|length > 5 %}<span class="text-zinc-500">+{{ drafts|length - 5 }} more</span>{% endif %}
+    <a href="/servers/{{ server.id }}/docker?nocache=1" class="ml-auto text-emerald-400 hover:underline">Back to Docker</a>
+  </div>
+
+  {% if request.query_params.get('saved_draft') %}
+  <div class="mb-2 p-2 bg-emerald-900/30 border border-emerald-700 text-emerald-300 text-sm rounded">
+    Draft v{{ request.query_params.get('saved_draft') }} saved. Now editing it below.
+  </div>
+  {% endif %}
+  {% if request.query_params.get('load_draft') and not request.query_params.get('saved_draft') %}
+  <div class="mb-2 p-2 bg-amber-900/30 border border-amber-700 text-amber-300 text-sm rounded">
+    <strong>Editing draft ID {{ request.query_params.get('load_draft') }}</strong> (see versions above). Drafts are DB only. "Save Draft" will update the selected draft; selecting a live version then Save Draft creates a new draft (live protected).
+  </div>
+  {% endif %}
+
+  <form method="post" 
+        action="{% if is_dockerfile %}/servers/{{ server.id }}/docker/compose/{{ project.name }}/dockerfile/save{% else %}/servers/{{ server.id }}/docker/compose/{{ project.name }}/save{% endif %}" 
+        id="compose-form">
+    {% if editing_version_id %}<input type="hidden" name="editing_version_id" value="{{ editing_version_id }}">{% endif %}
+    <!-- Toolbar -->
+    <div class="flex flex-wrap items-center gap-3 mb-2 text-xs">
+      <div class="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded px-2.5 py-1">
+        <label class="flex items-center gap-1.5 cursor-pointer select-none">
+          <input type="checkbox" id="wrap-toggle" class="accent-emerald-600">
+          <span>Wrap lines</span>
+        </label>
+      </div>
+
+      {% if not is_dockerfile %}
+      <button type="button" id="validate-btn"
+              class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded">
+        Validate YAML
+      </button>
+      {% endif %}
+
+      <div class="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded text-zinc-400" id="line-info">
+        Lines: <span id="line-count">0</span> · <span id="cursor-pos">1:1</span>
+      </div>
+
+      <div class="text-[10px] text-zinc-500 ml-auto">File loaded once (SSH closed). Edits are local in browser. Save opens fresh SSH session.</div>
+    </div>
+
+    <!-- ONE single editor box: gutter + coloured yaml + editable surface overlaid. No separate blocks. -->
+    <div class="compose-editor-wrap relative border border-zinc-700 rounded-xl overflow-hidden bg-[#09090b] editor-tall">
+      <!-- Line numbers gutter (same bg as editor for single box look) -->
+      <div id="gutter"
+           class="gutter absolute left-0 top-0 bottom-0 w-11 overflow-hidden text-right pr-2 font-mono select-none bg-[#09090b] border-r border-zinc-800 text-[10px] text-zinc-600 z-30"
+           style="padding-top:12px; padding-bottom:12px; line-height:1.45;"></div>
+
+      <!-- Coloured syntax layer (pre) -->
+      <pre id="highlight"
+           class="absolute left-[2.75rem] right-0 top-0 bottom-0 m-0 p-3 pl-4 overflow-auto pointer-events-none z-10 font-mono text-sm"
+           style="white-space: pre; line-height: 1.45; tab-size: 2; color:#e4e4e7; background:#09090b;"
+           aria-hidden="true"></pre>
+
+      <!-- Editable layer on top (transparent so colours show through, but caret and input work) -->
+      <textarea id="editor" name="content" spellcheck="false"
+                class="absolute left-[2.75rem] right-0 top-0 bottom-0 m-0 p-3 pl-4 overflow-auto resize-none z-20 font-mono text-sm"
+                style="white-space: pre; line-height: 1.45; tab-size: 2; color: transparent; background: transparent; caret-color: #10b981; border: none; outline: none;"
+      >{{ content }}</textarea>
+    </div>
+
+    <!-- Validation errors -->
+    <div id="errors-panel" class="mt-3 {% if not errors or errors|length == 0 %}hidden{% endif %}">
+      <div class="text-xs uppercase tracking-wider text-red-400 mb-1">Issues</div>
+      <div id="errors-list" class="compose-errors bg-zinc-900 border border-red-900/60 rounded-lg divide-y divide-red-900/40 text-red-300">
+        {% if errors %}
+          {% for e in errors %}
+          <div class="err-item px-3 py-1.5 flex gap-3 cursor-pointer hover:bg-red-950/30" data-line="{{ e.line }}">
+            <div class="font-mono text-[10px] mt-px w-10 shrink-0 text-red-400">L{{ e.line }}</div>
+            <div class="text-xs">{{ e.message }}</div>
+          </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+      <div class="text-[10px] text-red-400/70 mt-1">Click an issue to jump to the line.</div>
+    </div>
+
+    <div class="flex items-center gap-3 mt-4">
+      <button type="submit" {% if not is_dockerfile %}formaction="/servers/{{ server.id }}/docker/compose/{{ project.name }}/save-draft"{% endif %} name="action" value="draft"
+              class="px-4 py-2 bg-amber-700 hover:bg-amber-600 rounded text-sm">
+        Save Draft
+      </button>
+      <button type="submit" name="action" value="deploy"
+              class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-600 rounded font-medium text-sm">
+        {% if is_dockerfile %}Save Dockerfile{% else %}Save &amp; Deploy (new version){% endif %}
+      </button>
+      <a href="/servers/{{ server.id }}/docker"
+         class="px-5 py-2 bg-zinc-800 hover:bg-zinc-700 rounded text-sm">Cancel</a>
+      <div class="text-xs text-amber-400 ml-2">
+        {% if is_dockerfile %}
+        After saving, rebuild the image from the Docker screen to apply changes.
+        {% else %}
+        After saving, return to Docker screen and use <strong>Redeploy</strong> to apply.
+        {% endif %}
+      </div>
+    </div>
+  </form>
+
+  {% if not is_dockerfile and drafts %}
+  <div class="mt-4">
+    <div class="text-xs mb-1">Deploy/rollback specific version (writes files + redeploys; drafts are DB-only):</div>
+    <form method="post" action="/servers/{{ server.id }}/docker/compose/{{ project.name }}/deploy-version" class="flex gap-2">
+      <select name="version_id" class="bg-zinc-900 border border-zinc-700 text-xs p-1 rounded">
+        {% for d in drafts %}
+        {% set label = 'draft (db only)' if d.is_draft else ('live (current on host)' if live_version and d.id == live_version.id else 'inactive (previous live)') %}
+        <option value="{{ d.id }}">v{{ d.version }} - {{ label }} ({{ d.deployed_at or d.created_at }})</option>
+        {% endfor %}
+      </select>
+      <button class="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs">Deploy This Version</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+(function() {
+  const serverId = {{ server.id }};
+  const projName = "{{ project.name | replace('"', '\\"') | replace("'", "\\'") }}";
+  const isDockerfile = {{ 'true' if is_dockerfile else 'false' }};
+
+  const ta = () => document.getElementById('editor');
+  const pre = () => document.getElementById('highlight');
+  const gutter = () => document.getElementById('gutter');
+  const lineCountEl = () => document.getElementById('line-count');
+  const errorsPanel = () => document.getElementById('errors-panel');
+  const errorsList = () => document.getElementById('errors-list');
+
+  let currentErrorLines = new Set();
+
+  function setErrorLines(lines) {
+    currentErrorLines = new Set((lines || []).map(l => Number(l)));
+    applyErrorHighlightsToGutter();
+    applyErrorHighlightsToCode();
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function normalizeNewlines(s) {
+    return (s || "").replace(/\r\n?/g, "\n");
+  }
+
+  function highlightYaml(text) {
+    text = normalizeNewlines(text);
+    let h = escapeHtml(text);
+
+    // Quoted strings FIRST (before any spans that contain " in attributes)
+    h = h.replace(/"(?:[^"\\]|\\.)*"/g, '<span class="tok-string">$&</span>');
+    h = h.replace(/'(?:[^'\\]|\\.)*'/g, '<span class="tok-string">$&</span>');
+
+    // Numbers (before keys)
+    h = h.replace(/(?<=[:\-\s\[,{]|^)(-?\d+(?:\.\d+)?)\b/g, '<span class="tok-number">$1</span>');
+
+    // Booleans / nulls / on off
+    h = h.replace(/\b(true|false|null|yes|no|on|off|True|False|Null)\b/g, '<span class="tok-bool">$1</span>');
+
+    // Comments (to end of line)
+    h = h.replace(/(#.*)$/gm, '<span class="tok-comment">$1</span>');
+
+    // List dashes and block scalars | >
+    h = h.replace(/^(\s*)([-:|>])(?=\s|$)/gm, '$1<span class="tok-punct">$2</span>');
+
+    // Keys LAST (inserts " in class= but no more quote-matching regex after)
+    h = h.replace(/^(\s*)([A-Za-z_][A-Za-z0-9_.-]*)(\s*):/gm, '$1<span class="tok-key">$2</span>$3:');
+
+    return h;
+  }
+
+  function updateLineNumbers() {
+    const textarea = ta();
+    const g = gutter();
+    if (!textarea || !g) return;
+    const text = normalizeNewlines(textarea.value || '');
+    const lines = text.split('\n').length;
+    // Use fixed pixel row height that exactly matches the editor's line box (13px font * 1.45)
+    const ROW_H = 19; // px - must match code line-height
+    let html = '';
+    for (let i = 1; i <= lines; i++) {
+      html += `<div style="height:${ROW_H}px; line-height:${ROW_H}px; font-size:10px; padding-right:4px; display:flex; align-items:center; justify-content:flex-end;">${i}</div>`;
+    }
+    g.innerHTML = html;
+    if (lineCountEl()) lineCountEl().textContent = lines;
+    applyErrorHighlightsToGutter();
+  }
+
+  function applyErrorHighlightsToGutter() {
+    const g = gutter();
+    if (!g) return;
+    g.querySelectorAll('div').forEach((div, idx) => {
+      const ln = idx + 1;
+      if (currentErrorLines.has(ln)) {
+        div.classList.add('error-line');
+        div.style.backgroundColor = 'rgba(185, 28, 28, 0.35)';
+        div.style.color = '#f87171';
+        div.style.fontWeight = '600';
+      } else {
+        div.classList.remove('error-line');
+        div.style.backgroundColor = '';
+        div.style.color = '';
+        div.style.fontWeight = '';
+      }
+    });
+  }
+
+  // Also highlight the corresponding line area in the code (subtle red tint on pre for error lines)
+  function applyErrorHighlightsToCode() {
+    const p = pre();
+    if (!p) return;
+    if (currentErrorLines.size > 0) {
+      p.style.boxShadow = 'inset 4px 0 0 rgba(185,28,28,0.25)';
+    } else {
+      p.style.boxShadow = '';
+    }
+  }
+
+  function updateCursorPos() {
+    const textarea = ta();
+    const posEl = document.getElementById('cursor-pos');
+    if (!textarea || !posEl) return;
+    const val = normalizeNewlines(textarea.value);
+    const cursor = textarea.selectionStart || 0;
+    const before = val.substring(0, cursor);
+    const line = (before.match(/\n/g) || []).length + 1;
+    const col = cursor - (before.lastIndexOf('\n') + 1);
+    posEl.textContent = `${line}:${Math.max(1, col)}`;
+  }
+
+  function updateHighlight() {
+    const textarea = ta();
+    const p = pre();
+    if (!textarea || !p) return;
+    p.innerHTML = highlightYaml(textarea.value || '');
+    if (currentErrorLines.size > 0) {
+      applyErrorHighlightsToCode();
+    }
+  }
+
+  function syncScroll() {
+    const textarea = ta();
+    const p = pre();
+    const g = gutter();
+    if (!textarea) return;
+    if (p) {
+      p.scrollTop = textarea.scrollTop;
+      p.scrollLeft = textarea.scrollLeft;
+    }
+    if (g) g.scrollTop = textarea.scrollTop;
+  }
+
+  function forceOverlaySize() {
+    const container = document.querySelector('.compose-editor-wrap');
+    const g = gutter();
+    const p = pre();
+    const t = ta();
+    if (!container || !p || !t) return;
+    const h = container.clientHeight + 'px';
+    // compute gutter width dynamically (includes its border if any)
+    const gutterW = g ? g.offsetWidth : 44;
+    const codeLeft = gutterW + 'px';
+    const codeW = (container.clientWidth - gutterW) + 'px';
+    // force position and size explicitly so overlay is perfect single area
+    p.style.position = 'absolute';
+    p.style.left = codeLeft;
+    p.style.right = '0';
+    p.style.top = '0';
+    p.style.bottom = '0';
+    p.style.height = h;
+    p.style.width = codeW;
+    t.style.position = 'absolute';
+    t.style.left = codeLeft;
+    t.style.right = '0';
+    t.style.top = '0';
+    t.style.bottom = '0';
+    t.style.height = h;
+    t.style.width = codeW;
+  }
+
+  function updateAll() {
+    updateLineNumbers();
+    updateHighlight();
+  }
+
+  function setWrap(enabled) {
+    const textarea = ta();
+    const p = pre();
+    if (!textarea) return;
+    const ws = enabled ? 'pre-wrap' : 'pre';
+    textarea.style.whiteSpace = ws;
+    textarea.setAttribute('wrap', enabled ? 'soft' : 'off');
+    if (p) p.style.whiteSpace = ws;
+  }
+
+  function goToLine(lineNum) {
+    const textarea = ta();
+    if (!textarea) return;
+    const text = normalizeNewlines(textarea.value);
+    const lines = text.split('\n');
+    let pos = 0;
+    for (let i = 0; i < Math.min(lineNum - 1, lines.length); i++) {
+      pos += lines[i].length + 1; // + \n
+    }
+    // clamp
+    pos = Math.max(0, Math.min(pos, text.length));
+    textarea.focus();
+    textarea.setSelectionRange(pos, pos);
+
+    // scroll the line roughly into view
+    const lineHeight = 19; // must match gutter ROW_H
+    const targetScroll = Math.max(0, (lineNum - 6) * lineHeight);
+    textarea.scrollTop = targetScroll;
+    syncScroll();
+  }
+
+  function attachErrorClicks() {
+    const list = errorsList();
+    if (!list) return;
+    list.querySelectorAll('.err-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const ln = parseInt(el.getAttribute('data-line') || '1', 10);
+        goToLine(ln);
+      });
+    });
+  }
+
+  async function validateNow(showSuccessIfOk = true) {
+    const textarea = ta();
+    const content = textarea ? textarea.value : '';
+
+    try {
+      const formData = new FormData();
+      formData.append('content', content);
+
+      const resp = await fetch(`/servers/${serverId}/docker/compose/${encodeURIComponent(projName)}/validate`, {
+        method: 'POST',
+        body: formData
+      });
+      const data = await resp.json();
+
+      const panel = errorsPanel();
+      const list = errorsList();
+
+      if (list) list.innerHTML = '';
+
+      if (data.valid) {
+        if (panel) {
+          panel.classList.add('hidden');
+        }
+        setErrorLines([]);
+        if (showSuccessIfOk) {
+          // flash a success toast above the editor
+          const toast = document.createElement('div');
+          toast.className = 'mb-2 px-3 py-1.5 text-xs rounded bg-emerald-900/30 border border-emerald-800 text-emerald-300';
+          toast.textContent = 'YAML looks valid.';
+          const formEl = document.getElementById('compose-form');
+          if (formEl && formEl.parentNode) {
+            formEl.parentNode.insertBefore(toast, formEl);
+            setTimeout(() => toast.remove(), 1600);
+          }
+        }
+      } else {
+        if (panel) panel.classList.remove('hidden');
+        let errs = (data.errors || []).slice();
+        errs.sort((a, b) => (a.line || 0) - (b.line || 0));
+        if (list && errs.length) {
+          errs.forEach(err => {
+            const div = document.createElement('div');
+            div.className = 'err-item px-3 py-1.5 flex gap-3 cursor-pointer hover:bg-red-950/30 border-l-4 border-red-500';
+            div.setAttribute('data-line', err.line || 1);
+            div.innerHTML = `
+              <div class="font-mono text-[10px] mt-px w-10 shrink-0 text-red-400">L${err.line || '?'}</div>
+              <div class="text-xs">${escapeHtml(err.message || 'Invalid YAML')}</div>
+            `;
+            list.appendChild(div);
+          });
+          attachErrorClicks();
+        }
+        setErrorLines(errs.map(e => e.line));
+        updateLineNumbers();  // refresh gutter + error marks
+        // auto scroll to first bad line
+        if (errs.length > 0) {
+          setTimeout(() => goToLine(errs[0].line), 60);
+        }
+      }
+    } catch (e) {
+      console.error('validate failed', e);
+      alert('Validation request failed: ' + e);
+    }
+  }
+
+  function initEditor() {
+    const textarea = ta();
+    const p = pre();
+    const wrapCb = document.getElementById('wrap-toggle');
+    const validateBtn = document.getElementById('validate-btn');
+
+    if (!textarea) return;
+
+    // Force transparent overlay styles (defeat any base CSS or timing)
+    textarea.style.color = 'transparent';
+    textarea.style.background = 'transparent';
+    textarea.style.caretColor = '#10b981';
+    if (p) {
+      p.style.color = '#e4e4e7';
+      p.style.background = '#09090b';
+      p.style.pointerEvents = 'none';
+    }
+
+    // initial sync - use normalized content for safety
+    const initial = normalizeNewlines(textarea.value || "");
+    if (initial) {
+      // re-apply in case any weirdness on parse (defensive)
+      textarea.value = initial;
+    }
+    updateAll();
+    syncScroll();
+    updateCursorPos();
+    forceOverlaySize();
+
+    // input / change
+    textarea.addEventListener('input', () => {
+      updateAll();
+      updateCursorPos();
+      forceOverlaySize();
+      // also clear previous success errors if user edits
+      const panel = errorsPanel();
+      if (panel && !panel.classList.contains('hidden')) {
+        // leave visible but user knows they are editing
+      }
+    });
+
+    textarea.addEventListener('scroll', syncScroll);
+    textarea.addEventListener('keyup', () => { syncScroll(); updateCursorPos(); });
+    textarea.addEventListener('click', updateCursorPos);
+    textarea.addEventListener('select', updateCursorPos);
+
+    // Tab for indentation and smart Enter for auto-indent (greatly improves YAML editing UX)
+    textarea.addEventListener('keydown', (e) => {
+      const val = textarea.value;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const insert = '  '; // 2 spaces is standard for YAML/compose
+        const shift = e.shiftKey;
+        if (start === end) {
+          if (shift) {
+            // outdent: remove up to 2 leading spaces at cursor if present
+            const beforeCursor = val.substring(0, start);
+            const afterCursor = val.substring(end);
+            const match = beforeCursor.match(/(\s{0,2})$/);
+            if (match && match[1]) {
+              const toRemove = match[1].length;
+              textarea.value = beforeCursor.substring(0, beforeCursor.length - toRemove) + afterCursor;
+              textarea.selectionStart = textarea.selectionEnd = start - toRemove;
+            }
+          } else {
+            // indent: insert spaces at cursor
+            textarea.value = val.substring(0, start) + insert + val.substring(end);
+            textarea.selectionStart = textarea.selectionEnd = start + insert.length;
+          }
+        } else {
+          // selection: indent/outdent all selected lines
+          const selected = val.substring(start, end);
+          const lines = selected.split('\n');
+          const indentedLines = lines.map(line => {
+            if (shift) {
+              return line.replace(/^(\s{0,2})/, '');
+            } else {
+              return insert + line;
+            }
+          });
+          const indented = indentedLines.join('\n');
+          textarea.value = val.substring(0, start) + indented + val.substring(end);
+          textarea.selectionStart = start;
+          textarea.selectionEnd = start + indented.length;
+        }
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const before = val.substring(0, start);
+        const after = val.substring(end);
+        const lastNl = before.lastIndexOf('\n');
+        const currLine = before.substring(lastNl + 1);
+        const indentMatch = currLine.match(/^(\s*)/);
+        let indent = indentMatch ? indentMatch[1] : '';
+        // increase indent for new block (after : or starting a list item)
+        const trimmed = currLine.trim();
+        if (trimmed.endsWith(':') || trimmed === '-' || trimmed.startsWith('- ')) {
+          indent += '  ';
+        }
+        const insert = '\n' + indent;
+        textarea.value = before + insert + after;
+        const newPos = start + insert.length;
+        textarea.selectionStart = textarea.selectionEnd = newPos;
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    });
+
+    // wrap toggle
+    if (wrapCb) {
+      wrapCb.addEventListener('change', (e) => {
+        setWrap(e.target.checked);
+        setTimeout(function() {
+          updateHighlight();
+          syncScroll();
+          forceOverlaySize();
+        }, 0);
+      });
+      // start unwrapped (classic code editor default)
+      wrapCb.checked = false;
+      setWrap(false);
+    }
+
+    // validate button
+    if (validateBtn) {
+      validateBtn.addEventListener('click', () => validateNow(true));
+    }
+
+    // keyboard shortcut Ctrl/Cmd + Enter => save form
+    textarea.addEventListener('keydown', (ev) => {
+      if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
+        ev.preventDefault();
+        const f = document.getElementById('compose-form');
+        if (f) f.submit();
+      }
+      if (ev.key === 'Escape') {
+        // blur a little
+        textarea.blur();
+      }
+    });
+
+    // initial line errors attach (server rendered)
+    attachErrorClicks();
+
+    // Parse server-rendered errors (from save validation etc) and highlight lines
+    function parseInitialErrors() {
+      const items = document.querySelectorAll('#errors-list .err-item[data-line]');
+      if (items.length > 0) {
+        const lines = Array.from(items)
+          .map(el => parseInt(el.getAttribute('data-line'), 10))
+          .sort((a, b) => a - b);
+        setErrorLines(lines);
+        updateLineNumbers();  // ensure gutter marks
+        // scroll to first error
+        if (lines.length > 0) {
+          setTimeout(() => goToLine(lines[0]), 80);
+        }
+      }
+    }
+    parseInitialErrors();
+
+    // Auto-validate once on load if there were server errors
+    {% if errors and errors|length > 0 %}
+    setTimeout(() => {
+      // already shown, but user can re-validate
+    }, 10);
+    {% endif %}
+
+    // Make sure gutter stays sized + overlay sizes
+    const ro = new ResizeObserver(() => {
+      syncScroll();
+      forceOverlaySize();
+    });
+    if (textarea) ro.observe(textarea);
+    // also observe the container
+    const container = document.querySelector('.compose-editor-wrap');
+    if (container) ro.observe(container);
+
+    // Seed line count immediately
+    if (lineCountEl()) {
+      const initialLines = normalizeNewlines(textarea.value || '').split('\n').length;
+      lineCountEl().textContent = initialLines;
+    }
+
+    // Auto-validate on Save attempt (client-side) + only save if clean
+    const form = document.getElementById('compose-form');
+    if (form) {
+      // flag to allow one re-entrant programmatic submit after pre-validate passes
+      form.dataset.bypassValidate = '';
+      form.addEventListener('submit', async function(ev) {
+        if (isDockerfile) {
+          // Dockerfile is never YAML validated client-side
+          return; // allow normal submit
+        }
+        const submitter = ev.submitter;
+        let targetAction = form.action;
+        if (submitter && submitter.formAction) {
+          targetAction = submitter.formAction;
+        }
+        const isExplicitDraft = targetAction.includes('/save-draft');
+        if (isExplicitDraft) {
+          return; // drafts for compose: allow (may be WIP), no pre-validate
+        }
+        if (form.dataset.bypassValidate === '1') {
+          form.dataset.bypassValidate = '';
+          return; // let the validated submit proceed
+        }
+        // Only compose full Save & Deploy reaches here: pre-validate
+        ev.preventDefault();
+        const content = textarea ? textarea.value : '';
+        try {
+          const fd = new FormData();
+          fd.append('content', content);
+          const r = await fetch(`/servers/${serverId}/docker/compose/${encodeURIComponent(projName)}/validate`, {
+            method: 'POST',
+            body: fd
+          });
+          const d = await r.json();
+          if (!d.valid) {
+            const p = errorsPanel();
+            const l = errorsList();
+            if (l) l.innerHTML = '';
+            if (p) p.classList.remove('hidden');
+            let errs = (d.errors || []).slice();
+            errs.sort((a, b) => (a.line || 0) - (b.line || 0));
+            errs.forEach(err => {
+              const div = document.createElement('div');
+              div.className = 'err-item px-3 py-1.5 flex gap-3 cursor-pointer hover:bg-red-950/30 border-l-4 border-red-500';
+              div.setAttribute('data-line', err.line || 1);
+              div.innerHTML = `
+                <div class="font-mono text-[10px] mt-px w-10 shrink-0 text-red-400">L${err.line || '?'}</div>
+                <div class="text-xs">${escapeHtml(err.message || 'Invalid YAML')}</div>
+              `;
+              if (l) l.appendChild(div);
+            });
+            attachErrorClicks();
+            setErrorLines(errs.map(e => e.line));
+            updateLineNumbers();  // refresh gutter + error marks
+            if (errs.length) {
+              setTimeout(() => goToLine(errs[0].line), 60);
+            }
+            return; // do not save invalid
+          }
+        } catch (ex) {
+          console.error('pre-save validate failed', ex);
+          // fall through to submit anyway (server will also validate)
+        }
+        // valid (or couldn't validate) -> allow submit
+        form.dataset.bypassValidate = '1';
+        form.submit();
+      });
+    }
+
+    // Safety re-render for overlay layout (absolute layers + content)
+    setTimeout(function() {
+      updateAll();
+      syncScroll();
+      forceOverlaySize();
+    }, 20);
+  }
+
+  // boot
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initEditor);
+  } else {
+    initEditor();
+  }
+
+  // expose a little for debug if needed
+  window.__piherderComposeEditor = { goToLine: (n) => { try { goToLine(n); } catch(e){} } };
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div>
+  <a href="/servers/{{ server.id }}" class="text-xs text-emerald-400 hover:underline">← Back to {{ server.name }}</a>
+  <div class="flex items-center gap-3 mt-1">
+    <span class="text-3xl">🐑</span>
+    <h1 class="text-3xl font-semibold">Backups for {{ server.name }}</h1>
+  </div>
+  <div class="text-zinc-400">{{ server.hostname }}</div>
+</div>
+
+{% if last_backup_status %}
+<div class="mt-2 text-xs px-2 py-0.5 inline-block rounded {{ 'bg-emerald-800 text-emerald-300' if last_backup_status == 'success' else 'bg-red-800 text-red-300' }}">
+  Last backup run: {{ last_backup_status }}
+</div>
+{% endif %}
+
+<!-- Full backup sources management moved here from server detail to reduce clutter -->
+<div class="mt-6 bg-zinc-900 border border-zinc-800 p-5 rounded-xl">
+  <div class="flex justify-between items-center mb-2">
+    <div>
+      <h3 class="font-medium">Backup Sources</h3>
+      {% set g = global_backup_defaults if global_backup_defaults and global_backup_defaults is mapping else {} %}
+      {% set effective_root = server.backup_dest_root or g.dest_root or settings.BACKUP_ROOT %}
+      {% set effective_folder = server.backup_folder_name or g.folder_name or server.hostname %}
+      <p class="text-xs text-zinc-400">Source on remote → Destination under <code>{{ effective_root }}/{{ effective_folder }}/</code> (inside container)</p>
+      <p class="text-[10px] text-zinc-500">Default folders (global or per-host): /home/.../docker/ and docker volumes</p>
+    </div>
+    <button type="button" onclick="showBackupConfigModal()"
+            class="ml-3 text-xs px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded border border-zinc-700">Configure</button>
+  </div>
+
+  <!-- Persistent backup status banner -->
+  <div id="active-backup-status" class="hidden mb-3 p-2 bg-blue-900/60 border border-blue-700 rounded flex items-center gap-2 text-sm">
+    <span class="font-medium">Backup in progress:</span>
+    <span id="active-source-name" class="font-mono text-emerald-300"></span>
+    <button onclick="showBackupProgressModal()" class="ml-2 px-2 py-0.5 text-xs bg-blue-700 hover:bg-blue-600 rounded">Show progress / logs</button>
+    <button onclick="stopCurrentBackup()" class="px-2 py-0.5 text-xs bg-red-700 hover:bg-red-600 rounded text-white">Stop</button>
+  </div>
+
+  {% if backup_profiles %}
+  <table class="w-full text-sm mb-4">
+    <thead>
+      <tr class="text-left text-xs text-zinc-400 border-b border-zinc-700">
+        <th class="py-1 pr-2">Source</th>
+        <th class="py-1 pr-2">Full Destination Path</th>
+        <th class="py-1 pr-2">Last Backed Up</th>
+        <th class="py-1"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-zinc-800">
+      {% for p in backup_profiles %}
+      <tr class="{{ 'opacity-50' if not p.enabled else '' }}" data-source="{{ p.source }}">
+        <td class="py-1.5 pr-2 font-mono text-xs">{{ p.source }}</td>
+        <td class="py-1.5 pr-2 font-mono text-xs text-zinc-400">{{ p.destination }}</td>
+        <td class="py-1.5 pr-2 text-xs">
+          {% if p.last_backup %}
+            <span class="text-emerald-300">{{ p.last_backup | app_tz }}</span>
+          {% else %}
+            <span class="text-zinc-500">never</span>
+          {% endif %}
+        </td>
+        <td class="py-1.5 text-right flex gap-1 justify-end items-center">
+          <form method="post" action="/servers/{{ server.id }}/run/backup" class="inline">
+            <input type="hidden" name="source" value="{{ p.source }}">
+            <button class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm" title="Run only this source">▶ Backup</button>
+          </form>
+          <button type="button" onclick="showRemoveBackupModal('{{ p.source }}')" class="px-4 py-2 bg-red-700 hover:bg-red-600 rounded text-sm text-white">Remove</button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="mb-3 p-2 bg-zinc-950 border border-zinc-800 rounded text-xs">
+    <strong>Defaults</strong> (global or per-host):<br>
+    {% set gsrc = global_backup_defaults.sources if global_backup_defaults and global_backup_defaults.sources is defined else global_backup_defaults %}
+    {% for d in (gsrc or ["/home/.../docker/", "/var/lib/docker/volumes/"]) %}
+    • {{ d }}<br>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Add new source -->
+  <form method="post" action="/servers/{{ server.id }}/backup/add" class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
+    <div class="md:col-span-1">
+      <label class="text-xs text-zinc-400 block mb-0.5">Source path on remote</label>
+      <input name="new_path" placeholder="/home/bjorn/new-project/" class="w-full bg-zinc-950 border border-zinc-700 text-sm px-2 py-1 rounded font-mono">
+    </div>
+    <div>
+      <label class="text-xs text-zinc-400 block mb-0.5">Custom dest folder (optional)</label>
+      <input name="dest_name" placeholder="my-project-backup" class="w-full bg-zinc-950 border border-zinc-700 text-sm px-2 py-1 rounded font-mono">
+    </div>
+    <div class="flex items-end">
+      <button type="submit" class="bg-emerald-700 hover:bg-emerald-600 px-4 py-1 rounded text-sm">Add Source</button>
+    </div>
+  </form>
+  <div id="add-source-error" class="text-red-400 text-xs mt-1 hidden"></div>
+
+  <!-- Retention + Schedule hint -->
+  <div class="border-t border-zinc-800 pt-3">
+    <form method="post" action="/servers/{{ server.id }}/backup-config" class="flex gap-2 items-end text-sm mb-2">
+      <div>
+        <label class="block text-xs text-zinc-400">Retention days</label>
+        <input type="number" name="retention_days" value="{{ server.retention_days or 7 }}" class="w-16 bg-black border border-zinc-700 px-2 py-1 rounded">
+      </div>
+      <button type="submit" class="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs">Update</button>
+    </form>
+    <p class="text-[10px] text-zinc-500 mt-1">Use Configure button for full schedules/cron. Quick runs above or on server screen.</p>
+  </div>
+</div>
+
+<div class="mt-4">
+  <a href="/servers/{{ server.id }}" class="text-xs">← Back to server</a>
+  <span class="mx-2">·</span>
+  <a href="/audit?server_id={{ server.id }}&action=backup" class="text-xs text-emerald-400">View backups in audit</a>
+  <span class="mx-1">·</span>
+  <a href="/audit?server_id={{ server.id }}" class="text-xs text-emerald-400">All server logs</a>
+</div>
+
+<!-- Include key modals and JS (duplicated from detail for self-contained page) -->
+
+<!-- Backup Config Modal -->
+<div id="backup-config-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-xl mx-4">
+    <div class="flex justify-between mb-3">
+      <h3 class="font-semibold">Configure Backups</h3>
+      <button onclick="hideBackupConfigModal()" class="text-zinc-400">✕</button>
+    </div>
+
+    <form method="post" action="/servers/{{ server.id }}/backup-config">
+      <div class="mb-3">
+        <label class="text-xs text-zinc-400">Sources (one per line)</label>
+        <textarea name="backup_paths" class="w-full font-mono text-xs bg-black border border-zinc-700 p-2 rounded h-20">{% set gsrc = current_sources if current_sources else (global_backup_defaults.sources if global_backup_defaults and global_backup_defaults.sources is defined else global_backup_defaults) %}
+{% for p in (gsrc or []) %}{{ p }}
+{% endfor %}</textarea>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs text-zinc-400">Retention days</label>
+          <input type="number" name="retention_days" value="{{ server.retention_days or 7 }}" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded">
+        </div>
+        <div>
+          <label class="text-xs text-zinc-400">Schedule</label>
+          <input type="text" name="backup_schedule" id="cron-input" value="{{ server.backup_schedule or '' }}" placeholder="0 2 * * *" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded font-mono text-xs">
+          <p class="text-[9px] text-zinc-500">e.g. 0 2 * * * for 2am daily. Use Configure on main or advanced.</p>
+        </div>
+      </div>
+
+      <div class="mt-3 border-t border-zinc-700 pt-2">
+        <div class="text-xs text-zinc-400 mb-1 font-medium">Destination config</div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-zinc-400 block">Default destination path root</label>
+            <input name="dest_root" value="{{ server.backup_dest_root or g.dest_root or settings.BACKUP_ROOT }}" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded text-sm font-mono">
+          </div>
+          <div>
+            <label class="text-xs text-zinc-400 block">Server folder name</label>
+            <input name="folder_name" value="{{ server.backup_folder_name or g.folder_name or '' }}" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded text-sm font-mono">
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-3">
+        <div class="text-xs text-zinc-400 mb-1">Save scope</div>
+        <label class="flex gap-2 text-sm"><input type="radio" name="scope" value="this_host" checked> This host only</label>
+        <label class="flex gap-2 text-sm"><input type="radio" name="scope" value="global"> Global default</label>
+      </div>
+
+      <div id="config-error" class="text-red-400 text-sm mb-2 hidden"></div>
+      <div class="flex gap-2 mt-4">
+        <button type="submit" class="px-4 py-1 bg-emerald-700 hover:bg-emerald-600 rounded text-sm">Save</button>
+        <button type="button" onclick="hideBackupConfigModal()" class="px-4 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-sm ml-auto">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Remove Backup Source Modal -->
+<div id="remove-backup-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-md mx-4">
+    <h3 class="font-semibold mb-2">Confirm Remove Backup Source</h3>
+    <p class="text-sm text-zinc-400 mb-2">You are about to remove this backup source:</p>
+    <div id="remove-source-display" class="font-mono text-sm bg-black border border-zinc-700 p-2 rounded mb-4 break-all"></div>
+    <p class="text-xs text-red-400 mb-4">This cannot be undone.</p>
+    
+    <form id="remove-backup-form" method="post" action="/servers/{{ server.id }}/backup/remove">
+      <input type="hidden" name="path" id="remove-source-input">
+    </form>
+    
+    <div class="flex gap-2 justify-end">
+      <button type="button" onclick="hideRemoveBackupModal()" class="px-4 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-sm">Cancel</button>
+      <button type="button" onclick="confirmRemoveBackupSource()" class="px-4 py-1 bg-red-700 hover:bg-red-600 rounded text-sm text-white">Confirm Remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- Backup Progress Modal (for live feedback when running from here) -->
+<div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4">
+    <div class="flex justify-between items-center mb-2">
+      <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
+      <div class="flex gap-1">
+        <button id="progress-stop-btn" class="text-xs px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-white">Stop</button>
+        <button onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 bg-zinc-800 rounded">Close</button>
+      </div>
+    </div>
+    <div id="backup-current-source" class="text-sm mb-1 text-emerald-300 font-mono min-h-[1.25rem]"></div>
+    <div class="text-xs text-zinc-400 mb-1">Live output</div>
+    <pre id="backup-progress-log" class="bg-black p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border border-zinc-800 rounded">Starting...</pre>
+  </div>
+</div>
+
+<script>
+// Minimal JS to support the modals and forms on this dedicated page
+// (duplicated/adapted from server_detail for independence)
+
+function showBackupConfigModal() {
+  const modal = document.getElementById('backup-config-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+function hideBackupConfigModal() {
+  const modal = document.getElementById('backup-config-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+    const err = document.getElementById('config-error');
+    if (err) { err.classList.add('hidden'); err.textContent = ''; }
+  }
+}
+
+let removeBackupSource = '';
+function showRemoveBackupModal(source) {
+  removeBackupSource = source;
+  const display = document.getElementById('remove-source-display');
+  const input = document.getElementById('remove-source-input');
+  if (display) display.textContent = source;
+  if (input) input.value = source;
+  const modal = document.getElementById('remove-backup-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+function hideRemoveBackupModal() {
+  const modal = document.getElementById('remove-backup-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+}
+function confirmRemoveBackupSource() {
+  const form = document.getElementById('remove-backup-form');
+  if (form) form.submit();
+}
+
+// Add source error handling + config form via fetch (same as before)
+document.addEventListener('DOMContentLoaded', () => {
+  const addForm = document.querySelector('form[action$="/backup/add"]');
+  if (addForm) {
+    addForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const errDiv = document.getElementById('add-source-error');
+      if (errDiv) { errDiv.classList.add('hidden'); errDiv.textContent = ''; }
+      const formData = new FormData(addForm);
+      try {
+        const resp = await fetch(addForm.action, { method: 'POST', body: formData });
+        if (resp.ok) {
+          location.reload();
+        } else {
+          let msg = 'Error adding source';
+          try { const data = await resp.json(); msg = data.detail || msg; } catch(_) {}
+          if (errDiv) { errDiv.textContent = msg; errDiv.classList.remove('hidden'); }
+        }
+      } catch (e) {
+        if (errDiv) { errDiv.textContent = 'Network error'; errDiv.classList.remove('hidden'); }
+      }
+    });
+  }
+
+  // Config form error handling
+  const cfgForm = document.querySelector('#backup-config-modal form');
+  if (cfgForm) {
+    cfgForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const errDiv = document.getElementById('config-error');
+      if (errDiv) { errDiv.classList.add('hidden'); errDiv.textContent=''; }
+      const fd = new FormData(cfgForm);
+      try {
+        const resp = await fetch(cfgForm.action, {method:'POST', body: fd});
+        if (resp.ok || (resp.status >= 300 && resp.status < 400)) {
+          hideBackupConfigModal();
+          location.reload();
+        } else {
+          let msg = 'Error saving';
+          try { const d=await resp.json(); msg = d.detail || msg; } catch(_){}
+          if (errDiv) { errDiv.textContent=msg; errDiv.classList.remove('hidden'); }
+        }
+      } catch(e) {
+        if (errDiv){ errDiv.textContent='Network error'; errDiv.classList.remove('hidden'); }
+      }
+    });
+  }
+
+  // Intercept run/backup forms for progress modal (light version)
+  document.querySelectorAll('form[action*="run/backup"]').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      const sourceInput = form.querySelector('input[name="source"]');
+      const currentSource = sourceInput ? sourceInput.value : null;
+      e.preventDefault();
+      showBackupProgressModal(currentSource ? `Backing up: ${currentSource}` : 'Running full backup...', currentSource);
+      const fd = new FormData(form);
+      fetch(form.action, { method: 'POST', body: fd }).catch(()=>{});
+    });
+  });
+});
+
+// Lightweight progress modal support (subset)
+let backupPollInterval = null;
+function showBackupProgressModal(title = "Backup running", initialSource = null) {
+  const modal = document.getElementById('backup-progress-modal');
+  if (!modal) return;
+  modal.querySelector('#backup-progress-title').innerText = title;
+  const logEl = modal.querySelector('#backup-progress-log');
+  const currentDiv = modal.querySelector('#backup-current-source');
+  logEl.innerText = initialSource ? `Preparing: ${initialSource}\n` : 'Starting...\n';
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  const stopBtn = modal.querySelector('#progress-stop-btn');
+  if (stopBtn) {
+    stopBtn.textContent = 'Stop Backup';
+    stopBtn.onclick = async () => {
+      if (confirm('Stop?')) {
+        await fetch('/servers/{{ server.id }}/backup/stop', {method:'POST'});
+        logEl.innerText += '\n[stop requested]\n';
+      }
+    };
+  }
+
+  if (backupPollInterval) clearInterval(backupPollInterval);
+  const poll = async () => {
+    try {
+      const res = await fetch('/servers/{{ server.id }}/backup-progress');
+      if (res.ok) {
+        const data = await res.json();
+        if (currentDiv && data.current) currentDiv.innerText = data.current;
+        if (logEl && data.log_lines && data.log_lines.length) {
+          logEl.innerText = data.log_lines.join('\n') + '\n';
+        }
+      }
+    } catch(e){}
+  };
+  poll();
+  backupPollInterval = setInterval(poll, 3000);
+}
+
+function hideBackupProgressModal() {
+  const modal = document.getElementById('backup-progress-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+  if (backupPollInterval) { clearInterval(backupPollInterval); backupPollInterval = null; }
+}
+
+async function stopCurrentBackup() {
+  if (!confirm('Stop current backup?')) return;
+  try {
+    await fetch('/servers/{{ server.id }}/backup/stop', {method: 'POST'});
+    const log = document.getElementById('backup-progress-log');
+    if (log) log.innerText += '\n[Stop requested]\n';
+  } catch(e) { alert('Failed to request stop'); }
+}
+</script>
+{% endblock %}
