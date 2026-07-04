@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "piherder"
+version = "0.1.0"
+description = "PiHerder – Secure fleet management for Raspberry Pi clusters (backups, patching, control) with zero plaintext secrets."
+readme = "README.md"
+requires-python = ">=3.12"
+license = {text = "MIT"}
+authors = [
+  { name = "Bjorn Gluck", email = "26004297+bjorngluck@users.noreply.github.com" }
+]
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "sqlmodel>=0.0.16",
+    "alembic>=1.13",
+    "psycopg2-binary>=2.9",
+    "python-jose[cryptography]>=3.3",
+    "passlib[bcrypt]>=1.7",
+    "bcrypt<4.0",  # pin to avoid compatibility issues with passlib bcrypt backend (version attr error)
+    "cryptography>=42.0",
+    "paramiko>=3.4",
+    "pydantic-settings>=2.2",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+    "httpx>=0.27",
+    "apscheduler>=3.10",
+    "pycron>=3.0",
+    "pyyaml>=6.0",
+    # "slowapi>=0.1"  # optional rate limiting
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pytest",
+    "httpx",  # for test client
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[project.urls]
+Homepage = "https://github.com/bjorngluck/piherder"
+Repository = "https://github.com/bjorngluck/piherder"
+Issues = "https://github.com/bjorngluck/piherder/issues"

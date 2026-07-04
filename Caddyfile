@@ -1,0 +1,42 @@
+# PiHerder Caddyfile
+# Using non-standard ports (8888/8443) to avoid conflict with other services (pi-hole etc.)
+
+{
+    admin off
+    # Completely disable Caddy's automatic HTTPS behavior.
+    # This prevents http://ip:8888 from redirecting to https://ip (port 443).
+    # We are using non-standard ports (8888/8443) because 80/443 are taken
+    # by other services on this host (e.g. pi-hole).
+    auto_https off
+}
+
+# HTTP - maps to host:8888
+:80 {
+    reverse_proxy web:8000 {
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    encode gzip
+}
+
+# HTTPS - maps to host:8443
+# Uses self-signed cert (Caddy "internal"). Browser will warn.
+:443 {
+    tls internal
+
+    reverse_proxy web:8000 {
+        header_up X-Real-IP {remote}
+        header_up X-Forwarded-For {remote}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "no-referrer-when-downgrade"
+    }
+
+    encode gzip
+}
+

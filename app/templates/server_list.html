@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex items-center gap-3 mb-6">
+  <span class="text-4xl">🐑</span>
+  <h1 class="text-3xl font-semibold">Servers</h1>
+</div>
+
+<a href="/servers/add" 
+   class="inline-block mb-6 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm">+ Add Server</a>
+<p class="text-xs text-zinc-500 -mt-5 mb-4">Default order: alphabetical by name. Use ▲▼ to manually reorder.</p>
+
+{% if servers %}
+<div class="space-y-3">
+  {% for s in servers %}
+  <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex justify-between items-center">
+    <div class="flex items-center gap-2">
+      <div class="flex flex-col text-xs">
+        <form method="post" action="/servers/{{ s.id }}/move/up" class="leading-none">
+          <button type="submit" class="px-1 hover:bg-zinc-700 rounded" title="Move up">▲</button>
+        </form>
+        <form method="post" action="/servers/{{ s.id }}/move/down" class="leading-none">
+          <button type="submit" class="px-1 hover:bg-zinc-700 rounded" title="Move down">▼</button>
+        </form>
+      </div>
+      <div>
+        <a href="/servers/{{ s.id }}" class="font-medium text-lg hover:underline">{{ s.name }}</a>
+        <span class="text-xs ml-2 text-zinc-500">{{ s.hostname }}</span>
+      </div>
+    </div>
+    <div class="text-xs">
+      Backup: {{ '✅' if s.backup_enabled else '❌' }} &nbsp;
+      Containers: {{ '✅' if s.container_patch_enabled else '❌' }}
+      {% if s.get('last_backup') %}
+      <span class="text-emerald-400 ml-1">last: {{ s.last_backup }}</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-zinc-400">No servers yet. Add one to get started.</p>
+{% endif %}
+
+<div class="mt-8 text-xs text-zinc-500">
+  SSH keys are stored encrypted. Private keys are decrypted only for the duration of jobs.
+</div>
+
+<script>
+// Auto-refresh the servers list every 45 seconds to show updated backup status
+setInterval(() => {
+  // Only reload if no obvious modals or user activity (simple check)
+  if (!document.activeElement || document.activeElement.tagName === 'BODY') {
+    location.reload();
+  }
+}, 45000);
+</script>
+{% endblock %}

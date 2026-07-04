@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-xs text-emerald-400 hover:underline">← Docker</a>
+  <h1 class="text-2xl font-semibold mt-2">Deploy New Docker Service</h1>
+  <div class="text-sm text-zinc-400 mb-6">Creates folder under {{ server.docker_base_dir }}, writes files (optionally clones git).</div>
+
+  <form method="post" action="/servers/{{ server.id }}/docker/new-project" class="space-y-4">
+    <div>
+      <label class="text-xs block mb-1">Project / Folder Name</label>
+      <input name="project_name" required class="w-full bg-zinc-900 border border-zinc-700 p-2 rounded text-sm" placeholder="my-awesome-app">
+    </div>
+
+    <div>
+      <label class="text-xs block mb-1">docker-compose.yml content</label>
+      <textarea name="compose_content" rows="12" required class="w-full font-mono text-xs bg-zinc-900 border border-zinc-700 p-2 rounded" placeholder="version: '3'\nservices:\n  app:\n    image: ...">version: '3.8'
+services:
+  web:
+    build: .
+    ports:
+      - "8080:80"</textarea>
+    </div>
+
+    <div>
+      <label class="text-xs block mb-1">Dockerfile (optional, leave empty if using registry image)</label>
+      <textarea name="dockerfile_content" rows="6" class="w-full font-mono text-xs bg-zinc-900 border border-zinc-700 p-2 rounded" placeholder="FROM nginx:alpine">FROM python:3.11-slim
+WORKDIR /app
+COPY . .
+RUN pip install -r requirements.txt
+CMD ["python", "app.py"]</textarea>
+    </div>
+
+    <div>
+      <label class="text-xs block mb-1">Git clone URL (optional - clones into the folder)</label>
+      <input name="git_url" class="w-full bg-zinc-900 border border-zinc-700 p-2 rounded text-sm" placeholder="https://github.com/you/myapp.git">
+    </div>
+
+    <div class="flex items-center gap-2">
+      <input type="checkbox" name="deploy_now" checked class="accent-emerald-600">
+      <span class="text-sm">Deploy immediately after create</span>
+    </div>
+
+    <button type="submit" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 rounded">Create &amp; Deploy Service</button>
+  </form>
+
+  <div class="mt-4 text-[10px] text-zinc-500">New SSH session used for mkdir/clone/write. Versioning will track future changes.</div>
+</div>
+{% endblock %}
