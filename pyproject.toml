@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
-  { name = "Bjorn Gluck", email = "26004297+bjorngluck@users.noreply.github.com" }
+  { name = "Bjorn Gluck", email = "bjorn@example.com" }
 ]
 dependencies = [
     "fastapi>=0.110",
@@ -20,7 +20,7 @@ dependencies = [
     "psycopg2-binary>=2.9",
     "python-jose[cryptography]>=3.3",
     "passlib[bcrypt]>=1.7",
-    "bcrypt<4.0",  # pin to avoid compatibility issues with passlib bcrypt backend (version attr error)
+    "bcrypt<4.0",
     "cryptography>=42.0",
     "paramiko>=3.4",
     "pydantic-settings>=2.2",
@@ -30,14 +30,15 @@ dependencies = [
     "apscheduler>=3.10",
     "pycron>=3.0",
     "pyyaml>=6.0",
-    # "slowapi>=0.1"  # optional rate limiting
+    "celery[redis]>=5.4.0",
+    "redis>=5.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "ruff",
     "pytest",
-    "httpx",  # for test client
+    "httpx",
 ]
 
 [tool.setuptools.packages.find]
