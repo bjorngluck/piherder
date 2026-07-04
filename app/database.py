@@ -39,3 +39,9 @@ def init_db():
     # Called from lifespan or alembic
     SQLModel.metadata.create_all(engine)
     ensure_server_columns()
+
+
+# Backwards-compatibility alias so that code expecting the classic FastAPI/SQLAlchemy
+# `get_db` dependency (e.g. older Celery tasks, scripts, or notebooks) continues to work.
+# Both are generator-based session providers.
+get_db = get_session
