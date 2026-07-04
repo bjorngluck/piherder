@@ -121,11 +121,17 @@ async def _run_backup_job(job_id: int, server_id: int, audit_id: int, source_fil
     hostname = server.hostname if server else str(server_id)
     logger.debug(f"[JOB] Starting backup for {hostname}")
     try:
+        sources_override = None
         if source_filter:
-            filtered = [s for s in server.get_backup_sources() if s.get("source") == source_filter]
-            if filtered:
-                server.backup_paths = json.dumps(filtered)
-        res = await run_in_threadpool(backup.run_backup, server)
+            try:
+                all_sources = server.get_backup_sources()
+                filtered = [s for s in all_sources if s.get("source") == source_filter]
+                if filtered:
+                    sources_override = filtered
+            except Exception as e:
+                logger.warning(f"Could not apply source_filter: {e}")
+
+        res = await run_in_threadpool(backup.run_backup, server, sources_override=sources_override)
         summary = json.dumps(res)
         _finish(audit_id, job_id, "success", summary, hostname, "backup")
     except Exception as e:
