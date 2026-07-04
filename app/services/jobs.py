@@ -1,3 +1,4 @@
+# app/services/jobs.py
 from fastapi import BackgroundTasks
 from sqlmodel import Session, select
 from ..database import engine
@@ -12,6 +13,15 @@ import json
 from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
+
+
+# Import Celery task for backup jobs (integrated path)
+try:
+    from ..tasks import backup_server
+    HAS_CELERY = True
+except Exception:
+    HAS_CELERY = False
+    backup_server = None
 
 
 def _get_fresh_session() -> Session:
@@ -60,7 +70,19 @@ def create_job_and_run(
     session.refresh(audit)
 
     if job_type == "backup":
-        background_tasks.add_task(_run_backup_job, job.id, server.id, audit.id, source_filter)
+        if HAS_CELERY and backup_server:
+            # Preferred path: offload long-running rsync to dedicated Celery worker
+            logger.info(f"[Jobs] Enqueuing backup job #{job.id} for server {server_id} to Celery")
+            backup_server.delay(
+                server.id,
+                job_id=job.id,
+                audit_id=audit.id,
+                source_filter=source_filter
+            )
+        else:
+            # Fallback (should rarely happen)
+            logger.warning("Celery not available - falling back to local BackgroundTasks for backup")
+            background_tasks.add_task(_run_backup_job, job.id, server.id, audit.id, source_filter)
     elif job_type == "container_patch":
         background_tasks.add_task(_run_container_job, job.id, server.id, audit.id)
     elif job_type == "os_patch":
@@ -93,6 +115,7 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
 
 
 async def _run_backup_job(job_id: int, server_id: int, audit_id: int, source_filter: str | None = None):
+    """Legacy/local path for backup (kept for fallback and other job types remain here)."""
     with _get_fresh_session() as s:
         server = s.get(Server, server_id)
     hostname = server.hostname if server else str(server_id)
@@ -102,8 +125,6 @@ async def _run_backup_job(job_id: int, server_id: int, audit_id: int, source_fil
             filtered = [s for s in server.get_backup_sources() if s.get("source") == source_filter]
             if filtered:
                 server.backup_paths = json.dumps(filtered)
-        # Run long blocking work (SSH + rsync Popen loops + file walks) off the event loop
-        # so the web server stays responsive during manual/scheduled backups.
         res = await run_in_threadpool(backup.run_backup, server)
         summary = json.dumps(res)
         _finish(audit_id, job_id, "success", summary, hostname, "backup")
@@ -138,8 +159,6 @@ async def _run_os_patch_job(job_id: int, server_id: int, audit_id: int, os_steps
     except Exception as e:
         _finish(audit_id, job_id, "failed", str(e), hostname, "os_patch")
     finally:
-        # Clean after the threadpool work has fully appended final logs.
-        # UI polls/SSE have a short window; last state also goes to audit log.
         os_patching._os_patch_progress.pop(hostname, None)
 
 
@@ -159,7 +178,6 @@ async def _run_herder_backup_job(job_id: int, audit_id: int):
     logger.debug("[JOB] Starting herder self-backup")
     hostname = "piherder"
     try:
-        # Default to safe config-only (no full audit in scheduled run)
         res = await run_in_threadpool(herder_backup.create_herder_backup, include_audit=False, config_only=True)
         summary = json.dumps({"path": str(res)})
         _finish(audit_id, job_id, "success", summary, hostname, "herder_backup")
