@@ -148,7 +148,7 @@ def _set_progress(hostname: str, current: str | None = None, log_line: str | Non
     force = False
     if log_line:
         low = log_line.lower()
-        if any(kw in low for k in ("error", "fail", "denied", "complete", "finished", "skipped", "done", "warning")):
+        if any(word in low for word in ("error", "fail", "denied", "complete", "finished", "skipped", "done", "warning")):
             force = True
 
     THROTTLE_SECONDS = 0.8
@@ -311,7 +311,7 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
         try:
             if os.path.exists("/.dockerenv"):
                 return True
-            with open("/proc/1/cgroup", "r"):
+            with open("/proc/1/cgroup", "r") as f:
                 if any(x in f.read() for x in ("docker", "kubepods", "containerd", "lxc")):
                     return True
         except Exception:
