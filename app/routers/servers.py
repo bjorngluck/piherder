@@ -625,7 +625,7 @@ async def update_backup_config(
         session.commit()
         return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
 
-    updated = False
+    # this_host only - force commit on sources change
     if backup_paths.strip():
         existing = {s["source"]: s for s in server.get_backup_sources()}
         lines = [p.strip() for p in backup_paths.replace(",", "\n").splitlines() if p.strip()]
@@ -636,26 +636,28 @@ async def update_backup_config(
             else:
                 new_sources.append({"source": line, "dest_name": None, "enabled": True})
         server.backup_paths = json.dumps(new_sources)
-        updated = True
+        session.add(server)
+        session.commit()
 
     if dest_root.strip():
         server.backup_dest_root = dest_root.strip()
-        updated = True
+        session.add(server)
+        session.commit()
+
     if folder_name.strip():
         server.backup_folder_name = folder_name.strip()
-        updated = True
+        session.add(server)
+        session.commit()
 
     if retention_days is not None:
         server.retention_days = retention_days
-        updated = True
+        session.add(server)
+        session.commit()
 
     if backup_schedule is not None:
         server.backup_schedule = backup_schedule
         if backup_schedule:
             server.backup_enabled = True
-        updated = True
-
-    if updated:
         session.add(server)
         session.commit()
 
@@ -677,6 +679,7 @@ async def add_backup_source(
         raise HTTPException(400, "Source path is required")
     dn = dest_name.strip() if dest_name else None
     backup_svc.add_backup_source(server, new_path, dn, session)
+    session.refresh(server)
     return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
 
 
