@@ -554,7 +554,8 @@ async def run_container_patch(server_id: int, background_tasks: BackgroundTasks,
 
 
 @router.post("/{server_id}/run/os_patch")
-async def run_os_patch(server_id: int, background_tasks: BackgroundTasks, steps: list[str] = Form([]), session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+async def run_os_patch(server_id: int, background_tasks: BackgroundTasks, steps: list[str] = Form([]), session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)):
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -625,7 +626,7 @@ async def update_backup_config(
         session.commit()
         return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
 
-    # this_host only - force commit on sources change
+    # this_host only - force write + commit + debug
     if backup_paths.strip():
         existing = {s["source"]: s for s in server.get_backup_sources()}
         lines = [p.strip() for p in backup_paths.replace(",", "\n").splitlines() if p.strip()]
@@ -636,8 +637,10 @@ async def update_backup_config(
             else:
                 new_sources.append({"source": line, "dest_name": None, "enabled": True})
         server.backup_paths = json.dumps(new_sources)
+        logger.info(f"[backup-config] FORCING commit for server {server_id} backup_paths={server.backup_paths[:120]}...")
         session.add(server)
         session.commit()
+        logger.info(f"[backup-config] COMMIT DONE for server {server_id}")
 
     if dest_root.strip():
         server.backup_dest_root = dest_root.strip()
@@ -678,8 +681,10 @@ async def add_backup_source(
     if not new_path or not new_path.strip():
         raise HTTPException(400, "Source path is required")
     dn = dest_name.strip() if dest_name else None
-    backup_svc.add_backup_source(server, new_path, dn, session)
+    added = backup_svc.add_backup_source(server, new_path, dn, session)
+    logger.info(f"[backup-add] add_backup_source returned {added} for server {server_id} path={new_path}")
     session.refresh(server)
+    logger.info(f"[backup-add] after refresh backup_paths={server.backup_paths[:120]}...")
     return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
 
 
