@@ -35,7 +35,6 @@ logger = logging.getLogger("piherder.servers")
 
 @router.get("", response_class=HTMLResponse)
 async def list_servers(request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
-    """Extremely lean Servers list - pure DB read."""
     rows = session.exec(select(Server).order_by(Server.sort_order, Server.name)).all()
     servers = []
     for row in rows:
@@ -60,6 +59,18 @@ async def server_detail(request: Request, server_id: int, session: Session = Dep
         request=request,
         name="server_detail.html",
         context={"title": server.name, "server": server, "user": user}
+    )
+
+
+@router.get("/{server_id}/backups", response_class=HTMLResponse)
+async def server_backups(request: Request, server_id: int, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="server_backups.html",
+        context={"title": f"Backups - {server.name}", "server": server, "user": user}
     )
 
 
@@ -101,4 +112,4 @@ async def get_backup_progress(
 
     return data
 
-# Additional routes for backups, audit, etc. are present in the full working version.
+# Other routes (run backup, stop, audit, etc.) are expected to be present in the full file.
