@@ -540,7 +540,8 @@ async def get_server_diagnostics(
         data = await run_in_threadpool(diag_svc.run_diagnostics, server, bool(force))
         return data
     except Exception as e:
-        return {"error": str(e)[:200], "hostname": server.hostname}
+        return {"error": str(e)[:200], "hostname": server.hostname
+    }
 
 
 @router.post("/{server_id}/run/container_patch")
@@ -633,7 +634,7 @@ async def update_backup_config(
             if line in existing:
                 new_sources.append(existing[line])
             else:
-                new_sources.append({"source": line, "dest_name": None, "enabled": True})
+                    new_sources.append({"source": line, "dest_name": None, "enabled": True})
             server.backup_paths = json.dumps(new_sources)
         updated = True
 
@@ -1198,7 +1199,7 @@ async def build_compose(
 
     params = f"project={project}"
     if svc_list:
-        params += f"&services={','/'.join(svc_list)}"
+        params += f"&services={','.join(svc_list)}"
     if no_cache == "on" or no_cache == "true":
         params += "&no_cache=true"
     try:
@@ -1388,7 +1389,8 @@ async def get_docker_logs(
 
 
 @router.get("/{server_id}/docker/containers-fragment", response_class=HTMLResponse)
-async def containers_fragment(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+async def containers_fragment(server_id: int, request: Request, session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)):
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
