@@ -35,8 +35,9 @@ logger = logging.getLogger("piherder.servers")
 
 @router.get("", response_class=HTMLResponse)
 async def list_servers(request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
-    """Lean Servers list - pure DB read for speed and stability.
-    Last backup time is now included via a fast grouped query on AuditLog.
+    """Extremely lean Servers list - pure DB read.
+    last_backup_at is populated by the worker on success.
+    No extra grouped queries, no SSH, no FS work.
     """
     start = time.time()
 
@@ -46,29 +47,16 @@ async def list_servers(request: Request, session: Session = Depends(get_session)
     except Exception:
         rows = session.exec(select(Server).order_by(Server.name)).all()
 
-    # Fast query: latest successful backup per server
-    last_backup_map = {}
-    try:
-        last_backup_rows = session.exec(
-            select(AuditLog.server_id, func.max(AuditLog.started_at))
-            .where(AuditLog.action == "backup", AuditLog.status == "success")
-            .group_by(AuditLog.server_id)
-        ).all()
-        last_backup_map = {server_id: started_at for server_id, started_at in last_backup_rows}
-    except Exception:
-        pass
-
     servers = []
     for row in rows:
         d = row.model_dump(exclude={"audit_logs", "jobs"})
-        last = last_backup_map.get(row.id)
-        if last:
-            d["last_backup"] = last
-            d["last_backup_str"] = format_datetime_in_app_tz(last)
+        if row.last_backup_at:
+            d["last_backup"] = row.last_backup_at
+            d["last_backup_str"] = format_datetime_in_app_tz(row.last_backup_at)
         servers.append(d)
 
     total = time.time() - start
-    if total > 0.5:
+    if total > 0.3:
         logger.warning(f"[list_servers] Total render took {total:.2f}s for {len(servers)} server(s)")
     else:
         logger.debug(f"[list_servers] Total render took {total:.2f}s")
@@ -224,7 +212,7 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
                     total_bytes = sum(r.get("size_bytes", 0) for r in results)
                     object.__setattr__(log, 'parsed', {
                         "sources": len(results),
-                        "success_count": sum(1 for r in results if r.get("rc", 0) == 0 or r.get("skipped")),
+                        "success_count": sum(1 for r in results if r.get("rc", 0) or r.get("skipped")),
                         "total_size": total_bytes,
                         "total_size_human": backup_svc.human_size(total_bytes),
                     })
@@ -800,7 +788,7 @@ async def docker_container_action(
         session.commit()
     except Exception:
         pass
-    return RedirectResponse(f"/servers/{server_id}", status_code=303)
+    return RedirectResponse(f"/servers/{server_id}/docker", status_code=303)
 
 
 @router.get("/{server_id}/docker/compose/{project}/file-content", response_class=JSONResponse)
@@ -1302,7 +1290,7 @@ async def containers_fragment(server_id: int, request: Request, session: Session
 @router.post("/{server_id}/docker/check-updates")
 async def check_updates(
     server_id: int,
-    project_path: str = Form(...),
+    project_path: str = Form("..."),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
