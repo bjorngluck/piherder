@@ -39,10 +39,10 @@ async def lifespan(app: FastAPI):
     init_db()
 
     # Ensure new columns exist (pragmatic for dev, until full migrations)
+    # This runs on every web startup so schema is always up to date
     try:
         from sqlalchemy import text
         with engine.connect() as conn:
-            # Add backup_schedule if missing (safe)
             conn.execute(text("""
                 DO $$
                 BEGIN
@@ -63,6 +63,12 @@ async def lifespan(app: FastAPI):
                         WHERE table_name = 'server' AND column_name = 'backup_folder_name'
                     ) THEN
                         ALTER TABLE server ADD COLUMN backup_folder_name VARCHAR;
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.columns 
+                        WHERE table_name = 'server' AND column_name = 'last_backup_at'
+                    ) THEN
+                        ALTER TABLE server ADD COLUMN last_backup_at TIMESTAMP;
                     END IF;
                 END $$;
             """))
@@ -188,7 +194,7 @@ def schedule_backup_job(server_id: int):
 
 
 def schedule_herder_backup_job():
-    """Global scheduled PiHerder self-backup (config + keys, optional audit)."""
+    """Global scheduled PiHerder self-backup (config + keys + optional audit)."""
     if not HAS_SCHEDULER:
         return
     logger.debug("[SCHEDULER] Running scheduled herder self-backup")
@@ -346,8 +352,8 @@ async def trigger_herder_backup(
     user: User = Depends(get_current_user),
 ):
     from .services import herder_backup as hb
-    include_audit = (backup_mode == "full")
-    config_only = (backup_mode == "config_only")
+    include_audit = (mode == "full")
+    config_only = (mode == "config_only")
     # For "Run now" we execute directly (consistent with schedule path) so we can
     # respect the mode. Create proper audit entry.
     with next(get_session()) as s:
