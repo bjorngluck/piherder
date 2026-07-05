@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int | None = None, source_filter: str | None = None):
     """
     Celery background task to run backup for a server.
-    Now properly integrated: updates Job + AuditLog records on completion.
+    Worker feeds DB (last_backup_at etc.) so web stays thin.
     Retries only once on transient connection errors.
     """
     try:
@@ -56,6 +56,14 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
 
             if job_id or audit_id:
                 _finish_job_audit(job_id, audit_id, "success", summary, hostname, "backup")
+
+            # Worker feeds DB so web can be thin pure reader
+            try:
+                server.last_backup_at = datetime.utcnow()
+                db.add(server)
+                db.commit()
+            except Exception as e:
+                logger.warning(f"Could not update last_backup_at for server {server_id}: {e}")
 
             logger.info(f"[Celery] Backup completed successfully for server {server_id}")
             return {
