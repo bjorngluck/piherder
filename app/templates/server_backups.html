@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const formData = new FormData(addForm);
       try {
         const resp = await fetch(addForm.action, { method: 'POST', body: formData });
-        if (resp.ok) {
+        if (resp.ok || (resp.status >= 300 && resp.status < 400)) {
           location.reload();
         } else {
           let msg = 'Error adding source';
