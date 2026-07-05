@@ -1038,99 +1038,17 @@ async def save_dockerfile(
     if not proj or not proj.get("dockerfile_path"):
         raise HTTPException(404)
 
-    # Dockerfile editing temporarily disabled (commented out per request)
-    # We will re-enable this later in a clean, isolated module when needed.
-    errors = []
+    # Dockerfile editing temporarily disabled (per request to deprioritize)
+    # We will bring this back later in a clean, isolated module.
+    # For now we short-circuit to a clear message.
 
-    # (re)load drafts/live for good context in error + success re-renders
-    all_drafts = docker_svc.get_versions(server.id, project, limit=10)
-    df_drafts = []
-    for d in all_drafts:
-        try:
-            f = json.loads(d.files or '{}')
-            if 'Dockerfile' in f:
-                df_drafts.append(d)
-        except:
-            pass
-    live_version = None
-    live_clean = (content or "").strip()
-    for d in df_drafts:
-        if not d.is_draft:
-            try:
-                f = json.loads(d.files or '{}')
-                c = f.get('Dockerfile') or ''
-                if c.strip() == live_clean:
-                    live_version = d
-                    break
-            except:
-                pass
+    if via_modal:
+        return JSONResponse({"ok": False, "message": "Dockerfile editing is temporarily disabled."})
 
-    if errors:
-        if via_modal:
-            return JSONResponse({"ok": False, "errors": errs, "message": "Basic Dockerfile check failed."])
-        return templates_mod.templates.TemplateResponse(
-            request=request,
-            name="docker_compose_edit.html",
-            context={
-                "title": f"Edit Dockerfile - {project}",
-                "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
-                "project": {"name": project, "path": proj["dockerfile_path"]},
-                "content": content,
-                "user": user,
-                "errors": errors,
-                "is_dockerfile": True,
-                "drafts": df_drafts,
-                "live_version": live_version,
-                "editing_version_id": editing_version_id,
-            }
-        )
-
-    is_draft = action == "draft"
-
-    if is_draft:
-        # save draft only, no write to host. Update selected draft if it was a draft; else new draft (protect live)
-        files = {"Dockerfile": content}
-        try:
-            dv = docker_svc.save_draft_version(server.id, project, files, session, update_existing_draft_id=editing_version_id)
-            if via_modal:
-                return JSONResponse({"ok": True, "saved_draft": dv.version, "id": dv.id, "message": f"Draft v{dv.version} saved."])
-            return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit?load_draft={dv.id}&saved_draft={dv.version}", status_code=303)
-        except Exception as e:
-            errors.append({"line": 1, "column": 1, "message": f"Failed to save draft: {e}"})
-            if via_modal:
-                return JSONResponse({"ok": False, "message": str(e)})
-            return templates_mod.templates.TemplateResponse(
-                request=request,
-                name="docker_compose_edit.html",
-                context={
-                    "title": f"Edit Dockerfile - {project}",
-                "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
-                "project": {"name": project, "path": proj["dockerfile_path"]},
-                "content": content,
-                "user": user,
-                "errors": errors,
-                "is_dockerfile": True,
-                "drafts": df_drafts,
-                "live_version": live_version,
-                "editing_version_id": editing_version_id,
-            }
-        )
-    else:
-        # deploy: write to host + record non-draft version (new record for history)
-        docker_svc.write_dockerfile(server, proj["dockerfile_path"], content)
-        try:
-            from datetime import datetime as dt
-            files = {"Dockerfile": content}
-            dv = docker_svc.save_draft_version(server.id, project, files, session)
-            dv.is_draft = False
-            dv.deployed_at = dt.utcnow()
-            session.add(dv)
-            session.commit()
-        except:
-            pass
-        if via_modal:
-            return JSONResponse({"ok": True, "deployed": True, "version": getattr(dv, 'version', None), "message": "Saved and deployed."])
-        return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit?saved=1", status_code=303)
+    return RedirectResponse(
+        f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit?disabled=1",
+        status_code=303
+    )
 
 
 @router.get("/{server_id}/docker/new-project", response_class=HTMLResponse)
