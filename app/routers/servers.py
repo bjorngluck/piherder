@@ -1038,12 +1038,9 @@ async def save_dockerfile(
     if not proj or not proj.get("dockerfile_path"):
         raise HTTPException(404)
 
-    # Basic "validation"
+    # Dockerfile editing temporarily disabled (commented out per request)
+    # We will re-enable this later in a clean, isolated module when needed.
     errors = []
-    if not content or not content.strip():
-        errors.append({"line": 1, "column": 1, "message": "Dockerfile cannot be empty"})
-    elif not any(line.strip().upper().startswith(("FROM", "RUN", "CMD", "EXPOSE", "ENV")) for line in content.splitlines()[:20]):
-        errors.append({"line": 1, "column": 1, "message": "Does not look like a valid Dockerfile (no FROM/RUN/etc in first lines)"])
 
     # (re)load drafts/live for good context in error + success re-renders
     all_drafts = docker_svc.get_versions(server.id, project, limit=10)
