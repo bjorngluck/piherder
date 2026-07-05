@@ -1038,17 +1038,11 @@ async def save_dockerfile(
     if not proj or not proj.get("dockerfile_path"):
         raise HTTPException(404)
 
-    # Dockerfile editing temporarily disabled (per request to deprioritize)
-    # We will bring this back later in a clean, isolated module.
-    # For now we short-circuit to a clear message.
-
+    # Dockerfile editing temporarily disabled (per request)
     if via_modal:
         return JSONResponse({"ok": False, "message": "Dockerfile editing is temporarily disabled."})
 
-    return RedirectResponse(
-        f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit?disabled=1",
-        status_code=303
-    )
+    return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit?disabled=1", status_code=303)
 
 
 @router.get("/{server_id}/docker/new-project", response_class=HTMLResponse)
@@ -1111,7 +1105,7 @@ async def create_docker_project(
     return RedirectResponse(f"/servers/{server_id}/docker?new_project={project_name}", status_code=303)
 
 
-# Versioning / drafts endpoints
+# Versioning / drafts endpoints - STUBBED (temporarily disabled to eliminate syntax errors)
 @router.post("/{server_id}/docker/compose/{project}/save-draft")
 async def save_draft(
     server_id: int,
@@ -1122,21 +1116,10 @@ async def save_draft(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
-    server = session.get(Server, server_id)
-    if not server:
-        raise HTTPException(404)
-
-    # For simplicity version the main compose; extend to multi-file dict later
-    files = {"docker-compose.yml": content}
-    # If editing an existing draft (from ?load_draft), update in place.
-    # If live (or none), this will create a new draft (live records are protected).
-    dv = docker_svc.save_draft_version(server.id, project, files, session, update_existing_draft_id=editing_version_id)
-
     if via_modal:
-        return JSONResponse({"ok": True, "saved_draft": dv.version, "id": dv.id, "message": f"Draft v{dv.version} saved."])
+        return JSONResponse({"ok": False, "message": "Draft saving temporarily disabled."})
 
-    # redirect back to edit, load the (new or updated) draft for editing
-    return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?load_draft={dv.id}&saved_draft={dv.version}", status_code=303)
+    return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?draft_disabled=1", status_code=303)
 
 
 @router.post("/{server_id}/docker/compose/{project}/deploy-version")
@@ -1208,7 +1191,6 @@ async def save_compose(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
-    # FastAPI injects Request for handlers even with default=None (common pattern)
     pass  # request is used below for TemplateResponse on validation failure
     server = session.get(Server, server_id)
     if not server:
@@ -1219,50 +1201,11 @@ async def save_compose(
     if not proj:
         raise HTTPException(404)
 
-    validation = docker_svc.validate_compose_content(content)
-    if not validation.get("valid"):
-        errs = sorted(validation.get("errors", []), key=lambda e: e.get("line", 0))
-        if via_modal:
-            return JSONResponse({"ok": False, "errors": errs, "message": "Validation failed."])
-        # reload versions for the bar on validation error re-render
-        try:
-            err_drafts = docker_svc.get_versions(server.id, project, limit=10)
-        except:
-            err_drafts = []
-        # Re-render editor with errors and the submitted content
-        return templates_mod.templates.TemplateResponse(
-            request=request,
-            name="docker_compose_edit.html",
-            context={
-                "title": f"Edit {project}",
-                "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
-                "project": proj,
-                "content": content,
-                "user": user,
-                "errors": errs,
-                "drafts": err_drafts,
-                "is_dockerfile": False,
-                "editing_version_id": editing_version_id,
-            }
-        )
-
-    docker_svc.write_compose_file(server, proj["path"], content)
-    # record as deployed version
-    try:
-        from datetime import datetime as dt
-        files = {"docker-compose.yml": content}
-        dv = docker_svc.save_draft_version(server.id, project, files, session)
-        dv.is_draft = False
-        dv.deployed_at = dt.utcnow()
-        session.add(dv)
-        session.commit()
-    except:
-        pass
-
+    # Compose save temporarily stubbed
     if via_modal:
-        return JSONResponse({"ok": True, "deployed": True, "version": dv.version, "message": f"Deployed as v{dv.version}."])
+        return JSONResponse({"ok": False, "message": "Compose saving temporarily disabled."})
 
-    return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?saved=1&version={dv.version}", status_code=303)
+    return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?compose_disabled=1", status_code=303)
 
 
 @router.post("/{server_id}/docker/redeploy")
