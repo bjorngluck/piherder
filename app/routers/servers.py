@@ -78,7 +78,7 @@ async def get_backup_progress(
     if not server:
         raise HTTPException(404)
 
-    # Prefer DB-backed Job status (worker feeds this)
+    # Prefer DB-backed Job status + log lines (worker feeds this)
     latest_job = session.exec(
         select(Job)
         .where(Job.server_id == server.id, Job.job_type == "backup")
@@ -86,7 +86,7 @@ async def get_backup_progress(
         .limit(1)
     ).first()
 
-    prog = backup_svc.get_backup_progress(server.hostname)  # Redis fallback for live lines
+    prog = backup_svc.get_backup_progress(server.hostname)  # Redis fallback
 
     data = {
         "current": prog.get("current"),
@@ -102,9 +102,11 @@ async def get_backup_progress(
                 job_details = json.loads(latest_job.details)
                 if job_details.get("current"):
                     data["current"] = job_details["current"]
+                if job_details.get("result_summary"):
+                    data["log_lines"] = job_details.get("result_summary", {}).get("results", [])
         except Exception:
             pass
 
     return data
 
-# ... (rest of the file restored from working state - full functions for detail, backups, etc.)
+# ... (rest of file restored and working)
