@@ -48,6 +48,9 @@ class Server(SQLModel, table=True):
     # Manual ordering in server list (0 = use name alpha, higher/lower for custom order)
     sort_order: int = Field(default=0)
 
+    # Populated by worker after successful backup (thin web reads this directly)
+    last_backup_at: Optional[datetime] = None
+
     audit_logs: List["AuditLog"] = Relationship(back_populates="server")
     jobs: List["Job"] = Relationship(back_populates="server")
     docker_versions: List["DockerVersion"] = Relationship(back_populates="server")
