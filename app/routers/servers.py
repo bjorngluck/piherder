@@ -26,29 +26,48 @@ try:
 except ImportError:
     pycron = None
 from datetime import datetime
+import time
+import logging
 
 router = APIRouter()
+logger = logging.getLogger("piherder.servers")
 
 
 @router.get("", response_class=HTMLResponse)
 async def list_servers(request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+    start = time.time()
+
     try:
         ensure_server_columns()
         rows = session.exec(select(Server).order_by(Server.sort_order, Server.name)).all()
     except Exception:
         # Fallback if column not present yet or DB issue
         rows = session.exec(select(Server).order_by(Server.name)).all()
+
     servers = []
     for row in rows:
         d = row.model_dump(exclude={"audit_logs", "jobs"})
         try:
+            t0 = time.time()
             profs = backup_svc.get_backup_profiles(row)
+            took = time.time() - t0
+            if took > 0.5:
+                logger.warning(f"[list_servers] get_backup_profiles for {row.hostname} took {took:.2f}s")
+
             times = [p["last_backup"] for p in profs if p.get("last_backup")]
             if times:
                 d["last_backup"] = format_datetime_in_app_tz(max(times), "%Y-%m-%d")
-        except:
-            pass
+        except Exception as e:
+            logger.warning(f"[list_servers] get_backup_profiles failed for {row.hostname}: {e}")
+
         servers.append(d)
+
+    total = time.time() - start
+    if total > 1.0:
+        logger.warning(f"[list_servers] Total render took {total:.2f}s for {len(servers)} server(s)")
+    else:
+        logger.debug(f"[list_servers] Total render took {total:.2f}s")
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_list.html",
@@ -660,7 +679,7 @@ async def update_backup_config(
                 new_sources.append(existing[line])
             else:
                 new_sources.append({"source": line, "dest_name": None, "enabled": True})
-            server.backup_paths = json.dumps(new_sources)
+        server.backup_paths = json.dumps(new_sources)
         updated = True
 
     if dest_root.strip():
@@ -858,7 +877,7 @@ async def edit_compose(
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
     if not proj:
-        raise HTTPException(404, "Project not found")
+        raise HTTPException(404)
 
     # Load live from host (short session) + drafts from DB
     live_files = docker_svc.get_project_live_files(server, proj["path"])
@@ -1022,9 +1041,9 @@ async def save_dockerfile(
     # Basic "validation"
     errors = []
     if not content or not content.strip():
-        errors.append({"line": 1, "column": 1, "message": "Dockerfile cannot be empty"})
+        errors.append({"line": 1, "column": 1, "message": "Dockerfile cannot be empty"])
     elif not any(line.strip().upper().startswith(("FROM", "RUN", "CMD", "EXPOSE", "ENV")) for line in content.splitlines()[:20]):
-        errors.append({"line": 1, "column": 1, "message": "Does not look like a valid Dockerfile (no FROM/RUN/etc in first lines)"})
+        errors.append({"line": 1, "column": 1, "message": "Does not look like a valid Dockerfile (no FROM/RUN/etc in first lines)"])
 
     # (re)load drafts/live for good context in error + success re-renders
     all_drafts = docker_svc.get_versions(server.id, project, limit=10)
@@ -1051,7 +1070,7 @@ async def save_dockerfile(
 
     if errors:
         if via_modal:
-            return JSONResponse({"ok": False, "errors": errs, "message": "Basic Dockerfile check failed."})
+            return JSONResponse({"ok": False, "errors": errs, "message": "Basic Dockerfile check failed."])
         return templates_mod.templates.TemplateResponse(
             request=request,
             name="docker_compose_edit.html",
@@ -1077,7 +1096,7 @@ async def save_dockerfile(
         try:
             dv = docker_svc.save_draft_version(server.id, project, files, session, update_existing_draft_id=editing_version_id)
             if via_modal:
-                return JSONResponse({"ok": True, "saved_draft": dv.version, "id": dv.id, "message": f"Draft v{dv.version} saved."})
+                return JSONResponse({"ok": True, "saved_draft": dv.version, "id": dv.id, "message": f"Draft v{dv.version} saved."])
             return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit?load_draft={dv.id}&saved_draft={dv.version}", status_code=303)
         except Exception as e:
             errors.append({"line": 1, "column": 1, "message": f"Failed to save draft: {e}"})
@@ -1113,7 +1132,7 @@ async def save_dockerfile(
         except:
             pass
         if via_modal:
-            return JSONResponse({"ok": True, "deployed": True, "version": getattr(dv, 'version', None), "message": "Saved and deployed."})
+            return JSONResponse({"ok": True, "deployed": True, "version": getattr(dv, 'version', None), "message": "Saved and deployed."])
         return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit?saved=1", status_code=303)
 
 
@@ -1199,7 +1218,7 @@ async def save_draft(
     dv = docker_svc.save_draft_version(server.id, project, files, session, update_existing_draft_id=editing_version_id)
 
     if via_modal:
-        return JSONResponse({"ok": True, "saved_draft": dv.version, "id": dv.id, "message": f"Draft v{dv.version} saved."})
+        return JSONResponse({"ok": True, "saved_draft": dv.version, "id": dv.id, "message": f"Draft v{dv.version} saved."])
 
     # redirect back to edit, load the (new or updated) draft for editing
     return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?load_draft={dv.id}&saved_draft={dv.version}", status_code=303)
@@ -1289,7 +1308,7 @@ async def save_compose(
     if not validation.get("valid"):
         errs = sorted(validation.get("errors", []), key=lambda e: e.get("line", 0))
         if via_modal:
-            return JSONResponse({"ok": False, "errors": errs, "message": "Validation failed."})
+            return JSONResponse({"ok": False, "errors": errs, "message": "Validation failed."])
         # reload versions for the bar on validation error re-render
         try:
             err_drafts = docker_svc.get_versions(server.id, project, limit=10)
@@ -1326,7 +1345,7 @@ async def save_compose(
         pass
 
     if via_modal:
-        return JSONResponse({"ok": True, "deployed": True, "version": dv.version, "message": f"Deployed as v{dv.version}."})
+        return JSONResponse({"ok": True, "deployed": True, "version": dv.version, "message": f"Deployed as v{dv.version}."])
 
     return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?saved=1&version={dv.version}", status_code=303)
 
@@ -1629,7 +1648,7 @@ async def check_updates(
         audit = AuditLog(
             user_id=user.id if user else None,
             server_id=server_id,
-            action="docker_check_updates",
+            action="docker_check-updates",
             status="success",
             details=f"Project {project_path}",
             output_snippet=str(result)[:300],
