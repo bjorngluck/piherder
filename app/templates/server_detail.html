@@ -776,7 +776,11 @@ function hideBackupProgressModal() {
   }
   if (backupModalWasOpen) {
     backupModalWasOpen = false;
-    location.reload();
+    const url = new URL(window.location.href);
+    url.searchParams.delete('backup_log');
+    url.searchParams.delete('source');
+    url.searchParams.delete('job_id');
+    window.location.replace(url.pathname + url.search + url.hash);
   }
 }
 
