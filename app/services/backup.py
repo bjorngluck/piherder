@@ -366,6 +366,65 @@ _RSYNC_SUDO = ("sudo", "-n")
 _RSYNC_REMOTE_PATH = "sudo -n rsync"
 
 
+def _remote_rsync_path(client, username: str) -> str:
+    """Pick remote --rsync-path: sudo when available, plain rsync for root/HAOS."""
+    user = (username or "").strip().lower()
+    path_probe = "PATH=/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin command -v rsync"
+
+    if user == "root":
+        for cmd in (path_probe, "command -v rsync", "which rsync"):
+            try:
+                status, out, _ = run_command(client, cmd, timeout=10)
+                if status == 0 and out.strip():
+                    return out.strip().splitlines()[0]
+            except Exception:
+                pass
+        return "rsync"
+
+    probes = (
+        (f"sudo -n sh -c '{path_probe}'", True),
+        ("sudo -n command -v rsync", True),
+        (path_probe, False),
+        ("command -v rsync", False),
+        ("which rsync", False),
+    )
+    for cmd, use_sudo in probes:
+        try:
+            status, out, _ = run_command(client, cmd, timeout=10)
+            if status == 0 and out.strip():
+                rsync_bin = out.strip().splitlines()[0]
+                return f"sudo -n {rsync_bin}" if use_sudo else rsync_bin
+        except Exception:
+            pass
+    return _RSYNC_REMOTE_PATH
+
+
+def _rsync_error_detail(rsync_stderr: str, rsync_path: str) -> str:
+    recent = (rsync_stderr or "")[-1500:].lower()
+    if "sudo" in recent and ("not found" in recent or "no such file" in recent):
+        return (
+            "sudo/rsync not available in non-interactive SSH session. "
+            "For HAOS use SSH user root without sudo, or install/configure sudo + rsync PATH."
+        )
+    if "command not found" in recent or ("rsync" in recent and "not found" in recent):
+        if "sudo" in rsync_path.lower():
+            return (
+                "Remote rsync not found via sudo. HAOS and root SSH often need plain rsync "
+                "(PiHerder auto-detects on retry)."
+            )
+        return "rsync command not found on remote. Install rsync on the target."
+    if "permission" in recent or "denied" in recent:
+        return (
+            "Permission denied on remote. Backups use sudo when available — "
+            "configure passwordless sudo for the SSH user, or use root on HAOS."
+        )
+    if "sudo" in recent and ("password" in recent or "a terminal" in recent):
+        return "sudo failed on remote. Allow passwordless sudo (NOPASSWD) for rsync for the SSH user."
+    if rsync_stderr.strip():
+        return rsync_stderr.strip().splitlines()[-1][:300]
+    return "rsync non-zero"
+
+
 def _source_dir_exists_local(path: str) -> bool:
     """Existence check aligned with sudo-backed rsync."""
     try:
@@ -514,9 +573,12 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
     )
 
     ssh_client = None
+    remote_rsync_path = _RSYNC_REMOTE_PATH
     if not is_local:
         try:
             ssh_client = get_ssh_client(server)
+            remote_rsync_path = _remote_rsync_path(ssh_client, username)
+            logger.info(f"[backup] {hostname} remote rsync-path: {remote_rsync_path}")
         except Exception as e:
             _send_webhook(f"Backup failed for {server.hostname}: SSH connection error - {e}")
             _clear_progress(hostname)
@@ -587,23 +649,42 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                         pass
                     _active_backup_procs.pop(hostname, None)
                 else:
+                    rsync_paths_to_try = [remote_rsync_path]
+                    if "sudo" in remote_rsync_path.lower():
+                        plain = remote_rsync_path.split()[-1] if remote_rsync_path.split() else "rsync"
+                        if plain not in rsync_paths_to_try:
+                            rsync_paths_to_try.append(plain)
                     with temp_key_file(priv) as key_path:
                         ssh_cmd = _build_rsync_ssh_cmd(key_path)
-                        cmd = rsync_base + ["-e", ssh_cmd, "--rsync-path", _RSYNC_REMOTE_PATH]
-                        cmd += [
-                            f"{username}@{server.hostname}:{src_rsync}",
-                            str(dest) + "/"
-                        ]
-                        proc = subprocess.Popen(
-                            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
-                        )
-                        _active_backup_procs[hostname] = proc
-                        rc = _wait_rsync_quiet(proc, src)
-                        try:
-                            rsync_stderr = (proc.stderr.read() or "") if proc.stderr else ""
-                        except Exception:
-                            pass
-                        _active_backup_procs.pop(hostname, None)
+                        for attempt_path in rsync_paths_to_try:
+                            cmd = rsync_base + ["-e", ssh_cmd, "--rsync-path", attempt_path]
+                            cmd += [
+                                f"{username}@{server.hostname}:{src_rsync}",
+                                str(dest) + "/"
+                            ]
+                            proc = subprocess.Popen(
+                                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
+                            )
+                            _active_backup_procs[hostname] = proc
+                            rc = _wait_rsync_quiet(proc, src)
+                            try:
+                                rsync_stderr = (proc.stderr.read() or "") if proc.stderr else ""
+                            except Exception:
+                                rsync_stderr = ""
+                            _active_backup_procs.pop(hostname, None)
+                            if rc == 0:
+                                break
+                            err_low = (rsync_stderr or "").lower()
+                            if attempt_path != rsync_paths_to_try[-1] and (
+                                "not found" in err_low or "command not found" in err_low
+                            ):
+                                _set_progress(
+                                    hostname,
+                                    log_line=f"Retrying {src} without sudo…",
+                                    force=True,
+                                )
+                                continue
+                            break
 
                 if rc == 0:
                     (dest / ".last_backup").touch()
@@ -618,21 +699,7 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                     })
                     _set_progress(hostname, log_line=f"Completed {src}")
                 else:
-                    error_detail = "rsync non-zero"
-                    recent = (rsync_stderr or "")[-1500:].lower()
-                    if "command not found" in recent or ("rsync" in recent and "not found" in recent):
-                        error_detail = "rsync command not found on remote. Install rsync on the target."
-                    elif "permission" in recent or "denied" in recent:
-                        error_detail = (
-                            "Permission denied on remote. Backups run via sudo -n rsync — "
-                            "configure passwordless sudo for the SSH user."
-                        )
-                    elif "sudo" in recent and ("password" in recent or "not found" in recent or "a terminal" in recent):
-                        error_detail = (
-                            "sudo failed on remote. Allow passwordless sudo (NOPASSWD) for rsync for the SSH user."
-                        )
-                    elif rsync_stderr.strip():
-                        error_detail = rsync_stderr.strip().splitlines()[-1][:300]
+                    error_detail = _rsync_error_detail(rsync_stderr, remote_rsync_path if not is_local else "sudo")
                     _set_progress(hostname, log_line=f"Failed {src}: {error_detail[:120]}", force=True)
                     results.append({"source": src, "rc": rc, "error": error_detail})
                     _send_webhook(f"Backup failed for {server.hostname}: rsync error on {src}")

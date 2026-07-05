@@ -84,19 +84,135 @@
   SSH keys are stored encrypted. Use <strong>Refresh</strong> to update backup status — this page does not auto-reload.
 </div>
 
+<div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4">
+    <div class="flex justify-between items-center mb-2">
+      <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
+      <div class="flex gap-1">
+        <button id="progress-stop-btn" class="text-xs px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-white">Stop</button>
+        <button type="button" onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 bg-zinc-800 rounded">Close</button>
+      </div>
+    </div>
+    <div id="backup-current-source" class="text-sm mb-1 text-emerald-300 font-mono min-h-[1.25rem]"></div>
+    <div class="text-xs text-zinc-400 mb-1">Live output</div>
+    <pre id="backup-progress-log" class="bg-black p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border border-zinc-800 rounded">Starting...</pre>
+  </div>
+</div>
+
 <script>
+let activePollJobId = null;
+let activePollSource = null;
+let activeServerId = null;
+let backupModalWasOpen = false;
+
+function backupProgressUrl(serverId, jobId, sourcePath) {
+  let url = '/servers/' + serverId + '/backup-progress';
+  if (jobId) url += '?job_id=' + encodeURIComponent(jobId);
+  else if (sourcePath) url += '?source=' + encodeURIComponent(sourcePath);
+  return url;
+}
+
+function startBackupProgressPoll(serverId, jobId, sourcePath) {
+  const modal = document.getElementById('backup-progress-modal');
+  if (!modal || !window.PiHerderPoll) return;
+  const logEl = modal.querySelector('#backup-progress-log');
+  const currentDiv = modal.querySelector('#backup-current-source');
+  const stopBtn = modal.querySelector('#progress-stop-btn');
+  activeServerId = serverId;
+  activePollJobId = jobId || null;
+  activePollSource = sourcePath || null;
+  if (logEl) delete logEl.dataset.lastTs;
+  window.PiHerderPoll.stop('backup-progress');
+  window.PiHerderPoll.start('backup-progress', backupProgressUrl(serverId, jobId, sourcePath), (data) => {
+    if (currentDiv) {
+      if (data.status === 'pending' || data.current === 'queued') {
+        currentDiv.innerText = 'Queued — waiting for worker';
+      } else if (data.current) {
+        currentDiv.innerText = data.current !== 'preparing' ? 'Currently: ' + data.current : 'Preparing...';
+      }
+    }
+    if (logEl && window.PiHerderUpdateLog) {
+      const fallback = (data.status === 'pending' || data.current === 'queued')
+        ? 'Waiting for worker…\n' : 'Starting...\n';
+      window.PiHerderUpdateLog(logEl, data, fallback);
+    }
+    if (data.error && logEl) logEl.textContent += '\nError: ' + data.error + '\n';
+    if (data.status === 'success' || data.status === 'failed') {
+      const label = data.status === 'success' ? '✓ Complete' : '✗ Failed';
+      if (logEl) logEl.innerText += '\n[' + label + '] Close to refresh list.\n';
+      if (stopBtn) stopBtn.style.display = 'none';
+      return true;
+    }
+    return false;
+  }, 8000);
+}
+
+function showBackupProgressModal(title, startPoll) {
+  const modal = document.getElementById('backup-progress-modal');
+  if (!modal) return;
+  modal.querySelector('#backup-progress-title').innerText = title;
+  const logEl = modal.querySelector('#backup-progress-log');
+  const currentDiv = modal.querySelector('#backup-current-source');
+  if (logEl) logEl.innerText = 'Starting full backup…\n';
+  if (currentDiv) currentDiv.innerText = '';
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  backupModalWasOpen = true;
+  const stopBtn = modal.querySelector('#progress-stop-btn');
+  if (stopBtn) {
+    stopBtn.style.display = '';
+    stopBtn.onclick = stopCurrentBackup;
+  }
+}
+
+function hideBackupProgressModal() {
+  if (window.PiHerderPoll) window.PiHerderPoll.stop('backup-progress');
+  const modal = document.getElementById('backup-progress-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+  if (backupModalWasOpen) {
+    backupModalWasOpen = false;
+    window.location.replace('/servers');
+  }
+}
+
+async function stopCurrentBackup() {
+  if (!activeServerId || !confirm('Stop this backup?')) return;
+  try {
+    const body = new FormData();
+    if (activePollJobId) body.append('job_id', String(activePollJobId));
+    else if (activePollSource) body.append('source', activePollSource);
+    await fetch('/servers/' + activeServerId + '/backup/stop', { method: 'POST', body });
+    const log = document.getElementById('backup-progress-log');
+    if (log) log.innerText += '\n[Stop requested]\n';
+  } catch (_) { alert('Failed to request stop'); }
+}
+
 document.querySelectorAll('form.backup-run-form, form[action*="/run/backup"]').forEach(form => {
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
     const serverId = form.action.match(/\/servers\/(\d+)\//)[1];
+    const serverName = form.closest('.rounded-xl')?.querySelector('a.font-medium')?.textContent?.trim() || 'server';
+    showBackupProgressModal('Backing up ' + serverName);
     try {
-      const res = await fetch(form.action, { method: 'POST', body: new FormData(form), redirect: 'manual' });
-      if (res.status === 409) {
-        window.location.href = '/servers/' + serverId + '?backup_log=1';
-        return;
+      const res = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'X-PiHerder-Async': '1' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok || res.status === 409) {
+        startBackupProgressPoll(serverId, data.job_id, data.source_filter || null);
+      } else {
+        const logEl = document.querySelector('#backup-progress-log');
+        if (logEl) logEl.textContent += '\nError: ' + (data.detail || 'Could not start backup') + '\n';
       }
-    } catch (_) {}
-    window.location.href = '/servers/' + serverId + '?backup_log=1';
+    } catch (_) {
+      const logEl = document.querySelector('#backup-progress-log');
+      if (logEl) logEl.textContent += '\nNetwork error starting backup.\n';
+    }
   });
 });
 </script>
