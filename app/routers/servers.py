@@ -485,7 +485,7 @@ async def get_backup_progress(
 async def stream_backup_logs(
     server_id: int,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ):
     server = session.get(Server, server_id)
     if not server:
@@ -534,7 +534,7 @@ async def get_os_patch_progress(
 async def stream_os_patch_logs(
     server_id: int,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_current_user)
 ):
     server = session.get(Server, server_id)
     if not server:
@@ -679,7 +679,7 @@ async def update_backup_config(
                 new_sources.append(existing[line])
             else:
                 new_sources.append({"source": line, "dest_name": None, "enabled": True})
-        server.backup_paths = json.dumps(new_sources)
+            server.backup_paths = json.dumps(new_sources)
         updated = True
 
     if dest_root.strip():
@@ -906,7 +906,7 @@ async def edit_compose(
         if not d.is_draft:
             try:
                 f = json.loads(d.files or '{}')
-                c = f.get('docker-compose.yml') or f.get('compose.yml') or ''
+                c = f.get('Dockerfile') or ''
                 if c.strip() == live_clean:
                     live_version = d
                     break
@@ -1010,7 +1010,7 @@ async def edit_dockerfile(
             "user": user,
             "errors": [],
             "is_dockerfile": True,
-            "drafts": drafts,
+            "drafts": df_drafts,
             "live_version": live_version,
             "editing_version_id": editing_version_id,
         }
@@ -1041,7 +1041,7 @@ async def save_dockerfile(
     # Basic "validation"
     errors = []
     if not content or not content.strip():
-        errors.append({"line": 1, "column": 1, "message": "Dockerfile cannot be empty"])
+        errors.append({"line": 1, "column": 1, "message": "Dockerfile cannot be empty"})
     elif not any(line.strip().upper().startswith(("FROM", "RUN", "CMD", "EXPOSE", "ENV")) for line in content.splitlines()[:20]):
         errors.append({"line": 1, "column": 1, "message": "Does not look like a valid Dockerfile (no FROM/RUN/etc in first lines)"])
 
