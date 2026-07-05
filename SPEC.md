@@ -2,7 +2,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** v0.1.0 — Phase 1 largely complete  
-> **Last updated:** 2026-07-05
+> **Last updated:** 2026-07-05 (post-refinement)
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -43,6 +43,11 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 | Compose file editing + versioning | ✅ | Drafts, deploy, rollback |
 | New Docker project wizard | ✅ | |
 | User auth (register / login) | ✅ | Single-user v1 |
+
+### Recent Phase 1 refinements
+- Backup success/failure is now determined by per-source `rc == 0` (and absence of errors). Failed runs set status="failed", populate error details in audit, and do **not** update `last_backup_at`.
+- rsync always uses `--rsync-path "sudo -n rsync"` (or local sudo) except for explicit root users / HAOS installs, where plain `rsync` is auto-probed and retried.
+- PiHerder self-backup scheduling is fully wired (enable, cron, mode=config_only|full, keep, timezone) with UI at `/herder-backups`, APScheduler registration on startup, manual trigger, preview restore, and audit entries.
 
 ---
 
@@ -109,31 +114,71 @@ Related backup hardening (same phase):
 
 ## Architecture
 
+```mermaid
+flowchart TB
+    Browser["Browser (HTMX + Alpine)"] -->|HTTPS| Caddy
+    Caddy --> FastAPI["FastAPI (web)"]
+
+    subgraph Core["Core Services"]
+        FastAPI --> DB[(PostgreSQL)]
+        FastAPI --> Scheduler["APScheduler (cron)"]
+        FastAPI --> Celery["Celery worker (concurrency=1)"]
+    end
+
+    Scheduler -->|enqueue scheduled jobs| Celery
+    Celery -->|reads/writes| DB
+    Celery -->|Paramiko SSH + rsync/docker/apt| PiFleet["Remote Pi fleet"]
+
+    FastAPI -->|DB reads for UI| DB
+    FastAPI -.->|progress polling via Job.details| Celery
 ```
-┌─────────────┐     HTTPS      ┌──────────┐
-│   Browser   │ ──────────────▶│  Caddy   │
-└─────────────┘                └────┬─────┘
-                                    │
-                              ┌─────▼─────┐
-                              │  FastAPI  │
-                              │  (web)    │
-                              └─────┬─────┘
-                    ┌───────────────┼───────────────┐
-                    │               │               │
-              ┌─────▼─────┐  ┌──────▼──────┐  ┌─────▼─────┐
-              │ PostgreSQL │  │ APScheduler │  │  Paramiko │
-              │   (db)     │  │  (cron)     │  │  (SSH)    │
-              └────────────┘  └─────────────┘  └─────┬─────┘
-                                                     │
-                              ┌──────────────────────┼──────────────────────┐
-                              │                      │                      │
-                        ┌─────▼─────┐          ┌─────▼─────┐          ┌─────▼─────┐
-                        │  Pi #1    │          │  Pi #2    │          │  Pi #N    │
-                        │ docker    │          │ docker    │          │ docker    │
-                        └───────────┘          └───────────┘          └───────────┘
+
+**Key flows (technical view):**
+
+```mermaid
+flowchart TD
+    UI["UI: ▶ Backup (servers list / detail / backups page)"] -->|POST /servers/{id}/run/backup<br/>X-PiHerder-Async: 1| Router["FastAPI router"]
+    Router -->|create_job_and_run| JobSvc["jobs service"]
+    JobSvc -->|AuditLog + Job row| DB[(DB)]
+    JobSvc --> Celery["Celery / background: run_backup()"]
+
+    Celery --> Detect["Detect remote rsync path"]
+    Detect --> Probe{"SSH user == root or HAOS?"}
+    Probe -->|yes| Plain["use plain rsync"]
+    Probe -->|no| Sudo["use sudo -n rsync<br/>--rsync-path sudo -n rsync"]
+
+    Sudo --> Rsync["run rsync per source<br/>(delta + --delete, progress)"]
+    Plain --> Rsync
+
+    Rsync --> Check{"backup_succeeded() ?<br/>(all rc==0 + no errors)"}
+    Check -->|yes| Success["status=success<br/>last_backup_at = now<br/>size via du -sb"]
+    Check -->|no| Fail["status=failed<br/>error = backup_failure_message()"]
+
+    Success --> FinalOK["finalize Job + AuditLog (success)"]
+    Fail --> FinalFail["finalize Job + AuditLog (failed)<br/>do not touch last_backup_at"]
+
+    UI -.poll.->|GET /servers/{id}/backup-progress?job_id=...| Progress["prefers DB Job.details"]
+    Progress --> UI
 ```
 
 **Stack:** FastAPI · SQLModel · PostgreSQL · Paramiko · cryptography (Fernet) · Jinja2 · Tailwind (vendored) · HTMX · Alpine · Caddy
+
+The diagrams above reflect current behavior: DB-backed progress and jobs, per-source rc checking for success/failure, automatic plain rsync for root/HAOS, and `last_backup_at` only updated on true success.
+
+**Herder self-backup flow (technical):**
+
+```mermaid
+flowchart LR
+    Config["/herder-backups UI<br/>(schedule + manual)"] -->|POST| Main["main.py handlers"]
+    Main -->|sync_herder_backup_schedule| APS["APScheduler"]
+    APS -->|periodic| Job["schedule_herder_backup_job"]
+    Job --> HB["herder_backup.create_herder_backup()"]
+    HB -->|tar.gz + json snapshot| Disk["/herder_backups<br/>(host-mapped volume)"]
+    Main -->|manual run + restore preview| Disk
+    Disk --> Restore["restore_herder_backup(dry_run or apply)"]
+    Restore -->|upsert servers/keys/audit| DB[(DB)]
+    Main -->|create AuditLog| DB
+```
 
 ---
 

@@ -19,12 +19,13 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - OS patching (apt full sequence + reboot-required detection).
 - Diagnostics (ping, DNS, system info, etc.).
 - Full audit trail + job logs (filter by user/status/action/server + action links).
-- Self-backup of PiHerder config (servers + encrypted keys) on schedule, compressed, with restore.
+- Self-backup of PiHerder config (servers + encrypted keys) — scheduled via UI (Settings), compressed archives, restore with preview.
 - Link to Pi-hole admin from dashboard (configurable).
 - HTTPS via Caddy (Let's Encrypt).
 
-**Volumes note (docker-compose):**
-- `~/piherder_backups:/herder_backups` for the self-backup feature (map a host dir).
+**Volumes (docker-compose.yml):**
+- `~/backup:/backups` — destination root for per-server rsync backups.
+- `./piherder_backups:/herder_backups` — PiHerder self-backup archives (config, encrypted keys, optional audit). Map a persistent host directory here.
 
 ## Tech Stack (per spec)
 
@@ -71,7 +72,8 @@ Pre-built images will be available on Docker Hub so most people don't need to bu
 
 5. On the target Pi(s):
    - Add the displayed public key to `~/.ssh/authorized_keys`.
-   - Ensure passwordless sudo for the SSH user (for apt, rsync on volumes, docker compose).
+   - Ensure passwordless sudo for the SSH user (for apt, docker compose, and rsync on most systems).
+   - For HAOS or root SSH users, backups can use plain rsync (auto-detected; no sudo required for rsync).
    - `docker` group membership for container ops.
 
 ## Configuration from Legacy Scripts
@@ -101,13 +103,12 @@ All actions create AuditLog entries with status + snippet.
 
 ## Replacing Cron Jobs
 
-Instead of crontab running the bash scripts, use:
-- UI manual triggers, **or**
-- External cron / systemd timer calling the API (future: built-in scheduler).
+Use the built-in scheduler (UI-configured per-server backup schedules + global herder self-backup at Settings) or manual triggers.
 
-Example:
+For other job types or external systems you can still call the API:
+
 ```bash
-# Trigger container patch on a server (requires auth token)
+# Example: trigger container patch on a server (requires auth token)
 curl -H "Authorization: Bearer $TOKEN" \
   -X POST http://piherder.local/api/servers/1/jobs/container_patch
 ```
@@ -134,7 +135,10 @@ alembic upgrade head
 
 ## Volumes
 
-- `piherder_backups` → `/backups` (backups land here; bind-mount in compose override if you want `~/backup` on host).
+- `~/backup:/backups` — per-server backup destination (rsync targets land here).
+- `./piherder_backups:/herder_backups` — self-backup archives for PiHerder itself.
+
+Bind-mount host directories as needed for persistence.
 
 ## Roadmap
 
