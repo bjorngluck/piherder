@@ -634,8 +634,8 @@ async def update_backup_config(
             if line in existing:
                 new_sources.append(existing[line])
             else:
-                    new_sources.append({"source": line, "dest_name": None, "enabled": True})
-            server.backup_paths = json.dumps(new_sources)
+                new_sources.append({"source": line, "dest_name": None, "enabled": True})
+        server.backup_paths = json.dumps(new_sources)
         updated = True
 
     if dest_root.strip():
@@ -1389,8 +1389,7 @@ async def get_docker_logs(
 
 
 @router.get("/{server_id}/docker/containers-fragment", response_class=HTMLResponse)
-async def containers_fragment(server_id: int, request: Request, session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)):
+async def containers_fragment(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
