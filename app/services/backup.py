@@ -74,18 +74,18 @@ def stop_backup(hostname: str):
 # Falls back to in-memory dict when Redis is unreachable.
 _backup_progress: dict[str, dict] = {}  # in-memory fallback
 
-
 def get_backup_progress(hostname: str) -> dict:
     """Return current backup progress for UI polling / SSE.
-    Tries Redis first (works across web + Celery processes), falls back to memory.
-    Uses a short internal cache to reduce pressure during long backups.
+    Always includes 'last_updated' (unix timestamp).
+    Uses 2s in-process cache so repeated polls (every 2-3s) are almost free.
+    Tries Redis first for cross-process visibility (Celery → web).
     """
     now = time.time()
 
-    # Lightweight in-process cache (1.5s TTL)
+    # Lightweight in-process cache (2s TTL) - makes frequent polling from frontend very cheap
     if hostname in _progress_cache:
         ts, data = _progress_cache[hostname]
-        if now - ts < 1.5:
+        if now - ts < 2.0:
             return data
 
     r = _get_redis()
@@ -94,32 +94,33 @@ def get_backup_progress(hostname: str) -> dict:
             data = r.get(f"piherder:backup_progress:{hostname}")
             if data:
                 parsed = json.loads(data)
+                if "last_updated" not in parsed:
+                    parsed["last_updated"] = now
                 _progress_cache[hostname] = (now, parsed)
                 return parsed
         except Exception:
             pass
 
     # Fallback to memory
-    data = _backup_progress.get(hostname, {"current": None, "log_lines": []})
+    data = _backup_progress.get(hostname, {"current": None, "log_lines": [], "last_updated": now})
+    if "last_updated" not in data:
+        data["last_updated"] = now
     _progress_cache[hostname] = (now, data)
     return data
 
-
 def _set_progress(hostname: str, current: str | None = None, log_line: str | None = None):
-    """Update progress with stronger throttling for long-running backups.
+    """Update progress with strong throttling for long-running backups.
 
-    - 'current' (which file) can update more frequently (helps UI feel responsive)
-    - Full log line appends + Redis writes are heavily throttled (~800ms)
-      unless the line is important (error/complete/etc).
-    - This prevents the web container from being overwhelmed during
-      very large backups (1TB+, 10k+ files).
+    - 'current' (which file) updates more frequently for responsive UI feel.
+    - Log line appends + Redis writes are throttled (~800ms) unless important (error/complete/etc).
+    - Always sets 'last_updated' so frontend can be smart about re-rendering.
     """
     now = time.time()
     last = _last_progress_update.get(hostname, 0)
 
     # Always keep in-memory 'current' fresh
     if hostname not in _backup_progress:
-        _backup_progress[hostname] = {"current": None, "log_lines": []}
+        _backup_progress[hostname] = {"current": None, "log_lines": [], "last_updated": now}
     if current is not None:
         _backup_progress[hostname]["current"] = current
 
@@ -130,9 +131,10 @@ def _set_progress(hostname: str, current: str | None = None, log_line: str | Non
         if any(kw in low for kw in ("error", "fail", "denied", "complete", "finished", "skipped", "done", "warning")):
             force = True
 
-    # Much more aggressive throttle for long jobs
     THROTTLE_SECONDS = 0.8
     if not force and (now - last) < THROTTLE_SECONDS:
+        # Still update last_updated even on throttled calls so UI knows something is happening
+        _backup_progress[hostname]["last_updated"] = now
         return _backup_progress[hostname]
 
     _last_progress_update[hostname] = now
@@ -142,15 +144,16 @@ def _set_progress(hostname: str, current: str | None = None, log_line: str | Non
         try:
             key = f"piherder:backup_progress:{hostname}"
             existing = r.get(key)
-            p = json.loads(existing) if existing else {"current": None, "log_lines": []}
+            p = json.loads(existing) if existing else {"current": None, "log_lines": [], "last_updated": now}
             if current is not None:
                 p["current"] = current
             if log_line:
                 p["log_lines"].append(log_line)
                 if len(p["log_lines"]) > 40:
                     p["log_lines"] = p["log_lines"][-40:]
+            p["last_updated"] = now
             r.set(key, json.dumps(p), ex=3600)
-            _progress_cache[hostname] = (now, p)   # update cache
+            _progress_cache[hostname] = (now, p)
             return p
         except Exception:
             pass
@@ -161,9 +164,9 @@ def _set_progress(hostname: str, current: str | None = None, log_line: str | Non
         p["log_lines"].append(log_line)
         if len(p["log_lines"]) > 40:
             p["log_lines"] = p["log_lines"][-40:]
+    p["last_updated"] = now
     _progress_cache[hostname] = (now, p)
     return p
-
 
 def _clear_progress(hostname: str):
     r = _get_redis()
@@ -176,10 +179,8 @@ def _clear_progress(hostname: str):
     _last_progress_update.pop(hostname, None)
     _progress_cache.pop(hostname, None)
 
-
 def _build_rsync_ssh_cmd(key_path: str) -> str:
     return f'ssh -i {key_path} {LEGACY_SSH_OPTS_STR}'
-
 
 def _send_webhook(message: str):
     """Send notification using same shape as the original backup scripts."""
@@ -194,7 +195,6 @@ def _send_webhook(message: str):
         httpx.post(settings.WEBHOOK_URL, json=payload, timeout=10)
     except Exception:
         pass  # never break the backup on notification failure
-
 
 def _path_requires_privilege(path: str) -> bool:
     """Heuristic: does this path typically require root/sudo on the remote host?
@@ -213,7 +213,6 @@ def _path_requires_privilege(path: str) -> bool:
         "/etc/docker",
     )
     return any(item in p for item in privileged)
-
 
 def _folder_exists_via_ssh(client, folder: str, username: str) -> bool:
     """Check if a folder exists on the remote host over SSH.
@@ -247,7 +246,6 @@ def _folder_exists_via_ssh(client, folder: str, username: str) -> bool:
             return True
 
     return False
-
 
 def run_backup(server: Server, user_id: int | None = None, sources_override: Optional[List[dict]] = None) -> dict:
     """Main entry for a backup job. Replicates original backup_script.sh closely.
@@ -545,7 +543,6 @@ def get_last_backup_time_for_dest(hostname: str, dest_name: str) -> Optional[dat
             pass
     return None
 
-
 def get_backup_root_for_server(server_or_hostname) -> Path:
     """Return the root path for backups.
     Accepts Server object (for per-host overrides) or hostname str.
@@ -563,13 +560,11 @@ def get_backup_root_for_server(server_or_hostname) -> Path:
         root = g.get("dest_root") or settings.BACKUP_ROOT
         return Path(root) / folder
 
-
 def get_destination_for_source(hostname: str, source: str) -> str:
     """Compute the destination folder name (matches original rsync behavior)."""
     folder_name = Path(source).name or "root"
     root = get_backup_root_for_server(hostname)
     return str(root / folder_name)
-
 
 def get_last_backup_time(hostname: str, source: str) -> Optional[datetime]:
     """Read the .last_backup marker written by the backup script (most accurate, matches legacy scripts)."""
@@ -583,7 +578,6 @@ def get_last_backup_time(hostname: str, source: str) -> Optional[datetime]:
             return None
     return None
 
-
 def get_dir_size(path: Path) -> int:
     """Calculate total size of directory in bytes."""
     total = 0
@@ -594,7 +588,6 @@ def get_dir_size(path: Path) -> int:
     except Exception:
         pass
     return total
-
 
 def human_size(num_bytes: int) -> str:
     """Convert a byte count to a human-readable string (KB/MB/GB etc.)."""
@@ -609,7 +602,6 @@ def human_size(num_bytes: int) -> str:
     if unit_index == 0:
         return f"{int(size)} {units[unit_index]}"
     return f"{size:.1f} {units[unit_index]}"
-
 
 def add_backup_source(server: Server, source: str, dest_name: Optional[str] = None, session=None) -> bool:
     """Add a new flexible backup source. Supports custom dest folder name."""
@@ -633,7 +625,6 @@ def add_backup_source(server: Server, source: str, dest_name: Optional[str] = No
         session.commit()
     return True
 
-
 def remove_backup_source(server: Server, source: str, session=None) -> bool:
     sources = server.get_backup_sources()
     original_len = len(sources)
@@ -652,6 +643,6 @@ def remove_backup_source(server: Server, source: str, session=None) -> bool:
 def add_backup_path(server: Server, new_path: str, session) -> bool:
     return add_backup_source(server, new_path, None, session)
 
-def remove_backup_path(server: Server, path_to_remove: str, session) -> bool:
+def remove_backup_path(server: Server, path_to_remove: str, session=None) -> bool:
     return remove_backup_source(server, path_to_remove, session)
 
