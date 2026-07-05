@@ -98,46 +98,6 @@ function copyModalPubKey(btn) {
 
   // No Clipboard API (common over plain HTTP in Docker) → use execCommand
   execCommandCopy(btn, text, original);
-}
-
-function execCommandCopy(btn, text, original) {
-  const temp = document.createElement('textarea');
-  temp.value = text;
-  temp.setAttribute('readonly', '');
-  temp.style.position = 'fixed';
-  temp.style.top = '-9999px';
-  temp.style.left = '-9999px';
-  document.body.appendChild(temp);
-
-  temp.focus();
-  temp.select();
-
-  let success = false;
-  try {
-    success = document.execCommand('copy');
-  } catch (e) {
-    console.warn('execCommand failed', e);
-  }
-
-  document.body.removeChild(temp);
-
-  if (success) {
-    btn.innerText = 'Copied!';
-  } else {
-    // Still failed → make the key easy to copy manually inside the modal
-    const ta = document.getElementById('modal-pubkey');
-    if (ta) {
-      ta.focus();
-      ta.select();
-    }
-    btn.innerText = 'Selected - Ctrl+C';
-  }
-
-  setTimeout(() => {
-    btn.innerText = original;
-    btn.disabled = false;
-  }, 1600);
-}
 </script>
 
 <div class="mt-6">
@@ -245,11 +205,19 @@ function execCommandCopy(btn, text, original) {
       {% if backup_profiles %}
         <span class="text-xs text-zinc-400">• {{ backup_profiles|length }} source(s)</span>
       {% endif %}
-      {% if last_backup_status %}
+
+      {# DB-backed status from latest Job (worker writes this) #}
+      {% if current_backup_job and current_backup_job.status == 'running' %}
+        <span class="ml-2 text-xs px-2 py-0.5 rounded bg-blue-800 text-blue-300">running</span>
+        {% set job_details = current_backup_job.details | fromjson if current_backup_job.details else {} %}
+        {% if job_details.current %}
+          <span class="ml-1 text-xs text-blue-400">{{ job_details.current }}</span>
+        {% endif %}
+      {% elif last_backup_status %}
         <span class="ml-2 text-xs px-1.5 py-0.5 rounded {{ 'bg-emerald-800 text-emerald-300' if last_backup_status == 'success' else 'bg-red-800 text-red-300' }}">last: {{ last_backup_status }}</span>
       {% endif %}
     </div>
-    <a href="/servers/{{ server.id }}/backups" class="px-3 py-1 bg-blue-700 hover:bg-blue-600 text-sm rounded">Manage Backups &amp; Config →</a>
+    <a href="/servers/{{ server.id }}/backups" class="px-3 py-1 bg-blue-700 hover:bg-blue-600 text-sm rounded">Manage Backups & Config →</a>
   </div>
 
   <div class="mt-3 flex flex-wrap gap-2">
@@ -378,7 +346,7 @@ function execCommandCopy(btn, text, original) {
           <input type="checkbox" name="steps" value="autoremove" checked> Remove Redundant Packages (sudo apt autoremove)
         </label>
       </div>
-      <p class="text-[10px] text-zinc-500 mb-3">Defaults keep local configs and restart services. Live logs will stream in progress modal.</p>
+        <p class="text-[10px] text-zinc-500 mb-3">Defaults keep local configs and restart services. Live logs will stream in progress modal.</p>
       <div class="flex gap-2">
         <button type="submit" class="px-4 py-1 bg-amber-600 hover:bg-amber-500 rounded text-sm">Run Selected Steps</button>
         <button type="button" onclick="hideOsPatchModal()" class="px-4 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-sm ml-auto">Cancel</button>
