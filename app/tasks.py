@@ -17,12 +17,12 @@ import traceback
 logger = logging.getLogger(__name__)
 
 
-@celery.task(bind=True, max_retries=3, default_retry_delay=60)
+@celery.task(bind=True, max_retries=1, default_retry_delay=30)
 def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int | None = None, source_filter: str | None = None):
     """
     Celery background task to run backup for a server.
     Now properly integrated: updates Job + AuditLog records on completion.
-    Called from jobs.create_job_and_run for backup-type jobs.
+    Retries only once on transient connection errors.
     """
     try:
         logger.info(f"[Celery] Starting backup for server ID: {server_id} (job={job_id})")
@@ -67,12 +67,23 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
 
     except Exception as exc:
         logger.error(f"Backup failed for server {server_id}: {exc}\n{traceback.format_exc()}")
+
+        # Only retry once on clearly transient connection/SSH errors
+        error_str = str(exc).lower()
+        is_transient = any(x in error_str for x in ("connection", "timeout", "refused", "reset", "closed"))
+
         if job_id or audit_id:
             try:
                 _finish_job_audit(job_id, audit_id, "failed", str(exc)[:2000], getattr(server, 'hostname', str(server_id)) if 'server' in locals() else str(server_id), "backup")
             except Exception:
                 pass
-        raise self.retry(exc=exc)
+
+        if is_transient:
+            logger.warning(f"[Celery] Transient error detected for server {server_id} - retrying once")
+            raise self.retry(exc=exc)
+        else:
+            # Permanent error - fail immediately (no more retries)
+            logger.info(f"[Celery] Permanent error for server {server_id} - not retrying")
 
 
 def _finish_job_audit(job_id: int | None, audit_id: int | None, status: str, snippet: str, hostname: str = "", job_type: str = "backup"):
