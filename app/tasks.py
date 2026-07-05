@@ -12,6 +12,7 @@ from app.models import Server, Job, AuditLog
 from datetime import datetime
 import json
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
             }
 
     except Exception as exc:
-        logger.error(f"Backup failed for server {server_id}: {exc}")
+        logger.error(f"Backup failed for server {server_id}: {exc}\n{traceback.format_exc()}")
         if job_id or audit_id:
             try:
                 _finish_job_audit(job_id, audit_id, "failed", str(exc)[:2000], getattr(server, 'hostname', str(server_id)) if 'server' in locals() else str(server_id), "backup")
