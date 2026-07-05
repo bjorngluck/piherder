@@ -28,6 +28,26 @@ _last_progress_update: dict[str, float] = {}
 _progress_cache: dict[str, tuple[float, dict]] = {}   # (timestamp, data) for lightweight caching
 
 
+GLOBAL_BACKUP_DEFAULTS_FILE = Path(settings.BACKUP_ROOT) / ".global_backup_defaults.json"
+
+def get_global_backup_defaults() -> dict:
+    """Stub: return global defaults from file or empty."""
+    try:
+        if GLOBAL_BACKUP_DEFAULTS_FILE.exists():
+            return json.loads(GLOBAL_BACKUP_DEFAULTS_FILE.read_text())
+    except Exception:
+        pass
+    return {}
+
+def save_global_backup_defaults(config: dict):
+    """Stub: persist global defaults to file."""
+    try:
+        GLOBAL_BACKUP_DEFAULTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        GLOBAL_BACKUP_DEFAULTS_FILE.write_text(json.dumps(config, indent=2))
+    except Exception:
+        pass
+
+
 def _get_redis():
     """Return a Redis client (shared with Celery) or None if unavailable."""
     global _redis_client
@@ -128,7 +148,7 @@ def _set_progress(hostname: str, current: str | None = None, log_line: str | Non
     force = False
     if log_line:
         low = log_line.lower()
-        if any(kw in low for kw in ("error", "fail", "denied", "complete", "finished", "skipped", "done", "warning")):
+        if any(kw in low for k in ("error", "fail", "denied", "complete", "finished", "skipped", "done", "warning")):
             force = True
 
     THROTTLE_SECONDS = 0.8
@@ -212,7 +232,7 @@ def _path_requires_privilege(path: str) -> bool:
         "/.docker/",
         "/etc/docker",
     )
-    return any(item in p for item in privileged)
+    return any(item in p for p in privileged)
 
 def _folder_exists_via_ssh(client, folder: str, username: str) -> bool:
     """Check if a folder exists on the remote host over SSH.
@@ -291,7 +311,7 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
         try:
             if os.path.exists("/.dockerenv"):
                 return True
-            with open("/proc/1/cgroup", "r") as f:
+            with open("/proc/1/cgroup", "r"):
                 if any(x in f.read() for x in ("docker", "kubepods", "containerd", "lxc")):
                     return True
         except Exception:
@@ -338,7 +358,7 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                 # Existence check
                 if is_local:
                     if _path_requires_privilege(src):
-                        exists = subprocess.call(["sudo", "-n", "test", "-d", src]) == 0
+                        exists = subprocess.call(["sudo", "-n", "test -d", src]) == 0
                     else:
                         exists = os.path.isdir(src)
                 else:
@@ -461,8 +481,6 @@ def run_retention(server: Server) -> dict:
 
 
 # === Backup Profiles / Flexibility helpers ===
-
-GLOBAL_BACKUP_DEFAULTS_FILE = Path(settings.BACKUP_ROOT) / ".global_backup_defaults.json"
 
 def get_backup_profiles(server: Server) -> List[Dict]:
     """Return rich backup profile info for UI.
