@@ -36,8 +36,7 @@ logger = logging.getLogger("piherder.servers")
 @router.get("", response_class=HTMLResponse)
 async def list_servers(request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
     """Lean Servers list - pure DB read for speed and stability.
-    Expensive operations (backup profiles, SSH, FS) removed from hot path.
-    Last backup info will be added later via background collection.
+    Last backup time is now included via a fast grouped query on AuditLog.
     """
     start = time.time()
 
@@ -47,9 +46,25 @@ async def list_servers(request: Request, session: Session = Depends(get_session)
     except Exception:
         rows = session.exec(select(Server).order_by(Server.name)).all()
 
+    # Fast query: latest successful backup per server
+    last_backup_map = {}
+    try:
+        last_backup_rows = session.exec(
+            select(AuditLog.server_id, func.max(AuditLog.started_at))
+            .where(AuditLog.action == "backup", AuditLog.status == "success")
+            .group_by(AuditLog.server_id)
+        ).all()
+        last_backup_map = {server_id: started_at for server_id, started_at in last_backup_rows}
+    except Exception:
+        pass
+
     servers = []
     for row in rows:
         d = row.model_dump(exclude={"audit_logs", "jobs"})
+        last = last_backup_map.get(row.id)
+        if last:
+            d["last_backup"] = last
+            d["last_backup_str"] = format_datetime_in_app_tz(last)
         servers.append(d)
 
     total = time.time() - start
@@ -635,12 +650,12 @@ async def update_backup_config(
             if line in existing:
                 new_sources.append(existing[line])
             else:
-                new_sources.append({"source": line, "dest_name": None, "enabled": True})
-        server.backup_paths = json.dumps(new_sources)
-        logger.info(f"[backup-config] FORCING commit for server {server_id} backup_paths={server.backup_paths[:120]}...")
-        session.add(server)
-        session.commit()
-        logger.info(f"[backup-config] COMMIT DONE for server {server_id}")
+                    new_sources.append({"source": line, "dest_name": None, "enabled": True})
+            server.backup_paths = json.dumps(new_sources)
+            logger.info(f"[backup-config] FORCING commit for server {server_id} backup_paths={server.backup_paths[:120]}...")
+            session.add(server)
+            session.commit()
+            logger.info(f"[backup-config] COMMIT DONE for server {server_id}")
 
     if dest_root.strip():
         server.backup_dest_root = dest_root.strip()
@@ -785,7 +800,7 @@ async def docker_container_action(
         session.commit()
     except Exception:
         pass
-    return RedirectResponse(f"/servers/{server_id}/docker", status_code=303)
+    return RedirectResponse(f"/servers/{server_id}", status_code=303)
 
 
 @router.get("/{server_id}/docker/compose/{project}/file-content", response_class=JSONResponse)
@@ -817,6 +832,8 @@ async def get_file_content(
                 return {"ok": True, "file": key, "content": live_files[key]}
         content = next(iter(live_files.values()), "") if live_files else ""
         return {"ok": True, "file": "docker-compose.yml", "content": content}
+    content = next(iter(live_files.values()), "") if live_files else ""
+    return {"ok": True, "file": key, "content": content}
 
 
 @router.get("/{server_id}/docker/compose/{project}/edit", response_class=HTMLResponse)
@@ -848,7 +865,7 @@ async def edit_compose(
             dv = next((d for d in drafts if str(d.id) == load_draft_id), None)
             if dv:
                 f = json.loads(dv.files)
-                content = f.get("docker-compose.yml") or f.get("compose.yml") or list(f.values())[0] if f else content
+                content = f.get('Dockerfile') or content
                 if dv.is_draft:
                     editing_version_id = dv.id
         except:
@@ -882,12 +899,11 @@ async def edit_compose(
         context={
             "title": f"Edit {project}",
             "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
-            "project": proj,
+            "project": project,
             "content": content,
             "user": user,
             "errors": errors,
             "is_dockerfile": False,
-            "live_files": live_files,
             "drafts": drafts,
             "live_version": live_version,
             "editing_version_id": editing_version_id,
@@ -1181,148 +1197,6 @@ async def redeploy(
     except Exception:
         pass
     return RedirectResponse(f"/servers/{server_id}/docker", status_code=303)
-
-
-@router.post("/{server_id}/docker/compose/{project}/build")
-async def build_compose(
-    server_id: int,
-    project: str,
-    services: List[str] = Form([]),
-    no_cache: str = Form(None),
-    session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
-):
-    server = session.get(Server, server_id)
-    if not server:
-        raise HTTPException(404)
-
-    projects = docker_svc.list_compose_projects(server)
-    proj = next((p for p in projects if p["name"] == project), None)
-    if not proj:
-        raise HTTPException(404)
-
-    svc_list = [s for s in (services or []) if s]
-    if not svc_list:
-        svc_list = None
-
-    params = f"project={project}"
-    if svc_list:
-        params += f"&services={','.join(svc_list)}"
-    if no_cache == "on" or no_cache == "true":
-        params += "&no_cache=true"
-    try:
-        audit = AuditLog(
-            user_id=user.id if user else None,
-            server_id=server_id,
-            action="docker_build",
-            status="running",
-            details=f"Project {project} services={svc_list or 'all'}",
-            started_at=datetime.utcnow(),
-        )
-        session.add(audit)
-        session.commit()
-    except Exception:
-        pass
-    return RedirectResponse(f"/servers/{server_id}/docker/build-progress?{params}", status_code=303)
-
-
-@router.get("/{server_id}/docker/build-progress", response_class=HTMLResponse)
-async def build_progress(
-    server_id: int,
-    project: str,
-    services: str = "",
-    no_cache: bool = False,
-    request: Request = None,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
-):
-    server = session.get(Server, server_id)
-    if not server:
-        raise HTTPException(404)
-    svc_list = services.split(",") if services else []
-    return templates_mod.templates.TemplateResponse(
-        request=request,
-        name="docker_build_progress.html",
-        context={
-            "title": f"Build - {project}",
-            "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
-            "user": user,
-            "project": project,
-            "services": svc_list,
-            "no_cache": no_cache,
-            "server_id": server_id
-        }
-    )
-
-
-@router.get("/{server_id}/docker/build-stream")
-async def build_stream(
-    server_id: int,
-    project: str,
-    services: str = "",
-    no_cache: bool = False,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
-):
-    server = session.get(Server, server_id)
-    if not server:
-        raise HTTPException(404)
-    projects = docker_svc.list_compose_projects(server)
-    proj = next((p for p in projects if p["name"] == project), None)
-    if not proj:
-        raise HTTPException(404)
-    svc_list = [s for s in services.split(",") if s] if services else None
-    return StreamingResponse(
-        docker_svc.stream_compose_build(server, proj["path"], svc_list, no_cache),
-        media_type="text/event-stream"
-    )
-
-
-@router.get("/{server_id}/docker/unused", response_class=HTMLResponse)
-async def list_unused(
-    server_id: int,
-    request: Request,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
-):
-    server = session.get(Server, server_id)
-    if not server:
-        raise HTTPException(404)
-    data = docker_svc.list_unused_images_and_containers(server)
-    html = "<div class='text-xs'>"
-    html += "<b>Dangling images (prunable):</b><br>" + ("<br>".join(data.get("dangling_images", [])) or "none") + "<br><br>"
-    html += "<b>Exited containers (prunable):</b><br>" + ("<br>".join(data.get("exited_containers", [])) or "none")
-    html += "</div>"
-    return HTMLResponse(html)
-
-
-@router.post("/{server_id}/docker/prune-unused")
-async def prune_unused_route(
-    server_id: int,
-    prune_type: str = Form("both"),
-    session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
-):
-    server = session.get(Server, server_id)
-    if not server:
-        raise HTTPException(404)
-    res = docker_svc.prune_unused(server, prune_type=prune_type)
-    try:
-        audit = AuditLog(
-            user_id=user.id if user else None,
-            server_id=server_id,
-            action=f"docker_prune_{prune_type}",
-            status="success" if res.get("success") else "failed",
-            details="Prune unused",
-            output_snippet=str(res)[:300],
-            started_at=datetime.utcnow(),
-            finished_at=datetime.utcnow(),
-        )
-        session.add(audit)
-        session.commit()
-    except Exception:
-        pass
-    return RedirectResponse(f"/servers/{server_id}/docker?prune={ 'ok' if res.get('success') else 'fail' }&prune_type={prune_type}", status_code=303)
 
 
 @router.post("/{server_id}/docker/compose/{action}")
