@@ -6,7 +6,7 @@ import json
 from typing import Optional, List
 from starlette.concurrency import run_in_threadpool
 from ..database import get_session, ensure_server_columns
-from ..models import Server, AuditLog
+from ..models import Server, AuditLog, Job
 from datetime import datetime
 from ..security import encryption
 import asyncio
@@ -180,11 +180,20 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
     global_backup_defaults = {}
     current_sources = []
     diagnostics = {"error": "n/a"}
+    current_backup_job = None   # DB-backed status (worker writes here)
 
     try:
         backup_profiles = backup_svc.get_backup_profiles(server)
         last_backup_times = [p["last_backup"] for p in backup_profiles if p.get("last_backup")]
         overall_last_backup = max(last_backup_times) if last_backup_times else None
+
+        # Latest backup Job from DB (source of truth for running state)
+        current_backup_job = session.exec(
+            select(Job)
+            .where(Job.server_id == server.id, Job.job_type == "backup")
+            .order_by(Job.started_at.desc())
+            .limit(1)
+        ).first()
 
         last_backup_log = session.exec(
             select(AuditLog)
@@ -240,6 +249,7 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
             "overall_last_backup": overall_last_backup,
             "last_backup_status": last_backup_status,
             "recent_backups": recent_backups,
+            "current_backup_job": current_backup_job,
             "user": user,
             "settings": settings,
             "global_backup_defaults": global_backup_defaults,
@@ -673,7 +683,7 @@ async def update_backup_config(
 @router.post("/{server_id}/backup/add")
 async def add_backup_source(
     server_id: int,
-    new_path: str = Form(...),
+    new_path: str = Form(*),
     dest_name: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
@@ -694,7 +704,7 @@ async def add_backup_source(
 @router.post("/{server_id}/backup/remove")
 async def remove_backup_source(
     server_id: int,
-    path: str = Form(...),
+    path: str = Form(*),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -764,7 +774,7 @@ async def docker_page(server_id: int, request: Request, session: Session = Depen
 async def docker_container_action(
     server_id: int,
     action: str,
-    name: str = Form(...),
+    name: str = Form(*),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -819,7 +829,7 @@ async def get_file_content(
             if key in live_files:
                 return {"ok": True, "file": key, "content": live_files[key]}
         content = next(iter(live_files.values()), "") if live_files else ""
-        return {"ok": True, "file": "docker-compose.yml", "content": content}
+        return {"ok": True, "file": key, "content": content}
     content = next(iter(live_files.values()), "") if live_files else ""
     return {"ok": True, "file": key, "content": content}
 
@@ -975,7 +985,7 @@ async def edit_dockerfile(
 async def save_dockerfile(
     server_id: int,
     project: str,
-    content: str = Form(...),
+    content: str = Form(*),
     action: str = Form("deploy"),
     editing_version_id: Optional[int] = Form(None),
     via_modal: bool = Form(False),
@@ -1018,8 +1028,8 @@ async def new_docker_project_form(
 @router.post("/{server_id}/docker/new-project")
 async def create_docker_project(
     server_id: int,
-    project_name: str = Form(...),
-    compose_content: str = Form(...),
+    project_name: str = Form(*),
+    compose_content: str = Form(*),
     dockerfile_content: str = Form(""),
     git_url: str = Form(""),
     deploy_now: str = Form(None),
@@ -1060,7 +1070,7 @@ async def create_docker_project(
 async def save_draft(
     server_id: int,
     project: str,
-    content: str = Form(...),
+    content: str = Form(*),
     editing_version_id: Optional[int] = Form(None),
     via_modal: bool = Form(False),
     session: Session = Depends(get_session),
@@ -1076,7 +1086,7 @@ async def save_draft(
 async def deploy_version_route(
     server_id: int,
     project: str,
-    version_id: int = Form(...),
+    version_id: int = Form(*),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -1119,7 +1129,7 @@ async def rollback_version(
 async def validate_compose(
     server_id: int,
     project: str,
-    content: str = Form(...),
+    content: str = Form(*),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -1134,7 +1144,7 @@ async def validate_compose(
 async def save_compose(
     server_id: int,
     project: str,
-    content: str = Form(...),
+    content: str = Form(*),
     editing_version_id: Optional[int] = Form(None),
     via_modal: bool = Form(False),
     request: Request = None,
@@ -1160,7 +1170,7 @@ async def save_compose(
 @router.post("/{server_id}/docker/redeploy")
 async def redeploy(
     server_id: int,
-    project_path: str = Form(...),
+    project_path: str = Form(*),
     pull: str = Form("true"),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
@@ -1191,7 +1201,7 @@ async def redeploy(
 async def compose_project_action(
     server_id: int,
     action: str,
-    project_path: str = Form(...),
+    project_path: str = Form(*),
     service: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
