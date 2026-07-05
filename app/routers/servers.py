@@ -67,10 +67,16 @@ async def server_backups(request: Request, server_id: int, session: Session = De
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
+    # TODO: load backup sources from server.get_backup_sources() or DB
+    sources = []
+    try:
+        sources = server.get_backup_sources() if hasattr(server, 'get_backup_sources') else []
+    except Exception:
+        sources = []
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_backups.html",
-        context={"title": f"Backups - {server.name}", "server": server, "user": user}
+        context={"title": f"Backups - {server.name}", "server": server, "sources": sources, "user": user}
     )
 
 
@@ -112,4 +118,4 @@ async def get_backup_progress(
 
     return data
 
-# Other routes (run backup, stop, audit, etc.) are expected to be present in the full file.
+# Note: Full backup source add/edit/delete routes and other functions are expected in the complete file.
