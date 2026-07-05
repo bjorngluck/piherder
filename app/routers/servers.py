@@ -35,35 +35,25 @@ logger = logging.getLogger("piherder.servers")
 
 @router.get("", response_class=HTMLResponse)
 async def list_servers(request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+    """Lean Servers list - pure DB read for speed and stability.
+    Expensive operations (backup profiles, SSH, FS) removed from hot path.
+    Last backup info will be added later via background collection.
+    """
     start = time.time()
 
     try:
         ensure_server_columns()
         rows = session.exec(select(Server).order_by(Server.sort_order, Server.name)).all()
     except Exception:
-        # Fallback if column not present yet or DB issue
         rows = session.exec(select(Server).order_by(Server.name)).all()
 
     servers = []
     for row in rows:
         d = row.model_dump(exclude={"audit_logs", "jobs"})
-        try:
-            t0 = time.time()
-            profs = backup_svc.get_backup_profiles(row)
-            took = time.time() - t0
-            if took > 0.5:
-                logger.warning(f"[list_servers] get_backup_profiles for {row.hostname} took {took:.2f}s")
-
-            times = [p["last_backup"] for p in profs if p.get("last_backup")]
-            if times:
-                d["last_backup"] = format_datetime_in_app_tz(max(times), "%Y-%m-%d")
-        except Exception as e:
-            logger.warning(f"[list_servers] get_backup_profiles failed for {row.hostname}: {e}")
-
         servers.append(d)
 
     total = time.time() - start
-    if total > 1.0:
+    if total > 0.5:
         logger.warning(f"[list_servers] Total render took {total:.2f}s for {len(servers)} server(s)")
     else:
         logger.debug(f"[list_servers] Total render took {total:.2f}s")
@@ -97,7 +87,6 @@ async def move_server(
         servers[idx], servers[idx-1] = servers[idx-1], servers[idx]
     elif direction == "down" and idx < len(servers) - 1:
         servers[idx], servers[idx+1] = servers[idx+1], servers[idx]
-    # re-assign dense sort_order so manual order is preserved
     for i, s in enumerate(servers):
         s.sort_order = i * 10
         session.add(s)
@@ -147,7 +136,6 @@ async def add_server(
         priv_enc = encryption.encrypt_str(private_key.strip())
         pub = "(provided with private key - test connection to verify)"
 
-    # set a high sort_order so new servers appear at bottom, manual reorder can move them
     ensure_server_columns()
     max_order = session.exec(select(func.max(Server.sort_order))).first()
     max_order = max_order[0] if max_order and max_order[0] is not None else 0
@@ -165,8 +153,6 @@ async def add_server(
     session.commit()
     session.refresh(server)
 
-    # After adding (especially with generated key), redirect with flag so we can auto-show
-    # the SSH public key modal. This is the critical one-time copy step for the user.
     redirect_url = f"/servers/{server.id}"
     if key_mode == "generate":
         redirect_url += "?show_ssh_key=1"
@@ -184,7 +170,6 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
     reboot_initiated = request.query_params.get("rebooted") == "1"
     show_ssh_key = request.query_params.get("show_ssh_key") == "1"
 
-    # Safe defaults (in case of any error below)
     backup_profiles = []
     overall_last_backup = None
     last_backup_status = None
@@ -198,7 +183,6 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
         last_backup_times = [p["last_backup"] for p in backup_profiles if p.get("last_backup")]
         overall_last_backup = max(last_backup_times) if last_backup_times else None
 
-        # Get last backup status from AuditLog
         last_backup_log = session.exec(
             select(AuditLog)
             .where(AuditLog.server_id == server.id, AuditLog.action == "backup")
@@ -207,7 +191,6 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
         ).first()
         last_backup_status = last_backup_log.status if last_backup_log else None
 
-        # Recent backup history (last 10)
         recent_backups = session.exec(
             select(AuditLog)
             .where(AuditLog.server_id == server.id, AuditLog.action == "backup")
@@ -216,7 +199,6 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
         ).all()
 
         for log in recent_backups:
-            # Use object.__setattr__ because AuditLog (SQLModel/Pydantic) forbids arbitrary extra fields via normal setattr
             object.__setattr__(log, 'parsed', None)
             fj = (log.output_snippet or '').strip() or '{}'
             object.__setattr__(log, 'full_json', fj)
@@ -238,15 +220,11 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
         global_backup_defaults = backup_svc.get_global_backup_defaults()
         current_sources = [p.get("source") for p in backup_profiles] or global_backup_defaults
 
-        # Fetch live system info (OS, kernel, disks, reboot status).
-        # Run in threadpool so a slow/unreachable host does not block the web server
-        # for other requests (was a source of "PiHerder becomes unresponsive").
         try:
             diagnostics = await run_in_threadpool(diag_svc.run_diagnostics, server)
         except Exception:
             diagnostics = {"error": "Could not fetch diagnostics"}
     except Exception:
-        # Keep the safe defaults set above; don't crash the page
         diagnostics = {"error": "Could not load server details"}
 
     return templates_mod.templates.TemplateResponse(
@@ -277,9 +255,6 @@ async def server_backups(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
-    """Dedicated page for all backup details: sources, config, add/remove, schedules, runs.
-    Main server screen now only shows compact status + link here.
-    """
     ensure_server_columns()
     server = session.get(Server, server_id)
     if not server:
@@ -327,7 +302,7 @@ async def server_backups(
 async def run_backup(
     server_id: int,
     background_tasks: BackgroundTasks,
-    source: Optional[str] = Form(None),  # optional: run only this source
+    source: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -335,13 +310,9 @@ async def run_backup(
     if not server:
         raise HTTPException(404)
 
-    # Guard against duplicate submits while one is active (lock inside run_backup would serialize,
-    # but queuing extra jobs can make the UI feel stuck/"failed to submit").
     if backup_svc.is_backup_running(server.hostname):
-        # Let the UI banner + polling handle it; just redirect back.
         return RedirectResponse(f"/servers/{server_id}", status_code=303)
 
-    # If specific source, temporarily filter for this job run (DB not mutated)
     if source:
         job_service.create_job_and_run(background_tasks, session, server, "backup", user_id=user.id, source_filter=source)
     else:
@@ -360,7 +331,6 @@ async def stop_backup(
     if not server:
         raise HTTPException(404)
     backup_svc.stop_backup(server.hostname)
-    # log the stop
     audit = AuditLog(
         user_id=user.id,
         server_id=server.id,
@@ -388,10 +358,8 @@ async def reboot_server(
     try:
         client = ssh_service.get_ssh_client(server)
         try:
-            # Fire the reboot. Connection will drop as the host restarts.
             client.exec_command("sudo reboot", timeout=3)
         except Exception:
-            # Expected: the SSH session is terminated by the reboot.
             pass
         try:
             client.close()
@@ -401,7 +369,6 @@ async def reboot_server(
     except Exception as e:
         details = f"Reboot command failed to send: {e}"
 
-    # Audit the attempt
     try:
         audit = AuditLog(
             user_id=user.id,
@@ -444,7 +411,6 @@ async def update_server(
     server.ssh_username = ssh_username.strip()
     server.ssh_port = ssh_port
 
-    # Handle password (discouraged but supported for legacy)
     if clear_password:
         server.ssh_password_encrypted = None
     elif ssh_password and ssh_password.strip():
@@ -499,7 +465,6 @@ async def stream_backup_logs(
             for line in lines[last_index:]:
                 yield f"data: {line}\n\n"
             last_index = len(lines)
-            # Calmer sleep for stability (was 1s). Frontend should poll every 2-3s.
             await asyncio.sleep(2.5)
 
     return StreamingResponse(
@@ -550,7 +515,6 @@ async def stream_os_patch_logs(
             last_index = len(lines)
             await asyncio.sleep(2.5)
 
-    # Important: no buffering for live logs behind Caddy/nginx
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -569,9 +533,6 @@ async def get_server_diagnostics(
     user: User = Depends(get_current_user),
     force: bool = False,
 ):
-    """On-demand diagnostics for modals / refresh buttons.
-    Supports ?force=1 to bypass cache.
-    """
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -602,17 +563,15 @@ async def run_os_patch(server_id: int, background_tasks: BackgroundTasks, steps:
     return RedirectResponse(f"/servers/{server_id}", status_code=303)
 
 
-# --- Backup configuration flexibility ---
-
 @router.post("/{server_id}/backup-config")
 async def update_backup_config(
     server_id: int,
-    backup_paths: str = Form(""),          # kept for bulk compat (rare)
+    backup_paths: str = Form(""),
     retention_days: int = Form(None),
     backup_schedule: str = Form(None),
     dest_root: str = Form(""),
     folder_name: str = Form(""),
-    scope: str = Form("this_host"),  # "this_host" or "global"
+    scope: str = Form("this_host"),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -620,7 +579,6 @@ async def update_backup_config(
     if not server:
         raise HTTPException(404)
 
-    # Validate cron if provided
     if backup_schedule is not None:
         cron = backup_schedule.strip() or None
         if cron and pycron:
@@ -634,7 +592,6 @@ async def update_backup_config(
         backup_schedule = cron
 
     if scope == "global":
-        # Save as global defaults (new servers will use these)
         paths = [p.strip() for p in backup_paths.replace(",", "\n").splitlines() if p.strip()] or server.get_backup_paths()
         global_config = {
             "sources": paths,
@@ -643,7 +600,6 @@ async def update_backup_config(
         }
         backup_svc.save_global_backup_defaults(global_config)
 
-        # Also apply the dest config + paths to current host
         if dest_root.strip():
             server.backup_dest_root = dest_root.strip()
         if folder_name.strip():
@@ -668,7 +624,6 @@ async def update_backup_config(
         session.commit()
         return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
 
-    # Per host (default)
     updated = False
     if backup_paths.strip():
         existing = {s["source"]: s for s in server.get_backup_sources()}
@@ -706,7 +661,6 @@ async def update_backup_config(
     return RedirectResponse(f"/servers/{server_id}", status_code=303)
 
 
-# More flexible per-path management
 @router.post("/{server_id}/backup/add")
 async def add_backup_source(
     server_id: int,
@@ -737,7 +691,6 @@ async def remove_backup_source(
         raise HTTPException(404)
     backup_svc.remove_backup_source(server, path, session)
     return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
-
 
 
 @router.post("/{server_id}/run/retention")
@@ -775,7 +728,6 @@ async def docker_page(server_id: int, request: Request, session: Session = Depen
     except Exception:
         projects = []
 
-    # Simple feedback from update check or build
     update_check = request.query_params.get("update_check")
     update_status = request.query_params.get("status")
     build_status = request.query_params.get("build_status")
@@ -809,7 +761,6 @@ async def docker_container_action(
         raise HTTPException(404)
 
     result = docker_svc.container_action(server, name, action)
-    # Audit UI action
     try:
         audit = AuditLog(
             user_id=user.id if user else None,
@@ -832,7 +783,7 @@ async def docker_container_action(
 async def get_file_content(
     server_id: int,
     project: str,
-    file: str = "compose",  # "compose" or "dockerfile"
+    file: str = "compose",
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -851,12 +802,10 @@ async def get_file_content(
         content = docker_svc.read_dockerfile(server, proj["dockerfile_path"])
         return {"ok": True, "file": "dockerfile", "content": content}
     else:
-        # compose
         live_files = docker_svc.get_project_live_files(server, proj["path"])
         for key in ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):
             if key in live_files:
                 return {"ok": True, "file": key, "content": live_files[key]}
-        # fallback to first available or empty
         content = next(iter(live_files.values()), "") if live_files else ""
         return {"ok": True, "file": "docker-compose.yml", "content": content}
 
@@ -873,19 +822,16 @@ async def edit_compose(
     if not server:
         raise HTTPException(404)
 
-    # Find project path
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
     if not proj:
         raise HTTPException(404)
 
-    # Load live from host (short session) + drafts from DB
     live_files = docker_svc.get_project_live_files(server, proj["path"])
     live_compose = live_files.get("docker-compose.yml") or live_files.get("docker-compose.yaml") or live_files.get("compose.yml") or live_files.get("compose.yaml") or ""
     content = live_compose
     drafts = docker_svc.get_versions(server.id, project, limit=10)
 
-    # Load specific draft if requested (for editing a previous draft)
     load_draft_id = request.query_params.get("load_draft")
     editing_version_id = None
     if load_draft_id:
@@ -899,7 +845,6 @@ async def edit_compose(
         except:
             pass
 
-    # Find if live matches a deployed version
     live_version = None
     live_clean = live_compose.strip() if live_compose else ''
     for d in drafts:
@@ -913,7 +858,6 @@ async def edit_compose(
             except:
                 pass
 
-    # Support passing errors via query (simple json encoded) or empty
     errors_param = request.query_params.get("errors")
     errors = []
     if errors_param:
@@ -962,7 +906,6 @@ async def edit_dockerfile(
     live_content = docker_svc.read_dockerfile(server, proj["dockerfile_path"])
     content = live_content
     all_drafts = docker_svc.get_versions(server.id, project, limit=10)
-    # filter to dockerfile versions for this edit
     drafts = []
     for d in all_drafts:
         try:
@@ -972,7 +915,6 @@ async def edit_dockerfile(
         except:
             pass
 
-    # Load specific draft if requested
     load_draft_id = request.query_params.get("load_draft")
     editing_version_id = None
     if load_draft_id:
@@ -985,7 +927,6 @@ async def edit_dockerfile(
         except:
             pass
 
-    # live version match for df (always against what is actually on host)
     live_version = None
     live_clean = live_content.strip() if live_content else ''
     for d in drafts:
@@ -1001,7 +942,7 @@ async def edit_dockerfile(
 
     return templates_mod.templates.TemplateResponse(
         request=request,
-        name="docker_compose_edit.html",  # reuse the nice editor UI
+        name="docker_compose_edit.html",
         context={
             "title": f"Edit Dockerfile - {project}",
             "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
@@ -1038,7 +979,6 @@ async def save_dockerfile(
     if not proj or not proj.get("dockerfile_path"):
         raise HTTPException(404)
 
-    # Dockerfile editing temporarily disabled (per request)
     if via_modal:
         return JSONResponse({"ok": False, "message": "Dockerfile editing is temporarily disabled."})
 
@@ -1057,7 +997,7 @@ async def new_docker_project_form(
         raise HTTPException(404)
     return templates_mod.templates.TemplateResponse(
         request=request,
-        name="new_docker_project.html",  # we'll create simple template or reuse
+        name="new_docker_project.html",
         context={"title": "New Docker Service", "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}), "user": user}
     )
 
@@ -1083,14 +1023,12 @@ async def create_docker_project(
 
     ok = docker_svc.create_new_docker_project(server, project_name, base_files, git_url=git_url or None)
     if ok and deploy_now:
-        # initial deploy
         try:
             full = f"{server.docker_base_dir.replace('~', f'/home/{server.ssh_username}')}/{project_name}"
             docker_svc.redeploy_project(server, full, pull=True)
         except:
             pass
 
-    # create initial version record
     try:
         from datetime import datetime as dt
         dv = docker_svc.save_draft_version(server.id, project_name, base_files, session)
@@ -1105,7 +1043,6 @@ async def create_docker_project(
     return RedirectResponse(f"/servers/{server_id}/docker?new_project={project_name}", status_code=303)
 
 
-# Versioning / drafts endpoints - STUBBED (temporarily disabled to eliminate syntax errors)
 @router.post("/{server_id}/docker/compose/{project}/save-draft")
 async def save_draft(
     server_id: int,
@@ -1191,7 +1128,7 @@ async def save_compose(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
-    pass  # request is used below for TemplateResponse on validation failure
+    pass
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1201,7 +1138,6 @@ async def save_compose(
     if not proj:
         raise HTTPException(404)
 
-    # Compose save temporarily stubbed
     if via_modal:
         return JSONResponse({"ok": False, "message": "Compose saving temporarily disabled."})
 
@@ -1221,7 +1157,6 @@ async def redeploy(
         raise HTTPException(404)
 
     docker_svc.redeploy_project(server, project_path, pull=(pull == "true"))
-    # Audit UI action
     try:
         audit = AuditLog(
             user_id=user.id if user else None,
@@ -1259,15 +1194,13 @@ async def build_compose(
 
     svc_list = [s for s in (services or []) if s]
     if not svc_list:
-        svc_list = None  # build all
+        svc_list = None
 
-    # Redirect to streaming progress page instead of sync build
     params = f"project={project}"
     if svc_list:
-        params += f"&services={','.join(svc_list)}"
+        params += f"&services={','/'.join(svc_list)}"
     if no_cache == "on" or no_cache == "true":
         params += "&no_cache=true"
-    # Audit UI action (build starts)
     try:
         audit = AuditLog(
             user_id=user.id if user else None,
@@ -1365,7 +1298,6 @@ async def prune_unused_route(
     if not server:
         raise HTTPException(404)
     res = docker_svc.prune_unused(server, prune_type=prune_type)
-    # Audit UI action
     try:
         audit = AuditLog(
             user_id=user.id if user else None,
@@ -1399,7 +1331,6 @@ async def compose_project_action(
 
     svc = service or None
     res = docker_svc.compose_action(server, project_path, action, service=svc)
-    # Audit UI action
     try:
         details = f"Project {project_path}"
         if svc:
@@ -1438,7 +1369,6 @@ async def get_docker_logs(
     project_path = request.query_params.get("project_path") if request else None
     logs = docker_svc.get_logs(server, container, lines=lines, project_path=project_path)
 
-    # Return JSON for API (used by logs modal), HTML for browser
     is_json = (format == "json") or (request and "application/json" in (request.headers.get("accept") or "").lower())
     if is_json:
         return JSONResponse({"container": container, "logs": logs})
@@ -1457,11 +1387,8 @@ async def get_docker_logs(
     )
 
 
-# --- HTMX partials and new features ---
-
 @router.get("/{server_id}/docker/containers-fragment", response_class=HTMLResponse)
 async def containers_fragment(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
-    """HTMX fragment for auto-refreshing container list. Min 60s to limit SSH load."""
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1501,7 +1428,6 @@ async def check_updates(
         raise HTTPException(404)
 
     result = docker_svc.check_compose_updates(server, project_path)
-    # Audit UI action
     try:
         audit = AuditLog(
             user_id=user.id if user else None,
@@ -1517,14 +1443,11 @@ async def check_updates(
         session.commit()
     except Exception:
         pass
-    # For now, just redirect back with flash via query (simple)
-    status = "updates" if result.get("has_updates") else "up-to-date"
     return RedirectResponse(f"/servers/{server_id}/docker?update_check={project_path}&status={status}", status_code=303)
 
 
 @router.get("/{server_id}/docker/logs/{container}/stream")
 async def stream_container_logs(server_id: int, container: str, lines: int = 30, project_path: str = None, session: Session = Depends(get_session)):
-    """Server-Sent Events endpoint for live logs."""
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
