@@ -2,7 +2,7 @@
 """
 Celery tasks for PiHerder.
 
-Worker feeds DB (Job + Server) with status.
+Worker feeds DB (Job + Server + AuditLog) with status.
 UI reads only from DB (minimal polling).
 """
 from sqlmodel import Session, select
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int | None = None, source_filter: str | None = None):
     """
     Celery background task.
-    Worker writes rich status into Job.details so UI can read from DB.
+    Worker writes rich status into Job + AuditLog.
     """
     db = Session(engine)
     server = None
@@ -69,6 +69,9 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
             }
             _update_job_status(job_id, "success", final)
 
+        # Update AuditLog with final status
+        _finalize_audit_log(server_id, "success", summary)
+
         # Also persist last_backup_at on Server
         try:
             server.last_backup_at = datetime.utcnow()
@@ -89,6 +92,8 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
         if job_id:
             _update_job_status(job_id, "failed", {"error": str(exc)[:800]})
 
+        _finalize_audit_log(server_id, "failed", {"error": str(exc)[:800]})
+
         if is_transient:
             logger.warning(f"Transient error on server {server_id} - retrying once")
             raise self.retry(exc=exc)
@@ -97,7 +102,6 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
 
     finally:
         db.close()
-
 
 def _update_job_status(job_id: int, status: str, extra: dict):
     """Update Job status + merge details JSON (worker feeds DB)."""
@@ -121,3 +125,23 @@ def _update_job_status(job_id: int, status: str, extra: dict):
                 s.commit()
     except Exception as e:
         logger.error(f"Failed to update job {job_id} status={status}: {e}")
+
+def _finalize_audit_log(server_id: int, status: str, details: dict):
+    """Update the latest backup AuditLog for this server with final status."""
+    try:
+        with Session(engine) as s:
+            audit = s.exec(
+                select(AuditLog)
+                .where(AuditLog.server_id == server_id, AuditLog.action == "backup")
+                .order_by(AuditLog.started_at.desc())
+                .limit(1)
+            ).first()
+            if audit:
+                audit.status = status
+                if details:
+                    audit.output_snippet = json.dumps(details)[:2000]
+                audit.finished_at = datetime.utcnow()
+                s.add(audit)
+                s.commit()
+    except Exception as e:
+        logger.error(f"Failed to finalize audit log for server {server_id}: {e}")
