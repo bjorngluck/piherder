@@ -13,6 +13,7 @@ import os
 import threading
 import shlex
 import time
+import traceback
 
 # Use app selected TZ for display strings
 from .herder_backup import format_datetime_in_app_tz
@@ -438,6 +439,7 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                     _set_progress(hostname, log_line=f"Failed {src}")
 
             except Exception as e:
+                logger.error(f"[backup] Error on source {src}: {e}\n{traceback.format_exc()}")
                 results.append({"source": src, "error": str(e)})
                 _send_webhook(f"Backup error for {server.hostname} on {src}: {e}")
                 _set_progress(hostname, log_line=f"Error on {src}: {str(e)[:100]}")
