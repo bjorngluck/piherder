@@ -456,7 +456,8 @@ async def get_backup_progress(
     prog = backup_svc.get_backup_progress(server.hostname)
     return {
         "current": prog.get("current"),
-        "log_lines": prog.get("log_lines", [])[-15:],  # last few
+        "log_lines": prog.get("log_lines", [])[-15:],
+        "last_updated": prog.get("last_updated"),
         "hostname": server.hostname
     }
 
@@ -479,7 +480,8 @@ async def stream_backup_logs(
             for line in lines[last_index:]:
                 yield f"data: {line}\n\n"
             last_index = len(lines)
-            await asyncio.sleep(1)
+            # Calmer sleep for stability (was 1s). Frontend should poll every 2-3s.
+            await asyncio.sleep(2.5)
 
     return StreamingResponse(
         event_generator(),
@@ -527,7 +529,7 @@ async def stream_os_patch_logs(
             for line in lines[last_index:]:
                 yield f"data: {line}\n\n"
             last_index = len(lines)
-            await asyncio.sleep(1)
+            await asyncio.sleep(2.5)
 
     # Important: no buffering for live logs behind Caddy/nginx
     return StreamingResponse(
@@ -658,7 +660,7 @@ async def update_backup_config(
                 new_sources.append(existing[line])
             else:
                 new_sources.append({"source": line, "dest_name": None, "enabled": True})
-        server.backup_paths = json.dumps(new_sources)
+            server.backup_paths = json.dumps(new_sources)
         updated = True
 
     if dest_root.strip():
@@ -1049,7 +1051,7 @@ async def save_dockerfile(
 
     if errors:
         if via_modal:
-            return JSONResponse({"ok": False, "errors": errors, "message": "Basic Dockerfile check failed."})
+            return JSONResponse({"ok": False, "errors": errs, "message": "Basic Dockerfile check failed."})
         return templates_mod.templates.TemplateResponse(
             request=request,
             name="docker_compose_edit.html",
@@ -1086,17 +1088,17 @@ async def save_dockerfile(
                 name="docker_compose_edit.html",
                 context={
                     "title": f"Edit Dockerfile - {project}",
-                    "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
-                    "project": {"name": project, "path": proj["dockerfile_path"]},
-                    "content": content,
-                    "user": user,
-                    "errors": errors,
-                    "is_dockerfile": True,
-                    "drafts": df_drafts,
-                    "live_version": live_version,
-                    "editing_version_id": editing_version_id,
-                }
-            )
+                "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
+                "project": {"name": project, "path": proj["dockerfile_path"]},
+                "content": content,
+                "user": user,
+                "errors": errors,
+                "is_dockerfile": True,
+                "drafts": df_drafts,
+                "live_version": live_version,
+                "editing_version_id": editing_version_id,
+            }
+        )
     else:
         # deploy: write to host + record non-draft version (new record for history)
         docker_svc.write_dockerfile(server, proj["dockerfile_path"], content)
