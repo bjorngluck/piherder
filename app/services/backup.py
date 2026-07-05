@@ -436,7 +436,6 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
             "timestamp": datetime.utcnow().isoformat(),
         }
 
-
 def run_retention(server: Server) -> dict:
     """Basic retention (matches spirit of backup_cleanup.sh). Full prune logic can be expanded."""
     paths = server.get_backup_paths()
@@ -465,51 +464,20 @@ def run_retention(server: Server) -> dict:
 
 GLOBAL_BACKUP_DEFAULTS_FILE = Path(settings.BACKUP_ROOT) / ".global_backup_defaults.json"
 
-def get_global_backup_defaults() -> dict:
-    """Load globally configured default backup config.
-    Returns dict with 'sources', 'dest_root', 'folder_name' (folder_name may be None to use hostname).
-    """
-    try:
-        if GLOBAL_BACKUP_DEFAULTS_FILE.exists():
-            data = json.loads(GLOBAL_BACKUP_DEFAULTS_FILE.read_text())
-            if isinstance(data, dict):
-                return {
-                    "sources": data.get("sources", []),
-                    "dest_root": data.get("dest_root"),
-                    "folder_name": data.get("folder_name"),
-                }
-            if isinstance(data, list):
-                # legacy sources only
-                return {"sources": data, "dest_root": None, "folder_name": None}
-    except Exception:
-        pass
-    # Fallback to sensible defaults
-    return {
-        "sources": ["/home/bjorn/docker/", "/var/lib/docker/volumes/"],
-        "dest_root": "/backups",
-        "folder_name": None,
-    }
-
-def save_global_backup_defaults(config: dict):
-    """Save global defaults. Accepts dict or just list of sources for compat."""
-    GLOBAL_BACKUP_DEFAULTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    if isinstance(config, list):
-        config = {"sources": config}
-    GLOBAL_BACKUP_DEFAULTS_FILE.write_text(json.dumps(config, indent=2))
-
 def get_backup_profiles(server: Server) -> List[Dict]:
-    """Return rich backup profile info for UI:
-    - source path
-    - computed or custom destination
-    - last successful backup time (from .last_backup marker)
-    - enabled status
+    """Return rich backup profile info for UI.
+    Includes timing logs for diagnostics (Phase 1).
     """
+    import time
+    start = time.time()
+
     sources = server.get_backup_sources()
     if not sources:
         g = get_global_backup_defaults()
         gsrc = g.get("sources", []) if isinstance(g, dict) else g
         if gsrc:
             sources = [{"source": s, "dest_name": None, "enabled": True} for s in gsrc]
+
     profiles = []
 
     for item in sources:
@@ -527,21 +495,38 @@ def get_backup_profiles(server: Server) -> List[Dict]:
             "last_backup_str": format_datetime_in_app_tz(last) if last else "Never",
             "folder_name": dest_name
         })
+
+    took = time.time() - start
+    if took > 0.8:
+        logger.warning(f"[get_backup_profiles] Slow for {server.hostname}: {took:.2f}s")
+    else:
+        logger.debug(f"[get_backup_profiles] {server.hostname} took {took:.2f}s")
+
     return profiles
 
 def get_last_backup_time_for_dest(hostname: str, dest_name: str) -> Optional[datetime]:
     """Check .last_backup for a specific dest subfolder.
     mtime is stored as unix time; we treat it as UTC for consistent display under selected TZ.
+    Phase 1: Added timing + warning log for slow FS operations.
     """
+    import time
+    start = time.time()
+
     dest = Path(get_backup_root_for_server(hostname)) / dest_name
     marker = dest / ".last_backup"
+    result = None
     if marker.exists():
         try:
             ts = marker.stat().st_mtime
-            return datetime.utcfromtimestamp(ts)
+            result = datetime.utcfromtimestamp(ts)
         except Exception:
             pass
-    return None
+
+    took = time.time() - start
+    if took > 0.5:
+        logger.warning(f"[get_last_backup_time] Slow FS check for {hostname}/{dest_name}: {took:.2f}s")
+
+    return result
 
 def get_backup_root_for_server(server_or_hostname) -> Path:
     """Return the root path for backups.
@@ -643,6 +628,6 @@ def remove_backup_source(server: Server, source: str, session=None) -> bool:
 def add_backup_path(server: Server, new_path: str, session) -> bool:
     return add_backup_source(server, new_path, None, session)
 
-def remove_backup_path(server: Server, path_to_remove: str, session=None) -> bool:
+def remove_backup_path(server: Server, path_to_remove: str, session) -> bool:
     return remove_backup_source(server, path_to_remove, session)
 
