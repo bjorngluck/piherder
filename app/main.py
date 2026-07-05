@@ -76,6 +76,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Schema update warning (non-fatal): {e}")
 
+    try:
+        from .services.jobs import cleanup_stale_backup_jobs
+        with Session(engine) as db:
+            cleanup_stale_backup_jobs(db)
+    except Exception as e:
+        logger.warning(f"Stale job cleanup skipped: {e}")
+
     # Create default admin user if none exist (for first-time login)
     try:
         db = Session(engine)
@@ -98,7 +105,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Could not create default user: {e}")
 
-    # Start APScheduler (per-server schedules + herder manual only for now)
+    # Start APScheduler (per-server schedules + PiHerder self-backup)
     if HAS_SCHEDULER and scheduler and not scheduler.running:
         scheduler.start()
         try:
@@ -123,6 +130,7 @@ async def lifespan(app: FastAPI):
                                 )
                         except Exception as e:
                             print(f"Failed schedule for server {server.id}: {e}")
+            sync_herder_backup_schedule()
         except Exception as e:
             print(f"Scheduler init skipped: {e}")
 
@@ -165,7 +173,7 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="dashboard.html",
-        context={"title": "PiHerder Dashboard", "servers": servers, "user": user, "pihole_url": getattr(_settings, "PIHOLE_URL", None)}
+        context={"title": "PiHerder Dashboard", "servers": servers, "user": user, "pihole_url": getattr(_settings, "PIHOLE_URL", None), "lean_page": True}
     )
 
 
@@ -175,29 +183,68 @@ async def health():
 
 
 def schedule_backup_job(server_id: int):
-    """Called by APScheduler for automated backups."""
+    """Called by APScheduler — enqueue Celery only, never rsync on web."""
     if not HAS_SCHEDULER:
         return
-    logger.debug(f"[SCHEDULER] Running scheduled backup for server {server_id}")
+    logger.debug(f"[SCHEDULER] Enqueuing scheduled backup for server {server_id}")
     try:
-        db = Session(engine)
-        try:
+        from .services.jobs import enqueue_backup_for_server
+        with Session(engine) as db:
             server = db.get(Server, server_id)
             if server and server.backup_enabled:
-                from .services import backup as backup_svc
-                result = backup_svc.run_backup(server)
-                logger.debug(f"[SCHEDULER] Backup result for {server_id}: {result.get('results', [])}")
-        finally:
-            db.close()
+                enqueue_backup_for_server(db, server)
     except Exception as e:
-        logger.debug(f"[SCHEDULER] Error in scheduled backup for {server_id}: {e}")
+        logger.debug(f"[SCHEDULER] Error enqueuing backup for {server_id}: {e}")
+
+
+HERDER_SCHEDULE_JOB_ID = "herder_self_backup"
+
+
+def sync_herder_backup_schedule():
+    """Register or remove the global PiHerder self-backup cron job from config."""
+    if not HAS_SCHEDULER or not scheduler:
+        return
+    from .services import herder_backup as hb
+
+    try:
+        scheduler.remove_job(HERDER_SCHEDULE_JOB_ID)
+    except Exception:
+        pass
+
+    cfg = hb.load_herder_config()
+    if not cfg.get("schedule_enabled"):
+        logger.info("[SCHEDULER] PiHerder self-backup schedule disabled")
+        return
+
+    cron = (cfg.get("schedule_cron") or "").strip()
+    if not cron:
+        return
+
+    try:
+        hb.validate_cron_expression(cron)
+        parts = cron.split()
+        trigger = CronTrigger(
+            minute=parts[0], hour=parts[1],
+            day=parts[2], month=parts[3], day_of_week=parts[4],
+            timezone=hb.get_app_timezone(),
+        )
+        scheduler.add_job(
+            func=schedule_herder_backup_job,
+            trigger=trigger,
+            id=HERDER_SCHEDULE_JOB_ID,
+            replace_existing=True,
+            name="PiHerder self-backup",
+        )
+        logger.info(f"[SCHEDULER] PiHerder self-backup scheduled: {cron} ({hb.get_app_timezone()})")
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] Could not register herder backup schedule: {e}")
 
 
 def schedule_herder_backup_job():
     """Global scheduled PiHerder self-backup (config + keys + optional audit)."""
     if not HAS_SCHEDULER:
         return
-    logger.debug("[SCHEDULER] Running scheduled herder self-backup")
+    logger.info("[SCHEDULER] Running scheduled PiHerder self-backup")
     try:
         from .services import herder_backup as hb
         cfg = hb.load_herder_config()
@@ -205,10 +252,8 @@ def schedule_herder_backup_job():
         include_audit = (mode == "full")
         config_only = (mode != "full")
         path = hb.create_herder_backup(include_audit=include_audit, config_only=config_only)
-        logger.debug(f"[SCHEDULER] Herder backup written: {path}")
-        # Also audit it
+        logger.info(f"[SCHEDULER] PiHerder self-backup written: {path}")
         try:
-            from .models import AuditLog
             with Session(engine) as s:
                 al = AuditLog(
                     user_id=None,
@@ -216,6 +261,7 @@ def schedule_herder_backup_job():
                     action="herder_backup",
                     status="success",
                     details=f"Scheduled self-backup ({mode}): {getattr(path, 'name', path)}",
+                    output_snippet=json.dumps({"path": str(path), "mode": mode}),
                     started_at=datetime.utcnow(),
                     finished_at=datetime.utcnow(),
                 )
@@ -224,7 +270,7 @@ def schedule_herder_backup_job():
         except Exception:
             pass
     except Exception as e:
-        logger.debug(f"[SCHEDULER] Herder backup error: {e}")
+        logger.error(f"[SCHEDULER] PiHerder self-backup error: {e}")
 
 
 @app.get("/audit", response_class=HTMLResponse)
@@ -238,7 +284,17 @@ async def audit_page(
     user_id: Optional[str] = None,
     status: Optional[str] = None,
     action: Optional[str] = None,
+    hide_noise: Optional[str] = "1",
 ):
+    from .services.audit_format import format_audit_entry
+
+    all_users: list = []
+    servers_list: list = []
+    logs_data: list = []
+    distinct_actions: list = []
+    distinct_statuses: list = []
+    hide_incomplete = hide_noise not in ("0", "false", "no")
+
     try:
         with next(get_session()) as s:
             query = select(AuditLog).order_by(AuditLog.started_at.desc())
@@ -262,14 +318,12 @@ async def audit_page(
                 query = query.where(AuditLog.status == status)
             if action:
                 query = query.where(AuditLog.action == action)
-            # Note: for date filter, simple string compare for demo; in real use datetime parse
             if date_from:
                 query = query.where(AuditLog.started_at >= date_from)
             if date_to:
                 query = query.where(AuditLog.started_at <= date_to)
-            logs = s.exec(query.limit(100)).all()
+            logs = s.exec(query.limit(200)).all()
 
-            # Resolve usernames and make serializable
             user_ids = {l.user_id for l in logs if l.user_id}
             user_map = {}
             if user_ids:
@@ -277,30 +331,35 @@ async def audit_page(
                     user_map[u.id] = u.email
 
             servers_list = list(s.exec(select(Server).order_by(Server.name)).all())
-
-            # For filter dropdowns (all users + distinct actions/statuses from recent data or full)
             all_users = list(s.exec(select(User).order_by(User.email)).all())
-            # Collect distinct actions/statuses seen (limit query for perf)
-            distinct_actions = sorted({l.action for l in logs if l.action})
-            distinct_statuses = sorted({l.status for l in logs if l.status})
 
-            logs_data = []
+            recent = s.exec(select(AuditLog).order_by(AuditLog.started_at.desc()).limit(300)).all()
+            distinct_actions = sorted({l.action for l in recent if l.action})
+            distinct_statuses = sorted({l.status for l in recent if l.status})
+
             for l in logs:
                 d = l.model_dump()
-                for k in ("started_at", "finished_at"):
-                    if k in d and hasattr(d[k], "isoformat"):
-                        d[k] = d[k].isoformat()
                 d["user_email"] = user_map.get(l.user_id) if l.user_id else None
-                d["server_name"] = next((srv.name for srv in servers_list if srv.id == l.server_id), None) if l.server_id else None
-                logs_data.append(d)
+                d["server_name"] = (
+                    next((srv.name for srv in servers_list if srv.id == l.server_id), None)
+                    if l.server_id else None
+                )
+                logs_data.append(format_audit_entry(d))
+
+            if hide_incomplete:
+                logs_data = [row for row in logs_data if not row.get("is_noise")]
+            logs_data = logs_data[:100]
     except Exception:
         logs_data = []
         servers_list = []
+        all_users = []
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="audit.html",
         context={
             "title": "Audit Log",
+            "lean_page": True,
             "logs": logs_data,
             "user": user,
             "search": search,
@@ -313,7 +372,14 @@ async def audit_page(
             "status": status,
             "statuses": distinct_statuses or ["success", "failed", "running"],
             "action": action,
-            "actions": distinct_actions or ["backup", "container_patch", "os_patch", "retention", "reboot", "backup_stop"],
+            "actions": distinct_actions or [
+                "backup_request", "backup_queued", "backup_running", "backup",
+                "server_create", "server_update", "server_password_set", "server_password_clear",
+                "server_ssh_key_viewed", "server_backup_config", "server_backup_source_add",
+                "server_backup_source_remove", "server_move", "reboot",
+                "retention", "backup_stop", "herder_backup", "herder_restore",
+            ],
+            "hide_noise": hide_incomplete,
         }
     )
 
@@ -331,6 +397,17 @@ async def herder_backups_page(
     from .config import settings as _settings
     backups = hb.list_backups()
     tz_choices = hb.get_available_timezones()
+    cfg = hb.load_herder_config()
+    schedule_status = "disabled"
+    next_run = None
+    if HAS_SCHEDULER and scheduler and cfg.get("schedule_enabled"):
+        job = scheduler.get_job(HERDER_SCHEDULE_JOB_ID)
+        if job:
+            schedule_status = "enabled"
+            nr = getattr(job, "next_run_time", None)
+            if nr:
+                next_run = hb.format_datetime_in_app_tz(nr)
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="herder_backups.html",
@@ -338,9 +415,11 @@ async def herder_backups_page(
             "title": "Settings",
             "user": user,
             "backups": backups,
-            "herder_backup_schedule": getattr(_settings, "HERDER_BACKUP_SCHEDULE", None),
-            "herder_config": hb.load_herder_config(),
+            "herder_backup_dir": str(hb.HERDER_BACKUP_DIR),
+            "herder_config": cfg,
             "tz_choices": tz_choices,
+            "schedule_status": schedule_status,
+            "schedule_next_run": next_run,
         }
     )
 
@@ -348,21 +427,20 @@ async def herder_backups_page(
 @app.post("/herder-backups/run")
 async def trigger_herder_backup(
     backup_mode: str = Form("config_only"),
-    background_tasks: BackgroundTasks = ...,
     user: User = Depends(get_current_user),
 ):
     from .services import herder_backup as hb
+    mode = backup_mode if backup_mode in ("config_only", "full") else "config_only"
     include_audit = (mode == "full")
-    config_only = (mode == "config_only")
-    # For "Run now" we execute directly (consistent with schedule path) so we can
-    # respect the mode. Create proper audit entry.
+    config_only = (mode != "full")
     with next(get_session()) as s:
         audit = AuditLog(
             user_id=user.id,
             server_id=None,
             action="herder_backup",
             status="running",
-            details="Manual self-backup triggered",
+            details=f"Manual self-backup triggered ({mode})",
+            started_at=datetime.utcnow(),
         )
         s.add(audit)
         s.commit()
@@ -370,29 +448,31 @@ async def trigger_herder_backup(
 
         try:
             path = hb.create_herder_backup(include_audit=include_audit, config_only=config_only)
-            summary = json.dumps({"path": str(path)})
+            summary = json.dumps({"path": str(path), "mode": mode})
             audit.status = "success"
             audit.output_snippet = summary
             audit.finished_at = datetime.utcnow()
             s.add(audit)
             s.commit()
+            return RedirectResponse(
+                f"/herder-backups?backup_ok=1&file={path.name}",
+                status_code=303,
+            )
         except Exception as e:
             audit.status = "failed"
             audit.output_snippet = str(e)[:2000]
             audit.finished_at = datetime.utcnow()
             s.add(audit)
             s.commit()
-            raise
-
-    return RedirectResponse("/herder-backups", status_code=303)
+            return RedirectResponse(f"/herder-backups?error={str(e)[:120]}", status_code=303)
 
 
 @app.post("/herder-backups/restore")
 async def restore_herder_backup(
     archive: str = Form(""),
     restore_file: UploadFile = File(None),
-    restore_audit: bool = Form(False),
-    dry_run: bool = Form(False),
+    restore_audit: Optional[str] = Form(None),
+    dry_run: Optional[str] = Form(None),
     user: User = Depends(get_current_user),
 ):
     from .services import herder_backup as hb
@@ -419,7 +499,9 @@ async def restore_herder_backup(
         if not archive_to_use:
             raise ValueError("Provide a server path or upload a file")
 
-        res = hb.restore_herder_backup(archive_to_use, restore_audit=restore_audit, dry_run=dry_run)
+        do_audit = restore_audit in ("1", "on", "true")
+        preview = dry_run in ("1", "on", "true")
+        res = hb.restore_herder_backup(archive_to_use, restore_audit=do_audit, dry_run=preview)
 
         with next(get_session()) as s:
             al = AuditLog(
@@ -428,10 +510,19 @@ async def restore_herder_backup(
                 action="herder_restore",
                 status="success",
                 details=json.dumps(res),
+                output_snippet=json.dumps(res),
+                started_at=datetime.utcnow(),
+                finished_at=datetime.utcnow(),
             )
             s.add(al)
             s.commit()
-        return RedirectResponse(f"/herder-backups?restored=1&dry={int(dry_run)}", status_code=303)
+
+        servers_n = res.get("would_restore_servers") if preview else res.get("restored_servers", 0)
+        audit_n = res.get("would_restore_audit") if preview else res.get("restored_audit", 0)
+        return RedirectResponse(
+            f"/herder-backups?restored=1&dry={int(preview)}&servers={servers_n}&audit={audit_n}",
+            status_code=303,
+        )
     except Exception as e:
         return RedirectResponse(f"/herder-backups?error={str(e)[:120]}", status_code=303)
     finally:
@@ -466,16 +557,29 @@ async def download_herder_backup(path: str = "", name: str = "", user: User = De
 async def save_herder_config(
     keep: int = Form(10),
     schedule_mode: str = Form("config_only"),
+    schedule_enabled: Optional[str] = Form(None),
+    schedule_cron: str = Form("0 3 * * *"),
     user: User = Depends(get_current_user),
 ):
     from .services import herder_backup as hb
-    # Do not touch timezone here — it is managed separately via /herder-backups/timezone
-    cfg = {"keep": max(1, min(100, keep)), "schedule_mode": schedule_mode}
-    # merge without clobbering existing tz
+    enabled = schedule_enabled in ("1", "on", "true")
+    cron = (schedule_cron or "").strip() or "0 3 * * *"
+    if enabled:
+        try:
+            hb.validate_cron_expression(cron)
+        except ValueError as e:
+            return RedirectResponse(f"/herder-backups?error={str(e)[:120]}", status_code=303)
+
     existing = hb.load_herder_config()
-    if "timezone" in existing:
-        cfg["timezone"] = existing["timezone"]
+    cfg = {
+        "keep": max(1, min(100, keep)),
+        "schedule_mode": schedule_mode if schedule_mode in ("config_only", "full") else "config_only",
+        "schedule_enabled": enabled,
+        "schedule_cron": cron,
+        "timezone": existing.get("timezone", "UTC"),
+    }
     hb.save_herder_config(cfg)
+    sync_herder_backup_schedule()
     return RedirectResponse("/herder-backups?config_saved=1", status_code=303)
 
 
@@ -486,6 +590,7 @@ async def save_timezone(
 ):
     from .services import herder_backup as hb
     hb.set_app_timezone(timezone)
+    sync_herder_backup_schedule()
     return RedirectResponse("/herder-backups?config_saved=1", status_code=303)
 
 

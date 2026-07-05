@@ -5,7 +5,7 @@ from sqlalchemy import func
 import json
 from typing import Optional, List
 from starlette.concurrency import run_in_threadpool
-from ..database import get_session, ensure_server_columns
+from ..database import get_session, engine
 from ..models import Server, AuditLog, Job
 from datetime import datetime
 from ..security import encryption
@@ -17,6 +17,7 @@ from ..services import backup as backup_svc
 from ..services import diagnostics as diag_svc
 from ..services import os_patching
 from ..services.herder_backup import format_datetime_in_app_tz
+from ..services.server_audit import record_server_audit
 from .. import templates as templates_mod
 from ..security.auth import get_current_user
 from ..models import User
@@ -32,6 +33,9 @@ import logging
 router = APIRouter()
 logger = logging.getLogger("piherder.servers")
 
+# Short-lived cache so modal polls don't hammer Postgres during long rsync jobs.
+_backup_progress_http_cache: dict[str, tuple[float, dict]] = {}
+
 
 @router.get("", response_class=HTMLResponse)
 async def list_servers(request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
@@ -42,10 +46,18 @@ async def list_servers(request: Request, session: Session = Depends(get_session)
     start = time.time()
 
     try:
-        ensure_server_columns()
         rows = session.exec(select(Server).order_by(Server.sort_order, Server.name)).all()
     except Exception:
         rows = session.exec(select(Server).order_by(Server.name)).all()
+
+    running_backup_ids = set(
+        session.exec(
+            select(Job.server_id).where(
+                Job.job_type == "backup",
+                Job.status.in_(["pending", "running"]),
+            )
+        ).all()
+    )
 
     servers = []
     for row in rows:
@@ -53,6 +65,7 @@ async def list_servers(request: Request, session: Session = Depends(get_session)
         if row.last_backup_at:
             d["last_backup"] = row.last_backup_at
             d["last_backup_str"] = format_datetime_in_app_tz(row.last_backup_at)
+        d["backup_running"] = row.id in running_backup_ids
         servers.append(d)
 
     total = time.time() - start
@@ -64,7 +77,7 @@ async def list_servers(request: Request, session: Session = Depends(get_session)
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_list.html",
-        context={"title": "Servers", "servers": servers, "user": user}
+        context={"title": "Servers", "servers": servers, "user": user, "lean_page": True}
     )
 
 
@@ -78,7 +91,6 @@ async def move_server(
     if direction not in ("up", "down"):
         raise HTTPException(400)
     try:
-        ensure_server_columns()
         servers = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
     except Exception:
         servers = list(session.exec(select(Server).order_by(Server.name)).all())
@@ -93,8 +105,19 @@ async def move_server(
     for i, s in enumerate(servers):
         s.sort_order = i * 10
         session.add(s)
+    record_server_audit(
+        session,
+        server_id=server_id,
+        user_id=user.id,
+        action="server_move",
+        details={"direction": direction, "message": f"Moved {direction} in server list"},
+    )
     session.commit()
     return RedirectResponse("/servers", status_code=303)
+
+
+# Roadmap: guided onboarding wizard (SPEC.md) — deploy SSH key via password session,
+# provision least-privilege backup user + sudoers, rotate keys from server settings.
 
 
 @router.get("/add", response_class=HTMLResponse)
@@ -139,9 +162,8 @@ async def add_server(
         priv_enc = encryption.encrypt_str(private_key.strip())
         pub = "(provided with private key - test connection to verify)"
 
-    ensure_server_columns()
-    max_order = session.exec(select(func.max(Server.sort_order))).first()
-    max_order = max_order[0] if max_order and max_order[0] is not None else 0
+    current_max = session.scalar(select(func.max(Server.sort_order)))
+    next_sort = int(current_max or 0) + 10
     server = Server(
         name=name,
         hostname=hostname,
@@ -150,11 +172,38 @@ async def add_server(
         ssh_private_key_encrypted=priv_enc,
         ssh_public_key=pub,
         ssh_password_encrypted=pw_enc,
-        sort_order = (max_order or 0) + 10,
+        sort_order=next_sort,
+        backup_enabled=True,
     )
     session.add(server)
     session.commit()
     session.refresh(server)
+
+    auth_method = {"generate": "generated_key", "upload": "uploaded_key", "password": "password_auth"}.get(
+        key_mode, key_mode
+    )
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_create",
+        details={
+            "name": server.name,
+            "hostname": server.hostname,
+            "ssh_username": server.ssh_username,
+            "auth_method": auth_method,
+            "message": f"Server {server.name} added",
+        },
+    )
+    if key_mode == "password":
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_password_set",
+            message="SSH password set on server create",
+        )
+    session.commit()
 
     redirect_url = f"/servers/{server.id}"
     if key_mode == "generate":
@@ -164,14 +213,16 @@ async def add_server(
 
 @router.get("/{server_id}", response_class=HTMLResponse)
 async def server_detail(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
-    ensure_server_columns()
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
+
+    show_ssh_key = request.query_params.get("show_ssh_key") == "1"
+    edit_mode = request.query_params.get("edit") == "1"
+
     server_dict = server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"})
 
     reboot_initiated = request.query_params.get("rebooted") == "1"
-    show_ssh_key = request.query_params.get("show_ssh_key") == "1"
 
     backup_profiles = []
     overall_last_backup = None
@@ -183,15 +234,14 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
     current_backup_job = None   # DB-backed status (worker writes here)
 
     try:
-        backup_profiles = backup_svc.get_backup_profiles(server)
-        last_backup_times = [p["last_backup"] for p in backup_profiles if p.get("last_backup")]
-        overall_last_backup = max(last_backup_times) if last_backup_times else None
+        backup_profiles = backup_svc.get_backup_profiles_db(server)
+        overall_last_backup = server.last_backup_at
 
         # Latest backup Job from DB (source of truth for running state)
         current_backup_job = session.exec(
             select(Job)
             .where(Job.server_id == server.id, Job.job_type == "backup")
-            .order_by(Job.started_at.desc())
+            .order_by(Job.created_at.desc())
             .limit(1)
         ).first()
 
@@ -201,7 +251,13 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
             .order_by(AuditLog.started_at.desc())
             .limit(1)
         ).first()
-        last_backup_status = last_backup_log.status if last_backup_log else None
+        last_backup_status = (
+            backup_svc.effective_backup_status(
+                last_backup_log.status, last_backup_log.output_snippet
+            )
+            if last_backup_log
+            else None
+        )
 
         recent_backups = session.exec(
             select(AuditLog)
@@ -221,7 +277,7 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
                     total_bytes = sum(r.get("size_bytes", 0) for r in results)
                     object.__setattr__(log, 'parsed', {
                         "sources": len(results),
-                        "success_count": sum(1 for r in results if r.get("rc", 0) or r.get("skipped")),
+                        "success_count": sum(1 for r in results if backup_svc.backup_source_ok(r)),
                         "total_size": total_bytes,
                         "total_size_human": backup_svc.human_size(total_bytes),
                     })
@@ -229,13 +285,10 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
                 except Exception:
                     pass
 
-        global_backup_defaults = backup_svc.get_global_backup_defaults()
-        current_sources = [p.get("source") for p in backup_profiles] or global_backup_defaults
+        global_backup_defaults = backup_svc.global_backup_defaults_from_server(server)
+        current_sources = [p.get("source") for p in backup_profiles]
 
-        try:
-            diagnostics = await run_in_threadpool(diag_svc.run_diagnostics, server)
-        except Exception:
-            diagnostics = {"error": "Could not fetch diagnostics"}
+        # Skip SSH diagnostics on page load — backup pages must stay fast.
     except Exception:
         diagnostics = {"error": "Could not load server details"}
 
@@ -250,6 +303,10 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
             "last_backup_status": last_backup_status,
             "recent_backups": recent_backups,
             "current_backup_job": current_backup_job,
+            "running_backup_job": job_service.get_running_backup_job(session, server.id),
+            "full_backup_job": job_service.get_active_job_for_source(session, server.id, None),
+            "active_backup_jobs": job_service.get_active_backup_jobs(session, server.id),
+            "backup_active": bool(job_service.get_active_backup_jobs(session, server.id)),
             "user": user,
             "settings": settings,
             "global_backup_defaults": global_backup_defaults,
@@ -257,6 +314,8 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
             "diagnostics": diagnostics,
             "reboot_initiated": reboot_initiated,
             "show_ssh_key": show_ssh_key,
+            "edit_mode": edit_mode,
+            "lean_page": True,
         }
     )
 
@@ -268,11 +327,16 @@ async def server_backups(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
-    ensure_server_columns()
+    show_ssh_key = request.query_params.get("show_ssh_key") == "1"
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
     server_dict = server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"})
+
+    active_backup_jobs = job_service.get_active_backup_jobs(session, server.id)
+    running_backup_job = job_service.get_running_backup_job(session, server.id)
+    current_backup_job = running_backup_job or (active_backup_jobs[-1] if active_backup_jobs else None)
+    backup_running = bool(active_backup_jobs)
 
     backup_profiles = []
     last_backup_status = None
@@ -280,7 +344,10 @@ async def server_backups(
     current_sources = []
 
     try:
-        backup_profiles = backup_svc.get_backup_profiles(server)
+        backup_profiles = job_service.attach_source_job_states(
+            backup_svc.get_backup_profiles_db(server),
+            active_backup_jobs,
+        )
 
         last_backup_log = session.exec(
             select(AuditLog)
@@ -288,10 +355,16 @@ async def server_backups(
             .order_by(AuditLog.started_at.desc())
             .limit(1)
         ).first()
-        last_backup_status = last_backup_log.status if last_backup_log else None
+        last_backup_status = (
+            backup_svc.effective_backup_status(
+                last_backup_log.status, last_backup_log.output_snippet
+            )
+            if last_backup_log
+            else None
+        )
 
-        global_backup_defaults = backup_svc.get_global_backup_defaults()
-        current_sources = [p.get("source") for p in backup_profiles] or global_backup_defaults
+        global_backup_defaults = backup_svc.global_backup_defaults_from_server(server)
+        current_sources = [p.get("source") for p in backup_profiles]
     except Exception:
         pass
 
@@ -307,12 +380,23 @@ async def server_backups(
             "settings": settings,
             "global_backup_defaults": global_backup_defaults,
             "current_sources": current_sources,
+            "show_ssh_key": show_ssh_key,
+            "backup_running": backup_running,
+            "current_backup_job": current_backup_job,
+            "running_backup_job": running_backup_job,
+            "active_backup_jobs": active_backup_jobs,
+            "lean_page": True,
         }
     )
 
 
+def _server_redirect(server_id: int) -> str:
+    return f"/servers/{server_id}"
+
+
 @router.post("/{server_id}/run/backup")
 async def run_backup(
+    request: Request,
     server_id: int,
     background_tasks: BackgroundTasks,
     source: Optional[str] = Form(None),
@@ -323,27 +407,62 @@ async def run_backup(
     if not server:
         raise HTTPException(404)
 
-    if backup_svc.is_backup_running(server.hostname):
-        return RedirectResponse(f"/servers/{server_id}", status_code=303)
+    _backup_progress_http_cache.clear()
 
-    if source:
-        job_service.create_job_and_run(background_tasks, session, server, "backup", user_id=user.id, source_filter=source)
-    else:
-        job_service.create_job_and_run(background_tasks, session, server, "backup", user_id=user.id)
+    async_mode = request.headers.get("X-PiHerder-Async") == "1"
 
-    return RedirectResponse(f"/servers/{server_id}", status_code=303)
+    try:
+        if source:
+            job = job_service.create_job_and_run(
+                background_tasks, session, server, "backup", user_id=user.id, source_filter=source
+            )
+        else:
+            job = job_service.create_job_and_run(
+                background_tasks, session, server, "backup", user_id=user.id
+            )
+    except job_service.BackupAlreadyRunning as exc:
+        return JSONResponse(
+            {
+                "detail": "Backup already queued or running for this source",
+                "job_id": exc.job.id,
+                "active": True,
+                "source_filter": job_service.job_source_filter(exc.job),
+                "status": exc.job.status,
+            },
+            status_code=409,
+        )
+
+    if async_mode:
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "source_filter": job_service.job_source_filter(job),
+            }
+        )
+
+    referer = request.headers.get("referer") or ""
+    if f"/servers/{server_id}/backups" in referer:
+        return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
+    return RedirectResponse(_server_redirect(server_id), status_code=303)
 
 
 @router.post("/{server_id}/backup/stop")
 async def stop_backup(
     server_id: int,
+    job_id: Optional[int] = Form(None),
+    source: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
-    backup_svc.stop_backup(server.hostname)
+    _backup_progress_http_cache.clear()
+    target = job_service.resolve_backup_job(
+        session, server_id, job_id=job_id, source_filter=source
+    )
+    job_service.stop_active_backup(session, server, job=target)
     audit = AuditLog(
         user_id=user.id,
         server_id=server.id,
@@ -353,7 +472,7 @@ async def stop_backup(
     )
     session.add(audit)
     session.commit()
-    return RedirectResponse(f"/servers/{server_id}", status_code=303)
+    return RedirectResponse(_server_redirect(server_id), status_code=303)
 
 
 @router.post("/{server_id}/reboot")
@@ -362,6 +481,7 @@ async def reboot_server(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -383,16 +503,14 @@ async def reboot_server(
         details = f"Reboot command failed to send: {e}"
 
     try:
-        audit = AuditLog(
-            user_id=user.id,
+        record_server_audit(
+            session,
             server_id=server.id,
+            user_id=user.id,
             action="reboot",
             status="success" if success else "failed",
-            details=details,
-            started_at=datetime.utcnow(),
-            finished_at=datetime.utcnow(),
+            message=details,
         )
-        session.add(audit)
         session.commit()
     except Exception:
         pass
@@ -419,45 +537,135 @@ async def update_server(
     if not server:
         raise HTTPException(404, "Server not found")
 
-    server.name = name.strip()
-    server.hostname = hostname.strip()
-    server.ssh_username = ssh_username.strip()
+    changed: list[str] = []
+    new_name = name.strip()
+    new_host = hostname.strip()
+    new_user = ssh_username.strip()
+    if server.name != new_name:
+        changed.append("name")
+    if server.hostname != new_host:
+        changed.append("hostname")
+    if server.ssh_username != new_user:
+        changed.append("ssh_username")
+    if server.ssh_port != ssh_port:
+        changed.append("ssh_port")
+    if server.backup_enabled != backup_enabled:
+        changed.append("backup_enabled")
+    if server.container_patch_enabled != container_patch_enabled:
+        changed.append("container_patch_enabled")
+    if server.os_patch_enabled != os_patch_enabled:
+        changed.append("os_patch_enabled")
+
+    server.name = new_name
+    server.hostname = new_host
+    server.ssh_username = new_user
     server.ssh_port = ssh_port
 
     if clear_password:
         server.ssh_password_encrypted = None
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_password_clear",
+            message="SSH password cleared",
+        )
     elif ssh_password and ssh_password.strip():
         try:
             server.ssh_password_encrypted = encryption.encrypt_str(ssh_password.strip())
         except Exception as e:
             raise HTTPException(500, f"Failed to encrypt password: {e}")
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_password_set",
+            message="SSH password updated",
+        )
 
     server.backup_enabled = backup_enabled
     server.container_patch_enabled = container_patch_enabled
     server.os_patch_enabled = os_patch_enabled
 
+    if changed:
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_update",
+            details={"fields": changed, "message": f"Updated {', '.join(changed)}"},
+        )
+
     session.add(server)
     session.commit()
 
-    return RedirectResponse(f"/servers/{server_id}", status_code=303)
+    return RedirectResponse(_server_redirect(server_id), status_code=303)
+
+
+@router.post("/{server_id}/audit/ssh-key-viewed", response_class=JSONResponse)
+async def audit_ssh_key_viewed(
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_ssh_key_viewed",
+        message=f"SSH public key viewed for {server.name}",
+    )
+    session.commit()
+    return {"ok": True}
 
 
 @router.get("/{server_id}/backup-progress", response_class=JSONResponse)
 async def get_backup_progress(
     server_id: int,
-    session: Session = Depends(get_session),
+    job_id: Optional[int] = None,
+    source: Optional[str] = None,
     user: User = Depends(get_current_user)
 ):
-    server = session.get(Server, server_id)
-    if not server:
+    """Thin read: prefer Job.details from DB; Redis is legacy fallback only."""
+    cache_key = f"{server_id}:{job_id or source or 'default'}"
+
+    def _read_progress():
+        with Session(engine) as db:
+            server = db.get(Server, server_id)
+            if not server:
+                return None
+            job = job_service.resolve_backup_job(
+                db, server_id, job_id=job_id, source_filter=source
+            )
+            if job:
+                prog = backup_svc.get_job_backup_progress_from_db(job)
+                if prog:
+                    prog["hostname"] = server.hostname
+                    prog["source_filter"] = job_service.job_source_filter(job)
+                    prog["source"] = "db"
+                    return prog
+            prog = backup_svc.get_backup_progress(server.hostname)
+            return {
+                "current": prog.get("current"),
+                "log_lines": prog.get("log_lines", [])[-15:],
+                "last_updated": prog.get("last_updated"),
+                "hostname": server.hostname,
+                "source": "redis",
+            }
+
+    now = time.time()
+    cached = _backup_progress_http_cache.get(cache_key)
+    if cached and (now - cached[0]) < 3.0:
+        return cached[1]
+
+    payload = await run_in_threadpool(_read_progress)
+    if payload is None:
         raise HTTPException(404)
-    prog = backup_svc.get_backup_progress(server.hostname)
-    return {
-        "current": prog.get("current"),
-        "log_lines": prog.get("log_lines", [])[-15:],
-        "last_updated": prog.get("last_updated"),
-        "hostname": server.hostname
-    }
+    _backup_progress_http_cache[cache_key] = (now, payload)
+    return payload
 
 
 @router.get("/{server_id}/backup/logs/stream")
@@ -497,6 +705,7 @@ async def get_os_patch_progress(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -514,6 +723,7 @@ async def stream_os_patch_logs(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -546,6 +756,7 @@ async def get_server_diagnostics(
     user: User = Depends(get_current_user),
     force: bool = False,
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -559,6 +770,7 @@ async def get_server_diagnostics(
 
 @router.post("/{server_id}/run/container_patch")
 async def run_container_patch(server_id: int, background_tasks: BackgroundTasks, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -569,13 +781,14 @@ async def run_container_patch(server_id: int, background_tasks: BackgroundTasks,
 @router.post("/{server_id}/run/os_patch")
 async def run_os_patch(server_id: int, background_tasks: BackgroundTasks, steps: list[str] = Form([]), session: Session = Depends(get_session),
     user: User = Depends(get_current_user)):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
     if not steps:
         steps = ["update", "upgrade", "autoremove"]
     job_service.create_job_and_run(background_tasks, session, server, "os_patch", user_id=user.id, os_steps=steps)
-    return RedirectResponse(f"/servers/{server_id}", status_code=303)
+    return RedirectResponse(_server_redirect(server_id), status_code=303)
 
 
 @router.post("/{server_id}/backup-config")
@@ -636,6 +849,13 @@ async def update_backup_config(
             if backup_schedule:
                 server.backup_enabled = True
         session.add(server)
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_backup_config",
+            details={"scope": "global", "message": "Global backup defaults updated"},
+        )
         session.commit()
         return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
 
@@ -677,7 +897,16 @@ async def update_backup_config(
         session.add(server)
         session.commit()
 
-    return RedirectResponse(f"/servers/{server_id}", status_code=303)
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_backup_config",
+        details={"scope": scope, "message": "Backup configuration updated"},
+    )
+    session.commit()
+
+    return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
 
 
 @router.post("/{server_id}/backup/add")
@@ -698,6 +927,15 @@ async def add_backup_source(
     logger.info(f"[backup-add] add_backup_source returned {added} for server {server_id} path={new_path}")
     session.refresh(server)
     logger.info(f"[backup-add] after refresh backup_paths={server.backup_paths[:120]}...")
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_backup_source_add",
+        status="success" if added else "failed",
+        details={"source": new_path.strip(), "message": f"Added backup source {new_path.strip()}"},
+    )
+    session.commit()
     return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
 
 
@@ -712,6 +950,14 @@ async def remove_backup_source(
     if not server:
         raise HTTPException(404)
     backup_svc.remove_backup_source(server, path, session)
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_backup_source_remove",
+        details={"source": path.strip(), "message": f"Removed backup source {path.strip()}"},
+    )
+    session.commit()
     return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
 
 
@@ -721,7 +967,7 @@ async def run_retention(server_id: int, background_tasks: BackgroundTasks, sessi
     if not server:
         raise HTTPException(404)
     job_service.create_job_and_run(background_tasks, session, server, "retention", user_id=user.id)
-    return RedirectResponse(f"/servers/{server_id}", status_code=303)
+    return RedirectResponse(_server_redirect(server_id), status_code=303)
 
 
 # =====================
@@ -730,6 +976,7 @@ async def run_retention(server_id: int, background_tasks: BackgroundTasks, sessi
 
 @router.get("/{server_id}/docker", response_class=HTMLResponse)
 async def docker_page(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -778,6 +1025,7 @@ async def docker_container_action(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -809,6 +1057,7 @@ async def get_file_content(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -842,6 +1091,7 @@ async def edit_compose(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -917,6 +1167,7 @@ async def edit_dockerfile(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -993,6 +1244,7 @@ async def save_dockerfile(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1015,6 +1267,7 @@ async def new_docker_project_form(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1036,6 +1289,7 @@ async def create_docker_project(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1076,6 +1330,7 @@ async def save_draft(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     if via_modal:
         return JSONResponse({"ok": False, "message": "Draft saving temporarily disabled."})
 
@@ -1090,6 +1345,7 @@ async def deploy_version_route(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1112,6 +1368,7 @@ async def rollback_version(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1133,6 +1390,7 @@ async def validate_compose(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1151,7 +1409,7 @@ async def save_compose(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
-    pass
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1175,6 +1433,7 @@ async def redeploy(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1206,6 +1465,7 @@ async def compose_project_action(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1243,6 +1503,7 @@ async def get_docker_logs(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1270,6 +1531,7 @@ async def get_docker_logs(
 
 @router.get("/{server_id}/docker/containers-fragment", response_class=HTMLResponse)
 async def containers_fragment(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1304,6 +1566,7 @@ async def check_updates(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -1329,6 +1592,7 @@ async def check_updates(
 
 @router.get("/{server_id}/docker/logs/{container}/stream")
 async def stream_container_logs(server_id: int, container: str, lines: int = 30, project_path: str = None, session: Session = Depends(get_session)):
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)

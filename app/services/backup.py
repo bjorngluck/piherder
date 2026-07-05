@@ -14,7 +14,6 @@ import threading
 import shlex
 import time
 import traceback
-
 # Use app selected TZ for display strings
 from .herder_backup import format_datetime_in_app_tz
 
@@ -27,6 +26,15 @@ _redis_client = None
 
 _last_progress_update: dict[str, float] = {}
 _progress_cache: dict[str, tuple[float, dict]] = {}   # (timestamp, data) for lightweight caching
+_active_job_id: dict[str, int] = {}  # hostname -> Job.id (worker feeds DB)
+_job_db_last_update: dict[int, float] = {}
+_job_details_buffer: dict[int, dict] = {}  # in-worker buffer between DB flushes
+
+# Min seconds between Job.details commits during long rsync runs
+_JOB_DB_COMMIT_INTERVAL = 10.0
+_PROGRESS_THROTTLE_SEC = 3.0
+_MAX_LOG_LINE_LEN = 240
+_MAX_LOG_LINES = 15
 
 
 GLOBAL_BACKUP_DEFAULTS_FILE = Path(settings.BACKUP_ROOT) / ".global_backup_defaults.json"
@@ -129,64 +137,198 @@ def get_backup_progress(hostname: str) -> dict:
     _progress_cache[hostname] = (now, data)
     return data
 
-def _set_progress(hostname: str, current: str | None = None, log_line: str | None = None):
-    """Update progress with strong throttling for long-running backups.
+def _truncate_log_line(line: str) -> str:
+    line = (line or "").strip()
+    if len(line) > _MAX_LOG_LINE_LEN:
+        return line[: _MAX_LOG_LINE_LEN - 3] + "..."
+    return line
 
-    - 'current' (which file) updates more frequently for responsive UI feel.
-    - Log line appends + Redis writes are throttled (~800ms) unless important (error/complete/etc).
-    - Always sets 'last_updated' so frontend can be smart about re-rendering.
-    """
+
+def _is_rsync_progress2_line(line: str) -> bool:
+    """--info=progress2 emits one updating status line (xfr#, to-chk=, %, MB/s). Never log these."""
+    low = (line or "").lower()
+    if "to-chk=" in low or "xfr#" in low:
+        return True
+    if "%" in line and any(u in low for u in ("mb/s", "kb/s", "gb/s", "bytes/sec", "/s")):
+        return True
+    return False
+
+
+def _rsync_line_worth_logging(line: str) -> bool:
+    """Only real messages — never progress2 or per-file -v noise."""
+    s = _truncate_log_line(line)
+    if not s or _is_rsync_progress2_line(s):
+        return False
+    low = s.lower()
+    if any(w in low for w in ("error", "fail", "denied", "warning", "rsync:", "permission")):
+        return True
+    if s.startswith("Backing up ") or s.startswith("Completed ") or s.startswith("Failed "):
+        return True
+    if s.startswith("/") or s.startswith("./"):
+        return False
+    return False
+
+
+def _merge_progress_buffer(job_id: int, current: str | None, log_line: str | None) -> dict:
+    buf = _job_details_buffer.setdefault(
+        job_id, {"current": None, "log_lines": [], "last_updated": time.time()}
+    )
+    if current is not None:
+        buf["current"] = current
+    if log_line:
+        line = _truncate_log_line(log_line)
+        if line:
+            lines = buf.setdefault("log_lines", [])
+            if not lines or lines[-1] != line:
+                lines.append(line)
+            buf["log_lines"] = lines[-_MAX_LOG_LINES:]
+    buf["last_updated"] = time.time()
+    return buf
+
+
+def _flush_job_progress_db(job_id: int, force: bool = False) -> None:
+    """Commit buffered progress to Job.details (throttled)."""
+    buf = _job_details_buffer.get(job_id)
+    if not buf:
+        return
+    now = time.time()
+    last = _job_db_last_update.get(job_id, 0)
+    if not force and (now - last) < _JOB_DB_COMMIT_INTERVAL:
+        return
+    _job_db_last_update[job_id] = now
+    try:
+        from sqlmodel import Session
+        from ..database import engine
+        from ..models import Job
+        import json as _json
+
+        with Session(engine) as s:
+            job = s.get(Job, job_id)
+            if not job:
+                return
+            details = {}
+            if job.details:
+                try:
+                    details = _json.loads(job.details)
+                except Exception:
+                    pass
+            # Preserve metadata (source_filter, started_at, result_summary) — only update progress fields
+            details["current"] = buf.get("current")
+            details["log_lines"] = list(buf.get("log_lines", []))[-_MAX_LOG_LINES:]
+            details["last_updated"] = buf.get("last_updated", now)
+            job.details = _json.dumps(details)
+            if job.status == "pending":
+                job.status = "running"
+            if job.started_at is None:
+                job.started_at = datetime.utcnow()
+            s.add(job)
+            s.commit()
+    except Exception as e:
+        logger.debug(f"[backup] Job.details flush failed for job {job_id}: {e}")
+
+
+def _update_job_progress_db(job_id: int, current: str | None, log_line: str | None, force: bool = False):
+    """Buffer progress in worker memory; flush to DB on interval."""
+    _merge_progress_buffer(job_id, current, log_line)
+    _flush_job_progress_db(job_id, force=force)
+
+
+def get_job_backup_progress_from_db(job) -> dict | None:
+    """Slim progress read for web poll — avoids parsing huge result_summary when possible."""
+    if not job:
+        return None
+    now = time.time()
+    if not job.details:
+        if job.status == "pending":
+            return {
+                "current": "queued",
+                "log_lines": ["Waiting for worker…"],
+                "last_updated": now,
+                "status": job.status,
+                "job_id": job.id,
+            }
+        if job.status == "running":
+            return {
+                "current": "starting",
+                "log_lines": ["Backup starting…"],
+                "last_updated": now,
+                "status": job.status,
+                "job_id": job.id,
+            }
+        return None
+    try:
+        details = json.loads(job.details)
+    except Exception:
+        if job.status in ("pending", "running"):
+            return {
+                "current": "queued" if job.status == "pending" else "starting",
+                "log_lines": ["Waiting for worker…" if job.status == "pending" else "Backup starting…"],
+                "last_updated": now,
+                "status": job.status,
+                "job_id": job.id,
+            }
+        return None
+    return {
+        "current": details.get("current"),
+        "log_lines": list(details.get("log_lines", []))[-15:],
+        "last_updated": details.get("last_updated") or now,
+        "status": job.status,
+        "job_id": job.id,
+        "error": details.get("error"),
+    }
+
+
+def clear_job_progress_buffer(job_id: int | None):
+    if job_id:
+        _job_details_buffer.pop(job_id, None)
+        _job_db_last_update.pop(job_id, None)
+
+
+def _set_progress(hostname: str, current: str | None = None, log_line: str | None = None, force: bool = False):
+    """Update progress — heavily throttled. Job.details is the UI source of truth."""
     now = time.time()
     last = _last_progress_update.get(hostname, 0)
 
-    # Always keep in-memory 'current' fresh
     if hostname not in _backup_progress:
         _backup_progress[hostname] = {"current": None, "log_lines": [], "last_updated": now}
-    if current is not None:
-        _backup_progress[hostname]["current"] = current
 
-    # Decide whether to do the expensive work (Redis write + log append)
-    force = False
+    important_log = False
     if log_line:
         low = log_line.lower()
-        if any(word in low for word in ("error", "fail", "denied", "complete", "finished", "skipped", "done", "warning")):
-            force = True
+        important_log = any(
+            word in low
+            for word in ("error", "fail", "denied", "complete", "finished", "skipped", "warning", "backing up", "still backing", "failed", "preparing")
+        )
 
-    THROTTLE_SECONDS = 0.8
-    if not force and (now - last) < THROTTLE_SECONDS:
-        # Still update last_updated even on throttled calls so UI knows something is happening
-        _backup_progress[hostname]["last_updated"] = now
+    if not force and not important_log and (now - last) < _PROGRESS_THROTTLE_SEC:
         return _backup_progress[hostname]
 
     _last_progress_update[hostname] = now
+    p = _backup_progress[hostname]
+    if current is not None:
+        p["current"] = current
+    if log_line and important_log:
+        line = _truncate_log_line(log_line)
+        if line:
+            lines = p.setdefault("log_lines", [])
+            if not lines or lines[-1] != line:
+                lines.append(line)
+            p["log_lines"] = lines[-_MAX_LOG_LINES:]
+    p["last_updated"] = now
+    _progress_cache[hostname] = (now, p)
 
+    job_id = _active_job_id.get(hostname)
+    if job_id:
+        _update_job_progress_db(job_id, current, log_line if important_log else None, force=force or important_log)
+        return p
+
+    # Legacy Redis path only when no Job (non-Celery fallback)
     r = _get_redis()
     if r:
         try:
-            key = f"piherder:backup_progress:{hostname}"
-            existing = r.get(key)
-            p = json.loads(existing) if existing else {"current": None, "log_lines": [], "last_updated": now}
-            if current is not None:
-                p["current"] = current
-            if log_line:
-                p["log_lines"].append(log_line)
-                if len(p["log_lines"]) > 40:
-                    p["log_lines"] = p["log_lines"][-40:]
-            p["last_updated"] = now
-            r.set(key, json.dumps(p), ex=3600)
-            _progress_cache[hostname] = (now, p)
-            return p
+            r.set(f"piherder:backup_progress:{hostname}", json.dumps(p), ex=3600)
         except Exception:
             pass
-
-    # In-memory fallback
-    p = _backup_progress[hostname]
-    if log_line:
-        p["log_lines"].append(log_line)
-        if len(p["log_lines"]) > 40:
-            p["log_lines"] = p["log_lines"][-40:]
-    p["last_updated"] = now
-    _progress_cache[hostname] = (now, p)
     return p
 
 def _clear_progress(hostname: str):
@@ -217,32 +359,33 @@ def _send_webhook(message: str):
     except Exception:
         pass  # never break the backup on notification failure
 
-def _path_requires_privilege(path: str) -> bool:
-    """Heuristic: does this path typically require root/sudo on the remote host?
+# All configured backup sources run rsync via passwordless sudo on the target host.
+# Roadmap (SPEC.md § Server onboarding wizard): per-server allow/deny path rules before rsync;
+# guided remote setup for key auth, least-privilege backup user + sudoers, and key rotation.
+_RSYNC_SUDO = ("sudo", "-n")
+_RSYNC_REMOTE_PATH = "sudo -n rsync"
 
-    Only for system-internal protected paths (mainly Docker volumes) that
-    are almost always root-only on the target.
-    """
-    if not path:
-        return False
-    p = path.lower()
-    privileged = (
-        "/var/lib/docker",
-        "/var/lib/containers",
-        "/root/",
-        "/.docker/",
-        "/etc/docker",
-    )
-    return any(priv in p for priv in privileged)
+
+def _source_dir_exists_local(path: str) -> bool:
+    """Existence check aligned with sudo-backed rsync."""
+    try:
+        proc = subprocess.run(
+            [*_RSYNC_SUDO, "test", "-d", path],
+            capture_output=True,
+            timeout=15,
+        )
+        if proc.returncode == 0:
+            return True
+    except Exception:
+        pass
+    return os.path.isdir(path)
+
 
 def _folder_exists_via_ssh(client, folder: str, username: str) -> bool:
     """Check if a folder exists on the remote host over SSH.
 
-    Strategy:
-    - Always try a plain 'test -d' first (works for HAOS /ssl /config, normal homes, etc.)
-    - Only fall back to 'sudo -n test -d' for paths that are known to need root
-      (Docker volumes etc.). This avoids sudo failures on systems like HAOS
-      where the SSH user (often root) doesn't need or can't run sudo -n.
+    Prefer sudo (matches rsync). Fall back to plain test for hosts where the SSH
+    user is root and sudo -n is unavailable (e.g. some HAOS installs).
     """
     folder_q = shlex.quote(folder)
 
@@ -257,18 +400,60 @@ def _folder_exists_via_ssh(client, folder: str, username: str) -> bool:
         except Exception:
             return False
 
-    # 1. Try direct (no sudo) — this is what works on most non-Docker paths and HAOS
-    if _try_check(False):
+    if _try_check(True):
         return True
+    return _try_check(False)
 
-    # 2. Only try sudo for paths we expect to need privilege
-    if _path_requires_privilege(folder):
-        if _try_check(True):
-            return True
+def backup_source_ok(result: dict) -> bool:
+    """True if a single source result is success or intentionally skipped."""
+    if result.get("skipped"):
+        return True
+    if result.get("error"):
+        return False
+    return int(result.get("rc", 0)) == 0
 
-    return False
 
-def run_backup(server: Server, user_id: int | None = None, sources_override: Optional[List[dict]] = None) -> dict:
+def backup_succeeded(payload: dict) -> bool:
+    """True only when every source completed without rsync/permission errors."""
+    if payload.get("error"):
+        return False
+    results = payload.get("results") or []
+    if not results:
+        return False
+    return all(backup_source_ok(r) for r in results)
+
+
+def backup_failure_message(payload: dict) -> str:
+    """Human-readable reason when backup_succeeded is False."""
+    if payload.get("error"):
+        return str(payload["error"])[:800]
+    for r in payload.get("results") or []:
+        if not backup_source_ok(r):
+            src = r.get("source", "source")
+            if r.get("error"):
+                return f"{src}: {r['error']}"
+            rc = r.get("rc")
+            if rc:
+                return f"{src}: rsync exited with code {rc}"
+    return "One or more backup sources failed"
+
+
+def effective_backup_status(status: str, output_snippet: str | dict | None) -> str:
+    """Correct legacy rows tagged success when rsync results actually failed."""
+    if status != "success" or not output_snippet:
+        return status
+    data = output_snippet
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except Exception:
+            return status
+    if isinstance(data, dict) and not backup_succeeded(data):
+        return "failed"
+    return status
+
+
+def run_backup(server: Server, user_id: int | None = None, sources_override: Optional[List[dict]] = None, job_id: int | None = None) -> dict:
     """Main entry for a backup job. Replicates original backup_script.sh closely.
     Now supports the richer source format with dest_name and enabled flag.
 
@@ -280,6 +465,8 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
     (used for per-source backup runs without mutating the persisted Server.backup_paths).
     """
     hostname = server.hostname
+    if job_id:
+        _active_job_id[hostname] = job_id
     sources = sources_override if sources_override is not None else server.get_backup_sources()
     results = []
     backup_root = get_backup_root_for_server(server)
@@ -287,6 +474,7 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
         backup_root.mkdir(parents=True, exist_ok=True)
     except PermissionError as e:
         _clear_progress(hostname)
+        _active_job_id.pop(hostname, None)
         return {
             "server": hostname,
             "error": f"Permission denied creating {backup_root} (errno 13). "
@@ -332,6 +520,7 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
         except Exception as e:
             _send_webhook(f"Backup failed for {server.hostname}: SSH connection error - {e}")
             _clear_progress(hostname)
+            _active_job_id.pop(hostname, None)
             return {"server": server.hostname, "error": str(e), "results": []}
 
     lock = _get_backup_lock(server.id)
@@ -356,12 +545,9 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
             _set_progress(hostname, current=src, log_line=f"Backing up {src}")
 
             try:
-                # Existence check
+                # Existence check (sudo-first — same privilege level as rsync below)
                 if is_local:
-                    if _path_requires_privilege(src):
-                        exists = subprocess.call(["sudo", "-n", "test -d", src]) == 0
-                    else:
-                        exists = os.path.isdir(src)
+                    exists = _source_dir_exists_local(src)
                 else:
                     exists = _folder_exists_via_ssh(ssh_client, src, username)
 
@@ -371,69 +557,83 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                     results.append({"source": src, "skipped": True, "reason": "missing"})
                     continue
 
-                rsync_base = ["rsync", "-aHvz", "--delete", "--numeric-ids", "-P"]
+                # Quiet rsync — do NOT read stdout (progress2 floods the worker on large trees).
+                rsync_base = ["rsync", "-aHz", "--delete", "--numeric-ids"]
                 rc = 1
+                rsync_stderr = ""
+
+                def _wait_rsync_quiet(proc: subprocess.Popen, source: str) -> int:
+                    """Poll process without parsing rsync output. Heartbeat UI every 10s."""
+                    _set_progress(hostname, current=source, log_line=f"Backing up {source}…", force=True)
+                    last_ping = time.time()
+                    while proc.poll() is None:
+                        time.sleep(2)
+                        now = time.time()
+                        if now - last_ping >= 10:
+                            _set_progress(hostname, current=source, log_line=f"Still backing up {source}…")
+                            last_ping = now
+                    return proc.returncode or 0
 
                 if is_local:
-                    cmd = rsync_base.copy()
-                    if _path_requires_privilege(src):
-                        cmd = ["sudo", "-n"] + cmd
-                    cmd += [src_rsync, str(dest) + "/"]
-                    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                    cmd = [*_RSYNC_SUDO, *rsync_base, src_rsync, str(dest) + "/"]
+                    proc = subprocess.Popen(
+                        cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
+                    )
                     _active_backup_procs[hostname] = proc
-                    for line in iter(proc.stdout.readline, ''):
-                        if line:
-                            line = line.strip()
-                            _set_progress(hostname, current=src, log_line=line)
-                    rc = proc.wait()
+                    rc = _wait_rsync_quiet(proc, src)
+                    try:
+                        rsync_stderr = (proc.stderr.read() or "") if proc.stderr else ""
+                    except Exception:
+                        pass
                     _active_backup_procs.pop(hostname, None)
                 else:
                     with temp_key_file(priv) as key_path:
                         ssh_cmd = _build_rsync_ssh_cmd(key_path)
-                        cmd = rsync_base + ["-e", ssh_cmd]
-                        if _path_requires_privilege(src):
-                            cmd += ["--rsync-path", "sudo -n rsync"]
+                        cmd = rsync_base + ["-e", ssh_cmd, "--rsync-path", _RSYNC_REMOTE_PATH]
                         cmd += [
                             f"{username}@{server.hostname}:{src_rsync}",
                             str(dest) + "/"
                         ]
-                        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+                        proc = subprocess.Popen(
+                            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
+                        )
                         _active_backup_procs[hostname] = proc
-                        for line in iter(proc.stdout.readline, ''):
-                            if line:
-                                line = line.strip()
-                                _set_progress(hostname, current=src, log_line=line)
-                        rc = proc.wait()
+                        rc = _wait_rsync_quiet(proc, src)
+                        try:
+                            rsync_stderr = (proc.stderr.read() or "") if proc.stderr else ""
+                        except Exception:
+                            pass
                         _active_backup_procs.pop(hostname, None)
 
                 if rc == 0:
                     (dest / ".last_backup").touch()
+                    # Total size on backup volume (not bytes transferred this run — rsync may skip unchanged files).
                     size = get_dir_size(dest)
                     results.append({
                         "source": src,
                         "dest": str(dest),
                         "rc": rc,
                         "size_bytes": size,
-                        "size_human": human_size(size)
+                        "size_human": human_size(size),
                     })
                     _set_progress(hostname, log_line=f"Completed {src}")
                 else:
-                    # Provide better diagnostics for common remote issues (HAOS, minimal systems, etc.)
                     error_detail = "rsync non-zero"
-                    try:
-                        prog = get_backup_progress(hostname)
-                        lines = prog.get("log_lines", [])
-                        recent = " ".join(lines[-10:])
-                        if "command not found" in recent.lower() or ("rsync" in recent.lower() and "not found" in recent.lower()):
-                            error_detail = "rsync command not found on remote. Install rsync on the target (via SSH add-on on HAOS etc.)"
-                        elif "permission" in recent.lower() or "denied" in recent.lower():
-                            error_detail = "Permission denied on remote. Check SSH user permissions or try sudo for protected paths."
-                        else:
-                            err_lines = [l for l in lines[-10:] if l and any(k in l.lower() for k in ("error", "rsync:", "failed", "protocol", "closed", "bash:"))]
-                            if err_lines:
-                                error_detail = err_lines[-1]
-                    except Exception:
-                        pass
+                    recent = (rsync_stderr or "")[-1500:].lower()
+                    if "command not found" in recent or ("rsync" in recent and "not found" in recent):
+                        error_detail = "rsync command not found on remote. Install rsync on the target."
+                    elif "permission" in recent or "denied" in recent:
+                        error_detail = (
+                            "Permission denied on remote. Backups run via sudo -n rsync — "
+                            "configure passwordless sudo for the SSH user."
+                        )
+                    elif "sudo" in recent and ("password" in recent or "not found" in recent or "a terminal" in recent):
+                        error_detail = (
+                            "sudo failed on remote. Allow passwordless sudo (NOPASSWD) for rsync for the SSH user."
+                        )
+                    elif rsync_stderr.strip():
+                        error_detail = rsync_stderr.strip().splitlines()[-1][:300]
+                    _set_progress(hostname, log_line=f"Failed {src}: {error_detail[:120]}", force=True)
                     results.append({"source": src, "rc": rc, "error": error_detail})
                     _send_webhook(f"Backup failed for {server.hostname}: rsync error on {src}")
                     _set_progress(hostname, log_line=f"Failed {src}")
@@ -447,14 +647,22 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
         if ssh_client:
             ssh_client.close()
 
-        success = all(r.get("rc") == 0 or r.get("skipped") for r in results)
+        success = backup_succeeded({"results": results})
         if success:
             _send_webhook(f"Backup completed for {server.hostname} at {datetime.utcnow()}")
+        else:
+            err = backup_failure_message({"results": results})
+            _send_webhook(f"Backup failed for {server.hostname}: {err[:200]}")
 
         _clear_progress(hostname)
+        jid = _active_job_id.pop(hostname, None)
+        if jid:
+            _flush_job_progress_db(jid, force=True)
+            clear_job_progress_buffer(jid)
         return {
             "server": server.hostname,
             "results": results,
+            "ok": success,
             "timestamp": datetime.utcnow().isoformat(),
         }
 
@@ -484,10 +692,46 @@ def run_retention(server: Server) -> dict:
 
 # === Backup Profiles / Flexibility helpers ===
 
-def get_backup_profiles(server: Server) -> List[Dict]:
-    """Return rich backup profile info for UI.
-    Includes timing logs for diagnostics (Phase 1).
-    """
+def get_backup_profiles_db(server: Server) -> List[Dict]:
+    """UI-only: build profile list from Server row — no filesystem, no SSH."""
+    sources = server.get_backup_sources()
+    if not sources:
+        sources = [
+            {"source": p, "dest_name": None, "enabled": True}
+            for p in server.get_backup_paths()
+        ]
+
+    root = server.backup_dest_root or settings.BACKUP_ROOT
+    folder = server.backup_folder_name or server.hostname.replace("/", "_")
+    last = server.last_backup_at
+
+    profiles = []
+    for item in sources:
+        src = item["source"]
+        dest_name = item.get("dest_name") or Path(src).name or "root"
+        profiles.append({
+            "source": src,
+            "dest_name": dest_name,
+            "destination": f"{root}/{folder}/{dest_name}",
+            "enabled": item.get("enabled", True),
+            "last_backup": last,
+            "last_backup_str": format_datetime_in_app_tz(last) if last else "Never",
+            "folder_name": dest_name,
+        })
+    return profiles
+
+
+def global_backup_defaults_from_server(server: Server) -> dict:
+    """DB/config only — no JSON file read on web."""
+    return {
+        "dest_root": server.backup_dest_root or settings.BACKUP_ROOT,
+        "folder_name": server.backup_folder_name or server.hostname.replace("/", "_"),
+        "sources": [p.get("source") for p in server.get_backup_sources()] or server.get_backup_paths(),
+    }
+
+
+def get_backup_profiles(server: Server, skip_fs: bool = False) -> List[Dict]:
+    """Return rich backup profile info for UI."""
     import time
     start = time.time()
 
@@ -505,7 +749,7 @@ def get_backup_profiles(server: Server) -> List[Dict]:
         dest_name = item.get("dest_name") or Path(src).name or "root"
         enabled = item.get("enabled", True)
         dest = str(get_backup_root_for_server(server) / dest_name)
-        last = get_last_backup_time_for_dest(server.hostname, dest_name)
+        last = None if skip_fs else get_last_backup_time_for_dest(server.hostname, dest_name)
         profiles.append({
             "source": src,
             "dest_name": dest_name,
@@ -584,15 +828,19 @@ def get_last_backup_time(hostname: str, source: str) -> Optional[datetime]:
     return None
 
 def get_dir_size(path: Path) -> int:
-    """Calculate total size of directory in bytes."""
-    total = 0
+    """Fast size via du — avoid rglob walk on large backup trees."""
     try:
-        for entry in path.rglob('*'):
-            if entry.is_file():
-                total += entry.stat().st_size
+        proc = subprocess.run(
+            ["du", "-sb", str(path)],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if proc.returncode == 0 and proc.stdout.strip():
+            return int(proc.stdout.split()[0])
     except Exception:
         pass
-    return total
+    return 0
 
 def human_size(num_bytes: int) -> str:
     """Convert a byte count to a human-readable string (KB/MB/GB etc.)."""

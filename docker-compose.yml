@@ -2,6 +2,7 @@ services:
   web:
     build: .
     container_name: piherder-web
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
     ports:
       - "8000:8000"
     environment:
@@ -12,6 +13,7 @@ services:
     volumes:
       - ~/backup:/backups
       - ./piherder_backups:/herder_backups
+      - ./app:/app/app
     depends_on:
       - db
       - redis
@@ -43,7 +45,7 @@ services:
   celery-worker:
     build: .
     container_name: piherder-celery
-    command: celery -A app.celery_app.celery worker --loglevel=info --concurrency=2
+    command: celery -A app.celery_app.celery worker --loglevel=info --concurrency=1
     restart: unless-stopped
     environment:
       - PIHERDER_MASTER_KEY=${PIHERDER_MASTER_KEY}
@@ -53,6 +55,7 @@ services:
     volumes:
       - ~/backup:/backups
       - ./piherder_backups:/herder_backups
+      - ./app:/app/app
     depends_on:
       - db
       - redis

@@ -5,8 +5,8 @@
   <span class="text-5xl">🐑</span>
   <div>
     <h1 class="text-4xl font-semibold tracking-tighter">PiHerder</h1>
-    <p class="text-emerald-400 text-sm font-mono -mt-1">SECURE FLEET CONTROL FOR RASPBERRY PI CLUSTERS</p>
-    <p class="text-zinc-400 mt-1 text-sm">Manage your Raspberry Pi fleet with zero plaintext secrets</p>
+    <p class="text-emerald-400 text-sm font-mono -mt-1">BACKUP YOUR PI FLEET</p>
+    <p class="text-zinc-400 mt-1 text-sm">Add servers, configure sources, run and schedule backups</p>
   </div>
 </div>
 
@@ -18,8 +18,8 @@
   </div>
 
   <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-    <div class="text-sm text-zinc-400">Recent Jobs</div>
-    <a href="/audit" class="mt-2 inline-block text-emerald-400 text-sm">View full audit log →</a>
+    <div class="text-sm text-zinc-400">Backup logs</div>
+    <a href="/audit?search=backup" class="mt-2 inline-block text-emerald-400 text-sm">View backup audit →</a>
     <div class="mt-1">
       <a href="/herder-backups" class="text-emerald-400 text-sm">Settings →</a>
     </div>
@@ -29,22 +29,10 @@
     <div class="font-medium mb-2">Quick Actions</div>
     <ul class="space-y-1 text-zinc-400">
       <li>• Add a server</li>
-      <li>• Run container patch</li>
-      <li>• Trigger backup</li>
+      <li>• Configure backup sources</li>
+      <li>• Run backup or retention</li>
     </ul>
     <a href="/servers" class="mt-3 block text-emerald-400">Go to Servers →</a>
   </div>
-
-  {% if pihole_url %}
-  <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-5 text-sm">
-    <div class="font-medium mb-2">Network</div>
-    <a href="{{ pihole_url }}" target="_blank" class="text-emerald-400 hover:underline">Pi-hole Settings →</a>
-    <div class="text-[10px] text-zinc-500 mt-1">External link (configure PIHOLE_URL)</div>
-  </div>
-  {% endif %}
-</div>
-
-<div class="mt-10 text-xs text-zinc-500">
-  PiHerder replicates your legacy backup_script.sh and docker-cluster-update.sh logic securely via the UI.
 </div>
 {% endblock %}

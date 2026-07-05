@@ -1,14 +1,21 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="flex items-center gap-3 mb-6">
-  <span class="text-4xl">🐑</span>
-  <h1 class="text-3xl font-semibold">Servers</h1>
+<div class="flex items-center justify-between mb-6">
+  <div class="flex items-center gap-3">
+    <span class="text-4xl">🐑</span>
+    <h1 class="text-3xl font-semibold">Servers</h1>
+  </div>
+  <button type="button" onclick="location.reload()"
+          class="text-xs px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded"
+          title="Refresh list (no auto-reload)">
+    ↻ Refresh
+  </button>
 </div>
 
 <a href="/servers/add" 
    class="inline-block mb-6 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm">+ Add Server</a>
-<p class="text-xs text-zinc-500 -mt-5 mb-4">Default order: alphabetical by name. Use ▲▼ to manually reorder. Click ▶ Backup to run all enabled sources.</p>
+<p class="text-xs text-zinc-500 -mt-5 mb-4">Click a server name to open it. Use ▶ Backup to run all enabled sources.</p>
 
 {% if servers %}
 <div class="space-y-3">
@@ -30,34 +37,40 @@
     </div>
 
     <div class="flex items-center gap-4 text-xs">
-      {# Last backup time #}
-      {% if s.get('last_backup_str') %}
+      {% if s.get('backup_running') %}
+      <span class="text-blue-400">backup running…</span>
+      {% elif s.get('last_backup_str') %}
       <span class="text-emerald-400">last: {{ s.last_backup_str }}</span>
       {% elif s.get('last_backup') %}
       <span class="text-emerald-400">last: {{ s.last_backup }}</span>
       {% endif %}
 
-      {# Quick actions #}
       <div class="flex items-center gap-2">
-        <form method="post" action="/servers/{{ s.id }}/run/backup" class="inline">
+        {% if s.get('backup_running') %}
+        <a href="/servers/{{ s.id }}/backups?backup_log=1"
+           class="px-3 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded text-xs font-medium"
+           title="View running backup log">
+          📋 Log
+        </a>
+        {% else %}
+        <form method="post" action="/servers/{{ s.id }}/run/backup" class="inline backup-run-form">
           <button type="submit" 
                   class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium"
                   title="Backup all enabled sources for this server">
             ▶ Backup
           </button>
         </form>
+        {% endif %}
 
         <a href="/servers/{{ s.id }}/backups" 
-           class="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs">Configure</a>
+           class="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs">Manage</a>
 
-        <a href="/servers/{{ s.id }}" 
-           class="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs">Details</a>
+        <a href="/servers/{{ s.id }}?edit=1" 
+           class="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs">Settings</a>
       </div>
 
-      {# Status indicators #}
       <div class="text-xs text-right">
-        Backup: {{ '✅' if s.backup_enabled else '❌' }} &nbsp;
-        Containers: {{ '✅' if s.container_patch_enabled else '❌' }}
+        Backup: {{ '✅' if s.backup_enabled else '❌' }}
       </div>
     </div>
   </div>
@@ -68,15 +81,23 @@
 {% endif %}
 
 <div class="mt-8 text-xs text-zinc-500">
-  SSH keys are stored encrypted. Private keys are decrypted only for the duration of jobs.
+  SSH keys are stored encrypted. Use <strong>Refresh</strong> to update backup status — this page does not auto-reload.
 </div>
 
 <script>
-// Auto-refresh the servers list every 45 seconds to show updated backup status
-setInterval(() => {
-  if (!document.activeElement || document.activeElement.tagName === 'BODY') {
-    location.reload();
-  }
-}, 45000);
+document.querySelectorAll('form.backup-run-form, form[action*="/run/backup"]').forEach(form => {
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const serverId = form.action.match(/\/servers\/(\d+)\//)[1];
+    try {
+      const res = await fetch(form.action, { method: 'POST', body: new FormData(form), redirect: 'manual' });
+      if (res.status === 409) {
+        window.location.href = '/servers/' + serverId + '?backup_log=1';
+        return;
+      }
+    } catch (_) {}
+    window.location.href = '/servers/' + serverId + '?backup_log=1';
+  });
+});
 </script>
 {% endblock %}

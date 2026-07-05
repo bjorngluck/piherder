@@ -35,7 +35,25 @@ DEFAULT_CONFIG = {
     "keep": 10,
     "schedule_mode": "config_only",  # or "full"
     "timezone": "UTC",
+    "schedule_enabled": False,
+    "schedule_cron": "0 3 * * *",  # daily 03:00 in app timezone
 }
+
+
+def validate_cron_expression(cron: str) -> str:
+    """Return normalized 5-field cron or raise ValueError."""
+    expr = (cron or "").strip()
+    parts = expr.split()
+    if len(parts) != 5:
+        raise ValueError("Cron must have 5 fields (minute hour day month weekday). Example: 0 3 * * *")
+    try:
+        import pycron
+        pycron.is_now(expr, datetime.now())
+    except ImportError:
+        pass
+    except Exception as e:
+        raise ValueError(f"Invalid cron: {e}") from e
+    return expr
 
 def get_available_timezones() -> List[str]:
     """Return IANA timezone list (continent/city). Uses stdlib zoneinfo (no extra dep)."""
@@ -108,12 +126,19 @@ def _ensure_dir():
 
 def load_herder_config() -> dict:
     _ensure_dir()
+    raw: dict = {}
     if CONFIG_FILE.exists():
         try:
-            return {**DEFAULT_CONFIG, **json.loads(CONFIG_FILE.read_text())}
+            raw = json.loads(CONFIG_FILE.read_text())
         except Exception:
             pass
-    return DEFAULT_CONFIG.copy()
+    cfg = {**DEFAULT_CONFIG, **raw}
+    # Bootstrap schedule from env when UI has never saved schedule settings.
+    env_cron = (settings.HERDER_BACKUP_SCHEDULE or "").strip()
+    if env_cron and "schedule_enabled" not in raw:
+        cfg["schedule_enabled"] = True
+        cfg["schedule_cron"] = env_cron
+    return cfg
 
 
 def save_herder_config(cfg: dict):

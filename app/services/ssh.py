@@ -4,6 +4,11 @@ SSH service using paramiko.
 - Keypair generation
 - In-memory decrypt + connect (never store plaintext key on disk except very short-lived temp files for rsync)
 - Helpers matching legacy bash SSH_OPTS
+
+Roadmap (SPEC.md § Server onboarding wizard):
+- Deploy generated public key via password session when key auth is not yet present.
+- Provision least-privilege backup user (+ docker group / sudoers for rsync) on remote host.
+- Rotate SSH keypair: deploy new pubkey, verify, swap encrypted key in DB, retire old pubkey.
 """
 import paramiko
 from io import StringIO
