@@ -233,7 +233,7 @@ def _path_requires_privilege(path: str) -> bool:
         "/.docker/",
         "/etc/docker",
     )
-    return any(item in p for p in privileged)
+    return any(priv in p for priv in privileged)
 
 def _folder_exists_via_ssh(client, folder: str, username: str) -> bool:
     """Check if a folder exists on the remote host over SSH.
