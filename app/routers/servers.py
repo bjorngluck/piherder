@@ -683,7 +683,7 @@ async def update_backup_config(
 @router.post("/{server_id}/backup/add")
 async def add_backup_source(
     server_id: int,
-    new_path: str = Form(*),
+    new_path: str = Form(...),
     dest_name: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
@@ -704,7 +704,7 @@ async def add_backup_source(
 @router.post("/{server_id}/backup/remove")
 async def remove_backup_source(
     server_id: int,
-    path: str = Form(*),
+    path: str = Form(...),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -774,7 +774,7 @@ async def docker_page(server_id: int, request: Request, session: Session = Depen
 async def docker_container_action(
     server_id: int,
     action: str,
-    name: str = Form(*),
+    name: str = Form(...),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -985,7 +985,7 @@ async def edit_dockerfile(
 async def save_dockerfile(
     server_id: int,
     project: str,
-    content: str = Form(*),
+    content: str = Form(...),
     action: str = Form("deploy"),
     editing_version_id: Optional[int] = Form(None),
     via_modal: bool = Form(False),
@@ -1028,8 +1028,8 @@ async def new_docker_project_form(
 @router.post("/{server_id}/docker/new-project")
 async def create_docker_project(
     server_id: int,
-    project_name: str = Form(*),
-    compose_content: str = Form(*),
+    project_name: str = Form(...),
+    compose_content: str = Form(...),
     dockerfile_content: str = Form(""),
     git_url: str = Form(""),
     deploy_now: str = Form(None),
@@ -1070,7 +1070,7 @@ async def create_docker_project(
 async def save_draft(
     server_id: int,
     project: str,
-    content: str = Form(*),
+    content: str = Form(...),
     editing_version_id: Optional[int] = Form(None),
     via_modal: bool = Form(False),
     session: Session = Depends(get_session),
@@ -1086,7 +1086,7 @@ async def save_draft(
 async def deploy_version_route(
     server_id: int,
     project: str,
-    version_id: int = Form(*),
+    version_id: int = Form(...),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -1129,7 +1129,7 @@ async def rollback_version(
 async def validate_compose(
     server_id: int,
     project: str,
-    content: str = Form(*),
+    content: str = Form(...),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
@@ -1144,7 +1144,7 @@ async def validate_compose(
 async def save_compose(
     server_id: int,
     project: str,
-    content: str = Form(*),
+    content: str = Form(...),
     editing_version_id: Optional[int] = Form(None),
     via_modal: bool = Form(False),
     request: Request = None,
@@ -1170,7 +1170,7 @@ async def save_compose(
 @router.post("/{server_id}/docker/redeploy")
 async def redeploy(
     server_id: int,
-    project_path: str = Form(*),
+    project_path: str = Form(...),
     pull: str = Form("true"),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
@@ -1201,7 +1201,7 @@ async def redeploy(
 async def compose_project_action(
     server_id: int,
     action: str,
-    project_path: str = Form(*),
+    project_path: str = Form(...),
     service: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
@@ -1300,7 +1300,7 @@ async def containers_fragment(server_id: int, request: Request, session: Session
 @router.post("/{server_id}/docker/check-updates")
 async def check_updates(
     server_id: int,
-    project_path: str = Form("..."),
+    project_path: str = Form(...),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
