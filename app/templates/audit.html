@@ -1,164 +1,164 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="flex items-center gap-3 mb-6">
-  <span class="text-4xl">🐑</span>
-  <h1 class="text-3xl font-semibold">Audit Log</h1>
+<style>
+  .audit-filters { display: grid; gap: .5rem; grid-template-columns: 1fr; }
+  @media (min-width: 640px) { .audit-filters { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 900px) { .audit-filters { grid-template-columns: repeat(4, 1fr) auto; align-items: end; } }
+  .audit-row-muted { opacity: .55; }
+  .audit-summary { max-width: 28rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status-pill { display: inline-block; padding: .125rem .5rem; border-radius: 9999px; font-size: 11px; font-weight: 500; }
+  .status-success { background: #065f46; color: #6ee7b7; }
+  .status-failed { background: #7f1d1d; color: #fca5a5; }
+  .status-running { background: #1e3a8a; color: #93c5fd; }
+  .status-cancelled { background: #3f3f46; color: #a1a1aa; }
+  .status-stopped { background: #78350f; color: #fcd34d; }
+  .action-pill { font-size: 11px; padding: .125rem .4rem; border-radius: .25rem; background: #27272a; color: #d4d4d8; }
+</style>
+
+<div class="flex items-center justify-between gap-4 mb-4">
+  <div class="flex items-center gap-3">
+    <span class="text-3xl">🐑</span>
+    <div>
+      <h1 class="text-2xl font-semibold">Audit Log</h1>
+      <p class="text-xs text-zinc-500 mt-0.5">Backup runs and admin actions</p>
+    </div>
+  </div>
+  <a href="/" class="text-emerald-400 text-sm">← Dashboard</a>
 </div>
 
-<a href="/" class="text-emerald-400 text-sm">← Dashboard</a>
-
-<!-- Search and filter -->
-<form method="get" class="mb-6 grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
-  <input type="text" name="search" value="{{ search }}" placeholder="Search action/details..." class="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded text-sm">
-  <select name="user_id" class="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded text-sm">
-    <option value="">All users</option>
-    {% for u in (users or []) %}
-    <option value="{{ u.id }}" {% if user_id and user_id|string == u.id|string %}selected{% endif %}>{{ u.email }}</option>
-    {% endfor %}
-  </select>
-  <select name="status" class="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded text-sm">
-    <option value="">All statuses</option>
-    {% for st in (statuses or []) %}
-    <option value="{{ st }}" {% if status and status == st %}selected{% endif %}>{{ st }}</option>
-    {% endfor %}
-  </select>
-  <select name="action" class="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded text-sm">
+<form method="get" class="audit-filters mb-4 bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+  <input type="text" name="search" value="{{ search }}" placeholder="Search…" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full">
+  <select name="action" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full">
     <option value="">All actions</option>
     {% for act in (actions or []) %}
     <option value="{{ act }}" {% if action and action == act %}selected{% endif %}>{{ act }}</option>
     {% endfor %}
   </select>
-  <select name="server_id" class="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded text-sm">
+  <select name="status" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full">
+    <option value="">All statuses</option>
+    {% for st in (statuses or []) %}
+    <option value="{{ st }}" {% if status and status == st %}selected{% endif %}>{{ st }}</option>
+    {% endfor %}
+  </select>
+  <select name="server_id" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full">
     <option value="">All servers</option>
     {% for srv in (servers or []) %}
     <option value="{{ srv.id }}" {% if server_id and server_id|string == srv.id|string %}selected{% endif %}>{{ srv.name }}</option>
     {% endfor %}
   </select>
-  <div class="flex gap-2">
-    <input type="date" name="date_from" value="{{ date_from }}" class="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded text-sm flex-1">
-    <input type="date" name="date_to" value="{{ date_to }}" class="bg-zinc-900 border border-zinc-700 px-3 py-2 rounded text-sm flex-1">
-  </div>
-  <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded text-sm col-span-1 md:col-span-3 lg:col-span-1">Filter</button>
+  <select name="user_id" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full">
+    <option value="">All users</option>
+    {% for u in (users or []) %}
+    <option value="{{ u.id }}" {% if user_id and user_id|string == u.id|string %}selected{% endif %}>{{ u.email }}</option>
+    {% endfor %}
+  </select>
+  <input type="date" name="date_from" value="{{ date_from }}" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full" title="From">
+  <input type="date" name="date_to" value="{{ date_to }}" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full" title="To">
+  <label class="flex items-center gap-2 text-xs text-zinc-400 px-1">
+    <input type="hidden" name="hide_noise" value="0" id="audit-hide-noise-off">
+    <input type="checkbox" name="hide_noise" value="1" id="audit-hide-noise-on" {% if hide_noise %}checked{% endif %}
+           onchange="document.getElementById('audit-hide-noise-off').disabled=this.checked">
+    Hide incomplete runs
+  </label>
+  <button type="submit" class="bg-emerald-700 hover:bg-emerald-600 px-4 py-2 rounded text-sm">Apply</button>
 </form>
 
 {% if server_id or user_id or status or action or search or date_from or date_to %}
-<p class="text-xs mb-2 text-emerald-400">
-  Active filters
-  {% if server_id %}server #{{ server_id }}{% endif %}
-  {% if user_id %}user #{{ user_id }}{% endif %}
-  {% if status %}status={{ status }}{% endif %}
-  {% if action %}action={{ action }}{% endif %}
-  — <a href="/audit" class="underline">clear all</a>
-  {% if server_id %}| <a href="/audit?server_id={{ server_id }}" class="underline">keep server only</a>{% endif %}
+<p class="text-xs mb-3 text-zinc-400">
+  Filtered
+  {% if server_id %}· server #{{ server_id }}{% endif %}
+  {% if action %}· {{ action }}{% endif %}
+  {% if status %}· {{ status }}{% endif %}
+  <a href="/audit" class="text-emerald-400 ml-2">Clear</a>
 </p>
 {% endif %}
 
-<div class="overflow-x-auto">
-  <table class="w-full text-sm border-collapse">
-    <thead>
-      <tr class="bg-zinc-900 text-left text-xs text-zinc-400 border-b border-zinc-700">
-        <th class="p-3">Time</th>
-        <th class="p-3">User</th>
-        <th class="p-3">Action</th>
-        <th class="p-3">Status</th>
-        <th class="p-3">Server</th>
-        <th class="p-3">Details</th>
-        <th class="p-3 w-20"></th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-zinc-800">
-      {% for log in logs %}
-      <tr class="hover:bg-zinc-900">
-        <td class="p-3 font-mono text-xs text-zinc-400" data-utc="{{ log.started_at }}">{{ log.started_at }}</td>
-        <td class="p-3 text-xs text-zinc-400">{{ log.user_email or '—' }}</td>
-        <td class="p-3 font-medium">{{ log.action }}</td>
-        <td class="p-3">
-          <span class="px-2 py-0.5 text-xs rounded {{ 'bg-emerald-800 text-emerald-300' if log.status == 'success' else 'bg-red-800 text-red-300' if log.status == 'failed' else 'bg-yellow-800 text-yellow-300' }}">
-            {{ log.status }}
-          </span>
-        </td>
-        <td class="p-3 text-xs text-zinc-400">{{ log.server_name or log.server_id or '—' }}</td>
-        <td class="p-3 text-xs text-zinc-400 max-w-lg truncate">{{ (log.output_snippet or log.details or '') | truncate(80) }}</td>
-        <td class="p-3">
-          <button type="button"
-                  onclick="showAuditDetailsModal(AUDIT_LOGS[{{ loop.index0 }}])" 
-                  class="text-xs px-2 py-0.5 bg-zinc-700 hover:bg-zinc-600 rounded">details</button>
-        </td>
-      </tr>
-      {% else %}
-      <tr>
-        <td colspan="8" class="p-6 text-center text-zinc-400">No audit entries match the filters. Run some jobs.</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-zinc-500 border-b border-zinc-800">
+          <th class="p-3 font-medium">When</th>
+          <th class="p-3 font-medium">Action</th>
+          <th class="p-3 font-medium">Server</th>
+          <th class="p-3 font-medium">Summary</th>
+          <th class="p-3 font-medium">Status</th>
+          <th class="p-3 font-medium w-16"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr class="border-b border-zinc-800 hover:bg-zinc-950 {{ 'audit-row-muted' if log.is_noise else '' }}">
+          <td class="p-3 text-xs text-zinc-400 whitespace-nowrap" data-utc="{{ log.started_at }}">
+            {{ log.started_at_display }}
+            {% if log.duration %}<div class="text-[10px] text-zinc-600">{{ log.duration }}</div>{% endif %}
+          </td>
+          <td class="p-3">
+            <span class="action-pill">{{ log.action_label }}</span>
+          </td>
+          <td class="p-3 text-xs text-zinc-400">
+            {% if log.server_id %}
+              <a href="/servers/{{ log.server_id }}" class="text-emerald-400">{{ log.server_name or ('#' ~ log.server_id) }}</a>
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td class="p-3 text-zinc-300 audit-summary" title="{{ log.summary }}">{{ log.summary }}</td>
+          <td class="p-3">
+            {% set sd = log.status_display %}
+            <span class="status-pill {{ 'status-success' if sd == 'success' else 'status-failed' if sd == 'failed' else 'status-running' if sd == 'running' else 'status-stopped' if sd == 'stopped' else 'status-cancelled' }}">
+              {{ sd }}
+            </span>
+          </td>
+          <td class="p-3">
+            <button type="button"
+                    onclick="showAuditDetailsModal(AUDIT_LOGS[{{ loop.index0 }}])"
+                    class="text-[11px] px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded text-zinc-400">View</button>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="6" class="p-8 text-center text-zinc-500">
+            No entries match.
+            {% if hide_noise %}<span class="block mt-1 text-xs">Try unchecking “Hide incomplete runs”.</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
-<p class="mt-4 text-xs text-zinc-500">Showing up to 100 entries. Use filters for date range and text search.</p>
+<p class="mt-3 text-xs text-zinc-600">Showing up to 100 entries · times in {{ get_app_timezone() }}</p>
 
 <script>
 const AUDIT_LOGS = {{ logs | tojson | safe }};
 </script>
 
-<!-- Audit Details Modal (similar to backup details) -->
 <div id="audit-details-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
-  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-3xl mx-4 max-h-[85vh] flex flex-col">
-    <div class="flex justify-between mb-2">
-      <h3 class="font-semibold">Audit Entry Details</h3>
-      <button onclick="hideAuditDetailsModal()" class="text-xs px-2 py-1 bg-zinc-800 rounded">Close</button>
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-4 w-full max-w-3xl mx-4 max-h-[90vh] flex flex-col">
+    <div class="flex justify-end mb-2">
+      <button type="button" onclick="hideAuditDetailsModal()" class="text-zinc-400 hover:text-white text-sm px-2">✕</button>
     </div>
-    <div id="audit-details-meta" class="text-xs text-zinc-400 mb-2 font-mono"></div>
-    <pre id="audit-details-content" class="flex-1 overflow-auto bg-black p-3 text-xs font-mono whitespace-pre border border-zinc-800 rounded"></pre>
+    <pre id="audit-details-content" class="flex-1 overflow-auto bg-zinc-950 p-3 text-xs font-mono whitespace-pre-wrap border border-zinc-800 rounded text-zinc-300"></pre>
   </div>
 </div>
 
 <script>
 function showAuditDetailsModal(log) {
   const modal = document.getElementById('audit-details-modal');
-  const meta = document.getElementById('audit-details-meta');
   const pre = document.getElementById('audit-details-content');
-  if (!modal || !meta || !pre) return;
+  if (!modal || !pre) return;
 
-  let obj = log;
-  if (typeof log === 'string') {
-    try { obj = JSON.parse(log); } catch(e) { obj = log; }
-  }
-
-  const time = obj.started_at || '';
-  const action = obj.action || '';
-  const status = obj.status || '';
-  const server = obj.server_name || obj.server_id || '—';
-  const user = obj.user_email || '—';
-  const details = obj.details || '';
-  const snippet = obj.output_snippet || '';
-
-  meta.innerHTML = `<strong>${action}</strong> by ${user} — ${status} — ${server} — ${time}<br><span class="text-[10px]">${details}</span>`;
-
-  let content = snippet || details || '(no additional output)';
-  let extra = "";
-  if (action === "herder_backup") {
-    try {
-      let obj = (typeof snippet === "string") ? JSON.parse(snippet) : snippet;
-      if (obj && obj.path) {
-        let name = obj.path.split("/").pop();
-        extra = `\n\n[Herder backup archive: ${name}]\nUse the Herder Backups page to download or restore.`;
-      }
-    } catch(e) {}
-  }
-  // Pretty-print JSON details / snippets for readability (handles stringified JSON too)
+  const raw = (log.output_snippet || log.details || '').trim();
+  let content = raw || '(empty)';
   try {
-    if (typeof content === 'string') {
-      const t = content.trim();
-      if (t.startsWith('{') || t.startsWith('[')) {
-        const parsed = JSON.parse(content);
-        content = JSON.stringify(parsed, null, 2);
-      }
-    } else if (typeof content === 'object' && content !== null) {
-      content = JSON.stringify(content, null, 2);
+    if (content.startsWith('{') || content.startsWith('[')) {
+      content = JSON.stringify(JSON.parse(content), null, 2);
     }
-  } catch(e) {}
-  pre.textContent = content + extra;
+  } catch (_) {}
+  pre.textContent = content;
 
   modal.classList.remove('hidden');
   modal.classList.add('flex');
@@ -171,5 +171,13 @@ function hideAuditDetailsModal() {
     modal.classList.add('hidden');
   }
 }
+document.getElementById('audit-details-modal')?.addEventListener('click', function(e) {
+  if (e.target === this) hideAuditDetailsModal();
+});
+(function() {
+  const on = document.getElementById('audit-hide-noise-on');
+  const off = document.getElementById('audit-hide-noise-off');
+  if (on && off) off.disabled = on.checked;
+})();
 </script>
 {% endblock %}

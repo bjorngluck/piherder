@@ -1,3 +1,5 @@
+import json
+
 from fastapi.templating import Jinja2Templates
 from .services.herder_backup import get_app_timezone, format_datetime_in_app_tz
 
@@ -10,3 +12,15 @@ def _app_tz_filter(dt, fmt="%Y-%m-%d %H:%M"):
         return dt  # already formatted
     return format_datetime_in_app_tz(dt, fmt)
 templates.env.filters["app_tz"] = _app_tz_filter
+
+
+def _fromjson_filter(value):
+    if not value:
+        return {}
+    try:
+        return json.loads(value)
+    except Exception:
+        return {}
+
+
+templates.env.filters["fromjson"] = _fromjson_filter

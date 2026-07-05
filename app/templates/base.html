@@ -18,11 +18,11 @@
     when Pi-hole blocks cdn.tailwindcss.com), we fall back to a large hand-written
     <style> block that covers the classes used by the app.
   -->
-  <!-- Load Tailwind Play defensively. onerror keeps the page working if the
-       file is absent. A bad file (Pi-hole HTML) usually won't execute as JS. -->
+  {# Default lean: static CSS only. Tailwind JIT freezes the browser on Pi. #}
+  {% if lean_page is not defined %}{% set lean_page = true %}{% endif %}
+  {% if not lean_page %}
   <script src="/static/tailwind.js" onerror="console.warn('Tailwind Play not available — using built-in fallback styles')"></script>
   <script>
-    // Tailwind play config — only applies when the vendored script is present
     if (typeof tailwind !== 'undefined') {
       tailwind.config = {
         theme: {
@@ -35,12 +35,9 @@
       };
     }
   </script>
-
-  <!-- HTMX (for fragments, auto-refresh, etc.) -->
   <script src="/static/htmx.min.js"></script>
-
-  <!-- Alpine.js (light usage for a few interactions) -->
   <script defer src="/static/alpine.min.js"></script>
+  {% endif %}
   <style>
     /* Robust fallback + base styles so UI looks decent even if Tailwind CDN fails to load (prevents "1998 white screen" look).
        This emulates the most-used Tailwind utilities from the app (especially docker.html cards, buttons, modals, flex/grid).
@@ -234,11 +231,11 @@
           <span class="text-3xl">🐑</span>
           <div>
             <a href="/" class="font-semibold text-2xl tracking-tighter">PiHerder</a>
-            <div class="text-[10px] text-emerald-500 -mt-1 font-mono">FLEET CONTROL</div>
+            <div class="text-[10px] text-emerald-500 -mt-1 font-mono">BACKUPS</div>
           </div>
         </div>
         <div class="hidden md:block text-xs text-zinc-500 pl-2 border-l border-zinc-800">
-          Secure Raspberry Pi cluster management
+          Raspberry Pi backup management
         </div>
       </div>
       <div class="flex items-center gap-4 text-sm">
@@ -301,13 +298,63 @@
     } else {
       run();
     }
-    const obs = new MutationObserver(() => {
-      obs.disconnect();
-      run();
-      obs.observe(document.body, {childList: true, subtree: true});
-    });
-    obs.observe(document.body, {childList: true, subtree: true});
+    // Do NOT observe DOM mutations — backup modal updates were re-scanning the whole page.
     window.PiHerderLocalizeTimes = run;
+  })();
+
+  /** Update log <pre> only when last_updated changes (avoids DOM thrash on large backups). */
+  window.PiHerderUpdateLog = function(el, data, fallback) {
+    if (!el || !data) return;
+    const ts = String(data.last_updated != null ? data.last_updated : '');
+    const cur = data.current ? String(data.current) : '';
+    const key = ts + '|' + cur;
+    if (el.dataset.lastTs === key) return;
+    el.dataset.lastTs = key;
+    const lines = data.log_lines || [];
+    let text = lines.length ? lines.join('\n') + '\n' : (fallback || 'In progress...\n');
+    if (cur === 'queued') {
+      text = (lines.length ? lines.join('\n') + '\n' : 'Waiting for worker…\n');
+    } else if (cur && cur !== 'starting' && cur !== 'preparing' && !text.includes(cur)) {
+      text += 'Current: ' + cur + '\n';
+    }
+    el.textContent = text;
+    el.scrollTop = el.scrollHeight;
+  };
+
+  /** Modal-only polling — never reloads the page. Stops when job reaches terminal status. */
+  window.PiHerderPoll = (function() {
+    const timers = {};
+    const inFlight = {};
+    return {
+      start(key, url, onUpdate, intervalMs) {
+        this.stop(key);
+        const tick = async () => {
+          if (inFlight[key]) return;
+          inFlight[key] = true;
+          try {
+            const res = await fetch(url);
+            if (!res.ok) return;
+            const data = await res.json();
+            const stop = onUpdate(data);
+            if (stop || data.status === 'success' || data.status === 'failed' || data.done) {
+              this.stop(key);
+            }
+          } catch (_) {}
+          finally {
+            inFlight[key] = false;
+          }
+        };
+        tick();
+        timers[key] = setInterval(tick, intervalMs || 4000);
+      },
+      stop(key) {
+        if (timers[key]) {
+          clearInterval(timers[key]);
+          delete timers[key];
+        }
+        delete inFlight[key];
+      }
+    };
   })();
   </script>
 </body>

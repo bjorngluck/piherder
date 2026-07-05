@@ -2,7 +2,9 @@
 
 {% block content %}
 <div>
-  <a href="/servers/{{ server.id }}" class="text-xs text-emerald-400 hover:underline">← Back to {{ server.name }}</a>
+  <a href="/servers/{{ server.id }}" class="text-xs text-emerald-400 hover:underline">← {{ server.name }}</a>
+  <span class="text-xs text-zinc-500 mx-1">·</span>
+  <a href="/servers" class="text-xs text-emerald-400 hover:underline">All servers</a>
   <div class="flex items-center gap-3 mt-1">
     <span class="text-3xl">🐑</span>
     <h1 class="text-3xl font-semibold">Backups for {{ server.name }}</h1>
@@ -32,12 +34,27 @@
   </div>
 
   <!-- Persistent backup status banner -->
-  <div id="active-backup-status" class="hidden mb-3 p-2 bg-blue-900/60 border border-blue-700 rounded flex items-center gap-2 text-sm">
-    <span class="font-medium">Backup in progress:</span>
-    <span id="active-source-name" class="font-mono text-emerald-300"></span>
-    <button onclick="showBackupProgressModal()" class="ml-2 px-2 py-0.5 text-xs bg-blue-700 hover:bg-blue-600 rounded">Show progress / logs</button>
-    <button onclick="stopCurrentBackup()" class="px-2 py-0.5 text-xs bg-red-700 hover:bg-red-600 rounded text-white">Stop</button>
+  {% if backup_running %}
+  <div id="active-backup-status" class="mb-3 p-2 bg-blue-900/60 border border-blue-700 rounded text-sm space-y-1">
+    {% if running_backup_job %}
+      {% set rj = running_backup_job.details | fromjson if running_backup_job.details else {} %}
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="font-medium">Running:</span>
+        <span class="font-mono text-emerald-300">{{ rj.source_filter or rj.current or 'full backup' }}</span>
+        <button type="button" onclick="openBackupLog({{ (rj.source_filter or '') | tojson }}, {{ running_backup_job.id }})" class="px-2 py-0.5 text-xs bg-blue-700 hover:bg-blue-600 rounded">Log</button>
+        <button type="button" onclick="activePollJobId={{ running_backup_job.id }}; activePollSource={{ (rj.source_filter or '') | tojson }}; stopCurrentBackup()" class="px-2 py-0.5 text-xs bg-red-700 hover:bg-red-600 rounded text-white">Stop</button>
+      </div>
+    {% endif %}
+    {% for qj in active_backup_jobs if qj.status == 'pending' %}
+      {% set qd = qj.details | fromjson if qj.details else {} %}
+      <div class="flex items-center gap-2 text-xs text-zinc-400">
+        <span>Queued:</span>
+        <span class="font-mono">{{ qd.source_filter or 'full backup' }}</span>
+        <button type="button" onclick="openBackupLog({{ (qd.source_filter or '') | tojson }}, {{ qj.id }})" class="px-2 py-0.5 bg-zinc-700 hover:bg-zinc-600 rounded">View</button>
+      </div>
+    {% endfor %}
   </div>
+  {% endif %}
 
   {% if backup_profiles %}
   <table class="w-full text-sm mb-4">
@@ -62,10 +79,16 @@
           {% endif %}
         </td>
         <td class="py-1.5 text-right flex gap-1 justify-end items-center">
-          <form method="post" action="/servers/{{ server.id }}/run/backup" class="inline">
+          {% if p.active_job_status == 'running' %}
+          <button type="button" onclick="openBackupLog({{ p.source | tojson }}, {{ p.active_job_id }})" class="px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded text-sm">📋 Log</button>
+          {% elif p.active_job_status == 'pending' %}
+          <button type="button" onclick="openBackupLog({{ p.source | tojson }}, {{ p.active_job_id }})" class="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded text-sm" title="Waiting for worker">⏳ Queued</button>
+          {% else %}
+          <form method="post" action="/servers/{{ server.id }}/run/backup" class="inline backup-run-form" data-source="{{ p.source }}">
             <input type="hidden" name="source" value="{{ p.source }}">
             <button class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm" title="Run only this source">▶ Backup</button>
           </form>
+          {% endif %}
           <button type="button" onclick="showRemoveBackupModal('{{ p.source }}')" class="px-4 py-2 bg-red-700 hover:bg-red-600 rounded text-sm text-white">Remove</button>
         </td>
       </tr>
@@ -114,7 +137,7 @@
 <div class="mt-4">
   <a href="/servers/{{ server.id }}" class="text-xs">← Back to server</a>
   <span class="mx-2">·</span>
-  <a href="/audit?server_id={{ server.id }}&action=backup" class="text-xs text-emerald-400">View backups in audit</a>
+  <a href="/audit?server_id={{ server.id }}&search=backup" class="text-xs text-emerald-400">View backups in audit</a>
   <span class="mx-1">·</span>
   <a href="/audit?server_id={{ server.id }}" class="text-xs text-emerald-400">All server logs</a>
 </div>
@@ -307,72 +330,155 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Intercept run/backup forms for progress modal (light version)
-  document.querySelectorAll('form[action*="run/backup"]').forEach(form => {
-    form.addEventListener('submit', function(e) {
-      const sourceInput = form.querySelector('input[name="source"]');
-      const currentSource = sourceInput ? sourceInput.value : null;
+  document.querySelectorAll('form.backup-run-form, form[action*="run/backup"]').forEach(form => {
+    form.addEventListener('submit', async function(e) {
       e.preventDefault();
-      showBackupProgressModal(currentSource ? `Backing up: ${currentSource}` : 'Running full backup...', currentSource);
-      const fd = new FormData(form);
-      fetch(form.action, { method: 'POST', body: fd }).catch(()=>{});
+      const currentSource = form.dataset.source || (form.querySelector('input[name="source"]') || {}).value || null;
+      showBackupProgressModal(
+        currentSource ? `Backing up: ${currentSource}` : 'Running full backup...',
+        currentSource,
+        null,
+        false,
+        false
+      );
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: { 'X-PiHerder-Async': '1' },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok || res.status === 409) {
+          startBackupProgressPoll(data.job_id, data.source_filter || currentSource);
+        } else {
+          const logEl = document.querySelector('#backup-progress-log');
+          if (logEl) logEl.textContent += '\nError: ' + (data.detail || 'Could not start backup') + '\n';
+        }
+      } catch (_) {
+        const logEl = document.querySelector('#backup-progress-log');
+        if (logEl) logEl.textContent += '\nNetwork error starting backup.\n';
+      }
     });
   });
+
+  if (new URLSearchParams(location.search).get('backup_log')) {
+    const src = new URLSearchParams(location.search).get('source');
+    const jid = new URLSearchParams(location.search).get('job_id');
+    openBackupLog(src || null, jid ? parseInt(jid, 10) : null);
+  }
 });
 
-// Lightweight progress modal support (subset)
-let backupPollInterval = null;
-function showBackupProgressModal(title = "Backup running", initialSource = null) {
+let activePollJobId = null;
+let activePollSource = null;
+let backupModalWasOpen = false;
+
+function backupProgressUrl(jobId, sourcePath) {
+  let url = '/servers/{{ server.id }}/backup-progress';
+  if (jobId) url += '?job_id=' + encodeURIComponent(jobId);
+  else if (sourcePath) url += '?source=' + encodeURIComponent(sourcePath);
+  return url;
+}
+
+function openBackupLog(sourcePath, jobId) {
+  showBackupProgressModal(
+    sourcePath ? `Backup: ${sourcePath}` : 'Backup in progress',
+    sourcePath,
+    jobId,
+    true,
+    true
+  );
+}
+
+function startBackupProgressPoll(jobId, sourcePath) {
+  const modal = document.getElementById('backup-progress-modal');
+  if (!modal || !window.PiHerderPoll) return;
+  const logEl = modal.querySelector('#backup-progress-log');
+  const currentDiv = modal.querySelector('#backup-current-source');
+  const stopBtn = modal.querySelector('#progress-stop-btn');
+
+  activePollJobId = jobId || null;
+  activePollSource = sourcePath || null;
+  if (logEl) delete logEl.dataset.lastTs;
+
+  window.PiHerderPoll.stop('backup-progress');
+  window.PiHerderPoll.start('backup-progress', backupProgressUrl(jobId, sourcePath), (data) => {
+    if (currentDiv) {
+      if (data.status === 'pending' || data.current === 'queued') {
+        currentDiv.innerText = 'Queued — waiting for worker';
+      } else if (data.current) {
+        currentDiv.innerText = data.current !== 'preparing' ? `Currently: ${data.current}` : 'Preparing...';
+      }
+    }
+    if (logEl && window.PiHerderUpdateLog) {
+      const fallback = (data.status === 'pending' || data.current === 'queued')
+        ? 'Waiting for worker…\n'
+        : 'Starting...\n';
+      window.PiHerderUpdateLog(logEl, data, fallback);
+    }
+    if (data.error && logEl) {
+      logEl.textContent += '\nError: ' + data.error + '\n';
+    }
+    if (data.status === 'success' || data.status === 'failed') {
+      const label = data.status === 'success' ? '✓ Complete' : '✗ Failed';
+      if (logEl) logEl.innerText += `\n[${label}] Close to refresh page.\n`;
+      if (stopBtn) stopBtn.style.display = 'none';
+      return true;
+    }
+    return false;
+  }, 8000);
+}
+
+function showBackupProgressModal(title = "Backup running", initialSource = null, jobId = null, existingJob = false, startPoll = true) {
   const modal = document.getElementById('backup-progress-modal');
   if (!modal) return;
   modal.querySelector('#backup-progress-title').innerText = title;
   const logEl = modal.querySelector('#backup-progress-log');
   const currentDiv = modal.querySelector('#backup-current-source');
-  logEl.innerText = initialSource ? `Preparing: ${initialSource}\n` : 'Starting...\n';
+  if (existingJob) {
+    if (logEl) logEl.innerText = 'Loading progress…\n';
+    if (currentDiv) currentDiv.innerText = '';
+  } else {
+    if (logEl) logEl.innerText = initialSource ? `Preparing: ${initialSource}\n` : 'Starting...\n';
+    if (currentDiv) currentDiv.innerText = '';
+  }
   modal.classList.remove('hidden');
   modal.classList.add('flex');
+  backupModalWasOpen = true;
 
   const stopBtn = modal.querySelector('#progress-stop-btn');
   if (stopBtn) {
     stopBtn.textContent = 'Stop Backup';
-    stopBtn.onclick = async () => {
-      if (confirm('Stop?')) {
-        await fetch('/servers/{{ server.id }}/backup/stop', {method:'POST'});
-        logEl.innerText += '\n[stop requested]\n';
-      }
-    };
+    stopBtn.style.display = '';
+    stopBtn.onclick = stopCurrentBackup;
   }
 
-  if (backupPollInterval) clearInterval(backupPollInterval);
-  const poll = async () => {
-    try {
-      const res = await fetch('/servers/{{ server.id }}/backup-progress');
-      if (res.ok) {
-        const data = await res.json();
-        if (currentDiv && data.current) currentDiv.innerText = data.current;
-        if (logEl && data.log_lines && data.log_lines.length) {
-          logEl.innerText = data.log_lines.join('\n') + '\n';
-        }
-      }
-    } catch(e){}
-  };
-  poll();
-  backupPollInterval = setInterval(poll, 3000);
+  if (startPoll) {
+    startBackupProgressPoll(jobId, initialSource);
+  }
 }
 
 function hideBackupProgressModal() {
+  if (window.PiHerderPoll) window.PiHerderPoll.stop('backup-progress');
   const modal = document.getElementById('backup-progress-modal');
   if (modal) {
     modal.classList.remove('flex');
     modal.classList.add('hidden');
+    const logEl = modal.querySelector('#backup-progress-log');
+    if (logEl) delete logEl.dataset.lastTs;
   }
-  if (backupPollInterval) { clearInterval(backupPollInterval); backupPollInterval = null; }
+  if (backupModalWasOpen) {
+    backupModalWasOpen = false;
+    location.reload();
+  }
 }
 
 async function stopCurrentBackup() {
-  if (!confirm('Stop current backup?')) return;
+  if (!confirm('Stop this backup?')) return;
   try {
-    await fetch('/servers/{{ server.id }}/backup/stop', {method: 'POST'});
+    const body = new FormData();
+    if (activePollJobId) body.append('job_id', String(activePollJobId));
+    else if (activePollSource) body.append('source', activePollSource);
+    await fetch('/servers/{{ server.id }}/backup/stop', { method: 'POST', body });
     const log = document.getElementById('backup-progress-log');
     if (log) log.innerText += '\n[Stop requested]\n';
   } catch(e) { alert('Failed to request stop'); }

@@ -53,19 +53,19 @@
 <script>
 function showSshKeyModal() {
   const modal = document.getElementById('ssh-key-modal');
-  if (modal) {
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    // Auto-select the key so user can immediately Ctrl+C
-    setTimeout(() => {
-      const ta = document.getElementById('modal-pubkey');
-      if (ta) {
-        ta.focus();
-        ta.select();
-      }
-    }, 50);
-  }
+  if (!modal) return;
+  fetch('/servers/{{ server.id }}/audit/ssh-key-viewed', { method: 'POST' }).catch(() => {});
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  setTimeout(() => {
+    const ta = document.getElementById('modal-pubkey');
+    if (ta) {
+      ta.focus();
+      ta.select();
+    }
+  }, 50);
 }
+
 function hideSshKeyModal() {
   const modal = document.getElementById('ssh-key-modal');
   if (modal) {
@@ -73,15 +73,33 @@ function hideSshKeyModal() {
     modal.classList.add('hidden');
   }
 }
+
+function execCommandCopy(btn, text, original) {
+  const ta = document.getElementById('modal-pubkey');
+  if (!ta) {
+    btn.disabled = false;
+    return;
+  }
+  ta.focus();
+  ta.select();
+  try {
+    const ok = document.execCommand('copy');
+    btn.innerText = ok ? 'Copied!' : 'Select All, then Ctrl+C';
+  } catch (_) {
+    btn.innerText = 'Select All, then Ctrl+C';
+  }
+  setTimeout(() => {
+    btn.innerText = original;
+    btn.disabled = false;
+  }, 1400);
+}
+
 function copyModalPubKey(btn) {
   const ta = document.getElementById('modal-pubkey');
   if (!ta || !ta.value) return;
-
   const text = ta.value;
   const original = btn.innerText;
   btn.disabled = true;
-
-  // Try modern Clipboard API (best experience)
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(text).then(() => {
       btn.innerText = 'Copied!';
@@ -89,15 +107,17 @@ function copyModalPubKey(btn) {
         btn.innerText = original;
         btn.disabled = false;
       }, 1400);
-    }).catch(() => {
-      // API available but blocked → fall back to execCommand
-      execCommandCopy(btn, text, original);
-    });
+    }).catch(() => execCommandCopy(btn, text, original));
     return;
   }
-
-  // No Clipboard API (common over plain HTTP in Docker) → use execCommand
   execCommandCopy(btn, text, original);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  {% if show_ssh_key and server.ssh_public_key %}
+  showSshKeyModal();
+  {% endif %}
+});
 </script>
 
 <div class="mt-6">
@@ -166,9 +186,13 @@ function copyModalPubKey(btn) {
   {% endif %}
 
   <div class="flex flex-wrap gap-3">
-    <form method="post" action="/servers/{{ server.id }}/run/backup">
+    {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
+    <button type="button" onclick="openBackupLog(null, {{ full_backup_job.id }})" class="px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded text-sm">📋 View backup log</button>
+    {% else %}
+    <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form">
       <button class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm">▶ Run Backup</button>
     </form>
+    {% endif %}
 
     <form method="post" action="/servers/{{ server.id }}/run/container_patch">
       <button class="px-4 py-2 bg-violet-600 hover:bg-violet-500 rounded text-sm">▶ Run Container Patch</button>
@@ -201,12 +225,15 @@ function copyModalPubKey(btn) {
       {% endif %}
 
       {# DB-backed running status from Job (worker feeds this) #}
-      {% if current_backup_job and current_backup_job.status == 'running' %}
+      {% if running_backup_job %}
+        {% set job_details = running_backup_job.details | fromjson if running_backup_job.details else {} %}
         <span class="ml-2 text-xs px-2 py-0.5 rounded bg-blue-800 text-blue-300">running</span>
-        {% set job_details = current_backup_job.details | fromjson if current_backup_job.details else {} %}
-        {% if job_details.current %}
-          <span class="ml-1 text-xs text-blue-400">{{ job_details.current }}</span>
-        {% endif %}
+        <span class="ml-1 text-xs text-blue-400 font-mono">{{ job_details.source_filter or job_details.current or 'full backup' }}</span>
+        {% set queued_n = active_backup_jobs | selectattr('status', 'equalto', 'pending') | list | length %}
+        {% if queued_n %}<span class="ml-1 text-xs text-zinc-500">+{{ queued_n }} queued</span>{% endif %}
+      {% elif active_backup_jobs %}
+        <span class="ml-2 text-xs px-2 py-0.5 rounded bg-zinc-700 text-zinc-300">queued</span>
+        <span class="ml-1 text-xs text-zinc-500">{{ active_backup_jobs | length }} waiting</span>
       {% elif last_backup_status %}
         <span class="ml-2 text-xs px-1.5 py-0.5 rounded {{ 'bg-emerald-800 text-emerald-300' if last_backup_status == 'success' else 'bg-red-800 text-red-300' }}">last: {{ last_backup_status }}</span>
       {% endif %}
@@ -214,17 +241,27 @@ function copyModalPubKey(btn) {
     <a href="/servers/{{ server.id }}/backups" class="px-3 py-1 bg-blue-700 hover:bg-blue-600 text-sm rounded">Manage Backups & Config →</a>
   </div>
 
-  <div class="mt-3 flex flex-wrap gap-2">
-    <form method="post" action="/servers/{{ server.id }}/run/backup">
+  <div class="mt-3 flex flex-wrap gap-2 items-center">
+    {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
+    <button type="button" onclick="openBackupLog(null, {{ full_backup_job.id }})" class="px-3 py-1 bg-blue-700 hover:bg-blue-600 rounded text-sm">📋 View backup log</button>
+    {% if full_backup_job.status == 'running' %}
+    <button type="button" onclick="activePollJobId={{ full_backup_job.id }}; stopCurrentBackup()" class="px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-sm text-white">Stop</button>
+    {% endif %}
+    {% else %}
+    <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form">
       <button class="px-3 py-1 bg-blue-600 hover:bg-blue-500 rounded text-sm">▶ Run Backup</button>
     </form>
+    {% endif %}
+    {% if running_backup_job and (not full_backup_job or full_backup_job.id != running_backup_job.id) %}
+    <a href="/servers/{{ server.id }}/backups" class="px-3 py-1 bg-blue-800 hover:bg-blue-700 rounded text-sm text-xs">Per-source log →</a>
+    {% endif %}
     <span class="text-[10px] text-zinc-500 self-center">Full source management on the backups page.</span>
   </div>
 </div>
 
 <div class="mt-2 text-xs text-zinc-400">
   <a href="/audit?server_id={{ server.id }}" class="text-emerald-400 hover:underline">All logs</a>
-  | <a href="/audit?server_id={{ server.id }}&action=backup" class="text-emerald-400 hover:underline">backups</a>
+  | <a href="/audit?server_id={{ server.id }}&search=backup" class="text-emerald-400 hover:underline">backups</a>
 </div>
 
 <div class="mt-8 text-xs">
@@ -544,6 +581,43 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  document.querySelectorAll('form.backup-run-form, form[action*="run/backup"]').forEach(form => {
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const currentSource = form.dataset.source || (form.querySelector('input[name="source"]') || {}).value || null;
+      showBackupProgressModal(
+        currentSource ? `Backing up: ${currentSource}` : 'Running full backup...',
+        currentSource,
+        null,
+        false,
+        false
+      );
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST',
+          body: new FormData(form),
+          headers: { 'X-PiHerder-Async': '1' },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok || res.status === 409) {
+          startBackupProgressPoll(data.job_id, data.source_filter || currentSource);
+        } else {
+          const logEl = document.querySelector('#backup-progress-log');
+          if (logEl) logEl.textContent += '\nError: ' + (data.detail || 'Could not start backup') + '\n';
+        }
+      } catch (_) {
+        const logEl = document.querySelector('#backup-progress-log');
+        if (logEl) logEl.textContent += '\nNetwork error starting backup.\n';
+      }
+    });
+  });
+
+  if (new URLSearchParams(location.search).get('backup_log')) {
+    const src = new URLSearchParams(location.search).get('source');
+    const jid = new URLSearchParams(location.search).get('job_id');
+    openBackupLog(src || null, jid ? parseInt(jid, 10) : null);
+  }
+
   // OS patch form
   const osForm = document.getElementById('os-patch-form');
   if (osForm) {
@@ -557,31 +631,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// NOTE: Automatic page-level progress polling has been removed / stubbed
-// to keep the UI responsive. Live progress is now only in the modal (DB direction).
-// OS patch automatic polling is stubbed.
+// No page-level polling — progress updates only while a modal is open.
 
-let backupPollInterval = null;
+let osPatchPollKey = 'os-patch';
 
 async function updateBackupProgressUI(data, modalLogEl, modalCurrentDiv, isModalOpen) {
   if (!data) return;
 
   if (modalCurrentDiv) {
-    if (data.current && data.current !== 'preparing' && data.current !== 'starting') {
+    if (data.status === 'pending' || data.current === 'queued') {
+      modalCurrentDiv.innerText = 'Queued — waiting for worker';
+    } else if (data.current && data.current !== 'preparing' && data.current !== 'starting') {
       modalCurrentDiv.innerText = `Currently backing up: ${data.current}`;
     } else {
       modalCurrentDiv.innerText = data.current ? `Status: ${data.current}` : '';
     }
   }
-  if (modalLogEl && isModalOpen) {
-    let text = '';
-    if (data.log_lines && data.log_lines.length > 0) {
-      text = data.log_lines.join('\n') + '\n';
-    } else {
-      text = 'Backup in progress...\n';
-    }
-    modalLogEl.innerText = text;
-    modalLogEl.scrollTop = modalLogEl.scrollHeight;
+  if (modalLogEl && isModalOpen && window.PiHerderUpdateLog) {
+    const fallback = (data.status === 'pending' || data.current === 'queued')
+      ? 'Waiting for worker…\n'
+      : 'Backup in progress...\n';
+    window.PiHerderUpdateLog(modalLogEl, data, fallback);
   }
 
   const banner = document.getElementById('active-backup-status');
@@ -606,56 +676,138 @@ async function updateBackupProgressUI(data, modalLogEl, modalCurrentDiv, isModal
   });
 }
 
-function showBackupProgressModal(title = "Backup running", initialSource = null) {
+let activePollJobId = null;
+let activePollSource = null;
+let backupModalWasOpen = false;
+
+function backupProgressUrl(jobId, sourcePath) {
+  let url = '/servers/{{ server.id }}/backup-progress';
+  if (jobId) url += '?job_id=' + encodeURIComponent(jobId);
+  else if (sourcePath) url += '?source=' + encodeURIComponent(sourcePath);
+  return url;
+}
+
+function openBackupLog(sourcePath, jobId) {
+  showBackupProgressModal(
+    sourcePath ? `Backup: ${sourcePath}` : 'Backup in progress',
+    sourcePath,
+    jobId,
+    true,
+    true
+  );
+}
+
+function startBackupProgressPoll(jobId, sourcePath) {
+  const modal = document.getElementById('backup-progress-modal');
+  if (!modal || !window.PiHerderPoll) return;
+  const logEl = modal.querySelector('#backup-progress-log');
+  const currentDiv = modal.querySelector('#backup-current-source');
+  const stopBtn = modal.querySelector('#progress-stop-btn');
+
+  activePollJobId = jobId || null;
+  activePollSource = sourcePath || null;
+  if (logEl) delete logEl.dataset.lastTs;
+
+  window.PiHerderPoll.stop('backup-progress');
+  window.PiHerderPoll.start('backup-progress', backupProgressUrl(jobId, sourcePath), (data) => {
+    updateBackupProgressUI(data, logEl, currentDiv, true);
+    if (data.status === 'success' || data.status === 'failed') {
+      const label = data.status === 'success' ? '✓ Backup complete' : '✗ Backup failed';
+      if (logEl) logEl.innerText += `\n[${label}] Close to refresh page.\n`;
+      if (currentDiv) currentDiv.innerText = label;
+      if (stopBtn) stopBtn.style.display = 'none';
+      return true;
+    }
+    return false;
+  }, 8000);
+}
+
+function showBackupProgressModal(title = "Backup running", initialSource = null, jobId = null, existingJob = false, startPoll = true) {
   const modal = document.getElementById('backup-progress-modal');
   if (!modal) return;
   modal.querySelector('#backup-progress-title').innerText = title;
   const logEl = modal.querySelector('#backup-progress-log');
   const currentDiv = modal.querySelector('#backup-current-source');
-  logEl.innerText = initialSource ? `Preparing to back up: ${initialSource}\n` : 'Starting backup job...\n';
-  if (currentDiv && initialSource) {
-    currentDiv.innerText = `Currently backing up: ${initialSource}`;
+  if (existingJob) {
+    if (logEl) logEl.innerText = 'Loading progress…\n';
+    if (currentDiv) currentDiv.innerText = '';
+  } else {
+    if (logEl) logEl.innerText = initialSource ? `Preparing to back up: ${initialSource}\n` : 'Starting backup job...\n';
+    if (currentDiv) currentDiv.innerText = '';
   }
   modal.classList.remove('hidden');
   modal.classList.add('flex');
+  backupModalWasOpen = true;
 
   const stopBtn = modal.querySelector('#progress-stop-btn');
   if (stopBtn) {
     stopBtn.textContent = 'Stop Backup';
+    stopBtn.style.display = '';
     stopBtn.onclick = stopCurrentBackup;
   }
 
-  if (backupPollInterval) clearInterval(backupPollInterval);
+  if (startPoll) {
+    startBackupProgressPoll(jobId, initialSource);
+  }
+}
 
-  // Light DB-aware polling when modal is open (direction: move fully to DB)
-  const poll = async () => {
-    try {
-      const res = await fetch('/servers/{{ server.id }}/backup-progress');
-      if (res.ok) {
-        const data = await res.json();
-        updateBackupProgressUI(data, logEl, currentDiv, true);
-      }
-    } catch(e) {}
-  };
-  poll();
-  backupPollInterval = setInterval(poll, 3000); // 3s as requested for live logs
-
-  modal._poll = backupPollInterval;
+async function stopCurrentBackup() {
+  if (!confirm('Stop this backup?')) return;
+  try {
+    const body = new FormData();
+    if (activePollJobId) body.append('job_id', String(activePollJobId));
+    else if (activePollSource) body.append('source', activePollSource);
+    await fetch('/servers/{{ server.id }}/backup/stop', { method: 'POST', body });
+    const log = document.getElementById('backup-progress-log');
+    if (log) log.innerText += '\n[Stop requested]\n';
+  } catch (_) {
+    alert('Failed to request stop');
+  }
 }
 
 function hideBackupProgressModal() {
+  if (window.PiHerderPoll) window.PiHerderPoll.stop('backup-progress');
   const modal = document.getElementById('backup-progress-modal');
   if (modal) {
-    if (modal._poll) {
-      clearInterval(modal._poll);
-      modal._poll = null;
-    }
     modal.classList.remove('flex');
     modal.classList.add('hidden');
+    const logEl = modal.querySelector('#backup-progress-log');
+    if (logEl) delete logEl.dataset.lastTs;
   }
-  if (backupPollInterval) {
-    clearInterval(backupPollInterval);
-    backupPollInterval = null;
+  if (backupModalWasOpen) {
+    backupModalWasOpen = false;
+    location.reload();
+  }
+}
+
+function showOsPatchProgressModal() {
+  const modal = document.getElementById('os-patch-progress-modal');
+  if (!modal) return;
+  const logEl = modal.querySelector('#os-patch-progress-log');
+  if (logEl) logEl.innerText = 'Starting OS patch...\n';
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  if (window.PiHerderPoll) {
+    window.PiHerderPoll.start(osPatchPollKey, '/servers/{{ server.id }}/os-patch-progress', (data) => {
+      if (logEl && data.log_lines && data.log_lines.length) {
+        logEl.innerText = data.log_lines.join('\n') + '\n';
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+      if (data.current === null && data.log_lines && data.log_lines.length > 2) {
+        if (logEl) logEl.innerText += '\n[Patch finished] Refresh page for updated status.\n';
+        return true;
+      }
+      return false;
+    }, 3000);
+  }
+}
+
+function hideOsPatchProgressModal() {
+  if (window.PiHerderPoll) window.PiHerderPoll.stop(osPatchPollKey);
+  const modal = document.getElementById('os-patch-progress-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
   }
 }
 
@@ -932,6 +1084,17 @@ function computeUsableSummary(drives) {
   </div>
 </div>
 
+<!-- OS Patch Progress Modal (polls only while open) -->
+<div id="os-patch-progress-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4">
+    <div class="flex justify-between items-center mb-2">
+      <h3 class="font-semibold">OS Patch in progress</h3>
+      <button onclick="hideOsPatchProgressModal()" class="text-xs px-2 py-1 bg-zinc-800 rounded">Close</button>
+    </div>
+    <pre id="os-patch-progress-log" class="bg-black p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border border-zinc-800 rounded">Starting...</pre>
+  </div>
+</div>
+
 <!-- Backup Progress Modal -->
 <div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
   <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4">
@@ -943,7 +1106,7 @@ function computeUsableSummary(drives) {
       </div>
     </div>
     <div id="backup-current-source" class="text-sm mb-1 text-emerald-300 font-mono min-h-[1.25rem]"></div>
-    <div class="text-xs text-zinc-400 mb-1">Live output (updates every 3s while modal open)</div>
+    <div class="text-xs text-zinc-400 mb-1">Live output (updates every 4s while modal is open)</div>
     <pre id="backup-progress-log" class="bg-black p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border border-zinc-800 rounded">Starting...</pre>
     <p class="text-[10px] text-zinc-500 mt-2">
       rsync uses size+mtime to skip unchanged files (delta). With --delete it mirrors exactly.

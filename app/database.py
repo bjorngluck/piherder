@@ -3,7 +3,13 @@ from sqlalchemy import text, inspect
 from .config import settings
 from .models import DockerVersion  # ensure registered for create_all / alembic
 
-engine = create_engine(settings.DATABASE_URL, echo=False)
+engine = create_engine(
+    settings.DATABASE_URL,
+    echo=False,
+    pool_size=10,
+    max_overflow=10,
+    pool_pre_ping=True,
+)
 
 
 def get_session():
@@ -11,28 +17,24 @@ def get_session():
         yield session
 
 
+_schema_ready = False
+
+
 def ensure_server_columns():
-    """Ensure additional columns exist (e.g. sort_order for manual ordering).
-    Safe no-op if already present.
-    """
+    """Run once at startup only — never from request handlers (ALTER TABLE locks the DB)."""
+    global _schema_ready
+    if _schema_ready:
+        return
     try:
-        with engine.connect() as conn:
-            # Postgres supports IF NOT EXISTS
-            conn.execute(text(
-                "ALTER TABLE server ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0"
-            ))
-            conn.commit()
-    except Exception:
-        # Fallback for SQLite or older DBs
-        try:
+        insp = inspect(engine)
+        cols = [c["name"] for c in insp.get_columns("server")]
+        if "sort_order" not in cols:
             with engine.connect() as conn:
-                insp = inspect(engine)
-                cols = [c["name"] for c in insp.get_columns("server")]
-                if "sort_order" not in cols:
-                    conn.execute(text("ALTER TABLE server ADD COLUMN sort_order INTEGER DEFAULT 0"))
-                    conn.commit()
-        except Exception:
-            pass  # will surface on query if truly broken
+                conn.execute(text("ALTER TABLE server ADD COLUMN sort_order INTEGER DEFAULT 0"))
+                conn.commit()
+        _schema_ready = True
+    except Exception:
+        pass
 
 
 def init_db():
