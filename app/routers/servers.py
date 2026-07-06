@@ -38,6 +38,10 @@ router.include_router(backups_router, prefix="")
 logger = logging.getLogger("piherder.servers")
 
 
+def _server_redirect(server_id: int) -> str:
+    return f"/servers/{server_id}"
+
+
 @router.get("", response_class=HTMLResponse)
 async def list_servers(request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
     """Extremely lean Servers list - pure DB read.
