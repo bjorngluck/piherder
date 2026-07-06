@@ -145,7 +145,7 @@
 <!-- Include key modals and JS (duplicated from detail for self-contained page) -->
 
 <!-- Backup Config Modal -->
-<div id="backup-config-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+<div id="backup-config-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-xl mx-4">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">Configure Backups</h3>
@@ -202,7 +202,7 @@
 </div>
 
 <!-- Remove Backup Source Modal -->
-<div id="remove-backup-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+<div id="remove-backup-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-md mx-4">
     <h3 class="font-semibold mb-2">Confirm Remove Backup Source</h3>
     <p class="text-sm text-zinc-400 mb-2">You are about to remove this backup source:</p>
@@ -221,18 +221,21 @@
 </div>
 
 <!-- Backup Progress Modal (for live feedback when running from here) -->
-<div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
-  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4">
-    <div class="flex justify-between items-center mb-2">
+<div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
+    <!-- Buttons on top -->
+    <div class="flex justify-between items-center mb-2 flex-shrink-0">
       <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
       <div class="flex gap-1">
         <button id="progress-stop-btn" class="text-xs px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-white">Stop</button>
         <button onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 bg-zinc-800 rounded">Close</button>
       </div>
     </div>
-    <div id="backup-current-source" class="text-sm mb-1 text-emerald-300 font-mono min-h-[1.25rem]"></div>
-    <div class="text-xs text-zinc-400 mb-1">Live output</div>
-    <pre id="backup-progress-log" class="bg-black p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border border-zinc-800 rounded">Starting...</pre>
+    <div id="backup-current-source" class="text-sm mb-1 text-emerald-300 font-mono min-h-[1.25rem] flex-shrink-0"></div>
+    <!-- Label above logs -->
+    <div class="text-xs text-zinc-400 mb-1 flex-shrink-0">Live output</div>
+    <!-- Logs in middle -->
+    <pre id="backup-progress-log" class="flex-1 min-h-0 overflow-auto bg-black p-3 text-xs font-mono whitespace-pre-wrap border border-zinc-800 rounded">Starting...</pre>
   </div>
 </div>
 
