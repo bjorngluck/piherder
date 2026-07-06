@@ -131,7 +131,7 @@ async def lifespan(app: FastAPI):
                                 )
                         except Exception as e:
                             print(f"Failed schedule for server {server.id}: {e}")
-            sync_herder_backup_schedule()
+            sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
         except Exception as e:
             print(f"Scheduler init skipped: {e}")
 
@@ -159,6 +159,9 @@ app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
 app.include_router(servers_router.router, prefix="/servers", tags=["servers"])
 app.include_router(audit_router.router, prefix="", tags=["audit"])
 
+# Scheduler helpers extracted
+from .services import scheduler as sched
+
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request, user: User = Depends(get_optional_current_user)):
@@ -184,95 +187,11 @@ async def health():
     return {"status": "ok"}
 
 
-def schedule_backup_job(server_id: int):
-    """Called by APScheduler — enqueue Celery only, never rsync on web."""
-    if not HAS_SCHEDULER:
-        return
-    logger.debug(f"[SCHEDULER] Enqueuing scheduled backup for server {server_id}")
-    try:
-        from .services.jobs import enqueue_backup_for_server
-        with Session(engine) as db:
-            server = db.get(Server, server_id)
-            if server and server.backup_enabled:
-                enqueue_backup_for_server(db, server)
-    except Exception as e:
-        logger.debug(f"[SCHEDULER] Error enqueuing backup for {server_id}: {e}")
-
-
-HERDER_SCHEDULE_JOB_ID = "herder_self_backup"
-
-
-def sync_herder_backup_schedule():
-    """Register or remove the global PiHerder self-backup cron job from config."""
-    if not HAS_SCHEDULER or not scheduler:
-        return
-    from .services import herder_backup as hb
-
-    try:
-        scheduler.remove_job(HERDER_SCHEDULE_JOB_ID)
-    except Exception:
-        pass
-
-    cfg = hb.load_herder_config()
-    if not cfg.get("schedule_enabled"):
-        logger.info("[SCHEDULER] PiHerder self-backup schedule disabled")
-        return
-
-    cron = (cfg.get("schedule_cron") or "").strip()
-    if not cron:
-        return
-
-    try:
-        hb.validate_cron_expression(cron)
-        parts = cron.split()
-        trigger = CronTrigger(
-            minute=parts[0], hour=parts[1],
-            day=parts[2], month=parts[3], day_of_week=parts[4],
-            timezone=hb.get_app_timezone(),
-        )
-        scheduler.add_job(
-            func=schedule_herder_backup_job,
-            trigger=trigger,
-            id=HERDER_SCHEDULE_JOB_ID,
-            replace_existing=True,
-            name="PiHerder self-backup",
-        )
-        logger.info(f"[SCHEDULER] PiHerder self-backup scheduled: {cron} ({hb.get_app_timezone()})")
-    except Exception as e:
-        logger.warning(f"[SCHEDULER] Could not register herder backup schedule: {e}")
-
-
-def schedule_herder_backup_job():
-    """Global scheduled PiHerder self-backup (config + keys + optional audit)."""
-    if not HAS_SCHEDULER:
-        return
-    logger.info("[SCHEDULER] Running scheduled PiHerder self-backup")
-    try:
-        from .services import herder_backup as hb
-        cfg = hb.load_herder_config()
-        mode = cfg.get("schedule_mode", "config_only")
-        include_audit = (mode == "full")
-        config_only = (mode != "full")
-        path = hb.create_herder_backup(include_audit=include_audit, config_only=config_only)
-        logger.info(f"[SCHEDULER] PiHerder self-backup written: {path}")
-        try:
-            with Session(engine) as s:
-                al = AuditLog(
-                    user_id=None,
-                    server_id=None,
-                    action="herder_backup",
-                    status="success",
-                    details=f"Scheduled self-backup ({mode}): {getattr(path, 'name', path)}",
-                    output_snippet=json.dumps({"path": str(path), "mode": mode}),
-                    started_at=datetime.utcnow(),
-                    finished_at=datetime.utcnow(),
-                )
-                s.add(al)
-                s.commit()
-        except Exception:
-            pass
-    except Exception as e:
-        logger.error(f"[SCHEDULER] PiHerder self-backup error: {e}")
+# Schedule helpers moved to services/scheduler.py (re-exported for use in lifespan/herder UI)
+schedule_backup_job = sched.schedule_backup_job
+sync_herder_backup_schedule = sched.sync_herder_backup_schedule
+schedule_herder_backup_job = sched.schedule_herder_backup_job
+HERDER_SCHEDULE_JOB_ID = sched.HERDER_SCHEDULE_JOB_ID
 
 
 # ------------------------------
@@ -470,7 +389,7 @@ async def save_herder_config(
         "timezone": existing.get("timezone", "UTC"),
     }
     hb.save_herder_config(cfg)
-    sync_herder_backup_schedule()
+    sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
     return RedirectResponse("/herder-backups?config_saved=1", status_code=303)
 
 
@@ -481,7 +400,7 @@ async def save_timezone(
 ):
     from .services import herder_backup as hb
     hb.set_app_timezone(timezone)
-    sync_herder_backup_schedule()
+    sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
     return RedirectResponse("/herder-backups?config_saved=1", status_code=303)
 
 
