@@ -127,6 +127,11 @@ async def get_file_content(
     if not server:
         raise HTTPException(404)
 
+    try:
+        import app.services.docker_management as _dm
+        _dm._CACHE.clear()
+    except:
+        pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
     if not proj:
@@ -139,13 +144,17 @@ async def get_file_content(
         return {"ok": True, "file": "dockerfile", "content": content}
     else:
         live_files = docker_svc.get_project_live_files(server, proj["path"])
+        compose_key = None
+        content = ""
         for key in ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):
             if key in live_files:
-                return {"ok": True, "file": key, "content": live_files[key]}
-        content = next(iter(live_files.values()), "") if live_files else ""
-        return {"ok": True, "file": key, "content": content}
-    content = next(iter(live_files.values()), "") if live_files else ""
-    return {"ok": True, "file": key, "content": content}
+                compose_key = key
+                content = live_files[key]
+                break
+        if not compose_key and live_files:
+            compose_key = next(iter(live_files.keys()))
+            content = live_files[compose_key]
+        return {"ok": True, "file": compose_key or "docker-compose.yml", "content": content}
 
 
 @router.get("/{server_id}/docker/compose/{project}/edit", response_class=HTMLResponse)
@@ -161,15 +170,38 @@ async def edit_compose(
     if not server:
         raise HTTPException(404)
 
+    try:
+        import app.services.docker_management as _dm
+        _dm._CACHE.clear()
+    except:
+        pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
     if not proj:
         raise HTTPException(404)
 
     live_files = docker_svc.get_project_live_files(server, proj["path"])
-    live_compose = live_files.get("docker-compose.yml") or live_files.get("docker-compose.yaml") or live_files.get("compose.yml") or live_files.get("compose.yaml") or ""
+    live_compose_key = None
+    live_compose = ""
+    for k in ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):
+        if k in live_files:
+            live_compose_key = k
+            live_compose = live_files[k]
+            break
+    if not live_compose_key and live_files:
+        live_compose_key = next(iter(live_files.keys()))
+        live_compose = live_files[live_compose_key]
     content = live_compose
-    drafts = docker_svc.get_versions(server.id, project, limit=10)
+    all_drafts = docker_svc.get_versions(server.id, project, limit=10)
+    compose_keys = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
+    drafts = []
+    for d in all_drafts:
+        try:
+            f = json.loads(d.files or '{}')
+            if any(k in f for k in compose_keys):
+                drafts.append(d)
+        except:
+            pass
 
     load_draft_id = request.query_params.get("load_draft")
     editing_version_id = None
@@ -177,8 +209,19 @@ async def edit_compose(
         try:
             dv = next((d for d in drafts if str(d.id) == load_draft_id), None)
             if dv:
-                f = json.loads(dv.files)
-                content = f.get('Dockerfile') or content
+                f = json.loads(dv.files or '{}')
+                if live_compose_key and live_compose_key in f:
+                    content = f[live_compose_key]
+                else:
+                    content = f.get("docker-compose.yml") or f.get("compose.yml") or f.get("docker-compose.yaml") or f.get("compose.yaml") or ""
+                    if not content:
+                        # avoid accidentally loading Dockerfile content into compose editor
+                        for k, v in f.items():
+                            if "dockerfile" not in k.lower():
+                                content = v
+                                break
+                    if not content:
+                        content = next(iter(f.values()), "") or content
                 if dv.is_draft:
                     editing_version_id = dv.id
         except:
@@ -190,7 +233,18 @@ async def edit_compose(
         if not d.is_draft:
             try:
                 f = json.loads(d.files or '{}')
-                c = f.get('Dockerfile') or ''
+                c = ""
+                if live_compose_key and live_compose_key in f:
+                    c = f[live_compose_key]
+                else:
+                    c = f.get("docker-compose.yml") or f.get("compose.yml") or f.get("docker-compose.yaml") or f.get("compose.yaml") or ""
+                    if not c:
+                        for k, v in f.items():
+                            if "dockerfile" not in k.lower():
+                                c = v
+                                break
+                    if not c:
+                        c = next(iter(f.values()), "")
                 if c.strip() == live_clean:
                     live_version = d
                     break
@@ -212,7 +266,7 @@ async def edit_compose(
         context={
             "title": f"Edit {project}",
             "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
-            "project": project,
+            "project": {"name": project, "path": proj.get("path") or ""},
             "content": content,
             "user": user,
             "errors": errors,
@@ -237,6 +291,11 @@ async def edit_dockerfile(
     if not server:
         raise HTTPException(404)
 
+    try:
+        import app.services.docker_management as _dm
+        _dm._CACHE.clear()
+    except:
+        pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
     if not proj or not proj.get("dockerfile_path"):
@@ -290,7 +349,7 @@ async def edit_dockerfile(
             "user": user,
             "errors": [],
             "is_dockerfile": True,
-            "drafts": df_drafts,
+            "drafts": drafts,
             "live_version": live_version,
             "editing_version_id": editing_version_id,
         }
@@ -304,7 +363,7 @@ async def save_dockerfile(
     content: str = Form(...),
     action: str = Form("deploy"),
     editing_version_id: Optional[int] = Form(None),
-    via_modal: bool = Form(False),
+    via_modal: str = Form("false"),
     request: Request = None,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
@@ -314,15 +373,72 @@ async def save_dockerfile(
     if not server:
         raise HTTPException(404)
 
+    try:
+        import app.services.docker_management as _dm
+        _dm._CACHE.clear()
+    except:
+        pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
     if not proj or not proj.get("dockerfile_path"):
         raise HTTPException(404)
 
-    if via_modal:
-        return JSONResponse({"ok": False, "message": "Dockerfile editing is temporarily disabled."})
+    df_path = proj["dockerfile_path"]
+    files = {"Dockerfile": content}
+    is_draft_action = (str(action).lower() == "draft")
+    is_via_modal = str(via_modal).lower() in ("1", "true", "yes", "on")
+    try:
+        if is_draft_action:
+            # Save draft only (no write to host, no deploy)
+            dv = docker_svc.save_draft_version(server.id, project, files, session, update_existing_draft_id=editing_version_id)
+            if is_via_modal:
+                return JSONResponse({"ok": True, "message": f"Draft v{dv.version} saved (Dockerfile)"})
+            return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit?saved_draft={dv.version}", status_code=303)
+        else:
+            # Write to host + record as deployed version
+            written, werr = docker_svc.write_dockerfile(server, df_path, content)
+            if not written:
+                msg = "Failed to write Dockerfile to host (check SSH user can write the file / permissions / ownership)."
+                if werr:
+                    msg = f"{msg} Detail: {werr}"
+                if is_via_modal:
+                    return JSONResponse({"ok": False, "message": msg})
+                return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit?write_failed=1", status_code=303)
 
-    return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit?disabled=1", status_code=303)
+            try:
+                import app.services.docker_management as _dm
+                _dm._CACHE.clear()
+            except:
+                pass
+
+            dv = docker_svc.save_draft_version(server.id, project, files, session, update_existing_draft_id=editing_version_id)
+            dv.is_draft = False
+            dv.deployed_at = datetime.utcnow()
+            session.add(dv)
+            session.commit()
+
+            try:
+                audit = AuditLog(
+                    user_id=user.id if user else None,
+                    server_id=server_id,
+                    action="docker_dockerfile_save",
+                    status="success",
+                    details=f"Project {project} Dockerfile saved v{dv.version}",
+                    started_at=datetime.utcnow(),
+                    finished_at=datetime.utcnow(),
+                )
+                session.add(audit)
+                session.commit()
+            except Exception:
+                pass
+
+            if is_via_modal:
+                return JSONResponse({"ok": True, "message": f"Dockerfile saved v{dv.version}"})
+            return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit?saved=1", status_code=303)
+    except Exception as e:
+        if is_via_modal:
+            return JSONResponse({"ok": False, "message": str(e)[:120]})
+        return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit", status_code=303)
 
 
 @router.get("/{server_id}/docker/new-project", response_class=HTMLResponse)
@@ -391,15 +507,31 @@ async def save_draft(
     project: str,
     content: str = Form(...),
     editing_version_id: Optional[int] = Form(None),
-    via_modal: bool = Form(False),
+    via_modal: str = Form("false"),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
 
-    if via_modal:
-        return JSONResponse({"ok": False, "message": "Draft saving temporarily disabled."})
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
 
-    return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?draft_disabled=1", status_code=303)
+    projects = docker_svc.list_compose_projects(server)
+    proj = next((p for p in projects if p["name"] == project), None)
+    if not proj:
+        raise HTTPException(404)
+
+    files = {"docker-compose.yml": content}
+    is_via_modal = str(via_modal).lower() in ("1", "true", "yes", "on")
+    try:
+        dv = docker_svc.save_draft_version(server.id, project, files, session, update_existing_draft_id=editing_version_id)
+        if is_via_modal:
+            return JSONResponse({"ok": True, "message": f"Draft v{dv.version} saved"})
+        return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?saved_draft={dv.version}", status_code=303)
+    except Exception as e:
+        if is_via_modal:
+            return JSONResponse({"ok": False, "message": f"Failed to save draft: {str(e)[:80]}"})
+        return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?draft_failed=1", status_code=303)
 
 
 @router.post("/{server_id}/docker/compose/{project}/deploy-version")
@@ -415,6 +547,11 @@ async def deploy_version_route(
     if not server:
         raise HTTPException(404)
 
+    try:
+        import app.services.docker_management as _dm
+        _dm._CACHE.clear()
+    except:
+        pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
     if not proj:
@@ -438,6 +575,11 @@ async def rollback_version(
     if not server:
         raise HTTPException(404)
 
+    try:
+        import app.services.docker_management as _dm
+        _dm._CACHE.clear()
+    except:
+        pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
     if not proj:
@@ -469,7 +611,7 @@ async def save_compose(
     project: str,
     content: str = Form(...),
     editing_version_id: Optional[int] = Form(None),
-    via_modal: bool = Form(False),
+    via_modal: str = Form("false"),
     request: Request = None,
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
@@ -479,15 +621,70 @@ async def save_compose(
     if not server:
         raise HTTPException(404)
 
+    try:
+        import app.services.docker_management as _dm
+        _dm._CACHE.clear()
+    except:
+        pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
     if not proj:
         raise HTTPException(404)
 
-    if via_modal:
-        return JSONResponse({"ok": False, "message": "Compose saving temporarily disabled."})
+    project_path = proj["path"]
+    files = {"docker-compose.yml": content}
+    is_via_modal = str(via_modal).lower() in ("1", "true", "yes", "on")
+    try:
+        # write to host (live)
+        written, werr = docker_svc.write_compose_file(server, project_path, content)
+        if not written:
+            msg = "Failed to write compose file to host (check SSH user can write the file / permissions / ownership)."
+            if werr:
+                msg = f"{msg} Detail: {werr}"
+            if is_via_modal:
+                return JSONResponse({"ok": False, "message": msg})
+            return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?write_failed=1", status_code=303)
 
-    return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?compose_disabled=1", status_code=303)
+        try:
+            import app.services.docker_management as _dm
+            _dm._CACHE.clear()
+        except:
+            pass
+
+        # record as deployed (non-draft) version; update if we were editing a draft
+        dv = docker_svc.save_draft_version(server.id, project, files, session, update_existing_draft_id=editing_version_id)
+        dv.is_draft = False
+        dv.deployed_at = datetime.utcnow()
+        session.add(dv)
+        session.commit()
+
+        try:
+            audit = AuditLog(
+                user_id=user.id if user else None,
+                server_id=server_id,
+                action="docker_compose_save",
+                status="success",
+                details=f"Project {project} saved & deployed v{dv.version}",
+                started_at=datetime.utcnow(),
+                finished_at=datetime.utcnow(),
+            )
+            session.add(audit)
+            session.commit()
+        except Exception:
+            pass
+
+        try:
+            docker_svc.redeploy_project(server, project_path, pull=True)
+        except Exception:
+            pass
+
+        if is_via_modal:
+            return JSONResponse({"ok": True, "message": f"Saved & deployed v{dv.version}"})
+        return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?saved=1&version={dv.version}", status_code=303)
+    except Exception as e:
+        if is_via_modal:
+            return JSONResponse({"ok": False, "message": str(e)[:120]})
+        return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit", status_code=303)
 
 
 @router.post("/{server_id}/docker/redeploy")
@@ -670,6 +867,98 @@ async def stream_container_logs(server_id: int, container: str, lines: int = 30,
 
     return StreamingResponse(
         docker_svc.stream_logs(server, container, lines=lines, project_path=project_path),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        }
+    )
+
+
+@router.get("/{server_id}/docker/build-progress", response_class=HTMLResponse)
+async def build_progress(
+    server_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    """Render the build progress page. The actual build runs when the SSE /build-stream connects."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+
+    project = request.query_params.get("project") or ""
+    services_param = request.query_params.get("services") or ""
+    services = [s.strip() for s in services_param.split(",") if s.strip()]
+    no_cache = (request.query_params.get("no_cache") or "false").lower() in ("true", "1", "yes")
+
+    try:
+        audit = AuditLog(
+            user_id=user.id if user else None,
+            server_id=server_id,
+            action="docker_compose_build",
+            status="started",
+            details=f"Project {project} services={services} no_cache={no_cache}",
+            started_at=datetime.utcnow(),
+        )
+        session.add(audit)
+        session.commit()
+    except Exception:
+        pass
+
+    resp = templates_mod.templates.TemplateResponse(
+        request=request,
+        name="docker_build_progress.html",
+        context={
+            "title": f"Build - {project}",
+            "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
+            "server_id": server_id,
+            "project": project,
+            "services": services,
+            "no_cache": no_cache,
+            "user": user,
+        }
+    )
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
+
+
+@router.get("/{server_id}/docker/build-stream")
+async def build_stream(
+    server_id: int,
+    project: str = None,
+    services: str = "",
+    no_cache: str = "false",
+    session: Session = Depends(get_session),
+):
+    """SSE endpoint that runs docker compose build on the host and streams output."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    if not project:
+        raise HTTPException(400, detail="project is required")
+
+    # Resolve project name -> full path (same pattern as file-content, edit, etc.)
+    try:
+        projects = docker_svc.list_compose_projects(server)
+    except Exception as e:
+        raise HTTPException(500, detail=f"Failed to inspect projects on host: {str(e)[:120]}")
+    proj = next((p for p in projects if p.get("name") == project), None)
+    if not proj:
+        if project.startswith("/"):
+            project_path = project  # allow direct path as fallback
+        else:
+            raise HTTPException(404, detail="Project not found")
+    else:
+        project_path = proj["path"]
+
+    svc_list = [s.strip() for s in services.split(",") if s.strip()] if services else None
+    no_cache_bool = str(no_cache).lower() in ("true", "1", "yes")
+
+    return StreamingResponse(
+        docker_svc.stream_compose_build(server, project_path, services=svc_list, no_cache=no_cache_bool),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",

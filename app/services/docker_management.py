@@ -18,6 +18,8 @@ existing imports of docker_management continue to work unchanged.
 """
 import json
 import shlex
+import traceback
+import sys
 from typing import List, Dict, Optional
 import yaml
 from yaml import YAMLError
@@ -152,70 +154,135 @@ def read_dockerfile(server: Server, dockerfile_full_path: str) -> str:
         client.close()
 
 
-def write_dockerfile(server: Server, dockerfile_full_path: str, content: str) -> bool:
-    """Write Dockerfile via SFTP. Uses tmp + rename for safety."""
+def write_dockerfile(server: Server, dockerfile_full_path: str, content: str) -> tuple[bool, str]:
+    """Write Dockerfile via SFTP. Uses tmp + rename for safety.
+    Returns (success, error_message_or_empty).
+    """
     client = get_ssh_client(server)
     sftp = client.open_sftp()
     success = False
+    err = ""
     tmp = dockerfile_full_path + ".tmp"
     try:
+        # ensure containing directory exists on remote (common when ctx subdir)
+        try:
+            d = dockerfile_full_path.rsplit("/", 1)[0] if "/" in dockerfile_full_path else ""
+            if d:
+                run_command(client, f"mkdir -p {shlex.quote(d)}", timeout=15)
+        except Exception:
+            pass
+        # remove stale tmp if present
+        try:
+            sftp.remove(tmp)
+        except Exception:
+            pass
         data = content.encode("utf-8") if isinstance(content, str) else content
         with sftp.open(tmp, "wb") as f:
             f.write(data)
+        # Pre-remove target to ensure rename succeeds on all SFTP servers (some do not overwrite via rename).
+        try:
+            sftp.remove(dockerfile_full_path)
+        except Exception:
+            pass
         sftp.rename(tmp, dockerfile_full_path)
         success = True
-    except Exception:
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"
+        try:
+            print("[write_dockerfile] failed for", dockerfile_full_path, ":", err, file=sys.stderr)
+            traceback.print_exc()
+        except Exception:
+            pass
         try:
             sftp.remove(tmp)
-        except:
+        except Exception:
             pass
     finally:
         try:
             sftp.close()
-        except:
+        except Exception:
             pass
-        client.close()
-    return success
+        try:
+            client.close()
+        except Exception:
+            pass
+    return success, err
 
 
-def write_compose_file(server: Server, project_path: str, content: str) -> bool:
-    """Write (overwrite) a docker-compose file via SFTP."""
+def write_compose_file(server: Server, project_path: str, content: str) -> tuple[bool, str]:
+    """Write (overwrite) a docker-compose file via SFTP.
+    Returns (success, error_message_or_empty).
+    """
     client = get_ssh_client(server)
     sftp = client.open_sftp()
 
     # Try to determine the file name that exists or default to docker-compose.yml
     target = f"{project_path}/docker-compose.yml"
+    tmp_target = None
+    err = ""
     try:
-        # Check which one exists
-        for candidate in [f"{project_path}/docker-compose.yml", f"{project_path}/compose.yml"]:
+        # Check which one exists (support all common names)
+        for candidate in [
+            f"{project_path}/docker-compose.yml",
+            f"{project_path}/docker-compose.yaml",
+            f"{project_path}/compose.yml",
+            f"{project_path}/compose.yaml",
+        ]:
             try:
                 sftp.stat(candidate)
                 target = candidate
                 break
-            except IOError:
+            except Exception:
                 pass
     except Exception:
         pass
 
-    success = False
-    tmp_target = target + ".tmp"
     try:
+        # ensure dir exists
+        try:
+            run_command(client, f"mkdir -p {shlex.quote(project_path)}", timeout=15)
+        except Exception:
+            pass
+
+        tmp_target = target + ".tmp"
+        try:
+            sftp.remove(tmp_target)
+        except Exception:
+            pass
+
         data = content.encode("utf-8") if isinstance(content, str) else content
         with sftp.open(tmp_target, "wb") as f:
             f.write(data)
+        # Pre-remove target to ensure rename succeeds on all SFTP servers (some do not overwrite via rename).
+        try:
+            sftp.remove(target)
+        except Exception:
+            pass
         # atomic-ish replace
         sftp.rename(tmp_target, target)
-        success = True
-    except Exception:
+        return True, ""
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"
         try:
-            sftp.remove(tmp_target)
-        except:
+            print("[write_compose_file] failed for", target, ":", err, file=sys.stderr)
+            traceback.print_exc()
+        except Exception:
             pass
-        success = False
+        try:
+            if tmp_target:
+                sftp.remove(tmp_target)
+        except Exception:
+            pass
+        return False, err
     finally:
-        sftp.close()
-        client.close()
-    return success
+        try:
+            sftp.close()
+        except Exception:
+            pass
+        try:
+            client.close()
+        except Exception:
+            pass
 
 
 def redeploy_project(server: Server, project_path: str, pull: bool = True) -> Dict:
@@ -637,6 +704,10 @@ def _list_compose_uncached(server: Server, base_dir: Optional[str] = None) -> Li
                         ctx = "."
                     import os
                     dockerfile_path = os.path.normpath(f"{proj_dir}/{ctx}/{df}").replace("\\", "/")
+                # Fallback: always expose a root Dockerfile candidate so the editor tab can appear
+                # and users can create/edit even if no build: section references it.
+                if not dockerfile_path:
+                    dockerfile_path = f"{proj_dir}/Dockerfile"
             except:
                 pass
 

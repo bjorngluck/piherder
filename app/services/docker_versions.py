@@ -18,6 +18,8 @@ Kept lightweight: free functions, no new abstractions.
 """
 
 import json
+import sys
+import traceback
 from typing import List, Dict, Optional
 from datetime import datetime
 from sqlmodel import Session, select
@@ -52,10 +54,13 @@ def get_project_live_files(server: Server, project_path: str, filenames: Optiona
         client.close()
 
 
-def write_project_files(server: Server, project_path: str, files: dict) -> bool:
-    """Write (multiple) files to host via SFTP. New short-lived session. Uses tmp+rename to avoid corruption."""
+def write_project_files(server: Server, project_path: str, files: dict) -> tuple[bool, str]:
+    """Write (multiple) files to host via SFTP. New short-lived session. Uses tmp+rename to avoid corruption.
+    Returns (success, error_message_or_empty).
+    """
     client = get_ssh_client(server)
     sftp = client.open_sftp()
+    err = ""
     try:
         for fname, content in files.items():
             fpath = f"{project_path}/{fname}".replace("//", "/")
@@ -63,16 +68,30 @@ def write_project_files(server: Server, project_path: str, files: dict) -> bool:
             data = content.encode("utf-8") if isinstance(content, str) else content
             with sftp.open(tmp, "wb") as f:
                 f.write(data)
+            # Pre-remove target to ensure rename succeeds on all SFTP servers (some do not overwrite via rename).
+            try:
+                sftp.remove(fpath)
+            except Exception:
+                pass
             sftp.rename(tmp, fpath)
-        return True
-    except Exception:
-        return False
+        return True, ""
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"
+        try:
+            print("[write_project_files] failed:", err, file=sys.stderr)
+            traceback.print_exc()
+        except Exception:
+            pass
+        return False, err
     finally:
         try:
             sftp.close()
         except:
             pass
-        client.close()
+        try:
+            client.close()
+        except:
+            pass
 
 
 def get_versions(server_id: int, project_name: str, limit: int = 10, session: Optional["Session"] = None) -> List[DockerVersion]:
@@ -148,7 +167,7 @@ def deploy_version(server_id: int, version_id: int, server: Server, project_path
     if not files:
         return False
 
-    ok = write_project_files(server, project_path, files)
+    ok, _werr = write_project_files(server, project_path, files)
     if ok:
         dv.is_draft = False
         dv.deployed_at = datetime.utcnow()
@@ -157,6 +176,12 @@ def deploy_version(server_id: int, version_id: int, server: Server, project_path
         try:
             # Lazy import to avoid top-level circular import with docker_management re-exports
             from .docker_management import redeploy_project
+            # best effort clear compose cache after writing files to host so next list sees fresh
+            try:
+                from . import docker_management as _dm
+                _dm._CACHE.clear()
+            except Exception:
+                pass
             redeploy_project(server, project_path, pull=True)
         except Exception:
             pass
@@ -188,6 +213,7 @@ def create_new_docker_project(
         if git_url:
             # clone into the dir (assumes empty or use --depth etc)
             run_command(client, f"cd {full_path} && git clone {git_url} . || true", timeout=180)
-        return write_project_files(server, full_path, base_files)
+        ok, _werr = write_project_files(server, full_path, base_files)
+        return ok
     finally:
         client.close()
