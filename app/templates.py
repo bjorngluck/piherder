@@ -5,6 +5,10 @@ from .services.herder_backup import get_app_timezone, format_datetime_in_app_tz
 
 templates = Jinja2Templates(directory="app/templates")
 
+# Enable auto-reload so template changes (e.g. UI fixes to modals/logs) are picked up
+# immediately when using volume mounts in Docker without restarting the container.
+templates.env.auto_reload = True
+
 # Make timezone selection from Settings apply globally in all templates
 templates.env.globals["get_app_timezone"] = get_app_timezone
 def _app_tz_filter(dt, fmt="%Y-%m-%d %H:%M"):

@@ -142,6 +142,7 @@
           </form>
           <form method="post" action="/servers/{{ server.id }}/docker/redeploy">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
+            <input type="hidden" name="pull" value="true">
             <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[5rem] h-7 bg-emerald-700 hover:bg-emerald-600 rounded">Deploy</button>
           </form>
           <form method="post" action="/servers/{{ server.id }}/docker/compose/down">
@@ -247,7 +248,7 @@ function loadUnused() {
 
 
 <!-- Simple Build Modal (vanilla JS) -->
-<div id="build-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+<div id="build-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-6 w-full max-w-md">
     <h3 class="text-lg font-medium mb-4">Build Compose Services</h3>
     <form id="build-form" method="post">
@@ -270,7 +271,7 @@ function loadUnused() {
 </div>
 
 <!-- Quick Edit Modal (modal mindset for compose / Dockerfile) -->
-<div id="quick-edit-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+<div id="quick-edit-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-6 w-full max-w-3xl mx-4">
     <div class="flex items-center justify-between mb-3">
       <h3 class="text-lg font-medium">Quick edit — <span id="qe-project"></span></h3>
@@ -314,30 +315,52 @@ function loadUnused() {
   </div>
 </div>
 
+<!-- Deploy modal (popup confirmation + options, like build/undeploy modals) -->
+<div id="deploy-confirm-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-6 w-full max-w-md mx-4">
+    <h3 class="text-lg font-medium mb-2">Deploy / Redeploy project?</h3>
+    <p class="text-sm text-zinc-400 mb-3">
+      Run <code class="text-emerald-400">docker compose pull &amp;&amp; up -d</code> (or up -d only) for
+      <strong id="deploy-project-name" class="font-mono text-emerald-400"></strong>.
+    </p>
+    <div class="mb-4">
+      <label class="flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" id="deploy-pull" checked class="accent-emerald-600">
+        <span>Pull latest images first (recommended)</span>
+      </label>
+    </div>
+    <div class="flex gap-2 justify-end">
+      <button onclick="hideDeployConfirm()" class="px-4 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 rounded">Cancel</button>
+      <button id="deploy-confirm-btn" class="px-4 py-1.5 text-sm bg-emerald-700 hover:bg-emerald-600 rounded font-medium">Deploy</button>
+    </div>
+    <div class="text-[10px] text-zinc-500 mt-3">This will update running containers for the project. Use with care on production services.</div>
+  </div>
+</div>
+
 <!-- Logs modal (inline viewer, stays on Docker Management screen) -->
 <div id="logs-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div id="logs-modal-content" class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 w-full max-w-5xl mx-4 max-h-[85vh] flex flex-col">
-    <div class="flex items-center justify-between mb-2">
+  <div id="logs-modal-content" class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 w-full max-w-5xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
+    <!-- Buttons on top -->
+    <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-zinc-700 text-xs flex-shrink-0">
       <div>
         <span class="text-sm text-zinc-400">Logs for</span>
-        <strong id="logs-container-name" class="font-mono text-emerald-400"></strong>
+        <strong id="logs-container-name" class="font-mono text-emerald-400 break-all"></strong>
       </div>
-      <div class="flex items-center gap-2">
-        <button onclick="expandLogsToFullScreen()" class="text-xs px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded">Full screen logs</button>
-        <button onclick="closeLogsModal()" class="text-xs px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded">Close</button>
+      <div class="flex items-center gap-1 flex-wrap">
+        <button onclick="loadLogsForModal(50)" class="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded">Last 50</button>
+        <button onclick="loadLogsForModal(200)" class="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded">Last 200</button>
+        <button onclick="loadLogsForModal(500)" class="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded">Last 500</button>
+        <span class="mx-1 text-zinc-600">|</span>
+        <button onclick="expandLogsToFullScreen()" class="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded">Full screen</button>
+        <button onclick="closeLogsModal()" class="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded">Close</button>
       </div>
     </div>
 
-    <div class="flex gap-1 mb-2 text-xs">
-      <button onclick="loadLogsForModal(50)" class="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded">Last 50</button>
-      <button onclick="loadLogsForModal(200)" class="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded">Last 200</button>
-      <button onclick="loadLogsForModal(500)" class="px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded">Last 500</button>
-      <span class="ml-auto text-zinc-500 text-[10px] self-center">Live tail enabled</span>
-    </div>
+    <!-- Logs in middle (flex-1 fills the space between top buttons and bottom description) -->
+    <pre id="logs-content" class="flex-1 min-h-0 overflow-auto bg-black/80 p-3 text-xs font-mono whitespace-pre-wrap border border-zinc-800 rounded"></pre>
 
-    <pre id="logs-content" class="flex-1 overflow-auto bg-black/80 p-3 text-xs font-mono whitespace-pre-wrap border border-zinc-800 rounded"></pre>
-
-    <div class="text-[10px] text-zinc-500 mt-1">New lines appear automatically. Scroll up to pause following.</div>
+    <!-- Description on bottom -->
+    <div class="text-[10px] text-zinc-500 mt-2 pt-1 border-t border-zinc-700/60 flex-shrink-0">New lines stream live. Scroll up to pause auto-follow. Use Full screen for long output.</div>
   </div>
 </div>
 
@@ -637,6 +660,60 @@ setTimeout(function() {
   }
 }, 0);
 
+// Deploy confirmation helpers (popup modal like build / undeploy)
+let pendingDeployForm = null;
+
+function showDeployConfirm(form, projectName) {
+  pendingDeployForm = form;
+  const nameEl = document.getElementById('deploy-project-name');
+  if (nameEl) nameEl.textContent = projectName || 'project';
+
+  // Reset checkbox default
+  const pullCb = document.getElementById('deploy-pull');
+  if (pullCb) pullCb.checked = true;
+
+  const modal = document.getElementById('deploy-confirm-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+
+function hideDeployConfirm() {
+  const modal = document.getElementById('deploy-confirm-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+  pendingDeployForm = null;
+}
+
+// Wire deploy confirm button (sets pull param + submits)
+setTimeout(function() {
+  const confirmBtn = document.getElementById('deploy-confirm-btn');
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', function() {
+      if (pendingDeployForm) {
+        const form = pendingDeployForm;
+        const pullCb = document.getElementById('deploy-pull');
+        // ensure a pull input exists and set value
+        let pullInput = form.querySelector('input[name="pull"]');
+        if (!pullInput) {
+          pullInput = document.createElement('input');
+          pullInput.type = 'hidden';
+          pullInput.name = 'pull';
+          form.appendChild(pullInput);
+        }
+        pullInput.value = (pullCb && pullCb.checked) ? 'true' : 'false';
+
+        hideDeployConfirm();
+        form.dataset.confirmed = '1';
+        form.submit();
+      }
+    });
+  }
+}, 0);
+
 // Logs modal globals and functions
 let CURRENT_SERVER_ID = {{ server.id }};
 let currentLogsES = null;
@@ -666,9 +743,9 @@ function closeLogsModal() {
   }
   const content = document.getElementById('logs-modal-content');
   if (content) {
-    // Reset to normal size
-    content.classList.remove('max-w-[98vw]', 'w-[98vw]', 'max-h-[95vh]', 'mx-auto');
-    content.classList.add('max-w-5xl', 'mx-4', 'max-h-[85vh]');
+    // Reset to normal size: buttons top, logs middle (flex-1), desc bottom
+    content.classList.remove('max-w-[98vw]', 'w-[98vw]', 'max-h-[95vh]', 'mx-auto', 'h-[90vh]', 'overflow-hidden');
+    content.classList.add('max-w-5xl', 'mx-4', 'h-[70vh]', 'max-h-[85vh]', 'overflow-hidden');
   }
   if (currentLogsES) {
     currentLogsES.close();
@@ -738,9 +815,9 @@ function expandLogsToFullScreen() {
 
   const content = document.getElementById('logs-modal-content');
   if (content) {
-    // Expand to near full screen using Tailwind classes
-    content.classList.remove('max-w-5xl', 'mx-4', 'max-h-[85vh]');
-    content.classList.add('max-w-[98vw]', 'w-[98vw]', 'max-h-[95vh]', 'mx-auto');
+    // Expand to near full screen: still buttons top, logs (now larger) in middle, desc bottom
+    content.classList.remove('max-w-5xl', 'mx-4', 'h-[70vh]', 'max-h-[85vh]', 'overflow-hidden');
+    content.classList.add('max-w-[98vw]', 'w-[98vw]', 'h-[90vh]', 'max-h-[95vh]', 'mx-auto', 'overflow-hidden');
   }
 
   // Reload the logs with a larger history to show "full" view fresh (no new screen)
@@ -894,6 +971,14 @@ function hideServiceSelectModal() {
         showUndeployConfirm(form, projName);
         return;
       }
+
+      // Deploy now uses popup modal (like build/undeploy) for confirmation + options (pull)
+      if ((actionLabel.includes('Deploy') || actionLabel.includes('Deploying')) && !form.dataset.confirmed) {
+        e.preventDefault();
+        showDeployConfirm(form, projName);
+        return;
+      }
+
       // Clear flag after use (in case of re-submit scenarios)
       if (form.dataset.confirmed) {
         delete form.dataset.confirmed;

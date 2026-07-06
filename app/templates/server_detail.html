@@ -24,7 +24,7 @@
 </div>
 
 <!-- SSH Key Modal -->
-<div id="ssh-key-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+<div id="ssh-key-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold">SSH Public Key for {{ server.name }}</h3>
@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- Edit Server Modal -->
-<div id="edit-server-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+<div id="edit-server-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-lg mx-4">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold text-lg">Edit Server</h3>
@@ -340,7 +340,7 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- OS Patch Modal -->
-<div id="os-patch-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+<div id="os-patch-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-md">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">Run OS Patch</h3>
@@ -988,7 +988,7 @@ function computeUsableSummary(drives) {
 </script>
 
 <!-- Backup Config Modal -->
-<div id="backup-config-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+<div id="backup-config-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-xl mx-4">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">Configure Backups</h3>
@@ -1089,7 +1089,7 @@ function computeUsableSummary(drives) {
 </div>
 
 <!-- OS Patch Progress Modal (polls only while open) -->
-<div id="os-patch-progress-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+<div id="os-patch-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4">
     <div class="flex justify-between items-center mb-2">
       <h3 class="font-semibold">OS Patch in progress</h3>
@@ -1100,19 +1100,23 @@ function computeUsableSummary(drives) {
 </div>
 
 <!-- Backup Progress Modal -->
-<div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
-  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4">
-    <div class="flex justify-between items-center mb-2">
+<div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
+    <!-- Buttons on top -->
+    <div class="flex justify-between items-center mb-2 flex-shrink-0">
       <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
       <div class="flex gap-1">
         <button id="progress-stop-btn" class="text-xs px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-white">Stop</button>
         <button onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 bg-zinc-800 rounded">Close</button>
       </div>
     </div>
-    <div id="backup-current-source" class="text-sm mb-1 text-emerald-300 font-mono min-h-[1.25rem]"></div>
-    <div class="text-xs text-zinc-400 mb-1">Live output (updates every 4s while modal is open)</div>
-    <pre id="backup-progress-log" class="bg-black p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border border-zinc-800 rounded">Starting...</pre>
-    <p class="text-[10px] text-zinc-500 mt-2">
+    <div id="backup-current-source" class="text-sm mb-1 text-emerald-300 font-mono min-h-[1.25rem] flex-shrink-0"></div>
+    <!-- Label above logs -->
+    <div class="text-xs text-zinc-400 mb-1 flex-shrink-0">Live output (updates every 4s while modal is open)</div>
+    <!-- Logs in middle -->
+    <pre id="backup-progress-log" class="flex-1 min-h-0 overflow-auto bg-black p-3 text-xs font-mono whitespace-pre-wrap border border-zinc-800 rounded">Starting...</pre>
+    <!-- Description on bottom -->
+    <p class="text-[10px] text-zinc-500 mt-2 flex-shrink-0">
       rsync uses size+mtime to skip unchanged files (delta). With --delete it mirrors exactly.
       It will still scan everything. Current source shown above. Full details in container logs.
     </p>
@@ -1120,7 +1124,7 @@ function computeUsableSummary(drives) {
 </div>
 
 <!-- Remove Backup Source Confirmation Modal -->
-<div id="remove-backup-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+<div id="remove-backup-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-md mx-4">
     <h3 class="font-semibold mb-2">Confirm Remove Backup Source</h3>
     <p class="text-sm text-zinc-400 mb-2">You are about to remove this backup source:</p>
@@ -1139,18 +1143,20 @@ function computeUsableSummary(drives) {
 </div>
 
 <!-- Backup Details Modal -->
-<div id="backup-details-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
-  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-3xl mx-4 max-h-[80vh] flex flex-col">
-    <div class="flex justify-between mb-2">
+<div id="backup-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-3xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
+    <!-- Header on top -->
+    <div class="flex justify-between mb-2 flex-shrink-0">
       <h3 class="font-semibold">Backup Details</h3>
       <button onclick="hideBackupDetailsModal()" class="text-xs px-2 py-1 bg-zinc-800 rounded">Close</button>
     </div>
-    <pre id="backup-details-content" class="flex-1 overflow-auto bg-black p-3 text-xs font-mono whitespace-pre border border-zinc-800 rounded"></pre>
+    <!-- Content in middle -->
+    <pre id="backup-details-content" class="flex-1 min-h-0 overflow-auto bg-black p-3 text-xs font-mono whitespace-pre border border-zinc-800 rounded"></pre>
   </div>
 </div>
 
 <!-- System Info Modal -->
-<div id="system-info-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50">
+<div id="system-info-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[85vh] overflow-auto">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold">System Info — {{ server.name }}</h3>

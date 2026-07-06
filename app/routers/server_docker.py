@@ -38,7 +38,19 @@ async def docker_page(server_id: int, request: Request, session: Session = Depen
     try:
         containers = docker_svc.list_containers(server)
     except Exception as e:
-        containers = [{"name": "error", "status": str(e), "state": "error"}]
+        containers = [{
+            "id": "",
+            "name": "error",
+            "image": "",
+            "version": "",
+            "status": str(e)[:300],
+            "state": "error",
+            "running": False,
+            "ports": [],
+            "ports_display": "—",
+            "created": "",
+            "command": "",
+        }]
 
     try:
         projects = docker_svc.list_compose_projects(server)
@@ -49,7 +61,7 @@ async def docker_page(server_id: int, request: Request, session: Session = Depen
     update_status = request.query_params.get("status")
     build_status = request.query_params.get("build_status")
 
-    return templates_mod.templates.TemplateResponse(
+    resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="docker.html",
         context={
@@ -63,6 +75,11 @@ async def docker_page(server_id: int, request: Request, session: Session = Depen
             "build_status": build_status
         }
     )
+    # Prevent browser caching of the dynamic docker management page (so UI changes to modals/logs are visible immediately)
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 @router.post("/{server_id}/docker/container/{action}")
@@ -563,7 +580,7 @@ async def get_docker_logs(
     if is_json:
         return JSONResponse({"container": container, "logs": logs})
 
-    return templates_mod.templates.TemplateResponse(
+    resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="docker_logs.html",
         context={
@@ -575,6 +592,11 @@ async def get_docker_logs(
             "user": user
         }
     )
+    # Prevent browser caching of the logs page (so layout changes are visible)
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
 
 @router.get("/{server_id}/docker/containers-fragment", response_class=HTMLResponse)
@@ -620,6 +642,7 @@ async def check_updates(
         raise HTTPException(404)
 
     result = docker_svc.check_compose_updates(server, project_path)
+    status = "ok" if result.get("success") else "fail"
     try:
         audit = AuditLog(
             user_id=user.id if user else None,
@@ -653,3 +676,94 @@ async def stream_container_logs(server_id: int, container: str, lines: int = 30,
             "Connection": "keep-alive",
         }
     )
+
+
+# === Cleanup unused/dangling routes (were referenced in docker.html template but missing after router split) ===
+@router.get("/{server_id}/docker/unused", response_class=HTMLResponse)
+async def list_unused_route(
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+
+    try:
+        data = docker_svc.list_unused_images_and_containers(server)
+    except Exception as e:
+        data = {"dangling_images": [], "exited_containers": [], "success": False, "errors": [str(e)[:200]]}
+
+    # Build a small HTML snippet for the fetch().innerHTML
+    lines = []
+    di = data.get("dangling_images", []) or []
+    ec = data.get("exited_containers", []) or []
+    if not di and not ec:
+        lines.append("<div class='text-zinc-400'>No dangling images or exited containers found.</div>")
+    else:
+        if di:
+            lines.append("<div class='text-amber-400 font-medium'>Dangling images:</div>")
+            lines.append("<pre class='whitespace-pre-wrap text-[10px]'>" + "\n".join(di) + "</pre>")
+        if ec:
+            lines.append("<div class='text-amber-400 font-medium mt-1'>Exited containers:</div>")
+            lines.append("<pre class='whitespace-pre-wrap text-[10px]'>" + "\n".join(ec) + "</pre>")
+    if data.get("errors"):
+        lines.append("<div class='text-red-400 mt-1'>Errors: " + "; ".join(data["errors"]) + "</div>")
+    if data.get("success") is False:
+        lines.append("<div class='text-xs text-zinc-500'>Command may have partially failed (non-zero exit).</div>")
+
+    html = "\n".join(lines)
+    return HTMLResponse(html)
+
+
+@router.post("/{server_id}/docker/prune-unused")
+async def prune_unused_route(
+    server_id: int,
+    prune_type: str = Form("both"),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user)
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+
+    try:
+        res = docker_svc.prune_unused(server, prune_type=prune_type)
+        ok = "ok" if res.get("success") else "fail"
+        # record audit
+        try:
+            audit = AuditLog(
+                user_id=user.id if user else None,
+                server_id=server_id,
+                action="docker_prune_unused",
+                status="success" if res.get("success") else "failed",
+                details=f"prune_type={prune_type}",
+                output_snippet=str(res.get("output", ""))[:500],
+                started_at=datetime.utcnow(),
+                finished_at=datetime.utcnow(),
+            )
+            session.add(audit)
+            session.commit()
+        except Exception:
+            pass
+    except Exception as e:
+        ok = "fail"
+        # best effort audit fail
+        try:
+            audit = AuditLog(
+                user_id=user.id if user else None,
+                server_id=server_id,
+                action="docker_prune_unused",
+                status="failed",
+                details=f"prune_type={prune_type}",
+                output_snippet=str(e)[:300],
+                started_at=datetime.utcnow(),
+                finished_at=datetime.utcnow(),
+            )
+            session.add(audit)
+            session.commit()
+        except Exception:
+            pass
+        return RedirectResponse(f"/servers/{server_id}/docker?prune=fail&prune_type={prune_type}", status_code=303)
+
+    return RedirectResponse(f"/servers/{server_id}/docker?prune={ok}&prune_type={prune_type}", status_code=303)

@@ -515,7 +515,26 @@ def _list_containers_uncached(server: Server) -> List[Dict]:
         cmd = 'docker ps -a --format "{{json .}}"'
         status, out, err = run_command(client, cmd, timeout=30)
     finally:
-        client.close()
+        try:
+            client.close()
+        except:
+            pass
+
+    if status != 0:
+        err_msg = (err or out or "docker ps failed").strip()[:300]
+        return [{
+            "id": "",
+            "name": "error",
+            "image": "",
+            "version": "",
+            "status": err_msg or "command failed",
+            "state": "error",
+            "running": False,
+            "ports": [],
+            "ports_display": "—",
+            "created": "",
+            "command": "",
+        }]
 
     containers = []
     for line in out.strip().splitlines():
@@ -559,78 +578,85 @@ def _list_compose_uncached(server: Server, base_dir: Optional[str] = None) -> Li
     if not base_dir:
         base_dir = server.docker_base_dir.replace("~", f"/home/{server.ssh_username}")
     client = get_ssh_client(server)
-    cmd = f'find {base_dir} -maxdepth 2 -name "docker-compose.yml" -o -name "docker-compose.yaml" -o -name "compose.yml" -o -name "compose.yaml" 2>/dev/null | head -30'
-    status, out, err = run_command(client, cmd, timeout=20)
+    try:
+        cmd = f'find {base_dir} -maxdepth 2 -name "docker-compose.yml" -o -name "docker-compose.yaml" -o -name "compose.yml" -o -name "compose.yaml" 2>/dev/null | head -30'
+        status, out, err = run_command(client, cmd, timeout=20)
 
-    projects = []
-    for path in out.strip().splitlines():
-        if not path:
-            continue
-        proj_dir = path.rsplit("/", 1)[0]
-        proj_name = proj_dir.split("/")[-1]
-        # Try to get versions from compose ps
-        versions = []
-        try:
-            ps_cmd = f'cd {proj_dir} && docker compose ps --format "{{{{json .}}}}" 2>/dev/null | head -20'
-            _, ps_out, _ = run_command(client, ps_cmd, timeout=15)
-            for line in ps_out.strip().splitlines():
-                if line:
-                    p = json.loads(line)
-                    svc = p.get("Service", "")
-                    img = p.get("Image", "")
-                    ver = ""
-                    if ":" in img:
-                        ver = img.split(":", 1)[1]
-                    if svc:
-                        versions.append(f"{svc}:{ver}" if ver else svc)
-        except:
-            pass
-        # detect build services + dockerfile path from compose (using cat over same session)
-        build_services = []
-        has_build = False
-        dockerfile_path = None
-        try:
-            cat_cmd = f"cat {path} 2>/dev/null | head -100"
-            _, cat_out, _ = run_command(client, cat_cmd, timeout=10)
-            comp = yaml.safe_load(cat_out) or {}
-            svcs = comp.get("services") or {}
-            for nm, cfg in svcs.items():
-                if isinstance(cfg, dict) and cfg.get("build"):
-                    build_services.append(nm)
-            has_build = len(build_services) > 0
-            services = list(svcs.keys()) if isinstance(svcs, dict) else []
+        projects = []
+        for path in out.strip().splitlines():
+            if not path:
+                continue
+            proj_dir = path.rsplit("/", 1)[0]
+            proj_name = proj_dir.split("/")[-1]
+            # Try to get versions from compose ps
+            versions = []
+            try:
+                ps_cmd = f'cd {proj_dir} && docker compose ps --format "{{{{json .}}}}" 2>/dev/null | head -20'
+                _, ps_out, _ = run_command(client, ps_cmd, timeout=15)
+                for line in ps_out.strip().splitlines():
+                    if line:
+                        p = json.loads(line)
+                        svc = p.get("Service", "")
+                        img = p.get("Image", "")
+                        ver = ""
+                        if ":" in img:
+                            ver = img.split(":", 1)[1]
+                        if svc:
+                            versions.append(f"{svc}:{ver}" if ver else svc)
+            except:
+                pass
+            # detect build services + dockerfile path from compose (using cat over same session)
+            build_services = []
+            has_build = False
+            dockerfile_path = None
+            services = []  # ensure always defined (prevents UnboundLocalError/NameError on partial failures)
+            try:
+                cat_cmd = f"cat {path} 2>/dev/null | head -100"
+                _, cat_out, _ = run_command(client, cat_cmd, timeout=10)
+                comp = yaml.safe_load(cat_out) or {}
+                svcs = comp.get("services") or {}
+                for nm, cfg in svcs.items():
+                    if isinstance(cfg, dict) and cfg.get("build"):
+                        build_services.append(nm)
+                has_build = len(build_services) > 0
+                services = list(svcs.keys()) if isinstance(svcs, dict) else []
 
-            if has_build and build_services:
-                first = build_services[0]
-                bcfg = svcs.get(first, {}) or {}
-                if isinstance(bcfg, dict):
-                    b = bcfg.get("build") or {}
-                    if isinstance(b, dict):
-                        df = b.get("dockerfile", "Dockerfile")
-                        ctx = b.get("context", ".")
+                if has_build and build_services:
+                    first = build_services[0]
+                    bcfg = svcs.get(first, {}) or {}
+                    if isinstance(bcfg, dict):
+                        b = bcfg.get("build") or {}
+                        if isinstance(b, dict):
+                            df = b.get("dockerfile", "Dockerfile")
+                            ctx = b.get("context", ".")
+                        else:
+                            df = "Dockerfile"
+                            ctx = str(b) if b else "."
                     else:
                         df = "Dockerfile"
-                        ctx = str(b) if b else "."
-                else:
-                    df = "Dockerfile"
-                    ctx = "."
-                import os
-                dockerfile_path = os.path.normpath(f"{proj_dir}/{ctx}/{df}").replace("\\", "/")
+                        ctx = "."
+                    import os
+                    dockerfile_path = os.path.normpath(f"{proj_dir}/{ctx}/{df}").replace("\\", "/")
+            except:
+                pass
+
+            projects.append({
+                "name": proj_name,
+                "path": proj_dir,
+                "compose_file": path,
+                "versions": versions or ["(not running)"],
+                "services": services,
+                "build_services": build_services,
+                "has_build": has_build,
+                "dockerfile_path": dockerfile_path
+            })
+        return projects
+    finally:
+        try:
+            client.close()
         except:
             pass
 
-        projects.append({
-            "name": proj_name,
-            "path": proj_dir,
-            "compose_file": path,
-            "versions": versions or ["(not running)"],
-            "services": services,
-            "build_services": build_services,
-            "has_build": has_build,
-            "dockerfile_path": dockerfile_path
-        })
-    client.close()
-    return projects
 
 
 # === Cleanup: unused / dangling for issue 8 ===
@@ -638,28 +664,57 @@ def list_unused_images_and_containers(server: Server) -> dict:
     """List dangling images and exited containers (roughly unused). Short-lived SSH."""
     client = get_ssh_client(server)
     try:
-        _, dimg, _ = run_command(client, 'docker images --filter "dangling=true" --format "{{.ID}} {{.Repository}}:{{.Tag}} {{.Size}}"', timeout=20)
+        s1, dimg, e1 = run_command(client, 'docker images --filter "dangling=true" --format "{{.ID}} {{.Repository}}:{{.Tag}} {{.Size}}"', timeout=20)
         dangling = [l for l in dimg.strip().splitlines() if l][:20]
-        _, ex, _ = run_command(client, 'docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}} {{.Image}}"', timeout=20)
+        s2, ex, e2 = run_command(client, 'docker ps -a --filter "status=exited" --format "{{.ID}} {{.Names}} {{.Image}}"', timeout=20)
         exited = [l for l in ex.strip().splitlines() if l][:20]
-        return {"dangling_images": dangling, "exited_containers": exited}
+        errs = []
+        if s1 != 0 and e1:
+            errs.append("images: " + e1.strip()[:200])
+        if s2 != 0 and e2:
+            errs.append("containers: " + e2.strip()[:200])
+        return {
+            "dangling_images": dangling,
+            "exited_containers": exited,
+            "success": (s1 == 0 and s2 == 0),
+            "errors": errs
+        }
     finally:
-        client.close()
+        try:
+            client.close()
+        except:
+            pass
 
 def prune_unused(server: Server, prune_type: str = 'both') -> dict:
     """Prune based on type: 'images' (dangling), 'containers' (exited), or 'both'."""
+    valid_types = ('images', 'containers', 'both')
+    if prune_type not in valid_types:
+        return {"success": False, "output": "Invalid prune_type", "type": prune_type}
+
     client = get_ssh_client(server)
     try:
         outs = []
+        success = True
         if prune_type in ('images', 'both'):
             s, o, e = run_command(client, 'docker image prune -f --filter "dangling=true"', timeout=60)
             outs.append("Images: " + (o + e).strip())
+            if s != 0:
+                success = False
         if prune_type in ('containers', 'both'):
             s, o, e = run_command(client, 'docker container prune -f', timeout=60)
             outs.append("Containers: " + (o + e).strip())
-        return {"success": True, "output": "\n".join(outs) or "Nothing to prune.", "type": prune_type}
+            if s != 0:
+                success = False
+        return {
+            "success": success,
+            "output": "\n".join(outs) or "Nothing to prune.",
+            "type": prune_type
+        }
     finally:
-        client.close()
+        try:
+            client.close()
+        except:
+            pass
 
 
 def stream_compose_build(server: Server, project_path: str, services: list = None, no_cache: bool = False):
