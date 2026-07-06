@@ -34,6 +34,8 @@ FastAPI + SQLModel + PostgreSQL + paramiko + cryptography (Fernet) + Jinja2 + (v
 **Offline / air-gapped ready**: Once built, the container has no external CDN dependencies.
 All frontend assets (Tailwind Play, HTMX, Alpine) are vendored during `docker build`.
 
+**Code structure (lightweight refactor)**: The app favors small focused modules over god classes. Major files were split while preserving exact behavior and using re-exports (e.g. `app/services/docker_management.py` → `docker_versions.py`; backup split into progress/profiles; scheduler out of main; docker+backups routers extracted). All original public APIs and routes unchanged. See plan history for details.
+
 **Important for building the image yourself:**
 The build step requires internet access (to download the frontend assets).
 The build will **fail hard** with a clear error if `tailwind.js` is missing or invalid.
