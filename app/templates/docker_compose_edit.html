@@ -3,14 +3,27 @@
 {% block content %}
 <style>
   /* Editor specific styles (not Tailwind scanned for dynamic spans) */
-  .compose-editor-wrap { font-variant-ligatures: none; }
-  .compose-editor-wrap .gutter {
+  .compose-editor-wrap {
+    font-variant-ligatures: none;
+    position: relative !important;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+  .compose-editor-wrap .gutter,
+  #gutter {
     color: #52525b;
     font-size: 10px;
     line-height: 1.45;
     user-select: none;
     background: #09090b;
     border-right: 1px solid #27272a;
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 2.75rem !important; /* 44px */
+    box-sizing: border-box;
+    z-index: 30;
   }
   /* Ensure the code area (after gutter) and gutter rows share exact vertical rhythm */
   .compose-editor-wrap pre#highlight,
@@ -39,6 +52,8 @@
     padding: 12px 12px 12px 16px !important;
     pointer-events: none;
     white-space: pre;
+    position: absolute !important;
+    z-index: 10;
   }
   .compose-editor-wrap textarea#editor {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
@@ -55,6 +70,8 @@
     background: transparent !important;
     caret-color: #10b981;
     padding: 12px 12px 12px 16px !important;
+    position: absolute !important;
+    z-index: 20;
   }
   .tok-comment { color: #64748b; }
   .tok-key     { color: #34d399; }
@@ -106,6 +123,9 @@
 
   {% if request.query_params.get('saved') %}
   <div class="mb-3 p-2.5 bg-emerald-900/30 border border-emerald-800 text-emerald-300 text-sm rounded">File saved successfully.</div>
+  {% endif %}
+  {% if request.query_params.get('write_failed') %}
+  <div class="mb-3 p-2.5 bg-red-900/30 border border-red-800 text-red-300 text-sm rounded">Failed to write file to host (check SSH user permissions, ownership, and that the target directory exists and is writable).</div>
   {% endif %}
   {% if request.query_params.get('saved') and request.query_params.get('version') %}
   <div class="mb-3 p-2.5 bg-emerald-900/30 border border-emerald-800 text-emerald-300 text-sm rounded">Deployed as version {{ request.query_params.get('version') }}.</div>
@@ -306,7 +326,7 @@
     const text = normalizeNewlines(textarea.value || '');
     const lines = text.split('\n').length;
     // Use fixed pixel row height that exactly matches the editor's line box (13px font * 1.45)
-    const ROW_H = 19; // px - must match code line-height
+    const ROW_H = LINE_HEIGHT_PX; // px - must match code line-height
     let html = '';
     for (let i = 1; i <= lines; i++) {
       html += `<div style="height:${ROW_H}px; line-height:${ROW_H}px; font-size:10px; padding-right:4px; display:flex; align-items:center; justify-content:flex-end;">${i}</div>`;
@@ -314,6 +334,8 @@
     g.innerHTML = html;
     if (lineCountEl()) lineCountEl().textContent = lines;
     applyErrorHighlightsToGutter();
+    // Re-force sizes now that gutter has content (affects offsetWidth in some browsers)
+    try { forceOverlaySize(); } catch (e) {}
   }
 
   function applyErrorHighlightsToGutter() {
@@ -380,17 +402,63 @@
     if (g) g.scrollTop = textarea.scrollTop;
   }
 
+  const LINE_HEIGHT_PX = 19;
+  const GUTTER_WIDTH_PX = 44;
+  const CODE_FONT_SIZE = '13px';
+  const CODE_FONT_FAMILY = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+
+  function forceFontMetrics() {
+    const p = pre();
+    const t = ta();
+    const g = gutter();
+    if (t) {
+      t.style.fontFamily = CODE_FONT_FAMILY;
+      t.style.fontSize = CODE_FONT_SIZE;
+      t.style.lineHeight = LINE_HEIGHT_PX + 'px';
+    }
+    if (p) {
+      p.style.fontFamily = CODE_FONT_FAMILY;
+      p.style.fontSize = CODE_FONT_SIZE;
+      p.style.lineHeight = LINE_HEIGHT_PX + 'px';
+    }
+    if (g) {
+      g.style.fontFamily = CODE_FONT_FAMILY;  // numbers use smaller but for consistency
+    }
+  }
+
   function forceOverlaySize() {
     const container = document.querySelector('.compose-editor-wrap');
     const g = gutter();
     const p = pre();
     const t = ta();
     if (!container || !p || !t) return;
+
+    // Force container to be the positioning context
+    container.style.position = 'relative';
+    container.style.width = '100%';
+
+    forceFontMetrics();
+
+    // Reliable gutter width (w-11 / 44px). Measure only if it looks reasonable (>10px).
+    let gutterW = GUTTER_WIDTH_PX;
+    if (g) {
+      const measured = g.offsetWidth || 0;
+      if (measured > 10 && measured < 200) {
+        gutterW = measured;
+      }
+      // Force gutter layout regardless of Tailwind/fallback CSS
+      g.style.position = 'absolute';
+      g.style.left = '0px';
+      g.style.top = '0';
+      g.style.bottom = '0';
+      g.style.width = gutterW + 'px';
+      g.style.zIndex = '30';
+    }
+
     const h = container.clientHeight + 'px';
-    // compute gutter width dynamically (includes its border if any)
-    const gutterW = g ? g.offsetWidth : 44;
     const codeLeft = gutterW + 'px';
-    const codeW = (container.clientWidth - gutterW) + 'px';
+    const codeW = Math.max(0, (container.clientWidth - gutterW)) + 'px';
+
     // force position and size explicitly so overlay is perfect single area
     p.style.position = 'absolute';
     p.style.left = codeLeft;
@@ -399,6 +467,9 @@
     p.style.bottom = '0';
     p.style.height = h;
     p.style.width = codeW;
+    p.style.zIndex = '10';
+    p.style.lineHeight = LINE_HEIGHT_PX + 'px';
+
     t.style.position = 'absolute';
     t.style.left = codeLeft;
     t.style.right = '0';
@@ -406,6 +477,8 @@
     t.style.bottom = '0';
     t.style.height = h;
     t.style.width = codeW;
+    t.style.zIndex = '20';
+    t.style.lineHeight = LINE_HEIGHT_PX + 'px';
   }
 
   function updateAll() {
@@ -547,6 +620,7 @@
     updateAll();
     syncScroll();
     updateCursorPos();
+    forceFontMetrics();
     forceOverlaySize();
 
     // input / change
