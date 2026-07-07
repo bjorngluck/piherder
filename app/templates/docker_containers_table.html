@@ -13,7 +13,7 @@
     </thead>
     <tbody class="divide-y divide-border">
       {% for c in containers %}
-      <tr class="{{ 'bg-accent/10' if c.running else '' }}">
+      <tr class="{{ 'bg-accent-subtle' if c.running else '' }}">
         <td class="py-2 pr-3 font-mono text-xs">{{ c.name }}</td>
         <td class="py-2 pr-3 text-xs">
           <div>{{ c.image }}</div>

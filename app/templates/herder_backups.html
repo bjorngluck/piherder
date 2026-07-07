@@ -70,7 +70,7 @@
 </div>
 
 {% if request.query_params.get('restored') %}
-<div class="mb-4 p-3 banner-success border rounded text-sm">
+<div class="mb-4 p-3 banner-success border border-border rounded text-sm">
   {% if request.query_params.get('dry') == '1' %}
   Dry-run preview: would restore {{ request.query_params.get('servers', '?') }} server(s){% if request.query_params.get('audit') and request.query_params.get('audit') != '0' %}, {{ request.query_params.get('audit') }} audit entries{% endif %}. Uncheck “Dry run” to apply for real.
   {% else %}
@@ -79,16 +79,16 @@
 </div>
 {% endif %}
 {% if request.query_params.get('backup_ok') %}
-<div class="mb-4 p-3 banner-success border rounded text-sm">Manual backup created{% if request.query_params.get('file') %}: <code class="font-mono text-xs">{{ request.query_params.get('file') }}</code>{% endif %}.</div>
+<div class="mb-4 p-3 banner-success border border-border rounded text-sm">Manual backup created{% if request.query_params.get('file') %}: <code class="font-mono text-xs">{{ request.query_params.get('file') }}</code>{% endif %}.</div>
 {% endif %}
 {% if request.query_params.get('deleted') %}
-<div class="mb-4 p-3 banner-success border rounded text-sm">Backup deleted.</div>
+<div class="mb-4 p-3 banner-success border border-border rounded text-sm">Backup deleted.</div>
 {% endif %}
 {% if request.query_params.get('config_saved') %}
-<div class="mb-4 p-3 banner-success border rounded text-sm">Settings saved.</div>
+<div class="mb-4 p-3 banner-success border border-border rounded text-sm">Settings saved.</div>
 {% endif %}
 {% if request.query_params.get('error') %}
-<div class="mb-4 p-3 banner-error rounded text-sm">Error: {{ request.query_params.get('error') }}</div>
+<div class="mb-4 p-3 banner-error border border-border rounded text-sm">Error: {{ request.query_params.get('error') }}</div>
 {% endif %}
 
 <div class="card p-5 rounded-xl mb-6">

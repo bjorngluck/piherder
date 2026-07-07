@@ -130,13 +130,13 @@ const AUDIT_LOGS = {{ logs | tojson | safe }};
 </script>
 
 <div id="audit-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card p-4 w-full max-w-3xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
+  <div class="modal-content card p-4 w-full max-w-3xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
     <!-- Close button on top -->
     <div class="flex justify-end mb-2 flex-shrink-0">
       <button type="button" onclick="hideAuditDetailsModal()" class="text-muted hover:text-text text-sm px-2 btn btn-ghost">✕</button>
     </div>
     <!-- Details in middle -->
-    <pre id="audit-details-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border rounded"></pre>
+    <pre id="audit-details-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded"></pre>
   </div>
 </div>
 

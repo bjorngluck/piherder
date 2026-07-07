@@ -35,7 +35,7 @@
 
   <!-- Persistent backup status banner -->
   {% if backup_running %}
-  <div id="active-backup-status" class="mb-3 p-2 bg-accent/10 border border-accent rounded text-sm space-y-1">
+  <div id="active-backup-status" class="mb-3 p-2 bg-accent-subtle border border-accent rounded text-sm space-y-1">
     {% if running_backup_job %}
       {% set rj = running_backup_job.details | fromjson if running_backup_job.details else {} %}
       <div class="flex items-center gap-2 flex-wrap">
@@ -89,7 +89,7 @@
             <button class="px-4 py-2 btn btn-accent rounded text-sm" title="Run only this source">▶ Backup</button>
           </form>
           {% endif %}
-          <button type="button" onclick="showRemoveBackupModal('{{ p.source }}')" class="px-4 py-2 btn btn-danger rounded text-sm text-white">Remove</button>
+          <button type="button" onclick="showRemoveBackupModal('{{ p.source }}')" class="px-4 py-2 btn btn-danger rounded text-sm">Remove</button>
         </td>
       </tr>
       {% endfor %}
@@ -155,7 +155,7 @@
     <form method="post" action="/servers/{{ server.id }}/backup-config">
       <div class="mb-3">
         <label class="text-xs text-muted">Sources (one per line)</label>
-        <textarea name="backup_paths" class="w-full font-mono text-xs code-surface border p-2 rounded h-20">{% set gsrc = current_sources if current_sources else (global_backup_defaults.sources if global_backup_defaults and global_backup_defaults.sources is defined else global_backup_defaults) %}
+        <textarea name="backup_paths" class="w-full font-mono text-xs code-surface border border-border p-2 rounded h-20">{% set gsrc = current_sources if current_sources else (global_backup_defaults.sources if global_backup_defaults and global_backup_defaults.sources is defined else global_backup_defaults) %}
 {% for p in (gsrc or []) %}{{ p }}
 {% endfor %}</textarea>
       </div>
@@ -206,7 +206,7 @@
   <div class="card p-6 w-full max-w-md mx-4">
     <h3 class="font-semibold mb-2">Confirm Remove Backup Source</h3>
     <p class="text-sm text-muted mb-2">You are about to remove this backup source:</p>
-    <div id="remove-source-display" class="font-mono text-sm code-surface border p-2 rounded mb-4 break-all"></div>
+    <div id="remove-source-display" class="font-mono text-sm code-surface border border-border p-2 rounded mb-4 break-all"></div>
     <p class="text-xs text-danger mb-4">This cannot be undone.</p>
     
     <form id="remove-backup-form" method="post" action="/servers/{{ server.id }}/backup/remove">
@@ -222,12 +222,12 @@
 
 <!-- Backup Progress Modal (for live feedback when running from here) -->
 <div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
+  <div class="modal-content card p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
     <!-- Buttons on top -->
     <div class="flex justify-between items-center mb-2 flex-shrink-0">
       <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
       <div class="flex gap-1">
-        <button id="progress-stop-btn" class="text-xs px-2 py-1 btn btn-danger rounded text-white">Stop</button>
+        <button id="progress-stop-btn" class="text-xs px-2 py-1 btn btn-danger rounded">Stop</button>
         <button onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
       </div>
     </div>
