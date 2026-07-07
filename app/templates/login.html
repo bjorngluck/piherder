@@ -7,20 +7,20 @@
       <span class="text-5xl">🐑</span>
       <div>
         <span class="font-bold text-4xl tracking-tighter">PiHerder</span>
-        <div class="text-emerald-400 text-xs font-mono">SECURE FLEET CONTROL</div>
+        <div class="text-accent text-xs font-mono">SECURE FLEET CONTROL</div>
       </div>
     </div>
   </div>
-  <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
+  <div class="bg-surface border border-border rounded-2xl p-8">
     <h1 class="text-2xl font-semibold mb-6">Sign in</h1>
 
     {% if request.query_params.get('error') %}
-      <div class="mb-4 p-3 bg-red-900/50 border border-red-700 text-red-200 text-sm rounded">
+      <div class="mb-4 p-3 bg-primary/20 border border-primary text-primary text-sm rounded">
         Invalid email or password.
       </div>
     {% endif %}
 
-    <div class="mb-4 p-2 bg-zinc-800 border border-zinc-700 rounded text-xs text-zinc-400">
+    <div class="mb-4 p-2 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-border rounded text-xs text-muted dark:text-muted">
       First time? Default: <strong>admin@example.com</strong> / <strong>admin</strong><br>
       (Change it after logging in)
     </div>
@@ -29,23 +29,23 @@
       <div>
         <label class="block text-sm mb-1">Email</label>
         <input name="email" type="email" value="admin@example.com" required
-               class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded focus:outline-none focus:border-emerald-500">
+               class="w-full bg-surface border border-border px-3 py-2 rounded focus:outline-none focus:border-emerald-500">
       </div>
       <div>
         <label class="block text-sm mb-1">Password</label>
         <input name="password" type="password" value="admin" required
-               class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded focus:outline-none focus:border-emerald-500">
+               class="w-full bg-surface border border-border px-3 py-2 rounded focus:outline-none focus:border-emerald-500">
       </div>
 
       <button type="submit"
-              class="w-full mt-2 py-2.5 bg-emerald-600 hover:bg-emerald-500 font-medium rounded-lg transition">
+              class="w-full mt-2 py-2.5 btn-accent">
         Log in
       </button>
     </form>
 
-    <p class="mt-6 text-center text-sm text-zinc-400">
+    <p class="mt-6 text-center text-sm text-muted">
       Don't have an account?
-      <a href="/auth/register" class="text-emerald-400 hover:underline">Register</a>
+      <a href="/auth/register" class="text-accent hover:underline">Register</a>
     </p>
   </div>
 </div>

@@ -7,55 +7,55 @@
     <h1 class="text-3xl font-semibold">Servers</h1>
   </div>
   <button type="button" onclick="location.reload()"
-          class="text-xs px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded"
+          class="btn-secondary btn-sm"
           title="Refresh list (no auto-reload)">
     ↻ Refresh
   </button>
 </div>
 
 <a href="/servers/add" 
-   class="inline-block mb-6 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 rounded text-sm">+ Add Server</a>
-<p class="text-xs text-zinc-500 -mt-5 mb-4">Click a server name to open it. Use ▶ Backup to run all enabled sources.</p>
+   class="inline-block mb-6 px-4 py-2 btn-accent">+ Add Server</a>
+<p class="text-xs text-muted -mt-5 mb-4">Click a server name to open it. Use ▶ Backup to run all enabled sources.</p>
 
 {% if servers %}
 <div class="space-y-3">
   {% for s in servers %}
-  <div class="bg-zinc-900 border border-zinc-800 p-4 rounded-xl flex justify-between items-center">
+  <div class="bg-surface border border-border p-4 rounded-xl flex justify-between items-center">
     <div class="flex items-center gap-2">
       <div class="flex flex-col text-xs">
         <form method="post" action="/servers/{{ s.id }}/move/up" class="leading-none">
-          <button type="submit" class="px-1 hover:bg-zinc-700 rounded" title="Move up">▲</button>
+          <button type="submit" class="px-1 hover:bg-[var(--color-surface)] rounded" title="Move up">▲</button>
         </form>
         <form method="post" action="/servers/{{ s.id }}/move/down" class="leading-none">
-          <button type="submit" class="px-1 hover:bg-zinc-700 rounded" title="Move down">▼</button>
+          <button type="submit" class="px-1 hover:bg-[var(--color-surface)] rounded" title="Move down">▼</button>
         </form>
       </div>
       <div>
         <a href="/servers/{{ s.id }}" class="font-medium text-lg hover:underline">{{ s.name }}</a>
-        <span class="text-xs ml-2 text-zinc-500">{{ s.hostname }}</span>
+        <span class="text-xs ml-2 text-muted">{{ s.hostname }}</span>
       </div>
     </div>
 
     <div class="flex items-center gap-4 text-xs">
       {% if s.get('backup_running') %}
-      <span class="text-blue-400">backup running…</span>
+      <span class="text-accent">backup running…</span>
       {% elif s.get('last_backup_str') %}
-      <span class="text-emerald-400">last: {{ s.last_backup_str }}</span>
+      <span class="text-accent dark:text-accent">last: {{ s.last_backup_str }}</span>
       {% elif s.get('last_backup') %}
-      <span class="text-emerald-400">last: {{ s.last_backup }}</span>
+      <span class="text-accent dark:text-accent">last: {{ s.last_backup }}</span>
       {% endif %}
 
       <div class="flex items-center gap-2">
         {% if s.get('backup_running') %}
         <a href="/servers/{{ s.id }}/backups?backup_log=1"
-           class="px-3 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded text-xs font-medium"
+           class="btn-accent btn-sm text-white"
            title="View running backup log">
           📋 Log
         </a>
         {% else %}
         <form method="post" action="/servers/{{ s.id }}/run/backup" class="inline backup-run-form">
           <button type="submit" 
-                  class="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium"
+                  class="btn-accent btn-sm"
                   title="Backup all enabled sources for this server">
             ▶ Backup
           </button>
@@ -63,10 +63,10 @@
         {% endif %}
 
         <a href="/servers/{{ s.id }}/backups" 
-           class="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs">Manage</a>
+           class="btn-secondary btn-sm">Manage</a>
 
         <a href="/servers/{{ s.id }}?edit=1" 
-           class="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs">Settings</a>
+           class="btn-secondary btn-sm">Settings</a>
       </div>
 
       <div class="text-xs text-right">
@@ -77,28 +77,28 @@
   {% endfor %}
 </div>
 {% else %}
-<p class="text-zinc-400">No servers yet. Add one to get started.</p>
+<p class="text-muted">No servers yet. Add one to get started.</p>
 {% endif %}
 
-<div class="mt-8 text-xs text-zinc-500">
+<div class="mt-8 text-xs text-muted">
   SSH keys are stored encrypted. Use <strong>Refresh</strong> to update backup status — this page does not auto-reload.
 </div>
 
 <div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
+  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
     <!-- Buttons on top -->
     <div class="flex justify-between items-center mb-2 flex-shrink-0">
       <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
       <div class="flex gap-1">
-        <button id="progress-stop-btn" class="text-xs px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-white">Stop</button>
-        <button type="button" onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 bg-zinc-800 rounded">Close</button>
+        <button id="progress-stop-btn" class="btn-primary btn-sm">Stop</button>
+        <button type="button" onclick="hideBackupProgressModal()" class="btn-secondary btn-sm">Close</button>
       </div>
     </div>
-    <div id="backup-current-source" class="text-sm mb-1 text-emerald-300 font-mono min-h-[1.25rem] flex-shrink-0"></div>
+    <div id="backup-current-source" class="text-sm mb-1 text-accent dark:text-accent font-mono min-h-[1.25rem] flex-shrink-0"></div>
     <!-- Label above logs -->
-    <div class="text-xs text-zinc-400 mb-1 flex-shrink-0">Live output</div>
+    <div class="text-xs text-muted mb-1 flex-shrink-0">Live output</div>
     <!-- Logs in middle -->
-    <pre id="backup-progress-log" class="flex-1 min-h-0 overflow-auto bg-black p-3 text-xs font-mono whitespace-pre-wrap border border-zinc-800 rounded">Starting...</pre>
+    <pre id="backup-progress-log" class="flex-1 min-h-0 overflow-auto bg-surface border border-border p-3 text-xs font-mono whitespace-pre-wrap rounded log-area">Starting...</pre>
   </div>
 </div>
 

@@ -7,20 +7,20 @@
       <span class="text-5xl">🐑</span>
       <div>
         <span class="font-bold text-4xl tracking-tighter">PiHerder</span>
-        <div class="text-emerald-400 text-xs font-mono">SECURE FLEET CONTROL</div>
+        <div class="text-accent text-xs font-mono">SECURE FLEET CONTROL</div>
       </div>
     </div>
   </div>
-  <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-8">
+  <div class="bg-surface border border-border rounded-2xl p-8">
     <h1 class="text-2xl font-semibold mb-6">Create Admin Account</h1>
 
     {% if error %}
-      <div class="mb-4 p-3 bg-red-900/50 border border-red-700 text-red-200 text-sm rounded">
+      <div class="mb-4 p-3 bg-primary/20 border border-primary text-primary text-sm rounded">
         {{ error }}
       </div>
     {% endif %}
 
-    <div class="mb-4 p-2 bg-zinc-800 border border-zinc-700 rounded text-xs text-zinc-400">
+    <div class="mb-4 p-2 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-border rounded text-xs text-muted dark:text-muted">
       First time setup will create <strong>admin@example.com / admin</strong> if no users exist.<br>
       Passwords are truncated to 72 bytes (bcrypt limit).
     </div>
@@ -29,24 +29,24 @@
       <div>
         <label class="block text-sm mb-1">Email</label>
         <input name="email" type="email" required
-               class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded focus:outline-none focus:border-emerald-500">
+               class="w-full bg-surface border border-border px-3 py-2 rounded focus:outline-none focus:border-emerald-500">
       </div>
       <div>
         <label class="block text-sm mb-1">Password</label>
         <input name="password" type="password" required minlength="6" maxlength="72"
-               class="w-full bg-zinc-950 border border-zinc-700 px-3 py-2 rounded focus:outline-none focus:border-emerald-500">
-        <p class="text-xs text-zinc-500 mt-1">6-72 characters (bcrypt has 72 byte limit - longer ones are auto-truncated)</p>
+               class="w-full bg-surface border border-border px-3 py-2 rounded focus:outline-none focus:border-emerald-500">
+        <p class="text-xs text-muted mt-1">6-72 characters (bcrypt has 72 byte limit - longer ones are auto-truncated)</p>
       </div>
 
       <button type="submit"
-              class="w-full mt-2 py-2.5 bg-emerald-600 hover:bg-emerald-500 font-medium rounded-lg transition">
+              class="w-full mt-2 py-2.5 btn-accent">
         Create Account
       </button>
     </form>
 
-    <p class="mt-6 text-center text-sm text-zinc-400">
+    <p class="mt-6 text-center text-sm text-muted">
       Already have an account?
-      <a href="/auth/login" class="text-emerald-400 hover:underline">Log in</a>
+      <a href="/auth/login" class="text-accent hover:underline">Log in</a>
     </p>
   </div>
 </div>
