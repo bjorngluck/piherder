@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** v0.1.0 — Phase 1 largely complete  
-> **Last updated:** 2026-07-07 (theming decisions + test page)
+> **Last updated:** 2026-07-07 (fixed Mermaid diagrams for GitHub: key flows + self-backup now portrait + renderable)
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -155,7 +155,7 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    UI["UI: ▶ Backup (servers list / detail / backups page)"] -->|POST /servers/{id}/run/backup<br/>X-PiHerder-Async: 1| Router["FastAPI router"]
+    UI["UI: Run Backup (servers list / detail / backups page)"] -->|POST /servers/{id}/run/backup<br/>X-PiHerder-Async: 1| Router["FastAPI router"]
     Router -->|create_job_and_run| JobSvc["jobs service"]
     JobSvc -->|AuditLog + Job row| DB[(DB)]
     JobSvc --> Celery["Celery / background: run_backup()"]
@@ -175,7 +175,7 @@ flowchart TD
     Success --> FinalOK["finalize Job + AuditLog (success)"]
     Fail --> FinalFail["finalize Job + AuditLog (failed)<br/>do not touch last_backup_at"]
 
-    UI -.poll.->|GET /servers/{id}/backup-progress?job_id=...| Progress["prefers DB Job.details"]
+    UI -.-> |GET /servers/{id}/backup-progress?job_id=...| Progress["prefers DB Job.details"]
     Progress --> UI
 ```
 
@@ -186,16 +186,16 @@ The diagrams above reflect current behavior: DB-backed progress and jobs, per-so
 **Herder self-backup flow (technical):**
 
 ```mermaid
-flowchart LR
+flowchart TB
     Config["/herder-backups UI<br/>(schedule + manual)"] -->|POST| Main["main.py handlers"]
-    Main -->|sync_herder_backup_schedule| APS["APScheduler"]
+    Main -->|sync schedule| APS["APScheduler"]
     APS -->|periodic| Job["schedule_herder_backup_job"]
     Job --> HB["herder_backup.create_herder_backup()"]
-    HB -->|tar.gz + json snapshot| Disk["/herder_backups<br/>(host-mapped volume)"]
-    Main -->|manual run + restore preview| Disk
-    Disk --> Restore["restore_herder_backup(dry_run or apply)"]
+    HB -->|tar.gz + json| Disk["/herder_backups<br/>(host volume)"]
+    Main -->|manual + preview| Disk
+    Disk --> Restore["restore_herder_backup(dry_run/apply)"]
     Restore -->|upsert servers/keys/audit| DB[(DB)]
-    Main -->|create AuditLog| DB
+    Main -->|AuditLog| DB
 ```
 
 ---
