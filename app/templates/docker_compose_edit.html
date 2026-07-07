@@ -3,6 +3,7 @@
 {% block content %}
 <style>
   /* Editor specific styles (not Tailwind scanned for dynamic spans) */
+  /* Aligned to CSS vars + light/dark via themes.css */
   .compose-editor-wrap {
     font-variant-ligatures: none;
     position: relative !important;
@@ -11,12 +12,10 @@
   }
   .compose-editor-wrap .gutter,
   #gutter {
-    color: var(--color-muted);
     font-size: 10px;
     line-height: 1.45;
     user-select: none;
-    background: var(--color-surface);
-    border-right: 1px solid var(--color-border);
+    border-right: 1px solid var(--color-code-border);
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
@@ -34,14 +33,18 @@
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     font-size: 13px;
     line-height: 1.45;
-    background: var(--color-surface);
   }
-  /* Overlay editor styles - pre under transparent textarea for colours */
+  /* Overlay editor styles - pre under transparent textarea for colours.
+     Theme via .code-surface + CSS vars (light/dark kicks in uniformly on the element) */
+  .compose-editor-wrap, .compose-editor-wrap.code-surface,
+  .compose-editor-wrap pre#highlight, .compose-editor-wrap .gutter {
+    background: var(--color-code-bg) !important;
+    color: var(--color-code-text) !important;
+  }
   .compose-editor-wrap pre#highlight {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
     font-size: 13px !important;
     line-height: 1.45 !important;
-    color: var(--color-text) !important;
     tab-size: 2 !important;
     border: none !important;
     outline: none !important;
@@ -49,7 +52,6 @@
     border-radius: 0 !important;
     margin: 0 !important;
     box-sizing: border-box !important;
-    background: var(--color-surface);
     padding: 12px 12px 12px 16px !important;
     pointer-events: none;
     white-space: pre;
@@ -69,22 +71,29 @@
     box-sizing: border-box !important;
     color: transparent !important;
     background: transparent !important;
-    caret-color: #10b981;
+    caret-color: var(--color-accent);
     padding: 12px 12px 12px 16px !important;
     position: absolute !important;
     z-index: 20;
   }
-  .tok-comment { color: #64748b; }
-  .tok-key     { color: #34d399; }
-  .tok-string  { color: #f59e0b; }
-  .tok-number  { color: #7dd3fc; }
-  .tok-bool    { color: #38bdf8; }
-  .tok-punct   { color: #52525b; }
+  .tok-comment { color: var(--color-muted); }
+  .tok-key     { color: var(--color-accent); }
+  .tok-string  { color: var(--color-warning); }
+  .tok-number  { color: #0369a1; }
+  .dark .tok-number { color: #7dd3fc; }
+  .tok-bool    { color: #0369a1; }
+  .dark .tok-bool { color: #38bdf8; }
+  .tok-punct   { color: var(--color-muted); }
   .error-line {
-    background: rgba(185, 28, 28, 0.35) !important;
-    color: #f87171 !important;
+    background: rgba(185, 28, 28, 0.15) !important;
+    color: var(--color-danger) !important;
     font-weight: 600;
-    border-left: 3px solid #f87171;
+    border-left: 3px solid var(--color-danger);
+  }
+  .dark .error-line {
+    background: rgba(248, 113, 113, 0.15) !important;
+    color: var(--color-danger) !important;
+    border-left-color: var(--color-danger);
   }
   .compose-errors .err-item {
     font-size: 12px;
@@ -123,23 +132,23 @@
   </div>
 
   {% if request.query_params.get('saved') %}
-  <div class="mb-3 p-2.5 bg-accent/20 border border-accent text-accent text-sm rounded">File saved successfully.</div>
+  <div class="mb-3 p-2.5 banner-success border text-sm rounded">File saved successfully.</div>
   {% endif %}
   {% if request.query_params.get('write_failed') %}
-  <div class="mb-3 p-2.5 bg-primary/20 border border-primary text-primary text-sm rounded">Failed to write file to host (check SSH user permissions, ownership, and that the target directory exists and is writable).</div>
+  <div class="mb-3 p-2.5 banner-error border text-sm rounded">Failed to write file to host (check SSH user permissions, ownership, and that the target directory exists and is writable).</div>
   {% endif %}
   {% if request.query_params.get('saved') and request.query_params.get('version') %}
-  <div class="mb-3 p-2.5 bg-accent/20 border border-accent text-accent text-sm rounded">Deployed as version {{ request.query_params.get('version') }}.</div>
+  <div class="mb-3 p-2.5 banner-success border text-sm rounded">Deployed as version {{ request.query_params.get('version') }}.</div>
   {% endif %}
 
   {% if errors and errors|length > 0 %}
-  <div class="mb-3 p-3 bg-primary/20 border border-primary text-primary text-sm rounded">
+  <div class="mb-3 p-3 banner-error border text-sm rounded">
     <strong>YAML validation failed.</strong> Fix issues below before saving.
   </div>
   {% endif %}
 
   <!-- Versioning bar: Live vs Drafts + history -->
-  <div class="mb-3 p-2 bg-surface border border-border rounded text-xs flex flex-wrap gap-2 items-center">
+  <div class="mb-3 p-2 card text-xs flex flex-wrap gap-2 items-center">
     <span class="font-medium">Live on host:</span> <span class="font-mono text-accent">{{ project.name }} (current)</span>
     {% if live_version %}
     <span class="text-accent">(matches live v{{ live_version.version }})</span>
@@ -148,19 +157,19 @@
     <span class="text-muted">Versions:</span>
     {% for d in drafts[:5] %}
       {% set label = 'draft (db only)' if d.is_draft else ('live (current on host)' if live_version and d.id == live_version.id else 'inactive (previous live)') %}
-      <a href="?load_draft={{ d.id }}" class="btn-secondary {{ 'bg-primary' if d.is_draft else '' }} rounded hover:bg-[var(--color-surface)]" title="{{ label }}">v{{ d.version }} {{ 'draft' if d.is_draft else ('live' if live_version and d.id == live_version.id else 'inactive') }}</a>
+      <a href="?load_draft={{ d.id }}" class="px-1.5 py-0.5 {{ 'banner-warning' if d.is_draft else ('banner-success' if 'live (current' in label else 'bg-surface') }} rounded" title="{{ label }}">v{{ d.version }} {{ 'draft' if d.is_draft else ('live' if live_version and d.id == live_version.id else 'inactive') }}</a>
     {% endfor %}
     {% if drafts|length > 5 %}<span class="text-muted">+{{ drafts|length - 5 }} more</span>{% endif %}
     <a href="/servers/{{ server.id }}/docker?nocache=1" class="ml-auto text-accent hover:underline">Back to Docker</a>
   </div>
 
   {% if request.query_params.get('saved_draft') %}
-  <div class="mb-2 p-2 bg-accent/20 border border-accent text-accent text-sm rounded">
+  <div class="mb-2 p-2 banner-success border text-sm rounded">
     Draft v{{ request.query_params.get('saved_draft') }} saved. Now editing it below.
   </div>
   {% endif %}
   {% if request.query_params.get('load_draft') and not request.query_params.get('saved_draft') %}
-  <div class="mb-2 p-2 bg-primary/20 border border-primary text-primary text-sm rounded">
+  <div class="mb-2 p-2 banner-warning border text-sm rounded">
     <strong>Editing draft ID {{ request.query_params.get('load_draft') }}</strong> (see versions above). Drafts are DB only. "Save Draft" will update the selected draft; selecting a live version then Save Draft creates a new draft (live protected).
   </div>
   {% endif %}
@@ -173,14 +182,14 @@
     <div class="flex flex-wrap items-center gap-3 mb-2 text-xs">
       <div class="flex items-center gap-2 bg-surface border border-border rounded px-2.5 py-1">
         <label class="flex items-center gap-1.5 cursor-pointer select-none">
-          <input type="checkbox" id="wrap-toggle">
+          <input type="checkbox" id="wrap-toggle" class="accent-emerald-600">
           <span>Wrap lines</span>
         </label>
       </div>
 
       {% if not is_dockerfile %}
       <button type="button" id="validate-btn"
-              class="btn-secondary btn-sm">
+              class="px-3 py-1 btn btn-secondary">
         Validate YAML
       </button>
       {% endif %}
@@ -193,16 +202,16 @@
     </div>
 
     <!-- ONE single editor box: gutter + coloured yaml + editable surface overlaid. No separate blocks. -->
-    <div class="compose-editor-wrap relative border border-border rounded-xl overflow-hidden bg-surface editor-tall">
+    <div class="compose-editor-wrap code-surface relative border border-border rounded-xl overflow-hidden editor-tall">
       <!-- Line numbers gutter (same bg as editor for single box look) -->
       <div id="gutter"
-           class="gutter absolute left-0 top-0 bottom-0 w-11 overflow-hidden text-right pr-2 font-mono select-none bg-surface border-r border-border text-[10px] text-muted z-30"
+           class="gutter absolute left-0 top-0 bottom-0 w-11 overflow-hidden text-right pr-2 font-mono select-none border-r z-30 code-surface text-muted"
            style="padding-top:12px; padding-bottom:12px; line-height:1.45;"></div>
 
       <!-- Coloured syntax layer (pre) -->
       <pre id="highlight"
-           class="absolute left-[2.75rem] right-0 top-0 bottom-0 m-0 p-3 pl-4 overflow-auto pointer-events-none z-10 font-mono text-sm"
-           style="white-space: pre; line-height: 1.45; tab-size: 2; color: var(--color-text); background: var(--color-surface);"
+           class="absolute left-[2.75rem] right-0 top-0 bottom-0 m-0 p-3 pl-4 overflow-auto pointer-events-none z-10 font-mono text-sm code-surface text-text"
+           style="white-space: pre; line-height: 1.45; tab-size: 2;"
            aria-hidden="true"></pre>
 
       <!-- Editable layer on top (transparent so colours show through, but caret and input work) -->
@@ -214,32 +223,32 @@
 
     <!-- Validation errors -->
     <div id="errors-panel" class="mt-3 {% if not errors or errors|length == 0 %}hidden{% endif %}">
-      <div class="text-xs uppercase tracking-wider text-primary mb-1">Issues</div>
-      <div id="errors-list" class="compose-errors bg-surface border border-border rounded-lg divide-y divide-border text-primary">
+      <div class="text-xs uppercase tracking-wider text-danger mb-1">Issues</div>
+      <div id="errors-list" class="compose-errors card border border-danger/30 rounded-lg divide-y divide-danger/20 text-danger">
         {% if errors %}
           {% for e in errors %}
-          <div class="err-item px-3 py-1.5 flex gap-3 cursor-pointer hover:bg-[var(--color-bg)]" data-line="{{ e.line }}">
-            <div class="font-mono text-[10px] mt-px w-10 shrink-0 text-primary">L{{ e.line }}</div>
+          <div class="err-item px-3 py-1.5 flex gap-3 cursor-pointer" data-line="{{ e.line }}">
+            <div class="font-mono text-[10px] mt-px w-10 shrink-0 text-danger">L{{ e.line }}</div>
             <div class="text-xs">{{ e.message }}</div>
           </div>
           {% endfor %}
         {% endif %}
       </div>
-      <div class="text-[10px] text-primary/70 mt-1">Click an issue to jump to the line.</div>
+      <div class="text-[10px] text-danger/70 mt-1">Click an issue to jump to the line.</div>
     </div>
 
     <div class="flex items-center gap-3 mt-4">
       <button type="submit" {% if not is_dockerfile %}formaction="/servers/{{ server.id }}/docker/compose/{{ project.name }}/save-draft"{% endif %} name="action" value="draft"
-              class="btn-primary btn-sm">
+              class="px-4 py-2 btn btn-secondary rounded text-sm">
         Save Draft
       </button>
       <button type="submit" name="action" value="deploy"
-              class="btn-accent btn-sm">
+              class="px-6 py-2 btn btn-accent rounded font-medium text-sm">
         {% if is_dockerfile %}Save Dockerfile{% else %}Save &amp; Deploy (new version){% endif %}
       </button>
       <a href="/servers/{{ server.id }}/docker"
-         class="btn-secondary btn-sm">Cancel</a>
-      <div class="text-xs text-primary ml-2">
+         class="px-5 py-2 btn btn-secondary rounded text-sm">Cancel</a>
+      <div class="text-xs text-warning ml-2">
         {% if is_dockerfile %}
         After saving, rebuild the image from the Docker screen to apply changes.
         {% else %}
@@ -259,7 +268,7 @@
         <option value="{{ d.id }}">v{{ d.version }} - {{ label }} ({{ d.deployed_at or d.created_at }})</option>
         {% endfor %}
       </select>
-      <button class="btn-accent btn-sm">Deploy This Version</button>
+      <button class="px-3 py-1 btn btn-secondary rounded text-xs">Deploy This Version</button>
     </form>
   </div>
   {% endif %}
@@ -346,13 +355,9 @@
       const ln = idx + 1;
       if (currentErrorLines.has(ln)) {
         div.classList.add('error-line');
-        div.style.backgroundColor = 'rgba(185, 28, 28, 0.35)';
-        div.style.color = '#f87171';
         div.style.fontWeight = '600';
       } else {
         div.classList.remove('error-line');
-        div.style.backgroundColor = '';
-        div.style.color = '';
         div.style.fontWeight = '';
       }
     });
@@ -556,7 +561,7 @@
         if (showSuccessIfOk) {
           // flash a success toast above the editor
           const toast = document.createElement('div');
-          toast.className = 'mb-2 px-3 py-1.5 text-xs rounded bg-accent/20 border border-accent text-accent';
+          toast.className = 'mb-2 px-3 py-1.5 text-xs rounded banner-success border';
           toast.textContent = 'YAML looks valid.';
           const formEl = document.getElementById('compose-form');
           if (formEl && formEl.parentNode) {
@@ -571,10 +576,10 @@
         if (list && errs.length) {
           errs.forEach(err => {
             const div = document.createElement('div');
-            div.className = 'err-item px-3 py-1.5 flex gap-3 cursor-pointer hover:bg-primary/10 border-l-4 border-red-500';
+            div.className = 'err-item px-3 py-1.5 flex gap-3 cursor-pointer border-l-4 border-danger';
             div.setAttribute('data-line', err.line || 1);
             div.innerHTML = `
-              <div class="font-mono text-[10px] mt-px w-10 shrink-0 text-primary">L${err.line || '?'}</div>
+              <div class="font-mono text-[10px] mt-px w-10 shrink-0 text-danger">L${err.line || '?'}</div>
               <div class="text-xs">${escapeHtml(err.message || 'Invalid YAML')}</div>
             `;
             list.appendChild(div);
@@ -602,14 +607,14 @@
 
     if (!textarea) return;
 
-    // Force transparent overlay styles (defeat any base CSS or timing)
+    // Force transparent overlay styles (defeat any base CSS or timing).
+    // Background + colors for editor area come from .code-surface + themes.css vars (uniform light/dark).
     textarea.style.color = 'transparent';
     textarea.style.background = 'transparent';
     textarea.style.caretColor = 'var(--color-accent)';
     if (p) {
-      p.style.color = 'var(--color-text)';
-      p.style.background = 'var(--color-surface)';
       p.style.pointerEvents = 'none';
+      // Do not force bg/color here; let CSS rule on .code-surface handle theme.
     }
 
     // initial sync - use normalized content for safety
@@ -824,10 +829,10 @@
             errs.sort((a, b) => (a.line || 0) - (b.line || 0));
             errs.forEach(err => {
               const div = document.createElement('div');
-              div.className = 'err-item px-3 py-1.5 flex gap-3 cursor-pointer hover:bg-primary/10 border-l-4 border-red-500';
+              div.className = 'err-item px-3 py-1.5 flex gap-3 cursor-pointer border-l-4 border-danger';
               div.setAttribute('data-line', err.line || 1);
               div.innerHTML = `
-                <div class="font-mono text-[10px] mt-px w-10 shrink-0 text-primary">L${err.line || '?'}</div>
+                <div class="font-mono text-[10px] mt-px w-10 shrink-0 text-danger">L${err.line || '?'}</div>
                 <div class="text-xs">${escapeHtml(err.message || 'Invalid YAML')}</div>
               `;
               if (l) l.appendChild(div);

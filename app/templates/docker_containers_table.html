@@ -1,6 +1,6 @@
 <div class="overflow-x-auto" id="containers-table">
   <table class="w-full text-sm">
-    <thead class="text-left text-muted border-b border-zinc-200 dark:border-border">
+    <thead class="text-left text-muted border-b border-border table-header">
       <tr>
         <th class="py-2 pr-3">Name</th>
         <th class="py-2 pr-3">Image / Version</th>
@@ -11,17 +11,17 @@
         <th class="py-2">Exposed Ports</th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
+    <tbody class="divide-y divide-border">
       {% for c in containers %}
-      <tr class="{{ 'bg-accent/20' if c.running else '' }}">
+      <tr class="{{ 'bg-accent/10' if c.running else '' }}">
         <td class="py-2 pr-3 font-mono text-xs">{{ c.name }}</td>
         <td class="py-2 pr-3 text-xs">
           <div>{{ c.image }}</div>
-          {% if c.version %}<div class="text-accent dark:text-accent text-[10px]">v{{ c.version }}</div>{% endif %}
+          {% if c.version %}<div class="text-accent text-[10px]">v{{ c.version }}</div>{% endif %}
         </td>
         <td class="py-2 pr-3">
           {% if c.running %}
-            <span class="inline-block px-2 py-0.5 text-xs rounded bg-accent text-white">Running</span>
+            <span class="inline-block px-2 py-0.5 text-xs rounded status-success">Running</span>
           {% else %}
             <span class="inline-block px-2 py-0.5 text-xs rounded bg-surface text-muted">Stopped</span>
           {% endif %}

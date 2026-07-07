@@ -8,13 +8,13 @@
     <h1 class="text-3xl font-semibold">{{ server.name }}</h1>
     <button type="button"
             onclick="showEditServerModal()"
-            class="btn-secondary btn-sm">
+            class="ml-2 text-xs px-3 py-1 btn btn-secondary">
       Edit
     </button>
     {% if server.ssh_public_key %}
     <button type="button"
             onclick="showSshKeyModal()"
-            class="btn-secondary btn-sm"
+            class="text-xs px-2 py-1 btn btn-secondary"
             title="View/copy the SSH public key for initial setup">
       SSH key
     </button>
@@ -25,7 +25,7 @@
 
 <!-- SSH Key Modal -->
 <div id="ssh-key-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-2xl mx-4">
+  <div class="card p-6 w-full max-w-2xl mx-4">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold">SSH Public Key for {{ server.name }}</h3>
       <button type="button" onclick="hideSshKeyModal()" class="text-muted hover:text-text">✕</button>
@@ -33,15 +33,15 @@
     <p class="text-xs text-muted mb-2">Copy this and add to <code>~/.ssh/authorized_keys</code> on the target host.</p>
 
     <textarea id="modal-pubkey" readonly
-              class="w-full font-mono text-xs bg-surface border border-border p-3 rounded h-40 resize-y">{{ server.ssh_public_key or '' }}</textarea>
+              class="w-full font-mono text-xs code-surface border p-3 rounded h-40 resize-y">{{ server.ssh_public_key or '' }}</textarea>
 
     <div class="flex gap-2 mt-3">
       <button type="button" onclick="copyModalPubKey(this)"
-              class="btn-accent btn-sm">Copy to clipboard</button>
+              class="px-4 py-1.5 btn btn-accent rounded text-sm">Copy to clipboard</button>
       <button type="button" onclick="selectModalPubKey()"
-              class="btn-secondary btn-sm">Select All</button>
+              class="px-3 py-1.5 btn btn-secondary rounded text-sm">Select All</button>
       <button type="button" onclick="hideSshKeyModal()"
-              class="btn-secondary btn-sm ml-auto">Close</button>
+              class="px-4 py-1.5 btn btn-secondary rounded text-sm ml-auto">Close</button>
     </div>
     <p class="text-[10px] text-muted mt-2">
       Key is only visible while this modal is open.
@@ -123,31 +123,31 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="mt-6">
   <h3 class="font-medium mb-2">Features</h3>
   <div class="flex flex-wrap gap-2 text-sm">
-    <div class="px-3 py-1 bg-surface border border-border rounded">Backups: <strong>{{ 'on' if server.backup_enabled else 'off' }}</strong></div>
-    <div class="px-3 py-1 bg-surface border border-border rounded">Container Patching: <strong>{{ 'on' if server.container_patch_enabled else 'off' }}</strong></div>
-    <div class="px-3 py-1 bg-surface border border-border rounded">OS Patching: <strong>{{ 'on' if server.os_patch_enabled else 'off' }}</strong></div>
+    <div class="px-3 py-1 bg-bg border border-border rounded">Backups: <strong>{{ 'on' if server.backup_enabled else 'off' }}</strong></div>
+    <div class="px-3 py-1 bg-bg border border-border rounded">Container Patching: <strong>{{ 'on' if server.container_patch_enabled else 'off' }}</strong></div>
+    <div class="px-3 py-1 bg-bg border border-border rounded">OS Patching: <strong>{{ 'on' if server.os_patch_enabled else 'off' }}</strong></div>
 
     {% if backup_profiles and overall_last_backup %}
-    <div class="px-3 py-1 bg-surface border border-border rounded text-xs">
-      Last backup: <span class="text-accent dark:text-accent">{{ overall_last_backup | app_tz }}</span>
+    <div class="px-3 py-1 bg-bg border border-border rounded text-xs">
+      Last backup: <span class="text-accent">{{ overall_last_backup | app_tz }}</span>
     </div>
     {% endif %}
   </div>
 </div>
 
 {% if reboot_initiated %}
-<div class="mt-3 p-3 bg-accent/20 border border-accent rounded text-sm flex items-center gap-2">
+<div class="mt-3 p-3 banner-success rounded text-sm flex items-center gap-2">
   <span>⏻</span>
   <strong>Reboot command sent.</strong> The server is restarting. Refresh this page in a minute or two.
 </div>
 {% endif %}
 
 {% if diagnostics and diagnostics.reboot_pending %}
-<div class="mt-3 p-3 bg-primary/20 border border-primary rounded text-sm flex items-center gap-2">
+<div class="mt-3 p-3 banner-warning rounded text-sm flex items-center gap-2">
   <span>⚠️</span>
   <strong>This server is pending a reboot</strong> (detected after last OS update).
   <form method="post" action="/servers/{{ server.id }}/reboot" class="ml-auto" onsubmit="return confirm('Reboot {{ server.name }} now?');">
-    <button class="btn-primary btn-sm">Reboot Now</button>
+    <button class="px-3 py-1 btn btn-secondary rounded text-sm font-medium">Reboot Now</button>
   </form>
 </div>
 {% endif %}
@@ -157,7 +157,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="mt-3">
   <button type="button"
           onclick="showSystemInfoModal()"
-          class="btn-secondary btn-sm">
+          class="text-xs px-3 py-1 btn btn-secondary">
     🖥️ System Info (OS, drives, space)
   </button>
   <span class="ml-2 text-[10px] text-muted">Click for details + usable space summary</span>
@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Docker quick access -->
 <div class="mt-4">
   <a href="/servers/{{ server.id }}/docker?nocache=1" 
-     class="inline-flex items-center gap-2 btn-accent">
+     class="inline-flex items-center gap-2 px-4 py-2 btn btn-secondary text-sm font-medium">
     🐳 Docker Management
   </a>
   <span class="ml-2 text-xs text-muted">Containers, compose, logs, actions</span>
@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function() {
   {% if server.container_patch_enabled %}
   <div class="mb-3">
     <a href="/servers/{{ server.id }}/docker?nocache=1" 
-       class="inline-flex items-center gap-2 btn-accent">
+       class="inline-flex items-center gap-2 px-3 py-1.5 text-sm btn btn-secondary rounded">
       🐳 Open full Docker Management
     </a>
     <span class="text-xs text-muted">(live status, compose editor, logs streaming)</span>
@@ -187,27 +187,27 @@ document.addEventListener('DOMContentLoaded', function() {
 
   <div class="flex flex-wrap gap-3">
     {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
-    <button type="button" onclick="openBackupLog(null, {{ full_backup_job.id }})" class="btn-secondary btn-sm">📋 View backup log</button>
+    <button type="button" onclick="openBackupLog(null, {{ full_backup_job.id }})" class="px-4 py-2 btn btn-secondary rounded text-sm">📋 View backup log</button>
     {% else %}
     <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form">
-      <button class="btn-accent btn-sm">▶ Run Backup</button>
+      <button class="px-4 py-2 btn btn-accent rounded text-sm">▶ Run Backup</button>
     </form>
     {% endif %}
 
     <form method="post" action="/servers/{{ server.id }}/run/container_patch">
-      <button class="btn-accent btn-sm">▶ Run Container Patch</button>
+      <button class="px-4 py-2 btn btn-secondary rounded text-sm">▶ Run Container Patch</button>
     </form>
     <span class="text-xs text-muted">(schedules not yet supported)</span>
 
-    <button type="button" onclick="showOsPatchModal()" class="btn-primary btn-sm">▶ Run OS Patch</button>
+    <button type="button" onclick="showOsPatchModal()" class="px-4 py-2 btn btn-secondary rounded text-sm">▶ Run OS Patch</button>
     <span class="text-xs text-muted">(schedules not yet supported)</span>
 
     <form method="post" action="/servers/{{ server.id }}/run/retention">
-      <button class="btn-accent btn-sm">▶ Run Retention Cleanup</button>
+      <button class="px-4 py-2 btn btn-secondary rounded text-sm">▶ Run Retention Cleanup</button>
     </form>
 
     <form method="post" action="/servers/{{ server.id }}/reboot" onsubmit="return confirm('Reboot {{ server.name }} now? The server will go offline and restart.');">
-      <button class="btn-primary btn-sm">⏻ Reboot</button>
+      <button class="px-4 py-2 btn btn-danger rounded text-sm">⏻ Reboot</button>
     </form>
   </div>
 
@@ -215,11 +215,11 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <!-- Compact backup status on main server screen (DB-backed via current_backup_job) -->
-<div class="mt-6 bg-surface border border-border p-4 rounded-xl">
+<div class="mt-6 card p-4">
   <div class="flex items-center justify-between">
     <div>
       <span class="font-medium">Backups</span>
-      <span class="text-xs px-2 py-0.5 rounded bg-surface border border-border">{{ 'enabled' if server.backup_enabled else 'disabled' }}</span>
+      <span class="text-xs px-2 py-0.5 rounded bg-bg border border-border">{{ 'enabled' if server.backup_enabled else 'disabled' }}</span>
       {% if backup_profiles %}
         <span class="text-xs text-muted">• {{ backup_profiles|length }} source(s)</span>
       {% endif %}
@@ -228,40 +228,40 @@ document.addEventListener('DOMContentLoaded', function() {
       {% if running_backup_job %}
         {% set job_details = running_backup_job.details | fromjson if running_backup_job.details else {} %}
         <span class="ml-2 text-xs px-2 py-0.5 rounded bg-accent/20 text-accent">running</span>
-        <span class="ml-1 text-xs text-blue-400 font-mono">{{ job_details.source_filter or job_details.current or 'full backup' }}</span>
+        <span class="ml-1 text-xs text-accent font-mono">{{ job_details.source_filter or job_details.current or 'full backup' }}</span>
         {% set queued_n = active_backup_jobs | selectattr('status', 'equalto', 'pending') | list | length %}
         {% if queued_n %}<span class="ml-1 text-xs text-muted">+{{ queued_n }} queued</span>{% endif %}
       {% elif active_backup_jobs %}
-        <span class="ml-2 text-xs px-2 py-0.5 rounded bg-surface border border-border text-muted">queued</span>
+        <span class="ml-2 text-xs px-2 py-0.5 rounded bg-bg border border-border">queued</span>
         <span class="ml-1 text-xs text-muted">{{ active_backup_jobs | length }} waiting</span>
       {% elif last_backup_status %}
-        <span class="ml-2 text-xs px-1.5 py-0.5 rounded {{ 'bg-accent/20 text-accent' if last_backup_status == 'success' else 'bg-primary/20 text-primary' }}">last: {{ last_backup_status }}</span>
+        <span class="ml-2 text-xs px-1.5 py-0.5 rounded {{ 'status-success' if last_backup_status == 'success' else 'status-failed' }}">last: {{ last_backup_status }}</span>
       {% endif %}
     </div>
-    <a href="/servers/{{ server.id }}/backups" class="btn-secondary btn-sm">Manage Backups & Config →</a>
+    <a href="/servers/{{ server.id }}/backups" class="px-3 py-1 btn btn-secondary text-sm rounded">Manage Backups & Config →</a>
   </div>
 
   <div class="mt-3 flex flex-wrap gap-2 items-center">
     {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
-    <button type="button" onclick="openBackupLog(null, {{ full_backup_job.id }})" class="btn-secondary btn-sm">📋 View backup log</button>
+    <button type="button" onclick="openBackupLog(null, {{ full_backup_job.id }})" class="px-3 py-1 btn btn-secondary rounded text-sm">📋 View backup log</button>
     {% if full_backup_job.status == 'running' %}
-    <button type="button" onclick="activePollJobId={{ full_backup_job.id }}; stopCurrentBackup()" class="btn-primary btn-sm text-white">Stop</button>
+    <button type="button" onclick="activePollJobId={{ full_backup_job.id }}; stopCurrentBackup()" class="px-3 py-1 btn btn-danger rounded text-sm text-white">Stop</button>
     {% endif %}
     {% else %}
     <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form">
-      <button class="btn-accent btn-sm">▶ Run Backup</button>
+      <button class="px-3 py-1 btn btn-accent rounded text-sm">▶ Run Backup</button>
     </form>
     {% endif %}
     {% if running_backup_job and (not full_backup_job or full_backup_job.id != running_backup_job.id) %}
-    <a href="/servers/{{ server.id }}/backups" class="btn-secondary btn-sm">Per-source log →</a>
+    <a href="/servers/{{ server.id }}/backups" class="px-3 py-1 btn btn-secondary rounded text-sm text-xs">Per-source log →</a>
     {% endif %}
     <span class="text-[10px] text-muted self-center">Full source management on the backups page.</span>
   </div>
 </div>
 
 <div class="mt-2 text-xs text-muted">
-  <a href="/audit?server_id={{ server.id }}" class="text-accent dark:text-accent hover:underline">All logs</a>
-  | <a href="/audit?server_id={{ server.id }}&search=backup" class="text-accent dark:text-accent hover:underline">backups</a>
+  <a href="/audit?server_id={{ server.id }}" class="text-accent hover:underline">All logs</a>
+  | <a href="/audit?server_id={{ server.id }}&search=backup" class="text-accent hover:underline">backups</a>
 </div>
 
 <div class="mt-8 text-xs">
@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Edit Server Modal -->
 <div id="edit-server-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-lg mx-4">
+  <div class="card p-6 w-full max-w-lg mx-4">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold text-lg">Edit Server</h3>
       <button type="button" onclick="hideEditServerModal()" class="text-muted hover:text-text">✕</button>
@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
 
       <div class="border-t border-border pt-3">
-        <label class="block text-xs text-primary mb-1 font-medium">Password Authentication (discouraged)</label>
+        <label class="block text-xs text-warning mb-1 font-medium">Password Authentication (discouraged)</label>
         <p class="text-[10px] text-muted mb-2">Prefer SSH keys. Passwords are stored encrypted but are less secure and not recommended for automation/fleet use.</p>
         <input name="ssh_password" type="password" placeholder="Leave blank to keep current (key auth preferred)" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm">
         <label class="flex items-center gap-2 mt-2 text-xs">
@@ -324,7 +324,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <div class="border-t border-border pt-3 text-xs">
         <button type="button"
                 onclick="hideEditServerModal(); showSshKeyModal();"
-                class="btn-secondary btn-sm">
+                class="px-3 py-1 btn btn-secondary rounded">
           View / Copy SSH Public Key
         </button>
         <span class="ml-2 text-muted">(needed for initial authorized_keys setup on the target)</span>
@@ -332,8 +332,8 @@ document.addEventListener('DOMContentLoaded', function() {
       {% endif %}
 
       <div class="flex gap-2 pt-2">
-        <button type="submit" class="btn-accent btn-sm">Save Changes</button>
-        <button type="button" onclick="hideEditServerModal()" class="btn-secondary btn-sm ml-auto">Cancel</button>
+        <button type="submit" class="px-4 py-1.5 btn btn-accent rounded text-sm">Save Changes</button>
+        <button type="button" onclick="hideEditServerModal()" class="px-4 py-1.5 btn btn-secondary rounded text-sm ml-auto">Cancel</button>
       </div>
     </form>
   </div>
@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- OS Patch Modal -->
 <div id="os-patch-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-md">
+  <div class="card p-6 w-full max-w-md">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">Run OS Patch</h3>
       <button onclick="hideOsPatchModal()" class="text-muted">✕</button>
@@ -368,8 +368,8 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
       <p class="text-[10px] text-muted mb-3">Defaults keep local configs and restart services. Live logs will stream in progress modal.</p>
       <div class="flex gap-2">
-        <button type="submit" class="btn-primary btn-sm">Run Selected Steps</button>
-        <button type="button" onclick="hideOsPatchModal()" class="btn-secondary btn-sm ml-auto">Cancel</button>
+        <button type="submit" class="px-4 py-1 btn btn-secondary rounded text-sm">Run Selected Steps</button>
+        <button type="button" onclick="hideOsPatchModal()" class="px-4 py-1 btn btn-secondary rounded text-sm ml-auto">Cancel</button>
       </div>
     </form>
   </div>
@@ -669,9 +669,9 @@ async function updateBackupProgressUI(data, modalLogEl, modalCurrentDiv, isModal
 
   document.querySelectorAll('tr[data-source]').forEach(tr => {
     if (data.current && tr.dataset.source === data.current) {
-      tr.classList.add('bg-blue-950', 'border-l-4', 'border-blue-500');
+      tr.classList.add('bg-accent/10', 'border-l-4', 'border-accent');
     } else {
-      tr.classList.remove('bg-blue-950', 'border-l-4', 'border-blue-500');
+      tr.classList.remove('bg-accent/10', 'border-l-4', 'border-accent');
     }
   });
 }
@@ -914,7 +914,7 @@ async function loadSystemInfoIntoModal(useCache = true) {
     _lastSystemInfo = data;
 
     if (data.error) {
-      container.innerHTML = `<div class="text-primary text-sm">Error: ${data.error}</div>`;
+      container.innerHTML = `<div class="text-danger text-sm">Error: ${data.error}</div>`;
       return;
     }
 
@@ -925,7 +925,7 @@ async function loadSystemInfoIntoModal(useCache = true) {
         <div class="text-xs text-muted mb-1">System</div>
         <div><span class="text-muted">OS:</span> ${data.os_version || 'n/a'}</div>
         <div><span class="text-muted">Kernel:</span> ${data.kernel || 'n/a'}</div>
-        ${data.reboot_pending ? '<div class="mt-1 text-orange-400 text-xs">⚠️ Reboot pending</div>' : ''}
+        ${data.reboot_pending ? '<div class="mt-1 text-warning text-xs">⚠️ Reboot pending</div>' : ''}
       </div>`;
 
     const srvSummary = data.summary || {};
@@ -946,12 +946,12 @@ async function loadSystemInfoIntoModal(useCache = true) {
 
     html += `<div>
       <div class="text-xs text-muted mb-1">Drives / Mounts (filtered)</div>
-      <div class="bg-surface border border-border p-2 rounded text-xs font-mono max-h-[220px] overflow-auto">`;
+      <div class="code-surface border p-2 rounded text-xs font-mono max-h-[220px] overflow-auto">`;
     const mains = (summary.main_drives && summary.main_drives.length ? summary.main_drives : (srvSummary.main_drives || [])) || (data.drives || []);
     if (mains && mains.length) {
       for (const d of mains) {
         const isRoot = d.target === '/';
-        html += `<div class="flex justify-between py-0.5 ${isRoot ? 'text-accent dark:text-accent font-semibold' : ''} border-b border-border last:border-0">
+        html += `<div class="flex justify-between py-0.5 ${isRoot ? 'text-accent font-semibold' : ''} border-b border-border last:border-0">
           <span class="truncate pr-2">${d.target} (${d.filesystem})</span>
           <span>${d.used} / ${d.size} (${d.pcent})</span>
         </div>`;
@@ -963,7 +963,7 @@ async function loadSystemInfoIntoModal(useCache = true) {
 
     container.innerHTML = html;
   } catch (e) {
-    container.innerHTML = `<div class="text-primary">Failed to load diagnostics: ${e}</div>`;
+    container.innerHTML = `<div class="text-danger">Failed to load diagnostics: ${e}</div>`;
   }
 }
 
@@ -989,7 +989,7 @@ function computeUsableSummary(drives) {
 
 <!-- Backup Config Modal -->
 <div id="backup-config-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-xl mx-4">
+  <div class="card p-6 w-full max-w-xl mx-4">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">Configure Backups</h3>
       <button onclick="hideBackupConfigModal()" class="text-muted">✕</button>
@@ -998,7 +998,7 @@ function computeUsableSummary(drives) {
     <form method="post" action="/servers/{{ server.id }}/backup-config">
       <div class="mb-3">
         <label class="text-xs text-muted">Sources (one per line)</label>
-        <textarea name="backup_paths" class="w-full font-mono text-xs bg-surface border border-border p-2 rounded h-20" placeholder="/home/user/docker/
+        <textarea name="backup_paths" class="w-full font-mono text-xs code-surface border p-2 rounded h-20" placeholder="/home/user/docker/
 /var/lib/docker/volumes/">{% set gsrc = current_sources if current_sources else (global_backup_defaults.sources if global_backup_defaults and global_backup_defaults.sources is defined else global_backup_defaults) %}
 {% for p in (gsrc or []) %}{{ p }}
 {% endfor %}</textarea>
@@ -1075,10 +1075,10 @@ function computeUsableSummary(drives) {
         <label class="flex gap-2 text-sm"><input type="radio" name="scope" value="global"> Global default (new servers + apply to this)</label>
       </div>
 
-      <div id="config-error" class="text-primary text-sm mb-2 hidden"></div>
+      <div id="config-error" class="text-danger text-sm mb-2 hidden"></div>
       <div class="flex gap-2 mt-4">
-        <button type="submit" class="btn-accent btn-sm">Save</button>
-        <button type="button" onclick="hideBackupConfigModal()" class="px-4 py-1 bg-surface border border-border hover:bg-[var(--color-surface)] rounded text-sm ml-auto">Cancel</button>
+        <button type="submit" class="px-4 py-1 btn btn-accent rounded text-sm">Save</button>
+        <button type="button" onclick="hideBackupConfigModal()" class="px-4 py-1 btn btn-secondary rounded text-sm ml-auto">Cancel</button>
       </div>
     </form>
 
@@ -1090,31 +1090,31 @@ function computeUsableSummary(drives) {
 
 <!-- OS Patch Progress Modal (polls only while open) -->
 <div id="os-patch-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-2xl mx-4">
+  <div class="card p-6 w-full max-w-2xl mx-4">
     <div class="flex justify-between items-center mb-2">
       <h3 class="font-semibold">OS Patch in progress</h3>
-      <button onclick="hideOsPatchProgressModal()" class="text-xs px-2 py-1 bg-surface border border-border rounded">Close</button>
+      <button onclick="hideOsPatchProgressModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
     </div>
-    <pre id="os-patch-progress-log" class="bg-surface p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border border-border rounded">Starting...</pre>
+    <pre id="os-patch-progress-log" class="log-output p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border rounded">Starting...</pre>
   </div>
 </div>
 
 <!-- Backup Progress Modal -->
 <div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
+  <div class="card p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
     <!-- Buttons on top -->
     <div class="flex justify-between items-center mb-2 flex-shrink-0">
       <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
       <div class="flex gap-1">
-        <button id="progress-stop-btn" class="btn-primary btn-sm text-white">Stop</button>
-        <button onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 bg-surface border border-border hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] rounded">Close</button>
+        <button id="progress-stop-btn" class="text-xs px-2 py-1 btn btn-danger rounded">Stop</button>
+        <button onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
       </div>
     </div>
-    <div id="backup-current-source" class="text-sm mb-1 text-accent dark:text-accent font-mono min-h-[1.25rem] flex-shrink-0"></div>
+    <div id="backup-current-source" class="text-sm mb-1 text-accent font-mono min-h-[1.25rem] flex-shrink-0"></div>
     <!-- Label above logs -->
     <div class="text-xs text-muted mb-1 flex-shrink-0">Live output (updates every 4s while modal is open)</div>
     <!-- Logs in middle -->
-    <pre id="backup-progress-log" class="flex-1 min-h-0 overflow-auto bg-surface border border-border p-3 text-xs font-mono whitespace-pre-wrap rounded log-area">Starting...</pre>
+    <pre id="backup-progress-log" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border rounded">Starting...</pre>
     <!-- Description on bottom -->
     <p class="text-[10px] text-muted mt-2 flex-shrink-0">
       rsync uses size+mtime to skip unchanged files (delta). With --delete it mirrors exactly.
@@ -1125,44 +1125,44 @@ function computeUsableSummary(drives) {
 
 <!-- Remove Backup Source Confirmation Modal -->
 <div id="remove-backup-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-md mx-4">
+  <div class="card p-6 w-full max-w-md mx-4">
     <h3 class="font-semibold mb-2">Confirm Remove Backup Source</h3>
     <p class="text-sm text-muted mb-2">You are about to remove this backup source:</p>
-    <div id="remove-source-display" class="font-mono text-sm bg-surface border border-border p-2 rounded mb-4 break-all"></div>
-    <p class="text-xs text-primary mb-4">This cannot be undone. The source will no longer be backed up.</p>
+    <div id="remove-source-display" class="font-mono text-sm code-surface border p-2 rounded mb-4 break-all"></div>
+    <p class="text-xs text-danger mb-4">This cannot be undone. The source will no longer be backed up.</p>
     
     <form id="remove-backup-form" method="post" action="/servers/{{ server.id }}/backup/remove">
       <input type="hidden" name="path" id="remove-source-input">
     </form>
     
     <div class="flex gap-2 justify-end">
-      <button type="button" onclick="hideRemoveBackupModal()" class="px-4 py-1 bg-surface border border-border hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] rounded text-sm">Cancel</button>
-      <button type="button" onclick="confirmRemoveBackupSource()" class="px-4 py-1 bg-primary hover:bg-[var(--color-primary)] rounded text-sm text-white">Confirm Remove</button>
+      <button type="button" onclick="hideRemoveBackupModal()" class="px-4 py-1 btn btn-secondary rounded text-sm">Cancel</button>
+      <button type="button" onclick="confirmRemoveBackupSource()" class="px-4 py-1 btn btn-danger rounded text-sm">Confirm Remove</button>
     </div>
   </div>
 </div>
 
 <!-- Backup Details Modal -->
 <div id="backup-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-3xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
+  <div class="card p-6 w-full max-w-3xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
     <!-- Header on top -->
     <div class="flex justify-between mb-2 flex-shrink-0">
       <h3 class="font-semibold">Backup Details</h3>
-      <button onclick="hideBackupDetailsModal()" class="text-xs px-2 py-1 bg-surface border border-border rounded">Close</button>
+      <button onclick="hideBackupDetailsModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
     </div>
     <!-- Content in middle -->
-    <pre id="backup-details-content" class="flex-1 min-h-0 overflow-auto bg-black p-3 text-xs font-mono whitespace-pre border border-border rounded"></pre>
+    <pre id="backup-details-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre border rounded"></pre>
   </div>
 </div>
 
 <!-- System Info Modal -->
 <div id="system-info-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-2xl mx-4 max-h-[85vh] overflow-auto">
+  <div class="card p-6 w-full max-w-2xl mx-4 max-h-[85vh] overflow-auto">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold">System Info — {{ server.name }}</h3>
       <div class="flex gap-2">
-        <button onclick="refreshSystemInfo()" class="text-xs px-2 py-1 bg-surface border border-border hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] rounded border border-zinc-300 dark:border-border">Refresh</button>
-        <button onclick="hideSystemInfoModal()" class="text-xs px-2 py-1 bg-surface border border-border rounded">Close</button>
+        <button onclick="refreshSystemInfo()" class="text-xs px-2 py-1 btn btn-secondary rounded border border-border">Refresh</button>
+        <button onclick="hideSystemInfoModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
       </div>
     </div>
 
