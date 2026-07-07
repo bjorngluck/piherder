@@ -28,6 +28,7 @@
 | `--accent-subtle-bg`  | rgba(0,166,81,0.10) | rgba(0,166,81,0.15) | Subtle highlights for active rows (`.bg-accent-subtle`) |
 | `--color-info-bg` / `--color-info-text` | #dbeafe / #1e40af | rgba(59,130,246,0.2) / #93c5fc | Info/running states (`.status-running`) |
 | `--color-syntax-number` / `--color-syntax-bool` | #0369a1 | #7dd3fc / #38bdf8 | Editor syntax tokens (`.tok-number`, `.tok-bool`) |
+| `--banner-cancelled-bg` / `--banner-cancelled-text` | #f3f4f6 / #374151 | #27272a / #a1a1aa | Cancelled/neutral status (`.status-cancelled`) |
 
 **Key classes provided by themes.css**:
 - `body { background-color: var(--color-bg); color: var(--color-text); }` → `class="bg-bg"`
@@ -43,14 +44,15 @@
 - Internal editor syntax now uses `--color-syntax-*` vars.
 - `.bg-accent-subtle` (and hover variant) for row/active highlights.
 
-### Latest Refinements (final rollout)
-- Banners (`.banner-*`) and status pills (`.status-*`) are now **fully var-driven** (hard-coded hex moved into `--banner-*`, `--color-info-*` vars in `:root`/`.dark`).
-- All `log-output` / `pre` blocks standardized with `border border-border`.
-- Tab active states in Docker quick-edit now use proper `btn-accent` / `btn-secondary` component classes.
-- Subtle accent highlights unified on `.bg-accent-subtle`.
-- Zinc color config removed from Tailwind script in `base.html` (fallback is now strictly layout-only, no colors).
-- Tailwind `dark:` color variants eliminated everywhere.
-- Audit page, backup progress modals, Docker management, status indicators, and log/pre blocks fully aligned.
+### Latest Refinements (absolute final cleanup)
+- Banners (`.banner-*`) and all status pills (`.status-*` including cancelled) are now **fully var-driven**.
+- `.error-line` in editors now uses `--banner-error-bg`.
+- Added `.border-danger`, `.border-accent` component classes.
+- Removed `text-white` from all `btn btn-danger` (handled by component).
+- Fixed remaining `banner-* border` in login/register/herder to use `border border-border`.
+- More modals using `.modal-content card`.
+- Checkbox/radio accent-color globally uses `--color-accent`.
+- All targeted areas (modals, status, older pages, logs/pres) cleaned for full light/dark consistency via vars.
 
 ---
 
@@ -147,7 +149,7 @@
 | Row text (timestamps, summary)  | `text-muted`, `text-text`                              | muted + text                        | #6b7280 / #111827   | #a1a1aa / #f1f3f5   | Good |
 | Server links in table           | `text-accent`                                          | `--color-accent`                    | #00a651             | #00a651             | Good |
 | Action pill                     | `action-pill`                                          | `--color-bg` + `--color-text` + border | #f8f9fa / #111827 / #e5e7eb | #0a0f1c / #f1f3f5 / #374151 | Good |
-| Status pills                    | `status-pill status-success` etc.                      | status-* (now use `--banner-*` / `--color-info-*` vars) | See updated core vars | See updated core vars | Fully var-driven (no hardcodes in class rules) |
+| Status pills                    | `status-pill status-success` etc. (incl. cancelled)    | status-* (use `--banner-*` / `--color-info-*` / `--banner-cancelled-*` vars) | See core | See core | Fully var-driven (incl. status-cancelled) |
 | View button                     | `btn btn-secondary`                                    | surface + text + border             | Good                | Good                | Good |
 | Empty state / footer text       | `text-muted`                                           | `--color-muted`                     | #6b7280             | #a1a1aa             | Good |
 | Details modal + pre             | `.modal-content card`, `log-output ... border border-border` | surface + code + border + modal vars | Good | Good | Good (standardized borders on all log/pre blocks; using `.modal-content`) |
@@ -157,10 +159,11 @@
 
 **Latest Audit refinements**: 
 - All `log-output` / `pre` blocks now include `border border-border`.
-- Banners and status indicators are 100% var-driven via `--banner-*` / `--color-info-*` vars (no hardcodes in rules).
-- Modals now use `.modal-content card` for full component class usage.
-- Subtle highlights use `.bg-accent-subtle`.
-- No zinc or direct color classes remain. Fallback styles in base.html are layout-only. |
+- Banners and status indicators (incl. cancelled) are 100% var-driven via `--banner-*` / `--color-info-*` / `--banner-cancelled-*` vars.
+- Modals now use `.modal-content card`.
+- `.border-danger`, `.border-accent` used where needed.
+- No remaining hardcoded colors (zinc, text-white on danger, etc.).
+- Fallback in base.html is layout-only. Full light/dark via vars. |
 
 ---
 

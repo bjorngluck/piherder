@@ -85,12 +85,12 @@
 </div>
 
 <div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
+  <div class="modal-content card p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
     <!-- Buttons on top -->
     <div class="flex justify-between items-center mb-2 flex-shrink-0">
       <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
       <div class="flex gap-1">
-        <button id="progress-stop-btn" class="text-xs px-2 py-1 btn btn-danger rounded text-white">Stop</button>
+        <button id="progress-stop-btn" class="text-xs px-2 py-1 btn btn-danger rounded">Stop</button>
         <button type="button" onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
       </div>
     </div>
@@ -98,7 +98,7 @@
     <!-- Label above logs -->
     <div class="text-xs text-muted mb-1 flex-shrink-0">Live output</div>
     <!-- Logs in middle -->
-    <pre id="backup-progress-log" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border rounded">Starting...</pre>
+    <pre id="backup-progress-log" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded">Starting...</pre>
   </div>
 </div>
 

@@ -33,7 +33,7 @@
     <p class="text-xs text-muted mb-2">Copy this and add to <code>~/.ssh/authorized_keys</code> on the target host.</p>
 
     <textarea id="modal-pubkey" readonly
-              class="w-full font-mono text-xs code-surface border p-3 rounded h-40 resize-y">{{ server.ssh_public_key or '' }}</textarea>
+              class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-40 resize-y">{{ server.ssh_public_key or '' }}</textarea>
 
     <div class="flex gap-2 mt-3">
       <button type="button" onclick="copyModalPubKey(this)"
@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
       {# DB-backed running status from Job (worker feeds this) #}
       {% if running_backup_job %}
         {% set job_details = running_backup_job.details | fromjson if running_backup_job.details else {} %}
-        <span class="ml-2 text-xs px-2 py-0.5 rounded bg-accent/20 text-accent">running</span>
+        <span class="ml-2 text-xs px-2 py-0.5 rounded bg-accent-subtle text-accent">running</span>
         <span class="ml-1 text-xs text-accent font-mono">{{ job_details.source_filter or job_details.current or 'full backup' }}</span>
         {% set queued_n = active_backup_jobs | selectattr('status', 'equalto', 'pending') | list | length %}
         {% if queued_n %}<span class="ml-1 text-xs text-muted">+{{ queued_n }} queued</span>{% endif %}
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', function() {
     {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
     <button type="button" onclick="openBackupLog(null, {{ full_backup_job.id }})" class="px-3 py-1 btn btn-secondary rounded text-sm">📋 View backup log</button>
     {% if full_backup_job.status == 'running' %}
-    <button type="button" onclick="activePollJobId={{ full_backup_job.id }}; stopCurrentBackup()" class="px-3 py-1 btn btn-danger rounded text-sm text-white">Stop</button>
+    <button type="button" onclick="activePollJobId={{ full_backup_job.id }}; stopCurrentBackup()" class="px-3 py-1 btn btn-danger rounded text-sm">Stop</button>
     {% endif %}
     {% else %}
     <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form">
@@ -669,9 +669,9 @@ async function updateBackupProgressUI(data, modalLogEl, modalCurrentDiv, isModal
 
   document.querySelectorAll('tr[data-source]').forEach(tr => {
     if (data.current && tr.dataset.source === data.current) {
-      tr.classList.add('bg-accent/10', 'border-l-4', 'border-accent');
+      tr.classList.add('bg-accent-subtle', 'border-l-4', 'border-accent');
     } else {
-      tr.classList.remove('bg-accent/10', 'border-l-4', 'border-accent');
+      tr.classList.remove('bg-accent-subtle', 'border-l-4', 'border-accent');
     }
   });
 }
@@ -946,7 +946,7 @@ async function loadSystemInfoIntoModal(useCache = true) {
 
     html += `<div>
       <div class="text-xs text-muted mb-1">Drives / Mounts (filtered)</div>
-      <div class="code-surface border p-2 rounded text-xs font-mono max-h-[220px] overflow-auto">`;
+      <div class="code-surface border border-border p-2 rounded text-xs font-mono max-h-[220px] overflow-auto">`;
     const mains = (summary.main_drives && summary.main_drives.length ? summary.main_drives : (srvSummary.main_drives || [])) || (data.drives || []);
     if (mains && mains.length) {
       for (const d of mains) {
@@ -998,7 +998,7 @@ function computeUsableSummary(drives) {
     <form method="post" action="/servers/{{ server.id }}/backup-config">
       <div class="mb-3">
         <label class="text-xs text-muted">Sources (one per line)</label>
-        <textarea name="backup_paths" class="w-full font-mono text-xs code-surface border p-2 rounded h-20" placeholder="/home/user/docker/
+        <textarea name="backup_paths" class="w-full font-mono text-xs code-surface border border-border p-2 rounded h-20" placeholder="/home/user/docker/
 /var/lib/docker/volumes/">{% set gsrc = current_sources if current_sources else (global_backup_defaults.sources if global_backup_defaults and global_backup_defaults.sources is defined else global_backup_defaults) %}
 {% for p in (gsrc or []) %}{{ p }}
 {% endfor %}</textarea>
@@ -1095,13 +1095,13 @@ function computeUsableSummary(drives) {
       <h3 class="font-semibold">OS Patch in progress</h3>
       <button onclick="hideOsPatchProgressModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
     </div>
-    <pre id="os-patch-progress-log" class="log-output p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border rounded">Starting...</pre>
+    <pre id="os-patch-progress-log" class="log-output p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border border-border rounded">Starting...</pre>
   </div>
 </div>
 
 <!-- Backup Progress Modal -->
 <div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
+  <div class="modal-content card p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
     <!-- Buttons on top -->
     <div class="flex justify-between items-center mb-2 flex-shrink-0">
       <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
@@ -1114,7 +1114,7 @@ function computeUsableSummary(drives) {
     <!-- Label above logs -->
     <div class="text-xs text-muted mb-1 flex-shrink-0">Live output (updates every 4s while modal is open)</div>
     <!-- Logs in middle -->
-    <pre id="backup-progress-log" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border rounded">Starting...</pre>
+    <pre id="backup-progress-log" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded">Starting...</pre>
     <!-- Description on bottom -->
     <p class="text-[10px] text-muted mt-2 flex-shrink-0">
       rsync uses size+mtime to skip unchanged files (delta). With --delete it mirrors exactly.
@@ -1128,7 +1128,7 @@ function computeUsableSummary(drives) {
   <div class="card p-6 w-full max-w-md mx-4">
     <h3 class="font-semibold mb-2">Confirm Remove Backup Source</h3>
     <p class="text-sm text-muted mb-2">You are about to remove this backup source:</p>
-    <div id="remove-source-display" class="font-mono text-sm code-surface border p-2 rounded mb-4 break-all"></div>
+    <div id="remove-source-display" class="font-mono text-sm code-surface border border-border p-2 rounded mb-4 break-all"></div>
     <p class="text-xs text-danger mb-4">This cannot be undone. The source will no longer be backed up.</p>
     
     <form id="remove-backup-form" method="post" action="/servers/{{ server.id }}/backup/remove">
@@ -1151,7 +1151,7 @@ function computeUsableSummary(drives) {
       <button onclick="hideBackupDetailsModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
     </div>
     <!-- Content in middle -->
-    <pre id="backup-details-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre border rounded"></pre>
+    <pre id="backup-details-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre border border-border rounded"></pre>
   </div>
 </div>
 

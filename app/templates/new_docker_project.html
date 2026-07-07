@@ -9,12 +9,12 @@
   <form method="post" action="/servers/{{ server.id }}/docker/new-project" class="space-y-4">
     <div>
       <label class="text-xs block mb-1">Project / Folder Name</label>
-      <input name="project_name" required class="w-full card border p-2 rounded text-sm" placeholder="my-awesome-app">
+      <input name="project_name" required class="w-full bg-surface border border-border p-2 rounded text-sm" placeholder="my-awesome-app">
     </div>
 
     <div>
       <label class="text-xs block mb-1">docker-compose.yml content</label>
-      <textarea name="compose_content" rows="12" required class="w-full font-mono text-xs card border p-2 rounded" placeholder="version: '3'\nservices:\n  app:\n    image: ...">version: '3.8'
+      <textarea name="compose_content" rows="12" required class="w-full font-mono text-xs bg-surface border border-border p-2 rounded" placeholder="version: '3'\nservices:\n  app:\n    image: ...">version: '3.8'
 services:
   web:
     build: .
@@ -24,7 +24,7 @@ services:
 
     <div>
       <label class="text-xs block mb-1">Dockerfile (optional, leave empty if using registry image)</label>
-      <textarea name="dockerfile_content" rows="6" class="w-full font-mono text-xs card border p-2 rounded" placeholder="FROM nginx:alpine">FROM python:3.11-slim
+      <textarea name="dockerfile_content" rows="6" class="w-full font-mono text-xs bg-surface border border-border p-2 rounded" placeholder="FROM nginx:alpine">FROM python:3.11-slim
 WORKDIR /app
 COPY . .
 RUN pip install -r requirements.txt
@@ -33,11 +33,11 @@ CMD ["python", "app.py"]</textarea>
 
     <div>
       <label class="text-xs block mb-1">Git clone URL (optional - clones into the folder)</label>
-      <input name="git_url" class="w-full card border p-2 rounded text-sm" placeholder="https://github.com/you/myapp.git">
+      <input name="git_url" class="w-full bg-surface border border-border p-2 rounded text-sm" placeholder="https://github.com/you/myapp.git">
     </div>
 
     <div class="flex items-center gap-2">
-      <input type="checkbox" name="deploy_now" checked class="accent-emerald-600">
+      <input type="checkbox" name="deploy_now" checked>
       <span class="text-sm">Deploy immediately after create</span>
     </div>
 

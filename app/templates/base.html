@@ -13,15 +13,9 @@
   <script src="/static/tailwind.js" onerror="console.warn('Tailwind Play not available — using built-in fallback styles')"></script>
   <script>
     if (typeof tailwind !== 'undefined') {
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              zinc: { 950: '#18181b', 900: '#27272a', 800: '#3f3f46', 700: '#52525b' }
-            }
-          }
-        }
-      };
+      // Tailwind config kept minimal — all theming is handled via themes.css vars and component classes.
+      // No color extensions needed (zinc etc removed post-cleanup).
+      tailwind.config = { theme: { extend: {} } };
     }
   </script>
   <script src="/static/htmx.min.js"></script>

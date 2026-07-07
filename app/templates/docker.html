@@ -113,12 +113,12 @@
     {% endif %}
 
     {% if request.query_params.get('new_project') %}
-      <div class="mb-3 p-2 text-xs rounded banner-success border">
+      <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
         New service <strong>{{ request.query_params.get('new_project') }}</strong> created (files written, versioning enabled).
       </div>
     {% endif %}
     {% if request.query_params.get('prune') %}
-      <div class="mb-3 p-2 text-xs rounded banner-success border">
+      <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
         Prune {{ request.query_params.get('prune_type', 'unused') }} {{ 'succeeded' if request.query_params.get('prune') == 'ok' else 'failed' }}.
       </div>
     {% endif %}
@@ -258,7 +258,7 @@ function loadUnused() {
         <div id="modal-services" class="mt-2 space-y-1 max-h-40 overflow-auto"></div>
       </div>
       <div class="flex items-center gap-2 mb-4">
-        <input type="checkbox" name="no_cache" id="modal-no-cache" class="accent-blue-600">
+        <input type="checkbox" name="no_cache" id="modal-no-cache" >
         <label for="modal-no-cache" class="text-sm"> --no-cache (full clean build)</label>
       </div>
       <div class="flex gap-2 justify-end">
@@ -284,7 +284,7 @@ function loadUnused() {
       <a id="qe-full-link" href="#" class="ml-auto text-accent hover:underline text-xs self-center">Open full editor (syntax, versions, drafts…)</a>
     </div>
 
-    <textarea id="qe-editor" class="w-full h-64 font-mono text-sm code-surface border rounded p-3 resize-y" spellcheck="false"></textarea>
+    <textarea id="qe-editor" class="w-full h-64 font-mono text-sm code-surface border border-border rounded p-3 resize-y" spellcheck="false"></textarea>
 
     <div class="flex items-center gap-2 mt-3">
       <button onclick="quickSaveDraft()" class="px-4 py-1.5 text-sm btn btn-secondary rounded">Save Draft</button>
@@ -325,7 +325,7 @@ function loadUnused() {
     </p>
     <div class="mb-4">
       <label class="flex items-center gap-2 text-sm cursor-pointer">
-        <input type="checkbox" id="deploy-pull" checked class="accent-accent">
+        <input type="checkbox" id="deploy-pull" checked >
         <span>Pull latest images first (recommended)</span>
       </label>
     </div>
@@ -357,7 +357,7 @@ function loadUnused() {
     </div>
 
     <!-- Logs in middle (flex-1 fills the space between top buttons and bottom description) -->
-    <pre id="logs-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border rounded"></pre>
+    <pre id="logs-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded"></pre>
 
     <!-- Description on bottom -->
     <div class="text-[10px] text-muted mt-2 pt-1 border-t border-border flex-shrink-0">New lines stream live. Scroll up to pause auto-follow. Use Full screen for long output.</div>
@@ -395,7 +395,7 @@ function showBuildModal(projName, buildServices, serverId) {
     // All checkbox
     const allLabel = document.createElement('label');
     allLabel.className = 'flex items-center gap-2 text-sm cursor-pointer';
-    allLabel.innerHTML = `<input type="checkbox" id="build-all" checked class="accent-blue-600"> <span>Build all (${buildServices.length})</span>`;
+    allLabel.innerHTML = `<input type="checkbox" id="build-all" checked > <span>Build all (${buildServices.length})</span>`;
     svcDiv.appendChild(allLabel);
 
     const allCb = allLabel.querySelector('input');
@@ -406,7 +406,7 @@ function showBuildModal(projName, buildServices, serverId) {
     buildServices.forEach(svc => {
       const l = document.createElement('label');
       l.className = 'flex items-center gap-2 text-sm pl-4 cursor-pointer';
-      l.innerHTML = `<input type="checkbox" name="services" value="${svc}" checked class="accent-blue-600"> <span>${svc}</span>`;
+      l.innerHTML = `<input type="checkbox" name="services" value="${svc}" checked > <span>${svc}</span>`;
       svcDiv.appendChild(l);
       l.querySelector('input').onchange = () => {
         const allChecked = Array.from(svcDiv.querySelectorAll('input[type=checkbox]')).filter(c=>c.id!=='build-all').every(c=>c.checked);
@@ -539,16 +539,11 @@ function switchQuickEditTab(type) {
 
   qeCurrent.fileType = type;
 
-  composeTab.classList.toggle('bg-accent', type === 'compose');
-  composeTab.classList.toggle('bg-surface', false);
-  if (type !== 'compose') {
-    composeTab.classList.add('bg-surface');
-  }
-  dfTab.classList.toggle('bg-accent', type === 'dockerfile');
-  dfTab.classList.toggle('bg-surface', false);
-  if (type !== 'dockerfile') {
-    dfTab.classList.add('bg-surface');
-  }
+  // Use proper component classes (btn-accent / btn-secondary) for active state so theming is var-driven
+  composeTab.classList.remove('btn-accent', 'btn-secondary');
+  composeTab.classList.add(type === 'compose' ? 'btn-accent' : 'btn-secondary');
+  dfTab.classList.remove('btn-accent', 'btn-secondary');
+  dfTab.classList.add(type === 'dockerfile' ? 'btn-accent' : 'btn-secondary');
 
   // update full editor link to match current file
   if (fullLink) {
@@ -875,14 +870,14 @@ function showServiceSelectModal(projName, services, action) {
 
   // All services
   const allItem = document.createElement('div');
-  allItem.className = 'px-3 py-1.5 rounded bg-surface hover:bg-accent/10 border border-border hover:border-accent cursor-pointer text-sm font-medium flex items-center gap-2';
+  allItem.className = 'px-3 py-1.5 rounded bg-surface hover-bg-accent-subtle border border-border hover:border-accent cursor-pointer text-sm font-medium flex items-center gap-2';
   allItem.innerHTML = '<span class="text-accent">↻</span> <span>All services</span>';
   allItem.onclick = () => selectServiceAndAct('');
   listEl.appendChild(allItem);
 
   services.forEach(s => {
     const item = document.createElement('div');
-    item.className = 'px-3 py-1.5 pl-5 rounded bg-surface hover:bg-bg border border-border hover:border-accent cursor-pointer text-sm flex items-center';
+    item.className = 'px-3 py-1.5 pl-5 rounded bg-surface hover-bg-bg border border-border hover-border-accent cursor-pointer text-sm flex items-center';
     item.textContent = s;
     item.onclick = () => selectServiceAndAct(s);
     listEl.appendChild(item);
@@ -944,7 +939,7 @@ function hideServiceSelectModal() {
     overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
     const actionText = (actionName === 'Checking') ? 'Checking updates for' : actionName;
     overlay.innerHTML = `
-      <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
+      <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
         <div class="flex justify-center mb-3">
           <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
         </div>
@@ -1068,7 +1063,7 @@ function hideServiceSelectModal() {
       const overlay = document.createElement('div');
       overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
       overlay.innerHTML = `
-        <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
+        <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
           <div class="flex justify-center mb-3">
             <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
           </div>
@@ -1093,7 +1088,7 @@ function hideServiceSelectModal() {
         const overlay = document.createElement('div');
         overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
         overlay.innerHTML = `
-          <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
+          <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
             <div class="flex justify-center mb-3">
               <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
             </div>
@@ -1112,7 +1107,7 @@ function hideServiceSelectModal() {
         const overlay = document.createElement('div');
         overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
         overlay.innerHTML = `
-          <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
+          <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
             <div class="flex justify-center mb-3">
               <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
             </div>
@@ -1131,7 +1126,7 @@ function hideServiceSelectModal() {
         const overlay = document.createElement('div');
         overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
         overlay.innerHTML = `
-          <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
+          <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
             <div class="flex justify-center mb-3">
               <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
             </div>
@@ -1154,7 +1149,7 @@ function hideServiceSelectModal() {
         const overlay = document.createElement('div');
         overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
         overlay.innerHTML = `
-          <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
+          <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
             <div class="flex justify-center mb-3">
               <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
             </div>

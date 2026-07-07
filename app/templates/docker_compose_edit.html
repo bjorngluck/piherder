@@ -79,19 +79,17 @@
   .tok-comment { color: var(--color-muted); }
   .tok-key     { color: var(--color-accent); }
   .tok-string  { color: var(--color-warning); }
-  .tok-number  { color: #0369a1; }
-  .dark .tok-number { color: #7dd3fc; }
-  .tok-bool    { color: #0369a1; }
-  .dark .tok-bool { color: #38bdf8; }
+  .tok-number  { color: var(--color-syntax-number); }
+  .tok-bool    { color: var(--color-syntax-bool); }
   .tok-punct   { color: var(--color-muted); }
   .error-line {
-    background: rgba(185, 28, 28, 0.15) !important;
+    background: var(--banner-error-bg) !important;
     color: var(--color-danger) !important;
     font-weight: 600;
     border-left: 3px solid var(--color-danger);
   }
   .dark .error-line {
-    background: rgba(248, 113, 113, 0.15) !important;
+    background: var(--banner-error-bg) !important;
     color: var(--color-danger) !important;
     border-left-color: var(--color-danger);
   }
@@ -132,17 +130,17 @@
   </div>
 
   {% if request.query_params.get('saved') %}
-  <div class="mb-3 p-2.5 banner-success border text-sm rounded">File saved successfully.</div>
+  <div class="mb-3 p-2.5 banner-success border border-border text-sm rounded">File saved successfully.</div>
   {% endif %}
   {% if request.query_params.get('write_failed') %}
-  <div class="mb-3 p-2.5 banner-error border text-sm rounded">Failed to write file to host (check SSH user permissions, ownership, and that the target directory exists and is writable).</div>
+  <div class="mb-3 p-2.5 banner-error border border-border text-sm rounded">Failed to write file to host (check SSH user permissions, ownership, and that the target directory exists and is writable).</div>
   {% endif %}
   {% if request.query_params.get('saved') and request.query_params.get('version') %}
-  <div class="mb-3 p-2.5 banner-success border text-sm rounded">Deployed as version {{ request.query_params.get('version') }}.</div>
+  <div class="mb-3 p-2.5 banner-success border border-border text-sm rounded">Deployed as version {{ request.query_params.get('version') }}.</div>
   {% endif %}
 
   {% if errors and errors|length > 0 %}
-  <div class="mb-3 p-3 banner-error border text-sm rounded">
+  <div class="mb-3 p-3 banner-error border border-border text-sm rounded">
     <strong>YAML validation failed.</strong> Fix issues below before saving.
   </div>
   {% endif %}
@@ -157,19 +155,19 @@
     <span class="text-muted">Versions:</span>
     {% for d in drafts[:5] %}
       {% set label = 'draft (db only)' if d.is_draft else ('live (current on host)' if live_version and d.id == live_version.id else 'inactive (previous live)') %}
-      <a href="?load_draft={{ d.id }}" class="px-1.5 py-0.5 {{ 'banner-warning' if d.is_draft else ('banner-success' if 'live (current' in label else 'bg-surface') }} rounded" title="{{ label }}">v{{ d.version }} {{ 'draft' if d.is_draft else ('live' if live_version and d.id == live_version.id else 'inactive') }}</a>
+      <a href="?load_draft={{ d.id }}" class="px-1.5 py-0.5 {{ 'banner-warning' if d.is_draft else ('banner-success' if 'live (current' in label else 'bg-surface border border-border') }} rounded" title="{{ label }}">v{{ d.version }} {{ 'draft' if d.is_draft else ('live' if live_version and d.id == live_version.id else 'inactive') }}</a>
     {% endfor %}
     {% if drafts|length > 5 %}<span class="text-muted">+{{ drafts|length - 5 }} more</span>{% endif %}
     <a href="/servers/{{ server.id }}/docker?nocache=1" class="ml-auto text-accent hover:underline">Back to Docker</a>
   </div>
 
   {% if request.query_params.get('saved_draft') %}
-  <div class="mb-2 p-2 banner-success border text-sm rounded">
+  <div class="mb-2 p-2 banner-success border border-border text-sm rounded">
     Draft v{{ request.query_params.get('saved_draft') }} saved. Now editing it below.
   </div>
   {% endif %}
   {% if request.query_params.get('load_draft') and not request.query_params.get('saved_draft') %}
-  <div class="mb-2 p-2 banner-warning border text-sm rounded">
+  <div class="mb-2 p-2 banner-warning border border-border text-sm rounded">
     <strong>Editing draft ID {{ request.query_params.get('load_draft') }}</strong> (see versions above). Drafts are DB only. "Save Draft" will update the selected draft; selecting a live version then Save Draft creates a new draft (live protected).
   </div>
   {% endif %}
@@ -182,7 +180,7 @@
     <div class="flex flex-wrap items-center gap-3 mb-2 text-xs">
       <div class="flex items-center gap-2 bg-surface border border-border rounded px-2.5 py-1">
         <label class="flex items-center gap-1.5 cursor-pointer select-none">
-          <input type="checkbox" id="wrap-toggle" class="accent-emerald-600">
+          <input type="checkbox" id="wrap-toggle" >
           <span>Wrap lines</span>
         </label>
       </div>
@@ -561,7 +559,7 @@
         if (showSuccessIfOk) {
           // flash a success toast above the editor
           const toast = document.createElement('div');
-          toast.className = 'mb-2 px-3 py-1.5 text-xs rounded banner-success border';
+          toast.className = 'mb-2 px-3 py-1.5 text-xs rounded banner-success border border-border';
           toast.textContent = 'YAML looks valid.';
           const formEl = document.getElementById('compose-form');
           if (formEl && formEl.parentNode) {
