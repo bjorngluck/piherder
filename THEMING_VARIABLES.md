@@ -69,7 +69,7 @@
 | Login button (logged out)   | `bg-surface border border-border`         | surface + border                | #ffffff / #e5e7eb   | #111827 / #374151   | Good |
 | Footer                      | `text-muted border-t border-border`       | `--color-muted`, `--color-border` | #6b7280 / #e5e7eb | #a1a1aa / #374151 | Good |
 | Modal scrims (all pages)    | `bg-black/70`                              | (intentional dark overlay)      | black/70            | black/70            | Keep as-is |
-| Modal content               | `.card` or `bg-surface border border-border` | surface + border             | #ffffff / #e5e7eb   | #111827 / #374151   | Good |
+| Modal content               | `.modal-content card` (or `.card`)         | surface + border + modal vars   | #ffffff / #e5e7eb   | #111827 / #374151   | Now using `.modal-content` for consistency in many modals |
 
 ---
 
@@ -150,10 +150,17 @@
 | Status pills                    | `status-pill status-success` etc.                      | status-* (now use `--banner-*` / `--color-info-*` vars) | See updated core vars | See updated core vars | Fully var-driven (no hardcodes in class rules) |
 | View button                     | `btn btn-secondary`                                    | surface + text + border             | Good                | Good                | Good |
 | Empty state / footer text       | `text-muted`                                           | `--color-muted`                     | #6b7280             | #a1a1aa             | Good |
-| Details modal + pre             | `.card`, `log-output ... border border-border`         | surface + code + border             | Good                | Good                | Good (standardized borders on all log/pre blocks) |
+| Details modal + pre             | `.modal-content card`, `log-output ... border border-border` | surface + code + border + modal vars | Good | Good | Good (standardized borders on all log/pre blocks; using `.modal-content`) |
 | Close buttons                   | `text-muted hover:text-text btn btn-ghost`             | muted + text                        | Good                | Good                | Good |
+| Form inputs / selects in filters| `bg-surface border border-border`                      | surface + border                    | Good                | Good                | Good |
+| Checkbox accents (any)          | (global CSS rule)                                      | `--color-accent`                    | Good                | Good                | Global accent-color rule applied |
 
-**Latest Audit refinements**: All pre/log blocks now include `border border-border`. Banners and status indicators are 100% var-driven via the new `--banner-*` and `--color-info-*` definitions. Subtle highlights (if any) use `.bg-accent-subtle`. No zinc or direct color classes remain. |
+**Latest Audit refinements**: 
+- All `log-output` / `pre` blocks now include `border border-border`.
+- Banners and status indicators are 100% var-driven via `--banner-*` / `--color-info-*` vars (no hardcodes in rules).
+- Modals now use `.modal-content card` for full component class usage.
+- Subtle highlights use `.bg-accent-subtle`.
+- No zinc or direct color classes remain. Fallback styles in base.html are layout-only. |
 
 ---
 
