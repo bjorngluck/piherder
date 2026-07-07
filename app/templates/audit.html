@@ -11,9 +11,10 @@
   .status-success { background: #065f46; color: #6ee7b7; }
   .status-failed { background: #7f1d1d; color: #fca5a5; }
   .status-running { background: #1e3a8a; color: #93c5fd; }
-  .status-cancelled { background: #3f3f46; color: #a1a1aa; }
+  .status-cancelled { background: #e5e7eb; color: #374151; }
+  .dark .status-cancelled { background: #3f3f46; color: #a1a1aa; }
   .status-stopped { background: #78350f; color: #fcd34d; }
-  .action-pill { font-size: 11px; padding: .125rem .4rem; border-radius: .25rem; background: #27272a; color: #d4d4d8; }
+  .action-pill { font-size: 11px; padding: .125rem .4rem; border-radius: .25rem; background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); }
 </style>
 
 <div class="flex items-center justify-between gap-4 mb-4">
@@ -21,64 +22,64 @@
     <span class="text-3xl">🐑</span>
     <div>
       <h1 class="text-2xl font-semibold">Audit Log</h1>
-      <p class="text-xs text-zinc-500 mt-0.5">Backup runs and admin actions</p>
+      <p class="text-xs text-muted mt-0.5">Backup runs and admin actions</p>
     </div>
   </div>
-  <a href="/" class="text-emerald-400 text-sm">← Dashboard</a>
+  <a href="/" class="text-accent text-sm">← Dashboard</a>
 </div>
 
-<form method="get" class="audit-filters mb-4 bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-  <input type="text" name="search" value="{{ search }}" placeholder="Search…" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full">
-  <select name="action" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full">
+<form method="get" class="audit-filters mb-4 bg-surface border border-border rounded-xl p-4">
+  <input type="text" name="search" value="{{ search }}" placeholder="Search…" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full">
+  <select name="action" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full">
     <option value="">All actions</option>
     {% for act in (actions or []) %}
     <option value="{{ act }}" {% if action and action == act %}selected{% endif %}>{{ act }}</option>
     {% endfor %}
   </select>
-  <select name="status" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full">
+  <select name="status" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full">
     <option value="">All statuses</option>
     {% for st in (statuses or []) %}
     <option value="{{ st }}" {% if status and status == st %}selected{% endif %}>{{ st }}</option>
     {% endfor %}
   </select>
-  <select name="server_id" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full">
+  <select name="server_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full">
     <option value="">All servers</option>
     {% for srv in (servers or []) %}
     <option value="{{ srv.id }}" {% if server_id and server_id|string == srv.id|string %}selected{% endif %}>{{ srv.name }}</option>
     {% endfor %}
   </select>
-  <select name="user_id" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full">
+  <select name="user_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full">
     <option value="">All users</option>
     {% for u in (users or []) %}
     <option value="{{ u.id }}" {% if user_id and user_id|string == u.id|string %}selected{% endif %}>{{ u.email }}</option>
     {% endfor %}
   </select>
-  <input type="date" name="date_from" value="{{ date_from }}" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full" title="From">
-  <input type="date" name="date_to" value="{{ date_to }}" class="bg-zinc-950 border border-zinc-700 px-3 py-2 rounded text-sm w-full" title="To">
-  <label class="flex items-center gap-2 text-xs text-zinc-400 px-1">
+  <input type="date" name="date_from" value="{{ date_from }}" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full" title="From">
+  <input type="date" name="date_to" value="{{ date_to }}" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full" title="To">
+  <label class="flex items-center gap-2 text-xs text-muted px-1">
     <input type="hidden" name="hide_noise" value="0" id="audit-hide-noise-off">
     <input type="checkbox" name="hide_noise" value="1" id="audit-hide-noise-on" {% if hide_noise %}checked{% endif %}
            onchange="document.getElementById('audit-hide-noise-off').disabled=this.checked">
     Hide incomplete runs
   </label>
-  <button type="submit" class="bg-emerald-700 hover:bg-emerald-600 px-4 py-2 rounded text-sm">Apply</button>
+  <button type="submit" class="btn-accent btn-sm">Apply</button>
 </form>
 
 {% if server_id or user_id or status or action or search or date_from or date_to %}
-<p class="text-xs mb-3 text-zinc-400">
+<p class="text-xs mb-3 text-muted">
   Filtered
   {% if server_id %}· server #{{ server_id }}{% endif %}
   {% if action %}· {{ action }}{% endif %}
   {% if status %}· {{ status }}{% endif %}
-  <a href="/audit" class="text-emerald-400 ml-2">Clear</a>
+  <a href="/audit" class="text-accent ml-2">Clear</a>
 </p>
 {% endif %}
 
-<div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+<div class="bg-surface border border-border rounded-xl overflow-hidden">
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead>
-        <tr class="text-left text-xs text-zinc-500 border-b border-zinc-800">
+        <tr class="text-left text-xs text-muted border-b border-zinc-200 dark:border-border">
           <th class="p-3 font-medium">When</th>
           <th class="p-3 font-medium">Action</th>
           <th class="p-3 font-medium">Server</th>
@@ -89,22 +90,22 @@
       </thead>
       <tbody>
         {% for log in logs %}
-        <tr class="border-b border-zinc-800 hover:bg-zinc-950 {{ 'audit-row-muted' if log.is_noise else '' }}">
-          <td class="p-3 text-xs text-zinc-400 whitespace-nowrap" data-utc="{{ log.started_at }}">
+        <tr class="border-b border-zinc-200 dark:border-border hover:bg-[var(--color-surface)] {{ 'audit-row-muted' if log.is_noise else '' }}">
+          <td class="p-3 text-xs text-muted whitespace-nowrap" data-utc="{{ log.started_at }}">
             {{ log.started_at_display }}
-            {% if log.duration %}<div class="text-[10px] text-zinc-600">{{ log.duration }}</div>{% endif %}
+            {% if log.duration %}<div class="text-[10px] text-muted">{{ log.duration }}</div>{% endif %}
           </td>
           <td class="p-3">
             <span class="action-pill">{{ log.action_label }}</span>
           </td>
-          <td class="p-3 text-xs text-zinc-400">
+          <td class="p-3 text-xs text-muted">
             {% if log.server_id %}
-              <a href="/servers/{{ log.server_id }}" class="text-emerald-400">{{ log.server_name or ('#' ~ log.server_id) }}</a>
+              <a href="/servers/{{ log.server_id }}" class="text-accent dark:text-accent">{{ log.server_name or ('#' ~ log.server_id) }}</a>
             {% else %}
               —
             {% endif %}
           </td>
-          <td class="p-3 text-zinc-300 audit-summary" title="{{ log.summary }}">{{ log.summary }}</td>
+          <td class="p-3 text-zinc-700 dark:text-zinc-300 audit-summary" title="{{ log.summary }}">{{ log.summary }}</td>
           <td class="p-3">
             {% set sd = log.status_display %}
             <span class="status-pill {{ 'status-success' if sd == 'success' else 'status-failed' if sd == 'failed' else 'status-running' if sd == 'running' else 'status-stopped' if sd == 'stopped' else 'status-cancelled' }}">
@@ -114,12 +115,12 @@
           <td class="p-3">
             <button type="button"
                     onclick="showAuditDetailsModal(AUDIT_LOGS[{{ loop.index0 }}])"
-                    class="text-[11px] px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded text-zinc-400">View</button>
+                    class="btn-secondary btn-sm">View</button>
           </td>
         </tr>
         {% else %}
         <tr>
-          <td colspan="6" class="p-8 text-center text-zinc-500">
+          <td colspan="6" class="p-8 text-center text-muted">
             No entries match.
             {% if hide_noise %}<span class="block mt-1 text-xs">Try unchecking “Hide incomplete runs”.</span>{% endif %}
           </td>
@@ -130,20 +131,20 @@
   </div>
 </div>
 
-<p class="mt-3 text-xs text-zinc-600">Showing up to 100 entries · times in {{ get_app_timezone() }}</p>
+<p class="mt-3 text-xs text-muted">Showing up to 100 entries · times in {{ get_app_timezone() }}</p>
 
 <script>
 const AUDIT_LOGS = {{ logs | tojson | safe }};
 </script>
 
 <div id="audit-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-4 w-full max-w-3xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
+  <div class="bg-surface border border-border rounded-xl p-4 w-full max-w-3xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
     <!-- Close button on top -->
     <div class="flex justify-end mb-2 flex-shrink-0">
-      <button type="button" onclick="hideAuditDetailsModal()" class="text-zinc-400 hover:text-white text-sm px-2">✕</button>
+      <button type="button" onclick="hideAuditDetailsModal()" class="btn-secondary btn-sm">✕</button>
     </div>
     <!-- Details in middle -->
-    <pre id="audit-details-content" class="flex-1 min-h-0 overflow-auto bg-zinc-950 p-3 text-xs font-mono whitespace-pre-wrap border border-zinc-800 rounded text-zinc-300"></pre>
+    <pre id="audit-details-content" class="flex-1 min-h-0 overflow-auto bg-surface border border-border p-3 text-xs font-mono whitespace-pre-wrap rounded log-area"></pre>
   </div>
 </div>
 

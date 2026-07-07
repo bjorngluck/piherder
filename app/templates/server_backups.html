@@ -2,55 +2,55 @@
 
 {% block content %}
 <div>
-  <a href="/servers/{{ server.id }}" class="text-xs text-emerald-400 hover:underline">← {{ server.name }}</a>
-  <span class="text-xs text-zinc-500 mx-1">·</span>
-  <a href="/servers" class="text-xs text-emerald-400 hover:underline">All servers</a>
+  <a href="/servers/{{ server.id }}" class="text-xs text-accent hover:underline">← {{ server.name }}</a>
+  <span class="text-xs text-muted mx-1">·</span>
+  <a href="/servers" class="text-xs text-accent hover:underline">All servers</a>
   <div class="flex items-center gap-3 mt-1">
     <span class="text-3xl">🐑</span>
     <h1 class="text-3xl font-semibold">Backups for {{ server.name }}</h1>
   </div>
-  <div class="text-zinc-400">{{ server.hostname }}</div>
+  <div class="text-muted">{{ server.hostname }}</div>
 </div>
 
 {% if last_backup_status %}
-<div class="mt-2 text-xs px-2 py-0.5 inline-block rounded {{ 'bg-emerald-800 text-emerald-300' if last_backup_status == 'success' else 'bg-red-800 text-red-300' }}">
+<div class="mt-2 text-xs px-2 py-0.5 inline-block rounded {{ 'bg-accent/20 text-accent' if last_backup_status == 'success' else 'bg-primary/20 text-primary' }}">
   Last backup run: {{ last_backup_status }}
 </div>
 {% endif %}
 
 <!-- Full backup sources management moved here from server detail to reduce clutter -->
-<div class="mt-6 bg-zinc-900 border border-zinc-800 p-5 rounded-xl">
+<div class="mt-6 bg-surface border border-border p-5 rounded-xl">
   <div class="flex justify-between items-center mb-2">
     <div>
       <h3 class="font-medium">Backup Sources</h3>
       {% set g = global_backup_defaults if global_backup_defaults and global_backup_defaults is mapping else {} %}
       {% set effective_root = server.backup_dest_root or g.dest_root or settings.BACKUP_ROOT %}
       {% set effective_folder = server.backup_folder_name or g.folder_name or server.hostname %}
-      <p class="text-xs text-zinc-400">Source on remote → Destination under <code>{{ effective_root }}/{{ effective_folder }}/</code> (inside container)</p>
-      <p class="text-[10px] text-zinc-500">Default folders (global or per-host): /home/.../docker/ and docker volumes</p>
+      <p class="text-xs text-muted">Source on remote → Destination under <code>{{ effective_root }}/{{ effective_folder }}/</code> (inside container)</p>
+      <p class="text-[10px] text-muted">Default folders (global or per-host): /home/.../docker/ and docker volumes</p>
     </div>
     <button type="button" onclick="showBackupConfigModal()"
-            class="ml-3 text-xs px-2 py-0.5 bg-zinc-800 hover:bg-zinc-700 rounded border border-zinc-700">Configure</button>
+            class="ml-3 text-xs px-2 py-0.5 bg-surface border border-border hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] rounded border border-zinc-300 dark:border-border">Configure</button>
   </div>
 
   <!-- Persistent backup status banner -->
   {% if backup_running %}
-  <div id="active-backup-status" class="mb-3 p-2 bg-blue-900/60 border border-blue-700 rounded text-sm space-y-1">
+  <div id="active-backup-status" class="mb-3 p-2 bg-accent/20 border border-accent rounded text-sm space-y-1">
     {% if running_backup_job %}
       {% set rj = running_backup_job.details | fromjson if running_backup_job.details else {} %}
       <div class="flex items-center gap-2 flex-wrap">
         <span class="font-medium">Running:</span>
-        <span class="font-mono text-emerald-300">{{ rj.source_filter or rj.current or 'full backup' }}</span>
-        <button type="button" onclick="openBackupLog({{ (rj.source_filter or '') | tojson }}, {{ running_backup_job.id }})" class="px-2 py-0.5 text-xs bg-blue-700 hover:bg-blue-600 rounded">Log</button>
-        <button type="button" onclick="activePollJobId={{ running_backup_job.id }}; activePollSource={{ (rj.source_filter or '') | tojson }}; stopCurrentBackup()" class="px-2 py-0.5 text-xs bg-red-700 hover:bg-red-600 rounded text-white">Stop</button>
+        <span class="font-mono text-accent">{{ rj.source_filter or rj.current or 'full backup' }}</span>
+        <button type="button" onclick="openBackupLog({{ (rj.source_filter or '') | tojson }}, {{ running_backup_job.id }})" class="px-2 py-0.5 text-xs bg-accent hover:bg-[var(--color-accent)] rounded">Log</button>
+        <button type="button" onclick="activePollJobId={{ running_backup_job.id }}; activePollSource={{ (rj.source_filter or '') | tojson }}; stopCurrentBackup()" class="btn-primary btn-sm text-white">Stop</button>
       </div>
     {% endif %}
     {% for qj in active_backup_jobs if qj.status == 'pending' %}
       {% set qd = qj.details | fromjson if qj.details else {} %}
-      <div class="flex items-center gap-2 text-xs text-zinc-400">
+      <div class="flex items-center gap-2 text-xs text-muted">
         <span>Queued:</span>
         <span class="font-mono">{{ qd.source_filter or 'full backup' }}</span>
-        <button type="button" onclick="openBackupLog({{ (qd.source_filter or '') | tojson }}, {{ qj.id }})" class="px-2 py-0.5 bg-zinc-700 hover:bg-zinc-600 rounded">View</button>
+        <button type="button" onclick="openBackupLog({{ (qd.source_filter or '') | tojson }}, {{ qj.id }})" class="px-2 py-0.5 bg-surface border border-border hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] rounded">View</button>
       </div>
     {% endfor %}
   </div>
@@ -59,44 +59,44 @@
   {% if backup_profiles %}
   <table class="w-full text-sm mb-4">
     <thead>
-      <tr class="text-left text-xs text-zinc-400 border-b border-zinc-700">
+      <tr class="text-left text-xs text-muted border-b border-zinc-200 dark:border-border">
         <th class="py-1 pr-2">Source</th>
         <th class="py-1 pr-2">Full Destination Path</th>
         <th class="py-1 pr-2">Last Backed Up</th>
         <th class="py-1"></th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-zinc-800">
+    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
       {% for p in backup_profiles %}
       <tr class="{{ 'opacity-50' if not p.enabled else '' }}" data-source="{{ p.source }}">
         <td class="py-1.5 pr-2 font-mono text-xs">{{ p.source }}</td>
-        <td class="py-1.5 pr-2 font-mono text-xs text-zinc-400">{{ p.destination }}</td>
+        <td class="py-1.5 pr-2 font-mono text-xs text-muted">{{ p.destination }}</td>
         <td class="py-1.5 pr-2 text-xs">
           {% if p.last_backup %}
-            <span class="text-emerald-300">{{ p.last_backup | app_tz }}</span>
+            <span class="text-accent">{{ p.last_backup | app_tz }}</span>
           {% else %}
-            <span class="text-zinc-500">never</span>
+            <span class="text-muted">never</span>
           {% endif %}
         </td>
         <td class="py-1.5 text-right flex gap-1 justify-end items-center">
           {% if p.active_job_status == 'running' %}
-          <button type="button" onclick="openBackupLog({{ p.source | tojson }}, {{ p.active_job_id }})" class="px-4 py-2 bg-blue-700 hover:bg-blue-600 rounded text-sm">📋 Log</button>
+          <button type="button" onclick="openBackupLog({{ p.source | tojson }}, {{ p.active_job_id }})" class="px-4 py-2 bg-accent hover:bg-[var(--color-accent)] rounded text-sm">📋 Log</button>
           {% elif p.active_job_status == 'pending' %}
-          <button type="button" onclick="openBackupLog({{ p.source | tojson }}, {{ p.active_job_id }})" class="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 rounded text-sm" title="Waiting for worker">⏳ Queued</button>
+          <button type="button" onclick="openBackupLog({{ p.source | tojson }}, {{ p.active_job_id }})" class="px-4 py-2 bg-surface border border-border hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] rounded text-sm" title="Waiting for worker">⏳ Queued</button>
           {% else %}
           <form method="post" action="/servers/{{ server.id }}/run/backup" class="inline backup-run-form" data-source="{{ p.source }}">
             <input type="hidden" name="source" value="{{ p.source }}">
-            <button class="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-sm" title="Run only this source">▶ Backup</button>
+            <button class="btn-accent btn-sm" title="Run only this source">▶ Backup</button>
           </form>
           {% endif %}
-          <button type="button" onclick="showRemoveBackupModal('{{ p.source }}')" class="px-4 py-2 bg-red-700 hover:bg-red-600 rounded text-sm text-white">Remove</button>
+          <button type="button" onclick="showRemoveBackupModal('{{ p.source }}')" class="btn-primary btn-sm text-white">Remove</button>
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% else %}
-  <div class="mb-3 p-2 bg-zinc-950 border border-zinc-800 rounded text-xs">
+  <div class="mb-3 p-2 bg-surface border border-border rounded text-xs">
     <strong>Defaults</strong> (global or per-host):<br>
     {% set gsrc = global_backup_defaults.sources if global_backup_defaults and global_backup_defaults.sources is defined else global_backup_defaults %}
     {% for d in (gsrc or ["/home/.../docker/", "/var/lib/docker/volumes/"]) %}
@@ -108,94 +108,94 @@
   <!-- Add new source -->
   <form method="post" action="/servers/{{ server.id }}/backup/add" class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
     <div class="md:col-span-1">
-      <label class="text-xs text-zinc-400 block mb-0.5">Source path on remote</label>
-      <input name="new_path" placeholder="/home/bjorn/new-project/" class="w-full bg-zinc-950 border border-zinc-700 text-sm px-2 py-1 rounded font-mono">
+      <label class="text-xs text-muted block mb-0.5">Source path on remote</label>
+      <input name="new_path" placeholder="/home/bjorn/new-project/" class="w-full bg-surface border border-border text-sm px-2 py-1 rounded font-mono">
     </div>
     <div>
-      <label class="text-xs text-zinc-400 block mb-0.5">Custom dest folder (optional)</label>
-      <input name="dest_name" placeholder="my-project-backup" class="w-full bg-zinc-950 border border-zinc-700 text-sm px-2 py-1 rounded font-mono">
+      <label class="text-xs text-muted block mb-0.5">Custom dest folder (optional)</label>
+      <input name="dest_name" placeholder="my-project-backup" class="w-full bg-surface border border-border text-sm px-2 py-1 rounded font-mono">
     </div>
     <div class="flex items-end">
-      <button type="submit" class="bg-emerald-700 hover:bg-emerald-600 px-4 py-1 rounded text-sm">Add Source</button>
+      <button type="submit" class="bg-accent hover:bg-[var(--color-accent)] px-4 py-1 rounded text-sm">Add Source</button>
     </div>
   </form>
-  <div id="add-source-error" class="text-red-400 text-xs mt-1 hidden"></div>
+  <div id="add-source-error" class="text-primary text-xs mt-1 hidden"></div>
 
   <!-- Retention + Schedule hint -->
-  <div class="border-t border-zinc-800 pt-3">
+  <div class="border-t border-zinc-200 dark:border-border pt-3">
     <form method="post" action="/servers/{{ server.id }}/backup-config" class="flex gap-2 items-end text-sm mb-2">
       <div>
-        <label class="block text-xs text-zinc-400">Retention days</label>
-        <input type="number" name="retention_days" value="{{ server.retention_days or 7 }}" class="w-16 bg-black border border-zinc-700 px-2 py-1 rounded">
+        <label class="block text-xs text-muted">Retention days</label>
+        <input type="number" name="retention_days" value="{{ server.retention_days or 7 }}" class="w-16 bg-surface border border-border px-2 py-1 rounded">
       </div>
-      <button type="submit" class="px-3 py-1 bg-zinc-700 hover:bg-zinc-600 rounded text-xs">Update</button>
+      <button type="submit" class="px-3 py-1 bg-surface border border-border hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] rounded text-xs">Update</button>
     </form>
-    <p class="text-[10px] text-zinc-500 mt-1">Use Configure button for full schedules/cron. Quick runs above or on server screen.</p>
+    <p class="text-[10px] text-muted mt-1">Use Configure button for full schedules/cron. Quick runs above or on server screen.</p>
   </div>
 </div>
 
 <div class="mt-4">
   <a href="/servers/{{ server.id }}" class="text-xs">← Back to server</a>
   <span class="mx-2">·</span>
-  <a href="/audit?server_id={{ server.id }}&search=backup" class="text-xs text-emerald-400">View backups in audit</a>
+  <a href="/audit?server_id={{ server.id }}&search=backup" class="text-xs text-accent dark:text-accent">View backups in audit</a>
   <span class="mx-1">·</span>
-  <a href="/audit?server_id={{ server.id }}" class="text-xs text-emerald-400">All server logs</a>
+  <a href="/audit?server_id={{ server.id }}" class="text-xs text-accent dark:text-accent">All server logs</a>
 </div>
 
 <!-- Include key modals and JS (duplicated from detail for self-contained page) -->
 
 <!-- Backup Config Modal -->
 <div id="backup-config-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-xl mx-4">
+  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-xl mx-4">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">Configure Backups</h3>
-      <button onclick="hideBackupConfigModal()" class="text-zinc-400">✕</button>
+      <button onclick="hideBackupConfigModal()" class="text-muted">✕</button>
     </div>
 
     <form method="post" action="/servers/{{ server.id }}/backup-config">
       <div class="mb-3">
-        <label class="text-xs text-zinc-400">Sources (one per line)</label>
-        <textarea name="backup_paths" class="w-full font-mono text-xs bg-black border border-zinc-700 p-2 rounded h-20">{% set gsrc = current_sources if current_sources else (global_backup_defaults.sources if global_backup_defaults and global_backup_defaults.sources is defined else global_backup_defaults) %}
+        <label class="text-xs text-muted">Sources (one per line)</label>
+        <textarea name="backup_paths" class="w-full font-mono text-xs bg-surface border border-border p-2 rounded h-20">{% set gsrc = current_sources if current_sources else (global_backup_defaults.sources if global_backup_defaults and global_backup_defaults.sources is defined else global_backup_defaults) %}
 {% for p in (gsrc or []) %}{{ p }}
 {% endfor %}</textarea>
       </div>
 
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="text-xs text-zinc-400">Retention days</label>
-          <input type="number" name="retention_days" value="{{ server.retention_days or 7 }}" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded">
+          <label class="text-xs text-muted">Retention days</label>
+          <input type="number" name="retention_days" value="{{ server.retention_days or 7 }}" class="w-full bg-surface border border-border px-2 py-1 rounded">
         </div>
         <div>
-          <label class="text-xs text-zinc-400">Schedule</label>
-          <input type="text" name="backup_schedule" id="cron-input" value="{{ server.backup_schedule or '' }}" placeholder="0 2 * * *" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded font-mono text-xs">
-          <p class="text-[9px] text-zinc-500">e.g. 0 2 * * * for 2am daily. Use Configure on main or advanced.</p>
+          <label class="text-xs text-muted">Schedule</label>
+          <input type="text" name="backup_schedule" id="cron-input" value="{{ server.backup_schedule or '' }}" placeholder="0 2 * * *" class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs">
+          <p class="text-[9px] text-muted">e.g. 0 2 * * * for 2am daily. Use Configure on main or advanced.</p>
         </div>
       </div>
 
-      <div class="mt-3 border-t border-zinc-700 pt-2">
-        <div class="text-xs text-zinc-400 mb-1 font-medium">Destination config</div>
+      <div class="mt-3 border-t border-border pt-2">
+        <div class="text-xs text-muted mb-1 font-medium">Destination config</div>
         <div class="grid grid-cols-2 gap-2">
           <div>
-            <label class="text-xs text-zinc-400 block">Default destination path root</label>
-            <input name="dest_root" value="{{ server.backup_dest_root or g.dest_root or settings.BACKUP_ROOT }}" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded text-sm font-mono">
+            <label class="text-xs text-muted block">Default destination path root</label>
+            <input name="dest_root" value="{{ server.backup_dest_root or g.dest_root or settings.BACKUP_ROOT }}" class="w-full bg-surface border border-border px-2 py-1 rounded text-sm font-mono">
           </div>
           <div>
-            <label class="text-xs text-zinc-400 block">Server folder name</label>
-            <input name="folder_name" value="{{ server.backup_folder_name or g.folder_name or '' }}" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded text-sm font-mono">
+            <label class="text-xs text-muted block">Server folder name</label>
+            <input name="folder_name" value="{{ server.backup_folder_name or g.folder_name or '' }}" class="w-full bg-surface border border-border px-2 py-1 rounded text-sm font-mono">
           </div>
         </div>
       </div>
 
       <div class="mt-3">
-        <div class="text-xs text-zinc-400 mb-1">Save scope</div>
+        <div class="text-xs text-muted mb-1">Save scope</div>
         <label class="flex gap-2 text-sm"><input type="radio" name="scope" value="this_host" checked> This host only</label>
         <label class="flex gap-2 text-sm"><input type="radio" name="scope" value="global"> Global default</label>
       </div>
 
-      <div id="config-error" class="text-red-400 text-sm mb-2 hidden"></div>
+      <div id="config-error" class="text-primary text-sm mb-2 hidden"></div>
       <div class="flex gap-2 mt-4">
-        <button type="submit" class="px-4 py-1 bg-emerald-700 hover:bg-emerald-600 rounded text-sm">Save</button>
-        <button type="button" onclick="hideBackupConfigModal()" class="px-4 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-sm ml-auto">Cancel</button>
+        <button type="submit" class="btn-accent btn-sm">Save</button>
+        <button type="button" onclick="hideBackupConfigModal()" class="px-3 py-1 bg-surface border border-border hover:bg-[var(--color-surface)] rounded text-sm ml-auto">Cancel</button>
       </div>
     </form>
   </div>
@@ -203,39 +203,39 @@
 
 <!-- Remove Backup Source Modal -->
 <div id="remove-backup-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-md mx-4">
+  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-md mx-4">
     <h3 class="font-semibold mb-2">Confirm Remove Backup Source</h3>
-    <p class="text-sm text-zinc-400 mb-2">You are about to remove this backup source:</p>
-    <div id="remove-source-display" class="font-mono text-sm bg-black border border-zinc-700 p-2 rounded mb-4 break-all"></div>
-    <p class="text-xs text-red-400 mb-4">This cannot be undone.</p>
+    <p class="text-sm text-muted mb-2">You are about to remove this backup source:</p>
+    <div id="remove-source-display" class="font-mono text-sm bg-surface border border-border p-2 rounded mb-4 break-all"></div>
+    <p class="text-xs text-primary mb-4">This cannot be undone.</p>
     
     <form id="remove-backup-form" method="post" action="/servers/{{ server.id }}/backup/remove">
       <input type="hidden" name="path" id="remove-source-input">
     </form>
     
     <div class="flex gap-2 justify-end">
-      <button type="button" onclick="hideRemoveBackupModal()" class="px-4 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-sm">Cancel</button>
-      <button type="button" onclick="confirmRemoveBackupSource()" class="px-4 py-1 bg-red-700 hover:bg-red-600 rounded text-sm text-white">Confirm Remove</button>
+      <button type="button" onclick="hideRemoveBackupModal()" class="btn-secondary btn-sm">Cancel</button>
+      <button type="button" onclick="confirmRemoveBackupSource()" class="btn-primary btn-sm text-white">Confirm Remove</button>
     </div>
   </div>
 </div>
 
 <!-- Backup Progress Modal (for live feedback when running from here) -->
 <div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
+  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
     <!-- Buttons on top -->
     <div class="flex justify-between items-center mb-2 flex-shrink-0">
       <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
       <div class="flex gap-1">
-        <button id="progress-stop-btn" class="text-xs px-2 py-1 bg-red-700 hover:bg-red-600 rounded text-white">Stop</button>
-        <button onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 bg-zinc-800 rounded">Close</button>
+        <button id="progress-stop-btn" class="btn-primary btn-sm text-white">Stop</button>
+        <button onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 bg-surface border border-border rounded">Close</button>
       </div>
     </div>
-    <div id="backup-current-source" class="text-sm mb-1 text-emerald-300 font-mono min-h-[1.25rem] flex-shrink-0"></div>
+    <div id="backup-current-source" class="text-sm mb-1 text-accent dark:text-accent font-mono min-h-[1.25rem] flex-shrink-0"></div>
     <!-- Label above logs -->
-    <div class="text-xs text-zinc-400 mb-1 flex-shrink-0">Live output</div>
+    <div class="text-xs text-muted mb-1 flex-shrink-0">Live output</div>
     <!-- Logs in middle -->
-    <pre id="backup-progress-log" class="flex-1 min-h-0 overflow-auto bg-black p-3 text-xs font-mono whitespace-pre-wrap border border-zinc-800 rounded">Starting...</pre>
+    <pre id="backup-progress-log" class="flex-1 min-h-0 overflow-auto bg-surface border border-border p-3 text-xs font-mono whitespace-pre-wrap rounded log-area">Starting...</pre>
   </div>
 </div>
 

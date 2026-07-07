@@ -33,16 +33,17 @@
 
   <style>
     /* Robust fallback + base styles so UI looks decent even if Tailwind CDN fails to load */
-    :root { color-scheme: dark; }
-    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #18181b; color: #e4e4e7; line-height: 1.5; margin: 0; }
-    a { color: #34d399; text-decoration: none; }
+    /* Light-first + .dark overrides for theme support (matches themes.css + Tailwind dark: usage) */
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--color-bg); color: var(--color-text); line-height: 1.5; margin: 0; }
+    a { color: var(--color-accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
-    .card { background: #27272a; border: 1px solid #3f3f46; border-radius: 12px; }
-    nav { background: #27272a; border-bottom: 1px solid #3f3f46; }
+    .card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 12px; }
+    nav { background: var(--color-surface); border-bottom: 1px solid var(--color-border); }
     table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #3f3f46; }
-    th { background: #27272a; font-weight: 500; color: #a1a1aa; font-size: 0.75rem; }
-    input, textarea, select { background: #18181b; border: 1px solid #3f3f46; color: #e4e4e7; border-radius: 6px; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--color-border); }
+    th { background: var(--color-surface); font-weight: 500; color: var(--color-muted); font-size: 0.75rem; }
+    input:not([type="checkbox"]), textarea, select { background: var(--color-surface); border: 1px solid var(--color-border); color: var(--color-text); border-radius: 6px; }
     button { cursor: pointer; }
     h1, h2, h3 { font-weight: 600; }
 
@@ -172,11 +173,84 @@
     .animate-spin { animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Backgrounds (core zinc + accent palette) */
-    .bg-zinc-950 { background-color: #18181b; }
-    .bg-zinc-900 { background-color: #27272a; }
-    .bg-zinc-800 { background-color: #3f3f46; }
-    .bg-zinc-700 { background-color: #52525b; }
+    /* CSS var utilities for theming (preferred for consistency with themes.css) */
+    .bg-bg { background-color: var(--color-bg); }
+    .bg-surface { background-color: var(--color-surface); }
+    .text-text { color: var(--color-text); }
+    .border-border { border-color: var(--color-border); }
+    .text-muted { color: var(--color-muted); }
+    .bg-primary { background-color: var(--color-primary); color: white; }
+    .bg-accent { background-color: var(--color-accent); color: white; }
+    .text-primary { color: var(--color-primary); }
+    .text-accent { color: var(--color-accent); }
+
+    /* Support for arbitrary var values */
+    .bg-\[var\(--color-bg\)\] { background-color: var(--color-bg); }
+    .bg-\[var\(--color-surface\)\] { background-color: var(--color-surface); }
+    .border-\[var\(--color-border\)\] { border-color: var(--color-border); }
+    .text-\[var\(--color-text\)\] { color: var(--color-text); }
+    .text-\[var\(--color-muted\)\] { color: var(--color-muted); }
+
+    /* Consistent buttons */
+    .btn-primary, .btn-accent, button.btn-primary, button.btn-accent { padding: 0.25rem 0.75rem; font-size: 0.875rem; border-radius: 0.25rem; color: white; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; font-weight: 500; }
+    .btn-primary, button.btn-primary { background-color: var(--color-primary); }
+    .btn-accent, button.btn-accent { background-color: var(--color-accent); }
+    .btn-primary:hover, .btn-accent:hover, button.btn-primary:hover, button.btn-accent:hover { filter: brightness(0.85); }
+    .btn-sm, button.btn-sm { padding: 0.125rem 0.5rem; font-size: 0.75rem; }
+    .btn-secondary, button.btn-secondary { padding: 0.25rem 0.75rem; font-size: 0.875rem; border-radius: 0.25rem; background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); }
+    .btn-secondary:hover, button.btn-secondary:hover { background: var(--color-bg); }
+
+    /* Forms */
+    input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 1rem;
+      height: 1rem;
+      background-color: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 0.2rem;
+      cursor: pointer;
+      vertical-align: middle;
+      position: relative;
+      flex-shrink: 0;
+      margin: 0;
+    }
+    input[type="checkbox"]:checked {
+      background-color: var(--color-accent);
+      border-color: var(--color-accent);
+    }
+    input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 5px;
+      width: 3px;
+      height: 6px;
+      border: solid white;
+      border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    input[type="checkbox"]:focus {
+      outline: 2px solid var(--color-accent);
+      outline-offset: 1px;
+    }
+    input:not([type="checkbox"]), textarea, select { background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); border-radius: 0.25rem; }
+
+    /* Logs/pre */
+    pre.log, pre.stream, .log-area { background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); font-family: ui-monospace, monospace; font-size: 0.75rem; }
+
+    /* Backgrounds (core zinc + accent palette) — light defaults + .dark overrides */
+    .bg-zinc-50 { background-color: var(--color-bg); }
+    .bg-zinc-100 { background-color: var(--color-surface); }
+    .bg-zinc-200 { background-color: var(--color-surface); }
+    .bg-zinc-700 { background-color: var(--color-surface); }
+    .dark .bg-zinc-700 { background-color: var(--color-surface); }
+    .bg-zinc-800 { background-color: var(--color-surface); }
+    .dark .bg-zinc-800 { background-color: var(--color-surface); }
+    .bg-zinc-900 { background-color: var(--color-surface); }
+    .dark .bg-zinc-900 { background-color: var(--color-surface); }
+    .bg-zinc-950 { background-color: var(--color-bg); }
+    .dark .bg-zinc-950 { background-color: var(--color-bg); }
     .bg-black { background-color: #000; }
     .bg-black\/70 { background-color: rgba(0, 0, 0, 0.70); }
     .bg-emerald-500 { background-color: #10b981; }
@@ -184,7 +258,8 @@
     .bg-emerald-700 { background-color: #047857; }
     .bg-emerald-800 { background-color: #065f46; }
     .bg-emerald-900 { background-color: #064e3b; }
-    .bg-emerald-950\/30 { background-color: rgba(16, 185, 129, .3); }
+    .bg-emerald-950\/30 { background-color: rgba(0, 166, 81, .15); }
+    .dark .bg-emerald-950\/30 { background-color: rgba(0, 166, 81, .3); }
     .bg-amber-600 { background-color: #d97706; }
     .bg-amber-700 { background-color: #b45309; }
     .bg-amber-800 { background-color: #92400e; }
@@ -195,28 +270,50 @@
     .bg-blue-600 { background-color: #2563eb; }
     .bg-blue-700 { background-color: #1d4ed8; }
 
-    /* Text colors */
-    .text-zinc-200 { color: #e4e4e7; }
-    .text-zinc-300 { color: #d4d4d8; }
-    .text-zinc-400 { color: #a1a1aa; }
-    .text-zinc-500 { color: #71717a; }
-    .text-zinc-600 { color: #52525b; }
-    .text-emerald-200 { color: #a7f3d0; }
-    .text-emerald-300 { color: #6ee7b7; }
-    .text-emerald-400 { color: #34d399; }
-    .text-emerald-500 { color: #10b981; }
-    .text-amber-300 { color: #fcd34d; }
-    .text-red-300 { color: #fca5a5; }
-    .text-red-400 { color: #f87171; }
+    /* Text colors — light defaults + .dark overrides */
+    .text-zinc-200 { color: var(--color-text); }
+    .dark .text-zinc-200 { color: var(--color-text); }
+    .text-zinc-300 { color: var(--color-muted); }
+    .dark .text-zinc-300 { color: var(--color-muted); }
+    .text-muted { color: var(--color-muted); }
+    .dark .text-muted { color: var(--color-muted); }
+    .text-muted { color: var(--color-muted); }
+    .dark .text-muted { color: var(--color-muted); }
+    .text-muted { color: var(--color-muted); }
+    .dark .text-muted { color: var(--color-muted); }
+    .text-zinc-900 { color: var(--color-text); }
+    .dark .text-zinc-900 { color: var(--color-text); }
+    .text-emerald-200 { color: var(--color-accent); }
+    .dark .text-emerald-200 { color: var(--color-accent); }
+    .text-accent { color: #047857; }
+    .dark .text-accent { color: #6ee7b7; }
+    .text-accent { color: #059669; }
+    .dark .text-accent { color: #34d399; }
+    .text-accent { color: #10b981; }
+    .text-amber-300 { color: #92400e; }
+    .dark .text-amber-300 { color: #fcd34d; }
+    .text-red-300 { color: #b91c1c; }
+    .dark .text-red-300 { color: #fca5a5; }
+    .text-red-400 { color: #dc2626; }
+    .dark .text-red-400 { color: #f87171; }
 
     /* Borders */
-    .border-zinc-700 { border-color: #52525b; }
-    .border-zinc-800 { border-color: #3f3f46; }
-    .border-zinc-900 { border-color: #27272a; }
+    .border-border { border-color: var(--color-border); }
+    .dark .border-border { border-color: var(--color-border); }
+    .border-border { border-color: var(--color-border); }
+    .dark .border-border { border-color: var(--color-border); }
+    .border-zinc-900 { border-color: var(--color-border); }
+    .dark .border-zinc-900 { border-color: var(--color-border); }
+    .border-zinc-200 { border-color: var(--color-border); }
+    .dark .border-zinc-200 { border-color: var(--color-border); }
 
     /* Hover states (approximate for key interactive elements) */
-    .hover\:bg-zinc-700:hover { background-color: #52525b; }
-    .hover\:bg-zinc-800:hover { background-color: #3f3f46; }
+    .hover\:bg-zinc-600:hover { background-color: #e5e7eb; }
+    .dark .hover\:bg-zinc-600:hover { background-color: #4b5563; }
+    .hover\:bg-zinc-700:hover { background-color: #d1d5db; }
+    .dark .hover\:bg-zinc-700:hover { background-color: #52525b; }
+    .hover\:bg-zinc-800:hover { background-color: #e5e7eb; }
+    .dark .hover\:bg-zinc-800:hover { background-color: #3f3f46; }
     .hover\:bg-emerald-600:hover { background-color: #059669; }
     .hover\:bg-emerald-700:hover { background-color: #047857; }
     .hover\:bg-amber-600:hover { background-color: #d97706; }
@@ -225,47 +322,50 @@
     .hover\:bg-red-700:hover { background-color: #b91c1c; }
     .hover\:bg-blue-600:hover { background-color: #2563eb; }
     .hover\:text-white:hover { color: #fff; }
+    .hover\:text-zinc-900:hover { color: #111827; }
+    .dark .hover\:text-zinc-900:hover { color: #fff; }
 
     /* Misc used in docker/containers/modals */
-    .text-emerald-400 { color: #34d399; }
-    .divide-y > * + * { border-top: 1px solid #3f3f46; }
-    .bg-emerald-950\/30 { background-color: rgba(16,185,129,.30); }
+    .text-accent { color: #059669; }
+    .dark .text-accent { color: #34d399; }
+    .divide-y > * + * { border-top: 1px solid var(--color-border); }
+    .bg-emerald-950\/30 { background-color: rgba(16,185,129,.3); }
   </style>
 </head>
-<body class="bg-zinc-950 text-zinc-200">
-  <nav class="border-b border-zinc-800 bg-zinc-900">
+<body class="bg-bg text-text">
+  <nav class="border-b border-border bg-surface">
     <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
           <span class="text-3xl">🐑</span>
           <div>
             <a href="/" class="font-semibold text-2xl tracking-tighter">PiHerder</a>
-            <div class="text-[10px] text-emerald-500 -mt-1 font-mono">BACKUPS</div>
+            <div class="text-[10px] text-accent -mt-1 font-mono">BACKUPS</div>
           </div>
         </div>
-        <div class="hidden md:block text-xs text-zinc-500 pl-2 border-l border-zinc-800">
+        <div class="hidden md:block text-xs text-muted pl-2 border-l border-border">
           Raspberry Pi backup management
         </div>
       </div>
 
       <div class="flex items-center gap-4 text-sm">
-        <a href="/" class="hover:text-white transition">Dashboard</a>
-        <a href="/servers" class="hover:text-white transition">Servers</a>
-        <a href="/audit" class="hover:text-white transition">Audit</a>
-        <a href="/herder-backups" class="hover:text-white transition text-xs self-center">Settings</a>
+        <a href="/" class="hover:text-zinc-900 dark:hover:text-white transition">Dashboard</a>
+        <a href="/servers" class="hover:text-zinc-900 dark:hover:text-white transition">Servers</a>
+        <a href="/audit" class="hover:text-zinc-900 dark:hover:text-white transition">Audit</a>
+        <a href="/herder-backups" class="hover:text-zinc-900 dark:hover:text-white transition text-xs self-center">Settings</a>
 
         <!-- Theme Toggle Button -->
         <button id="theme-toggle" 
-                class="p-2 rounded-lg hover:bg-zinc-800 transition-colors" 
+                class="p-2 rounded-lg hover:bg-[var(--color-surface)] transition-colors" 
                 title="Toggle light/dark theme">
           <span id="theme-icon" class="text-xl">☀️</span>
         </button>
 
         {% if user %}
-          <span class="text-zinc-500 text-xs">· {{ user.email.split('@')[0] }}</span>
-          <a href="/auth/login" class="text-zinc-400 hover:text-red-400 transition text-xs">Sign out</a>
+          <span class="text-muted dark:text-muted text-xs">· {{ user.email.split('@')[0] }}</span>
+          <a href="/auth/login" class="text-muted dark:text-muted hover:text-primary transition text-xs">Sign out</a>
         {% else %}
-          <a href="/auth/login" class="px-3 py-1 bg-zinc-800 hover:bg-zinc-700 rounded text-xs transition">Login</a>
+          <a href="/auth/login" class="px-3 py-1 bg-surface border border-border hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] dark:hover:bg-[var(--color-surface)] rounded text-xs transition">Login</a>
         {% endif %}
       </div>
     </div>
@@ -275,9 +375,9 @@
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="text-center text-xs text-zinc-500 py-8 border-t border-zinc-900 mt-12">
+  <footer class="text-center text-xs text-muted dark:text-muted py-8 border-t border-zinc-200 dark:border-zinc-900 mt-12">
     PiHerder • Secure fleet management for Raspberry Pi clusters<br>
-    <span class="text-[10px] text-zinc-600">Zero plaintext secrets • All actions audited</span>
+    <span class="text-[10px] text-muted dark:text-muted">Zero plaintext secrets • All actions audited</span>
   </footer>
 
   <!-- Theme toggle script -->

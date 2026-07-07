@@ -6,9 +6,9 @@
   <h1 class="text-3xl font-semibold">Settings</h1>
 </div>
 
-<a href="/" class="text-emerald-400 text-sm">← Dashboard</a>
+<a href="/" class="text-accent text-sm">← Dashboard</a>
 
-<p class="text-sm text-zinc-400 mt-2 mb-4">
+<p class="text-sm text-muted mt-2 mb-4">
   App preferences and PiHerder self-backups (config + encrypted keys + optional audit). Stored on host via mapped volume.
 </p>
 
@@ -16,24 +16,24 @@
 {% set current_tz = cfg.timezone or 'UTC' %}
 
 <!-- Separate Timezone (not tied to backups) -->
-<div class="bg-zinc-900 border border-zinc-800 p-4 rounded mb-4 text-sm">
+<div class="bg-surface border border-border p-4 rounded mb-4 text-sm">
   <h4 class="font-medium mb-2">Timezone</h4>
   <form method="post" action="/herder-backups/timezone" class="flex flex-wrap gap-3 items-end">
     <div class="flex-1 min-w-[260px]">
       <label class="block text-xs mb-1">Continent / City (IANA standard)</label>
-      <select name="timezone" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded text-sm font-mono">
+      <select name="timezone" class="w-full bg-surface border border-border px-2 py-1 rounded text-sm font-mono">
         {% for tz in tz_choices %}
         <option value="{{ tz }}" {% if tz == current_tz %}selected{% endif %}>{{ tz }}</option>
         {% endfor %}
       </select>
     </div>
-    <button class="px-3 py-1 bg-zinc-700 rounded text-sm">Save timezone</button>
+    <button class="btn-secondary btn-sm">Save timezone</button>
   </form>
-  <div class="text-[10px] text-zinc-500 mt-1">Used for display and schedule interpretation.</div>
+  <div class="text-[10px] text-muted mt-1">Used for display and schedule interpretation.</div>
 </div>
 
 <!-- Herder backup schedule + retention -->
-<div class="bg-zinc-900 border border-zinc-800 p-4 rounded mb-4 text-sm">
+<div class="bg-surface border border-border p-4 rounded mb-4 text-sm">
   <h4 class="font-medium mb-2">Scheduled PiHerder backups</h4>
   <form method="post" action="/herder-backups/config" class="space-y-3">
     <label class="flex items-center gap-2">
@@ -43,34 +43,34 @@
     <div class="flex flex-wrap gap-3 items-end">
       <div>
         <label class="block text-xs">Cron schedule</label>
-        <input type="text" name="schedule_cron" value="{{ cfg.schedule_cron or '0 3 * * *' }}" placeholder="0 3 * * *" class="w-36 bg-black border border-zinc-700 px-2 py-1 rounded font-mono text-xs">
+        <input type="text" name="schedule_cron" value="{{ cfg.schedule_cron or '0 3 * * *' }}" placeholder="0 3 * * *" class="w-36 bg-surface border border-border px-2 py-1 rounded font-mono text-xs">
       </div>
       <div>
         <label class="block text-xs">Scheduled runs</label>
-        <select name="schedule_mode" class="bg-black border border-zinc-700 px-2 py-1 rounded">
+        <select name="schedule_mode" class="bg-surface border border-border px-2 py-1 rounded">
           <option value="config_only" {% if cfg.schedule_mode == "config_only" %}selected{% endif %}>Config only</option>
           <option value="full" {% if cfg.schedule_mode == "full" %}selected{% endif %}>Full (incl audit)</option>
         </select>
       </div>
       <div>
         <label class="block text-xs">Keep how many backups</label>
-        <input type="number" name="keep" value="{{ cfg.keep }}" min="1" max="100" class="w-20 bg-black border border-zinc-700 px-2 py-1 rounded">
+        <input type="number" name="keep" value="{{ cfg.keep }}" min="1" max="100" class="w-20 bg-surface border border-border px-2 py-1 rounded">
       </div>
-      <button class="px-3 py-1 bg-zinc-700 rounded text-sm">Save schedule</button>
+      <button class="btn-secondary btn-sm">Save schedule</button>
     </div>
   </form>
-  <div class="text-[10px] text-zinc-500 mt-2">
+  <div class="text-[10px] text-muted mt-2">
     Cron uses 5 fields: <code>minute hour day month weekday</code> (e.g. <code>0 3 * * *</code> = daily at 03:00 in {{ current_tz }}).
     {% if schedule_status == 'enabled' %}
-    <span class="text-emerald-400">Schedule active{% if schedule_next_run %} — next run {{ schedule_next_run }}{% endif %}.</span>
+    <span class="text-accent">Schedule active{% if schedule_next_run %} — next run {{ schedule_next_run }}{% endif %}.</span>
     {% else %}
-    <span class="text-zinc-400">Schedule off — enable above or run manual backups below.</span>
+    <span class="text-muted">Schedule off — enable above or run manual backups below.</span>
     {% endif %}
   </div>
 </div>
 
 {% if request.query_params.get('restored') %}
-<div class="mb-4 p-3 bg-emerald-900/60 border border-emerald-700 rounded text-sm">
+<div class="mb-4 p-3 bg-accent/20 border border-accent rounded text-sm">
   {% if request.query_params.get('dry') == '1' %}
   Dry-run preview: would restore {{ request.query_params.get('servers', '?') }} server(s){% if request.query_params.get('audit') and request.query_params.get('audit') != '0' %}, {{ request.query_params.get('audit') }} audit entries{% endif %}. Uncheck “Dry run” to apply for real.
   {% else %}
@@ -79,46 +79,46 @@
 </div>
 {% endif %}
 {% if request.query_params.get('backup_ok') %}
-<div class="mb-4 p-3 bg-emerald-900/60 border border-emerald-700 rounded text-sm">Manual backup created{% if request.query_params.get('file') %}: <code class="font-mono text-xs">{{ request.query_params.get('file') }}</code>{% endif %}.</div>
+<div class="mb-4 p-3 bg-accent/20 border border-accent rounded text-sm">Manual backup created{% if request.query_params.get('file') %}: <code class="font-mono text-xs">{{ request.query_params.get('file') }}</code>{% endif %}.</div>
 {% endif %}
 {% if request.query_params.get('deleted') %}
-<div class="mb-4 p-3 bg-emerald-900/60 border border-emerald-700 rounded text-sm">Backup deleted.</div>
+<div class="mb-4 p-3 bg-accent/20 border border-accent rounded text-sm">Backup deleted.</div>
 {% endif %}
 {% if request.query_params.get('config_saved') %}
-<div class="mb-4 p-3 bg-emerald-900/60 border border-emerald-700 rounded text-sm">Settings saved.</div>
+<div class="mb-4 p-3 bg-accent/20 border border-accent rounded text-sm">Settings saved.</div>
 {% endif %}
 {% if request.query_params.get('error') %}
-<div class="mb-4 p-3 bg-red-900/60 border border-red-700 rounded text-sm">Error: {{ request.query_params.get('error') }}</div>
+<div class="mb-4 p-3 bg-primary/20 border border-primary rounded text-sm">Error: {{ request.query_params.get('error') }}</div>
 {% endif %}
 
-<div class="bg-zinc-900 border border-zinc-800 p-5 rounded-xl mb-6">
+<div class="bg-surface border border-border p-5 rounded-xl mb-6">
   <h3 class="font-medium mb-2">Manual backup</h3>
   <form method="post" action="/herder-backups/run" class="flex flex-wrap gap-3 items-end text-sm">
     <div>
-      <label class="block text-xs text-zinc-400">Mode</label>
-      <select name="backup_mode" class="bg-black border border-zinc-700 px-2 py-1 rounded text-sm">
+      <label class="block text-xs text-muted">Mode</label>
+      <select name="backup_mode" class="bg-surface border border-border px-2 py-1 rounded text-sm">
         <option value="config_only">Config only (recommended)</option>
         <option value="full">Full (config + recent audit trail)</option>
       </select>
     </div>
-    <button type="submit" class="px-4 py-1.5 bg-blue-700 hover:bg-blue-600 rounded">Run backup now</button>
+    <button type="submit" class="btn-accent btn-sm">Run backup now</button>
   </form>
-  <p class="text-[10px] text-zinc-500 mt-1">Output directory: <code>{{ herder_backup_dir or '/herder_backups' }}</code> (mapped in docker-compose).</p>
+  <p class="text-[10px] text-muted mt-1">Output directory: <code>{{ herder_backup_dir or '/herder_backups' }}</code> (mapped in docker-compose).</p>
 </div>
 
-<div class="bg-zinc-900 border border-zinc-800 p-5 rounded-xl">
+<div class="bg-surface border border-border p-5 rounded-xl">
   <h3 class="font-medium mb-3">Existing backups (newest first)</h3>
   {% if backups %}
   <table class="w-full text-sm">
     <thead>
-      <tr class="text-left text-xs text-zinc-400 border-b border-zinc-700">
+      <tr class="text-left text-xs text-muted border-b border-zinc-200 dark:border-border">
         <th class="py-1">File</th>
         <th class="py-1">Size</th>
         <th class="py-1">Created</th>
         <th></th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-zinc-800">
+    <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
       {% for b in backups %}
       <tr>
         <td class="py-1 font-mono text-xs">{{ b.name }}</td>
@@ -128,12 +128,12 @@
           <form method="post" action="/herder-backups/restore" class="inline" onsubmit="return confirm('Preview what this backup would restore?');">
             <input type="hidden" name="archive" value="{{ b.path }}">
             <input type="hidden" name="dry_run" value="1">
-            <button type="submit" class="text-xs px-2 py-0.5 bg-orange-800 hover:bg-orange-700 rounded text-white">Preview</button>
+            <button type="submit" class="btn-secondary btn-sm">Preview</button>
           </form>
-          <a href="/herder-backups/download?name={{ b.name | urlencode }}" class="text-xs px-2 py-0.5 bg-zinc-700 rounded">Download</a>
+          <a href="/herder-backups/download?name={{ b.name | urlencode }}" class="text-xs px-2 py-0.5 bg-surface border border-border rounded">Download</a>
           <form method="post" action="/herder-backups/delete" class="inline" onsubmit="return confirm('Delete this backup?');">
             <input type="hidden" name="name" value="{{ b.name }}">
-            <button type="submit" class="text-xs px-2 py-0.5 bg-red-700 hover:bg-red-600 rounded text-white">Delete</button>
+            <button type="submit" class="btn-primary btn-sm text-white">Delete</button>
           </form>
         </td>
       </tr>
@@ -141,19 +141,19 @@
     </tbody>
   </table>
   {% else %}
-  <p class="text-xs text-zinc-400">No backups yet. Run a manual backup above or enable the schedule.</p>
+  <p class="text-xs text-muted">No backups yet. Run a manual backup above or enable the schedule.</p>
   {% endif %}
 </div>
 
-<div class="mt-6 bg-zinc-900 border border-zinc-800 p-5 rounded-xl">
+<div class="mt-6 bg-surface border border-border p-5 rounded-xl">
   <h3 class="font-medium mb-2 text-orange-400">Restore from backup (careful!)</h3>
   <form method="post" action="/herder-backups/restore" enctype="multipart/form-data" class="space-y-2 text-sm" onsubmit="return confirm('Restore will upsert servers (keys stay encrypted). Continue?');">
     <div>
-      <label class="block text-xs text-zinc-400">Archive path (on server disk)</label>
-      <input name="archive" placeholder="/herder_backups/piherder-....tar.gz" class="w-full bg-black border border-zinc-700 px-2 py-1 rounded font-mono text-xs">
+      <label class="block text-xs text-muted">Archive path (on server disk)</label>
+      <input name="archive" placeholder="/herder_backups/piherder-....tar.gz" class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs">
     </div>
     <div>
-      <label class="block text-xs text-zinc-400">Or upload from your device</label>
+      <label class="block text-xs text-muted">Or upload from your device</label>
       <input type="file" name="restore_file" class="text-xs">
     </div>
     <label class="flex items-center gap-2 text-xs">
@@ -162,9 +162,9 @@
     <label class="flex items-center gap-2 text-xs">
       <input type="checkbox" name="dry_run" value="1" checked> Dry run (preview only)
     </label>
-    <button type="submit" class="px-3 py-1 bg-orange-700 hover:bg-orange-600 rounded text-sm">Restore</button>
+    <button type="submit" class="btn-primary btn-sm">Restore</button>
   </form>
-  <p class="text-[10px] text-zinc-500 mt-2">
+  <p class="text-[10px] text-muted mt-2">
     Enabled: upserts servers from the archive (encrypted keys unchanged — <code>PIHERDER_MASTER_KEY</code> must match).
     Optional audit restore only works for <em>full</em> backups. Use <strong>Preview</strong> on a listed backup first; uncheck Dry run to apply.
   </p>

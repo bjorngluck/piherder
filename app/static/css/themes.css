@@ -6,6 +6,7 @@
   --color-primary: #e60012;
   --color-accent: #00a651;
   --color-border: #e5e7eb;
+  --color-muted: #6b7280;
 }
 
 .dark {
@@ -16,6 +17,7 @@
   --color-primary: #e60012;
   --color-accent: #00a651;
   --color-border: #374151;
+  --color-muted: #a1a1aa;
 }
 
 body {
@@ -32,4 +34,133 @@ body {
 .bg-primary { background-color: var(--color-primary); }
 .text-accent { color: var(--color-accent); }
 
+.border-border { border-color: var(--color-border); }
+.text-muted { color: var(--color-muted); }
+.bg-bg { background-color: var(--color-bg); }
+
+/* Buttons using brand colors (work in both modes via var) */
+.btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+}
+.btn-primary:hover { filter: brightness(0.9); }
+
+.btn-accent {
+  background-color: var(--color-accent);
+  color: white;
+}
+.btn-accent:hover { filter: brightness(0.9); }
+
+/* Table header helper */
+.table-header {
+  background-color: var(--color-surface);
+  color: var(--color-muted);
+}
+
+/* Modal inner uses surface */
+.modal-content {
+  background-color: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
 /* Add more as needed */
+
+/* Support for Tailwind arbitrary var values in case */
+.bg-\[var\(--color-bg\)\] { background-color: var(--color-bg); }
+.bg-\[var\(--color-surface\)\] { background-color: var(--color-surface); }
+.border-\[var\(--color-border\)\] { border-color: var(--color-border); }
+.text-\[var\(--color-text\)\] { color: var(--color-text); }
+.text-\[var\(--color-muted\)\] { color: var(--color-muted); }
+
+/* Consistent button styles - use with bg-primary or bg-accent */
+.btn-primary, .btn-accent, button.btn-primary, button.btn-accent {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  border-radius: 0.25rem;
+  color: white;
+  cursor: pointer;
+  transition: filter 0.1s;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  font-weight: 500;
+}
+.btn-primary, button.btn-primary { background-color: var(--color-primary); }
+.btn-accent, button.btn-accent { background-color: var(--color-accent); }
+.btn-primary:hover, .btn-accent:hover, button.btn-primary:hover, button.btn-accent:hover { filter: brightness(0.85); }
+
+.btn-sm, button.btn-sm {
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+}
+
+/* Neutral/secondary buttons */
+.btn-secondary, button.btn-secondary {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  border-radius: 0.25rem;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+.btn-secondary:hover, button.btn-secondary:hover { background-color: var(--color-bg); }
+
+/* Form elements consistent with theme */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1rem;
+  height: 1rem;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.2rem;
+  cursor: pointer;
+  vertical-align: middle;
+  position: relative;
+  flex-shrink: 0;
+  margin: 0;
+}
+input[type="checkbox"]:checked {
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
+}
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 3px;
+  height: 6px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+input[type="checkbox"]:focus {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+input:not([type="checkbox"]), textarea, select {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--color-accent);
+  outline: none;
+}
+
+/* Log / pre / streaming areas - readable in both modes */
+pre.log, pre.stream, .log-area {
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
