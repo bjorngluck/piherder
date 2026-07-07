@@ -2,11 +2,25 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** v0.1.0 — Phase 1 largely complete  
-> **Last updated:** 2026-07-06 (post-refactor + docker split)
+> **Last updated:** 2026-07-07 (theming decisions)
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
 ---
+
+## Decisions Log (Grok collaboration — July 2026)
+
+### Settings & Configuration Strategy
+- **Hybrid storage**: User preferences & per-server configs → PostgreSQL (travels with DB restores).
+- **System / operational settings** (paths, global schedules, self-backup) → JSON file in persistent `/data` volume.
+- **Sensitive runtime** (`PIHERDER_MASTER_KEY`, DB creds) → `.env` + Docker secrets.
+- Rationale: Balances restore reliability with operational flexibility. DB for user-visible things, files for admin-tweakable paths.
+
+### UI Theming
+- Base: Light + Dark themes using Raspberry Pi branding (red `#E60012`/`#C8102E`, green `#00A651`).
+- Default to system preference, with manual toggle.
+- Extensible via Tailwind config + CSS variables for future themes/user customization.
+- Goal: Consistent branding, mobile-friendly, delightful UX.
 
 ## Vision
 
