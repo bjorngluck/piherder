@@ -10,16 +10,29 @@
 
   <!-- Tailwind Play (optional) + HTMX + Alpine -->
   {% if not lean_page %}
-  <script src="/static/tailwind.js" onerror="console.warn('Tailwind Play not available')"></script>
+  <script src="/static/tailwind.js" onerror="console.warn('Tailwind Play not available — using built-in fallback styles')"></script>
+  <script>
+    if (typeof tailwind !== 'undefined') {
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              zinc: { 950: '#18181b', 900: '#27272a', 800: '#3f3f46', 700: '#52525b' }
+            }
+          }
+        }
+      };
+    }
+  </script>
   <script src="/static/htmx.min.js"></script>
   <script defer src="/static/alpine.min.js"></script>
   {% endif %}
 
-  <!-- Theme CSS variables -->
+  <!-- Theme CSS variables (light/dark + Raspberry Pi branding) -->
   <link rel="stylesheet" href="/static/css/themes.css">
 
   <style>
-    /* Existing fallback styles from your current base.html */
+    /* Robust fallback + base styles so UI looks decent even if Tailwind CDN fails to load */
     :root { color-scheme: dark; }
     body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #18181b; color: #e4e4e7; line-height: 1.5; margin: 0; }
     a { color: #34d399; text-decoration: none; }
@@ -241,7 +254,7 @@
         <a href="/audit" class="hover:text-white transition">Audit</a>
         <a href="/herder-backups" class="hover:text-white transition text-xs self-center">Settings</a>
 
-        <!-- Theme Toggle -->
+        <!-- Theme Toggle Button -->
         <button id="theme-toggle" 
                 class="p-2 rounded-lg hover:bg-zinc-800 transition-colors" 
                 title="Toggle light/dark theme">
@@ -297,9 +310,94 @@
     });
   </script>
 
-  <!-- Your existing scripts (timezone, poll, etc.) -->
+  <!-- Original PiHerder scripts (timezone, poll, log update, etc.) -->
   <script>
-    // ... keep your existing scripts ...
+  window.PIHERDER_TZ = "{{ get_app_timezone() }}";
+  (function localizeTimes() {
+    let isConverting = false;
+    function convert(el) {
+      const iso = el.dataset.utc || (el.textContent || '').trim();
+      if (!iso || iso.length < 10) return;
+      if (!el.dataset.utc && !/^\d{4}-\d{2}-\d{2}/.test(iso)) return;
+      try {
+        const d = new Date(iso);
+        if (!isNaN(d)) {
+          const tz = window.PIHERDER_TZ || 'UTC';
+          const opts = { timeZone: tz };
+          el.textContent = d.toLocaleString(undefined, opts);
+          if (!el.title) el.title = iso + ' (UTC) shown in ' + tz;
+        }
+      } catch (e) {}
+    }
+    function run() {
+      if (isConverting) return;
+      isConverting = true;
+      try {
+        document.querySelectorAll('[data-utc], .utc-time').forEach(convert);
+      } finally {
+        isConverting = false;
+      }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', run);
+    } else {
+      run();
+    }
+    window.PiHerderLocalizeTimes = run;
+  })();
+
+  window.PiHerderUpdateLog = function(el, data, fallback) {
+    if (!el || !data) return;
+    const ts = String(data.last_updated != null ? data.last_updated : '');
+    const cur = data.current ? String(data.current) : '';
+    const key = ts + '|' + cur;
+    if (el.dataset.lastTs === key) return;
+    el.dataset.lastTs = key;
+    const lines = data.log_lines || [];
+    let text = lines.length ? lines.join('\n') + '\n' : (fallback || 'In progress...\n');
+    if (cur === 'queued') {
+      text = (lines.length ? lines.join('\n') + '\n' : 'Waiting for worker…\n');
+    } else if (cur && cur !== 'starting' && cur !== 'preparing' && !text.includes(cur)) {
+      text += 'Current: ' + cur + '\n';
+    }
+    el.textContent = text;
+    el.scrollTop = el.scrollHeight;
+  };
+
+  window.PiHerderPoll = (function() {
+    const timers = {};
+    const inFlight = {};
+    return {
+      start(key, url, onUpdate, intervalMs) {
+        this.stop(key);
+        const tick = async () => {
+          if (inFlight[key]) return;
+          inFlight[key] = true;
+          try {
+            const res = await fetch(url);
+            if (!res.ok) return;
+            const data = await res.json();
+            const stop = onUpdate(data);
+            if (stop || data.status === 'success' || data.status === 'failed' || data.done) {
+              this.stop(key);
+            }
+          } catch (_) {}
+          finally {
+            inFlight[key] = false;
+          }
+        };
+        tick();
+        timers[key] = setInterval(tick, intervalMs || 4000);
+      },
+      stop(key) {
+        if (timers[key]) {
+          clearInterval(timers[key]);
+          delete timers[key];
+        }
+        delete inFlight[key];
+      }
+    };
+  })();
   </script>
 </body>
 </html>
