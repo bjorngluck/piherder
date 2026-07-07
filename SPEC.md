@@ -1,5 +1,7 @@
 # PiHerder Specification & Roadmap
 
+![PiHerder Logo](app/static/images/piherder-logo.png)
+
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** v0.1.0 — Phase 1 largely complete  
 > **Last updated:** 2026-07-07 (theming decisions + test page)
