@@ -2,8 +2,8 @@
 
 **Purpose**: Complete per-page audit of CSS custom properties (variables) and semantic classes after full theming cleanup.  
 **Goal**: Ensure the entire app UI is purely var-driven via `themes.css` (`:root` for light, `.dark` for dark). Templates use `bg-surface`, `bg-bg`, `text-muted`, `border-border`, `text-accent`, `btn-*`, `banner-*`, `status-*`, `card`, `code-surface`, etc. exclusively for colors.  
-**Date**: 2026-07-07 (updated post full cleanup)  
-**Status**: Full sweep complete across all templates. Hardcoded zinc/white/emerald/blue/etc. colors replaced. Theme toggle effective on all pages.
+**Date**: 2026-07-07 (updated post final theming rollout)  
+**Status**: Complete. All templates use vars from `themes.css` + component classes (`btn-*`, `banner-*`, `status-*`, `.bg-accent-subtle`, `log-output`, etc.). Banners, status pills, subtle highlights, syntax, and all pre/log blocks are fully var-driven. No remaining zinc/emerald/etc. hardcodes in UI classes. Fallback in base.html is layout-only. Theme toggle effective everywhere.
 
 ## Core CSS Variables (from themes.css)
 
@@ -22,17 +22,35 @@
 | `--color-success`     | #059669        | #10b981        | Success (used by `.banner-success`, `.status-success`) |
 | `--color-danger`      | #dc2626        | #f87171        | Danger/error (`.banner-error`, `.btn-danger`, `.text-danger`, `.status-failed`) |
 | `--color-warning`     | #d97706        | #fcd34d        | Warnings (`.banner-warning`, `.text-warning`, `.status-warning`, `.status-stopped`) |
+| `--banner-success-bg` / `--banner-success-border` / `--banner-success-text` | #d1fae5 / #a7f3d0 / #065f46 | rgba(16,185,129,0.15) / #047857 / #6ee7b7 | Fully var-driven banners (`.banner-success`) |
+| `--banner-error-bg` / `--banner-error-border` / `--banner-error-text` | #fee2e2 / #fecaca / #991b1b | rgba(185,28,28,0.25) / #7f1d1d / #fca5a5 | Fully var-driven (`.banner-error`) |
+| `--banner-warning-bg` / `--banner-warning-border` / `--banner-warning-text` | #fef3c7 / #fde68a / #92400e | rgba(217,119,6,0.2) / #92400e / #fcd34d | Fully var-driven (`.banner-warning`) |
+| `--accent-subtle-bg`  | rgba(0,166,81,0.10) | rgba(0,166,81,0.15) | Subtle highlights for active rows (`.bg-accent-subtle`) |
+| `--color-info-bg` / `--color-info-text` | #dbeafe / #1e40af | rgba(59,130,246,0.2) / #93c5fc | Info/running states (`.status-running`) |
+| `--color-syntax-number` / `--color-syntax-bool` | #0369a1 | #7dd3fc / #38bdf8 | Editor syntax tokens (`.tok-number`, `.tok-bool`) |
 
 **Key classes provided by themes.css**:
 - `body { background-color: var(--color-bg); color: var(--color-text); }` → `class="bg-bg"`
 - `.card, .bg-surface { background-color: var(--color-surface); border: 1px solid var(--color-border); }`
 - `pre, .log-output, .code-surface { background-color: var(--color-code-bg); color: var(--color-code-text); border: 1px solid var(--color-code-border); }`
-- Buttons: `.btn-secondary` (surface + text + border), `.btn-accent`, `.btn-primary`, `.btn-danger` (now uses `--color-danger`)
+- Buttons: `.btn-secondary` (surface + text + border), `.btn-accent`, `.btn-primary`, `.btn-danger` (uses `--color-danger`)
 - Form fields: inputs/select/textarea use surface/border/text
 - `.text-muted`, `.border-border`, `.text-accent`, `.text-danger`, `.text-warning`, `.text-text`
-- `.status-pill` + `.status-success`/`.status-failed`/`.status-running`/ etc.
-- `.banner-success`/`.banner-error`/`.banner-warning` (with `.dark` variants)
+- `.status-pill` + `.status-success`/`.status-failed`/`.status-running` (now fully var-driven via banner/info vars)
+- `.banner-success`/`.banner-error`/`.banner-warning` (now fully var-driven; no hard-coded hex outside var defs)
+- `.bg-accent-subtle` + `.hover-bg-accent-subtle` (for active/row highlights)
 - `.table-header`, `.action-pill`
+- Internal editor syntax now uses `--color-syntax-*` vars.
+- `.bg-accent-subtle` (and hover variant) for row/active highlights.
+
+### Latest Refinements (final rollout)
+- Banners (`.banner-*`) and status pills (`.status-*`) are now **fully var-driven** (hard-coded hex moved into `--banner-*`, `--color-info-*` vars in `:root`/`.dark`).
+- All `log-output` / `pre` blocks standardized with `border border-border`.
+- Tab active states in Docker quick-edit now use proper `btn-accent` / `btn-secondary` component classes.
+- Subtle accent highlights unified on `.bg-accent-subtle`.
+- Zinc color config removed from Tailwind script in `base.html` (fallback is now strictly layout-only, no colors).
+- Tailwind `dark:` color variants eliminated everywhere.
+- Audit page, backup progress modals, Docker management, status indicators, and log/pre blocks fully aligned.
 
 ---
 
@@ -129,11 +147,13 @@
 | Row text (timestamps, summary)  | `text-muted`, `text-text`                              | muted + text                        | #6b7280 / #111827   | #a1a1aa / #f1f3f5   | Good |
 | Server links in table           | `text-accent`                                          | `--color-accent`                    | #00a651             | #00a651             | Good |
 | Action pill                     | `action-pill`                                          | `--color-bg` + `--color-text` + border | #f8f9fa / #111827 / #e5e7eb | #0a0f1c / #f1f3f5 / #374151 | Good |
-| Status pills                    | `status-pill status-success` etc.                      | status-* definitions (vars inside)  | See core vars       | See core vars       | Good (uses new status classes) |
+| Status pills                    | `status-pill status-success` etc.                      | status-* (now use `--banner-*` / `--color-info-*` vars) | See updated core vars | See updated core vars | Fully var-driven (no hardcodes in class rules) |
 | View button                     | `btn btn-secondary`                                    | surface + text + border             | Good                | Good                | Good |
 | Empty state / footer text       | `text-muted`                                           | `--color-muted`                     | #6b7280             | #a1a1aa             | Good |
-| Details modal + pre             | `.card`, `log-output`                                  | surface + code vars                 | Good                | Good                | Good |
+| Details modal + pre             | `.card`, `log-output ... border border-border`         | surface + code + border             | Good                | Good                | Good (standardized borders on all log/pre blocks) |
 | Close buttons                   | `text-muted hover:text-text btn btn-ghost`             | muted + text                        | Good                | Good                | Good |
+
+**Latest Audit refinements**: All pre/log blocks now include `border border-border`. Banners and status indicators are 100% var-driven via the new `--banner-*` and `--color-info-*` definitions. Subtle highlights (if any) use `.bg-accent-subtle`. No zinc or direct color classes remain. |
 
 ---
 
@@ -146,7 +166,7 @@
 | Breadcrumbs                        | `text-accent`, `text-muted`                | accent + muted             | Good | Good | Good |
 | Last backup status pill            | `status-success` / `status-failed`         | status vars                | Good | Good | Good |
 | Section card                       | `.card`                                    | surface + border           | Good | Good | Good |
-| Active running banner              | `bg-accent/10 border border-accent`        | accent (with opacity)      | Good | Good | Good |
+| Active running banner              | `bg-accent-subtle border border-accent`    | `--accent-subtle-bg` + accent | Good | Good | Good (uses new subtle class) |
 | Source text / destinations         | `text-muted`, `font-mono`                  | muted                      | Good | Good | Good |
 | Table header                       | `text-muted border-b border-border table-header` | muted + border + surface | Good | Good | Good |
 | Table rows / text                  | `text-muted`, `text-accent`                | muted + accent             | Good | Good | Good |
