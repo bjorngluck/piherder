@@ -155,7 +155,7 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-    UI["UI: Run Backup (servers list / detail / backups page)"] -->|POST /servers/{id}/run/backup<br/>X-PiHerder-Async: 1| Router["FastAPI router"]
+    UI["UI: Run Backup (servers list / detail / backups page)"] -->|POST /servers/{id}/run/backup| Router["FastAPI router<br/>X-PiHerder-Async: 1"]
     Router -->|create_job_and_run| JobSvc["jobs service"]
     JobSvc -->|AuditLog + Job row| DB[(DB)]
     JobSvc --> Celery["Celery / background: run_backup()"]
@@ -175,7 +175,7 @@ flowchart TD
     Success --> FinalOK["finalize Job + AuditLog (success)"]
     Fail --> FinalFail["finalize Job + AuditLog (failed)<br/>do not touch last_backup_at"]
 
-    UI -.-> |GET /servers/{id}/backup-progress?job_id=...| Progress["prefers DB Job.details"]
+    UI -.->|GET /servers/{id}/backup-progress| Progress["prefers DB Job.details<br/>(job_id=...)"]
     Progress --> UI
 ```
 
