@@ -366,7 +366,7 @@
     const p = pre();
     if (!p) return;
     if (currentErrorLines.size > 0) {
-      p.style.boxShadow = 'inset 4px 0 0 rgba(185,28,28,0.25)';
+      p.style.boxShadow = 'inset 4px 0 0 var(--color-danger)';
     } else {
       p.style.boxShadow = '';
     }
