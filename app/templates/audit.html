@@ -7,14 +7,6 @@
   @media (min-width: 900px) { .audit-filters { grid-template-columns: repeat(4, 1fr) auto; align-items: end; } }
   .audit-row-muted { opacity: .55; }
   .audit-summary { max-width: 28rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .status-pill { display: inline-block; padding: .125rem .5rem; border-radius: 9999px; font-size: 11px; font-weight: 500; }
-  .status-success { background: #065f46; color: #6ee7b7; }
-  .status-failed { background: #7f1d1d; color: #fca5a5; }
-  .status-running { background: #1e3a8a; color: #93c5fd; }
-  .status-cancelled { background: #e5e7eb; color: #374151; }
-  .dark .status-cancelled { background: #3f3f46; color: #a1a1aa; }
-  .status-stopped { background: #78350f; color: #fcd34d; }
-  .action-pill { font-size: 11px; padding: .125rem .4rem; border-radius: .25rem; background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); }
 </style>
 
 <div class="flex items-center justify-between gap-4 mb-4">
@@ -28,7 +20,7 @@
   <a href="/" class="text-accent text-sm">← Dashboard</a>
 </div>
 
-<form method="get" class="audit-filters mb-4 bg-surface border border-border rounded-xl p-4">
+<form method="get" class="audit-filters mb-4 card rounded-xl p-4">
   <input type="text" name="search" value="{{ search }}" placeholder="Search…" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full">
   <select name="action" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full">
     <option value="">All actions</option>
@@ -62,7 +54,7 @@
            onchange="document.getElementById('audit-hide-noise-off').disabled=this.checked">
     Hide incomplete runs
   </label>
-  <button type="submit" class="btn-accent btn-sm">Apply</button>
+  <button type="submit" class="btn btn-accent px-4 py-2 rounded text-sm">Apply</button>
 </form>
 
 {% if server_id or user_id or status or action or search or date_from or date_to %}
@@ -75,11 +67,11 @@
 </p>
 {% endif %}
 
-<div class="bg-surface border border-border rounded-xl overflow-hidden">
+<div class="card rounded-xl overflow-hidden">
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead>
-        <tr class="text-left text-xs text-muted border-b border-zinc-200 dark:border-border">
+        <tr class="text-left text-xs text-muted border-b border-border table-header">
           <th class="p-3 font-medium">When</th>
           <th class="p-3 font-medium">Action</th>
           <th class="p-3 font-medium">Server</th>
@@ -90,7 +82,7 @@
       </thead>
       <tbody>
         {% for log in logs %}
-        <tr class="border-b border-zinc-200 dark:border-border hover:bg-[var(--color-surface)] {{ 'audit-row-muted' if log.is_noise else '' }}">
+        <tr class="border-b border-border hover:bg-bg table-row {{ 'audit-row-muted' if log.is_noise else '' }}">
           <td class="p-3 text-xs text-muted whitespace-nowrap" data-utc="{{ log.started_at }}">
             {{ log.started_at_display }}
             {% if log.duration %}<div class="text-[10px] text-muted">{{ log.duration }}</div>{% endif %}
@@ -100,12 +92,12 @@
           </td>
           <td class="p-3 text-xs text-muted">
             {% if log.server_id %}
-              <a href="/servers/{{ log.server_id }}" class="text-accent dark:text-accent">{{ log.server_name or ('#' ~ log.server_id) }}</a>
+              <a href="/servers/{{ log.server_id }}" class="text-accent">{{ log.server_name or ('#' ~ log.server_id) }}</a>
             {% else %}
               —
             {% endif %}
           </td>
-          <td class="p-3 text-zinc-700 dark:text-zinc-300 audit-summary" title="{{ log.summary }}">{{ log.summary }}</td>
+          <td class="p-3 text-text audit-summary" title="{{ log.summary }}">{{ log.summary }}</td>
           <td class="p-3">
             {% set sd = log.status_display %}
             <span class="status-pill {{ 'status-success' if sd == 'success' else 'status-failed' if sd == 'failed' else 'status-running' if sd == 'running' else 'status-stopped' if sd == 'stopped' else 'status-cancelled' }}">
@@ -115,7 +107,7 @@
           <td class="p-3">
             <button type="button"
                     onclick="showAuditDetailsModal(AUDIT_LOGS[{{ loop.index0 }}])"
-                    class="btn-secondary btn-sm">View</button>
+                    class="text-[11px] px-2 py-0.5 btn btn-secondary rounded">View</button>
           </td>
         </tr>
         {% else %}
@@ -138,13 +130,13 @@ const AUDIT_LOGS = {{ logs | tojson | safe }};
 </script>
 
 <div id="audit-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-4 w-full max-w-3xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
+  <div class="card p-4 w-full max-w-3xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
     <!-- Close button on top -->
     <div class="flex justify-end mb-2 flex-shrink-0">
-      <button type="button" onclick="hideAuditDetailsModal()" class="btn-secondary btn-sm">✕</button>
+      <button type="button" onclick="hideAuditDetailsModal()" class="text-muted hover:text-text text-sm px-2 btn btn-ghost">✕</button>
     </div>
     <!-- Details in middle -->
-    <pre id="audit-details-content" class="flex-1 min-h-0 overflow-auto bg-surface border border-border p-3 text-xs font-mono whitespace-pre-wrap rounded log-area"></pre>
+    <pre id="audit-details-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border rounded"></pre>
   </div>
 </div>
 

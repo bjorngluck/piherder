@@ -7,27 +7,27 @@
     <h1 class="text-3xl font-semibold">Servers</h1>
   </div>
   <button type="button" onclick="location.reload()"
-          class="btn-secondary btn-sm"
+          class="text-xs px-3 py-1.5 btn btn-secondary"
           title="Refresh list (no auto-reload)">
     ↻ Refresh
   </button>
 </div>
 
 <a href="/servers/add" 
-   class="inline-block mb-6 px-4 py-2 btn-accent">+ Add Server</a>
+   class="inline-block mb-6 px-4 py-2 btn btn-accent rounded text-sm">+ Add Server</a>
 <p class="text-xs text-muted -mt-5 mb-4">Click a server name to open it. Use ▶ Backup to run all enabled sources.</p>
 
 {% if servers %}
 <div class="space-y-3">
   {% for s in servers %}
-  <div class="bg-surface border border-border p-4 rounded-xl flex justify-between items-center">
+  <div class="card p-4 flex justify-between items-center">
     <div class="flex items-center gap-2">
       <div class="flex flex-col text-xs">
         <form method="post" action="/servers/{{ s.id }}/move/up" class="leading-none">
-          <button type="submit" class="px-1 hover:bg-[var(--color-surface)] rounded" title="Move up">▲</button>
+          <button type="submit" class="px-1 hover:bg-surface rounded" title="Move up">▲</button>
         </form>
         <form method="post" action="/servers/{{ s.id }}/move/down" class="leading-none">
-          <button type="submit" class="px-1 hover:bg-[var(--color-surface)] rounded" title="Move down">▼</button>
+          <button type="submit" class="px-1 hover:bg-surface rounded" title="Move down">▼</button>
         </form>
       </div>
       <div>
@@ -40,22 +40,22 @@
       {% if s.get('backup_running') %}
       <span class="text-accent">backup running…</span>
       {% elif s.get('last_backup_str') %}
-      <span class="text-accent dark:text-accent">last: {{ s.last_backup_str }}</span>
+      <span class="text-accent">last: {{ s.last_backup_str }}</span>
       {% elif s.get('last_backup') %}
-      <span class="text-accent dark:text-accent">last: {{ s.last_backup }}</span>
+      <span class="text-accent">last: {{ s.last_backup }}</span>
       {% endif %}
 
       <div class="flex items-center gap-2">
         {% if s.get('backup_running') %}
         <a href="/servers/{{ s.id }}/backups?backup_log=1"
-           class="btn-accent btn-sm text-white"
+           class="px-3 py-1 btn btn-secondary rounded text-xs font-medium"
            title="View running backup log">
           📋 Log
         </a>
         {% else %}
         <form method="post" action="/servers/{{ s.id }}/run/backup" class="inline backup-run-form">
           <button type="submit" 
-                  class="btn-accent btn-sm"
+                  class="px-3 py-1 btn btn-accent rounded text-xs font-medium"
                   title="Backup all enabled sources for this server">
             ▶ Backup
           </button>
@@ -63,10 +63,10 @@
         {% endif %}
 
         <a href="/servers/{{ s.id }}/backups" 
-           class="btn-secondary btn-sm">Manage</a>
+           class="px-3 py-1 btn btn-secondary rounded text-xs">Manage</a>
 
         <a href="/servers/{{ s.id }}?edit=1" 
-           class="btn-secondary btn-sm">Settings</a>
+           class="px-3 py-1 btn btn-secondary rounded text-xs">Settings</a>
       </div>
 
       <div class="text-xs text-right">
@@ -90,15 +90,15 @@
     <div class="flex justify-between items-center mb-2 flex-shrink-0">
       <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
       <div class="flex gap-1">
-        <button id="progress-stop-btn" class="btn-primary btn-sm">Stop</button>
-        <button type="button" onclick="hideBackupProgressModal()" class="btn-secondary btn-sm">Close</button>
+        <button id="progress-stop-btn" class="text-xs px-2 py-1 btn btn-danger rounded text-white">Stop</button>
+        <button type="button" onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
       </div>
     </div>
-    <div id="backup-current-source" class="text-sm mb-1 text-accent dark:text-accent font-mono min-h-[1.25rem] flex-shrink-0"></div>
+    <div id="backup-current-source" class="text-sm mb-1 text-accent font-mono min-h-[1.25rem] flex-shrink-0"></div>
     <!-- Label above logs -->
     <div class="text-xs text-muted mb-1 flex-shrink-0">Live output</div>
     <!-- Logs in middle -->
-    <pre id="backup-progress-log" class="flex-1 min-h-0 overflow-auto bg-surface border border-border p-3 text-xs font-mono whitespace-pre-wrap rounded log-area">Starting...</pre>
+    <pre id="backup-progress-log" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border rounded">Starting...</pre>
   </div>
 </div>
 

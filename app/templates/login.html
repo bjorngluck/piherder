@@ -11,16 +11,16 @@
       </div>
     </div>
   </div>
-  <div class="bg-surface border border-border rounded-2xl p-8">
+  <div class="card rounded-2xl p-8">
     <h1 class="text-2xl font-semibold mb-6">Sign in</h1>
 
     {% if request.query_params.get('error') %}
-      <div class="mb-4 p-3 bg-primary/20 border border-primary text-primary text-sm rounded">
+      <div class="mb-4 p-3 banner-error border text-sm rounded">
         Invalid email or password.
       </div>
     {% endif %}
 
-    <div class="mb-4 p-2 bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-border rounded text-xs text-muted dark:text-muted">
+    <div class="mb-4 p-2 bg-surface border border-border rounded text-xs text-muted">
       First time? Default: <strong>admin@example.com</strong> / <strong>admin</strong><br>
       (Change it after logging in)
     </div>
@@ -29,16 +29,16 @@
       <div>
         <label class="block text-sm mb-1">Email</label>
         <input name="email" type="email" value="admin@example.com" required
-               class="w-full bg-surface border border-border px-3 py-2 rounded focus:outline-none focus:border-emerald-500">
+               class="w-full bg-surface border border-border px-3 py-2 rounded focus:outline-none focus:border-accent">
       </div>
       <div>
         <label class="block text-sm mb-1">Password</label>
         <input name="password" type="password" value="admin" required
-               class="w-full bg-surface border border-border px-3 py-2 rounded focus:outline-none focus:border-emerald-500">
+               class="w-full bg-surface border border-border px-3 py-2 rounded focus:outline-none focus:border-accent">
       </div>
 
       <button type="submit"
-              class="w-full mt-2 py-2.5 btn-accent">
+              class="w-full mt-2 py-2.5 btn btn-accent font-medium rounded-lg transition">
         Log in
       </button>
     </form>

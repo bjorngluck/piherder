@@ -4,9 +4,9 @@
 <div class="max-w-6xl mx-auto">
   <!-- Page load loading modal - shown while collecting data from host via SSH -->
   <div id="docker-page-loading" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-    <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
+    <div class="card rounded-xl p-6 w-full max-w-sm mx-4 text-center">
       <div class="flex justify-center mb-3">
-        <div class="w-7 h-7 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+        <div class="w-7 h-7 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
       </div>
       <div class="font-medium">Collecting information from host via SSH</div>
       <div class="text-xs text-muted mt-1">Please wait, this can take a moment...</div>
@@ -62,9 +62,9 @@
       <div class="text-muted text-sm">{{ server.hostname }}</div>
     </div>
     <a href="/servers/{{ server.id }}/docker?nocache=1" 
-       class="btn-secondary btn-sm">Refresh (bypass cache)</a>
+       class="px-3 py-1.5 text-xs btn btn-secondary">Refresh (bypass cache)</a>
     <a href="/servers/{{ server.id }}/docker/new-project" 
-       class="btn-accent btn-sm">+ New Service</a>
+       class="px-3 py-1.5 text-xs btn btn-accent rounded">+ New Service</a>
   </div>
 
   <!-- All Containers -->
@@ -100,32 +100,32 @@
     <h2 class="text-lg font-medium mb-3">Compose Projects</h2>
 
     {% if update_check %}
-      <div class="mb-3 p-2 text-xs rounded {{ 'bg-accent/20 text-accent' if update_status == 'up-to-date' else 'bg-primary/20 text-primary' }}">
+      <div class="mb-3 p-2 text-xs rounded {{ 'banner-success' if update_status == 'up-to-date' else 'banner-warning' }}">
         Checked {{ update_check }}: 
         {% if update_status == 'updates' %}New images available!{% else %}Up to date.{% endif %}
       </div>
     {% endif %}
 
     {% if build_status %}
-      <div class="mb-3 p-2 text-xs rounded {{ 'bg-accent/20 text-accent' if build_status == 'built' else 'bg-primary/20 text-primary' }}">
+      <div class="mb-3 p-2 text-xs rounded {{ 'banner-success' if build_status == 'built' else 'banner-error' }}">
         Build {{ 'succeeded' if build_status == 'built' else 'failed or errored' }}. Check logs on host if needed.
       </div>
     {% endif %}
 
     {% if request.query_params.get('new_project') %}
-      <div class="mb-3 p-2 text-xs rounded bg-accent/20 text-accent">
+      <div class="mb-3 p-2 text-xs rounded banner-success border">
         New service <strong>{{ request.query_params.get('new_project') }}</strong> created (files written, versioning enabled).
       </div>
     {% endif %}
     {% if request.query_params.get('prune') %}
-      <div class="mb-3 p-2 text-xs rounded bg-accent/20 text-accent">
+      <div class="mb-3 p-2 text-xs rounded banner-success border">
         Prune {{ request.query_params.get('prune_type', 'unused') }} {{ 'succeeded' if request.query_params.get('prune') == 'ok' else 'failed' }}.
       </div>
     {% endif %}
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       {% for proj in projects %}
-      <div class="bg-surface border border-border rounded-xl p-5">
+      <div class="card rounded-xl p-5">
         <div>
           <div class="font-semibold break-words">{{ proj.name }}</div>
           <div class="text-xs text-muted font-mono break-all">{{ proj.path }}</div>
@@ -138,25 +138,25 @@
         <div class="mt-3 flex flex-wrap gap-1.5">
           <form method="post" action="/servers/{{ server.id }}/docker/check-updates">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <button class="inline-flex items-center justify-center text-[11px] min-w-[5rem] h-7 btn-primary btn-sm">Check Updates</button>
+            <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[5rem] h-7 btn btn-secondary rounded">Check Updates</button>
           </form>
           <form method="post" action="/servers/{{ server.id }}/docker/redeploy">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
             <input type="hidden" name="pull" value="true">
-            <button class="inline-flex items-center justify-center text-[11px] min-w-[5rem] h-7 btn-accent btn-sm">Deploy</button>
+            <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[5rem] h-7 btn btn-accent rounded">Deploy</button>
           </form>
           <form method="post" action="/servers/{{ server.id }}/docker/compose/down">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <button class="inline-flex items-center justify-center text-[11px] min-w-[5rem] h-7 btn-primary btn-sm">Undeploy</button>
+            <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[5rem] h-7 btn btn-danger rounded">Undeploy</button>
           </form>
           <button type="button"
-                  class="inline-flex items-center justify-center text-[11px] min-w-[4rem] h-7 btn-secondary btn-sm"
+                  class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4rem] h-7 btn btn-secondary rounded"
                   data-edit-proj="{{ proj.name | e }}"
                   data-has-df="{{ '1' if proj.get('dockerfile_path') else '0' }}"
                   data-server-id="{{ server.id }}">Edit</button>
           {% if proj.has_build %}
           <button type="button"
-                  class="inline-flex items-center justify-center text-[11px] min-w-[4.25rem] h-7 btn-accent btn-sm"
+                  class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4.25rem] h-7 btn btn-secondary rounded"
                   data-proj-name="{{ proj.name | e }}"
                   data-build-services='{{ proj.build_services | tojson | safe }}'
                   data-server-id="{{ server.id }}">Build...</button>
@@ -168,7 +168,7 @@
             <input type="hidden" name="project_path" value="{{ proj.path }}">
             <input type="hidden" name="service" value="">
             <button type="submit"
-                    class="inline-flex items-center justify-center text-[11px] min-w-[4rem] h-7 btn-secondary btn-sm"
+                    class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4rem] h-7 btn btn-secondary rounded"
                     data-proj="{{ proj.name }}"
                     data-services='{{ proj.services | tojson }}'
                     data-server-id="{{ server.id }}"
@@ -179,7 +179,7 @@
             <input type="hidden" name="project_path" value="{{ proj.path }}">
             <input type="hidden" name="service" value="">
             <button type="submit"
-                    class="inline-flex items-center justify-center text-[11px] min-w-[4rem] h-7 btn-secondary btn-sm"
+                    class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4rem] h-7 btn btn-secondary rounded"
                     data-proj="{{ proj.name }}"
                     data-services='{{ proj.services | tojson }}'
                     data-server-id="{{ server.id }}"
@@ -190,7 +190,7 @@
             <input type="hidden" name="project_path" value="{{ proj.path }}">
             <input type="hidden" name="service" value="">
             <button type="submit"
-                    class="inline-flex items-center justify-center text-[11px] min-w-[4rem] h-7 btn-secondary btn-sm"
+                    class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4rem] h-7 btn btn-secondary rounded"
                     data-proj="{{ proj.name }}"
                     data-services='{{ proj.services | tojson }}'
                     data-server-id="{{ server.id }}"
@@ -198,7 +198,7 @@
                     data-action="restart">Restart</button>
           </form>
           <button type="button"
-                  class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4rem] h-7 btn-accent btn-sm"
+                  class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4rem] h-7 btn btn-accent rounded"
                   data-proj="{{ proj.name }}"
                   data-services='{{ proj.services | tojson }}'
                   data-server-id="{{ server.id }}"
@@ -222,15 +222,15 @@
     <div class="flex gap-2 flex-wrap">
       <form method="post" action="/servers/{{ server.id }}/docker/prune-unused">
         <input type="hidden" name="prune_type" value="images">
-        <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[7rem] h-7 btn-primary btn-sm">Prune dangling images</button>
+        <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[7rem] h-7 btn btn-danger rounded">Prune dangling images</button>
       </form>
       <form method="post" action="/servers/{{ server.id }}/docker/prune-unused">
         <input type="hidden" name="prune_type" value="containers">
-        <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[7rem] h-7 btn-primary btn-sm">Prune exited containers</button>
+        <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[7rem] h-7 btn btn-danger rounded">Prune exited containers</button>
       </form>
-      <button onclick="loadUnused()" class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] h-7 btn-secondary btn-sm">List unused</button>
+      <button onclick="loadUnused()" class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] h-7 btn btn-secondary rounded">List unused</button>
     </div>
-    <div id="unused-list" class="mt-2 text-xs font-mono bg-surface border border-border p-2 rounded"></div>
+    <div id="unused-list" class="mt-2 text-xs font-mono code-surface p-2 rounded border"></div>
     <div class="text-[10px] text-muted mt-1">Dangling = unreferenced images; Exited = stopped containers. Prune separately to be selective.</div>
   </div>
 </div>
@@ -249,7 +249,7 @@ function loadUnused() {
 
 <!-- Simple Build Modal (vanilla JS) -->
 <div id="build-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-md">
+  <div class="card rounded-xl p-6 w-full max-w-md">
     <h3 class="text-lg font-medium mb-4">Build Compose Services</h3>
     <form id="build-form" method="post">
       <input type="hidden" name="project" id="modal-project">
@@ -258,12 +258,12 @@ function loadUnused() {
         <div id="modal-services" class="mt-2 space-y-1 max-h-40 overflow-auto"></div>
       </div>
       <div class="flex items-center gap-2 mb-4">
-        <input type="checkbox" name="no_cache" id="modal-no-cache">
+        <input type="checkbox" name="no_cache" id="modal-no-cache" class="accent-blue-600">
         <label for="modal-no-cache" class="text-sm"> --no-cache (full clean build)</label>
       </div>
       <div class="flex gap-2 justify-end">
-        <button type="button" onclick="hideBuildModal()" class="btn-secondary btn-sm">Cancel</button>
-        <button type="button" id="modal-start-build" onclick="startBuildFromModal()" class="btn-accent btn-sm">Start Build</button>
+        <button type="button" onclick="hideBuildModal()" class="px-4 py-1 btn btn-secondary rounded text-sm">Cancel</button>
+        <button type="button" id="modal-start-build" onclick="startBuildFromModal()" class="px-4 py-1 btn btn-accent rounded text-sm">Start Build</button>
       </div>
     </form>
     <div class="text-[10px] text-muted mt-3">Only services with a 'build:' section are shown. SSH session opened only for the build. Builds can take minutes; refresh screen later or use SSH to watch. --no-cache does full clean build.</div>
@@ -272,24 +272,24 @@ function loadUnused() {
 
 <!-- Quick Edit Modal (modal mindset for compose / Dockerfile) -->
 <div id="quick-edit-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-3xl mx-4">
+  <div class="card rounded-xl p-6 w-full max-w-3xl mx-4">
     <div class="flex items-center justify-between mb-3">
       <h3 class="text-lg font-medium">Quick edit — <span id="qe-project"></span></h3>
       <button type="button" onclick="hideQuickEditModal()" class="text-muted hover:text-text">✕</button>
     </div>
 
     <div class="mb-2 flex gap-2 text-sm">
-      <button id="qe-tab-compose" onclick="switchQuickEditTab('compose')" class="px-3 py-1 rounded btn-accent">Compose</button>
-      <button id="qe-tab-dockerfile" onclick="switchQuickEditTab('dockerfile')" class="px-3 py-1 rounded btn-secondary hidden">Dockerfile</button>
+      <button id="qe-tab-compose" onclick="switchQuickEditTab('compose')" class="px-3 py-1 rounded btn btn-accent">Compose</button>
+      <button id="qe-tab-dockerfile" onclick="switchQuickEditTab('dockerfile')" class="px-3 py-1 rounded btn btn-secondary hidden">Dockerfile</button>
       <a id="qe-full-link" href="#" class="ml-auto text-accent hover:underline text-xs self-center">Open full editor (syntax, versions, drafts…)</a>
     </div>
 
-    <textarea id="qe-editor" class="w-full h-64 font-mono text-sm bg-surface border border-border rounded p-3 resize-y log-area" spellcheck="false"></textarea>
+    <textarea id="qe-editor" class="w-full h-64 font-mono text-sm code-surface border rounded p-3 resize-y" spellcheck="false"></textarea>
 
     <div class="flex items-center gap-2 mt-3">
-      <button onclick="quickSaveDraft()" class="btn-primary btn-sm">Save Draft</button>
-      <button onclick="quickSaveDeploy()" class="btn-accent btn-sm font-medium">Save &amp; Deploy</button>
-      <button onclick="hideQuickEditModal()" class="btn-secondary btn-sm ml-auto">Cancel</button>
+      <button onclick="quickSaveDraft()" class="px-4 py-1.5 text-sm btn btn-secondary rounded">Save Draft</button>
+      <button onclick="quickSaveDeploy()" class="px-4 py-1.5 text-sm btn btn-accent rounded font-medium">Save &amp; Deploy</button>
+      <button onclick="hideQuickEditModal()" class="px-3 py-1.5 text-sm btn btn-secondary rounded ml-auto">Cancel</button>
       <div id="qe-status" class="text-xs text-accent ml-2"></div>
     </div>
 
@@ -301,23 +301,23 @@ function loadUnused() {
 
 <!-- Undeploy confirmation modal (for consistency, instead of native browser confirm) -->
 <div id="undeploy-confirm-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-md mx-4">
+  <div class="card rounded-xl p-6 w-full max-w-md mx-4">
     <h3 class="text-lg font-medium mb-2">Undeploy project?</h3>
     <p class="text-sm text-muted mb-4">
-      This will run <code class="text-red-400">docker compose down</code> for
+      This will run <code class="text-danger">docker compose down</code> for
       <strong id="undeploy-project-name" class="font-mono text-accent"></strong>.
       <br>Containers and networks will be removed. Volumes are preserved.
     </p>
     <div class="flex gap-2 justify-end">
-      <button onclick="hideUndeployConfirm()" class="btn-secondary btn-sm">Cancel</button>
-      <button id="undeploy-confirm-btn" class="btn-primary btn-sm font-medium">Undeploy</button>
+      <button onclick="hideUndeployConfirm()" class="px-4 py-1.5 text-sm btn btn-secondary rounded">Cancel</button>
+      <button id="undeploy-confirm-btn" class="px-4 py-1.5 text-sm btn btn-danger rounded font-medium">Undeploy</button>
     </div>
   </div>
 </div>
 
 <!-- Deploy modal (popup confirmation + options, like build/undeploy modals) -->
 <div id="deploy-confirm-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-md mx-4">
+  <div class="card rounded-xl p-6 w-full max-w-md mx-4">
     <h3 class="text-lg font-medium mb-2">Deploy / Redeploy project?</h3>
     <p class="text-sm text-muted mb-3">
       Run <code class="text-accent">docker compose pull &amp;&amp; up -d</code> (or up -d only) for
@@ -325,13 +325,13 @@ function loadUnused() {
     </p>
     <div class="mb-4">
       <label class="flex items-center gap-2 text-sm cursor-pointer">
-        <input type="checkbox" id="deploy-pull" checked>
+        <input type="checkbox" id="deploy-pull" checked class="accent-accent">
         <span>Pull latest images first (recommended)</span>
       </label>
     </div>
     <div class="flex gap-2 justify-end">
-      <button onclick="hideDeployConfirm()" class="btn-secondary btn-sm">Cancel</button>
-      <button id="deploy-confirm-btn" class="btn-accent btn-sm font-medium">Deploy</button>
+      <button onclick="hideDeployConfirm()" class="px-4 py-1.5 text-sm btn btn-secondary rounded">Cancel</button>
+      <button id="deploy-confirm-btn" class="px-4 py-1.5 text-sm btn btn-accent rounded font-medium">Deploy</button>
     </div>
     <div class="text-[10px] text-muted mt-3">This will update running containers for the project. Use with care on production services.</div>
   </div>
@@ -339,38 +339,38 @@ function loadUnused() {
 
 <!-- Logs modal (inline viewer, stays on Docker Management screen) -->
 <div id="logs-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div id="logs-modal-content" class="bg-surface border border-border rounded-xl p-4 w-full max-w-5xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
+  <div id="logs-modal-content" class="card rounded-xl p-4 w-full max-w-5xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
     <!-- Buttons on top -->
-    <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-zinc-200 dark:border-border text-xs flex-shrink-0">
+    <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-border text-xs flex-shrink-0">
       <div>
         <span class="text-sm text-muted">Logs for</span>
         <strong id="logs-container-name" class="font-mono text-accent break-all"></strong>
       </div>
       <div class="flex items-center gap-1 flex-wrap">
-        <button onclick="loadLogsForModal(50)" class="btn-secondary btn-sm">Last 50</button>
-        <button onclick="loadLogsForModal(200)" class="btn-secondary btn-sm">Last 200</button>
-        <button onclick="loadLogsForModal(500)" class="btn-secondary btn-sm">Last 500</button>
-        <span class="mx-1 text-muted dark:text-muted">|</span>
-        <button onclick="expandLogsToFullScreen()" class="btn-secondary btn-sm">Full screen</button>
-        <button onclick="closeLogsModal()" class="btn-secondary btn-sm">Close</button>
+        <button onclick="loadLogsForModal(50)" class="px-2 py-0.5 btn btn-secondary rounded">Last 50</button>
+        <button onclick="loadLogsForModal(200)" class="px-2 py-0.5 btn btn-secondary rounded">Last 200</button>
+        <button onclick="loadLogsForModal(500)" class="px-2 py-0.5 btn btn-secondary rounded">Last 500</button>
+        <span class="mx-1 text-muted">|</span>
+        <button onclick="expandLogsToFullScreen()" class="px-2 py-0.5 btn btn-secondary rounded">Full screen</button>
+        <button onclick="closeLogsModal()" class="px-2 py-0.5 btn btn-secondary rounded">Close</button>
       </div>
     </div>
 
     <!-- Logs in middle (flex-1 fills the space between top buttons and bottom description) -->
-    <pre id="logs-content" class="flex-1 min-h-0 overflow-auto bg-surface border border-border p-3 text-xs font-mono whitespace-pre-wrap rounded log-area"></pre>
+    <pre id="logs-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border rounded"></pre>
 
     <!-- Description on bottom -->
-    <div class="text-[10px] text-muted mt-2 pt-1 border-t border-zinc-200 dark:border-border/60 flex-shrink-0">New lines stream live. Scroll up to pause auto-follow. Use Full screen for long output.</div>
+    <div class="text-[10px] text-muted mt-2 pt-1 border-t border-border flex-shrink-0">New lines stream live. Scroll up to pause auto-follow. Use Full screen for long output.</div>
   </div>
 </div>
 
 <!-- Service selection modal for per-container actions (Stop/Start/Restart/Logs) -->
 <div id="service-select-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-md">
+  <div class="card rounded-xl p-6 w-full max-w-md">
     <h3 class="text-lg font-medium mb-2" id="service-select-title">Which service?</h3>
     <div id="service-select-list" class="space-y-1.5 max-h-60 overflow-auto mb-4"></div>
     <div class="flex gap-2 justify-end">
-      <button type="button" onclick="hideServiceSelectModal()" class="btn-secondary btn-sm">Cancel</button>
+      <button type="button" onclick="hideServiceSelectModal()" class="px-4 py-1 btn btn-secondary rounded text-sm">Cancel</button>
     </div>
   </div>
 </div>
@@ -390,12 +390,12 @@ function showBuildModal(projName, buildServices, serverId) {
   svcDiv.innerHTML = '';
 
   if (!buildServices || buildServices.length === 0) {
-    svcDiv.innerHTML = '<div class="text-xs text-amber-400">No buildable services detected.</div>';
+    svcDiv.innerHTML = '<div class="text-xs text-warning">No buildable services detected.</div>';
   } else {
     // All checkbox
     const allLabel = document.createElement('label');
     allLabel.className = 'flex items-center gap-2 text-sm cursor-pointer';
-    allLabel.innerHTML = `<input type="checkbox" id="build-all" checked> <span>Build all (${buildServices.length})</span>`;
+    allLabel.innerHTML = `<input type="checkbox" id="build-all" checked class="accent-blue-600"> <span>Build all (${buildServices.length})</span>`;
     svcDiv.appendChild(allLabel);
 
     const allCb = allLabel.querySelector('input');
@@ -406,7 +406,7 @@ function showBuildModal(projName, buildServices, serverId) {
     buildServices.forEach(svc => {
       const l = document.createElement('label');
       l.className = 'flex items-center gap-2 text-sm pl-4 cursor-pointer';
-      l.innerHTML = `<input type="checkbox" name="services" value="${svc}" checked> <span>${svc}</span>`;
+      l.innerHTML = `<input type="checkbox" name="services" value="${svc}" checked class="accent-blue-600"> <span>${svc}</span>`;
       svcDiv.appendChild(l);
       l.querySelector('input').onchange = () => {
         const allChecked = Array.from(svcDiv.querySelectorAll('input[type=checkbox]')).filter(c=>c.id!=='build-all').every(c=>c.checked);
@@ -539,15 +539,15 @@ function switchQuickEditTab(type) {
 
   qeCurrent.fileType = type;
 
-  composeTab.classList.toggle('btn-accent', type === 'compose');
-  composeTab.classList.toggle('btn-secondary', false);
+  composeTab.classList.toggle('bg-accent', type === 'compose');
+  composeTab.classList.toggle('bg-surface', false);
   if (type !== 'compose') {
-    composeTab.classList.add('btn-secondary');
+    composeTab.classList.add('bg-surface');
   }
-  dfTab.classList.toggle('btn-accent', type === 'dockerfile');
-  dfTab.classList.toggle('btn-secondary', false);
+  dfTab.classList.toggle('bg-accent', type === 'dockerfile');
+  dfTab.classList.toggle('bg-surface', false);
   if (type !== 'dockerfile') {
-    dfTab.classList.add('btn-secondary');
+    dfTab.classList.add('bg-surface');
   }
 
   // update full editor link to match current file
@@ -611,7 +611,7 @@ async function quickSave(action /* 'draft' | 'deploy' */) {
         hideQuickEditModal();
         // light feedback on main page
         const flash = document.createElement('div');
-        flash.className = 'fixed bottom-4 right-4 bg-emerald-900 text-emerald-200 text-xs px-3 py-2 rounded shadow';
+        flash.className = 'fixed bottom-4 right-4 banner-success text-xs px-3 py-2 rounded shadow';
         flash.textContent = json.message || 'Changes saved.';
         document.body.appendChild(flash);
         setTimeout(() => flash.remove(), 2200);
@@ -875,14 +875,14 @@ function showServiceSelectModal(projName, services, action) {
 
   // All services
   const allItem = document.createElement('div');
-  allItem.className = 'px-3 py-1.5 rounded bg-surface border border-border hover:bg-[var(--color-surface)] cursor-pointer text-sm font-medium flex items-center gap-2';
+  allItem.className = 'px-3 py-1.5 rounded bg-surface hover:bg-accent/10 border border-border hover:border-accent cursor-pointer text-sm font-medium flex items-center gap-2';
   allItem.innerHTML = '<span class="text-accent">↻</span> <span>All services</span>';
   allItem.onclick = () => selectServiceAndAct('');
   listEl.appendChild(allItem);
 
   services.forEach(s => {
     const item = document.createElement('div');
-    item.className = 'px-3 py-1.5 pl-5 rounded bg-surface border border-border hover:bg-[var(--color-surface)] cursor-pointer text-sm flex items-center';
+    item.className = 'px-3 py-1.5 pl-5 rounded bg-surface hover:bg-bg border border-border hover:border-accent cursor-pointer text-sm flex items-center';
     item.textContent = s;
     item.onclick = () => selectServiceAndAct(s);
     listEl.appendChild(item);
@@ -946,7 +946,7 @@ function hideServiceSelectModal() {
     overlay.innerHTML = `
       <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
         <div class="flex justify-center mb-3">
-          <div class="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+          <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
         </div>
         <div class="font-medium">${actionText} <span class="font-mono text-accent">${projectName}</span>...</div>
         <div class="text-xs text-muted mt-2">Please wait. The page will refresh when complete.</div>
@@ -964,7 +964,7 @@ function hideServiceSelectModal() {
       }
 
       // Find project name from the card
-      const card = form.closest('.bg-surface');
+      const card = form.closest('.card');
       let projName = 'project';
       if (card) {
         const nameEl = card.querySelector('.font-semibold');
@@ -1070,7 +1070,7 @@ function hideServiceSelectModal() {
       overlay.innerHTML = `
         <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
           <div class="flex justify-center mb-3">
-            <div class="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+            <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
           </div>
           <div class="font-medium">${actionLabel} <span class="font-mono text-accent">${cname}</span>...</div>
           <div class="text-xs text-muted mt-2">Please wait...</div>
@@ -1095,7 +1095,7 @@ function hideServiceSelectModal() {
         overlay.innerHTML = `
           <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
             <div class="flex justify-center mb-3">
-              <div class="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+              <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
             </div>
             <div class="font-medium">Stopping <span class="font-mono text-accent">${cname}</span>...</div>
           </div>
@@ -1114,7 +1114,7 @@ function hideServiceSelectModal() {
         overlay.innerHTML = `
           <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
             <div class="flex justify-center mb-3">
-              <div class="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+              <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
             </div>
             <div class="font-medium">Starting <span class="font-mono text-accent">${cname}</span>...</div>
           </div>
@@ -1133,7 +1133,7 @@ function hideServiceSelectModal() {
         overlay.innerHTML = `
           <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
             <div class="flex justify-center mb-3">
-              <div class="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+              <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
             </div>
             <div class="font-medium">Restarting <span class="font-mono text-accent">${cname}</span>...</div>
           </div>
@@ -1156,7 +1156,7 @@ function hideServiceSelectModal() {
         overlay.innerHTML = `
           <div class="bg-surface border border-border rounded-xl p-6 w-full max-w-sm mx-4 text-center">
             <div class="flex justify-center mb-3">
-              <div class="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
+              <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
             </div>
             <div class="font-medium">Pruning unused resources...</div>
             <div class="text-xs text-muted mt-2">Please wait...</div>

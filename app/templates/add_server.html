@@ -8,7 +8,7 @@
   </div>
   <p class="text-sm text-muted mb-6">SSH private key will be encrypted with the master key immediately.</p>
 
-  <form method="post" action="/servers/add" class="space-y-4 bg-surface p-6 rounded-xl border border-border">
+  <form method="post" action="/servers/add" class="space-y-4 card p-6">
     <div>
       <label class="block text-sm mb-1">Name</label>
       <input name="name" required class="w-full bg-surface border border-border px-3 py-2 rounded">
@@ -36,7 +36,7 @@
       <label class="flex items-center gap-2 text-sm">
         <input type="radio" name="key_mode" value="upload"> Upload private key
       </label>
-      <label class="flex items-center gap-2 text-sm text-primary">
+      <label class="flex items-center gap-2 text-sm text-warning">
         <input type="radio" name="key_mode" value="password"> Use password (discouraged)
       </label>
     </div>
@@ -47,12 +47,12 @@
     </div>
 
     <div>
-      <label class="block text-sm mb-1 text-primary">Password (only if using password auth)</label>
+      <label class="block text-sm mb-1 text-warning">Password (only if using password auth)</label>
       <input type="password" name="ssh_password" class="w-full bg-surface border border-border px-3 py-2 rounded" placeholder="SSH password (will be encrypted)">
     </div>
 
     <button type="submit"
-            class="mt-2 px-5 py-2 btn-accent">Add Server &amp; Encrypt Key</button>
+            class="mt-2 px-5 py-2 btn btn-accent text-sm font-medium rounded">Add Server &amp; Encrypt Key</button>
   </form>
 
   <p class="mt-4 text-xs text-muted">After adding you will see the public key to put into <code>~/.ssh/authorized_keys</code> on the target.</p>

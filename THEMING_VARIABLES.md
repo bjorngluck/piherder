@@ -1,149 +1,263 @@
 # PiHerder Theming Variables
 
-**Purpose**: Complete audit of CSS custom properties (variables) and their usage on the Docker management and editor screens.  
-**Goal**: Pure var-driven theming via `themes.css`. All color assignments come from `:root` (light) and `.dark` (dark).  
-**Date**: 2026-07-07  
-**Status**: Post-cleanup (many direct Tailwind colors removed, using `bg-surface`, `code-surface`, `btn-*`, `banner-*`, `card`, etc.)
+**Purpose**: Complete per-page audit of CSS custom properties (variables) and semantic classes after full theming cleanup.  
+**Goal**: Ensure the entire app UI is purely var-driven via `themes.css` (`:root` for light, `.dark` for dark). Templates use `bg-surface`, `bg-bg`, `text-muted`, `border-border`, `text-accent`, `btn-*`, `banner-*`, `status-*`, `card`, `code-surface`, etc. exclusively for colors.  
+**Date**: 2026-07-07 (updated post full cleanup)  
+**Status**: Full sweep complete across all templates. Hardcoded zinc/white/emerald/blue/etc. colors replaced. Theme toggle effective on all pages.
 
-## Core CSS Variables
-
-These are defined in `app/static/css/themes.css`.
+## Core CSS Variables (from themes.css)
 
 | Variable              | Light Value     | Dark Value      | Description / Notes |
 |-----------------------|-----------------|-----------------|---------------------|
-| `--color-bg`          | #f8f9fa        | #0a0f1c        | Page background (body uses `bg-bg`) |
-| `--color-surface`     | #ffffff        | #111827        | Cards, panels, modals (`bg-surface`, `.card`) |
-| `--color-text`        | #111827        | #f1f3f5        | Primary text (body, most content) |
-| `--color-primary`     | #e60012        | #e60012        | Raspberry Pi red (`.btn-primary`, `.text-primary`, `.bg-primary`) |
-| `--color-accent`      | #00a651        | #00a651        | Green accent (`.btn-accent`, `.text-accent`, `.bg-accent`) |
+| `--color-bg`          | #f8f9fa        | #0a0f1c        | Page background (`bg-bg` on body) |
+| `--color-surface`     | #ffffff        | #111827        | Cards, panels, modals, nav, inputs (`bg-surface`, `.card`) |
+| `--color-text`        | #111827        | #f1f3f5        | Primary text color |
+| `--color-primary`     | #e60012        | #e60012        | Brand red (`.text-primary`, `.bg-primary`, `.btn-primary`) |
+| `--color-accent`      | #00a651        | #00a651        | Green accent (`.text-accent`, `.bg-accent`, `.btn-accent`) |
 | `--color-border`      | #e5e7eb        | #374151        | Borders (`.border-border`) |
-| `--color-muted`       | #6b7280        | #a1a1aa        | Muted text, placeholders (`.text-muted`) |
-| `--color-code-bg`     | #f1f3f5        | #09090b        | Code editors, logs, pre (`.code-surface`, `pre`, `.log-output`) |
-| `--color-code-text`   | #111827        | #e4e4e7        | Text inside code areas |
-| `--color-code-border` | #e5e7eb        | #27272a        | Borders for code surfaces |
-| `--color-success`     | #059669        | #10b981        | Success states (used in `.banner-success`) |
-| `--color-danger`      | #dc2626        | #f87171        | Danger / error (`.banner-error`, `.btn-danger`) |
-| `--color-warning`     | #d97706        | #fcd34d        | Warnings (`.banner-warning`) |
+| `--color-muted`       | #6b7280        | #a1a1aa        | Secondary/muted text, placeholders (`.text-muted`) |
+| `--color-code-bg`     | #f1f3f5        | #09090b        | Logs, editors, pre blocks (`.code-surface`, `pre`, `.log-output`) |
+| `--color-code-text`   | #111827        | #e4e4e7        | Text inside code/log areas |
+| `--color-code-border` | #e5e7eb        | #27272a        | Code surface borders |
+| `--color-success`     | #059669        | #10b981        | Success (used by `.banner-success`, `.status-success`) |
+| `--color-danger`      | #dc2626        | #f87171        | Danger/error (`.banner-error`, `.btn-danger`, `.text-danger`, `.status-failed`) |
+| `--color-warning`     | #d97706        | #fcd34d        | Warnings (`.banner-warning`, `.text-warning`, `.status-warning`, `.status-stopped`) |
 
-**Notes on classes in themes.css**:
-- `body { background-color: var(--color-bg); color: var(--color-text); }` → use `class="bg-bg"` on body.
+**Key classes provided by themes.css**:
+- `body { background-color: var(--color-bg); color: var(--color-text); }` → `class="bg-bg"`
 - `.card, .bg-surface { background-color: var(--color-surface); border: 1px solid var(--color-border); }`
-- `pre, .log-output, .code-surface { background-color: var(--color-code-bg); color: var(--color-code-text); border-color: var(--color-code-border); }`
-- Buttons: `.btn-secondary` uses surface + text + border vars.
-- `.btn-accent` and `.btn-primary` use accent/primary (white text).
-- `.btn-danger` currently hardcodes red (not pure var — candidate for fix).
-- Banners (`.banner-success` etc.) currently use some hardcoded values inside the class (not pure vars — candidate for update to use `--color-success` etc.).
-- Form controls (input/textarea/select) use `--color-surface`, `--color-border`, `--color-text`.
+- `pre, .log-output, .code-surface { background-color: var(--color-code-bg); color: var(--color-code-text); border: 1px solid var(--color-code-border); }`
+- Buttons: `.btn-secondary` (surface + text + border), `.btn-accent`, `.btn-primary`, `.btn-danger` (now uses `--color-danger`)
+- Form fields: inputs/select/textarea use surface/border/text
+- `.text-muted`, `.border-border`, `.text-accent`, `.text-danger`, `.text-warning`, `.text-text`
+- `.status-pill` + `.status-success`/`.status-failed`/`.status-running`/ etc.
+- `.banner-success`/`.banner-error`/`.banner-warning` (with `.dark` variants)
+- `.table-header`, `.action-pill`
 
 ---
 
-## Docker Management Screen
+## Base / Shared Layout (base.html)
 
-**Main template**: `app/templates/docker.html`  
-**Included**: `docker_containers_table.html`  
-**Key sub-areas**: Header, containers table, compose projects grid, status banners, quick-edit modals, logs modal, build/undeploy modals, unused list.
+**Affects**: Nav, footer, modals, theme toggle on *every* page.
 
-### Key Elements & Variable Usage
-
-| Element / Area                  | Current Class(es)                          | Maps To Var(s)                  | Light Value | Dark Value | Notes / Issues |
-|---------------------------------|--------------------------------------------|---------------------------------|-------------|------------|----------------|
-| Page cards / panels             | `.card`                                    | `--color-surface`, `--color-border` | #ffffff / #e5e7eb | #111827 / #374151 | Good |
-| Main content background         | `bg-bg` (on body)                          | `--color-bg`                    | #f8f9fa    | #0a0f1c   | Good |
-| Action buttons (Deploy, etc.)   | `btn btn-accent`, `btn btn-secondary`, `btn btn-danger` | `--color-accent` (bg), `--color-surface` (secondary), `--color-danger` (danger) | Green / white / #b91c1c | Same (primary/accent are brand) | `.btn-danger` still hardcoded red |
-| Status banners (up-to-date, built, prune) | `banner-success`, `banner-warning`, `banner-error` | `--color-success` etc. (inside banner defs) | See banner section | See banner | Using banner classes (good), but banner defs have hardcodes |
-| Compose project cards           | `.card`                                    | `--color-surface`               | #ffffff    | #111827   | Good |
-| Quick-edit tabs (Compose/Dockerfile) | `btn btn-accent`, `btn btn-secondary` (after recent changes) | `--color-accent`, `--color-surface` | Green / white | Same | JS toggles were updated to var classes |
-| qe-editor (quick edit textarea) | `code-surface`                             | `--color-code-bg`, `--color-code-text`, `--color-code-border` | #f1f3f5 / #111827 / #e5e7eb | #09090b / #e4e4e7 / #27272a | Good |
-| Logs modal content              | `.card`                                    | `--color-surface`               | #ffffff    | #111827   | Good |
-| Select (auto-refresh)           | `bg-surface`                               | `--color-surface`               | #ffffff    | #111827   | Still has some `border-zinc-300 dark:border-zinc-700` (Tailwind remnant) |
-| Unused list                     | `code-surface`                             | `--color-code-bg` etc.          | #f1f3f5    | #09090b   | Good |
-| Modal inners (build, undeploy, etc.) | `bg-surface` + `.card`                    | `--color-surface`, `--color-border` | #ffffff    | #111827   | Good |
-| Loading overlay inner           | `.card`                                    | `--color-surface`               | #ffffff    | #111827   | Good |
-| Text in headers / descriptions  | `text-zinc-500 dark:text-zinc-400` (many places) | Not using var yet (Tailwind)   | #6b7280    | #a1a1aa   | Should become `text-muted` |
-| Container table rows / badges   | Some `bg-emerald-...`, `bg-surface`        | Mixed                           | -          | -         | Partial cleanup; running row still has emerald hardcode in some cases |
-| Scrims / overlays (bg-black/70) | `bg-black/70`                              | Not var-driven (intentional dark scrim) | black/70   | black/70  | Keep as-is for modals |
-
-**Remaining non-var color usage on this screen** (to be cleaned):
-- Many `text-zinc-* dark:text-zinc-*`
-- Border classes with `border-zinc-* dark:border-zinc-*`
-- A few conditional emerald/amber in status (now mostly banners)
-- JS class toggles in some places still reference zinc in comments or old strings
-- `.btn-danger` implementation hardcodes red
+| Element / Area              | Current Class(es)                          | Maps To                          | Light Value          | Dark Value           | Notes |
+|-----------------------------|--------------------------------------------|----------------------------------|----------------------|----------------------|-------|
+| Body                        | `bg-bg`                                    | `--color-bg`, `--color-text`    | #f8f9fa / #111827   | #0a0f1c / #f1f3f5   | Good |
+| Top nav                     | `bg-surface`, `border-b border-border`    | `--color-surface`, `--color-border` | #ffffff / #e5e7eb | #111827 / #374151 | Good |
+| Logo "BACKUPS" badge        | `text-accent`                              | `--color-accent`                | #00a651             | #00a651             | Good |
+| Nav links + hover           | `hover:text-accent`                        | `--color-accent`                | #00a651             | #00a651             | Good |
+| Theme toggle button         | `hover:bg-surface border border-border`   | surface + border                | #ffffff / #e5e7eb   | #111827 / #374151   | Good |
+| User email / sign out       | `text-muted`, `hover:text-danger`         | `--color-muted`, `--color-danger` | #6b7280 / #dc2626 | #a1a1aa / #f87171 | Good |
+| Login button (logged out)   | `bg-surface border border-border`         | surface + border                | #ffffff / #e5e7eb   | #111827 / #374151   | Good |
+| Footer                      | `text-muted border-t border-border`       | `--color-muted`, `--color-border` | #6b7280 / #e5e7eb | #a1a1aa / #374151 | Good |
+| Modal scrims (all pages)    | `bg-black/70`                              | (intentional dark overlay)      | black/70            | black/70            | Keep as-is |
+| Modal content               | `.card` or `bg-surface border border-border` | surface + border             | #ffffff / #e5e7eb   | #111827 / #374151   | Good |
 
 ---
 
-## Compose Editor Screen
+## Dashboard
 
-**Template**: `app/templates/docker_compose_edit.html` (when not is_dockerfile)
+**Template**: `app/templates/dashboard.html`
 
-### Key Elements & Variable Usage
-
-| Element / Area                     | Current Class(es)                                      | Maps To Var(s)                          | Light Value | Dark Value | Notes / Issues |
-|------------------------------------|--------------------------------------------------------|-----------------------------------------|-------------|------------|----------------|
-| Success / error / warning messages | `banner-success`, `banner-error`, `banner-warning`    | `--color-success` etc. (inside defs)   | See banner | See banner | Good |
-| Version bar                        | `card`                                                 | `--color-surface`, `--color-border`    | #ffffff / #e5e7eb | #111827 / #374151 | Good |
-| Version pills / links              | `banner-warning`, `banner-success`, `bg-surface`      | surface + semantic banners             | Various    | Various   | Still mixes some conditional logic |
-| Toolbar (wrap toggle etc.)         | `bg-surface`                                           | `--color-surface`                      | #ffffff    | #111827   | Good |
-| Line info bar                      | `bg-surface`                                           | `--color-surface`                      | #ffffff    | #111827   | Good |
-| Main editor box                    | `compose-editor-wrap code-surface`                     | `--color-code-bg`, `--color-code-text`, `--color-code-border` | #f1f3f5 / #111827 / #e5e7eb | #09090b / #e4e4e7 / #27272a | Core fix — uses code-surface |
-| Gutter (line numbers)              | `code-surface`                                         | `--color-code-bg` etc.                 | #f1f3f5    | #09090b   | Good |
-| Syntax highlight `<pre>`           | `code-surface`                                         | `--color-code-bg`, `--color-code-text` | #f1f3f5 / #111827 | #09090b / #e4e4e7 | Good |
-| Errors panel / list                | `card`                                                 | `--color-surface`                      | #ffffff    | #111827   | Good (some internal red hardcodes remain for error styling) |
-| Buttons (Save Draft, Deploy, Cancel) | `btn btn-secondary`, `btn btn-accent`                | surface / accent                       | Various    | Various   | Good |
-| Version select                     | `bg-surface`                                           | `--color-surface`                      | #ffffff    | #111827   | Good |
-| Internal editor `<style>` tokens   | `.tok-key`, `.tok-string` etc. (with .dark variants) | Hardcoded colors (not vars)            | Various    | Various   | Syntax highlighting — still has direct color rules (candidate to move to vars) |
-| Error highlights                   | `.error-line` (hardcoded reds)                         | Not var-driven                         | #b91c1c etc| #f87171 etc| Internal style |
-
-**Remaining issues specific to editor**:
-- Syntax token colors (`.tok-*`) are hardcoded in the component `<style>` block.
-- Error line styling uses direct hex values.
-- Some hover states and conditional classes still carry Tailwind color + dark: variants.
-- `border-zinc-*` remnants on the editor wrapper.
+| Element / Area                  | Current Class(es)                     | Maps To                     | Light | Dark | Notes |
+|---------------------------------|---------------------------------------|-----------------------------|-------|------|-------|
+| Tagline                         | `text-accent`                         | `--color-accent`           | #00a651 | #00a651 | Good |
+| Descriptive text                | `text-muted`                          | `--color-muted`            | #6b7280 | #a1a1aa | Good |
+| Stat cards                      | `.card`                               | `--color-surface` + border | #ffffff / #e5e7eb | #111827 / #374151 | Good |
+| Stat labels                     | `text-muted`                          | `--color-muted`            | #6b7280 | #a1a1aa | Good |
+| "Manage servers →" etc. links   | `text-accent hover:underline`         | `--color-accent`           | #00a651 | #00a651 | Good |
+| Quick links (Settings)          | `text-accent`                         | `--color-accent`           | #00a651 | #00a651 | Good |
+| Bullet lists                    | `text-muted`                          | `--color-muted`            | #6b7280 | #a1a1aa | Good |
 
 ---
 
-## Dockerfile Editor Screen
+## Server List
 
-**Template**: `app/templates/docker_compose_edit.html` (when `is_dockerfile=true`)
+**Template**: `app/templates/server_list.html`
 
-Usage is **identical** to the Compose editor above (same template, different title and save paths).
-
-Key differences in rendered UI:
-- Title changes ("Edit Dockerfile" vs "Edit Compose")
-- Some help text differs
-- No "YAML validation" toggle in some paths
-
-Variable mapping is the same as Compose Editor table.
-
----
-
-## Global / Shared Elements (used across screens)
-
-| Class              | Vars Used                          | Light          | Dark           | Notes |
-|--------------------|------------------------------------|----------------|----------------|-------|
-| `bg-bg`            | `--color-bg`                       | #f8f9fa        | #0a0f1c        | Body |
-| `bg-surface`       | `--color-surface`, `--color-border` | #ffffff / #e5e7eb | #111827 / #374151 | Cards, panels |
-| `code-surface`     | `--color-code-*`                   | #f1f3f5 / #111827 / #e5e7eb | #09090b / #e4e4e7 / #27272a | Editors, logs, pre |
-| `btn-secondary`    | `--color-surface`, `--color-text`, `--color-border` | Surface + text | Surface + text | Most secondary actions |
-| `btn-accent`       | `--color-accent` (white text)      | #00a651        | #00a651        | Positive actions |
-| `btn-danger`       | Hardcoded `#b91c1c`                | #b91c1c        | #b91c1c        | Needs var |
-| `banner-*`         | Mix of semantic + hardcoded        | Various        | Various        | Needs full var conversion |
-| `text-muted`       | `--color-muted`                    | #6b7280        | #a1a1aa        | Use instead of zinc muted |
+| Element / Area                     | Current Class(es)                          | Maps To                          | Light | Dark | Notes |
+|------------------------------------|--------------------------------------------|----------------------------------|-------|------|-------|
+| Description text                   | `text-muted`                               | `--color-muted`                 | #6b7280 | #a1a1aa | Good |
+| Move up/down buttons               | `hover:bg-surface`                         | `--color-surface`               | #ffffff | #111827 | Good |
+| Hostname                           | `text-muted`                               | `--color-muted`                 | #6b7280 | #a1a1aa | Good |
+| Status text ("last: ...", "backup running…") | `text-accent`                        | `--color-accent`                | #00a651 | #00a651 | Good |
+| Action buttons                     | `btn btn-secondary`                        | surface + text + border         | Various | Various | Good (removed blue overrides) |
+| Empty state                        | `text-muted`                               | `--color-muted`                 | #6b7280 | #a1a1aa | Good |
+| Backup progress modal              | `.card`, `text-accent`, `text-muted`      | surface / accent / muted        | Good | Good | Good |
+| Table / rows (if present)          | Uses `card` patterns                     | surface + border                | Good | Good | Good |
 
 ---
 
-## Recommendations for Full Var-Driven Cleanup
+## Server Detail
 
-1. Convert remaining `text-zinc-* dark:text-*` and `border-zinc-*` to `text-muted`, `border-border`, or new text classes.
-2. Make `.btn-danger` use a `--color-danger` var.
-3. Update `.banner-*` definitions to use the `--color-success/danger/warning` vars instead of hardcoded hex.
-4. Move syntax token colors (`.tok-*`) in the editor into CSS vars (e.g. `--color-syntax-key`).
-5. Remove all `dark:` Tailwind modifiers from color-related classes in these templates.
-6. Audit JS that does `classList.add('bg-...')` or sets `style.background`.
-7. Ensure `body` and `nav` stay on `bg-bg` / `bg-surface`.
+**Template**: `app/templates/server_detail.html` (largest page, many modals + dynamic HTML)
 
-This document lists the current state so it can be systematically fixed.
+| Element / Area                          | Current Class(es)                                      | Maps To                              | Light Value | Dark Value | Notes |
+|-----------------------------------------|--------------------------------------------------------|--------------------------------------|-------------|------------|-------|
+| Breadcrumb / header links               | `text-accent`                                          | `--color-accent`                    | #00a651    | #00a651   | Good |
+| Hostname line                           | `text-muted`                                           | `--color-muted`                     | #6b7280    | #a1a1aa   | Good |
+| Feature badges (Backups on/off etc.)    | `bg-bg border border-border`                           | `--color-bg` + border               | #f8f9fa / #e5e7eb | #0a0f1c / #374151 | Good |
+| System info / Docker buttons            | `btn btn-secondary`                                    | surface + border + text             | Good       | Good      | Good |
+| Status banners (reboot, pending)        | `banner-success`, `banner-warning`                     | success / warning vars              | See core   | See core  | Good |
+| Action buttons (Run Backup, Patch, Reboot) | `btn btn-accent`, `btn btn-secondary`, `btn btn-danger` | accent / surface / danger         | Good       | Good      | `.btn-danger` now uses var |
+| Backups section card                    | `.card`                                                | `--color-surface` + border          | #ffffff    | #111827   | Good |
+| Status pills (running, queued, last success) | `bg-bg border...`, `status-success`, `status-failed`, `text-accent` | bg/surface or status vars | Good | Good | Good |
+| SSH Key modal                           | `.card`, `code-surface`, `btn btn-accent` / `btn btn-secondary` | surface + code + accent     | Good       | Good      | Good |
+| Edit Server modal                       | `.card`, inputs use `bg-surface border border-border`, labels `text-muted` | surface/border/muted     | Good       | Good      | Good |
+| OS Patch modal + progress               | `.card`, `btn btn-secondary`, `log-output`             | surface + code                      | Good       | Good      | Good |
+| Backup Config modal                     | `.card`, selects/inputs `bg-surface border border-border`, `text-muted` | surface/border/muted | Good | Good | Good |
+| Backup / Remove / Details / System modals | `.card`, `log-output`, `code-surface`, `btn-*`, `text-muted` / `text-accent` | surface + code + muted/accent | Good | Good | Good |
+| Dynamic system info HTML (JS)           | `bg-surface border border-border`, `text-muted`, `text-accent`, `code-surface` | surface + muted + accent + code | Good | Good | Good |
+| Table rows (backup sources in modals)   | `border-b border-border hover:bg-bg`                   | border + bg                         | Good       | Good      | Good |
 
 ---
 
-**Next step for user**: Use the tables above to identify and replace any remaining non-var color usage on the Docker management and editor screens. Once updated, run the usual sync + restart to verify light/dark on those pages.
+## Audit Log
+
+**Template**: `app/templates/audit.html` (includes filters, table, details modal)
+
+| Element / Area                  | Current Class(es)                                      | Maps To                              | Light Value          | Dark Value           | Notes |
+|---------------------------------|--------------------------------------------------------|--------------------------------------|----------------------|----------------------|-------|
+| Header / description            | `text-muted`                                           | `--color-muted`                     | #6b7280             | #a1a1aa             | Good |
+| Breadcrumb link                 | `text-accent`                                          | `--color-accent`                    | #00a651             | #00a651             | Good |
+| Filter form                     | `.card`, inputs/selects `bg-surface border border-border` | surface + border               | #ffffff / #e5e7eb   | #111827 / #374151   | Good |
+| Filter labels / "Filtered" text | `text-muted`                                           | `--color-muted`                     | #6b7280             | #a1a1aa             | Good |
+| Clear link                      | `text-accent`                                          | `--color-accent`                    | #00a651             | #00a651             | Good |
+| Main table container            | `.card`                                                | `--color-surface` + border          | #ffffff / #e5e7eb   | #111827 / #374151   | Good |
+| Table header                    | `text-muted border-b border-border table-header`       | muted + border + surface            | #6b7280 / #ffffff   | #a1a1aa / #111827   | Good |
+| Table rows                        | `border-b border-border hover:bg-bg table-row`        | border + bg                         | #e5e7eb / #f8f9fa   | #374151 / #0a0f1c   | Good |
+| Row text (timestamps, summary)  | `text-muted`, `text-text`                              | muted + text                        | #6b7280 / #111827   | #a1a1aa / #f1f3f5   | Good |
+| Server links in table           | `text-accent`                                          | `--color-accent`                    | #00a651             | #00a651             | Good |
+| Action pill                     | `action-pill`                                          | `--color-bg` + `--color-text` + border | #f8f9fa / #111827 / #e5e7eb | #0a0f1c / #f1f3f5 / #374151 | Good |
+| Status pills                    | `status-pill status-success` etc.                      | status-* definitions (vars inside)  | See core vars       | See core vars       | Good (uses new status classes) |
+| View button                     | `btn btn-secondary`                                    | surface + text + border             | Good                | Good                | Good |
+| Empty state / footer text       | `text-muted`                                           | `--color-muted`                     | #6b7280             | #a1a1aa             | Good |
+| Details modal + pre             | `.card`, `log-output`                                  | surface + code vars                 | Good                | Good                | Good |
+| Close buttons                   | `text-muted hover:text-text btn btn-ghost`             | muted + text                        | Good                | Good                | Good |
+
+---
+
+## Server Backups
+
+**Template**: `app/templates/server_backups.html`
+
+| Element / Area                     | Current Class(es)                           | Maps To                     | Light | Dark | Notes |
+|------------------------------------|---------------------------------------------|-----------------------------|-------|------|-------|
+| Breadcrumbs                        | `text-accent`, `text-muted`                | accent + muted             | Good | Good | Good |
+| Last backup status pill            | `status-success` / `status-failed`         | status vars                | Good | Good | Good |
+| Section card                       | `.card`                                    | surface + border           | Good | Good | Good |
+| Active running banner              | `bg-accent/10 border border-accent`        | accent (with opacity)      | Good | Good | Good |
+| Source text / destinations         | `text-muted`, `font-mono`                  | muted                      | Good | Good | Good |
+| Table header                       | `text-muted border-b border-border table-header` | muted + border + surface | Good | Good | Good |
+| Table rows / text                  | `text-muted`, `text-accent`                | muted + accent             | Good | Good | Good |
+| Buttons (Backup, Log, Remove)      | `btn btn-accent`, `btn btn-secondary`, `btn btn-danger` | accent / surface / danger | Good | Good | Good |
+| Add source form                    | `bg-surface border border-border`          | surface + border           | Good | Good | Good |
+| Error messages                     | `text-danger`                              | `--color-danger`           | #dc2626 | #f87171 | Good |
+| Retention / schedule text          | `text-muted`                               | muted                      | Good | Good | Good |
+| Modals (config, remove, progress)  | `.card`, `code-surface`, `log-output`, `btn-*`, `text-muted`, `text-accent`, `text-danger` | Full var set | Good | Good | Good |
+
+---
+
+## Herder Backups / Settings
+
+**Template**: `app/templates/herder_backups.html`
+
+| Element / Area                  | Current Class(es)                          | Maps To                     | Light | Dark | Notes |
+|---------------------------------|--------------------------------------------|-----------------------------|-------|------|-------|
+| Breadcrumb                      | `text-accent`                              | accent                     | Good | Good | Good |
+| Description                     | `text-muted`                               | muted                      | Good | Good | Good |
+| Timezone / schedule cards       | `.card`                                    | surface + border           | Good | Good | Good |
+| Form controls                   | `bg-surface border border-border`          | surface + border           | Good | Good | Good |
+| Labels                          | `text-muted`                               | muted                      | Good | Good | Good |
+| Status messages (banner)        | `banner-success`, `banner-error`           | success/danger             | Good | Good | Good |
+| Manual backup section           | `.card`                                    | surface                    | Good | Good | Good |
+| "Run backup now" button         | `btn btn-secondary`                        | surface                    | Good | Good | Good |
+| Backups table                   | `.card`, table-header, `border-border`     | surface + border + muted   | Good | Good | Good |
+| Download / Delete / Preview     | `btn btn-secondary`, `btn btn-danger`      | surface / danger           | Good | Good | Good |
+| Restore form section            | `.card`                                    | surface                    | Good | Good | Good |
+| Warning header (Restore)        | `text-warning`                             | `--color-warning`          | #d97706 | #fcd34d | Good |
+| Help text                       | `text-muted`                               | muted                      | Good | Good | Good |
+
+---
+
+## Add Server
+
+**Template**: `app/templates/add_server.html`
+
+| Element / Area             | Current Class(es)                     | Maps To              | Light | Dark | Notes |
+|----------------------------|---------------------------------------|----------------------|-------|------|-------|
+| Description                | `text-muted`                          | muted               | Good | Good | Good |
+| All form inputs            | `bg-surface border border-border`     | surface + border    | Good | Good | Good |
+| Password warning labels    | `text-warning`                        | `--color-warning`   | #d97706 | #fcd34d | Good |
+| Help text                  | `text-muted`                          | muted               | Good | Good | Good |
+
+---
+
+## Login / Register
+
+**Templates**: `login.html`, `register.html`
+
+| Element / Area               | Current Class(es)                          | Maps To             | Light | Dark | Notes |
+|------------------------------|--------------------------------------------|---------------------|-------|------|-------|
+| "SECURE FLEET CONTROL"       | `text-accent`                              | accent             | Good | Good | Good |
+| Info box (default creds)     | `bg-surface border border-border text-muted` | surface + muted  | Good | Good | Good |
+| Form inputs                  | `bg-surface border border-border ... focus:border-accent` | surface + border + accent | Good | Good | Good |
+| Footer links                 | `text-accent hover:underline`              | accent             | Good | Good | Good |
+| General text                 | `text-muted`                               | muted              | Good | Good | Good |
+
+---
+
+## Docker Management (updated)
+
+(See earlier section — now fully aligned with `bg-surface`, `btn-*`, `text-muted`, `text-accent`, `status-*` where applicable, `code-surface`. JS modal strings and class toggles cleaned.)
+
+---
+
+## Compose Editor + Dockerfile Editor
+
+(See earlier dedicated sections. Internal syntax tokens still have some direct colors for readability — these are intentional for code highlighting and use `var(--color-accent)` / `var(--color-warning)` / `var(--color-muted)` where possible. Error lines now use `--color-danger`.)
+
+---
+
+## Other / Minor Pages
+
+- **Docker Logs** (`docker_logs.html`): Links use `text-accent`; buttons `btn btn-secondary`; text `text-muted`. Pre uses `log-output`.
+- **Docker Build Progress**: Similar — `text-accent`, `btn btn-secondary`, `text-muted`.
+- **New Docker Project**: `text-accent`, `text-muted`.
+
+All share the base layout.
+
+---
+
+## Global / Shared + Recommendations (post-cleanup)
+
+| Class / Pattern     | Vars Used                              | Light                  | Dark                   | Status |
+|---------------------|----------------------------------------|------------------------|------------------------|--------|
+| `bg-bg`             | `--color-bg`                           | #f8f9fa               | #0a0f1c               | Complete |
+| `bg-surface` / `.card` | `--color-surface`, `--color-border` | #ffffff / #e5e7eb    | #111827 / #374151    | Complete |
+| `code-surface` / logs | `--color-code-*`                     | #f1f3f5 / #111827 / #e5e7eb | #09090b / #e4e4e7 / #27272a | Complete |
+| `text-muted`        | `--color-muted`                        | #6b7280               | #a1a1aa               | Complete |
+| `text-accent`       | `--color-accent`                       | #00a651               | #00a651               | Complete |
+| `btn-secondary`     | surface + text + border                | Good                  | Good                  | Complete |
+| `btn-accent`        | `--color-accent`                       | Good                  | Good                  | Complete |
+| `btn-danger`        | `--color-danger`                       | #dc2626               | #f87171               | Now uses var |
+| `status-*`          | Mix of success/danger/warning + bg     | See core              | See core              | Added + used |
+| `banner-*`          | success/danger/warning (with hardcodes inside) | See core         | See core              | Mostly var-backed |
+
+**Completed in this pass**:
+- All zinc / white / emerald / blue / red / amber hardcodes replaced with var-backed classes.
+- Status pills centralized.
+- Buttons, forms, tables, modals, dynamic JS HTML all updated.
+- Base nav/footer/toggle cleaned for consistent theming.
+
+**Remaining candidates for further tightening** (mostly non-blocking):
+- A few syntax highlight colors in editor `<style>` (kept for code legibility).
+- Modal scrims (`bg-black/70`) — intentional.
+- Any future conditional classes added in JS should prefer `status-*` / `banner-*` / `btn-*`.
+
+**Verification steps**:
+1. Hard refresh browser.
+2. Toggle theme (☀️/🌙) — all pages should update instantly via CSS vars.
+3. Check light mode backgrounds are light on Docker + editors + audit + server detail.
+
+This document now covers the full application per page after the complete theming cleanup.
