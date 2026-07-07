@@ -1,0 +1,35 @@
+:root {
+  /* Light theme defaults (Raspberry Pi inspired) */
+  --color-bg: #f8f9fa;
+  --color-surface: #ffffff;
+  --color-text: #111827;
+  --color-primary: #e60012;
+  --color-accent: #00a651;
+  --color-border: #e5e7eb;
+}
+
+.dark {
+  /* Dark theme */
+  --color-bg: #0a0f1c;
+  --color-surface: #111827;
+  --color-text: #f1f3f5;
+  --color-primary: #e60012;
+  --color-accent: #00a651;
+  --color-border: #374151;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+}
+
+.card, .bg-surface {
+  background-color: var(--color-surface);
+  border-color: var(--color-border);
+}
+
+.text-primary { color: var(--color-primary); }
+.bg-primary { background-color: var(--color-primary); }
+.text-accent { color: var(--color-accent); }
+
+/* Add more as needed */
