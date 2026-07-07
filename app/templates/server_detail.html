@@ -25,7 +25,7 @@
 
 <!-- SSH Key Modal -->
 <div id="ssh-key-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card p-6 w-full max-w-2xl mx-4">
+  <div class="modal-content card p-6 w-full max-w-2xl mx-4">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold">SSH Public Key for {{ server.name }}</h3>
       <button type="button" onclick="hideSshKeyModal()" class="text-muted hover:text-text">✕</button>
@@ -136,14 +136,14 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 {% if reboot_initiated %}
-<div class="mt-3 p-3 banner-success rounded text-sm flex items-center gap-2">
+<div class="mt-3 p-3 banner-success border border-border rounded text-sm flex items-center gap-2">
   <span>⏻</span>
   <strong>Reboot command sent.</strong> The server is restarting. Refresh this page in a minute or two.
 </div>
 {% endif %}
 
 {% if diagnostics and diagnostics.reboot_pending %}
-<div class="mt-3 p-3 banner-warning rounded text-sm flex items-center gap-2">
+<div class="mt-3 p-3 banner-warning border border-border rounded text-sm flex items-center gap-2">
   <span>⚠️</span>
   <strong>This server is pending a reboot</strong> (detected after last OS update).
   <form method="post" action="/servers/{{ server.id }}/reboot" class="ml-auto" onsubmit="return confirm('Reboot {{ server.name }} now?');">
@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- Edit Server Modal -->
 <div id="edit-server-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card p-6 w-full max-w-lg mx-4">
+  <div class="modal-content card p-6 w-full max-w-lg mx-4">
     <div class="flex items-center justify-between mb-4">
       <h3 class="font-semibold text-lg">Edit Server</h3>
       <button type="button" onclick="hideEditServerModal()" class="text-muted hover:text-text">✕</button>
@@ -341,7 +341,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 <!-- OS Patch Modal -->
 <div id="os-patch-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card p-6 w-full max-w-md">
+  <div class="modal-content card p-6 w-full max-w-md">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">Run OS Patch</h3>
       <button onclick="hideOsPatchModal()" class="text-muted">✕</button>
@@ -989,7 +989,7 @@ function computeUsableSummary(drives) {
 
 <!-- Backup Config Modal -->
 <div id="backup-config-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card p-6 w-full max-w-xl mx-4">
+  <div class="modal-content card p-6 w-full max-w-xl mx-4">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">Configure Backups</h3>
       <button onclick="hideBackupConfigModal()" class="text-muted">✕</button>
@@ -1090,7 +1090,7 @@ function computeUsableSummary(drives) {
 
 <!-- OS Patch Progress Modal (polls only while open) -->
 <div id="os-patch-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card p-6 w-full max-w-2xl mx-4">
+  <div class="modal-content card p-6 w-full max-w-2xl mx-4">
     <div class="flex justify-between items-center mb-2">
       <h3 class="font-semibold">OS Patch in progress</h3>
       <button onclick="hideOsPatchProgressModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
@@ -1125,7 +1125,7 @@ function computeUsableSummary(drives) {
 
 <!-- Remove Backup Source Confirmation Modal -->
 <div id="remove-backup-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card p-6 w-full max-w-md mx-4">
+  <div class="modal-content card p-6 w-full max-w-md mx-4">
     <h3 class="font-semibold mb-2">Confirm Remove Backup Source</h3>
     <p class="text-sm text-muted mb-2">You are about to remove this backup source:</p>
     <div id="remove-source-display" class="font-mono text-sm code-surface border border-border p-2 rounded mb-4 break-all"></div>
@@ -1144,7 +1144,7 @@ function computeUsableSummary(drives) {
 
 <!-- Backup Details Modal -->
 <div id="backup-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card p-6 w-full max-w-3xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
+  <div class="modal-content card p-6 w-full max-w-3xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
     <!-- Header on top -->
     <div class="flex justify-between mb-2 flex-shrink-0">
       <h3 class="font-semibold">Backup Details</h3>
@@ -1157,7 +1157,7 @@ function computeUsableSummary(drives) {
 
 <!-- System Info Modal -->
 <div id="system-info-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card p-6 w-full max-w-2xl mx-4 max-h-[85vh] overflow-auto">
+  <div class="modal-content card p-6 w-full max-w-2xl mx-4 max-h-[85vh] overflow-auto">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold">System Info — {{ server.name }}</h3>
       <div class="flex gap-2">

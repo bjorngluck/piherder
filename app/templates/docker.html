@@ -100,14 +100,14 @@
     <h2 class="text-lg font-medium mb-3">Compose Projects</h2>
 
     {% if update_check %}
-      <div class="mb-3 p-2 text-xs rounded {{ 'banner-success' if update_status == 'up-to-date' else 'banner-warning' }}">
+      <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-success' if update_status == 'up-to-date' else 'banner-warning' }}">
         Checked {{ update_check }}: 
         {% if update_status == 'updates' %}New images available!{% else %}Up to date.{% endif %}
       </div>
     {% endif %}
 
     {% if build_status %}
-      <div class="mb-3 p-2 text-xs rounded {{ 'banner-success' if build_status == 'built' else 'banner-error' }}">
+      <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-success' if build_status == 'built' else 'banner-error' }}">
         Build {{ 'succeeded' if build_status == 'built' else 'failed or errored' }}. Check logs on host if needed.
       </div>
     {% endif %}
@@ -606,7 +606,7 @@ async function quickSave(action /* 'draft' | 'deploy' */) {
         hideQuickEditModal();
         // light feedback on main page
         const flash = document.createElement('div');
-        flash.className = 'fixed bottom-4 right-4 banner-success text-xs px-3 py-2 rounded shadow';
+        flash.className = 'fixed bottom-4 right-4 banner-success border border-border text-xs px-3 py-2 rounded shadow';
         flash.textContent = json.message || 'Changes saved.';
         document.body.appendChild(flash);
         setTimeout(() => flash.remove(), 2200);
