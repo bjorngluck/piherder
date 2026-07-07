@@ -3,7 +3,7 @@
 **Purpose**: Complete per-page audit of CSS custom properties (variables) and semantic classes after full theming cleanup.  
 **Goal**: Ensure the entire app UI is purely var-driven via `themes.css` (`:root` for light, `.dark` for dark). Templates use `bg-surface`, `bg-bg`, `text-muted`, `border-border`, `text-accent`, `btn-*`, `banner-*`, `status-*`, `card`, `code-surface`, etc. exclusively for colors.  
 **Date**: 2026-07-07 (updated post final theming rollout)  
-**Status**: Complete. All templates use vars from `themes.css` + component classes (`btn-*`, `banner-*`, `status-*`, `.bg-accent-subtle`, `log-output`, etc.). Banners, status pills, subtle highlights, syntax, and all pre/log blocks are fully var-driven. No remaining zinc/emerald/etc. hardcodes in UI classes. Fallback in base.html is layout-only. Theme toggle effective everywhere.
+**Status**: Final pass complete. Every template now fully uses variables and classes from themes.css (bg-*/text-*/border-* vars, .card, .modal-content, btn-*, status-pill, banner-*, log-output, etc.). Edge cases in audit, modals, status indicators, older pages cleaned. Full light/dark consistency. No hardcoded colours remain.
 
 ## Core CSS Variables (from themes.css)
 
@@ -47,7 +47,7 @@
 ### Latest Refinements (absolute final cleanup)
 - Banners (`.banner-*`) and all status pills (`.status-*` including cancelled) are now **fully var-driven**.
 - `.error-line` in editors now uses `--banner-error-bg`.
-- Added `.border-danger`, `.border-accent` component classes.
+- Added `.border-danger`, `.border-accent` component classes (border-color: var(--color-* )).
 - Removed `text-white` from all `btn btn-danger` (handled by component).
 - Fixed remaining `banner-* border` in login/register/herder to use `border border-border`.
 - More modals using `.modal-content card`.
@@ -157,13 +157,16 @@
 | Form inputs / selects in filters| `bg-surface border border-border`                      | surface + border                    | Good                | Good                | Good |
 | Checkbox accents (any)          | (global CSS rule)                                      | `--color-accent`                    | Good                | Good                | Global accent-color rule applied |
 
-**Latest Audit refinements**: 
-- All `log-output` / `pre` blocks now include `border border-border`.
-- Banners and status indicators (incl. cancelled) are 100% var-driven via `--banner-*` / `--color-info-*` / `--banner-cancelled-*` vars.
-- Modals now use `.modal-content card`.
-- `.border-danger`, `.border-accent` used where needed.
-- No remaining hardcoded colors (zinc, text-white on danger, etc.).
-- Fallback in base.html is layout-only. Full light/dark via vars. |
+**Latest Audit refinements (final pass)**: 
+- All `log-output` / `pre` blocks standardized with `border border-border`.
+- Banners/status (incl. cancelled) fully var-driven.
+- Modals across pages (audit, server_detail, backups, docker) updated to `.modal-content card`.
+- Banner elements now consistently `banner-* border border-border`.
+- Added/used `.border-danger`, `.border-accent`.
+- Removed all `text-white` from danger buttons.
+- Error shadows/lines use vars.
+- Full consistency in light/dark via vars and component classes.
+- No hardcoded colors left in templates. |
 
 ---
 
