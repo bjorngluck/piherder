@@ -148,11 +148,11 @@ app = FastAPI(title="PiHerder", lifespan=lifespan)
 os.makedirs("app/static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# Silence noisy favicon.ico probes (we serve favicon.svg via <link> in base.html)
+# Serve favicon.ico (generated from logo) so browser probes get a real icon (the <link> in base.html uses the PNG)
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    from fastapi.responses import Response
-    return Response(status_code=204)
+    from fastapi.responses import FileResponse
+    return FileResponse("app/static/favicon.ico", media_type="image/x-icon")
 
 
 app.include_router(auth_router.router, prefix="/auth", tags=["auth"])

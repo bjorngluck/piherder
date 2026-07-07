@@ -2,7 +2,7 @@
 
 **Secure fleet management for Raspberry Pi clusters — backups, patching, and control with zero plaintext secrets.**
 
-![PiHerder Logo](app/static/images/piherder-logo.svg)
+![PiHerder Logo](app/static/images/piherder-logo.png)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
