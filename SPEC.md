@@ -2,7 +2,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** v0.1.0 — Phase 1 largely complete  
-> **Last updated:** 2026-07-07 (theming decisions)
+> **Last updated:** 2026-07-07 (theming decisions + test page)
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -21,6 +21,7 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - Default to system preference, with manual toggle.
 - Extensible via Tailwind config + CSS variables for future themes/user customization.
 - Goal: Consistent branding, mobile-friendly, delightful UX.
+- A standalone test page is available at `/static/theme-test.html` for safe visual validation of the colour scheme without affecting the main application.
 
 ## Vision
 
