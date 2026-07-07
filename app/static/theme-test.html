@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PiHerder Theme Test</title>
+  <title>PiHerder Theme Test - Full Variables</title>
   <style>
     :root {
       --color-bg: #f8f9fa;
@@ -12,6 +12,7 @@
       --color-primary: #e60012;
       --color-accent: #00a651;
       --color-border: #e5e7eb;
+      --color-muted: #6b7280;
     }
     .dark {
       --color-bg: #0a0f1c;
@@ -20,117 +21,30 @@
       --color-primary: #e60012;
       --color-accent: #00a651;
       --color-border: #374151;
+      --color-muted: #a1a1aa;
     }
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--color-bg);
-      color: var(--color-text);
-      margin: 0;
-      padding: 2rem;
-      line-height: 1.5;
-    }
-    .nav {
-      background: var(--color-surface);
-      border-bottom: 1px solid var(--color-border);
-      padding: 1rem 2rem;
-      margin: -2rem -2rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .logo { font-size: 1.5rem; font-weight: 700; }
-    .toggle { padding: 0.5rem 1rem; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); cursor: pointer; }
-    .card {
-      background: var(--color-surface);
-      border: 1px solid var(--color-border);
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .btn {
-      background: var(--color-primary);
-      color: white;
-      border: none;
-      padding: 0.6rem 1.2rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 500;
-    }
-    .btn-accent {
-      background: var(--color-accent);
-    }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--color-border); }
-    th { background: var(--color-surface); }
+    body { background: var(--color-bg); color: var(--color-text); padding: 2rem; font-family: system-ui; }
+    table { border-collapse: collapse; width: 100%; margin: 2rem 0; }
+    th, td { padding: 0.75rem; border: 1px solid var(--color-border); text-align: left; }
+    .swatch { display: inline-block; width: 80px; height: 30px; border: 1px solid #ccc; vertical-align: middle; margin-right: 10px; }
+    button { padding: 0.5rem 1rem; margin: 1rem 0; }
   </style>
 </head>
 <body>
-  <div class="nav">
-    <div class="logo"><img src="/static/images/piherder-logo-small.png" alt="PiHerder" style="height: 1.5rem; width: auto; vertical-align: middle;"> PiHerder</div>
-    <button id="theme-toggle" class="toggle">☀️ / 🌙</button>
-  </div>
+  <h1>PiHerder Theme Variables</h1>
+  <button onclick="document.documentElement.classList.toggle('dark')">Toggle Light / Dark</button>
 
-  <h1>Theme Test Page</h1>
-  <p>This is a standalone test for the new light/dark colour scheme + Raspberry Pi branding.</p>
+  <table>
+    <tr><th>Variable</th><th>Light Colour</th><th>Dark Colour</th></tr>
+    <tr><td>--color-bg</td><td><span class="swatch" style="background:#f8f9fa"></span> #f8f9fa</td><td><span class="swatch" style="background:#0a0f1c"></span> #0a0f1c</td></tr>
+    <tr><td>--color-surface</td><td><span class="swatch" style="background:#ffffff"></span> #ffffff</td><td><span class="swatch" style="background:#111827"></span> #111827</td></tr>
+    <tr><td>--color-text</td><td><span class="swatch" style="background:#111827"></span> #111827</td><td><span class="swatch" style="background:#f1f3f5"></span> #f1f3f5</td></tr>
+    <tr><td>--color-primary</td><td><span class="swatch" style="background:#e60012"></span> #e60012</td><td><span class="swatch" style="background:#e60012"></span> #e60012</td></tr>
+    <tr><td>--color-accent</td><td><span class="swatch" style="background:#00a651"></span> #00a651</td><td><span class="swatch" style="background:#00a651"></span> #00a651</td></tr>
+    <tr><td>--color-border</td><td><span class="swatch" style="background:#e5e7eb"></span> #e5e7eb</td><td><span class="swatch" style="background:#374151"></span> #374151</td></tr>
+    <tr><td>--color-muted</td><td><span class="swatch" style="background:#6b7280"></span> #6b7280</td><td><span class="swatch" style="background:#a1a1aa"></span> #a1a1aa</td></tr>
+  </table>
 
-  <div class="card">
-    <h2>Sample Card</h2>
-    <p>This card should adapt nicely between light and dark mode.</p>
-    <button class="btn">Primary Button (Red)</button>
-    <button class="btn btn-accent" style="margin-left: 0.5rem;">Accent Button (Green)</button>
-  </div>
-
-  <div class="card">
-    <h3>Table Example</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Server</th>
-          <th>Status</th>
-          <th>Last Backup</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td>rpi5-1</td>
-          <td>Online</td>
-          <td>2 hours ago</td>
-        </tr>
-        <tr>
-          <td>rpi5-2</td>
-          <td>Online</td>
-          <td>Yesterday</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <script>
-    const toggle = document.getElementById('theme-toggle');
-    const html = document.documentElement;
-
-    function setTheme(theme) {
-      if (theme === 'dark') {
-        html.classList.add('dark');
-        toggle.textContent = '🌙 Dark';
-      } else {
-        html.classList.remove('dark');
-        toggle.textContent = '☀️ Light';
-      }
-      localStorage.setItem('theme', theme);
-    }
-
-    let saved = localStorage.getItem('theme');
-    if (!saved) {
-      saved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    }
-    setTheme(saved);
-
-    toggle.addEventListener('click', () => {
-      const isDark = html.classList.contains('dark');
-      setTheme(isDark ? 'light' : 'dark');
-    });
-  </script>
+  <p>Toggle and see the colours change. Use this to test and decide final colours.</p>
 </body>
 </html>
