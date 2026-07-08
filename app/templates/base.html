@@ -207,7 +207,7 @@
             {# Secondary items — from the SAME secondary_items list #}
             {% for item in secondary_items %}
               {% if item.kind == 'action' %}
-                <button type="button" class="mobile-menu-link theme-toggle-btn">{{ item.label }}</button>
+                <button type="button" onclick="document.documentElement.classList.toggle('dark'); localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light')" class="mobile-menu-link">Toggle theme</button>
               {% elif item.kind == 'danger' %}
                 <a href="{{ item.href }}" class="mobile-menu-link is-danger">{{ item.label }}</a>
               {% else %}
@@ -233,7 +233,7 @@
             <div class="user-menu-panel dropdown-panel">
               {% for item in secondary_items %}
                 {% if item.kind == 'action' %}
-                  <button type="button" class="theme-toggle-btn">{{ item.label }}</button>
+                  <button type="button" onclick="document.documentElement.classList.toggle('dark'); localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light')">Toggle theme</button>
                 {% elif item.kind == 'danger' %}
                   <a href="{{ item.href }}" class="is-danger">{{ item.label }}</a>
                 {% else %}
@@ -272,80 +272,10 @@
       localStorage.setItem('theme', theme);
     }
 
-    // Global, simple, reliable toggle - works everywhere
-    window.toggleTheme = function() {
-      const isDark = html.classList.contains('dark');
-      setTheme(isDark ? 'light' : 'dark');
-    };
-
-    // Vanilla JS slide-out mobile menu (no Alpine required, works everywhere)
-    function initMobileMenu() {
-      const btn = document.getElementById('nav-hamburger-btn');
-      const panel = document.getElementById('mobile-menu-panel');
-      const backdrop = document.getElementById('mobile-menu-backdrop');
-      const closeBtn = document.getElementById('mobile-menu-close');
-
-      if (!btn || !panel || !backdrop) return;
-
-      function open() {
-        panel.classList.remove('hidden');
-        backdrop.classList.remove('hidden');
-        // force reflow then animate
-        void panel.offsetWidth;
-        panel.classList.add('open');
-        backdrop.classList.add('open');
-        btn.setAttribute('aria-expanded', 'true');
-        document.body.style.overflow = 'hidden';
-      }
-
-      function close() {
-        panel.classList.remove('open');
-        backdrop.classList.remove('open');
-        btn.setAttribute('aria-expanded', 'false');
-        document.body.style.overflow = '';
-        setTimeout(() => {
-          panel.classList.add('hidden');
-          backdrop.classList.add('hidden');
-        }, 260);
-      }
-
-      window.closeMobileMenu = close;
-
-      btn.addEventListener('click', open);
-      if (closeBtn) closeBtn.addEventListener('click', close);
-      backdrop.addEventListener('click', close);
-
-      // Close on escape
-      document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && !panel.classList.contains('hidden')) close();
-      });
-
-      // Auto-close when clicking any menu link (navigation will happen)
-      panel.querySelectorAll('a, button').forEach(function(el) {
-        el.addEventListener('click', function() {
-          setTimeout(close, 50);
-        });
-      });
-    }
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initMobileMenu);
-    } else {
-      initMobileMenu();
-    }
-
-    // Apply saved or default theme
+    // Apply saved or default theme on load
     let saved = localStorage.getItem('theme');
     if (!saved) saved = 'light';
     setTheme(saved);
-
-    // Event delegation for theme toggle buttons (works in both menus)
-    document.addEventListener('click', function(e) {
-      if (e.target.closest('.theme-toggle-btn')) {
-        e.preventDefault();
-        window.toggleTheme();
-      }
-    });
   </script>
 
   <!-- Original PiHerder scripts (timezone, poll, log update, etc.) -->
