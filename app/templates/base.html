@@ -99,52 +99,7 @@
     .z-50 { z-index: 50; }
     .hidden { display: none !important; }
 
-    /* ============================================================
-       STRICT ONE-MENU SYSTEM (works with or without Tailwind)
-       - Desktop (>=768px): .desktop-nav (4 links) + .desktop-avatar
-       - Mobile  (<768px):  ONLY .mobile-hamburger → full slide-out
-       The avatar is intentionally hidden on mobile (slide-out has Account/Sign out).
-       ============================================================ */
-    .desktop-nav,
-    .mobile-hamburger,
-    .desktop-avatar {
-      display: none !important;
-    }
-
-    @media (min-width: 768px) {
-      .desktop-nav { display: flex !important; }
-      .desktop-avatar { display: flex !important; }
-    }
-    @media (max-width: 767px) {
-      .mobile-hamburger { display: block !important; }
-      .desktop-avatar { display: none !important; }
-    }
-
-    /* Clean mobile slide-out menu (vanilla, no dep on Tailwind runtime) */
-    #mobile-menu-panel {
-      box-shadow: -8px 0 30px rgba(0,0,0,0.12);
-    }
-    .dark #mobile-menu-panel {
-      box-shadow: -8px 0 30px rgba(0,0,0,0.4);
-    }
-    #mobile-menu-panel.open {
-      transform: translateX(0) !important;
-    }
-    #mobile-menu-panel.open ~ #mobile-menu-backdrop,
-    #mobile-menu-backdrop.open {
-      display: block !important;
-    }
-    .mobile-menu-link {
-      color: var(--color-text);
-      transition: background-color .1s ease, color .1s ease;
-    }
-    .mobile-menu-link:hover {
-      background-color: var(--color-bg);
-      color: var(--color-primary);
-    }
-    .mobile-menu-link.text-danger:hover {
-      background-color: var(--color-bg);
-    }
+    /* Layout utilities only. All menu / header styling is in themes.css (100% CSS var driven). */
 
     .overflow-auto { overflow: auto; }
     .overflow-x-auto { overflow-x: auto; }
@@ -179,21 +134,30 @@
         </div>
       </div>
 
-      <!-- Desktop nav links (4 items) — ONLY visible on desktop (>=768px) via the CSS rules below.
-           Hidden on mobile. Hamburger below is the reverse.
-           This (in base.html only) is the single source of the main menu. -->
       {% set current_path = '' %}
       {% if request is defined and request is not none %}
         {% if request.url is defined and request.url is not none %}
           {% set current_path = request.url.path or '' %}
         {% endif %}
       {% endif %}
-      <!-- Desktop nav links — ONLY on desktop -->
+
+      {#
+        SINGLE SOURCE OF TRUTH for main navigation.
+        Edit the list below — both desktop and mobile slide-out are generated from it.
+      #}
+      {% set nav_items = [
+        {"label": "Dashboard", "href": "/", "match": "exact"},
+        {"label": "Servers",   "href": "/servers", "match": "prefix"},
+        {"label": "Audit",     "href": "/audit", "match": "prefix"},
+        {"label": "Settings",  "href": "/herder-backups", "match": "prefix"}
+      ] %}
+
+      <!-- Desktop nav links — ONLY on desktop. Generated from single nav_items list above. -->
       <div class="desktop-nav flex items-center gap-x-1 text-sm flex-shrink-0">
-        <a href="/" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path == '/' else '' }}">Dashboard</a>
-        <a href="/servers" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/servers') else '' }}">Servers</a>
-        <a href="/audit" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/audit') else '' }}">Audit</a>
-        <a href="/herder-backups" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/herder') else '' }}">Settings</a>
+        {% for item in nav_items %}
+          {% set is_active = (current_path == item.href) if item.match == 'exact' else current_path.startswith(item.href) %}
+          <a href="{{ item.href }}" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if is_active else '' }}">{{ item.label }}</a>
+        {% endfor %}
       </div>
 
       <!-- Right side: hamburger (mobile only) + avatar.
@@ -210,12 +174,10 @@
           ☰
         </button>
 
-        <!-- Slide-out menu + backdrop (controlled by vanilla JS below, works with or without Alpine/HTMX) -->
-        <div id="mobile-menu-backdrop" class="hidden fixed inset-0 bg-black/40 z-[99998]"></div>
-        <div id="mobile-menu-panel"
-             class="hidden fixed top-0 right-0 h-full max-w-[260px] bg-surface border-l border-border shadow-2xl z-[99999] flex flex-col overflow-y-auto"
-             style="width: 78%; max-width: 260px; transition: transform 0.25s ease; transform: translateX(100%);">
-          <div class="px-4 py-4 border-b border-border flex items-center justify-between">
+        <!-- Slide-out menu + backdrop — fully generated + CSS/var driven -->
+        <div id="mobile-menu-backdrop" class="mobile-menu-backdrop hidden"></div>
+        <div id="mobile-menu-panel" class="mobile-menu-panel hidden">
+          <div class="px-4 py-4 border-b border-border flex items-center justify-between flex-shrink-0">
             <div class="flex items-center gap-2">
               <img src="/static/images/piherder-logo-small.png" alt="" class="h-6 w-auto">
               <span class="font-semibold tracking-tighter">PiHerder</span>
@@ -223,20 +185,21 @@
             <button id="mobile-menu-close" class="text-2xl leading-none text-muted hover:text-text px-2" aria-label="Close menu">×</button>
           </div>
 
-          <div class="py-2 text-sm">
-            <a href="/" class="mobile-menu-link block px-4 py-3 {{ 'font-semibold text-primary bg-accent-subtle' if current_path == '/' else '' }}">Dashboard</a>
-            <a href="/servers" class="mobile-menu-link block px-4 py-3 {{ 'font-semibold text-primary bg-accent-subtle' if current_path.startswith('/servers') else '' }}">Servers</a>
-            <a href="/audit" class="mobile-menu-link block px-4 py-3 {{ 'font-semibold text-primary bg-accent-subtle' if current_path.startswith('/audit') else '' }}">Audit</a>
-            <a href="/herder-backups" class="mobile-menu-link block px-4 py-3 {{ 'font-semibold text-primary bg-accent-subtle' if current_path.startswith('/herder') else '' }}">Settings</a>
+          <div class="py-1 text-sm">
+            {# Primary nav — generated from the SAME nav_items list above #}
+            {% for item in nav_items %}
+              {% set is_active = (current_path == item.href) if item.match == 'exact' else current_path.startswith(item.href) %}
+              <a href="{{ item.href }}" class="mobile-menu-link px-4 py-3 {{ 'font-semibold text-primary bg-accent-subtle' if is_active else '' }}">{{ item.label }}</a>
+            {% endfor %}
 
             <div class="my-2 border-t border-border"></div>
 
-            <a href="/auth/account" class="mobile-menu-link block px-4 py-3">Account</a>
-            <a href="#" class="mobile-menu-link block px-4 py-3" onclick="toggleThemeFromMenu(this); closeMobileMenu(); return false;">Toggle theme</a>
+            <a href="/auth/account" class="mobile-menu-link px-4 py-3">Account</a>
+            <a href="#" class="mobile-menu-link px-4 py-3" onclick="toggleThemeFromMenu(this); closeMobileMenu(); return false;">Toggle theme</a>
 
             <div class="my-2 border-t border-border"></div>
 
-            <a href="/auth/logout" class="mobile-menu-link block px-4 py-3 text-danger">Sign out</a>
+            <a href="/auth/logout" class="mobile-menu-link px-4 py-3 text-danger">Sign out</a>
           </div>
         </div>
 
@@ -257,7 +220,7 @@
                  - Extends left over the header bar
                  - Items stacked neatly and sit BELOW the avatar row (mt-4 separation)
                  - Full width clickable rows -->
-            <div class="absolute right-0 mt-4 w-64 bg-surface border border-border rounded shadow-lg z-[99999] py-1 text-sm">
+            <div class="user-menu-panel absolute right-0 mt-4 py-1 text-sm">
               <a href="/auth/account" class="block px-3 py-1.5 hover:bg-bg text-text">Account</a>
               <div class="border-t border-border my-0.5"></div>
               <a href="#" onclick="toggleThemeFromMenu(this); return false;" class="block px-3 py-1.5 hover:bg-bg text-text">Toggle theme</a>

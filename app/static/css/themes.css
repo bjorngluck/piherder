@@ -51,6 +51,16 @@
      - Dark mode: darker grey
   */
   --color-nav-bg: #f1f5f9;   /* menu bar background - light grey (light mode) */
+
+  /* Mobile slide-out menu panel (CSS + var driven) */
+  --mobile-menu-panel-width: 78%;
+  --mobile-menu-panel-max-width: 260px;
+  --mobile-menu-transition: transform 0.25s ease;
+  --mobile-menu-z: 99999;
+  --mobile-menu-backdrop-z: 99998;
+
+  /* Mobile menu backdrop */
+  --mobile-menu-backdrop-bg: rgba(0, 0, 0, 0.40);
 }
 
 .dark {
@@ -168,118 +178,105 @@ body {
   }
 }
 
-/* User / account menu + mobile hamburger (lightweight <details> dropdowns) */
+/* ============================================
+   DESKTOP ACCOUNT DROPDOWN (avatar)
+   Fully class + var driven. No old <details> mobile-menu rules needed.
+   ============================================ */
 .user-menu summary::-webkit-details-marker,
-.user-menu summary::marker,
-.mobile-menu summary::-webkit-details-marker,
-.mobile-menu summary::marker {
+.user-menu summary::marker {
   display: none;
 }
-.user-menu summary,
-.mobile-menu summary {
+.user-menu summary {
   outline: none;
+  padding: 2px 6px;
 }
-.user-menu[open] summary,
-.mobile-menu[open] summary {
+.user-menu[open] summary {
   background-color: var(--color-surface);
 }
 
-/* Avatar circle in header — clean, NO border ever */
+/* Avatar circle clean */
 .user-menu summary .rounded-full {
   border: none !important;
   box-shadow: none;
 }
 
-/* Summary tap targets */
-.user-menu summary {
-  padding: 2px 6px;
-}
-.mobile-menu summary {
-  padding: 4px 6px;
-  line-height: 1;
-  font-size: 18px;
+/* ============================================
+   MOBILE SLIDE-OUT MENU — 100% CSS + VAR DRIVEN
+   (widths, z-index, transition, colors all defined via CSS vars + classes)
+   ============================================ */
+.mobile-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: var(--mobile-menu-backdrop-bg);
+  z-index: var(--mobile-menu-backdrop-z);
+  display: none;
 }
 
-/* Dropdown panels:
-   - Stacked neat items
-   - Extend left over the header (wider on account menu)
-   - Content positioned BELOW the avatar/hamburger trigger (mt-* on the element itself)
-*/
-.user-menu > div,
-.mobile-menu > div {
-  min-width: 10rem;
+.mobile-menu-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: var(--mobile-menu-panel-width);
+  max-width: var(--mobile-menu-panel-max-width);
+  background-color: var(--color-surface);
+  border-left: 1px solid var(--color-border);
+  transition: var(--mobile-menu-transition);
+  transform: translateX(100%);
+  z-index: var(--mobile-menu-z);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  box-shadow: -8px 0 30px rgba(0,0,0,0.12);
+}
+.dark .mobile-menu-panel {
+  box-shadow: -8px 0 30px rgba(0,0,0,0.4);
+}
+
+.mobile-menu-panel.open {
+  transform: translateX(0) !important;
+}
+.mobile-menu-panel.open ~ .mobile-menu-backdrop,
+.mobile-menu-backdrop.open {
+  display: block !important;
+}
+
+/* Menu link items inside slide-out (var driven where possible) */
+.mobile-menu-link {
+  color: var(--color-text);
+  transition: background-color .1s ease, color .1s ease;
+  display: block;
+  padding: 0.75rem 1rem;
+}
+.mobile-menu-link:hover {
+  background-color: var(--color-bg);
+  color: var(--color-primary);
+}
+.mobile-menu-link.text-danger:hover {
+  background-color: var(--color-bg);
+}
+
+/* Desktop avatar dropdown panel (CSS + var driven) */
+.user-menu-panel {
+  width: 16rem;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: var(--mobile-menu-z);
   padding-top: 2px;
   padding-bottom: 2px;
 }
-.dark .user-menu > div,
-.dark .mobile-menu > div {
+.dark .user-menu-panel {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
-/* Neat stacked menu items (full-width hit area, consistent spacing) */
-.user-menu > div a,
-.mobile-menu > div a {
-  display: block;
-  padding: 0.5rem 0.75rem;
-  line-height: 1.35;
+/* Optional future override var for account panel width */
+:root {
+  --user-menu-panel-width: 16rem;
 }
-
-/* Account menu: neat stacked items, extends left over the header bar.
-   Must sit clearly BELOW the avatar (see mt-* in base.html) */
-.user-menu > div {
-  width: 18rem;   /* ~288px — reaches nicely left over nav content */
-}
-
-/* Hamburger menu (mobile) — clean stacked list (full 7 items), good width, strong touch targets */
-.mobile-menu > div {
-  width: 13rem;
-  border-radius: 10px;
-}
-
-/* Make sure the dropdowns are never hidden behind other content */
-.user-menu > div,
-.mobile-menu > div {
-  z-index: 9999;
-}
-
-/* Better mobile menu items: larger hit area + visual dividers */
-.mobile-menu > div a {
-  padding: 0.65rem 0.9rem;
-  min-height: 44px;
-  display: block;
-}
-.mobile-menu > div .border-t {
-  margin: 4px 8px;
-}
-
-/* ============================================
-   RELIABLE RESPONSIVE HEADER (no Tailwind dependency)
-   This prevents "two menus" on mobile.
-   - Desktop: show the 4 nav links + avatar (account menu has theme/signout)
-   - Mobile: show hamburger (full stacked: 4 nav + Account + Toggle theme + Sign out) + avatar
-   ALL menu logic lives ONLY in base.html. Every page inherits it.
-   ============================================ */
-
-/* Desktop navigation links row (the 4 main items) — hidden on mobile */
-.desktop-nav {
-  display: none !important;
-}
-@media (min-width: 768px) {
-  .desktop-nav {
-    display: flex !important;
-  }
-}
-
-/* Hamburger (mobile menu trigger) — ONLY on phones/tablets.
-   Completely hidden on desktop so you never see two menu triggers. */
-.mobile-hamburger {
-  display: none !important;
-}
-@media (max-width: 767px) {
-  .mobile-hamburger {
-    display: block !important;
-  }
+.user-menu-panel {
+  width: var(--user-menu-panel-width);
 }
 
 /* Tagline next to logo — only on desktop */
@@ -290,6 +287,28 @@ body {
   .nav-tagline {
     display: block;
   }
+}
+
+/* ============================================================
+   STRICT ONE-MENU SYSTEM (CSS driven, no Tailwind required)
+   - Desktop (>=768px): .desktop-nav (4 links) + .desktop-avatar
+   - Mobile  (<768px):  ONLY .mobile-hamburger → full slide-out
+   The avatar block is hidden on mobile (slide-out already has Account + logout).
+   Edit breakpoints or visibility here.
+   ============================================================ */
+.desktop-nav,
+.mobile-hamburger,
+.desktop-avatar {
+  display: none !important;
+}
+
+@media (min-width: 768px) {
+  .desktop-nav { display: flex !important; }
+  .desktop-avatar { display: flex !important; }
+}
+@media (max-width: 767px) {
+  .mobile-hamburger { display: block !important; }
+  .desktop-avatar { display: none !important; }
 }
 
 .border-border { border-color: var(--color-border); }
