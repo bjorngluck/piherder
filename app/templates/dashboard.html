@@ -1,17 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!-- Clean, minimal landing page. Uniform branding with primary red focus. -->
-<!-- Main landing / hero - primary red is the brand focus in both light and dark -->
+<!-- Clean, minimal landing page. The top nav (logo + menu + avatar) is the single source of truth. -->
 <div class="mb-10">
-  <div class="flex items-center gap-4">
-    <img src="/static/images/piherder-logo-small.png" alt="PiHerder" class="h-12 w-auto">
-    <div>
-      <h1 class="text-4xl font-semibold tracking-tighter text-text">PiHerder</h1>
-      <p class="text-primary text-sm font-mono -mt-1 tracking-[2px]">FLEET BACKUPS</p>
-    </div>
-  </div>
-  <p class="mt-3 text-muted max-w-md text-sm">
+  <h1 class="text-4xl font-semibold tracking-tighter text-text">Dashboard</h1>
+  <p class="mt-2 text-muted max-w-md text-sm">
     Secure, auditable backup management for your Raspberry Pi cluster.
   </p>
 </div>
