@@ -1154,7 +1154,124 @@ input[type="checkbox"], input[type="radio"] {
   min-width: 36rem;
 }
 
-/* Source action buttons stack on mobile inside table cells */
+/* Compact backup source rows (no wide table / no horizontal scroll) */
+.source-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-bg);
+}
+.source-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+}
+.source-row:last-child {
+  border-bottom: none;
+}
+.source-row.is-disabled {
+  opacity: 0.55;
+}
+.source-row-body {
+  flex: 1;
+  min-width: 0;
+}
+.source-row-path {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-text);
+  word-break: break-all;
+  line-height: 1.3;
+}
+.source-row-dest {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.7rem;
+  margin-top: 0.15rem;
+  word-break: break-all;
+  line-height: 1.3;
+}
+.source-row-when {
+  font-size: 0.7rem;
+  margin-top: 0.2rem;
+}
+.source-row-tools {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+.source-row-tools form {
+  margin: 0;
+  display: inline-flex;
+}
+.source-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.source-icon-btn:hover {
+  background: var(--color-bg);
+  border-color: var(--color-muted);
+}
+.source-icon-run {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+  font-size: 0.7rem;
+}
+.source-icon-run:hover {
+  filter: brightness(0.92);
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+.source-icon-remove {
+  color: var(--color-danger);
+  font-size: 1.15rem;
+  font-weight: 500;
+  line-height: 1;
+}
+.source-icon-remove:hover {
+  background: var(--banner-error-bg);
+  border-color: var(--banner-error-border);
+  color: var(--color-danger);
+}
+
+.source-add-form .source-add-fields {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .source-add-form .source-add-fields {
+    grid-template-columns: 1fr 1fr auto;
+    align-items: end;
+  }
+}
+.source-add-submit {
+  display: flex;
+  align-items: end;
+}
+
+/* legacy helper kept for any other uses */
 .source-actions {
   display: flex;
   flex-wrap: wrap;
