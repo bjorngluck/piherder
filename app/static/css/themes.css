@@ -180,12 +180,34 @@ body {
   border-color: var(--color-border);
   background-color: var(--color-surface);
 }
+
+/* Make the avatar + name area breathe a bit more */
+.user-menu summary {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  padding-left: 0.375rem;
+  padding-right: 0.375rem;
+}
+.user-menu summary .w-9 {
+  /* slightly larger, clearer avatar */
+  width: 2.25rem;
+  height: 2.25rem;
+  font-size: 0.875rem;
+}
+
 .user-menu > div {
-  min-width: 9rem;
+  min-width: 10rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 .dark .user-menu > div {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+/* Comfortable menu items */
+.user-menu > div a,
+.user-menu > div button {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
 }
 
 .border-border { border-color: var(--color-border); }

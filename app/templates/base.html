@@ -145,32 +145,35 @@
         <a href="/audit" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path.startswith('/audit') else '' }}">Audit</a>
         <a href="/herder-backups" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path.startswith('/herder') else '' }}">Settings</a>
 
-        <!-- Theme Toggle -->
-        <button id="theme-toggle"
-                class="p-1.5 md:p-2 rounded-lg hover:bg-surface border border-border transition-colors ml-1"
-                title="Toggle light/dark theme">
-          <span id="theme-icon" class="text-lg">☀️</span>
-        </button>
-
+        <!-- User / account area with clear spacing + divider from main nav links.
+             Theme toggle now lives inside the avatar dropdown. -->
         {% if user %}
-          <!-- User menu: avatar + name + dropdown (Account + Logout).
-               Lightweight <details> so it works on lean pages (no Alpine).
-               Avatar placeholder ready for future user-uploaded image. -->
+        <div class="flex items-center ml-4 sm:ml-6 pl-4 border-l border-border">
           <details class="user-menu relative">
-            <summary class="flex items-center gap-1.5 cursor-pointer list-none select-none rounded px-1 py-0.5 hover:bg-surface border border-transparent hover:border-border transition-colors">
-              <div class="w-7 h-7 rounded-full bg-surface border border-border flex items-center justify-center text-[10px] font-medium text-muted shrink-0"
+            <summary class="flex items-center gap-2.5 cursor-pointer list-none select-none rounded px-2 py-1 hover:bg-surface border border-transparent hover:border-border transition-colors">
+              <div class="w-9 h-9 rounded-full bg-surface border border-border flex items-center justify-center text-sm font-semibold text-muted shrink-0"
                    title="{{ user.email }}">
                 {{ user.email[0].upper() }}
               </div>
-              <span class="text-muted text-xs hidden sm:inline max-w-[7rem] truncate">{{ user.email.split('@')[0] }}</span>
-              <span class="text-muted text-[9px] leading-none mt-px">▾</span>
+              <span class="text-muted text-sm hidden sm:inline max-w-[8rem] truncate">{{ user.email.split('@')[0] }}</span>
+              <span class="text-muted text-xs leading-none mt-0.5">▾</span>
             </summary>
-            <div class="absolute right-0 mt-1 w-40 bg-surface border border-border rounded shadow-lg z-50 py-1 text-sm">
+            <div class="absolute right-0 mt-1.5 w-44 bg-surface border border-border rounded shadow-lg z-50 py-1 text-sm">
               <a href="/auth/account" class="block px-3 py-1.5 hover:bg-bg text-text">Account</a>
+
+              <div class="border-t border-border my-0.5"></div>
+
+              <!-- Theme switcher lives inside the avatar menu -->
+              <button type="button" onclick="setThemeFromMenu('light', this)"
+                      class="block w-full text-left px-3 py-1.5 hover:bg-bg text-text">☀️ Light mode</button>
+              <button type="button" onclick="setThemeFromMenu('dark', this)"
+                      class="block w-full text-left px-3 py-1.5 hover:bg-bg text-text">🌙 Dark mode</button>
+
               <div class="border-t border-border my-0.5"></div>
               <a href="/auth/logout" class="block px-3 py-1.5 hover:bg-bg text-danger">Sign out</a>
             </div>
           </details>
+        </div>
         {% else %}
           <a href="/auth/login" class="px-3 py-1 bg-surface border border-border hover:bg-bg rounded text-xs transition">Login</a>
         {% endif %}
@@ -187,35 +190,34 @@
     <span class="text-[10px] text-muted">Zero plaintext secrets • All actions audited</span>
   </footer>
 
-  <!-- Theme toggle script -->
+  <!-- Theme handling (now controlled from inside the user avatar menu) -->
   <script>
-    const toggle = document.getElementById('theme-toggle');
-    const icon = document.getElementById('theme-icon');
     const html = document.documentElement;
 
     function setTheme(theme) {
       if (theme === 'dark') {
         html.classList.add('dark');
-        icon.textContent = '🌙';
       } else {
         html.classList.remove('dark');
-        icon.textContent = '☀️';
       }
       localStorage.setItem('theme', theme);
     }
 
-    // Load saved or system preference
+    // Expose a helper for the avatar menu buttons.
+    // Closes the <details> dropdown after selection.
+    window.setThemeFromMenu = function(theme, btn) {
+      setTheme(theme);
+      // Close the parent details element if present
+      const details = btn && btn.closest ? btn.closest('details') : null;
+      if (details) details.open = false;
+    };
+
+    // Apply saved preference (or light default) on load
     let saved = localStorage.getItem('theme');
     if (!saved) {
-      // Default to light for testing the light theme fixes. Click toggle to switch and it will save.
       saved = 'light';
     }
     setTheme(saved);
-
-    toggle.addEventListener('click', () => {
-      const isDark = html.classList.contains('dark');
-      setTheme(isDark ? 'light' : 'dark');
-    });
   </script>
 
   <!-- Original PiHerder scripts (timezone, poll, log update, etc.) -->
