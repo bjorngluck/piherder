@@ -231,9 +231,10 @@ body {
   width: 18rem;   /* ~288px — reaches nicely left over nav content */
 }
 
-/* Hamburger menu (mobile) — compact but still clean stacked */
+/* Hamburger menu (mobile) — clean stacked list (full 7 items), good width, strong touch targets */
 .mobile-menu > div {
-  width: 11rem;
+  width: 13rem;
+  border-radius: 10px;
 }
 
 /* Make sure the dropdowns are never hidden behind other content */
@@ -242,11 +243,22 @@ body {
   z-index: 9999;
 }
 
+/* Better mobile menu items: larger hit area + visual dividers */
+.mobile-menu > div a {
+  padding: 0.65rem 0.9rem;
+  min-height: 44px;
+  display: block;
+}
+.mobile-menu > div .border-t {
+  margin: 4px 8px;
+}
+
 /* ============================================
    RELIABLE RESPONSIVE HEADER (no Tailwind dependency)
    This prevents "two menus" on mobile.
-   - Desktop: show the 4 nav links + avatar
-   - Mobile: show hamburger (4 links) + avatar
+   - Desktop: show the 4 nav links + avatar (account menu has theme/signout)
+   - Mobile: show hamburger (full stacked: 4 nav + Account + Toggle theme + Sign out) + avatar
+   ALL menu logic lives ONLY in base.html. Every page inherits it.
    ============================================ */
 
 /* Desktop navigation links row (the 4 main items) — hidden on mobile */
