@@ -236,17 +236,16 @@ document.addEventListener('DOMContentLoaded', function() {
         {% if server.os_updates_count is not none %}{{ server.os_updates_count }} upgradable{% else %}—{% endif %}
       </p>
       <form method="post" action="/servers/{{ server.id }}/check/os-updates" class="mb-2">
-        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full" {% if not server.os_patch_enabled %}disabled title="Enable OS patch feature first"{% endif %}>Check OS updates now</button>
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full">Check OS updates now</button>
       </form>
       <form method="post" action="/servers/{{ server.id }}/schedule/os-check" class="space-y-2">
         <label class="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="os_check_enabled" value="1" {% if server.os_check_enabled %}checked{% endif %} {% if not server.os_patch_enabled %}disabled{% endif %}>
+          <input type="checkbox" name="os_check_enabled" value="1" {% if server.os_check_enabled %}checked{% endif %}>
           Enable schedule
         </label>
-        <input type="text" name="os_check_schedule" value="{{ server.os_check_schedule or '0 6 * * *' }}" placeholder="0 6 * * *"
-               class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs min-h-11"
-               {% if not server.os_patch_enabled %}disabled{% endif %}>
-        <button type="submit" class="btn btn-secondary min-h-11 text-xs" {% if not server.os_patch_enabled %}disabled{% endif %}>Save OS schedule</button>
+        <input type="text" name="os_check_schedule" value="{{ server.os_check_schedule or '0 0 * * *' }}" placeholder="0 0 * * *"
+               class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs min-h-11">
+        <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save OS schedule</button>
       </form>
     </div>
 
@@ -259,17 +258,16 @@ document.addEventListener('DOMContentLoaded', function() {
       </p>
       <p class="text-[10px] text-muted">Pulls new layers if available; does <strong>not</strong> recreate containers.</p>
       <form method="post" action="/servers/{{ server.id }}/check/container-updates" class="mb-2">
-        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full" {% if not server.container_patch_enabled %}disabled title="Enable container patch first"{% endif %}>Check container updates now</button>
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full">Check container updates now</button>
       </form>
       <form method="post" action="/servers/{{ server.id }}/schedule/container-check" class="space-y-2">
         <label class="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="container_check_enabled" value="1" {% if server.container_check_enabled %}checked{% endif %} {% if not server.container_patch_enabled %}disabled{% endif %}>
+          <input type="checkbox" name="container_check_enabled" value="1" {% if server.container_check_enabled %}checked{% endif %}>
           Enable schedule
         </label>
-        <input type="text" name="container_check_schedule" value="{{ server.container_check_schedule or '30 6 * * *' }}" placeholder="30 6 * * *"
-               class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs min-h-11"
-               {% if not server.container_patch_enabled %}disabled{% endif %}>
-        <button type="submit" class="btn btn-secondary min-h-11 text-xs" {% if not server.container_patch_enabled %}disabled{% endif %}>Save container schedule</button>
+        <input type="text" name="container_check_schedule" value="{{ server.container_check_schedule or '0 0 * * *' }}" placeholder="0 0 * * *"
+               class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs min-h-11">
+        <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save container schedule</button>
       </form>
     </div>
   </div>

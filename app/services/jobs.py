@@ -497,58 +497,130 @@ async def _run_herder_backup_job(job_id: int, audit_id: int):
         _finish(audit_id, job_id, "failed", str(e), hostname, "herder_backup")
 
 
-def run_os_update_check_now(session: Session, server: Server, user_id: int | None = None) -> Job:
-    """Synchronous path for scheduler: run OS check in-thread (no BackgroundTasks)."""
-    job = Job(server_id=server.id, job_type="os_update_check", status="running", started_at=datetime.utcnow())
-    session.add(job)
-    session.commit()
-    session.refresh(job)
-    audit = AuditLog(
-        user_id=user_id,
-        server_id=server.id,
-        action="os_update_check",
-        status="running",
-        details=f"Job #{job.id} started",
-    )
-    session.add(audit)
-    session.commit()
-    session.refresh(audit)
-    try:
-        res = os_patching.check_os_updates(server)
-        _apply_os_check_result(session, server.id, res)
-        status = "failed" if res.get("error") and res.get("updates_count") is None else "success"
-        _finish(audit.id, job.id, status, json.dumps(res), server.hostname, "os_update_check")
-    except Exception as e:
-        _finish(audit.id, job.id, "failed", str(e), server.hostname, "os_update_check")
-    session.refresh(job)
+# Limited pool so scheduled fleet checks queue rather than all SSH at once.
+from concurrent.futures import ThreadPoolExecutor
+
+_update_check_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="upd-check")
+
+
+def enqueue_os_update_check(server_id: int, user_id: int | None = None) -> Job | None:
+    """Create pending Job + AuditLog, run SSH check on a worker thread (queued)."""
+    with _get_fresh_session() as session:
+        server = session.get(Server, server_id)
+        if not server:
+            return None
+        job = Job(
+            server_id=server.id,
+            job_type="os_update_check",
+            status="pending",
+            details=json.dumps({"current": "queued", "log_lines": ["OS update check queued…"]}),
+        )
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        audit = AuditLog(
+            user_id=user_id,
+            server_id=server.id,
+            action="os_update_check",
+            status="running",
+            details=f"Job #{job.id} queued",
+        )
+        session.add(audit)
+        session.commit()
+        session.refresh(audit)
+        jid, aid, sid = job.id, audit.id, server.id
+    _update_check_pool.submit(_execute_os_update_check, jid, sid, aid)
     return job
+
+
+def enqueue_container_update_check(server_id: int, user_id: int | None = None) -> Job | None:
+    """Create pending Job + AuditLog, run fleet image check on a worker thread (queued)."""
+    with _get_fresh_session() as session:
+        server = session.get(Server, server_id)
+        if not server:
+            return None
+        job = Job(
+            server_id=server.id,
+            job_type="container_update_check",
+            status="pending",
+            details=json.dumps({"current": "queued", "log_lines": ["Container update check queued…"]}),
+        )
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        audit = AuditLog(
+            user_id=user_id,
+            server_id=server.id,
+            action="container_update_check",
+            status="running",
+            details=f"Job #{job.id} queued",
+        )
+        session.add(audit)
+        session.commit()
+        session.refresh(audit)
+        jid, aid, sid = job.id, audit.id, server.id
+    _update_check_pool.submit(_execute_container_update_check, jid, sid, aid)
+    return job
+
+
+def run_os_update_check_now(session: Session, server: Server, user_id: int | None = None) -> Job:
+    """Scheduler-friendly: enqueue and return pending job (does not block SSH)."""
+    job = enqueue_os_update_check(server.id, user_id=user_id)
+    if not job:
+        raise RuntimeError(f"Could not enqueue OS check for server {server.id}")
+    # Refresh from caller's session if same engine
+    return session.get(Job, job.id) or job
 
 
 def run_container_update_check_now(session: Session, server: Server, user_id: int | None = None) -> Job:
-    """Synchronous path for scheduler: fleet container image check (no up -d)."""
-    job = Job(server_id=server.id, job_type="container_update_check", status="running", started_at=datetime.utcnow())
-    session.add(job)
-    session.commit()
-    session.refresh(job)
-    audit = AuditLog(
-        user_id=user_id,
-        server_id=server.id,
-        action="container_update_check",
-        status="running",
-        details=f"Job #{job.id} started",
-    )
-    session.add(audit)
-    session.commit()
-    session.refresh(audit)
-    try:
-        res = container_patching.check_all_projects_updates(server)
-        _apply_container_check_result(session, server.id, res)
-        status = "success" if not res.get("failed") or res.get("projects_checked") else "success"
-        _finish(audit.id, job.id, status, json.dumps(res), server.hostname, "container_update_check")
-    except Exception as e:
-        _finish(audit.id, job.id, "failed", str(e), server.hostname, "container_update_check")
-    session.refresh(job)
-    return job
+    """Scheduler-friendly: enqueue and return pending job (does not block SSH)."""
+    job = enqueue_container_update_check(server.id, user_id=user_id)
+    if not job:
+        raise RuntimeError(f"Could not enqueue container check for server {server.id}")
+    return session.get(Job, job.id) or job
+
+
+def _execute_os_update_check(job_id: int, server_id: int, audit_id: int) -> None:
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        server = session.get(Server, server_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            session.add(job)
+            session.commit()
+        if not server:
+            _finish(audit_id, job_id, "failed", "Server not found", "", "os_update_check")
+            return
+        hostname = server.hostname
+        try:
+            res = os_patching.check_os_updates(server)
+            _apply_os_check_result(session, server.id, res)
+            status = "failed" if res.get("error") and res.get("updates_count") is None else "success"
+            _finish(audit_id, job_id, status, json.dumps(res), hostname, "os_update_check")
+        except Exception as e:
+            _finish(audit_id, job_id, "failed", str(e), hostname, "os_update_check")
+
+
+def _execute_container_update_check(job_id: int, server_id: int, audit_id: int) -> None:
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        server = session.get(Server, server_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            session.add(job)
+            session.commit()
+        if not server:
+            _finish(audit_id, job_id, "failed", "Server not found", "", "container_update_check")
+            return
+        hostname = server.hostname
+        try:
+            res = container_patching.check_all_projects_updates(server)
+            _apply_container_check_result(session, server.id, res)
+            _finish(audit_id, job_id, "success", json.dumps(res), hostname, "container_update_check")
+        except Exception as e:
+            _finish(audit_id, job_id, "failed", str(e), hostname, "container_update_check")
 
 
 def _apply_os_check_result(session: Session, server_id: int, res: dict) -> None:

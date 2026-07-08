@@ -51,33 +51,37 @@ def schedule_backup_job(server_id: int):
 
 
 def schedule_os_check_job(server_id: int):
-    """Enqueue check-only OS update scan for a server."""
+    """Enqueue check-only OS update scan (queued worker pool, non-blocking)."""
     try:
         from ..database import engine
-        from .jobs import run_os_update_check_now
+        from .jobs import enqueue_os_update_check
         from ..models import Server
 
         with Session(engine) as db:
             server = db.get(Server, server_id)
-            if server and (server.os_check_enabled or server.os_patch_enabled):
-                run_os_update_check_now(db, server)
+            if not server or not server.os_check_enabled:
+                return
+            enqueue_os_update_check(server.id)
+            logger.info(f"[SCHEDULER] Queued OS update check for server {server_id}")
     except Exception as e:
-        logger.debug(f"[SCHEDULER] Error OS check for {server_id}: {e}")
+        logger.warning(f"[SCHEDULER] Error OS check for {server_id}: {e}")
 
 
 def schedule_container_check_job(server_id: int):
-    """Enqueue check-only container image scan for a server."""
+    """Enqueue check-only container image scan (queued worker pool, non-blocking)."""
     try:
         from ..database import engine
-        from .jobs import run_container_update_check_now
+        from .jobs import enqueue_container_update_check
         from ..models import Server
 
         with Session(engine) as db:
             server = db.get(Server, server_id)
-            if server and (server.container_check_enabled or server.container_patch_enabled):
-                run_container_update_check_now(db, server)
+            if not server or not server.container_check_enabled:
+                return
+            enqueue_container_update_check(server.id)
+            logger.info(f"[SCHEDULER] Queued container update check for server {server_id}")
     except Exception as e:
-        logger.debug(f"[SCHEDULER] Error container check for {server_id}: {e}")
+        logger.warning(f"[SCHEDULER] Error container check for {server_id}: {e}")
 
 
 def _remove_job(scheduler, job_id: str):
@@ -112,12 +116,19 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
         except Exception as e:
             logger.warning(f"[SCHEDULER] Backup schedule failed for {sid}: {e}")
 
+    # App timezone for check schedules (matches Settings → timezone)
+    try:
+        from .herder_backup import get_app_timezone
+        tz = get_app_timezone()
+    except Exception:
+        tz = None
+
     # OS update check
     oid = f"os_check_{sid}"
     _remove_job(scheduler, oid)
-    if server.os_check_enabled and server.os_check_schedule and server.os_patch_enabled:
+    if server.os_check_enabled and server.os_check_schedule:
         try:
-            trigger = _cron_trigger(server.os_check_schedule)
+            trigger = _cron_trigger(server.os_check_schedule, timezone=tz)
             scheduler.add_job(
                 func=schedule_os_check_job,
                 trigger=trigger,
@@ -126,16 +137,16 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
                 replace_existing=True,
                 name=f"OS check {server.name}",
             )
-            logger.info(f"[SCHEDULER] OS check scheduled for server {sid}: {server.os_check_schedule}")
+            logger.info(f"[SCHEDULER] OS check scheduled for server {sid}: {server.os_check_schedule} ({tz})")
         except Exception as e:
             logger.warning(f"[SCHEDULER] OS check schedule failed for {sid}: {e}")
 
     # Container update check
     cid = f"container_check_{sid}"
     _remove_job(scheduler, cid)
-    if server.container_check_enabled and server.container_check_schedule and server.container_patch_enabled:
+    if server.container_check_enabled and server.container_check_schedule:
         try:
-            trigger = _cron_trigger(server.container_check_schedule)
+            trigger = _cron_trigger(server.container_check_schedule, timezone=tz)
             scheduler.add_job(
                 func=schedule_container_check_job,
                 trigger=trigger,
@@ -144,7 +155,10 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
                 replace_existing=True,
                 name=f"Container check {server.name}",
             )
-            logger.info(f"[SCHEDULER] Container check scheduled for server {sid}: {server.container_check_schedule}")
+            logger.info(
+                f"[SCHEDULER] Container check scheduled for server {sid}: "
+                f"{server.container_check_schedule} ({tz})"
+            )
         except Exception as e:
             logger.warning(f"[SCHEDULER] Container check schedule failed for {sid}: {e}")
 

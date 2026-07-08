@@ -37,6 +37,12 @@ DEFAULT_CONFIG = {
     "timezone": "UTC",
     "schedule_enabled": False,
     "schedule_cron": "0 3 * * *",  # daily 03:00 in app timezone
+    # Global fleet update-check defaults (applied to per-server schedules)
+    "os_check_global_enabled": True,
+    "os_check_cron": "0 0 * * *",  # midnight local (app timezone)
+    "container_check_global_enabled": True,
+    "container_check_cron": "0 0 * * *",  # midnight; per-host minute jitter applied
+    "update_check_jitter": True,  # stagger minute by server_id so jobs queue, not thundering herd
 }
 
 
@@ -142,8 +148,16 @@ def load_herder_config() -> dict:
 
 
 def save_herder_config(cfg: dict):
+    """Merge partial updates with existing config so unrelated keys are preserved."""
     _ensure_dir()
-    CONFIG_FILE.write_text(json.dumps({**DEFAULT_CONFIG, **cfg}, indent=2))
+    existing: dict = {}
+    if CONFIG_FILE.exists():
+        try:
+            existing = json.loads(CONFIG_FILE.read_text()) or {}
+        except Exception:
+            existing = {}
+    merged = {**DEFAULT_CONFIG, **existing, **cfg}
+    CONFIG_FILE.write_text(json.dumps(merged, indent=2))
 
 
 def prune_old_backups(keep: int):
