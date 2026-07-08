@@ -249,23 +249,24 @@ body {
    - Mobile: show hamburger (4 links) + avatar
    ============================================ */
 
-/* Desktop navigation links row (the 4 main items) */
+/* Desktop navigation links row (the 4 main items) — hidden on mobile */
 .desktop-nav {
-  display: none;
+  display: none !important;
 }
 @media (min-width: 768px) {
   .desktop-nav {
-    display: flex;
+    display: flex !important;
   }
 }
 
-/* Hamburger (mobile menu trigger) — ONLY on phones/tablets */
+/* Hamburger (mobile menu trigger) — ONLY on phones/tablets.
+   Completely hidden on desktop so you never see two menu triggers. */
 .mobile-hamburger {
-  display: none;
+  display: none !important;
 }
 @media (max-width: 767px) {
   .mobile-hamburger {
-    display: block;
+    display: block !important;
   }
 }
 

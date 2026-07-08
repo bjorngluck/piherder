@@ -103,6 +103,22 @@
     .z-50 { z-index: 50; }
     .hidden { display: none !important; }
 
+    /* =====================================================
+       CRITICAL RESPONSIVE HEADER RULES (inline so they always work)
+       These guarantee you never see two menus at once.
+       - On mobile (<768px): only hamburger + avatar
+       - On desktop: only the 4 links + avatar
+       ===================================================== */
+    .desktop-nav { display: none !important; }
+    .mobile-hamburger { display: none !important; }
+
+    @media (min-width: 768px) {
+      .desktop-nav { display: flex !important; }
+    }
+    @media (max-width: 767px) {
+      .mobile-hamburger { display: block !important; }
+    }
+
     .overflow-auto { overflow: auto; }
     .overflow-x-auto { overflow-x: auto; }
     .overflow-hidden { overflow: hidden; }
@@ -143,7 +159,7 @@
           {% set current_path = request.url.path or '' %}
         {% endif %}
       {% endif %}
-      <div class="desktop-nav items-center gap-x-1 text-sm flex-shrink-0">
+      <div class="desktop-nav flex items-center gap-x-1 text-sm flex-shrink-0">
         <a href="/" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path == '/' else '' }}">Dashboard</a>
         <a href="/servers" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/servers') else '' }}">Servers</a>
         <a href="/audit" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/audit') else '' }}">Audit</a>
