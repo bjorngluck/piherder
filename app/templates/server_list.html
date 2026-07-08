@@ -49,6 +49,15 @@
       {% else %}
       <span class="text-xs text-muted">no backup yet</span>
       {% endif %}
+      {% if s.get('reboot_pending') %}
+      <span class="status-pill status-failed" title="Reboot required">reboot</span>
+      {% endif %}
+      {% if s.get('os_updates_count') is not none and s.os_updates_count > 0 %}
+      <span class="status-pill status-failed" title="OS packages upgradable">{{ s.os_updates_count }} OS</span>
+      {% endif %}
+      {% if s.get('container_updates_count') is not none and s.container_updates_count > 0 %}
+      <span class="status-pill status-failed" title="Container projects with image updates">{{ s.container_updates_count }} img</span>
+      {% endif %}
       <span class="text-xs text-muted" title="Backup feature">
         {{ 'Backup on' if s.backup_enabled else 'Backup off' }}
       </span>

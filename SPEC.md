@@ -118,7 +118,7 @@ Related backup hardening (same phase):
 - [ ] Multi-user audit attribution
 - [ ] Compose multi-file project support (override files, env files in UI)
 - [ ] Image update notifications (digest comparison, changelog links)
-- [ ] Fleet-wide dashboard (patch status across all servers)
+- [x] Fleet-wide dashboard (patch status across all servers) — dashboard table + summary from last check fields
 - [ ] Backup restore wizard (select snapshot → restore paths)
 - [x] Rate limiting on auth endpoints (basic in-memory on login/2FA)
 - [x] **Optional app-based 2FA** — TOTP + backup codes + optional trusted device (30d, revocable) — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)

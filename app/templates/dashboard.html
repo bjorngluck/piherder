@@ -1,43 +1,187 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!-- Clean, minimal landing page. The top nav (logo + menu + avatar) is the single source of truth. -->
-<div class="mb-10">
+<div class="mb-8">
   <h1 class="text-4xl font-semibold tracking-tighter text-text">Dashboard</h1>
-  <p class="mt-2 text-muted max-w-md text-sm">
-    Secure, auditable backup management for your Raspberry Pi cluster.
+  <p class="mt-2 text-muted max-w-lg text-sm">
+    Fleet overview — backups, OS packages, container images, and reboot state from last checks (no live SSH).
   </p>
 </div>
 
+{% if not user %}
+<div class="card p-6 max-w-md">
+  <p class="text-sm text-muted mb-4">Sign in to see fleet patch status and manage servers.</p>
+  <a href="/auth/login" class="btn btn-accent min-h-11">Sign in</a>
+</div>
+{% else %}
+
+{# Summary strip #}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+  <div class="card p-4">
+    <div class="text-xs text-muted">Servers</div>
+    <div class="text-3xl font-semibold text-primary mt-0.5">{{ fleet.server_count if fleet else (servers|length) }}</div>
+    <a href="/servers" class="text-xs text-accent hover:underline mt-1 inline-block">Manage →</a>
+  </div>
+  <div class="card p-4">
+    <div class="text-xs text-muted">Need attention</div>
+    <div class="text-3xl font-semibold mt-0.5 {% if fleet and fleet.attention_count %}text-amber-500{% else %}text-text{% endif %}">
+      {{ fleet.attention_count if fleet else 0 }}
+    </div>
+    <div class="text-[10px] text-muted mt-1">updates or reboot</div>
+  </div>
+  <div class="card p-4">
+    <div class="text-xs text-muted">Reboot pending</div>
+    <div class="text-3xl font-semibold mt-0.5 {% if fleet and fleet.reboot_count %}text-amber-500{% else %}text-text{% endif %}">
+      {{ fleet.reboot_count if fleet else 0 }}
+    </div>
+  </div>
+  <div class="card p-4">
+    <div class="text-xs text-muted">Open alerts</div>
+    <div class="text-3xl font-semibold mt-0.5 {% if open_alerts %}text-amber-500{% else %}text-text{% endif %}">
+      {{ open_alerts }}
+    </div>
+    <a href="/notifications" class="text-xs text-accent hover:underline mt-1 inline-block">Notifications →</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+  <div class="card p-4 flex items-center justify-between gap-2">
+    <div>
+      <div class="text-xs text-muted">OS packages upgradable</div>
+      <div class="text-xl font-semibold text-text">{{ fleet.total_os_packages if fleet else 0 }}</div>
+      <div class="text-[10px] text-muted">on {{ fleet.os_host_count if fleet else 0 }} host(s)</div>
+    </div>
+  </div>
+  <div class="card p-4">
+    <div class="text-xs text-muted">Container projects with updates</div>
+    <div class="text-xl font-semibold text-text">{{ fleet.total_container_projects if fleet else 0 }}</div>
+    <div class="text-[10px] text-muted">on {{ fleet.container_host_count if fleet else 0 }} host(s)</div>
+  </div>
+  <div class="card p-4">
+    <div class="text-xs text-muted">Never checked</div>
+    <div class="text-sm text-text mt-1">
+      OS: <strong>{{ fleet.never_checked_os if fleet else 0 }}</strong>
+      · Images: <strong>{{ fleet.never_checked_containers if fleet else 0 }}</strong>
+    </div>
+    <div class="text-[10px] text-muted mt-1">Among hosts with patch features on</div>
+  </div>
+</div>
+
+{# Fleet status table #}
+<div class="card p-4 sm:p-5 mb-6 overflow-x-auto">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <h2 class="font-semibold text-text">Fleet patch status</h2>
+    <p class="text-xs text-muted">From last scheduled/manual check · apply patches on each server</p>
+  </div>
+
+  {% if not fleet or not fleet.rows %}
+  <p class="text-sm text-muted">No servers yet. <a href="/servers/add" class="text-accent hover:underline">Add a server</a>.</p>
+  {% else %}
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-left text-xs text-muted border-b border-border">
+        <th class="py-2 pr-2 font-medium">Server</th>
+        <th class="py-2 pr-2 font-medium">OS updates</th>
+        <th class="py-2 pr-2 font-medium">Containers</th>
+        <th class="py-2 pr-2 font-medium">Reboot</th>
+        <th class="py-2 pr-2 font-medium">Last check</th>
+        <th class="py-2 font-medium"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in fleet.rows %}
+      <tr class="border-b border-border/60 align-top {% if r.needs_attention %}bg-amber-500/5{% endif %}">
+        <td class="py-2.5 pr-2">
+          <a href="/servers/{{ r.id }}" class="font-medium text-primary hover:underline">{{ r.name }}</a>
+          <div class="text-[10px] text-muted font-mono">{{ r.hostname }}</div>
+        </td>
+        <td class="py-2.5 pr-2">
+          {% if not r.os_patch_enabled %}
+          <span class="text-xs text-muted">off</span>
+          {% elif r.never_checked_os %}
+          <span class="text-xs text-muted">not checked</span>
+          {% elif r.os_updates_count and r.os_updates_count > 0 %}
+          <span class="status-pill status-failed">{{ r.os_updates_count }} pkg</span>
+          {% else %}
+          <span class="status-pill status-success">0</span>
+          {% endif %}
+        </td>
+        <td class="py-2.5 pr-2">
+          {% if not r.container_patch_enabled %}
+          <span class="text-xs text-muted">off</span>
+          {% elif r.never_checked_containers %}
+          <span class="text-xs text-muted">not checked</span>
+          {% elif r.container_updates_count and r.container_updates_count > 0 %}
+          <span class="status-pill status-failed">{{ r.container_updates_count }} proj</span>
+          {% if r.container_projects %}
+          <div class="text-[10px] text-muted mt-0.5 max-w-[10rem] truncate" title="{{ r.container_projects|join(', ') }}">
+            {{ r.container_projects|join(', ') }}
+          </div>
+          {% endif %}
+          {% else %}
+          <span class="status-pill status-success">0</span>
+          {% endif %}
+        </td>
+        <td class="py-2.5 pr-2">
+          {% if r.reboot_pending %}
+          <span class="status-pill status-failed">yes</span>
+          {% else %}
+          <span class="text-xs text-muted">—</span>
+          {% endif %}
+        </td>
+        <td class="py-2.5 pr-2 text-xs text-muted whitespace-nowrap">
+          {% if r.last_os_check_at %}
+          <div>OS {{ r.last_os_check_at | app_tz }}</div>
+          {% endif %}
+          {% if r.last_container_check_at %}
+          <div>Img {{ r.last_container_check_at | app_tz }}</div>
+          {% endif %}
+          {% if not r.last_os_check_at and not r.last_container_check_at %}
+          <span>—</span>
+          {% endif %}
+        </td>
+        <td class="py-2.5 text-right whitespace-nowrap">
+          <a href="/servers/{{ r.id }}" class="text-xs text-accent hover:underline">Open</a>
+          {% if r.container_updates_count and r.container_updates_count > 0 %}
+          <span class="text-muted mx-1">·</span>
+          <a href="/servers/{{ r.id }}/docker" class="text-xs text-accent hover:underline">Docker</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% if fleet.attention_count == 0 and fleet.server_count > 0 %}
+  <p class="text-xs text-muted mt-3">All checked hosts look clean. Run checks from each server’s <strong>Update checks</strong> card if data is stale.</p>
+  {% endif %}
+  {% endif %}
+</div>
+
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-  <div class="card p-5">
-    <div class="text-sm text-muted">Servers</div>
-    <div class="text-4xl font-semibold mt-1 text-primary">{{ servers|length if servers else 0 }}</div>
-    <div class="mt-3">
-      <a href="/servers" class="inline-block btn btn-primary text-sm px-4 py-1.5">Manage servers</a>
-    </div>
-  </div>
-
-  <div class="card p-5">
-    <div class="text-sm text-muted">Activity</div>
-    <a href="/audit?search=backup" class="mt-2 inline-block text-primary text-sm font-medium">View audit log →</a>
-    <div class="mt-2">
-      <a href="/herder-backups" class="text-primary text-sm font-medium">PiHerder settings →</a>
-    </div>
-  </div>
-
   <div class="card p-5 text-sm">
-    <div class="font-medium mb-2 text-text">Get started</div>
-    <ul class="space-y-1 text-muted">
-      <li>• Add a server</li>
-      <li>• Configure backup sources</li>
-      <li>• Run backup or retention</li>
+    <div class="font-medium mb-2 text-text">Quick links</div>
+    <ul class="space-y-1.5 text-muted">
+      <li><a href="/servers" class="text-primary hover:underline">Servers</a></li>
+      <li><a href="/notifications" class="text-primary hover:underline">Notifications</a></li>
+      <li><a href="/audit" class="text-primary hover:underline">Audit log</a></li>
+      <li><a href="/herder-backups" class="text-primary hover:underline">Settings / self-backup</a></li>
+      {% if pihole_url %}
+      <li><a href="{{ pihole_url }}" class="text-primary hover:underline" target="_blank" rel="noopener">Pi-hole admin</a></li>
+      {% endif %}
     </ul>
-    <a href="/servers" class="mt-3 block text-primary font-medium">Go to Servers →</a>
+  </div>
+  <div class="card p-5 text-sm md:col-span-2">
+    <div class="font-medium mb-2 text-text">How status is updated</div>
+    <ul class="space-y-1 text-muted text-xs">
+      <li>• <strong>Check-only</strong> jobs (manual or cron) refresh package/image counts — they do not apply upgrades.</li>
+      <li>• Apply patches from each server (OS Patch / Container Patch).</li>
+      <li>• Failed backups and pending updates also appear under <a href="/notifications" class="text-accent hover:underline">Alerts</a>.</li>
+    </ul>
   </div>
 </div>
 
 <div class="mt-8 text-xs text-muted">
   All actions are logged. SSH keys are encrypted at rest. Works offline.
 </div>
+{% endif %}
 {% endblock %}
