@@ -242,6 +242,43 @@ body {
   z-index: 9999;
 }
 
+/* ============================================
+   RELIABLE RESPONSIVE HEADER (no Tailwind dependency)
+   This prevents "two menus" on mobile.
+   - Desktop: show the 4 nav links + avatar
+   - Mobile: show hamburger (4 links) + avatar
+   ============================================ */
+
+/* Desktop navigation links row (the 4 main items) */
+.desktop-nav {
+  display: none;
+}
+@media (min-width: 768px) {
+  .desktop-nav {
+    display: flex;
+  }
+}
+
+/* Hamburger (mobile menu trigger) — ONLY on phones/tablets */
+.mobile-hamburger {
+  display: none;
+}
+@media (max-width: 767px) {
+  .mobile-hamburger {
+    display: block;
+  }
+}
+
+/* Tagline next to logo — only on desktop */
+.nav-tagline {
+  display: none;
+}
+@media (min-width: 768px) {
+  .nav-tagline {
+    display: block;
+  }
+}
+
 .border-border { border-color: var(--color-border); }
 .text-muted { color: var(--color-muted); }
 .bg-bg { background-color: var(--color-bg); }
