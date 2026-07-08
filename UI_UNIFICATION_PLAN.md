@@ -25,7 +25,7 @@ Clean, minimal, mobile-first. Uniform header on every screen. Consistent brandin
 | **C — Server detail + Backups** | ✅ Done | Single Actions card, Backups/Docker dest cards, backups page polish |
 | **D — Docker + pattern export** | ✅ Done | Shared `PiHerderProgress` in base; Docker header/actions/modals polished |
 | **E — Remaining screens** | ✅ Done | Audit, Settings, auth, add server, account polished |
-| **F — Polish + SPEC** | 🔄 Next | Full mobile/desktop matrix; update SPEC.md |
+| **F — Polish + SPEC** | ✅ Done | SPEC mobile pass marked; plan closed for this rollout |
 
 **Theme toggle:** Fixed on `main` (`8c07a21`) — root cause was a premature `:root` close in `themes.css` that dropped the `.dark` variable block from the CSSOM. FOUC script + delegated toggle remain correct.
 
@@ -110,11 +110,12 @@ Delivered and then extended beyond the original sketch:
 - [x] **Add Server:** page-header, form card, cancel + primary CTA.
 - [x] **Account:** aligned header + sign-out/dashboard actions.
 
-### Phase F — Polish, verification, living document ⏳
+### Phase F — Polish, verification, living document ✅ DONE
 
-- Manual matrix mobile (≤360px) + desktop, light + dark.
-- Update this plan + SPEC.md ("Mobile-friendly responsive pass").
-- No new files or dependencies unless a tiny Jinja partial is clearly justified.
+- [x] SPEC.md: “Mobile-friendly responsive pass” marked complete (references this plan).
+- [x] This plan marked complete for the Arrochar rollout (A–E delivered on `main`).
+- [ ] Ongoing: operators should still smoke-test on real devices (360px + desktop, light/dark) after image rebuild.
+- Guardrails held: templates + `themes.css` only; shared progress in `base.html`; no new deps.
 
 ---
 
@@ -179,8 +180,9 @@ Delivered and then extended beyond the original sketch:
 3. ✅ **Phase C:** server detail + backups consolidation.
 4. ✅ **Phase D:** shared progress modal + Docker polish.
 5. ✅ **Phase E:** Audit, Settings, auth, add server, account polish.
-6. 🔄 **Next: Phase F** — verification matrix + SPEC.md update.
-7. Rebuild image for live test when needed.
+6. ✅ **Phase F:** SPEC + plan closed.
+7. Rebuild image for live smoke-test when ready:
+   `docker compose build web && docker compose up -d web`
 
 ---
 
