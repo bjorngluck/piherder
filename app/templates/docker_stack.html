@@ -1,0 +1,301 @@
+{# Compose-centric stack: shell (stable HTMX host) vs fragment (inner content only).
+   Important: use hx-swap="innerHTML" on a stable #docker-stack so auto-refresh does NOT
+   re-fire `load` (outerHTML swap was re-creating the trigger element and wiping open rows). #}
+{% set _refresh = request.query_params.get('refresh', refresh|default('120')) %}
+
+{% if docker_shell|default(false) %}
+{# Stable shell — only HTMX attributes live here; never replaced by fragment #}
+<div id="docker-stack"
+     hx-get="/servers/{{ server.id }}/docker/stack-fragment?refresh={{ _refresh }}&nocache=1"
+     hx-trigger="load once, every {{ _refresh }}s"
+     hx-swap="innerHTML">
+  <div class="docker-stack-skeleton card p-6 text-center text-sm text-muted">
+    <div class="flex justify-center mb-2">
+      <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+    </div>
+    Loading compose projects and containers from host…
+  </div>
+</div>
+{% else %}
+{# Fragment body (innerHTML of #docker-stack) #}
+{% if projects %}
+  <div class="docker-stack-list">
+    {% for proj in projects %}
+    <div class="docker-stack-block"
+         data-proj-name="{{ proj.name | e }}"
+         data-project-path="{{ proj.path | e }}"
+         data-stack-filter-unit>
+
+      {# ── Compose header: name + count + ⋯ only ── #}
+      <div class="docker-proj-row docker-stack-header">
+        <div class="docker-proj-body min-w-0">
+          <div class="docker-proj-name" title="{{ proj.name | e }}">
+            {{ proj.name }}
+            <span class="docker-stack-count text-muted font-normal">
+              · {{ proj.running_count|default(0) }}/{{ proj.containers|length if proj.containers else 0 }} up
+            </span>
+          </div>
+          <div class="docker-proj-path text-muted" title="{{ proj.path | e }}">{{ proj.path }}</div>
+        </div>
+        <div class="docker-proj-tools">
+          <button type="button"
+                  class="source-icon-btn docker-more-trigger"
+                  data-proj-more
+                  title="Actions"
+                  aria-haspopup="menu"
+                  aria-label="Actions for {{ proj.name }}">⋯</button>
+        </div>
+
+        {# All compose actions live here; ⋯ popover clicks these #}
+        <div class="docker-proj-secondary" hidden>
+          <form method="post" action="/servers/{{ server.id }}/docker/redeploy" data-sec="deploy">
+            <input type="hidden" name="project_path" value="{{ proj.path }}">
+            <input type="hidden" name="pull" value="true">
+            <button type="submit" data-sec-btn="deploy">Deploy</button>
+          </form>
+          <button type="button"
+                  data-sec-btn="logs"
+                  data-proj="{{ proj.name }}"
+                  data-services='{{ proj.services | tojson }}'
+                  data-server-id="{{ server.id }}"
+                  data-project-path="{{ proj.path }}"
+                  data-action="logs">Logs</button>
+          <form method="post" action="/servers/{{ server.id }}/docker/compose/start" data-sec="start">
+            <input type="hidden" name="project_path" value="{{ proj.path }}">
+            <input type="hidden" name="service" value="">
+            <button type="submit"
+                    data-sec-btn="start"
+                    data-proj="{{ proj.name }}"
+                    data-services='{{ proj.services | tojson }}'
+                    data-server-id="{{ server.id }}"
+                    data-project-path="{{ proj.path }}"
+                    data-action="start">Start</button>
+          </form>
+          <form method="post" action="/servers/{{ server.id }}/docker/compose/stop" data-sec="stop">
+            <input type="hidden" name="project_path" value="{{ proj.path }}">
+            <input type="hidden" name="service" value="">
+            <button type="submit"
+                    data-sec-btn="stop"
+                    data-proj="{{ proj.name }}"
+                    data-services='{{ proj.services | tojson }}'
+                    data-server-id="{{ server.id }}"
+                    data-project-path="{{ proj.path }}"
+                    data-action="stop">Stop</button>
+          </form>
+          <form method="post" action="/servers/{{ server.id }}/docker/compose/restart" data-sec="restart">
+            <input type="hidden" name="project_path" value="{{ proj.path }}">
+            <input type="hidden" name="service" value="">
+            <button type="submit"
+                    data-sec-btn="restart"
+                    data-proj="{{ proj.name }}"
+                    data-services='{{ proj.services | tojson }}'
+                    data-server-id="{{ server.id }}"
+                    data-project-path="{{ proj.path }}"
+                    data-action="restart">Restart</button>
+          </form>
+          <form method="post" action="/servers/{{ server.id }}/docker/check-updates" data-sec="check-updates">
+            <input type="hidden" name="project_path" value="{{ proj.path }}">
+            <button type="submit" data-sec-btn="check-updates">Check Updates</button>
+          </form>
+          {% if proj.has_build %}
+          <button type="button"
+                  data-sec-btn="build"
+                  data-proj-name="{{ proj.name | e }}"
+                  data-build-services='{{ proj.build_services | tojson | safe }}'
+                  data-server-id="{{ server.id }}">Build…</button>
+          {% endif %}
+          <button type="button"
+                  data-sec-btn="edit"
+                  data-edit-proj="{{ proj.name | e }}"
+                  data-has-df="{{ '1' if proj.get('dockerfile_path') else '0' }}"
+                  data-server-id="{{ server.id }}">Edit</button>
+          <form method="post" action="/servers/{{ server.id }}/docker/compose/down" data-sec="undeploy">
+            <input type="hidden" name="project_path" value="{{ proj.path }}">
+            <button type="submit" data-sec-btn="undeploy">Undeploy</button>
+          </form>
+        </div>
+      </div>
+
+      {# ── Nested services: name + status (compact) ── #}
+      {% if proj.containers %}
+      <div class="docker-svc-list">
+        {% for c in proj.containers %}
+        {% set filt = 'running' if c.running else ('missing' if c.placeholder else 'stopped') %}
+        <div class="docker-svc-row {{ 'is-running' if c.running else '' }} {{ 'is-placeholder' if c.placeholder else '' }}"
+             data-container="{{ c.name | e }}"
+             data-svc-status="{{ filt }}"
+             data-svc-name="{{ (c.compose_service or c.name or '') | e | lower }}">
+          <button type="button"
+                  class="docker-svc-main"
+                  data-svc-toggle
+                  {% if c.placeholder %}disabled{% endif %}
+                  title="Show details">
+            <span class="docker-svc-identity">
+              <span class="docker-svc-chevron" aria-hidden="true">▸</span>
+              <span class="docker-svc-name font-mono">{{ c.compose_service or c.name or '—' }}</span>
+              {% if c.running %}
+                <span class="status-pill status-success">Running</span>
+              {% elif c.placeholder %}
+                <span class="status-pill status-muted">Not created</span>
+              {% else %}
+                <span class="status-pill status-muted">{{ (c.state or 'stopped') | capitalize }}</span>
+              {% endif %}
+              {% if c.status and not c.placeholder %}
+                <span class="docker-svc-age text-muted" title="{{ c.status | e }}">{{ c.status }}</span>
+              {% endif %}
+            </span>
+          </button>
+          {% if not c.placeholder %}
+          <div class="docker-svc-detail" hidden>
+            <div class="docker-svc-detail-grid">
+              {% if c.name %}
+              <div class="docker-svc-detail-span">
+                <div class="docker-svc-detail-label">Container</div>
+                <div class="font-mono break-all">{{ c.name }}</div>
+              </div>
+              {% endif %}
+              <div class="docker-svc-detail-span">
+                <div class="docker-svc-detail-label">Image</div>
+                <div class="font-mono break-all">{{ c.image or '—' }}</div>
+              </div>
+              <div>
+                <div class="docker-svc-detail-label">Ports</div>
+                {% if c.ports %}
+                <ul class="docker-detail-lines font-mono">
+                  {% for p in c.ports %}<li>{{ p }}</li>{% endfor %}
+                </ul>
+                {% else %}
+                <div class="font-mono text-muted">—</div>
+                {% endif %}
+              </div>
+              <div>
+                <div class="docker-svc-detail-label">Command</div>
+                <div class="font-mono break-all">{{ c.command or '—' }}</div>
+              </div>
+              <div class="docker-svc-detail-span">
+                <div class="docker-svc-detail-label">Mounts / volumes</div>
+                {% if c.mounts_list %}
+                <ul class="docker-detail-lines font-mono">
+                  {% for m in c.mounts_list %}<li>{{ m }}</li>{% endfor %}
+                </ul>
+                {% elif c.mounts %}
+                <ul class="docker-detail-lines font-mono">
+                  {% for m in c.mounts.split(',') %}<li>{{ m.strip() }}</li>{% endfor %}
+                </ul>
+                {% else %}
+                <div class="font-mono text-muted">—</div>
+                {% endif %}
+                {% if c.local_volumes %}
+                <div class="text-muted text-[10px] mt-1">Local volume count: {{ c.local_volumes }}</div>
+                {% endif %}
+              </div>
+              <div>
+                <div class="docker-svc-detail-label">Size</div>
+                <div class="font-mono break-all">{{ c.size or '—' }}</div>
+              </div>
+              <div>
+                <div class="docker-svc-detail-label">Created</div>
+                <div class="font-mono break-all">{{ c.created or '—' }}</div>
+              </div>
+              {% if c.name %}
+              <div class="docker-svc-detail-span docker-svc-detail-actions">
+                <button type="button"
+                        class="btn btn-secondary text-xs px-3 py-1.5"
+                        data-container-logs="{{ c.name | e }}">View logs</button>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="docker-svc-empty text-muted text-xs">No containers for this compose project yet.</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-sm text-muted p-3">No compose projects discovered in {{ server.docker_base_dir }}.</div>
+  {% endif %}
+
+  {% if orphan_containers %}
+  <div class="docker-orphans mt-4" data-stack-filter-unit data-orphan-block>
+    <h3 class="text-sm font-medium text-muted mb-2">Other containers <span class="font-normal">(not under a managed compose)</span></h3>
+    <div class="docker-svc-list docker-svc-list-standalone">
+      {% for c in orphan_containers %}
+      {% set filt = 'running' if c.running else 'stopped' %}
+      <div class="docker-svc-row {{ 'is-running' if c.running else '' }}"
+           data-container="{{ c.name | e }}"
+           data-svc-status="{{ filt }}"
+           data-svc-name="{{ (c.name or '') | e | lower }}">
+        <button type="button" class="docker-svc-main" data-svc-toggle title="Show details">
+          <span class="docker-svc-identity">
+            <span class="docker-svc-chevron" aria-hidden="true">▸</span>
+            <span class="docker-svc-name font-mono">{{ c.name or '—' }}</span>
+            {% if c.running %}
+              <span class="status-pill status-success">Running</span>
+            {% else %}
+              <span class="status-pill status-muted">{{ (c.state or 'stopped') | capitalize }}</span>
+            {% endif %}
+            {% if c.status %}
+              <span class="docker-svc-age text-muted">{{ c.status }}</span>
+            {% endif %}
+          </span>
+        </button>
+        <div class="docker-svc-detail" hidden>
+          <div class="docker-svc-detail-grid">
+            <div class="docker-svc-detail-span">
+              <div class="docker-svc-detail-label">Image</div>
+              <div class="font-mono break-all">{{ c.image or '—' }}</div>
+            </div>
+            <div>
+              <div class="docker-svc-detail-label">Ports</div>
+              {% if c.ports %}
+              <ul class="docker-detail-lines font-mono">
+                {% for p in c.ports %}<li>{{ p }}</li>{% endfor %}
+              </ul>
+              {% else %}
+              <div class="font-mono text-muted">—</div>
+              {% endif %}
+            </div>
+            <div>
+              <div class="docker-svc-detail-label">Command</div>
+              <div class="font-mono break-all">{{ c.command or '—' }}</div>
+            </div>
+            <div class="docker-svc-detail-span">
+              <div class="docker-svc-detail-label">Mounts / volumes</div>
+              {% if c.mounts_list %}
+              <ul class="docker-detail-lines font-mono">
+                {% for m in c.mounts_list %}<li>{{ m }}</li>{% endfor %}
+              </ul>
+              {% elif c.mounts %}
+              <ul class="docker-detail-lines font-mono">
+                {% for m in c.mounts.split(',') %}<li>{{ m.strip() }}</li>{% endfor %}
+              </ul>
+              {% else %}
+              <div class="font-mono text-muted">—</div>
+              {% endif %}
+            </div>
+            <div>
+              <div class="docker-svc-detail-label">Size</div>
+              <div class="font-mono">{{ c.size or '—' }}</div>
+            </div>
+            <div>
+              <div class="docker-svc-detail-label">Created</div>
+              <div class="font-mono">{{ c.created or '—' }}</div>
+            </div>
+            {% if c.name and c.name != 'error' %}
+            <div class="docker-svc-detail-span docker-svc-detail-actions">
+              <button type="button" class="btn btn-secondary text-xs px-3 py-1.5" data-container-logs="{{ c.name | e }}">View logs</button>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+{% endif %}

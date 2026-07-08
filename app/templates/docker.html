@@ -274,6 +274,52 @@ function showProjectMoreMenu(anchorBtn, row) {
   });
 }
 
+// Persist expanded container detail across HTMX auto-refresh
+const DOCKER_OPEN_KEY = 'piherder.dockerOpen.' + String(CURRENT_SERVER_ID || '');
+function getOpenContainers() {
+  try {
+    const raw = sessionStorage.getItem(DOCKER_OPEN_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+function saveOpenContainers(set) {
+  try {
+    sessionStorage.setItem(DOCKER_OPEN_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {}
+}
+function svcRowKey(row) {
+  if (!row) return '';
+  return (row.getAttribute('data-container') || row.getAttribute('data-svc-name') || '').trim();
+}
+function applySvcOpenUI(row, open) {
+  if (!row) return;
+  row.classList.toggle('is-open', !!open);
+  const detail = row.querySelector('.docker-svc-detail');
+  if (detail) detail.hidden = !open;
+  const chev = row.querySelector('.docker-svc-chevron');
+  if (chev) chev.textContent = open ? '▾' : '▸';
+}
+function setSvcOpen(row, open) {
+  applySvcOpenUI(row, open);
+  const key = svcRowKey(row);
+  if (!key) return;
+  const s = getOpenContainers();
+  if (open) s.add(key);
+  else s.delete(key);
+  saveOpenContainers(s);
+}
+function restoreOpenContainers() {
+  const open = getOpenContainers();
+  if (!open.size) return;
+  document.querySelectorAll('.docker-svc-row').forEach(function(row) {
+    const key = svcRowKey(row);
+    if (key && open.has(key)) applySvcOpenUI(row, true);
+  });
+}
+
 // Delegated UI: survives HTMX stack refresh
 document.addEventListener('click', function(e) {
   const moreBtn = e.target.closest('[data-proj-more]');
@@ -293,21 +339,22 @@ document.addEventListener('click', function(e) {
   }
 
   const toggle = e.target.closest('[data-svc-toggle]');
-  if (toggle && !toggle.disabled) {
+  if (toggle) {
     e.preventDefault();
+    e.stopPropagation();
+    if (toggle.disabled) return;
     const row = toggle.closest('.docker-svc-row');
     if (!row) return;
-    const detail = row.querySelector('.docker-svc-detail');
-    const open = row.classList.toggle('is-open');
-    if (detail) detail.hidden = !open;
-    const chev = row.querySelector('.docker-svc-chevron');
-    if (chev) chev.textContent = open ? '▾' : '▸';
+    // Explicit open/close (not double-toggle from bubbling)
+    const willOpen = !row.classList.contains('is-open');
+    setSvcOpen(row, willOpen);
     return;
   }
 
   const logBtn = e.target.closest('[data-container-logs]');
   if (logBtn) {
     e.preventDefault();
+    e.stopPropagation();
     const cname = logBtn.getAttribute('data-container-logs');
     if (cname && typeof showLogsModal === 'function') {
       showLogsModal(cname, CURRENT_SERVER_ID);
