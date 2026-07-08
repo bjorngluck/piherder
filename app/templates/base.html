@@ -159,7 +159,9 @@
           {% set current_path = request.url.path or '' %}
         {% endif %}
       {% endif %}
-      <div class="desktop-nav flex items-center gap-x-1 text-sm flex-shrink-0">
+      <!-- Desktop links: hidden on mobile by the rules below.
+           Only the hamburger + avatar should be visible on small screens. -->
+      <div class="desktop-nav flex items-center gap-x-1 text-sm flex-shrink-0" style="display:none">
         <a href="/" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path == '/' else '' }}">Dashboard</a>
         <a href="/servers" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/servers') else '' }}">Servers</a>
         <a href="/audit" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/audit') else '' }}">Audit</a>
