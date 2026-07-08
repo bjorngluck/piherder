@@ -1207,6 +1207,55 @@ input[type="checkbox"], input[type="radio"] {
   min-width: 36rem;
 }
 
+/* Herder self-backup list (Settings) — compact rows, no table scroll */
+.herder-backup-list {
+  max-height: none;
+}
+.herder-backup-row {
+  align-items: center;
+}
+.herder-backup-tools {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.herder-backup-tools a.source-icon-btn {
+  text-decoration: none;
+}
+.source-icon-btn-danger {
+  color: var(--color-danger, #c8102e);
+}
+.source-icon-btn-danger:hover {
+  border-color: var(--color-danger, #c8102e);
+  background: color-mix(in srgb, var(--color-danger, #c8102e) 12%, var(--color-surface));
+}
+.herder-restore-details {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg);
+}
+.herder-restore-summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text);
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  list-style: none;
+}
+.herder-restore-summary::-webkit-details-marker {
+  display: none;
+}
+.herder-restore-summary::before {
+  content: "▸ ";
+  color: var(--color-muted);
+  margin-right: 0.25rem;
+}
+.herder-restore-details[open] .herder-restore-summary::before {
+  content: "▾ ";
+}
+
 /* Compact backup source rows (no wide table / no horizontal scroll) */
 .source-list {
   display: flex;
