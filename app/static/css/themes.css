@@ -177,22 +177,18 @@ body {
   outline: none;
 }
 .user-menu[open] summary {
-  border-color: var(--color-border);
   background-color: var(--color-surface);
 }
 
-/* Make the avatar + name area breathe a bit more */
-.user-menu summary {
-  padding-top: 0.25rem;
-  padding-bottom: 0.25rem;
-  padding-left: 0.375rem;
-  padding-right: 0.375rem;
+/* Avatar circle in header — clean, NO border ever */
+.user-menu summary .rounded-full {
+  border: none !important;
+  box-shadow: none;
 }
-.user-menu summary .w-9 {
-  /* slightly larger, clearer avatar */
-  width: 2.25rem;
-  height: 2.25rem;
-  font-size: 0.875rem;
+
+/* Slightly larger tap target for the whole summary */
+.user-menu summary {
+  padding: 2px 6px;
 }
 
 .user-menu > div {
@@ -203,11 +199,16 @@ body {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
-/* Comfortable menu items */
+/* Menu items */
 .user-menu > div a,
 .user-menu > div button {
   padding-top: 0.375rem;
   padding-bottom: 0.375rem;
+}
+
+/* Make sure the dropdown is never hidden behind other content */
+.user-menu > div {
+  z-index: 9999;
 }
 
 .border-border { border-color: var(--color-border); }
