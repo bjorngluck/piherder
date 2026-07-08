@@ -83,7 +83,6 @@
     .text-sm { font-size: .875rem; line-height: 1.25rem; }
     .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
     .text-2xl { font-size: 1.5rem; line-height: 2rem; }
-    .text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
     .text-\[10px\] { font-size: 10px; }
     .text-\[11px\] { font-size: 11px; }
     .font-semibold { font-weight: 600; }
@@ -159,7 +158,7 @@
 
       {% set secondary_items = [
         {"label": "Account",     "href": "/auth/account", "kind": "normal"},
-        {"label": "Toggle theme", "href": "#", "kind": "action", "onclick": "toggleThemeFromMenu(this); closeMobileMenu(); return false;"},
+        {"label": "Toggle theme", "href": "#", "kind": "action", "onclick": "toggleTheme(); closeMobileMenu(); return false;"},
         {"label": "Sign out",    "href": "/auth/logout", "kind": "danger"}
       ] %}
 
@@ -273,10 +272,15 @@
       localStorage.setItem('theme', theme);
     }
 
-    window.toggleThemeFromMenu = function(btn) {
+    // Global toggle function - works from anywhere (dropdown, hamburger, etc.)
+    window.toggleTheme = function() {
       const isDark = html.classList.contains('dark');
       setTheme(isDark ? 'light' : 'dark');
-      // close any open account details if present
+    };
+
+    // Legacy support for old onclick
+    window.toggleThemeFromMenu = function(btn) {
+      toggleTheme();
       const details = btn && btn.closest ? btn.closest('details') : null;
       if (details) details.open = false;
     };
