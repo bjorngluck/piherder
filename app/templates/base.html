@@ -8,19 +8,15 @@
   <!-- Favicon (self-contained, no external requests) -->
   <link rel="icon" href="/static/favicon.png" type="image/png" sizes="32x32">
 
-  <!-- Tailwind Play (optional) + HTMX + Alpine -->
-  {% if not lean_page %}
+  <!-- Tailwind Play + HTMX + Alpine (always loaded for consistent nav + components across all pages) -->
   <script src="/static/tailwind.js" onerror="console.warn('Tailwind Play not available — using built-in fallback styles')"></script>
   <script>
     if (typeof tailwind !== 'undefined') {
-      // Tailwind config kept minimal — all theming is handled via themes.css vars and component classes.
-      // No color extensions needed (zinc etc removed post-cleanup).
       tailwind.config = { theme: { extend: {} } };
     }
   </script>
   <script src="/static/htmx.min.js"></script>
   <script defer src="/static/alpine.min.js"></script>
-  {% endif %}
 
   <!-- Theme CSS variables (light/dark + Raspberry Pi branding) -->
   <link rel="stylesheet" href="/static/css/themes.css">
@@ -104,22 +100,24 @@
     .hidden { display: none !important; }
 
     /* ============================================================
-       BULLETPROOF ONE-MENU-ONLY RULES
-       Exactly ONE of these two is ever visible:
-         .desktop-nav   = the 4 links (Dashboard etc)
-         .mobile-hamburger = the ☰
-       Works even if Tailwind CDN is slow or broken.
+       STRICT ONE-MENU SYSTEM (works with or without Tailwind)
+       - Desktop (>=768px): .desktop-nav (4 links) + .desktop-avatar
+       - Mobile  (<768px):  ONLY .mobile-hamburger → full slide-out
+       The avatar is intentionally hidden on mobile (slide-out has Account/Sign out).
        ============================================================ */
     .desktop-nav,
-    .mobile-hamburger {
+    .mobile-hamburger,
+    .desktop-avatar {
       display: none !important;
     }
 
     @media (min-width: 768px) {
       .desktop-nav { display: flex !important; }
+      .desktop-avatar { display: flex !important; }
     }
     @media (max-width: 767px) {
       .mobile-hamburger { display: block !important; }
+      .desktop-avatar { display: none !important; }
     }
 
     /* Clean mobile slide-out menu (vanilla, no dep on Tailwind runtime) */
@@ -191,7 +189,7 @@
         {% endif %}
       {% endif %}
       <!-- Desktop nav links — ONLY on desktop -->
-      <div class="desktop-nav hidden md:flex items-center gap-x-1 text-sm flex-shrink-0">
+      <div class="desktop-nav flex items-center gap-x-1 text-sm flex-shrink-0">
         <a href="/" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path == '/' else '' }}">Dashboard</a>
         <a href="/servers" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/servers') else '' }}">Servers</a>
         <a href="/audit" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/audit') else '' }}">Audit</a>
@@ -242,9 +240,10 @@
           </div>
         </div>
 
-        <!-- Avatar + account menu. This is the only menu on desktop.
-             On mobile it sits to the right of the hamburger. -->
-        <div class="flex items-center pl-1 sm:pl-2 border-l border-border flex-shrink-0 whitespace-nowrap">
+        <!-- Avatar + account menu (DESKTOP ONLY).
+             Mobile uses the slide-out which already contains Account + Sign out.
+             We hide the entire avatar block on mobile via .desktop-avatar + CSS. -->
+        <div class="desktop-avatar flex items-center pl-1 sm:pl-2 border-l border-border flex-shrink-0 whitespace-nowrap">
           <details id="user-account" class="user-menu relative">
             <summary class="flex items-center gap-1.5 cursor-pointer list-none select-none rounded px-1 py-0.5 hover:bg-surface transition-colors">
               <div class="w-8 h-8 rounded-full bg-surface flex items-center justify-center text-sm font-semibold text-muted shrink-0"
