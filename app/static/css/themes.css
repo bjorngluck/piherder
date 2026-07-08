@@ -1055,4 +1055,112 @@ input[type="checkbox"], input[type="radio"] {
   }
 }
 
+/* ============================================================
+   Phase C — server detail + backups layout helpers
+   ============================================================ */
+.feature-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.feature-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-muted);
+}
+.feature-chip.feature-on {
+  color: var(--color-text);
+  border-color: var(--color-border);
+}
+.feature-chip.feature-off {
+  opacity: 0.7;
+}
+
+.dest-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+@media (min-width: 640px) {
+  .dest-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.dest-card {
+  display: block;
+  padding: 1rem 1.15rem;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 0.1s ease, background-color 0.1s ease;
+}
+.dest-card:hover {
+  border-color: var(--color-primary);
+  background-color: var(--color-bg);
+}
+.dest-card-title {
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--color-text);
+}
+.dest-card-desc {
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+.dest-card-cta {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+.action-grid form {
+  margin: 0;
+  display: flex;
+}
+.action-grid form .btn,
+.action-grid > .btn {
+  width: 100%;
+}
+@media (min-width: 480px) {
+  .action-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (min-width: 768px) {
+  .action-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Backup sources: table scrolls on narrow screens */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.table-scroll table {
+  min-width: 36rem;
+}
+
+/* Source action buttons stack on mobile inside table cells */
+.source-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
+  align-items: center;
+}
+
 /* Add more as needed */
