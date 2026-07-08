@@ -95,6 +95,8 @@
   <button type="button"
           class="audit-event {{ 'is-noise' if log.is_noise else '' }}"
           role="listitem"
+          title="Click to open full details"
+          aria-label="{{ log.action_label or log.action }} — click for details"
           onclick="showAuditDetailsModal(AUDIT_LOGS[{{ loop.index0 }}])">
     <div class="audit-event-top">
       <span class="status-pill {{ 'status-success' if sd == 'success' else 'status-failed' if sd == 'failed' else 'status-running' if sd == 'running' else 'status-stopped' if sd == 'stopped' else 'status-cancelled' }}">
@@ -118,9 +120,6 @@
       {% endif %}
     </div>
     <div class="audit-event-summary">{{ log.summary or '—' }}</div>
-    <div class="audit-event-footer">
-      <span class="audit-event-cta">View details →</span>
-    </div>
   </button>
   {% endfor %}
 </div>

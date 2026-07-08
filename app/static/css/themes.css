@@ -1248,19 +1248,6 @@ input[type="checkbox"], input[type="radio"] {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.audit-event-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 0.5rem;
-}
-.audit-event-cta {
-  color: var(--color-primary);
-  font-weight: 500;
-  font-size: 0.75rem;
-}
-
 /* Filters: primary row always visible; rest collapsible */
 .audit-filters-primary {
   display: flex;
