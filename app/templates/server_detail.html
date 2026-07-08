@@ -1,25 +1,19 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div>
-  <a href="/servers" class="text-xs text-accent hover:underline">← All servers</a>
-  <div class="flex items-center gap-2 mt-1">
-    <h1 class="text-3xl font-semibold">{{ server.name }}</h1>
-    <button type="button"
-            onclick="showEditServerModal()"
-            class="ml-2 text-xs px-3 py-1 btn btn-secondary">
-      Edit
-    </button>
-    {% if server.ssh_public_key %}
-    <button type="button"
-            onclick="showSshKeyModal()"
-            class="text-xs px-2 py-1 btn btn-secondary"
-            title="View/copy the SSH public key for initial setup">
-      SSH key
-    </button>
-    {% endif %}
+<div class="page-header mb-6">
+  <div>
+    <a href="/servers" class="text-xs text-accent hover:underline">← All servers</a>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text mt-1">{{ server.name }}</h1>
+    <p class="text-sm text-muted mt-1">{{ server.ssh_username }}@{{ server.hostname }}:{{ server.ssh_port }}</p>
   </div>
-  <div class="text-muted">{{ server.hostname }} ({{ server.ssh_username }})</div>
+  <div class="page-header-actions">
+    <button type="button" onclick="showEditServerModal()" class="btn btn-secondary min-h-11">Edit</button>
+    {% if server.ssh_public_key %}
+    <button type="button" onclick="showSshKeyModal()" class="btn btn-secondary min-h-11" title="View/copy the SSH public key for initial setup">SSH key</button>
+    {% endif %}
+    <button type="button" onclick="showSystemInfoModal()" class="btn btn-secondary min-h-11">System info</button>
+  </div>
 </div>
 
 <!-- SSH Key Modal -->
@@ -119,152 +113,103 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<div class="mt-6">
-  <h3 class="font-medium mb-2">Features</h3>
-  <div class="flex flex-wrap gap-2 text-sm">
-    <div class="px-3 py-1 bg-bg border border-border rounded">Backups: <strong>{{ 'on' if server.backup_enabled else 'off' }}</strong></div>
-    <div class="px-3 py-1 bg-bg border border-border rounded">Container Patching: <strong>{{ 'on' if server.container_patch_enabled else 'off' }}</strong></div>
-    <div class="px-3 py-1 bg-bg border border-border rounded">OS Patching: <strong>{{ 'on' if server.os_patch_enabled else 'off' }}</strong></div>
-
-    {% if backup_profiles and overall_last_backup %}
-    <div class="px-3 py-1 bg-bg border border-border rounded text-xs">
-      Last backup: <span class="text-accent">{{ overall_last_backup | app_tz }}</span>
-    </div>
-    {% endif %}
-  </div>
+{# Compact feature status — single row, no noisy pills repeated elsewhere #}
+<div class="feature-status mb-4">
+  <span class="feature-chip {{ 'feature-on' if server.backup_enabled else 'feature-off' }}">Backups {{ 'on' if server.backup_enabled else 'off' }}</span>
+  <span class="feature-chip {{ 'feature-on' if server.container_patch_enabled else 'feature-off' }}">Containers {{ 'on' if server.container_patch_enabled else 'off' }}</span>
+  <span class="feature-chip {{ 'feature-on' if server.os_patch_enabled else 'feature-off' }}">OS patch {{ 'on' if server.os_patch_enabled else 'off' }}</span>
+  {% if overall_last_backup %}
+  <span class="feature-chip">Last backup <span class="text-accent">{{ overall_last_backup | app_tz }}</span></span>
+  {% elif last_backup_status %}
+  <span class="feature-chip status-pill {{ 'status-success' if last_backup_status == 'success' else 'status-failed' }}">last: {{ last_backup_status }}</span>
+  {% endif %}
+  {% if running_backup_job %}
+    {% set job_details = running_backup_job.details | fromjson if running_backup_job.details else {} %}
+    <span class="feature-chip status-pill status-running">backup running · {{ job_details.source_filter or job_details.current or 'full' }}</span>
+  {% endif %}
 </div>
 
 {% if reboot_initiated %}
-<div class="mt-3 p-3 banner-success border border-border rounded text-sm flex items-center gap-2">
+<div class="mb-4 p-3 banner-success border border-border rounded text-sm flex flex-wrap items-center gap-2">
   <span>⏻</span>
   <strong>Reboot command sent.</strong> The server is restarting. Refresh this page in a minute or two.
 </div>
 {% endif %}
 
 {% if diagnostics and diagnostics.reboot_pending %}
-<div class="mt-3 p-3 banner-warning border border-border rounded text-sm flex items-center gap-2">
+<div class="mb-4 p-3 banner-warning border border-border rounded text-sm flex flex-wrap items-center gap-2">
   <span>⚠️</span>
-  <strong>This server is pending a reboot</strong> (detected after last OS update).
-  <form method="post" action="/servers/{{ server.id }}/reboot" class="ml-auto" onsubmit="return confirm('Reboot {{ server.name }} now?');">
-    <button class="px-3 py-1 btn btn-secondary rounded text-sm font-medium">Reboot Now</button>
+  <strong>Pending reboot</strong> (detected after last OS update).
+  <form method="post" action="/servers/{{ server.id }}/reboot" class="sm:ml-auto" onsubmit="return confirm('Reboot {{ server.name }} now?');">
+    <button class="btn btn-secondary min-h-11 text-sm">Reboot Now</button>
   </form>
 </div>
 {% endif %}
 
-<!-- System info is now in a modal (less noise on the main screen).
-     Click to view OS, kernel, and a summarized drive usage focused on root + usable space. -->
-<div class="mt-3">
-  <button type="button"
-          onclick="showSystemInfoModal()"
-          class="text-xs px-3 py-1 btn btn-secondary">
-    🖥️ System Info (OS, drives, space)
-  </button>
-  <span class="ml-2 text-[10px] text-muted">Click for details + usable space summary</span>
-</div>
-
-<!-- Docker quick access -->
-<div class="mt-4">
-  <a href="/servers/{{ server.id }}/docker?nocache=1" 
-     class="inline-flex items-center gap-2 px-4 py-2 btn btn-secondary text-sm font-medium">
-    🐳 Docker Management
+{# Destination cards: dedicated pages for Backups + Docker #}
+<div class="dest-cards mb-6">
+  <a href="/servers/{{ server.id }}/backups" class="card dest-card">
+    <div class="dest-card-title">Backups</div>
+    <p class="dest-card-desc">
+      {% if backup_profiles %}{{ backup_profiles|length }} source(s){% else %}Configure sources{% endif %}
+      · {{ 'enabled' if server.backup_enabled else 'disabled' }}
+      {% if running_backup_job %}· <span class="text-accent">running</span>{% endif %}
+    </p>
+    <span class="dest-card-cta">Manage backups →</span>
   </a>
-  <span class="ml-2 text-xs text-muted">Containers, compose, logs, actions</span>
+  <a href="/servers/{{ server.id }}/docker?nocache=1" class="card dest-card">
+    <div class="dest-card-title">Docker</div>
+    <p class="dest-card-desc">Containers, compose, logs, build &amp; deploy</p>
+    <span class="dest-card-cta">Open Docker →</span>
+  </a>
 </div>
 
-<div class="mt-8">
-  <h3 class="font-medium mb-3">Run Jobs (replicates your legacy scripts)</h3>
-
-  {% if server.container_patch_enabled %}
-  <div class="mb-3">
-    <a href="/servers/{{ server.id }}/docker?nocache=1" 
-       class="inline-flex items-center gap-2 px-3 py-1.5 text-sm btn btn-secondary rounded">
-      🐳 Open full Docker Management
-    </a>
-    <span class="text-xs text-muted">(live status, compose editor, logs streaming)</span>
+{# Single Actions area — one place for host-touching jobs #}
+<div class="card p-5 mb-6">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <h2 class="font-semibold text-text">Actions</h2>
+    <p class="text-xs text-muted">Audited · progress is DB-backed</p>
   </div>
-  {% endif %}
 
-  <div class="flex flex-wrap gap-3">
+  <div class="action-grid">
     {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
-    <button type="button" onclick="openBackupLog(null, {{ full_backup_job.id }})" class="px-4 py-2 btn btn-secondary rounded text-sm">📋 View backup log</button>
+    <button type="button" onclick="openBackupLog(null, {{ full_backup_job.id }})" class="btn btn-secondary min-h-11">📋 Backup log</button>
+    {% if full_backup_job.status == 'running' %}
+    <button type="button" onclick="activePollJobId={{ full_backup_job.id }}; stopCurrentBackup()" class="btn btn-danger min-h-11">Stop backup</button>
+    {% endif %}
     {% else %}
     <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form">
-      <button class="px-4 py-2 btn btn-accent rounded text-sm">▶ Run Backup</button>
+      <button type="submit" class="btn btn-accent min-h-11 w-full">▶ Run Backup</button>
     </form>
     {% endif %}
 
     <form method="post" action="/servers/{{ server.id }}/run/container_patch">
-      <button class="px-4 py-2 btn btn-secondary rounded text-sm">▶ Run Container Patch</button>
+      <button type="submit" class="btn btn-secondary min-h-11 w-full" {% if not server.container_patch_enabled %}title="Feature off — still runnable"{% endif %}>▶ Container Patch</button>
     </form>
-    <span class="text-xs text-muted">(schedules not yet supported)</span>
 
-    <button type="button" onclick="showOsPatchModal()" class="px-4 py-2 btn btn-secondary rounded text-sm">▶ Run OS Patch</button>
-    <span class="text-xs text-muted">(schedules not yet supported)</span>
+    <button type="button" onclick="showOsPatchModal()" class="btn btn-secondary min-h-11">▶ OS Patch</button>
 
     <form method="post" action="/servers/{{ server.id }}/run/retention">
-      <button class="px-4 py-2 btn btn-secondary rounded text-sm">▶ Run Retention Cleanup</button>
+      <button type="submit" class="btn btn-secondary min-h-11 w-full">▶ Retention Cleanup</button>
     </form>
 
     <form method="post" action="/servers/{{ server.id }}/reboot" onsubmit="return confirm('Reboot {{ server.name }} now? The server will go offline and restart.');">
-      <button class="px-4 py-2 btn btn-danger rounded text-sm">⏻ Reboot</button>
+      <button type="submit" class="btn btn-danger min-h-11 w-full">⏻ Reboot</button>
     </form>
   </div>
 
-  <p class="text-xs mt-3 text-muted">Jobs are logged to AuditLog. Progress is DB-backed (minimal polling).</p>
+  {% if running_backup_job and (not full_backup_job or full_backup_job.id != running_backup_job.id) %}
+  <p class="text-xs text-muted mt-3">
+    A per-source backup is running.
+    <a href="/servers/{{ server.id }}/backups" class="text-accent hover:underline">Open backups page →</a>
+  </p>
+  {% endif %}
 </div>
 
-<!-- Compact backup status on main server screen (DB-backed via current_backup_job) -->
-<div class="mt-6 card p-4">
-  <div class="flex items-center justify-between">
-    <div>
-      <span class="font-medium">Backups</span>
-      <span class="text-xs px-2 py-0.5 rounded bg-bg border border-border">{{ 'enabled' if server.backup_enabled else 'disabled' }}</span>
-      {% if backup_profiles %}
-        <span class="text-xs text-muted">• {{ backup_profiles|length }} source(s)</span>
-      {% endif %}
-
-      {# DB-backed running status from Job (worker feeds this) #}
-      {% if running_backup_job %}
-        {% set job_details = running_backup_job.details | fromjson if running_backup_job.details else {} %}
-        <span class="ml-2 text-xs px-2 py-0.5 rounded bg-accent-subtle text-accent">running</span>
-        <span class="ml-1 text-xs text-accent font-mono">{{ job_details.source_filter or job_details.current or 'full backup' }}</span>
-        {% set queued_n = active_backup_jobs | selectattr('status', 'equalto', 'pending') | list | length %}
-        {% if queued_n %}<span class="ml-1 text-xs text-muted">+{{ queued_n }} queued</span>{% endif %}
-      {% elif active_backup_jobs %}
-        <span class="ml-2 text-xs px-2 py-0.5 rounded bg-bg border border-border">queued</span>
-        <span class="ml-1 text-xs text-muted">{{ active_backup_jobs | length }} waiting</span>
-      {% elif last_backup_status %}
-        <span class="ml-2 text-xs px-1.5 py-0.5 rounded {{ 'status-success' if last_backup_status == 'success' else 'status-failed' }}">last: {{ last_backup_status }}</span>
-      {% endif %}
-    </div>
-    <a href="/servers/{{ server.id }}/backups" class="px-3 py-1 btn btn-secondary text-sm rounded">Manage Backups & Config →</a>
-  </div>
-
-  <div class="mt-3 flex flex-wrap gap-2 items-center">
-    {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
-    <button type="button" onclick="openBackupLog(null, {{ full_backup_job.id }})" class="px-3 py-1 btn btn-secondary rounded text-sm">📋 View backup log</button>
-    {% if full_backup_job.status == 'running' %}
-    <button type="button" onclick="activePollJobId={{ full_backup_job.id }}; stopCurrentBackup()" class="px-3 py-1 btn btn-danger rounded text-sm">Stop</button>
-    {% endif %}
-    {% else %}
-    <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form">
-      <button class="px-3 py-1 btn btn-accent rounded text-sm">▶ Run Backup</button>
-    </form>
-    {% endif %}
-    {% if running_backup_job and (not full_backup_job or full_backup_job.id != running_backup_job.id) %}
-    <a href="/servers/{{ server.id }}/backups" class="px-3 py-1 btn btn-secondary rounded text-sm text-xs">Per-source log →</a>
-    {% endif %}
-    <span class="text-[10px] text-muted self-center">Full source management on the backups page.</span>
-  </div>
-</div>
-
-<div class="mt-2 text-xs text-muted">
+<div class="text-xs text-muted flex flex-wrap gap-x-3 gap-y-1">
   <a href="/audit?server_id={{ server.id }}" class="text-accent hover:underline">All logs</a>
-  | <a href="/audit?server_id={{ server.id }}&search=backup" class="text-accent hover:underline">backups</a>
-</div>
-
-<div class="mt-8 text-xs">
-  <a href="/servers">Back</a>
+  <a href="/audit?server_id={{ server.id }}&search=backup" class="text-accent hover:underline">Backup logs</a>
+  <a href="/servers" class="hover:underline">← All servers</a>
 </div>
 
 <!-- Edit Server Modal -->

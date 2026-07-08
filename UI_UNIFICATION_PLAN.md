@@ -22,8 +22,8 @@ Clean, minimal, mobile-first. Uniform header on every screen. Consistent brandin
 |-------|--------|-------|
 | **A — Foundations** | ✅ Done (+ evolved) | Uniform shell, single-source nav, mobile hamburger, avatar menu, theme toggle fixed |
 | **B — Dashboard + Server list** | ✅ Done | Compact rows, mobile stack, touch targets, backup modal title fix |
-| **C — Server detail + Backups** | ⏳ Pending | Consolidate actions; modal feedback everywhere |
-| **D — Docker + pattern export** | ⏳ Pending | Docker already strong; lift shared modal helpers |
+| **C — Server detail + Backups** | ✅ Done | Single Actions card, Backups/Docker dest cards, backups page polish |
+| **D — Docker + pattern export** | 🔄 Next | Docker already strong; lift shared modal helpers |
 | **E — Remaining screens** | ⏳ Pending | Audit, Herder backups, auth, add server polish |
 | **F — Polish + SPEC** | ⏳ Pending | Full mobile/desktop matrix; update SPEC.md |
 
@@ -83,11 +83,15 @@ Delivered and then extended beyond the original sketch:
 - [x] Backup ▶ opens progress modal + live poll; modal title uses `data-server-name` (was broken via `.rounded-xl`).
 - [x] Page header pattern (`.page-header` + `.page-header-actions`) for title + Refresh / Add Server.
 
-### Phase C — Server detail + Backups pages ⏳
+### Phase C — Server detail + Backups pages ✅ DONE
 
-- Consolidate feature pills, backup status blocks, "Run Jobs" buttons.
-- One clear Actions area; prominent Backups + Docker links.
-- All long-running actions (backup, retention, patch, reboot) via modal or standard progress flow.
+- [x] Compact feature chips (one status row).
+- [x] Remove duplicate Run Jobs / backup status / docker quick-access blocks.
+- [x] One **Actions** card (backup, container patch, OS patch, retention, reboot).
+- [x] Prominent **Backups** + **Docker** destination cards.
+- [x] Page header with Edit / SSH key / System info.
+- [x] Backups page: page header, full-backup CTA, scrollable sources table, touch targets, modal polish.
+- [ ] (Deferred to D) Shared progress modal primitives in `base.html` (still page-local copies).
 
 ### Phase D — Docker + propagate patterns ⏳
 
@@ -165,9 +169,10 @@ Delivered and then extended beyond the original sketch:
 ## Next steps (execution)
 
 1. ✅ Update this plan to match reality.
-2. ✅ **Phase B:** compact `server_list.html` + backup modal polish + CSS helpers (`.page-header`, `.server-row*`).
-3. 🔄 **Next: Phase C** — server detail + backups consolidation + modal feedback for long jobs.
-4. Then D → E → F. Commit after each coherent phase; rebuild image for live test when needed.
+2. ✅ **Phase B:** compact `server_list.html` + CSS helpers.
+3. ✅ **Phase C:** server detail + backups consolidation.
+4. 🔄 **Next: Phase D** — Docker polish + lift shared modal/progress helpers into `base.html`.
+5. Then E → F. Commit after each coherent phase; rebuild image for live test when needed.
 
 ---
 
