@@ -150,16 +150,16 @@
         <a href="/herder-backups" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/herder') else '' }}">Settings</a>
       </div>
 
-      <!-- Right side: mobile hamburger (only main nav) + avatar -->
+      <!-- Right side: mobile hamburger (only main nav) + avatar. Only ONE menu open at a time. -->
       <div class="flex items-center gap-x-1 flex-shrink-0">
         {% if user %}
-        <!-- Mobile hamburger: logo left / avatar right on small screens. Links collapse here. -->
-        <details class="mobile-menu md:hidden relative">
+        <!-- Mobile hamburger (logo left, avatar right on mobile). Stacked neat items. -->
+        <details id="nav-hamburger" class="mobile-menu md:hidden relative">
           <summary class="flex items-center justify-center w-9 h-9 cursor-pointer list-none select-none rounded hover:bg-surface transition-colors text-xl leading-none text-muted"
                    aria-label="Menu">
             ☰
           </summary>
-          <div class="absolute right-0 mt-1.5 w-44 bg-surface border border-border rounded shadow-lg z-[99999] py-1 text-sm">
+          <div class="absolute right-0 mt-2 w-44 bg-surface border border-border rounded shadow-lg z-[99999] py-1 text-sm">
             <a href="/" onclick="this.closest('details').open=false" class="block px-3 py-1.5 hover:bg-bg text-text {{ 'font-semibold text-primary' if current_path == '/' else '' }}">Dashboard</a>
             <a href="/servers" onclick="this.closest('details').open=false" class="block px-3 py-1.5 hover:bg-bg text-text {{ 'font-semibold text-primary' if current_path.startswith('/servers') else '' }}">Servers</a>
             <a href="/audit" onclick="this.closest('details').open=false" class="block px-3 py-1.5 hover:bg-bg text-text {{ 'font-semibold text-primary' if current_path.startswith('/audit') else '' }}">Audit</a>
@@ -167,9 +167,14 @@
           </div>
         </details>
 
-        <!-- Avatar block (always visible, rightmost). Clean circle, no border. -->
+        <!-- Avatar + account menu (rightmost, always visible).
+             Design rules:
+             - Only ONE menu (hamburger or account) open at any time
+             - Items stacked neatly
+             - Panel extends leftward over the header bar
+             - Menu items appear BELOW the avatar row, never overlapping it -->
         <div class="flex items-center pl-1 sm:pl-2 border-l border-border flex-shrink-0 whitespace-nowrap">
-          <details class="user-menu relative">
+          <details id="user-account" class="user-menu relative">
             <summary class="flex items-center gap-1.5 cursor-pointer list-none select-none rounded px-1 py-0.5 hover:bg-surface transition-colors">
               <div class="w-8 h-8 rounded-full bg-surface flex items-center justify-center text-sm font-semibold text-muted shrink-0"
                    title="{{ user.email }}">
@@ -178,10 +183,13 @@
               <span class="text-muted text-sm hidden md:inline max-w-[5rem] truncate">{{ user.email.split('@')[0] }}</span>
               <span class="text-muted text-xs leading-none align-middle">▾</span>
             </summary>
-            <div class="absolute right-0 mt-1.5 w-44 bg-surface border border-border rounded shadow-lg z-[99999] py-1 text-sm">
+            <!-- Account panel:
+                 - Extends left over the header (wider width)
+                 - Items neatly stacked BELOW the avatar row (mt-4 creates clear separation)
+                 - Clean stacked list, full-width tap areas -->
+            <div class="absolute right-0 mt-4 w-64 bg-surface border border-border rounded shadow-lg z-[99999] py-1 text-sm">
               <a href="/auth/account" class="block px-3 py-1.5 hover:bg-bg text-text">Account</a>
               <div class="border-t border-border my-0.5"></div>
-              <!-- Standard menu item (plain link like the others) -->
               <a href="#" onclick="toggleThemeFromMenu(this); return false;" class="block px-3 py-1.5 hover:bg-bg text-text">Toggle theme</a>
               <div class="border-t border-border my-0.5"></div>
               <a href="/auth/logout" class="block px-3 py-1.5 hover:bg-bg text-danger">Sign out</a>
@@ -225,6 +233,34 @@
       const details = btn && btn.closest ? btn.closest('details') : null;
       if (details) details.open = false;
     };
+
+    // Enforce design rule: only ONE of hamburger or account menu can be open at a time.
+    function setupExclusiveMenus() {
+      const hamburger = document.getElementById('nav-hamburger');
+      const account = document.getElementById('user-account');
+
+      function closeOther(current) {
+        if (current === hamburger && account && account.open) account.open = false;
+        if (current === account && hamburger && hamburger.open) hamburger.open = false;
+      }
+
+      if (hamburger) {
+        hamburger.addEventListener('toggle', function() {
+          if (hamburger.open) closeOther(hamburger);
+        });
+      }
+      if (account) {
+        account.addEventListener('toggle', function() {
+          if (account.open) closeOther(account);
+        });
+      }
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupExclusiveMenus);
+    } else {
+      setupExclusiveMenus();
+    }
 
     // Apply saved or default
     let saved = localStorage.getItem('theme');
