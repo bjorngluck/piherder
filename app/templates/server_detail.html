@@ -180,47 +180,209 @@ document.addEventListener('DOMContentLoaded', function() {
   </a>
 </div>
 
-{# Single Actions area — one place for host-touching jobs #}
-<div class="card p-5 mb-6">
-  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-    <h2 class="font-semibold text-text">Actions</h2>
-    <p class="text-xs text-muted">Audited · progress is DB-backed</p>
-  </div>
+{# Host status + compact ⋯ actions (matches Servers list theme) #}
+<div class="card p-4 sm:p-5 mb-6">
+  <div class="source-list fleet-status-list server-detail-status">
+    <div class="source-row fleet-status-row {% if server.reboot_pending or (server.os_updates_count and server.os_updates_count > 0) or (server.container_updates_count and server.container_updates_count > 0) %}is-attention{% endif %}">
+      <div class="source-row-body min-w-0">
+        <div class="fleet-status-name">Host status</div>
+        <div class="fleet-status-pills mt-1">
+          {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
+          <span class="status-pill status-running">backup running</span>
+          {% elif overall_last_backup %}
+          <span class="text-xs text-muted">backup {{ overall_last_backup | app_tz }}</span>
+          {% else %}
+          <span class="text-xs text-muted">no backup yet</span>
+          {% endif %}
 
-  <div class="action-grid">
-    {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
-    <button type="button" onclick="openBackupLog(null, {{ full_backup_job.id }})" class="btn btn-secondary min-h-11">📋 Backup log</button>
-    {% if full_backup_job.status == 'running' %}
-    <button type="button" onclick="activePollJobId={{ full_backup_job.id }}; stopCurrentBackup()" class="btn btn-danger min-h-11">Stop backup</button>
-    {% endif %}
-    {% else %}
-    <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form">
-      <button type="submit" class="btn btn-accent min-h-11 w-full">▶ Run Backup</button>
-    </form>
-    {% endif %}
+          {% if server.reboot_pending or (diagnostics and diagnostics.reboot_pending) %}
+          <span class="status-pill status-failed">reboot</span>
+          {% endif %}
+          {% if server.os_updates_count is not none and server.os_updates_count > 0 %}
+          <span class="status-pill status-failed">{{ server.os_updates_count }} OS</span>
+          {% elif server.os_patch_enabled and server.os_updates_count == 0 %}
+          <span class="status-pill status-success">OS 0</span>
+          {% endif %}
+          {% if server.container_updates_count is not none and server.container_updates_count > 0 %}
+          <span class="status-pill status-failed">{{ server.container_updates_count }} img</span>
+          {% elif server.container_patch_enabled and server.container_updates_count == 0 %}
+          <span class="status-pill status-success">Img 0</span>
+          {% endif %}
 
-    <form method="post" action="/servers/{{ server.id }}/run/container_patch">
-      <button type="submit" class="btn btn-secondary min-h-11 w-full" {% if not server.container_patch_enabled %}title="Feature off — still runnable"{% endif %}>▶ Container Patch</button>
-    </form>
-
-    <button type="button" onclick="showOsPatchModal()" class="btn btn-secondary min-h-11">▶ OS Patch</button>
-
-    <form method="post" action="/servers/{{ server.id }}/run/retention">
-      <button type="submit" class="btn btn-secondary min-h-11 w-full">▶ Retention Cleanup</button>
-    </form>
-
-    <form method="post" action="/servers/{{ server.id }}/reboot" onsubmit="return confirm('Reboot {{ server.name }} now? The server will go offline and restart.');">
-      <button type="submit" class="btn btn-danger min-h-11 w-full">⏻ Reboot</button>
-    </form>
+          <span class="text-xs text-muted">
+            {{ 'Backup' if server.backup_enabled else 'Backup off' }}
+            · {{ 'OS' if server.os_patch_enabled else 'OS off' }}
+            · {{ 'Img' if server.container_patch_enabled else 'Img off' }}
+          </span>
+        </div>
+        <p class="text-[10px] text-muted mt-1 mb-0">Audited jobs · progress is DB-backed</p>
+      </div>
+      <div class="source-row-tools">
+        <button type="button"
+                class="source-icon-btn server-more-btn"
+                id="server-detail-more-btn"
+                data-server-detail-more
+                title="Actions"
+                aria-label="Host actions"
+                aria-haspopup="menu">⋯</button>
+      </div>
+    </div>
   </div>
 
   {% if running_backup_job and (not full_backup_job or full_backup_job.id != running_backup_job.id) %}
-  <p class="text-xs text-muted mt-3">
+  <p class="text-xs text-muted mt-3 mb-0">
     A per-source backup is running.
-    <a href="/servers/{{ server.id }}/backups" class="text-accent hover:underline">Open backups page →</a>
+    <a href="/servers/{{ server.id }}/backups" class="text-accent hover:underline">Open backups →</a>
   </p>
   {% endif %}
 </div>
+
+{# Hidden triggers for ⋯ menu (same pattern as list / Docker) #}
+<div id="server-detail-action-triggers" class="hidden" aria-hidden="true">
+  {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
+  <button type="button" data-detail-act="backup-log" onclick="openBackupLog(null, {{ full_backup_job.id }})"></button>
+  {% if full_backup_job.status == 'running' %}
+  <button type="button" data-detail-act="backup-stop" onclick="activePollJobId={{ full_backup_job.id }}; stopCurrentBackup()"></button>
+  {% endif %}
+  {% else %}
+  <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form" data-detail-form="backup">
+    <button type="submit"></button>
+  </form>
+  {% endif %}
+  <form method="post" action="/servers/{{ server.id }}/run/container_patch" data-detail-form="container-patch">
+    <button type="submit"></button>
+  </form>
+  <button type="button" data-detail-act="os-patch" onclick="showOsPatchModal()"></button>
+  <form method="post" action="/servers/{{ server.id }}/run/retention" data-detail-form="retention">
+    <button type="submit"></button>
+  </form>
+  <form method="post" action="/servers/{{ server.id }}/check/os-updates" data-detail-form="check-os">
+    <button type="submit"></button>
+  </form>
+  <form method="post" action="/servers/{{ server.id }}/check/container-updates" data-detail-form="check-containers">
+    <button type="submit"></button>
+  </form>
+  <form method="post" action="/servers/{{ server.id }}/reboot" data-detail-form="reboot"
+        onsubmit="return confirm('Reboot {{ server.name }} now? The server will go offline and restart.');">
+    <button type="submit"></button>
+  </form>
+</div>
+
+<div id="server-detail-more-menu" class="docker-popover hidden" role="menu" hidden>
+  <div class="docker-popover-title text-muted">{{ server.name }}</div>
+  <div id="server-detail-more-list" class="docker-popover-list"></div>
+</div>
+
+<script>
+(function () {
+  function hideDetailMore() {
+    var menu = document.getElementById('server-detail-more-menu');
+    if (!menu) return;
+    menu.classList.add('hidden');
+    menu.hidden = true;
+    menu.style.top = '';
+    menu.style.left = '';
+  }
+
+  function fireDetail(key) {
+    var root = document.getElementById('server-detail-action-triggers');
+    if (!root) return;
+    var form = root.querySelector('[data-detail-form="' + key + '"]');
+    if (form) {
+      var btn = form.querySelector('button[type="submit"]') || form.querySelector('button');
+      if (btn) btn.click();
+      else form.submit();
+      return;
+    }
+    var act = root.querySelector('[data-detail-act="' + key + '"]');
+    if (act) act.click();
+  }
+
+  function showDetailMore(anchor) {
+    var menu = document.getElementById('server-detail-more-menu');
+    var list = document.getElementById('server-detail-more-list');
+    if (!menu || !list) return;
+
+    var items = [];
+    {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
+    items.push({ label: 'Backup log', key: 'backup-log', accent: true });
+    {% if full_backup_job.status == 'running' %}
+    items.push({ label: 'Stop backup', key: 'backup-stop', danger: true });
+    {% endif %}
+    {% else %}
+    items.push({ label: 'Backup now', key: 'backup', accent: true });
+    {% endif %}
+    items.push({ label: 'OS patch…', key: 'os-patch' });
+    items.push({ label: 'Container patch now', key: 'container-patch' });
+    items.push({ label: 'Retention cleanup', key: 'retention' });
+    items.push({ label: 'Check OS updates', key: 'check-os' });
+    items.push({ label: 'Check container updates', key: 'check-containers' });
+    items.push({ label: 'Backups page', href: '/servers/{{ server.id }}/backups' });
+    items.push({ label: 'Docker', href: '/servers/{{ server.id }}/docker' });
+    items.push({ label: 'Reboot…', key: 'reboot', danger: true });
+
+    list.innerHTML = '';
+    items.forEach(function (item) {
+      var el = document.createElement(item.href ? 'a' : 'button');
+      if (item.href) el.href = item.href;
+      else el.type = 'button';
+      el.setAttribute('role', 'menuitem');
+      el.className = 'docker-popover-item'
+        + (item.danger ? ' is-danger' : '')
+        + (item.accent ? ' is-accent' : '');
+      el.textContent = item.label;
+      el.addEventListener('click', function (e) {
+        if (item.href) {
+          hideDetailMore();
+          return;
+        }
+        e.preventDefault();
+        hideDetailMore();
+        fireDetail(item.key);
+      });
+      list.appendChild(el);
+    });
+
+    menu.classList.remove('hidden');
+    menu.hidden = false;
+    var r = anchor.getBoundingClientRect();
+    var mw = 240;
+    var left = r.right - mw;
+    if (left < 8) left = 8;
+    if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+    var top = r.bottom + 6;
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+    requestAnimationFrame(function () {
+      var mh = menu.offsetHeight || 280;
+      if (top + mh > window.innerHeight - 8) {
+        menu.style.top = Math.max(8, r.top - mh - 6) + 'px';
+      }
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    var more = e.target.closest('[data-server-detail-more]');
+    if (more) {
+      e.preventDefault();
+      e.stopPropagation();
+      var menu = document.getElementById('server-detail-more-menu');
+      if (menu && !menu.hidden) {
+        hideDetailMore();
+        return;
+      }
+      showDetailMore(more);
+      return;
+    }
+    if (!e.target.closest('#server-detail-more-menu')) hideDetailMore();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') hideDetailMore();
+  });
+  window.addEventListener('scroll', hideDetailMore, true);
+  window.addEventListener('resize', hideDetailMore);
+})();
+</script>
 
 {# Update checks (check-only schedules — never auto-apply) #}
 <div class="card p-5 mb-6">
