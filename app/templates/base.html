@@ -103,14 +103,17 @@
     .z-50 { z-index: 50; }
     .hidden { display: none !important; }
 
-    /* =====================================================
-       CRITICAL RESPONSIVE HEADER RULES (inline so they always work)
-       These guarantee you never see two menus at once.
-       - On mobile (<768px): only hamburger + avatar
-       - On desktop: only the 4 links + avatar
-       ===================================================== */
-    .desktop-nav { display: none !important; }
-    .mobile-hamburger { display: none !important; }
+    /* ============================================================
+       BULLETPROOF ONE-MENU-ONLY RULES
+       Exactly ONE of these two is ever visible:
+         .desktop-nav   = the 4 links (Dashboard etc)
+         .mobile-hamburger = the ☰
+       Works even if Tailwind CDN is slow or broken.
+       ============================================================ */
+    .desktop-nav,
+    .mobile-hamburger {
+      display: none !important;
+    }
 
     @media (min-width: 768px) {
       .desktop-nav { display: flex !important; }
@@ -152,29 +155,30 @@
         </div>
       </div>
 
-      <!-- Desktop nav links — hidden on mobile via reliable media query below -->
+      <!-- Desktop nav links (4 items) — ONLY visible on desktop (>=768px) via the CSS rules below.
+           Hidden on mobile. Hamburger below is the reverse.
+           This (in base.html only) is the single source of the main menu. -->
       {% set current_path = '' %}
       {% if request is defined and request is not none %}
         {% if request.url is defined and request.url is not none %}
           {% set current_path = request.url.path or '' %}
         {% endif %}
       {% endif %}
-      <!-- Desktop links: hidden on mobile by the rules below.
-           Only the hamburger + avatar should be visible on small screens. -->
-      <div class="desktop-nav flex items-center gap-x-1 text-sm flex-shrink-0" style="display:none">
+      <!-- Desktop nav links — ONLY on desktop -->
+      <div class="desktop-nav hidden md:flex items-center gap-x-1 text-sm flex-shrink-0">
         <a href="/" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path == '/' else '' }}">Dashboard</a>
         <a href="/servers" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/servers') else '' }}">Servers</a>
         <a href="/audit" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/audit') else '' }}">Audit</a>
         <a href="/herder-backups" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/herder') else '' }}">Settings</a>
       </div>
 
-      <!-- Right side: mobile hamburger + avatar. 
-           On mobile: hamburger (left) + avatar (right). Desktop: only avatar.
-           Exactly ONE of the two <details> menus can be open at a time.
-           Account dropdown content sits BELOW the avatar, extends left over header. -->
+      <!-- Right side: hamburger (mobile only) + avatar.
+           Hamburger shown ONLY on mobile (<768px).
+           Desktop nav above shown ONLY on desktop.
+           The CSS rules in the <style> block below guarantee exactly ONE of the two is ever visible. -->
       <div class="flex items-center gap-x-1 flex-shrink-0">
         {% if user %}
-        <!-- Hamburger trigger — only visible on mobile (< 768px) -->
+        <!-- Hamburger (mobile only, pure <details>, no Alpine) -->
         <details id="nav-hamburger" class="mobile-menu mobile-hamburger relative">
           <summary class="flex items-center justify-center w-9 h-9 cursor-pointer list-none select-none rounded hover:bg-surface transition-colors text-xl leading-none text-muted"
                    aria-label="Menu">
