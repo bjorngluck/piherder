@@ -91,7 +91,7 @@ Delivered and then extended beyond the original sketch:
 - [x] Prominent **Backups** + **Docker** destination cards.
 - [x] Page header with Edit / SSH key / System info.
 - [x] Backups page: page header, full-backup CTA, scrollable sources table, touch targets, modal polish.
-- [ ] (Deferred to D) Shared progress modal primitives in `base.html` (still page-local copies).
+- [x] Shared progress modal primitives in `base.html` (completed in Phase D).
 
 ### Phase D — Docker + propagate patterns ✅ DONE
 
