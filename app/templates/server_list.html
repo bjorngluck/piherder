@@ -5,10 +5,10 @@
   window.PIHERDER_PROGRESS_CLOSE = 'servers';
 </script>
 
-<div class="page-header mb-6">
+<div class="page-header mb-4">
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Servers</h1>
-    <p class="text-sm text-muted mt-1">Click a server to manage. Use Backup for a full run of enabled sources.</p>
+    <p class="text-sm text-muted mt-1">Click a server to manage. Filter by pending OS, reboot, or container updates.</p>
   </div>
   <div class="page-header-actions">
     <button type="button" onclick="location.reload()"
@@ -20,10 +20,30 @@
   </div>
 </div>
 
+{% set fc = filter_counts or {} %}
+{% set f = filter or 'all' %}
+<div class="server-filter-bar" role="navigation" aria-label="Filter servers">
+  <a href="/servers" class="server-filter-chip {{ 'is-active' if f == 'all' else '' }}">
+    All <span class="server-filter-count">{{ fc.get('all', 0) }}</span>
+  </a>
+  <a href="/servers?filter=attention" class="server-filter-chip {{ 'is-active' if f == 'attention' else '' }}">
+    Needs attention <span class="server-filter-count">{{ fc.get('attention', 0) }}</span>
+  </a>
+  <a href="/servers?filter=os" class="server-filter-chip {{ 'is-active' if f == 'os' else '' }}">
+    OS updates <span class="server-filter-count">{{ fc.get('os', 0) }}</span>
+  </a>
+  <a href="/servers?filter=reboot" class="server-filter-chip {{ 'is-active' if f == 'reboot' else '' }}">
+    Reboot <span class="server-filter-count">{{ fc.get('reboot', 0) }}</span>
+  </a>
+  <a href="/servers?filter=containers" class="server-filter-chip {{ 'is-active' if f == 'containers' else '' }}">
+    Containers <span class="server-filter-count">{{ fc.get('containers', 0) }}</span>
+  </a>
+</div>
+
 {% if servers %}
 <div class="space-y-3">
   {% for s in servers %}
-  <div class="card server-row" data-server-name="{{ s.name }}">
+  <div class="card server-row {{ 'is-attention' if s.get('needs_attention') else '' }}" data-server-name="{{ s.name }}">
     <div class="server-row-main">
       <div class="server-row-reorder" aria-label="Reorder">
         <form method="post" action="/servers/{{ s.id }}/move/up">
@@ -49,17 +69,25 @@
       {% else %}
       <span class="text-xs text-muted">no backup yet</span>
       {% endif %}
+
       {% if s.get('reboot_pending') %}
       <span class="status-pill status-failed" title="Reboot required">reboot</span>
       {% endif %}
       {% if s.get('os_updates_count') is not none and s.os_updates_count > 0 %}
       <span class="status-pill status-failed" title="OS packages upgradable">{{ s.os_updates_count }} OS</span>
+      {% elif s.os_patch_enabled and s.get('os_updates_count') == 0 %}
+      <span class="status-pill status-success" title="No OS updates">OS 0</span>
       {% endif %}
       {% if s.get('container_updates_count') is not none and s.container_updates_count > 0 %}
       <span class="status-pill status-failed" title="Container projects with image updates">{{ s.container_updates_count }} img</span>
+      {% elif s.container_patch_enabled and s.get('container_updates_count') == 0 %}
+      <span class="status-pill status-success" title="No image updates">Img 0</span>
       {% endif %}
-      <span class="text-xs text-muted" title="Backup feature">
-        {{ 'Backup on' if s.backup_enabled else 'Backup off' }}
+
+      <span class="text-xs text-muted" title="Feature toggles">
+        {{ 'Backup' if s.backup_enabled else 'Backup off' }}
+        · {{ 'OS' if s.os_patch_enabled else 'OS off' }}
+        · {{ 'Img' if s.container_patch_enabled else 'Img off' }}
       </span>
     </div>
 
@@ -80,20 +108,27 @@
       </form>
       {% endif %}
       <a href="/servers/{{ s.id }}/backups" class="btn btn-secondary min-h-11">Manage</a>
+      {% if s.get('has_container_updates') %}
+      <a href="/servers/{{ s.id }}/docker" class="btn btn-secondary min-h-11">Docker</a>
+      {% endif %}
       <a href="/servers/{{ s.id }}?edit=1" class="btn btn-secondary min-h-11">Settings</a>
     </div>
   </div>
   {% endfor %}
 </div>
-{% else %}
+{% elif fc.get('all', 0) == 0 %}
 <div class="card p-6 text-center">
   <p class="text-muted mb-4">No servers yet. Add one to get started.</p>
   <a href="/servers/add" class="btn btn-primary min-h-11">+ Add Server</a>
 </div>
+{% else %}
+<div class="card p-6 text-center">
+  <p class="text-muted mb-3">No servers match this filter.</p>
+  <a href="/servers" class="btn btn-secondary min-h-11">Show all</a>
+</div>
 {% endif %}
 
 <div class="mt-8 text-xs text-muted">
-  SSH keys are stored encrypted. Use <strong>Refresh</strong> to update backup status — this page does not auto-reload.
-  Progress UI is shared via base layout.
+  SSH keys are stored encrypted. Status badges come from last update checks (no live SSH on this page).
 </div>
 {% endblock %}

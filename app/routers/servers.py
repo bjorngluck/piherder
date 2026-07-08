@@ -43,17 +43,27 @@ def _server_redirect(server_id: int) -> str:
 
 
 @router.get("", response_class=HTMLResponse)
-async def list_servers(request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+async def list_servers(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    filter: str = "",
+):
     """Extremely lean Servers list - pure DB read.
     last_backup_at is populated by the worker on success.
-    No extra grouped queries, no SSH, no FS work.
+    Optional filter: attention | os | reboot | containers
     """
     start = time.time()
+    filt = (filter or "").strip().lower()
+    if filt not in ("", "all", "attention", "os", "reboot", "containers"):
+        filt = "all"
+    if filt == "":
+        filt = "all"
 
     try:
-        rows = session.exec(select(Server).order_by(Server.sort_order, Server.name)).all()
+        rows = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
     except Exception:
-        rows = session.exec(select(Server).order_by(Server.name)).all()
+        rows = list(session.exec(select(Server).order_by(Server.name)).all())
 
     running_backup_ids = set(
         session.exec(
@@ -64,6 +74,33 @@ async def list_servers(request: Request, session: Session = Depends(get_session)
         ).all()
     )
 
+    def _has_os(s: Server) -> bool:
+        return s.os_updates_count is not None and s.os_updates_count > 0
+
+    def _has_cont(s: Server) -> bool:
+        return s.container_updates_count is not None and s.container_updates_count > 0
+
+    def _needs_attention(s: Server) -> bool:
+        return bool(s.reboot_pending or _has_os(s) or _has_cont(s))
+
+    # Counts for filter chips (full fleet, before filter)
+    filter_counts = {
+        "all": len(rows),
+        "attention": sum(1 for s in rows if _needs_attention(s)),
+        "os": sum(1 for s in rows if _has_os(s)),
+        "reboot": sum(1 for s in rows if s.reboot_pending),
+        "containers": sum(1 for s in rows if _has_cont(s)),
+    }
+
+    if filt == "attention":
+        rows = [s for s in rows if _needs_attention(s)]
+    elif filt == "os":
+        rows = [s for s in rows if _has_os(s)]
+    elif filt == "reboot":
+        rows = [s for s in rows if s.reboot_pending]
+    elif filt == "containers":
+        rows = [s for s in rows if _has_cont(s)]
+
     servers = []
     for row in rows:
         d = row.model_dump(exclude={"audit_logs", "jobs"})
@@ -71,6 +108,9 @@ async def list_servers(request: Request, session: Session = Depends(get_session)
             d["last_backup"] = row.last_backup_at
             d["last_backup_str"] = format_datetime_in_app_tz(row.last_backup_at)
         d["backup_running"] = row.id in running_backup_ids
+        d["needs_attention"] = _needs_attention(row)
+        d["has_os_updates"] = _has_os(row)
+        d["has_container_updates"] = _has_cont(row)
         servers.append(d)
 
     total = time.time() - start
@@ -82,7 +122,14 @@ async def list_servers(request: Request, session: Session = Depends(get_session)
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_list.html",
-        context={"title": "Servers", "servers": servers, "user": user, "lean_page": True}
+        context={
+            "title": "Servers",
+            "servers": servers,
+            "user": user,
+            "lean_page": True,
+            "filter": filt,
+            "filter_counts": filter_counts,
+        },
     )
 
 
