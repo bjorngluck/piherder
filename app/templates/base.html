@@ -121,9 +121,9 @@
 </head>
 <body class="bg-bg">
   <nav class="border-b border-border nav-header">
-    <div class="max-w-5xl mx-auto px-6 py-3 md:py-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-      <!-- Brand (uniform header - primary red focus) -->
-      <div class="flex items-center gap-3">
+    <div class="max-w-5xl mx-auto px-6 py-3 md:py-4 flex items-center flex-nowrap gap-x-4">
+      <!-- Brand (left) -->
+      <div class="flex items-center gap-3 flex-shrink-0">
         <a href="/" class="flex items-center gap-2 group">
           <img src="/static/images/piherder-logo-small.png" alt="PiHerder" class="h-8 w-auto">
           <div class="leading-none">
@@ -136,38 +136,39 @@
         </div>
       </div>
 
-      <!-- Uniform main menu - primary red focus on hover + active (branding) -->
-      {% set path = request.url.path if request is defined else '' %}
-      <!-- Uniform header menu: same size items, primary red for active/hover (all themes) -->
-      <div class="flex items-center gap-x-4 gap-y-1 text-sm flex-wrap">
+      <!-- Right side: nav links + avatar grouped as one unit.
+           ml-auto + flex-nowrap on this container + flex-shrink-0 + whitespace-nowrap on avatar block
+           guarantees the avatar never shifts to bottom-left on Settings, Account or mobile. -->
+      <div class="flex items-center gap-x-2 text-sm ml-auto flex-nowrap">
         <a href="/" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path == '/' else '' }}">Dashboard</a>
         <a href="/servers" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path.startswith('/servers') else '' }}">Servers</a>
         <a href="/audit" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path.startswith('/audit') else '' }}">Audit</a>
         <a href="/herder-backups" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path.startswith('/herder') else '' }}">Settings</a>
 
-        <!-- User / account area with clear spacing + divider from main nav links.
-             Theme toggle now lives inside the avatar dropdown. -->
         {% if user %}
-        <div class="flex items-center ml-4 sm:ml-6 pl-4 border-l border-border">
+        <!-- Avatar block: never wraps independently. Clean circle with NO border. Single toggle inside. -->
+        <div class="flex items-center pl-2 sm:pl-3 border-l border-border flex-shrink-0 whitespace-nowrap">
           <details class="user-menu relative">
-            <summary class="flex items-center gap-2.5 cursor-pointer list-none select-none rounded px-2 py-1 hover:bg-surface border border-transparent hover:border-border transition-colors">
-              <div class="w-9 h-9 rounded-full bg-surface border border-border flex items-center justify-center text-sm font-semibold text-muted shrink-0"
+            <summary class="flex items-center gap-1.5 cursor-pointer list-none select-none rounded px-1 py-0.5 hover:bg-surface transition-colors">
+              <!-- Clean circle avatar. NO border (on circle or summary). -->
+              <div class="w-8 h-8 rounded-full bg-surface flex items-center justify-center text-sm font-semibold text-muted shrink-0"
                    title="{{ user.email }}">
                 {{ user.email[0].upper() }}
               </div>
-              <span class="text-muted text-sm hidden sm:inline max-w-[8rem] truncate">{{ user.email.split('@')[0] }}</span>
+              <span class="text-muted text-sm hidden md:inline max-w-[5rem] truncate">{{ user.email.split('@')[0] }}</span>
               <span class="text-muted text-xs leading-none mt-0.5">▾</span>
             </summary>
-            <div class="absolute right-0 mt-1.5 w-44 bg-surface border border-border rounded shadow-lg z-50 py-1 text-sm">
+            <!-- Extremely high z-index so dropdown is never hidden (mobile or desktop) -->
+            <div class="absolute right-0 mt-1.5 w-44 bg-surface border border-border rounded shadow-lg z-[99999] py-1 text-sm">
               <a href="/auth/account" class="block px-3 py-1.5 hover:bg-bg text-text">Account</a>
 
               <div class="border-t border-border my-0.5"></div>
 
-              <!-- Theme switcher lives inside the avatar menu -->
-              <button type="button" onclick="setThemeFromMenu('light', this)"
-                      class="block w-full text-left px-3 py-1.5 hover:bg-bg text-text">☀️ Light mode</button>
-              <button type="button" onclick="setThemeFromMenu('dark', this)"
-                      class="block w-full text-left px-3 py-1.5 hover:bg-bg text-text">🌙 Dark mode</button>
+              <!-- Single toggle (not two separate Light/Dark buttons) -->
+              <button type="button" onclick="toggleThemeFromMenu(this)"
+                      class="block w-full text-left px-3 py-1.5 hover:bg-bg text-text">
+                Toggle theme
+              </button>
 
               <div class="border-t border-border my-0.5"></div>
               <a href="/auth/logout" class="block px-3 py-1.5 hover:bg-bg text-danger">Sign out</a>
@@ -190,7 +191,7 @@
     <span class="text-[10px] text-muted">Zero plaintext secrets • All actions audited</span>
   </footer>
 
-  <!-- Theme handling (now controlled from inside the user avatar menu) -->
+  <!-- Theme handling (controlled from inside the user avatar menu) -->
   <script>
     const html = document.documentElement;
 
@@ -203,20 +204,18 @@
       localStorage.setItem('theme', theme);
     }
 
-    // Expose a helper for the avatar menu buttons.
-    // Closes the <details> dropdown after selection.
-    window.setThemeFromMenu = function(theme, btn) {
-      setTheme(theme);
-      // Close the parent details element if present
+    // Single toggle: flips between light and dark.
+    // Closes the dropdown after use.
+    window.toggleThemeFromMenu = function(btn) {
+      const isDark = html.classList.contains('dark');
+      setTheme(isDark ? 'light' : 'dark');
       const details = btn && btn.closest ? btn.closest('details') : null;
       if (details) details.open = false;
     };
 
-    // Apply saved preference (or light default) on load
+    // Apply saved or default
     let saved = localStorage.getItem('theme');
-    if (!saved) {
-      saved = 'light';
-    }
+    if (!saved) saved = 'light';
     setTheme(saved);
   </script>
 
