@@ -138,12 +138,21 @@
 
       <!-- Right side: nav links + avatar grouped as one unit.
            ml-auto + flex-nowrap on this container + flex-shrink-0 + whitespace-nowrap on avatar block
-           guarantees the avatar never shifts to bottom-left on Settings, Account or mobile. -->
+           guarantees the avatar never shifts to bottom-left on Settings, Account or mobile.
+
+           NOTE: Not every handler passes `request` (some use lean_page=True).
+                 We compute current_path defensively to avoid UndefinedError. -->
+      {% set current_path = '' %}
+      {% if request is defined and request is not none %}
+        {% if request.url is defined and request.url is not none %}
+          {% set current_path = request.url.path or '' %}
+        {% endif %}
+      {% endif %}
       <div class="flex items-center gap-x-2 text-sm ml-auto flex-nowrap">
-        <a href="/" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path == '/' else '' }}">Dashboard</a>
-        <a href="/servers" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path.startswith('/servers') else '' }}">Servers</a>
-        <a href="/audit" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path.startswith('/audit') else '' }}">Audit</a>
-        <a href="/herder-backups" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path.startswith('/herder') else '' }}">Settings</a>
+        <a href="/" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if current_path == '/' else '' }}">Dashboard</a>
+        <a href="/servers" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if current_path.startswith('/servers') else '' }}">Servers</a>
+        <a href="/audit" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if current_path.startswith('/audit') else '' }}">Audit</a>
+        <a href="/herder-backups" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if current_path.startswith('/herder') else '' }}">Settings</a>
 
         {% if user %}
         <!-- Avatar block: never wraps independently. Clean circle with NO border. Single toggle inside. -->
