@@ -61,6 +61,110 @@
 
   /* Mobile menu backdrop */
   --mobile-menu-backdrop-bg: rgba(0, 0, 0, 0.40);
+
+  /* Menu item appearance (both desktop nav + slide-out + account dropdown) */
+  --menu-item-padding-y: 0.5rem;
+  --menu-item-padding-x: 0.75rem;
+  --menu-item-hover-bg: var(--color-bg);
+  --menu-divider-color: var(--color-border);
+  --menu-item-font-size: 0.875rem;
+
+  /* Active / current page item (desktop + mobile) */
+  --menu-item-active-color: var(--color-primary);
+  --menu-item-active-bg: rgba(0, 166, 81, 0.10);
+  --menu-item-active-font-weight: 600;
+
+  /* Danger / sign-out item */
+  --menu-item-danger-color: var(--color-danger);
+
+  /* Divider in menus */
+  --menu-divider-margin: 0.5rem 0.5rem;
+
+  /* Slide-out menu header + content paddings (fully variable driven) */
+  --mobile-menu-header-padding-y: 1rem;
+  --mobile-menu-header-padding-x: 1rem;
+  --mobile-menu-content-padding-y: 0.25rem;
+
+  /* Mobile menu header internal elements */
+  --mobile-menu-header-logo-h: 1.5rem;
+  --mobile-menu-close-size: 1.5rem;
+
+  /* Avatar (desktop trigger + mobile slide-out context) */
+  --avatar-size: 2rem;           /* 32px */
+  --avatar-font-size: 0.875rem;
+  --avatar-gap: 0.375rem;        /* gap between avatar and email text */
+
+  /* Main header bar internal gaps and paddings */
+  --header-inner-gap: 0.25rem;
+  --header-padding-y: 0.75rem;
+  --header-padding-x: 1rem;
+
+  /* Header container */
+  --header-max-width: 64rem;     /* 1024px equivalent to max-w-5xl */
+  --header-brand-gap: 0.5rem;
+  --header-logo-h: 2rem;         /* 32px */
+
+  /* Desktop nav container */
+  --desktop-nav-gap: 0.25rem;
+  --desktop-nav-font-size: 0.875rem;
+
+  /* Mobile menu header brand internal gap */
+  --mobile-menu-header-brand-gap: 0.5rem;
+
+  /* Login button (unauthenticated header state) */
+  --header-login-font-size: 0.75rem;
+  --header-login-padding-y: 0.25rem;
+  --header-login-padding-x: 0.75rem;
+}
+
+  /* Header right side actions */
+  --header-actions-gap: 0.25rem;
+
+  /* Avatar (desktop only) */
+  --avatar-size: 2rem;
+  --avatar-font-size: 0.875rem;
+  --avatar-gap: 0.375rem;
+  --avatar-border-color: var(--color-border);
+
+  /* Avatar email label (desktop) */
+  --avatar-label-max-width: 5rem;
+  --avatar-label-font-size: 0.875rem;
+
+  /* Hamburger button */
+  --hamburger-size: 2.25rem;
+  --hamburger-font-size: 1.25rem;
+
+  /* Right-side actions container (hamburger + avatar) */
+  --header-right-gap: 0.25rem;
+
+  /* Avatar trigger summary */
+  --avatar-trigger-padding-x: 0.25rem;
+  --avatar-trigger-padding-y: 0.125rem;
+  --avatar-trigger-gap: 0.375rem;
+  --avatar-trigger-hover-bg: var(--color-surface);
+
+  /* Avatar circle */
+  --avatar-circle-size: 2rem;
+  --avatar-circle-bg: var(--color-surface);
+  --avatar-circle-font-size: 0.875rem;
+  --avatar-circle-font-weight: 600;
+
+  /* Avatar label (email prefix on desktop) */
+  --avatar-label-max-w: 5rem;
+  --avatar-label-font-size: 0.875rem;
+  --avatar-chevron-size: 0.75rem;
+
+  /* Divider line between hamburger/avatar and main nav */
+  --header-divider-color: var(--color-border);
+
+  /* Dropdown positioning (avatar + future menus) */
+  --dropdown-offset-top: 1rem;
+  --dropdown-z: 99999;
+  --dropdown-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --dropdown-shadow-dark: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --dropdown-radius: 0.5rem;
+  --dropdown-width: 16rem;
+  --dropdown-content-py: 2px;
 }
 
 .dark {
@@ -147,26 +251,112 @@ body {
 }
 
 /* Uniform header menu - primary red focus across light + dark */
+/* Desktop horizontal nav links — fully CSS + var driven */
 .nav-link {
-  color: var(--color-muted);   /* normal muted text for menu items */
+  color: var(--color-muted);
   transition: color 0.1s ease, border-color 0.1s ease;
-  padding: 4px 6px;
+  padding: 0.25rem 0.5rem;
   border-bottom: 2px solid transparent;
   border-radius: 4px;
+  font-size: var(--desktop-nav-font-size);
 }
 
-/* Menu bar background — uses dedicated variable so it has a distinct subtle tone
-   (light grey in light mode, darker grey in dark mode) vs the main page surface. */
 .nav-header {
   background-color: var(--color-nav-bg);
 }
+
+/* Header inner container — fully var driven */
+.nav-header-inner {
+  max-width: var(--header-max-width);
+  margin-left: auto;
+  margin-right: auto;
+  padding: var(--header-padding-y) var(--header-padding-x);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--header-inner-gap);
+}
+
+/* Brand section */
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--header-brand-gap);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.header-brand img {
+  height: var(--header-logo-h);
+  width: auto;
+  flex-shrink: 0;
+}
+
+/* The clickable brand link */
+.header-brand-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.header-brand-text-wrap {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.header-brand-text {
+  font-weight: 600;
+  font-size: 1.25rem;
+  line-height: 1;
+  letter-spacing: -0.05em;
+  color: var(--color-text);
+}
+.header-brand-text:hover {
+  color: var(--color-primary);
+}
+
+/* "FLEET" sublabel */
+.header-brand-sub {
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--color-primary);
+  margin-top: -2px;
+  letter-spacing: 1.5px;
+}
+
+/* Tagline (desktop only) */
+.header-tagline {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  padding-left: 0.5rem;
+  padding-right: 0.75rem;
+  border-left: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+@media (max-width: 767px) {
+  .header-tagline { display: none; }
+}
+
+/* Desktop nav container */
+.desktop-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--desktop-nav-gap);
+  font-size: var(--desktop-nav-font-size);
+  flex-shrink: 0;
+}
+
 .nav-link:hover {
   color: var(--color-primary);
 }
+
+/* Active state for desktop top nav */
 .nav-link-active,
 .nav-link-active:hover {
-  color: var(--color-primary);
-  font-weight: 600;
+  color: var(--menu-item-active-color);
+  font-weight: var(--menu-item-active-font-weight);
   border-bottom-color: var(--color-primary);
 }
 
@@ -202,7 +392,7 @@ body {
 
 /* ============================================
    MOBILE SLIDE-OUT MENU — 100% CSS + VAR DRIVEN
-   (widths, z-index, transition, colors all defined via CSS vars + classes)
+   All sizes, colors, paddings, z-index controlled from :root vars.
    ============================================ */
 .mobile-menu-backdrop {
   position: fixed;
@@ -241,42 +431,263 @@ body {
   display: block !important;
 }
 
-/* Menu link items inside slide-out (var driven where possible) */
+/* Header bar inside the slide-out panel */
+.mobile-menu-header {
+  padding: var(--mobile-menu-header-padding-y) var(--mobile-menu-header-padding-x);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+/* Brand group inside mobile menu header */
+.mobile-menu-header-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--mobile-menu-header-brand-gap);
+}
+
+.mobile-menu-header-logo {
+  height: var(--mobile-menu-header-logo-h);
+  width: auto;
+  flex-shrink: 0;
+}
+
+.mobile-menu-header-title {
+  font-weight: 600;
+  letter-spacing: -0.05em;
+}
+
+/* Close button inside mobile menu */
+.mobile-menu-close {
+  font-size: var(--mobile-menu-close-size);
+  line-height: 1;
+  color: var(--color-muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.mobile-menu-close:hover {
+  color: var(--color-text);
+}
+
+/* Content area inside slide-out */
+.mobile-menu-content {
+  padding-top: var(--mobile-menu-content-padding-y);
+  padding-bottom: var(--mobile-menu-content-padding-y);
+  font-size: var(--menu-item-font-size);
+  flex: 1 1 auto;
+}
+
+/* Menu link items inside slide-out (var driven) */
 .mobile-menu-link {
   color: var(--color-text);
   transition: background-color .1s ease, color .1s ease;
   display: block;
-  padding: 0.75rem 1rem;
+  padding: var(--menu-item-padding-y) var(--menu-item-padding-x);
+  font-size: var(--menu-item-font-size);
 }
 .mobile-menu-link:hover {
-  background-color: var(--color-bg);
+  background-color: var(--menu-item-hover-bg);
   color: var(--color-primary);
 }
-.mobile-menu-link.text-danger:hover {
-  background-color: var(--color-bg);
+
+/* Active state inside mobile slide-out */
+.mobile-menu-link.is-active {
+  color: var(--menu-item-active-color);
+  font-weight: var(--menu-item-active-font-weight);
+  background-color: var(--menu-item-active-bg);
+}
+
+/* Danger item in menus */
+.mobile-menu-link.is-danger {
+  color: var(--menu-item-danger-color);
+}
+.mobile-menu-link.is-danger:hover {
+  background-color: var(--menu-item-hover-bg);
+}
+
+/* Divider used inside mobile slide-out menu */
+.menu-divider {
+  border-top: 1px solid var(--menu-divider-color);
+  margin: var(--menu-divider-margin);
 }
 
 /* Desktop avatar dropdown panel (CSS + var driven) */
 .user-menu-panel {
-  width: 16rem;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  z-index: var(--mobile-menu-z);
-  padding-top: 2px;
-  padding-bottom: 2px;
+  border-radius: var(--dropdown-radius);
+  box-shadow: var(--dropdown-shadow);
+  z-index: var(--dropdown-z);
 }
 .dark .user-menu-panel {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--dropdown-shadow-dark);
 }
 
-/* Optional future override var for account panel width */
+/* Generic dropdown panel class (used by avatar dropdown).
+   All positioning, size, and offset are var driven. */
+.dropdown-panel {
+  position: absolute;
+  right: 0;
+  top: var(--dropdown-offset-top);
+  width: var(--dropdown-width);
+  z-index: var(--dropdown-z);
+  padding-top: var(--dropdown-content-py);
+  padding-bottom: var(--dropdown-content-py);
+}
+
+/* Optional future override vars */
 :root {
   --user-menu-panel-width: 16rem;
+  --dropdown-width: 16rem;
+  --dropdown-offset-top: 1rem;
 }
-.user-menu-panel {
-  width: var(--user-menu-panel-width);
+
+/* Menu items inside desktop dropdown — var driven */
+.user-menu-panel a {
+  display: block;
+  padding: var(--menu-item-padding-y) var(--menu-item-padding-x);
+  font-size: var(--menu-item-font-size);
+  color: var(--color-text);
+  text-decoration: none;
+}
+.user-menu-panel a:hover {
+  background-color: var(--menu-item-hover-bg);
+  color: var(--color-primary);
+}
+
+/* Danger item in desktop dropdown */
+.user-menu-panel a.is-danger {
+  color: var(--menu-item-danger-color);
+}
+.user-menu-panel a.is-danger:hover {
+  background-color: var(--menu-item-hover-bg);
+}
+
+/* Divider inside dropdowns / slide-out */
+.menu-divider {
+  border-top: 1px solid var(--menu-divider-color);
+  margin: var(--menu-divider-margin);
+}
+
+/* ============================================
+   HEADER RIGHT-SIDE ACTIONS + AVATAR (CSS + var driven)
+   ============================================ */
+
+/* Container for hamburger + avatar on the right of header */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--header-actions-gap);
+  flex-shrink: 0;
+}
+
+/* Desktop-only avatar block (hidden on mobile by the one-menu rules) */
+.desktop-avatar {
+  display: flex;
+  align-items: center;
+  padding-left: 0.25rem;
+  padding-right: 0.5rem;
+  border-left: 1px solid var(--header-divider-color);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Avatar trigger (the <summary> inside <details>) */
+.avatar-trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--avatar-trigger-gap);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  border-radius: 0.25rem;
+  padding-left: var(--avatar-trigger-padding-x);
+  padding-right: var(--avatar-trigger-padding-x);
+  padding-top: var(--avatar-trigger-padding-y);
+  padding-bottom: var(--avatar-trigger-padding-y);
+}
+.avatar-trigger:hover {
+  background-color: var(--avatar-trigger-hover-bg);
+}
+.avatar-trigger::-webkit-details-marker,
+.avatar-trigger::marker {
+  display: none;
+}
+
+/* Container for the avatar <details> — provides positioning context for the dropdown */
+.user-menu {
+  position: relative;
+}
+
+/* Avatar circle */
+.avatar-circle {
+  width: var(--avatar-circle-size);
+  height: var(--avatar-circle-size);
+  border-radius: 9999px;
+  background-color: var(--avatar-circle-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--avatar-circle-font-size);
+  font-weight: var(--avatar-circle-font-weight);
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+
+/* Avatar label (short email name on desktop) */
+.avatar-label {
+  max-width: var(--avatar-label-max-w);
+  font-size: var(--avatar-label-font-size);
+  color: var(--color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Chevron next to avatar */
+.avatar-chevron {
+  font-size: var(--avatar-chevron-size);
+  line-height: 1;
+  color: var(--color-muted);
+}
+
+/* Hamburger button (mobile) */
+.mobile-hamburger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--hamburger-size);
+  height: var(--hamburger-size);
+  font-size: var(--hamburger-font-size);
+  line-height: 1;
+  color: var(--color-muted);
+  cursor: pointer;
+  border-radius: 0.25rem;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+.mobile-hamburger:hover {
+  background-color: var(--color-surface);
+}
+
+/* Login link in header (when not logged in) */
+.header-login {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
+  color: var(--color-text);
+  text-decoration: none;
+  transition: background-color 0.1s ease;
+}
+.header-login:hover {
+  background-color: var(--color-bg);
 }
 
 /* Tagline next to logo — only on desktop */
