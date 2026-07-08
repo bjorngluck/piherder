@@ -1251,11 +1251,9 @@ input[type="checkbox"], input[type="radio"] {
 .audit-event-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.5rem;
   margin-top: 0.5rem;
-  font-size: 0.7rem;
-  color: var(--color-muted);
 }
 .audit-event-cta {
   color: var(--color-primary);
