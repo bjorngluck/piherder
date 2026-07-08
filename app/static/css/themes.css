@@ -43,6 +43,14 @@
   /* Info / running tint */
   --color-info-bg: #dbeafe;
   --color-info-text: #1e40af;
+
+  /* === Menu bar (top navigation) dedicated variables ===
+     The menu bar has its own background so it can be a distinct subtle tone
+     from the main page surface / cards.
+     - Light mode: light grey
+     - Dark mode: darker grey
+  */
+  --color-nav-bg: #f1f5f9;   /* menu bar background - light grey (light mode) */
 }
 
 .dark {
@@ -88,6 +96,12 @@
   /* Info / running tint (dark) */
   --color-info-bg: rgba(59, 130, 246, 0.2);
   --color-info-text: #93c5fc;
+
+  /* Nav / menu inactive links (dark mode: darker grey) */
+  --color-nav-link: #64748b;
+
+  /* Menu / header bar background (dark mode - darker grey) */
+  --color-nav-bg: #1e293b;
 }
 
 body {
@@ -124,11 +138,17 @@ body {
 
 /* Uniform header menu - primary red focus across light + dark */
 .nav-link {
-  color: var(--color-text);
+  color: var(--color-muted);   /* normal muted text for menu items */
   transition: color 0.1s ease, border-color 0.1s ease;
   padding: 4px 6px;
   border-bottom: 2px solid transparent;
   border-radius: 4px;
+}
+
+/* Menu bar background — uses dedicated variable so it has a distinct subtle tone
+   (light grey in light mode, darker grey in dark mode) vs the main page surface. */
+.nav-header {
+  background-color: var(--color-nav-bg);
 }
 .nav-link:hover {
   color: var(--color-primary);
