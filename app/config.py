@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     # Paths
     BACKUP_ROOT: str = "/backups"
     DEFAULT_DOCKER_BASE: str = "~/docker"
+    DATA_ROOT: str = "/data"  # avatars and other app data (mount volume in compose)
+    AVATAR_MAX_BYTES: int = 2 * 1024 * 1024  # 2 MiB
+
+    # Registration: when False, public register is blocked once any user exists
+    ALLOW_OPEN_REGISTRATION: bool = False
 
     # Optional notifications (replicates legacy webhook)
     WEBHOOK_URL: Optional[str] = None
@@ -25,6 +30,9 @@ class Settings(BaseSettings):
 
     # Link to co-located Pi-hole admin/settings (common alongside PiHerder)
     PIHOLE_URL: Optional[str] = "http://pi.hole/admin/"
+
+    # 2FA trusted device max age (days)
+    TRUSTED_DEVICE_DAYS: int = 30
 
     class Config:
         env_file = ".env"

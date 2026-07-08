@@ -10,9 +10,11 @@ services:
       - DATABASE_URL=postgresql://piherder:piherder@db:5432/piherder
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - DATA_ROOT=/data
     volumes:
       - ~/backup:/backups
       - ./piherder_backups:/herder_backups
+      - ./piherder_data:/data
     depends_on:
       - db
       - redis

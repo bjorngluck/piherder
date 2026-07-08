@@ -66,3 +66,6 @@ alembic/versions/__pycache__/
 app/static/tailwind.js
 app/static/htmx.min.js
 app/static/alpine.min.js
+
+# App data (avatars)
+piherder_data/

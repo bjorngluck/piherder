@@ -15,6 +15,7 @@ from .config import settings
 from .routers import auth as auth_router
 from .routers import servers as servers_router
 from .routers import audit as audit_router
+from .routers import notifications as notifications_router
 from . import templates as templates_mod  # shared Jinja instance (avoids circular)
 from .security.auth import get_current_user, get_optional_current_user, get_password_hash
 from .models import User
@@ -24,9 +25,6 @@ logger = logging.getLogger(__name__)
 
 try:
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
-    from apscheduler.triggers.cron import CronTrigger
-    import pycron
-    from datetime import datetime
     scheduler = AsyncIOScheduler()
     HAS_SCHEDULER = True
 except ImportError:
@@ -43,36 +41,42 @@ async def lifespan(app: FastAPI):
     # This runs on every web startup so schema is always up to date
     try:
         from sqlalchemy import text
+        alters = [
+            ("server", "backup_schedule", "VARCHAR"),
+            ("server", "backup_dest_root", "VARCHAR"),
+            ("server", "backup_folder_name", "VARCHAR"),
+            ("server", "last_backup_at", "TIMESTAMP"),
+            ("server", "os_check_enabled", "BOOLEAN DEFAULT FALSE"),
+            ("server", "os_check_schedule", "VARCHAR"),
+            ("server", "last_os_check_at", "TIMESTAMP"),
+            ("server", "os_updates_count", "INTEGER"),
+            ("server", "reboot_pending", "BOOLEAN DEFAULT FALSE"),
+            ("server", "os_updates_summary", "TEXT"),
+            ("server", "container_check_enabled", "BOOLEAN DEFAULT FALSE"),
+            ("server", "container_check_schedule", "VARCHAR"),
+            ("server", "last_container_check_at", "TIMESTAMP"),
+            ("server", "container_updates_count", "INTEGER"),
+            ("server", "container_updates_summary", "TEXT"),
+            ("user", "display_name", "VARCHAR"),
+            ("user", "avatar_path", "VARCHAR"),
+            ("user", "updated_at", "TIMESTAMP"),
+            ("user", "totp_secret_encrypted", "TEXT"),
+            ("user", "totp_enabled", "BOOLEAN DEFAULT FALSE"),
+            ("user", "totp_confirmed_at", "TIMESTAMP"),
+        ]
         with engine.connect() as conn:
-            conn.execute(text("""
-                DO $$
-                BEGIN
-                    IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.columns 
-                        WHERE table_name = 'server' AND column_name = 'backup_schedule'
-                    ) THEN
-                        ALTER TABLE server ADD COLUMN backup_schedule VARCHAR;
-                    END IF;
-                    IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.columns 
-                        WHERE table_name = 'server' AND column_name = 'backup_dest_root'
-                    ) THEN
-                        ALTER TABLE server ADD COLUMN backup_dest_root VARCHAR;
-                    END IF;
-                    IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.columns 
-                        WHERE table_name = 'server' AND column_name = 'backup_folder_name'
-                    ) THEN
-                        ALTER TABLE server ADD COLUMN backup_folder_name VARCHAR;
-                    END IF;
-                    IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.columns 
-                        WHERE table_name = 'server' AND column_name = 'last_backup_at'
-                    ) THEN
-                        ALTER TABLE server ADD COLUMN last_backup_at TIMESTAMP;
-                    END IF;
-                END $$;
-            """))
+            for table, col, coltype in alters:
+                conn.execute(text(f"""
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM information_schema.columns
+                            WHERE table_name = '{table}' AND column_name = '{col}'
+                        ) THEN
+                            ALTER TABLE "{table}" ADD COLUMN {col} {coltype};
+                        END IF;
+                    END $$;
+                """))
             conn.commit()
     except Exception as e:
         print(f"Schema update warning (non-fatal): {e}")
@@ -110,27 +114,8 @@ async def lifespan(app: FastAPI):
     if HAS_SCHEDULER and scheduler and not scheduler.running:
         scheduler.start()
         try:
-            with Session(engine) as db:
-                for server in db.exec(select(Server).order_by(Server.sort_order, Server.name)).all():
-                    if server.backup_enabled and server.backup_schedule:
-                        try:
-                            cron = server.backup_schedule.strip()
-                            parts = cron.split()
-                            if len(parts) == 5:
-                                trigger = CronTrigger(
-                                    minute=parts[0], hour=parts[1],
-                                    day=parts[2], month=parts[3], day_of_week=parts[4]
-                                )
-                                scheduler.add_job(
-                                    func=schedule_backup_job,
-                                    trigger=trigger,
-                                    args=[server.id],
-                                    id=f"backup_{server.id}",
-                                    replace_existing=True,
-                                    name=f"Backup {server.name}"
-                                )
-                        except Exception as e:
-                            print(f"Failed schedule for server {server.id}: {e}")
+            from .services.scheduler import sync_all_server_cron_jobs
+            sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER)
             sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
         except Exception as e:
             print(f"Scheduler init skipped: {e}")
@@ -158,6 +143,7 @@ async def favicon():
 app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
 app.include_router(servers_router.router, prefix="/servers", tags=["servers"])
 app.include_router(audit_router.router, prefix="", tags=["audit"])
+app.include_router(notifications_router.router, prefix="", tags=["notifications"])
 
 # Scheduler helpers extracted
 from .services import scheduler as sched

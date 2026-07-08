@@ -122,6 +122,15 @@ document.addEventListener('DOMContentLoaded', function() {
   <span class="feature-chip {{ 'feature-on' if server.backup_enabled else 'feature-off' }}">Backups {{ 'on' if server.backup_enabled else 'off' }}</span>
   <span class="feature-chip {{ 'feature-on' if server.container_patch_enabled else 'feature-off' }}">Containers {{ 'on' if server.container_patch_enabled else 'off' }}</span>
   <span class="feature-chip {{ 'feature-on' if server.os_patch_enabled else 'feature-off' }}">OS patch {{ 'on' if server.os_patch_enabled else 'off' }}</span>
+  {% if server.os_updates_count is not none and server.os_updates_count > 0 %}
+  <span class="feature-chip status-pill status-failed">{{ server.os_updates_count }} OS update(s)</span>
+  {% endif %}
+  {% if server.reboot_pending or (diagnostics and diagnostics.reboot_pending) %}
+  <span class="feature-chip status-pill status-failed">reboot pending</span>
+  {% endif %}
+  {% if server.container_updates_count is not none and server.container_updates_count > 0 %}
+  <span class="feature-chip status-pill status-failed">{{ server.container_updates_count }} image update(s)</span>
+  {% endif %}
   {% if overall_last_backup %}
   <span class="feature-chip">Last backup <span class="text-accent">{{ overall_last_backup | app_tz }}</span></span>
   {% elif last_backup_status %}
@@ -140,10 +149,10 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 {% endif %}
 
-{% if diagnostics and diagnostics.reboot_pending %}
+{% if server.reboot_pending or (diagnostics and diagnostics.reboot_pending) %}
 <div class="mb-4 p-3 banner-warning border border-border rounded text-sm flex flex-wrap items-center gap-2">
   <span>⚠️</span>
-  <strong>Pending reboot</strong> (detected after last OS update).
+  <strong>Pending reboot</strong>{% if server.os_updates_count %} · {{ server.os_updates_count }} OS update(s) available{% endif %}.
   <form method="post" action="/servers/{{ server.id }}/reboot" class="sm:ml-auto" onsubmit="return confirm('Reboot {{ server.name }} now?');">
     <button class="btn btn-secondary min-h-11 text-sm">Reboot Now</button>
   </form>
@@ -161,7 +170,10 @@ document.addEventListener('DOMContentLoaded', function() {
     </p>
     <span class="dest-card-cta">Manage backups →</span>
   </a>
-  <a href="/servers/{{ server.id }}/docker?nocache=1" class="card dest-card">
+  <a href="/servers/{{ server.id }}/docker?nocache=1"
+     class="card dest-card"
+     data-nav-loading="Opening Docker…"
+     data-nav-loading-sub="Screen opens right away — host data is collected there via SSH.">
     <div class="dest-card-title">Docker</div>
     <p class="dest-card-desc">Containers, compose, logs, build &amp; deploy</p>
     <span class="dest-card-cta">Open Docker →</span>
@@ -208,6 +220,59 @@ document.addEventListener('DOMContentLoaded', function() {
     <a href="/servers/{{ server.id }}/backups" class="text-accent hover:underline">Open backups page →</a>
   </p>
   {% endif %}
+</div>
+
+{# Update checks (check-only schedules — never auto-apply) #}
+<div class="card p-5 mb-6">
+  <h2 class="font-semibold text-text mb-1">Update checks</h2>
+  <p class="text-xs text-muted mb-4">Schedules only <strong>detect</strong> updates and raise notifications. Apply patches manually above.</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="border border-border rounded p-3 space-y-2">
+      <div class="font-medium text-sm">OS packages (apt)</div>
+      <p class="text-xs text-muted">
+        {% if server.last_os_check_at %}Last check {{ server.last_os_check_at | app_tz }} ·
+        {% else %}Never checked · {% endif %}
+        {% if server.os_updates_count is not none %}{{ server.os_updates_count }} upgradable{% else %}—{% endif %}
+      </p>
+      <form method="post" action="/servers/{{ server.id }}/check/os-updates" class="mb-2">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full" {% if not server.os_patch_enabled %}disabled title="Enable OS patch feature first"{% endif %}>Check OS updates now</button>
+      </form>
+      <form method="post" action="/servers/{{ server.id }}/schedule/os-check" class="space-y-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="os_check_enabled" value="1" {% if server.os_check_enabled %}checked{% endif %} {% if not server.os_patch_enabled %}disabled{% endif %}>
+          Enable schedule
+        </label>
+        <input type="text" name="os_check_schedule" value="{{ server.os_check_schedule or '0 6 * * *' }}" placeholder="0 6 * * *"
+               class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs min-h-11"
+               {% if not server.os_patch_enabled %}disabled{% endif %}>
+        <button type="submit" class="btn btn-secondary min-h-11 text-xs" {% if not server.os_patch_enabled %}disabled{% endif %}>Save OS schedule</button>
+      </form>
+    </div>
+
+    <div class="border border-border rounded p-3 space-y-2">
+      <div class="font-medium text-sm">Container images</div>
+      <p class="text-xs text-muted">
+        {% if server.last_container_check_at %}Last check {{ server.last_container_check_at | app_tz }} ·
+        {% else %}Never checked · {% endif %}
+        {% if server.container_updates_count is not none %}{{ server.container_updates_count }} project(s){% else %}—{% endif %}
+      </p>
+      <p class="text-[10px] text-muted">Pulls new layers if available; does <strong>not</strong> recreate containers.</p>
+      <form method="post" action="/servers/{{ server.id }}/check/container-updates" class="mb-2">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full" {% if not server.container_patch_enabled %}disabled title="Enable container patch first"{% endif %}>Check container updates now</button>
+      </form>
+      <form method="post" action="/servers/{{ server.id }}/schedule/container-check" class="space-y-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="container_check_enabled" value="1" {% if server.container_check_enabled %}checked{% endif %} {% if not server.container_patch_enabled %}disabled{% endif %}>
+          Enable schedule
+        </label>
+        <input type="text" name="container_check_schedule" value="{{ server.container_check_schedule or '30 6 * * *' }}" placeholder="30 6 * * *"
+               class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs min-h-11"
+               {% if not server.container_patch_enabled %}disabled{% endif %}>
+        <button type="submit" class="btn btn-secondary min-h-11 text-xs" {% if not server.container_patch_enabled %}disabled{% endif %}>Save container schedule</button>
+      </form>
+    </div>
+  </div>
 </div>
 
 <div class="text-xs text-muted flex flex-wrap gap-x-3 gap-y-1">

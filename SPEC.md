@@ -100,9 +100,9 @@ Related backup hardening (same phase):
 - [ ] REST API for all job triggers with token auth (partial — some endpoints exist)
 - [ ] Webhook / notification integration wired end-to-end
 - [ ] Per-server container-patch and OS-patch cron schedules
-- [ ] **OS update check schedule (check-only)** — apt upgradable count + reboot flag; no auto-upgrade — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
-- [ ] **Container update check schedule (check-only)** — pull + image ID compare; no `up -d` — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
-- [ ] **In-app notification center** — bell, dismiss, deep links (OS/container updates, reboot pending, failed backups); separate from AuditLog — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- [x] **OS update check schedule (check-only)** — apt upgradable count + reboot flag; no auto-upgrade — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- [x] **Container update check schedule (check-only)** — pull + image ID compare; no `up -d` — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- [x] **In-app notification center** — bell, dismiss, deep links (OS/container updates, reboot pending, failed backups); separate from AuditLog — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [ ] Job queue visibility (running / queued / history per server)
 - [ ] Alembic migrations replace runtime `ALTER TABLE` hacks
 - [ ] Test suite (pytest) for backup, patching, and encryption paths
@@ -113,15 +113,15 @@ Related backup hardening (same phase):
 
 ## Phase 3 — Multi-user & advanced Docker
 
-- [ ] **User profile / IAM** — display name, email change, avatar, password change; lock open registration after first user — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- [x] **User profile / IAM** — display name, email change, avatar, password change; lock open registration after first user — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [ ] Role-based access (admin / operator / read-only)
 - [ ] Multi-user audit attribution
 - [ ] Compose multi-file project support (override files, env files in UI)
 - [ ] Image update notifications (digest comparison, changelog links)
 - [ ] Fleet-wide dashboard (patch status across all servers)
 - [ ] Backup restore wizard (select snapshot → restore paths)
-- [ ] Rate limiting on auth endpoints
-- [ ] **Optional app-based 2FA** — TOTP + backup codes + optional trusted device (30d, revocable) — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- [x] Rate limiting on auth endpoints (basic in-memory on login/2FA)
+- [x] **Optional app-based 2FA** — TOTP + backup codes + optional trusted device (30d, revocable) — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 
 ---
 

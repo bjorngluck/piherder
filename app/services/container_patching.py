@@ -126,3 +126,91 @@ def run_project_update(server: Server, project: str | None = None) -> Dict:
         "failed": failed,
         "projects_checked": projects_to_do,
     }
+
+
+def check_project_images(client, proj_dir: str) -> dict:
+    """Pull images for a project and compare IDs. Does not run `up -d`."""
+    status, ls_out, _ = run_command(
+        client, f"ls {proj_dir}/compose.* {proj_dir}/docker-compose.* 2>/dev/null || true"
+    )
+    if not (ls_out or "").strip():
+        return {"has_compose": False, "has_updates": False}
+
+    _, images_raw, _ = run_command(
+        client, f"cd {proj_dir} && docker compose config --images 2>/dev/null || true", timeout=30
+    )
+    images = [l.strip() for l in (images_raw or "").strip().splitlines() if l.strip()]
+
+    before = ""
+    if images:
+        _, before_raw, _ = run_command(
+            client,
+            f"docker inspect --format '{{{{.Id}}}}' {' '.join(images)} 2>/dev/null | sort -u | tr '\\n' ' ' || true",
+            timeout=30,
+        )
+        before = (before_raw or "").strip()
+
+    pstatus, pull_out, _ = run_command(
+        client, f"cd {proj_dir} && docker compose pull 2>&1 || true", timeout=300
+    )
+
+    after = ""
+    if images:
+        _, after_raw, _ = run_command(
+            client,
+            f"docker inspect --format '{{{{.Id}}}}' {' '.join(images)} 2>/dev/null | sort -u | tr '\\n' ' ' || true",
+            timeout=30,
+        )
+        after = (after_raw or "").strip()
+
+    has_updates = bool(before and after and before != after) or (not before and after)
+    # If pull changed nothing but before==after and both non-empty → no updates
+    if before == after:
+        has_updates = False
+
+    return {
+        "has_compose": True,
+        "has_updates": has_updates,
+        "pull_rc": pstatus,
+        "images": images,
+    }
+
+
+def check_all_projects_updates(server: Server) -> dict:
+    """Fleet check-only: pull + compare image IDs for each compose project. Never runs up -d."""
+    client = get_ssh_client(server)
+    base = server.docker_base_dir.replace("~", f"/home/{server.ssh_username}")
+    projects = discover_projects(server)
+    with_updates: list[str] = []
+    failed: list[str] = []
+    checked: list[str] = []
+
+    try:
+        for proj in projects:
+            if not proj or str(proj).startswith("ERROR"):
+                if proj and str(proj).startswith("ERROR"):
+                    failed.append(str(proj))
+                continue
+            proj_dir = f"{base}/{proj}"
+            checked.append(proj)
+            try:
+                res = check_project_images(client, proj_dir)
+                if not res.get("has_compose"):
+                    continue
+                if res.get("has_updates"):
+                    with_updates.append(proj)
+            except Exception as e:
+                failed.append(f"{proj}: {e}")
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+    return {
+        "server": server.hostname,
+        "projects_with_updates": with_updates,
+        "updates_count": len(with_updates),
+        "failed": failed,
+        "projects_checked": checked,
+    }

@@ -20,6 +20,7 @@
       Passwords are truncated to 72 bytes (bcrypt limit).
     </div>
 
+    {% if not closed %}
     <form method="post" action="/auth/register" class="space-y-4">
       <div>
         <label class="block text-sm mb-1 text-muted">Email</label>
@@ -37,6 +38,7 @@
         Create account
       </button>
     </form>
+    {% endif %}
 
     <p class="mt-6 text-center text-sm text-muted">
       Already have an account?
