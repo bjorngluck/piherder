@@ -3,6 +3,7 @@ from typing import Optional, List, Tuple
 import hashlib
 import secrets
 import hmac
+import io
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status, Request
@@ -141,6 +142,41 @@ def decrypt_totp_secret(cipher: str) -> str:
 def totp_provisioning_uri(secret: str, email: str) -> str:
     import pyotp
     return pyotp.TOTP(secret).provisioning_uri(name=email, issuer_name="PiHerder")
+
+
+def totp_qr_svg(uri: str, box_size: int = 6, border: int = 2) -> str:
+    """Return SVG markup for a TOTP QR (no Pillow required — pure qrcode SVG backend)."""
+    import qrcode
+    import qrcode.image.svg
+
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=box_size,
+        border=border,
+        image_factory=qrcode.image.svg.SvgPathImage,
+    )
+    qr.add_data(uri)
+    qr.make(fit=True)
+    img = qr.make_image()
+    # SvgPathImage exposes .to_string() in recent qrcode; fall back to save()
+    if hasattr(img, "to_string"):
+        raw = img.to_string()
+        return raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
+    buf = io.BytesIO()
+    img.save(buf)
+    return buf.getvalue().decode("utf-8")
+
+
+def totp_qr_data_uri(uri: str) -> Optional[str]:
+    """SVG as data URI for <img src=...>. Prefer inline SVG when possible."""
+    try:
+        import base64
+        svg = totp_qr_svg(uri)
+        b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+        return f"data:image/svg+xml;base64,{b64}"
+    except Exception:
+        return None
 
 
 def verify_totp_code(secret: str, code: str) -> bool:

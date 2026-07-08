@@ -1,7 +1,5 @@
 from datetime import datetime
 from typing import Optional
-import io
-import base64
 
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, Response
@@ -22,6 +20,8 @@ from ..security.auth import (
     encrypt_totp_secret,
     decrypt_totp_secret,
     totp_provisioning_uri,
+    totp_qr_svg,
+    totp_qr_data_uri,
     verify_totp_code,
     generate_backup_codes,
     replace_backup_codes,
@@ -274,14 +274,28 @@ async def account_page(
         ).all()
     )
     setup_secret = request.cookies.get("totp_setup_secret")
-    setup_qr = request.cookies.get("totp_setup_qr")
-    # Pending unconfirmed secret on user row
-    pending_setup = bool(setup_secret or (user.totp_secret_encrypted and not user.totp_enabled))
+    # Pending unconfirmed secret on user row (preferred — survives cookie loss)
+    pending_setup = bool(
+        (user.totp_secret_encrypted and not user.totp_enabled) or setup_secret
+    )
     if pending_setup and not setup_secret and user.totp_secret_encrypted:
         try:
             setup_secret = decrypt_totp_secret(user.totp_secret_encrypted)
         except Exception:
             setup_secret = None
+    # Build QR in-process (SVG — no Pillow; never store QR in cookies — too large)
+    setup_qr_svg = None
+    setup_qr_uri = None
+    setup_otpauth = None
+    if pending_setup and setup_secret:
+        try:
+            setup_otpauth = totp_provisioning_uri(setup_secret, user.email)
+            setup_qr_svg = totp_qr_svg(setup_otpauth)
+            setup_qr_uri = totp_qr_data_uri(setup_otpauth)
+        except Exception:
+            setup_qr_svg = None
+            setup_qr_uri = None
+    show_2fa_modal = pending_setup or msg == "2fa_setup"
     backup_codes = request.query_params.get("backup_codes")
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -293,9 +307,12 @@ async def account_page(
             "error": err,
             "devices": devices,
             "backup_remaining": backup_remaining,
-            "setup_qr": setup_qr,
+            "setup_qr_svg": setup_qr_svg,
+            "setup_qr_uri": setup_qr_uri,
             "setup_secret": setup_secret,
+            "setup_otpauth": setup_otpauth,
             "pending_2fa_setup": pending_setup,
+            "show_2fa_modal": show_2fa_modal,
             "backup_codes_shown": backup_codes.split(",") if backup_codes else None,
             "trusted_device_days": settings.TRUSTED_DEVICE_DAYS,
         },
@@ -413,22 +430,11 @@ async def two_factor_start(
     session.add(user)
     session.commit()
 
-    uri = totp_provisioning_uri(secret, user.email)
-    qr_b64 = None
-    try:
-        import qrcode
-        img = qrcode.make(uri)
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        qr_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
-    except Exception:
-        qr_b64 = None
-
-    # Store setup state via redirect query is awkward for long secret — use short-lived cookie
+    # Secret is stored encrypted on the user; QR is generated on the account page (SVG).
+    # Optional short-lived cookie helps if DB read is delayed; not used for QR (size limits).
     response = RedirectResponse("/auth/account?msg=2fa_setup", status_code=303)
     response.set_cookie("totp_setup_secret", secret, httponly=True, max_age=600, samesite="lax")
-    if qr_b64:
-        response.set_cookie("totp_setup_qr", qr_b64, httponly=True, max_age=600, samesite="lax")
+    response.delete_cookie("totp_setup_qr")  # legacy oversized cookie
     return response
 
 
