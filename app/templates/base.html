@@ -153,8 +153,24 @@
         </button>
 
         {% if user %}
-          <span class="text-muted text-xs pl-1">· {{ user.email.split('@')[0] }}</span>
-          <a href="/auth/login" class="text-muted hover:text-primary transition text-xs">Sign out</a>
+          <!-- User menu: avatar + name + dropdown (Account + Logout).
+               Lightweight <details> so it works on lean pages (no Alpine).
+               Avatar placeholder ready for future user-uploaded image. -->
+          <details class="user-menu relative">
+            <summary class="flex items-center gap-1.5 cursor-pointer list-none select-none rounded px-1 py-0.5 hover:bg-surface border border-transparent hover:border-border transition-colors">
+              <div class="w-7 h-7 rounded-full bg-surface border border-border flex items-center justify-center text-[10px] font-medium text-muted shrink-0"
+                   title="{{ user.email }}">
+                {{ user.email[0].upper() }}
+              </div>
+              <span class="text-muted text-xs hidden sm:inline max-w-[7rem] truncate">{{ user.email.split('@')[0] }}</span>
+              <span class="text-muted text-[9px] leading-none mt-px">▾</span>
+            </summary>
+            <div class="absolute right-0 mt-1 w-40 bg-surface border border-border rounded shadow-lg z-50 py-1 text-sm">
+              <a href="/auth/account" class="block px-3 py-1.5 hover:bg-bg text-text">Account</a>
+              <div class="border-t border-border my-0.5"></div>
+              <a href="/auth/logout" class="block px-3 py-1.5 hover:bg-bg text-danger">Sign out</a>
+            </div>
+          </details>
         {% else %}
           <a href="/auth/login" class="px-3 py-1 bg-surface border border-border hover:bg-bg rounded text-xs transition">Login</a>
         {% endif %}

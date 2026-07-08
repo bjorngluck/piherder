@@ -168,6 +168,26 @@ body {
   }
 }
 
+/* User / account menu in header (lightweight <details> dropdown) */
+.user-menu summary::-webkit-details-marker,
+.user-menu summary::marker {
+  display: none;
+}
+.user-menu summary {
+  outline: none;
+}
+.user-menu[open] summary {
+  border-color: var(--color-border);
+  background-color: var(--color-surface);
+}
+.user-menu > div {
+  min-width: 9rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.dark .user-menu > div {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
 .border-border { border-color: var(--color-border); }
 .text-muted { color: var(--color-muted); }
 .bg-bg { background-color: var(--color-bg); }
