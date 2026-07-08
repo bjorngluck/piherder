@@ -109,6 +109,45 @@ body {
 .bg-primary { background-color: var(--color-primary); }
 .text-accent { color: var(--color-accent); }
 
+/* Strong brand focus on primary red across themes (light + dark identical red) */
+.brand {
+  color: var(--color-primary);
+}
+.brand:hover {
+  filter: brightness(0.9);
+}
+
+/* Landing page hero / strapline emphasis */
+.landing-brand {
+  color: var(--color-primary);
+}
+
+/* Uniform header menu - primary red focus across light + dark */
+.nav-link {
+  color: var(--color-text);
+  transition: color 0.1s ease, border-color 0.1s ease;
+  padding: 4px 6px;
+  border-bottom: 2px solid transparent;
+  border-radius: 4px;
+}
+.nav-link:hover {
+  color: var(--color-primary);
+}
+.nav-link-active,
+.nav-link-active:hover {
+  color: var(--color-primary);
+  font-weight: 600;
+  border-bottom-color: var(--color-primary);
+}
+
+/* Slightly larger tap targets on small screens */
+@media (max-width: 640px) {
+  .nav-link {
+    padding: 6px 8px;
+    font-size: 0.875rem;
+  }
+}
+
 .border-border { border-color: var(--color-border); }
 .text-muted { color: var(--color-muted); }
 .bg-bg { background-color: var(--color-bg); }

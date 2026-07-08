@@ -1,38 +1,50 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="mb-8 flex items-center gap-4">
-  <img src="/static/images/piherder-logo-small.png" alt="PiHerder" class="h-12 w-auto">
-  <div>
-    <h1 class="text-4xl font-semibold tracking-tighter">PiHerder</h1>
-    <p class="text-accent text-sm font-mono -mt-1">BACKUP YOUR PI FLEET</p>
-    <p class="text-muted mt-1 text-sm">Add servers, configure sources, run and schedule backups</p>
+<!-- Clean, minimal landing page. Uniform branding with primary red focus. -->
+<!-- Main landing / hero - primary red is the brand focus in both light and dark -->
+<div class="mb-10">
+  <div class="flex items-center gap-4">
+    <img src="/static/images/piherder-logo-small.png" alt="PiHerder" class="h-12 w-auto">
+    <div>
+      <h1 class="text-4xl font-semibold tracking-tighter text-text">PiHerder</h1>
+      <p class="text-primary text-sm font-mono -mt-1 tracking-[2px]">FLEET BACKUPS</p>
+    </div>
   </div>
+  <p class="mt-3 text-muted max-w-md text-sm">
+    Secure, auditable backup management for your Raspberry Pi cluster.
+  </p>
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
   <div class="card p-5">
     <div class="text-sm text-muted">Servers</div>
-    <div class="text-4xl font-semibold mt-1">{{ servers|length if servers else 0 }}</div>
-    <a href="/servers" class="mt-3 inline-block text-accent hover:underline text-sm">Manage servers →</a>
+    <div class="text-4xl font-semibold mt-1 text-primary">{{ servers|length if servers else 0 }}</div>
+    <div class="mt-3">
+      <a href="/servers" class="inline-block btn btn-primary text-sm px-4 py-1.5">Manage servers</a>
+    </div>
   </div>
 
   <div class="card p-5">
-    <div class="text-sm text-muted">Backup logs</div>
-    <a href="/audit?search=backup" class="mt-2 inline-block text-accent text-sm">View backup audit →</a>
-    <div class="mt-1">
-      <a href="/herder-backups" class="text-accent text-sm">Settings →</a>
+    <div class="text-sm text-muted">Activity</div>
+    <a href="/audit?search=backup" class="mt-2 inline-block text-primary text-sm font-medium">View audit log →</a>
+    <div class="mt-2">
+      <a href="/herder-backups" class="text-primary text-sm font-medium">PiHerder settings →</a>
     </div>
   </div>
 
   <div class="card p-5 text-sm">
-    <div class="font-medium mb-2">Quick Actions</div>
+    <div class="font-medium mb-2 text-text">Get started</div>
     <ul class="space-y-1 text-muted">
       <li>• Add a server</li>
       <li>• Configure backup sources</li>
       <li>• Run backup or retention</li>
     </ul>
-    <a href="/servers" class="mt-3 block text-accent">Go to Servers →</a>
+    <a href="/servers" class="mt-3 block text-primary font-medium">Go to Servers →</a>
   </div>
+</div>
+
+<div class="mt-8 text-xs text-muted">
+  All actions are logged. SSH keys are encrypted at rest. Works offline.
 </div>
 {% endblock %}
