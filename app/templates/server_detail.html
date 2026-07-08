@@ -3,8 +3,7 @@
 {% block content %}
 <div>
   <a href="/servers" class="text-xs text-accent hover:underline">← All servers</a>
-  <div class="flex items-center gap-3 mt-1">
-    <img src="/static/images/piherder-logo-small.png" alt="PiHerder" class="h-8 w-auto">
+  <div class="flex items-center gap-2 mt-1">
     <h1 class="text-3xl font-semibold">{{ server.name }}</h1>
     <button type="button"
             onclick="showEditServerModal()"
