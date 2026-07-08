@@ -55,43 +55,45 @@
 })();
 </script>
 
-  <div class="flex items-center justify-between mb-6">
+  <div class="page-header mb-6">
     <div>
       <a href="/servers/{{ server.id }}" class="text-xs text-accent hover:underline">← Back to {{ server.name }}</a>
-      <h1 class="text-3xl font-semibold mt-1">Docker Management</h1>
-      <div class="text-muted text-sm">{{ server.hostname }}</div>
+      <h1 class="text-3xl font-semibold tracking-tighter text-text mt-1">Docker</h1>
+      <p class="text-sm text-muted mt-1">{{ server.name }} · {{ server.hostname }}</p>
     </div>
-    <a href="/servers/{{ server.id }}/docker?nocache=1" 
-       class="px-3 py-1.5 text-xs btn btn-secondary">Refresh (bypass cache)</a>
-    <a href="/servers/{{ server.id }}/docker/new-project" 
-       class="px-3 py-1.5 text-xs btn btn-accent rounded">+ New Service</a>
+    <div class="page-header-actions">
+      <a href="/servers/{{ server.id }}/docker?nocache=1" class="btn btn-secondary min-h-11 text-sm">↻ Refresh</a>
+      <a href="/servers/{{ server.id }}/docker/new-project" class="btn btn-accent min-h-11 text-sm">+ New Service</a>
+    </div>
   </div>
 
   <!-- All Containers -->
   <div class="mb-10">
-    <div class="flex items-center justify-between mb-2">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
       <h2 class="text-lg font-medium flex items-center gap-2">
-        Containers 
+        Containers
         <span class="text-xs font-normal text-muted">({{ containers|length }} total, {{ containers|selectattr('running')|list|length }} running)</span>
       </h2>
-      <div class="text-xs text-accent flex items-center gap-2">
-        Auto-refresh every 
-        <select onchange="const u=new URL(window.location.href); u.searchParams.set('refresh', this.value); window.location.href=u.toString();" class="bg-surface border border-border text-xs px-1 rounded">
+      <div class="text-xs text-muted flex items-center gap-2">
+        Auto-refresh
+        <select onchange="const u=new URL(window.location.href); u.searchParams.set('refresh', this.value); window.location.href=u.toString();" class="bg-surface border border-border text-xs px-2 py-1 rounded min-h-11">
           {% set cur = request.query_params.get('refresh', '120') | int %}
-          <option value="60" {% if cur==60 %}selected{% endif %}>60s (min)</option>
-          <option value="120" {% if cur==120 %}selected{% endif %}>120s (default)</option>
+          <option value="60" {% if cur==60 %}selected{% endif %}>60s</option>
+          <option value="120" {% if cur==120 %}selected{% endif %}>120s</option>
           <option value="300" {% if cur==300 %}selected{% endif %}>5m</option>
           <option value="600" {% if cur==600 %}selected{% endif %}>10m</option>
         </select>
       </div>
     </div>
 
-    <div hx-get="/servers/{{ server.id }}/docker/containers-fragment?refresh={{ request.query_params.get('refresh', '120') }}"
-         hx-trigger="every {{ request.query_params.get('refresh', '120') }}s"
-         hx-target="#containers-table"
-         hx-swap="outerHTML"
-         id="containers-table">
-      {% include "docker_containers_table.html" %}
+    <div class="table-scroll">
+      <div hx-get="/servers/{{ server.id }}/docker/containers-fragment?refresh={{ request.query_params.get('refresh', '120') }}"
+           hx-trigger="every {{ request.query_params.get('refresh', '120') }}s"
+           hx-target="#containers-table"
+           hx-swap="outerHTML"
+           id="containers-table">
+        {% include "docker_containers_table.html" %}
+      </div>
     </div>
   </div>
 
@@ -134,41 +136,37 @@
           {% endif %}
         </div>
 
-        <!-- Action buttons moved below info; fixed-ish sizes to avoid squash on long names/paths -->
-        <div class="mt-3 flex flex-wrap gap-1.5">
+        <div class="mt-3 docker-proj-actions">
           <form method="post" action="/servers/{{ server.id }}/docker/check-updates">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[5rem] h-7 btn btn-secondary rounded">Check Updates</button>
+            <button class="btn btn-secondary docker-action-btn">Check Updates</button>
           </form>
           <form method="post" action="/servers/{{ server.id }}/docker/redeploy">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
             <input type="hidden" name="pull" value="true">
-            <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[5rem] h-7 btn btn-accent rounded">Deploy</button>
+            <button class="btn btn-accent docker-action-btn">Deploy</button>
           </form>
           <form method="post" action="/servers/{{ server.id }}/docker/compose/down">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[5rem] h-7 btn btn-danger rounded">Undeploy</button>
+            <button class="btn btn-danger docker-action-btn">Undeploy</button>
           </form>
           <button type="button"
-                  class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4rem] h-7 btn btn-secondary rounded"
+                  class="btn btn-secondary docker-action-btn"
                   data-edit-proj="{{ proj.name | e }}"
                   data-has-df="{{ '1' if proj.get('dockerfile_path') else '0' }}"
                   data-server-id="{{ server.id }}">Edit</button>
           {% if proj.has_build %}
           <button type="button"
-                  class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4.25rem] h-7 btn btn-secondary rounded"
+                  class="btn btn-secondary docker-action-btn"
                   data-proj-name="{{ proj.name | e }}"
                   data-build-services='{{ proj.build_services | tojson | safe }}'
-                  data-server-id="{{ server.id }}">Build...</button>
+                  data-server-id="{{ server.id }}">Build…</button>
           {% endif %}
-        </div>
-
-        <div class="flex flex-wrap gap-1.5 mt-2">
           <form method="post" action="/servers/{{ server.id }}/docker/compose/stop">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
             <input type="hidden" name="service" value="">
             <button type="submit"
-                    class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4rem] h-7 btn btn-secondary rounded"
+                    class="btn btn-secondary docker-action-btn"
                     data-proj="{{ proj.name }}"
                     data-services='{{ proj.services | tojson }}'
                     data-server-id="{{ server.id }}"
@@ -179,7 +177,7 @@
             <input type="hidden" name="project_path" value="{{ proj.path }}">
             <input type="hidden" name="service" value="">
             <button type="submit"
-                    class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4rem] h-7 btn btn-secondary rounded"
+                    class="btn btn-secondary docker-action-btn"
                     data-proj="{{ proj.name }}"
                     data-services='{{ proj.services | tojson }}'
                     data-server-id="{{ server.id }}"
@@ -190,7 +188,7 @@
             <input type="hidden" name="project_path" value="{{ proj.path }}">
             <input type="hidden" name="service" value="">
             <button type="submit"
-                    class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4rem] h-7 btn btn-secondary rounded"
+                    class="btn btn-secondary docker-action-btn"
                     data-proj="{{ proj.name }}"
                     data-services='{{ proj.services | tojson }}'
                     data-server-id="{{ server.id }}"
@@ -198,7 +196,7 @@
                     data-action="restart">Restart</button>
           </form>
           <button type="button"
-                  class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[4rem] h-7 btn btn-accent rounded"
+                  class="btn btn-accent docker-action-btn"
                   data-proj="{{ proj.name }}"
                   data-services='{{ proj.services | tojson }}'
                   data-server-id="{{ server.id }}"
@@ -218,17 +216,17 @@
 
   <!-- Cleanup section for unused resources (issue 8) -->
   <div class="mt-8">
-    <h2 class="text-lg font-medium mb-2">Cleanup: Unused / Dangling</h2>
-    <div class="flex gap-2 flex-wrap">
+    <h2 class="text-lg font-medium mb-2">Cleanup</h2>
+    <div class="docker-proj-actions">
       <form method="post" action="/servers/{{ server.id }}/docker/prune-unused">
         <input type="hidden" name="prune_type" value="images">
-        <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[7rem] h-7 btn btn-danger rounded">Prune dangling images</button>
+        <button class="btn btn-danger docker-action-btn">Prune dangling images</button>
       </form>
       <form method="post" action="/servers/{{ server.id }}/docker/prune-unused">
         <input type="hidden" name="prune_type" value="containers">
-        <button class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] min-w-[7rem] h-7 btn btn-danger rounded">Prune exited containers</button>
+        <button class="btn btn-danger docker-action-btn">Prune exited containers</button>
       </form>
-      <button onclick="loadUnused()" class="inline-flex items-center justify-center px-2 py-0.5 text-[11px] h-7 btn btn-secondary rounded">List unused</button>
+      <button type="button" onclick="loadUnused()" class="btn btn-secondary docker-action-btn">List unused</button>
     </div>
     <div id="unused-list" class="mt-2 text-xs font-mono code-surface p-2 rounded border"></div>
     <div class="text-[10px] text-muted mt-1">Dangling = unreferenced images; Exited = stopped containers. Prune separately to be selective.</div>
@@ -249,7 +247,7 @@ function loadUnused() {
 
 <!-- Simple Build Modal (vanilla JS) -->
 <div id="build-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card rounded-xl p-6 w-full max-w-md">
+  <div class="modal-content card p-6 w-full max-w-md mx-4">
     <h3 class="text-lg font-medium mb-4">Build Compose Services</h3>
     <form id="build-form" method="post">
       <input type="hidden" name="project" id="modal-project">
@@ -261,79 +259,79 @@ function loadUnused() {
         <input type="checkbox" name="no_cache" id="modal-no-cache" >
         <label for="modal-no-cache" class="text-sm"> --no-cache (full clean build)</label>
       </div>
-      <div class="flex gap-2 justify-end">
-        <button type="button" onclick="hideBuildModal()" class="px-4 py-1 btn btn-secondary rounded text-sm">Cancel</button>
-        <button type="button" id="modal-start-build" onclick="startBuildFromModal()" class="px-4 py-1 btn btn-accent rounded text-sm">Start Build</button>
+      <div class="flex flex-wrap gap-2 justify-end">
+        <button type="button" onclick="hideBuildModal()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+        <button type="button" id="modal-start-build" onclick="startBuildFromModal()" class="btn btn-accent min-h-11 text-sm">Start Build</button>
       </div>
     </form>
-    <div class="text-[10px] text-muted mt-3">Only services with a 'build:' section are shown. SSH session opened only for the build. Builds can take minutes; refresh screen later or use SSH to watch. --no-cache does full clean build.</div>
+    <div class="text-xs text-muted mt-3">Only services with a build section are listed. Builds can take minutes.</div>
   </div>
 </div>
 
 <!-- Quick Edit Modal (modal mindset for compose / Dockerfile) -->
 <div id="quick-edit-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card rounded-xl p-6 w-full max-w-3xl mx-4">
-    <div class="flex items-center justify-between mb-3">
+  <div class="modal-content card p-6 w-full max-w-3xl mx-4">
+    <div class="flex items-center justify-between mb-3 gap-2">
       <h3 class="text-lg font-medium">Quick edit — <span id="qe-project"></span></h3>
-      <button type="button" onclick="hideQuickEditModal()" class="text-muted hover:text-text">✕</button>
+      <button type="button" onclick="hideQuickEditModal()" class="btn btn-secondary min-h-11 text-sm">✕</button>
     </div>
 
-    <div class="mb-2 flex gap-2 text-sm">
-      <button id="qe-tab-compose" onclick="switchQuickEditTab('compose')" class="px-3 py-1 rounded btn btn-accent">Compose</button>
-      <button id="qe-tab-dockerfile" onclick="switchQuickEditTab('dockerfile')" class="px-3 py-1 rounded btn btn-secondary hidden">Dockerfile</button>
-      <a id="qe-full-link" href="#" class="ml-auto text-accent hover:underline text-xs self-center">Open full editor (syntax, versions, drafts…)</a>
+    <div class="mb-2 flex flex-wrap gap-2 text-sm">
+      <button id="qe-tab-compose" type="button" onclick="switchQuickEditTab('compose')" class="btn btn-accent min-h-11">Compose</button>
+      <button id="qe-tab-dockerfile" type="button" onclick="switchQuickEditTab('dockerfile')" class="btn btn-secondary min-h-11 hidden">Dockerfile</button>
+      <a id="qe-full-link" href="#" class="ml-auto text-accent hover:underline text-xs self-center">Open full editor →</a>
     </div>
 
     <textarea id="qe-editor" class="w-full h-64 font-mono text-sm code-surface border border-border rounded p-3 resize-y" spellcheck="false"></textarea>
 
-    <div class="flex items-center gap-2 mt-3">
-      <button onclick="quickSaveDraft()" class="px-4 py-1.5 text-sm btn btn-secondary rounded">Save Draft</button>
-      <button onclick="quickSaveDeploy()" class="px-4 py-1.5 text-sm btn btn-accent rounded font-medium">Save &amp; Deploy</button>
-      <button onclick="hideQuickEditModal()" class="px-3 py-1.5 text-sm btn btn-secondary rounded ml-auto">Cancel</button>
-      <div id="qe-status" class="text-xs text-accent ml-2"></div>
+    <div class="flex flex-wrap items-center gap-2 mt-3">
+      <button type="button" onclick="quickSaveDraft()" class="btn btn-secondary min-h-11 text-sm">Save Draft</button>
+      <button type="button" onclick="quickSaveDeploy()" class="btn btn-accent min-h-11 text-sm">Save &amp; Deploy</button>
+      <button type="button" onclick="hideQuickEditModal()" class="btn btn-secondary min-h-11 text-sm ml-auto">Cancel</button>
+      <div id="qe-status" class="text-xs text-accent"></div>
     </div>
 
-    <div class="text-[10px] text-muted mt-2">
-      Quick edit uses basic textarea. For syntax highlighting, validation, history and drafts use the full editor link above.
+    <div class="text-xs text-muted mt-2">
+      Quick edit uses a basic textarea. Full editor has syntax, history, and drafts.
     </div>
   </div>
 </div>
 
 <!-- Undeploy confirmation modal (for consistency, instead of native browser confirm) -->
 <div id="undeploy-confirm-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card rounded-xl p-6 w-full max-w-md mx-4">
+  <div class="modal-content card p-6 w-full max-w-md mx-4">
     <h3 class="text-lg font-medium mb-2">Undeploy project?</h3>
     <p class="text-sm text-muted mb-4">
       This will run <code class="text-danger">docker compose down</code> for
       <strong id="undeploy-project-name" class="font-mono text-accent"></strong>.
       <br>Containers and networks will be removed. Volumes are preserved.
     </p>
-    <div class="flex gap-2 justify-end">
-      <button onclick="hideUndeployConfirm()" class="px-4 py-1.5 text-sm btn btn-secondary rounded">Cancel</button>
-      <button id="undeploy-confirm-btn" class="px-4 py-1.5 text-sm btn btn-danger rounded font-medium">Undeploy</button>
+    <div class="flex flex-wrap gap-2 justify-end">
+      <button type="button" onclick="hideUndeployConfirm()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+      <button type="button" id="undeploy-confirm-btn" class="btn btn-danger min-h-11 text-sm">Undeploy</button>
     </div>
   </div>
 </div>
 
 <!-- Deploy modal (popup confirmation + options, like build/undeploy modals) -->
 <div id="deploy-confirm-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="card rounded-xl p-6 w-full max-w-md mx-4">
+  <div class="modal-content card p-6 w-full max-w-md mx-4">
     <h3 class="text-lg font-medium mb-2">Deploy / Redeploy project?</h3>
     <p class="text-sm text-muted mb-3">
       Run <code class="text-accent">docker compose pull &amp;&amp; up -d</code> (or up -d only) for
       <strong id="deploy-project-name" class="font-mono text-accent"></strong>.
     </p>
     <div class="mb-4">
-      <label class="flex items-center gap-2 text-sm cursor-pointer">
+      <label class="flex items-center gap-2 text-sm cursor-pointer min-h-11">
         <input type="checkbox" id="deploy-pull" checked >
         <span>Pull latest images first (recommended)</span>
       </label>
     </div>
-    <div class="flex gap-2 justify-end">
-      <button onclick="hideDeployConfirm()" class="px-4 py-1.5 text-sm btn btn-secondary rounded">Cancel</button>
-      <button id="deploy-confirm-btn" class="px-4 py-1.5 text-sm btn btn-accent rounded font-medium">Deploy</button>
+    <div class="flex flex-wrap gap-2 justify-end">
+      <button type="button" onclick="hideDeployConfirm()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+      <button type="button" id="deploy-confirm-btn" class="btn btn-accent min-h-11 text-sm">Deploy</button>
     </div>
-    <div class="text-[10px] text-muted mt-3">This will update running containers for the project. Use with care on production services.</div>
+    <div class="text-xs text-muted mt-3">Updates running containers for the project. Use care on production.</div>
   </div>
 </div>
 

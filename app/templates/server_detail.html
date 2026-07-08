@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
+<script>
+  window.PIHERDER_SERVER_ID = {{ server.id }};
+  window.PIHERDER_PROGRESS_CLOSE = 'reload';
+</script>
 <div class="page-header mb-6">
   <div>
     <a href="/servers" class="text-xs text-accent hover:underline">← All servers</a>
@@ -525,43 +529,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  document.querySelectorAll('form.backup-run-form, form[action*="run/backup"]').forEach(form => {
-    form.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const currentSource = form.dataset.source || (form.querySelector('input[name="source"]') || {}).value || null;
-      showBackupProgressModal(
-        currentSource ? `Backing up: ${currentSource}` : 'Running full backup...',
-        currentSource,
-        null,
-        false,
-        false
-      );
-      try {
-        const res = await fetch(form.action, {
-          method: 'POST',
-          body: new FormData(form),
-          headers: { 'X-PiHerder-Async': '1' },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (res.ok || res.status === 409) {
-          startBackupProgressPoll(data.job_id, data.source_filter || currentSource);
-        } else {
-          const logEl = document.querySelector('#backup-progress-log');
-          if (logEl) logEl.textContent += '\nError: ' + (data.detail || 'Could not start backup') + '\n';
-        }
-      } catch (_) {
-        const logEl = document.querySelector('#backup-progress-log');
-        if (logEl) logEl.textContent += '\nNetwork error starting backup.\n';
-      }
-    });
-  });
-
-  if (new URLSearchParams(location.search).get('backup_log')) {
-    const src = new URLSearchParams(location.search).get('source');
-    const jid = new URLSearchParams(location.search).get('job_id');
-    openBackupLog(src || null, jid ? parseInt(jid, 10) : null);
-  }
-
   // OS patch form
   const osForm = document.getElementById('os-patch-form');
   if (osForm) {
@@ -576,157 +543,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // No page-level polling — progress updates only while a modal is open.
+// Backup progress modal is shared via base.html (PiHerderProgress).
 
 let osPatchPollKey = 'os-patch';
-
-async function updateBackupProgressUI(data, modalLogEl, modalCurrentDiv, isModalOpen) {
-  if (!data) return;
-
-  if (modalCurrentDiv) {
-    if (data.status === 'pending' || data.current === 'queued') {
-      modalCurrentDiv.innerText = 'Queued — waiting for worker';
-    } else if (data.current && data.current !== 'preparing' && data.current !== 'starting') {
-      modalCurrentDiv.innerText = `Currently backing up: ${data.current}`;
-    } else {
-      modalCurrentDiv.innerText = data.current ? `Status: ${data.current}` : '';
-    }
-  }
-  if (modalLogEl && isModalOpen && window.PiHerderUpdateLog) {
-    const fallback = (data.status === 'pending' || data.current === 'queued')
-      ? 'Waiting for worker…\n'
-      : 'Backup in progress...\n';
-    window.PiHerderUpdateLog(modalLogEl, data, fallback);
-  }
-
-  const banner = document.getElementById('active-backup-status');
-  const bannerName = document.getElementById('active-source-name');
-  if (banner && bannerName) {
-    if (data.current && data.current !== 'preparing' && data.current !== 'starting') {
-      bannerName.textContent = data.current;
-      banner.classList.remove('hidden');
-      banner.classList.add('flex');
-    } else {
-      banner.classList.remove('flex');
-      banner.classList.add('hidden');
-    }
-  }
-
-  document.querySelectorAll('tr[data-source]').forEach(tr => {
-    if (data.current && tr.dataset.source === data.current) {
-      tr.classList.add('bg-accent-subtle', 'border-l-4', 'border-accent');
-    } else {
-      tr.classList.remove('bg-accent-subtle', 'border-l-4', 'border-accent');
-    }
-  });
-}
-
-let activePollJobId = null;
-let activePollSource = null;
-let backupModalWasOpen = false;
-
-function backupProgressUrl(jobId, sourcePath) {
-  let url = '/servers/{{ server.id }}/backup-progress';
-  if (jobId) url += '?job_id=' + encodeURIComponent(jobId);
-  else if (sourcePath) url += '?source=' + encodeURIComponent(sourcePath);
-  return url;
-}
-
-function openBackupLog(sourcePath, jobId) {
-  showBackupProgressModal(
-    sourcePath ? `Backup: ${sourcePath}` : 'Backup in progress',
-    sourcePath,
-    jobId,
-    true,
-    true
-  );
-}
-
-function startBackupProgressPoll(jobId, sourcePath) {
-  const modal = document.getElementById('backup-progress-modal');
-  if (!modal || !window.PiHerderPoll) return;
-  const logEl = modal.querySelector('#backup-progress-log');
-  const currentDiv = modal.querySelector('#backup-current-source');
-  const stopBtn = modal.querySelector('#progress-stop-btn');
-
-  activePollJobId = jobId || null;
-  activePollSource = sourcePath || null;
-  if (logEl) delete logEl.dataset.lastTs;
-
-  window.PiHerderPoll.stop('backup-progress');
-  window.PiHerderPoll.start('backup-progress', backupProgressUrl(jobId, sourcePath), (data) => {
-    updateBackupProgressUI(data, logEl, currentDiv, true);
-    if (data.status === 'success' || data.status === 'failed') {
-      const label = data.status === 'success' ? '✓ Backup complete' : '✗ Backup failed';
-      if (logEl) logEl.innerText += `\n[${label}] Close to refresh page.\n`;
-      if (currentDiv) currentDiv.innerText = label;
-      if (stopBtn) stopBtn.style.display = 'none';
-      return true;
-    }
-    return false;
-  }, 8000);
-}
-
-function showBackupProgressModal(title = "Backup running", initialSource = null, jobId = null, existingJob = false, startPoll = true) {
-  const modal = document.getElementById('backup-progress-modal');
-  if (!modal) return;
-  modal.querySelector('#backup-progress-title').innerText = title;
-  const logEl = modal.querySelector('#backup-progress-log');
-  const currentDiv = modal.querySelector('#backup-current-source');
-  if (existingJob) {
-    if (logEl) logEl.innerText = 'Loading progress…\n';
-    if (currentDiv) currentDiv.innerText = '';
-  } else {
-    if (logEl) logEl.innerText = initialSource ? `Preparing to back up: ${initialSource}\n` : 'Starting backup job...\n';
-    if (currentDiv) currentDiv.innerText = '';
-  }
-  modal.classList.remove('hidden');
-  modal.classList.add('flex');
-  backupModalWasOpen = true;
-
-  const stopBtn = modal.querySelector('#progress-stop-btn');
-  if (stopBtn) {
-    stopBtn.textContent = 'Stop Backup';
-    stopBtn.style.display = '';
-    stopBtn.onclick = stopCurrentBackup;
-  }
-
-  if (startPoll) {
-    startBackupProgressPoll(jobId, initialSource);
-  }
-}
-
-async function stopCurrentBackup() {
-  if (!confirm('Stop this backup?')) return;
-  try {
-    const body = new FormData();
-    if (activePollJobId) body.append('job_id', String(activePollJobId));
-    else if (activePollSource) body.append('source', activePollSource);
-    await fetch('/servers/{{ server.id }}/backup/stop', { method: 'POST', body });
-    const log = document.getElementById('backup-progress-log');
-    if (log) log.innerText += '\n[Stop requested]\n';
-  } catch (_) {
-    alert('Failed to request stop');
-  }
-}
-
-function hideBackupProgressModal() {
-  if (window.PiHerderPoll) window.PiHerderPoll.stop('backup-progress');
-  const modal = document.getElementById('backup-progress-modal');
-  if (modal) {
-    modal.classList.remove('flex');
-    modal.classList.add('hidden');
-    const logEl = modal.querySelector('#backup-progress-log');
-    if (logEl) delete logEl.dataset.lastTs;
-  }
-  if (backupModalWasOpen) {
-    backupModalWasOpen = false;
-    const url = new URL(window.location.href);
-    url.searchParams.delete('backup_log');
-    url.searchParams.delete('source');
-    url.searchParams.delete('job_id');
-    window.location.replace(url.pathname + url.search + url.hash);
-  }
-}
 
 function showOsPatchProgressModal() {
   const modal = document.getElementById('os-patch-progress-modal');
@@ -1043,29 +862,7 @@ function computeUsableSummary(drives) {
   </div>
 </div>
 
-<!-- Backup Progress Modal -->
-<div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="modal-content card p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
-    <!-- Buttons on top -->
-    <div class="flex justify-between items-center mb-2 flex-shrink-0">
-      <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
-      <div class="flex gap-1">
-        <button id="progress-stop-btn" class="text-xs px-2 py-1 btn btn-danger rounded">Stop</button>
-        <button onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
-      </div>
-    </div>
-    <div id="backup-current-source" class="text-sm mb-1 text-accent font-mono min-h-[1.25rem] flex-shrink-0"></div>
-    <!-- Label above logs -->
-    <div class="text-xs text-muted mb-1 flex-shrink-0">Live output (updates every 4s while modal is open)</div>
-    <!-- Logs in middle -->
-    <pre id="backup-progress-log" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded">Starting...</pre>
-    <!-- Description on bottom -->
-    <p class="text-[10px] text-muted mt-2 flex-shrink-0">
-      rsync uses size+mtime to skip unchanged files (delta). With --delete it mirrors exactly.
-      It will still scan everything. Current source shown above. Full details in container logs.
-    </p>
-  </div>
-</div>
+<!-- Backup progress modal is shared in base.html (PiHerderProgress) -->
 
 <!-- Remove Backup Source Confirmation Modal -->
 <div id="remove-backup-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
