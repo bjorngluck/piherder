@@ -13,7 +13,6 @@ services:
     volumes:
       - ~/backup:/backups
       - ./piherder_backups:/herder_backups
-      - ./app:/app/app
     depends_on:
       - db
       - redis
@@ -55,7 +54,6 @@ services:
     volumes:
       - ~/backup:/backups
       - ./piherder_backups:/herder_backups
-      - ./app:/app/app
     depends_on:
       - db
       - redis

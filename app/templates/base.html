@@ -122,6 +122,32 @@
       .mobile-hamburger { display: block !important; }
     }
 
+    /* Clean mobile slide-out menu (vanilla, no dep on Tailwind runtime) */
+    #mobile-menu-panel {
+      box-shadow: -8px 0 30px rgba(0,0,0,0.12);
+    }
+    .dark #mobile-menu-panel {
+      box-shadow: -8px 0 30px rgba(0,0,0,0.4);
+    }
+    #mobile-menu-panel.open {
+      transform: translateX(0) !important;
+    }
+    #mobile-menu-panel.open ~ #mobile-menu-backdrop,
+    #mobile-menu-backdrop.open {
+      display: block !important;
+    }
+    .mobile-menu-link {
+      color: var(--color-text);
+      transition: background-color .1s ease, color .1s ease;
+    }
+    .mobile-menu-link:hover {
+      background-color: var(--color-bg);
+      color: var(--color-primary);
+    }
+    .mobile-menu-link.text-danger:hover {
+      background-color: var(--color-bg);
+    }
+
     .overflow-auto { overflow: auto; }
     .overflow-x-auto { overflow-x: auto; }
     .overflow-hidden { overflow: hidden; }
@@ -173,24 +199,48 @@
       </div>
 
       <!-- Right side: hamburger (mobile only) + avatar.
-           Hamburger shown ONLY on mobile (<768px).
-           Desktop nav above shown ONLY on desktop.
-           The CSS rules in the <style> block below guarantee exactly ONE of the two is ever visible. -->
+           SINGLE SOURCE in base.html only. Every page that extends base gets this.
+           Mobile: clean slide-out panel (from right) with full 7 links.
+           Desktop: horizontal nav (4 links). -->
       <div class="flex items-center gap-x-1 flex-shrink-0">
         {% if user %}
-        <!-- Hamburger (mobile only, pure <details>, no Alpine) -->
-        <details id="nav-hamburger" class="mobile-menu mobile-hamburger relative">
-          <summary class="flex items-center justify-center w-9 h-9 cursor-pointer list-none select-none rounded hover:bg-surface transition-colors text-xl leading-none text-muted"
-                   aria-label="Menu">
-            ☰
-          </summary>
-          <div class="absolute right-0 mt-2 w-44 bg-surface border border-border rounded shadow-lg z-[99999] py-1 text-sm">
-            <a href="/" onclick="this.closest('details').open=false" class="block px-3 py-1.5 hover:bg-bg text-text {{ 'font-semibold text-primary' if current_path == '/' else '' }}">Dashboard</a>
-            <a href="/servers" onclick="this.closest('details').open=false" class="block px-3 py-1.5 hover:bg-bg text-text {{ 'font-semibold text-primary' if current_path.startswith('/servers') else '' }}">Servers</a>
-            <a href="/audit" onclick="this.closest('details').open=false" class="block px-3 py-1.5 hover:bg-bg text-text {{ 'font-semibold text-primary' if current_path.startswith('/audit') else '' }}">Audit</a>
-            <a href="/herder-backups" onclick="this.closest('details').open=false" class="block px-3 py-1.5 hover:bg-bg text-text {{ 'font-semibold text-primary' if current_path.startswith('/herder') else '' }}">Settings</a>
+        <!-- Mobile-only hamburger trigger (hidden on desktop by CSS) -->
+        <button id="nav-hamburger-btn"
+                class="mobile-hamburger flex items-center justify-center w-9 h-9 cursor-pointer rounded hover:bg-surface transition-colors text-xl leading-none text-muted"
+                aria-label="Open menu"
+                aria-expanded="false">
+          ☰
+        </button>
+
+        <!-- Slide-out menu + backdrop (controlled by vanilla JS below, works with or without Alpine/HTMX) -->
+        <div id="mobile-menu-backdrop" class="hidden fixed inset-0 bg-black/40 z-[99998]"></div>
+        <div id="mobile-menu-panel"
+             class="hidden fixed top-0 right-0 h-full max-w-[260px] bg-surface border-l border-border shadow-2xl z-[99999] flex flex-col overflow-y-auto"
+             style="width: 78%; max-width: 260px; transition: transform 0.25s ease; transform: translateX(100%);">
+          <div class="px-4 py-4 border-b border-border flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <img src="/static/images/piherder-logo-small.png" alt="" class="h-6 w-auto">
+              <span class="font-semibold tracking-tighter">PiHerder</span>
+            </div>
+            <button id="mobile-menu-close" class="text-2xl leading-none text-muted hover:text-text px-2" aria-label="Close menu">×</button>
           </div>
-        </details>
+
+          <div class="py-2 text-sm">
+            <a href="/" class="mobile-menu-link block px-4 py-3 {{ 'font-semibold text-primary bg-accent-subtle' if current_path == '/' else '' }}">Dashboard</a>
+            <a href="/servers" class="mobile-menu-link block px-4 py-3 {{ 'font-semibold text-primary bg-accent-subtle' if current_path.startswith('/servers') else '' }}">Servers</a>
+            <a href="/audit" class="mobile-menu-link block px-4 py-3 {{ 'font-semibold text-primary bg-accent-subtle' if current_path.startswith('/audit') else '' }}">Audit</a>
+            <a href="/herder-backups" class="mobile-menu-link block px-4 py-3 {{ 'font-semibold text-primary bg-accent-subtle' if current_path.startswith('/herder') else '' }}">Settings</a>
+
+            <div class="my-2 border-t border-border"></div>
+
+            <a href="/auth/account" class="mobile-menu-link block px-4 py-3">Account</a>
+            <a href="#" class="mobile-menu-link block px-4 py-3" onclick="toggleThemeFromMenu(this); closeMobileMenu(); return false;">Toggle theme</a>
+
+            <div class="my-2 border-t border-border"></div>
+
+            <a href="/auth/logout" class="mobile-menu-link block px-4 py-3 text-danger">Sign out</a>
+          </div>
+        </div>
 
         <!-- Avatar + account menu. This is the only menu on desktop.
              On mobile it sits to the right of the hamburger. -->
@@ -233,7 +283,7 @@
     <span class="text-[10px] text-muted">Zero plaintext secrets • All actions audited</span>
   </footer>
 
-  <!-- Theme handling (controlled from inside the user avatar menu) -->
+  <!-- Theme + Mobile Hamburger (slide-out) handling. All in base.html only. -->
   <script>
     const html = document.documentElement;
 
@@ -246,44 +296,72 @@
       localStorage.setItem('theme', theme);
     }
 
-    // Single toggle: flips between light and dark.
-    // Closes the dropdown after use.
     window.toggleThemeFromMenu = function(btn) {
       const isDark = html.classList.contains('dark');
       setTheme(isDark ? 'light' : 'dark');
+      // close any open account details if present
       const details = btn && btn.closest ? btn.closest('details') : null;
       if (details) details.open = false;
     };
 
-    // Enforce design rule: only ONE of hamburger or account menu can be open at a time.
-    function setupExclusiveMenus() {
-      const hamburger = document.getElementById('nav-hamburger');
-      const account = document.getElementById('user-account');
+    // Vanilla JS slide-out mobile menu (no Alpine required, works everywhere)
+    function initMobileMenu() {
+      const btn = document.getElementById('nav-hamburger-btn');
+      const panel = document.getElementById('mobile-menu-panel');
+      const backdrop = document.getElementById('mobile-menu-backdrop');
+      const closeBtn = document.getElementById('mobile-menu-close');
 
-      function closeOther(current) {
-        if (current === hamburger && account && account.open) account.open = false;
-        if (current === account && hamburger && hamburger.open) hamburger.open = false;
+      if (!btn || !panel || !backdrop) return;
+
+      function open() {
+        panel.classList.remove('hidden');
+        backdrop.classList.remove('hidden');
+        // force reflow then animate
+        void panel.offsetWidth;
+        panel.classList.add('open');
+        backdrop.classList.add('open');
+        btn.setAttribute('aria-expanded', 'true');
+        document.body.style.overflow = 'hidden';
       }
 
-      if (hamburger) {
-        hamburger.addEventListener('toggle', function() {
-          if (hamburger.open) closeOther(hamburger);
-        });
+      function close() {
+        panel.classList.remove('open');
+        backdrop.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+        document.body.style.overflow = '';
+        setTimeout(() => {
+          panel.classList.add('hidden');
+          backdrop.classList.add('hidden');
+        }, 260);
       }
-      if (account) {
-        account.addEventListener('toggle', function() {
-          if (account.open) closeOther(account);
+
+      window.closeMobileMenu = close;
+
+      btn.addEventListener('click', open);
+      if (closeBtn) closeBtn.addEventListener('click', close);
+      backdrop.addEventListener('click', close);
+
+      // Close on escape
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && !panel.classList.contains('hidden')) close();
+      });
+
+      // Auto-close when clicking any menu link (navigation will happen)
+      panel.querySelectorAll('a').forEach(function(link) {
+        link.addEventListener('click', function() {
+          // small delay so navigation can start
+          setTimeout(close, 50);
         });
-      }
+      });
     }
 
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', setupExclusiveMenus);
+      document.addEventListener('DOMContentLoaded', initMobileMenu);
     } else {
-      setupExclusiveMenus();
+      initMobileMenu();
     }
 
-    // Apply saved or default
+    // Apply saved or default theme
     let saved = localStorage.getItem('theme');
     if (!saved) saved = 'light';
     setTheme(saved);
