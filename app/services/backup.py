@@ -119,8 +119,8 @@ def _send_webhook(message: str):
         pass  # never break the backup on notification failure
 
 # All configured backup sources run rsync via passwordless sudo on the target host.
-# Roadmap (SPEC.md § Server onboarding wizard): per-server allow/deny path rules before rsync;
-# guided remote setup for key auth, least-privilege backup user + sudoers, and key rotation.
+# SSH onboarding (deploy key / least-priv user / rotate): app/services/ssh_onboarding.py.
+# Still open (SPEC): per-server backup path allow/deny rules before rsync.
 _RSYNC_SUDO = ("sudo", "-n")
 _RSYNC_REMOTE_PATH = "sudo -n rsync"
 

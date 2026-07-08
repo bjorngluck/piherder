@@ -1,12 +1,12 @@
 # Feature Plan: IAM, 2FA, Update Schedules & Notifications
 
-> **Status:** Design for review (not implemented)  
-> **Date:** 2026-07-08  
+> **Status:** Implemented (2026-07)  
+> **Date:** 2026-07-08 (design); implemented same week  
 > **Related:** [SPEC.md](../SPEC.md) Phase 2–3
 
 ## Context
 
-PiHerder is a self-hosted fleet manager (FastAPI + SQLModel + Jinja/HTMX + APScheduler + Celery). Phase 1 is largely complete: backups with cron, OS/container patching (manual), audit log, JWT auth, and a **stub** account page.
+PiHerder is a self-hosted fleet manager (FastAPI + SQLModel + Jinja/HTMX + APScheduler + Celery). Phase 1 is largely complete: backups with cron, OS/container patching (manual), audit log, JWT auth. This plan’s five areas are **shipped** (profile/IAM, optional 2FA, OS/container check schedules, notifications, plus fleet dashboard polish).
 
 This plan covers five related product areas already hinted in `SPEC.md` (Phase 2–3):
 
@@ -602,15 +602,17 @@ Call from backup-config and new schedule endpoints.
 
 ---
 
-## Docs & git for review
+## Implementation status
 
-This document is the committed design for review. Companion updates:
+All five product areas from this plan are implemented in tree. Companion docs:
 
-1. This file under `docs/`
-2. `SPEC.md` Phase 2–3 checkboxes + links
-3. `README.md` link to this plan
+1. This file under `docs/` (design + acceptance criteria retained as reference)
+2. `SPEC.md` Phase 2–3 checkboxes marked complete where applicable
+3. `README.md` feature list and onboarding notes
 
-Optional next: open GitHub issues / Project cards from PR1–PR5 titles.
+**Still out of scope (as planned):** full RBAC, multi-tenant orgs, email/Slack channel matrix UI, scheduled auto-apply of patches.
+
+Optional next: open GitHub issues / Project cards from remaining unchecked SPEC Phase 2–4 items.
 
 ---
 

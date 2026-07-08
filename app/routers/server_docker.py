@@ -24,7 +24,7 @@ router = APIRouter()
 
 @router.get("/{server_id}/docker", response_class=HTMLResponse)
 async def docker_page(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
-
+    """Shell-first: return page chrome immediately. Stack data loads via HTMX fragment (SSH)."""
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -32,31 +32,11 @@ async def docker_page(server_id: int, request: Request, session: Session = Depen
         import app.services.docker_management as _dm
         if request.query_params.get("nocache"):
             _dm._CACHE.clear()
-    except:
+    except Exception:
         pass
 
-    try:
-        containers = docker_svc.list_containers(server)
-    except Exception as e:
-        containers = [{
-            "id": "",
-            "name": "error",
-            "image": "",
-            "version": "",
-            "status": str(e)[:300],
-            "state": "error",
-            "running": False,
-            "ports": [],
-            "ports_display": "—",
-            "created": "",
-            "command": "",
-        }]
-
-    try:
-        projects = docker_svc.list_compose_projects(server)
-    except Exception:
-        projects = []
-
+    # No SSH here — avoids 5–15s blank wait on the previous screen.
+    # docker.html shows a loading modal until stack-fragment swaps in.
     update_check = request.query_params.get("update_check")
     update_status = request.query_params.get("status")
     build_status = request.query_params.get("build_status")
@@ -67,15 +47,16 @@ async def docker_page(server_id: int, request: Request, session: Session = Depen
         context={
             "title": f"Docker - {server.name}",
             "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
-            "containers": containers,
-            "projects": projects,
+            "containers": [],
+            "projects": [],
+            "orphan_containers": [],
+            "docker_shell": True,
             "user": user,
             "update_check": update_check,
             "update_status": update_status,
-            "build_status": build_status
+            "build_status": build_status,
         }
     )
-    # Prevent browser caching of the dynamic docker management page (so UI changes to modals/logs are visible immediately)
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     resp.headers["Pragma"] = "no-cache"
     resp.headers["Expires"] = "0"
@@ -798,7 +779,7 @@ async def get_docker_logs(
 
 @router.get("/{server_id}/docker/containers-fragment", response_class=HTMLResponse)
 async def containers_fragment(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
-
+    """Legacy fragment: full containers table (kept for compatibility)."""
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -806,12 +787,12 @@ async def containers_fragment(server_id: int, request: Request, session: Session
         import app.services.docker_management as _dm
         if request.query_params.get("nocache"):
             _dm._CACHE.clear()
-    except:
+    except Exception:
         pass
 
     try:
         interval = max(60, int(request.query_params.get("refresh", "120")))
-    except:
+    except Exception:
         interval = 120
 
     try:
@@ -823,6 +804,47 @@ async def containers_fragment(server_id: int, request: Request, session: Session
         request=request,
         name="docker_containers_table.html",
         context={"server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}), "containers": containers, "refresh": interval}
+    )
+
+
+@router.get("/{server_id}/docker/stack-fragment", response_class=HTMLResponse)
+async def stack_fragment(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+    """Compose + nested services list for HTMX auto-refresh."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        import app.services.docker_management as _dm
+        if request.query_params.get("nocache"):
+            _dm._CACHE.clear()
+    except Exception:
+        pass
+
+    try:
+        interval = max(60, int(request.query_params.get("refresh", "120")))
+    except Exception:
+        interval = 120
+
+    try:
+        containers = docker_svc.list_containers(server)
+    except Exception as e:
+        containers = [{"name": "error", "status": str(e)[:300], "running": False, "image": "", "version": "", "ports_display": "—"}]
+    try:
+        projects = docker_svc.list_compose_projects(server)
+    except Exception:
+        projects = []
+    projects, orphan_containers = docker_svc.nest_containers_under_projects(projects, containers)
+
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="docker_stack.html",
+        context={
+            "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
+            "projects": projects,
+            "orphan_containers": orphan_containers,
+            "refresh": interval,
+            "docker_shell": False,
+        },
     )
 
 

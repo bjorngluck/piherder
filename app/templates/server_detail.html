@@ -13,106 +13,173 @@
   </div>
   <div class="page-header-actions">
     <button type="button" onclick="showEditServerModal()" class="btn btn-secondary min-h-11">Edit</button>
-    {% if server.ssh_public_key %}
-    <button type="button" onclick="showSshKeyModal()" class="btn btn-secondary min-h-11" title="View/copy the SSH public key for initial setup">SSH key</button>
-    {% endif %}
+    <button type="button" onclick="showSshAccessModal()" class="btn btn-secondary min-h-11" title="Deploy key, rotate, test connection">SSH access</button>
     <button type="button" onclick="showSystemInfoModal()" class="btn btn-secondary min-h-11">System info</button>
   </div>
 </div>
 
-<!-- SSH Key Modal -->
-<div id="ssh-key-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="modal-content card p-6 w-full max-w-2xl mx-4">
+<!-- SSH Access / onboarding modal -->
+<div id="ssh-access-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between mb-3">
-      <h3 class="font-semibold">SSH Public Key for {{ server.name }}</h3>
-      <button type="button" onclick="hideSshKeyModal()" class="text-muted hover:text-text">✕</button>
+      <h3 class="font-semibold">SSH access — {{ server.name }}</h3>
+      <button type="button" onclick="hideSshAccessModal()" class="text-muted hover:text-text">✕</button>
     </div>
-    <p class="text-xs text-muted mb-2">Copy this and add to <code>~/.ssh/authorized_keys</code> on the target host.</p>
-
-    <textarea id="modal-pubkey" readonly
-              class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-40 resize-y">{{ server.ssh_public_key or '' }}</textarea>
-
-    <div class="flex gap-2 mt-3">
-      <button type="button" onclick="copyModalPubKey(this)"
-              class="px-4 py-1.5 btn btn-accent rounded text-sm">Copy to clipboard</button>
-      <button type="button" onclick="selectModalPubKey()"
-              class="px-3 py-1.5 btn btn-secondary rounded text-sm">Select All</button>
-      <button type="button" onclick="hideSshKeyModal()"
-              class="px-4 py-1.5 btn btn-secondary rounded text-sm ml-auto">Close</button>
-    </div>
-    <p class="text-[10px] text-muted mt-2">
-      Key is only visible while this modal is open.
-      If the Copy button does nothing, use <strong>Select All</strong> then Ctrl+C (or Cmd+C).
+    <p class="text-xs text-muted mb-3">
+      {{ server.ssh_username }}@{{ server.hostname }}:{{ server.ssh_port }}
+      · {% if server.has_ssh_key %}key stored{% else %}<span class="text-warning">no private key</span>{% endif %}
+      · {% if server.has_ssh_password %}password stored{% else %}no password{% endif %}
     </p>
+
+    <div class="flex flex-wrap gap-2 mb-4">
+      <form method="post" action="/servers/{{ server.id }}/ssh/test">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Test connection</button>
+      </form>
+      {% if not server.has_ssh_key %}
+      <form method="post" action="/servers/{{ server.id }}/ssh/generate-key">
+        <button type="submit" class="btn btn-accent min-h-11 text-sm">Generate keypair</button>
+      </form>
+      {% else %}
+      <button type="button" onclick="document.getElementById('ssh-deploy-panel').classList.toggle('hidden')" class="btn btn-accent min-h-11 text-sm">Deploy key</button>
+      <button type="button" onclick="document.getElementById('ssh-rotate-panel').classList.toggle('hidden')" class="btn btn-secondary min-h-11 text-sm">Rotate key</button>
+      {% endif %}
+      <button type="button" onclick="document.getElementById('ssh-provision-panel').classList.toggle('hidden')" class="btn btn-secondary min-h-11 text-sm">Least-priv user</button>
+    </div>
+
+    <div id="ssh-deploy-panel" class="hidden border border-border rounded p-3 mb-3 space-y-2">
+      <div class="text-sm font-medium">Deploy public key</div>
+      <p class="text-xs text-muted">Connects with password (or existing key), installs this host’s public key into <code>authorized_keys</code>, then verifies key-only login.</p>
+      <form method="post" action="/servers/{{ server.id }}/ssh/deploy-key" class="space-y-2">
+        <input type="password" name="ssh_password" placeholder="One-time password if key not working yet" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11" autocomplete="off">
+        <label class="flex items-center gap-2 text-xs min-h-11">
+          <input type="checkbox" name="store_password" value="1"> Store password (encrypted) for later
+        </label>
+        <label class="flex items-center gap-2 text-xs min-h-11">
+          <input type="checkbox" name="clear_password_after" value="1" {% if server.has_ssh_password %}checked{% endif %}> Clear stored password after successful deploy
+        </label>
+        <button type="submit" class="btn btn-accent min-h-11 text-sm" {% if not server.has_ssh_key %}disabled title="Generate or upload a key first"{% endif %}>Deploy &amp; verify</button>
+      </form>
+    </div>
+
+    <div id="ssh-rotate-panel" class="hidden border border-border rounded p-3 mb-3 space-y-2">
+      <div class="text-sm font-medium text-warning">Rotate SSH keypair</div>
+      <p class="text-xs text-muted">Generates a new key, installs it, verifies login, updates PiHerder, then removes the old public key. Type <code>rotate</code> to confirm.</p>
+      <form method="post" action="/servers/{{ server.id }}/ssh/rotate-key" class="space-y-2" onsubmit="return confirm('Rotate SSH key for {{ server.name }}? Old key will stop working after success.');">
+        <input type="password" name="ssh_password" placeholder="Password only if current key cannot connect" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11" autocomplete="off">
+        <input name="confirm" required placeholder="type: rotate" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Rotate key</button>
+      </form>
+    </div>
+
+    <div id="ssh-provision-panel" class="hidden border border-border rounded p-3 mb-3 space-y-2">
+      <div class="text-sm font-medium">Least-privilege user</div>
+      <p class="text-xs text-muted">
+        Phase 1 targets <strong>Debian / Raspberry Pi OS / Ubuntu</strong> (useradd, docker group, sudoers + <code>visudo -cf</code>).
+        HAOS and other systems: use copy-paste guidance below — not automated.
+      </p>
+      <form method="post" action="/servers/{{ server.id }}/ssh/provision-user" class="space-y-2">
+        <div>
+          <label class="block text-xs text-muted mb-1">Username</label>
+          <input name="new_username" value="piherder" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+        </div>
+        <label class="flex items-center gap-2 text-xs"><input type="checkbox" name="include_backup" value="1" checked> Backup sudo (rsync / test)</label>
+        <label class="flex items-center gap-2 text-xs"><input type="checkbox" name="include_docker" value="1" {% if server.container_patch_enabled %}checked{% endif %}> Docker group</label>
+        <label class="flex items-center gap-2 text-xs"><input type="checkbox" name="include_os_patch" value="1" {% if server.os_patch_enabled %}checked{% endif %}> OS patch sudo (apt / reboot)</label>
+        <input type="password" name="ssh_password" placeholder="Password if needed to connect" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11" autocomplete="off">
+        <div class="flex flex-wrap gap-2">
+          <button type="submit" name="run_on_host" value="1" class="btn btn-accent min-h-11 text-sm"
+                  onclick="return confirm('Create least-priv user on {{ server.name }} and re-point SSH username? Requires sudo on the host (Pi OS / Ubuntu).');">
+            Run on host
+          </button>
+        </div>
+      </form>
+      <p class="text-[10px] text-muted">Copy-paste script (always available) is below. Review before running.</p>
+    </div>
+
+    {% if server.has_real_public_key or server.ssh_public_key %}
+    <div class="border-t border-border pt-3 mt-2">
+      <div class="text-sm font-medium mb-1">Public key</div>
+      <textarea id="modal-pubkey" readonly
+                class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-24 resize-y">{{ server.ssh_public_key or '' }}</textarea>
+      <div class="flex gap-2 mt-2">
+        <button type="button" onclick="copyTextFrom('modal-pubkey', this)" class="btn btn-secondary text-sm min-h-11">Copy key</button>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if key_install_script %}
+    <div class="border-t border-border pt-3 mt-3">
+      <div class="text-sm font-medium mb-1">Manual install script</div>
+      <p class="text-xs text-muted mb-1">Run on the target host if Deploy is not possible.</p>
+      <textarea id="key-install-script" readonly class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-32 resize-y">{{ key_install_script }}</textarea>
+      <button type="button" onclick="copyTextFrom('key-install-script', this)" class="btn btn-secondary text-sm min-h-11 mt-2">Copy script</button>
+    </div>
+    {% endif %}
+
+    {% if least_priv_script %}
+    <div class="border-t border-border pt-3 mt-3">
+      <div class="text-sm font-medium mb-1">Least-priv script (Pi OS / Ubuntu)</div>
+      <textarea id="least-priv-script" readonly class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-36 resize-y">{{ least_priv_script }}</textarea>
+      <button type="button" onclick="copyTextFrom('least-priv-script', this)" class="btn btn-secondary text-sm min-h-11 mt-2">Copy script</button>
+    </div>
+    {% endif %}
+
+    <div class="border-t border-border pt-3 mt-3">
+      <div class="text-sm font-medium mb-1">HAOS / specialised systems</div>
+      <pre class="text-[10px] text-muted whitespace-pre-wrap font-mono code-surface border border-border p-2 rounded">{{ haos_guidance }}</pre>
+    </div>
+
+    <div class="flex mt-4">
+      <button type="button" onclick="hideSshAccessModal()" class="btn btn-secondary min-h-11 text-sm ml-auto">Close</button>
+    </div>
   </div>
 </div>
 
+<!-- Legacy id for showSshKeyModal compatibility -->
+<div id="ssh-key-modal" class="hidden" aria-hidden="true"></div>
+
 <script>
-function showSshKeyModal() {
-  const modal = document.getElementById('ssh-key-modal');
+function showSshAccessModal() {
+  const modal = document.getElementById('ssh-access-modal');
   if (!modal) return;
   fetch('/servers/{{ server.id }}/audit/ssh-key-viewed', { method: 'POST' }).catch(() => {});
   modal.classList.remove('hidden');
   modal.classList.add('flex');
-  setTimeout(() => {
-    const ta = document.getElementById('modal-pubkey');
-    if (ta) {
-      ta.focus();
-      ta.select();
-    }
-  }, 50);
 }
-
-function hideSshKeyModal() {
-  const modal = document.getElementById('ssh-key-modal');
+function showSshKeyModal() { showSshAccessModal(); }
+function hideSshAccessModal() {
+  const modal = document.getElementById('ssh-access-modal');
   if (modal) {
     modal.classList.remove('flex');
     modal.classList.add('hidden');
   }
 }
+function hideSshKeyModal() { hideSshAccessModal(); }
 
-function execCommandCopy(btn, text, original) {
-  const ta = document.getElementById('modal-pubkey');
-  if (!ta) {
-    btn.disabled = false;
-    return;
-  }
-  ta.focus();
-  ta.select();
-  try {
-    const ok = document.execCommand('copy');
-    btn.innerText = ok ? 'Copied!' : 'Select All, then Ctrl+C';
-  } catch (_) {
-    btn.innerText = 'Select All, then Ctrl+C';
-  }
-  setTimeout(() => {
-    btn.innerText = original;
-    btn.disabled = false;
-  }, 1400);
-}
-
-function copyModalPubKey(btn) {
-  const ta = document.getElementById('modal-pubkey');
+function copyTextFrom(id, btn) {
+  const ta = document.getElementById(id);
   if (!ta || !ta.value) return;
   const text = ta.value;
   const original = btn.innerText;
   btn.disabled = true;
+  const done = (ok) => {
+    btn.innerText = ok ? 'Copied!' : 'Select + Ctrl+C';
+    setTimeout(() => { btn.innerText = original; btn.disabled = false; }, 1400);
+  };
   if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(text).then(() => {
-      btn.innerText = 'Copied!';
-      setTimeout(() => {
-        btn.innerText = original;
-        btn.disabled = false;
-      }, 1400);
-    }).catch(() => execCommandCopy(btn, text, original));
+    navigator.clipboard.writeText(text).then(() => done(true)).catch(() => {
+      ta.focus(); ta.select();
+      try { done(document.execCommand('copy')); } catch (_) { done(false); }
+    });
     return;
   }
-  execCommandCopy(btn, text, original);
+  ta.focus(); ta.select();
+  try { done(document.execCommand('copy')); } catch (_) { done(false); }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
   {% if show_ssh_key and server.ssh_public_key %}
-  showSshKeyModal();
+  showSshAccessModal();
   {% endif %}
 });
 </script>
@@ -146,6 +213,30 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm flex flex-wrap items-center gap-2">
   <span>⏻</span>
   <strong>Reboot command sent.</strong> The server is restarting. Refresh this page in a minute or two.
+</div>
+{% endif %}
+
+{% if flash_msg %}
+<div class="mb-4 p-3 banner-success border border-border rounded text-sm">
+  {% if flash_msg == 'ssh_ok' %}<strong>SSH connection OK.</strong>
+  {% elif flash_msg == 'key_deployed' %}<strong>SSH key deployed</strong> and key-only login verified. You can clear any stored password if you have not already.
+  {% elif flash_msg == 'key_rotated' %}<strong>SSH key rotated</strong> successfully. Old public key removed when possible.
+  {% elif flash_msg == 'user_provisioned' %}<strong>Least-priv user provisioned</strong> and SSH username updated. Confirm backups/docker still work.
+  {% elif flash_msg == 'provision_script' %}Use the <strong>SSH access</strong> panel to copy the least-priv script.
+  {% elif flash_msg == 'server_added' %}<strong>Server added.</strong> Open <strong>SSH access</strong> to deploy the public key or copy the install script.
+  {% elif flash_msg == 'key_generated' %}<strong>Keypair generated.</strong> Use <strong>Deploy key</strong> (with password if needed) or the install script.
+  {% else %}{{ flash_msg }}{% endif %}
+</div>
+{% endif %}
+{% if flash_error %}
+<div class="mb-4 p-3 banner-warning border border-border rounded text-sm">
+  {% if flash_error == 'ssh_fail' %}<strong>SSH test failed.</strong>
+  {% elif flash_error == 'key_deploy_fail' %}<strong>Key deploy failed.</strong>
+  {% elif flash_error == 'key_rotate_fail' %}<strong>Key rotation failed.</strong> Previous key left in place.
+  {% elif flash_error == 'key_rotate_confirm' %}<strong>Rotation cancelled.</strong> Type <code>rotate</code> in the confirm field.
+  {% elif flash_error == 'provision_fail' %}<strong>Least-priv provision failed.</strong>
+  {% else %}<strong>{{ flash_error }}</strong>{% endif %}
+  {% if flash_detail %}<span class="block text-xs mt-1 font-mono break-all">{{ flash_detail }}</span>{% endif %}
 </div>
 {% endif %}
 
@@ -384,51 +475,47 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 </script>
 
-{# Update checks (check-only schedules — never auto-apply) #}
-<div class="card p-5 mb-6">
-  <h2 class="font-semibold text-text mb-1">Update checks</h2>
-  <p class="text-xs text-muted mb-4">Schedules only <strong>detect</strong> updates and raise notifications. Apply patches manually above.</p>
+{# Update checks — schedule only; run check/patch via ⋯ above #}
+<div class="card p-4 sm:p-5 mb-6">
+  <h2 class="font-semibold text-text mb-1">Update check schedules</h2>
+  <p class="text-xs text-muted mb-3">
+    Check-only (detect + notify). Run a check or apply a patch from the <strong>⋯</strong> menu above.
+  </p>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
     <div class="border border-border rounded p-3 space-y-2">
       <div class="font-medium text-sm">OS packages (apt)</div>
-      <p class="text-xs text-muted">
-        {% if server.last_os_check_at %}Last check {{ server.last_os_check_at | app_tz }} ·
+      <p class="text-xs text-muted mb-0">
+        {% if server.last_os_check_at %}Last {{ server.last_os_check_at | app_tz }} ·
         {% else %}Never checked · {% endif %}
         {% if server.os_updates_count is not none %}{{ server.os_updates_count }} upgradable{% else %}—{% endif %}
       </p>
-      <form method="post" action="/servers/{{ server.id }}/check/os-updates" class="mb-2">
-        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full">Check OS updates now</button>
-      </form>
       <form method="post" action="/servers/{{ server.id }}/schedule/os-check" class="space-y-2">
-        <label class="flex items-center gap-2 text-sm">
+        <label class="flex items-center gap-2 text-sm min-h-11">
           <input type="checkbox" name="os_check_enabled" value="1" {% if server.os_check_enabled %}checked{% endif %}>
           Enable schedule
         </label>
         <input type="text" name="os_check_schedule" value="{{ server.os_check_schedule or '0 0 * * *' }}" placeholder="0 0 * * *"
-               class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs min-h-11">
+               class="w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
         <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save OS schedule</button>
       </form>
     </div>
 
     <div class="border border-border rounded p-3 space-y-2">
       <div class="font-medium text-sm">Container images</div>
-      <p class="text-xs text-muted">
-        {% if server.last_container_check_at %}Last check {{ server.last_container_check_at | app_tz }} ·
+      <p class="text-xs text-muted mb-0">
+        {% if server.last_container_check_at %}Last {{ server.last_container_check_at | app_tz }} ·
         {% else %}Never checked · {% endif %}
         {% if server.container_updates_count is not none %}{{ server.container_updates_count }} project(s){% else %}—{% endif %}
       </p>
-      <p class="text-[10px] text-muted">Pulls new layers if available; does <strong>not</strong> recreate containers.</p>
-      <form method="post" action="/servers/{{ server.id }}/check/container-updates" class="mb-2">
-        <button type="submit" class="btn btn-secondary min-h-11 text-sm w-full">Check container updates now</button>
-      </form>
+      <p class="text-[10px] text-muted">Pull compares layers; does not recreate containers.</p>
       <form method="post" action="/servers/{{ server.id }}/schedule/container-check" class="space-y-2">
-        <label class="flex items-center gap-2 text-sm">
+        <label class="flex items-center gap-2 text-sm min-h-11">
           <input type="checkbox" name="container_check_enabled" value="1" {% if server.container_check_enabled %}checked{% endif %}>
           Enable schedule
         </label>
         <input type="text" name="container_check_schedule" value="{{ server.container_check_schedule or '0 0 * * *' }}" placeholder="0 0 * * *"
-               class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs min-h-11">
+               class="w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
         <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save container schedule</button>
       </form>
     </div>
@@ -493,16 +580,14 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
       </div>
 
-      {% if server.ssh_public_key %}
       <div class="border-t border-border pt-3 text-xs">
         <button type="button"
-                onclick="hideEditServerModal(); showSshKeyModal();"
+                onclick="hideEditServerModal(); showSshAccessModal();"
                 class="px-3 py-1 btn btn-secondary rounded">
-          View / Copy SSH Public Key
+          SSH access (deploy / rotate / scripts)
         </button>
-        <span class="ml-2 text-muted">(needed for initial authorized_keys setup on the target)</span>
+        <span class="ml-2 text-muted">Deploy key, test connection, least-priv user</span>
       </div>
-      {% endif %}
 
       <div class="flex gap-2 pt-2">
         <button type="submit" class="px-4 py-1.5 btn btn-accent rounded text-sm">Save Changes</button>

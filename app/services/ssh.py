@@ -5,10 +5,7 @@ SSH service using paramiko.
 - In-memory decrypt + connect (never store plaintext key on disk except very short-lived temp files for rsync)
 - Helpers matching legacy bash SSH_OPTS
 
-Roadmap (SPEC.md § Server onboarding wizard):
-- Deploy generated public key via password session when key auth is not yet present.
-- Provision least-privilege backup user (+ docker group / sudoers for rsync) on remote host.
-- Rotate SSH keypair: deploy new pubkey, verify, swap encrypted key in DB, retire old pubkey.
+Onboarding (deploy key, rotate, least-priv user) lives in ``ssh_onboarding.py``.
 """
 import paramiko
 from io import StringIO
@@ -62,6 +59,20 @@ def temp_key_file(privkey_plain: str):
             pass
 
 
+def _load_pkey(priv: str) -> paramiko.PKey:
+    """Load RSA / Ed25519 / ECDSA private key material."""
+    buf = StringIO(priv)
+    last_err: Exception | None = None
+    for cls in (paramiko.RSAKey, paramiko.Ed25519Key, paramiko.ECDSAKey):
+        try:
+            buf.seek(0)
+            return cls.from_private_key(buf)
+        except Exception as e:
+            last_err = e
+            continue
+    raise RuntimeError(f"Could not load private key: {last_err}")
+
+
 def get_ssh_client(server: Server) -> paramiko.SSHClient:
     """Create and connect an SSHClient. Caller must .close() or use context."""
     client = paramiko.SSHClient()
@@ -70,7 +81,7 @@ def get_ssh_client(server: Server) -> paramiko.SSHClient:
     pkey = None
     if server.ssh_private_key_encrypted:
         priv = get_private_key_plain(server)
-        pkey = paramiko.RSAKey.from_private_key(StringIO(priv))
+        pkey = _load_pkey(priv)
 
     try:
         client.connect(
@@ -83,6 +94,7 @@ def get_ssh_client(server: Server) -> paramiko.SSHClient:
             banner_timeout=SSH_OPTS["banner_timeout"],
             auth_timeout=SSH_OPTS["auth_timeout"],
             look_for_keys=False,
+            allow_agent=False,
         )
         return client
     except Exception as e:

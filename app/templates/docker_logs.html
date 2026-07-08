@@ -1,36 +1,46 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% set sid = server.id %}
+{% set docker_href = '/servers/' ~ sid ~ '/docker?nocache=1' %}
 <div class="max-w-6xl mx-auto">
-  <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-xs text-accent">← Docker</a>
+  <a href="{{ docker_href }}"
+     class="text-xs text-accent"
+     data-back-docker
+     data-nav-loading="Back to Docker…"
+     data-nav-loading-sub="Closing log stream…">← Docker</a>
 
   <h1 class="text-2xl font-semibold mt-2">Logs: <span class="font-mono">{{ container }}</span></h1>
 
   <!-- All buttons / controls grouped at top; logs underneath -->
   <div class="flex flex-wrap items-center gap-2 my-3">
-    <a href="/servers/{{ server.id }}/docker/logs/{{ container }}?lines=50" class="text-xs px-3 py-1 btn btn-secondary rounded">Last 50</a>
-    <a href="/servers/{{ server.id }}/docker/logs/{{ container }}?lines=200" class="text-xs px-3 py-1 btn btn-secondary rounded">Last 200</a>
-    <a href="/servers/{{ server.id }}/docker/logs/{{ container }}?lines=500" class="text-xs px-3 py-1 btn btn-secondary rounded">Last 500</a>
+    <a href="/servers/{{ sid }}/docker/logs/{{ container }}?lines=50" class="text-xs px-3 py-1 btn btn-secondary rounded">Last 50</a>
+    <a href="/servers/{{ sid }}/docker/logs/{{ container }}?lines=200" class="text-xs px-3 py-1 btn btn-secondary rounded">Last 200</a>
+    <a href="/servers/{{ sid }}/docker/logs/{{ container }}?lines=500" class="text-xs px-3 py-1 btn btn-secondary rounded">Last 500</a>
     <span class="mx-1 text-muted">|</span>
-    <button onclick="startLiveStream()" 
+    <button type="button" onclick="startLiveStream()"
             class="px-3 py-1 text-xs btn btn-accent rounded">
       ▶ Live Tail
     </button>
-    <button onclick="stopLiveStream()" 
+    <button type="button" onclick="stopLiveStream()"
             class="px-3 py-1 text-xs btn btn-secondary rounded">
       ■ Stop
     </button>
-    <button onclick="clearLogs()" 
+    <button type="button" onclick="clearLogs()"
             class="px-3 py-1 text-xs btn btn-secondary rounded">
       Clear
     </button>
-    <button onclick="toggleAutoScroll()" 
+    <button type="button" onclick="toggleAutoScroll()"
             id="autoscroll-btn"
             class="px-3 py-1 text-xs btn btn-secondary rounded">
       Auto-scroll: ON
     </button>
     <a href="?lines=500" class="px-3 py-1 text-xs btn btn-secondary rounded ml-auto">Reload static</a>
-    <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-xs px-3 py-1 btn btn-secondary rounded">← Back</a>
+    <a href="{{ docker_href }}"
+       class="text-xs px-3 py-1 btn btn-secondary rounded"
+       data-back-docker
+       data-nav-loading="Back to Docker…"
+       data-nav-loading-sub="Closing log stream…">← Back</a>
   </div>
 
   <!-- Logs area (middle) with description at bottom -->
@@ -73,6 +83,12 @@
         eventSource = null;
       }
     }
+
+    document.querySelectorAll('[data-back-docker]').forEach(function(a) {
+      a.addEventListener('click', function() {
+        stopLiveStream();
+      });
+    });
 
     function clearLogs() {
       document.getElementById('log-output').textContent = '';

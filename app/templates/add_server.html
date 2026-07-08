@@ -32,24 +32,27 @@
   <div class="pt-2 border-t border-border">
     <div class="font-medium mb-2 text-sm">Auth method <span class="text-muted font-normal">(keys recommended)</span></div>
     <label class="flex items-center gap-2 text-sm min-h-11">
-      <input type="radio" name="key_mode" value="generate" checked> Generate new keypair (recommended)
+      <input type="radio" name="key_mode" value="generate" checked onchange="toggleAuthFields()"> Generate new keypair (recommended)
     </label>
     <label class="flex items-center gap-2 text-sm min-h-11">
-      <input type="radio" name="key_mode" value="upload"> Upload private key
+      <input type="radio" name="key_mode" value="upload" onchange="toggleAuthFields()"> Upload private key
     </label>
     <label class="flex items-center gap-2 text-sm min-h-11 text-warning">
-      <input type="radio" name="key_mode" value="password"> Use password (discouraged)
+      <input type="radio" name="key_mode" value="password" onchange="toggleAuthFields()"> Use password only (discouraged)
     </label>
   </div>
 
-  <div>
-    <label class="block text-sm text-muted mb-1">Private key (only if uploading)</label>
+  <div id="upload-key-fields" class="hidden">
+    <label class="block text-sm text-muted mb-1">Private key</label>
     <textarea name="private_key" rows="8" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..." class="w-full font-mono text-xs code-surface border border-border p-3 rounded"></textarea>
   </div>
 
-  <div>
-    <label class="block text-sm text-muted mb-1 text-warning">Password (only if using password auth)</label>
-    <input type="password" name="ssh_password" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" placeholder="SSH password (encrypted at rest)">
+  <div id="password-fields">
+    <label class="block text-sm text-muted mb-1" id="password-label">Optional password <span class="text-muted font-normal">(for Deploy key)</span></label>
+    <input type="password" name="ssh_password" id="ssh_password" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" placeholder="SSH password (encrypted at rest)">
+    <p class="text-xs text-muted mt-1" id="password-hint">
+      With a generated key you can store a one-time password, then use <strong>Deploy key</strong> on the server page to install the public key. Clear the password after key auth works.
+    </p>
   </div>
 
   <div class="flex flex-wrap gap-2 pt-2">
@@ -59,7 +62,23 @@
 </form>
 
 <p class="mt-4 text-xs text-muted max-w-xl">
-  After adding you will see the public key to put into <code>~/.ssh/authorized_keys</code> on the target.
-  {# Roadmap (SPEC.md): wizard to deploy key via password, create piherder-backup user + sudoers, rotate keys #}
+  After adding: open <strong>SSH access</strong> on the server page to deploy the public key (password or copy-paste script), test the connection, or rotate keys later.
 </p>
+<script>
+function toggleAuthFields() {
+  const mode = (document.querySelector('input[name="key_mode"]:checked') || {}).value || 'generate';
+  const upload = document.getElementById('upload-key-fields');
+  const label = document.getElementById('password-label');
+  const hint = document.getElementById('password-hint');
+  if (upload) upload.classList.toggle('hidden', mode !== 'upload');
+  if (mode === 'password') {
+    if (label) label.innerHTML = 'Password <span class="text-warning font-normal">(required)</span>';
+    if (hint) hint.textContent = 'Password-only auth works for some jobs but backups need a private key for rsync. Prefer generate + deploy.';
+  } else {
+    if (label) label.innerHTML = 'Optional password <span class="text-muted font-normal">(for Deploy key)</span>';
+    if (hint) hint.innerHTML = 'With a key you can store a one-time password, then use <strong>Deploy key</strong> on the server page to install the public key. Clear the password after key auth works.';
+  }
+}
+document.addEventListener('DOMContentLoaded', toggleAuthFields);
+</script>
 {% endblock %}
