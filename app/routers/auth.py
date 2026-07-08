@@ -79,3 +79,21 @@ async def register(
             name="register.html",
             context={"title": "Register", "error": msg}
         )
+
+
+@router.get("/logout")
+async def logout():
+    """Clear auth cookie and return to login. (GET is acceptable for logout in this app.)"""
+    response = RedirectResponse("/auth/login", status_code=303)
+    response.delete_cookie("access_token")
+    return response
+
+
+@router.get("/account", response_class=HTMLResponse)
+async def account_page(request: Request, user: User = Depends(get_current_user)):
+    """Stub account page for future profile, avatar, and password management."""
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="account.html",
+        context={"title": "Account", "user": user}
+    )

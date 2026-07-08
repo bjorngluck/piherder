@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto">
+  <div class="flex items-center gap-3 mb-6">
+    <div class="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center text-xl">
+      👤
+    </div>
+    <div>
+      <h1 class="text-2xl font-semibold">Account</h1>
+      <p class="text-sm text-muted">{{ user.email }}</p>
+    </div>
+  </div>
+
+  <div class="card p-6 space-y-6">
+    <div>
+      <div class="text-sm text-muted mb-1">Email</div>
+      <div class="font-medium">{{ user.email }}</div>
+      <p class="text-xs text-muted mt-1">Change email coming soon.</p>
+    </div>
+
+    <div>
+      <div class="text-sm text-muted mb-1">Profile picture</div>
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center text-xl">
+          👤
+        </div>
+        <div>
+          <p class="text-xs text-muted">Avatar upload coming soon.</p>
+          <p class="text-xs text-muted">Currently using placeholder.</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="text-sm text-muted mb-1">Password</div>
+      <a href="#" class="inline-block text-sm text-primary hover:underline">Change password</a>
+      <p class="text-xs text-muted mt-1">Password reset coming soon.</p>
+    </div>
+
+    <div class="pt-2 border-t border-border">
+      <a href="/auth/logout"
+         class="inline-flex items-center text-sm px-4 py-1.5 rounded border border-border hover:bg-surface text-danger">
+        Sign out
+      </a>
+    </div>
+  </div>
+
+  <p class="text-[11px] text-muted mt-6">More account settings (profile, sessions, 2FA) will appear here.</p>
+</div>
+{% endblock %}
