@@ -1,80 +1,82 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-3xl font-semibold">Servers</h1>
-  <button type="button" onclick="location.reload()"
-          class="text-xs px-3 py-1.5 btn btn-secondary"
-          title="Refresh list (no auto-reload)">
-    ↻ Refresh
-  </button>
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">Servers</h1>
+    <p class="text-sm text-muted mt-1">Click a server to manage. Use Backup for a full run of enabled sources.</p>
+  </div>
+  <div class="page-header-actions">
+    <button type="button" onclick="location.reload()"
+            class="btn btn-secondary min-h-11"
+            title="Refresh list (no auto-reload)">
+      ↻ Refresh
+    </button>
+    <a href="/servers/add" class="btn btn-primary min-h-11">+ Add Server</a>
+  </div>
 </div>
-
-<a href="/servers/add" 
-   class="inline-block mb-6 px-4 py-2 btn btn-primary rounded text-sm">+ Add Server</a>
-<p class="text-xs text-muted -mt-5 mb-4">Click a server to manage. Use the primary action to run backups.</p>
 
 {% if servers %}
 <div class="space-y-3">
   {% for s in servers %}
-  <div class="card p-4 flex justify-between items-center">
-    <div class="flex items-center gap-2">
-      <div class="flex flex-col text-xs">
-        <form method="post" action="/servers/{{ s.id }}/move/up" class="leading-none">
-          <button type="submit" class="px-1 hover:bg-surface rounded" title="Move up">▲</button>
+  <div class="card server-row" data-server-name="{{ s.name }}">
+    <div class="server-row-main">
+      <div class="server-row-reorder" aria-label="Reorder">
+        <form method="post" action="/servers/{{ s.id }}/move/up">
+          <button type="submit" class="server-reorder-btn" title="Move up" aria-label="Move {{ s.name }} up">▲</button>
         </form>
-        <form method="post" action="/servers/{{ s.id }}/move/down" class="leading-none">
-          <button type="submit" class="px-1 hover:bg-surface rounded" title="Move down">▼</button>
+        <form method="post" action="/servers/{{ s.id }}/move/down">
+          <button type="submit" class="server-reorder-btn" title="Move down" aria-label="Move {{ s.name }} down">▼</button>
         </form>
       </div>
-      <div>
-        <a href="/servers/{{ s.id }}" class="font-medium text-lg hover:underline">{{ s.name }}</a>
-        <span class="text-xs ml-2 text-muted">{{ s.hostname }}</span>
+      <div class="server-row-identity min-w-0">
+        <a href="/servers/{{ s.id }}" class="server-row-name">{{ s.name }}</a>
+        <div class="server-row-host text-muted">{{ s.hostname }}</div>
       </div>
     </div>
 
-    <div class="flex items-center gap-4 text-xs">
+    <div class="server-row-meta">
       {% if s.get('backup_running') %}
-      <span class="text-accent">backup running…</span>
+      <span class="status-pill status-running">backup running…</span>
       {% elif s.get('last_backup_str') %}
-      <span class="text-accent">last: {{ s.last_backup_str }}</span>
+      <span class="text-xs text-muted">last {{ s.last_backup_str }}</span>
       {% elif s.get('last_backup') %}
-      <span class="text-accent">last: {{ s.last_backup }}</span>
+      <span class="text-xs text-muted">last {{ s.last_backup }}</span>
+      {% else %}
+      <span class="text-xs text-muted">no backup yet</span>
       {% endif %}
+      <span class="text-xs text-muted" title="Backup feature">
+        {{ 'Backup on' if s.backup_enabled else 'Backup off' }}
+      </span>
+    </div>
 
-      <div class="flex items-center gap-2">
-        {% if s.get('backup_running') %}
-        <a href="/servers/{{ s.id }}/backups?backup_log=1"
-           class="px-3 py-1 btn btn-secondary rounded text-xs font-medium"
-           title="View running backup log">
-          📋 Log
-        </a>
-        {% else %}
-        <form method="post" action="/servers/{{ s.id }}/run/backup" class="inline backup-run-form">
-          <button type="submit" 
-                  class="px-3 py-1 btn btn-accent rounded text-xs font-medium"
-                  title="Backup all enabled sources for this server">
-            ▶ Backup
-          </button>
-        </form>
-        {% endif %}
-
-        <a href="/servers/{{ s.id }}/backups" 
-           class="px-3 py-1 btn btn-secondary rounded text-xs">Manage</a>
-
-        <a href="/servers/{{ s.id }}?edit=1" 
-           class="px-3 py-1 btn btn-secondary rounded text-xs">Settings</a>
-      </div>
-
-      <div class="text-xs text-right">
-        Backup: {{ '✅' if s.backup_enabled else '❌' }}
-      </div>
+    <div class="server-row-actions">
+      {% if s.get('backup_running') %}
+      <a href="/servers/{{ s.id }}/backups?backup_log=1"
+         class="btn btn-secondary min-h-11"
+         title="View running backup log">
+        📋 Log
+      </a>
+      {% else %}
+      <form method="post" action="/servers/{{ s.id }}/run/backup" class="inline backup-run-form">
+        <button type="submit"
+                class="btn btn-accent min-h-11"
+                title="Backup all enabled sources for this server">
+          ▶ Backup
+        </button>
+      </form>
+      {% endif %}
+      <a href="/servers/{{ s.id }}/backups" class="btn btn-secondary min-h-11">Manage</a>
+      <a href="/servers/{{ s.id }}?edit=1" class="btn btn-secondary min-h-11">Settings</a>
     </div>
   </div>
   {% endfor %}
 </div>
 {% else %}
-<p class="text-muted">No servers yet. Add one to get started.</p>
+<div class="card p-6 text-center">
+  <p class="text-muted mb-4">No servers yet. Add one to get started.</p>
+  <a href="/servers/add" class="btn btn-primary min-h-11">+ Add Server</a>
+</div>
 {% endif %}
 
 <div class="mt-8 text-xs text-muted">
@@ -83,18 +85,15 @@
 
 <div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="modal-content card p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
-    <!-- Buttons on top -->
-    <div class="flex justify-between items-center mb-2 flex-shrink-0">
+    <div class="flex justify-between items-center mb-2 flex-shrink-0 gap-2">
       <h3 id="backup-progress-title" class="font-semibold">Backup in progress</h3>
-      <div class="flex gap-1">
-        <button id="progress-stop-btn" class="text-xs px-2 py-1 btn btn-danger rounded">Stop</button>
-        <button type="button" onclick="hideBackupProgressModal()" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
+      <div class="flex gap-2 flex-shrink-0">
+        <button id="progress-stop-btn" type="button" class="btn btn-danger min-h-11 text-xs px-3">Stop</button>
+        <button type="button" onclick="hideBackupProgressModal()" class="btn btn-secondary min-h-11 text-xs px-3">Close</button>
       </div>
     </div>
     <div id="backup-current-source" class="text-sm mb-1 text-accent font-mono min-h-[1.25rem] flex-shrink-0"></div>
-    <!-- Label above logs -->
     <div class="text-xs text-muted mb-1 flex-shrink-0">Live output</div>
-    <!-- Logs in middle -->
     <pre id="backup-progress-log" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded">Starting...</pre>
   </div>
 </div>
@@ -147,7 +146,7 @@ function startBackupProgressPoll(serverId, jobId, sourcePath) {
   }, 8000);
 }
 
-function showBackupProgressModal(title, startPoll) {
+function showBackupProgressModal(title) {
   const modal = document.getElementById('backup-progress-modal');
   if (!modal) return;
   modal.querySelector('#backup-progress-title').innerText = title;
@@ -190,11 +189,14 @@ async function stopCurrentBackup() {
   } catch (_) { alert('Failed to request stop'); }
 }
 
-document.querySelectorAll('form.backup-run-form, form[action*="/run/backup"]').forEach(form => {
+document.querySelectorAll('form.backup-run-form').forEach(form => {
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
-    const serverId = form.action.match(/\/servers\/(\d+)\//)[1];
-    const serverName = form.closest('.rounded-xl')?.querySelector('a.font-medium')?.textContent?.trim() || 'server';
+    const match = form.action.match(/\/servers\/(\d+)\//);
+    if (!match) return;
+    const serverId = match[1];
+    const row = form.closest('.server-row');
+    const serverName = (row && row.dataset.serverName) || 'server';
     showBackupProgressModal('Backing up ' + serverName);
     try {
       const res = await fetch(form.action, {
