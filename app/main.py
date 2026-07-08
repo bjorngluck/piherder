@@ -151,20 +151,40 @@ from .services import scheduler as sched
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request, user: User = Depends(get_optional_current_user)):
-    # Lightweight server count for dashboard.
+    # Lightweight fleet dashboard from DB (no SSH).
     servers = []
+    fleet = None
+    open_alerts = 0
     db = Session(engine)
     try:
-        servers = [row.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}) for row in db.exec(select(Server).order_by(Server.sort_order, Server.name)).all()]
+        rows = list(db.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
+        servers = [row.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}) for row in rows]
+        if user:
+            from .services.fleet_status import summarize_fleet
+            from .services import notifications as notif_svc
+            fleet = summarize_fleet(rows)
+            try:
+                open_alerts = notif_svc.open_count(db)
+            except Exception:
+                open_alerts = 0
     except Exception:
         servers = []
+        fleet = None
     finally:
         db.close()
     from .config import settings as _settings
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="dashboard.html",
-        context={"title": "PiHerder Dashboard", "servers": servers, "user": user, "pihole_url": getattr(_settings, "PIHOLE_URL", None), "lean_page": True}
+        context={
+            "title": "PiHerder Dashboard",
+            "servers": servers,
+            "fleet": fleet,
+            "open_alerts": open_alerts,
+            "user": user,
+            "pihole_url": getattr(_settings, "PIHOLE_URL", None),
+            "lean_page": True,
+        },
     )
 
 
