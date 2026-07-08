@@ -121,36 +121,40 @@
 </head>
 <body class="bg-bg">
   <nav class="border-b border-border bg-surface">
-    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="max-w-5xl mx-auto px-6 py-3 md:py-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+      <!-- Brand (uniform header - primary red focus) -->
       <div class="flex items-center gap-3">
-        <div class="flex items-center gap-2">
+        <a href="/" class="flex items-center gap-2 group">
           <img src="/static/images/piherder-logo-small.png" alt="PiHerder" class="h-8 w-auto">
-          <div>
-            <a href="/" class="font-semibold text-2xl tracking-tighter">PiHerder</a>
-            <div class="text-[10px] text-accent -mt-1 font-mono">BACKUPS</div>
+          <div class="leading-none">
+            <span class="font-semibold text-2xl tracking-tighter text-text group-hover:text-primary transition-colors">PiHerder</span>
+            <div class="text-[10px] font-mono text-primary -mt-0.5 tracking-[1.5px]">FLEET</div>
           </div>
-        </div>
-        <div class="hidden md:block text-xs text-muted pl-2 border-l border-border">
+        </a>
+        <div class="hidden md:block text-xs text-muted pl-3 border-l border-border">
           Raspberry Pi backup management
         </div>
       </div>
 
-      <div class="flex items-center gap-4 text-sm">
-        <a href="/" class="hover:text-accent transition">Dashboard</a>
-        <a href="/servers" class="hover:text-accent transition">Servers</a>
-        <a href="/audit" class="hover:text-accent transition">Audit</a>
-        <a href="/herder-backups" class="hover:text-accent transition text-xs self-center">Settings</a>
+      <!-- Uniform main menu - primary red focus on hover + active (branding) -->
+      {% set path = request.url.path if request is defined else '' %}
+      <!-- Uniform header menu: same size items, primary red for active/hover (all themes) -->
+      <div class="flex items-center gap-x-4 gap-y-1 text-sm flex-wrap">
+        <a href="/" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path == '/' else '' }}">Dashboard</a>
+        <a href="/servers" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path.startswith('/servers') else '' }}">Servers</a>
+        <a href="/audit" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path.startswith('/audit') else '' }}">Audit</a>
+        <a href="/herder-backups" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if path.startswith('/herder') else '' }}">Settings</a>
 
-        <!-- Theme Toggle Button -->
-        <button id="theme-toggle" 
-                class="p-2 rounded-lg hover:bg-surface border border-border transition-colors" 
+        <!-- Theme Toggle -->
+        <button id="theme-toggle"
+                class="p-1.5 md:p-2 rounded-lg hover:bg-surface border border-border transition-colors ml-1"
                 title="Toggle light/dark theme">
-          <span id="theme-icon" class="text-xl">☀️</span>
+          <span id="theme-icon" class="text-lg">☀️</span>
         </button>
 
         {% if user %}
-          <span class="text-muted text-xs">· {{ user.email.split('@')[0] }}</span>
-          <a href="/auth/login" class="text-muted hover:text-danger transition text-xs">Sign out</a>
+          <span class="text-muted text-xs pl-1">· {{ user.email.split('@')[0] }}</span>
+          <a href="/auth/login" class="text-muted hover:text-primary transition text-xs">Sign out</a>
         {% else %}
           <a href="/auth/login" class="px-3 py-1 bg-surface border border-border hover:bg-bg rounded text-xs transition">Login</a>
         {% endif %}
