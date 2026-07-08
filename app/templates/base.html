@@ -158,7 +158,7 @@
 
       {% set secondary_items = [
         {"label": "Account",     "href": "/auth/account", "kind": "normal"},
-        {"label": "Toggle theme", "href": "#", "kind": "action", "class": "theme-toggle-link"},
+        {"label": "Toggle theme", "href": "#", "kind": "action"},
         {"label": "Sign out",    "href": "/auth/logout", "kind": "danger"}
       ] %}
 
@@ -207,7 +207,7 @@
             {# Secondary items — from the SAME secondary_items list #}
             {% for item in secondary_items %}
               {% if item.kind == 'action' %}
-                <a href="{{ item.href }}" class="mobile-menu-link {{ item.class or '' }}">{{ item.label }}</a>
+                <button type="button" class="mobile-menu-link theme-toggle-btn">{{ item.label }}</button>
               {% elif item.kind == 'danger' %}
                 <a href="{{ item.href }}" class="mobile-menu-link is-danger">{{ item.label }}</a>
               {% else %}
@@ -233,7 +233,7 @@
             <div class="user-menu-panel dropdown-panel">
               {% for item in secondary_items %}
                 {% if item.kind == 'action' %}
-                  <a href="{{ item.href }}" class="{{ item.class or '' }}">{{ item.label }}</a>
+                  <button type="button" class="theme-toggle-btn">{{ item.label }}</button>
                 {% elif item.kind == 'danger' %}
                   <a href="{{ item.href }}" class="is-danger">{{ item.label }}</a>
                 {% else %}
@@ -321,8 +321,8 @@
       });
 
       // Auto-close when clicking any menu link (navigation will happen)
-      panel.querySelectorAll('a').forEach(function(link) {
-        link.addEventListener('click', function() {
+      panel.querySelectorAll('a, button').forEach(function(el) {
+        el.addEventListener('click', function() {
           setTimeout(close, 50);
         });
       });
@@ -339,9 +339,9 @@
     if (!saved) saved = 'light';
     setTheme(saved);
 
-    // Robust click handler for theme toggle links (works in both menus)
+    // Event delegation for theme toggle buttons (works in both menus)
     document.addEventListener('click', function(e) {
-      if (e.target.closest('.theme-toggle-link')) {
+      if (e.target.closest('.theme-toggle-btn')) {
         e.preventDefault();
         window.toggleTheme();
       }
