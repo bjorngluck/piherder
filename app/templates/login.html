@@ -19,20 +19,15 @@
       </div>
     {% endif %}
 
-    <div class="mb-4 p-3 bg-bg border border-border rounded text-xs text-muted">
-      First time? Default: <strong class="text-text">admin@example.com</strong> / <strong class="text-text">admin</strong><br>
-      Change it after logging in.
-    </div>
-
     <form method="post" action="/auth/login" class="space-y-4">
       <div>
         <label class="block text-sm mb-1 text-muted">Email</label>
-        <input name="email" type="email" value="admin@example.com" required
+        <input name="email" type="email" required autocomplete="username"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
       </div>
       <div>
         <label class="block text-sm mb-1 text-muted">Password</label>
-        <input name="password" type="password" value="admin" required
+        <input name="password" type="password" required autocomplete="current-password"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
       </div>
 
