@@ -1,6 +1,6 @@
 # UI Unification & Mobile-First Refresh Plan
 
-**Status:** In progress  
+**Status:** Complete (Phases A–F)  
 **Date:** 2026-07-08 (updated)  
 **Branch:** `main`  
 **Goal:** Deliver a cohesive, minimal, mobile-friendly UI while strictly preserving PiHerder's lightweight architecture and principles.

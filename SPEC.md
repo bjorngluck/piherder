@@ -125,7 +125,7 @@ Related backup hardening (same phase):
 
 - [ ] Ansible / cloud-init bootstrap for new Pis
 - [ ] Prometheus metrics exporter
-- [ ] Mobile-friendly responsive pass
+- [x] Mobile-friendly responsive pass (UI unification 2026-07 — see `UI_UNIFICATION_PLAN.md`)
 - [ ] Plugin hooks for custom job types
 
 ---
