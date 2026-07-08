@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">Notifications</h1>
+    <p class="text-sm text-muted mt-1">Actionable alerts (updates, reboot, failed backups). History stays in Audit.</p>
+  </div>
+  <div class="page-header-actions">
+    {% if open_count %}
+    <form method="post" action="/notifications/dismiss-all">
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Dismiss all open</button>
+    </form>
+    {% endif %}
+    <a href="/audit" class="btn btn-secondary min-h-11 text-sm">Audit log</a>
+  </div>
+</div>
+
+<form method="get" action="/notifications" class="card p-4 mb-4 flex flex-wrap gap-3 items-end">
+  <div>
+    <label class="block text-xs text-muted mb-1">Status</label>
+    <select name="status" class="bg-surface border border-border rounded px-2 py-2 min-h-11 text-sm">
+      <option value="open" {% if status == 'open' %}selected{% endif %}>Open</option>
+      <option value="dismissed" {% if status == 'dismissed' %}selected{% endif %}>Dismissed</option>
+      <option value="resolved" {% if status == 'resolved' %}selected{% endif %}>Resolved</option>
+      <option value="all" {% if status == 'all' %}selected{% endif %}>All</option>
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-muted mb-1">Type</label>
+    <select name="type" class="bg-surface border border-border rounded px-2 py-2 min-h-11 text-sm">
+      <option value="">Any</option>
+      {% for t in ['os_updates','container_updates','reboot_pending','backup_failed','herder_backup_failed'] %}
+      <option value="{{ t }}" {% if type_filter == t %}selected{% endif %}>{{ t }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label class="block text-xs text-muted mb-1">Server</label>
+    <select name="server_id" class="bg-surface border border-border rounded px-2 py-2 min-h-11 text-sm">
+      <option value="">Any</option>
+      {% for s in servers %}
+      <option value="{{ s.id }}" {% if server_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <button type="submit" class="btn btn-secondary min-h-11 text-sm">Filter</button>
+</form>
+
+{% if not items %}
+<p class="text-sm text-muted">No notifications match.</p>
+{% else %}
+<ul class="space-y-3">
+  {% for n in items %}
+  <li class="card p-4 flex flex-col sm:flex-row sm:items-start gap-3 justify-between">
+    <div class="min-w-0 flex-1">
+      <div class="flex flex-wrap items-center gap-2 mb-1">
+        <span class="text-xs uppercase tracking-wide
+          {% if n.severity == 'critical' %}text-red-500
+          {% elif n.severity == 'warning' %}text-amber-500
+          {% else %}text-muted{% endif %}">{{ n.severity }}</span>
+        <span class="text-xs text-muted font-mono">{{ n.type }}</span>
+        <span class="text-xs text-muted">{{ n.status }}</span>
+        {% if n.server_name %}<span class="text-xs text-muted">· {{ n.server_name }}</span>{% endif %}
+      </div>
+      <div class="font-medium text-text">
+        {% if n.link_url and n.status == 'open' %}
+        <a href="{{ n.link_url }}" class="text-primary hover:underline">{{ n.title }}</a>
+        {% else %}
+        {{ n.title }}
+        {% endif %}
+      </div>
+      {% if n.body %}<p class="text-sm text-muted mt-0.5">{{ n.body }}</p>{% endif %}
+      <p class="text-[10px] text-muted mt-1">Updated {{ n.updated_at }}</p>
+    </div>
+    {% if n.status == 'open' %}
+    <form method="post" action="/notifications/{{ n.id }}/dismiss" class="flex-shrink-0">
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Dismiss</button>
+    </form>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

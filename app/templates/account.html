@@ -1,48 +1,218 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header mb-6 max-w-md">
+<div class="page-header mb-6 max-w-2xl">
   <div class="flex items-center gap-3">
+    {% if user.avatar_path %}
+    <img src="/auth/me/avatar" alt="" class="w-12 h-12 rounded-full object-cover border border-border flex-shrink-0">
+    {% else %}
     <div class="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center text-xl flex-shrink-0">
-      👤
+      {{ (user.display_name or user.email)[0].upper() }}
     </div>
+    {% endif %}
     <div>
       <h1 class="text-3xl font-semibold tracking-tighter text-text">Account</h1>
-      <p class="text-sm text-muted mt-0.5">{{ user.email }}</p>
+      <p class="text-sm text-muted mt-0.5">{{ user.display_name or user.email }}</p>
     </div>
   </div>
 </div>
 
-<div class="card p-5 sm:p-6 space-y-6 max-w-md">
-  <div>
-    <div class="text-sm text-muted mb-1">Email</div>
-    <div class="font-medium text-text">{{ user.email }}</div>
-    <p class="text-xs text-muted mt-1">Change email coming soon.</p>
-  </div>
+{% if msg %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4 max-w-2xl">
+  {% if msg == 'profile_saved' %}Profile saved.
+  {% elif msg == 'password_changed' %}Password changed. Trusted devices were revoked.
+  {% elif msg == 'avatar_saved' %}Avatar updated.
+  {% elif msg == 'avatar_deleted' %}Avatar removed.
+  {% elif msg == '2fa_setup' %}Scan the QR code and confirm with a code from your app.
+  {% elif msg == '2fa_enabled' %}Two-factor authentication enabled. Save your backup codes below.
+  {% elif msg == '2fa_disabled' %}Two-factor authentication disabled.
+  {% elif msg == 'backup_codes' %}New backup codes generated. Save them now.
+  {% elif msg == 'device_revoked' %}Trusted device revoked.
+  {% elif msg == 'devices_revoked' %}All trusted devices revoked.
+  {% else %}Saved.{% endif %}
+</div>
+{% endif %}
 
-  <div>
-    <div class="text-sm text-muted mb-1">Profile picture</div>
-    <div class="flex items-center gap-3">
-      <div class="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center text-xl flex-shrink-0">
-        👤
+{% if error %}
+<div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-2xl">
+  {% if error == 'password_required' %}Current password required to change email.
+  {% elif error == 'email_taken' %}That email is already in use.
+  {% elif error == 'bad_password' %}Current password is incorrect.
+  {% elif error == 'password_short' %}New password must be at least 6 characters.
+  {% elif error == 'password_mismatch' %}New passwords do not match.
+  {% elif error == '2fa_already' %}2FA is already enabled.
+  {% elif error == '2fa_no_setup' %}Start 2FA setup first.
+  {% elif error == '2fa_bad_code' %}Invalid authenticator or backup code.
+  {% elif error == '2fa_off' %}Enable 2FA first.
+  {% elif error.startswith('avatar:') %}{{ error[7:] }}
+  {% else %}{{ error }}{% endif %}
+</div>
+{% endif %}
+
+{% if backup_codes_shown %}
+<div class="card p-5 sm:p-6 mb-6 max-w-2xl border-accent">
+  <h2 class="font-semibold text-text mb-2">Backup codes — save these now</h2>
+  <p class="text-xs text-muted mb-3">Each code works once. They will not be shown again.</p>
+  <ul class="font-mono text-sm grid grid-cols-2 gap-1 mb-2">
+    {% for c in backup_codes_shown %}
+    <li class="bg-surface border border-border rounded px-2 py-1">{{ c }}</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+<div class="space-y-6 max-w-2xl">
+  <!-- Profile -->
+  <div class="card p-5 sm:p-6 space-y-4">
+    <h2 class="font-semibold text-text">Profile</h2>
+    <form method="post" action="/auth/account/profile" class="space-y-3">
+      <div>
+        <label class="block text-sm text-muted mb-1">Display name</label>
+        <input name="display_name" type="text" value="{{ user.display_name or '' }}"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
+               placeholder="Optional">
       </div>
       <div>
-        <p class="text-xs text-muted">Avatar upload coming soon.</p>
-        <p class="text-xs text-muted">Currently using placeholder.</p>
+        <label class="block text-sm text-muted mb-1">Email</label>
+        <input name="email" type="email" value="{{ user.email }}" required
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
       </div>
+      <div>
+        <label class="block text-sm text-muted mb-1">Current password <span class="text-xs">(required only when changing email)</span></label>
+        <input name="current_password" type="password" autocomplete="current-password"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+      </div>
+      <button type="submit" class="btn btn-accent min-h-11 text-sm">Save profile</button>
+    </form>
+  </div>
+
+  <!-- Avatar -->
+  <div class="card p-5 sm:p-6 space-y-3">
+    <h2 class="font-semibold text-text">Profile picture</h2>
+    <div class="flex items-center gap-4">
+      {% if user.avatar_path %}
+      <img src="/auth/me/avatar" alt="" class="w-16 h-16 rounded-full object-cover border border-border">
+      {% else %}
+      <div class="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center text-2xl">
+        {{ (user.display_name or user.email)[0].upper() }}
+      </div>
+      {% endif %}
+      <div class="text-xs text-muted">JPEG, PNG, or WebP · max 2 MB</div>
     </div>
+    <form method="post" action="/auth/account/avatar" enctype="multipart/form-data" class="flex flex-wrap gap-2 items-center">
+      <input type="file" name="file" accept="image/jpeg,image/png,image/webp" required class="text-sm">
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Upload</button>
+    </form>
+    {% if user.avatar_path %}
+    <form method="post" action="/auth/account/avatar/delete">
+      <button type="submit" class="btn btn-danger min-h-11 text-sm">Remove avatar</button>
+    </form>
+    {% endif %}
   </div>
 
-  <div>
-    <div class="text-sm text-muted mb-1">Password</div>
-    <span class="text-sm text-muted">Change password coming soon.</span>
+  <!-- Password -->
+  <div class="card p-5 sm:p-6 space-y-3">
+    <h2 class="font-semibold text-text">Password</h2>
+    <form method="post" action="/auth/account/password" class="space-y-3">
+      <div>
+        <label class="block text-sm text-muted mb-1">Current password</label>
+        <input name="current_password" type="password" required autocomplete="current-password"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+      </div>
+      <div>
+        <label class="block text-sm text-muted mb-1">New password</label>
+        <input name="new_password" type="password" required minlength="6" autocomplete="new-password"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+      </div>
+      <div>
+        <label class="block text-sm text-muted mb-1">Confirm new password</label>
+        <input name="confirm_password" type="password" required minlength="6" autocomplete="new-password"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+      </div>
+      <button type="submit" class="btn btn-accent min-h-11 text-sm">Change password</button>
+    </form>
+    <p class="text-xs text-muted">Self-hosted recovery: use herder restore or set a new password while logged in. Email reset requires SMTP (not configured).</p>
   </div>
 
-  <div class="pt-3 border-t border-border flex flex-wrap gap-2">
+  <!-- 2FA -->
+  <div class="card p-5 sm:p-6 space-y-4">
+    <h2 class="font-semibold text-text">Two-factor authentication (app)</h2>
+    <p class="text-sm text-muted">Optional TOTP (Google Authenticator, Aegis, 1Password, etc.). Backup codes unlock you if you lose the app.</p>
+
+    {% if user.totp_enabled %}
+    <div class="text-sm text-accent">2FA is <strong>enabled</strong>. {{ backup_remaining }} backup code(s) remaining.</div>
+
+    <form method="post" action="/auth/account/2fa/backup-codes" class="space-y-2 border-t border-border pt-3">
+      <div class="text-sm font-medium">Regenerate backup codes</div>
+      <input name="current_password" type="password" required placeholder="Current password"
+             class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Generate new codes</button>
+    </form>
+
+    <form method="post" action="/auth/account/2fa/disable" class="space-y-2 border-t border-border pt-3">
+      <div class="text-sm font-medium">Disable 2FA</div>
+      <input name="current_password" type="password" required placeholder="Current password"
+             class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+      <input name="code" type="text" required placeholder="Authenticator or backup code"
+             class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono"
+             autocomplete="one-time-code">
+      <button type="submit" class="btn btn-danger min-h-11 text-sm">Disable 2FA</button>
+    </form>
+
+    {% elif pending_2fa_setup %}
+    <div class="space-y-3">
+      <p class="text-sm">Scan this QR with your authenticator app, then enter a code to confirm.</p>
+      {% if setup_qr %}
+      <img src="data:image/png;base64,{{ setup_qr }}" alt="TOTP QR" class="w-48 h-48 border border-border rounded bg-white p-2">
+      {% endif %}
+      {% if setup_secret %}
+      <p class="text-xs text-muted">Manual secret: <code class="font-mono text-text">{{ setup_secret }}</code></p>
+      {% endif %}
+      <form method="post" action="/auth/account/2fa/confirm" class="space-y-2">
+        <input name="code" type="text" required placeholder="6-digit code" inputmode="numeric"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono"
+               autocomplete="one-time-code">
+        <button type="submit" class="btn btn-accent min-h-11 text-sm">Confirm &amp; enable</button>
+      </form>
+    </div>
+    {% else %}
+    <form method="post" action="/auth/account/2fa/start">
+      <button type="submit" class="btn btn-accent min-h-11 text-sm">Enable 2FA</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <!-- Trusted devices -->
+  {% if user.totp_enabled %}
+  <div class="card p-5 sm:p-6 space-y-3">
+    <h2 class="font-semibold text-text">Trusted devices</h2>
+    <p class="text-xs text-muted">Devices can skip 2FA for up to {{ trusted_device_days }} days. Stolen laptop risk: revoke if unsure. Password change revokes all.</p>
+    {% if devices %}
+    <ul class="space-y-2 text-sm">
+      {% for d in devices %}
+      <li class="flex flex-wrap items-center justify-between gap-2 border border-border rounded p-2">
+        <div>
+          <div class="font-medium">{{ d.label or 'Device' }} #{{ d.id }}</div>
+          <div class="text-xs text-muted">Expires {{ d.expires_at }} · Last used {{ d.last_used_at or '—' }}</div>
+        </div>
+        <form method="post" action="/auth/account/trusted-devices/{{ d.id }}/revoke">
+          <button type="submit" class="btn btn-secondary text-xs min-h-11">Revoke</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    <form method="post" action="/auth/account/trusted-devices/revoke-all">
+      <button type="submit" class="btn btn-danger min-h-11 text-sm">Revoke all devices</button>
+    </form>
+    {% else %}
+    <p class="text-sm text-muted">No trusted devices. Check “Trust this device” on the next 2FA login.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="flex flex-wrap gap-2">
     <a href="/auth/logout" class="btn btn-danger min-h-11 text-sm">Sign out</a>
     <a href="/" class="btn btn-secondary min-h-11 text-sm">Dashboard</a>
   </div>
 </div>
-
-<p class="text-xs text-muted mt-6 max-w-md">More account settings (profile, sessions, 2FA) will appear here.</p>
 {% endblock %}

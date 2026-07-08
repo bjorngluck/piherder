@@ -313,6 +313,10 @@ def create_job_and_run(
         background_tasks.add_task(_run_container_job, job.id, server.id, audit.id)
     elif job_type == "os_patch":
         background_tasks.add_task(_run_os_patch_job, job.id, server.id, audit.id, os_steps)
+    elif job_type == "os_update_check":
+        background_tasks.add_task(_run_os_update_check_job, job.id, server.id, audit.id)
+    elif job_type == "container_update_check":
+        background_tasks.add_task(_run_container_update_check_job, job.id, server.id, audit.id)
     elif job_type == "retention":
         background_tasks.add_task(_run_retention_job, job.id, server.id, audit.id)
     elif job_type == "herder_backup":
@@ -382,6 +386,7 @@ def enqueue_backup_for_server(
 
 
 def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str = "", job_type: str = ""):
+    server_id = None
     with _get_fresh_session() as s:
         audit = s.get(AuditLog, audit_id)
         job = s.get(Job, job_id)
@@ -394,7 +399,21 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
             job.status = status
             job.finished_at = datetime.utcnow()
             s.add(job)
+            server_id = job.server_id
         s.commit()
+
+        # Backup success/failure notifications (best-effort)
+        if job_type == "backup" and server_id:
+            try:
+                from .notifications import notify_backup_failed, resolve_backup_failed
+                server = s.get(Server, server_id)
+                name = server.name if server else hostname
+                if status == "failed":
+                    notify_backup_failed(s, server_id, name or str(server_id), snippet[:300])
+                elif status == "success":
+                    resolve_backup_failed(s, server_id)
+            except Exception as e:
+                logger.debug(f"backup notification: {e}")
 
     if hostname and job_type:
         _send_summary_webhook(hostname, job_type, status, snippet)
@@ -476,3 +495,138 @@ async def _run_herder_backup_job(job_id: int, audit_id: int):
         _finish(audit_id, job_id, "success", summary, hostname, "herder_backup")
     except Exception as e:
         _finish(audit_id, job_id, "failed", str(e), hostname, "herder_backup")
+
+
+def run_os_update_check_now(session: Session, server: Server, user_id: int | None = None) -> Job:
+    """Synchronous path for scheduler: run OS check in-thread (no BackgroundTasks)."""
+    job = Job(server_id=server.id, job_type="os_update_check", status="running", started_at=datetime.utcnow())
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    audit = AuditLog(
+        user_id=user_id,
+        server_id=server.id,
+        action="os_update_check",
+        status="running",
+        details=f"Job #{job.id} started",
+    )
+    session.add(audit)
+    session.commit()
+    session.refresh(audit)
+    try:
+        res = os_patching.check_os_updates(server)
+        _apply_os_check_result(session, server.id, res)
+        status = "failed" if res.get("error") and res.get("updates_count") is None else "success"
+        _finish(audit.id, job.id, status, json.dumps(res), server.hostname, "os_update_check")
+    except Exception as e:
+        _finish(audit.id, job.id, "failed", str(e), server.hostname, "os_update_check")
+    session.refresh(job)
+    return job
+
+
+def run_container_update_check_now(session: Session, server: Server, user_id: int | None = None) -> Job:
+    """Synchronous path for scheduler: fleet container image check (no up -d)."""
+    job = Job(server_id=server.id, job_type="container_update_check", status="running", started_at=datetime.utcnow())
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    audit = AuditLog(
+        user_id=user_id,
+        server_id=server.id,
+        action="container_update_check",
+        status="running",
+        details=f"Job #{job.id} started",
+    )
+    session.add(audit)
+    session.commit()
+    session.refresh(audit)
+    try:
+        res = container_patching.check_all_projects_updates(server)
+        _apply_container_check_result(session, server.id, res)
+        status = "success" if not res.get("failed") or res.get("projects_checked") else "success"
+        _finish(audit.id, job.id, status, json.dumps(res), server.hostname, "container_update_check")
+    except Exception as e:
+        _finish(audit.id, job.id, "failed", str(e), server.hostname, "container_update_check")
+    session.refresh(job)
+    return job
+
+
+def _apply_os_check_result(session: Session, server_id: int, res: dict) -> None:
+    server = session.get(Server, server_id)
+    if not server:
+        return
+    server.last_os_check_at = datetime.utcnow()
+    if res.get("supported", True) and res.get("updates_count") is not None:
+        server.os_updates_count = int(res.get("updates_count") or 0)
+    server.reboot_pending = bool(res.get("reboot_pending"))
+    sample = res.get("packages_sample") or []
+    server.os_updates_summary = json.dumps({
+        "packages_sample": sample[:15],
+        "error": res.get("error"),
+    })
+    session.add(server)
+    session.commit()
+    try:
+        from .notifications import notify_os_updates
+        notify_os_updates(
+            session,
+            server_id=server.id,
+            server_name=server.name,
+            updates_count=server.os_updates_count or 0,
+            reboot_pending=server.reboot_pending,
+        )
+    except Exception as e:
+        logger.debug(f"notify_os_updates: {e}")
+
+
+def _apply_container_check_result(session: Session, server_id: int, res: dict) -> None:
+    server = session.get(Server, server_id)
+    if not server:
+        return
+    projects = res.get("projects_with_updates") or []
+    server.last_container_check_at = datetime.utcnow()
+    server.container_updates_count = len(projects)
+    server.container_updates_summary = json.dumps({
+        "projects": projects,
+        "failed": res.get("failed") or [],
+        "checked": res.get("projects_checked") or [],
+    })
+    session.add(server)
+    session.commit()
+    try:
+        from .notifications import notify_container_updates
+        notify_container_updates(
+            session,
+            server_id=server.id,
+            server_name=server.name,
+            projects=projects,
+        )
+    except Exception as e:
+        logger.debug(f"notify_container_updates: {e}")
+
+
+async def _run_os_update_check_job(job_id: int, server_id: int, audit_id: int):
+    with _get_fresh_session() as s:
+        server = s.get(Server, server_id)
+    hostname = server.hostname if server else str(server_id)
+    try:
+        res = await run_in_threadpool(os_patching.check_os_updates, server)
+        with _get_fresh_session() as s:
+            _apply_os_check_result(s, server_id, res)
+        status = "failed" if res.get("error") and res.get("updates_count") is None else "success"
+        _finish(audit_id, job_id, status, json.dumps(res), hostname, "os_update_check")
+    except Exception as e:
+        _finish(audit_id, job_id, "failed", str(e), hostname, "os_update_check")
+
+
+async def _run_container_update_check_job(job_id: int, server_id: int, audit_id: int):
+    with _get_fresh_session() as s:
+        server = s.get(Server, server_id)
+    hostname = server.hostname if server else str(server_id)
+    try:
+        res = await run_in_threadpool(container_patching.check_all_projects_updates, server)
+        with _get_fresh_session() as s:
+            _apply_container_check_result(s, server_id, res)
+        _finish(audit_id, job_id, "success", json.dumps(res), hostname, "container_update_check")
+    except Exception as e:
+        _finish(audit_id, job_id, "failed", str(e), hostname, "container_update_check")

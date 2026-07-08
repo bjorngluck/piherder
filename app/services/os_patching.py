@@ -127,3 +127,72 @@ def run_os_patch(server: Server, selected_steps: list[str] = None) -> dict:
         "needs_reboot": needs_reboot,
         "timestamp": "now"
     }
+
+
+def check_os_updates(server: Server) -> dict:
+    """Check-only: apt update + list upgradable packages + reboot-required.
+    Does NOT run upgrade/full-upgrade/autoremove.
+    """
+    os_type = (server.os_type or "debian").lower()
+    if os_type not in ("debian", "ubuntu", "raspbian", "raspberrypi", "linux", ""):
+        # Best-effort: still try apt on unknown; skip only explicit non-apt labels
+        if os_type in ("alpine", "fedora", "rhel", "centos", "arch", "haos"):
+            return {
+                "server": server.hostname,
+                "supported": False,
+                "updates_count": None,
+                "reboot_pending": False,
+                "packages_sample": [],
+                "error": f"OS type '{server.os_type}' not supported for apt check",
+            }
+
+    client = get_ssh_client(server)
+    error = None
+    packages_sample: list[str] = []
+    updates_count = 0
+    reboot_pending = False
+
+    try:
+        # Refresh package lists (non-interactive)
+        status, out, err = run_command(
+            client,
+            "sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq 2>&1 || sudo apt update 2>&1",
+            timeout=180,
+        )
+        if status != 0:
+            error = (out or err or "apt update failed")[:400]
+
+        # List upgradable (ignore "Listing..." header)
+        _, list_out, _ = run_command(
+            client,
+            "apt list --upgradable 2>/dev/null | grep -v '^Listing' | grep -v '^$' || true",
+            timeout=60,
+        )
+        lines = [ln.strip() for ln in (list_out or "").splitlines() if ln.strip()]
+        # Filter noise
+        lines = [ln for ln in lines if "/" in ln or "upgradable" in ln.lower()]
+        updates_count = len(lines)
+        packages_sample = lines[:15]
+
+        st, ro, _ = run_command(
+            client,
+            "test -f /var/run/reboot-required && echo REBOOT || echo no-reboot",
+            timeout=10,
+        )
+        reboot_pending = "REBOOT" in (ro or "")
+    except Exception as e:
+        error = str(e)[:400]
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+    return {
+        "server": server.hostname,
+        "supported": True,
+        "updates_count": updates_count,
+        "reboot_pending": reboot_pending,
+        "packages_sample": packages_sample,
+        "error": error,
+    }

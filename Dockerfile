@@ -67,8 +67,8 @@ RUN if [ ! -f app/static/tailwind.js ]; then \
 
 # Create non-root user (optional hardening)
 RUN useradd --create-home --shell /bin/bash piherder && \
-    mkdir -p /backups && \
-    chown -R piherder:piherder /app /backups
+    mkdir -p /backups /data/avatars && \
+    chown -R piherder:piherder /app /backups /data
 
 USER piherder
 

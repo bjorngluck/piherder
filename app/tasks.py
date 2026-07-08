@@ -109,6 +109,19 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
                 db.commit()
             except Exception:
                 pass
+            try:
+                from .services.notifications import resolve_backup_failed
+                resolve_backup_failed(db, server_id)
+            except Exception:
+                pass
+        else:
+            try:
+                from .services.notifications import notify_backup_failed
+                from .services.backup import backup_failure_message
+                msg = backup_failure_message(summary) if isinstance(summary, dict) else str(summary)
+                notify_backup_failed(db, server_id, server.name if server else str(server_id), msg)
+            except Exception:
+                pass
 
         logger.info(f"[Celery] Backup {'completed' if ok else 'failed'} for server {server_id}")
         return {"status": "success" if ok else "failed", "server_id": server_id, "result": result}

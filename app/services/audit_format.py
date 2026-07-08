@@ -32,7 +32,19 @@ _ACTION_LABELS = {
     "herder_restore": "PiHerder restore",
     "container_patch": "Containers",
     "os_patch": "OS patch",
+    "os_update_check": "OS update check",
+    "container_update_check": "Container update check",
+    "server_os_check_schedule": "OS check schedule",
+    "server_container_check_schedule": "Container check schedule",
     "diagnostics": "Diagnostics",
+    "user_profile_updated": "Profile updated",
+    "user_email_changed": "Email changed",
+    "user_password_changed": "Password changed",
+    "user_avatar_updated": "Avatar updated",
+    "user_2fa_enabled": "2FA enabled",
+    "user_2fa_disabled": "2FA disabled",
+    "user_2fa_backup_regenerated": "2FA backup codes",
+    "user_trusted_device_revoked": "Trusted device revoked",
 }
 
 

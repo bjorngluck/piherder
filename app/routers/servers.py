@@ -572,5 +572,119 @@ async def run_os_patch(server_id: int, background_tasks: BackgroundTasks, steps:
     return RedirectResponse(_server_redirect(server_id), status_code=303)
 
 
+def _validate_cron(cron: str | None) -> str | None:
+    if not cron:
+        return None
+    cron = cron.strip() or None
+    if not cron:
+        return None
+    if pycron:
+        try:
+            parts = cron.split()
+            if len(parts) != 5:
+                raise ValueError("not 5 fields")
+            pycron.is_now(cron, datetime.now())
+        except Exception:
+            raise HTTPException(400, "Invalid cron expression. Example: '0 6 * * *'")
+    return cron
+
+
+def _sync_server_schedules(server: Server):
+    try:
+        from ..main import scheduler, HAS_SCHEDULER
+        from ..services.scheduler import sync_server_cron_jobs
+        sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server)
+    except Exception as e:
+        logger.warning(f"Could not sync schedules for server {server.id}: {e}")
+
+
+@router.post("/{server_id}/check/os-updates")
+async def check_os_updates_now(
+    server_id: int,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    job_service.create_job_and_run(
+        background_tasks, session, server, "os_update_check", user_id=user.id
+    )
+    return RedirectResponse(f"/servers/{server_id}?os_check=1", status_code=303)
+
+
+@router.post("/{server_id}/check/container-updates")
+async def check_container_updates_now(
+    server_id: int,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    job_service.create_job_and_run(
+        background_tasks, session, server, "container_update_check", user_id=user.id
+    )
+    return RedirectResponse(f"/servers/{server_id}?container_check=1", status_code=303)
+
+
+@router.post("/{server_id}/schedule/os-check")
+async def save_os_check_schedule(
+    server_id: int,
+    os_check_enabled: Optional[str] = Form(None),
+    os_check_schedule: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    cron = _validate_cron(os_check_schedule)
+    server.os_check_schedule = cron
+    server.os_check_enabled = os_check_enabled in ("1", "on", "true") and bool(cron)
+    session.add(server)
+    session.commit()
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_os_check_schedule",
+        details={"enabled": server.os_check_enabled, "cron": cron},
+    )
+    session.commit()
+    _sync_server_schedules(server)
+    return RedirectResponse(_server_redirect(server_id), status_code=303)
+
+
+@router.post("/{server_id}/schedule/container-check")
+async def save_container_check_schedule(
+    server_id: int,
+    container_check_enabled: Optional[str] = Form(None),
+    container_check_schedule: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    cron = _validate_cron(container_check_schedule)
+    server.container_check_schedule = cron
+    server.container_check_enabled = container_check_enabled in ("1", "on", "true") and bool(cron)
+    session.add(server)
+    session.commit()
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_container_check_schedule",
+        details={"enabled": server.container_check_enabled, "cron": cron},
+    )
+    session.commit()
+    _sync_server_schedules(server)
+    return RedirectResponse(_server_redirect(server_id), status_code=303)
+
+
 # Docker routes extracted to server_docker.py (sub-router included at top of file)
 

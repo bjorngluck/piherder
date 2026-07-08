@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-6 sm:mt-10">
+  <div class="card p-6 sm:p-8">
+    <div class="mb-6">
+      <div class="header-brand-sub text-primary mb-1">SECURITY</div>
+      <h1 class="text-2xl font-semibold tracking-tighter text-text">Two-factor code</h1>
+      <p class="text-sm text-muted mt-1">Enter a code from your authenticator app or a backup code.</p>
+    </div>
+
+    {% if error %}
+    <div class="mb-4 p-3 banner-error border border-border text-sm rounded">
+      {% if error == 'invalid' %}Invalid code. Try again.
+      {% elif error == 'rate' %}Too many attempts. Wait a few minutes.
+      {% else %}{{ error }}{% endif %}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/auth/2fa" class="space-y-4">
+      <div>
+        <label class="block text-sm mb-1 text-muted">Code</label>
+        <input name="code" type="text" required autofocus inputmode="numeric"
+               autocomplete="one-time-code"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono tracking-widest"
+               placeholder="123456 or ABCD-EF01">
+      </div>
+      <label class="flex items-center gap-2 text-sm text-muted">
+        <input type="checkbox" name="trust_device" value="1">
+        Trust this device for 30 days
+      </label>
+      <p class="text-xs text-muted">Trusted devices skip 2FA until expiry. Only use on personal devices you control.</p>
+      <button type="submit" class="w-full mt-2 btn btn-accent font-medium min-h-11">
+        Verify
+      </button>
+    </form>
+
+    <p class="mt-6 text-center text-sm text-muted">
+      <a href="/auth/login" class="text-primary hover:underline">Back to login</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

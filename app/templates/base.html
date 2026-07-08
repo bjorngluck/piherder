@@ -164,6 +164,7 @@
         {"label": "Dashboard", "href": "/", "match": "exact"},
         {"label": "Servers",   "href": "/servers", "match": "prefix"},
         {"label": "Audit",     "href": "/audit", "match": "prefix"},
+        {"label": "Alerts",    "href": "/notifications", "match": "prefix"},
         {"label": "Settings",  "href": "/herder-backups", "match": "prefix"}
       ] %}
 
@@ -186,6 +187,14 @@
            Fully driven by CSS classes + variables. -->
       <div class="header-actions">
         {% if user %}
+        <!-- Notification bell -->
+        <div class="notif-bell-wrap" id="notif-bell-wrap">
+          <a href="/notifications" class="notif-bell" id="notif-bell" title="Notifications" aria-label="Notifications">
+            <span class="notif-bell-icon" aria-hidden="true">🔔</span>
+            <span id="notif-badge" class="notif-badge hidden">0</span>
+          </a>
+        </div>
+
         <!-- Mobile-only hamburger trigger -->
         <button id="nav-hamburger-btn"
                 class="mobile-hamburger"
@@ -233,10 +242,14 @@
         <div class="desktop-avatar">
           <details id="user-account" class="user-menu">
             <summary class="avatar-trigger">
+              {% if user.avatar_path %}
+              <img src="/auth/me/avatar" alt="" class="avatar-circle avatar-img" title="{{ user.email }}">
+              {% else %}
               <div class="avatar-circle" title="{{ user.email }}">
-                {{ user.email[0].upper() }}
+                {{ (user.display_name or user.email)[0].upper() }}
               </div>
-              <span class="avatar-label">{{ user.email.split('@')[0] }}</span>
+              {% endif %}
+              <span class="avatar-label">{{ user.display_name or user.email.split('@')[0] }}</span>
               <span class="avatar-chevron">▾</span>
             </summary>
 
@@ -271,6 +284,23 @@
     <span class="text-[10px] text-muted">Zero plaintext secrets • All actions audited</span>
   </footer>
 
+  {# Instant feedback when leaving a screen for a slow destination (e.g. Docker).
+     Use inline display only — never both Tailwind "hidden" and "flex" (order can leave overlay stuck on). #}
+  <div id="piherder-nav-loading"
+       class="fixed inset-0 bg-black/70 items-center justify-center z-[60]"
+       style="display:none"
+       aria-live="polite"
+       aria-busy="false"
+       role="status">
+    <div class="card rounded-xl p-6 w-full max-w-sm mx-4 text-center">
+      <div class="flex justify-center mb-3">
+        <div class="w-7 h-7 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+      </div>
+      <div class="font-medium" id="piherder-nav-loading-title">Loading…</div>
+      <div class="text-xs text-muted mt-1" id="piherder-nav-loading-sub"></div>
+    </div>
+  </div>
+
   {# Shared long-running job progress modal (Phase D). Used by backup flows app-wide. #}
   <div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" aria-modal="true" role="dialog">
     <div class="modal-content card p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
@@ -289,6 +319,48 @@
 
   <!-- Theme + Mobile Hamburger (slide-out) handling. All in base.html only. -->
   <script>
+    // Immediate feedback when navigating to slow destinations (data-nav-loading on <a>)
+    window.PiHerderNavLoading = (function () {
+      function els() {
+        return {
+          root: document.getElementById('piherder-nav-loading'),
+          title: document.getElementById('piherder-nav-loading-title'),
+          sub: document.getElementById('piherder-nav-loading-sub'),
+        };
+      }
+      function show(title, sub) {
+        var e = els();
+        if (!e.root) return;
+        if (e.title) e.title.textContent = title || 'Loading…';
+        if (e.sub) {
+          e.sub.textContent = sub || '';
+          e.sub.style.display = sub ? '' : 'none';
+        }
+        e.root.style.display = 'flex';
+        e.root.setAttribute('aria-busy', 'true');
+      }
+      function hide() {
+        var e = els();
+        if (!e.root) return;
+        e.root.style.display = 'none';
+        e.root.setAttribute('aria-busy', 'false');
+      }
+      document.addEventListener('click', function (ev) {
+        var a = ev.target && ev.target.closest ? ev.target.closest('a[data-nav-loading]') : null;
+        if (!a) return;
+        if (ev.defaultPrevented) return;
+        if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return;
+        if (a.target === '_blank') return;
+        var href = a.getAttribute('href') || '';
+        if (!href || href.charAt(0) === '#') return;
+        show(a.getAttribute('data-nav-loading') || 'Loading…', a.getAttribute('data-nav-loading-sub') || '');
+      }, true);
+      // Always clear on any page show (normal nav + bfcache) so overlay never traps clicks
+      window.addEventListener('pageshow', function () { hide(); });
+      document.addEventListener('DOMContentLoaded', function () { hide(); });
+      return { show: show, hide: hide };
+    })();
+
     (function () {
       var html = document.documentElement;
 
@@ -388,6 +460,29 @@
         document.addEventListener('DOMContentLoaded', initMobileMenu);
       } else {
         initMobileMenu();
+      }
+
+      // Notification badge poll
+      function refreshNotifBadge() {
+        var badge = document.getElementById('notif-badge');
+        if (!badge) return;
+        fetch('/notifications/count', { credentials: 'same-origin' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (data) {
+            if (!data) return;
+            var n = data.count || 0;
+            if (n > 0) {
+              badge.textContent = n > 99 ? '99+' : String(n);
+              badge.classList.remove('hidden');
+            } else {
+              badge.classList.add('hidden');
+            }
+          })
+          .catch(function () {});
+      }
+      if (document.getElementById('notif-badge')) {
+        refreshNotifBadge();
+        setInterval(refreshNotifBadge, 120000);
       }
     })();
   </script>

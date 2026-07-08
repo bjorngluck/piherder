@@ -11,7 +11,11 @@
 
     {% if request.query_params.get('error') %}
       <div class="mb-4 p-3 banner-error border border-border text-sm rounded">
+        {% if request.query_params.get('error') == 'rate' %}
+        Too many attempts. Wait a few minutes and try again.
+        {% else %}
         Invalid email or password.
+        {% endif %}
       </div>
     {% endif %}
 

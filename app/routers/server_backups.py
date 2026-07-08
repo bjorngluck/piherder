@@ -357,6 +357,15 @@ async def update_backup_config(
     )
     session.commit()
 
+    # Live re-register APScheduler jobs (no web restart required)
+    try:
+        from ..main import scheduler, HAS_SCHEDULER
+        from ..services.scheduler import sync_server_cron_jobs
+        session.refresh(server)
+        sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server)
+    except Exception as e:
+        logger.warning(f"Could not sync backup schedule for server {server_id}: {e}")
+
     return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
 
 

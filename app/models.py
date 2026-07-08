@@ -11,7 +11,43 @@ class User(SQLModel, table=True):
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+    # Profile (IAM)
+    display_name: Optional[str] = None
+    avatar_path: Optional[str] = None  # relative under DATA_ROOT, e.g. avatars/1.png
+    updated_at: Optional[datetime] = None
+
+    # Optional TOTP 2FA
+    totp_secret_encrypted: Optional[str] = None
+    totp_enabled: bool = False
+    totp_confirmed_at: Optional[datetime] = None
+
     audit_logs: List["AuditLog"] = Relationship(back_populates="user")
+    totp_backup_codes: List["TotpBackupCode"] = Relationship(back_populates="user")
+    trusted_devices: List["TrustedDevice"] = Relationship(back_populates="user")
+
+
+class TotpBackupCode(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    code_hash: str
+    used_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    user: Optional[User] = Relationship(back_populates="totp_backup_codes")
+
+
+class TrustedDevice(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    token_hash: str = Field(index=True)
+    label: Optional[str] = None
+    user_agent: Optional[str] = None
+    ip: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_used_at: Optional[datetime] = None
+    expires_at: datetime
+
+    user: Optional[User] = Relationship(back_populates="trusted_devices")
 
 
 class Server(SQLModel, table=True):
@@ -50,6 +86,21 @@ class Server(SQLModel, table=True):
 
     # Populated by worker after successful backup (thin web reads this directly)
     last_backup_at: Optional[datetime] = None
+
+    # OS update check (check-only; does not apply patches)
+    os_check_enabled: bool = False
+    os_check_schedule: Optional[str] = None
+    last_os_check_at: Optional[datetime] = None
+    os_updates_count: Optional[int] = None
+    reboot_pending: bool = False
+    os_updates_summary: Optional[str] = None
+
+    # Container update check (check-only; pull+compare, no up -d)
+    container_check_enabled: bool = False
+    container_check_schedule: Optional[str] = None
+    last_container_check_at: Optional[datetime] = None
+    container_updates_count: Optional[int] = None
+    container_updates_summary: Optional[str] = None
 
     audit_logs: List["AuditLog"] = Relationship(back_populates="server")
     jobs: List["Job"] = Relationship(back_populates="server")
@@ -131,7 +182,7 @@ class AuditLog(SQLModel, table=True):
 class Job(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     server_id: Optional[int] = Field(default=None, foreign_key="server.id")
-    job_type: str  # backup, container_patch, os_patch, retention, diagnostics, herder_backup
+    job_type: str  # backup, container_patch, os_patch, os_update_check, container_update_check, retention, diagnostics, herder_backup
     status: str = "pending"  # pending, running, success, failed
     celery_task_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -157,3 +208,23 @@ class DockerVersion(SQLModel, table=True):
     deployed_at: Optional[datetime] = None
 
     server: Server = Relationship(back_populates="docker_versions")
+
+
+class Notification(SQLModel, table=True):
+    """Actionable user-facing alerts (separate from immutable AuditLog)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    server_id: Optional[int] = Field(default=None, foreign_key="server.id", index=True)
+    type: str = Field(index=True)  # os_updates, container_updates, reboot_pending, backup_failed, ...
+    severity: str = "warning"  # info | warning | critical
+    title: str
+    body: Optional[str] = None
+    link_url: Optional[str] = None
+    fingerprint: str = Field(index=True)
+    status: str = Field(default="open", index=True)  # open | dismissed | resolved
+    payload: Optional[str] = None  # JSON extras
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    dismissed_at: Optional[datetime] = None
+    resolved_at: Optional[datetime] = None
+    read_at: Optional[datetime] = None
