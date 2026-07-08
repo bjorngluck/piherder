@@ -168,7 +168,7 @@ body {
   }
 }
 
-/* User / account menu in header (lightweight <details> dropdown) */
+/* User / account menu + mobile hamburger (lightweight <details> dropdowns) */
 .user-menu summary::-webkit-details-marker,
 .user-menu summary::marker,
 .mobile-menu summary::-webkit-details-marker,
@@ -190,34 +190,50 @@ body {
   box-shadow: none;
 }
 
-/* Slightly larger tap target for the whole summary */
+/* Summary tap targets */
 .user-menu summary {
   padding: 2px 6px;
 }
-
-/* Hamburger summary — clean tap target, no shift */
 .mobile-menu summary {
   padding: 4px 6px;
   line-height: 1;
   font-size: 18px;
 }
 
+/* Dropdown panels:
+   - Stacked neat items
+   - Extend left over the header (wider on account menu)
+   - Content positioned BELOW the avatar/hamburger trigger (mt-* on the element itself)
+*/
 .user-menu > div,
 .mobile-menu > div {
   min-width: 10rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 .dark .user-menu > div,
 .dark .mobile-menu > div {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
-/* Menu items */
+/* Neat stacked menu items (full-width hit area, consistent spacing) */
 .user-menu > div a,
-.user-menu > div button,
 .mobile-menu > div a {
-  padding-top: 0.375rem;
-  padding-bottom: 0.375rem;
+  display: block;
+  padding: 0.5rem 0.75rem;
+  line-height: 1.35;
+}
+
+/* Account menu: neat stacked items, extends left over the header bar.
+   Must sit clearly BELOW the avatar (see mt-* in base.html) */
+.user-menu > div {
+  width: 18rem;   /* ~288px — reaches nicely left over nav content */
+}
+
+/* Hamburger menu (mobile) — compact but still clean stacked */
+.mobile-menu > div {
+  width: 11rem;
 }
 
 /* Make sure the dropdowns are never hidden behind other content */
