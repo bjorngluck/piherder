@@ -1244,21 +1244,10 @@ input[type="checkbox"], input[type="radio"] {
   text-decoration: none;
 }
 
-/* Servers list: same compact rows as fleet status + reorder + ⋯ */
+/* Servers list: compact rows + drag reorder mode + ⋯ */
 .server-host-list .server-host-row {
   gap: 0.45rem;
-}
-.server-host-reorder {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  gap: 0.1rem;
-  align-self: center;
-}
-.server-host-reorder .server-reorder-btn {
-  min-width: 1.65rem;
-  min-height: 1.25rem;
-  font-size: 0.65rem;
+  transition: box-shadow 0.12s ease, opacity 0.12s ease, background 0.12s ease;
 }
 .server-more-btn {
   width: 2.25rem;
@@ -1266,6 +1255,63 @@ input[type="checkbox"], input[type="radio"] {
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+}
+.server-drag-handle {
+  display: none;
+  flex-shrink: 0;
+  align-self: center;
+  width: 1.75rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--color-border);
+  border-radius: 6px;
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  letter-spacing: -0.08em;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.server-host-list.is-reorder-mode .server-drag-handle {
+  display: inline-flex;
+}
+.server-host-list.is-reorder-mode .server-host-row {
+  cursor: grab;
+}
+.server-host-list.is-reorder-mode .server-host-row.is-dragging {
+  opacity: 0.55;
+  cursor: grabbing;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+.server-host-list.is-reorder-mode .server-host-row.is-drag-over {
+  background: color-mix(in srgb, var(--color-accent, #00a651) 10%, var(--color-surface));
+}
+.server-host-link.is-inert {
+  pointer-events: none;
+  cursor: grab;
+}
+.reorder-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+.reorder-toolbar.hidden,
+.reorder-toolbar[hidden] {
+  display: none !important;
+}
+.server-filter-bar.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+body.server-reorder-active {
+  user-select: none;
 }
 
 /* Servers list filter chips */
