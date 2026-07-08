@@ -67,90 +67,66 @@
   </div>
 </div>
 
-{# Fleet status table #}
-<div class="card p-4 sm:p-5 mb-6 overflow-x-auto">
+{# Fleet status — compact rows (no horizontal scroll table) #}
+<div class="card p-4 sm:p-5 mb-6">
   <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
     <h2 class="font-semibold text-text">Fleet patch status</h2>
-    <p class="text-xs text-muted">From last scheduled/manual check · apply patches on each server</p>
+    <div class="flex flex-wrap gap-2 items-center">
+      <p class="text-xs text-muted">Last check · apply on each server</p>
+      <a href="/servers?filter=attention" class="text-xs text-accent hover:underline">Filter on Servers →</a>
+    </div>
   </div>
 
   {% if not fleet or not fleet.rows %}
   <p class="text-sm text-muted">No servers yet. <a href="/servers/add" class="text-accent hover:underline">Add a server</a>.</p>
   {% else %}
-  <table class="w-full text-sm">
-    <thead>
-      <tr class="text-left text-xs text-muted border-b border-border">
-        <th class="py-2 pr-2 font-medium">Server</th>
-        <th class="py-2 pr-2 font-medium">OS updates</th>
-        <th class="py-2 pr-2 font-medium">Containers</th>
-        <th class="py-2 pr-2 font-medium">Reboot</th>
-        <th class="py-2 pr-2 font-medium">Last check</th>
-        <th class="py-2 font-medium"></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in fleet.rows %}
-      <tr class="border-b border-border/60 align-top {% if r.needs_attention %}bg-amber-500/5{% endif %}">
-        <td class="py-2.5 pr-2">
-          <a href="/servers/{{ r.id }}" class="font-medium text-primary hover:underline">{{ r.name }}</a>
-          <div class="text-[10px] text-muted font-mono">{{ r.hostname }}</div>
-        </td>
-        <td class="py-2.5 pr-2">
+  <div class="source-list fleet-status-list">
+    {% for r in fleet.rows %}
+    <div class="source-row fleet-status-row {% if r.needs_attention %}is-attention{% endif %}">
+      <div class="source-row-body min-w-0">
+        <a href="/servers/{{ r.id }}" class="fleet-status-name">{{ r.name }}</a>
+        <div class="source-row-when text-muted font-mono">{{ r.hostname }}</div>
+        <div class="fleet-status-pills">
           {% if not r.os_patch_enabled %}
-          <span class="text-xs text-muted">off</span>
+          <span class="text-xs text-muted">OS off</span>
           {% elif r.never_checked_os %}
-          <span class="text-xs text-muted">not checked</span>
+          <span class="text-xs text-muted">OS not checked</span>
           {% elif r.os_updates_count and r.os_updates_count > 0 %}
-          <span class="status-pill status-failed">{{ r.os_updates_count }} pkg</span>
+          <span class="status-pill status-failed">{{ r.os_updates_count }} OS</span>
           {% else %}
-          <span class="status-pill status-success">0</span>
+          <span class="status-pill status-success">OS 0</span>
           {% endif %}
-        </td>
-        <td class="py-2.5 pr-2">
+
           {% if not r.container_patch_enabled %}
-          <span class="text-xs text-muted">off</span>
+          <span class="text-xs text-muted">Img off</span>
           {% elif r.never_checked_containers %}
-          <span class="text-xs text-muted">not checked</span>
+          <span class="text-xs text-muted">Img not checked</span>
           {% elif r.container_updates_count and r.container_updates_count > 0 %}
-          <span class="status-pill status-failed">{{ r.container_updates_count }} proj</span>
-          {% if r.container_projects %}
-          <div class="text-[10px] text-muted mt-0.5 max-w-[10rem] truncate" title="{{ r.container_projects|join(', ') }}">
-            {{ r.container_projects|join(', ') }}
-          </div>
-          {% endif %}
+          <span class="status-pill status-failed" title="{{ r.container_projects|join(', ') if r.container_projects else '' }}">{{ r.container_updates_count }} img</span>
           {% else %}
-          <span class="status-pill status-success">0</span>
+          <span class="status-pill status-success">Img 0</span>
           {% endif %}
-        </td>
-        <td class="py-2.5 pr-2">
+
           {% if r.reboot_pending %}
-          <span class="status-pill status-failed">yes</span>
-          {% else %}
-          <span class="text-xs text-muted">—</span>
+          <span class="status-pill status-failed">reboot</span>
           {% endif %}
-        </td>
-        <td class="py-2.5 pr-2 text-xs text-muted whitespace-nowrap">
-          {% if r.last_os_check_at %}
-          <div>OS {{ r.last_os_check_at | app_tz }}</div>
-          {% endif %}
-          {% if r.last_container_check_at %}
-          <div>Img {{ r.last_container_check_at | app_tz }}</div>
-          {% endif %}
-          {% if not r.last_os_check_at and not r.last_container_check_at %}
-          <span>—</span>
-          {% endif %}
-        </td>
-        <td class="py-2.5 text-right whitespace-nowrap">
-          <a href="/servers/{{ r.id }}" class="text-xs text-accent hover:underline">Open</a>
-          {% if r.container_updates_count and r.container_updates_count > 0 %}
-          <span class="text-muted mx-1">·</span>
-          <a href="/servers/{{ r.id }}/docker" class="text-xs text-accent hover:underline">Docker</a>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        </div>
+        <div class="source-row-when text-muted">
+          {% if r.last_os_check_at %}OS {{ r.last_os_check_at | app_tz }}{% endif %}
+          {% if r.last_os_check_at and r.last_container_check_at %} · {% endif %}
+          {% if r.last_container_check_at %}Img {{ r.last_container_check_at | app_tz }}{% endif %}
+          {% if not r.last_os_check_at and not r.last_container_check_at %}Not checked yet{% endif %}
+        </div>
+      </div>
+      <div class="source-row-tools fleet-status-tools">
+        <a href="/servers/{{ r.id }}" class="btn btn-secondary text-xs min-h-11 px-3">Open</a>
+        {% if r.container_updates_count and r.container_updates_count > 0 %}
+        <a href="/servers/{{ r.id }}/docker" class="btn btn-secondary text-xs min-h-11 px-3">Docker</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
   {% if fleet.attention_count == 0 and fleet.server_count > 0 %}
   <p class="text-xs text-muted mt-3">All checked hosts look clean. Run checks from each server’s <strong>Update checks</strong> card if data is stale.</p>
   {% endif %}
