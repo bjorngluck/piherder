@@ -26,6 +26,7 @@ _ACTION_LABELS = {
     "server_backup_source_add": "Backup source added",
     "server_backup_source_remove": "Backup source removed",
     "server_move": "Server reordered",
+    "server_reorder": "Server list reordered",
     "reboot": "Reboot",
     "retention": "Retention",
     "herder_backup": "PiHerder backup",

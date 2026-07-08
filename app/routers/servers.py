@@ -133,6 +133,54 @@ async def list_servers(
     )
 
 
+@router.post("/reorder")
+async def reorder_servers(
+    order: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Save full list order from drag-and-drop (comma-separated server ids)."""
+    raw = [p.strip() for p in (order or "").split(",") if p.strip()]
+    ids: list[int] = []
+    for p in raw:
+        try:
+            ids.append(int(p))
+        except ValueError:
+            continue
+    if not ids:
+        return RedirectResponse("/servers?error=reorder_empty", status_code=303)
+
+    # Only known servers; preserve any missing at the end
+    try:
+        all_servers = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
+    except Exception:
+        all_servers = list(session.exec(select(Server).order_by(Server.name)).all())
+    by_id = {s.id: s for s in all_servers if s.id is not None}
+    ordered: list[Server] = []
+    seen = set()
+    for sid in ids:
+        s = by_id.get(sid)
+        if s and sid not in seen:
+            ordered.append(s)
+            seen.add(sid)
+    for s in all_servers:
+        if s.id not in seen:
+            ordered.append(s)
+
+    for i, s in enumerate(ordered):
+        s.sort_order = i * 10
+        session.add(s)
+    record_server_audit(
+        session,
+        server_id=None,
+        user_id=user.id,
+        action="server_reorder",
+        details={"message": f"Reordered {len(ordered)} server(s)", "order": [s.id for s in ordered]},
+    )
+    session.commit()
+    return RedirectResponse("/servers?reordered=1", status_code=303)
+
+
 @router.post("/{server_id}/move/{direction}")
 async def move_server(
     server_id: int,
@@ -140,6 +188,7 @@ async def move_server(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+    """Legacy single-step move (kept for compatibility). Prefer /servers/reorder."""
     if direction not in ("up", "down"):
         raise HTTPException(400)
     try:

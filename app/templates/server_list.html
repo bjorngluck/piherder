@@ -8,21 +8,34 @@
 <div class="page-header mb-4">
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Servers</h1>
-    <p class="text-sm text-muted mt-1">Compact host list — use ⋯ for backup, patch, open, and more.</p>
+    <p class="text-sm text-muted mt-1" id="server-list-hint">
+      Compact host list — use ⋯ for actions. Reorder via <strong>Reorder</strong> when you need to drag hosts.
+    </p>
   </div>
   <div class="page-header-actions">
+    <button type="button" id="btn-reorder-toggle" class="btn btn-secondary min-h-11"
+            {% if filter and filter != 'all' %}title="Switch to All servers to reorder"{% endif %}>
+      Reorder
+    </button>
     <button type="button" onclick="location.reload()"
             class="btn btn-secondary min-h-11"
             title="Refresh list (no auto-reload)">
       ↻ Refresh
     </button>
-    <a href="/servers/add" class="btn btn-primary min-h-11">+ Add Server</a>
+    <a href="/servers/add" class="btn btn-primary min-h-11" id="btn-add-server">+ Add Server</a>
   </div>
 </div>
 
+{% if request.query_params.get('reordered') %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">Server order saved.</div>
+{% endif %}
+{% if request.query_params.get('error') == 'reorder_empty' %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">Could not save order — empty list.</div>
+{% endif %}
+
 {% set fc = filter_counts or {} %}
 {% set f = filter or 'all' %}
-<div class="server-filter-bar" role="navigation" aria-label="Filter servers">
+<div class="server-filter-bar" id="server-filter-bar" role="navigation" aria-label="Filter servers">
   <a href="/servers" class="server-filter-chip {{ 'is-active' if f == 'all' else '' }}">
     All <span class="server-filter-count">{{ fc.get('all', 0) }}</span>
   </a>
@@ -40,29 +53,36 @@
   </a>
 </div>
 
-{# Anchored ⋯ menu (same pattern as Docker compose) #}
+{# Reorder mode toolbar (hidden until enabled) #}
+<div id="reorder-toolbar" class="reorder-toolbar hidden" hidden>
+  <p class="text-sm text-muted flex-1 min-w-0">
+    Drag hosts by the handle ⋮⋮ — then <strong>Save order</strong>.
+  </p>
+  <form method="post" action="/servers/reorder" id="reorder-form" class="flex flex-wrap gap-2 items-center">
+    <input type="hidden" name="order" id="reorder-order-input" value="">
+    <button type="submit" class="btn btn-accent min-h-11 text-sm" id="btn-reorder-save">Save order</button>
+    <button type="button" class="btn btn-secondary min-h-11 text-sm" id="btn-reorder-cancel">Cancel</button>
+  </form>
+</div>
+
+{# Anchored ⋯ menu #}
 <div id="server-more-menu" class="docker-popover hidden" role="menu" hidden>
   <div class="docker-popover-title text-muted" id="server-more-name"></div>
   <div id="server-more-list" class="docker-popover-list"></div>
 </div>
 
 {% if servers %}
-<div class="source-list fleet-status-list server-host-list">
+<div class="source-list fleet-status-list server-host-list" id="server-host-list"
+     data-filter="{{ f }}">
   {% for s in servers %}
   <div class="source-row fleet-status-row server-host-row {% if s.get('needs_attention') %}is-attention{% endif %}"
        data-server-id="{{ s.id }}"
-       data-server-name="{{ s.name }}">
-    <div class="server-row-reorder server-host-reorder" aria-label="Reorder">
-      <form method="post" action="/servers/{{ s.id }}/move/up">
-        <button type="submit" class="server-reorder-btn" title="Move up" aria-label="Move {{ s.name }} up">▲</button>
-      </form>
-      <form method="post" action="/servers/{{ s.id }}/move/down">
-        <button type="submit" class="server-reorder-btn" title="Move down" aria-label="Move {{ s.name }} down">▼</button>
-      </form>
-    </div>
+       data-server-name="{{ s.name }}"
+       draggable="false">
+    <div class="server-drag-handle" title="Drag to reorder" aria-hidden="true" hidden>⋮⋮</div>
 
     <div class="source-row-body min-w-0">
-      <a href="/servers/{{ s.id }}" class="fleet-status-name">{{ s.name }}</a>
+      <a href="/servers/{{ s.id }}" class="fleet-status-name server-host-link">{{ s.name }}</a>
       <div class="source-row-when text-muted font-mono">{{ s.hostname }}</div>
       <div class="fleet-status-pills">
         {% if s.get('backup_running') %}
@@ -96,7 +116,7 @@
       </div>
     </div>
 
-    <div class="source-row-tools">
+    <div class="source-row-tools server-row-tools-normal">
       <button type="button"
               class="source-icon-btn server-more-btn"
               data-server-more
@@ -119,12 +139,16 @@
 </div>
 {% endif %}
 
-<div class="mt-8 text-xs text-muted">
-  Status from last update checks (no live SSH). ⋯ menu: backup, patch, open, docker, checks.
+<div class="mt-8 text-xs text-muted" id="server-list-footer">
+  Status from last update checks (no live SSH). ⋯ menu: open, backup, patch, docker, settings.
 </div>
 
 <script>
 (function () {
+  var list = document.getElementById('server-host-list');
+  var reorderMode = false;
+  var dragEl = null;
+
   function hideServerMoreMenu() {
     var menu = document.getElementById('server-more-menu');
     if (!menu) return;
@@ -146,9 +170,9 @@
 
   function showServerMoreMenu(anchorBtn, row) {
     var menu = document.getElementById('server-more-menu');
-    var list = document.getElementById('server-more-list');
+    var listEl = document.getElementById('server-more-list');
     var nameEl = document.getElementById('server-more-name');
-    if (!menu || !list) return;
+    if (!menu || !listEl) return;
 
     var id = row.getAttribute('data-server-id');
     var name = (row.getAttribute('data-server-name') || 'Server').trim();
@@ -165,14 +189,11 @@
       { label: 'Reboot…', post: '/servers/' + id + '/reboot', danger: true, confirm: 'Reboot ' + name + ' now?' },
     ];
 
-    list.innerHTML = '';
+    listEl.innerHTML = '';
     items.forEach(function (item) {
       var btn = document.createElement(item.href ? 'a' : 'button');
-      if (item.href) {
-        btn.href = item.href;
-      } else {
-        btn.type = 'button';
-      }
+      if (item.href) btn.href = item.href;
+      else btn.type = 'button';
       btn.setAttribute('role', 'menuitem');
       btn.className = 'docker-popover-item'
         + (item.danger ? ' is-danger' : '')
@@ -189,7 +210,7 @@
         hideServerMoreMenu();
         postAction(item.post);
       });
-      list.appendChild(btn);
+      listEl.appendChild(btn);
     });
 
     menu.classList.remove('hidden');
@@ -212,7 +233,156 @@
     });
   }
 
+  function setReorderMode(on) {
+    reorderMode = !!on;
+    hideServerMoreMenu();
+    var toolbar = document.getElementById('reorder-toolbar');
+    var toggle = document.getElementById('btn-reorder-toggle');
+    var filters = document.getElementById('server-filter-bar');
+    var hint = document.getElementById('server-list-hint');
+    if (!list) return;
+
+    document.body.classList.toggle('server-reorder-active', reorderMode);
+    list.classList.toggle('is-reorder-mode', reorderMode);
+
+    if (toolbar) {
+      toolbar.classList.toggle('hidden', !reorderMode);
+      toolbar.hidden = !reorderMode;
+    }
+    if (toggle) {
+      toggle.textContent = reorderMode ? 'Done reordering' : 'Reorder';
+      toggle.classList.toggle('btn-accent', reorderMode);
+      toggle.classList.toggle('btn-secondary', !reorderMode);
+    }
+    if (filters) filters.classList.toggle('is-disabled', reorderMode);
+    if (hint) {
+      hint.innerHTML = reorderMode
+        ? 'Drag hosts by <strong>⋮⋮</strong>, then <strong>Save order</strong>.'
+        : 'Compact host list — use ⋯ for actions. Reorder via <strong>Reorder</strong> when you need to drag hosts.';
+    }
+
+    list.querySelectorAll('.server-host-row').forEach(function (row) {
+      var handle = row.querySelector('.server-drag-handle');
+      var tools = row.querySelector('.server-row-tools-normal');
+      var link = row.querySelector('.server-host-link');
+      if (handle) {
+        handle.hidden = !reorderMode;
+      }
+      if (tools) tools.hidden = reorderMode;
+      row.draggable = reorderMode;
+      if (link) {
+        if (reorderMode) {
+          link.setAttribute('data-href', link.getAttribute('href') || '');
+          link.removeAttribute('href');
+          link.classList.add('is-inert');
+        } else {
+          var href = link.getAttribute('data-href');
+          if (href) link.setAttribute('href', href);
+          link.classList.remove('is-inert');
+        }
+      }
+    });
+  }
+
+  function collectOrder() {
+    if (!list) return '';
+    return Array.prototype.map.call(
+      list.querySelectorAll('.server-host-row'),
+      function (row) { return row.getAttribute('data-server-id'); }
+    ).join(',');
+  }
+
+  // --- Reorder toggle ---
+  var btnToggle = document.getElementById('btn-reorder-toggle');
+  if (btnToggle) {
+    btnToggle.addEventListener('click', function () {
+      var filt = list && list.getAttribute('data-filter');
+      if (!reorderMode && filt && filt !== 'all') {
+        if (window.confirm('Reorder works on the full server list. Switch to All now?')) {
+          window.location.href = '/servers?reorder=1';
+        }
+        return;
+      }
+      if (!list || !list.querySelector('.server-host-row')) return;
+      setReorderMode(!reorderMode);
+    });
+  }
+
+  // Auto-enter reorder if ?reorder=1
+  if (list && /[?&]reorder=1(?:&|$)/.test(window.location.search)) {
+    setReorderMode(true);
+    // Clean URL without reload noise
+    try {
+      var u = new URL(window.location.href);
+      u.searchParams.delete('reorder');
+      window.history.replaceState({}, '', u.pathname + (u.search || ''));
+    } catch (e) {}
+  }
+
+  var btnCancel = document.getElementById('btn-reorder-cancel');
+  if (btnCancel) {
+    btnCancel.addEventListener('click', function () {
+      window.location.href = '/servers';
+    });
+  }
+
+  var form = document.getElementById('reorder-form');
+  if (form) {
+    form.addEventListener('submit', function () {
+      var input = document.getElementById('reorder-order-input');
+      if (input) input.value = collectOrder();
+    });
+  }
+
+  // --- Drag and drop ---
+  if (list) {
+    list.addEventListener('dragstart', function (e) {
+      if (!reorderMode) return;
+      var row = e.target.closest('.server-host-row');
+      if (!row) return;
+      dragEl = row;
+      row.classList.add('is-dragging');
+      try {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', row.getAttribute('data-server-id') || '');
+      } catch (err) {}
+    });
+
+    list.addEventListener('dragend', function (e) {
+      if (dragEl) dragEl.classList.remove('is-dragging');
+      dragEl = null;
+      list.querySelectorAll('.is-drag-over').forEach(function (el) {
+        el.classList.remove('is-drag-over');
+      });
+    });
+
+    list.addEventListener('dragover', function (e) {
+      if (!reorderMode || !dragEl) return;
+      e.preventDefault();
+      var row = e.target.closest('.server-host-row');
+      if (!row || row === dragEl) return;
+      list.querySelectorAll('.is-drag-over').forEach(function (el) {
+        if (el !== row) el.classList.remove('is-drag-over');
+      });
+      row.classList.add('is-drag-over');
+      var rect = row.getBoundingClientRect();
+      var before = (e.clientY - rect.top) < rect.height / 2;
+      if (before) {
+        list.insertBefore(dragEl, row);
+      } else {
+        list.insertBefore(dragEl, row.nextSibling);
+      }
+    });
+
+    list.addEventListener('drop', function (e) {
+      if (!reorderMode) return;
+      e.preventDefault();
+    });
+  }
+
+  // --- ⋯ menu ---
   document.addEventListener('click', function (e) {
+    if (reorderMode) return;
     var moreBtn = e.target.closest('[data-server-more]');
     if (moreBtn) {
       e.preventDefault();
@@ -233,7 +403,10 @@
   });
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') hideServerMoreMenu();
+    if (e.key === 'Escape') {
+      hideServerMoreMenu();
+      if (reorderMode) setReorderMode(false);
+    }
   });
   window.addEventListener('scroll', hideServerMoreMenu, true);
   window.addEventListener('resize', hideServerMoreMenu);
