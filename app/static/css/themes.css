@@ -170,13 +170,17 @@ body {
 
 /* User / account menu in header (lightweight <details> dropdown) */
 .user-menu summary::-webkit-details-marker,
-.user-menu summary::marker {
+.user-menu summary::marker,
+.mobile-menu summary::-webkit-details-marker,
+.mobile-menu summary::marker {
   display: none;
 }
-.user-menu summary {
+.user-menu summary,
+.mobile-menu summary {
   outline: none;
 }
-.user-menu[open] summary {
+.user-menu[open] summary,
+.mobile-menu[open] summary {
   background-color: var(--color-surface);
 }
 
@@ -191,23 +195,34 @@ body {
   padding: 2px 6px;
 }
 
-.user-menu > div {
+/* Hamburger summary — clean tap target, no shift */
+.mobile-menu summary {
+  padding: 4px 6px;
+  line-height: 1;
+  font-size: 18px;
+}
+
+.user-menu > div,
+.mobile-menu > div {
   min-width: 10rem;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
-.dark .user-menu > div {
+.dark .user-menu > div,
+.dark .mobile-menu > div {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 /* Menu items */
 .user-menu > div a,
-.user-menu > div button {
+.user-menu > div button,
+.mobile-menu > div a {
   padding-top: 0.375rem;
   padding-bottom: 0.375rem;
 }
 
-/* Make sure the dropdown is never hidden behind other content */
-.user-menu > div {
+/* Make sure the dropdowns are never hidden behind other content */
+.user-menu > div,
+.mobile-menu > div {
   z-index: 9999;
 }
 

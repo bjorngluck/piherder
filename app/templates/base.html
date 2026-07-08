@@ -29,7 +29,7 @@
     /* Minimal robust fallback ONLY for layout/structure when Tailwind CDN fails.
        ALL color theming is var-driven ONLY via themes.css (no color rules here). */
     :root { color-scheme: light dark; }
-    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.5; margin: 0; }
+    body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.5; margin: 0; overflow-x: hidden; }
     a { text-decoration: none; }
     a:hover { text-decoration: underline; }
     table { width: 100%; border-collapse: collapse; }
@@ -121,64 +121,68 @@
 </head>
 <body class="bg-bg">
   <nav class="border-b border-border nav-header">
-    <div class="max-w-5xl mx-auto px-6 py-3 md:py-4 flex items-center flex-nowrap gap-x-4">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-x-2">
       <!-- Brand (left) -->
-      <div class="flex items-center gap-3 flex-shrink-0">
+      <div class="flex items-center gap-2 flex-shrink-0 min-w-0">
         <a href="/" class="flex items-center gap-2 group">
-          <img src="/static/images/piherder-logo-small.png" alt="PiHerder" class="h-8 w-auto">
+          <img src="/static/images/piherder-logo-small.png" alt="PiHerder" class="h-8 w-auto flex-shrink-0">
           <div class="leading-none">
-            <span class="font-semibold text-2xl tracking-tighter text-text group-hover:text-primary transition-colors">PiHerder</span>
+            <span class="font-semibold text-xl sm:text-2xl tracking-tighter text-text group-hover:text-primary transition-colors">PiHerder</span>
             <div class="text-[10px] font-mono text-primary -mt-0.5 tracking-[1.5px]">FLEET</div>
           </div>
         </a>
-        <div class="hidden md:block text-xs text-muted pl-3 border-l border-border">
+        <div class="hidden md:block text-xs text-muted pl-2 md:pl-3 border-l border-border whitespace-nowrap">
           Raspberry Pi backup management
         </div>
       </div>
 
-      <!-- Right side: nav links + avatar grouped as one unit.
-           ml-auto + flex-nowrap on this container + flex-shrink-0 + whitespace-nowrap on avatar block
-           guarantees the avatar never shifts to bottom-left on Settings, Account or mobile.
-
-           NOTE: Not every handler passes `request` (some use lean_page=True).
-                 We compute current_path defensively to avoid UndefinedError. -->
+      <!-- Desktop nav links (hidden on mobile; hamburger takes over) -->
       {% set current_path = '' %}
       {% if request is defined and request is not none %}
         {% if request.url is defined and request.url is not none %}
           {% set current_path = request.url.path or '' %}
         {% endif %}
       {% endif %}
-      <div class="flex items-center gap-x-2 text-sm ml-auto flex-nowrap">
-        <a href="/" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if current_path == '/' else '' }}">Dashboard</a>
-        <a href="/servers" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if current_path.startswith('/servers') else '' }}">Servers</a>
-        <a href="/audit" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if current_path.startswith('/audit') else '' }}">Audit</a>
-        <a href="/herder-backups" class="nav-link px-1 py-0.5 {{ 'nav-link-active' if current_path.startswith('/herder') else '' }}">Settings</a>
+      <div class="hidden md:flex items-center gap-x-1 text-sm flex-shrink-0">
+        <a href="/" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path == '/' else '' }}">Dashboard</a>
+        <a href="/servers" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/servers') else '' }}">Servers</a>
+        <a href="/audit" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/audit') else '' }}">Audit</a>
+        <a href="/herder-backups" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/herder') else '' }}">Settings</a>
+      </div>
 
+      <!-- Right side: mobile hamburger (only main nav) + avatar -->
+      <div class="flex items-center gap-x-1 flex-shrink-0">
         {% if user %}
-        <!-- Avatar block: never wraps independently. Clean circle with NO border. Single toggle inside. -->
-        <div class="flex items-center pl-2 sm:pl-3 border-l border-border flex-shrink-0 whitespace-nowrap">
+        <!-- Mobile hamburger: logo left / avatar right on small screens. Links collapse here. -->
+        <details class="mobile-menu md:hidden relative">
+          <summary class="flex items-center justify-center w-9 h-9 cursor-pointer list-none select-none rounded hover:bg-surface transition-colors text-xl leading-none text-muted"
+                   aria-label="Menu">
+            ☰
+          </summary>
+          <div class="absolute right-0 mt-1.5 w-44 bg-surface border border-border rounded shadow-lg z-[99999] py-1 text-sm">
+            <a href="/" onclick="this.closest('details').open=false" class="block px-3 py-1.5 hover:bg-bg text-text {{ 'font-semibold text-primary' if current_path == '/' else '' }}">Dashboard</a>
+            <a href="/servers" onclick="this.closest('details').open=false" class="block px-3 py-1.5 hover:bg-bg text-text {{ 'font-semibold text-primary' if current_path.startswith('/servers') else '' }}">Servers</a>
+            <a href="/audit" onclick="this.closest('details').open=false" class="block px-3 py-1.5 hover:bg-bg text-text {{ 'font-semibold text-primary' if current_path.startswith('/audit') else '' }}">Audit</a>
+            <a href="/herder-backups" onclick="this.closest('details').open=false" class="block px-3 py-1.5 hover:bg-bg text-text {{ 'font-semibold text-primary' if current_path.startswith('/herder') else '' }}">Settings</a>
+          </div>
+        </details>
+
+        <!-- Avatar block (always visible, rightmost). Clean circle, no border. -->
+        <div class="flex items-center pl-1 sm:pl-2 border-l border-border flex-shrink-0 whitespace-nowrap">
           <details class="user-menu relative">
             <summary class="flex items-center gap-1.5 cursor-pointer list-none select-none rounded px-1 py-0.5 hover:bg-surface transition-colors">
-              <!-- Clean circle avatar. NO border (on circle or summary). -->
               <div class="w-8 h-8 rounded-full bg-surface flex items-center justify-center text-sm font-semibold text-muted shrink-0"
                    title="{{ user.email }}">
                 {{ user.email[0].upper() }}
               </div>
               <span class="text-muted text-sm hidden md:inline max-w-[5rem] truncate">{{ user.email.split('@')[0] }}</span>
-              <span class="text-muted text-xs leading-none mt-0.5">▾</span>
+              <span class="text-muted text-xs leading-none align-middle">▾</span>
             </summary>
-            <!-- Extremely high z-index so dropdown is never hidden (mobile or desktop) -->
             <div class="absolute right-0 mt-1.5 w-44 bg-surface border border-border rounded shadow-lg z-[99999] py-1 text-sm">
               <a href="/auth/account" class="block px-3 py-1.5 hover:bg-bg text-text">Account</a>
-
               <div class="border-t border-border my-0.5"></div>
-
-              <!-- Single toggle (not two separate Light/Dark buttons) -->
-              <button type="button" onclick="toggleThemeFromMenu(this)"
-                      class="block w-full text-left px-3 py-1.5 hover:bg-bg text-text">
-                Toggle theme
-              </button>
-
+              <!-- Standard menu item (plain link like the others) -->
+              <a href="#" onclick="toggleThemeFromMenu(this); return false;" class="block px-3 py-1.5 hover:bg-bg text-text">Toggle theme</a>
               <div class="border-t border-border my-0.5"></div>
               <a href="/auth/logout" class="block px-3 py-1.5 hover:bg-bg text-danger">Sign out</a>
             </div>
