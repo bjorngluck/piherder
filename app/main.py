@@ -405,6 +405,8 @@ async def save_update_check_defaults(
     container_check_cron: str = Form("0 0 * * *"),
     update_check_jitter: Optional[str] = Form(None),
     apply_to_all: Optional[str] = Form(None),
+    enable_feature_flags: Optional[str] = Form(None),
+    enable_backups: Optional[str] = Form(None),
     user: User = Depends(get_current_user),
 ):
     """Save global update-check defaults; optionally apply schedules to every eligible server."""
@@ -418,6 +420,9 @@ async def save_update_check_defaults(
     cont_on = container_check_global_enabled in ("1", "on", "true")
     jitter = update_check_jitter in ("1", "on", "true")
     do_apply = apply_to_all in ("1", "on", "true")
+    # Default ON when apply_to_all (checkbox present); unchecked = omitted from form
+    enable_flags = enable_feature_flags in ("1", "on", "true")
+    enable_bak = enable_backups in ("1", "on", "true")
     os_cron = (os_check_cron or "").strip() or "0 0 * * *"
     cont_cron = (container_check_cron or "").strip() or "0 0 * * *"
     try:
@@ -436,7 +441,10 @@ async def save_update_check_defaults(
         "update_check_jitter": jitter,
     })
 
-    applied = {"os_applied": 0, "container_applied": 0, "servers_total": 0}
+    applied = {
+        "os_applied": 0, "container_applied": 0, "servers_total": 0,
+        "flags_os": 0, "flags_container": 0, "flags_backup": 0,
+    }
     if do_apply:
         with _Session(_engine) as db:
             applied = ucc.apply_global_update_checks_to_all(
@@ -446,7 +454,9 @@ async def save_update_check_defaults(
                 container_enabled=cont_on,
                 container_cron=cont_cron,
                 jitter=jitter,
-                only_patch_enabled=False,  # all hosts; check-only does not need patch toggles
+                only_patch_enabled=False,
+                enable_feature_flags=enable_flags,
+                enable_backups=enable_bak,
             )
         sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER)
 
@@ -455,6 +465,9 @@ async def save_update_check_defaults(
         f"&os={applied.get('os_applied', 0)}"
         f"&cont={applied.get('container_applied', 0)}"
         f"&total={applied.get('servers_total', 0)}"
+        f"&flags_os={applied.get('flags_os', 0)}"
+        f"&flags_cont={applied.get('flags_container', 0)}"
+        f"&flags_bak={applied.get('flags_backup', 0)}"
         f"&applied={'1' if do_apply else '0'}",
         status_code=303,
     )

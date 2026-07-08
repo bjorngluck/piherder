@@ -7,7 +7,7 @@
 <div class="page-header mb-6">
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Settings</h1>
-    <p class="text-sm text-muted mt-1">Timezone, PiHerder self-backups, and restore. Data lives on the host volume.</p>
+    <p class="text-sm text-muted mt-1">Timezone, fleet update checks, and PiHerder self-backups.</p>
   </div>
   <div class="page-header-actions">
     <a href="/" class="btn btn-secondary min-h-11 text-sm">← Dashboard</a>
@@ -39,6 +39,9 @@
   Applied to fleet: OS schedules on {{ request.query_params.get('os', '0') }} host(s),
   container schedules on {{ request.query_params.get('cont', '0') }} host(s)
   (of {{ request.query_params.get('total', '0') }} server(s)).
+  Feature flags turned on: OS +{{ request.query_params.get('flags_os', '0') }},
+  containers +{{ request.query_params.get('flags_cont', '0') }},
+  backups +{{ request.query_params.get('flags_bak', '0') }}.
   Checks are queued (max 2 concurrent) when the schedule fires.
   {% else %}
   Defaults stored only — tick “Apply to all servers” to push schedules to hosts.
@@ -105,9 +108,18 @@
       <input type="checkbox" name="apply_to_all" value="1" checked>
       <span>Apply to all servers now</span>
     </label>
+    <label class="flex items-center gap-2 min-h-11 text-sm">
+      <input type="checkbox" name="enable_feature_flags" value="1" checked>
+      <span>Enable <strong>OS patch</strong> &amp; <strong>container patch</strong> features on all servers</span>
+    </label>
+    <label class="flex items-center gap-2 min-h-11 text-sm">
+      <input type="checkbox" name="enable_backups" value="1" checked>
+      <span>Enable <strong>Backups</strong> feature on all servers</span>
+    </label>
     <p class="text-[10px] text-muted">
-      Writes per-server schedules for <strong>all servers</strong> and re-registers the scheduler.
-      Per-server cards still allow overrides. Check-only does not require the patch-apply feature toggles.
+      Writes per-server check schedules, turns on feature flags so the Servers list shows them as on,
+      and re-registers the scheduler. Does <strong>not</strong> set a backup cron or run jobs —
+      only the backup capability toggle. Per-server cards still allow overrides.
     </p>
     <button type="submit" class="btn btn-accent min-h-11 text-sm">Save &amp; apply update checks</button>
   </form>
