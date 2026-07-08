@@ -2,55 +2,68 @@
 
 {% block content %}
 <div class="max-w-6xl mx-auto">
-  <!-- Page load loading modal - shown while collecting data from host via SSH -->
-  <div id="docker-page-loading" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <!-- Shown until stack-fragment HTMX load completes (SSH on host) -->
+  <div id="docker-page-loading" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50" style="display:flex" aria-live="polite" aria-busy="true">
     <div class="card rounded-xl p-6 w-full max-w-sm mx-4 text-center">
       <div class="flex justify-center mb-3">
         <div class="w-7 h-7 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
       </div>
-      <div class="font-medium">Collecting information from host via SSH</div>
-      <div class="text-xs text-muted mt-1">Please wait, this can take a moment...</div>
+      <div class="font-medium" id="docker-loading-title">Collecting information from host via SSH</div>
+      <div class="text-xs text-muted mt-1" id="docker-loading-sub">Compose projects, containers, and status…</div>
     </div>
   </div>
 
 <script>
-// Docker Management page loading overlay
-// Shown by default in HTML while the (slow) server response with host data is being prepared/loaded.
-// Also re-shown briefly on browser back/forward navigation.
+// Docker shell is instant; overlay stays until #docker-stack HTMX fragment arrives.
 (function initDockerLoading() {
   const overlay = document.getElementById('docker-page-loading');
   if (!overlay) return;
 
+  function show() {
+    overlay.style.display = 'flex';
+    overlay.setAttribute('aria-busy', 'true');
+  }
   function hide() {
     overlay.style.display = 'none';
+    overlay.setAttribute('aria-busy', 'false');
   }
+  window.showDockerPageLoading = show;
+  window.hideDockerPageLoading = hide;
 
-  // Force show the loading modal immediately on page load/arrival.
-  // This ensures it is visible when navigating from Servers screen (or other pages)
-  // while the server collects fresh data via SSH.
-  overlay.style.display = 'flex';
+  // Shell-first: keep overlay until stack data is swapped in
+  show();
 
-  const hasNocache = new URLSearchParams(window.location.search).has('nocache');
-
-  // Keep visible longer when explicitly bypassing cache (fresh host data collection).
-  const hideDelay = hasNocache ? 1200 : 400;
-
-  // Hide after the page is fully loaded (including any initial HTMX etc.)
-  // plus delay so user sees the "collecting" message.
-  window.addEventListener('load', () => setTimeout(hide, hideDelay));
-
-  // Also cover DOM ready case.
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(hide, hideDelay));
+  function isStackTarget(evt) {
+    const t = (evt.detail && evt.detail.target) || evt.target;
+    return t && (t.id === 'docker-stack' || (t.querySelector && t.querySelector('#docker-stack')));
   }
-
-  // On browser back/forward (bfcache), always re-show the loading modal
-  // to indicate we're (re)collecting from the host.
-  window.addEventListener('pageshow', function(event) {
-    if (event.persisted) {
-      overlay.style.display = 'flex';
-      setTimeout(hide, 1500);
+  document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (isStackTarget(evt)) hide();
+  });
+  document.body.addEventListener('htmx:afterSettle', function(evt) {
+    if (isStackTarget(evt)) hide();
+  });
+  document.body.addEventListener('htmx:responseError', function(evt) {
+    if (isStackTarget(evt)) {
+      const title = document.getElementById('docker-loading-title');
+      const sub = document.getElementById('docker-loading-sub');
+      if (title) title.textContent = 'Could not load Docker data';
+      if (sub) sub.textContent = 'Check host SSH connectivity, then use Refresh.';
+      setTimeout(hide, 2200);
     }
+  });
+  // Safety: never block forever
+  setTimeout(function() {
+    if (overlay.style.display !== 'none' && !document.querySelector('.docker-stack-list, .docker-orphans')) {
+      // still empty after long wait — leave a message but free the UI
+      const sub = document.getElementById('docker-loading-sub');
+      if (sub) sub.textContent = 'Still waiting on host… you can use the page or Refresh.';
+      hide();
+    }
+  }, 45000);
+
+  window.addEventListener('pageshow', function(event) {
+    if (event.persisted) show();
   });
 })();
 </script>
@@ -67,16 +80,22 @@
     </div>
   </div>
 
-  <!-- All Containers -->
-  <div class="mb-10">
-    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-      <h2 class="text-lg font-medium flex items-center gap-2">
-        Containers
-        <span class="text-xs font-normal text-muted">({{ containers|length }} total, {{ containers|selectattr('running')|list|length }} running)</span>
-      </h2>
-      <div class="text-xs text-muted flex items-center gap-2">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+    <h2 class="text-lg font-medium">
+      Stacks
+      <span class="text-xs font-normal text-muted" id="stack-summary">
+        {% if docker_shell|default(false) %}
+        · loading…
+        {% else %}
+        · {{ containers|length }} containers
+        · {{ containers|selectattr('running')|list|length }} running
+        {% endif %}
+      </span>
+    </h2>
+    <div class="flex flex-wrap items-center gap-2">
+      <div class="text-xs text-muted flex items-center gap-1.5">
         Auto-refresh
-        <select onchange="const u=new URL(window.location.href); u.searchParams.set('refresh', this.value); window.location.href=u.toString();" class="bg-surface border border-border text-xs px-2 py-1 rounded min-h-11">
+        <select onchange="const u=new URL(window.location.href); u.searchParams.set('refresh', this.value); window.location.href=u.toString();" class="bg-surface border border-border text-xs px-2 py-1 rounded min-h-9">
           {% set cur = request.query_params.get('refresh', '120') | int %}
           <option value="60" {% if cur==60 %}selected{% endif %}>60s</option>
           <option value="120" {% if cur==120 %}selected{% endif %}>120s</option>
@@ -84,164 +103,330 @@
           <option value="600" {% if cur==600 %}selected{% endif %}>10m</option>
         </select>
       </div>
-    </div>
-
-    <div class="table-scroll">
-      <div hx-get="/servers/{{ server.id }}/docker/containers-fragment?refresh={{ request.query_params.get('refresh', '120') }}"
-           hx-trigger="every {{ request.query_params.get('refresh', '120') }}s"
-           hx-target="#containers-table"
-           hx-swap="outerHTML"
-           id="containers-table">
-        {% include "docker_containers_table.html" %}
-      </div>
+      <button type="button" onclick="showCleanupModal()" class="btn btn-secondary text-xs px-3 py-1.5 min-h-9">Cleanup…</button>
     </div>
   </div>
 
-  <!-- Compose Projects -->
-  <div>
-    <h2 class="text-lg font-medium mb-3">Compose Projects</h2>
-
-    {% if update_check %}
-      <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-success' if update_status == 'up-to-date' else 'banner-warning' }}">
-        Checked {{ update_check }}: 
-        {% if update_status == 'updates' %}New images available!{% else %}Up to date.{% endif %}
-      </div>
-    {% endif %}
-
-    {% if build_status %}
-      <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-success' if build_status == 'built' else 'banner-error' }}">
-        Build {{ 'succeeded' if build_status == 'built' else 'failed or errored' }}. Check logs on host if needed.
-      </div>
-    {% endif %}
-
-    {% if request.query_params.get('new_project') %}
-      <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
-        New service <strong>{{ request.query_params.get('new_project') }}</strong> created (files written, versioning enabled).
-      </div>
-    {% endif %}
-    {% if request.query_params.get('prune') %}
-      <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
-        Prune {{ request.query_params.get('prune_type', 'unused') }} {{ 'succeeded' if request.query_params.get('prune') == 'ok' else 'failed' }}.
-      </div>
-    {% endif %}
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {% for proj in projects %}
-      <div class="card rounded-xl p-5">
-        <div>
-          <div class="font-semibold break-words">{{ proj.name }}</div>
-          <div class="text-xs text-muted font-mono break-all">{{ proj.path }}</div>
-          {% if proj.versions and proj.versions != ["(not running)"] %}
-          <div class="text-[10px] text-accent mt-0.5">Versions: {{ proj.versions | join(', ') }}</div>
-          {% endif %}
-        </div>
-
-        <div class="mt-3 docker-proj-actions">
-          <form method="post" action="/servers/{{ server.id }}/docker/check-updates">
-            <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <button class="btn btn-secondary docker-action-btn">Check Updates</button>
-          </form>
-          <form method="post" action="/servers/{{ server.id }}/docker/redeploy">
-            <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <input type="hidden" name="pull" value="true">
-            <button class="btn btn-accent docker-action-btn">Deploy</button>
-          </form>
-          <form method="post" action="/servers/{{ server.id }}/docker/compose/down">
-            <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <button class="btn btn-danger docker-action-btn">Undeploy</button>
-          </form>
-          <button type="button"
-                  class="btn btn-secondary docker-action-btn"
-                  data-edit-proj="{{ proj.name | e }}"
-                  data-has-df="{{ '1' if proj.get('dockerfile_path') else '0' }}"
-                  data-server-id="{{ server.id }}">Edit</button>
-          {% if proj.has_build %}
-          <button type="button"
-                  class="btn btn-secondary docker-action-btn"
-                  data-proj-name="{{ proj.name | e }}"
-                  data-build-services='{{ proj.build_services | tojson | safe }}'
-                  data-server-id="{{ server.id }}">Build…</button>
-          {% endif %}
-          <form method="post" action="/servers/{{ server.id }}/docker/compose/stop">
-            <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <input type="hidden" name="service" value="">
-            <button type="submit"
-                    class="btn btn-secondary docker-action-btn"
-                    data-proj="{{ proj.name }}"
-                    data-services='{{ proj.services | tojson }}'
-                    data-server-id="{{ server.id }}"
-                    data-project-path="{{ proj.path }}"
-                    data-action="stop">Stop</button>
-          </form>
-          <form method="post" action="/servers/{{ server.id }}/docker/compose/start">
-            <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <input type="hidden" name="service" value="">
-            <button type="submit"
-                    class="btn btn-secondary docker-action-btn"
-                    data-proj="{{ proj.name }}"
-                    data-services='{{ proj.services | tojson }}'
-                    data-server-id="{{ server.id }}"
-                    data-project-path="{{ proj.path }}"
-                    data-action="start">Start</button>
-          </form>
-          <form method="post" action="/servers/{{ server.id }}/docker/compose/restart">
-            <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <input type="hidden" name="service" value="">
-            <button type="submit"
-                    class="btn btn-secondary docker-action-btn"
-                    data-proj="{{ proj.name }}"
-                    data-services='{{ proj.services | tojson }}'
-                    data-server-id="{{ server.id }}"
-                    data-project-path="{{ proj.path }}"
-                    data-action="restart">Restart</button>
-          </form>
-          <button type="button"
-                  class="btn btn-accent docker-action-btn"
-                  data-proj="{{ proj.name }}"
-                  data-services='{{ proj.services | tojson }}'
-                  data-server-id="{{ server.id }}"
-                  data-project-path="{{ proj.path }}"
-                  data-action="logs">Logs</button>
-        </div>
-      </div>
-      {% else %}
-      <div class="text-sm text-muted">No compose projects discovered in {{ server.docker_base_dir }}.</div>
-      {% endfor %}
+  {# Filters: status + quick search (client-side; survives HTMX via sessionStorage) #}
+  <div class="docker-filter-bar mb-3" id="docker-filter-bar">
+    <div class="docker-filter-chips" role="group" aria-label="Filter by status">
+      <button type="button" class="docker-filter-chip is-active" data-filter-status="all">All</button>
+      <button type="button" class="docker-filter-chip" data-filter-status="running">Running</button>
+      <button type="button" class="docker-filter-chip" data-filter-status="stopped">Stopped</button>
+      <button type="button" class="docker-filter-chip" data-filter-status="missing">Not created</button>
     </div>
+    <input type="search"
+           id="docker-filter-q"
+           class="docker-filter-search"
+           placeholder="Filter by name…"
+           autocomplete="off"
+           aria-label="Filter by service or container name">
   </div>
 
-  <div class="mt-8 text-xs text-muted">
-    All actions executed over SSH on the remote host. Use with care. Versions shown from image tags where applicable. Live logs use docker logs -f via SSE.
-  </div>
+  {% if update_check %}
+    <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-success' if update_status == 'up-to-date' else 'banner-warning' }}">
+      Checked {{ update_check }}:
+      {% if update_status == 'updates' %}New images available!{% else %}Up to date.{% endif %}
+    </div>
+  {% endif %}
+  {% if build_status %}
+    <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-success' if build_status == 'built' else 'banner-error' }}">
+      Build {{ 'succeeded' if build_status == 'built' else 'failed or errored' }}. Check logs on host if needed.
+    </div>
+  {% endif %}
+  {% if request.query_params.get('new_project') %}
+    <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
+      New service <strong>{{ request.query_params.get('new_project') }}</strong> created (files written, versioning enabled).
+    </div>
+  {% endif %}
+  {% if request.query_params.get('prune') %}
+    <div class="mb-3 p-2 text-xs rounded banner-success border border-border">
+      Prune {{ request.query_params.get('prune_type', 'unused') }} {{ 'succeeded' if request.query_params.get('prune') == 'ok' else 'failed' }}.
+    </div>
+  {% endif %}
 
-  <!-- Cleanup section for unused resources (issue 8) -->
-  <div class="mt-8">
-    <h2 class="text-lg font-medium mb-2">Cleanup</h2>
-    <div class="docker-proj-actions">
+  {# Compose projects with nested services (and orphans) #}
+  {% include "docker_stack.html" %}
+
+  <div class="mt-6 text-xs text-muted">
+    Compose is the unit of management. ⋯ has deploy, logs, lifecycle, build, and edit.
+    Tap a service for image, ports, mounts (one per line), size, and container logs.
+  </div>
+</div>
+
+<!-- Compose ⋯ popover (anchored menu — not a full-screen modal) -->
+<div id="project-more-menu" class="docker-popover hidden" role="menu" hidden>
+  <div class="docker-popover-title text-muted" id="project-more-name"></div>
+  <div id="project-more-list" class="docker-popover-list"></div>
+</div>
+
+<!-- Cleanup modal (destructive / multi-step stays full modal) -->
+<div id="cleanup-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="modal-content card p-5 w-full max-w-md mx-4">
+    <div class="flex items-center justify-between gap-2 mb-3">
+      <h3 class="font-semibold">Cleanup</h3>
+      <button type="button" onclick="hideCleanupModal()" class="source-icon-btn" aria-label="Close">✕</button>
+    </div>
+    <p class="text-xs text-muted mb-3">Prune unused Docker resources on the remote host. Dangling = unreferenced images; exited = stopped containers.</p>
+    <div class="docker-more-list mb-3">
       <form method="post" action="/servers/{{ server.id }}/docker/prune-unused">
         <input type="hidden" name="prune_type" value="images">
-        <button class="btn btn-danger docker-action-btn">Prune dangling images</button>
+        <button type="submit" class="docker-more-item docker-more-danger">Prune dangling images</button>
       </form>
       <form method="post" action="/servers/{{ server.id }}/docker/prune-unused">
         <input type="hidden" name="prune_type" value="containers">
-        <button class="btn btn-danger docker-action-btn">Prune exited containers</button>
+        <button type="submit" class="docker-more-item docker-more-danger">Prune exited containers</button>
       </form>
-      <button type="button" onclick="loadUnused()" class="btn btn-secondary docker-action-btn">List unused</button>
+      <button type="button" onclick="loadUnused()" class="docker-more-item">List unused…</button>
     </div>
-    <div id="unused-list" class="mt-2 text-xs font-mono code-surface p-2 rounded border"></div>
-    <div class="text-[10px] text-muted mt-1">Dangling = unreferenced images; Exited = stopped containers. Prune separately to be selective.</div>
+    <div id="unused-list" class="text-xs font-mono code-surface p-2 rounded border border-border max-h-40 overflow-auto empty:hidden"></div>
   </div>
 </div>
 
 <script>
 function loadUnused() {
   const area = document.getElementById('unused-list');
+  if (!area) return;
   area.textContent = 'Loading via fresh SSH...';
   fetch('/servers/{{ server.id }}/docker/unused')
     .then(r => r.text())
     .then(t => { area.innerHTML = t; })
     .catch(e => area.textContent = 'Error: ' + e);
 }
+
+function showCleanupModal() {
+  const modal = document.getElementById('cleanup-modal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+function hideCleanupModal() {
+  const modal = document.getElementById('cleanup-modal');
+  if (!modal) return;
+  modal.classList.remove('flex');
+  modal.classList.add('hidden');
+}
+
+/* Keep ⋯ short — no scroll. Lifecycle (start/stop/restart) stays on stack detail. */
+const MORE_ACTIONS = [
+  { key: 'deploy', label: 'Deploy', accent: true },
+  { key: 'logs', label: 'Logs' },
+  { key: 'edit', label: 'Edit compose' },
+  { key: 'build', label: 'Build…' },
+  { key: 'check-updates', label: 'Check updates' },
+  { key: 'undeploy', label: 'Undeploy', danger: true },
+];
+
+function hideProjectMoreMenu() {
+  const menu = document.getElementById('project-more-menu');
+  if (!menu) return;
+  menu.classList.add('hidden');
+  menu.hidden = true;
+  menu.style.top = '';
+  menu.style.left = '';
+}
+
+function showProjectMoreMenu(anchorBtn, row) {
+  const menu = document.getElementById('project-more-menu');
+  const list = document.getElementById('project-more-list');
+  const nameEl = document.getElementById('project-more-name');
+  if (!menu || !list) return;
+
+  const name = (row.dataset.projName || row.querySelector('.docker-proj-name')?.textContent || 'project').trim().split('\n')[0];
+  if (nameEl) nameEl.textContent = name;
+
+  list.innerHTML = '';
+  MORE_ACTIONS.forEach(function(item) {
+    const real = row.querySelector('[data-sec-btn="' + item.key + '"]');
+    if (!real) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.role = 'menuitem';
+    btn.className = 'docker-popover-item'
+      + (item.danger ? ' is-danger' : '')
+      + (item.accent ? ' is-accent' : '');
+    btn.textContent = item.label;
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      hideProjectMoreMenu();
+      real.click();
+    });
+    list.appendChild(btn);
+  });
+
+  menu.classList.remove('hidden');
+  menu.hidden = false;
+  // Position near the ⋯ button
+  const r = anchorBtn.getBoundingClientRect();
+  const mw = 220;
+  let left = r.right - mw;
+  if (left < 8) left = 8;
+  if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+  let top = r.bottom + 6;
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+  // Flip up if near bottom
+  requestAnimationFrame(function() {
+    const mh = menu.offsetHeight || 240;
+    if (top + mh > window.innerHeight - 8) {
+      menu.style.top = Math.max(8, r.top - mh - 6) + 'px';
+    }
+  });
+}
+
+// Delegated UI: survives HTMX stack refresh
+document.addEventListener('click', function(e) {
+  const moreBtn = e.target.closest('[data-proj-more]');
+  if (moreBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const row = moreBtn.closest('.docker-proj-row') || moreBtn.closest('.docker-stack-block');
+    if (!row) return;
+    const menu = document.getElementById('project-more-menu');
+    if (menu && !menu.hidden && menu.dataset.anchor === String(moreBtn)) {
+      hideProjectMoreMenu();
+      return;
+    }
+    if (menu) menu.dataset.anchor = String(moreBtn);
+    showProjectMoreMenu(moreBtn, row);
+    return;
+  }
+
+  const toggle = e.target.closest('[data-svc-toggle]');
+  if (toggle && !toggle.disabled) {
+    e.preventDefault();
+    const row = toggle.closest('.docker-svc-row');
+    if (!row) return;
+    const detail = row.querySelector('.docker-svc-detail');
+    const open = row.classList.toggle('is-open');
+    if (detail) detail.hidden = !open;
+    const chev = row.querySelector('.docker-svc-chevron');
+    if (chev) chev.textContent = open ? '▾' : '▸';
+    return;
+  }
+
+  const logBtn = e.target.closest('[data-container-logs]');
+  if (logBtn) {
+    e.preventDefault();
+    const cname = logBtn.getAttribute('data-container-logs');
+    if (cname && typeof showLogsModal === 'function') {
+      showLogsModal(cname, CURRENT_SERVER_ID);
+    }
+    return;
+  }
+
+  // Click outside closes popover
+  if (!e.target.closest('#project-more-menu')) {
+    hideProjectMoreMenu();
+  }
+}, true);
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') hideProjectMoreMenu();
+});
+
+const cleanupModal = document.getElementById('cleanup-modal');
+if (cleanupModal) {
+  cleanupModal.addEventListener('click', function(e) {
+    if (e.target === cleanupModal) hideCleanupModal();
+  });
+}
+
+// ── Stack filters (status chips + name search) ──────────────────────────
+const DOCKER_FILTER_KEY = 'piherder.dockerFilter';
+function getDockerFilterState() {
+  try {
+    return JSON.parse(sessionStorage.getItem(DOCKER_FILTER_KEY) || '{}') || {};
+  } catch (e) { return {}; }
+}
+function setDockerFilterState(partial) {
+  const next = Object.assign(getDockerFilterState(), partial);
+  try { sessionStorage.setItem(DOCKER_FILTER_KEY, JSON.stringify(next)); } catch (e) {}
+  return next;
+}
+function applyDockerFilters() {
+  const state = getDockerFilterState();
+  const status = state.status || 'all';
+  const q = (state.q || '').trim().toLowerCase();
+
+  document.querySelectorAll('#docker-filter-bar [data-filter-status]').forEach(function(chip) {
+    chip.classList.toggle('is-active', chip.getAttribute('data-filter-status') === status);
+  });
+  const input = document.getElementById('docker-filter-q');
+  if (input && input.value !== (state.q || '')) input.value = state.q || '';
+
+  let visible = 0;
+  document.querySelectorAll('.docker-svc-row').forEach(function(row) {
+    const st = row.getAttribute('data-svc-status') || '';
+    const name = row.getAttribute('data-svc-name') || '';
+    const okStatus = (status === 'all') || (st === status);
+    const okName = !q || name.indexOf(q) !== -1;
+    const show = okStatus && okName;
+    row.hidden = !show;
+    row.classList.toggle('is-filtered-out', !show);
+    if (show) visible += 1;
+  });
+
+  // Hide empty compose / orphan blocks when all their services are filtered out
+  document.querySelectorAll('[data-stack-filter-unit]').forEach(function(block) {
+    const rows = block.querySelectorAll('.docker-svc-row');
+    if (!rows.length) {
+      block.hidden = false;
+      return;
+    }
+    let any = false;
+    rows.forEach(function(r) { if (!r.hidden) any = true; });
+    block.hidden = !any;
+  });
+
+  const summary = document.getElementById('stack-summary');
+  if (summary) {
+    if (status !== 'all' || q) {
+      summary.textContent = '· ' + visible + ' shown';
+    } else {
+      const total = document.querySelectorAll('.docker-svc-row').length;
+      const run = document.querySelectorAll('.docker-svc-row[data-svc-status="running"]').length;
+      summary.textContent = '· ' + total + ' containers · ' + run + ' running';
+    }
+  }
+}
+function initDockerFilters() {
+  const bar = document.getElementById('docker-filter-bar');
+  if (!bar || bar.dataset.wired) return;
+  bar.dataset.wired = '1';
+  bar.addEventListener('click', function(e) {
+    const chip = e.target.closest('[data-filter-status]');
+    if (!chip) return;
+    setDockerFilterState({ status: chip.getAttribute('data-filter-status') || 'all' });
+    applyDockerFilters();
+  });
+  const input = document.getElementById('docker-filter-q');
+  if (input) {
+    let t = null;
+    input.addEventListener('input', function() {
+      clearTimeout(t);
+      t = setTimeout(function() {
+        setDockerFilterState({ q: input.value || '' });
+        applyDockerFilters();
+      }, 120);
+    });
+  }
+  applyDockerFilters();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initDockerFilters);
+} else {
+  initDockerFilters();
+}
+// Re-apply after HTMX refreshes #docker-stack
+document.body.addEventListener('htmx:afterSwap', function(e) {
+  if (e.target && (e.target.id === 'docker-stack' || (e.detail && e.detail.target && e.detail.target.id === 'docker-stack'))) {
+    applyDockerFilters();
+  }
+});
+document.body.addEventListener('htmx:afterSettle', function() {
+  applyDockerFilters();
+});
 </script>
 
 
@@ -337,28 +522,36 @@ function loadUnused() {
 
 <!-- Logs modal (inline viewer, stays on Docker Management screen) -->
 <div id="logs-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div id="logs-modal-content" class="card rounded-xl p-4 w-full max-w-5xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
-    <!-- Buttons on top -->
-    <div class="flex items-center justify-between gap-2 mb-2 pb-2 border-b border-border text-xs flex-shrink-0">
-      <div>
-        <span class="text-sm text-muted">Logs for</span>
-        <strong id="logs-container-name" class="font-mono text-accent break-all"></strong>
-      </div>
-      <div class="flex items-center gap-1 flex-wrap">
-        <button onclick="loadLogsForModal(50)" class="px-2 py-0.5 btn btn-secondary rounded">Last 50</button>
-        <button onclick="loadLogsForModal(200)" class="px-2 py-0.5 btn btn-secondary rounded">Last 200</button>
-        <button onclick="loadLogsForModal(500)" class="px-2 py-0.5 btn btn-secondary rounded">Last 500</button>
-        <span class="mx-1 text-muted">|</span>
-        <button onclick="expandLogsToFullScreen()" class="px-2 py-0.5 btn btn-secondary rounded">Full screen</button>
-        <button onclick="closeLogsModal()" class="px-2 py-0.5 btn btn-secondary rounded">Close</button>
+  <div id="logs-modal-content" class="card rounded-xl p-3 sm:p-4 w-full max-w-5xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
+    <div class="logs-modal-toolbar flex items-center gap-2 mb-2 pb-2 border-b border-border flex-shrink-0 min-w-0">
+      <strong id="logs-container-name" class="logs-modal-title font-mono text-accent text-sm sm:text-base break-all min-w-0 flex-1"></strong>
+      <div class="logs-modal-controls flex items-center gap-1.5 flex-shrink-0">
+        <label class="sr-only" for="logs-lines-select">Lines</label>
+        <select id="logs-lines-select"
+                class="logs-lines-select bg-surface border border-border text-xs px-2 py-1.5 rounded min-h-9"
+                onchange="loadLogsForModal(parseInt(this.value, 10))"
+                title="How many log lines to load">
+          <option value="50">50 lines</option>
+          <option value="200" selected>200 lines</option>
+          <option value="500">500 lines</option>
+          <option value="1000">1000 lines</option>
+        </select>
+        <button type="button"
+                id="logs-fullscreen-btn"
+                onclick="expandLogsToFullScreen()"
+                class="btn btn-secondary text-xs px-2.5 py-1.5 min-h-9"
+                title="Full screen">Full screen</button>
+        <button type="button"
+                onclick="closeLogsModal()"
+                class="source-icon-btn"
+                title="Close"
+                aria-label="Close logs">×</button>
       </div>
     </div>
 
-    <!-- Logs in middle (flex-1 fills the space between top buttons and bottom description) -->
     <pre id="logs-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded"></pre>
 
-    <!-- Description on bottom -->
-    <div class="text-[10px] text-muted mt-2 pt-1 border-t border-border flex-shrink-0">New lines stream live. Scroll up to pause auto-follow. Use Full screen for long output.</div>
+    <div class="text-[10px] text-muted mt-2 pt-1 border-t border-border flex-shrink-0">Live tail streams new lines. Scroll up to pause auto-follow.</div>
   </div>
 </div>
 
@@ -441,60 +634,26 @@ function startBuildFromModal() {
   setTimeout(() => { window.location.href = url; }, 30);
 }
 
-// Wire up Build buttons using data attributes (avoids brittle inline onclick + JSON escaping)
-function initBuildButtons() {
-  document.querySelectorAll('button[data-proj-name][data-build-services]').forEach(function(btn) {
-    if (btn.dataset.buildWired) return;
-    btn.dataset.buildWired = '1';
-    btn.addEventListener('click', function() {
-      const projName = btn.getAttribute('data-proj-name') || '';
-      let buildServices = [];
-      const svcJson = btn.getAttribute('data-build-services') || '[]';
-      try {
-        buildServices = JSON.parse(svcJson);
-      } catch (e) {
-        console.error('Failed to parse build services JSON', e, svcJson);
-      }
-      const serverId = btn.getAttribute('data-server-id') || '';
-      if (typeof showBuildModal === 'function') {
-        showBuildModal(projName, buildServices, serverId);
-      } else {
-        console.error('showBuildModal not defined');
-      }
-    });
-  });
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initBuildButtons);
-} else {
-  initBuildButtons();
-}
-
-// Wire up Edit buttons using data attributes (consistent with Build + service action buttons; avoids inline onclick issues)
-function initEditButtons() {
-  document.querySelectorAll('button[data-edit-proj]').forEach(function(btn) {
-    if (btn.dataset.editWired) return;
-    btn.dataset.editWired = '1';
-    btn.addEventListener('click', function() {
-      const projName = btn.getAttribute('data-edit-proj') || '';
-      const hasDfAttr = btn.getAttribute('data-has-df') || '0';
-      const hasDockerfile = (hasDfAttr === '1' || hasDfAttr === 'true');
-      const serverId = btn.getAttribute('data-server-id') || '';
-      if (typeof showQuickEditModal === 'function') {
-        showQuickEditModal(projName, hasDockerfile, serverId);
-      } else {
-        console.error('showQuickEditModal not defined');
-      }
-    });
-  });
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initEditButtons);
-} else {
-  initEditButtons();
-}
+// Build / Edit — delegated (secondary buttons may be re-injected via HTMX)
+document.addEventListener('click', function(e) {
+  const buildBtn = e.target.closest('button[data-proj-name][data-build-services]');
+  if (buildBtn) {
+    const projName = buildBtn.getAttribute('data-proj-name') || '';
+    let buildServices = [];
+    try { buildServices = JSON.parse(buildBtn.getAttribute('data-build-services') || '[]'); } catch (err) {}
+    const serverId = buildBtn.getAttribute('data-server-id') || '';
+    if (typeof showBuildModal === 'function') showBuildModal(projName, buildServices, serverId);
+    return;
+  }
+  const editBtn = e.target.closest('button[data-edit-proj]');
+  if (editBtn) {
+    const projName = editBtn.getAttribute('data-edit-proj') || '';
+    const hasDfAttr = editBtn.getAttribute('data-has-df') || '0';
+    const hasDockerfile = (hasDfAttr === '1' || hasDfAttr === 'true');
+    const serverId = editBtn.getAttribute('data-server-id') || '';
+    if (typeof showQuickEditModal === 'function') showQuickEditModal(projName, hasDockerfile, serverId);
+  }
+});
 
 // === Quick Edit Modal (compose + Dockerfile in a popup, same spirit as Build modal) ===
 let qeCurrent = { project: '', fileType: 'compose', serverId: '', hasDockerfile: false };
@@ -718,9 +877,14 @@ let CURRENT_SERVER_ID = {{ server.id }};
 let currentLogsES = null;
 let currentLogsContainer = null;
 
+let currentLogsProjectPath = null;
+let logsIsFullscreen = false;
+
 function showLogsModal(container, serverId, projectPath) {
   currentLogsContainer = container;
-  document.getElementById('logs-container-name').textContent = container;
+  currentLogsProjectPath = projectPath || null;
+  const nameEl = document.getElementById('logs-container-name');
+  if (nameEl) nameEl.textContent = container;
 
   if (currentLogsES) {
     currentLogsES.close();
@@ -731,7 +895,13 @@ function showLogsModal(container, serverId, projectPath) {
   modal.classList.remove('hidden');
   modal.classList.add('flex');
 
-  loadLogsForModal(200, serverId, projectPath);
+  // Reset size when opening
+  logsIsFullscreen = false;
+  setLogsModalSize(false);
+
+  const sel = document.getElementById('logs-lines-select');
+  const lines = sel ? parseInt(sel.value, 10) || 200 : 200;
+  loadLogsForModal(lines, serverId, projectPath);
 }
 
 function closeLogsModal() {
@@ -740,15 +910,26 @@ function closeLogsModal() {
     modal.classList.remove('flex');
     modal.classList.add('hidden');
   }
-  const content = document.getElementById('logs-modal-content');
-  if (content) {
-    // Reset to normal size: buttons top, logs middle (flex-1), desc bottom
-    content.classList.remove('max-w-[98vw]', 'w-[98vw]', 'max-h-[95vh]', 'mx-auto', 'h-[90vh]', 'overflow-hidden');
-    content.classList.add('max-w-5xl', 'mx-4', 'h-[70vh]', 'max-h-[85vh]', 'overflow-hidden');
-  }
+  logsIsFullscreen = false;
+  setLogsModalSize(false);
   if (currentLogsES) {
     currentLogsES.close();
     currentLogsES = null;
+  }
+}
+
+function setLogsModalSize(full) {
+  const content = document.getElementById('logs-modal-content');
+  const btn = document.getElementById('logs-fullscreen-btn');
+  if (!content) return;
+  if (full) {
+    content.classList.remove('max-w-5xl', 'mx-4', 'h-[70vh]', 'max-h-[85vh]');
+    content.classList.add('max-w-[98vw]', 'w-[98vw]', 'h-[90vh]', 'max-h-[95vh]', 'mx-auto');
+    if (btn) btn.textContent = 'Exit full';
+  } else {
+    content.classList.remove('max-w-[98vw]', 'w-[98vw]', 'max-h-[95vh]', 'mx-auto', 'h-[90vh]');
+    content.classList.add('max-w-5xl', 'mx-4', 'h-[70vh]', 'max-h-[85vh]');
+    if (btn) btn.textContent = 'Full screen';
   }
 }
 
@@ -756,6 +937,14 @@ function loadLogsForModal(lines, serverIdParam, projectPath) {
   const serverId = serverIdParam || CURRENT_SERVER_ID;
   const container = currentLogsContainer;
   if (!container || !serverId) return;
+  const path = projectPath !== undefined ? projectPath : currentLogsProjectPath;
+
+  // Keep dropdown in sync
+  const sel = document.getElementById('logs-lines-select');
+  if (sel && String(sel.value) !== String(lines)) {
+    const opt = Array.from(sel.options).find(function(o) { return o.value === String(lines); });
+    if (opt) sel.value = String(lines);
+  }
 
   if (currentLogsES) {
     currentLogsES.close();
@@ -767,8 +956,8 @@ function loadLogsForModal(lines, serverIdParam, projectPath) {
 
   let fetchUrl = `/servers/${serverId}/docker/logs/${encodeURIComponent(container)}?lines=${lines}&format=json`;
   let streamUrl = `/servers/${serverId}/docker/logs/${encodeURIComponent(container)}/stream?lines=0`;
-  if (projectPath) {
-    const encPath = encodeURIComponent(projectPath);
+  if (path) {
+    const encPath = encodeURIComponent(path);
     fetchUrl += `&project_path=${encPath}`;
     streamUrl += `&project_path=${encPath}`;
   }
@@ -792,7 +981,6 @@ function loadLogsForModal(lines, serverIdParam, projectPath) {
     pre.textContent = (data && data.logs) || '(no logs)';
     pre.scrollTop = pre.scrollHeight;
 
-    // Start live follow (tail 0 + -f)
     currentLogsES = new EventSource(streamUrl);
     currentLogsES.onmessage = function(e) {
       pre.textContent += e.data + '\n';
@@ -809,20 +997,9 @@ function loadLogsForModal(lines, serverIdParam, projectPath) {
 }
 
 function expandLogsToFullScreen() {
-  const modal = document.getElementById('logs-modal');
-  if (!modal) return;
-
-  const content = document.getElementById('logs-modal-content');
-  if (content) {
-    // Expand to near full screen: still buttons top, logs (now larger) in middle, desc bottom
-    content.classList.remove('max-w-5xl', 'mx-4', 'h-[70vh]', 'max-h-[85vh]', 'overflow-hidden');
-    content.classList.add('max-w-[98vw]', 'w-[98vw]', 'h-[90vh]', 'max-h-[95vh]', 'mx-auto', 'overflow-hidden');
-  }
-
-  // Reload the logs with a larger history to show "full" view fresh (no new screen)
-  if (currentLogsContainer) {
-    loadLogsForModal(1000);
-  }
+  logsIsFullscreen = !logsIsFullscreen;
+  setLogsModalSize(logsIsFullscreen);
+  // Expanding does not force a reload; use the lines dropdown for history depth
 }
 
 
@@ -901,28 +1078,30 @@ function hideServiceSelectModal() {
   modal.classList.add('hidden');
 }
 
-// Wire the compose project action buttons (stop/start/restart/logs) using data attrs
-// This avoids broken inline onclick with JSON
-(function wireProjectActions() {
-  document.querySelectorAll('button[data-action]').forEach(function(btn) {
-    btn.addEventListener('click', function(e) {
-      const projName = btn.dataset.proj || '';
-      let services = [];
-      try {
-        services = JSON.parse(btn.dataset.services || '[]');
-      } catch (e) { services = []; }
-      const serverId = btn.dataset.serverId || '';
-      const projectPath = btn.dataset.projectPath || '';
-      const action = btn.dataset.action || '';
-      const form = btn.closest('form') || null;
+// Compose project action buttons (stop/start/restart/logs) — delegated for HTMX stack refresh
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn || btn.closest('#project-more-menu')) return;
+  // Only handle compose-level data-action buttons (have data-proj)
+  if (!btn.dataset.proj && !btn.dataset.action) return;
+  if (!btn.hasAttribute('data-action')) return;
+  if (!btn.dataset.proj) return;
 
-      if (services.length > 1) {
-        e.preventDefault();  // stop the submit until choice made
-      }
-      handleProjectAction(projName, services, serverId, projectPath, action, form);
-    });
-  });
-})();
+  const projName = btn.dataset.proj || '';
+  let services = [];
+  try {
+    services = JSON.parse(btn.dataset.services || '[]');
+  } catch (err) { services = []; }
+  const serverId = btn.dataset.serverId || '';
+  const projectPath = btn.dataset.projectPath || '';
+  const action = btn.dataset.action || '';
+  const form = btn.closest('form') || null;
+
+  if (services.length > 1) {
+    e.preventDefault();
+  }
+  handleProjectAction(projName, services, serverId, projectPath, action, form);
+}, true);
 
 // === Loading / waiting feedback for Check Updates, Deploy, Undeploy ===
 // Prevents multiple clicks and gives clear visual feedback (loading button + popup notice)
@@ -948,80 +1127,75 @@ function hideServiceSelectModal() {
     document.body.appendChild(overlay);
   }
 
-  function setupForm(form, actionLabel) {
-    form.addEventListener('submit', function (e) {
-      const btn = form.querySelector('button');
-      if (btn && btn.disabled) {
-        e.preventDefault();
-        return;
-      }
-
-      // Find project name from the card
-      const card = form.closest('.card');
-      let projName = 'project';
-      if (card) {
-        const nameEl = card.querySelector('.font-semibold');
-        if (nameEl) projName = nameEl.textContent.trim();
-      }
-
-      // Confirm for destructive Undeploy (use custom modal for consistency)
-      if (actionLabel.includes('Undeploy') && !form.dataset.confirmed) {
-        e.preventDefault();
-        showUndeployConfirm(form, projName);
-        return;
-      }
-
-      // Deploy now uses popup modal (like build/undeploy) for confirmation + options (pull)
-      if ((actionLabel.includes('Deploy') || actionLabel.includes('Deploying')) && !form.dataset.confirmed) {
-        e.preventDefault();
-        showDeployConfirm(form, projName);
-        return;
-      }
-
-      // Clear flag after use (in case of re-submit scenarios)
-      if (form.dataset.confirmed) {
-        delete form.dataset.confirmed;
-      }
-
-      // Show loading state on button
-      if (btn) {
-        btn.disabled = true;
-        btn.dataset.originalText = btn.textContent;
-        btn.textContent = actionLabel;
-      }
-
-      // Disable other buttons/links in this card
-      if (card) {
-        card.querySelectorAll('button, a').forEach(el => {
-          if (el !== btn) {
-            el.style.pointerEvents = 'none';
-            el.setAttribute('aria-disabled', 'true');
-          }
-        });
-      }
-
-      // Show modal-style progress overlay
-      const displayAction = actionLabel.replace('...', '');
-      showActionProgress(displayAction, projName);
-    });
+  function labelForForm(form) {
+    const a = form.getAttribute('action') || '';
+    if (a.includes('/check-updates')) return 'Checking...';
+    if (a.includes('/redeploy')) return 'Deploying...';
+    if (a.includes('/compose/down')) return 'Undeploying...';
+    if (a.includes('/compose/stop')) return 'Stopping...';
+    if (a.includes('/compose/start')) return 'Starting...';
+    if (a.includes('/compose/restart')) return 'Restarting...';
+    return null;
   }
 
-  // Wire the three actions
-  document.querySelectorAll('form[action*="/check-updates"]').forEach(f => setupForm(f, 'Checking...'));
-  document.querySelectorAll('form[action*="/redeploy"]').forEach(f => setupForm(f, 'Deploying...'));
-  document.querySelectorAll('form[action*="/compose/down"]').forEach(f => setupForm(f, 'Undeploying...'));
+  // One delegated submit handler (works after HTMX stack refresh)
+  document.addEventListener('submit', function(e) {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    const actionLabel = labelForForm(form);
+    if (!actionLabel) return;
 
-  // Also Stop, Start, Restart for project compose actions
-  document.querySelectorAll('form[action*="/compose/stop"]').forEach(f => setupForm(f, 'Stopping...'));
-  document.querySelectorAll('form[action*="/compose/start"]').forEach(f => setupForm(f, 'Starting...'));
-  document.querySelectorAll('form[action*="/compose/restart"]').forEach(f => setupForm(f, 'Restarting...'));
+    const btn = form.querySelector('button');
+    if (btn && btn.disabled) {
+      e.preventDefault();
+      return;
+    }
 
-  // Refresh button - show loading overlay (bypass cache forces host re-collection)
-  document.querySelectorAll('a[href*="/docker?nocache"]').forEach(link => {
-    link.addEventListener('click', function(e) {
-      const overlay = document.getElementById('docker-page-loading');
-      if (overlay) {
-        overlay.style.display = 'flex';
+    const card = form.closest('.docker-stack-block') || form.closest('.docker-proj-row') || form.closest('.card');
+    let projName = 'project';
+    if (card) {
+      if (card.dataset && card.dataset.projName) projName = card.dataset.projName;
+      else {
+        const nameEl = card.querySelector('.docker-proj-name') || card.querySelector('.font-semibold');
+        if (nameEl) projName = nameEl.textContent.trim().split('\n')[0].trim();
+      }
+    }
+
+    if (actionLabel.includes('Undeploy') && !form.dataset.confirmed) {
+      e.preventDefault();
+      showUndeployConfirm(form, projName);
+      return;
+    }
+    if ((actionLabel.includes('Deploy') || actionLabel.includes('Deploying')) && !form.dataset.confirmed) {
+      e.preventDefault();
+      showDeployConfirm(form, projName);
+      return;
+    }
+    if (form.dataset.confirmed) delete form.dataset.confirmed;
+
+    if (btn) {
+      btn.disabled = true;
+      btn.dataset.originalText = btn.textContent;
+      btn.textContent = actionLabel;
+    }
+    if (card) {
+      card.querySelectorAll('button, a').forEach(function(el) {
+        if (el !== btn) {
+          el.style.pointerEvents = 'none';
+          el.setAttribute('aria-disabled', 'true');
+        }
+      });
+    }
+    showActionProgress(actionLabel.replace('...', ''), projName);
+  }, true);
+
+  // Refresh button - show loading overlay (shell reloads, then fragment collects host data)
+  document.querySelectorAll('a[href*="/docker?nocache"]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      if (typeof window.showDockerPageLoading === 'function') window.showDockerPageLoading();
+      else {
+        const overlay = document.getElementById('docker-page-loading');
+        if (overlay) overlay.style.display = 'flex';
       }
     });
   });
