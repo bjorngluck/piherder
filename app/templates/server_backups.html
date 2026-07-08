@@ -43,24 +43,23 @@
     <p class="text-xs text-muted mt-1">Remote source → <code>{{ effective_root }}/{{ effective_folder }}/</code> (in container)</p>
   </div>
 
-  <!-- Persistent backup status banner -->
   {% if backup_running %}
   <div id="active-backup-status" class="mb-3 p-2 bg-accent-subtle border border-accent rounded text-sm space-y-1">
     {% if running_backup_job %}
       {% set rj = running_backup_job.details | fromjson if running_backup_job.details else {} %}
       <div class="flex items-center gap-2 flex-wrap">
         <span class="font-medium">Running:</span>
-        <span class="font-mono text-accent">{{ rj.source_filter or rj.current or 'full backup' }}</span>
-        <button type="button" onclick="openBackupLog({{ (rj.source_filter or '') | tojson }}, {{ running_backup_job.id }})" class="btn btn-secondary min-h-11 text-xs px-3">Log</button>
-        <button type="button" onclick="activePollJobId={{ running_backup_job.id }}; activePollSource={{ (rj.source_filter or '') | tojson }}; stopCurrentBackup()" class="btn btn-danger min-h-11 text-xs px-3">Stop</button>
+        <span class="font-mono text-accent text-xs break-all">{{ rj.source_filter or rj.current or 'full backup' }}</span>
+        <button type="button" onclick="openBackupLog({{ (rj.source_filter or '') | tojson }}, {{ running_backup_job.id }})" class="btn btn-secondary text-xs px-2 py-1">Log</button>
+        <button type="button" onclick="activePollJobId={{ running_backup_job.id }}; activePollSource={{ (rj.source_filter or '') | tojson }}; stopCurrentBackup()" class="btn btn-danger text-xs px-2 py-1">Stop</button>
       </div>
     {% endif %}
     {% for qj in active_backup_jobs if qj.status == 'pending' %}
       {% set qd = qj.details | fromjson if qj.details else {} %}
-      <div class="flex items-center gap-2 text-xs text-muted">
+      <div class="flex items-center gap-2 text-xs text-muted flex-wrap">
         <span>Queued:</span>
-        <span class="font-mono">{{ qd.source_filter or 'full backup' }}</span>
-        <button type="button" onclick="openBackupLog({{ (qd.source_filter or '') | tojson }}, {{ qj.id }})" class="px-2 py-0.5 btn btn-secondary rounded">View</button>
+        <span class="font-mono break-all">{{ qd.source_filter or 'full backup' }}</span>
+        <button type="button" onclick="openBackupLog({{ (qd.source_filter or '') | tojson }}, {{ qj.id }})" class="btn btn-secondary text-xs px-2 py-0.5">View</button>
       </div>
     {% endfor %}
   </div>
