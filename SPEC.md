@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** v0.1.0 — Phase 1 largely complete  
-> **Last updated:** 2026-07-07 (fixed Mermaid diagrams for GitHub: key flows + self-backup now portrait + renderable)
+> **Last updated:** 2026-07-08 (feature plan: IAM, 2FA, update checks, notifications)
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -100,6 +100,9 @@ Related backup hardening (same phase):
 - [ ] REST API for all job triggers with token auth (partial — some endpoints exist)
 - [ ] Webhook / notification integration wired end-to-end
 - [ ] Per-server container-patch and OS-patch cron schedules
+- [ ] **OS update check schedule (check-only)** — apt upgradable count + reboot flag; no auto-upgrade — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- [ ] **Container update check schedule (check-only)** — pull + image ID compare; no `up -d` — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- [ ] **In-app notification center** — bell, dismiss, deep links (OS/container updates, reboot pending, failed backups); separate from AuditLog — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [ ] Job queue visibility (running / queued / history per server)
 - [ ] Alembic migrations replace runtime `ALTER TABLE` hacks
 - [ ] Test suite (pytest) for backup, patching, and encryption paths
@@ -110,6 +113,7 @@ Related backup hardening (same phase):
 
 ## Phase 3 — Multi-user & advanced Docker
 
+- [ ] **User profile / IAM** — display name, email change, avatar, password change; lock open registration after first user — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [ ] Role-based access (admin / operator / read-only)
 - [ ] Multi-user audit attribution
 - [ ] Compose multi-file project support (override files, env files in UI)
@@ -117,7 +121,7 @@ Related backup hardening (same phase):
 - [ ] Fleet-wide dashboard (patch status across all servers)
 - [ ] Backup restore wizard (select snapshot → restore paths)
 - [ ] Rate limiting on auth endpoints
-- [ ] Optional 2FA
+- [ ] **Optional app-based 2FA** — TOTP + backup codes + optional trusted device (30d, revocable) — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 
 ---
 
