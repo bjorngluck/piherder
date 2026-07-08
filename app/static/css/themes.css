@@ -115,7 +115,6 @@
   --header-login-font-size: 0.75rem;
   --header-login-padding-y: 0.25rem;
   --header-login-padding-x: 0.75rem;
-}
 
   /* Header right side actions */
   --header-actions-gap: 0.25rem;
@@ -167,6 +166,8 @@
   --dropdown-content-py: 2px;
 }
 
+/* Dark theme: applied when JS adds class "dark" to <html> */
+html.dark,
 .dark {
   /* Dark theme */
   --color-bg: #0a0f1c;
@@ -481,13 +482,19 @@ body {
   flex: 1 1 auto;
 }
 
-/* Menu link items inside slide-out (var driven) */
+/* Menu items inside slide-out (var driven).
+   Explicitly supports <button> for actions like "Toggle theme". */
 .mobile-menu-link {
   color: var(--color-text);
   transition: background-color .1s ease, color .1s ease;
   display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
   padding: var(--menu-item-padding-y) var(--menu-item-padding-x);
   font-size: var(--menu-item-font-size);
+  cursor: pointer;
 }
 .mobile-menu-link:hover {
   background-color: var(--menu-item-hover-bg);
@@ -546,15 +553,22 @@ body {
   --dropdown-offset-top: 1rem;
 }
 
-/* Menu items inside desktop dropdown — var driven */
-.user-menu-panel a {
+/* Menu items inside desktop dropdown — var driven (covers both <a> and <button> for action items like theme toggle) */
+.user-menu-panel a,
+.user-menu-panel button {
   display: block;
+  width: 100%;
   padding: var(--menu-item-padding-y) var(--menu-item-padding-x);
   font-size: var(--menu-item-font-size);
   color: var(--color-text);
   text-decoration: none;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
 }
-.user-menu-panel a:hover {
+.user-menu-panel a:hover,
+.user-menu-panel button:hover {
   background-color: var(--menu-item-hover-bg);
   color: var(--color-primary);
 }
