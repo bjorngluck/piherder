@@ -23,8 +23,8 @@ Clean, minimal, mobile-first. Uniform header on every screen. Consistent brandin
 | **A — Foundations** | ✅ Done (+ evolved) | Uniform shell, single-source nav, mobile hamburger, avatar menu, theme toggle fixed |
 | **B — Dashboard + Server list** | ✅ Done | Compact rows, mobile stack, touch targets, backup modal title fix |
 | **C — Server detail + Backups** | ✅ Done | Single Actions card, Backups/Docker dest cards, backups page polish |
-| **D — Docker + pattern export** | 🔄 Next | Docker already strong; lift shared modal helpers |
-| **E — Remaining screens** | ⏳ Pending | Audit, Herder backups, auth, add server polish |
+| **D — Docker + pattern export** | ✅ Done | Shared `PiHerderProgress` in base; Docker header/actions/modals polished |
+| **E — Remaining screens** | 🔄 Next | Audit, Herder backups, auth, add server polish |
 | **F — Polish + SPEC** | ⏳ Pending | Full mobile/desktop matrix; update SPEC.md |
 
 **Theme toggle:** Fixed on `main` (`8c07a21`) — root cause was a premature `:root` close in `themes.css` that dropped the `.dark` variable block from the CSSOM. FOUC script + delegated toggle remain correct.

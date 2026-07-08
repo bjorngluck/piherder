@@ -271,6 +271,22 @@
     <span class="text-[10px] text-muted">Zero plaintext secrets • All actions audited</span>
   </footer>
 
+  {# Shared long-running job progress modal (Phase D). Used by backup flows app-wide. #}
+  <div id="backup-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" aria-modal="true" role="dialog">
+    <div class="modal-content card p-6 w-full max-w-2xl mx-4 h-[65vh] max-h-[80vh] flex flex-col overflow-hidden">
+      <div class="flex justify-between items-center mb-2 flex-shrink-0 gap-2">
+        <h3 id="backup-progress-title" class="font-semibold">Job in progress</h3>
+        <div class="flex gap-2 flex-shrink-0">
+          <button id="progress-stop-btn" type="button" class="btn btn-danger min-h-11 text-xs px-3">Stop</button>
+          <button type="button" id="progress-close-btn" class="btn btn-secondary min-h-11 text-xs px-3">Close</button>
+        </div>
+      </div>
+      <div id="backup-current-source" class="text-sm mb-1 text-accent font-mono min-h-[1.25rem] flex-shrink-0"></div>
+      <div class="text-xs text-muted mb-1 flex-shrink-0">Live output</div>
+      <pre id="backup-progress-log" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded">Starting...</pre>
+    </div>
+  </div>
+
   <!-- Theme + Mobile Hamburger (slide-out) handling. All in base.html only. -->
   <script>
     (function () {
@@ -464,6 +480,265 @@
       }
     };
   })();
+
+  /**
+   * Shared backup / long-job progress modal (Phase D).
+   * Pages may set window.PIHERDER_SERVER_ID and window.PIHERDER_PROGRESS_CLOSE
+   * ('reload' | 'servers' | 'none'). Optional window.PiHerderProgressOnTick(data, els).
+   */
+  window.PiHerderProgress = (function() {
+    const state = {
+      serverId: null,
+      jobId: null,
+      source: null,
+      wasOpen: false,
+      closeMode: 'reload',
+    };
+
+    function els() {
+      return {
+        modal: document.getElementById('backup-progress-modal'),
+        title: document.getElementById('backup-progress-title'),
+        log: document.getElementById('backup-progress-log'),
+        current: document.getElementById('backup-current-source'),
+        stopBtn: document.getElementById('progress-stop-btn'),
+      };
+    }
+
+    function syncGlobals() {
+      window.activePollJobId = state.jobId;
+      window.activePollSource = state.source;
+    }
+
+    function progressUrl(serverId, jobId, source) {
+      let url = '/servers/' + serverId + '/backup-progress';
+      if (jobId) url += '?job_id=' + encodeURIComponent(jobId);
+      else if (source) url += '?source=' + encodeURIComponent(source);
+      return url;
+    }
+
+    function defaultTick(data, e) {
+      if (e.current) {
+        if (data.status === 'pending' || data.current === 'queued') {
+          e.current.innerText = 'Queued — waiting for worker';
+        } else if (data.current) {
+          e.current.innerText = data.current !== 'preparing' ? 'Currently: ' + data.current : 'Preparing...';
+        }
+      }
+      if (e.log && window.PiHerderUpdateLog) {
+        const fallback = (data.status === 'pending' || data.current === 'queued')
+          ? 'Waiting for worker…\n' : 'Starting...\n';
+        window.PiHerderUpdateLog(e.log, data, fallback);
+      }
+      if (data.error && e.log) e.log.textContent += '\nError: ' + data.error + '\n';
+      if (typeof window.PiHerderProgressOnTick === 'function') {
+        try { window.PiHerderProgressOnTick(data, e); } catch (_) {}
+      }
+      if (data.status === 'success' || data.status === 'failed') {
+        const label = data.status === 'success' ? '✓ Complete' : '✗ Failed';
+        if (e.log) e.log.innerText += '\n[' + label + '] Close to refresh.\n';
+        if (e.current) e.current.innerText = label;
+        if (e.stopBtn) e.stopBtn.style.display = 'none';
+        return true;
+      }
+      return false;
+    }
+
+    function startPoll(serverId, jobId, source) {
+      const e = els();
+      if (!e.modal || !window.PiHerderPoll || !serverId) return;
+      state.serverId = serverId;
+      state.jobId = jobId || null;
+      state.source = source || null;
+      syncGlobals();
+      if (e.log) delete e.log.dataset.lastTs;
+      window.PiHerderPoll.stop('backup-progress');
+      window.PiHerderPoll.start(
+        'backup-progress',
+        progressUrl(serverId, jobId, source),
+        (data) => defaultTick(data, e),
+        8000
+      );
+    }
+
+    function open(opts) {
+      opts = opts || {};
+      const e = els();
+      if (!e.modal) return;
+      const serverId = opts.serverId || window.PIHERDER_SERVER_ID || null;
+      const source = opts.source || null;
+      const jobId = opts.jobId != null ? opts.jobId : null;
+      const existing = !!opts.existing;
+      const start = opts.startPoll !== false;
+      state.closeMode = opts.closeMode || window.PIHERDER_PROGRESS_CLOSE || 'reload';
+      state.serverId = serverId;
+      state.jobId = jobId;
+      state.source = source;
+      syncGlobals();
+
+      if (e.title) e.title.innerText = opts.title || 'Job in progress';
+      if (existing) {
+        if (e.log) e.log.innerText = 'Loading progress…\n';
+      } else {
+        if (e.log) e.log.innerText = source ? ('Preparing: ' + source + '\n') : (opts.initialMessage || 'Starting…\n');
+      }
+      if (e.current) e.current.innerText = '';
+      e.modal.classList.remove('hidden');
+      e.modal.classList.add('flex');
+      state.wasOpen = true;
+
+      if (e.stopBtn) {
+        e.stopBtn.textContent = opts.stopLabel || 'Stop';
+        e.stopBtn.style.display = '';
+        e.stopBtn.onclick = function() { stopJob(); };
+      }
+      if (start && serverId) startPoll(serverId, jobId, source);
+    }
+
+    function hide() {
+      if (window.PiHerderPoll) window.PiHerderPoll.stop('backup-progress');
+      const e = els();
+      if (e.modal) {
+        e.modal.classList.remove('flex');
+        e.modal.classList.add('hidden');
+        if (e.log) delete e.log.dataset.lastTs;
+      }
+      if (!state.wasOpen) return;
+      state.wasOpen = false;
+      const mode = state.closeMode || 'reload';
+      if (mode === 'none') return;
+      if (mode === 'servers') {
+        window.location.replace('/servers');
+        return;
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.delete('backup_log');
+      url.searchParams.delete('source');
+      url.searchParams.delete('job_id');
+      window.location.replace(url.pathname + url.search + url.hash);
+    }
+
+    async function stopJob() {
+      const serverId = state.serverId || window.PIHERDER_SERVER_ID;
+      if (!serverId) return;
+      if (!confirm('Stop this backup?')) return;
+      try {
+        const body = new FormData();
+        if (state.jobId || window.activePollJobId) {
+          body.append('job_id', String(state.jobId || window.activePollJobId));
+        } else if (state.source || window.activePollSource) {
+          body.append('source', state.source || window.activePollSource);
+        }
+        await fetch('/servers/' + serverId + '/backup/stop', { method: 'POST', body: body });
+        const e = els();
+        if (e.log) e.log.innerText += '\n[Stop requested]\n';
+      } catch (_) {
+        alert('Failed to request stop');
+      }
+    }
+
+    function appendError(msg) {
+      const e = els();
+      if (e.log) e.log.textContent += '\nError: ' + msg + '\n';
+    }
+
+    return { open: open, hide: hide, startPoll: startPoll, stopJob: stopJob, appendError: appendError, state: state };
+  })();
+
+  // Backward-compatible globals used by templates
+  window.activePollJobId = null;
+  window.activePollSource = null;
+
+  window.showBackupProgressModal = function(title, source, jobId, existing, startPoll) {
+    window.PiHerderProgress.open({
+      title: title || 'Backup running',
+      serverId: window.PIHERDER_SERVER_ID,
+      source: source || null,
+      jobId: jobId != null ? jobId : null,
+      existing: !!existing,
+      startPoll: startPoll !== false,
+    });
+  };
+  window.hideBackupProgressModal = function() { window.PiHerderProgress.hide(); };
+  window.startBackupProgressPoll = function(jobIdOrServerId, sourceOrJobId, maybeSource) {
+    // Support both (jobId, source) with PIHERDER_SERVER_ID and (serverId, jobId, source)
+    if (maybeSource !== undefined || (arguments.length >= 2 && !window.PIHERDER_SERVER_ID && /^\d+$/.test(String(jobIdOrServerId)))) {
+      var sid = jobIdOrServerId;
+      var jid = sourceOrJobId;
+      var src = maybeSource;
+      // If first arg is server id style and PIHERDER_SERVER_ID missing, treat as (serverId, jobId, source)
+      if (!window.PIHERDER_SERVER_ID || arguments.length >= 3) {
+        window.PiHerderProgress.startPoll(sid, jid, src);
+        return;
+      }
+    }
+    window.PiHerderProgress.startPoll(window.PIHERDER_SERVER_ID, jobIdOrServerId, sourceOrJobId);
+  };
+  window.openBackupLog = function(sourcePath, jobId) {
+    window.PiHerderProgress.open({
+      title: sourcePath ? ('Backup: ' + sourcePath) : 'Backup in progress',
+      serverId: window.PIHERDER_SERVER_ID,
+      source: sourcePath || null,
+      jobId: jobId != null ? jobId : null,
+      existing: true,
+      startPoll: true,
+    });
+  };
+  window.stopCurrentBackup = function() { return window.PiHerderProgress.stopJob(); };
+
+  (function() {
+    var closeBtn = document.getElementById('progress-close-btn');
+    if (closeBtn) closeBtn.addEventListener('click', function() {
+      window.PiHerderProgress.hide();
+    });
+  })();
+
+  // Global intercept for backup run forms (server list, detail, backups)
+  document.addEventListener('submit', function(e) {
+    var form = e.target && e.target.closest ? e.target.closest('form.backup-run-form') : null;
+    if (!form) return;
+    e.preventDefault();
+    var match = (form.action || '').match(/\/servers\/(\d+)\//);
+    var serverId = match ? match[1] : (window.PIHERDER_SERVER_ID || null);
+    var source = form.dataset.source || ((form.querySelector('input[name="source"]') || {}).value) || null;
+    var row = form.closest('.server-row');
+    var name = (row && row.dataset.serverName) || source || 'server';
+    var title = source ? ('Backing up: ' + source) : ('Backing up ' + name);
+    var closeMode = window.PIHERDER_PROGRESS_CLOSE || (row ? 'servers' : 'reload');
+    window.PiHerderProgress.open({
+      title: title,
+      serverId: serverId,
+      source: source,
+      startPoll: false,
+      closeMode: closeMode,
+      initialMessage: source ? ('Preparing: ' + source + '\n') : 'Starting full backup…\n',
+    });
+    fetch(form.action, {
+      method: 'POST',
+      body: new FormData(form),
+      headers: { 'X-PiHerder-Async': '1' },
+    }).then(function(res) {
+      return res.json().catch(function() { return {}; }).then(function(data) {
+        if (res.ok || res.status === 409) {
+          window.PiHerderProgress.startPoll(serverId, data.job_id, data.source_filter || source);
+        } else {
+          window.PiHerderProgress.appendError(data.detail || 'Could not start backup');
+        }
+      });
+    }).catch(function() {
+      window.PiHerderProgress.appendError('Network error starting backup.');
+    });
+  }, true);
+
+  // Open progress from ?backup_log=1 query on dedicated pages
+  document.addEventListener('DOMContentLoaded', function() {
+    if (!window.PIHERDER_SERVER_ID) return;
+    var q = new URLSearchParams(location.search);
+    if (!q.get('backup_log')) return;
+    var src = q.get('source');
+    var jid = q.get('job_id');
+    window.openBackupLog(src || null, jid ? parseInt(jid, 10) : null);
+  });
   </script>
 </body>
 </html>

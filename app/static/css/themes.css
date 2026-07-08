@@ -1163,4 +1163,22 @@ input[type="checkbox"], input[type="radio"] {
   align-items: center;
 }
 
+/* Docker project action chips (Phase D) */
+.docker-proj-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.docker-action-btn {
+  min-height: 2.75rem; /* 44px touch target on mobile */
+  font-size: 0.8rem;
+  padding: 0.35rem 0.65rem;
+}
+@media (min-width: 640px) {
+  .docker-action-btn {
+    min-height: 2rem;
+    font-size: 0.75rem;
+  }
+}
+
 /* Add more as needed */
