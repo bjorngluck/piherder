@@ -131,30 +131,33 @@
             <div class="text-[10px] font-mono text-primary -mt-0.5 tracking-[1.5px]">FLEET</div>
           </div>
         </a>
-        <div class="hidden md:block text-xs text-muted pl-2 md:pl-3 border-l border-border whitespace-nowrap">
+        <div class="nav-tagline text-xs text-muted pl-2 md:pl-3 border-l border-border whitespace-nowrap">
           Raspberry Pi backup management
         </div>
       </div>
 
-      <!-- Desktop nav links (hidden on mobile; hamburger takes over) -->
+      <!-- Desktop nav links — hidden on mobile via reliable media query below -->
       {% set current_path = '' %}
       {% if request is defined and request is not none %}
         {% if request.url is defined and request.url is not none %}
           {% set current_path = request.url.path or '' %}
         {% endif %}
       {% endif %}
-      <div class="hidden md:flex items-center gap-x-1 text-sm flex-shrink-0">
+      <div class="desktop-nav items-center gap-x-1 text-sm flex-shrink-0">
         <a href="/" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path == '/' else '' }}">Dashboard</a>
         <a href="/servers" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/servers') else '' }}">Servers</a>
         <a href="/audit" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/audit') else '' }}">Audit</a>
         <a href="/herder-backups" class="nav-link px-2 py-0.5 {{ 'nav-link-active' if current_path.startswith('/herder') else '' }}">Settings</a>
       </div>
 
-      <!-- Right side: mobile hamburger (only main nav) + avatar. Only ONE menu open at a time. -->
+      <!-- Right side: mobile hamburger + avatar. 
+           On mobile: hamburger (left) + avatar (right). Desktop: only avatar.
+           Exactly ONE of the two <details> menus can be open at a time.
+           Account dropdown content sits BELOW the avatar, extends left over header. -->
       <div class="flex items-center gap-x-1 flex-shrink-0">
         {% if user %}
-        <!-- Mobile hamburger (logo left, avatar right on mobile). Stacked neat items. -->
-        <details id="nav-hamburger" class="mobile-menu md:hidden relative">
+        <!-- Hamburger trigger — only visible on mobile (< 768px) -->
+        <details id="nav-hamburger" class="mobile-menu mobile-hamburger relative">
           <summary class="flex items-center justify-center w-9 h-9 cursor-pointer list-none select-none rounded hover:bg-surface transition-colors text-xl leading-none text-muted"
                    aria-label="Menu">
             ☰
@@ -167,12 +170,8 @@
           </div>
         </details>
 
-        <!-- Avatar + account menu (rightmost, always visible).
-             Design rules:
-             - Only ONE menu (hamburger or account) open at any time
-             - Items stacked neatly
-             - Panel extends leftward over the header bar
-             - Menu items appear BELOW the avatar row, never overlapping it -->
+        <!-- Avatar + account menu. This is the only menu on desktop.
+             On mobile it sits to the right of the hamburger. -->
         <div class="flex items-center pl-1 sm:pl-2 border-l border-border flex-shrink-0 whitespace-nowrap">
           <details id="user-account" class="user-menu relative">
             <summary class="flex items-center gap-1.5 cursor-pointer list-none select-none rounded px-1 py-0.5 hover:bg-surface transition-colors">
@@ -184,9 +183,9 @@
               <span class="text-muted text-xs leading-none align-middle">▾</span>
             </summary>
             <!-- Account panel:
-                 - Extends left over the header (wider width)
-                 - Items neatly stacked BELOW the avatar row (mt-4 creates clear separation)
-                 - Clean stacked list, full-width tap areas -->
+                 - Extends left over the header bar
+                 - Items stacked neatly and sit BELOW the avatar row (mt-4 separation)
+                 - Full width clickable rows -->
             <div class="absolute right-0 mt-4 w-64 bg-surface border border-border rounded shadow-lg z-[99999] py-1 text-sm">
               <a href="/auth/account" class="block px-3 py-1.5 hover:bg-bg text-text">Account</a>
               <div class="border-t border-border my-0.5"></div>
