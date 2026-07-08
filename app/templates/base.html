@@ -158,7 +158,7 @@
 
       {% set secondary_items = [
         {"label": "Account",     "href": "/auth/account", "kind": "normal"},
-        {"label": "Toggle theme", "href": "#", "kind": "action", "onclick": "toggleTheme(); closeMobileMenu(); return false;"},
+        {"label": "Toggle theme", "href": "#", "kind": "action", "onclick": "toggleTheme()"},
         {"label": "Sign out",    "href": "/auth/logout", "kind": "danger"}
       ] %}
 
@@ -272,17 +272,10 @@
       localStorage.setItem('theme', theme);
     }
 
-    // Global toggle function - works from anywhere (dropdown, hamburger, etc.)
+    // Global, simple, reliable toggle - works everywhere
     window.toggleTheme = function() {
       const isDark = html.classList.contains('dark');
       setTheme(isDark ? 'light' : 'dark');
-    };
-
-    // Legacy support for old onclick
-    window.toggleThemeFromMenu = function(btn) {
-      toggleTheme();
-      const details = btn && btn.closest ? btn.closest('details') : null;
-      if (details) details.open = false;
     };
 
     // Vanilla JS slide-out mobile menu (no Alpine required, works everywhere)
@@ -330,7 +323,6 @@
       // Auto-close when clicking any menu link (navigation will happen)
       panel.querySelectorAll('a').forEach(function(link) {
         link.addEventListener('click', function() {
-          // small delay so navigation can start
           setTimeout(close, 50);
         });
       });
