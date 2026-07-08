@@ -93,11 +93,14 @@ Delivered and then extended beyond the original sketch:
 - [x] Backups page: page header, full-backup CTA, scrollable sources table, touch targets, modal polish.
 - [ ] (Deferred to D) Shared progress modal primitives in `base.html` (still page-local copies).
 
-### Phase D — Docker + propagate patterns ⏳
+### Phase D — Docker + propagate patterns ✅ DONE
 
-- Keep/polish Docker modal set (loading, build, deploy, undeploy, logs, service-select).
-- Lift shared progress/feedback modal primitives into `base.html` where it removes duplication (server_list / server_backups / server_detail).
-- Consistent button sizing + mobile stacking inside modals.
+- [x] Shared backup progress modal + `window.PiHerderProgress` in `base.html`.
+- [x] Global intercept for `form.backup-run-form`; compat aliases (`openBackupLog`, `stopCurrentBackup`, etc.).
+- [x] Removed duplicate progress modals/JS from server_list, server_backups, server_detail.
+- [x] Docker page-header + scrollable containers table + `.docker-action-btn` touch targets.
+- [x] Docker modals use `.modal-content` + `min-h-11` action buttons.
+- [ ] Logs / service-select modal micro-polish can continue in Phase E if needed.
 
 ### Phase E — Remaining screens ⏳
 
@@ -171,8 +174,9 @@ Delivered and then extended beyond the original sketch:
 1. ✅ Update this plan to match reality.
 2. ✅ **Phase B:** compact `server_list.html` + CSS helpers.
 3. ✅ **Phase C:** server detail + backups consolidation.
-4. 🔄 **Next: Phase D** — Docker polish + lift shared modal/progress helpers into `base.html`.
-5. Then E → F. Commit after each coherent phase; rebuild image for live test when needed.
+4. ✅ **Phase D:** shared progress modal + Docker polish.
+5. 🔄 **Next: Phase E** — Audit, Herder backups, auth, add server polish.
+6. Then F (matrix + SPEC). Commit after each coherent phase; rebuild image for live test when needed.
 
 ---
 
