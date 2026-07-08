@@ -32,6 +32,19 @@
 {% if request.query_params.get('config_saved') %}
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm">Settings saved.</div>
 {% endif %}
+{% if request.query_params.get('update_checks_saved') %}
+<div class="mb-4 p-3 banner-success border border-border rounded text-sm">
+  Update-check defaults saved.
+  {% if request.query_params.get('applied') == '1' %}
+  Applied to fleet: OS schedules on {{ request.query_params.get('os', '0') }} host(s),
+  container schedules on {{ request.query_params.get('cont', '0') }} host(s)
+  (of {{ request.query_params.get('total', '0') }} server(s)).
+  Checks are queued (max 2 concurrent) when the schedule fires.
+  {% else %}
+  Defaults stored only — tick “Apply to all servers” to push schedules to hosts.
+  {% endif %}
+</div>
+{% endif %}
 {% if request.query_params.get('error') %}
 <div class="mb-4 p-3 banner-error border border-border rounded text-sm">Error: {{ request.query_params.get('error') }}</div>
 {% endif %}
@@ -49,7 +62,55 @@
     </div>
     <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save timezone</button>
   </form>
-  <p class="text-xs text-muted mt-2">Used for display and schedule interpretation.</p>
+  <p class="text-xs text-muted mt-2">Used for display and schedule interpretation (including update checks).</p>
+</div>
+
+<div class="card p-5 mb-4">
+  <h2 class="font-semibold text-text mb-1">Fleet update checks</h2>
+  <p class="text-xs text-muted mb-3">
+    Global defaults for <strong>check-only</strong> OS package and container image scans.
+    Default time is <strong>midnight</strong> ({{ current_tz }}). With jitter, each host gets a staggered minute so jobs <strong>queue</strong> (2 concurrent) instead of all hitting SSH at once.
+  </p>
+  <form method="post" action="/herder-backups/update-checks" class="space-y-3">
+    <label class="flex items-center gap-2 min-h-11 text-sm">
+      <input type="checkbox" name="os_check_global_enabled" value="1"
+             {% if cfg.os_check_global_enabled is not defined or cfg.os_check_global_enabled %}checked{% endif %}>
+      <span>Enable OS update checks (apt list — no upgrade)</span>
+    </label>
+    <div>
+      <label class="block text-xs text-muted mb-1">OS check cron (base)</label>
+      <input type="text" name="os_check_cron" value="{{ cfg.os_check_cron or '0 0 * * *' }}"
+             placeholder="0 0 * * *" class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+      <p class="text-[10px] text-muted mt-1"><code>0 0 * * *</code> = daily at 00:00 in {{ current_tz }}</p>
+    </div>
+
+    <label class="flex items-center gap-2 min-h-11 text-sm">
+      <input type="checkbox" name="container_check_global_enabled" value="1"
+             {% if cfg.container_check_global_enabled is not defined or cfg.container_check_global_enabled %}checked{% endif %}>
+      <span>Enable container image checks (pull + compare — no <code>up -d</code>)</span>
+    </label>
+    <div>
+      <label class="block text-xs text-muted mb-1">Container check cron (base)</label>
+      <input type="text" name="container_check_cron" value="{{ cfg.container_check_cron or '0 0 * * *' }}"
+             placeholder="0 0 * * *" class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+    </div>
+
+    <label class="flex items-center gap-2 min-h-11 text-sm">
+      <input type="checkbox" name="update_check_jitter" value="1"
+             {% if cfg.update_check_jitter is not defined or cfg.update_check_jitter %}checked{% endif %}>
+      <span>Stagger by host (minute = server id mod 60; containers +15 min offset)</span>
+    </label>
+
+    <label class="flex items-center gap-2 min-h-11 text-sm font-medium">
+      <input type="checkbox" name="apply_to_all" value="1" checked>
+      <span>Apply to all servers now</span>
+    </label>
+    <p class="text-[10px] text-muted">
+      Writes per-server schedules for <strong>all servers</strong> and re-registers the scheduler.
+      Per-server cards still allow overrides. Check-only does not require the patch-apply feature toggles.
+    </p>
+    <button type="submit" class="btn btn-accent min-h-11 text-sm">Save &amp; apply update checks</button>
+  </form>
 </div>
 
 <div class="card p-5 mb-4">

@@ -386,17 +386,78 @@ async def save_herder_config(
         except ValueError as e:
             return RedirectResponse(f"/herder-backups?error={str(e)[:120]}", status_code=303)
 
-    existing = hb.load_herder_config()
     cfg = {
         "keep": max(1, min(100, keep)),
         "schedule_mode": schedule_mode if schedule_mode in ("config_only", "full") else "config_only",
         "schedule_enabled": enabled,
         "schedule_cron": cron,
-        "timezone": existing.get("timezone", "UTC"),
     }
     hb.save_herder_config(cfg)
     sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
     return RedirectResponse("/herder-backups?config_saved=1", status_code=303)
+
+
+@app.post("/herder-backups/update-checks")
+async def save_update_check_defaults(
+    os_check_global_enabled: Optional[str] = Form(None),
+    os_check_cron: str = Form("0 0 * * *"),
+    container_check_global_enabled: Optional[str] = Form(None),
+    container_check_cron: str = Form("0 0 * * *"),
+    update_check_jitter: Optional[str] = Form(None),
+    apply_to_all: Optional[str] = Form(None),
+    user: User = Depends(get_current_user),
+):
+    """Save global update-check defaults; optionally apply schedules to every eligible server."""
+    from .services import herder_backup as hb
+    from .services import update_check_config as ucc
+    from .services.scheduler import sync_all_server_cron_jobs
+    from .database import engine as _engine
+    from sqlmodel import Session as _Session
+
+    os_on = os_check_global_enabled in ("1", "on", "true")
+    cont_on = container_check_global_enabled in ("1", "on", "true")
+    jitter = update_check_jitter in ("1", "on", "true")
+    do_apply = apply_to_all in ("1", "on", "true")
+    os_cron = (os_check_cron or "").strip() or "0 0 * * *"
+    cont_cron = (container_check_cron or "").strip() or "0 0 * * *"
+    try:
+        if os_on:
+            hb.validate_cron_expression(os_cron)
+        if cont_on:
+            hb.validate_cron_expression(cont_cron)
+    except ValueError as e:
+        return RedirectResponse(f"/herder-backups?error={str(e)[:120]}", status_code=303)
+
+    hb.save_herder_config({
+        "os_check_global_enabled": os_on,
+        "os_check_cron": os_cron,
+        "container_check_global_enabled": cont_on,
+        "container_check_cron": cont_cron,
+        "update_check_jitter": jitter,
+    })
+
+    applied = {"os_applied": 0, "container_applied": 0, "servers_total": 0}
+    if do_apply:
+        with _Session(_engine) as db:
+            applied = ucc.apply_global_update_checks_to_all(
+                db,
+                os_enabled=os_on,
+                os_cron=os_cron,
+                container_enabled=cont_on,
+                container_cron=cont_cron,
+                jitter=jitter,
+                only_patch_enabled=False,  # all hosts; check-only does not need patch toggles
+            )
+        sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER)
+
+    return RedirectResponse(
+        f"/herder-backups?update_checks_saved=1"
+        f"&os={applied.get('os_applied', 0)}"
+        f"&cont={applied.get('container_applied', 0)}"
+        f"&total={applied.get('servers_total', 0)}"
+        f"&applied={'1' if do_apply else '0'}",
+        status_code=303,
+    )
 
 
 @app.post("/herder-backups/timezone")

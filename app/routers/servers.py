@@ -608,9 +608,8 @@ async def check_os_updates_now(
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
-    job_service.create_job_and_run(
-        background_tasks, session, server, "os_update_check", user_id=user.id
-    )
+    # Queue on shared pool (same as scheduled checks)
+    job_service.enqueue_os_update_check(server.id, user_id=user.id)
     return RedirectResponse(f"/servers/{server_id}?os_check=1", status_code=303)
 
 
@@ -624,9 +623,7 @@ async def check_container_updates_now(
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
-    job_service.create_job_and_run(
-        background_tasks, session, server, "container_update_check", user_id=user.id
-    )
+    job_service.enqueue_container_update_check(server.id, user_id=user.id)
     return RedirectResponse(f"/servers/{server_id}?container_check=1", status_code=303)
 
 
