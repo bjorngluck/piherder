@@ -74,6 +74,11 @@ def summarize_fleet(servers: List[Server]) -> dict[str, Any]:
         key=lambda r: (0 if r["needs_attention"] else 1, (r["name"] or "").lower()),
     )
 
+    attention_sorted = sorted(
+        attention,
+        key=lambda r: (r["name"] or "").lower(),
+    )
+
     return {
         "server_count": len(rows),
         "attention_count": len(attention),
@@ -84,6 +89,7 @@ def summarize_fleet(servers: List[Server]) -> dict[str, Any]:
         "total_container_projects": total_cont_proj,
         "never_checked_os": never_os,
         "never_checked_containers": never_cont,
-        "rows": rows_sorted,
+        "rows": rows_sorted,  # full fleet (sorted attention first)
+        "attention_rows": attention_sorted,  # dashboard: only needs attention
         "healthy_count": len(rows) - len(attention),
     }

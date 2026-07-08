@@ -8,7 +8,7 @@
 <div class="page-header mb-4">
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Servers</h1>
-    <p class="text-sm text-muted mt-1">Click a server to manage. Filter by pending OS, reboot, or container updates.</p>
+    <p class="text-sm text-muted mt-1">Compact host list — use ⋯ for backup, patch, open, and more.</p>
   </div>
   <div class="page-header-actions">
     <button type="button" onclick="location.reload()"
@@ -40,78 +40,69 @@
   </a>
 </div>
 
+{# Anchored ⋯ menu (same pattern as Docker compose) #}
+<div id="server-more-menu" class="docker-popover hidden" role="menu" hidden>
+  <div class="docker-popover-title text-muted" id="server-more-name"></div>
+  <div id="server-more-list" class="docker-popover-list"></div>
+</div>
+
 {% if servers %}
-<div class="space-y-3">
+<div class="source-list fleet-status-list server-host-list">
   {% for s in servers %}
-  <div class="card server-row {{ 'is-attention' if s.get('needs_attention') else '' }}" data-server-name="{{ s.name }}">
-    <div class="server-row-main">
-      <div class="server-row-reorder" aria-label="Reorder">
-        <form method="post" action="/servers/{{ s.id }}/move/up">
-          <button type="submit" class="server-reorder-btn" title="Move up" aria-label="Move {{ s.name }} up">▲</button>
-        </form>
-        <form method="post" action="/servers/{{ s.id }}/move/down">
-          <button type="submit" class="server-reorder-btn" title="Move down" aria-label="Move {{ s.name }} down">▼</button>
-        </form>
-      </div>
-      <div class="server-row-identity min-w-0">
-        <a href="/servers/{{ s.id }}" class="server-row-name">{{ s.name }}</a>
-        <div class="server-row-host text-muted">{{ s.hostname }}</div>
-      </div>
-    </div>
-
-    <div class="server-row-meta">
-      {% if s.get('backup_running') %}
-      <span class="status-pill status-running">backup running…</span>
-      {% elif s.get('last_backup_str') %}
-      <span class="text-xs text-muted">last {{ s.last_backup_str }}</span>
-      {% elif s.get('last_backup') %}
-      <span class="text-xs text-muted">last {{ s.last_backup }}</span>
-      {% else %}
-      <span class="text-xs text-muted">no backup yet</span>
-      {% endif %}
-
-      {% if s.get('reboot_pending') %}
-      <span class="status-pill status-failed" title="Reboot required">reboot</span>
-      {% endif %}
-      {% if s.get('os_updates_count') is not none and s.os_updates_count > 0 %}
-      <span class="status-pill status-failed" title="OS packages upgradable">{{ s.os_updates_count }} OS</span>
-      {% elif s.os_patch_enabled and s.get('os_updates_count') == 0 %}
-      <span class="status-pill status-success" title="No OS updates">OS 0</span>
-      {% endif %}
-      {% if s.get('container_updates_count') is not none and s.container_updates_count > 0 %}
-      <span class="status-pill status-failed" title="Container projects with image updates">{{ s.container_updates_count }} img</span>
-      {% elif s.container_patch_enabled and s.get('container_updates_count') == 0 %}
-      <span class="status-pill status-success" title="No image updates">Img 0</span>
-      {% endif %}
-
-      <span class="text-xs text-muted" title="Feature toggles">
-        {{ 'Backup' if s.backup_enabled else 'Backup off' }}
-        · {{ 'OS' if s.os_patch_enabled else 'OS off' }}
-        · {{ 'Img' if s.container_patch_enabled else 'Img off' }}
-      </span>
-    </div>
-
-    <div class="server-row-actions">
-      {% if s.get('backup_running') %}
-      <a href="/servers/{{ s.id }}/backups?backup_log=1"
-         class="btn btn-secondary min-h-11"
-         title="View running backup log">
-        📋 Log
-      </a>
-      {% else %}
-      <form method="post" action="/servers/{{ s.id }}/run/backup" class="inline backup-run-form">
-        <button type="submit"
-                class="btn btn-accent min-h-11"
-                title="Backup all enabled sources for this server">
-          ▶ Backup
-        </button>
+  <div class="source-row fleet-status-row server-host-row {% if s.get('needs_attention') %}is-attention{% endif %}"
+       data-server-id="{{ s.id }}"
+       data-server-name="{{ s.name }}">
+    <div class="server-row-reorder server-host-reorder" aria-label="Reorder">
+      <form method="post" action="/servers/{{ s.id }}/move/up">
+        <button type="submit" class="server-reorder-btn" title="Move up" aria-label="Move {{ s.name }} up">▲</button>
       </form>
-      {% endif %}
-      <a href="/servers/{{ s.id }}/backups" class="btn btn-secondary min-h-11">Manage</a>
-      {% if s.get('has_container_updates') %}
-      <a href="/servers/{{ s.id }}/docker" class="btn btn-secondary min-h-11">Docker</a>
-      {% endif %}
-      <a href="/servers/{{ s.id }}?edit=1" class="btn btn-secondary min-h-11">Settings</a>
+      <form method="post" action="/servers/{{ s.id }}/move/down">
+        <button type="submit" class="server-reorder-btn" title="Move down" aria-label="Move {{ s.name }} down">▼</button>
+      </form>
+    </div>
+
+    <div class="source-row-body min-w-0">
+      <a href="/servers/{{ s.id }}" class="fleet-status-name">{{ s.name }}</a>
+      <div class="source-row-when text-muted font-mono">{{ s.hostname }}</div>
+      <div class="fleet-status-pills">
+        {% if s.get('backup_running') %}
+        <span class="status-pill status-running">backup…</span>
+        {% elif s.get('last_backup_str') %}
+        <span class="text-xs text-muted">backup {{ s.last_backup_str }}</span>
+        {% endif %}
+
+        {% if s.get('reboot_pending') %}
+        <span class="status-pill status-failed">reboot</span>
+        {% endif %}
+        {% if s.get('os_updates_count') is not none and s.os_updates_count > 0 %}
+        <span class="status-pill status-failed">{{ s.os_updates_count }} OS</span>
+        {% elif s.os_patch_enabled and s.get('os_updates_count') == 0 %}
+        <span class="status-pill status-success">OS 0</span>
+        {% elif not s.os_patch_enabled %}
+        <span class="text-xs text-muted">OS off</span>
+        {% endif %}
+
+        {% if s.get('container_updates_count') is not none and s.container_updates_count > 0 %}
+        <span class="status-pill status-failed">{{ s.container_updates_count }} img</span>
+        {% elif s.container_patch_enabled and s.get('container_updates_count') == 0 %}
+        <span class="status-pill status-success">Img 0</span>
+        {% elif not s.container_patch_enabled %}
+        <span class="text-xs text-muted">Img off</span>
+        {% endif %}
+
+        {% if not s.backup_enabled %}
+        <span class="text-xs text-muted">Backup off</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="source-row-tools">
+      <button type="button"
+              class="source-icon-btn server-more-btn"
+              data-server-more
+              title="Actions"
+              aria-label="Actions for {{ s.name }}"
+              aria-haspopup="menu">⋯</button>
     </div>
   </div>
   {% endfor %}
@@ -129,6 +120,125 @@
 {% endif %}
 
 <div class="mt-8 text-xs text-muted">
-  SSH keys are stored encrypted. Status badges come from last update checks (no live SSH on this page).
+  Status from last update checks (no live SSH). ⋯ menu: backup, patch, open, docker, checks.
 </div>
+
+<script>
+(function () {
+  function hideServerMoreMenu() {
+    var menu = document.getElementById('server-more-menu');
+    if (!menu) return;
+    menu.classList.add('hidden');
+    menu.hidden = true;
+    menu.style.top = '';
+    menu.style.left = '';
+    delete menu.dataset.anchor;
+  }
+
+  function postAction(url) {
+    var f = document.createElement('form');
+    f.method = 'POST';
+    f.action = url;
+    f.style.display = 'none';
+    document.body.appendChild(f);
+    f.submit();
+  }
+
+  function showServerMoreMenu(anchorBtn, row) {
+    var menu = document.getElementById('server-more-menu');
+    var list = document.getElementById('server-more-list');
+    var nameEl = document.getElementById('server-more-name');
+    if (!menu || !list) return;
+
+    var id = row.getAttribute('data-server-id');
+    var name = (row.getAttribute('data-server-name') || 'Server').trim();
+    if (nameEl) nameEl.textContent = name;
+
+    var items = [
+      { label: 'Open', href: '/servers/' + id, accent: true },
+      { label: 'Backup now', post: '/servers/' + id + '/run/backup', accent: true },
+      { label: 'OS patch now', post: '/servers/' + id + '/run/os_patch' },
+      { label: 'Container patch now', post: '/servers/' + id + '/run/container_patch' },
+      { label: 'Docker', href: '/servers/' + id + '/docker' },
+      { label: 'Backups', href: '/servers/' + id + '/backups' },
+      { label: 'Check OS updates', post: '/servers/' + id + '/check/os-updates' },
+      { label: 'Check container updates', post: '/servers/' + id + '/check/container-updates' },
+      { label: 'Settings', href: '/servers/' + id + '?edit=1' },
+      { label: 'Reboot…', post: '/servers/' + id + '/reboot', danger: true, confirm: 'Reboot ' + name + ' now?' },
+    ];
+
+    list.innerHTML = '';
+    items.forEach(function (item) {
+      var btn = document.createElement(item.href ? 'a' : 'button');
+      if (item.href) {
+        btn.href = item.href;
+      } else {
+        btn.type = 'button';
+      }
+      btn.setAttribute('role', 'menuitem');
+      btn.className = 'docker-popover-item'
+        + (item.danger ? ' is-danger' : '')
+        + (item.accent ? ' is-accent' : '');
+      btn.textContent = item.label;
+      btn.addEventListener('click', function (e) {
+        if (item.href) {
+          hideServerMoreMenu();
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        if (item.confirm && !window.confirm(item.confirm)) return;
+        hideServerMoreMenu();
+        postAction(item.post);
+      });
+      list.appendChild(btn);
+    });
+
+    menu.classList.remove('hidden');
+    menu.hidden = false;
+    menu.dataset.anchor = String(anchorBtn);
+
+    var r = anchorBtn.getBoundingClientRect();
+    var mw = 240;
+    var left = r.right - mw;
+    if (left < 8) left = 8;
+    if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+    var top = r.bottom + 6;
+    menu.style.left = left + 'px';
+    menu.style.top = top + 'px';
+    requestAnimationFrame(function () {
+      var mh = menu.offsetHeight || 280;
+      if (top + mh > window.innerHeight - 8) {
+        menu.style.top = Math.max(8, r.top - mh - 6) + 'px';
+      }
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    var moreBtn = e.target.closest('[data-server-more]');
+    if (moreBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      var row = moreBtn.closest('.server-host-row');
+      if (!row) return;
+      var menu = document.getElementById('server-more-menu');
+      if (menu && !menu.hidden && menu.dataset.anchor === String(moreBtn)) {
+        hideServerMoreMenu();
+        return;
+      }
+      showServerMoreMenu(moreBtn, row);
+      return;
+    }
+    if (!e.target.closest('#server-more-menu')) {
+      hideServerMoreMenu();
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') hideServerMoreMenu();
+  });
+  window.addEventListener('scroll', hideServerMoreMenu, true);
+  window.addEventListener('resize', hideServerMoreMenu);
+})();
+</script>
 {% endblock %}

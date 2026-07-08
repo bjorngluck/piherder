@@ -1804,9 +1804,15 @@ input[type="checkbox"], input[type="radio"] {
   color: var(--color-text);
   font-size: 0.85rem;
   cursor: pointer;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+a.docker-popover-item {
+  text-decoration: none;
 }
 .docker-popover-item:hover {
   background: var(--color-bg);
+  text-decoration: none;
 }
 .docker-popover-item.is-accent {
   color: var(--color-accent);
