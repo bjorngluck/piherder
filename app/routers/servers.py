@@ -11,12 +11,14 @@ from datetime import datetime
 from ..security import encryption
 import asyncio
 from ..services import ssh as ssh_service
+from ..services import ssh_onboarding
 from ..services import jobs as job_service
 from ..services import backup as backup_svc
 from ..services import diagnostics as diag_svc
 from ..services import os_patching
 from ..services.herder_backup import format_datetime_in_app_tz
 from ..services.server_audit import record_server_audit
+from urllib.parse import quote
 from .. import templates as templates_mod
 from ..security.auth import get_current_user
 from ..models import User
@@ -38,8 +40,13 @@ router.include_router(backups_router, prefix="")
 logger = logging.getLogger("piherder.servers")
 
 
-def _server_redirect(server_id: int) -> str:
-    return f"/servers/{server_id}"
+def _server_redirect(server_id: int, **params: str) -> str:
+    url = f"/servers/{server_id}"
+    if params:
+        qs = "&".join(f"{k}={quote(str(v), safe='')}" for k, v in params.items() if v is not None)
+        if qs:
+            url = f"{url}?{qs}"
+    return url
 
 
 @router.get("", response_class=HTMLResponse)
@@ -217,10 +224,6 @@ async def move_server(
     return RedirectResponse("/servers", status_code=303)
 
 
-# Roadmap: guided onboarding wizard (SPEC.md) — deploy SSH key via password session,
-# provision least-privilege backup user + sudoers, rotate keys from server settings.
-
-
 @router.get("/add", response_class=HTMLResponse)
 async def add_server_form(request: Request, user: User = Depends(get_current_user)):
     return templates_mod.templates.TemplateResponse(
@@ -242,16 +245,19 @@ async def add_server(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    pub = None
-    priv_enc = None
-
     priv_enc = None
     pub = None
     pw_enc = None
+    host = hostname.strip()
+    sname = name.strip()
+    comment = f"piherder@{host or sname or 'server'}"
 
     if key_mode == "generate":
-        pub, priv = ssh_service.generate_keypair()
+        pub, priv = ssh_service.generate_keypair(comment=comment)
         priv_enc = encryption.encrypt_str(priv)
+        # Optional one-time password for Deploy key after create
+        if ssh_password and ssh_password.strip():
+            pw_enc = encryption.encrypt_str(ssh_password.strip())
     elif key_mode == "password":
         if not ssh_password or not ssh_password.strip():
             raise HTTPException(400, "Password required when using password auth")
@@ -260,14 +266,20 @@ async def add_server(
     else:
         if not private_key.strip():
             raise HTTPException(400, "Private key required for upload mode")
-        priv_enc = encryption.encrypt_str(private_key.strip())
-        pub = "(provided with private key - test connection to verify)"
+        priv_plain = private_key.strip()
+        priv_enc = encryption.encrypt_str(priv_plain)
+        try:
+            pub = ssh_onboarding.public_key_from_private(priv_plain, comment=comment)
+        except Exception:
+            pub = "(provided with private key - test connection to verify)"
+        if ssh_password and ssh_password.strip():
+            pw_enc = encryption.encrypt_str(ssh_password.strip())
 
     current_max = session.scalar(select(func.max(Server.sort_order)))
     next_sort = int(current_max or 0) + 10
     server = Server(
-        name=name,
-        hostname=hostname,
+        name=sname,
+        hostname=host,
         ssh_username=ssh_username,
         ssh_port=ssh_port,
         ssh_private_key_encrypted=priv_enc,
@@ -296,7 +308,7 @@ async def add_server(
             "message": f"Server {server.name} added",
         },
     )
-    if key_mode == "password":
+    if pw_enc:
         record_server_audit(
             session,
             server_id=server.id,
@@ -306,10 +318,12 @@ async def add_server(
         )
     session.commit()
 
-    redirect_url = f"/servers/{server.id}"
-    if key_mode == "generate":
-        redirect_url += "?show_ssh_key=1"
-    return RedirectResponse(redirect_url, status_code=303)
+    if key_mode == "generate" or (key_mode == "upload" and ssh_onboarding.is_real_public_key(pub)):
+        return RedirectResponse(
+            _server_redirect(server.id, show_ssh_key="1", msg="server_added"),
+            status_code=303,
+        )
+    return RedirectResponse(_server_redirect(server.id, msg="server_added"), status_code=303)
 
 
 @router.get("/{server_id}", response_class=HTMLResponse)
@@ -320,10 +334,49 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
 
     show_ssh_key = request.query_params.get("show_ssh_key") == "1"
     edit_mode = request.query_params.get("edit") == "1"
+    flash_msg = request.query_params.get("msg") or ""
+    flash_error = request.query_params.get("error") or ""
+    flash_detail = request.query_params.get("detail") or ""
 
     server_dict = server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"})
+    # Template helpers for SSH onboarding UI (not persisted fields)
+    server_dict["has_ssh_key"] = bool(server.ssh_private_key_encrypted)
+    server_dict["has_ssh_password"] = bool(server.ssh_password_encrypted)
+    server_dict["has_real_public_key"] = ssh_onboarding.is_real_public_key(server.ssh_public_key)
 
     reboot_initiated = request.query_params.get("rebooted") == "1"
+
+    key_install_script = ""
+    least_priv_script = ""
+    if ssh_onboarding.is_real_public_key(server.ssh_public_key):
+        key_install_script = ssh_onboarding.build_key_install_script(
+            server.ssh_public_key, username=server.ssh_username
+        )
+        least_priv_script = ssh_onboarding.build_least_priv_script(
+            "piherder",
+            server.ssh_public_key,
+            backup=True,
+            docker=bool(server.container_patch_enabled),
+            os_patch=bool(server.os_patch_enabled),
+        )
+    elif server.ssh_private_key_encrypted:
+        try:
+            derived = ssh_onboarding.public_key_from_private(
+                ssh_service.get_private_key_plain(server),
+                comment=f"piherder@{server.hostname or server.name}",
+            )
+            key_install_script = ssh_onboarding.build_key_install_script(
+                derived, username=server.ssh_username
+            )
+            least_priv_script = ssh_onboarding.build_least_priv_script(
+                "piherder",
+                derived,
+                backup=True,
+                docker=bool(server.container_patch_enabled),
+                os_patch=bool(server.os_patch_enabled),
+            )
+        except Exception:
+            pass
 
     backup_profiles = []
     overall_last_backup = None
@@ -416,6 +469,12 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
             "reboot_initiated": reboot_initiated,
             "show_ssh_key": show_ssh_key,
             "edit_mode": edit_mode,
+            "flash_msg": flash_msg,
+            "flash_error": flash_error,
+            "flash_detail": flash_detail,
+            "key_install_script": key_install_script,
+            "least_priv_script": least_priv_script,
+            "haos_guidance": ssh_onboarding.HAOS_GUIDANCE,
             "lean_page": True,
         }
     )
@@ -572,6 +631,292 @@ async def audit_ssh_key_viewed(
     )
     session.commit()
     return {"ok": True}
+
+
+@router.post("/{server_id}/ssh/generate-key")
+async def ssh_generate_key(
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Create a keypair when the server was added password-only or has no key."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    if server.ssh_private_key_encrypted:
+        return RedirectResponse(
+            _server_redirect(server_id, error="key_exists", detail="Server already has a private key. Use Rotate to change it."),
+            status_code=303,
+        )
+    comment = f"piherder@{server.hostname or server.name}"
+    pub, priv = ssh_service.generate_keypair(comment=comment)
+    server.ssh_public_key = pub
+    server.ssh_private_key_encrypted = encryption.encrypt_str(priv)
+    session.add(server)
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_ssh_key_deployed",
+        message="SSH keypair generated (not yet deployed to host)",
+        details={"generated_only": True},
+    )
+    session.commit()
+    return RedirectResponse(
+        _server_redirect(server_id, show_ssh_key="1", msg="key_generated"),
+        status_code=303,
+    )
+
+
+@router.post("/{server_id}/ssh/test")
+async def ssh_test_connection(
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    result = await run_in_threadpool(ssh_onboarding.test_connection_detail, server)
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_ssh_test",
+        status="success" if result.ok else "failed",
+        message=result.message,
+        details={k: v for k, v in result.details.items() if k not in ("new_private_key",)},
+    )
+    session.commit()
+    if result.ok:
+        return RedirectResponse(_server_redirect(server_id, msg="ssh_ok"), status_code=303)
+    return RedirectResponse(
+        _server_redirect(server_id, error="ssh_fail", detail=result.message[:180]),
+        status_code=303,
+    )
+
+
+@router.post("/{server_id}/ssh/deploy-key")
+async def ssh_deploy_key(
+    server_id: int,
+    ssh_password: str = Form(""),
+    clear_password_after: Optional[str] = Form(None),
+    store_password: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+
+    password_override = ssh_password.strip() if ssh_password and ssh_password.strip() else None
+    if store_password and password_override:
+        server.ssh_password_encrypted = encryption.encrypt_str(password_override)
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_password_set",
+            message="SSH password stored for deploy",
+        )
+
+    result = await run_in_threadpool(
+        ssh_onboarding.deploy_public_key,
+        server,
+        password_override=password_override,
+    )
+
+    # Persist derived public key if we only had a placeholder
+    if result.ok and result.details.get("public_key"):
+        derived = result.details["public_key"]
+        if derived and server.ssh_public_key != derived:
+            server.ssh_public_key = derived
+
+    if result.ok:
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_ssh_key_deployed",
+            message=result.message,
+            details={
+                "already_auth": result.details.get("already_auth"),
+                "installed": result.details.get("installed"),
+                "already_present": result.details.get("already_present"),
+            },
+        )
+        if clear_password_after:
+            server.ssh_password_encrypted = None
+            record_server_audit(
+                session,
+                server_id=server.id,
+                user_id=user.id,
+                action="server_password_clear",
+                message="SSH password cleared after key deploy",
+            )
+        session.add(server)
+        session.commit()
+        return RedirectResponse(_server_redirect(server_id, msg="key_deployed"), status_code=303)
+
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_ssh_key_deployed",
+        status="failed",
+        message=result.message,
+    )
+    session.commit()
+    return RedirectResponse(
+        _server_redirect(server_id, error="key_deploy_fail", detail=result.message[:180]),
+        status_code=303,
+    )
+
+
+@router.post("/{server_id}/ssh/rotate-key")
+async def ssh_rotate_key(
+    server_id: int,
+    ssh_password: str = Form(""),
+    confirm: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    if (confirm or "").strip().lower() != "rotate":
+        return RedirectResponse(
+            _server_redirect(server_id, error="key_rotate_confirm"),
+            status_code=303,
+        )
+
+    password_override = ssh_password.strip() if ssh_password and ssh_password.strip() else None
+    result = await run_in_threadpool(
+        ssh_onboarding.rotate_keypair,
+        server,
+        password_override=password_override,
+    )
+
+    if not result.ok:
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_ssh_key_rotated",
+            status="failed",
+            message=result.message,
+        )
+        session.commit()
+        return RedirectResponse(
+            _server_redirect(server_id, error="key_rotate_fail", detail=result.message[:180]),
+            status_code=303,
+        )
+
+    new_pub = result.details["new_public_key"]
+    new_priv = result.details["new_private_key"]
+    server.ssh_public_key = new_pub
+    server.ssh_private_key_encrypted = encryption.encrypt_str(new_priv)
+    session.add(server)
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_ssh_key_rotated",
+        message=result.message,
+        details={
+            "removed_old": result.details.get("removed_old"),
+            "installed": result.details.get("installed"),
+        },
+    )
+    session.commit()
+    return RedirectResponse(_server_redirect(server_id, msg="key_rotated"), status_code=303)
+
+
+@router.post("/{server_id}/ssh/provision-user")
+async def ssh_provision_user(
+    server_id: int,
+    new_username: str = Form("piherder"),
+    ssh_password: str = Form(""),
+    include_backup: Optional[str] = Form("1"),
+    include_docker: Optional[str] = Form(None),
+    include_os_patch: Optional[str] = Form(None),
+    run_on_host: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """
+    Generate least-priv script (always available via detail page).
+    When run_on_host is set, execute on remote (Debian / Pi OS / Ubuntu only).
+    """
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+
+    uname = (new_username or "piherder").strip()
+    backup = bool(include_backup)
+    docker = bool(include_docker)
+    os_patch = bool(include_os_patch)
+
+    if not run_on_host:
+        # Copy-only path: just flash that script is on page (client-side preview).
+        return RedirectResponse(
+            _server_redirect(server_id, msg="provision_script"),
+            status_code=303,
+        )
+
+    password_override = ssh_password.strip() if ssh_password and ssh_password.strip() else None
+    result = await run_in_threadpool(
+        ssh_onboarding.provision_least_priv_user,
+        server,
+        uname,
+        backup=backup,
+        docker=docker,
+        os_patch=os_patch,
+        password_override=password_override,
+    )
+
+    if not result.ok:
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_ssh_user_provisioned",
+            status="failed",
+            message=result.message,
+            details={
+                "os": (result.details.get("os") or {}).get("name"),
+                "new_username": uname,
+            },
+        )
+        session.commit()
+        return RedirectResponse(
+            _server_redirect(server_id, error="provision_fail", detail=result.message[:180]),
+            status_code=303,
+        )
+
+    new_user = result.details.get("new_username") or uname
+    prev = server.ssh_username
+    server.ssh_username = new_user
+    session.add(server)
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_ssh_user_provisioned",
+        message=result.message,
+        details={
+            "new_username": new_user,
+            "previous_username": prev,
+            "docker": docker,
+            "os_patch": os_patch,
+            "backup": backup,
+        },
+    )
+    session.commit()
+    return RedirectResponse(
+        _server_redirect(server_id, msg="user_provisioned"),
+        status_code=303,
+    )
 
 
 # (backup progress + logs stream moved to server_backups.py)

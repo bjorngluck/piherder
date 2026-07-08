@@ -11,38 +11,48 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 
 - **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)
 - **Specification & roadmap:** [SPEC.md](SPEC.md) — link this to your [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) board
-- **Upcoming features (IAM, 2FA, update checks, notifications):** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- **IAM / 2FA / update checks / notifications (design + status):** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- **UI unification plan:** [UI_UNIFICATION_PLAN.md](UI_UNIFICATION_PLAN.md) (complete)
 
-## Features (v1)
+## Features
 
+### Fleet & jobs
 - Add servers via SSH keypair (generated in-app or uploaded) — private key encrypted immediately with Fernet.
-- Per-server toggles: Backups, OS Patching, Container Patching.
-- **Backups** (rsync over SSH) — replicates `~/docker/backup_script.sh` + retention logic.
-- **Container Patching** — `docker compose pull` + conditional `up -d` only on real image change (replicates improved `docker-cluster-update.sh`).
-- OS patching (apt full sequence + reboot-required detection).
-- Diagnostics (ping, DNS, system info, etc.).
-- Full audit trail + job logs (filter by user/status/action/server + action links).
-- Self-backup of PiHerder config (servers + encrypted keys) — scheduled via UI (Settings), compressed archives, restore with preview.
+- **SSH access** on each server: test connection, deploy public key (optional password bootstrap), rotate keypair, least-priv user scripts (**Pi OS / Ubuntu**), copy-paste install commands. HAOS: key deploy + plain rsync guidance.
+- Per-server toggles: Backups, OS Patching, Container Patching; optional OS/container **update check** schedules (check-only, no auto-apply).
+- **Backups** (rsync over SSH) — multi-source paths, retention, schedules; HAOS/root plain-rsync probe.
+- **Container patching** — `docker compose pull` + conditional `up -d` on real image change; Docker project browser (list, logs, compose edit, build, deploy).
+- **OS patching** (apt sequence + reboot-required detection).
+- **Fleet dashboard** — patch/update attention across hosts; servers list filters and ⋯ action menus.
+- Diagnostics (ping, DNS, system info).
+- Full audit trail + job logs (filter by user/status/action/server).
+- Self-backup of PiHerder config (servers + encrypted keys) — scheduled via Settings, restore with preview.
+- In-app **notification center** (bell, dismiss, deep links for updates / reboot / backup failures).
 - Link to Pi-hole admin from dashboard (configurable).
 - HTTPS via Caddy (Let's Encrypt).
+
+### Account & security
+- User profile: display name, email, avatar, password change; registration locks after first user.
+- Optional **2FA** (TOTP + backup codes + trusted device).
+- Basic rate limiting on login / 2FA endpoints.
 
 **Volumes (docker-compose.yml):**
 - `~/backup:/backups` — destination root for per-server rsync backups.
 - `./piherder_backups:/herder_backups` — PiHerder self-backup archives (config, encrypted keys, optional audit). Map a persistent host directory here.
+- `./piherder_data:/data` — avatars and other app data (if configured in compose).
 
-## Tech Stack (per spec)
+## Tech Stack
 
-FastAPI + SQLModel + PostgreSQL + paramiko + cryptography (Fernet) + Jinja2 + (vendored) Tailwind + HTMX + Alpine.
+FastAPI + SQLModel + PostgreSQL + paramiko + cryptography (Fernet) + Jinja2 + (vendored) Tailwind + HTMX + Alpine + APScheduler + Celery.
 
 **Offline / air-gapped ready**: Once built, the container has no external CDN dependencies.
 All frontend assets (Tailwind Play, HTMX, Alpine) are vendored during `docker build`.
 
-**Code structure (lightweight refactor)**: The app favors small focused modules over god classes. Major files were split while preserving exact behavior and using re-exports (e.g. `app/services/docker_management.py` → `docker_versions.py`; backup split into progress/profiles; scheduler out of main; docker+backups routers extracted). All original public APIs and routes unchanged. See plan history for details.
+**Code structure**: Small focused modules (routers for servers/docker/backups/audit/auth; services for backup, SSH, onboarding, patching, notifications, fleet status). Behavior-preserving splits over god files.
 
 **Important for building the image yourself:**
 The build step requires internet access (to download the frontend assets).
 The build will **fail hard** with a clear error if `tailwind.js` is missing or invalid.
-This protects users who build the image themselves.
 
 If you see SSL/certificate errors (or the download gets a Pi-hole page) while vendoring:
 - Whitelist `cdn.tailwindcss.com` in Pi-hole temporarily, or
@@ -72,14 +82,17 @@ Pre-built images will be available on Docker Hub so most people don't need to bu
 
 4. Open https://localhost (or your configured domain). Caddy will handle TLS.
 
-   - First visit: register the initial admin user.
-   - Add your first server (generate keypair recommended).
+   - First visit: register the initial admin user (further open registration is locked after the first account).
+   - Account → optional 2FA, profile, avatar.
+   - Add your first server (generate keypair recommended). Optionally store a one-time SSH password for deploy.
 
-5. On the target Pi(s):
-   - Add the displayed public key to `~/.ssh/authorized_keys`.
-   - Ensure passwordless sudo for the SSH user (for apt, docker compose, and rsync on most systems).
-   - For HAOS or root SSH users, backups can use plain rsync (auto-detected; no sudo required for rsync).
-   - `docker` group membership for container ops.
+5. On the target host / from PiHerder **SSH access**:
+   - **Deploy key** (password session if needed) or copy the install script into `authorized_keys`.
+   - **Test connection**, then clear any stored password once key auth works.
+   - Optional least-priv user (**Pi OS / Ubuntu**): limited sudoers + docker group; **Run on host** or copy-paste script. **HAOS:** deploy key as root; plain rsync is auto-detected.
+   - Otherwise ensure passwordless sudo for apt/docker/rsync as needed, and `docker` group for container ops.
+
+6. Optional: Settings → fleet-wide midnight **update check** schedules; server list / dashboard show pending OS and container updates.
 
 ## Configuration from Legacy Scripts
 
@@ -97,32 +110,33 @@ These match the variables in the old scripts.
 
 ## Running Jobs
 
-From the server detail page:
-- Run Backup
-- Run Retention (cleanup)
-- Run Container Patch (all or selected projects)
-- Run OS Patch
-- Run Diagnostics
+From the server detail page (⋯ menu) and related pages:
+- Run Backup / retention
+- Run Container Patch / OS Patch
+- Check OS / container updates (manual)
+- Reboot, diagnostics
+- Docker: compose edit, build, logs, redeploy
 
-All actions create AuditLog entries with status + snippet.
+All actions create AuditLog entries with status + snippet. Actionable alerts also appear in the notification center when configured checks/jobs raise them.
 
 ## Replacing Cron Jobs
 
-Use the built-in scheduler (UI-configured per-server backup schedules + global herder self-backup at Settings) or manual triggers.
+Use the built-in scheduler:
+- Per-server **backup** schedules
+- Per-server or **global** OS / container **update check** schedules (detect only)
+- PiHerder self-backup schedule (Settings / herder backups)
 
-For other job types or external systems you can still call the API:
+Apply of OS/container patches remains **manual** by design (no silent auto-upgrade).
 
-```bash
-# Example: trigger container patch on a server (requires auth token)
-curl -H "Authorization: Bearer $TOKEN" \
-  -X POST http://piherder.local/api/servers/1/jobs/container_patch
-```
+For external systems you can still call HTTP APIs where exposed (auth required); a full token REST surface is still on the roadmap (see SPEC).
 
 ## Security Notes
 
-- `PIHERDER_MASTER_KEY` is the only secret. Never commit it.
-- SSH private keys are encrypted at rest. Decrypted **only** in memory for the duration of a job.
-- All access audited.
+- `PIHERDER_MASTER_KEY` is the only master secret. Never commit it.
+- SSH private keys (and optional SSH passwords) are encrypted at rest. Decrypted **only** in memory for jobs / onboarding actions.
+- Prefer key auth; clear stored SSH passwords after **Deploy key** succeeds.
+- Optional app 2FA (TOTP); backup codes for recovery; trusted devices are revocable.
+- All privileged access audited.
 - Use strong unique passwords + HTTPS.
 
 ## Development
@@ -133,10 +147,11 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
 
-Run alembic migrations (inside container or with DATABASE_URL):
+Run alembic migrations (inside container or with DATABASE_URL) when migration files exist:
 ```bash
 alembic upgrade head
 ```
+Note: some schema evolution still uses runtime `ALTER TABLE` helpers (Alembic-only path is a Phase 2 open item).
 
 ## Volumes
 
@@ -147,7 +162,11 @@ Bind-mount host directories as needed for persistence.
 
 ## Roadmap
 
-See **[SPEC.md](SPEC.md)** for the full specification, architecture, and phased roadmap (Phase 2–4: scheduling UI, API tokens, multi-user roles, fleet dashboard, etc.).
+See **[SPEC.md](SPEC.md)** for the full specification, architecture, and phased roadmap.
+
+**Recently completed (high level):** IAM profile, optional 2FA, OS/container update checks + notifications, fleet dashboard, SSH deploy/rotate/least-priv (Debian family).
+
+**Still open (examples):** backup path allow/deny, patch-apply schedules, webhooks, RBAC, Alembic-only migrations, pytest suite, Docker Hub image, backup restore wizard.
 
 To track work in a GitHub Project: link the `piherder` repo, then create issues from the unchecked items in SPEC.md.
 

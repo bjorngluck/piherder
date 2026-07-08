@@ -113,7 +113,9 @@
 </style>
 
 <div class="max-w-6xl mx-auto">
-  <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-xs text-accent hover:underline">← Docker Management</a>
+  <a href="/servers/{{ server.id }}/docker?nocache=1"
+     class="text-xs text-accent hover:underline"
+     data-nav-loading="Back to Docker…">← Docker Management</a>
 
   <div class="flex items-end justify-between mt-2 mb-2">
     <div>
@@ -158,7 +160,9 @@
       <a href="?load_draft={{ d.id }}" class="px-1.5 py-0.5 {{ 'banner-warning' if d.is_draft else ('banner-success' if 'live (current' in label else 'bg-surface border border-border') }} rounded" title="{{ label }}">v{{ d.version }} {{ 'draft' if d.is_draft else ('live' if live_version and d.id == live_version.id else 'inactive') }}</a>
     {% endfor %}
     {% if drafts|length > 5 %}<span class="text-muted">+{{ drafts|length - 5 }} more</span>{% endif %}
-    <a href="/servers/{{ server.id }}/docker?nocache=1" class="ml-auto text-accent hover:underline">Back to Docker</a>
+    <a href="/servers/{{ server.id }}/docker?nocache=1"
+       class="ml-auto text-accent hover:underline"
+       data-nav-loading="Back to Docker…">Back to Docker</a>
   </div>
 
   {% if request.query_params.get('saved_draft') %}
@@ -244,8 +248,9 @@
               class="px-6 py-2 btn btn-accent rounded font-medium text-sm">
         {% if is_dockerfile %}Save Dockerfile{% else %}Save &amp; Deploy (new version){% endif %}
       </button>
-      <a href="/servers/{{ server.id }}/docker"
-         class="px-5 py-2 btn btn-secondary rounded text-sm">Cancel</a>
+      <a href="/servers/{{ server.id }}/docker?nocache=1"
+         class="px-5 py-2 btn btn-secondary rounded text-sm"
+         data-nav-loading="Back to Docker…">Cancel</a>
       <div class="text-xs text-warning ml-2">
         {% if is_dockerfile %}
         After saving, rebuild the image from the Docker screen to apply changes.

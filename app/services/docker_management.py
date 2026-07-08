@@ -570,21 +570,52 @@ def _cached(fn, key, ttl=30, *args, **kwargs):
     return val
 
 
+def _parse_compose_labels(labels) -> dict:
+    """Extract compose project/service/workdir from docker Labels (str or dict)."""
+    out = {
+        "compose_project": "",
+        "compose_service": "",
+        "compose_workdir": "",
+    }
+    if not labels:
+        return out
+    if isinstance(labels, dict):
+        out["compose_project"] = labels.get("com.docker.compose.project") or labels.get("Project") or ""
+        out["compose_service"] = labels.get("com.docker.compose.service") or labels.get("Service") or ""
+        out["compose_workdir"] = labels.get("com.docker.compose.project.working_dir") or ""
+        return out
+    text = str(labels)
+    for part in text.split(","):
+        if "=" not in part:
+            continue
+        k, v = part.split("=", 1)
+        k, v = k.strip(), v.strip()
+        if k == "com.docker.compose.project":
+            out["compose_project"] = v
+        elif k == "com.docker.compose.service":
+            out["compose_service"] = v
+        elif k == "com.docker.compose.project.working_dir":
+            out["compose_workdir"] = v
+    return out
+
+
 def list_containers(server: Server) -> List[Dict]:
     """List all containers... (cached short time)"""
     key = f"containers_{server.id}"
     return _cached(_list_containers_uncached, key, 15, server)
 
+
 def _list_containers_uncached(server: Server) -> List[Dict]:
-    """List all containers on the host with enhanced info: running status, version from image tag, ports."""
+    """List all containers with status, compose labels, ports, mounts, size."""
     client = get_ssh_client(server)
     try:
-        cmd = 'docker ps -a --format "{{json .}}"'
-        status, out, err = run_command(client, cmd, timeout=30)
+        # --size adds Size (writable + virtual); useful on expand details
+        cmd = 'docker ps -a --size --format "{{json .}}"'
+        status, out, err = run_command(client, cmd, timeout=45)
     finally:
         try:
             client.close()
-        except:
+        except Exception:
             pass
 
     if status != 0:
@@ -601,6 +632,13 @@ def _list_containers_uncached(server: Server) -> List[Dict]:
             "ports_display": "—",
             "created": "",
             "command": "",
+            "mounts": "",
+            "mounts_list": [],
+            "size": "",
+            "local_volumes": "",
+            "compose_project": "",
+            "compose_service": "",
+            "compose_workdir": "",
         }]
 
     containers = []
@@ -615,24 +653,125 @@ def _list_containers_uncached(server: Server) -> List[Dict]:
                 version = image.split(":", 1)[1]
             ports_raw = c.get("Ports", "") or ""
             ports = [p.strip() for p in ports_raw.split(",") if p.strip()] if ports_raw else []
-            state = c.get("State", "").lower()
-            running = "running" in state or "up" in c.get("Status", "").lower()
+            state = (c.get("State") or "").lower()
+            running = "running" in state or "up" in (c.get("Status") or "").lower()
+            labels = _parse_compose_labels(c.get("Labels") or "")
+            if c.get("Project") and not labels["compose_project"]:
+                labels["compose_project"] = c.get("Project") or ""
+            if c.get("Service") and not labels["compose_service"]:
+                labels["compose_service"] = c.get("Service") or ""
+            name = c.get("Names") or c.get("Name") or ""
+            cmd_raw = c.get("Command") or ""
+            if isinstance(cmd_raw, str):
+                cmd_raw = cmd_raw.strip().strip('"')
+            mounts_raw = c.get("Mounts") or ""
+            if isinstance(mounts_raw, list):
+                mounts_list = [str(m).strip() for m in mounts_raw if str(m).strip()]
+            else:
+                # docker ps joins mounts with commas (paths may be truncated with …)
+                mounts_list = [m.strip() for m in str(mounts_raw).split(",") if m.strip()]
+            ports_list = ports if ports else (
+                [p.strip() for p in ports_raw.split(",") if p.strip()] if ports_raw else []
+            )
             containers.append({
-                "id": c.get("ID", "")[:12],
-                "name": c.get("Names", ""),
+                "id": (c.get("ID") or "")[:12],
+                "name": name,
                 "image": image,
                 "version": version,
                 "status": c.get("Status", ""),
                 "state": state,
                 "running": running,
-                "ports": ports,
+                "ports": ports_list,
                 "ports_display": ports_raw or "—",
-                "created": c.get("CreatedAt", ""),
-                "command": c.get("Command", ""),
+                "created": c.get("CreatedAt", "") or "",
+                "command": cmd_raw,
+                "mounts": mounts_raw if isinstance(mounts_raw, str) else ", ".join(mounts_list),
+                "mounts_list": mounts_list,
+                "size": c.get("Size") or "",
+                "local_volumes": c.get("LocalVolumes") or "",
+                **labels,
             })
         except Exception:
             pass
     return containers
+
+
+def nest_containers_under_projects(projects: List[Dict], containers: List[Dict]):
+    """
+    Attach container rows under matching compose projects.
+    Match: compose_workdir == path, else compose_project == project name.
+    Returns (projects_with_containers, orphan_containers).
+    """
+    assigned: set = set()
+    by_workdir: dict = {}
+    by_project: dict = {}
+    for i, c in enumerate(containers):
+        if c.get("name") == "error":
+            continue
+        wd = (c.get("compose_workdir") or "").rstrip("/")
+        if wd:
+            by_workdir.setdefault(wd, []).append(i)
+        pn = (c.get("compose_project") or "").strip()
+        if pn:
+            by_project.setdefault(pn, []).append(i)
+
+    enriched = []
+    for proj in projects:
+        row = dict(proj)
+        path = (proj.get("path") or "").rstrip("/")
+        name = (proj.get("name") or "").strip()
+        idxs = []
+        seen_i = set()
+        for i in by_workdir.get(path, []):
+            if i not in seen_i:
+                idxs.append(i)
+                seen_i.add(i)
+        if not idxs:
+            for i in by_project.get(name, []):
+                if i not in seen_i:
+                    idxs.append(i)
+                    seen_i.add(i)
+        declared = list(proj.get("services") or [])
+        present_services = set()
+        attached = []
+        for i in idxs:
+            c = dict(containers[i])
+            svc = c.get("compose_service") or ""
+            if svc:
+                present_services.add(svc)
+            attached.append(c)
+            assigned.add(i)
+        for svc in declared:
+            if svc not in present_services:
+                attached.append({
+                    "id": "",
+                    "name": "",
+                    "image": "",
+                    "version": "",
+                    "status": "not created",
+                    "state": "missing",
+                    "running": False,
+                    "ports": [],
+                    "ports_display": "—",
+                    "created": "",
+                    "command": "",
+                    "mounts": "",
+                    "mounts_list": [],
+                    "size": "",
+                    "local_volumes": "",
+                    "compose_project": name,
+                    "compose_service": svc,
+                    "compose_workdir": path,
+                    "placeholder": True,
+                })
+        attached.sort(key=lambda x: (0 if x.get("running") else 1, (x.get("compose_service") or x.get("name") or "").lower()))
+        row["containers"] = attached
+        row["running_count"] = sum(1 for x in attached if x.get("running"))
+        row["container_count"] = len([x for x in attached if not x.get("placeholder")])
+        enriched.append(row)
+
+    orphans = [c for i, c in enumerate(containers) if i not in assigned]
+    return enriched, orphans
 
 
 def list_compose_projects(server: Server, base_dir: Optional[str] = None) -> List[Dict]:

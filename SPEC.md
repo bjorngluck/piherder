@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** v0.1.0 — Phase 1 largely complete  
-> **Last updated:** 2026-07-08 (feature plan: IAM, 2FA, update checks, notifications)
+> **Status:** v0.1.x — Phase 1 complete; Phase 2–3 partial (IAM/2FA, update checks, notifications, SSH onboarding, fleet dashboard)  
+> **Last updated:** 2026-07-09 (SSH onboarding; docs sync)
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -71,26 +71,18 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 
 ## Phase 2 — Scheduling, API & polish
 
-### Server onboarding wizard
+### Server onboarding (SSH access)
 
-Guided flow when adding a server (extends today’s manual “copy public key to `authorized_keys`” step). Offer UI actions **and** copy-paste shell commands for the remote host.
+Server detail **SSH access** panel (not a separate multi-page wizard): deploy key, rotate, test, least-priv user, plus copy-paste scripts. Add-server supports generate/upload key with optional one-time password for deploy.
 
-- [ ] **SSH key authentication bootstrap**
-  - If key auth is not yet working: connect once with stored password (existing `password_auth` path), verify host, then install PiHerder’s public key into `~/.ssh/authorized_keys` on the target.
-  - Show exact commands run (or equivalent) for manual execution; audit `server_ssh_key_deployed` (or similar).
-  - Post-deploy: drop password auth from routine jobs once key auth succeeds (optional “remove password” step).
+- [x] **SSH key authentication bootstrap**
+  - Deploy via password session or existing key; install public key into `authorized_keys`; verify key-only login; copy-paste install script; audit `server_ssh_key_deployed`; optional clear password after deploy (`SSH access` on server detail).
 
-- [ ] **Dedicated least-privilege backup user**
-  - Optional wizard step: create e.g. `piherder-backup` on the remote with:
-    - SSH key-only login (no password).
-    - Membership in `docker` group when container patch / compose paths are enabled.
-    - Passwordless sudo limited to backup needs: `rsync`, `test`, and any docker/compose commands required by enabled features — not full root.
-  - Emit a vetted sudoers drop-in snippet (e.g. `/etc/sudoers.d/piherder-backup`) and `useradd` / `usermod` commands; run via SSH when user confirms, or copy for manual apply.
-  - Re-point the Server record to the new username after successful provisioning.
+- [x] **Dedicated least-privilege backup user** *(phase 1: Debian / Pi OS / Ubuntu)*
+  - Optional: create e.g. `piherder` with key-only login, optional `docker` group, sudoers for rsync/test and optional apt/reboot; `visudo -cf` before install; copy-paste script always; **Run on host** re-points `ssh_username` after verify. HAOS/specialised systems: instructions only (not automated).
 
-- [ ] **SSH key rotation**
-  - Per-server action: generate new keypair, deploy public key to target (password or existing key session), verify connect, atomically swap encrypted private key in DB, remove old public key from `authorized_keys`, audit `server_ssh_key_rotated`.
-  - Rollback / grace period if deploy fails (keep old key until new key verified).
+- [x] **SSH key rotation**
+  - Per-server: generate new keypair, deploy, verify, swap encrypted private key in DB, remove old public key; leave DB unchanged if verify fails; audit `server_ssh_key_rotated`.
 
 Related backup hardening (same phase):
 
@@ -210,9 +202,13 @@ flowchart TB
 |-------|------------|
 | `PIHERDER_MASTER_KEY` | Host `.env` only — never committed |
 | SSH private keys | Fernet-encrypted in DB; decrypted in-memory per job |
+| SSH passwords (optional) | Fernet-encrypted; discouraged; clear after key deploy |
 | User passwords | bcrypt hashed |
-| Sessions | JWT (HS256) |
+| 2FA | TOTP secret Fernet-encrypted; hashed backup codes; optional trusted device cookie |
+| Sessions | JWT (HS256) cookie |
 | Transport | HTTPS via Caddy + Let's Encrypt (or self-signed for local) |
+
+**SSH onboarding helpers:** `app/services/ssh_onboarding.py` (deploy / rotate / least-priv). Least-priv automation targets **Debian / Pi OS / Ubuntu** only; HAOS gets copy-paste guidance.
 
 ---
 

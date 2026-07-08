@@ -421,31 +421,19 @@ if (document.readyState === 'loading') {
 } else {
   initDockerFilters();
 }
-// Re-apply filters + re-open expanded containers after HTMX refresh
-function afterDockerStackUpdate() {
-  applyDockerFilters();
-  restoreOpenContainers();
-}
+// Re-apply filters after HTMX refreshes #docker-stack (innerHTML)
 document.body.addEventListener('htmx:afterSwap', function(e) {
   const t = (e.detail && e.detail.target) || e.target;
   if (t && (t.id === 'docker-stack' || (t.closest && t.closest('#docker-stack')))) {
-    afterDockerStackUpdate();
+    applyDockerFilters();
   }
 });
 document.body.addEventListener('htmx:afterSettle', function(e) {
   const t = (e.detail && e.detail.target) || e.target;
   if (t && (t.id === 'docker-stack' || (t.closest && t.closest('#docker-stack')))) {
-    afterDockerStackUpdate();
+    applyDockerFilters();
   }
 });
-// After first paint of fragment
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(restoreOpenContainers, 0);
-  });
-} else {
-  setTimeout(restoreOpenContainers, 0);
-}
 </script>
 
 

@@ -1,8 +1,14 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% set sid = server_id if server_id is defined else server.id %}
+{% set docker_href = '/servers/' ~ sid ~ '/docker?nocache=1' %}
 <div class="max-w-6xl mx-auto">
-  <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-xs text-accent hover:underline">← Back to Docker Management</a>
+  <a href="{{ docker_href }}"
+     class="text-xs text-accent hover:underline"
+     data-back-docker
+     data-nav-loading="Back to Docker…"
+     data-nav-loading-sub="Closing build stream…">← Back to Docker Management</a>
   <h1 class="text-3xl font-semibold mt-1">Build in progress — {{ project }}</h1>
   <div class="text-muted text-sm mb-3">
     Services: <span class="font-mono">{{ services|join(', ') or 'all' }}</span>
@@ -13,8 +19,12 @@
   <div class="log-output border border-border p-3 rounded text-xs overflow-auto max-h-[65vh] whitespace-pre-wrap font-mono" id="build-log">Connecting to build stream on host...\n</div>
 
   <div class="mt-3 flex gap-2">
-    <a href="/servers/{{ server.id }}/docker?nocache=1" class="px-3 py-1 text-xs btn btn-secondary rounded">Return to Docker</a>
-    <button onclick="location.reload()" class="px-3 py-1 text-xs btn btn-secondary rounded">Reconnect stream</button>
+    <a href="{{ docker_href }}"
+       class="px-3 py-1 text-xs btn btn-secondary rounded"
+       data-back-docker
+       data-nav-loading="Back to Docker…"
+       data-nav-loading-sub="Closing build stream…">Return to Docker</a>
+    <button type="button" onclick="location.reload()" class="px-3 py-1 text-xs btn btn-secondary rounded">Reconnect stream</button>
   </div>
   <div class="mt-2 text-[10px] text-muted">
     The build runs on the host. You can navigate away; output here is for visibility. Check container logs or `docker compose ps` after.
@@ -24,11 +34,11 @@
 <script>
 const logEl = document.getElementById('build-log');
 const params = new URLSearchParams({
-  project: '{{ project }}',
-  services: '{{ services|join(",") }}',
-  no_cache: '{{ no_cache|lower }}'
+  project: {{ project | tojson }},
+  services: {{ (services|join(',')) | tojson }},
+  no_cache: {{ no_cache | tojson }}
 });
-const es = new EventSource('/servers/{{ server_id }}/docker/build-stream?' + params.toString());
+let es = new EventSource('/servers/{{ sid }}/docker/build-stream?' + params.toString());
 
 es.onopen = function() {
   logEl.textContent += '[connected]\n';
@@ -42,7 +52,15 @@ es.onmessage = function(e) {
 
 es.onerror = function() {
   logEl.textContent += '\n[stream ended or error — build may still be running on host]\n';
-  es.close();
+  try { es.close(); } catch (err) {}
 };
+
+// Close SSE first so navigation is never blocked by an open stream
+document.querySelectorAll('[data-back-docker]').forEach(function(a) {
+  a.addEventListener('click', function(ev) {
+    try { if (es) es.close(); } catch (err) {}
+    // let normal navigation + data-nav-loading proceed
+  });
+});
 </script>
 {% endblock %}
