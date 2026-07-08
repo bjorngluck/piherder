@@ -24,8 +24,8 @@ Clean, minimal, mobile-first. Uniform header on every screen. Consistent brandin
 | **B — Dashboard + Server list** | ✅ Done | Compact rows, mobile stack, touch targets, backup modal title fix |
 | **C — Server detail + Backups** | ✅ Done | Single Actions card, Backups/Docker dest cards, backups page polish |
 | **D — Docker + pattern export** | ✅ Done | Shared `PiHerderProgress` in base; Docker header/actions/modals polished |
-| **E — Remaining screens** | 🔄 Next | Audit, Herder backups, auth, add server polish |
-| **F — Polish + SPEC** | ⏳ Pending | Full mobile/desktop matrix; update SPEC.md |
+| **E — Remaining screens** | ✅ Done | Audit, Settings, auth, add server, account polished |
+| **F — Polish + SPEC** | 🔄 Next | Full mobile/desktop matrix; update SPEC.md |
 
 **Theme toggle:** Fixed on `main` (`8c07a21`) — root cause was a premature `:root` close in `themes.css` that dropped the `.dark` variable block from the CSSOM. FOUC script + delegated toggle remain correct.
 
@@ -102,10 +102,13 @@ Delivered and then extended beyond the original sketch:
 - [x] Docker modals use `.modal-content` + `min-h-11` action buttons.
 - [ ] Logs / service-select modal micro-polish can continue in Phase E if needed.
 
-### Phase E — Remaining screens ⏳
+### Phase E — Remaining screens ✅ DONE
 
-- Audit, Herder Backups, Auth, Add Server: same shell (already) + page body polish.
-- Filter forms / tables mobile-scrollable; clear View/Details feedback.
+- [x] **Audit:** page-header, filter card with touch targets, scrollable table, details modal polish.
+- [x] **Settings (herder_backups):** page-header, stacked forms, scrollable backup list, min-h-11 actions.
+- [x] **Login / Register:** brand strapline, consistent card, touch-friendly fields/buttons.
+- [x] **Add Server:** page-header, form card, cancel + primary CTA.
+- [x] **Account:** aligned header + sign-out/dashboard actions.
 
 ### Phase F — Polish, verification, living document ⏳
 
@@ -175,8 +178,9 @@ Delivered and then extended beyond the original sketch:
 2. ✅ **Phase B:** compact `server_list.html` + CSS helpers.
 3. ✅ **Phase C:** server detail + backups consolidation.
 4. ✅ **Phase D:** shared progress modal + Docker polish.
-5. 🔄 **Next: Phase E** — Audit, Herder backups, auth, add server polish.
-6. Then F (matrix + SPEC). Commit after each coherent phase; rebuild image for live test when needed.
+5. ✅ **Phase E:** Audit, Settings, auth, add server, account polish.
+6. 🔄 **Next: Phase F** — verification matrix + SPEC.md update.
+7. Rebuild image for live test when needed.
 
 ---
 

@@ -1,58 +1,65 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-xl">
-  <h1 class="text-3xl mb-2">Add Server</h1>
-  <p class="text-sm text-muted mb-6">SSH private key will be encrypted with the master key immediately.</p>
-
-  <form method="post" action="/servers/add" class="space-y-4 card p-6">
-    <div>
-      <label class="block text-sm mb-1">Name</label>
-      <input name="name" required class="w-full bg-surface border border-border px-3 py-2 rounded">
-    </div>
-    <div>
-      <label class="block text-sm mb-1">Hostname or IP</label>
-      <input name="hostname" required placeholder="rpi5-2.hacknow.info" class="w-full bg-surface border border-border px-3 py-2 rounded">
-    </div>
-    <div class="grid grid-cols-2 gap-4">
-      <div>
-        <label class="block text-sm mb-1">SSH Username</label>
-        <input name="ssh_username" value="bjorn" class="w-full bg-surface border border-border px-3 py-2 rounded">
-      </div>
-      <div>
-        <label class="block text-sm mb-1">Port</label>
-        <input name="ssh_port" type="number" value="22" class="w-full bg-surface border border-border px-3 py-2 rounded">
-      </div>
-    </div>
-
-    <div class="pt-2">
-      <div class="font-medium mb-1">Auth method (keys strongly preferred)</div>
-      <label class="flex items-center gap-2 text-sm">
-        <input type="radio" name="key_mode" value="generate" checked> Generate new keypair (recommended)
-      </label>
-      <label class="flex items-center gap-2 text-sm">
-        <input type="radio" name="key_mode" value="upload"> Upload private key
-      </label>
-      <label class="flex items-center gap-2 text-sm text-warning">
-        <input type="radio" name="key_mode" value="password"> Use password (discouraged)
-      </label>
-    </div>
-
-    <div>
-      <label class="block text-sm mb-1">Private key (only if uploading)</label>
-      <textarea name="private_key" rows="8" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..." class="w-full font-mono text-xs bg-surface border border-border p-3 rounded"></textarea>
-    </div>
-
-    <div>
-      <label class="block text-sm mb-1 text-warning">Password (only if using password auth)</label>
-      <input type="password" name="ssh_password" class="w-full bg-surface border border-border px-3 py-2 rounded" placeholder="SSH password (will be encrypted)">
-    </div>
-
-    <button type="submit"
-            class="mt-2 px-5 py-2 btn btn-accent text-sm font-medium rounded">Add Server &amp; Encrypt Key</button>
-  </form>
-
-  <p class="mt-4 text-xs text-muted">After adding you will see the public key to put into <code>~/.ssh/authorized_keys</code> on the target.</p>
-  {# Roadmap (SPEC.md): wizard to deploy key via password, create piherder-backup user + sudoers, rotate keys #}
+<div class="page-header mb-6">
+  <div>
+    <a href="/servers" class="text-xs text-accent hover:underline">← All servers</a>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text mt-1">Add Server</h1>
+    <p class="text-sm text-muted mt-1">SSH private key is encrypted with the master key immediately.</p>
+  </div>
 </div>
+
+<form method="post" action="/servers/add" class="card p-5 sm:p-6 space-y-4 max-w-xl">
+  <div>
+    <label class="block text-sm text-muted mb-1">Name</label>
+    <input name="name" required class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+  </div>
+  <div>
+    <label class="block text-sm text-muted mb-1">Hostname or IP</label>
+    <input name="hostname" required placeholder="rpi5-2.example.com" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono text-sm">
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <label class="block text-sm text-muted mb-1">SSH Username</label>
+      <input name="ssh_username" value="bjorn" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono text-sm">
+    </div>
+    <div>
+      <label class="block text-sm text-muted mb-1">Port</label>
+      <input name="ssh_port" type="number" value="22" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+    </div>
+  </div>
+
+  <div class="pt-2 border-t border-border">
+    <div class="font-medium mb-2 text-sm">Auth method <span class="text-muted font-normal">(keys recommended)</span></div>
+    <label class="flex items-center gap-2 text-sm min-h-11">
+      <input type="radio" name="key_mode" value="generate" checked> Generate new keypair (recommended)
+    </label>
+    <label class="flex items-center gap-2 text-sm min-h-11">
+      <input type="radio" name="key_mode" value="upload"> Upload private key
+    </label>
+    <label class="flex items-center gap-2 text-sm min-h-11 text-warning">
+      <input type="radio" name="key_mode" value="password"> Use password (discouraged)
+    </label>
+  </div>
+
+  <div>
+    <label class="block text-sm text-muted mb-1">Private key (only if uploading)</label>
+    <textarea name="private_key" rows="8" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..." class="w-full font-mono text-xs code-surface border border-border p-3 rounded"></textarea>
+  </div>
+
+  <div>
+    <label class="block text-sm text-muted mb-1 text-warning">Password (only if using password auth)</label>
+    <input type="password" name="ssh_password" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" placeholder="SSH password (encrypted at rest)">
+  </div>
+
+  <div class="flex flex-wrap gap-2 pt-2">
+    <button type="submit" class="btn btn-accent min-h-11 font-medium">Add Server &amp; Encrypt Key</button>
+    <a href="/servers" class="btn btn-secondary min-h-11">Cancel</a>
+  </div>
+</form>
+
+<p class="mt-4 text-xs text-muted max-w-xl">
+  After adding you will see the public key to put into <code>~/.ssh/authorized_keys</code> on the target.
+  {# Roadmap (SPEC.md): wizard to deploy key via password, create piherder-backup user + sudoers, rotate keys #}
+</p>
 {% endblock %}

@@ -2,56 +2,74 @@
 
 {% block content %}
 <style>
-  .audit-filters { display: grid; gap: .5rem; grid-template-columns: 1fr; }
+  .audit-filters { display: grid; gap: .75rem; grid-template-columns: 1fr; }
   @media (min-width: 640px) { .audit-filters { grid-template-columns: repeat(2, 1fr); } }
-  @media (min-width: 900px) { .audit-filters { grid-template-columns: repeat(4, 1fr) auto; align-items: end; } }
+  @media (min-width: 900px) { .audit-filters { grid-template-columns: repeat(4, 1fr); } }
+  .audit-filters-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    justify-content: space-between;
+  }
   .audit-row-muted { opacity: .55; }
   .audit-summary { max-width: 28rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
 
-<div class="flex items-center justify-between gap-4 mb-4">
+<div class="page-header mb-6">
   <div>
-    <h1 class="text-2xl font-semibold">Audit Log</h1>
-    <p class="text-xs text-muted mt-0.5">Backup runs and admin actions</p>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">Audit Log</h1>
+    <p class="text-sm text-muted mt-1">Backup runs and admin actions · times in {{ get_app_timezone() }}</p>
   </div>
-  <a href="/" class="text-accent text-sm">← Dashboard</a>
+  <div class="page-header-actions">
+    <a href="/" class="btn btn-secondary min-h-11 text-sm">← Dashboard</a>
+  </div>
 </div>
 
-<form method="get" class="audit-filters mb-4 card rounded-xl p-4">
-  <input type="text" name="search" value="{{ search }}" placeholder="Search…" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full">
-  <select name="action" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full">
-    <option value="">All actions</option>
-    {% for act in (actions or []) %}
-    <option value="{{ act }}" {% if action and action == act %}selected{% endif %}>{{ act }}</option>
-    {% endfor %}
-  </select>
-  <select name="status" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full">
-    <option value="">All statuses</option>
-    {% for st in (statuses or []) %}
-    <option value="{{ st }}" {% if status and status == st %}selected{% endif %}>{{ st }}</option>
-    {% endfor %}
-  </select>
-  <select name="server_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full">
-    <option value="">All servers</option>
-    {% for srv in (servers or []) %}
-    <option value="{{ srv.id }}" {% if server_id and server_id|string == srv.id|string %}selected{% endif %}>{{ srv.name }}</option>
-    {% endfor %}
-  </select>
-  <select name="user_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full">
-    <option value="">All users</option>
-    {% for u in (users or []) %}
-    <option value="{{ u.id }}" {% if user_id and user_id|string == u.id|string %}selected{% endif %}>{{ u.email }}</option>
-    {% endfor %}
-  </select>
-  <input type="date" name="date_from" value="{{ date_from }}" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full" title="From">
-  <input type="date" name="date_to" value="{{ date_to }}" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full" title="To">
-  <label class="flex items-center gap-2 text-xs text-muted px-1">
-    <input type="hidden" name="hide_noise" value="0" id="audit-hide-noise-off">
-    <input type="checkbox" name="hide_noise" value="1" id="audit-hide-noise-on" {% if hide_noise %}checked{% endif %}
-           onchange="document.getElementById('audit-hide-noise-off').disabled=this.checked">
-    Hide incomplete runs
-  </label>
-  <button type="submit" class="btn btn-accent px-4 py-2 rounded text-sm">Apply</button>
+<form method="get" class="card p-4 mb-4">
+  <div class="audit-filters mb-3">
+    <input type="text" name="search" value="{{ search }}" placeholder="Search…" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
+    <select name="action" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
+      <option value="">All actions</option>
+      {% for act in (actions or []) %}
+      <option value="{{ act }}" {% if action and action == act %}selected{% endif %}>{{ act }}</option>
+      {% endfor %}
+    </select>
+    <select name="status" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
+      <option value="">All statuses</option>
+      {% for st in (statuses or []) %}
+      <option value="{{ st }}" {% if status and status == st %}selected{% endif %}>{{ st }}</option>
+      {% endfor %}
+    </select>
+    <select name="server_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
+      <option value="">All servers</option>
+      {% for srv in (servers or []) %}
+      <option value="{{ srv.id }}" {% if server_id and server_id|string == srv.id|string %}selected{% endif %}>{{ srv.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="user_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
+      <option value="">All users</option>
+      {% for u in (users or []) %}
+      <option value="{{ u.id }}" {% if user_id and user_id|string == u.id|string %}selected{% endif %}>{{ u.email }}</option>
+      {% endfor %}
+    </select>
+    <input type="date" name="date_from" value="{{ date_from }}" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11" title="From">
+    <input type="date" name="date_to" value="{{ date_to }}" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11" title="To">
+  </div>
+  <div class="audit-filters-actions">
+    <label class="flex items-center gap-2 text-xs text-muted min-h-11">
+      <input type="hidden" name="hide_noise" value="0" id="audit-hide-noise-off">
+      <input type="checkbox" name="hide_noise" value="1" id="audit-hide-noise-on" {% if hide_noise %}checked{% endif %}
+             onchange="document.getElementById('audit-hide-noise-off').disabled=this.checked">
+      Hide incomplete runs
+    </label>
+    <div class="flex flex-wrap gap-2">
+      {% if server_id or user_id or status or action or search or date_from or date_to %}
+      <a href="/audit" class="btn btn-secondary min-h-11 text-sm">Clear</a>
+      {% endif %}
+      <button type="submit" class="btn btn-accent min-h-11 text-sm">Apply</button>
+    </div>
+  </div>
 </form>
 
 {% if server_id or user_id or status or action or search or date_from or date_to %}
@@ -60,12 +78,11 @@
   {% if server_id %}· server #{{ server_id }}{% endif %}
   {% if action %}· {{ action }}{% endif %}
   {% if status %}· {{ status }}{% endif %}
-  <a href="/audit" class="text-accent ml-2">Clear</a>
 </p>
 {% endif %}
 
-<div class="card rounded-xl overflow-hidden">
-  <div class="overflow-x-auto">
+<div class="card overflow-hidden">
+  <div class="table-scroll">
     <table class="w-full text-sm">
       <thead>
         <tr class="text-left text-xs text-muted border-b border-border table-header">
@@ -89,7 +106,7 @@
           </td>
           <td class="p-3 text-xs text-muted">
             {% if log.server_id %}
-              <a href="/servers/{{ log.server_id }}" class="text-accent">{{ log.server_name or ('#' ~ log.server_id) }}</a>
+              <a href="/servers/{{ log.server_id }}" class="text-accent hover:underline">{{ log.server_name or ('#' ~ log.server_id) }}</a>
             {% else %}
               —
             {% endif %}
@@ -104,7 +121,7 @@
           <td class="p-3">
             <button type="button"
                     onclick="showAuditDetailsModal(AUDIT_LOGS[{{ loop.index0 }}])"
-                    class="text-[11px] px-2 py-0.5 btn btn-secondary rounded">View</button>
+                    class="btn btn-secondary min-h-11 text-xs px-3">View</button>
           </td>
         </tr>
         {% else %}
@@ -120,7 +137,7 @@
   </div>
 </div>
 
-<p class="mt-3 text-xs text-muted">Showing up to 100 entries · times in {{ get_app_timezone() }}</p>
+<p class="mt-3 text-xs text-muted">Showing up to 100 entries</p>
 
 <script>
 const AUDIT_LOGS = {{ logs | tojson | safe }};
@@ -128,11 +145,10 @@ const AUDIT_LOGS = {{ logs | tojson | safe }};
 
 <div id="audit-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="modal-content card p-4 w-full max-w-3xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
-    <!-- Close button on top -->
-    <div class="flex justify-end mb-2 flex-shrink-0">
-      <button type="button" onclick="hideAuditDetailsModal()" class="text-muted hover:text-text text-sm px-2 btn btn-ghost">✕</button>
+    <div class="flex justify-between items-center mb-2 flex-shrink-0 gap-2">
+      <h3 class="font-semibold text-sm">Details</h3>
+      <button type="button" onclick="hideAuditDetailsModal()" class="btn btn-secondary min-h-11 text-sm px-3">Close</button>
     </div>
-    <!-- Details in middle -->
     <pre id="audit-details-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded"></pre>
   </div>
 </div>
@@ -163,10 +179,11 @@ function hideAuditDetailsModal() {
     modal.classList.add('hidden');
   }
 }
-document.getElementById('audit-details-modal')?.addEventListener('click', function(e) {
-  if (e.target === this) hideAuditDetailsModal();
-});
 (function() {
+  var m = document.getElementById('audit-details-modal');
+  if (m) m.addEventListener('click', function(e) {
+    if (e.target === this) hideAuditDetailsModal();
+  });
   const on = document.getElementById('audit-hide-noise-on');
   const off = document.getElementById('audit-hide-noise-off');
   if (on && off) off.disabled = on.checked;
