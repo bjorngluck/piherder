@@ -1,9 +1,13 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-md mx-auto mt-10">
-  <div class="card rounded-2xl p-8">
-    <h1 class="text-2xl font-semibold mb-6">Create Admin Account</h1>
+<div class="max-w-md mx-auto mt-6 sm:mt-10">
+  <div class="card p-6 sm:p-8">
+    <div class="mb-6">
+      <div class="header-brand-sub text-primary mb-1">FLEET</div>
+      <h1 class="text-2xl font-semibold tracking-tighter text-text">Create account</h1>
+      <p class="text-sm text-muted mt-1">Admin access for this PiHerder instance</p>
+    </div>
 
     {% if error %}
       <div class="mb-4 p-3 banner-error border border-border text-sm rounded">
@@ -11,33 +15,32 @@
       </div>
     {% endif %}
 
-    <div class="mb-4 p-2 bg-surface border border-border rounded text-xs text-muted">
-      First time setup will create <strong>admin@example.com / admin</strong> if no users exist.<br>
+    <div class="mb-4 p-3 bg-bg border border-border rounded text-xs text-muted">
+      First-time setup creates the initial admin user if none exist.<br>
       Passwords are truncated to 72 bytes (bcrypt limit).
     </div>
 
     <form method="post" action="/auth/register" class="space-y-4">
       <div>
-        <label class="block text-sm mb-1">Email</label>
+        <label class="block text-sm mb-1 text-muted">Email</label>
         <input name="email" type="email" required
-               class="w-full bg-surface border border-border px-3 py-2 rounded focus:outline-none focus:border-accent">
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
       </div>
       <div>
-        <label class="block text-sm mb-1">Password</label>
+        <label class="block text-sm mb-1 text-muted">Password</label>
         <input name="password" type="password" required minlength="6" maxlength="72"
-               class="w-full bg-surface border border-border px-3 py-2 rounded focus:outline-none focus:border-accent">
-        <p class="text-xs text-muted mt-1">6-72 characters (bcrypt has 72 byte limit - longer ones are auto-truncated)</p>
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
+        <p class="text-xs text-muted mt-1">6–72 characters</p>
       </div>
 
-      <button type="submit"
-              class="w-full mt-2 py-2.5 btn btn-accent font-medium rounded-lg transition">
-        Create Account
+      <button type="submit" class="w-full mt-2 btn btn-accent font-medium min-h-11">
+        Create account
       </button>
     </form>
 
     <p class="mt-6 text-center text-sm text-muted">
       Already have an account?
-      <a href="/auth/login" class="text-accent hover:underline">Log in</a>
+      <a href="/auth/login" class="text-primary hover:underline">Log in</a>
     </p>
   </div>
 </div>

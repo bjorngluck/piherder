@@ -1,9 +1,13 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-md mx-auto mt-10">
-  <div class="card rounded-2xl p-8">
-    <h1 class="text-2xl font-semibold mb-6">Sign in</h1>
+<div class="max-w-md mx-auto mt-6 sm:mt-10">
+  <div class="card p-6 sm:p-8">
+    <div class="mb-6">
+      <div class="header-brand-sub text-primary mb-1">FLEET</div>
+      <h1 class="text-2xl font-semibold tracking-tighter text-text">Sign in</h1>
+      <p class="text-sm text-muted mt-1">PiHerder fleet management</p>
+    </div>
 
     {% if request.query_params.get('error') %}
       <div class="mb-4 p-3 banner-error border border-border text-sm rounded">
@@ -11,32 +15,31 @@
       </div>
     {% endif %}
 
-    <div class="mb-4 p-2 bg-surface border border-border rounded text-xs text-muted">
-      First time? Default: <strong>admin@example.com</strong> / <strong>admin</strong><br>
-      (Change it after logging in)
+    <div class="mb-4 p-3 bg-bg border border-border rounded text-xs text-muted">
+      First time? Default: <strong class="text-text">admin@example.com</strong> / <strong class="text-text">admin</strong><br>
+      Change it after logging in.
     </div>
 
     <form method="post" action="/auth/login" class="space-y-4">
       <div>
-        <label class="block text-sm mb-1">Email</label>
+        <label class="block text-sm mb-1 text-muted">Email</label>
         <input name="email" type="email" value="admin@example.com" required
-               class="w-full bg-surface border border-border px-3 py-2 rounded focus:outline-none focus:border-accent">
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
       </div>
       <div>
-        <label class="block text-sm mb-1">Password</label>
+        <label class="block text-sm mb-1 text-muted">Password</label>
         <input name="password" type="password" value="admin" required
-               class="w-full bg-surface border border-border px-3 py-2 rounded focus:outline-none focus:border-accent">
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
       </div>
 
-      <button type="submit"
-              class="w-full mt-2 py-2.5 btn btn-accent font-medium rounded-lg transition">
+      <button type="submit" class="w-full mt-2 btn btn-accent font-medium min-h-11">
         Log in
       </button>
     </form>
 
     <p class="mt-6 text-center text-sm text-muted">
       Don't have an account?
-      <a href="/auth/register" class="text-accent hover:underline">Register</a>
+      <a href="/auth/register" class="text-primary hover:underline">Register</a>
     </p>
   </div>
 </div>

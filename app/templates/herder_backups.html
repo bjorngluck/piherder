@@ -1,67 +1,16 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h1 class="text-3xl font-semibold mb-2">Settings</h1>
-<a href="/" class="text-primary text-sm hover:underline">← Dashboard</a>
-
-<p class="text-sm text-muted mt-2 mb-4">
-  App preferences and PiHerder self-backups (config + encrypted keys + optional audit). Stored on host via mapped volume.
-</p>
-
 {% set cfg = herder_config or {"keep":10, "schedule_mode":"config_only", "timezone": "UTC", "schedule_enabled": false, "schedule_cron": "0 3 * * *"} %}
 {% set current_tz = cfg.timezone or 'UTC' %}
 
-<!-- Separate Timezone (not tied to backups) -->
-<div class="card p-4 rounded mb-4 text-sm">
-  <h4 class="font-medium mb-2">Timezone</h4>
-  <form method="post" action="/herder-backups/timezone" class="flex flex-wrap gap-3 items-end">
-    <div class="flex-1 min-w-[260px]">
-      <label class="block text-xs mb-1">Continent / City (IANA standard)</label>
-      <select name="timezone" class="w-full bg-surface border border-border px-2 py-1 rounded text-sm font-mono">
-        {% for tz in tz_choices %}
-        <option value="{{ tz }}" {% if tz == current_tz %}selected{% endif %}>{{ tz }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button class="px-3 py-1 btn btn-secondary rounded text-sm">Save timezone</button>
-  </form>
-  <div class="text-[10px] text-muted mt-1">Used for display and schedule interpretation.</div>
-</div>
-
-<!-- Herder backup schedule + retention -->
-<div class="card p-4 rounded mb-4 text-sm">
-  <h4 class="font-medium mb-2">Scheduled PiHerder backups</h4>
-  <form method="post" action="/herder-backups/config" class="space-y-3">
-    <label class="flex items-center gap-2">
-      <input type="checkbox" name="schedule_enabled" value="1" {% if cfg.schedule_enabled %}checked{% endif %}>
-      <span>Enable scheduled self-backups</span>
-    </label>
-    <div class="flex flex-wrap gap-3 items-end">
-      <div>
-        <label class="block text-xs">Cron schedule</label>
-        <input type="text" name="schedule_cron" value="{{ cfg.schedule_cron or '0 3 * * *' }}" placeholder="0 3 * * *" class="w-36 bg-surface border border-border px-2 py-1 rounded font-mono text-xs">
-      </div>
-      <div>
-        <label class="block text-xs">Scheduled runs</label>
-        <select name="schedule_mode" class="bg-surface border border-border px-2 py-1 rounded">
-          <option value="config_only" {% if cfg.schedule_mode == "config_only" %}selected{% endif %}>Config only</option>
-          <option value="full" {% if cfg.schedule_mode == "full" %}selected{% endif %}>Full (incl audit)</option>
-        </select>
-      </div>
-      <div>
-        <label class="block text-xs">Keep how many backups</label>
-        <input type="number" name="keep" value="{{ cfg.keep }}" min="1" max="100" class="w-20 bg-surface border border-border px-2 py-1 rounded">
-      </div>
-      <button class="px-3 py-1 btn btn-secondary rounded text-sm">Save schedule</button>
-    </div>
-  </form>
-  <div class="text-[10px] text-muted mt-2">
-    Cron uses 5 fields: <code>minute hour day month weekday</code> (e.g. <code>0 3 * * *</code> = daily at 03:00 in {{ current_tz }}).
-    {% if schedule_status == 'enabled' %}
-    <span class="text-accent">Schedule active{% if schedule_next_run %} — next run {{ schedule_next_run }}{% endif %}.</span>
-    {% else %}
-    <span class="text-muted">Schedule off — enable above or run manual backups below.</span>
-    {% endif %}
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">Settings</h1>
+    <p class="text-sm text-muted mt-1">Timezone, PiHerder self-backups, and restore. Data lives on the host volume.</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="/" class="btn btn-secondary min-h-11 text-sm">← Dashboard</a>
   </div>
 </div>
 
@@ -87,86 +36,142 @@
 <div class="mb-4 p-3 banner-error border border-border rounded text-sm">Error: {{ request.query_params.get('error') }}</div>
 {% endif %}
 
-<div class="card p-5 rounded-xl mb-6">
-  <h3 class="font-medium mb-2">Manual backup</h3>
-  <form method="post" action="/herder-backups/run" class="flex flex-wrap gap-3 items-end text-sm">
+<div class="card p-5 mb-4">
+  <h2 class="font-semibold text-text mb-3">Timezone</h2>
+  <form method="post" action="/herder-backups/timezone" class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
+    <div class="flex-1 min-w-[16rem]">
+      <label class="block text-xs text-muted mb-1">Continent / City (IANA)</label>
+      <select name="timezone" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+        {% for tz in tz_choices %}
+        <option value="{{ tz }}" {% if tz == current_tz %}selected{% endif %}>{{ tz }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save timezone</button>
+  </form>
+  <p class="text-xs text-muted mt-2">Used for display and schedule interpretation.</p>
+</div>
+
+<div class="card p-5 mb-4">
+  <h2 class="font-semibold text-text mb-3">Scheduled PiHerder backups</h2>
+  <form method="post" action="/herder-backups/config" class="space-y-3">
+    <label class="flex items-center gap-2 min-h-11 text-sm">
+      <input type="checkbox" name="schedule_enabled" value="1" {% if cfg.schedule_enabled %}checked{% endif %}>
+      <span>Enable scheduled self-backups</span>
+    </label>
+    <div class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
+      <div>
+        <label class="block text-xs text-muted mb-1">Cron schedule</label>
+        <input type="text" name="schedule_cron" value="{{ cfg.schedule_cron or '0 3 * * *' }}" placeholder="0 3 * * *" class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1">Scheduled runs</label>
+        <select name="schedule_mode" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+          <option value="config_only" {% if cfg.schedule_mode == "config_only" %}selected{% endif %}>Config only</option>
+          <option value="full" {% if cfg.schedule_mode == "full" %}selected{% endif %}>Full (incl audit)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1">Keep how many</label>
+        <input type="number" name="keep" value="{{ cfg.keep }}" min="1" max="100" class="w-full sm:w-24 bg-surface border border-border px-3 py-2 rounded min-h-11">
+      </div>
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save schedule</button>
+    </div>
+  </form>
+  <p class="text-xs text-muted mt-3">
+    Cron: <code>minute hour day month weekday</code> (e.g. <code>0 3 * * *</code> = daily 03:00 in {{ current_tz }}).
+    {% if schedule_status == 'enabled' %}
+    <span class="text-accent">Schedule active{% if schedule_next_run %} — next {{ schedule_next_run }}{% endif %}.</span>
+    {% else %}
+    <span class="text-muted">Schedule off — enable above or run manual backups below.</span>
+    {% endif %}
+  </p>
+</div>
+
+<div class="card p-5 mb-4">
+  <h2 class="font-semibold text-text mb-3">Manual backup</h2>
+  <form method="post" action="/herder-backups/run" class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end text-sm">
     <div>
-      <label class="block text-xs text-muted">Mode</label>
-      <select name="backup_mode" class="bg-surface border border-border px-2 py-1 rounded text-sm">
+      <label class="block text-xs text-muted mb-1">Mode</label>
+      <select name="backup_mode" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
         <option value="config_only">Config only (recommended)</option>
         <option value="full">Full (config + recent audit trail)</option>
       </select>
     </div>
-    <button type="submit" class="px-4 py-1.5 btn btn-secondary rounded">Run backup now</button>
+    <button type="submit" class="btn btn-accent min-h-11">Run backup now</button>
   </form>
-  <p class="text-[10px] text-muted mt-1">Output directory: <code>{{ herder_backup_dir or '/herder_backups' }}</code> (mapped in docker-compose).</p>
+  <p class="text-xs text-muted mt-2">Output: <code>{{ herder_backup_dir or '/herder_backups' }}</code></p>
 </div>
 
-<div class="card p-5 rounded-xl">
-  <h3 class="font-medium mb-3">Existing backups (newest first)</h3>
+<div class="card p-5 mb-4">
+  <h2 class="font-semibold text-text mb-3">Existing backups</h2>
   {% if backups %}
-  <table class="w-full text-sm">
-    <thead>
-      <tr class="text-left text-xs text-muted border-b border-border table-header">
-        <th class="py-1">File</th>
-        <th class="py-1">Size</th>
-        <th class="py-1">Created</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-border">
-      {% for b in backups %}
-      <tr>
-        <td class="py-1 font-mono text-xs">{{ b.name }}</td>
-        <td class="py-1 text-xs">{{ (b.size / 1024)|int }} KB</td>
-        <td class="py-1 text-xs">{{ b.mtime }}</td>
-        <td class="py-1 text-right flex gap-1 justify-end flex-wrap">
-          <form method="post" action="/herder-backups/restore" class="inline" onsubmit="return confirm('Preview what this backup would restore?');">
-            <input type="hidden" name="archive" value="{{ b.path }}">
-            <input type="hidden" name="dry_run" value="1">
-            <button type="submit" class="text-xs px-2 py-0.5 btn btn-secondary rounded">Preview</button>
-          </form>
-          <a href="/herder-backups/download?name={{ b.name | urlencode }}" class="text-xs px-2 py-0.5 btn btn-secondary rounded">Download</a>
-          <form method="post" action="/herder-backups/delete" class="inline" onsubmit="return confirm('Delete this backup?');">
-            <input type="hidden" name="name" value="{{ b.name }}">
-            <button type="submit" class="text-xs px-2 py-0.5 btn btn-danger rounded">Delete</button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-scroll">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-muted border-b border-border table-header">
+          <th class="py-2 pr-2">File</th>
+          <th class="py-2 pr-2">Size</th>
+          <th class="py-2 pr-2">Created</th>
+          <th class="py-2"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-border">
+        {% for b in backups %}
+        <tr>
+          <td class="py-2 pr-2 font-mono text-xs break-all">{{ b.name }}</td>
+          <td class="py-2 pr-2 text-xs whitespace-nowrap">{{ (b.size / 1024)|int }} KB</td>
+          <td class="py-2 pr-2 text-xs whitespace-nowrap">{{ b.mtime }}</td>
+          <td class="py-2">
+            <div class="source-actions">
+              <form method="post" action="/herder-backups/restore" class="inline" onsubmit="return confirm('Preview what this backup would restore?');">
+                <input type="hidden" name="archive" value="{{ b.path }}">
+                <input type="hidden" name="dry_run" value="1">
+                <button type="submit" class="btn btn-secondary min-h-11 text-xs px-3">Preview</button>
+              </form>
+              <a href="/herder-backups/download?name={{ b.name | urlencode }}" class="btn btn-secondary min-h-11 text-xs px-3">Download</a>
+              <form method="post" action="/herder-backups/delete" class="inline" onsubmit="return confirm('Delete this backup?');">
+                <input type="hidden" name="name" value="{{ b.name }}">
+                <button type="submit" class="btn btn-danger min-h-11 text-xs px-3">Delete</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
-  <p class="text-xs text-muted">No backups yet. Run a manual backup above or enable the schedule.</p>
+  <p class="text-sm text-muted">No backups yet. Run a manual backup above or enable the schedule.</p>
   {% endif %}
 </div>
 
-<div class="card p-5 rounded-xl">
-  <h3 class="font-medium mb-2 text-warning">Restore from backup (careful!)</h3>
-  <form method="post" action="/herder-backups/restore" enctype="multipart/form-data" class="space-y-2 text-sm" onsubmit="return confirm('Restore will upsert servers (keys stay encrypted). Continue?');">
+<div class="card p-5 mb-4">
+  <h2 class="font-semibold text-warning mb-3">Restore from backup</h2>
+  <form method="post" action="/herder-backups/restore" enctype="multipart/form-data" class="space-y-3 text-sm" onsubmit="return confirm('Restore will upsert servers (keys stay encrypted). Continue?');">
     <div>
-      <label class="block text-xs text-muted">Archive path (on server disk)</label>
-      <input name="archive" placeholder="/herder_backups/piherder-....tar.gz" class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs">
+      <label class="block text-xs text-muted mb-1">Archive path (on server disk)</label>
+      <input name="archive" placeholder="/herder_backups/piherder-....tar.gz" class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
     </div>
     <div>
-      <label class="block text-xs text-muted">Or upload from your device</label>
-      <input type="file" name="restore_file" class="text-xs">
+      <label class="block text-xs text-muted mb-1">Or upload from your device</label>
+      <input type="file" name="restore_file" class="text-sm w-full">
     </div>
-    <label class="flex items-center gap-2 text-xs">
+    <label class="flex items-center gap-2 text-sm min-h-11">
       <input type="checkbox" name="restore_audit" value="1"> Also restore audit entries (append-only)
     </label>
-    <label class="flex items-center gap-2 text-xs">
+    <label class="flex items-center gap-2 text-sm min-h-11">
       <input type="checkbox" name="dry_run" value="1" checked> Dry run (preview only)
     </label>
-    <button type="submit" class="px-3 py-1 btn btn-secondary rounded text-sm">Restore</button>
+    <button type="submit" class="btn btn-secondary min-h-11">Restore</button>
   </form>
-  <p class="text-[10px] text-muted mt-2">
-    Enabled: upserts servers from the archive (encrypted keys unchanged — <code>PIHERDER_MASTER_KEY</code> must match).
-    Optional audit restore only works for <em>full</em> backups. Use <strong>Preview</strong> on a listed backup first; uncheck Dry run to apply.
+  <p class="text-xs text-muted mt-3">
+    Upserts servers from the archive (encrypted keys unchanged — <code>PIHERDER_MASTER_KEY</code> must match).
+    Optional audit restore only works for <em>full</em> backups. Prefer <strong>Preview</strong> first.
   </p>
 </div>
 
-<div class="mt-4 text-xs">
-  <a href="/">Back to dashboard</a>
+<div class="text-xs text-muted">
+  <a href="/" class="text-accent hover:underline">← Back to dashboard</a>
 </div>
 {% endblock %}
