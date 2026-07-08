@@ -4,7 +4,7 @@
 <div class="mb-8">
   <h1 class="text-4xl font-semibold tracking-tighter text-text">Dashboard</h1>
   <p class="mt-2 text-muted max-w-lg text-sm">
-    Fleet overview — backups, OS packages, container images, and reboot state from last checks (no live SSH).
+    Fleet overview — hosts that need attention (OS updates, image updates, reboot).
   </p>
 </div>
 
@@ -20,7 +20,7 @@
   <div class="card p-4">
     <div class="text-xs text-muted">Servers</div>
     <div class="text-3xl font-semibold text-primary mt-0.5">{{ fleet.server_count if fleet else (servers|length) }}</div>
-    <a href="/servers" class="text-xs text-accent hover:underline mt-1 inline-block">Manage →</a>
+    <a href="/servers" class="text-xs text-accent hover:underline mt-1 inline-block">All servers →</a>
   </div>
   <div class="card p-4">
     <div class="text-xs text-muted">Need attention</div>
@@ -45,12 +45,10 @@
 </div>
 
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-  <div class="card p-4 flex items-center justify-between gap-2">
-    <div>
-      <div class="text-xs text-muted">OS packages upgradable</div>
-      <div class="text-xl font-semibold text-text">{{ fleet.total_os_packages if fleet else 0 }}</div>
-      <div class="text-[10px] text-muted">on {{ fleet.os_host_count if fleet else 0 }} host(s)</div>
-    </div>
+  <div class="card p-4">
+    <div class="text-xs text-muted">OS packages upgradable</div>
+    <div class="text-xl font-semibold text-text">{{ fleet.total_os_packages if fleet else 0 }}</div>
+    <div class="text-[10px] text-muted">on {{ fleet.os_host_count if fleet else 0 }} host(s)</div>
   </div>
   <div class="card p-4">
     <div class="text-xs text-muted">Container projects with updates</div>
@@ -67,46 +65,31 @@
   </div>
 </div>
 
-{# Fleet status — compact rows (no horizontal scroll table) #}
+{# Attention-only host list #}
 <div class="card p-4 sm:p-5 mb-6">
   <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-    <h2 class="font-semibold text-text">Fleet patch status</h2>
-    <div class="flex flex-wrap gap-2 items-center">
-      <p class="text-xs text-muted">Last check · apply on each server</p>
-      <a href="/servers?filter=attention" class="text-xs text-accent hover:underline">Filter on Servers →</a>
-    </div>
+    <h2 class="font-semibold text-text">Needs attention</h2>
+    <a href="/servers?filter=attention" class="text-xs text-accent hover:underline">Open on Servers →</a>
   </div>
 
-  {% if not fleet or not fleet.rows %}
+  {% if not fleet or fleet.server_count == 0 %}
   <p class="text-sm text-muted">No servers yet. <a href="/servers/add" class="text-accent hover:underline">Add a server</a>.</p>
+  {% elif not fleet.attention_rows %}
+  <p class="text-sm text-muted mb-0">All clear — no OS updates, image updates, or reboots pending. <a href="/servers" class="text-accent hover:underline">View all servers</a>.</p>
   {% else %}
   <div class="source-list fleet-status-list">
-    {% for r in fleet.rows %}
-    <div class="source-row fleet-status-row {% if r.needs_attention %}is-attention{% endif %}">
+    {% for r in fleet.attention_rows %}
+    <div class="source-row fleet-status-row is-attention">
       <div class="source-row-body min-w-0">
         <a href="/servers/{{ r.id }}" class="fleet-status-name">{{ r.name }}</a>
         <div class="source-row-when text-muted font-mono">{{ r.hostname }}</div>
         <div class="fleet-status-pills">
-          {% if not r.os_patch_enabled %}
-          <span class="text-xs text-muted">OS off</span>
-          {% elif r.never_checked_os %}
-          <span class="text-xs text-muted">OS not checked</span>
-          {% elif r.os_updates_count and r.os_updates_count > 0 %}
+          {% if r.os_updates_count and r.os_updates_count > 0 %}
           <span class="status-pill status-failed">{{ r.os_updates_count }} OS</span>
-          {% else %}
-          <span class="status-pill status-success">OS 0</span>
           {% endif %}
-
-          {% if not r.container_patch_enabled %}
-          <span class="text-xs text-muted">Img off</span>
-          {% elif r.never_checked_containers %}
-          <span class="text-xs text-muted">Img not checked</span>
-          {% elif r.container_updates_count and r.container_updates_count > 0 %}
+          {% if r.container_updates_count and r.container_updates_count > 0 %}
           <span class="status-pill status-failed" title="{{ r.container_projects|join(', ') if r.container_projects else '' }}">{{ r.container_updates_count }} img</span>
-          {% else %}
-          <span class="status-pill status-success">Img 0</span>
           {% endif %}
-
           {% if r.reboot_pending %}
           <span class="status-pill status-failed">reboot</span>
           {% endif %}
@@ -115,7 +98,6 @@
           {% if r.last_os_check_at %}OS {{ r.last_os_check_at | app_tz }}{% endif %}
           {% if r.last_os_check_at and r.last_container_check_at %} · {% endif %}
           {% if r.last_container_check_at %}Img {{ r.last_container_check_at | app_tz }}{% endif %}
-          {% if not r.last_os_check_at and not r.last_container_check_at %}Not checked yet{% endif %}
         </div>
       </div>
       <div class="source-row-tools fleet-status-tools">
@@ -127,9 +109,6 @@
     </div>
     {% endfor %}
   </div>
-  {% if fleet.attention_count == 0 and fleet.server_count > 0 %}
-  <p class="text-xs text-muted mt-3">All checked hosts look clean. Run checks from each server’s <strong>Update checks</strong> card if data is stale.</p>
-  {% endif %}
   {% endif %}
 </div>
 
@@ -149,9 +128,9 @@
   <div class="card p-5 text-sm md:col-span-2">
     <div class="font-medium mb-2 text-text">How status is updated</div>
     <ul class="space-y-1 text-muted text-xs">
-      <li>• <strong>Check-only</strong> jobs (manual or cron) refresh package/image counts — they do not apply upgrades.</li>
-      <li>• Apply patches from each server (OS Patch / Container Patch).</li>
-      <li>• Failed backups and pending updates also appear under <a href="/notifications" class="text-accent hover:underline">Alerts</a>.</li>
+      <li>• <strong>Check-only</strong> jobs refresh package/image counts — they do not apply upgrades.</li>
+      <li>• Apply patches from each server (⋯ menu on Servers, or server detail).</li>
+      <li>• Alerts also appear under <a href="/notifications" class="text-accent hover:underline">Notifications</a>.</li>
     </ul>
   </div>
 </div>
