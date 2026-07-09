@@ -2,11 +2,16 @@
 
 {% block content %}
 <div class="page-header mb-6 max-w-3xl">
-  <h1 class="text-3xl font-semibold tracking-tighter text-text">Users &amp; roles</h1>
-  <p class="text-sm text-muted mt-1">
-    Admin · operator · viewer. At least one <strong>admin</strong> is always required
-    ({{ admin_count or 0 }} now).
-  </p>
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">Users &amp; roles</h1>
+    <p class="text-sm text-muted mt-1">
+      Admin · operator · viewer. At least one <strong>admin</strong> is always required
+      ({{ admin_count or 0 }} now).
+    </p>
+  </div>
+  <div class="page-header-actions">
+    <a href="/auth/account" class="btn btn-secondary min-h-11 text-sm">Account</a>
+  </div>
 </div>
 
 {% if msg == 'role_saved' %}

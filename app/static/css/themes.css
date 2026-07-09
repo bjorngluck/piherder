@@ -993,6 +993,29 @@ input[type="checkbox"], input[type="radio"] {
   }
 }
 
+/* Shared empty list / filter-no-results block */
+.empty-state {
+  text-align: center;
+  padding: 2rem 1.25rem;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+}
+.empty-state p {
+  margin: 0;
+}
+.empty-state .empty-state-hint {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  opacity: 0.9;
+}
+.empty-state .empty-state-actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
 /* Touch-friendly min height helper */
 .min-h-11 {
   min-height: 2.75rem; /* 44px */

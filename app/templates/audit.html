@@ -136,9 +136,16 @@
   {% endfor %}
 </div>
 {% else %}
-<div class="card p-8 text-center text-muted">
-  No entries match.
-  {% if hide_noise %}<span class="block mt-1 text-xs">Try unchecking “Hide incomplete runs”.</span>{% endif %}
+<div class="card empty-state">
+  <p>No audit entries match.</p>
+  {% if hide_noise %}
+  <p class="empty-state-hint">Try unchecking “Hide incomplete runs”, or clear filters.</p>
+  {% else %}
+  <p class="empty-state-hint">Try widening the date range or clearing filters.</p>
+  {% endif %}
+  <div class="empty-state-actions">
+    <a href="/audit" class="btn btn-secondary min-h-11 text-sm">Clear filters</a>
+  </div>
 </div>
 {% endif %}
 
