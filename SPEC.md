@@ -4,9 +4,11 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** v0.1.x — Phase 1 complete; Phase 2–3 largely shipped  
-> **Last updated:** 2026-07-09 — patch apply schedules, RBAC + user admin, fleet Jobs page, restore wizard, password policy / force-2FA, Docker mount sizes
+> **Last updated:** 2026-07-09 — patch apply schedules, RBAC + user admin, fleet Jobs page, restore wizard, password policy / force-2FA, Docker mount sizes, admin docs
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
+
+**Operator docs:** [docs/ADMIN.md](docs/ADMIN.md) (roles, users, schedules, jobs) · [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
 
 ---
 
@@ -130,6 +132,8 @@ Related backup hardening (same phase):
 | Admin create user | Temporary password + invite copy; `must_change_password` until first reset |
 | Force 2FA | Herder config `force_2fa`; onboarding redirect to `/auth/force-2fa` |
 | Scheduled jobs | Audit `user_id=null` → UI “system / scheduler” |
+
+Full admin reference: [docs/ADMIN.md](docs/ADMIN.md).
 
 ---
 
