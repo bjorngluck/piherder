@@ -72,11 +72,12 @@ def _session_with_subs_and_prefs(sub, pref):
 def test_send_for_notification_filters_and_calls_webpush(monkeypatch):
     creds = push_svc.VapidCredentials(
         public_key="pub",
-        private_key="priv",
+        private_key="-----BEGIN PRIVATE KEY-----\nX\n-----END PRIVATE KEY-----",
         contact="mailto:a@b.c",
         source="env",
     )
     monkeypatch.setattr(push_svc, "ensure_vapid_keys", lambda session: creds)
+    monkeypatch.setattr(push_svc, "_vapid_private_for_webpush", lambda pem: "vapid-obj")
 
     sub = PushSubscription(
         id=10,
@@ -115,6 +116,8 @@ def test_send_for_notification_filters_and_calls_webpush(monkeypatch):
 
     assert sent == 1
     assert mock_webpush.called
+    assert mock_webpush.call_args.kwargs.get("vapid_private_key") == "vapid-obj"
+    assert "vapid_public_key" not in mock_webpush.call_args.kwargs
 
 
 def test_send_skips_disabled_pref(monkeypatch):
@@ -122,6 +125,7 @@ def test_send_skips_disabled_pref(monkeypatch):
         public_key="pub", private_key="priv", contact="mailto:a@b.c", source="env"
     )
     monkeypatch.setattr(push_svc, "ensure_vapid_keys", lambda session: creds)
+    monkeypatch.setattr(push_svc, "_vapid_private_for_webpush", lambda pem: "vapid-obj")
 
     sub = PushSubscription(
         id=10,
@@ -161,6 +165,7 @@ def test_send_removes_dead_subscription(monkeypatch):
         public_key="pub", private_key="priv", contact="mailto:a@b.c", source="env"
     )
     monkeypatch.setattr(push_svc, "ensure_vapid_keys", lambda session: creds)
+    monkeypatch.setattr(push_svc, "_vapid_private_for_webpush", lambda pem: "vapid-obj")
 
     sub = PushSubscription(
         id=99,
@@ -307,6 +312,7 @@ def test_send_test_to_user_delivers(monkeypatch):
         public_key="pub", private_key="priv", contact="mailto:a@b.c", source="env"
     )
     monkeypatch.setattr(push_svc, "ensure_vapid_keys", lambda session: creds)
+    monkeypatch.setattr(push_svc, "_vapid_private_for_webpush", lambda pem: "vapid-obj")
     sub = PushSubscription(
         id=1,
         user_id=1,
