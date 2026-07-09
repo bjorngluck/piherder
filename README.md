@@ -13,7 +13,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **Specification & roadmap:** [SPEC.md](SPEC.md) — link this to your [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) board
 - **Admin guide (RBAC, users, schedules, jobs, TLS/PWA/push):** [docs/ADMIN.md](docs/ADMIN.md)
 - **IAM / 2FA / update checks / notifications (design + status):** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
-- **PWA + Android Web Push (design + status):** [docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md)
+- **PWA + Web Push (design + status):** [docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · iOS decision: [docs/DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md)
 - **Stabilisation plan:** [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
 - **UI unification plan:** [UI_UNIFICATION_PLAN.md](UI_UNIFICATION_PLAN.md) (complete)
 
@@ -34,7 +34,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - Full **audit** trail (filters, pagination 10/20/50); scheduled jobs as system/scheduler.
 - Self-backup of PiHerder config — scheduled via Settings, restore with preview.
 - In-app **notification center** (bell, dismiss, deep links).
-- Optional **Web Push** (VAPID) for fleet alerts on Android; per-user prefs under Account.
+- Optional **Web Push** (VAPID) for fleet alerts on Android and iOS Home Screen PWAs (16.4+); per-user prefs under Account.
 - Installable **PWA** (manifest + service worker + home-screen install).
 - Link to Pi-hole admin from dashboard (configurable).
 - HTTPS via Caddy with **operator-supplied TLS certs** (volume `./certs`) and `PIHERDER_HOSTNAME` (default ports **8888** HTTP / **8443** HTTPS).
@@ -120,7 +120,7 @@ Pre-built images will be available on Docker Hub so most people don't need to bu
 
 7. Optional: Settings → fleet-wide midnight **update check** schedules; server list / dashboard show pending OS and container updates.
 
-8. Optional **Web Push:** VAPID keys are **auto-generated at web startup** and stored encrypted in the DB (optional `VAPID_*` env override). On Android Chrome over trusted HTTPS: Account → **Enable on this device**.
+8. Optional **Web Push:** VAPID keys are **auto-generated at web startup** and stored encrypted in the DB (optional `VAPID_*` env override). Over trusted HTTPS: Account → **Enable on this device** (Android Chrome, or iOS 16.4+ after Safari → Add to Home Screen).
 
 ## Configuration from Legacy Scripts
 
@@ -204,7 +204,7 @@ See **[SPEC.md](SPEC.md)** for the full specification, architecture, and phased 
 
 **Recently completed (high level):** PWA + Android Web Push, trusted TLS via cert volume + hostname, patch apply schedules, RBAC + user admin, fleet Jobs page, backup restore wizard, password policy / force-2FA, Docker mount sizes, IAM/2FA, update checks, SSH onboarding, job queue, path policy, Alembic + pytest.
 
-**Still open (examples):** token REST API, Docker Hub image, compose multi-file/env UI polish, Prometheus, Ansible bootstrap, iOS push investigation.
+**Still open (examples):** token REST API, Docker Hub image, compose multi-file/env UI polish, Prometheus, Ansible bootstrap.
 
 To track work in a GitHub Project: link the `piherder` repo, then create issues from the unchecked items in SPEC.md.
 

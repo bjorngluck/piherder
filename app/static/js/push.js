@@ -1,6 +1,8 @@
 /**
  * PiHerder Web Push client — register SW, subscribe, surface status on Account.
  * Safe no-op when push is not configured or browser lacks support.
+ *
+ * iOS: Push API works only for Home Screen web apps (iOS 16.4+), not Safari tabs.
  */
 (function () {
   "use strict";
@@ -14,12 +16,33 @@
     return out;
   }
 
+  function isIOS() {
+    var ua = navigator.userAgent || "";
+    if (/iphone|ipad|ipod/i.test(ua)) return true;
+    // iPadOS 13+ may report as Mac with touch
+    return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  }
+
+  function isStandalone() {
+    try {
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) {
+        return true;
+      }
+    } catch (e) {}
+    // iOS Safari legacy
+    return Boolean(window.navigator.standalone);
+  }
+
   function supported() {
     return (
       "serviceWorker" in navigator &&
       "PushManager" in window &&
       "Notification" in window
     );
+  }
+
+  function iosInstallRequired() {
+    return isIOS() && !isStandalone();
   }
 
   async function ensureSw() {
@@ -38,7 +61,20 @@
   }
 
   async function subscribe() {
-    if (!supported()) throw new Error("Push is not supported in this browser");
+    if (iosInstallRequired()) {
+      throw new Error(
+        "On iPhone/iPad: open PiHerder from the Home Screen icon first " +
+          "(Safari → Share → Add to Home Screen), then try again."
+      );
+    }
+    if (!supported()) {
+      if (isIOS()) {
+        throw new Error(
+          "Push needs iOS 16.4+ and the app installed to the Home Screen (not a Safari tab)."
+        );
+      }
+      throw new Error("Push is not supported in this browser");
+    }
     var key = await getPublicKey();
     if (!key) throw new Error("Web Push is not configured on the server");
     var perm = await Notification.requestPermission();
@@ -86,6 +122,9 @@
     subscribe: subscribe,
     unsubscribe: unsubscribe,
     ensureSw: ensureSw,
+    isIOS: isIOS,
+    isStandalone: isStandalone,
+    iosInstallRequired: iosInstallRequired,
   };
 
   // Always try to register SW for installability (even without push config)
@@ -100,12 +139,21 @@
     var enableBtn = document.getElementById("push-enable-btn");
     var disableBtn = document.getElementById("push-disable-btn");
     var statusEl = document.getElementById("push-client-status");
+    var iosHint = document.getElementById("push-ios-hint");
     if (!enableBtn && !disableBtn) return;
 
     function setStatus(msg, isErr) {
       if (!statusEl) return;
       statusEl.textContent = msg || "";
       statusEl.className = "text-xs mt-2 " + (isErr ? "text-danger" : "text-muted");
+    }
+
+    if (iosHint) {
+      if (iosInstallRequired()) {
+        iosHint.classList.remove("hidden");
+      } else if (isIOS() && isStandalone()) {
+        iosHint.classList.add("hidden");
+      }
     }
 
     if (enableBtn) {

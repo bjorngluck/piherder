@@ -315,13 +315,23 @@
   </style>
   {% endif %}
 
-  <!-- Push notifications (Android / Web Push) -->
+  <!-- Push notifications (Android + iOS Home Screen Web Push) -->
   <div class="card p-5 sm:p-6 space-y-4">
     <h2 class="font-semibold text-text">Push notifications</h2>
     <p class="text-sm text-muted">
       Optional browser push for fleet alerts (backup failed, OS updates, reboot pending, etc.).
-      Best on <strong>Android Chrome</strong> with the app installed over trusted HTTPS.
+      Works on <strong>Android Chrome</strong> and on <strong>iPhone/iPad (iOS 16.4+)</strong> when PiHerder is
+      installed to the Home Screen over trusted HTTPS.
     </p>
+    <div id="push-ios-hint" class="hidden text-sm rounded border border-border bg-surface-2 p-3 space-y-1">
+      <div class="font-medium text-text">iPhone / iPad setup</div>
+      <ol class="list-decimal list-inside text-muted space-y-0.5">
+        <li>Open this site in <strong>Safari</strong>.</li>
+        <li>Tap <strong>Share</strong> → <strong>Add to Home Screen</strong> → Add.</li>
+        <li>Open PiHerder from the <strong>Home Screen icon</strong>.</li>
+        <li>Return here and tap <strong>Enable on this device</strong>.</li>
+      </ol>
+    </div>
 
     {% if not push_configured %}
     <p class="text-sm banner-warning border border-border rounded p-3">

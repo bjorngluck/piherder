@@ -43,6 +43,24 @@ def test_preference_allows():
     assert push_svc.preference_allows(pref, "backup_failed") is False
 
 
+def test_build_push_payload_dual_format(monkeypatch):
+    monkeypatch.setattr(push_svc.settings, "PIHERDER_PUBLIC_URL", "https://piherder.example:8443")
+    monkeypatch.setattr(push_svc.settings, "PIHERDER_HOSTNAME", "piherder.example")
+    p = push_svc.build_push_payload(
+        title="Backup failed",
+        body="oops",
+        url="/servers/1/backups",
+        tag="backup_failed:server:1",
+        severity="critical",
+    )
+    assert p["title"] == "Backup failed"
+    assert p["url"] == "/servers/1/backups"
+    assert p["web_push"] == 8030
+    assert p["notification"]["title"] == "Backup failed"
+    assert p["notification"]["navigate"] == "https://piherder.example:8443/servers/1/backups"
+    assert p["notification"]["silent"] is False
+
+
 def test_send_for_notification_skips_when_not_configured(monkeypatch):
     monkeypatch.setattr(push_svc, "ensure_vapid_keys", lambda session: None)
     session = MagicMock()
