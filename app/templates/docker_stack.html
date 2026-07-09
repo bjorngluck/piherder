@@ -214,24 +214,38 @@
               </div>
               <div class="docker-svc-detail-span">
                 <div class="docker-svc-detail-label">Mounts / volumes</div>
-                {% if c.mounts_list %}
+                {% if c.mounts_detail %}
                 <ul class="docker-detail-lines font-mono">
-                  {% for m in c.mounts_list %}<li>{{ m }}</li>{% endfor %}
+                  {% for m in c.mounts_detail %}
+                  <li title="{{ m.source }} → {{ m.destination }}">
+                    {% if m.source and m.destination %}{{ m.source }} → {{ m.destination }}{% elif m.destination %}{{ m.destination }}{% else %}{{ m.source or '—' }}{% endif %}
+                    {% if m.type %}<span class="text-muted"> · {{ m.type }}</span>{% endif %}
+                    {% if m.size_human %}<span class="text-accent"> · {{ m.size_human }}</span>{% endif %}
+                  </li>
+                  {% endfor %}
+                </ul>
+                {% if c.mounts_total_human %}
+                <div class="text-[10px] text-muted mt-1">Mounts total ≈ {{ c.mounts_total_human }} <span class="opacity-80">(host path usage via du)</span></div>
+                {% endif %}
+                {% elif c.mounts_list %}
+                <ul class="docker-detail-lines font-mono">
+                  {% for m in c.mounts_list %}<li title="{{ m }}">{{ m }}</li>{% endfor %}
                 </ul>
                 {% elif c.mounts %}
                 <ul class="docker-detail-lines font-mono">
-                  {% for m in c.mounts.split(',') %}<li>{{ m.strip() }}</li>{% endfor %}
+                  {% for m in c.mounts.split(',') %}<li title="{{ m.strip() }}">{{ m.strip() }}</li>{% endfor %}
                 </ul>
                 {% else %}
                 <div class="font-mono text-muted">—</div>
                 {% endif %}
                 {% if c.local_volumes %}
-                <div class="text-muted text-[10px] mt-1">Local volume count: {{ c.local_volumes }}</div>
+                <div class="text-muted text-[10px] mt-1">Named volume mounts (docker): {{ c.local_volumes }}</div>
                 {% endif %}
               </div>
               <div>
-                <div class="docker-svc-detail-label">Size</div>
-                <div class="font-mono break-all">{{ c.size or '—' }}</div>
+                <div class="docker-svc-detail-label">Container size</div>
+                <div class="font-mono break-all text-xs" title="From docker ps --size: writable layer + virtual (image) size — not volume data">{{ c.size or '—' }}</div>
+                <div class="text-[10px] text-muted mt-0.5">Writable + image (not volumes)</div>
               </div>
               <div>
                 <div class="docker-svc-detail-label">Created</div>
@@ -334,21 +348,35 @@
             </div>
             <div class="docker-svc-detail-span">
               <div class="docker-svc-detail-label">Mounts / volumes</div>
-              {% if c.mounts_list %}
+              {% if c.mounts_detail %}
               <ul class="docker-detail-lines font-mono">
-                {% for m in c.mounts_list %}<li>{{ m }}</li>{% endfor %}
+                {% for m in c.mounts_detail %}
+                <li title="{{ m.source }} → {{ m.destination }}">
+                  {% if m.source and m.destination %}{{ m.source }} → {{ m.destination }}{% elif m.destination %}{{ m.destination }}{% else %}{{ m.source or '—' }}{% endif %}
+                  {% if m.type %}<span class="text-muted"> · {{ m.type }}</span>{% endif %}
+                  {% if m.size_human %}<span class="text-accent"> · {{ m.size_human }}</span>{% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+              {% if c.mounts_total_human %}
+              <div class="text-[10px] text-muted mt-1">Mounts total ≈ {{ c.mounts_total_human }} <span class="opacity-80">(host path usage via du)</span></div>
+              {% endif %}
+              {% elif c.mounts_list %}
+              <ul class="docker-detail-lines font-mono">
+                {% for m in c.mounts_list %}<li title="{{ m }}">{{ m }}</li>{% endfor %}
               </ul>
               {% elif c.mounts %}
               <ul class="docker-detail-lines font-mono">
-                {% for m in c.mounts.split(',') %}<li>{{ m.strip() }}</li>{% endfor %}
+                {% for m in c.mounts.split(',') %}<li title="{{ m.strip() }}">{{ m.strip() }}</li>{% endfor %}
               </ul>
               {% else %}
               <div class="font-mono text-muted">—</div>
               {% endif %}
             </div>
             <div>
-              <div class="docker-svc-detail-label">Size</div>
-              <div class="font-mono">{{ c.size or '—' }}</div>
+              <div class="docker-svc-detail-label">Container size</div>
+              <div class="font-mono text-xs" title="Writable layer + virtual image size from docker ps --size">{{ c.size or '—' }}</div>
+              <div class="text-[10px] text-muted mt-0.5">Writable + image (not volumes)</div>
             </div>
             <div>
               <div class="docker-svc-detail-label">Created</div>

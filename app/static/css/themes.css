@@ -1808,8 +1808,31 @@ body.server-reorder-active {
 }
 .docker-detail-lines li {
   word-break: break-all;
-  line-height: 1.35;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  line-height: 1.4;
+  font-size: 0.7rem;
+  max-width: 100%;
 }
+
+/* Password strength meter */
+.pw-strength-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--border, #333);
+  overflow: hidden;
+}
+.pw-strength-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  transition: width 0.15s ease, background 0.15s ease;
+  background: var(--danger, #c44);
+}
+.pw-strength-fill[data-score="1"] { background: #c44; }
+.pw-strength-fill[data-score="2"] { background: #c90; }
+.pw-strength-fill[data-score="3"] { background: #3a8; }
+.pw-strength-fill[data-score="4"] { background: var(--accent, #2d8); }
 .docker-svc-empty {
   padding: 0.5rem 0.75rem 0.65rem;
 }

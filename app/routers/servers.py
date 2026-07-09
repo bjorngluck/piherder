@@ -1405,5 +1405,87 @@ async def save_container_check_schedule(
     return RedirectResponse(_server_redirect(server_id), status_code=303)
 
 
+@router.post("/{server_id}/schedule/os-apply")
+async def save_os_apply_schedule(
+    server_id: int,
+    os_apply_enabled: Optional[str] = Form(None),
+    os_apply_schedule: str = Form(""),
+    os_apply_only_if_updates: Optional[str] = Form(None),
+    os_apply_use_full_upgrade: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Opt-in scheduled OS patch apply. Requires os_patch_enabled. Default steps: update+upgrade+autoremove."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    if not server.os_patch_enabled:
+        raise HTTPException(400, "Enable OS patch feature on this server first")
+    cron = _validate_cron(os_apply_schedule)
+    want = os_apply_enabled in ("1", "on", "true") and bool(cron)
+    use_full = os_apply_use_full_upgrade in ("1", "on", "true")
+    steps = ["update", "full-upgrade" if use_full else "upgrade", "autoremove"]
+    server.os_apply_schedule = cron
+    server.os_apply_enabled = want
+    # Unchecked checkbox is omitted from form → False
+    server.os_apply_only_if_updates = os_apply_only_if_updates in ("1", "on", "true")
+    server.os_apply_steps = json.dumps(steps)
+    session.add(server)
+    session.commit()
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_os_apply_schedule",
+        details={
+            "enabled": server.os_apply_enabled,
+            "cron": cron,
+            "steps": steps,
+            "only_if_updates": server.os_apply_only_if_updates,
+        },
+    )
+    session.commit()
+    _sync_server_schedules(server)
+    return RedirectResponse(_server_redirect(server_id), status_code=303)
+
+
+@router.post("/{server_id}/schedule/container-apply")
+async def save_container_apply_schedule(
+    server_id: int,
+    container_apply_enabled: Optional[str] = Form(None),
+    container_apply_schedule: str = Form(""),
+    container_apply_only_if_updates: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Opt-in scheduled container patch (pull + up -d when IDs change)."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    if not server.container_patch_enabled:
+        raise HTTPException(400, "Enable container patch feature on this server first")
+    cron = _validate_cron(container_apply_schedule)
+    want = container_apply_enabled in ("1", "on", "true") and bool(cron)
+    server.container_apply_schedule = cron
+    server.container_apply_enabled = want
+    server.container_apply_only_if_updates = container_apply_only_if_updates in ("1", "on", "true")
+    session.add(server)
+    session.commit()
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_container_apply_schedule",
+        details={
+            "enabled": server.container_apply_enabled,
+            "cron": cron,
+            "only_if_updates": server.container_apply_only_if_updates,
+        },
+    )
+    session.commit()
+    _sync_server_schedules(server)
+    return RedirectResponse(_server_redirect(server_id), status_code=303)
+
+
 # Docker routes extracted to server_docker.py (sub-router included at top of file)
 

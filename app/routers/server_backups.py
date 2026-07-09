@@ -96,8 +96,14 @@ async def server_backups(
         pass
 
     from ..services.backup_path_policy import parse_rules, DEFAULT_DENY_PREFIXES
+    from ..services import backup_restore as restore_svc
 
     path_rules = parse_rules(getattr(server, "backup_path_rules", None))
+    restore_candidates = []
+    try:
+        restore_candidates = restore_svc.list_restore_candidates(server)
+    except Exception as e:
+        logger.debug(f"restore candidates: {e}")
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -118,6 +124,8 @@ async def server_backups(
             "active_backup_jobs": active_backup_jobs,
             "path_rules": path_rules,
             "default_deny_paths": list(DEFAULT_DENY_PREFIXES),
+            "restore_candidates": restore_candidates,
+            "restore_result": None,
             "lean_page": True,
         }
     )
@@ -492,3 +500,83 @@ async def run_retention(
     if request.headers.get("X-PiHerder-Async") == "1":
         return JSONResponse({"job_id": job.id, "status": job.status, "job_type": "retention"})
     return RedirectResponse(_server_redirect(server_id), status_code=303)
+
+
+@router.post("/{server_id}/backup/restore", response_class=HTMLResponse)
+async def restore_backup_source(
+    request: Request,
+    server_id: int,
+    source: str = Form(...),
+    dry_run: Optional[str] = Form("1"),
+    confirm: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Wizard step: dry-run (default) or apply reverse rsync restore for one source."""
+    from ..services import backup_restore as restore_svc
+    from ..services.backup_path_policy import parse_rules, DEFAULT_DENY_PREFIXES
+
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+
+    # Apply only when dry_run is unchecked AND confirm is checked
+    want_apply = dry_run not in ("1", "on", "true", "yes") and confirm in ("1", "on", "true")
+    is_dry = not want_apply
+
+    result = await run_in_threadpool(
+        restore_svc.restore_backup_source, server, source.strip(), dry_run=is_dry
+    )
+    st = "success" if int(result.get("rc") or 1) == 0 and not result.get("error") else "failed"
+    al = record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="backup_restore",
+        status=st,
+        message=result.get("summary") or result.get("error") or "restore",
+        details={
+            "source": source.strip(),
+            "dry_run": is_dry,
+            "rc": result.get("rc"),
+            "summary": result.get("summary") or result.get("error"),
+        },
+    )
+    al.output_snippet = json.dumps(result)[:8000]
+    session.add(al)
+    session.commit()
+
+    server_dict = server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"})
+    active_backup_jobs = job_service.get_active_backup_jobs(session, server.id)
+    running_backup_job = job_service.get_running_backup_job(session, server.id)
+    backup_profiles = job_service.attach_source_job_states(
+        backup_svc.get_backup_profiles_db(server),
+        active_backup_jobs,
+    )
+    path_rules = parse_rules(getattr(server, "backup_path_rules", None))
+    restore_candidates = restore_svc.list_restore_candidates(server)
+
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="server_backups.html",
+        context={
+            "title": f"Backups - {server.name}",
+            "server": server_dict,
+            "backup_profiles": backup_profiles,
+            "last_backup_status": None,
+            "user": user,
+            "settings": settings,
+            "global_backup_defaults": backup_svc.global_backup_defaults_from_server(server),
+            "current_sources": [p.get("source") for p in backup_profiles],
+            "show_ssh_key": False,
+            "backup_running": bool(active_backup_jobs),
+            "current_backup_job": running_backup_job or (active_backup_jobs[-1] if active_backup_jobs else None),
+            "running_backup_job": running_backup_job,
+            "active_backup_jobs": active_backup_jobs,
+            "path_rules": path_rules,
+            "default_deny_paths": list(DEFAULT_DENY_PREFIXES),
+            "restore_candidates": restore_candidates,
+            "restore_result": result,
+            "lean_page": True,
+        },
+    )

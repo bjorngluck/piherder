@@ -70,7 +70,8 @@ async def lifespan(app: FastAPI):
                 default_pass = "admin"
                 user = User(
                     email=default_email,
-                    hashed_password=get_password_hash(default_pass)
+                    hashed_password=get_password_hash(default_pass),
+                    role="admin",
                 )
                 db.add(user)
                 db.commit()
@@ -100,6 +101,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="PiHerder", lifespan=lifespan)
 
+# Onboarding redirects (must change password / force 2FA)
+from .security.auth import OnboardingRedirect
+
+
+@app.exception_handler(OnboardingRedirect)
+async def onboarding_redirect_handler(request: Request, exc: OnboardingRedirect):
+    return RedirectResponse(url=exc.location, status_code=303)
+
+
 # Static files (vendored JS for offline support + any other assets).
 # Always ensure the directory exists so /static/* never 404s.
 os.makedirs("app/static", exist_ok=True)
@@ -112,10 +122,13 @@ async def favicon():
     return FileResponse("app/static/favicon.ico", media_type="image/x-icon")
 
 
+from .routers import jobs_page as jobs_page_router
+
 app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
 app.include_router(servers_router.router, prefix="/servers", tags=["servers"])
 app.include_router(audit_router.router, prefix="", tags=["audit"])
 app.include_router(notifications_router.router, prefix="", tags=["notifications"])
+app.include_router(jobs_page_router.router, prefix="", tags=["jobs"])
 
 # Scheduler helpers extracted
 from .services import scheduler as sched
@@ -367,6 +380,21 @@ async def save_herder_config(
     hb.save_herder_config(cfg)
     sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
     return RedirectResponse("/herder-backups?config_saved=1", status_code=303)
+
+
+@app.post("/herder-backups/security")
+async def save_security_policy(
+    force_2fa: Optional[str] = Form(None),
+    user: User = Depends(get_current_user),
+):
+    """Global security toggles (force 2FA, etc.)."""
+    from .services import herder_backup as hb
+    from .security.auth import user_role, ROLE_ADMIN
+
+    if user_role(user) != ROLE_ADMIN:
+        raise HTTPException(403, "Admin role required")
+    hb.save_herder_config({"force_2fa": force_2fa in ("1", "on", "true")})
+    return RedirectResponse("/herder-backups?security_saved=1", status_code=303)
 
 
 @app.post("/herder-backups/update-checks")

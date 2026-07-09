@@ -177,6 +177,61 @@
   </div>
 </div>
 
+{# Restore wizard #}
+<div class="card p-5 mt-6">
+  <h2 class="font-semibold text-text mb-1">Restore wizard</h2>
+  <p class="text-xs text-muted mb-3">
+    Reverse rsync: local backup destination → remote source. Always starts as <strong>dry-run</strong>.
+    Uncheck dry-run and check confirm to write for real. Path policy still applies.
+  </p>
+
+  {% if restore_result %}
+  <div class="mb-4 p-3 border border-border rounded text-sm {{ 'banner-success' if restore_result.rc == 0 and not restore_result.error else 'banner-error' }}">
+    <div class="font-medium mb-1">
+      {% if restore_result.dry_run %}Dry-run{% else %}Restore{% endif %}:
+      {{ restore_result.summary or restore_result.error or ('rc=' ~ restore_result.rc) }}
+    </div>
+    <div class="text-xs text-muted font-mono break-all">{{ restore_result.source }} ← {{ restore_result.destination }}</div>
+    {% if restore_result.output %}
+    <pre class="log-output mt-2 p-2 text-[10px] max-h-40 overflow-auto border border-border rounded">{{ restore_result.output[:3000] }}</pre>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if restore_candidates %}
+  <div class="space-y-3">
+    {% for c in restore_candidates %}
+    <div class="border border-border rounded p-3">
+      <div class="font-mono text-xs break-all">{{ c.source }}</div>
+      <div class="text-[10px] text-muted mt-0.5">
+        Local: {{ c.destination }}
+        · {% if c.exists %}ready{% else %}no local data{% endif %}
+        · last {{ c.last_backup_str }}
+      </div>
+      {% if c.exists %}
+      <form method="post" action="/servers/{{ server.id }}/backup/restore" class="mt-2 flex flex-wrap items-center gap-3 text-sm">
+        <input type="hidden" name="source" value="{{ c.source }}">
+        <label class="flex items-center gap-2 min-h-11">
+          <input type="checkbox" name="dry_run" value="1" checked>
+          Dry-run
+        </label>
+        <label class="flex items-center gap-2 min-h-11 text-warning">
+          <input type="checkbox" name="confirm" value="1">
+          Confirm write
+        </label>
+        <button type="submit" class="btn btn-secondary min-h-11 text-xs">Run restore</button>
+      </form>
+      {% else %}
+      <p class="text-xs text-muted mt-2 mb-0">No local backup data yet — run a backup first.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-muted mb-0">Add backup sources first.</p>
+  {% endif %}
+</div>
+
 <div class="mt-6 text-xs text-muted flex flex-wrap gap-x-3 gap-y-1">
   <a href="/servers/{{ server.id }}" class="text-accent hover:underline">← Back to server</a>
   <a href="/audit?server_id={{ server.id }}&search=backup" class="text-accent hover:underline">Backup audit</a>

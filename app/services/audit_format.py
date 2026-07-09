@@ -41,6 +41,12 @@ _ACTION_LABELS = {
     "container_update_check": "Container update check",
     "server_os_check_schedule": "OS check schedule",
     "server_container_check_schedule": "Container check schedule",
+    "server_os_apply_schedule": "OS apply schedule",
+    "server_container_apply_schedule": "Container apply schedule",
+    "backup_restore": "Backup restore",
+    "user_role_changed": "User role changed",
+    "user_created": "User created",
+    "user_deleted": "User deleted",
     "diagnostics": "Diagnostics",
     "user_profile_updated": "Profile updated",
     "user_email_changed": "Email changed",
@@ -299,6 +305,16 @@ def format_audit_entry(log: dict) -> dict:
                 summary += f" · {parsed['restored_audit']} audit entries"
         else:
             summary = details or "Restore run"
+
+    elif action == "backup_restore":
+        if isinstance(parsed, dict):
+            src = parsed.get("source") or "?"
+            dry = parsed.get("dry_run")
+            summary = parsed.get("summary") or (
+                f"{'Dry-run restore' if dry else 'Restore'} · {src}"
+            )
+        else:
+            summary = details or "Backup restore"
 
     elif action == "os_patch":
         if status == "running" and not snippet:

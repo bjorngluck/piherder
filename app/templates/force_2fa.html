@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-md mx-auto mt-6 sm:mt-10">
+  <div class="card p-6 sm:p-8">
+    <h1 class="text-2xl font-semibold tracking-tighter text-text mb-1">Two-factor authentication required</h1>
+    <p class="text-sm text-muted mb-4">
+      An administrator requires every account to enable app-based 2FA (TOTP) before using PiHerder.
+    </p>
+    <ol class="text-sm text-muted list-decimal pl-5 space-y-1 mb-6">
+      <li>Open Account security settings</li>
+      <li>Enable 2FA and scan the QR code with your authenticator app</li>
+      <li>Save your backup codes</li>
+      <li>Return to the dashboard</li>
+    </ol>
+    <a href="/auth/account?msg=2fa_setup" class="btn btn-accent w-full min-h-11 inline-flex items-center justify-center">
+      Set up 2FA now
+    </a>
+    <p class="mt-4 text-center text-xs text-muted">
+      <a href="/auth/logout" class="text-accent hover:underline">Sign out</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

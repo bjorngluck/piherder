@@ -62,6 +62,16 @@
     </div>
   </details>
 
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+    <div class="sm:col-span-1">
+      <label class="block text-xs text-muted mb-1">Per page</label>
+      <select name="per_page" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
+        {% for n in per_page_choices or [10, 20, 50] %}
+        <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
   <div class="flex flex-wrap items-center justify-between gap-3 mt-3 pt-3 border-t border-border">
     <label class="flex items-center gap-2 text-xs text-muted min-h-11">
       <input type="hidden" name="hide_noise" value="0" id="audit-hide-noise-off">
@@ -115,8 +125,10 @@
       {% else %}
       <span>Server: —</span>
       {% endif %}
-      {% if log.user_email %}
-      <span>User: {{ log.user_email }}</span>
+      {% if log.user_label or log.user_email %}
+      <span>User: {{ log.user_label or log.user_email }}</span>
+      {% else %}
+      <span class="text-muted">User: system / scheduler</span>
       {% endif %}
     </div>
     <div class="audit-event-summary">{{ log.summary or '—' }}</div>
@@ -130,7 +142,24 @@
 </div>
 {% endif %}
 
-<p class="mt-4 text-xs text-muted">Showing up to 100 events · click an event for full details</p>
+{% if total_pages and total_pages > 1 or (total and total > 0) %}
+<div class="flex flex-wrap items-center justify-between gap-3 mt-4 text-sm">
+  <div class="text-xs text-muted">
+    Page {{ page or 1 }} of {{ total_pages or 1 }} · {{ total or 0 }} total
+  </div>
+  <div class="flex flex-wrap gap-2">
+    {% set aq = 'search=' ~ (search or '') ~ '&server_id=' ~ (server_id or '') ~ '&user_id=' ~ (user_id or '') ~ '&status=' ~ (status or '') ~ '&action=' ~ (action or '') ~ '&date_from=' ~ (date_from or '') ~ '&date_to=' ~ (date_to or '') ~ '&per_page=' ~ (per_page or 20) ~ '&hide_noise=' ~ ('1' if hide_noise else '0') %}
+    {% if page and page > 1 %}
+    <a class="btn btn-secondary min-h-11 text-sm" href="/audit?{{ aq }}&page={{ page - 1 }}">← Prev</a>
+    {% endif %}
+    {% if page and total_pages and page < total_pages %}
+    <a class="btn btn-secondary min-h-11 text-sm" href="/audit?{{ aq }}&page={{ page + 1 }}">Next →</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<p class="mt-4 text-xs text-muted">Click an event for full details</p>
 
 <script>
 const AUDIT_LOGS = {{ logs | tojson | safe }};

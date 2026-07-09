@@ -378,14 +378,17 @@ document.addEventListener('DOMContentLoaded', function() {
   {% endif %}
 </div>
 
-{# Job queue + recent history #}
+{# Job queue + recent history — card feed (no horizontal scroll) #}
 <div class="card p-4 sm:p-5 mb-6" id="server-jobs-panel">
   <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
     <div>
       <h2 class="font-semibold text-text text-base">Jobs</h2>
       <p class="text-xs text-muted mb-0">Running / queued and recent history for this host</p>
     </div>
-    <a href="/audit?server_id={{ server.id }}" class="text-xs text-accent hover:underline">Audit log →</a>
+    <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+      <a href="/jobs?server_id={{ server.id }}" class="text-accent hover:underline">All jobs →</a>
+      <a href="/audit?server_id={{ server.id }}" class="text-accent hover:underline">Audit →</a>
+    </div>
   </div>
   {% set job_labels = {
     'backup': 'Backup',
@@ -398,44 +401,40 @@ document.addEventListener('DOMContentLoaded', function() {
     'herder_backup': 'PiHerder backup'
   } %}
   {% if active_jobs %}
-  <div class="mb-3 space-y-1">
+  <div class="mb-3 space-y-2">
     {% for j in active_jobs %}
-    <div class="flex flex-wrap items-center gap-2 text-sm border border-border rounded px-2 py-1.5">
-      <span class="status-pill {{ 'status-running' if j.status == 'running' else 'status-cancelled' }}">{{ j.status }}</span>
-      <span class="font-medium">{{ job_labels.get(j.job_type, j.job_type) }}</span>
-      <span class="text-xs text-muted">#{{ j.id }}</span>
-      {% if j.started_at %}<span class="text-xs text-muted">{{ j.started_at | app_tz }}</span>{% endif %}
+    <div class="border border-accent/40 bg-accent-subtle/30 rounded-lg px-3 py-2">
+      <div class="flex flex-wrap items-center gap-2 text-sm">
+        <span class="status-pill {{ 'status-running' if j.status == 'running' else 'status-cancelled' }}">{{ j.status }}</span>
+        <span class="font-medium">{{ job_labels.get(j.job_type, j.job_type) }}</span>
+        <span class="text-xs text-muted font-mono">#{{ j.id }}</span>
+      </div>
+      {% if j.started_at or j.created_at %}
+      <div class="text-[10px] text-muted mt-1">{{ (j.started_at or j.created_at) | app_tz }}</div>
+      {% endif %}
     </div>
     {% endfor %}
   </div>
   {% endif %}
   {% if recent_jobs %}
-  <div class="overflow-x-auto">
-    <table class="w-full text-xs">
-      <thead>
-        <tr class="text-left text-muted border-b border-border">
-          <th class="py-1 pr-2 font-medium">ID</th>
-          <th class="py-1 pr-2 font-medium">Type</th>
-          <th class="py-1 pr-2 font-medium">Status</th>
-          <th class="py-1 pr-2 font-medium">When</th>
-          <th class="py-1 font-medium">Summary</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for j in recent_jobs[:12] %}
-        {% set jd = j.details | fromjson if j.details else {} %}
-        <tr class="border-b border-border/60">
-          <td class="py-1.5 pr-2 font-mono">#{{ j.id }}</td>
-          <td class="py-1.5 pr-2">{{ job_labels.get(j.job_type, j.job_type) }}</td>
-          <td class="py-1.5 pr-2">
-            <span class="status-pill {{ 'status-success' if j.status == 'success' else 'status-failed' if j.status == 'failed' else 'status-running' if j.status in ('running','pending') else 'status-cancelled' }}">{{ j.status }}</span>
-          </td>
-          <td class="py-1.5 pr-2 text-muted whitespace-nowrap">{{ (j.finished_at or j.started_at or j.created_at) | app_tz }}</td>
-          <td class="py-1.5 text-muted truncate max-w-[14rem]" title="{{ jd.summary or '' }}">{{ jd.summary or jd.current or '—' }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="space-y-2" role="list">
+    {% for j in recent_jobs[:12] %}
+    {% set jd = j.details | fromjson if j.details else {} %}
+    <div class="border border-border rounded-lg px-3 py-2" role="listitem">
+      <div class="flex flex-wrap items-center gap-2 text-sm">
+        <span class="status-pill {{ 'status-success' if j.status == 'success' else 'status-failed' if j.status == 'failed' else 'status-running' if j.status in ('running','pending') else 'status-cancelled' }}">{{ j.status }}</span>
+        <span class="font-medium">{{ job_labels.get(j.job_type, j.job_type) }}</span>
+        <span class="text-xs text-muted font-mono">#{{ j.id }}</span>
+        {% if jd.scheduled %}<span class="text-[10px] text-muted">scheduled</span>{% endif %}
+      </div>
+      <div class="text-[10px] text-muted mt-1">
+        {{ (j.finished_at or j.started_at or j.created_at) | app_tz }}
+      </div>
+      {% if jd.summary or jd.current %}
+      <div class="text-xs text-muted mt-1 break-words">{{ jd.summary or jd.current }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
   </div>
   {% else %}
   <p class="text-xs text-muted mb-0">No jobs recorded yet for this server.</p>
@@ -639,6 +638,72 @@ document.addEventListener('DOMContentLoaded', function() {
                class="w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
         <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save container schedule</button>
       </form>
+    </div>
+  </div>
+</div>
+
+{# Patch apply schedules — opt-in, default off #}
+{% set _os_steps = server.os_apply_steps or '' %}
+{% set _use_full = 'full-upgrade' in _os_steps %}
+<div class="card p-4 sm:p-5 mb-6 border-warning/40">
+  <h2 class="font-semibold text-text mb-1">Patch apply schedules</h2>
+  <p class="text-xs text-muted mb-3">
+    <strong class="text-warning">Runs real upgrades</strong> on a cron (apt / compose pull+up).
+    Off by default. Prefer “only if updates pending” so empty fleets skip work.
+    Feature flag for OS/container patch must be enabled on this server.
+  </p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <div class="border border-border rounded p-3 space-y-2">
+      <div class="font-medium text-sm">OS apply (apt)</div>
+      {% if not server.os_patch_enabled %}
+      <p class="text-xs text-warning mb-0">Enable “OS patch” in Edit server first.</p>
+      {% else %}
+      <form method="post" action="/servers/{{ server.id }}/schedule/os-apply" class="space-y-2">
+        <label class="flex items-center gap-2 text-sm min-h-11">
+          <input type="checkbox" name="os_apply_enabled" value="1" {% if server.os_apply_enabled %}checked{% endif %}>
+          Enable scheduled apply
+        </label>
+        <label class="flex items-center gap-2 text-sm min-h-11">
+          <input type="checkbox" name="os_apply_only_if_updates" value="1"
+                 {% if server.os_apply_only_if_updates or not server.os_apply_enabled %}checked{% endif %}>
+          Only when last check found updates
+        </label>
+        <label class="flex items-center gap-2 text-sm min-h-11">
+          <input type="checkbox" name="os_apply_use_full_upgrade" value="1" {% if _use_full %}checked{% endif %}>
+          Use <code class="text-[10px]">full-upgrade</code> instead of upgrade
+        </label>
+        <input type="text" name="os_apply_schedule" value="{{ server.os_apply_schedule or '30 3 * * 0' }}"
+               placeholder="30 3 * * 0"
+               class="w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
+        <p class="text-[10px] text-muted mb-0">Default suggestion: weekly Sunday 03:30. Steps: update → upgrade → autoremove.</p>
+        <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save OS apply schedule</button>
+      </form>
+      {% endif %}
+    </div>
+
+    <div class="border border-border rounded p-3 space-y-2">
+      <div class="font-medium text-sm">Container apply</div>
+      {% if not server.container_patch_enabled %}
+      <p class="text-xs text-warning mb-0">Enable “Container patch” in Edit server first.</p>
+      {% else %}
+      <form method="post" action="/servers/{{ server.id }}/schedule/container-apply" class="space-y-2">
+        <label class="flex items-center gap-2 text-sm min-h-11">
+          <input type="checkbox" name="container_apply_enabled" value="1" {% if server.container_apply_enabled %}checked{% endif %}>
+          Enable scheduled apply
+        </label>
+        <label class="flex items-center gap-2 text-sm min-h-11">
+          <input type="checkbox" name="container_apply_only_if_updates" value="1"
+                 {% if server.container_apply_only_if_updates or not server.container_apply_enabled %}checked{% endif %}>
+          Only when last check found image updates
+        </label>
+        <input type="text" name="container_apply_schedule" value="{{ server.container_apply_schedule or '0 4 * * 0' }}"
+               placeholder="0 4 * * 0"
+               class="w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
+        <p class="text-[10px] text-muted mb-0">Pull + <code class="text-[10px]">up -d</code> only when image IDs change.</p>
+        <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save container apply schedule</button>
+      </form>
+      {% endif %}
     </div>
   </div>
 </div>

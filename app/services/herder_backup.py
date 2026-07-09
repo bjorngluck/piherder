@@ -43,6 +43,8 @@ DEFAULT_CONFIG = {
     "container_check_global_enabled": True,
     "container_check_cron": "0 0 * * *",  # midnight; per-host minute jitter applied
     "update_check_jitter": True,  # stagger minute by server_id so jobs queue, not thundering herd
+    # Security policy
+    "force_2fa": False,  # require TOTP for every user before using the app
 }
 
 

@@ -142,6 +142,24 @@ def get_active_backup_jobs(session: Session, server_id: int) -> list[Job]:
     )
 
 
+JOB_TYPE_LABELS = {
+    "backup": "Backup",
+    "os_patch": "OS patch",
+    "container_patch": "Container patch",
+    "os_update_check": "OS check",
+    "container_update_check": "Image check",
+    "retention": "Retention",
+    "diagnostics": "Diagnostics",
+    "herder_backup": "PiHerder backup",
+}
+
+
+def job_type_label(job_type: str | None) -> str:
+    if not job_type:
+        return "Job"
+    return JOB_TYPE_LABELS.get(job_type, job_type.replace("_", " ").title())
+
+
 def list_jobs_for_server(
     session: Session,
     server_id: int,
@@ -163,8 +181,92 @@ def list_jobs_for_server(
     return list(session.exec(q).all())
 
 
-def job_public_dict(job: Job) -> dict:
-    """JSON-safe job summary for list/poll UI."""
+def _jobs_filter_query(
+    *,
+    server_id: int | None = None,
+    status: str | None = None,
+    job_type: str | None = None,
+    active_only: bool = False,
+    date_from=None,
+    date_to=None,
+):
+    q = select(Job)
+    if server_id is not None:
+        q = q.where(Job.server_id == server_id)
+    if active_only:
+        q = q.where(Job.status.in_(["pending", "running"]))
+    elif status:
+        q = q.where(Job.status == status)
+    if job_type:
+        q = q.where(Job.job_type == job_type)
+    if date_from is not None:
+        q = q.where(Job.created_at >= date_from)
+    if date_to is not None:
+        q = q.where(Job.created_at <= date_to)
+    return q
+
+
+def list_jobs(
+    session: Session,
+    *,
+    server_id: int | None = None,
+    status: str | None = None,
+    job_type: str | None = None,
+    active_only: bool = False,
+    date_from=None,
+    date_to=None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[Job]:
+    """Fleet-wide job queue + history (optional filters + pagination)."""
+    q = _jobs_filter_query(
+        server_id=server_id,
+        status=status,
+        job_type=job_type,
+        active_only=active_only,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    lim = max(1, min(int(limit), 100))
+    off = max(0, int(offset or 0))
+    q = q.order_by(Job.created_at.desc()).offset(off).limit(lim)
+    return list(session.exec(q).all())
+
+
+def count_jobs(
+    session: Session,
+    *,
+    server_id: int | None = None,
+    status: str | None = None,
+    job_type: str | None = None,
+    active_only: bool = False,
+    date_from=None,
+    date_to=None,
+) -> int:
+    from sqlalchemy import func
+
+    q = select(func.count()).select_from(Job)
+    if server_id is not None:
+        q = q.where(Job.server_id == server_id)
+    if active_only:
+        q = q.where(Job.status.in_(["pending", "running"]))
+    elif status:
+        q = q.where(Job.status == status)
+    if job_type:
+        q = q.where(Job.job_type == job_type)
+    if date_from is not None:
+        q = q.where(Job.created_at >= date_from)
+    if date_to is not None:
+        q = q.where(Job.created_at <= date_to)
+    try:
+        return int(session.exec(q).one())
+    except Exception:
+        row = session.exec(q).first()
+        return int(row or 0)
+
+
+def job_public_dict(job: Job, *, detail: bool = False) -> dict:
+    """JSON-safe job summary for list/poll UI. detail=True includes larger log tail."""
     details: dict = {}
     if job.details:
         try:
@@ -175,18 +277,37 @@ def job_public_dict(job: Job) -> dict:
             details = {}
     summary = details.get("summary") or ""
     log_lines = details.get("log_lines") or []
-    return {
+    tail_n = 60 if detail else 8
+    out = {
         "id": job.id,
+        "server_id": job.server_id,
         "job_type": job.job_type,
+        "job_type_label": job_type_label(job.job_type),
         "status": job.status,
         "created_at": job.created_at.isoformat() if job.created_at else None,
         "started_at": job.started_at.isoformat() if job.started_at else None,
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
         "current": details.get("current"),
         "summary": summary,
-        "log_tail": list(log_lines)[-8:] if log_lines else [],
+        "scheduled": bool(details.get("scheduled")),
+        "log_tail": list(log_lines)[-tail_n:] if log_lines else [],
         "done": job.status in ("success", "failed"),
+        "os_steps": details.get("os_steps"),
+        "error": details.get("error"),
     }
+    if detail:
+        out["result_snippet"] = (details.get("result_snippet") or "")[:4000]
+        # Pretty raw details minus huge keys already shown
+        safe = {
+            k: v
+            for k, v in details.items()
+            if k not in ("log_lines",) and not (isinstance(v, str) and len(v) > 8000)
+        }
+        try:
+            out["details_json"] = json.dumps(safe, indent=2, default=str)[:12000]
+        except Exception:
+            out["details_json"] = str(safe)[:4000]
+    return out
 
 
 def get_active_backup_job(session: Session, server_id: int) -> Job | None:
@@ -890,6 +1011,260 @@ async def _run_herder_backup_job(job_id: int, audit_id: int):
 from concurrent.futures import ThreadPoolExecutor
 
 _update_check_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="upd-check")
+# Apply jobs are heavier — serialize globally (one patch stream at a time)
+_patch_apply_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="patch-apply")
+
+
+def _parse_os_apply_steps(raw: str | None) -> list[str]:
+    """Parse Server.os_apply_steps JSON; fall back to safe default."""
+    default = ["update", "upgrade", "autoremove"]
+    if not raw or not str(raw).strip():
+        return default
+    try:
+        data = json.loads(raw)
+        if isinstance(data, list):
+            steps = os_patching.normalize_os_patch_steps([str(x) for x in data])
+            return steps or default
+    except Exception:
+        pass
+    # comma-separated fallback
+    parts = [p.strip() for p in str(raw).split(",") if p.strip()]
+    steps = os_patching.normalize_os_patch_steps(parts)
+    return steps or default
+
+
+def _active_job_of_type(session: Session, server_id: int, job_type: str) -> Job | None:
+    return session.exec(
+        select(Job)
+        .where(Job.server_id == server_id)
+        .where(Job.job_type == job_type)
+        .where(Job.status.in_(["pending", "running"]))
+        .order_by(Job.created_at.desc())
+    ).first()
+
+
+def enqueue_os_patch_apply(
+    server_id: int,
+    user_id: int | None = None,
+    *,
+    scheduled: bool = False,
+    os_steps: list[str] | None = None,
+) -> Job | None:
+    """Create Job + AuditLog and run OS patch on the apply pool (scheduler-safe)."""
+    with _get_fresh_session() as session:
+        server = session.get(Server, server_id)
+        if not server:
+            return None
+        if _active_job_of_type(session, server_id, "os_patch"):
+            logger.info(f"[Jobs] OS apply skip — already active for server {server_id}")
+            return None
+        steps = os_steps
+        if steps is None:
+            steps = _parse_os_apply_steps(getattr(server, "os_apply_steps", None))
+        steps = os_patching.normalize_os_patch_steps(steps) or ["update", "upgrade", "autoremove"]
+        label = "Scheduled OS patch" if scheduled else "OS patch"
+        job = Job(
+            server_id=server.id,
+            job_type="os_patch",
+            status="pending",
+            details=json.dumps({
+                "current": "queued",
+                "log_lines": [f"{label} queued…"],
+                "scheduled": scheduled,
+                "os_steps": steps,
+                "done": False,
+            }),
+        )
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        audit = AuditLog(
+            user_id=user_id,
+            server_id=server.id,
+            action="os_patch",
+            status="running",
+            details=(
+                f"Job #{job.id} started · scheduled · {','.join(steps)}"
+                if scheduled
+                else f"Job #{job.id} started · {','.join(steps)}"
+            ),
+        )
+        session.add(audit)
+        session.commit()
+        session.refresh(audit)
+        jid, aid, sid, step_list = job.id, audit.id, server.id, list(steps)
+    _patch_apply_pool.submit(_execute_os_patch_sync, jid, sid, aid, step_list)
+    return job
+
+
+def enqueue_container_patch_apply(
+    server_id: int,
+    user_id: int | None = None,
+    *,
+    scheduled: bool = False,
+) -> Job | None:
+    """Create Job + AuditLog and run container patch on the apply pool (scheduler-safe)."""
+    with _get_fresh_session() as session:
+        server = session.get(Server, server_id)
+        if not server:
+            return None
+        if _active_job_of_type(session, server_id, "container_patch"):
+            logger.info(f"[Jobs] Container apply skip — already active for server {server_id}")
+            return None
+        label = "Scheduled container patch" if scheduled else "Container patch"
+        job = Job(
+            server_id=server.id,
+            job_type="container_patch",
+            status="pending",
+            details=json.dumps({
+                "current": "queued",
+                "log_lines": [f"{label} queued…"],
+                "scheduled": scheduled,
+                "done": False,
+            }),
+        )
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+        audit = AuditLog(
+            user_id=user_id,
+            server_id=server.id,
+            action="container_patch",
+            status="running",
+            details=(
+                f"Job #{job.id} started · scheduled"
+                if scheduled
+                else f"Job #{job.id} started"
+            ),
+        )
+        session.add(audit)
+        session.commit()
+        session.refresh(audit)
+        jid, aid, sid = job.id, audit.id, server.id
+    _patch_apply_pool.submit(_execute_container_patch_sync, jid, sid, aid)
+    return job
+
+
+def _execute_os_patch_sync(
+    job_id: int, server_id: int, audit_id: int, os_steps: list[str] | None = None
+) -> None:
+    """Thread-pool entry for OS patch (mirrors async _run_os_patch_job without event loop)."""
+    server, hostname = _load_server_for_job(server_id)
+    with _get_fresh_session() as s:
+        job = s.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(job, current="patching", log_line="OS patch started…", done=False)
+            s.add(job)
+            s.commit()
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "os_patch")
+        return
+    try:
+        os_patching.init_os_patch_progress(hostname, "starting scheduled patch…")
+    except Exception:
+        pass
+    try:
+        res = os_patching.run_os_patch(server, selected_steps=os_steps)
+        status = "success" if os_patching.os_patch_succeeded(res) else "failed"
+        post_check: dict | None = None
+        if status == "success":
+            try:
+                os_patching._append_os_log(hostname, "[os] rechecking update counts…")
+                with _get_fresh_session() as s:
+                    j = s.get(Job, job_id)
+                    if j:
+                        _merge_job_details(j, current="rechecking", log_line="Rechecking OS updates…")
+                        s.add(j)
+                        s.commit()
+                check = os_patching.check_os_updates(server)
+                post_check = check if isinstance(check, dict) else None
+                with _get_fresh_session() as s:
+                    _apply_os_check_result(s, server_id, check)
+            except Exception as e:
+                logger.debug(f"post-patch os update refresh: {e}")
+        try:
+            os_patching.mark_os_patch_done(hostname, finished_ok=(status == "success"))
+            os_patching._append_os_log(hostname, f"[os] all done — {status}")
+        except Exception:
+            pass
+        res = os_patching.attach_audit_fields(res, hostname, post_check=post_check)
+        _finish(audit_id, job_id, status, json.dumps(res), hostname, "os_patch")
+    except Exception as e:
+        try:
+            os_patching.mark_os_patch_done(hostname, finished_ok=False)
+            os_patching._append_os_log(hostname, f"[os] ERROR: {e}")
+        except Exception:
+            pass
+        fail_payload = os_patching.attach_audit_fields(
+            {"server": hostname, "error": str(e), "summary": f"Failed: {str(e)[:120]}"},
+            hostname,
+        )
+        _finish(audit_id, job_id, "failed", json.dumps(fail_payload), hostname, "os_patch")
+
+
+def _execute_container_patch_sync(job_id: int, server_id: int, audit_id: int) -> None:
+    """Thread-pool entry for container patch (scheduler-safe)."""
+    server, hostname = _load_server_for_job(server_id)
+    with _get_fresh_session() as s:
+        job = s.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(job, current="starting", log_line="Container patch started…", done=False)
+            s.add(job)
+            s.commit()
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "container_patch")
+        return
+    try:
+        container_patching.init_container_patch_progress(hostname, "starting scheduled container patch…")
+    except Exception:
+        pass
+
+    def _on_progress(current: str, msg: str):
+        _flush_container_progress_to_job(job_id, current, msg)
+
+    try:
+        res = container_patching.run_project_update(server, None, _on_progress)
+        status = "success" if container_patching.container_patch_succeeded(res) else "failed"
+        if status == "success":
+            try:
+                with _get_fresh_session() as s:
+                    j = s.get(Job, job_id)
+                    if j:
+                        _merge_job_details(j, current="rechecking", log_line="Rechecking image updates…")
+                        s.add(j)
+                        s.commit()
+                check = container_patching.check_all_projects_updates(server)
+                with _get_fresh_session() as s:
+                    _apply_container_check_result(s, server_id, check)
+            except Exception as e:
+                logger.debug(f"post-container-patch recheck: {e}")
+        try:
+            container_patching.mark_container_patch_done(hostname, finished_ok=(status == "success"))
+            container_patching.append_container_log(hostname, f"[containers] all done — {status}")
+        except Exception:
+            pass
+        if isinstance(res, dict) and not res.get("summary"):
+            res["summary"] = container_patching.summarize_container_patch(res)
+        snippet = json.dumps(res) if isinstance(res, dict) else str(res)
+        _finish(audit_id, job_id, status, snippet, hostname, "container_patch")
+    except Exception as e:
+        try:
+            container_patching.mark_container_patch_done(hostname, finished_ok=False)
+            container_patching.append_container_log(hostname, f"[containers] ERROR: {e}")
+        except Exception:
+            pass
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps({"error": str(e), "summary": f"Failed: {str(e)[:120]}"}),
+            hostname,
+            "container_patch",
+        )
 
 
 def enqueue_os_update_check(server_id: int, user_id: int | None = None) -> Job | None:

@@ -12,10 +12,19 @@
     {% endif %}
     <div>
       <h1 class="text-3xl font-semibold tracking-tighter text-text">Account</h1>
-      <p class="text-sm text-muted mt-0.5">{{ user.display_name or user.email }}</p>
+      <p class="text-sm text-muted mt-0.5">
+        {{ user.display_name or user.email }}
+        · <span class="status-pill status-running text-[10px]">{{ user_role or user.role or 'admin' }}</span>
+      </p>
     </div>
   </div>
 </div>
+
+{% if is_admin %}
+<div class="mb-4 max-w-2xl">
+  <a href="/auth/users" class="text-sm text-accent hover:underline">Manage users &amp; roles →</a>
+</div>
+{% endif %}
 
 {% if msg %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4 max-w-2xl">
@@ -38,7 +47,8 @@
   {% if error == 'password_required' %}Current password required to change email.
   {% elif error == 'email_taken' %}That email is already in use.
   {% elif error == 'bad_password' %}Current password is incorrect.
-  {% elif error == 'password_short' %}New password must be at least 6 characters.
+  {% elif error == 'password_short' %}New password is too short.
+  {% elif error == 'password_policy' %}Password must be at least 10 characters with upper, lower, and a digit.
   {% elif error == 'password_mismatch' %}New passwords do not match.
   {% elif error == '2fa_already' %}2FA is already enabled.
   {% elif error == '2fa_no_setup' %}Start 2FA setup first.
@@ -113,7 +123,8 @@
   <!-- Password -->
   <div class="card p-5 sm:p-6 space-y-3">
     <h2 class="font-semibold text-text">Password</h2>
-    <form method="post" action="/auth/account/password" class="space-y-3">
+    <p class="text-xs text-muted">At least 10 characters with upper, lower, and a digit (max 72 bytes).</p>
+    <form method="post" action="/auth/account/password" class="space-y-3" id="account-password-form">
       <div>
         <label class="block text-sm text-muted mb-1">Current password</label>
         <input name="current_password" type="password" required autocomplete="current-password"
@@ -121,18 +132,53 @@
       </div>
       <div>
         <label class="block text-sm text-muted mb-1">New password</label>
-        <input name="new_password" type="password" required minlength="6" autocomplete="new-password"
+        <input name="new_password" id="account-new-password" type="password" required minlength="10" autocomplete="new-password"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+        <div class="pw-strength mt-2">
+          <div class="pw-strength-bar"><div class="pw-strength-fill" id="account-pw-fill"></div></div>
+          <div class="text-[10px] text-muted mt-1" id="account-pw-label">Strength</div>
+        </div>
       </div>
       <div>
         <label class="block text-sm text-muted mb-1">Confirm new password</label>
-        <input name="confirm_password" type="password" required minlength="6" autocomplete="new-password"
+        <input name="confirm_password" type="password" required minlength="10" autocomplete="new-password"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
       </div>
       <button type="submit" class="btn btn-accent min-h-11 text-sm">Change password</button>
     </form>
     <p class="text-xs text-muted">Self-hosted recovery: use herder restore or set a new password while logged in. Email reset requires SMTP (not configured).</p>
   </div>
+  <script>
+  (function () {
+    const input = document.getElementById('account-new-password');
+    const fill = document.getElementById('account-pw-fill');
+    const label = document.getElementById('account-pw-label');
+    if (!input || !fill) return;
+    function score(p) {
+      if (!p) return 0;
+      let s = 0;
+      if (p.length >= 10) s++;
+      if (p.length >= 14) s++;
+      let c = 0;
+      if (/[a-z]/.test(p)) c++;
+      if (/[A-Z]/.test(p)) c++;
+      if (/[0-9]/.test(p)) c++;
+      if (/[^A-Za-z0-9]/.test(p)) c++;
+      if (c >= 3) s++;
+      if (c >= 4 && p.length >= 10) s++;
+      return Math.min(4, s);
+    }
+    const labels = ['very weak', 'weak', 'fair', 'good', 'strong'];
+    function upd() {
+      const s = score(input.value || '');
+      fill.style.width = (s * 25) + '%';
+      fill.dataset.score = String(s);
+      if (label) label.textContent = 'Strength: ' + labels[s];
+    }
+    input.addEventListener('input', upd);
+    upd();
+  })();
+  </script>
 
   <!-- 2FA -->
   <div class="card p-5 sm:p-6 space-y-4">
