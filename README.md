@@ -33,7 +33,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **Fleet dashboard** — patch/update attention across hosts; servers list filters and ⋯ action menus (feature-gated).
 - Diagnostics (ping, DNS, system info).
 - Full **audit** trail (filters, pagination 10/20/50); scheduled jobs as system/scheduler.
-- Self-backup of PiHerder config — scheduled via Settings, restore with preview.
+- Self-backup of PiHerder — servers, full users/IAM/2FA, compose versions, Web Push (VAPID + devices), notifications, herder settings, avatars; optional audit; restore with dry-run preview.
 - In-app **notification center** (bell, dismiss, deep links).
 - Optional **Web Push** (VAPID) for fleet alerts on Android and iOS Home Screen PWAs (16.4+); per-user prefs under Account.
 - Installable **PWA** (manifest + service worker + home-screen install).
@@ -50,7 +50,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 
 **Volumes (docker-compose.yml):**
 - `~/backup:/backups` — destination root for per-server rsync backups.
-- `./piherder_backups:/herder_backups` — PiHerder self-backup archives (config, encrypted keys, optional audit). Map a persistent host directory here.
+- `./piherder_backups:/herder_backups` — PiHerder self-backup archives (fleet config, IAM, push keys, avatars, optional audit). Map a persistent host directory here.
 - `./piherder_data:/data` — avatars and other app data (if configured in compose).
 - `./certs:/certs` (Caddy, read-only) — `fullchain.pem` + `privkey.pem` for trusted HTTPS (see `certs/README.md`).
 

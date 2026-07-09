@@ -129,6 +129,28 @@ Per-server backup enable + cron on the server/backups UI. Enqueues **Celery** wo
 
 Settings → self-backup schedule (config-only or full). Separate from per-server rsync backups.
 
+Archives are format **v2** compressed `.tar.gz` under the herder backups volume (`./piherder_backups` → `/herder_backups`).
+
+| Included | Notes |
+|----------|--------|
+| **Servers** | All fields (encrypted SSH keys/passwords, schedules, inventory snapshot, feature flags) |
+| **Users** | Full rows: password **hashes**, roles, profile, encrypted TOTP secret |
+| **TOTP backup codes** + **trusted devices** | 2FA recovery / remember-device state |
+| **Docker compose versions** | Multi-file draft/history per project |
+| **Push VAPID** | Encrypted private key + public key (same `PIHERDER_MASTER_KEY` required on restore) |
+| **Push subscriptions + preferences** | Devices may still need re-permission if browser endpoint died |
+| **Notifications** | Recent open/dismissed alerts (capped) |
+| **Herder settings** | Timezone, force_2FA, self-backup schedule, fleet check defaults (inside JSON) |
+| **Avatars** | Files under `DATA_ROOT/avatars` packed as `data/avatars/…` in the tar |
+| **Audit log** | Only in **full** mode (optional, capped) |
+
+| Not included | Why |
+|--------------|-----|
+| **Jobs** queue | Ephemeral; re-run work as needed |
+| Per-server rsync backup **files** on `~/backup` | Different volume; use normal backup retention |
+
+**Restore:** dry-run previews counts; apply upserts by id/email/endpoint. Encrypted fields only work with the **same master key**. After restore, web may need a restart so the scheduler picks up herder cron / VAPID from DB.
+
 ---
 
 ## 5. Jobs page
@@ -315,4 +337,5 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | Docker multi-file versions | `app/services/docker_versions.py`, compose edit UI |
 | Docker inventory cache | `app/services/docker_inventory.py`, stack fragment in `server_docker.py` |
 | PWA assets | `app/static/manifest.webmanifest`, `app/static/sw.js`, `/sw.js` |
-| Unit tests | `tests/test_rbac.py`, `test_scheduler_apply.py`, `test_jobs_progress.py`, `test_push.py`, `test_metrics.py`, `test_docker_multifile.py`, `test_docker_inventory.py` |
+| Unit tests | `tests/test_rbac.py`, `test_scheduler_apply.py`, `test_jobs_progress.py`, `test_push.py`, `test_metrics.py`, `test_docker_multifile.py`, `test_docker_inventory.py`, `test_herder_backup.py` |
+| Herder self-backup | `app/services/herder_backup.py` |
