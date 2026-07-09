@@ -169,17 +169,21 @@
         {"label": "Settings",  "href": "/herder-backups", "match": "prefix"}
       ] %}
 
+      {# secondary_items: build once, then insert admin-only entries.
+         kind: normal | action | danger — action uses data-action (footer script).
+         Legacy users with missing role match backend normalize_role → admin. #}
       {% set secondary_items = [
-        {"label": "Account",     "href": "/auth/account", "kind": "normal"},
+        {"label": "Account",      "href": "/auth/account", "kind": "normal"},
         {"label": "Toggle theme", "kind": "action", "action": "toggle-theme"},
-        {"label": "Sign out",    "href": "/auth/logout", "kind": "danger"}
+        {"label": "Sign out",     "href": "/auth/logout", "kind": "danger"}
       ] %}
-      {% if user and (user.role or 'admin') == 'admin' %}
+      {% set _user_role = (user.role if user and user.role else 'admin')|lower %}
+      {% if user and _user_role == 'admin' %}
         {% set secondary_items = [
-          {"label": "Account",     "href": "/auth/account", "kind": "normal"},
-          {"label": "Users",       "href": "/auth/users", "kind": "normal"},
-          {"label": "Toggle theme", "kind": "action", "action": "toggle-theme"},
-          {"label": "Sign out",    "href": "/auth/logout", "kind": "danger"}
+          secondary_items[0],
+          {"label": "Users", "href": "/auth/users", "kind": "normal"},
+          secondary_items[1],
+          secondary_items[2]
         ] %}
       {% endif %}
       {# action items use data-action; wired once in the footer script (no inline onclick) #}

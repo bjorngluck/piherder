@@ -36,6 +36,37 @@ def _cron_trigger(cron: str, timezone=None):
     return CronTrigger(**kwargs)
 
 
+def os_apply_skip_reason(server) -> str | None:
+    """Return a short skip reason, or None if OS patch apply should be enqueued.
+
+    Pure helper (no DB/IO) so unit tests can cover schedule guardrails.
+    """
+    if not server:
+        return "missing"
+    if not server.os_patch_enabled or not getattr(server, "os_apply_enabled", False):
+        return "disabled"
+    if getattr(server, "os_apply_only_if_updates", True):
+        count = getattr(server, "os_updates_count", None)
+        if count is not None and int(count) <= 0:
+            return "no_updates"
+    return None
+
+
+def container_apply_skip_reason(server) -> str | None:
+    """Return a short skip reason, or None if container patch apply should be enqueued."""
+    if not server:
+        return "missing"
+    if not server.container_patch_enabled or not getattr(
+        server, "container_apply_enabled", False
+    ):
+        return "disabled"
+    if getattr(server, "container_apply_only_if_updates", True):
+        count = getattr(server, "container_updates_count", None)
+        if count is not None and int(count) <= 0:
+            return "no_updates"
+    return None
+
+
 def schedule_backup_job(server_id: int):
     """Called by APScheduler — enqueue Celery only, never rsync on web."""
     try:
@@ -96,16 +127,15 @@ def schedule_os_apply_job(server_id: int):
             server = db.get(Server, server_id)
             if not server:
                 return
-            if not server.os_patch_enabled or not server.os_apply_enabled:
+            skip = os_apply_skip_reason(server)
+            if skip == "disabled":
                 logger.info(f"[SCHEDULER] OS apply skipped (disabled) for server {server_id}")
                 return
-            if getattr(server, "os_apply_only_if_updates", True):
-                count = server.os_updates_count
-                if count is not None and int(count) <= 0:
-                    logger.info(
-                        f"[SCHEDULER] OS apply skipped (no updates) for server {server_id}"
-                    )
-                    return
+            if skip == "no_updates":
+                logger.info(
+                    f"[SCHEDULER] OS apply skipped (no updates) for server {server_id}"
+                )
+                return
             job = enqueue_os_patch_apply(server.id, user_id=None, scheduled=True)
             if job:
                 logger.info(
@@ -128,19 +158,18 @@ def schedule_container_apply_job(server_id: int):
             server = db.get(Server, server_id)
             if not server:
                 return
-            if not server.container_patch_enabled or not server.container_apply_enabled:
+            skip = container_apply_skip_reason(server)
+            if skip == "disabled":
                 logger.info(
                     f"[SCHEDULER] Container apply skipped (disabled) for server {server_id}"
                 )
                 return
-            if getattr(server, "container_apply_only_if_updates", True):
-                count = server.container_updates_count
-                if count is not None and int(count) <= 0:
-                    logger.info(
-                        f"[SCHEDULER] Container apply skipped (no image updates) "
-                        f"for server {server_id}"
-                    )
-                    return
+            if skip == "no_updates":
+                logger.info(
+                    f"[SCHEDULER] Container apply skipped (no image updates) "
+                    f"for server {server_id}"
+                )
+                return
             job = enqueue_container_patch_apply(server.id, user_id=None, scheduled=True)
             if job:
                 logger.info(
