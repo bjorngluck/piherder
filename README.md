@@ -120,7 +120,7 @@ Pre-built images will be available on Docker Hub so most people don't need to bu
 
 7. Optional: Settings → fleet-wide midnight **update check** schedules; server list / dashboard show pending OS and container updates.
 
-8. Optional **Web Push:** set `VAPID_*` in `.env` (generate command in [docs/ADMIN.md](docs/ADMIN.md)), restart `web`, then Account → **Enable on this device** (Android Chrome over trusted HTTPS).
+8. Optional **Web Push:** VAPID keys are **auto-generated at web startup** and stored encrypted in the DB (optional `VAPID_*` env override). On Android Chrome over trusted HTTPS: Account → **Enable on this device**.
 
 ## Configuration from Legacy Scripts
 

@@ -17,10 +17,13 @@ router = APIRouter()
 
 
 @router.get("/api/push/vapid-public-key")
-async def vapid_public_key(user: User = Depends(get_current_user)):
-    key = push_svc.vapid_public_key()
+async def vapid_public_key(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    key = push_svc.vapid_public_key(session)
     if not key:
-        raise HTTPException(status_code=503, detail="Web Push is not configured")
+        raise HTTPException(status_code=503, detail="Web Push is not available")
     return JSONResponse({"publicKey": key})
 
 
@@ -29,12 +32,14 @@ async def push_status(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    configured = push_svc.is_push_configured()
+    creds = push_svc.ensure_vapid_keys(session)
+    configured = bool(creds)
     pref = push_svc.get_or_create_preference(session, user.id)  # type: ignore[arg-type]
     subs = push_svc.list_subscriptions(session, user.id)  # type: ignore[arg-type]
     return JSONResponse(
         {
             "configured": configured,
+            "vapid_source": creds.source if creds else None,
             "public_url": settings.PIHERDER_PUBLIC_URL,
             "hostname": settings.PIHERDER_HOSTNAME,
             "push_enabled": pref.push_enabled,
@@ -65,8 +70,8 @@ async def push_subscribe(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    if not push_svc.is_push_configured():
-        raise HTTPException(status_code=503, detail="Web Push is not configured")
+    if not push_svc.ensure_vapid_keys(session):
+        raise HTTPException(status_code=503, detail="Web Push is not available")
     try:
         data = await request.json()
     except Exception:

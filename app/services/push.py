@@ -1,15 +1,30 @@
-"""Web Push delivery — optional, VAPID-based, self-hosted friendly."""
+"""Web Push delivery — optional, VAPID-based, self-hosted friendly.
+
+VAPID key resolution order:
+  1. Env VAPID_PUBLIC_KEY + VAPID_PRIVATE_KEY (optional operator override)
+  2. DB row PushVapidConfig (private key Fernet-encrypted)
+  3. Generate once, store encrypted, reuse forever
+"""
 from __future__ import annotations
 
+import base64
 import json
 import logging
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
 from sqlmodel import Session, select
 
 from ..config import settings
-from ..models import Notification, PushPreference, PushSubscription, User
+from ..models import (
+    Notification,
+    PushPreference,
+    PushSubscription,
+    PushVapidConfig,
+    User,
+)
+from ..security.encryption import decrypt_str, encrypt_str
 
 logger = logging.getLogger(__name__)
 
@@ -23,18 +38,153 @@ TYPE_PREF_FIELDS = {
 }
 
 
-def is_push_configured() -> bool:
-    return bool(
-        (settings.VAPID_PUBLIC_KEY or "").strip()
-        and (settings.VAPID_PRIVATE_KEY or "").strip()
-        and (settings.VAPID_CONTACT or "").strip()
+@dataclass(frozen=True)
+class VapidCredentials:
+    public_key: str
+    private_key: str
+    contact: str
+    source: str  # env | db | generated
+
+
+def _default_contact() -> str:
+    contact = (settings.VAPID_CONTACT or "").strip()
+    if contact:
+        return contact if contact.startswith("mailto:") else f"mailto:{contact}"
+    host = (settings.PIHERDER_HOSTNAME or "").strip()
+    if host and host not in ("localhost", "127.0.0.1"):
+        return f"mailto:admin@{host}"
+    return "mailto:piherder@localhost"
+
+
+def _env_credentials() -> Optional[VapidCredentials]:
+    pub = (settings.VAPID_PUBLIC_KEY or "").strip()
+    priv = (settings.VAPID_PRIVATE_KEY or "").strip()
+    if not pub or not priv:
+        return None
+    # Allow escaped newlines from single-line .env PEM
+    priv = priv.replace("\\n", "\n")
+    return VapidCredentials(
+        public_key=pub,
+        private_key=priv,
+        contact=_default_contact(),
+        source="env",
     )
 
 
-def vapid_public_key() -> Optional[str]:
-    if not is_push_configured():
+def _row_to_credentials(row: PushVapidConfig) -> VapidCredentials:
+    return VapidCredentials(
+        public_key=row.public_key,
+        private_key=decrypt_str(row.private_key_encrypted),
+        contact=(row.contact or _default_contact()).strip(),
+        source=row.source or "db",
+    )
+
+
+def _generate_key_pair() -> tuple[str, str]:
+    """Return (public_urlsafe_b64, private_pem)."""
+    from cryptography.hazmat.primitives import serialization
+    from py_vapid import Vapid
+
+    v = Vapid()
+    v.generate_keys()
+    priv = v.private_pem().decode()
+    raw = v.public_key.public_bytes(
+        encoding=serialization.Encoding.X962,
+        format=serialization.PublicFormat.UncompressedPoint,
+    )
+    pub = base64.urlsafe_b64encode(raw).decode().rstrip("=")
+    return pub, priv
+
+
+def _store_generated(session: Session, public_key: str, private_pem: str, contact: str) -> PushVapidConfig:
+    row = PushVapidConfig(
+        public_key=public_key,
+        private_key_encrypted=encrypt_str(private_pem),
+        contact=contact,
+        created_at=datetime.utcnow(),
+        source="generated",
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    logger.info("Generated and stored VAPID application server keys (id=%s)", row.id)
+    return row
+
+
+def ensure_vapid_keys(session: Session) -> Optional[VapidCredentials]:
+    """Ensure VAPID credentials exist. Env wins; else load/create DB row.
+
+    Safe to call repeatedly — never regenerates an existing DB pair.
+    """
+    env = _env_credentials()
+    if env:
+        return env
+
+    try:
+        row = session.exec(select(PushVapidConfig).order_by(PushVapidConfig.id)).first()
+    except Exception as e:
+        logger.warning("Could not load PushVapidConfig: %s", e)
         return None
-    return (settings.VAPID_PUBLIC_KEY or "").strip()
+
+    if row and row.public_key and row.private_key_encrypted:
+        try:
+            return _row_to_credentials(row)
+        except Exception as e:
+            logger.error("Failed to decrypt stored VAPID private key: %s", e)
+            return None
+
+    # Generate once
+    try:
+        pub, priv = _generate_key_pair()
+    except Exception as e:
+        logger.warning("VAPID key generation failed (py_vapid / cryptography): %s", e)
+        return None
+
+    contact = _default_contact()
+    try:
+        row = _store_generated(session, pub, priv, contact)
+        return _row_to_credentials(row)
+    except Exception as e:
+        # Race: another worker inserted first
+        logger.warning("Storing VAPID keys failed (retry load): %s", e)
+        session.rollback()
+        row = session.exec(select(PushVapidConfig).order_by(PushVapidConfig.id)).first()
+        if row:
+            try:
+                return _row_to_credentials(row)
+            except Exception:
+                return None
+        return None
+
+
+def resolve_vapid_keys(session: Optional[Session] = None) -> Optional[VapidCredentials]:
+    """Resolve credentials; opens a short-lived session if none provided."""
+    env = _env_credentials()
+    if env:
+        return env
+
+    own = False
+    if session is None:
+        from ..database import engine
+
+        session = Session(engine)
+        own = True
+    try:
+        return ensure_vapid_keys(session)
+    finally:
+        if own:
+            session.close()
+
+
+def is_push_configured(session: Optional[Session] = None) -> bool:
+    """True when VAPID public+private are available (env or DB/auto)."""
+    creds = resolve_vapid_keys(session)
+    return bool(creds and creds.public_key and creds.private_key and creds.contact)
+
+
+def vapid_public_key(session: Optional[Session] = None) -> Optional[str]:
+    creds = resolve_vapid_keys(session)
+    return creds.public_key if creds else None
 
 
 def get_or_create_preference(session: Session, user_id: int) -> PushPreference:
@@ -69,6 +219,10 @@ def save_subscription(
     auth: str,
     user_agent: Optional[str] = None,
 ) -> PushSubscription:
+    # Ensure keys exist before accepting subscriptions
+    if not ensure_vapid_keys(session):
+        raise ValueError("Web Push is not available (VAPID keys could not be created)")
+
     endpoint = (endpoint or "").strip()
     p256dh = (p256dh or "").strip()
     auth = (auth or "").strip()
@@ -187,7 +341,8 @@ def _delete_subscription_id(session: Session, sub_id: int) -> None:
 
 def send_for_notification(session: Session, notification: Notification) -> int:
     """Send Web Push for a newly created open notification. Returns send attempts succeeded."""
-    if not is_push_configured():
+    creds = ensure_vapid_keys(session)
+    if not creds:
         return 0
 
     # Load active subscriptions with prefs enabled
@@ -218,9 +373,9 @@ def send_for_notification(session: Session, notification: Notification) -> int:
         }
     )
 
-    vapid_claims = {"sub": (settings.VAPID_CONTACT or "").strip()}
-    vapid_private = (settings.VAPID_PRIVATE_KEY or "").strip()
-    vapid_public = (settings.VAPID_PUBLIC_KEY or "").strip()
+    vapid_claims = {"sub": creds.contact}
+    vapid_private = creds.private_key
+    vapid_public = creds.public_key
 
     try:
         from pywebpush import webpush, WebPushException

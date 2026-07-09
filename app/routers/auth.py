@@ -330,10 +330,11 @@ async def account_page(
 
     from ..services import push as push_svc
 
-    push_configured = push_svc.is_push_configured()
+    push_creds = None
     push_prefs = None
     push_subscription_count = 0
     try:
+        push_creds = push_svc.ensure_vapid_keys(session)
         push_prefs = push_svc.get_or_create_preference(session, user.id)
         push_subscription_count = len(push_svc.list_subscriptions(session, user.id))
     except Exception:
@@ -359,7 +360,8 @@ async def account_page(
             "trusted_device_days": settings.TRUSTED_DEVICE_DAYS,
             "user_role": user_role(user),
             "is_admin": user_role(user) == ROLE_ADMIN,
-            "push_configured": push_configured,
+            "push_configured": bool(push_creds),
+            "push_vapid_source": push_creds.source if push_creds else None,
             "push_prefs": push_prefs,
             "push_subscription_count": push_subscription_count,
             "public_url": settings.PIHERDER_PUBLIC_URL,

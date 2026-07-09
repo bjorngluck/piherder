@@ -84,6 +84,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Could not create default user: {e}")
 
+    # Web Push: ensure VAPID keys exist (env override or auto-generate once into DB)
+    try:
+        from .services.push import ensure_vapid_keys
+
+        with Session(engine) as db:
+            creds = ensure_vapid_keys(db)
+            if creds:
+                print(f"Web Push VAPID ready (source={creds.source})")
+            else:
+                print("Web Push VAPID not available (generation failed or py_vapid missing)")
+    except Exception as e:
+        logger.warning("VAPID ensure skipped: %s", e)
+
     # Start APScheduler (per-server schedules + PiHerder self-backup)
     if HAS_SCHEDULER and scheduler and not scheduler.running:
         scheduler.start()

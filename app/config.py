@@ -29,10 +29,11 @@ class Settings(BaseSettings):
     PIHERDER_HOSTNAME: Optional[str] = None  # e.g. piherder.hacknow.com
     PIHERDER_PUBLIC_URL: Optional[str] = None  # e.g. https://piherder.hacknow.com:8443
 
-    # Web Push (VAPID). When unset, push is disabled; in-app alerts still work.
+    # Web Push (VAPID) — optional env override. When unset, keys are auto-generated
+    # once at startup and stored encrypted in the DB (PushVapidConfig).
     VAPID_PUBLIC_KEY: Optional[str] = None
     VAPID_PRIVATE_KEY: Optional[str] = None
-    VAPID_CONTACT: Optional[str] = None  # mailto:admin@example.com
+    VAPID_CONTACT: Optional[str] = None  # mailto:… ; defaults from PIHERDER_HOSTNAME
 
     # Herder self-backup (config + optional audit, compressed to host-mapped dir)
     HERDER_BACKUP_ROOT: str = "/herder_backups"
