@@ -16,6 +16,7 @@ from .routers import auth as auth_router
 from .routers import servers as servers_router
 from .routers import audit as audit_router
 from .routers import notifications as notifications_router
+from .routers import push as push_router
 from . import templates as templates_mod  # shared Jinja instance (avoids circular)
 from .security.auth import get_current_user, get_optional_current_user, get_password_hash
 from .models import User
@@ -122,12 +123,36 @@ async def favicon():
     return FileResponse("app/static/favicon.ico", media_type="image/x-icon")
 
 
+# Root-scoped service worker + manifest for PWA (scope must be /)
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker():
+    from fastapi.responses import FileResponse
+
+    return FileResponse(
+        "app/static/sw.js",
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
+    )
+
+
+@app.get("/manifest.webmanifest", include_in_schema=False)
+async def web_manifest():
+    from fastapi.responses import FileResponse
+
+    return FileResponse(
+        "app/static/manifest.webmanifest",
+        media_type="application/manifest+json",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
 from .routers import jobs_page as jobs_page_router
 
 app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
 app.include_router(servers_router.router, prefix="/servers", tags=["servers"])
 app.include_router(audit_router.router, prefix="", tags=["audit"])
 app.include_router(notifications_router.router, prefix="", tags=["notifications"])
+app.include_router(push_router.router, prefix="", tags=["push"])
 app.include_router(jobs_page_router.router, prefix="", tags=["jobs"])
 
 # Scheduler helpers extracted

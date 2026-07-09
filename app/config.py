@@ -24,6 +24,16 @@ class Settings(BaseSettings):
     WEBHOOK_NUMBER: Optional[str] = None
     WEBHOOK_RECIPIENTS: Optional[str] = None  # JSON string e.g. '["+1..."]'
 
+    # Public origin (trusted HTTPS + PWA / Web Push)
+    # Hostname must match the cert SANs and Caddy site block (compose env PIHERDER_HOSTNAME)
+    PIHERDER_HOSTNAME: Optional[str] = None  # e.g. piherder.hacknow.com
+    PIHERDER_PUBLIC_URL: Optional[str] = None  # e.g. https://piherder.hacknow.com:8443
+
+    # Web Push (VAPID). When unset, push is disabled; in-app alerts still work.
+    VAPID_PUBLIC_KEY: Optional[str] = None
+    VAPID_PRIVATE_KEY: Optional[str] = None
+    VAPID_CONTACT: Optional[str] = None  # mailto:admin@example.com
+
     # Herder self-backup (config + optional audit, compressed to host-mapped dir)
     HERDER_BACKUP_ROOT: str = "/herder_backups"
     HERDER_BACKUP_SCHEDULE: Optional[str] = None  # cron e.g. "0 3 * * *"

@@ -38,6 +38,9 @@
   {% elif msg == 'backup_codes' %}New backup codes generated. Save them now.
   {% elif msg == 'device_revoked' %}Trusted device revoked.
   {% elif msg == 'devices_revoked' %}All trusted devices revoked.
+  {% elif msg == 'push_prefs_saved' %}Push notification preferences saved.
+  {% elif msg == 'push_enabled' %}This device subscribed to push notifications.
+  {% elif msg == 'push_disabled' %}Push unsubscribed on this device.
   {% else %}Saved.{% endif %}
 </div>
 {% endif %}
@@ -307,6 +310,65 @@
     .twofa-qr svg { width: 200px; height: 200px; display: block; }
   </style>
   {% endif %}
+
+  <!-- Push notifications (Android / Web Push) -->
+  <div class="card p-5 sm:p-6 space-y-4">
+    <h2 class="font-semibold text-text">Push notifications</h2>
+    <p class="text-sm text-muted">
+      Optional browser push for fleet alerts (backup failed, OS updates, reboot pending, etc.).
+      Best on <strong>Android Chrome</strong> with the app installed over trusted HTTPS.
+    </p>
+
+    {% if not push_configured %}
+    <p class="text-sm banner-warning border border-border rounded p-3">
+      Web Push is not configured on this server (VAPID keys missing).
+      Ask an admin to set <code class="text-xs">VAPID_PUBLIC_KEY</code>,
+      <code class="text-xs">VAPID_PRIVATE_KEY</code>, and <code class="text-xs">VAPID_CONTACT</code>
+      — see <span class="font-medium">docs/ADMIN.md</span>.
+    </p>
+    {% else %}
+    <div class="flex flex-wrap gap-2 items-center">
+      <button type="button" id="push-enable-btn" class="btn btn-accent min-h-11 text-sm">Enable on this device</button>
+      <button type="button" id="push-disable-btn" class="btn btn-secondary min-h-11 text-sm">Unsubscribe this device</button>
+    </div>
+    <p id="push-client-status" class="text-xs text-muted"></p>
+    <p class="text-xs text-muted">
+      Active device subscriptions: <strong>{{ push_subscription_count }}</strong>
+      {% if public_url %} · Public URL: <code class="text-[10px]">{{ public_url }}</code>{% endif %}
+    </p>
+
+    <form method="post" action="/auth/account/push-preferences" class="space-y-3 border-t border-border pt-4">
+      <div class="text-sm font-medium text-text">Which events to push</div>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="push_enabled" {% if push_prefs and push_prefs.push_enabled %}checked{% endif %}>
+        Master switch (enable push delivery)
+      </label>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm pl-1">
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="backup_failed" {% if not push_prefs or push_prefs.backup_failed %}checked{% endif %}>
+          Backup failed
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="os_updates" {% if not push_prefs or push_prefs.os_updates %}checked{% endif %}>
+          OS updates available
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="reboot_pending" {% if not push_prefs or push_prefs.reboot_pending %}checked{% endif %}>
+          Reboot pending
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="container_updates" {% if not push_prefs or push_prefs.container_updates %}checked{% endif %}>
+          Container image updates
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="herder_backup_failed" {% if not push_prefs or push_prefs.herder_backup_failed %}checked{% endif %}>
+          PiHerder self-backup failed
+        </label>
+      </div>
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save push preferences</button>
+    </form>
+    {% endif %}
+  </div>
 
   <!-- Trusted devices -->
   {% if user.totp_enabled %}

@@ -1,42 +1,46 @@
-# PiHerder Caddyfile
-# Using non-standard ports (8888/8443) to avoid conflict with other services (pi-hole etc.)
+# PiHerder Caddyfile — production-oriented
+# Host ports (compose): 8888→80 (HTTP), 8443→443 (HTTPS)
+# Trusted TLS: place fullchain.pem + privkey.pem in ./certs (mounted at /certs)
+# Hostname: set PIHERDER_HOSTNAME in .env (e.g. piherder.hacknow.com)
+#
+# Local dev without certs: use Caddyfile.dev (see docs/ADMIN.md)
 
 {
-    admin off
-    # Completely disable Caddy's automatic HTTPS behavior.
-    # This prevents http://ip:8888 from redirecting to https://ip (port 443).
-    # We are using non-standard ports (8888/8443) because 80/443 are taken
-    # by other services on this host (e.g. pi-hole).
-    auto_https off
+	admin off
+	# Non-standard host ports; do not auto-redirect HTTP→HTTPS on 443
+	auto_https off
 }
 
-# HTTP - maps to host:8888
+# HTTP — host :8888
 :80 {
-    reverse_proxy web:8000 {
-        header_up X-Real-IP {remote}
-        header_up X-Forwarded-For {remote}
-        header_up X-Forwarded-Proto {scheme}
-    }
-    encode gzip
+	# When Host matches public hostname, send browsers to HTTPS on host port 8443
+	@public host {$PIHERDER_HOSTNAME}
+	redir @public https://{$PIHERDER_HOSTNAME}:8443{uri} 308
+
+	reverse_proxy web:8000 {
+		header_up X-Real-IP {remote}
+		header_up X-Forwarded-For {remote}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
+	encode gzip
 }
 
-# HTTPS - maps to host:8443
-# Uses self-signed cert (Caddy "internal"). Browser will warn.
-:443 {
-    tls internal
+# HTTPS — host :8443 — volume-mounted trusted certificate
+{$PIHERDER_HOSTNAME}:443 {
+	tls /certs/fullchain.pem /certs/privkey.pem
 
-    reverse_proxy web:8000 {
-        header_up X-Real-IP {remote}
-        header_up X-Forwarded-For {remote}
-        header_up X-Forwarded-Proto {scheme}
-    }
+	reverse_proxy web:8000 {
+		header_up X-Real-IP {remote}
+		header_up X-Forwarded-For {remote}
+		header_up X-Forwarded-Proto https
+		header_up X-Forwarded-Host {host}
+	}
 
-    header {
-        X-Content-Type-Options "nosniff"
-        X-Frame-Options "DENY"
-        Referrer-Policy "no-referrer-when-downgrade"
-    }
-
-    encode gzip
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer-when-downgrade"
+	}
+	encode gzip
 }
-

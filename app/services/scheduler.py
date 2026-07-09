@@ -390,6 +390,11 @@ def schedule_herder_backup_job():
                 )
                 s.add(al)
                 s.commit()
+                try:
+                    from .notifications import resolve_by_fingerprint
+                    resolve_by_fingerprint(s, "herder_backup_failed")
+                except Exception:
+                    pass
         except Exception:
             pass
     except Exception as e:

@@ -11,8 +11,9 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 
 - **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)
 - **Specification & roadmap:** [SPEC.md](SPEC.md) — link this to your [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) board
-- **Admin guide (RBAC, users, schedules, jobs):** [docs/ADMIN.md](docs/ADMIN.md)
+- **Admin guide (RBAC, users, schedules, jobs, TLS/PWA/push):** [docs/ADMIN.md](docs/ADMIN.md)
 - **IAM / 2FA / update checks / notifications (design + status):** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- **PWA + Android Web Push (design + status):** [docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md)
 - **Stabilisation plan:** [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
 - **UI unification plan:** [UI_UNIFICATION_PLAN.md](UI_UNIFICATION_PLAN.md) (complete)
 
@@ -33,8 +34,10 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - Full **audit** trail (filters, pagination 10/20/50); scheduled jobs as system/scheduler.
 - Self-backup of PiHerder config — scheduled via Settings, restore with preview.
 - In-app **notification center** (bell, dismiss, deep links).
+- Optional **Web Push** (VAPID) for fleet alerts on Android; per-user prefs under Account.
+- Installable **PWA** (manifest + service worker + home-screen install).
 - Link to Pi-hole admin from dashboard (configurable).
-- HTTPS via Caddy (Let's Encrypt).
+- HTTPS via Caddy with **operator-supplied TLS certs** (volume `./certs`) and `PIHERDER_HOSTNAME` (default ports **8888** HTTP / **8443** HTTPS).
 
 ### Account & security
 - User profile: display name, email, avatar, password change; registration locks after first user.
@@ -48,6 +51,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - `~/backup:/backups` — destination root for per-server rsync backups.
 - `./piherder_backups:/herder_backups` — PiHerder self-backup archives (config, encrypted keys, optional audit). Map a persistent host directory here.
 - `./piherder_data:/data` — avatars and other app data (if configured in compose).
+- `./certs:/certs` (Caddy, read-only) — `fullchain.pem` + `privkey.pem` for trusted HTTPS (see `certs/README.md`).
 
 ## Tech Stack
 
@@ -83,25 +87,40 @@ Pre-built images will be available on Docker Hub so most people don't need to bu
    ```
    Paste into `.env` as `PIHERDER_MASTER_KEY=...`
 
-3. Start everything:
+3. **Public hostname + TLS (recommended for PWA / push on phones):**
+   ```bash
+   # .env
+   PIHERDER_HOSTNAME=piherder.example.com
+   PIHERDER_PUBLIC_URL=https://piherder.example.com:8443
+   ```
+   Place trusted PEMs in `certs/fullchain.pem` and `certs/privkey.pem` (gitignored).  
+   Local-only / no certs yet: mount `Caddyfile.dev` instead of `Caddyfile` (self-signed; Android push unreliable).  
+   Full steps: [docs/ADMIN.md](docs/ADMIN.md) §6.
+
+4. Start everything:
    ```bash
    docker compose up -d --build
    ```
 
-4. Open https://localhost (or your configured domain). Caddy will handle TLS.
+5. Open the app:
+   - With certs + hostname: `https://your.host:8443` (or your `PIHERDER_PUBLIC_URL`)
+   - Direct to the web container (no Caddy): `http://localhost:8000`
+   - Compose Caddy ports: **8888** → HTTP, **8443** → HTTPS
 
    - First visit: register the initial admin user (further open registration is locked after the first account).
-   - Account → optional 2FA, profile, avatar.
+   - Account → optional 2FA, profile, avatar; optional **Push notifications** after VAPID keys are set.
    - Add your first server (generate keypair recommended). Optionally store a one-time SSH password for deploy.
 
-5. On the target host / from PiHerder **SSH access**:
+6. On the target host / from PiHerder **SSH access**:
    - **Deploy key** (password session if needed) or copy the install script into `authorized_keys`.
    - **Test connection**, then clear any stored password once key auth works.
    - Optional least-priv user (**Pi OS / Ubuntu**): limited sudoers + docker group; **Run on host** or copy-paste script. **HAOS:** deploy key as root; plain rsync is auto-detected.
    - **Option B (recommended for least-priv + existing stacks under another home):** set **Docker base dir** to an absolute path (e.g. `/home/bjorn/docker`), then run the **Option B ACL script** from SSH access so the service user can traverse that tree. `~/docker` expands to the *SSH* user’s home and breaks restart/build/logs after re-pointing to `piherder`.
    - Otherwise ensure passwordless sudo for apt/docker/rsync as needed, and `docker` group for container ops.
 
-6. Optional: Settings → fleet-wide midnight **update check** schedules; server list / dashboard show pending OS and container updates.
+7. Optional: Settings → fleet-wide midnight **update check** schedules; server list / dashboard show pending OS and container updates.
+
+8. Optional **Web Push:** set `VAPID_*` in `.env` (generate command in [docs/ADMIN.md](docs/ADMIN.md)), restart `web`, then Account → **Enable on this device** (Android Chrome over trusted HTTPS).
 
 ## Configuration from Legacy Scripts
 
@@ -146,7 +165,8 @@ For external systems you can still call HTTP APIs where exposed (auth required);
 - Prefer key auth; clear stored SSH passwords after **Deploy key** succeeds.
 - Optional app 2FA (TOTP); backup codes for recovery; trusted devices are revocable.
 - All privileged access audited.
-- Use strong unique passwords + HTTPS.
+- Use strong unique passwords + **trusted** HTTPS for production and mobile push.
+- Do not commit `certs/*.pem`, `.env`, or VAPID private keys.
 
 ## Development
 
@@ -173,6 +193,8 @@ docker compose run --rm --no-deps web pytest -q
 
 - `~/backup:/backups` — per-server backup destination (rsync targets land here).
 - `./piherder_backups:/herder_backups` — self-backup archives for PiHerder itself.
+- `./piherder_data:/data` — avatars / app data.
+- `./certs` → Caddy `/certs` — TLS PEMs (not committed).
 
 Bind-mount host directories as needed for persistence.
 
@@ -180,9 +202,9 @@ Bind-mount host directories as needed for persistence.
 
 See **[SPEC.md](SPEC.md)** for the full specification, architecture, and phased roadmap.
 
-**Recently completed (high level):** patch apply schedules, RBAC + user admin, fleet Jobs page, backup restore wizard, password policy / force-2FA, Docker mount sizes, IAM/2FA, update checks, SSH onboarding, job queue, path policy, Alembic + pytest.
+**Recently completed (high level):** PWA + Android Web Push, trusted TLS via cert volume + hostname, patch apply schedules, RBAC + user admin, fleet Jobs page, backup restore wizard, password policy / force-2FA, Docker mount sizes, IAM/2FA, update checks, SSH onboarding, job queue, path policy, Alembic + pytest.
 
-**Still open (examples):** webhooks end-to-end, token REST API, Docker Hub image, compose multi-file/env UI polish, Prometheus, Ansible bootstrap.
+**Still open (examples):** token REST API, Docker Hub image, compose multi-file/env UI polish, Prometheus, Ansible bootstrap, iOS push investigation.
 
 To track work in a GitHub Project: link the `piherder` repo, then create issues from the unchecked items in SPEC.md.
 

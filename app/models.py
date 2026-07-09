@@ -250,3 +250,29 @@ class Notification(SQLModel, table=True):
     dismissed_at: Optional[datetime] = None
     resolved_at: Optional[datetime] = None
     read_at: Optional[datetime] = None
+
+
+class PushSubscription(SQLModel, table=True):
+    """Browser Web Push subscription (one row per device/endpoint)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    endpoint: str = Field(unique=True, index=True)
+    p256dh: str
+    auth: str
+    user_agent: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_success_at: Optional[datetime] = None
+    disabled_at: Optional[datetime] = None
+
+
+class PushPreference(SQLModel, table=True):
+    """Per-user Web Push master switch and event-type filters."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", unique=True, index=True)
+    push_enabled: bool = False
+    backup_failed: bool = True
+    os_updates: bool = True
+    reboot_pending: bool = True
+    container_updates: bool = True
+    herder_backup_failed: bool = True
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

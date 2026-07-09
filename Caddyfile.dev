@@ -1,0 +1,40 @@
+# PiHerder Caddyfile — local / self-signed fallback
+# Use when you do not have trusted certs yet:
+#   docker compose run is not needed — either:
+#     volumes: - ./Caddyfile.dev:/etc/caddy/Caddyfile:ro
+#   or temporarily replace Caddyfile contents.
+#
+# Self-signed (tls internal) — browsers warn; Android Web Push will not work reliably.
+
+{
+	admin off
+	auto_https off
+}
+
+:80 {
+	reverse_proxy web:8000 {
+		header_up X-Real-IP {remote}
+		header_up X-Forwarded-For {remote}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-Host {host}
+	}
+	encode gzip
+}
+
+:443 {
+	tls internal
+
+	reverse_proxy web:8000 {
+		header_up X-Real-IP {remote}
+		header_up X-Forwarded-For {remote}
+		header_up X-Forwarded-Proto https
+		header_up X-Forwarded-Host {host}
+	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer-when-downgrade"
+	}
+	encode gzip
+}

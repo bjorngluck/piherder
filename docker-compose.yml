@@ -11,6 +11,11 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
       - DATA_ROOT=/data
+      - PIHERDER_HOSTNAME=${PIHERDER_HOSTNAME:-}
+      - PIHERDER_PUBLIC_URL=${PIHERDER_PUBLIC_URL:-}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_CONTACT=${VAPID_CONTACT:-}
     volumes:
       - ~/backup:/backups
       - ./piherder_backups:/herder_backups
@@ -72,8 +77,13 @@ services:
     ports:
       - "8888:80"
       - "8443:443"
+    environment:
+      # Public hostname for the HTTPS site block (e.g. piherder.hacknow.com)
+      - PIHERDER_HOSTNAME=${PIHERDER_HOSTNAME:-localhost}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Trusted TLS: place fullchain.pem + privkey.pem here (see certs/README.md)
+      - ./certs:/certs:ro
       - caddy_data:/data
       - caddy_config:/config
     restart: unless-stopped
