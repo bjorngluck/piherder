@@ -1,13 +1,13 @@
 # PiHerder Stabilisation Decision Plan
 
 **Date:** 2026-07-09  
-**Status:** Phase 1 complete (testing expansion, job/progress light refactor, menu hardening)  
+**Status:** Phase 2 complete (admin docs) · Phase 1 complete (tests, jobs helpers, menu)  
 **Goal:** Stabilise recent major feature additions (RBAC, scheduling, jobs, restore wizard, live progress) and improve overall quality before adding more functionality.
 
 **Phase tracking:**
 1. **Short Stabilisation Sprint** — done (tests + jobs helpers + menu single-source harden)
-2. **Documentation Sprint** — next (RBAC, user admin, scheduling, jobs page)
-3. **Polish Pass** — after docs
+2. **Documentation Sprint** — done → [ADMIN.md](ADMIN.md) (RBAC, users, security policy, schedules, Jobs)
+3. **Polish Pass** — next (headers, empty states, light consistency)
 4. Resume feature development
 
 ---
@@ -59,17 +59,14 @@
 
 ### 4. Documentation for Admin Features
 
-**Decision needed:** How much documentation do we create now?
+**Status:** Done — see [ADMIN.md](ADMIN.md). Linked from README + SPEC.
 
-**Recommended approach:**
-- Create clear, concise documentation for:
-  - RBAC roles and what each can do
-  - User administration (creating users, password policy, force 2FA)
-  - Patch scheduling
-  - Jobs page
-- Keep it in the repo (e.g. `docs/` folder) and link from README + SPEC.
-
-**Action:** Draft a documentation structure + start writing the most important sections.
+**Delivered:**
+- RBAC roles and enforcement matrix
+- User administration (create, password policy, sole admin, invite)
+- Force 2FA security policy
+- Update-check vs patch-apply schedules + skip rules
+- Jobs page, progress, vs audit/notifications
 
 ---
 

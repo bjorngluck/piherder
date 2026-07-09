@@ -11,7 +11,9 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 
 - **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)
 - **Specification & roadmap:** [SPEC.md](SPEC.md) — link this to your [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) board
+- **Admin guide (RBAC, users, schedules, jobs):** [docs/ADMIN.md](docs/ADMIN.md)
 - **IAM / 2FA / update checks / notifications (design + status):** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- **Stabilisation plan:** [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
 - **UI unification plan:** [UI_UNIFICATION_PLAN.md](UI_UNIFICATION_PLAN.md) (complete)
 
 ## Features
