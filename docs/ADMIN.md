@@ -208,7 +208,8 @@ Contact claim defaults to `VAPID_CONTACT` if set, else `mailto:admin@<PIHERDER_H
 1. Ensure trusted HTTPS + hostname (above) — Android push needs a secure origin.
 2. Start/restart **web** — logs should show `Web Push VAPID ready (source=generated)` (or `source=env` if overriding).
 3. In the UI: **Account → Push notifications → Enable on this device** (Android Chrome preferred; grant permission).
-4. Toggle event types (backup failed, OS updates, reboot pending, …) and save.
+4. Use **Send test notification** to verify delivery to your devices only (not the whole fleet).
+5. Toggle event types (backup failed, OS updates, reboot pending, …) and save.
 
 Push fires only when a **new** open in-app notification is created (not on every fingerprint refresh).
 

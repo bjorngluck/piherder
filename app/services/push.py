@@ -339,43 +339,16 @@ def _delete_subscription_id(session: Session, sub_id: int) -> None:
         session.commit()
 
 
-def send_for_notification(session: Session, notification: Notification) -> int:
-    """Send Web Push for a newly created open notification. Returns send attempts succeeded."""
-    creds = ensure_vapid_keys(session)
-    if not creds:
-        return 0
-
-    # Load active subscriptions with prefs enabled
-    subs = list(
-        session.exec(
-            select(PushSubscription).where(PushSubscription.disabled_at.is_(None))
-        ).all()
-    )
+def _deliver_payload(
+    session: Session,
+    *,
+    subs: list[PushSubscription],
+    payload: dict[str, Any],
+    creds: VapidCredentials,
+) -> int:
+    """Send a JSON payload to the given subscriptions. Returns successful sends."""
     if not subs:
         return 0
-
-    # Prefetch prefs by user
-    user_ids = {s.user_id for s in subs}
-    prefs = {
-        p.user_id: p
-        for p in session.exec(
-            select(PushPreference).where(PushPreference.user_id.in_(user_ids))
-        ).all()
-    }
-
-    payload = json.dumps(
-        {
-            "title": notification.title,
-            "body": notification.body or "",
-            "url": notification.link_url or "/notifications",
-            "tag": notification.fingerprint,
-            "severity": notification.severity or "warning",
-        }
-    )
-
-    vapid_claims = {"sub": creds.contact}
-    vapid_private = creds.private_key
-    vapid_public = creds.public_key
 
     try:
         from pywebpush import webpush, WebPushException
@@ -383,18 +356,17 @@ def send_for_notification(session: Session, notification: Notification) -> int:
         logger.warning("pywebpush not installed — skip push send")
         return 0
 
+    data = json.dumps(payload)
+    vapid_claims = {"sub": creds.contact}
     sent = 0
     for sub in subs:
-        pref = prefs.get(sub.user_id)
-        if not pref or not preference_allows(pref, notification.type):
-            continue
         try:
             webpush(
                 subscription_info=_subscription_info(sub),
-                data=payload,
-                vapid_private_key=vapid_private,
+                data=data,
+                vapid_private_key=creds.private_key,
                 vapid_claims=vapid_claims,
-                vapid_public_key=vapid_public,
+                vapid_public_key=creds.public_key,
                 timeout=10,
             )
             sub.last_success_at = datetime.utcnow()
@@ -420,3 +392,71 @@ def send_for_notification(session: Session, notification: Notification) -> int:
         except Exception:
             pass
     return sent
+
+
+def send_for_notification(session: Session, notification: Notification) -> int:
+    """Send Web Push for a newly created open notification. Returns send attempts succeeded."""
+    creds = ensure_vapid_keys(session)
+    if not creds:
+        return 0
+
+    # Load active subscriptions with prefs enabled
+    subs = list(
+        session.exec(
+            select(PushSubscription).where(PushSubscription.disabled_at.is_(None))
+        ).all()
+    )
+    if not subs:
+        return 0
+
+    # Prefetch prefs by user
+    user_ids = {s.user_id for s in subs}
+    prefs = {
+        p.user_id: p
+        for p in session.exec(
+            select(PushPreference).where(PushPreference.user_id.in_(user_ids))
+        ).all()
+    }
+
+    targets = [
+        s
+        for s in subs
+        if (pref := prefs.get(s.user_id)) and preference_allows(pref, notification.type)
+    ]
+    payload = {
+        "title": notification.title,
+        "body": notification.body or "",
+        "url": notification.link_url or "/notifications",
+        "tag": notification.fingerprint,
+        "severity": notification.severity or "warning",
+    }
+    return _deliver_payload(session, subs=targets, payload=payload, creds=creds)
+
+
+def send_test_to_user(session: Session, user: User) -> dict[str, Any]:
+    """Send a test push to this user's devices only (ignores event prefs).
+
+    Returns {ok, sent, devices, error?}.
+    """
+    creds = ensure_vapid_keys(session)
+    if not creds:
+        return {"ok": False, "sent": 0, "devices": 0, "error": "vapid_unavailable"}
+
+    subs = list_subscriptions(session, user.id)  # type: ignore[arg-type]
+    if not subs:
+        return {"ok": False, "sent": 0, "devices": 0, "error": "no_subscription"}
+
+    payload = {
+        "title": "PiHerder test notification",
+        "body": "Push is working on this device. You can dismiss this.",
+        "url": "/auth/account",
+        "tag": f"test-push:user:{user.id}",
+        "severity": "info",
+    }
+    sent = _deliver_payload(session, subs=subs, payload=payload, creds=creds)
+    return {
+        "ok": sent > 0,
+        "sent": sent,
+        "devices": len(subs),
+        "error": None if sent > 0 else "send_failed",
+    }

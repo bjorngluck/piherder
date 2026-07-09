@@ -294,6 +294,7 @@ async def account_page(
 ):
     msg = request.query_params.get("msg")
     err = request.query_params.get("error")
+    push_sent = request.query_params.get("push_sent")
     devices = list_trusted_devices(session, user.id)
     backup_remaining = len(
         session.exec(
@@ -365,6 +366,7 @@ async def account_page(
             "push_prefs": push_prefs,
             "push_subscription_count": push_subscription_count,
             "public_url": settings.PIHERDER_PUBLIC_URL,
+            "push_sent": push_sent,
         },
     )
 
