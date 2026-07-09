@@ -72,16 +72,13 @@
 
 ### 5. UI Polish & Consistency Pass
 
-**Decision needed:** How much polish do we do before moving to new features?
+**Status:** Done (lightweight).
 
-**Recommended approach:**
-- Short, focused polish pass on:
-  - Consistent page headers and action patterns
-  - Loading / empty states
-  - Minor visual inconsistencies across screens
-- Keep it lightweight — aim for noticeable improvement without major time investment.
-
-**Action:** Create a short UI polish checklist and tackle the highest-impact items.
+**Delivered:**
+- Shared `.empty-state` styles in `themes.css`
+- Clearer empty / no-filter-match cards on Jobs, Audit, Notifications, Servers
+- Servers header spacing aligned (`mb-6`); Users header uses standard `page-header-actions`
+- Server detail Jobs panel + Settings archive empty hints
 
 ---
 
