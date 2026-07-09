@@ -339,6 +339,16 @@ def _delete_subscription_id(session: Session, sub_id: int) -> None:
         session.commit()
 
 
+def _vapid_private_for_webpush(private_key_pem: str):
+    """pywebpush mishandles multi-line PEM strings; pass a Vapid instance instead."""
+    from py_vapid import Vapid
+
+    pem = (private_key_pem or "").replace("\\n", "\n").strip()
+    if not pem:
+        raise ValueError("empty VAPID private key")
+    return Vapid.from_pem(pem.encode("utf-8"))
+
+
 def _deliver_payload(
     session: Session,
     *,
@@ -356,18 +366,25 @@ def _deliver_payload(
         logger.warning("pywebpush not installed — skip push send")
         return 0
 
+    try:
+        vapid_key = _vapid_private_for_webpush(creds.private_key)
+    except Exception as e:
+        logger.error("Invalid VAPID private key for webpush: %s", e)
+        return 0
+
     data = json.dumps(payload)
     vapid_claims = {"sub": creds.contact}
     sent = 0
     for sub in subs:
         try:
+            # pywebpush 2.x: no vapid_public_key kwarg; pass Vapid instance (not raw PEM str)
             webpush(
                 subscription_info=_subscription_info(sub),
                 data=data,
-                vapid_private_key=creds.private_key,
+                vapid_private_key=vapid_key,
                 vapid_claims=vapid_claims,
-                vapid_public_key=creds.public_key,
                 timeout=10,
+                ttl=86400,
             )
             sub.last_success_at = datetime.utcnow()
             session.add(sub)
