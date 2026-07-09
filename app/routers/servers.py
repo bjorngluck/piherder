@@ -412,6 +412,8 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
     overall_last_backup = None
     last_backup_status = None
     recent_backups = []
+    recent_jobs = []
+    active_jobs = []
     global_backup_defaults = {}
     current_sources = []
     diagnostics = {"error": "n/a"}
@@ -449,6 +451,11 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
             .order_by(AuditLog.started_at.desc())
             .limit(10)
         ).all()
+
+        recent_jobs = job_service.list_jobs_for_server(session, server.id, limit=20)
+        active_jobs = job_service.list_jobs_for_server(
+            session, server.id, limit=10, active_only=True
+        )
 
         for log in recent_backups:
             object.__setattr__(log, 'parsed', None)
@@ -499,6 +506,8 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
             "overall_last_backup": overall_last_backup,
             "last_backup_status": last_backup_status,
             "recent_backups": recent_backups,
+            "recent_jobs": recent_jobs,
+            "active_jobs": active_jobs,
             "current_backup_job": current_backup_job,
             "running_backup_job": job_service.get_running_backup_job(session, server.id),
             "full_backup_job": job_service.get_active_job_for_source(session, server.id, None),
@@ -1189,6 +1198,35 @@ async def run_os_patch(
     return RedirectResponse(_server_redirect(server_id), status_code=303)
 
 
+@router.get("/{server_id}/jobs", response_class=JSONResponse)
+async def list_server_jobs(
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    limit: int = 25,
+    status: Optional[str] = None,
+    job_type: Optional[str] = None,
+    active_only: bool = False,
+):
+    """Queue + history for a server (running/pending and recent finished)."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    jobs = job_service.list_jobs_for_server(
+        session,
+        server_id,
+        limit=limit,
+        status=status,
+        job_type=job_type,
+        active_only=active_only,
+    )
+    return {
+        "server_id": server_id,
+        "jobs": [job_service.job_public_dict(j) for j in jobs],
+        "active_count": sum(1 for j in jobs if j.status in ("pending", "running")),
+    }
+
+
 @router.get("/{server_id}/jobs/{job_id}", response_class=JSONResponse)
 async def get_server_job_status(
     server_id: int,
@@ -1200,6 +1238,7 @@ async def get_server_job_status(
     job = session.get(Job, job_id)
     if not job or job.server_id != server_id:
         raise HTTPException(404)
+    server = session.get(Server, server_id)
     details: dict = {}
     if job.details:
         try:
@@ -1208,14 +1247,38 @@ async def get_server_job_status(
                 details = parsed
         except Exception:
             details = {"raw": (job.details or "")[:400]}
+    log_lines = list(details.get("log_lines") or [])
+    current = details.get("current")
+    # Merge live in-memory tails so JobHold shows progress before DB flush catches up
+    if server and job.status in ("pending", "running"):
+        host = server.hostname or ""
+        if job.job_type == "container_patch":
+            try:
+                from ..services import container_patching
+                prog = container_patching.get_container_patch_progress(host)
+                if prog.get("log_lines"):
+                    log_lines = prog["log_lines"]
+                if prog.get("current"):
+                    current = prog["current"]
+            except Exception:
+                pass
+        elif job.job_type == "os_patch":
+            try:
+                prog = os_patching.get_os_patch_progress(host)
+                if prog.get("log_lines"):
+                    log_lines = prog["log_lines"]
+                if prog.get("current"):
+                    current = prog["current"]
+            except Exception:
+                pass
     done = job.status in ("success", "failed")
     return {
         "job_id": job.id,
         "job_type": job.job_type,
         "status": job.status,
         "done": done or bool(details.get("done")),
-        "current": details.get("current"),
-        "log_lines": details.get("log_lines") or [],
+        "current": current,
+        "log_lines": log_lines,
         "summary": details.get("summary") or "",
         "finished_at": job.finished_at.isoformat() if job.finished_at else None,
     }

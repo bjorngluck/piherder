@@ -81,6 +81,10 @@ class Server(SQLModel, table=True):
     backup_dest_root: Optional[str] = None  # e.g. custom root instead of global BACKUP_ROOT
     backup_folder_name: Optional[str] = None  # e.g. custom folder instead of hostname slug
 
+    # Backup source path policy JSON: {"allow":["/home","/var/lib/docker"],"deny":["/tmp"]}
+    # Empty allow = any path not denied. Defaults always deny OS roots (/etc,/boot,…).
+    backup_path_rules: Optional[str] = None
+
     # Manual ordering in server list (0 = use name alpha, higher/lower for custom order)
     sort_order: int = Field(default=0)
 

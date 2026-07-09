@@ -138,6 +138,32 @@
     </div>
   </form>
   <div id="add-source-error" class="text-danger text-xs mt-1 hidden"></div>
+  <p class="text-[10px] text-muted mb-4">Paths must be absolute. OS roots (<code>/etc</code>, <code>/boot</code>, …) are denied by default — see path policy below.</p>
+
+  <div class="border-t border-border pt-4 mb-4">
+    <h3 class="font-semibold text-sm text-text mb-1">Path allow / deny policy</h3>
+    <p class="text-xs text-muted mb-3">
+      Deny always wins. If allow is non-empty, sources must match an allow prefix.
+      Built-in denials (always on unless overridden by allow for non-root):
+      <span class="font-mono">{{ (default_deny_paths or [])[:8] | join(', ') }}{% if (default_deny_paths or [])|length > 8 %}, …{% endif %}</span>
+    </p>
+    {% set pr = path_rules if path_rules is mapping else {'allow': [], 'deny': []} %}
+    <form method="post" action="/servers/{{ server.id }}/backup-path-rules" class="grid gap-3 sm:grid-cols-2">
+      <div>
+        <label class="block text-xs text-muted mb-1">Allow prefixes (one per line)</label>
+        <textarea name="allow_paths" rows="4" class="w-full bg-surface border border-border text-xs px-2 py-2 rounded font-mono"
+          placeholder="/home&#10;/var/lib/docker">{{ (pr.allow or []) | join('\n') }}</textarea>
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1">Extra deny prefixes (one per line)</label>
+        <textarea name="deny_paths" rows="4" class="w-full bg-surface border border-border text-xs px-2 py-2 rounded font-mono"
+          placeholder="/tmp&#10;/var/tmp">{{ (pr.deny or []) | join('\n') }}</textarea>
+      </div>
+      <div class="sm:col-span-2">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save path policy</button>
+      </div>
+    </form>
+  </div>
 
   <div class="border-t border-border pt-4">
     <form method="post" action="/servers/{{ server.id }}/backup-config" class="flex flex-wrap gap-2 items-end text-sm mb-2">

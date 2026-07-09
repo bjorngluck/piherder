@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** v0.1.x — Phase 1 complete; Phase 2–3 partial (IAM/2FA, update checks, notifications, SSH onboarding, fleet dashboard, OS patch UX)  
-> **Last updated:** 2026-07-09 (OS patch apply UX + audit log tails; docs sync)
+> **Status:** v0.1.x — Phase 1 complete; Phase 2–3 partial (IAM/2FA, update checks, notifications, SSH onboarding, fleet dashboard, OS/container patch UX, job queue, path policy, Alembic)  
+> **Last updated:** 2026-07-09 (container patch live logs, job history, backup path policy, pytest, Alembic)
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -87,18 +87,19 @@ Server detail **SSH access** panel (not a separate multi-page wizard): deploy ke
 
 Related backup hardening (same phase):
 
-- [ ] **Per-server backup path allow/deny rules** — block or warn on configured sources before rsync starts (complements global sudo-backed rsync).
+- [x] **Per-server backup path allow/deny rules** — default deny OS roots; optional allow/deny prefixes on Backups page; enforced on add-source + `run_backup`.
 
-- [ ] Built-in scheduler UI for container patch and OS patch jobs (backup scheduling exists)
+- [ ] Built-in scheduler UI for container patch and OS patch **apply** jobs (check schedules exist; backup apply schedule exists)
 - [ ] REST API for all job triggers with token auth (partial — some endpoints exist)
 - [ ] Webhook / notification integration wired end-to-end
-- [ ] Per-server container-patch and OS-patch cron schedules
+- [ ] Per-server container-patch and OS-patch **apply** cron schedules (check-only schedules shipped)
 - [x] **OS update check schedule (check-only)** — apt upgradable count + reboot flag; no auto-upgrade — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [x] **Container update check schedule (check-only)** — pull + image ID compare; no `up -d` — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [x] **In-app notification center** — bell, dismiss, deep links (OS/container updates, reboot pending, failed backups); separate from AuditLog — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
-- [ ] Job queue visibility (running / queued / history per server)
-- [ ] Alembic migrations replace runtime `ALTER TABLE` hacks
-- [ ] Test suite (pytest) for backup, patching, and encryption paths
+- [x] **Job queue visibility** — server detail Jobs panel (active + recent history); `GET /servers/{id}/jobs`
+- [x] **Alembic migrations** — `migrations/` + startup `alembic upgrade head` (replaces bulk runtime ALTER loop)
+- [x] **Test suite (pytest)** — path policy, OS patch normalize/summary/audit, container summary, Fernet encrypt (`tests/`)
+- [x] **Container patch live progress** — per-project log lines + JobHold modal; success based on failed list; post-patch image recheck
 - [ ] Pre-built Docker Hub image published and documented
 - [ ] `docker-compose` example with sensible defaults (no `~/` bind-mount assumptions)
 

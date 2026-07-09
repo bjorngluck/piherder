@@ -43,6 +43,13 @@ dev = [
     "httpx",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
 [tool.setuptools.packages.find]
 where = ["."]
 

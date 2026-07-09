@@ -142,6 +142,53 @@ def get_active_backup_jobs(session: Session, server_id: int) -> list[Job]:
     )
 
 
+def list_jobs_for_server(
+    session: Session,
+    server_id: int,
+    *,
+    limit: int = 25,
+    status: str | None = None,
+    job_type: str | None = None,
+    active_only: bool = False,
+) -> list[Job]:
+    """Recent jobs for a server (queue + history)."""
+    q = select(Job).where(Job.server_id == server_id)
+    if active_only:
+        q = q.where(Job.status.in_(["pending", "running"]))
+    elif status:
+        q = q.where(Job.status == status)
+    if job_type:
+        q = q.where(Job.job_type == job_type)
+    q = q.order_by(Job.created_at.desc()).limit(max(1, min(int(limit), 100)))
+    return list(session.exec(q).all())
+
+
+def job_public_dict(job: Job) -> dict:
+    """JSON-safe job summary for list/poll UI."""
+    details: dict = {}
+    if job.details:
+        try:
+            parsed = json.loads(job.details)
+            if isinstance(parsed, dict):
+                details = parsed
+        except Exception:
+            details = {}
+    summary = details.get("summary") or ""
+    log_lines = details.get("log_lines") or []
+    return {
+        "id": job.id,
+        "job_type": job.job_type,
+        "status": job.status,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "started_at": job.started_at.isoformat() if job.started_at else None,
+        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+        "current": details.get("current"),
+        "summary": summary,
+        "log_tail": list(log_lines)[-8:] if log_lines else [],
+        "done": job.status in ("success", "failed"),
+    }
+
+
 def get_active_backup_job(session: Session, server_id: int) -> Job | None:
     jobs = get_active_backup_jobs(session, server_id)
     running = next((j for j in jobs if j.status == "running"), None)
@@ -492,6 +539,8 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
     if job_type == "os_patch" and isinstance(data, dict):
         return (data.get("summary") or snippet or status)[:200]
     if job_type == "container_patch":
+        if isinstance(data, dict):
+            return (data.get("summary") or container_patching.summarize_container_patch(data) or status)[:200]
         return (snippet or status)[:200]
     if job_type == "retention":
         return (snippet or "Retention complete")[:200]
@@ -579,6 +628,20 @@ async def _run_backup_job(job_id: int, server_id: int, audit_id: int, source_fil
         _finish(audit_id, job_id, "failed", str(e), hostname, "backup")
 
 
+def _flush_container_progress_to_job(job_id: int, current: str, log_line: str) -> None:
+    """Best-effort live Job.details update for JobHold polling."""
+    try:
+        with _get_fresh_session() as s:
+            job = s.get(Job, job_id)
+            if not job or job.status not in ("pending", "running"):
+                return
+            _merge_job_details(job, current=current or "patching", log_line=log_line, done=False)
+            s.add(job)
+            s.commit()
+    except Exception as e:
+        logger.debug(f"container progress flush: {e}")
+
+
 async def _run_container_job(job_id: int, server_id: int, audit_id: int):
     server, hostname = _load_server_for_job(server_id)
     with _get_fresh_session() as s:
@@ -586,7 +649,7 @@ async def _run_container_job(job_id: int, server_id: int, audit_id: int):
         if job:
             job.status = "running"
             job.started_at = datetime.utcnow()
-            _merge_job_details(job, current="patching", log_line="Container patch started…", done=False)
+            _merge_job_details(job, current="starting", log_line="Container patch started…", done=False)
             s.add(job)
             s.commit()
     if not server:
@@ -594,10 +657,82 @@ async def _run_container_job(job_id: int, server_id: int, audit_id: int):
         return
     logger.debug(f"[JOB] Starting container_patch for {hostname}")
     try:
-        res = await run_in_threadpool(container_patching.run_project_update, server)
-        _finish(audit_id, job_id, "success", str(res), hostname, "container_patch")
+        container_patching.init_container_patch_progress(hostname, "starting container patch…")
+    except Exception:
+        pass
+
+    def _on_progress(current: str, msg: str):
+        _flush_container_progress_to_job(job_id, current, msg)
+
+    try:
+        res = await run_in_threadpool(
+            container_patching.run_project_update, server, None, _on_progress
+        )
+        status = "success" if container_patching.container_patch_succeeded(res) else "failed"
+        # Refresh container update counts before UI reload
+        if status == "success":
+            try:
+                with _get_fresh_session() as s:
+                    j = s.get(Job, job_id)
+                    if j:
+                        _merge_job_details(j, current="rechecking", log_line="Rechecking image updates…")
+                        s.add(j)
+                        s.commit()
+                check = await run_in_threadpool(
+                    container_patching.check_all_projects_updates, server
+                )
+                with _get_fresh_session() as s:
+                    _apply_container_check_result(s, server_id, check)
+                n = len((check or {}).get("projects_with_updates") or [])
+                container_patching.append_container_log(
+                    hostname, f"[containers] update count refreshed: {n} project(s) with updates"
+                )
+                _flush_container_progress_to_job(
+                    job_id, "rechecking", f"[containers] {n} project(s) still have updates"
+                )
+            except Exception as e:
+                logger.debug(f"post-container-patch recheck: {e}")
+                try:
+                    container_patching.append_container_log(hostname, f"[containers] recheck failed: {e}")
+                except Exception:
+                    pass
+        try:
+            container_patching.mark_container_patch_done(hostname, finished_ok=(status == "success"))
+            container_patching.append_container_log(hostname, f"[containers] all done — {status}")
+        except Exception:
+            pass
+        if isinstance(res, dict) and not res.get("summary"):
+            res["summary"] = container_patching.summarize_container_patch(res)
+        snippet = json.dumps(res) if isinstance(res, dict) else str(res)
+        _finish(audit_id, job_id, status, snippet, hostname, "container_patch")
     except Exception as e:
-        _finish(audit_id, job_id, "failed", str(e), hostname, "container_patch")
+        try:
+            container_patching.mark_container_patch_done(hostname, finished_ok=False)
+            container_patching.append_container_log(hostname, f"[containers] ERROR: {e}")
+        except Exception:
+            pass
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps({"error": str(e), "summary": f"Failed: {str(e)[:120]}"}),
+            hostname,
+            "container_patch",
+        )
+    finally:
+        import asyncio
+
+        async def _delayed_clear():
+            await asyncio.sleep(90)
+            try:
+                container_patching.clear_container_patch_progress(hostname)
+            except Exception:
+                pass
+
+        try:
+            asyncio.create_task(_delayed_clear())
+        except Exception:
+            pass
 
 
 async def _run_os_patch_job(job_id: int, server_id: int, audit_id: int, os_steps: list[str] | None = None):
@@ -698,7 +833,12 @@ async def _run_retention_job(job_id: int, server_id: int, audit_id: int):
         if job:
             job.status = "running"
             job.started_at = datetime.utcnow()
-            _merge_job_details(job, current="retention", log_line="Retention cleanup started…", done=False)
+            _merge_job_details(
+                job,
+                current="cleaning",
+                log_line="Retention cleanup started…",
+                done=False,
+            )
             s.add(job)
             s.commit()
     if not server:
@@ -706,8 +846,31 @@ async def _run_retention_job(job_id: int, server_id: int, audit_id: int):
         return
     logger.debug(f"[JOB] Starting retention for {hostname}")
     try:
+        with _get_fresh_session() as s:
+            j = s.get(Job, job_id)
+            if j:
+                _merge_job_details(
+                    j, current="cleaning", log_line=f"Cleaning old backups for {hostname}…"
+                )
+                s.add(j)
+                s.commit()
         res = await run_in_threadpool(backup.run_retention, server)
-        _finish(audit_id, job_id, "success", str(res), hostname, "retention")
+        summary = (
+            res
+            if isinstance(res, str)
+            else json.dumps(res)
+            if isinstance(res, dict)
+            else str(res)
+        )
+        with _get_fresh_session() as s:
+            j = s.get(Job, job_id)
+            if j:
+                _merge_job_details(
+                    j, current="finishing", log_line=f"Retention result: {str(summary)[:200]}"
+                )
+                s.add(j)
+                s.commit()
+        _finish(audit_id, job_id, "success", summary, hostname, "retention")
     except Exception as e:
         _finish(audit_id, job_id, "failed", str(e), hostname, "retention")
 

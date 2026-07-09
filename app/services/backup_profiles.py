@@ -220,11 +220,19 @@ def human_size(num_bytes: int) -> str:
 
 
 def add_backup_source(server: Server, source: str, dest_name: Optional[str] = None, session=None) -> bool:
-    """Add a new flexible backup source. Supports custom dest folder name."""
+    """Add a new flexible backup source. Supports custom dest folder name.
+
+    Returns True on success. Raises ValueError if path policy rejects the source.
+    """
     if not source or not source.strip():
         return False
     sources = server.get_backup_sources()
     source = source.strip()
+    from .backup_path_policy import validate_backup_path, parse_rules
+
+    ok, reason = validate_backup_path(source, parse_rules(getattr(server, "backup_path_rules", None)))
+    if not ok:
+        raise ValueError(reason or "Path not allowed by backup policy")
     # check for duplicate source
     if any(s["source"] == source for s in sources):
         return False

@@ -95,6 +95,10 @@ async def server_backups(
     except Exception:
         pass
 
+    from ..services.backup_path_policy import parse_rules, DEFAULT_DENY_PREFIXES
+
+    path_rules = parse_rules(getattr(server, "backup_path_rules", None))
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_backups.html",
@@ -112,6 +116,8 @@ async def server_backups(
             "current_backup_job": current_backup_job,
             "running_backup_job": running_backup_job,
             "active_backup_jobs": active_backup_jobs,
+            "path_rules": path_rules,
+            "default_deny_paths": list(DEFAULT_DENY_PREFIXES),
             "lean_page": True,
         }
     )
@@ -315,14 +321,26 @@ async def update_backup_config(
         if backup_paths:
             # Update per-server paths (supports both old and new format via service)
             try:
-                # Prefer the richer source management
-                current = server.get_backup_sources()
-                # For simplicity in this extracted router we just overwrite the raw field if provided as text
-                # (The UI forms currently send comma/newline list)
+                from ..services.backup_path_policy import validate_backup_path, parse_rules
+
+                rules = parse_rules(getattr(server, "backup_path_rules", None))
                 lines = [p.strip() for p in backup_paths.replace(",", "\n").splitlines() if p.strip()]
                 if lines:
-                    # Convert to modern source list for storage
-                    server.backup_paths = json.dumps([{"source": p, "dest_name": None, "enabled": True} for p in lines])
+                    bad = []
+                    for p in lines:
+                        ok, reason = validate_backup_path(p, rules)
+                        if not ok:
+                            bad.append(f"{p}: {reason}")
+                    if bad:
+                        raise HTTPException(
+                            400,
+                            "Backup path policy rejected: " + "; ".join(bad[:5]),
+                        )
+                    server.backup_paths = json.dumps(
+                        [{"source": p, "dest_name": None, "enabled": True} for p in lines]
+                    )
+            except HTTPException:
+                raise
             except Exception:
                 server.backup_paths = json.dumps(backup_paths.split())
 
@@ -369,6 +387,39 @@ async def update_backup_config(
     return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
 
 
+@router.post("/{server_id}/backup-path-rules")
+async def update_backup_path_rules(
+    server_id: int,
+    allow_paths: str = Form(""),
+    deny_paths: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Save per-server backup source allow/deny path lists."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    from ..services.backup_path_policy import rules_to_json, _as_list
+
+    allow = _as_list(allow_paths)
+    deny = _as_list(deny_paths)
+    server.backup_path_rules = rules_to_json(allow, deny)
+    session.add(server)
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_backup_config",
+        details={
+            "message": "Backup path allow/deny rules updated",
+            "allow": allow,
+            "deny": deny,
+        },
+    )
+    session.commit()
+    return RedirectResponse(f"/servers/{server_id}/backups", status_code=303)
+
+
 @router.post("/{server_id}/backup/add")
 async def add_backup_source(
     server_id: int,
@@ -383,7 +434,10 @@ async def add_backup_source(
     if not new_path or not new_path.strip():
         raise HTTPException(400, "Source path is required")
     dn = dest_name.strip() if dest_name else None
-    added = backup_svc.add_backup_source(server, new_path, dn, session)
+    try:
+        added = backup_svc.add_backup_source(server, new_path, dn, session)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
     logger.info(f"[backup-add] add_backup_source returned {added} for server {server_id} path={new_path}")
     session.refresh(server)
     logger.info(f"[backup-add] after refresh backup_paths={server.backup_paths[:120]}...")

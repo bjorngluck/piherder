@@ -23,6 +23,9 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **Backups** (rsync over SSH) — multi-source paths, retention, schedules; HAOS/root plain-rsync probe.
 - **Container patching** — `docker compose pull` + conditional `up -d` on real image change; Docker project browser (list, logs, compose edit, build, deploy).
 - **OS patching** — apt update / upgrade **or** full-upgrade / autoremove; live progress modal; Ubuntu phased-update awareness; reboot-required detection; post-patch recheck + page refresh.
+- **Container patching** — compose pull + conditional `up -d` with live JobHold logs and post-patch recheck.
+- **Job queue** — per-server active + recent jobs on the server detail page (`GET /servers/{id}/jobs`).
+- **Backup path policy** — default deny for OS roots; per-server allow/deny prefixes on the Backups page.
 - **Fleet dashboard** — patch/update attention across hosts; servers list filters and ⋯ action menus.
 - Diagnostics (ping, DNS, system info).
 - Full audit trail + job logs (filter by user/status/action/server); OS patch audits include step summary and apt log tail.
@@ -148,11 +151,18 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
 
-Run alembic migrations (inside container or with DATABASE_URL) when migration files exist:
+Schema is applied on web startup via Alembic (`migrations/`, `alembic upgrade head`). You can also run manually:
 ```bash
+docker compose exec web alembic upgrade head
+# or with DATABASE_URL set:
 alembic upgrade head
 ```
-Note: some schema evolution still uses runtime `ALTER TABLE` helpers (Alembic-only path is a Phase 2 open item).
+
+Unit tests (no live SSH required):
+```bash
+docker compose run --rm --no-deps web pytest -q
+# or locally with: pip install -e '.[dev]' && pytest -q
+```
 
 ## Volumes
 
@@ -167,7 +177,7 @@ See **[SPEC.md](SPEC.md)** for the full specification, architecture, and phased 
 
 **Recently completed (high level):** IAM profile, optional 2FA, OS/container update checks + notifications, fleet dashboard, SSH deploy/rotate/least-priv (Debian family).
 
-**Still open (examples):** backup path allow/deny, patch-apply schedules, webhooks, RBAC, Alembic-only migrations, pytest suite, Docker Hub image, backup restore wizard.
+**Still open (examples):** OS/container patch-apply schedules, webhooks end-to-end, RBAC, Docker Hub image, backup restore wizard.
 
 To track work in a GitHub Project: link the `piherder` repo, then create issues from the unchecked items in SPEC.md.
 
