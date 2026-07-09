@@ -122,12 +122,12 @@
       {% if is_dockerfile %}
       <h1 class="text-2xl font-semibold">Edit Dockerfile — {{ project.name }}</h1>
       {% else %}
-      <h1 class="text-2xl font-semibold">Edit Compose — {{ project.name }}</h1>
+      <h1 class="text-2xl font-semibold">Edit project files — {{ project.name }}</h1>
       {% endif %}
       <div class="text-xs text-muted font-mono">{{ project.path }}</div>
     </div>
     <div class="text-[10px] text-muted">
-      {% if is_dockerfile %}Dockerfile editor • basic syntax check on save{% else %}At least 50 lines visible • YAML syntax • validator{% endif %}
+      {% if is_dockerfile %}Dockerfile editor • basic syntax check on save{% else %}Multi-file • YAML / env • Compose auto-loads override + .env{% endif %}
     </div>
   </div>
 
@@ -180,6 +180,11 @@
         action="{% if is_dockerfile %}/servers/{{ server.id }}/docker/compose/{{ project.name }}/dockerfile/save{% else %}/servers/{{ server.id }}/docker/compose/{{ project.name }}/save{% endif %}" 
         id="compose-form">
     {% if editing_version_id %}<input type="hidden" name="editing_version_id" value="{{ editing_version_id }}">{% endif %}
+    {% if not is_dockerfile %}
+    <input type="hidden" name="files_json" id="files-json" value="{{ files_json | e }}">
+    <input type="hidden" name="active_file" id="active-file" value="{{ active_file | e }}">
+    {# files_json is pre-serialized JSON; |e escapes quotes for the attribute #}
+    {% endif %}
     <!-- Toolbar -->
     <div class="flex flex-wrap items-center gap-3 mb-2 text-xs">
       <div class="flex items-center gap-2 bg-surface border border-border rounded px-2.5 py-1">
@@ -202,6 +207,23 @@
 
       <div class="text-[10px] text-muted ml-auto">File loaded once (SSH closed). Edits are local in browser. Save opens fresh SSH session.</div>
     </div>
+
+    {% if not is_dockerfile and file_names %}
+    <div class="flex flex-wrap items-center gap-1.5 mb-2" id="file-tabs" role="tablist">
+      {% for fname in file_names %}
+      <button type="button"
+              class="file-tab px-2.5 py-1 rounded text-xs border font-mono {% if fname == active_file %}btn-accent border-accent{% else %}btn-secondary border-border{% endif %}"
+              data-file="{{ fname | e }}"
+              title="{{ fname }}">
+        {{ fname }}
+      </button>
+      {% endfor %}
+      <span class="text-[10px] text-muted ml-1">Save writes all listed files</span>
+    </div>
+    <p id="env-banner" class="mb-2 text-xs banner-warning border border-border rounded p-2 {% if not active_file.startswith('.env') %}hidden{% endif %}">
+      <strong>.env</strong> may contain secrets. Content is stored in version history; treat drafts as sensitive.
+    </p>
+    {% endif %}
 
     <!-- ONE single editor box: gutter + coloured yaml + editable surface overlaid. No separate blocks. -->
     <div class="compose-editor-wrap code-surface relative border border-border rounded-xl overflow-hidden editor-tall">
@@ -730,8 +752,85 @@
 
     // validate button
     if (validateBtn) {
-      validateBtn.addEventListener('click', () => validateNow(true));
+      validateBtn.addEventListener('click', () => {
+        // Only validate YAML-like active files
+        const af = (document.getElementById('active-file') || {}).value || '';
+        if (af.startsWith('.env')) {
+          alert('YAML validation is for compose/override files — switch to a .yml tab.');
+          return;
+        }
+        validateNow(true);
+      });
     }
+
+    // Multi-file tabs: keep full map in files_json, switch editor buffer per tab
+    (function setupMultiFile() {
+      if (isDockerfile) return;
+      const filesInput = document.getElementById('files-json');
+      const activeInput = document.getElementById('active-file');
+      const form = document.getElementById('compose-form');
+      const tabs = document.getElementById('file-tabs');
+      if (!filesInput || !activeInput || !form) return;
+
+      let filesMap = {};
+      try {
+        filesMap = JSON.parse(filesInput.value || '{}') || {};
+      } catch (e) {
+        filesMap = {};
+      }
+      let active = activeInput.value || Object
+
+      function syncActiveFromEditor() {
+        if (!active) return;
+        filesMap[active] = normalizeNewlines(textarea.value || '');
+        filesInput.value = JSON.stringify(filesMap);
+        activeInput.value = active;
+      }
+
+      function setActiveTabStyles() {
+        if (!tabs) return;
+        tabs.querySelectorAll('.file-tab').forEach((btn) => {
+          const f = btn.getAttribute('data-file');
+          const on = f === active;
+          btn.classList.toggle('btn-accent', on);
+          btn.classList.toggle('border-accent', on);
+          btn.classList.toggle('btn-secondary', !on);
+          btn.classList.toggle('border-border', !on);
+        });
+        const banner = document.getElementById('env-banner');
+        if (banner) {
+          if ((active || '').indexOf('.env') === 0) banner.classList.remove('hidden');
+          else banner.classList.add('hidden');
+        }
+      }
+
+      function switchFile(next) {
+        if (!next || next === active) return;
+        syncActiveFromEditor();
+        active = next;
+        activeInput.value = active;
+        textarea.value = filesMap[active] != null ? filesMap[active] : '';
+        setActiveTabStyles();
+        updateAll();
+        updateCursorPos();
+        forceOverlaySize();
+      }
+
+      if (tabs) {
+        tabs.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('.file-tab');
+          if (!btn) return;
+          ev.preventDefault();
+          switchFile(btn.getAttribute('data-file'));
+        });
+      }
+
+      form.addEventListener('submit', () => {
+        syncActiveFromEditor();
+      });
+
+      setActiveTabStyles();
+    })();
 
     // keyboard shortcut Ctrl/Cmd + Enter => save form
     textarea.addEventListener('keydown', (ev) => {

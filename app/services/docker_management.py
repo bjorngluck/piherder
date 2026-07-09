@@ -43,6 +43,14 @@ save_draft_version = docker_versions.save_draft_version
 deploy_version = docker_versions.deploy_version
 prune_old_versions = docker_versions.prune_old_versions
 create_new_docker_project = docker_versions.create_new_docker_project
+merge_project_files = docker_versions.merge_project_files
+files_for_sftp = docker_versions.files_for_sftp
+primary_compose_key = docker_versions.primary_compose_key
+parse_version_files = docker_versions.parse_version_files
+sort_project_filenames = docker_versions.sort_project_filenames
+file_role = docker_versions.file_role
+DEFAULT_PROJECT_FILES = docker_versions.DEFAULT_PROJECT_FILES
+COMPOSE_BASENAMES = docker_versions.COMPOSE_BASENAMES
 
 def get_container_status(server: Server, name: str) -> Dict:
     """Get detailed status for one container."""

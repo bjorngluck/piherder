@@ -22,6 +22,56 @@ from ..models import User
 router = APIRouter()
 
 
+def _parse_files_json(raw: Optional[str]) -> Optional[dict]:
+    if not raw or not str(raw).strip():
+        return None
+    try:
+        data = json.loads(raw)
+        if not isinstance(data, dict):
+            return None
+        out = {}
+        for k, v in data.items():
+            sk = str(k)
+            if sk.startswith("__"):
+                continue
+            if "/" in sk or "\\" in sk or sk in (".", "..") or not sk:
+                continue
+            out[sk] = v if isinstance(v, str) else ("" if v is None else str(v))
+        return out
+    except Exception:
+        return None
+
+
+def _snapshot_for_save(
+    server: Server,
+    project: str,
+    project_path: str,
+    *,
+    session: Session,
+    editing_version_id: Optional[int],
+    files_json: Optional[str],
+    single_updates: Optional[dict] = None,
+) -> dict:
+    """Build a multi-file snapshot: live + optional draft base, then apply updates."""
+    live = docker_svc.get_project_live_files(server, project_path) or {}
+    base = dict(live)
+    if editing_version_id:
+        try:
+            from ..models import DockerVersion
+
+            dv = session.get(DockerVersion, editing_version_id)
+            if dv and dv.server_id == server.id and dv.project_name == project:
+                base = docker_svc.merge_project_files(base, docker_svc.parse_version_files(dv))
+        except Exception:
+            pass
+    # Prefer full client map when present (multi-tab editor), then apply active-file edit
+    client_map = _parse_files_json(files_json)
+    merged = docker_svc.merge_project_files(base, client_map or {})
+    if single_updates:
+        merged = docker_svc.merge_project_files(merged, single_updates)
+    return merged
+
+
 @router.get("/{server_id}/docker", response_class=HTMLResponse)
 async def docker_page(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
     """Shell-first: return page chrome immediately. Stack data loads via HTMX fragment (SSH)."""
@@ -180,28 +230,14 @@ async def edit_compose(
     if not proj:
         raise HTTPException(404)
 
-    live_files = docker_svc.get_project_live_files(server, proj["path"])
-    live_compose_key = None
-    live_compose = ""
-    for k in ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):
-        if k in live_files:
-            live_compose_key = k
-            live_compose = live_files[k]
-            break
-    if not live_compose_key and live_files:
-        live_compose_key = next(iter(live_files.keys()))
-        live_compose = live_files[live_compose_key]
-    content = live_compose
+    live_files = docker_svc.get_project_live_files(server, proj["path"]) or {}
+    project_files = dict(live_files)
+    live_compose_key = docker_svc.primary_compose_key(live_files)
+    live_compose = live_files.get(live_compose_key, "") if live_compose_key else ""
+
     all_drafts = docker_svc.get_versions(server.id, project, limit=10)
-    compose_keys = ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml")
-    drafts = []
-    for d in all_drafts:
-        try:
-            f = json.loads(d.files or '{}')
-            if any(k in f for k in compose_keys):
-                drafts.append(d)
-        except:
-            pass
+    # Show versions that have any project file (multi-file snapshots)
+    drafts = list(all_drafts)
 
     load_draft_id = request.query_params.get("load_draft")
     editing_version_id = None
@@ -209,55 +245,50 @@ async def edit_compose(
         try:
             dv = next((d for d in drafts if str(d.id) == load_draft_id), None)
             if dv:
-                f = json.loads(dv.files or '{}')
-                if live_compose_key and live_compose_key in f:
-                    content = f[live_compose_key]
-                else:
-                    content = f.get("docker-compose.yml") or f.get("compose.yml") or f.get("docker-compose.yaml") or f.get("compose.yaml") or ""
-                    if not content:
-                        # avoid accidentally loading Dockerfile content into compose editor
-                        for k, v in f.items():
-                            if "dockerfile" not in k.lower():
-                                content = v
-                                break
-                    if not content:
-                        content = next(iter(f.values()), "") or content
+                f = docker_svc.parse_version_files(dv)
+                # Prefer draft snapshot entirely when loading a version
+                if f:
+                    project_files = docker_svc.merge_project_files(live_files, f)
                 if dv.is_draft:
                     editing_version_id = dv.id
-        except:
+        except Exception:
             pass
 
+    active_file = request.query_params.get("file") or ""
+    file_names = docker_svc.sort_project_filenames(list(project_files.keys()))
+    if not file_names:
+        # Empty project — seed primary compose name from discovery
+        seed = (proj.get("compose_file") or "docker-compose.yml").split("/")[-1]
+        if seed not in docker_svc.COMPOSE_BASENAMES:
+            seed = "docker-compose.yml"
+        project_files = {seed: ""}
+        file_names = [seed]
+    if active_file not in project_files:
+        active_file = docker_svc.primary_compose_key(project_files) or file_names[0]
+    content = project_files.get(active_file, "")
+
     live_version = None
-    live_clean = live_compose.strip() if live_compose else ''
     for d in drafts:
-        if not d.is_draft:
-            try:
-                f = json.loads(d.files or '{}')
-                c = ""
-                if live_compose_key and live_compose_key in f:
-                    c = f[live_compose_key]
-                else:
-                    c = f.get("docker-compose.yml") or f.get("compose.yml") or f.get("docker-compose.yaml") or f.get("compose.yaml") or ""
-                    if not c:
-                        for k, v in f.items():
-                            if "dockerfile" not in k.lower():
-                                c = v
-                                break
-                    if not c:
-                        c = next(iter(f.values()), "")
-                if c.strip() == live_clean:
-                    live_version = d
-                    break
-            except:
-                pass
+        if d.is_draft:
+            continue
+        try:
+            f = docker_svc.parse_version_files(d)
+            # Match live when all non-meta host files equal
+            host_keys = set(live_files.keys())
+            if host_keys and all(
+                (f.get(k) or "").strip() == (live_files.get(k) or "").strip() for k in host_keys
+            ):
+                live_version = d
+                break
+        except Exception:
+            pass
 
     errors_param = request.query_params.get("errors")
     errors = []
     if errors_param:
         try:
-            import json as _json
-            errors = sorted(_json.loads(errors_param) or [], key=lambda e: e.get("line", 0))
-        except:
+            errors = sorted(json.loads(errors_param) or [], key=lambda e: e.get("line", 0))
+        except Exception:
             errors = []
 
     return templates_mod.templates.TemplateResponse(
@@ -268,6 +299,10 @@ async def edit_compose(
             "server": server.model_dump(exclude={"audit_logs", "jobs", "docker_versions"}),
             "project": {"name": project, "path": proj.get("path") or ""},
             "content": content,
+            "project_files": project_files,
+            "file_names": file_names,
+            "active_file": active_file,
+            "files_json": json.dumps(project_files, ensure_ascii=False),
             "user": user,
             "errors": errors,
             "is_dockerfile": False,
@@ -384,7 +419,16 @@ async def save_dockerfile(
         raise HTTPException(404)
 
     df_path = proj["dockerfile_path"]
-    files = {"Dockerfile": content}
+    # Merge Dockerfile into multi-file snapshot so we don't drop compose/override/.env
+    files = _snapshot_for_save(
+        server,
+        project,
+        proj["path"],
+        session=session,
+        editing_version_id=editing_version_id,
+        files_json=None,
+        single_updates={"Dockerfile": content},
+    )
     is_draft_action = (str(action).lower() == "draft")
     is_via_modal = str(via_modal).lower() in ("1", "true", "yes", "on")
     try:
@@ -408,7 +452,7 @@ async def save_dockerfile(
             try:
                 import app.services.docker_management as _dm
                 _dm._CACHE.clear()
-            except:
+            except Exception:
                 pass
 
             dv = docker_svc.save_draft_version(server.id, project, files, session, update_existing_draft_id=editing_version_id)
@@ -506,7 +550,9 @@ async def create_docker_project(
 async def save_draft(
     server_id: int,
     project: str,
-    content: str = Form(...),
+    content: str = Form(""),
+    active_file: str = Form(""),
+    files_json: Optional[str] = Form(None),
     editing_version_id: Optional[int] = Form(None),
     via_modal: str = Form("false"),
     session: Session = Depends(get_session),
@@ -522,7 +568,18 @@ async def save_draft(
     if not proj:
         raise HTTPException(404)
 
-    files = {"docker-compose.yml": content}
+    updates = {}
+    if active_file and content is not None:
+        updates[active_file] = content
+    files = _snapshot_for_save(
+        server,
+        project,
+        proj["path"],
+        session=session,
+        editing_version_id=editing_version_id,
+        files_json=files_json,
+        single_updates=updates or None,
+    )
     is_via_modal = str(via_modal).lower() in ("1", "true", "yes", "on")
     try:
         dv = docker_svc.save_draft_version(server.id, project, files, session, update_existing_draft_id=editing_version_id)
@@ -610,7 +667,9 @@ async def validate_compose(
 async def save_compose(
     server_id: int,
     project: str,
-    content: str = Form(...),
+    content: str = Form(""),
+    active_file: str = Form(""),
+    files_json: Optional[str] = Form(None),
     editing_version_id: Optional[int] = Form(None),
     via_modal: str = Form("false"),
     request: Request = None,
@@ -625,7 +684,7 @@ async def save_compose(
     try:
         import app.services.docker_management as _dm
         _dm._CACHE.clear()
-    except:
+    except Exception:
         pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
@@ -633,13 +692,24 @@ async def save_compose(
         raise HTTPException(404)
 
     project_path = proj["path"]
-    files = {"docker-compose.yml": content}
+    updates = {}
+    if active_file and content is not None:
+        updates[active_file] = content
+    files = _snapshot_for_save(
+        server,
+        project,
+        project_path,
+        session=session,
+        editing_version_id=editing_version_id,
+        files_json=files_json,
+        single_updates=updates or None,
+    )
     is_via_modal = str(via_modal).lower() in ("1", "true", "yes", "on")
     try:
-        # write to host (live)
-        written, werr = docker_svc.write_compose_file(server, project_path, content)
+        # Write all tracked project files (compose, override, .env, Dockerfile, …)
+        written, werr = docker_svc.write_project_files(server, project_path, files)
         if not written:
-            msg = "Failed to write compose file to host (check SSH user can write the file / permissions / ownership)."
+            msg = "Failed to write project files to host (check SSH user can write the file / permissions / ownership)."
             if werr:
                 msg = f"{msg} Detail: {werr}"
             if is_via_modal:
@@ -649,7 +719,7 @@ async def save_compose(
         try:
             import app.services.docker_management as _dm
             _dm._CACHE.clear()
-        except:
+        except Exception:
             pass
 
         # record as deployed (non-draft) version; update if we were editing a draft
@@ -660,12 +730,13 @@ async def save_compose(
         session.commit()
 
         try:
+            names = ", ".join(docker_svc.sort_project_filenames(list(docker_svc.files_for_sftp(files).keys())))
             audit = AuditLog(
                 user_id=user.id if user else None,
                 server_id=server_id,
                 action="docker_compose_save",
                 status="success",
-                details=f"Project {project} saved & deployed v{dv.version}",
+                details=f"Project {project} saved & deployed v{dv.version} ({names})",
                 started_at=datetime.utcnow(),
                 finished_at=datetime.utcnow(),
             )

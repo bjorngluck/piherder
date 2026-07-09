@@ -9,6 +9,7 @@ Handles:
 - get_versions, prune_old_versions
 - create_new_docker_project (mkdir + optional git + initial files)
 - get_project_live_files / write_project_files (multi-file SFTP helpers used by versioning flows)
+- multi-file merge (compose + override + .env + Dockerfile) so one-file saves don't drop siblings
 
 Re-exported from docker_management.py for full backward compatibility:
   from ..services import docker_management as docker_svc
@@ -20,7 +21,7 @@ Kept lightweight: free functions, no new abstractions.
 import json
 import sys
 import traceback
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from datetime import datetime
 from sqlmodel import Session, select
 
@@ -28,11 +29,141 @@ from ..models import Server, DockerVersion
 from ..database import engine
 from ..services.ssh import get_ssh_client, run_command
 
+# Reserved key inside DockerVersion.files JSON — never written to the host.
+META_KEY = "__piherder__"
+
+# Default files probed on the remote project directory (Compose auto-loads override + .env).
+DEFAULT_PROJECT_FILES = [
+    "docker-compose.yml",
+    "docker-compose.yaml",
+    "compose.yml",
+    "compose.yaml",
+    "docker-compose.override.yml",
+    "docker-compose.override.yaml",
+    "compose.override.yml",
+    "compose.override.yaml",
+    "Dockerfile",
+    ".env",
+    ".env.example",
+]
+
+COMPOSE_BASENAMES = (
+    "docker-compose.yml",
+    "docker-compose.yaml",
+    "compose.yml",
+    "compose.yaml",
+)
+
+OVERRIDE_BASENAMES = (
+    "docker-compose.override.yml",
+    "docker-compose.override.yaml",
+    "compose.override.yml",
+    "compose.override.yaml",
+)
+
+
+def is_meta_key(name: str) -> bool:
+    return (name or "") == META_KEY or (name or "").startswith("__")
+
+
+def files_for_sftp(files: dict) -> dict:
+    """Strip reserved meta keys before writing to the host."""
+    out = {}
+    for k, v in (files or {}).items():
+        if is_meta_key(str(k)):
+            continue
+        if v is None:
+            continue
+        out[str(k)] = v if isinstance(v, str) else str(v)
+    return out
+
+
+def primary_compose_key(files: dict) -> Optional[str]:
+    """Prefer standard compose basenames that exist in the map."""
+    if not files:
+        return None
+    for k in COMPOSE_BASENAMES:
+        if k in files:
+            return k
+    for k in files:
+        if is_meta_key(k):
+            continue
+        low = k.lower()
+        if low.endswith((".yml", ".yaml")) and "override" not in low and "dockerfile" not in low:
+            return k
+    return None
+
+
+def file_role(name: str) -> str:
+    n = (name or "").lower()
+    if n in {b.lower() for b in COMPOSE_BASENAMES} or (
+        n.endswith((".yml", ".yaml")) and "override" not in n and n != ".env"
+    ):
+        if "override" in n:
+            return "override"
+        return "compose"
+    if n in {b.lower() for b in OVERRIDE_BASENAMES} or "override" in n:
+        return "override"
+    if n == "dockerfile" or n.endswith("/dockerfile") or n.startswith("dockerfile."):
+        return "dockerfile"
+    if n == ".env" or n.startswith(".env"):
+        return "env"
+    return "other"
+
+
+def sort_project_filenames(names: list[str]) -> list[str]:
+    order = {"compose": 0, "override": 1, "env": 2, "dockerfile": 3, "other": 4}
+
+    def key(n: str):
+        return (order.get(file_role(n), 9), n.lower())
+
+    return sorted([n for n in names if not is_meta_key(n)], key=key)
+
+
+def merge_project_files(
+    base: Optional[dict],
+    updates: dict,
+    *,
+    delete_keys: Optional[list[str]] = None,
+) -> dict:
+    """Merge file updates into a base snapshot without dropping sibling files.
+
+    Keys in delete_keys are removed (except META_KEY). updates overwrite base.
+    """
+    out: dict[str, Any] = {}
+    if base:
+        for k, v in base.items():
+            out[str(k)] = v
+    for k in delete_keys or []:
+        if is_meta_key(str(k)):
+            continue
+        out.pop(str(k), None)
+    for k, v in (updates or {}).items():
+        sk = str(k)
+        if is_meta_key(sk):
+            out[sk] = v
+            continue
+        if v is None:
+            out.pop(sk, None)
+        else:
+            out[sk] = v if isinstance(v, str) else str(v)
+    return out
+
+
+def parse_version_files(dv: Optional[DockerVersion]) -> dict:
+    if not dv or not dv.files:
+        return {}
+    try:
+        data = json.loads(dv.files)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
 
 def get_project_live_files(server: Server, project_path: str, filenames: Optional[List[str]] = None) -> dict:
-    """Read current files from host (compose, Dockerfile, etc). Always short-lived SSH session."""
+    """Read current files from host (compose, override, .env, Dockerfile, …). Short-lived SSH."""
     if not filenames:
-        filenames = ["docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml", "Dockerfile"]
+        filenames = list(DEFAULT_PROJECT_FILES)
     client = get_ssh_client(server)
     sftp = client.open_sftp()
     files = {}
@@ -49,20 +180,26 @@ def get_project_live_files(server: Server, project_path: str, filenames: Optiona
     finally:
         try:
             sftp.close()
-        except:
+        except Exception:
             pass
         client.close()
 
 
 def write_project_files(server: Server, project_path: str, files: dict) -> tuple[bool, str]:
     """Write (multiple) files to host via SFTP. New short-lived session. Uses tmp+rename to avoid corruption.
-    Returns (success, error_message_or_empty).
+    Returns (success, error_message_or_empty). Reserved meta keys are skipped.
     """
+    payload = files_for_sftp(files)
+    if not payload:
+        return False, "no files to write"
     client = get_ssh_client(server)
     sftp = client.open_sftp()
     err = ""
     try:
-        for fname, content in files.items():
+        for fname, content in payload.items():
+            # Disallow path traversal in file names
+            if not fname or "/" in fname or "\\" in fname or fname in (".", ".."):
+                return False, f"invalid file name: {fname!r}"
             fpath = f"{project_path}/{fname}".replace("//", "/")
             tmp = fpath + ".tmp"
             data = content.encode("utf-8") if isinstance(content, str) else content
@@ -86,11 +223,11 @@ def write_project_files(server: Server, project_path: str, files: dict) -> tuple
     finally:
         try:
             sftp.close()
-        except:
+        except Exception:
             pass
         try:
             client.close()
-        except:
+        except Exception:
             pass
 
 

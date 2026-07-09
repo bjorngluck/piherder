@@ -119,7 +119,7 @@ Related backup hardening (same phase):
 - [x] **Password policy** — min 10 + upper/lower/digit; enforced on register, change password, admin create; admin-created users **must change password on first login**
 - [x] **Force 2FA (global)** — Settings → Security policy `force_2fa`; blocks fleet UI until TOTP enabled
 - [x] **Multi-user audit attribution** — audit rows store `user_id`; UI shows display name + email; scheduled jobs labeled “system / scheduler”
-- [ ] Compose multi-file project support (override files, env files in UI) — partial: version store is multi-file JSON; full override/env UI still open
+- [x] **Compose multi-file project support** — load/edit/deploy compose + override + `.env` + Dockerfile; merge-on-save version snapshots
 - [ ] Image update notifications (changelog links) — partial: image ID / digest compare already drives checks + in-app alerts
 - [x] Fleet-wide dashboard (patch status across all servers) — dashboard table + summary from last check fields
 - [x] **Backup restore wizard** — Backups page: dry-run reverse rsync per source, confirm to apply; path policy enforced; audit `backup_restore`
@@ -142,7 +142,7 @@ Full admin reference: [docs/ADMIN.md](docs/ADMIN.md).
 ## Phase 4 — Ecosystem
 
 - [ ] Ansible / cloud-init bootstrap for new Pis
-- [ ] Prometheus metrics exporter
+- [x] **Prometheus metrics exporter** — `GET /metrics` (optional `METRICS_TOKEN`); fleet/job/notification/backup gauges
 - [x] Mobile-friendly responsive pass (UI unification 2026-07 — see `UI_UNIFICATION_PLAN.md`)
 - [ ] Plugin hooks for custom job types
 
