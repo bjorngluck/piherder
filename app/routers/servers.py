@@ -340,7 +340,13 @@ async def add_server(
 
 
 @router.get("/{server_id}", response_class=HTMLResponse)
-async def server_detail(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+async def server_detail(
+    server_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -494,12 +500,33 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
         except Exception:
             pass
 
+    # Prefetch docker inventory in background (non-blocking) when Docker feature is on
+    inventory_meta = {}
+    try:
+        from ..services import docker_inventory as inventory_svc
+
+        if server.container_patch_enabled:
+            inventory_meta = inventory_svc.inventory_meta(server)
+            if inventory_svc.is_stale(server) or inventory_svc.is_refresh_stuck(server):
+                inventory_svc.request_refresh(
+                    background_tasks,
+                    server.id,
+                    force=False,
+                    server=server,
+                    session=session,
+                )
+                session.refresh(server)
+                inventory_meta = inventory_svc.inventory_meta(server)
+    except Exception:
+        inventory_meta = {}
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_detail.html",
         context={
             "title": server.name,
             "server": server_dict,
+            "inventory_meta": inventory_meta,
             "os_phased_count": os_phased_count,
             "os_total_upgradable": os_total_upgradable,
             "backup_profiles": backup_profiles,

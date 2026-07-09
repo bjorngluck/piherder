@@ -327,6 +327,59 @@ def sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER):
         logger.warning(f"[SCHEDULER] sync_all failed: {e}")
 
 
+DOCKER_INVENTORY_JOB_ID = "docker_inventory_fleet"
+# Refresh stale docker inventories every 10 minutes (L1 SSH per enabled host)
+DOCKER_INVENTORY_INTERVAL_MIN = 10
+
+
+def schedule_docker_inventory_fleet():
+    """Periodic refresh of DB docker inventory for hosts with container feature on."""
+    try:
+        from ..database import engine
+        from ..models import Server
+        from sqlmodel import select
+        from . import docker_inventory as inventory_svc
+
+        with Session(engine) as db:
+            servers = db.exec(
+                select(Server).where(Server.container_patch_enabled == True)  # noqa: E712
+            ).all()
+            for server in servers:
+                if not server.id:
+                    continue
+                if inventory_svc.is_stale(server, max_age_sec=inventory_svc.SCHEDULER_STALE_SEC):
+                    try:
+                        inventory_svc.refresh_server_inventory(server.id, force=False)
+                    except Exception as e:
+                        logger.warning(
+                            f"[SCHEDULER] docker inventory refresh failed for {server.id}: {e}"
+                        )
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] docker inventory fleet job failed: {e}")
+
+
+def sync_docker_inventory_schedule(scheduler, HAS_SCHEDULER):
+    """Register fleet-wide docker inventory refresh interval job."""
+    if not HAS_SCHEDULER or not scheduler:
+        return
+    _remove_job(scheduler, DOCKER_INVENTORY_JOB_ID)
+    try:
+        from apscheduler.triggers.interval import IntervalTrigger
+
+        scheduler.add_job(
+            func=schedule_docker_inventory_fleet,
+            trigger=IntervalTrigger(minutes=DOCKER_INVENTORY_INTERVAL_MIN),
+            id=DOCKER_INVENTORY_JOB_ID,
+            replace_existing=True,
+            name="Docker inventory fleet refresh",
+        )
+        logger.info(
+            f"[SCHEDULER] Docker inventory fleet every {DOCKER_INVENTORY_INTERVAL_MIN}m"
+        )
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] Docker inventory schedule failed: {e}")
+
+
 def sync_herder_backup_schedule(scheduler, HAS_SCHEDULER):
     """Register or remove the global PiHerder self-backup cron job from config."""
     if not HAS_SCHEDULER or not scheduler:

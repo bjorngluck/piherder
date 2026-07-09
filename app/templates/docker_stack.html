@@ -1,24 +1,57 @@
 {# Compose-centric stack: shell (stable HTMX host) vs fragment (inner content only).
    Important: use hx-swap="innerHTML" on a stable #docker-stack so auto-refresh does NOT
-   re-fire `load` (outerHTML swap was re-creating the trigger element and wiping open rows). #}
+   re-fire `load` (outerHTML swap was re-creating the trigger element and wiping open rows).
+
+   Inventory: fragment serves DB snapshot first; background refresh updates via poll.
+   Manual full-page Refresh uses ?nocache=1 on /docker (not default HTMX load). #}
 {% set _refresh = request.query_params.get('refresh', refresh|default('120')) %}
 
 {% if docker_shell|default(false) %}
 {# Stable shell — only HTMX attributes live here; never replaced by fragment #}
 <div id="docker-stack"
-     hx-get="/servers/{{ server.id }}/docker/stack-fragment?refresh={{ _refresh }}&nocache=1"
+     hx-get="/servers/{{ server.id }}/docker/stack-fragment?refresh={{ _refresh }}"
      hx-trigger="load once, every {{ _refresh }}s"
      hx-swap="innerHTML">
   <div class="docker-stack-skeleton card p-6 text-center text-sm text-muted">
     <div class="flex justify-center mb-2">
       <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
     </div>
-    Loading compose projects and containers from host…
+    Loading Docker inventory…
   </div>
 </div>
 {% else %}
 {# Fragment body (innerHTML of #docker-stack) #}
-{% if projects %}
+{% set _im = inventory_meta|default({}) %}
+{% set _refreshing = inventory_refreshing|default(false) or (_im.status == 'refreshing') %}
+<div class="docker-inventory-banner text-xs text-muted mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 px-1"
+     data-inv-status="{{ _im.status or 'never' }}">
+  {% if _im.at %}
+  <span>Inventory as of <span class="text-text">{{ _im.at | app_tz }}</span></span>
+  {% if _im.project_count is not none %}
+  <span class="text-muted">· {{ _im.project_count }} stack(s){% if _im.container_count is not none %}, {{ _im.container_count }} container(s){% endif %}</span>
+  {% endif %}
+  {% elif not projects and not orphan_containers %}
+  <span>No cached inventory yet</span>
+  {% endif %}
+  {% if _refreshing %}
+  <span class="text-accent inline-flex items-center gap-1">
+    <span class="inline-block w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin"></span>
+    Refreshing from host…
+  </span>
+  {% elif _im.status == 'error' %}
+  <span class="text-warning" title="{{ (_im.error or '') | e }}">Last refresh failed{% if _im.error %}: {{ _im.error[:80] }}{% endif %}</span>
+  {% endif %}
+  <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-accent hover:underline ml-auto">Force refresh</a>
+</div>
+
+{% if not projects and not orphan_containers and (_refreshing or _im.status in ('never', 'refreshing')) %}
+  <div class="docker-stack-skeleton card p-6 text-center text-sm text-muted">
+    <div class="flex justify-center mb-2">
+      <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+    </div>
+    Collecting compose projects and containers from host via SSH…
+  </div>
+{% elif projects %}
   <div class="docker-stack-list">
     {% for proj in projects %}
     <div class="docker-stack-block {{ 'has-pending-update' if proj.has_pending_update else '' }}"
@@ -259,7 +292,7 @@
     </div>
     {% endfor %}
   </div>
-  {% else %}
+  {% elif not _refreshing and _im.status not in ('never', 'refreshing') %}
   <div class="text-sm text-muted p-3">No compose projects discovered in {{ server.docker_base_dir }}.</div>
   {% endif %}
 
@@ -381,4 +414,36 @@
     </div>
   </div>
   {% endif %}
+
+{# While inventory is refreshing (or first load), re-fetch fragment every 2s until ready #}
+{% if inventory_poll_fast|default(false) or _refreshing %}
+<script>
+(function () {
+  var el = document.getElementById('docker-stack');
+  if (!el || typeof htmx === 'undefined') return;
+  if (el._invPollTimer) return;
+  var url = el.getAttribute('hx-get') || '/servers/{{ server.id }}/docker/stack-fragment';
+  var n = 0;
+  el._invPollTimer = setInterval(function () {
+    n += 1;
+    if (n > 90) {
+      clearInterval(el._invPollTimer);
+      el._invPollTimer = null;
+      return;
+    }
+    htmx.ajax('GET', url, { target: '#docker-stack', swap: 'innerHTML' });
+  }, 2000);
+})();
+</script>
+{% else %}
+<script>
+(function () {
+  var el = document.getElementById('docker-stack');
+  if (el && el._invPollTimer) {
+    clearInterval(el._invPollTimer);
+    el._invPollTimer = null;
+  }
+})();
+</script>
+{% endif %}
 {% endif %}

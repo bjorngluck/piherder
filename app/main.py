@@ -102,9 +102,13 @@ async def lifespan(app: FastAPI):
     if HAS_SCHEDULER and scheduler and not scheduler.running:
         scheduler.start()
         try:
-            from .services.scheduler import sync_all_server_cron_jobs
+            from .services.scheduler import (
+                sync_all_server_cron_jobs,
+                sync_docker_inventory_schedule,
+            )
             sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER)
             sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
+            sync_docker_inventory_schedule(scheduler, HAS_SCHEDULER)
         except Exception as e:
             print(f"Scheduler init skipped: {e}")
 

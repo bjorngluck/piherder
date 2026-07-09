@@ -78,6 +78,9 @@
   <div class="source-row fleet-status-row server-host-row {% if s.get('needs_attention') %}is-attention{% endif %}"
        data-server-id="{{ s.id }}"
        data-server-name="{{ s.name }}"
+       data-backup-enabled="{{ '1' if s.backup_enabled else '0' }}"
+       data-os-enabled="{{ '1' if s.os_patch_enabled else '0' }}"
+       data-container-enabled="{{ '1' if s.container_patch_enabled else '0' }}"
        draggable="false">
     <div class="server-drag-handle" title="Drag to reorder" aria-hidden="true" hidden>⋮⋮</div>
 
@@ -85,15 +88,18 @@
       <a href="/servers/{{ s.id }}" class="fleet-status-name server-host-link">{{ s.name }}</a>
       <div class="source-row-when text-muted font-mono">{{ s.hostname }}</div>
       <div class="fleet-status-pills">
+        {% if s.backup_enabled %}
         {% if s.get('backup_running') %}
         <span class="status-pill status-running">backup…</span>
         {% elif s.get('last_backup_str') %}
         <span class="text-xs text-muted">backup {{ s.last_backup_str }}</span>
         {% endif %}
+        {% endif %}
 
         {% if s.get('reboot_pending') %}
         <span class="status-pill status-failed">reboot</span>
         {% endif %}
+        {% if s.os_patch_enabled %}
         {% if s.get('os_updates_count') is not none and s.os_updates_count > 0 %}
         <span class="status-pill status-failed" title="Packages a normal apt upgrade would install">{{ s.os_updates_count }} OS</span>
         {% if s.get('os_phased_count') %}
@@ -101,22 +107,17 @@
         {% endif %}
         {% elif s.get('os_phased_count') %}
         <span class="status-pill status-success" title="No actionable upgrades; Ubuntu is holding packages in phased rollout">{{ s.os_phased_count }} phased</span>
-        {% elif s.os_patch_enabled and s.get('os_updates_count') == 0 %}
+        {% elif s.get('os_updates_count') == 0 %}
         <span class="status-pill status-success">OS 0</span>
-        {% elif not s.os_patch_enabled %}
-        <span class="text-xs text-muted">OS off</span>
+        {% endif %}
         {% endif %}
 
+        {% if s.container_patch_enabled %}
         {% if s.get('container_updates_count') is not none and s.container_updates_count > 0 %}
         <span class="status-pill status-failed">{{ s.container_updates_count }} img</span>
-        {% elif s.container_patch_enabled and s.get('container_updates_count') == 0 %}
+        {% elif s.get('container_updates_count') == 0 %}
         <span class="status-pill status-success">Img 0</span>
-        {% elif not s.container_patch_enabled %}
-        <span class="text-xs text-muted">Img off</span>
         {% endif %}
-
-        {% if not s.backup_enabled %}
-        <span class="text-xs text-muted">Backup off</span>
         {% endif %}
       </div>
     </div>
@@ -393,18 +394,27 @@
     var name = (row.getAttribute('data-server-name') || 'Server').trim();
     if (nameEl) nameEl.textContent = name;
 
+    var backupOn = row.getAttribute('data-backup-enabled') === '1';
+    var osOn = row.getAttribute('data-os-enabled') === '1';
+    var contOn = row.getAttribute('data-container-enabled') === '1';
     var items = [
       { label: 'Open', href: '/servers/' + id, accent: true },
-      { label: 'Backup now', backup: true, accent: true },
-      { label: 'OS patch…', osPatch: true },
-      { label: 'Container patch now', hold: true, holdTitle: 'Container patch', post: '/servers/' + id + '/run/container_patch' },
-      { label: 'Check OS updates', hold: true, holdTitle: 'Checking OS updates', post: '/servers/' + id + '/check/os-updates' },
-      { label: 'Check container updates', hold: true, holdTitle: 'Checking container updates', post: '/servers/' + id + '/check/container-updates' },
-      { label: 'Docker', href: '/servers/' + id + '/docker' },
-      { label: 'Backups', href: '/servers/' + id + '/backups' },
-      { label: 'Settings', href: '/servers/' + id + '?edit=1' },
-      { label: 'Reboot…', post: '/servers/' + id + '/reboot', danger: true, confirm: 'Reboot ' + name + ' now?' },
     ];
+    if (backupOn) {
+      items.push({ label: 'Backup now', backup: true, accent: true });
+      items.push({ label: 'Backups', href: '/servers/' + id + '/backups' });
+    }
+    if (osOn) {
+      items.push({ label: 'OS patch…', osPatch: true });
+      items.push({ label: 'Check OS updates', hold: true, holdTitle: 'Checking OS updates', post: '/servers/' + id + '/check/os-updates' });
+    }
+    if (contOn) {
+      items.push({ label: 'Container patch now', hold: true, holdTitle: 'Container patch', post: '/servers/' + id + '/run/container_patch' });
+      items.push({ label: 'Check container updates', hold: true, holdTitle: 'Checking container updates', post: '/servers/' + id + '/check/container-updates' });
+      items.push({ label: 'Docker', href: '/servers/' + id + '/docker' });
+    }
+    items.push({ label: 'Settings', href: '/servers/' + id + '?edit=1' });
+    items.push({ label: 'Reboot…', post: '/servers/' + id + '/reboot', danger: true, confirm: 'Reboot ' + name + ' now?' });
 
     listEl.innerHTML = '';
     items.forEach(function (item) {

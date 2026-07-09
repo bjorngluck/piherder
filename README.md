@@ -22,14 +22,15 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 ### Fleet & jobs
 - Add servers via SSH keypair (generated in-app or uploaded) — private key encrypted immediately with Fernet.
 - **SSH access** on each server: test connection, deploy public key (optional password bootstrap), rotate keypair, least-priv user scripts (**Pi OS / Ubuntu**), copy-paste install commands. HAOS: key deploy + plain rsync guidance.
-- Per-server toggles: Backups, OS Patching, Container Patching; optional OS/container **update check** schedules (check-only).
-- Optional **OS / container patch apply schedules** (opt-in, default off; only-if-updates; audited as system/scheduler).
+- Per-server **feature flags** (Edit → Features): Backups, OS patch, **Docker / containers** — disabled features are **hard-hidden** from dest cards, host status, and ⋯ menus.
+- Optional OS/container **update check** and **patch apply** schedules (Edit → Schedules; check-only vs opt-in apply; only-if-updates; audited as system/scheduler).
 - **Backups** (rsync over SSH) — multi-source paths, retention, schedules; path allow/deny policy; **restore wizard** (dry-run then confirm).
-- **Container patching** — `docker compose pull` + conditional `up -d`; live JobHold logs; Docker browser (list, logs, compose edit, build).
+- **Container patching** — `docker compose pull` + conditional `up -d`; live JobHold logs; Docker browser (list, logs, compose edit, multi-file deploy).
+- **Docker inventory cache** — DB snapshot of stacks/containers; opens instantly from last collect; background SSH refresh (prefetch, after mutations, fleet interval); Force refresh for a full re-collect.
 - **OS patching** — apt update / upgrade **or** full-upgrade / autoremove; live progress; Ubuntu phased-update awareness; reboot-required.
 - **Jobs** — per-server card panel + fleet **Jobs** page (`/jobs`) with filters, date range, pagination, detail modal.
-- **Docker details** — full mount paths; per-mount host disk usage (`du`); container size = writable+image (not volumes).
-- **Fleet dashboard** — patch/update attention across hosts; servers list filters and ⋯ action menus.
+- **Docker details** — full mount paths on expand; per-mount host disk usage (`du`); container size = writable+image (not volumes).
+- **Fleet dashboard** — patch/update attention across hosts; servers list filters and ⋯ action menus (feature-gated).
 - Diagnostics (ping, DNS, system info).
 - Full **audit** trail (filters, pagination 10/20/50); scheduled jobs as system/scheduler.
 - Self-backup of PiHerder config — scheduled via Settings, restore with preview.
@@ -60,7 +61,7 @@ FastAPI + SQLModel + PostgreSQL + paramiko + cryptography (Fernet) + Jinja2 + (v
 **Offline / air-gapped ready**: Once built, the container has no external CDN dependencies.
 All frontend assets (Tailwind Play, HTMX, Alpine) are vendored during `docker build`.
 
-**Code structure**: Small focused modules (routers for servers/docker/backups/audit/auth; services for backup, SSH, onboarding, patching, notifications, fleet status). Behavior-preserving splits over god files.
+**Code structure**: Small focused modules (routers for servers/docker/backups/audit/auth; services for backup, SSH, onboarding, patching, docker inventory, notifications, fleet status). Behavior-preserving splits over god files.
 
 **Important for building the image yourself:**
 The build step requires internet access (to download the frontend assets).
@@ -118,7 +119,7 @@ Pre-built images will be available on Docker Hub so most people don't need to bu
    - **Option B (recommended for least-priv + existing stacks under another home):** set **Docker base dir** to an absolute path (e.g. `/home/bjorn/docker`), then run the **Option B ACL script** from SSH access so the service user can traverse that tree. `~/docker` expands to the *SSH* user’s home and breaks restart/build/logs after re-pointing to `piherder`.
    - Otherwise ensure passwordless sudo for apt/docker/rsync as needed, and `docker` group for container ops.
 
-7. Optional: Settings → fleet-wide midnight **update check** schedules; server list / dashboard show pending OS and container updates.
+7. Per server: **Edit → Features** to enable Backups / OS / Docker; **Edit → Schedules** for update checks (and optional apply). Server list / dashboard show pending OS and container updates for enabled features.
 
 8. Optional **Web Push:** VAPID keys are **auto-generated at web startup** and stored encrypted in the DB (optional `VAPID_*` env override). Over trusted HTTPS: Account → **Enable on this device** (Android Chrome, or iOS 16.4+ after Safari → Add to Home Screen).
 
@@ -138,23 +139,25 @@ These match the variables in the old scripts.
 
 ## Running Jobs
 
-From the server detail page (⋯ menu) and related pages:
-- Run Backup / retention
-- Run Container Patch / OS Patch
-- Check OS / container updates (manual)
+From the server detail page (⋯ menu — only actions for **enabled** features) and related pages:
+- Run Backup / retention (when Backups is on)
+- Run Container Patch / OS Patch; check OS / container updates (when those features are on)
 - Reboot, diagnostics
-- Docker: compose edit, build, logs, redeploy
+- Docker: compose edit, build, logs, redeploy (when Docker / containers is on)
 
 All actions create AuditLog entries with status + snippet. Actionable alerts also appear in the notification center when configured checks/jobs raise them.
+
+**Edit server** (modal tabs): **General** (connection), **Features** (flags), **Schedules** (update checks + patch apply). Backup cron remains on the Backups page.
 
 ## Replacing Cron Jobs
 
 Use the built-in scheduler:
-- Per-server **backup** schedules
-- Per-server or **global** OS / container **update check** schedules (detect only)
+- Per-server **backup** schedules (Backups page)
+- Per-server OS / container **update check** and optional **apply** schedules (Edit → Schedules)
+- Fleet **Docker inventory** refresh (~every 10 minutes for hosts with Docker enabled)
 - PiHerder self-backup schedule (Settings / herder backups)
 
-Apply of OS/container patches remains **manual** by design (no silent auto-upgrade).
+Silent auto-upgrade is never the default: apply schedules are opt-in and prefer “only if updates pending”.
 
 For external systems you can still call HTTP APIs where exposed (auth required); a full token REST surface is still on the roadmap (see SPEC).
 
@@ -202,7 +205,7 @@ Bind-mount host directories as needed for persistence.
 
 See **[SPEC.md](SPEC.md)** for the full specification, architecture, and phased roadmap.
 
-**Recently completed (high level):** Prometheus `/metrics`, multi-file Docker compose editor (override/.env), PWA + Web Push, trusted TLS via cert volume + hostname, patch apply schedules, RBAC + user admin, fleet Jobs page, backup restore wizard, password policy / force-2FA, Docker mount sizes, IAM/2FA, update checks, SSH onboarding, job queue, path policy, Alembic + pytest.
+**Recently completed (high level):** Docker inventory DB cache + background refresh, server Edit tabs (General/Features/Schedules), feature hard-hide on server UI, Prometheus `/metrics`, multi-file Docker compose editor (override/.env), PWA + Web Push, trusted TLS via cert volume + hostname, patch apply schedules, RBAC + user admin, fleet Jobs page, backup restore wizard, password policy / force-2FA, Docker mount sizes, IAM/2FA, update checks, SSH onboarding, job queue, path policy, Alembic + pytest.
 
 **Still open (examples):** token REST API, Docker Hub image, Ansible bootstrap, plugin hooks.
 

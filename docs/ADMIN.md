@@ -1,6 +1,6 @@
 # PiHerder admin guide
 
-Practical reference for operators and admins: roles, users, security policy, schedules, and the Jobs page.
+Practical reference for operators and admins: roles, users, security policy, schedules, Docker inventory, feature flags, and the Jobs page.
 
 Related design notes: [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](DECISION_IOS_PUSH.md) · stabilisation: [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md)
 
@@ -88,7 +88,11 @@ Optional 2FA (when not forced): Account → enable TOTP, backup codes, optional 
 
 ## 4. Schedules
 
-Configured per server on the **server detail** page. Cron uses **5 fields**: `minute hour day month day_of_week` (APScheduler). Check schedules use the app timezone from Settings; same for apply schedules.
+Configured per server under **Edit → Schedules** (General / Features / Schedules tabs). Cron uses **5 fields**: `minute hour day month day_of_week` (APScheduler). Check schedules use the app timezone from Settings; same for apply schedules.
+
+**Feature flags** (Edit → Features) hard-hide dest cards and ⋯ actions on the server screen when off (Backups, OS patch, Docker/containers).
+
+**Docker inventory:** compose/container lists are stored as a DB snapshot (`docker_inventory_*` columns) and refreshed in the background (open server/Docker, after mutations, and a fleet job every ~10 minutes for hosts with Docker enabled). The Docker page renders the last snapshot immediately; use **Force refresh** for a full re-collect.
 
 ### Update checks (safe — detect only)
 
@@ -101,7 +105,7 @@ Enable checkbox + cron (default suggestion often midnight). Results feed the das
 
 ### Patch apply (opt-in — **runs real upgrades**)
 
-Off by default. Requires the matching **feature flag** on the server (OS patch / Container patch in Edit server).
+Off by default. Requires the matching **feature flag** on the server (OS patch / Docker–containers under **Edit → Features**).
 
 | Option | Behaviour |
 |--------|-----------|
@@ -259,15 +263,38 @@ If `METRICS_TOKEN` is empty, treat `/metrics` like `/health` — private network
 
 On a server’s **Docker → Edit compose**, PiHerder loads compose, override, `.env`, and Dockerfile when present. Tabs edit each file; **Save & Deploy** writes the full set and redeploys. Version history stores multi-file snapshots (merge-on-save so one file no longer wipes the others). Compose on the host still auto-loads override + `.env` in the project directory.
 
+### Docker inventory cache
+
+| Behaviour | Detail |
+|-----------|--------|
+| Storage | Per-server DB snapshot (`docker_inventory_json`, `docker_inventory_at`, `docker_inventory_status`) |
+| Open Docker page | Renders **last snapshot** immediately (no blocking full SSH list) |
+| Refresh | Background L1 collect (containers + compose discovery, **without** expensive mount `du` on list path) |
+| Triggers | Stale on open (server detail + Docker), after Docker mutations, fleet job ~every **10 minutes** (hosts with Docker feature on), **Force refresh** button |
+| Stale UI | Banner “Inventory as of …” / “Refreshing…”; last good list kept while refresh runs |
+| Feature gate | Inventory refresh only for servers with **Docker / containers** enabled (`container_patch_enabled`) |
+
+Mount path full resolve + `du` still happen on **container expand** (detail), not on every inventory refresh.
+
+### Server screen vs Edit
+
+| Surface | Purpose |
+|---------|---------|
+| Server detail | Ops: status chips, dest cards (Backups / Docker), host ⋯ actions, Jobs |
+| Edit → General | Name, SSH, docker base dir, password |
+| Edit → Features | Flags; off = hard-hide related UI |
+| Edit → Schedules | OS/container check + apply crons |
+| Backups page | Sources, path policy, backup cron, restore |
+
 ---
 
 ## 7. Quick admin checklist
 
 1. Create operators/viewers from **Users**; share one-time invite.
 2. Optionally enable **Force 2FA** under Settings.
-3. Per server: enable feature flags → set **check** schedules → only then consider **apply** schedules.
+3. Per server: **Edit → Features** → enable what you need → **Edit → Schedules** for checks → only then consider apply schedules.
 4. Prefer “only if updates” on apply schedules; start with a quiet weekly window.
-5. Use **Jobs** + **Audit** when diagnosing stuck or failed work.
+5. Use **Jobs** + **Audit** when diagnosing stuck or failed work; use Docker **Force refresh** if inventory looks stale after host-side changes.
 6. For mobile: set hostname + mount trusted TLS certs; optionally configure VAPID for push.
 
 ---
@@ -285,5 +312,6 @@ On a server’s **Docker → Edit compose**, PiHerder loads compose, override, `
 | Web Push service / APIs | `app/services/push.py`, `app/routers/push.py` |
 | Prometheus `/metrics` | `app/services/metrics.py`, `app/routers/metrics.py` |
 | Docker multi-file versions | `app/services/docker_versions.py`, compose edit UI |
+| Docker inventory cache | `app/services/docker_inventory.py`, stack fragment in `server_docker.py` |
 | PWA assets | `app/static/manifest.webmanifest`, `app/static/sw.js`, `/sw.js` |
-| Unit tests | `tests/test_rbac.py`, `test_scheduler_apply.py`, `test_jobs_progress.py`, `test_push.py`, `test_metrics.py`, `test_docker_multifile.py` |
+| Unit tests | `tests/test_rbac.py`, `test_scheduler_apply.py`, `test_jobs_progress.py`, `test_push.py`, `test_metrics.py`, `test_docker_multifile.py`, `test_docker_inventory.py` |
