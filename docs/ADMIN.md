@@ -274,7 +274,8 @@ On a server’s **Docker → Edit compose**, PiHerder loads compose, override, `
 | Stale UI | Banner “Inventory as of …” / “Refreshing…”; last good list kept while refresh runs |
 | Feature gate | Inventory refresh only for servers with **Docker / containers** enabled (`container_patch_enabled`) |
 
-Mount path full resolve + `du` still happen on **container expand** (detail), not on every inventory refresh.
+Mount path full resolve + `du` run on **container expand** (detail row open):
+`GET /servers/{id}/docker/container/mounts?name=…` → full Source→Destination paths and per-path host disk usage. Inventory list stays fast; expand restores the previous “full paths + sizes” UX.
 
 ### Server screen vs Edit
 

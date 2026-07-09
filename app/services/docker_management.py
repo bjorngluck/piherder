@@ -1168,6 +1168,96 @@ def _enrich_container_mounts(server: Server, containers: List[Dict]) -> None:
             pass
 
 
+def get_container_mounts_detail(server: Server, name_or_id: str) -> Dict:
+    """L3: full mount paths + host disk usage for one container (SSH inspect + du).
+
+    Used on container expand so inventory list stays fast (no fleet-wide du).
+    Returns:
+      {
+        success, mounts: [{source,destination,type,size_human,...}],
+        mounts_list, mounts_total_bytes, mounts_total_human, error?
+      }
+    """
+    ref = normalize_container_ref(name_or_id)
+    if not ref:
+        return {
+            "success": False,
+            "error": "Missing container name or id",
+            "mounts": [],
+            "mounts_list": [],
+            "mounts_total_bytes": None,
+            "mounts_total_human": "",
+        }
+    client = get_ssh_client(server)
+    try:
+        # Prefer exact inspect by id/name
+        cmd = f"docker inspect {shlex.quote(ref)} 2>/dev/null || true"
+        status, out, err = run_command(client, cmd, timeout=45)
+        if status != 0 or not (out or "").strip():
+            return {
+                "success": False,
+                "error": (err or out or "docker inspect failed").strip()[:300],
+                "mounts": [],
+                "mounts_list": [],
+                "mounts_total_bytes": None,
+                "mounts_total_human": "",
+            }
+        try:
+            data = json.loads(out)
+        except Exception:
+            return {
+                "success": False,
+                "error": "Invalid inspect JSON",
+                "mounts": [],
+                "mounts_list": [],
+                "mounts_total_bytes": None,
+                "mounts_total_human": "",
+            }
+        if isinstance(data, list):
+            item = data[0] if data else {}
+        elif isinstance(data, dict):
+            item = data
+        else:
+            item = {}
+        raw_mounts = item.get("Mounts") or []
+        if not isinstance(raw_mounts, list):
+            raw_mounts = []
+        structured = [
+            _parse_inspect_mount(m) for m in raw_mounts if isinstance(m, dict)
+        ]
+        structured = [m for m in structured if m.get("source") or m.get("destination")]
+        sources = [m["source"] for m in structured if m.get("source")]
+        size_map: dict = {}
+        try:
+            size_map = _du_sizes_for_paths(client, sources)
+        except Exception:
+            size_map = {}
+        mounts = []
+        for m in structured:
+            mm = dict(m)
+            src = mm.get("source") or ""
+            b = size_map.get(src)
+            if b is not None:
+                mm["size_bytes"] = b
+                mm["size_human"] = _human_bytes(b)
+            mounts.append(mm)
+        lines = [_format_mount_line(m) for m in mounts]
+        total = sum(int(m.get("size_bytes") or 0) for m in mounts if m.get("size_bytes"))
+        return {
+            "success": True,
+            "mounts": mounts,
+            "mounts_list": lines,
+            "mounts_total_bytes": total or None,
+            "mounts_total_human": _human_bytes(total) if total else "",
+            "error": None,
+        }
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
+
+
 def nest_containers_under_projects(projects: List[Dict], containers: List[Dict]):
     """
     Attach container rows under matching compose projects.
