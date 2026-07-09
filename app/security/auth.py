@@ -86,6 +86,7 @@ _VIEWER_WRITE_PREFIXES = (
     "/auth/force-2fa",
     "/auth/me/",
     "/notifications/",
+    "/api/push",
 )
 # Admin-only management surfaces
 _ADMIN_ONLY_PREFIXES = (
@@ -99,6 +100,8 @@ _FORCE_PASSWORD_ALLOW = (
     "/auth/login",
     "/static",
     "/favicon.ico",
+    "/sw.js",
+    "/manifest.webmanifest",
     "/health",
 )
 # Paths allowed while force_2fa policy and user has no 2FA yet

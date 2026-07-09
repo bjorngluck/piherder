@@ -4,6 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ title or "PiHerder" }}</title>
+  <meta name="theme-color" content="#e60012">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="PiHerder">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png">
 
   <!-- Favicon (self-contained, no external requests) -->
   <link rel="icon" href="/static/favicon.png" type="image/png" sizes="32x32">
@@ -287,6 +294,19 @@
       </div>
     </div>
   </nav>
+
+  {% if user %}
+  <!-- Dismissible PWA install hint (Android beforeinstallprompt + generic A2HS) -->
+  <div id="pwa-install-banner" class="hidden border-b border-border bg-surface">
+    <div class="max-w-5xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+      <span class="text-muted">Install PiHerder on your home screen for a fuller app experience and push alerts.</span>
+      <div class="flex gap-2">
+        <button type="button" id="pwa-install-btn" class="btn btn-accent text-xs min-h-9">Install</button>
+        <button type="button" id="pwa-install-dismiss" class="btn btn-secondary text-xs min-h-9">Not now</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   <main class="max-w-5xl mx-auto px-6 py-8">
     {% block content %}{% endblock %}
@@ -1028,5 +1048,57 @@
     window.openBackupLog(src || null, jid ? parseInt(jid, 10) : null);
   });
   </script>
+
+  {% if user %}
+  <script src="/static/js/push.js" defer></script>
+  <script>
+  (function () {
+    var KEY = 'pwa_install_dismissed';
+    var deferred = null;
+    var banner = document.getElementById('pwa-install-banner');
+    var btn = document.getElementById('pwa-install-btn');
+    var dismiss = document.getElementById('pwa-install-dismiss');
+    if (!banner) return;
+    try {
+      if (localStorage.getItem(KEY) === '1') return;
+      if (window.matchMedia('(display-mode: standalone)').matches) return;
+    } catch (e) {}
+
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      deferred = e;
+      banner.classList.remove('hidden');
+    });
+
+    // iOS / browsers without beforeinstallprompt: show a soft hint once
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
+    if (isIOS && !window.navigator.standalone) {
+      setTimeout(function () {
+        if (!deferred) {
+          banner.classList.remove('hidden');
+          if (btn) btn.classList.add('hidden');
+        }
+      }, 1200);
+    }
+
+    if (btn) {
+      btn.addEventListener('click', function () {
+        if (!deferred) return;
+        deferred.prompt();
+        deferred.userChoice.finally(function () {
+          deferred = null;
+          banner.classList.add('hidden');
+        });
+      });
+    }
+    if (dismiss) {
+      dismiss.addEventListener('click', function () {
+        try { localStorage.setItem(KEY, '1'); } catch (e) {}
+        banner.classList.add('hidden');
+      });
+    }
+  })();
+  </script>
+  {% endif %}
 </body>
 </html>

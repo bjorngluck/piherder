@@ -327,6 +327,18 @@ async def account_page(
             setup_qr_uri = None
     show_2fa_modal = pending_setup or msg == "2fa_setup"
     backup_codes = request.query_params.get("backup_codes")
+
+    from ..services import push as push_svc
+
+    push_configured = push_svc.is_push_configured()
+    push_prefs = None
+    push_subscription_count = 0
+    try:
+        push_prefs = push_svc.get_or_create_preference(session, user.id)
+        push_subscription_count = len(push_svc.list_subscriptions(session, user.id))
+    except Exception:
+        push_prefs = None
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="account.html",
@@ -347,6 +359,10 @@ async def account_page(
             "trusted_device_days": settings.TRUSTED_DEVICE_DAYS,
             "user_role": user_role(user),
             "is_admin": user_role(user) == ROLE_ADMIN,
+            "push_configured": push_configured,
+            "push_prefs": push_prefs,
+            "push_subscription_count": push_subscription_count,
+            "public_url": settings.PIHERDER_PUBLIC_URL,
         },
     )
 

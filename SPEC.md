@@ -55,7 +55,8 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 | Diagnostics | ✅ | ping, DNS, system info |
 | Audit log + filtering | ✅ | |
 | PiHerder self-backup & restore | ✅ | Compressed archives, optional audit |
-| HTTPS via Caddy | ✅ | Non-standard ports 8888/8443 for co-existence |
+| HTTPS via Caddy | ✅ | Ports 8888/8443; trusted PEMs in `./certs` + `PIHERDER_HOSTNAME` (or `Caddyfile.dev` self-signed) |
+| PWA + Android Web Push | ✅ | Manifest/SW; VAPID optional; Account prefs — see [feature plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) |
 | Pi-hole admin link | ✅ | Configurable `PIHOLE_URL` |
 | Offline-ready frontend | ✅ | Vendored Tailwind, HTMX, Alpine |
 | Docker Compose project browser | ✅ | List, redeploy, build, logs |
@@ -93,13 +94,14 @@ Related backup hardening (same phase):
 
 - [x] **Built-in scheduler UI for container/OS patch apply** — server detail “Patch apply schedules”; opt-in, default off
 - [ ] REST API for all job triggers with token auth (partial — some endpoints exist)
-- [ ] Webhook / notification integration wired end-to-end
+- [x] **Webhook / notification integration** — env `WEBHOOK_*` on new alerts + job finish; optional **Web Push** (VAPID) on new open notifications — see [PWA/push plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md)
 - [x] **Per-server OS-patch and container-patch apply cron** — APScheduler → thread pool; only-if-updates; skip if job active; audit as system/scheduler
 - [x] **OS update check schedule (check-only)** — apt upgradable count + reboot flag; no auto-upgrade — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [x] **Container update check schedule (check-only)** — pull + image ID compare; no `up -d` — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [x] **In-app notification center** — bell, dismiss, deep links (OS/container updates, reboot pending, failed backups); separate from AuditLog — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- [x] **PWA + Android Web Push** — manifest, service worker, install banner; VAPID subscriptions + per-user prefs; trusted TLS via volume-mounted certs + `PIHERDER_HOSTNAME` — [feature plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md)
 - [x] **Job queue visibility** — server detail Jobs panel (card feed); fleet **Jobs** page (`/jobs`) with filters, date range, pagination, detail modal; `GET /servers/{id}/jobs` + `GET /jobs/{id}`
-- [x] **Alembic migrations** — `migrations/` + startup `alembic upgrade head` (replaces bulk runtime ALTER loop); revisions through `003_must_change_password`
+- [x] **Alembic migrations** — `migrations/` + startup `alembic upgrade head` (replaces bulk runtime ALTER loop); revisions through `004_push_subscriptions`
 - [x] **Test suite (pytest)** — path policy, OS patch, container summary, encrypt, apply steps, password policy, restore policy, RBAC helpers + sole-admin + `get_current_user` mutate gates, apply-schedule skip/busy/enqueue, job progress/`job_public_dict` (`tests/`)
 - [x] **Container patch live progress** — per-project log lines + JobHold modal; success based on failed list; post-patch image recheck
 - [x] **Docker container expand** — full mount paths via `docker inspect`; per-mount host usage via `du`; container size labeled as writable+image (not volumes)
@@ -227,7 +229,7 @@ flowchart TB
 | 2FA | TOTP secret Fernet-encrypted; hashed backup codes; optional trusted device cookie; optional global force-2FA |
 | User passwords | bcrypt; policy min 10 + complexity; admin-created users forced reset on first login |
 | Sessions | JWT (HS256) cookie |
-| Transport | HTTPS via Caddy + Let's Encrypt (or self-signed for local) |
+| Transport | HTTPS via Caddy + volume-mounted PEMs (or `Caddyfile.dev` self-signed for local) |
 
 **SSH onboarding helpers:** `app/services/ssh_onboarding.py` (deploy / rotate / least-priv). Least-priv automation targets **Debian / Pi OS / Ubuntu** only; HAOS gets copy-paste guidance.
 

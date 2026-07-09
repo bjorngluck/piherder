@@ -2,7 +2,7 @@
 
 Practical reference for operators and admins: roles, users, security policy, schedules, and the Jobs page.
 
-Related design notes: [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · stabilisation: [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md)
+Related design notes: [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · stabilisation: [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md)
 
 ---
 
@@ -25,6 +25,7 @@ Viewers may still:
 - Manage their own 2FA
 - Complete first-login password change and force-2FA onboarding
 - Dismiss / interact with **notifications**
+- Manage own **Web Push** subscription and preferences (`/api/push`, Account)
 
 They cannot start jobs, change servers, open the Users page, or change Settings security policy.
 
@@ -166,17 +167,93 @@ While a job runs, server UI modals (JobHold / progress) poll job status and log 
 
 ---
 
-## 6. Quick admin checklist
+## 6. Public hostname, trusted TLS, and PWA / Web Push
+
+Android **installable PWA** and **Web Push** need a **secure context** with a **trusted certificate** and a stable origin. Self-signed Caddy (`tls internal` / `Caddyfile.dev`) is fine for local UI poking; it is **not** reliable for push on phones.
+
+### Hostname and public URL
+
+In `.env` (compose loads these for **web** and **caddy**):
+
+```bash
+PIHERDER_HOSTNAME=piherder.hacknow.com
+# Include :8443 when using compose host mapping 8443→443
+PIHERDER_PUBLIC_URL=https://piherder.hacknow.com:8443
+```
+
+- **DNS:** point `PIHERDER_HOSTNAME` at the host (or your outer reverse proxy).
+- **Ports (default compose):** HTTP `8888→80`, HTTPS `8443→443`. Open `https://your.host:8443` unless something else terminates 443 for you.
+
+### Volume-mounted TLS (recommended)
+
+1. Place PEM files in the repo’s `certs/` directory (gitignored):
+
+   | File | Role |
+   |------|------|
+   | `certs/fullchain.pem` | Certificate + chain |
+   | `certs/privkey.pem` | Private key |
+
+2. SANs on the cert must include `PIHERDER_HOSTNAME`.
+3. Restart Caddy: `docker compose up -d caddy`
+4. Browser should show a **trusted** lock for `PIHERDER_PUBLIC_URL`.
+
+See also `certs/README.md`. For local self-signed only, mount `Caddyfile.dev` instead of `Caddyfile`.
+
+### Web Push (VAPID)
+
+Optional. Without VAPID keys, in-app **Notifications** still work; Account shows that push is unavailable.
+
+1. Generate a VAPID key pair (web image must include `pywebpush`):
+
+   ```bash
+   docker compose exec web python - <<'PY'
+   from py_vapid import Vapid
+   from cryptography.hazmat.primitives import serialization
+   import base64
+
+   v = Vapid()
+   v.generate_keys()
+   priv = v.private_pem().decode()
+   raw = v.public_key.public_bytes(
+       encoding=serialization.Encoding.X962,
+       format=serialization.PublicFormat.UncompressedPoint,
+   )
+   pub = base64.urlsafe_b64encode(raw).decode().rstrip("=")
+   print("VAPID_PUBLIC_KEY=" + pub)
+   print("VAPID_PRIVATE_KEY=" + priv)  # multi-line PEM; wrap in quotes in .env
+   PY
+   ```
+
+2. Set in `.env` (quote multi-line PEM carefully, or use a single-line form your process supports):
+
+   ```bash
+   VAPID_PUBLIC_KEY=BNxxx...
+   VAPID_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
+   ...
+   -----END PRIVATE KEY-----"
+   VAPID_CONTACT=mailto:admin@yourdomain.com
+   ```
+
+3. Restart **web** (and ensure you use trusted HTTPS as above).
+4. In the UI: **Account → Push notifications → Enable on this device** (Android Chrome preferred; grant permission).
+5. Toggle event types (backup failed, OS updates, reboot pending, …) and save.
+
+Push fires only when a **new** open in-app notification is created (not on every fingerprint refresh).
+
+---
+
+## 7. Quick admin checklist
 
 1. Create operators/viewers from **Users**; share one-time invite.
 2. Optionally enable **Force 2FA** under Settings.
 3. Per server: enable feature flags → set **check** schedules → only then consider **apply** schedules.
 4. Prefer “only if updates” on apply schedules; start with a quiet weekly window.
 5. Use **Jobs** + **Audit** when diagnosing stuck or failed work.
+6. For mobile: set hostname + mount trusted TLS certs; optionally configure VAPID for push.
 
 ---
 
-## 7. Implementation pointers (for developers)
+## 8. Implementation pointers (for developers)
 
 | Concern | Location |
 |---------|----------|
@@ -186,4 +263,6 @@ While a job runs, server UI modals (JobHold / progress) poll job status and log 
 | Scheduler registration | `app/services/scheduler.py` |
 | Job create / progress | `app/services/jobs.py` |
 | Fleet Jobs page | `app/routers/jobs_page.py`, `app/templates/jobs.html` |
-| Unit tests | `tests/test_rbac.py`, `test_scheduler_apply.py`, `test_jobs_progress.py` |
+| Web Push service / APIs | `app/services/push.py`, `app/routers/push.py` |
+| PWA assets | `app/static/manifest.webmanifest`, `app/static/sw.js`, `/sw.js` |
+| Unit tests | `tests/test_rbac.py`, `test_scheduler_apply.py`, `test_jobs_progress.py`, `test_push.py` |

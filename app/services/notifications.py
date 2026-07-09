@@ -78,6 +78,9 @@ def upsert_notification(
     if severity in ("warning", "critical"):
         _maybe_webhook(f"[{severity}] {title}" + (f": {body}" if body else ""))
 
+    # Optional Web Push (only on *new* open rows — not fingerprint refreshes)
+    _maybe_push(session, n)
+
     return n
 
 
@@ -178,6 +181,16 @@ def _maybe_webhook(message: str) -> None:
         httpx.post(settings.WEBHOOK_URL, json=payload, timeout=8)
     except Exception as e:
         logger.debug(f"Notification webhook failed: {e}")
+
+
+def _maybe_push(session: Session, notification: Notification) -> None:
+    """Best-effort Web Push; never break the in-app notification path."""
+    try:
+        from .push import send_for_notification
+
+        send_for_notification(session, notification)
+    except Exception as e:
+        logger.debug("Web push dispatch failed: %s", e)
 
 
 # --- Domain helpers used by check jobs ---
