@@ -54,7 +54,7 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 | OS patching (apt sequence) | ✅ | Live log modal, upgrade XOR full-upgrade, phased-update awareness, reboot-required |
 | Diagnostics | ✅ | ping, DNS, system info |
 | Audit log + filtering | ✅ | |
-| PiHerder self-backup & restore | ✅ | Compressed archives, optional audit |
+| PiHerder self-backup & restore | ✅ | v2 archives: servers, full users/2FA, compose versions, push VAPID+subs, notifications, herder config, avatars; optional audit; jobs excluded |
 | HTTPS via Caddy | ✅ | Ports 8888/8443; trusted PEMs in `./certs` + `PIHERDER_HOSTNAME` (or `Caddyfile.dev` self-signed) |
 | PWA + Web Push (Android + iOS Home Screen) | ✅ | Manifest/SW; VAPID auto; Account prefs; iOS decision — [feature plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md) |
 | Pi-hole admin link | ✅ | Configurable `PIHOLE_URL` |
