@@ -124,6 +124,13 @@ class Server(SQLModel, table=True):
     container_apply_schedule: Optional[str] = None
     container_apply_only_if_updates: bool = True
 
+    # Docker inventory snapshot (DB-backed; refresh in background — not live SSH on every page)
+    # Payload: {v, projects, orphan_containers, meta}; status: never|ok|error|refreshing
+    docker_inventory_json: Optional[str] = None
+    docker_inventory_at: Optional[datetime] = None
+    docker_inventory_status: str = "never"
+    docker_inventory_error: Optional[str] = None
+
     audit_logs: List["AuditLog"] = Relationship(back_populates="server")
     jobs: List["Job"] = Relationship(back_populates="server")
     docker_versions: List["DockerVersion"] = Relationship(back_populates="server")

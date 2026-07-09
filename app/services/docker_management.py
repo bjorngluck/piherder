@@ -833,13 +833,16 @@ def _parse_compose_labels(labels) -> dict:
     return out
 
 
-def list_containers(server: Server) -> List[Dict]:
-    """List all containers... (cached short time)"""
-    key = f"containers_{server.id}"
-    return _cached(_list_containers_uncached, key, 15, server)
+def list_containers(server: Server, *, enrich_mounts: bool = True) -> List[Dict]:
+    """List all containers... (cached short time).
+
+    ``enrich_mounts=False`` skips inspect+du (L1 inventory path — much faster).
+    """
+    key = f"containers_{server.id}_{'full' if enrich_mounts else 'light'}"
+    return _cached(_list_containers_uncached, key, 15, server, enrich_mounts)
 
 
-def _list_containers_uncached(server: Server) -> List[Dict]:
+def _list_containers_uncached(server: Server, enrich_mounts: bool = True) -> List[Dict]:
     """List all containers with status, compose labels, ports, mounts, size."""
     client = get_ssh_client(server)
     try:
@@ -932,11 +935,13 @@ def _list_containers_uncached(server: Server) -> List[Dict]:
             })
         except Exception:
             pass
-    # docker ps truncates mount paths — fill full Source:Destination via inspect
-    try:
-        _enrich_container_mounts(server, containers)
-    except Exception:
-        pass
+    # L3: docker ps truncates mount paths — fill full Source:Destination via inspect + du
+    # Skip on inventory (L1) path so stack lists stay fast.
+    if enrich_mounts:
+        try:
+            _enrich_container_mounts(server, containers)
+        except Exception:
+            pass
     return containers
 
 
@@ -1241,12 +1246,26 @@ def nest_containers_under_projects(projects: List[Dict], containers: List[Dict])
     return enriched, orphans
 
 
-def list_compose_projects(server: Server, base_dir: Optional[str] = None) -> List[Dict]:
-    """List... (cached)"""
-    key = f"compose_{server.id}"
-    return _cached(_list_compose_uncached, key, 30, server, base_dir)
+def list_compose_projects(
+    server: Server,
+    base_dir: Optional[str] = None,
+    *,
+    light: bool = False,
+) -> List[Dict]:
+    """List compose projects under docker base dir.
 
-def _list_compose_uncached(server: Server, base_dir: Optional[str] = None) -> List[Dict]:
+    ``light=True`` (inventory L1): skip per-project ``docker compose ps`` — nest
+    from ``docker ps`` labels instead. Still cats compose files for services/build.
+    """
+    key = f"compose_{server.id}_{'light' if light else 'full'}"
+    return _cached(_list_compose_uncached, key, 30, server, base_dir, light)
+
+
+def _list_compose_uncached(
+    server: Server,
+    base_dir: Optional[str] = None,
+    light: bool = False,
+) -> List[Dict]:
     """List docker compose projects under the base dir, with service versions if possible."""
     if not base_dir:
         base_dir = docker_base_expanded(server)
@@ -1261,23 +1280,24 @@ def _list_compose_uncached(server: Server, base_dir: Optional[str] = None) -> Li
                 continue
             proj_dir = path.rsplit("/", 1)[0]
             proj_name = proj_dir.split("/")[-1]
-            # Try to get versions from compose ps
+            # Full mode: versions from compose ps. Light/inventory: filled after nest.
             versions = []
-            try:
-                ps_cmd = f'cd {proj_dir} && docker compose ps --format "{{{{json .}}}}" 2>/dev/null | head -20'
-                _, ps_out, _ = run_command(client, ps_cmd, timeout=15)
-                for line in ps_out.strip().splitlines():
-                    if line:
-                        p = json.loads(line)
-                        svc = p.get("Service", "")
-                        img = p.get("Image", "")
-                        ver = ""
-                        if ":" in img:
-                            ver = img.split(":", 1)[1]
-                        if svc:
-                            versions.append(f"{svc}:{ver}" if ver else svc)
-            except:
-                pass
+            if not light:
+                try:
+                    ps_cmd = f'cd {proj_dir} && docker compose ps --format "{{{{json .}}}}" 2>/dev/null | head -20'
+                    _, ps_out, _ = run_command(client, ps_cmd, timeout=15)
+                    for line in ps_out.strip().splitlines():
+                        if line:
+                            p = json.loads(line)
+                            svc = p.get("Service", "")
+                            img = p.get("Image", "")
+                            ver = ""
+                            if ":" in img:
+                                ver = img.split(":", 1)[1]
+                            if svc:
+                                versions.append(f"{svc}:{ver}" if ver else svc)
+                except Exception:
+                    pass
             # detect build services + dockerfile path from compose (using cat over same session)
             build_services = []
             has_build = False
@@ -1314,14 +1334,14 @@ def _list_compose_uncached(server: Server, base_dir: Optional[str] = None) -> Li
                 # and users can create/edit even if no build: section references it.
                 if not dockerfile_path:
                     dockerfile_path = f"{proj_dir}/Dockerfile"
-            except:
+            except Exception:
                 pass
 
             projects.append({
                 "name": proj_name,
                 "path": proj_dir,
                 "compose_file": path,
-                "versions": versions or ["(not running)"],
+                "versions": versions or (["(from docker ps)"] if light else ["(not running)"]),
                 "services": services,
                 "build_services": build_services,
                 "has_build": has_build,
@@ -1331,8 +1351,9 @@ def _list_compose_uncached(server: Server, base_dir: Optional[str] = None) -> Li
     finally:
         try:
             client.close()
-        except:
+        except Exception:
             pass
+
 
 
 

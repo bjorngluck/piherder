@@ -5,7 +5,7 @@ Extracted from routers/servers.py to keep the main servers router lean.
 All routes under /servers/{server_id}/docker/* 
 """
 
-from fastapi import APIRouter, Depends, Form, Request, HTTPException
+from fastapi import APIRouter, Depends, Form, Request, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
 from sqlmodel import Session
 import json
@@ -15,11 +15,23 @@ from datetime import datetime
 from ..database import get_session
 from ..models import Server, AuditLog
 from ..services import docker_management as docker_svc
+from ..services import docker_inventory as inventory_svc
 from .. import templates as templates_mod
 from ..security.auth import get_current_user
 from ..models import User
 
 router = APIRouter()
+
+
+def _invalidate_inventory(session: Session, server: Server, background_tasks: Optional[BackgroundTasks] = None):
+    """Clear short cache + mark DB inventory stale (+ optional BG refresh)."""
+    try:
+        inventory_svc.invalidate_after_mutation(session, server, background_tasks)
+    except Exception:
+        try:
+            docker_svc._CACHE.clear()
+        except Exception:
+            pass
 
 
 def _parse_files_json(raw: Optional[str]) -> Optional[dict]:
@@ -73,23 +85,37 @@ def _snapshot_for_save(
 
 
 @router.get("/{server_id}/docker", response_class=HTMLResponse)
-async def docker_page(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
-    """Shell-first: return page chrome immediately. Stack data loads via HTMX fragment (SSH)."""
+async def docker_page(
+    server_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Shell-first: chrome immediately. Stack from DB snapshot; BG refresh if stale."""
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
-    try:
-        import app.services.docker_management as _dm
-        if request.query_params.get("nocache"):
-            _dm._CACHE.clear()
-    except Exception:
-        pass
 
-    # No SSH here — avoids 5–15s blank wait on the previous screen.
-    # docker.html shows a loading modal until stack-fragment swaps in.
+    force = request.query_params.get("nocache") in ("1", "true", "yes")
+    if force:
+        try:
+            docker_svc._CACHE.clear()
+        except Exception:
+            pass
+        inventory_svc.request_refresh(
+            background_tasks, server_id, force=True, server=server, session=session
+        )
+    elif inventory_svc.is_stale(server) or inventory_svc.is_refresh_stuck(server):
+        inventory_svc.request_refresh(
+            background_tasks, server_id, force=False, server=server, session=session
+        )
+
+    # No blocking SSH here — fragment renders snapshot (or skeleton while first refresh runs).
     update_check = request.query_params.get("update_check")
     update_status = request.query_params.get("status")
     build_status = request.query_params.get("build_status")
+    inv_meta = inventory_svc.inventory_meta(server)
 
     resp = templates_mod.templates.TemplateResponse(
         request=request,
@@ -101,6 +127,8 @@ async def docker_page(server_id: int, request: Request, session: Session = Depen
             "projects": [],
             "orphan_containers": [],
             "docker_shell": True,
+            "inventory_meta": inv_meta,
+            "force_refresh": force,
             "user": user,
             "update_check": update_check,
             "update_status": update_status,
@@ -132,11 +160,7 @@ async def docker_container_action(
     result = docker_svc.container_action(server, name, action)
     ok = bool(result.get("success"))
     try:
-        # Clear short cache so stack refresh sees new state
-        try:
-            docker_svc._CACHE.clear()
-        except Exception:
-            pass
+        _invalidate_inventory(session, server)
         audit = AuditLog(
             user_id=user.id if user else None,
             server_id=server_id,
@@ -178,9 +202,8 @@ async def get_file_content(
         raise HTTPException(404)
 
     try:
-        import app.services.docker_management as _dm
-        _dm._CACHE.clear()
-    except:
+        _invalidate_inventory(session, server)
+    except Exception:
         pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
@@ -221,9 +244,8 @@ async def edit_compose(
         raise HTTPException(404)
 
     try:
-        import app.services.docker_management as _dm
-        _dm._CACHE.clear()
-    except:
+        _invalidate_inventory(session, server)
+    except Exception:
         pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
@@ -327,9 +349,8 @@ async def edit_dockerfile(
         raise HTTPException(404)
 
     try:
-        import app.services.docker_management as _dm
-        _dm._CACHE.clear()
-    except:
+        _invalidate_inventory(session, server)
+    except Exception:
         pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
@@ -409,9 +430,8 @@ async def save_dockerfile(
         raise HTTPException(404)
 
     try:
-        import app.services.docker_management as _dm
-        _dm._CACHE.clear()
-    except:
+        _invalidate_inventory(session, server)
+    except Exception:
         pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
@@ -450,8 +470,7 @@ async def save_dockerfile(
                 return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/dockerfile/edit?write_failed=1", status_code=303)
 
             try:
-                import app.services.docker_management as _dm
-                _dm._CACHE.clear()
+                _invalidate_inventory(session, server)
             except Exception:
                 pass
 
@@ -606,9 +625,8 @@ async def deploy_version_route(
         raise HTTPException(404)
 
     try:
-        import app.services.docker_management as _dm
-        _dm._CACHE.clear()
-    except:
+        _invalidate_inventory(session, server)
+    except Exception:
         pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
@@ -634,9 +652,8 @@ async def rollback_version(
         raise HTTPException(404)
 
     try:
-        import app.services.docker_management as _dm
-        _dm._CACHE.clear()
-    except:
+        _invalidate_inventory(session, server)
+    except Exception:
         pass
     projects = docker_svc.list_compose_projects(server)
     proj = next((p for p in projects if p["name"] == project), None)
@@ -682,8 +699,7 @@ async def save_compose(
         raise HTTPException(404)
 
     try:
-        import app.services.docker_management as _dm
-        _dm._CACHE.clear()
+        _invalidate_inventory(session, server)
     except Exception:
         pass
     projects = docker_svc.list_compose_projects(server)
@@ -717,8 +733,7 @@ async def save_compose(
             return RedirectResponse(f"/servers/{server_id}/docker/compose/{project}/edit?write_failed=1", status_code=303)
 
         try:
-            import app.services.docker_management as _dm
-            _dm._CACHE.clear()
+            _invalidate_inventory(session, server)
         except Exception:
             pass
 
@@ -899,33 +914,55 @@ async def containers_fragment(server_id: int, request: Request, session: Session
 
 
 @router.get("/{server_id}/docker/stack-fragment", response_class=HTMLResponse)
-async def stack_fragment(server_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
-    """Compose + nested services list for HTMX auto-refresh."""
+async def stack_fragment(
+    server_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Compose + nested services from DB snapshot; kick BG refresh when stale."""
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
-    try:
-        import app.services.docker_management as _dm
-        if request.query_params.get("nocache"):
-            _dm._CACHE.clear()
-    except Exception:
-        pass
 
     try:
         interval = max(60, int(request.query_params.get("refresh", "120")))
     except Exception:
         interval = 120
 
-    try:
-        containers = docker_svc.list_containers(server)
-    except Exception as e:
-        containers = [{"name": "error", "status": str(e)[:300], "running": False, "image": "", "version": "", "ports_display": "—"}]
-    try:
-        projects = docker_svc.list_compose_projects(server)
-    except Exception:
-        projects = []
-    projects, orphan_containers = docker_svc.nest_containers_under_projects(projects, containers)
-    projects, orphan_containers = docker_svc.annotate_update_flags(projects, orphan_containers, server)
+    force = request.query_params.get("nocache") in ("1", "true", "yes")
+    if force:
+        try:
+            docker_svc._CACHE.clear()
+        except Exception:
+            pass
+        inventory_svc.request_refresh(
+            background_tasks, server_id, force=True, server=server, session=session
+        )
+    elif inventory_svc.is_stale(server) or inventory_svc.is_refresh_stuck(server):
+        inventory_svc.request_refresh(
+            background_tasks, server_id, force=False, server=server, session=session
+        )
+
+    # Re-read after possible status flip to refreshing
+    session.refresh(server)
+    inv = inventory_svc.parse_inventory(server)
+    inv_meta = inventory_svc.inventory_meta(server)
+    status = inv_meta.get("status") or "never"
+    refreshing = status == "refreshing" or (
+        force and status not in ("ok",) and not inv
+    )
+    # Poll faster while first load / in-flight refresh so UI swaps when ready
+    poll_fast = refreshing or (not inv and status in ("never", "error", "refreshing"))
+
+    projects = list((inv or {}).get("projects") or [])
+    orphan_containers = list((inv or {}).get("orphan_containers") or [])
+    # Re-annotate update flags from latest check summary (cheap, no SSH)
+    if projects or orphan_containers:
+        projects, orphan_containers = docker_svc.annotate_update_flags(
+            projects, orphan_containers, server
+        )
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -936,6 +973,9 @@ async def stack_fragment(server_id: int, request: Request, session: Session = De
             "orphan_containers": orphan_containers,
             "refresh": interval,
             "docker_shell": False,
+            "inventory_meta": inv_meta,
+            "inventory_refreshing": refreshing or status == "refreshing",
+            "inventory_poll_fast": poll_fast,
             "pending_update_projects": sorted(
                 docker_svc.parse_container_updates_summary(server).get("projects") or []
             ),

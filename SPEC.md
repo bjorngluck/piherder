@@ -46,7 +46,7 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 |------|--------|-------|
 | SSH keypair generation & upload | ✅ | Fernet-encrypted at rest |
 | Server CRUD + manual ordering | ✅ | |
-| Per-server feature toggles | ✅ | Backups, OS patch, container patch |
+| Per-server feature toggles | ✅ | Backups, OS patch, Docker/containers; hard-hide UI when off (Edit → Features) |
 | rsync backups over SSH | ✅ | Multi-source paths, dest overrides |
 | Backup retention / cleanup | ✅ | |
 | Per-server backup schedules | ✅ | APScheduler cron |
@@ -59,8 +59,9 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 | PWA + Web Push (Android + iOS Home Screen) | ✅ | Manifest/SW; VAPID auto; Account prefs; iOS decision — [feature plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md) |
 | Pi-hole admin link | ✅ | Configurable `PIHOLE_URL` |
 | Offline-ready frontend | ✅ | Vendored Tailwind, HTMX, Alpine |
-| Docker Compose project browser | ✅ | List, redeploy, build, logs |
-| Compose file editing + versioning | ✅ | Drafts, deploy, rollback |
+| Docker Compose project browser | ✅ | List, redeploy, build, logs; multi-file editor |
+| Docker inventory cache | ✅ | DB snapshot + background L1 refresh; Force refresh for full re-collect |
+| Compose file editing + versioning | ✅ | Drafts, deploy, rollback; multi-file merge-on-save |
 | New Docker project wizard | ✅ | |
 | User auth (register / login) | ✅ | Single-user v1 |
 
@@ -92,7 +93,7 @@ Related backup hardening (same phase):
 
 - [x] **Per-server backup path allow/deny rules** — default deny OS roots; optional allow/deny prefixes on Backups page; enforced on add-source + `run_backup`.
 
-- [x] **Built-in scheduler UI for container/OS patch apply** — server detail “Patch apply schedules”; opt-in, default off
+- [x] **Built-in scheduler UI for container/OS patch apply** — Edit server → Schedules tab; opt-in, default off
 - [ ] REST API for all job triggers with token auth (partial — some endpoints exist)
 - [x] **Webhook / notification integration** — env `WEBHOOK_*` on new alerts + job finish; optional **Web Push** (VAPID) on new open notifications — see [PWA/push plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md)
 - [x] **Per-server OS-patch and container-patch apply cron** — APScheduler → thread pool; only-if-updates; skip if job active; audit as system/scheduler
@@ -101,8 +102,8 @@ Related backup hardening (same phase):
 - [x] **In-app notification center** — bell, dismiss, deep links (OS/container updates, reboot pending, failed backups); separate from AuditLog — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [x] **PWA + Web Push** — manifest, service worker, install banner; VAPID subscriptions + per-user prefs; iOS Home Screen path (16.4+); trusted TLS via volume-mounted certs + `PIHERDER_HOSTNAME` — [feature plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md)
 - [x] **Job queue visibility** — server detail Jobs panel (card feed); fleet **Jobs** page (`/jobs`) with filters, date range, pagination, detail modal; `GET /servers/{id}/jobs` + `GET /jobs/{id}`
-- [x] **Alembic migrations** — `migrations/` + startup `alembic upgrade head` (replaces bulk runtime ALTER loop); revisions through `005_push_vapid_config`
-- [x] **Test suite (pytest)** — path policy, OS patch, container summary, encrypt, apply steps, password policy, restore policy, RBAC helpers + sole-admin + `get_current_user` mutate gates, apply-schedule skip/busy/enqueue, job progress/`job_public_dict` (`tests/`)
+- [x] **Alembic migrations** — `migrations/` + startup `alembic upgrade head` (replaces bulk runtime ALTER loop); revisions through `006_docker_inventory`
+- [x] **Test suite (pytest)** — path policy, OS patch, container summary, encrypt, apply steps, password policy, restore policy, RBAC helpers + sole-admin + `get_current_user` mutate gates, apply-schedule skip/busy/enqueue, job progress/`job_public_dict`, docker inventory, metrics, multifile (`tests/`)
 - [x] **Container patch live progress** — per-project log lines + JobHold modal; success based on failed list; post-patch image recheck
 - [x] **Docker container expand** — full mount paths via `docker inspect`; per-mount host usage via `du`; container size labeled as writable+image (not volumes)
 - [x] **Audit pagination** — 10 / 20 / 50 per page with filters preserved
@@ -144,6 +145,9 @@ Full admin reference: [docs/ADMIN.md](docs/ADMIN.md).
 - [ ] Ansible / cloud-init bootstrap for new Pis
 - [x] **Prometheus metrics exporter** — `GET /metrics` (optional `METRICS_TOKEN`); fleet/job/notification/backup gauges
 - [x] Mobile-friendly responsive pass (UI unification 2026-07 — see `UI_UNIFICATION_PLAN.md`)
+- [x] **Docker inventory cache** — DB snapshot (`docker_inventory_*` on Server); L1 SSH refresh in background; stack UI renders from snapshot; fleet interval + open-server prefetch
+- [x] **Server Edit IA** — tabbed Edit modal (General / Features / Schedules); schedules off server detail
+- [x] **Feature hard-hide** — dest cards, host status chips, and ⋯ actions only for enabled features
 - [ ] Plugin hooks for custom job types
 
 ---
