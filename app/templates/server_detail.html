@@ -437,7 +437,10 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endfor %}
   </div>
   {% else %}
-  <p class="text-xs text-muted mb-0">No jobs recorded yet for this server.</p>
+  <div class="empty-state" style="padding: 1rem 0.5rem;">
+    <p class="text-xs">No jobs recorded yet for this host.</p>
+    <p class="empty-state-hint">Backups, patch runs, and update checks appear here.</p>
+  </div>
   {% endif %}
 </div>
 

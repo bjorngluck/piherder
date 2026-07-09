@@ -48,7 +48,17 @@
 </form>
 
 {% if not items %}
-<p class="text-sm text-muted">No notifications match.</p>
+<div class="card empty-state">
+  <p>No notifications match.</p>
+  <p class="empty-state-hint">
+    {% if status == 'open' %}You’re all caught up — or switch status to see dismissed history.
+    {% else %}Try another status or clear type/server filters.
+    {% endif %}
+  </p>
+  <div class="empty-state-actions">
+    <a href="/notifications" class="btn btn-secondary min-h-11 text-sm">Open alerts</a>
+  </div>
+</div>
 {% else %}
 <ul class="space-y-3">
   {% for n in items %}

@@ -99,8 +99,13 @@
   {% endfor %}
 </div>
 {% else %}
-<div class="card p-8 text-center text-muted">
-  No jobs match.
+<div class="card empty-state">
+  <p>No jobs match these filters.</p>
+  <p class="empty-state-hint">Clear filters or start a backup / patch from a server page.</p>
+  <div class="empty-state-actions">
+    <a href="/jobs" class="btn btn-secondary min-h-11 text-sm">Clear filters</a>
+    <a href="/servers" class="btn btn-secondary min-h-11 text-sm">Servers</a>
+  </div>
 </div>
 {% endif %}
 

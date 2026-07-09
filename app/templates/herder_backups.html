@@ -237,7 +237,10 @@
     {% endfor %}
   </div>
   {% else %}
-  <p class="text-sm text-muted mb-0">No archives yet. Run a backup above or enable the schedule.</p>
+  <div class="empty-state" style="padding: 1.25rem 0.5rem;">
+    <p>No archives yet.</p>
+    <p class="empty-state-hint">Run a backup above or enable the schedule.</p>
+  </div>
   {% endif %}
 
   <details class="herder-restore-details mt-4">

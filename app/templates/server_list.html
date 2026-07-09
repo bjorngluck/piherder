@@ -5,7 +5,7 @@
   window.PIHERDER_PROGRESS_CLOSE = 'servers';
 </script>
 
-<div class="page-header mb-4">
+<div class="page-header mb-6">
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Servers</h1>
     <p class="text-sm text-muted mt-1" id="server-list-hint">
@@ -133,14 +133,20 @@
   {% endfor %}
 </div>
 {% elif fc.get('all', 0) == 0 %}
-<div class="card p-6 text-center">
-  <p class="text-muted mb-4">No servers yet. Add one to get started.</p>
-  <a href="/servers/add" class="btn btn-primary min-h-11">+ Add Server</a>
+<div class="card empty-state">
+  <p>No servers yet.</p>
+  <p class="empty-state-hint">Add a host to start backups, patching, and Docker management.</p>
+  <div class="empty-state-actions">
+    <a href="/servers/add" class="btn btn-primary min-h-11">+ Add Server</a>
+  </div>
 </div>
 {% else %}
-<div class="card p-6 text-center">
-  <p class="text-muted mb-3">No servers match this filter.</p>
-  <a href="/servers" class="btn btn-secondary min-h-11">Show all</a>
+<div class="card empty-state">
+  <p>No servers match this filter.</p>
+  <p class="empty-state-hint">Try <strong>All</strong> or another chip above.</p>
+  <div class="empty-state-actions">
+    <a href="/servers" class="btn btn-secondary min-h-11">Show all</a>
+  </div>
 </div>
 {% endif %}
 
