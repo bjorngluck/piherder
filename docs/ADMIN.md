@@ -2,7 +2,7 @@
 
 Practical reference for operators and admins: roles, users, security policy, schedules, and the Jobs page.
 
-Related design notes: [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · stabilisation: [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md)
+Related design notes: [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](DECISION_IOS_PUSH.md) · stabilisation: [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md)
 
 ---
 
@@ -205,13 +205,14 @@ See also `certs/README.md`. For local self-signed only, mount `Caddyfile.dev` in
 
 Contact claim defaults to `VAPID_CONTACT` if set, else `mailto:admin@<PIHERDER_HOSTNAME>`, else `mailto:piherder@localhost`.
 
-1. Ensure trusted HTTPS + hostname (above) — Android push needs a secure origin.
+1. Ensure trusted HTTPS + hostname (above) — mobile push needs a secure origin.
 2. Start/restart **web** — logs should show `Web Push VAPID ready (source=generated)` (or `source=env` if overriding).
-3. In the UI: **Account → Push notifications → Enable on this device** (Android Chrome preferred; grant permission).
-4. Use **Send test notification** to verify delivery to your devices only (not the whole fleet).
-5. Toggle event types (backup failed, OS updates, reboot pending, …) and save.
+3. **Android:** Chrome → install PWA if prompted → **Account → Push notifications → Enable on this device**.
+4. **iPhone / iPad (iOS 16.4+):** Safari → Share → **Add to Home Screen** → open the Home Screen icon → Account → **Enable on this device**. Push does **not** work from a plain Safari tab. See [DECISION_IOS_PUSH.md](DECISION_IOS_PUSH.md).
+5. Use **Send test notification** to verify delivery to your devices only (not the whole fleet).
+6. Toggle event types (backup failed, OS updates, reboot pending, …) and save.
 
-Push fires only when a **new** open in-app notification is created (not on every fingerprint refresh).
+Push fires only when a **new** open in-app notification is created (not on every fingerprint refresh). Payloads include both classic service-worker fields and **Declarative Web Push** shape for Safari reliability.
 
 **Do not rotate keys casually** — changing the VAPID private key invalidates every device subscription; users must re-enable push.
 

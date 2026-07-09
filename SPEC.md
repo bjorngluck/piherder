@@ -56,7 +56,7 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 | Audit log + filtering | ✅ | |
 | PiHerder self-backup & restore | ✅ | Compressed archives, optional audit |
 | HTTPS via Caddy | ✅ | Ports 8888/8443; trusted PEMs in `./certs` + `PIHERDER_HOSTNAME` (or `Caddyfile.dev` self-signed) |
-| PWA + Android Web Push | ✅ | Manifest/SW; VAPID optional; Account prefs — see [feature plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) |
+| PWA + Web Push (Android + iOS Home Screen) | ✅ | Manifest/SW; VAPID auto; Account prefs; iOS decision — [feature plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md) |
 | Pi-hole admin link | ✅ | Configurable `PIHOLE_URL` |
 | Offline-ready frontend | ✅ | Vendored Tailwind, HTMX, Alpine |
 | Docker Compose project browser | ✅ | List, redeploy, build, logs |
@@ -99,7 +99,7 @@ Related backup hardening (same phase):
 - [x] **OS update check schedule (check-only)** — apt upgradable count + reboot flag; no auto-upgrade — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [x] **Container update check schedule (check-only)** — pull + image ID compare; no `up -d` — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [x] **In-app notification center** — bell, dismiss, deep links (OS/container updates, reboot pending, failed backups); separate from AuditLog — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
-- [x] **PWA + Android Web Push** — manifest, service worker, install banner; VAPID subscriptions + per-user prefs; trusted TLS via volume-mounted certs + `PIHERDER_HOSTNAME` — [feature plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md)
+- [x] **PWA + Web Push** — manifest, service worker, install banner; VAPID subscriptions + per-user prefs; iOS Home Screen path (16.4+); trusted TLS via volume-mounted certs + `PIHERDER_HOSTNAME` — [feature plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md)
 - [x] **Job queue visibility** — server detail Jobs panel (card feed); fleet **Jobs** page (`/jobs`) with filters, date range, pagination, detail modal; `GET /servers/{id}/jobs` + `GET /jobs/{id}`
 - [x] **Alembic migrations** — `migrations/` + startup `alembic upgrade head` (replaces bulk runtime ALTER loop); revisions through `005_push_vapid_config`
 - [x] **Test suite (pytest)** — path policy, OS patch, container summary, encrypt, apply steps, password policy, restore policy, RBAC helpers + sole-admin + `get_current_user` mutate gates, apply-schedule skip/busy/enqueue, job progress/`job_public_dict` (`tests/`)

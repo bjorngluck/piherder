@@ -50,18 +50,37 @@ self.addEventListener("push", (event) => {
   try {
     if (event.data) {
       const parsed = event.data.json();
-      data = Object.assign(data, parsed);
+      // Declarative Web Push (Safari 18.4+ / iOS 18.4+) — also readable by classic SW
+      if (parsed && parsed.web_push === 8030 && parsed.notification) {
+        const n = parsed.notification;
+        data = {
+          title: n.title || parsed.title || "PiHerder",
+          body: n.body != null ? n.body : (parsed.body || ""),
+          url: n.navigate || parsed.url || "/notifications",
+          tag: n.tag || parsed.tag || "piherder",
+        };
+      } else {
+        data = Object.assign(data, parsed);
+      }
     }
   } catch (e) {
     try {
       data.body = event.data ? event.data.text() : "";
     } catch (_) {}
   }
+  // Prefer path-only for same-origin navigation when possible
+  let path = data.url || "/notifications";
+  try {
+    if (path.startsWith("http://") || path.startsWith("https://")) {
+      const u = new URL(path);
+      if (u.origin === self.location.origin) path = u.pathname + u.search + u.hash;
+    }
+  } catch (_) {}
   const opts = {
     body: data.body || "",
     tag: data.tag || "piherder",
     renotify: true,
-    data: { url: data.url || "/notifications" },
+    data: { url: path },
     icon: "/static/icons/icon-192.png",
     badge: "/static/icons/icon-192.png",
   };

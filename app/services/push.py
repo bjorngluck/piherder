@@ -349,6 +349,66 @@ def _vapid_private_for_webpush(private_key_pem: str):
     return Vapid.from_pem(pem.encode("utf-8"))
 
 
+def _public_origin() -> str:
+    """Absolute origin for Declarative Web Push `navigate` URLs."""
+    url = (settings.PIHERDER_PUBLIC_URL or "").strip().rstrip("/")
+    if url:
+        return url
+    host = (settings.PIHERDER_HOSTNAME or "").strip()
+    if host and host not in ("localhost", "127.0.0.1"):
+        return f"https://{host}"
+    return ""
+
+
+def _absolute_url(path_or_url: str) -> str:
+    raw = (path_or_url or "/notifications").strip() or "/notifications"
+    if raw.startswith("http://") or raw.startswith("https://"):
+        return raw
+    if not raw.startswith("/"):
+        raw = "/" + raw
+    origin = _public_origin()
+    return f"{origin}{raw}" if origin else raw
+
+
+def build_push_payload(
+    *,
+    title: str,
+    body: str = "",
+    url: str = "/notifications",
+    tag: str = "piherder",
+    severity: str = "warning",
+) -> dict[str, Any]:
+    """Build a dual-compatible push body.
+
+    Classic fields (`title`, `body`, `url`, …) keep the existing service worker working.
+    Declarative Web Push shape (`web_push: 8030` + `notification`) lets Safari 18.4+ /
+    iOS 18.4+ show a user-visible notification even if SW JS is delayed or cleared.
+    """
+    title = (title or "PiHerder").strip() or "PiHerder"
+    body = body or ""
+    path = (url or "/notifications").strip() or "/notifications"
+    navigate = _absolute_url(path)
+    return {
+        # Classic (SW-driven) fields
+        "title": title,
+        "body": body,
+        "url": path,
+        "tag": tag or "piherder",
+        "severity": severity or "warning",
+        # Declarative Web Push (RFC 8030 homage + Notifications navigate)
+        "web_push": 8030,
+        "notification": {
+            "title": title,
+            "lang": "en",
+            "dir": "ltr",
+            "body": body,
+            "navigate": navigate,
+            "silent": False,
+            "tag": tag or "piherder",
+        },
+    }
+
+
 def _deliver_payload(
     session: Session,
     *,
@@ -378,6 +438,7 @@ def _deliver_payload(
     for sub in subs:
         try:
             # pywebpush 2.x: no vapid_public_key kwarg; pass Vapid instance (not raw PEM str)
+            # Urgency high: preferred for user-visible alerts (helps iOS delivery priority)
             webpush(
                 subscription_info=_subscription_info(sub),
                 data=data,
@@ -385,6 +446,7 @@ def _deliver_payload(
                 vapid_claims=vapid_claims,
                 timeout=10,
                 ttl=86400,
+                headers={"Urgency": "high"},
             )
             sub.last_success_at = datetime.utcnow()
             session.add(sub)
@@ -440,13 +502,13 @@ def send_for_notification(session: Session, notification: Notification) -> int:
         for s in subs
         if (pref := prefs.get(s.user_id)) and preference_allows(pref, notification.type)
     ]
-    payload = {
-        "title": notification.title,
-        "body": notification.body or "",
-        "url": notification.link_url or "/notifications",
-        "tag": notification.fingerprint,
-        "severity": notification.severity or "warning",
-    }
+    payload = build_push_payload(
+        title=notification.title,
+        body=notification.body or "",
+        url=notification.link_url or "/notifications",
+        tag=notification.fingerprint or "piherder",
+        severity=notification.severity or "warning",
+    )
     return _deliver_payload(session, subs=targets, payload=payload, creds=creds)
 
 
@@ -463,13 +525,13 @@ def send_test_to_user(session: Session, user: User) -> dict[str, Any]:
     if not subs:
         return {"ok": False, "sent": 0, "devices": 0, "error": "no_subscription"}
 
-    payload = {
-        "title": "PiHerder test notification",
-        "body": "Push is working on this device. You can dismiss this.",
-        "url": "/auth/account",
-        "tag": f"test-push:user:{user.id}",
-        "severity": "info",
-    }
+    payload = build_push_payload(
+        title="PiHerder test notification",
+        body="Push is working on this device. You can dismiss this.",
+        url="/auth/account",
+        tag=f"test-push:user:{user.id}",
+        severity="info",
+    )
     sent = _deliver_payload(session, subs=subs, payload=payload, creds=creds)
     return {
         "ok": sent > 0,

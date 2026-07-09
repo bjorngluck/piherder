@@ -296,10 +296,10 @@
   </nav>
 
   {% if user %}
-  <!-- Dismissible PWA install hint (Android beforeinstallprompt + generic A2HS) -->
+  <!-- Dismissible PWA install hint (Android beforeinstallprompt + iOS A2HS steps) -->
   <div id="pwa-install-banner" class="hidden border-b border-border bg-surface">
     <div class="max-w-5xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-      <span class="text-muted">Install PiHerder on your home screen for a fuller app experience and push alerts.</span>
+      <span id="pwa-install-msg" class="text-muted">Install PiHerder on your home screen for a fuller app experience and push alerts.</span>
       <div class="flex gap-2">
         <button type="button" id="pwa-install-btn" class="btn btn-accent text-xs min-h-9">Install</button>
         <button type="button" id="pwa-install-dismiss" class="btn btn-secondary text-xs min-h-9">Not now</button>
@@ -1070,11 +1070,26 @@
       banner.classList.remove('hidden');
     });
 
-    // iOS / browsers without beforeinstallprompt: show a soft hint once
-    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent || '');
-    if (isIOS && !window.navigator.standalone) {
+    // iOS / browsers without beforeinstallprompt: show Share → Add to Home Screen steps
+    var ua = navigator.userAgent || '';
+    var isIOS = /iphone|ipad|ipod/i.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    var standalone = false;
+    try {
+      standalone = window.matchMedia('(display-mode: standalone)').matches ||
+        Boolean(window.navigator.standalone);
+    } catch (e) {
+      standalone = Boolean(window.navigator.standalone);
+    }
+    if (isIOS && !standalone) {
       setTimeout(function () {
         if (!deferred) {
+          var msg = document.getElementById('pwa-install-msg');
+          if (msg) {
+            msg.innerHTML =
+              'On iPhone/iPad: Safari → <strong>Share</strong> → <strong>Add to Home Screen</strong>, ' +
+              'then open the icon to enable push alerts (iOS 16.4+).';
+          }
           banner.classList.remove('hidden');
           if (btn) btn.classList.add('hidden');
         }
