@@ -114,6 +114,43 @@ async def push_unsubscribe(
     return JSONResponse({"ok": True, "removed": n})
 
 
+@router.post("/api/push/test")
+async def push_test_api(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """JSON test push for this user only (all of their device subscriptions)."""
+    result = push_svc.send_test_to_user(session, user)
+    if result.get("error") == "vapid_unavailable":
+        raise HTTPException(status_code=503, detail="Web Push is not available")
+    if result.get("error") == "no_subscription":
+        raise HTTPException(
+            status_code=400,
+            detail="No push subscription on this account — enable on a device first",
+        )
+    return JSONResponse(result)
+
+
+@router.post("/auth/account/push-test")
+async def push_test_form(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Form POST from Account — redirect with flash-style query msg."""
+    result = push_svc.send_test_to_user(session, user)
+    err = result.get("error")
+    if err == "vapid_unavailable":
+        return RedirectResponse("/auth/account?error=push_vapid", status_code=303)
+    if err == "no_subscription":
+        return RedirectResponse("/auth/account?error=push_no_device", status_code=303)
+    if not result.get("ok"):
+        return RedirectResponse("/auth/account?error=push_test_failed", status_code=303)
+    return RedirectResponse(
+        f"/auth/account?msg=push_test_sent&push_sent={result.get('sent', 0)}",
+        status_code=303,
+    )
+
+
 @router.post("/auth/account/push-preferences")
 async def push_preferences_form(
     push_enabled: Optional[str] = Form(None),

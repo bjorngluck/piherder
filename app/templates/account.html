@@ -41,6 +41,7 @@
   {% elif msg == 'push_prefs_saved' %}Push notification preferences saved.
   {% elif msg == 'push_enabled' %}This device subscribed to push notifications.
   {% elif msg == 'push_disabled' %}Push unsubscribed on this device.
+  {% elif msg == 'push_test_sent' %}Test push sent to {{ push_sent or 'your' }} device(s). Check the notification tray.
   {% else %}Saved.{% endif %}
 </div>
 {% endif %}
@@ -57,6 +58,9 @@
   {% elif error == '2fa_no_setup' %}Start 2FA setup first.
   {% elif error == '2fa_bad_code' %}Invalid authenticator or backup code.
   {% elif error == '2fa_off' %}Enable 2FA first.
+  {% elif error == 'push_vapid' %}Web Push is not available on the server.
+  {% elif error == 'push_no_device' %}No device subscribed yet — use “Enable on this device” first.
+  {% elif error == 'push_test_failed' %}Test push failed (subscription may be expired — try enable again).
   {% elif error.startswith('avatar:') %}{{ error[7:] }}
   {% else %}{{ error }}{% endif %}
 </div>
@@ -335,11 +339,20 @@
     <div class="flex flex-wrap gap-2 items-center">
       <button type="button" id="push-enable-btn" class="btn btn-accent min-h-11 text-sm">Enable on this device</button>
       <button type="button" id="push-disable-btn" class="btn btn-secondary min-h-11 text-sm">Unsubscribe this device</button>
+      <form method="post" action="/auth/account/push-test" class="inline">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm"
+                {% if not push_subscription_count %}disabled title="Enable on a device first"{% endif %}>
+          Send test notification
+        </button>
+      </form>
     </div>
     <p id="push-client-status" class="text-xs text-muted"></p>
     <p class="text-xs text-muted">
       Active device subscriptions: <strong>{{ push_subscription_count }}</strong>
       {% if public_url %} · Public URL: <code class="text-[10px]">{{ public_url }}</code>{% endif %}
+    </p>
+    <p class="text-xs text-muted">
+      Test push goes only to <strong>your</strong> subscribed devices (not the whole fleet).
     </p>
 
     <form method="post" action="/auth/account/push-preferences" class="space-y-3 border-t border-border pt-4">
