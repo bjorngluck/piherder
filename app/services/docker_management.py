@@ -897,13 +897,15 @@ def _list_containers_uncached(server: Server) -> List[Dict]:
             if isinstance(mounts_raw, list):
                 mounts_list = [str(m).strip() for m in mounts_raw if str(m).strip()]
             else:
-                # docker ps joins mounts with commas (paths may be truncated with …)
+                # docker ps joins mounts with commas (paths often truncated with …)
                 mounts_list = [m.strip() for m in str(mounts_raw).split(",") if m.strip()]
             ports_list = ports if ports else (
                 [p.strip() for p in ports_raw.split(",") if p.strip()] if ports_raw else []
             )
+            full_id = (c.get("ID") or "")[:64]
             containers.append({
-                "id": (c.get("ID") or "")[:12],
+                "id": full_id[:12],
+                "id_full": full_id,
                 "name": name,
                 "image": image,
                 "version": version,
@@ -922,7 +924,235 @@ def _list_containers_uncached(server: Server) -> List[Dict]:
             })
         except Exception:
             pass
+    # docker ps truncates mount paths — fill full Source:Destination via inspect
+    try:
+        _enrich_container_mounts(server, containers)
+    except Exception:
+        pass
     return containers
+
+
+def _human_bytes(n: int) -> str:
+    """Compact size string for UI."""
+    try:
+        n = int(n)
+    except Exception:
+        return ""
+    if n < 0:
+        return ""
+    units = ["B", "KB", "MB", "GB", "TB"]
+    f = float(n)
+    for u in units:
+        if f < 1024.0 or u == units[-1]:
+            if u == "B":
+                return f"{int(f)} B"
+            return f"{f:.1f} {u}"
+        f /= 1024.0
+    return f"{n} B"
+
+
+def _parse_inspect_mount(m: dict) -> dict:
+    """Structured mount from docker inspect Mounts entry."""
+    src = m.get("Source") or m.get("Name") or ""
+    dst = m.get("Destination") or m.get("Target") or ""
+    mode = m.get("Mode") or ""
+    mtype = (m.get("Type") or "").lower() or "bind"
+    ro = m.get("RW") is False or m.get("ReadOnly") is True
+    name = m.get("Name") or ""
+    return {
+        "source": src,
+        "destination": dst,
+        "type": mtype,
+        "name": name,
+        "ro": ro,
+        "mode": mode,
+        "size_bytes": None,
+        "size_human": "",
+    }
+
+
+def _format_mount_line(m: dict) -> str:
+    """Human line for a structured mount (optionally with size)."""
+    src = m.get("source") or m.get("name") or ""
+    dst = m.get("destination") or ""
+    mtype = m.get("type") or ""
+    ro = m.get("ro")
+    if src and dst:
+        line = f"{src} → {dst}"
+    elif dst:
+        line = dst
+    elif src:
+        line = src
+    else:
+        line = "—"
+    extra = []
+    if mtype:
+        extra.append(mtype)
+    if ro:
+        extra.append("ro")
+    size_h = m.get("size_human") or ""
+    if size_h:
+        extra.append(size_h)
+    if extra:
+        line = f"{line} ({', '.join(extra)})"
+    return line
+
+
+def _du_sizes_for_paths(client, paths: List[str]) -> dict:
+    """Return {path: size_bytes} via one remote du -sb for existing paths.
+
+    Named docker volumes live under /var/lib/docker/volumes — may need sudo.
+    """
+    paths = [p for p in paths if p and p.startswith("/")]
+    # de-dupe, cap work
+    uniq: list = []
+    seen = set()
+    for p in paths:
+        if p not in seen:
+            seen.add(p)
+            uniq.append(p)
+        if len(uniq) >= 80:
+            break
+    if not uniq:
+        return {}
+    quoted = " ".join(shlex.quote(p) for p in uniq)
+    # Prefer plain du; fall back to sudo -n for volume store paths
+    cmd = (
+        f"du -sb {quoted} 2>/dev/null; "
+        f"sudo -n du -sb {quoted} 2>/dev/null"
+    )
+    status, out, _err = run_command(client, cmd, timeout=45)
+    if not (out or "").strip():
+        return {}
+    sizes: dict = {}
+    for line in out.strip().splitlines():
+        parts = line.strip().split(None, 1)
+        if len(parts) != 2:
+            continue
+        try:
+            b = int(parts[0])
+        except ValueError:
+            continue
+        path = parts[1].strip()
+        # keep largest if both plain + sudo reported
+        if path not in sizes or b > sizes[path]:
+            sizes[path] = b
+    return sizes
+
+
+def _enrich_container_mounts(server: Server, containers: List[Dict]) -> None:
+    """Replace truncated docker-ps mounts with full paths + disk usage from host.
+
+    1) ``docker inspect`` for Source/Destination (full paths)
+    2) ``du -sb`` on unique Source paths for space used (bind mounts + volume data dirs)
+    """
+    if not containers or containers[0].get("name") == "error":
+        return
+    client = get_ssh_client(server)
+    try:
+        cmd = (
+            "ids=$(docker ps -aq 2>/dev/null | head -n 200); "
+            'if [ -n "$ids" ]; then docker inspect $ids 2>/dev/null; else echo []; fi'
+        )
+        status, out, _err = run_command(client, cmd, timeout=90)
+        if status != 0 or not (out or "").strip():
+            names = [c.get("name") for c in containers if c.get("name") and c.get("name") != "error"]
+            if not names:
+                return
+            quoted = " ".join(shlex.quote(n) for n in names[:80])
+            status, out, _err = run_command(
+                client, f"docker inspect {quoted} 2>/dev/null || true", timeout=90
+            )
+            if status != 0 or not (out or "").strip():
+                return
+        try:
+            data = json.loads(out)
+        except Exception:
+            return
+        if not isinstance(data, list):
+            return
+
+        by_id: dict = {}
+        by_short: dict = {}
+        by_name: dict = {}
+        all_sources: list = []
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            raw_mounts = item.get("Mounts") or []
+            if not isinstance(raw_mounts, list):
+                raw_mounts = []
+            structured = [
+                _parse_inspect_mount(m) for m in raw_mounts if isinstance(m, dict)
+            ]
+            structured = [m for m in structured if m.get("source") or m.get("destination")]
+            for m in structured:
+                if m.get("source"):
+                    all_sources.append(m["source"])
+            cid = (item.get("Id") or "").strip()
+            if cid.startswith("sha256:"):
+                cid = cid[7:]
+            names = item.get("Name") or ""
+            if isinstance(names, str):
+                n = names.lstrip("/")
+                if n:
+                    by_name[n] = structured
+                    by_name[normalize_container_ref(n)] = structured
+            if cid:
+                by_id[cid] = structured
+                by_short[cid[:12]] = structured
+
+        # Disk usage for host paths (bind mounts + volume _data dirs)
+        size_map: dict = {}
+        try:
+            size_map = _du_sizes_for_paths(client, all_sources)
+        except Exception:
+            size_map = {}
+
+        def apply_sizes(mounts: list) -> list:
+            out_m = []
+            for m in mounts:
+                mm = dict(m)
+                src = mm.get("source") or ""
+                b = size_map.get(src)
+                if b is not None:
+                    mm["size_bytes"] = b
+                    mm["size_human"] = _human_bytes(b)
+                out_m.append(mm)
+            return out_m
+
+        for c in containers:
+            full = (c.get("id_full") or c.get("id") or "").strip()
+            if full.startswith("sha256:"):
+                full = full[7:]
+            name = normalize_container_ref(c.get("name") or "")
+            mounts = (
+                by_id.get(full)
+                or by_short.get(full[:12] if full else "")
+                or by_name.get(name)
+                or by_name.get(c.get("name") or "")
+            )
+            if mounts:
+                mounts = apply_sizes(mounts)
+                c["mounts_detail"] = mounts
+                lines = [_format_mount_line(m) for m in mounts]
+                c["mounts_list"] = lines
+                c["mounts"] = ", ".join(lines)
+                total = sum(int(m.get("size_bytes") or 0) for m in mounts if m.get("size_bytes"))
+                c["mounts_total_bytes"] = total or None
+                c["mounts_total_human"] = _human_bytes(total) if total else ""
+            elif c.get("mounts_list"):
+                cleaned = [
+                    m for m in c["mounts_list"]
+                    if m and "…" not in m and "..." not in m
+                ]
+                if cleaned:
+                    c["mounts_list"] = cleaned
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
 
 
 def nest_containers_under_projects(projects: List[Dict], containers: List[Dict]):

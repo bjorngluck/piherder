@@ -17,7 +17,7 @@
 
     <div class="mb-4 p-3 bg-bg border border-border rounded text-xs text-muted">
       First-time setup creates the initial admin user if none exist.<br>
-      Passwords are truncated to 72 bytes (bcrypt limit).
+      Password: min 10 chars, upper + lower + digit (max 72 bytes).
     </div>
 
     {% if not closed %}
@@ -29,9 +29,9 @@
       </div>
       <div>
         <label class="block text-sm mb-1 text-muted">Password</label>
-        <input name="password" type="password" required minlength="6" maxlength="72"
+        <input name="password" type="password" required minlength="10" maxlength="72"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
-        <p class="text-xs text-muted mt-1">6–72 characters</p>
+        <p class="text-xs text-muted mt-1">Min 10 · upper · lower · digit</p>
       </div>
 
       <button type="submit" class="w-full mt-2 btn btn-accent font-medium min-h-11">

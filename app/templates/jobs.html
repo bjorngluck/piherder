@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">Jobs</h1>
+    <p class="text-sm text-muted mt-1">
+      Task queue &amp; history · {% if active_count %}{{ active_count }} active{% else %}none active{% endif %}
+      · {{ total or 0 }} match{% if total != 1 %}es{% endif %}
+    </p>
+  </div>
+  <div class="page-header-actions">
+    <a href="/audit" class="btn btn-secondary min-h-11 text-sm">Audit log</a>
+  </div>
+</div>
+
+<form method="get" class="card p-4 mb-4" id="jobs-filter-form">
+  <div class="audit-filters-primary">
+    <select name="server_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11 sm:w-auto">
+      <option value="">All servers</option>
+      {% for srv in (servers or []) %}
+      <option value="{{ srv.id }}" {% if server_id and server_id|string == srv.id|string %}selected{% endif %}>{{ srv.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="status" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11 sm:w-auto" {% if active_only %}disabled{% endif %}>
+      <option value="">All statuses</option>
+      {% for st in (statuses or []) %}
+      <option value="{{ st }}" {% if status and status == st %}selected{% endif %}>{{ st }}</option>
+      {% endfor %}
+    </select>
+    <select name="job_type" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11 sm:w-auto">
+      <option value="">All types</option>
+      {% for jt in (job_types or []) %}
+      <option value="{{ jt }}" {% if job_type and job_type == jt %}selected{% endif %}>{{ type_labels.get(jt, jt) if type_labels else jt }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+    <div>
+      <label class="block text-xs text-muted mb-1">From</label>
+      <input type="date" name="date_from" value="{{ date_from or '' }}" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">To</label>
+      <input type="date" name="date_to" value="{{ date_to or '' }}" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">Per page</label>
+      <select name="per_page" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
+        {% for n in per_page_choices or [10, 20, 50] %}
+        <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="flex flex-wrap items-center justify-between gap-3 mt-3 pt-3 border-t border-border">
+    <label class="flex items-center gap-2 text-xs text-muted min-h-11">
+      <input type="checkbox" name="active_only" value="1" {% if active_only %}checked{% endif %}>
+      Active only (running / queued)
+    </label>
+    <div class="flex flex-wrap gap-2">
+      {% if server_id or status or job_type or active_only or date_from or date_to %}
+      <a href="/jobs" class="btn btn-secondary min-h-11 text-sm">Clear</a>
+      {% endif %}
+      <button type="submit" class="btn btn-accent min-h-11 text-sm">Apply</button>
+    </div>
+  </div>
+</form>
+
+{% if jobs %}
+<div class="audit-feed" role="list">
+  {% for j in jobs %}
+  {% set sd = j.status %}
+  <button type="button"
+          class="audit-event text-left w-full"
+          role="listitem"
+          title="Click for job details"
+          onclick="showJobDetailsModal(JOBS[{{ loop.index0 }}])">
+    <div class="audit-event-top">
+      <span class="status-pill {{ 'status-success' if sd == 'success' else 'status-failed' if sd == 'failed' else 'status-running' if sd in ('running','pending') else 'status-cancelled' }}">
+        {{ sd }}
+      </span>
+      <span class="action-pill">{{ j.job_type_label or j.job_type }}</span>
+      <span class="audit-event-time font-mono">#{{ j.id }}</span>
+      {% if j.scheduled %}<span class="text-[10px] text-muted">scheduled</span>{% endif %}
+    </div>
+    <div class="audit-event-meta">
+      {% if j.server_id %}
+      <span>Server:
+        <a href="/servers/{{ j.server_id }}" onclick="event.stopPropagation()">{{ j.server_name or ('#' ~ j.server_id) }}</a>
+      </span>
+      {% else %}
+      <span>Server: —</span>
+      {% endif %}
+      <span>{{ j.when_label or 'When' }}: {{ j.when_display or '—' }}</span>
+    </div>
+    <div class="audit-event-summary">{{ j.summary or j.current or '—' }}</div>
+  </button>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card p-8 text-center text-muted">
+  No jobs match.
+</div>
+{% endif %}
+
+{# Pagination #}
+{% if total_pages and total_pages > 1 or (total and total > 0) %}
+<div class="flex flex-wrap items-center justify-between gap-3 mt-4 text-sm">
+  <div class="text-xs text-muted">
+    Page {{ page or 1 }} of {{ total_pages or 1 }} · {{ total or 0 }} total
+  </div>
+  <div class="flex flex-wrap gap-2">
+    {% set q = 'server_id=' ~ (server_id or '') ~ '&status=' ~ (status or '') ~ '&job_type=' ~ (job_type or '') ~ '&date_from=' ~ (date_from or '') ~ '&date_to=' ~ (date_to or '') ~ '&per_page=' ~ (per_page or 20) %}
+    {% if active_only %}{% set q = q ~ '&active_only=1' %}{% endif %}
+    {% if page and page > 1 %}
+    <a class="btn btn-secondary min-h-11 text-sm" href="/jobs?{{ q }}&page={{ page - 1 }}">← Prev</a>
+    {% endif %}
+    {% if page and total_pages and page < total_pages %}
+    <a class="btn btn-secondary min-h-11 text-sm" href="/jobs?{{ q }}&page={{ page + 1 }}">Next →</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+<p class="mt-4 text-xs text-muted">
+  Click a job for details · immutable history in
+  <a href="/audit" class="text-accent hover:underline">Audit</a>
+</p>
+
+<script>
+const JOBS = {{ jobs | tojson | safe }};
+</script>
+
+<div id="job-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="modal-content card p-4 sm:p-5 w-full max-w-3xl mx-3 sm:mx-4 h-[80vh] max-h-[90vh] flex flex-col overflow-hidden">
+    <div class="flex justify-between items-start gap-2 mb-2 flex-shrink-0">
+      <div class="min-w-0">
+        <h3 id="job-detail-title" class="font-semibold text-base break-words">Job details</h3>
+        <div id="job-detail-meta" class="audit-detail-meta"></div>
+      </div>
+      <button type="button" onclick="hideJobDetailsModal()" class="btn btn-secondary min-h-11 text-sm px-3 flex-shrink-0">Close</button>
+    </div>
+    <div class="text-xs text-muted mb-1 flex-shrink-0">Log / details</div>
+    <pre id="job-details-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded">—</pre>
+  </div>
+</div>
+
+<script>
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function statusClass(sd) {
+  if (sd === 'success') return 'status-success';
+  if (sd === 'failed') return 'status-failed';
+  if (sd === 'running' || sd === 'pending') return 'status-running';
+  return 'status-cancelled';
+}
+function showJobDetailsModal(job) {
+  const modal = document.getElementById('job-details-modal');
+  const pre = document.getElementById('job-details-content');
+  const title = document.getElementById('job-detail-title');
+  const meta = document.getElementById('job-detail-meta');
+  if (!modal || !pre || !job) return;
+  if (title) title.textContent = (job.job_type_label || job.job_type || 'Job') + ' #' + job.id;
+  if (meta) {
+    const parts = [];
+    parts.push('<span class="status-pill ' + statusClass(job.status) + '">' + esc(job.status) + '</span>');
+    if (job.when_display) parts.push('<span><strong>' + esc(job.when_label || 'When') + '</strong> ' + esc(job.when_display) + '</span>');
+    if (job.server_id) {
+      parts.push('<span><strong>Server</strong> <a class="text-accent" href="/servers/' + encodeURIComponent(job.server_id) + '">' + esc(job.server_name || ('#' + job.server_id)) + '</a></span>');
+    }
+    if (job.scheduled) parts.push('<span>scheduled</span>');
+    if (job.summary) parts.push('<span style="flex-basis:100%"><strong>Summary</strong> ' + esc(job.summary) + '</span>');
+    meta.innerHTML = parts.join(' ');
+  }
+  const lines = [];
+  if (job.error) lines.push('Error: ' + job.error);
+  if (job.os_steps && job.os_steps.length) lines.push('Steps: ' + job.os_steps.join(', '));
+  if (job.current) lines.push('Current: ' + job.current);
+  if (job.log_tail && job.log_tail.length) {
+    lines.push('', '—— log tail ——', ...job.log_tail);
+  }
+  if (job.result_snippet) {
+    lines.push('', '—— result ——', job.result_snippet);
+  }
+  if (job.details_json && !(job.log_tail && job.log_tail.length)) {
+    lines.push('', '—— details ——', job.details_json);
+  }
+  pre.textContent = lines.length ? lines.join('\n') : (job.summary || '—');
+  modal.classList.remove('hidden');
+}
+function hideJobDetailsModal() {
+  const modal = document.getElementById('job-details-modal');
+  if (modal) modal.classList.add('hidden');
+}
+document.getElementById('job-details-modal')?.addEventListener('click', function (e) {
+  if (e.target === this) hideJobDetailsModal();
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') hideJobDetailsModal();
+});
+</script>
+{% endblock %}

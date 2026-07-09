@@ -163,6 +163,7 @@
       {% set nav_items = [
         {"label": "Dashboard", "href": "/", "match": "exact"},
         {"label": "Servers",   "href": "/servers", "match": "prefix"},
+        {"label": "Jobs",      "href": "/jobs", "match": "prefix"},
         {"label": "Audit",     "href": "/audit", "match": "prefix"},
         {"label": "Alerts",    "href": "/notifications", "match": "prefix"},
         {"label": "Settings",  "href": "/herder-backups", "match": "prefix"}
@@ -173,6 +174,14 @@
         {"label": "Toggle theme", "kind": "action", "action": "toggle-theme"},
         {"label": "Sign out",    "href": "/auth/logout", "kind": "danger"}
       ] %}
+      {% if user and (user.role or 'admin') == 'admin' %}
+        {% set secondary_items = [
+          {"label": "Account",     "href": "/auth/account", "kind": "normal"},
+          {"label": "Users",       "href": "/auth/users", "kind": "normal"},
+          {"label": "Toggle theme", "kind": "action", "action": "toggle-theme"},
+          {"label": "Sign out",    "href": "/auth/logout", "kind": "danger"}
+        ] %}
+      {% endif %}
       {# action items use data-action; wired once in the footer script (no inline onclick) #}
 
       <!-- Desktop nav links — generated from SINGLE SOURCE (nav_items) -->

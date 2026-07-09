@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** v0.1.x — Phase 1 complete; Phase 2–3 partial (IAM/2FA, update checks, notifications, SSH onboarding, fleet dashboard, OS/container patch UX, job queue, path policy, Alembic)  
-> **Last updated:** 2026-07-09 (container patch live logs, job history, backup path policy, pytest, Alembic)
+> **Status:** v0.1.x — Phase 1 complete; Phase 2–3 largely shipped  
+> **Last updated:** 2026-07-09 — patch apply schedules, RBAC + user admin, fleet Jobs page, restore wizard, password policy / force-2FA, Docker mount sizes
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -89,17 +89,19 @@ Related backup hardening (same phase):
 
 - [x] **Per-server backup path allow/deny rules** — default deny OS roots; optional allow/deny prefixes on Backups page; enforced on add-source + `run_backup`.
 
-- [ ] Built-in scheduler UI for container patch and OS patch **apply** jobs (check schedules exist; backup apply schedule exists)
+- [x] **Built-in scheduler UI for container/OS patch apply** — server detail “Patch apply schedules”; opt-in, default off
 - [ ] REST API for all job triggers with token auth (partial — some endpoints exist)
 - [ ] Webhook / notification integration wired end-to-end
-- [ ] Per-server container-patch and OS-patch **apply** cron schedules (check-only schedules shipped)
+- [x] **Per-server OS-patch and container-patch apply cron** — APScheduler → thread pool; only-if-updates; skip if job active; audit as system/scheduler
 - [x] **OS update check schedule (check-only)** — apt upgradable count + reboot flag; no auto-upgrade — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [x] **Container update check schedule (check-only)** — pull + image ID compare; no `up -d` — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [x] **In-app notification center** — bell, dismiss, deep links (OS/container updates, reboot pending, failed backups); separate from AuditLog — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
-- [x] **Job queue visibility** — server detail Jobs panel (active + recent history); `GET /servers/{id}/jobs`
-- [x] **Alembic migrations** — `migrations/` + startup `alembic upgrade head` (replaces bulk runtime ALTER loop)
-- [x] **Test suite (pytest)** — path policy, OS patch normalize/summary/audit, container summary, Fernet encrypt (`tests/`)
+- [x] **Job queue visibility** — server detail Jobs panel (card feed); fleet **Jobs** page (`/jobs`) with filters, date range, pagination, detail modal; `GET /servers/{id}/jobs` + `GET /jobs/{id}`
+- [x] **Alembic migrations** — `migrations/` + startup `alembic upgrade head` (replaces bulk runtime ALTER loop); revisions through `003_must_change_password`
+- [x] **Test suite (pytest)** — path policy, OS patch, container summary, encrypt, apply steps, password policy, restore policy (`tests/`)
 - [x] **Container patch live progress** — per-project log lines + JobHold modal; success based on failed list; post-patch image recheck
+- [x] **Docker container expand** — full mount paths via `docker inspect`; per-mount host usage via `du`; container size labeled as writable+image (not volumes)
+- [x] **Audit pagination** — 10 / 20 / 50 per page with filters preserved
 - [ ] Pre-built Docker Hub image published and documented
 - [ ] `docker-compose` example with sensible defaults (no `~/` bind-mount assumptions)
 
@@ -108,14 +110,26 @@ Related backup hardening (same phase):
 ## Phase 3 — Multi-user & advanced Docker
 
 - [x] **User profile / IAM** — display name, email change, avatar, password change; lock open registration after first user — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
-- [ ] Role-based access (admin / operator / read-only)
-- [ ] Multi-user audit attribution
-- [ ] Compose multi-file project support (override files, env files in UI)
-- [ ] Image update notifications (digest comparison, changelog links)
+- [x] **Role-based access (admin / operator / viewer)** — `User.role`; viewers read-only except self-service; operators run fleet jobs; admin manages roles at `/auth/users`
+- [x] **User admin** — create user (password generator, strength meter, policy, one-time copyable invite); delete with modal confirm; sole-admin protection
+- [x] **Password policy** — min 10 + upper/lower/digit; enforced on register, change password, admin create; admin-created users **must change password on first login**
+- [x] **Force 2FA (global)** — Settings → Security policy `force_2fa`; blocks fleet UI until TOTP enabled
+- [x] **Multi-user audit attribution** — audit rows store `user_id`; UI shows display name + email; scheduled jobs labeled “system / scheduler”
+- [ ] Compose multi-file project support (override files, env files in UI) — partial: version store is multi-file JSON; full override/env UI still open
+- [ ] Image update notifications (changelog links) — partial: image ID / digest compare already drives checks + in-app alerts
 - [x] Fleet-wide dashboard (patch status across all servers) — dashboard table + summary from last check fields
-- [ ] Backup restore wizard (select snapshot → restore paths)
+- [x] **Backup restore wizard** — Backups page: dry-run reverse rsync per source, confirm to apply; path policy enforced; audit `backup_restore`
 - [x] Rate limiting on auth endpoints (basic in-memory on login/2FA)
 - [x] **Optional app-based 2FA** — TOTP + backup codes + optional trusted device (30d, revocable) — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+
+### Security model (multi-user notes)
+| Control | Behaviour |
+|---------|-----------|
+| Roles | `admin` / `operator` / `viewer` — mutating HTTP methods blocked for viewers (except self-service) |
+| Sole admin | Cannot demote or delete the last admin |
+| Admin create user | Temporary password + invite copy; `must_change_password` until first reset |
+| Force 2FA | Herder config `force_2fa`; onboarding redirect to `/auth/force-2fa` |
+| Scheduled jobs | Audit `user_id=null` → UI “system / scheduler” |
 
 ---
 
@@ -206,7 +220,8 @@ flowchart TB
 | SSH private keys | Fernet-encrypted in DB; decrypted in-memory per job |
 | SSH passwords (optional) | Fernet-encrypted; discouraged; clear after key deploy |
 | User passwords | bcrypt hashed |
-| 2FA | TOTP secret Fernet-encrypted; hashed backup codes; optional trusted device cookie |
+| 2FA | TOTP secret Fernet-encrypted; hashed backup codes; optional trusted device cookie; optional global force-2FA |
+| User passwords | bcrypt; policy min 10 + complexity; admin-created users forced reset on first login |
 | Sessions | JWT (HS256) cookie |
 | Transport | HTTPS via Caddy + Let's Encrypt (or self-signed for local) |
 

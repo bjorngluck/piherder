@@ -18,7 +18,7 @@ This plan covers five related product areas already hinted in `SPEC.md` (Phase 2
 
 **Why together:** Update checks only become useful when something *surfaces* them (notifications). Profile/2FA harden the console that can reboot and patch hosts. Shared patterns: new DB tables, account UI, scheduler registration, audit actions.
 
-**Out of scope for this plan (keep Phase 3+):** full RBAC roles, multi-tenant org model, email/Slack channel matrix UI, auto-apply patching on schedule (dangerous by default).
+**Originally out of scope for this plan** (now partly shipped outside this doc — see `SPEC.md`): full RBAC roles ✅, multi-tenant org model (still open), email/Slack channel matrix UI (still open), auto-apply patching on schedule ✅ (opt-in apply schedules).
 
 ---
 
@@ -611,7 +611,9 @@ All five product areas from this plan are implemented in tree. Companion docs:
 2. `SPEC.md` Phase 2–3 checkboxes marked complete where applicable
 3. `README.md` feature list and onboarding notes
 
-**Still out of scope (as planned):** full RBAC, multi-tenant orgs, email/Slack channel matrix UI, scheduled auto-apply of patches.
+**Shipped since this plan closed (see SPEC):** full RBAC + user admin, scheduled auto-apply of patches (opt-in), restore wizard, fleet Jobs page, password policy / force first-login reset / force-2FA toggle.
+
+**Still open:** multi-tenant orgs, email/Slack channel matrix UI, webhooks E2E, token REST API, Docker Hub image, Prometheus.
 
 Optional next: open GitHub issues / Project cards from remaining unchecked SPEC Phase 2–4 items.
 
@@ -623,7 +625,7 @@ Optional next: open GitHub issues / Project cards from remaining unchecked SPEC 
 |----------|----------------------|
 | Password reset without SMTP | Change-password + ops recovery; no email token v1 |
 | Trusted devices | Include design; implement with 2FA, 30d max, revocable |
-| Auto-apply on schedule | **No** — check-only |
+| Auto-apply on schedule | **Yes (later)** — opt-in per server; default off; only-if-updates (see SPEC Phase 2) |
 | Container check method | Pull + compare IDs (no `up -d`) |
 | Notifications vs audit | Separate table + bell UI |
 | Registration | Lock after first user |

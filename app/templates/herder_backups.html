@@ -29,6 +29,9 @@
 {% if request.query_params.get('deleted') %}
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm">Backup deleted.</div>
 {% endif %}
+{% if request.query_params.get('security_saved') %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">Security policy saved.</div>
+{% endif %}
 {% if request.query_params.get('config_saved') %}
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm">Settings saved.</div>
 {% endif %}
@@ -66,6 +69,26 @@
     <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save timezone</button>
   </form>
   <p class="text-xs text-muted mt-2">Used for display and schedule interpretation (including update checks).</p>
+</div>
+
+<div class="card p-5 mb-4">
+  <h2 class="font-semibold text-text mb-1">Security policy</h2>
+  <p class="text-xs text-muted mb-3">
+    Global account rules. Admin-created users always must set a new password on first login.
+  </p>
+  <form method="post" action="/herder-backups/security" class="space-y-3">
+    <label class="flex items-start gap-2 min-h-11 text-sm">
+      <input type="checkbox" name="force_2fa" value="1" class="mt-1"
+             {% if cfg.force_2fa %}checked{% endif %}>
+      <span>
+        <strong>Require 2FA for all users</strong>
+        <span class="block text-xs text-muted mt-0.5">
+          After login, users without TOTP are sent to set up an authenticator app before using the fleet UI.
+        </span>
+      </span>
+    </label>
+    <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save security policy</button>
+  </form>
 </div>
 
 <div class="card p-5 mb-4">

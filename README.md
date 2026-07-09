@@ -19,25 +19,28 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 ### Fleet & jobs
 - Add servers via SSH keypair (generated in-app or uploaded) — private key encrypted immediately with Fernet.
 - **SSH access** on each server: test connection, deploy public key (optional password bootstrap), rotate keypair, least-priv user scripts (**Pi OS / Ubuntu**), copy-paste install commands. HAOS: key deploy + plain rsync guidance.
-- Per-server toggles: Backups, OS Patching, Container Patching; optional OS/container **update check** schedules (check-only, no auto-apply).
-- **Backups** (rsync over SSH) — multi-source paths, retention, schedules; HAOS/root plain-rsync probe.
-- **Container patching** — `docker compose pull` + conditional `up -d` on real image change; Docker project browser (list, logs, compose edit, build, deploy).
-- **OS patching** — apt update / upgrade **or** full-upgrade / autoremove; live progress modal; Ubuntu phased-update awareness; reboot-required detection; post-patch recheck + page refresh.
-- **Container patching** — compose pull + conditional `up -d` with live JobHold logs and post-patch recheck.
-- **Job queue** — per-server active + recent jobs on the server detail page (`GET /servers/{id}/jobs`).
-- **Backup path policy** — default deny for OS roots; per-server allow/deny prefixes on the Backups page.
+- Per-server toggles: Backups, OS Patching, Container Patching; optional OS/container **update check** schedules (check-only).
+- Optional **OS / container patch apply schedules** (opt-in, default off; only-if-updates; audited as system/scheduler).
+- **Backups** (rsync over SSH) — multi-source paths, retention, schedules; path allow/deny policy; **restore wizard** (dry-run then confirm).
+- **Container patching** — `docker compose pull` + conditional `up -d`; live JobHold logs; Docker browser (list, logs, compose edit, build).
+- **OS patching** — apt update / upgrade **or** full-upgrade / autoremove; live progress; Ubuntu phased-update awareness; reboot-required.
+- **Jobs** — per-server card panel + fleet **Jobs** page (`/jobs`) with filters, date range, pagination, detail modal.
+- **Docker details** — full mount paths; per-mount host disk usage (`du`); container size = writable+image (not volumes).
 - **Fleet dashboard** — patch/update attention across hosts; servers list filters and ⋯ action menus.
 - Diagnostics (ping, DNS, system info).
-- Full audit trail + job logs (filter by user/status/action/server); OS patch audits include step summary and apt log tail.
-- Self-backup of PiHerder config (servers + encrypted keys) — scheduled via Settings, restore with preview.
-- In-app **notification center** (bell, dismiss, deep links for updates / reboot / backup failures).
+- Full **audit** trail (filters, pagination 10/20/50); scheduled jobs as system/scheduler.
+- Self-backup of PiHerder config — scheduled via Settings, restore with preview.
+- In-app **notification center** (bell, dismiss, deep links).
 - Link to Pi-hole admin from dashboard (configurable).
 - HTTPS via Caddy (Let's Encrypt).
 
 ### Account & security
 - User profile: display name, email, avatar, password change; registration locks after first user.
-- Optional **2FA** (TOTP + backup codes + trusted device).
+- **RBAC:** admin / operator / viewer; admin **Users** page (create with password generator + invite copy, roles, delete modal).
+- **Password policy** (min 10 + complexity); admin-created users **must change password on first login**.
+- Optional **2FA** (TOTP + backup codes + trusted device); optional **force 2FA for all** (Settings → Security policy).
 - Basic rate limiting on login / 2FA endpoints.
+- Schema via **Alembic** on startup; unit tests with `pytest`.
 
 **Volumes (docker-compose.yml):**
 - `~/backup:/backups` — destination root for per-server rsync backups.
@@ -175,9 +178,9 @@ Bind-mount host directories as needed for persistence.
 
 See **[SPEC.md](SPEC.md)** for the full specification, architecture, and phased roadmap.
 
-**Recently completed (high level):** IAM profile, optional 2FA, OS/container update checks + notifications, fleet dashboard, SSH deploy/rotate/least-priv (Debian family).
+**Recently completed (high level):** patch apply schedules, RBAC + user admin, fleet Jobs page, backup restore wizard, password policy / force-2FA, Docker mount sizes, IAM/2FA, update checks, SSH onboarding, job queue, path policy, Alembic + pytest.
 
-**Still open (examples):** OS/container patch-apply schedules, webhooks end-to-end, RBAC, Docker Hub image, backup restore wizard.
+**Still open (examples):** webhooks end-to-end, token REST API, Docker Hub image, compose multi-file/env UI polish, Prometheus, Ansible bootstrap.
 
 To track work in a GitHub Project: link the `piherder` repo, then create issues from the unchecked items in SPEC.md.
 

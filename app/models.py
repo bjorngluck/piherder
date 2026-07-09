@@ -16,10 +16,16 @@ class User(SQLModel, table=True):
     avatar_path: Optional[str] = None  # relative under DATA_ROOT, e.g. avatars/1.png
     updated_at: Optional[datetime] = None
 
+    # RBAC: admin (full) | operator (run jobs, edit fleet) | viewer (read-only)
+    role: str = Field(default="admin")
+
     # Optional TOTP 2FA
     totp_secret_encrypted: Optional[str] = None
     totp_enabled: bool = False
     totp_confirmed_at: Optional[datetime] = None
+
+    # Admin-created users must set their own password before using the app
+    must_change_password: bool = False
 
     audit_logs: List["AuditLog"] = Relationship(back_populates="user")
     totp_backup_codes: List["TotpBackupCode"] = Relationship(back_populates="user")
@@ -105,6 +111,18 @@ class Server(SQLModel, table=True):
     last_container_check_at: Optional[datetime] = None
     container_updates_count: Optional[int] = None
     container_updates_summary: Optional[str] = None
+
+    # OS patch *apply* schedule (dangerous; default off — explicit opt-in)
+    # Steps JSON e.g. '["update","upgrade","autoremove"]' (upgrade XOR full-upgrade)
+    os_apply_enabled: bool = False
+    os_apply_schedule: Optional[str] = None
+    os_apply_steps: Optional[str] = None
+    os_apply_only_if_updates: bool = True  # skip when last check shows 0 actionable
+
+    # Container patch *apply* schedule (compose pull + conditional up -d); default off
+    container_apply_enabled: bool = False
+    container_apply_schedule: Optional[str] = None
+    container_apply_only_if_updates: bool = True
 
     audit_logs: List["AuditLog"] = Relationship(back_populates="server")
     jobs: List["Job"] = Relationship(back_populates="server")

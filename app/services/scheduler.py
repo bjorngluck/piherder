@@ -5,6 +5,7 @@ Handles:
 - Per-server backup cron jobs (via APScheduler -> Celery enqueue)
 - Per-server OS update checks (check-only)
 - Per-server container update checks (check-only)
+- Per-server OS / container patch *apply* schedules (opt-in; default off)
 - PiHerder self-backup schedule registration and execution
 
 Kept lightweight: functions only, no new scheduler instance here.
@@ -84,6 +85,76 @@ def schedule_container_check_job(server_id: int):
         logger.warning(f"[SCHEDULER] Error container check for {server_id}: {e}")
 
 
+def schedule_os_apply_job(server_id: int):
+    """Enqueue OS patch apply if still enabled and (optionally) updates pending."""
+    try:
+        from ..database import engine
+        from .jobs import enqueue_os_patch_apply
+        from ..models import Server
+
+        with Session(engine) as db:
+            server = db.get(Server, server_id)
+            if not server:
+                return
+            if not server.os_patch_enabled or not server.os_apply_enabled:
+                logger.info(f"[SCHEDULER] OS apply skipped (disabled) for server {server_id}")
+                return
+            if getattr(server, "os_apply_only_if_updates", True):
+                count = server.os_updates_count
+                if count is not None and int(count) <= 0:
+                    logger.info(
+                        f"[SCHEDULER] OS apply skipped (no updates) for server {server_id}"
+                    )
+                    return
+            job = enqueue_os_patch_apply(server.id, user_id=None, scheduled=True)
+            if job:
+                logger.info(
+                    f"[SCHEDULER] Queued OS patch apply job #{job.id} for server {server_id}"
+                )
+            else:
+                logger.info(f"[SCHEDULER] OS apply not queued (busy/skip) for server {server_id}")
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] Error OS apply for {server_id}: {e}")
+
+
+def schedule_container_apply_job(server_id: int):
+    """Enqueue container patch apply if still enabled and (optionally) updates pending."""
+    try:
+        from ..database import engine
+        from .jobs import enqueue_container_patch_apply
+        from ..models import Server
+
+        with Session(engine) as db:
+            server = db.get(Server, server_id)
+            if not server:
+                return
+            if not server.container_patch_enabled or not server.container_apply_enabled:
+                logger.info(
+                    f"[SCHEDULER] Container apply skipped (disabled) for server {server_id}"
+                )
+                return
+            if getattr(server, "container_apply_only_if_updates", True):
+                count = server.container_updates_count
+                if count is not None and int(count) <= 0:
+                    logger.info(
+                        f"[SCHEDULER] Container apply skipped (no image updates) "
+                        f"for server {server_id}"
+                    )
+                    return
+            job = enqueue_container_patch_apply(server.id, user_id=None, scheduled=True)
+            if job:
+                logger.info(
+                    f"[SCHEDULER] Queued container patch apply job #{job.id} "
+                    f"for server {server_id}"
+                )
+            else:
+                logger.info(
+                    f"[SCHEDULER] Container apply not queued (busy/skip) for server {server_id}"
+                )
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] Error container apply for {server_id}: {e}")
+
+
 def _remove_job(scheduler, job_id: str):
     try:
         scheduler.remove_job(job_id)
@@ -161,6 +232,56 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
             )
         except Exception as e:
             logger.warning(f"[SCHEDULER] Container check schedule failed for {sid}: {e}")
+
+    # OS patch apply (opt-in; requires feature flag + explicit apply enable)
+    oaid = f"os_apply_{sid}"
+    _remove_job(scheduler, oaid)
+    if (
+        server.os_patch_enabled
+        and getattr(server, "os_apply_enabled", False)
+        and getattr(server, "os_apply_schedule", None)
+    ):
+        try:
+            trigger = _cron_trigger(server.os_apply_schedule, timezone=tz)
+            scheduler.add_job(
+                func=schedule_os_apply_job,
+                trigger=trigger,
+                args=[sid],
+                id=oaid,
+                replace_existing=True,
+                name=f"OS apply {server.name}",
+            )
+            logger.info(
+                f"[SCHEDULER] OS apply scheduled for server {sid}: "
+                f"{server.os_apply_schedule} ({tz})"
+            )
+        except Exception as e:
+            logger.warning(f"[SCHEDULER] OS apply schedule failed for {sid}: {e}")
+
+    # Container patch apply (opt-in)
+    caid = f"container_apply_{sid}"
+    _remove_job(scheduler, caid)
+    if (
+        server.container_patch_enabled
+        and getattr(server, "container_apply_enabled", False)
+        and getattr(server, "container_apply_schedule", None)
+    ):
+        try:
+            trigger = _cron_trigger(server.container_apply_schedule, timezone=tz)
+            scheduler.add_job(
+                func=schedule_container_apply_job,
+                trigger=trigger,
+                args=[sid],
+                id=caid,
+                replace_existing=True,
+                name=f"Container apply {server.name}",
+            )
+            logger.info(
+                f"[SCHEDULER] Container apply scheduled for server {sid}: "
+                f"{server.container_apply_schedule} ({tz})"
+            )
+        except Exception as e:
+            logger.warning(f"[SCHEDULER] Container apply schedule failed for {sid}: {e}")
 
 
 def sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER):

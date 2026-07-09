@@ -13,6 +13,7 @@ from ..security.auth import (
     create_pending_2fa_token,
     get_password_hash,
     get_current_user,
+    get_admin_user,
     verify_password,
     decode_token_payload,
     rate_limit_auth,
@@ -31,6 +32,16 @@ from ..security.auth import (
     revoke_trusted_device,
     revoke_all_trusted_devices,
     list_trusted_devices,
+    normalize_role,
+    user_role,
+    is_sole_admin,
+    count_active_admins,
+    post_login_path,
+    force_2fa_required,
+    ROLE_ADMIN,
+    ROLE_OPERATOR,
+    ROLE_VIEWER,
+    VALID_ROLES,
 )
 from ..services import avatars as avatar_svc
 from ..config import settings
@@ -95,12 +106,16 @@ async def login(
     if not user:
         return RedirectResponse("/auth/login?error=invalid", status_code=303)
 
-    # 2FA path
-    if user.totp_enabled and user.totp_secret_encrypted:
+    # 2FA path (skip when user must change password first — they re-login after)
+    if (
+        user.totp_enabled
+        and user.totp_secret_encrypted
+        and not getattr(user, "must_change_password", False)
+    ):
         raw_trusted = request.cookies.get(TRUSTED_COOKIE)
         if raw_trusted and find_valid_trusted_device(session, user.id, raw_trusted):
             token = create_access_token({"sub": str(user.id)})
-            response = RedirectResponse(url="/", status_code=303)
+            response = RedirectResponse(url=post_login_path(user), status_code=303)
             _set_auth_cookie(response, token)
             return response
 
@@ -112,7 +127,7 @@ async def login(
         return response
 
     token = create_access_token({"sub": str(user.id)})
-    response = RedirectResponse(url="/", status_code=303)
+    response = RedirectResponse(url=post_login_path(user), status_code=303)
     _set_auth_cookie(response, token)
     return response
 
@@ -165,7 +180,7 @@ async def two_factor_submit(
         return RedirectResponse("/auth/2fa?error=invalid", status_code=303)
 
     token = create_access_token({"sub": str(user.id)})
-    response = RedirectResponse(url="/", status_code=303)
+    response = RedirectResponse(url=post_login_path(user), status_code=303)
     _set_auth_cookie(response, token)
     response.delete_cookie(PENDING_COOKIE)
 
@@ -231,9 +246,24 @@ async def register(
             name="register.html",
             context={"title": "Register", "error": "User with that email already exists"}
         )
+    from ..services import password_policy as pwpol
+
+    ok, pol_err = pwpol.validate_password(password or "")
+    if not ok:
+        return templates_mod.templates.TemplateResponse(
+            request=request,
+            name="register.html",
+            context={"title": "Register", "error": pol_err or "Password does not meet policy"},
+        )
     try:
         hashed = get_password_hash(password)
-        user = User(email=email, hashed_password=hashed)
+        # First user is admin; later open-registration users start as operator
+        is_first = session.exec(select(User)).first() is None
+        user = User(
+            email=email,
+            hashed_password=hashed,
+            role=ROLE_ADMIN if is_first else ROLE_OPERATOR,
+        )
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -315,6 +345,8 @@ async def account_page(
             "show_2fa_modal": show_2fa_modal,
             "backup_codes_shown": backup_codes.split(",") if backup_codes else None,
             "trusted_device_days": settings.TRUSTED_DEVICE_DAYS,
+            "user_role": user_role(user),
+            "is_admin": user_role(user) == ROLE_ADMIN,
         },
     )
 
@@ -357,14 +389,18 @@ async def change_password(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    from ..services import password_policy as pwpol
+
     if not verify_password(current_password, user.hashed_password):
         return RedirectResponse("/auth/account?error=bad_password", status_code=303)
-    if len(new_password) < 6:
-        return RedirectResponse("/auth/account?error=password_short", status_code=303)
     if new_password != confirm_password:
         return RedirectResponse("/auth/account?error=password_mismatch", status_code=303)
+    ok, _err = pwpol.validate_password(new_password or "")
+    if not ok:
+        return RedirectResponse("/auth/account?error=password_policy", status_code=303)
 
     user.hashed_password = get_password_hash(new_password)
+    user.must_change_password = False
     user.updated_at = datetime.utcnow()
     session.add(user)
     session.commit()
@@ -543,3 +579,267 @@ async def revoke_all_devices(
     n = revoke_all_trusted_devices(session, user.id)
     _audit(session, user.id, "user_trusted_device_revoked", f"Revoked all ({n})")
     return RedirectResponse("/auth/account?msg=devices_revoked", status_code=303)
+
+
+@router.get("/users", response_class=HTMLResponse)
+async def users_admin_page(
+    request: Request,
+    admin: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Admin-only multi-user RBAC management + create user."""
+    from ..services import password_policy as pwpol
+
+    users = list(session.exec(select(User).order_by(User.email)).all())
+    sole_admin_ids = {u.id for u in users if is_sole_admin(session, u)}
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="users_admin.html",
+        context={
+            "title": "Users & roles",
+            "user": admin,
+            "users": users,
+            "roles": [ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER],
+            "sole_admin_ids": sole_admin_ids,
+            "admin_count": count_active_admins(session),
+            "msg": request.query_params.get("msg"),
+            "error": request.query_params.get("error"),
+            "password_policy_text": pwpol.policy_rules_text(),
+            "password_min_length": pwpol.MIN_LENGTH,
+            "new_user_credentials": None,
+        },
+    )
+
+
+@router.post("/users/create")
+async def create_user(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    role: str = Form(ROLE_OPERATOR),
+    display_name: str = Form(""),
+    admin: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Admin creates a user with password (no self-registration required).
+
+    On success, re-renders the users page with a one-time credentials card
+    (password is never put in the URL).
+    """
+    from ..services import password_policy as pwpol
+
+    email = (email or "").strip().lower()
+    display_name = (display_name or "").strip() or None
+
+    def _users_page(**extra):
+        users = list(session.exec(select(User).order_by(User.email)).all())
+        sole_admin_ids = {u.id for u in users if is_sole_admin(session, u)}
+        ctx = {
+            "title": "Users & roles",
+            "user": admin,
+            "users": users,
+            "roles": [ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER],
+            "sole_admin_ids": sole_admin_ids,
+            "admin_count": count_active_admins(session),
+            "msg": None,
+            "error": None,
+            "password_policy_text": pwpol.policy_rules_text(),
+            "password_min_length": pwpol.MIN_LENGTH,
+            "new_user_credentials": None,
+        }
+        ctx.update(extra)
+        return templates_mod.templates.TemplateResponse(
+            request=request,
+            name="users_admin.html",
+            context=ctx,
+        )
+
+    if not email or "@" not in email:
+        return _users_page(error="bad_email")
+    ok, err = pwpol.validate_password(password or "")
+    if not ok:
+        return _users_page(error="password_policy", error_detail=err)
+    existing = session.exec(select(User).where(User.email == email)).first()
+    if existing:
+        return _users_page(error="email_taken")
+    new_role = normalize_role(role)
+    if new_role not in VALID_ROLES:
+        new_role = ROLE_OPERATOR
+    try:
+        created = User(
+            email=email,
+            hashed_password=get_password_hash(password),
+            role=new_role,
+            display_name=display_name,
+            must_change_password=True,  # force reset on first login
+        )
+        session.add(created)
+        session.commit()
+        session.refresh(created)
+        _audit(
+            session,
+            admin.id,
+            "user_created",
+            f"Created {email} as {new_role}",
+        )
+        # Prefer external URL from request (works behind Caddy)
+        base = str(request.base_url).rstrip("/")
+        login_url = f"{base}/auth/login"
+        invite = pwpol.format_invite_text(
+            email=email,
+            password=password,
+            role=new_role,
+            login_url=login_url,
+            display_name=display_name,
+        )
+        return _users_page(
+            msg="user_created",
+            new_user_credentials={
+                "email": email,
+                "password": password,
+                "role": new_role,
+                "display_name": display_name or "",
+                "login_url": login_url,
+                "invite_text": invite,
+            },
+        )
+    except Exception:
+        return _users_page(error="create_failed")
+
+
+@router.post("/users/{target_id}/role")
+async def set_user_role(
+    target_id: int,
+    role: str = Form(...),
+    admin: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    target = session.get(User, target_id)
+    if not target:
+        raise HTTPException(404)
+    new_role = normalize_role(role)
+    if new_role not in VALID_ROLES:
+        return RedirectResponse("/auth/users?error=bad_role", status_code=303)
+    # Always keep at least one admin — sole admin cannot change own (or any last) role away
+    if user_role(target) == ROLE_ADMIN and new_role != ROLE_ADMIN:
+        if is_sole_admin(session, target):
+            return RedirectResponse("/auth/users?error=last_admin", status_code=303)
+    old = user_role(target)
+    if old == new_role:
+        return RedirectResponse("/auth/users?msg=role_saved", status_code=303)
+    target.role = new_role
+    target.updated_at = datetime.utcnow()
+    session.add(target)
+    session.commit()
+    _audit(
+        session,
+        admin.id,
+        "user_role_changed",
+        f"{target.email}: {old} → {new_role}",
+    )
+    return RedirectResponse("/auth/users?msg=role_saved", status_code=303)
+
+
+@router.post("/users/{target_id}/delete")
+async def delete_user(
+    target_id: int,
+    confirm: Optional[str] = Form(None),
+    admin: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Delete a user (admin only). Cannot delete self or the last admin."""
+    target = session.get(User, target_id)
+    if not target:
+        raise HTTPException(404)
+    if target.id == admin.id:
+        return RedirectResponse("/auth/users?error=delete_self", status_code=303)
+    if is_sole_admin(session, target):
+        return RedirectResponse("/auth/users?error=last_admin", status_code=303)
+    if confirm not in ("1", "on", "true", "yes", "DELETE"):
+        return RedirectResponse("/auth/users?error=delete_confirm", status_code=303)
+
+    email = target.email
+    # Remove 2FA / device rows first (no ON DELETE CASCADE assumed)
+    for row in session.exec(select(TotpBackupCode).where(TotpBackupCode.user_id == target.id)).all():
+        session.delete(row)
+    from ..models import TrustedDevice
+    for row in session.exec(select(TrustedDevice).where(TrustedDevice.user_id == target.id)).all():
+        session.delete(row)
+    # Leave audit rows; null user_id so history remains
+    for al in session.exec(select(AuditLog).where(AuditLog.user_id == target.id)).all():
+        al.user_id = None
+        session.add(al)
+    session.delete(target)
+    session.commit()
+    _audit(session, admin.id, "user_deleted", f"Deleted user {email}")
+    return RedirectResponse("/auth/users?msg=user_deleted", status_code=303)
+
+
+@router.get("/force-password", response_class=HTMLResponse)
+async def force_password_page(
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    from ..services import password_policy as pwpol
+
+    if not getattr(user, "must_change_password", False):
+        return RedirectResponse(post_login_path(user), status_code=303)
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="force_password.html",
+        context={
+            "title": "Set a new password",
+            "user": user,
+            "error": request.query_params.get("error"),
+            "password_policy_text": pwpol.policy_rules_text(),
+            "password_min_length": pwpol.MIN_LENGTH,
+        },
+    )
+
+
+@router.post("/force-password")
+async def force_password_submit(
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    from ..services import password_policy as pwpol
+
+    if not getattr(user, "must_change_password", False):
+        return RedirectResponse(post_login_path(user), status_code=303)
+    if new_password != confirm_password:
+        return RedirectResponse("/auth/force-password?error=mismatch", status_code=303)
+    ok, _err = pwpol.validate_password(new_password or "")
+    if not ok:
+        return RedirectResponse("/auth/force-password?error=policy", status_code=303)
+    # Disallow reusing the temporary password
+    if verify_password(new_password, user.hashed_password):
+        return RedirectResponse("/auth/force-password?error=same", status_code=303)
+
+    user.hashed_password = get_password_hash(new_password)
+    user.must_change_password = False
+    user.updated_at = datetime.utcnow()
+    session.add(user)
+    session.commit()
+    revoke_all_trusted_devices(session, user.id)
+    _audit(session, user.id, "user_password_changed", "First-login password set")
+    # Re-issue path for force 2FA if needed
+    return RedirectResponse(post_login_path(user), status_code=303)
+
+
+@router.get("/force-2fa", response_class=HTMLResponse)
+async def force_2fa_page(
+    request: Request,
+    user: User = Depends(get_current_user),
+):
+    if not force_2fa_required() or user.totp_enabled:
+        return RedirectResponse("/", status_code=303)
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="force_2fa.html",
+        context={
+            "title": "Two-factor authentication required",
+            "user": user,
+        },
+    )

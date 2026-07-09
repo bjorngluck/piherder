@@ -70,6 +70,114 @@ def _extract_token(request: Request, token: Optional[str]) -> Optional[str]:
     return auth_token
 
 
+# RBAC roles (lowest → highest privilege)
+ROLE_VIEWER = "viewer"
+ROLE_OPERATOR = "operator"
+ROLE_ADMIN = "admin"
+VALID_ROLES = frozenset({ROLE_VIEWER, ROLE_OPERATOR, ROLE_ADMIN})
+ROLE_RANK = {ROLE_VIEWER: 1, ROLE_OPERATOR: 2, ROLE_ADMIN: 3}
+
+# Viewers may mutate only self-service / soft paths (not fleet jobs)
+_VIEWER_WRITE_PREFIXES = (
+    "/auth/logout",
+    "/auth/account",
+    "/auth/2fa",
+    "/auth/force-password",
+    "/auth/force-2fa",
+    "/auth/me/",
+    "/notifications/",
+)
+# Admin-only management surfaces
+_ADMIN_ONLY_PREFIXES = (
+    "/auth/users",
+)
+
+# Paths allowed while must_change_password is set
+_FORCE_PASSWORD_ALLOW = (
+    "/auth/force-password",
+    "/auth/logout",
+    "/auth/login",
+    "/static",
+    "/favicon.ico",
+    "/health",
+)
+# Paths allowed while force_2fa policy and user has no 2FA yet
+_FORCE_2FA_ALLOW = (
+    "/auth/force-2fa",
+    "/auth/account",
+    "/auth/logout",
+    "/auth/login",
+    "/auth/me/",
+    "/static",
+    "/favicon.ico",
+    "/health",
+)
+
+
+class OnboardingRedirect(Exception):
+    """Raised from get_current_user to force password / 2FA onboarding."""
+
+    def __init__(self, location: str):
+        self.location = location
+        super().__init__(location)
+
+
+def force_2fa_required() -> bool:
+    """Global policy: every user must enable TOTP before using the app."""
+    try:
+        from ..services.herder_backup import load_herder_config
+        return bool(load_herder_config().get("force_2fa"))
+    except Exception:
+        return False
+
+
+def _path_allowed(path: str, prefixes: tuple[str, ...]) -> bool:
+    return any(path == p or path.startswith(p.rstrip("/") + "/") or path.startswith(p) for p in prefixes)
+
+
+def post_login_path(user: User) -> str:
+    """Where to send the browser after a successful login / 2FA."""
+    if getattr(user, "must_change_password", False):
+        return "/auth/force-password"
+    if force_2fa_required() and not getattr(user, "totp_enabled", False):
+        return "/auth/force-2fa"
+    return "/"
+
+
+def normalize_role(role: str | None) -> str:
+    r = (role or ROLE_ADMIN).strip().lower()
+    return r if r in VALID_ROLES else ROLE_ADMIN
+
+
+def user_role(user: User) -> str:
+    return normalize_role(getattr(user, "role", None))
+
+
+def role_at_least(user: User, min_role: str) -> bool:
+    return ROLE_RANK.get(user_role(user), 0) >= ROLE_RANK.get(min_role, 99)
+
+
+def count_active_admins(session: Session) -> int:
+    """How many active users currently have the admin role."""
+    users = session.exec(select(User).where(User.is_active == True)).all()  # noqa: E712
+    return sum(1 for u in users if user_role(u) == ROLE_ADMIN)
+
+
+def is_sole_admin(session: Session, user: User) -> bool:
+    """True if this user is the only active admin (must not demote/disable)."""
+    if user_role(user) != ROLE_ADMIN:
+        return False
+    return count_active_admins(session) <= 1
+
+
+def _viewer_write_allowed(path: str) -> bool:
+    return any(path.startswith(p) for p in _VIEWER_WRITE_PREFIXES)
+
+
+def _admin_only_path(path: str) -> bool:
+    return any(path.startswith(p) for p in _ADMIN_ONLY_PREFIXES)
+
+
 def get_current_user(
     request: Request,
     token: str = Depends(oauth2_scheme),
@@ -99,6 +207,58 @@ def get_current_user(
     user = session.get(User, int(user_id))
     if user is None or not user.is_active:
         raise credentials_exception
+
+    path = request.url.path or ""
+
+    # First-login password change gate
+    if getattr(user, "must_change_password", False) and not _path_allowed(
+        path, _FORCE_PASSWORD_ALLOW
+    ):
+        raise OnboardingRedirect("/auth/force-password")
+
+    # Global force-2FA gate (after password is OK)
+    if (
+        not getattr(user, "must_change_password", False)
+        and force_2fa_required()
+        and not getattr(user, "totp_enabled", False)
+        and not _path_allowed(path, _FORCE_2FA_ALLOW)
+    ):
+        raise OnboardingRedirect("/auth/force-2fa")
+
+    # Enforce RBAC for mutating methods (GET stays open for all logged-in roles)
+    method = (request.method or "GET").upper()
+    if method in ("POST", "PUT", "PATCH", "DELETE"):
+        role = user_role(user)
+        if _admin_only_path(path) and role != ROLE_ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin role required",
+            )
+        if role == ROLE_VIEWER and not _viewer_write_allowed(path):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Read-only account — operator or admin required for this action",
+            )
+    return user
+
+
+def get_admin_user(user: User = Depends(get_current_user)) -> User:
+    """Dependency for admin-only routes (GET included)."""
+    if user_role(user) != ROLE_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required",
+        )
+    return user
+
+
+def get_operator_user(user: User = Depends(get_current_user)) -> User:
+    """Dependency requiring operator or admin (GET included)."""
+    if not role_at_least(user, ROLE_OPERATOR):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operator or admin role required",
+        )
     return user
 
 
