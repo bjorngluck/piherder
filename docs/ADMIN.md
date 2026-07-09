@@ -201,44 +201,31 @@ See also `certs/README.md`. For local self-signed only, mount `Caddyfile.dev` in
 
 ### Web Push (VAPID)
 
-Optional. Without VAPID keys, in-app **Notifications** still work; Account shows that push is unavailable.
+**Default (recommended):** on web startup PiHerder **auto-generates** a VAPID key pair once and stores it in Postgres (`pushvapidconfig`). The private key is **Fernet-encrypted** with `PIHERDER_MASTER_KEY`. You do **not** need to run a generate script or set `VAPID_*` env vars for normal use.
 
-1. Generate a VAPID key pair (web image must include `pywebpush`):
+Contact claim defaults to `VAPID_CONTACT` if set, else `mailto:admin@<PIHERDER_HOSTNAME>`, else `mailto:piherder@localhost`.
 
-   ```bash
-   docker compose exec web python - <<'PY'
-   from py_vapid import Vapid
-   from cryptography.hazmat.primitives import serialization
-   import base64
-
-   v = Vapid()
-   v.generate_keys()
-   priv = v.private_pem().decode()
-   raw = v.public_key.public_bytes(
-       encoding=serialization.Encoding.X962,
-       format=serialization.PublicFormat.UncompressedPoint,
-   )
-   pub = base64.urlsafe_b64encode(raw).decode().rstrip("=")
-   print("VAPID_PUBLIC_KEY=" + pub)
-   print("VAPID_PRIVATE_KEY=" + priv)  # multi-line PEM; wrap in quotes in .env
-   PY
-   ```
-
-2. Set in `.env` (quote multi-line PEM carefully, or use a single-line form your process supports):
-
-   ```bash
-   VAPID_PUBLIC_KEY=BNxxx...
-   VAPID_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
-   ...
-   -----END PRIVATE KEY-----"
-   VAPID_CONTACT=mailto:admin@yourdomain.com
-   ```
-
-3. Restart **web** (and ensure you use trusted HTTPS as above).
-4. In the UI: **Account → Push notifications → Enable on this device** (Android Chrome preferred; grant permission).
-5. Toggle event types (backup failed, OS updates, reboot pending, …) and save.
+1. Ensure trusted HTTPS + hostname (above) — Android push needs a secure origin.
+2. Start/restart **web** — logs should show `Web Push VAPID ready (source=generated)` (or `source=env` if overriding).
+3. In the UI: **Account → Push notifications → Enable on this device** (Android Chrome preferred; grant permission).
+4. Toggle event types (backup failed, OS updates, reboot pending, …) and save.
 
 Push fires only when a **new** open in-app notification is created (not on every fingerprint refresh).
+
+**Do not rotate keys casually** — changing the VAPID private key invalidates every device subscription; users must re-enable push.
+
+#### Optional env override
+
+Set `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` (+ optional `VAPID_CONTACT`) only if you need to pin keys (e.g. keep the same pair after a DB wipe). Env always wins over the DB row when both public and private are set.
+
+```bash
+# Only if you intentionally pin keys — not required for default auto-gen
+# VAPID_PUBLIC_KEY=...
+# VAPID_PRIVATE_KEY=...   # PEM; use \n escapes or quoted multi-line
+# VAPID_CONTACT=mailto:admin@yourdomain.com
+```
+
+In-app **Notifications** still work if VAPID generation ever fails; Account will show push as unavailable.
 
 ---
 

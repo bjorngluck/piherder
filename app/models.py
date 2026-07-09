@@ -276,3 +276,17 @@ class PushPreference(SQLModel, table=True):
     container_updates: bool = True
     herder_backup_failed: bool = True
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class PushVapidConfig(SQLModel, table=True):
+    """Singleton-ish VAPID application server keys (auto-generated or env-seeded).
+
+    Private key is Fernet-encrypted with PIHERDER_MASTER_KEY. Never regenerate
+    casually — changing keys invalidates all browser push subscriptions.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    public_key: str
+    private_key_encrypted: str
+    contact: str = "mailto:piherder@localhost"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    source: str = "generated"  # generated | env_import

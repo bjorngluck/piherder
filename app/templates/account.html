@@ -321,12 +321,17 @@
 
     {% if not push_configured %}
     <p class="text-sm banner-warning border border-border rounded p-3">
-      Web Push is not configured on this server (VAPID keys missing).
-      Ask an admin to set <code class="text-xs">VAPID_PUBLIC_KEY</code>,
-      <code class="text-xs">VAPID_PRIVATE_KEY</code>, and <code class="text-xs">VAPID_CONTACT</code>
-      — see <span class="font-medium">docs/ADMIN.md</span>.
+      Web Push is temporarily unavailable (VAPID keys could not be created).
+      Check server logs, or set optional <code class="text-xs">VAPID_*</code> env overrides — see <span class="font-medium">docs/ADMIN.md</span>.
     </p>
     {% else %}
+    <p class="text-xs text-muted">
+      Server keys:
+      {% if push_vapid_source == 'env' %}from environment override
+      {% elif push_vapid_source == 'generated' %}auto-generated and stored encrypted in the database
+      {% else %}stored in the database{% endif %}
+      (stable — do not rotate casually or devices must re-subscribe).
+    </p>
     <div class="flex flex-wrap gap-2 items-center">
       <button type="button" id="push-enable-btn" class="btn btn-accent min-h-11 text-sm">Enable on this device</button>
       <button type="button" id="push-disable-btn" class="btn btn-secondary min-h-11 text-sm">Unsubscribe this device</button>

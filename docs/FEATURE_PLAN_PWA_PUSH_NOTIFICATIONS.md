@@ -26,7 +26,7 @@ Users should be able to:
 | Public hostname | `PIHERDER_HOSTNAME` (e.g. `piherder.hacknow.com`) |
 | Public URL | `PIHERDER_PUBLIC_URL` (include `:8443` if using compose port map) |
 | Trusted TLS | Volume-mount `certs/fullchain.pem` + `certs/privkey.pem` into Caddy |
-| VAPID (push only) | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_CONTACT` |
+| VAPID (push) | **Auto-generated at startup** → encrypted in `pushvapidconfig`; optional env override |
 
 Self-signed (`Caddyfile.dev`) does **not** give reliable Android Web Push.
 
@@ -44,6 +44,7 @@ Self-signed (`Caddyfile.dev`) does **not** give reliable Android Web Push.
 | Install prompt UX | Done — dismissible banner in `base.html` |
 | Push subscription storage | Done — `PushSubscription` model |
 | VAPID send path | Done — `pywebpush` + `app/services/push.py` |
+| Auto VAPID keys | Done — generate once at startup; Fernet in DB; env override |
 | Hook on new notifications | Done — `upsert_notification` create path |
 | Per-user preferences | Done — Account card + `PushPreference` |
 | Trusted TLS + hostname ops | Done — Caddy + compose + `certs/` |
