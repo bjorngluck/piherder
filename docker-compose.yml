@@ -16,6 +16,8 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_CONTACT=${VAPID_CONTACT:-}
+      - METRICS_TOKEN=${METRICS_TOKEN:-}
+      - METRICS_BACKUP_STALE_HOURS=${METRICS_BACKUP_STALE_HOURS:-36}
     volumes:
       - ~/backup:/backups
       - ./piherder_backups:/herder_backups

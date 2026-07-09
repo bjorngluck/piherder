@@ -45,6 +45,13 @@ class Settings(BaseSettings):
     # 2FA trusted device max age (days)
     TRUSTED_DEVICE_DAYS: int = 30
 
+    # Prometheus scrape endpoint (GET /metrics)
+    # If set, require Authorization: Bearer <token>. If empty, path is open like /health
+    # (use only on a private network / behind Caddy allow-list).
+    METRICS_TOKEN: Optional[str] = None
+    # Backup considered stale when last_backup_at is older than this many hours
+    METRICS_BACKUP_STALE_HOURS: int = 36
+
     class Config:
         env_file = ".env"
         extra = "ignore"

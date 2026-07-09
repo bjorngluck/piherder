@@ -202,9 +202,9 @@ Bind-mount host directories as needed for persistence.
 
 See **[SPEC.md](SPEC.md)** for the full specification, architecture, and phased roadmap.
 
-**Recently completed (high level):** PWA + Android Web Push, trusted TLS via cert volume + hostname, patch apply schedules, RBAC + user admin, fleet Jobs page, backup restore wizard, password policy / force-2FA, Docker mount sizes, IAM/2FA, update checks, SSH onboarding, job queue, path policy, Alembic + pytest.
+**Recently completed (high level):** Prometheus `/metrics`, multi-file Docker compose editor (override/.env), PWA + Web Push, trusted TLS via cert volume + hostname, patch apply schedules, RBAC + user admin, fleet Jobs page, backup restore wizard, password policy / force-2FA, Docker mount sizes, IAM/2FA, update checks, SSH onboarding, job queue, path policy, Alembic + pytest.
 
-**Still open (examples):** token REST API, Docker Hub image, compose multi-file/env UI polish, Prometheus, Ansible bootstrap.
+**Still open (examples):** token REST API, Docker Hub image, Ansible bootstrap, plugin hooks.
 
 To track work in a GitHub Project: link the `piherder` repo, then create issues from the unchecked items in SPEC.md.
 

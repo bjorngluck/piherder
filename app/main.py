@@ -17,6 +17,7 @@ from .routers import servers as servers_router
 from .routers import audit as audit_router
 from .routers import notifications as notifications_router
 from .routers import push as push_router
+from .routers import metrics as metrics_router
 from . import templates as templates_mod  # shared Jinja instance (avoids circular)
 from .security.auth import get_current_user, get_optional_current_user, get_password_hash
 from .models import User
@@ -167,6 +168,7 @@ app.include_router(audit_router.router, prefix="", tags=["audit"])
 app.include_router(notifications_router.router, prefix="", tags=["notifications"])
 app.include_router(push_router.router, prefix="", tags=["push"])
 app.include_router(jobs_page_router.router, prefix="", tags=["jobs"])
+app.include_router(metrics_router.router, prefix="", tags=["metrics"])
 
 # Scheduler helpers extracted
 from .services import scheduler as sched

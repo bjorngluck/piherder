@@ -229,6 +229,36 @@ Set `VAPID_PUBLIC_KEY` + `VAPID_PRIVATE_KEY` (+ optional `VAPID_CONTACT`) only i
 
 In-app **Notifications** still work if VAPID generation ever fails; Account will show push as unavailable.
 
+### Prometheus metrics (`GET /metrics`)
+
+Scrape-time gauges (DB only, no SSH). Path is **not** behind login cookies.
+
+| Env | Purpose |
+|-----|---------|
+| `METRICS_TOKEN` | If set, require `Authorization: Bearer <token>` or `X-Metrics-Token` |
+| `METRICS_BACKUP_STALE_HOURS` | Hours without a successful backup before a host counts as stale (default **36**) |
+
+Example Prometheus scrape (internal Docker network is preferred):
+
+```yaml
+scrape_configs:
+  - job_name: piherder
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["web:8000"]   # compose service name
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/piherder_token  # or credentials: "..."
+```
+
+Useful series: `piherder_up`, `piherder_db_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`.
+
+If `METRICS_TOKEN` is empty, treat `/metrics` like `/health` — private network only.
+
+### Multi-file Docker projects
+
+On a server’s **Docker → Edit compose**, PiHerder loads compose, override, `.env`, and Dockerfile when present. Tabs edit each file; **Save & Deploy** writes the full set and redeploys. Version history stores multi-file snapshots (merge-on-save so one file no longer wipes the others). Compose on the host still auto-loads override + `.env` in the project directory.
+
 ---
 
 ## 7. Quick admin checklist
@@ -253,5 +283,7 @@ In-app **Notifications** still work if VAPID generation ever fails; Account will
 | Job create / progress | `app/services/jobs.py` |
 | Fleet Jobs page | `app/routers/jobs_page.py`, `app/templates/jobs.html` |
 | Web Push service / APIs | `app/services/push.py`, `app/routers/push.py` |
+| Prometheus `/metrics` | `app/services/metrics.py`, `app/routers/metrics.py` |
+| Docker multi-file versions | `app/services/docker_versions.py`, compose edit UI |
 | PWA assets | `app/static/manifest.webmanifest`, `app/static/sw.js`, `/sw.js` |
-| Unit tests | `tests/test_rbac.py`, `test_scheduler_apply.py`, `test_jobs_progress.py`, `test_push.py` |
+| Unit tests | `tests/test_rbac.py`, `test_scheduler_apply.py`, `test_jobs_progress.py`, `test_push.py`, `test_metrics.py`, `test_docker_multifile.py` |
