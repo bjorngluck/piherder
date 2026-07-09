@@ -24,7 +24,7 @@ from typing import List, Dict, Optional
 import yaml
 from yaml import YAMLError
 from ..models import Server
-from ..services.ssh import get_ssh_client, run_command
+from ..services.ssh import get_ssh_client, run_command, docker_base_expanded
 import paramiko
 import time
 from datetime import datetime
@@ -71,24 +71,67 @@ def get_container_status(server: Server, name: str) -> Dict:
         return {"name": name, "state": "unknown", "running": False, "ports": []}
 
 
+def normalize_container_ref(name: str) -> str:
+    """Normalize docker Names/ID from UI (leading /, multi-name, whitespace)."""
+    cname = (name or "").strip()
+    if not cname or cname == "error":
+        return ""
+    # docker ps may return "name1,name2" or "/name"
+    if "," in cname:
+        cname = cname.split(",")[0].strip()
+    cname = cname.lstrip("/")
+    return cname
+
+
 def container_action(server: Server, name: str, action: str) -> Dict:
-    """Perform action on a container: start, stop, restart."""
+    """Perform action on a container: start, stop, restart.
+    ``name`` may be container name or short/long ID (ID preferred).
+    """
     valid = {"start", "stop", "restart"}
     if action not in valid:
         return {"success": False, "error": "Invalid action"}
+    cname = normalize_container_ref(name)
+    if not cname:
+        return {"success": False, "error": "Invalid container name"}
 
     client = get_ssh_client(server)
-    cmd = f"docker {action} {name}"
-    status, out, err = run_command(client, cmd, timeout=60)
-    client.close()
-
-    success = status == 0
-    return {
-        "success": success,
-        "action": action,
-        "name": name,
-        "output": (out + err).strip()[:300]
-    }
+    try:
+        cmd = f"docker {action} {shlex.quote(cname)}"
+        status, out, err = run_command(client, cmd, timeout=90)
+        success = status == 0
+        output = ((out or "") + (err or "")).strip()
+        # Retry without leading path quirks: resolve name → ID
+        if not success:
+            # Resolve by name → ID (name filter is substring; prefer exact via inspect)
+            _, id_out, _ = run_command(
+                client,
+                f"docker inspect --format '{{{{.Id}}}}' {shlex.quote(cname)} 2>/dev/null | head -c 64 || true",
+                timeout=15,
+            )
+            cid = (id_out or "").strip()
+            if cid and cid != cname and not cid.lower().startswith("error"):
+                # strip sha256: prefix length — docker accepts full id
+                status2, out2, err2 = run_command(
+                    client, f"docker {action} {shlex.quote(cid)}", timeout=90
+                )
+                if status2 == 0:
+                    success = True
+                    cname = cid[:12]
+                    output = ((out2 or "") + (err2 or "")).strip()
+                else:
+                    output = ((out2 or "") + (err2 or "") or output).strip()
+        return {
+            "success": success,
+            "action": action,
+            "name": cname,
+            "output": output[:500],
+            "error": None if success else (output[:300] or f"docker {action} failed"),
+        }
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
 
 
 def read_compose_file(server: Server, project_path: str) -> str:
@@ -364,46 +407,229 @@ def get_logs(server: Server, container_or_service: str, lines: int = 100, follow
     return (out + err).strip()
 
 
+def _image_id_remote(client, image: str) -> str:
+    img = (image or "").strip()
+    if not img:
+        return ""
+    _, out, _ = run_command(
+        client,
+        f"docker image inspect --format '{{{{.Id}}}}' {shlex.quote(img)} 2>/dev/null || true",
+        timeout=20,
+    )
+    return (out or "").strip()
+
+
+def classify_compose_images(client, project_path: str) -> dict:
+    """
+    Split compose images into registry-pullable vs local-build.
+
+    "Update available" only makes sense for services without a ``build:`` section
+    (pure pull images). Local/Dockerfile builds are updated via **Build**, not pull.
+    """
+    qdir = shlex.quote(project_path)
+    _, cfg_raw, _ = run_command(
+        client,
+        f"cd {qdir} && docker compose config --format json 2>/dev/null || true",
+        timeout=30,
+    )
+    pullable: list[str] = []
+    build_local: list[str] = []
+    build_services: list[str] = []
+    pull_services: list[str] = []
+    try:
+        cfg = json.loads(cfg_raw or "{}") if (cfg_raw or "").strip() else {}
+    except Exception:
+        cfg = {}
+    services = cfg.get("services") or {}
+    if isinstance(services, dict):
+        for svc_name, svc in services.items():
+            if not isinstance(svc, dict):
+                continue
+            has_build = bool(svc.get("build"))
+            image = (svc.get("image") or "").strip()
+            if has_build:
+                build_services.append(str(svc_name))
+                if image:
+                    build_local.append(image)
+            elif image:
+                pull_services.append(str(svc_name))
+                pullable.append(image)
+
+    # Fallback if config json unavailable: treat all compose images as pullable
+    if not pullable and not build_local and not build_services:
+        _, images_raw, _ = run_command(
+            client,
+            f"cd {qdir} && docker compose config --images 2>/dev/null || true",
+            timeout=20,
+        )
+        pullable = [l.strip() for l in (images_raw or "").strip().splitlines() if l.strip()]
+
+    # Dedupe preserving order
+    def _uniq(seq: list[str]) -> list[str]:
+        seen = set()
+        out = []
+        for x in seq:
+            if x and x not in seen:
+                seen.add(x)
+                out.append(x)
+        return out
+
+    return {
+        "pullable_images": _uniq(pullable),
+        "build_images": _uniq(build_local),
+        "build_services": build_services,
+        "pull_services": pull_services,
+    }
+
+
 def check_compose_updates(server: Server, project_path: str) -> Dict:
-    """Check if there are new images for a compose project.
-    Uses docker compose pull and reports changes.
+    """
+    Check for newer *registry* images (docker compose pull + ID compare).
+
+    Services with ``build:`` are ignored for update badges — rebuild is manual.
     """
     client = get_ssh_client(server)
     try:
-        # Get current images
-        _, images_raw, _ = run_command(client, f"cd {project_path} && docker compose config --images 2>/dev/null || true", timeout=20)
-        images = [l.strip() for l in images_raw.strip().splitlines() if l.strip()]
+        classified = classify_compose_images(client, project_path)
+        images = list(classified.get("pullable_images") or [])
+        if not images:
+            return {
+                "has_updates": False,
+                "updated_images": [],
+                "images": [],
+                "skipped_build_only": True,
+                "build_services": classified.get("build_services") or [],
+                "pull_output": "No registry-pullable services (all build: local, or empty project).",
+                "success": True,
+            }
 
-        before = ""
-        if images:
-            _, before_raw, _ = run_command(
-                client,
-                f"docker inspect --format '{{{{.Id}}}}' {' '.join(images)} 2>/dev/null | sort -u | tr '\\n' ' ' || true",
-                timeout=30
-            )
-            before = before_raw.strip()
-
-        # Try pull (dry-ish by capturing output)
-        status, pull_out, pull_err = run_command(client, f"cd {project_path} && docker compose pull 2>&1", timeout=180)
-
-        after = ""
-        if images:
-            _, after_raw, _ = run_command(
-                client,
-                f"docker inspect --format '{{{{.Id}}}}' {' '.join(images)} 2>/dev/null | sort -u | tr '\\n' ' ' || true",
-                timeout=30
-            )
-            after = after_raw.strip()
-
-        has_updates = before != after
+        before_ids = {img: _image_id_remote(client, img) for img in images}
+        status, pull_out, pull_err = run_command(
+            client,
+            f"cd {shlex.quote(project_path)} && docker compose pull 2>&1",
+            timeout=180,
+        )
+        after_ids = {img: _image_id_remote(client, img) for img in images}
+        updated_images = [
+            img for img in images
+            if before_ids.get(img) != after_ids.get(img)
+        ]
+        has_updates = bool(updated_images)
 
         return {
             "has_updates": has_updates,
-            "pull_output": (pull_out + pull_err).strip()[-600:],
-            "success": status == 0 or "Pulled" in pull_out or has_updates
+            "updated_images": updated_images,
+            "images": images,
+            "build_services": classified.get("build_services") or [],
+            "pull_output": ((pull_out or "") + (pull_err or "")).strip()[-600:],
+            "success": status == 0 or "Pulled" in (pull_out or "") or has_updates,
         }
     finally:
         client.close()
+
+
+def parse_container_updates_summary(server: Server) -> dict:
+    """Parse Server.container_updates_summary into project names + image refs."""
+    projects: set[str] = set()
+    images: set[str] = set()
+    project_images: dict[str, list[str]] = {}
+    raw = getattr(server, "container_updates_summary", None) or ""
+    if not raw:
+        return {"projects": projects, "images": images, "project_images": project_images}
+    try:
+        data = json.loads(raw) if isinstance(raw, str) else raw
+    except Exception:
+        return {"projects": projects, "images": images, "project_images": project_images}
+    if not isinstance(data, dict):
+        return {"projects": projects, "images": images, "project_images": project_images}
+    for p in data.get("projects") or []:
+        if p:
+            projects.add(str(p).strip())
+    details = data.get("project_details") or {}
+    if isinstance(details, dict):
+        for pname, det in details.items():
+            if not pname:
+                continue
+            projects.add(str(pname).strip())
+            imgs = []
+            if isinstance(det, dict):
+                imgs = list(det.get("images") or [])
+            elif isinstance(det, list):
+                imgs = list(det)
+            project_images[str(pname).strip()] = [str(i) for i in imgs if i]
+            for i in imgs:
+                if i:
+                    images.add(str(i).strip())
+    return {"projects": projects, "images": images, "project_images": project_images}
+
+
+def _image_ref_matches(container_image: str, updated_refs: set[str] | list[str]) -> bool:
+    """True if container Image field matches a checked-updated compose image ref."""
+    if not container_image or not updated_refs:
+        return False
+    ci = str(container_image).strip().split("@")[0]
+    if not ci:
+        return False
+    for ref in updated_refs:
+        r = str(ref).strip().split("@")[0]
+        if not r:
+            continue
+        if ci == r or ci.startswith(r + ":") or r.startswith(ci + ":"):
+            return True
+        # same repo different tag still highlight if exact ref in updated set is close
+        if ci.split(":")[0] == r.split(":")[0] and (":" in r and ci.endswith(":" + r.split(":")[-1])):
+            return True
+    return False
+
+
+def annotate_update_flags(
+    projects: List[Dict],
+    orphan_containers: List[Dict],
+    server: Server,
+) -> tuple[List[Dict], List[Dict]]:
+    """
+    Mark projects/containers with pending image updates from last fleet check.
+    Per-image when summary has project_details; otherwise whole stack is flagged.
+    """
+    info = parse_container_updates_summary(server)
+    proj_names = info["projects"]
+    all_images = info["images"]
+    per_proj = info["project_images"]
+
+    out_projects = []
+    for proj in projects:
+        row = dict(proj)
+        name = (row.get("name") or "").strip()
+        stack_update = name in proj_names
+        row["has_pending_update"] = stack_update
+        stack_imgs = set(per_proj.get(name) or [])
+        if not stack_imgs and stack_update:
+            stack_imgs = set(all_images)  # older summaries: flag all services in stack
+        attached = []
+        for c in row.get("containers") or []:
+            cc = dict(c)
+            if cc.get("placeholder"):
+                cc["has_pending_update"] = False
+            elif stack_update:
+                if stack_imgs:
+                    cc["has_pending_update"] = _image_ref_matches(cc.get("image") or "", stack_imgs)
+                else:
+                    cc["has_pending_update"] = True
+            else:
+                cc["has_pending_update"] = False
+            attached.append(cc)
+        row["containers"] = attached
+        row["update_container_count"] = sum(1 for x in attached if x.get("has_pending_update"))
+        out_projects.append(row)
+
+    out_orphans = []
+    for c in orphan_containers or []:
+        cc = dict(c)
+        cc["has_pending_update"] = bool(all_images) and _image_ref_matches(
+            cc.get("image") or "", all_images
+        )
+        out_orphans.append(cc)
+    return out_projects, out_orphans
 
 
 def stream_logs(server: Server, container: str, lines: int = 50, project_path: str = None):
@@ -661,6 +887,9 @@ def _list_containers_uncached(server: Server) -> List[Dict]:
             if c.get("Service") and not labels["compose_service"]:
                 labels["compose_service"] = c.get("Service") or ""
             name = c.get("Names") or c.get("Name") or ""
+            if isinstance(name, list):
+                name = name[0] if name else ""
+            name = normalize_container_ref(str(name))
             cmd_raw = c.get("Command") or ""
             if isinstance(cmd_raw, str):
                 cmd_raw = cmd_raw.strip().strip('"')
@@ -782,7 +1011,7 @@ def list_compose_projects(server: Server, base_dir: Optional[str] = None) -> Lis
 def _list_compose_uncached(server: Server, base_dir: Optional[str] = None) -> List[Dict]:
     """List docker compose projects under the base dir, with service versions if possible."""
     if not base_dir:
-        base_dir = server.docker_base_dir.replace("~", f"/home/{server.ssh_username}")
+        base_dir = docker_base_expanded(server)
     client = get_ssh_client(server)
     try:
         cmd = f'find {base_dir} -maxdepth 2 -name "docker-compose.yml" -o -name "docker-compose.yaml" -o -name "compose.yml" -o -name "compose.yaml" 2>/dev/null | head -30'

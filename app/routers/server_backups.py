@@ -422,9 +422,19 @@ async def remove_backup_source(
 
 
 @router.post("/{server_id}/run/retention")
-async def run_retention(server_id: int, background_tasks: BackgroundTasks, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
+async def run_retention(
+    request: Request,
+    server_id: int,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
-    job_service.create_job_and_run(background_tasks, session, server, "retention", user_id=user.id)
+    job = job_service.create_job_and_run(
+        background_tasks, session, server, "retention", user_id=user.id
+    )
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse({"job_id": job.id, "status": job.status, "job_type": "retention"})
     return RedirectResponse(_server_redirect(server_id), status_code=303)

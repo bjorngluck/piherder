@@ -117,7 +117,8 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
         else:
             try:
                 from .services.notifications import notify_backup_failed
-                from .services.backup import backup_failure_message
+                # Do not re-import backup_failure_message here — a local import makes the
+                # name local to the whole function and breaks uses above (UnboundLocalError).
                 msg = backup_failure_message(summary) if isinstance(summary, dict) else str(summary)
                 notify_backup_failed(db, server_id, server.name if server else str(server_id), msg)
             except Exception:

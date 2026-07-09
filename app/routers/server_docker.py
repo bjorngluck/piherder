@@ -71,18 +71,27 @@ async def docker_container_action(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+    action = (action or "").strip().lower()
+    if action not in ("start", "stop", "restart"):
+        raise HTTPException(400, "Invalid container action")
 
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
 
     result = docker_svc.container_action(server, name, action)
+    ok = bool(result.get("success"))
     try:
+        # Clear short cache so stack refresh sees new state
+        try:
+            docker_svc._CACHE.clear()
+        except Exception:
+            pass
         audit = AuditLog(
             user_id=user.id if user else None,
             server_id=server_id,
             action=f"docker_container_{action}",
-            status="success" if result.get("success") else "failed",
+            status="success" if ok else "failed",
             details=f"Container {name}",
             output_snippet=str(result)[:500],
             started_at=datetime.utcnow(),
@@ -92,7 +101,17 @@ async def docker_container_action(
         session.commit()
     except Exception:
         pass
-    return RedirectResponse(f"/servers/{server_id}/docker", status_code=303)
+    from urllib.parse import quote
+    if ok:
+        return RedirectResponse(
+            f"/servers/{server_id}/docker?nocache=1&msg=container_{action}",
+            status_code=303,
+        )
+    detail = quote((result.get("error") or result.get("output") or "failed")[:160], safe="")
+    return RedirectResponse(
+        f"/servers/{server_id}/docker?nocache=1&error=container_{action}&detail={detail}",
+        status_code=303,
+    )
 
 
 @router.get("/{server_id}/docker/compose/{project}/file-content", response_class=JSONResponse)
@@ -463,7 +482,8 @@ async def create_docker_project(
     ok = docker_svc.create_new_docker_project(server, project_name, base_files, git_url=git_url or None)
     if ok and deploy_now:
         try:
-            full = f"{server.docker_base_dir.replace('~', f'/home/{server.ssh_username}')}/{project_name}"
+            from ..services.ssh import docker_base_expanded
+            full = f"{docker_base_expanded(server)}/{project_name}"
             docker_svc.redeploy_project(server, full, pull=True)
         except:
             pass
@@ -834,6 +854,7 @@ async def stack_fragment(server_id: int, request: Request, session: Session = De
     except Exception:
         projects = []
     projects, orphan_containers = docker_svc.nest_containers_under_projects(projects, containers)
+    projects, orphan_containers = docker_svc.annotate_update_flags(projects, orphan_containers, server)
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -844,6 +865,9 @@ async def stack_fragment(server_id: int, request: Request, session: Session = De
             "orphan_containers": orphan_containers,
             "refresh": interval,
             "docker_shell": False,
+            "pending_update_projects": sorted(
+                docker_svc.parse_container_updates_summary(server).get("projects") or []
+            ),
         },
     )
 
@@ -861,23 +885,60 @@ async def check_updates(
         raise HTTPException(404)
 
     result = docker_svc.check_compose_updates(server, project_path)
-    status = "ok" if result.get("success") else "fail"
+    status = "updates" if result.get("has_updates") else ("ok" if result.get("success") else "fail")
+    # Merge single-project result into fleet summary for UI highlights
     try:
+        import os
+        proj_name = os.path.basename((project_path or "").rstrip("/")) or project_path
+        summary = {}
+        if server.container_updates_summary:
+            try:
+                summary = json.loads(server.container_updates_summary) or {}
+            except Exception:
+                summary = {}
+        projects = list(summary.get("projects") or [])
+        details = dict(summary.get("project_details") or {})
+        if result.get("has_updates"):
+            if proj_name not in projects:
+                projects.append(proj_name)
+            details[proj_name] = {"images": list(result.get("updated_images") or [])}
+        else:
+            projects = [p for p in projects if p != proj_name]
+            details.pop(proj_name, None)
+        server.container_updates_summary = json.dumps({
+            "projects": projects,
+            "project_details": details,
+            "failed": summary.get("failed") or [],
+            "checked": summary.get("checked") or [],
+        })
+        server.container_updates_count = len(projects)
+        server.last_container_check_at = datetime.utcnow()
+        session.add(server)
         audit = AuditLog(
             user_id=user.id if user else None,
             server_id=server_id,
             action="docker_check-updates",
-            status="success",
+            status="success" if result.get("success") or result.get("has_updates") else "failed",
             details=f"Project {project_path}",
-            output_snippet=str(result)[:300],
+            output_snippet=str({
+                "has_updates": result.get("has_updates"),
+                "updated_images": result.get("updated_images"),
+            })[:300],
             started_at=datetime.utcnow(),
             finished_at=datetime.utcnow(),
         )
         session.add(audit)
         session.commit()
     except Exception:
-        pass
-    return RedirectResponse(f"/servers/{server_id}/docker?update_check={project_path}&status={status}", status_code=303)
+        try:
+            session.rollback()
+        except Exception:
+            pass
+    from urllib.parse import quote
+    return RedirectResponse(
+        f"/servers/{server_id}/docker?update_check={quote(project_path, safe='')}&status={status}",
+        status_code=303,
+    )
 
 
 @router.get("/{server_id}/docker/logs/{container}/stream")

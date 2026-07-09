@@ -114,6 +114,7 @@
       <button type="button" class="docker-filter-chip" data-filter-status="running">Running</button>
       <button type="button" class="docker-filter-chip" data-filter-status="stopped">Stopped</button>
       <button type="button" class="docker-filter-chip" data-filter-status="missing">Not created</button>
+      <button type="button" class="docker-filter-chip" data-filter-status="updates">Updates</button>
     </div>
     <input type="search"
            id="docker-filter-q"
@@ -124,9 +125,30 @@
   </div>
 
   {% if update_check %}
-    <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-success' if update_status == 'up-to-date' else 'banner-warning' }}">
+    <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-warning' if update_status == 'updates' else ('banner-success' if update_status == 'ok' else 'banner-warning') }}">
       Checked {{ update_check }}:
-      {% if update_status == 'updates' %}New images available!{% else %}Up to date.{% endif %}
+      {% if update_status == 'updates' %}<strong>New registry images available</strong> — highlighted services below (filter: Updates). Local <code>build:</code> services are not flagged (use Build).
+      {% elif update_status == 'fail' %}Check failed — see audit log.
+      {% else %}Up to date (registry pulls only; self-built images are not checked for “updates”).{% endif %}
+    </div>
+  {% endif %}
+  {% if server.container_updates_count and server.container_updates_count > 0 %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
+      <strong>{{ server.container_updates_count }}</strong> stack(s) with pending <em>registry</em> image updates from last check.
+      Use the <strong>Updates</strong> filter; deploy via stack ⋯. Services with compose <code>build:</code> never show “Update” — rebuild those instead.
+    </div>
+  {% endif %}
+  {% set _msg = request.query_params.get('msg') %}
+  {% set _err = request.query_params.get('error') %}
+  {% set _detail = request.query_params.get('detail') %}
+  {% if _msg and _msg.startswith('container_') %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-success">
+      Container {{ _msg.replace('container_', '') }} succeeded.
+    </div>
+  {% endif %}
+  {% if _err and _err.startswith('container_') %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
+      Container {{ _err.replace('container_', '') }} failed{% if _detail %}: <span class="font-mono">{{ _detail }}</span>{% endif %}.
     </div>
   {% endif %}
   {% if build_status %}
@@ -149,8 +171,8 @@
   {% include "docker_stack.html" %}
 
   <div class="mt-6 text-xs text-muted">
-    Compose is the unit of management. ⋯ has deploy, logs, lifecycle, build, and edit.
-    Tap a service for image, ports, mounts (one per line), size, and container logs.
+    Compose ⋯: deploy, logs, build, edit. Container ⋯: start / stop / restart / logs.
+    Tap a service row for image, ports, mounts, and size.
   </div>
 </div>
 
@@ -158,6 +180,12 @@
 <div id="project-more-menu" class="docker-popover hidden" role="menu" hidden>
   <div class="docker-popover-title text-muted" id="project-more-name"></div>
   <div id="project-more-list" class="docker-popover-list"></div>
+</div>
+
+<!-- Container ⋯ popover -->
+<div id="container-more-menu" class="docker-popover hidden" role="menu" hidden>
+  <div class="docker-popover-title text-muted" id="container-more-name"></div>
+  <div id="container-more-list" class="docker-popover-list"></div>
 </div>
 
 <!-- Cleanup modal (destructive / multi-step stays full modal) -->
@@ -217,6 +245,23 @@ const MORE_ACTIONS = [
   { key: 'undeploy', label: 'Undeploy', danger: true },
 ];
 
+function positionDockerPopover(menu, anchorBtn) {
+  const r = anchorBtn.getBoundingClientRect();
+  const mw = 200;
+  let left = r.right - mw;
+  if (left < 8) left = 8;
+  if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
+  let top = r.bottom + 6;
+  menu.style.left = left + 'px';
+  menu.style.top = top + 'px';
+  requestAnimationFrame(function() {
+    const mh = menu.offsetHeight || 180;
+    if (top + mh > window.innerHeight - 8) {
+      menu.style.top = Math.max(8, r.top - mh - 6) + 'px';
+    }
+  });
+}
+
 function hideProjectMoreMenu() {
   const menu = document.getElementById('project-more-menu');
   if (!menu) return;
@@ -224,9 +269,26 @@ function hideProjectMoreMenu() {
   menu.hidden = true;
   menu.style.top = '';
   menu.style.left = '';
+  delete menu.dataset.anchor;
+}
+
+function hideContainerMoreMenu() {
+  const menu = document.getElementById('container-more-menu');
+  if (!menu) return;
+  menu.classList.add('hidden');
+  menu.hidden = true;
+  menu.style.top = '';
+  menu.style.left = '';
+  delete menu.dataset.anchor;
+}
+
+function hideAllDockerMoreMenus() {
+  hideProjectMoreMenu();
+  hideContainerMoreMenu();
 }
 
 function showProjectMoreMenu(anchorBtn, row) {
+  hideContainerMoreMenu();
   const menu = document.getElementById('project-more-menu');
   const list = document.getElementById('project-more-list');
   const nameEl = document.getElementById('project-more-name');
@@ -256,22 +318,75 @@ function showProjectMoreMenu(anchorBtn, row) {
 
   menu.classList.remove('hidden');
   menu.hidden = false;
-  // Position near the ⋯ button
-  const r = anchorBtn.getBoundingClientRect();
-  const mw = 220;
-  let left = r.right - mw;
-  if (left < 8) left = 8;
-  if (left + mw > window.innerWidth - 8) left = window.innerWidth - mw - 8;
-  let top = r.bottom + 6;
-  menu.style.left = left + 'px';
-  menu.style.top = top + 'px';
-  // Flip up if near bottom
-  requestAnimationFrame(function() {
-    const mh = menu.offsetHeight || 240;
-    if (top + mh > window.innerHeight - 8) {
-      menu.style.top = Math.max(8, r.top - mh - 6) + 'px';
-    }
+  positionDockerPopover(menu, anchorBtn);
+}
+
+function showContainerMoreMenu(anchorBtn, row) {
+  hideProjectMoreMenu();
+  const menu = document.getElementById('container-more-menu');
+  const list = document.getElementById('container-more-list');
+  const nameEl = document.getElementById('container-more-name');
+  if (!menu || !list) return;
+
+  const label = (row.getAttribute('data-svc-name') || row.getAttribute('data-container') || 'container').trim();
+  if (nameEl) nameEl.textContent = label;
+
+  const running = row.getAttribute('data-running') === '1';
+  const items = running
+    ? [
+        { key: 'restart', label: 'Restart', accent: true },
+        { key: 'stop', label: 'Stop', danger: true },
+        { key: 'logs', label: 'Logs' },
+      ]
+    : [
+        { key: 'start', label: 'Start', accent: true },
+        { key: 'logs', label: 'Logs' },
+      ];
+
+  list.innerHTML = '';
+  items.forEach(function(item) {
+    const real = row.querySelector('[data-c-action="' + item.key + '"]');
+    if (!real) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.role = 'menuitem';
+    btn.className = 'docker-popover-item'
+      + (item.danger ? ' is-danger' : '')
+      + (item.accent ? ' is-accent' : '');
+    btn.textContent = item.label;
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      hideContainerMoreMenu();
+      if (item.key === 'logs') {
+        const cname = real.getAttribute('data-container-logs')
+          || row.getAttribute('data-container')
+          || row.getAttribute('data-container-ref');
+        if (cname && typeof showLogsModal === 'function') {
+          showLogsModal(cname, CURRENT_SERVER_ID);
+        }
+        return;
+      }
+      // Submit the hidden form (start/stop/restart)
+      if (real.tagName === 'FORM') {
+        if (typeof real.requestSubmit === 'function') real.requestSubmit();
+        else real.submit();
+      } else if (real.closest) {
+        const form = real.closest('form');
+        if (form) {
+          if (typeof form.requestSubmit === 'function') form.requestSubmit();
+          else form.submit();
+        } else {
+          real.click();
+        }
+      }
+    });
+    list.appendChild(btn);
   });
+
+  menu.classList.remove('hidden');
+  menu.hidden = false;
+  positionDockerPopover(menu, anchorBtn);
 }
 
 // Delegated UI: survives HTMX stack refresh
@@ -292,10 +407,27 @@ document.addEventListener('click', function(e) {
     return;
   }
 
+  const cMoreBtn = e.target.closest('[data-container-more]');
+  if (cMoreBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const row = cMoreBtn.closest('.docker-svc-row');
+    if (!row) return;
+    const menu = document.getElementById('container-more-menu');
+    if (menu && !menu.hidden && menu.dataset.anchor === String(cMoreBtn)) {
+      hideContainerMoreMenu();
+      return;
+    }
+    if (menu) menu.dataset.anchor = String(cMoreBtn);
+    showContainerMoreMenu(cMoreBtn, row);
+    return;
+  }
+
   const toggle = e.target.closest('[data-svc-toggle]');
   if (toggle && !toggle.disabled) {
     e.preventDefault();
     e.stopPropagation();
+    hideAllDockerMoreMenus();
     const row = toggle.closest('.docker-svc-row');
     if (!row) return;
     const detail = row.querySelector('.docker-svc-detail');
@@ -308,7 +440,9 @@ document.addEventListener('click', function(e) {
   }
 
   const logBtn = e.target.closest('[data-container-logs]');
-  if (logBtn) {
+  if (logBtn && !logBtn.closest('#container-more-menu')) {
+    // Only handle direct log buttons (menu handles its own)
+    if (logBtn.closest('.docker-c-sec')) return;
     e.preventDefault();
     e.stopPropagation();
     const cname = logBtn.getAttribute('data-container-logs');
@@ -319,13 +453,14 @@ document.addEventListener('click', function(e) {
   }
 
   // Click outside closes popover
-  if (!e.target.closest('#project-more-menu')) {
-    hideProjectMoreMenu();
+  if (!e.target.closest('#project-more-menu') && !e.target.closest('[data-proj-more]')
+      && !e.target.closest('#container-more-menu') && !e.target.closest('[data-container-more]')) {
+    hideAllDockerMoreMenus();
   }
 }, true);
 
 document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') hideProjectMoreMenu();
+  if (e.key === 'Escape') hideAllDockerMoreMenus();
 });
 
 const cleanupModal = document.getElementById('cleanup-modal');
@@ -362,7 +497,13 @@ function applyDockerFilters() {
   document.querySelectorAll('.docker-svc-row').forEach(function(row) {
     const st = row.getAttribute('data-svc-status') || '';
     const name = row.getAttribute('data-svc-name') || '';
-    const okStatus = (status === 'all') || (st === status);
+    const hasUpdate = row.getAttribute('data-has-update') === '1';
+    let okStatus = true;
+    if (status === 'updates') {
+      okStatus = hasUpdate;
+    } else if (status !== 'all') {
+      okStatus = st === status;
+    }
     const okName = !q || name.indexOf(q) !== -1;
     const show = okStatus && okName;
     row.hidden = !show;

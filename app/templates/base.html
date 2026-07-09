@@ -317,6 +317,19 @@
     </div>
   </div>
 
+  {# Holding modal for checks / patches / retention (polls Job status) #}
+  <div id="job-hold-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" aria-modal="true" role="dialog">
+    <div class="modal-content card p-6 w-full max-w-lg mx-4 flex flex-col max-h-[70vh]">
+      <div class="flex justify-between items-center mb-2 gap-2 flex-shrink-0">
+        <h3 id="job-hold-title" class="font-semibold">Working…</h3>
+        <button type="button" id="job-hold-close" class="btn btn-secondary min-h-11 text-xs px-3">Close</button>
+      </div>
+      <p id="job-hold-status" class="text-sm text-accent font-mono mb-2 min-h-[1.25rem] flex-shrink-0">Starting…</p>
+      <pre id="job-hold-log" class="log-output flex-1 min-h-[8rem] max-h-[40vh] overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded">…</pre>
+      <p id="job-hold-hint" class="text-[10px] text-muted mt-2 mb-0 flex-shrink-0">Please wait — this page will refresh when finished.</p>
+    </div>
+  </div>
+
   <!-- Theme + Mobile Hamburger (slide-out) handling. All in base.html only. -->
   <script>
     // Immediate feedback when navigating to slow destinations (data-nav-loading on <a>)
@@ -788,6 +801,149 @@
     });
   })();
 
+  /**
+   * Holding modal for OS/container checks, container patch, retention, etc.
+   * Polls GET /servers/{id}/jobs/{jobId} until done, then reloads.
+   */
+  window.PiHerderJobHold = (function () {
+    var pollKey = 'job-hold';
+    var state = { serverId: null, jobId: null, closeMode: 'reload', reloadDelayMs: 1200 };
+
+    function els() {
+      return {
+        modal: document.getElementById('job-hold-modal'),
+        title: document.getElementById('job-hold-title'),
+        status: document.getElementById('job-hold-status'),
+        log: document.getElementById('job-hold-log'),
+        hint: document.getElementById('job-hold-hint'),
+      };
+    }
+
+    function hide() {
+      if (window.PiHerderPoll) window.PiHerderPoll.stop(pollKey);
+      var e = els();
+      if (e.modal) {
+        e.modal.classList.add('hidden');
+        e.modal.classList.remove('flex');
+      }
+    }
+
+    function finishClose() {
+      hide();
+      var mode = state.closeMode || 'reload';
+      if (mode === 'reload') location.reload();
+      else if (mode === 'servers') location.href = '/servers';
+      else if (mode === 'none') { /* stay */ }
+    }
+
+    function open(opts) {
+      opts = opts || {};
+      var e = els();
+      if (!e.modal) return;
+      state.serverId = opts.serverId || window.PIHERDER_SERVER_ID || null;
+      state.jobId = opts.jobId || null;
+      state.closeMode = opts.closeMode || window.PIHERDER_PROGRESS_CLOSE || 'reload';
+      state.reloadDelayMs = opts.reloadDelayMs != null ? opts.reloadDelayMs : 1200;
+      if (e.title) e.title.textContent = opts.title || 'Working…';
+      if (e.status) e.status.textContent = opts.statusText || 'Starting…';
+      if (e.log) e.log.textContent = opts.initialMessage || 'Please wait…\n';
+      if (e.hint) {
+        e.hint.textContent = opts.hint
+          || 'Please wait — this page will refresh when finished.';
+      }
+      e.modal.classList.remove('hidden');
+      e.modal.classList.add('flex');
+      if (state.serverId && state.jobId) startPoll(state.serverId, state.jobId);
+    }
+
+    function startPoll(serverId, jobId) {
+      state.serverId = serverId;
+      state.jobId = jobId;
+      if (!window.PiHerderPoll || !serverId || !jobId) return;
+      window.PiHerderPoll.stop(pollKey);
+      window.PiHerderPoll.start(
+        pollKey,
+        '/servers/' + serverId + '/jobs/' + jobId,
+        function (data) {
+          var e = els();
+          if (e.status) {
+            if (data.done) {
+              e.status.textContent = data.status === 'success' ? '✓ Complete' : '✗ Failed';
+            } else if (data.current) {
+              e.status.textContent = data.current;
+            } else {
+              e.status.textContent = data.status || 'running…';
+            }
+          }
+          if (e.log && data.log_lines && data.log_lines.length) {
+            e.log.textContent = data.log_lines.join('\n') + '\n';
+            if (data.summary) e.log.textContent += '\n' + data.summary + '\n';
+            e.log.scrollTop = e.log.scrollHeight;
+          } else if (e.log && data.summary) {
+            e.log.textContent += data.summary + '\n';
+          }
+          if (data.done || data.status === 'success' || data.status === 'failed') {
+            if (e.hint) e.hint.textContent = 'Refreshing…';
+            setTimeout(finishClose, state.reloadDelayMs);
+            return true;
+          }
+          return false;
+        },
+        1500
+      );
+    }
+
+    function run(opts) {
+      /* opts: { url, title, serverId, formData?, closeMode?, body? } */
+      opts = opts || {};
+      var serverId = opts.serverId || window.PIHERDER_SERVER_ID;
+      open({
+        title: opts.title || 'Working…',
+        serverId: serverId,
+        closeMode: opts.closeMode,
+        initialMessage: opts.initialMessage || 'Starting…\n',
+        statusText: 'Starting…',
+        hint: opts.hint,
+      });
+      var body = opts.body;
+      if (!body && opts.form) body = new FormData(opts.form);
+      if (!body) body = new FormData();
+      fetch(opts.url, {
+        method: 'POST',
+        body: body,
+        headers: { 'X-PiHerder-Async': '1' },
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          if (!res.ok) {
+            var e = els();
+            if (e.status) e.status.textContent = '✗ Failed to start';
+            if (e.log) e.log.textContent += (data.detail || 'Request failed') + '\n';
+            if (e.hint) e.hint.textContent = 'Close and try again.';
+            return;
+          }
+          if (data.job_id) startPoll(serverId, data.job_id);
+          else {
+            var e2 = els();
+            if (e2.status) e2.status.textContent = '✓ Done';
+            setTimeout(finishClose, state.reloadDelayMs);
+          }
+        });
+      }).catch(function () {
+        var e = els();
+        if (e.status) e.status.textContent = '✗ Network error';
+        if (e.log) e.log.textContent += 'Could not start job.\n';
+      });
+    }
+
+    var closeBtn = document.getElementById('job-hold-close');
+    if (closeBtn) closeBtn.addEventListener('click', function () {
+      // Manual close: still reload so badges update if job already finished
+      finishClose();
+    });
+
+    return { open: open, hide: hide, startPoll: startPoll, run: run };
+  })();
+
   // Global intercept for backup run forms (server list, detail, backups)
   document.addEventListener('submit', function(e) {
     var form = e.target && e.target.closest ? e.target.closest('form.backup-run-form') : null;
@@ -823,6 +979,30 @@
     }).catch(function() {
       window.PiHerderProgress.appendError('Network error starting backup.');
     });
+  }, true);
+
+  // Holding-modal forms: data-job-hold="Title" on form
+  document.addEventListener('submit', function (e) {
+    var form = e.target && e.target.closest ? e.target.closest('form[data-job-hold]') : null;
+    if (!form) return;
+    e.preventDefault();
+    var match = (form.action || '').match(/\/servers\/(\d+)\//);
+    var serverId = match ? match[1] : (window.PIHERDER_SERVER_ID || null);
+    var title = form.getAttribute('data-job-hold') || 'Working…';
+    var closeMode = form.getAttribute('data-job-hold-close')
+      || window.PIHERDER_PROGRESS_CLOSE || 'reload';
+    if (window.PiHerderJobHold) {
+      window.PiHerderJobHold.run({
+        url: form.action,
+        form: form,
+        serverId: serverId,
+        title: title,
+        closeMode: closeMode,
+        initialMessage: title + '\nQueued…\n',
+      });
+    } else {
+      form.submit();
+    }
   }, true);
 
   // Open progress from ?backup_log=1 query on dedicated pages

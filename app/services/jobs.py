@@ -5,6 +5,7 @@ from ..database import engine
 from ..models import Job, AuditLog, Server
 from datetime import datetime, timedelta
 import json
+import re
 import httpx
 from ..config import settings
 from . import backup, container_patching, os_patching, herder_backup
@@ -13,6 +14,9 @@ import logging
 from starlette.concurrency import run_in_threadpool
 
 logger = logging.getLogger(__name__)
+
+# Placeholder written when a non-backup job starts; replaced on _finish with a summary
+_JOB_STARTED_RE = re.compile(r"^Job #\d+ started")
 
 
 class BackupAlreadyRunning(Exception):
@@ -31,6 +35,46 @@ except Exception:
 
 def _get_fresh_session() -> Session:
     return Session(engine)
+
+
+def _load_server_for_job(server_id: int) -> tuple[Server | None, str]:
+    """Load Server for background work outside a live Session.
+
+    Accessing attributes after session close/commit otherwise raises
+    DetachedInstanceError (expire_on_commit) — which was leaving OS patch
+    jobs stuck at "running" with no live log progress.
+    """
+    with Session(engine, expire_on_commit=False) as s:
+        server = s.get(Server, server_id)
+        if not server:
+            return None, str(server_id)
+        hostname = (server.hostname or server.name or str(server_id))
+        # Touch fields used by SSH / patching / checks while still attached
+        _ = (
+            server.id,
+            server.name,
+            server.hostname,
+            server.ssh_username,
+            server.ssh_port,
+            server.ssh_private_key_encrypted,
+            server.ssh_password_encrypted,
+            server.ssh_public_key,
+            server.os_type,
+            server.os_patch_enabled,
+            server.container_patch_enabled,
+            server.docker_base_dir,
+            server.os_updates_count,
+            server.os_updates_summary,
+            server.reboot_pending,
+        )
+        try:
+            # Backup sources may be JSON property
+            if hasattr(server, "get_backup_sources"):
+                server.get_backup_sources()
+        except Exception:
+            pass
+        s.expunge(server)
+        return server, hostname
 
 
 def _revoke_celery_task(task_id: str | None) -> None:
@@ -259,6 +303,19 @@ def create_job_and_run(
             "log_lines": ["Backup queued…"],
             "queued_at": datetime.utcnow().isoformat(),
         })
+    else:
+        labels = {
+            "os_patch": "OS patch queued…",
+            "container_patch": "Container patch queued…",
+            "retention": "Retention cleanup queued…",
+            "os_update_check": "OS update check queued…",
+            "container_update_check": "Container update check queued…",
+        }
+        job.details = json.dumps({
+            "current": "queued",
+            "log_lines": [labels.get(job_type, f"{job_type} queued…")],
+            "done": False,
+        })
     session.add(job)
     session.commit()
     session.refresh(job)
@@ -298,12 +355,15 @@ def create_job_and_run(
         else:
             raise RuntimeError("Celery worker required for backups — start celery-worker container")
     else:
+        start_details = f"Job #{job.id} started"
+        if job_type == "os_patch" and os_steps:
+            start_details = f"Job #{job.id} started · {','.join(os_steps)}"
         audit = AuditLog(
             user_id=user_id,
             server_id=server_id,
             action=job_type,
             status="running",
-            details=f"Job #{job.id} started",
+            details=start_details,
         )
         session.add(audit)
         session.commit()
@@ -385,19 +445,94 @@ def enqueue_backup_for_server(
     return job
 
 
+def _merge_job_details(job: Job, **fields) -> None:
+    """Merge keys into Job.details JSON (for UI polling / holding modal)."""
+    try:
+        data = json.loads(job.details or "{}")
+        if not isinstance(data, dict):
+            data = {}
+    except Exception:
+        data = {}
+    for k, v in fields.items():
+        if k == "log_line" and v:
+            lines = list(data.get("log_lines") or [])
+            lines.append(str(v))
+            data["log_lines"] = lines[-40:]
+        elif k == "log_lines" and v is not None:
+            data["log_lines"] = list(v)[-40:]
+        else:
+            data[k] = v
+    job.details = json.dumps(data)
+
+
+def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
+    """Short line for holding-modal completion."""
+    try:
+        data = json.loads(snippet) if snippet and str(snippet).strip().startswith(("{", "[")) else None
+    except Exception:
+        data = None
+    if job_type == "os_update_check" and isinstance(data, dict):
+        ready = data.get("actionable_count", data.get("updates_count"))
+        phased = data.get("phased_count") or 0
+        total = data.get("total_upgradable")
+        parts = [f"{ready} ready to install"]
+        if phased:
+            parts.append(f"{phased} phased")
+        if total is not None and total != ready:
+            parts.append(f"{total} listed")
+        if data.get("reboot_pending"):
+            parts.append("reboot pending")
+        if data.get("error"):
+            parts.append(f"note: {str(data['error'])[:80]}")
+        return " · ".join(parts)
+    if job_type == "container_update_check" and isinstance(data, dict):
+        n = len(data.get("projects_with_updates") or [])
+        checked = len(data.get("projects_checked") or data.get("checked") or [])
+        return f"{n} project(s) with image updates" + (f" ({checked} checked)" if checked else "")
+    if job_type == "os_patch" and isinstance(data, dict):
+        return (data.get("summary") or snippet or status)[:200]
+    if job_type == "container_patch":
+        return (snippet or status)[:200]
+    if job_type == "retention":
+        return (snippet or "Retention complete")[:200]
+    return (snippet or status)[:200]
+
+
 def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str = "", job_type: str = ""):
     server_id = None
     with _get_fresh_session() as s:
         audit = s.get(AuditLog, audit_id)
         job = s.get(Job, job_id)
+        jt = job_type or (job.job_type if job else "")
+        summary = _human_job_summary(jt, status, snippet)
         if audit:
             audit.status = status
-            audit.output_snippet = snippet[:2000]
+            # OS patch stores JSON + apt log_tail; allow a larger snippet than default
+            max_snip = 16000 if jt == "os_patch" else 2000
+            audit.output_snippet = (snippet or "")[:max_snip]
             audit.finished_at = datetime.utcnow()
+            # Replace "Job #N started" with a scannable finished line for the audit list
+            if jt == "os_patch" and summary:
+                audit.details = f"Job #{job_id} · {summary}"[:500]
+            elif (
+                status in ("success", "failed")
+                and summary
+                and (not audit.details or _JOB_STARTED_RE.search(audit.details or ""))
+            ):
+                audit.details = f"Job #{job_id} · {summary}"[:500]
             s.add(audit)
         if job:
             job.status = status
             job.finished_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current=None if status in ("success", "failed") else status,
+                status=status,
+                summary=summary,
+                result_snippet=(snippet or "")[:1500],
+                log_line=f"[{status}] {summary}",
+                done=True,
+            )
             s.add(job)
             server_id = job.server_id
         s.commit()
@@ -445,9 +580,18 @@ async def _run_backup_job(job_id: int, server_id: int, audit_id: int, source_fil
 
 
 async def _run_container_job(job_id: int, server_id: int, audit_id: int):
+    server, hostname = _load_server_for_job(server_id)
     with _get_fresh_session() as s:
-        server = s.get(Server, server_id)
-    hostname = server.hostname if server else str(server_id)
+        job = s.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(job, current="patching", log_line="Container patch started…", done=False)
+            s.add(job)
+            s.commit()
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "container_patch")
+        return
     logger.debug(f"[JOB] Starting container_patch for {hostname}")
     try:
         res = await run_in_threadpool(container_patching.run_project_update, server)
@@ -457,27 +601,109 @@ async def _run_container_job(job_id: int, server_id: int, audit_id: int):
 
 
 async def _run_os_patch_job(job_id: int, server_id: int, audit_id: int, os_steps: list[str] | None = None):
+    server, hostname = _load_server_for_job(server_id)
     with _get_fresh_session() as s:
-        server = s.get(Server, server_id)
-    hostname = server.hostname if server else str(server_id)
-    # Pre-initialize progress dict so UI streaming/poll sees activity immediately (no perceived freeze)
+        job = s.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(job, current="patching", log_line="OS patch started…", done=False)
+            s.add(job)
+            s.commit()
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "os_patch")
+        return
+    # Pre-initialize progress dict so UI streaming/poll sees activity immediately
     try:
         os_patching.init_os_patch_progress(hostname, "starting patch job...")
     except Exception:
         pass
     try:
         res = await run_in_threadpool(os_patching.run_os_patch, server, selected_steps=os_steps)
-        _finish(audit_id, job_id, "success", str(res), hostname, "os_patch")
+        status = "success" if os_patching.os_patch_succeeded(res) else "failed"
+        post_check: dict | None = None
+        # Refresh cached OS update count BEFORE marking progress done so UI reload sees new badges
+        if status == "success":
+            try:
+                os_patching._append_os_log(hostname, "[os] rechecking update counts (may take a minute)…")
+                with _get_fresh_session() as s:
+                    j = s.get(Job, job_id)
+                    if j:
+                        _merge_job_details(j, current="rechecking", log_line="Rechecking OS updates…")
+                        s.add(j)
+                        s.commit()
+                # Reload detached server for recheck (same object is fine if attrs loaded)
+                check = await run_in_threadpool(os_patching.check_os_updates, server)
+                post_check = check if isinstance(check, dict) else None
+                with _get_fresh_session() as s:
+                    _apply_os_check_result(s, server_id, check)
+                ready = check.get("actionable_count", check.get("updates_count"))
+                phased = check.get("phased_count") or 0
+                os_patching._append_os_log(
+                    hostname,
+                    f"[os] update count refreshed: {ready} ready"
+                    + (f", {phased} phased" if phased else "")
+                    + f", reboot_pending={check.get('reboot_pending')}",
+                )
+            except Exception as e:
+                logger.debug(f"post-patch os update refresh: {e}")
+                try:
+                    os_patching._append_os_log(hostname, f"[os] recheck failed: {e}")
+                except Exception:
+                    pass
+        # Mark progress done only after recheck so UI does not reload with stale counts
+        try:
+            os_patching.mark_os_patch_done(hostname, finished_ok=(status == "success"))
+            os_patching._append_os_log(hostname, f"[os] all done — {status}")
+        except Exception:
+            pass
+        # Persist summary + apt log tail (+ post-check counts) for the audit trail
+        res = os_patching.attach_audit_fields(res, hostname, post_check=post_check)
+        snippet = json.dumps(res)
+        _finish(audit_id, job_id, status, snippet, hostname, "os_patch")
     except Exception as e:
-        _finish(audit_id, job_id, "failed", str(e), hostname, "os_patch")
+        try:
+            os_patching.mark_os_patch_done(hostname, finished_ok=False)
+            os_patching._append_os_log(hostname, f"[os] ERROR: {e}")
+        except Exception:
+            pass
+        fail_payload = os_patching.attach_audit_fields(
+            {
+                "server": hostname,
+                "error": str(e),
+                "summary": f"Failed: {str(e)[:120]}",
+            },
+            hostname,
+        )
+        _finish(audit_id, job_id, "failed", json.dumps(fail_payload), hostname, "os_patch")
     finally:
-        os_patching._os_patch_progress.pop(hostname, None)
+        # Keep final logs for UI polls (~90s); do not wipe immediately
+        import asyncio
+        async def _delayed_clear():
+            await asyncio.sleep(90)
+            try:
+                os_patching.clear_os_patch_progress(hostname)
+            except Exception:
+                pass
+        try:
+            asyncio.create_task(_delayed_clear())
+        except Exception:
+            pass
 
 
 async def _run_retention_job(job_id: int, server_id: int, audit_id: int):
+    server, hostname = _load_server_for_job(server_id)
     with _get_fresh_session() as s:
-        server = s.get(Server, server_id)
-    hostname = server.hostname if server else str(server_id)
+        job = s.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(job, current="retention", log_line="Retention cleanup started…", done=False)
+            s.add(job)
+            s.commit()
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "retention")
+        return
     logger.debug(f"[JOB] Starting retention for {hostname}")
     try:
         res = await run_in_threadpool(backup.run_retention, server)
@@ -587,6 +813,12 @@ def _execute_os_update_check(job_id: int, server_id: int, audit_id: int) -> None
         if job:
             job.status = "running"
             job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="checking",
+                log_lines=["OS update check started…", "Refreshing apt lists & simulating upgrade…"],
+                done=False,
+            )
             session.add(job)
             session.commit()
         if not server:
@@ -609,6 +841,12 @@ def _execute_container_update_check(job_id: int, server_id: int, audit_id: int) 
         if job:
             job.status = "running"
             job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="checking",
+                log_lines=["Container image check started…", "Scanning compose projects…"],
+                done=False,
+            )
             session.add(job)
             session.commit()
         if not server:
@@ -629,11 +867,17 @@ def _apply_os_check_result(session: Session, server_id: int, res: dict) -> None:
         return
     server.last_os_check_at = datetime.utcnow()
     if res.get("supported", True) and res.get("updates_count") is not None:
+        # updates_count is actionable only (excludes Ubuntu phased-only packages)
         server.os_updates_count = int(res.get("updates_count") or 0)
     server.reboot_pending = bool(res.get("reboot_pending"))
     sample = res.get("packages_sample") or []
+    phased_sample = res.get("phased_sample") or []
     server.os_updates_summary = json.dumps({
         "packages_sample": sample[:15],
+        "phased_sample": phased_sample[:15],
+        "actionable_count": res.get("actionable_count", res.get("updates_count")),
+        "phased_count": res.get("phased_count") or 0,
+        "total_upgradable": res.get("total_upgradable"),
         "error": res.get("error"),
     })
     session.add(server)
@@ -646,6 +890,7 @@ def _apply_os_check_result(session: Session, server_id: int, res: dict) -> None:
             server_name=server.name,
             updates_count=server.os_updates_count or 0,
             reboot_pending=server.reboot_pending,
+            phased_count=int(res.get("phased_count") or 0),
         )
     except Exception as e:
         logger.debug(f"notify_os_updates: {e}")
@@ -660,6 +905,7 @@ def _apply_container_check_result(session: Session, server_id: int, res: dict) -
     server.container_updates_count = len(projects)
     server.container_updates_summary = json.dumps({
         "projects": projects,
+        "project_details": res.get("project_details") or {},
         "failed": res.get("failed") or [],
         "checked": res.get("projects_checked") or [],
     })
@@ -678,9 +924,10 @@ def _apply_container_check_result(session: Session, server_id: int, res: dict) -
 
 
 async def _run_os_update_check_job(job_id: int, server_id: int, audit_id: int):
-    with _get_fresh_session() as s:
-        server = s.get(Server, server_id)
-    hostname = server.hostname if server else str(server_id)
+    server, hostname = _load_server_for_job(server_id)
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "os_update_check")
+        return
     try:
         res = await run_in_threadpool(os_patching.check_os_updates, server)
         with _get_fresh_session() as s:
@@ -692,9 +939,10 @@ async def _run_os_update_check_job(job_id: int, server_id: int, audit_id: int):
 
 
 async def _run_container_update_check_job(job_id: int, server_id: int, audit_id: int):
-    with _get_fresh_session() as s:
-        server = s.get(Server, server_id)
-    hostname = server.hostname if server else str(server_id)
+    server, hostname = _load_server_for_job(server_id)
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "container_update_check")
+        return
     try:
         res = await run_in_threadpool(container_patching.check_all_projects_updates, server)
         with _get_fresh_session() as s:

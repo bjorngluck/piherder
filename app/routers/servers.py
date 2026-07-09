@@ -118,6 +118,19 @@ async def list_servers(
         d["needs_attention"] = _needs_attention(row)
         d["has_os_updates"] = _has_os(row)
         d["has_container_updates"] = _has_cont(row)
+        # Phased-only (Ubuntu) — visibility, not attention
+        phased = 0
+        total_up = None
+        if row.os_updates_summary:
+            try:
+                meta = json.loads(row.os_updates_summary)
+                if isinstance(meta, dict):
+                    phased = int(meta.get("phased_count") or 0)
+                    total_up = meta.get("total_upgradable")
+            except Exception:
+                pass
+        d["os_phased_count"] = phased
+        d["os_total_upgradable"] = total_up
         servers.append(d)
 
     total = time.time() - start
@@ -348,6 +361,23 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
 
     key_install_script = ""
     least_priv_script = ""
+    compose_acl_script = ""
+    # Option B ACL: share compose tree with least-priv user (guess owner from absolute path)
+    _base = (server.docker_base_dir or "~/docker").strip()
+    _compose_owner = "bjorn"
+    _compose_tree = _base
+    if _base.startswith("/home/"):
+        parts = _base.strip("/").split("/")
+        if len(parts) >= 2:
+            _compose_owner = parts[1]
+            _compose_tree = _base
+    elif _base.startswith("~/"):
+        _compose_tree = _base[2:] or "docker"
+    compose_acl_script = ssh_onboarding.build_compose_tree_acl_script(
+        service_user=server.ssh_username or "piherder",
+        compose_owner=_compose_owner,
+        compose_dir=_compose_tree if _compose_tree.startswith("/") else (_compose_tree or "docker"),
+    )
     if ssh_onboarding.is_real_public_key(server.ssh_public_key):
         key_install_script = ssh_onboarding.build_key_install_script(
             server.ssh_public_key, username=server.ssh_username
@@ -446,12 +476,25 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
     except Exception:
         diagnostics = {"error": "Could not load server details"}
 
+    os_phased_count = 0
+    os_total_upgradable = None
+    if server.os_updates_summary:
+        try:
+            _om = json.loads(server.os_updates_summary)
+            if isinstance(_om, dict):
+                os_phased_count = int(_om.get("phased_count") or 0)
+                os_total_upgradable = _om.get("total_upgradable")
+        except Exception:
+            pass
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_detail.html",
         context={
             "title": server.name,
             "server": server_dict,
+            "os_phased_count": os_phased_count,
+            "os_total_upgradable": os_total_upgradable,
             "backup_profiles": backup_profiles,
             "overall_last_backup": overall_last_backup,
             "last_backup_status": last_backup_status,
@@ -474,6 +517,8 @@ async def server_detail(server_id: int, request: Request, session: Session = Dep
             "flash_detail": flash_detail,
             "key_install_script": key_install_script,
             "least_priv_script": least_priv_script,
+            "compose_acl_script": compose_acl_script,
+            "docker_base_expanded": ssh_service.docker_base_expanded(server),
             "haos_guidance": ssh_onboarding.HAOS_GUIDANCE,
             "lean_page": True,
         }
@@ -538,6 +583,7 @@ async def update_server(
     ssh_port: int = Form(22),
     ssh_password: str = Form(""),
     clear_password: Optional[str] = Form(None),
+    docker_base_dir: str = Form("~/docker"),
     backup_enabled: bool = Form(False),
     container_patch_enabled: bool = Form(False),
     os_patch_enabled: bool = Form(False),
@@ -552,6 +598,7 @@ async def update_server(
     new_name = name.strip()
     new_host = hostname.strip()
     new_user = ssh_username.strip()
+    new_docker_base = (docker_base_dir or "~/docker").strip() or "~/docker"
     if server.name != new_name:
         changed.append("name")
     if server.hostname != new_host:
@@ -560,6 +607,8 @@ async def update_server(
         changed.append("ssh_username")
     if server.ssh_port != ssh_port:
         changed.append("ssh_port")
+    if (server.docker_base_dir or "") != new_docker_base:
+        changed.append("docker_base_dir")
     if server.backup_enabled != backup_enabled:
         changed.append("backup_enabled")
     if server.container_patch_enabled != container_patch_enabled:
@@ -571,6 +620,7 @@ async def update_server(
     server.hostname = new_host
     server.ssh_username = new_user
     server.ssh_port = ssh_port
+    server.docker_base_dir = new_docker_base
 
     if clear_password:
         server.ssh_password_encrypted = None
@@ -832,6 +882,98 @@ async def ssh_rotate_key(
     return RedirectResponse(_server_redirect(server_id, msg="key_rotated"), status_code=303)
 
 
+def _repoint_ssh_username(
+    server: Server,
+    new_user: str,
+    *,
+    clear_password: bool = True,
+) -> tuple[str, str, bool]:
+    """
+    Switch Server.ssh_username and freeze ~/ docker paths under previous home.
+
+    After least-priv re-point there is no separate "bjorn credentials" row —
+    only one username + one keypair + optional password. Drop stored password
+    (bootstrap leftover); keep the private key (now used as the new user).
+
+    Returns (previous_username, new_username, password_cleared).
+    """
+    new_user = (new_user or "").strip()
+    if not new_user:
+        raise ValueError("Username required")
+    prev = (server.ssh_username or "").strip()
+    server.ssh_username = new_user
+    fixed_base = ssh_onboarding.preserve_docker_base_after_user_switch(
+        server.docker_base_dir or "~/docker",
+        prev,
+        new_user,
+    )
+    if fixed_base != (server.docker_base_dir or ""):
+        server.docker_base_dir = fixed_base
+    password_cleared = False
+    if clear_password and server.ssh_password_encrypted:
+        server.ssh_password_encrypted = None
+        password_cleared = True
+    return prev, new_user, password_cleared
+
+
+@router.post("/{server_id}/ssh/set-username")
+async def ssh_set_username(
+    server_id: int,
+    ssh_username: str = Form(...),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """
+    Re-point PiHerder's SSH username only (no remote user creation).
+    Use after you already ran the least-priv script / created piherder on the host.
+    """
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        prev, new_user, pw_cleared = _repoint_ssh_username(server, ssh_username, clear_password=True)
+    except ValueError as e:
+        return RedirectResponse(
+            _server_redirect(server_id, error="username_invalid", detail=str(e)[:120]),
+            status_code=303,
+        )
+    if prev == new_user and not pw_cleared:
+        return RedirectResponse(
+            _server_redirect(server_id, msg="username_unchanged"),
+            status_code=303,
+        )
+    session.add(server)
+    fields = ["ssh_username", "docker_base_dir"]
+    if pw_cleared:
+        fields.append("ssh_password_cleared")
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_password_clear",
+            message="SSH password cleared after username re-point (key-only)",
+        )
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_update",
+        details={
+            "fields": fields,
+            "previous_username": prev,
+            "new_username": new_user,
+            "docker_base_dir": server.docker_base_dir,
+            "password_cleared": pw_cleared,
+            "message": f"SSH username re-pointed {prev} → {new_user}",
+        },
+    )
+    session.commit()
+    return RedirectResponse(
+        _server_redirect(server_id, msg="username_set", detail=new_user),
+        status_code=303,
+    )
+
+
 @router.post("/{server_id}/ssh/provision-user")
 async def ssh_provision_user(
     server_id: int,
@@ -895,9 +1037,19 @@ async def ssh_provision_user(
         )
 
     new_user = result.details.get("new_username") or uname
-    prev = server.ssh_username
-    server.ssh_username = new_user
+    prev, new_user, pw_cleared = _repoint_ssh_username(server, new_user, clear_password=True)
     session.add(server)
+    # expire so next request cannot serve a stale identity-map value
+    session.commit()
+    session.refresh(server)
+    if pw_cleared:
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_password_clear",
+            message="SSH password cleared after least-priv re-point (key-only as new user)",
+        )
     record_server_audit(
         session,
         server_id=server.id,
@@ -907,6 +1059,8 @@ async def ssh_provision_user(
         details={
             "new_username": new_user,
             "previous_username": prev,
+            "docker_base_dir": server.docker_base_dir,
+            "password_cleared": pw_cleared,
             "docker": docker,
             "os_patch": os_patch,
             "backup": backup,
@@ -914,7 +1068,7 @@ async def ssh_provision_user(
     )
     session.commit()
     return RedirectResponse(
-        _server_redirect(server_id, msg="user_provisioned"),
+        _server_redirect(server_id, msg="user_provisioned", detail=new_user),
         status_code=303,
     )
 
@@ -934,8 +1088,10 @@ async def get_os_patch_progress(
     prog = os_patching.get_os_patch_progress(server.hostname)
     return {
         "current": prog.get("current"),
-        "log_lines": prog.get("log_lines", [])[-15:],
-        "hostname": server.hostname
+        "log_lines": prog.get("log_lines", []),
+        "done": bool(prog.get("done")),
+        "finished_ok": prog.get("finished_ok"),
+        "hostname": server.hostname,
     }
 
 
@@ -991,26 +1147,78 @@ async def get_server_diagnostics(
 
 
 @router.post("/{server_id}/run/container_patch")
-async def run_container_patch(server_id: int, background_tasks: BackgroundTasks, session: Session = Depends(get_session), user: User = Depends(get_current_user)):
-
+async def run_container_patch(
+    request: Request,
+    server_id: int,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
-    job_service.create_job_and_run(background_tasks, session, server, "container_patch", user_id=user.id)
+    job = job_service.create_job_and_run(
+        background_tasks, session, server, "container_patch", user_id=user.id
+    )
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse({"job_id": job.id, "status": job.status, "job_type": "container_patch"})
     return RedirectResponse(f"/servers/{server_id}", status_code=303)
 
 
 @router.post("/{server_id}/run/os_patch")
-async def run_os_patch(server_id: int, background_tasks: BackgroundTasks, steps: list[str] = Form([]), session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)):
-
+async def run_os_patch(
+    request: Request,
+    server_id: int,
+    background_tasks: BackgroundTasks,
+    steps: list[str] = Form([]),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
+    # Normalize: allowed steps only; upgrade XOR full-upgrade; default if empty
+    steps = os_patching.normalize_os_patch_steps(steps or None)
     if not steps:
         steps = ["update", "upgrade", "autoremove"]
-    job_service.create_job_and_run(background_tasks, session, server, "os_patch", user_id=user.id, os_steps=steps)
+    job = job_service.create_job_and_run(
+        background_tasks, session, server, "os_patch", user_id=user.id, os_steps=steps
+    )
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse({"job_id": job.id, "status": job.status, "job_type": "os_patch"})
     return RedirectResponse(_server_redirect(server_id), status_code=303)
+
+
+@router.get("/{server_id}/jobs/{job_id}", response_class=JSONResponse)
+async def get_server_job_status(
+    server_id: int,
+    job_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Poll endpoint for holding modal: status + log_lines + summary."""
+    job = session.get(Job, job_id)
+    if not job or job.server_id != server_id:
+        raise HTTPException(404)
+    details: dict = {}
+    if job.details:
+        try:
+            parsed = json.loads(job.details)
+            if isinstance(parsed, dict):
+                details = parsed
+        except Exception:
+            details = {"raw": (job.details or "")[:400]}
+    done = job.status in ("success", "failed")
+    return {
+        "job_id": job.id,
+        "job_type": job.job_type,
+        "status": job.status,
+        "done": done or bool(details.get("done")),
+        "current": details.get("current"),
+        "log_lines": details.get("log_lines") or [],
+        "summary": details.get("summary") or "",
+        "finished_at": job.finished_at.isoformat() if job.finished_at else None,
+    }
 
 
 def _validate_cron(cron: str | None) -> str | None:
@@ -1041,6 +1249,7 @@ def _sync_server_schedules(server: Server):
 
 @router.post("/{server_id}/check/os-updates")
 async def check_os_updates_now(
+    request: Request,
     server_id: int,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
@@ -1050,12 +1259,17 @@ async def check_os_updates_now(
     if not server:
         raise HTTPException(404)
     # Queue on shared pool (same as scheduled checks)
-    job_service.enqueue_os_update_check(server.id, user_id=user.id)
+    job = job_service.enqueue_os_update_check(server.id, user_id=user.id)
+    if not job:
+        raise HTTPException(500, "Could not queue OS update check")
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse({"job_id": job.id, "status": job.status, "job_type": "os_update_check"})
     return RedirectResponse(f"/servers/{server_id}?os_check=1", status_code=303)
 
 
 @router.post("/{server_id}/check/container-updates")
 async def check_container_updates_now(
+    request: Request,
     server_id: int,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
@@ -1064,7 +1278,11 @@ async def check_container_updates_now(
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
-    job_service.enqueue_container_update_check(server.id, user_id=user.id)
+    job = job_service.enqueue_container_update_check(server.id, user_id=user.id)
+    if not job:
+        raise HTTPException(500, "Could not queue container update check")
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse({"job_id": job.id, "status": job.status, "job_type": "container_update_check"})
     return RedirectResponse(f"/servers/{server_id}?container_check=1", status_code=303)
 
 

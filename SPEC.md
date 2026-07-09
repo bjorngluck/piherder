@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** v0.1.x — Phase 1 complete; Phase 2–3 partial (IAM/2FA, update checks, notifications, SSH onboarding, fleet dashboard)  
-> **Last updated:** 2026-07-09 (SSH onboarding; docs sync)
+> **Status:** v0.1.x — Phase 1 complete; Phase 2–3 partial (IAM/2FA, update checks, notifications, SSH onboarding, fleet dashboard, OS patch UX)  
+> **Last updated:** 2026-07-09 (OS patch apply UX + audit log tails; docs sync)
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -49,7 +49,7 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 | Backup retention / cleanup | ✅ | |
 | Per-server backup schedules | ✅ | APScheduler cron |
 | Container patching | ✅ | `compose pull` + conditional `up -d` |
-| OS patching (apt sequence) | ✅ | Reboot-required detection |
+| OS patching (apt sequence) | ✅ | Live log modal, upgrade XOR full-upgrade, phased-update awareness, reboot-required |
 | Diagnostics | ✅ | ping, DNS, system info |
 | Audit log + filtering | ✅ | |
 | PiHerder self-backup & restore | ✅ | Compressed archives, optional audit |
@@ -66,6 +66,7 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 - rsync always uses `--rsync-path "sudo -n rsync"` (or local sudo) except for explicit root users / HAOS installs, where plain `rsync` is auto-probed and retried.
 - PiHerder self-backup scheduling is fully wired (enable, cron, mode=config_only|full, keep, timezone) with UI at `/herder-backups`, APScheduler registration on startup, manual trigger, preview restore, and audit entries.
 - Internal refactor for maintainability completed: god modules split (servers.py, backup.py into progress+profiles, docker_management.py → +docker_versions.py, main.py scheduler slim, new focused routers server_docker.py + server_backups.py + audit.py + scheduler.py). All via small modules + re-exports; behavior, routes, and lightweight principle preserved. Largest files now ~500-700 LOC.
+- **OS patch apply (manual):** servers list + detail offer update / **upgrade XOR full-upgrade** / autoremove (sudo apt). Holding modal streams apt output (tail-focused); job rechecks upgradable counts before marking done and force-reloads the page. Ubuntu **phased** packages are counted separately in checks/alerts (listed vs actually installable). Audit rows store step results, short summary, post-check counts, and an **apt log tail** (not just “Job #N started”).
 
 ---
 

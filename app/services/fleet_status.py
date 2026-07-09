@@ -1,13 +1,25 @@
 """Fleet-wide patch / update status from persisted check fields (no SSH)."""
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any, List, Optional
 
 from ..models import Server
 
 
+def _os_summary(s: Server) -> dict:
+    if not s.os_updates_summary:
+        return {}
+    try:
+        data = json.loads(s.os_updates_summary)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
 def _server_attention(s: Server) -> bool:
+    # Phased-only packages are not attention (not installable yet)
     os_n = s.os_updates_count
     cont_n = s.container_updates_count
     return bool(
@@ -22,11 +34,13 @@ def server_status_row(s: Server) -> dict[str, Any]:
     os_n = s.os_updates_count
     cont_n = s.container_updates_count
     needs = _server_attention(s)
+    os_meta = _os_summary(s)
+    phased_n = int(os_meta.get("phased_count") or 0)
+    total_up = os_meta.get("total_upgradable")
     # Parse container project names from summary JSON if present
     projects: list[str] = []
     if s.container_updates_summary:
         try:
-            import json
             data = json.loads(s.container_updates_summary)
             if isinstance(data, dict):
                 projects = list(data.get("projects") or [])[:12]
@@ -42,6 +56,8 @@ def server_status_row(s: Server) -> dict[str, Any]:
         "os_check_enabled": s.os_check_enabled,
         "container_check_enabled": s.container_check_enabled,
         "os_updates_count": os_n,
+        "os_phased_count": phased_n,
+        "os_total_upgradable": total_up,
         "container_updates_count": cont_n,
         "reboot_pending": bool(s.reboot_pending),
         "last_os_check_at": s.last_os_check_at,
