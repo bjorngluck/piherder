@@ -217,11 +217,7 @@
                 {% if c.mounts_detail %}
                 <ul class="docker-detail-lines font-mono">
                   {% for m in c.mounts_detail %}
-                  <li title="{{ m.source }} → {{ m.destination }}">
-                    {% if m.source and m.destination %}{{ m.source }} → {{ m.destination }}{% elif m.destination %}{{ m.destination }}{% else %}{{ m.source or '—' }}{% endif %}
-                    {% if m.type %}<span class="text-muted"> · {{ m.type }}</span>{% endif %}
-                    {% if m.size_human %}<span class="text-accent"> · {{ m.size_human }}</span>{% endif %}
-                  </li>
+                  <li title="{{ m.source }} → {{ m.destination }}">{% if m.source and m.destination %}{{ m.source }} → {{ m.destination }}{% elif m.destination %}{{ m.destination }}{% else %}{{ m.source or '—' }}{% endif %}{% if m.type %}<span class="text-muted"> · {{ m.type }}</span>{% endif %}{% if m.size_human %}<span class="text-accent"> · {{ m.size_human }}</span>{% endif %}</li>
                   {% endfor %}
                 </ul>
                 {% if c.mounts_total_human %}
@@ -351,11 +347,7 @@
               {% if c.mounts_detail %}
               <ul class="docker-detail-lines font-mono">
                 {% for m in c.mounts_detail %}
-                <li title="{{ m.source }} → {{ m.destination }}">
-                  {% if m.source and m.destination %}{{ m.source }} → {{ m.destination }}{% elif m.destination %}{{ m.destination }}{% else %}{{ m.source or '—' }}{% endif %}
-                  {% if m.type %}<span class="text-muted"> · {{ m.type }}</span>{% endif %}
-                  {% if m.size_human %}<span class="text-accent"> · {{ m.size_human }}</span>{% endif %}
-                </li>
+                <li title="{{ m.source }} → {{ m.destination }}">{% if m.source and m.destination %}{{ m.source }} → {{ m.destination }}{% elif m.destination %}{{ m.destination }}{% else %}{{ m.source or '—' }}{% endif %}{% if m.type %}<span class="text-muted"> · {{ m.type }}</span>{% endif %}{% if m.size_human %}<span class="text-accent"> · {{ m.size_human }}</span>{% endif %}</li>
                 {% endfor %}
               </ul>
               {% if c.mounts_total_human %}

@@ -1,4 +1,15 @@
 # app/services/jobs.py
+"""
+Fleet job queue: create Job rows, run work, stream progress for UI polling.
+
+Execution paths (do not merge without care):
+- UI / BackgroundTasks: create_job_and_run → async _run_*_job
+- Scheduler / thread pool: enqueue_*_apply / enqueue_*_update_check → _execute_*_sync
+- Backups: Celery only (enqueue_backup_for_server / create_job_and_run backup branch)
+
+Shared helpers: _initial_job_details, _merge_job_details, _flush_job_progress,
+_create_queued_job_with_audit, _finish, job_public_dict.
+"""
 from fastapi import BackgroundTasks
 from sqlmodel import Session, select
 from ..database import engine
@@ -464,13 +475,12 @@ def create_job_and_run(
                 raise BackupAlreadyRunning(active)
     job = Job(server_id=server_id, job_type=job_type, status="pending")
     if job_type == "backup":
-        job.details = json.dumps({
-            "current": "queued",
-            "source_filter": source_filter,
-            "user_id": user_id,
-            "log_lines": ["Backup queued…"],
-            "queued_at": datetime.utcnow().isoformat(),
-        })
+        job.details = _initial_job_details(
+            "Backup queued…",
+            source_filter=source_filter,
+            user_id=user_id,
+            queued_at=datetime.utcnow().isoformat(),
+        )
     else:
         labels = {
             "os_patch": "OS patch queued…",
@@ -479,11 +489,9 @@ def create_job_and_run(
             "os_update_check": "OS update check queued…",
             "container_update_check": "Container update check queued…",
         }
-        job.details = json.dumps({
-            "current": "queued",
-            "log_lines": [labels.get(job_type, f"{job_type} queued…")],
-            "done": False,
-        })
+        job.details = _initial_job_details(
+            labels.get(job_type, f"{job_type} queued…"),
+        )
     session.add(job)
     session.commit()
     session.refresh(job)
@@ -613,6 +621,17 @@ def enqueue_backup_for_server(
     return job
 
 
+def _initial_job_details(queue_message: str, **extra) -> str:
+    """JSON for a newly queued job (UI poll shape)."""
+    data = {
+        "current": "queued",
+        "log_lines": [queue_message],
+        "done": False,
+    }
+    data.update(extra)
+    return json.dumps(data)
+
+
 def _merge_job_details(job: Job, **fields) -> None:
     """Merge keys into Job.details JSON (for UI polling / holding modal)."""
     try:
@@ -631,6 +650,67 @@ def _merge_job_details(job: Job, **fields) -> None:
         else:
             data[k] = v
     job.details = json.dumps(data)
+
+
+def _flush_job_progress(
+    job_id: int, current: str, log_line: str, *, default_current: str = "running"
+) -> None:
+    """Best-effort live Job.details update for JobHold / progress polling."""
+    try:
+        with _get_fresh_session() as s:
+            job = s.get(Job, job_id)
+            if not job or job.status not in ("pending", "running"):
+                return
+            _merge_job_details(
+                job,
+                current=current or default_current,
+                log_line=log_line,
+                done=False,
+            )
+            s.add(job)
+            s.commit()
+    except Exception as e:
+        logger.debug(f"job progress flush: {e}")
+
+
+def _create_queued_job_with_audit(
+    session: Session,
+    *,
+    server_id: int | None,
+    job_type: str,
+    queue_message: str,
+    user_id: int | None = None,
+    audit_details: str | None = None,
+    **details_extra,
+) -> tuple[Job, AuditLog]:
+    """Insert pending Job + running AuditLog; commit both. Caller starts work.
+
+    ``audit_details`` may include ``{job_id}`` which is filled after the Job row exists.
+    """
+    job = Job(
+        server_id=server_id,
+        job_type=job_type,
+        status="pending",
+        details=_initial_job_details(queue_message, **details_extra),
+    )
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+    if audit_details is None:
+        details = f"Job #{job.id} started"
+    else:
+        details = audit_details.format(job_id=job.id)
+    audit = AuditLog(
+        user_id=user_id,
+        server_id=server_id,
+        action=job_type,
+        status="running",
+        details=details,
+    )
+    session.add(audit)
+    session.commit()
+    session.refresh(audit)
+    return job, audit
 
 
 def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
@@ -749,18 +829,9 @@ async def _run_backup_job(job_id: int, server_id: int, audit_id: int, source_fil
         _finish(audit_id, job_id, "failed", str(e), hostname, "backup")
 
 
+# Back-compat alias
 def _flush_container_progress_to_job(job_id: int, current: str, log_line: str) -> None:
-    """Best-effort live Job.details update for JobHold polling."""
-    try:
-        with _get_fresh_session() as s:
-            job = s.get(Job, job_id)
-            if not job or job.status not in ("pending", "running"):
-                return
-            _merge_job_details(job, current=current or "patching", log_line=log_line, done=False)
-            s.add(job)
-            s.commit()
-    except Exception as e:
-        logger.debug(f"container progress flush: {e}")
+    _flush_job_progress(job_id, current, log_line, default_current="patching")
 
 
 async def _run_container_job(job_id: int, server_id: int, audit_id: int):
@@ -783,7 +854,7 @@ async def _run_container_job(job_id: int, server_id: int, audit_id: int):
         pass
 
     def _on_progress(current: str, msg: str):
-        _flush_container_progress_to_job(job_id, current, msg)
+        _flush_job_progress(job_id, current, msg, default_current="patching")
 
     try:
         res = await run_in_threadpool(
@@ -808,8 +879,11 @@ async def _run_container_job(job_id: int, server_id: int, audit_id: int):
                 container_patching.append_container_log(
                     hostname, f"[containers] update count refreshed: {n} project(s) with updates"
                 )
-                _flush_container_progress_to_job(
-                    job_id, "rechecking", f"[containers] {n} project(s) still have updates"
+                _flush_job_progress(
+                    job_id,
+                    "rechecking",
+                    f"[containers] {n} project(s) still have updates",
+                    default_current="patching",
                 )
             except Exception as e:
                 logger.debug(f"post-container-patch recheck: {e}")
@@ -1063,35 +1137,22 @@ def enqueue_os_patch_apply(
             steps = _parse_os_apply_steps(getattr(server, "os_apply_steps", None))
         steps = os_patching.normalize_os_patch_steps(steps) or ["update", "upgrade", "autoremove"]
         label = "Scheduled OS patch" if scheduled else "OS patch"
-        job = Job(
+        steps_s = ",".join(steps)
+        audit_details = (
+            f"Job #{{job_id}} started · scheduled · {steps_s}"
+            if scheduled
+            else f"Job #{{job_id}} started · {steps_s}"
+        )
+        job, audit = _create_queued_job_with_audit(
+            session,
             server_id=server.id,
             job_type="os_patch",
-            status="pending",
-            details=json.dumps({
-                "current": "queued",
-                "log_lines": [f"{label} queued…"],
-                "scheduled": scheduled,
-                "os_steps": steps,
-                "done": False,
-            }),
-        )
-        session.add(job)
-        session.commit()
-        session.refresh(job)
-        audit = AuditLog(
+            queue_message=f"{label} queued…",
             user_id=user_id,
-            server_id=server.id,
-            action="os_patch",
-            status="running",
-            details=(
-                f"Job #{job.id} started · scheduled · {','.join(steps)}"
-                if scheduled
-                else f"Job #{job.id} started · {','.join(steps)}"
-            ),
+            audit_details=audit_details,
+            scheduled=scheduled,
+            os_steps=steps,
         )
-        session.add(audit)
-        session.commit()
-        session.refresh(audit)
         jid, aid, sid, step_list = job.id, audit.id, server.id, list(steps)
     _patch_apply_pool.submit(_execute_os_patch_sync, jid, sid, aid, step_list)
     return job
@@ -1112,34 +1173,18 @@ def enqueue_container_patch_apply(
             logger.info(f"[Jobs] Container apply skip — already active for server {server_id}")
             return None
         label = "Scheduled container patch" if scheduled else "Container patch"
-        job = Job(
+        audit_details = (
+            "Job #{job_id} started · scheduled" if scheduled else "Job #{job_id} started"
+        )
+        job, audit = _create_queued_job_with_audit(
+            session,
             server_id=server.id,
             job_type="container_patch",
-            status="pending",
-            details=json.dumps({
-                "current": "queued",
-                "log_lines": [f"{label} queued…"],
-                "scheduled": scheduled,
-                "done": False,
-            }),
-        )
-        session.add(job)
-        session.commit()
-        session.refresh(job)
-        audit = AuditLog(
+            queue_message=f"{label} queued…",
             user_id=user_id,
-            server_id=server.id,
-            action="container_patch",
-            status="running",
-            details=(
-                f"Job #{job.id} started · scheduled"
-                if scheduled
-                else f"Job #{job.id} started"
-            ),
+            audit_details=audit_details,
+            scheduled=scheduled,
         )
-        session.add(audit)
-        session.commit()
-        session.refresh(audit)
         jid, aid, sid = job.id, audit.id, server.id
     _patch_apply_pool.submit(_execute_container_patch_sync, jid, sid, aid)
     return job
@@ -1224,7 +1269,7 @@ def _execute_container_patch_sync(job_id: int, server_id: int, audit_id: int) ->
         pass
 
     def _on_progress(current: str, msg: str):
-        _flush_container_progress_to_job(job_id, current, msg)
+        _flush_job_progress(job_id, current, msg, default_current="patching")
 
     try:
         res = container_patching.run_project_update(server, None, _on_progress)
@@ -1273,25 +1318,14 @@ def enqueue_os_update_check(server_id: int, user_id: int | None = None) -> Job |
         server = session.get(Server, server_id)
         if not server:
             return None
-        job = Job(
+        job, audit = _create_queued_job_with_audit(
+            session,
             server_id=server.id,
             job_type="os_update_check",
-            status="pending",
-            details=json.dumps({"current": "queued", "log_lines": ["OS update check queued…"]}),
-        )
-        session.add(job)
-        session.commit()
-        session.refresh(job)
-        audit = AuditLog(
+            queue_message="OS update check queued…",
             user_id=user_id,
-            server_id=server.id,
-            action="os_update_check",
-            status="running",
-            details=f"Job #{job.id} queued",
+            audit_details="Job #{job_id} queued",
         )
-        session.add(audit)
-        session.commit()
-        session.refresh(audit)
         jid, aid, sid = job.id, audit.id, server.id
     _update_check_pool.submit(_execute_os_update_check, jid, sid, aid)
     return job
@@ -1303,25 +1337,14 @@ def enqueue_container_update_check(server_id: int, user_id: int | None = None) -
         server = session.get(Server, server_id)
         if not server:
             return None
-        job = Job(
+        job, audit = _create_queued_job_with_audit(
+            session,
             server_id=server.id,
             job_type="container_update_check",
-            status="pending",
-            details=json.dumps({"current": "queued", "log_lines": ["Container update check queued…"]}),
-        )
-        session.add(job)
-        session.commit()
-        session.refresh(job)
-        audit = AuditLog(
+            queue_message="Container update check queued…",
             user_id=user_id,
-            server_id=server.id,
-            action="container_update_check",
-            status="running",
-            details=f"Job #{job.id} queued",
+            audit_details="Job #{job_id} queued",
         )
-        session.add(audit)
-        session.commit()
-        session.refresh(audit)
         jid, aid, sid = job.id, audit.id, server.id
     _update_check_pool.submit(_execute_container_update_check, jid, sid, aid)
     return job

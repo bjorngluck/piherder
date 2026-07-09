@@ -1809,7 +1809,8 @@ body.server-reorder-active {
 .docker-detail-lines li {
   word-break: break-all;
   overflow-wrap: anywhere;
-  white-space: pre-wrap;
+  /* normal — not pre-wrap: Jinja indentation was showing as huge left padding */
+  white-space: normal;
   line-height: 1.4;
   font-size: 0.7rem;
   max-width: 100%;

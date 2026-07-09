@@ -1,8 +1,14 @@
 # PiHerder Stabilisation Decision Plan
 
 **Date:** 2026-07-09  
-**Status:** Ready for implementation  
+**Status:** Phase 1 complete (testing expansion, job/progress light refactor, menu hardening)  
 **Goal:** Stabilise recent major feature additions (RBAC, scheduling, jobs, restore wizard, live progress) and improve overall quality before adding more functionality.
+
+**Phase tracking:**
+1. **Short Stabilisation Sprint** — done (tests + jobs helpers + menu single-source harden)
+2. **Documentation Sprint** — next (RBAC, user admin, scheduling, jobs page)
+3. **Polish Pass** — after docs
+4. Resume feature development
 
 ---
 
