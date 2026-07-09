@@ -233,26 +233,27 @@ Pending step must **not** grant full API access.
 
 ## 3. Schedule: OS update checks
 
-### Current state
+### Current state (shipped + later OS apply polish)
 
-- Manual apply: `os_patching.run_os_patch` (`apt update/upgrade/...`) + `/var/run/reboot-required`
-- Diagnostics already reads reboot pending
-- **No** check-only path, **no** cron, **no** persisted “updates available”
-- Feature flag: `Server.os_patch_enabled`
+- Manual apply: `os_patching.run_os_patch` — selectable steps `update` / `upgrade` **XOR** `full-upgrade` / `autoremove` via sudo apt; live log stream + holding modal; post-patch `check_os_updates` before UI reload
+- Check-only: `check_os_updates` with **actionable vs Ubuntu phased** counts, reboot flag; schedule + manual check; notifications
+- Diagnostics also reads reboot pending
+- Feature flag: `Server.os_patch_enabled`; schedule UI gated with `os_check_enabled`
+- **Audit (apply):** `os_patch` rows finish with human `details` (`Job #N · summary`), JSON `output_snippet` including `results`, `summary`, optional `post_check`, and `log_tail` (recent apt lines). Stuck “running” rows without output are treated as noise in the audit feed.
 
-### Target behaviour
+### Target behaviour (check job — implemented)
 
 **Check job** (safe, scheduled):
 
 1. SSH to host
-2. `sudo apt-get update -qq` (or `apt update`) — network required
-3. Count upgradable packages: e.g. `apt list --upgradable 2>/dev/null | grep -v Listing | wc -l` (Debian/Ubuntu/RPi OS)
+2. `sudo apt update` / apt-get equivalent — network required
+3. Count packages: list upgradable + sim install for **actionable** vs **phased** (Ubuntu phasing)
 4. Read `/var/run/reboot-required` (+ optional pkgs from `/var/run/reboot-required.pkgs`)
 5. Persist summary on `Server`
-6. Raise/update notification if count > 0 or reboot pending
+6. Raise/update notification if actionable count > 0 or reboot pending (phased-only is informational, not the same as “must patch”)
 7. Audit: `os_update_check` success/failed with snippet
 
-**Apply** remains manual via existing OS patch UI (and optional future “apply all upgradable” — not this plan’s auto schedule).
+**Apply** remains manual via OS patch UI (and optional future “apply all upgradable” — not this plan’s auto schedule).
 
 ### Schema (`Server`)
 

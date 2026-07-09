@@ -1689,6 +1689,39 @@ body.server-reorder-active {
 .docker-svc-row.is-open {
   background: var(--color-bg);
 }
+.docker-svc-row.has-pending-update {
+  background: color-mix(in srgb, var(--color-warning, #e5a000) 12%, var(--color-surface));
+  box-shadow: inset 3px 0 0 var(--color-warning, #e5a000);
+}
+.docker-stack-block.has-pending-update > .docker-stack-header {
+  background: color-mix(in srgb, var(--color-warning, #e5a000) 10%, var(--color-surface));
+}
+.docker-svc-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+.docker-svc-top .docker-svc-main {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.docker-svc-row-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  padding: 0.15rem 0.1rem;
+  margin-left: auto;
+}
+.docker-svc-row-actions .docker-more-trigger {
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+}
+.docker-c-sec {
+  display: none !important;
+}
 .docker-svc-row[hidden],
 .docker-svc-row.is-filtered-out {
   display: none !important;

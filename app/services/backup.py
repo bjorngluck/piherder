@@ -126,7 +126,11 @@ _RSYNC_REMOTE_PATH = "sudo -n rsync"
 
 
 def _remote_rsync_path(client, username: str) -> str:
-    """Pick remote --rsync-path: sudo when available, plain rsync for root/HAOS."""
+    """Pick remote --rsync-path: sudo when available, plain rsync for root/HAOS.
+
+    Least-priv sudoers (piherder) only allow specific binaries (rsync, test, true…),
+    not ``sudo sh -c`` / ``sudo command -v``. Probe with those allowed commands.
+    """
     user = (username or "").strip().lower()
     path_probe = "PATH=/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin command -v rsync"
 
@@ -140,21 +144,40 @@ def _remote_rsync_path(client, username: str) -> str:
                 pass
         return "rsync"
 
-    probes = (
-        (f"sudo -n sh -c '{path_probe}'", True),
-        ("sudo -n command -v rsync", True),
-        (path_probe, False),
-        ("command -v rsync", False),
-        ("which rsync", False),
-    )
-    for cmd, use_sudo in probes:
+    def _resolve_rsync_bin() -> str | None:
+        for cmd in (
+            path_probe,
+            "command -v rsync",
+            "which rsync",
+            "test -x /usr/bin/rsync && echo /usr/bin/rsync",
+        ):
+            try:
+                status, out, _ = run_command(client, cmd, timeout=10)
+                if status == 0 and out.strip():
+                    return out.strip().splitlines()[0]
+            except Exception:
+                pass
+        return None
+
+    # 1) Can we run rsync via passwordless sudo? (matches least-priv Cmnd_Alias)
+    for probe in (
+        "sudo -n /usr/bin/rsync --version",
+        "sudo -n rsync --version",
+        "sudo -n /usr/bin/test -x /usr/bin/rsync",
+        "sudo -n test -x /usr/bin/rsync",
+    ):
         try:
-            status, out, _ = run_command(client, cmd, timeout=10)
-            if status == 0 and out.strip():
-                rsync_bin = out.strip().splitlines()[0]
-                return f"sudo -n {rsync_bin}" if use_sudo else rsync_bin
+            status, _, _ = run_command(client, f"{probe} >/dev/null 2>&1", timeout=12)
+            if status == 0:
+                rsync_bin = _resolve_rsync_bin() or "/usr/bin/rsync"
+                return f"sudo -n {rsync_bin}"
         except Exception:
             pass
+
+    # 2) Plain rsync (HAOS / no sudo) — may fail on root-owned files
+    rsync_bin = _resolve_rsync_bin()
+    if rsync_bin:
+        return rsync_bin
     return _RSYNC_REMOTE_PATH
 
 
@@ -409,10 +432,19 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                     _active_backup_procs.pop(hostname, None)
                 else:
                     rsync_paths_to_try = [remote_rsync_path]
+                    # Prefer sudo path if probe picked plain but permission fails later
+                    plain_bin = (
+                        remote_rsync_path.split()[-1]
+                        if remote_rsync_path.split()
+                        else "rsync"
+                    )
                     if "sudo" in remote_rsync_path.lower():
-                        plain = remote_rsync_path.split()[-1] if remote_rsync_path.split() else "rsync"
-                        if plain not in rsync_paths_to_try:
-                            rsync_paths_to_try.append(plain)
+                        if plain_bin not in rsync_paths_to_try:
+                            rsync_paths_to_try.append(plain_bin)
+                    else:
+                        sudo_path = f"sudo -n {plain_bin}"
+                        if sudo_path not in rsync_paths_to_try:
+                            rsync_paths_to_try.append(sudo_path)
                     with temp_key_file(priv) as key_path:
                         ssh_cmd = _build_rsync_ssh_cmd(key_path)
                         for attempt_path in rsync_paths_to_try:
@@ -434,12 +466,22 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                             if rc == 0:
                                 break
                             err_low = (rsync_stderr or "").lower()
-                            if attempt_path != rsync_paths_to_try[-1] and (
+                            more = attempt_path != rsync_paths_to_try[-1]
+                            if more and (
                                 "not found" in err_low or "command not found" in err_low
                             ):
                                 _set_progress(
                                     hostname,
                                     log_line=f"Retrying {src} without sudo…",
+                                    force=True,
+                                )
+                                continue
+                            if more and (
+                                "permission" in err_low or "denied" in err_low
+                            ) and "sudo" not in attempt_path.lower():
+                                _set_progress(
+                                    hostname,
+                                    log_line=f"Retrying {src} with sudo rsync…",
                                     force=True,
                                 )
                                 continue

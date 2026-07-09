@@ -21,10 +21,11 @@
 {% if projects %}
   <div class="docker-stack-list">
     {% for proj in projects %}
-    <div class="docker-stack-block"
+    <div class="docker-stack-block {{ 'has-pending-update' if proj.has_pending_update else '' }}"
          data-proj-name="{{ proj.name | e }}"
          data-project-path="{{ proj.path | e }}"
-         data-stack-filter-unit>
+         data-stack-filter-unit
+         data-has-update="{{ '1' if proj.has_pending_update else '0' }}">
 
       {# ── Compose header: name + count + ⋯ only ── #}
       <div class="docker-proj-row docker-stack-header">
@@ -34,6 +35,9 @@
             <span class="docker-stack-count text-muted font-normal">
               · {{ proj.running_count|default(0) }}/{{ proj.containers|length if proj.containers else 0 }} up
             </span>
+            {% if proj.has_pending_update %}
+            <span class="status-pill status-failed" title="{% if proj.update_container_count %}{{ proj.update_container_count }} service(s){% else %}Stack{% endif %} with image updates">Update available</span>
+            {% endif %}
           </div>
           <div class="docker-proj-path text-muted" title="{{ proj.path | e }}">{{ proj.path }}</div>
         </div>
@@ -121,42 +125,78 @@
       <div class="docker-svc-list">
         {% for c in proj.containers %}
         {% set filt = 'running' if c.running else ('missing' if c.placeholder else 'stopped') %}
-        <div class="docker-svc-row {{ 'is-running' if c.running else '' }} {{ 'is-placeholder' if c.placeholder else '' }}"
+        {% set cref = c.id or c.name %}
+        <div class="docker-svc-row {{ 'is-running' if c.running else '' }} {{ 'is-placeholder' if c.placeholder else '' }} {{ 'has-pending-update' if c.has_pending_update else '' }}"
              data-container="{{ c.name | e }}"
+             data-container-id="{{ (c.id or '') | e }}"
+             data-container-ref="{{ cref | e }}"
              data-svc-status="{{ filt }}"
-             data-svc-name="{{ (c.compose_service or c.name or '') | e | lower }}">
-          <button type="button"
-                  class="docker-svc-main"
-                  data-svc-toggle
-                  {% if c.placeholder %}disabled{% endif %}
-                  title="Show details">
-            <span class="docker-svc-identity">
-              <span class="docker-svc-chevron" aria-hidden="true">▸</span>
-              <span class="docker-svc-name font-mono">{{ c.compose_service or c.name or '—' }}</span>
-              {% if c.running %}
-                <span class="status-pill status-success">Running</span>
-              {% elif c.placeholder %}
-                <span class="status-pill status-muted">Not created</span>
-              {% else %}
-                <span class="status-pill status-muted">{{ (c.state or 'stopped') | capitalize }}</span>
-              {% endif %}
-              {% if c.status and not c.placeholder %}
-                <span class="docker-svc-age text-muted" title="{{ c.status | e }}">{{ c.status }}</span>
-              {% endif %}
-            </span>
-          </button>
+             data-svc-name="{{ (c.compose_service or c.name or '') | e | lower }}"
+             data-has-update="{{ '1' if c.has_pending_update else '0' }}"
+             data-running="{{ '1' if c.running else '0' }}">
+          <div class="docker-svc-top">
+            <button type="button"
+                    class="docker-svc-main"
+                    data-svc-toggle
+                    {% if c.placeholder %}disabled{% endif %}
+                    title="Show details">
+              <span class="docker-svc-identity">
+                <span class="docker-svc-chevron" aria-hidden="true">▸</span>
+                <span class="docker-svc-name font-mono">{{ c.compose_service or c.name or '—' }}</span>
+                {% if c.running %}
+                  <span class="status-pill status-success">Running</span>
+                {% elif c.placeholder %}
+                  <span class="status-pill status-muted">Not created</span>
+                {% else %}
+                  <span class="status-pill status-muted">{{ (c.state or 'stopped') | capitalize }}</span>
+                {% endif %}
+                {% if c.has_pending_update %}
+                  <span class="status-pill status-failed" title="Image update available for this service">Update</span>
+                {% endif %}
+                {% if c.status and not c.placeholder %}
+                  <span class="docker-svc-age text-muted" title="{{ c.status | e }}">{{ c.status }}</span>
+                {% endif %}
+              </span>
+            </button>
+            {% if cref and not c.placeholder %}
+            <div class="docker-svc-row-actions">
+              <button type="button"
+                      class="source-icon-btn docker-more-trigger"
+                      data-container-more
+                      title="Container actions"
+                      aria-haspopup="menu"
+                      aria-label="Actions for {{ c.compose_service or c.name or 'container' }}">⋯</button>
+            </div>
+            {# Hidden targets for ⋯ menu (prefer ID for docker start/stop/restart) #}
+            <div class="docker-c-sec" hidden>
+              <form method="post" action="/servers/{{ server.id }}/docker/container/start" data-c-action="start">
+                <input type="hidden" name="name" value="{{ cref }}">
+                <button type="submit">Start</button>
+              </form>
+              <form method="post" action="/servers/{{ server.id }}/docker/container/stop" data-c-action="stop">
+                <input type="hidden" name="name" value="{{ cref }}">
+                <button type="submit">Stop</button>
+              </form>
+              <form method="post" action="/servers/{{ server.id }}/docker/container/restart" data-c-action="restart">
+                <input type="hidden" name="name" value="{{ cref }}">
+                <button type="submit">Restart</button>
+              </form>
+              <button type="button" data-c-action="logs" data-container-logs="{{ (c.name or cref) | e }}">Logs</button>
+            </div>
+            {% endif %}
+          </div>
           {% if not c.placeholder %}
           <div class="docker-svc-detail" hidden>
             <div class="docker-svc-detail-grid">
               {% if c.name %}
               <div class="docker-svc-detail-span">
                 <div class="docker-svc-detail-label">Container</div>
-                <div class="font-mono break-all">{{ c.name }}</div>
+                <div class="font-mono break-all">{{ c.name }}{% if c.id %} <span class="text-muted">({{ c.id }})</span>{% endif %}</div>
               </div>
               {% endif %}
               <div class="docker-svc-detail-span">
                 <div class="docker-svc-detail-label">Image</div>
-                <div class="font-mono break-all">{{ c.image or '—' }}</div>
+                <div class="font-mono break-all {{ 'text-warning' if c.has_pending_update else '' }}">{{ c.image or '—' }}{% if c.has_pending_update %} · update available{% endif %}</div>
               </div>
               <div>
                 <div class="docker-svc-detail-label">Ports</div>
@@ -197,13 +237,6 @@
                 <div class="docker-svc-detail-label">Created</div>
                 <div class="font-mono break-all">{{ c.created or '—' }}</div>
               </div>
-              {% if c.name %}
-              <div class="docker-svc-detail-span docker-svc-detail-actions">
-                <button type="button"
-                        class="btn btn-secondary text-xs px-3 py-1.5"
-                        data-container-logs="{{ c.name | e }}">View logs</button>
-              </div>
-              {% endif %}
             </div>
           </div>
           {% endif %}
@@ -226,29 +259,64 @@
     <div class="docker-svc-list docker-svc-list-standalone">
       {% for c in orphan_containers %}
       {% set filt = 'running' if c.running else 'stopped' %}
-      <div class="docker-svc-row {{ 'is-running' if c.running else '' }}"
+      {% set cref = c.id or c.name %}
+      <div class="docker-svc-row {{ 'is-running' if c.running else '' }} {{ 'has-pending-update' if c.has_pending_update else '' }}"
            data-container="{{ c.name | e }}"
+           data-container-id="{{ (c.id or '') | e }}"
+           data-container-ref="{{ cref | e }}"
            data-svc-status="{{ filt }}"
-           data-svc-name="{{ (c.name or '') | e | lower }}">
-        <button type="button" class="docker-svc-main" data-svc-toggle title="Show details">
-          <span class="docker-svc-identity">
-            <span class="docker-svc-chevron" aria-hidden="true">▸</span>
-            <span class="docker-svc-name font-mono">{{ c.name or '—' }}</span>
-            {% if c.running %}
-              <span class="status-pill status-success">Running</span>
-            {% else %}
-              <span class="status-pill status-muted">{{ (c.state or 'stopped') | capitalize }}</span>
-            {% endif %}
-            {% if c.status %}
-              <span class="docker-svc-age text-muted">{{ c.status }}</span>
-            {% endif %}
-          </span>
-        </button>
+           data-svc-name="{{ (c.name or '') | e | lower }}"
+           data-has-update="{{ '1' if c.has_pending_update else '0' }}"
+           data-running="{{ '1' if c.running else '0' }}">
+        <div class="docker-svc-top">
+          <button type="button" class="docker-svc-main" data-svc-toggle title="Show details">
+            <span class="docker-svc-identity">
+              <span class="docker-svc-chevron" aria-hidden="true">▸</span>
+              <span class="docker-svc-name font-mono">{{ c.name or '—' }}</span>
+              {% if c.running %}
+                <span class="status-pill status-success">Running</span>
+              {% else %}
+                <span class="status-pill status-muted">{{ (c.state or 'stopped') | capitalize }}</span>
+              {% endif %}
+              {% if c.has_pending_update %}
+                <span class="status-pill status-failed">Update</span>
+              {% endif %}
+              {% if c.status %}
+                <span class="docker-svc-age text-muted">{{ c.status }}</span>
+              {% endif %}
+            </span>
+          </button>
+          {% if cref and c.name != 'error' %}
+          <div class="docker-svc-row-actions">
+            <button type="button"
+                    class="source-icon-btn docker-more-trigger"
+                    data-container-more
+                    title="Container actions"
+                    aria-haspopup="menu"
+                    aria-label="Actions for {{ c.name or 'container' }}">⋯</button>
+          </div>
+          <div class="docker-c-sec" hidden>
+            <form method="post" action="/servers/{{ server.id }}/docker/container/start" data-c-action="start">
+              <input type="hidden" name="name" value="{{ cref }}">
+              <button type="submit">Start</button>
+            </form>
+            <form method="post" action="/servers/{{ server.id }}/docker/container/stop" data-c-action="stop">
+              <input type="hidden" name="name" value="{{ cref }}">
+              <button type="submit">Stop</button>
+            </form>
+            <form method="post" action="/servers/{{ server.id }}/docker/container/restart" data-c-action="restart">
+              <input type="hidden" name="name" value="{{ cref }}">
+              <button type="submit">Restart</button>
+            </form>
+            <button type="button" data-c-action="logs" data-container-logs="{{ (c.name or cref) | e }}">Logs</button>
+          </div>
+          {% endif %}
+        </div>
         <div class="docker-svc-detail" hidden>
           <div class="docker-svc-detail-grid">
             <div class="docker-svc-detail-span">
               <div class="docker-svc-detail-label">Image</div>
-              <div class="font-mono break-all">{{ c.image or '—' }}</div>
+              <div class="font-mono break-all {{ 'text-warning' if c.has_pending_update else '' }}">{{ c.image or '—' }}{% if c.has_pending_update %} · update available{% endif %}</div>
             </div>
             <div>
               <div class="docker-svc-detail-label">Ports</div>
@@ -286,11 +354,6 @@
               <div class="docker-svc-detail-label">Created</div>
               <div class="font-mono">{{ c.created or '—' }}</div>
             </div>
-            {% if c.name and c.name != 'error' %}
-            <div class="docker-svc-detail-span docker-svc-detail-actions">
-              <button type="button" class="btn btn-secondary text-xs px-3 py-1.5" data-container-logs="{{ c.name | e }}">View logs</button>
-            </div>
-            {% endif %}
           </div>
         </div>
       </div>

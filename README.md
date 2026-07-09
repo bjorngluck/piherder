@@ -22,10 +22,10 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - Per-server toggles: Backups, OS Patching, Container Patching; optional OS/container **update check** schedules (check-only, no auto-apply).
 - **Backups** (rsync over SSH) — multi-source paths, retention, schedules; HAOS/root plain-rsync probe.
 - **Container patching** — `docker compose pull` + conditional `up -d` on real image change; Docker project browser (list, logs, compose edit, build, deploy).
-- **OS patching** (apt sequence + reboot-required detection).
+- **OS patching** — apt update / upgrade **or** full-upgrade / autoremove; live progress modal; Ubuntu phased-update awareness; reboot-required detection; post-patch recheck + page refresh.
 - **Fleet dashboard** — patch/update attention across hosts; servers list filters and ⋯ action menus.
 - Diagnostics (ping, DNS, system info).
-- Full audit trail + job logs (filter by user/status/action/server).
+- Full audit trail + job logs (filter by user/status/action/server); OS patch audits include step summary and apt log tail.
 - Self-backup of PiHerder config (servers + encrypted keys) — scheduled via Settings, restore with preview.
 - In-app **notification center** (bell, dismiss, deep links for updates / reboot / backup failures).
 - Link to Pi-hole admin from dashboard (configurable).
@@ -90,6 +90,7 @@ Pre-built images will be available on Docker Hub so most people don't need to bu
    - **Deploy key** (password session if needed) or copy the install script into `authorized_keys`.
    - **Test connection**, then clear any stored password once key auth works.
    - Optional least-priv user (**Pi OS / Ubuntu**): limited sudoers + docker group; **Run on host** or copy-paste script. **HAOS:** deploy key as root; plain rsync is auto-detected.
+   - **Option B (recommended for least-priv + existing stacks under another home):** set **Docker base dir** to an absolute path (e.g. `/home/bjorn/docker`), then run the **Option B ACL script** from SSH access so the service user can traverse that tree. `~/docker` expands to the *SSH* user’s home and breaks restart/build/logs after re-pointing to `piherder`.
    - Otherwise ensure passwordless sudo for apt/docker/rsync as needed, and `docker` group for container ops.
 
 6. Optional: Settings → fleet-wide midnight **update check** schedules; server list / dashboard show pending OS and container updates.

@@ -100,11 +100,12 @@ Delivered and then extended beyond the original sketch:
 - [x] Removed duplicate progress modals/JS from server_list, server_backups, server_detail.
 - [x] Docker page-header + scrollable containers table + `.docker-action-btn` touch targets.
 - [x] Docker modals use `.modal-content` + `min-h-11` action buttons.
+- [x] **OS patch holding modal** (`JobHold` / progress poll): live apt tail, hold through post-patch recheck, force reload with cache-bust; servers list + detail.
 - [ ] Logs / service-select modal micro-polish can continue in Phase E if needed.
 
 ### Phase E — Remaining screens ✅ DONE
 
-- [x] **Audit:** page-header, filter card with touch targets, scrollable table, details modal polish.
+- [x] **Audit:** page-header, filter card with touch targets, event feed + details modal; OS patch entries show step summary + apt log tail in the modal.
 - [x] **Settings (herder_backups):** page-header, stacked forms, scrollable backup list, min-h-11 actions.
 - [x] **Login / Register:** brand strapline, consistent card, touch-friendly fields/buttons.
 - [x] **Add Server:** page-header, form card, cancel + primary CTA.

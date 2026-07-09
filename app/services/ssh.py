@@ -26,6 +26,34 @@ SSH_OPTS = {
 LEGACY_SSH_OPTS_STR = "-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
 
 
+def expand_remote_path(path: str, username: str) -> str:
+    """
+    Expand a remote path that may use ``~`` for the SSH user's home.
+
+    Prefer absolute paths (e.g. ``/home/bjorn/docker``) when the SSH user is a
+    least-priv account that must manage stacks still owned under another home.
+    """
+    if path is None:
+        return ""
+    p = str(path).strip()
+    if not p:
+        return p
+    user = (username or "").strip() or "root"
+    if p == "~":
+        return f"/home/{user}" if user != "root" else "/root"
+    if p.startswith("~/"):
+        rest = p[2:]
+        if user == "root":
+            return f"/root/{rest}" if rest else "/root"
+        return f"/home/{user}/{rest}" if rest else f"/home/{user}"
+    return p
+
+
+def docker_base_expanded(server) -> str:
+    """Resolve ``server.docker_base_dir`` for remote shell/SFTP paths."""
+    return expand_remote_path(server.docker_base_dir or "~/docker", server.ssh_username or "root")
+
+
 def generate_keypair(comment: str = "piherder-generated") -> Tuple[str, str]:
     """Return (public_key_openssh, private_key_openssh)"""
     key = paramiko.RSAKey.generate(4096)

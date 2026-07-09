@@ -26,10 +26,33 @@
       <button type="button" onclick="hideSshAccessModal()" class="text-muted hover:text-text">✕</button>
     </div>
     <p class="text-xs text-muted mb-3">
-      {{ server.ssh_username }}@{{ server.hostname }}:{{ server.ssh_port }}
+      <strong class="text-text font-mono">{{ server.ssh_username }}</strong>@{{ server.hostname }}:{{ server.ssh_port }}
       · {% if server.has_ssh_key %}key stored{% else %}<span class="text-warning">no private key</span>{% endif %}
       · {% if server.has_ssh_password %}password stored{% else %}no password{% endif %}
     </p>
+
+    <div class="border border-border rounded p-3 mb-3 space-y-2">
+      <div class="text-sm font-medium">SSH username in PiHerder</div>
+      <p class="text-xs text-muted">
+        This is what Edit and all jobs use. Creating <code>piherder</code> on the host does <strong>not</strong> change this
+        unless you used <strong>Run on host</strong>, or set it here after a manual script.
+      </p>
+      <form method="post" action="/servers/{{ server.id }}/ssh/set-username" id="ssh-set-username-form" class="flex flex-wrap gap-2 items-end" autocomplete="off">
+        <div class="flex-1 min-w-[10rem]">
+          <label class="block text-xs text-muted mb-1">Username</label>
+          <input name="ssh_username" id="ssh-set-username-input" value="{{ server.ssh_username }}" required
+                 autocomplete="off" data-lpignore="true" data-1p-ignore="true"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+        </div>
+        <button type="submit" class="btn btn-accent min-h-11 text-sm">Save username</button>
+        {% if server.ssh_username != 'piherder' %}
+        <button type="button" class="btn btn-secondary min-h-11 text-sm"
+                onclick="if(!confirm('Switch PiHerder SSH user to piherder? Ensure that user exists and key auth works.'))return; var i=document.getElementById('ssh-set-username-input'); if(i){i.value='piherder';} document.getElementById('ssh-set-username-form').submit();">
+          Use piherder
+        </button>
+        {% endif %}
+      </form>
+    </div>
 
     <div class="flex flex-wrap gap-2 mb-4">
       <form method="post" action="/servers/{{ server.id }}/ssh/test">
@@ -88,12 +111,15 @@
         <input type="password" name="ssh_password" placeholder="Password if needed to connect" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11" autocomplete="off">
         <div class="flex flex-wrap gap-2">
           <button type="submit" name="run_on_host" value="1" class="btn btn-accent min-h-11 text-sm"
-                  onclick="return confirm('Create least-priv user on {{ server.name }} and re-point SSH username? Requires sudo on the host (Pi OS / Ubuntu).');">
-            Run on host
+                  onclick="return confirm('Create least-priv user on {{ server.name }} and re-point PiHerder SSH username to that user? Requires sudo on the host (Pi OS / Ubuntu).');">
+            Run on host (creates user + re-points)
           </button>
         </div>
       </form>
-      <p class="text-[10px] text-muted">Copy-paste script (always available) is below. Review before running.</p>
+      <p class="text-[10px] text-muted">
+        Copy-paste script below only creates the remote user — it does <strong>not</strong> change PiHerder’s SSH username.
+        After a manual run, use <strong>Use piherder</strong> above.
+      </p>
     </div>
 
     {% if server.has_real_public_key or server.ssh_public_key %}
@@ -121,6 +147,18 @@
       <div class="text-sm font-medium mb-1">Least-priv script (Pi OS / Ubuntu)</div>
       <textarea id="least-priv-script" readonly class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-36 resize-y">{{ least_priv_script }}</textarea>
       <button type="button" onclick="copyTextFrom('least-priv-script', this)" class="btn btn-secondary text-sm min-h-11 mt-2">Copy script</button>
+    </div>
+    {% endif %}
+
+    {% if compose_acl_script %}
+    <div class="border-t border-border pt-3 mt-3">
+      <div class="text-sm font-medium mb-1">Option B — share compose tree (ACL)</div>
+      <p class="text-xs text-muted mb-1">
+        Docker base resolves to <code class="font-mono">{{ docker_base_expanded }}</code>.
+        Run on the host as root so <code>{{ server.ssh_username }}</code> can <code>cd</code>, build, and compose-logs under the owner’s home (e.g. bjorn).
+      </p>
+      <textarea id="compose-acl-script" readonly class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-36 resize-y">{{ compose_acl_script }}</textarea>
+      <button type="button" onclick="copyTextFrom('compose-acl-script', this)" class="btn btn-secondary text-sm min-h-11 mt-2">Copy ACL script</button>
     </div>
     {% endif %}
 
@@ -190,7 +228,10 @@ document.addEventListener('DOMContentLoaded', function() {
   <span class="feature-chip {{ 'feature-on' if server.container_patch_enabled else 'feature-off' }}">Containers {{ 'on' if server.container_patch_enabled else 'off' }}</span>
   <span class="feature-chip {{ 'feature-on' if server.os_patch_enabled else 'feature-off' }}">OS patch {{ 'on' if server.os_patch_enabled else 'off' }}</span>
   {% if server.os_updates_count is not none and server.os_updates_count > 0 %}
-  <span class="feature-chip status-pill status-failed">{{ server.os_updates_count }} OS update(s)</span>
+  <span class="feature-chip status-pill status-failed" title="Installable with a normal apt upgrade">{{ server.os_updates_count }} OS ready</span>
+  {% endif %}
+  {% if os_phased_count %}
+  <span class="feature-chip text-muted" title="Listed by apt but deferred (Ubuntu phased rollout) — not installable yet">{{ os_phased_count }} phased</span>
   {% endif %}
   {% if server.reboot_pending or (diagnostics and diagnostics.reboot_pending) %}
   <span class="feature-chip status-pill status-failed">reboot pending</span>
@@ -221,8 +262,14 @@ document.addEventListener('DOMContentLoaded', function() {
   {% if flash_msg == 'ssh_ok' %}<strong>SSH connection OK.</strong>
   {% elif flash_msg == 'key_deployed' %}<strong>SSH key deployed</strong> and key-only login verified. You can clear any stored password if you have not already.
   {% elif flash_msg == 'key_rotated' %}<strong>SSH key rotated</strong> successfully. Old public key removed when possible.
-  {% elif flash_msg == 'user_provisioned' %}<strong>Least-priv user provisioned</strong> and SSH username updated. Confirm backups/docker still work.
+  {% elif flash_msg == 'user_provisioned' %}<strong>Least-priv user provisioned</strong> — PiHerder now connects as
+    <code class="font-mono">{{ flash_detail or 'piherder' }}</code> (same keypair; any stored SSH password was cleared).
+    Docker base dir fixed if it used <code>~/…</code>. Run ACL script if stacks stay under another home.
+  {% elif flash_msg == 'username_set' %}<strong>SSH username updated</strong> to
+    <code class="font-mono">{{ flash_detail or '' }}</code>. Same keypair; stored password cleared if present. Test connection.
+  {% elif flash_msg == 'username_unchanged' %}SSH username was already set to that value.
   {% elif flash_msg == 'provision_script' %}Use the <strong>SSH access</strong> panel to copy the least-priv script.
+    After running it on the host, use <strong>Use piherder</strong> / <strong>Save username</strong> so PiHerder re-points.
   {% elif flash_msg == 'server_added' %}<strong>Server added.</strong> Open <strong>SSH access</strong> to deploy the public key or copy the install script.
   {% elif flash_msg == 'key_generated' %}<strong>Keypair generated.</strong> Use <strong>Deploy key</strong> (with password if needed) or the install script.
   {% else %}{{ flash_msg }}{% endif %}
@@ -290,7 +337,10 @@ document.addEventListener('DOMContentLoaded', function() {
           <span class="status-pill status-failed">reboot</span>
           {% endif %}
           {% if server.os_updates_count is not none and server.os_updates_count > 0 %}
-          <span class="status-pill status-failed">{{ server.os_updates_count }} OS</span>
+          <span class="status-pill status-failed" title="Installable now">{{ server.os_updates_count }} OS</span>
+          {% if os_phased_count %}<span class="text-xs text-muted">· {{ os_phased_count }} phased</span>{% endif %}
+          {% elif os_phased_count %}
+          <span class="status-pill status-success" title="Ubuntu phased — not installable yet">{{ os_phased_count }} phased</span>
           {% elif server.os_patch_enabled and server.os_updates_count == 0 %}
           <span class="status-pill status-success">OS 0</span>
           {% endif %}
@@ -340,17 +390,21 @@ document.addEventListener('DOMContentLoaded', function() {
     <button type="submit"></button>
   </form>
   {% endif %}
-  <form method="post" action="/servers/{{ server.id }}/run/container_patch" data-detail-form="container-patch">
+  <form method="post" action="/servers/{{ server.id }}/run/container_patch" data-detail-form="container-patch"
+        data-job-hold="Container patch" data-job-hold-close="reload">
     <button type="submit"></button>
   </form>
   <button type="button" data-detail-act="os-patch" onclick="showOsPatchModal()"></button>
-  <form method="post" action="/servers/{{ server.id }}/run/retention" data-detail-form="retention">
+  <form method="post" action="/servers/{{ server.id }}/run/retention" data-detail-form="retention"
+        data-job-hold="Retention cleanup" data-job-hold-close="reload">
     <button type="submit"></button>
   </form>
-  <form method="post" action="/servers/{{ server.id }}/check/os-updates" data-detail-form="check-os">
+  <form method="post" action="/servers/{{ server.id }}/check/os-updates" data-detail-form="check-os"
+        data-job-hold="Checking OS updates" data-job-hold-close="reload">
     <button type="submit"></button>
   </form>
-  <form method="post" action="/servers/{{ server.id }}/check/container-updates" data-detail-form="check-containers">
+  <form method="post" action="/servers/{{ server.id }}/check/container-updates" data-detail-form="check-containers"
+        data-job-hold="Checking container updates" data-job-hold-close="reload">
     <button type="submit"></button>
   </form>
   <form method="post" action="/servers/{{ server.id }}/reboot" data-detail-form="reboot"
@@ -488,7 +542,10 @@ document.addEventListener('DOMContentLoaded', function() {
       <p class="text-xs text-muted mb-0">
         {% if server.last_os_check_at %}Last {{ server.last_os_check_at | app_tz }} ·
         {% else %}Never checked · {% endif %}
-        {% if server.os_updates_count is not none %}{{ server.os_updates_count }} upgradable{% else %}—{% endif %}
+        {% if server.os_updates_count is not none %}
+          {{ server.os_updates_count }} ready to install
+          {% if os_phased_count %} · {{ os_phased_count }} phased (deferred){% endif %}
+        {% else %}—{% endif %}
       </p>
       <form method="post" action="/servers/{{ server.id }}/schedule/os-check" class="space-y-2">
         <label class="flex items-center gap-2 text-sm min-h-11">
@@ -536,24 +593,38 @@ document.addEventListener('DOMContentLoaded', function() {
       <button type="button" onclick="hideEditServerModal()" class="text-muted hover:text-text">✕</button>
     </div>
 
-    <form method="post" action="/servers/{{ server.id }}/update" class="space-y-4">
+    <form method="post" action="/servers/{{ server.id }}/update" class="space-y-4" autocomplete="off">
       <div>
         <label class="block text-xs text-muted mb-1">Name</label>
-        <input name="name" value="{{ server.name }}" required class="w-full bg-surface border border-border px-3 py-2 rounded text-sm">
+        <input name="name" value="{{ server.name }}" required autocomplete="off" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm">
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs text-muted mb-1">Hostname / IP</label>
-          <input name="hostname" value="{{ server.hostname }}" required class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono">
+          <input name="hostname" value="{{ server.hostname }}" required autocomplete="off" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono">
         </div>
         <div>
           <label class="block text-xs text-muted mb-1">SSH Port</label>
-          <input name="ssh_port" type="number" value="{{ server.ssh_port }}" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm">
+          <input name="ssh_port" type="number" value="{{ server.ssh_port }}" autocomplete="off" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm">
         </div>
       </div>
       <div>
         <label class="block text-xs text-muted mb-1">SSH Username</label>
-        <input name="ssh_username" value="{{ server.ssh_username }}" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono">
+        {# autocomplete off — browsers often overwrite this with a saved "bjorn" login #}
+        <input name="ssh_username" value="{{ server.ssh_username }}" required
+               autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other"
+               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono"
+               id="edit-ssh-username">
+        <p class="text-[10px] text-muted mt-1">Must match the remote user PiHerder connects as (e.g. <code>piherder</code> after least-priv).</p>
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1">Docker base dir (compose stacks)</label>
+        <input name="docker_base_dir" value="{{ server.docker_base_dir or '~/docker' }}" autocomplete="off"
+               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono" placeholder="/home/bjorn/docker">
+        <p class="text-[10px] text-muted mt-1">
+          Prefer an <strong>absolute</strong> path when SSH user is least-priv (e.g. <code>/home/bjorn/docker</code>).
+          <code>~/docker</code> expands to that SSH user’s home — wrong after switching to <code>piherder</code>.
+        </p>
       </div>
 
       <div class="border-t border-border pt-3">
@@ -611,20 +682,23 @@ document.addEventListener('DOMContentLoaded', function() {
         </label>
       </div>
       <div class="mb-2">
-        <div class="text-sm mb-1">Upgrade type (toggle between):</div>
+        <div class="text-sm mb-1">Upgrade type <span class="text-muted text-xs">(choose one — not both)</span>:</div>
         <label class="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="steps" value="upgrade" checked> Upgrade (apt upgrade - keep local config)
+          <input type="radio" name="steps" value="upgrade" checked> Upgrade (sudo apt upgrade -y — keep local config)
         </label>
         <label class="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="steps" value="full-upgrade"> Full-Upgrade (apt full-upgrade)
+          <input type="radio" name="steps" value="full-upgrade"> Full-Upgrade (sudo apt full-upgrade -y)
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="radio" name="steps" value="_skip_upgrade"> Skip package upgrade
         </label>
       </div>
       <div class="mb-2">
         <label class="flex items-center gap-2 text-sm">
-          <input type="checkbox" name="steps" value="autoremove" checked> Remove Redundant Packages (sudo apt autoremove)
+          <input type="checkbox" name="steps" value="autoremove" checked> Remove Redundant Packages (sudo apt autoremove -y)
         </label>
       </div>
-      <p class="text-[10px] text-muted mb-3">Defaults keep local configs and restart services. Live logs will stream in progress modal.</p>
+      <p class="text-[10px] text-muted mb-3">Runs: apt update → upgrade <em>or</em> full-upgrade → autoremove. Noninteractive keeps local configs. Live logs stream in the progress modal.</p>
       <div class="flex gap-2">
         <button type="submit" class="px-4 py-1 btn btn-secondary rounded text-sm">Run Selected Steps</button>
         <button type="button" onclick="hideOsPatchModal()" class="px-4 py-1 btn btn-secondary rounded text-sm ml-auto">Cancel</button>
@@ -634,11 +708,22 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 
 <script>
+window.PIHERDER_SERVER_ID = {{ server.id }};
+window.PIHERDER_PROGRESS_CLOSE = 'reload';
+
 function showEditServerModal() {
   const modal = document.getElementById('edit-server-modal');
   if (modal) {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
+    // Re-apply server value in case browser autofill overwrote ssh_username with an old login
+    const u = document.getElementById('edit-ssh-username');
+    if (u) {
+      const expected = {{ server.ssh_username | tojson }};
+      setTimeout(function() {
+        if (u.value !== expected) u.value = expected;
+      }, 50);
+    }
   }
 }
 function hideEditServerModal() {
@@ -839,7 +924,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // OS patch form
+  // OS patch form (radios for upgrade XOR full-upgrade share name="steps")
   const osForm = document.getElementById('os-patch-form');
   if (osForm) {
     osForm.addEventListener('submit', function(e) {
@@ -847,7 +932,15 @@ document.addEventListener('DOMContentLoaded', () => {
       hideOsPatchModal();
       showOsPatchProgressModal();
       const fd = new FormData(osForm);
-      fetch(osForm.action, {method: 'POST', body: fd}).catch(()=>{});
+      fetch(osForm.action, {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-PiHerder-Async': '1' },
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; });
+      }).then(function (data) {
+        if (data && data.job_id) startOsPatchJobPoll(data.job_id);
+      }).catch(function () {});
     });
   }
 });
@@ -856,36 +949,119 @@ document.addEventListener('DOMContentLoaded', () => {
 // Backup progress modal is shared via base.html (PiHerderProgress).
 
 let osPatchPollKey = 'os-patch';
+let osPatchJobPollKey = 'os-patch-job';
+let osPatchJobId = null;
+let osPatchReloadScheduled = false;
+
+function osPatchForceReload() {
+  if (osPatchReloadScheduled) return;
+  osPatchReloadScheduled = true;
+  try {
+    if (window.PiHerderPoll) {
+      window.PiHerderPoll.stop(osPatchPollKey);
+      window.PiHerderPoll.stop(osPatchJobPollKey);
+    }
+  } catch (_) {}
+  // Hard navigation beats a soft reload that can look like a no-op
+  var url = window.location.pathname + window.location.search;
+  if (url.indexOf('os_patched=1') === -1) {
+    url += (url.indexOf('?') >= 0 ? '&' : '?') + 'os_patched=1&_=' + Date.now();
+  } else {
+    url = window.location.pathname + '?os_patched=1&_=' + Date.now();
+  }
+  window.location.replace(url);
+}
 
 function showOsPatchProgressModal() {
   const modal = document.getElementById('os-patch-progress-modal');
   if (!modal) return;
   const logEl = modal.querySelector('#os-patch-progress-log');
   if (logEl) logEl.innerText = 'Starting OS patch...\n';
+  osPatchReloadScheduled = false;
   modal.classList.remove('hidden');
   modal.classList.add('flex');
-  if (window.PiHerderPoll) {
-    window.PiHerderPoll.start(osPatchPollKey, '/servers/{{ server.id }}/os-patch-progress', (data) => {
-      if (logEl && data.log_lines && data.log_lines.length) {
-        logEl.innerText = data.log_lines.join('\n') + '\n';
+
+  function onProgressData(data) {
+    if (logEl && data.log_lines && data.log_lines.length) {
+      logEl.innerText = data.log_lines.join('\n') + '\n';
+      requestAnimationFrame(function () {
         logEl.scrollTop = logEl.scrollHeight;
+      });
+    }
+    // Fallback: log line signals completion even if done flag missed
+    var blob = (data.log_lines || []).join('\n');
+    var logDone = /\[os\] all done/i.test(blob);
+    if (data.done || logDone) {
+      if (logEl && !/Refreshing page/i.test(logEl.innerText)) {
+        logEl.innerText += data.finished_ok === false
+          ? '\n[Patch finished with errors]\nRefreshing page…\n'
+          : '\n[Patch finished — counts rechecked]\nRefreshing page…\n';
+        requestAnimationFrame(function () {
+          logEl.scrollTop = logEl.scrollHeight;
+        });
       }
-      if (data.current === null && data.log_lines && data.log_lines.length > 2) {
-        if (logEl) logEl.innerText += '\n[Patch finished] Refresh page for updated status.\n';
-        return true;
-      }
-      return false;
-    }, 3000);
+      setTimeout(osPatchForceReload, 800);
+      return true;
+    }
+    return false;
+  }
+
+  if (window.PiHerderPoll) {
+    window.PiHerderPoll.start(
+      osPatchPollKey,
+      '/servers/{{ server.id }}/os-patch-progress',
+      onProgressData,
+      1200
+    );
   }
 }
 
+function startOsPatchJobPoll(jobId) {
+  osPatchJobId = jobId;
+  if (!jobId || !window.PiHerderPoll) return;
+  window.PiHerderPoll.start(
+    osPatchJobPollKey,
+    '/servers/{{ server.id }}/jobs/' + jobId,
+    function (data) {
+      var logEl = document.querySelector('#os-patch-progress-log');
+      // While live SSH log is still empty, surface job.details so the modal is not stuck
+      if (logEl && data.log_lines && data.log_lines.length) {
+        var cur = logEl.innerText || '';
+        if (/^Starting OS patch/i.test(cur.trim()) || cur.indexOf('[update]') < 0) {
+          // Only seed from job log if we have not yet received apt stream
+          if (cur.indexOf('[os]') < 0 && cur.indexOf('[update]') < 0 && cur.indexOf('[upgrade]') < 0) {
+            logEl.innerText = data.log_lines.join('\n') + '\n';
+          }
+        }
+      }
+      // Prefer job DB status as authoritative completion (survives progress wipe)
+      if (data.done || data.status === 'success' || data.status === 'failed') {
+        if (logEl && !/Refreshing page/i.test(logEl.innerText)) {
+          logEl.innerText += '\n[Job ' + (data.status || 'done') + ']\n'
+            + (data.summary ? data.summary + '\n' : '')
+            + 'Refreshing page…\n';
+        }
+        setTimeout(osPatchForceReload, 800);
+        return true;
+      }
+      return false;
+    },
+    1500
+  );
+}
+
 function hideOsPatchProgressModal() {
-  if (window.PiHerderPoll) window.PiHerderPoll.stop(osPatchPollKey);
+  if (window.PiHerderPoll) {
+    window.PiHerderPoll.stop(osPatchPollKey);
+    window.PiHerderPoll.stop(osPatchJobPollKey);
+  }
   const modal = document.getElementById('os-patch-progress-modal');
   if (modal) {
     modal.classList.remove('flex');
     modal.classList.add('hidden');
   }
+  // If user closes after completion was signaled, still reload badges
+  if (osPatchReloadScheduled) osPatchForceReload();
 }
 
 let removeBackupSource = '';

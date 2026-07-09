@@ -188,24 +188,37 @@ def notify_os_updates(
     server_name: str,
     updates_count: int,
     reboot_pending: bool,
+    phased_count: int = 0,
 ) -> None:
+    """Alert only on *actionable* upgrades (updates_count).
+
+    Ubuntu phased packages (listed but not installable yet) are visibility-only —
+    they must not keep a warning open after a successful patch with 0 upgrades.
+    """
     fp_os = f"os_updates:server:{server_id}"
     fp_reboot = f"reboot_pending:server:{server_id}"
     link = f"/servers/{server_id}"
 
     if updates_count and updates_count > 0:
+        body = f"{updates_count} package(s) ready to install"
+        if phased_count and phased_count > 0:
+            body += f" · {phased_count} deferred (phased)"
         upsert_notification(
             session,
             fingerprint=fp_os,
             type="os_updates",
             title=f"OS updates on {server_name}",
-            body=f"{updates_count} package(s) upgradable",
+            body=body,
             link_url=link,
             severity="warning",
             server_id=server_id,
-            payload={"updates_count": updates_count},
+            payload={
+                "updates_count": updates_count,
+                "phased_count": phased_count or 0,
+            },
         )
     else:
+        # Phased-only or clean — clear actionable alert
         resolve_by_fingerprint(session, fp_os)
 
     if reboot_pending:

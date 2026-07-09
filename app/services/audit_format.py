@@ -129,13 +129,17 @@ def _details_meta(details: str) -> dict:
 
 
 def is_noise_entry(log: dict) -> bool:
-    """Legacy single-row backup entries that clutter the audit view."""
+    """Incomplete / superseded runs that clutter the audit view."""
     action = log.get("action") or ""
     status = log.get("status") or ""
     details = (log.get("details") or "").strip()
     snippet = (log.get("output_snippet") or "").strip()
 
     if action == "backup" and status == "running":
+        return True
+
+    # Stuck OS patch rows left "running" with no output (e.g. worker crash)
+    if action == "os_patch" and status == "running" and not snippet:
         return True
 
     if action != "backup":
@@ -148,6 +152,60 @@ def is_noise_entry(log: dict) -> bool:
     if isinstance(data, dict) and "Superseded" in str(data.get("error", "")):
         return True
     return False
+
+
+def _os_patch_modal_body(parsed: dict) -> str:
+    """Human-readable audit modal for OS patch (summary + optional apt log tail)."""
+    lines: list[str] = []
+    summary = (parsed.get("summary") or "").strip()
+    if summary:
+        lines.append(f"Summary: {summary}")
+    server = parsed.get("server")
+    if server:
+        lines.append(f"Server: {server}")
+    steps = parsed.get("steps")
+    if steps:
+        lines.append(f"Steps: {', '.join(str(s) for s in steps)}")
+    if parsed.get("needs_reboot"):
+        lines.append("Reboot: required")
+    elif "needs_reboot" in parsed:
+        lines.append("Reboot: not required")
+    if parsed.get("phased_deferred"):
+        lines.append("Note: some packages deferred (Ubuntu phasing)")
+    if parsed.get("error"):
+        lines.append(f"Error: {parsed['error']}")
+
+    results = parsed.get("results") or []
+    if results:
+        lines.append("")
+        lines.append("Step results:")
+        for r in results:
+            step = r.get("step") or "?"
+            if r.get("error"):
+                lines.append(f"  {step}: ERROR {r['error']}")
+            else:
+                lines.append(f"  {step}: exit {r.get('rc', '?')}")
+
+    post = parsed.get("post_check")
+    if isinstance(post, dict):
+        lines.append("")
+        lines.append("After patch recheck:")
+        if post.get("actionable_count") is not None:
+            lines.append(f"  ready: {post.get('actionable_count')}")
+        if post.get("phased_count"):
+            lines.append(f"  phased: {post.get('phased_count')}")
+        if "reboot_pending" in post:
+            lines.append(f"  reboot_pending: {post.get('reboot_pending')}")
+
+    tail = parsed.get("log_tail") or []
+    if tail:
+        lines.append("")
+        lines.append("--- apt log (tail) ---")
+        lines.extend(str(x) for x in tail)
+
+    if not lines:
+        return json.dumps(parsed, indent=2)
+    return "\n".join(lines)
 
 
 def format_audit_entry(log: dict) -> dict:
@@ -242,11 +300,50 @@ def format_audit_entry(log: dict) -> dict:
         else:
             summary = details or "Restore run"
 
-    elif action in ("retention", "container_patch", "os_patch", "diagnostics"):
+    elif action == "os_patch":
+        if status == "running" and not snippet:
+            summary = details if details else "OS patch in progress…"
+        elif isinstance(parsed, dict):
+            summary = (parsed.get("summary") or "").strip()
+            if not summary:
+                # Build from results when older jobs lacked summary
+                parts = []
+                for r in parsed.get("results") or []:
+                    step = r.get("step") or "?"
+                    if r.get("error"):
+                        parts.append(f"{step} ✗")
+                    elif int(r.get("rc", 1)) != 0:
+                        parts.append(f"{step} rc={r.get('rc')}")
+                    else:
+                        parts.append(f"{step} ✓")
+                summary = " · ".join(parts) if parts else "OS patch"
+                if parsed.get("needs_reboot"):
+                    summary += " · reboot needed"
+                if parsed.get("phased_deferred"):
+                    summary += " · phased deferral"
+            if not summary:
+                # Finished details look like "Job #214 · upgrade ✓ · autoremove ✓"
+                if details and " · " in details:
+                    summary = details.split(" · ", 1)[1][:140]
+                else:
+                    summary = (snippet or details or action_label)[:140]
+        else:
+            # Legacy Python-repr snippets or plain error text
+            raw = (snippet or details or action_label).strip()
+            if raw.startswith("{") and "results" in raw:
+                summary = "OS patch (see details)"
+            elif details and " · " in details and not snippet:
+                summary = details.split(" · ", 1)[1][:140]
+            else:
+                summary = raw[:140]
+
+    elif action in ("retention", "container_patch", "diagnostics"):
         summary = (snippet or details or action_label)[:140]
 
     modal_body = snippet or details or "(no additional output)"
-    if isinstance(parsed, (dict, list)):
+    if action == "os_patch" and isinstance(parsed, dict):
+        modal_body = _os_patch_modal_body(parsed)
+    elif isinstance(parsed, (dict, list)):
         modal_body = json.dumps(parsed, indent=2)
 
     started = log.get("started_at")

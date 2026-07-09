@@ -205,7 +205,8 @@ def create_new_docker_project(
     """Create dir on host (fresh SSH), optional git clone into it, write initial files.
     base_files e.g. {"docker-compose.yml": "...", "Dockerfile": "..."}
     """
-    base = server.docker_base_dir.replace("~", f"/home/{server.ssh_username}")
+    from .ssh import docker_base_expanded
+    base = docker_base_expanded(server)
     full_path = f"{base}/{project_name}".replace("//", "/")
     client = get_ssh_client(server)
     try:

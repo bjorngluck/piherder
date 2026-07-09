@@ -95,7 +95,12 @@
         <span class="status-pill status-failed">reboot</span>
         {% endif %}
         {% if s.get('os_updates_count') is not none and s.os_updates_count > 0 %}
-        <span class="status-pill status-failed">{{ s.os_updates_count }} OS</span>
+        <span class="status-pill status-failed" title="Packages a normal apt upgrade would install">{{ s.os_updates_count }} OS</span>
+        {% if s.get('os_phased_count') %}
+        <span class="text-xs text-muted" title="Listed by apt but deferred (Ubuntu phasing)">· {{ s.os_phased_count }} phased</span>
+        {% endif %}
+        {% elif s.get('os_phased_count') %}
+        <span class="status-pill status-success" title="No actionable upgrades; Ubuntu is holding packages in phased rollout">{{ s.os_phased_count }} phased</span>
         {% elif s.os_patch_enabled and s.get('os_updates_count') == 0 %}
         <span class="status-pill status-success">OS 0</span>
         {% elif not s.os_patch_enabled %}
@@ -143,11 +148,78 @@
   Status from last update checks (no live SSH). ⋯ menu: open, backup, patch, docker, settings.
 </div>
 
+<!-- OS Patch options (from ⋯ menu) — upgrade XOR full-upgrade -->
+<div id="os-patch-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" aria-modal="true" role="dialog">
+  <div class="modal-content card p-6 w-full max-w-md mx-4">
+    <div class="flex justify-between mb-3">
+      <h3 class="font-semibold">Run OS Patch</h3>
+      <button type="button" id="os-patch-modal-close" class="text-muted" aria-label="Close">✕</button>
+    </div>
+    <p class="text-sm text-muted mb-3">Host: <strong id="os-patch-server-name" class="text-text">—</strong></p>
+    <form method="post" action="" id="os-patch-form">
+      <div class="mb-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="steps" value="update" checked> Look for OS updates (sudo apt update)
+        </label>
+      </div>
+      <div class="mb-2">
+        <div class="text-sm mb-1">Upgrade type <span class="text-muted text-xs">(choose one — not both)</span>:</div>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="radio" name="steps" value="upgrade" checked> Upgrade (sudo apt upgrade -y — keep local config)
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="radio" name="steps" value="full-upgrade"> Full-Upgrade (sudo apt full-upgrade -y)
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="radio" name="steps" value="_skip_upgrade"> Skip package upgrade
+        </label>
+      </div>
+      <div class="mb-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="steps" value="autoremove" checked> Remove Redundant Packages (sudo apt autoremove -y)
+        </label>
+      </div>
+      <p class="text-[10px] text-muted mb-3">Runs: apt update → upgrade <em>or</em> full-upgrade → autoremove.</p>
+      <div class="flex gap-2">
+        <button type="submit" class="px-4 py-1 btn btn-secondary rounded text-sm">Run Selected Steps</button>
+        <button type="button" id="os-patch-modal-cancel" class="px-4 py-1 btn btn-secondary rounded text-sm ml-auto">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="os-patch-progress-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" aria-modal="true" role="dialog">
+  <div class="modal-content card p-6 w-full max-w-2xl mx-4">
+    <div class="flex justify-between mb-3">
+      <h3 class="font-semibold">OS Patch in progress</h3>
+      <button type="button" id="os-patch-progress-close" class="text-xs px-2 py-1 btn btn-secondary rounded">Close</button>
+    </div>
+    <p class="text-sm text-muted mb-2">Host: <strong id="os-patch-progress-name" class="text-text">—</strong></p>
+    <pre id="os-patch-progress-log" class="log-output p-3 text-xs font-mono whitespace-pre-wrap max-h-[40vh] overflow-auto border border-border rounded">Starting...</pre>
+  </div>
+</div>
+
 <script>
 (function () {
   var list = document.getElementById('server-host-list');
   var reorderMode = false;
   var dragEl = null;
+  var osPatchPollKey = 'os-patch-list';
+  var osPatchJobPollKey = 'os-patch-list-job';
+  var osPatchServerId = null;
+  var osPatchReloadScheduled = false;
+
+  function osPatchForceReload() {
+    if (osPatchReloadScheduled) return;
+    osPatchReloadScheduled = true;
+    try {
+      if (window.PiHerderPoll) {
+        window.PiHerderPoll.stop(osPatchPollKey);
+        window.PiHerderPoll.stop(osPatchJobPollKey);
+      }
+    } catch (_) {}
+    window.location.replace('/servers?os_patched=1&_=' + Date.now());
+  }
 
   function hideServerMoreMenu() {
     var menu = document.getElementById('server-more-menu');
@@ -168,6 +240,143 @@
     f.submit();
   }
 
+  function runJobHold(url, title, serverId) {
+    if (window.PiHerderJobHold) {
+      window.PiHerderJobHold.run({
+        url: url,
+        serverId: serverId,
+        title: title,
+        closeMode: 'reload',
+        initialMessage: title + '\nQueued…\n',
+      });
+      return;
+    }
+    postAction(url);
+  }
+
+  function resetOsPatchFormDefaults() {
+    var form = document.getElementById('os-patch-form');
+    if (!form) return;
+    form.querySelectorAll('input[name="steps"]').forEach(function (el) {
+      if (el.type === 'checkbox') {
+        el.checked = (el.value === 'update' || el.value === 'autoremove');
+      } else if (el.type === 'radio') {
+        el.checked = (el.value === 'upgrade');
+      }
+    });
+  }
+
+  function hideOsPatchModal() {
+    var modal = document.getElementById('os-patch-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  function showOsPatchModal(serverId, serverName) {
+    var modal = document.getElementById('os-patch-modal');
+    var form = document.getElementById('os-patch-form');
+    var nameEl = document.getElementById('os-patch-server-name');
+    if (!modal || !form) return;
+    osPatchServerId = String(serverId);
+    form.action = '/servers/' + osPatchServerId + '/run/os_patch';
+    if (nameEl) nameEl.textContent = serverName || ('#' + osPatchServerId);
+    resetOsPatchFormDefaults();
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function hideOsPatchProgressModal() {
+    if (window.PiHerderPoll) {
+      window.PiHerderPoll.stop(osPatchPollKey);
+      window.PiHerderPoll.stop(osPatchJobPollKey);
+    }
+    var modal = document.getElementById('os-patch-progress-modal');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+
+  function showOsPatchProgressModal(serverId, serverName) {
+    var modal = document.getElementById('os-patch-progress-modal');
+    var logEl = document.getElementById('os-patch-progress-log');
+    var nameEl = document.getElementById('os-patch-progress-name');
+    if (!modal) return;
+    if (nameEl) nameEl.textContent = serverName || ('#' + serverId);
+    if (logEl) logEl.innerText = 'Starting OS patch...\n';
+    osPatchReloadScheduled = false;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    if (window.PiHerderPoll) {
+      window.PiHerderPoll.start(osPatchPollKey, '/servers/' + serverId + '/os-patch-progress', function (data) {
+        if (logEl && data.log_lines && data.log_lines.length) {
+          logEl.innerText = data.log_lines.join('\n') + '\n';
+          requestAnimationFrame(function () {
+            logEl.scrollTop = logEl.scrollHeight;
+          });
+        }
+        var blob = (data.log_lines || []).join('\n');
+        var logDone = /\[os\] all done/i.test(blob);
+        if (data.done || logDone) {
+          if (logEl && !/Refreshing/i.test(logEl.innerText)) {
+            logEl.innerText += '\n[Patch finished]\nRefreshing…\n';
+          }
+          setTimeout(osPatchForceReload, 800);
+          return true;
+        }
+        return false;
+      }, 1200);
+    }
+  }
+
+  function startOsPatchJobPoll(serverId, jobId) {
+    if (!jobId || !window.PiHerderPoll) return;
+    window.PiHerderPoll.start(
+      osPatchJobPollKey,
+      '/servers/' + serverId + '/jobs/' + jobId,
+      function (data) {
+        if (data.done || data.status === 'success' || data.status === 'failed') {
+          var logEl = document.getElementById('os-patch-progress-log');
+          if (logEl && !/Refreshing/i.test(logEl.innerText)) {
+            logEl.innerText += '\n[Job ' + (data.status || 'done') + ']\nRefreshing…\n';
+          }
+          setTimeout(osPatchForceReload, 800);
+          return true;
+        }
+        return false;
+      },
+      1500
+    );
+  }
+
+  var osForm = document.getElementById('os-patch-form');
+  if (osForm) {
+    osForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var sid = osPatchServerId;
+      var nameEl = document.getElementById('os-patch-server-name');
+      var sname = nameEl ? nameEl.textContent : '';
+      hideOsPatchModal();
+      showOsPatchProgressModal(sid, sname);
+      var fd = new FormData(osForm);
+      fetch(osForm.action, {
+        method: 'POST',
+        body: fd,
+        headers: { 'X-PiHerder-Async': '1' },
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; });
+      }).then(function (data) {
+        if (data && data.job_id) startOsPatchJobPoll(sid, data.job_id);
+      }).catch(function () {});
+    });
+  }
+  ['os-patch-modal-close', 'os-patch-modal-cancel'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('click', hideOsPatchModal);
+  });
+  var progClose = document.getElementById('os-patch-progress-close');
+  if (progClose) progClose.addEventListener('click', hideOsPatchProgressModal);
+
   function showServerMoreMenu(anchorBtn, row) {
     var menu = document.getElementById('server-more-menu');
     var listEl = document.getElementById('server-more-list');
@@ -180,9 +389,11 @@
 
     var items = [
       { label: 'Open', href: '/servers/' + id, accent: true },
-      { label: 'Backup now', post: '/servers/' + id + '/run/backup', accent: true },
-      { label: 'OS patch now', post: '/servers/' + id + '/run/os_patch' },
-      { label: 'Container patch now', post: '/servers/' + id + '/run/container_patch' },
+      { label: 'Backup now', backup: true, accent: true },
+      { label: 'OS patch…', osPatch: true },
+      { label: 'Container patch now', hold: true, holdTitle: 'Container patch', post: '/servers/' + id + '/run/container_patch' },
+      { label: 'Check OS updates', hold: true, holdTitle: 'Checking OS updates', post: '/servers/' + id + '/check/os-updates' },
+      { label: 'Check container updates', hold: true, holdTitle: 'Checking container updates', post: '/servers/' + id + '/check/container-updates' },
       { label: 'Docker', href: '/servers/' + id + '/docker' },
       { label: 'Backups', href: '/servers/' + id + '/backups' },
       { label: 'Settings', href: '/servers/' + id + '?edit=1' },
@@ -208,6 +419,28 @@
         e.stopPropagation();
         if (item.confirm && !window.confirm(item.confirm)) return;
         hideServerMoreMenu();
+        if (item.osPatch) {
+          showOsPatchModal(id, name);
+          return;
+        }
+        if (item.backup) {
+          // Temporary form triggers shared backup holding modal (base.html)
+          var bf = document.createElement('form');
+          bf.method = 'POST';
+          bf.action = '/servers/' + id + '/run/backup';
+          bf.className = 'backup-run-form';
+          bf.style.display = 'none';
+          bf.dataset.serverName = name;
+          document.body.appendChild(bf);
+          if (typeof bf.requestSubmit === 'function') bf.requestSubmit();
+          else bf.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+          setTimeout(function () { try { bf.remove(); } catch (_) {} }, 100);
+          return;
+        }
+        if (item.hold && item.post) {
+          runJobHold(item.post, item.holdTitle || item.label, id);
+          return;
+        }
         postAction(item.post);
       });
       listEl.appendChild(btn);
@@ -405,6 +638,8 @@
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
       hideServerMoreMenu();
+      hideOsPatchModal();
+      hideOsPatchProgressModal();
       if (reorderMode) setReorderMode(false);
     }
   });

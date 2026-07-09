@@ -474,6 +474,97 @@ HAOS_GUIDANCE = """# Home Assistant OS / specialised systems
 """
 
 
+def build_compose_tree_acl_script(
+    service_user: str,
+    compose_owner: str,
+    compose_dir: str = "docker",
+) -> str:
+    """
+    Option B host setup: let least-priv user traverse another user's home and
+    read/write the compose tree (Pi OS / Ubuntu). Run as root on the target.
+    """
+    svc = re.sub(r"[^a-z0-9_-]", "", (service_user or "piherder").lower()) or "piherder"
+    owner = re.sub(r"[^a-z0-9_-]", "", (compose_owner or "bjorn").lower()) or "bjorn"
+    # compose_dir may be absolute or relative under owner's home
+    if compose_dir.startswith("/"):
+        tree = compose_dir.rstrip("/") or f"/home/{owner}/docker"
+        home = f"/home/{owner}"
+    else:
+        rel = compose_dir.strip("/") or "docker"
+        home = f"/home/{owner}"
+        tree = f"{home}/{rel}"
+    return f"""#!/bin/bash
+# PiHerder — share compose tree with least-priv SSH user (Option B)
+# Target: Debian / Raspberry Pi OS / Ubuntu
+# Lets {svc!r} manage stacks under {tree!r} (owned by {owner!r}).
+set -euo pipefail
+if [ "$(id -u)" -ne 0 ]; then
+  echo "Re-run as root: sudo bash $0"
+  exec sudo bash "$0" "$@"
+fi
+
+SERVICE_USER={shlex.quote(svc)}
+OWNER_HOME={shlex.quote(home)}
+TREE={shlex.quote(tree)}
+
+# docker group (socket access)
+if getent group docker >/dev/null 2>&1; then
+  usermod -aG docker "$SERVICE_USER" || true
+else
+  echo "WARNING: docker group missing"
+fi
+
+# Traverse owner home (execute-only on home is enough; does not list contents)
+if [ -d "$OWNER_HOME" ]; then
+  chmod o+x "$OWNER_HOME" || chmod 711 "$OWNER_HOME" || true
+fi
+
+if [ ! -d "$TREE" ]; then
+  echo "ERROR: compose tree not found: $TREE"
+  exit 1
+fi
+
+if command -v setfacl >/dev/null 2>&1; then
+  setfacl -R -m "u:${{SERVICE_USER}}:rwx" "$TREE"
+  setfacl -R -d -m "u:${{SERVICE_USER}}:rwx" "$TREE"
+  echo "ACLs granted on $TREE for $SERVICE_USER"
+else
+  # Fallback: shared group (less precise)
+  GROUP="piherder-compose"
+  groupadd -f "$GROUP"
+  usermod -aG "$GROUP" "$SERVICE_USER"
+  usermod -aG "$GROUP" "{owner}" || true
+  chgrp -R "$GROUP" "$TREE"
+  chmod -R g+rwX "$TREE"
+  find "$TREE" -type d -exec chmod g+s {{}} +
+  echo "Group $GROUP applied on $TREE (install acl package for setfacl next time)"
+fi
+
+echo "Done. In PiHerder set Docker base dir to: $TREE"
+echo "Test as $SERVICE_USER: ssh $SERVICE_USER@host 'ls $TREE && cd $TREE && docker ps'"
+"""
+
+
+def preserve_docker_base_after_user_switch(
+    docker_base_dir: str,
+    previous_username: str,
+    new_username: str,
+) -> str:
+    """
+    When SSH username changes (least-priv re-point), convert ``~/…`` paths to an
+    absolute path under the *previous* home so stacks stay discoverable.
+    """
+    base = (docker_base_dir or "~/docker").strip() or "~/docker"
+    prev = (previous_username or "").strip()
+    new = (new_username or "").strip()
+    if not prev or not new or prev == new:
+        return base
+    if not base.startswith("~"):
+        return base
+    from .ssh import expand_remote_path
+    return expand_remote_path(base, prev)
+
+
 def detect_os_family(client: paramiko.SSHClient) -> dict[str, Any]:
     """Read /etc/os-release. Returns {id, id_like, name, debian_family, raw}."""
     status, out, err = ssh_service.run_command(

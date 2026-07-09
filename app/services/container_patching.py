@@ -30,7 +30,8 @@ def discover_projects(server: Server) -> List[str]:
     """SSH to host and return immediate subdirs under docker_base_dir that have compose files."""
     try:
         client = get_ssh_client(server)
-        base = server.docker_base_dir.replace("~", f"/home/{server.ssh_username}")
+        from .ssh import docker_base_expanded
+        base = docker_base_expanded(server)
         cmd = f"ls -1 {base} 2>/dev/null || true"
         status, out, err = run_command(client, cmd)
         client.close()
@@ -57,7 +58,8 @@ def run_project_update(server: Server, project: str | None = None) -> Dict:
     - if changed: up -d
     """
     client = get_ssh_client(server)
-    base = server.docker_base_dir.replace("~", f"/home/{server.ssh_username}")
+    from .ssh import docker_base_expanded
+    base = docker_base_expanded(server)
 
     projects_to_do = [project] if project else discover_projects(server)
     updated = []
@@ -129,59 +131,61 @@ def run_project_update(server: Server, project: str | None = None) -> Dict:
 
 
 def check_project_images(client, proj_dir: str) -> dict:
-    """Pull images for a project and compare IDs. Does not run `up -d`."""
+    """
+    Pull registry images and compare IDs. Does not run `up -d`.
+
+    Local-build services (compose ``build:``) are excluded from update detection —
+    those are updated via Build, not pull-based "Update available".
+    """
+    import shlex
+    from .docker_management import _image_id_remote, classify_compose_images
+
     status, ls_out, _ = run_command(
         client, f"ls {proj_dir}/compose.* {proj_dir}/docker-compose.* 2>/dev/null || true"
     )
     if not (ls_out or "").strip():
-        return {"has_compose": False, "has_updates": False}
+        return {"has_compose": False, "has_updates": False, "updated_images": [], "images": []}
 
-    _, images_raw, _ = run_command(
-        client, f"cd {proj_dir} && docker compose config --images 2>/dev/null || true", timeout=30
-    )
-    images = [l.strip() for l in (images_raw or "").strip().splitlines() if l.strip()]
+    qdir = shlex.quote(proj_dir)
+    classified = classify_compose_images(client, proj_dir)
+    images = list(classified.get("pullable_images") or [])
+    if not images:
+        return {
+            "has_compose": True,
+            "has_updates": False,
+            "pull_rc": 0,
+            "images": [],
+            "updated_images": [],
+            "skipped_build_only": True,
+            "build_services": classified.get("build_services") or [],
+        }
 
-    before = ""
-    if images:
-        _, before_raw, _ = run_command(
-            client,
-            f"docker inspect --format '{{{{.Id}}}}' {' '.join(images)} 2>/dev/null | sort -u | tr '\\n' ' ' || true",
-            timeout=30,
-        )
-        before = (before_raw or "").strip()
-
+    before_ids = {img: _image_id_remote(client, img) for img in images}
     pstatus, pull_out, _ = run_command(
-        client, f"cd {proj_dir} && docker compose pull 2>&1 || true", timeout=300
+        client, f"cd {qdir} && docker compose pull 2>&1 || true", timeout=300
     )
-
-    after = ""
-    if images:
-        _, after_raw, _ = run_command(
-            client,
-            f"docker inspect --format '{{{{.Id}}}}' {' '.join(images)} 2>/dev/null | sort -u | tr '\\n' ' ' || true",
-            timeout=30,
-        )
-        after = (after_raw or "").strip()
-
-    has_updates = bool(before and after and before != after) or (not before and after)
-    # If pull changed nothing but before==after and both non-empty → no updates
-    if before == after:
-        has_updates = False
+    after_ids = {img: _image_id_remote(client, img) for img in images}
+    updated_images = [img for img in images if before_ids.get(img) != after_ids.get(img)]
+    has_updates = bool(updated_images)
 
     return {
         "has_compose": True,
         "has_updates": has_updates,
         "pull_rc": pstatus,
         "images": images,
+        "updated_images": updated_images,
+        "build_services": classified.get("build_services") or [],
     }
 
 
 def check_all_projects_updates(server: Server) -> dict:
     """Fleet check-only: pull + compare image IDs for each compose project. Never runs up -d."""
     client = get_ssh_client(server)
-    base = server.docker_base_dir.replace("~", f"/home/{server.ssh_username}")
+    from .ssh import docker_base_expanded
+    base = docker_base_expanded(server)
     projects = discover_projects(server)
     with_updates: list[str] = []
+    project_details: dict[str, dict] = {}
     failed: list[str] = []
     checked: list[str] = []
 
@@ -199,6 +203,9 @@ def check_all_projects_updates(server: Server) -> dict:
                     continue
                 if res.get("has_updates"):
                     with_updates.append(proj)
+                    project_details[proj] = {
+                        "images": list(res.get("updated_images") or []),
+                    }
             except Exception as e:
                 failed.append(f"{proj}: {e}")
     finally:
@@ -210,6 +217,7 @@ def check_all_projects_updates(server: Server) -> dict:
     return {
         "server": server.hostname,
         "projects_with_updates": with_updates,
+        "project_details": project_details,
         "updates_count": len(with_updates),
         "failed": failed,
         "projects_checked": checked,
