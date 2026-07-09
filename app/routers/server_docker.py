@@ -141,6 +141,24 @@ async def docker_page(
     return resp
 
 
+@router.get("/{server_id}/docker/container/mounts")
+async def docker_container_mounts(
+    server_id: int,
+    name: str,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """L3: full volume paths + host disk usage for one container (on expand)."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    ref = (name or "").strip()
+    if not ref:
+        raise HTTPException(400, "name required")
+    result = docker_svc.get_container_mounts_detail(server, ref)
+    return JSONResponse(result)
+
+
 @router.post("/{server_id}/docker/container/{action}")
 async def docker_container_action(
     server_id: int,

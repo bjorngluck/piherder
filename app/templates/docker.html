@@ -436,6 +436,10 @@ document.addEventListener('click', function(e) {
     if (detail) detail.hidden = !open;
     const chev = row.querySelector('.docker-svc-chevron');
     if (chev) chev.textContent = open ? '▾' : '▸';
+    // L3: load full volume paths + host du when first expanded
+    if (open && typeof window.loadContainerMountsDetail === 'function') {
+      window.loadContainerMountsDetail(row);
+    }
     return;
   }
 
@@ -1022,6 +1026,82 @@ setTimeout(function() {
 
 // Logs modal globals and functions
 let CURRENT_SERVER_ID = {{ server.id }};
+
+/** On container expand: fetch full mount paths + per-volume disk usage (inspect + du). */
+window.loadContainerMountsDetail = function (row) {
+  if (!row || row.getAttribute('data-mounts-ready') === '1') return;
+  if (row.getAttribute('data-mounts-loading') === '1') return;
+  if (row.classList.contains('is-placeholder')) return;
+  const ref = (row.getAttribute('data-container-ref')
+    || row.getAttribute('data-container-id')
+    || row.getAttribute('data-container') || '').trim();
+  if (!ref || ref === 'error') return;
+  const panel = row.querySelector('[data-mounts-panel]');
+  if (!panel) return;
+  if (panel.getAttribute('data-mounts-ready') === '1') {
+    row.setAttribute('data-mounts-ready', '1');
+    return;
+  }
+  row.setAttribute('data-mounts-loading', '1');
+  const placeholder = panel.querySelector('[data-mounts-placeholder]');
+  if (placeholder) {
+    placeholder.innerHTML = '<span class="inline-flex items-center gap-1 text-xs text-muted">'
+      + '<span class="inline-block w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin"></span>'
+      + ' Loading full paths + disk usage…</span>';
+  }
+  const url = '/servers/' + CURRENT_SERVER_ID + '/docker/container/mounts?name='
+    + encodeURIComponent(ref);
+  fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) {
+      row.setAttribute('data-mounts-loading', '0');
+      const data = res.j || {};
+      if (!res.ok || !data.success) {
+        if (placeholder) {
+          placeholder.innerHTML = '<span class="text-warning text-xs">'
+            + (data.error || 'Could not load mount details') + '</span>';
+        }
+        return;
+      }
+      const mounts = data.mounts || [];
+      function esc(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+      let html = '';
+      if (!mounts.length) {
+        html = '<div class="font-mono text-muted text-xs">No mounts</div>';
+      } else {
+        html = '<ul class="docker-detail-lines font-mono" data-mounts-list>';
+        mounts.forEach(function (m) {
+          const src = m.source || m.name || '';
+          const dst = m.destination || '';
+          const label = (src && dst) ? (src + ' → ' + dst) : (dst || src || '—');
+          const title = (src && dst) ? (src + ' → ' + dst) : label;
+          let extra = '';
+          if (m.type) extra += '<span class="text-muted"> · ' + esc(m.type) + '</span>';
+          if (m.size_human) extra += '<span class="text-accent"> · ' + esc(m.size_human) + '</span>';
+          html += '<li title="' + esc(title) + '">' + esc(label) + extra + '</li>';
+        });
+        html += '</ul>';
+        if (data.mounts_total_human) {
+          html += '<div class="text-[10px] text-muted mt-1" data-mounts-total>'
+            + 'Mounts total ≈ ' + esc(data.mounts_total_human)
+            + ' <span class="opacity-80">(host path usage via du)</span></div>';
+        }
+      }
+      panel.innerHTML = html;
+      panel.setAttribute('data-mounts-ready', '1');
+      row.setAttribute('data-mounts-ready', '1');
+    })
+    .catch(function () {
+      row.setAttribute('data-mounts-loading', '0');
+      if (placeholder) {
+        placeholder.innerHTML = '<span class="text-warning text-xs">Could not load mount details</span>';
+      }
+    });
+};
 let currentLogsES = null;
 let currentLogsContainer = null;
 

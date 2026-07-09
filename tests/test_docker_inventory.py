@@ -111,3 +111,12 @@ def test_is_refresh_stuck_when_not_in_flight_set():
     s = _server(docker_inventory_status="refreshing")
     # Process lock empty → stuck
     assert inv.is_refresh_stuck(s) is True
+
+
+def test_get_container_mounts_detail_missing_ref():
+    """No SSH when name empty — returns structured error."""
+    from app.services import docker_management as dm
+
+    out = dm.get_container_mounts_detail(_server(), "")
+    assert out["success"] is False
+    assert out["mounts"] == []

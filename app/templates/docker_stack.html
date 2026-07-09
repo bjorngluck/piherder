@@ -166,7 +166,8 @@
              data-svc-status="{{ filt }}"
              data-svc-name="{{ (c.compose_service or c.name or '') | e | lower }}"
              data-has-update="{{ '1' if c.has_pending_update else '0' }}"
-             data-running="{{ '1' if c.running else '0' }}">
+             data-running="{{ '1' if c.running else '0' }}"
+             data-mounts-ready="{{ '1' if c.mounts_detail else '0' }}">
           <div class="docker-svc-top">
             <button type="button"
                     class="docker-svc-main"
@@ -247,26 +248,34 @@
               </div>
               <div class="docker-svc-detail-span">
                 <div class="docker-svc-detail-label">Mounts / volumes</div>
-                {% if c.mounts_detail %}
-                <ul class="docker-detail-lines font-mono">
-                  {% for m in c.mounts_detail %}
-                  <li title="{{ m.source }} → {{ m.destination }}">{% if m.source and m.destination %}{{ m.source }} → {{ m.destination }}{% elif m.destination %}{{ m.destination }}{% else %}{{ m.source or '—' }}{% endif %}{% if m.type %}<span class="text-muted"> · {{ m.type }}</span>{% endif %}{% if m.size_human %}<span class="text-accent"> · {{ m.size_human }}</span>{% endif %}</li>
-                  {% endfor %}
-                </ul>
-                {% if c.mounts_total_human %}
-                <div class="text-[10px] text-muted mt-1">Mounts total ≈ {{ c.mounts_total_human }} <span class="opacity-80">(host path usage via du)</span></div>
-                {% endif %}
-                {% elif c.mounts_list %}
-                <ul class="docker-detail-lines font-mono">
-                  {% for m in c.mounts_list %}<li title="{{ m }}">{{ m }}</li>{% endfor %}
-                </ul>
-                {% elif c.mounts %}
-                <ul class="docker-detail-lines font-mono">
-                  {% for m in c.mounts.split(',') %}<li title="{{ m.strip() }}">{{ m.strip() }}</li>{% endfor %}
-                </ul>
-                {% else %}
-                <div class="font-mono text-muted">—</div>
-                {% endif %}
+                <div class="docker-mounts-panel"
+                     data-mounts-panel
+                     data-mounts-ready="{{ '1' if c.mounts_detail else '0' }}">
+                  {% if c.mounts_detail %}
+                  <ul class="docker-detail-lines font-mono" data-mounts-list>
+                    {% for m in c.mounts_detail %}
+                    <li title="{{ m.source }} → {{ m.destination }}">{% if m.source and m.destination %}{{ m.source }} → {{ m.destination }}{% elif m.destination %}{{ m.destination }}{% else %}{{ m.source or '—' }}{% endif %}{% if m.type %}<span class="text-muted"> · {{ m.type }}</span>{% endif %}{% if m.size_human %}<span class="text-accent"> · {{ m.size_human }}</span>{% endif %}</li>
+                    {% endfor %}
+                  </ul>
+                  {% if c.mounts_total_human %}
+                  <div class="text-[10px] text-muted mt-1" data-mounts-total>Mounts total ≈ {{ c.mounts_total_human }} <span class="opacity-80">(host path usage via du)</span></div>
+                  {% endif %}
+                  {% else %}
+                  <div class="text-xs text-muted" data-mounts-placeholder>
+                    {% if c.mounts_list %}
+                    <ul class="docker-detail-lines font-mono opacity-70 mb-1">
+                      {% for m in c.mounts_list %}<li title="{{ m }}">{{ m }}</li>{% endfor %}
+                    </ul>
+                    <span class="text-[10px]">Truncated from docker ps — expand loads full paths + disk usage…</span>
+                    {% elif c.mounts %}
+                    <span class="font-mono opacity-70">{{ c.mounts }}</span>
+                    <div class="text-[10px] mt-1">Expand loads full paths + disk usage…</div>
+                    {% else %}
+                    Loading full paths + disk usage when opened…
+                    {% endif %}
+                  </div>
+                  {% endif %}
+                </div>
                 {% if c.local_volumes %}
                 <div class="text-muted text-[10px] mt-1">Named volume mounts (docker): {{ c.local_volumes }}</div>
                 {% endif %}
@@ -310,7 +319,8 @@
            data-svc-status="{{ filt }}"
            data-svc-name="{{ (c.name or '') | e | lower }}"
            data-has-update="{{ '1' if c.has_pending_update else '0' }}"
-           data-running="{{ '1' if c.running else '0' }}">
+           data-running="{{ '1' if c.running else '0' }}"
+           data-mounts-ready="{{ '1' if c.mounts_detail else '0' }}">
         <div class="docker-svc-top">
           <button type="button" class="docker-svc-main" data-svc-toggle title="Show details">
             <span class="docker-svc-identity">
@@ -377,26 +387,34 @@
             </div>
             <div class="docker-svc-detail-span">
               <div class="docker-svc-detail-label">Mounts / volumes</div>
-              {% if c.mounts_detail %}
-              <ul class="docker-detail-lines font-mono">
-                {% for m in c.mounts_detail %}
-                <li title="{{ m.source }} → {{ m.destination }}">{% if m.source and m.destination %}{{ m.source }} → {{ m.destination }}{% elif m.destination %}{{ m.destination }}{% else %}{{ m.source or '—' }}{% endif %}{% if m.type %}<span class="text-muted"> · {{ m.type }}</span>{% endif %}{% if m.size_human %}<span class="text-accent"> · {{ m.size_human }}</span>{% endif %}</li>
-                {% endfor %}
-              </ul>
-              {% if c.mounts_total_human %}
-              <div class="text-[10px] text-muted mt-1">Mounts total ≈ {{ c.mounts_total_human }} <span class="opacity-80">(host path usage via du)</span></div>
-              {% endif %}
-              {% elif c.mounts_list %}
-              <ul class="docker-detail-lines font-mono">
-                {% for m in c.mounts_list %}<li title="{{ m }}">{{ m }}</li>{% endfor %}
-              </ul>
-              {% elif c.mounts %}
-              <ul class="docker-detail-lines font-mono">
-                {% for m in c.mounts.split(',') %}<li title="{{ m.strip() }}">{{ m.strip() }}</li>{% endfor %}
-              </ul>
-              {% else %}
-              <div class="font-mono text-muted">—</div>
-              {% endif %}
+              <div class="docker-mounts-panel"
+                   data-mounts-panel
+                   data-mounts-ready="{{ '1' if c.mounts_detail else '0' }}">
+                {% if c.mounts_detail %}
+                <ul class="docker-detail-lines font-mono" data-mounts-list>
+                  {% for m in c.mounts_detail %}
+                  <li title="{{ m.source }} → {{ m.destination }}">{% if m.source and m.destination %}{{ m.source }} → {{ m.destination }}{% elif m.destination %}{{ m.destination }}{% else %}{{ m.source or '—' }}{% endif %}{% if m.type %}<span class="text-muted"> · {{ m.type }}</span>{% endif %}{% if m.size_human %}<span class="text-accent"> · {{ m.size_human }}</span>{% endif %}</li>
+                  {% endfor %}
+                </ul>
+                {% if c.mounts_total_human %}
+                <div class="text-[10px] text-muted mt-1" data-mounts-total>Mounts total ≈ {{ c.mounts_total_human }} <span class="opacity-80">(host path usage via du)</span></div>
+                {% endif %}
+                {% else %}
+                <div class="text-xs text-muted" data-mounts-placeholder>
+                  {% if c.mounts_list %}
+                  <ul class="docker-detail-lines font-mono opacity-70 mb-1">
+                    {% for m in c.mounts_list %}<li title="{{ m }}">{{ m }}</li>{% endfor %}
+                  </ul>
+                  <span class="text-[10px]">Truncated from docker ps — expand loads full paths + disk usage…</span>
+                  {% elif c.mounts %}
+                  <span class="font-mono opacity-70">{{ c.mounts }}</span>
+                  <div class="text-[10px] mt-1">Expand loads full paths + disk usage…</div>
+                  {% else %}
+                  Loading full paths + disk usage when opened…
+                  {% endif %}
+                </div>
+                {% endif %}
+              </div>
             </div>
             <div>
               <div class="docker-svc-detail-label">Container size</div>
