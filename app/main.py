@@ -34,52 +34,24 @@ except ImportError:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables if alembic not used (dev convenience)
-    init_db()
-
-    # Ensure new columns exist (pragmatic for dev, until full migrations)
-    # This runs on every web startup so schema is always up to date
+    # Schema: Alembic is the source of truth (idempotent upgrade to head).
+    # create_all remains a safety net for brand-new DBs if migrate is skipped.
     try:
-        from sqlalchemy import text
-        alters = [
-            ("server", "backup_schedule", "VARCHAR"),
-            ("server", "backup_dest_root", "VARCHAR"),
-            ("server", "backup_folder_name", "VARCHAR"),
-            ("server", "last_backup_at", "TIMESTAMP"),
-            ("server", "os_check_enabled", "BOOLEAN DEFAULT FALSE"),
-            ("server", "os_check_schedule", "VARCHAR"),
-            ("server", "last_os_check_at", "TIMESTAMP"),
-            ("server", "os_updates_count", "INTEGER"),
-            ("server", "reboot_pending", "BOOLEAN DEFAULT FALSE"),
-            ("server", "os_updates_summary", "TEXT"),
-            ("server", "container_check_enabled", "BOOLEAN DEFAULT FALSE"),
-            ("server", "container_check_schedule", "VARCHAR"),
-            ("server", "last_container_check_at", "TIMESTAMP"),
-            ("server", "container_updates_count", "INTEGER"),
-            ("server", "container_updates_summary", "TEXT"),
-            ("user", "display_name", "VARCHAR"),
-            ("user", "avatar_path", "VARCHAR"),
-            ("user", "updated_at", "TIMESTAMP"),
-            ("user", "totp_secret_encrypted", "TEXT"),
-            ("user", "totp_enabled", "BOOLEAN DEFAULT FALSE"),
-            ("user", "totp_confirmed_at", "TIMESTAMP"),
-        ]
-        with engine.connect() as conn:
-            for table, col, coltype in alters:
-                conn.execute(text(f"""
-                    DO $$
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1 FROM information_schema.columns
-                            WHERE table_name = '{table}' AND column_name = '{col}'
-                        ) THEN
-                            ALTER TABLE "{table}" ADD COLUMN {col} {coltype};
-                        END IF;
-                    END $$;
-                """))
-            conn.commit()
+        from .db_migrate import run_alembic_upgrade
+
+        run_alembic_upgrade()
     except Exception as e:
-        print(f"Schema update warning (non-fatal): {e}")
+        print(f"Alembic migration warning: {e}")
+        try:
+            init_db()
+        except Exception as e2:
+            print(f"init_db fallback failed: {e2}")
+    else:
+        # Ensure metadata tables exist even if migration only adds columns
+        try:
+            init_db()
+        except Exception as e:
+            print(f"init_db after migrate: {e}")
 
     try:
         from .services.jobs import cleanup_stale_backup_jobs

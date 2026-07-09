@@ -38,7 +38,7 @@ def ensure_server_columns():
 
 
 def init_db():
-    # Called from lifespan or alembic
+    # Called from lifespan after Alembic (or as fallback). Prefer migrations for new columns.
     SQLModel.metadata.create_all(engine)
     ensure_server_columns()
 

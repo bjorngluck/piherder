@@ -120,7 +120,7 @@ def _send_webhook(message: str):
 
 # All configured backup sources run rsync via passwordless sudo on the target host.
 # SSH onboarding (deploy key / least-priv user / rotate): app/services/ssh_onboarding.py.
-# Still open (SPEC): per-server backup path allow/deny rules before rsync.
+# Path allow/deny: app/services/backup_path_policy.py (checked at add-source + run_backup).
 _RSYNC_SUDO = ("sudo", "-n")
 _RSYNC_REMOTE_PATH = "sudo -n rsync"
 
@@ -247,10 +247,11 @@ def _folder_exists_via_ssh(client, folder: str, username: str) -> bool:
 
 def backup_source_ok(result: dict) -> bool:
     """True if a single source result is success or intentionally skipped."""
-    if result.get("skipped"):
-        return True
+    # Policy denials set both error + skipped — error wins
     if result.get("error"):
         return False
+    if result.get("skipped"):
+        return True
     return int(result.get("rc", 0)) == 0
 
 
@@ -309,7 +310,25 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
     if job_id:
         _active_job_id[hostname] = job_id
     sources = sources_override if sources_override is not None else server.get_backup_sources()
+    # Enforce per-server path allow/deny before any rsync
+    from .backup_path_policy import filter_allowed_sources, parse_rules
+
+    rules = parse_rules(getattr(server, "backup_path_rules", None))
+    sources, rejected = filter_allowed_sources(sources, rules)
     results = []
+    for bad in rejected:
+        results.append(
+            {
+                "source": bad.get("source"),
+                "error": bad.get("error") or "Denied by path policy",
+                "skipped": True,
+                "rc": 1,
+            }
+        )
+        _set_progress(
+            hostname,
+            log_line=f"Denied by policy: {bad.get('source')} — {bad.get('error')}",
+        )
     backup_root = get_backup_root_for_server(server)
     try:
         backup_root.mkdir(parents=True, exist_ok=True)

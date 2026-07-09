@@ -378,6 +378,70 @@ document.addEventListener('DOMContentLoaded', function() {
   {% endif %}
 </div>
 
+{# Job queue + recent history #}
+<div class="card p-4 sm:p-5 mb-6" id="server-jobs-panel">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <div>
+      <h2 class="font-semibold text-text text-base">Jobs</h2>
+      <p class="text-xs text-muted mb-0">Running / queued and recent history for this host</p>
+    </div>
+    <a href="/audit?server_id={{ server.id }}" class="text-xs text-accent hover:underline">Audit log →</a>
+  </div>
+  {% set job_labels = {
+    'backup': 'Backup',
+    'os_patch': 'OS patch',
+    'container_patch': 'Container patch',
+    'os_update_check': 'OS check',
+    'container_update_check': 'Image check',
+    'retention': 'Retention',
+    'diagnostics': 'Diagnostics',
+    'herder_backup': 'PiHerder backup'
+  } %}
+  {% if active_jobs %}
+  <div class="mb-3 space-y-1">
+    {% for j in active_jobs %}
+    <div class="flex flex-wrap items-center gap-2 text-sm border border-border rounded px-2 py-1.5">
+      <span class="status-pill {{ 'status-running' if j.status == 'running' else 'status-cancelled' }}">{{ j.status }}</span>
+      <span class="font-medium">{{ job_labels.get(j.job_type, j.job_type) }}</span>
+      <span class="text-xs text-muted">#{{ j.id }}</span>
+      {% if j.started_at %}<span class="text-xs text-muted">{{ j.started_at | app_tz }}</span>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if recent_jobs %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-xs">
+      <thead>
+        <tr class="text-left text-muted border-b border-border">
+          <th class="py-1 pr-2 font-medium">ID</th>
+          <th class="py-1 pr-2 font-medium">Type</th>
+          <th class="py-1 pr-2 font-medium">Status</th>
+          <th class="py-1 pr-2 font-medium">When</th>
+          <th class="py-1 font-medium">Summary</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for j in recent_jobs[:12] %}
+        {% set jd = j.details | fromjson if j.details else {} %}
+        <tr class="border-b border-border/60">
+          <td class="py-1.5 pr-2 font-mono">#{{ j.id }}</td>
+          <td class="py-1.5 pr-2">{{ job_labels.get(j.job_type, j.job_type) }}</td>
+          <td class="py-1.5 pr-2">
+            <span class="status-pill {{ 'status-success' if j.status == 'success' else 'status-failed' if j.status == 'failed' else 'status-running' if j.status in ('running','pending') else 'status-cancelled' }}">{{ j.status }}</span>
+          </td>
+          <td class="py-1.5 pr-2 text-muted whitespace-nowrap">{{ (j.finished_at or j.started_at or j.created_at) | app_tz }}</td>
+          <td class="py-1.5 text-muted truncate max-w-[14rem]" title="{{ jd.summary or '' }}">{{ jd.summary or jd.current or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-xs text-muted mb-0">No jobs recorded yet for this server.</p>
+  {% endif %}
+</div>
+
 {# Hidden triggers for ⋯ menu (same pattern as list / Docker) #}
 <div id="server-detail-action-triggers" class="hidden" aria-hidden="true">
   {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
