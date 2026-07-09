@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+import pytest
+from fastapi import HTTPException
 
 from app.security.auth import (
     ROLE_ADMIN,
@@ -10,14 +14,41 @@ from app.security.auth import (
     VALID_ROLES,
     _admin_only_path,
     _viewer_write_allowed,
+    count_active_admins,
+    create_access_token,
+    get_admin_user,
+    get_current_user,
+    get_operator_user,
+    is_sole_admin,
     normalize_role,
     role_at_least,
     user_role,
 )
 
 
-def _user(role: str | None) -> SimpleNamespace:
-    return SimpleNamespace(role=role)
+def _user(role: str | None, **kwargs) -> SimpleNamespace:
+    base = dict(
+        id=kwargs.pop("id", 1),
+        role=role,
+        is_active=kwargs.pop("is_active", True),
+        must_change_password=False,
+        totp_enabled=True,
+    )
+    base.update(kwargs)
+    return SimpleNamespace(**base)
+
+
+class _FakeSession:
+    """Mimics session.exec(...).all() returning pre-filtered active users."""
+
+    def __init__(self, users: list):
+        self._users = users
+
+    def exec(self, _statement):
+        return SimpleNamespace(all=lambda: list(self._users))
+
+    def get(self, _model, _pk):
+        return None
 
 
 def test_normalize_role_defaults_and_invalid():
@@ -85,3 +116,112 @@ def test_rbac_matrix_mutating_intent():
     assert _admin_only_path("/auth/users")
     # Operators are not admin-only blocked (enforcement uses role != admin separately)
     assert not _admin_only_path("/servers/1/run/backup")
+
+
+def test_count_active_admins():
+    session = _FakeSession(
+        [
+            _user("admin", id=1),
+            _user("operator", id=2),
+            _user("admin", id=3),
+            _user("viewer", id=4),
+        ]
+    )
+    assert count_active_admins(session) == 2
+
+
+def test_is_sole_admin_single():
+    only = _user("admin", id=1)
+    session = _FakeSession([only, _user("viewer", id=2)])
+    assert is_sole_admin(session, only) is True
+    assert is_sole_admin(session, _user("viewer", id=2)) is False
+
+
+def test_is_sole_admin_two_admins():
+    a1 = _user("admin", id=1)
+    a2 = _user("admin", id=2)
+    session = _FakeSession([a1, a2])
+    assert is_sole_admin(session, a1) is False
+    assert is_sole_admin(session, a2) is False
+
+
+def test_is_sole_admin_operator_never():
+    op = _user("operator", id=1)
+    session = _FakeSession([op])
+    assert is_sole_admin(session, op) is False
+
+
+def test_is_sole_admin_inactive_not_in_active_set():
+    """SQL filters is_active; fake session only returns active users."""
+    remaining = _user("admin", id=1)
+    session = _FakeSession([remaining])  # inactive admin omitted (as SQL would)
+    assert count_active_admins(session) == 1
+    assert is_sole_admin(session, remaining) is True
+
+
+def test_get_admin_user_dependency():
+    assert get_admin_user(_user("admin")) is not None
+    with pytest.raises(HTTPException) as ei:
+        get_admin_user(_user("operator"))
+    assert ei.value.status_code == 403
+    with pytest.raises(HTTPException) as ei:
+        get_admin_user(_user("viewer"))
+    assert ei.value.status_code == 403
+
+
+def test_get_operator_user_dependency():
+    assert get_operator_user(_user("admin")) is not None
+    assert get_operator_user(_user("operator")) is not None
+    with pytest.raises(HTTPException) as ei:
+        get_operator_user(_user("viewer"))
+    assert ei.value.status_code == 403
+
+
+def _call_get_current_user(user, method: str, path: str):
+    token = create_access_token({"sub": str(user.id)})
+    request = SimpleNamespace(
+        method=method,
+        url=SimpleNamespace(path=path),
+        cookies={},
+    )
+    session = MagicMock()
+    session.get.return_value = user
+    with patch("app.security.auth.force_2fa_required", return_value=False):
+        return get_current_user(request, token, session)
+
+
+def test_get_current_user_viewer_blocked_on_fleet_post():
+    with pytest.raises(HTTPException) as ei:
+        _call_get_current_user(
+            _user("viewer", id=9), "POST", "/servers/1/run/backup"
+        )
+    assert ei.value.status_code == 403
+    assert "read-only" in (ei.value.detail or "").lower()
+
+
+def test_get_current_user_viewer_allowed_self_service_post():
+    user = _user("viewer", id=9)
+    out = _call_get_current_user(user, "POST", "/auth/account")
+    assert out is user
+
+
+def test_get_current_user_operator_blocked_on_users_post():
+    with pytest.raises(HTTPException) as ei:
+        _call_get_current_user(
+            _user("operator", id=3), "POST", "/auth/users/create"
+        )
+    assert ei.value.status_code == 403
+    assert "admin" in (ei.value.detail or "").lower()
+
+
+def test_get_current_user_operator_fleet_post_ok():
+    user = _user("operator", id=3)
+    out = _call_get_current_user(user, "POST", "/servers/1/run/backup")
+    assert out is user
+
+
+def test_get_current_user_viewer_get_fleet_ok():
+    """GET stays open for all logged-in roles (middleware only gates mutating)."""
+    user = _user("viewer", id=9)
+    out = _call_get_current_user(user, "GET", "/servers/1")
+    assert out is user

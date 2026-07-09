@@ -5,7 +5,7 @@
 **Goal:** Stabilise recent major feature additions (RBAC, scheduling, jobs, restore wizard, live progress) and improve overall quality before adding more functionality.
 
 **Phase tracking:**
-1. **Short Stabilisation Sprint** — done (tests + jobs helpers + menu single-source harden)
+1. **Short Stabilisation Sprint** — done (tests + jobs helpers + menu single-source harden); residual unit gaps closed (sole-admin, schedule busy/enqueue, `get_current_user` RBAC mutate)
 2. **Documentation Sprint** — done → [ADMIN.md](ADMIN.md) (RBAC, users, security policy, schedules, Jobs)
 3. **Polish Pass** — done (shared empty-state pattern, header consistency, clearer no-results CTAs)
 4. Resume feature development
