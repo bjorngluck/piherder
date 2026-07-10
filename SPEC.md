@@ -3,12 +3,12 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** v0.1.x — Phase 1 complete; Phase 2–3 largely shipped  
-> **Last updated:** 2026-07-09 — patch apply schedules, RBAC + user admin, fleet Jobs page, restore wizard, password policy / force-2FA, Docker mount sizes, admin docs
+> **Status:** v0.2 target — Phase 1–3 complete; Phase 4 (production + ecosystem) in progress  
+> **Last updated:** 2026-07-10 — ecosystem roadmap; token REST API; production install path
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
-**Operator docs:** [docs/ADMIN.md](docs/ADMIN.md) (roles, users, schedules, jobs) · [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
+**Operator docs:** [docs/ADMIN.md](docs/ADMIN.md) · [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) · [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
 
 ---
 
@@ -26,6 +26,14 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - Extensible via Tailwind config + CSS variables for future themes/user customization.
 - Goal: Consistent branding, mobile-friendly, delightful UX.
 - A standalone test page is available at `/static/theme-test.html` for safe visual validation of the colour scheme without affecting the main application.
+
+### Ecosystem strategy (2026-07-10)
+- **Integrations are optional** — core fleet ops (SSH, backups, patch, Docker) work without external products.
+- **PiHerder owns fleet truth**; Uptime Kuma / Grafana / NPM / HA enrich or provision via adapters and deep links.
+- Prefer **n8n + token REST** over embedding every vendor API in-process.
+- **Provisioning** always preview → confirm → audit (same philosophy as opt-in patch apply).
+- **AI** is optional, OpenAI-compatible BYO (local or cloud), off by default; Frigate vision stays on Frigate/AI Hat.
+- Full multi-horizon plan: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md).
 
 ## Vision
 
@@ -94,7 +102,7 @@ Related backup hardening (same phase):
 - [x] **Per-server backup path allow/deny rules** — default deny OS roots; optional allow/deny prefixes on Backups page; enforced on add-source + `run_backup`.
 
 - [x] **Built-in scheduler UI for container/OS patch apply** — Edit server → Schedules tab; opt-in, default off
-- [ ] REST API for all job triggers with token auth (partial — some endpoints exist)
+- [x] **Token REST API (v1)** — Bearer API tokens (`ph_…`); fleet read + job triggers under `/api/v1` — see ADMIN § API tokens
 - [x] **Webhook / notification integration** — env `WEBHOOK_*` on new alerts + job finish; optional **Web Push** (VAPID) on new open notifications — see [PWA/push plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md)
 - [x] **Per-server OS-patch and container-patch apply cron** — APScheduler → thread pool; only-if-updates; skip if job active; audit as system/scheduler
 - [x] **OS update check schedule (check-only)** — apt upgradable count + reboot flag; no auto-upgrade — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
@@ -107,8 +115,8 @@ Related backup hardening (same phase):
 - [x] **Container patch live progress** — per-project log lines + JobHold modal; success based on failed list; post-patch image recheck
 - [x] **Docker container expand** — full mount paths via `docker inspect`; per-mount host usage via `du`; container size labeled as writable+image (not volumes)
 - [x] **Audit pagination** — 10 / 20 / 50 per page with filters preserved
-- [ ] Pre-built Docker Hub image published and documented
-- [ ] `docker-compose` example with sensible defaults (no `~/` bind-mount assumptions)
+- [ ] Pre-built Docker Hub / GHCR image published and documented
+- [x] **`docker-compose` example with sensible defaults** — relative `./backups` (not `~/`); documented volumes
 
 ---
 
@@ -140,17 +148,55 @@ Full admin reference: [docs/ADMIN.md](docs/ADMIN.md).
 
 ---
 
-## Phase 4 — Ecosystem
+## Phase 4 — Production readiness (v0.2 / Horizon 0)
 
-- [ ] Ansible / cloud-init bootstrap for new Pis
+Carried refinements + ship blockers for a clean install story. Detail: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md).
+
 - [x] **Prometheus metrics exporter** — `GET /metrics` (optional `METRICS_TOKEN`); fleet/job/notification/backup gauges
 - [x] Mobile-friendly responsive pass (UI unification 2026-07 — see `UI_UNIFICATION_PLAN.md`)
-- [x] **Docker inventory cache** — DB snapshot (`docker_inventory_*` on Server); L1 SSH refresh in background; stack UI renders from snapshot; fleet interval + open-server prefetch
-- [x] **Server Edit IA** — tabbed Edit modal (General / Features / Schedules); schedules off server detail
+- [x] **Docker inventory cache** — DB snapshot (`docker_inventory_*` on Server); L1 SSH refresh in background
+- [x] **Server Edit IA** — tabbed Edit modal (General / Features / Schedules)
 - [x] **Feature hard-hide** — dest cards, host status chips, and ⋯ actions only for enabled features
-- [ ] Plugin hooks for custom job types
+- [x] **Token REST API** — admin-managed API tokens; `/api/v1` fleet read + job triggers
+- [x] **Compose volume defaults** — `./backups`, `./piherder_backups`, `./piherder_data`, `./certs`
+- [x] **Production ADMIN section** — TLS, upgrades, metrics, webhooks, API tokens
+- [ ] Pre-built multi-arch image on Docker Hub / GHCR + README pull path
+- [ ] GitHub Release `v0.2.0` notes
 
 ---
+
+## Phase 5 — Integration hub (v0.3 / Horizon 1)
+
+Read-mostly integrations: registry, status, deep links. No full remote control of external products.
+
+- [ ] Integration registry (types + encrypted credentials + server/project bindings)
+- [ ] Uptime Kuma: poll availability, badges, deep link, optional down notifications
+- [ ] Grafana: dashboard URL templates; “Open in Grafana”; high-level native stats chips
+- [ ] Multi Pi-hole / NPM / HA / Frigate / n8n generic URL entries (seed from `PIHOLE_URL`)
+- [ ] Docs: cert pattern NPM → n8n → consumers (e.g. Pi-hole)
+
+---
+
+## Phase 6 — Service templates (v0.4 / Horizon 2)
+
+- [ ] Template schema (compose/checklist/variables/post-deploy actions)
+- [ ] Curated pack (Pi-hole, Kuma, Grafana, Frigate, HA, NPM, n8n, media, generic web)
+- [ ] Onboard wizard: monitoring / DNS / TLS-proxy / feature flags (preview → confirm → audit)
+- [ ] Provider actions: Kuma create monitor; optional NPM / Cloudflare when tokens set
+- [ ] Custom template create / import / export
+
+---
+
+## Phase 7 — Ecosystem depth (post-v0.4 / Horizon 3)
+
+- [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
+- [ ] Ansible inventory / cloud-init bootstrap for new Pis
+- [ ] Home Assistant: custom component or REST sensors (read + safe actions)
+- [ ] Optional AI (OpenAI-compatible BYO; off by default; no private keys in prompts)
+- [ ] Community: Discord + Discussions; hacknow.info project page / clickthrough
+
+---
+
 
 ## Architecture
 

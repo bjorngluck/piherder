@@ -1,8 +1,8 @@
 # PiHerder admin guide
 
-Practical reference for operators and admins: roles, users, security policy, schedules, Docker inventory, feature flags, and the Jobs page.
+Practical reference for operators and admins: roles, users, security policy, schedules, Docker inventory, feature flags, Jobs page, production deploy, and API tokens.
 
-Related design notes: [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](DECISION_IOS_PUSH.md) · stabilisation: [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md)
+Related: [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](DECISION_IOS_PUSH.md) · [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md) · [SECURITY.md](../SECURITY.md)
 
 ---
 
@@ -311,7 +311,116 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 
 ---
 
-## 7. Quick admin checklist
+## 7. Production deployment
+
+### Volumes (compose defaults)
+
+| Host path | Container | Purpose |
+|-----------|-----------|---------|
+| `${PIHERDER_BACKUP_HOST_PATH:-./backups}` | `/backups` | rsync destinations for server backups |
+| `./piherder_backups` | `/herder_backups` | PiHerder self-backup archives |
+| `./piherder_data` | `/data` | Avatars / app data |
+| `./certs` | `/certs` (Caddy, ro) | `fullchain.pem` + `privkey.pem` |
+
+If you previously used `~/backup`, set in `.env`:
+
+```bash
+PIHERDER_BACKUP_HOST_PATH=/home/you/backup
+```
+
+### TLS & public URL
+
+1. Set `PIHERDER_HOSTNAME` and `PIHERDER_PUBLIC_URL` (include port if not 443).  
+2. Place PEMs in `certs/` (see `certs/README.md`).  
+3. Prefer Caddy ports **8888/8443** or terminate TLS at Nginx Proxy Manager and reverse-proxy to `web:8000`.  
+4. PWA + Web Push need **trusted** HTTPS (not `Caddyfile.dev` self-signed for phones).
+
+### Upgrades
+
+```bash
+git pull   # or pull published image when available
+docker compose up -d --build
+# Schema: Alembic runs on web startup (migrations/)
+docker compose run --rm --no-deps web pytest -q   # optional smoke
+```
+
+Back up `./piherder_backups` and the Postgres volume before major upgrades. Use **Settings → self-backup** for config + encrypted keys.
+
+### Webhooks → Signal (or similar)
+
+Env-style webhooks (legacy script parity):
+
+```bash
+WEBHOOK_URL=https://your-n8n-or-bridge/...
+WEBHOOK_NUMBER=+1...
+# WEBHOOK_RECIPIENTS=["+1..."]
+```
+
+Typical pattern: PiHerder → n8n webhook → Signal CLI. In-app notifications and optional Web Push remain available without webhooks.
+
+### Prometheus / Grafana scrape
+
+```yaml
+scrape_configs:
+  - job_name: piherder
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["web:8000"]
+    authorization:
+      type: Bearer
+      credentials: "<METRICS_TOKEN>"
+```
+
+Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Series include `piherder_up`, `piherder_servers*`, `piherder_jobs*`, `piherder_notifications_open*`, `piherder_servers_backup_stale`.
+
+### Image publish (when ready)
+
+Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/piherder:0.2.0`). Until then, build from this repo with `docker compose build`. See roadmap H0 in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
+
+---
+
+## 8. API tokens (`/api/v1`)
+
+**Where:** Settings (`/herder-backups`) → **API tokens** (admin only).  
+**Also:** `GET/POST /api/v1/tokens`, `DELETE /api/v1/tokens/{id}` with session admin auth.
+
+| Scope | Allows |
+|-------|--------|
+| `read` | `GET /api/v1/servers`, jobs list/detail, `/api/v1/health` |
+| `jobs` | `POST /api/v1/servers/{id}/jobs` (backup, retention, os/container patch & checks) |
+
+- Tokens look like `ph_…`. The **plaintext is shown once** at creation; only a hash is stored.  
+- Use `Authorization: Bearer ph_…`.  
+- Job triggers respect per-server **feature flags** (e.g. backups must be enabled).  
+- Audit attribution uses the **user who created** the token when available.  
+- Revoke immediately if leaked.
+
+### Examples
+
+```bash
+# List fleet
+curl -sS -H "Authorization: Bearer ph_…" \
+  https://piherder.example.com/api/v1/servers
+
+# Trigger backup (202 + job_id)
+curl -sS -X POST -H "Authorization: Bearer ph_…" \
+  -H "Content-Type: application/json" \
+  -d '{"job_type":"backup"}' \
+  https://piherder.example.com/api/v1/servers/1/jobs
+
+# Poll job
+curl -sS -H "Authorization: Bearer ph_…" \
+  https://piherder.example.com/api/v1/jobs/42?detail=true
+```
+
+`job_type` values: `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`.  
+Optional body fields: `source_filter` (backup), `os_steps` (list for os_patch).
+
+Use from **n8n** HTTP Request nodes or **Home Assistant** `rest_command` / future custom integration.
+
+---
+
+## 9. Quick admin checklist
 
 1. Create operators/viewers from **Users**; share one-time invite.
 2. Optionally enable **Force 2FA** under Settings.
@@ -319,10 +428,11 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 4. Prefer “only if updates” on apply schedules; start with a quiet weekly window.
 5. Use **Jobs** + **Audit** when diagnosing stuck or failed work; use Docker **Force refresh** if inventory looks stale after host-side changes.
 6. For mobile: set hostname + mount trusted TLS certs; optionally configure VAPID for push.
+7. For automation: create an API token with least scopes needed; set `METRICS_TOKEN` if scraping Prometheus.
 
 ---
 
-## 8. Implementation pointers (for developers)
+## 10. Implementation pointers (for developers)
 
 | Concern | Location |
 |---------|----------|
@@ -334,8 +444,10 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | Fleet Jobs page | `app/routers/jobs_page.py`, `app/templates/jobs.html` |
 | Web Push service / APIs | `app/services/push.py`, `app/routers/push.py` |
 | Prometheus `/metrics` | `app/services/metrics.py`, `app/routers/metrics.py` |
+| Token REST API | `app/routers/api_v1.py`, `app/services/api_tokens.py`, model `ApiToken` |
 | Docker multi-file versions | `app/services/docker_versions.py`, compose edit UI |
 | Docker inventory cache | `app/services/docker_inventory.py`, stack fragment in `server_docker.py` |
 | PWA assets | `app/static/manifest.webmanifest`, `app/static/sw.js`, `/sw.js` |
-| Unit tests | `tests/test_rbac.py`, `test_scheduler_apply.py`, `test_jobs_progress.py`, `test_push.py`, `test_metrics.py`, `test_docker_multifile.py`, `test_docker_inventory.py`, `test_herder_backup.py` |
+| Unit tests | `tests/test_rbac.py`, `test_scheduler_apply.py`, `test_jobs_progress.py`, `test_push.py`, `test_metrics.py`, `test_docker_multifile.py`, `test_docker_inventory.py`, `test_herder_backup.py`, `test_api_tokens.py` |
 | Herder self-backup | `app/services/herder_backup.py` |
+| Ecosystem roadmap | `docs/ROADMAP_ECOSYSTEM.md` |

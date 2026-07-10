@@ -18,8 +18,9 @@ from .routers import audit as audit_router
 from .routers import notifications as notifications_router
 from .routers import push as push_router
 from .routers import metrics as metrics_router
+from .routers import api_v1 as api_v1_router
 from . import templates as templates_mod  # shared Jinja instance (avoids circular)
-from .security.auth import get_current_user, get_optional_current_user, get_password_hash
+from .security.auth import get_current_user, get_optional_current_user, get_password_hash, get_admin_user
 from .models import User
 import logging
 
@@ -173,6 +174,7 @@ app.include_router(notifications_router.router, prefix="", tags=["notifications"
 app.include_router(push_router.router, prefix="", tags=["push"])
 app.include_router(jobs_page_router.router, prefix="", tags=["jobs"])
 app.include_router(metrics_router.router, prefix="", tags=["metrics"])
+app.include_router(api_v1_router.router, prefix="/api/v1", tags=["api-v1"])
 
 # Scheduler helpers extracted
 from .services import scheduler as sched
@@ -237,8 +239,11 @@ HERDER_SCHEDULE_JOB_ID = sched.HERDER_SCHEDULE_JOB_ID
 async def herder_backups_page(
     request: Request,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ):
     from .services import herder_backup as hb
+    from .services import api_tokens as tok_svc
+    from .security.auth import user_role, ROLE_ADMIN
     from .config import settings as _settings
     backups = hb.list_backups()
     tz_choices = hb.get_available_timezones()
@@ -253,6 +258,16 @@ async def herder_backups_page(
             if nr:
                 next_run = hb.format_datetime_in_app_tz(nr)
 
+    api_token_rows = []
+    if user_role(user) == ROLE_ADMIN:
+        try:
+            api_token_rows = [
+                tok_svc.token_public_dict(t)
+                for t in tok_svc.list_api_tokens(session, include_revoked=True)
+            ]
+        except Exception:
+            api_token_rows = []
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="herder_backups.html",
@@ -265,8 +280,55 @@ async def herder_backups_page(
             "tz_choices": tz_choices,
             "schedule_status": schedule_status,
             "schedule_next_run": next_run,
+            "api_tokens": api_token_rows,
+            "is_admin": user_role(user) == ROLE_ADMIN,
+            "new_api_token_secret": request.query_params.get("token_secret"),
+            "new_api_token_name": request.query_params.get("token_name"),
         }
     )
+
+
+@app.post("/herder-backups/api-tokens")
+async def create_api_token_form(
+    name: str = Form(...),
+    scope_read: Optional[str] = Form(None),
+    scope_jobs: Optional[str] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    from .services import api_tokens as tok_svc
+    from urllib.parse import quote
+
+    scopes = []
+    if scope_read in ("1", "on", "true"):
+        scopes.append("read")
+    if scope_jobs in ("1", "on", "true"):
+        scopes.append("jobs")
+    if not scopes:
+        scopes = ["read", "jobs"]
+    row, plain = tok_svc.create_api_token(
+        session, name=name, created_by=user, scopes=scopes
+    )
+    # One-time reveal via query (same pattern as admin user invite; short-lived in browser history)
+    return RedirectResponse(
+        f"/herder-backups?token_created=1&token_name={quote(row.name)}"
+        f"&token_secret={quote(plain)}",
+        status_code=303,
+    )
+
+
+@app.post("/herder-backups/api-tokens/{token_id}/revoke")
+async def revoke_api_token_form(
+    token_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    from .services import api_tokens as tok_svc
+
+    row = tok_svc.get_api_token(session, token_id)
+    if row:
+        tok_svc.revoke_api_token(session, row)
+    return RedirectResponse("/herder-backups?token_revoked=1", status_code=303)
 
 
 @app.post("/herder-backups/run")

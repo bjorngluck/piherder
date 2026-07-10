@@ -10,12 +10,17 @@
 PiHerder is a self-hosted web app that manages one or more remote Linux servers (primarily Raspberry Pis). It replaces manual bash scripts with an auditable UI while keeping secrets encrypted at rest.
 
 - **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)
-- **Specification & roadmap:** [SPEC.md](SPEC.md) — link this to your [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) board
-- **Admin guide (RBAC, users, schedules, jobs, TLS/PWA/push):** [docs/ADMIN.md](docs/ADMIN.md)
-- **IAM / 2FA / update checks / notifications (design + status):** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
-- **PWA + Web Push (design + status):** [docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · iOS decision: [docs/DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md)
+- **Specification:** [SPEC.md](SPEC.md) — link this to your [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) board
+- **Ecosystem roadmap:** [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) (production → integrations → templates → community)
+- **Admin guide (RBAC, users, schedules, jobs, TLS/PWA/push, API tokens):** [docs/ADMIN.md](docs/ADMIN.md)
+- **Publish image:** [docs/PUBLISH_IMAGE.md](docs/PUBLISH_IMAGE.md)
+- **Security:** [SECURITY.md](SECURITY.md)
+- **IAM / 2FA / update checks / notifications:** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+- **PWA + Web Push:** [docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · iOS: [docs/DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md)
 - **Stabilisation plan:** [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
 - **UI unification plan:** [UI_UNIFICATION_PLAN.md](UI_UNIFICATION_PLAN.md) (complete)
+
+**Community:** use [GitHub Issues](https://github.com/bjorngluck/piherder/issues) for bugs and features; [Discussions](https://github.com/bjorngluck/piherder/discussions) for Q&A when enabled. Discord link will be added when the server is public.
 
 ## Features
 
@@ -49,9 +54,9 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - Schema via **Alembic** on startup; unit tests with `pytest`.
 
 **Volumes (docker-compose.yml):**
-- `~/backup:/backups` — destination root for per-server rsync backups.
-- `./piherder_backups:/herder_backups` — PiHerder self-backup archives (fleet config, IAM, push keys, avatars, optional audit). Map a persistent host directory here.
-- `./piherder_data:/data` — avatars and other app data (if configured in compose).
+- `./backups:/backups` — destination root for per-server rsync backups (override path in compose if you prefer another host dir).
+- `./piherder_backups:/herder_backups` — PiHerder self-backup archives (fleet config, IAM, push keys, avatars, optional audit).
+- `./piherder_data:/data` — avatars, app data, future templates.
 - `./certs:/certs` (Caddy, read-only) — `fullchain.pem` + `privkey.pem` for trusted HTTPS (see `certs/README.md`).
 
 ## Tech Stack
@@ -159,7 +164,7 @@ Use the built-in scheduler:
 
 Silent auto-upgrade is never the default: apply schedules are opt-in and prefer “only if updates pending”.
 
-For external systems you can still call HTTP APIs where exposed (auth required); a full token REST surface is still on the roadmap (see SPEC).
+**Automation (token REST API):** admins can create API tokens under **Settings → API tokens** (or via the users/settings area). Use `Authorization: Bearer ph_…` against `/api/v1/*` for fleet inventory and job triggers (n8n, Home Assistant, scripts). See [docs/ADMIN.md](docs/ADMIN.md) § API tokens.
 
 ## Security Notes
 
@@ -194,7 +199,7 @@ docker compose run --rm --no-deps web pytest -q
 
 ## Volumes
 
-- `~/backup:/backups` — per-server backup destination (rsync targets land here).
+- `./backups:/backups` — per-server backup destination (rsync targets land here). Change the host side if you already use e.g. `/home/you/backup`.
 - `./piherder_backups:/herder_backups` — self-backup archives for PiHerder itself.
 - `./piherder_data:/data` — avatars / app data.
 - `./certs` → Caddy `/certs` — TLS PEMs (not committed).
@@ -203,11 +208,19 @@ Bind-mount host directories as needed for persistence.
 
 ## Roadmap
 
-See **[SPEC.md](SPEC.md)** for the full specification, architecture, and phased roadmap.
+- **Full phases:** [SPEC.md](SPEC.md)  
+- **Ecosystem horizons (v0.2 → v1.0):** [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 
-**Recently completed (high level):** Docker inventory DB cache + background refresh, server Edit tabs (General/Features/Schedules), feature hard-hide on server UI, Prometheus `/metrics`, multi-file Docker compose editor (override/.env), PWA + Web Push, trusted TLS via cert volume + hostname, patch apply schedules, RBAC + user admin, fleet Jobs page, backup restore wizard, password policy / force-2FA, Docker mount sizes, IAM/2FA, update checks, SSH onboarding, job queue, path policy, Alembic + pytest.
+| Track | Theme |
+|-------|--------|
+| **v0.2 / H0** | Production: clean compose, token REST API, prod ADMIN, published image |
+| **v0.3 / H1** | Integration hub: Uptime Kuma, Grafana links, multi Pi-hole / NPM / HA |
+| **v0.4 / H2** | Service templates + onboard (monitor / DNS / TLS) |
+| **Later / H3** | HA plugin, optional BYO LLM, Ansible, community on Discord + hacknow.info |
 
-**Still open (examples):** token REST API, Docker Hub image, Ansible bootstrap, plugin hooks.
+**Recently completed (high level):** Docker inventory cache, Edit tabs + feature hard-hide, Prometheus `/metrics`, multi-file compose, PWA + Web Push, trusted TLS, patch apply schedules, RBAC, Jobs page, restore wizard, password policy / force-2FA, IAM/2FA, update checks, SSH onboarding, path policy, Alembic + pytest, token REST API (`/api/v1`), ecosystem roadmap docs.
+
+**Still open (examples):** published Docker Hub/GHCR image, integration registry, service templates, HA plugin, optional AI.
 
 To track work in a GitHub Project: link the `piherder` repo, then create issues from the unchecked items in SPEC.md.
 
