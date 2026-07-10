@@ -197,6 +197,7 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | `GET` | `/api/v1/tokens` | Admin cookie/JWT |
 | `POST` | `/api/v1/tokens` | Admin cookie/JWT |
 | `DELETE` | `/api/v1/tokens/{id}` | Admin cookie/JWT |
+| `POST` | `/herder-backups/api-tokens/test` | Admin cookie/JWT — body `{"token":"ph_…"}`; Settings **Test now** after create/rotate |
 
 `POST` body example:
 
@@ -255,6 +256,20 @@ Use `rest_command` / `rest` sensor against `/api/v1/servers` and job endpoints w
 | `/openapi.json` | OpenAPI 3 schema |
 
 Authorize with Bearer `ph_…` for try-it-out on automation routes. Token admin routes still need a logged-in **admin** session.
+
+---
+
+## Scope + server feature-flag enforcement
+
+Every job trigger checks **all three** layers:
+
+1. Capability scope (`jobs`)
+2. Token feature allowlist (if any `feature:*` scopes are set)
+3. Server feature flag (`features.backup` / `os_patch` / `docker` on that host)
+
+Missing capability or feature allowlist → **403**. Server flag off → **400** with a clear “feature is disabled for this server” message. Feature edits require `edit` plus each affected feature allowlist scope before any flag is written.
+
+Audit entries for API-triggered jobs and feature patches record the **token name + id** (and the creating user when known). In the UI: **Settings → API tokens → Audit trail**, or **Audit → filter by API token**.
 
 ---
 

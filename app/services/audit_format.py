@@ -26,6 +26,7 @@ _ACTION_LABELS = {
     "server_ssh_key_rotated": "SSH key rotated",
     "server_ssh_user_provisioned": "SSH user provisioned",
     "server_ssh_test": "SSH test",
+    "server_host_deps": "Host dependency check",
     "server_backup_config": "Backup config",
     "server_backup_source_add": "Backup source added",
     "server_backup_source_remove": "Backup source removed",
@@ -56,7 +57,41 @@ _ACTION_LABELS = {
     "user_2fa_disabled": "2FA disabled",
     "user_2fa_backup_regenerated": "2FA backup codes",
     "user_trusted_device_revoked": "Trusted device revoked",
+    "server_features_updated": "Feature flags updated",
+    "api_token_created": "API token created",
+    "api_token_updated": "API token updated",
+    "api_token_rotated": "API token rotated",
+    "api_token_revoked": "API token revoked",
 }
+
+
+def format_actor_label(
+    *,
+    user_label: str | None = None,
+    api_token_id: int | None = None,
+    api_token_name: str | None = None,
+) -> str:
+    """Human actor line for audit list/detail.
+
+    Interactive session → user label.
+    Bearer API token → token name + id (and owner user if known).
+    Neither → system / scheduler.
+    """
+    tok_id = api_token_id
+    if tok_id is not None:
+        try:
+            tok_id = int(tok_id)
+        except (TypeError, ValueError):
+            tok_id = None
+    if tok_id is not None:
+        name = (api_token_name or "").strip() or "token"
+        token_part = f"API token: {name} (#{tok_id})"
+        if user_label:
+            return f"{user_label} · {token_part}"
+        return token_part
+    if user_label:
+        return user_label
+    return "system / scheduler"
 
 
 def _parse_json(text: str | None) -> Any:
@@ -367,6 +402,12 @@ def format_audit_entry(log: dict) -> dict:
     started_display = format_datetime_in_app_tz(started, "%b %d %H:%M") if started else "—"
     finished_display = format_datetime_in_app_tz(finished, "%b %d %H:%M") if finished else None
 
+    actor_label = log.get("actor_label") or format_actor_label(
+        user_label=log.get("user_label") or log.get("user_email"),
+        api_token_id=log.get("api_token_id"),
+        api_token_name=log.get("api_token_name"),
+    )
+
     out = {
         **log,
         "action_label": action_label,
@@ -377,6 +418,7 @@ def format_audit_entry(log: dict) -> dict:
         "modal_body": modal_body,
         "started_at_display": started_display,
         "finished_at_display": finished_display,
+        "actor_label": actor_label,
     }
     for k in ("started_at", "finished_at"):
         if k in out and hasattr(out[k], "isoformat"):

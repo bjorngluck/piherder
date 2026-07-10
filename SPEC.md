@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** v0.2 target — Phase 1–3 complete; Phase 4 (production + ecosystem) in progress; Phase 4b (platform reliability) planned  
-> **Last updated:** 2026-07-10 — Roadmap H0.5: host deps, stack Status, multi-worker; Compose deployment committed
+> **Last updated:** 2026-07-10 — H0.5 shipped: host deps, Status (lazy backup `du`), multi-worker mutex + `CELERY_CONCURRENCY`; full `.env.example`
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -36,9 +36,9 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - Full multi-horizon plan: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md).
 
 ### Platform reliability & deployment (2026-07-10)
-- **Remote host dependency check** (next implement #1): after SSH / least-priv onboard, probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`); UI chips + re-check; no auto-install on the remote host.
-- **Settings → Status tab** (next implement #2): scheduled health of PiHerder stack (web, PostgreSQL, Redis, Celery, scheduler, disk); alert on state change only; reuse notification/webhook/push.
-- **Multi-worker** (next implement #3, design-first): allow N Celery workers / concurrency > 1 with **per-server** job mutex; not a v0.2.0 ship blocker; prefer after Status tab so worker count is visible.
+- **Remote host dependency check** (done): after SSH / least-priv onboard, probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`); UI chips + re-check; no auto-install on the remote host.
+- **Settings → Status tab** (done): scheduled health (web, PostgreSQL, Redis, Celery nodes/pool slots, scheduler, **mount free**); backup tree breakdown **on demand**; alert on state change only.
+- **Multi-worker** (done): `CELERY_CONCURRENCY` (default 2 pool slots in one node) + Redis **per-server backup mutex**; parallel across hosts; prefer concurrency over multi-node unless HA; cancel + stale recovery still correct.
 - **Deployment:** **Docker Compose is the supported architecture**. Kubernetes and local/bare install are **under consideration only** — no committed Helm charts or dual-path installers in H0–H2.
 - Detail: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) § Horizon 0.5 and § Deployment architecture.
 
@@ -176,9 +176,9 @@ Carried refinements + ship blockers for a clean install story. Detail: [docs/ROA
 
 Implement **in order** after or alongside H0 image work. Not required to tag `v0.2.0`. Full notes: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) § Horizon 0.5.
 
-- [ ] **Remote host dependency check** — probe `rsync` / sudo-or-plain rsync / `docker` / `apt` by enabled features; server detail + post-onboard; snapshot + chips; install hints only (no auto-install)
-- [ ] **Settings → Status tab** — web, PostgreSQL, Redis, Celery worker(s), APScheduler, disk free; scheduled poll; notify on healthy→unhealthy state change only; optional metrics gauges
-- [ ] **Multi-worker** — design per-server job mutex; compose scale / concurrency > 1; parallel backups across hosts; cancel + stale recovery still correct
+- [x] **Remote host dependency check** — probe `rsync` / sudo-or-plain rsync / `docker` / `apt` by enabled features; server detail + post-onboard/test; snapshot + chips; install hints only (no auto-install)
+- [x] **Settings → Status tab** — web, PostgreSQL, Redis, Celery (nodes + pool slots), APScheduler, mount free (fast); lazy backup-tree `du` + host folders; scheduled poll; notify on unhealthy; metrics from last check
+- [x] **Multi-worker** — Redis per-server backup mutex; `CELERY_CONCURRENCY` (default 2 pool slots); parallel across hosts; cancel via `celery_task_id` + lock TTL on worker death
 
 **Deployment decision (docs only — not a feature checkbox):** Compose is supported; Kubernetes and bare/local install remain under consideration only.
 
@@ -227,7 +227,7 @@ flowchart TB
     subgraph Core["Core Services (Docker Compose — supported)"]
         FastAPI --> DB[(PostgreSQL)]
         FastAPI --> Scheduler["APScheduler (cron)"]
-        FastAPI --> Celery["Celery worker(s) — concurrency=1 today; multi-worker later"]
+        FastAPI --> Celery["Celery worker(s) — concurrency via CELERY_CONCURRENCY; per-server mutex"]
     end
 
     Scheduler -->|enqueue scheduled jobs| Celery
@@ -238,7 +238,7 @@ flowchart TB
     FastAPI -.->|progress polling via Job.details| Celery
 ```
 
-Deployment: **Docker Compose** is the committed topology. Kubernetes and local/bare install are under consideration only (see [ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)). Celery is a single worker with `concurrency=1` until Phase 4b multi-worker lands.
+Deployment: **Docker Compose** is the committed topology. Kubernetes and local/bare install are under consideration only (see [ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)). Celery concurrency defaults to 2 with a Redis per-server backup mutex (see multi-worker in the roadmap).
 
 **Key flows (technical view):**
 

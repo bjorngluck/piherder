@@ -99,10 +99,16 @@ def _revoke_celery_task(task_id: str | None) -> None:
         logger.warning(f"[Jobs] Failed to revoke celery task {task_id}: {e}")
 
 
-def _mark_job_failed(
-    job: Job, message: str, session: Session, *, record_audit: bool = True
+def _mark_job_terminal(
+    job: Job,
+    message: str,
+    session: Session,
+    *,
+    status: str = "failed",
+    record_audit: bool = True,
 ) -> None:
-    job.status = "failed"
+    """Mark job finished (failed / cancelled). Shared by stop, cancel, supersede, stale."""
+    job.status = status
     job.finished_at = datetime.utcnow()
     details = {}
     if job.details:
@@ -111,7 +117,13 @@ def _mark_job_failed(
         except Exception:
             pass
     details["error"] = message
-    details["current"] = "failed"
+    details["current"] = status
+    details["status"] = status
+    details["summary"] = message[:200]
+    details["done"] = True
+    if status == "cancelled":
+        details["cancelled"] = True
+        details["cancel_requested"] = True
     details["audit_failed_recorded"] = True
     lines = list(details.get("log_lines") or [])
     lines.append(message[:240])
@@ -119,13 +131,40 @@ def _mark_job_failed(
     job.details = json.dumps(details)
     session.add(job)
     if record_audit and job.job_type == "backup":
-        record_backup_audit_from_job(
-            session,
-            job,
-            "failed",
-            message=message,
-            output_snippet={"error": message},
-        )
+        phase = "cancelled" if status == "cancelled" else "failed"
+        try:
+            record_backup_audit_from_job(
+                session,
+                job,
+                phase,
+                message=message,
+                output_snippet={"error": message, "status": status},
+            )
+        except ValueError:
+            # Older phase map without cancelled → fall back to failed audit row
+            record_backup_audit_from_job(
+                session,
+                job,
+                "failed",
+                message=message,
+                output_snippet={"error": message, "status": status},
+            )
+
+
+def _mark_job_failed(
+    job: Job, message: str, session: Session, *, record_audit: bool = True
+) -> None:
+    _mark_job_terminal(
+        job, message, session, status="failed", record_audit=record_audit
+    )
+
+
+def _mark_job_cancelled(
+    job: Job, message: str, session: Session, *, record_audit: bool = True
+) -> None:
+    _mark_job_terminal(
+        job, message, session, status="cancelled", record_audit=record_audit
+    )
 
 
 def job_source_filter(job: Job | None) -> str | None:
@@ -302,7 +341,8 @@ def job_public_dict(job: Job, *, detail: bool = False) -> dict:
         "summary": summary,
         "scheduled": bool(details.get("scheduled")),
         "log_tail": list(log_lines)[-tail_n:] if log_lines else [],
-        "done": job.status in ("success", "failed"),
+        "done": job.status in ("success", "failed", "cancelled"),
+        "cancellable": job.status in ("pending", "running"),
         "os_steps": details.get("os_steps"),
         "error": details.get("error"),
     }
@@ -371,7 +411,7 @@ def stop_backup_job(session: Session, server: Server, job: Job) -> Job:
     if job.status == "running":
         backup.stop_backup(server.hostname)
     _revoke_celery_task(job.celery_task_id)
-    _mark_job_failed(job, "Stopped by user", session)
+    _mark_job_cancelled(job, "Stopped by user", session)
     session.commit()
     return job
 
@@ -383,6 +423,94 @@ def stop_active_backup(session: Session, server: Server, job: Job | None = None)
         backup.stop_backup(server.hostname)
         return None
     return stop_backup_job(session, server, target)
+
+
+class JobNotCancellable(Exception):
+    """Raised when cancel is requested for a terminal or missing job."""
+
+    def __init__(self, message: str):
+        self.message = message
+        super().__init__(message)
+
+
+def cancel_job(
+    session: Session,
+    job: Job,
+    *,
+    user_id: int | None = None,
+    message: str = "Cancelled by user",
+) -> Job:
+    """Cancel a pending/running job from the Jobs UI (or API).
+
+    - Backup: stop rsync + revoke Celery task (same as stop_backup_job).
+    - Other types: mark cancelled + revoke Celery if any; in-flight
+      BackgroundTasks may still run briefly — ``_finish`` will not overwrite
+      cancelled status.
+    """
+    if not job:
+        raise JobNotCancellable("Job not found")
+    if job.status not in ("pending", "running"):
+        raise JobNotCancellable(f"Job is already {job.status}")
+
+    msg = (message or "Cancelled by user").strip()[:240] or "Cancelled by user"
+
+    if job.job_type == "backup":
+        if job.server_id:
+            server = session.get(Server, job.server_id)
+            if server and job.status == "running":
+                try:
+                    backup.stop_backup(server.hostname)
+                except Exception as e:
+                    logger.warning(f"[Jobs] stop_backup during cancel: {e}")
+        _revoke_celery_task(job.celery_task_id)
+        _mark_job_cancelled(job, msg, session)
+    else:
+        _revoke_celery_task(job.celery_task_id)
+        # Best-effort: stop hostname-scoped progress markers for patches
+        if job.server_id:
+            try:
+                server = session.get(Server, job.server_id)
+                hostname = (server.hostname if server else None) or ""
+                if hostname and job.job_type == "os_patch":
+                    try:
+                        os_patching._append_os_log(hostname, f"[os] {msg}")
+                    except Exception:
+                        pass
+                if hostname and job.job_type == "container_patch":
+                    try:
+                        container_patching.append_container_log(
+                            hostname, f"[containers] {msg}"
+                        )
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        _mark_job_cancelled(job, msg, session, record_audit=False)
+
+    # Fleet audit row for cancel action (jobs screen / operators)
+    try:
+        audit = AuditLog(
+            user_id=user_id,
+            server_id=job.server_id,
+            action="job_cancel",
+            status="cancelled",
+            details=json.dumps(
+                {
+                    "job_id": job.id,
+                    "job_type": job.job_type,
+                    "message": msg,
+                }
+            ),
+            finished_at=datetime.utcnow(),
+        )
+        session.add(audit)
+    except Exception as e:
+        logger.debug(f"job_cancel audit: {e}")
+
+    session.commit()
+    session.refresh(job)
+    logger.info(f"[Jobs] Cancelled job #{job.id} ({job.job_type}) by user {user_id}")
+    return job
 
 
 def attach_source_job_states(profiles: list, active_jobs: list[Job]) -> list[dict]:
@@ -465,8 +593,17 @@ def create_job_and_run(
     user_id: int | None = None,
     source_filter: str | None = None,
     os_steps: list[str] | None = None,
+    api_token_id: int | None = None,
+    api_token_name: str | None = None,
 ):
     server_id = server.id if server is not None else None
+    actor_extra: dict = {}
+    if user_id is not None:
+        actor_extra["user_id"] = user_id
+    if api_token_id is not None:
+        actor_extra["api_token_id"] = api_token_id
+    if api_token_name:
+        actor_extra["api_token_name"] = str(api_token_name)[:120]
     if job_type == "backup":
         cleanup_stale_backup_jobs(session)
         if server_id:
@@ -478,8 +615,8 @@ def create_job_and_run(
         job.details = _initial_job_details(
             "Backup queued…",
             source_filter=source_filter,
-            user_id=user_id,
             queued_at=datetime.utcnow().isoformat(),
+            **actor_extra,
         )
     else:
         labels = {
@@ -491,6 +628,7 @@ def create_job_and_run(
         }
         job.details = _initial_job_details(
             labels.get(job_type, f"{job_type} queued…"),
+            **actor_extra,
         )
     session.add(job)
     session.commit()
@@ -505,6 +643,8 @@ def create_job_and_run(
             job_id=job.id,
             phase="request",
             user_id=user_id,
+            api_token_id=api_token_id,
+            api_token_name=api_token_name,
             source_filter=source_filter,
             message=f"Backup requested for {src_label}",
         )
@@ -514,6 +654,8 @@ def create_job_and_run(
             job_id=job.id,
             phase="queued",
             user_id=user_id,
+            api_token_id=api_token_id,
+            api_token_name=api_token_name,
             source_filter=source_filter,
             message="Waiting for worker",
         )
@@ -537,6 +679,8 @@ def create_job_and_run(
         audit = AuditLog(
             user_id=user_id,
             server_id=server_id,
+            api_token_id=api_token_id,
+            api_token_name=(str(api_token_name)[:120] if api_token_name else None),
             action=job_type,
             status="running",
             details=start_details,
@@ -680,6 +824,8 @@ def _create_queued_job_with_audit(
     job_type: str,
     queue_message: str,
     user_id: int | None = None,
+    api_token_id: int | None = None,
+    api_token_name: str | None = None,
     audit_details: str | None = None,
     **details_extra,
 ) -> tuple[Job, AuditLog]:
@@ -687,6 +833,12 @@ def _create_queued_job_with_audit(
 
     ``audit_details`` may include ``{job_id}`` which is filled after the Job row exists.
     """
+    if user_id is not None and "user_id" not in details_extra:
+        details_extra["user_id"] = user_id
+    if api_token_id is not None and "api_token_id" not in details_extra:
+        details_extra["api_token_id"] = api_token_id
+    if api_token_name and "api_token_name" not in details_extra:
+        details_extra["api_token_name"] = str(api_token_name)[:120]
     job = Job(
         server_id=server_id,
         job_type=job_type,
@@ -703,6 +855,8 @@ def _create_queued_job_with_audit(
     audit = AuditLog(
         user_id=user_id,
         server_id=server_id,
+        api_token_id=api_token_id,
+        api_token_name=(str(api_token_name)[:120] if api_token_name else None),
         action=job_type,
         status="running",
         details=details,
@@ -754,6 +908,16 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
         audit = s.get(AuditLog, audit_id)
         job = s.get(Job, job_id)
         jt = job_type or (job.job_type if job else "")
+        # Honour user cancel — do not overwrite cancelled jobs when worker finishes
+        if job and job.status == "cancelled":
+            if audit and audit.status == "running":
+                audit.status = "cancelled"
+                audit.finished_at = datetime.utcnow()
+                if not audit.details or _JOB_STARTED_RE.search(audit.details or ""):
+                    audit.details = f"Job #{job_id} · Cancelled by user"[:500]
+                s.add(audit)
+                s.commit()
+            return
         summary = _human_job_summary(jt, status, snippet)
         if audit:
             audit.status = status
@@ -765,18 +929,22 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
             if jt == "os_patch" and summary:
                 audit.details = f"Job #{job_id} · {summary}"[:500]
             elif (
-                status in ("success", "failed")
+                status in ("success", "failed", "cancelled")
                 and summary
                 and (not audit.details or _JOB_STARTED_RE.search(audit.details or ""))
             ):
                 audit.details = f"Job #{job_id} · {summary}"[:500]
             s.add(audit)
         if job:
+            # Already terminal (e.g. concurrent cancel) — leave job row alone
+            if job.status in ("success", "failed", "cancelled") and job.finished_at:
+                s.commit()
+                return
             job.status = status
             job.finished_at = datetime.utcnow()
             _merge_job_details(
                 job,
-                current=None if status in ("success", "failed") else status,
+                current=None if status in ("success", "failed", "cancelled") else status,
                 status=status,
                 summary=summary,
                 result_snippet=(snippet or "")[:1500],

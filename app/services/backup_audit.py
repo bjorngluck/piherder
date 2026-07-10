@@ -14,6 +14,7 @@ PHASE_ACTIONS: dict[str, tuple[str, str]] = {
     "running": ("backup_running", "running"),
     "success": ("backup", "success"),
     "failed": ("backup", "failed"),
+    "cancelled": ("backup", "cancelled"),
 }
 
 
@@ -31,6 +32,8 @@ def record_backup_audit_event(
     job_id: int,
     phase: str,
     user_id: int | None = None,
+    api_token_id: int | None = None,
+    api_token_name: str | None = None,
     source_filter: str | None = None,
     message: str | None = None,
     output_snippet: str | dict | None = None,
@@ -43,6 +46,10 @@ def record_backup_audit_event(
         payload["source_filter"] = source_filter
     if message:
         payload["message"] = message
+    if api_token_id is not None:
+        payload["api_token_id"] = api_token_id
+    if api_token_name:
+        payload["api_token_name"] = api_token_name
 
     snippet = None
     if output_snippet is not None:
@@ -55,6 +62,8 @@ def record_backup_audit_event(
     audit = AuditLog(
         user_id=user_id,
         server_id=server_id,
+        api_token_id=api_token_id,
+        api_token_name=(api_token_name[:120] if api_token_name else None),
         action=action,
         status=status,
         details=json.dumps(payload),
@@ -75,12 +84,19 @@ def record_backup_audit_from_job(
     output_snippet: str | dict | None = None,
 ) -> AuditLog:
     meta = job_meta(job)
+    tok_id = meta.get("api_token_id")
+    try:
+        tok_id = int(tok_id) if tok_id is not None else None
+    except (TypeError, ValueError):
+        tok_id = None
     return record_backup_audit_event(
         session,
         server_id=job.server_id,
         job_id=job.id,
         phase=phase,
         user_id=meta.get("user_id"),
+        api_token_id=tok_id,
+        api_token_name=meta.get("api_token_name"),
         source_filter=meta.get("source_filter"),
         message=message,
         output_snippet=output_snippet,

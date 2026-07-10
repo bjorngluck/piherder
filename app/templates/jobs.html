@@ -14,6 +14,16 @@
   </div>
 </div>
 
+{% if request.query_params.get('cancelled') %}
+<div class="card p-3 mb-4 border border-border text-sm text-accent">
+  Job #{{ request.query_params.get('cancelled') }} cancelled.
+</div>
+{% elif request.query_params.get('error') == 'cancel' %}
+<div class="card p-3 mb-4 border border-border text-sm text-danger">
+  Could not cancel job{% if request.query_params.get('msg') %}: {{ request.query_params.get('msg') }}{% endif %}.
+</div>
+{% endif %}
+
 <form method="get" class="card p-4 mb-4" id="jobs-filter-form">
   <div class="audit-filters-primary">
     <select name="server_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11 sm:w-auto">
@@ -71,31 +81,43 @@
 <div class="audit-feed" role="list">
   {% for j in jobs %}
   {% set sd = j.status %}
-  <button type="button"
-          class="audit-event text-left w-full"
-          role="listitem"
-          title="Click for job details"
-          onclick="showJobDetailsModal(JOBS[{{ loop.index0 }}])">
-    <div class="audit-event-top">
-      <span class="status-pill {{ 'status-success' if sd == 'success' else 'status-failed' if sd == 'failed' else 'status-running' if sd in ('running','pending') else 'status-cancelled' }}">
-        {{ sd }}
-      </span>
-      <span class="action-pill">{{ j.job_type_label or j.job_type }}</span>
-      <span class="audit-event-time font-mono">#{{ j.id }}</span>
-      {% if j.scheduled %}<span class="text-[10px] text-muted">scheduled</span>{% endif %}
+  <div class="audit-event relative"
+       role="listitem"
+       title="Click for job details">
+    <button type="button"
+            class="text-left w-full"
+            onclick="showJobDetailsModal(JOBS[{{ loop.index0 }}])">
+      <div class="audit-event-top">
+        <span class="status-pill {{ 'status-success' if sd == 'success' else 'status-failed' if sd == 'failed' else 'status-running' if sd in ('running','pending') else 'status-cancelled' }}">
+          {{ sd }}
+        </span>
+        <span class="action-pill">{{ j.job_type_label or j.job_type }}</span>
+        <span class="audit-event-time font-mono">#{{ j.id }}</span>
+        {% if j.scheduled %}<span class="text-[10px] text-muted">scheduled</span>{% endif %}
+      </div>
+      <div class="audit-event-meta">
+        {% if j.server_id %}
+        <span>Server:
+          <a href="/servers/{{ j.server_id }}" onclick="event.stopPropagation()">{{ j.server_name or ('#' ~ j.server_id) }}</a>
+        </span>
+        {% else %}
+        <span>Server: —</span>
+        {% endif %}
+        <span>{{ j.when_label or 'When' }}: {{ j.when_display or '—' }}</span>
+      </div>
+      <div class="audit-event-summary">{{ j.summary or j.current or '—' }}</div>
+    </button>
+    {% if j.cancellable %}
+    <div class="mt-2 flex flex-wrap gap-2" onclick="event.stopPropagation()">
+      <button type="button"
+              class="btn btn-danger text-xs min-h-11 px-3"
+              data-job-cancel="{{ j.id }}"
+              data-job-label="{{ (j.job_type_label or j.job_type or 'Job') | e }} #{{ j.id }}">
+        Cancel
+      </button>
     </div>
-    <div class="audit-event-meta">
-      {% if j.server_id %}
-      <span>Server:
-        <a href="/servers/{{ j.server_id }}" onclick="event.stopPropagation()">{{ j.server_name or ('#' ~ j.server_id) }}</a>
-      </span>
-      {% else %}
-      <span>Server: —</span>
-      {% endif %}
-      <span>{{ j.when_label or 'When' }}: {{ j.when_display or '—' }}</span>
-    </div>
-    <div class="audit-event-summary">{{ j.summary or j.current or '—' }}</div>
-  </button>
+    {% endif %}
+  </div>
   {% endfor %}
 </div>
 {% else %}
@@ -129,7 +151,7 @@
 {% endif %}
 
 <p class="mt-4 text-xs text-muted">
-  Click a job for details · immutable history in
+  Click a job for details · cancel active jobs from the list or modal · history in
   <a href="/audit" class="text-accent hover:underline">Audit</a>
 </p>
 
@@ -144,7 +166,10 @@ const JOBS = {{ jobs | tojson | safe }};
         <h3 id="job-detail-title" class="font-semibold text-base break-words">Job details</h3>
         <div id="job-detail-meta" class="audit-detail-meta"></div>
       </div>
-      <button type="button" onclick="hideJobDetailsModal()" class="btn btn-secondary min-h-11 text-sm px-3 flex-shrink-0">Close</button>
+      <div class="flex flex-wrap gap-2 flex-shrink-0">
+        <button type="button" id="job-detail-cancel" class="btn btn-danger min-h-11 text-sm px-3 hidden">Cancel job</button>
+        <button type="button" onclick="hideJobDetailsModal()" class="btn btn-secondary min-h-11 text-sm px-3">Close</button>
+      </div>
     </div>
     <div class="text-xs text-muted mb-1 flex-shrink-0">Log / details</div>
     <pre id="job-details-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded">—</pre>
@@ -162,12 +187,15 @@ function statusClass(sd) {
   if (sd === 'running' || sd === 'pending') return 'status-running';
   return 'status-cancelled';
 }
+var _jobModalJob = null;
 function showJobDetailsModal(job) {
   const modal = document.getElementById('job-details-modal');
   const pre = document.getElementById('job-details-content');
   const title = document.getElementById('job-detail-title');
   const meta = document.getElementById('job-detail-meta');
+  const cancelBtn = document.getElementById('job-detail-cancel');
   if (!modal || !pre || !job) return;
+  _jobModalJob = job;
   if (title) title.textContent = (job.job_type_label || job.job_type || 'Job') + ' #' + job.id;
   if (meta) {
     const parts = [];
@@ -179,6 +207,16 @@ function showJobDetailsModal(job) {
     if (job.scheduled) parts.push('<span>scheduled</span>');
     if (job.summary) parts.push('<span style="flex-basis:100%"><strong>Summary</strong> ' + esc(job.summary) + '</span>');
     meta.innerHTML = parts.join(' ');
+  }
+  if (cancelBtn) {
+    if (job.cancellable) {
+      cancelBtn.classList.remove('hidden');
+      cancelBtn.dataset.jobCancel = String(job.id);
+      cancelBtn.dataset.jobLabel = (job.job_type_label || job.job_type || 'Job') + ' #' + job.id;
+    } else {
+      cancelBtn.classList.add('hidden');
+      delete cancelBtn.dataset.jobCancel;
+    }
   }
   const lines = [];
   if (job.error) lines.push('Error: ' + job.error);
@@ -199,12 +237,69 @@ function showJobDetailsModal(job) {
 function hideJobDetailsModal() {
   const modal = document.getElementById('job-details-modal');
   if (modal) modal.classList.add('hidden');
+  _jobModalJob = null;
 }
 document.getElementById('job-details-modal')?.addEventListener('click', function (e) {
   if (e.target === this) hideJobDetailsModal();
 });
 document.addEventListener('keydown', function (e) {
   if (e.key === 'Escape') hideJobDetailsModal();
+});
+
+async function cancelJobById(jobId, label) {
+  var ok = true;
+  if (window.PiHerderConfirm) {
+    ok = await window.PiHerderConfirm.ask({
+      title: 'Cancel job',
+      message: 'Cancel ' + (label || ('job #' + jobId)) + '?\n\nBackups stop rsync immediately. Other jobs are marked cancelled (in-flight work may wind down briefly).',
+      confirmLabel: 'Cancel job',
+      cancelLabel: 'Keep running',
+      danger: true
+    });
+  } else {
+    ok = window.confirm('Cancel job #' + jobId + '?');
+  }
+  if (!ok) return;
+  try {
+    var res = await fetch('/jobs/' + encodeURIComponent(jobId) + '/cancel', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'X-Piherder-Cancel': '1'
+      },
+      credentials: 'same-origin'
+    });
+    var data = null;
+    try { data = await res.json(); } catch (_) {}
+    if (res.ok && data && data.ok) {
+      window.location.href = '/jobs?cancelled=' + encodeURIComponent(jobId);
+      return;
+    }
+    var err = (data && data.error) || ('HTTP ' + res.status);
+    if (window.PiHerderConfirm) {
+      await window.PiHerderConfirm.ask({
+        title: 'Could not cancel',
+        message: String(err),
+        confirmLabel: 'OK',
+        cancelLabel: 'Close',
+        danger: false
+      });
+    } else {
+      alert(err);
+    }
+  } catch (e) {
+    alert('Network error cancelling job');
+  }
+}
+
+document.addEventListener('click', function (e) {
+  var btn = e.target && e.target.closest ? e.target.closest('[data-job-cancel]') : null;
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  var id = btn.getAttribute('data-job-cancel');
+  var label = btn.getAttribute('data-job-label') || ('Job #' + id);
+  if (id) cancelJobById(id, label);
 });
 </script>
 {% endblock %}

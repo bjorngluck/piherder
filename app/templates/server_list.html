@@ -29,6 +29,15 @@
 {% if request.query_params.get('reordered') %}
 <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Server order saved.</div>
 {% endif %}
+{% if request.query_params.get('msg') == 'server_deleted' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  <strong>Removed from PiHerder:</strong>
+  {{ request.query_params.get('name') or 'server' }}{% if request.query_params.get('hostname') %}
+  (<span class="font-mono text-xs">{{ request.query_params.get('hostname') }}</span>){% endif %}.
+  Host config left intact. Optional host user cleanup: SSH access panel on any remaining server, or
+  <code class="text-xs">scripts/cleanup-piherder-user.sh</code> on the host.
+</div>
+{% endif %}
 {% if request.query_params.get('error') == 'reorder_empty' %}
 <div class="mb-3 p-3 banner-error border border-border rounded text-sm">Could not save order — empty list.</div>
 {% endif %}

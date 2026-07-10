@@ -62,6 +62,11 @@
       <form method="post" action="/servers/{{ server.id }}/ssh/test">
         <button type="submit" class="btn btn-secondary min-h-11 text-sm">Test connection</button>
       </form>
+      <form method="post" action="/servers/{{ server.id }}/host-deps/check"
+            data-wait-title="Checking host dependencies"
+            data-wait-message="Probing remote tools over SSH (rsync, docker, apt). Please wait…">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm" title="Probe rsync/docker/apt for enabled features">Check dependencies</button>
+      </form>
       {% if not server.has_ssh_key %}
       <form method="post" action="/servers/{{ server.id }}/ssh/generate-key">
         <button type="submit" class="btn btn-accent min-h-11 text-sm">Generate keypair</button>
@@ -173,6 +178,29 @@
     </div>
     {% endif %}
 
+    {% if host_cleanup_script %}
+    <div class="border-t border-border pt-3 mt-3" id="ssh-host-cleanup-section">
+      <div class="text-sm font-medium mb-1">Host cleanup script (optional)</div>
+      <p class="text-xs text-muted mb-1">
+        After <strong>Remove from PiHerder</strong>, the remote host is unchanged. Run this <em>on the host as root</em>
+        only if you want to drop the service user / sudoers / docker group membership.
+        Does <strong>not</strong> remove Docker stacks or data. Default leaves the user account; set
+        <code class="font-mono">REMOVE_USER=1</code> to delete it.
+      </p>
+      <textarea id="host-cleanup-script" readonly class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-36 resize-y">{{ host_cleanup_script }}</textarea>
+      <div class="flex flex-wrap gap-2 mt-2">
+        <button type="button" onclick="copyTextFrom('host-cleanup-script', this)" class="btn btn-secondary text-sm min-h-11">Copy script</button>
+        <a href="/servers/{{ server.id }}/ssh/cleanup-script" class="btn btn-accent text-sm min-h-11 inline-flex items-center" download>
+          Download .sh
+        </a>
+        <button type="button" onclick="downloadTextAsFile('host-cleanup-script', 'cleanup-piherder-user-{{ server.ssh_username or 'piherder' }}.sh', this)" class="btn btn-secondary text-sm min-h-11">
+          Save as file
+        </button>
+      </div>
+      <p class="text-[10px] text-muted mt-2 font-mono">sudo bash cleanup-piherder-user-*.sh &nbsp;·&nbsp; REMOVE_USER=1 sudo -E bash …</p>
+    </div>
+    {% endif %}
+
     <div class="border-t border-border pt-3 mt-3">
       <div class="text-sm font-medium mb-1">HAOS / specialised systems</div>
       <pre class="text-[10px] text-muted whitespace-pre-wrap font-mono code-surface border border-border p-2 rounded">{{ haos_guidance }}</pre>
@@ -226,12 +254,89 @@ function copyTextFrom(id, btn) {
   try { done(document.execCommand('copy')); } catch (_) { done(false); }
 }
 
+/** Client-side download of a textarea’s contents as a file (no navigation). */
+function downloadTextAsFile(id, filename, btn) {
+  const ta = document.getElementById(id);
+  if (!ta || !ta.value) return;
+  const blob = new Blob([ta.value], { type: 'text/x-shellscript;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename || 'cleanup-piherder-user.sh';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+  if (btn) {
+    const original = btn.innerText;
+    btn.innerText = 'Saved';
+    setTimeout(function () { btn.innerText = original; }, 1200);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   {% if show_ssh_key and server.ssh_public_key %}
   showSshAccessModal();
   {% endif %}
 });
 </script>
+
+{# Host dependency snapshot (from last check) #}
+{% if host_deps and host_deps.checks %}
+<div class="card p-3 mb-4 border border-border">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+    <div class="text-sm font-medium">
+      Host dependencies
+      <span class="status-pill text-xs ml-1
+        {% if host_deps.overall == 'ok' %}status-success
+        {% elif host_deps.overall == 'warn' %}status-running
+        {% else %}status-failed{% endif %}">{{ host_deps.overall }}</span>
+    </div>
+    <form method="post" action="/servers/{{ server.id }}/host-deps/check" class="inline"
+          data-wait-title="Checking host dependencies"
+          data-wait-message="Probing remote tools over SSH (rsync, docker, apt). Please wait…">
+      <button type="submit" class="btn btn-secondary text-xs min-h-9">Re-check</button>
+    </form>
+  </div>
+  {% if host_deps.checked_at %}
+  <p class="text-[10px] text-muted mb-2">Last check: {{ host_deps.checked_at }}</p>
+  {% endif %}
+  <div class="feature-status flex flex-wrap gap-1.5">
+    {% for c in host_deps.checks %}
+      {% if c.status != 'skip' %}
+      <span class="feature-chip text-xs
+        {% if c.status == 'ok' %}status-success
+        {% elif c.status == 'warn' %}status-running
+        {% elif c.status == 'fail' %}status-failed
+        {% else %}feature-off{% endif %}"
+        title="{{ c.message }}{% if c.hint %} — {{ c.hint }}{% endif %}">
+        {{ c.label }}: {{ c.status }}
+      </span>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% set fail_hints = host_deps.checks | selectattr('status', 'equalto', 'fail') | list %}
+  {% if fail_hints %}
+  <ul class="mt-2 text-xs text-muted space-y-1 list-disc pl-4">
+    {% for c in fail_hints %}
+    <li><strong class="text-text">{{ c.label }}</strong>
+      {% if c.message %}— {{ c.message }}{% endif %}
+      {% if c.hint %}<span class="block text-[11px] mt-0.5">{{ c.hint }}</span>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% elif server.backup_enabled or server.os_patch_enabled or server.container_patch_enabled %}
+<div class="mb-4 p-3 border border-border rounded text-sm text-muted flex flex-wrap items-center justify-between gap-2">
+  <span>Host tools for enabled features have not been checked yet.</span>
+  <form method="post" action="/servers/{{ server.id }}/host-deps/check"
+        data-wait-title="Checking host dependencies"
+        data-wait-message="Probing remote tools over SSH (rsync, docker, apt). Please wait…">
+    <button type="submit" class="btn btn-secondary text-xs min-h-9">Check dependencies</button>
+  </form>
+</div>
+{% endif %}
 
 {# Compact feature status — only chips for enabled features (hard-hide) #}
 <div class="feature-status mb-4">
@@ -279,7 +384,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {% if flash_msg %}
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm">
-  {% if flash_msg == 'ssh_ok' %}<strong>SSH connection OK.</strong>
+  {% if flash_msg == 'ssh_ok' %}<strong>SSH connection OK.</strong> Dependency check refreshed when possible.
+  {% elif flash_msg == 'host_deps_ok' %}<strong>Host dependency check finished</strong>
+    {% if flash_detail %}— overall <code class="font-mono">{{ flash_detail }}</code>{% endif %}.
   {% elif flash_msg == 'key_deployed' %}<strong>SSH key deployed</strong> and key-only login verified. You can clear any stored password if you have not already.
   {% elif flash_msg == 'key_rotated' %}<strong>SSH key rotated</strong> successfully. Old public key removed when possible.
   {% elif flash_msg == 'user_provisioned' %}<strong>Least-priv user provisioned</strong> — PiHerder now connects as
@@ -298,10 +405,12 @@ document.addEventListener('DOMContentLoaded', function() {
 {% if flash_error %}
 <div class="mb-4 p-3 banner-warning border border-border rounded text-sm">
   {% if flash_error == 'ssh_fail' %}<strong>SSH test failed.</strong>
+  {% elif flash_error == 'host_deps_fail' %}<strong>Host dependency check failed.</strong>
   {% elif flash_error == 'key_deploy_fail' %}<strong>Key deploy failed.</strong>
   {% elif flash_error == 'key_rotate_fail' %}<strong>Key rotation failed.</strong> Previous key left in place.
   {% elif flash_error == 'key_rotate_confirm' %}<strong>Rotation cancelled.</strong> Type <code>rotate</code> in the confirm field.
   {% elif flash_error == 'provision_fail' %}<strong>Least-priv provision failed.</strong>
+  {% elif flash_error == 'confirm_name' %}<strong>Remove cancelled.</strong> Type the exact server name to confirm.
   {% else %}<strong>{{ flash_error }}</strong>{% endif %}
   {% if flash_detail %}<span class="block text-xs mt-1 font-mono break-all">{{ flash_detail }}</span>{% endif %}
 </div>
@@ -647,11 +756,103 @@ document.addEventListener('DOMContentLoaded', function() {
 })();
 </script>
 
-<div class="text-xs text-muted flex flex-wrap gap-x-3 gap-y-1">
+<div class="text-xs text-muted flex flex-wrap gap-x-3 gap-y-1 mb-6">
   <a href="/audit?server_id={{ server.id }}" class="text-accent hover:underline">All logs</a>
   <a href="/audit?server_id={{ server.id }}&search=backup" class="text-accent hover:underline">Backup logs</a>
   <a href="/servers" class="hover:underline">← All servers</a>
 </div>
+
+{# Danger zone — remove from fleet only #}
+<div class="card p-4 sm:p-5 border border-danger/40 mb-8">
+  <h2 class="text-sm font-semibold text-danger mb-1">Remove from PiHerder</h2>
+  <p class="text-xs text-muted mb-3 max-w-2xl">
+    Deletes this server from the fleet: schedules stop, stored SSH credentials and compose drafts in PiHerder go away.
+    <strong class="text-text">Nothing on the host is changed</strong> — Docker stacks, data, users, sudoers, and keys stay as they are.
+    Backup archives under the PiHerder backup volume are kept for manual cleanup if you want them gone later.
+  </p>
+
+  {% if host_cleanup_script %}
+  <div class="border border-border rounded p-3 mb-4 bg-surface/40">
+    <div class="text-sm font-medium text-text mb-1">Optional: host cleanup script</div>
+    <p class="text-xs text-muted mb-2 max-w-2xl">
+      Run on <span class="font-mono">{{ server.hostname }}</span> as root only if you want to remove the
+      <span class="font-mono">{{ server.ssh_username }}</span> service user / sudoers / docker group.
+      Does not touch Docker stacks or data.
+    </p>
+    <textarea id="host-cleanup-script-danger" readonly
+              class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-28 resize-y">{{ host_cleanup_script }}</textarea>
+    <div class="flex flex-wrap gap-2 mt-2">
+      <button type="button" onclick="copyTextFrom('host-cleanup-script-danger', this)" class="btn btn-secondary text-sm min-h-11">
+        Copy script
+      </button>
+      <a href="/servers/{{ server.id }}/ssh/cleanup-script"
+         class="btn btn-accent text-sm min-h-11 inline-flex items-center"
+         download="cleanup-piherder-user-{{ server.ssh_username or 'piherder' }}.sh">
+        Download .sh
+      </a>
+      <button type="button"
+              onclick="downloadTextAsFile('host-cleanup-script-danger', 'cleanup-piherder-user-{{ server.ssh_username or 'piherder' }}.sh', this)"
+              class="btn btn-secondary text-sm min-h-11">
+        Save as file
+      </button>
+    </div>
+    <p class="text-[10px] text-muted mt-2">
+      On the host:
+      <code class="font-mono">sudo bash cleanup-piherder-user-*.sh</code>
+      · delete account:
+      <code class="font-mono">REMOVE_USER=1 sudo -E bash …</code>
+    </p>
+  </div>
+  {% endif %}
+
+  <button type="button" id="btn-open-delete-server" class="btn btn-danger min-h-11 text-sm">
+    Remove server…
+  </button>
+</div>
+
+<div id="delete-server-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3" role="dialog" aria-modal="true">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-md">
+    <h3 class="font-semibold text-lg text-text mb-2">Remove {{ server.name }}?</h3>
+    <p class="text-sm text-muted mb-2">
+      This only removes the host from <strong>PiHerder</strong>. Remote configuration stays intact.
+    </p>
+    <ul class="text-xs text-muted list-disc pl-4 mb-3 space-y-1">
+      <li>No SSH changes on {{ server.hostname }}</li>
+      <li>Docker / data / piherder user left alone</li>
+      <li>Jobs cancelled; schedules unregistered</li>
+      <li>Audit history kept (unlinked from this server)</li>
+    </ul>
+    <form method="post" action="/servers/{{ server.id }}/delete" class="space-y-3">
+      <div>
+        <label class="block text-xs text-muted mb-1">Type the server name to confirm:
+          <span class="font-mono text-text">{{ server.name }}</span>
+        </label>
+        <input name="confirm_name" required autocomplete="off" placeholder="{{ server.name }}"
+               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
+      </div>
+      <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+        <button type="button" class="btn btn-secondary min-h-11 text-sm" id="btn-close-delete-server">Keep server</button>
+        <button type="submit" class="btn btn-danger min-h-11 text-sm">Remove from PiHerder</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('delete-server-modal');
+  var openBtn = document.getElementById('btn-open-delete-server');
+  var closeBtn = document.getElementById('btn-close-delete-server');
+  if (!modal) return;
+  function open() { modal.classList.remove('hidden'); modal.classList.add('flex'); }
+  function close() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+  if (openBtn) openBtn.addEventListener('click', open);
+  if (closeBtn) closeBtn.addEventListener('click', close);
+  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) close();
+  });
+})();
+</script>
 
 {% set _os_steps = server.os_apply_steps or '' %}
 {% set _use_full = 'full-upgrade' in _os_steps %}

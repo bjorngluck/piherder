@@ -55,10 +55,12 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - Schema via **Alembic** on startup; unit tests with `pytest`.
 
 **Volumes (docker-compose.yml):**
-- `./backups:/backups` — destination root for per-server rsync backups (override path in compose if you prefer another host dir).
+- `${PIHERDER_BACKUP_HOST_PATH:-./backups}:/backups` — destination root for per-server rsync backups (set `PIHERDER_BACKUP_HOST_PATH` for a secondary disk).
 - `./piherder_backups:/herder_backups` — PiHerder self-backup archives (fleet config, IAM, push keys, avatars, optional audit).
 - `./piherder_data:/data` — avatars (instance Settings live in Postgres).
 - `./certs:/certs` (Caddy, read-only) — `fullchain.pem` + `privkey.pem` for trusted HTTPS (see `certs/README.md`).
+
+**Platform reliability (v0.2.x):** host dependency chips after SSH onboard; Settings → **Status** (fast stack probes + on-demand backup tree usage); Celery **`CELERY_CONCURRENCY`** (default 2 pool slots, one worker node) with a per-server backup mutex. Full env catalog: [`.env.example`](.env.example) · ops: [docs/ADMIN.md](docs/ADMIN.md).
 
 ## Tech Stack
 
@@ -158,9 +160,10 @@ All actions create AuditLog entries with status + snippet. Actionable alerts als
 ## Replacing Cron Jobs
 
 Use the built-in scheduler:
-- Per-server **backup** schedules (Backups page)
+- Per-server **backup** schedules (Backups page) — Celery workers (parallel across hosts when `CELERY_CONCURRENCY` > 1)
 - Per-server OS / container **update check** and optional **apply** schedules (Edit → Schedules)
 - Fleet **Docker inventory** refresh (~every 10 minutes for hosts with Docker enabled)
+- Stack **Status** health poll (~every 2 minutes)
 - PiHerder self-backup schedule (Settings / herder backups)
 
 Silent auto-upgrade is never the default: apply schedules are opt-in and prefer “only if updates pending”.

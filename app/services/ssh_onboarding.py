@@ -761,6 +761,157 @@ echo "Test: ssh -i <key> $USER_NAME@host"
 """
 
 
+def build_piherder_user_cleanup_script(
+    username: str = "piherder",
+    *,
+    remove_user: bool = False,
+    compose_owner: str | None = None,
+    compose_tree: str | None = None,
+) -> str:
+    """
+    Host-side cleanup for a PiHerder least-priv account (Debian / Pi OS / Ubuntu).
+
+    Safe defaults: remove sudoers drop-in and docker group membership only.
+    Does **not** touch Docker stacks, volumes, or other users' data.
+    Optional flags (via env when running) can delete the user account.
+    """
+    user = re.sub(r"[^a-z0-9_-]", "", (username or "piherder").lower()) or "piherder"
+    if user in {"root", "daemon", "nobody", "bjorn"}:
+        # Refuse destructive defaults on common primary accounts
+        user = "piherder"
+
+    owner = re.sub(r"[^a-z0-9_-]", "", (compose_owner or "").lower()) if compose_owner else ""
+    tree = (compose_tree or "").strip()
+    acl_hint = ""
+    if owner and tree:
+        acl_hint = f"""
+# Optional ACL cleanup (only if you previously ran Option B share-compose script)
+# COMPOSE_TREE={shlex.quote(tree)}
+# COMPOSE_OWNER={shlex.quote(owner)}
+# if command -v setfacl >/dev/null 2>&1 && [ -d "$COMPOSE_TREE" ]; then
+#   setfacl -R -x "u:${{USER_NAME}}" "$COMPOSE_TREE" 2>/dev/null || true
+#   setfacl -R -d -x "u:${{USER_NAME}}" "$COMPOSE_TREE" 2>/dev/null || true
+#   echo "Removed ACLs for $USER_NAME on $COMPOSE_TREE (best-effort)"
+# fi
+"""
+
+    remove_user_default = "1" if remove_user else "0"
+
+    return f"""#!/bin/bash
+# PiHerder — cleanup least-privilege service user on the *host*
+# Supported: Debian, Raspberry Pi OS, Ubuntu
+#
+# What this does NOT do (by design):
+#   - Does not stop/remove Docker containers, images, or volumes
+#   - Does not delete compose projects or media/data under other users
+#   - Does not touch PiHerder application DB (use "Remove from PiHerder" in the UI)
+#
+# Usage (as root on the target host):
+#   sudo bash cleanup-piherder-user.sh
+#   USER_NAME=piherder REMOVE_USER=1 sudo -E bash cleanup-piherder-user.sh
+#
+# Env:
+#   USER_NAME      service account (default: {user})
+#   REMOVE_USER    1 = userdel -r after other steps (default: {remove_user_default})
+#   REMOVE_SUDOERS 1 = remove /etc/sudoers.d/piherder-$USER_NAME (default: 1)
+#   REMOVE_DOCKER  1 = remove from docker group (default: 1)
+#   DRY_RUN        1 = print actions only (default: 0)
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "Re-run as root (or: sudo bash $0)"
+  exec sudo -E bash "$0" "$@"
+fi
+
+USER_NAME="${{USER_NAME:-{user}}}"
+REMOVE_USER="${{REMOVE_USER:-{remove_user_default}}}"
+REMOVE_SUDOERS="${{REMOVE_SUDOERS:-1}}"
+REMOVE_DOCKER="${{REMOVE_DOCKER:-1}}"
+DRY_RUN="${{DRY_RUN:-0}}"
+
+run() {{
+  if [ "$DRY_RUN" = "1" ]; then
+    echo "DRY_RUN: $*"
+  else
+    eval "$@"
+  fi
+}}
+
+echo "PiHerder host cleanup for user: $USER_NAME"
+echo "  REMOVE_SUDOERS=$REMOVE_SUDOERS REMOVE_DOCKER=$REMOVE_DOCKER REMOVE_USER=$REMOVE_USER DRY_RUN=$DRY_RUN"
+
+# Guardrails
+case "$USER_NAME" in
+  root|daemon|nobody|sync|halt|shutdown)
+    echo "ERROR: refusing to clean protected system user: $USER_NAME"
+    exit 1
+    ;;
+esac
+
+if [ "$REMOVE_SUDOERS" = "1" ]; then
+  DROPIN="/etc/sudoers.d/piherder-${{USER_NAME}}"
+  if [ -e "$DROPIN" ]; then
+    run "rm -f $(printf %q "$DROPIN")"
+    echo "Removed $DROPIN"
+  else
+    echo "No sudoers drop-in at $DROPIN (ok)"
+  fi
+  # Older / alternate names
+  for f in /etc/sudoers.d/piherder /etc/sudoers.d/*piherder*; do
+    [ -e "$f" ] || continue
+    case "$f" in
+      *"${{USER_NAME}}"*|*/piherder) run "rm -f $(printf %q "$f")"; echo "Removed $f";;
+    esac
+  done 2>/dev/null || true
+fi
+
+if [ "$REMOVE_DOCKER" = "1" ]; then
+  if id "$USER_NAME" >/dev/null 2>&1 && getent group docker >/dev/null 2>&1; then
+    if id -nG "$USER_NAME" 2>/dev/null | tr ' ' '\\n' | grep -qx docker; then
+      run "gpasswd -d $(printf %q "$USER_NAME") docker" || true
+      echo "Removed $USER_NAME from docker group"
+    else
+      echo "$USER_NAME not in docker group (ok)"
+    fi
+  fi
+fi
+
+# Shared compose group fallback (Option B without setfacl)
+if getent group piherder-compose >/dev/null 2>&1; then
+  if id "$USER_NAME" >/dev/null 2>&1 && id -nG "$USER_NAME" 2>/dev/null | tr ' ' '\\n' | grep -qx piherder-compose; then
+    run "gpasswd -d $(printf %q "$USER_NAME") piherder-compose" || true
+    echo "Removed $USER_NAME from piherder-compose group"
+  fi
+fi
+{acl_hint}
+if [ "$REMOVE_USER" = "1" ]; then
+  if ! id "$USER_NAME" >/dev/null 2>&1; then
+    echo "User $USER_NAME does not exist (ok)"
+  else
+    # Kill leftover sessions best-effort
+    run "pkill -u $(printf %q "$USER_NAME")" || true
+    sleep 0.5 || true
+    if command -v deluser >/dev/null 2>&1; then
+      run "deluser --remove-home $(printf %q "$USER_NAME")" || run "userdel -r $(printf %q "$USER_NAME")" || true
+    else
+      run "userdel -r $(printf %q "$USER_NAME")" || true
+    fi
+    if id "$USER_NAME" >/dev/null 2>&1; then
+      echo "WARNING: user $USER_NAME still present — remove manually if needed"
+    else
+      echo "Deleted user $USER_NAME (home removed when possible)"
+    fi
+  fi
+else
+  echo "Left user $USER_NAME in place (set REMOVE_USER=1 to delete account + home)."
+  echo "authorized_keys under that home were not modified."
+fi
+
+echo "Done. Host Docker stacks and data were not touched."
+echo "If this host is still in PiHerder, remove it from the UI (or it will keep trying to connect)."
+"""
+
+
 def provision_least_priv_user(
     server: Server,
     new_username: str,

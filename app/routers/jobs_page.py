@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Optional
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlmodel import select
 
 from .. import templates as templates_mod
@@ -66,7 +67,7 @@ async def jobs_page(
     active_count = 0
     total = 0
     distinct_types: list = []
-    distinct_statuses = ["pending", "running", "success", "failed"]
+    distinct_statuses = ["pending", "running", "success", "failed", "cancelled"]
     sid: int | None = None
     only_active = active_only in ("1", "on", "true", "yes")
     per_page = _clamp_per_page(per_page)
@@ -178,3 +179,54 @@ async def job_detail_api(
         when = job.finished_at or job.started_at or job.created_at
         d["when_display"] = format_datetime_in_app_tz(when) if when else "—"
         return d
+
+
+@router.post("/jobs/{job_id}/cancel")
+async def cancel_job(
+    request: Request,
+    job_id: int,
+    user: User = Depends(get_current_user),
+):
+    """Cancel a pending/running job (Jobs screen or fetch).
+
+    Returns JSON for ``Accept: application/json`` / XHR, else redirect to /jobs.
+    """
+    with next(get_session()) as s:
+        job = s.get(Job, job_id)
+        if not job:
+            wants_json = _wants_json(request)
+            if wants_json:
+                return JSONResponse({"error": "not found"}, status_code=404)
+            raise HTTPException(status_code=404, detail="Job not found")
+        try:
+            job = job_service.cancel_job(s, job, user_id=user.id)
+        except job_service.JobNotCancellable as e:
+            if _wants_json(request):
+                return JSONResponse(
+                    {"error": e.message, "job": job_service.job_public_dict(job)},
+                    status_code=409,
+                )
+            return RedirectResponse(
+                f"/jobs?error=cancel&msg={quote(e.message)}",
+                status_code=303,
+            )
+        d = job_service.job_public_dict(job, detail=True)
+        if job.server_id:
+            srv = s.get(Server, job.server_id)
+            d["server_name"] = srv.name if srv else None
+
+    if _wants_json(request):
+        return JSONResponse({"ok": True, "job": d})
+    return RedirectResponse(f"/jobs?cancelled={job_id}", status_code=303)
+
+
+def _wants_json(request: Request) -> bool:
+    accept = (request.headers.get("accept") or "").lower()
+    if "application/json" in accept:
+        return True
+    if (request.headers.get("x-requested-with") or "").lower() == "xmlhttprequest":
+        return True
+    # fetch() from Jobs UI always sends this
+    if (request.headers.get("x-piherder-cancel") or "") == "1":
+        return True
+    return False

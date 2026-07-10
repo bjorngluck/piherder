@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, BackgroundTasks
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response, StreamingResponse
 from sqlmodel import Session, select
 from sqlalchemy import func
 import json
@@ -15,7 +15,9 @@ from ..services import ssh_onboarding
 from ..services import jobs as job_service
 from ..services import backup as backup_svc
 from ..services import diagnostics as diag_svc
+from ..services import host_deps as host_deps_svc
 from ..services import os_patching
+from ..services import server_lifecycle
 from ..services.app_settings import format_datetime_in_app_tz
 from ..services.server_audit import record_server_audit
 from urllib.parse import quote
@@ -368,6 +370,7 @@ async def server_detail(
     key_install_script = ""
     least_priv_script = ""
     compose_acl_script = ""
+    host_cleanup_script = ""
     # Option B ACL: share compose tree with least-priv user (guess owner from absolute path)
     _base = (server.docker_base_dir or "~/docker").strip()
     _compose_owner = "bjorn"
@@ -384,6 +387,7 @@ async def server_detail(
         compose_owner=_compose_owner,
         compose_dir=_compose_tree if _compose_tree.startswith("/") else (_compose_tree or "docker"),
     )
+    host_cleanup_script = _host_cleanup_script_for_server(server)
     if ssh_onboarding.is_real_public_key(server.ssh_public_key):
         key_install_script = ssh_onboarding.build_key_install_script(
             server.ssh_public_key, username=server.ssh_username
@@ -554,10 +558,93 @@ async def server_detail(
             "key_install_script": key_install_script,
             "least_priv_script": least_priv_script,
             "compose_acl_script": compose_acl_script,
+            "host_cleanup_script": host_cleanup_script,
             "docker_base_expanded": ssh_service.docker_base_expanded(server),
             "haos_guidance": ssh_onboarding.HAOS_GUIDANCE,
+            "host_deps": host_deps_svc.parse_host_deps(server),
             "lean_page": True,
         }
+    )
+
+
+def _host_cleanup_script_for_server(server: Server) -> str:
+    """Parameterized host cleanup shell for this server's SSH user / docker base."""
+    _base = (server.docker_base_dir or "~/docker").strip()
+    _compose_owner = "bjorn"
+    _compose_tree = _base
+    if _base.startswith("/home/"):
+        parts = _base.strip("/").split("/")
+        if len(parts) >= 2:
+            _compose_owner = parts[1]
+            _compose_tree = _base
+    elif _base.startswith("~/"):
+        _compose_tree = _base[2:] or "docker"
+    return ssh_onboarding.build_piherder_user_cleanup_script(
+        server.ssh_username or "piherder",
+        remove_user=False,
+        compose_owner=_compose_owner,
+        compose_tree=_compose_tree if str(_compose_tree).startswith("/") else None,
+    )
+
+
+@router.get("/{server_id}/ssh/cleanup-script")
+async def download_host_cleanup_script(
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Download host-side piherder user cleanup script (.sh) for this server."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404, "Server not found")
+    script = _host_cleanup_script_for_server(server)
+    user_slug = "".join(
+        c if c.isalnum() or c in "-_" else "-"
+        for c in (server.ssh_username or "piherder")
+    ) or "piherder"
+    host_slug = "".join(
+        c if c.isalnum() or c in ".-_" else "-"
+        for c in (server.hostname or server.name or "host")
+    ) or "host"
+    filename = f"cleanup-piherder-user-{user_slug}-{host_slug}.sh"
+    return Response(
+        content=script,
+        media_type="text/x-shellscript; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.post("/{server_id}/delete")
+async def delete_server(
+    server_id: int,
+    confirm_name: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Remove server from PiHerder fleet only — does not change the remote host."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404, "Server not found")
+    try:
+        snap = server_lifecycle.delete_server_from_fleet(
+            session,
+            server,
+            confirm_name=confirm_name,
+            user_id=user.id,
+        )
+    except server_lifecycle.ServerDeleteError as e:
+        return RedirectResponse(
+            _server_redirect(server_id, error=e.code, detail=e.message),
+            status_code=303,
+        )
+    name = quote(str(snap.get("name") or ""), safe="")
+    host = quote(str(snap.get("hostname") or ""), safe="")
+    return RedirectResponse(
+        f"/servers?msg=server_deleted&name={name}&hostname={host}",
+        status_code=303,
     )
 
 
@@ -773,6 +860,11 @@ async def ssh_test_connection(
         message=result.message,
         details={k: v for k, v in result.details.items() if k not in ("new_private_key",)},
     )
+    if result.ok:
+        try:
+            await run_in_threadpool(host_deps_svc.check_and_persist, session, server)
+        except Exception:
+            pass
     session.commit()
     if result.ok:
         return RedirectResponse(_server_redirect(server_id, msg="ssh_ok"), status_code=303)
@@ -780,6 +872,59 @@ async def ssh_test_connection(
         _server_redirect(server_id, error="ssh_fail", detail=result.message[:180]),
         status_code=303,
     )
+
+
+@router.post("/{server_id}/host-deps/check")
+async def check_host_dependencies(
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Probe remote tools for enabled features; store snapshot on server."""
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    try:
+        result = await run_in_threadpool(host_deps_svc.check_and_persist, session, server)
+        overall = (result or {}).get("overall") or "unknown"
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_host_deps",
+            status="success" if overall in ("ok", "warn") else "failed",
+            message=f"Host dependencies: {overall}",
+            details={
+                "overall": overall,
+                "checks": [
+                    {
+                        "id": c.get("id"),
+                        "status": c.get("status"),
+                        "required": c.get("required"),
+                    }
+                    for c in (result or {}).get("checks") or []
+                ],
+            },
+        )
+        session.commit()
+        return RedirectResponse(
+            _server_redirect(server_id, msg="host_deps_ok", detail=overall),
+            status_code=303,
+        )
+    except Exception as e:
+        record_server_audit(
+            session,
+            server_id=server.id,
+            user_id=user.id,
+            action="server_host_deps",
+            status="failed",
+            message=str(e)[:200],
+        )
+        session.commit()
+        return RedirectResponse(
+            _server_redirect(server_id, error="host_deps_fail", detail=str(e)[:180]),
+            status_code=303,
+        )
 
 
 @router.post("/{server_id}/ssh/deploy-key")
@@ -842,6 +987,10 @@ async def ssh_deploy_key(
             )
         session.add(server)
         session.commit()
+        try:
+            await run_in_threadpool(host_deps_svc.check_and_persist, session, server)
+        except Exception:
+            pass
         return RedirectResponse(_server_redirect(server_id, msg="key_deployed"), status_code=303)
 
     record_server_audit(
@@ -1103,6 +1252,10 @@ async def ssh_provision_user(
         },
     )
     session.commit()
+    try:
+        await run_in_threadpool(host_deps_svc.check_and_persist, session, server)
+    except Exception:
+        pass
     return RedirectResponse(
         _server_redirect(server_id, msg="user_provisioned", detail=new_user),
         status_code=303,

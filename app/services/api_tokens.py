@@ -61,6 +61,18 @@ FEATURE_SCOPE_BY_KEY = {
     "docker": FEATURE_DOCKER,
 }
 
+# Server model attribute / public API feature key → human label
+SERVER_FEATURE_ATTR = {
+    "backup": "backup_enabled",
+    "os": "os_patch_enabled",
+    "docker": "container_patch_enabled",
+}
+SERVER_FEATURE_LABEL = {
+    "backup": "Backups",
+    "os": "OS patch",
+    "docker": "Docker / containers",
+}
+
 SCOPE_HELP = {
     SCOPE_READ: "List servers, jobs, and API meta (GET)",
     SCOPE_JOBS: "Trigger backup / patch / update-check jobs (POST)",
@@ -112,6 +124,28 @@ def token_allows_feature(scopes: set[str] | Iterable[str], feature_key: str) -> 
     if allowed is None:
         return True
     return feature_key in allowed
+
+
+def server_feature_enabled(server: object, feature_key: str) -> bool:
+    """Whether the server's feature flag allows acting on this feature key."""
+    attr = SERVER_FEATURE_ATTR.get(feature_key)
+    if not attr:
+        return True
+    return bool(getattr(server, attr, False))
+
+
+def feature_disabled_message(feature_key: str) -> str:
+    label = SERVER_FEATURE_LABEL.get(feature_key, feature_key)
+    return f"{label} feature is disabled for this server"
+
+
+def missing_scope_message(scope: str) -> str:
+    return f"API token missing scope: {scope}"
+
+
+def feature_scope_denied_message(feature_key: str) -> str:
+    scope = FEATURE_SCOPE_BY_KEY.get(feature_key, f"feature:{feature_key}")
+    return f"API token not allowed for feature: {feature_key} (need {scope})"
 
 
 def hash_token(plain: str) -> str:
@@ -261,12 +295,54 @@ def create_api_token(
     return row, plain
 
 
-def list_api_tokens(session: Session, *, include_revoked: bool = False) -> list[ApiToken]:
+TOKEN_LIST_STATUSES = frozenset({"active", "revoked", "all"})
+
+
+def normalize_token_list_status(status: str | None, *, include_revoked: bool | None = None) -> str:
+    """active (default) | revoked | all. Legacy include_revoked=True → all."""
+    if status is not None and str(status).strip():
+        s = str(status).strip().lower()
+        if s in TOKEN_LIST_STATUSES:
+            return s
+    if include_revoked is True:
+        return "all"
+    if include_revoked is False:
+        return "active"
+    return "active"
+
+
+def list_api_tokens(
+    session: Session,
+    *,
+    status: str | None = None,
+    include_revoked: bool | None = None,
+) -> list[ApiToken]:
+    """List tokens for admin UI / API.
+
+    status:
+      active  — not revoked (default; kept for clean ops view)
+      revoked — soft-revoked only (rows kept for audit/traceability)
+      all     — every token row
+
+    ``include_revoked`` is legacy: True → all, False → active.
+    Revoke never deletes rows so audit links by token id stay valid.
+    """
+    filt = normalize_token_list_status(status, include_revoked=include_revoked)
     q = select(ApiToken).order_by(ApiToken.created_at.desc())
     rows = list(session.exec(q).all())
-    if include_revoked:
+    if filt == "all":
         return rows
+    if filt == "revoked":
+        return [r for r in rows if r.revoked_at is not None]
     return [r for r in rows if r.revoked_at is None]
+
+
+def count_api_tokens_by_status(session: Session) -> dict[str, int]:
+    """Counts for filter pills: active / revoked / all."""
+    rows = list(session.exec(select(ApiToken)).all())
+    revoked = sum(1 for r in rows if r.revoked_at is not None)
+    active = len(rows) - revoked
+    return {"active": active, "revoked": revoked, "all": len(rows)}
 
 
 def get_api_token(session: Session, token_id: int) -> Optional[ApiToken]:
@@ -352,6 +428,73 @@ def touch_token_last_used(session: Session, token: ApiToken) -> ApiToken:
     session.commit()
     session.refresh(token)
     return token
+
+
+def diagnose_plaintext_token(
+    session: Session,
+    plain: str,
+    *,
+    client_ip: str | None = None,
+    touch_last_used: bool = True,
+) -> dict:
+    """Admin “test now” diagnostic for a freshly shown secret.
+
+    Does not require capability scopes (unlike GET /api/v1/health).
+    Reports whether the secret is valid and whether *this* client IP would
+    pass the token’s allowlist (important when allowlist targets n8n/HA only).
+    """
+    plain = (plain or "").strip()
+    if not plain:
+        return {
+            "ok": False,
+            "error": "missing_token",
+            "detail": "No token secret provided",
+            "client_ip": client_ip,
+        }
+    row = lookup_active_token(session, plain)
+    if not row:
+        return {
+            "ok": False,
+            "error": "invalid_or_revoked",
+            "detail": "Invalid, revoked, or expired API token",
+            "client_ip": client_ip,
+        }
+    cidrs = parse_allowed_cidrs(getattr(row, "allowed_cidrs", None))
+    ip_allowed = client_ip_allowed(cidrs, client_ip) if cidrs else True
+    public = token_public_dict(row)
+    if cidrs and not ip_allowed:
+        return {
+            "ok": False,
+            "error": "ip_not_allowed",
+            "detail": (
+                "Token is valid, but this client IP is not on the allowlist. "
+                "That is expected when the allowlist is for automation hosts only."
+            ),
+            "client_ip": client_ip,
+            "allowed_cidrs": cidrs,
+            "token": public,
+        }
+    if touch_last_used:
+        touch_token_last_used(session, row)
+        public = token_public_dict(row)
+    scopes = sorted(parse_scopes(row.scopes))
+    return {
+        "ok": True,
+        "detail": "Token accepted",
+        "client_ip": client_ip,
+        "allowed_cidrs": cidrs,
+        "scopes": scopes,
+        "allowed_features": public.get("allowed_features"),
+        "token": public,
+        "has_read": SCOPE_READ in scopes,
+        "has_jobs": SCOPE_JOBS in scopes,
+        "has_edit": SCOPE_EDIT in scopes,
+        "health_hint": (
+            None
+            if SCOPE_READ in scopes
+            else "Token has no `read` scope — GET /api/v1/health will return 403 for automations using only this token."
+        ),
+    }
 
 
 def verify_bearer_token(

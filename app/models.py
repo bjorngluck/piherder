@@ -10,6 +10,8 @@ class User(SQLModel, table=True):
     hashed_password: str
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # Set on successful interactive login (password / trusted device / 2FA complete)
+    last_login_at: Optional[datetime] = None
 
     # Profile (IAM)
     display_name: Optional[str] = None
@@ -131,6 +133,11 @@ class Server(SQLModel, table=True):
     docker_inventory_status: str = "never"
     docker_inventory_error: Optional[str] = None
 
+    # Host dependency probe snapshot (rsync/docker/apt for enabled features)
+    # Payload: {checked_at, overall, checks[], features{}}
+    host_deps_json: Optional[str] = None
+    host_deps_checked_at: Optional[datetime] = None
+
     audit_logs: List["AuditLog"] = Relationship(back_populates="server")
     jobs: List["Job"] = Relationship(back_populates="server")
     docker_versions: List["DockerVersion"] = Relationship(back_populates="server")
@@ -197,6 +204,10 @@ class AuditLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     server_id: Optional[int] = Field(default=None, foreign_key="server.id")
+    # When action was performed via automation Bearer token (not interactive session).
+    # Name is snapshotted so rename/revoke still shows a readable actor in history.
+    api_token_id: Optional[int] = Field(default=None, foreign_key="apitoken.id", index=True)
+    api_token_name: Optional[str] = None
     action: str  # "backup", "container_patch", "os_patch", "diagnostics", etc.
     status: str  # "success", "failed", "running"
     details: Optional[str] = None
@@ -212,7 +223,7 @@ class Job(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     server_id: Optional[int] = Field(default=None, foreign_key="server.id")
     job_type: str  # backup, container_patch, os_patch, os_update_check, container_update_check, retention, diagnostics, herder_backup
-    status: str = "pending"  # pending, running, success, failed
+    status: str = "pending"  # pending, running, success, failed, cancelled
     celery_task_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     started_at: Optional[datetime] = None
