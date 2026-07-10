@@ -5,13 +5,14 @@
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Integrations</h1>
     <p class="text-sm text-muted mt-1">
-      Optional external products — Uptime Kuma SSH monitors, later Grafana and more.
+      Optional external products — Uptime Kuma, Grafana, and more.
       Core fleet ops work without these.
     </p>
   </div>
-  <div class="page-header-actions">
+  <div class="page-header-actions flex flex-wrap gap-2">
     {% if can_mutate %}
     <a href="/integrations/new/uptime-kuma" class="btn btn-primary min-h-11">+ Uptime Kuma</a>
+    <a href="/integrations/new/grafana" class="btn btn-secondary min-h-11">+ Grafana</a>
     {% endif %}
   </div>
 </div>
@@ -28,11 +29,14 @@
 {% if not integrations %}
 <div class="card p-6 max-w-xl">
   <p class="text-sm text-muted mb-3">
-    No integrations yet. Connect <strong>Uptime Kuma</strong> with an API key to map each
-    server’s SSH reachability monitor and show up/down chips on the fleet.
+    No integrations yet. Connect <strong>Uptime Kuma</strong> for SSH/service monitors, or
+    <strong>Grafana</strong> for dashboard deep links and health chips.
   </p>
   {% if can_mutate %}
-  <a href="/integrations/new/uptime-kuma" class="btn btn-accent min-h-11">Add Uptime Kuma</a>
+  <div class="flex flex-wrap gap-2">
+    <a href="/integrations/new/uptime-kuma" class="btn btn-accent min-h-11">Add Uptime Kuma</a>
+    <a href="/integrations/new/grafana" class="btn btn-secondary min-h-11">Add Grafana</a>
+  </div>
   {% else %}
   <p class="text-xs text-muted">Operator or admin role required to add integrations.</p>
   {% endif %}
@@ -47,7 +51,7 @@
       </a>
       <div class="text-xs text-muted font-mono mt-0.5 truncate">{{ i.base_url }}</div>
       <div class="flex flex-wrap gap-2 mt-2 text-xs">
-        <span class="status-pill {% if i.type == 'uptime_kuma' %}status-running{% else %}feature-off{% endif %}">
+        <span class="status-pill {% if i.type == 'uptime_kuma' or i.type == 'grafana' %}status-running{% else %}feature-off{% endif %}">
           {{ i.type }}
         </span>
         {% if not i.enabled %}
@@ -59,7 +63,12 @@
         {% else %}
         <span class="status-pill feature-off">never polled</span>
         {% endif %}
-        {% if i.monitor_count is not none %}
+        {% if i.type == 'grafana' and i.version %}
+        <span class="text-muted">v{{ i.version }}</span>
+        {% endif %}
+        {% if i.type == 'grafana' and i.dashboard_count is not none %}
+        <span class="text-muted">{{ i.dashboard_count }} dashboards</span>
+        {% elif i.monitor_count is not none %}
         <span class="text-muted">{{ i.monitor_count }} monitors</span>
         {% endif %}
       </div>

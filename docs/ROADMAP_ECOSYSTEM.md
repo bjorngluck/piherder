@@ -119,7 +119,7 @@ Read-mostly integrations: config + status + deep links + **server / host / Docke
 |------|--------|
 | Integration registry + top-level **Integrations** nav | **Shipped** |
 | **Uptime Kuma** — API key + `/metrics`; SSH + host service + Docker bindings; TLS; deep links; notifications; Services pages; logos | **Shipped** |
-| Grafana deep links / chips | Open |
+| **Grafana** — service account token; health; dashboard inventory; server→dashboard bindings; Open in Grafana + query templates | **Shipped** (post-v0.2.0 → v0.3.0) |
 | Multi Pi-hole / NPM / HA / Frigate / n8n generic URL | Open |
 
 **Uptime Kuma (shipped detail):**

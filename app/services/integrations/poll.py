@@ -14,6 +14,7 @@ from sqlmodel import Session, select
 from ...database import engine
 from ...models import Integration, IntegrationBinding, Server
 from .. import notifications as notif_svc
+from . import grafana as gf
 from . import registry as reg
 from . import uptime_kuma as kuma
 
@@ -101,6 +102,8 @@ def _poll_unlocked(db: Session, integration_id: int, *, notify: bool) -> dict[st
 
     if integration.type == reg.TYPE_UPTIME_KUMA:
         return _poll_kuma(db, integration, notify=notify)
+    if integration.type == reg.TYPE_GRAFANA:
+        return _poll_grafana(db, integration, notify=notify)
 
     return {"ok": False, "error": f"unsupported type {integration.type}"}
 
@@ -200,6 +203,72 @@ def _poll_kuma(db: Session, integration: Integration, *, notify: bool) -> dict[s
     }
 
 
+def _poll_grafana(
+    db: Session, integration: Integration, *, notify: bool
+) -> dict[str, Any]:
+    """Health check + optional dashboard inventory; refresh dashboard binding labels."""
+    del notify  # Grafana H1: no down notifications on dashboards
+    token = reg.decrypt_api_key(integration)
+    result = gf.poll(
+        integration.base_url,
+        token,
+        tls_verify=reg.tls_verify(integration),
+    )
+    now = datetime.utcnow()
+    status_payload = result.to_status_json()
+    status_payload["polled_at"] = now.isoformat() + "Z"
+
+    integration.last_status_json = json.dumps(status_payload)
+    integration.last_polled_at = now
+    integration.last_error = (result.error or "")[:500] if not result.ok else None
+    integration.updated_at = now
+    db.add(integration)
+
+    by_uid = {d.uid: d for d in result.dashboards}
+    bindings = list(
+        db.exec(
+            select(IntegrationBinding).where(
+                IntegrationBinding.integration_id == integration.id,
+                IntegrationBinding.role == reg.ROLE_DASHBOARD,
+            )
+        ).all()
+    )
+    updated = 0
+    instance_state = "up" if result.ok else "down"
+    for b in bindings:
+        prev_meta = reg.parse_binding_meta(b)
+        dash = by_uid.get((b.external_id or "").strip())
+        if dash:
+            meta = dash.to_dict()
+            # keep operator query_template override
+            if prev_meta.get("query_template"):
+                meta["query_template"] = prev_meta["query_template"]
+            b.external_label = dash.title
+            b.external_meta_json = json.dumps(meta)
+            b.last_message = dash.folder_title or result.version or "dashboard"
+        else:
+            # Keep prior meta; mark linked vs instance health
+            b.last_message = (
+                f"Grafana {result.version}" if result.ok else (result.error or "unreachable")
+            )[:500]
+        b.last_state = instance_state if result.ok else "down"
+        b.last_checked_at = now
+        b.updated_at = now
+        db.add(b)
+        updated += 1
+
+    db.commit()
+    return {
+        "ok": result.ok,
+        "error": result.error,
+        "dashboard_count": len(result.dashboards),
+        "monitor_count": len(result.dashboards),
+        "bindings_updated": updated,
+        "version": result.version,
+        "integration_id": integration.id,
+    }
+
+
 def _notify_transition(
     db: Session,
     integration: Integration,
@@ -243,7 +312,7 @@ def poll_all_enabled(*, notify: bool = True) -> list[dict[str, Any]]:
             db.exec(
                 select(Integration).where(
                     Integration.enabled == True,  # noqa: E712
-                    Integration.type == reg.TYPE_UPTIME_KUMA,
+                    Integration.type.in_([reg.TYPE_UPTIME_KUMA, reg.TYPE_GRAFANA]),
                 )
             ).all()
         )
@@ -257,8 +326,14 @@ def poll_all_enabled(*, notify: bool = True) -> list[dict[str, Any]]:
     return results
 
 
-def test_connection(integration: Integration) -> kuma.KumaPollResult:
+def test_connection(integration: Integration) -> Any:
     """Live test without persisting (caller may persist)."""
+    if integration.type == reg.TYPE_GRAFANA:
+        return gf.poll(
+            integration.base_url,
+            reg.decrypt_api_key(integration),
+            tls_verify=reg.tls_verify(integration),
+        )
     return kuma.fetch_metrics(
         integration.base_url,
         reg.decrypt_api_key(integration),

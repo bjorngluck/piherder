@@ -1,17 +1,18 @@
 # Feature Plan: Integration Hub (Uptime Kuma first)
 
 **Document:** `docs/FEATURE_PLAN_INTEGRATIONS.md`  
-**Status:** **Shipped (H1 Kuma slice)** — 2026-07-10  
+**Status:** **Shipped (H1 Kuma + Grafana)** — 2026-07-10  
 **Owner:** Bjorn  
 **Horizon:** H1 / v0.3  
-**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 1 · [SPEC.md](../SPEC.md) Phase 5 · [ADMIN.md](ADMIN.md) § Uptime Kuma
+**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 1 · [SPEC.md](../SPEC.md) Phase 5 · [ADMIN.md](ADMIN.md) § Uptime Kuma / Grafana
 
 ---
 
 ## Goal (delivered)
 
-PiHerder is an optional **integration hub** for the homelab stack, starting with **Uptime Kuma**:
+PiHerder is an optional **integration hub** for the homelab stack:
 
+### Uptime Kuma
 - Connect an existing Kuma instance with a **Kuma API key** (primary) and optional Kuma login for dashboard IDs.
 - Poll **`GET /metrics`** (Prometheus text) for monitor inventory, status, response time, and TLS cert fields.
 - Bind monitors at three scopes:
@@ -21,9 +22,15 @@ PiHerder is an optional **integration hub** for the homelab stack, starting with
 - Deep links to **`{kuma}/dashboard/{id}`** when a numeric dashboard ID is known.
 - Fleet **Services** icon grid + per-server Services page; logos via favicon discovery or upload.
 - Down notifications (transition-only) + push preference `integration_down`.
-- Top-level **Integrations** nav (not under Settings).
 
-Later adapters (Grafana, multi Pi-hole, NPM, …) reuse the same registry + binding model.
+### Grafana
+- Connect existing Grafana with optional **service account token** (Bearer).
+- Poll **`GET /api/health`** (version, database) and **`GET /api/search?type=dash-db`** when token present.
+- Bind **server → dashboard UID** (`role=dashboard`); chips on server detail.
+- **Open in Grafana** with URL query templates (`var-host={hostname}`, etc.).
+- High-level health chips on integration detail (not full metrics exploration).
+
+Top-level **Integrations** nav (not under Settings). Later adapters (multi Pi-hole, NPM, …) reuse the same registry + binding model.
 
 ---
 
@@ -116,7 +123,7 @@ type, name, base_url, enabled, config_json (poll_interval, tls_verify), credenti
 | 7 Logos (discover + upload) | Done |
 | 8 Docs | Done (this update) |
 
-**Still H1 later / other adapters:** Grafana, multi Pi-hole, NPM/HA generic URL entries.
+**Still H1 later / other adapters:** multi Pi-hole, NPM/HA generic URL entries.
 
 ---
 
@@ -151,11 +158,22 @@ type, name, base_url, enabled, config_json (poll_interval, tls_verify), credenti
 
 ---
 
+## Grafana file map (shipped)
+
+| Area | Path |
+|------|------|
+| Adapter | `app/services/integrations/grafana.py` |
+| Registry / poll | `TYPE_GRAFANA`, `ROLE_DASHBOARD`, `_poll_grafana` |
+| UI | `integrations_grafana_form.html`, `integrations_grafana_detail.html` |
+| Tests | `tests/test_integrations_grafana.py` |
+
+---
+
 ## H2 teaser (not in this ship)
 
 - Create monitor in Kuma from templates (Socket.IO).  
 - Auto-bind on add-server.  
-- Grafana / multi Pi-hole adapters.  
+- Multi Pi-hole / NPM / HA generic URL adapters.  
 
 ---
 

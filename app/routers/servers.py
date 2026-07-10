@@ -595,6 +595,7 @@ async def server_detail(
             "kuma_ssh": _kuma_ssh_for_server(session, server.id),
             "kuma_host_services": _kuma_host_services_for_server(session, server.id),
             "kuma_docker_service_count": _kuma_docker_service_count(session, server.id),
+            "grafana_dashboards": _grafana_dashboards_for_server(session, server.id),
             "lean_page": True,
         }
     )
@@ -632,6 +633,16 @@ def _kuma_host_services_for_server(session: Session, server_id: int) -> list[dic
         from ..services.integrations import registry as integ_reg
 
         return integ_reg.host_service_chips_for_server(session, server_id)
+    except Exception:
+        return []
+
+
+def _grafana_dashboards_for_server(session: Session, server_id: int) -> list:
+    """Grafana dashboard deep-link chips for server detail."""
+    try:
+        from ..services.integrations import registry as integ_reg
+
+        return integ_reg.grafana_chips_for_server(session, server_id)
     except Exception:
         return []
 

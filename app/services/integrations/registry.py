@@ -10,17 +10,21 @@ from sqlmodel import Session, select
 
 from ...models import Integration, IntegrationBinding, Server
 from ...security.encryption import decrypt_str, encrypt_str
+from . import grafana as gf
 from . import uptime_kuma as kuma
 
 logger = logging.getLogger(__name__)
 
 TYPE_UPTIME_KUMA = "uptime_kuma"
+TYPE_GRAFANA = "grafana"
 ROLE_SSH = "ssh_reachability"
-ROLE_SERVICE = "service"  # HTTP(s) / app / cert monitoring
+ROLE_SERVICE = "service"  # HTTP(s) / app / cert monitoring (Kuma)
+ROLE_DASHBOARD = "dashboard"  # Grafana dashboard deep link per server
 
 DEFAULT_POLL_INTERVAL_SEC = 60
 MIN_POLL_INTERVAL_SEC = 30
 MAX_POLL_INTERVAL_SEC = 900
+DEFAULT_GRAFANA_POLL_SEC = 120
 
 
 def parse_config(raw: Optional[str]) -> dict[str, Any]:
@@ -172,6 +176,98 @@ def create_kuma(
     return row
 
 
+def create_grafana(
+    session: Session,
+    *,
+    name: str,
+    base_url: str,
+    api_key: str = "",
+    poll_interval_sec: int = DEFAULT_GRAFANA_POLL_SEC,
+    tls_verify_flag: bool = True,
+    enabled: bool = True,
+    query_template: str = "",
+) -> Integration:
+    """Create Grafana integration. Service account token optional (deep links work without it)."""
+    base = gf.normalize_base_url(base_url)
+    iv = max(MIN_POLL_INTERVAL_SEC, min(MAX_POLL_INTERVAL_SEC, int(poll_interval_sec)))
+    now = datetime.utcnow()
+    cfg: dict[str, Any] = {
+        "poll_interval_sec": iv,
+        "tls_verify": bool(tls_verify_flag),
+    }
+    qt = (query_template or "").strip()
+    if qt:
+        cfg["query_template"] = qt
+    row = Integration(
+        type=TYPE_GRAFANA,
+        name=(name or "Grafana").strip() or "Grafana",
+        base_url=base,
+        enabled=enabled,
+        config_json=dump_config(cfg),
+        credentials_encrypted=encrypt_credentials((api_key or "").strip())
+        if (api_key or "").strip()
+        else None,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
+
+
+def update_grafana(
+    session: Session,
+    integration: Integration,
+    *,
+    name: Optional[str] = None,
+    base_url: Optional[str] = None,
+    api_key: Optional[str] = None,
+    poll_interval_sec: Optional[int] = None,
+    tls_verify_flag: Optional[bool] = None,
+    enabled: Optional[bool] = None,
+    query_template: Optional[str] = None,
+    clear_token: bool = False,
+) -> Integration:
+    if name is not None:
+        integration.name = name.strip() or integration.name
+    if base_url is not None and base_url.strip():
+        integration.base_url = gf.normalize_base_url(base_url)
+    if clear_token:
+        integration.credentials_encrypted = None
+    elif api_key is not None and api_key.strip():
+        integration.credentials_encrypted = encrypt_credentials(api_key.strip())
+    cfg = parse_config(integration.config_json)
+    if poll_interval_sec is not None:
+        cfg["poll_interval_sec"] = max(
+            MIN_POLL_INTERVAL_SEC, min(MAX_POLL_INTERVAL_SEC, int(poll_interval_sec))
+        )
+    if tls_verify_flag is not None:
+        cfg["tls_verify"] = bool(tls_verify_flag)
+    if query_template is not None:
+        qt = query_template.strip()
+        if qt:
+            cfg["query_template"] = qt
+        else:
+            cfg.pop("query_template", None)
+    integration.config_json = dump_config(cfg)
+    if enabled is not None:
+        integration.enabled = bool(enabled)
+    integration.updated_at = datetime.utcnow()
+    session.add(integration)
+    session.commit()
+    session.refresh(integration)
+    return integration
+
+
+def query_template(integration: Integration) -> str:
+    return str(parse_config(integration.config_json).get("query_template") or "").strip()
+
+
+def dashboards_from_cache(integration: Integration) -> list[dict[str, Any]]:
+    return gf.dashboards_from_status(parse_last_status(integration))
+
+
 def update_kuma(
     session: Session,
     integration: Integration,
@@ -286,7 +382,8 @@ def set_binding(
     # role=service: docker_project optional
     #   - set → Docker project/container scope (shown on Docker page)
     #   - empty → host-level service (HAOS, bare metal, etc. — shown on server detail)
-    if role == ROLE_SSH:
+    # role=dashboard (Grafana): no docker scope
+    if role in (ROLE_SSH, ROLE_DASHBOARD):
         proj, cont = None, None
     elif role == ROLE_SERVICE and not proj:
         cont = None  # container only makes sense under a project
@@ -319,6 +416,16 @@ def set_binding(
                 IntegrationBinding.integration_id == integration_id,
                 IntegrationBinding.server_id == server_id,
                 IntegrationBinding.role == role,
+            )
+        ).first()
+    elif role == ROLE_DASHBOARD:
+        # Unique dashboard uid per server per Grafana integration
+        existing = session.exec(
+            select(IntegrationBinding).where(
+                IntegrationBinding.integration_id == integration_id,
+                IntegrationBinding.server_id == server_id,
+                IntegrationBinding.role == role,
+                IntegrationBinding.external_id == ext,
             )
         ).first()
     else:
@@ -628,13 +735,76 @@ def parse_binding_meta(binding: IntegrationBinding) -> dict[str, Any]:
         return {}
 
 
-def binding_open_url(integration: Integration, binding: IntegrationBinding) -> str:
+def binding_open_url(
+    integration: Integration,
+    binding: IntegrationBinding,
+    *,
+    server: Optional[Server] = None,
+) -> str:
+    if integration.type == TYPE_GRAFANA:
+        meta = parse_binding_meta(binding)
+        uid = (binding.external_id or meta.get("uid") or "").strip()
+        slug = str(meta.get("slug") or "").strip()
+        rel = str(meta.get("url") or "").strip()
+        # Prefer binding override, else instance default query template
+        qt = str(meta.get("query_template") or "").strip() or query_template(integration)
+        hostname = ""
+        name = ""
+        ip = ""
+        sid = str(binding.server_id or "")
+        if server is None and binding.server_id:
+            # Caller may not pass server; open without vars still works
+            pass
+        if server is not None:
+            hostname = server.hostname or ""
+            name = server.name or ""
+            ip = server.ip_address or ""
+            sid = str(server.id or sid)
+        return gf.open_dashboard_url(
+            integration.base_url,
+            uid=uid,
+            slug=slug,
+            relative_url=rel,
+            query_template=qt,
+            hostname=hostname,
+            name=name,
+            ip_address=ip,
+            server_id=sid,
+        )
     meta = parse_binding_meta(binding)
     did = kuma.resolve_dashboard_id(
         external_id=binding.external_id or "",
         meta=meta,
     )
     return kuma.open_kuma_url(integration.base_url, dashboard_id=did)
+
+
+def grafana_chips_for_server(session: Session, server_id: int) -> list[dict[str, Any]]:
+    """Dashboard deep-link chips for server detail."""
+    server = session.get(Server, server_id)
+    out: list[dict[str, Any]] = []
+    for b in list_bindings(session, server_id=server_id, role=ROLE_DASHBOARD):
+        integ = get_integration(session, b.integration_id)
+        if not integ or integ.type != TYPE_GRAFANA or not integ.enabled:
+            continue
+        open_url = binding_open_url(integ, b, server=server)
+        meta = parse_binding_meta(b)
+        out.append(
+            {
+                "id": b.id,
+                "state": b.last_state or "linked",
+                "label": b.external_label or b.external_id,
+                "message": b.last_message or meta.get("folder_title") or "",
+                "open_url": open_url,
+                "integration_id": b.integration_id,
+                "integration_name": integ.name,
+                "server_id": b.server_id,
+                "uid": b.external_id,
+                "checked_at": b.last_checked_at,
+            }
+        )
+    out.sort(key=lambda c: (c.get("label") or "").lower())
+    return out
 
 
 def binding_message_from_monitor(mon: "kuma.KumaMonitor") -> str:

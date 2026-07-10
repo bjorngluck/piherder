@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">{{ integration.name }}</h1>
+    <p class="text-sm text-muted mt-1 font-mono">{{ integration.base_url }}</p>
+  </div>
+  <div class="page-header-actions flex flex-wrap gap-2">
+    {% if open_url %}
+    <a href="{{ open_url }}" target="_blank" rel="noopener" class="btn btn-secondary min-h-11">Open Grafana</a>
+    {% endif %}
+    {% if can_mutate %}
+    <form method="post" action="/integrations/{{ integration.id }}/test" class="inline">
+      <button type="submit" class="btn btn-secondary min-h-11">Test</button>
+    </form>
+    <form method="post" action="/integrations/{{ integration.id }}/poll" class="inline">
+      <button type="submit" class="btn btn-secondary min-h-11">Poll now</button>
+    </form>
+    <a href="/integrations/{{ integration.id }}/edit" class="btn btn-secondary min-h-11">Edit</a>
+    {% endif %}
+    <a href="/integrations" class="btn btn-secondary min-h-11">All integrations</a>
+  </div>
+</div>
+
+{% if msg == 'created' or msg == 'saved' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">Saved.</div>
+{% elif msg == 'test_ok' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  Connection OK{% if detail %} — {{ detail }}{% endif %}
+</div>
+{% elif msg == 'polled' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  Polled{% if detail %} — {{ detail }}{% endif %}
+</div>
+{% elif msg == 'binding_saved' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">Dashboard binding saved.</div>
+{% elif msg == 'binding_cleared' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">Binding removed.</div>
+{% endif %}
+{% if error %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  {% if error == 'test_failed' %}Test failed{% elif error == 'poll_failed' %}Poll failed
+  {% elif error == 'binding_failed' %}Binding failed{% else %}Error{% endif %}
+  {% if detail %}— {{ detail }}{% endif %}
+</div>
+{% endif %}
+
+{# Health / stats chips #}
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+  <div class="card p-3">
+    <div class="text-[11px] text-muted uppercase tracking-wide">Status</div>
+    <div class="mt-1">
+      {% if not integration.enabled %}
+      <span class="status-pill feature-off">disabled</span>
+      {% elif status.ok %}
+      <span class="status-pill status-success">healthy</span>
+      {% elif status.ok == false or integration.last_error %}
+      <span class="status-pill status-failed">error</span>
+      {% else %}
+      <span class="status-pill feature-off">unknown</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card p-3">
+    <div class="text-[11px] text-muted uppercase tracking-wide">Version</div>
+    <div class="mt-1 text-sm font-medium text-text">{{ status.version or '—' }}</div>
+  </div>
+  <div class="card p-3">
+    <div class="text-[11px] text-muted uppercase tracking-wide">Database</div>
+    <div class="mt-1 text-sm font-medium text-text">{{ status.database or '—' }}</div>
+  </div>
+  <div class="card p-3">
+    <div class="text-[11px] text-muted uppercase tracking-wide">Dashboards</div>
+    <div class="mt-1 text-sm font-medium text-text">
+      {{ status.dashboard_count if status.dashboard_count is not none else (dashboards|length) }}
+    </div>
+  </div>
+</div>
+
+{% if integration.last_error %}
+<div class="mb-4 p-3 banner-error border border-border rounded text-sm font-mono text-xs">
+  {{ integration.last_error }}
+</div>
+{% endif %}
+<p class="text-xs text-muted mb-4">
+  Poll every {{ poll_interval_sec }}s ·
+  TLS verify {% if tls_verify %}on{% else %}off{% endif %} ·
+  Token {% if has_key %}saved{% else %}none{% endif %} ·
+  Query template:
+  <code class="text-[10px]">{{ query_template or '(none)' }}</code>
+  {% if integration.last_polled_at %}
+  · last poll {{ integration.last_polled_at }}
+  {% endif %}
+</p>
+
+{# Inventory #}
+<div class="card p-4 mb-6">
+  <h2 class="text-lg font-semibold text-text mb-2">Dashboard inventory</h2>
+  <p class="text-xs text-muted mb-3">
+    From <code class="text-[10px]">GET /api/search</code> when a service account token is configured.
+    Without a token you can still bind by pasting a dashboard UID.
+  </p>
+  {% if dashboards %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-muted border-b border-border">
+          <th class="py-2 pr-3">Title</th>
+          <th class="py-2 pr-3">UID</th>
+          <th class="py-2 pr-3">Folder</th>
+          <th class="py-2">Open</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in dashboards %}
+        <tr class="border-b border-border/50">
+          <td class="py-2 pr-3 font-medium">{{ d.title or d.name }}</td>
+          <td class="py-2 pr-3 font-mono text-xs">{{ d.uid }}</td>
+          <td class="py-2 pr-3 text-muted text-xs">{{ d.folder_title or '—' }}</td>
+          <td class="py-2">
+            {% set path = d.url or ('/d/' ~ d.uid) %}
+            <a href="{{ open_url }}{{ path if path.startswith('/') else '/' ~ path }}"
+               target="_blank" rel="noopener" class="text-accent text-xs hover:underline">Open →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm text-muted">
+    No dashboards cached.
+    {% if not has_key %}Add a service account token and poll to list them.{% else %}Poll now, or check token permissions.{% endif %}
+  </p>
+  {% endif %}
+</div>
+
+{# Server bindings #}
+<div class="card p-4 mb-6" id="grafana-dashboards">
+  <h2 class="text-lg font-semibold text-text mb-2">Server → dashboard bindings</h2>
+  <p class="text-xs text-muted mb-3">
+    Chips on server detail open the dashboard with your query template
+    (e.g. <code class="text-[10px]">var-host={hostname}</code>).
+  </p>
+
+  {% if bindings %}
+  <div class="space-y-2 mb-4">
+    {% for b in bindings %}
+    <div class="flex flex-wrap items-center justify-between gap-2 p-2 rounded border border-border/60">
+      <div class="min-w-0">
+        <a href="/servers/{{ b.server_id }}" class="text-sm font-medium text-text hover:text-primary">
+          {{ b.server_name }}
+        </a>
+        <span class="text-xs text-muted">→</span>
+        <span class="text-sm">{{ b.label }}</span>
+        <span class="status-pill text-xs ml-1
+          {% if b.state == 'up' or b.state == 'linked' %}status-success
+          {% elif b.state == 'down' %}status-failed
+          {% else %}feature-off{% endif %}">{{ b.state }}</span>
+        <div class="text-[11px] text-muted font-mono">{{ b.uid }}{% if b.message %} · {{ b.message }}{% endif %}</div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {% if b.open_url %}
+        <a href="{{ b.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open in Grafana</a>
+        {% endif %}
+        {% if can_mutate %}
+        <form method="post" action="/integrations/{{ integration.id }}/bindings" class="inline">
+          <input type="hidden" name="server_id" value="{{ b.server_id }}">
+          <input type="hidden" name="external_id" value="{{ b.uid }}">
+          <input type="hidden" name="role" value="dashboard">
+          <input type="hidden" name="binding_id" value="{{ b.id }}">
+          <input type="hidden" name="clear" value="1">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9">Unbind</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-muted mb-4">No dashboard bindings yet.</p>
+  {% endif %}
+
+  {% if can_mutate and servers %}
+  <form method="post" action="/integrations/{{ integration.id }}/bindings"
+        class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end border-t border-border pt-4">
+    <input type="hidden" name="role" value="dashboard">
+    <div>
+      <label class="block text-xs font-medium text-muted mb-1" for="server_id">Server</label>
+      <select id="server_id" name="server_id" required class="input w-full text-sm">
+        {% for s in servers %}
+        <option value="{{ s.id }}">{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-muted mb-1" for="external_id">Dashboard</label>
+      {% if dashboards %}
+      <select id="external_id" name="external_id" required class="input w-full text-sm">
+        {% for d in dashboards %}
+        <option value="{{ d.uid }}">{{ d.title or d.name }} ({{ d.uid }})</option>
+        {% endfor %}
+      </select>
+      {% else %}
+      <input id="external_id" name="external_id" type="text" required
+             class="input w-full font-mono text-sm" placeholder="dashboard-uid">
+      {% endif %}
+    </div>
+    <div>
+      <button type="submit" class="btn btn-primary min-h-11 w-full sm:w-auto">Bind dashboard</button>
+    </div>
+  </form>
+  {% elif can_mutate %}
+  <p class="text-sm text-muted">Add a server first, then bind dashboards here.</p>
+  {% endif %}
+</div>
+
+{% if can_mutate %}
+<div class="card p-4 border border-failed/30">
+  <h2 class="text-sm font-semibold text-text mb-2">Danger zone</h2>
+  <form method="post" action="/integrations/{{ integration.id }}/delete"
+        data-confirm="Remove this Grafana integration and all dashboard bindings?">
+    <button type="submit" class="btn btn-secondary min-h-11 text-sm">Delete integration</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

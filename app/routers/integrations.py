@@ -1,4 +1,4 @@
-"""Integrations hub — Uptime Kuma first (API key + /metrics)."""
+"""Integrations hub — Uptime Kuma + Grafana (read-mostly)."""
 from __future__ import annotations
 
 import json
@@ -17,6 +17,7 @@ from .. import templates as templates_mod
 from ..database import get_session
 from ..models import AuditLog, Integration, Server, User
 from ..security.auth import get_current_user, get_operator_user, role_at_least, ROLE_OPERATOR
+from ..services.integrations import grafana as gf
 from ..services.integrations import poll as poll_svc
 from ..services.integrations import registry as reg
 from ..services.integrations import uptime_kuma as kuma
@@ -88,6 +89,8 @@ async def integrations_list(
                 "has_key": reg.has_credentials(r),
                 "ok": st.get("ok"),
                 "monitor_count": st.get("monitor_count"),
+                "dashboard_count": st.get("dashboard_count"),
+                "version": st.get("version") or "",
                 "poll_interval_sec": reg.poll_interval_sec(r),
             }
         )
@@ -192,6 +195,76 @@ async def kuma_create(
         return _redirect("/integrations/new/uptime-kuma", error="save_failed", detail=str(e)[:200])
 
 
+@router.get("/integrations/new/grafana", response_class=HTMLResponse)
+async def grafana_new_form(
+    request: Request,
+    user: User = Depends(get_operator_user),
+):
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="integrations_grafana_form.html",
+        context={
+            "title": "Add Grafana",
+            "user": user,
+            "mode": "new",
+            "integration": None,
+            "form": {
+                "name": "Grafana",
+                "base_url": "",
+                "poll_interval_sec": reg.DEFAULT_GRAFANA_POLL_SEC,
+                "tls_verify": True,
+                "enabled": True,
+                "query_template": "var-host={hostname}",
+            },
+            "has_key": False,
+            "error": request.query_params.get("error") or "",
+            "detail": request.query_params.get("detail") or "",
+        },
+    )
+
+
+@router.post("/integrations/new/grafana")
+async def grafana_create(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    name: str = Form("Grafana"),
+    base_url: str = Form(...),
+    api_key: str = Form(""),
+    poll_interval_sec: int = Form(reg.DEFAULT_GRAFANA_POLL_SEC),
+    tls_verify: Optional[str] = Form(None),
+    enabled: Optional[str] = Form("on"),
+    query_template: str = Form(""),
+):
+    try:
+        row = reg.create_grafana(
+            session,
+            name=name,
+            base_url=base_url,
+            api_key=api_key,
+            poll_interval_sec=poll_interval_sec,
+            tls_verify_flag=tls_verify in ("on", "1", "true"),
+            enabled=enabled in ("on", "1", "true") if enabled is not None else True,
+            query_template=query_template,
+        )
+        poll_svc.poll_integration(row.id, notify=False)
+        _audit(
+            session,
+            user,
+            "integration_created",
+            details=f"grafana id={row.id} name={row.name}",
+        )
+        return _redirect(f"/integrations/{row.id}", msg="created")
+    except ValueError as e:
+        return _redirect(
+            "/integrations/new/grafana", error="invalid", detail=str(e)[:200]
+        )
+    except Exception as e:
+        logger.exception("create grafana failed")
+        return _redirect(
+            "/integrations/new/grafana", error="save_failed", detail=str(e)[:200]
+        )
+
+
 @router.get("/integrations/{integration_id}", response_class=HTMLResponse)
 async def integration_detail(
     integration_id: int,
@@ -202,6 +275,8 @@ async def integration_detail(
     integration = reg.get_integration(session, integration_id)
     if not integration:
         raise HTTPException(404, "Integration not found")
+    if integration.type == reg.TYPE_GRAFANA:
+        return await _grafana_detail(request, session, user, integration)
     if integration.type != reg.TYPE_UPTIME_KUMA:
         raise HTTPException(400, "Unsupported integration type in UI yet")
 
@@ -348,15 +423,94 @@ async def integration_detail(
     )
 
 
+async def _grafana_detail(
+    request: Request,
+    session: Session,
+    user: User,
+    integration: Integration,
+):
+    servers = list(session.exec(select(Server).order_by(Server.name)).all())
+    bindings = reg.list_bindings(
+        session, integration_id=integration.id, role=reg.ROLE_DASHBOARD
+    )
+    dashboards = reg.dashboards_from_cache(integration)
+    status = reg.parse_last_status(integration)
+    server_by_id = {s.id: s for s in servers}
+    bound_rows = []
+    for b in bindings:
+        srv = server_by_id.get(b.server_id)
+        open_url = reg.binding_open_url(integration, b, server=srv)
+        bound_rows.append(
+            {
+                "id": b.id,
+                "server_id": b.server_id,
+                "server_name": srv.name if srv else f"#{b.server_id}",
+                "uid": b.external_id,
+                "label": b.external_label or b.external_id,
+                "state": b.last_state or "linked",
+                "message": b.last_message or "",
+                "open_url": open_url,
+                "checked_at": b.last_checked_at,
+            }
+        )
+    # Servers still available to bind (any server can have multiple dashboards)
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="integrations_grafana_detail.html",
+        context={
+            "title": integration.name,
+            "user": user,
+            "integration": integration,
+            "can_mutate": _can_mutate(user),
+            "servers": servers,
+            "dashboards": dashboards,
+            "bindings": bound_rows,
+            "status": status,
+            "has_key": reg.has_credentials(integration),
+            "poll_interval_sec": reg.poll_interval_sec(integration),
+            "tls_verify": reg.tls_verify(integration),
+            "query_template": reg.query_template(integration),
+            "open_url": gf.open_grafana_url(integration.base_url),
+            "msg": request.query_params.get("msg") or "",
+            "error": request.query_params.get("error") or "",
+            "detail": request.query_params.get("detail") or "",
+        },
+    )
+
+
 @router.get("/integrations/{integration_id}/edit", response_class=HTMLResponse)
-async def kuma_edit_form(
+async def integration_edit_form(
     integration_id: int,
     request: Request,
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
     integration = reg.get_integration(session, integration_id)
-    if not integration or integration.type != reg.TYPE_UPTIME_KUMA:
+    if not integration:
+        raise HTTPException(404)
+    if integration.type == reg.TYPE_GRAFANA:
+        return templates_mod.templates.TemplateResponse(
+            request=request,
+            name="integrations_grafana_form.html",
+            context={
+                "title": f"Edit {integration.name}",
+                "user": user,
+                "mode": "edit",
+                "integration": integration,
+                "form": {
+                    "name": integration.name,
+                    "base_url": integration.base_url,
+                    "poll_interval_sec": reg.poll_interval_sec(integration),
+                    "tls_verify": reg.tls_verify(integration),
+                    "enabled": integration.enabled,
+                    "query_template": reg.query_template(integration),
+                },
+                "has_key": reg.has_credentials(integration),
+                "error": request.query_params.get("error") or "",
+                "detail": request.query_params.get("detail") or "",
+            },
+        )
+    if integration.type != reg.TYPE_UPTIME_KUMA:
         raise HTTPException(404)
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -383,7 +537,7 @@ async def kuma_edit_form(
 
 
 @router.post("/integrations/{integration_id}/edit")
-async def kuma_edit(
+async def integration_edit(
     integration_id: int,
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
@@ -396,9 +550,47 @@ async def kuma_edit(
     username: str = Form(""),
     password: str = Form(""),
     clear_login: Optional[str] = Form(None),
+    query_template: str = Form(""),
+    clear_token: Optional[str] = Form(None),
 ):
     integration = reg.get_integration(session, integration_id)
-    if not integration or integration.type != reg.TYPE_UPTIME_KUMA:
+    if not integration:
+        raise HTTPException(404)
+    if integration.type == reg.TYPE_GRAFANA:
+        try:
+            reg.update_grafana(
+                session,
+                integration,
+                name=name,
+                base_url=base_url,
+                api_key=api_key if api_key.strip() else None,
+                poll_interval_sec=poll_interval_sec,
+                tls_verify_flag=tls_verify in ("1", "on", "true"),
+                enabled=enabled in ("1", "on", "true"),
+                query_template=query_template,
+                clear_token=clear_token in ("1", "on", "true"),
+            )
+            _audit(
+                session,
+                user,
+                "integration_updated",
+                details=f"id={integration_id} grafana",
+            )
+            return _redirect(f"/integrations/{integration_id}", msg="saved")
+        except ValueError as e:
+            return _redirect(
+                f"/integrations/{integration_id}/edit",
+                error="invalid",
+                detail=str(e)[:200],
+            )
+        except Exception as e:
+            logger.exception("grafana edit")
+            return _redirect(
+                f"/integrations/{integration_id}/edit",
+                error="save_failed",
+                detail=str(e)[:200],
+            )
+    if integration.type != reg.TYPE_UPTIME_KUMA:
         raise HTTPException(404)
     try:
         if clear_login in ("1", "on", "true"):
@@ -429,7 +621,7 @@ async def kuma_edit(
 
 
 @router.post("/integrations/{integration_id}/test")
-async def kuma_test(
+async def integration_test(
     integration_id: int,
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
@@ -439,8 +631,16 @@ async def kuma_test(
         raise HTTPException(404)
     result = poll_svc.test_connection(integration)
     if result.ok:
-        # Refresh cache without notifications on pure test
         poll_svc.poll_integration(integration_id, notify=False)
+        if integration.type == reg.TYPE_GRAFANA:
+            n = len(getattr(result, "dashboards", None) or [])
+            ver = getattr(result, "version", "") or ""
+            detail = f"v{ver}" if ver else "healthy"
+            if n:
+                detail = f"{detail} · {n} dashboards"
+            return _redirect(
+                f"/integrations/{integration_id}", msg="test_ok", detail=detail
+            )
         return _redirect(
             f"/integrations/{integration_id}",
             msg="test_ok",
@@ -454,7 +654,7 @@ async def kuma_test(
 
 
 @router.post("/integrations/{integration_id}/poll")
-async def kuma_poll(
+async def integration_poll(
     integration_id: int,
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
@@ -464,6 +664,15 @@ async def kuma_poll(
         raise HTTPException(404)
     summary = poll_svc.poll_integration(integration_id, notify=True)
     if summary.get("ok"):
+        if integration.type == reg.TYPE_GRAFANA:
+            n = summary.get("dashboard_count") or summary.get("monitor_count") or 0
+            ver = summary.get("version") or ""
+            detail = f"{n} dashboards"
+            if ver:
+                detail = f"v{ver} · {detail}"
+            return _redirect(
+                f"/integrations/{integration_id}", msg="polled", detail=detail
+            )
         return _redirect(
             f"/integrations/{integration_id}",
             msg="polled",
@@ -552,8 +761,79 @@ async def set_binding(
     if not integration:
         raise HTTPException(404)
     role = (role or reg.ROLE_SSH).strip()
-    if role not in (reg.ROLE_SSH, reg.ROLE_SERVICE):
+    if role not in (reg.ROLE_SSH, reg.ROLE_SERVICE, reg.ROLE_DASHBOARD):
         role = reg.ROLE_SSH
+
+    if role == reg.ROLE_DASHBOARD:
+        section = "grafana-dashboards"
+        scope = "dashboard"
+        if clear in ("1", "on", "true") or not (external_id or "").strip():
+            reg.clear_binding(
+                session,
+                integration_id=integration_id,
+                server_id=server_id,
+                role=role,
+                external_id=external_id,
+                binding_id=binding_id,
+            )
+            _audit(
+                session,
+                user,
+                "integration_binding_cleared",
+                server_id=server_id,
+                details=f"integration={integration_id} role={role}",
+            )
+            return _redirect(
+                f"/integrations/{integration_id}",
+                fragment=section,
+                msg="binding_cleared",
+                scope=scope,
+            )
+        # Resolve meta from cached dashboards or manual uid
+        mon_meta: dict = {}
+        mon_label = None
+        for d in reg.dashboards_from_cache(integration):
+            if str(d.get("uid")) == str(external_id).strip():
+                mon_meta = dict(d)
+                mon_label = d.get("title") or d.get("name")
+                break
+        if not mon_meta:
+            mon_meta = {"uid": external_id.strip()}
+            mon_label = external_id.strip()
+        try:
+            reg.set_binding(
+                session,
+                integration_id=integration_id,
+                server_id=server_id,
+                external_id=external_id,
+                role=role,
+                external_label=mon_label,
+                external_meta=mon_meta,
+                last_state="linked",
+                last_message=mon_meta.get("folder_title") or "dashboard",
+                binding_id=binding_id,
+            )
+            _audit(
+                session,
+                user,
+                "integration_binding_set",
+                server_id=server_id,
+                details=f"integration={integration_id} role={role} uid={external_id}",
+            )
+            return _redirect(
+                f"/integrations/{integration_id}",
+                fragment=section,
+                msg="binding_saved",
+                scope=scope,
+            )
+        except ValueError as e:
+            return _redirect(
+                f"/integrations/{integration_id}",
+                fragment=section,
+                error="binding_failed",
+                detail=str(e)[:200],
+                scope=scope,
+            )
 
     if clear in ("1", "on", "true") or not (external_id or "").strip():
         reg.clear_binding(
