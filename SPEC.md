@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** v0.2 target — Phase 1–3 complete; Phase 4 in progress; Phase 4b (H0.5) shipped; **Phase 5 H1 Kuma slice shipped**  
-> **Last updated:** 2026-07-10 — Integration hub (Uptime Kuma): API key + `/metrics`, SSH + host/Docker service bindings, Services pages + logos, fleet `/services`
+> **Status:** **v0.2.0 tagged** — Phase 1–4b complete; Phase 5 H1 Kuma shipped; toward **v0.3.0** (Grafana + remaining integrations)  
+> **Last updated:** 2026-07-10 — Release `v0.2.0`; next: Grafana integration
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -174,8 +174,8 @@ Carried refinements + ship blockers for a clean install story. Detail: [docs/ROA
 - [x] **Token REST API** — admin-managed API tokens; `/api/v1` fleet read + job triggers
 - [x] **Compose volume defaults** — `./backups`, `./piherder_backups`, `./piherder_data`, `./certs`
 - [x] **Production ADMIN section** — TLS, upgrades, metrics, webhooks, API tokens
-- [ ] Pre-built multi-arch image on Docker Hub / GHCR + README pull path
-- [ ] GitHub Release `v0.2.0` notes
+- [x] **Git tag `v0.2.0`** + release notes — [docs/RELEASE_v0.2.0.md](docs/RELEASE_v0.2.0.md)
+- [ ] Pre-built multi-arch image on Docker Hub / GHCR + README pull path (process: [docs/PUBLISH_IMAGE.md](docs/PUBLISH_IMAGE.md); not required to keep the git tag)
 
 ---
 

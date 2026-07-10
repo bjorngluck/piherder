@@ -50,11 +50,14 @@ Keep the same env vars and volumes as [docker-compose.yml](../docker-compose.yml
 
 ## Checklist before push
 
-- [ ] `pytest -q` green  
+- [x] Git tag `v0.2.0` + [RELEASE_v0.2.0.md](RELEASE_v0.2.0.md)  
+- [x] `pyproject.toml` version `0.2.0`  
+- [x] SPEC / README version notes updated  
+- [ ] `pytest -q` green (run before image build)  
 - [ ] Manual smoke: register, add server, backup, metrics, create API token  
-- [ ] SPEC / README version notes updated  
-- [ ] GitHub Release with changelog  
-- [ ] `SECURITY.md` still accurate  
+- [ ] Multi-arch `docker buildx` push to Docker Hub / GHCR  
+- [ ] GitHub Release (optional; attach notes from RELEASE_v0.2.0.md)  
+- [ ] `SECURITY.md` still accurate
 
 ## Until published
 

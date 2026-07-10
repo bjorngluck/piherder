@@ -18,13 +18,15 @@ Design principles stay the same as SPEC:
 
 ## Release track
 
-| Version | Theme | Horizon |
-|---------|--------|---------|
-| **v0.2** | Production install story (image, compose, token REST, prod docs) | H0 |
-| **v0.2.x** | Platform reliability (host deps, stack Status tab, multi-worker design) | H0.5 |
-| **v0.3** | Integration hub — **Uptime Kuma shipped**; Grafana / multi-URL open | H1 |
-| **v0.4** | Service templates + onboard wizards (monitor / DNS / TLS) | H2 |
-| **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze |
+| Version | Theme | Horizon | Status |
+|---------|--------|---------|--------|
+| **v0.2.0** | Production install story (compose, token REST, prod docs) + H0.5 + early Kuma | H0 / H0.5 | **Tagged** 2026-07-10 — [RELEASE_v0.2.0.md](RELEASE_v0.2.0.md) |
+| **v0.2.x** | Platform reliability (host deps, stack Status tab, multi-worker) | H0.5 | Shipped on main (included in v0.2.0) |
+| **v0.3.0** | Integration hub — Kuma done; **Grafana** + multi-URL next | H1 | In progress (post-tag) |
+| **v0.4** | Service templates + onboard wizards (monitor / DNS / TLS) | H2 | Planned |
+| **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
+
+**Note:** Registry image publish (`bjorngluck/piherder:0.2.0`) remains optional until Docker Hub/GHCR credentials are available; the git tag is the source of truth for this release.
 
 ---
 
@@ -38,8 +40,10 @@ Design principles stay the same as SPEC:
 | Production ADMIN guide | TLS, upgrades, metrics scrape, webhooks → Signal |
 | Community scaffolding | SECURITY.md, Discussions/Discord pointers in README |
 
-**Out of scope for H0:** templates, Uptime Kuma/Grafana product UI, HA plugin, AI.  
-**Ship bar:** published image + compose + docs. Platform reliability (below) can ship as **v0.2.x** patches and is not required to tag `0.2.0`.
+**Out of scope for H0:** templates, Grafana product UI, HA plugin, AI.  
+**v0.2.0 ship bar (git tag):** compose defaults + token REST + prod docs + H0.5 reliability.  
+Uptime Kuma (H1) also landed on `main` before the tag and is included.  
+**Optional:** multi-arch image on Docker Hub/GHCR ([PUBLISH_IMAGE.md](PUBLISH_IMAGE.md)).
 
 ---
 

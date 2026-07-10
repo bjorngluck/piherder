@@ -2,7 +2,12 @@
 
 ## Supported versions
 
-PiHerder is under active development (pre-1.0). Security fixes are applied on the default branch (`main`). Please upgrade to the latest commit or release tag when available.
+| Version | Support |
+|---------|---------|
+| **v0.2.x** (tag `v0.2.0`+) | Current release line |
+| `main` | Active development (pre-1.0) |
+
+Security fixes are applied on the default branch (`main`) and cherry-picked or released as patch tags when warranted. Prefer the latest release tag or `main` for fixes.
 
 ## Reporting a vulnerability
 
