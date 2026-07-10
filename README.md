@@ -165,7 +165,7 @@ Use the built-in scheduler:
 
 Silent auto-upgrade is never the default: apply schedules are opt-in and prefer “only if updates pending”.
 
-**Automation (token REST API):** admins create **instance-wide** tokens under **Settings → Automation API tokens** (`#api-tokens`). Scopes: `read` / `jobs` / `edit` plus optional `feature:backup|os|docker` and **IP/CIDR allowlists**. Use `Authorization: Bearer ph_…` on `/api/v1/*`. Full reference: [docs/API.md](docs/API.md); interactive: `/docs`.
+**Automation (token REST API):** admins open **Settings → API management** (`?tab=api`) for tokens, in-app **API reference**, and endpoint catalog. Scopes: `read` / `jobs` / `edit` plus optional `feature:backup|os|docker` and **IP/CIDR allowlists**. Use `Authorization: Bearer ph_…` on `/api/v1/*`. Repo guide: [docs/API.md](docs/API.md); interactive: `/docs`.
 
 ## Security Notes
 

@@ -383,8 +383,8 @@ Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/pihe
 
 **Full reference:** [API.md](API.md) · interactive **OpenAPI** at `/docs` (tag **api-v1**).
 
-**Where:** Settings (`/herder-backups`) → **Automation API tokens** (jump link on page header). **Admin only.**  
-**Also:** `GET/POST /api/v1/tokens`, `DELETE /api/v1/tokens/{id}` with admin **session** (not Bearer).
+**Where:** **Settings** → tab **API management** (`/herder-backups?tab=api`). Sub-panels: **Tokens** · **API reference** (in-app `docs/API.md`) · **Endpoint catalog**. **Admin only.**  
+**Also:** `GET/POST /api/v1/tokens`, `DELETE /api/v1/tokens/{id}` with admin **session** (not Bearer). Interactive OpenAPI: `/docs`.
 
 | Model | Detail |
 |-------|--------|

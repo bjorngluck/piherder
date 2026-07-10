@@ -11,7 +11,7 @@ This API is for **automation** (n8n, Home Assistant, scripts). Browser UI uses s
 
 | Question | Answer |
 |----------|--------|
-| Who creates tokens? | **Admins only** (Settings → Automation API tokens) |
+| Who creates tokens? | **Admins only** (Settings → **API management** → Tokens) |
 | Per-user or shared? | **Instance-wide** (service / automation credentials) |
 | Personal PATs? | Not in v1 — use service tokens named per integration |
 | Audit | Jobs attribute to the **admin who created** the token when available |
