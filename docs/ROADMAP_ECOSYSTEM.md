@@ -33,7 +33,7 @@ Design principles stay the same as SPEC:
 |------|--------|
 | Docker Hub (or GHCR) image | Documented pull path; tags `0.2.x` + `latest` when published |
 | Clean compose example | Relative volumes; no `~/` bind-mount assumptions |
-| Token REST API | Bearer tokens for fleet read + job triggers (n8n / HA / automation) |
+| Token REST API | Admin-managed Bearer tokens: `read`/`jobs`/`edit` + feature scopes + IP allowlist; [API.md](API.md) |
 | Production ADMIN guide | TLS, upgrades, metrics scrape, webhooks → Signal |
 | Community scaffolding | SECURITY.md, Discussions/Discord pointers in README |
 

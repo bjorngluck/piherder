@@ -119,7 +119,29 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown()
 
 
-app = FastAPI(title="PiHerder", lifespan=lifespan)
+app = FastAPI(
+    title="PiHerder",
+    description=(
+        "Self-hosted fleet manager. Interactive UI uses session cookies. "
+        "Automation uses **Bearer API tokens** under `/api/v1` "
+        "(admin-managed; see **docs/API.md** and Settings → API tokens)."
+    ),
+    version="0.2.0",
+    lifespan=lifespan,
+    openapi_tags=[
+        {
+            "name": "api-v1",
+            "description": (
+                "Automation REST API. Auth: `Authorization: Bearer ph_…`. "
+                "Scopes: `read`, `jobs`, `edit`, optional `feature:backup|os|docker`. "
+                "Optional per-token IP/CIDR allowlist."
+            ),
+        },
+        {"name": "auth", "description": "Browser login / account"},
+        {"name": "servers", "description": "Fleet servers (UI + HTMX)"},
+        {"name": "metrics", "description": "Prometheus scrape (/metrics)"},
+    ],
+)
 
 # Onboarding redirects (must change password / force 2FA)
 from .security.auth import OnboardingRedirect
@@ -293,6 +315,11 @@ async def create_api_token_form(
     name: str = Form(...),
     scope_read: Optional[str] = Form(None),
     scope_jobs: Optional[str] = Form(None),
+    scope_edit: Optional[str] = Form(None),
+    scope_feature_backup: Optional[str] = Form(None),
+    scope_feature_os: Optional[str] = Form(None),
+    scope_feature_docker: Optional[str] = Form(None),
+    allowed_cidrs: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
@@ -304,15 +331,27 @@ async def create_api_token_form(
         scopes.append("read")
     if scope_jobs in ("1", "on", "true"):
         scopes.append("jobs")
+    if scope_edit in ("1", "on", "true"):
+        scopes.append("edit")
+    if scope_feature_backup in ("1", "on", "true"):
+        scopes.append("feature:backup")
+    if scope_feature_os in ("1", "on", "true"):
+        scopes.append("feature:os")
+    if scope_feature_docker in ("1", "on", "true"):
+        scopes.append("feature:docker")
     if not scopes:
         scopes = ["read", "jobs"]
     row, plain = tok_svc.create_api_token(
-        session, name=name, created_by=user, scopes=scopes
+        session,
+        name=name,
+        created_by=user,
+        scopes=scopes,
+        allowed_cidrs=allowed_cidrs or None,
     )
     # One-time reveal via query (same pattern as admin user invite; short-lived in browser history)
     return RedirectResponse(
         f"/herder-backups?token_created=1&token_name={quote(row.name)}"
-        f"&token_secret={quote(plain)}",
+        f"&token_secret={quote(plain)}#api-tokens",
         status_code=303,
     )
 

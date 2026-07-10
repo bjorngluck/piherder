@@ -300,17 +300,23 @@ class PushVapidConfig(SQLModel, table=True):
 
 
 class ApiToken(SQLModel, table=True):
-    """Automation API token. Plaintext shown once at creation; only hash is stored.
+    """Admin-managed automation API token (instance-wide, not personal PAT).
 
-    Scopes (comma-separated): read | jobs
-    - read  — GET fleet / jobs
-    - jobs  — POST job triggers
+    Plaintext shown once at creation; only hash is stored.
+
+    Scopes (comma-separated):
+      Capability: read | jobs | edit
+      Feature allowlist (optional): feature:backup | feature:os | feature:docker
+      If no feature:* scopes → all features allowed (still subject to server flags).
+
+    allowed_cidrs: optional JSON list of IPs/CIDRs; empty/null = any client IP.
     """
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
     token_prefix: str = Field(index=True)  # first chars for UI (e.g. ph_abc1…)
     token_hash: str = Field(unique=True, index=True)
     scopes: str = Field(default="read,jobs")  # comma-separated
+    allowed_cidrs: Optional[str] = None  # JSON list e.g. ["10.0.0.0/8","192.168.1.10"]
     created_by_user_id: Optional[int] = Field(default=None, foreign_key="user.id")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     last_used_at: Optional[datetime] = None

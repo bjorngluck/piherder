@@ -13,6 +13,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **Specification:** [SPEC.md](SPEC.md) — link this to your [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) board
 - **Ecosystem roadmap:** [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) (production → integrations → templates → community)
 - **Admin guide (RBAC, users, schedules, jobs, TLS/PWA/push, API tokens):** [docs/ADMIN.md](docs/ADMIN.md)
+- **Automation API reference:** [docs/API.md](docs/API.md) · live OpenAPI at `/docs` (tag **api-v1**)
 - **Publish image:** [docs/PUBLISH_IMAGE.md](docs/PUBLISH_IMAGE.md)
 - **Security:** [SECURITY.md](SECURITY.md)
 - **IAM / 2FA / update checks / notifications:** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
@@ -164,7 +165,7 @@ Use the built-in scheduler:
 
 Silent auto-upgrade is never the default: apply schedules are opt-in and prefer “only if updates pending”.
 
-**Automation (token REST API):** admins can create API tokens under **Settings → API tokens** (or via the users/settings area). Use `Authorization: Bearer ph_…` against `/api/v1/*` for fleet inventory and job triggers (n8n, Home Assistant, scripts). See [docs/ADMIN.md](docs/ADMIN.md) § API tokens.
+**Automation (token REST API):** admins create **instance-wide** tokens under **Settings → Automation API tokens** (`#api-tokens`). Scopes: `read` / `jobs` / `edit` plus optional `feature:backup|os|docker` and **IP/CIDR allowlists**. Use `Authorization: Bearer ph_…` on `/api/v1/*`. Full reference: [docs/API.md](docs/API.md); interactive: `/docs`.
 
 ## Security Notes
 

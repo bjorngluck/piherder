@@ -379,44 +379,53 @@ Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/pihe
 
 ---
 
-## 8. API tokens (`/api/v1`)
+## 8. Automation API tokens (`/api/v1`)
 
-**Where:** Settings (`/herder-backups`) → **API tokens** (admin only).  
-**Also:** `GET/POST /api/v1/tokens`, `DELETE /api/v1/tokens/{id}` with session admin auth.
+**Full reference:** [API.md](API.md) · interactive **OpenAPI** at `/docs` (tag **api-v1**).
+
+**Where:** Settings (`/herder-backups`) → **Automation API tokens** (jump link on page header). **Admin only.**  
+**Also:** `GET/POST /api/v1/tokens`, `DELETE /api/v1/tokens/{id}` with admin **session** (not Bearer).
+
+| Model | Detail |
+|-------|--------|
+| Ownership | **Instance-wide**, admin-managed (not per-user PATs) |
+| Secret | `ph_…` shown **once**; stored hashed |
+| Capability scopes | `read` · `jobs` · `edit` |
+| Feature allowlist | Optional `feature:backup` · `feature:os` · `feature:docker` (none = all features) |
+| IP allowlist | Optional IPs/CIDRs per token; empty = any IP |
+| Server flags | Jobs still require the server’s feature enabled (toggle via UI or `PATCH …/features`) |
 
 | Scope | Allows |
 |-------|--------|
-| `read` | `GET /api/v1/servers`, jobs list/detail, `/api/v1/health` |
-| `jobs` | `POST /api/v1/servers/{id}/jobs` (backup, retention, os/container patch & checks) |
-
-- Tokens look like `ph_…`. The **plaintext is shown once** at creation; only a hash is stored.  
-- Use `Authorization: Bearer ph_…`.  
-- Job triggers respect per-server **feature flags** (e.g. backups must be enabled).  
-- Audit attribution uses the **user who created** the token when available.  
-- Revoke immediately if leaked.
+| `read` | Catalog `GET /api/v1`, health, servers, jobs |
+| `jobs` | `POST /api/v1/servers/{id}/jobs` |
+| `edit` | `PATCH /api/v1/servers/{id}/features` |
+| `feature:*` | Restrict which features jobs/edits may touch |
 
 ### Examples
 
 ```bash
+# Catalog (scopes + endpoints)
+curl -sS -H "Authorization: Bearer ph_…" \
+  https://piherder.example.com/api/v1
+
 # List fleet
 curl -sS -H "Authorization: Bearer ph_…" \
   https://piherder.example.com/api/v1/servers
 
-# Trigger backup (202 + job_id)
+# Enable backups feature then run backup
+curl -sS -X PATCH -H "Authorization: Bearer ph_…" \
+  -H "Content-Type: application/json" \
+  -d '{"backup": true}' \
+  https://piherder.example.com/api/v1/servers/1/features
+
 curl -sS -X POST -H "Authorization: Bearer ph_…" \
   -H "Content-Type: application/json" \
   -d '{"job_type":"backup"}' \
   https://piherder.example.com/api/v1/servers/1/jobs
-
-# Poll job
-curl -sS -H "Authorization: Bearer ph_…" \
-  https://piherder.example.com/api/v1/jobs/42?detail=true
 ```
 
-`job_type` values: `backup`, `retention`, `os_patch`, `container_patch`, `os_update_check`, `container_update_check`.  
-Optional body fields: `source_filter` (backup), `os_steps` (list for os_patch).
-
-Use from **n8n** HTTP Request nodes or **Home Assistant** `rest_command` / future custom integration.
+Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backup` + n8n host IP.
 
 ---
 
