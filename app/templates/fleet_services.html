@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">Services</h1>
+    <p class="text-sm text-muted mt-1">
+      Fleet-wide HTTP/TLS apps monitored via Uptime Kuma. Icons from favicon discovery or your upload.
+    </p>
+  </div>
+  <div class="page-header-actions flex flex-wrap gap-2">
+    <a href="/integrations" class="btn btn-secondary min-h-11">Integrations</a>
+    <a href="/" class="btn btn-secondary min-h-11">Dashboard</a>
+  </div>
+</div>
+
+{% if msg == 'logo_saved' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">Logo saved.</div>
+{% elif msg == 'logo_discovered' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">Logo discovered from service URL.</div>
+{% elif msg == 'logo_deleted' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">Logo removed.</div>
+{% endif %}
+{% if error == 'logo' %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  Logo error{% if detail %}— {{ detail }}{% endif %}
+</div>
+{% endif %}
+
+<div class="flex flex-wrap gap-3 text-sm mb-6">
+  <span class="card px-3 py-2"><strong class="text-primary text-xl">{{ service_count }}</strong> <span class="text-muted text-xs">total</span></span>
+  <span class="card px-3 py-2"><strong class="text-xl {% if up_count %}text-text{% endif %}">{{ up_count }}</strong> <span class="text-muted text-xs">up</span></span>
+  <span class="card px-3 py-2"><strong class="text-xl {% if down_count %}text-amber-500{% else %}text-text{% endif %}">{{ down_count }}</strong> <span class="text-muted text-xs">down</span></span>
+</div>
+
+{% if not services %}
+<div class="card p-6 max-w-lg">
+  <p class="text-sm text-muted mb-3">
+    No service monitors yet. Bind HTTP checks under Integrations (host service or Docker project).
+  </p>
+  <a href="/integrations" class="btn btn-accent min-h-11">Open Integrations</a>
+</div>
+{% else %}
+
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+  {% for s in services %}
+  <div class="card p-3 sm:p-4 flex flex-col items-center text-center gap-2 border border-border hover:border-primary/30 transition-colors relative group">
+    {# Main open target: service URL preferred, else Kuma #}
+    {% set href = s.url if s.url and s.url.startswith('http') else (s.open_url or ('/servers/' ~ s.server_id ~ '/services')) %}
+    <a href="{{ href }}"
+       {% if href.startswith('http') %}target="_blank" rel="noopener"{% endif %}
+       class="no-underline flex flex-col items-center gap-2 w-full min-w-0">
+      <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-border bg-surface flex items-center justify-center overflow-hidden shadow-sm">
+        {% if s.logo_url %}
+        <img src="{{ s.logo_url }}" alt="" class="w-full h-full object-contain p-1.5"
+             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+        <span class="hidden w-full h-full items-center justify-center text-lg font-semibold text-primary">
+          {{ (s.label or '?')[0]|upper }}
+        </span>
+        {% else %}
+        <span class="text-lg font-semibold text-primary">{{ (s.label or '?')[0]|upper }}</span>
+        {% endif %}
+      </div>
+      <div class="min-w-0 w-full">
+        <div class="text-sm font-medium text-text truncate" title="{{ s.label }}">{{ s.label }}</div>
+        <div class="text-[10px] text-muted truncate" title="{{ s.server_name }}">{{ s.server_name }}</div>
+      </div>
+      <div class="flex flex-wrap justify-center gap-1">
+        <span class="status-pill text-[10px]
+          {% if s.state == 'up' %}status-success
+          {% elif s.state == 'down' %}status-failed
+          {% else %}feature-off{% endif %}">{{ s.state }}</span>
+        {% if s.cert_valid is sameas true and s.cert_days is not none %}
+        <span class="status-pill text-[10px] status-success">TLS {{ s.cert_days|int }}d</span>
+        {% elif s.cert_valid is sameas false %}
+        <span class="status-pill text-[10px] status-failed">TLS ✗</span>
+        {% endif %}
+      </div>
+    </a>
+    <div class="flex flex-wrap justify-center gap-1 w-full text-[10px]">
+      {% if s.url and s.url.startswith('http') %}
+      <a href="{{ s.url }}" target="_blank" rel="noopener" class="text-accent hover:underline">App</a>
+      {% endif %}
+      {% if s.open_url %}
+      <a href="{{ s.open_url }}" target="_blank" rel="noopener" class="text-accent hover:underline">Kuma</a>
+      {% endif %}
+      <a href="/servers/{{ s.server_id }}/services" class="text-muted hover:underline">Host</a>
+    </div>
+    {% if can_mutate and s.id %}
+    <details class="w-full text-left mt-1">
+      <summary class="text-[10px] text-muted cursor-pointer select-none">Logo…</summary>
+      <div class="mt-2 space-y-1.5">
+        <form method="post" action="/services/{{ s.id }}/logo" enctype="multipart/form-data" class="flex flex-col gap-1">
+          <input type="hidden" name="next" value="/services">
+          <input type="file" name="file" accept="image/*" class="text-[10px] w-full" required>
+          <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Upload</button>
+        </form>
+        <form method="post" action="/services/{{ s.id }}/logo/discover">
+          <input type="hidden" name="next" value="/services">
+          <button type="submit" class="btn btn-secondary text-[10px] min-h-8 w-full">Fetch favicon</button>
+        </form>
+        {% if s.has_logo %}
+        <form method="post" action="/services/{{ s.id }}/logo/delete">
+          <input type="hidden" name="next" value="/services">
+          <button type="submit" class="btn btn-secondary text-[10px] min-h-8 w-full text-danger">Remove logo</button>
+        </form>
+        {% endif %}
+      </div>
+    </details>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% endif %}
+{% endblock %}

@@ -1,0 +1,426 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">{{ integration.name }}</h1>
+    <p class="text-sm text-muted mt-1 font-mono">{{ integration.base_url }}</p>
+  </div>
+  <div class="page-header-actions flex flex-wrap gap-2">
+    <a href="{{ open_url }}" target="_blank" rel="noopener" class="btn btn-secondary min-h-11">Open in Kuma</a>
+    {% if can_mutate %}
+    <form method="post" action="/integrations/{{ integration.id }}/poll" class="inline">
+      <button type="submit" class="btn btn-secondary min-h-11">Poll now</button>
+    </form>
+    <form method="post" action="/integrations/{{ integration.id }}/test" class="inline">
+      <button type="submit" class="btn btn-secondary min-h-11">Test</button>
+    </form>
+    <a href="/integrations/{{ integration.id }}/edit" class="btn btn-secondary min-h-11">Edit</a>
+    {% endif %}
+    <a href="/integrations" class="btn btn-secondary min-h-11">Back</a>
+  </div>
+</div>
+
+{% if msg == 'created' or msg == 'saved' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">Saved.</div>
+{% elif msg == 'test_ok' or msg == 'polled' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  {% if msg == 'test_ok' %}Test OK{% else %}Poll complete{% endif %}
+  {% if detail %} — {{ detail }}{% endif %}
+</div>
+{% endif %}
+{% if error and error not in ('binding_failed',) %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  {% if error == 'test_failed' %}Test failed
+  {% elif error == 'poll_failed' %}Poll failed
+  {% elif error == 'poll_busy' %}Poll already running
+  {% else %}Error{% endif %}
+  {% if detail %}— {{ detail }}{% endif %}
+</div>
+{% endif %}
+
+{# Connection summary #}
+<div class="card p-4 mb-4">
+  <div class="flex flex-wrap gap-3 items-center text-sm">
+    {% if not integration.enabled %}
+    <span class="status-pill feature-off">disabled</span>
+    {% elif status.get('ok') %}
+    <span class="status-pill status-success">connected</span>
+    {% elif integration.last_error %}
+    <span class="status-pill status-failed">error</span>
+    {% else %}
+    <span class="status-pill feature-off">unknown</span>
+    {% endif %}
+    <span class="text-muted">
+      {{ status.get('monitor_count', monitors|length) }} monitors
+      · poll every {{ poll_interval_sec }}s
+      {% if integration.last_polled_at %}
+      · last poll {{ integration.last_polled_at }}
+      {% endif %}
+    </span>
+  </div>
+  {% if integration.last_error %}
+  <p class="text-xs text-danger mt-2">{{ integration.last_error }}</p>
+  {% endif %}
+</div>
+
+{# Level 1: Server → SSH #}
+{% set scope = request.query_params.get('scope') or '' %}
+<div class="card p-4 sm:p-5 mb-6" id="kuma-ssh" style="scroll-margin-top: 5rem;">
+  {% if scope == 'ssh' or scope == '' %}
+  {% if msg == 'suggested' %}
+  <div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+    Applied {{ detail or '0' }} suggested SSH binding(s).
+  </div>
+  {% elif msg == 'binding_saved' and scope == 'ssh' %}
+  <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Binding saved.</div>
+  {% elif msg == 'binding_cleared' and scope == 'ssh' %}
+  <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Binding cleared.</div>
+  {% endif %}
+  {% if error == 'binding_failed' and scope == 'ssh' %}
+  <div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+    Binding failed{% if detail %}— {{ detail }}{% endif %}
+  </div>
+  {% endif %}
+  {% endif %}
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <h2 class="font-semibold text-text">1 · Server → SSH monitor</h2>
+    {% if can_mutate and monitors %}
+    <form method="post" action="/integrations/{{ integration.id }}/suggest-bindings" class="inline">
+      <button type="submit" class="btn btn-secondary text-xs min-h-9"
+              title="Match unbound servers by hostname/IP and SSH port">Suggest matches</button>
+    </form>
+    {% endif %}
+  </div>
+  <p class="text-xs text-muted mb-3">
+    Map each host to its Kuma TCP/SSH check.
+    <strong>Dashboard ID</strong> is the number in
+    <code class="text-[10px]">…/dashboard/32</code> (auto-filled if Kuma login is set, or enter manually).
+  </p>
+  {% if not has_kuma_login %}
+  <p class="text-[11px] text-muted mb-3 banner-info border border-border rounded p-2">
+    Tip: add optional Kuma <strong>username + password</strong> under Edit to auto-resolve dashboard IDs on poll.
+    API key alone cannot list numeric IDs on Kuma 1.23.
+  </p>
+  {% endif %}
+
+  {% if not binding_rows %}
+  <p class="text-sm text-muted">No servers yet. <a href="/servers/add" class="text-accent hover:underline">Add a server</a>.</p>
+  {% else %}
+  <div class="space-y-3">
+    {% for row in binding_rows %}
+    <div class="border border-border rounded p-3 flex flex-col gap-2">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="min-w-0">
+          <a href="/servers/{{ row.server_id }}" class="font-medium text-text hover:text-primary">{{ row.server_name }}</a>
+          <div class="text-[11px] text-muted font-mono">{{ row.hostname }}{% if row.ssh_port %}:{{ row.ssh_port }}{% endif %}</div>
+          {% if row.state %}
+          <span class="status-pill text-xs mt-1 inline-block
+            {% if row.state == 'up' %}status-success
+            {% elif row.state == 'down' %}status-failed
+            {% elif row.state == 'pending' or row.state == 'maintenance' %}status-running
+            {% else %}feature-off{% endif %}">{{ row.state }}</span>
+          {% if row.message %}<span class="text-[10px] text-muted ml-1">{{ row.message }}</span>{% endif %}
+          {% endif %}
+        </div>
+        {% if row.open_url and row.dashboard_id %}
+        <a href="{{ row.open_url }}" target="_blank" rel="noopener" class="text-xs text-accent hover:underline">
+          Open /dashboard/{{ row.dashboard_id }} →
+        </a>
+        {% endif %}
+      </div>
+      {% if can_mutate %}
+      <form method="post" action="/integrations/{{ integration.id }}/bindings"
+            class="flex flex-wrap gap-2 items-end">
+        <input type="hidden" name="server_id" value="{{ row.server_id }}">
+        <input type="hidden" name="role" value="ssh_reachability">
+        <div class="flex-1 min-w-[12rem]">
+          <label class="text-[10px] text-muted">Kuma monitor</label>
+          <select name="external_id" class="input text-sm w-full">
+            <option value="">— not bound —</option>
+            {% for m in ssh_monitors or monitors %}
+            <option value="{{ m.id }}"
+              data-dash="{{ m.dashboard_id or '' }}"
+              {% if row.external_id and row.external_id == (m.id|string) %}selected
+              {% elif not row.external_id and suggestions.get(row.server_id) == (m.id|string) %}selected
+              {% endif %}>
+              {{ m.name }} ({{ m.type or '?' }} {{ m.target or m.hostname }}) — {{ m.status }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="w-28">
+          <label class="text-[10px] text-muted">Dashboard ID</label>
+          <input type="text" name="dashboard_id" inputmode="numeric" pattern="[0-9]*"
+                 class="input text-sm w-full font-mono"
+                 placeholder="32"
+                 value="{{ row.dashboard_id or suggestion_dashboard.get(row.server_id, '') }}">
+        </div>
+        <button type="submit" class="btn btn-secondary text-xs min-h-9">Save</button>
+        {% if row.external_id %}
+        <button type="submit" name="clear" value="1" class="btn btn-secondary text-xs min-h-9">Clear</button>
+        {% endif %}
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{# Level 2: Docker project/container → HTTP / TLS #}
+<div class="card p-4 sm:p-5 mb-6" id="kuma-services" style="scroll-margin-top: 5rem;">
+  {% if scope == 'service' %}
+  {% if msg == 'binding_saved' %}
+  <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Service binding saved.</div>
+  {% elif msg == 'binding_cleared' %}
+  <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Service binding removed.</div>
+  {% endif %}
+  {% if error == 'binding_failed' %}
+  <div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+    Binding failed{% if detail %}— {{ detail }}{% endif %}
+  </div>
+  {% endif %}
+  {% endif %}
+  <h2 class="font-semibold text-text mb-2">2 · HTTP / TLS service monitors</h2>
+  <p class="text-xs text-muted mb-3">
+    Bind a Kuma HTTP(s) check either to a <strong>host service</strong> (no Docker — e.g. Home Assistant on HAOS)
+    or to a <strong>compose project / container</strong> on the host. Host services appear on the server page;
+    Docker ones on the Docker page. TLS days come from Kuma.
+  </p>
+
+  {% if service_rows %}
+  <div class="space-y-2 mb-4">
+    {% for row in service_rows %}
+    <div class="border border-border rounded p-3 flex flex-wrap items-center justify-between gap-2">
+      <div class="min-w-0">
+        <div class="text-sm font-medium text-text">
+          {{ row.external_label }}
+          <span class="status-pill text-xs ml-1
+            {% if row.state == 'up' %}status-success
+            {% elif row.state == 'down' %}status-failed
+            {% else %}feature-off{% endif %}">{{ row.state or '—' }}</span>
+          {% if row.cert_valid is sameas true and row.cert_days is not none %}
+          <span class="status-pill text-xs status-success">TLS {{ row.cert_days|int }}d</span>
+          {% elif row.cert_valid is sameas false %}
+          <span class="status-pill text-xs status-failed">TLS invalid</span>
+          {% endif %}
+          {% if row.docker_project %}
+          <span class="status-pill text-xs feature-off">docker</span>
+          {% else %}
+          <span class="status-pill text-xs status-running">host service</span>
+          {% endif %}
+        </div>
+        <div class="text-[11px] text-muted">
+          <a href="/servers/{{ row.server_id }}" class="text-accent hover:underline">{{ row.server_name }}</a>
+          {% if row.docker_project %}
+          · <a href="/servers/{{ row.server_id }}/docker" class="text-accent hover:underline">Docker</a>
+          · <span class="font-mono">{{ row.docker_project }}</span>
+          {% if row.docker_container %}/ <span class="font-mono">{{ row.docker_container }}</span>{% endif %}
+          {% else %}
+          · host service (no container)
+          {% endif %}
+          {% if row.url %} · <span class="font-mono">{{ row.url }}</span>{% endif %}
+          {% if row.message %} · {{ row.message }}{% endif %}
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2 items-center">
+        {% if row.open_url and row.dashboard_id %}
+        <a href="{{ row.open_url }}" target="_blank" rel="noopener" class="text-xs text-accent hover:underline">Open in Kuma</a>
+        {% endif %}
+        {% if can_mutate %}
+        <form method="post" action="/integrations/{{ integration.id }}/bindings" class="inline">
+          <input type="hidden" name="server_id" value="{{ row.server_id }}">
+          <input type="hidden" name="role" value="service">
+          <input type="hidden" name="external_id" value="{{ row.external_id }}">
+          <input type="hidden" name="binding_id" value="{{ row.binding_id }}">
+          <button type="submit" name="clear" value="1" class="btn btn-secondary text-xs min-h-9">Remove</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-muted mb-3">No service bindings yet.</p>
+  {% endif %}
+
+  {% if can_mutate and servers and (service_monitors or monitors) %}
+  <form method="post" action="/integrations/{{ integration.id }}/bindings" id="svc-bind-form"
+        class="border border-border rounded p-3 flex flex-wrap gap-2 items-end bg-surface/40">
+    <input type="hidden" name="role" value="service">
+    <div class="min-w-[9rem]">
+      <label class="text-[10px] text-muted">Server</label>
+      <select name="server_id" id="svc-server" class="input text-sm w-full" required>
+        {% for s in servers %}
+        <option value="{{ s.id }}">{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="min-w-[11rem]">
+      <label class="text-[10px] text-muted">Scope</label>
+      <select name="docker_project" id="svc-project" class="input text-sm w-full">
+        <option value="">— host service (no Docker) —</option>
+      </select>
+    </div>
+    <div class="min-w-[10rem]" id="svc-container-wrap">
+      <label class="text-[10px] text-muted">Container (optional)</label>
+      <select name="docker_container" id="svc-container" class="input text-sm w-full" disabled>
+        <option value="">— whole project —</option>
+      </select>
+    </div>
+    <div class="flex-1 min-w-[12rem]">
+      <label class="text-[10px] text-muted">Kuma HTTP monitor</label>
+      <select name="external_id" class="input text-sm w-full" required>
+        <option value="">— select —</option>
+        {% for m in service_monitors or monitors %}
+        <option value="{{ m.id }}">{{ m.name }} ({{ m.type or '?' }}) — {{ m.status }}
+          {% if m.cert_days_remaining is not none %} · TLS {{ m.cert_days_remaining|int }}d{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="w-24">
+      <label class="text-[10px] text-muted">Dash ID</label>
+      <input type="text" name="dashboard_id" inputmode="numeric" pattern="[0-9]*"
+             class="input text-sm w-full font-mono" placeholder="12">
+    </div>
+    <button type="submit" class="btn btn-primary text-xs min-h-9">Add</button>
+  </form>
+  <script type="application/json" id="svc-docker-options">{{ docker_options_json | safe }}</script>
+  <script>
+  (function () {
+    var raw = document.getElementById('svc-docker-options');
+    var data = {};
+    try { data = JSON.parse(raw ? raw.textContent : '{}'); } catch (e) { data = {}; }
+    var serverEl = document.getElementById('svc-server');
+    var projEl = document.getElementById('svc-project');
+    var contEl = document.getElementById('svc-container');
+    if (!serverEl || !projEl || !contEl) return;
+
+    function setContainerEnabled(on) {
+      contEl.disabled = !on;
+      var wrap = document.getElementById('svc-container-wrap');
+      if (wrap) wrap.style.opacity = on ? '1' : '0.55';
+    }
+    function fillProjects() {
+      var sid = String(serverEl.value || '');
+      var projects = data[sid] || [];
+      projEl.innerHTML = '';
+      var hostOpt = document.createElement('option');
+      hostOpt.value = '';
+      hostOpt.textContent = '— host service (no Docker) —';
+      projEl.appendChild(hostOpt);
+      if (!projects.length) {
+        var o = document.createElement('option');
+        o.value = '';
+        o.disabled = true;
+        o.textContent = '(no Docker inventory on this host)';
+        projEl.appendChild(o);
+        fillContainers([]);
+        setContainerEnabled(false);
+        return;
+      }
+      projects.forEach(function (p) {
+        var o = document.createElement('option');
+        o.value = p.name;
+        o.textContent = 'Docker: ' + p.name + (p.containers && p.containers.length ? ' (' + p.containers.length + ' ctr)' : '');
+        projEl.appendChild(o);
+      });
+      fillContainers([]);
+      setContainerEnabled(false);
+    }
+    function fillContainers(list) {
+      contEl.innerHTML = '';
+      var o0 = document.createElement('option');
+      o0.value = '';
+      o0.textContent = '— whole project —';
+      contEl.appendChild(o0);
+      (list || []).forEach(function (c) {
+        var o = document.createElement('option');
+        o.value = c.name;
+        o.textContent = c.name + (c.running ? '' : ' (stopped)');
+        contEl.appendChild(o);
+      });
+    }
+    projEl.addEventListener('change', function () {
+      var sid = String(serverEl.value || '');
+      var projects = data[sid] || [];
+      var pname = projEl.value || '';
+      if (!pname) {
+        fillContainers([]);
+        setContainerEnabled(false);
+        return;
+      }
+      var p = projects.find(function (x) { return x.name === pname; });
+      fillContainers(p ? p.containers : []);
+      setContainerEnabled(true);
+    });
+    serverEl.addEventListener('change', fillProjects);
+    fillProjects();
+  })();
+  </script>
+  {% endif %}
+</div>
+
+{# Monitor inventory #}
+<div class="card p-4 sm:p-5 mb-6">
+  <h2 class="font-semibold text-text mb-3">Monitor inventory</h2>
+  {% if not monitors %}
+  <p class="text-sm text-muted">Empty — poll Kuma to load monitors from <code class="text-xs">/metrics</code>.</p>
+  {% else %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-left">
+      <thead class="text-xs text-muted border-b border-border">
+        <tr>
+          <th class="py-2 pr-3">Name</th>
+          <th class="py-2 pr-3">Type</th>
+          <th class="py-2 pr-3">Target</th>
+          <th class="py-2 pr-3">Status</th>
+          <th class="py-2 pr-3">TLS</th>
+          <th class="py-2 pr-3">Dash #</th>
+          <th class="py-2">ms</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in monitors %}
+        <tr class="border-b border-border/60">
+          <td class="py-1.5 pr-3">{{ m.name }}</td>
+          <td class="py-1.5 pr-3 font-mono text-xs">{{ m.type or '—' }}</td>
+          <td class="py-1.5 pr-3 font-mono text-xs">{{ m.target or '—' }}</td>
+          <td class="py-1.5 pr-3">
+            <span class="status-pill text-xs
+              {% if m.status == 'up' %}status-success
+              {% elif m.status == 'down' %}status-failed
+              {% elif m.status == 'pending' or m.status == 'maintenance' %}status-running
+              {% else %}feature-off{% endif %}">{{ m.status }}</span>
+          </td>
+          <td class="py-1.5 pr-3 text-xs">
+            {% if m.cert_is_valid is sameas true and m.cert_days_remaining is not none %}
+            <span class="text-success">{{ m.cert_days_remaining|int }}d</span>
+            {% elif m.cert_is_valid is sameas false %}
+            <span class="text-danger">invalid</span>
+            {% else %}—{% endif %}
+          </td>
+          <td class="py-1.5 pr-3 font-mono text-xs">{{ m.dashboard_id or '—' }}</td>
+          <td class="py-1.5 text-xs text-muted">
+            {% if m.response_time_ms is not none %}{{ m.response_time_ms|int }}{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+
+{% if can_mutate %}
+<div class="card p-4 border border-danger/40 max-w-md">
+  <h3 class="text-sm font-medium text-danger mb-2">Danger zone</h3>
+  <form method="post" action="/integrations/{{ integration.id }}/delete"
+        onsubmit="return confirm('Delete this integration and all server bindings?');">
+    <button type="submit" class="btn btn-secondary text-sm min-h-10 text-danger">Delete integration</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

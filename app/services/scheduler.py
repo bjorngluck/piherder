@@ -446,6 +446,43 @@ def sync_stack_health_schedule(scheduler, HAS_SCHEDULER):
         logger.warning(f"[SCHEDULER] Stack health schedule failed: {e}")
 
 
+INTEGRATIONS_POLL_JOB_ID = "integrations_poll"
+# Default 60s — individual integrations may request longer; we poll all enabled each tick.
+INTEGRATIONS_POLL_INTERVAL_SEC = 60
+
+
+def schedule_integrations_poll_job():
+    """Periodic poll of enabled integrations (Uptime Kuma /metrics)."""
+    try:
+        from .integrations import poll as poll_svc
+
+        poll_svc.poll_all_enabled(notify=True)
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] integrations poll failed: {e}")
+
+
+def sync_integrations_poll_schedule(scheduler, HAS_SCHEDULER):
+    """Register interval job for external integration status polls."""
+    if not HAS_SCHEDULER or not scheduler:
+        return
+    _remove_job(scheduler, INTEGRATIONS_POLL_JOB_ID)
+    try:
+        from apscheduler.triggers.interval import IntervalTrigger
+
+        scheduler.add_job(
+            func=schedule_integrations_poll_job,
+            trigger=IntervalTrigger(seconds=INTEGRATIONS_POLL_INTERVAL_SEC),
+            id=INTEGRATIONS_POLL_JOB_ID,
+            replace_existing=True,
+            name="Integrations poll (Kuma)",
+        )
+        logger.info(
+            f"[SCHEDULER] Integrations poll every {INTEGRATIONS_POLL_INTERVAL_SEC}s"
+        )
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] Integrations poll schedule failed: {e}")
+
+
 def sync_herder_backup_schedule(scheduler, HAS_SCHEDULER):
     """Register or remove the global PiHerder self-backup cron job from config."""
     if not HAS_SCHEDULER or not scheduler:

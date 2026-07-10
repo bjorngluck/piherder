@@ -18,6 +18,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **Security:** [SECURITY.md](SECURITY.md)
 - **IAM / 2FA / update checks / notifications:** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - **PWA + Web Push:** [docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · iOS: [docs/DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md)
+- **Integrations (Uptime Kuma):** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · ops in [docs/ADMIN.md](docs/ADMIN.md)
 - **Stabilisation plan:** [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
 - **UI unification plan:** [UI_UNIFICATION_PLAN.md](UI_UNIFICATION_PLAN.md) (complete)
 
@@ -44,6 +45,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - Optional **Web Push** (VAPID) for fleet alerts on Android and iOS Home Screen PWAs (16.4+); per-user prefs under Account.
 - Installable **PWA** (manifest + service worker + home-screen install).
 - Link to Pi-hole admin from dashboard (configurable).
+- **Integrations (Uptime Kuma):** top-level menu; API key + `/metrics` poll; bind **SSH**, **host services** (e.g. HAOS), and **Docker** stacks/containers; TLS days; deep links to Kuma; fleet **Services** icon grid (`/services`) + per-server Services page; logos (favicon discover or upload); down notifications.
 - HTTPS via Caddy with **operator-supplied TLS certs** (volume `./certs`) and `PIHERDER_HOSTNAME` (default ports **8888** HTTP / **8443** HTTPS).
 
 ### Account & security
@@ -218,13 +220,13 @@ Bind-mount host directories as needed for persistence.
 | Track | Theme |
 |-------|--------|
 | **v0.2 / H0** | Production: clean compose, token REST API, prod ADMIN, published image |
-| **v0.3 / H1** | Integration hub: Uptime Kuma, Grafana links, multi Pi-hole / NPM / HA |
+| **v0.3 / H1** | Integration hub: **Uptime Kuma shipped** (SSH + host/Docker services, Services pages, logos); Grafana / multi Pi-hole still open — [feature plan](docs/FEATURE_PLAN_INTEGRATIONS.md) |
 | **v0.4 / H2** | Service templates + onboard (monitor / DNS / TLS) |
 | **Later / H3** | HA plugin, optional BYO LLM, Ansible, community on Discord + hacknow.info |
 
-**Recently completed (high level):** Docker inventory cache, Edit tabs + feature hard-hide, Prometheus `/metrics`, multi-file compose, PWA + Web Push, trusted TLS, patch apply schedules, RBAC, Jobs page, restore wizard, password policy / force-2FA, IAM/2FA, update checks, SSH onboarding, path policy, Alembic + pytest, token REST API (`/api/v1`), ecosystem roadmap docs.
+**Recently completed (high level):** Uptime Kuma integration hub, H0.5 (host deps, Status, multi-worker), Docker inventory cache, PWA + Web Push, trusted TLS, patch apply schedules, RBAC, Jobs page, restore wizard, IAM/2FA, token REST API (`/api/v1`), Alembic + pytest.
 
-**Still open (examples):** published Docker Hub/GHCR image, integration registry, service templates, HA plugin, optional AI.
+**Still open (examples):** published Docker Hub/GHCR image, Grafana adapter, multi Pi-hole/NPM, service templates, HA plugin, optional AI.
 
 To track work in a GitHub Project: link the `piherder` repo, then create issues from the unchecked items in SPEC.md.
 

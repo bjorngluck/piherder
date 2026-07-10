@@ -44,6 +44,8 @@ from ..models import (
     PushSubscription,
     PushPreference,
     PushVapidConfig,
+    Integration,
+    IntegrationBinding,
 )
 from .app_settings import load_settings
 
@@ -189,6 +191,14 @@ def _snapshot_notifications(limit: int = 2000) -> List[Dict[str, Any]]:
         return [_model_to_dict(r) for r in rows]
 
 
+def _snapshot_integrations() -> List[Dict[str, Any]]:
+    return _snapshot_table(Integration)
+
+
+def _snapshot_integration_bindings() -> List[Dict[str, Any]]:
+    return _snapshot_table(IntegrationBinding)
+
+
 def _snapshot_audit(since_days: Optional[int] = None) -> List[Dict[str, Any]]:
     with Session(engine) as s:
         q = select(AuditLog).order_by(AuditLog.started_at.desc())
@@ -236,6 +246,8 @@ def _build_backup_payload(
             "push_subscriptions",
             "push_preferences",
             "notifications",
+            "integrations",
+            "integration_bindings",
             "herder_config",
             "avatars",
         ]
@@ -254,6 +266,8 @@ def _build_backup_payload(
         "push_subscriptions": _snapshot_push_subscriptions(),
         "push_preferences": _snapshot_push_preferences(),
         "notifications": _snapshot_notifications(),
+        "integrations": _snapshot_integrations(),
+        "integration_bindings": _snapshot_integration_bindings(),
         "herder_config": load_settings(),
     }
     if include_audit:
@@ -657,6 +671,8 @@ def restore_herder_backup(
         "restored_push_subscriptions": 0,
         "restored_push_preferences": 0,
         "restored_notifications": 0,
+        "restored_integrations": 0,
+        "restored_integration_bindings": 0,
         "restored_avatars": 0,
         "restored_herder_config": False,
         "restored_audit": 0,
@@ -687,6 +703,10 @@ def restore_herder_backup(
             payload.get("push_preferences") or []
         )
         result["would_restore_notifications"] = len(payload.get("notifications") or [])
+        result["would_restore_integrations"] = len(payload.get("integrations") or [])
+        result["would_restore_integration_bindings"] = len(
+            payload.get("integration_bindings") or []
+        )
         result["would_restore_herder_config"] = bool(payload.get("herder_config"))
         with tarfile.open(p, "r:gz") as tar:
             result["would_restore_avatars"] = sum(
@@ -714,6 +734,14 @@ def restore_herder_backup(
             s, Server, payload.get("servers") or []
         )
         s.flush()
+
+        result["restored_integrations"] = _upsert_rows(
+            s, Integration, payload.get("integrations") or []
+        )
+        s.flush()
+        result["restored_integration_bindings"] = _upsert_rows(
+            s, IntegrationBinding, payload.get("integration_bindings") or []
+        )
 
         result["restored_docker_versions"] = _upsert_rows(
             s, DockerVersion, payload.get("docker_versions") or []

@@ -392,6 +392,10 @@
           <input type="checkbox" name="herder_backup_failed" {% if not push_prefs or push_prefs.herder_backup_failed %}checked{% endif %}>
           PiHerder self-backup failed
         </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="integration_down" {% if not push_prefs or push_prefs.integration_down %}checked{% endif %}>
+          Integration monitor down (Kuma SSH)
+        </label>
       </div>
       <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save push preferences</button>
     </form>

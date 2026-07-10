@@ -16,12 +16,22 @@
 {% else %}
 
 {# Summary strip #}
-<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
   <div class="card p-4">
     <div class="text-xs text-muted">Servers</div>
     <div class="text-3xl font-semibold text-primary mt-0.5">{{ fleet.server_count if fleet else (servers|length) }}</div>
     <a href="/servers" class="text-xs text-accent hover:underline mt-1 inline-block">All servers →</a>
   </div>
+  <a href="/services" class="card p-4 no-underline hover:border-primary/40 transition-colors block">
+    <div class="text-xs text-muted">Services</div>
+    <div class="text-3xl font-semibold text-primary mt-0.5">{{ service_count or 0 }}</div>
+    <div class="text-[10px] text-muted mt-1">
+      {% if service_down %}
+      <span class="text-amber-500">{{ service_down }} down</span> ·
+      {% endif %}
+      monitored apps →
+    </div>
+  </a>
   <div class="card p-4">
     <div class="text-xs text-muted">Need attention</div>
     <div class="text-3xl font-semibold mt-0.5 {% if fleet and fleet.attention_count %}text-amber-500{% else %}text-text{% endif %}">

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">Integrations</h1>
+    <p class="text-sm text-muted mt-1">
+      Optional external products — Uptime Kuma SSH monitors, later Grafana and more.
+      Core fleet ops work without these.
+    </p>
+  </div>
+  <div class="page-header-actions">
+    {% if can_mutate %}
+    <a href="/integrations/new/uptime-kuma" class="btn btn-primary min-h-11">+ Uptime Kuma</a>
+    {% endif %}
+  </div>
+</div>
+
+{% if msg == 'deleted' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">Integration removed.</div>
+{% endif %}
+{% if error %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  Something went wrong{% if detail %}: {{ detail }}{% endif %}
+</div>
+{% endif %}
+
+{% if not integrations %}
+<div class="card p-6 max-w-xl">
+  <p class="text-sm text-muted mb-3">
+    No integrations yet. Connect <strong>Uptime Kuma</strong> with an API key to map each
+    server’s SSH reachability monitor and show up/down chips on the fleet.
+  </p>
+  {% if can_mutate %}
+  <a href="/integrations/new/uptime-kuma" class="btn btn-accent min-h-11">Add Uptime Kuma</a>
+  {% else %}
+  <p class="text-xs text-muted">Operator or admin role required to add integrations.</p>
+  {% endif %}
+</div>
+{% else %}
+<div class="space-y-3">
+  {% for i in integrations %}
+  <div class="card p-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="min-w-0">
+      <a href="/integrations/{{ i.id }}" class="font-semibold text-text hover:text-primary">
+        {{ i.name }}
+      </a>
+      <div class="text-xs text-muted font-mono mt-0.5 truncate">{{ i.base_url }}</div>
+      <div class="flex flex-wrap gap-2 mt-2 text-xs">
+        <span class="status-pill {% if i.type == 'uptime_kuma' %}status-running{% else %}feature-off{% endif %}">
+          {{ i.type }}
+        </span>
+        {% if not i.enabled %}
+        <span class="status-pill feature-off">disabled</span>
+        {% elif i.ok == true %}
+        <span class="status-pill status-success">connected</span>
+        {% elif i.ok == false or i.last_error %}
+        <span class="status-pill status-failed" title="{{ i.last_error or '' }}">error</span>
+        {% else %}
+        <span class="status-pill feature-off">never polled</span>
+        {% endif %}
+        {% if i.monitor_count is not none %}
+        <span class="text-muted">{{ i.monitor_count }} monitors</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="/integrations/{{ i.id }}" class="btn btn-secondary min-h-10 text-sm">Open</a>
+      {% if can_mutate %}
+      <form method="post" action="/integrations/{{ i.id }}/poll" class="inline">
+        <button type="submit" class="btn btn-secondary min-h-10 text-sm">Poll</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,703 @@
+"""Integrations hub — Uptime Kuma first (API key + /metrics)."""
+from __future__ import annotations
+
+import json
+import logging
+from datetime import datetime
+from typing import Optional
+from urllib.parse import urlencode
+
+# json used for docker_options_json in detail view
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from sqlmodel import Session, select
+
+from .. import templates as templates_mod
+from ..database import get_session
+from ..models import AuditLog, Integration, Server, User
+from ..security.auth import get_current_user, get_operator_user, role_at_least, ROLE_OPERATOR
+from ..services.integrations import poll as poll_svc
+from ..services.integrations import registry as reg
+from ..services.integrations import uptime_kuma as kuma
+
+logger = logging.getLogger(__name__)
+router = APIRouter(tags=["integrations"])
+
+
+def _audit(
+    session: Session,
+    user: User,
+    action: str,
+    *,
+    server_id: Optional[int] = None,
+    details: str = "",
+    status: str = "success",
+) -> None:
+    try:
+        session.add(
+            AuditLog(
+                user_id=user.id,
+                server_id=server_id,
+                action=action,
+                status=status,
+                details=(details or "")[:2000],
+                started_at=datetime.utcnow(),
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    except Exception as e:
+        logger.debug("audit skip: %s", e)
+        session.rollback()
+
+
+def _redirect(path: str, *, fragment: str | None = None, **params) -> RedirectResponse:
+    """303 redirect; optional URL fragment keeps scroll position on long pages."""
+    if params:
+        path = f"{path}?{urlencode({k: v for k, v in params.items() if v is not None})}"
+    frag = (fragment or "").strip().lstrip("#")
+    if frag:
+        path = f"{path}#{frag}"
+    return RedirectResponse(path, status_code=303)
+
+
+def _can_mutate(user: User) -> bool:
+    return role_at_least(user, ROLE_OPERATOR)
+
+
+@router.get("/integrations", response_class=HTMLResponse)
+async def integrations_list(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    rows = reg.list_integrations(session)
+    items = []
+    for r in rows:
+        st = reg.parse_last_status(r)
+        items.append(
+            {
+                "id": r.id,
+                "type": r.type,
+                "name": r.name,
+                "base_url": r.base_url,
+                "enabled": r.enabled,
+                "last_polled_at": r.last_polled_at,
+                "last_error": r.last_error,
+                "has_key": reg.has_credentials(r),
+                "ok": st.get("ok"),
+                "monitor_count": st.get("monitor_count"),
+                "poll_interval_sec": reg.poll_interval_sec(r),
+            }
+        )
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="integrations_list.html",
+        context={
+            "title": "Integrations",
+            "user": user,
+            "integrations": items,
+            "can_mutate": _can_mutate(user),
+            "msg": request.query_params.get("msg") or "",
+            "error": request.query_params.get("error") or "",
+            "detail": request.query_params.get("detail") or "",
+        },
+    )
+
+
+@router.get("/integrations/new/uptime-kuma", response_class=HTMLResponse)
+async def kuma_new_form(
+    request: Request,
+    user: User = Depends(get_operator_user),
+):
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="integrations_kuma_form.html",
+        context={
+            "title": "Add Uptime Kuma",
+            "user": user,
+            "mode": "create",
+            "integration": None,
+            "form": {
+                "name": "Uptime Kuma",
+                "base_url": "https://uptime.hacknow.info",
+                "poll_interval_sec": reg.DEFAULT_POLL_INTERVAL_SEC,
+                "tls_verify": True,
+                "enabled": True,
+                "username": "",
+            },
+            "has_kuma_login": False,
+            "error": request.query_params.get("error") or "",
+            "detail": request.query_params.get("detail") or "",
+        },
+    )
+
+
+@router.post("/integrations/new/uptime-kuma")
+async def kuma_create(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    name: str = Form("Uptime Kuma"),
+    base_url: str = Form(...),
+    api_key: str = Form(...),
+    poll_interval_sec: int = Form(reg.DEFAULT_POLL_INTERVAL_SEC),
+    tls_verify: Optional[str] = Form(None),
+    enabled: Optional[str] = Form("on"),
+    username: str = Form(""),
+    password: str = Form(""),
+    test_only: Optional[str] = Form(None),
+):
+    tls = tls_verify in ("1", "on", "true")
+    en = enabled in ("1", "on", "true")
+    try:
+        base = kuma.normalize_base_url(base_url)
+        key = (api_key or "").strip()
+        if not key:
+            raise ValueError("API key is required")
+        # Test first
+        result = kuma.fetch_metrics(base, key, tls_verify=tls)
+        if not result.ok:
+            return _redirect(
+                "/integrations/new/uptime-kuma",
+                error="test_failed",
+                detail=result.error[:200],
+            )
+        if test_only in ("1", "on", "true"):
+            return _redirect(
+                "/integrations/new/uptime-kuma",
+                msg="test_ok",
+                detail=f"{len(result.monitors)} monitors",
+            )
+        row = reg.create_kuma(
+            session,
+            name=name,
+            base_url=base,
+            api_key=key,
+            poll_interval_sec=poll_interval_sec,
+            tls_verify_flag=tls,
+            enabled=en,
+            username=username,
+            password=password,
+        )
+        # Persist first successful poll
+        poll_svc.poll_integration(row.id, notify=False)
+        _audit(session, user, "integration_created", details=f"uptime_kuma id={row.id} name={row.name}")
+        return _redirect(f"/integrations/{row.id}", msg="created")
+    except ValueError as e:
+        return _redirect("/integrations/new/uptime-kuma", error="invalid", detail=str(e)[:200])
+    except Exception as e:
+        logger.exception("create kuma failed")
+        return _redirect("/integrations/new/uptime-kuma", error="save_failed", detail=str(e)[:200])
+
+
+@router.get("/integrations/{integration_id}", response_class=HTMLResponse)
+async def integration_detail(
+    integration_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    integration = reg.get_integration(session, integration_id)
+    if not integration:
+        raise HTTPException(404, "Integration not found")
+    if integration.type != reg.TYPE_UPTIME_KUMA:
+        raise HTTPException(400, "Unsupported integration type in UI yet")
+
+    servers = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
+    all_bindings = reg.list_bindings(session, integration_id=integration_id)
+    ssh_by_server = {
+        b.server_id: b for b in all_bindings if b.role == reg.ROLE_SSH
+    }
+    service_bindings = [b for b in all_bindings if b.role == reg.ROLE_SERVICE]
+    monitors = reg.monitors_from_cache(integration)
+
+    def _msort(m):
+        t = (m.get("type") or "").lower()
+        pri = 0 if t in ("port", "tcp") else 1
+        return (pri, (m.get("name") or "").lower())
+
+    monitors_sorted = sorted(monitors, key=_msort)
+    ssh_monitors = [m for m in monitors_sorted if m.get("is_ssh_like")]
+    service_monitors = [m for m in monitors_sorted if m.get("is_service_like") or not m.get("is_ssh_like")]
+    status = reg.parse_last_status(integration)
+
+    def _mon_obj(m: dict) -> kuma.KumaMonitor:
+        return kuma.KumaMonitor(
+            id=str(m.get("id")),
+            name=m.get("name") or "",
+            type=m.get("type") or "",
+            hostname=m.get("hostname") or "",
+            port=str(m.get("port") or ""),
+            url=m.get("url") or "",
+            status=m.get("status") or "unknown",
+            response_time_ms=m.get("response_time_ms"),
+            dashboard_id=str(m["dashboard_id"]) if m.get("dashboard_id") else None,
+            cert_days_remaining=m.get("cert_days_remaining"),
+            cert_is_valid=m.get("cert_is_valid"),
+        )
+
+    mon_objs = [_mon_obj(m) for m in monitors if m.get("id") is not None]
+    mon_by_id = {m.id: m for m in mon_objs}
+
+    binding_rows = []
+    for s in servers:
+        b = ssh_by_server.get(s.id)
+        meta = reg.parse_binding_meta(b) if b else {}
+        did = kuma.resolve_dashboard_id(
+            mon_by_id.get(b.external_id) if b else None,
+            external_id=(b.external_id if b else ""),
+            meta=meta,
+        )
+        binding_rows.append(
+            {
+                "server_id": s.id,
+                "server_name": s.name,
+                "hostname": s.hostname,
+                "ip_address": s.ip_address,
+                "ssh_port": s.ssh_port,
+                "binding": b,
+                "state": (b.last_state if b else None),
+                "message": (b.last_message if b else None),
+                "external_id": (b.external_id if b else ""),
+                "external_label": (b.external_label if b else ""),
+                "dashboard_id": did or meta.get("dashboard_id") or "",
+                "open_url": (
+                    kuma.open_kuma_url(integration.base_url, dashboard_id=did)
+                    if b
+                    else ""
+                ),
+            }
+        )
+
+    suggestions = {}
+    suggestion_dashboard = {}
+    for s in servers:
+        sug = kuma.suggest_monitor_for_server(
+            mon_objs,
+            hostname=s.hostname or "",
+            ip_address=s.ip_address or "",
+            ssh_port=s.ssh_port or 22,
+        )
+        if sug:
+            suggestions[s.id] = sug.id
+            if sug.dashboard_id:
+                suggestion_dashboard[s.id] = sug.dashboard_id
+
+    server_name = {s.id: s.name for s in servers}
+    service_rows = []
+    for b in service_bindings:
+        meta = reg.parse_binding_meta(b)
+        mon = kuma.find_monitor(mon_objs, b.external_id or "", meta=meta)
+        did = kuma.resolve_dashboard_id(mon, external_id=b.external_id or "", meta=meta)
+        service_rows.append(
+            {
+                "binding_id": b.id,
+                "server_id": b.server_id,
+                "server_name": server_name.get(b.server_id, f"#{b.server_id}"),
+                "docker_project": b.docker_project or meta.get("docker_project") or "",
+                "docker_container": b.docker_container or meta.get("docker_container") or "",
+                "external_id": b.external_id,
+                "external_label": b.external_label or b.external_id,
+                "state": b.last_state,
+                "message": b.last_message,
+                "dashboard_id": did or "",
+                "open_url": kuma.open_kuma_url(integration.base_url, dashboard_id=did),
+                "cert_days": meta.get("cert_days_remaining"),
+                "cert_valid": meta.get("cert_is_valid"),
+                "url": meta.get("url") or meta.get("target") or "",
+            }
+        )
+
+    # Docker inventory options per server for service binding form
+    docker_options = {
+        s.id: reg.docker_inventory_options(session, s.id) for s in servers
+    }
+
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="integrations_kuma_detail.html",
+        context={
+            "title": integration.name,
+            "user": user,
+            "integration": integration,
+            "status": status,
+            "monitors": monitors_sorted,
+            "ssh_monitors": ssh_monitors or monitors_sorted,
+            "service_monitors": service_monitors or monitors_sorted,
+            "binding_rows": binding_rows,
+            "service_rows": service_rows,
+            "servers": servers,
+            "docker_options": docker_options,
+            "docker_options_json": json.dumps(
+                {str(k): v for k, v in docker_options.items()}
+            ),
+            "suggestions": suggestions,
+            "suggestion_dashboard": suggestion_dashboard,
+            "can_mutate": _can_mutate(user),
+            "has_key": reg.has_credentials(integration),
+            "has_kuma_login": reg.has_kuma_login(integration),
+            "poll_interval_sec": reg.poll_interval_sec(integration),
+            "tls_verify": reg.tls_verify(integration),
+            "open_url": kuma.open_kuma_url(integration.base_url),
+            "msg": request.query_params.get("msg") or "",
+            "error": request.query_params.get("error") or "",
+            "detail": request.query_params.get("detail") or "",
+        },
+    )
+
+
+@router.get("/integrations/{integration_id}/edit", response_class=HTMLResponse)
+async def kuma_edit_form(
+    integration_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    integration = reg.get_integration(session, integration_id)
+    if not integration or integration.type != reg.TYPE_UPTIME_KUMA:
+        raise HTTPException(404)
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="integrations_kuma_form.html",
+        context={
+            "title": f"Edit {integration.name}",
+            "user": user,
+            "mode": "edit",
+            "integration": integration,
+            "form": {
+                "name": integration.name,
+                "base_url": integration.base_url,
+                "poll_interval_sec": reg.poll_interval_sec(integration),
+                "tls_verify": reg.tls_verify(integration),
+                "enabled": integration.enabled,
+                "username": reg.decrypt_credentials(integration).get("username") or "",
+            },
+            "has_key": reg.has_credentials(integration),
+            "has_kuma_login": reg.has_kuma_login(integration),
+            "error": request.query_params.get("error") or "",
+            "detail": request.query_params.get("detail") or "",
+        },
+    )
+
+
+@router.post("/integrations/{integration_id}/edit")
+async def kuma_edit(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    name: str = Form(...),
+    base_url: str = Form(...),
+    api_key: str = Form(""),
+    poll_interval_sec: int = Form(reg.DEFAULT_POLL_INTERVAL_SEC),
+    tls_verify: Optional[str] = Form(None),
+    enabled: Optional[str] = Form(None),
+    username: str = Form(""),
+    password: str = Form(""),
+    clear_login: Optional[str] = Form(None),
+):
+    integration = reg.get_integration(session, integration_id)
+    if not integration or integration.type != reg.TYPE_UPTIME_KUMA:
+        raise HTTPException(404)
+    try:
+        if clear_login in ("1", "on", "true"):
+            uname, pw = "", ""
+        else:
+            uname = username
+            pw = password if password.strip() else None
+        reg.update_kuma(
+            session,
+            integration,
+            name=name,
+            base_url=base_url,
+            api_key=api_key if api_key.strip() else None,
+            poll_interval_sec=poll_interval_sec,
+            tls_verify_flag=tls_verify in ("1", "on", "true"),
+            enabled=enabled in ("1", "on", "true"),
+            username=uname if clear_login in ("1", "on", "true") or username != "" or pw else None,
+            password="" if clear_login in ("1", "on", "true") else pw,
+        )
+        _audit(session, user, "integration_updated", details=f"id={integration_id}")
+        return _redirect(f"/integrations/{integration_id}", msg="saved")
+    except ValueError as e:
+        return _redirect(
+            f"/integrations/{integration_id}/edit",
+            error="invalid",
+            detail=str(e)[:200],
+        )
+
+
+@router.post("/integrations/{integration_id}/test")
+async def kuma_test(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    integration = reg.get_integration(session, integration_id)
+    if not integration:
+        raise HTTPException(404)
+    result = poll_svc.test_connection(integration)
+    if result.ok:
+        # Refresh cache without notifications on pure test
+        poll_svc.poll_integration(integration_id, notify=False)
+        return _redirect(
+            f"/integrations/{integration_id}",
+            msg="test_ok",
+            detail=f"{len(result.monitors)} monitors",
+        )
+    return _redirect(
+        f"/integrations/{integration_id}",
+        error="test_failed",
+        detail=(result.error or "failed")[:200],
+    )
+
+
+@router.post("/integrations/{integration_id}/poll")
+async def kuma_poll(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    integration = reg.get_integration(session, integration_id)
+    if not integration:
+        raise HTTPException(404)
+    summary = poll_svc.poll_integration(integration_id, notify=True)
+    if summary.get("ok"):
+        return _redirect(
+            f"/integrations/{integration_id}",
+            msg="polled",
+            detail=f"{summary.get('monitor_count', 0)} monitors",
+        )
+    if summary.get("skipped"):
+        return _redirect(f"/integrations/{integration_id}", error="poll_busy")
+    return _redirect(
+        f"/integrations/{integration_id}",
+        error="poll_failed",
+        detail=(summary.get("error") or "")[:200],
+    )
+
+
+@router.post("/integrations/{integration_id}/delete")
+async def kuma_delete(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    integration = reg.get_integration(session, integration_id)
+    if not integration:
+        raise HTTPException(404)
+    name = integration.name
+    reg.delete_integration(session, integration)
+    _audit(session, user, "integration_deleted", details=f"name={name}")
+    return _redirect("/integrations", msg="deleted")
+
+
+def _monitor_meta_from_cache(
+    integration: Integration,
+    external_id: str,
+    dashboard_id: str = "",
+) -> tuple[Optional[dict], Optional[str], Optional[str], Optional[str]]:
+    """Return (meta, label, state, message) for a monitor external_id."""
+    mon_meta = None
+    mon_label = None
+    mon_state = None
+    mon_msg = None
+    for m in reg.monitors_from_cache(integration):
+        if str(m.get("id")) == str(external_id).strip() or str(m.get("name")) == str(
+            external_id
+        ).strip():
+            mon_meta = dict(m)
+            mon_label = m.get("name")
+            mon_state = m.get("status")
+            mon_msg = reg.binding_message_from_monitor(
+                kuma.KumaMonitor(
+                    id=str(m.get("id")),
+                    name=m.get("name") or "",
+                    type=m.get("type") or "",
+                    hostname=m.get("hostname") or "",
+                    port=str(m.get("port") or ""),
+                    url=m.get("url") or "",
+                    status=m.get("status") or "unknown",
+                    response_time_ms=m.get("response_time_ms"),
+                    dashboard_id=str(m["dashboard_id"]) if m.get("dashboard_id") else None,
+                    cert_days_remaining=m.get("cert_days_remaining"),
+                    cert_is_valid=m.get("cert_is_valid"),
+                )
+            )
+            break
+    if mon_meta is None:
+        mon_meta = {}
+    did = (dashboard_id or "").strip() or str(mon_meta.get("dashboard_id") or "").strip()
+    if did.isdigit():
+        mon_meta["dashboard_id"] = did
+    return mon_meta, mon_label, mon_state, mon_msg
+
+
+@router.post("/integrations/{integration_id}/bindings")
+async def set_binding(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    server_id: int = Form(...),
+    external_id: str = Form(""),
+    dashboard_id: str = Form(""),
+    role: str = Form(reg.ROLE_SSH),
+    docker_project: str = Form(""),
+    docker_container: str = Form(""),
+    clear: Optional[str] = Form(None),
+    binding_id: Optional[int] = Form(None),
+):
+    integration = reg.get_integration(session, integration_id)
+    if not integration:
+        raise HTTPException(404)
+    role = (role or reg.ROLE_SSH).strip()
+    if role not in (reg.ROLE_SSH, reg.ROLE_SERVICE):
+        role = reg.ROLE_SSH
+
+    if clear in ("1", "on", "true") or not (external_id or "").strip():
+        reg.clear_binding(
+            session,
+            integration_id=integration_id,
+            server_id=server_id,
+            role=role,
+            external_id=external_id if role == reg.ROLE_SERVICE else None,
+            binding_id=binding_id,
+        )
+        _audit(
+            session,
+            user,
+            "integration_binding_cleared",
+            server_id=server_id,
+            details=f"integration={integration_id} role={role}",
+        )
+        scope = "service" if role == reg.ROLE_SERVICE else "ssh"
+        section = "kuma-services" if role == reg.ROLE_SERVICE else "kuma-ssh"
+        return _redirect(
+            f"/integrations/{integration_id}",
+            fragment=section,
+            msg="binding_cleared",
+            scope=scope,
+        )
+
+    mon_meta, mon_label, mon_state, mon_msg = _monitor_meta_from_cache(
+        integration, external_id, dashboard_id=dashboard_id
+    )
+    scope = "service" if role == reg.ROLE_SERVICE else "ssh"
+    section = "kuma-services" if role == reg.ROLE_SERVICE else "kuma-ssh"
+    try:
+        reg.set_binding(
+            session,
+            integration_id=integration_id,
+            server_id=server_id,
+            external_id=external_id,
+            role=role,
+            docker_project=docker_project if role == reg.ROLE_SERVICE else None,
+            docker_container=docker_container if role == reg.ROLE_SERVICE else None,
+            external_label=mon_label,
+            external_meta=mon_meta,
+            last_state=mon_state,
+            last_message=mon_msg,
+            binding_id=binding_id,
+        )
+        _audit(
+            session,
+            user,
+            "integration_binding_set",
+            server_id=server_id,
+            details=(
+                f"integration={integration_id} role={role} monitor={external_id}"
+                f" project={docker_project} container={docker_container}"
+            ),
+        )
+        return _redirect(
+            f"/integrations/{integration_id}",
+            fragment=section,
+            msg="binding_saved",
+            scope=scope,
+        )
+    except ValueError as e:
+        return _redirect(
+            f"/integrations/{integration_id}",
+            fragment=section,
+            error="binding_failed",
+            detail=str(e)[:200],
+            scope=scope,
+        )
+
+
+@router.post("/integrations/{integration_id}/suggest-bindings")
+async def suggest_bindings(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Apply auto-suggestions for unbound servers only."""
+    integration = reg.get_integration(session, integration_id)
+    if not integration:
+        raise HTTPException(404)
+    monitors = reg.monitors_from_cache(integration)
+    mon_objs = [
+        kuma.KumaMonitor(
+            id=str(m.get("id")),
+            name=m.get("name") or "",
+            type=m.get("type") or "",
+            hostname=m.get("hostname") or "",
+            port=str(m.get("port") or ""),
+            url=m.get("url") or "",
+            status=m.get("status") or "unknown",
+            response_time_ms=m.get("response_time_ms"),
+            dashboard_id=str(m["dashboard_id"]) if m.get("dashboard_id") else None,
+            cert_days_remaining=m.get("cert_days_remaining"),
+            cert_is_valid=m.get("cert_is_valid"),
+        )
+        for m in monitors
+        if m.get("id") is not None
+    ]
+    by_id = {m.id: m for m in mon_objs}
+    ssh_bound = {
+        b.server_id
+        for b in reg.list_bindings(
+            session, integration_id=integration_id, role=reg.ROLE_SSH
+        )
+    }
+    servers = list(session.exec(select(Server)).all())
+    applied = 0
+    for s in servers:
+        if s.id in ssh_bound:
+            continue
+        sug = kuma.suggest_monitor_for_server(
+            mon_objs,
+            hostname=s.hostname or "",
+            ip_address=s.ip_address or "",
+            ssh_port=s.ssh_port or 22,
+        )
+        if not sug:
+            continue
+        mon = by_id.get(sug.id) or sug
+        meta = mon.to_dict()
+        reg.set_binding(
+            session,
+            integration_id=integration_id,
+            server_id=s.id,
+            external_id=sug.id,
+            role=reg.ROLE_SSH,
+            external_label=sug.name,
+            external_meta=meta,
+            last_state=sug.status,
+            last_message=reg.binding_message_from_monitor(sug),
+        )
+        applied += 1
+    _audit(
+        session,
+        user,
+        "integration_bindings_suggested",
+        details=f"integration={integration_id} applied={applied}",
+    )
+    return _redirect(
+        f"/integrations/{integration_id}",
+        fragment="kuma-ssh",
+        msg="suggested",
+        detail=str(applied),
+        scope="ssh",
+    )

@@ -281,6 +281,82 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+{# Uptime Kuma — SSH + host services (HAOS / bare metal); Docker monitors on Docker page #}
+{% if kuma_ssh or kuma_host_services %}
+<div class="mb-4 space-y-2">
+  {% if kuma_ssh %}
+  <a href="{{ kuma_ssh.open_url or ('/integrations/' ~ kuma_ssh.integration_id) }}"
+     {% if kuma_ssh.open_url %}target="_blank" rel="noopener"{% endif %}
+     class="card p-3 border border-border block no-underline hover:border-primary/40 transition-colors"
+     title="Open SSH monitor in Uptime Kuma">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="text-sm font-medium text-text">
+        SSH (Uptime Kuma)
+        <span class="status-pill text-xs ml-1
+          {% if kuma_ssh.state == 'up' %}status-success
+          {% elif kuma_ssh.state == 'down' %}status-failed
+          {% elif kuma_ssh.state == 'pending' or kuma_ssh.state == 'maintenance' %}status-running
+          {% else %}feature-off{% endif %}">{{ kuma_ssh.state }}</span>
+      </div>
+      <span class="text-xs text-accent">Open in Kuma →</span>
+    </div>
+    <p class="text-xs text-muted mt-1">
+      {{ kuma_ssh.label }}{% if kuma_ssh.message %} · {{ kuma_ssh.message }}{% endif %}
+      {% if kuma_ssh.checked_at %} · checked {{ kuma_ssh.checked_at }}{% endif %}
+    </p>
+  </a>
+  {% endif %}
+
+  {% if kuma_host_services %}
+  <div class="card p-3 border border-border">
+    <div class="text-sm font-medium text-text mb-2">Host services (Uptime Kuma)</div>
+    <p class="text-[11px] text-muted mb-2">
+      Apps on this host that are not a Docker project here (e.g. Home Assistant OS).
+    </p>
+    <div class="space-y-2">
+      {% for svc in kuma_host_services %}
+      <a href="{{ svc.open_url or ('/integrations/' ~ svc.integration_id) }}"
+         {% if svc.open_url %}target="_blank" rel="noopener"{% endif %}
+         class="flex flex-wrap items-center justify-between gap-2 p-2 rounded border border-border/60 no-underline hover:border-primary/40 transition-colors"
+         title="Open in Uptime Kuma">
+        <div class="min-w-0">
+          <span class="text-sm font-medium text-text">{{ svc.label }}</span>
+          <span class="status-pill text-xs ml-1
+            {% if svc.state == 'up' %}status-success
+            {% elif svc.state == 'down' %}status-failed
+            {% elif svc.state == 'pending' or svc.state == 'maintenance' %}status-running
+            {% else %}feature-off{% endif %}">{{ svc.state }}</span>
+          {% if svc.cert_valid is sameas true and svc.cert_days is not none %}
+          <span class="status-pill text-xs status-success">TLS {{ svc.cert_days|int }}d</span>
+          {% elif svc.cert_valid is sameas false %}
+          <span class="status-pill text-xs status-failed">TLS invalid</span>
+          {% endif %}
+          {% if svc.url or svc.message %}
+          <div class="text-[11px] text-muted mt-0.5">
+            {% if svc.url %}<span class="font-mono">{{ svc.url }}</span>{% endif %}
+            {% if svc.message %}{% if svc.url %} · {% endif %}{{ svc.message }}{% endif %}
+          </div>
+          {% endif %}
+        </div>
+        <span class="text-xs text-accent shrink-0">Open in Kuma →</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <p class="text-[11px] text-muted pl-1">
+    Full list with URLs:
+    <a href="/servers/{{ server.id }}/services" class="text-accent hover:underline">Services</a>
+    {% set _integ = (kuma_ssh.integration_id if kuma_ssh else (kuma_host_services[0].integration_id if kuma_host_services else none)) %}
+    {% if _integ %}
+    · manage in
+    <a href="/integrations/{{ _integ }}#kuma-services" class="text-accent hover:underline">Integrations</a>
+    {% endif %}
+  </p>
+</div>
+{% endif %}
+
 {# Host dependency snapshot (from last check) #}
 {% if host_deps and host_deps.checks %}
 <div class="card p-3 mb-4 border border-border">
@@ -411,12 +487,13 @@ document.addEventListener('DOMContentLoaded', function() {
   {% elif flash_error == 'key_rotate_confirm' %}<strong>Rotation cancelled.</strong> Type <code>rotate</code> in the confirm field.
   {% elif flash_error == 'provision_fail' %}<strong>Least-priv provision failed.</strong>
   {% elif flash_error == 'confirm_name' %}<strong>Remove cancelled.</strong> Type the exact server name to confirm.
+  {% elif flash_error == 'reboot_fail' %}<strong>Reboot failed.</strong> SSH/sudo could not run reboot on the host.
   {% else %}<strong>{{ flash_error }}</strong>{% endif %}
   {% if flash_detail %}<span class="block text-xs mt-1 font-mono break-all">{{ flash_detail }}</span>{% endif %}
 </div>
 {% endif %}
 
-{% if server.reboot_pending or (diagnostics and diagnostics.reboot_pending) %}
+{% if (server.reboot_pending or (diagnostics and diagnostics.reboot_pending)) and not reboot_initiated %}
 <div class="mb-4 p-3 banner-warning border border-border rounded text-sm flex flex-wrap items-center gap-2">
   <span>⚠️</span>
   <strong>Pending reboot</strong>{% if server.os_updates_count %} · {{ server.os_updates_count }} OS update(s) available{% endif %}.
@@ -430,8 +507,9 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 {% endif %}
 
-{# Destination cards — hard-hide when feature flag is off #}
-{% if server.backup_enabled or server.container_patch_enabled %}
+{# Destination cards #}
+{% set _svc_n = (kuma_host_services|length if kuma_host_services else 0) + (kuma_docker_service_count or 0) %}
+{% if server.backup_enabled or server.container_patch_enabled or kuma_ssh or _svc_n or true %}
 <div class="dest-cards mb-6">
   {% if server.backup_enabled %}
   <a href="/servers/{{ server.id }}/backups" class="card dest-card">
@@ -462,6 +540,19 @@ document.addEventListener('DOMContentLoaded', function() {
     <span class="dest-card-cta">Open Docker →</span>
   </a>
   {% endif %}
+  <a href="/servers/{{ server.id }}/services" class="card dest-card">
+    <div class="dest-card-title">Services</div>
+    <p class="dest-card-desc">
+      {% if _svc_n %}
+        {{ _svc_n }} monitored
+        {% if kuma_host_services %}· {{ kuma_host_services|length }} host{% endif %}
+        {% if kuma_docker_service_count %}· {{ kuma_docker_service_count }} Docker{% endif %}
+      {% else %}
+        HTTP / TLS monitors (Kuma)
+      {% endif %}
+    </p>
+    <span class="dest-card-cta">Open Services →</span>
+  </a>
 </div>
 {% endif %}
 
@@ -677,6 +768,7 @@ document.addEventListener('DOMContentLoaded', function() {
     items.push({ label: 'Retention cleanup', key: 'retention' });
     items.push({ label: 'Backups page', href: '/servers/{{ server.id }}/backups' });
     {% endif %}
+    items.push({ label: 'Services', href: '/servers/{{ server.id }}/services' });
     {% if server.os_patch_enabled %}
     items.push({ label: 'OS patch…', key: 'os-patch' });
     items.push({ label: 'Check OS updates', key: 'check-os' });

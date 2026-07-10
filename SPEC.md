@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** v0.2 target — Phase 1–3 complete; Phase 4 (production + ecosystem) in progress; Phase 4b (platform reliability) planned  
-> **Last updated:** 2026-07-10 — H0.5 shipped: host deps, Status (lazy backup `du`), multi-worker mutex + `CELERY_CONCURRENCY`; full `.env.example`
+> **Status:** v0.2 target — Phase 1–3 complete; Phase 4 in progress; Phase 4b (H0.5) shipped; **Phase 5 H1 Kuma slice shipped**  
+> **Last updated:** 2026-07-10 — Integration hub (Uptime Kuma): API key + `/metrics`, SSH + host/Docker service bindings, Services pages + logos, fleet `/services`
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -34,6 +34,13 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - **Provisioning** always preview → confirm → audit (same philosophy as opt-in patch apply).
 - **AI** is optional, OpenAI-compatible BYO (local or cloud), off by default; Frigate vision stays on Frigate/AI Hat.
 - Full multi-horizon plan: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md).
+
+### Integration hub — Uptime Kuma (2026-07-10, shipped)
+- **Registry** + top-level **Integrations** nav; credentials Fernet-encrypted; herder backup includes rows.
+- **Kuma:** API key + `GET /metrics`; optional login for `/dashboard/{id}` deep links (Kuma 1.23 often omits `monitor_id` in metrics).
+- **Bindings:** SSH per server; **host services** (no Docker); **Docker project/container**; TLS days from metrics.
+- **UI:** server Services page, fleet `/services` icon grid, dashboard Services tile, logos (favicon + upload).
+- **Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md).
 
 ### Platform reliability & deployment (2026-07-10)
 - **Remote host dependency check** (done): after SSH / least-priv onboard, probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`); UI chips + re-check; no auto-install on the remote host.
@@ -186,10 +193,24 @@ Implement **in order** after or alongside H0 image work. Not required to tag `v0
 
 ## Phase 5 — Integration hub (v0.3 / Horizon 1)
 
-Read-mostly integrations: registry, status, deep links. No full remote control of external products.
+Read-mostly integrations: registry, status, deep links, **server / Docker / host-service bindings**. No full remote control of external products (create-monitor = H2).
 
-- [ ] Integration registry (types + encrypted credentials + server/project bindings)
-- [ ] Uptime Kuma: poll availability, badges, deep link, optional down notifications
+**Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Ops:** [docs/ADMIN.md](docs/ADMIN.md) § Uptime Kuma
+
+### Shipped — Uptime Kuma (H1 slice)
+
+- [x] Integration registry (types + encrypted credentials + bindings)
+- [x] Top-level **Integrations** nav (not under Settings)
+- [x] Uptime Kuma: **API key** + `/metrics` poll; TLS cert series; optional login for dashboard IDs
+- [x] SSH reachability bindings + suggest matches; server list/detail chips; `/dashboard/{id}` deep links
+- [x] Host service bindings (no Docker) + Docker project/container bindings
+- [x] Per-server **Services** page (`/servers/{id}/services`) and fleet **Services** grid (`/services`)
+- [x] Service logos (favicon discovery + upload); dashboard Services count tile
+- [x] Down notifications + Web Push pref `integration_down`; scheduled poll
+- [x] Herder backup includes integrations + bindings; pytest for metrics/bindings
+
+### Still open (Phase 5)
+
 - [ ] Grafana: dashboard URL templates; “Open in Grafana”; high-level native stats chips
 - [ ] Multi Pi-hole / NPM / HA / Frigate / n8n generic URL entries (seed from `PIHOLE_URL`)
 - [ ] Docs: cert pattern NPM → n8n → consumers (e.g. Pi-hole)
