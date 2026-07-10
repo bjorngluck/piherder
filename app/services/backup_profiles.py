@@ -24,7 +24,7 @@ import logging
 
 from ..models import Server
 from ..config import settings
-from .herder_backup import format_datetime_in_app_tz
+from .app_settings import format_datetime_in_app_tz
 
 logger = logging.getLogger(__name__)
 

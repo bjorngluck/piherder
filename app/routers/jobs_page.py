@@ -13,7 +13,7 @@ from ..database import get_session
 from ..models import Job, Server, User
 from ..security.auth import get_current_user
 from ..services import jobs as job_service
-from ..services.herder_backup import format_datetime_in_app_tz
+from ..services.app_settings import format_datetime_in_app_tz
 
 router = APIRouter()
 

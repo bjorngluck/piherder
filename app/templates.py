@@ -1,7 +1,7 @@
 import json
 
 from fastapi.templating import Jinja2Templates
-from .services.herder_backup import get_app_timezone, format_datetime_in_app_tz
+from .services.app_settings import get_app_timezone, format_datetime_in_app_tz
 
 templates = Jinja2Templates(directory="app/templates")
 

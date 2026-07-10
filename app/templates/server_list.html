@@ -433,31 +433,51 @@
         }
         e.preventDefault();
         e.stopPropagation();
-        if (item.confirm && !window.confirm(item.confirm)) return;
-        hideServerMoreMenu();
-        if (item.osPatch) {
-          showOsPatchModal(id, name);
-          return;
-        }
-        if (item.backup) {
-          // Temporary form triggers shared backup holding modal (base.html)
-          var bf = document.createElement('form');
-          bf.method = 'POST';
-          bf.action = '/servers/' + id + '/run/backup';
-          bf.className = 'backup-run-form';
-          bf.style.display = 'none';
-          bf.dataset.serverName = name;
-          document.body.appendChild(bf);
-          if (typeof bf.requestSubmit === 'function') bf.requestSubmit();
-          else bf.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-          setTimeout(function () { try { bf.remove(); } catch (_) {} }, 100);
-          return;
-        }
-        if (item.hold && item.post) {
-          runJobHold(item.post, item.holdTitle || item.label, id);
-          return;
-        }
-        postAction(item.post);
+        (async function () {
+          if (item.confirm) {
+            var ok = true;
+            if (window.PiHerderConfirm) {
+              ok = await window.PiHerderConfirm.ask({
+                title: item.confirmTitle || 'Please confirm',
+                message: item.confirm,
+                confirmLabel: item.confirmLabel || 'Confirm',
+                danger: !!item.danger
+              });
+            }
+            if (!ok) return;
+          }
+          hideServerMoreMenu();
+          if (item.osPatch) {
+            showOsPatchModal(id, name);
+            return;
+          }
+          if (item.backup) {
+            // Temporary form triggers shared backup holding modal (base.html)
+            var bf = document.createElement('form');
+            bf.method = 'POST';
+            bf.action = '/servers/' + id + '/run/backup';
+            bf.className = 'backup-run-form';
+            bf.style.display = 'none';
+            bf.dataset.serverName = name;
+            document.body.appendChild(bf);
+            if (typeof bf.requestSubmit === 'function') bf.requestSubmit();
+            else bf.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            setTimeout(function () { try { bf.remove(); } catch (_) {} }, 100);
+            return;
+          }
+          if (item.hold && item.post) {
+            runJobHold(item.post, item.holdTitle || item.label, id);
+            return;
+          }
+          if (item.post) {
+            var f = document.createElement('form');
+            f.method = 'POST';
+            f.action = item.post;
+            f.style.display = 'none';
+            document.body.appendChild(f);
+            f.submit();
+          }
+        })();
       });
       listEl.appendChild(btn);
     });
@@ -544,12 +564,18 @@
   // --- Reorder toggle ---
   var btnToggle = document.getElementById('btn-reorder-toggle');
   if (btnToggle) {
-    btnToggle.addEventListener('click', function () {
+    btnToggle.addEventListener('click', async function () {
       var filt = list && list.getAttribute('data-filter');
       if (!reorderMode && filt && filt !== 'all') {
-        if (window.confirm('Reorder works on the full server list. Switch to All now?')) {
-          window.location.href = '/servers?reorder=1';
+        var ok = true;
+        if (window.PiHerderConfirm) {
+          ok = await window.PiHerderConfirm.ask({
+            title: 'Reorder servers',
+            message: 'Reorder works on the full server list. Switch to All now?',
+            confirmLabel: 'Switch to All'
+          });
         }
+        if (ok) window.location.href = '/servers?reorder=1';
         return;
       }
       if (!list || !list.querySelector('.server-host-row')) return;

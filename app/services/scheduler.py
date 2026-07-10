@@ -218,7 +218,7 @@ def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
 
     # App timezone for check schedules (matches Settings → timezone)
     try:
-        from .herder_backup import get_app_timezone
+        from .app_settings import get_app_timezone
         tz = get_app_timezone()
     except Exception:
         tz = None
@@ -384,14 +384,14 @@ def sync_herder_backup_schedule(scheduler, HAS_SCHEDULER):
     """Register or remove the global PiHerder self-backup cron job from config."""
     if not HAS_SCHEDULER or not scheduler:
         return
-    from . import herder_backup as hb
+    from . import app_settings as app_cfg
 
     try:
         scheduler.remove_job(HERDER_SCHEDULE_JOB_ID)
     except Exception:
         pass
 
-    cfg = hb.load_herder_config()
+    cfg = app_cfg.load_settings()
     if not cfg.get("schedule_enabled"):
         logger.info("[SCHEDULER] PiHerder self-backup schedule disabled")
         return
@@ -401,8 +401,9 @@ def sync_herder_backup_schedule(scheduler, HAS_SCHEDULER):
         return
 
     try:
-        hb.validate_cron_expression(cron)
-        trigger = _cron_trigger(cron, timezone=hb.get_app_timezone())
+        app_cfg.validate_cron_expression(cron)
+        tz = app_cfg.get_app_timezone()
+        trigger = _cron_trigger(cron, timezone=tz)
         scheduler.add_job(
             func=schedule_herder_backup_job,
             trigger=trigger,
@@ -410,7 +411,7 @@ def sync_herder_backup_schedule(scheduler, HAS_SCHEDULER):
             replace_existing=True,
             name="PiHerder self-backup",
         )
-        logger.info(f"[SCHEDULER] PiHerder self-backup scheduled: {cron} ({hb.get_app_timezone()})")
+        logger.info(f"[SCHEDULER] PiHerder self-backup scheduled: {cron} ({tz})")
     except Exception as e:
         logger.warning(f"[SCHEDULER] Could not register herder backup schedule: {e}")
 
@@ -421,9 +422,10 @@ def schedule_herder_backup_job():
     from ..database import engine
     try:
         from . import herder_backup as hb
+        from . import app_settings as app_cfg
         from ..models import AuditLog
 
-        cfg = hb.load_herder_config()
+        cfg = app_cfg.load_settings()
         mode = cfg.get("schedule_mode", "config_only")
         include_audit = (mode == "full")
         config_only = (mode != "full")

@@ -76,11 +76,13 @@ Only the **first** account can self-register. After that, only admins create use
 
 ## 3. Security policy (force 2FA)
 
-**Where:** **Settings** (`/herder-backups`) → Security policy.
+**Where:** **Settings** (`/herder-backups?tab=general`) → **Security policy**.
 
 | Setting | Effect |
 |---------|--------|
 | **Force 2FA for all** | Every user without TOTP is redirected to `/auth/force-2fa` before the fleet UI. Password change-on-first-login still runs first if required. |
+
+Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, and self-backup schedule — restored with DB dumps and PiHerder self-backup (not a separate volume JSON file).
 
 Optional 2FA (when not forced): Account → enable TOTP, backup codes, optional trusted device.
 
@@ -127,9 +129,9 @@ Per-server backup enable + cron on the server/backups UI. Enqueues **Celery** wo
 
 ### PiHerder self-backup
 
-Settings → self-backup schedule (config-only or full). Separate from per-server rsync backups.
+**Settings → PiHerder backup** tab: manual run, schedule (config-only or full), restore. Separate from per-server rsync backups.
 
-Archives are format **v2** compressed `.tar.gz` under the herder backups volume (`./piherder_backups` → `/herder_backups`).
+Archives are format **v2** compressed `.tar.gz` under the herder backups volume (`./piherder_backups` → `/herder_backups`). Host dir must be writable by the container user (uid 1000).
 
 | Included | Notes |
 |----------|--------|
@@ -140,7 +142,7 @@ Archives are format **v2** compressed `.tar.gz` under the herder backups volume 
 | **Push VAPID** | Encrypted private key + public key (same `PIHERDER_MASTER_KEY` required on restore) |
 | **Push subscriptions + preferences** | Devices may still need re-permission if browser endpoint died |
 | **Notifications** | Recent open/dismissed alerts (capped) |
-| **Herder settings** | Timezone, force_2FA, self-backup schedule, fleet check defaults (inside JSON) |
+| **Operational settings** | Timezone, force 2FA, self-backup schedule, fleet check defaults (from DB `appsetting`; restored back into DB) |
 | **Avatars** | Files under `DATA_ROOT/avatars` packed as `data/avatars/…` in the tar |
 | **Audit log** | Only in **full** mode (optional, capped) |
 
@@ -318,8 +320,8 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | Host path | Container | Purpose |
 |-----------|-----------|---------|
 | `${PIHERDER_BACKUP_HOST_PATH:-./backups}` | `/backups` | rsync destinations for server backups |
-| `./piherder_backups` | `/herder_backups` | PiHerder self-backup archives |
-| `./piherder_data` | `/data` | Avatars / app data |
+| `./piherder_backups` | `/herder_backups` | PiHerder self-backup archives (chown to uid 1000 if permission errors) |
+| `./piherder_data` | `/data` | Avatars (operational Settings live in Postgres, not here) |
 | `./certs` | `/certs` (Caddy, ro) | `fullchain.pem` + `privkey.pem` |
 
 If you previously used `~/backup`, set in `.env`:
@@ -384,15 +386,17 @@ Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/pihe
 **Full reference:** [API.md](API.md) · interactive **OpenAPI** at `/docs` (tag **api-v1**).
 
 **Where:** **Settings** → tab **API management** (`/herder-backups?tab=api`). Sub-panels: **Tokens** · **API reference** (in-app `docs/API.md`) · **Endpoint catalog**. **Admin only.**  
-**Also:** `GET/POST /api/v1/tokens`, `DELETE /api/v1/tokens/{id}` with admin **session** (not Bearer). Interactive OpenAPI: `/docs`.
+**Also:** `GET/POST /api/v1/tokens`, `DELETE /api/v1/tokens/{id}` with admin **session** (not Bearer).
 
 | Model | Detail |
 |-------|--------|
 | Ownership | **Instance-wide**, admin-managed (not per-user PATs) |
-| Secret | `ph_…` shown **once**; stored hashed |
-| Capability scopes | `read` · `jobs` · `edit` |
+| Secret | `ph_…` shown **once** at create or **rotate**; **Copy token** in UI; stored hashed |
+| Capability scopes | `read` · `jobs` · `edit` — editable later without rotating |
 | Feature allowlist | Optional `feature:backup` · `feature:os` · `feature:docker` (none = all features) |
-| IP allowlist | Optional IPs/CIDRs per token; empty = any IP |
+| IP allowlist | Optional IPs/CIDRs per token; empty = any IP; enforced on backend using Caddy-forwarded client IP |
+| Rotate | New secret, same name/scopes/IPs; old secret stops immediately |
+| Revoke | Disables token permanently |
 | Server flags | Jobs still require the server’s feature enabled (toggle via UI or `PATCH …/features`) |
 
 | Scope | Allows |
@@ -402,12 +406,20 @@ Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/pihe
 | `edit` | `PATCH /api/v1/servers/{id}/features` |
 | `feature:*` | Restrict which features jobs/edits may touch |
 
+**CORS:** Off by default. Server-side n8n/HA/curl do not need it. Only set `CORS_ORIGINS` for browser apps on other origins (exact origins; never `*`). See [API.md](API.md).
+
+**Client IP check:** Call via Caddy (8888/8443). `GET /api/v1/health` returns `client_ip` for debugging allowlists.
+
 ### Examples
 
 ```bash
 # Catalog (scopes + endpoints)
 curl -sS -H "Authorization: Bearer ph_…" \
   https://piherder.example.com/api/v1
+
+# Health + resolved client IP (for allowlist debugging)
+curl -sS -H "Authorization: Bearer ph_…" \
+  https://piherder.example.com/api/v1/health
 
 # List fleet
 curl -sS -H "Authorization: Bearer ph_…" \
@@ -432,12 +444,13 @@ Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backu
 ## 9. Quick admin checklist
 
 1. Create operators/viewers from **Users**; share one-time invite.
-2. Optionally enable **Force 2FA** under Settings.
+2. Optionally enable **Force 2FA** under Settings → General.
 3. Per server: **Edit → Features** → enable what you need → **Edit → Schedules** for checks → only then consider apply schedules.
 4. Prefer “only if updates” on apply schedules; start with a quiet weekly window.
 5. Use **Jobs** + **Audit** when diagnosing stuck or failed work; use Docker **Force refresh** if inventory looks stale after host-side changes.
 6. For mobile: set hostname + mount trusted TLS certs; optionally configure VAPID for push.
-7. For automation: create an API token with least scopes needed; set `METRICS_TOKEN` if scraping Prometheus.
+7. For automation: create an API token with least scopes + IP allowlist; rotate if leaked; set `METRICS_TOKEN` if scraping Prometheus.
+8. DR: Postgres volume + Settings → PiHerder backup; keep `PIHERDER_MASTER_KEY` safe for encrypted-field restore.
 
 ---
 
@@ -448,15 +461,19 @@ Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backu
 | Roles / middleware | `app/security/auth.py` |
 | Password policy | `app/services/password_policy.py` |
 | User admin routes | `app/routers/auth.py` (`/auth/users`) |
+| Settings UI (tabs) | `app/routers/settings.py`, `app/templates/herder_backups.html` |
+| Operational settings (DB) | `app/services/app_settings.py`, model `AppSetting` |
+| Shared confirm modal | `app/templates/base.html` (`PiHerderConfirm`, `data-confirm`) |
 | Scheduler registration | `app/services/scheduler.py` |
 | Job create / progress | `app/services/jobs.py` |
 | Fleet Jobs page | `app/routers/jobs_page.py`, `app/templates/jobs.html` |
 | Web Push service / APIs | `app/services/push.py`, `app/routers/push.py` |
 | Prometheus `/metrics` | `app/services/metrics.py`, `app/routers/metrics.py` |
 | Token REST API | `app/routers/api_v1.py`, `app/services/api_tokens.py`, model `ApiToken` |
+| CORS (opt-in) | `app/services/cors_policy.py`, env `CORS_ORIGINS` |
 | Docker multi-file versions | `app/services/docker_versions.py`, compose edit UI |
 | Docker inventory cache | `app/services/docker_inventory.py`, stack fragment in `server_docker.py` |
 | PWA assets | `app/static/manifest.webmanifest`, `app/static/sw.js`, `/sw.js` |
-| Unit tests | `tests/test_rbac.py`, `test_scheduler_apply.py`, `test_jobs_progress.py`, `test_push.py`, `test_metrics.py`, `test_docker_multifile.py`, `test_docker_inventory.py`, `test_herder_backup.py`, `test_api_tokens.py` |
+| Unit tests | `tests/test_rbac.py`, `test_api_tokens.py`, `test_app_settings.py`, `test_cors_policy.py`, `test_herder_backup.py`, … |
 | Herder self-backup | `app/services/herder_backup.py` |
 | Ecosystem roadmap | `docs/ROADMAP_ECOSYSTEM.md` |

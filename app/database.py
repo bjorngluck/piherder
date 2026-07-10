@@ -1,7 +1,7 @@
 from sqlmodel import SQLModel, create_engine, Session
 from sqlalchemy import text, inspect
 from .config import settings
-from .models import DockerVersion  # ensure registered for create_all / alembic
+from .models import DockerVersion, AppSetting  # ensure registered for create_all / alembic
 
 engine = create_engine(
     settings.DATABASE_URL,

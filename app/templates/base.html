@@ -762,7 +762,16 @@
     async function stopJob() {
       const serverId = state.serverId || window.PIHERDER_SERVER_ID;
       if (!serverId) return;
-      if (!confirm('Stop this backup?')) return;
+      var ok = true;
+      if (window.PiHerderConfirm) {
+        ok = await window.PiHerderConfirm.ask({
+          title: 'Stop job',
+          message: 'Stop this running job?',
+          confirmLabel: 'Stop',
+          danger: true
+        });
+      }
+      if (!ok) return;
       try {
         const body = new FormData();
         if (state.jobId || window.activePollJobId) {
@@ -774,7 +783,8 @@
         const e = els();
         if (e.log) e.log.innerText += '\n[Stop requested]\n';
       } catch (_) {
-        alert('Failed to request stop');
+        const e = els();
+        if (e.log) e.log.innerText += '\n[Failed to request stop]\n';
       }
     }
 
@@ -1115,5 +1125,163 @@
   })();
   </script>
   {% endif %}
+
+  {# Shared confirm dialog — prefer this over browser confirm() / alert() #}
+  <div id="ph-confirm-modal"
+       class="hidden fixed inset-0 z-[80] items-center justify-center p-4 bg-black/70"
+       role="dialog" aria-modal="true" aria-labelledby="ph-confirm-title" aria-describedby="ph-confirm-message">
+    <div class="modal-content card p-5 w-full max-w-md shadow-lg border border-border"
+         onclick="event.stopPropagation()">
+      <h2 id="ph-confirm-title" class="text-lg font-semibold text-text mb-2">Please confirm</h2>
+      <p id="ph-confirm-message" class="text-sm text-muted mb-5 whitespace-pre-wrap"></p>
+      <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+        <button type="button" id="ph-confirm-cancel" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+        <button type="button" id="ph-confirm-ok" class="btn btn-primary min-h-11 text-sm">Confirm</button>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var modal = document.getElementById('ph-confirm-modal');
+    var titleEl = document.getElementById('ph-confirm-title');
+    var msgEl = document.getElementById('ph-confirm-message');
+    var okBtn = document.getElementById('ph-confirm-ok');
+    var cancelBtn = document.getElementById('ph-confirm-cancel');
+    var resolver = null;
+    var prevFocus = null;
+
+    function close(result) {
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.body.style.overflow = '';
+      var r = resolver;
+      resolver = null;
+      if (prevFocus && typeof prevFocus.focus === 'function') {
+        try { prevFocus.focus(); } catch (e) {}
+      }
+      prevFocus = null;
+      if (r) r(!!result);
+    }
+
+    function open(opts) {
+      opts = opts || {};
+      return new Promise(function (resolve) {
+        if (!modal || !msgEl || !okBtn) {
+          // Fallback only if markup missing
+          resolve(window.confirm(opts.message || 'Continue?'));
+          return;
+        }
+        if (resolver) close(false);
+        resolver = resolve;
+        prevFocus = document.activeElement;
+        if (titleEl) titleEl.textContent = opts.title || 'Please confirm';
+        msgEl.textContent = opts.message || 'Continue?';
+        okBtn.textContent = opts.confirmLabel || 'Confirm';
+        if (cancelBtn) cancelBtn.textContent = opts.cancelLabel || 'Cancel';
+        okBtn.classList.remove('btn-primary', 'btn-danger', 'btn-accent');
+        okBtn.classList.add(opts.danger ? 'btn-danger' : 'btn-primary');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.style.overflow = 'hidden';
+        setTimeout(function () { try { okBtn.focus(); } catch (e) {} }, 10);
+      });
+    }
+
+    if (okBtn) okBtn.addEventListener('click', function () { close(true); });
+    if (cancelBtn) cancelBtn.addEventListener('click', function () { close(false); });
+    if (modal) {
+      modal.addEventListener('click', function (e) {
+        if (e.target === modal) close(false);
+      });
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+        e.preventDefault();
+        close(false);
+      }
+    });
+
+    window.PiHerderConfirm = {
+      ask: open,
+      /** Promise-based; preferred over window.confirm */
+      confirm: function (message, opts) {
+        opts = opts || {};
+        opts.message = message;
+        return open(opts);
+      }
+    };
+
+    // Declarative: <form data-confirm="…"> or submit button data-confirm="…"
+    document.addEventListener('submit', function (e) {
+      var form = e.target;
+      if (!form || form.tagName !== 'FORM') return;
+      if (form.dataset.confirmSkip === '1') {
+        delete form.dataset.confirmSkip;
+        return;
+      }
+      var submitter = e.submitter || null;
+      var src = (submitter && submitter.getAttribute('data-confirm'))
+        ? submitter
+        : (form.getAttribute('data-confirm') ? form : null);
+      if (!src) return;
+      var message = src.getAttribute('data-confirm');
+      if (!message) return;
+      e.preventDefault();
+      e.stopPropagation();
+      open({
+        title: src.getAttribute('data-confirm-title') || form.getAttribute('data-confirm-title') || 'Please confirm',
+        message: message,
+        confirmLabel: src.getAttribute('data-confirm-label') || 'Confirm',
+        cancelLabel: src.getAttribute('data-confirm-cancel') || 'Cancel',
+        danger: src.hasAttribute('data-confirm-danger') || form.hasAttribute('data-confirm-danger')
+      }).then(function (ok) {
+        if (!ok) return;
+        form.dataset.confirmSkip = '1';
+        if (typeof form.requestSubmit === 'function') {
+          try {
+            form.requestSubmit(submitter || undefined);
+            return;
+          } catch (err) {}
+        }
+        form.submit();
+      });
+    }, true);
+
+    // Declarative buttons: data-confirm + data-confirm-submit="#form-id"
+    // Optional data-confirm-set="#input-id=value"
+    document.addEventListener('click', function (e) {
+      var node = e.target;
+      if (node && node.nodeType !== 1) node = node.parentElement;
+      var btn = node && node.closest ? node.closest('[data-confirm][data-confirm-submit]') : null;
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var message = btn.getAttribute('data-confirm');
+      open({
+        title: btn.getAttribute('data-confirm-title') || 'Please confirm',
+        message: message,
+        confirmLabel: btn.getAttribute('data-confirm-label') || 'Confirm',
+        danger: btn.hasAttribute('data-confirm-danger')
+      }).then(function (ok) {
+        if (!ok) return;
+        var setSpec = btn.getAttribute('data-confirm-set');
+        if (setSpec) {
+          var parts = setSpec.split('=');
+          var sel = parts.shift();
+          var val = parts.join('=');
+          var el = sel ? document.querySelector(sel) : null;
+          if (el) el.value = val;
+        }
+        var formSel = btn.getAttribute('data-confirm-submit');
+        var form = formSel ? document.querySelector(formSel) : null;
+        if (!form) return;
+        form.dataset.confirmSkip = '1';
+        if (typeof form.requestSubmit === 'function') form.requestSubmit();
+        else form.submit();
+      });
+    }, true);
+  })();
+  </script>
 </body>
 </html>

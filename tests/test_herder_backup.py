@@ -76,8 +76,7 @@ def test_build_payload_keys(monkeypatch):
     monkeypatch.setattr(hb, "_snapshot_push_preferences", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_notifications", lambda: [])
     monkeypatch.setattr(
-        hb,
-        "load_herder_config",
+        "app.services.herder_backup.load_settings",
         lambda: {"timezone": "UTC", "force_2fa": False, "keep": 10},
     )
 
@@ -112,7 +111,7 @@ def test_build_payload_includes_audit_when_requested(monkeypatch):
     monkeypatch.setattr(hb, "_snapshot_push_subscriptions", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_push_preferences", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_notifications", lambda: [])
-    monkeypatch.setattr(hb, "load_herder_config", lambda: {})
+    monkeypatch.setattr("app.services.herder_backup.load_settings", lambda: {})
     monkeypatch.setattr(hb, "_snapshot_audit", lambda since_days=None: [{"id": 9}])
 
     payload = hb._build_backup_payload(include_audit=True, config_only=False)

@@ -30,7 +30,7 @@ We aim to acknowledge reports within a few days and will work with you on a fix 
 | SSH private keys / optional passwords | Fernet-encrypted in DB |
 | User passwords | bcrypt + password policy |
 | 2FA secrets | Fernet-encrypted TOTP; hashed backup codes |
-| API tokens (`ph_…`) | Stored as hashes only; shown once at creation |
+| API tokens (`ph_…`) | Stored as hashes only; shown once at create/rotate; scopes + optional IP allowlist |
 | Sessions | JWT cookie (HS256) |
 | Transport | HTTPS via Caddy + operator-supplied PEMs recommended for production |
 
@@ -44,4 +44,5 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md).
 - Put PiHerder behind trusted TLS; restrict network access where possible.  
 - Set `METRICS_TOKEN` if `/metrics` is reachable beyond a private scrape network.  
 - Treat API tokens like passwords; revoke compromised tokens immediately.  
+- Leave `CORS_ORIGINS` empty unless a browser on another origin must call `/api/v1`; never use `*`. CORS is not a substitute for Bearer + scopes + IP allowlists.  
 - Keep herder self-backups on durable storage separate from the fleet hosts when practical.

@@ -17,9 +17,12 @@
 	@public host {$PIHERDER_HOSTNAME}
 	redir @public https://{$PIHERDER_HOSTNAME}:8443{uri} 308
 
+	# Pass real client IP for API token CIDR allowlists (backend uses these headers).
+	# Use remote_host (IP only) — not {remote} which can include :port.
+	# Overwrite headers (do not append client-supplied XFF) to avoid spoofing.
 	reverse_proxy web:8000 {
-		header_up X-Real-IP {remote}
-		header_up X-Forwarded-For {remote}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
 		header_up X-Forwarded-Host {host}
 	}
@@ -31,8 +34,8 @@
 	tls /certs/fullchain.pem /certs/privkey.pem
 
 	reverse_proxy web:8000 {
-		header_up X-Real-IP {remote}
-		header_up X-Forwarded-For {remote}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto https
 		header_up X-Forwarded-Host {host}
 	}

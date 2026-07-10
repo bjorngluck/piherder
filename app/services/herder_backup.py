@@ -29,7 +29,6 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List, Type, Set
 import logging
-from zoneinfo import ZoneInfo
 
 from ..config import settings
 from ..database import engine
@@ -46,6 +45,7 @@ from ..models import (
     PushPreference,
     PushVapidConfig,
 )
+from .app_settings import load_settings
 
 logger = logging.getLogger(__name__)
 
@@ -63,137 +63,50 @@ _EXCLUDE_REL = {
 }
 
 HERDER_BACKUP_DIR = Path(settings.HERDER_BACKUP_ROOT)
-CONFIG_FILE = HERDER_BACKUP_DIR / ".herder-backup-config.json"
-
-DEFAULT_CONFIG = {
-    "keep": 10,
-    "schedule_mode": "config_only",  # or "full"
-    "timezone": "UTC",
-    "schedule_enabled": False,
-    "schedule_cron": "0 3 * * *",  # daily 03:00 in app timezone
-    # Global fleet update-check defaults (applied to per-server schedules)
-    "os_check_global_enabled": True,
-    "os_check_cron": "0 0 * * *",  # midnight local (app timezone)
-    "container_check_global_enabled": True,
-    "container_check_cron": "0 0 * * *",  # midnight; per-host minute jitter applied
-    "update_check_jitter": True,  # stagger minute by server_id so jobs queue, not thundering herd
-    # Security policy
-    "force_2fa": False,  # require TOTP for every user before using the app
-}
 
 
-def validate_cron_expression(cron: str) -> str:
-    """Return normalized 5-field cron or raise ValueError."""
-    expr = (cron or "").strip()
-    parts = expr.split()
-    if len(parts) != 5:
-        raise ValueError("Cron must have 5 fields (minute hour day month weekday). Example: 0 3 * * *")
+def _path_is_writable(path: Path) -> bool:
     try:
-        import pycron
-        pycron.is_now(expr, datetime.now())
-    except ImportError:
-        pass
-    except Exception as e:
-        raise ValueError(f"Invalid cron: {e}") from e
-    return expr
-
-def get_available_timezones() -> List[str]:
-    """Return IANA timezone list (continent/city). Uses stdlib zoneinfo (no extra dep)."""
-    try:
-        from zoneinfo import available_timezones
-        tzs = sorted(available_timezones())
-        # Keep it reasonable; full list is large but acceptable for <select>
-        return tzs or ["UTC"]
+        path.mkdir(parents=True, exist_ok=True)
+        test = path / ".perm_test"
+        test.write_text("1")
+        test.unlink(missing_ok=True)
+        return True
     except Exception:
-        # Fallback curated list (common ones)
-        return [
-            "UTC",
-            "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Amsterdam", "Europe/Helsinki", "Europe/Moscow",
-            "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
-            "America/Sao_Paulo", "America/Argentina/Buenos_Aires",
-            "Asia/Tokyo", "Asia/Shanghai", "Asia/Singapore", "Asia/Dubai", "Asia/Kolkata",
-            "Australia/Sydney", "Pacific/Auckland",
-            "Africa/Johannesburg", "Africa/Nairobi",
-        ]
+        return False
 
 
-def get_app_timezone() -> str:
-    cfg = load_herder_config()
-    return cfg.get("timezone") or "UTC"
-
-
-def set_app_timezone(tz: str):
-    cfg = load_herder_config()
-    cfg["timezone"] = tz or "UTC"
-    save_herder_config(cfg)
-
-
-def format_datetime_in_app_tz(dt: Optional[datetime], fmt: str = "%Y-%m-%d %H:%M") -> str:
-    """Format a (UTC-naive or aware) datetime using the globally selected app timezone.
-    Used so last backup times, audit times etc respect the Settings > Timezone everywhere.
-    """
-    if not dt:
-        return "Never"
-    tz_name = get_app_timezone()
-    try:
-        if dt.tzinfo is None:
-            # Treat DB/file UTC times as UTC
-            dt = dt.replace(tzinfo=ZoneInfo("UTC"))
-        local_dt = dt.astimezone(ZoneInfo(tz_name))
-        return local_dt.strftime(fmt)
-    except Exception:
-        # Fallback
-        try:
-            return dt.strftime(fmt)
-        except Exception:
-            return str(dt)
+def archive_dir_candidates() -> List[Path]:
+    """Preferred order for self-backup .tar.gz storage (compose mounts + data fallback)."""
+    data = Path(settings.DATA_ROOT or "/data")
+    return [
+        Path(settings.HERDER_BACKUP_ROOT),
+        Path("/herder_backups"),
+        Path("/backups/piherder_backups"),
+        Path("/backups"),
+        data / "herder_backups",
+    ]
 
 
 def _ensure_dir():
-    global HERDER_BACKUP_DIR, CONFIG_FILE
-    try:
-        HERDER_BACKUP_DIR.mkdir(parents=True, exist_ok=True)
-        # test write permission
-        test = HERDER_BACKUP_DIR / ".perm_test"
-        test.write_text("1")
-        test.unlink(missing_ok=True)
-    except Exception:
-        # fallback: use top-level of the working /backups mount (host ~/) to guarantee write.
-        # Self archives will appear as piherder-*.tar.gz directly under the backups dir on host.
-        # To use dedicated dir: on host mkdir -p ~/piherder_backups && sudo chown -R $(id -u):$(id -g) ~/piherder_backups
-        # or chmod 777 ~/piherder_backups before starting.
-        HERDER_BACKUP_DIR = Path("/backups")
-        CONFIG_FILE = HERDER_BACKUP_DIR / ".herder-backup-config.json"
-
-
-def load_herder_config() -> dict:
-    _ensure_dir()
-    raw: dict = {}
-    if CONFIG_FILE.exists():
-        try:
-            raw = json.loads(CONFIG_FILE.read_text())
-        except Exception:
-            pass
-    cfg = {**DEFAULT_CONFIG, **raw}
-    # Bootstrap schedule from env when UI has never saved schedule settings.
-    env_cron = (settings.HERDER_BACKUP_SCHEDULE or "").strip()
-    if env_cron and "schedule_enabled" not in raw:
-        cfg["schedule_enabled"] = True
-        cfg["schedule_cron"] = env_cron
-    return cfg
-
-
-def save_herder_config(cfg: dict):
-    """Merge partial updates with existing config so unrelated keys are preserved."""
-    _ensure_dir()
-    existing: dict = {}
-    if CONFIG_FILE.exists():
-        try:
-            existing = json.loads(CONFIG_FILE.read_text()) or {}
-        except Exception:
-            existing = {}
-    merged = {**DEFAULT_CONFIG, **existing, **cfg}
-    CONFIG_FILE.write_text(json.dumps(merged, indent=2))
+    """Resolve a writable directory for self-backup archives."""
+    global HERDER_BACKUP_DIR
+    if _path_is_writable(HERDER_BACKUP_DIR):
+        return
+    for cand in archive_dir_candidates():
+        if _path_is_writable(cand):
+            if cand != HERDER_BACKUP_DIR:
+                logger.warning(
+                    "Herder backup dir %s not writable; using %s",
+                    HERDER_BACKUP_DIR,
+                    cand,
+                )
+            HERDER_BACKUP_DIR = cand
+            return
+    logger.error(
+        "No writable herder backup directory among %s",
+        [str(p) for p in archive_dir_candidates()],
+    )
 
 
 def prune_old_backups(keep: int):
@@ -341,7 +254,7 @@ def _build_backup_payload(
         "push_subscriptions": _snapshot_push_subscriptions(),
         "push_preferences": _snapshot_push_preferences(),
         "notifications": _snapshot_notifications(),
-        "herder_config": load_herder_config(),
+        "herder_config": load_settings(),
     }
     if include_audit:
         data["audit_logs"] = _snapshot_audit(
@@ -359,8 +272,9 @@ def create_herder_backup(
     include_audit=False + config_only=True is the recommended default.
     The resulting .tar.gz lives under HERDER_BACKUP_ROOT on the host (map the volume!).
     """
+    global HERDER_BACKUP_DIR
     _ensure_dir()
-    cfg = load_herder_config()
+    cfg = load_settings()
     keep = int(cfg.get("keep", 10))
 
     ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -404,10 +318,25 @@ def create_herder_backup(
                 or not out_path.parent.exists()
                 or not os.access(str(out_path.parent), os.W_OK)
             ):
-                fb_dir = Path("/backups")
-                out_path = fb_dir / filename
-                _write_tar(out_path)
-                logger.warning(f"Herder backup dir not writable, fell back to {out_path}")
+                wrote = False
+                last_err: Exception = e
+                for fb_dir in archive_dir_candidates():
+                    if fb_dir == out_path.parent:
+                        continue
+                    if not _path_is_writable(fb_dir):
+                        continue
+                    try:
+                        out_path = fb_dir / filename
+                        _write_tar(out_path)
+                        HERDER_BACKUP_DIR = fb_dir
+                        logger.warning("Herder backup dir not writable, fell back to %s", out_path)
+                        wrote = True
+                        break
+                    except Exception as e2:
+                        last_err = e2
+                        continue
+                if not wrote:
+                    raise last_err
             else:
                 raise
 
@@ -422,10 +351,13 @@ def create_herder_backup(
 def list_backups() -> List[Dict[str, Any]]:
     _ensure_dir()
     candidates = list(HERDER_BACKUP_DIR.glob("piherder-*.tar.gz"))
-    # also check the "nice" subdir location (in case user fixed perms later or previous fallback wrote to sub)
-    for extra in [Path("/backups") / "piherder_backups", Path("/herder_backups")]:
+    # also scan known locations (perms fixed later, or previous fallback wrote elsewhere)
+    for extra in archive_dir_candidates():
         if extra != HERDER_BACKUP_DIR:
-            candidates.extend(extra.glob("piherder-*.tar.gz"))
+            try:
+                candidates.extend(extra.glob("piherder-*.tar.gz"))
+            except Exception:
+                pass
     seen = set()
     out = []
     for p in sorted((c for c in candidates if c.exists()), key=lambda x: x.stat().st_mtime, reverse=True):
@@ -810,12 +742,14 @@ def restore_herder_backup(
     except Exception as e:
         logger.warning("Sequence fix after restore skipped: %s", e)
 
-    # Herder settings file
+    # Operational settings → PostgreSQL (same as Settings UI)
     hcfg = payload.get("herder_config")
     if isinstance(hcfg, dict) and hcfg:
         try:
-            # Merge: archive keys win for known settings
-            save_herder_config(hcfg)
+            from .app_settings import replace_settings, clear_cache
+
+            clear_cache()
+            replace_settings(hcfg)
             result["restored_herder_config"] = True
         except Exception as e:
             logger.warning("Could not restore herder_config: %s", e)

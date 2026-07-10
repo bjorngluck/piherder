@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from .backup import human_size, backup_succeeded, effective_backup_status
-from .herder_backup import format_datetime_in_app_tz
+from .app_settings import format_datetime_in_app_tz
 
 _JOB_STARTED = re.compile(r"^Job #\d+ started$")
 

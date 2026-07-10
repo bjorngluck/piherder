@@ -57,7 +57,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 **Volumes (docker-compose.yml):**
 - `./backups:/backups` — destination root for per-server rsync backups (override path in compose if you prefer another host dir).
 - `./piherder_backups:/herder_backups` — PiHerder self-backup archives (fleet config, IAM, push keys, avatars, optional audit).
-- `./piherder_data:/data` — avatars, app data, future templates.
+- `./piherder_data:/data` — avatars (instance Settings live in Postgres).
 - `./certs:/certs` (Caddy, read-only) — `fullchain.pem` + `privkey.pem` for trusted HTTPS (see `certs/README.md`).
 
 ## Tech Stack
@@ -165,7 +165,7 @@ Use the built-in scheduler:
 
 Silent auto-upgrade is never the default: apply schedules are opt-in and prefer “only if updates pending”.
 
-**Automation (token REST API):** admins open **Settings → API management** (`?tab=api`) for tokens, in-app **API reference**, and endpoint catalog. Scopes: `read` / `jobs` / `edit` plus optional `feature:backup|os|docker` and **IP/CIDR allowlists**. Use `Authorization: Bearer ph_…` on `/api/v1/*`. Repo guide: [docs/API.md](docs/API.md); interactive: `/docs`.
+**Automation (token REST API):** admins open **Settings → API management** (`?tab=api`) for tokens (create, **copy** secret, edit permissions, **rotate**, revoke), in-app **API reference**, and endpoint catalog. Scopes: `read` / `jobs` / `edit` plus optional `feature:backup|os|docker` and **IP/CIDR allowlists** (enforced with client IP from Caddy). CORS off by default (`CORS_ORIGINS` only for browser cross-origin clients). Use `Authorization: Bearer ph_…` on `/api/v1/*`. Repo guide: [docs/API.md](docs/API.md); interactive: `/docs`.
 
 ## Security Notes
 
@@ -202,7 +202,7 @@ docker compose run --rm --no-deps web pytest -q
 
 - `./backups:/backups` — per-server backup destination (rsync targets land here). Change the host side if you already use e.g. `/home/you/backup`.
 - `./piherder_backups:/herder_backups` — self-backup archives for PiHerder itself.
-- `./piherder_data:/data` — avatars / app data.
+- `./piherder_data:/data` — avatars (Settings/timezone/force 2FA are in Postgres).
 - `./certs` → Caddy `/certs` — TLS PEMs (not committed).
 
 Bind-mount host directories as needed for persistence.
