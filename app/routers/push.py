@@ -159,6 +159,7 @@ async def push_preferences_form(
     reboot_pending: Optional[str] = Form(None),
     container_updates: Optional[str] = Form(None),
     herder_backup_failed: Optional[str] = Form(None),
+    integration_down: Optional[str] = Form(None),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
@@ -174,5 +175,6 @@ async def push_preferences_form(
         reboot_pending=_on(reboot_pending),
         container_updates=_on(container_updates),
         herder_backup_failed=_on(herder_backup_failed),
+        integration_down=_on(integration_down),
     )
     return RedirectResponse("/auth/account?msg=push_prefs_saved", status_code=303)

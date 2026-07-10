@@ -37,8 +37,10 @@ router = APIRouter()
 # Mount sub-routers (keep paths unchanged)
 from .server_docker import router as docker_router
 from .server_backups import router as backups_router
+from .server_services import router as services_router
 router.include_router(docker_router, prefix="")
 router.include_router(backups_router, prefix="")
+router.include_router(services_router, prefix="")
 logger = logging.getLogger("piherder.servers")
 
 
@@ -134,6 +136,34 @@ async def list_servers(
         d["os_phased_count"] = phased
         d["os_total_upgradable"] = total_up
         servers.append(d)
+
+    # Kuma SSH reachability chips (from integration bindings cache)
+    try:
+        from ..services.integrations import registry as integ_reg
+        from ..services.integrations import uptime_kuma as kuma_svc
+
+        by_server = integ_reg.bindings_by_server(session, role=integ_reg.ROLE_SSH)
+        for d in servers:
+            binds = by_server.get(d.get("id")) or []
+            if not binds:
+                d["kuma_ssh"] = None
+                continue
+            # Prefer worst state if multiple integrations
+            order = {"down": 0, "pending": 1, "maintenance": 2, "unknown": 3, "up": 4}
+            best = sorted(binds, key=lambda b: order.get((b.last_state or "unknown"), 9))[0]
+            integ = integ_reg.get_integration(session, best.integration_id)
+            open_url = (
+                integ_reg.binding_open_url(integ, best) if integ else ""
+            )
+            d["kuma_ssh"] = {
+                "state": best.last_state or "unknown",
+                "label": best.external_label or best.external_id,
+                "message": best.last_message or "",
+                "integration_id": best.integration_id,
+                "open_url": open_url,
+            }
+    except Exception as e:
+        logger.debug("kuma chips skip: %s", e)
 
     total = time.time() - start
     if total > 0.3:
@@ -562,9 +592,61 @@ async def server_detail(
             "docker_base_expanded": ssh_service.docker_base_expanded(server),
             "haos_guidance": ssh_onboarding.HAOS_GUIDANCE,
             "host_deps": host_deps_svc.parse_host_deps(server),
+            "kuma_ssh": _kuma_ssh_for_server(session, server.id),
+            "kuma_host_services": _kuma_host_services_for_server(session, server.id),
+            "kuma_docker_service_count": _kuma_docker_service_count(session, server.id),
             "lean_page": True,
         }
     )
+
+
+def _kuma_ssh_for_server(session: Session, server_id: int) -> Optional[dict]:
+    """Best SSH binding snapshot for server detail monitoring card."""
+    try:
+        from ..services.integrations import registry as integ_reg
+
+        binds = integ_reg.list_bindings(
+            session, server_id=server_id, role=integ_reg.ROLE_SSH
+        )
+        if not binds:
+            return None
+        order = {"down": 0, "pending": 1, "maintenance": 2, "unknown": 3, "up": 4}
+        best = sorted(binds, key=lambda b: order.get((b.last_state or "unknown"), 9))[0]
+        integ = integ_reg.get_integration(session, best.integration_id)
+        open_url = integ_reg.binding_open_url(integ, best) if integ else ""
+        return {
+            "state": best.last_state or "unknown",
+            "label": best.external_label or best.external_id,
+            "message": best.last_message or "",
+            "integration_id": best.integration_id,
+            "checked_at": best.last_checked_at,
+            "open_url": open_url,
+        }
+    except Exception:
+        return None
+
+
+def _kuma_host_services_for_server(session: Session, server_id: int) -> list[dict]:
+    """Host-scoped HTTP/TLS services (not Docker) — e.g. Home Assistant on HAOS."""
+    try:
+        from ..services.integrations import registry as integ_reg
+
+        return integ_reg.host_service_chips_for_server(session, server_id)
+    except Exception:
+        return []
+
+
+def _kuma_docker_service_count(session: Session, server_id: int) -> int:
+    try:
+        from ..services.integrations import registry as integ_reg
+
+        return sum(
+            1
+            for b in integ_reg.service_bindings_for_server(session, server_id)
+            if integ_reg.is_docker_service_binding(b)
+        )
+    except Exception:
+        return 0
 
 
 def _host_cleanup_script_for_server(server: Server) -> str:
@@ -658,28 +740,86 @@ async def delete_server(
 async def reboot_server(
     server_id: int,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
 ):
+    """Send reboot to the host via SSH (passwordless sudo full path).
 
+    Least-priv sudoers allow ``/usr/sbin/reboot`` — bare ``sudo reboot`` is not
+    always matched. Clear local reboot_pending optimistically after the command
+    is accepted so the UI does not look stuck.
+    """
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
 
     success = False
     details = "Reboot initiated"
+    # Full paths that match least-priv onboard sudoers / common layouts
+    reboot_cmds = (
+        "sudo -n /usr/sbin/reboot",
+        "sudo -n /sbin/reboot",
+        "sudo -n /usr/bin/systemctl reboot",
+    )
     try:
         client = ssh_service.get_ssh_client(server)
+        last_err = ""
         try:
-            client.exec_command("sudo reboot", timeout=3)
-        except Exception:
-            pass
-        try:
-            client.close()
-        except Exception:
-            pass
-        success = True
+            for cmd in reboot_cmds:
+                try:
+                    # Non-blocking start; reboot often kills the channel mid-flight
+                    _stdin, stdout, stderr = client.exec_command(cmd, timeout=5)
+                    # Brief wait for immediate "not allowed" / missing binary
+                    import time as _time
+
+                    _time.sleep(0.4)
+                    if stdout.channel.exit_status_ready():
+                        code = stdout.channel.recv_exit_status()
+                        err = (stderr.read() or b"").decode(errors="replace")[:200]
+                        out = (stdout.read() or b"").decode(errors="replace")[:200]
+                        if code == 0:
+                            success = True
+                            details = f"Reboot accepted ({cmd})"
+                            break
+                        last_err = (err or out or f"exit {code}").strip()
+                        # try next path
+                        continue
+                    # No exit yet — host is likely going down (success)
+                    success = True
+                    details = f"Reboot command sent ({cmd})"
+                    break
+                except Exception as e:
+                    # Connection dropped after reboot is normal
+                    msg = str(e).lower()
+                    if any(
+                        x in msg
+                        for x in ("eof", "reset", "closed", "timeout", "timed out")
+                    ):
+                        success = True
+                        details = f"Reboot sent (connection closed: {cmd})"
+                        break
+                    last_err = str(e)[:200]
+            if not success and last_err:
+                details = f"Reboot command failed: {last_err}"
+        finally:
+            try:
+                client.close()
+            except Exception:
+                pass
     except Exception as e:
         details = f"Reboot command failed to send: {e}"
+
+    if success:
+        # Optimistic clear — host will re-set on next OS check if still required
+        server.reboot_pending = False
+        session.add(server)
+        try:
+            from ..services import notifications as notif_svc
+
+            notif_svc.resolve_by_fingerprint(
+                session, f"reboot_pending:server:{server_id}"
+            )
+        except Exception:
+            pass
 
     try:
         record_server_audit(
@@ -694,7 +834,12 @@ async def reboot_server(
     except Exception:
         pass
 
-    return RedirectResponse(f"/servers/{server_id}?rebooted=1", status_code=303)
+    if success:
+        return RedirectResponse(f"/servers/{server_id}?rebooted=1", status_code=303)
+    return RedirectResponse(
+        f"/servers/{server_id}?error=reboot_fail&detail={quote(details[:180])}",
+        status_code=303,
+    )
 
 
 @router.post("/{server_id}/update")

@@ -293,6 +293,7 @@ class PushPreference(SQLModel, table=True):
     reboot_pending: bool = True
     container_updates: bool = True
     herder_backup_failed: bool = True
+    integration_down: bool = True
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -347,3 +348,53 @@ class AppSetting(SQLModel, table=True):
     # Always use id=1 as the singleton; create if missing.
     data_json: str = Field(default="{}")  # JSON object
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Integration(SQLModel, table=True):
+    """External product connection (Uptime Kuma, Grafana, …).
+
+    Credentials are Fernet-encrypted JSON. last_status_json is a poll cache.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    type: str = Field(index=True)  # uptime_kuma | grafana | pihole | …
+    name: str
+    base_url: str
+    enabled: bool = True
+    config_json: Optional[str] = None  # non-secret JSON
+    credentials_encrypted: Optional[str] = None
+    last_status_json: Optional[str] = None
+    last_polled_at: Optional[datetime] = None
+    last_error: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    bindings: List["IntegrationBinding"] = Relationship(back_populates="integration")
+
+
+class IntegrationBinding(SQLModel, table=True):
+    """Map fleet resources to external monitors (e.g. Kuma).
+
+    Hierarchy:
+      - role=ssh_reachability → server-level SSH
+      - role=service → one level lower: server → docker_project → optional docker_container
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    integration_id: int = Field(foreign_key="integration.id", index=True)
+    server_id: int = Field(foreign_key="server.id", index=True)
+    role: str = Field(default="ssh_reachability", index=True)
+    # Compose project name (required for role=service)
+    docker_project: Optional[str] = Field(default=None, index=True)
+    # Container / compose service name within the project (optional)
+    docker_container: Optional[str] = Field(default=None, index=True)
+    external_id: str  # e.g. Kuma monitor key (name or id)
+    external_label: Optional[str] = None
+    external_meta_json: Optional[str] = None
+    # Relative path under DATA_ROOT, e.g. service_logos/12.png (upload or favicon fetch)
+    logo_path: Optional[str] = None
+    last_state: Optional[str] = None  # up | down | pending | maintenance | unknown
+    last_message: Optional[str] = None
+    last_checked_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    integration: Optional[Integration] = Relationship(back_populates="bindings")

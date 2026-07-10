@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header mb-6">
+  <div>
+    <p class="text-xs text-muted mb-1">
+      <a href="/servers/{{ server.id }}" class="text-accent hover:underline">{{ server.name }}</a>
+      <span class="text-muted"> / Services</span>
+    </p>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">Services</h1>
+    <p class="text-sm text-muted mt-1">
+      HTTP/TLS apps monitored via Uptime Kuma — host services (e.g. HAOS) and Docker stacks.
+    </p>
+  </div>
+  <div class="page-header-actions flex flex-wrap gap-2">
+    {% if server.container_patch_enabled %}
+    <a href="/servers/{{ server.id }}/docker" class="btn btn-secondary min-h-11">Docker</a>
+    {% endif %}
+    <a href="/services" class="btn btn-secondary min-h-11">Fleet services</a>
+    {% if manage_integration_id %}
+    <a href="/integrations/{{ manage_integration_id }}#kuma-services" class="btn btn-primary min-h-11">Manage bindings</a>
+    {% else %}
+    <a href="/integrations" class="btn btn-primary min-h-11">Integrations</a>
+    {% endif %}
+    <a href="/servers/{{ server.id }}" class="btn btn-secondary min-h-11">Server</a>
+  </div>
+</div>
+
+{% if kuma_ssh %}
+<div class="card p-3 mb-4 border border-border flex flex-wrap items-center justify-between gap-2">
+  <div>
+    <span class="text-sm font-medium text-text">SSH reachability</span>
+    <span class="status-pill text-xs ml-1
+      {% if kuma_ssh.state == 'up' %}status-success
+      {% elif kuma_ssh.state == 'down' %}status-failed
+      {% else %}feature-off{% endif %}">{{ kuma_ssh.state }}</span>
+    <span class="text-xs text-muted ml-1">{{ kuma_ssh.label }}{% if kuma_ssh.message %} · {{ kuma_ssh.message }}{% endif %}</span>
+  </div>
+  {% if kuma_ssh.open_url %}
+  <a href="{{ kuma_ssh.open_url }}" target="_blank" rel="noopener" class="text-xs text-accent hover:underline">Open in Kuma →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<div class="flex flex-wrap gap-3 text-xs text-muted mb-4">
+  <span><strong class="text-text">{{ services|length }}</strong> service(s)</span>
+  <span>· <strong class="text-text">{{ host_count }}</strong> host</span>
+  <span>· <strong class="text-text">{{ docker_count }}</strong> Docker</span>
+</div>
+
+{% if not services %}
+<div class="card p-6 max-w-xl">
+  <p class="text-sm text-muted mb-3">
+    No service monitors bound to this server yet. Bind HTTP(s) checks in Integrations —
+    as a <strong>host service</strong> (HAOS / bare metal) or under a Docker project/container.
+  </p>
+  {% if manage_integration_id %}
+  <a href="/integrations/{{ manage_integration_id }}#kuma-services" class="btn btn-accent min-h-11">Add service binding</a>
+  {% else %}
+  <a href="/integrations/new/uptime-kuma" class="btn btn-accent min-h-11">Connect Uptime Kuma</a>
+  {% endif %}
+</div>
+{% else %}
+
+{# Host services #}
+{% if host_count %}
+<h2 class="text-sm font-semibold text-text mb-2 mt-2">Host services</h2>
+<p class="text-xs text-muted mb-3">Not tied to a Docker project on this Pi (e.g. Home Assistant OS).</p>
+<div class="space-y-3 mb-6">
+  {% for s in services if s.location_kind == 'host' %}
+  <div class="card p-4 border border-border">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="flex gap-3 min-w-0 flex-1">
+        <div class="w-12 h-12 rounded-xl border border-border bg-surface flex items-center justify-center overflow-hidden shrink-0">
+          {% if s.logo_url %}
+          <img src="{{ s.logo_url }}" alt="" class="w-full h-full object-contain p-1">
+          {% else %}
+          <span class="text-base font-semibold text-primary">{{ (s.label or '?')[0]|upper }}</span>
+          {% endif %}
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <h3 class="text-base font-semibold text-text">{{ s.label }}</h3>
+            <span class="status-pill text-xs
+              {% if s.state == 'up' %}status-success
+              {% elif s.state == 'down' %}status-failed
+              {% elif s.state == 'pending' or s.state == 'maintenance' %}status-running
+              {% else %}feature-off{% endif %}">{{ s.state }}</span>
+            {% if s.cert_valid is sameas true and s.cert_days is not none %}
+            <span class="status-pill text-xs status-success" title="Certificate days remaining">TLS {{ s.cert_days|int }}d</span>
+            {% elif s.cert_valid is sameas false %}
+            <span class="status-pill text-xs status-failed">TLS invalid</span>
+            {% endif %}
+            <span class="status-pill text-xs status-running">host</span>
+          </div>
+          <dl class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <div>
+              <dt class="text-[10px] uppercase tracking-wide text-muted">Service URL</dt>
+              <dd class="font-mono text-xs break-all">
+                {% if s.url and s.url.startswith('http') %}
+                <a href="{{ s.url }}" target="_blank" rel="noopener" class="text-accent hover:underline">{{ s.url }}</a>
+                {% elif s.url %}
+                {{ s.url }}
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-[10px] uppercase tracking-wide text-muted">Monitoring</dt>
+              <dd class="text-xs text-muted">
+                {{ s.message or '—' }}
+                {% if s.checked_at %}<span class="block text-[10px] mt-0.5">Last check {{ s.checked_at }}</span>{% endif %}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-[10px] uppercase tracking-wide text-muted">Location</dt>
+              <dd class="text-xs">{{ s.location }}</dd>
+            </div>
+          </dl>
+          {% if s.id %}
+          <details class="mt-2">
+            <summary class="text-[10px] text-muted cursor-pointer">Logo…</summary>
+            <div class="mt-1 flex flex-wrap gap-2 items-center">
+              <form method="post" action="/services/{{ s.id }}/logo" enctype="multipart/form-data" class="flex flex-wrap gap-1 items-center">
+                <input type="hidden" name="next" value="/servers/{{ server.id }}/services">
+                <input type="file" name="file" accept="image/*" class="text-[10px]" required>
+                <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Upload</button>
+              </form>
+              <form method="post" action="/services/{{ s.id }}/logo/discover">
+                <input type="hidden" name="next" value="/servers/{{ server.id }}/services">
+                <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Fetch favicon</button>
+              </form>
+            </div>
+          </details>
+          {% endif %}
+        </div>
+      </div>
+      <div class="flex flex-col gap-2 shrink-0">
+        {% if s.url and s.url.startswith('http') %}
+        <a href="{{ s.url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open service</a>
+        {% endif %}
+        {% if s.open_url %}
+        <a href="{{ s.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open in Kuma</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{# Docker services #}
+{% if docker_count %}
+<h2 class="text-sm font-semibold text-text mb-2">Docker services</h2>
+<p class="text-xs text-muted mb-3">Bound to a compose project or container on this host.</p>
+<div class="space-y-3 mb-6">
+  {% for s in services if s.location_kind == 'docker' %}
+  <div class="card p-4 border border-border">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="flex gap-3 min-w-0 flex-1">
+        <div class="w-12 h-12 rounded-xl border border-border bg-surface flex items-center justify-center overflow-hidden shrink-0">
+          {% if s.logo_url %}
+          <img src="{{ s.logo_url }}" alt="" class="w-full h-full object-contain p-1">
+          {% else %}
+          <span class="text-base font-semibold text-primary">{{ (s.label or '?')[0]|upper }}</span>
+          {% endif %}
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <h3 class="text-base font-semibold text-text">{{ s.label }}</h3>
+            <span class="status-pill text-xs
+              {% if s.state == 'up' %}status-success
+              {% elif s.state == 'down' %}status-failed
+              {% elif s.state == 'pending' or s.state == 'maintenance' %}status-running
+              {% else %}feature-off{% endif %}">{{ s.state }}</span>
+            {% if s.cert_valid is sameas true and s.cert_days is not none %}
+            <span class="status-pill text-xs status-success">TLS {{ s.cert_days|int }}d</span>
+            {% elif s.cert_valid is sameas false %}
+            <span class="status-pill text-xs status-failed">TLS invalid</span>
+            {% endif %}
+            <span class="status-pill text-xs feature-off">docker</span>
+          </div>
+          <dl class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+            <div>
+              <dt class="text-[10px] uppercase tracking-wide text-muted">Service URL</dt>
+              <dd class="font-mono text-xs break-all">
+                {% if s.url and s.url.startswith('http') %}
+                <a href="{{ s.url }}" target="_blank" rel="noopener" class="text-accent hover:underline">{{ s.url }}</a>
+                {% elif s.url %}
+                {{ s.url }}
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-[10px] uppercase tracking-wide text-muted">Monitoring</dt>
+              <dd class="text-xs text-muted">
+                {{ s.message or '—' }}
+                {% if s.checked_at %}<span class="block text-[10px] mt-0.5">Last check {{ s.checked_at }}</span>{% endif %}
+              </dd>
+            </div>
+            <div>
+              <dt class="text-[10px] uppercase tracking-wide text-muted">Docker</dt>
+              <dd class="text-xs font-mono">
+                <a href="/servers/{{ server.id }}/docker" class="text-accent hover:underline">{{ s.location }}</a>
+              </dd>
+            </div>
+          </dl>
+          {% if s.id %}
+          <details class="mt-2">
+            <summary class="text-[10px] text-muted cursor-pointer">Logo…</summary>
+            <div class="mt-1 flex flex-wrap gap-2 items-center">
+              <form method="post" action="/services/{{ s.id }}/logo" enctype="multipart/form-data" class="flex flex-wrap gap-1 items-center">
+                <input type="hidden" name="next" value="/servers/{{ server.id }}/services">
+                <input type="file" name="file" accept="image/*" class="text-[10px]" required>
+                <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Upload</button>
+              </form>
+              <form method="post" action="/services/{{ s.id }}/logo/discover">
+                <input type="hidden" name="next" value="/servers/{{ server.id }}/services">
+                <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Fetch favicon</button>
+              </form>
+            </div>
+          </details>
+          {% endif %}
+        </div>
+      </div>
+      <div class="flex flex-col gap-2 shrink-0">
+        {% if s.url and s.url.startswith('http') %}
+        <a href="{{ s.url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open service</a>
+        {% endif %}
+        {% if s.open_url %}
+        <a href="{{ s.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open in Kuma</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

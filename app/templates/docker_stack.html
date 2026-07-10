@@ -71,6 +71,20 @@
             {% if proj.has_pending_update %}
             <span class="status-pill status-failed" title="{% if proj.update_container_count %}{{ proj.update_container_count }} service(s){% else %}Stack{% endif %} with image updates">Update available</span>
             {% endif %}
+            {% set proj_kuma = (kuma_by_project or {}).get(proj.name) or [] %}
+            {% for chip in proj_kuma %}
+            <a href="{{ chip.open_url or '#' }}"
+               {% if chip.open_url %}target="_blank" rel="noopener"{% endif %}
+               class="status-pill text-xs no-underline
+                 {% if chip.state == 'up' %}status-success
+                 {% elif chip.state == 'down' %}status-failed
+                 {% else %}feature-off{% endif %}"
+               title="{{ chip.label }}{% if chip.message %} — {{ chip.message }}{% endif %}{% if chip.cert_days is not none %} · TLS {{ chip.cert_days|int }}d{% endif %}">
+              {% if chip.cert_valid is sameas true and chip.cert_days is not none %}TLS {{ chip.cert_days|int }}d
+              {% elif chip.cert_valid is sameas false %}TLS ✗
+              {% else %}mon {{ chip.state }}{% endif %}
+            </a>
+            {% endfor %}
           </div>
           <div class="docker-proj-path text-muted" title="{{ proj.path | e }}">{{ proj.path }}</div>
         </div>
@@ -187,6 +201,22 @@
                 {% if c.has_pending_update %}
                   <span class="status-pill status-failed" title="Image update available for this service">Update</span>
                 {% endif %}
+                {% set ctr_key = c.name or c.compose_service or '' %}
+                {% set ctr_kuma = (kuma_by_container or {}).get(ctr_key) or (kuma_by_container or {}).get(c.compose_service or '') or [] %}
+                {% for chip in ctr_kuma %}
+                <a href="{{ chip.open_url or '#' }}"
+                   {% if chip.open_url %}target="_blank" rel="noopener"{% endif %}
+                   class="status-pill text-xs no-underline
+                     {% if chip.state == 'up' %}status-success
+                     {% elif chip.state == 'down' %}status-failed
+                     {% else %}feature-off{% endif %}"
+                   title="{{ chip.label }}{% if chip.message %} — {{ chip.message }}{% endif %}{% if chip.cert_days is not none %} · TLS {{ chip.cert_days|int }}d{% endif %}"
+                   onclick="event.stopPropagation()">
+                  {% if chip.cert_valid is sameas true and chip.cert_days is not none %}TLS {{ chip.cert_days|int }}d
+                  {% elif chip.cert_valid is sameas false %}TLS ✗
+                  {% else %}mon {{ chip.state }}{% endif %}
+                </a>
+                {% endfor %}
                 {% if c.status and not c.placeholder %}
                   <span class="docker-svc-age text-muted" title="{{ c.status | e }}">{{ c.status }}</span>
                 {% endif %}

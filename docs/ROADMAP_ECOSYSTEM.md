@@ -22,7 +22,7 @@ Design principles stay the same as SPEC:
 |---------|--------|---------|
 | **v0.2** | Production install story (image, compose, token REST, prod docs) | H0 |
 | **v0.2.x** | Platform reliability (host deps, stack Status tab, multi-worker design) | H0.5 |
-| **v0.3** | Integration hub (links, Uptime Kuma status, Grafana deep links) | H1 |
+| **v0.3** | Integration hub — **Uptime Kuma shipped**; Grafana / multi-URL open | H1 |
 | **v0.4** | Service templates + onboard wizards (monitor / DNS / TLS) | H2 |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze |
 
@@ -109,15 +109,23 @@ Do **not** treat k8s or bare-metal as promised deliverables in H0–H2 success c
 
 ## Horizon 1 — Integration hub (v0.3)
 
-Read-mostly integrations: config + status + deep links.
+Read-mostly integrations: config + status + deep links + **server / host / Docker bindings**.
 
-- **Integration registry** — types such as Uptime Kuma, Grafana, Pi-hole (multi), NPM, Home Assistant, Frigate, n8n, generic URL  
-- **Uptime Kuma** — poll availability; badges; “Open in Kuma”; optional down notifications  
-- **Grafana** — URL templates (`{{host}}`); “Open in Grafana”; native high-level chips from existing fleet data  
-- **Pi-hole** — generalize beyond single `PIHOLE_URL`  
-- **NPM / Cloudflare / n8n** — admin URLs + docs (certs: NPM → n8n → consumers); no full zone control yet  
+| Item | Status |
+|------|--------|
+| Integration registry + top-level **Integrations** nav | **Shipped** |
+| **Uptime Kuma** — API key + `/metrics`; SSH + host service + Docker bindings; TLS; deep links; notifications; Services pages; logos | **Shipped** |
+| Grafana deep links / chips | Open |
+| Multi Pi-hole / NPM / HA / Frigate / n8n generic URL | Open |
 
-See planned design: `docs/FEATURE_PLAN_INTEGRATIONS.md` (when implemented).
+**Uptime Kuma (shipped detail):**
+
+- Auth: API key on `GET /metrics`; optional Kuma login for numeric `/dashboard/{id}` map (Kuma 1.23 often lacks `monitor_id` in metrics).
+- Scopes: SSH per server; **host services** (e.g. HAOS); **Docker project/container**.
+- UI: Integrations, server **Services**, fleet **`/services`** icon grid, dashboard Services tile, Docker chips.
+- Logos: favicon discovery + upload under `DATA_ROOT/service_logos/`.
+
+**Design:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md) · **Ops:** [ADMIN.md](ADMIN.md) § Uptime Kuma
 
 ---
 

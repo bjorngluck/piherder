@@ -128,6 +128,20 @@
         <span class="status-pill status-success">Img 0</span>
         {% endif %}
         {% endif %}
+
+        {% if s.get('kuma_ssh') %}
+        {% set ks = s.kuma_ssh %}
+        <a href="{{ ks.open_url or ('/integrations/' ~ ks.integration_id) }}"
+           {% if ks.open_url %}target="_blank" rel="noopener"{% endif %}
+           class="status-pill no-underline
+           {% if ks.state == 'up' %}status-success
+           {% elif ks.state == 'down' %}status-failed
+           {% elif ks.state == 'pending' or ks.state == 'maintenance' %}status-running
+           {% else %}feature-off{% endif %}"
+           title="Open in Uptime Kuma — {{ ks.label }}: {{ ks.state }}{% if ks.message %} ({{ ks.message }}){% endif %}">
+          SSH {{ ks.state }}
+        </a>
+        {% endif %}
       </div>
     </div>
 
@@ -479,6 +493,20 @@
             return;
           }
           if (item.post) {
+            // Visible feedback for destructive / slow actions (e.g. reboot)
+            if (item.danger || item.post.indexOf('/reboot') !== -1) {
+              try {
+                var root = document.getElementById('piherder-nav-loading');
+                var t = document.getElementById('piherder-nav-loading-title');
+                var sub = document.getElementById('piherder-nav-loading-sub');
+                if (root) {
+                  root.classList.remove('hidden');
+                  if (t) t.textContent = item.post.indexOf('/reboot') !== -1
+                    ? 'Sending reboot…' : (item.label || 'Working…');
+                  if (sub) sub.textContent = name || '';
+                }
+              } catch (_) {}
+            }
             var f = document.createElement('form');
             f.method = 'POST';
             f.action = item.post;

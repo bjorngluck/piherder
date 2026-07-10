@@ -982,6 +982,17 @@ async def stack_fragment(
             projects, orphan_containers, server
         )
 
+    kuma_by_project: dict = {}
+    kuma_by_container: dict = {}
+    try:
+        from ..services.integrations import registry as integ_reg
+
+        kuma_idx = integ_reg.kuma_index_for_server(session, server_id)
+        kuma_by_project = kuma_idx.get("by_project") or {}
+        kuma_by_container = kuma_idx.get("by_container") or {}
+    except Exception:
+        pass
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="docker_stack.html",
@@ -997,6 +1008,8 @@ async def stack_fragment(
             "pending_update_projects": sorted(
                 docker_svc.parse_container_updates_summary(server).get("projects") or []
             ),
+            "kuma_by_project": kuma_by_project,
+            "kuma_by_container": kuma_by_container,
         },
     )
 

@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">
+      {% if mode == 'edit' %}Edit Uptime Kuma{% else %}Add Uptime Kuma{% endif %}
+    </h1>
+    <p class="text-sm text-muted mt-1">
+      Use a Kuma <strong>API key</strong> (Settings → API Keys). PiHerder reads
+      <code class="text-xs">GET /metrics</code> — no admin password.
+    </p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% if integration %}/integrations/{{ integration.id }}{% else %}/integrations{% endif %}"
+       class="btn btn-secondary min-h-11">Cancel</a>
+  </div>
+</div>
+
+{% if error %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  {% if error == 'test_failed' %}Connection test failed{% elif error == 'invalid' %}Invalid input{% else %}Error{% endif %}
+  {% if detail %}— {{ detail }}{% endif %}
+</div>
+{% endif %}
+{% if request.query_params.get('msg') == 'test_ok' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  Test OK{% if request.query_params.get('detail') %} — {{ request.query_params.get('detail') }}{% endif %}
+</div>
+{% endif %}
+
+<div class="card p-5 max-w-xl">
+  <form method="post"
+        action="{% if mode == 'edit' %}/integrations/{{ integration.id }}/edit{% else %}/integrations/new/uptime-kuma{% endif %}"
+        class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="name">Display name</label>
+      <input id="name" name="name" type="text" required class="input w-full"
+             value="{{ form.name }}">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="base_url">Base URL</label>
+      <input id="base_url" name="base_url" type="url" required class="input w-full font-mono text-sm"
+             placeholder="http://rpi5-4:3001"
+             value="{{ form.base_url }}">
+      <p class="text-[11px] text-muted mt-1">Must be reachable from PiHerder web and Celery containers.</p>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="api_key">API key</label>
+      <input id="api_key" name="api_key" type="password" autocomplete="off"
+             class="input w-full font-mono text-sm"
+             {% if mode != 'edit' %}required{% endif %}
+             placeholder="{% if mode == 'edit' and has_key %}•••• saved — leave blank to keep{% else %}uk…_{% endif %}">
+      {% if mode == 'edit' and has_key %}
+      <p class="text-[11px] text-muted mt-1">Key is stored encrypted. Enter a new value only to replace it.</p>
+      {% endif %}
+    </div>
+    <div class="border border-border rounded p-3 space-y-3">
+      <p class="text-sm font-medium text-text">Optional: Kuma login (deep links)</p>
+      <p class="text-[11px] text-muted">
+        Kuma 1.23 <code class="text-[10px]">/metrics</code> has no numeric monitor ids.
+        A one-time login lets PiHerder resolve <code class="text-[10px]">/dashboard/32</code> links automatically.
+        Status still uses the API key.
+      </p>
+      <div>
+        <label class="block text-sm font-medium text-text mb-1" for="username">Username</label>
+        <input id="username" name="username" type="text" autocomplete="off" class="input w-full"
+               value="{{ form.username or '' }}"
+               placeholder="Kuma admin user">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-text mb-1" for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="new-password"
+               class="input w-full"
+               placeholder="{% if has_kuma_login %}•••• saved — leave blank to keep{% else %}{% endif %}">
+      </div>
+      {% if mode == 'edit' and has_kuma_login %}
+      <label class="flex items-center gap-2 text-xs text-muted">
+        <input type="checkbox" name="clear_login" value="on">
+        Clear saved Kuma login
+      </label>
+      {% endif %}
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="poll_interval_sec">Poll interval (seconds)</label>
+      <input id="poll_interval_sec" name="poll_interval_sec" type="number" min="30" max="900"
+             class="input w-32" value="{{ form.poll_interval_sec }}">
+    </div>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="tls_verify" value="on" {% if form.tls_verify %}checked{% endif %}>
+      Verify TLS certificates
+    </label>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="enabled" value="on" {% if form.enabled %}checked{% endif %}>
+      Enabled
+    </label>
+    <div class="flex flex-wrap gap-2 pt-2">
+      <button type="submit" class="btn btn-primary min-h-11">
+        {% if mode == 'edit' %}Save{% else %}Save &amp; connect{% endif %}
+      </button>
+      <a href="{% if integration %}/integrations/{{ integration.id }}{% else %}/integrations{% endif %}"
+         class="btn btn-secondary min-h-11">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<div class="card p-4 max-w-xl mt-4 text-xs text-muted space-y-1">
+  <p class="font-medium text-text">Kuma checklist</p>
+  <ol class="list-decimal pl-4 space-y-1">
+    <li>In Kuma: enable API keys → create a key (copy once).</li>
+    <li>From the herder host: <code class="text-[10px]">curl -sS -u ":$KEY" "$BASE/metrics" | head</code></li>
+    <li>Paste the same base URL and key here.</li>
+  </ol>
+</div>
+{% endblock %}

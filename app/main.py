@@ -14,6 +14,8 @@ from .routers import notifications as notifications_router
 from .routers import push as push_router
 from .routers import metrics as metrics_router
 from .routers import api_v1 as api_v1_router
+from .routers import integrations as integrations_router
+from .routers import fleet_services as fleet_services_router
 from . import templates as templates_mod  # shared Jinja instance (avoids circular)
 from .security.auth import get_optional_current_user, get_password_hash
 import logging
@@ -102,11 +104,13 @@ async def lifespan(app: FastAPI):
                 sync_docker_inventory_schedule,
                 sync_herder_backup_schedule,
                 sync_stack_health_schedule,
+                sync_integrations_poll_schedule,
             )
             sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER)
             sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
             sync_docker_inventory_schedule(scheduler, HAS_SCHEDULER)
             sync_stack_health_schedule(scheduler, HAS_SCHEDULER)
+            sync_integrations_poll_schedule(scheduler, HAS_SCHEDULER)
         except Exception as e:
             print(f"Scheduler init skipped: {e}")
 
@@ -207,6 +211,8 @@ app.include_router(jobs_page_router.router, prefix="", tags=["jobs"])
 app.include_router(metrics_router.router, prefix="", tags=["metrics"])
 app.include_router(api_v1_router.router, prefix="/api/v1", tags=["api-v1"])
 app.include_router(settings_router.router, prefix="", tags=["settings"])
+app.include_router(integrations_router.router, prefix="", tags=["integrations"])
+app.include_router(fleet_services_router.router, prefix="", tags=["fleet-services"])
 
 # Re-export schedule helpers used by lifespan and other routers
 schedule_backup_job = sched.schedule_backup_job
@@ -221,6 +227,8 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
     servers = []
     fleet = None
     open_alerts = 0
+    service_count = 0
+    service_down = 0
     db = Session(engine)
     try:
         rows = list(db.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
@@ -228,11 +236,19 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
         if user:
             from .services.fleet_status import summarize_fleet
             from .services import notifications as notif_svc
+            from .services.integrations import registry as integ_reg
             fleet = summarize_fleet(rows)
             try:
                 open_alerts = notif_svc.open_count(db)
             except Exception:
                 open_alerts = 0
+            try:
+                chips = integ_reg.fleet_service_chips(db)
+                service_count = len(chips)
+                service_down = sum(1 for c in chips if c.get("state") == "down")
+            except Exception:
+                service_count = 0
+                service_down = 0
     except Exception:
         servers = []
         fleet = None
@@ -247,6 +263,8 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
             "servers": servers,
             "fleet": fleet,
             "open_alerts": open_alerts,
+            "service_count": service_count,
+            "service_down": service_down,
             "user": user,
             "pihole_url": getattr(_settings, "PIHOLE_URL", None),
             "lean_page": True,

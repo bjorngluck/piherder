@@ -35,6 +35,7 @@ TYPE_PREF_FIELDS = {
     "reboot_pending": "reboot_pending",
     "container_updates": "container_updates",
     "herder_backup_failed": "herder_backup_failed",
+    "integration_monitor_down": "integration_down",
 }
 
 
@@ -310,6 +311,7 @@ def update_preferences(
     reboot_pending: bool = True,
     container_updates: bool = True,
     herder_backup_failed: bool = True,
+    integration_down: bool = True,
 ) -> PushPreference:
     pref = get_or_create_preference(session, user_id)
     pref.push_enabled = push_enabled
@@ -318,6 +320,7 @@ def update_preferences(
     pref.reboot_pending = reboot_pending
     pref.container_updates = container_updates
     pref.herder_backup_failed = herder_backup_failed
+    pref.integration_down = integration_down
     pref.updated_at = datetime.utcnow()
     session.add(pref)
     session.commit()

@@ -399,6 +399,58 @@ WEBHOOK_NUMBER=+1...
 
 Typical pattern: PiHerder → n8n webhook → Signal CLI. In-app notifications and optional Web Push remain available without webhooks.
 
+### Uptime Kuma integration
+
+Optional **integration hub** (top-level **Integrations** menu — not under Settings). PiHerder does **not** deploy Kuma; point at your existing instance.
+
+**Design / plan:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md)
+
+#### Connect Kuma
+
+1. In Kuma: **Settings → API Keys** — enable API keys and create a key (copy once).
+2. From a host that can reach Kuma (same path as PiHerder **web** and workers):
+
+   ```bash
+   curl -sS -u ":$KUMA_API_KEY" "https://uptime.example.com/metrics" | head
+   ```
+
+3. PiHerder → **Integrations → + Uptime Kuma** — base URL + API key → Save.  
+4. **Optional (recommended for deep links on Kuma 1.23):** add Kuma username/password on Edit. Metrics labels often omit numeric monitor ids; login syncs name → `/dashboard/{id}`. You can also type **Dashboard ID** per binding.  
+5. Poll interval default **60s** (Settings on the integration); **Test** / **Poll now** available.
+
+Credentials (API key + optional login) are Fernet-encrypted with `PIHERDER_MASTER_KEY` and included in **PiHerder self-backup**.
+
+#### Binding scopes
+
+| Scope | Role | Where you see it |
+|-------|------|------------------|
+| **SSH** | `ssh_reachability` | Server list chip, server detail, server Services (summary) |
+| **Host service** | `service` without Docker project | Server detail “Host services”, **Services** page — e.g. Home Assistant on HAOS |
+| **Docker** | `service` + compose project [/ container] | Docker stack chips + **Services** page |
+
+- **Suggest matches** maps unbound servers to TCP/SSH monitors by hostname/IP/port.  
+- HTTP monitors expose **TLS valid** + **days remaining** from Kuma Prometheus series.  
+- Down transitions open in-app notifications (and optional Web Push: Account → **Integration monitor down**).
+
+#### Services UI
+
+| Path | Purpose |
+|------|---------|
+| `/integrations` | Connect Kuma, bind SSH + services, inventory |
+| `/servers/{id}/services` | Per-host service list: URL, status, TLS, Open service / Open in Kuma, logos |
+| `/services` | Fleet icon grid (dashboard **Services** tile) |
+| Dashboard | Services count (+ down count) → `/services` |
+
+#### Service logos
+
+- **Auto:** favicon / apple-touch-icon fetch from the monitor’s HTTP URL (on bind and poll if missing).  
+- **Manual:** Services page or fleet grid → **Logo…** → Upload / Fetch favicon / Remove.  
+- Stored under `DATA_ROOT/service_logos/` (compose volume `./piherder_data` by default).
+
+#### Reboot note
+
+Least-priv sudoers allow **`/usr/sbin/reboot`**. PiHerder runs full-path reboot commands and clears `reboot_pending` after a successful send so the UI does not stay stuck on “pending reboot”.
+
 ### Prometheus / Grafana scrape
 
 ```yaml
