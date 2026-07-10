@@ -29,7 +29,7 @@
     </select>
   </div>
 
-  {% set more_open = action or user_id or date_from or date_to %}
+  {% set more_open = action or user_id or api_token_id or date_from or date_to %}
   <details class="audit-filters-toggle" {% if more_open %}open{% endif %}>
     <summary><span class="audit-chevron">▶</span> More filters</summary>
     <div class="audit-filters-more">
@@ -48,6 +48,17 @@
           <option value="">All users</option>
           {% for u in (users or []) %}
           <option value="{{ u.id }}" {% if user_id and user_id|string == u.id|string %}selected{% endif %}>{{ u.email }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1">API token</label>
+        <select name="api_token_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
+          <option value="">All tokens</option>
+          {% for t in (api_tokens or []) %}
+          <option value="{{ t.id }}" {% if api_token_id and api_token_id|string == t.id|string %}selected{% endif %}>
+            {{ t.name }} (#{{ t.id }}){% if t.revoked_at %} · revoked{% endif %}
+          </option>
           {% endfor %}
         </select>
       </div>
@@ -80,7 +91,7 @@
       Hide incomplete runs
     </label>
     <div class="flex flex-wrap gap-2">
-      {% if server_id or user_id or status or action or search or date_from or date_to %}
+      {% if server_id or user_id or api_token_id or status or action or search or date_from or date_to %}
       <a href="/audit" class="btn btn-secondary min-h-11 text-sm">Clear</a>
       {% endif %}
       <button type="submit" class="btn btn-accent min-h-11 text-sm">Apply</button>
@@ -88,10 +99,12 @@
   </div>
 </form>
 
-{% if server_id or user_id or status or action or search or date_from or date_to %}
+{% if server_id or user_id or api_token_id or status or action or search or date_from or date_to %}
 <p class="text-xs mb-3 text-muted">
   Filtered
   {% if server_id %}· server #{{ server_id }}{% endif %}
+  {% if user_id %}· user #{{ user_id }}{% endif %}
+  {% if api_token_id %}· API token {{ filter_token_label or ('#' ~ api_token_id) }}{% endif %}
   {% if action %}· {{ action }}{% endif %}
   {% if status %}· {{ status }}{% endif %}
   {% if search %}· “{{ search }}”{% endif %}
@@ -125,11 +138,7 @@
       {% else %}
       <span>Server: —</span>
       {% endif %}
-      {% if log.user_label or log.user_email %}
-      <span>User: {{ log.user_label or log.user_email }}</span>
-      {% else %}
-      <span class="text-muted">User: system / scheduler</span>
-      {% endif %}
+      <span>Actor: {{ log.actor_label or log.user_label or log.user_email or 'system / scheduler' }}</span>
     </div>
     <div class="audit-event-summary">{{ log.summary or '—' }}</div>
   </button>
@@ -155,7 +164,7 @@
     Page {{ page or 1 }} of {{ total_pages or 1 }} · {{ total or 0 }} total
   </div>
   <div class="flex flex-wrap gap-2">
-    {% set aq = 'search=' ~ (search or '') ~ '&server_id=' ~ (server_id or '') ~ '&user_id=' ~ (user_id or '') ~ '&status=' ~ (status or '') ~ '&action=' ~ (action or '') ~ '&date_from=' ~ (date_from or '') ~ '&date_to=' ~ (date_to or '') ~ '&per_page=' ~ (per_page or 20) ~ '&hide_noise=' ~ ('1' if hide_noise else '0') %}
+    {% set aq = 'search=' ~ (search or '') ~ '&server_id=' ~ (server_id or '') ~ '&user_id=' ~ (user_id or '') ~ '&api_token_id=' ~ (api_token_id or '') ~ '&status=' ~ (status or '') ~ '&action=' ~ (action or '') ~ '&date_from=' ~ (date_from or '') ~ '&date_to=' ~ (date_to or '') ~ '&per_page=' ~ (per_page or 20) ~ '&hide_noise=' ~ ('1' if hide_noise else '0') %}
     {% if page and page > 1 %}
     <a class="btn btn-secondary min-h-11 text-sm" href="/audit?{{ aq }}&page={{ page - 1 }}">← Prev</a>
     {% endif %}
@@ -228,8 +237,15 @@ function showAuditDetailsModal(log) {
         parts.push('<span><strong>Server</strong> ' + esc(name) + '</span>');
       }
     }
-    if (log.user_email) {
-      parts.push('<span><strong>User</strong> ' + esc(log.user_email) + '</span>');
+    const actor = log.actor_label || log.user_label || log.user_email || 'system / scheduler';
+    parts.push('<span><strong>Actor</strong> ' + esc(actor) + '</span>');
+    if (log.api_token_id) {
+      parts.push(
+        '<span><strong>Token</strong> <a class="text-accent" href="/audit?api_token_id=' +
+        encodeURIComponent(log.api_token_id) + '">' +
+        esc((log.api_token_name || 'token') + ' (#' + log.api_token_id + ')') +
+        '</a></span>'
+      );
     }
     if (log.action) {
       parts.push('<span><strong>Key</strong> <code>' + esc(log.action) + '</code></span>');

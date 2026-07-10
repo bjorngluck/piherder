@@ -49,9 +49,9 @@ Ops hardening that sits **between** production install and product integrations.
 
 | # | Item | Stance | Notes |
 |---|------|--------|-------|
-| **1** | **Remote host dependency check** | Next implement | After SSH / least-priv onboard, probe tools needed for **enabled** features (`rsync`, `sudo -n rsync` or plain rsync, `docker`, `apt`). UI chips + “Re-check”; store last snapshot. **No auto-install** — report + install hints only. |
-| **2** | **Settings → Status tab** | Next implement (after #1) | Admin view of PiHerder stack: web, PostgreSQL, Redis, Celery worker(s), APScheduler, disk free on backup/data volumes. Manual refresh + **scheduled** poll; alert on healthy→unhealthy **state change** (in-app + existing webhook/push); resolve when healthy again. Optional `/metrics` gauges. |
-| **3** | **Multi-worker** | Design then implement (after #1–2) | Today: single Celery worker, `concurrency=1`. Goal: parallel jobs **across** hosts with a **per-server mutex** (one active backup/patch per server). Shared volumes for `/backups` required; cancel via `Job.celery_task_id` must keep working. **Not** a v0.2.0 ship blocker. |
+| **1** | **Remote host dependency check** | **Done** (v0.2.x) | Server detail + SSH access: probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`). Snapshot on server; auto-refresh after SSH test / key deploy / least-priv. Hints only — no auto-install. |
+| **2** | **Settings → Status tab** | **Done** (v0.2.x) | Admin **Status** tab: web, PostgreSQL, Redis, Celery (nodes + pool slots), APScheduler, **mount free** (fast). Backup tree `du` / per-host folders **on demand** (View details). Manual + every 2 min poll; alerts on state change; `/metrics` from last check. |
+| **3** | **Multi-worker** | **Done** (v0.2.x) | Celery `CELERY_CONCURRENCY` (default **2** = pool slots in one node); Redis **per-server backup mutex**; parallel across hosts. Prefer raising concurrency over multiple nodes unless HA/scale-out. Shared `/backups`; cancel + lock TTL intact. |
 | **4** | **Deploy topologies** | Docs only | See [Deployment architecture](#deployment-architecture) — Compose supported; k8s / bare install **under consideration only**. |
 
 ### Remote dependency check (detail)
@@ -73,18 +73,23 @@ A host can accept an SSH key while missing tools required for backups or Docker.
 | Web | Process self / `/health` |
 | PostgreSQL | `SELECT 1` (already partial on `/metrics`) |
 | Redis | Broker ping |
-| Celery | `inspect().ping()` / worker count ≥ 1 |
+| Celery | `inspect().ping()` + `stats()` → **nodes** and **pool slots** (`CELERY_CONCURRENCY`) |
 | APScheduler | Running + jobs registered |
-| Disk | Free space on `/backups`, `/data`, `/herder_backups` |
+| Disk (fast) | Mount free space on `/backups`, `/data`, `/herder_backups` (deduped by device) |
+| Disk (lazy) | Full tree size + top-level host folders under `/backups` — **View details** only (`GET …/status/backup-usage`) |
 
-Notifications must **not** spam: only on state transition (plus optional cooldown).
+Notifications must **not** spam: only on state transition (plus optional cooldown). Scheduled/Check now stay fast; expensive `du` is never part of the default poll.
 
-### Multi-worker (design constraints)
+### Multi-worker (implemented)
 
-- Prefer documenting scale of `celery-worker` (replicas or concurrency) after mutex design.  
-- Only one active backup (and patch apply) **per server** under N workers.  
-- Stale-job recovery on worker death remains required.  
-- Prefer shipping Status tab first so operators can see worker count.
+- **Default:** one `celery-worker` container with `CELERY_CONCURRENCY=2` (two **pool slots**, one **node**). Override in `.env`.  
+- **Nodes vs slots:** pool children run backups independently. Two nodes only help HA / multi-machine scale — not required for “two parallel backups.”  
+- **Mutex:** Redis key `piherder:server_lock:backup:{server_id}` (SET NX + token release). Busy tasks requeue (~20s) until free or ~1h timeout; job stays `pending` with `waiting_for_server`.  
+- **Parallelism:** different servers at once; same server serializes. Patch apply still uses DB active-job check + web thread pool.  
+- **Cancel:** `Job.celery_task_id` + `revoke(terminate=True)`; lock released in task `finally` (or TTL on crash).  
+- **Scale:** raise `CELERY_CONCURRENCY` first; multi-container needs shared volumes and no fixed `container_name` (`docker compose up --scale celery-worker=N`).  
+- **Ops:** Settings → Status shows e.g. `1 node(s) · 2 pool slot(s)`; metrics expose `piherder_celery_workers` (nodes) and `piherder_celery_pool_slots`.  
+- **Env catalog:** [`.env.example`](../.env.example).
 
 ---
 
@@ -223,8 +228,8 @@ flowchart TB
 | Multi-tenant orgs | Deferred |
 | **Deployment** | **Docker Compose is the supported architecture** |
 | **Kubernetes / bare install** | **Under consideration only** — not promised in H0–H2 |
-| **Multi-worker** | Allowed after per-server job mutex + Status visibility; not a v0.2.0 ship blocker |
-| **Host dep / stack health** | Planned v0.2.x (implement order: host deps → Status tab → multi-worker) |
+| **Multi-worker** | Done — per-server Redis mutex + `CELERY_CONCURRENCY`; not a v0.2.0 ship blocker |
+| **Host dep / stack health** | Done (v0.2.x): host deps → Status tab → multi-worker |
 
 ---
 

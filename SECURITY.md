@@ -38,7 +38,7 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md).
 
 ## Operational recommendations
 
-- Use a unique strong `PIHERDER_MASTER_KEY` and `SECRET_KEY`.  
+- Use a unique strong `PIHERDER_MASTER_KEY` and `SECRET_KEY` (see [`.env.example`](.env.example) for the full env catalog).  
 - Prefer SSH key auth; clear any stored SSH passwords after deploy.  
 - Enable 2FA for admin accounts; consider **Force 2FA** in Settings.  
 - Put PiHerder behind trusted TLS; restrict network access where possible.  

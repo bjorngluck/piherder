@@ -166,6 +166,9 @@ def _flush_job_progress_db(job_id: int, force: bool = False) -> None:
             job = s.get(Job, job_id)
             if not job:
                 return
+            # Never revive a cancelled/finished job with worker progress
+            if job.status not in ("pending", "running"):
+                return
             details = {}
             if job.details:
                 try:

@@ -1,3 +1,36 @@
+# Shared app env for web + celery (values from host `.env` / shell; see `.env.example`).
+x-piherder-app-env: &piherder-app-env
+  PIHERDER_MASTER_KEY: ${PIHERDER_MASTER_KEY}
+  SECRET_KEY: ${SECRET_KEY:-dev-secret-change-in-prod}
+  DATABASE_URL: ${DATABASE_URL:-postgresql://piherder:piherder@db:5432/piherder}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  DATA_ROOT: ${DATA_ROOT:-/data}
+  BACKUP_ROOT: ${BACKUP_ROOT:-/backups}
+  HERDER_BACKUP_ROOT: ${HERDER_BACKUP_ROOT:-/herder_backups}
+  DEFAULT_DOCKER_BASE: ${DEFAULT_DOCKER_BASE:-~/docker}
+  AVATAR_MAX_BYTES: ${AVATAR_MAX_BYTES:-2097152}
+  ALGORITHM: ${ALGORITHM:-HS256}
+  ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+  TRUSTED_DEVICE_DAYS: ${TRUSTED_DEVICE_DAYS:-30}
+  ALLOW_OPEN_REGISTRATION: ${ALLOW_OPEN_REGISTRATION:-false}
+  PIHERDER_HOSTNAME: ${PIHERDER_HOSTNAME:-}
+  PIHERDER_PUBLIC_URL: ${PIHERDER_PUBLIC_URL:-}
+  VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+  VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+  VAPID_CONTACT: ${VAPID_CONTACT:-}
+  WEBHOOK_URL: ${WEBHOOK_URL:-}
+  WEBHOOK_NUMBER: ${WEBHOOK_NUMBER:-}
+  WEBHOOK_RECIPIENTS: ${WEBHOOK_RECIPIENTS:-}
+  HERDER_BACKUP_SCHEDULE: ${HERDER_BACKUP_SCHEDULE:-}
+  PIHOLE_URL: ${PIHOLE_URL:-http://pi.hole/admin/}
+  METRICS_TOKEN: ${METRICS_TOKEN:-}
+  METRICS_BACKUP_STALE_HOURS: ${METRICS_BACKUP_STALE_HOURS:-36}
+  CORS_ORIGINS: ${CORS_ORIGINS:-}
+  PIHERDER_SERVER_LOCK_TTL: ${PIHERDER_SERVER_LOCK_TTL:-7200}
+  TZ: ${TZ:-Etc/UTC}
+
 services:
   web:
     build: .
@@ -6,18 +39,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - PIHERDER_MASTER_KEY=${PIHERDER_MASTER_KEY}
-      - DATABASE_URL=postgresql://piherder:piherder@db:5432/piherder
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - DATA_ROOT=/data
-      - PIHERDER_HOSTNAME=${PIHERDER_HOSTNAME:-}
-      - PIHERDER_PUBLIC_URL=${PIHERDER_PUBLIC_URL:-}
-      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
-      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
-      - VAPID_CONTACT=${VAPID_CONTACT:-}
-      - METRICS_TOKEN=${METRICS_TOKEN:-}
-      - METRICS_BACKUP_STALE_HOURS=${METRICS_BACKUP_STALE_HOURS:-36}
+      <<: *piherder-app-env
     volumes:
       # Host path for rsync backup destinations (override if you use another dir)
       - ${PIHERDER_BACKUP_HOST_PATH:-./backups}:/backups
@@ -51,17 +73,24 @@ services:
     volumes:
       - redis_data:/data
 
+  # Multi-worker: raise CELERY_CONCURRENCY (default 2) so backups run in parallel
+  # across hosts. Per-server Redis mutex prevents two rsyncs to the same host.
+  # Shared volume mounts with `web` are required. Cancel still uses Job.celery_task_id.
+  # To run multiple containers instead: remove container_name and
+  # `docker compose up -d --scale celery-worker=N` (each replica needs the same volumes).
   celery-worker:
     build: .
     container_name: piherder-celery
-    command: celery -A app.celery_app.celery worker --loglevel=info --concurrency=1
+    command: >
+      celery -A app.celery_app.celery worker
+      --loglevel=info
+      --concurrency=${CELERY_CONCURRENCY:-2}
     restart: unless-stopped
     environment:
-      - PIHERDER_MASTER_KEY=${PIHERDER_MASTER_KEY}
-      - DATABASE_URL=postgresql://piherder:piherder@db:5432/piherder
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      <<: *piherder-app-env
+      CELERY_CONCURRENCY: ${CELERY_CONCURRENCY:-2}
     volumes:
+      # Must match web — multi-worker rsync writes here
       - ${PIHERDER_BACKUP_HOST_PATH:-./backups}:/backups
       - ./piherder_backups:/herder_backups
       - ./piherder_data:/data

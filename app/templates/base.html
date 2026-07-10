@@ -363,6 +363,17 @@
     </div>
   </div>
 
+  {# Blocking wait modal for sync form POSTs (host deps, stack status) — form still submits #}
+  <div id="ph-wait-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[60]"
+       aria-modal="true" role="dialog" aria-labelledby="ph-wait-title" aria-busy="true">
+    <div class="modal-content card p-6 w-full max-w-md mx-4 text-center">
+      <div class="mx-auto mb-4 h-10 w-10 rounded-full border-2 border-accent border-t-transparent animate-spin" aria-hidden="true"></div>
+      <h3 id="ph-wait-title" class="font-semibold text-lg mb-2">Working…</h3>
+      <p id="ph-wait-message" class="text-sm text-muted mb-0">Please wait…</p>
+      <p class="text-[10px] text-muted mt-3 mb-0">This page will update when the check finishes.</p>
+    </div>
+  </div>
+
   <!-- Theme + Mobile Hamburger (slide-out) handling. All in base.html only. -->
   <script>
     // Immediate feedback when navigating to slow destinations (data-nav-loading on <a>)
@@ -1046,6 +1057,53 @@
     } else {
       form.submit();
     }
+  }, true);
+
+  // Sync wait modal: form[data-wait-title] — show spinner while browser waits for POST response
+  window.PiHerderWaitModal = (function () {
+    function els() {
+      return {
+        root: document.getElementById('ph-wait-modal'),
+        title: document.getElementById('ph-wait-title'),
+        message: document.getElementById('ph-wait-message'),
+      };
+    }
+    function show(title, message) {
+      var e = els();
+      if (!e.root) return;
+      if (e.title) e.title.textContent = title || 'Working…';
+      if (e.message) e.message.textContent = message || 'Please wait…';
+      e.root.classList.remove('hidden');
+      e.root.classList.add('flex');
+      e.root.setAttribute('aria-busy', 'true');
+    }
+    function hide() {
+      var e = els();
+      if (!e.root) return;
+      e.root.classList.add('hidden');
+      e.root.classList.remove('flex');
+      e.root.setAttribute('aria-busy', 'false');
+    }
+    return { show: show, hide: hide };
+  })();
+
+  document.addEventListener('submit', function (e) {
+    var form = e.target && e.target.closest ? e.target.closest('form[data-wait-title]') : null;
+    if (!form) return;
+    // Do not preventDefault — let the normal POST navigate; modal stays until unload
+    if (form.dataset.waitShown === '1') return;
+    form.dataset.waitShown = '1';
+    var title = form.getAttribute('data-wait-title') || 'Working…';
+    var message = form.getAttribute('data-wait-message') || 'Please wait…';
+    if (window.PiHerderWaitModal) {
+      window.PiHerderWaitModal.show(title, message);
+    }
+    // Disable buttons to avoid double-submit
+    try {
+      form.querySelectorAll('button, input[type="submit"]').forEach(function (btn) {
+        btn.disabled = true;
+      });
+    } catch (_) {}
   }, true);
 
   // Open progress from ?backup_log=1 query on dedicated pages

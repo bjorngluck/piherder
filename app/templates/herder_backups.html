@@ -40,6 +40,15 @@
 {% if request.query_params.get('security_saved') %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">Security policy saved.</div>
 {% endif %}
+{% if request.query_params.get('stack_checked') %}
+<div class="mb-4 p-3 banner-success border border-border rounded text-sm">
+  Stack health checked{% if request.query_params.get('overall') %} — overall <code class="font-mono">{{ request.query_params.get('overall') }}</code>{% endif %}.
+  Alerts update only on status changes.
+</div>
+{% endif %}
+{% if request.query_params.get('stack_error') %}
+<div class="mb-4 p-3 banner-error border border-border rounded text-sm">Stack check failed: {{ request.query_params.get('stack_error') }}</div>
+{% endif %}
 {% if new_api_token_secret and (request.query_params.get('token_created') or request.query_params.get('token_rotated')) %}
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm" id="api-token-secret-banner">
   <p class="font-semibold mb-1">
@@ -50,15 +59,20 @@
     <input type="text" readonly id="api-token-secret-value" value="{{ new_api_token_secret }}"
            class="flex-1 font-mono text-xs break-all select-all bg-surface border border-border rounded px-3 py-2 min-h-11">
     <button type="button" class="btn btn-accent min-h-11 text-sm shrink-0" id="api-token-copy-btn">Copy token</button>
+    <button type="button" class="btn btn-secondary min-h-11 text-sm shrink-0" id="api-token-test-btn"
+            title="Verify secret, scopes, and whether your browser IP passes the allowlist">Test now</button>
   </div>
   <p class="text-[10px] text-muted mt-2 mb-0" id="api-token-copy-status" aria-live="polite"></p>
+  <div id="api-token-test-result" class="hidden mt-3 p-3 rounded border border-border bg-surface text-xs" role="status" aria-live="polite"></div>
 </div>
 {% endif %}
 {% if request.query_params.get('token_updated') %}
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm">Token permissions updated{% if new_api_token_name %}: {{ new_api_token_name }}{% endif %}.</div>
 {% endif %}
 {% if request.query_params.get('token_revoked') %}
-<div class="mb-4 p-3 banner-success border border-border rounded text-sm">API token revoked.</div>
+<div class="mb-4 p-3 banner-success border border-border rounded text-sm">
+  API token revoked. The row is kept for audit trail — use the <strong>Revoked</strong> filter to find it.
+</div>
 {% endif %}
 {% if request.query_params.get('config_saved') %}
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm">Settings saved.</div>
@@ -92,6 +106,9 @@
           class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'backup' else '' }}"
           aria-selected="{{ 'true' if tab == 'backup' else 'false' }}">PiHerder backup</button>
   {% if is_admin|default(false) %}
+  <button type="button" role="tab" data-settings-tab="status"
+          class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'status' else '' }}"
+          aria-selected="{{ 'true' if tab == 'status' else 'false' }}">Status</button>
   <button type="button" role="tab" data-settings-tab="api"
           class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'api' else '' }}"
           aria-selected="{{ 'true' if tab == 'api' else 'false' }}">API management</button>
@@ -211,6 +228,203 @@
     </form>
   </div>
 </div>
+
+{# ═══════════════ STATUS (admin) ═══════════════ #}
+{% if is_admin|default(false) %}
+<div data-settings-panel="status" class="settings-tab-panel {{ '' if tab == 'status' else 'hidden' }}">
+  <div class="card p-5 mb-4">
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+      <div>
+        <h2 class="font-semibold text-text">PiHerder stack status</h2>
+        <p class="text-xs text-muted mt-1">
+          Web, database, Redis, Celery, scheduler, and <strong class="text-text">mount free space</strong>
+          (fast probes). Per-folder backup usage is loaded on demand below.
+          Checked automatically every {{ stack_health_interval_min|default(2) }} minutes; alerts fire on unhealthy state changes only.
+        </p>
+      </div>
+      <form method="post" action="/herder-backups/status/check"
+            data-wait-title="Checking stack status"
+            data-wait-message="Probing database, Redis, Celery, and mount free space…">
+        <button type="submit" class="btn btn-accent min-h-11 text-sm">Check now</button>
+      </form>
+    </div>
+    {% if stack_report %}
+    <div class="flex flex-wrap items-center gap-2 mb-4 text-sm">
+      <span class="text-muted">Overall</span>
+      <span class="status-pill
+        {% if stack_report.overall == 'ok' %}status-success
+        {% elif stack_report.overall == 'warn' %}status-running
+        {% else %}status-failed{% endif %}">{{ stack_report.overall }}</span>
+      {% if stack_report.checked_at %}
+      <span class="text-[10px] text-muted">Last: {{ stack_report.checked_at }}</span>
+      {% endif %}
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {% for c in stack_report.components or [] %}
+      {# Skip legacy tree-usage rows from older reports; use lazy card below #}
+      {% if not (c.id and c.id.startswith('disk_used_')) %}
+      <div class="border border-border rounded p-3 bg-surface {% if c.id and c.id.startswith('disk_') %}sm:col-span-2{% endif %}">
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <span class="text-sm font-medium">{{ c.label }}</span>
+          <span class="status-pill text-xs
+            {% if c.status == 'ok' %}status-success
+            {% elif c.status == 'warn' %}status-running
+            {% elif c.status == 'fail' %}status-failed
+            {% else %}feature-off{% endif %}">{{ c.status }}</span>
+        </div>
+        <p class="text-xs text-muted break-words mb-0">{{ c.message }}</p>
+        {% if c.id == 'celery' and c.detail %}
+        <p class="text-[10px] text-muted mt-1 mb-0">
+          Nodes answer the broker ping; <strong class="text-text">pool slots</strong> are parallel backup capacity
+          (<code class="font-mono">CELERY_CONCURRENCY</code>, default 2 in one container).
+          {% if c.detail.pool_slots is defined and c.detail.pool_slots %}
+          · Currently <strong class="text-text">{{ c.detail.pool_slots }}</strong> slot(s)
+          / <strong class="text-text">{{ c.detail.workers or 0 }}</strong> node(s).
+          {% endif %}
+        </p>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+
+      {# Lazy: expensive du of /backups + per-host folders #}
+      <div class="border border-border rounded p-3 bg-surface sm:col-span-2" id="backup-usage-card">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <span class="text-sm font-medium">Storage used · backups (detail)</span>
+          <button type="button" id="backup-usage-load-btn" class="btn btn-secondary min-h-9 text-xs">
+            View details
+          </button>
+        </div>
+        <p class="text-xs text-muted mb-0" id="backup-usage-summary">
+          Full tree size and top-level host folders under <code class="font-mono">/backups</code>.
+          Can take a while on multi‑TB disks — not run during Check now.
+        </p>
+        <div id="backup-usage-result" class="hidden mt-2">
+          <p class="text-xs text-text mb-2" id="backup-usage-total"></p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-[11px] text-muted">
+              <thead>
+                <tr class="text-left border-b border-border">
+                  <th class="py-1 pr-2 font-medium text-text">Under backups</th>
+                  <th class="py-1 font-medium text-text text-right">Size</th>
+                </tr>
+              </thead>
+              <tbody id="backup-usage-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state text-sm text-muted py-6">
+      No check has run yet. Click <strong>Check now</strong>, or wait for the scheduled poll.
+    </div>
+    {% endif %}
+  </div>
+  <div class="card p-4 text-xs text-muted">
+    <p class="mb-1"><strong class="text-text">Notes</strong></p>
+    <ul class="list-disc pl-4 space-y-1 mb-0">
+      <li>If the web process is down, this page cannot run — use Docker / external monitoring for that case.</li>
+      <li>Celery: one <code class="font-mono">celery-worker</code> container with <code class="font-mono">CELERY_CONCURRENCY=2</code> is <strong class="text-text">1 node · 2 pool slots</strong> (can run two backups on different hosts at once). “No workers” usually means the container is stopped or Redis is unreachable.</li>
+      <li><strong class="text-text">Mount free</strong> is free space on the disk/volume behind each path (deduped when paths share a mount — e.g. secondary backup disk).</li>
+      <li><strong class="text-text">View details</strong> runs <code class="font-mono">du</code> on the fleet backup tree and lists top-level host folders — on demand only.</li>
+    </ul>
+  </div>
+</div>
+<script>
+(function () {
+  var btn = document.getElementById('backup-usage-load-btn');
+  if (!btn) return;
+  var summary = document.getElementById('backup-usage-summary');
+  var result = document.getElementById('backup-usage-result');
+  var totalEl = document.getElementById('backup-usage-total');
+  var tbody = document.getElementById('backup-usage-tbody');
+  var loading = false;
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+
+  btn.addEventListener('click', function () {
+    if (loading) return;
+    loading = true;
+    btn.disabled = true;
+    var prevLabel = btn.textContent;
+    btn.textContent = 'Scanning…';
+    if (window.PiHerderWaitModal) {
+      window.PiHerderWaitModal.show(
+        'Scanning backup storage',
+        'Measuring tree size and per-host folders under /backups. On a multi‑TB disk this can take a minute or more…'
+      );
+    }
+    if (summary) {
+      summary.textContent = 'Scanning backup tree… please wait.';
+    }
+    if (result) result.classList.add('hidden');
+
+    fetch('/herder-backups/status/backup-usage', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' },
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        if (window.PiHerderWaitModal) window.PiHerderWaitModal.hide();
+        loading = false;
+        btn.disabled = false;
+        btn.textContent = 'Refresh details';
+
+        if (!data || data.ok === false) {
+          if (summary) {
+            summary.textContent = (data && data.error) || 'Could not measure backup storage.';
+          }
+          return;
+        }
+        if (summary) {
+          summary.textContent = 'Path ' + (data.path || '/backups') +
+            (data.method ? ' · method ' + data.method : '') +
+            (data.checked_at ? ' · ' + data.checked_at : '');
+        }
+        if (totalEl) {
+          totalEl.innerHTML = 'Total under backups: <strong>' +
+            esc(data.tree_human || (data.tree_bytes + ' B')) + '</strong>';
+        }
+        if (tbody) {
+          tbody.innerHTML = '';
+          var rows = data.children || [];
+          if (!rows.length) {
+            tbody.innerHTML = '<tr><td class="py-1 text-muted" colspan="2">No top-level folders found.</td></tr>';
+          } else {
+            rows.forEach(function (row) {
+              var tr = document.createElement('tr');
+              tr.className = 'border-b border-border/50';
+              tr.innerHTML =
+                '<td class="py-1 pr-2 font-mono break-all">' + esc(row.name) + '</td>' +
+                '<td class="py-1 text-right whitespace-nowrap">' + esc(row.human || row.bytes) + '</td>';
+              tbody.appendChild(tr);
+            });
+          }
+        }
+        if (result) result.classList.remove('hidden');
+      })
+      .catch(function (err) {
+        if (window.PiHerderWaitModal) window.PiHerderWaitModal.hide();
+        loading = false;
+        btn.disabled = false;
+        btn.textContent = prevLabel || 'View details';
+        if (summary) {
+          summary.textContent = 'Failed to load backup usage: ' + (err && err.message ? err.message : err);
+        }
+      });
+  });
+})();
+</script>
+{% endif %}
 
 {# ═══════════════ PIHERDER BACKUP ═══════════════ #}
 <div data-settings-panel="backup" class="settings-tab-panel {{ '' if tab == 'backup' else 'hidden' }}">
@@ -370,6 +584,7 @@
         <strong>Admin-managed</strong>, instance-wide tokens for n8n, Home Assistant, and scripts
         (<code class="font-mono">/api/v1/*</code>) — not personal logins.
         Secrets are hashed; copy once at create or rotate.
+        Revoke keeps the token record for traceability (audit by id/name).
         Review the full spec under <button type="button" class="text-primary underline" data-api-panel="docs">API reference</button>.
       </p>
 
@@ -427,15 +642,44 @@
         </form>
       </details>
 
+      {% set tok_status = api_token_status or 'active' %}
+      {% set tok_counts = api_token_counts or {'active': 0, 'revoked': 0, 'all': 0} %}
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <h3 class="text-sm font-medium text-text mb-0">
+          Tokens
+          <span class="text-muted font-normal">
+            ({% if tok_status == 'active' %}active{% elif tok_status == 'revoked' %}revoked{% else %}all{% endif %}:
+            {{ api_tokens|length }}{% if tok_status != 'all' %} · {{ tok_counts.all or 0 }} total{% endif %})
+          </span>
+        </h3>
+        <div class="flex flex-wrap gap-1" role="group" aria-label="Token status filter">
+          <a href="/herder-backups?tab=api&amp;api_panel=tokens&amp;token_status=active"
+             class="btn text-xs min-h-10 {{ 'btn-accent' if tok_status == 'active' else 'btn-secondary' }}">
+            Active <span class="opacity-80">({{ tok_counts.active or 0 }})</span>
+          </a>
+          <a href="/herder-backups?tab=api&amp;api_panel=tokens&amp;token_status=revoked"
+             class="btn text-xs min-h-10 {{ 'btn-accent' if tok_status == 'revoked' else 'btn-secondary' }}">
+            Revoked <span class="opacity-80">({{ tok_counts.revoked or 0 }})</span>
+          </a>
+          <a href="/herder-backups?tab=api&amp;api_panel=tokens&amp;token_status=all"
+             class="btn text-xs min-h-10 {{ 'btn-accent' if tok_status == 'all' else 'btn-secondary' }}">
+            All <span class="opacity-80">({{ tok_counts.all or 0 }})</span>
+          </a>
+        </div>
+      </div>
+      <p class="text-[10px] text-muted mb-3">
+        Revoke disables the secret but keeps the row (name, id, scopes) for audit links. Default view is active only.
+      </p>
+
       {% if api_tokens %}
-      <h3 class="text-sm font-medium text-text mb-2">Existing tokens <span class="text-muted font-normal">({{ api_tokens|length }})</span></h3>
       <ul class="space-y-3 list-none p-0 m-0">
         {% for t in api_tokens %}
-        <li class="border border-border rounded-lg p-4 bg-surface/40">
+        <li class="border border-border rounded-lg p-4 bg-surface/40 {% if not t.active %}opacity-90{% endif %}">
           <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
                 <span class="font-medium text-text truncate">{{ t.name }}</span>
+                <span class="text-[10px] text-muted font-mono">#{{ t.id }}</span>
                 {% if t.active %}
                 <span class="status-pill status-success text-xs">active</span>
                 {% else %}
@@ -454,7 +698,7 @@
                 <button type="submit" class="btn btn-secondary text-xs min-h-10">Rotate secret</button>
               </form>
               <form method="post" action="/herder-backups/api-tokens/{{ t.id }}/revoke"
-                    data-confirm="Revoke this API token? Automations using it will fail."
+                    data-confirm="Revoke this API token? Automations will fail. The token row is kept for audit trail (not deleted)."
                     data-confirm-title="Revoke API token"
                     data-confirm-label="Revoke"
                     data-confirm-danger>
@@ -479,11 +723,25 @@
             </div>
             <div>
               <dt class="text-muted">Last used</dt>
-              <dd class="mt-0.5 text-muted">{{ t.last_used_at or '—' }}</dd>
+              <dd class="mt-0.5 text-muted">{{ t.last_used_display or t.last_used_at or '—' }}</dd>
             </div>
             <div>
               <dt class="text-muted">Created</dt>
-              <dd class="mt-0.5 text-muted">{{ t.created_at or '—' }}</dd>
+              <dd class="mt-0.5 text-muted">{{ t.created_display or t.created_at or '—' }}</dd>
+            </div>
+            {% if not t.active %}
+            <div>
+              <dt class="text-muted">Revoked</dt>
+              <dd class="mt-0.5 text-muted">{{ t.revoked_display or t.revoked_at or '—' }}</dd>
+            </div>
+            {% endif %}
+            <div class="{% if t.active %}sm:col-span-2{% endif %}">
+              <dt class="text-muted">Audit</dt>
+              <dd class="mt-0.5">
+                <a href="/audit?api_token_id={{ t.id }}" class="text-accent hover:underline">
+                  Trail for {{ t.name }} (#{{ t.id }})
+                </a>
+              </dd>
             </div>
           </dl>
 
@@ -544,7 +802,18 @@
         {% endfor %}
       </ul>
       {% else %}
-      <p class="text-sm text-muted empty-state">No API tokens yet.</p>
+      <p class="text-sm text-muted empty-state">
+        {% if tok_status == 'revoked' %}
+        No revoked tokens. Revoked tokens are kept here for audit trail (never hard-deleted).
+        {% elif tok_status == 'all' %}
+        No API tokens yet.
+        {% else %}
+        No active tokens.
+        {% if (tok_counts.revoked or 0) > 0 %}
+        <a href="/herder-backups?tab=api&amp;api_panel=tokens&amp;token_status=revoked" class="text-accent hover:underline">View {{ tok_counts.revoked }} revoked</a>
+        {% endif %}
+        {% endif %}
+      </p>
       {% endif %}
     </div>
   </div>
@@ -698,19 +967,112 @@
   }
 
   var copyBtn = document.getElementById('api-token-copy-btn');
+  var testBtn = document.getElementById('api-token-test-btn');
   var secretInput = document.getElementById('api-token-secret-value');
   var copyStatus = document.getElementById('api-token-copy-status');
+  var testResult = document.getElementById('api-token-test-result');
+
+  function stripSecretFromUrl() {
+    try {
+      var u = new URL(window.location.href);
+      u.searchParams.delete('token_secret');
+      window.history.replaceState({}, '', u.pathname + '?' + u.searchParams.toString());
+    } catch (e) {}
+  }
+
+  function renderTokenTest(data, httpOk) {
+    if (!testResult) return;
+    testResult.classList.remove('hidden');
+    var ok = !!(data && data.ok);
+    testResult.className = 'mt-3 p-3 rounded border text-xs ' +
+      (ok ? 'banner-success border-border' : 'banner-error border-border');
+    var lines = [];
+    if (ok) {
+      lines.push('<p class="font-semibold mb-1">Token works</p>');
+      var tok = data.token || {};
+      lines.push('<p class="mb-1">Name: <strong>' + escHtml(tok.name || '—') + '</strong> · id #' + escHtml(tok.id != null ? String(tok.id) : '—') + '</p>');
+      if (data.scopes && data.scopes.length) {
+        lines.push('<p class="mb-1 font-mono">Scopes: ' + escHtml(data.scopes.join(', ')) + '</p>');
+      }
+      if (data.allowed_features && data.allowed_features.length) {
+        lines.push('<p class="mb-1">Features: ' + escHtml(data.allowed_features.join(', ')) + '</p>');
+      } else if (data.allowed_features === null || (data.token && data.token.features_restricted === false)) {
+        lines.push('<p class="mb-1 text-muted">Features: all (not restricted by token)</p>');
+      }
+      lines.push('<p class="mb-1">Your client IP: <code>' + escHtml(data.client_ip || '—') + '</code>' +
+        (data.allowed_cidrs && data.allowed_cidrs.length
+          ? ' · allowlist: <code>' + escHtml(data.allowed_cidrs.join(', ')) + '</code>'
+          : ' · allowlist: any') + '</p>');
+      if (data.health_hint) {
+        lines.push('<p class="mb-0 text-muted">' + escHtml(data.health_hint) + '</p>');
+      } else {
+        lines.push('<p class="mb-0 text-muted">Automations can call <code>GET /api/v1/health</code> with this Bearer token.</p>');
+      }
+    } else {
+      lines.push('<p class="font-semibold mb-1">Token test failed</p>');
+      lines.push('<p class="mb-1">' + escHtml((data && data.detail) || 'Request failed') + '</p>');
+      if (data && data.client_ip) {
+        lines.push('<p class="mb-1">Your client IP: <code>' + escHtml(data.client_ip) + '</code></p>');
+      }
+      if (data && data.allowed_cidrs && data.allowed_cidrs.length) {
+        lines.push('<p class="mb-0">Allowlist: <code>' + escHtml(data.allowed_cidrs.join(', ')) + '</code></p>');
+      }
+      if (data && data.error === 'ip_not_allowed') {
+        lines.push('<p class="mt-2 mb-0 text-muted">The secret itself is fine — only this browser IP is blocked. That is normal when the allowlist targets n8n/HA only.</p>');
+      }
+    }
+    testResult.innerHTML = lines.join('');
+  }
+
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   if (copyBtn && secretInput) {
     copyBtn.addEventListener('click', function () {
       copyText(secretInput.value || '', copyStatus, 'Token copied to clipboard.');
-      try {
-        var u = new URL(window.location.href);
-        u.searchParams.delete('token_secret');
-        window.history.replaceState({}, '', u.pathname + '?' + u.searchParams.toString());
-      } catch (e) {}
+      stripSecretFromUrl();
     });
     // Select on focus for easy manual copy
     secretInput.addEventListener('focus', function () { secretInput.select(); });
+  }
+
+  if (testBtn && secretInput) {
+    testBtn.addEventListener('click', function () {
+      var secret = (secretInput.value || '').trim();
+      if (!secret) {
+        if (copyStatus) copyStatus.textContent = 'No token secret to test.';
+        return;
+      }
+      testBtn.disabled = true;
+      var prev = testBtn.textContent;
+      testBtn.textContent = 'Testing…';
+      if (copyStatus) copyStatus.textContent = '';
+      fetch('/herder-backups/api-tokens/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ token: secret })
+      }).then(function (res) {
+        return res.json().then(function (data) {
+          return { res: res, data: data };
+        }).catch(function () {
+          return { res: res, data: { ok: false, detail: 'HTTP ' + res.status } };
+        });
+      }).then(function (out) {
+        renderTokenTest(out.data || {}, out.res && out.res.ok);
+        stripSecretFromUrl();
+      }).catch(function (err) {
+        renderTokenTest({ ok: false, detail: (err && err.message) || 'Network error' }, false);
+      }).finally(function () {
+        testBtn.disabled = false;
+        testBtn.textContent = prev || 'Test now';
+      });
+    });
   }
 
   document.querySelectorAll('[data-settings-tab]').forEach(function (btn) {

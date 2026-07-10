@@ -191,6 +191,27 @@ def _remove_job(scheduler, job_id: str):
         pass
 
 
+def server_cron_job_ids(server_id: int) -> list[str]:
+    """All APScheduler job ids registered for a fleet server."""
+    sid = int(server_id)
+    return [
+        f"backup_{sid}",
+        f"os_check_{sid}",
+        f"container_check_{sid}",
+        f"os_apply_{sid}",
+        f"container_apply_{sid}",
+    ]
+
+
+def unregister_server_cron_jobs(scheduler, HAS_SCHEDULER, server_id: int) -> None:
+    """Remove all per-server cron jobs (e.g. when deleting a server from the fleet)."""
+    if not HAS_SCHEDULER or not scheduler or not server_id:
+        return
+    for jid in server_cron_job_ids(server_id):
+        _remove_job(scheduler, jid)
+    logger.info(f"[SCHEDULER] Unregistered cron jobs for server {server_id}")
+
+
 def sync_server_cron_jobs(scheduler, HAS_SCHEDULER, server):
     """Register or remove all per-server cron jobs for one server. Call on config save + startup."""
     if not HAS_SCHEDULER or not scheduler or not server or not server.id:
@@ -378,6 +399,51 @@ def sync_docker_inventory_schedule(scheduler, HAS_SCHEDULER):
         )
     except Exception as e:
         logger.warning(f"[SCHEDULER] Docker inventory schedule failed: {e}")
+
+
+STACK_HEALTH_JOB_ID = "stack_health_check"
+STACK_HEALTH_INTERVAL_MIN = 2
+
+
+def schedule_stack_health_job():
+    """Periodic PiHerder stack health + state-change notifications."""
+    try:
+        from . import stack_health as stack_svc
+
+        # Lazy import avoids circular import with main at module load
+        try:
+            from ..main import HAS_SCHEDULER as _hs, scheduler as _sched
+        except Exception:
+            _hs, _sched = False, None
+        stack_svc.run_stack_health_check(
+            scheduler=_sched,
+            has_scheduler=bool(_hs),
+            notify=True,
+        )
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] stack health job failed: {e}")
+
+
+def sync_stack_health_schedule(scheduler, HAS_SCHEDULER):
+    """Register interval job for stack Status checks."""
+    if not HAS_SCHEDULER or not scheduler:
+        return
+    _remove_job(scheduler, STACK_HEALTH_JOB_ID)
+    try:
+        from apscheduler.triggers.interval import IntervalTrigger
+
+        scheduler.add_job(
+            func=schedule_stack_health_job,
+            trigger=IntervalTrigger(minutes=STACK_HEALTH_INTERVAL_MIN),
+            id=STACK_HEALTH_JOB_ID,
+            replace_existing=True,
+            name="PiHerder stack health",
+        )
+        logger.info(
+            f"[SCHEDULER] Stack health every {STACK_HEALTH_INTERVAL_MIN}m"
+        )
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] Stack health schedule failed: {e}")
 
 
 def sync_herder_backup_schedule(scheduler, HAS_SCHEDULER):

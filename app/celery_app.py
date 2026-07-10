@@ -8,6 +8,8 @@ celery = Celery(
     include=["app.tasks"]
 )
 
+# Fair multi-worker defaults: one reserved task per child process; ack after finish
+# so a killed worker redelivers. Per-server mutex in app.tasks.backup_server.
 celery.conf.update(
     task_serializer="json",
     accept_content=["json"],
@@ -18,4 +20,6 @@ celery.conf.update(
     task_time_limit=7200,
     worker_prefetch_multiplier=1,
     task_acks_late=True,
+    # Avoid stealing tasks that another worker is about to run after lock wait
+    worker_disable_rate_limits=True,
 )

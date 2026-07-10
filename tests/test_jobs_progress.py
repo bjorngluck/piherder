@@ -1,14 +1,20 @@
-"""Unit tests for job details merge, public dict, and labels (no DB)."""
+"""Unit tests for job details merge, public dict, cancel, and labels (no DB)."""
 from __future__ import annotations
 
 import json
 from datetime import datetime
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from app.services.jobs import (
     JOB_TYPE_LABELS,
+    JobNotCancellable,
     _initial_job_details,
+    _mark_job_cancelled,
     _merge_job_details,
+    cancel_job,
     job_public_dict,
     job_type_label,
 )
@@ -106,3 +112,111 @@ def test_job_public_dict_done_on_terminal():
     d = job_public_dict(job)
     assert d["done"] is True
     assert d["status"] == "success"
+    assert d["cancellable"] is False
+
+
+def test_job_public_dict_cancellable_when_active():
+    job = SimpleNamespace(
+        id=9,
+        server_id=1,
+        job_type="backup",
+        status="running",
+        created_at=datetime(2026, 7, 10, 12, 0, 0),
+        started_at=datetime(2026, 7, 10, 12, 0, 1),
+        finished_at=None,
+        details=json.dumps({"current": "/home/bjorn/docker/", "log_lines": ["Backing up…"]}),
+    )
+    d = job_public_dict(job)
+    assert d["done"] is False
+    assert d["cancellable"] is True
+
+
+def test_job_public_dict_done_when_cancelled():
+    job = SimpleNamespace(
+        id=10,
+        server_id=1,
+        job_type="os_patch",
+        status="cancelled",
+        created_at=None,
+        started_at=None,
+        finished_at=datetime(2026, 7, 10, 12, 5, 0),
+        details=json.dumps({"summary": "Cancelled by user", "log_lines": ["Cancelled by user"]}),
+    )
+    d = job_public_dict(job)
+    assert d["done"] is True
+    assert d["cancellable"] is False
+    assert d["status"] == "cancelled"
+
+
+def test_mark_job_cancelled_shape():
+    job = SimpleNamespace(
+        id=3,
+        job_type="os_patch",
+        status="running",
+        details=json.dumps({"log_lines": ["started"], "current": "patching"}),
+        finished_at=None,
+    )
+    session = MagicMock()
+    _mark_job_cancelled(job, "Cancelled by user", session, record_audit=False)
+    assert job.status == "cancelled"
+    assert job.finished_at is not None
+    data = json.loads(job.details)
+    assert data["cancelled"] is True
+    assert data["done"] is True
+    assert "Cancelled by user" in data["log_lines"][-1]
+    session.add.assert_called_with(job)
+
+
+def test_cancel_job_rejects_terminal():
+    job = SimpleNamespace(id=1, status="success", job_type="backup", server_id=1)
+    session = MagicMock()
+    with pytest.raises(JobNotCancellable):
+        cancel_job(session, job, user_id=1)
+
+
+def test_cancel_job_backup_stops_rsync():
+    job = SimpleNamespace(
+        id=260,
+        status="running",
+        job_type="backup",
+        server_id=1,
+        celery_task_id="task-abc",
+        details=json.dumps({"log_lines": ["Backing up…"], "current": "/home/bjorn/docker/"}),
+        finished_at=None,
+    )
+    server = SimpleNamespace(id=1, hostname="rpi5-2.hacknow.info")
+    session = MagicMock()
+    session.get.return_value = server
+
+    with (
+        patch("app.services.jobs.backup.stop_backup") as stop,
+        patch("app.services.jobs._revoke_celery_task") as revoke,
+        patch("app.services.jobs.record_backup_audit_from_job"),
+    ):
+        out = cancel_job(session, job, user_id=7)
+
+    assert out.status == "cancelled"
+    stop.assert_called_once_with("rpi5-2.hacknow.info")
+    revoke.assert_called_once_with("task-abc")
+    session.commit.assert_called()
+
+
+def test_cancel_job_non_backup_marks_cancelled():
+    job = SimpleNamespace(
+        id=11,
+        status="pending",
+        job_type="os_update_check",
+        server_id=2,
+        celery_task_id=None,
+        details=json.dumps({"log_lines": ["queued"]}),
+        finished_at=None,
+    )
+    session = MagicMock()
+    session.get.return_value = SimpleNamespace(hostname="host.example")
+
+    with patch("app.services.jobs._revoke_celery_task") as revoke:
+        out = cancel_job(session, job, user_id=1)
+
+    assert out.status == "cancelled"
+    revoke.assert_called_once_with(None)
+    session.commit.assert_called()

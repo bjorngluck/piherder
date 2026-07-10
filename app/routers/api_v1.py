@@ -18,6 +18,7 @@ from ..security.auth import get_admin_user
 from ..services import api_tokens as tok_svc
 from ..services import jobs as job_service
 from ..services import os_patching
+from ..services.server_audit import record_server_audit
 
 router = APIRouter()
 
@@ -30,22 +31,60 @@ class ApiAuth:
     def __init__(self, token: ApiToken, client_ip: str | None = None):
         self.token = token
         self.user_id = token.created_by_user_id
+        self.token_id = token.id
+        self.token_name = token.name
         self.scopes = tok_svc.parse_scopes(token.scopes)
         self.client_ip = client_ip
 
     def require(self, scope: str) -> None:
+        """Enforce a capability scope (read | jobs | edit)."""
+        if scope not in tok_svc.CAPABILITY_SCOPES:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Invalid capability scope check: {scope}",
+            )
         if scope not in self.scopes:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"API token missing scope: {scope}",
+                detail=tok_svc.missing_scope_message(scope),
             )
 
     def require_feature(self, feature_key: str) -> None:
+        """Enforce optional feature:* allowlist on the token."""
+        if feature_key not in tok_svc.FEATURE_SCOPE_BY_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unknown feature: {feature_key}",
+            )
         if not tok_svc.token_allows_feature(self.scopes, feature_key):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"API token not allowed for feature: {feature_key}",
+                detail=tok_svc.feature_scope_denied_message(feature_key),
             )
+
+    def require_server_feature(self, server: Server, feature_key: str) -> None:
+        """Server feature flag must be on (independent of token scopes)."""
+        if not tok_svc.server_feature_enabled(server, feature_key):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=tok_svc.feature_disabled_message(feature_key),
+            )
+
+    def require_job_access(self, server: Server, job_type: str) -> str:
+        """Validate jobs scope + token feature allowlist + server feature flag.
+
+        Returns the feature key for the job type.
+        """
+        self.require(tok_svc.SCOPE_JOBS)
+        if job_type not in tok_svc.JOB_FEATURE_KEY:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Unsupported job_type. Allowed: {sorted(ALLOWED_JOB_TYPES)}",
+            )
+        feature_key = tok_svc.JOB_FEATURE_KEY[job_type]
+        self.require_feature(feature_key)
+        self.require_server_feature(server, feature_key)
+        return feature_key
 
 
 def get_api_auth(
@@ -196,24 +235,45 @@ def patch_server_features(
     if not server:
         raise HTTPException(404, detail="Server not found")
 
-    changed: dict[str, bool] = {}
+    # Map body field → feature key used by token allowlist
+    pending: list[tuple[str, str, bool]] = []
     if body.backup is not None:
-        auth.require_feature("backup")
-        server.backup_enabled = bool(body.backup)
-        changed["backup"] = server.backup_enabled
+        pending.append(("backup", "backup", bool(body.backup)))
     if body.os_patch is not None:
-        auth.require_feature("os")
-        server.os_patch_enabled = bool(body.os_patch)
-        changed["os_patch"] = server.os_patch_enabled
+        pending.append(("os_patch", "os", bool(body.os_patch)))
     if body.docker is not None:
-        auth.require_feature("docker")
-        server.container_patch_enabled = bool(body.docker)
-        changed["docker"] = server.container_patch_enabled
+        pending.append(("docker", "docker", bool(body.docker)))
 
-    if not changed:
+    if not pending:
         raise HTTPException(400, detail="No feature fields provided (backup, os_patch, docker)")
 
+    # Validate every feature scope before applying any change
+    for _field, feature_key, _val in pending:
+        auth.require_feature(feature_key)
+
+    changed: dict[str, bool] = {}
+    for field, feature_key, val in pending:
+        if feature_key == "backup":
+            server.backup_enabled = val
+            changed["backup"] = server.backup_enabled
+        elif feature_key == "os":
+            server.os_patch_enabled = val
+            changed["os_patch"] = server.os_patch_enabled
+        elif feature_key == "docker":
+            server.container_patch_enabled = val
+            changed["docker"] = server.container_patch_enabled
+
     session.add(server)
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=auth.user_id,
+        action="server_features_updated",
+        message=f"API feature flags: {', '.join(f'{k}={v}' for k, v in changed.items())}",
+        details={"changed": changed, "via": "api"},
+        api_token_id=auth.token_id,
+        api_token_name=auth.token_name,
+    )
     session.commit()
     session.refresh(server)
     return {"ok": True, "changed": changed, "server": _server_public(server)}
@@ -310,26 +370,13 @@ async def create_server_job(
     session: Session = Depends(get_session),
     auth: ApiAuth = Depends(get_api_auth),
 ):
-    auth.require(tok_svc.SCOPE_JOBS)
     job_type = (body.job_type or "").strip().lower()
-    if job_type not in ALLOWED_JOB_TYPES:
-        raise HTTPException(
-            400,
-            detail=f"Unsupported job_type. Allowed: {sorted(ALLOWED_JOB_TYPES)}",
-        )
-    feature_key = tok_svc.JOB_FEATURE_KEY[job_type]
-    auth.require_feature(feature_key)
-
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404, detail="Server not found")
 
-    if job_type in ("backup", "retention") and not server.backup_enabled:
-        raise HTTPException(400, detail="Backups feature is disabled for this server")
-    if job_type in ("os_patch", "os_update_check") and not server.os_patch_enabled:
-        raise HTTPException(400, detail="OS patch feature is disabled for this server")
-    if job_type in ("container_patch", "container_update_check") and not server.container_patch_enabled:
-        raise HTTPException(400, detail="Docker / containers feature is disabled for this server")
+    # Capability scope + token feature allowlist + server feature flag
+    auth.require_job_access(server, job_type)
 
     os_steps = None
     if job_type == "os_patch":
@@ -346,6 +393,8 @@ async def create_server_job(
             user_id=auth.user_id,
             source_filter=body.source_filter,
             os_steps=os_steps,
+            api_token_id=auth.token_id,
+            api_token_name=auth.token_name,
         )
     except job_service.BackupAlreadyRunning as e:
         return JSONResponse(
@@ -386,11 +435,25 @@ class TokenCreateBody(BaseModel):
 
 @router.get("/tokens", summary="List API tokens (admin session)")
 def admin_list_tokens(
+    status: Optional[str] = "all",
     session: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
-    rows = tok_svc.list_api_tokens(session, include_revoked=True)
-    return {"tokens": [tok_svc.token_public_dict(t) for t in rows]}
+    """List tokens. status: active | revoked | all (default all for API completeness).
+
+    Soft-revoked rows are retained for audit trail; they never disappear from the DB.
+    """
+    filt = tok_svc.normalize_token_list_status(status)
+    # API default historically returned everything; keep that when status omitted
+    if status is None or str(status).strip() == "":
+        filt = "all"
+    rows = tok_svc.list_api_tokens(session, status=filt)
+    counts = tok_svc.count_api_tokens_by_status(session)
+    return {
+        "status": filt,
+        "counts": counts,
+        "tokens": [tok_svc.token_public_dict(t) for t in rows],
+    }
 
 
 @router.post("/tokens", status_code=201, summary="Create API token (admin session)")

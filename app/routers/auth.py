@@ -71,6 +71,13 @@ def _audit(session: Session, user_id: int, action: str, details: str, status: st
     session.commit()
 
 
+def _touch_last_login(session: Session, user: User) -> None:
+    """Record successful interactive login time (Users admin UI)."""
+    user.last_login_at = datetime.utcnow()
+    session.add(user)
+    session.commit()
+
+
 def _set_auth_cookie(response: RedirectResponse, token: str):
     response.set_cookie("access_token", token, httponly=True, max_age=60 * 60 * 24 * 7, samesite="lax")
 
@@ -114,6 +121,7 @@ async def login(
     ):
         raw_trusted = request.cookies.get(TRUSTED_COOKIE)
         if raw_trusted and find_valid_trusted_device(session, user.id, raw_trusted):
+            _touch_last_login(session, user)
             token = create_access_token({"sub": str(user.id)})
             response = RedirectResponse(url=post_login_path(user), status_code=303)
             _set_auth_cookie(response, token)
@@ -126,6 +134,7 @@ async def login(
         )
         return response
 
+    _touch_last_login(session, user)
     token = create_access_token({"sub": str(user.id)})
     response = RedirectResponse(url=post_login_path(user), status_code=303)
     _set_auth_cookie(response, token)
@@ -179,6 +188,7 @@ async def two_factor_submit(
     if not ok:
         return RedirectResponse("/auth/2fa?error=invalid", status_code=303)
 
+    _touch_last_login(session, user)
     token = create_access_token({"sub": str(user.id)})
     response = RedirectResponse(url=post_login_path(user), status_code=303)
     _set_auth_cookie(response, token)

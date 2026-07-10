@@ -40,6 +40,19 @@ def test_feature_keys_allowed():
     assert tok.token_allows_feature({"read", "feature:backup"}, "backup") is True
 
 
+def test_server_feature_enabled():
+    srv = SimpleNamespace(
+        backup_enabled=True,
+        os_patch_enabled=False,
+        container_patch_enabled=True,
+    )
+    assert tok.server_feature_enabled(srv, "backup") is True
+    assert tok.server_feature_enabled(srv, "os") is False
+    assert tok.server_feature_enabled(srv, "docker") is True
+    assert "disabled" in tok.feature_disabled_message("os").lower()
+    assert "feature:backup" in tok.feature_scope_denied_message("backup")
+
+
 def test_hash_and_generate():
     plain = tok.generate_plaintext_token()
     assert plain.startswith("ph_")
@@ -185,3 +198,74 @@ def test_api_meta_dict_has_endpoints():
     assert "read" in meta["scopes"]
     assert "edit" in meta["scopes"]
     assert any(e["path"] == "/api/v1/servers/{id}/features" for e in meta["endpoints"])
+
+
+def test_diagnose_plaintext_token_ok_and_ip():
+    session = MagicMock()
+    plain = tok.generate_plaintext_token()
+    row = SimpleNamespace(
+        id=9,
+        name="n8n",
+        token_prefix=plain[:12],
+        token_hash=tok.hash_token(plain),
+        scopes="read,jobs,feature:backup",
+        allowed_cidrs='["10.0.0.0/8"]',
+        created_by_user_id=1,
+        created_at=datetime.utcnow(),
+        last_used_at=None,
+        revoked_at=None,
+        expires_at=None,
+    )
+    session.exec = MagicMock(return_value=MagicMock(first=MagicMock(return_value=row)))
+    session.add = MagicMock()
+    session.commit = MagicMock()
+    session.refresh = MagicMock()
+
+    bad = tok.diagnose_plaintext_token(session, plain, client_ip="8.8.8.8", touch_last_used=False)
+    assert bad["ok"] is False
+    assert bad["error"] == "ip_not_allowed"
+    assert bad["token"]["id"] == 9
+
+    good = tok.diagnose_plaintext_token(session, plain, client_ip="10.1.2.3", touch_last_used=True)
+    assert good["ok"] is True
+    assert "read" in good["scopes"]
+    assert good["has_jobs"] is True
+    assert good["token"]["name"] == "n8n"
+    session.commit.assert_called()  # last_used touch
+
+
+def test_normalize_token_list_status():
+    assert tok.normalize_token_list_status(None) == "active"
+    assert tok.normalize_token_list_status("revoked") == "revoked"
+    assert tok.normalize_token_list_status("ALL") == "all"
+    assert tok.normalize_token_list_status("nope") == "active"
+    assert tok.normalize_token_list_status(None, include_revoked=True) == "all"
+    assert tok.normalize_token_list_status(None, include_revoked=False) == "active"
+
+
+def test_list_api_tokens_status_filter():
+    session = MagicMock()
+    active = SimpleNamespace(id=1, revoked_at=None, created_at=datetime.utcnow())
+    revoked = SimpleNamespace(id=2, revoked_at=datetime.utcnow(), created_at=datetime.utcnow())
+    session.exec = MagicMock(return_value=MagicMock(all=MagicMock(return_value=[active, revoked])))
+
+    assert [t.id for t in tok.list_api_tokens(session, status="active")] == [1]
+    assert [t.id for t in tok.list_api_tokens(session, status="revoked")] == [2]
+    assert [t.id for t in tok.list_api_tokens(session, status="all")] == [1, 2]
+    # legacy flag
+    assert len(tok.list_api_tokens(session, include_revoked=True)) == 2
+    assert len(tok.list_api_tokens(session, include_revoked=False)) == 1
+
+    counts = tok.count_api_tokens_by_status(session)
+    assert counts == {"active": 1, "revoked": 1, "all": 2}
+
+
+def test_diagnose_rejects_empty_and_unknown():
+    session = MagicMock()
+    session.exec = MagicMock(return_value=MagicMock(first=MagicMock(return_value=None)))
+    empty = tok.diagnose_plaintext_token(session, "", client_ip="1.1.1.1")
+    assert empty["ok"] is False
+    assert empty["error"] == "missing_token"
+    unknown = tok.diagnose_plaintext_token(session, "ph_notarealtokenvalue000000000000", client_ip="1.1.1.1")
+    assert unknown["ok"] is False
+    assert unknown["error"] == "invalid_or_revoked"

@@ -122,6 +122,56 @@ def collect_samples(session: Session) -> list[tuple[str, str, list[str]]]:
         )
     )
 
+    # Best-effort Redis / Celery from last Status check (no live probe on every scrape)
+    try:
+        from . import stack_health as stack_svc
+
+        last = stack_svc.load_last_report()
+        redis_up = 0
+        celery_up = 0
+        workers = 0
+        pool_slots = 0
+        if last:
+            for c in last.get("components") or []:
+                cid = c.get("id")
+                st = (c.get("status") or "").lower()
+                if cid == "redis":
+                    redis_up = 1 if st == "ok" else 0
+                elif cid == "celery":
+                    celery_up = 1 if st == "ok" else 0
+                    workers = stack_svc.celery_worker_count_from_report(last)
+                    pool_slots = stack_svc.celery_pool_slots_from_report(last)
+        samples.append(
+            (
+                "piherder_redis_up",
+                "Redis up from last stack health check (1=ok)",
+                [_line("piherder_redis_up", redis_up)],
+            )
+        )
+        samples.append(
+            (
+                "piherder_celery_up",
+                "Celery workers up from last stack health check (1=ok)",
+                [_line("piherder_celery_up", celery_up)],
+            )
+        )
+        samples.append(
+            (
+                "piherder_celery_workers",
+                "Celery worker *nodes* from last stack health check",
+                [_line("piherder_celery_workers", workers)],
+            )
+        )
+        samples.append(
+            (
+                "piherder_celery_pool_slots",
+                "Celery prefork pool slots (CELERY_CONCURRENCY sum) from last check",
+                [_line("piherder_celery_pool_slots", pool_slots)],
+            )
+        )
+    except Exception:
+        pass
+
     if not db_ok:
         return samples
 

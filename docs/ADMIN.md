@@ -350,6 +350,10 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 
 ## 7. Production deployment
 
+### Environment variables
+
+Full catalog with comments and defaults: **[`.env.example`](../.env.example)** (copy to `.env`). Compose injects those keys into **web** and **celery-worker** (Caddy only needs `PIHERDER_HOSTNAME`). Required: `PIHERDER_MASTER_KEY`, plus a strong `SECRET_KEY` in production.
+
 ### Volumes (compose defaults)
 
 | Host path | Container | Purpose |
@@ -414,7 +418,40 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/piherder:0.2.0`). Until then, build from this repo with `docker compose build`. See roadmap H0 in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
 
-**Supported deploy path:** Docker Compose (this repo). Planned platform work (host dependency checks, Settings → Status for stack health, multi-worker) is Horizon 0.5 / v0.2.x — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Platform reliability. Kubernetes and bare/local install are under consideration only, not supported install paths today.
+**Supported deploy path:** Docker Compose (this repo). Platform reliability (host dependency checks, Settings → **Status**, multi-worker Celery) is live — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 0.5. Kubernetes and bare/local install are under consideration only, not supported install paths today.
+
+### Multi-worker Celery (backups)
+
+Backups can run **in parallel across different hosts**. The same host never has two active backups at once (Redis mutex `piherder:server_lock:backup:{server_id}`).
+
+| Concept | Meaning |
+|---------|---------|
+| **Node** | One Celery worker process/container (what `inspect().ping()` lists) |
+| **Pool slots** | Prefork children inside a node (`CELERY_CONCURRENCY`) — each can run a backup |
+
+**Default:** `1 node · 2 pool slots`. Those two slots already run independently. A second *node* is optional (HA during restarts, or more machines) — not required for two parallel backups on one host. Prefer raising `CELERY_CONCURRENCY` before scaling containers.
+
+| Knob | Default | Notes |
+|------|---------|--------|
+| `CELERY_CONCURRENCY` | `2` | Pool slots in the `celery-worker` container. Raise for larger fleets (CPU/RAM + SSH budget). |
+| `PIHERDER_SERVER_LOCK_TTL` | `7200` | Redis mutex TTL (seconds) if a worker dies mid-rsync. |
+| Shared volumes | required | `web` and `celery-worker` must mount the same `/backups` (and usually `/data`, `/herder_backups`). |
+| Cancel | unchanged | Jobs UI / API revoke via `Job.celery_task_id`; worker releases the mutex in `finally`. |
+| Worker death | lock TTL + stale job cleanup | Abandoned DB rows are marked failed after the stale threshold. |
+
+Optional multi-container scale: remove `container_name` from `celery-worker` and run `docker compose up -d --scale celery-worker=N` (same image, volumes, Redis). Status will show **N nodes** and sum of pool slots.
+
+Full env list: [`.env.example`](../.env.example).
+
+### Host dependency check
+
+**Where:** Server detail (card + **Re-check**) · SSH access → **Check dependencies**. Also runs after successful SSH test, key deploy, and least-priv provision.
+
+Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`, `apt`). Stores a snapshot on the server row. Does not install packages on the remote host — failures include short install/privilege hints.
+
+### Stack Status
+
+**Where:** Settings → **Status** (admin). Manual **Check now** plus a 2-minute scheduled poll. Covers web, PostgreSQL, Redis, Celery, APScheduler, and **mount free space** (fast; deduped when volumes share a disk). **Backup folder breakdown** (full `du` + top-level host sizes) is **on demand** via **View details** so large secondary disks do not slow every check. Celery shows **nodes** (containers) and **pool slots** (`CELERY_CONCURRENCY` — e.g. 1 node · 2 slots). Unhealthy components open in-app notifications (and webhook/push if configured); recovery resolves them.
 
 ---
 

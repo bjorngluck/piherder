@@ -13,8 +13,10 @@ from typing import Optional
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from pydantic import BaseModel, Field
 from sqlmodel import Session
+from starlette.concurrency import run_in_threadpool
 
 from .. import templates as templates_mod
 from ..database import engine, get_session
@@ -23,17 +25,19 @@ from ..security.auth import ROLE_ADMIN, get_admin_user, get_current_user, user_r
 from ..services import api_tokens as tok_svc
 from ..services import app_settings as app_cfg
 from ..services import herder_backup as hb
+from ..services import stack_health as stack_svc
 from ..services import update_check_config as ucc
 from ..services.markdown_lite import load_repo_markdown, markdown_to_html
 from ..services.scheduler import (
     HERDER_SCHEDULE_JOB_ID,
+    STACK_HEALTH_INTERVAL_MIN,
     sync_all_server_cron_jobs,
     sync_herder_backup_schedule,
 )
 
 router = APIRouter(tags=["settings"])
 
-_TABS = frozenset({"general", "fleet", "backup", "api"})
+_TABS = frozenset({"general", "fleet", "backup", "status", "api"})
 
 
 def _form_on(value: Optional[str]) -> bool:
@@ -101,16 +105,37 @@ async def settings_page(
 
     is_admin = user_role(user) == ROLE_ADMIN
     api_token_rows = []
+    api_token_counts = {"active": 0, "revoked": 0, "all": 0}
+    api_token_status = tok_svc.normalize_token_list_status(
+        request.query_params.get("token_status")
+    )
     api_docs_html = ""
     api_meta = None
     if is_admin:
         try:
-            api_token_rows = [
-                tok_svc.token_public_dict(t)
-                for t in tok_svc.list_api_tokens(session, include_revoked=True)
-            ]
+            api_token_counts = tok_svc.count_api_tokens_by_status(session)
+            api_token_rows = []
+            for t in tok_svc.list_api_tokens(session, status=api_token_status):
+                d = tok_svc.token_public_dict(t)
+                d["last_used_display"] = (
+                    app_cfg.format_datetime_in_app_tz(t.last_used_at)
+                    if t.last_used_at
+                    else None
+                )
+                d["created_display"] = (
+                    app_cfg.format_datetime_in_app_tz(t.created_at)
+                    if t.created_at
+                    else None
+                )
+                d["revoked_display"] = (
+                    app_cfg.format_datetime_in_app_tz(t.revoked_at)
+                    if t.revoked_at
+                    else None
+                )
+                api_token_rows.append(d)
         except Exception:
             api_token_rows = []
+            api_token_counts = {"active": 0, "revoked": 0, "all": 0}
         try:
             api_docs_html = markdown_to_html(load_repo_markdown("docs/API.md"))
         except Exception as e:
@@ -124,6 +149,8 @@ async def settings_page(
     if tab not in _TABS:
         tab = "general"
     if tab == "api" and not is_admin:
+        tab = "general"
+    if tab == "status" and not is_admin:
         tab = "general"
     qp = request.query_params
     if (
@@ -139,6 +166,12 @@ async def settings_page(
         tab = "fleet"
     if qp.get("security_saved"):
         tab = "general"
+    if qp.get("stack_checked"):
+        tab = "status" if is_admin else tab
+
+    stack_report = None
+    if is_admin:
+        stack_report = stack_svc.load_last_report()
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -153,14 +186,102 @@ async def settings_page(
             "schedule_status": schedule_status,
             "schedule_next_run": next_run,
             "api_tokens": api_token_rows,
+            "api_token_status": api_token_status,
+            "api_token_counts": api_token_counts,
             "is_admin": is_admin,
             "settings_tab": tab,
             "api_docs_html": api_docs_html,
             "api_meta": api_meta,
             "new_api_token_secret": qp.get("token_secret"),
             "new_api_token_name": qp.get("token_name"),
+            "stack_report": stack_report,
+            "stack_health_interval_min": STACK_HEALTH_INTERVAL_MIN,
         },
     )
+
+
+@router.post("/herder-backups/status/check")
+async def stack_status_check_now(
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Admin: run stack health probes now and refresh Status tab.
+
+    Fast path only (no full backup-tree ``du``). Folder breakdown is lazy via
+    ``GET /herder-backups/status/backup-usage``.
+    """
+    scheduler, has_sched = _scheduler()
+    try:
+        report = await run_in_threadpool(
+            lambda: stack_svc.run_stack_health_check(
+                session,
+                scheduler=scheduler,
+                has_scheduler=has_sched,
+                notify=True,
+            )
+        )
+        overall = (report or {}).get("overall") or "unknown"
+        return RedirectResponse(
+            _settings_url("status", stack_checked="1", overall=overall),
+            status_code=303,
+        )
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("status", stack_error=str(e)[:120]),
+            status_code=303,
+        )
+
+
+@router.get("/herder-backups/status/backup-usage")
+async def stack_status_backup_usage(
+    user: User = Depends(get_admin_user),
+):
+    """Admin: expensive backup-tree size + top-level host folders (lazy Status UI)."""
+    try:
+        data = await run_in_threadpool(stack_svc.collect_backup_tree_usage)
+        return JSONResponse(content=data)
+    except Exception as e:
+        return JSONResponse(
+            status_code=500,
+            content={
+                "ok": False,
+                "error": str(e)[:200],
+                "children": [],
+                "tree_bytes": None,
+            },
+        )
+
+
+class ApiTokenTestBody(BaseModel):
+    """Plaintext secret for one-shot admin test (shown only at create/rotate)."""
+
+    token: str = Field(..., min_length=8, max_length=200)
+
+
+@router.post("/herder-backups/api-tokens/test")
+async def test_api_token(
+    request: Request,
+    body: ApiTokenTestBody,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Validate a freshly shown API secret (admin session). Does not require `read` scope.
+
+    Checks hash / revoked / expiry and whether *this browser’s* client IP would
+    pass the token allowlist. Updates last_used_at on success.
+    """
+    peer = request.client.host if request.client else None
+    client_ip = tok_svc.extract_client_ip(dict(request.headers), peer)
+    result = tok_svc.diagnose_plaintext_token(
+        session,
+        body.token,
+        client_ip=client_ip,
+        touch_last_used=True,
+    )
+    status = 200 if result.get("ok") else 400
+    if result.get("error") == "invalid_or_revoked":
+        status = 401
+    return JSONResponse(status_code=status, content=result)
 
 
 @router.post("/herder-backups/api-tokens")
@@ -198,6 +319,7 @@ async def create_api_token_form(
             token_name=row.name,
             token_secret=plain,
             api_panel="tokens",
+            token_status="active",
         ),
         status_code=303,
     )
@@ -245,7 +367,13 @@ async def update_api_token_form(
             status_code=303,
         )
     return RedirectResponse(
-        _settings_url("api", token_updated="1", token_name=row.name, api_panel="tokens"),
+        _settings_url(
+            "api",
+            token_updated="1",
+            token_name=row.name,
+            api_panel="tokens",
+            token_status="active",
+        ),
         status_code=303,
     )
 
@@ -276,6 +404,7 @@ async def rotate_api_token_form(
             token_name=row.name,
             token_secret=plain,
             api_panel="tokens",
+            token_status="active",
         ),
         status_code=303,
     )
@@ -290,8 +419,15 @@ async def revoke_api_token_form(
     row = tok_svc.get_api_token(session, token_id)
     if row:
         tok_svc.revoke_api_token(session, row)
+    # Soft-revoke keeps the row — land on Revoked filter for traceability
     return RedirectResponse(
-        _settings_url("api", token_revoked="1", api_panel="tokens"), status_code=303
+        _settings_url(
+            "api",
+            token_revoked="1",
+            api_panel="tokens",
+            token_status="revoked",
+        ),
+        status_code=303,
     )
 
 

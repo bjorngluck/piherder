@@ -153,6 +153,16 @@
           {% if u.id == user.id %}<span class="text-[10px] text-accent">you</span>{% endif %}
           {% if is_sole %}<span class="text-[10px] text-warning">sole admin</span>{% endif %}
         </div>
+        <div class="mt-2 text-xs text-muted">
+          Last login:
+          {% if u.last_login_at %}
+          <span class="text-text">{{ u.last_login_at | app_tz }}</span>
+          {% else %}
+          <span>—</span>
+          {% endif %}
+          <span class="mx-1">·</span>
+          <a href="/audit?user_id={{ u.id }}" class="text-accent hover:underline">Audit trail</a>
+        </div>
       </div>
     </div>
     <form method="post" action="/auth/users/{{ u.id }}/role" class="flex flex-col sm:flex-row sm:items-center gap-2">
