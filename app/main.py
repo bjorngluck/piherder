@@ -254,8 +254,26 @@ HERDER_SCHEDULE_JOB_ID = sched.HERDER_SCHEDULE_JOB_ID
 
 
 # ------------------------------
-# PiHerder self-backup (config/keys + optional audit) + restore
+# Settings (tabbed): general · fleet · backup · api
 # ------------------------------
+
+_SETTINGS_TABS = frozenset({"general", "fleet", "backup", "api"})
+
+
+def _settings_url(tab: str = "general", **params) -> str:
+    """Build /herder-backups?tab=… with optional flash query params."""
+    from urllib.parse import urlencode
+
+    t = (tab or "general").strip().lower()
+    if t not in _SETTINGS_TABS:
+        t = "general"
+    q = {"tab": t}
+    for k, v in params.items():
+        if v is None:
+            continue
+        q[k] = str(v)
+    return f"/herder-backups?{urlencode(q)}"
+
 
 @app.get("/herder-backups", response_class=HTMLResponse)
 async def herder_backups_page(
@@ -265,6 +283,7 @@ async def herder_backups_page(
 ):
     from .services import herder_backup as hb
     from .services import api_tokens as tok_svc
+    from .services.markdown_lite import load_repo_markdown, markdown_to_html
     from .security.auth import user_role, ROLE_ADMIN
     from .config import settings as _settings
     backups = hb.list_backups()
@@ -280,8 +299,11 @@ async def herder_backups_page(
             if nr:
                 next_run = hb.format_datetime_in_app_tz(nr)
 
+    is_admin = user_role(user) == ROLE_ADMIN
     api_token_rows = []
-    if user_role(user) == ROLE_ADMIN:
+    api_docs_html = ""
+    api_meta = None
+    if is_admin:
         try:
             api_token_rows = [
                 tok_svc.token_public_dict(t)
@@ -289,6 +311,29 @@ async def herder_backups_page(
             ]
         except Exception:
             api_token_rows = []
+        try:
+            api_docs_html = markdown_to_html(load_repo_markdown("docs/API.md"))
+        except Exception as e:
+            api_docs_html = f"<p class=\"text-sm text-muted\">Could not load API docs: {e}</p>"
+        try:
+            api_meta = tok_svc.api_meta_dict()
+        except Exception:
+            api_meta = None
+
+    tab = (request.query_params.get("tab") or "general").strip().lower()
+    if tab not in _SETTINGS_TABS:
+        tab = "general"
+    if tab == "api" and not is_admin:
+        tab = "general"
+    # Deep-link aliases
+    if request.query_params.get("token_created") or request.query_params.get("token_revoked"):
+        tab = "api" if is_admin else tab
+    if request.query_params.get("backup_ok") or request.query_params.get("restored") or request.query_params.get("deleted"):
+        tab = "backup"
+    if request.query_params.get("update_checks_saved"):
+        tab = "fleet"
+    if request.query_params.get("security_saved"):
+        tab = "general"
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -303,7 +348,10 @@ async def herder_backups_page(
             "schedule_status": schedule_status,
             "schedule_next_run": next_run,
             "api_tokens": api_token_rows,
-            "is_admin": user_role(user) == ROLE_ADMIN,
+            "is_admin": is_admin,
+            "settings_tab": tab,
+            "api_docs_html": api_docs_html,
+            "api_meta": api_meta,
             "new_api_token_secret": request.query_params.get("token_secret"),
             "new_api_token_name": request.query_params.get("token_name"),
         }
@@ -324,7 +372,6 @@ async def create_api_token_form(
     user: User = Depends(get_admin_user),
 ):
     from .services import api_tokens as tok_svc
-    from urllib.parse import quote
 
     scopes = []
     if scope_read in ("1", "on", "true"):
@@ -350,8 +397,13 @@ async def create_api_token_form(
     )
     # One-time reveal via query (same pattern as admin user invite; short-lived in browser history)
     return RedirectResponse(
-        f"/herder-backups?token_created=1&token_name={quote(row.name)}"
-        f"&token_secret={quote(plain)}#api-tokens",
+        _settings_url(
+            "api",
+            token_created="1",
+            token_name=row.name,
+            token_secret=plain,
+            api_panel="tokens",
+        ),
         status_code=303,
     )
 
@@ -367,7 +419,7 @@ async def revoke_api_token_form(
     row = tok_svc.get_api_token(session, token_id)
     if row:
         tok_svc.revoke_api_token(session, row)
-    return RedirectResponse("/herder-backups?token_revoked=1", status_code=303)
+    return RedirectResponse(_settings_url("api", token_revoked="1", api_panel="tokens"), status_code=303)
 
 
 @app.post("/herder-backups/run")
@@ -401,7 +453,7 @@ async def trigger_herder_backup(
             s.add(audit)
             s.commit()
             return RedirectResponse(
-                f"/herder-backups?backup_ok=1&file={path.name}",
+                _settings_url("backup", backup_ok="1", file=path.name),
                 status_code=303,
             )
         except Exception as e:
@@ -410,7 +462,7 @@ async def trigger_herder_backup(
             audit.finished_at = datetime.utcnow()
             s.add(audit)
             s.commit()
-            return RedirectResponse(f"/herder-backups?error={str(e)[:120]}", status_code=303)
+            return RedirectResponse(_settings_url("backup", error=str(e)[:120]), status_code=303)
 
 
 @app.post("/herder-backups/restore")
@@ -466,11 +518,17 @@ async def restore_herder_backup(
         servers_n = res.get("would_restore_servers") if preview else res.get("restored_servers", 0)
         audit_n = res.get("would_restore_audit") if preview else res.get("restored_audit", 0)
         return RedirectResponse(
-            f"/herder-backups?restored=1&dry={int(preview)}&servers={servers_n}&audit={audit_n}",
+            _settings_url(
+                "backup",
+                restored="1",
+                dry=str(int(preview)),
+                servers=str(servers_n),
+                audit=str(audit_n),
+            ),
             status_code=303,
         )
     except Exception as e:
-        return RedirectResponse(f"/herder-backups?error={str(e)[:120]}", status_code=303)
+        return RedirectResponse(_settings_url("backup", error=str(e)[:120]), status_code=303)
     finally:
         if tmp_path and tmp_path.exists():
             try:
@@ -514,7 +572,7 @@ async def save_herder_config(
         try:
             hb.validate_cron_expression(cron)
         except ValueError as e:
-            return RedirectResponse(f"/herder-backups?error={str(e)[:120]}", status_code=303)
+            return RedirectResponse(_settings_url("backup", error=str(e)[:120]), status_code=303)
 
     cfg = {
         "keep": max(1, min(100, keep)),
@@ -524,7 +582,7 @@ async def save_herder_config(
     }
     hb.save_herder_config(cfg)
     sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
-    return RedirectResponse("/herder-backups?config_saved=1", status_code=303)
+    return RedirectResponse(_settings_url("backup", config_saved="1"), status_code=303)
 
 
 @app.post("/herder-backups/security")
@@ -539,7 +597,7 @@ async def save_security_policy(
     if user_role(user) != ROLE_ADMIN:
         raise HTTPException(403, "Admin role required")
     hb.save_herder_config({"force_2fa": force_2fa in ("1", "on", "true")})
-    return RedirectResponse("/herder-backups?security_saved=1", status_code=303)
+    return RedirectResponse(_settings_url("general", security_saved="1"), status_code=303)
 
 
 @app.post("/herder-backups/update-checks")
@@ -576,7 +634,7 @@ async def save_update_check_defaults(
         if cont_on:
             hb.validate_cron_expression(cont_cron)
     except ValueError as e:
-        return RedirectResponse(f"/herder-backups?error={str(e)[:120]}", status_code=303)
+        return RedirectResponse(_settings_url("fleet", error=str(e)[:120]), status_code=303)
 
     hb.save_herder_config({
         "os_check_global_enabled": os_on,
@@ -606,14 +664,17 @@ async def save_update_check_defaults(
         sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER)
 
     return RedirectResponse(
-        f"/herder-backups?update_checks_saved=1"
-        f"&os={applied.get('os_applied', 0)}"
-        f"&cont={applied.get('container_applied', 0)}"
-        f"&total={applied.get('servers_total', 0)}"
-        f"&flags_os={applied.get('flags_os', 0)}"
-        f"&flags_cont={applied.get('flags_container', 0)}"
-        f"&flags_bak={applied.get('flags_backup', 0)}"
-        f"&applied={'1' if do_apply else '0'}",
+        _settings_url(
+            "fleet",
+            update_checks_saved="1",
+            os=str(applied.get("os_applied", 0)),
+            cont=str(applied.get("container_applied", 0)),
+            total=str(applied.get("servers_total", 0)),
+            flags_os=str(applied.get("flags_os", 0)),
+            flags_cont=str(applied.get("flags_container", 0)),
+            flags_bak=str(applied.get("flags_backup", 0)),
+            applied="1" if do_apply else "0",
+        ),
         status_code=303,
     )
 
@@ -626,7 +687,7 @@ async def save_timezone(
     from .services import herder_backup as hb
     hb.set_app_timezone(timezone)
     sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
-    return RedirectResponse("/herder-backups?config_saved=1", status_code=303)
+    return RedirectResponse(_settings_url("general", config_saved="1"), status_code=303)
 
 
 @app.post("/herder-backups/delete")
@@ -646,5 +707,8 @@ async def delete_herder_backup(
             except Exception:
                 pass
             break
-    return RedirectResponse("/herder-backups?deleted=1" if deleted else "/herder-backups?error=delete_failed", status_code=303)
+    return RedirectResponse(
+        _settings_url("backup", deleted="1") if deleted else _settings_url("backup", error="delete_failed"),
+        status_code=303,
+    )
 
