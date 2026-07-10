@@ -7,9 +7,12 @@
 <div class="page-header mb-6">
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Settings</h1>
-    <p class="text-sm text-muted mt-1">Timezone, fleet update checks, and PiHerder self-backups.</p>
+    <p class="text-sm text-muted mt-1">Timezone, security, fleet defaults, self-backups, and automation API tokens.</p>
   </div>
   <div class="page-header-actions">
+    {% if is_admin|default(false) %}
+    <a href="#api-tokens" class="btn btn-secondary min-h-11 text-sm">API tokens</a>
+    {% endif %}
     <a href="/" class="btn btn-secondary min-h-11 text-sm">← Dashboard</a>
   </div>
 </div>
@@ -103,11 +106,13 @@
 
 {% if is_admin %}
 <div class="card p-5 mb-4" id="api-tokens">
-  <h2 class="font-semibold text-text mb-1">API tokens</h2>
+  <h2 class="font-semibold text-text mb-1">Automation API tokens</h2>
   <p class="text-xs text-muted mb-3">
-    Bearer tokens for automation (<code class="font-mono">/api/v1/*</code> — n8n, Home Assistant, scripts).
-    Scopes: <strong>read</strong> (fleet inventory &amp; jobs), <strong>jobs</strong> (trigger backups / patch / checks).
-    Secrets are stored hashed; revoke compromised tokens immediately.
+    <strong>Admin-managed</strong>, instance-wide tokens for n8n, Home Assistant, and scripts
+    (<code class="font-mono">/api/v1/*</code>) — not personal logins.
+    Secrets are hashed; copy once at creation. Full guide:
+    <a href="/docs" target="_blank" rel="noopener" class="text-primary hover:underline">OpenAPI /docs</a>
+    · repo <code class="font-mono">docs/API.md</code>.
   </p>
 
   <form method="post" action="/herder-backups/api-tokens" class="space-y-3 mb-4 pb-4 border-b border-border">
@@ -116,15 +121,45 @@
       <input type="text" name="name" required maxlength="120" placeholder="e.g. n8n production"
              class="w-full sm:max-w-md bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
     </div>
-    <div class="flex flex-wrap gap-4 text-sm">
-      <label class="flex items-center gap-2 min-h-11">
-        <input type="checkbox" name="scope_read" value="1" checked>
-        <span>read</span>
-      </label>
-      <label class="flex items-center gap-2 min-h-11">
-        <input type="checkbox" name="scope_jobs" value="1" checked>
-        <span>jobs</span>
-      </label>
+    <div>
+      <p class="text-xs text-muted mb-1 font-medium">Capability scopes</p>
+      <div class="flex flex-wrap gap-4 text-sm">
+        <label class="flex items-center gap-2 min-h-11" title="GET fleet and jobs">
+          <input type="checkbox" name="scope_read" value="1" checked>
+          <span>read</span>
+        </label>
+        <label class="flex items-center gap-2 min-h-11" title="POST job triggers">
+          <input type="checkbox" name="scope_jobs" value="1" checked>
+          <span>jobs</span>
+        </label>
+        <label class="flex items-center gap-2 min-h-11" title="PATCH feature flags">
+          <input type="checkbox" name="scope_edit" value="1">
+          <span>edit</span>
+        </label>
+      </div>
+    </div>
+    <div>
+      <p class="text-xs text-muted mb-1 font-medium">Feature allowlist <span class="font-normal">(optional — leave all unchecked = any feature)</span></p>
+      <div class="flex flex-wrap gap-4 text-sm">
+        <label class="flex items-center gap-2 min-h-11">
+          <input type="checkbox" name="scope_feature_backup" value="1">
+          <span>feature:backup</span>
+        </label>
+        <label class="flex items-center gap-2 min-h-11">
+          <input type="checkbox" name="scope_feature_os" value="1">
+          <span>feature:os</span>
+        </label>
+        <label class="flex items-center gap-2 min-h-11">
+          <input type="checkbox" name="scope_feature_docker" value="1">
+          <span>feature:docker</span>
+        </label>
+      </div>
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">Allowed IPs / CIDRs <span class="font-normal">(optional, one per line or comma-separated; empty = any IP)</span></label>
+      <textarea name="allowed_cidrs" rows="2" placeholder="10.0.0.0/8&#10;192.168.1.50"
+                class="w-full sm:max-w-lg bg-surface border border-border px-3 py-2 rounded text-sm font-mono"></textarea>
+      <p class="text-[10px] text-muted mt-1">Uses <code>X-Forwarded-For</code> / <code>X-Real-IP</code> when behind Caddy or a reverse proxy.</p>
     </div>
     <button type="submit" class="btn btn-primary min-h-11 text-sm">Create token</button>
   </form>
@@ -137,6 +172,7 @@
           <th class="py-2 pr-3">Name</th>
           <th class="py-2 pr-3">Prefix</th>
           <th class="py-2 pr-3">Scopes</th>
+          <th class="py-2 pr-3">IP allowlist</th>
           <th class="py-2 pr-3">Last used</th>
           <th class="py-2 pr-3">Status</th>
           <th class="py-2"></th>
@@ -148,6 +184,9 @@
           <td class="py-2 pr-3 font-medium">{{ t.name }}</td>
           <td class="py-2 pr-3 font-mono text-xs">{{ t.token_prefix }}…</td>
           <td class="py-2 pr-3 text-xs">{{ t.scopes | join(', ') }}</td>
+          <td class="py-2 pr-3 text-xs font-mono text-muted">
+            {% if t.allowed_cidrs %}{{ t.allowed_cidrs | join(', ') }}{% else %}any{% endif %}
+          </td>
           <td class="py-2 pr-3 text-xs text-muted">{{ t.last_used_at or '—' }}</td>
           <td class="py-2 pr-3">
             {% if t.active %}
@@ -174,9 +213,20 @@
   {% endif %}
 
   <details class="mt-4 text-xs text-muted">
-    <summary class="cursor-pointer text-sm text-text">Example: list servers</summary>
-    <pre class="mt-2 p-3 bg-surface border border-border rounded overflow-x-auto font-mono text-[11px] leading-relaxed">curl -sS -H "Authorization: Bearer ph_…" \
-  https://your-host/api/v1/servers</pre>
+    <summary class="cursor-pointer text-sm text-text">Quick examples</summary>
+    <pre class="mt-2 p-3 bg-surface border border-border rounded overflow-x-auto font-mono text-[11px] leading-relaxed"># Catalog + your token scopes
+curl -sS -H "Authorization: Bearer ph_…" https://your-host/api/v1
+
+# List servers
+curl -sS -H "Authorization: Bearer ph_…" https://your-host/api/v1/servers
+
+# Enable backups feature on server 1 (needs edit)
+curl -sS -X PATCH -H "Authorization: Bearer ph_…" -H "Content-Type: application/json" \
+  -d '{"backup": true}' https://your-host/api/v1/servers/1/features
+
+# Trigger backup (needs jobs + server feature on)
+curl -sS -X POST -H "Authorization: Bearer ph_…" -H "Content-Type: application/json" \
+  -d '{"job_type":"backup"}' https://your-host/api/v1/servers/1/jobs</pre>
   </details>
 </div>
 {% endif %}

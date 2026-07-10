@@ -102,7 +102,7 @@ Related backup hardening (same phase):
 - [x] **Per-server backup path allow/deny rules** — default deny OS roots; optional allow/deny prefixes on Backups page; enforced on add-source + `run_backup`.
 
 - [x] **Built-in scheduler UI for container/OS patch apply** — Edit server → Schedules tab; opt-in, default off
-- [x] **Token REST API (v1)** — Bearer API tokens (`ph_…`); fleet read + job triggers under `/api/v1` — see ADMIN § API tokens
+- [x] **Token REST API (v1)** — admin-managed Bearer tokens (`ph_…`); scopes `read`/`jobs`/`edit` + optional `feature:*`; IP/CIDR allowlist; `PATCH …/features`; docs in [docs/API.md](docs/API.md) + `/docs`
 - [x] **Webhook / notification integration** — env `WEBHOOK_*` on new alerts + job finish; optional **Web Push** (VAPID) on new open notifications — see [PWA/push plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md)
 - [x] **Per-server OS-patch and container-patch apply cron** — APScheduler → thread pool; only-if-updates; skip if job active; audit as system/scheduler
 - [x] **OS update check schedule (check-only)** — apt upgradable count + reboot flag; no auto-upgrade — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
