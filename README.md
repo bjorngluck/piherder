@@ -6,6 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![Release](https://img.shields.io/badge/release-v0.2.0-green.svg)](docs/RELEASE_v0.2.0.md)
 
 PiHerder is a self-hosted web app that manages one or more remote Linux servers (primarily Raspberry Pis). It replaces manual bash scripts with an auditable UI while keeping secrets encrypted at rest.
 
@@ -19,6 +20,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **IAM / 2FA / update checks / notifications:** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - **PWA + Web Push:** [docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · iOS: [docs/DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md)
 - **Integrations (Uptime Kuma):** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · ops in [docs/ADMIN.md](docs/ADMIN.md)
+- **Release notes:** [docs/RELEASE_v0.2.0.md](docs/RELEASE_v0.2.0.md)
 - **Stabilisation plan:** [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
 - **UI unification plan:** [UI_UNIFICATION_PLAN.md](UI_UNIFICATION_PLAN.md) (complete)
 
@@ -62,7 +64,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - `./piherder_data:/data` — avatars (instance Settings live in Postgres).
 - `./certs:/certs` (Caddy, read-only) — `fullchain.pem` + `privkey.pem` for trusted HTTPS (see `certs/README.md`).
 
-**Platform reliability (v0.2.x):** host dependency chips after SSH onboard; Settings → **Status** (fast stack probes + on-demand backup tree usage); Celery **`CELERY_CONCURRENCY`** (default 2 pool slots, one worker node) with a per-server backup mutex. Full env catalog: [`.env.example`](.env.example) · ops: [docs/ADMIN.md](docs/ADMIN.md).
+**Current release:** **v0.2.0** (git tag). Platform reliability: host dependency chips after SSH onboard; Settings → **Status** (fast stack probes + on-demand backup tree usage); Celery **`CELERY_CONCURRENCY`** (default 2 pool slots, one worker node) with a per-server backup mutex. Full env catalog: [`.env.example`](.env.example) · ops: [docs/ADMIN.md](docs/ADMIN.md) · toward **v0.3.0**: Grafana + remaining integrations.
 
 ## Tech Stack
 
