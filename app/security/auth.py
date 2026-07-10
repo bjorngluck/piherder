@@ -128,8 +128,8 @@ class OnboardingRedirect(Exception):
 def force_2fa_required() -> bool:
     """Global policy: every user must enable TOTP before using the app."""
     try:
-        from ..services.herder_backup import load_herder_config
-        return bool(load_herder_config().get("force_2fa"))
+        from ..services.app_settings import force_2fa_enabled
+        return force_2fa_enabled()
     except Exception:
         return False
 

@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** v0.2 target — Phase 1–3 complete; Phase 4 (production + ecosystem) in progress  
-> **Last updated:** 2026-07-10 — ecosystem roadmap; token REST API; production install path
+> **Last updated:** 2026-07-10 — DB-backed settings; API token rotate/edit; CORS opt-in; confirm modal
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -15,10 +15,10 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 ## Decisions Log (Grok collaboration — July 2026)
 
 ### Settings & Configuration Strategy
-- **Hybrid storage**: User preferences & per-server configs → PostgreSQL (travels with DB restores).
-- **System / operational settings** (paths, global schedules, self-backup) → JSON file in persistent `/data` volume.
-- **Sensitive runtime** (`PIHERDER_MASTER_KEY`, DB creds) → `.env` + Docker secrets.
-- Rationale: Balances restore reliability with operational flexibility. DB for user-visible things, files for admin-tweakable paths.
+- **Database-first**: User prefs, per-server config, **and** instance operational settings (timezone, force 2FA, fleet defaults, self-backup schedule) → PostgreSQL (`appsetting` singleton + domain tables). Travels with DB dumps and PiHerder self-backup.
+- **Files**: avatars / binary blobs under `DATA_ROOT` only; legacy `herder-config.json` is imported once into DB if present.
+- **Sensitive runtime** (`PIHERDER_MASTER_KEY`, DB creds) → `.env` + Docker secrets (never in Settings UI / DB rows as plaintext deploy secrets).
+- Rationale (2026-07-10): DR and persistence — one restore path for “how the instance was configured,” not a split brain between volume files and Postgres.
 
 ### UI Theming
 - Base: Light + Dark themes using Raspberry Pi branding (red `#E60012`/`#C8102E`, green `#00A651`).

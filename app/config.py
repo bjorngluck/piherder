@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     # Backup considered stale when last_backup_at is older than this many hours
     METRICS_BACKUP_STALE_HOURS: int = 36
 
+    # CORS for browser → /api/v1 from other origins (rare). Empty = disabled (recommended).
+    # Server-side n8n/HA/scripts do not need CORS. Comma-separated exact origins only.
+    # Example: CORS_ORIGINS=https://n8n.example.com,https://homeassistant.local:8123
+    # Never use * with API tokens. Backend still enforces Bearer + scopes + IP allowlist.
+    CORS_ORIGINS: Optional[str] = None
+
     class Config:
         env_file = ".env"
         extra = "ignore"

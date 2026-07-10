@@ -12,9 +12,10 @@
 }
 
 :80 {
+	# Client IP for API token allowlists (backend reads XFF / X-Real-IP)
 	reverse_proxy web:8000 {
-		header_up X-Real-IP {remote}
-		header_up X-Forwarded-For {remote}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
 		header_up X-Forwarded-Host {host}
 	}
@@ -25,8 +26,8 @@
 	tls internal
 
 	reverse_proxy web:8000 {
-		header_up X-Real-IP {remote}
-		header_up X-Forwarded-For {remote}
+		header_up X-Real-IP {remote_host}
+		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto https
 		header_up X-Forwarded-Host {host}
 	}

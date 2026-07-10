@@ -24,7 +24,7 @@ import logging
 
 from ..services import jobs as job_service
 from ..services import backup as backup_svc
-from ..services.herder_backup import format_datetime_in_app_tz
+from ..services.app_settings import format_datetime_in_app_tz
 from ..services.server_audit import record_server_audit
 from .. import templates as templates_mod
 from ..security.auth import get_current_user

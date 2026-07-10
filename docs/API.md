@@ -24,8 +24,28 @@ This API is for **automation** (n8n, Home Assistant, scripts). Browser UI uses s
 Authorization: Bearer ph_<secret>
 ```
 
-- Secret is shown **once** at creation; only a hash is stored.
-- Revoke immediately if leaked (Settings or `DELETE /api/v1/tokens/{id}` with admin session).
+- Secret is shown **once** at **create** or **rotate** (Settings UI has **Copy token**); only a hash is stored.
+- Admins can **edit** name, scopes, and IP allowlist without rotating the secret.
+- **Rotate** issues a new secret; the previous value stops working immediately.
+- **Revoke** immediately if leaked (Settings or `DELETE /api/v1/tokens/{id}` with admin session).
+
+### CORS (optional — browser clients only)
+
+| Client | Needs CORS? |
+|--------|-------------|
+| n8n / Home Assistant / cron / curl (server-side) | **No** |
+| PiHerder UI (same origin) | **No** |
+| Browser app on another origin calling `/api/v1` | **Yes** — set env `CORS_ORIGINS` |
+
+`CORS_ORIGINS` is a comma-separated **exact** allowlist (e.g. `https://n8n.example.com`). Empty (default) = CORS disabled. Wildcards (`*`) are rejected.
+
+**CORS is not security for the API.** Every request is still validated on the backend:
+
+1. Valid non-revoked Bearer token  
+2. Required **scopes** / feature allowlist  
+3. Optional **IP/CIDR** allowlist on the token  
+
+Do not open CORS “to make it work” without also tightening token scopes and IP allowlists.
 
 ### IP / CIDR allowlist (optional)
 
@@ -37,13 +57,13 @@ Examples:
 - `192.168.1.50`
 - `2001:db8::/32`
 
-Client IP resolution order:
+Client IP resolution is enforced in the **backend** on every authenticated API request:
 
-1. `X-Forwarded-For` (first hop)  
+1. `X-Forwarded-For` (first hop only)  
 2. `X-Real-IP`  
 3. TCP peer address  
 
-Ensure your reverse proxy (Caddy, NPM) forwards the real client address. Mismatch → **403** `Client IP not allowed for this API token`.
+**Proxy:** Bundled Caddy **overwrites** `X-Forwarded-For` / `X-Real-IP` with the true client IP (`{remote_host}`) so allowlists work for traffic on ports 8888/8443. Prefer that path over hitting web `:8000` directly if you use IP restrictions. If another proxy sits in front of Caddy, that edge must pass the real client IP (or configure trusted proxies / `client_ip`). Mismatch → **403** `Client IP not allowed for this API token`.
 
 ---
 

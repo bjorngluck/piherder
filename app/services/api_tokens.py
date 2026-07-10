@@ -197,16 +197,42 @@ def client_ip_allowed(allowed_cidrs: list[str] | str | None, client_ip: str | No
     return False
 
 
+def _normalize_ip_candidate(raw: str | None) -> str:
+    """Strip brackets/ports so '1.2.3.4:5678' or '[::1]:80' become parseable IPs."""
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    if s.startswith("["):
+        end = s.find("]")
+        if end > 0:
+            return s[1:end]
+    # IPv4 host:port (single colon)
+    if s.count(":") == 1:
+        host, port = s.rsplit(":", 1)
+        if port.isdigit():
+            return host
+    return s
+
+
 def extract_client_ip(headers: dict | None, peer_host: str | None) -> str:
-    """Prefer X-Forwarded-For (first hop), then X-Real-IP, then peer."""
+    """Resolve client IP for API token allowlists.
+
+    Preference (edge proxy should *set* these, not pass client spoofed values):
+      1. X-Forwarded-For — first hop only
+      2. X-Real-IP
+      3. TCP peer (request.client.host)
+
+    Caddy is configured to overwrite X-Forwarded-For / X-Real-IP with the true
+    remote host so allowlists work behind the reverse proxy.
+    """
     h = {str(k).lower(): str(v) for k, v in (headers or {}).items()}
     xff = h.get("x-forwarded-for") or h.get("x-forwarded_for")
     if xff:
-        return xff.split(",")[0].strip()
+        return _normalize_ip_candidate(xff.split(",")[0])
     xri = h.get("x-real-ip") or h.get("x-real_ip")
     if xri:
-        return xri.strip()
-    return (peer_host or "").strip()
+        return _normalize_ip_candidate(xri)
+    return _normalize_ip_candidate(peer_host)
 
 
 def create_api_token(
@@ -254,6 +280,52 @@ def revoke_api_token(session: Session, token: ApiToken) -> ApiToken:
         session.commit()
         session.refresh(token)
     return token
+
+
+def update_api_token(
+    session: Session,
+    token: ApiToken,
+    *,
+    name: str | None = None,
+    scopes: Iterable[str] | str | None = None,
+    allowed_cidrs: Iterable[str] | str | None = None,
+    update_cidrs: bool = False,
+) -> ApiToken:
+    """Update name, scopes, and/or IP allowlist. Does not change the secret.
+
+    Pass update_cidrs=True to apply allowed_cidrs (including empty → clear allowlist).
+    """
+    if token.revoked_at is not None:
+        raise ValueError("Cannot update a revoked token")
+    if name is not None:
+        token.name = (name or "unnamed").strip()[:120] or "unnamed"
+    if scopes is not None:
+        token.scopes = scopes_csv(scopes)
+    if update_cidrs:
+        token.allowed_cidrs = allowed_cidrs_json(allowed_cidrs)
+    session.add(token)
+    session.commit()
+    session.refresh(token)
+    return token
+
+
+def rotate_api_token(session: Session, token: ApiToken) -> tuple[ApiToken, str]:
+    """Issue a new secret for an active token; old secret stops working immediately.
+
+    Returns (row, new_plaintext once). Name, scopes, and IP allowlist are preserved.
+    """
+    if token.revoked_at is not None:
+        raise ValueError("Cannot rotate a revoked token")
+    if token.expires_at and token.expires_at < datetime.utcnow():
+        raise ValueError("Cannot rotate an expired token")
+    plain = generate_plaintext_token()
+    token.token_prefix = plain[:12]
+    token.token_hash = hash_token(plain)
+    # last_used stays historical; secret is brand new
+    session.add(token)
+    session.commit()
+    session.refresh(token)
+    return token, plain
 
 
 def delete_api_token(session: Session, token: ApiToken) -> None:

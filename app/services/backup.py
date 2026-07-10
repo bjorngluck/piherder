@@ -15,7 +15,7 @@ import shlex
 import time
 import traceback
 # Use app selected TZ for display strings
-from .herder_backup import format_datetime_in_app_tz
+from .app_settings import format_datetime_in_app_tz
 
 logger = logging.getLogger(__name__)
 

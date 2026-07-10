@@ -73,6 +73,9 @@ def test_extract_client_ip():
     assert tok.extract_client_ip({"X-Forwarded-For": "1.1.1.1, 2.2.2.2"}, "9.9.9.9") == "1.1.1.1"
     assert tok.extract_client_ip({"X-Real-IP": "8.8.8.8"}, "9.9.9.9") == "8.8.8.8"
     assert tok.extract_client_ip({}, "9.9.9.9") == "9.9.9.9"
+    # Port stripped (Caddy {remote} vs {remote_host})
+    assert tok.extract_client_ip({"X-Real-IP": "10.0.0.5:44321"}, "9.9.9.9") == "10.0.0.5"
+    assert tok.extract_client_ip({"X-Forwarded-For": "[2001:db8::1]:9999"}, None) == "2001:db8::1"
 
 
 def test_token_public_dict_active():
@@ -107,6 +110,73 @@ def test_lookup_rejects_non_ph():
     session = MagicMock()
     assert tok.lookup_active_token(session, "jwt.not.a.token") is None
     session.exec.assert_not_called()
+
+
+def test_update_api_token_scopes_and_cidrs():
+    session = MagicMock()
+    row = SimpleNamespace(
+        id=1,
+        name="old",
+        scopes="read",
+        allowed_cidrs=None,
+        revoked_at=None,
+        token_prefix="ph_old",
+        token_hash="hash1",
+    )
+    session.add = MagicMock()
+    session.commit = MagicMock()
+    session.refresh = MagicMock()
+
+    out = tok.update_api_token(
+        session,
+        row,
+        name="n8n",
+        scopes=["read", "jobs", "feature:backup"],
+        allowed_cidrs="10.0.0.0/8",
+        update_cidrs=True,
+    )
+    assert out.name == "n8n"
+    assert "jobs" in out.scopes
+    assert "feature:backup" in out.scopes
+    assert out.allowed_cidrs is not None
+    assert "10.0.0.0/8" in out.allowed_cidrs
+
+
+def test_update_rejects_revoked():
+    session = MagicMock()
+    row = SimpleNamespace(revoked_at=datetime.utcnow(), name="x")
+    with pytest.raises(ValueError, match="revoked"):
+        tok.update_api_token(session, row, name="y")
+
+
+def test_rotate_api_token_changes_hash():
+    session = MagicMock()
+    old_hash = tok.hash_token("ph_oldsecretvalue000000000000000000")
+    row = SimpleNamespace(
+        id=1,
+        name="n8n",
+        token_prefix="ph_old",
+        token_hash=old_hash,
+        revoked_at=None,
+        expires_at=None,
+    )
+    session.add = MagicMock()
+    session.commit = MagicMock()
+    session.refresh = MagicMock()
+
+    updated, plain = tok.rotate_api_token(session, row)
+    assert plain.startswith("ph_")
+    assert updated.token_hash != old_hash
+    assert updated.token_hash == tok.hash_token(plain)
+    assert updated.token_prefix == plain[:12]
+    assert updated.name == "n8n"
+
+
+def test_rotate_rejects_revoked():
+    session = MagicMock()
+    row = SimpleNamespace(revoked_at=datetime.utcnow(), expires_at=None)
+    with pytest.raises(ValueError, match="revoked"):
+        tok.rotate_api_token(session, row)
 
 
 def test_api_meta_dict_has_endpoints():

@@ -47,7 +47,11 @@
         <button type="submit" class="btn btn-accent min-h-11 text-sm">Save username</button>
         {% if server.ssh_username != 'piherder' %}
         <button type="button" class="btn btn-secondary min-h-11 text-sm"
-                onclick="if(!confirm('Switch PiHerder SSH user to piherder? Ensure that user exists and key auth works.'))return; var i=document.getElementById('ssh-set-username-input'); if(i){i.value='piherder';} document.getElementById('ssh-set-username-form').submit();">
+                data-confirm="Switch PiHerder SSH user to piherder? Ensure that user exists and key auth works."
+                data-confirm-title="Change SSH username"
+                data-confirm-label="Use piherder"
+                data-confirm-submit="#ssh-set-username-form"
+                data-confirm-set="#ssh-set-username-input=piherder">
           Use piherder
         </button>
         {% endif %}
@@ -87,7 +91,11 @@
     <div id="ssh-rotate-panel" class="hidden border border-border rounded p-3 mb-3 space-y-2">
       <div class="text-sm font-medium text-warning">Rotate SSH keypair</div>
       <p class="text-xs text-muted">Generates a new key, installs it, verifies login, updates PiHerder, then removes the old public key. Type <code>rotate</code> to confirm.</p>
-      <form method="post" action="/servers/{{ server.id }}/ssh/rotate-key" class="space-y-2" onsubmit="return confirm('Rotate SSH key for {{ server.name }}? Old key will stop working after success.');">
+      <form method="post" action="/servers/{{ server.id }}/ssh/rotate-key" class="space-y-2"
+            data-confirm="Rotate SSH key for {{ server.name }}? Old key will stop working after success."
+            data-confirm-title="Rotate SSH key"
+            data-confirm-label="Rotate"
+            data-confirm-danger>
         <input type="password" name="ssh_password" placeholder="Password only if current key cannot connect" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11" autocomplete="off">
         <input name="confirm" required placeholder="type: rotate" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
         <button type="submit" class="btn btn-secondary min-h-11 text-sm">Rotate key</button>
@@ -111,7 +119,10 @@
         <input type="password" name="ssh_password" placeholder="Password if needed to connect" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11" autocomplete="off">
         <div class="flex flex-wrap gap-2">
           <button type="submit" name="run_on_host" value="1" class="btn btn-accent min-h-11 text-sm"
-                  onclick="return confirm('Create least-priv user on {{ server.name }} and re-point PiHerder SSH username to that user? Requires sudo on the host (Pi OS / Ubuntu).');">
+                  data-confirm="Create least-priv user on {{ server.name }} and re-point PiHerder SSH username to that user? Requires sudo on the host (Pi OS / Ubuntu)."
+                  data-confirm-title="Provision least-priv user"
+                  data-confirm-label="Run on host"
+                  data-confirm-danger>
             Run on host (creates user + re-points)
           </button>
         </div>
@@ -300,7 +311,11 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="mb-4 p-3 banner-warning border border-border rounded text-sm flex flex-wrap items-center gap-2">
   <span>⚠️</span>
   <strong>Pending reboot</strong>{% if server.os_updates_count %} · {{ server.os_updates_count }} OS update(s) available{% endif %}.
-  <form method="post" action="/servers/{{ server.id }}/reboot" class="sm:ml-auto" onsubmit="return confirm('Reboot {{ server.name }} now?');">
+  <form method="post" action="/servers/{{ server.id }}/reboot" class="sm:ml-auto"
+        data-confirm="Reboot {{ server.name }} now?"
+        data-confirm-title="Reboot server"
+        data-confirm-label="Reboot"
+        data-confirm-danger>
     <button class="btn btn-secondary min-h-11 text-sm">Reboot Now</button>
   </form>
 </div>
@@ -497,7 +512,10 @@ document.addEventListener('DOMContentLoaded', function() {
     <button type="submit"></button>
   </form>
   <form method="post" action="/servers/{{ server.id }}/reboot" data-detail-form="reboot"
-        onsubmit="return confirm('Reboot {{ server.name }} now? The server will go offline and restart.');">
+        data-confirm="Reboot {{ server.name }} now? The server will go offline and restart."
+        data-confirm-title="Reboot server"
+        data-confirm-label="Reboot"
+        data-confirm-danger>
     <button type="submit"></button>
   </form>
 </div>

@@ -7,7 +7,7 @@ from typing import Optional
 from sqlmodel import Session, select
 
 from ..models import Server
-from . import herder_backup as hb
+from . import app_settings as app_cfg
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +42,8 @@ def apply_global_update_checks_to_all(
     By default applies to *all* servers and turns on related feature flags so the
     Servers list shows OS / Containers (and optionally Backups) as on.
     """
-    os_cron = hb.validate_cron_expression(os_cron or DEFAULT_MIDNIGHT_CRON)
-    container_cron = hb.validate_cron_expression(container_cron or DEFAULT_MIDNIGHT_CRON)
+    os_cron = app_cfg.validate_cron_expression(os_cron or DEFAULT_MIDNIGHT_CRON)
+    container_cron = app_cfg.validate_cron_expression(container_cron or DEFAULT_MIDNIGHT_CRON)
 
     servers = list(session.exec(select(Server).order_by(Server.id)).all())
     os_n = 0
@@ -111,7 +111,7 @@ def apply_global_update_checks_to_all(
 
 
 def load_update_check_settings() -> dict:
-    cfg = hb.load_herder_config()
+    cfg = app_cfg.load_settings()
     return {
         "os_check_global_enabled": bool(cfg.get("os_check_global_enabled", True)),
         "os_check_cron": cfg.get("os_check_cron") or DEFAULT_MIDNIGHT_CRON,

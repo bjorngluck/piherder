@@ -323,3 +323,16 @@ class ApiToken(SQLModel, table=True):
     revoked_at: Optional[datetime] = None
     # Optional expiry (null = never)
     expires_at: Optional[datetime] = None
+
+
+class AppSetting(SQLModel, table=True):
+    """Singleton row for instance-wide operational settings (Settings UI).
+
+    Stored in PostgreSQL for DR: DB dump + herder self-backup both capture it.
+    Flexible JSON blob so new keys do not need a migration each time.
+    Secrets (master key, DB URL) stay in env — never here.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    # Always use id=1 as the singleton; create if missing.
+    data_json: str = Field(default="{}")  # JSON object
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
