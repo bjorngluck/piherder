@@ -451,6 +451,36 @@ Credentials (API key + optional login) are Fernet-encrypted with `PIHERDER_MASTE
 
 Least-priv sudoers allow **`/usr/sbin/reboot`**. PiHerder runs full-path reboot commands and clears `reboot_pending` after a successful send so the UI does not stay stuck on “pending reboot”.
 
+### Grafana integration
+
+Optional **read-mostly** link into an existing Grafana (same **Integrations** hub as Kuma). PiHerder does **not** deploy Grafana.
+
+**Design:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md)
+
+#### Connect Grafana
+
+1. (Recommended) In Grafana: **Administration → Service accounts** — create a Viewer service account and token (`glsa_…`).
+2. From a host that can reach Grafana:
+
+   ```bash
+   curl -sS -H "Authorization: Bearer $GRAFANA_TOKEN" "https://grafana.example.com/api/health"
+   curl -sS -H "Authorization: Bearer $GRAFANA_TOKEN" "https://grafana.example.com/api/search?type=dash-db" | head
+   ```
+
+3. PiHerder → **Integrations → + Grafana** — base URL, optional token, default query template (e.g. `var-host={hostname}`).
+4. **Poll / Test** stores health (`version`, `database`) and, with a token, dashboard inventory.
+5. Bind **server → dashboard UID**. Server detail shows **Open in Grafana** chips with the query template applied.
+
+Without a token you can still deep-link by pasting dashboard UIDs; inventory list will be empty. Token is Fernet-encrypted and included in herder self-backup.
+
+| Path | Purpose |
+|------|---------|
+| `/integrations/new/grafana` | Add connection |
+| `/integrations/{id}` | Health chips, inventory, server bindings |
+| Server detail | Grafana chips → dashboard with host vars |
+
+Placeholders in query template: `{hostname}`, `{name}`, `{ip}` / `{ip_address}`, `{server_id}`, `{host}`.
+
 ### Prometheus / Grafana scrape
 
 ```yaml

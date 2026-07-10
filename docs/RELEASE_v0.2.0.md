@@ -58,6 +58,6 @@ Details: [README.md](../README.md) · [ADMIN.md](ADMIN.md)
 
 ## Toward v0.3.0
 
-- Grafana integration (deep links / chips)
+- Grafana integration (deep links / chips) — implemented on `main` after this tag
 - Multi Pi-hole / generic URL adapters
 - Freeze remaining H1 items; published multi-arch image when credentials allow

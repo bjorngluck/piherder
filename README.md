@@ -19,7 +19,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **Security:** [SECURITY.md](SECURITY.md)
 - **IAM / 2FA / update checks / notifications:** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - **PWA + Web Push:** [docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · iOS: [docs/DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md)
-- **Integrations (Uptime Kuma):** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · ops in [docs/ADMIN.md](docs/ADMIN.md)
+- **Integrations (Kuma + Grafana):** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · ops in [docs/ADMIN.md](docs/ADMIN.md)
 - **Release notes:** [docs/RELEASE_v0.2.0.md](docs/RELEASE_v0.2.0.md)
 - **Stabilisation plan:** [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
 - **UI unification plan:** [UI_UNIFICATION_PLAN.md](UI_UNIFICATION_PLAN.md) (complete)
@@ -47,7 +47,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - Optional **Web Push** (VAPID) for fleet alerts on Android and iOS Home Screen PWAs (16.4+); per-user prefs under Account.
 - Installable **PWA** (manifest + service worker + home-screen install).
 - Link to Pi-hole admin from dashboard (configurable).
-- **Integrations (Uptime Kuma):** top-level menu; API key + `/metrics` poll; bind **SSH**, **host services** (e.g. HAOS), and **Docker** stacks/containers; TLS days; deep links to Kuma; fleet **Services** icon grid (`/services`) + per-server Services page; logos (favicon discover or upload); down notifications.
+- **Integrations:** top-level menu — **Uptime Kuma** (API key + `/metrics`; SSH / host / Docker bindings; TLS; Services pages; logos; down notifications) and **Grafana** (health; dashboard inventory; server→dashboard deep links with query templates).
 - HTTPS via Caddy with **operator-supplied TLS certs** (volume `./certs`) and `PIHERDER_HOSTNAME` (default ports **8888** HTTP / **8443** HTTPS).
 
 ### Account & security

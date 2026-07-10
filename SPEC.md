@@ -209,9 +209,16 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 - [x] Down notifications + Web Push pref `integration_down`; scheduled poll
 - [x] Herder backup includes integrations + bindings; pytest for metrics/bindings
 
+### Shipped — Grafana (H1)
+
+- [x] Grafana integration type + form (base URL, optional service account token)
+- [x] Health poll (`/api/health`) + version/database chips
+- [x] Dashboard inventory (`/api/search`) when token present
+- [x] Server → dashboard bindings; **Open in Grafana** with query templates (`{hostname}`, …)
+- [x] Server detail Grafana chips; scheduled poll with Kuma
+
 ### Still open (Phase 5)
 
-- [ ] Grafana: dashboard URL templates; “Open in Grafana”; high-level native stats chips
 - [ ] Multi Pi-hole / NPM / HA / Frigate / n8n generic URL entries (seed from `PIHOLE_URL`)
 - [ ] Docs: cert pattern NPM → n8n → consumers (e.g. Pi-hole)
 

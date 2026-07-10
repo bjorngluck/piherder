@@ -281,6 +281,33 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+{# Grafana — dashboard deep links #}
+{% if grafana_dashboards %}
+<div class="mb-4 card p-3 border border-border">
+  <div class="text-sm font-medium text-text mb-2">Grafana</div>
+  <div class="space-y-2">
+    {% for g in grafana_dashboards %}
+    <a href="{{ g.open_url or ('/integrations/' ~ g.integration_id) }}"
+       {% if g.open_url %}target="_blank" rel="noopener"{% endif %}
+       class="flex flex-wrap items-center justify-between gap-2 p-2 rounded border border-border/60 no-underline hover:border-primary/40 transition-colors"
+       title="Open dashboard in Grafana">
+      <div class="min-w-0">
+        <span class="text-sm font-medium text-text">{{ g.label }}</span>
+        <span class="status-pill text-xs ml-1
+          {% if g.state == 'up' or g.state == 'linked' %}status-success
+          {% elif g.state == 'down' %}status-failed
+          {% else %}feature-off{% endif %}">{{ g.state }}</span>
+        {% if g.message %}
+        <div class="text-[11px] text-muted mt-0.5">{{ g.message }}</div>
+        {% endif %}
+      </div>
+      <span class="text-xs text-accent shrink-0">Open in Grafana →</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 {# Uptime Kuma — SSH + host services (HAOS / bare metal); Docker monitors on Docker page #}
 {% if kuma_ssh or kuma_host_services %}
 <div class="mb-4 space-y-2">
