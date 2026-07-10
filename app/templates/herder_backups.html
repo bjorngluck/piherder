@@ -32,6 +32,16 @@
 {% if request.query_params.get('security_saved') %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">Security policy saved.</div>
 {% endif %}
+{% if request.query_params.get('token_created') and new_api_token_secret %}
+<div class="mb-4 p-3 banner-success border border-border rounded text-sm">
+  <p class="font-semibold mb-1">API token created{% if new_api_token_name %}: {{ new_api_token_name }}{% endif %}</p>
+  <p class="text-xs text-muted mb-2">Copy this secret now — it will not be shown again.</p>
+  <code class="block font-mono text-xs break-all select-all bg-surface border border-border rounded p-2">{{ new_api_token_secret }}</code>
+</div>
+{% endif %}
+{% if request.query_params.get('token_revoked') %}
+<div class="mb-4 p-3 banner-success border border-border rounded text-sm">API token revoked.</div>
+{% endif %}
 {% if request.query_params.get('config_saved') %}
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm">Settings saved.</div>
 {% endif %}
@@ -90,6 +100,86 @@
     <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save security policy</button>
   </form>
 </div>
+
+{% if is_admin %}
+<div class="card p-5 mb-4" id="api-tokens">
+  <h2 class="font-semibold text-text mb-1">API tokens</h2>
+  <p class="text-xs text-muted mb-3">
+    Bearer tokens for automation (<code class="font-mono">/api/v1/*</code> — n8n, Home Assistant, scripts).
+    Scopes: <strong>read</strong> (fleet inventory &amp; jobs), <strong>jobs</strong> (trigger backups / patch / checks).
+    Secrets are stored hashed; revoke compromised tokens immediately.
+  </p>
+
+  <form method="post" action="/herder-backups/api-tokens" class="space-y-3 mb-4 pb-4 border-b border-border">
+    <div>
+      <label class="block text-xs text-muted mb-1">Name</label>
+      <input type="text" name="name" required maxlength="120" placeholder="e.g. n8n production"
+             class="w-full sm:max-w-md bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+    </div>
+    <div class="flex flex-wrap gap-4 text-sm">
+      <label class="flex items-center gap-2 min-h-11">
+        <input type="checkbox" name="scope_read" value="1" checked>
+        <span>read</span>
+      </label>
+      <label class="flex items-center gap-2 min-h-11">
+        <input type="checkbox" name="scope_jobs" value="1" checked>
+        <span>jobs</span>
+      </label>
+    </div>
+    <button type="submit" class="btn btn-primary min-h-11 text-sm">Create token</button>
+  </form>
+
+  {% if api_tokens %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-muted border-b border-border">
+          <th class="py-2 pr-3">Name</th>
+          <th class="py-2 pr-3">Prefix</th>
+          <th class="py-2 pr-3">Scopes</th>
+          <th class="py-2 pr-3">Last used</th>
+          <th class="py-2 pr-3">Status</th>
+          <th class="py-2"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in api_tokens %}
+        <tr class="border-b border-border/60">
+          <td class="py-2 pr-3 font-medium">{{ t.name }}</td>
+          <td class="py-2 pr-3 font-mono text-xs">{{ t.token_prefix }}…</td>
+          <td class="py-2 pr-3 text-xs">{{ t.scopes | join(', ') }}</td>
+          <td class="py-2 pr-3 text-xs text-muted">{{ t.last_used_at or '—' }}</td>
+          <td class="py-2 pr-3">
+            {% if t.active %}
+            <span class="status-pill status-success text-xs">active</span>
+            {% else %}
+            <span class="status-pill status-cancelled text-xs">revoked</span>
+            {% endif %}
+          </td>
+          <td class="py-2 text-right">
+            {% if t.active %}
+            <form method="post" action="/herder-backups/api-tokens/{{ t.id }}/revoke" class="inline"
+                  onsubmit="return confirm('Revoke this API token? Automations using it will fail.');">
+              <button type="submit" class="btn btn-secondary text-xs min-h-9">Revoke</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm text-muted empty-state">No API tokens yet.</p>
+  {% endif %}
+
+  <details class="mt-4 text-xs text-muted">
+    <summary class="cursor-pointer text-sm text-text">Example: list servers</summary>
+    <pre class="mt-2 p-3 bg-surface border border-border rounded overflow-x-auto font-mono text-[11px] leading-relaxed">curl -sS -H "Authorization: Bearer ph_…" \
+  https://your-host/api/v1/servers</pre>
+  </details>
+</div>
+{% endif %}
 
 <div class="card p-5 mb-4">
   <h2 class="font-semibold text-text mb-1">Fleet update checks</h2>

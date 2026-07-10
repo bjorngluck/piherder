@@ -1,0 +1,47 @@
+# Security policy
+
+## Supported versions
+
+PiHerder is under active development (pre-1.0). Security fixes are applied on the default branch (`main`). Please upgrade to the latest commit or release tag when available.
+
+## Reporting a vulnerability
+
+**Please do not open a public GitHub issue for security vulnerabilities.**
+
+Instead:
+
+1. Email the maintainer via the address listed on [github.com/bjorngluck](https://github.com/bjorngluck) / the project website, **or**
+2. Use [GitHub private vulnerability reporting](https://docs.github.com/en/code-security/security-advisories/guidance-on-reporting-and-writing/privately-reporting-a-security-vulnerability) on [bjorngluck/piherder](https://github.com/bjorngluck/piherder) if enabled for the repository.
+
+Include:
+
+- Description of the issue and impact  
+- Steps to reproduce (PoC)  
+- Affected version / commit if known  
+- Whether you plan a public write-up (please coordinate disclosure)
+
+We aim to acknowledge reports within a few days and will work with you on a fix and coordinated disclosure.
+
+## Security model (summary)
+
+| Asset | Protection |
+|-------|------------|
+| `PIHERDER_MASTER_KEY` | Host `.env` only — never commit |
+| SSH private keys / optional passwords | Fernet-encrypted in DB |
+| User passwords | bcrypt + password policy |
+| 2FA secrets | Fernet-encrypted TOTP; hashed backup codes |
+| API tokens (`ph_…`) | Stored as hashes only; shown once at creation |
+| Sessions | JWT cookie (HS256) |
+| Transport | HTTPS via Caddy + operator-supplied PEMs recommended for production |
+
+Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md).
+
+## Operational recommendations
+
+- Use a unique strong `PIHERDER_MASTER_KEY` and `SECRET_KEY`.  
+- Prefer SSH key auth; clear any stored SSH passwords after deploy.  
+- Enable 2FA for admin accounts; consider **Force 2FA** in Settings.  
+- Put PiHerder behind trusted TLS; restrict network access where possible.  
+- Set `METRICS_TOKEN` if `/metrics` is reachable beyond a private scrape network.  
+- Treat API tokens like passwords; revoke compromised tokens immediately.  
+- Keep herder self-backups on durable storage separate from the fleet hosts when practical.

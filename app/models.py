@@ -297,3 +297,23 @@ class PushVapidConfig(SQLModel, table=True):
     contact: str = "mailto:piherder@localhost"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     source: str = "generated"  # generated | env_import
+
+
+class ApiToken(SQLModel, table=True):
+    """Automation API token. Plaintext shown once at creation; only hash is stored.
+
+    Scopes (comma-separated): read | jobs
+    - read  — GET fleet / jobs
+    - jobs  — POST job triggers
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    token_prefix: str = Field(index=True)  # first chars for UI (e.g. ph_abc1…)
+    token_hash: str = Field(unique=True, index=True)
+    scopes: str = Field(default="read,jobs")  # comma-separated
+    created_by_user_id: Optional[int] = Field(default=None, foreign_key="user.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_used_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+    # Optional expiry (null = never)
+    expires_at: Optional[datetime] = None

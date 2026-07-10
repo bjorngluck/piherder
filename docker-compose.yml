@@ -19,7 +19,8 @@ services:
       - METRICS_TOKEN=${METRICS_TOKEN:-}
       - METRICS_BACKUP_STALE_HOURS=${METRICS_BACKUP_STALE_HOURS:-36}
     volumes:
-      - ~/backup:/backups
+      # Host path for rsync backup destinations (override if you use another dir)
+      - ${PIHERDER_BACKUP_HOST_PATH:-./backups}:/backups
       - ./piherder_backups:/herder_backups
       - ./piherder_data:/data
     depends_on:
@@ -61,8 +62,9 @@ services:
       - CELERY_BROKER_URL=redis://redis:6379/0
       - CELERY_RESULT_BACKEND=redis://redis:6379/0
     volumes:
-      - ~/backup:/backups
+      - ${PIHERDER_BACKUP_HOST_PATH:-./backups}:/backups
       - ./piherder_backups:/herder_backups
+      - ./piherder_data:/data
     depends_on:
       - db
       - redis
