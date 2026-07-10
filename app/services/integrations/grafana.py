@@ -108,7 +108,7 @@ def apply_query_template(
 ) -> str:
     """Replace {hostname}, {name}, {ip}, {server_id} in a query string template.
 
-    Template example: var-host={hostname}&var-node={name}
+    Template example: var-instance={hostname}
     Empty values leave the placeholder replaced with empty string.
     """
     vals = {

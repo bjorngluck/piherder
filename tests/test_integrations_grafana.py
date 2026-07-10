@@ -27,11 +27,11 @@ def test_dashboard_path_and_open_url():
 
 def test_apply_query_template():
     q = gf.apply_query_template(
-        "var-host={hostname}&var-node={name}",
-        hostname="rpi5-1.local",
+        "var-instance={hostname}&var-node={name}",
+        hostname="rpi5-1.hacknow.info",
         name="RPI5-1",
     )
-    assert q == "var-host=rpi5-1.local&var-node=RPI5-1"
+    assert q == "var-instance=rpi5-1.hacknow.info&var-node=RPI5-1"
     assert gf.apply_query_template("", hostname="x") == ""
 
 
@@ -40,11 +40,11 @@ def test_open_dashboard_url_with_query():
         "https://g.example.com",
         uid="uid1",
         slug="hosts",
-        query_template="var-host={hostname}",
-        hostname="rpi5-1",
+        query_template="var-instance={hostname}",
+        hostname="rpi5-1.hacknow.info",
     )
     assert url.startswith("https://g.example.com/d/uid1/hosts")
-    assert "var-host=rpi5-1" in url
+    assert "var-instance=rpi5-1.hacknow.info" in url
 
 
 def test_open_dashboard_url_relative():
@@ -160,7 +160,7 @@ def test_binding_open_url_grafana():
     integ = MagicMock()
     integ.type = reg.TYPE_GRAFANA
     integ.base_url = "https://g.example.com"
-    integ.config_json = json.dumps({"query_template": "var-host={hostname}"})
+    integ.config_json = json.dumps({"query_template": "var-instance={hostname}"})
 
     binding = MagicMock()
     binding.external_id = "dashuid"
@@ -170,11 +170,11 @@ def test_binding_open_url_grafana():
     binding.server_id = 3
 
     server = MagicMock()
-    server.hostname = "rpi5-2.local"
+    server.hostname = "rpi5-2.hacknow.info"
     server.name = "RPI5-2"
     server.ip_address = "10.0.0.2"
     server.id = 3
 
     url = reg.binding_open_url(integ, binding, server=server)
     assert "https://g.example.com/d/dashuid/hosts" in url
-    assert "var-host=rpi5-2.local" in url
+    assert "var-instance=rpi5-2.hacknow.info" in url

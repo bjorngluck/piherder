@@ -64,10 +64,14 @@
       </label>
       <input id="query_template" name="query_template" type="text"
              class="input w-full font-mono text-sm"
-             placeholder="var-host={hostname}"
+             placeholder="var-instance={hostname}"
              value="{{ form.query_template or '' }}">
       <p class="text-[11px] text-muted mt-1">
-        Appended when opening a bound dashboard. Placeholders:
+        Grafana dashboard variables use the <code class="text-[10px]">var-</code> prefix.
+        Example for Prometheus <code class="text-[10px]">instance</code> filter:
+        <code class="text-[10px]">var-instance={hostname}</code>
+        → <code class="text-[10px]">?var-instance=rpi5-1.hacknow.info</code>
+        (uses each server’s hostname field). Placeholders:
         <code class="text-[10px]">{hostname}</code>,
         <code class="text-[10px]">{name}</code>,
         <code class="text-[10px]">{ip}</code>,

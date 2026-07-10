@@ -467,7 +467,15 @@ Optional **read-mostly** link into an existing Grafana (same **Integrations** hu
    curl -sS -H "Authorization: Bearer $GRAFANA_TOKEN" "https://grafana.example.com/api/search?type=dash-db" | head
    ```
 
-3. PiHerder → **Integrations → + Grafana** — base URL, optional token, default query template (e.g. `var-host={hostname}`).
+3. PiHerder → **Integrations → + Grafana** — base URL, optional token, default query template.  
+   For a Prometheus **instance** variable matching FQDN hostnames (e.g. `rpi5-1.hacknow.info`):
+
+   ```text
+   var-instance={hostname}
+   ```
+
+   That opens e.g. `…/d/{uid}/…?var-instance=rpi5-1.hacknow.info`.  
+   Use each server’s **hostname** field in PiHerder so it matches the scrape label.
 4. **Poll / Test** stores health (`version`, `database`) and, with a token, dashboard inventory.
 5. Bind **server → dashboard UID**. Server detail shows **Open in Grafana** chips with the query template applied.
 
@@ -479,7 +487,8 @@ Without a token you can still deep-link by pasting dashboard UIDs; inventory lis
 | `/integrations/{id}` | Health chips, inventory, server bindings |
 | Server detail | Grafana chips → dashboard with host vars |
 
-Placeholders in query template: `{hostname}`, `{name}`, `{ip}` / `{ip_address}`, `{server_id}`, `{host}`.
+Placeholders: `{hostname}`, `{name}`, `{ip}` / `{ip_address}`, `{server_id}`, `{host}`.  
+Grafana variables need the **`var-`** prefix (`var-instance=…`, not bare `instance=…`).
 
 ### Prometheus / Grafana scrape
 
