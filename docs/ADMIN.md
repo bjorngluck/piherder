@@ -47,6 +47,8 @@ You cannot demote or delete the **last active admin**. Promote another user firs
 **Where:** avatar menu → **Users** (admin only), or Account → “Manage users & roles”.  
 **URL:** `/auth/users`
 
+Each user card shows **last login** (app timezone) and a link to that user’s **Audit trail** (`/audit?user_id=…`). Last login updates on successful password login, trusted-device skip of 2FA, or completed 2FA challenge.
+
 ### Create a user
 
 1. Enter email and role (viewer / operator / admin).
@@ -155,6 +157,39 @@ Archives are format **v2** compressed `.tar.gz` under the herder backups volume 
 
 ---
 
+## 4b. Remove a server from the fleet
+
+**Where:** Server detail → **Remove from PiHerder** (danger zone).
+
+| What happens | What does **not** |
+|--------------|-------------------|
+| Server row + stored SSH credentials removed from PiHerder DB | No SSH / remote changes |
+| Schedules unregistered; active jobs cancelled | Docker stacks, volumes, media untouched |
+| Compose drafts in PiHerder deleted | Host `piherder` user / sudoers / keys left as-is |
+| Jobs, audit, notifications unlinked (history kept) | Backup archives under the backup volume kept |
+
+Confirm by typing the **exact server name**.
+
+### Optional host cleanup (piherder user)
+
+After (or instead of) removing the server from the UI, run the cleanup script **on the target host as root** if you want to drop the least-priv account:
+
+- Server detail → **Remove from PiHerder** card: **Copy script** / **Download .sh**
+- Or **SSH access → Host cleanup script** (same script)
+- Direct download: `GET /servers/{id}/ssh/cleanup-script`
+- Repo: `scripts/cleanup-piherder-user.sh`
+
+```bash
+# On the host
+sudo bash cleanup-piherder-user.sh                 # sudoers + docker group; keep user
+USER_NAME=piherder REMOVE_USER=1 sudo -E bash cleanup-piherder-user.sh
+DRY_RUN=1 sudo -E bash cleanup-piherder-user.sh    # preview
+```
+
+Does not remove Docker projects or data. Does not remove the server from the PiHerder UI — do that separately if still listed.
+
+---
+
 ## 5. Jobs page
 
 **Where:** nav **Jobs** · `/jobs`  
@@ -190,7 +225,7 @@ While a job runs, server UI modals (JobHold / progress) poll job status and log 
 | System | Purpose |
 |--------|---------|
 | **Jobs** | Queue + progress of work units |
-| **Audit** | Immutable history of actions (who/what/when, output snippet) |
+| **Audit** | Immutable history of actions (who/what/when, output snippet). Actor is the session user, **API token name + id** (when automation), or system/scheduler |
 | **Notifications** | Dismissible inbox (updates pending, failed backup, etc.) |
 
 ---
@@ -379,6 +414,8 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/piherder:0.2.0`). Until then, build from this repo with `docker compose build`. See roadmap H0 in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
 
+**Supported deploy path:** Docker Compose (this repo). Planned platform work (host dependency checks, Settings → Status for stack health, multi-worker) is Horizon 0.5 / v0.2.x — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Platform reliability. Kubernetes and bare/local install are under consideration only, not supported install paths today.
+
 ---
 
 ## 8. Automation API tokens (`/api/v1`)
@@ -391,12 +428,16 @@ Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/pihe
 | Model | Detail |
 |-------|--------|
 | Ownership | **Instance-wide**, admin-managed (not per-user PATs) |
-| Secret | `ph_…` shown **once** at create or **rotate**; **Copy token** in UI; stored hashed |
+| Secret | `ph_…` shown **once** at create or **rotate**; **Copy token** + **Test now** in UI; stored hashed |
+| Test now | After create/rotate: verifies secret, scopes, and whether *your browser IP* passes the allowlist (admin session; no `read` scope required) |
 | Capability scopes | `read` · `jobs` · `edit` — editable later without rotating |
 | Feature allowlist | Optional `feature:backup` · `feature:os` · `feature:docker` (none = all features) |
 | IP allowlist | Optional IPs/CIDRs per token; empty = any IP; enforced on backend using Caddy-forwarded client IP |
 | Rotate | New secret, same name/scopes/IPs; old secret stops immediately |
-| Revoke | Disables token permanently |
+| Revoke | Soft-disables secret; **row is kept** (name, id, scopes) for audit trail — never hard-deleted in UI |
+| List filter | **Active** (default) · **Revoked** · **All** — counts on each pill |
+| Last used | Updated on each successful Bearer request; shown in Settings |
+| Audit trail | Link per token → `/audit?api_token_id=…` (actor shows token **name** + **id**; works after revoke) |
 | Server flags | Jobs still require the server’s feature enabled (toggle via UI or `PATCH …/features`) |
 
 | Scope | Allows |

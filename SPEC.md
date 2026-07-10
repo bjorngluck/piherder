@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** v0.2 target — Phase 1–3 complete; Phase 4 (production + ecosystem) in progress  
-> **Last updated:** 2026-07-10 — DB-backed settings; API token rotate/edit; CORS opt-in; confirm modal
+> **Status:** v0.2 target — Phase 1–3 complete; Phase 4 (production + ecosystem) in progress; Phase 4b (platform reliability) planned  
+> **Last updated:** 2026-07-10 — Roadmap H0.5: host deps, stack Status, multi-worker; Compose deployment committed
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -34,6 +34,13 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - **Provisioning** always preview → confirm → audit (same philosophy as opt-in patch apply).
 - **AI** is optional, OpenAI-compatible BYO (local or cloud), off by default; Frigate vision stays on Frigate/AI Hat.
 - Full multi-horizon plan: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md).
+
+### Platform reliability & deployment (2026-07-10)
+- **Remote host dependency check** (next implement #1): after SSH / least-priv onboard, probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`); UI chips + re-check; no auto-install on the remote host.
+- **Settings → Status tab** (next implement #2): scheduled health of PiHerder stack (web, PostgreSQL, Redis, Celery, scheduler, disk); alert on state change only; reuse notification/webhook/push.
+- **Multi-worker** (next implement #3, design-first): allow N Celery workers / concurrency > 1 with **per-server** job mutex; not a v0.2.0 ship blocker; prefer after Status tab so worker count is visible.
+- **Deployment:** **Docker Compose is the supported architecture**. Kubernetes and local/bare install are **under consideration only** — no committed Helm charts or dual-path installers in H0–H2.
+- Detail: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) § Horizon 0.5 and § Deployment architecture.
 
 ## Vision
 
@@ -165,6 +172,18 @@ Carried refinements + ship blockers for a clean install story. Detail: [docs/ROA
 
 ---
 
+## Phase 4b — Platform reliability & scale (v0.2.x / Horizon 0.5)
+
+Implement **in order** after or alongside H0 image work. Not required to tag `v0.2.0`. Full notes: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) § Horizon 0.5.
+
+- [ ] **Remote host dependency check** — probe `rsync` / sudo-or-plain rsync / `docker` / `apt` by enabled features; server detail + post-onboard; snapshot + chips; install hints only (no auto-install)
+- [ ] **Settings → Status tab** — web, PostgreSQL, Redis, Celery worker(s), APScheduler, disk free; scheduled poll; notify on healthy→unhealthy state change only; optional metrics gauges
+- [ ] **Multi-worker** — design per-server job mutex; compose scale / concurrency > 1; parallel backups across hosts; cancel + stale recovery still correct
+
+**Deployment decision (docs only — not a feature checkbox):** Compose is supported; Kubernetes and bare/local install remain under consideration only.
+
+---
+
 ## Phase 5 — Integration hub (v0.3 / Horizon 1)
 
 Read-mostly integrations: registry, status, deep links. No full remote control of external products.
@@ -205,10 +224,10 @@ flowchart TB
     Browser["Browser (HTMX + Alpine)"] -->|HTTPS| Caddy
     Caddy --> FastAPI["FastAPI (web)"]
 
-    subgraph Core["Core Services"]
+    subgraph Core["Core Services (Docker Compose — supported)"]
         FastAPI --> DB[(PostgreSQL)]
         FastAPI --> Scheduler["APScheduler (cron)"]
-        FastAPI --> Celery["Celery worker (concurrency=1)"]
+        FastAPI --> Celery["Celery worker(s) — concurrency=1 today; multi-worker later"]
     end
 
     Scheduler -->|enqueue scheduled jobs| Celery
@@ -218,6 +237,8 @@ flowchart TB
     FastAPI -->|DB reads for UI| DB
     FastAPI -.->|progress polling via Job.details| Celery
 ```
+
+Deployment: **Docker Compose** is the committed topology. Kubernetes and local/bare install are under consideration only (see [ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)). Celery is a single worker with `concurrency=1` until Phase 4b multi-worker lands.
 
 **Key flows (technical view):**
 
