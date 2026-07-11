@@ -139,6 +139,7 @@
         <strong>Deploy finished</strong> for
         <span class="font-mono">{{ request.query_params.get('project') or 'stack' }}</span>
         ({{ 'pull + ' if request.query_params.get('pull') == '1' else '' }}compose up -d).
+        Pending-update badge for this stack is cleared; the host alert closes when no stacks remain.
         Evidence is in <strong>Audit</strong> → <code>docker_redeploy</code> (pull/up exit codes + command output).
       {% else %}
         <strong>Deploy failed</strong> for
