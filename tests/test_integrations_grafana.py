@@ -40,6 +40,21 @@ def test_apply_query_template():
     assert gf.apply_query_template("", hostname="x") == ""
 
 
+def test_apply_query_template_container_and_logs():
+    q = gf.apply_query_template(
+        "var-job={hostname_short}_cadvisor&var-container={container}",
+        hostname="rpi5-1.hacknow.info",
+        container="pihole",
+        project="dns",
+    )
+    assert q == "var-job=rpi5-1_cadvisor&var-container=pihole"
+    logs = gf.apply_query_template(
+        "var-host={hostname_short}",
+        hostname="rpi5-2.hacknow.info",
+    )
+    assert logs == "var-host=rpi5-2"
+
+
 def test_open_dashboard_url_with_query():
     url = gf.open_dashboard_url(
         "https://g.example.com",
@@ -166,15 +181,21 @@ def test_binding_open_url_grafana():
     integ.type = reg.TYPE_GRAFANA
     integ.base_url = "https://g.example.com"
     integ.config_json = json.dumps(
-        {"query_template": "var-job={hostname_short}_exporter"}
+        {
+            "query_template": "var-job={hostname_short}_exporter",
+            "query_template_container": "var-job={hostname_short}_cadvisor&var-container={container}",
+            "query_template_logs": "var-host={hostname_short}",
+        }
     )
 
     binding = MagicMock()
     binding.external_id = "dashuid"
     binding.external_meta_json = json.dumps(
-        {"uid": "dashuid", "url": "/d/dashuid/hosts", "title": "Hosts"}
+        {"uid": "dashuid", "url": "/d/dashuid/hosts", "title": "Hosts", "kind": "metrics"}
     )
     binding.server_id = 3
+    binding.docker_container = None
+    binding.docker_project = None
 
     server = MagicMock()
     server.hostname = "rpi5-2.hacknow.info"
@@ -185,3 +206,40 @@ def test_binding_open_url_grafana():
     url = reg.binding_open_url(integ, binding, server=server)
     assert "https://g.example.com/d/dashuid/hosts" in url
     assert "var-job=rpi5-2_exporter" in url
+
+
+def test_binding_open_url_grafana_container_and_logs():
+    integ = MagicMock()
+    integ.type = reg.TYPE_GRAFANA
+    integ.base_url = "https://g.example.com"
+    integ.config_json = json.dumps(
+        {
+            "query_template_container": "var-container={container}",
+            "query_template_logs": "var-host={hostname_short}",
+        }
+    )
+    server = MagicMock()
+    server.hostname = "rpi5-1.hacknow.info"
+    server.name = "RPI5-1"
+    server.ip_address = ""
+    server.id = 11
+
+    cont_b = MagicMock()
+    cont_b.external_id = "cadv"
+    cont_b.external_meta_json = json.dumps(
+        {"kind": "containers", "url": "/d/cadv/docker"}
+    )
+    cont_b.server_id = 11
+    cont_b.docker_container = "pihole"
+    cont_b.docker_project = "dns"
+    url_c = reg.binding_open_url(integ, cont_b, server=server)
+    assert "var-container=pihole" in url_c
+
+    logs_b = MagicMock()
+    logs_b.external_id = "logs"
+    logs_b.external_meta_json = json.dumps({"kind": "logs", "url": "/d/logs/host"})
+    logs_b.server_id = 11
+    logs_b.docker_container = None
+    logs_b.docker_project = None
+    url_l = reg.binding_open_url(integ, logs_b, server=server)
+    assert "var-host=rpi5-1" in url_l

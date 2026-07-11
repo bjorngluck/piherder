@@ -214,7 +214,10 @@ async def grafana_new_form(
                 "poll_interval_sec": reg.DEFAULT_GRAFANA_POLL_SEC,
                 "tls_verify": True,
                 "enabled": True,
-                "query_template": "var-job={hostname_short}_exporter",
+                "query_template": reg.DEFAULT_QT_HOST,
+                "query_template_container_host": reg.DEFAULT_QT_CONTAINER_HOST,
+                "query_template_container": reg.DEFAULT_QT_CONTAINER,
+                "query_template_logs": reg.DEFAULT_QT_LOGS,
             },
             "has_key": False,
             "error": request.query_params.get("error") or "",
@@ -234,6 +237,9 @@ async def grafana_create(
     tls_verify: Optional[str] = Form(None),
     enabled: Optional[str] = Form("on"),
     query_template: str = Form(""),
+    query_template_container_host: str = Form(""),
+    query_template_container: str = Form(""),
+    query_template_logs: str = Form(""),
 ):
     try:
         row = reg.create_grafana(
@@ -245,6 +251,9 @@ async def grafana_create(
             tls_verify_flag=tls_verify in ("on", "1", "true"),
             enabled=enabled in ("on", "1", "true") if enabled is not None else True,
             query_template=query_template,
+            query_template_container_host=query_template_container_host,
+            query_template_container=query_template_container,
+            query_template_logs=query_template_logs,
         )
         poll_svc.poll_integration(row.id, notify=False)
         _audit(
@@ -439,21 +448,14 @@ async def _grafana_detail(
     bound_rows = []
     for b in bindings:
         srv = server_by_id.get(b.server_id)
-        open_url = reg.binding_open_url(integration, b, server=srv)
-        bound_rows.append(
-            {
-                "id": b.id,
-                "server_id": b.server_id,
-                "server_name": srv.name if srv else f"#{b.server_id}",
-                "uid": b.external_id,
-                "label": b.external_label or b.external_id,
-                "state": b.last_state or "linked",
-                "message": b.last_message or "",
-                "open_url": open_url,
-                "checked_at": b.last_checked_at,
-            }
-        )
-    # Servers still available to bind (any server can have multiple dashboards)
+        chip = reg._grafana_chip_dict(integration, b, server=srv)
+        chip["server_name"] = srv.name if srv else f"#{b.server_id}"
+        chip["uid"] = b.external_id
+        bound_rows.append(chip)
+    # Docker inventory options for container bindings (all servers, compact)
+    docker_options: dict[int, list] = {}
+    for s in servers:
+        docker_options[s.id] = reg.docker_inventory_options(session, s.id)
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="integrations_grafana_detail.html",
@@ -470,6 +472,10 @@ async def _grafana_detail(
             "poll_interval_sec": reg.poll_interval_sec(integration),
             "tls_verify": reg.tls_verify(integration),
             "query_template": reg.query_template(integration),
+            "query_template_container_host": reg.query_template_container_host(integration),
+            "query_template_container": reg.query_template_container(integration),
+            "query_template_logs": reg.query_template_logs(integration),
+            "docker_options_json": json.dumps(docker_options),
             "open_url": gf.open_grafana_url(integration.base_url),
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or "",
@@ -504,6 +510,11 @@ async def integration_edit_form(
                     "tls_verify": reg.tls_verify(integration),
                     "enabled": integration.enabled,
                     "query_template": reg.query_template(integration),
+                    "query_template_container_host": reg.query_template_container_host(
+                        integration
+                    ),
+                    "query_template_container": reg.query_template_container(integration),
+                    "query_template_logs": reg.query_template_logs(integration),
                 },
                 "has_key": reg.has_credentials(integration),
                 "error": request.query_params.get("error") or "",
@@ -551,6 +562,9 @@ async def integration_edit(
     password: str = Form(""),
     clear_login: Optional[str] = Form(None),
     query_template: str = Form(""),
+    query_template_container_host: str = Form(""),
+    query_template_container: str = Form(""),
+    query_template_logs: str = Form(""),
     clear_token: Optional[str] = Form(None),
 ):
     integration = reg.get_integration(session, integration_id)
@@ -568,6 +582,9 @@ async def integration_edit(
                 tls_verify_flag=tls_verify in ("1", "on", "true"),
                 enabled=enabled in ("1", "on", "true"),
                 query_template=query_template,
+                query_template_container_host=query_template_container_host,
+                query_template_container=query_template_container,
+                query_template_logs=query_template_logs,
                 clear_token=clear_token in ("1", "on", "true"),
             )
             _audit(
@@ -754,6 +771,7 @@ async def set_binding(
     role: str = Form(reg.ROLE_SSH),
     docker_project: str = Form(""),
     docker_container: str = Form(""),
+    kind: str = Form(reg.GRAFANA_KIND_METRICS),
     clear: Optional[str] = Form(None),
     binding_id: Optional[int] = Form(None),
 ):
@@ -767,6 +785,7 @@ async def set_binding(
     if role == reg.ROLE_DASHBOARD:
         section = "grafana-dashboards"
         scope = "dashboard"
+        gkind = reg.normalize_grafana_kind(kind)
         if clear in ("1", "on", "true") or not (external_id or "").strip():
             reg.clear_binding(
                 session,
@@ -800,6 +819,15 @@ async def set_binding(
         if not mon_meta:
             mon_meta = {"uid": external_id.strip()}
             mon_label = external_id.strip()
+        mon_meta["kind"] = gkind
+        proj = (docker_project or "").strip() if gkind == reg.GRAFANA_KIND_CONTAINERS else ""
+        cont = (docker_container or "").strip() if gkind == reg.GRAFANA_KIND_CONTAINERS else ""
+        # Allow host-level containers (no project) or project-only or container
+        msg_bits = [gkind]
+        if cont:
+            msg_bits.append(cont)
+        elif proj:
+            msg_bits.append(proj)
         try:
             reg.set_binding(
                 session,
@@ -807,10 +835,12 @@ async def set_binding(
                 server_id=server_id,
                 external_id=external_id,
                 role=role,
+                docker_project=proj or None,
+                docker_container=cont or None,
                 external_label=mon_label,
                 external_meta=mon_meta,
                 last_state="linked",
-                last_message=mon_meta.get("folder_title") or "dashboard",
+                last_message=" · ".join(msg_bits),
                 binding_id=binding_id,
             )
             _audit(
@@ -818,7 +848,10 @@ async def set_binding(
                 user,
                 "integration_binding_set",
                 server_id=server_id,
-                details=f"integration={integration_id} role={role} uid={external_id}",
+                details=(
+                    f"integration={integration_id} role={role} kind={gkind}"
+                    f" uid={external_id} project={proj} container={cont}"
+                ),
             )
             return _redirect(
                 f"/integrations/{integration_id}",

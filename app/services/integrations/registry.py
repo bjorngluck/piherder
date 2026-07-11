@@ -21,10 +21,26 @@ ROLE_SSH = "ssh_reachability"
 ROLE_SERVICE = "service"  # HTTP(s) / app / cert monitoring (Kuma)
 ROLE_DASHBOARD = "dashboard"  # Grafana dashboard deep link per server
 
+# Grafana binding kinds (stored in external_meta_json.kind)
+GRAFANA_KIND_METRICS = "metrics"  # host node exporter / host metrics
+GRAFANA_KIND_CONTAINERS = "containers"  # cadvisor etc. host or per-container
+GRAFANA_KIND_LOGS = "logs"  # host-level logs (Loki / log dashboard)
+GRAFANA_KINDS = (
+    GRAFANA_KIND_METRICS,
+    GRAFANA_KIND_CONTAINERS,
+    GRAFANA_KIND_LOGS,
+)
+
 DEFAULT_POLL_INTERVAL_SEC = 60
 MIN_POLL_INTERVAL_SEC = 30
 MAX_POLL_INTERVAL_SEC = 900
 DEFAULT_GRAFANA_POLL_SEC = 120
+
+# Sensible defaults — operators override to match their dashboards
+DEFAULT_QT_HOST = "var-job={hostname_short}_exporter"
+DEFAULT_QT_CONTAINER_HOST = "var-job={hostname_short}_cadvisor"
+DEFAULT_QT_CONTAINER = "var-job={hostname_short}_cadvisor&var-container={container}"
+DEFAULT_QT_LOGS = "var-host={hostname_short}"
 
 
 def parse_config(raw: Optional[str]) -> dict[str, Any]:
@@ -176,6 +192,15 @@ def create_kuma(
     return row
 
 
+def _set_qt(cfg: dict[str, Any], key: str, value: Optional[str], *, default: str = "") -> None:
+    v = (value if value is not None else default) or ""
+    v = v.strip()
+    if v:
+        cfg[key] = v
+    else:
+        cfg.pop(key, None)
+
+
 def create_grafana(
     session: Session,
     *,
@@ -186,6 +211,9 @@ def create_grafana(
     tls_verify_flag: bool = True,
     enabled: bool = True,
     query_template: str = "",
+    query_template_container_host: str = "",
+    query_template_container: str = "",
+    query_template_logs: str = "",
 ) -> Integration:
     """Create Grafana integration. Service account token optional (deep links work without it)."""
     base = gf.normalize_base_url(base_url)
@@ -195,9 +223,20 @@ def create_grafana(
         "poll_interval_sec": iv,
         "tls_verify": bool(tls_verify_flag),
     }
-    qt = (query_template or "").strip()
-    if qt:
-        cfg["query_template"] = qt
+    _set_qt(cfg, "query_template", query_template, default=DEFAULT_QT_HOST)
+    _set_qt(
+        cfg,
+        "query_template_container_host",
+        query_template_container_host,
+        default=DEFAULT_QT_CONTAINER_HOST,
+    )
+    _set_qt(
+        cfg,
+        "query_template_container",
+        query_template_container,
+        default=DEFAULT_QT_CONTAINER,
+    )
+    _set_qt(cfg, "query_template_logs", query_template_logs, default=DEFAULT_QT_LOGS)
     row = Integration(
         type=TYPE_GRAFANA,
         name=(name or "Grafana").strip() or "Grafana",
@@ -227,6 +266,9 @@ def update_grafana(
     tls_verify_flag: Optional[bool] = None,
     enabled: Optional[bool] = None,
     query_template: Optional[str] = None,
+    query_template_container_host: Optional[str] = None,
+    query_template_container: Optional[str] = None,
+    query_template_logs: Optional[str] = None,
     clear_token: bool = False,
 ) -> Integration:
     if name is not None:
@@ -245,11 +287,13 @@ def update_grafana(
     if tls_verify_flag is not None:
         cfg["tls_verify"] = bool(tls_verify_flag)
     if query_template is not None:
-        qt = query_template.strip()
-        if qt:
-            cfg["query_template"] = qt
-        else:
-            cfg.pop("query_template", None)
+        _set_qt(cfg, "query_template", query_template)
+    if query_template_container_host is not None:
+        _set_qt(cfg, "query_template_container_host", query_template_container_host)
+    if query_template_container is not None:
+        _set_qt(cfg, "query_template_container", query_template_container)
+    if query_template_logs is not None:
+        _set_qt(cfg, "query_template_logs", query_template_logs)
     integration.config_json = dump_config(cfg)
     if enabled is not None:
         integration.enabled = bool(enabled)
@@ -261,7 +305,57 @@ def update_grafana(
 
 
 def query_template(integration: Integration) -> str:
-    return str(parse_config(integration.config_json).get("query_template") or "").strip()
+    return str(
+        parse_config(integration.config_json).get("query_template") or DEFAULT_QT_HOST
+    ).strip()
+
+
+def query_template_container_host(integration: Integration) -> str:
+    cfg = parse_config(integration.config_json)
+    return str(
+        cfg.get("query_template_container_host") or DEFAULT_QT_CONTAINER_HOST
+    ).strip()
+
+
+def query_template_container(integration: Integration) -> str:
+    cfg = parse_config(integration.config_json)
+    return str(cfg.get("query_template_container") or DEFAULT_QT_CONTAINER).strip()
+
+
+def query_template_logs(integration: Integration) -> str:
+    cfg = parse_config(integration.config_json)
+    return str(cfg.get("query_template_logs") or DEFAULT_QT_LOGS).strip()
+
+
+def normalize_grafana_kind(kind: Optional[str]) -> str:
+    k = (kind or GRAFANA_KIND_METRICS).strip().lower()
+    if k not in GRAFANA_KINDS:
+        return GRAFANA_KIND_METRICS
+    return k
+
+
+def resolve_grafana_query_template(
+    integration: Integration,
+    *,
+    kind: str = GRAFANA_KIND_METRICS,
+    docker_project: str = "",
+    docker_container: str = "",
+    meta: Optional[dict[str, Any]] = None,
+) -> str:
+    """Pick query template: binding override → kind/scope default on integration."""
+    meta = meta or {}
+    override = str(meta.get("query_template") or "").strip()
+    if override:
+        return override
+    kind = normalize_grafana_kind(kind or meta.get("kind"))
+    cont = (docker_container or meta.get("docker_container") or "").strip()
+    if kind == GRAFANA_KIND_LOGS:
+        return query_template_logs(integration)
+    if kind == GRAFANA_KIND_CONTAINERS:
+        if cont:
+            return query_template_container(integration)
+        return query_template_container_host(integration)
+    return query_template(integration)
 
 
 def dashboards_from_cache(integration: Integration) -> list[dict[str, Any]]:
@@ -382,9 +476,17 @@ def set_binding(
     # role=service: docker_project optional
     #   - set → Docker project/container scope (shown on Docker page)
     #   - empty → host-level service (HAOS, bare metal, etc. — shown on server detail)
-    # role=dashboard (Grafana): no docker scope
-    if role in (ROLE_SSH, ROLE_DASHBOARD):
+    # role=dashboard (Grafana): docker scope only for kind=containers
+    if role == ROLE_SSH:
         proj, cont = None, None
+    elif role == ROLE_DASHBOARD:
+        kind_pre = normalize_grafana_kind(
+            (external_meta or {}).get("kind") if external_meta else None
+        )
+        if kind_pre != GRAFANA_KIND_CONTAINERS:
+            proj, cont = None, None
+        # kind=containers: host overview (no project/container), project-only,
+        # or specific container (project optional)
     elif role == ROLE_SERVICE and not proj:
         cont = None  # container only makes sense under a project
 
@@ -396,6 +498,26 @@ def set_binding(
             if cont:
                 meta["docker_container"] = cont
             meta["scope"] = "docker"
+        else:
+            meta.pop("docker_project", None)
+            meta.pop("docker_container", None)
+            meta["scope"] = "host"
+    elif role == ROLE_DASHBOARD:
+        kind = normalize_grafana_kind(meta.get("kind"))
+        meta["kind"] = kind
+        if kind == GRAFANA_KIND_CONTAINERS:
+            if cont:
+                meta["docker_project"] = proj or ""
+                meta["docker_container"] = cont
+                meta["scope"] = "container"
+            elif proj:
+                meta["docker_project"] = proj
+                meta.pop("docker_container", None)
+                meta["scope"] = "project"
+            else:
+                meta.pop("docker_project", None)
+                meta.pop("docker_container", None)
+                meta["scope"] = "host"
         else:
             meta.pop("docker_project", None)
             meta.pop("docker_container", None)
@@ -419,15 +541,25 @@ def set_binding(
             )
         ).first()
     elif role == ROLE_DASHBOARD:
-        # Unique dashboard uid per server per Grafana integration
-        existing = session.exec(
-            select(IntegrationBinding).where(
-                IntegrationBinding.integration_id == integration_id,
-                IntegrationBinding.server_id == server_id,
-                IntegrationBinding.role == role,
-                IntegrationBinding.external_id == ext,
-            )
-        ).first()
+        # Unique: dashboard uid + kind + docker scope per server
+        kind_key = normalize_grafana_kind(meta.get("kind"))
+        rows = list(
+            session.exec(
+                select(IntegrationBinding).where(
+                    IntegrationBinding.integration_id == integration_id,
+                    IntegrationBinding.server_id == server_id,
+                    IntegrationBinding.role == role,
+                    IntegrationBinding.external_id == ext,
+                )
+            ).all()
+        )
+        for r in rows:
+            rmeta = parse_binding_meta(r)
+            if normalize_grafana_kind(rmeta.get("kind")) != kind_key:
+                continue
+            if (r.docker_project or None) == proj and (r.docker_container or None) == cont:
+                existing = r
+                break
     else:
         # Service: unique per project/container/monitor
         rows = list(
@@ -746,15 +878,20 @@ def binding_open_url(
         uid = (binding.external_id or meta.get("uid") or "").strip()
         slug = str(meta.get("slug") or "").strip()
         rel = str(meta.get("url") or "").strip()
-        # Prefer binding override, else instance default query template
-        qt = str(meta.get("query_template") or "").strip() or query_template(integration)
+        cont = (binding.docker_container or meta.get("docker_container") or "").strip()
+        proj = (binding.docker_project or meta.get("docker_project") or "").strip()
+        cs = str(meta.get("compose_service") or cont).strip()
+        qt = resolve_grafana_query_template(
+            integration,
+            kind=str(meta.get("kind") or GRAFANA_KIND_METRICS),
+            docker_project=proj,
+            docker_container=cont,
+            meta=meta,
+        )
         hostname = ""
         name = ""
         ip = ""
         sid = str(binding.server_id or "")
-        if server is None and binding.server_id:
-            # Caller may not pass server; open without vars still works
-            pass
         if server is not None:
             hostname = server.hostname or ""
             name = server.name or ""
@@ -770,6 +907,9 @@ def binding_open_url(
             name=name,
             ip_address=ip,
             server_id=sid,
+            container=cont,
+            project=proj,
+            compose_service=cs,
         )
     meta = parse_binding_meta(binding)
     did = kuma.resolve_dashboard_id(
@@ -779,32 +919,106 @@ def binding_open_url(
     return kuma.open_kuma_url(integration.base_url, dashboard_id=did)
 
 
-def grafana_chips_for_server(session: Session, server_id: int) -> list[dict[str, Any]]:
-    """Dashboard deep-link chips for server detail."""
+def _grafana_chip_dict(
+    integ: Integration,
+    binding: IntegrationBinding,
+    *,
+    server: Optional[Server] = None,
+) -> dict[str, Any]:
+    meta = parse_binding_meta(binding)
+    kind = normalize_grafana_kind(meta.get("kind"))
+    cont = (binding.docker_container or "").strip()
+    proj = (binding.docker_project or "").strip()
+    scope = str(meta.get("scope") or ("container" if cont else "host"))
+    open_url = binding_open_url(integ, binding, server=server)
+    kind_label = {
+        GRAFANA_KIND_METRICS: "Host metrics",
+        GRAFANA_KIND_CONTAINERS: "Containers",
+        GRAFANA_KIND_LOGS: "Logs",
+    }.get(kind, kind)
+    loc = ""
+    if cont:
+        loc = f"{proj}/{cont}" if proj else cont
+    elif proj:
+        loc = proj
+    return {
+        "id": binding.id,
+        "state": binding.last_state or "linked",
+        "label": binding.external_label or binding.external_id,
+        "message": binding.last_message or meta.get("folder_title") or "",
+        "open_url": open_url,
+        "integration_id": binding.integration_id,
+        "integration_name": integ.name,
+        "server_id": binding.server_id,
+        "uid": binding.external_id,
+        "checked_at": binding.last_checked_at,
+        "kind": kind,
+        "kind_label": kind_label,
+        "scope": scope,
+        "docker_project": proj,
+        "docker_container": cont,
+        "location": loc,
+    }
+
+
+def grafana_chips_for_server(
+    session: Session,
+    server_id: int,
+    *,
+    host_only: bool = True,
+) -> list[dict[str, Any]]:
+    """Dashboard deep-link chips for server detail.
+
+    host_only=True (default): metrics, logs, and host-level container overview
+    (no specific docker_container). Per-container chips live on the Docker page.
+    """
     server = session.get(Server, server_id)
     out: list[dict[str, Any]] = []
     for b in list_bindings(session, server_id=server_id, role=ROLE_DASHBOARD):
         integ = get_integration(session, b.integration_id)
         if not integ or integ.type != TYPE_GRAFANA or not integ.enabled:
             continue
-        open_url = binding_open_url(integ, b, server=server)
-        meta = parse_binding_meta(b)
-        out.append(
-            {
-                "id": b.id,
-                "state": b.last_state or "linked",
-                "label": b.external_label or b.external_id,
-                "message": b.last_message or meta.get("folder_title") or "",
-                "open_url": open_url,
-                "integration_id": b.integration_id,
-                "integration_name": integ.name,
-                "server_id": b.server_id,
-                "uid": b.external_id,
-                "checked_at": b.last_checked_at,
-            }
+        if host_only and (b.docker_container or "").strip():
+            continue
+        chip = _grafana_chip_dict(integ, b, server=server)
+        out.append(chip)
+    kind_order = {
+        GRAFANA_KIND_METRICS: 0,
+        GRAFANA_KIND_CONTAINERS: 1,
+        GRAFANA_KIND_LOGS: 2,
+    }
+    out.sort(
+        key=lambda c: (
+            kind_order.get(c.get("kind") or "", 9),
+            (c.get("label") or "").lower(),
         )
-    out.sort(key=lambda c: (c.get("label") or "").lower())
+    )
     return out
+
+
+def grafana_index_for_server(session: Session, server_id: int) -> dict[str, Any]:
+    """Maps for Docker UI: project → chips, container name → chips (kind=containers)."""
+    server = session.get(Server, server_id)
+    by_project: dict[str, list[dict[str, Any]]] = {}
+    by_container: dict[str, list[dict[str, Any]]] = {}
+    for b in list_bindings(session, server_id=server_id, role=ROLE_DASHBOARD):
+        integ = get_integration(session, b.integration_id)
+        if not integ or integ.type != TYPE_GRAFANA or not integ.enabled:
+            continue
+        meta = parse_binding_meta(b)
+        if normalize_grafana_kind(meta.get("kind")) != GRAFANA_KIND_CONTAINERS:
+            continue
+        chip = _grafana_chip_dict(integ, b, server=server)
+        cont = (b.docker_container or "").strip()
+        proj = (b.docker_project or "").strip()
+        if cont:
+            by_container.setdefault(cont, []).append(chip)
+            cs = str(meta.get("compose_service") or "").strip()
+            if cs and cs != cont:
+                by_container.setdefault(cs, []).append(chip)
+        elif proj:
+            by_project.setdefault(proj, []).append(chip)
+    return {"by_project": by_project, "by_container": by_container}
 
 
 def binding_message_from_monitor(mon: "kuma.KumaMonitor") -> str:

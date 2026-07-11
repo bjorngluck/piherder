@@ -281,7 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{# Grafana — dashboard deep links #}
+{# Grafana — host metrics / containers overview / logs #}
 {% if grafana_dashboards %}
 <div class="mb-4 card p-3 border border-border">
   <div class="text-sm font-medium text-text mb-2">Grafana</div>
@@ -293,12 +293,18 @@ document.addEventListener('DOMContentLoaded', function() {
        title="Open dashboard in Grafana">
       <div class="min-w-0">
         <span class="text-sm font-medium text-text">{{ g.label }}</span>
+        {% if g.kind_label %}
+        <span class="status-pill text-xs ml-1 feature-off">{{ g.kind_label }}</span>
+        {% endif %}
         <span class="status-pill text-xs ml-1
           {% if g.state == 'up' or g.state == 'linked' %}status-success
           {% elif g.state == 'down' %}status-failed
           {% else %}feature-off{% endif %}">{{ g.state }}</span>
-        {% if g.message %}
-        <div class="text-[11px] text-muted mt-0.5">{{ g.message }}</div>
+        {% if g.location or g.message %}
+        <div class="text-[11px] text-muted mt-0.5">
+          {% if g.location %}<span class="font-mono">{{ g.location }}</span>{% endif %}
+          {% if g.message %}{% if g.location %} · {% endif %}{{ g.message }}{% endif %}
+        </div>
         {% endif %}
       </div>
       <span class="text-xs text-accent shrink-0">Open in Grafana →</span>

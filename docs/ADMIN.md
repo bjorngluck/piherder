@@ -467,20 +467,23 @@ Optional **read-mostly** link into an existing Grafana (same **Integrations** hu
    curl -sS -H "Authorization: Bearer $GRAFANA_TOKEN" "https://grafana.example.com/api/search?type=dash-db" | head
    ```
 
-3. PiHerder → **Integrations → + Grafana** — base URL, optional token, **query template**.  
-   The template must use Grafana’s `var-` prefix and match your **dashboard variable names**.
+3. PiHerder → **Integrations → + Grafana** — base URL, optional token, and **three template kinds**  
+   (all use Grafana’s `var-` prefix):
 
-   | Dashboard variable | Typical Prometheus value | Query template |
-   |--------------------|--------------------------|----------------|
-   | `job` (main filter) | `rpi5-1_exporter` | `var-job={hostname_short}_exporter` |
-   | `instance` | `rpi5-1.hacknow.info` | `var-instance={hostname}` |
-   | both | — | `var-job={hostname_short}_exporter&var-instance={hostname}` |
+   | Kind | When used | Default-style template |
+   |------|-----------|------------------------|
+   | **Host metrics** | Binding kind = Host metrics | `var-job={hostname_short}_exporter` |
+   | **Containers (host)** | Containers, no container selected | `var-job={hostname_short}_cadvisor` |
+   | **Containers (one)** | Containers + container name | `var-job={hostname_short}_cadvisor&var-container={container}` |
+   | **Host logs** | Binding kind = Host logs | `var-host={hostname_short}` |
 
-   `{hostname_short}` is the first DNS label of the server hostname  
-   (`rpi5-1.hacknow.info` → `rpi5-1`).  
-   So RPI5-1 opens: `…?var-job=rpi5-1_exporter`.
-4. **Poll / Test** stores health (`version`, `database`) and, with a token, dashboard inventory.
-5. Bind **server → dashboard UID**. Server detail shows **Open in Grafana** chips with the query template applied.
+   `{hostname_short}` = first DNS label (`rpi5-1.hacknow.info` → `rpi5-1`).  
+   Edit templates to match **your** Grafana variable names (`job`, `container`, `host`, …).
+4. **Poll / Test** stores health and dashboard inventory (with token).
+5. **Bind** with a **kind**:
+   - **Host metrics** / **Host logs** → chips on **server detail**
+   - **Containers** host overview (no container) → server detail  
+   - **Containers** + container → **`gf` chip on Docker stack** row
 
 Without a token you can still deep-link by pasting dashboard UIDs; inventory list will be empty. Token is Fernet-encrypted and included in herder self-backup.
 
