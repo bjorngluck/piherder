@@ -328,10 +328,46 @@ def query_template_logs(integration: Integration) -> str:
 
 
 def normalize_grafana_kind(kind: Optional[str]) -> str:
-    k = (kind or GRAFANA_KIND_METRICS).strip().lower()
+    k = (kind or "").strip().lower()
     if k not in GRAFANA_KINDS:
         return GRAFANA_KIND_METRICS
     return k
+
+
+def binding_grafana_kind(
+    binding: Optional[IntegrationBinding] = None,
+    *,
+    meta: Optional[dict[str, Any]] = None,
+    docker_project: str = "",
+    docker_container: str = "",
+) -> str:
+    """Resolve Grafana binding kind for UI tabs / templates.
+
+    Preference: explicit meta.kind → docker scope columns imply containers → metrics.
+    (Older binds / poll overwrites often omitted kind; docker_* is the source of truth.)
+    """
+    meta = meta if meta is not None else (parse_binding_meta(binding) if binding else {})
+    raw = (meta.get("kind") or "").strip().lower()
+    if raw in GRAFANA_KINDS:
+        return raw
+    proj = (
+        docker_project
+        or (binding.docker_project if binding else None)
+        or meta.get("docker_project")
+        or ""
+    )
+    cont = (
+        docker_container
+        or (binding.docker_container if binding else None)
+        or meta.get("docker_container")
+        or ""
+    )
+    if str(proj).strip() or str(cont).strip():
+        return GRAFANA_KIND_CONTAINERS
+    scope = str(meta.get("scope") or "").strip().lower()
+    if scope in ("container", "project", "docker"):
+        return GRAFANA_KIND_CONTAINERS
+    return GRAFANA_KIND_METRICS
 
 
 def resolve_grafana_query_template(
@@ -347,7 +383,17 @@ def resolve_grafana_query_template(
     override = str(meta.get("query_template") or "").strip()
     if override:
         return override
-    kind = normalize_grafana_kind(kind or meta.get("kind"))
+    kind = normalize_grafana_kind(kind) if kind else binding_grafana_kind(
+        meta=meta,
+        docker_project=docker_project,
+        docker_container=docker_container,
+    )
+    # Re-infer if caller passed default metrics but docker scope says containers
+    if kind == GRAFANA_KIND_METRICS and (
+        (docker_project or meta.get("docker_project") or "").strip()
+        or (docker_container or meta.get("docker_container") or "").strip()
+    ):
+        kind = GRAFANA_KIND_CONTAINERS
     cont = (docker_container or meta.get("docker_container") or "").strip()
     if kind == GRAFANA_KIND_LOGS:
         return query_template_logs(integration)
@@ -924,9 +970,12 @@ def binding_open_url(
         cont = (binding.docker_container or meta.get("docker_container") or "").strip()
         proj = (binding.docker_project or meta.get("docker_project") or "").strip()
         cs = str(meta.get("compose_service") or cont).strip()
+        kind = binding_grafana_kind(
+            binding, meta=meta, docker_project=proj, docker_container=cont
+        )
         qt = resolve_grafana_query_template(
             integration,
-            kind=str(meta.get("kind") or GRAFANA_KIND_METRICS),
+            kind=kind,
             docker_project=proj,
             docker_container=cont,
             meta=meta,
@@ -969,10 +1018,13 @@ def _grafana_chip_dict(
     server: Optional[Server] = None,
 ) -> dict[str, Any]:
     meta = parse_binding_meta(binding)
-    kind = normalize_grafana_kind(meta.get("kind"))
     cont = (binding.docker_container or "").strip()
     proj = (binding.docker_project or "").strip()
-    scope = str(meta.get("scope") or ("container" if cont else "host"))
+    kind = binding_grafana_kind(binding, meta=meta, docker_project=proj, docker_container=cont)
+    scope = str(
+        meta.get("scope")
+        or ("container" if cont else ("project" if proj else "host"))
+    )
     open_url = binding_open_url(integ, binding, server=server)
     kind_label = {
         GRAFANA_KIND_METRICS: "Host metrics",

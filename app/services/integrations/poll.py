@@ -237,17 +237,34 @@ def _poll_grafana(
     instance_state = "up" if result.ok else "down"
     for b in bindings:
         prev_meta = reg.parse_binding_meta(b)
+        kind = reg.binding_grafana_kind(b, meta=prev_meta)
         dash = by_uid.get((b.external_id or "").strip())
         if dash:
             meta = dash.to_dict()
-            # keep operator query_template override
+            # Preserve operator scope / kind (poll inventory must not reclassify)
+            meta["kind"] = kind
             if prev_meta.get("query_template"):
                 meta["query_template"] = prev_meta["query_template"]
+            if prev_meta.get("scope"):
+                meta["scope"] = prev_meta["scope"]
+            elif (b.docker_container or "").strip():
+                meta["scope"] = "container"
+            elif (b.docker_project or "").strip():
+                meta["scope"] = "project"
+            else:
+                meta["scope"] = "host"
+            if b.docker_project:
+                meta["docker_project"] = b.docker_project
+            if b.docker_container:
+                meta["docker_container"] = b.docker_container
             b.external_label = dash.title
             b.external_meta_json = json.dumps(meta)
             b.last_message = dash.folder_title or result.version or "dashboard"
         else:
-            # Keep prior meta; mark linked vs instance health
+            # Keep prior meta; ensure kind is recorded for UI tabs
+            if not prev_meta.get("kind"):
+                prev_meta["kind"] = kind
+                b.external_meta_json = json.dumps(prev_meta)
             b.last_message = (
                 f"Grafana {result.version}" if result.ok else (result.error or "unreachable")
             )[:500]
