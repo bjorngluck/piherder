@@ -823,8 +823,10 @@ async def redeploy(
 
     proj_name = os.path.basename((project_path or "").rstrip("/")) or project_path
 
-    # Clear pending-update badge for this stack when deploy succeeded with pull
-    if ok and do_pull:
+    # After a successful apply: drop this stack from pending updates + resolve
+    # (or shrink) the in-app / push alert. Check-only leaves alerts open until
+    # a clean recheck or all stacks are deployed.
+    if ok:
         try:
             summary = {}
             if server.container_updates_summary:
@@ -832,17 +834,38 @@ async def redeploy(
                     summary = json.loads(server.container_updates_summary) or {}
                 except Exception:
                     summary = {}
-            projects = [p for p in (summary.get("projects") or []) if p != proj_name]
+            remaining = [
+                p
+                for p in (summary.get("projects") or [])
+                if str(p).strip() and str(p).strip() != str(proj_name).strip()
+            ]
             details = dict(summary.get("project_details") or {})
             details.pop(proj_name, None)
+            # Also drop keys that match by basename (path-style entries)
+            for k in list(details.keys()):
+                if str(k).strip() == str(proj_name).strip() or os.path.basename(
+                    str(k).rstrip("/")
+                ) == str(proj_name).strip():
+                    details.pop(k, None)
             server.container_updates_summary = json.dumps({
-                "projects": projects,
+                "projects": remaining,
                 "project_details": details,
                 "failed": summary.get("failed") or [],
                 "checked": summary.get("checked") or [],
             })
-            server.container_updates_count = len(projects)
+            server.container_updates_count = len(remaining)
             session.add(server)
+            try:
+                from ..services.notifications import notify_container_updates
+
+                notify_container_updates(
+                    session,
+                    server_id=server.id,
+                    server_name=server.name or proj_name,
+                    projects=remaining,
+                )
+            except Exception:
+                pass
         except Exception:
             pass
 
