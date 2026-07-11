@@ -98,6 +98,22 @@ def dashboard_path(uid: str, slug: str = "") -> str:
     return f"/d/{quote(u, safe='')}/{quote(s, safe='-_.~')}"
 
 
+def hostname_short(hostname: str = "", name: str = "") -> str:
+    """First DNS label, lowercased — rpi5-1.hacknow.info → rpi5-1.
+
+    Falls back to a slug of the server display name.
+    """
+    h = (hostname or "").strip().lower()
+    if h:
+        return h.split(".", 1)[0]
+    n = (name or "").strip().lower()
+    if not n:
+        return ""
+    # RPI5-1 / "RPI 5" → rpi5-1 / rpi-5
+    n = re.sub(r"[^a-z0-9]+", "-", n).strip("-")
+    return n
+
+
 def apply_query_template(
     template: str,
     *,
@@ -106,14 +122,22 @@ def apply_query_template(
     ip_address: str = "",
     server_id: str = "",
 ) -> str:
-    """Replace {hostname}, {name}, {ip}, {server_id} in a query string template.
+    """Replace placeholders in a Grafana query string template.
 
-    Template example: var-instance={hostname}
-    Empty values leave the placeholder replaced with empty string.
+    Examples:
+      var-instance={hostname}
+      var-job={hostname_short}_exporter
+      var-job={hostname_short}_exporter&var-instance={hostname}
+
+    Placeholders: {hostname}, {hostname_short}, {name}, {name_lower},
+    {ip}, {ip_address}, {server_id}, {host}
     """
+    short = hostname_short(hostname, name)
     vals = {
         "hostname": hostname or "",
+        "hostname_short": short,
         "name": name or "",
+        "name_lower": (name or "").strip().lower(),
         "ip": ip_address or "",
         "ip_address": ip_address or "",
         "server_id": server_id or "",

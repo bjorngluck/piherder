@@ -214,7 +214,7 @@ async def grafana_new_form(
                 "poll_interval_sec": reg.DEFAULT_GRAFANA_POLL_SEC,
                 "tls_verify": True,
                 "enabled": True,
-                "query_template": "var-instance={hostname}",
+                "query_template": "var-job={hostname_short}_exporter",
             },
             "has_key": False,
             "error": request.query_params.get("error") or "",

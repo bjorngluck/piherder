@@ -141,8 +141,8 @@
   <h2 class="text-lg font-semibold text-text mb-2">Server → dashboard bindings</h2>
   <p class="text-xs text-muted mb-3">
     Chips on server detail open the dashboard with your query template
-    (e.g. <code class="text-[10px]">var-instance={hostname}</code>
-    → <code class="text-[10px]">?var-instance=rpi5-1.hacknow.info</code>).
+    (e.g. <code class="text-[10px]">var-job={hostname_short}_exporter</code>
+    → <code class="text-[10px]">?var-job=rpi5-1_exporter</code>).
   </p>
 
   {% if bindings %}

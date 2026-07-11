@@ -64,16 +64,32 @@
       </label>
       <input id="query_template" name="query_template" type="text"
              class="input w-full font-mono text-sm"
-             placeholder="var-instance={hostname}"
+             placeholder="var-job={hostname_short}_exporter"
              value="{{ form.query_template or '' }}">
       <p class="text-[11px] text-muted mt-1">
-        Grafana dashboard variables use the <code class="text-[10px]">var-</code> prefix.
-        Example for Prometheus <code class="text-[10px]">instance</code> filter:
-        <code class="text-[10px]">var-instance={hostname}</code>
-        → <code class="text-[10px]">?var-instance=rpi5-1.hacknow.info</code>
-        (uses each server’s hostname field). Placeholders:
+        Grafana variables use the <code class="text-[10px]">var-</code> prefix.
+        Common patterns:
+      </p>
+      <ul class="text-[11px] text-muted mt-1 list-disc pl-4 space-y-0.5">
+        <li>
+          Job filter (e.g. <code class="text-[10px]">rpi5-1_exporter</code>):
+          <code class="text-[10px]">var-job={hostname_short}_exporter</code>
+        </li>
+        <li>
+          Instance FQDN:
+          <code class="text-[10px]">var-instance={hostname}</code>
+        </li>
+        <li>
+          Both:
+          <code class="text-[10px]">var-job={hostname_short}_exporter&amp;var-instance={hostname}</code>
+        </li>
+      </ul>
+      <p class="text-[11px] text-muted mt-1">
+        Placeholders:
         <code class="text-[10px]">{hostname}</code>,
+        <code class="text-[10px]">{hostname_short}</code> (first DNS label),
         <code class="text-[10px]">{name}</code>,
+        <code class="text-[10px]">{name_lower}</code>,
         <code class="text-[10px]">{ip}</code>,
         <code class="text-[10px]">{server_id}</code>.
       </p>

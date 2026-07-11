@@ -467,15 +467,18 @@ Optional **read-mostly** link into an existing Grafana (same **Integrations** hu
    curl -sS -H "Authorization: Bearer $GRAFANA_TOKEN" "https://grafana.example.com/api/search?type=dash-db" | head
    ```
 
-3. PiHerder → **Integrations → + Grafana** — base URL, optional token, default query template.  
-   For a Prometheus **instance** variable matching FQDN hostnames (e.g. `rpi5-1.hacknow.info`):
+3. PiHerder → **Integrations → + Grafana** — base URL, optional token, **query template**.  
+   The template must use Grafana’s `var-` prefix and match your **dashboard variable names**.
 
-   ```text
-   var-instance={hostname}
-   ```
+   | Dashboard variable | Typical Prometheus value | Query template |
+   |--------------------|--------------------------|----------------|
+   | `job` (main filter) | `rpi5-1_exporter` | `var-job={hostname_short}_exporter` |
+   | `instance` | `rpi5-1.hacknow.info` | `var-instance={hostname}` |
+   | both | — | `var-job={hostname_short}_exporter&var-instance={hostname}` |
 
-   That opens e.g. `…/d/{uid}/…?var-instance=rpi5-1.hacknow.info`.  
-   Use each server’s **hostname** field in PiHerder so it matches the scrape label.
+   `{hostname_short}` is the first DNS label of the server hostname  
+   (`rpi5-1.hacknow.info` → `rpi5-1`).  
+   So RPI5-1 opens: `…?var-job=rpi5-1_exporter`.
 4. **Poll / Test** stores health (`version`, `database`) and, with a token, dashboard inventory.
 5. Bind **server → dashboard UID**. Server detail shows **Open in Grafana** chips with the query template applied.
 
@@ -487,8 +490,8 @@ Without a token you can still deep-link by pasting dashboard UIDs; inventory lis
 | `/integrations/{id}` | Health chips, inventory, server bindings |
 | Server detail | Grafana chips → dashboard with host vars |
 
-Placeholders: `{hostname}`, `{name}`, `{ip}` / `{ip_address}`, `{server_id}`, `{host}`.  
-Grafana variables need the **`var-`** prefix (`var-instance=…`, not bare `instance=…`).
+Placeholders: `{hostname}`, `{hostname_short}`, `{name}`, `{name_lower}`, `{ip}` / `{ip_address}`, `{server_id}`, `{host}`.  
+Grafana variables need the **`var-`** prefix (`var-job=…`, not bare `job=…`).
 
 ### Prometheus / Grafana scrape
 
