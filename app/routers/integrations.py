@@ -809,6 +809,19 @@ def _monitor_meta_from_cache(
     return mon_meta, mon_label, mon_state, mon_msg
 
 
+def _optional_int_form(raw: Optional[str]) -> Optional[int]:
+    """Form fields often send '' for empty optional ints — treat as None."""
+    if raw is None:
+        return None
+    s = str(raw).strip()
+    if not s:
+        return None
+    try:
+        return int(s)
+    except (TypeError, ValueError):
+        return None
+
+
 @router.post("/integrations/{integration_id}/bindings")
 async def set_binding(
     integration_id: int,
@@ -822,7 +835,7 @@ async def set_binding(
     docker_container: str = Form(""),
     kind: str = Form(reg.GRAFANA_KIND_METRICS),
     clear: Optional[str] = Form(None),
-    binding_id: Optional[int] = Form(None),
+    binding_id: Optional[str] = Form(None),
 ):
     integration = reg.get_integration(session, integration_id)
     if not integration:
@@ -830,6 +843,7 @@ async def set_binding(
     role = (role or reg.ROLE_SSH).strip()
     if role not in (reg.ROLE_SSH, reg.ROLE_SERVICE, reg.ROLE_DASHBOARD):
         role = reg.ROLE_SSH
+    binding_id_int = _optional_int_form(binding_id)
 
     if role == reg.ROLE_DASHBOARD:
         gkind = reg.normalize_grafana_kind(kind)
@@ -846,7 +860,7 @@ async def set_binding(
                 server_id=server_id,
                 role=role,
                 external_id=external_id,
-                binding_id=binding_id,
+                binding_id=binding_id_int,
             )
             _audit(
                 session,
@@ -893,7 +907,7 @@ async def set_binding(
                 external_meta=mon_meta,
                 last_state="linked",
                 last_message=" · ".join(msg_bits),
-                binding_id=binding_id,
+                binding_id=binding_id_int,
             )
             _audit(
                 session,
@@ -919,6 +933,15 @@ async def set_binding(
                 scope=scope,
                 tab=tab,
             )
+        except Exception as e:
+            logger.exception("grafana binding failed")
+            return _redirect(
+                f"/integrations/{integration_id}",
+                error="binding_failed",
+                detail=str(e)[:200],
+                scope=scope,
+                tab=tab,
+            )
 
     if clear in ("1", "on", "true") or not (external_id or "").strip():
         reg.clear_binding(
@@ -927,7 +950,7 @@ async def set_binding(
             server_id=server_id,
             role=role,
             external_id=external_id if role == reg.ROLE_SERVICE else None,
-            binding_id=binding_id,
+            binding_id=binding_id_int,
         )
         _audit(
             session,
@@ -963,7 +986,7 @@ async def set_binding(
             external_meta=mon_meta,
             last_state=mon_state,
             last_message=mon_msg,
-            binding_id=binding_id,
+            binding_id=binding_id_int,
         )
         _audit(
             session,
@@ -982,6 +1005,15 @@ async def set_binding(
             scope=scope,
         )
     except ValueError as e:
+        return _redirect(
+            f"/integrations/{integration_id}",
+            fragment=section,
+            error="binding_failed",
+            detail=str(e)[:200],
+            scope=scope,
+        )
+    except Exception as e:
+        logger.exception("integration binding failed")
         return _redirect(
             f"/integrations/{integration_id}",
             fragment=section,
