@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-10  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md)
+**Date:** 2026-07-11  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md)
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
 
@@ -22,11 +22,12 @@ Design principles stay the same as SPEC:
 |---------|--------|---------|--------|
 | **v0.2.0** | Production install story (compose, token REST, prod docs) + H0.5 + early Kuma | H0 / H0.5 | **Tagged** 2026-07-10 — [RELEASE_v0.2.0.md](RELEASE_v0.2.0.md) |
 | **v0.2.x** | Platform reliability (host deps, stack Status tab, multi-worker) | H0.5 | Shipped on main (included in v0.2.0) |
-| **v0.3.0** | Integration hub — Kuma done; **Grafana** + multi-URL next | H1 | In progress (post-tag) |
+| **v0.3.0** | Integration hub — Kuma + **Grafana** (kinds, templates, Docker chips) | H1 | **Tagged** 2026-07-11 — [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md) |
+| **v0.3.x** | Remaining H1 multi-URL adapters (Pi-hole / NPM / HA / …) | H1 | Planned |
 | **v0.4** | Service templates + onboard wizards (monitor / DNS / TLS) | H2 | Planned |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
-**Note:** Registry image publish (`bjorngluck/piherder:0.2.0`) remains optional until Docker Hub/GHCR credentials are available; the git tag is the source of truth for this release.
+**Note:** Registry image publish (`bjorngluck/piherder:0.3.0`) remains optional until Docker Hub/GHCR credentials are available; the git tag is the source of truth for this release.
 
 ---
 
@@ -119,8 +120,8 @@ Read-mostly integrations: config + status + deep links + **server / host / Docke
 |------|--------|
 | Integration registry + top-level **Integrations** nav | **Shipped** |
 | **Uptime Kuma** — API key + `/metrics`; SSH + host service + Docker bindings; TLS; deep links; notifications; Services pages; logos | **Shipped** |
-| **Grafana** — service account token; health; dashboard inventory; server→dashboard bindings; Open in Grafana + query templates | **Shipped** (post-v0.2.0 → v0.3.0) |
-| Multi Pi-hole / NPM / HA / Frigate / n8n generic URL | Open |
+| **Grafana** — service account token; health; inventory; kinds (metrics/containers/logs); query templates; server + Docker deep links | **Shipped** (v0.3.0) |
+| Multi Pi-hole / NPM / HA / Frigate / n8n generic URL | Open (v0.3.x) |
 
 **Uptime Kuma (shipped detail):**
 
@@ -129,7 +130,15 @@ Read-mostly integrations: config + status + deep links + **server / host / Docke
 - UI: Integrations, server **Services**, fleet **`/services`** icon grid, dashboard Services tile, Docker chips.
 - Logos: favicon discovery + upload under `DATA_ROOT/service_logos/`.
 
-**Design:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md) · **Ops:** [ADMIN.md](ADMIN.md) § Uptime Kuma
+**Grafana (shipped detail — v0.3.0):**
+
+- Auth: optional service account Bearer token; health without token; inventory requires token.
+- Bindings `role=dashboard` with **kind** metrics | containers | logs; Docker scope optional.
+- Templates: host metrics, container host, per-container, logs — all `var-` query strings with placeholders.
+- UI: Integrations detail (tabbed bind form, clone/edit); server detail rows; Docker **Grafana** chip + ⋯ **Open in Grafana** + expanded-row links (mobile-friendly).
+- DR: rows in herder self-backup; same `PIHERDER_MASTER_KEY` for token decrypt.
+
+**Design:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md) · **Ops:** [ADMIN.md](ADMIN.md) § Uptime Kuma / Grafana
 
 ---
 

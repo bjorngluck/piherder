@@ -266,3 +266,89 @@ def test_binding_open_url_grafana_container_and_logs():
     logs_b.docker_project = None
     url_l = reg.binding_open_url(integ, logs_b, server=server)
     assert "var-host=rpi5-1" in url_l
+
+
+def test_resolve_grafana_query_template_picks_by_kind_and_scope():
+    integ = MagicMock()
+    integ.config_json = json.dumps(
+        {
+            "query_template": "var-job={hostname_short}_exporter",
+            "query_template_container_host": "var-job={hostname_short}_cadvisor",
+            "query_template_container": "var-job={hostname_short}_cadvisor&var-container={container}",
+            "query_template_logs": "var-host={hostname_short}",
+        }
+    )
+    assert (
+        reg.resolve_grafana_query_template(integ, kind=reg.GRAFANA_KIND_METRICS)
+        == "var-job={hostname_short}_exporter"
+    )
+    assert (
+        reg.resolve_grafana_query_template(
+            integ, kind=reg.GRAFANA_KIND_CONTAINERS, docker_container=""
+        )
+        == "var-job={hostname_short}_cadvisor"
+    )
+    assert (
+        reg.resolve_grafana_query_template(
+            integ, kind=reg.GRAFANA_KIND_CONTAINERS, docker_container="web"
+        )
+        == "var-job={hostname_short}_cadvisor&var-container={container}"
+    )
+    assert (
+        reg.resolve_grafana_query_template(integ, kind=reg.GRAFANA_KIND_LOGS)
+        == "var-host={hostname_short}"
+    )
+    # Binding-level override wins
+    assert (
+        reg.resolve_grafana_query_template(
+            integ,
+            kind=reg.GRAFANA_KIND_METRICS,
+            meta={"query_template": "var-custom=1"},
+        )
+        == "var-custom=1"
+    )
+
+
+def test_grafana_chip_dict_touch_friendly_fields():
+    """Chips expose open_url + labels so UI can avoid tooltip-only UX."""
+    integ = MagicMock()
+    integ.type = reg.TYPE_GRAFANA
+    integ.base_url = "https://g.example.com"
+    integ.name = "Prod Grafana"
+    integ.config_json = json.dumps(
+        {
+            "query_template_container": "var-container={container}",
+        }
+    )
+    integ.enabled = True
+
+    binding = MagicMock()
+    binding.id = 9
+    binding.integration_id = 2
+    binding.server_id = 1
+    binding.external_id = "cadv"
+    binding.external_label = "cAdvisor"
+    binding.last_state = "linked"
+    binding.last_message = None
+    binding.last_checked_at = None
+    binding.docker_project = "dns"
+    binding.docker_container = "pihole"
+    binding.external_meta_json = json.dumps(
+        {"kind": "containers", "url": "/d/cadv/docker", "title": "cAdvisor"}
+    )
+
+    server = MagicMock()
+    server.hostname = "rpi5-1.hacknow.info"
+    server.name = "RPI5-1"
+    server.ip_address = "10.0.0.1"
+    server.id = 1
+
+    chip = reg._grafana_chip_dict(integ, binding, server=server)
+    assert chip["kind"] == reg.GRAFANA_KIND_CONTAINERS
+    assert chip["kind_label"] == "Containers"
+    assert chip["label"] == "cAdvisor"
+    assert chip["docker_container"] == "pihole"
+    assert chip["location"] == "dns/pihole"
+    assert chip["open_url"]
+    assert "var-container=pihole" in chip["open_url"]
+    assert chip["open_url"].startswith("https://g.example.com/")

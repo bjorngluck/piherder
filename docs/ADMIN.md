@@ -144,6 +144,7 @@ Archives are format **v2** compressed `.tar.gz` under the herder backups volume 
 | **Push VAPID** | Encrypted private key + public key (same `PIHERDER_MASTER_KEY` required on restore) |
 | **Push subscriptions + preferences** | Devices may still need re-permission if browser endpoint died |
 | **Notifications** | Recent open/dismissed alerts (capped) |
+| **Integrations + bindings** | Kuma / Grafana connectors, encrypted credentials, query templates (`config_json`), all bindings/mappings |
 | **Operational settings** | Timezone, force 2FA, self-backup schedule, fleet check defaults (from DB `appsetting`; restored back into DB) |
 | **Avatars** | Files under `DATA_ROOT/avatars` packed as `data/avatars/…` in the tar |
 | **Audit log** | Only in **full** mode (optional, capped) |
@@ -152,6 +153,8 @@ Archives are format **v2** compressed `.tar.gz` under the herder backups volume 
 |--------------|-----|
 | **Jobs** queue | Ephemeral; re-run work as needed |
 | Per-server rsync backup **files** on `~/backup` | Different volume; use normal backup retention |
+| **Service logo files** under `DATA_ROOT/service_logos/` | Paths restored on bindings; re-fetch favicon or re-upload after DR |
+| **External products** (Kuma / Grafana instances) | Only PiHerder-side config is backed up |
 
 **Restore:** dry-run previews counts; apply upserts by id/email/endpoint. Encrypted fields only work with the **same master key**. After restore, web may need a restart so the scheduler picks up herder cron / VAPID from DB.
 
@@ -480,20 +483,35 @@ Optional **read-mostly** link into an existing Grafana (same **Integrations** hu
    `{hostname_short}` = first DNS label (`rpi5-1.hacknow.info` → `rpi5-1`).  
    Edit templates to match **your** Grafana variable names (`job`, `container`, `host`, …).
 4. **Poll / Test** stores health and dashboard inventory (with token).
-5. **Bind** with a **kind**:
-   - **Host metrics** / **Host logs** → chips on **server detail**
+5. **Bind** with a **kind** (tabs on the integration detail page; clone/edit prefill supported):
+   - **Host metrics** / **Host logs** → rows on **server detail**
    - **Containers** host overview (no container) → server detail  
-   - **Containers** + container → **`gf` chip on Docker stack** row
+   - **Containers** + container → Docker page (see below)
 
-Without a token you can still deep-link by pasting dashboard UIDs; inventory list will be empty. Token is Fernet-encrypted and included in herder self-backup.
+Without a token you can still deep-link by pasting dashboard UIDs; inventory list will be empty. Token is Fernet-encrypted and included in herder self-backup (same `PIHERDER_MASTER_KEY` on restore).
+
+#### Open Grafana from a container (mobile-friendly)
+
+On **Docker** for a host, each bound container shows a **Grafana** chip (not a cryptic abbreviation). Tap opens the dashboard with host + container query vars already applied.
+
+Also available without relying on hover tooltips:
+
+| Surface | Action |
+|---------|--------|
+| Row chip | Tap **Grafana** → new tab with filter |
+| Container **⋯** menu | **Grafana: &lt;dashboard title&gt;** |
+| Expand container row | **Open &lt;dashboard&gt; in Grafana →** |
+
+#### Paths
 
 | Path | Purpose |
 |------|---------|
 | `/integrations/new/grafana` | Add connection |
-| `/integrations/{id}` | Health chips, inventory, server bindings |
-| Server detail | Grafana chips → dashboard with host vars |
+| `/integrations/{id}` | Health, inventory, tabbed bindings |
+| Server detail | Grafana rows → dashboard with host vars |
+| Docker stack | Per-container **Grafana** chip / ⋯ / detail link |
 
-Placeholders: `{hostname}`, `{hostname_short}`, `{name}`, `{name_lower}`, `{ip}` / `{ip_address}`, `{server_id}`, `{host}`.  
+Placeholders: `{hostname}`, `{hostname_short}`, `{name}`, `{name_lower}`, `{ip}` / `{ip_address}`, `{server_id}`, `{host}`, `{container}`, `{docker_container}`, `{project}`, `{docker_project}`, `{compose_service}`.  
 Grafana variables need the **`var-`** prefix (`var-job=…`, not bare `job=…`).
 
 ### Prometheus / Grafana scrape
@@ -513,7 +531,7 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 ### Image publish (when ready)
 
-Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/piherder:0.2.0`). Until then, build from this repo with `docker compose build`. See roadmap H0 in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
+Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/piherder:0.3.0`). Until then, build from this repo with `docker compose build`. See roadmap H0 in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md). Current git release: **v0.3.0** — [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md).
 
 **Supported deploy path:** Docker Compose (this repo). Platform reliability (host dependency checks, Settings → **Status**, multi-worker Celery) is live — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 0.5. Kubernetes and bare/local install are under consideration only, not supported install paths today.
 

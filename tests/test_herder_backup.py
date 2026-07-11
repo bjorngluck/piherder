@@ -76,6 +76,31 @@ def test_build_payload_keys(monkeypatch):
     monkeypatch.setattr(hb, "_snapshot_push_preferences", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_notifications", lambda: [])
     monkeypatch.setattr(
+        hb,
+        "_snapshot_integrations",
+        lambda: [
+            {
+                "id": 1,
+                "type": "grafana",
+                "name": "G",
+                "base_url": "https://g.example.com",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        hb,
+        "_snapshot_integration_bindings",
+        lambda: [
+            {
+                "id": 1,
+                "integration_id": 1,
+                "server_id": 1,
+                "role": "dashboard",
+                "external_id": "uid1",
+            }
+        ],
+    )
+    monkeypatch.setattr(
         "app.services.herder_backup.load_settings",
         lambda: {"timezone": "UTC", "force_2fa": False, "keep": 10},
     )
@@ -84,6 +109,8 @@ def test_build_payload_keys(monkeypatch):
     assert payload["manifest"]["version"] == "2"
     assert "jobs" not in payload
     assert "jobs" in payload["manifest"]["excludes"]
+    assert "integrations" in payload["manifest"]["includes"]
+    assert "integration_bindings" in payload["manifest"]["includes"]
     for key in (
         "servers",
         "users",
@@ -94,10 +121,14 @@ def test_build_payload_keys(monkeypatch):
         "push_subscriptions",
         "push_preferences",
         "notifications",
+        "integrations",
+        "integration_bindings",
         "herder_config",
     ):
         assert key in payload
     assert payload["users"][0]["hashed_password"] == "x"
+    assert payload["integrations"][0]["type"] == "grafana"
+    assert payload["integration_bindings"][0]["role"] == "dashboard"
     assert payload["herder_config"]["timezone"] == "UTC"
 
 

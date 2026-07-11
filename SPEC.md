@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** **v0.2.0 tagged** — Phase 1–4b complete; Phase 5 H1 Kuma shipped; toward **v0.3.0** (Grafana + remaining integrations)  
-> **Last updated:** 2026-07-10 — Release `v0.2.0`; next: Grafana integration
+> **Status:** **v0.3.0 tagged** — Phase 1–4b complete; Phase 5 H1 Kuma + Grafana shipped; remaining multi-URL adapters  
+> **Last updated:** 2026-07-11 — Release `v0.3.0` (Grafana integration hub)
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -35,12 +35,13 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - **AI** is optional, OpenAI-compatible BYO (local or cloud), off by default; Frigate vision stays on Frigate/AI Hat.
 - Full multi-horizon plan: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md).
 
-### Integration hub — Uptime Kuma (2026-07-10, shipped)
+### Integration hub — Uptime Kuma + Grafana (shipped; v0.3.0)
 - **Registry** + top-level **Integrations** nav; credentials Fernet-encrypted; herder backup includes rows.
 - **Kuma:** API key + `GET /metrics`; optional login for `/dashboard/{id}` deep links (Kuma 1.23 often omits `monitor_id` in metrics).
 - **Bindings:** SSH per server; **host services** (no Docker); **Docker project/container**; TLS days from metrics.
 - **UI:** server Services page, fleet `/services` icon grid, dashboard Services tile, logos (favicon + upload).
-- **Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md).
+- **Grafana (v0.3.0):** service account token; `/api/health` + dashboard inventory; bindings with kinds **metrics / containers / logs**; query templates (`var-` + `{hostname_short}`, `{container}`, …); server detail rows; Docker **Grafana** chip + ⋯ menu + expanded-row links (touch-friendly).
+- **Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Release:** [docs/RELEASE_v0.3.0.md](docs/RELEASE_v0.3.0.md).
 
 ### Platform reliability & deployment (2026-07-10)
 - **Remote host dependency check** (done): after SSH / least-priv onboard, probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`); UI chips + re-check; no auto-install on the remote host.
@@ -175,6 +176,7 @@ Carried refinements + ship blockers for a clean install story. Detail: [docs/ROA
 - [x] **Compose volume defaults** — `./backups`, `./piherder_backups`, `./piherder_data`, `./certs`
 - [x] **Production ADMIN section** — TLS, upgrades, metrics, webhooks, API tokens
 - [x] **Git tag `v0.2.0`** + release notes — [docs/RELEASE_v0.2.0.md](docs/RELEASE_v0.2.0.md)
+- [x] **Git tag `v0.3.0`** + release notes — [docs/RELEASE_v0.3.0.md](docs/RELEASE_v0.3.0.md)
 - [ ] Pre-built multi-arch image on Docker Hub / GHCR + README pull path (process: [docs/PUBLISH_IMAGE.md](docs/PUBLISH_IMAGE.md); not required to keep the git tag)
 
 ---
@@ -195,7 +197,7 @@ Implement **in order** after or alongside H0 image work. Not required to tag `v0
 
 Read-mostly integrations: registry, status, deep links, **server / Docker / host-service bindings**. No full remote control of external products (create-monitor = H2).
 
-**Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Ops:** [docs/ADMIN.md](docs/ADMIN.md) § Uptime Kuma
+**Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Ops:** [docs/ADMIN.md](docs/ADMIN.md) § Uptime Kuma / Grafana · **Release:** [docs/RELEASE_v0.3.0.md](docs/RELEASE_v0.3.0.md)
 
 ### Shipped — Uptime Kuma (H1 slice)
 
@@ -209,15 +211,18 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 - [x] Down notifications + Web Push pref `integration_down`; scheduled poll
 - [x] Herder backup includes integrations + bindings; pytest for metrics/bindings
 
-### Shipped — Grafana (H1)
+### Shipped — Grafana (H1 / v0.3.0)
 
 - [x] Grafana integration type + form (base URL, optional service account token)
 - [x] Health poll (`/api/health`) + version/database chips
 - [x] Dashboard inventory (`/api/search`) when token present
-- [x] Server → dashboard bindings; **Open in Grafana** with query templates (`{hostname}`, …)
-- [x] Server detail Grafana chips; scheduled poll with Kuma
+- [x] Server → dashboard bindings with **kinds** (metrics / containers / logs)
+- [x] Query templates per kind (`var-` prefix; `{hostname_short}`, `{container}`, …)
+- [x] Server detail Grafana rows; Docker **Grafana** chip + ⋯ menu + expanded-row links
+- [x] Tabbed bind UI (clone/edit); kind preserved across poll/refresh
+- [x] Scheduled poll with Kuma; herder backup + pytest
 
-### Still open (Phase 5)
+### Still open (Phase 5 remainder)
 
 - [ ] Multi Pi-hole / NPM / HA / Frigate / n8n generic URL entries (seed from `PIHOLE_URL`)
 - [ ] Docs: cert pattern NPM → n8n → consumers (e.g. Pi-hole)

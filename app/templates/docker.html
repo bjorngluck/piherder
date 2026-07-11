@@ -384,6 +384,27 @@ function showContainerMoreMenu(anchorBtn, row) {
     list.appendChild(btn);
   });
 
+  // Grafana deep links (touch-friendly; no tooltip required)
+  const gfLinks = row.querySelectorAll('[data-c-action="grafana"]');
+  gfLinks.forEach(function(a) {
+    const href = a.getAttribute('href');
+    if (!href || href === '#') return;
+    const dashLabel = (a.getAttribute('data-grafana-label') || '').trim();
+    const btn = document.createElement('a');
+    btn.href = href;
+    btn.target = '_blank';
+    btn.rel = 'noopener';
+    btn.role = 'menuitem';
+    btn.className = 'docker-popover-item is-accent';
+    btn.textContent = dashLabel
+      ? ('Grafana: ' + dashLabel)
+      : 'Open in Grafana';
+    btn.addEventListener('click', function() {
+      hideContainerMoreMenu();
+    });
+    list.appendChild(btn);
+  });
+
   menu.classList.remove('hidden');
   menu.hidden = false;
   positionDockerPopover(menu, anchorBtn);

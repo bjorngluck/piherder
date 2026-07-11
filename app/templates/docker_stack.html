@@ -222,9 +222,9 @@
                 <a href="{{ chip.open_url or '#' }}"
                    {% if chip.open_url %}target="_blank" rel="noopener"{% endif %}
                    class="status-pill text-xs no-underline status-running"
-                   title="Grafana: {{ chip.label }}"
+                   aria-label="Open {{ chip.label or 'dashboard' }} in Grafana (filtered for this container)"
                    onclick="event.stopPropagation()">
-                  gf
+                  Grafana
                 </a>
                 {% endfor %}
                 {% if c.status and not c.placeholder %}
@@ -256,6 +256,15 @@
                 <button type="submit">Restart</button>
               </form>
               <button type="button" data-c-action="logs" data-container-logs="{{ (c.name or cref) | e }}">Logs</button>
+              {% for chip in ctr_gf %}
+              {% if chip.open_url %}
+              <a href="{{ chip.open_url }}"
+                 target="_blank"
+                 rel="noopener"
+                 data-c-action="grafana"
+                 data-grafana-label="{{ (chip.label or 'dashboard') | e }}">Open in Grafana</a>
+              {% endif %}
+              {% endfor %}
             </div>
             {% endif %}
           </div>
@@ -266,6 +275,24 @@
               <div class="docker-svc-detail-span">
                 <div class="docker-svc-detail-label">Container</div>
                 <div class="font-mono break-all">{{ c.name }}{% if c.id %} <span class="text-muted">({{ c.id }})</span>{% endif %}</div>
+              </div>
+              {% endif %}
+              {% if ctr_gf %}
+              <div class="docker-svc-detail-span">
+                <div class="docker-svc-detail-label">Grafana</div>
+                <ul class="docker-detail-lines">
+                  {% for chip in ctr_gf %}
+                  <li>
+                    {% if chip.open_url %}
+                    <a href="{{ chip.open_url }}" target="_blank" rel="noopener" class="text-accent no-underline hover:underline">
+                      Open {{ chip.label or 'dashboard' }} in Grafana →
+                    </a>
+                    {% else %}
+                    <span class="text-muted">{{ chip.label or 'dashboard' }} (no URL)</span>
+                    {% endif %}
+                  </li>
+                  {% endfor %}
+                </ul>
               </div>
               {% endif %}
               <div class="docker-svc-detail-span">

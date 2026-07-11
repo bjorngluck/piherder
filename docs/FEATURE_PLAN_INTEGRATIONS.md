@@ -1,10 +1,10 @@
 # Feature Plan: Integration Hub (Uptime Kuma first)
 
 **Document:** `docs/FEATURE_PLAN_INTEGRATIONS.md`  
-**Status:** **Shipped (H1 Kuma + Grafana)** — 2026-07-10  
+**Status:** **Shipped (H1 Kuma + Grafana)** — tagged **v0.3.0** 2026-07-11  
 **Owner:** Bjorn  
 **Horizon:** H1 / v0.3  
-**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 1 · [SPEC.md](../SPEC.md) Phase 5 · [ADMIN.md](ADMIN.md) § Uptime Kuma / Grafana
+**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 1 · [SPEC.md](../SPEC.md) Phase 5 · [ADMIN.md](ADMIN.md) § Uptime Kuma / Grafana · [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md)
 
 ---
 
@@ -23,14 +23,16 @@ PiHerder is an optional **integration hub** for the homelab stack:
 - Fleet **Services** icon grid + per-server Services page; logos via favicon discovery or upload.
 - Down notifications (transition-only) + push preference `integration_down`.
 
-### Grafana
+### Grafana (v0.3.0)
 - Connect existing Grafana with optional **service account token** (Bearer).
 - Poll **`GET /api/health`** (version, database) and **`GET /api/search?type=dash-db`** when token present.
 - Bind **server → dashboard UID** (`role=dashboard`) with **kind**:
   - **metrics** — host metrics (e.g. `var-job={hostname_short}_exporter`)
   - **containers** — host overview and/or per-container (`{container}`, Docker chips)
   - **logs** — host-level logs filter (e.g. `var-host={hostname_short}`)
-- **Open in Grafana** with separate query templates per kind; chips on server detail + Docker stack.
+- **Open in Grafana** with separate query templates per kind.
+- **Surfaces:** server detail rows; Docker **Grafana** chip (tap); container **⋯** menu item with dashboard name; expanded container detail links (no tooltip required on mobile).
+- Tabbed Integrations UI (Host metrics / Containers / Logs); clone/edit prefill; unique-scope merge; kind inferred from Docker scope so binds stay on the right tab after poll.
 
 Top-level **Integrations** nav (not under Settings). Later adapters (multi Pi-hole, NPM, …) reuse the same registry + binding model.
 
@@ -80,9 +82,9 @@ PiHerder web + scheduler
 type, name, base_url, enabled, config_json (poll_interval, tls_verify), credentials_encrypted (`api_key`, optional `username`/`password`), last_status_json, last_polled_at, last_error.
 
 ### `integrationbinding`
-- **role:** `ssh_reachability` | `service`  
-- **docker_project** / **docker_container** (optional; empty = host service)  
-- external_id, external_label, external_meta_json, **logo_path**, last_state, last_message, last_checked_at  
+- **role:** `ssh_reachability` | `service` | `dashboard` (Grafana)  
+- **docker_project** / **docker_container** (optional; empty = host service or host-level dashboard)  
+- external_id, external_label, external_meta_json (Grafana: `kind`, `uid`, `url`, …), **logo_path**, last_state, last_message, last_checked_at  
 - Unique scope: integration + server + role + external_id + project + container  
 
 ---
@@ -165,13 +167,25 @@ type, name, base_url, enabled, config_json (poll_interval, tls_verify), credenti
 | Area | Path |
 |------|------|
 | Adapter | `app/services/integrations/grafana.py` |
-| Registry / poll | `TYPE_GRAFANA`, `ROLE_DASHBOARD`, `_poll_grafana` |
+| Registry / poll | `TYPE_GRAFANA`, `ROLE_DASHBOARD`, kinds, query templates, `_poll_grafana`, chips |
 | UI | `integrations_grafana_form.html`, `integrations_grafana_detail.html` |
+| Docker / server surfaces | `docker_stack.html`, `docker.html` (⋯ menu), `server_detail.html` |
 | Tests | `tests/test_integrations_grafana.py` |
+| Backup | `herder_backup.py` — `integrations`, `integration_bindings` |
+
+### Grafana success criteria
+
+- [x] Connect + optional token; health chips  
+- [x] Dashboard inventory with token  
+- [x] Kinds metrics / containers / logs + templates  
+- [x] Server detail deep links  
+- [x] Docker container chip + ⋯ + expanded row (touch-friendly)  
+- [x] Tabbed bind / clone / edit; kind survives poll  
+- [x] Herder backup + pytest  
 
 ---
 
-## H2 teaser (not in this ship)
+## H2 teaser / remaining H1 (not in v0.3.0 freeze)
 
 - Create monitor in Kuma from templates (Socket.IO).  
 - Auto-bind on add-server.  
