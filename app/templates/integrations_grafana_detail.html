@@ -266,7 +266,9 @@
     {% endif %}
 
     <input type="hidden" name="role" value="dashboard">
-    <input type="hidden" name="binding_id" id="binding_id" value="{{ prefill.binding_id if prefill.mode == 'edit' else '' }}">
+    {% if prefill.mode == 'edit' and prefill.binding_id %}
+    <input type="hidden" name="binding_id" id="binding_id" value="{{ prefill.binding_id }}">
+    {% endif %}
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
       <div>
