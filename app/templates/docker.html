@@ -127,15 +127,31 @@
   {% if update_check %}
     <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-warning' if update_status == 'updates' else ('banner-success' if update_status == 'ok' else 'banner-warning') }}">
       Checked {{ update_check }}:
-      {% if update_status == 'updates' %}<strong>New registry images available</strong> — highlighted services below (filter: Updates). Local <code>build:</code> services are not flagged (use Build).
-      {% elif update_status == 'fail' %}Check failed — see audit log.
+      {% if update_status == 'updates' %}<strong>New registry images pulled to the host</strong> — containers are <em>not</em> recreated yet. Use stack <strong>⋯ → Deploy</strong> (pull + <code>up -d</code>) to apply. Local <code>build:</code> services are not flagged (use Build).
+      {% elif update_status == 'fail' %}Check failed — see audit log for pull output.
       {% else %}Up to date (registry pulls only; self-built images are not checked for “updates”).{% endif %}
+    </div>
+  {% endif %}
+  {% set _deploy = request.query_params.get('deploy') %}
+  {% if _deploy %}
+    <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-success' if _deploy == 'ok' else 'banner-error' }}">
+      {% if _deploy == 'ok' %}
+        <strong>Deploy finished</strong> for
+        <span class="font-mono">{{ request.query_params.get('project') or 'stack' }}</span>
+        ({{ 'pull + ' if request.query_params.get('pull') == '1' else '' }}compose up -d).
+        Evidence is in <strong>Audit</strong> → <code>docker_redeploy</code> (pull/up exit codes + command output).
+      {% else %}
+        <strong>Deploy failed</strong> for
+        <span class="font-mono">{{ request.query_params.get('project') or 'stack' }}</span>
+        {% if request.query_params.get('detail') %} — {{ request.query_params.get('detail') }}{% endif %}.
+        See <strong>Audit</strong> → <code>docker_redeploy</code> for pull/up output (auth, path, or registry errors often show there).
+      {% endif %}
     </div>
   {% endif %}
   {% if server.container_updates_count and server.container_updates_count > 0 %}
     <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
       <strong>{{ server.container_updates_count }}</strong> stack(s) with pending <em>registry</em> image updates from last check.
-      Use the <strong>Updates</strong> filter; deploy via stack ⋯. Services with compose <code>build:</code> never show “Update” — rebuild those instead.
+      Check updates only <strong>pulls</strong>; use stack <strong>⋯ → Deploy</strong> to run <code>up -d</code> and recreate. Services with compose <code>build:</code> never show “Update” — rebuild those instead.
     </div>
   {% endif %}
   {% set _msg = request.query_params.get('msg') %}

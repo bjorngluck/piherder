@@ -805,22 +805,81 @@ async def redeploy(
     if not server:
         raise HTTPException(404)
 
-    docker_svc.redeploy_project(server, project_path, pull=(pull == "true"))
+    do_pull = (pull or "true").strip().lower() in ("1", "true", "yes", "on")
+    result: dict = {}
     try:
+        result = docker_svc.redeploy_project(server, project_path, pull=do_pull) or {}
+    except Exception as e:
+        result = {
+            "success": False,
+            "pull": do_pull,
+            "output": str(e)[:800],
+            "error": str(e)[:200],
+        }
+
+    ok = bool(result.get("success"))
+    import os
+    from urllib.parse import quote
+
+    proj_name = os.path.basename((project_path or "").rstrip("/")) or project_path
+
+    # Clear pending-update badge for this stack when deploy succeeded with pull
+    if ok and do_pull:
+        try:
+            summary = {}
+            if server.container_updates_summary:
+                try:
+                    summary = json.loads(server.container_updates_summary) or {}
+                except Exception:
+                    summary = {}
+            projects = [p for p in (summary.get("projects") or []) if p != proj_name]
+            details = dict(summary.get("project_details") or {})
+            details.pop(proj_name, None)
+            server.container_updates_summary = json.dumps({
+                "projects": projects,
+                "project_details": details,
+                "failed": summary.get("failed") or [],
+                "checked": summary.get("checked") or [],
+            })
+            server.container_updates_count = len(projects)
+            session.add(server)
+        except Exception:
+            pass
+
+    try:
+        bits = [f"Project {project_path}", f"pull={do_pull}"]
+        if result.get("pull_status") is not None:
+            bits.append(f"pull_rc={result.get('pull_status')}")
+        if result.get("up_status") is not None:
+            bits.append(f"up_rc={result.get('up_status')}")
         audit = AuditLog(
             user_id=user.id if user else None,
             server_id=server_id,
             action="docker_redeploy",
-            status="success",
-            details=f"Project {project_path}",
+            status="success" if ok else "failed",
+            details="; ".join(bits),
+            output_snippet=(result.get("output") or result.get("error") or "")[:1500],
             started_at=datetime.utcnow(),
             finished_at=datetime.utcnow(),
         )
         session.add(audit)
         session.commit()
     except Exception:
-        pass
-    return RedirectResponse(f"/servers/{server_id}/docker", status_code=303)
+        try:
+            session.rollback()
+        except Exception:
+            pass
+
+    status = "ok" if ok else "fail"
+    q = (
+        f"/servers/{server_id}/docker"
+        f"?deploy={status}"
+        f"&project={quote(str(proj_name), safe='')}"
+        f"&pull={'1' if do_pull else '0'}"
+    )
+    if not ok and result.get("error"):
+        q += f"&detail={quote(str(result.get('error'))[:120], safe='')}"
+    return RedirectResponse(q, status_code=303)
 
 
 @router.post("/{server_id}/docker/compose/{action}")
