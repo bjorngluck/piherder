@@ -231,10 +231,20 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 
 ## Phase 6 — Service templates (v0.4 / Horizon 2)
 
+**Plan draft:** [docs/PLAN_v0.4.0.md](docs/PLAN_v0.4.0.md) (ship bar discussion; includes post-v0.3.0 Docker Deploy/alert fixes).
+
+### Post–v0.3.0 quality (on main → next tag / v0.3.1)
+
+- [x] Docker Deploy surfaces pull/up results (audit + banner; was silent success)
+- [x] Successful Deploy clears pending stack + resolves `container_updates` alert when none remain
+
+### Templates
+
 - [ ] Template schema (compose/checklist/variables/post-deploy actions)
-- [ ] Curated pack (Pi-hole, Kuma, Grafana, Frigate, HA, NPM, n8n, media, generic web)
-- [ ] Onboard wizard: monitoring / DNS / TLS-proxy / feature flags (preview → confirm → audit)
-- [ ] Provider actions: Kuma create monitor; optional NPM / Cloudflare when tokens set
+- [ ] Apply template to server (preview → confirm → audit); import/export
+- [ ] Sample templates (generic + ≥1 real stack) — full curated pack may slip past 0.4.0
+- [ ] Onboard wizard: monitoring / DNS / TLS-proxy / feature flags (stretch / later slice)
+- [ ] Provider actions: Kuma create monitor; optional NPM / Cloudflare when tokens set (later)
 - [ ] Custom template create / import / export
 
 ---

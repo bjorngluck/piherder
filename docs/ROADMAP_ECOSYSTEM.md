@@ -23,8 +23,9 @@ Design principles stay the same as SPEC:
 | **v0.2.0** | Production install story (compose, token REST, prod docs) + H0.5 + early Kuma | H0 / H0.5 | **Tagged** 2026-07-10 — [RELEASE_v0.2.0.md](RELEASE_v0.2.0.md) |
 | **v0.2.x** | Platform reliability (host deps, stack Status tab, multi-worker) | H0.5 | Shipped on main (included in v0.2.0) |
 | **v0.3.0** | Integration hub — Kuma + **Grafana** (kinds, templates, Docker chips) | H1 | **Tagged** 2026-07-11 — [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md) |
-| **v0.3.x** | Remaining H1 multi-URL adapters (Pi-hole / NPM / HA / …) | H1 | Planned |
-| **v0.4** | Service templates + onboard wizards (monitor / DNS / TLS) | H2 | Planned |
+| **v0.3.1** | Docker Deploy honesty + resolve container-update alerts (on `main`) | H1 patch | **Ready to tag** — see [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §1 |
+| **v0.3.x** | Remaining H1 multi-URL adapters (Pi-hole / NPM / HA / …) | H1 | Optional vs templates |
+| **v0.4.0** | Service templates foundation (+ any untagged 0.3.x fixes) | H2 | **Planning** — [PLAN_v0.4.0.md](PLAN_v0.4.0.md) |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
 **Note:** Registry image publish (`bjorngluck/piherder:0.3.0`) remains optional until Docker Hub/GHCR credentials are available; the git tag is the source of truth for this release.
@@ -155,6 +156,8 @@ On **add server** or **new Docker project**, offer:
 Curated pack targets a typical ecosystem: Pi-hole, Uptime Kuma, Grafana, Frigate, Home Assistant, NPM, n8n, media stack, generic web app.
 
 Operators can **create / import / export** templates (manual import only — no remote unsigned marketplace at first).
+
+**Active planning:** ship bar, post-0.3 bugfixes, and slice choices are tracked in **[PLAN_v0.4.0.md](PLAN_v0.4.0.md)** (templates v1 = schema + apply + samples; full pack and provider auto-create are stretch / later).
 
 ---
 
