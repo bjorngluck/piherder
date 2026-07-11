@@ -452,7 +452,45 @@ async def _grafana_detail(
         chip["server_name"] = srv.name if srv else f"#{b.server_id}"
         chip["uid"] = b.external_id
         bound_rows.append(chip)
-    # Docker inventory options for container bindings (all servers, compact)
+
+    def _sort_key(c: dict) -> tuple:
+        return (
+            (c.get("server_name") or "").lower(),
+            (c.get("location") or "").lower(),
+            (c.get("label") or "").lower(),
+            c.get("id") or 0,
+        )
+
+    by_kind = {
+        reg.GRAFANA_KIND_METRICS: [],
+        reg.GRAFANA_KIND_CONTAINERS: [],
+        reg.GRAFANA_KIND_LOGS: [],
+    }
+    for row in bound_rows:
+        k = reg.normalize_grafana_kind(row.get("kind"))
+        by_kind.setdefault(k, []).append(row)
+    for k in by_kind:
+        by_kind[k].sort(key=_sort_key)
+
+    tab = (request.query_params.get("tab") or "metrics").strip().lower()
+    if tab not in ("metrics", "containers", "logs", "inventory"):
+        tab = "metrics"
+
+    # Prefill bind form: clone (new) or edit (update existing via binding_id)
+    prefill = {
+        "mode": (request.query_params.get("mode") or "").strip().lower(),  # clone|edit|""
+        "binding_id": (request.query_params.get("binding_id") or "").strip(),
+        "server_id": (request.query_params.get("server_id") or "").strip(),
+        "kind": reg.normalize_grafana_kind(request.query_params.get("kind") or tab),
+        "external_id": (request.query_params.get("external_id") or "").strip(),
+        "docker_project": (request.query_params.get("docker_project") or "").strip(),
+        "docker_container": (request.query_params.get("docker_container") or "").strip(),
+    }
+    if prefill["mode"] not in ("clone", "edit"):
+        prefill["mode"] = ""
+    if prefill["mode"] != "edit":
+        prefill["binding_id"] = ""
+
     docker_options: dict[int, list] = {}
     for s in servers:
         docker_options[s.id] = reg.docker_inventory_options(session, s.id)
@@ -467,6 +505,17 @@ async def _grafana_detail(
             "servers": servers,
             "dashboards": dashboards,
             "bindings": bound_rows,
+            "bindings_metrics": by_kind.get(reg.GRAFANA_KIND_METRICS) or [],
+            "bindings_containers": by_kind.get(reg.GRAFANA_KIND_CONTAINERS) or [],
+            "bindings_logs": by_kind.get(reg.GRAFANA_KIND_LOGS) or [],
+            "counts": {
+                "metrics": len(by_kind.get(reg.GRAFANA_KIND_METRICS) or []),
+                "containers": len(by_kind.get(reg.GRAFANA_KIND_CONTAINERS) or []),
+                "logs": len(by_kind.get(reg.GRAFANA_KIND_LOGS) or []),
+                "all": len(bound_rows),
+            },
+            "tab": tab,
+            "prefill": prefill,
             "status": status,
             "has_key": reg.has_credentials(integration),
             "poll_interval_sec": reg.poll_interval_sec(integration),
@@ -783,9 +832,13 @@ async def set_binding(
         role = reg.ROLE_SSH
 
     if role == reg.ROLE_DASHBOARD:
-        section = "grafana-dashboards"
-        scope = "dashboard"
         gkind = reg.normalize_grafana_kind(kind)
+        tab = {
+            reg.GRAFANA_KIND_METRICS: "metrics",
+            reg.GRAFANA_KIND_CONTAINERS: "containers",
+            reg.GRAFANA_KIND_LOGS: "logs",
+        }.get(gkind, "metrics")
+        scope = "dashboard"
         if clear in ("1", "on", "true") or not (external_id or "").strip():
             reg.clear_binding(
                 session,
@@ -804,9 +857,9 @@ async def set_binding(
             )
             return _redirect(
                 f"/integrations/{integration_id}",
-                fragment=section,
                 msg="binding_cleared",
                 scope=scope,
+                tab=tab,
             )
         # Resolve meta from cached dashboards or manual uid
         mon_meta: dict = {}
@@ -822,7 +875,6 @@ async def set_binding(
         mon_meta["kind"] = gkind
         proj = (docker_project or "").strip() if gkind == reg.GRAFANA_KIND_CONTAINERS else ""
         cont = (docker_container or "").strip() if gkind == reg.GRAFANA_KIND_CONTAINERS else ""
-        # Allow host-level containers (no project) or project-only or container
         msg_bits = [gkind]
         if cont:
             msg_bits.append(cont)
@@ -855,17 +907,17 @@ async def set_binding(
             )
             return _redirect(
                 f"/integrations/{integration_id}",
-                fragment=section,
                 msg="binding_saved",
                 scope=scope,
+                tab=tab,
             )
         except ValueError as e:
             return _redirect(
                 f"/integrations/{integration_id}",
-                fragment=section,
                 error="binding_failed",
                 detail=str(e)[:200],
                 scope=scope,
+                tab=tab,
             )
 
     if clear in ("1", "on", "true") or not (external_id or "").strip():

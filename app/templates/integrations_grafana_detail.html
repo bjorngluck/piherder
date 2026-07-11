@@ -46,7 +46,7 @@
 </div>
 {% endif %}
 
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
   <div class="card p-3">
     <div class="text-[11px] text-muted uppercase tracking-wide">Status</div>
     <div class="mt-1">
@@ -66,8 +66,8 @@
     <div class="mt-1 text-sm font-medium text-text">{{ status.version or '—' }}</div>
   </div>
   <div class="card p-3">
-    <div class="text-[11px] text-muted uppercase tracking-wide">Database</div>
-    <div class="mt-1 text-sm font-medium text-text">{{ status.database or '—' }}</div>
+    <div class="text-[11px] text-muted uppercase tracking-wide">Bindings</div>
+    <div class="mt-1 text-sm font-medium text-text">{{ counts.all }}</div>
   </div>
   <div class="card p-3">
     <div class="text-[11px] text-muted uppercase tracking-wide">Dashboards</div>
@@ -83,21 +83,49 @@
 </div>
 {% endif %}
 
-<div class="card p-3 mb-4 text-xs text-muted space-y-1">
-  <div>Poll every {{ poll_interval_sec }}s · TLS {% if tls_verify %}on{% else %}off{% endif %} · Token {% if has_key %}saved{% else %}none{% endif %}
-    {% if integration.last_polled_at %} · last poll {{ integration.last_polled_at }}{% endif %}
-  </div>
-  <div class="font-mono text-[11px]"><span class="text-muted">metrics:</span> {{ query_template or '—' }}</div>
-  <div class="font-mono text-[11px]"><span class="text-muted">containers (host):</span> {{ query_template_container_host or '—' }}</div>
-  <div class="font-mono text-[11px]"><span class="text-muted">containers (one):</span> {{ query_template_container or '—' }}</div>
-  <div class="font-mono text-[11px]"><span class="text-muted">logs:</span> {{ query_template_logs or '—' }}</div>
+{# Tabs: metrics | containers | logs | inventory #}
+<div class="mb-4 border-b border-border flex flex-wrap gap-1" role="tablist" id="grafana-tabs">
+  <a href="?tab=metrics"
+     class="px-3 py-2 text-sm font-medium rounded-t border-b-2 -mb-px
+            {% if tab == 'metrics' %}border-primary text-primary{% else %}border-transparent text-muted hover:text-text{% endif %}"
+     data-tab="metrics">
+    Host metrics
+    <span class="text-xs opacity-70">({{ counts.metrics }})</span>
+  </a>
+  <a href="?tab=containers"
+     class="px-3 py-2 text-sm font-medium rounded-t border-b-2 -mb-px
+            {% if tab == 'containers' %}border-primary text-primary{% else %}border-transparent text-muted hover:text-text{% endif %}"
+     data-tab="containers">
+    Containers
+    <span class="text-xs opacity-70">({{ counts.containers }})</span>
+  </a>
+  <a href="?tab=logs"
+     class="px-3 py-2 text-sm font-medium rounded-t border-b-2 -mb-px
+            {% if tab == 'logs' %}border-primary text-primary{% else %}border-transparent text-muted hover:text-text{% endif %}"
+     data-tab="logs">
+    Host logs
+    <span class="text-xs opacity-70">({{ counts.logs }})</span>
+  </a>
+  <a href="?tab=inventory"
+     class="px-3 py-2 text-sm font-medium rounded-t border-b-2 -mb-px
+            {% if tab == 'inventory' %}border-primary text-primary{% else %}border-transparent text-muted hover:text-text{% endif %}"
+     data-tab="inventory">
+    Inventory
+  </a>
 </div>
 
+{% if tab == 'inventory' %}
 <div class="card p-4 mb-6">
   <h2 class="text-lg font-semibold text-text mb-2">Dashboard inventory</h2>
   <p class="text-xs text-muted mb-3">From <code class="text-[10px]">GET /api/search</code> when a token is set.</p>
+  <div class="card p-3 mb-4 text-xs text-muted space-y-1">
+    <div class="font-mono text-[11px]"><span class="text-muted">metrics:</span> {{ query_template or '—' }}</div>
+    <div class="font-mono text-[11px]"><span class="text-muted">containers (host):</span> {{ query_template_container_host or '—' }}</div>
+    <div class="font-mono text-[11px]"><span class="text-muted">containers (one):</span> {{ query_template_container or '—' }}</div>
+    <div class="font-mono text-[11px]"><span class="text-muted">logs:</span> {{ query_template_logs or '—' }}</div>
+  </div>
   {% if dashboards %}
-  <div class="overflow-x-auto max-h-64 overflow-y-auto">
+  <div class="overflow-x-auto max-h-96 overflow-y-auto">
     <table class="w-full text-sm">
       <thead>
         <tr class="text-left text-xs text-muted border-b border-border">
@@ -124,43 +152,82 @@
     </table>
   </div>
   {% else %}
-  <p class="text-sm text-muted">No dashboards cached. Add a token and poll, or paste UIDs below.</p>
+  <p class="text-sm text-muted">No dashboards cached. Add a token and poll.</p>
   {% endif %}
 </div>
 
-<div class="card p-4 mb-6" id="grafana-dashboards">
-  <h2 class="text-lg font-semibold text-text mb-2">Dashboard bindings</h2>
-  <p class="text-xs text-muted mb-3">
-    <strong>Host metrics</strong> / <strong>Logs</strong> → server detail.
-    <strong>Containers</strong> host overview → server detail; per-container → Docker page chips.
-  </p>
+{% else %}
+{# Active kind tab content #}
+{% if tab == 'metrics' %}
+  {% set rows = bindings_metrics %}
+  {% set kind_default = 'metrics' %}
+  {% set kind_title = 'Host metrics' %}
+  {% set kind_hint = 'Node exporter style — chips on server detail. Template: ' ~ (query_template or '—') %}
+{% elif tab == 'logs' %}
+  {% set rows = bindings_logs %}
+  {% set kind_default = 'logs' %}
+  {% set kind_title = 'Host logs' %}
+  {% set kind_hint = 'Host-level log dashboards (Loki etc.). Template: ' ~ (query_template_logs or '—') %}
+{% else %}
+  {% set rows = bindings_containers %}
+  {% set kind_default = 'containers' %}
+  {% set kind_title = 'Containers' %}
+  {% set kind_hint = 'Host overview or per-container. Host chips on server detail; per-container gf chips on Docker page. Template: ' ~ (query_template_container or '—') %}
+{% endif %}
 
-  {% if bindings %}
-  <div class="space-y-2 mb-4">
-    {% for b in bindings %}
-    <div class="flex flex-wrap items-center justify-between gap-2 p-2 rounded border border-border/60">
+<div class="card p-4 mb-6" id="grafana-dashboards">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+    <div>
+      <h2 class="text-lg font-semibold text-text">{{ kind_title }}</h2>
+      <p class="text-xs text-muted mt-1 max-w-2xl font-mono">{{ kind_hint }}</p>
+    </div>
+    {% if rows %}
+    <div class="flex flex-wrap items-center gap-2">
+      <input type="search" id="bind-filter" class="input text-sm min-w-[12rem]"
+             placeholder="Filter host / service…"
+             autocomplete="off">
+      <span class="text-xs text-muted" id="bind-filter-count">{{ rows|length }} shown</span>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if rows %}
+  <div class="space-y-2 mb-4 max-h-[28rem] overflow-y-auto" id="bind-list">
+    {% set ns = namespace(prev_host='') %}
+    {% for b in rows %}
+    {% if b.server_name != ns.prev_host %}
+    {% set ns.prev_host = b.server_name %}
+    <div class="text-[11px] font-semibold text-muted uppercase tracking-wide pt-2 sticky top-0 bg-card z-[1]"
+         data-host-header="{{ b.server_name }}">
+      <a href="/servers/{{ b.server_id }}" class="hover:text-primary">{{ b.server_name }}</a>
+    </div>
+    {% endif %}
+    <div class="bind-row flex flex-wrap items-center justify-between gap-2 p-2 rounded border border-border/60"
+         data-filter="{{ (b.server_name ~ ' ' ~ (b.location or '') ~ ' ' ~ (b.label or '') ~ ' ' ~ (b.uid or ''))|lower }}">
       <div class="min-w-0">
-        <a href="/servers/{{ b.server_id }}" class="text-sm font-medium text-text hover:text-primary">
-          {{ b.server_name }}
-        </a>
-        <span class="status-pill text-xs ml-1 feature-off">{{ b.kind_label or b.kind }}</span>
         {% if b.location %}
-        <span class="text-xs text-muted font-mono">{{ b.location }}</span>
-        {% endif %}
+        <span class="text-sm font-medium text-text font-mono">{{ b.location }}</span>
         <span class="text-xs text-muted">→</span>
-        <span class="text-sm">{{ b.label }}</span>
-        <div class="text-[11px] text-muted font-mono">{{ b.uid }}</div>
+        {% endif %}
+        <span class="text-sm {% if not b.location %}font-medium text-text{% else %}text-muted{% endif %}">{{ b.label }}</span>
+        <div class="text-[11px] text-muted font-mono truncate">{{ b.uid }}</div>
       </div>
-      <div class="flex flex-wrap gap-2">
+      <div class="flex flex-wrap gap-1.5">
         {% if b.open_url %}
-        <a href="{{ b.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open in Grafana</a>
+        <a href="{{ b.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open</a>
         {% endif %}
         {% if can_mutate %}
+        <a href="?tab={{ tab }}&mode=edit&binding_id={{ b.id }}&server_id={{ b.server_id }}&kind={{ b.kind or kind_default }}&external_id={{ b.uid|urlencode }}&docker_project={{ (b.docker_project or '')|urlencode }}&docker_container={{ (b.docker_container or '')|urlencode }}#grafana-bind-form"
+           class="btn btn-secondary text-xs min-h-9"
+           title="Load into form, change a field, save">Edit</a>
+        <a href="?tab={{ tab }}&mode=clone&server_id={{ b.server_id }}&kind={{ b.kind or kind_default }}&external_id={{ b.uid|urlencode }}&docker_project={{ (b.docker_project or '')|urlencode }}&docker_container={{ (b.docker_container or '')|urlencode }}#grafana-bind-form"
+           class="btn btn-secondary text-xs min-h-9"
+           title="Prefill form as a new binding — change host or container, then save">Clone</a>
         <form method="post" action="/integrations/{{ integration.id }}/bindings" class="inline">
           <input type="hidden" name="server_id" value="{{ b.server_id }}">
           <input type="hidden" name="external_id" value="{{ b.uid }}">
           <input type="hidden" name="role" value="dashboard">
-          <input type="hidden" name="kind" value="{{ b.kind or 'metrics' }}">
+          <input type="hidden" name="kind" value="{{ b.kind or kind_default }}">
           <input type="hidden" name="binding_id" value="{{ b.id }}">
           <input type="hidden" name="clear" value="1">
           <button type="submit" class="btn btn-secondary text-xs min-h-9">Unbind</button>
@@ -171,63 +238,101 @@
     {% endfor %}
   </div>
   {% else %}
-  <p class="text-sm text-muted mb-4">No dashboard bindings yet.</p>
+  <p class="text-sm text-muted mb-4">No {{ kind_title|lower }} bindings yet. Use the form below.</p>
   {% endif %}
 
   {% if can_mutate and servers %}
   <form method="post" action="/integrations/{{ integration.id }}/bindings"
         id="grafana-bind-form"
-        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end border-t border-border pt-4">
-    <input type="hidden" name="role" value="dashboard">
-    <div>
-      <label class="block text-xs font-medium text-muted mb-1" for="server_id">Server</label>
-      <select id="server_id" name="server_id" required class="input w-full text-sm">
-        {% for s in servers %}
-        <option value="{{ s.id }}">{{ s.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div>
-      <label class="block text-xs font-medium text-muted mb-1" for="kind">Kind</label>
-      <select id="kind" name="kind" class="input w-full text-sm">
-        <option value="metrics">Host metrics</option>
-        <option value="containers">Containers</option>
-        <option value="logs">Host logs</option>
-      </select>
-    </div>
-    <div>
-      <label class="block text-xs font-medium text-muted mb-1" for="external_id">Dashboard</label>
-      {% if dashboards %}
-      <select id="external_id" name="external_id" required class="input w-full text-sm">
-        {% for d in dashboards %}
-        <option value="{{ d.uid }}">{{ d.title or d.name }} ({{ d.uid }})</option>
-        {% endfor %}
-      </select>
-      {% else %}
-      <input id="external_id" name="external_id" type="text" required
-             class="input w-full font-mono text-sm" placeholder="dashboard-uid">
+        class="border-t border-border pt-4 space-y-3">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <h3 class="text-sm font-semibold text-text" id="bind-form-title">
+        {% if prefill.mode == 'edit' %}Update binding
+        {% elif prefill.mode == 'clone' %}Clone / new binding
+        {% else %}Add binding{% endif %}
+      </h3>
+      {% if prefill.mode %}
+      <a href="?tab={{ tab }}#grafana-bind-form" class="text-xs text-accent hover:underline">Clear prefill</a>
       {% endif %}
     </div>
-    <div id="docker-scope-fields" class="sm:col-span-2 lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3 hidden">
+    {% if prefill.mode == 'clone' %}
+    <p class="text-xs text-muted">
+      Form prefilled from an existing row. Change <strong>server</strong> or <strong>container</strong>, then save as a new binding.
+    </p>
+    {% elif prefill.mode == 'edit' %}
+    <p class="text-xs text-muted">
+      Editing existing binding. Adjust fields and save to update in place.
+    </p>
+    {% endif %}
+
+    <input type="hidden" name="role" value="dashboard">
+    <input type="hidden" name="binding_id" id="binding_id" value="{{ prefill.binding_id if prefill.mode == 'edit' else '' }}">
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
+      <div>
+        <label class="block text-xs font-medium text-muted mb-1" for="server_id">Server (host)</label>
+        <select id="server_id" name="server_id" required class="input w-full text-sm">
+          {% for s in servers %}
+          <option value="{{ s.id }}"
+            {% if prefill.server_id and prefill.server_id == (s.id|string) %}selected
+            {% elif not prefill.server_id and loop.first %}selected{% endif %}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-muted mb-1" for="kind">Kind</label>
+        <select id="kind" name="kind" class="input w-full text-sm">
+          <option value="metrics" {% if (prefill.kind or kind_default) == 'metrics' %}selected{% endif %}>Host metrics</option>
+          <option value="containers" {% if (prefill.kind or kind_default) == 'containers' %}selected{% endif %}>Containers</option>
+          <option value="logs" {% if (prefill.kind or kind_default) == 'logs' %}selected{% endif %}>Host logs</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-muted mb-1" for="external_id">Dashboard</label>
+        {% if dashboards %}
+        <select id="external_id" name="external_id" required class="input w-full text-sm">
+          {% for d in dashboards %}
+          <option value="{{ d.uid }}"
+            {% if prefill.external_id and prefill.external_id == d.uid %}selected{% endif %}>
+            {{ d.title or d.name }} ({{ d.uid }})
+          </option>
+          {% endfor %}
+        </select>
+        {% else %}
+        <input id="external_id" name="external_id" type="text" required
+               class="input w-full font-mono text-sm" placeholder="dashboard-uid"
+               value="{{ prefill.external_id }}">
+        {% endif %}
+      </div>
+    </div>
+
+    <div id="docker-scope-fields" class="grid grid-cols-1 sm:grid-cols-2 gap-3 {% if (prefill.kind or kind_default) != 'containers' %}hidden{% endif %}">
       <div>
         <label class="block text-xs font-medium text-muted mb-1" for="docker_project">
-          Compose project <span class="font-normal">(optional — leave empty for host-wide)</span>
+          Compose project <span class="font-normal">(optional)</span>
         </label>
-        <select id="docker_project" name="docker_project" class="input w-full text-sm">
+        <select id="docker_project" name="docker_project" class="input w-full text-sm"
+                data-prefill="{{ prefill.docker_project }}">
           <option value="">— host overview —</option>
         </select>
       </div>
       <div>
         <label class="block text-xs font-medium text-muted mb-1" for="docker_container">
-          Container <span class="font-normal">(optional)</span>
+          Container / service <span class="font-normal">(optional)</span>
         </label>
-        <select id="docker_container" name="docker_container" class="input w-full text-sm">
+        <select id="docker_container" name="docker_container" class="input w-full text-sm"
+                data-prefill="{{ prefill.docker_container }}">
           <option value="">— all on host / project —</option>
         </select>
       </div>
     </div>
-    <div>
-      <button type="submit" class="btn btn-primary min-h-11 w-full sm:w-auto">Bind dashboard</button>
+
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary min-h-11" id="bind-submit">
+        {% if prefill.mode == 'edit' %}Save changes
+        {% elif prefill.mode == 'clone' %}Save as new binding
+        {% else %}Bind dashboard{% endif %}
+      </button>
     </div>
   </form>
   <script>
@@ -238,11 +343,13 @@
     const scopeBox = document.getElementById('docker-scope-fields');
     const projEl = document.getElementById('docker_project');
     const contEl = document.getElementById('docker_container');
+    const prefillProj = (projEl && projEl.dataset.prefill) || '';
+    const prefillCont = (contEl && contEl.dataset.prefill) || '';
 
-    function fillProjects() {
+    function fillProjects(preferProj) {
       const sid = parseInt(serverEl.value, 10);
       const projects = dockerOpts[sid] || [];
-      const prev = projEl.value;
+      const want = preferProj != null ? preferProj : (projEl.value || prefillProj);
       projEl.innerHTML = '<option value="">— host overview —</option>';
       projects.forEach(function (p) {
         const o = document.createElement('option');
@@ -250,15 +357,15 @@
         o.textContent = p.name;
         projEl.appendChild(o);
       });
-      if (prev) projEl.value = prev;
-      fillContainers();
+      if (want) projEl.value = want;
+      fillContainers(preferProj != null ? prefillCont : null);
     }
 
-    function fillContainers() {
+    function fillContainers(preferCont) {
       const sid = parseInt(serverEl.value, 10);
       const projects = dockerOpts[sid] || [];
       const pname = projEl.value;
-      const prev = contEl.value;
+      const want = preferCont != null ? preferCont : (contEl.value || prefillCont);
       contEl.innerHTML = '<option value="">— all on host / project —</option>';
       projects.forEach(function (p) {
         if (pname && p.name !== pname) return;
@@ -270,13 +377,13 @@
           contEl.appendChild(o);
         });
       });
-      if (prev) contEl.value = prev;
+      if (want) contEl.value = want;
     }
 
     function toggleScope() {
       const show = kindEl.value === 'containers';
       scopeBox.classList.toggle('hidden', !show);
-      if (show) fillProjects();
+      if (show) fillProjects(prefillProj || null);
     }
 
     contEl.addEventListener('change', function () {
@@ -288,16 +395,54 @@
 
     kindEl.addEventListener('change', toggleScope);
     serverEl.addEventListener('change', function () {
-      if (kindEl.value === 'containers') fillProjects();
+      if (kindEl.value === 'containers') fillProjects('');
     });
-    projEl.addEventListener('change', fillContainers);
+    projEl.addEventListener('change', function () { fillContainers(''); });
     toggleScope();
+
+    // Client-side filter for long container lists
+    const filterEl = document.getElementById('bind-filter');
+    const listEl = document.getElementById('bind-list');
+    const countEl = document.getElementById('bind-filter-count');
+    if (filterEl && listEl) {
+      filterEl.addEventListener('input', function () {
+        const q = (filterEl.value || '').toLowerCase().trim();
+        let n = 0;
+        listEl.querySelectorAll('.bind-row').forEach(function (row) {
+          const hay = row.getAttribute('data-filter') || '';
+          const show = !q || hay.indexOf(q) !== -1;
+          row.classList.toggle('hidden', !show);
+          if (show) n++;
+        });
+        // Hide empty host headers
+        let lastHeader = null;
+        let anyVisible = false;
+        Array.from(listEl.children).forEach(function (el) {
+          if (el.hasAttribute('data-host-header')) {
+            if (lastHeader) lastHeader.classList.toggle('hidden', !anyVisible);
+            lastHeader = el;
+            anyVisible = false;
+          } else if (el.classList.contains('bind-row')) {
+            if (!el.classList.contains('hidden')) anyVisible = true;
+          }
+        });
+        if (lastHeader) lastHeader.classList.toggle('hidden', !anyVisible);
+        if (countEl) countEl.textContent = n + ' shown';
+      });
+    }
+
+    {% if prefill.mode %}
+    // Scroll form into view when editing/cloning
+    const form = document.getElementById('grafana-bind-form');
+    if (form) form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    {% endif %}
   })();
   </script>
   {% elif can_mutate %}
   <p class="text-sm text-muted">Add a server first, then bind dashboards here.</p>
   {% endif %}
 </div>
+{% endif %}
 
 {% if can_mutate %}
 <div class="card p-4 border border-failed/30">
