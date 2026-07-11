@@ -217,6 +217,16 @@
                   {% else %}mon {{ chip.state }}{% endif %}
                 </a>
                 {% endfor %}
+                {% set ctr_gf = (grafana_by_container or {}).get(ctr_key) or (grafana_by_container or {}).get(c.compose_service or '') or [] %}
+                {% for chip in ctr_gf %}
+                <a href="{{ chip.open_url or '#' }}"
+                   {% if chip.open_url %}target="_blank" rel="noopener"{% endif %}
+                   class="status-pill text-xs no-underline status-running"
+                   title="Grafana: {{ chip.label }}"
+                   onclick="event.stopPropagation()">
+                  gf
+                </a>
+                {% endfor %}
                 {% if c.status and not c.placeholder %}
                   <span class="docker-svc-age text-muted" title="{{ c.status | e }}">{{ c.status }}</span>
                 {% endif %}

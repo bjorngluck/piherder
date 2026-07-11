@@ -46,7 +46,6 @@
 </div>
 {% endif %}
 
-{# Health / stats chips #}
 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
   <div class="card p-3">
     <div class="text-[11px] text-muted uppercase tracking-wide">Status</div>
@@ -83,26 +82,22 @@
   {{ integration.last_error }}
 </div>
 {% endif %}
-<p class="text-xs text-muted mb-4">
-  Poll every {{ poll_interval_sec }}s ·
-  TLS verify {% if tls_verify %}on{% else %}off{% endif %} ·
-  Token {% if has_key %}saved{% else %}none{% endif %} ·
-  Query template:
-  <code class="text-[10px]">{{ query_template or '(none)' }}</code>
-  {% if integration.last_polled_at %}
-  · last poll {{ integration.last_polled_at }}
-  {% endif %}
-</p>
 
-{# Inventory #}
+<div class="card p-3 mb-4 text-xs text-muted space-y-1">
+  <div>Poll every {{ poll_interval_sec }}s · TLS {% if tls_verify %}on{% else %}off{% endif %} · Token {% if has_key %}saved{% else %}none{% endif %}
+    {% if integration.last_polled_at %} · last poll {{ integration.last_polled_at }}{% endif %}
+  </div>
+  <div class="font-mono text-[11px]"><span class="text-muted">metrics:</span> {{ query_template or '—' }}</div>
+  <div class="font-mono text-[11px]"><span class="text-muted">containers (host):</span> {{ query_template_container_host or '—' }}</div>
+  <div class="font-mono text-[11px]"><span class="text-muted">containers (one):</span> {{ query_template_container or '—' }}</div>
+  <div class="font-mono text-[11px]"><span class="text-muted">logs:</span> {{ query_template_logs or '—' }}</div>
+</div>
+
 <div class="card p-4 mb-6">
   <h2 class="text-lg font-semibold text-text mb-2">Dashboard inventory</h2>
-  <p class="text-xs text-muted mb-3">
-    From <code class="text-[10px]">GET /api/search</code> when a service account token is configured.
-    Without a token you can still bind by pasting a dashboard UID.
-  </p>
+  <p class="text-xs text-muted mb-3">From <code class="text-[10px]">GET /api/search</code> when a token is set.</p>
   {% if dashboards %}
-  <div class="overflow-x-auto">
+  <div class="overflow-x-auto max-h-64 overflow-y-auto">
     <table class="w-full text-sm">
       <thead>
         <tr class="text-left text-xs text-muted border-b border-border">
@@ -129,20 +124,15 @@
     </table>
   </div>
   {% else %}
-  <p class="text-sm text-muted">
-    No dashboards cached.
-    {% if not has_key %}Add a service account token and poll to list them.{% else %}Poll now, or check token permissions.{% endif %}
-  </p>
+  <p class="text-sm text-muted">No dashboards cached. Add a token and poll, or paste UIDs below.</p>
   {% endif %}
 </div>
 
-{# Server bindings #}
 <div class="card p-4 mb-6" id="grafana-dashboards">
-  <h2 class="text-lg font-semibold text-text mb-2">Server → dashboard bindings</h2>
+  <h2 class="text-lg font-semibold text-text mb-2">Dashboard bindings</h2>
   <p class="text-xs text-muted mb-3">
-    Chips on server detail open the dashboard with your query template
-    (e.g. <code class="text-[10px]">var-job={hostname_short}_exporter</code>
-    → <code class="text-[10px]">?var-job=rpi5-1_exporter</code>).
+    <strong>Host metrics</strong> / <strong>Logs</strong> → server detail.
+    <strong>Containers</strong> host overview → server detail; per-container → Docker page chips.
   </p>
 
   {% if bindings %}
@@ -153,13 +143,13 @@
         <a href="/servers/{{ b.server_id }}" class="text-sm font-medium text-text hover:text-primary">
           {{ b.server_name }}
         </a>
+        <span class="status-pill text-xs ml-1 feature-off">{{ b.kind_label or b.kind }}</span>
+        {% if b.location %}
+        <span class="text-xs text-muted font-mono">{{ b.location }}</span>
+        {% endif %}
         <span class="text-xs text-muted">→</span>
         <span class="text-sm">{{ b.label }}</span>
-        <span class="status-pill text-xs ml-1
-          {% if b.state == 'up' or b.state == 'linked' %}status-success
-          {% elif b.state == 'down' %}status-failed
-          {% else %}feature-off{% endif %}">{{ b.state }}</span>
-        <div class="text-[11px] text-muted font-mono">{{ b.uid }}{% if b.message %} · {{ b.message }}{% endif %}</div>
+        <div class="text-[11px] text-muted font-mono">{{ b.uid }}</div>
       </div>
       <div class="flex flex-wrap gap-2">
         {% if b.open_url %}
@@ -170,6 +160,7 @@
           <input type="hidden" name="server_id" value="{{ b.server_id }}">
           <input type="hidden" name="external_id" value="{{ b.uid }}">
           <input type="hidden" name="role" value="dashboard">
+          <input type="hidden" name="kind" value="{{ b.kind or 'metrics' }}">
           <input type="hidden" name="binding_id" value="{{ b.id }}">
           <input type="hidden" name="clear" value="1">
           <button type="submit" class="btn btn-secondary text-xs min-h-9">Unbind</button>
@@ -185,7 +176,8 @@
 
   {% if can_mutate and servers %}
   <form method="post" action="/integrations/{{ integration.id }}/bindings"
-        class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end border-t border-border pt-4">
+        id="grafana-bind-form"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end border-t border-border pt-4">
     <input type="hidden" name="role" value="dashboard">
     <div>
       <label class="block text-xs font-medium text-muted mb-1" for="server_id">Server</label>
@@ -193,6 +185,14 @@
         {% for s in servers %}
         <option value="{{ s.id }}">{{ s.name }}</option>
         {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-muted mb-1" for="kind">Kind</label>
+      <select id="kind" name="kind" class="input w-full text-sm">
+        <option value="metrics">Host metrics</option>
+        <option value="containers">Containers</option>
+        <option value="logs">Host logs</option>
       </select>
     </div>
     <div>
@@ -208,10 +208,92 @@
              class="input w-full font-mono text-sm" placeholder="dashboard-uid">
       {% endif %}
     </div>
+    <div id="docker-scope-fields" class="sm:col-span-2 lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3 hidden">
+      <div>
+        <label class="block text-xs font-medium text-muted mb-1" for="docker_project">
+          Compose project <span class="font-normal">(optional — leave empty for host-wide)</span>
+        </label>
+        <select id="docker_project" name="docker_project" class="input w-full text-sm">
+          <option value="">— host overview —</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-muted mb-1" for="docker_container">
+          Container <span class="font-normal">(optional)</span>
+        </label>
+        <select id="docker_container" name="docker_container" class="input w-full text-sm">
+          <option value="">— all on host / project —</option>
+        </select>
+      </div>
+    </div>
     <div>
       <button type="submit" class="btn btn-primary min-h-11 w-full sm:w-auto">Bind dashboard</button>
     </div>
   </form>
+  <script>
+  (function () {
+    const dockerOpts = {{ docker_options_json|safe }};
+    const kindEl = document.getElementById('kind');
+    const serverEl = document.getElementById('server_id');
+    const scopeBox = document.getElementById('docker-scope-fields');
+    const projEl = document.getElementById('docker_project');
+    const contEl = document.getElementById('docker_container');
+
+    function fillProjects() {
+      const sid = parseInt(serverEl.value, 10);
+      const projects = dockerOpts[sid] || [];
+      const prev = projEl.value;
+      projEl.innerHTML = '<option value="">— host overview —</option>';
+      projects.forEach(function (p) {
+        const o = document.createElement('option');
+        o.value = p.name;
+        o.textContent = p.name;
+        projEl.appendChild(o);
+      });
+      if (prev) projEl.value = prev;
+      fillContainers();
+    }
+
+    function fillContainers() {
+      const sid = parseInt(serverEl.value, 10);
+      const projects = dockerOpts[sid] || [];
+      const pname = projEl.value;
+      const prev = contEl.value;
+      contEl.innerHTML = '<option value="">— all on host / project —</option>';
+      projects.forEach(function (p) {
+        if (pname && p.name !== pname) return;
+        (p.containers || []).forEach(function (c) {
+          const o = document.createElement('option');
+          o.value = c.name;
+          o.textContent = (pname ? '' : (p.name + ' / ')) + c.name;
+          o.dataset.project = p.name;
+          contEl.appendChild(o);
+        });
+      });
+      if (prev) contEl.value = prev;
+    }
+
+    function toggleScope() {
+      const show = kindEl.value === 'containers';
+      scopeBox.classList.toggle('hidden', !show);
+      if (show) fillProjects();
+    }
+
+    contEl.addEventListener('change', function () {
+      const opt = contEl.selectedOptions[0];
+      if (opt && opt.dataset.project && !projEl.value) {
+        projEl.value = opt.dataset.project;
+      }
+    });
+
+    kindEl.addEventListener('change', toggleScope);
+    serverEl.addEventListener('change', function () {
+      if (kindEl.value === 'containers') fillProjects();
+    });
+    projEl.addEventListener('change', fillContainers);
+    toggleScope();
+  })();
+  </script>
   {% elif can_mutate %}
   <p class="text-sm text-muted">Add a server first, then bind dashboards here.</p>
   {% endif %}

@@ -26,9 +26,11 @@ PiHerder is an optional **integration hub** for the homelab stack:
 ### Grafana
 - Connect existing Grafana with optional **service account token** (Bearer).
 - Poll **`GET /api/health`** (version, database) and **`GET /api/search?type=dash-db`** when token present.
-- Bind **server → dashboard UID** (`role=dashboard`); chips on server detail.
-- **Open in Grafana** with URL query templates (`var-host={hostname}`, etc.).
-- High-level health chips on integration detail (not full metrics exploration).
+- Bind **server → dashboard UID** (`role=dashboard`) with **kind**:
+  - **metrics** — host metrics (e.g. `var-job={hostname_short}_exporter`)
+  - **containers** — host overview and/or per-container (`{container}`, Docker chips)
+  - **logs** — host-level logs filter (e.g. `var-host={hostname_short}`)
+- **Open in Grafana** with separate query templates per kind; chips on server detail + Docker stack.
 
 Top-level **Integrations** nav (not under Settings). Later adapters (multi Pi-hole, NPM, …) reuse the same registry + binding model.
 

@@ -121,18 +121,26 @@ def apply_query_template(
     name: str = "",
     ip_address: str = "",
     server_id: str = "",
+    container: str = "",
+    project: str = "",
+    compose_service: str = "",
 ) -> str:
     """Replace placeholders in a Grafana query string template.
 
     Examples:
-      var-instance={hostname}
       var-job={hostname_short}_exporter
-      var-job={hostname_short}_exporter&var-instance={hostname}
+      var-job={hostname_short}_cadvisor&var-container={container}
+      var-host={hostname_short}   (logs)
 
     Placeholders: {hostname}, {hostname_short}, {name}, {name_lower},
-    {ip}, {ip_address}, {server_id}, {host}
+    {ip}, {ip_address}, {server_id}, {host},
+    {container}, {docker_container}, {project}, {docker_project},
+    {compose_service}
     """
     short = hostname_short(hostname, name)
+    cont = (container or "").strip()
+    proj = (project or "").strip()
+    cs = (compose_service or cont or "").strip()
     vals = {
         "hostname": hostname or "",
         "hostname_short": short,
@@ -142,6 +150,11 @@ def apply_query_template(
         "ip_address": ip_address or "",
         "server_id": server_id or "",
         "host": hostname or name or "",
+        "container": cont,
+        "docker_container": cont,
+        "project": proj,
+        "docker_project": proj,
+        "compose_service": cs,
     }
 
     def _sub(m: re.Match[str]) -> str:
@@ -165,6 +178,9 @@ def open_dashboard_url(
     name: str = "",
     ip_address: str = "",
     server_id: str = "",
+    container: str = "",
+    project: str = "",
+    compose_service: str = "",
 ) -> str:
     """Build absolute Grafana dashboard URL with optional query vars."""
     if relative_url and relative_url.startswith("/"):
@@ -179,6 +195,9 @@ def open_dashboard_url(
         name=name,
         ip_address=ip_address,
         server_id=server_id,
+        container=container,
+        project=project,
+        compose_service=compose_service,
     )
     full = open_grafana_url(base_url, path)
     if q:

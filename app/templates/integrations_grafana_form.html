@@ -7,8 +7,8 @@
       {% if mode == 'edit' %}Edit Grafana{% else %}Add Grafana{% endif %}
     </h1>
     <p class="text-sm text-muted mt-1">
-      Connect an existing Grafana for <strong>Open in Grafana</strong> deep links and
-      instance health. Optional service account token lists dashboards for binding.
+      Connect an existing Grafana for deep links. Configure separate query templates
+      for <strong>host metrics</strong>, <strong>containers</strong>, and <strong>logs</strong>.
     </p>
   </div>
   <div class="page-header-actions">
@@ -24,7 +24,7 @@
 </div>
 {% endif %}
 
-<div class="card p-5 max-w-xl">
+<div class="card p-5 max-w-2xl">
   <form method="post"
         action="{% if mode == 'edit' %}/integrations/{{ integration.id }}/edit{% else %}/integrations/new/grafana{% endif %}"
         class="space-y-4">
@@ -48,8 +48,7 @@
              class="input w-full font-mono text-sm"
              placeholder="{% if mode == 'edit' and has_key %}•••• saved — leave blank to keep{% else %}glsa_…{% endif %}">
       <p class="text-[11px] text-muted mt-1">
-        Grafana → Administration → Service accounts → token with Viewer (or higher) for
-        <code class="text-[10px]">/api/search</code>. Health check works without a token on most installs.
+        Viewer token for dashboard inventory. Health works without a token on most installs.
       </p>
       {% if mode == 'edit' and has_key %}
       <label class="flex items-center gap-2 text-xs text-muted mt-2">
@@ -58,42 +57,56 @@
       </label>
       {% endif %}
     </div>
-    <div>
-      <label class="block text-sm font-medium text-text mb-1" for="query_template">
-        Default dashboard query template
-      </label>
-      <input id="query_template" name="query_template" type="text"
-             class="input w-full font-mono text-sm"
-             placeholder="var-job={hostname_short}_exporter"
-             value="{{ form.query_template or '' }}">
-      <p class="text-[11px] text-muted mt-1">
-        Grafana variables use the <code class="text-[10px]">var-</code> prefix.
-        Common patterns:
-      </p>
-      <ul class="text-[11px] text-muted mt-1 list-disc pl-4 space-y-0.5">
-        <li>
-          Job filter (e.g. <code class="text-[10px]">rpi5-1_exporter</code>):
-          <code class="text-[10px]">var-job={hostname_short}_exporter</code>
-        </li>
-        <li>
-          Instance FQDN:
-          <code class="text-[10px]">var-instance={hostname}</code>
-        </li>
-        <li>
-          Both:
-          <code class="text-[10px]">var-job={hostname_short}_exporter&amp;var-instance={hostname}</code>
-        </li>
-      </ul>
-      <p class="text-[11px] text-muted mt-1">
+
+    <div class="border border-border rounded p-3 space-y-3">
+      <p class="text-sm font-medium text-text">Query templates (Grafana <code class="text-[10px]">var-</code> prefix)</p>
+      <p class="text-[11px] text-muted">
         Placeholders:
         <code class="text-[10px]">{hostname}</code>,
-        <code class="text-[10px]">{hostname_short}</code> (first DNS label),
+        <code class="text-[10px]">{hostname_short}</code>,
+        <code class="text-[10px]">{container}</code>,
+        <code class="text-[10px]">{project}</code>,
         <code class="text-[10px]">{name}</code>,
-        <code class="text-[10px]">{name_lower}</code>,
-        <code class="text-[10px]">{ip}</code>,
-        <code class="text-[10px]">{server_id}</code>.
+        <code class="text-[10px]">{ip}</code>.
       </p>
+      <div>
+        <label class="block text-xs font-medium text-muted mb-1" for="query_template">Host metrics</label>
+        <input id="query_template" name="query_template" type="text"
+               class="input w-full font-mono text-sm"
+               placeholder="var-job={hostname_short}_exporter"
+               value="{{ form.query_template or '' }}">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-muted mb-1" for="query_template_container_host">
+          Containers — host overview
+        </label>
+        <input id="query_template_container_host" name="query_template_container_host" type="text"
+               class="input w-full font-mono text-sm"
+               placeholder="var-job={hostname_short}_cadvisor"
+               value="{{ form.query_template_container_host or '' }}">
+        <p class="text-[11px] text-muted mt-0.5">All containers on the host (no container selected).</p>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-muted mb-1" for="query_template_container">
+          Containers — single container
+        </label>
+        <input id="query_template_container" name="query_template_container" type="text"
+               class="input w-full font-mono text-sm"
+               placeholder="var-job={hostname_short}_cadvisor&var-container={container}"
+               value="{{ form.query_template_container or '' }}">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-muted mb-1" for="query_template_logs">Host logs</label>
+        <input id="query_template_logs" name="query_template_logs" type="text"
+               class="input w-full font-mono text-sm"
+               placeholder="var-host={hostname_short}"
+               value="{{ form.query_template_logs or '' }}">
+        <p class="text-[11px] text-muted mt-0.5">
+          Match your Loki/logs dashboard variable name (e.g. <code class="text-[10px]">var-hostname=…</code>).
+        </p>
+      </div>
     </div>
+
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>
         <label class="block text-sm font-medium text-text mb-1" for="poll_interval_sec">Poll interval (sec)</label>
