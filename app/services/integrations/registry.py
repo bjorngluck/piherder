@@ -524,14 +524,36 @@ def set_binding(
             meta["scope"] = "host"
     meta_s = json.dumps(meta) if meta else None
 
+    def _scope_match(r: IntegrationBinding) -> bool:
+        return (r.docker_project or None) == proj and (r.docker_container or None) == cont
+
+    def _find_by_unique_scope() -> Optional[IntegrationBinding]:
+        """Match DB unique index uq_integ_bind_scope (kind is meta-only, not in index)."""
+        rows = list(
+            session.exec(
+                select(IntegrationBinding).where(
+                    IntegrationBinding.integration_id == integration_id,
+                    IntegrationBinding.server_id == server_id,
+                    IntegrationBinding.role == role,
+                    IntegrationBinding.external_id == ext,
+                )
+            ).all()
+        )
+        for r in rows:
+            if _scope_match(r):
+                return r
+        return None
+
     existing: Optional[IntegrationBinding] = None
+    by_id: Optional[IntegrationBinding] = None
     if binding_id is not None:
-        existing = session.get(IntegrationBinding, binding_id)
-        if existing and (
-            existing.integration_id != integration_id or existing.role != role
+        by_id = session.get(IntegrationBinding, binding_id)
+        if by_id and (
+            by_id.integration_id != integration_id or by_id.role != role
         ):
-            existing = None
-    elif role == ROLE_SSH:
+            by_id = None
+
+    if role == ROLE_SSH:
         # One SSH monitor per server per integration
         existing = session.exec(
             select(IntegrationBinding).where(
@@ -540,42 +562,23 @@ def set_binding(
                 IntegrationBinding.role == role,
             )
         ).first()
-    elif role == ROLE_DASHBOARD:
-        # Unique: dashboard uid + kind + docker scope per server
-        kind_key = normalize_grafana_kind(meta.get("kind"))
-        rows = list(
-            session.exec(
-                select(IntegrationBinding).where(
-                    IntegrationBinding.integration_id == integration_id,
-                    IntegrationBinding.server_id == server_id,
-                    IntegrationBinding.role == role,
-                    IntegrationBinding.external_id == ext,
-                )
-            ).all()
-        )
-        for r in rows:
-            rmeta = parse_binding_meta(r)
-            if normalize_grafana_kind(rmeta.get("kind")) != kind_key:
-                continue
-            if (r.docker_project or None) == proj and (r.docker_container or None) == cont:
-                existing = r
-                break
+    elif role in (ROLE_DASHBOARD, ROLE_SERVICE):
+        # Prefer row already occupying the unique scope (proj/container).
+        existing = _find_by_unique_scope()
+        if by_id is not None:
+            if existing is None:
+                # Edit/move binding into a free scope — update the row in place
+                existing = by_id
+            elif existing.id != by_id.id:
+                # Edit moved onto a scope that already has a row (e.g. clone target
+                # already bound, or edit container to an existing one): keep the
+                # scope row, drop the stale source binding.
+                session.delete(by_id)
+                session.flush()
+            # else: by_id is the scope row already
+        # Clone/new with no binding_id: existing is scope match or None → insert
     else:
-        # Service: unique per project/container/monitor
-        rows = list(
-            session.exec(
-                select(IntegrationBinding).where(
-                    IntegrationBinding.integration_id == integration_id,
-                    IntegrationBinding.server_id == server_id,
-                    IntegrationBinding.role == role,
-                    IntegrationBinding.external_id == ext,
-                )
-            ).all()
-        )
-        for r in rows:
-            if (r.docker_project or None) == proj and (r.docker_container or None) == cont:
-                existing = r
-                break
+        existing = by_id
 
     if existing:
         existing.external_id = ext
@@ -591,7 +594,25 @@ def set_binding(
             existing.last_message = last_message
         existing.updated_at = now
         session.add(existing)
-        session.commit()
+        try:
+            session.commit()
+        except Exception:
+            session.rollback()
+            # Concurrent insert won the unique race — load and update that row
+            other = _find_by_unique_scope()
+            if not other:
+                raise
+            other.external_label = external_label
+            if meta_s is not None:
+                other.external_meta_json = meta_s
+            if last_state is not None:
+                other.last_state = last_state
+            if last_message is not None:
+                other.last_message = last_message
+            other.updated_at = now
+            session.add(other)
+            session.commit()
+            existing = other
         session.refresh(existing)
         if role == ROLE_SERVICE and not existing.logo_path:
             try:
@@ -615,7 +636,29 @@ def set_binding(
         updated_at=now,
     )
     session.add(row)
-    session.commit()
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        # Unique race or missed match: merge into the existing scope row
+        other = _find_by_unique_scope()
+        if not other:
+            raise ValueError(
+                "A binding for this dashboard and scope already exists "
+                "(same host / project / container)."
+            )
+        other.external_label = external_label
+        if meta_s is not None:
+            other.external_meta_json = meta_s
+        if last_state is not None:
+            other.last_state = last_state
+        if last_message is not None:
+            other.last_message = last_message
+        other.updated_at = now
+        session.add(other)
+        session.commit()
+        session.refresh(other)
+        return other
     session.refresh(row)
     if role == ROLE_SERVICE:
         try:
