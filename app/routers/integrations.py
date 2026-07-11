@@ -467,6 +467,7 @@ async def _grafana_detail(
         reg.GRAFANA_KIND_LOGS: [],
     }
     for row in bound_rows:
+        # chip dict already uses binding_grafana_kind (docker scope → containers)
         k = reg.normalize_grafana_kind(row.get("kind"))
         by_kind.setdefault(k, []).append(row)
     for k in by_kind:

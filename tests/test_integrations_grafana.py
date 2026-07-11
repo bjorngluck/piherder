@@ -30,6 +30,29 @@ def test_hostname_short():
     assert gf.hostname_short("", "RPI5-2") == "rpi5-2"
 
 
+def test_binding_grafana_kind_infers_containers_from_docker_scope():
+    """Missing meta.kind must not dump container binds onto Host metrics tab."""
+    b = MagicMock()
+    b.docker_project = "piherder"
+    b.docker_container = "piherder-web"
+    b.external_meta_json = json.dumps(
+        {"uid": "x", "title": "cAdvisor"}  # no kind
+    )
+    assert reg.binding_grafana_kind(b) == reg.GRAFANA_KIND_CONTAINERS
+
+    host = MagicMock()
+    host.docker_project = None
+    host.docker_container = None
+    host.external_meta_json = json.dumps({"uid": "y", "title": "Node"})
+    assert reg.binding_grafana_kind(host) == reg.GRAFANA_KIND_METRICS
+
+    logs = MagicMock()
+    logs.docker_project = None
+    logs.docker_container = None
+    logs.external_meta_json = json.dumps({"uid": "z", "kind": "logs"})
+    assert reg.binding_grafana_kind(logs) == reg.GRAFANA_KIND_LOGS
+
+
 def test_apply_query_template():
     q = gf.apply_query_template(
         "var-job={hostname_short}_exporter&var-instance={hostname}",
