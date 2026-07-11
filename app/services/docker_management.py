@@ -337,22 +337,84 @@ def write_compose_file(server: Server, project_path: str, content: str) -> tuple
 
 
 def redeploy_project(server: Server, project_path: str, pull: bool = True) -> Dict:
-    """Redeploy a compose project."""
+    """Redeploy a compose project: optional pull, then ``up -d``.
+
+    Returns structured result so callers can audit failures (pull auth, path,
+    recreate). Always runs ``up -d`` after a requested pull so containers pick
+    up newly tagged images (check-updates only pulls and does *not* recreate).
+    """
+    path = (project_path or "").strip()
+    if not path:
+        return {
+            "success": False,
+            "pull": pull,
+            "pull_ok": False,
+            "up_ok": False,
+            "pull_status": None,
+            "up_status": None,
+            "output": "empty project_path",
+            "error": "empty project_path",
+        }
+
+    qpath = shlex.quote(path)
     client = get_ssh_client(server)
-    cmd = f"cd {project_path} && docker compose pull" if pull else f"cd {project_path} && docker compose up -d"
-    # Always run up -d after optional pull
-    if pull:
-        status1, out1, err1 = run_command(client, f"cd {project_path} && docker compose pull", timeout=300)
-    else:
-        status1, out1, err1 = 0, "", ""
+    try:
+        pull_status: Optional[int] = None
+        pull_out = ""
+        if pull:
+            # Registry pull only (does not recreate). Long timeout for large layers.
+            pull_status, pout, perr = run_command(
+                client,
+                f"cd {qpath} && docker compose pull 2>&1",
+                timeout=600,
+            )
+            pull_out = ((pout or "") + (perr or "")).strip()
 
-    status2, out2, err2 = run_command(client, f"cd {project_path} && docker compose up -d", timeout=120)
-    client.close()
+        # Recreate services as needed after image tags moved.
+        # --remove-orphans keeps project tidy; not --force-recreate (avoids
+        # bouncing services whose images did not change).
+        up_status, uout, uerr = run_command(
+            client,
+            f"cd {qpath} && docker compose up -d --remove-orphans 2>&1",
+            timeout=300,
+        )
+        up_out = ((uout or "") + (uerr or "")).strip()
 
-    return {
-        "success": status2 == 0,
-        "output": (out1 + err1 + "\n" + out2 + err2).strip()[-800:],
-    }
+        chunks = []
+        if pull:
+            chunks.append(f"=== docker compose pull (rc={pull_status}) ===\n{pull_out}")
+        chunks.append(f"=== docker compose up -d (rc={up_status}) ===\n{up_out}")
+        output = "\n".join(chunks).strip()[-2000:]
+
+        pull_ok = (not pull) or (pull_status == 0)
+        # Pull may report non-zero if some services are build-only; still OK if up works.
+        # Treat hard pull failure only when rc != 0 AND output looks empty of progress.
+        if pull and pull_status != 0:
+            soft = any(
+                x in pull_out.lower()
+                for x in ("pulled", "up to date", "already exists", "download complete")
+            )
+            pull_ok = soft or pull_status == 0
+        up_ok = up_status == 0
+        success = up_ok and (pull_ok if pull else True)
+
+        return {
+            "success": success,
+            "pull": pull,
+            "pull_ok": pull_ok,
+            "up_ok": up_ok,
+            "pull_status": pull_status,
+            "up_status": up_status,
+            "output": output,
+            "error": None if success else (
+                "pull failed" if pull and not pull_ok else "up -d failed"
+            ),
+        }
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
 
 
 def compose_action(server: Server, project_path: str, action: str, service: str = None) -> Dict:
