@@ -18,7 +18,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **Docs source (MkDocs):** [wiki/](wiki/) — edit here; publish updates the live site  
 - **Admin guide (long-form / single file):** [docs/ADMIN.md](docs/ADMIN.md)
 - **Automation API reference:** [docs/API.md](docs/API.md) · live OpenAPI at `/docs` (tag **api-v1**)
-- **Publish image:** [docs/PUBLISH_IMAGE.md](docs/PUBLISH_IMAGE.md)
+- **Docker Hub:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) · publish process: [docs/PUBLISH_IMAGE.md](docs/PUBLISH_IMAGE.md)
 - **Security:** [SECURITY.md](SECURITY.md)
 - **IAM / 2FA / update checks / notifications:** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - **PWA + Web Push:** [docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · iOS: [docs/DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md)

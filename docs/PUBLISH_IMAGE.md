@@ -1,6 +1,6 @@
 # Publishing a PiHerder image (Docker Hub / GHCR)
 
-**Status:** Process for multi-arch publish — target **v0.5.0 RC** (and later tags).  
+**Status:** Docker Hub repo **created** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). First image push pending (login + buildx). Target multi-arch tags at **v0.5.0 RC**.  
 **Related:** [ADMIN](https://bjorngluck.github.io/piherder/operations/upgrades/) · [wiki publish page](https://bjorngluck.github.io/piherder/developers/publish-image/) · live docs: https://bjorngluck.github.io/piherder/
 
 Until an image is published, operators use:
