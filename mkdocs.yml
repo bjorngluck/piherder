@@ -13,8 +13,9 @@ docs_dir: wiki
 site_dir: site
 copyright: Copyright &copy; 2026 Bjorn Gluck · PolyForm Noncommercial 1.0.0
 
-# Do not treat capture-guide notes as site pages
+# Do not treat repo notes as site pages (README conflicts with index.md in strict mode)
 exclude_docs: |
+  README.md
   assets/screenshots/README.md
 
 theme:
