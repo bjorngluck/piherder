@@ -79,12 +79,7 @@ Details: [README.md](../README.md) · [ADMIN.md](ADMIN.md) § Grafana integratio
 
 ---
 
-## Toward v0.4.0
+## Shipped as v0.4.0
 
-All post-tag fixes and features target **`v0.4.0`** (no `v0.3.1` branch). Track bugs/fixes for release notes in:
-
-- [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2 (living bug table B01…)  
-- [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) (WIP changelog)
-
-Includes Docker Deploy honesty, container-update alert resolve, jobs list Cancel, backup-failed alert lifecycle, then templates foundation (TBD).  
-Optional later: multi-URL adapters, multi-arch image publish.
+Post-`v0.3.0` work landed in **[v0.4.0](RELEASE_v0.4.0.md)** (2026-07-12): Docker Deploy honesty, jobs Cancel, notification lifecycle, **service templates foundation**.  
+See [PLAN_v0.4.0.md](PLAN_v0.4.0.md) and [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md).

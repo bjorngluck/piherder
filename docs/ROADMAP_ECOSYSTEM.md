@@ -23,14 +23,14 @@ Design principles stay the same as SPEC:
 | **v0.2.0** | Production install story (compose, token REST, prod docs) + H0.5 + early Kuma | H0 / H0.5 | **Tagged** 2026-07-10 — [RELEASE_v0.2.0.md](RELEASE_v0.2.0.md) |
 | **v0.2.x** | Platform reliability (host deps, stack Status tab, multi-worker) | H0.5 | Shipped on main (included in v0.2.0) |
 | **v0.3.0** | Integration hub — Kuma + **Grafana** (kinds, templates, Docker chips) | H1 | **Tagged** 2026-07-11 — [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md) |
-| **v0.4.0** | Post-0.3 quality + **service templates** (wizard, volumes/booleans, from-host, step-up secrets, wait modal, OOTB pack, encrypted desired state V1) | H2 + fixes | **In progress** — [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) |
-| **v0.4.x** | Drift validation, NPM **connector**, git template catalog, `.env` migrate UX | H1/H2 | After 0.4.0 |
-| **v0.5.0** | **First RC** — restore + last known config, production wikis, Docker Hub multi-arch, freeze bar | RC | Planned |
+| **v0.4.0** | Post-0.3 quality + **service templates** foundation (wizard, volumes/booleans, from-host, step-up secrets, wait modal, OOTB pack, desired state V1) | H2 + fixes | **Tagged** 2026-07-12 — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) |
+| **v0.4.x** | Drift validation, NPM **connector**, git template catalog, `.env` migrate UX, optional async deploy jobs | H1/H2 | After 0.4.0 |
+| **v0.5.0** | **First RC** — template polish, restore + last known config, production wikis, Docker Hub multi-arch, freeze bar | RC | Planned |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
-**Decision:** All fixes after `v0.3.0` ship in **`v0.4.0`** (no intermediate `v0.3.1`). Living bug list for release notes: PLAN §2.
+**Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
-**Production path (3 phases):** v0.4.0 templates → v0.4.x ops hardening → v0.5.0 first release candidate.
+**Production path:** ~~v0.4.0 templates~~ **done** → v0.4.x ops hardening → v0.5.0 first RC (incl. template polish).
 
 **Note:** Registry image publish (`bjorngluck/piherder`) remains optional until Docker Hub/GHCR credentials are available; target Hub publish with **v0.5.0 RC**.
 

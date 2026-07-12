@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v0.3.0-green.svg)](docs/RELEASE_v0.3.0.md)
+[![Release](https://img.shields.io/badge/release-v0.4.0-green.svg)](docs/RELEASE_v0.4.0.md)
 
 PiHerder is a self-hosted web app that manages one or more remote Linux servers (primarily Raspberry Pis). It replaces manual bash scripts with an auditable UI while keeping secrets encrypted at rest.
 
@@ -20,7 +20,8 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **IAM / 2FA / update checks / notifications:** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - **PWA + Web Push:** [docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · iOS: [docs/DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md)
 - **Integrations (Kuma + Grafana):** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · ops in [docs/ADMIN.md](docs/ADMIN.md)
-- **Release notes:** [docs/RELEASE_v0.3.0.md](docs/RELEASE_v0.3.0.md) · [v0.2.0](docs/RELEASE_v0.2.0.md)
+- **Release notes:** [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md) · [v0.3.0](docs/RELEASE_v0.3.0.md) · [v0.2.0](docs/RELEASE_v0.2.0.md)
+- **Service templates:** [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · ops in [docs/ADMIN.md](docs/ADMIN.md)
 - **Stabilisation plan:** [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
 - **UI unification plan:** [UI_UNIFICATION_PLAN.md](UI_UNIFICATION_PLAN.md) (complete)
 
@@ -65,7 +66,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - `./piherder_data:/data` — avatars (instance Settings live in Postgres).
 - `./certs:/certs` (Caddy, read-only) — `fullchain.pem` + `privkey.pem` for trusted HTTPS (see `certs/README.md`).
 
-**Current release:** **v0.3.0** (git tag). **Toward v0.4.0:** service templates foundation (wizard, volumes/booleans, from-host, encrypted desired state, step-up secrets 2FA), post-0.3 Docker/jobs/alert fixes. Integration hub: **Uptime Kuma** + **Grafana**. Platform: host dependency chips, Settings → **Status**, Celery **`CELERY_CONCURRENCY`** (default 2) + per-server backup mutex. Full env catalog: [`.env.example`](.env.example) · ops: [docs/ADMIN.md](docs/ADMIN.md) · templates: [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md).
+**Current release:** **v0.4.0** (git tag) — service templates foundation + post-0.3 quality. Integration hub: **Uptime Kuma** + **Grafana**. **Next:** v0.4.x (drift / NPM connector / git catalog) · v0.5.0 (template polish + RC). Full env catalog: [`.env.example`](.env.example) · ops: [docs/ADMIN.md](docs/ADMIN.md) · templates: [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · notes: [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md).
 
 ## Tech Stack
 
@@ -222,14 +223,15 @@ Bind-mount host directories as needed for persistence.
 
 | Track | Theme |
 |-------|--------|
-| **v0.2 / H0** | Production: clean compose, token REST API, prod ADMIN, published image |
-| **v0.3 / H1** | Integration hub: **Uptime Kuma shipped** (SSH + host/Docker services, Services pages, logos); Grafana / multi Pi-hole still open — [feature plan](docs/FEATURE_PLAN_INTEGRATIONS.md) |
-| **v0.4 / H2** | Service templates + onboard (monitor / DNS / TLS) |
+| **v0.2 / H0** | Production: clean compose, token REST API, prod ADMIN |
+| **v0.3 / H1** | Integration hub: Uptime Kuma + Grafana — [feature plan](docs/FEATURE_PLAN_INTEGRATIONS.md) |
+| **v0.4 / H2** | **Shipped:** service templates foundation — [RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md) |
+| **v0.4.x / v0.5** | Drift, NPM connector, git catalog · template polish + RC |
 | **Later / H3** | HA plugin, optional BYO LLM, Ansible, community on Discord + hacknow.info |
 
-**Recently completed (high level):** Uptime Kuma integration hub, H0.5 (host deps, Status, multi-worker), Docker inventory cache, PWA + Web Push, trusted TLS, patch apply schedules, RBAC, Jobs page, restore wizard, IAM/2FA, token REST API (`/api/v1`), Alembic + pytest.
+**Recently completed (high level):** Service templates (wizard, volumes/booleans, from-host, desired state V1), Grafana + Kuma hub, host deps, Status, multi-worker Celery, Docker inventory, PWA + Web Push, RBAC/2FA, token REST API, Alembic + pytest.
 
-**Still open (examples):** published Docker Hub/GHCR image, Grafana adapter, multi Pi-hole/NPM, service templates, HA plugin, optional AI.
+**Still open (examples):** published Docker Hub/GHCR image, config drift, NPM connector API, multi Pi-hole, HA plugin, optional AI.
 
 To track work in a GitHub Project: link the `piherder` repo, then create issues from the unchecked items in SPEC.md.
 

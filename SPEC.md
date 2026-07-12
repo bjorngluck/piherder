@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** **v0.3.0 tagged** — Phase 1–4b complete; Phase 5 H1 Kuma + Grafana shipped; Phase 6 templates **in progress** for v0.4.0  
-> **Last updated:** 2026-07-12 — Production path: v0.4.0 templates → v0.4.x drift/NPM → v0.5.0 RC
+> **Status:** **v0.4.0 tagged** — Phase 1–5 complete; Phase 6 templates **foundation shipped**; polish → v0.5.0; ops depth → v0.4.x  
+> **Last updated:** 2026-07-12 — Production path: ~~v0.4.0~~ done → v0.4.x drift/NPM → v0.5.0 RC
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -231,9 +231,9 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 
 ## Phase 6 — Service templates (v0.4 / Horizon 2)
 
-**Plan:** [docs/PLAN_v0.4.0.md](docs/PLAN_v0.4.0.md) · [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · **WIP notes:** [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md)  
-**Decision:** All post-`v0.3.0` work ships in **`v0.4.0`** (living bug IDs B01… in PLAN §2).  
-**Production path:** v0.4.0 (this phase) → v0.4.x (6b) → **v0.5.0 first RC** (6c).
+**Plan:** [docs/PLAN_v0.4.0.md](docs/PLAN_v0.4.0.md) · [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · **Release:** [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md)  
+**Decision:** All post-`v0.3.0` work for this milestone shipped in **`v0.4.0`** (bug IDs B01… in PLAN §2).  
+**Production path:** ~~v0.4.0~~ **done** → v0.4.x (6b) → **v0.5.0 first RC** (6c, incl. template polish).
 
 ### Post–v0.3.0 quality (on main → v0.4.0)
 
@@ -270,6 +270,7 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 
 ### Phase 6c — First RC (v0.5.0)
 
+- [ ] Template UX polish (redeploy volume editor, from-host edge cases, operator feedback)
 - [ ] Restore service from backup + apply last known config from PiHerder
 - [ ] Production user wiki + dev wiki
 - [ ] Docker Hub / GHCR multi-arch image publish
