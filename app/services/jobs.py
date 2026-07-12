@@ -904,10 +904,13 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
 
 def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str = "", job_type: str = ""):
     server_id = None
+    jt = job_type or ""
     with _get_fresh_session() as s:
         audit = s.get(AuditLog, audit_id)
         job = s.get(Job, job_id)
-        jt = job_type or (job.job_type if job else "")
+        jt = job_type or (job.job_type if job else "") or ""
+        if job and job.server_id:
+            server_id = job.server_id
         # Honour user cancel — do not overwrite cancelled jobs when worker finishes
         if job and job.status == "cancelled":
             if audit and audit.status == "running":
@@ -936,40 +939,45 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
                 audit.details = f"Job #{job_id} · {summary}"[:500]
             s.add(audit)
         if job:
-            # Already terminal (e.g. concurrent cancel) — leave job row alone
-            if job.status in ("success", "failed", "cancelled") and job.finished_at:
-                s.commit()
-                return
-            job.status = status
-            job.finished_at = datetime.utcnow()
-            _merge_job_details(
-                job,
-                current=None if status in ("success", "failed", "cancelled") else status,
-                status=status,
-                summary=summary,
-                result_snippet=(snippet or "")[:1500],
-                log_line=f"[{status}] {summary}",
-                done=True,
+            # Already terminal (e.g. Celery wrote success first) — still run
+            # notification resolve below; only skip re-writing the job row.
+            already_done = (
+                job.status in ("success", "failed", "cancelled") and job.finished_at
             )
-            s.add(job)
-            server_id = job.server_id
+            if not already_done:
+                job.status = status
+                job.finished_at = datetime.utcnow()
+                _merge_job_details(
+                    job,
+                    current=None if status in ("success", "failed", "cancelled") else status,
+                    status=status,
+                    summary=summary,
+                    result_snippet=(snippet or "")[:1500],
+                    log_line=f"[{status}] {summary}",
+                    done=True,
+                )
+                s.add(job)
         s.commit()
 
-        # Backup success/failure notifications (best-effort)
-        if job_type == "backup" and server_id:
+        # Backup success/failure notifications (best-effort). Use jt (resolved
+        # type), not only the job_type arg — and run even when job row was
+        # already terminal so a successful run still clears backup_failed.
+        if jt == "backup" and server_id:
             try:
                 from .notifications import notify_backup_failed, resolve_backup_failed
                 server = s.get(Server, server_id)
                 name = server.name if server else hostname
                 if status == "failed":
-                    notify_backup_failed(s, server_id, name or str(server_id), snippet[:300])
+                    notify_backup_failed(
+                        s, server_id, name or str(server_id), (snippet or "")[:300]
+                    )
                 elif status == "success":
                     resolve_backup_failed(s, server_id)
             except Exception as e:
                 logger.debug(f"backup notification: {e}")
 
-    if hostname and job_type:
-        _send_summary_webhook(hostname, job_type, status, snippet)
+    if hostname and jt:
+        _send_summary_webhook(hostname, jt, status, snippet)
 
 
 async def _run_backup_job(job_id: int, server_id: int, audit_id: int, source_filter: str | None = None):

@@ -108,7 +108,9 @@
       <div class="audit-event-summary">{{ j.summary or j.current or '—' }}</div>
     </button>
     {% if j.cancellable %}
-    <div class="mt-2 flex flex-wrap gap-2" onclick="event.stopPropagation()">
+    {# Outside the row button — do not stopPropagation here or the document
+       cancel handler never sees the click (modal cancel was fine; list was not). #}
+    <div class="mt-2 flex flex-wrap gap-2">
       <button type="button"
               class="btn btn-danger text-xs min-h-11 px-3"
               data-job-cancel="{{ j.id }}"
@@ -292,6 +294,7 @@ async function cancelJobById(jobId, label) {
   }
 }
 
+// Capture phase so Cancel still works if a parent calls stopPropagation
 document.addEventListener('click', function (e) {
   var btn = e.target && e.target.closest ? e.target.closest('[data-job-cancel]') : null;
   if (!btn) return;
@@ -300,6 +303,6 @@ document.addEventListener('click', function (e) {
   var id = btn.getAttribute('data-job-cancel');
   var label = btn.getAttribute('data-job-label') || ('Job #' + id);
   if (id) cancelJobById(id, label);
-});
+}, true);
 </script>
 {% endblock %}
