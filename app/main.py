@@ -139,7 +139,7 @@ app = FastAPI(
         "Automation uses **Bearer API tokens** under `/api/v1` "
         "(admin-managed; see **docs/API.md** and Settings → API tokens)."
     ),
-    version="0.2.0",
+    version="0.4.0",
     lifespan=lifespan,
     openapi_tags=[
         {
