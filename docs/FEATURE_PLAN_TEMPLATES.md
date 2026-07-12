@@ -1,8 +1,8 @@
 # Feature plan — Service templates (v0.4.0 Phase 1)
 
-**Status:** **Shipped in v0.4.0** (foundation). Further polish → v0.5.0; ops depth (drift, git catalog, NPM connector) → v0.4.x.  
-**Horizon:** H2 / v0.4.0  
-**Related:** [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) Phase 6
+**Status:** **Shipped in v0.4.0** (foundation). Ops depth + polish + RC → **v0.5.0** (single target).  
+**Horizon:** H2 / v0.4.0 foundation · v0.5.0 RC  
+**Related:** [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) Phase 6
 
 ## Goal
 
@@ -145,14 +145,14 @@ Defaults use **named** volumes; deploy can switch to project folder or host path
 
 ## UX feedback (sync ops)
 
-Long template operations use shared **`PiHerderWaitModal`** (`data-wait-title` / `data-wait-message` on forms): preview, confirm deploy, redeploy, from-host pull. Spinner + message until navigation completes. Live job logs for template deploy remain a stretch (Jobs-based path → 0.4.x).
+Long template operations use shared **`PiHerderWaitModal`** (`data-wait-title` / `data-wait-message` on forms): preview, confirm deploy, redeploy, from-host pull. Spinner + message until navigation completes. Live job logs for template deploy remain a stretch (Jobs-based path → **v0.5.0** nice-to-have / **B07**).
 
-## Out of v0.4.0 / follow-ons
+## Out of v0.4.0 / follow-ons (→ v0.5.0)
 
 | Track | Items |
 |-------|--------|
-| **v0.4.x** | Git catalog pull · drift scheduler · NPM connector · `.env` migrate UX · async deploy job stream (stretch) |
-| **v0.5.0** | Template UX polish (redeploy volume editor, etc.) · restore + last known config · production wikis |
+| **v0.5.0 primary** | Drift scheduler · `.env` migrate UX · template UX polish (redeploy volume editor, from-host) · restore + last known config · production wikis · multi-arch image · RC freeze |
+| **v0.5.0 nice-to-have** | Git catalog pull · NPM connector · async deploy job stream (**B07**) |
 | **Later** | Advanced secret stores · DNS automation · expanded pack |
 
-See [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) and [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md).
+See [PLAN_v0.5.0.md](PLAN_v0.5.0.md), [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md), and [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md).

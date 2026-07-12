@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-11  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md)
+**Date:** 2026-07-12  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md)
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
 
@@ -24,13 +24,15 @@ Design principles stay the same as SPEC:
 | **v0.2.x** | Platform reliability (host deps, stack Status tab, multi-worker) | H0.5 | Shipped on main (included in v0.2.0) |
 | **v0.3.0** | Integration hub — Kuma + **Grafana** (kinds, templates, Docker chips) | H1 | **Tagged** 2026-07-11 — [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md) |
 | **v0.4.0** | Post-0.3 quality + **service templates** foundation (wizard, volumes/booleans, from-host, step-up secrets, wait modal, OOTB pack, desired state V1) | H2 + fixes | **Tagged** 2026-07-12 — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) |
-| **v0.4.x** | Drift validation, NPM **connector**, git template catalog, `.env` migrate UX, optional async deploy jobs | H1/H2 | After 0.4.0 |
-| **v0.5.0** | **First RC** — template polish, restore + last known config, production wikis, Docker Hub multi-arch, freeze bar | RC | Planned |
+| **v0.4.x** | *(folded)* Former ops track — drift, NPM connector, git catalog, `.env` migrate | H1/H2 | **Absorbed into v0.5.0** (no separate planning phase) |
+| **v0.5.0** | **First RC** — ops depth + template polish + restore + last known config + production wikis + multi-arch + freeze bar | RC | **In development** — [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
-**Production path:** ~~v0.4.0 templates~~ **done** → v0.4.x ops hardening → v0.5.0 first RC (incl. template polish).
+**Decision (2026-07-12):** **Single development target `v0.5.0`** — former “v0.4.x ops” and “RC polish” are one cycle. Optional intermediate git tags only if something must ship early.
+
+**Production path:** ~~v0.4.0 templates~~ **done** → **v0.5.0 in development** (ops + polish + RC) → v1.0.
 
 **Note:** Registry image publish (`bjorngluck/piherder`) remains optional until Docker Hub/GHCR credentials are available; target Hub publish with **v0.5.0 RC**.
 
@@ -163,23 +165,30 @@ Versioned **templates**: compose/install recipe + variables + post-deploy checkl
 **OOTB pack:** Nginx Proxy Manager, Uptime Kuma, Pi-hole, Grafana.  
 **Plan:** [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md)
 
-### Phase 2 — v0.4.x
+### Phase 2 — v0.5.0 (ops + RC; single target)
+
+**Plan:** [PLAN_v0.5.0.md](PLAN_v0.5.0.md)
+
+**Must-have / primary:**
 
 - Scheduled **config drift** validation vs desired state; alert + audit  
 - Migrate existing host `.env` into PiHerder encrypted store (UX polish)  
-- **Git** template catalog pull (preview before enable)  
-- **NPM connector** (proxy hosts, app bindings, encrypted cert store)  
-- Contribute path: Issues/PR for builtin inclusion  
-
-**Secrets stance (home production):** templates use **locked-down host `.env` (`chmod 600`)** + PiHerder encrypted source of truth; restarts do not call PiHerder. Advanced options (Swarm secrets, vault, sealed host blob) stay **post-0.4 / Horizon 3** exploration — not the default path.
-
-### Phase 3 — v0.5.0 RC
-
+- Template UX polish (redeploy volume editor, from-host edge cases)  
 - Restore service from backup **+ last known config** from PiHerder  
 - Production user wiki + dev wiki  
 - Docker Hub / GHCR multi-arch image  
+- RC freeze bar (pytest, smoke, secret-path review)  
 
-Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provider automation remain post-RC.
+**Nice-to-have in same tag:**
+
+- **Git** template catalog pull (preview before enable)  
+- **NPM connector** (proxy hosts, app bindings, encrypted cert store)  
+- Async Docker/template deploy jobs + live log (B07)  
+- Contribute path remains Issues/PR for builtin inclusion  
+
+**Secrets stance (home production):** templates use **locked-down host `.env` (`chmod 600`)** + PiHerder encrypted source of truth; restarts do not call PiHerder. Advanced options (Swarm secrets, vault, sealed host blob) stay **post-0.5 / Horizon 3** exploration — not the default path.
+
+Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provider automation remain **post-RC**.
 
 ---
 
@@ -284,12 +293,10 @@ flowchart TB
 
 An operator can:
 
-1. Install PiHerder from a published image in under ~15 minutes with trusted TLS (Compose).  
-2. See PiHerder **stack** health (web/db/redis/worker) and fleet host readiness (remote tools for enabled features).  
-3. See fleet health and jump to Grafana / Uptime Kuma for detail.  
-4. Onboard a service from a template with monitoring, DNS, and TLS/proxy steps.  
-5. Automate via n8n + token API (and later HA).  
-6. Optionally use a private LLM for summaries — never required.  
-7. Find help on Discord / GitHub and the project story on hacknow.info.  
-
-Criteria 3–7 are H1+; criterion 2 is **H0.5 / v0.2.x**.
+1. Install PiHerder from a published image in under ~15 minutes with trusted TLS (Compose) — **target at v0.5.0 RC** (credentials permitting; compose-build remains primary until then).  
+2. See PiHerder **stack** health (web/db/redis/worker) and fleet host readiness (remote tools for enabled features) — **done** (H0.5).  
+3. See fleet health and jump to Grafana / Uptime Kuma for detail — **done** (H1).  
+4. Onboard a service from a template with monitoring, DNS, and TLS/proxy steps — foundation **done** (v0.4.0); polish + restore **v0.5.0**.  
+5. Automate via n8n + token API (and later HA) — post-RC / parallel.  
+6. Optionally use a private LLM for summaries — never required; post-RC.  
+7. Find help on Discord / GitHub and the project story on hacknow.info — parallel.

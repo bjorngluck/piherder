@@ -1,0 +1,80 @@
+/* PiHerder docs — brand accents (Raspberry Pi red / green) */
+:root {
+  --ph-red: #e60012;
+  --ph-red-dark: #c8102e;
+  --ph-green: #00a651;
+}
+
+/* Logo sizing in header */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 1.6rem;
+  width: auto;
+}
+
+/* Screenshot / figure frame */
+.ph-figure {
+  margin: 1.25rem 0;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: var(--md-code-bg-color);
+}
+
+.ph-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ph-figure figcaption {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--md-default-fg-color--light);
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+}
+
+/* Step callouts */
+.ph-steps ol {
+  counter-reset: ph-step;
+  list-style: none;
+  padding-left: 0;
+}
+
+.ph-steps ol > li {
+  counter-increment: ph-step;
+  position: relative;
+  padding-left: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.ph-steps ol > li::before {
+  content: counter(ph-step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--ph-red);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Wireframe placeholder badge */
+.ph-wireframe-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+  background: var(--ph-green);
+  color: #fff;
+  vertical-align: middle;
+  margin-left: 0.35rem;
+}

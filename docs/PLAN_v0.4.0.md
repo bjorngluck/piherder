@@ -13,7 +13,7 @@
 | Git tag | **`v0.4.0`** |
 | Post-0.3 work | Shipped on `main` in this release |
 | Release notes | [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) |
-| Production path | **v0.4.0 (done)** → v0.4.x (ops) → **v0.5.0** (polish + RC) |
+| Production path | **v0.4.0 (done)** → **v0.5.0** (ops + polish + RC; former v0.4.x folded in) — see [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
 
 ---
 
@@ -45,8 +45,8 @@ git log --oneline v0.3.0..v0.4.0
 | **B04** | Jobs | List Cancel no-op | **fixed** | `069b065` |
 | **B05** | Notifications | backup_failed not resolved | **fixed** | `069b065` |
 | **B06** | Notifications | Dismiss 404 if already closed | **fixed** | `069b065` |
-| **B07** | Docker | Deploy/Check as Jobs + live log | **deferred** → 0.4.x | — |
-| **B08** | Backup | Logos not in herder self-backup | **deferred** → 0.4.x | — |
+| **B07** | Docker | Deploy/Check as Jobs + live log | **deferred** → v0.5.0 | — |
+| **B08** | Backup | Logos not in herder self-backup | **deferred** → v0.5.0 | — |
 | **B09** | Notifications | Push on auto-resolve | **deferred** (stretch) | — |
 
 ---
@@ -78,8 +78,10 @@ Detail: [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · notes: [RELEAS
 
 ### Explicitly out of v0.4.0 (still true)
 
-- Git template catalog · drift scheduler · NPM connector · Docker secrets migration → **v0.4.x**  
-- Template UX polish · restore + last config · wikis · multi-arch → **v0.5.0**  
+All of the following moved to the **single-target [PLAN_v0.5.0.md](PLAN_v0.5.0.md)** cycle:
+
+- Git template catalog · drift scheduler · NPM connector · `.env` migrate UX  
+- Template UX polish · restore + last config · wikis · multi-arch  
 - Automated DNS → post-RC  
 
 ---
@@ -88,8 +90,7 @@ Detail: [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · notes: [RELEAS
 
 | Next | Focus |
 |------|--------|
-| **v0.4.x** | Drift, git catalog, NPM connector, optional async deploy jobs (B07), B08 |
-| **v0.5.0** | Template polish, restore + config, production docs, RC bar |
+| **v0.5.0** | Ops + polish + restore + wikis + multi-arch + RC — [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
 
 ---
 
