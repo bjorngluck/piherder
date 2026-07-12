@@ -5,11 +5,45 @@
   --ph-green: #00a651;
 }
 
-/* Logo sizing in header */
-.md-header__button.md-logo img,
-.md-header__button.md-logo svg {
-  height: 1.6rem;
-  width: auto;
+/* Official logo in header (PNG mascot — same art as README) */
+.md-header__button.md-logo {
+  padding: 0.2rem;
+  margin-right: 0.2rem;
+}
+
+.md-header__button.md-logo img {
+  height: 2.1rem;
+  width: 2.1rem;
+  object-fit: contain;
+  border-radius: 0.25rem;
+}
+
+/* Drawer/nav logo (Material duplicates logo in sidebar) */
+.md-nav__title .md-nav__button.md-logo img {
+  height: 2.4rem;
+  width: 2.4rem;
+  object-fit: contain;
+}
+
+/* Homepage hero — same artwork as GitHub README */
+.ph-hero-logo {
+  margin: 0.5rem 0 1.25rem;
+  text-align: center;
+  border: none;
+  background: transparent;
+}
+
+.ph-hero-logo img {
+  display: inline-block;
+  width: min(280px, 70vw);
+  height: auto;
+  max-height: 280px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.12));
+}
+
+[data-md-color-scheme="slate"] .ph-hero-logo img {
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
 }
 
 /* Screenshot / figure frame */

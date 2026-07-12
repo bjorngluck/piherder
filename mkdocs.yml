@@ -21,8 +21,9 @@ exclude_docs: |
 theme:
   name: material
   custom_dir: wiki/overrides
-  logo: assets/piherder-logo.svg
-  favicon: assets/piherder-logo-small.png
+  # Official PiHerder mascot (same artwork as README / app) — not the placeholder SVG
+  logo: assets/piherder-logo-header.png
+  favicon: assets/favicon.png
   language: en
   features:
     - navigation.instant
@@ -44,6 +45,9 @@ theme:
     - toc.follow
   palette:
     - media: "(prefers-color-scheme)"
+      scheme: default
+      primary: red
+      accent: green
       toggle:
         icon: material/brightness-auto
         name: System theme
