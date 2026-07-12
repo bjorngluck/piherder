@@ -16,6 +16,12 @@
   </div>
 </div>
 
+{% if request.query_params.get('dismissed') %}
+<div class="mb-3 p-2 text-xs rounded border border-border banner-success">Alert dismissed.</div>
+{% elif request.query_params.get('error') == 'dismiss' %}
+<div class="mb-3 p-2 text-xs rounded border border-border banner-error">Could not dismiss alert (not found).</div>
+{% endif %}
+
 <form method="get" action="/notifications" class="card p-4 mb-4 flex flex-wrap gap-3 items-end">
   <div>
     <label class="block text-xs text-muted mb-1">Status</label>

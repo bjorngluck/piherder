@@ -98,8 +98,11 @@ async def dismiss_one(
     session: Session = Depends(get_session),
 ):
     if not notif_svc.dismiss(session, notification_id, user):
-        raise HTTPException(404)
-    return RedirectResponse("/notifications", status_code=303)
+        return RedirectResponse(
+            "/notifications?error=dismiss&msg=not_found",
+            status_code=303,
+        )
+    return RedirectResponse("/notifications?dismissed=1", status_code=303)
 
 
 @router.post("/notifications/dismiss-all")

@@ -106,9 +106,13 @@ def resolve_by_fingerprint(session: Session, fingerprint: str) -> int:
 
 
 def dismiss(session: Session, notification_id: int, user: User | None = None) -> bool:
+    """Mark an open notification dismissed. Idempotent if already closed."""
     n = session.get(Notification, notification_id)
-    if not n or n.status != "open":
+    if not n:
         return False
+    if n.status != "open":
+        # Already resolved/dismissed — treat as success so UI forms don't 404
+        return True
     n.status = "dismissed"
     n.dismissed_at = datetime.utcnow()
     n.updated_at = n.dismissed_at
@@ -294,4 +298,5 @@ def notify_backup_failed(
 
 
 def resolve_backup_failed(session: Session, server_id: int) -> None:
-    resolve_by_fingerprint(session, f"backup_failed:server:{server_id}")
+    """Close open backup-failed alerts for this server (after a successful run)."""
+    resolve_by_fingerprint(session, f"backup_failed:server:{int(server_id)}")

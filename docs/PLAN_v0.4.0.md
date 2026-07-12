@@ -17,6 +17,8 @@ These are **bugs / UX gaps** found right after Grafana ship. They live on `main`
 |--------|---------|
 | `ba56c2b` | **Docker Deploy silent success** — pull/up results ignored; audit always `success`; no banner; paths unquoted; little evidence a pull ran |
 | `d33f286` | **Container update alert stuck** — successful Deploy cleared badges but left open `container_updates` notification |
+| (post) | **Jobs list Cancel** — `stopPropagation` on list Cancel wrapper blocked document click handler (modal Cancel worked) |
+| (post) | **Backup-failed alert** — success path could skip resolve when job already terminal; dismiss 404 on already-closed |
 
 ### Expected operator behaviour (now)
 
