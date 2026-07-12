@@ -36,6 +36,8 @@ mkdocs build --strict
 | `assets/` | Logo + screenshots |
 
 Config: [`mkdocs.yml`](../mkdocs.yml) at repo root.  
-Publish: [`.github/workflows/docs.yml`](../.github/workflows/docs.yml) → GitHub Pages — **enabled at v0.5.0 RC** when the repo is made **public** (free Pages does not work on private repos). Until then, use `mkdocs serve` only.
+**Live site:** [https://bjorngluck.github.io/piherder/](https://bjorngluck.github.io/piherder/)
+
+Publish: build with MkDocs → `gh-pages` branch (current Pages source), or [`.github/workflows/docs.yml`](../.github/workflows/docs.yml) if Pages is switched to GitHub Actions.
 
 How to contribute: [developers/contributing-docs.md](developers/contributing-docs.md).

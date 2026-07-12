@@ -8,7 +8,7 @@
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
-**Operator docs:** [wiki/](wiki/) (MkDocs) · [docs/ADMIN.md](docs/ADMIN.md) (long-form) · [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) · [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
+**Operator docs:** **[https://bjorngluck.github.io/piherder/](https://bjorngluck.github.io/piherder/)** (live wiki) · source [wiki/](wiki/) · [docs/ADMIN.md](docs/ADMIN.md) (long-form) · [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 
 ---
 

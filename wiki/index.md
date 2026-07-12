@@ -11,6 +11,7 @@
 | **Latest release** | [v0.4.0](https://github.com/bjorngluck/piherder/releases/tag/v0.4.0) |
 | **In development** | [v0.5.0 plan](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
+| **Docs (this site)** | [bjorngluck.github.io/piherder](https://bjorngluck.github.io/piherder/) |
 | **License** | [PolyForm Noncommercial 1.0.0](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (non-commercial source-available) |
 
 ---

@@ -15,18 +15,14 @@
 | Intermediate tags | Optional only if something must ship early; not the plan structure |
 | Production path | ~~v0.4.0~~ **done** → **v0.5.0 in development** → v1.0 |
 | **GitHub visibility** | Stay **private** while developing; **make public at RC** (enables free GitHub Pages) |
-| **Wiki / Pages go-live** | **At RC only** — not earlier. Scaffold lands in git; public site after public repo + Pages |
+| **Wiki / Pages go-live** | **Live** — https://bjorngluck.github.io/piherder/ (repo public; `gh-pages` branch deploy) |
 | **License** | **PolyForm Noncommercial 1.0.0** (source-available, non-commercial). Copyright Bjorn Gluck. Commercial use = separate grant. Not OSI open source. |
 
-### GitHub Pages (free tier)
+### GitHub Pages
 
-GitHub free Pages for Actions requires a **public** repository (private Pages is a paid feature). Therefore:
-
-1. Keep the repo private during v0.5.0 development if preferred.  
-2. At **RC freeze / `v0.5.0` tag**: switch repo to **Public** → enable **Settings → Pages → Source: GitHub Actions** → ensure wiki + workflow are on `main` → confirm **Docs** workflow deploys.  
-3. Public docs URL: `https://bjorngluck.github.io/piherder/`
-
-Until then, the wiki source in `wiki/` is the source of truth; no public site is required.
+- **Live:** [https://bjorngluck.github.io/piherder/](https://bjorngluck.github.io/piherder/)  
+- **Source:** `wiki/` + `mkdocs.yml` on `main`  
+- **Publish path today:** force-push built site to **`gh-pages`** (branch Pages). Optional later: switch Pages source to **GitHub Actions** (`.github/workflows/docs.yml`).
 
 ---
 
@@ -66,7 +62,7 @@ Until then, the wiki source in `wiki/` is the source of truth; no public site is
 
 | Item | Notes | Status |
 |------|--------|--------|
-| Production user wiki + dev wiki | MkDocs under `wiki/` (scaffold); real screenshots ongoing; **GH Pages + public repo only at RC** | Open (scaffold; go-live deferred) |
+| Production user wiki + dev wiki | **Live** at github.io; source `wiki/`; real screenshots ongoing | Open (polish) |
 | Docker Hub / GHCR multi-arch image | [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md); tags for `0.5.0` | Open |
 | RC freeze bar | pytest, smoke (deploy + drift + restore), secret-path review | Open |
 
