@@ -1,0 +1,46 @@
+schema_version: 1
+slug: uptime-kuma
+name: Uptime Kuma
+description: Self-hosted monitoring with a clean UI (louislam/uptime-kuma).
+category: monitoring
+version: "1.1.0"
+tags: [monitoring, kuma]
+variables:
+  - name: PROJECT_NAME
+    label: Project folder name
+    type: string
+    default: uptime-kuma
+    required: true
+  - name: KUMA_PORT
+    label: Host port
+    type: port
+    default: "3001"
+  - name: KUMA_HOSTNAME
+    label: Public hostname (for DNS checklist)
+    type: string
+    default: kuma.example.com
+    required: false
+    secret: false
+  - name: KUMA_DATA
+    label: Kuma data storage
+    type: volume
+    volume_target: /app/data
+    volume_default_mode: named
+    default: kuma_data
+    required: true
+    help: Named volume (default), a folder under the project, or an absolute host path.
+files:
+  - path: docker-compose.yml
+checklist:
+  - title: DNS (manual)
+    body: |
+      Create an A/AAAA record for {{KUMA_HOSTNAME}} pointing at this host.
+      Optional: put Uptime Kuma behind NPM with TLS.
+  - title: First login
+    body: Open http://HOST:{{KUMA_PORT}} and create the admin account.
+  - title: Connect to PiHerder
+    body: |
+      After Kuma is up, add an Integration in PiHerder (Integrations → Uptime Kuma)
+      with an API key from Kuma Settings → API Keys.
+options:
+  supports_docker_secrets: false

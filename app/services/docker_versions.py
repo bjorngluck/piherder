@@ -197,9 +197,18 @@ def write_project_files(server: Server, project_path: str, files: dict) -> tuple
     err = ""
     try:
         for fname, content in payload.items():
-            # Disallow path traversal in file names
-            if not fname or "/" in fname or "\\" in fname or fname in (".", ".."):
+            # Allow single-level subdirs (e.g. secrets/DB_PASSWORD) but block traversal
+            if not fname or fname in (".", "..") or "\\" in fname:
                 return False, f"invalid file name: {fname!r}"
+            parts = [p for p in str(fname).split("/") if p]
+            if not parts or any(p in (".", "..") for p in parts) or len(parts) > 2:
+                return False, f"invalid file name: {fname!r}"
+            # Ensure parent dir exists for nested files (secrets/)
+            if len(parts) == 2:
+                try:
+                    sftp.mkdir(f"{project_path}/{parts[0]}".replace("//", "/"))
+                except Exception:
+                    pass
             fpath = f"{project_path}/{fname}".replace("//", "/")
             tmp = fpath + ".tmp"
             data = content.encode("utf-8") if isinstance(content, str) else content

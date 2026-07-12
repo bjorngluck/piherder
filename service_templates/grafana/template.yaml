@@ -1,0 +1,68 @@
+schema_version: 1
+slug: grafana
+name: Grafana
+description: Metrics dashboards and alerting UI (grafana/grafana).
+category: observability
+version: "1.1.0"
+tags: [grafana, metrics]
+variables:
+  - name: PROJECT_NAME
+    label: Project folder name
+    type: string
+    default: grafana
+    required: true
+  - name: GRAFANA_PORT
+    label: Host port
+    type: port
+    default: "3000"
+  - name: GF_SECURITY_ADMIN_USER
+    label: Admin username
+    type: string
+    default: admin
+    required: true
+  - name: GF_SECURITY_ADMIN_PASSWORD
+    label: Admin password
+    type: password
+    secret: true
+    generate: true
+    required: true
+  - name: GF_USERS_ALLOW_SIGN_UP
+    label: Allow user sign-up
+    type: boolean
+    default: "false"
+    true_value: "true"
+    false_value: "false"
+    required: false
+    help: Maps to GF_USERS_ALLOW_SIGN_UP in the container env.
+  - name: GRAFANA_DATA
+    label: Grafana data storage
+    type: volume
+    volume_target: /var/lib/grafana
+    volume_default_mode: named
+    default: grafana_data
+    required: true
+    help: Named volume (default), a folder under the project, or an absolute host path.
+  - name: GRAFANA_HOSTNAME
+    label: Public hostname (DNS checklist)
+    type: string
+    default: grafana.example.com
+    required: false
+files:
+  - path: docker-compose.yml
+  - path: .env
+    from: .env.sample
+checklist:
+  - title: DNS (manual)
+    body: |
+      Create an A/AAAA record for {{GRAFANA_HOSTNAME}} pointing at this host.
+      Optional: terminate TLS at NPM and proxy to port {{GRAFANA_PORT}}.
+  - title: First login
+    body: |
+      Open http://HOST:{{GRAFANA_PORT}} with user {{GF_SECURITY_ADMIN_USER}}
+      and the password you configured. Change it after first login if needed.
+  - title: Connect to PiHerder
+    body: |
+      Add Integrations → Grafana with a service account token, then bind dashboards
+      to servers (metrics / containers / logs).
+options:
+  supports_docker_secrets: true

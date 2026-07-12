@@ -68,6 +68,14 @@
             <span class="docker-stack-count text-muted font-normal">
               · {{ proj.running_count|default(0) }}/{{ proj.containers|length if proj.containers else 0 }} up
             </span>
+            {% if proj.template_managed %}
+            <a href="/templates/deployments/{{ proj.template_deployment_id }}"
+               class="status-pill status-success no-underline"
+               title="Template-managed · {{ proj.template_slug or 'template' }} · config V{{ proj.template_config_version or '?' }} · drift: {{ proj.template_drift_status or 'unknown' }}. Click to change settings / redeploy.">
+              Template{% if proj.template_slug %} · {{ proj.template_slug }}{% endif %}
+              {% if proj.template_config_version %} · V{{ proj.template_config_version }}{% endif %}
+            </a>
+            {% endif %}
             {% if proj.has_pending_update %}
             <span class="status-pill status-failed" title="{% if proj.update_container_count %}{{ proj.update_container_count }} service(s){% else %}Stack{% endif %} with image updates">Update available</span>
             {% endif %}
@@ -99,6 +107,14 @@
 
         {# All compose actions live here; ⋯ popover clicks these #}
         <div class="docker-proj-secondary" hidden>
+          {% if proj.template_managed and proj.template_deployment_id %}
+          <a href="/templates/deployments/{{ proj.template_deployment_id }}"
+             data-sec-btn="template-config"
+             class="no-underline"
+             title="Change variables/secrets and redeploy from desired state">
+            Template settings…
+          </a>
+          {% endif %}
           <form method="post" action="/servers/{{ server.id }}/docker/redeploy" data-sec="deploy">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
             <input type="hidden" name="pull" value="true">
@@ -159,7 +175,13 @@
                   data-sec-btn="edit"
                   data-edit-proj="{{ proj.name | e }}"
                   data-has-df="{{ '1' if proj.get('dockerfile_path') else '0' }}"
-                  data-server-id="{{ server.id }}">Edit</button>
+                  data-server-id="{{ server.id }}"
+                  data-template-managed="{{ '1' if proj.template_managed else '0' }}"
+                  data-template-deployment-id="{{ proj.template_deployment_id or '' }}"
+                  data-template-slug="{{ (proj.template_slug or '') | e }}"
+                  title="{% if proj.template_managed %}Template-managed — prefer Template settings{% else %}Edit compose files{% endif %}">
+            {% if proj.template_managed %}Edit compose (advanced)…{% else %}Edit{% endif %}
+          </button>
           <form method="post" action="/servers/{{ server.id }}/docker/compose/down" data-sec="undeploy">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
             <button type="submit" data-sec-btn="undeploy">Undeploy</button>

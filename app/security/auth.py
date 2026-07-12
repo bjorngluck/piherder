@@ -18,6 +18,9 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 PENDING_2FA_MINUTES = 10
 BACKUP_CODE_COUNT = 10
+# Step-up after TOTP: short-lived grant to view decrypted secrets in UI
+SECRETS_UNLOCK_MINUTES = 10
+SECRETS_UNLOCK_COOKIE = "secrets_unlock"
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -49,6 +52,30 @@ def create_pending_2fa_token(user_id: int) -> str:
         {"sub": str(user_id), "2fa_pending": True},
         expires_delta=timedelta(minutes=PENDING_2FA_MINUTES),
     )
+
+
+def create_secrets_unlock_token(user_id: int) -> str:
+    """Short-lived step-up after TOTP re-check; required to view secret cleartext."""
+    return create_access_token(
+        {"sub": str(user_id), "secrets_unlock": True},
+        expires_delta=timedelta(minutes=SECRETS_UNLOCK_MINUTES),
+    )
+
+
+def secrets_unlock_active(request: Request, user: User) -> bool:
+    """True if this browser has a valid step-up secrets unlock cookie for user."""
+    if not user or not getattr(user, "id", None):
+        return False
+    raw = request.cookies.get(SECRETS_UNLOCK_COOKIE)
+    if not raw:
+        return False
+    payload = decode_token_payload(raw)
+    if not payload or not payload.get("secrets_unlock"):
+        return False
+    try:
+        return int(payload.get("sub")) == int(user.id)
+    except (TypeError, ValueError):
+        return False
 
 
 def decode_token_payload(token: str) -> Optional[dict]:

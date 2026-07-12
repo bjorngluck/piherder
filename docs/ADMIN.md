@@ -402,9 +402,88 @@ WEBHOOK_NUMBER=+1...
 
 Typical pattern: PiHerder → n8n webhook → Signal CLI. In-app notifications and optional Web Push remain available without webhooks.
 
+### Service templates (v0.4)
+
+**Templates** (top-level nav) are **your** versioned stack definitions. You **create**, **edit**, and **save** them; deploy is separate.
+
+**Plan:** [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md)
+
+#### Create / edit (operator-owned)
+
+1. **Templates → + New template** or **From host…** (pull live compose/.env) or **Edit**  
+2. Metadata: slug, name, category, version  
+3. Paste or pull **docker-compose.yml**; use `{{VAR}}` in files / `${KEY}` for Compose env  
+4. **Variables** as form rows (Add / Remove). Types: `string`, `port`, `password`, `int`, `url`, `email`, **`boolean`**, **`volume`**  
+5. Tools on the editor:  
+   - **Scan vars + volumes** — detect placeholders / env keys; parameterize hard-coded short mounts and host ports  
+   - **Move secrets → .env** — rewrite password-like inline env to `${KEY}` + `.env` placeholders  
+6. Checklist rows for post-deploy DNS / first-login notes  
+7. **Save** — DB `user` source; operator edits are never overwritten by disk starters  
+
+#### Variable types (non-secret config)
+
+| Type | Deploy UI | Notes |
+|------|-----------|--------|
+| **boolean** | Yes / No | Writes `true_value` / `false_value` (defaults `true`/`false`) into files |
+| **volume** | Storage type + name/path | Modes: **named** Docker volume, **folder in project** (`./…`), **host path** (`/…`). Compose uses `- {{VAR}}` → full short mount `source:target`. Requires `volume_target` (container path) |
+| **port** / string / … | Normal fields | Ports validated 1–65535 |
+
+Volume and boolean vars are **never** treated as secrets (no step-up 2FA).
+
+#### Secrets model (home production — locked decision)
+
+| Layer | Behaviour |
+|-------|-----------|
+| **PiHerder** | Source of truth; secrets Fernet-encrypted; edit/audit/redeploy here |
+| **UI reveal** | Cleartext only after **2FA enabled** → **View secrets** → enter TOTP (**step-up**, even if you already used 2FA at login). Unlock cookie ~10 minutes; **Hide secrets** clears it |
+| **Host project** | Locked-down **`.env`** (`chmod 600`) for Compose `${VAR}`; offline restarts work **without** PiHerder |
+| **Docker page** | Template-managed stacks show a **Template** badge; full compose editor is gated (use deployment page for template-owned desired state) |
+| **Not default** | Compose `./secrets/` files, Swarm secrets, vault inject — **roadmap** (advanced) |
+
+#### From host
+
+1. Templates → **From host…** → Docker-enabled server + project  
+2. Optional: move secret-like values to `.env`  
+3. Pull parameterizes **volumes**, **host ports**, **booleans**, and env/secrets into deploy variables; rewrites compose short mounts/ports to `{{VAR}}`  
+4. Review in editor → **Save**  
+5. Progress overlay while SSH pull runs  
+
+#### Deploy flow
+
+1. **Details** or **Deploy…** → fill variables (incl. volume mode) → pick Docker-enabled host  
+2. **Preview** → **Confirm deploy**  
+3. Blocking **wait modal** while PiHerder writes files over SSH, locks `.env`, and runs `compose pull` + `up -d` (page updates when finished)  
+4. Desired state **Vn** stored encrypted in PiHerder  
+5. **Redeploy** from the deployment page (same wait modal)  
+
+#### Import zip
+
+Archive with `template.yaml` + `files/`. Still fully editable in the UI after import.
+
+#### Security settings
+
+**Settings → Security policy:**
+
+| Option | Effect |
+|--------|--------|
+| Require 2FA for all users | Existing force-2FA for the whole UI |
+| **Require 2FA for template deploy & secrets** | Operator must have TOTP enabled to confirm deploy or view/edit secrets |
+
+On-host `.env` is cleartext but mode `600` (owner-only). Treat host disk encryption and SSH access as part of home-lab security. Advanced secret stores are future roadmap.
+
+#### Builtin pack refresh
+
+Disk starters under `service_templates/` seed the DB when a slug is **missing**. Rows still marked `source=builtin` are **refreshed** from disk when the checksum changes. After you **Edit + Save**, source becomes `user` and is never auto-overwritten.
+
+#### Self-backup
+
+Herder self-backup includes `service_templates` catalog rows and `stack_deployments` (encrypted secrets travel as ciphertext — same `PIHERDER_MASTER_KEY` on restore).
+
+---
+
 ### Uptime Kuma integration
 
-Optional **integration hub** (top-level **Integrations** menu — not under Settings). PiHerder does **not** deploy Kuma; point at your existing instance.
+Optional **integration hub** (top-level **Integrations** menu — not under Settings). You can **deploy** Kuma via Templates, then connect the integration for status/bindings.
 
 **Design / plan:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md)
 

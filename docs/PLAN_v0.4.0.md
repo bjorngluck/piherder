@@ -1,19 +1,20 @@
 # PiHerder v0.4.0 — release plan
 
-**Status:** Active — all post-`v0.3.0` work targets **v0.4.0**  
-**Date:** 2026-07-11 (updated)  
+**Status:** Active — Phase 1 of production path  
+**Date:** 2026-07-12  
 **Baseline:** `v0.3.0` (Grafana + Kuma hub)  
 **Package version at tag:** `0.4.0` (`pyproject.toml`)  
-**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md) · WIP notes [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md)
+**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [SPEC.md](../SPEC.md)
 
 ### Decision (locked)
 
 | Choice | Value |
 |--------|--------|
-| Next git tag | **`v0.4.0`** only (no separate `v0.3.1` for these fixes) |
+| Next git tag | **`v0.4.0`** only (no separate `v0.3.1`) |
 | Destination for post-0.3 commits | `main` → included when `v0.4.0` is cut |
-| Release notes source | **§ Bug / fix list** below + [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) |
+| Release notes source | **§ Bug list** + features below + [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) |
 | How to add new bugs | Append a row to the table (id, area, status, commit when fixed) |
+| Production path | **3 phases:** v0.4.0 (templates) → v0.4.x (drift/secrets/NPM) → v0.5.0 RC |
 
 ---
 
@@ -27,6 +28,7 @@ Update with `git log --oneline v0.3.0..HEAD` before tagging.
 | `d33f286` | fix(docker): resolve container update alert after successful deploy |
 | `538e7e2` | docs: draft PLAN_v0.4.0 … |
 | `069b065` | fix: jobs list cancel and backup-failed alert dismiss/resolve |
+| `4686009` | docs: track all post-0.3 fixes for v0.4.0 release notes |
 
 ---
 
@@ -42,8 +44,8 @@ Status: **fixed** = on `main`, will ship in v0.4.0 · **open** = still to do · 
 | **B04** | Jobs | List **Cancel** button did nothing; modal Cancel worked (`stopPropagation` blocked handler) | **fixed** | `069b065` | Jobs list Cancel works (capture-phase handler) |
 | **B05** | Notifications | Backup-failed alert could stay open after successful backup (`_finish` early-return skipped resolve) | **fixed** | `069b065` | Successful backup always resolves `backup_failed` alert |
 | **B06** | Notifications | Dismiss returned 404 if alert already resolved/dismissed | **fixed** | `069b065` | Dismiss is idempotent for already-closed alerts |
-| **B07** | Docker | Deploy/Check updates are sync SSH (no Job row) — long pulls opaque | **open** (stretch) | — | *Optional:* run as Jobs with live log |
-| **B08** | Backup / DR | Service logo files not in herder self-backup | **open** (stretch) | — | *Optional:* pack `service_logos/` in self-backup |
+| **B07** | Docker | Deploy/Check updates are sync SSH (no Job row) — long pulls opaque | **open** (stretch → 0.4.x) | — | *Optional:* run as Jobs with live log |
+| **B08** | Backup / DR | Service logo files not in herder self-backup | **open** (→ 0.4.x) | — | *Optional:* pack `service_logos/` in self-backup |
 | **B09** | Notifications | No push when an alert auto-resolves | **open** (stretch) | — | *Optional:* silent resolve only (current) |
 
 ### Operator behaviour (after B01–B03)
@@ -55,90 +57,70 @@ Status: **fixed** = on `main`, will ship in v0.4.0 · **open** = still to do · 
 
 ---
 
-## 3. Roadmap theme for v0.4 (Horizon 2)
+## 3. Theme for v0.4.0 (Phase 1)
 
-From [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 2 and SPEC Phase 6:
+**Templates foundation + post-0.3 quality**
 
-> Versioned **templates**: compose/install recipe + variables + post-deploy checklist/actions.  
-> Onboard wizard steps: monitoring / DNS / TLS-proxy / feature flags — always **preview → confirm → audit**.
+Versioned service templates: compose recipe + variables (incl. boolean/volume) + post-deploy checklist (manual DNS).  
+Wizard: preview → confirm → audit; **wait modal** during SSH deploy. Desired config **V1** with Fernet-encrypted secrets + step-up 2FA. From-host templatize.
 
-v0.4.0 should pick a **thin vertical slice**, not the entire curated pack + every provider.  
-**Quality bar:** all **fixed** rows in §2 ship with the tag even if template work is partial.
+Full roadmap (drift, Docker secrets, NPM connector, git catalog, restore+config, wiki, Docker Hub): see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) and session plan (Phase 2 = v0.4.x, Phase 3 = v0.5.0 RC).
 
----
-
-## 4. Feature candidates (discussion)
-
-### A. Remaining H1 — multi-URL / generic adapters
-
-| Item | Value | Effort | Notes |
-|------|-------|--------|-------|
-| Generic **URL bookmark** integration | Medium | Low–med | Pi-hole, NPM, HA, Frigate, n8n without full APIs |
-| Multi Pi-hole (status/deep link) | Medium | Med | Seed from `PIHOLE_URL` |
-| Docs: cert path NPM → n8n → consumers | Low | Low | ADMIN only |
-| Kuma **create monitor** | High later | High | Provider actions / later slice |
-
-### B. Service templates — core (Phase 6)
-
-| Slice | Description | Ship bar idea |
-|-------|-------------|----------------|
-| **B0 Schema + store** | Template model: id, name, variables, files, checklist | DB or repo YAML; import/export |
-| **B1 Apply to host** | New Docker project from template: vars → preview → confirm → write + optional deploy | Generic + 1–2 curated |
-| **B2 Add-server wizard** | After SSH onboard | Depends on B1 |
-| **B3 Post-deploy actions** | Checklist-only first | Safer than auto Kuma create |
-| **B4 Full curated pack** | 9 stacks | May spill past 0.4.0 |
-
-**Strawman feature ship bar:** **B0 + B1** + generic web + one real stack; checklist-only post-steps.
-
-### C. Explicitly out of freeze (unless reopened)
-
-- Full curated pack production-ready  
-- Cloudflare / NPM automation  
-- HA component, AI, Ansible (Phase 7)  
-- Multi-arch Hub publish  
-- k8s / bare install  
+Detail: [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md).
 
 ---
 
-## 5. Proposed v0.4.0 ship bar
+## 4. v0.4.0 ship bar
 
-**Theme:** *Templates foundation + post-0.3 quality (Docker, jobs, alerts)*
+1. **Quality** — B01–B06 fixed  
+2. **Templates v1** — schema, builtin catalog, import own, apply-to-host wizard  
+3. **OOTB pack** — NPM, Uptime Kuma, Pi-hole, Grafana (volume-aware)  
+4. **Desired state V1** — encrypted secrets; view/edit + redeploy  
+5. **Host picker** — Docker-enabled hosts + inventory project/container counts  
+6. **Secrets UX** — step-up 2FA unlock; optional setting for template deploy / secrets  
+7. **Variables** — boolean + volume modes; from-host parameterization  
+8. **Deploy feedback** — wait modal on preview / confirm / redeploy / from-host  
+9. **Manual DNS** checklist in templates  
+10. **Docs** — ADMIN + FEATURE_PLAN_TEMPLATES + RELEASE + SPEC  
+11. **Tests** — render, encrypt, volumes/booleans, from-host parameterize  
+12. **Version** — `pyproject.toml` → `0.4.0`; tag `v0.4.0`  
 
-1. **Quality** — all **fixed** bugs in §2 (B01–B06)  
-2. **Templates v1** — schema, apply-to-server, import/export, ≥2 samples *(if agreed)*  
-3. **Docs** — ADMIN + [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md)  
-4. **Tests** — cover fixed bugs + template dry-run as applicable  
-5. **Version** — `pyproject.toml` → `0.4.0`; tag `v0.4.0`  
+### Explicitly out of v0.4.0 freeze
 
-**Stretch:** B07 Deploy-as-Job · B08 logo backup · generic URL integration  
+- Git template catalog pull (v0.4.x)  
+- Docker secrets migration (v0.4.x)  
+- Drift scheduler (v0.4.x)  
+- NPM integration connector (v0.4.x; OOTB **template** only in 0.4.0)  
+- Restore last known config (v0.5.0 RC)  
+- Docker Hub multi-arch publish (v0.5.0 RC)  
+- Automated DNS (post-RC)  
 
 ---
 
-## 6. Sequencing
+## 5. Sequencing
 
 ```text
-1. Keep landing fixes on main; append to §2 bug table + RELEASE_v0.4.0 changelog WIP
-2. Feature work (templates or agreed theme)
-3. Freeze: no open P0 bugs in §2
-4. Finalise RELEASE_v0.4.0.md from §2 + features
+1. Land template engine + OOTB packs + wizard on main
+2. Keep appending bugs to §2
+3. Freeze: no open P0 bugs
+4. Finalise RELEASE_v0.4.0.md
 5. Bump pyproject 0.4.0 · tag v0.4.0 · push
 ```
 
 ---
 
-## 7. How to maintain this list
+## 6. How to maintain this list
 
 When you find or fix a bug:
 
 1. Add or update a row in **§2** (`Bxx`, area, status, commit).  
 2. Add a one-line bullet under **Fixed** or **Open** in [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md).  
-3. Do **not** open a separate `v0.3.x` release for these unless we reverse the locked decision above.
+3. Do **not** open a separate `v0.3.x` release unless we reverse the locked decision above.
 
 ```bash
-# Before cutting the release:
 git log --oneline v0.3.0..HEAD
 ```
 
 ---
 
-**End of plan** — living document until `v0.4.0` is tagged.
+**End of plan** — living until `v0.4.0` is tagged.

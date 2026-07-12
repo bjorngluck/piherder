@@ -23,13 +23,16 @@ Design principles stay the same as SPEC:
 | **v0.2.0** | Production install story (compose, token REST, prod docs) + H0.5 + early Kuma | H0 / H0.5 | **Tagged** 2026-07-10 — [RELEASE_v0.2.0.md](RELEASE_v0.2.0.md) |
 | **v0.2.x** | Platform reliability (host deps, stack Status tab, multi-worker) | H0.5 | Shipped on main (included in v0.2.0) |
 | **v0.3.0** | Integration hub — Kuma + **Grafana** (kinds, templates, Docker chips) | H1 | **Tagged** 2026-07-11 — [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md) |
-| **v0.4.0** | Post-0.3 quality (Docker/jobs/alerts) + templates foundation | H2 + fixes | **In progress** — [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · WIP notes [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) |
-| **v0.4.x** | Remaining H1 multi-URL adapters / template pack expansion | H1/H2 | Optional after 0.4.0 |
+| **v0.4.0** | Post-0.3 quality + **service templates** (wizard, volumes/booleans, from-host, step-up secrets, wait modal, OOTB pack, encrypted desired state V1) | H2 + fixes | **In progress** — [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) |
+| **v0.4.x** | Drift validation, NPM **connector**, git template catalog, `.env` migrate UX | H1/H2 | After 0.4.0 |
+| **v0.5.0** | **First RC** — restore + last known config, production wikis, Docker Hub multi-arch, freeze bar | RC | Planned |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
 **Decision:** All fixes after `v0.3.0` ship in **`v0.4.0`** (no intermediate `v0.3.1`). Living bug list for release notes: PLAN §2.
 
-**Note:** Registry image publish (`bjorngluck/piherder:0.3.0`) remains optional until Docker Hub/GHCR credentials are available; the git tag is the source of truth for this release.
+**Production path (3 phases):** v0.4.0 templates → v0.4.x ops hardening → v0.5.0 first release candidate.
+
+**Note:** Registry image publish (`bjorngluck/piherder`) remains optional until Docker Hub/GHCR credentials are available; target Hub publish with **v0.5.0 RC**.
 
 ---
 
@@ -148,17 +151,35 @@ Read-mostly integrations: config + status + deep links + **server / host / Docke
 
 Versioned **templates**: compose/install recipe + variables + post-deploy checklist/actions.
 
-On **add server** or **new Docker project**, offer:
+### Phase 1 — v0.4.0 (ship bar)
 
-1. Pick a template (or blank)  
-2. Optional steps: monitoring (Kuma), DNS (Cloudflare or checklist), TLS/proxy (NPM), PiHerder feature flags  
-3. Every automated step: **preview → confirm → audit**  
+1. Pick a template (or blank / import)  
+2. Configure variables (secrets generated or entered)  
+3. Select host (Docker inventory counts)  
+4. **Preview → confirm → audit**; store encrypted desired state V1  
+5. Manual DNS checklist (no API automation yet)  
+6. Optional 2FA gate for deploy / secret view  
 
-Curated pack targets a typical ecosystem: Pi-hole, Uptime Kuma, Grafana, Frigate, Home Assistant, NPM, n8n, media stack, generic web app.
+**OOTB pack:** Nginx Proxy Manager, Uptime Kuma, Pi-hole, Grafana.  
+**Plan:** [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md)
 
-Operators can **create / import / export** templates (manual import only — no remote unsigned marketplace at first).
+### Phase 2 — v0.4.x
 
-**Active planning:** ship bar, post-0.3 bugfixes, and slice choices are tracked in **[PLAN_v0.4.0.md](PLAN_v0.4.0.md)** (templates v1 = schema + apply + samples; full pack and provider auto-create are stretch / later).
+- Scheduled **config drift** validation vs desired state; alert + audit  
+- Migrate existing host `.env` into PiHerder encrypted store (UX polish)  
+- **Git** template catalog pull (preview before enable)  
+- **NPM connector** (proxy hosts, app bindings, encrypted cert store)  
+- Contribute path: Issues/PR for builtin inclusion  
+
+**Secrets stance (home production):** templates use **locked-down host `.env` (`chmod 600`)** + PiHerder encrypted source of truth; restarts do not call PiHerder. Advanced options (Swarm secrets, vault, sealed host blob) stay **post-0.4 / Horizon 3** exploration — not the default path.
+
+### Phase 3 — v0.5.0 RC
+
+- Restore service from backup **+ last known config** from PiHerder  
+- Production user wiki + dev wiki  
+- Docker Hub / GHCR multi-arch image  
+
+Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provider automation remain post-RC.
 
 ---
 
@@ -169,6 +190,7 @@ Operators can **create / import / export** templates (manual import only — no 
 | Home Assistant | Token REST first → optional custom component (sensors + safe actions); MQTT later |
 | Plugin hooks | Prefer REST + n8n over arbitrary code on the herder host |
 | Ansible / cloud-init | Inventory export + first-boot snippets for new Pis |
+| **Advanced secrets** | Explore beyond locked `.env`: Swarm/file permissions hardening, sealed host store for offline recreate, optional vault — never require PiHerder for normal container restart |
 | Optional AI | OpenAI-compatible BYO (cloud or private LLM); **off by default**; never send private keys; Frigate vision stays on Frigate / AI Hat |
 
 ---

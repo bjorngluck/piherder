@@ -75,6 +75,8 @@
       <p class="text-sm text-muted mt-1">{{ server.name }} · {{ server.hostname }}</p>
     </div>
     <div class="page-header-actions">
+      <a href="/servers/{{ server.id }}/deployments" class="btn btn-secondary min-h-11 text-sm"
+         title="Stacks managed via Service templates (desired state)">Template deployments</a>
       <a href="/servers/{{ server.id }}/docker?nocache=1" class="btn btn-secondary min-h-11 text-sm">↻ Refresh</a>
       <a href="/servers/{{ server.id }}/docker/new-project" class="btn btn-accent min-h-11 text-sm">+ New Service</a>
     </div>
@@ -254,6 +256,7 @@ function hideCleanupModal() {
 
 /* Keep ⋯ short — no scroll. Lifecycle (start/stop/restart) stays on stack detail. */
 const MORE_ACTIONS = [
+  { key: 'template-config', label: 'Template settings…', accent: true },
   { key: 'deploy', label: 'Deploy', accent: true },
   { key: 'logs', label: 'Logs' },
   { key: 'edit', label: 'Edit compose' },
@@ -261,6 +264,13 @@ const MORE_ACTIONS = [
   { key: 'check-updates', label: 'Check updates' },
   { key: 'undeploy', label: 'Undeploy', danger: true },
 ];
+
+function moreActionLabel(item, real) {
+  if (item.key === 'edit' && real && real.getAttribute('data-template-managed') === '1') {
+    return 'Edit compose (advanced)…';
+  }
+  return item.label;
+}
 
 function positionDockerPopover(menu, anchorBtn) {
   const r = anchorBtn.getBoundingClientRect();
@@ -324,10 +334,26 @@ function showProjectMoreMenu(anchorBtn, row) {
     btn.className = 'docker-popover-item'
       + (item.danger ? ' is-danger' : '')
       + (item.accent ? ' is-accent' : '');
-    btn.textContent = item.label;
+    btn.textContent = moreActionLabel(item, real);
     btn.addEventListener('click', function(e) {
+      e.preventDefault();
       e.stopPropagation();
       hideProjectMoreMenu();
+      // Call handlers directly — synthetic click on hidden secondary buttons is unreliable
+      if (item.key === 'edit') {
+        openComposeEditFromBtn(real);
+        return;
+      }
+      if (item.key === 'template-config') {
+        const href = real.getAttribute('href');
+        if (href) window.location.href = href;
+        else real.click();
+        return;
+      }
+      if (item.key === 'build') {
+        real.click();
+        return;
+      }
       real.click();
     });
     list.appendChild(btn);
@@ -643,12 +669,39 @@ document.body.addEventListener('htmx:afterSettle', function(e) {
   </div>
 </div>
 
+<!-- Template-managed stack: gate before raw compose edit -->
+<div id="template-edit-gate-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="teg-title">
+  <div class="modal-content card p-6 w-full max-w-md mx-4">
+    <h3 id="teg-title" class="text-lg font-medium mb-2">Template-managed stack</h3>
+    <p class="text-sm text-muted mb-3">
+      <strong id="teg-project" class="font-mono text-text"></strong>
+      is driven by service template
+      <code id="teg-slug" class="text-xs text-accent"></code>.
+    </p>
+    <p class="text-sm mb-4">
+      Change variables, secrets, and redeploy from
+      <strong>Template settings</strong> so PiHerder keeps desired state in sync.
+      Raw compose edit is advanced and can cause drift until the next template redeploy.
+    </p>
+    <div class="flex flex-col sm:flex-row flex-wrap gap-2 justify-end">
+      <button type="button" onclick="hideTemplateEditGate()" class="btn btn-secondary min-h-11 text-sm order-3 sm:order-1">Cancel</button>
+      <button type="button" id="teg-raw-edit" class="btn btn-secondary min-h-11 text-sm order-2">Edit compose anyway</button>
+      <a id="teg-template-link" href="#" class="btn btn-accent min-h-11 text-sm inline-flex items-center justify-center order-1 sm:order-3 no-underline">Template settings…</a>
+    </div>
+  </div>
+</div>
+
 <!-- Quick Edit Modal (modal mindset for compose / Dockerfile) -->
 <div id="quick-edit-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="modal-content card p-6 w-full max-w-3xl mx-4">
     <div class="flex items-center justify-between mb-3 gap-2">
       <h3 class="text-lg font-medium">Quick edit — <span id="qe-project"></span></h3>
       <button type="button" onclick="hideQuickEditModal()" class="btn btn-secondary min-h-11 text-sm">✕</button>
+    </div>
+    <div id="qe-template-banner" class="hidden mb-3 p-2.5 banner-warning border border-border text-sm rounded">
+      Template-managed stack. Prefer
+      <a id="qe-template-link" href="#" class="text-accent underline">template settings</a>
+      for variables/secrets. Raw edits can drift.
     </div>
 
     <div class="mb-2 flex flex-wrap gap-2 text-sm">
@@ -837,30 +890,109 @@ document.addEventListener('click', function(e) {
   }
   const editBtn = e.target.closest('button[data-edit-proj]');
   if (editBtn) {
-    const projName = editBtn.getAttribute('data-edit-proj') || '';
-    const hasDfAttr = editBtn.getAttribute('data-has-df') || '0';
-    const hasDockerfile = (hasDfAttr === '1' || hasDfAttr === 'true');
-    const serverId = editBtn.getAttribute('data-server-id') || '';
-    if (typeof showQuickEditModal === 'function') showQuickEditModal(projName, hasDockerfile, serverId);
+    openComposeEditFromBtn(editBtn);
   }
 });
 
-// === Quick Edit Modal (compose + Dockerfile in a popup, same spirit as Build modal) ===
-let qeCurrent = { project: '', fileType: 'compose', serverId: '', hasDockerfile: false };
+function openComposeEditFromBtn(editBtn) {
+  if (!editBtn) return;
+  const projName = editBtn.getAttribute('data-edit-proj') || '';
+  const hasDfAttr = editBtn.getAttribute('data-has-df') || '0';
+  const hasDockerfile = (hasDfAttr === '1' || hasDfAttr === 'true');
+  const serverId = editBtn.getAttribute('data-server-id') || '';
+  const templated = editBtn.getAttribute('data-template-managed') === '1';
+  const depId = editBtn.getAttribute('data-template-deployment-id') || '';
+  const slug = editBtn.getAttribute('data-template-slug') || '';
+  if (templated && depId) {
+    showTemplateEditGate({
+      project: projName,
+      serverId: serverId,
+      hasDockerfile: hasDockerfile,
+      deploymentId: depId,
+      templateSlug: slug,
+    });
+    return;
+  }
+  showQuickEditModal(projName, hasDockerfile, serverId, null);
+}
 
-function showQuickEditModal(projName, hasDockerfile, serverId) {
-  const modal = document.getElementById('quick-edit-modal');
+let _tegPending = null;
+
+function showTemplateEditGate(opts) {
+  opts = opts || {};
+  _tegPending = opts;
+  const modal = document.getElementById('template-edit-gate-modal');
+  if (!modal) {
+    // Fallback if modal missing: still open editor
+    showQuickEditModal(opts.project, opts.hasDockerfile, opts.serverId, opts);
+    return;
+  }
+  const projEl = document.getElementById('teg-project');
+  const slugEl = document.getElementById('teg-slug');
+  const link = document.getElementById('teg-template-link');
+  const rawBtn = document.getElementById('teg-raw-edit');
+  if (projEl) projEl.textContent = opts.project || '';
+  if (slugEl) slugEl.textContent = opts.templateSlug || 'template';
+  if (link) link.href = '/templates/deployments/' + encodeURIComponent(opts.deploymentId);
+  if (rawBtn) {
+    rawBtn.onclick = function() {
+      hideTemplateEditGate();
+      showQuickEditModal(opts.project, opts.hasDockerfile, opts.serverId, opts);
+    };
+  }
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function hideTemplateEditGate() {
+  const modal = document.getElementById('template-edit-gate-modal');
   if (!modal) return;
+  modal.classList.remove('flex');
+  modal.classList.add('hidden');
+  _tegPending = null;
+}
 
-  qeCurrent = { project: projName, fileType: 'compose', serverId: serverId, hasDockerfile: !!hasDockerfile };
+// === Quick Edit Modal (compose + Dockerfile in a popup, same spirit as Build modal) ===
+let qeCurrent = { project: '', fileType: 'compose', serverId: '', hasDockerfile: false, template: null };
+
+function showQuickEditModal(projName, hasDockerfile, serverId, templateMeta) {
+  const modal = document.getElementById('quick-edit-modal');
+  if (!modal) {
+    console.error('quick-edit-modal missing');
+    if (serverId && projName) {
+      window.location.href = `/servers/${serverId}/docker/compose/${encodeURIComponent(projName)}/edit`;
+    }
+    return;
+  }
+
+  qeCurrent = {
+    project: projName,
+    fileType: 'compose',
+    serverId: serverId,
+    hasDockerfile: !!hasDockerfile,
+    template: templateMeta || null,
+  };
 
   document.getElementById('qe-project').textContent = projName;
   const dfTab = document.getElementById('qe-tab-dockerfile');
-  dfTab.classList.toggle('hidden', !hasDockerfile);
+  if (dfTab) dfTab.classList.toggle('hidden', !hasDockerfile);
 
   // full editor link
   const fullLink = document.getElementById('qe-full-link');
-  fullLink.href = `/servers/${serverId}/docker/compose/${encodeURIComponent(projName)}/edit`;
+  if (fullLink) {
+    fullLink.href = `/servers/${serverId}/docker/compose/${encodeURIComponent(projName)}/edit`;
+  }
+
+  const banner = document.getElementById('qe-template-banner');
+  const tLink = document.getElementById('qe-template-link');
+  if (banner) {
+    if (templateMeta && templateMeta.deploymentId) {
+      banner.classList.remove('hidden');
+      if (tLink) tLink.href = '/templates/deployments/' + encodeURIComponent(templateMeta.deploymentId);
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
 
   modal.classList.remove('hidden');
   modal.classList.add('flex');

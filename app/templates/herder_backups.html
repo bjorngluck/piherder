@@ -164,6 +164,16 @@
           </span>
         </span>
       </label>
+      <label class="flex items-start gap-2 min-h-11 text-sm">
+        <input type="checkbox" name="template_require_2fa" value="1" class="mt-1"
+               {% if cfg.template_require_2fa %}checked{% endif %}>
+        <span>
+          <strong>Require 2FA for template deploy</strong>
+          <span class="block text-xs text-muted mt-0.5">
+            Operators must have TOTP to confirm template deploys. <strong>Viewing secrets always requires step-up 2FA</strong> (View secrets + fresh authenticator code), even if already logged in with 2FA.
+          </span>
+        </span>
+      </label>
       <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save security policy</button>
     </form>
   </div>

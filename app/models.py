@@ -371,6 +371,48 @@ class Integration(SQLModel, table=True):
     bindings: List["IntegrationBinding"] = Relationship(back_populates="integration")
 
 
+class ServiceTemplate(SQLModel, table=True):
+    """Catalog entry for a deployable service template (builtin / import / git)."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    slug: str = Field(index=True, unique=True)
+    name: str
+    description: Optional[str] = None
+    category: str = Field(default="other", index=True)
+    version: str = "1.0.0"
+    source: str = Field(default="builtin", index=True)  # builtin | import | git
+    enabled: bool = True
+    # Full definition JSON including file_contents (see FEATURE_PLAN_TEMPLATES.md)
+    definition_json: Optional[str] = None
+    checksum: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    deployments: List["StackDeployment"] = Relationship(back_populates="template")
+
+
+class StackDeployment(SQLModel, table=True):
+    """Desired state for a template-managed stack on a host (config version Vn)."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    server_id: int = Field(foreign_key="server.id", index=True)
+    project_name: str = Field(index=True)
+    template_id: Optional[int] = Field(default=None, foreign_key="servicetemplate.id", index=True)
+    template_slug: Optional[str] = Field(default=None, index=True)
+    template_version: Optional[str] = None
+    config_version: int = 1
+    variables_json: Optional[str] = None  # non-secret key/value JSON
+    secrets_encrypted: Optional[str] = None  # Fernet(JSON secrets map)
+    files_json: Optional[str] = None  # rendered files for redeploy
+    drift_status: str = Field(default="unknown")  # unknown | in_sync | drifted
+    last_deployed_at: Optional[datetime] = None
+    last_validated_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    template: Optional[ServiceTemplate] = Relationship(back_populates="deployments")
+
+
 class IntegrationBinding(SQLModel, table=True):
     """Map fleet resources to external monitors (e.g. Kuma).
 

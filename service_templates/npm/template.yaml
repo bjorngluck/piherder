@@ -1,0 +1,79 @@
+schema_version: 1
+slug: npm
+name: Nginx Proxy Manager
+description: Reverse proxy UI with Let's Encrypt support (jc21/nginx-proxy-manager).
+category: proxy
+version: "1.1.0"
+tags: [proxy, tls, npm]
+variables:
+  - name: PROJECT_NAME
+    label: Project folder name
+    type: string
+    default: npm
+    required: true
+  - name: HTTP_PORT
+    label: HTTP port (host)
+    type: port
+    default: "80"
+    help: Map host 80 for public HTTP / ACME.
+  - name: HTTPS_PORT
+    label: HTTPS port (host)
+    type: port
+    default: "443"
+  - name: ADMIN_PORT
+    label: Admin UI port (host)
+    type: port
+    default: "81"
+  - name: DB_MYSQL_PASSWORD
+    label: MySQL password
+    type: password
+    secret: true
+    generate: true
+    required: true
+  - name: DB_MYSQL_ROOT_PASSWORD
+    label: MySQL root password
+    type: password
+    secret: true
+    generate: true
+    required: true
+  - name: NPM_DATA
+    label: NPM data storage
+    type: volume
+    volume_target: /data
+    volume_default_mode: named
+    default: npm_data
+    required: true
+  - name: NPM_LETSENCRYPT
+    label: Let's Encrypt storage
+    type: volume
+    volume_target: /etc/letsencrypt
+    volume_default_mode: named
+    default: npm_letsencrypt
+    required: true
+  - name: NPM_MYSQL
+    label: MySQL data storage
+    type: volume
+    volume_target: /var/lib/mysql
+    volume_default_mode: named
+    default: npm_mysql
+    required: true
+files:
+  - path: docker-compose.yml
+  - path: .env
+    from: .env.sample
+checklist:
+  - title: DNS (manual)
+    body: |
+      Point hostnames you will proxy at this server's IP (A/AAAA).
+      Automation via Pi-hole / Cloudflare is planned later — create records manually for now.
+  - title: First login
+    body: |
+      Open http://HOST:{{ADMIN_PORT}} — default admin is admin@example.com / changeme
+      Change the password immediately.
+  - title: TLS
+    body: |
+      In NPM, add Proxy Hosts and request certificates (HTTP or DNS challenge).
+      PiHerder can store NPM certs encrypted in a later release (v0.4.x connector).
+options:
+  supports_docker_secrets: true
+  npm_proxy: false

@@ -47,6 +47,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - Optional **Web Push** (VAPID) for fleet alerts on Android and iOS Home Screen PWAs (16.4+); per-user prefs under Account.
 - Installable **PWA** (manifest + service worker + home-screen install).
 - Link to Pi-hole admin from dashboard (configurable).
+- **Service templates:** deploy NPM, Uptime Kuma, Pi-hole, Grafana (and custom / from-host stacks) via wizard — variables (incl. **boolean** + **volume** storage modes), preview, host picker, encrypted desired state V1; step-up 2FA for secrets; wait modal while deploy runs.
 - **Integrations:** top-level menu — **Uptime Kuma** (API key + `/metrics`; SSH / host / Docker bindings; TLS; Services pages; logos; down notifications) and **Grafana** (health; dashboard inventory; server→dashboard deep links with query templates).
 - HTTPS via Caddy with **operator-supplied TLS certs** (volume `./certs`) and `PIHERDER_HOSTNAME` (default ports **8888** HTTP / **8443** HTTPS).
 
@@ -64,7 +65,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - `./piherder_data:/data` — avatars (instance Settings live in Postgres).
 - `./certs:/certs` (Caddy, read-only) — `fullchain.pem` + `privkey.pem` for trusted HTTPS (see `certs/README.md`).
 
-**Current release:** **v0.3.0** (git tag). Integration hub: **Uptime Kuma** + **Grafana** (dashboard bindings, host/container/logs query templates, Docker **Grafana** chips). Platform: host dependency chips, Settings → **Status**, Celery **`CELERY_CONCURRENCY`** (default 2) + per-server backup mutex. Full env catalog: [`.env.example`](.env.example) · ops: [docs/ADMIN.md](docs/ADMIN.md) · next: multi-URL adapters / templates (v0.4).
+**Current release:** **v0.3.0** (git tag). **Toward v0.4.0:** service templates foundation (wizard, volumes/booleans, from-host, encrypted desired state, step-up secrets 2FA), post-0.3 Docker/jobs/alert fixes. Integration hub: **Uptime Kuma** + **Grafana**. Platform: host dependency chips, Settings → **Status**, Celery **`CELERY_CONCURRENCY`** (default 2) + per-server backup mutex. Full env catalog: [`.env.example`](.env.example) · ops: [docs/ADMIN.md](docs/ADMIN.md) · templates: [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md).
 
 ## Tech Stack
 

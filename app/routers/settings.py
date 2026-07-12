@@ -609,12 +609,18 @@ async def save_backup_schedule(
 @router.post("/herder-backups/security")
 async def save_security_policy(
     force_2fa: Optional[str] = Form(None),
+    template_require_2fa: Optional[str] = Form(None),
     user: User = Depends(get_current_user),
 ):
     if user_role(user) != ROLE_ADMIN:
         raise HTTPException(403, "Admin role required")
     try:
-        app_cfg.save_settings({"force_2fa": _form_on(force_2fa)})
+        app_cfg.save_settings(
+            {
+                "force_2fa": _form_on(force_2fa),
+                "template_require_2fa": _form_on(template_require_2fa),
+            }
+        )
     except Exception as e:
         return RedirectResponse(
             _settings_url("general", error=str(e)[:120]), status_code=303
