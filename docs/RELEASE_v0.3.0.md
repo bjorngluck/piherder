@@ -79,9 +79,12 @@ Details: [README.md](../README.md) · [ADMIN.md](ADMIN.md) § Grafana integratio
 
 ---
 
-## Toward v0.4 / remaining H1
+## Toward v0.4.0
 
-- **Post-tag on main:** Docker Deploy honesty + resolve container-update alerts — plan as **v0.3.1** and/or include in **v0.4.0** ([PLAN_v0.4.0.md](PLAN_v0.4.0.md))  
-- Multi Pi-hole / NPM / HA / Frigate / n8n generic URL adapters  
-- Service deployment templates (H2)  
-- Optional multi-arch image publish when credentials allow  
+All post-tag fixes and features target **`v0.4.0`** (no `v0.3.1` branch). Track bugs/fixes for release notes in:
+
+- [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2 (living bug table B01…)  
+- [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) (WIP changelog)
+
+Includes Docker Deploy honesty, container-update alert resolve, jobs list Cancel, backup-failed alert lifecycle, then templates foundation (TBD).  
+Optional later: multi-URL adapters, multi-arch image publish.
