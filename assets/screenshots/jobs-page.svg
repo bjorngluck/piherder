@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+<rect width="960" height="540" fill="#1a1a1e"/>
+<rect x="0" y="0" width="960" height="48" fill="#c8102e"/>
+<text x="20" y="32" fill="#fff" font-family="system-ui,sans-serif" font-size="16" font-weight="700">PiHerder</text>
+<text x="120" y="32" fill="#ffd0d0" font-family="system-ui,sans-serif" font-size="13">Jobs</text>
+<text x="780" y="32" fill="#ffd0d0" font-family="system-ui,sans-serif" font-size="11">WIREFRAME · replace with PNG</text>
+<rect x="20" y="68" width="920" height="60" rx="8" fill="#25252c" stroke="#3a3a42" stroke-width="1"/>
+<text x="32" y="96" fill="#e8e8ec" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Filters · server · status · type · date</text>
+<rect x="20" y="148" width="920" height="360" rx="8" fill="#202026" stroke="#3a3a42" stroke-width="1"/>
+<text x="32" y="176" fill="#e8e8ec" font-family="system-ui,sans-serif" font-size="13" font-weight="600">Job rows — click for log tail + cancel</text>
+</svg>
