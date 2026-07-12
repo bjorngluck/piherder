@@ -4,7 +4,7 @@
 
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Release](https://img.shields.io/badge/release-v0.4.0-green.svg)](docs/RELEASE_v0.4.0.md)
 
@@ -13,7 +13,8 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)
 - **Specification:** [SPEC.md](SPEC.md) — link this to your [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) board
 - **Ecosystem roadmap:** [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) (production → integrations → templates → community)
-- **Admin guide (RBAC, users, schedules, jobs, TLS/PWA/push, API tokens):** [docs/ADMIN.md](docs/ADMIN.md)
+- **User docs (wiki):** [wiki/](wiki/) — MkDocs Material · `pip install -r requirements-docs.txt && mkdocs serve` · public GitHub Pages at RC (`https://bjorngluck.github.io/piherder/` once the repo is public)
+- **Admin guide (long-form / legacy single file):** [docs/ADMIN.md](docs/ADMIN.md)
 - **Automation API reference:** [docs/API.md](docs/API.md) · live OpenAPI at `/docs` (tag **api-v1**)
 - **Publish image:** [docs/PUBLISH_IMAGE.md](docs/PUBLISH_IMAGE.md)
 - **Security:** [SECURITY.md](SECURITY.md)
@@ -21,11 +22,12 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **PWA + Web Push:** [docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · iOS: [docs/DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md)
 - **Integrations (Kuma + Grafana):** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · ops in [docs/ADMIN.md](docs/ADMIN.md)
 - **Release notes:** [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md) · [v0.3.0](docs/RELEASE_v0.3.0.md) · [v0.2.0](docs/RELEASE_v0.2.0.md)
+- **v0.5.0 plan (active):** [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md)
 - **Service templates:** [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · ops in [docs/ADMIN.md](docs/ADMIN.md)
 - **Stabilisation plan:** [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
 - **UI unification plan:** [UI_UNIFICATION_PLAN.md](UI_UNIFICATION_PLAN.md) (complete)
 
-**Community:** use [GitHub Issues](https://github.com/bjorngluck/piherder/issues) for bugs and features; [Discussions](https://github.com/bjorngluck/piherder/discussions) for Q&A when enabled. Discord link will be added when the server is public.
+**Community:** [Issues](https://github.com/bjorngluck/piherder/issues) welcome; [PRs](https://github.com/bjorngluck/piherder/pulls) accepted for **review** — only the maintainer merges. See [CONTRIBUTING.md](CONTRIBUTING.md). Discussions/Discord may be enabled later.
 
 ## Features
 
@@ -66,7 +68,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - `./piherder_data:/data` — avatars (instance Settings live in Postgres).
 - `./certs:/certs` (Caddy, read-only) — `fullchain.pem` + `privkey.pem` for trusted HTTPS (see `certs/README.md`).
 
-**Current release:** **v0.4.0** (git tag) — service templates foundation + post-0.3 quality. Integration hub: **Uptime Kuma** + **Grafana**. **Next:** v0.4.x (drift / NPM connector / git catalog) · v0.5.0 (template polish + RC). Full env catalog: [`.env.example`](.env.example) · ops: [docs/ADMIN.md](docs/ADMIN.md) · templates: [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · notes: [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md).
+**Current release:** **v0.4.0** (git tag) — service templates foundation + post-0.3 quality. Integration hub: **Uptime Kuma** + **Grafana**. **In development:** **v0.5.0** first RC (ops + template polish + restore + wikis + multi-arch) — [PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md). Full env catalog: [`.env.example`](.env.example) · ops: [docs/ADMIN.md](docs/ADMIN.md) · templates: [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · notes: [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md).
 
 ## Tech Stack
 
@@ -226,18 +228,24 @@ Bind-mount host directories as needed for persistence.
 | **v0.2 / H0** | Production: clean compose, token REST API, prod ADMIN |
 | **v0.3 / H1** | Integration hub: Uptime Kuma + Grafana — [feature plan](docs/FEATURE_PLAN_INTEGRATIONS.md) |
 | **v0.4 / H2** | **Shipped:** service templates foundation — [RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md) |
-| **v0.4.x / v0.5** | Drift, NPM connector, git catalog · template polish + RC |
+| **v0.5 RC** | **In development:** ops + polish + restore + wikis + multi-arch — [PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md) |
 | **Later / H3** | HA plugin, optional BYO LLM, Ansible, community on Discord + hacknow.info |
 
 **Recently completed (high level):** Service templates (wizard, volumes/booleans, from-host, desired state V1), Grafana + Kuma hub, host deps, Status, multi-worker Celery, Docker inventory, PWA + Web Push, RBAC/2FA, token REST API, Alembic + pytest.
 
-**Still open (examples):** published Docker Hub/GHCR image, config drift, NPM connector API, multi Pi-hole, HA plugin, optional AI.
+**Still open (examples):** config drift, restore + last known config, published Docker Hub/GHCR image, NPM connector, multi Pi-hole, HA plugin, optional AI.
 
 To track work in a GitHub Project: link the `piherder` repo, then create issues from the unchecked items in SPEC.md.
 
 ## License
 
-MIT — see LICENSE.
+**PolyForm Noncommercial 1.0.0** — see [LICENSE](LICENSE).
+
+Source is available for **non-commercial** use (personal, hobby, education, and other permitted noncommercial purposes under that license). Copyright remains with **Bjorn Gluck**. Attribution / the `Required Notice` in LICENSE must be preserved when you distribute copies.
+
+Commercial use is **not** granted by this license. Contact the author if you need a separate commercial grant.
+
+This is **source-available**, not OSI “open source” (OSI licenses allow commercial use).
 
 ## Credits
 

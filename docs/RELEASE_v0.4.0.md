@@ -53,15 +53,14 @@ Image registry publish (Docker Hub / GHCR) remains optional; operators build wit
 
 ## Intentionally not in v0.4.0
 
-Template **polish** and deeper ops land after this freeze:
+Template **polish** and deeper ops land in the **v0.5.0** cycle (single target; former v0.4.x folded in) — [PLAN_v0.5.0.md](PLAN_v0.5.0.md):
 
 | Horizon | Items |
 |---------|--------|
-| **v0.4.x** | Config drift schedule · git template catalog · NPM integration connector · `.env` migrate UX · optional Docker/template Jobs with live log (B07 stretch) |
-| **v0.5.0** | Template UX polish · restore + last known config · production wikis · Docker Hub multi-arch · RC freeze |
+| **v0.5.0** | Config drift · `.env` migrate · template UX polish · restore + last known config · production wikis · Docker Hub multi-arch · RC freeze; nice-to-have: git catalog, NPM connector, B07 |
 | **Later** | Advanced secret backends · automated DNS · expanded curated pack |
 
-Open stretch bugs (not required for this tag): **B07** (async Docker deploy jobs), **B08** (logos in self-backup), **B09** (push on auto-resolve).
+Open stretch bugs (not required for this tag): **B07** (async Docker deploy jobs), **B08** (logos in self-backup), **B09** (push on auto-resolve) — tracked under v0.5.0.
 
 ---
 

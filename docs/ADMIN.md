@@ -2,6 +2,8 @@
 
 Practical reference for operators and admins: roles, users, security policy, schedules, Docker inventory, feature flags, Jobs page, production deploy, and API tokens.
 
+> **Prefer the user wiki** for day-to-day reading: repo [`wiki/`](../wiki/) built with MkDocs (`pip install -r requirements-docs.txt && mkdocs serve`). This file remains the long-form single-document reference and source material for the wiki.
+
 Related: [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](DECISION_IOS_PUSH.md) · [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md) · [SECURITY.md](../SECURITY.md)
 
 ---
@@ -406,8 +408,8 @@ Typical pattern: PiHerder → n8n webhook → Signal CLI. In-app notifications a
 
 **Templates** (top-level nav) are **your** versioned stack definitions. You **create**, **edit**, and **save** them; deploy is separate.
 
-**Shipped in v0.4.0** (foundation; polish planned for v0.5.0).  
-**Docs:** [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md)
+**Shipped in v0.4.0** (foundation; ops + polish → [PLAN_v0.5.0.md](PLAN_v0.5.0.md)).  
+**Docs:** [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · active [PLAN_v0.5.0.md](PLAN_v0.5.0.md)
 
 #### Create / edit (operator-owned)
 
@@ -611,7 +613,7 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 ### Image publish (when ready)
 
-Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/piherder:0.4.0`). Until then, build from this repo with `docker compose build`. See roadmap in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md). Current git release: **v0.4.0** — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md).
+Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/piherder:0.5.0` at RC). Until then, build from this repo with `docker compose build`. See roadmap in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md). Current git release: **v0.4.0** — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md). In development: **v0.5.0** — [PLAN_v0.5.0.md](PLAN_v0.5.0.md).
 
 **Supported deploy path:** Docker Compose (this repo). Platform reliability (host dependency checks, Settings → **Status**, multi-worker Celery) is live — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 0.5. Kubernetes and bare/local install are under consideration only, not supported install paths today.
 

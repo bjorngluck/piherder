@@ -3,12 +3,12 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** **v0.4.0 tagged** — Phase 1–5 complete; Phase 6 templates **foundation shipped**; polish → v0.5.0; ops depth → v0.4.x  
-> **Last updated:** 2026-07-12 — Production path: ~~v0.4.0~~ done → v0.4.x drift/NPM → v0.5.0 RC
+> **Status:** **v0.5.0 in development** — Phase 1–5 complete; Phase 6 templates **foundation shipped** in v0.4.0; ops + polish + RC → **v0.5.0**  
+> **Last updated:** 2026-07-12 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target; former v0.4.x folded in)
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
-**Operator docs:** [docs/ADMIN.md](docs/ADMIN.md) · [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) · [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
+**Operator docs:** [wiki/](wiki/) (MkDocs) · [docs/ADMIN.md](docs/ADMIN.md) (long-form) · [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) · [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
 
 ---
 
@@ -229,13 +229,14 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 
 ---
 
-## Phase 6 — Service templates (v0.4 / Horizon 2)
+## Phase 6 — Service templates (v0.4 foundation → v0.5.0 RC / Horizon 2)
 
-**Plan:** [docs/PLAN_v0.4.0.md](docs/PLAN_v0.4.0.md) · [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · **Release:** [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md)  
-**Decision:** All post-`v0.3.0` work for this milestone shipped in **`v0.4.0`** (bug IDs B01… in PLAN §2).  
-**Production path:** ~~v0.4.0~~ **done** → v0.4.x (6b) → **v0.5.0 first RC** (6c, incl. template polish).
+**Shipped foundation:** [docs/PLAN_v0.4.0.md](docs/PLAN_v0.4.0.md) · [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md)  
+**Active plan:** [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md)  
+**Decision:** All post-`v0.3.0` work for the foundation shipped in **`v0.4.0`** (bug IDs B01… in PLAN §2).  
+**Production path:** ~~v0.4.0~~ **done** → **v0.5.0 in development** (ops + polish + first RC; former v0.4.x folded in).
 
-### Post–v0.3.0 quality (on main → v0.4.0)
+### Post–v0.3.0 quality (shipped in v0.4.0)
 
 - [x] **B01** Docker Deploy surfaces pull/up results (audit + banner; was silent success)
 - [x] **B02** Successful Deploy clears pending stack + resolves `container_updates` when none remain
@@ -244,7 +245,7 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 - [x] **B05** Successful backup resolves `backup_failed` alert
 - [x] **B06** Notification dismiss idempotent if already closed
 
-### Templates (v0.4.0 Phase 1)
+### Templates foundation (shipped in v0.4.0)
 
 - [x] Template schema (compose/checklist/variables; `{{VAR}}` render)
 - [x] Variable types: string/port/password + **boolean** + **volume** (named / project bind / host path)
@@ -257,24 +258,32 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 - [x] Deploy / redeploy / from-host wait modal (blocking feedback until SSH finishes)
 - [x] Import own template; contribute via Issues/PR (docs)
 - [x] Manual DNS checklist in post-deploy steps
-
-### Phase 6b — Ops hardening (v0.4.x)
-
-- [ ] Scheduled config drift vs desired state; alert + audit
 - [x] Host secrets model: locked-down `.env` (`chmod 600`); PiHerder encrypted SoT (home production)
-- [ ] Migrate existing host `.env` into PiHerder (UX polish)
-- [ ] Advanced host secret stores (Swarm/vault/sealed) — Horizon 3
-- [ ] Git template catalog pull
-- [ ] NPM integration connector (proxy hosts, bindings, encrypted certs)
-- [ ] Provider actions: Kuma create monitor (later)
 
-### Phase 6c — First RC (v0.5.0)
+### Phase 6 → v0.5.0 (ops + polish + first RC)
+
+Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
+
+**Primary**
 
 - [ ] Template UX polish (redeploy volume editor, from-host edge cases, operator feedback)
+- [ ] Scheduled config drift vs desired state; alert + audit
+- [ ] Migrate existing host `.env` into PiHerder (UX polish)
 - [ ] Restore service from backup + apply last known config from PiHerder
-- [ ] Production user wiki + dev wiki
+- [x] Production user wiki + dev wiki scaffold (MkDocs Material under `wiki/`; real screenshots + Pages go-live ongoing)
 - [ ] Docker Hub / GHCR multi-arch image publish
 - [ ] RC freeze bar (pytest, smoke, security of secret paths)
+
+**Nice-to-have in same tag**
+
+- [ ] Git template catalog pull
+- [ ] NPM integration connector (proxy hosts, bindings, encrypted certs)
+- [ ] Async Docker/template deploy jobs + live log (**B07**)
+
+**Deferred (post-0.5 / Horizon 3)**
+
+- [ ] Advanced host secret stores (Swarm/vault/sealed)
+- [ ] Provider actions: Kuma create monitor
 
 ---
 
@@ -407,4 +416,6 @@ Configurable per-server fields that map 1:1: `backup_paths`, `docker_base_dir`, 
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+**PolyForm Noncommercial 1.0.0** — see [LICENSE](LICENSE).
+
+Non-commercial source-available use; copyright **Bjorn Gluck**. Commercial use requires a separate grant. Not OSI open source (by design).

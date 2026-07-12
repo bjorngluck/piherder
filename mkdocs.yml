@@ -1,0 +1,186 @@
+# PiHerder user + developer wiki
+# Build:  pip install -r requirements-docs.txt && mkdocs serve
+# Deploy: GitHub Actions → GitHub Pages (see .github/workflows/docs.yml)
+
+site_name: PiHerder Docs
+site_description: Operator and developer documentation for PiHerder — fleet management for Raspberry Pi and Linux hosts.
+site_author: Bjorn Gluck
+site_url: https://bjorngluck.github.io/piherder/
+repo_url: https://github.com/bjorngluck/piherder
+repo_name: bjorngluck/piherder
+edit_uri: edit/main/wiki/
+docs_dir: wiki
+site_dir: site
+copyright: Copyright &copy; 2026 Bjorn Gluck · PolyForm Noncommercial 1.0.0
+
+# Do not treat capture-guide notes as site pages
+exclude_docs: |
+  assets/screenshots/README.md
+
+theme:
+  name: material
+  custom_dir: wiki/overrides
+  logo: assets/piherder-logo.svg
+  favicon: assets/piherder-logo-small.png
+  language: en
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: System theme
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: red
+      accent: green
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: red
+      accent: green
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  icon:
+    repo: fontawesome/brands/github
+    admonition:
+      note: material/information-outline
+      tip: material/lightbulb-outline
+      warning: material/alert-outline
+      danger: material/lightning-bolt
+      success: material/check-circle-outline
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search:
+      lang: en
+  - tags
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets:
+      base_path:
+        - .
+        - wiki
+      check_paths: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.keys
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/bjorngluck/piherder
+      name: GitHub
+  generator: false
+
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Overview: getting-started/index.md
+      - Requirements: getting-started/requirements.md
+      - Install (Docker Compose): getting-started/install.md
+      - First login: getting-started/first-login.md
+      - Trusted HTTPS & TLS: getting-started/https-tls.md
+  - Day to day:
+      - Add a server: day-to-day/add-server.md
+      - Backups & restore: day-to-day/backups.md
+      - Updates & patching: day-to-day/updates-and-patching.md
+      - Jobs, audit & notifications: day-to-day/jobs-audit-notifications.md
+      - Remove a server: day-to-day/remove-server.md
+  - Docker on hosts:
+      - Overview: docker/overview.md
+      - Inventory cache: docker/inventory.md
+      - Compose edit & deploy: docker/compose-edit.md
+  - Service templates:
+      - Overview: service-templates/overview.md
+      - Deploy a template: service-templates/deploy.md
+      - From host: service-templates/from-host.md
+      - Secrets model: service-templates/secrets.md
+  - Integrations:
+      - Overview: integrations/overview.md
+      - Uptime Kuma: integrations/uptime-kuma.md
+      - Grafana: integrations/grafana.md
+  - Account & security:
+      - Roles (RBAC): account-security/roles.md
+      - Users: account-security/users.md
+      - 2FA & force 2FA: account-security/two-factor.md
+      - PWA & Web Push: account-security/pwa-push.md
+  - Operations:
+      - Environment reference: operations/env-reference.md
+      - Volumes: operations/volumes.md
+      - Stack Status: operations/status.md
+      - Self-backup & DR: operations/self-backup.md
+      - Upgrades: operations/upgrades.md
+      - Multi-worker Celery: operations/multi-worker.md
+      - Metrics & webhooks: operations/metrics-webhooks.md
+      - API tokens: operations/api-tokens.md
+  - Troubleshooting:
+      - Overview: troubleshooting/index.md
+      - SSH, rsync & dependencies: troubleshooting/ssh-rsync.md
+      - Backups stuck or failing: troubleshooting/backups.md
+      - Push / PWA: troubleshooting/push.md
+      - Templates & Docker: troubleshooting/templates-docker.md
+  - Developers:
+      - Overview: developers/index.md
+      - Local setup: developers/setup.md
+      - Architecture: developers/architecture.md
+      - Template schema: developers/templates-schema.md
+      - Testing: developers/testing.md
+      - Publish image: developers/publish-image.md
+      - Contributing docs: developers/contributing-docs.md
