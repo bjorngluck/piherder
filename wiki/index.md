@@ -1,6 +1,8 @@
 # PiHerder documentation
 
-![PiHerder logo](assets/piherder-logo.svg){ width="220" }
+<figure class="ph-hero-logo" markdown>
+  ![PiHerder logo](assets/piherder-logo.png){ width="280" }
+</figure>
 
 **Secure fleet management for Raspberry Pi and Linux hosts** — backups, patching, Docker control, and service templates with secrets encrypted at rest.
 
