@@ -7,14 +7,16 @@
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/License-PolyForm%20Noncommercial-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Release](https://img.shields.io/badge/release-v0.4.0-green.svg)](docs/RELEASE_v0.4.0.md)
+[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-red.svg)](https://bjorngluck.github.io/piherder/)
 
 PiHerder is a self-hosted web app that manages one or more remote Linux servers (primarily Raspberry Pis). It replaces manual bash scripts with an auditable UI while keeping secrets encrypted at rest.
 
+- **Documentation:** **[bjorngluck.github.io/piherder](https://bjorngluck.github.io/piherder/)** — install, day-to-day ops, templates, API, troubleshooting  
 - **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)
 - **Specification:** [SPEC.md](SPEC.md) — link this to your [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) board
 - **Ecosystem roadmap:** [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md) (production → integrations → templates → community)
-- **User docs (wiki):** [wiki/](wiki/) — MkDocs Material · `pip install -r requirements-docs.txt && mkdocs serve` · public GitHub Pages at RC (`https://bjorngluck.github.io/piherder/` once the repo is public)
-- **Admin guide (long-form / legacy single file):** [docs/ADMIN.md](docs/ADMIN.md)
+- **Docs source (MkDocs):** [wiki/](wiki/) — edit here; publish updates the live site  
+- **Admin guide (long-form / single file):** [docs/ADMIN.md](docs/ADMIN.md)
 - **Automation API reference:** [docs/API.md](docs/API.md) · live OpenAPI at `/docs` (tag **api-v1**)
 - **Publish image:** [docs/PUBLISH_IMAGE.md](docs/PUBLISH_IMAGE.md)
 - **Security:** [SECURITY.md](SECURITY.md)
@@ -68,7 +70,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - `./piherder_data:/data` — avatars (instance Settings live in Postgres).
 - `./certs:/certs` (Caddy, read-only) — `fullchain.pem` + `privkey.pem` for trusted HTTPS (see `certs/README.md`).
 
-**Current release:** **v0.4.0** (git tag) — service templates foundation + post-0.3 quality. Integration hub: **Uptime Kuma** + **Grafana**. **In development:** **v0.5.0** first RC (ops + template polish + restore + wikis + multi-arch) — [PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md). Full env catalog: [`.env.example`](.env.example) · ops: [docs/ADMIN.md](docs/ADMIN.md) · templates: [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · notes: [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md).
+**Current release:** **v0.4.0** (git tag) — service templates foundation + post-0.3 quality. Integration hub: **Uptime Kuma** + **Grafana**. **In development:** **v0.5.0** first RC (ops + template polish + restore + multi-arch) — [PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md). **Docs:** [online wiki](https://bjorngluck.github.io/piherder/) · env: [`.env.example`](.env.example) · notes: [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md).
 
 ## Tech Stack
 
@@ -91,6 +93,8 @@ If you see SSL/certificate errors (or the download gets a Pi-hole page) while ve
 Pre-built images will be available on Docker Hub so most people don't need to build.
 
 ## Quick Start
+
+Full walkthrough: **[Getting started → Install](https://bjorngluck.github.io/piherder/getting-started/install/)**.
 
 1. Clone / enter this dir:
    ```bash
@@ -220,6 +224,7 @@ Bind-mount host directories as needed for persistence.
 
 ## Roadmap
 
+- **Operator docs:** [https://bjorngluck.github.io/piherder/](https://bjorngluck.github.io/piherder/)  
 - **Full phases:** [SPEC.md](SPEC.md)  
 - **Ecosystem horizons (v0.2 → v1.0):** [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 

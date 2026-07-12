@@ -15,8 +15,8 @@ Docs are **Markdown in git** under `wiki/`, built with **MkDocs Material**.
 
 4. Open a PR / merge to `main`.
 
-!!! note "Public site only at RC"
-    Free GitHub Pages needs a **public** repo. PiHerder stays private until the **v0.5.0 RC** go-live; then: make repo public → Settings → Pages → **GitHub Actions** → Docs workflow deploys to `https://bjorngluck.github.io/piherder/`. Until then, preview with `mkdocs serve` only.
+!!! tip "Live docs"
+    Public site: **[https://bjorngluck.github.io/piherder/](https://bjorngluck.github.io/piherder/)**. After merge to `main`, rebuild and publish the site (`mkdocs build` → `gh-pages`, or the Docs GitHub Action if Pages uses Actions).
 
 ## Style
 

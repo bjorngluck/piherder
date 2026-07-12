@@ -19,6 +19,11 @@ Contributions are offered under the same terms as the project: **[PolyForm Nonco
 
 Commercial use of PiHerder is not granted by the public license; contact the author for a separate commercial grant.
 
+## Documentation
+
+- **Live wiki:** [https://bjorngluck.github.io/piherder/](https://bjorngluck.github.io/piherder/)  
+- **Source:** [`wiki/`](wiki/) (MkDocs Material)
+
 ## Issues
 
 **Good issues include:**

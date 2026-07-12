@@ -1,6 +1,13 @@
 # Publish image
 
-Process doc for multi-arch Hub/GHCR publish (target **v0.5.0 RC** when credentials exist).
+Multi-arch images on **Docker Hub** / GHCR (target **v0.5.0 RC**). Full maintainer checklist: [`docs/PUBLISH_IMAGE.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PUBLISH_IMAGE.md).
+
+## One-time Hub setup
+
+1. Account on [hub.docker.com](https://hub.docker.com)  
+2. Create repo **`bjorngluck/piherder`** (public)  
+3. Access token (Read/Write) → `docker login -u bjorngluck`  
+4. Link description to GitHub + [these docs](https://bjorngluck.github.io/piherder/)
 
 ## Tags
 
@@ -36,12 +43,8 @@ celery-worker:
   image: bjorngluck/piherder:0.5.0
 ```
 
-Keep the same env vars and volumes as `docker-compose.yml`.
-
 ## Until published
 
 ```bash
 docker compose up -d --build
 ```
-
-Also: [`docs/PUBLISH_IMAGE.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PUBLISH_IMAGE.md).
