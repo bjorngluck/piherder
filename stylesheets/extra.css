@@ -1,0 +1,114 @@
+/* PiHerder docs — brand accents (Raspberry Pi red / green) */
+:root {
+  --ph-red: #e60012;
+  --ph-red-dark: #c8102e;
+  --ph-green: #00a651;
+}
+
+/* Official logo in header (PNG mascot — same art as README) */
+.md-header__button.md-logo {
+  padding: 0.2rem;
+  margin-right: 0.2rem;
+}
+
+.md-header__button.md-logo img {
+  height: 2.1rem;
+  width: 2.1rem;
+  object-fit: contain;
+  border-radius: 0.25rem;
+}
+
+/* Drawer/nav logo (Material duplicates logo in sidebar) */
+.md-nav__title .md-nav__button.md-logo img {
+  height: 2.4rem;
+  width: 2.4rem;
+  object-fit: contain;
+}
+
+/* Homepage hero — same artwork as GitHub README */
+.ph-hero-logo {
+  margin: 0.5rem 0 1.25rem;
+  text-align: center;
+  border: none;
+  background: transparent;
+}
+
+.ph-hero-logo img {
+  display: inline-block;
+  width: min(280px, 70vw);
+  height: auto;
+  max-height: 280px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.12));
+}
+
+[data-md-color-scheme="slate"] .ph-hero-logo img {
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+}
+
+/* Screenshot / figure frame */
+.ph-figure {
+  margin: 1.25rem 0;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  background: var(--md-code-bg-color);
+}
+
+.ph-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ph-figure figcaption {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--md-default-fg-color--light);
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+}
+
+/* Step callouts */
+.ph-steps ol {
+  counter-reset: ph-step;
+  list-style: none;
+  padding-left: 0;
+}
+
+.ph-steps ol > li {
+  counter-increment: ph-step;
+  position: relative;
+  padding-left: 2.5rem;
+  margin-bottom: 1rem;
+}
+
+.ph-steps ol > li::before {
+  content: counter(ph-step);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  background: var(--ph-red);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Wireframe placeholder badge */
+.ph-wireframe-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0.25rem;
+  background: var(--ph-green);
+  color: #fff;
+  vertical-align: middle;
+  margin-left: 0.35rem;
+}
