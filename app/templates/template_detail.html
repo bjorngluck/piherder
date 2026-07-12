@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <a href="/templates" class="text-xs text-accent hover:underline">← Templates</a>
+  <div class="flex flex-wrap items-start justify-between gap-3 mt-2">
+    <div>
+      <h1 class="text-2xl font-semibold">{{ definition.name }}</h1>
+      <p class="text-sm text-muted mt-1">
+        <span class="uppercase tracking-wide">{{ definition.category }}</span>
+        · <code class="text-xs">{{ slug }}</code>
+        · v{{ definition.version }}
+        · {{ source }}
+      </p>
+    </div>
+    {% if can_mutate %}
+    <div class="flex flex-wrap gap-2">
+      <a href="/templates/{{ slug }}/edit" class="btn btn-secondary min-h-11 px-4 text-sm">Edit</a>
+      <a href="/templates/{{ slug }}/deploy" class="btn btn-accent min-h-11 px-4 text-sm">Deploy…</a>
+      <form method="post" action="/templates/{{ slug }}/delete"
+            onsubmit="return confirm('Delete template {{ slug }}? Deployments already on hosts are not removed.');">
+        <button type="submit" class="btn btn-secondary min-h-11 px-4 text-sm text-red-600">Delete</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  <p class="text-sm mt-3">{{ definition.description or '—' }}</p>
+
+  {% if unlock_error %}
+  <div class="banner-error border rounded p-3 text-sm mt-3">{{ unlock_error }}</div>
+  {% endif %}
+
+  <div class="card p-4 mt-4 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <h2 class="font-semibold text-sm">Deploy settings (variables)</h2>
+      {% if can_mutate and has_secret_vars %}
+        {% if secrets_revealed %}
+        <form method="post" action="/templates/secrets/lock" class="inline">
+          <input type="hidden" name="return_to" value="/templates/{{ slug }}">
+          <button type="submit" class="btn btn-secondary text-xs min-h-11 px-3"
+                  title="Hide secret defaults again">Hide secrets</button>
+        </form>
+        {% else %}
+        <button type="button"
+                class="btn btn-secondary text-xs min-h-11 px-3 inline-flex items-center gap-2"
+                onclick="document.getElementById('secrets-unlock-panel').classList.toggle('hidden')"
+                title="Re-enter 2FA to view secret defaults">
+          <span aria-hidden="true">👁</span> View secrets
+        </button>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    {% if can_mutate and has_secret_vars and not secrets_revealed %}
+    <div id="secrets-unlock-panel" class="border border-border rounded p-3 mb-3 bg-surface {% if not unlock_error %}hidden{% endif %}">
+      {% if user_has_2fa %}
+      <p class="text-xs text-muted mb-2">
+        Secret defaults stay masked even after login. Enter a fresh authenticator code
+        (step-up 2FA) to load cleartext from the database. Unlock lasts about
+        {{ secrets_unlock_minutes }} minutes.
+      </p>
+      <form method="post" action="/templates/secrets/unlock" class="flex flex-wrap gap-2 items-end">
+        <input type="hidden" name="return_to" value="/templates/{{ slug }}">
+        <div class="flex-1 min-w-[10rem]">
+          <label class="text-xs block mb-1">2FA code</label>
+          <input name="code" type="text" required inputmode="numeric" autocomplete="one-time-code"
+                 class="w-full bg-surface border border-border p-2 rounded text-sm font-mono tracking-widest min-h-11"
+                 placeholder="123456">
+        </div>
+        <button type="submit" class="btn btn-accent text-sm min-h-11 px-4">Unlock &amp; show</button>
+      </form>
+      {% else %}
+      <p class="text-sm">
+        Enable <a href="/auth/account" class="text-accent underline">2FA under Account</a> first,
+        then use <strong>View secrets</strong> and enter a code to reveal cleartext.
+      </p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if secrets_revealed %}
+    <p class="text-xs text-muted mb-3">
+      Secrets unlocked for this browser (~{{ secrets_unlock_minutes }} min). Values loaded from the template store.
+    </p>
+    {% else %}
+    <p class="text-xs text-muted mb-3">
+      These fields appear when you deploy this template. Secret defaults are masked until you use
+      <strong>View secrets</strong> and complete step-up 2FA.
+    </p>
+    {% endif %}
+
+    {% if variables %}
+    <div class="overflow-x-auto max-w-full">
+    <table class="w-full text-sm table-fixed">
+      <thead>
+        <tr class="text-xs text-muted border-b border-border">
+          <th class="text-left p-2 w-2/5">Field</th>
+          <th class="text-left p-2 w-2/5">Default</th>
+          <th class="text-left p-2 w-1/5">Flags</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in variables %}
+        <tr class="border-b border-border">
+          <td class="p-2 align-top break-words">
+            <div class="font-medium">{{ v.label }}</div>
+            <div class="text-xs font-mono text-muted break-all">{{ v.name }} · {{ v.type }}</div>
+            {% if v.help %}<div class="text-xs text-muted mt-0.5 break-words">{{ v.help }}</div>{% endif %}
+          </td>
+          <td class="p-2 text-xs font-mono align-top break-all">
+            {% if v.secret and not secrets_revealed %}••••••••
+            {% elif v.secret and secrets_revealed and v.default %}{{ v.default }}
+            {% elif v.secret %}(set at deploy)
+            {% else %}{{ v.default_display or v.default or '—' }}{% endif %}
+          </td>
+          <td class="p-2 text-xs align-top">
+            {% if v.required %}required {% endif %}
+            {% if v.secret %}<span class="text-muted">secret</span> {% endif %}
+            {% if v.generate %}<span class="text-muted">auto-gen</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-muted">No variables defined.</p>
+    {% endif %}
+  </div>
+
+  <div class="card p-4 mt-4">
+    <h2 class="font-semibold text-sm mb-2">Files in package</h2>
+    <ul class="text-sm font-mono list-disc list-inside">
+      {% for f in files %}
+      <li>{{ f }}</li>
+      {% else %}
+      <li class="text-muted">—</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {% if checklist %}
+  <div class="card p-4 mt-4 overflow-hidden">
+    <h2 class="font-semibold text-sm mb-2">Post-deploy checklist</h2>
+    <ul class="space-y-2 text-sm">
+      {% for c in checklist %}
+      <li>
+        <strong>{{ c.title }}</strong>
+        <div class="text-xs text-muted whitespace-pre-wrap mt-0.5 break-words">{{ c.body }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

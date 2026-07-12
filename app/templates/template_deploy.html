@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <a href="/templates" class="text-xs text-accent hover:underline">← Templates</a>
+  <h1 class="text-2xl font-semibold mt-2">{{ definition.name }}</h1>
+  <p class="text-sm text-muted mb-4">{{ definition.description }}</p>
+
+  {% if error %}
+  <div class="banner-error border rounded p-3 text-sm mb-4">{{ error }}</div>
+  {% endif %}
+
+  {% if template_require_2fa and not user_has_2fa and can_mutate %}
+  <div class="banner-warning border rounded p-3 text-sm mb-4">
+    This instance requires 2FA for template deploy. Enable TOTP under
+    <a href="/auth/account" class="text-accent underline">Account</a> before confirming.
+  </div>
+  {% endif %}
+
+  {% if step == 'configure' or step is none %}
+  <form method="post" action="/templates/{{ definition.slug }}/preview" class="space-y-4"
+        data-wait-title="Preparing preview"
+        data-wait-message="Rendering compose and variables (secrets stay masked)…">
+    <div class="card p-4 space-y-3">
+      <h2 class="font-semibold text-sm">1. Variables</h2>
+      {% for v in variables %}
+      <div>
+        <label class="text-xs block mb-1">
+          {{ v.label }}{% if v.required %} *{% endif %}
+          {% if v.secret %}<span class="text-muted">(secret)</span>{% endif %}
+          {% if v.type == 'volume' %}<span class="text-muted">(storage)</span>{% endif %}
+          {% if v.type == 'boolean' %}<span class="text-muted">(flag)</span>{% endif %}
+        </label>
+
+        {% if v.type == 'boolean' %}
+        {% set bv = (form_values.get(v.name) if form_values else v.default) or v.default or v.false_value or 'false' %}
+        {% set tv = v.true_value or 'true' %}
+        <select name="var_{{ v.name }}" class="w-full bg-surface border border-border p-2 rounded text-sm">
+          <option value="{{ tv }}" {% if bv == tv or bv in ['1','true','yes','on'] %}selected{% endif %}>Yes ({{ tv }})</option>
+          <option value="{{ v.false_value or 'false' }}" {% if bv != tv and bv not in ['1','true','yes','on'] %}selected{% endif %}>No ({{ v.false_value or 'false' }})</option>
+        </select>
+
+        {% elif v.type == 'volume' %}
+        {% set mode = (form_values.get(v.name + '__mode') if form_values else none) or v.volume_default_mode or 'named' %}
+        {% set raw_src = (form_values.get(v.name + '__source') if form_values else none) or (form_values.get(v.name) if form_values else none) or v.default or '' %}
+        {% set tgt = v.volume_target or '' %}
+        {% set src = raw_src[:-((tgt|length) + 1)] if (tgt and raw_src.endswith(':' + tgt)) else raw_src %}
+        <div class="grid gap-2 sm:grid-cols-2">
+          <div>
+            <label class="text-[10px] text-muted block mb-0.5">Storage type</label>
+            <select name="var_{{ v.name }}_mode" class="w-full bg-surface border border-border p-2 rounded text-sm"
+                    onchange="var h=this.closest('div').parentElement.querySelector('[data-vol-hint]'); if(h){h.textContent=this.value==='named'?'Docker named volume':this.value==='bind_relative'?'Folder under the project (./…)':'Absolute path on the host'}">
+              <option value="named" {% if mode == 'named' %}selected{% endif %}>Named Docker volume</option>
+              <option value="bind_relative" {% if mode == 'bind_relative' %}selected{% endif %}>Folder in project</option>
+              <option value="bind_absolute" {% if mode == 'bind_absolute' %}selected{% endif %}>Host path</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] text-muted block mb-0.5">Name or path</label>
+            <input
+              name="var_{{ v.name }}"
+              type="text"
+              value="{{ src }}"
+              placeholder="{% if mode == 'bind_absolute' %}/mnt/data/…{% elif mode == 'bind_relative' %}./data{% else %}my_data{% endif %}"
+              class="w-full bg-surface border border-border p-2 rounded text-sm font-mono"
+              {% if v.required %}required{% endif %}
+            >
+          </div>
+        </div>
+        <p class="text-[11px] text-muted mt-0.5" data-vol-hint>
+          {% if mode == 'named' %}Docker named volume
+          {% elif mode == 'bind_relative' %}Folder under the project (./…)
+          {% else %}Absolute path on the host{% endif %}
+          {% if v.volume_target %} · container path <code class="text-[10px]">{{ v.volume_target }}</code>{% endif %}
+        </p>
+
+        {% else %}
+        <input
+          name="var_{{ v.name }}"
+          type="{% if v.type == 'password' or v.secret %}password{% elif v.type == 'port' or v.type == 'int' %}number{% else %}text{% endif %}"
+          value="{% if v.secret and not secrets_revealed %}{{ form_values.get(v.name, '') if form_values else '' }}{% else %}{{ form_values.get(v.name, v.default) if form_values else v.default }}{% endif %}"
+          {% if v.generate and v.secret %}placeholder="Leave blank to auto-generate"{% endif %}
+          {% if v.secret and not secrets_revealed and not v.generate %}placeholder="Enter at deploy (secret default hidden)"{% endif %}
+          class="w-full bg-surface border border-border p-2 rounded text-sm"
+          {% if v.required and not v.generate %}required{% endif %}
+          {% if v.secret %}autocomplete="off"{% endif %}
+          {% if v.type == 'port' %}min="1" max="65535"{% endif %}
+        >
+        {% endif %}
+        {% if v.help %}<p class="text-[11px] text-muted mt-0.5">{{ v.help }}</p>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="card p-4 space-y-3">
+      <h2 class="font-semibold text-sm">2. Host</h2>
+      <p class="text-xs text-muted">Only hosts with Docker / containers enabled. Counts from last inventory snapshot.</p>
+      {% if hosts %}
+      <div class="space-y-2">
+        {% for h in hosts %}
+        <label class="flex items-start gap-3 p-2 border border-border rounded hover:bg-accent-subtle cursor-pointer">
+          <input type="radio" name="server_id" value="{{ h.id }}" class="mt-1"
+                 {% if selected_server_id == h.id or (not selected_server_id and loop.first) %}checked{% endif %}
+                 required>
+          <span class="text-sm">
+            <strong>{{ h.name }}</strong>
+            <span class="text-muted text-xs"> · {{ h.hostname }}{% if h.ip_address %} · {{ h.ip_address }}{% endif %}</span>
+            <span class="block text-xs text-muted mt-0.5">
+              Projects: {{ h.project_count if h.project_count is not none else '—' }}
+              · Containers: {{ h.container_count if h.container_count is not none else '—' }}
+              · Inventory: {{ h.inventory_status or 'never' }}
+            </span>
+          </span>
+        </label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-muted">No hosts with Docker enabled. Enable Containers on a server first.</p>
+      {% endif %}
+    </div>
+
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="deploy_now" value="1" checked>
+      Deploy immediately (<code class="text-xs">compose pull</code> + <code class="text-xs">up -d</code>)
+    </label>
+
+    {% if can_mutate and hosts %}
+    <button type="submit" class="btn btn-accent px-6 py-2 min-h-11">Preview →</button>
+    {% endif %}
+  </form>
+  {% endif %}
+
+  {% if step == 'preview' and preview %}
+  <div class="card p-4 mb-4 overflow-hidden min-w-0">
+    <h2 class="font-semibold text-sm mb-2">Preview</h2>
+    <p class="text-sm mb-2 break-words">
+      Project <code class="text-xs break-all">{{ preview.project_name }}</code>
+      on server id {{ selected_server_id }}
+      {% if preview.secret_keys %}
+      · secrets: {{ preview.secret_keys | join(', ') }} (masked below)
+      {% endif %}
+    </p>
+    {% for path, body in preview.files_masked.items() %}
+    <div class="mb-3 min-w-0 max-w-full">
+      <div class="text-xs font-medium mb-1">{{ path }}</div>
+      <pre class="text-[11px] font-mono bg-surface border border-border rounded p-2 max-h-64 overflow-auto whitespace-pre-wrap break-all max-w-full">{{ body }}</pre>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if preview.checklist %}
+  <div class="card p-4 mb-4">
+    <h2 class="font-semibold text-sm mb-2">Post-deploy checklist</h2>
+    <ul class="space-y-2 text-sm">
+      {% for c in preview.checklist %}
+      <li>
+        <strong>{{ c.title }}</strong>
+        <div class="text-xs text-muted whitespace-pre-wrap mt-0.5">{{ c.body }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/templates/{{ definition.slug }}/confirm" class="flex flex-wrap gap-2"
+        data-wait-title="Deploying template"
+        data-wait-message="Writing files over SSH, locking .env, and running compose pull + up. This can take a minute…">
+    <input type="hidden" name="stash_json" value="{{ stash_json | e }}">
+    <button type="submit" class="btn btn-accent px-6 py-2 min-h-11"
+            {% if template_require_2fa and not user_has_2fa %}disabled title="2FA required"{% endif %}>
+      Confirm deploy
+    </button>
+    <a href="/templates/{{ definition.slug }}/deploy" class="btn btn-secondary px-4 py-2 min-h-11">Back</a>
+  </form>
+  <p class="text-[11px] text-muted mt-3">
+    Desired state will be stored as <strong>V1</strong> with secrets encrypted.
+    Secrets are written to a host <code class="text-xs">.env</code> with mode <code class="text-xs">600</code>
+    (home production). Source of truth stays encrypted in PiHerder.
+    A progress overlay appears while deploy runs (page updates when finished).
+  </p>
+  {% endif %}
+</div>
+{% endblock %}

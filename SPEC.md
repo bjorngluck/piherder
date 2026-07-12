@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** **v0.3.0 tagged** — Phase 1–4b complete; Phase 5 H1 Kuma + Grafana shipped; remaining multi-URL adapters  
-> **Last updated:** 2026-07-11 — Release `v0.3.0` (Grafana integration hub)
+> **Status:** **v0.3.0 tagged** — Phase 1–4b complete; Phase 5 H1 Kuma + Grafana shipped; Phase 6 templates **in progress** for v0.4.0  
+> **Last updated:** 2026-07-12 — Production path: v0.4.0 templates → v0.4.x drift/NPM → v0.5.0 RC
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -231,8 +231,9 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 
 ## Phase 6 — Service templates (v0.4 / Horizon 2)
 
-**Plan:** [docs/PLAN_v0.4.0.md](docs/PLAN_v0.4.0.md) · **WIP release notes:** [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md)  
-**Decision:** All post-`v0.3.0` work ships in **`v0.4.0`** (living bug IDs B01… in PLAN §2).
+**Plan:** [docs/PLAN_v0.4.0.md](docs/PLAN_v0.4.0.md) · [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · **WIP notes:** [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md)  
+**Decision:** All post-`v0.3.0` work ships in **`v0.4.0`** (living bug IDs B01… in PLAN §2).  
+**Production path:** v0.4.0 (this phase) → v0.4.x (6b) → **v0.5.0 first RC** (6c).
 
 ### Post–v0.3.0 quality (on main → v0.4.0)
 
@@ -243,19 +244,43 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 - [x] **B05** Successful backup resolves `backup_failed` alert
 - [x] **B06** Notification dismiss idempotent if already closed
 
-### Templates
+### Templates (v0.4.0 Phase 1)
 
-- [ ] Template schema (compose/checklist/variables/post-deploy actions)
-- [ ] Apply template to server (preview → confirm → audit); import/export
-- [ ] Sample templates (generic + ≥1 real stack) — full curated pack may slip past 0.4.0
-- [ ] Onboard wizard: monitoring / DNS / TLS-proxy / feature flags (stretch / later slice)
-- [ ] Provider actions: Kuma create monitor; optional NPM / Cloudflare when tokens set (later)
-- [ ] Custom template create / import / export
+- [x] Template schema (compose/checklist/variables; `{{VAR}}` render)
+- [x] Variable types: string/port/password + **boolean** + **volume** (named / project bind / host path)
+- [x] Builtin catalog + OOTB: NPM, Uptime Kuma, Pi-hole, Grafana (volume-aware pack)
+- [x] Apply template to host (preview → confirm → audit); host picker + inventory counts
+- [x] Desired state V1: secrets encrypted; view/edit + redeploy
+- [x] Step-up 2FA for secret cleartext (unlock cookie); template deploy 2FA setting
+- [x] From-host: pull compose/.env; parameterize volumes, ports, booleans, secrets
+- [x] Docker: template-managed badge; gate full compose edit for template stacks
+- [x] Deploy / redeploy / from-host wait modal (blocking feedback until SSH finishes)
+- [x] Import own template; contribute via Issues/PR (docs)
+- [x] Manual DNS checklist in post-deploy steps
+
+### Phase 6b — Ops hardening (v0.4.x)
+
+- [ ] Scheduled config drift vs desired state; alert + audit
+- [x] Host secrets model: locked-down `.env` (`chmod 600`); PiHerder encrypted SoT (home production)
+- [ ] Migrate existing host `.env` into PiHerder (UX polish)
+- [ ] Advanced host secret stores (Swarm/vault/sealed) — Horizon 3
+- [ ] Git template catalog pull
+- [ ] NPM integration connector (proxy hosts, bindings, encrypted certs)
+- [ ] Provider actions: Kuma create monitor (later)
+
+### Phase 6c — First RC (v0.5.0)
+
+- [ ] Restore service from backup + apply last known config from PiHerder
+- [ ] Production user wiki + dev wiki
+- [ ] Docker Hub / GHCR multi-arch image publish
+- [ ] RC freeze bar (pytest, smoke, security of secret paths)
 
 ---
 
-## Phase 7 — Ecosystem depth (post-v0.4 / Horizon 3)
+## Phase 7 — Ecosystem depth (post-v0.5 / Horizon 3)
 
+- [ ] Automated DNS (Pi-hole / Cloudflare) from template hints
+- [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis
 - [ ] Home Assistant: custom component or REST sensors (read + safe actions)

@@ -46,6 +46,8 @@ from ..models import (
     PushVapidConfig,
     Integration,
     IntegrationBinding,
+    ServiceTemplate,
+    StackDeployment,
 )
 from .app_settings import load_settings
 
@@ -62,6 +64,8 @@ _EXCLUDE_REL = {
     TotpBackupCode: {"user"},
     TrustedDevice: {"user"},
     AuditLog: {"user", "server"},
+    ServiceTemplate: {"deployments"},
+    StackDeployment: {"template"},
 }
 
 HERDER_BACKUP_DIR = Path(settings.HERDER_BACKUP_ROOT)
@@ -142,12 +146,17 @@ def _model_to_dict(row: SQLModel) -> Dict[str, Any]:
 
 
 def _snapshot_table(model: Type[SQLModel], limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    with Session(engine) as s:
-        q = select(model)
-        rows = s.exec(q).all()
-        if limit is not None:
-            rows = rows[:limit]
-        return [_model_to_dict(r) for r in rows]
+    try:
+        with Session(engine) as s:
+            q = select(model)
+            rows = s.exec(q).all()
+            if limit is not None:
+                rows = rows[:limit]
+            return [_model_to_dict(r) for r in rows]
+    except Exception as e:
+        # Missing table (pre-migration) or transient DB — skip rather than fail backup
+        logger.warning("Snapshot %s skipped: %s", getattr(model, "__name__", model), e)
+        return []
 
 
 def _snapshot_servers() -> List[Dict[str, Any]]:
@@ -199,6 +208,14 @@ def _snapshot_integration_bindings() -> List[Dict[str, Any]]:
     return _snapshot_table(IntegrationBinding)
 
 
+def _snapshot_service_templates() -> List[Dict[str, Any]]:
+    return _snapshot_table(ServiceTemplate)
+
+
+def _snapshot_stack_deployments() -> List[Dict[str, Any]]:
+    return _snapshot_table(StackDeployment)
+
+
 def _snapshot_audit(since_days: Optional[int] = None) -> List[Dict[str, Any]]:
     with Session(engine) as s:
         q = select(AuditLog).order_by(AuditLog.started_at.desc())
@@ -248,6 +265,8 @@ def _build_backup_payload(
             "notifications",
             "integrations",
             "integration_bindings",
+            "service_templates",
+            "stack_deployments",
             "herder_config",
             "avatars",
         ]
@@ -268,6 +287,8 @@ def _build_backup_payload(
         "notifications": _snapshot_notifications(),
         "integrations": _snapshot_integrations(),
         "integration_bindings": _snapshot_integration_bindings(),
+        "service_templates": _snapshot_service_templates(),
+        "stack_deployments": _snapshot_stack_deployments(),
         "herder_config": load_settings(),
     }
     if include_audit:
@@ -673,6 +694,8 @@ def restore_herder_backup(
         "restored_notifications": 0,
         "restored_integrations": 0,
         "restored_integration_bindings": 0,
+        "restored_service_templates": 0,
+        "restored_stack_deployments": 0,
         "restored_avatars": 0,
         "restored_herder_config": False,
         "restored_audit": 0,
@@ -706,6 +729,12 @@ def restore_herder_backup(
         result["would_restore_integrations"] = len(payload.get("integrations") or [])
         result["would_restore_integration_bindings"] = len(
             payload.get("integration_bindings") or []
+        )
+        result["would_restore_service_templates"] = len(
+            payload.get("service_templates") or []
+        )
+        result["would_restore_stack_deployments"] = len(
+            payload.get("stack_deployments") or []
         )
         result["would_restore_herder_config"] = bool(payload.get("herder_config"))
         with tarfile.open(p, "r:gz") as tar:
@@ -741,6 +770,14 @@ def restore_herder_backup(
         s.flush()
         result["restored_integration_bindings"] = _upsert_rows(
             s, IntegrationBinding, payload.get("integration_bindings") or []
+        )
+
+        result["restored_service_templates"] = _upsert_rows(
+            s, ServiceTemplate, payload.get("service_templates") or []
+        )
+        s.flush()
+        result["restored_stack_deployments"] = _upsert_rows(
+            s, StackDeployment, payload.get("stack_deployments") or []
         )
 
         result["restored_docker_versions"] = _upsert_rows(
@@ -808,6 +845,10 @@ def _fix_postgres_sequences() -> None:
         "pushpreference",
         "notification",
         "auditlog",
+        "servicetemplate",
+        "stackdeployment",
+        "integration",
+        "integrationbinding",
     ]
     with engine.connect() as conn:
         for table in tables:

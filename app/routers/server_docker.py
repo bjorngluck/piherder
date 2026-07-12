@@ -16,8 +16,9 @@ from ..database import get_session
 from ..models import Server, AuditLog
 from ..services import docker_management as docker_svc
 from ..services import docker_inventory as inventory_svc
+from ..services import env_file_ui
 from .. import templates as templates_mod
-from ..security.auth import get_current_user
+from ..security.auth import get_current_user, secrets_unlock_active
 from ..models import User
 
 router = APIRouter()
@@ -64,7 +65,11 @@ def _snapshot_for_save(
     files_json: Optional[str],
     single_updates: Optional[dict] = None,
 ) -> dict:
-    """Build a multi-file snapshot: live + optional draft base, then apply updates."""
+    """Build a multi-file snapshot: live + optional draft base, then apply updates.
+
+    Client may have redacted .env (********); restore those keys from live so save
+    does not wipe host secrets.
+    """
     live = docker_svc.get_project_live_files(server, project_path) or {}
     base = dict(live)
     if editing_version_id:
@@ -78,10 +83,33 @@ def _snapshot_for_save(
             pass
     # Prefer full client map when present (multi-tab editor), then apply active-file edit
     client_map = _parse_files_json(files_json)
+    # Restore masks against *live* host secrets (not draft), then merge
+    if client_map:
+        client_map = env_file_ui.restore_project_files_on_save(client_map, live)
+    if single_updates:
+        single_updates = env_file_ui.restore_project_files_on_save(single_updates, live)
     merged = docker_svc.merge_project_files(base, client_map or {})
     if single_updates:
         merged = docker_svc.merge_project_files(merged, single_updates)
-    return merged
+    # Final pass: any remaining masks vs live
+    return env_file_ui.restore_project_files_on_save(merged, live)
+
+
+def _ui_redact_files(
+    request: Request,
+    user: User,
+    session: Session,
+    server_id: int,
+    project: str,
+    files: dict,
+) -> tuple:
+    """Return (files_for_browser, secrets_revealed, extra_keys)."""
+    unlocked = secrets_unlock_active(request, user)
+    extra = env_file_ui.extra_secret_keys_for_project(session, server_id, project)
+    safe = env_file_ui.redact_project_files_for_ui(
+        files, reveal=unlocked, extra_secret_keys=extra
+    )
+    return safe, unlocked, extra
 
 
 @router.get("/{server_id}/docker", response_class=HTMLResponse)
@@ -208,6 +236,7 @@ async def docker_container_action(
 
 @router.get("/{server_id}/docker/compose/{project}/file-content", response_class=JSONResponse)
 async def get_file_content(
+    request: Request,
     server_id: int,
     project: str,
     file: str = "compose",
@@ -234,7 +263,24 @@ async def get_file_content(
         content = docker_svc.read_dockerfile(server, proj["dockerfile_path"])
         return {"ok": True, "file": "dockerfile", "content": content}
     else:
-        live_files = docker_svc.get_project_live_files(server, proj["path"])
+        live_files = docker_svc.get_project_live_files(server, proj["path"]) or {}
+        # Optional: ?file=.env or file=env
+        want = (file or "compose").strip()
+        if want in ("env", ".env") or want.startswith(".env"):
+            env_key = ".env" if ".env" in live_files else next(
+                (k for k in live_files if env_file_ui.is_env_filename(k)), None
+            )
+            raw = live_files.get(env_key or ".env", "")
+            safe_map, unlocked, _ = _ui_redact_files(
+                request, user, session, server_id, project, {env_key or ".env": raw}
+            )
+            return {
+                "ok": True,
+                "file": env_key or ".env",
+                "content": safe_map.get(env_key or ".env", ""),
+                "secrets_revealed": unlocked,
+                "secrets_masked": not unlocked,
+            }
         compose_key = None
         content = ""
         for key in ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):
@@ -294,6 +340,11 @@ async def edit_compose(
         except Exception:
             pass
 
+    # Never ship cleartext .env / secrets/* without step-up unlock
+    project_files, secrets_revealed, _extra = _ui_redact_files(
+        request, user, session, server_id, project, project_files
+    )
+
     active_file = request.query_params.get("file") or ""
     file_names = docker_svc.sort_project_filenames(list(project_files.keys()))
     if not file_names:
@@ -331,6 +382,16 @@ async def edit_compose(
         except Exception:
             errors = []
 
+    template_dep = None
+    try:
+        from ..services.service_templates.deploy import get_deployment_for_project
+
+        template_dep = get_deployment_for_project(session, server_id, project)
+    except Exception:
+        template_dep = None
+
+    from ..security.auth import SECRETS_UNLOCK_MINUTES
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="docker_compose_edit.html",
@@ -349,6 +410,20 @@ async def edit_compose(
             "drafts": drafts,
             "live_version": live_version,
             "editing_version_id": editing_version_id,
+            "secrets_revealed": secrets_revealed,
+            "user_has_2fa": bool(getattr(user, "totp_enabled", False)),
+            "secrets_unlock_minutes": SECRETS_UNLOCK_MINUTES,
+            "unlock_error": request.query_params.get("unlock_error"),
+            "template_deployment": (
+                {
+                    "id": template_dep.id,
+                    "template_slug": template_dep.template_slug,
+                    "config_version": template_dep.config_version,
+                    "drift_status": template_dep.drift_status,
+                }
+                if template_dep
+                else None
+            ),
         }
     )
 
@@ -1064,6 +1139,21 @@ async def stack_fragment(
             projects, orphan_containers, server
         )
 
+    # Template-managed stacks (StackDeployment desired state)
+    template_deployments_count = 0
+    try:
+        from ..services.service_templates.deploy import (
+            annotate_projects_with_deployments,
+            deployments_index_by_project,
+        )
+
+        dep_idx = deployments_index_by_project(session, server_id)
+        template_deployments_count = len(dep_idx)
+        if projects:
+            annotate_projects_with_deployments(projects, dep_idx)
+    except Exception:
+        pass
+
     kuma_by_project: dict = {}
     kuma_by_container: dict = {}
     grafana_by_project: dict = {}
@@ -1099,6 +1189,7 @@ async def stack_fragment(
             "kuma_by_container": kuma_by_container,
             "grafana_by_project": grafana_by_project,
             "grafana_by_container": grafana_by_container,
+            "template_deployments_count": template_deployments_count,
         },
     )
 

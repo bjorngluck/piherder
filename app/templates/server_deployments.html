@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <a href="/servers/{{ server.id }}" class="text-xs text-accent hover:underline">← {{ server.name }}</a>
+  <div class="flex flex-wrap items-start justify-between gap-3 mt-2 mb-4">
+    <div>
+      <h1 class="text-2xl font-semibold">Template deployments</h1>
+      <p class="text-sm text-muted mt-1">
+        Desired-state stacks on this host. Open a row to change variables/secrets and redeploy.
+        Runtime controls (start/stop/logs) are on Docker management.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="/servers/{{ server.id }}/docker?nocache=1" class="btn btn-secondary min-h-11 px-4 text-sm">Docker management</a>
+      <a href="/templates" class="btn btn-accent min-h-11 px-4 text-sm">Browse templates</a>
+    </div>
+  </div>
+
+  {% if deployments %}
+  <div class="card overflow-hidden">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-xs text-muted border-b border-border">
+          <th class="p-3 text-left">Project</th>
+          <th class="p-3 text-left">Template</th>
+          <th class="p-3 text-left">Version</th>
+          <th class="p-3 text-left">Drift</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in deployments %}
+        <tr class="border-b border-border">
+          <td class="p-3">
+            <a href="/templates/deployments/{{ d.id }}" class="text-accent hover:underline font-medium">{{ d.project_name }}</a>
+          </td>
+          <td class="p-3 text-xs">{{ d.template_slug or '—' }}</td>
+          <td class="p-3 text-xs">V{{ d.config_version }}</td>
+          <td class="p-3 text-xs">{{ d.drift_status }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card p-6 text-sm text-muted">
+    No template deployments on this host yet.
+    <a href="/templates" class="text-accent hover:underline">Browse templates</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

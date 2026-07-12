@@ -131,6 +131,68 @@
     </div>
   </div>
 
+  {% if template_deployment %}
+  <div class="mb-3 p-3 banner-warning border border-border text-sm rounded">
+    <strong>Template-managed stack</strong>
+    (<code class="text-xs">{{ template_deployment.template_slug or 'template' }}</code>
+    · config V{{ template_deployment.config_version }}).
+    Prefer changing variables/secrets and redeploying from
+    <a href="/templates/deployments/{{ template_deployment.id }}" class="text-accent underline">template deployment settings</a>
+    so PiHerder keeps desired state in sync. Raw file edits here can cause drift until the next template redeploy.
+  </div>
+  {% endif %}
+
+  {% if unlock_error %}
+  <div class="mb-3 p-2.5 banner-error border border-border text-sm rounded">{{ unlock_error }}</div>
+  {% endif %}
+
+  {% if not is_dockerfile and not secrets_revealed|default(false) %}
+  <div class="mb-3 p-3 border border-border rounded text-sm bg-surface">
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <strong>.env secrets are masked</strong>
+        <p class="text-xs text-muted mt-1">
+          Host <code class="text-xs">.env</code> secret values show as <code class="text-xs">********</code>
+          until you complete step-up 2FA (even if you already used 2FA at login).
+          Saving with masks keeps existing host secrets.
+        </p>
+      </div>
+      <button type="button" class="btn btn-secondary text-xs min-h-11 px-3"
+              onclick="document.getElementById('compose-secrets-unlock').classList.toggle('hidden')">
+        👁 View .env secrets
+      </button>
+    </div>
+    <div id="compose-secrets-unlock" class="hidden mt-3 pt-3 border-t border-border">
+      {% if user_has_2fa %}
+      <form method="post" action="/templates/secrets/unlock" class="flex flex-wrap gap-2 items-end">
+        <input type="hidden" name="return_to"
+               value="/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/edit{% if active_file %}?file={{ active_file | urlencode }}{% endif %}">
+        <div class="flex-1 min-w-[10rem]">
+          <label class="text-xs block mb-1">2FA code</label>
+          <input name="code" type="text" required inputmode="numeric" autocomplete="one-time-code"
+                 class="w-full bg-surface border border-border p-2 rounded text-sm font-mono tracking-widest min-h-11"
+                 placeholder="123456">
+        </div>
+        <button type="submit" class="btn btn-accent text-sm min-h-11 px-4">Unlock (~{{ secrets_unlock_minutes }} min)</button>
+      </form>
+      {% else %}
+      <p class="text-sm">
+        Enable <a href="/auth/account" class="text-accent underline">2FA under Account</a> first, then unlock here.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+  {% elif not is_dockerfile and secrets_revealed|default(false) %}
+  <div class="mb-3 p-2.5 banner-warning border border-border text-sm rounded flex flex-wrap items-center justify-between gap-2">
+    <span>.env secrets unlocked for this browser (~{{ secrets_unlock_minutes }} min).</span>
+    <form method="post" action="/templates/secrets/lock" class="inline">
+      <input type="hidden" name="return_to"
+             value="/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/edit{% if active_file %}?file={{ active_file | urlencode }}{% endif %}">
+      <button type="submit" class="btn btn-secondary text-xs min-h-9 px-3">Hide secrets</button>
+    </form>
+  </div>
+  {% endif %}
+
   {% if request.query_params.get('saved') %}
   <div class="mb-3 p-2.5 banner-success border border-border text-sm rounded">File saved successfully.</div>
   {% endif %}
@@ -221,7 +283,13 @@
       <span class="text-[10px] text-muted ml-1">Save writes all listed files</span>
     </div>
     <p id="env-banner" class="mb-2 text-xs banner-warning border border-border rounded p-2 {% if not active_file.startswith('.env') %}hidden{% endif %}">
-      <strong>.env</strong> may contain secrets. Content is stored in version history; treat drafts as sensitive.
+      <strong>.env</strong> —
+      {% if secrets_revealed|default(false) %}
+      cleartext visible (step-up unlock). Treat carefully; version history may store values.
+      {% else %}
+      secret-like values are <code class="text-xs">********</code>. Unlock above to view/edit cleartext.
+      Saving keeps host secrets when masks are left in place.
+      {% endif %}
     </p>
     {% endif %}
 

@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto"
+     x-data="templateEditor()"
+     x-init="init()">
+  <a href="/templates" class="text-xs text-accent hover:underline">← Templates</a>
+  <h1 class="text-2xl font-semibold mt-2">{% if is_new %}New template{% else %}Edit template{% endif %}</h1>
+  <p class="text-sm text-muted mb-4">
+    Author compose + settings here. Secrets are stored encrypted in PiHerder and written to a
+    locked-down host <code class="text-xs">.env</code> on deploy (home production). Placeholders:
+    <code class="text-xs">{{"{{VAR}}"}}</code> in files → form fields below.
+  </p>
+
+  {% if msg %}
+  <div class="banner-success border rounded p-3 text-sm mb-3">{{ msg }}</div>
+  {% endif %}
+  {% if error %}
+  <div class="banner-error border rounded p-3 text-sm mb-3">{{ error }}</div>
+  {% endif %}
+  {% if tool_messages %}
+  <div class="banner-warning border rounded p-3 text-sm mb-3">
+    <ul class="list-disc list-inside text-xs space-y-0.5">
+      {% for m in tool_messages %}<li>{{ m }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form method="post"
+        action="{% if is_new %}/templates/new{% else %}/templates/{{ slug }}/edit{% endif %}"
+        class="space-y-4"
+        @submit="syncJson()">
+    {% if not is_new and template_id %}
+    <input type="hidden" name="template_id" value="{{ template_id }}">
+    {% endif %}
+    <input type="hidden" name="variables_json" :value="variablesJson">
+    <input type="hidden" name="checklist_json" :value="checklistJson">
+    <input type="hidden" name="editor_action" :value="editorAction">
+
+    <div class="card p-4 space-y-3">
+      <h2 class="font-semibold text-sm">Metadata</h2>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label class="text-xs block mb-1">Slug *</label>
+          <input name="slug" required x-model="slug"
+                 pattern="[a-z0-9][a-z0-9-]{0,62}"
+                 class="w-full bg-surface border border-border p-2 rounded text-sm font-mono"
+                 placeholder="my-app">
+        </div>
+        <div>
+          <label class="text-xs block mb-1">Name *</label>
+          <input name="name" required x-model="name"
+                 class="w-full bg-surface border border-border p-2 rounded text-sm">
+        </div>
+        <div>
+          <label class="text-xs block mb-1">Category</label>
+          <input name="category" x-model="category"
+                 class="w-full bg-surface border border-border p-2 rounded text-sm">
+        </div>
+        <div>
+          <label class="text-xs block mb-1">Version</label>
+          <input name="version" x-model="version"
+                 class="w-full bg-surface border border-border p-2 rounded text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="text-xs block mb-1">Description</label>
+        <textarea name="description" rows="2" x-model="description"
+                  class="w-full bg-surface border border-border p-2 rounded text-sm"></textarea>
+      </div>
+    </div>
+
+    <div class="card p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold text-sm">docker-compose.yml *</h2>
+        <div class="flex flex-wrap gap-2">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9 px-3"
+                  @click="editorAction='scan_vars'"
+                  title="Detect {{vars}}, volumes, host ports, booleans">Scan vars + volumes</button>
+          <button type="submit" class="btn btn-secondary text-xs min-h-9 px-3"
+                  @click="editorAction='harden_env'">Move secrets → .env</button>
+        </div>
+      </div>
+      <textarea name="compose_content" rows="12" required x-model="compose"
+                class="w-full font-mono text-xs bg-surface border border-border p-2 rounded max-w-full min-w-0 overflow-x-auto"></textarea>
+    </div>
+
+    <div class="card p-4 space-y-3 overflow-hidden min-w-0">
+      <h2 class="font-semibold text-sm">.env template</h2>
+      <p class="text-xs text-muted">
+        Use <code class="text-xs">KEY={{"{{KEY}}"}}</code> for secrets; compose uses <code class="text-xs">${KEY}</code>.
+        On deploy, PiHerder writes a host <code class="text-xs">.env</code> with real values and
+        <code class="text-xs">chmod 600</code>. Restarts do not need PiHerder. Advanced secret stores (Swarm, etc.) are roadmap.
+      </p>
+      <textarea name="env_content" rows="6" x-model="env"
+                class="w-full font-mono text-xs bg-surface border border-border p-2 rounded max-w-full min-w-0"></textarea>
+      <input type="hidden" name="use_docker_secrets" value="0">
+    </div>
+
+    <div class="card p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold text-sm">Variables (deploy form)</h2>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-3" @click="addVar()">+ Add variable</button>
+      </div>
+      <div class="space-y-3">
+        <template x-for="(v, i) in variables" :key="i">
+          <div class="border border-border rounded p-3 grid gap-2 sm:grid-cols-6">
+            <div class="sm:col-span-2">
+              <label class="text-[10px] text-muted">Name</label>
+              <input x-model="v.name" class="w-full bg-surface border border-border p-1.5 rounded text-xs font-mono">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="text-[10px] text-muted">Label</label>
+              <input x-model="v.label" class="w-full bg-surface border border-border p-1.5 rounded text-xs">
+            </div>
+            <div>
+              <label class="text-[10px] text-muted">Type</label>
+              <select x-model="v.type" class="w-full bg-surface border border-border p-1.5 rounded text-xs">
+                <option value="string">string</option>
+                <option value="port">port</option>
+                <option value="password">password</option>
+                <option value="int">int</option>
+                <option value="url">url</option>
+                <option value="email">email</option>
+                <option value="boolean">boolean</option>
+                <option value="volume">volume</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-[10px] text-muted">Default</label>
+              <input x-model="v.default"
+                     :type="v.secret ? 'password' : 'text'"
+                     :placeholder="v.secret ? ({{ 'true' if secrets_revealed else 'false' }} ? 'secret default' : 'hidden — View secrets + 2FA') : (v.type === 'volume' ? 'volume name or path' : (v.type === 'boolean' ? 'true / false' : ''))"
+                     class="w-full bg-surface border border-border p-1.5 rounded text-xs"
+                     autocomplete="off">
+            </div>
+            <div class="sm:col-span-4 flex flex-wrap gap-3 items-center text-xs">
+              <label class="inline-flex items-center gap-1"><input type="checkbox" x-model="v.required"> required</label>
+              <label class="inline-flex items-center gap-1" :class="(v.type === 'boolean' || v.type === 'volume') && 'opacity-40'">
+                <input type="checkbox" x-model="v.secret" :disabled="v.type === 'boolean' || v.type === 'volume'"> secret
+              </label>
+              <label class="inline-flex items-center gap-1"><input type="checkbox" x-model="v.generate" :disabled="!v.secret"> auto-generate</label>
+            </div>
+            <div class="sm:col-span-2 flex items-end justify-end">
+              <button type="button" class="text-xs text-red-600" @click="variables.splice(i,1)">Remove</button>
+            </div>
+            <template x-if="v.type === 'boolean'">
+              <div class="sm:col-span-6 grid gap-2 sm:grid-cols-2">
+                <div>
+                  <label class="text-[10px] text-muted">True value (written to files)</label>
+                  <input x-model="v.true_value" placeholder="true" class="w-full bg-surface border border-border p-1.5 rounded text-xs font-mono">
+                </div>
+                <div>
+                  <label class="text-[10px] text-muted">False value</label>
+                  <input x-model="v.false_value" placeholder="false" class="w-full bg-surface border border-border p-1.5 rounded text-xs font-mono">
+                </div>
+              </div>
+            </template>
+            <template x-if="v.type === 'volume'">
+              <div class="sm:col-span-6 grid gap-2 sm:grid-cols-2">
+                <div>
+                  <label class="text-[10px] text-muted">Container path (volume_target) *</label>
+                  <input x-model="v.volume_target" placeholder="/var/lib/app" class="w-full bg-surface border border-border p-1.5 rounded text-xs font-mono">
+                </div>
+                <div>
+                  <label class="text-[10px] text-muted">Default storage type</label>
+                  <select x-model="v.volume_default_mode" class="w-full bg-surface border border-border p-1.5 rounded text-xs">
+                    <option value="named">named volume</option>
+                    <option value="bind_relative">folder in project</option>
+                    <option value="bind_absolute">host path</option>
+                  </select>
+                </div>
+                <p class="sm:col-span-2 text-[10px] text-muted">
+                  In compose use <code class="text-[10px]">- {{"{{"}}VAR{{"}}"}}</code> as a full short mount
+                  (renders to <code class="text-[10px]">name:target</code> or <code class="text-[10px]">./path:target</code>).
+                </p>
+              </div>
+            </template>
+            <div class="sm:col-span-6">
+              <label class="text-[10px] text-muted">Help</label>
+              <input x-model="v.help" class="w-full bg-surface border border-border p-1.5 rounded text-xs">
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <div class="card p-4 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold text-sm">Post-deploy checklist</h2>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-3" @click="addCheck()">+ Add step</button>
+      </div>
+      <template x-for="(c, i) in checklist" :key="'c'+i">
+        <div class="border border-border rounded p-3 space-y-2">
+          <div class="flex gap-2">
+            <input x-model="c.title" placeholder="Title" class="flex-1 bg-surface border border-border p-1.5 rounded text-sm">
+            <button type="button" class="text-xs text-red-600" @click="checklist.splice(i,1)">Remove</button>
+          </div>
+          <textarea x-model="c.body" rows="2" placeholder="Instructions…"
+                    class="w-full bg-surface border border-border p-1.5 rounded text-xs"></textarea>
+        </div>
+      </template>
+    </div>
+
+    <details class="card p-4">
+      <summary class="text-sm font-medium cursor-pointer">Advanced: raw JSON</summary>
+      <p class="text-xs text-muted mt-2 mb-2">Synced from the forms above on save. Edit only if you know the schema.</p>
+      <pre class="text-[10px] font-mono bg-surface border border-border rounded p-2 max-h-40 overflow-auto" x-text="variablesJson"></pre>
+    </details>
+
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-accent min-h-11 px-6" @click="editorAction='save'">Save template</button>
+      <a href="/templates" class="btn btn-secondary min-h-11 px-4">Cancel</a>
+      {% if not is_new %}
+      <a href="/templates/{{ slug }}" class="btn btn-secondary min-h-11 px-4">View</a>
+      <a href="/templates/{{ slug }}/deploy" class="btn btn-secondary min-h-11 px-4">Deploy…</a>
+      {% endif %}
+    </div>
+  </form>
+
+  {% if not is_new %}
+  <form method="post" action="/templates/{{ slug }}/delete" class="mt-8 pt-4 border-t border-border"
+        onsubmit="return confirm('Delete template {{ slug }}? Deployments already on hosts are not removed.');">
+    <button type="submit" class="btn text-sm text-red-600 border border-border min-h-11 px-4">Delete template</button>
+  </form>
+  {% endif %}
+
+  <div class="card p-4 mt-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <h2 class="font-semibold text-sm">Secret defaults</h2>
+      {% if secrets_revealed %}
+      <form method="post" action="/templates/secrets/lock" class="inline">
+        <input type="hidden" name="return_to" value="{% if is_new %}/templates/new{% else %}/templates/{{ slug }}/edit{% endif %}">
+        <button type="submit" class="btn btn-secondary text-xs min-h-11 px-3">Hide secrets</button>
+      </form>
+      {% else %}
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-11 px-3 inline-flex items-center gap-2"
+              onclick="document.getElementById('secrets-unlock-panel').classList.toggle('hidden')">
+        <span aria-hidden="true">👁</span> View secrets
+      </button>
+      {% endif %}
+    </div>
+    {% if secrets_revealed %}
+    <p class="text-xs text-muted">
+      Unlocked for ~{{ secrets_unlock_minutes }} min. Secret default fields above show cleartext from the template store.
+    </p>
+    {% else %}
+    <div id="secrets-unlock-panel" class="border border-border rounded p-3 bg-surface {% if not error %}hidden{% endif %}">
+      {% if user_has_2fa %}
+      <p class="text-xs text-muted mb-2">
+        Re-enter a 2FA code (step-up — required even if you already used 2FA at login) to load secret defaults.
+      </p>
+      <form method="post" action="/templates/secrets/unlock" class="flex flex-wrap gap-2 items-end">
+        <input type="hidden" name="return_to" value="{% if is_new %}/templates/new{% else %}/templates/{{ slug }}/edit{% endif %}">
+        <div class="flex-1 min-w-[10rem]">
+          <label class="text-xs block mb-1">2FA code</label>
+          <input name="code" type="text" required inputmode="numeric" autocomplete="one-time-code"
+                 class="w-full bg-surface border border-border p-2 rounded text-sm font-mono tracking-widest min-h-11"
+                 placeholder="123456">
+        </div>
+        <button type="submit" class="btn btn-accent text-sm min-h-11 px-4">Unlock &amp; show</button>
+      </form>
+      {% else %}
+      <p class="text-sm">
+        Enable <a href="/auth/account" class="text-accent underline">2FA under Account</a>, then use
+        <strong>View secrets</strong> and enter a code to see secret defaults.
+      </p>
+      {% endif %}
+    </div>
+    <p class="text-xs text-muted mt-2">
+      Without unlock, secret defaults stay empty/masked on save (previous values are preserved).
+    </p>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+function templateEditor() {
+  const initialVars = {{ form.variables_json | safe }};
+  const initialChecks = {{ form.checklist_json | safe }};
+  return {
+    slug: {{ form.slug | tojson }},
+    name: {{ form.name | tojson }},
+    description: {{ form.description | tojson }},
+    category: {{ form.category | tojson }},
+    version: {{ form.version | tojson }},
+    compose: {{ form.compose_content | tojson }},
+    env: {{ form.env_content | tojson }},
+    useDockerSecrets: {{ 'true' if form.use_docker_secrets else 'false' }},
+    variables: Array.isArray(initialVars) ? initialVars : [],
+    checklist: Array.isArray(initialChecks) ? initialChecks : [],
+    editorAction: 'save',
+    variablesJson: '[]',
+    checklistJson: '[]',
+    init() {
+      if (!this.variables.length) {
+        this.variables = [{
+          name: 'PROJECT_NAME', label: 'Project folder name', type: 'string',
+          default: 'my-app', required: true, secret: false, generate: false, help: ''
+        }];
+      }
+      this.syncJson();
+      this.$watch('variables', () => this.syncJson(), { deep: true });
+      this.$watch('checklist', () => this.syncJson(), { deep: true });
+    },
+    syncJson() {
+      this.variablesJson = JSON.stringify(this.variables.map(v => {
+        const type = v.type || 'string';
+        const row = {
+          name: v.name || '',
+          label: v.label || v.name || '',
+          type,
+          default: v.default != null ? String(v.default) : '',
+          required: !!v.required,
+          secret: (type === 'boolean' || type === 'volume') ? false : !!v.secret,
+          generate: (type === 'boolean' || type === 'volume') ? false : !!v.generate,
+          help: v.help || ''
+        };
+        if (type === 'boolean') {
+          row.true_value = v.true_value != null && v.true_value !== '' ? String(v.true_value) : 'true';
+          row.false_value = v.false_value != null && v.false_value !== '' ? String(v.false_value) : 'false';
+        }
+        if (type === 'volume') {
+          row.volume_target = v.volume_target || '';
+          row.volume_default_mode = v.volume_default_mode || 'named';
+        }
+        return row;
+      }), null, 2);
+      this.checklistJson = JSON.stringify(this.checklist.map(c => ({
+        title: c.title || '',
+        body: c.body || ''
+      })), null, 2);
+    },
+    addVar() {
+      this.variables.push({
+        name: '', label: '', type: 'string', default: '',
+        required: true, secret: false, generate: false, help: '',
+        true_value: 'true', false_value: 'false',
+        volume_target: '', volume_default_mode: 'named'
+      });
+    },
+    addCheck() {
+      this.checklist.push({ title: '', body: '' });
+    }
+  };
+}
+</script>
+{% endblock %}

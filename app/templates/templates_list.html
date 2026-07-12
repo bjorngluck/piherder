@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div>
+      <h1 class="text-2xl font-semibold">Service templates</h1>
+      <p class="text-sm text-muted mt-1">
+        Create and edit your own stack definitions, then deploy to a host.
+        Starters (if any) are only seeds — edit them to match your specs.
+      </p>
+    </div>
+    {% if can_mutate %}
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="/templates/new" class="btn btn-accent text-sm min-h-11 px-4">+ New template</a>
+      <a href="/templates/from-host" class="btn btn-secondary text-sm min-h-11 px-4">From host…</a>
+      <form method="post" action="/templates/import" enctype="multipart/form-data" class="flex items-center gap-2">
+        <input type="file" name="file" accept=".zip,application/zip" required class="text-xs">
+        <button type="submit" class="btn btn-secondary text-sm min-h-11">Import zip</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if msg %}
+  <div class="banner-success border rounded p-3 text-sm mb-4">{{ msg }}</div>
+  {% endif %}
+  {% if error %}
+  <div class="banner-error border rounded p-3 text-sm mb-4">{{ error }}</div>
+  {% endif %}
+
+  <div class="grid gap-3 sm:grid-cols-2">
+    {% for t in items %}
+    <div class="card p-4 flex flex-col">
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <a href="/templates/{{ t.slug }}" class="font-semibold text-text hover:text-accent">{{ t.name }}</a>
+          <div class="text-xs text-muted mt-0.5">
+            <span class="uppercase tracking-wide">{{ t.category }}</span>
+            · {{ t.slug }} · v{{ t.version }}
+            · <span class="text-muted">{{ t.source }}</span>
+          </div>
+        </div>
+      </div>
+      <p class="text-sm text-muted mt-2 flex-1">{{ t.description or '—' }}</p>
+      <p class="text-xs text-muted mt-1">
+        {{ t.var_count }} setting{% if t.var_count != 1 %}s{% endif %}
+        {% if t.secret_count %} · {{ t.secret_count }} secret{% if t.secret_count != 1 %}s{% endif %}{% endif %}
+      </p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <a href="/templates/{{ t.slug }}" class="btn btn-secondary text-sm min-h-11 px-3">Details</a>
+        {% if can_mutate %}
+        <a href="/templates/{{ t.slug }}/edit" class="btn btn-secondary text-sm min-h-11 px-3">Edit</a>
+        <a href="/templates/{{ t.slug }}/deploy" class="btn btn-accent text-sm min-h-11 px-4">Deploy…</a>
+        <form method="post" action="/templates/{{ t.slug }}/delete" class="inline"
+              onsubmit="return confirm('Delete template {{ t.slug }}? Deployments already on hosts are not removed.');">
+          <button type="submit" class="btn btn-secondary text-sm min-h-11 px-3 text-red-600">Delete</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="card p-6 text-sm text-muted col-span-2">
+      No templates yet.
+      {% if can_mutate %}
+      <a href="/templates/new" class="text-accent hover:underline">Create your first template</a>
+      or import a zip with <code class="text-xs">template.yaml</code> + <code class="text-xs">files/</code>.
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

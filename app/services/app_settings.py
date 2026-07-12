@@ -46,6 +46,8 @@ DEFAULTS: Dict[str, Any] = {
     "container_check_cron": "0 0 * * *",
     "update_check_jitter": True,
     "force_2fa": False,
+    # Require TOTP enabled to deploy templates / view deployment secrets
+    "template_require_2fa": False,
 }
 
 

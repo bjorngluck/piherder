@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <a href="/templates" class="text-xs text-accent hover:underline">← Templates</a>
+  <h1 class="text-2xl font-semibold mt-2">Template from existing service</h1>
+  <p class="text-sm text-muted mb-4">
+    Select a <strong>host</strong>, then the Docker <strong>project / stack</strong> (compose folder).
+    You will see containers in that project before pulling compose + .env into the template editor.
+  </p>
+
+  {% if error %}
+  <div class="banner-error border rounded p-3 text-sm mb-4">{{ error }}</div>
+  {% endif %}
+
+  {% if not hosts %}
+  <div class="card p-6 text-sm text-muted">
+    No hosts with Docker enabled. Enable Containers on a server first, then open Docker and Force refresh inventory.
+  </div>
+  {% else %}
+  <script type="application/json" id="from-host-projects-data">{{ host_projects_json | safe }}</script>
+
+  <form method="post" action="/templates/from-host" class="card p-4 space-y-4"
+        x-data="fromHostPicker()"
+        x-init="init()"
+        @submit="onSubmit($event)"
+        data-wait-title="Pulling from host"
+        data-wait-message="Reading compose and .env over SSH, then building variables (volumes, ports, secrets)…">
+    {# Single source of truth submitted to the server — always present #}
+    <input type="hidden" name="server_id" :value="serverId">
+    <input type="hidden" name="project_name" :value="projectName">
+
+    <div>
+      <label class="text-xs block mb-1">1. Host *</label>
+      <select class="w-full bg-surface border border-border p-2 rounded text-sm"
+              x-model="serverId"
+              @change="onServerChange()"
+              required>
+        {% for h in hosts %}
+        <option value="{{ h.id }}">
+          {{ h.name }} — {{ h.hostname }}
+          · projects: {{ h.project_count if h.project_count is not none else '—' }}
+          · containers: {{ h.container_count if h.container_count is not none else '—' }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="text-xs block mb-1">2. Project / stack *</label>
+      <select class="w-full bg-surface border border-border p-2 rounded text-sm font-mono"
+              x-show="projectOptions.length > 0"
+              x-model="projectName"
+              @change="syncSelected()">
+        <option value="">— Select project —</option>
+        <template x-for="p in projectOptions" :key="p.name">
+          <option :value="p.name" x-text="labelFor(p)"></option>
+        </template>
+      </select>
+
+      <div x-show="projectOptions.length === 0" class="space-y-2">
+        <p class="text-xs text-muted">
+          No inventory snapshot for this host. Type the compose folder name (e.g. <code class="text-xs">npm</code>),
+          or refresh Docker inventory on the host first.
+        </p>
+        <input type="text"
+               class="w-full bg-surface border border-border p-2 rounded text-sm font-mono"
+               placeholder="project folder name"
+               x-model="projectName"
+               autocomplete="off">
+      </div>
+    </div>
+
+    <div x-show="selectedProject" class="space-y-2">
+      <label class="text-xs block mb-1">3. Services / containers in project</label>
+      <div class="text-xs border border-border rounded p-2 max-h-40 overflow-y-auto space-y-1"
+           x-show="selectedProject && selectedProject.containers && selectedProject.containers.length">
+        <template x-for="c in (selectedProject && selectedProject.containers) || []" :key="c.name + (c.service||'')">
+          <div class="flex flex-wrap gap-2 font-mono">
+            <span x-text="c.name"></span>
+            <span class="text-muted" x-show="c.service" x-text="'service: ' + c.service"></span>
+            <span class="text-muted" x-text="c.running ? 'running' : 'stopped'"></span>
+          </div>
+        </template>
+      </div>
+      <p class="text-xs text-muted" x-show="selectedProject && (!selectedProject.containers || !selectedProject.containers.length)">
+        No container details in inventory for this project — compose will still be pulled from the host path.
+      </p>
+      <p class="text-[11px] text-muted">
+        Templating always uses the project compose files (all services). List above is for confirmation you picked the right stack.
+      </p>
+    </div>
+
+    <label class="flex items-start gap-2 text-sm">
+      <input type="checkbox" name="auto_harden" value="1" checked class="mt-1">
+      <span>
+        <strong>Move secret-like values to .env</strong>
+        <span class="block text-xs text-muted">Rewrites password/token env lines to <code class="text-xs">${KEY}</code> and builds variable fields.</span>
+      </span>
+    </label>
+
+    <p class="text-xs text-muted">
+      Pull also parameterizes <strong>volumes</strong> (named / project folder / host path),
+      <strong>host ports</strong>, and <strong>boolean</strong> env flags so the deploy wizard manages them.
+      Review defaults in the editor before Save.
+    </p>
+
+    <p class="text-xs text-muted" x-show="!projectName">Choose a project (or type a folder name) before pulling.</p>
+
+    <button type="submit" class="btn btn-accent min-h-11 px-6">
+      Pull into editor
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+<script>
+function fromHostPicker() {
+  return {
+    serverId: '',
+    projectName: '',
+    projectsByHost: {},
+    projectOptions: [],
+    selectedProject: null,
+    init() {
+      try {
+        const el = document.getElementById('from-host-projects-data');
+        this.projectsByHost = el ? JSON.parse(el.textContent || '{}') : {};
+      } catch (e) {
+        console.warn('from-host projects parse failed', e);
+        this.projectsByHost = {};
+      }
+      // Default host = first option
+      const first = this.$root.querySelector('select option[value]');
+      // use first host option from the host select (first select in form)
+      const hostSel = this.$root.querySelectorAll('select')[0];
+      if (hostSel && hostSel.options.length) {
+        this.serverId = String(hostSel.options[0].value);
+      }
+      this.onServerChange();
+    },
+    onServerChange() {
+      const key = String(this.serverId || '');
+      let list = this.projectsByHost[key];
+      if (!list) list = this.projectsByHost[Number(key)] || [];
+      this.projectOptions = Array.isArray(list) ? list : [];
+      if (this.projectOptions.length) {
+        const names = this.projectOptions.map(p => p.name);
+        if (!names.includes(this.projectName)) {
+          this.projectName = this.projectOptions[0].name || '';
+        }
+      } else {
+        // keep typed name if any
+      }
+      this.syncSelected();
+    },
+    syncSelected() {
+      this.selectedProject = (this.projectOptions || []).find(p => p.name === this.projectName) || null;
+    },
+    labelFor(p) {
+      let s = p.name || '';
+      if (p.container_count != null) s += ' · ' + p.container_count + ' container(s)';
+      if (p.running_count != null) s += ' · ' + p.running_count + ' running';
+      if (p.services_label) s += ' · ' + p.services_label;
+      return s;
+    },
+    onSubmit(ev) {
+      this.syncSelected();
+      const name = (this.projectName || '').trim();
+      if (!this.serverId) {
+        ev.preventDefault();
+        alert('Select a host.');
+        return false;
+      }
+      if (!name) {
+        ev.preventDefault();
+        alert('Select or type a project / stack name.');
+        return false;
+      }
+      this.projectName = name;
+      // Force native form fields (Alpine :value can lag on submit)
+      const form = ev.target;
+      const sid = form.querySelector('input[name="server_id"]');
+      const pn = form.querySelector('input[name="project_name"]');
+      if (sid) sid.value = String(this.serverId);
+      if (pn) pn.value = name;
+      return true;
+    }
+  };
+}
+</script>
+{% endblock %}

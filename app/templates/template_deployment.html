@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="flex flex-wrap gap-3 text-xs mb-2">
+    <a href="/templates" class="text-accent hover:underline">← Templates</a>
+    {% if server %}
+    <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-accent hover:underline">Docker on {{ server.name }}</a>
+    <a href="/servers/{{ server.id }}/deployments" class="text-accent hover:underline">All deployments</a>
+    {% endif %}
+    {% if dep.template_slug %}
+    <a href="/templates/{{ dep.template_slug }}" class="text-accent hover:underline">Template catalog</a>
+    {% endif %}
+  </div>
+
+  <h1 class="text-2xl font-semibold">{{ dep.project_name }}</h1>
+  <p class="text-sm text-muted mt-1">
+    Template <code class="text-xs">{{ dep.template_slug or '—' }}</code>
+    · config <strong>V{{ dep.config_version }}</strong>
+    · drift: {{ dep.drift_status }}
+    {% if dep.last_deployed_at %} · last deploy {{ dep.last_deployed_at }}{% endif %}
+  </p>
+  <p class="text-xs text-muted mt-2 max-w-2xl">
+    This is the <strong>deployed instance</strong> of a service template (desired state in PiHerder).
+    Change non-secret variables or unlock secrets below, then <strong>Save &amp; redeploy</strong>
+    to write a new config version to the host. Day-to-day start/stop/logs stay on
+    {% if server %}<a href="/servers/{{ server.id }}/docker?nocache=1" class="text-accent underline">Docker management</a>{% else %}Docker management{% endif %}.
+  </p>
+  {% if server %}
+  <div class="banner-warning border rounded p-3 text-sm mt-3 max-w-2xl">
+    <strong>Compose files are template-driven.</strong>
+    Prefer this page for settings changes. Raw compose edit is available as
+    <a href="/servers/{{ server.id }}/docker/compose/{{ dep.project_name | urlencode }}/edit"
+       class="text-accent underline">advanced compose editor</a>
+    (may cause drift until the next template redeploy).
+  </div>
+  {% endif %}
+
+  {% if msg %}
+  <div class="banner-success border rounded p-3 text-sm mt-3">{{ msg }}</div>
+  {% endif %}
+  {% if error %}
+  <div class="banner-error border rounded p-3 text-sm mt-3">{{ error }}</div>
+  {% endif %}
+  {% if unlock_error %}
+  <div class="banner-error border rounded p-3 text-sm mt-3">{{ unlock_error }}</div>
+  {% endif %}
+
+  {% if checklist %}
+  <div class="card p-4 mt-4">
+    <h2 class="font-semibold text-sm mb-2">Post-deploy checklist</h2>
+    <ul class="space-y-2 text-sm">
+      {% for c in checklist %}
+      <li>
+        <strong>{{ c.title }}</strong>
+        <div class="text-xs text-muted whitespace-pre-wrap mt-0.5">{{ c.body }}</div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="card p-4 mt-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <h2 class="font-semibold text-sm">Configuration</h2>
+      {% if can_mutate and dep.secrets_encrypted %}
+        {% if secrets_visible %}
+        <form method="post" action="/templates/secrets/lock" class="inline">
+          <input type="hidden" name="return_to" value="/templates/deployments/{{ dep.id }}">
+          <button type="submit" class="btn btn-secondary text-xs min-h-11 px-3" title="Hide secrets">
+            Hide secrets
+          </button>
+        </form>
+        {% else %}
+        <button type="button"
+                class="btn btn-secondary text-xs min-h-11 px-3 inline-flex items-center gap-2"
+                onclick="document.getElementById('secrets-unlock-panel').classList.toggle('hidden')"
+                title="Re-enter 2FA to decrypt secrets">
+          <span aria-hidden="true">👁</span> View secrets
+        </button>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    {% if can_mutate and dep.secrets_encrypted and not secrets_visible %}
+    <div id="secrets-unlock-panel" class="border border-border rounded p-3 mb-3 bg-surface {% if not unlock_error %}hidden{% endif %}">
+      {% if user_has_2fa %}
+      <p class="text-xs text-muted mb-2">
+        Secrets stay encrypted at rest. Enter a fresh authenticator code (even if you already
+        used 2FA at login) to decrypt values from PiHerder for this browser
+        (~{{ secrets_unlock_minutes }} minutes).
+      </p>
+      <form method="post" action="/templates/secrets/unlock" class="flex flex-wrap gap-2 items-end">
+        <input type="hidden" name="return_to" value="/templates/deployments/{{ dep.id }}">
+        <div class="flex-1 min-w-[10rem]">
+          <label class="text-xs block mb-1">2FA code</label>
+          <input name="code" type="text" required inputmode="numeric" autocomplete="one-time-code"
+                 class="w-full bg-surface border border-border p-2 rounded text-sm font-mono tracking-widest min-h-11"
+                 placeholder="123456">
+        </div>
+        <button type="submit" class="btn btn-accent text-sm min-h-11 px-4">Unlock &amp; show</button>
+      </form>
+      {% else %}
+      <p class="text-sm">
+        Enable <a href="/auth/account" class="text-accent underline">2FA under Account</a> first,
+        then use <strong>View secrets</strong> and enter a code. Values are then decrypted from the database.
+      </p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/templates/deployments/{{ dep.id }}/redeploy" class="space-y-3"
+          data-wait-title="Redeploying"
+          data-wait-message="Saving desired state, writing files over SSH, and running compose. Please wait…">
+      <h3 class="text-xs font-medium text-muted">Non-secret variables</h3>
+      {% for k, v in public.items() %}
+      <div>
+        <label class="text-xs block mb-1">{{ k }}</label>
+        <input name="pub_{{ k }}" value="{{ v }}" class="w-full bg-surface border border-border p-2 rounded text-sm"
+               {% if not can_mutate %}readonly{% endif %}>
+      </div>
+      {% else %}
+      <p class="text-xs text-muted">No public variables stored.</p>
+      {% endfor %}
+
+      {% if secrets_visible %}
+      <h3 class="text-xs font-medium text-muted mt-3">Secrets</h3>
+      <p class="text-[11px] text-muted mb-2">
+        Values decrypted from PiHerder (encrypted at rest). Edit then Save &amp; redeploy to update the host <code class="text-xs">.env</code>.
+      </p>
+      {% for k, v in secrets_map.items() %}
+      <div x-data="{ show: false }">
+        <label class="text-xs block mb-1">{{ k }}</label>
+        <div class="flex gap-2 items-center">
+          <input name="sec_{{ k }}"
+                 :type="show ? 'text' : 'password'"
+                 value="{{ v }}"
+                 autocomplete="off"
+                 class="flex-1 w-full bg-surface border border-border p-2 rounded text-sm font-mono">
+          <button type="button"
+                  class="btn btn-secondary text-sm min-h-11 min-w-11 px-3"
+                  @click="show = !show"
+                  :title="show ? 'Hide value' : 'Show cleartext'"
+                  :aria-label="show ? 'Hide secret' : 'Show secret'">
+            <span x-text="show ? '🙈' : '👁'" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+      {% elif dep.secrets_encrypted %}
+      <h3 class="text-xs font-medium text-muted mt-3">Secrets</h3>
+      <p class="text-xs text-muted mt-1">
+        Secrets are stored <strong>encrypted</strong> in PiHerder.
+        Use the always-visible <strong>View secrets</strong> control and enter a 2FA code to decrypt.
+      </p>
+      {% if secret_keys %}
+      <ul class="text-xs font-mono text-muted mt-2 list-disc list-inside">
+        {% for k in secret_keys %}
+        <li>{{ k }} = ••••••••</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% endif %}
+
+      <h3 class="text-xs font-medium text-muted mt-3">Rendered files (preview)</h3>
+      {% for path, body in files_masked.items() %}
+      <div class="mb-2">
+        <div class="text-xs font-medium mb-1">{{ path }}</div>
+        <pre class="text-[11px] font-mono bg-surface border border-border p-2 rounded overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap break-all">{{ body }}</pre>
+      </div>
+      {% endfor %}
+
+      {% if can_mutate %}
+      <button type="submit" class="btn btn-accent min-h-11 px-4 mt-2">Save &amp; redeploy</button>
+      <p class="text-[11px] text-muted">Creates config V{{ dep.config_version + 1 }} and writes locked-down <code class="text-xs">.env</code> on the host.
+        {% if not secrets_visible and dep.secrets_encrypted %}
+        Existing host secrets are kept unless you unlock and change them.
+        {% endif %}
+      </p>
+      {% endif %}
+    </form>
+  </div>
+</div>
+{% endblock %}
