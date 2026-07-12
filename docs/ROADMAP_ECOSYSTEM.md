@@ -23,10 +23,11 @@ Design principles stay the same as SPEC:
 | **v0.2.0** | Production install story (compose, token REST, prod docs) + H0.5 + early Kuma | H0 / H0.5 | **Tagged** 2026-07-10 — [RELEASE_v0.2.0.md](RELEASE_v0.2.0.md) |
 | **v0.2.x** | Platform reliability (host deps, stack Status tab, multi-worker) | H0.5 | Shipped on main (included in v0.2.0) |
 | **v0.3.0** | Integration hub — Kuma + **Grafana** (kinds, templates, Docker chips) | H1 | **Tagged** 2026-07-11 — [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md) |
-| **v0.3.1** | Docker Deploy honesty + resolve container-update alerts (on `main`) | H1 patch | **Ready to tag** — see [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §1 |
-| **v0.3.x** | Remaining H1 multi-URL adapters (Pi-hole / NPM / HA / …) | H1 | Optional vs templates |
-| **v0.4.0** | Service templates foundation (+ any untagged 0.3.x fixes) | H2 | **Planning** — [PLAN_v0.4.0.md](PLAN_v0.4.0.md) |
+| **v0.4.0** | Post-0.3 quality (Docker/jobs/alerts) + templates foundation | H2 + fixes | **In progress** — [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · WIP notes [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) |
+| **v0.4.x** | Remaining H1 multi-URL adapters / template pack expansion | H1/H2 | Optional after 0.4.0 |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
+
+**Decision:** All fixes after `v0.3.0` ship in **`v0.4.0`** (no intermediate `v0.3.1`). Living bug list for release notes: PLAN §2.
 
 **Note:** Registry image publish (`bjorngluck/piherder:0.3.0`) remains optional until Docker Hub/GHCR credentials are available; the git tag is the source of truth for this release.
 

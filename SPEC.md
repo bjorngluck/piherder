@@ -231,12 +231,17 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 
 ## Phase 6 — Service templates (v0.4 / Horizon 2)
 
-**Plan draft:** [docs/PLAN_v0.4.0.md](docs/PLAN_v0.4.0.md) (ship bar discussion; includes post-v0.3.0 Docker Deploy/alert fixes).
+**Plan:** [docs/PLAN_v0.4.0.md](docs/PLAN_v0.4.0.md) · **WIP release notes:** [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md)  
+**Decision:** All post-`v0.3.0` work ships in **`v0.4.0`** (living bug IDs B01… in PLAN §2).
 
-### Post–v0.3.0 quality (on main → next tag / v0.3.1)
+### Post–v0.3.0 quality (on main → v0.4.0)
 
-- [x] Docker Deploy surfaces pull/up results (audit + banner; was silent success)
-- [x] Successful Deploy clears pending stack + resolves `container_updates` alert when none remain
+- [x] **B01** Docker Deploy surfaces pull/up results (audit + banner; was silent success)
+- [x] **B02** Successful Deploy clears pending stack + resolves `container_updates` when none remain
+- [x] **B03** UI: Check updates = pull only; Deploy applies
+- [x] **B04** Jobs list Cancel works (modal already did)
+- [x] **B05** Successful backup resolves `backup_failed` alert
+- [x] **B06** Notification dismiss idempotent if already closed
 
 ### Templates
 
