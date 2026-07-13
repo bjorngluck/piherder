@@ -1,6 +1,6 @@
 # Remove a server
 
-**Where:** Server detail → **Remove from PiHerder** (danger zone).
+**Where:** Server detail → **Edit** → **Remove** tab → **Remove server…**
 
 ## What happens
 
@@ -17,7 +17,7 @@ Confirm by typing the **exact server name**.
 
 To drop the least-priv account **on the host** (as root):
 
-- Server detail → **Copy script** / **Download .sh**  
+- Edit → **Remove** tab → **Copy script** / **Download .sh**  
 - Or **SSH access → Host cleanup script**  
 - Repo: `scripts/cleanup-piherder-user.sh`
 

@@ -17,11 +17,13 @@
 
 | Action | What it does |
 |--------|----------------|
-| **Test connection** | Verifies key (or password) login |
+| **Test connection** | Verifies key (or password) login, then refreshes **host dependency** probes when login succeeds |
+| **Check dependencies** | Probes `rsync` / docker / apt for **enabled** features only (SSH already works) |
 | **Deploy key** | Installs public key into `authorized_keys`; verifies key-only login |
 | **Rotate key** | New keypair, deploy, swap only after verify succeeds |
 | **Least-priv user** | Optional `piherder` user + limited sudoers (Pi OS / Ubuntu) |
-| **Re-check dependencies** | Probes `rsync` / docker / apt for **enabled** features |
+
+Dependency chips on the server page are **read-only** snapshots; re-check from **SSH access** (onboarding lives there).
 
 !!! tip "Clear stored passwords"
     After key auth works, clear any stored SSH password so secrets stay keys-only (encrypted at rest with `PIHERDER_MASTER_KEY`).

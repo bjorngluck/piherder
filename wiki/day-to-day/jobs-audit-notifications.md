@@ -6,7 +6,7 @@ Three related systems — do not confuse them.
 |--------|---------|
 | **Jobs** | Queue + live progress of work units |
 | **Audit** | Immutable history (who / what / when / snippet) |
-| **Notifications** | Dismissible inbox (updates pending, failed backup, …) |
+| **Notifications** | Dismissible inbox (updates pending, failed backup, …). Open via the **bell** icon (no separate Alerts nav link). |
 
 <figure class="ph-figure" markdown>
   ![Jobs page](../assets/screenshots/jobs-page.svg)

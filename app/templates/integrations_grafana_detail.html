@@ -210,6 +210,9 @@
         <span class="text-xs text-muted">→</span>
         {% endif %}
         <span class="text-sm {% if not b.location %}font-medium text-text{% else %}text-muted{% endif %}">{{ b.label }}</span>
+        {% if b.label_override and b.grafana_title and b.label_override != b.grafana_title %}
+        <span class="text-[11px] text-muted"> (Grafana: {{ b.grafana_title }})</span>
+        {% endif %}
         <div class="text-[11px] text-muted font-mono truncate">{{ b.uid }}</div>
       </div>
       <div class="flex flex-wrap gap-1.5">
@@ -217,9 +220,9 @@
         <a href="{{ b.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open</a>
         {% endif %}
         {% if can_mutate %}
-        <a href="?tab={{ tab }}&mode=edit&binding_id={{ b.id }}&server_id={{ b.server_id }}&kind={{ b.kind or kind_default }}&external_id={{ b.uid|urlencode }}&docker_project={{ (b.docker_project or '')|urlencode }}&docker_container={{ (b.docker_container or '')|urlencode }}#grafana-bind-form"
+        <a href="?tab={{ tab }}&mode=edit&binding_id={{ b.id }}&server_id={{ b.server_id }}&kind={{ b.kind or kind_default }}&external_id={{ b.uid|urlencode }}&docker_project={{ (b.docker_project or '')|urlencode }}&docker_container={{ (b.docker_container or '')|urlencode }}&display_name={{ (b.label_override or '')|urlencode }}#grafana-bind-form"
            class="btn btn-secondary text-xs min-h-9"
-           title="Load into form, change a field, save">Edit</a>
+           title="Load into form, rename or change scope">Edit</a>
         <a href="?tab={{ tab }}&mode=clone&server_id={{ b.server_id }}&kind={{ b.kind or kind_default }}&external_id={{ b.uid|urlencode }}&docker_project={{ (b.docker_project or '')|urlencode }}&docker_container={{ (b.docker_container or '')|urlencode }}#grafana-bind-form"
            class="btn btn-secondary text-xs min-h-9"
            title="Prefill form as a new binding — change host or container, then save">Clone</a>
@@ -327,6 +330,20 @@
           <option value="">— all on host / project —</option>
         </select>
       </div>
+    </div>
+
+    <div>
+      <label class="block text-xs font-medium text-muted mb-1" for="display_name">
+        Display name in PiHerder <span class="font-normal">(optional)</span>
+      </label>
+      <input id="display_name" name="display_name" type="text" class="input w-full text-sm max-w-md"
+             placeholder="Leave blank to use Grafana dashboard title"
+             value="{{ prefill.display_name or '' }}"
+             autocomplete="off">
+      <p class="text-[11px] text-muted mt-1">
+        Custom name survives polls. Clear the field and save to follow the Grafana title again.
+        Renaming in Grafana still works when no override is set.
+      </p>
     </div>
 
     <div class="flex flex-wrap gap-2">

@@ -352,3 +352,38 @@ def test_grafana_chip_dict_touch_friendly_fields():
     assert chip["open_url"]
     assert "var-container=pihole" in chip["open_url"]
     assert chip["open_url"].startswith("https://g.example.com/")
+
+
+def test_grafana_chip_label_override_wins():
+    """Operator display name (meta.label_override) is preferred over external_label."""
+    integ = MagicMock()
+    integ.type = reg.TYPE_GRAFANA
+    integ.base_url = "https://g.example.com"
+    integ.name = "G"
+    integ.config_json = "{}"
+    integ.enabled = True
+
+    binding = MagicMock()
+    binding.id = 1
+    binding.integration_id = 2
+    binding.server_id = 1
+    binding.external_id = "node"
+    binding.external_label = "My host metrics"  # should match override after save
+    binding.last_state = "linked"
+    binding.last_message = None
+    binding.last_checked_at = None
+    binding.docker_project = None
+    binding.docker_container = None
+    binding.external_meta_json = json.dumps(
+        {
+            "kind": "metrics",
+            "title": "Node Exporter Full",
+            "grafana_title": "Node Exporter Full",
+            "label_override": "My host metrics",
+        }
+    )
+
+    chip = reg._grafana_chip_dict(integ, binding)
+    assert chip["label"] == "My host metrics"
+    assert chip["label_override"] == "My host metrics"
+    assert chip["grafana_title"] == "Node Exporter Full"

@@ -1169,14 +1169,21 @@ input[type="checkbox"], input[type="radio"] {
     grid-template-columns: 1fr 1fr;
   }
 }
+@media (min-width: 1024px) {
+  .dest-cards {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}
 .dest-card {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  min-height: 7.5rem;
   padding: 1rem 1.15rem;
   text-decoration: none;
   color: inherit;
   transition: border-color 0.1s ease, background-color 0.1s ease;
 }
-.dest-card:hover {
+a.dest-card:hover {
   border-color: var(--color-primary);
   background-color: var(--color-bg);
 }
@@ -1189,11 +1196,46 @@ input[type="checkbox"], input[type="radio"] {
   margin: 0.35rem 0 0.5rem;
   font-size: 0.8rem;
   color: var(--color-muted);
+  flex: 1 1 auto;
 }
 .dest-card-cta {
   font-size: 0.8rem;
   font-weight: 500;
   color: var(--color-primary);
+  margin-top: auto;
+}
+.dest-card-static {
+  cursor: default;
+}
+.dest-card-static .dest-card-cta {
+  color: var(--color-muted);
+  font-weight: 400;
+}
+
+/* Catalog: Templates | Integrations tab strip */
+.catalog-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 1.25rem;
+}
+.catalog-tab {
+  padding: 0.5rem 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-muted);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  border-radius: 0.25rem 0.25rem 0 0;
+}
+.catalog-tab:hover {
+  color: var(--color-text);
+}
+.catalog-tab.is-active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 .action-grid {
