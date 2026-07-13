@@ -24,3 +24,15 @@ docker compose up -d --scale celery-worker=N
 ```
 
 Status shows **N nodes** and sum of pool slots.
+
+## What Celery does **not** run
+
+OS patch, container patch, and OS/container **update checks** run on the **web** container (FastAPI `BackgroundTasks` and small thread pools). They are **not** Celery tasks.
+
+| Job family | Execution | Parallelism rule |
+|------------|-----------|------------------|
+| `backup` | Celery | Many hosts in parallel; **one backup per host** (Redis mutex) |
+| `os_patch` / `container_patch` | Web process | **One active job of that type per host** (DB exclusive) |
+| `os_update_check` / `container_update_check` | Web process | **One active check of that type per host** |
+
+Raising `CELERY_CONCURRENCY` or adding Celery nodes does **not** cause a single container patch to run twice. Double-triggers from the UI or bulk queue attach to the existing job instead (HTTP **409** on the API).

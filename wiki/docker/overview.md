@@ -20,6 +20,7 @@ When **Docker / containers** is enabled for a server, PiHerder can list compose 
 |--------|--------|
 | Browse projects / containers | From inventory snapshot |
 | Logs | Per container / service |
+| Quick edit / Full editor | ⋯ menu — modal vs multi-file page — [Compose edit](compose-edit.md) |
 | Multi-file compose edit | compose + override + `.env` + Dockerfile |
 | Version history | Snapshots; rollback |
 | Build / redeploy | Wait for job feedback |

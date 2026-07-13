@@ -35,6 +35,29 @@ class BackupAlreadyRunning(Exception):
         self.job = job
 
 
+class JobAlreadyActive(Exception):
+    """Raised when an exclusive job type is already pending/running for the server.
+
+    Container/OS patch and update-check jobs must not stack on the same host.
+    Celery multi-worker concurrency only applies to backups; these job types run
+    on the web process (BackgroundTasks / in-process thread pools).
+    """
+
+    def __init__(self, job: Job):
+        self.job = job
+
+
+# One active job of each type per server (UI, API, and scheduler share this rule)
+_EXCLUSIVE_JOB_TYPES = frozenset(
+    {
+        "os_patch",
+        "container_patch",
+        "os_update_check",
+        "container_update_check",
+    }
+)
+
+
 # Import Celery task for backup jobs (integrated path)
 try:
     from ..tasks import backup_server
@@ -610,6 +633,14 @@ def create_job_and_run(
             active = get_active_job_for_source(session, server_id, source_filter)
             if active:
                 raise BackupAlreadyRunning(active)
+    elif job_type in _EXCLUSIVE_JOB_TYPES and server_id is not None:
+        active = _active_job_of_type(session, server_id, job_type)
+        if active:
+            logger.info(
+                f"[Jobs] {job_type} skip — job #{active.id} already active "
+                f"for server {server_id}"
+            )
+            raise JobAlreadyActive(active)
     job = Job(server_id=server_id, job_type=job_type, status="pending")
     if job_type == "backup":
         job.details = _initial_job_details(
@@ -1489,11 +1520,21 @@ def _execute_container_patch_sync(job_id: int, server_id: int, audit_id: int) ->
 
 
 def enqueue_os_update_check(server_id: int, user_id: int | None = None) -> Job | None:
-    """Create pending Job + AuditLog, run SSH check on a worker thread (queued)."""
+    """Create pending Job + AuditLog, run SSH check on a worker thread (queued).
+
+    Returns the existing active job if an OS check is already pending/running
+    (does not start a second concurrent check on the same host).
+    """
     with _get_fresh_session() as session:
         server = session.get(Server, server_id)
         if not server:
             return None
+        active = _active_job_of_type(session, server_id, "os_update_check")
+        if active:
+            logger.info(
+                f"[Jobs] OS check skip — job #{active.id} already active for server {server_id}"
+            )
+            return active
         job, audit = _create_queued_job_with_audit(
             session,
             server_id=server.id,
@@ -1508,11 +1549,22 @@ def enqueue_os_update_check(server_id: int, user_id: int | None = None) -> Job |
 
 
 def enqueue_container_update_check(server_id: int, user_id: int | None = None) -> Job | None:
-    """Create pending Job + AuditLog, run fleet image check on a worker thread (queued)."""
+    """Create pending Job + AuditLog, run fleet image check on a worker thread (queued).
+
+    Returns the existing active job if a container check is already pending/running
+    (does not start a second concurrent check on the same host).
+    """
     with _get_fresh_session() as session:
         server = session.get(Server, server_id)
         if not server:
             return None
+        active = _active_job_of_type(session, server_id, "container_update_check")
+        if active:
+            logger.info(
+                f"[Jobs] Container check skip — job #{active.id} already active "
+                f"for server {server_id}"
+            )
+            return active
         job, audit = _create_queued_job_with_audit(
             session,
             server_id=server.id,

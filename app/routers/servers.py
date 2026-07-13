@@ -185,6 +185,217 @@ async def list_servers(
     )
 
 
+@router.post("/bulk")
+async def bulk_server_actions(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    action: str = Form(...),
+    server_ids: str = Form(""),
+):
+    """Enqueue the same job on multiple hosts (feature-flag aware).
+
+    Actions:
+      - check_os / check_containers
+      - os_patch / container_patch
+      - backup
+
+    Servers missing the required feature flag are skipped (not errors).
+    Exclusive jobs already active are skipped and reported as skipped.
+    """
+    act = (action or "").strip().lower()
+    allowed = {
+        "check_os",
+        "check_containers",
+        "os_patch",
+        "container_patch",
+        "backup",
+    }
+    if act not in allowed:
+        raise HTTPException(400, detail=f"Unknown bulk action: {act}")
+
+    ids: list[int] = []
+    for p in (server_ids or "").replace(" ", ",").split(","):
+        p = p.strip()
+        if not p:
+            continue
+        try:
+            ids.append(int(p))
+        except ValueError:
+            continue
+    # de-dupe preserve order
+    seen: set[int] = set()
+    ordered_ids: list[int] = []
+    for sid in ids:
+        if sid not in seen:
+            seen.add(sid)
+            ordered_ids.append(sid)
+
+    started: list[dict] = []
+    skipped: list[dict] = []
+    failed: list[dict] = []
+
+    for sid in ordered_ids:
+        server = session.get(Server, sid)
+        if not server:
+            skipped.append({"server_id": sid, "reason": "not_found"})
+            continue
+
+        try:
+            if act == "check_os":
+                if not server.os_patch_enabled:
+                    skipped.append({"server_id": sid, "name": server.name, "reason": "os_disabled"})
+                    continue
+                job = job_service.enqueue_os_update_check(server.id, user_id=user.id)
+                if not job:
+                    failed.append({"server_id": sid, "name": server.name, "reason": "enqueue_failed"})
+                    continue
+                # existing active job is returned by enqueue — count as started (attached)
+                started.append(
+                    {
+                        "server_id": sid,
+                        "name": server.name,
+                        "job_id": job.id,
+                        "job_type": job.job_type,
+                    }
+                )
+            elif act == "check_containers":
+                if not server.container_patch_enabled:
+                    skipped.append(
+                        {"server_id": sid, "name": server.name, "reason": "docker_disabled"}
+                    )
+                    continue
+                job = job_service.enqueue_container_update_check(server.id, user_id=user.id)
+                if not job:
+                    failed.append({"server_id": sid, "name": server.name, "reason": "enqueue_failed"})
+                    continue
+                started.append(
+                    {
+                        "server_id": sid,
+                        "name": server.name,
+                        "job_id": job.id,
+                        "job_type": job.job_type,
+                    }
+                )
+            elif act == "os_patch":
+                if not server.os_patch_enabled:
+                    skipped.append({"server_id": sid, "name": server.name, "reason": "os_disabled"})
+                    continue
+                try:
+                    job = job_service.create_job_and_run(
+                        background_tasks,
+                        session,
+                        server,
+                        "os_patch",
+                        user_id=user.id,
+                    )
+                    started.append(
+                        {
+                            "server_id": sid,
+                            "name": server.name,
+                            "job_id": job.id,
+                            "job_type": job.job_type,
+                        }
+                    )
+                except job_service.JobAlreadyActive as e:
+                    skipped.append(
+                        {
+                            "server_id": sid,
+                            "name": server.name,
+                            "reason": "already_active",
+                            "job_id": e.job.id,
+                        }
+                    )
+            elif act == "container_patch":
+                if not server.container_patch_enabled:
+                    skipped.append(
+                        {"server_id": sid, "name": server.name, "reason": "docker_disabled"}
+                    )
+                    continue
+                try:
+                    job = job_service.create_job_and_run(
+                        background_tasks,
+                        session,
+                        server,
+                        "container_patch",
+                        user_id=user.id,
+                    )
+                    started.append(
+                        {
+                            "server_id": sid,
+                            "name": server.name,
+                            "job_id": job.id,
+                            "job_type": job.job_type,
+                        }
+                    )
+                except job_service.JobAlreadyActive as e:
+                    skipped.append(
+                        {
+                            "server_id": sid,
+                            "name": server.name,
+                            "reason": "already_active",
+                            "job_id": e.job.id,
+                        }
+                    )
+            elif act == "backup":
+                if not server.backup_enabled:
+                    skipped.append(
+                        {"server_id": sid, "name": server.name, "reason": "backup_disabled"}
+                    )
+                    continue
+                try:
+                    job = job_service.create_job_and_run(
+                        background_tasks,
+                        session,
+                        server,
+                        "backup",
+                        user_id=user.id,
+                    )
+                    started.append(
+                        {
+                            "server_id": sid,
+                            "name": server.name,
+                            "job_id": job.id,
+                            "job_type": job.job_type,
+                        }
+                    )
+                except job_service.BackupAlreadyRunning as e:
+                    skipped.append(
+                        {
+                            "server_id": sid,
+                            "name": server.name,
+                            "reason": "already_active",
+                            "job_id": e.job.id,
+                        }
+                    )
+        except Exception as e:
+            logger.warning("bulk action %s failed for server %s: %s", act, sid, e)
+            failed.append(
+                {"server_id": sid, "name": getattr(server, "name", str(sid)), "reason": str(e)[:120]}
+            )
+
+    payload = {
+        "action": act,
+        "started": started,
+        "skipped": skipped,
+        "failed": failed,
+        "started_count": len(started),
+        "skipped_count": len(skipped),
+        "failed_count": len(failed),
+    }
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse(payload)
+    # Redirect with summary for non-async form posts
+    q = (
+        f"bulk={act}"
+        f"&started={len(started)}"
+        f"&skipped={len(skipped)}"
+        f"&failed={len(failed)}"
+    )
+    return RedirectResponse(f"/servers?{q}", status_code=303)
+
+
 @router.post("/reorder")
 async def reorder_servers(
     order: str = Form(""),
@@ -747,6 +958,21 @@ async def delete_server(
 # (run_backup / stop_backup moved to server_backups.py)
 
 
+def _safe_close_ssh(client, timeout: float = 2.0) -> None:
+    """Close SSH without blocking forever (common after host reboot starts)."""
+    import threading
+
+    def _close():
+        try:
+            client.close()
+        except Exception:
+            pass
+
+    t = threading.Thread(target=_close, daemon=True)
+    t.start()
+    t.join(timeout)
+
+
 @router.post("/{server_id}/reboot")
 async def reboot_server(
     server_id: int,
@@ -758,6 +984,11 @@ async def reboot_server(
     Least-priv sudoers allow ``/usr/sbin/reboot`` — bare ``sudo reboot`` is not
     always matched. Clear local reboot_pending optimistically after the command
     is accepted so the UI does not look stuck.
+
+    Important: schedule reboot slightly deferred so the SSH command can return
+    and PiHerder can finish the HTTP response + audit. Immediate ``reboot``
+    often kills the channel (and, if this is the PiHerder host, the whole stack)
+    mid-request, which looks like a hang.
     """
     server = session.get(Server, server_id)
     if not server:
@@ -765,11 +996,14 @@ async def reboot_server(
 
     success = False
     details = "Reboot initiated"
-    # Full paths that match least-priv onboard sudoers / common layouts
+    # Deferred + backgrounded so the SSH command returns quickly.
+    # Least-priv sudoers only allow the reboot binary (not sudo sh), so we
+    # background via the login shell + nohup, and sudo only the reboot path.
+    # sleep 1 gives PiHerder time to finish HTTP/audit when rebooting its own host.
     reboot_cmds = (
-        "sudo -n /usr/sbin/reboot",
-        "sudo -n /sbin/reboot",
-        "sudo -n /usr/bin/systemctl reboot",
+        "nohup sh -c 'sleep 1; sudo -n /usr/sbin/reboot' >/dev/null 2>&1 &",
+        "nohup sh -c 'sleep 1; sudo -n /sbin/reboot' >/dev/null 2>&1 &",
+        "nohup sh -c 'sleep 1; sudo -n /usr/bin/systemctl reboot' >/dev/null 2>&1 &",
     )
     try:
         client = ssh_service.get_ssh_client(server)
@@ -777,26 +1011,28 @@ async def reboot_server(
         try:
             for cmd in reboot_cmds:
                 try:
-                    # Non-blocking start; reboot often kills the channel mid-flight
-                    _stdin, stdout, stderr = client.exec_command(cmd, timeout=5)
-                    # Brief wait for immediate "not allowed" / missing binary
+                    # Short channel timeout; backgrounded reboot should return fast
+                    _stdin, stdout, stderr = client.exec_command(cmd, timeout=8)
                     import time as _time
 
-                    _time.sleep(0.4)
+                    deadline = _time.monotonic() + 1.5
+                    while _time.monotonic() < deadline:
+                        if stdout.channel.exit_status_ready():
+                            break
+                        _time.sleep(0.1)
                     if stdout.channel.exit_status_ready():
                         code = stdout.channel.recv_exit_status()
                         err = (stderr.read() or b"").decode(errors="replace")[:200]
                         out = (stdout.read() or b"").decode(errors="replace")[:200]
                         if code == 0:
                             success = True
-                            details = f"Reboot accepted ({cmd})"
+                            details = "Reboot scheduled (host will restart shortly)"
                             break
                         last_err = (err or out or f"exit {code}").strip()
-                        # try next path
                         continue
-                    # No exit yet — host is likely going down (success)
+                    # Background job started; shell still open — treat as success
                     success = True
-                    details = f"Reboot command sent ({cmd})"
+                    details = "Reboot command sent"
                     break
                 except Exception as e:
                     # Connection dropped after reboot is normal
@@ -806,16 +1042,13 @@ async def reboot_server(
                         for x in ("eof", "reset", "closed", "timeout", "timed out")
                     ):
                         success = True
-                        details = f"Reboot sent (connection closed: {cmd})"
+                        details = "Reboot sent (connection closed)"
                         break
                     last_err = str(e)[:200]
             if not success and last_err:
                 details = f"Reboot command failed: {last_err}"
         finally:
-            try:
-                client.close()
-            except Exception:
-                pass
+            _safe_close_ssh(client, timeout=1.5)
     except Exception as e:
         details = f"Reboot command failed to send: {e}"
 
@@ -1502,11 +1735,24 @@ async def run_container_patch(
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
-    job = job_service.create_job_and_run(
-        background_tasks, session, server, "container_patch", user_id=user.id
-    )
+    try:
+        job = job_service.create_job_and_run(
+            background_tasks, session, server, "container_patch", user_id=user.id
+        )
+        reused = False
+    except job_service.JobAlreadyActive as e:
+        job = e.job
+        reused = True
     if request.headers.get("X-PiHerder-Async") == "1":
-        return JSONResponse({"job_id": job.id, "status": job.status, "job_type": "container_patch"})
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "job_type": "container_patch",
+                "already_active": reused,
+            },
+            status_code=409 if reused else 200,
+        )
     return RedirectResponse(f"/servers/{server_id}", status_code=303)
 
 
@@ -1526,11 +1772,24 @@ async def run_os_patch(
     steps = os_patching.normalize_os_patch_steps(steps or None)
     if not steps:
         steps = ["update", "upgrade", "autoremove"]
-    job = job_service.create_job_and_run(
-        background_tasks, session, server, "os_patch", user_id=user.id, os_steps=steps
-    )
+    try:
+        job = job_service.create_job_and_run(
+            background_tasks, session, server, "os_patch", user_id=user.id, os_steps=steps
+        )
+        reused = False
+    except job_service.JobAlreadyActive as e:
+        job = e.job
+        reused = True
     if request.headers.get("X-PiHerder-Async") == "1":
-        return JSONResponse({"job_id": job.id, "status": job.status, "job_type": "os_patch"})
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "job_type": "os_patch",
+                "already_active": reused,
+            },
+            status_code=409 if reused else 200,
+        )
     return RedirectResponse(_server_redirect(server_id), status_code=303)
 
 

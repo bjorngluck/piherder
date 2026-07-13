@@ -6,6 +6,9 @@
 | Backup failed / stuck pending | [Backups](backups.md) |
 | No push on phone / PWA | [Push / PWA](push.md) |
 | Template deploy / Docker editor | [Templates & Docker](templates-docker.md) |
+| Reboot hangs / UI stuck after reboot | [Updates — Reboot](../day-to-day/updates-and-patching.md#reboot) |
+| Same patch job appears twice | [Jobs — Exclusive jobs](../day-to-day/jobs-audit-notifications.md#exclusive-jobs-one-per-type-per-host) · [Multi-worker](../operations/multi-worker.md) |
+| Full editor link does nothing | [Compose edit](../docker/compose-edit.md#opening-the-editor) — use ⋯ **Full editor…** |
 
 ## Always useful
 

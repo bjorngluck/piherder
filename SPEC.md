@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** **v0.5.0 in development** — Phase 1–5 complete; Phase 6 templates **foundation shipped** in v0.4.0; ops + polish + RC → **v0.5.0**  
-> **Last updated:** 2026-07-12 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target; former v0.4.x folded in)
+> **Last updated:** 2026-07-13 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target; former v0.4.x folded in). Fleet ops polish (exclusive jobs, reboot, bulk actions, full editor) landed in plan workstream **E**.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -273,6 +273,13 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [x] Production user wiki + dev wiki scaffold (MkDocs Material under `wiki/`; real screenshots + Pages go-live ongoing)
 - [ ] Docker Hub / GHCR multi-arch image publish
 - [ ] RC freeze bar (pytest, smoke, security of secret paths)
+
+**Fleet ops polish (workstream E — landed in v0.5.0 track)**
+
+- [x] Exclusive OS/container jobs per host (no double-run; API **409** + existing job)
+- [x] Reboot reliability (deferred background reboot; no hang when rebooting herder host)
+- [x] Servers list bulk actions (check/upgrade OS, check/patch containers, backup; feature-flag aware)
+- [x] Docker full editor navigation (⋯ **Full editor…** + quick-edit link)
 
 **Nice-to-have in same tag**
 

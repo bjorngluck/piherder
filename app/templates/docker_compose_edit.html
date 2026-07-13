@@ -239,7 +239,7 @@
   {% endif %}
 
   <form method="post" 
-        action="{% if is_dockerfile %}/servers/{{ server.id }}/docker/compose/{{ project.name }}/dockerfile/save{% else %}/servers/{{ server.id }}/docker/compose/{{ project.name }}/save{% endif %}" 
+        action="{% if is_dockerfile %}/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/dockerfile/save{% else %}/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/save{% endif %}" 
         id="compose-form">
     {% if editing_version_id %}<input type="hidden" name="editing_version_id" value="{{ editing_version_id }}">{% endif %}
     {% if not is_dockerfile %}
@@ -330,7 +330,7 @@
     </div>
 
     <div class="flex items-center gap-3 mt-4">
-      <button type="submit" {% if not is_dockerfile %}formaction="/servers/{{ server.id }}/docker/compose/{{ project.name }}/save-draft"{% endif %} name="action" value="draft"
+      <button type="submit" {% if not is_dockerfile %}formaction="/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/save-draft"{% endif %} name="action" value="draft"
               class="px-4 py-2 btn btn-secondary rounded text-sm">
         Save Draft
       </button>
@@ -354,7 +354,7 @@
   {% if not is_dockerfile and drafts %}
   <div class="mt-4">
     <div class="text-xs mb-1">Deploy/rollback specific version (writes files + redeploys; drafts are DB-only):</div>
-    <form method="post" action="/servers/{{ server.id }}/docker/compose/{{ project.name }}/deploy-version" class="flex gap-2">
+    <form method="post" action="/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/deploy-version" class="flex gap-2">
       <select name="version_id" class="bg-surface border border-border text-xs p-1 rounded">
         {% for d in drafts %}
         {% set label = 'draft (db only)' if d.is_draft else ('live (current on host)' if live_version and d.id == live_version.id else 'inactive (previous live)') %}

@@ -16,6 +16,12 @@ SSH to host and `docker compose ps` in the project dir.
 By design — use **deployment** desired state / redeploy.  
 See [Secrets & template badge](../service-templates/secrets.md).
 
+## Full editor link from quick edit does nothing
+
+Use project **⋯ → Full editor…** (direct navigation).  
+From quick edit, **Open full editor →** should open the multi-file page; if a modal overlay is stuck, refresh the Docker page.  
+See [Opening the editor](../docker/compose-edit.md#opening-the-editor).
+
 ## From-host pull incomplete
 
 Odd multi-file layouts still hardening in v0.5.0.  

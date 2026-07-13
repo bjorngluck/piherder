@@ -259,7 +259,8 @@ const MORE_ACTIONS = [
   { key: 'template-config', label: 'Template settings…', accent: true },
   { key: 'deploy', label: 'Deploy', accent: true },
   { key: 'logs', label: 'Logs' },
-  { key: 'edit', label: 'Edit compose' },
+  { key: 'edit', label: 'Quick edit' },
+  { key: 'full-edit', label: 'Full editor…' },
   { key: 'build', label: 'Build…' },
   { key: 'check-updates', label: 'Check updates' },
   { key: 'undeploy', label: 'Undeploy', danger: true },
@@ -267,9 +268,43 @@ const MORE_ACTIONS = [
 
 function moreActionLabel(item, real) {
   if (item.key === 'edit' && real && real.getAttribute('data-template-managed') === '1') {
-    return 'Edit compose (advanced)…';
+    return 'Quick edit (advanced)…';
+  }
+  if (item.key === 'full-edit' && real && real.getAttribute('data-template-managed') === '1') {
+    return 'Full editor (advanced)…';
   }
   return item.label;
+}
+
+function fullEditorUrl(serverId, project, fileType) {
+  const sid = encodeURIComponent(String(serverId || ''));
+  const proj = encodeURIComponent(String(project || ''));
+  if (!sid || !proj) return '';
+  if (fileType === 'dockerfile') {
+    return `/servers/${sid}/docker/compose/${proj}/dockerfile/edit`;
+  }
+  return `/servers/${sid}/docker/compose/${proj}/edit`;
+}
+
+function goToFullEditor(ev) {
+  if (ev) {
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey) return true; // new tab etc.
+    if (ev.button != null && ev.button !== 0) return true;
+    ev.preventDefault();
+  }
+  const link = document.getElementById('qe-full-link');
+  let href = (link && link.getAttribute('href')) || '';
+  if (!href || href === '#') {
+    href = fullEditorUrl(qeCurrent.serverId, qeCurrent.project, qeCurrent.fileType);
+  }
+  if (!href || href === '#') return false;
+  if (window.PiHerderNavLoading) {
+    try {
+      window.PiHerderNavLoading.show('Opening full editor…', qeCurrent.project || '');
+    } catch (_) {}
+  }
+  window.location.assign(href);
+  return false;
 }
 
 function positionDockerPopover(menu, anchorBtn) {
@@ -326,16 +361,30 @@ function showProjectMoreMenu(anchorBtn, row) {
 
   list.innerHTML = '';
   MORE_ACTIONS.forEach(function(item) {
-    const real = row.querySelector('[data-sec-btn="' + item.key + '"]');
+    // full-edit reuses the edit secondary button for project/server metadata
+    const realKey = item.key === 'full-edit' ? 'edit' : item.key;
+    const real = row.querySelector('[data-sec-btn="' + realKey + '"]');
     if (!real) return;
-    const btn = document.createElement('button');
-    btn.type = 'button';
+    const btn = document.createElement(item.key === 'full-edit' ? 'a' : 'button');
+    if (item.key === 'full-edit') {
+      const sid = real.getAttribute('data-server-id') || '';
+      const proj = real.getAttribute('data-edit-proj') || row.dataset.projName || '';
+      btn.href = fullEditorUrl(sid, proj, 'compose');
+      btn.setAttribute('data-nav-loading', 'Opening full editor…');
+    } else {
+      btn.type = 'button';
+    }
     btn.role = 'menuitem';
     btn.className = 'docker-popover-item'
       + (item.danger ? ' is-danger' : '')
       + (item.accent ? ' is-accent' : '');
     btn.textContent = moreActionLabel(item, real);
     btn.addEventListener('click', function(e) {
+      if (item.key === 'full-edit') {
+        hideProjectMoreMenu();
+        // Let normal navigation proceed (href + data-nav-loading)
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
       hideProjectMoreMenu();
@@ -704,10 +753,13 @@ document.body.addEventListener('htmx:afterSettle', function(e) {
       for variables/secrets. Raw edits can drift.
     </div>
 
-    <div class="mb-2 flex flex-wrap gap-2 text-sm">
+    <div class="mb-2 flex flex-wrap gap-2 text-sm items-center">
       <button id="qe-tab-compose" type="button" onclick="switchQuickEditTab('compose')" class="btn btn-accent min-h-11">Compose</button>
       <button id="qe-tab-dockerfile" type="button" onclick="switchQuickEditTab('dockerfile')" class="btn btn-secondary min-h-11 hidden">Dockerfile</button>
-      <a id="qe-full-link" href="#" class="ml-auto text-accent hover:underline text-xs self-center">Open full editor →</a>
+      <a id="qe-full-link" href="#"
+         class="ml-auto text-accent hover:underline text-xs self-center min-h-11 inline-flex items-center px-1 relative z-10"
+         data-nav-loading="Opening full editor…"
+         onclick="return goToFullEditor(event);">Open full editor →</a>
     </div>
 
     <textarea id="qe-editor" class="w-full h-64 font-mono text-sm code-surface border border-border rounded p-3 resize-y" spellcheck="false"></textarea>
@@ -977,10 +1029,11 @@ function showQuickEditModal(projName, hasDockerfile, serverId, templateMeta) {
   const dfTab = document.getElementById('qe-tab-dockerfile');
   if (dfTab) dfTab.classList.toggle('hidden', !hasDockerfile);
 
-  // full editor link
+  // full editor link (set before tab switch; tab switch refreshes for dockerfile)
   const fullLink = document.getElementById('qe-full-link');
   if (fullLink) {
-    fullLink.href = `/servers/${serverId}/docker/compose/${encodeURIComponent(projName)}/edit`;
+    fullLink.href = fullEditorUrl(serverId, projName, 'compose');
+    fullLink.textContent = 'Open full editor (syntax, versions, drafts…)';
   }
 
   const banner = document.getElementById('qe-template-banner');
@@ -1019,22 +1072,24 @@ function switchQuickEditTab(type) {
   qeCurrent.fileType = type;
 
   // Use proper component classes (btn-accent / btn-secondary) for active state so theming is var-driven
-  composeTab.classList.remove('btn-accent', 'btn-secondary');
-  composeTab.classList.add(type === 'compose' ? 'btn-accent' : 'btn-secondary');
-  dfTab.classList.remove('btn-accent', 'btn-secondary');
-  dfTab.classList.add(type === 'dockerfile' ? 'btn-accent' : 'btn-secondary');
+  if (composeTab) {
+    composeTab.classList.remove('btn-accent', 'btn-secondary');
+    composeTab.classList.add(type === 'compose' ? 'btn-accent' : 'btn-secondary');
+  }
+  if (dfTab) {
+    dfTab.classList.remove('btn-accent', 'btn-secondary');
+    dfTab.classList.add(type === 'dockerfile' ? 'btn-accent' : 'btn-secondary');
+  }
 
   // update full editor link to match current file
   if (fullLink) {
-    if (type === 'dockerfile') {
-      fullLink.href = `/servers/${qeCurrent.serverId}/docker/compose/${encodeURIComponent(qeCurrent.project)}/dockerfile/edit`;
-      fullLink.textContent = 'Open full Dockerfile editor';
-    } else {
-      fullLink.href = `/servers/${qeCurrent.serverId}/docker/compose/${encodeURIComponent(qeCurrent.project)}/edit`;
-      fullLink.textContent = 'Open full editor (syntax, versions, drafts…)';
-    }
+    fullLink.href = fullEditorUrl(qeCurrent.serverId, qeCurrent.project, type);
+    fullLink.textContent = type === 'dockerfile'
+      ? 'Open full Dockerfile editor'
+      : 'Open full editor (syntax, versions, drafts…)';
   }
 
+  if (!ta) return;
   // load content for this type
   const url = `/servers/${qeCurrent.serverId}/docker/compose/${encodeURIComponent(qeCurrent.project)}/file-content?file=${type}`;
   ta.value = 'Loading...';

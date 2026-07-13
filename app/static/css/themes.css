@@ -1337,6 +1337,35 @@ body.server-reorder-active {
   user-select: none;
 }
 
+/* Bulk select checkbox on server rows */
+.server-bulk-check {
+  align-self: center;
+  margin-right: 0.15rem;
+}
+.server-bulk-check input {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--color-accent);
+}
+.server-host-list.is-reorder-mode .server-bulk-check {
+  display: none;
+}
+body.server-reorder-active #bulk-select-bar,
+body.server-reorder-active #bulk-toolbar,
+body.server-reorder-active #bulk-hint {
+  display: none !important;
+}
+.bulk-toolbar {
+  position: sticky;
+  top: 0.5rem;
+  z-index: 40;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+.bulk-toolbar[hidden],
+.bulk-toolbar.hidden {
+  display: none !important;
+}
+
 /* Servers list filter chips */
 .server-filter-bar {
   display: flex;

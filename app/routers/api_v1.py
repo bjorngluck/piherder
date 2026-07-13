@@ -404,6 +404,15 @@ async def create_server_job(
                 "job": job_service.job_public_dict(e.job),
             },
         )
+    except job_service.JobAlreadyActive as e:
+        return JSONResponse(
+            status_code=409,
+            content={
+                "detail": f"{job_type} already active for this server",
+                "job": job_service.job_public_dict(e.job),
+                "already_active": True,
+            },
+        )
     except RuntimeError as e:
         raise HTTPException(503, detail=str(e)[:200]) from e
 
