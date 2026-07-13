@@ -1,6 +1,6 @@
 # Integrations
 
-Optional **integration hub**. Top-nav **Catalog** opens a shared Catalog page with **Templates** and **Integrations** tabs (`/templates` · `/integrations`). Click **Integrations** on that strip if you land on service templates first.
+Optional **integration hub**. Top-nav **Catalog** opens **Integrations** by default (`/integrations`), with Settings-style buttons for **Integrations** | **Templates**.
 
 Core fleet ops work **without** any integration.
 
