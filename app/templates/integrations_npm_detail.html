@@ -19,8 +19,16 @@
   </div>
   <div class="flex flex-wrap gap-2">
     {% if can_mutate %}
-    <form method="post" action="/integrations/{{ integration.id }}/test"><button class="btn btn-secondary min-h-11" type="submit">Test</button></form>
-    <form method="post" action="/integrations/{{ integration.id }}/poll"><button class="btn btn-secondary min-h-11" type="submit">Poll</button></form>
+    <form method="post" action="/integrations/{{ integration.id }}/test"
+          data-wait-title="Testing NPM"
+          data-wait-message="Logging in and checking connectivity…">
+      <button class="btn btn-secondary min-h-11" type="submit">Test</button>
+    </form>
+    <form method="post" action="/integrations/{{ integration.id }}/poll"
+          data-wait-title="Polling NPM"
+          data-wait-message="Refreshing proxy hosts and certificates…">
+      <button class="btn btn-secondary min-h-11" type="submit">Poll</button>
+    </form>
     <a href="/integrations/{{ integration.id }}/edit" class="btn btn-secondary min-h-11">Edit</a>
     {% endif %}
     <a href="/certificates" class="btn btn-secondary min-h-11">Certificates</a>
@@ -71,12 +79,23 @@
           <td class="text-right">
             {% if can_mutate %}
               {% if b %}
-              <form method="post" action="/integrations/{{ integration.id }}/npm/unbind" class="inline">
+              <form method="post" action="/integrations/{{ integration.id }}/npm/unbind" class="inline"
+                    data-confirm="Unbind proxy host “{{ h.label }}” from this server?"
+                    data-confirm-title="Unbind proxy host"
+                    data-confirm-label="Unbind"
+                    data-wait-title="Unbinding"
+                    data-wait-message="Removing binding…">
                 <input type="hidden" name="binding_id" value="{{ b.id }}">
                 <button class="btn btn-secondary text-xs min-h-9" type="submit">Unbind</button>
               </form>
               {% else %}
-              <form method="post" action="/integrations/{{ integration.id }}/npm/bind" class="flex flex-wrap gap-1 justify-end">
+              <form method="post" action="/integrations/{{ integration.id }}/npm/bind"
+                    class="flex flex-wrap gap-1 justify-end"
+                    data-confirm="Bind proxy host “{{ h.label }}” to the selected server?"
+                    data-confirm-title="Bind proxy host"
+                    data-confirm-label="Bind"
+                    data-wait-title="Binding"
+                    data-wait-message="Saving binding…">
                 <input type="hidden" name="external_id" value="{{ h.id }}">
                 <select name="server_id" class="input text-xs min-h-9" required>
                   <option value="">Server…</option>
@@ -127,7 +146,12 @@
           <td class="text-xs">{{ c.provider or '—' }}</td>
           <td class="text-right">
             {% if can_mutate %}
-            <form method="post" action="/integrations/{{ integration.id }}/npm/pull-cert" class="inline">
+            <form method="post" action="/integrations/{{ integration.id }}/npm/pull-cert" class="inline"
+                  data-confirm="Download certificate #{{ c.id }} from NPM and store fullchain + private key encrypted in PiHerder?"
+                  data-confirm-title="Pull certificate"
+                  data-confirm-label="Pull &amp; store"
+                  data-wait-title="Pulling certificate"
+                  data-wait-message="Downloading zip and encrypting PEMs…">
               <input type="hidden" name="cert_id" value="{{ c.id }}">
               <input type="hidden" name="name" value="{{ c.nice_name or '' }}">
               <input type="hidden" name="auto_renew" value="on">
@@ -161,9 +185,17 @@
 {% endif %}
 
 {% if can_mutate %}
-<form method="post" action="/integrations/{{ integration.id }}/delete" class="mt-6"
-      onsubmit="return confirm('Delete this NPM integration?');">
-  <button type="submit" class="btn btn-secondary text-red-600 min-h-11">Delete integration</button>
-</form>
+<div class="card p-4 border border-failed/30 mt-6 max-w-xl">
+  <h2 class="text-sm font-semibold text-text mb-2">Danger zone</h2>
+  <form method="post" action="/integrations/{{ integration.id }}/delete"
+        data-confirm="Delete this NPM integration and proxy-host bindings? Managed certificates already pulled are kept."
+        data-confirm-title="Delete NPM integration"
+        data-confirm-label="Delete"
+        data-confirm-danger
+        data-wait-title="Deleting integration"
+        data-wait-message="Removing connection…">
+    <button type="submit" class="btn btn-secondary text-red-600 min-h-11">Delete integration</button>
+  </form>
+</div>
 {% endif %}
 {% endblock %}

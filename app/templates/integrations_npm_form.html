@@ -27,7 +27,9 @@
 <div class="card p-5 max-w-xl">
   <form method="post"
         action="{% if mode == 'edit' %}/integrations/{{ integration.id }}/edit{% else %}/integrations/new/npm{% endif %}"
-        class="space-y-4">
+        class="space-y-4"
+        data-wait-title="{% if mode == 'edit' %}Saving NPM{% else %}Connecting to NPM{% endif %}"
+        data-wait-message="{% if mode == 'edit' %}Updating connection…{% else %}Logging in and saving…{% endif %}">
     <div>
       <label class="block text-sm font-medium text-text mb-1" for="name">Display name</label>
       <input id="name" name="name" type="text" required class="input w-full" value="{{ form.name }}">
