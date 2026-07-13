@@ -204,7 +204,7 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 ### Shipped — Uptime Kuma (H1 slice)
 
 - [x] Integration registry (types + encrypted credentials + bindings)
-- [x] Top-level **Integrations** nav (not under Settings)
+- [x] **Catalog** nav (`/catalog` → Integrations; Templates second) — not under Settings
 - [x] Uptime Kuma: **API key** + `/metrics` poll; TLS cert series; optional login for dashboard IDs
 - [x] SSH reachability bindings + suggest matches; server list/detail chips; `/dashboard/{id}` deep links
 - [x] Host service bindings (no Docker) + Docker project/container bindings

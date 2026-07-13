@@ -526,7 +526,7 @@ Herder self-backup includes `service_templates` catalog rows and `stack_deployme
 
 ### Uptime Kuma integration
 
-Optional **integration hub** under top-nav **Catalog** (opens **Integrations** by default; **Templates** is the second button). You can **deploy** Kuma via Templates, then connect the integration for status/bindings.
+Optional **integration hub** under top-nav **Catalog** (`/catalog` → **Integrations**; Settings-style **Templates** button second). You can **deploy** Kuma via Templates, then connect the integration for status/bindings.
 
 **Design / plan:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md)
 
