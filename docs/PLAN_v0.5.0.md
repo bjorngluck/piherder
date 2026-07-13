@@ -66,6 +66,20 @@
 | Docker Hub / GHCR multi-arch image | [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md); tags for `0.5.0` | Open |
 | RC freeze bar | pytest, smoke (deploy + drift + restore), secret-path review | Open |
 
+### E — Fleet ops polish (v0.5.0 track)
+
+Operator friction fixes and multi-host workflows that do not depend on templates.
+
+| Item | Notes | Status |
+|------|--------|--------|
+| **Exclusive OS/container jobs** | One active job of each type per host (`os_patch`, `container_patch`, checks). UI/API return **409** + existing `job_id`; JobHold follows the running job. Celery multi-slot does **not** re-run container jobs (those are web-process). | **Done** |
+| **Reboot hang fix** | Deferred background reboot (`sleep 1` + least-priv reboot path) + timeout SSH close so the request finishes — especially when rebooting the PiHerder host itself. | **Done** |
+| **Servers list bulk actions** | Select one/many/all → Check OS, Upgrade OS, Check containers, Patch containers, Backup. Feature-flag aware (Docker-off hosts not queued for container actions). `POST /servers/bulk`. | **Done** |
+| **Docker full editor links** | Quick edit + **Full editor…** in ⋯ menu; reliable navigation from quick-edit modal; URL-encoded project paths. | **Done** |
+
+**Tests:** `tests/test_job_exclusive.py`  
+**Wiki:** [Updates & patching](../wiki/day-to-day/updates-and-patching.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Compose edit](../wiki/docker/compose-edit.md) · [Multi-worker](../wiki/operations/multi-worker.md)
+
 ### Stretch / carry (do not block RC)
 
 | ID | Item |
@@ -109,9 +123,16 @@ Must-have:
 git log --oneline v0.4.0..HEAD
 ```
 
-(Empty at track open — first feature commits land after this plan.)
-
 **Baseline tag:** `v0.4.0` — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md)
+
+### Landed in this cycle (non-template)
+
+| Area | Summary |
+|------|---------|
+| Exclusive jobs | Per-server exclusive OS/container patch + update-check jobs; 409 reuse |
+| Reboot | Deferred background reboot; no hang on herder host |
+| Bulk fleet actions | Server list multi-select + bulk check/patch/backup |
+| Docker editor UX | Full editor links + ⋯ **Full editor…** |
 
 ---
 
@@ -124,7 +145,9 @@ git log --oneline v0.4.0..HEAD
 | [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) | Multi-horizon roadmap |
 | [SPEC.md](../SPEC.md) | Phase 6 → v0.5.0 checklist |
 | [ADMIN.md](ADMIN.md) | Operator guide (extend as features land) |
+| [API.md](API.md) | REST `/api/v1` (409 exclusive jobs) |
 | [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md) | Multi-arch publish process |
+| User wiki (`wiki/`) | Day-to-day + ops pages (MkDocs → GitHub Pages) |
 | [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) | Written at freeze only |
 
 ---

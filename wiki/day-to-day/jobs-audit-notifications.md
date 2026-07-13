@@ -29,6 +29,15 @@ Three related systems — do not confuse them.
 
 Statuses: `pending` → `running` → `success` / `failed`.
 
+### Exclusive jobs (one per type per host)
+
+These types do not stack on the same server while already **pending** or **running**:
+
+- `os_patch`, `container_patch`  
+- `os_update_check`, `container_update_check`  
+
+A second start reuses the existing job (UI follows it; REST **409** with `already_active` / existing `job`). Backups use a separate rule: per-host Redis mutex + Celery (see [Multi-worker](../operations/multi-worker.md)).
+
 ### Fleet Jobs UI
 
 - Filters: server, status, type, date range, per-page  
@@ -39,7 +48,11 @@ Statuses: `pending` → `running` → `success` / `failed`.
 
 ### Live progress
 
-JobHold / progress modals poll status and log lines for OS/container patch and similar work.
+JobHold / progress modals poll status and log lines for OS/container patch and similar work. If a job was already active, the modal notes that and tracks the existing `job_id`.
+
+### Bulk fleet queue
+
+From the **Servers** list, multi-select hosts and queue the same job type across eligible servers (feature flags apply). See [Updates & patching — Bulk actions](updates-and-patching.md#bulk-actions-servers-list).
 
 ## Audit
 

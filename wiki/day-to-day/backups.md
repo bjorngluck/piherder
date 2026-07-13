@@ -30,6 +30,8 @@ Per-server **rsync over SSH** to the PiHerder backup volume. Runs on **Celery** 
 
 Enable + cron on the Backups page. Same server never runs two backups at once ([Redis mutex](../operations/multi-worker.md)); different hosts can run in parallel.
 
+From the **Servers** list you can multi-select hosts and run **Backup** in bulk (only hosts with backups enabled) — [Bulk actions](updates-and-patching.md#bulk-actions-servers-list).
+
 ## Restore wizard
 
 1. Backups page → restore for a source.  

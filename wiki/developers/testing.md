@@ -11,7 +11,7 @@ pytest -q
 
 Unit tests live under `tests/` — no live SSH required for the main suite.
 
-Examples: `test_rbac.py`, `test_api_tokens.py`, `test_service_templates.py`, `test_backup_paths.py`, `test_herder_backup.py`, …
+Examples: `test_rbac.py`, `test_api_tokens.py`, `test_service_templates.py`, `test_backup_paths.py`, `test_herder_backup.py`, `test_job_exclusive.py` (no double OS/container jobs), `test_server_job_lock.py` (backup mutex), …
 
 ## Before a release
 

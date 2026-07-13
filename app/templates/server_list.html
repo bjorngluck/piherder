@@ -41,6 +41,15 @@
 {% if request.query_params.get('error') == 'reorder_empty' %}
 <div class="mb-3 p-3 banner-error border border-border rounded text-sm">Could not save order — empty list.</div>
 {% endif %}
+{% if request.query_params.get('bulk') %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  Bulk <strong>{{ request.query_params.get('bulk') }}</strong>:
+  {{ request.query_params.get('started', '0') }} started,
+  {{ request.query_params.get('skipped', '0') }} skipped,
+  {{ request.query_params.get('failed', '0') }} failed.
+  See <a href="/jobs" class="text-accent underline">Jobs</a> for progress.
+</div>
+{% endif %}
 
 {% set fc = filter_counts or {} %}
 {% set f = filter or 'all' %}
@@ -61,6 +70,35 @@
     Containers <span class="server-filter-count">{{ fc.get('containers', 0) }}</span>
   </a>
 </div>
+
+{# Bulk selection: select-all always visible when list has rows; action buttons when selection > 0 #}
+{% if servers %}
+<div id="bulk-select-bar" class="flex flex-wrap items-center gap-3 mb-2 text-sm">
+  <label class="flex items-center gap-2 min-h-11 cursor-pointer select-none">
+    <input type="checkbox" id="bulk-select-all" class="rounded border-border">
+    <span class="text-muted">Select all visible</span>
+  </label>
+  <span class="text-muted" id="bulk-selected-count">0 selected</span>
+</div>
+<div id="bulk-toolbar" class="reorder-toolbar bulk-toolbar hidden" hidden>
+  <span class="text-sm text-muted flex-1 min-w-0">
+    Bulk actions — only hosts with the matching feature enabled are queued.
+  </span>
+  <div class="flex flex-wrap gap-2 items-center">
+    <button type="button" class="btn btn-secondary min-h-11 text-sm" data-bulk-action="check_os"
+            title="Only hosts with OS patching enabled">Check OS</button>
+    <button type="button" class="btn btn-secondary min-h-11 text-sm" data-bulk-action="os_patch"
+            title="Only hosts with OS patching enabled">Upgrade OS</button>
+    <button type="button" class="btn btn-secondary min-h-11 text-sm" data-bulk-action="check_containers"
+            title="Only hosts with Docker management enabled">Check containers</button>
+    <button type="button" class="btn btn-secondary min-h-11 text-sm" data-bulk-action="container_patch"
+            title="Only hosts with Docker management enabled">Patch containers</button>
+    <button type="button" class="btn btn-accent min-h-11 text-sm" data-bulk-action="backup"
+            title="Only hosts with backups enabled">Backup</button>
+    <button type="button" class="btn btn-secondary min-h-11 text-sm" id="btn-bulk-clear">Clear</button>
+  </div>
+</div>
+{% endif %}
 
 {# Reorder mode toolbar (hidden until enabled) #}
 <div id="reorder-toolbar" class="reorder-toolbar hidden" hidden>
@@ -91,6 +129,12 @@
        data-os-enabled="{{ '1' if s.os_patch_enabled else '0' }}"
        data-container-enabled="{{ '1' if s.container_patch_enabled else '0' }}"
        draggable="false">
+    <label class="server-bulk-check flex items-center justify-center shrink-0 min-h-11 min-w-11 cursor-pointer"
+           title="Select for bulk actions">
+      <input type="checkbox" class="server-select-cb rounded border-border"
+             data-server-id="{{ s.id }}"
+             aria-label="Select {{ s.name }}">
+    </label>
     <div class="server-drag-handle" title="Drag to reorder" aria-hidden="true" hidden>⋮⋮</div>
 
     <div class="source-row-body min-w-0">
@@ -175,7 +219,8 @@
 {% endif %}
 
 <div class="mt-8 text-xs text-muted" id="server-list-footer">
-  Status from last update checks (no live SSH). ⋯ menu: open, backup, patch, docker, settings.
+  Status from last update checks (no live SSH). Checkboxes: bulk fleet jobs.
+  ⋯ menu: open, backup, patch, docker, settings.
 </div>
 
 <!-- OS Patch options (from ⋯ menu) — upgrade XOR full-upgrade -->
@@ -238,6 +283,177 @@
   var osPatchJobPollKey = 'os-patch-list-job';
   var osPatchServerId = null;
   var osPatchReloadScheduled = false;
+
+  /* ── Bulk selection ───────────────────────────────────────── */
+  var bulkToolbar = document.getElementById('bulk-toolbar');
+  var bulkSelectAll = document.getElementById('bulk-select-all');
+  var bulkCountEl = document.getElementById('bulk-selected-count');
+
+  function selectedServerRows() {
+    if (!list) return [];
+    return Array.prototype.filter.call(
+      list.querySelectorAll('.server-host-row'),
+      function (row) {
+        var cb = row.querySelector('.server-select-cb');
+        return cb && cb.checked;
+      }
+    );
+  }
+
+  function updateBulkUi() {
+    var rows = selectedServerRows();
+    var n = rows.length;
+    if (bulkCountEl) bulkCountEl.textContent = n + ' selected';
+    if (bulkToolbar) {
+      bulkToolbar.classList.toggle('hidden', n === 0);
+      bulkToolbar.hidden = n === 0;
+    }
+    if (bulkSelectAll && list) {
+      var all = list.querySelectorAll('.server-select-cb');
+      var checked = list.querySelectorAll('.server-select-cb:checked');
+      bulkSelectAll.checked = all.length > 0 && checked.length === all.length;
+      bulkSelectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+    }
+    // Enable/disable bulk action buttons by feature flags of selection
+    var anyOs = rows.some(function (r) { return r.getAttribute('data-os-enabled') === '1'; });
+    var anyDocker = rows.some(function (r) { return r.getAttribute('data-container-enabled') === '1'; });
+    var anyBackup = rows.some(function (r) { return r.getAttribute('data-backup-enabled') === '1'; });
+    document.querySelectorAll('[data-bulk-action]').forEach(function (btn) {
+      var act = btn.getAttribute('data-bulk-action');
+      var ok = true;
+      if (act === 'check_os' || act === 'os_patch') ok = anyOs;
+      else if (act === 'check_containers' || act === 'container_patch') ok = anyDocker;
+      else if (act === 'backup') ok = anyBackup;
+      btn.disabled = n === 0 || !ok;
+      btn.title = ok
+        ? (btn.getAttribute('data-default-title') || btn.title || '')
+        : 'No selected hosts have this feature enabled';
+    });
+  }
+
+  function clearBulkSelection() {
+    if (!list) return;
+    list.querySelectorAll('.server-select-cb').forEach(function (cb) { cb.checked = false; });
+    if (bulkSelectAll) {
+      bulkSelectAll.checked = false;
+      bulkSelectAll.indeterminate = false;
+    }
+    updateBulkUi();
+  }
+
+  var BULK_LABELS = {
+    check_os: 'Check OS updates',
+    os_patch: 'Upgrade OS packages',
+    check_containers: 'Check container updates',
+    container_patch: 'Patch containers',
+    backup: 'Backup',
+  };
+
+  function featureAttrForAction(act) {
+    if (act === 'check_os' || act === 'os_patch') return 'data-os-enabled';
+    if (act === 'check_containers' || act === 'container_patch') return 'data-container-enabled';
+    if (act === 'backup') return 'data-backup-enabled';
+    return null;
+  }
+
+  async function runBulkAction(act) {
+    var rows = selectedServerRows();
+    var feat = featureAttrForAction(act);
+    var eligible = feat
+      ? rows.filter(function (r) { return r.getAttribute(feat) === '1'; })
+      : rows;
+    if (!eligible.length) {
+      alert('No selected hosts are eligible for this action (feature disabled).');
+      return;
+    }
+    var label = BULK_LABELS[act] || act;
+    var names = eligible.map(function (r) { return r.getAttribute('data-server-name') || r.getAttribute('data-server-id'); });
+    var ok = true;
+    if (window.PiHerderConfirm) {
+      ok = await window.PiHerderConfirm.ask({
+        title: label + ' on ' + eligible.length + ' host(s)?',
+        message: 'Will run on: ' + names.slice(0, 8).join(', ')
+          + (names.length > 8 ? ' (+' + (names.length - 8) + ' more)' : '')
+          + '.\nHosts without this feature enabled are skipped.',
+        confirmLabel: 'Run',
+        danger: act === 'os_patch' || act === 'container_patch',
+      });
+    } else {
+      ok = confirm(label + ' on ' + eligible.length + ' host(s)?');
+    }
+    if (!ok) return;
+
+    var ids = eligible.map(function (r) { return r.getAttribute('data-server-id'); }).join(',');
+    if (window.PiHerderWaitModal) {
+      window.PiHerderWaitModal.show(label + '…', 'Queueing jobs on ' + eligible.length + ' host(s)…');
+    } else if (window.PiHerderNavLoading) {
+      window.PiHerderNavLoading.show(label + '…', eligible.length + ' host(s)');
+    }
+
+    var body = new FormData();
+    body.append('action', act);
+    body.append('server_ids', ids);
+    try {
+      var res = await fetch('/servers/bulk', {
+        method: 'POST',
+        body: body,
+        headers: { 'X-PiHerder-Async': '1' },
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (window.PiHerderWaitModal) window.PiHerderWaitModal.hide();
+      if (window.PiHerderNavLoading) window.PiHerderNavLoading.hide();
+      if (!res.ok) {
+        alert(data.detail || 'Bulk action failed');
+        return;
+      }
+      clearBulkSelection();
+      var msg = 'Started ' + (data.started_count || 0)
+        + ', skipped ' + (data.skipped_count || 0)
+        + ', failed ' + (data.failed_count || 0)
+        + '. Open Jobs for progress.';
+      if (window.PiHerderConfirm) {
+        // soft toast via location reload with query
+        window.location.href = '/servers?bulk=' + encodeURIComponent(act)
+          + '&started=' + (data.started_count || 0)
+          + '&skipped=' + (data.skipped_count || 0)
+          + '&failed=' + (data.failed_count || 0);
+      } else {
+        alert(msg);
+        window.location.reload();
+      }
+    } catch (err) {
+      if (window.PiHerderWaitModal) window.PiHerderWaitModal.hide();
+      if (window.PiHerderNavLoading) window.PiHerderNavLoading.hide();
+      alert('Network error starting bulk action');
+    }
+  }
+
+  if (list) {
+    list.addEventListener('change', function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains('server-select-cb')) {
+        updateBulkUi();
+      }
+    });
+  }
+  if (bulkSelectAll) {
+    bulkSelectAll.addEventListener('change', function () {
+      if (!list) return;
+      var on = bulkSelectAll.checked;
+      list.querySelectorAll('.server-select-cb').forEach(function (cb) { cb.checked = on; });
+      updateBulkUi();
+    });
+  }
+  var bulkClear = document.getElementById('btn-bulk-clear');
+  if (bulkClear) bulkClear.addEventListener('click', clearBulkSelection);
+  document.querySelectorAll('[data-bulk-action]').forEach(function (btn) {
+    btn.setAttribute('data-default-title', btn.title || '');
+    btn.addEventListener('click', function () {
+      var act = btn.getAttribute('data-bulk-action');
+      if (act) runBulkAction(act);
+    });
+  });
+  // Show bulk toolbar chrome even at 0? keep hidden until selection
+  updateBulkUi();
 
   function osPatchForceReload() {
     if (osPatchReloadScheduled) return;
@@ -496,14 +712,16 @@
             // Visible feedback for destructive / slow actions (e.g. reboot)
             if (item.danger || item.post.indexOf('/reboot') !== -1) {
               try {
-                var root = document.getElementById('piherder-nav-loading');
-                var t = document.getElementById('piherder-nav-loading-title');
-                var sub = document.getElementById('piherder-nav-loading-sub');
-                if (root) {
-                  root.classList.remove('hidden');
-                  if (t) t.textContent = item.post.indexOf('/reboot') !== -1
-                    ? 'Sending reboot…' : (item.label || 'Working…');
-                  if (sub) sub.textContent = name || '';
+                if (window.PiHerderNavLoading) {
+                  window.PiHerderNavLoading.show(
+                    item.post.indexOf('/reboot') !== -1 ? 'Sending reboot…' : (item.label || 'Working…'),
+                    name || ''
+                  );
+                } else if (window.PiHerderWaitModal) {
+                  window.PiHerderWaitModal.show(
+                    item.post.indexOf('/reboot') !== -1 ? 'Sending reboot…' : (item.label || 'Working…'),
+                    name || ''
+                  );
                 }
               } catch (_) {}
             }
@@ -571,10 +789,12 @@
       var handle = row.querySelector('.server-drag-handle');
       var tools = row.querySelector('.server-row-tools-normal');
       var link = row.querySelector('.server-host-link');
+      var bulk = row.querySelector('.server-bulk-check');
       if (handle) {
         handle.hidden = !reorderMode;
       }
       if (tools) tools.hidden = reorderMode;
+      if (bulk) bulk.hidden = reorderMode;
       row.draggable = reorderMode;
       if (link) {
         if (reorderMode) {
@@ -588,6 +808,13 @@
         }
       }
     });
+    if (reorderMode) clearBulkSelection();
+    var selectBar = document.getElementById('bulk-select-bar');
+    if (selectBar) selectBar.classList.toggle('hidden', reorderMode);
+    if (bulkToolbar) {
+      bulkToolbar.classList.add('hidden');
+      bulkToolbar.hidden = true;
+    }
   }
 
   function collectOrder() {

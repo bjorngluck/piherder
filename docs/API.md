@@ -187,8 +187,10 @@ Server-side feature flags still gate jobs: you cannot run a backup job if `featu
 | 401 | Missing/invalid token |
 | 403 | Missing scope, feature not allowed, or IP not allowed |
 | 404 | Server or job not found |
-| 409 | Backup already running |
+| 409 | Job already active for this server — body includes existing `job` / `already_active`. Applies to `backup` and exclusive types (`os_patch`, `container_patch`, `os_update_check`, `container_update_check`). Clients should poll the returned job rather than retry-create. |
 | 503 | e.g. Celery unavailable for backups |
+
+**Exclusivity:** At most one **pending/running** job of each exclusive type per server. A second trigger does not start a parallel SSH session.
 
 ### Token management (admin **session**, not Bearer token)
 

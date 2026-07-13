@@ -970,15 +970,21 @@
         headers: { 'X-PiHerder-Async': '1' },
       }).then(function (res) {
         return res.json().catch(function () { return {}; }).then(function (data) {
-          if (!res.ok) {
+          // 409 = same exclusive job already active — attach to existing job_id
+          if (!res.ok && res.status !== 409) {
             var e = els();
             if (e.status) e.status.textContent = '✗ Failed to start';
             if (e.log) e.log.textContent += (data.detail || 'Request failed') + '\n';
             if (e.hint) e.hint.textContent = 'Close and try again.';
             return;
           }
-          if (data.job_id) startPoll(serverId, data.job_id);
-          else {
+          if (data.job_id) {
+            if (data.already_active) {
+              var e0 = els();
+              if (e0.log) e0.log.textContent += 'Already running — following existing job…\n';
+            }
+            startPoll(serverId, data.job_id);
+          } else {
             var e2 = els();
             if (e2.status) e2.status.textContent = '✓ Done';
             setTimeout(finishClose, state.reloadDelayMs);

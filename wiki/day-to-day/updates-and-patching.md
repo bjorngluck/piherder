@@ -42,6 +42,20 @@ Scheduled work is audited as **system / scheduler**.
 - Ubuntu **phased** packages counted separately (listed vs installable).  
 - Container patch: `compose pull` + conditional `up -d` with live logs.
 
+### One active job per host (no double-run)
+
+For a given server, PiHerder allows **at most one** active job of each exclusive type:
+
+| Type | Meaning |
+|------|---------|
+| `os_patch` / `container_patch` | Apply |
+| `os_update_check` / `container_update_check` | Check-only |
+
+A second trigger (double-click, concurrent bulk, scheduler overlap) **does not** start a second run. The UI attaches to the existing job; the API returns **HTTP 409** with the existing `job_id`.
+
+!!! note "Celery workers vs container jobs"
+    **Celery multi-slot concurrency** (`CELERY_CONCURRENCY`, default 2) applies to **backups** only. OS/container patch and update checks run on the **web** process (BackgroundTasks / thread pools). Scaling Celery workers does not re-execute a container job twice. See [Multi-worker](../operations/multi-worker.md).
+
 ### Docker: Check updates vs Deploy
 
 | UI action | Meaning |
@@ -51,6 +65,31 @@ Scheduled work is audited as **system / scheduler**.
 
 Successful Deploy clears pending stack badges and resolves `container_updates` when none remain.
 
+## Bulk actions (Servers list)
+
+On **Servers** (`/servers`):
+
+1. Tick one or more host checkboxes (or **Select all visible**).  
+2. Use the bulk bar:
+
+| Action | Requires feature on host |
+|--------|---------------------------|
+| **Check OS** | OS patch enabled |
+| **Upgrade OS** | OS patch enabled |
+| **Check containers** | Docker / containers enabled |
+| **Patch containers** | Docker / containers enabled |
+| **Backup** | Backups enabled |
+
+Hosts without the matching feature flag are **skipped** (not failed). Confirm dialog shows which hosts will run. Progress is on **Jobs**; a banner summarises started / skipped / failed.
+
+Bulk does not bypass exclusive-job rules: if a host already has that job type running, it is skipped as already active.
+
 ## Reboot
 
-Least-priv sudoers may allow `/usr/sbin/reboot`. After a successful reboot command, PiHerder clears `reboot_pending` so the UI does not stick.
+Least-priv sudoers may allow `/usr/sbin/reboot` (and common alternate paths). PiHerder:
+
+1. Schedules reboot in the background (`sleep 1` then reboot) so the SSH command returns quickly.  
+2. Closes SSH with a short timeout (hosts dying mid-session no longer hang the request).  
+3. Clears local `reboot_pending` after a successful send so the UI does not stick.
+
+This matters most when rebooting the **same host that runs PiHerder** — the stack goes down moments later; the HTTP response and audit row should already be finished.

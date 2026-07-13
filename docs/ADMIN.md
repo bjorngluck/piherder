@@ -125,7 +125,21 @@ Also skipped when:
 - Feature or apply toggle is off
 - A job of the same type is already **pending/running** on that server
 
+Manual UI/API triggers share the same exclusivity: a second `os_patch` / `container_patch` / update-check on a host that already has that type **pending/running** reuses the existing job (HTTP **409** + `already_active` on async/API paths). Celery multi-slot concurrency does **not** re-run these jobs — they execute on the web process. See [wiki multi-worker](../wiki/operations/multi-worker.md).
+
 Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
+
+### Bulk actions (Servers list)
+
+**Where:** `/servers` — checkboxes + **Select all visible**.
+
+| Action | Feature flag required on host |
+|--------|--------------------------------|
+| Check OS / Upgrade OS | OS patch |
+| Check containers / Patch containers | Docker / containers |
+| Backup | Backups |
+
+`POST /servers/bulk` with `action` + comma-separated `server_ids` (session auth). Ineligible hosts are skipped. Exclusive-job rules still apply per host.
 
 ### Backups
 
@@ -223,7 +237,14 @@ Statuses: `pending` → `running` → `success` / `failed`.
 
 ### Live progress
 
-While a job runs, server UI modals (JobHold / progress) poll job status and log lines. Container/OS patch streams progress into the job details for the holding modal.
+While a job runs, server UI modals (JobHold / progress) poll job status and log lines. Container/OS patch streams progress into the job details for the holding modal. If the job was already active, JobHold attaches to the existing `job_id` (409 path).
+
+### Exclusive job types (per server)
+
+| Types | Rule |
+|-------|------|
+| `os_patch`, `container_patch`, `os_update_check`, `container_update_check` | At most one **pending/running** of that type per server |
+| `backup` | Per-host Redis mutex + Celery (separate path) |
 
 ### Jobs vs Audit vs Notifications
 
@@ -534,7 +555,7 @@ Credentials (API key + optional login) are Fernet-encrypted with `PIHERDER_MASTE
 
 #### Reboot note
 
-Least-priv sudoers allow **`/usr/sbin/reboot`**. PiHerder runs full-path reboot commands and clears `reboot_pending` after a successful send so the UI does not stay stuck on “pending reboot”.
+Least-priv sudoers allow **`/usr/sbin/reboot`** (and common paths). PiHerder schedules reboot in the background (`sleep 1` then `sudo -n` on the reboot binary) so SSH returns quickly, closes the client with a short timeout, and clears `reboot_pending` after a successful send. This avoids hangs when the host (especially the PiHerder host itself) dies mid-request.
 
 ### Grafana integration
 
@@ -637,6 +658,8 @@ Backups can run **in parallel across different hosts**. The same host never has 
 | Worker death | lock TTL + stale job cleanup | Abandoned DB rows are marked failed after the stale threshold. |
 
 Optional multi-container scale: remove `container_name` from `celery-worker` and run `docker compose up -d --scale celery-worker=N` (same image, volumes, Redis). Status will show **N nodes** and sum of pool slots.
+
+**Not Celery:** OS/container patch and update checks run on **web** (BackgroundTasks / thread pools). Exclusive DB rules prevent two concurrent jobs of the same type on one host. Raising `CELERY_CONCURRENCY` does not double-run a container patch.
 
 Full env list: [`.env.example`](../.env.example).
 

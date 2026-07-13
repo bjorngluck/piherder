@@ -55,6 +55,8 @@ If stacks live under another user’s home (e.g. `/home/bjorn/docker`):
 
 Disabled features are **hard-hidden** from dest cards and ⋯ menus.
 
+On the **Servers** list, bulk actions (check/upgrade OS, check/patch containers, backup) only queue hosts with the matching flag enabled — see [Bulk actions](updates-and-patching.md#bulk-actions-servers-list).
+
 ## Schedules
 
 **Edit → Schedules** — update **checks** (safe) and optional **apply** (real upgrades). See [Updates & patching](updates-and-patching.md).
