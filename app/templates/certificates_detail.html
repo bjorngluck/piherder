@@ -19,12 +19,22 @@
     <a href="/certificates" class="btn btn-secondary min-h-11">All certificates</a>
     {% if can_mutate and cert.source == 'npm' %}
     <form method="post" action="/certificates/{{ cert.id }}/renew"
-          onsubmit="return confirm('Request renew via NPM and poll for a new cert?');">
+          data-confirm="Request renew via NPM, poll for a new certificate, then redistribute to deploy targets? This can take several minutes."
+          data-confirm-title="Renew certificate"
+          data-confirm-label="Renew"
+          data-confirm-danger
+          data-wait-title="Renewing certificate"
+          data-wait-message="Requesting renew and polling NPM for a new cert…">
       <button class="btn btn-secondary min-h-11" type="submit">Renew (NPM)</button>
     </form>
     {% endif %}
     {% if can_mutate %}
-    <form method="post" action="/certificates/{{ cert.id }}/deploy">
+    <form method="post" action="/certificates/{{ cert.id }}/deploy"
+          data-confirm="Deploy this certificate to all enabled targets over SSH?"
+          data-confirm-title="Deploy all targets"
+          data-confirm-label="Deploy all"
+          data-wait-title="Deploying certificate"
+          data-wait-message="Writing PEMs to hosts via SSH…">
       <input type="hidden" name="force" value="on">
       <button class="btn btn-primary min-h-11" type="submit">Deploy all targets</button>
     </form>
@@ -56,7 +66,9 @@
   {% if can_mutate %}
   <div class="card p-4">
     <h3 class="font-semibold text-sm mb-3">Settings</h3>
-    <form method="post" action="/certificates/{{ cert.id }}/settings" class="space-y-3">
+    <form method="post" action="/certificates/{{ cert.id }}/settings" class="space-y-3"
+          data-wait-title="Saving"
+          data-wait-message="Updating certificate settings…">
       <div>
         <label class="block text-xs text-muted mb-1">Name</label>
         <input name="name" class="input w-full" value="{{ cert.name }}" required>
@@ -109,13 +121,23 @@
           </td>
           <td class="text-right space-x-1">
             {% if can_mutate %}
-            <form method="post" action="/certificates/{{ cert.id }}/deploy" class="inline">
+            <form method="post" action="/certificates/{{ cert.id }}/deploy" class="inline"
+                  data-confirm="Deploy this certificate to {{ t.server_name }} ({{ t.remote_dir }})?"
+                  data-confirm-title="Deploy to host"
+                  data-confirm-label="Deploy"
+                  data-wait-title="Deploying certificate"
+                  data-wait-message="Writing PEMs to {{ t.server_name }} via SSH…">
               <input type="hidden" name="target_id" value="{{ t.id }}">
               <input type="hidden" name="force" value="on">
               <button class="btn btn-secondary text-xs min-h-9" type="submit">Deploy</button>
             </form>
             <form method="post" action="/certificates/{{ cert.id }}/targets/{{ t.id }}/delete" class="inline"
-                  onsubmit="return confirm('Remove this target?');">
+                  data-confirm="Remove deploy target on {{ t.server_name }}? Files already on the host are not deleted."
+                  data-confirm-title="Remove target"
+                  data-confirm-label="Remove"
+                  data-confirm-danger
+                  data-wait-title="Removing target"
+                  data-wait-message="Updating database…">
               <button class="btn btn-secondary text-xs min-h-9" type="submit">Remove</button>
             </form>
             {% endif %}
@@ -130,7 +152,13 @@
   {% endif %}
 
   {% if can_mutate %}
-  <form method="post" action="/certificates/{{ cert.id }}/targets" class="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-border pt-4">
+  <form method="post" action="/certificates/{{ cert.id }}/targets"
+        class="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-border pt-4"
+        data-confirm="Add this deploy target? Certificate files will not be written until you Deploy."
+        data-confirm-title="Add deploy target"
+        data-confirm-label="Add target"
+        data-wait-title="Adding target"
+        data-wait-message="Saving deploy target…">
     <div>
       <label class="block text-xs text-muted mb-1">Server</label>
       <select name="server_id" class="input w-full" required>
@@ -197,16 +225,30 @@
 <div class="card p-4 mb-6">
   <h3 class="font-semibold text-sm mb-2">Replace PEM material</h3>
   <p class="text-xs text-muted mb-3">Upload a new fullchain + key (e.g. after manual renewal outside NPM).</p>
-  <form method="post" action="/certificates/{{ cert.id }}/replace-pem" class="space-y-3">
+  <form method="post" action="/certificates/{{ cert.id }}/replace-pem" class="space-y-3"
+        data-confirm="Replace encrypted fullchain and private key for this certificate? Previous material is overwritten."
+        data-confirm-title="Replace PEM material"
+        data-confirm-label="Replace"
+        data-confirm-danger
+        data-wait-title="Encrypting certificate"
+        data-wait-message="Validating PEMs and storing encrypted…">
     <textarea name="fullchain_pem" required rows="5" class="input w-full font-mono text-xs" placeholder="Fullchain PEM"></textarea>
     <textarea name="privkey_pem" required rows="4" class="input w-full font-mono text-xs" placeholder="Private key PEM"></textarea>
     <button type="submit" class="btn btn-secondary min-h-11">Replace encrypted material</button>
   </form>
 </div>
 
-<form method="post" action="/certificates/{{ cert.id }}/delete"
-      onsubmit="return confirm('Delete this certificate and all targets?');">
-  <button type="submit" class="btn btn-secondary text-red-600 min-h-11">Delete certificate</button>
-</form>
+<div class="card p-4 border border-failed/30 max-w-xl">
+  <h2 class="text-sm font-semibold text-text mb-2">Danger zone</h2>
+  <form method="post" action="/certificates/{{ cert.id }}/delete"
+        data-confirm="Delete this certificate and all deploy targets? Host files are not removed automatically."
+        data-confirm-title="Delete certificate"
+        data-confirm-label="Delete"
+        data-confirm-danger
+        data-wait-title="Deleting certificate"
+        data-wait-message="Removing encrypted material…">
+    <button type="submit" class="btn btn-secondary text-red-600 min-h-11">Delete certificate</button>
+  </form>
+</div>
 {% endif %}
 {% endblock %}

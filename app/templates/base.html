@@ -1133,6 +1133,18 @@
   document.addEventListener('submit', function (e) {
     var form = e.target && e.target.closest ? e.target.closest('form[data-wait-title]') : null;
     if (!form) return;
+    // If this submit will be intercepted for confirmation, wait until the user accepts
+    // (confirm handler sets data-confirm-skip / confirmSkip then re-submits).
+    if (form.dataset.confirmSkip !== '1') {
+      var submitter = e.submitter || null;
+      var needsConfirm = false;
+      if (submitter && submitter.getAttribute && submitter.getAttribute('data-confirm')) {
+        needsConfirm = true;
+      } else if (form.getAttribute('data-confirm')) {
+        needsConfirm = true;
+      }
+      if (needsConfirm) return;
+    }
     // Do not preventDefault — let the normal POST navigate; modal stays until unload
     if (form.dataset.waitShown === '1') return;
     form.dataset.waitShown = '1';

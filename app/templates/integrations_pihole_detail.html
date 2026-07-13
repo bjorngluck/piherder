@@ -19,8 +19,16 @@
   </div>
   <div class="flex flex-wrap gap-2">
     {% if can_mutate %}
-    <form method="post" action="/integrations/{{ integration.id }}/test"><button class="btn btn-secondary min-h-11" type="submit">Test</button></form>
-    <form method="post" action="/integrations/{{ integration.id }}/poll"><button class="btn btn-secondary min-h-11" type="submit">Poll</button></form>
+    <form method="post" action="/integrations/{{ integration.id }}/test"
+          data-wait-title="Testing Pi-hole"
+          data-wait-message="Checking authentication and stats…">
+      <button class="btn btn-secondary min-h-11" type="submit">Test</button>
+    </form>
+    <form method="post" action="/integrations/{{ integration.id }}/poll"
+          data-wait-title="Polling Pi-hole"
+          data-wait-message="Refreshing stats cache…">
+      <button class="btn btn-secondary min-h-11" type="submit">Poll</button>
+    </form>
     <a href="/integrations/{{ integration.id }}/edit" class="btn btn-secondary min-h-11">Edit</a>
     {% endif %}
     <a href="{{ admin_url }}" target="_blank" rel="noopener" class="btn btn-primary min-h-11">Open Pi-hole</a>
@@ -88,7 +96,13 @@
   <div class="mb-3 p-2 banner-error rounded text-sm">{{ dns_error }}</div>
   {% endif %}
   {% if can_mutate %}
-  <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-host" class="flex flex-wrap gap-2 items-end mb-4">
+  <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-host"
+        class="flex flex-wrap gap-2 items-end mb-4"
+        data-confirm="Add this local DNS entry to all enabled Pi-hole instances?"
+        data-confirm-title="Add local DNS"
+        data-confirm-label="Add to all"
+        data-wait-title="Updating DNS"
+        data-wait-message="Applying host record on all Pi-hole instances…">
     <input type="hidden" name="action" value="add">
     <div>
       <label class="block text-xs text-muted mb-1">IP</label>
@@ -112,7 +126,12 @@
           <td class="text-right">
             {% if can_mutate %}
             <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-host" class="inline"
-                  onsubmit="return confirm('Remove {{ h.domain }} from all Pi-hole instances?');">
+                  data-confirm="Remove {{ h.domain }} ({{ h.ip }}) from all enabled Pi-hole instances?"
+                  data-confirm-title="Remove local DNS"
+                  data-confirm-label="Remove"
+                  data-confirm-danger
+                  data-wait-title="Updating DNS"
+                  data-wait-message="Removing host record on all Pi-hole instances…">
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="ip" value="{{ h.ip }}">
               <input type="hidden" name="domain" value="{{ h.domain }}">
@@ -136,7 +155,13 @@
   <div class="mb-3 p-2 banner-error rounded text-sm">{{ dns_error }}</div>
   {% endif %}
   {% if can_mutate %}
-  <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-cname" class="flex flex-wrap gap-2 items-end mb-4">
+  <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-cname"
+        class="flex flex-wrap gap-2 items-end mb-4"
+        data-confirm="Add this CNAME to all enabled Pi-hole instances?"
+        data-confirm-title="Add CNAME"
+        data-confirm-label="Add to all"
+        data-wait-title="Updating CNAME"
+        data-wait-message="Applying CNAME on all Pi-hole instances…">
     <input type="hidden" name="action" value="add">
     <div>
       <label class="block text-xs text-muted mb-1">Domain</label>
@@ -160,7 +185,12 @@
           <td class="text-right">
             {% if can_mutate %}
             <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-cname" class="inline"
-                  onsubmit="return confirm('Remove CNAME {{ c.domain }} from all instances?');">
+                  data-confirm="Remove CNAME {{ c.domain }} → {{ c.target }} from all enabled Pi-hole instances?"
+                  data-confirm-title="Remove CNAME"
+                  data-confirm-label="Remove"
+                  data-confirm-danger
+                  data-wait-title="Updating CNAME"
+                  data-wait-message="Removing CNAME on all Pi-hole instances…">
               <input type="hidden" name="action" value="delete">
               <input type="hidden" name="domain" value="{{ c.domain }}">
               <input type="hidden" name="target" value="{{ c.target }}">
@@ -182,15 +212,28 @@
   <p class="text-sm text-muted">Privileged actions — audited. Gravity can take several minutes.</p>
   {% if can_mutate %}
   <form method="post" action="/integrations/{{ integration.id }}/pihole/action" class="space-y-3"
-        onsubmit="return confirm('Run this action on the selected Pi-hole instance(s)?');">
+        data-wait-title="Running Pi-hole action"
+        data-wait-message="Please wait — this may take a while…">
     <label class="flex items-center gap-2 text-sm">
       <input type="checkbox" name="all_instances" value="on">
       Apply to all enabled Pi-hole instances
     </label>
     <div class="flex flex-wrap gap-2">
-      <button name="action" value="gravity" type="submit" class="btn btn-primary min-h-11">Update Gravity</button>
-      <button name="action" value="restartdns" type="submit" class="btn btn-secondary min-h-11">Restart DNS Resolver</button>
-      <button name="action" value="flush_network" type="submit" class="btn btn-secondary min-h-11">Flush network table</button>
+      <button name="action" value="gravity" type="submit" class="btn btn-primary min-h-11"
+              data-confirm="Update Gravity (blocklists) now? This can take several minutes."
+              data-confirm-title="Update Gravity"
+              data-confirm-label="Update Gravity"
+              data-confirm-danger>Update Gravity</button>
+      <button name="action" value="restartdns" type="submit" class="btn btn-secondary min-h-11"
+              data-confirm="Restart the DNS resolver on the selected Pi-hole instance(s)?"
+              data-confirm-title="Restart DNS Resolver"
+              data-confirm-label="Restart DNS"
+              data-confirm-danger>Restart DNS Resolver</button>
+      <button name="action" value="flush_network" type="submit" class="btn btn-secondary min-h-11"
+              data-confirm="Flush the network table on the selected Pi-hole instance(s)?"
+              data-confirm-title="Flush network table"
+              data-confirm-label="Flush"
+              data-confirm-danger>Flush network table</button>
     </div>
   </form>
   {% endif %}
@@ -203,9 +246,17 @@
 {% endif %}
 
 {% if can_mutate %}
-<form method="post" action="/integrations/{{ integration.id }}/delete" class="mt-6"
-      onsubmit="return confirm('Delete this Pi-hole integration?');">
-  <button type="submit" class="btn btn-secondary text-red-600 min-h-11">Delete integration</button>
-</form>
+<div class="card p-4 border border-failed/30 mt-6 max-w-xl">
+  <h2 class="text-sm font-semibold text-text mb-2">Danger zone</h2>
+  <form method="post" action="/integrations/{{ integration.id }}/delete"
+        data-confirm="Delete this Pi-hole integration? DNS history in PiHerder is removed; the Pi-hole itself is unchanged."
+        data-confirm-title="Delete Pi-hole integration"
+        data-confirm-label="Delete"
+        data-confirm-danger
+        data-wait-title="Deleting integration"
+        data-wait-message="Removing connection…">
+    <button type="submit" class="btn btn-secondary text-red-600 min-h-11">Delete integration</button>
+  </form>
+</div>
 {% endif %}
 {% endblock %}

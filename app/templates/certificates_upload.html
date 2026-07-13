@@ -22,7 +22,12 @@
 {% endif %}
 
 <div class="card p-5 max-w-2xl">
-  <form method="post" action="/certificates/upload" class="space-y-4">
+  <form method="post" action="/certificates/upload" class="space-y-4"
+        data-confirm="Encrypt and store this fullchain + private key in PiHerder? PEMs will not be shown again in the UI."
+        data-confirm-title="Upload certificate"
+        data-confirm-label="Encrypt &amp; store"
+        data-wait-title="Encrypting certificate"
+        data-wait-message="Validating PEMs and storing encrypted…">
     <div>
       <label class="block text-sm font-medium text-text mb-1" for="name">Display name</label>
       <input id="name" name="name" type="text" class="input w-full" placeholder="*.example.com">
