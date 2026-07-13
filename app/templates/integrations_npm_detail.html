@@ -50,7 +50,12 @@
 
 {% if tab == 'hosts' %}
 <div class="card p-4">
-  <p class="text-sm text-muted mb-3">Read-only inventory. Bind a proxy host to a PiHerder server (optional Docker scope).</p>
+  <p class="text-sm text-muted mb-3">
+    Read-only inventory. Bind a proxy host to a PiHerder <strong>server</strong>, then optional
+    <strong>compose project</strong> and <strong>container</strong> (same cascade as Grafana).
+    Project/container lists come from the host’s Docker inventory cache — refresh inventory on the
+    server’s Docker page if empty.
+  </p>
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead>
@@ -64,14 +69,19 @@
       </thead>
       <tbody>
       {% for h in proxy_hosts %}
-        {% set b = bind_by_ext.get(h.id) %}
+        {% set b = bind_by_ext.get(h.id|string) or bind_by_ext.get(h.id) %}
         <tr class="border-b border-border/60 align-top">
           <td class="py-2 font-medium">{{ h.label }}</td>
           <td class="font-mono text-xs">{{ h.forward_scheme }}://{{ h.forward_host }}:{{ h.forward_port }}</td>
           <td class="text-xs">{% if h.certificate_id %}cert #{{ h.certificate_id }}{% else %}—{% endif %}</td>
           <td class="text-xs">
             {% if b %}
-              server #{{ b.server_id }}{% if b.docker_project %} / {{ b.docker_project }}{% if b.docker_container %}/{{ b.docker_container }}{% endif %}{% endif %}
+              <a href="/servers/{{ b.server_id }}" class="text-primary hover:underline">{{ b.server_name }}</a>
+              {% if b.docker_project %}
+                <span class="text-muted"> / {{ b.docker_project }}{% if b.docker_container %} / {{ b.docker_container }}{% endif %}</span>
+              {% else %}
+                <span class="text-muted"> · host</span>
+              {% endif %}
             {% else %}
               <span class="text-muted">unbound</span>
             {% endif %}
@@ -80,7 +90,7 @@
             {% if can_mutate %}
               {% if b %}
               <form method="post" action="/integrations/{{ integration.id }}/npm/unbind" class="inline"
-                    data-confirm="Unbind proxy host “{{ h.label }}” from this server?"
+                    data-confirm="Unbind proxy host “{{ h.label }}” from {{ b.server_name }}?"
                     data-confirm-title="Unbind proxy host"
                     data-confirm-label="Unbind"
                     data-wait-title="Unbinding"
@@ -90,22 +100,35 @@
               </form>
               {% else %}
               <form method="post" action="/integrations/{{ integration.id }}/npm/bind"
-                    class="flex flex-wrap gap-1 justify-end"
-                    data-confirm="Bind proxy host “{{ h.label }}” to the selected server?"
+                    class="npm-bind-form flex flex-col gap-1.5 items-stretch sm:items-end min-w-[14rem] max-w-xs ml-auto"
+                    data-confirm="Bind proxy host “{{ h.label }}” to the selected server / service?"
                     data-confirm-title="Bind proxy host"
                     data-confirm-label="Bind"
                     data-wait-title="Binding"
                     data-wait-message="Saving binding…">
                 <input type="hidden" name="external_id" value="{{ h.id }}">
-                <select name="server_id" class="input text-xs min-h-9" required>
-                  <option value="">Server…</option>
-                  {% for s in servers %}
-                  <option value="{{ s.id }}">{{ s.name }}</option>
-                  {% endfor %}
-                </select>
-                <input name="docker_project" class="input text-xs min-h-9 w-28" placeholder="project">
-                <input name="docker_container" class="input text-xs min-h-9 w-28" placeholder="container">
-                <button class="btn btn-primary text-xs min-h-9" type="submit">Bind</button>
+                <div class="w-full text-left">
+                  <label class="block text-[10px] text-muted mb-0.5">Server (host)</label>
+                  <select name="server_id" class="npm-bind-server input text-xs min-h-9 w-full" required>
+                    <option value="">Select server…</option>
+                    {% for s in servers %}
+                    <option value="{{ s.id }}">{{ s.name }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="w-full text-left">
+                  <label class="block text-[10px] text-muted mb-0.5">Compose project</label>
+                  <select name="docker_project" class="npm-bind-project input text-xs min-h-9 w-full" disabled>
+                    <option value="">— select server first —</option>
+                  </select>
+                </div>
+                <div class="w-full text-left">
+                  <label class="block text-[10px] text-muted mb-0.5">Container / service</label>
+                  <select name="docker_container" class="npm-bind-container input text-xs min-h-9 w-full" disabled>
+                    <option value="">— select project first —</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary text-xs min-h-9 self-end" type="submit">Bind</button>
               </form>
               {% endif %}
             {% endif %}
@@ -118,6 +141,104 @@
     </table>
   </div>
 </div>
+
+{% if can_mutate and proxy_hosts %}
+<script>
+(function () {
+  var dockerOpts = {{ docker_options_json|safe }};
+
+  function projectsFor(serverId) {
+    if (!serverId) return [];
+    return dockerOpts[String(serverId)] || dockerOpts[serverId] || [];
+  }
+
+  function fillProjects(form, preferProj) {
+    var serverEl = form.querySelector('.npm-bind-server');
+    var projEl = form.querySelector('.npm-bind-project');
+    var contEl = form.querySelector('.npm-bind-container');
+    if (!serverEl || !projEl || !contEl) return;
+    var sid = serverEl.value;
+    var projects = projectsFor(sid);
+    var want = preferProj != null ? preferProj : projEl.value;
+    projEl.innerHTML = '';
+    contEl.innerHTML = '';
+    if (!sid) {
+      projEl.disabled = true;
+      contEl.disabled = true;
+      projEl.innerHTML = '<option value="">— select server first —</option>';
+      contEl.innerHTML = '<option value="">— select project first —</option>';
+      return;
+    }
+    projEl.disabled = false;
+    var opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = projects.length ? '— host only (optional) —' : '— no compose projects in inventory —';
+    projEl.appendChild(opt0);
+    projects.forEach(function (p) {
+      var o = document.createElement('option');
+      o.value = p.name;
+      o.textContent = p.name;
+      projEl.appendChild(o);
+    });
+    if (want) projEl.value = want;
+    fillContainers(form, null);
+  }
+
+  function fillContainers(form, preferCont) {
+    var serverEl = form.querySelector('.npm-bind-server');
+    var projEl = form.querySelector('.npm-bind-project');
+    var contEl = form.querySelector('.npm-bind-container');
+    if (!serverEl || !projEl || !contEl) return;
+    var projects = projectsFor(serverEl.value);
+    var pname = projEl.value;
+    var want = preferCont != null ? preferCont : contEl.value;
+    contEl.innerHTML = '';
+    if (!pname) {
+      contEl.disabled = true;
+      contEl.innerHTML = '<option value="">— select project first —</option>';
+      return;
+    }
+    contEl.disabled = false;
+    var opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = '— project only (optional) —';
+    contEl.appendChild(opt0);
+    projects.forEach(function (p) {
+      if (p.name !== pname) return;
+      (p.containers || []).forEach(function (c) {
+        var o = document.createElement('option');
+        o.value = c.name;
+        var label = c.name;
+        if (c.compose_service && c.compose_service !== c.name) {
+          label = c.name + ' (' + c.compose_service + ')';
+        }
+        if (c.running === false) label += ' · stopped';
+        o.textContent = label;
+        o.dataset.project = p.name;
+        contEl.appendChild(o);
+      });
+    });
+    if (want) contEl.value = want;
+  }
+
+  document.querySelectorAll('form.npm-bind-form').forEach(function (form) {
+    var serverEl = form.querySelector('.npm-bind-server');
+    var projEl = form.querySelector('.npm-bind-project');
+    var contEl = form.querySelector('.npm-bind-container');
+    if (!serverEl || !projEl || !contEl) return;
+    serverEl.addEventListener('change', function () { fillProjects(form, ''); });
+    projEl.addEventListener('change', function () { fillContainers(form, ''); });
+    contEl.addEventListener('change', function () {
+      var opt = contEl.selectedOptions[0];
+      if (opt && opt.dataset.project && !projEl.value) {
+        projEl.value = opt.dataset.project;
+      }
+    });
+    fillProjects(form, '');
+  });
+})();
+</script>
+{% endif %}
 
 {% elif tab == 'certs' %}
 <div class="card p-4 mb-4">
