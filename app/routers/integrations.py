@@ -1611,13 +1611,23 @@ async def _npm_detail(request, session, user, integration: Integration):
     status = reg.parse_last_status(integration)
     tab = (request.query_params.get("tab") or "hosts").strip().lower()
     servers = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
+    server_names = {s.id: s.name for s in servers}
     bindings = reg.list_bindings(
         session, integration_id=integration.id, role=reg.ROLE_PROXY_HOST
     )
-    bind_by_ext = {b.external_id: b for b in bindings}
+    bind_by_ext: dict[str, dict] = {}
+    for b in bindings:
+        bind_by_ext[str(b.external_id)] = {
+            "id": b.id,
+            "server_id": b.server_id,
+            "server_name": server_names.get(b.server_id, f"#{b.server_id}"),
+            "docker_project": b.docker_project or "",
+            "docker_container": b.docker_container or "",
+            "external_label": b.external_label or "",
+        }
     proxy_hosts = status.get("proxy_hosts") or []
     certificates = status.get("certificates") or []
-    docker_options = {}
+    docker_options: dict[int, list] = {}
     for s in servers:
         docker_options[s.id] = reg.docker_inventory_options(session, s.id)
     from ..services import certificates as cert_svc
@@ -1641,7 +1651,10 @@ async def _npm_detail(request, session, user, integration: Integration):
             "servers": servers,
             "bindings": bindings,
             "bind_by_ext": bind_by_ext,
-            "docker_options_json": json.dumps(docker_options),
+            # String keys so JS dockerOpts[serverId] works (JSON object keys)
+            "docker_options_json": json.dumps(
+                {str(k): v for k, v in docker_options.items()}
+            ),
             "managed_certs": managed,
             "open_url": npm_mod.open_npm_url(integration.base_url),
             "can_mutate": _can_mutate(user),
