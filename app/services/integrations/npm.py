@@ -80,13 +80,14 @@ def get_token(
     *,
     tls_verify: bool = True,
     timeout: float = DEFAULT_TIMEOUT,
-    expiry: str | None = None,
 ) -> str:
     """Login to NPM and return a Bearer token.
 
-    Body must be exactly ``{identity, secret}`` — many NPM versions reject
-    extra fields (e.g. ``expiry``) with HTTP 400 "additional properties".
-    Optional long-lived token: GET /api/tokens?expiry=… after login (not used by default).
+    POST /api/tokens body is strictly::
+
+        {"identity": "<email>", "secret": "<password>"}
+
+    Extra properties (e.g. expiry) are rejected with HTTP 400.
     """
     origin = normalize_base_url(base_url)
     ident = (identity or "").strip()
@@ -94,28 +95,13 @@ def get_token(
     if not ident or not secret:
         raise ValueError("NPM identity and password are required")
     url = f"{origin}/api/tokens"
-    # Strict schema: only identity + secret (email + password).
-    body: dict[str, Any] = {"identity": ident, "secret": secret}
+    body: dict[str, str] = {"identity": ident, "secret": secret}
     with httpx.Client(verify=tls_verify, timeout=timeout) as client:
         r = client.post(url, json=body)
         if r.status_code >= 400:
             raise RuntimeError(f"NPM login failed HTTP {r.status_code}: {r.text[:200]}")
         data = r.json() if r.content else {}
-        token = _extract_token(data)
-        # Optional: exchange for longer-lived token (query param, not body).
-        if token and expiry:
-            try:
-                r2 = client.get(
-                    f"{origin}/api/tokens",
-                    params={"expiry": expiry},
-                    headers=_auth_headers(token),
-                )
-                if r2.status_code < 400 and r2.content:
-                    token2 = _extract_token(r2.json())
-                    if token2:
-                        token = token2
-            except Exception:
-                pass
+    token = _extract_token(data)
     if not token:
         raise RuntimeError("NPM login response missing token")
     return token
