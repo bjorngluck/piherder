@@ -16,7 +16,7 @@ You can **deploy** Kuma via [Templates](../service-templates/overview.md), then 
    curl -sS -u ":$KUMA_API_KEY" "https://uptime.example.com/metrics" | head
    ```
 
-3. PiHerder → **Integrations → + Uptime Kuma** — base URL + API key → Save.  
+3. PiHerder → **Catalog → Integrations → + Uptime Kuma** — base URL + API key → Save.  
 4. **Optional (recommended on Kuma 1.23):** username/password for dashboard ID map (`/dashboard/{id}`). Metrics often omit `monitor_id`.  
 5. Poll interval default **60s**; **Test** / **Poll now**.
 

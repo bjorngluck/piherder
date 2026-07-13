@@ -7,7 +7,7 @@
 
 ## Flow
 
-1. **Templates** → open a template → **Deploy…** (or Details → Deploy).  
+1. **Catalog → Templates** → open a template → **Deploy…** (or Details → Deploy).  
 2. Fill **variables** (incl. volume mode for storage vars; generate secrets if offered).  
 3. Pick a **Docker-enabled** host (inventory counts shown).  
 4. **Preview** rendered files (secrets masked).  
@@ -25,7 +25,7 @@ From the **deployment** page for that host+project — same wait modal.
 
 ## Create / edit a template
 
-1. **Templates → + New template** or **From host…** or **Edit**.  
+1. **Catalog → Templates → + New template** or **From host…** or **Edit**.  
 2. Metadata: slug, name, category, version.  
 3. Paste or pull `docker-compose.yml`; use `{{VAR}}` placeholders.  
 4. **Variables** as form rows. Types include boolean + volume.  

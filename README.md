@@ -48,17 +48,17 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - Diagnostics (ping, DNS, system info).
 - Full **audit** trail (filters, pagination 10/20/50); scheduled jobs as system/scheduler.
 - Self-backup of PiHerder — servers, full users/IAM/2FA, compose versions, Web Push (VAPID + devices), notifications, herder settings, avatars; optional audit; restore with dry-run preview.
-- In-app **notification center** (bell, dismiss, deep links).
+- In-app **notification center** (**bell** only — no separate Alerts nav link; dismiss, deep links).
 - Optional **Web Push** (VAPID) for fleet alerts on Android and iOS Home Screen PWAs (16.4+); per-user prefs under Account.
 - Installable **PWA** (manifest + service worker + home-screen install).
 - Link to Pi-hole admin from dashboard (configurable).
-- **Service templates:** deploy NPM, Uptime Kuma, Pi-hole, Grafana (and custom / from-host stacks) via wizard — variables (incl. **boolean** + **volume** storage modes), preview, host picker, encrypted desired state V1; step-up 2FA for secrets; wait modal while deploy runs.
-- **Integrations:** top-level menu — **Uptime Kuma** (API key + `/metrics`; SSH / host / Docker bindings; TLS; Services pages; logos; down notifications) and **Grafana** (health; dashboard inventory; server→dashboard deep links with query templates).
+- **Service templates:** under **Catalog** — deploy NPM, Uptime Kuma, Pi-hole, Grafana (and custom / from-host stacks) via wizard — variables (incl. **boolean** + **volume** storage modes), preview, host picker, encrypted desired state V1; step-up 2FA for secrets; wait modal while deploy runs.
+- **Integrations:** **Catalog** tab (with Templates) — **Uptime Kuma** (API key + `/metrics`; SSH / host / Docker bindings; TLS; Services pages; logos; down notifications) and **Grafana** (health; dashboard inventory; optional display names; server→dashboard deep links with query templates).
 - HTTPS via Caddy with **operator-supplied TLS certs** (volume `./certs`) and `PIHERDER_HOSTNAME` (default ports **8888** HTTP / **8443** HTTPS).
 
 ### Account & security
 - User profile: display name, email, avatar, password change; registration locks after first user.
-- **RBAC:** admin / operator / viewer; admin **Users** page (create with password generator + invite copy, roles, delete modal).
+- **RBAC:** admin / operator / viewer; admin **Users** page (create-user modal with password generator + one-time invite credentials modal, roles, delete modal).
 - **Password policy** (min 10 + complexity); admin-created users **must change password on first login**.
 - Optional **2FA** (TOTP + backup codes + trusted device); optional **force 2FA for all** (Settings → Security policy).
 - Basic rate limiting on login / 2FA endpoints.

@@ -45,6 +45,10 @@ If stacks live under another user’s home (e.g. `/home/bjorn/docker`):
 
 `~/docker` expands to the **SSH** user’s home and breaks restart/build/logs after re-pointing to `piherder`.
 
+## Server detail layout
+
+After onboarding, the server page shows equal **destination cards** (desktop grid): **Backups**, **Docker**, **Services**, optional **Grafana** / **SSH (Uptime Kuma)**, and **Host status** (⋯ actions). Host dependency chips stay above as a snapshot; full SSH onboarding stays under **SSH access**.
+
 ## Feature flags
 
 **Edit → Features** — enable only what you need:

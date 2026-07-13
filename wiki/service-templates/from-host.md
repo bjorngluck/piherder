@@ -4,7 +4,7 @@ Turn an existing compose project into an operator-owned template.
 
 ## Steps
 
-1. **Templates → From host…**  
+1. **Catalog → Templates → From host…**  
 2. Pick a Docker-enabled **server** + **project**.  
 3. Optional: move secret-like values to `.env` placeholders.  
 4. Pull parameterizes **volumes**, **host ports**, **booleans**, and env/secrets into deploy variables; rewrites short mounts/ports to `{{VAR}}`.  

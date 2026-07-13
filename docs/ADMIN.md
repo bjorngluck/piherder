@@ -446,7 +446,7 @@ Typical pattern: PiHerder → n8n webhook → Signal CLI. In-app notifications a
 
 ### Service templates (v0.4.0)
 
-**Templates** (top-level nav) are **your** versioned stack definitions. You **create**, **edit**, and **save** them; deploy is separate.
+**Templates** live under top-nav **Catalog** (tabs: **Templates** | **Integrations**). They are **your** versioned stack definitions. You **create**, **edit**, and **save** them; deploy is separate.
 
 **Shipped in v0.4.0** (foundation; ops + polish → [PLAN_v0.5.0.md](PLAN_v0.5.0.md)).  
 **Docs:** [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · active [PLAN_v0.5.0.md](PLAN_v0.5.0.md)
@@ -539,7 +539,7 @@ Optional **integration hub** under top-nav **Catalog** (tabs: Templates | Integr
    curl -sS -u ":$KUMA_API_KEY" "https://uptime.example.com/metrics" | head
    ```
 
-3. PiHerder → **Integrations → + Uptime Kuma** — base URL + API key → Save.  
+3. PiHerder → **Catalog → Integrations → + Uptime Kuma** — base URL + API key → Save.  
 4. **Optional (recommended for deep links on Kuma 1.23):** add Kuma username/password on Edit. Metrics labels often omit numeric monitor ids; login syncs name → `/dashboard/{id}`. You can also type **Dashboard ID** per binding.  
 5. Poll interval default **60s** (Settings on the integration); **Test** / **Poll now** available.
 
@@ -578,7 +578,7 @@ Least-priv sudoers allow **`/usr/sbin/reboot`** (and common paths). PiHerder sch
 
 ### Grafana integration
 
-Optional **read-mostly** link into an existing Grafana (same **Integrations** hub as Kuma). PiHerder does **not** deploy Grafana.
+Optional **read-mostly** link into an existing Grafana (**Catalog → Integrations**, same hub as Kuma). PiHerder does **not** deploy Grafana.
 
 **Design:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md)
 
@@ -592,7 +592,7 @@ Optional **read-mostly** link into an existing Grafana (same **Integrations** hu
    curl -sS -H "Authorization: Bearer $GRAFANA_TOKEN" "https://grafana.example.com/api/search?type=dash-db" | head
    ```
 
-3. PiHerder → **Integrations → + Grafana** — base URL, optional token, and **three template kinds**  
+3. PiHerder → **Catalog → Integrations → + Grafana** — base URL, optional token, and **three template kinds**  
    (all use Grafana’s `var-` prefix):
 
    | Kind | When used | Default-style template |
@@ -606,9 +606,10 @@ Optional **read-mostly** link into an existing Grafana (same **Integrations** hu
    Edit templates to match **your** Grafana variable names (`job`, `container`, `host`, …).
 4. **Poll / Test** stores health and dashboard inventory (with token).
 5. **Bind** with a **kind** (tabs on the integration detail page; clone/edit prefill supported):
-   - **Host metrics** / **Host logs** → rows on **server detail**
-   - **Containers** host overview (no container) → server detail  
+   - **Host metrics** / **Host logs** → **Grafana** dest card on **server detail**
+   - **Containers** host overview (no container) → server detail Grafana card  
    - **Containers** + container → Docker page (see below)
+6. Optional **Display name in PiHerder** on bind/edit — custom label for chips (survives poll). Blank = follow Grafana dashboard title. Rename in Grafana still works when no override is set.
 
 Without a token you can still deep-link by pasting dashboard UIDs; inventory list will be empty. Token is Fernet-encrypted and included in herder self-backup (same `PIHERDER_MASTER_KEY` on restore).
 
@@ -684,7 +685,7 @@ Full env list: [`.env.example`](../.env.example).
 
 ### Host dependency check
 
-**Where:** Server detail (card + **Re-check**) · SSH access → **Check dependencies**. Also runs after successful SSH test, key deploy, and least-priv provision.
+**Where:** Server detail shows a **read-only** snapshot. Re-check under **SSH access → Check dependencies** (also runs after successful **Test connection**, key deploy, and least-priv provision).
 
 Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`, `apt`). Stores a snapshot on the server row. Does not install packages on the remote host — failures include short install/privilege hints.
 

@@ -61,14 +61,14 @@ Ops hardening that sits **between** production install and product integrations.
 
 | # | Item | Stance | Notes |
 |---|------|--------|-------|
-| **1** | **Remote host dependency check** | **Done** (v0.2.x) | Server detail + SSH access: probe tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`). Snapshot on server; auto-refresh after SSH test / key deploy / least-priv. Hints only — no auto-install. |
+| **1** | **Remote host dependency check** | **Done** (v0.2.x) | Read-only chips on server detail; re-check under **SSH access** (and auto after **Test connection** / key deploy / least-priv). Probes tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`). Hints only — no auto-install. |
 | **2** | **Settings → Status tab** | **Done** (v0.2.x) | Admin **Status** tab: web, PostgreSQL, Redis, Celery (nodes + pool slots), APScheduler, **mount free** (fast). Backup tree `du` / per-host folders **on demand** (View details). Manual + every 2 min poll; alerts on state change; `/metrics` from last check. |
 | **3** | **Multi-worker** | **Done** (v0.2.x) | Celery `CELERY_CONCURRENCY` (default **2** = pool slots in one node); Redis **per-server backup mutex**; parallel across hosts. Prefer raising concurrency over multiple nodes unless HA/scale-out. Shared `/backups`; cancel + lock TTL intact. |
 | **4** | **Deploy topologies** | Docs only | See [Deployment architecture](#deployment-architecture) — Compose supported; k8s / bare install **under consideration only**. |
 
 ### Remote dependency check (detail)
 
-A host can accept an SSH key while missing tools required for backups or Docker. Probe after key deploy / least-priv (and via “Re-check dependencies” on server detail). Severity depends on **enabled** features:
+A host can accept an SSH key while missing tools required for backups or Docker. Probe after key deploy / least-priv, after **Test connection**, or via **SSH access → Check dependencies**. Server detail shows the last snapshot only. Severity depends on **enabled** features:
 
 | Check | Required when |
 |-------|----------------|
@@ -125,7 +125,7 @@ Read-mostly integrations: config + status + deep links + **server / host / Docke
 
 | Item | Status |
 |------|--------|
-| Integration registry + top-level **Integrations** nav | **Shipped** |
+| Integration registry + **Catalog** nav (Templates \| Integrations tabs) | **Shipped** |
 | **Uptime Kuma** — API key + `/metrics`; SSH + host service + Docker bindings; TLS; deep links; notifications; Services pages; logos | **Shipped** |
 | **Grafana** — service account token; health; inventory; kinds (metrics/containers/logs); query templates; server + Docker deep links | **Shipped** (v0.3.0) |
 | Multi Pi-hole / NPM / HA / Frigate / n8n generic URL | Open (v0.3.x) |
