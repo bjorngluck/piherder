@@ -142,7 +142,7 @@ Read-mostly integrations: config + status + deep links + **server / host / Docke
 - Auth: optional service account Bearer token; health without token; inventory requires token.
 - Bindings `role=dashboard` with **kind** metrics | containers | logs; Docker scope optional.
 - Templates: host metrics, container host, per-container, logs — all `var-` query strings with placeholders.
-- UI: Integrations detail (tabbed bind form, clone/edit); server detail rows; Docker **Grafana** chip + ⋯ **Open in Grafana** + expanded-row links (mobile-friendly).
+- UI: Integrations detail (Settings-style tabs; Inventory preferred names; bind Clone/Remove); server detail rows; Docker **Grafana** chip + ⋯ **Open in Grafana** + expanded-row links (mobile-friendly).
 - DR: rows in herder self-backup; same `PIHERDER_MASTER_KEY` for token decrypt.
 
 **Design:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md) · **Ops:** [ADMIN.md](ADMIN.md) § Uptime Kuma / Grafana

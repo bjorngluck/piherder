@@ -36,7 +36,7 @@ PiHerder is an optional **integration hub** for the homelab stack:
 - **Preferred name** per dashboard UID on the integration (`config_json.display_names[uid]`) — set on **Inventory** tab; chips use it for all current and future bindings; blank clears. Legacy per-row `meta.label_override` is fallback only. Survives poll.
 - Binding tabs: **Clone** / **Remove** only (unlink host/container); preferred name retained for other binds / new binds.
 
-**Catalog** nav (Integrations default | Templates). Later adapters (multi Pi-hole, NPM, …) reuse the same registry + binding model.
+**Catalog** nav: `/catalog` redirects to Integrations; Settings-style **Integrations | Templates** buttons. Later adapters (multi Pi-hole, NPM, …) reuse the same registry + binding model.
 
 ---
 
@@ -47,7 +47,7 @@ PiHerder is an optional **integration hub** for the homelab stack:
 | 1 | Authenticated Kuma data (not status-page-only); SSH + HTTP service bindings |
 | 2 | Server bindings required; service bindings at host and Docker scopes |
 | 3 | Plan first, then implement |
-| 4 | **Catalog** nav with Integrations (default) \| Templates buttons (was top-level Integrations) |
+| 4 | **Catalog** nav (`/catalog` → Integrations; Settings-style buttons; was top-level Integrations) |
 | 5 | Auth = **API key** (primary) for `/metrics` |
 | 6 | Optional Kuma **username/password** for Socket.IO name→dashboard id map (deep links on Kuma 1.23) |
 | 7 | PiHerder does not ship or manage Kuma; operator points at existing instance |
