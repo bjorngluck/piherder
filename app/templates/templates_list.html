@@ -2,13 +2,19 @@
 
 {% block content %}
 <div class="max-w-5xl mx-auto">
-  <nav class="catalog-tabs" aria-label="Catalog">
-    <a href="/templates" class="catalog-tab is-active">Templates</a>
+  <div class="mb-1">
+    <h1 class="text-2xl font-semibold tracking-tight">Catalog</h1>
+    <p class="text-sm text-muted mt-1">
+      Service templates and external integrations (Uptime Kuma, Grafana).
+    </p>
+  </div>
+  <nav class="catalog-tabs" aria-label="Catalog sections">
+    <a href="/templates" class="catalog-tab is-active" aria-current="page">Templates</a>
     <a href="/integrations" class="catalog-tab">Integrations</a>
   </nav>
   <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <div>
-      <h1 class="text-2xl font-semibold">Service templates</h1>
+      <h2 class="text-lg font-semibold">Service templates</h2>
       <p class="text-sm text-muted mt-1">
         Create and edit your own stack definitions, then deploy to a host.
         Starters (if any) are only seeds — edit them to match your specs.
