@@ -56,7 +56,11 @@ From the **Servers** list, multi-select hosts and queue the same job type across
 
 ## Audit
 
-**Where:** nav **Audit** (`/audit`).
+**Where:** nav **Audit** (`/audit`). Also from:
+
+- Server detail footer: **All logs**, **Backup logs**, **Docker logs**, **OS audit logs** (filtered by host)  
+- **Notifications** → **Audit log**  
+- **Jobs** panel links  
 
 Actors may be:
 

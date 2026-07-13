@@ -1,13 +1,19 @@
 {% extends "base.html" %}
 
 {% block content %}
-<nav class="catalog-tabs" aria-label="Catalog">
+<div class="mb-1">
+  <h1 class="text-2xl font-semibold tracking-tight">Catalog</h1>
+  <p class="text-sm text-muted mt-1">
+    Service templates and external integrations (Uptime Kuma, Grafana).
+  </p>
+</div>
+<nav class="catalog-tabs" aria-label="Catalog sections">
   <a href="/templates" class="catalog-tab">Templates</a>
-  <a href="/integrations" class="catalog-tab is-active">Integrations</a>
+  <a href="/integrations" class="catalog-tab is-active" aria-current="page">Integrations</a>
 </nav>
 <div class="page-header mb-6">
   <div>
-    <h1 class="text-3xl font-semibold tracking-tighter text-text">Integrations</h1>
+    <h2 class="text-lg font-semibold tracking-tight text-text">Integrations</h2>
     <p class="text-sm text-muted mt-1">
       Optional external products — Uptime Kuma, Grafana, and more.
       Core fleet ops work without these.

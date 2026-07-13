@@ -816,6 +816,8 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="text-xs text-muted flex flex-wrap gap-x-3 gap-y-1 mb-6">
   <a href="/audit?server_id={{ server.id }}" class="text-accent hover:underline">All logs</a>
   <a href="/audit?server_id={{ server.id }}&search=backup" class="text-accent hover:underline">Backup logs</a>
+  <a href="/audit?server_id={{ server.id }}&search=docker" class="text-accent hover:underline">Docker logs</a>
+  <a href="/audit?server_id={{ server.id }}&search=os_" class="text-accent hover:underline">OS audit logs</a>
   <a href="/servers" class="hover:underline">← All servers</a>
 </div>
 
