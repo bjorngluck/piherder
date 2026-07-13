@@ -436,8 +436,8 @@ def test_resolve_grafana_display_label_prefers_integration_map():
     assert gtitle == "Node Exporter Full"
 
 
-def test_apply_grafana_display_name_stores_preferred_and_syncs():
-    """Rename writes preferred name on integration and syncs all UID bindings."""
+def test_apply_grafana_preferred_name_by_uid_syncs_bindings():
+    """Inventory preferred name writes config and syncs all UID bindings."""
     from app.models import Integration, IntegrationBinding
 
     integ = Integration(
@@ -467,21 +467,15 @@ def test_apply_grafana_display_name_stores_preferred_and_syncs():
     b1 = _row(1, 10)
     b2 = _row(2, 11)
     session = MagicMock()
-
-    def _get(model, pk):
-        if model is Integration or getattr(model, "__name__", "") == "Integration":
-            return integ if pk == 5 else None
-        return b1 if pk == 1 else None
-
-    session.get.side_effect = _get
+    session.get.return_value = integ
     exec_result = MagicMock()
     exec_result.all.return_value = [b1, b2]
     session.exec.return_value = exec_result
 
-    updated = reg.apply_grafana_display_name(
+    updated = reg.apply_grafana_preferred_name(
         session,
         integration_id=5,
-        binding_id=1,
+        uid="node",
         display_name="Host metrics",
     )
     assert len(updated) == 2
@@ -490,36 +484,14 @@ def test_apply_grafana_display_name_stores_preferred_and_syncs():
     assert b2.external_label == "Host metrics"
 
 
-def test_apply_grafana_display_name_rejects_wrong_integration():
-    from app.models import Integration, IntegrationBinding
-
-    integ = Integration(
-        id=5,
-        type=reg.TYPE_GRAFANA,
-        name="G",
-        base_url="https://g.example.com",
-        config_json="{}",
-    )
-    row = IntegrationBinding(
-        id=3,
-        integration_id=9,
-        server_id=1,
-        role=reg.ROLE_DASHBOARD,
-        external_id="x",
-    )
+def test_apply_grafana_preferred_name_rejects_missing_integration():
     session = MagicMock()
-
-    def _get(model, pk):
-        if model is Integration or getattr(model, "__name__", "") == "Integration":
-            return integ if pk == 5 else None
-        return row if pk == 3 else None
-
-    session.get.side_effect = _get
+    session.get.return_value = None
     with pytest.raises(ValueError, match="not found"):
-        reg.apply_grafana_display_name(
+        reg.apply_grafana_preferred_name(
             session,
             integration_id=5,
-            binding_id=3,
+            uid="node",
             display_name="Nope",
         )
 

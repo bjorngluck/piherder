@@ -1,6 +1,9 @@
-{# Shared Catalog chrome — same obvious btn tabs as Settings.
-   Set catalog_section before include: "integrations" | "templates" #}
-{% set catalog_section = catalog_section or 'integrations' %}
+{# Shared Catalog chrome — identical tab chrome to Settings (settings-tab-btn).
+   Pass catalog_section via {% with catalog_section='integrations' %} … {% endwith %} #}
+{% set section = catalog_section if catalog_section is defined else 'integrations' %}
+{% if section not in ('integrations', 'templates') %}
+  {% set section = 'integrations' %}
+{% endif %}
 <div class="page-header mb-4">
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Catalog</h1>
@@ -12,12 +15,12 @@
 <div class="flex flex-wrap gap-1 mb-5 border-b border-border pb-2" role="tablist" aria-label="Catalog sections">
   <a href="/integrations"
      role="tab"
-     class="catalog-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if catalog_section == 'integrations' else '' }}"
-     aria-selected="{{ 'true' if catalog_section == 'integrations' else 'false' }}"
-     {% if catalog_section == 'integrations' %}aria-current="page"{% endif %}>Integrations</a>
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if section == 'integrations' else '' }}"
+     aria-selected="{{ 'true' if section == 'integrations' else 'false' }}"
+     {% if section == 'integrations' %}aria-current="page"{% endif %}>Integrations</a>
   <a href="/templates"
      role="tab"
-     class="catalog-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if catalog_section == 'templates' else '' }}"
-     aria-selected="{{ 'true' if catalog_section == 'templates' else 'false' }}"
-     {% if catalog_section == 'templates' %}aria-current="page"{% endif %}>Templates</a>
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if section == 'templates' else '' }}"
+     aria-selected="{{ 'true' if section == 'templates' else 'false' }}"
+     {% if section == 'templates' %}aria-current="page"{% endif %}>Templates</a>
 </div>

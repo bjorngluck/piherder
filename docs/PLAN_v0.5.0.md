@@ -81,7 +81,7 @@ Operator friction fixes and multi-host workflows that do not depend on templates
 | **Server detail UX** | Remove → Edit **Remove** tab; host deps checks under SSH access (Test connection also probes deps); Grafana + Kuma SSH cards in dest-card grid with Host status; equal desktop card sizing. | **Done** |
 | **Nav: bell vs Alerts** | Dropped Alerts nav link; notifications via bell only. | **Done** |
 | **Catalog nav** | Single **Catalog** item; Settings-style buttons; **Integrations** default, **Templates** second. | **Done** |
-| **Grafana preferred name** | Integration-level `display_names[uid]` (not per-row only); Rename/Remove on binding list; new binds inherit; poll preserves. | **Done** |
+| **Grafana preferred name** | Integration-level `display_names[uid]` edited on **Inventory** tab; binding rows Clone/Remove only; new binds inherit; poll preserves. | **Done** |
 | **Users create modal** | Create user + one-time credentials confirmation in modals. | **Done** |
 | **Server audit footer** | Host detail: All / Backup / Docker / OS audit log deep links. | **Done** |
 | **Docs sync (UX batch)** | Wiki + ADMIN/SPEC/README aligned: Catalog, preferred names, Remove tab, SSH deps, bell-only alerts, dest cards. | **Done** |

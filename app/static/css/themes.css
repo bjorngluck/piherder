@@ -1212,14 +1212,24 @@ a.dest-card:hover {
   font-weight: 400;
 }
 
-/* Catalog section tabs — same active treatment as Settings settings-tab-btn */
-a.catalog-tab-btn {
+/* Section tab buttons — Settings / Catalog / Grafana (shared active state) */
+a.settings-tab-btn {
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.catalog-tab-btn.is-active {
-  border-color: var(--color-accent, #e60012);
-  color: var(--color-text);
-  background: var(--color-accent-subtle, rgba(230, 0, 18, 0.08));
+.settings-tab-btn.is-active,
+.api-subnav-btn.is-active,
+.edit-tab-btn.is-active {
+  border-color: var(--color-accent, #e60012) !important;
+  color: var(--color-text) !important;
+  background: var(--color-accent-subtle, rgba(230, 0, 18, 0.08)) !important;
+  filter: none;
+}
+.settings-tab-btn.is-active:hover,
+.api-subnav-btn.is-active:hover {
+  filter: none;
 }
 
 .action-grid {

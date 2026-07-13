@@ -33,8 +33,8 @@ PiHerder is an optional **integration hub** for the homelab stack:
 - **Open in Grafana** with separate query templates per kind.
 - **Surfaces:** server detail rows; Docker **Grafana** chip (tap); container **⋯** menu item with dashboard name; expanded container detail links (no tooltip required on mobile).
 - Tabbed Integrations UI (Host metrics / Containers / Logs); clone prefill; unique-scope merge; kind inferred from Docker scope so binds stay on the right tab after poll.
-- **Preferred name** per dashboard UID on the integration (`config_json.display_names[uid]`) — chips use it for all current and future bindings; set via row **Rename** or bind form; blank clears. Legacy per-row `meta.label_override` is fallback only. Survives poll.
-- Per-binding **Remove** (unlink host/container); preferred name retained for other binds / new binds.
+- **Preferred name** per dashboard UID on the integration (`config_json.display_names[uid]`) — set on **Inventory** tab; chips use it for all current and future bindings; blank clears. Legacy per-row `meta.label_override` is fallback only. Survives poll.
+- Binding tabs: **Clone** / **Remove** only (unlink host/container); preferred name retained for other binds / new binds.
 
 **Catalog** nav (Integrations default | Templates). Later adapters (multi Pi-hole, NPM, …) reuse the same registry + binding model.
 
