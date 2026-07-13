@@ -605,11 +605,16 @@ Optional **read-mostly** link into an existing Grafana (**Catalog → Integratio
    `{hostname_short}` = first DNS label (`rpi5-1.hacknow.info` → `rpi5-1`).  
    Edit templates to match **your** Grafana variable names (`job`, `container`, `host`, …).
 4. **Poll / Test** stores health and dashboard inventory (with token).
-5. **Bind** with a **kind** (tabs on the integration detail page; clone/edit prefill supported):
+5. **Bind** with a **kind** (tabs on the integration detail page; **Clone** prefill supported):
    - **Host metrics** / **Host logs** → **Grafana** dest card on **server detail**
    - **Containers** host overview (no container) → server detail Grafana card  
    - **Containers** + container → Docker page (see below)
-6. Optional **Display name in PiHerder** on bind/edit — custom label for chips (survives poll). Blank = follow Grafana dashboard title. Rename in Grafana still works when no override is set.
+6. **Preferred name** (recommended when many hosts share a dashboard):
+   - Stored on the **integration** as `config_json.display_names[dashboard_uid]`
+   - Set via **Rename** on any binding row, or optional field when adding a bind
+   - Applies to **all existing** binds of that UID and **any new** binds later; survives **Poll**
+   - Blank + save clears preferred name → chips follow the Grafana title again
+   - Per-row **Remove** deletes only that host/container link (preferred name stays)
 
 Without a token you can still deep-link by pasting dashboard UIDs; inventory list will be empty. Token is Fernet-encrypted and included in herder self-backup (same `PIHERDER_MASTER_KEY` on restore).
 
