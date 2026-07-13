@@ -387,3 +387,166 @@ def test_grafana_chip_label_override_wins():
     assert chip["label"] == "My host metrics"
     assert chip["label_override"] == "My host metrics"
     assert chip["grafana_title"] == "Node Exporter Full"
+
+
+def test_preferred_display_name_roundtrip():
+    """Preferred names live on integration config by dashboard UID."""
+    from app.models import Integration
+
+    integ = Integration(
+        id=5,
+        type=reg.TYPE_GRAFANA,
+        name="G",
+        base_url="https://g.example.com",
+        config_json="{}",
+    )
+    session = MagicMock()
+    reg.set_preferred_display_name(session, integ, "node", "Host metrics")
+    assert reg.preferred_display_name(integ, "node") == "Host metrics"
+    assert json.loads(integ.config_json)["display_names"]["node"] == "Host metrics"
+
+    reg.set_preferred_display_name(session, integ, "node", "  ")
+    assert reg.preferred_display_name(integ, "node") == ""
+    assert "display_names" not in json.loads(integ.config_json or "{}")
+
+
+def test_resolve_grafana_display_label_prefers_integration_map():
+    from app.models import Integration, IntegrationBinding
+
+    integ = Integration(
+        type=reg.TYPE_GRAFANA,
+        name="G",
+        base_url="https://g.example.com",
+        config_json=json.dumps({"display_names": {"node": "Host metrics"}}),
+    )
+    binding = IntegrationBinding(
+        external_id="node",
+        external_label="Node Exporter Full",
+        external_meta_json=json.dumps(
+            {
+                "kind": "metrics",
+                "grafana_title": "Node Exporter Full",
+                "label_override": "legacy per-row",
+            }
+        ),
+    )
+    label, override, gtitle = reg.resolve_grafana_display_label(integ, binding)
+    assert label == "Host metrics"
+    assert override == "Host metrics"
+    assert gtitle == "Node Exporter Full"
+
+
+def test_apply_grafana_display_name_stores_preferred_and_syncs():
+    """Rename writes preferred name on integration and syncs all UID bindings."""
+    from app.models import Integration, IntegrationBinding
+
+    integ = Integration(
+        id=5,
+        type=reg.TYPE_GRAFANA,
+        name="G",
+        base_url="https://g.example.com",
+        config_json="{}",
+    )
+
+    def _row(bid: int, sid: int) -> IntegrationBinding:
+        return IntegrationBinding(
+            id=bid,
+            integration_id=5,
+            server_id=sid,
+            role=reg.ROLE_DASHBOARD,
+            external_id="node",
+            external_label="Node Exporter Full",
+            external_meta_json=json.dumps(
+                {
+                    "kind": "metrics",
+                    "grafana_title": "Node Exporter Full",
+                }
+            ),
+        )
+
+    b1 = _row(1, 10)
+    b2 = _row(2, 11)
+    session = MagicMock()
+
+    def _get(model, pk):
+        if model is Integration or getattr(model, "__name__", "") == "Integration":
+            return integ if pk == 5 else None
+        return b1 if pk == 1 else None
+
+    session.get.side_effect = _get
+    exec_result = MagicMock()
+    exec_result.all.return_value = [b1, b2]
+    session.exec.return_value = exec_result
+
+    updated = reg.apply_grafana_display_name(
+        session,
+        integration_id=5,
+        binding_id=1,
+        display_name="Host metrics",
+    )
+    assert len(updated) == 2
+    assert reg.preferred_display_name(integ, "node") == "Host metrics"
+    assert b1.external_label == "Host metrics"
+    assert b2.external_label == "Host metrics"
+
+
+def test_apply_grafana_display_name_rejects_wrong_integration():
+    from app.models import Integration, IntegrationBinding
+
+    integ = Integration(
+        id=5,
+        type=reg.TYPE_GRAFANA,
+        name="G",
+        base_url="https://g.example.com",
+        config_json="{}",
+    )
+    row = IntegrationBinding(
+        id=3,
+        integration_id=9,
+        server_id=1,
+        role=reg.ROLE_DASHBOARD,
+        external_id="x",
+    )
+    session = MagicMock()
+
+    def _get(model, pk):
+        if model is Integration or getattr(model, "__name__", "") == "Integration":
+            return integ if pk == 5 else None
+        return row if pk == 3 else None
+
+    session.get.side_effect = _get
+    with pytest.raises(ValueError, match="not found"):
+        reg.apply_grafana_display_name(
+            session,
+            integration_id=5,
+            binding_id=3,
+            display_name="Nope",
+        )
+
+
+def test_grafana_chip_uses_preferred_name():
+    integ = MagicMock()
+    integ.type = reg.TYPE_GRAFANA
+    integ.base_url = "https://g.example.com"
+    integ.name = "G"
+    integ.config_json = json.dumps({"display_names": {"node": "Host metrics"}})
+    integ.enabled = True
+
+    binding = MagicMock()
+    binding.id = 1
+    binding.integration_id = 2
+    binding.server_id = 1
+    binding.external_id = "node"
+    binding.external_label = "Node Exporter Full"
+    binding.last_state = "linked"
+    binding.last_message = None
+    binding.last_checked_at = None
+    binding.docker_project = None
+    binding.docker_container = None
+    binding.external_meta_json = json.dumps(
+        {"kind": "metrics", "grafana_title": "Node Exporter Full"}
+    )
+
+    chip = reg._grafana_chip_dict(integ, binding)
+    assert chip["label"] == "Host metrics"
+    assert chip["preferred_name"] == "Host metrics"

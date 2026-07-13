@@ -446,7 +446,7 @@ Typical pattern: PiHerder → n8n webhook → Signal CLI. In-app notifications a
 
 ### Service templates (v0.4.0)
 
-**Templates** live under top-nav **Catalog** (tabs: **Templates** | **Integrations**). They are **your** versioned stack definitions. You **create**, **edit**, and **save** them; deploy is separate.
+**Templates** live under top-nav **Catalog** (Settings-style buttons: **Integrations** default | **Templates**). They are **your** versioned stack definitions. You **create**, **edit**, and **save** them; deploy is separate.
 
 **Shipped in v0.4.0** (foundation; ops + polish → [PLAN_v0.5.0.md](PLAN_v0.5.0.md)).  
 **Docs:** [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · active [PLAN_v0.5.0.md](PLAN_v0.5.0.md)
@@ -526,7 +526,7 @@ Herder self-backup includes `service_templates` catalog rows and `stack_deployme
 
 ### Uptime Kuma integration
 
-Optional **integration hub** under top-nav **Catalog** (tabs: Templates | Integrations). You can **deploy** Kuma via Templates, then connect the integration for status/bindings.
+Optional **integration hub** under top-nav **Catalog** (opens **Integrations** by default; **Templates** is the second button). You can **deploy** Kuma via Templates, then connect the integration for status/bindings.
 
 **Design / plan:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md)
 

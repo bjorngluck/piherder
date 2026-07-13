@@ -327,6 +327,91 @@ def query_template_logs(integration: Integration) -> str:
     return str(cfg.get("query_template_logs") or DEFAULT_QT_LOGS).strip()
 
 
+def preferred_display_names(integration: Integration) -> dict[str, str]:
+    """Grafana dashboard UID → operator preferred chip label (integration config)."""
+    raw = parse_config(integration.config_json).get("display_names")
+    if not isinstance(raw, dict):
+        return {}
+    out: dict[str, str] = {}
+    for k, v in raw.items():
+        uid = str(k or "").strip()
+        name = str(v or "").strip()
+        if uid and name:
+            out[uid] = name
+    return out
+
+
+def preferred_display_name(integration: Integration, uid: Optional[str]) -> str:
+    """Preferred PiHerder label for a dashboard UID, or empty if unset."""
+    u = (uid or "").strip()
+    if not u:
+        return ""
+    return preferred_display_names(integration).get(u) or ""
+
+
+def set_preferred_display_name(
+    session: Session,
+    integration: Integration,
+    uid: str,
+    display_name: str,
+) -> Integration:
+    """Persist preferred name for a dashboard UID on the integration (or clear if blank)."""
+    u = (uid or "").strip()
+    if not u:
+        raise ValueError("Dashboard UID required")
+    cfg = parse_config(integration.config_json)
+    names = cfg.get("display_names")
+    if not isinstance(names, dict):
+        names = {}
+    else:
+        names = {str(k): str(v) for k, v in names.items() if str(k or "").strip()}
+    custom = (display_name or "").strip()
+    if custom:
+        names[u] = custom
+    else:
+        names.pop(u, None)
+        # drop empty-string keys
+        names = {k: v for k, v in names.items() if str(v or "").strip()}
+    if names:
+        cfg["display_names"] = names
+    else:
+        cfg.pop("display_names", None)
+    integration.config_json = dump_config(cfg)
+    integration.updated_at = datetime.utcnow()
+    session.add(integration)
+    session.commit()
+    session.refresh(integration)
+    return integration
+
+
+def resolve_grafana_display_label(
+    integration: Integration,
+    binding: IntegrationBinding,
+    *,
+    meta: Optional[dict[str, Any]] = None,
+) -> tuple[str, str, str]:
+    """Return (label, preferred_or_override, grafana_title) for chips/UI.
+
+    Preference: integration preferred name for UID → legacy binding label_override
+    → Grafana title → external_label → UID.
+    """
+    meta = meta if meta is not None else parse_binding_meta(binding)
+    uid = (binding.external_id or meta.get("uid") or "").strip()
+    grafana_title = (meta.get("grafana_title") or meta.get("title") or "").strip()
+    preferred = preferred_display_name(integration, uid)
+    legacy = (meta.get("label_override") or "").strip()
+    # If preferred is set it wins; legacy per-binding override only when no preferred
+    override = preferred or legacy
+    label = (
+        override
+        or grafana_title
+        or (binding.external_label or "").strip()
+        or uid
+        or "dashboard"
+    )
+    return label, override, grafana_title
+
+
 def normalize_grafana_kind(kind: Optional[str]) -> str:
     k = (kind or "").strip().lower()
     if k not in GRAFANA_KINDS:
@@ -714,6 +799,80 @@ def set_binding(
     return row
 
 
+def apply_grafana_display_name(
+    session: Session,
+    *,
+    integration_id: int,
+    binding_id: int,
+    display_name: str,
+    apply_same_dashboard: bool = True,
+) -> list[IntegrationBinding]:
+    """Set preferred display name for a dashboard UID on the integration.
+
+    Stored in integration config_json.display_names[uid] so **new** bindings and
+    polls pick it up. Existing bindings that share the UID are synced (labels +
+    meta). Blank display_name clears the preferred name and legacy per-row
+    overrides for that UID.
+    """
+    integration = session.get(Integration, integration_id)
+    if not integration or integration.type != TYPE_GRAFANA:
+        raise ValueError("Grafana integration not found")
+
+    row = session.get(IntegrationBinding, binding_id)
+    if (
+        not row
+        or row.integration_id != integration_id
+        or (row.role or "") != ROLE_DASHBOARD
+    ):
+        raise ValueError("Dashboard binding not found")
+
+    custom = (display_name or "").strip()
+    uid = (row.external_id or "").strip()
+    if not uid:
+        raise ValueError("Binding has no dashboard UID")
+
+    set_preferred_display_name(session, integration, uid, custom)
+    session.refresh(integration)
+
+    # Always sync all bindings for this UID (preferred is dashboard-scoped).
+    # apply_same_dashboard kept for API compat; False only updates the one row's
+    # cached label while preferred still applies on read for all.
+    if apply_same_dashboard:
+        targets = list(
+            session.exec(
+                select(IntegrationBinding).where(
+                    IntegrationBinding.integration_id == integration_id,
+                    IntegrationBinding.role == ROLE_DASHBOARD,
+                    IntegrationBinding.external_id == uid,
+                )
+            ).all()
+        )
+    else:
+        targets = [row]
+
+    now = datetime.utcnow()
+    updated: list[IntegrationBinding] = []
+    for b in targets:
+        meta = parse_binding_meta(b)
+        if custom:
+            meta["label_override"] = custom
+            b.external_label = custom
+        else:
+            meta.pop("label_override", None)
+            b.external_label = (
+                (meta.get("grafana_title") or meta.get("title") or "").strip()
+                or b.external_id
+            )
+        b.external_meta_json = json.dumps(meta)
+        b.updated_at = now
+        session.add(b)
+        updated.append(b)
+    session.commit()
+    for b in updated:
+        session.refresh(b)
+    return updated
+
+
 def clear_binding(
     session: Session,
     *,
@@ -1036,14 +1195,16 @@ def _grafana_chip_dict(
         loc = f"{proj}/{cont}" if proj else cont
     elif proj:
         loc = proj
-    override = (meta.get("label_override") or "").strip()
-    grafana_title = (meta.get("grafana_title") or meta.get("title") or "").strip()
-    label = override or (binding.external_label or "").strip() or binding.external_id
+    label, override, grafana_title = resolve_grafana_display_label(
+        integ, binding, meta=meta
+    )
+    preferred = preferred_display_name(integ, binding.external_id)
     return {
         "id": binding.id,
         "state": binding.last_state or "linked",
         "label": label,
         "label_override": override,
+        "preferred_name": preferred,
         "grafana_title": grafana_title,
         "message": binding.last_message or meta.get("folder_title") or "",
         "open_url": open_url,

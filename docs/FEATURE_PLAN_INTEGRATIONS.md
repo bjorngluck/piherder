@@ -32,10 +32,11 @@ PiHerder is an optional **integration hub** for the homelab stack:
   - **logs** — host-level logs filter (e.g. `var-host={hostname_short}`)
 - **Open in Grafana** with separate query templates per kind.
 - **Surfaces:** server detail rows; Docker **Grafana** chip (tap); container **⋯** menu item with dashboard name; expanded container detail links (no tooltip required on mobile).
-- Tabbed Integrations UI (Host metrics / Containers / Logs); clone/edit prefill; unique-scope merge; kind inferred from Docker scope so binds stay on the right tab after poll.
-- Optional **display name** (`meta.label_override`) per dashboard binding — shown on chips; survives poll; blank follows Grafana title.
+- Tabbed Integrations UI (Host metrics / Containers / Logs); clone prefill; unique-scope merge; kind inferred from Docker scope so binds stay on the right tab after poll.
+- **Preferred name** per dashboard UID on the integration (`config_json.display_names[uid]`) — chips use it for all current and future bindings; set via row **Rename** or bind form; blank clears. Legacy per-row `meta.label_override` is fallback only. Survives poll.
+- Per-binding **Remove** (unlink host/container); preferred name retained for other binds / new binds.
 
-**Catalog** nav (Templates | Integrations tabs). Later adapters (multi Pi-hole, NPM, …) reuse the same registry + binding model.
+**Catalog** nav (Integrations default | Templates). Later adapters (multi Pi-hole, NPM, …) reuse the same registry + binding model.
 
 ---
 
@@ -46,7 +47,7 @@ PiHerder is an optional **integration hub** for the homelab stack:
 | 1 | Authenticated Kuma data (not status-page-only); SSH + HTTP service bindings |
 | 2 | Server bindings required; service bindings at host and Docker scopes |
 | 3 | Plan first, then implement |
-| 4 | **Catalog** nav with Templates \| Integrations tabs (was top-level Integrations) |
+| 4 | **Catalog** nav with Integrations (default) \| Templates buttons (was top-level Integrations) |
 | 5 | Auth = **API key** (primary) for `/metrics` |
 | 6 | Optional Kuma **username/password** for Socket.IO name→dashboard id map (deep links on Kuma 1.23) |
 | 7 | PiHerder does not ship or manage Kuma; operator points at existing instance |
