@@ -1,4 +1,4 @@
-"""Integrations hub — Uptime Kuma + Grafana (read-mostly)."""
+"""Integrations hub — Uptime Kuma, Grafana, Pi-hole, Nginx Proxy Manager."""
 from __future__ import annotations
 
 import json
@@ -18,6 +18,8 @@ from ..database import get_session
 from ..models import AuditLog, Integration, Server, User
 from ..security.auth import get_current_user, get_operator_user, role_at_least, ROLE_OPERATOR
 from ..services.integrations import grafana as gf
+from ..services.integrations import npm as npm_mod
+from ..services.integrations import pihole as ph
 from ..services.integrations import poll as poll_svc
 from ..services.integrations import registry as reg
 from ..services.integrations import uptime_kuma as kuma
@@ -101,7 +103,40 @@ async def integrations_list(
                 "dashboard_count": st.get("dashboard_count"),
                 "version": st.get("version") or "",
                 "poll_interval_sec": reg.poll_interval_sec(r),
+                "queries": st.get("queries"),
+                "blocked": st.get("blocked"),
+                "percent_blocked": st.get("percent_blocked"),
+                "is_primary": st.get("is_primary") or reg.is_pihole_primary(r)
+                if r.type == reg.TYPE_PIHOLE
+                else False,
+                "proxy_host_count": st.get("proxy_host_count"),
+                "certificate_count": st.get("certificate_count"),
             }
+        )
+    # Multi Pi-hole fleet summary
+    pihole_items = [i for i in items if i["type"] == reg.TYPE_PIHOLE]
+    pihole_summary = None
+    if len(pihole_items) >= 1:
+        pihole_summary = ph.summarize_instances(
+            [
+                {
+                    "ok": i.get("ok"),
+                    "queries": i.get("queries") or 0,
+                    "blocked": i.get("blocked") or 0,
+                    "active_clients": (reg.parse_last_status(
+                        reg.get_integration(session, i["id"])
+                    ) or {}).get("active_clients")
+                    if i.get("id")
+                    else 0,
+                    "domains_on_lists": (reg.parse_last_status(
+                        reg.get_integration(session, i["id"])
+                    ) or {}).get("domains_on_lists")
+                    if i.get("id")
+                    else 0,
+                    "is_primary": i.get("is_primary"),
+                }
+                for i in pihole_items
+            ]
         )
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -110,6 +145,7 @@ async def integrations_list(
             "title": "Integrations",
             "user": user,
             "integrations": items,
+            "pihole_summary": pihole_summary,
             "can_mutate": _can_mutate(user),
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or "",
@@ -283,6 +319,160 @@ async def grafana_create(
         )
 
 
+@router.get("/integrations/new/pihole", response_class=HTMLResponse)
+async def pihole_new_form(
+    request: Request,
+    user: User = Depends(get_operator_user),
+):
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="integrations_pihole_form.html",
+        context={
+            "title": "Add Pi-hole",
+            "user": user,
+            "mode": "create",
+            "integration": None,
+            "form": {
+                "name": "Pi-hole",
+                "base_url": "https://pihole.hacknow.info",
+                "poll_interval_sec": reg.DEFAULT_PIHOLE_POLL_SEC,
+                "tls_verify": True,
+                "enabled": True,
+                "is_primary": False,
+            },
+            "has_password": False,
+            "error": request.query_params.get("error") or "",
+            "detail": request.query_params.get("detail") or "",
+        },
+    )
+
+
+@router.post("/integrations/new/pihole")
+async def pihole_create(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    name: str = Form("Pi-hole"),
+    base_url: str = Form(...),
+    password: str = Form(...),
+    poll_interval_sec: int = Form(reg.DEFAULT_PIHOLE_POLL_SEC),
+    tls_verify: Optional[str] = Form(None),
+    enabled: Optional[str] = Form("on"),
+    is_primary: Optional[str] = Form(None),
+):
+    try:
+        base = ph.normalize_base_url(base_url)
+        result = ph.fetch_stats(
+            base, password, tls_verify=tls_verify in ("on", "1", "true")
+        )
+        if not result.ok:
+            return _redirect(
+                "/integrations/new/pihole",
+                error="test_failed",
+                detail=(result.error or "failed")[:200],
+            )
+        row = reg.create_pihole(
+            session,
+            name=name,
+            base_url=base,
+            password=password,
+            poll_interval_sec=poll_interval_sec,
+            tls_verify_flag=tls_verify in ("on", "1", "true"),
+            enabled=enabled in ("on", "1", "true") if enabled is not None else True,
+            is_primary=is_primary in ("on", "1", "true"),
+        )
+        poll_svc.poll_integration(row.id, notify=False)
+        _audit(
+            session,
+            user,
+            "integration_created",
+            details=f"pihole id={row.id} name={row.name}",
+        )
+        return _redirect(f"/integrations/{row.id}", msg="created")
+    except ValueError as e:
+        return _redirect(
+            "/integrations/new/pihole", error="invalid", detail=str(e)[:200]
+        )
+    except Exception as e:
+        logger.exception("create pihole failed")
+        return _redirect(
+            "/integrations/new/pihole", error="save_failed", detail=str(e)[:200]
+        )
+
+
+@router.get("/integrations/new/npm", response_class=HTMLResponse)
+async def npm_new_form(
+    request: Request,
+    user: User = Depends(get_operator_user),
+):
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="integrations_npm_form.html",
+        context={
+            "title": "Add Nginx Proxy Manager",
+            "user": user,
+            "mode": "create",
+            "integration": None,
+            "form": {
+                "name": "Nginx Proxy Manager",
+                "base_url": "https://nginx.hacknow.info",
+                "identity": "",
+                "poll_interval_sec": reg.DEFAULT_NPM_POLL_SEC,
+                "tls_verify": True,
+                "enabled": True,
+            },
+            "has_password": False,
+            "error": request.query_params.get("error") or "",
+            "detail": request.query_params.get("detail") or "",
+        },
+    )
+
+
+@router.post("/integrations/new/npm")
+async def npm_create(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    name: str = Form("Nginx Proxy Manager"),
+    base_url: str = Form(...),
+    identity: str = Form(...),
+    password: str = Form(...),
+    poll_interval_sec: int = Form(reg.DEFAULT_NPM_POLL_SEC),
+    tls_verify: Optional[str] = Form(None),
+    enabled: Optional[str] = Form("on"),
+):
+    try:
+        base = npm_mod.normalize_base_url(base_url)
+        tls = tls_verify in ("on", "1", "true")
+        result = npm_mod.poll(base, identity, password, tls_verify=tls)
+        if not result.ok:
+            return _redirect(
+                "/integrations/new/npm",
+                error="test_failed",
+                detail=(result.error or "failed")[:200],
+            )
+        row = reg.create_npm(
+            session,
+            name=name,
+            base_url=base,
+            identity=identity,
+            password=password,
+            poll_interval_sec=poll_interval_sec,
+            tls_verify_flag=tls,
+            enabled=enabled in ("on", "1", "true") if enabled is not None else True,
+        )
+        poll_svc.poll_integration(row.id, notify=False)
+        _audit(
+            session, user, "integration_created", details=f"npm id={row.id} name={row.name}"
+        )
+        return _redirect(f"/integrations/{row.id}", msg="created")
+    except ValueError as e:
+        return _redirect("/integrations/new/npm", error="invalid", detail=str(e)[:200])
+    except Exception as e:
+        logger.exception("create npm failed")
+        return _redirect(
+            "/integrations/new/npm", error="save_failed", detail=str(e)[:200]
+        )
+
+
 @router.get("/integrations/{integration_id}", response_class=HTMLResponse)
 async def integration_detail(
     integration_id: int,
@@ -295,6 +485,10 @@ async def integration_detail(
         raise HTTPException(404, "Integration not found")
     if integration.type == reg.TYPE_GRAFANA:
         return await _grafana_detail(request, session, user, integration)
+    if integration.type == reg.TYPE_PIHOLE:
+        return await _pihole_detail(request, session, user, integration)
+    if integration.type == reg.TYPE_NPM:
+        return await _npm_detail(request, session, user, integration)
     if integration.type != reg.TYPE_UPTIME_KUMA:
         raise HTTPException(400, "Unsupported integration type in UI yet")
 
@@ -622,6 +816,51 @@ async def integration_edit_form(
                 "detail": request.query_params.get("detail") or "",
             },
         )
+    if integration.type == reg.TYPE_PIHOLE:
+        return templates_mod.templates.TemplateResponse(
+            request=request,
+            name="integrations_pihole_form.html",
+            context={
+                "title": f"Edit {integration.name}",
+                "user": user,
+                "mode": "edit",
+                "integration": integration,
+                "form": {
+                    "name": integration.name,
+                    "base_url": integration.base_url,
+                    "poll_interval_sec": reg.poll_interval_sec(integration),
+                    "tls_verify": reg.tls_verify(integration),
+                    "enabled": integration.enabled,
+                    "is_primary": reg.is_pihole_primary(integration),
+                },
+                "has_password": reg.has_credentials(integration),
+                "error": request.query_params.get("error") or "",
+                "detail": request.query_params.get("detail") or "",
+            },
+        )
+    if integration.type == reg.TYPE_NPM:
+        return templates_mod.templates.TemplateResponse(
+            request=request,
+            name="integrations_npm_form.html",
+            context={
+                "title": f"Edit {integration.name}",
+                "user": user,
+                "mode": "edit",
+                "integration": integration,
+                "form": {
+                    "name": integration.name,
+                    "base_url": integration.base_url,
+                    "identity": reg.decrypt_credentials(integration).get("username")
+                    or "",
+                    "poll_interval_sec": reg.poll_interval_sec(integration),
+                    "tls_verify": reg.tls_verify(integration),
+                    "enabled": integration.enabled,
+                },
+                "has_password": reg.has_credentials(integration),
+                "error": request.query_params.get("error") or "",
+                "detail": request.query_params.get("detail") or "",
+            },
+        )
     if integration.type != reg.TYPE_UPTIME_KUMA:
         raise HTTPException(404)
     return templates_mod.templates.TemplateResponse(
@@ -667,10 +906,58 @@ async def integration_edit(
     query_template_container: str = Form(""),
     query_template_logs: str = Form(""),
     clear_token: Optional[str] = Form(None),
+    is_primary: Optional[str] = Form(None),
+    identity: str = Form(""),
 ):
     integration = reg.get_integration(session, integration_id)
     if not integration:
         raise HTTPException(404)
+    if integration.type == reg.TYPE_PIHOLE:
+        try:
+            reg.update_pihole(
+                session,
+                integration,
+                name=name,
+                base_url=base_url,
+                password=password if password.strip() else None,
+                poll_interval_sec=poll_interval_sec,
+                tls_verify_flag=tls_verify in ("1", "on", "true"),
+                enabled=enabled in ("1", "on", "true"),
+                is_primary=is_primary in ("1", "on", "true"),
+            )
+            _audit(
+                session, user, "integration_updated", details=f"id={integration_id} pihole"
+            )
+            return _redirect(f"/integrations/{integration_id}", msg="saved")
+        except ValueError as e:
+            return _redirect(
+                f"/integrations/{integration_id}/edit",
+                error="invalid",
+                detail=str(e)[:200],
+            )
+    if integration.type == reg.TYPE_NPM:
+        try:
+            reg.update_npm(
+                session,
+                integration,
+                name=name,
+                base_url=base_url,
+                identity=identity if identity.strip() else None,
+                password=password if password.strip() else None,
+                poll_interval_sec=poll_interval_sec,
+                tls_verify_flag=tls_verify in ("1", "on", "true"),
+                enabled=enabled in ("1", "on", "true"),
+            )
+            _audit(
+                session, user, "integration_updated", details=f"id={integration_id} npm"
+            )
+            return _redirect(f"/integrations/{integration_id}", msg="saved")
+        except ValueError as e:
+            return _redirect(
+                f"/integrations/{integration_id}/edit",
+                error="invalid",
+                detail=str(e)[:200],
+            )
     if integration.type == reg.TYPE_GRAFANA:
         try:
             reg.update_grafana(
@@ -759,6 +1046,22 @@ async def integration_test(
             return _redirect(
                 f"/integrations/{integration_id}", msg="test_ok", detail=detail
             )
+        if integration.type == reg.TYPE_PIHOLE:
+            q = getattr(result, "queries", 0)
+            b = getattr(result, "blocked", 0)
+            return _redirect(
+                f"/integrations/{integration_id}",
+                msg="test_ok",
+                detail=f"{q} queries · {b} blocked",
+            )
+        if integration.type == reg.TYPE_NPM:
+            n = len(getattr(result, "proxy_hosts", None) or [])
+            c = len(getattr(result, "certificates", None) or [])
+            return _redirect(
+                f"/integrations/{integration_id}",
+                msg="test_ok",
+                detail=f"{n} proxy hosts · {c} certs",
+            )
         return _redirect(
             f"/integrations/{integration_id}",
             msg="test_ok",
@@ -790,6 +1093,18 @@ async def integration_poll(
                 detail = f"v{ver} · {detail}"
             return _redirect(
                 f"/integrations/{integration_id}", msg="polled", detail=detail
+            )
+        if integration.type == reg.TYPE_PIHOLE:
+            return _redirect(
+                f"/integrations/{integration_id}",
+                msg="polled",
+                detail=f"{summary.get('queries', 0)} queries",
+            )
+        if integration.type == reg.TYPE_NPM:
+            return _redirect(
+                f"/integrations/{integration_id}",
+                msg="polled",
+                detail=f"{summary.get('proxy_host_count', 0)} hosts",
             )
         return _redirect(
             f"/integrations/{integration_id}",
@@ -1231,4 +1546,456 @@ async def suggest_bindings(
         msg="suggested",
         detail=str(applied),
         scope="ssh",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Pi-hole detail + DNS / actions
+# ---------------------------------------------------------------------------
+
+
+async def _pihole_detail(request, session, user, integration: Integration):
+    status = reg.parse_last_status(integration)
+    tab = (request.query_params.get("tab") or "overview").strip().lower()
+    hosts: list = []
+    cnames: list = []
+    dns_error = ""
+    if tab in ("dns", "cname") and reg.pihole_password(integration):
+        try:
+            sess = ph.login(
+                integration.base_url,
+                reg.pihole_password(integration),
+                tls_verify=reg.tls_verify(integration),
+            )
+            try:
+                if tab == "dns":
+                    hosts = ph.list_dns_hosts(sess)
+                else:
+                    cnames = ph.list_dns_cnames(sess)
+            finally:
+                ph.logout(sess)
+        except Exception as e:
+            dns_error = str(e)[:300]
+    # All pihole instances for fan-out context
+    others = [
+        r
+        for r in reg.list_integrations(session, type_filter=reg.TYPE_PIHOLE)
+        if r.id != integration.id
+    ]
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="integrations_pihole_detail.html",
+        context={
+            "title": integration.name,
+            "user": user,
+            "integration": integration,
+            "status": status,
+            "is_primary": reg.is_pihole_primary(integration),
+            "tab": tab,
+            "hosts": hosts,
+            "cnames": cnames,
+            "dns_error": dns_error,
+            "other_piholes": others,
+            "admin_url": ph.admin_url(integration.base_url),
+            "gravity_url": ph.admin_url(integration.base_url, "/gravity"),
+            "system_url": ph.admin_url(integration.base_url, "/settings/system"),
+            "can_mutate": _can_mutate(user),
+            "msg": request.query_params.get("msg") or "",
+            "error": request.query_params.get("error") or "",
+            "detail": request.query_params.get("detail") or "",
+        },
+    )
+
+
+async def _npm_detail(request, session, user, integration: Integration):
+    status = reg.parse_last_status(integration)
+    tab = (request.query_params.get("tab") or "hosts").strip().lower()
+    servers = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
+    bindings = reg.list_bindings(
+        session, integration_id=integration.id, role=reg.ROLE_PROXY_HOST
+    )
+    bind_by_ext = {b.external_id: b for b in bindings}
+    proxy_hosts = status.get("proxy_hosts") or []
+    certificates = status.get("certificates") or []
+    docker_options = {}
+    for s in servers:
+        docker_options[s.id] = reg.docker_inventory_options(session, s.id)
+    from ..services import certificates as cert_svc
+
+    managed = [
+        cert_svc.public_cert_dict(c)
+        for c in cert_svc.list_certificates(session)
+        if c.source_integration_id == integration.id
+    ]
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="integrations_npm_detail.html",
+        context={
+            "title": integration.name,
+            "user": user,
+            "integration": integration,
+            "status": status,
+            "tab": tab,
+            "proxy_hosts": proxy_hosts,
+            "certificates": certificates,
+            "servers": servers,
+            "bindings": bindings,
+            "bind_by_ext": bind_by_ext,
+            "docker_options_json": json.dumps(docker_options),
+            "managed_certs": managed,
+            "open_url": npm_mod.open_npm_url(integration.base_url),
+            "can_mutate": _can_mutate(user),
+            "msg": request.query_params.get("msg") or "",
+            "error": request.query_params.get("error") or "",
+            "detail": request.query_params.get("detail") or "",
+        },
+    )
+
+
+def _fanout_pihole_dns(
+    session: Session,
+    *,
+    op: str,
+    kind: str,
+    ip: str = "",
+    domain: str = "",
+    target: str = "",
+) -> list[dict]:
+    """Apply DNS mutation to primary first, then all other enabled piholes."""
+    rows = [
+        r
+        for r in reg.list_integrations(session, type_filter=reg.TYPE_PIHOLE)
+        if r.enabled
+    ]
+    # Primary first
+    rows.sort(key=lambda r: (0 if reg.is_pihole_primary(r) else 1, r.id or 0))
+    results = []
+    for r in rows:
+        item = {"id": r.id, "name": r.name, "ok": False, "error": ""}
+        try:
+            sess = ph.login(
+                r.base_url,
+                reg.pihole_password(r),
+                tls_verify=reg.tls_verify(r),
+            )
+            try:
+                if kind == "host":
+                    if op == "add":
+                        ph.add_dns_host(sess, ip, domain)
+                    else:
+                        ph.delete_dns_host(sess, ip, domain)
+                else:
+                    if op == "add":
+                        ph.add_dns_cname(sess, domain, target)
+                    else:
+                        ph.delete_dns_cname(sess, domain, target)
+                item["ok"] = True
+            finally:
+                ph.logout(sess)
+        except Exception as e:
+            item["error"] = str(e)[:200]
+        results.append(item)
+    return results
+
+
+@router.post("/integrations/{integration_id}/pihole/dns-host")
+async def pihole_dns_host(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    action: str = Form("add"),
+    ip: str = Form(""),
+    domain: str = Form(""),
+):
+    integration = reg.get_integration(session, integration_id)
+    if not integration or integration.type != reg.TYPE_PIHOLE:
+        raise HTTPException(404)
+    ip = (ip or "").strip()
+    domain = (domain or "").strip()
+    if not ip or not domain:
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab="dns",
+            error="invalid",
+            detail="IP and domain required",
+        )
+    op = "add" if action == "add" else "delete"
+    results = _fanout_pihole_dns(
+        session, op=op, kind="host", ip=ip, domain=domain
+    )
+    ok_n = sum(1 for r in results if r["ok"])
+    fail = [r for r in results if not r["ok"]]
+    _audit(
+        session,
+        user,
+        f"pihole_dns_host_{op}",
+        details=f"{ip} {domain} ok={ok_n}/{len(results)}",
+        status="success" if not fail else "partial",
+    )
+    detail = f"{ok_n}/{len(results)} instances"
+    if fail:
+        detail += " · " + "; ".join(f"{f['name']}: {f['error']}" for f in fail)[:180]
+    return _redirect(
+        f"/integrations/{integration_id}",
+        tab="dns",
+        msg="dns_ok" if not fail else "dns_partial",
+        detail=detail,
+    )
+
+
+@router.post("/integrations/{integration_id}/pihole/dns-cname")
+async def pihole_dns_cname(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    action: str = Form("add"),
+    domain: str = Form(""),
+    target: str = Form(""),
+):
+    integration = reg.get_integration(session, integration_id)
+    if not integration or integration.type != reg.TYPE_PIHOLE:
+        raise HTTPException(404)
+    domain = (domain or "").strip()
+    target = (target or "").strip()
+    if not domain or not target:
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab="cname",
+            error="invalid",
+            detail="domain and target required",
+        )
+    op = "add" if action == "add" else "delete"
+    results = _fanout_pihole_dns(
+        session, op=op, kind="cname", domain=domain, target=target
+    )
+    ok_n = sum(1 for r in results if r["ok"])
+    fail = [r for r in results if not r["ok"]]
+    _audit(
+        session,
+        user,
+        f"pihole_dns_cname_{op}",
+        details=f"{domain} -> {target} ok={ok_n}/{len(results)}",
+        status="success" if not fail else "partial",
+    )
+    detail = f"{ok_n}/{len(results)} instances"
+    if fail:
+        detail += " · " + "; ".join(f"{f['name']}: {f['error']}" for f in fail)[:180]
+    return _redirect(
+        f"/integrations/{integration_id}",
+        tab="cname",
+        msg="dns_ok" if not fail else "dns_partial",
+        detail=detail,
+    )
+
+
+@router.post("/integrations/{integration_id}/pihole/action")
+async def pihole_action(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    action: str = Form(...),
+    all_instances: Optional[str] = Form(None),
+):
+    integration = reg.get_integration(session, integration_id)
+    if not integration or integration.type != reg.TYPE_PIHOLE:
+        raise HTTPException(404)
+    act = (action or "").strip().lower()
+    if act not in ("gravity", "restartdns", "flush_network"):
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab="actions",
+            error="invalid",
+            detail="unknown action",
+        )
+    targets = [integration]
+    if all_instances in ("on", "1", "true"):
+        targets = [
+            r
+            for r in reg.list_integrations(session, type_filter=reg.TYPE_PIHOLE)
+            if r.enabled
+        ]
+    results = []
+    for r in targets:
+        item = {"name": r.name, "ok": False, "error": "", "output": ""}
+        try:
+            sess = ph.login(
+                r.base_url,
+                reg.pihole_password(r),
+                tls_verify=reg.tls_verify(r),
+            )
+            try:
+                out = ph.run_action(sess, act)
+                item["ok"] = True
+                item["output"] = (out or "")[:500]
+            finally:
+                ph.logout(sess)
+        except Exception as e:
+            item["error"] = str(e)[:200]
+        results.append(item)
+    ok_n = sum(1 for r in results if r["ok"])
+    _audit(
+        session,
+        user,
+        f"pihole_action_{act}",
+        details=f"ok={ok_n}/{len(results)}",
+        status="success" if ok_n == len(results) else "partial",
+    )
+    fail = [r for r in results if not r["ok"]]
+    detail = f"{ok_n}/{len(results)} ok"
+    if fail:
+        detail += " · " + "; ".join(f"{f['name']}: {f['error']}" for f in fail)[:160]
+    return _redirect(
+        f"/integrations/{integration_id}",
+        tab="actions",
+        msg="action_ok" if not fail else "action_partial",
+        detail=detail,
+    )
+
+
+@router.post("/integrations/{integration_id}/npm/bind")
+async def npm_bind_proxy(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    external_id: str = Form(...),
+    server_id: int = Form(...),
+    docker_project: str = Form(""),
+    docker_container: str = Form(""),
+):
+    integration = reg.get_integration(session, integration_id)
+    if not integration or integration.type != reg.TYPE_NPM:
+        raise HTTPException(404)
+    st = reg.parse_last_status(integration)
+    host = None
+    for h in st.get("proxy_hosts") or []:
+        if str(h.get("id")) == str(external_id).strip():
+            host = h
+            break
+    label = (host or {}).get("label") or str(external_id)
+    try:
+        reg.set_binding(
+            session,
+            integration_id=integration_id,
+            server_id=server_id,
+            external_id=str(external_id).strip(),
+            role=reg.ROLE_PROXY_HOST,
+            docker_project=docker_project or None,
+            docker_container=docker_container or None,
+            external_label=label,
+            external_meta=host or {"id": external_id},
+            last_state="up",
+        )
+        _audit(
+            session,
+            user,
+            "npm_proxy_bound",
+            server_id=server_id,
+            details=f"proxy_host={external_id}",
+        )
+        return _redirect(
+            f"/integrations/{integration_id}", tab="hosts", msg="bound"
+        )
+    except ValueError as e:
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab="hosts",
+            error="bind_failed",
+            detail=str(e)[:200],
+        )
+
+
+@router.post("/integrations/{integration_id}/npm/unbind")
+async def npm_unbind_proxy(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    binding_id: int = Form(...),
+):
+    ok = reg.clear_binding(
+        session, integration_id=integration_id, server_id=0, binding_id=binding_id
+    )
+    if ok:
+        _audit(session, user, "npm_proxy_unbound", details=f"binding={binding_id}")
+    return _redirect(f"/integrations/{integration_id}", tab="hosts", msg="unbound")
+
+
+@router.post("/integrations/{integration_id}/npm/pull-cert")
+async def npm_pull_cert(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    cert_id: str = Form(...),
+    name: str = Form(""),
+    auto_renew: Optional[str] = Form("on"),
+):
+    from ..services import certificates as cert_svc
+
+    integration = reg.get_integration(session, integration_id)
+    if not integration or integration.type != reg.TYPE_NPM:
+        raise HTTPException(404)
+    try:
+        row = cert_svc.pull_from_npm(
+            session,
+            integration,
+            cert_id,
+            name=name,
+            auto_renew=auto_renew in ("on", "1", "true"),
+        )
+        _audit(
+            session,
+            user,
+            "cert_pulled_npm",
+            details=f"npm_id={cert_id} cert={row.id} name={row.name}",
+        )
+        return _redirect(f"/certificates/{row.id}", msg="pulled")
+    except Exception as e:
+        logger.exception("npm pull cert")
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab="certs",
+            error="pull_failed",
+            detail=str(e)[:200],
+        )
+
+
+@router.post("/integrations/{integration_id}/npm/renew-cert")
+async def npm_renew_cert(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    cert_id: str = Form(...),
+):
+    from ..services import certificates as cert_svc
+
+    integration = reg.get_integration(session, integration_id)
+    if not integration or integration.type != reg.TYPE_NPM:
+        raise HTTPException(404)
+    # Ensure we have a managed row
+    try:
+        row = cert_svc.pull_from_npm(
+            session, integration, cert_id, auto_renew=True
+        )
+    except Exception as e:
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab="certs",
+            error="pull_failed",
+            detail=str(e)[:200],
+        )
+    result = cert_svc.renew_npm_certificate(
+        session, row, poll_interval_sec=5, poll_attempts=2
+    )
+    _audit(
+        session,
+        user,
+        "cert_renew_requested",
+        details=f"cert={row.id} ok={result.get('ok')}",
+        status="success" if result.get("ok") else "failed",
+    )
+    if result.get("ok"):
+        return _redirect(f"/certificates/{row.id}", msg="renewed")
+    return _redirect(
+        f"/certificates/{row.id}",
+        error="renew_failed",
+        detail=(result.get("error") or "")[:200],
     )

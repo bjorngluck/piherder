@@ -89,6 +89,22 @@ Operator friction fixes and multi-host workflows that do not depend on templates
 **Tests:** `tests/test_job_exclusive.py` · `tests/test_audit_format.py` · `tests/test_app_settings.py`  
 **Wiki:** [Updates & patching](../wiki/day-to-day/updates-and-patching.md) · [Jobs / Audit](../wiki/day-to-day/jobs-audit-notifications.md) · [Compose edit](../wiki/docker/compose-edit.md) · [Multi-worker](../wiki/operations/multi-worker.md)
 
+### F — Ecosystem connectors (primary for RC — 2026-07-13)
+
+Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are **must-have** for v0.5.0. Template polish / drift / restore may slip if schedule conflicts. Detail: [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md).
+
+| Item | Notes | Status |
+|------|--------|--------|
+| **Pi-hole v6 multi-instance** | Connect N instances; stats poll; deep links; primary flag; multi summary | **Done** |
+| **Pi-hole DNS/CNAME** | List on primary path; add/remove fans out to all enabled instances | **Done** |
+| **Pi-hole actions** | Update Gravity, Restart DNS, Flush network (audited) | **Done** |
+| **NPM connector** | Token auth; proxy hosts RO + bind to server/docker; cert inventory | **Done** |
+| **Managed certificates** | NPM pull **or PEM upload**; encrypted fullchain+key; metadata UI | **Done** |
+| **Cert deploy targets** | pair / combined / pfx; perms/owner; post-deploy command via SSH | **Done** |
+| **Cert renew loop** | ≤21d → NPM renew → poll → distribute; scheduler every 6h | **Done** |
+| **Herder backup** | Includes managed certs + targets | **Done** |
+| **Docs / wiki** | Feature plan + wiki pages + PLAN/SPEC/ROADMAP | **Done** |
+
 ### Stretch / carry (do not block RC)
 
 | ID | Item |
@@ -96,7 +112,7 @@ Operator friction fixes and multi-host workflows that do not depend on templates
 | **B07** | Docker Deploy/Check as Jobs + live log |
 | **B08** | Service logos in herder self-backup |
 | **B09** | Web Push on auto-resolve of alerts |
-| Phase 5 remainder | Multi Pi-hole / generic URL integrations (capacity permitting) |
+| Phase 5 remainder | HA / Frigate / n8n generic URL integrations |
 
 ---
 
@@ -113,12 +129,16 @@ Must-have:
 7. Secrets paths reviewed (step-up 2FA, no cleartext in audit, host `.env` mode `600`)
 8. Version `0.5.0` + git tag + [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) (at freeze)
 
-**Nice-to-have in the same tag:** git catalog, NPM connector, B07, B08. Prefer shipping if clean; do not slip RC forever for the full laundry list.
+**Nice-to-have in the same tag:** git catalog, B07, B08. Prefer shipping if clean; do not slip RC forever for the full laundry list.
+
+**Must-have (workstream F):** Pi-hole multi-instance + DNS fan-out, NPM RO + cert pull, managed certs (upload + NPM), deploy targets, renew loop.
 
 ### Explicitly out of v0.5.0
 
 - Advanced secret stores (Swarm / vault / sealed) — Horizon 3  
-- Automated DNS (Pi-hole / Cloudflare)  
+- Create/edit proxy hosts in NPM; redirect/stream/404 hosts  
+- Pi-hole v5 API; Cloudflare DNS automation  
+- ACME / Let’s Encrypt inside PiHerder (use NPM or external)  
 - Large curated pack expansion (Frigate, HA, n8n, media…)  
 - Kubernetes / bare install  
 - Multi-tenant orgs  

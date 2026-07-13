@@ -8,8 +8,11 @@ Core fleet ops work **without** any integration.
 |---------|------|
 | [Uptime Kuma](uptime-kuma.md) | Status, TLS days, deep links, Services pages |
 | [Grafana](grafana.md) | Dashboard inventory, deep links with query templates |
+| [Pi-hole](pihole.md) | v6 multi-instance stats, local DNS/CNAME fan-out, gravity/actions |
+| [Nginx Proxy Manager](npm.md) | Proxy hosts (read-only) + certificate pull |
+| [Certificates](certificates.md) | Encrypted store, PEM upload, deploy targets, NPM renew |
 
-Credentials are Fernet-encrypted and included in [self-backup](../operations/self-backup.md).
+Credentials and cert PEMs are Fernet-encrypted and included in [self-backup](../operations/self-backup.md).
 
 ## Design principle
 

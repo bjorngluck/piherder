@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">Upload certificate (PEM)</h1>
+    <p class="text-sm text-muted mt-1">
+      Paste cleartext fullchain and private key PEMs. Material is encrypted at rest with
+      <code class="text-xs">PIHERDER_MASTER_KEY</code> and never shown again in the UI.
+      Use this when you do not use Nginx Proxy Manager.
+    </p>
+  </div>
+  <div class="page-header-actions">
+    <a href="/certificates" class="btn btn-secondary min-h-11">Cancel</a>
+  </div>
+</div>
+
+{% if error %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  {{ error }}{% if detail %} — {{ detail }}{% endif %}
+</div>
+{% endif %}
+
+<div class="card p-5 max-w-2xl">
+  <form method="post" action="/certificates/upload" class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="name">Display name</label>
+      <input id="name" name="name" type="text" class="input w-full" placeholder="*.example.com">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="fullchain_pem">Fullchain PEM</label>
+      <textarea id="fullchain_pem" name="fullchain_pem" required rows="8"
+                class="input w-full font-mono text-xs"
+                placeholder="-----BEGIN CERTIFICATE-----&#10;…&#10;-----END CERTIFICATE-----"></textarea>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="privkey_pem">Private key PEM</label>
+      <textarea id="privkey_pem" name="privkey_pem" required rows="6"
+                class="input w-full font-mono text-xs"
+                placeholder="-----BEGIN PRIVATE KEY-----&#10;…&#10;-----END PRIVATE KEY-----"></textarea>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary min-h-11">Encrypt &amp; store</button>
+      <a href="/certificates" class="btn btn-secondary min-h-11">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

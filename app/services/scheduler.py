@@ -474,13 +474,54 @@ def sync_integrations_poll_schedule(scheduler, HAS_SCHEDULER):
             trigger=IntervalTrigger(seconds=INTEGRATIONS_POLL_INTERVAL_SEC),
             id=INTEGRATIONS_POLL_JOB_ID,
             replace_existing=True,
-            name="Integrations poll (Kuma)",
+            name="Integrations poll (Kuma/Grafana/Pi-hole/NPM)",
         )
         logger.info(
             f"[SCHEDULER] Integrations poll every {INTEGRATIONS_POLL_INTERVAL_SEC}s"
         )
     except Exception as e:
         logger.warning(f"[SCHEDULER] Integrations poll schedule failed: {e}")
+
+
+CERT_RENEW_JOB_ID = "cert_renew_check"
+CERT_RENEW_INTERVAL_HOURS = 6
+
+
+def schedule_cert_renew_job():
+    """Check managed certs nearing expiry; renew via NPM and redistribute."""
+    try:
+        from ..database import engine
+        from . import certificates as cert_svc
+        from sqlmodel import Session
+
+        with Session(engine) as db:
+            results = cert_svc.check_expiring_and_renew(db)
+            if results:
+                logger.info("[SCHEDULER] cert renew check: %s result(s)", len(results))
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] cert renew check failed: {e}")
+
+
+def sync_cert_renew_schedule(scheduler, HAS_SCHEDULER):
+    """Register periodic certificate expiry / renew / distribute job."""
+    if not HAS_SCHEDULER or not scheduler:
+        return
+    _remove_job(scheduler, CERT_RENEW_JOB_ID)
+    try:
+        from apscheduler.triggers.interval import IntervalTrigger
+
+        scheduler.add_job(
+            func=schedule_cert_renew_job,
+            trigger=IntervalTrigger(hours=CERT_RENEW_INTERVAL_HOURS),
+            id=CERT_RENEW_JOB_ID,
+            replace_existing=True,
+            name="TLS certificate renew check",
+        )
+        logger.info(
+            f"[SCHEDULER] Cert renew check every {CERT_RENEW_INTERVAL_HOURS}h"
+        )
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] Cert renew schedule failed: {e}")
 
 
 def sync_herder_backup_schedule(scheduler, HAS_SCHEDULER):

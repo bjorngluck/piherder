@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+  <div>
+    <h2 class="text-lg font-semibold tracking-tight text-text">{{ cert.name }}</h2>
+    <div class="flex flex-wrap gap-2 mt-2 text-xs">
+      <span class="status-pill {% if cert.source == 'npm' %}status-running{% else %}feature-off{% endif %}">{{ cert.source }}</span>
+      {% if cert.expired %}
+      <span class="status-pill status-failed">expired</span>
+      {% elif cert.expiring_soon %}
+      <span class="status-pill status-failed">{{ cert.days_left }}d left</span>
+      {% elif cert.days_left is not none %}
+      <span class="status-pill status-success">{{ cert.days_left }}d left</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="/certificates" class="btn btn-secondary min-h-11">All certificates</a>
+    {% if can_mutate and cert.source == 'npm' %}
+    <form method="post" action="/certificates/{{ cert.id }}/renew"
+          onsubmit="return confirm('Request renew via NPM and poll for a new cert?');">
+      <button class="btn btn-secondary min-h-11" type="submit">Renew (NPM)</button>
+    </form>
+    {% endif %}
+    {% if can_mutate %}
+    <form method="post" action="/certificates/{{ cert.id }}/deploy">
+      <input type="hidden" name="force" value="on">
+      <button class="btn btn-primary min-h-11" type="submit">Deploy all targets</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if msg %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">{{ msg }}{% if detail %} — {{ detail }}{% endif %}</div>
+{% endif %}
+{% if error %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">{{ error }}{% if detail %} — {{ detail }}{% endif %}</div>
+{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+  <div class="card p-4 text-sm space-y-2">
+    <h3 class="font-semibold">Details</h3>
+    <div><span class="text-muted">Domains:</span> {{ cert.domains|join(', ') if cert.domains else '—' }}</div>
+    <div><span class="text-muted">Issuer:</span> <span class="text-xs break-all">{{ cert.issuer or '—' }}</span></div>
+    <div><span class="text-muted">Not before:</span> {{ cert.not_before or '—' }}</div>
+    <div><span class="text-muted">Not after:</span> {{ cert.not_after or '—' }}</div>
+    <div><span class="text-muted">Fingerprint:</span> <span class="font-mono text-xs break-all">{{ cert.fingerprint_sha256 or '—' }}</span></div>
+    <div><span class="text-muted">Last pulled:</span> {{ cert.last_pulled_at or '—' }}</div>
+    <div><span class="text-muted">Renew status:</span> {{ cert.last_renew_status or '—' }}</div>
+    {% if cert.last_error %}<div class="text-amber-600 text-xs">{{ cert.last_error }}</div>{% endif %}
+    <p class="text-[11px] text-muted pt-2">Private key and fullchain are encrypted and never displayed.</p>
+  </div>
+
+  {% if can_mutate %}
+  <div class="card p-4">
+    <h3 class="font-semibold text-sm mb-3">Settings</h3>
+    <form method="post" action="/certificates/{{ cert.id }}/settings" class="space-y-3">
+      <div>
+        <label class="block text-xs text-muted mb-1">Name</label>
+        <input name="name" class="input w-full" value="{{ cert.name }}" required>
+      </div>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="auto_renew" value="on" {% if cert.auto_renew %}checked{% endif %}
+               {% if cert.source != 'npm' %}disabled{% endif %}>
+        Auto-renew via NPM when ≤ days before expiry
+      </label>
+      <div>
+        <label class="block text-xs text-muted mb-1">Renew days before</label>
+        <input name="renew_days_before" type="number" min="1" max="90" class="input w-24"
+               value="{{ cert.renew_days_before or 21 }}">
+      </div>
+      <button type="submit" class="btn btn-primary min-h-11">Save</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<div class="card p-4 mb-6">
+  <h3 class="font-semibold text-sm mb-3">Deploy targets</h3>
+  {% if targets %}
+  <div class="overflow-x-auto mb-4">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-xs text-muted border-b border-border">
+          <th class="py-2 text-left">Server</th>
+          <th class="text-left">Path</th>
+          <th class="text-left">Layout</th>
+          <th class="text-left">Last deploy</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for t in targets %}
+        <tr class="border-b border-border/60">
+          <td class="py-2">{{ t.server_name }}</td>
+          <td class="font-mono text-xs">{{ t.remote_dir }}</td>
+          <td class="text-xs">{{ t.layout }}</td>
+          <td class="text-xs">
+            {% if t.last_deploy_status == 'success' %}
+            <span class="status-pill status-success">ok</span>
+            {% elif t.last_deploy_status == 'failed' %}
+            <span class="status-pill status-failed" title="{{ t.last_deploy_message or '' }}">failed</span>
+            {% else %}
+            <span class="text-muted">never</span>
+            {% endif %}
+            {% if t.last_deployed_at %}<span class="text-muted"> · {{ t.last_deployed_at }}</span>{% endif %}
+          </td>
+          <td class="text-right space-x-1">
+            {% if can_mutate %}
+            <form method="post" action="/certificates/{{ cert.id }}/deploy" class="inline">
+              <input type="hidden" name="target_id" value="{{ t.id }}">
+              <input type="hidden" name="force" value="on">
+              <button class="btn btn-secondary text-xs min-h-9" type="submit">Deploy</button>
+            </form>
+            <form method="post" action="/certificates/{{ cert.id }}/targets/{{ t.id }}/delete" class="inline"
+                  onsubmit="return confirm('Remove this target?');">
+              <button class="btn btn-secondary text-xs min-h-9" type="submit">Remove</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm text-muted mb-3">No deploy targets yet.</p>
+  {% endif %}
+
+  {% if can_mutate %}
+  <form method="post" action="/certificates/{{ cert.id }}/targets" class="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-border pt-4">
+    <div>
+      <label class="block text-xs text-muted mb-1">Server</label>
+      <select name="server_id" class="input w-full" required>
+        {% for s in servers %}
+        <option value="{{ s.id }}">{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">Remote directory</label>
+      <input name="remote_dir" class="input w-full font-mono text-sm" value="~/certs">
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">Layout</label>
+      <select name="layout" class="input w-full">
+        <option value="pair">pair (fullchain + privkey)</option>
+        <option value="combined">combined only (key+chain)</option>
+        <option value="pair_and_combined">pair + combined</option>
+        <option value="pair_and_pfx">pair + PFX</option>
+        <option value="pair_combined_pfx">pair + combined + PFX</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">File mode</label>
+      <input name="file_mode" class="input w-full font-mono text-sm" value="600">
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">Owner (optional)</label>
+      <input name="file_owner" class="input w-full" placeholder="root">
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">Group (optional)</label>
+      <input name="file_group" class="input w-full" placeholder="root">
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">fullchain filename</label>
+      <input name="fullchain_filename" class="input w-full font-mono text-sm" value="fullchain.pem">
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">privkey filename</label>
+      <input name="privkey_filename" class="input w-full font-mono text-sm" value="privkey.pem">
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">combined filename</label>
+      <input name="combined_filename" class="input w-full font-mono text-sm" value="snakeoil.pem">
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">pfx filename</label>
+      <input name="pfx_filename" class="input w-full font-mono text-sm" value="Certificate.pfx">
+    </div>
+    <div class="md:col-span-2">
+      <label class="block text-xs text-muted mb-1">Post-deploy command (optional)</label>
+      <input name="post_deploy_command" class="input w-full font-mono text-sm"
+             placeholder="sudo systemctl restart myapp">
+    </div>
+    <div class="md:col-span-2">
+      <button type="submit" class="btn btn-primary min-h-11">Add target</button>
+    </div>
+  </form>
+  {% endif %}
+</div>
+
+{% if can_mutate %}
+<div class="card p-4 mb-6">
+  <h3 class="font-semibold text-sm mb-2">Replace PEM material</h3>
+  <p class="text-xs text-muted mb-3">Upload a new fullchain + key (e.g. after manual renewal outside NPM).</p>
+  <form method="post" action="/certificates/{{ cert.id }}/replace-pem" class="space-y-3">
+    <textarea name="fullchain_pem" required rows="5" class="input w-full font-mono text-xs" placeholder="Fullchain PEM"></textarea>
+    <textarea name="privkey_pem" required rows="4" class="input w-full font-mono text-xs" placeholder="Private key PEM"></textarea>
+    <button type="submit" class="btn btn-secondary min-h-11">Replace encrypted material</button>
+  </form>
+</div>
+
+<form method="post" action="/certificates/{{ cert.id }}/delete"
+      onsubmit="return confirm('Delete this certificate and all targets?');">
+  <button type="submit" class="btn btn-secondary text-red-600 min-h-11">Delete certificate</button>
+</form>
+{% endif %}
+{% endblock %}

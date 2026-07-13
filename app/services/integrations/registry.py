@@ -11,15 +11,23 @@ from sqlmodel import Session, select
 from ...models import Integration, IntegrationBinding, Server
 from ...security.encryption import decrypt_str, encrypt_str
 from . import grafana as gf
+from . import npm as npm_mod
+from . import pihole as ph
 from . import uptime_kuma as kuma
 
 logger = logging.getLogger(__name__)
 
 TYPE_UPTIME_KUMA = "uptime_kuma"
 TYPE_GRAFANA = "grafana"
+TYPE_PIHOLE = "pihole"
+TYPE_NPM = "npm"
 ROLE_SSH = "ssh_reachability"
 ROLE_SERVICE = "service"  # HTTP(s) / app / cert monitoring (Kuma)
 ROLE_DASHBOARD = "dashboard"  # Grafana dashboard deep link per server
+ROLE_PROXY_HOST = "proxy_host"  # NPM proxy host → server / docker scope
+
+DEFAULT_PIHOLE_POLL_SEC = 120
+DEFAULT_NPM_POLL_SEC = 120
 
 # Grafana binding kinds (stored in external_meta_json.kind)
 GRAFANA_KIND_METRICS = "metrics"  # host node exporter / host metrics
@@ -154,6 +162,208 @@ def list_integrations(session: Session, *, type_filter: Optional[str] = None) ->
 
 def get_integration(session: Session, integration_id: int) -> Optional[Integration]:
     return session.get(Integration, integration_id)
+
+
+def is_pihole_primary(integration: Integration) -> bool:
+    return bool(parse_config(integration.config_json).get("is_primary"))
+
+
+def set_pihole_primary_flags(
+    session: Session, primary_id: int
+) -> None:
+    """Ensure only primary_id has is_primary=true among pihole integrations."""
+    rows = list_integrations(session, type_filter=TYPE_PIHOLE)
+    now = datetime.utcnow()
+    for r in rows:
+        cfg = parse_config(r.config_json)
+        want = r.id == primary_id
+        if bool(cfg.get("is_primary")) != want:
+            cfg["is_primary"] = want
+            r.config_json = dump_config(cfg)
+            r.updated_at = now
+            session.add(r)
+    session.commit()
+
+
+def create_pihole(
+    session: Session,
+    *,
+    name: str,
+    base_url: str,
+    password: str,
+    poll_interval_sec: int = DEFAULT_PIHOLE_POLL_SEC,
+    tls_verify_flag: bool = True,
+    enabled: bool = True,
+    is_primary: bool = False,
+) -> Integration:
+    base = ph.normalize_base_url(base_url)
+    pw = password or ""
+    if not pw:
+        raise ValueError("Pi-hole password is required")
+    iv = max(MIN_POLL_INTERVAL_SEC, min(MAX_POLL_INTERVAL_SEC, int(poll_interval_sec)))
+    now = datetime.utcnow()
+    # First pihole becomes primary if none marked yet
+    existing = list_integrations(session, type_filter=TYPE_PIHOLE)
+    if not existing:
+        is_primary = True
+    cfg = {
+        "poll_interval_sec": iv,
+        "tls_verify": bool(tls_verify_flag),
+        "is_primary": bool(is_primary),
+    }
+    row = Integration(
+        type=TYPE_PIHOLE,
+        name=(name or "Pi-hole").strip() or "Pi-hole",
+        base_url=base,
+        enabled=enabled,
+        config_json=dump_config(cfg),
+        credentials_encrypted=encrypt_credentials("", password=pw),
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    if is_primary and row.id:
+        set_pihole_primary_flags(session, row.id)
+        session.refresh(row)
+    return row
+
+
+def update_pihole(
+    session: Session,
+    integration: Integration,
+    *,
+    name: Optional[str] = None,
+    base_url: Optional[str] = None,
+    password: Optional[str] = None,
+    poll_interval_sec: Optional[int] = None,
+    tls_verify_flag: Optional[bool] = None,
+    enabled: Optional[bool] = None,
+    is_primary: Optional[bool] = None,
+) -> Integration:
+    if name is not None:
+        integration.name = name.strip() or integration.name
+    if base_url is not None and base_url.strip():
+        integration.base_url = ph.normalize_base_url(base_url)
+    if password is not None and password != "":
+        prev = decrypt_credentials(integration)
+        integration.credentials_encrypted = encrypt_credentials(
+            "", password=password or prev.get("password") or ""
+        )
+    cfg = parse_config(integration.config_json)
+    if poll_interval_sec is not None:
+        cfg["poll_interval_sec"] = max(
+            MIN_POLL_INTERVAL_SEC, min(MAX_POLL_INTERVAL_SEC, int(poll_interval_sec))
+        )
+    if tls_verify_flag is not None:
+        cfg["tls_verify"] = bool(tls_verify_flag)
+    make_primary = False
+    if is_primary is not None:
+        cfg["is_primary"] = bool(is_primary)
+        make_primary = bool(is_primary)
+    integration.config_json = dump_config(cfg)
+    if enabled is not None:
+        integration.enabled = bool(enabled)
+    integration.updated_at = datetime.utcnow()
+    session.add(integration)
+    session.commit()
+    session.refresh(integration)
+    if make_primary and integration.id:
+        set_pihole_primary_flags(session, integration.id)
+        session.refresh(integration)
+    return integration
+
+
+def create_npm(
+    session: Session,
+    *,
+    name: str,
+    base_url: str,
+    identity: str,
+    password: str,
+    poll_interval_sec: int = DEFAULT_NPM_POLL_SEC,
+    tls_verify_flag: bool = True,
+    enabled: bool = True,
+) -> Integration:
+    base = npm_mod.normalize_base_url(base_url)
+    ident = (identity or "").strip()
+    pw = password or ""
+    if not ident or not pw:
+        raise ValueError("NPM identity and password are required")
+    iv = max(MIN_POLL_INTERVAL_SEC, min(MAX_POLL_INTERVAL_SEC, int(poll_interval_sec)))
+    now = datetime.utcnow()
+    row = Integration(
+        type=TYPE_NPM,
+        name=(name or "Nginx Proxy Manager").strip() or "Nginx Proxy Manager",
+        base_url=base,
+        enabled=enabled,
+        config_json=dump_config(
+            {"poll_interval_sec": iv, "tls_verify": bool(tls_verify_flag)}
+        ),
+        credentials_encrypted=encrypt_credentials(
+            "", username=ident, password=pw
+        ),
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
+
+
+def update_npm(
+    session: Session,
+    integration: Integration,
+    *,
+    name: Optional[str] = None,
+    base_url: Optional[str] = None,
+    identity: Optional[str] = None,
+    password: Optional[str] = None,
+    poll_interval_sec: Optional[int] = None,
+    tls_verify_flag: Optional[bool] = None,
+    enabled: Optional[bool] = None,
+) -> Integration:
+    if name is not None:
+        integration.name = name.strip() or integration.name
+    if base_url is not None and base_url.strip():
+        integration.base_url = npm_mod.normalize_base_url(base_url)
+    prev = decrypt_credentials(integration)
+    new_user = prev.get("username") or ""
+    new_pw = prev.get("password") or ""
+    if identity is not None:
+        new_user = identity.strip()
+    if password is not None and password != "":
+        new_pw = password
+    if identity is not None or (password is not None and password != ""):
+        integration.credentials_encrypted = encrypt_credentials(
+            "", username=new_user, password=new_pw
+        )
+    cfg = parse_config(integration.config_json)
+    if poll_interval_sec is not None:
+        cfg["poll_interval_sec"] = max(
+            MIN_POLL_INTERVAL_SEC, min(MAX_POLL_INTERVAL_SEC, int(poll_interval_sec))
+        )
+    if tls_verify_flag is not None:
+        cfg["tls_verify"] = bool(tls_verify_flag)
+    integration.config_json = dump_config(cfg)
+    if enabled is not None:
+        integration.enabled = bool(enabled)
+    integration.updated_at = datetime.utcnow()
+    session.add(integration)
+    session.commit()
+    session.refresh(integration)
+    return integration
+
+
+def pihole_password(integration: Integration) -> str:
+    return decrypt_credentials(integration).get("password") or ""
+
+
+def npm_credentials(integration: Integration) -> tuple[str, str]:
+    c = decrypt_credentials(integration)
+    return c.get("username") or "", c.get("password") or ""
 
 
 def create_kuma(
@@ -610,6 +820,9 @@ def set_binding(
     # role=dashboard (Grafana): docker scope only for kind=containers
     if role == ROLE_SSH:
         proj, cont = None, None
+    elif role == ROLE_PROXY_HOST:
+        # Optional docker scope for linking proxy host to a fleet service
+        pass
     elif role == ROLE_DASHBOARD:
         kind_pre = normalize_grafana_kind(
             (external_meta or {}).get("kind") if external_meta else None
@@ -693,7 +906,7 @@ def set_binding(
                 IntegrationBinding.role == role,
             )
         ).first()
-    elif role in (ROLE_DASHBOARD, ROLE_SERVICE):
+    elif role in (ROLE_DASHBOARD, ROLE_SERVICE, ROLE_PROXY_HOST):
         # Prefer row already occupying the unique scope (proj/container).
         existing = _find_by_unique_scope()
         if by_id is not None:
@@ -1131,6 +1344,11 @@ def binding_open_url(
     *,
     server: Optional[Server] = None,
 ) -> str:
+    if integration.type == TYPE_NPM:
+        # Prefer open proxy hosts UI; id-specific deep links vary by NPM version
+        return npm_mod.open_npm_url(integration.base_url, "/nginx/proxy")
+    if integration.type == TYPE_PIHOLE:
+        return ph.admin_url(integration.base_url, "/")
     if integration.type == TYPE_GRAFANA:
         meta = parse_binding_meta(binding)
         uid = (binding.external_id or meta.get("uid") or "").strip()

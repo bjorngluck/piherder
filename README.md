@@ -23,6 +23,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **IAM / 2FA / update checks / notifications:** [docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - **PWA + Web Push:** [docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · iOS: [docs/DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md)
 - **Integrations (Kuma + Grafana):** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · ops in [docs/ADMIN.md](docs/ADMIN.md)
+- **Pi-hole + NPM + certs:** [docs/FEATURE_PLAN_PIHOLE_NPM_CERTS.md](docs/FEATURE_PLAN_PIHOLE_NPM_CERTS.md)
 - **Release notes:** [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md) · [v0.3.0](docs/RELEASE_v0.3.0.md) · [v0.2.0](docs/RELEASE_v0.2.0.md)
 - **v0.5.0 plan (active):** [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md)
 - **Service templates:** [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · ops in [docs/ADMIN.md](docs/ADMIN.md)
@@ -51,9 +52,9 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - In-app **notification center** (**bell** only — no separate Alerts nav link; dismiss, deep links).
 - Optional **Web Push** (VAPID) for fleet alerts on Android and iOS Home Screen PWAs (16.4+); per-user prefs under Account.
 - Installable **PWA** (manifest + service worker + home-screen install).
-- Link to Pi-hole admin from dashboard (configurable).
+- Link to Pi-hole admin from dashboard (configurable env fallback; prefer integrations when configured).
 - **Service templates:** under **Catalog** — deploy NPM, Uptime Kuma, Pi-hole, Grafana (and custom / from-host stacks) via wizard — variables (incl. **boolean** + **volume** storage modes), preview, host picker, encrypted desired state V1; step-up 2FA for secrets; wait modal while deploy runs.
-- **Integrations:** **Catalog** (`/catalog` → Integrations; Settings-style Templates tab) — **Uptime Kuma** (API key + `/metrics`; SSH / host / Docker bindings; TLS; Services pages; logos; down notifications) and **Grafana** (health; Inventory preferred names by dashboard UID; bind Clone/Remove; deep links with query templates).
+- **Integrations:** **Catalog** (`/catalog` → Integrations) — **Uptime Kuma**, **Grafana**, **Pi-hole** (v6 multi-instance stats, local DNS/CNAME fan-out, gravity/actions), **Nginx Proxy Manager** (proxy hosts RO + bind; cert pull). **Certificates:** encrypted store from NPM pull or PEM upload; deploy targets (pair/combined/pfx); NPM auto-renew loop.
 - HTTPS via Caddy with **operator-supplied TLS certs** (volume `./certs`) and `PIHERDER_HOSTNAME` (default ports **8888** HTTP / **8443** HTTPS).
 
 ### Account & security

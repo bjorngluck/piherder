@@ -15,6 +15,7 @@ from .routers import push as push_router
 from .routers import metrics as metrics_router
 from .routers import api_v1 as api_v1_router
 from .routers import integrations as integrations_router
+from .routers import certificates as certificates_router
 from .routers import fleet_services as fleet_services_router
 from .routers import templates_svc as templates_svc_router
 from . import templates as templates_mod  # shared Jinja instance (avoids circular)
@@ -106,12 +107,14 @@ async def lifespan(app: FastAPI):
                 sync_herder_backup_schedule,
                 sync_stack_health_schedule,
                 sync_integrations_poll_schedule,
+                sync_cert_renew_schedule,
             )
             sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER)
             sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
             sync_docker_inventory_schedule(scheduler, HAS_SCHEDULER)
             sync_stack_health_schedule(scheduler, HAS_SCHEDULER)
             sync_integrations_poll_schedule(scheduler, HAS_SCHEDULER)
+            sync_cert_renew_schedule(scheduler, HAS_SCHEDULER)
         except Exception as e:
             print(f"Scheduler init skipped: {e}")
 
@@ -224,6 +227,7 @@ app.include_router(metrics_router.router, prefix="", tags=["metrics"])
 app.include_router(api_v1_router.router, prefix="/api/v1", tags=["api-v1"])
 app.include_router(settings_router.router, prefix="", tags=["settings"])
 app.include_router(integrations_router.router, prefix="", tags=["integrations"])
+app.include_router(certificates_router.router, prefix="", tags=["certificates"])
 app.include_router(fleet_services_router.router, prefix="", tags=["fleet-services"])
 app.include_router(templates_svc_router.router, prefix="", tags=["templates"])
 
@@ -268,6 +272,36 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
     finally:
         db.close()
     from .config import settings as _settings
+    pihole_url = getattr(_settings, "PIHOLE_URL", None)
+    pihole_integrations = []
+    try:
+        from .services.integrations import registry as integ_reg2
+        from .services.integrations import pihole as ph_mod
+
+        with Session(engine) as db2:
+            ph_rows = integ_reg2.list_integrations(db2, type_filter=integ_reg2.TYPE_PIHOLE)
+            for r in ph_rows:
+                st = integ_reg2.parse_last_status(r)
+                pihole_integrations.append(
+                    {
+                        "id": r.id,
+                        "name": r.name,
+                        "admin_url": ph_mod.admin_url(r.base_url),
+                        "is_primary": integ_reg2.is_pihole_primary(r),
+                        "ok": st.get("ok"),
+                        "queries": st.get("queries"),
+                        "percent_blocked": st.get("percent_blocked"),
+                    }
+                )
+            if pihole_integrations:
+                # Prefer primary admin URL over env fallback for quick link
+                primary = next(
+                    (p for p in pihole_integrations if p.get("is_primary")),
+                    pihole_integrations[0],
+                )
+                pihole_url = primary.get("admin_url") or pihole_url
+    except Exception:
+        pihole_integrations = []
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="dashboard.html",
@@ -279,7 +313,8 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
             "service_count": service_count,
             "service_down": service_down,
             "user": user,
-            "pihole_url": getattr(_settings, "PIHOLE_URL", None),
+            "pihole_url": pihole_url,
+            "pihole_integrations": pihole_integrations,
             "lean_page": True,
         },
     )

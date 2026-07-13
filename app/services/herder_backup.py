@@ -208,6 +208,18 @@ def _snapshot_integration_bindings() -> List[Dict[str, Any]]:
     return _snapshot_table(IntegrationBinding)
 
 
+def _snapshot_managed_certificates() -> List[Dict[str, Any]]:
+    from ..models import ManagedCertificate
+
+    return _snapshot_table(ManagedCertificate)
+
+
+def _snapshot_certificate_targets() -> List[Dict[str, Any]]:
+    from ..models import CertificateTarget
+
+    return _snapshot_table(CertificateTarget)
+
+
 def _snapshot_service_templates() -> List[Dict[str, Any]]:
     return _snapshot_table(ServiceTemplate)
 
@@ -265,6 +277,8 @@ def _build_backup_payload(
             "notifications",
             "integrations",
             "integration_bindings",
+            "managed_certificates",
+            "certificate_targets",
             "service_templates",
             "stack_deployments",
             "herder_config",
@@ -287,6 +301,8 @@ def _build_backup_payload(
         "notifications": _snapshot_notifications(),
         "integrations": _snapshot_integrations(),
         "integration_bindings": _snapshot_integration_bindings(),
+        "managed_certificates": _snapshot_managed_certificates(),
+        "certificate_targets": _snapshot_certificate_targets(),
         "service_templates": _snapshot_service_templates(),
         "stack_deployments": _snapshot_stack_deployments(),
         "herder_config": load_settings(),
@@ -697,6 +713,8 @@ def restore_herder_backup(
         "restored_notifications": 0,
         "restored_integrations": 0,
         "restored_integration_bindings": 0,
+        "restored_managed_certificates": 0,
+        "restored_certificate_targets": 0,
         "restored_service_templates": 0,
         "restored_stack_deployments": 0,
         "restored_avatars": 0,
@@ -732,6 +750,12 @@ def restore_herder_backup(
         result["would_restore_integrations"] = len(payload.get("integrations") or [])
         result["would_restore_integration_bindings"] = len(
             payload.get("integration_bindings") or []
+        )
+        result["would_restore_managed_certificates"] = len(
+            payload.get("managed_certificates") or []
+        )
+        result["would_restore_certificate_targets"] = len(
+            payload.get("certificate_targets") or []
         )
         result["would_restore_service_templates"] = len(
             payload.get("service_templates") or []
@@ -773,6 +797,16 @@ def restore_herder_backup(
         s.flush()
         result["restored_integration_bindings"] = _upsert_rows(
             s, IntegrationBinding, payload.get("integration_bindings") or []
+        )
+
+        from ..models import ManagedCertificate, CertificateTarget
+
+        result["restored_managed_certificates"] = _upsert_rows(
+            s, ManagedCertificate, payload.get("managed_certificates") or []
+        )
+        s.flush()
+        result["restored_certificate_targets"] = _upsert_rows(
+            s, CertificateTarget, payload.get("certificate_targets") or []
         )
 
         result["restored_service_templates"] = _upsert_rows(

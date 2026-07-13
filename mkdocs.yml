@@ -161,6 +161,9 @@ nav:
       - Overview: integrations/overview.md
       - Uptime Kuma: integrations/uptime-kuma.md
       - Grafana: integrations/grafana.md
+      - Pi-hole: integrations/pihole.md
+      - Nginx Proxy Manager: integrations/npm.md
+      - Certificates: integrations/certificates.md
   - Account & security:
       - Roles (RBAC): account-security/roles.md
       - Users: account-security/users.md

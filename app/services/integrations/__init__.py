@@ -1,5 +1,5 @@
-"""External product integrations (Uptime Kuma first)."""
+"""External product integrations (Kuma, Grafana, Pi-hole, NPM)."""
 
-from . import poll, registry, uptime_kuma
+from . import grafana, npm, pihole, poll, registry, uptime_kuma
 
-__all__ = ["poll", "registry", "uptime_kuma"]
+__all__ = ["poll", "registry", "uptime_kuma", "grafana", "pihole", "npm"]
