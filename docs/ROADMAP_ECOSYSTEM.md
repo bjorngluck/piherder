@@ -128,7 +128,8 @@ Read-mostly integrations: config + status + deep links + **server / host / Docke
 | Integration registry + **Catalog** nav (`/catalog` → Integrations; Settings-style tabs) | **Shipped** |
 | **Uptime Kuma** — API key + `/metrics`; SSH + host service + Docker bindings; TLS; deep links; notifications; Services pages; logos | **Shipped** |
 | **Grafana** — service account token; health; inventory; kinds (metrics/containers/logs); query templates; server + Docker deep links | **Shipped** (v0.3.0) |
-| Multi Pi-hole / NPM / HA / Frigate / n8n generic URL | Open (v0.3.x) |
+| Multi Pi-hole (v6) + NPM + managed certs | **Shipped** (v0.5.0 track) — [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) |
+| HA / Frigate / n8n generic URL | Open |
 
 **Uptime Kuma (shipped detail):**
 

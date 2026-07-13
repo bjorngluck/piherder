@@ -226,8 +226,8 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 
 ### Still open (Phase 5 remainder)
 
-- [ ] Multi Pi-hole / NPM / HA / Frigate / n8n generic URL entries (seed from `PIHOLE_URL`)
-- [ ] Docs: cert pattern NPM → n8n → consumers (e.g. Pi-hole)
+- [x] Multi Pi-hole (v6) + NPM connector + managed certificates (v0.5.0 workstream F)
+- [ ] HA / Frigate / n8n generic URL entries
 
 ---
 
@@ -286,7 +286,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 **Nice-to-have in same tag**
 
 - [ ] Git template catalog pull
-- [ ] NPM integration connector (proxy hosts, bindings, encrypted certs)
+- [x] NPM integration connector (proxy hosts RO, bindings, encrypted certs + PEM upload + deploy/renew)
 - [ ] Async Docker/template deploy jobs + live log (**B07**)
 
 **Deferred (post-0.5 / Horizon 3)**
@@ -298,7 +298,8 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 
 ## Phase 7 — Ecosystem depth (post-v0.5 / Horizon 3)
 
-- [ ] Automated DNS (Pi-hole / Cloudflare) from template hints
+- [ ] Cloudflare DNS automation from template hints
+- [ ] Pi-hole / NPM write paths beyond local DNS (proxy host CRUD, lists, etc.)
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis

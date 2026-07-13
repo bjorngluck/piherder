@@ -440,3 +440,62 @@ class IntegrationBinding(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     integration: Optional[Integration] = Relationship(back_populates="bindings")
+
+
+class ManagedCertificate(SQLModel, table=True):
+    """TLS material stored encrypted (from NPM pull or PEM upload).
+
+    Private key and fullchain are Fernet-encrypted; never returned to the browser.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str
+    source: str = Field(default="upload", index=True)  # npm | upload
+    source_integration_id: Optional[int] = Field(
+        default=None, foreign_key="integration.id", index=True
+    )
+    external_id: Optional[str] = Field(default=None, index=True)  # NPM cert id
+    domains_json: Optional[str] = None  # JSON list of CN + SANs
+    not_before: Optional[datetime] = None
+    not_after: Optional[datetime] = None
+    fingerprint_sha256: Optional[str] = Field(default=None, index=True)
+    fullchain_encrypted: Optional[str] = None
+    privkey_encrypted: Optional[str] = None
+    issuer: Optional[str] = None
+    serial: Optional[str] = None
+    last_pulled_at: Optional[datetime] = None
+    last_renew_requested_at: Optional[datetime] = None
+    last_renew_status: Optional[str] = None
+    last_error: Optional[str] = None
+    auto_renew: bool = True
+    renew_days_before: int = 21
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    targets: List["CertificateTarget"] = Relationship(back_populates="certificate")
+
+
+class CertificateTarget(SQLModel, table=True):
+    """Where a managed certificate is deployed on a fleet host."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    certificate_id: int = Field(foreign_key="managedcertificate.id", index=True)
+    server_id: int = Field(foreign_key="server.id", index=True)
+    remote_dir: str = Field(default="~/certs")
+    layout: str = Field(default="pair")  # pair | combined | pair_and_combined | pair_and_pfx
+    fullchain_filename: str = Field(default="fullchain.pem")
+    privkey_filename: str = Field(default="privkey.pem")
+    combined_filename: str = Field(default="snakeoil.pem")
+    pfx_filename: str = Field(default="Certificate.pfx")
+    file_mode: str = Field(default="600")
+    file_owner: Optional[str] = None  # e.g. root
+    file_group: Optional[str] = None
+    pfx_export_password_encrypted: Optional[str] = None
+    post_deploy_command: Optional[str] = None
+    enabled: bool = True
+    last_deployed_at: Optional[datetime] = None
+    last_deploy_status: Optional[str] = None
+    last_deploy_fingerprint: Optional[str] = None
+    last_deploy_message: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    certificate: Optional[ManagedCertificate] = Relationship(back_populates="targets")

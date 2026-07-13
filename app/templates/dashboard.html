@@ -130,9 +130,22 @@
       <li><a href="/notifications" class="text-primary hover:underline">Notifications</a></li>
       <li><a href="/audit" class="text-primary hover:underline">Audit log</a></li>
       <li><a href="/herder-backups" class="text-primary hover:underline">Settings / self-backup</a></li>
-      {% if pihole_url %}
+      {% if pihole_integrations %}
+        {% for p in pihole_integrations %}
+        <li>
+          <a href="{{ p.admin_url }}" class="text-primary hover:underline" target="_blank" rel="noopener">
+            Pi-hole{% if p.name %}: {{ p.name }}{% endif %}{% if p.is_primary %} (primary){% endif %}
+          </a>
+          {% if p.queries is not none %}
+          <span class="text-[10px] text-muted"> · {{ "{:,}".format(p.queries or 0) }} q</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+        <li><a href="/integrations" class="text-accent hover:underline">Pi-hole integrations →</a></li>
+      {% elif pihole_url %}
       <li><a href="{{ pihole_url }}" class="text-primary hover:underline" target="_blank" rel="noopener">Pi-hole admin</a></li>
       {% endif %}
+      <li><a href="/certificates" class="text-primary hover:underline">Certificates</a></li>
     </ul>
   </div>
   <div class="card p-5 text-sm md:col-span-2">

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% with catalog_section='integrations' %}
+{% include "partials/catalog_nav.html" %}
+{% endwith %}
+
+<div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+  <div>
+    <h2 class="text-lg font-semibold tracking-tight text-text">{{ integration.name }}</h2>
+    <div class="text-xs text-muted font-mono mt-0.5">{{ integration.base_url }}</div>
+    <div class="flex flex-wrap gap-2 mt-2 text-xs">
+      <span class="status-pill status-running">pihole</span>
+      {% if is_primary %}<span class="status-pill status-success">primary</span>{% endif %}
+      {% if not integration.enabled %}<span class="status-pill feature-off">disabled</span>
+      {% elif status.ok %}<span class="status-pill status-success">connected</span>
+      {% else %}<span class="status-pill status-failed">error</span>{% endif %}
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    {% if can_mutate %}
+    <form method="post" action="/integrations/{{ integration.id }}/test"><button class="btn btn-secondary min-h-11" type="submit">Test</button></form>
+    <form method="post" action="/integrations/{{ integration.id }}/poll"><button class="btn btn-secondary min-h-11" type="submit">Poll</button></form>
+    <a href="/integrations/{{ integration.id }}/edit" class="btn btn-secondary min-h-11">Edit</a>
+    {% endif %}
+    <a href="{{ admin_url }}" target="_blank" rel="noopener" class="btn btn-primary min-h-11">Open Pi-hole</a>
+  </div>
+</div>
+
+{% if msg %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  {{ msg }}{% if detail %} — {{ detail }}{% endif %}
+</div>
+{% endif %}
+{% if error %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  {{ error }}{% if detail %} — {{ detail }}{% endif %}
+</div>
+{% endif %}
+
+<div class="flex flex-wrap gap-2 mb-4">
+  <a href="?tab=overview" class="settings-tab-btn {% if tab == 'overview' %}active{% endif %}">Overview</a>
+  <a href="?tab=dns" class="settings-tab-btn {% if tab == 'dns' %}active{% endif %}">Local DNS</a>
+  <a href="?tab=cname" class="settings-tab-btn {% if tab == 'cname' %}active{% endif %}">CNAME</a>
+  <a href="?tab=actions" class="settings-tab-btn {% if tab == 'actions' %}active{% endif %}">Actions</a>
+</div>
+
+{% if tab == 'overview' %}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+  <div class="card p-4" style="background:#0ea5e9;color:#fff">
+    <div class="text-xs opacity-90">Total Queries</div>
+    <div class="text-3xl font-semibold mt-1">{{ "{:,}".format(status.queries or 0) }}</div>
+    <div class="text-[11px] opacity-80 mt-1">{{ status.active_clients or 0 }} active clients</div>
+  </div>
+  <div class="card p-4" style="background:#dc2626;color:#fff">
+    <div class="text-xs opacity-90">Queries Blocked</div>
+    <div class="text-3xl font-semibold mt-1">{{ "{:,}".format(status.blocked or 0) }}</div>
+  </div>
+  <div class="card p-4" style="background:#ca8a04;color:#fff">
+    <div class="text-xs opacity-90">Percentage Blocked</div>
+    <div class="text-3xl font-semibold mt-1">{{ status.percent_blocked or 0 }}%</div>
+  </div>
+  <div class="card p-4" style="background:#16a34a;color:#fff">
+    <div class="text-xs opacity-90">Domains on Lists</div>
+    <div class="text-3xl font-semibold mt-1">{{ "{:,}".format(status.domains_on_lists or 0) }}</div>
+  </div>
+</div>
+<div class="card p-4 text-sm space-y-2">
+  <div class="flex flex-wrap gap-3">
+    <a href="{{ gravity_url }}" target="_blank" rel="noopener" class="text-primary hover:underline">Gravity →</a>
+    <a href="{{ system_url }}" target="_blank" rel="noopener" class="text-primary hover:underline">System settings →</a>
+  </div>
+  {% if other_piholes %}
+  <p class="text-muted text-xs">Other instances: {% for o in other_piholes %}<a href="/integrations/{{ o.id }}" class="text-primary hover:underline">{{ o.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+  {% endif %}
+  {% if status.last_error or integration.last_error %}
+  <p class="text-amber-600 text-xs">{{ integration.last_error or status.error }}</p>
+  {% endif %}
+</div>
+
+{% elif tab == 'dns' %}
+<div class="card p-4 mb-4">
+  <p class="text-sm text-muted mb-3">
+    Entries listed from this instance. Add/remove applies to <strong>all enabled Pi-hole integrations</strong>
+    (primary first). Prefer editing on the primary.
+  </p>
+  {% if dns_error %}
+  <div class="mb-3 p-2 banner-error rounded text-sm">{{ dns_error }}</div>
+  {% endif %}
+  {% if can_mutate %}
+  <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-host" class="flex flex-wrap gap-2 items-end mb-4">
+    <input type="hidden" name="action" value="add">
+    <div>
+      <label class="block text-xs text-muted mb-1">IP</label>
+      <input name="ip" class="input font-mono text-sm w-40" required placeholder="192.168.1.10">
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">Domain</label>
+      <input name="domain" class="input font-mono text-sm w-56" required placeholder="host.local">
+    </div>
+    <button type="submit" class="btn btn-primary min-h-11">Add to all instances</button>
+  </form>
+  {% endif %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead><tr class="text-xs text-muted border-b border-border"><th class="py-2">IP</th><th>Domain</th><th></th></tr></thead>
+      <tbody>
+      {% for h in hosts %}
+        <tr class="border-b border-border/60">
+          <td class="py-2 font-mono text-xs">{{ h.ip }}</td>
+          <td class="font-mono text-xs">{{ h.domain }}</td>
+          <td class="text-right">
+            {% if can_mutate %}
+            <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-host" class="inline"
+                  onsubmit="return confirm('Remove {{ h.domain }} from all Pi-hole instances?');">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="ip" value="{{ h.ip }}">
+              <input type="hidden" name="domain" value="{{ h.domain }}">
+              <button type="submit" class="btn btn-secondary text-xs min-h-9">Remove</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="3" class="py-4 text-muted text-sm">No local DNS entries (or could not load).</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% elif tab == 'cname' %}
+<div class="card p-4 mb-4">
+  <p class="text-sm text-muted mb-3">CNAME records fan out to all enabled Pi-hole instances.</p>
+  {% if dns_error %}
+  <div class="mb-3 p-2 banner-error rounded text-sm">{{ dns_error }}</div>
+  {% endif %}
+  {% if can_mutate %}
+  <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-cname" class="flex flex-wrap gap-2 items-end mb-4">
+    <input type="hidden" name="action" value="add">
+    <div>
+      <label class="block text-xs text-muted mb-1">Domain</label>
+      <input name="domain" class="input font-mono text-sm w-48" required placeholder="alias.local">
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1">Target</label>
+      <input name="target" class="input font-mono text-sm w-48" required placeholder="host.local">
+    </div>
+    <button type="submit" class="btn btn-primary min-h-11">Add to all instances</button>
+  </form>
+  {% endif %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead><tr class="text-xs text-muted border-b border-border"><th class="py-2">Domain</th><th>Target</th><th></th></tr></thead>
+      <tbody>
+      {% for c in cnames %}
+        <tr class="border-b border-border/60">
+          <td class="py-2 font-mono text-xs">{{ c.domain }}</td>
+          <td class="font-mono text-xs">{{ c.target }}</td>
+          <td class="text-right">
+            {% if can_mutate %}
+            <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-cname" class="inline"
+                  onsubmit="return confirm('Remove CNAME {{ c.domain }} from all instances?');">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="domain" value="{{ c.domain }}">
+              <input type="hidden" name="target" value="{{ c.target }}">
+              <button type="submit" class="btn btn-secondary text-xs min-h-9">Remove</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="3" class="py-4 text-muted text-sm">No CNAME records (or could not load).</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% elif tab == 'actions' %}
+<div class="card p-4 space-y-4 max-w-xl">
+  <p class="text-sm text-muted">Privileged actions — audited. Gravity can take several minutes.</p>
+  {% if can_mutate %}
+  <form method="post" action="/integrations/{{ integration.id }}/pihole/action" class="space-y-3"
+        onsubmit="return confirm('Run this action on the selected Pi-hole instance(s)?');">
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="all_instances" value="on">
+      Apply to all enabled Pi-hole instances
+    </label>
+    <div class="flex flex-wrap gap-2">
+      <button name="action" value="gravity" type="submit" class="btn btn-primary min-h-11">Update Gravity</button>
+      <button name="action" value="restartdns" type="submit" class="btn btn-secondary min-h-11">Restart DNS Resolver</button>
+      <button name="action" value="flush_network" type="submit" class="btn btn-secondary min-h-11">Flush network table</button>
+    </div>
+  </form>
+  {% endif %}
+  <div class="text-xs text-muted">
+    Deep links:
+    <a href="{{ gravity_url }}" class="text-primary hover:underline" target="_blank" rel="noopener">Gravity UI</a> ·
+    <a href="{{ system_url }}" class="text-primary hover:underline" target="_blank" rel="noopener">System</a>
+  </div>
+</div>
+{% endif %}
+
+{% if can_mutate %}
+<form method="post" action="/integrations/{{ integration.id }}/delete" class="mt-6"
+      onsubmit="return confirm('Delete this Pi-hole integration?');">
+  <button type="submit" class="btn btn-secondary text-red-600 min-h-11">Delete integration</button>
+</form>
+{% endif %}
+{% endblock %}

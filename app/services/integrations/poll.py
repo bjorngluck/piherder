@@ -15,6 +15,8 @@ from ...database import engine
 from ...models import Integration, IntegrationBinding, Server
 from .. import notifications as notif_svc
 from . import grafana as gf
+from . import npm as npm_mod
+from . import pihole as ph
 from . import registry as reg
 from . import uptime_kuma as kuma
 
@@ -104,6 +106,10 @@ def _poll_unlocked(db: Session, integration_id: int, *, notify: bool) -> dict[st
         return _poll_kuma(db, integration, notify=notify)
     if integration.type == reg.TYPE_GRAFANA:
         return _poll_grafana(db, integration, notify=notify)
+    if integration.type == reg.TYPE_PIHOLE:
+        return _poll_pihole(db, integration, notify=notify)
+    if integration.type == reg.TYPE_NPM:
+        return _poll_npm(db, integration, notify=notify)
 
     return {"ok": False, "error": f"unsupported type {integration.type}"}
 
@@ -332,6 +338,101 @@ def _notify_transition(
         notif_svc.resolve_by_fingerprint(db, fp)
 
 
+def _poll_pihole(
+    db: Session, integration: Integration, *, notify: bool
+) -> dict[str, Any]:
+    del notify
+    password = reg.pihole_password(integration)
+    result = ph.fetch_stats(
+        integration.base_url,
+        password,
+        tls_verify=reg.tls_verify(integration),
+    )
+    now = datetime.utcnow()
+    status_payload = result.to_status_json()
+    status_payload["polled_at"] = now.isoformat() + "Z"
+    status_payload["is_primary"] = reg.is_pihole_primary(integration)
+    status_payload["admin_url"] = ph.admin_url(integration.base_url)
+    status_payload["gravity_url"] = ph.admin_url(integration.base_url, "/gravity")
+    status_payload["system_url"] = ph.admin_url(integration.base_url, "/settings/system")
+
+    integration.last_status_json = json.dumps(status_payload)
+    integration.last_polled_at = now
+    integration.last_error = (result.error or "")[:500] if not result.ok else None
+    integration.updated_at = now
+    db.add(integration)
+    db.commit()
+    return {
+        "ok": result.ok,
+        "error": result.error,
+        "queries": result.queries,
+        "blocked": result.blocked,
+        "integration_id": integration.id,
+    }
+
+
+def _poll_npm(
+    db: Session, integration: Integration, *, notify: bool
+) -> dict[str, Any]:
+    del notify
+    identity, password = reg.npm_credentials(integration)
+    result = npm_mod.poll(
+        integration.base_url,
+        identity,
+        password,
+        tls_verify=reg.tls_verify(integration),
+    )
+    now = datetime.utcnow()
+    status_payload = result.to_status_json()
+    status_payload["polled_at"] = now.isoformat() + "Z"
+
+    integration.last_status_json = json.dumps(status_payload)
+    integration.last_polled_at = now
+    integration.last_error = (result.error or "")[:500] if not result.ok else None
+    integration.updated_at = now
+    db.add(integration)
+
+    # Refresh proxy_host binding labels from inventory
+    by_id = {str(h.get("id")): h for h in result.proxy_hosts}
+    bindings = list(
+        db.exec(
+            select(IntegrationBinding).where(
+                IntegrationBinding.integration_id == integration.id,
+                IntegrationBinding.role == reg.ROLE_PROXY_HOST,
+            )
+        ).all()
+    )
+    updated = 0
+    for b in bindings:
+        host = by_id.get((b.external_id or "").strip())
+        prev_meta = reg.parse_binding_meta(b)
+        if host:
+            meta = dict(host)
+            b.external_label = host.get("label") or b.external_label
+            b.external_meta_json = json.dumps(meta)
+            b.last_state = "up" if host.get("enabled", True) else "pending"
+            b.last_message = host.get("forward_host") or ""
+        else:
+            b.last_state = "unknown"
+            b.last_message = "proxy host missing from NPM"
+            if prev_meta:
+                b.external_meta_json = json.dumps(prev_meta)
+        b.last_checked_at = now
+        b.updated_at = now
+        db.add(b)
+        updated += 1
+
+    db.commit()
+    return {
+        "ok": result.ok,
+        "error": result.error,
+        "proxy_host_count": len(result.proxy_hosts),
+        "certificate_count": len(result.certificates),
+        "bindings_updated": updated,
+        "integration_id": integration.id,
+    }
+
+
 def poll_all_enabled(*, notify: bool = True) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     with Session(engine) as db:
@@ -339,7 +440,14 @@ def poll_all_enabled(*, notify: bool = True) -> list[dict[str, Any]]:
             db.exec(
                 select(Integration).where(
                     Integration.enabled == True,  # noqa: E712
-                    Integration.type.in_([reg.TYPE_UPTIME_KUMA, reg.TYPE_GRAFANA]),
+                    Integration.type.in_(
+                        [
+                            reg.TYPE_UPTIME_KUMA,
+                            reg.TYPE_GRAFANA,
+                            reg.TYPE_PIHOLE,
+                            reg.TYPE_NPM,
+                        ]
+                    ),
                 )
             ).all()
         )
@@ -359,6 +467,20 @@ def test_connection(integration: Integration) -> Any:
         return gf.poll(
             integration.base_url,
             reg.decrypt_api_key(integration),
+            tls_verify=reg.tls_verify(integration),
+        )
+    if integration.type == reg.TYPE_PIHOLE:
+        return ph.fetch_stats(
+            integration.base_url,
+            reg.pihole_password(integration),
+            tls_verify=reg.tls_verify(integration),
+        )
+    if integration.type == reg.TYPE_NPM:
+        identity, password = reg.npm_credentials(integration)
+        return npm_mod.poll(
+            integration.base_url,
+            identity,
+            password,
             tls_verify=reg.tls_verify(integration),
         )
     return kuma.fetch_metrics(

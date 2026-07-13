@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">
+      {% if mode == 'edit' %}Edit Pi-hole{% else %}Add Pi-hole{% endif %}
+    </h1>
+    <p class="text-sm text-muted mt-1">
+      Pi-hole <strong>v6</strong> only. Use the web UI password or an app password
+      (Settings → API). Multi-instance DNS edits fan out from the <strong>primary</strong>.
+    </p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% if integration %}/integrations/{{ integration.id }}{% else %}/integrations{% endif %}"
+       class="btn btn-secondary min-h-11">Cancel</a>
+  </div>
+</div>
+
+{% if error %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  {% if error == 'test_failed' %}Connection test failed{% elif error == 'invalid' %}Invalid input{% else %}Error{% endif %}
+  {% if detail %}— {{ detail }}{% endif %}
+</div>
+{% endif %}
+
+<div class="card p-5 max-w-xl">
+  <form method="post"
+        action="{% if mode == 'edit' %}/integrations/{{ integration.id }}/edit{% else %}/integrations/new/pihole{% endif %}"
+        class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="name">Display name</label>
+      <input id="name" name="name" type="text" required class="input w-full" value="{{ form.name }}">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="base_url">Base URL</label>
+      <input id="base_url" name="base_url" type="url" required class="input w-full font-mono text-sm"
+             placeholder="https://pihole.example.com"
+             value="{{ form.base_url }}">
+      <p class="text-[11px] text-muted mt-1">Origin only (no /admin). Must be reachable from PiHerder.</p>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="new-password"
+             class="input w-full"
+             {% if mode != 'edit' %}required{% endif %}
+             placeholder="{% if mode == 'edit' and has_password %}•••• saved — leave blank to keep{% else %}{% endif %}">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="poll_interval_sec">Poll interval (seconds)</label>
+      <input id="poll_interval_sec" name="poll_interval_sec" type="number" min="30" max="900"
+             class="input w-32" value="{{ form.poll_interval_sec }}">
+    </div>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="is_primary" value="on" {% if form.is_primary %}checked{% endif %}>
+      Primary (source of truth for DNS / CNAME UI)
+    </label>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="tls_verify" value="on" {% if form.tls_verify %}checked{% endif %}>
+      Verify TLS certificates
+    </label>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="enabled" value="on" {% if form.enabled %}checked{% endif %}>
+      Enabled
+    </label>
+    <div class="flex flex-wrap gap-2 pt-2">
+      <button type="submit" class="btn btn-primary min-h-11">
+        {% if mode == 'edit' %}Save{% else %}Save &amp; connect{% endif %}
+      </button>
+      <a href="/integrations" class="btn btn-secondary min-h-11">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

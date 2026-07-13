@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% with catalog_section='integrations' %}
+{% include "partials/catalog_nav.html" %}
+{% endwith %}
+
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+  <div>
+    <h2 class="text-lg font-semibold tracking-tight text-text">Certificates</h2>
+    <p class="text-sm text-muted mt-1">
+      TLS material stored encrypted — from NPM pull or PEM upload. Deploy to fleet hosts with layout options.
+    </p>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    {% if can_mutate %}
+    <a href="/certificates/upload" class="btn btn-primary min-h-11">Upload PEM</a>
+    {% endif %}
+    <a href="/integrations" class="btn btn-secondary min-h-11">Integrations</a>
+  </div>
+</div>
+
+{% if msg %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">{{ msg }}{% if detail %} — {{ detail }}{% endif %}</div>
+{% endif %}
+{% if error %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">{{ error }}{% if detail %} — {{ detail }}{% endif %}</div>
+{% endif %}
+
+{% if not certificates %}
+<div class="card p-6 max-w-xl">
+  <p class="text-sm text-muted mb-3">
+    No managed certificates yet. Pull from an
+    <a href="/integrations" class="text-primary hover:underline">NPM integration</a>
+    or upload fullchain + private key PEMs.
+  </p>
+  {% if can_mutate %}
+  <a href="/certificates/upload" class="btn btn-accent min-h-11">Upload PEM</a>
+  {% endif %}
+</div>
+{% else %}
+<div class="space-y-3">
+  {% for c in certificates %}
+  <div class="card p-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="min-w-0">
+      <a href="/certificates/{{ c.id }}" class="font-semibold text-text hover:text-primary">{{ c.name }}</a>
+      <div class="text-xs text-muted mt-0.5">
+        {{ c.domains|join(', ') if c.domains else '—' }}
+      </div>
+      <div class="flex flex-wrap gap-2 mt-2 text-xs">
+        <span class="status-pill {% if c.source == 'npm' %}status-running{% else %}feature-off{% endif %}">{{ c.source }}</span>
+        {% if c.expired %}
+        <span class="status-pill status-failed">expired</span>
+        {% elif c.expiring_soon %}
+        <span class="status-pill status-failed">{{ c.days_left }}d left</span>
+        {% elif c.days_left is not none %}
+        <span class="status-pill status-success">{{ c.days_left }}d left</span>
+        {% endif %}
+        {% if c.auto_renew %}<span class="text-muted">auto-renew</span>{% endif %}
+      </div>
+    </div>
+    <a href="/certificates/{{ c.id }}" class="btn btn-secondary min-h-11">Open</a>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}
