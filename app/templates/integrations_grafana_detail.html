@@ -35,6 +35,10 @@
 </div>
 {% elif msg == 'binding_saved' %}
 <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Dashboard binding saved.</div>
+{% elif msg == 'binding_renamed' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  Display name updated{% if detail %} — {{ detail }}{% endif %}.
+</div>
 {% elif msg == 'binding_cleared' %}
 <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Binding removed.</div>
 {% endif %}
@@ -192,7 +196,12 @@
   </div>
 
   {% if rows %}
-  <div class="space-y-2 mb-4 max-h-[28rem] overflow-y-auto" id="bind-list">
+  <p class="text-xs text-muted mb-3">
+    <strong>Rename</strong> sets a <em>preferred name</em> for that dashboard UID (stored on this
+    integration). It applies to all current bindings and any new ones you create later.
+    <strong>Remove</strong> deletes only that host/container link.
+  </p>
+  <div class="space-y-2 mb-4 max-h-[32rem] overflow-y-auto" id="bind-list">
     {% set ns = namespace(prev_host='') %}
     {% for b in rows %}
     {% if b.server_name != ns.prev_host %}
@@ -202,41 +211,85 @@
       <a href="/servers/{{ b.server_id }}" class="hover:text-primary">{{ b.server_name }}</a>
     </div>
     {% endif %}
-    <div class="bind-row flex flex-wrap items-center justify-between gap-2 p-2 rounded border border-border/60"
+    <div class="bind-row p-2 rounded border border-border/60 space-y-2"
          data-filter="{{ (b.server_name ~ ' ' ~ (b.location or '') ~ ' ' ~ (b.label or '') ~ ' ' ~ (b.uid or ''))|lower }}">
-      <div class="min-w-0">
-        {% if b.location %}
-        <span class="text-sm font-medium text-text font-mono">{{ b.location }}</span>
-        <span class="text-xs text-muted">→</span>
-        {% endif %}
-        <span class="text-sm {% if not b.location %}font-medium text-text{% else %}text-muted{% endif %}">{{ b.label }}</span>
-        {% if b.label_override and b.grafana_title and b.label_override != b.grafana_title %}
-        <span class="text-[11px] text-muted"> (Grafana: {{ b.grafana_title }})</span>
-        {% endif %}
-        <div class="text-[11px] text-muted font-mono truncate">{{ b.uid }}</div>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="min-w-0">
+          {% if b.location %}
+          <span class="text-sm font-medium text-text font-mono">{{ b.location }}</span>
+          <span class="text-xs text-muted">→</span>
+          {% endif %}
+          <span class="text-sm {% if not b.location %}font-medium text-text{% else %}text-muted{% endif %}">{{ b.label }}</span>
+          {% if b.preferred_name or b.label_override %}
+            {% if b.grafana_title and (b.preferred_name or b.label_override) != b.grafana_title %}
+            <span class="text-[11px] text-muted"> (Grafana: {{ b.grafana_title }})</span>
+            {% endif %}
+            <span class="text-[11px] text-accent"> preferred</span>
+          {% elif b.grafana_title %}
+          <span class="text-[11px] text-muted"> (from Grafana)</span>
+          {% endif %}
+          <div class="text-[11px] text-muted font-mono truncate">{{ b.uid }}</div>
+        </div>
+        <div class="flex flex-wrap gap-1.5 items-center">
+          {% if b.open_url %}
+          <a href="{{ b.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open</a>
+          {% endif %}
+          {% if can_mutate %}
+          <button type="button"
+                  class="btn btn-secondary text-xs min-h-9"
+                  data-rename-toggle="{{ b.id }}"
+                  aria-expanded="false"
+                  aria-controls="rename-panel-{{ b.id }}">Rename</button>
+          <a href="?tab={{ tab }}&mode=clone&server_id={{ b.server_id }}&kind={{ b.kind or kind_default }}&external_id={{ b.uid|urlencode }}&docker_project={{ (b.docker_project or '')|urlencode }}&docker_container={{ (b.docker_container or '')|urlencode }}#grafana-bind-form"
+             class="btn btn-secondary text-xs min-h-9"
+             title="Prefill form as a new binding — change host or container, then save">Clone</a>
+          <form method="post" action="/integrations/{{ integration.id }}/bindings" class="inline"
+                data-confirm="Remove this dashboard binding from {{ b.server_name }}?">
+            <input type="hidden" name="server_id" value="{{ b.server_id }}">
+            <input type="hidden" name="external_id" value="{{ b.uid }}">
+            <input type="hidden" name="role" value="dashboard">
+            <input type="hidden" name="kind" value="{{ b.kind or kind_default }}">
+            <input type="hidden" name="binding_id" value="{{ b.id }}">
+            <input type="hidden" name="clear" value="1">
+            <button type="submit" class="btn btn-secondary text-xs min-h-9 text-danger">Remove</button>
+          </form>
+          {% endif %}
+        </div>
       </div>
-      <div class="flex flex-wrap gap-1.5">
-        {% if b.open_url %}
-        <a href="{{ b.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open</a>
-        {% endif %}
-        {% if can_mutate %}
-        <a href="?tab={{ tab }}&mode=edit&binding_id={{ b.id }}&server_id={{ b.server_id }}&kind={{ b.kind or kind_default }}&external_id={{ b.uid|urlencode }}&docker_project={{ (b.docker_project or '')|urlencode }}&docker_container={{ (b.docker_container or '')|urlencode }}&display_name={{ (b.label_override or '')|urlencode }}#grafana-bind-form"
-           class="btn btn-secondary text-xs min-h-9"
-           title="Load into form, rename or change scope">Edit</a>
-        <a href="?tab={{ tab }}&mode=clone&server_id={{ b.server_id }}&kind={{ b.kind or kind_default }}&external_id={{ b.uid|urlencode }}&docker_project={{ (b.docker_project or '')|urlencode }}&docker_container={{ (b.docker_container or '')|urlencode }}#grafana-bind-form"
-           class="btn btn-secondary text-xs min-h-9"
-           title="Prefill form as a new binding — change host or container, then save">Clone</a>
-        <form method="post" action="/integrations/{{ integration.id }}/bindings" class="inline">
-          <input type="hidden" name="server_id" value="{{ b.server_id }}">
-          <input type="hidden" name="external_id" value="{{ b.uid }}">
-          <input type="hidden" name="role" value="dashboard">
-          <input type="hidden" name="kind" value="{{ b.kind or kind_default }}">
-          <input type="hidden" name="binding_id" value="{{ b.id }}">
-          <input type="hidden" name="clear" value="1">
-          <button type="submit" class="btn btn-secondary text-xs min-h-9">Unbind</button>
-        </form>
-        {% endif %}
-      </div>
+      {% if can_mutate %}
+      <form method="post"
+            action="/integrations/{{ integration.id }}/bindings/rename"
+            id="rename-panel-{{ b.id }}"
+            class="hidden border-t border-border pt-2 mt-1 space-y-2"
+            data-rename-panel="{{ b.id }}">
+        <input type="hidden" name="binding_id" value="{{ b.id }}">
+        <input type="hidden" name="kind" value="{{ b.kind or kind_default }}">
+        <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-end">
+          <div class="flex-1 min-w-[12rem]">
+            <label class="block text-xs font-medium text-muted mb-1" for="display_name_{{ b.id }}">
+              Preferred name for this dashboard
+            </label>
+            <input id="display_name_{{ b.id }}" name="display_name" type="text"
+                   class="input w-full text-sm"
+                   value="{{ b.preferred_name or b.label_override or '' }}"
+                   placeholder="{{ b.grafana_title or b.label or 'Leave blank for Grafana title' }}"
+                   autocomplete="off">
+          </div>
+          <button type="submit" class="btn btn-primary text-xs min-h-10 px-4">Save preferred name</button>
+          <button type="button" class="btn btn-secondary text-xs min-h-10"
+                  data-rename-cancel="{{ b.id }}">Cancel</button>
+        </div>
+        <p class="text-[11px] text-muted mb-0 max-w-2xl">
+          Saved on this Grafana integration for UID
+          <code class="font-mono">{{ b.uid }}</code>
+          {% if (b.same_uid_count or 1) > 1 %}
+          · updates <strong class="text-text">{{ b.same_uid_count }}</strong> existing bindings
+          {% endif %}
+          · new binds of this dashboard use the same name.
+          Blank + Save clears the preferred name (chips follow the Grafana title again).
+        </p>
+      </form>
+      {% endif %}
     </div>
     {% endfor %}
   </div>
@@ -250,9 +303,7 @@
         class="border-t border-border pt-4 space-y-3">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h3 class="text-sm font-semibold text-text" id="bind-form-title">
-        {% if prefill.mode == 'edit' %}Update binding
-        {% elif prefill.mode == 'clone' %}Clone / new binding
-        {% else %}Add binding{% endif %}
+        {% if prefill.mode == 'clone' %}Clone / new binding{% else %}Add binding{% endif %}
       </h3>
       {% if prefill.mode %}
       <a href="?tab={{ tab }}#grafana-bind-form" class="text-xs text-accent hover:underline">Clear prefill</a>
@@ -261,17 +312,15 @@
     {% if prefill.mode == 'clone' %}
     <p class="text-xs text-muted">
       Form prefilled from an existing row. Change <strong>server</strong> or <strong>container</strong>, then save as a new binding.
+      Rename existing chips with <strong>Rename</strong> on the row (not this form).
     </p>
-    {% elif prefill.mode == 'edit' %}
+    {% else %}
     <p class="text-xs text-muted">
-      Editing existing binding. Adjust fields and save to update in place.
+      Bind a dashboard to a host (and optional container). To rename chips later, use <strong>Rename</strong> on each row.
     </p>
     {% endif %}
 
     <input type="hidden" name="role" value="dashboard">
-    {% if prefill.mode == 'edit' and prefill.binding_id %}
-    <input type="hidden" name="binding_id" id="binding_id" value="{{ prefill.binding_id }}">
-    {% endif %}
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 items-end">
       <div>
@@ -334,23 +383,21 @@
 
     <div>
       <label class="block text-xs font-medium text-muted mb-1" for="display_name">
-        Display name in PiHerder <span class="font-normal">(optional)</span>
+        Preferred name <span class="font-normal">(optional)</span>
       </label>
       <input id="display_name" name="display_name" type="text" class="input w-full text-sm max-w-md"
-             placeholder="Leave blank to use Grafana dashboard title"
+             placeholder="Blank = existing preferred name, else Grafana title"
              value="{{ prefill.display_name or '' }}"
              autocomplete="off">
-      <p class="text-[11px] text-muted mt-1">
-        Custom name survives polls. Clear the field and save to follow the Grafana title again.
-        Renaming in Grafana still works when no override is set.
+      <p class="text-[11px] text-muted mt-1 max-w-xl">
+        If set, stored as the preferred name for this dashboard UID (all hosts).
+        If blank, a preferred name already saved for that UID is reused automatically.
       </p>
     </div>
 
     <div class="flex flex-wrap gap-2">
       <button type="submit" class="btn btn-primary min-h-11" id="bind-submit">
-        {% if prefill.mode == 'edit' %}Save changes
-        {% elif prefill.mode == 'clone' %}Save as new binding
-        {% else %}Bind dashboard{% endif %}
+        {% if prefill.mode == 'clone' %}Save as new binding{% else %}Bind dashboard{% endif %}
       </button>
     </div>
   </form>
@@ -419,7 +466,31 @@
     projEl.addEventListener('change', function () { fillContainers(''); });
     toggleScope();
 
-    // Client-side filter for long container lists
+    // Inline rename panels
+    document.querySelectorAll('[data-rename-toggle]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const id = btn.getAttribute('data-rename-toggle');
+        const panel = document.querySelector('[data-rename-panel="' + id + '"]');
+        if (!panel) return;
+        const open = panel.classList.toggle('hidden') === false;
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) {
+          const input = panel.querySelector('input[name="display_name"]');
+          if (input) input.focus();
+        }
+      });
+    });
+    document.querySelectorAll('[data-rename-cancel]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const id = btn.getAttribute('data-rename-cancel');
+        const panel = document.querySelector('[data-rename-panel="' + id + '"]');
+        const toggle = document.querySelector('[data-rename-toggle="' + id + '"]');
+        if (panel) panel.classList.add('hidden');
+        if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      });
+    });
+
+    // Client-side filter for long lists
     const filterEl = document.getElementById('bind-filter');
     const listEl = document.getElementById('bind-list');
     const countEl = document.getElementById('bind-filter-count');
@@ -433,7 +504,6 @@
           row.classList.toggle('hidden', !show);
           if (show) n++;
         });
-        // Hide empty host headers
         let lastHeader = null;
         let anyVisible = false;
         Array.from(listEl.children).forEach(function (el) {
@@ -451,7 +521,6 @@
     }
 
     {% if prefill.mode %}
-    // Scroll form into view when editing/cloning
     const form = document.getElementById('grafana-bind-form');
     if (form) form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     {% endif %}

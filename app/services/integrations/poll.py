@@ -257,9 +257,11 @@ def _poll_grafana(
                 meta["docker_project"] = b.docker_project
             if b.docker_container:
                 meta["docker_container"] = b.docker_container
-            # Grafana title for reference; operator display name (label_override) wins
+            # Grafana title for reference; integration preferred name / override wins
             meta["grafana_title"] = dash.title
-            override = (prev_meta.get("label_override") or "").strip()
+            preferred = reg.preferred_display_name(integration, b.external_id)
+            legacy = (prev_meta.get("label_override") or "").strip()
+            override = preferred or legacy
             if override:
                 meta["label_override"] = override
                 b.external_label = override

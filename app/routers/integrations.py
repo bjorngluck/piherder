@@ -445,12 +445,19 @@ async def _grafana_detail(
     dashboards = reg.dashboards_from_cache(integration)
     status = reg.parse_last_status(integration)
     server_by_id = {s.id: s for s in servers}
+    uid_counts: dict[str, int] = {}
+    for b in bindings:
+        uid = (b.external_id or "").strip()
+        if uid:
+            uid_counts[uid] = uid_counts.get(uid, 0) + 1
     bound_rows = []
     for b in bindings:
         srv = server_by_id.get(b.server_id)
         chip = reg._grafana_chip_dict(integration, b, server=srv)
         chip["server_name"] = srv.name if srv else f"#{b.server_id}"
         chip["uid"] = b.external_id
+        uid = (b.external_id or "").strip()
+        chip["same_uid_count"] = uid_counts.get(uid, 1)
         bound_rows.append(chip)
 
     def _sort_key(c: dict) -> tuple:
@@ -477,10 +484,9 @@ async def _grafana_detail(
     if tab not in ("metrics", "containers", "logs", "inventory"):
         tab = "metrics"
 
-    # Prefill bind form: clone (new) or edit (update existing via binding_id)
+    # Prefill bind form for clone/new only (rename is inline on each row)
     prefill = {
-        "mode": (request.query_params.get("mode") or "").strip().lower(),  # clone|edit|""
-        "binding_id": (request.query_params.get("binding_id") or "").strip(),
+        "mode": (request.query_params.get("mode") or "").strip().lower(),  # clone|""
         "server_id": (request.query_params.get("server_id") or "").strip(),
         "kind": reg.normalize_grafana_kind(request.query_params.get("kind") or tab),
         "external_id": (request.query_params.get("external_id") or "").strip(),
@@ -488,20 +494,8 @@ async def _grafana_detail(
         "docker_container": (request.query_params.get("docker_container") or "").strip(),
         "display_name": (request.query_params.get("display_name") or "").strip(),
     }
-    if prefill["mode"] not in ("clone", "edit"):
+    if prefill["mode"] != "clone":
         prefill["mode"] = ""
-    if prefill["mode"] != "edit":
-        prefill["binding_id"] = ""
-    if prefill["mode"] == "edit" and prefill["binding_id"] and not prefill["display_name"]:
-        try:
-            bid = int(prefill["binding_id"])
-        except ValueError:
-            bid = None
-        if bid is not None:
-            for row in bound_rows:
-                if row.get("id") == bid:
-                    prefill["display_name"] = row.get("label_override") or ""
-                    break
 
     docker_options: dict[int, list] = {}
     for s in servers:
@@ -834,6 +828,86 @@ def _optional_int_form(raw: Optional[str]) -> Optional[int]:
         return None
 
 
+@router.post("/integrations/{integration_id}/bindings/rename")
+async def rename_grafana_binding(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    binding_id: int = Form(...),
+    display_name: str = Form(""),
+    apply_same_dashboard: Optional[str] = Form(None),
+    kind: str = Form(reg.GRAFANA_KIND_METRICS),
+):
+    """Inline rename of PiHerder display name on a Grafana dashboard binding."""
+    integration = reg.get_integration(session, integration_id)
+    if not integration:
+        raise HTTPException(404)
+    if integration.type != reg.TYPE_GRAFANA:
+        raise HTTPException(400, "Rename is for Grafana dashboard bindings")
+    gkind = reg.normalize_grafana_kind(kind)
+    tab = {
+        reg.GRAFANA_KIND_METRICS: "metrics",
+        reg.GRAFANA_KIND_CONTAINERS: "containers",
+        reg.GRAFANA_KIND_LOGS: "logs",
+    }.get(gkind, "metrics")
+    # Preferred name is always dashboard-UID scoped (all current + future binds).
+    _ = apply_same_dashboard  # form may still send it; ignored
+    try:
+        updated = reg.apply_grafana_display_name(
+            session,
+            integration_id=integration_id,
+            binding_id=binding_id,
+            display_name=display_name,
+            apply_same_dashboard=True,
+        )
+        server_id = updated[0].server_id if updated else None
+        name_bit = (display_name or "").strip()
+        _audit(
+            session,
+            user,
+            "integration_binding_renamed",
+            server_id=server_id,
+            details=(
+                f"integration={integration_id} binding={binding_id}"
+                f" preferred={name_bit[:80]!r} synced={len(updated)}"
+            ),
+        )
+        if name_bit:
+            detail = (
+                f"preferred name for this dashboard · {len(updated)} binding"
+                f"{'s' if len(updated) != 1 else ''} synced"
+            )
+        else:
+            detail = (
+                f"preferred name cleared · {len(updated)} binding"
+                f"{'s' if len(updated) != 1 else ''} follow Grafana title"
+            )
+        return _redirect(
+            f"/integrations/{integration_id}",
+            msg="binding_renamed",
+            detail=detail,
+            scope="dashboard",
+            tab=tab,
+        )
+    except ValueError as e:
+        return _redirect(
+            f"/integrations/{integration_id}",
+            error="binding_failed",
+            detail=str(e)[:200],
+            scope="dashboard",
+            tab=tab,
+        )
+    except Exception as e:
+        logger.exception("grafana binding rename failed")
+        return _redirect(
+            f"/integrations/{integration_id}",
+            error="binding_failed",
+            detail=str(e)[:200],
+            scope="dashboard",
+            tab=tab,
+        )
+
+
 @router.post("/integrations/{integration_id}/bindings")
 async def set_binding(
     integration_id: int,
@@ -900,15 +974,26 @@ async def set_binding(
             mon_meta = {"uid": external_id.strip()}
             mon_label = external_id.strip()
         mon_meta["kind"] = gkind
+        grafana_title = mon_label
         if mon_label:
             mon_meta["grafana_title"] = mon_label
-        # Operator display name (survives poll); blank = follow Grafana title
+        uid = (external_id or "").strip()
+        # Form name (if set) becomes the preferred name for this dashboard UID.
+        # Otherwise inherit any existing preferred name so new binds match.
         custom_label = (display_name or "").strip()
         if custom_label:
+            reg.set_preferred_display_name(session, integration, uid, custom_label)
+            session.refresh(integration)
             mon_meta["label_override"] = custom_label
             mon_label = custom_label
         else:
-            mon_meta.pop("label_override", None)
+            preferred = reg.preferred_display_name(integration, uid)
+            if preferred:
+                mon_meta["label_override"] = preferred
+                mon_label = preferred
+            else:
+                mon_meta.pop("label_override", None)
+                mon_label = grafana_title or mon_label
         proj = (docker_project or "").strip() if gkind == reg.GRAFANA_KIND_CONTAINERS else ""
         cont = (docker_container or "").strip() if gkind == reg.GRAFANA_KIND_CONTAINERS else ""
         msg_bits = [gkind]

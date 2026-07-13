@@ -36,11 +36,11 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - Full multi-horizon plan: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md).
 
 ### Integration hub — Uptime Kuma + Grafana (shipped; v0.3.0)
-- **Registry** + **Catalog** nav (Templates | Integrations tabs); credentials Fernet-encrypted; herder backup includes rows.
+- **Registry** + **Catalog** nav (Integrations default | Templates buttons); credentials Fernet-encrypted; herder backup includes rows.
 - **Kuma:** API key + `GET /metrics`; optional login for `/dashboard/{id}` deep links (Kuma 1.23 often omits `monitor_id` in metrics).
 - **Bindings:** SSH per server; **host services** (no Docker); **Docker project/container**; TLS days from metrics.
 - **UI:** server Services page, fleet `/services` icon grid, dashboard Services tile, logos (favicon + upload); server detail dest cards for Grafana + Kuma SSH next to Backups/Docker/Services/Host status.
-- **Grafana (v0.3.0+):** service account token; `/api/health` + dashboard inventory; bindings with kinds **metrics / containers / logs**; query templates (`var-` + `{hostname_short}`, `{container}`, …); optional **display name** (`label_override`, survives poll); Docker **Grafana** chip + ⋯ menu + expanded-row links (touch-friendly).
+- **Grafana (v0.3.0+):** service account token; `/api/health` + dashboard inventory; bindings with kinds **metrics / containers / logs**; query templates (`var-` + `{hostname_short}`, `{container}`, …); **preferred name** per dashboard UID on the integration (`config_json.display_names`, applies to current + future binds; survives poll); row **Rename** / **Remove**; Docker **Grafana** chip + ⋯ menu + expanded-row links (touch-friendly).
 - **Plan:** [docs/FEATURE_PLAN_INTEGRATIONS.md](docs/FEATURE_PLAN_INTEGRATIONS.md) · **Release:** [docs/RELEASE_v0.3.0.md](docs/RELEASE_v0.3.0.md).
 
 ### Platform reliability & deployment (2026-07-10)
