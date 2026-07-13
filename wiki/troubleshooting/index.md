@@ -21,4 +21,4 @@ docker compose logs celery-worker --tail=200
 - **Jobs** page for work unit status + log tail  
 - **Audit** for who/what  
 - **Settings → Status** for stack health  
-- Server **Re-check dependencies** for remote tools  
+- Server **SSH access → Check dependencies** (or **Test connection**) for remote tools  

@@ -18,7 +18,7 @@ Read-mostly deep links into an existing Grafana. PiHerder does **not** have to d
      "https://grafana.example.com/api/search?type=dash-db" | head
    ```
 
-3. PiHerder → **Integrations → + Grafana** — base URL, optional token, **query templates** (`var-` prefix).  
+3. PiHerder → **Catalog → Integrations → + Grafana** — base URL, optional token, **query templates** (`var-` prefix).  
 4. **Poll / Test** stores health + inventory (with token).  
 5. **Bind** with a **kind**:
 

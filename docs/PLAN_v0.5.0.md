@@ -83,6 +83,7 @@ Operator friction fixes and multi-host workflows that do not depend on templates
 | **Catalog nav** | Single **Catalog** item with Templates \| Integrations tabs (routes unchanged). | **Done** |
 | **Grafana display name** | Optional binding `label_override` survives poll; form field on bind/edit. | **Done** |
 | **Users create modal** | Create user + one-time credentials confirmation in modals. | **Done** |
+| **Docs sync (UX batch)** | Wiki + ADMIN/SPEC/README/ROADMAP aligned: Catalog nav, Remove tab, SSH deps, Grafana display name, bell-only alerts, dest cards. | **Done** |
 
 **Tests:** `tests/test_job_exclusive.py` · `tests/test_audit_format.py` · `tests/test_app_settings.py`  
 **Wiki:** [Updates & patching](../wiki/day-to-day/updates-and-patching.md) · [Jobs / Audit](../wiki/day-to-day/jobs-audit-notifications.md) · [Compose edit](../wiki/docker/compose-edit.md) · [Multi-worker](../wiki/operations/multi-worker.md)

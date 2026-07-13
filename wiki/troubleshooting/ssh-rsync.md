@@ -27,4 +27,4 @@
 
 ## Dependency chips red
 
-**Re-check dependencies** — install missing packages **on the host** yourself (PiHerder does not auto-install).
+**SSH access → Check dependencies** (or **Test connection**) — install missing packages **on the host** yourself (PiHerder does not auto-install).

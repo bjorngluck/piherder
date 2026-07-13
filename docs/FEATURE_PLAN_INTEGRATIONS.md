@@ -33,6 +33,7 @@ PiHerder is an optional **integration hub** for the homelab stack:
 - **Open in Grafana** with separate query templates per kind.
 - **Surfaces:** server detail rows; Docker **Grafana** chip (tap); container **⋯** menu item with dashboard name; expanded container detail links (no tooltip required on mobile).
 - Tabbed Integrations UI (Host metrics / Containers / Logs); clone/edit prefill; unique-scope merge; kind inferred from Docker scope so binds stay on the right tab after poll.
+- Optional **display name** (`meta.label_override`) per dashboard binding — shown on chips; survives poll; blank follows Grafana title.
 
 **Catalog** nav (Templates | Integrations tabs). Later adapters (multi Pi-hole, NPM, …) reuse the same registry + binding model.
 
@@ -45,7 +46,7 @@ PiHerder is an optional **integration hub** for the homelab stack:
 | 1 | Authenticated Kuma data (not status-page-only); SSH + HTTP service bindings |
 | 2 | Server bindings required; service bindings at host and Docker scopes |
 | 3 | Plan first, then implement |
-| 4 | Top-level **Integrations** menu |
+| 4 | **Catalog** nav with Templates \| Integrations tabs (was top-level Integrations) |
 | 5 | Auth = **API key** (primary) for `/metrics` |
 | 6 | Optional Kuma **username/password** for Socket.IO name→dashboard id map (deep links on Kuma 1.23) |
 | 7 | PiHerder does not ship or manage Kuma; operator points at existing instance |
@@ -148,7 +149,7 @@ type, name, base_url, enabled, config_json (poll_interval, tls_verify), credenti
 
 ## Success criteria
 
-- [x] Top-level Integrations nav  
+- [x] Catalog nav (Templates | Integrations tabs; routes `/templates`, `/integrations`)  
 - [x] API key + `/metrics` poll  
 - [x] SSH bindings + suggest matches  
 - [x] Host + Docker service bindings + TLS from metrics  

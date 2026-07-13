@@ -29,11 +29,11 @@ Enforced on register, password change, and admin-created users:
 
 ## Admin quick checklist
 
-1. Create operators/viewers; share one-time invite passwords carefully.  
+1. Create operators/viewers via **Users → Create user** (modal + one-time credentials); share invite passwords carefully.  
 2. Optionally enable **Force 2FA** under Settings → Security policy.  
-3. Per server: **Edit → Features** → then **Schedules** for checks → only then consider **apply** schedules.  
+3. Per server: **Edit → Features** → then **Schedules** for checks → only then consider **apply** schedules. Remove a host later via **Edit → Remove**.  
 4. Prefer “only if updates” on apply schedules; start with a quiet weekly window.  
-5. For mobile push: trusted TLS + [PWA & Web Push](../account-security/pwa-push.md).  
+5. For mobile push: trusted TLS + [PWA & Web Push](../account-security/pwa-push.md); open in-app alerts from the **bell**.  
 6. DR: Settings → PiHerder backup; keep `PIHERDER_MASTER_KEY` offline safe.
 
 <figure class="ph-figure" markdown>
