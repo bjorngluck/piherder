@@ -126,8 +126,8 @@
         {{ sd }}
       </span>
       <span class="action-pill">{{ log.action_label }}</span>
-      <span class="audit-event-time" data-utc="{{ log.started_at }}">
-        {{ log.started_at_display }}{% if log.duration %} · {{ log.duration }}{% endif %}
+      <span class="audit-event-time">
+        <span data-utc="{{ log.started_at }}" data-utc-only="1">{{ log.started_at_display }}</span>{% if log.duration %} · {{ log.duration }}{% endif %}
       </span>
     </div>
     <div class="audit-event-meta">

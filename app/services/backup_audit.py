@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from typing import Any
 
 from sqlmodel import Session
 
@@ -17,12 +18,60 @@ PHASE_ACTIONS: dict[str, tuple[str, str]] = {
     "cancelled": ("backup", "cancelled"),
 }
 
+# Compact audit payload — full result_summary can exceed DB snippet limits and
+# break JSON when truncated mid-string. Keep sizes + errors for the UI summary.
+_SNIPPET_MAX = 4000
+
 
 def job_meta(job: Job) -> dict:
     try:
         return json.loads(job.details or "{}")
     except Exception:
         return {}
+
+
+def compact_backup_snippet(summary: Any, *, ok: bool) -> dict:
+    """Shrink run_backup() result for AuditLog.output_snippet (size + errors)."""
+    if not isinstance(summary, dict):
+        return {"ok": ok, "raw": str(summary)[:500]}
+    out: dict[str, Any] = {
+        "server": summary.get("server"),
+        "ok": ok,
+    }
+    if summary.get("error"):
+        out["error"] = str(summary["error"])[:500]
+    if summary.get("timestamp"):
+        out["timestamp"] = summary.get("timestamp")
+    results_out: list[dict] = []
+    total = 0
+    for r in (summary.get("results") or [])[:50]:
+        if not isinstance(r, dict):
+            continue
+        item: dict[str, Any] = {"source": r.get("source")}
+        if r.get("skipped"):
+            item["skipped"] = True
+            if r.get("reason"):
+                item["reason"] = r.get("reason")
+        if r.get("error"):
+            item["error"] = str(r["error"])[:240]
+        if r.get("rc") is not None:
+            item["rc"] = r.get("rc")
+        if r.get("size_bytes") is not None:
+            try:
+                sb = int(r["size_bytes"])
+            except (TypeError, ValueError):
+                sb = 0
+            item["size_bytes"] = sb
+            total += sb
+            if r.get("size_human"):
+                item["size_human"] = r.get("size_human")
+        if r.get("dest"):
+            item["dest"] = str(r["dest"])[:200]
+        results_out.append(item)
+    out["results"] = results_out
+    if total:
+        out["total_size_bytes"] = total
+    return out
 
 
 def record_backup_audit_event(
@@ -37,6 +86,8 @@ def record_backup_audit_event(
     source_filter: str | None = None,
     message: str | None = None,
     output_snippet: str | dict | None = None,
+    started_at: datetime | None = None,
+    finished_at: datetime | None = None,
 ) -> AuditLog:
     if phase not in PHASE_ACTIONS:
         raise ValueError(f"Unknown backup audit phase: {phase}")
@@ -54,11 +105,17 @@ def record_backup_audit_event(
     snippet = None
     if output_snippet is not None:
         if isinstance(output_snippet, dict):
-            snippet = json.dumps(output_snippet)[:2000]
+            snippet = json.dumps(output_snippet, default=str)[:_SNIPPET_MAX]
         else:
-            snippet = str(output_snippet)[:2000]
+            snippet = str(output_snippet)[:_SNIPPET_MAX]
 
     now = datetime.utcnow()
+    # Prefer job wall-clock for terminal events so duration/summary are meaningful
+    start = started_at or now
+    end = finished_at or now
+    if phase in ("request", "queued", "running"):
+        start = end = now
+
     audit = AuditLog(
         user_id=user_id,
         server_id=server_id,
@@ -68,8 +125,8 @@ def record_backup_audit_event(
         status=status,
         details=json.dumps(payload),
         output_snippet=snippet,
-        started_at=now,
-        finished_at=now,
+        started_at=start,
+        finished_at=end,
     )
     session.add(audit)
     return audit
@@ -100,4 +157,6 @@ def record_backup_audit_from_job(
         source_filter=meta.get("source_filter"),
         message=message,
         output_snippet=output_snippet,
+        started_at=job.started_at or job.created_at,
+        finished_at=job.finished_at,
     )

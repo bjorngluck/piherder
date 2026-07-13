@@ -17,7 +17,7 @@ from app.services.backup import (
     _flush_job_progress_db,
     clear_job_progress_buffer,
 )
-from app.services.backup_audit import record_backup_audit_from_job
+from app.services.backup_audit import compact_backup_snippet, record_backup_audit_from_job
 from app.services.server_job_lock import (
     try_acquire_server_lock,
     release_server_lock,
@@ -109,6 +109,9 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
                 "started_at": datetime.utcnow().isoformat(),
             }
             _update_job_status(job_id, "running", initial)
+            # _update_job_status uses its own Session — expire identity map
+            # so subsequent db.get() sees committed status from the worker DB.
+            db.expire_all()
             job = db.get(Job, job_id)
             if job:
                 src = source_filter or "all sources"
@@ -132,6 +135,7 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
 
         # User may have cancelled while rsync ran
         if job_id:
+            db.expire_all()
             job_now = db.get(Job, job_id)
             if job_now and job_now.status == "cancelled":
                 clear_job_progress_buffer(job_id)
@@ -154,16 +158,37 @@ def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int
                 }
             _update_job_status(job_id, "success" if ok else "failed", final)
             clear_job_progress_buffer(job_id)
+            # Critical: without expire_all, Session still holds pre-update Job
+            # (status pending/running) and success audit was skipped entirely.
+            db.expire_all()
             job = db.get(Job, job_id)
             if job and job.status in ("success", "failed"):
                 phase = "success" if ok else "failed"
-                snippet = summary if ok else {"error": backup_failure_message(summary), **summary}
-                record_backup_audit_from_job(
-                    db, job, phase,
-                    message=backup_failure_message(summary) if not ok else None,
-                    output_snippet=snippet,
+                snippet = compact_backup_snippet(summary, ok=ok)
+                if not ok and "error" not in snippet:
+                    snippet["error"] = backup_failure_message(summary)
+                try:
+                    record_backup_audit_from_job(
+                        db,
+                        job,
+                        phase,
+                        message=backup_failure_message(summary) if not ok else None,
+                        output_snippet=snippet,
+                    )
+                    db.commit()
+                except Exception as audit_exc:
+                    logger.error(
+                        f"Failed to record backup {phase} audit for job {job_id}: {audit_exc}"
+                    )
+                    try:
+                        db.rollback()
+                    except Exception:
+                        pass
+            elif job:
+                logger.warning(
+                    f"[Celery] Job {job_id} status={job.status} after finish — "
+                    f"skipped terminal backup audit (ok={ok})"
                 )
-                db.commit()
 
         if ok:
             try:

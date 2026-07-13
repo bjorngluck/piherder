@@ -358,7 +358,7 @@
       <select name="version_id" class="bg-surface border border-border text-xs p-1 rounded">
         {% for d in drafts %}
         {% set label = 'draft (db only)' if d.is_draft else ('live (current on host)' if live_version and d.id == live_version.id else 'inactive (previous live)') %}
-        <option value="{{ d.id }}">v{{ d.version }} - {{ label }} ({{ d.deployed_at or d.created_at }})</option>
+        <option value="{{ d.id }}">v{{ d.version }} - {{ label }} ({{ (d.deployed_at or d.created_at) | app_tz }})</option>
         {% endfor %}
       </select>
       <button class="px-3 py-1 btn btn-secondary rounded text-xs">Deploy This Version</button>

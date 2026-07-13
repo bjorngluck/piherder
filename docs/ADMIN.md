@@ -254,6 +254,25 @@ While a job runs, server UI modals (JobHold / progress) poll job status and log 
 | **Audit** | Immutable history of actions (who/what/when, output snippet). Actor is the session user, **API token name + id** (when automation), or system/scheduler |
 | **Notifications** | Dismissible inbox (updates pending, failed backup, etc.) |
 
+### Backup audit completion
+
+Backup jobs write lifecycle events (`backup_request` → `backup_queued` → `backup_running` → terminal `backup`). The **completed** row includes a compact snippet (per-source sizes, totals) so the Audit feed can show e.g. `2 sources · 1.5 MB` and duration. Use **Hide incomplete runs** to hide in-progress noise.
+
+### App timezone (display)
+
+**Settings → General → timezone** (IANA name, e.g. `Africa/Johannesburg`) controls how UTC-stored timestamps render in the UI:
+
+| Surface | Behaviour |
+|---------|-----------|
+| Audit | Event times + duration; header shows active zone |
+| Jobs | Finished/started/queued times in app zone |
+| Notifications | “Updated …” timestamps |
+| Server detail / list | Last backup, last OS/container check, job times |
+| Users | Last login |
+| Schedules / self-backup cron | Fire times interpreted in app zone |
+
+Storage remains **UTC** (DB `datetime.utcnow()`). Changing the timezone only changes display (and schedule wall-clock), not historical raw values.
+
 ---
 
 ## 6. Public hostname, trusted TLS, and PWA / Web Push

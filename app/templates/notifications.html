@@ -4,7 +4,7 @@
 <div class="page-header mb-6">
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Notifications</h1>
-    <p class="text-sm text-muted mt-1">Actionable alerts (updates, reboot, failed backups). History stays in Audit.</p>
+    <p class="text-sm text-muted mt-1">Actionable alerts (updates, reboot, failed backups). History stays in Audit · times in {{ get_app_timezone() }}</p>
   </div>
   <div class="page-header-actions">
     {% if open_count %}
@@ -87,7 +87,7 @@
         {% endif %}
       </div>
       {% if n.body %}<p class="text-sm text-muted mt-0.5">{{ n.body }}</p>{% endif %}
-      <p class="text-[10px] text-muted mt-1">Updated {{ n.updated_at }}</p>
+      <p class="text-[10px] text-muted mt-1">Updated {{ n.updated_at | app_tz }}</p>
     </div>
     {% if n.status == 'open' %}
     <form method="post" action="/notifications/{{ n.id }}/dismiss" class="flex-shrink-0">
