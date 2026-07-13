@@ -1212,39 +1212,14 @@ a.dest-card:hover {
   font-weight: 400;
 }
 
-/* Catalog: Templates | Integrations tab strip (pill + underline hybrid) */
-.catalog-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: 1.25rem;
-  padding-bottom: 0;
-}
-.catalog-tab {
-  display: inline-flex;
-  align-items: center;
-  min-height: 2.5rem;
-  padding: 0.45rem 1rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-muted);
+/* Catalog section tabs — same active treatment as Settings settings-tab-btn */
+a.catalog-tab-btn {
   text-decoration: none;
-  border: 1px solid transparent;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  border-radius: 0.4rem 0.4rem 0 0;
-  background: transparent;
 }
-.catalog-tab:hover {
+.catalog-tab-btn.is-active {
+  border-color: var(--color-accent, #e60012);
   color: var(--color-text);
-  background: var(--color-surface);
-}
-.catalog-tab.is-active {
-  color: var(--color-primary);
-  border-color: var(--color-border);
-  border-bottom-color: var(--color-primary);
-  background: var(--color-surface);
+  background: var(--color-accent-subtle, rgba(230, 0, 18, 0.08));
 }
 
 .action-grid {

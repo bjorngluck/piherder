@@ -167,11 +167,11 @@
          Everything (desktop + mobile slide-out + avatar dropdown) is
          generated from this data. No other menu links exist in the HTML.
          ============================================================ #}
-      {# Alerts: bell only (no Alerts nav). Catalog = Templates + Integrations tabs. #}
+      {# Alerts: bell only. Catalog → Integrations (default) + Templates btn tabs. #}
       {% set nav_items = [
         {"label": "Dashboard", "href": "/", "match": "exact"},
         {"label": "Servers",   "href": "/servers", "match": "prefix"},
-        {"label": "Catalog",   "href": "/templates", "match": "catalog"},
+        {"label": "Catalog",   "href": "/integrations", "match": "catalog"},
         {"label": "Jobs",      "href": "/jobs", "match": "prefix"},
         {"label": "Audit",     "href": "/audit", "match": "prefix"},
         {"label": "Settings",  "href": "/herder-backups", "match": "prefix"}

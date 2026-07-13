@@ -1,17 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto">
-  <div class="mb-1">
-    <h1 class="text-2xl font-semibold tracking-tight">Catalog</h1>
-    <p class="text-sm text-muted mt-1">
-      Service templates and external integrations (Uptime Kuma, Grafana).
-    </p>
-  </div>
-  <nav class="catalog-tabs" aria-label="Catalog sections">
-    <a href="/templates" class="catalog-tab is-active" aria-current="page">Templates</a>
-    <a href="/integrations" class="catalog-tab">Integrations</a>
-  </nav>
+{% set catalog_section = 'templates' %}
+{% include "partials/catalog_nav.html" %}
+
+<div class="max-w-5xl">
   <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
     <div>
       <h2 class="text-lg font-semibold">Service templates</h2>

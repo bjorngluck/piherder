@@ -1,17 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="mb-1">
-  <h1 class="text-2xl font-semibold tracking-tight">Catalog</h1>
-  <p class="text-sm text-muted mt-1">
-    Service templates and external integrations (Uptime Kuma, Grafana).
-  </p>
-</div>
-<nav class="catalog-tabs" aria-label="Catalog sections">
-  <a href="/templates" class="catalog-tab">Templates</a>
-  <a href="/integrations" class="catalog-tab is-active" aria-current="page">Integrations</a>
-</nav>
-<div class="page-header mb-6">
+{% set catalog_section = 'integrations' %}
+{% include "partials/catalog_nav.html" %}
+
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <div>
     <h2 class="text-lg font-semibold tracking-tight text-text">Integrations</h2>
     <p class="text-sm text-muted mt-1">
@@ -19,7 +12,7 @@
       Core fleet ops work without these.
     </p>
   </div>
-  <div class="page-header-actions flex flex-wrap gap-2">
+  <div class="flex flex-wrap gap-2">
     {% if can_mutate %}
     <a href="/integrations/new/uptime-kuma" class="btn btn-primary min-h-11">+ Uptime Kuma</a>
     <a href="/integrations/new/grafana" class="btn btn-secondary min-h-11">+ Grafana</a>
