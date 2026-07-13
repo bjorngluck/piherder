@@ -150,7 +150,9 @@ type, name, base_url, enabled, config_json (poll_interval, tls_verify), credenti
 
 ## Success criteria
 
-- [x] Catalog nav (Templates | Integrations tabs; routes `/templates`, `/integrations`)  
+- [x] Catalog nav (`/catalog` → Integrations; Settings-style buttons; routes `/integrations`, `/templates`)  
+- [x] Grafana preferred names on Inventory tab (`config_json.display_names[uid]`)  
+
 - [x] API key + `/metrics` poll  
 - [x] SSH bindings + suggest matches  
 - [x] Host + Docker service bindings + TLS from metrics  

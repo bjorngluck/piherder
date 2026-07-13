@@ -36,7 +36,7 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - Full multi-horizon plan: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md).
 
 ### Integration hub — Uptime Kuma + Grafana (shipped; v0.3.0)
-- **Registry** + **Catalog** nav (Integrations default | Templates buttons); credentials Fernet-encrypted; herder backup includes rows.
+- **Registry** + **Catalog** nav (`/catalog` → Integrations; Settings-style Integrations | Templates buttons); credentials Fernet-encrypted; herder backup includes rows.
 - **Kuma:** API key + `GET /metrics`; optional login for `/dashboard/{id}` deep links (Kuma 1.23 often omits `monitor_id` in metrics).
 - **Bindings:** SSH per server; **host services** (no Docker); **Docker project/container**; TLS days from metrics.
 - **UI:** server Services page, fleet `/services` icon grid, dashboard Services tile, logos (favicon + upload); server detail dest cards for Grafana + Kuma SSH next to Backups/Docker/Services/Host status.

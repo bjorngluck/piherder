@@ -20,7 +20,8 @@ Read-mostly deep links into an existing Grafana. PiHerder does **not** have to d
 
 3. PiHerder → **Catalog → Integrations → + Grafana** — base URL, optional token, **query templates** (`var-` prefix).  
 4. **Poll / Test** stores health + inventory (with token).  
-5. **Bind** with a **kind**:
+5. **Poll** for inventory, then open the **Inventory** tab to set preferred chip names (optional).  
+6. **Bind** with a **kind** (Host metrics / Containers / Host logs):
 
 | Kind | Surfaces |
 |------|----------|
