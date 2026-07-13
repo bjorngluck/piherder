@@ -43,18 +43,27 @@
 <div class="mb-3 p-3 banner-error border border-border rounded text-sm">{{ error }}{% if detail %} — {{ detail }}{% endif %}</div>
 {% endif %}
 
-<div class="flex flex-wrap gap-2 mb-4">
-  <a href="?tab=hosts" class="settings-tab-btn {% if tab == 'hosts' %}active{% endif %}">Proxy hosts</a>
-  <a href="?tab=certs" class="settings-tab-btn {% if tab == 'certs' %}active{% endif %}">Certificates</a>
+{# Tabs: same Settings / Catalog / Grafana chrome #}
+<div class="flex flex-wrap gap-1 mb-5 border-b border-border pb-2" role="tablist" aria-label="NPM sections">
+  <a href="?tab=hosts" role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'hosts' else '' }}"
+     aria-selected="{{ 'true' if tab == 'hosts' else 'false' }}">
+    Proxy hosts{% if status.proxy_host_count is not none %} ({{ status.proxy_host_count }}){% endif %}
+  </a>
+  <a href="?tab=certs" role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'certs' else '' }}"
+     aria-selected="{{ 'true' if tab == 'certs' else 'false' }}">
+    Certificates{% if status.certificate_count is not none %} ({{ status.certificate_count }}){% endif %}
+  </a>
 </div>
 
 {% if tab == 'hosts' %}
 <div class="card p-4">
   <p class="text-sm text-muted mb-3">
-    Read-only inventory. Bind a proxy host to a PiHerder <strong>server</strong>, then optional
-    <strong>compose project</strong> and <strong>container</strong> (same cascade as Grafana).
-    Project/container lists come from the host’s Docker inventory cache — refresh inventory on the
-    server’s Docker page if empty.
+    Read-only inventory. Bind a proxy host to a PiHerder <strong>server</strong>.
+    Choose <strong>Host service</strong> for non-container apps (HAOS, bare metal, host process),
+    or <strong>Docker</strong> for compose project / container (same cascade as Grafana).
+    Docker lists use the host inventory cache — refresh on the server Docker page if empty.
   </p>
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
@@ -78,9 +87,9 @@
             {% if b %}
               <a href="/servers/{{ b.server_id }}" class="text-primary hover:underline">{{ b.server_name }}</a>
               {% if b.docker_project %}
-                <span class="text-muted"> / {{ b.docker_project }}{% if b.docker_container %} / {{ b.docker_container }}{% endif %}</span>
+                <span class="text-muted"> · Docker / {{ b.docker_project }}{% if b.docker_container %} / {{ b.docker_container }}{% endif %}</span>
               {% else %}
-                <span class="text-muted"> · host</span>
+                <span class="text-muted"> · host service</span>
               {% endif %}
             {% else %}
               <span class="text-muted">unbound</span>
@@ -100,8 +109,8 @@
               </form>
               {% else %}
               <form method="post" action="/integrations/{{ integration.id }}/npm/bind"
-                    class="npm-bind-form flex flex-col gap-1.5 items-stretch sm:items-end min-w-[14rem] max-w-xs ml-auto"
-                    data-confirm="Bind proxy host “{{ h.label }}” to the selected server / service?"
+                    class="npm-bind-form flex flex-col gap-1.5 items-stretch sm:items-end min-w-[15rem] max-w-xs ml-auto"
+                    data-confirm="Bind proxy host “{{ h.label }}” to the selected host / service?"
                     data-confirm-title="Bind proxy host"
                     data-confirm-label="Bind"
                     data-wait-title="Binding"
@@ -117,16 +126,25 @@
                   </select>
                 </div>
                 <div class="w-full text-left">
-                  <label class="block text-[10px] text-muted mb-0.5">Compose project</label>
-                  <select name="docker_project" class="npm-bind-project input text-xs min-h-9 w-full" disabled>
-                    <option value="">— select server first —</option>
+                  <label class="block text-[10px] text-muted mb-0.5">Scope</label>
+                  <select class="npm-bind-scope input text-xs min-h-9 w-full">
+                    <option value="host" selected>Host service (no Docker)</option>
+                    <option value="docker">Docker project / container</option>
                   </select>
                 </div>
-                <div class="w-full text-left">
-                  <label class="block text-[10px] text-muted mb-0.5">Container / service</label>
-                  <select name="docker_container" class="npm-bind-container input text-xs min-h-9 w-full" disabled>
-                    <option value="">— select project first —</option>
-                  </select>
+                <div class="npm-bind-docker-fields w-full space-y-1.5 hidden">
+                  <div class="w-full text-left">
+                    <label class="block text-[10px] text-muted mb-0.5">Compose project</label>
+                    <select name="docker_project" class="npm-bind-project input text-xs min-h-9 w-full">
+                      <option value="">— select server first —</option>
+                    </select>
+                  </div>
+                  <div class="w-full text-left">
+                    <label class="block text-[10px] text-muted mb-0.5">Container / service</label>
+                    <select name="docker_container" class="npm-bind-container input text-xs min-h-9 w-full">
+                      <option value="">— select project first —</option>
+                    </select>
+                  </div>
                 </div>
                 <button class="btn btn-primary text-xs min-h-9 self-end" type="submit">Bind</button>
               </form>
@@ -152,11 +170,31 @@
     return dockerOpts[String(serverId)] || dockerOpts[serverId] || [];
   }
 
+  function isDockerScope(form) {
+    var scopeEl = form.querySelector('.npm-bind-scope');
+    return scopeEl && scopeEl.value === 'docker';
+  }
+
+  function applyScope(form) {
+    var box = form.querySelector('.npm-bind-docker-fields');
+    var projEl = form.querySelector('.npm-bind-project');
+    var contEl = form.querySelector('.npm-bind-container');
+    var docker = isDockerScope(form);
+    if (box) box.classList.toggle('hidden', !docker);
+    if (!docker) {
+      if (projEl) { projEl.value = ''; projEl.disabled = true; }
+      if (contEl) { contEl.value = ''; contEl.disabled = true; }
+      return;
+    }
+    fillProjects(form, '');
+  }
+
   function fillProjects(form, preferProj) {
     var serverEl = form.querySelector('.npm-bind-server');
     var projEl = form.querySelector('.npm-bind-project');
     var contEl = form.querySelector('.npm-bind-container');
     if (!serverEl || !projEl || !contEl) return;
+    if (!isDockerScope(form)) return;
     var sid = serverEl.value;
     var projects = projectsFor(sid);
     var want = preferProj != null ? preferProj : projEl.value;
@@ -172,7 +210,7 @@
     projEl.disabled = false;
     var opt0 = document.createElement('option');
     opt0.value = '';
-    opt0.textContent = projects.length ? '— host only (optional) —' : '— no compose projects in inventory —';
+    opt0.textContent = projects.length ? '— project optional —' : '— no compose projects in inventory —';
     projEl.appendChild(opt0);
     projects.forEach(function (p) {
       var o = document.createElement('option');
@@ -189,6 +227,7 @@
     var projEl = form.querySelector('.npm-bind-project');
     var contEl = form.querySelector('.npm-bind-container');
     if (!serverEl || !projEl || !contEl) return;
+    if (!isDockerScope(form)) return;
     var projects = projectsFor(serverEl.value);
     var pname = projEl.value;
     var want = preferCont != null ? preferCont : contEl.value;
@@ -223,10 +262,14 @@
 
   document.querySelectorAll('form.npm-bind-form').forEach(function (form) {
     var serverEl = form.querySelector('.npm-bind-server');
+    var scopeEl = form.querySelector('.npm-bind-scope');
     var projEl = form.querySelector('.npm-bind-project');
     var contEl = form.querySelector('.npm-bind-container');
     if (!serverEl || !projEl || !contEl) return;
-    serverEl.addEventListener('change', function () { fillProjects(form, ''); });
+    if (scopeEl) scopeEl.addEventListener('change', function () { applyScope(form); });
+    serverEl.addEventListener('change', function () {
+      if (isDockerScope(form)) fillProjects(form, '');
+    });
     projEl.addEventListener('change', function () { fillContainers(form, ''); });
     contEl.addEventListener('change', function () {
       var opt = contEl.selectedOptions[0];
@@ -234,7 +277,8 @@
         projEl.value = opt.dataset.project;
       }
     });
-    fillProjects(form, '');
+    // Host scope by default: clear docker fields on submit path is automatic (hidden + empty)
+    applyScope(form);
   });
 })();
 </script>

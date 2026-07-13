@@ -25,6 +25,7 @@ ROLE_SSH = "ssh_reachability"
 ROLE_SERVICE = "service"  # HTTP(s) / app / cert monitoring (Kuma)
 ROLE_DASHBOARD = "dashboard"  # Grafana dashboard deep link per server
 ROLE_PROXY_HOST = "proxy_host"  # NPM proxy host → server / docker scope
+ROLE_PIHOLE_HOST = "pihole_host"  # Pi-hole instance → fleet host / docker scope
 
 DEFAULT_PIHOLE_POLL_SEC = 120
 DEFAULT_NPM_POLL_SEC = 120
@@ -820,8 +821,8 @@ def set_binding(
     # role=dashboard (Grafana): docker scope only for kind=containers
     if role == ROLE_SSH:
         proj, cont = None, None
-    elif role == ROLE_PROXY_HOST:
-        # Optional docker scope for linking proxy host to a fleet service
+    elif role in (ROLE_PROXY_HOST, ROLE_PIHOLE_HOST):
+        # Optional docker scope for linking product → fleet host / service
         pass
     elif role == ROLE_DASHBOARD:
         kind_pre = normalize_grafana_kind(
@@ -836,16 +837,19 @@ def set_binding(
 
     now = datetime.utcnow()
     meta = dict(external_meta) if external_meta else {}
-    if role == ROLE_SERVICE:
+    if role in (ROLE_SERVICE, ROLE_PROXY_HOST, ROLE_PIHOLE_HOST):
         if proj:
             meta["docker_project"] = proj
             if cont:
                 meta["docker_container"] = cont
+            else:
+                meta.pop("docker_container", None)
             meta["scope"] = "docker"
         else:
             meta.pop("docker_project", None)
             meta.pop("docker_container", None)
             meta["scope"] = "host"
+            cont = None  # container only under project
     elif role == ROLE_DASHBOARD:
         kind = normalize_grafana_kind(meta.get("kind"))
         meta["kind"] = kind
@@ -906,7 +910,7 @@ def set_binding(
                 IntegrationBinding.role == role,
             )
         ).first()
-    elif role in (ROLE_DASHBOARD, ROLE_SERVICE, ROLE_PROXY_HOST):
+    elif role in (ROLE_DASHBOARD, ROLE_SERVICE, ROLE_PROXY_HOST, ROLE_PIHOLE_HOST):
         # Prefer row already occupying the unique scope (proj/container).
         existing = _find_by_unique_scope()
         if by_id is not None:
