@@ -67,6 +67,15 @@ def _can_mutate(user: User) -> bool:
     return role_at_least(user, ROLE_OPERATOR)
 
 
+@router.get("/catalog", response_class=HTMLResponse)
+async def catalog_entry(
+    user: User = Depends(get_current_user),
+):
+    """Top-nav Catalog always lands on Integrations (Templates is the other tab)."""
+    del user
+    return RedirectResponse("/integrations", status_code=303)
+
+
 @router.get("/integrations", response_class=HTMLResponse)
 async def integrations_list(
     request: Request,
@@ -500,6 +509,42 @@ async def _grafana_detail(
     docker_options: dict[int, list] = {}
     for s in servers:
         docker_options[s.id] = reg.docker_inventory_options(session, s.id)
+
+    # Inventory rows: Grafana dashboards + preferred name + binding counts
+    pref_map = reg.preferred_display_names(integration)
+    uid_bind_counts: dict[str, int] = {}
+    for b in bindings:
+        u = (b.external_id or "").strip()
+        if u:
+            uid_bind_counts[u] = uid_bind_counts.get(u, 0) + 1
+    inventory_rows = []
+    for d in dashboards:
+        u = str(d.get("uid") or "").strip()
+        inventory_rows.append(
+            {
+                "uid": u,
+                "title": d.get("title") or d.get("name") or u,
+                "folder_title": d.get("folder_title") or "",
+                "url": d.get("url") or "",
+                "preferred_name": pref_map.get(u) or "",
+                "binding_count": uid_bind_counts.get(u, 0),
+            }
+        )
+    # Preferred names for UIDs not currently in inventory (orphan config)
+    known_uids = {r["uid"] for r in inventory_rows if r["uid"]}
+    for u, name in sorted(pref_map.items()):
+        if u not in known_uids:
+            inventory_rows.append(
+                {
+                    "uid": u,
+                    "title": "(not in last poll inventory)",
+                    "folder_title": "",
+                    "url": "",
+                    "preferred_name": name,
+                    "binding_count": uid_bind_counts.get(u, 0),
+                }
+            )
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="integrations_grafana_detail.html",
@@ -510,6 +555,7 @@ async def _grafana_detail(
             "can_mutate": _can_mutate(user),
             "servers": servers,
             "dashboards": dashboards,
+            "inventory_rows": inventory_rows,
             "bindings": bound_rows,
             "bindings_metrics": by_kind.get(reg.GRAFANA_KIND_METRICS) or [],
             "bindings_containers": by_kind.get(reg.GRAFANA_KIND_CONTAINERS) or [],
@@ -828,66 +874,47 @@ def _optional_int_form(raw: Optional[str]) -> Optional[int]:
         return None
 
 
-@router.post("/integrations/{integration_id}/bindings/rename")
-async def rename_grafana_binding(
+@router.post("/integrations/{integration_id}/preferred-name")
+async def set_grafana_preferred_name(
     integration_id: int,
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
-    binding_id: int = Form(...),
+    uid: str = Form(...),
     display_name: str = Form(""),
-    apply_same_dashboard: Optional[str] = Form(None),
-    kind: str = Form(reg.GRAFANA_KIND_METRICS),
 ):
-    """Inline rename of PiHerder display name on a Grafana dashboard binding."""
+    """Set preferred PiHerder chip name for a Grafana dashboard UID (Inventory tab)."""
     integration = reg.get_integration(session, integration_id)
     if not integration:
         raise HTTPException(404)
     if integration.type != reg.TYPE_GRAFANA:
-        raise HTTPException(400, "Rename is for Grafana dashboard bindings")
-    gkind = reg.normalize_grafana_kind(kind)
-    tab = {
-        reg.GRAFANA_KIND_METRICS: "metrics",
-        reg.GRAFANA_KIND_CONTAINERS: "containers",
-        reg.GRAFANA_KIND_LOGS: "logs",
-    }.get(gkind, "metrics")
-    # Preferred name is always dashboard-UID scoped (all current + future binds).
-    _ = apply_same_dashboard  # form may still send it; ignored
+        raise HTTPException(400, "Preferred names are for Grafana integrations")
     try:
-        updated = reg.apply_grafana_display_name(
+        updated = reg.apply_grafana_preferred_name(
             session,
             integration_id=integration_id,
-            binding_id=binding_id,
+            uid=uid,
             display_name=display_name,
-            apply_same_dashboard=True,
         )
-        server_id = updated[0].server_id if updated else None
         name_bit = (display_name or "").strip()
         _audit(
             session,
             user,
-            "integration_binding_renamed",
-            server_id=server_id,
+            "integration_preferred_name",
             details=(
-                f"integration={integration_id} binding={binding_id}"
-                f" preferred={name_bit[:80]!r} synced={len(updated)}"
+                f"integration={integration_id} uid={(uid or '')[:80]!r}"
+                f" preferred={name_bit[:80]!r} bindings_synced={len(updated)}"
             ),
         )
         if name_bit:
-            detail = (
-                f"preferred name for this dashboard · {len(updated)} binding"
-                f"{'s' if len(updated) != 1 else ''} synced"
-            )
+            detail = f"{name_bit[:60]!r} · {len(updated)} binding(s) synced"
         else:
-            detail = (
-                f"preferred name cleared · {len(updated)} binding"
-                f"{'s' if len(updated) != 1 else ''} follow Grafana title"
-            )
+            detail = f"cleared for UID · {len(updated)} binding(s) follow Grafana title"
         return _redirect(
             f"/integrations/{integration_id}",
-            msg="binding_renamed",
+            msg="preferred_saved",
             detail=detail,
             scope="dashboard",
-            tab=tab,
+            tab="inventory",
         )
     except ValueError as e:
         return _redirect(
@@ -895,16 +922,16 @@ async def rename_grafana_binding(
             error="binding_failed",
             detail=str(e)[:200],
             scope="dashboard",
-            tab=tab,
+            tab="inventory",
         )
     except Exception as e:
-        logger.exception("grafana binding rename failed")
+        logger.exception("grafana preferred name failed")
         return _redirect(
             f"/integrations/{integration_id}",
             error="binding_failed",
             detail=str(e)[:200],
             scope="dashboard",
-            tab=tab,
+            tab="inventory",
         )
 
 

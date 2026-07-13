@@ -28,16 +28,16 @@ Read-mostly deep links into an existing Grafana. PiHerder does **not** have to d
 | Containers (host) | Server detail Grafana card |
 | Containers + container name | Docker page chip / ⋯ / expand |
 
-### Preferred name & remove
+### Preferred name (Inventory) & remove (bindings)
 
 Chip labels can differ from Grafana’s dashboard title:
 
-- **Preferred name** — stored on the **Grafana integration** (`config` map by dashboard UID). Set via **Rename** on any binding row (or when adding a bind).  
-  - Applies to **all existing** bindings of that UID and **any new** binds later.  
+- **Preferred name** — set on the **Inventory** tab (one field per dashboard UID). Stored on the Grafana integration (`config_json.display_names[uid]`).  
+  - Applies to **all existing** host binds of that UID and **any new** binds later.  
   - Survives **Poll** (Grafana title kept as reference).  
-  - Blank + save clears the preferred name → chips follow the Grafana title again.  
-- **Remove** — deletes only that host/container binding (preferred name stays for other hosts / future binds).  
-- **Clone** / **Add binding** — create links; leave preferred name blank to inherit an existing preferred name for that UID.  
+  - Blank + **Save** clears the preferred name → chips follow the Grafana title again.  
+- **Binding tabs** (Host metrics / Containers / Host logs) — **Clone** / **Remove** only (no rename).  
+- **Remove** deletes that host/container link only; preferred name stays for other hosts and future binds.  
 
 ### Placeholders
 

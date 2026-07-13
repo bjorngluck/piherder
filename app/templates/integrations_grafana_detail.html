@@ -35,9 +35,9 @@
 </div>
 {% elif msg == 'binding_saved' %}
 <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Dashboard binding saved.</div>
-{% elif msg == 'binding_renamed' %}
+{% elif msg == 'preferred_saved' or msg == 'binding_renamed' %}
 <div class="mb-3 p-3 banner-success border border-border rounded text-sm">
-  Display name updated{% if detail %} — {{ detail }}{% endif %}.
+  Preferred name saved{% if detail %} — {{ detail }}{% endif %}.
 </div>
 {% elif msg == 'binding_cleared' %}
 <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Binding removed.</div>
@@ -87,33 +87,26 @@
 </div>
 {% endif %}
 
-{# Tabs: metrics | containers | logs | inventory #}
-<div class="mb-4 border-b border-border flex flex-wrap gap-1" role="tablist" id="grafana-tabs">
-  <a href="?tab=metrics"
-     class="px-3 py-2 text-sm font-medium rounded-t border-b-2 -mb-px
-            {% if tab == 'metrics' %}border-primary text-primary{% else %}border-transparent text-muted hover:text-text{% endif %}"
-     data-tab="metrics">
-    Host metrics
-    <span class="text-xs opacity-70">({{ counts.metrics }})</span>
+{# Tabs: same Settings-style buttons as Catalog #}
+<div class="flex flex-wrap gap-1 mb-5 border-b border-border pb-2" role="tablist" id="grafana-tabs" aria-label="Grafana sections">
+  <a href="?tab=metrics" role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'metrics' else '' }}"
+     aria-selected="{{ 'true' if tab == 'metrics' else 'false' }}">
+    Host metrics ({{ counts.metrics }})
   </a>
-  <a href="?tab=containers"
-     class="px-3 py-2 text-sm font-medium rounded-t border-b-2 -mb-px
-            {% if tab == 'containers' %}border-primary text-primary{% else %}border-transparent text-muted hover:text-text{% endif %}"
-     data-tab="containers">
-    Containers
-    <span class="text-xs opacity-70">({{ counts.containers }})</span>
+  <a href="?tab=containers" role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'containers' else '' }}"
+     aria-selected="{{ 'true' if tab == 'containers' else 'false' }}">
+    Containers ({{ counts.containers }})
   </a>
-  <a href="?tab=logs"
-     class="px-3 py-2 text-sm font-medium rounded-t border-b-2 -mb-px
-            {% if tab == 'logs' %}border-primary text-primary{% else %}border-transparent text-muted hover:text-text{% endif %}"
-     data-tab="logs">
-    Host logs
-    <span class="text-xs opacity-70">({{ counts.logs }})</span>
+  <a href="?tab=logs" role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'logs' else '' }}"
+     aria-selected="{{ 'true' if tab == 'logs' else 'false' }}">
+    Host logs ({{ counts.logs }})
   </a>
-  <a href="?tab=inventory"
-     class="px-3 py-2 text-sm font-medium rounded-t border-b-2 -mb-px
-            {% if tab == 'inventory' %}border-primary text-primary{% else %}border-transparent text-muted hover:text-text{% endif %}"
-     data-tab="inventory">
+  <a href="?tab=inventory" role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'inventory' else '' }}"
+     aria-selected="{{ 'true' if tab == 'inventory' else 'false' }}">
     Inventory
   </a>
 </div>
@@ -121,42 +114,73 @@
 {% if tab == 'inventory' %}
 <div class="card p-4 mb-6">
   <h2 class="text-lg font-semibold text-text mb-2">Dashboard inventory</h2>
-  <p class="text-xs text-muted mb-3">From <code class="text-[10px]">GET /api/search</code> when a token is set.</p>
+  <p class="text-sm text-muted mb-3">
+    Dashboards from Grafana poll. Set a <strong>preferred name</strong> here once per dashboard UID —
+    it is stored on this integration and used on every host bind (current and future).
+    Binding tabs only link hosts/containers; they do not rename.
+  </p>
   <div class="card p-3 mb-4 text-xs text-muted space-y-1">
     <div class="font-mono text-[11px]"><span class="text-muted">metrics:</span> {{ query_template or '—' }}</div>
     <div class="font-mono text-[11px]"><span class="text-muted">containers (host):</span> {{ query_template_container_host or '—' }}</div>
     <div class="font-mono text-[11px]"><span class="text-muted">containers (one):</span> {{ query_template_container or '—' }}</div>
     <div class="font-mono text-[11px]"><span class="text-muted">logs:</span> {{ query_template_logs or '—' }}</div>
   </div>
-  {% if dashboards %}
-  <div class="overflow-x-auto max-h-96 overflow-y-auto">
+  {% if inventory_rows %}
+  <div class="overflow-x-auto max-h-[36rem] overflow-y-auto">
     <table class="w-full text-sm">
       <thead>
         <tr class="text-left text-xs text-muted border-b border-border">
-          <th class="py-2 pr-3">Title</th>
+          <th class="py-2 pr-3">Grafana title</th>
+          <th class="py-2 pr-3 min-w-[14rem]">Preferred name (PiHerder)</th>
           <th class="py-2 pr-3">UID</th>
           <th class="py-2 pr-3">Folder</th>
+          <th class="py-2 pr-3">Binds</th>
           <th class="py-2">Open</th>
         </tr>
       </thead>
       <tbody>
-        {% for d in dashboards %}
-        <tr class="border-b border-border/50">
-          <td class="py-2 pr-3 font-medium">{{ d.title or d.name }}</td>
-          <td class="py-2 pr-3 font-mono text-xs">{{ d.uid }}</td>
+        {% for d in inventory_rows %}
+        <tr class="border-b border-border/50 align-top">
+          <td class="py-2 pr-3 font-medium">{{ d.title }}</td>
+          <td class="py-2 pr-3">
+            {% if can_mutate and d.uid %}
+            <form method="post" action="/integrations/{{ integration.id }}/preferred-name"
+                  class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+              <input type="hidden" name="uid" value="{{ d.uid }}">
+              <input type="text" name="display_name" class="input text-sm w-full min-w-[10rem]"
+                     value="{{ d.preferred_name or '' }}"
+                     placeholder="{{ d.title if d.title and not d.title.startswith('(') else 'Leave blank = Grafana title' }}"
+                     autocomplete="off">
+              <button type="submit" class="btn btn-primary text-xs min-h-10 shrink-0 px-3">Save</button>
+            </form>
+            {% elif d.preferred_name %}
+            <span class="text-sm text-text">{{ d.preferred_name }}</span>
+            {% else %}
+            <span class="text-xs text-muted">—</span>
+            {% endif %}
+          </td>
+          <td class="py-2 pr-3 font-mono text-xs">{{ d.uid or '—' }}</td>
           <td class="py-2 pr-3 text-muted text-xs">{{ d.folder_title or '—' }}</td>
+          <td class="py-2 pr-3 text-xs text-muted">{{ d.binding_count }}</td>
           <td class="py-2">
+            {% if d.uid and open_url %}
             {% set path = d.url or ('/d/' ~ d.uid) %}
             <a href="{{ open_url }}{{ path if path.startswith('/') else '/' ~ path }}"
                target="_blank" rel="noopener" class="text-accent text-xs hover:underline">Open →</a>
+            {% else %}
+            <span class="text-xs text-muted">—</span>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  <p class="text-[11px] text-muted mt-3 mb-0">
+    Blank + <strong>Save</strong> clears the preferred name for that UID (chips follow the Grafana title again).
+  </p>
   {% else %}
-  <p class="text-sm text-muted">No dashboards cached. Add a token and poll.</p>
+  <p class="text-sm text-muted">No dashboards cached. Add a token and <strong>Poll now</strong>.</p>
   {% endif %}
 </div>
 
@@ -197,9 +221,8 @@
 
   {% if rows %}
   <p class="text-xs text-muted mb-3">
-    <strong>Rename</strong> sets a <em>preferred name</em> for that dashboard UID (stored on this
-    integration). It applies to all current bindings and any new ones you create later.
-    <strong>Remove</strong> deletes only that host/container link.
+    Chip labels come from <a href="?tab=inventory" class="text-accent hover:underline">Inventory → preferred name</a>
+    (per dashboard). Here you only <strong>Clone</strong> / <strong>Remove</strong> host links.
   </p>
   <div class="space-y-2 mb-4 max-h-[32rem] overflow-y-auto" id="bind-list">
     {% set ns = namespace(prev_host='') %}
@@ -211,85 +234,39 @@
       <a href="/servers/{{ b.server_id }}" class="hover:text-primary">{{ b.server_name }}</a>
     </div>
     {% endif %}
-    <div class="bind-row p-2 rounded border border-border/60 space-y-2"
+    <div class="bind-row flex flex-wrap items-center justify-between gap-2 p-2 rounded border border-border/60"
          data-filter="{{ (b.server_name ~ ' ' ~ (b.location or '') ~ ' ' ~ (b.label or '') ~ ' ' ~ (b.uid or ''))|lower }}">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="min-w-0">
-          {% if b.location %}
-          <span class="text-sm font-medium text-text font-mono">{{ b.location }}</span>
-          <span class="text-xs text-muted">→</span>
-          {% endif %}
-          <span class="text-sm {% if not b.location %}font-medium text-text{% else %}text-muted{% endif %}">{{ b.label }}</span>
-          {% if b.preferred_name or b.label_override %}
-            {% if b.grafana_title and (b.preferred_name or b.label_override) != b.grafana_title %}
-            <span class="text-[11px] text-muted"> (Grafana: {{ b.grafana_title }})</span>
-            {% endif %}
-            <span class="text-[11px] text-accent"> preferred</span>
-          {% elif b.grafana_title %}
-          <span class="text-[11px] text-muted"> (from Grafana)</span>
-          {% endif %}
-          <div class="text-[11px] text-muted font-mono truncate">{{ b.uid }}</div>
-        </div>
-        <div class="flex flex-wrap gap-1.5 items-center">
-          {% if b.open_url %}
-          <a href="{{ b.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open</a>
-          {% endif %}
-          {% if can_mutate %}
-          <button type="button"
-                  class="btn btn-secondary text-xs min-h-9"
-                  data-rename-toggle="{{ b.id }}"
-                  aria-expanded="false"
-                  aria-controls="rename-panel-{{ b.id }}">Rename</button>
-          <a href="?tab={{ tab }}&mode=clone&server_id={{ b.server_id }}&kind={{ b.kind or kind_default }}&external_id={{ b.uid|urlencode }}&docker_project={{ (b.docker_project or '')|urlencode }}&docker_container={{ (b.docker_container or '')|urlencode }}#grafana-bind-form"
-             class="btn btn-secondary text-xs min-h-9"
-             title="Prefill form as a new binding — change host or container, then save">Clone</a>
-          <form method="post" action="/integrations/{{ integration.id }}/bindings" class="inline"
-                data-confirm="Remove this dashboard binding from {{ b.server_name }}?">
-            <input type="hidden" name="server_id" value="{{ b.server_id }}">
-            <input type="hidden" name="external_id" value="{{ b.uid }}">
-            <input type="hidden" name="role" value="dashboard">
-            <input type="hidden" name="kind" value="{{ b.kind or kind_default }}">
-            <input type="hidden" name="binding_id" value="{{ b.id }}">
-            <input type="hidden" name="clear" value="1">
-            <button type="submit" class="btn btn-secondary text-xs min-h-9 text-danger">Remove</button>
-          </form>
-          {% endif %}
-        </div>
+      <div class="min-w-0">
+        {% if b.location %}
+        <span class="text-sm font-medium text-text font-mono">{{ b.location }}</span>
+        <span class="text-xs text-muted">→</span>
+        {% endif %}
+        <span class="text-sm {% if not b.location %}font-medium text-text{% else %}text-muted{% endif %}">{{ b.label }}</span>
+        {% if b.preferred_name and b.grafana_title and b.preferred_name != b.grafana_title %}
+        <span class="text-[11px] text-muted"> (Grafana: {{ b.grafana_title }})</span>
+        {% endif %}
+        <div class="text-[11px] text-muted font-mono truncate">{{ b.uid }}</div>
       </div>
-      {% if can_mutate %}
-      <form method="post"
-            action="/integrations/{{ integration.id }}/bindings/rename"
-            id="rename-panel-{{ b.id }}"
-            class="hidden border-t border-border pt-2 mt-1 space-y-2"
-            data-rename-panel="{{ b.id }}">
-        <input type="hidden" name="binding_id" value="{{ b.id }}">
-        <input type="hidden" name="kind" value="{{ b.kind or kind_default }}">
-        <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:items-end">
-          <div class="flex-1 min-w-[12rem]">
-            <label class="block text-xs font-medium text-muted mb-1" for="display_name_{{ b.id }}">
-              Preferred name for this dashboard
-            </label>
-            <input id="display_name_{{ b.id }}" name="display_name" type="text"
-                   class="input w-full text-sm"
-                   value="{{ b.preferred_name or b.label_override or '' }}"
-                   placeholder="{{ b.grafana_title or b.label or 'Leave blank for Grafana title' }}"
-                   autocomplete="off">
-          </div>
-          <button type="submit" class="btn btn-primary text-xs min-h-10 px-4">Save preferred name</button>
-          <button type="button" class="btn btn-secondary text-xs min-h-10"
-                  data-rename-cancel="{{ b.id }}">Cancel</button>
-        </div>
-        <p class="text-[11px] text-muted mb-0 max-w-2xl">
-          Saved on this Grafana integration for UID
-          <code class="font-mono">{{ b.uid }}</code>
-          {% if (b.same_uid_count or 1) > 1 %}
-          · updates <strong class="text-text">{{ b.same_uid_count }}</strong> existing bindings
-          {% endif %}
-          · new binds of this dashboard use the same name.
-          Blank + Save clears the preferred name (chips follow the Grafana title again).
-        </p>
-      </form>
-      {% endif %}
+      <div class="flex flex-wrap gap-1.5 items-center">
+        {% if b.open_url %}
+        <a href="{{ b.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open</a>
+        {% endif %}
+        {% if can_mutate %}
+        <a href="?tab={{ tab }}&mode=clone&server_id={{ b.server_id }}&kind={{ b.kind or kind_default }}&external_id={{ b.uid|urlencode }}&docker_project={{ (b.docker_project or '')|urlencode }}&docker_container={{ (b.docker_container or '')|urlencode }}#grafana-bind-form"
+           class="btn btn-secondary text-xs min-h-9"
+           title="Prefill form as a new binding — change host or container, then save">Clone</a>
+        <form method="post" action="/integrations/{{ integration.id }}/bindings" class="inline"
+              data-confirm="Remove this dashboard binding from {{ b.server_name }}?">
+          <input type="hidden" name="server_id" value="{{ b.server_id }}">
+          <input type="hidden" name="external_id" value="{{ b.uid }}">
+          <input type="hidden" name="role" value="dashboard">
+          <input type="hidden" name="kind" value="{{ b.kind or kind_default }}">
+          <input type="hidden" name="binding_id" value="{{ b.id }}">
+          <input type="hidden" name="clear" value="1">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9 text-danger">Remove</button>
+        </form>
+        {% endif %}
+      </div>
     </div>
     {% endfor %}
   </div>
@@ -312,11 +289,12 @@
     {% if prefill.mode == 'clone' %}
     <p class="text-xs text-muted">
       Form prefilled from an existing row. Change <strong>server</strong> or <strong>container</strong>, then save as a new binding.
-      Rename existing chips with <strong>Rename</strong> on the row (not this form).
+      Preferred names are set under <a href="?tab=inventory" class="text-accent hover:underline">Inventory</a>.
     </p>
     {% else %}
     <p class="text-xs text-muted">
-      Bind a dashboard to a host (and optional container). To rename chips later, use <strong>Rename</strong> on each row.
+      Bind a dashboard to a host (and optional container). Preferred chip names:
+      <a href="?tab=inventory" class="text-accent hover:underline">Inventory tab</a>.
     </p>
     {% endif %}
 
@@ -379,20 +357,6 @@
           <option value="">— all on host / project —</option>
         </select>
       </div>
-    </div>
-
-    <div>
-      <label class="block text-xs font-medium text-muted mb-1" for="display_name">
-        Preferred name <span class="font-normal">(optional)</span>
-      </label>
-      <input id="display_name" name="display_name" type="text" class="input w-full text-sm max-w-md"
-             placeholder="Blank = existing preferred name, else Grafana title"
-             value="{{ prefill.display_name or '' }}"
-             autocomplete="off">
-      <p class="text-[11px] text-muted mt-1 max-w-xl">
-        If set, stored as the preferred name for this dashboard UID (all hosts).
-        If blank, a preferred name already saved for that UID is reused automatically.
-      </p>
     </div>
 
     <div class="flex flex-wrap gap-2">
@@ -466,31 +430,6 @@
     projEl.addEventListener('change', function () { fillContainers(''); });
     toggleScope();
 
-    // Inline rename panels
-    document.querySelectorAll('[data-rename-toggle]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        const id = btn.getAttribute('data-rename-toggle');
-        const panel = document.querySelector('[data-rename-panel="' + id + '"]');
-        if (!panel) return;
-        const open = panel.classList.toggle('hidden') === false;
-        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        if (open) {
-          const input = panel.querySelector('input[name="display_name"]');
-          if (input) input.focus();
-        }
-      });
-    });
-    document.querySelectorAll('[data-rename-cancel]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        const id = btn.getAttribute('data-rename-cancel');
-        const panel = document.querySelector('[data-rename-panel="' + id + '"]');
-        const toggle = document.querySelector('[data-rename-toggle="' + id + '"]');
-        if (panel) panel.classList.add('hidden');
-        if (toggle) toggle.setAttribute('aria-expanded', 'false');
-      });
-    });
-
-    // Client-side filter for long lists
     const filterEl = document.getElementById('bind-filter');
     const listEl = document.getElementById('bind-list');
     const countEl = document.getElementById('bind-filter-count');

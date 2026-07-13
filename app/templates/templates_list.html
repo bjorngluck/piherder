@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% set catalog_section = 'templates' %}
+{% with catalog_section='templates' %}
 {% include "partials/catalog_nav.html" %}
+{% endwith %}
 
 <div class="max-w-5xl">
   <div class="flex flex-wrap items-center justify-between gap-3 mb-4">

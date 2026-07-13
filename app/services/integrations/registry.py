@@ -799,56 +799,41 @@ def set_binding(
     return row
 
 
-def apply_grafana_display_name(
+def apply_grafana_preferred_name(
     session: Session,
     *,
     integration_id: int,
-    binding_id: int,
+    uid: str,
     display_name: str,
-    apply_same_dashboard: bool = True,
 ) -> list[IntegrationBinding]:
     """Set preferred display name for a dashboard UID on the integration.
 
-    Stored in integration config_json.display_names[uid] so **new** bindings and
-    polls pick it up. Existing bindings that share the UID are synced (labels +
-    meta). Blank display_name clears the preferred name and legacy per-row
-    overrides for that UID.
+    Primary UX: Inventory tab (one name per Grafana dashboard). Stored in
+    config_json.display_names[uid] so **new** bindings and polls pick it up.
+    Existing ROLE_DASHBOARD rows with that UID are synced (labels + meta).
+    Blank display_name clears the preferred name for that UID.
     """
     integration = session.get(Integration, integration_id)
     if not integration or integration.type != TYPE_GRAFANA:
         raise ValueError("Grafana integration not found")
 
-    row = session.get(IntegrationBinding, binding_id)
-    if (
-        not row
-        or row.integration_id != integration_id
-        or (row.role or "") != ROLE_DASHBOARD
-    ):
-        raise ValueError("Dashboard binding not found")
+    u = (uid or "").strip()
+    if not u:
+        raise ValueError("Dashboard UID required")
 
     custom = (display_name or "").strip()
-    uid = (row.external_id or "").strip()
-    if not uid:
-        raise ValueError("Binding has no dashboard UID")
-
-    set_preferred_display_name(session, integration, uid, custom)
+    set_preferred_display_name(session, integration, u, custom)
     session.refresh(integration)
 
-    # Always sync all bindings for this UID (preferred is dashboard-scoped).
-    # apply_same_dashboard kept for API compat; False only updates the one row's
-    # cached label while preferred still applies on read for all.
-    if apply_same_dashboard:
-        targets = list(
-            session.exec(
-                select(IntegrationBinding).where(
-                    IntegrationBinding.integration_id == integration_id,
-                    IntegrationBinding.role == ROLE_DASHBOARD,
-                    IntegrationBinding.external_id == uid,
-                )
-            ).all()
-        )
-    else:
-        targets = [row]
+    targets = list(
+        session.exec(
+            select(IntegrationBinding).where(
+                IntegrationBinding.integration_id == integration_id,
+                IntegrationBinding.role == ROLE_DASHBOARD,
+                IntegrationBinding.external_id == u,
+            )
+        ).all()
+    )
 
     now = datetime.utcnow()
     updated: list[IntegrationBinding] = []
@@ -871,6 +856,31 @@ def apply_grafana_display_name(
     for b in updated:
         session.refresh(b)
     return updated
+
+
+def apply_grafana_display_name(
+    session: Session,
+    *,
+    integration_id: int,
+    binding_id: int,
+    display_name: str,
+    apply_same_dashboard: bool = True,
+) -> list[IntegrationBinding]:
+    """Backward-compatible wrapper: resolve UID from binding then set preferred name."""
+    del apply_same_dashboard
+    row = session.get(IntegrationBinding, binding_id)
+    if (
+        not row
+        or row.integration_id != integration_id
+        or (row.role or "") != ROLE_DASHBOARD
+    ):
+        raise ValueError("Dashboard binding not found")
+    return apply_grafana_preferred_name(
+        session,
+        integration_id=integration_id,
+        uid=row.external_id or "",
+        display_name=display_name,
+    )
 
 
 def clear_binding(
