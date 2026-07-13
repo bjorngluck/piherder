@@ -53,7 +53,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - Installable **PWA** (manifest + service worker + home-screen install).
 - Link to Pi-hole admin from dashboard (configurable).
 - **Service templates:** under **Catalog** — deploy NPM, Uptime Kuma, Pi-hole, Grafana (and custom / from-host stacks) via wizard — variables (incl. **boolean** + **volume** storage modes), preview, host picker, encrypted desired state V1; step-up 2FA for secrets; wait modal while deploy runs.
-- **Integrations:** **Catalog** (Integrations default | Templates) — **Uptime Kuma** (API key + `/metrics`; SSH / host / Docker bindings; TLS; Services pages; logos; down notifications) and **Grafana** (health; dashboard inventory; preferred names by dashboard UID; server→dashboard deep links with query templates).
+- **Integrations:** **Catalog** (`/catalog` → Integrations; Settings-style Templates tab) — **Uptime Kuma** (API key + `/metrics`; SSH / host / Docker bindings; TLS; Services pages; logos; down notifications) and **Grafana** (health; Inventory preferred names by dashboard UID; bind Clone/Remove; deep links with query templates).
 - HTTPS via Caddy with **operator-supplied TLS certs** (volume `./certs`) and `PIHERDER_HOSTNAME` (default ports **8888** HTTP / **8443** HTTPS).
 
 ### Account & security

@@ -446,7 +446,7 @@ Typical pattern: PiHerder → n8n webhook → Signal CLI. In-app notifications a
 
 ### Service templates (v0.4.0)
 
-**Templates** live under top-nav **Catalog** (Settings-style buttons: **Integrations** default | **Templates**). They are **your** versioned stack definitions. You **create**, **edit**, and **save** them; deploy is separate.
+**Templates** live under top-nav **Catalog** (`/catalog` → Integrations; Settings-style buttons **Integrations | Templates**). They are **your** versioned stack definitions. You **create**, **edit**, and **save** them; deploy is separate.
 
 **Shipped in v0.4.0** (foundation; ops + polish → [PLAN_v0.5.0.md](PLAN_v0.5.0.md)).  
 **Docs:** [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · active [PLAN_v0.5.0.md](PLAN_v0.5.0.md)

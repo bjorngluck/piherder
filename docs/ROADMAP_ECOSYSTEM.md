@@ -125,7 +125,7 @@ Read-mostly integrations: config + status + deep links + **server / host / Docke
 
 | Item | Status |
 |------|--------|
-| Integration registry + **Catalog** nav (Templates \| Integrations tabs) | **Shipped** |
+| Integration registry + **Catalog** nav (`/catalog` → Integrations; Settings-style tabs) | **Shipped** |
 | **Uptime Kuma** — API key + `/metrics`; SSH + host service + Docker bindings; TLS; deep links; notifications; Services pages; logos | **Shipped** |
 | **Grafana** — service account token; health; inventory; kinds (metrics/containers/logs); query templates; server + Docker deep links | **Shipped** (v0.3.0) |
 | Multi Pi-hole / NPM / HA / Frigate / n8n generic URL | Open (v0.3.x) |
