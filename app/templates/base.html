@@ -551,18 +551,41 @@
   window.PIHERDER_TZ = "{{ get_app_timezone() }}";
   (function localizeTimes() {
     let isConverting = false;
+    /** Parse server timestamps: naive ISO is UTC (PiHerder stores utcnow). */
+    function parseUtcIso(iso) {
+      let s = String(iso || '').trim();
+      if (!s) return null;
+      // Date-only
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += 'T00:00:00Z';
+      // Naive datetime → treat as UTC
+      if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(s) && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)) {
+        s = s.replace(' ', 'T');
+        if (!s.endsWith('Z')) s += 'Z';
+      }
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    }
     function convert(el) {
       const iso = el.dataset.utc || (el.textContent || '').trim();
       if (!iso || iso.length < 10) return;
       if (!el.dataset.utc && !/^\d{4}-\d{2}-\d{2}/.test(iso)) return;
       try {
-        const d = new Date(iso);
-        if (!isNaN(d)) {
-          const tz = window.PIHERDER_TZ || 'UTC';
-          const opts = { timeZone: tz };
-          el.textContent = d.toLocaleString(undefined, opts);
-          if (!el.title) el.title = iso + ' (UTC) shown in ' + tz;
-        }
+        const d = parseUtcIso(iso);
+        if (!d) return;
+        const tz = window.PIHERDER_TZ || 'UTC';
+        const opts = {
+          timeZone: tz,
+          year: 'numeric', month: 'short', day: 'numeric',
+          hour: '2-digit', minute: '2-digit',
+        };
+        // Preserve trailing " · 5m" duration (and similar) when re-rendering
+        const prev = (el.textContent || '');
+        const suffixMatch = prev.match(/(\s*·\s*[^·]+)$/);
+        const formatted = d.toLocaleString(undefined, opts);
+        el.textContent = suffixMatch && !el.dataset.utcOnly
+          ? formatted + suffixMatch[1]
+          : formatted;
+        if (!el.title) el.title = iso + ' (UTC) → ' + tz;
       } catch (e) {}
     }
     function run() {
@@ -580,6 +603,7 @@
       run();
     }
     window.PiHerderLocalizeTimes = run;
+    window.PiHerderParseUtcIso = parseUtcIso;
   })();
 
   window.PiHerderUpdateLog = function(el, data, fallback) {

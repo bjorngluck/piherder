@@ -56,13 +56,32 @@ From the **Servers** list, multi-select hosts and queue the same job type across
 
 ## Audit
 
+**Where:** nav **Audit** (`/audit`).
+
 Actors may be:
 
 - Session user (display name + email)  
 - **API token name + id** (automation)  
 - **system / scheduler** for cron jobs  
 
-Filter by user, server, token, etc.
+Filter by user, server, token, action, status, date range.
+
+### Backup lifecycle events
+
+Each backup job writes append-only phases:
+
+| Phase | Action | Meaning |
+|-------|--------|---------|
+| request | `backup_request` | User / schedule / bulk asked for a backup |
+| queued | `backup_queued` | Waiting for a Celery worker |
+| running | `backup_running` | Worker started rsync |
+| complete | `backup` | Terminal success or failure |
+
+**Completed backups** show a summary line with source count and total size (e.g. `2 sources · 1.5 MB`), duration, and a detail modal with per-source sizes. Incomplete/running noise can be hidden with **Hide incomplete runs**.
+
+### Timezone display
+
+All event times are **stored in UTC** and **rendered in the app timezone** from **Settings → timezone** (e.g. `Africa/Johannesburg` / SAST). The Audit header shows the active zone. Jobs and Notifications use the same rule.
 
 ## Notifications
 

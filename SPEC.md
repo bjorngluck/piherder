@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** **v0.5.0 in development** — Phase 1–5 complete; Phase 6 templates **foundation shipped** in v0.4.0; ops + polish + RC → **v0.5.0**  
-> **Last updated:** 2026-07-13 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target; former v0.4.x folded in). Fleet ops polish (exclusive jobs, reboot, bulk actions, full editor) landed in plan workstream **E**.
+> **Last updated:** 2026-07-13 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target; former v0.4.x folded in). Fleet ops polish (exclusive jobs, reboot, bulk actions, full editor, backup complete audit + app-timezone display) in plan workstream **E**.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -90,6 +90,8 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 
 ### Recent Phase 1 refinements
 - Backup success/failure is now determined by per-source `rc == 0` (and absence of errors). Failed runs set status="failed", populate error details in audit, and do **not** update `last_backup_at`.
+- **Backup terminal audit (0.5.0):** Celery success path refreshes the Job after `_update_job_status` (fixes stale Session skipping `backup` complete rows). Compact snippet stores source count + sizes for Audit summary lines; duration uses job wall-clock.
+- **App timezone display (0.5.0):** Settings IANA zone (e.g. `Africa/Johannesburg`) formats Audit, Jobs, Notifications, and fleet timestamps; ISO strings treated as UTC; client `data-utc` appends `Z` for naive values.
 - rsync always uses `--rsync-path "sudo -n rsync"` (or local sudo) except for explicit root users / HAOS installs, where plain `rsync` is auto-probed and retried.
 - PiHerder self-backup scheduling is fully wired (enable, cron, mode=config_only|full, keep, timezone) with UI at `/herder-backups`, APScheduler registration on startup, manual trigger, preview restore, and audit entries.
 - Internal refactor for maintainability completed: god modules split (servers.py, backup.py into progress+profiles, docker_management.py → +docker_versions.py, main.py scheduler slim, new focused routers server_docker.py + server_backups.py + audit.py + scheduler.py). All via small modules + re-exports; behavior, routes, and lightweight principle preserved. Largest files now ~500-700 LOC.

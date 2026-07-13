@@ -39,3 +39,9 @@ Archives: format **v2** `.tar.gz` under `./piherder_backups` → `/herder_backup
 ## Schedule
 
 Enable cron + mode (`config_only` | `full`) + keep count in Settings. Manual run available.
+
+Cron wall-clock uses the **app timezone** from **Settings → General** (same setting as Audit/Jobs display).
+
+## Timezone
+
+Archive list **mtime** and other Settings timestamps are shown in the app timezone. Changing timezone does not rewrite stored UTC values.

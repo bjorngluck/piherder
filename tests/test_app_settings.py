@@ -72,3 +72,28 @@ def test_replace_settings_from_backup(_memory_settings):
     loaded = cfg.load_settings()
     assert loaded["timezone"] == "America/New_York"
     assert loaded["keep"] == 15
+
+
+def test_format_datetime_converts_naive_and_iso(_memory_settings):
+    from datetime import datetime
+
+    cfg.set_app_timezone("Africa/Johannesburg")
+    # 08:00 UTC → 10:00 SAST
+    assert cfg.format_datetime_in_app_tz(
+        datetime(2026, 7, 13, 8, 0, 0), "%H:%M"
+    ) == "10:00"
+    assert cfg.format_datetime_in_app_tz("2026-07-13T08:00:00", "%H:%M") == "10:00"
+    assert cfg.format_datetime_in_app_tz("2026-07-13T08:00:00Z", "%H:%M") == "10:00"
+    assert cfg.utc_isoformat(datetime(2026, 7, 13, 8, 0, 0)) == "2026-07-13T08:00:00Z"
+
+
+def test_parse_utc_datetime_variants():
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    dt = cfg.parse_utc_datetime("2026-07-13T08:00:00")
+    assert dt is not None
+    assert dt.tzinfo == ZoneInfo("UTC")
+    assert dt.hour == 8
+    assert cfg.parse_utc_datetime(None) is None
+    assert isinstance(cfg.parse_utc_datetime(datetime(2026, 1, 1, 0, 0, 0)), datetime)

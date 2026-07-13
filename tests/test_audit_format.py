@@ -75,3 +75,73 @@ def test_os_patch_summary_and_modal_tail():
 
 def test_backup_running_is_noise():
     assert is_noise_entry({"action": "backup", "status": "running", "details": "", "output_snippet": ""})
+
+
+def test_backup_complete_summary_with_sizes(monkeypatch):
+    from app.services import app_settings as cfg
+
+    store = {"timezone": "Africa/Johannesburg"}
+    monkeypatch.setattr(cfg, "_load_raw_from_db", lambda: dict(store))
+    monkeypatch.setattr(cfg, "_write_raw_to_db", lambda data: None)
+    cfg.clear_cache()
+
+    payload = {
+        "server": "pi01.local",
+        "ok": True,
+        "total_size_bytes": 1_572_864,
+        "results": [
+            {
+                "source": "/etc/pihole",
+                "rc": 0,
+                "size_bytes": 1_048_576,
+                "size_human": "1.0 MB",
+            },
+            {
+                "source": "/opt/compose",
+                "rc": 0,
+                "size_bytes": 524_288,
+                "size_human": "512.0 KB",
+            },
+        ],
+    }
+    out = format_audit_entry(
+        {
+            "action": "backup",
+            "status": "success",
+            "details": '{"job_id": 42, "phase": "success"}',
+            "output_snippet": json.dumps(payload),
+            "started_at": "2026-07-13T08:00:00",
+            "finished_at": "2026-07-13T08:05:30",
+        }
+    )
+    assert "2 sources" in out["summary"]
+    assert "MB" in out["summary"] or "1.5" in out["summary"] or "GB" in out["summary"]
+    # SAST = UTC+2
+    assert "10:00" in out["started_at_display"]
+    assert out["started_at"].endswith("Z")
+    assert out["duration"] == "5m 30s"
+    cfg.clear_cache()
+
+
+def test_compact_backup_snippet():
+    from app.services.backup_audit import compact_backup_snippet
+
+    big = {
+        "server": "host",
+        "ok": True,
+        "results": [
+            {
+                "source": "/a",
+                "rc": 0,
+                "size_bytes": 1000,
+                "size_human": "1000 B",
+                "dest": "/backups/host/a",
+                "extra_noise": "x" * 5000,
+            }
+        ],
+    }
+    snip = compact_backup_snippet(big, ok=True)
+    assert snip["ok"] is True
+    assert snip["results"][0]["size_bytes"] == 1000
+    assert "extra_noise" not in snip["results"][0]
+    assert snip["total_size_bytes"] == 1000

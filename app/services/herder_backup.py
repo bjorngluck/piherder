@@ -403,7 +403,10 @@ def list_backups() -> List[Dict[str, Any]]:
                 "path": str(p),
                 "name": p.name,
                 "size": stat.st_size,
-                "mtime": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                # UTC ISO so UI data-utc / app timezone conversion is correct
+                "mtime": datetime.utcfromtimestamp(stat.st_mtime).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
             })
     return out
 

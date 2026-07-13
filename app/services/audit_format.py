@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from .backup import human_size, backup_succeeded, effective_backup_status
-from .app_settings import format_datetime_in_app_tz
+from .app_settings import format_datetime_in_app_tz, utc_isoformat
 
 _JOB_STARTED = re.compile(r"^Job #\d+ started$")
 
@@ -127,7 +127,6 @@ def _backup_summary(data: dict) -> str:
         return f"Backup to {host}" if host else "Backup completed"
 
     failed = [r for r in results if _source_failed(r)]
-    ok = len(results) - len(failed)
     if failed:
         first = failed[0]
         err = first.get("error") or f"rsync exit {first.get('rc', '?')}"
@@ -135,10 +134,23 @@ def _backup_summary(data: dict) -> str:
         suffix = f" (+{len(failed) - 1} more)" if len(failed) > 1 else ""
         return f"{src}: {err}{suffix}"[:140]
 
-    total = sum(int(r.get("size_bytes") or 0) for r in results)
+    total = data.get("total_size_bytes")
+    if total is None:
+        total = sum(int(r.get("size_bytes") or 0) for r in results)
+    else:
+        try:
+            total = int(total)
+        except (TypeError, ValueError):
+            total = 0
     parts = [f"{len(results)} source{'s' if len(results) != 1 else ''}"]
     if total:
         parts.append(human_size(total))
+    # Prefer preformatted human sizes when only one source has size_human
+    if not total:
+        for r in results:
+            if r.get("size_human"):
+                parts.append(str(r["size_human"]))
+                break
     return " · ".join(parts)
 
 
@@ -146,14 +158,12 @@ def _duration(started: datetime | str | None, finished: datetime | str | None) -
     if not started or not finished:
         return None
     try:
-        if isinstance(started, str):
-            started_dt = datetime.fromisoformat(started.replace("Z", "+00:00"))
-        else:
-            started_dt = started
-        if isinstance(finished, str):
-            finished_dt = datetime.fromisoformat(finished.replace("Z", "+00:00"))
-        else:
-            finished_dt = finished
+        from .app_settings import parse_utc_datetime
+
+        started_dt = parse_utc_datetime(started)
+        finished_dt = parse_utc_datetime(finished)
+        if not started_dt or not finished_dt:
+            return None
         secs = max(0, int((finished_dt - started_dt).total_seconds()))
         if secs < 60:
             return f"{secs}s"
@@ -420,7 +430,10 @@ def format_audit_entry(log: dict) -> dict:
         "finished_at_display": finished_display,
         "actor_label": actor_label,
     }
+    # Always emit Z-suffixed UTC ISO so client JS does not treat naive as local
     for k in ("started_at", "finished_at"):
-        if k in out and hasattr(out[k], "isoformat"):
-            out[k] = out[k].isoformat()
+        if k in out and out[k] is not None:
+            iso = utc_isoformat(out[k])
+            if iso:
+                out[k] = iso
     return out

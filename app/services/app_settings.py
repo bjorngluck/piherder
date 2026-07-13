@@ -224,19 +224,64 @@ def get_available_timezones() -> List[str]:
         ]
 
 
-def format_datetime_in_app_tz(
-    dt: Optional[datetime], fmt: str = "%Y-%m-%d %H:%M"
-) -> str:
-    if not dt:
-        return "Never"
-    tz_name = get_app_timezone()
+def parse_utc_datetime(value: Any) -> Optional[datetime]:
+    """Parse DB/API timestamps as UTC.
+
+    Naive datetimes and ISO strings without offset are treated as UTC (how
+    PiHerder stores times via ``datetime.utcnow()``).
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        dt = value
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=ZoneInfo("UTC"))
+        return dt
+    if isinstance(value, (int, float)):
+        try:
+            return datetime.fromtimestamp(float(value), tz=ZoneInfo("UTC"))
+        except (OverflowError, OSError, ValueError):
+            return None
+    s = str(value).strip()
+    if not s or s.lower() in ("never", "—", "-"):
+        return None
     try:
+        if s.endswith("Z") or s.endswith("z"):
+            s = s[:-1] + "+00:00"
+        # Space separator common in some displays
+        if " " in s and "T" not in s[:20]:
+            s = s.replace(" ", "T", 1)
+        dt = datetime.fromisoformat(s)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=ZoneInfo("UTC"))
-        return dt.astimezone(ZoneInfo(tz_name)).strftime(fmt)
+        return dt
+    except Exception:
+        return None
+
+
+def utc_isoformat(value: Any) -> Optional[str]:
+    """Serialize a UTC-stored timestamp for HTML/JS (always ends with Z)."""
+    dt = parse_utc_datetime(value)
+    if not dt:
+        return None
+    return dt.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def format_datetime_in_app_tz(
+    dt: Optional[Any], fmt: str = "%Y-%m-%d %H:%M"
+) -> str:
+    """Format a UTC-stored timestamp in the operator-selected app timezone."""
+    if not dt:
+        return "Never"
+    parsed = parse_utc_datetime(dt)
+    if not parsed:
+        return str(dt)
+    tz_name = get_app_timezone()
+    try:
+        return parsed.astimezone(ZoneInfo(tz_name)).strftime(fmt)
     except Exception:
         try:
-            return dt.strftime(fmt)
+            return parsed.strftime(fmt)
         except Exception:
             return str(dt)
 

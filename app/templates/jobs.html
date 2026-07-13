@@ -5,7 +5,8 @@
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Jobs</h1>
     <p class="text-sm text-muted mt-1">
-      Task queue &amp; history · {% if active_count %}{{ active_count }} active{% else %}none active{% endif %}
+      Task queue &amp; history · times in {{ get_app_timezone() }} ·
+      {% if active_count %}{{ active_count }} active{% else %}none active{% endif %}
       · {{ total or 0 }} match{% if total != 1 %}es{% endif %}
     </p>
   </div>

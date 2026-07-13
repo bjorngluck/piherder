@@ -76,9 +76,11 @@ Operator friction fixes and multi-host workflows that do not depend on templates
 | **Reboot hang fix** | Deferred background reboot (`sleep 1` + least-priv reboot path) + timeout SSH close so the request finishes — especially when rebooting the PiHerder host itself. | **Done** |
 | **Servers list bulk actions** | Select one/many/all → Check OS, Upgrade OS, Check containers, Patch containers, Backup. Feature-flag aware (Docker-off hosts not queued for container actions). `POST /servers/bulk`. | **Done** |
 | **Docker full editor links** | Quick edit + **Full editor…** in ⋯ menu; reliable navigation from quick-edit modal; URL-encoded project paths. | **Done** |
+| **Backup complete audit** | Celery success path was skipping terminal audit (stale Session identity map). Now records compact `backup` success/fail with source count + sizes; job wall-clock for duration. | **Done** |
+| **App timezone display** | Settings timezone applied consistently: Audit/Jobs/Notifications/server list & detail; ISO strings + naive UTC parsed as UTC; client `data-utc` treats naive as UTC. | **Done** |
 
-**Tests:** `tests/test_job_exclusive.py`  
-**Wiki:** [Updates & patching](../wiki/day-to-day/updates-and-patching.md) · [Jobs](../wiki/day-to-day/jobs-audit-notifications.md) · [Compose edit](../wiki/docker/compose-edit.md) · [Multi-worker](../wiki/operations/multi-worker.md)
+**Tests:** `tests/test_job_exclusive.py` · `tests/test_audit_format.py` · `tests/test_app_settings.py`  
+**Wiki:** [Updates & patching](../wiki/day-to-day/updates-and-patching.md) · [Jobs / Audit](../wiki/day-to-day/jobs-audit-notifications.md) · [Compose edit](../wiki/docker/compose-edit.md) · [Multi-worker](../wiki/operations/multi-worker.md)
 
 ### Stretch / carry (do not block RC)
 
@@ -133,6 +135,8 @@ git log --oneline v0.4.0..HEAD
 | Reboot | Deferred background reboot; no hang on herder host |
 | Bulk fleet actions | Server list multi-select + bulk check/patch/backup |
 | Docker editor UX | Full editor links + ⋯ **Full editor…** |
+| Backup audit | Terminal backup audit always recorded; size summary in trail |
+| Timezone UI | App timezone (e.g. SAST) for Audit, Jobs, Notifications, fleet times |
 
 ---
 
