@@ -167,14 +167,13 @@
          Everything (desktop + mobile slide-out + avatar dropdown) is
          generated from this data. No other menu links exist in the HTML.
          ============================================================ #}
+      {# Alerts: bell icon only (same destination as /notifications). Catalog = Templates + Integrations. #}
       {% set nav_items = [
         {"label": "Dashboard", "href": "/", "match": "exact"},
         {"label": "Servers",   "href": "/servers", "match": "prefix"},
-        {"label": "Templates", "href": "/templates", "match": "prefix"},
-        {"label": "Integrations", "href": "/integrations", "match": "prefix"},
+        {"label": "Catalog",   "href": "/templates", "match": "catalog"},
         {"label": "Jobs",      "href": "/jobs", "match": "prefix"},
         {"label": "Audit",     "href": "/audit", "match": "prefix"},
-        {"label": "Alerts",    "href": "/notifications", "match": "prefix"},
         {"label": "Settings",  "href": "/herder-backups", "match": "prefix"}
       ] %}
 
@@ -200,7 +199,13 @@
       <!-- Desktop nav links — generated from SINGLE SOURCE (nav_items) -->
       <div class="desktop-nav">
         {% for item in nav_items %}
-          {% set is_active = (current_path == item.href) if item.match == 'exact' else current_path.startswith(item.href) %}
+          {% if item.match == 'exact' %}
+            {% set is_active = (current_path == item.href) %}
+          {% elif item.match == 'catalog' %}
+            {% set is_active = current_path.startswith('/templates') or current_path.startswith('/integrations') %}
+          {% else %}
+            {% set is_active = current_path.startswith(item.href) %}
+          {% endif %}
           <a href="{{ item.href }}" class="nav-link {{ 'nav-link-active' if is_active else '' }}">{{ item.label }}</a>
         {% endfor %}
       </div>
@@ -241,7 +246,13 @@
           <div class="mobile-menu-content">
             {# Primary nav items — from SINGLE SOURCE nav_items #}
             {% for item in nav_items %}
-              {% set is_active = (current_path == item.href) if item.match == 'exact' else current_path.startswith(item.href) %}
+              {% if item.match == 'exact' %}
+                {% set is_active = (current_path == item.href) %}
+              {% elif item.match == 'catalog' %}
+                {% set is_active = current_path.startswith('/templates') or current_path.startswith('/integrations') %}
+              {% else %}
+                {% set is_active = current_path.startswith(item.href) %}
+              {% endif %}
               <a href="{{ item.href }}" class="mobile-menu-link {{ 'is-active' if is_active else '' }}">{{ item.label }}</a>
             {% endfor %}
 

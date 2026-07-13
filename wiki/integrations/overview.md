@@ -1,6 +1,6 @@
 # Integrations
 
-Optional **integration hub** (top-level **Integrations** nav — not under Settings).
+Optional **integration hub**. In the UI, **Catalog** in the top nav opens Templates and Integrations with tab buttons (`/templates` · `/integrations`).
 
 Core fleet ops work **without** any integration.
 

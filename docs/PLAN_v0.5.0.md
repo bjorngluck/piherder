@@ -78,6 +78,11 @@ Operator friction fixes and multi-host workflows that do not depend on templates
 | **Docker full editor links** | Quick edit + **Full editor…** in ⋯ menu; reliable navigation from quick-edit modal; URL-encoded project paths. | **Done** |
 | **Backup complete audit** | Celery success path was skipping terminal audit (stale Session identity map). Now records compact `backup` success/fail with source count + sizes; job wall-clock for duration. | **Done** |
 | **App timezone display** | Settings timezone applied consistently: Audit/Jobs/Notifications/server list & detail; ISO strings + naive UTC parsed as UTC; client `data-utc` treats naive as UTC. | **Done** |
+| **Server detail UX** | Remove → Edit **Remove** tab; host deps checks under SSH access (Test connection also probes deps); Grafana + Kuma SSH cards in dest-card grid with Host status; equal desktop card sizing. | **Done** |
+| **Nav: bell vs Alerts** | Dropped Alerts nav link; notifications via bell only. | **Done** |
+| **Catalog nav** | Single **Catalog** item with Templates \| Integrations tabs (routes unchanged). | **Done** |
+| **Grafana display name** | Optional binding `label_override` survives poll; form field on bind/edit. | **Done** |
+| **Users create modal** | Create user + one-time credentials confirmation in modals. | **Done** |
 
 **Tests:** `tests/test_job_exclusive.py` · `tests/test_audit_format.py` · `tests/test_app_settings.py`  
 **Wiki:** [Updates & patching](../wiki/day-to-day/updates-and-patching.md) · [Jobs / Audit](../wiki/day-to-day/jobs-audit-notifications.md) · [Compose edit](../wiki/docker/compose-edit.md) · [Multi-worker](../wiki/operations/multi-worker.md)

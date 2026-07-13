@@ -178,7 +178,7 @@ Archives are format **v2** compressed `.tar.gz` under the herder backups volume 
 
 ## 4b. Remove a server from the fleet
 
-**Where:** Server detail → **Remove from PiHerder** (danger zone).
+**Where:** Server detail → **Edit** → **Remove** tab → **Remove server…**
 
 | What happens | What does **not** |
 |--------------|-------------------|
@@ -193,7 +193,7 @@ Confirm by typing the **exact server name**.
 
 After (or instead of) removing the server from the UI, run the cleanup script **on the target host as root** if you want to drop the least-priv account:
 
-- Server detail → **Remove from PiHerder** card: **Copy script** / **Download .sh**
+- Edit → **Remove** tab: **Copy script** / **Download .sh**
 - Or **SSH access → Host cleanup script** (same script)
 - Direct download: `GET /servers/{id}/ssh/cleanup-script`
 - Repo: `scripts/cleanup-piherder-user.sh`
@@ -526,7 +526,7 @@ Herder self-backup includes `service_templates` catalog rows and `stack_deployme
 
 ### Uptime Kuma integration
 
-Optional **integration hub** (top-level **Integrations** menu — not under Settings). You can **deploy** Kuma via Templates, then connect the integration for status/bindings.
+Optional **integration hub** under top-nav **Catalog** (tabs: Templates | Integrations). You can **deploy** Kuma via Templates, then connect the integration for status/bindings.
 
 **Design / plan:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md)
 

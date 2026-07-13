@@ -1036,10 +1036,15 @@ def _grafana_chip_dict(
         loc = f"{proj}/{cont}" if proj else cont
     elif proj:
         loc = proj
+    override = (meta.get("label_override") or "").strip()
+    grafana_title = (meta.get("grafana_title") or meta.get("title") or "").strip()
+    label = override or (binding.external_label or "").strip() or binding.external_id
     return {
         "id": binding.id,
         "state": binding.last_state or "linked",
-        "label": binding.external_label or binding.external_id,
+        "label": label,
+        "label_override": override,
+        "grafana_title": grafana_title,
         "message": binding.last_message or meta.get("folder_title") or "",
         "open_url": open_url,
         "integration_id": binding.integration_id,

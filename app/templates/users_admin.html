@@ -9,7 +9,8 @@
       ({{ admin_count or 0 }} now).
     </p>
   </div>
-  <div class="page-header-actions">
+  <div class="page-header-actions flex flex-wrap gap-2">
+    <button type="button" id="btn-open-create-user" class="btn btn-accent min-h-11 text-sm">Create user</button>
     <a href="/auth/account" class="btn btn-secondary min-h-11 text-sm">Account</a>
   </div>
 </div>
@@ -44,100 +45,6 @@
 {% elif error %}
 <div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-3xl">{{ error }}</div>
 {% endif %}
-
-{% if new_user_credentials %}
-<div class="card p-4 sm:p-5 mb-6 max-w-3xl border-accent" id="new-user-creds">
-  <h2 class="font-semibold text-text mb-1">User created — copy credentials now</h2>
-  <p class="text-xs text-muted mb-3">
-    This password is shown <strong>once</strong>. Copy the invite below and share it securely.
-  </p>
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm mb-3">
-    <div><span class="text-muted text-xs">Login URL</span><div class="font-mono break-all">{{ new_user_credentials.login_url }}</div></div>
-    <div><span class="text-muted text-xs">Role</span><div>{{ new_user_credentials.role }}</div></div>
-    <div><span class="text-muted text-xs">Email</span><div class="font-mono break-all">{{ new_user_credentials.email }}</div></div>
-    <div><span class="text-muted text-xs">Password</span><div class="font-mono break-all" id="cred-password">{{ new_user_credentials.password }}</div></div>
-  </div>
-  <label class="block text-xs text-muted mb-1">Invite text</label>
-  <textarea id="invite-text" readonly rows="12"
-            class="w-full bg-surface border border-border px-3 py-2 rounded text-xs font-mono min-h-[12rem]">{{ new_user_credentials.invite_text }}</textarea>
-  <div class="flex flex-col sm:flex-row gap-2 mt-3">
-    <button type="button" class="btn btn-accent min-h-11 w-full sm:w-auto" id="copy-invite-btn">Copy invite</button>
-    <button type="button" class="btn btn-secondary min-h-11 w-full sm:w-auto" id="copy-password-btn">Copy password only</button>
-  </div>
-  <p class="text-[10px] text-muted mt-2 mb-0" id="copy-status" aria-live="polite"></p>
-</div>
-<script>
-(function () {
-  function copyText(text, statusMsg) {
-    const el = document.getElementById('copy-status');
-    function ok() { if (el) el.textContent = statusMsg || 'Copied.'; }
-    function fail() { if (el) el.textContent = 'Copy failed — select text manually.'; }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(ok).catch(fail);
-    } else {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); ok(); } catch (e) { fail(); }
-      document.body.removeChild(ta);
-    }
-  }
-  const invite = document.getElementById('invite-text');
-  const pwd = document.getElementById('cred-password');
-  const b1 = document.getElementById('copy-invite-btn');
-  const b2 = document.getElementById('copy-password-btn');
-  if (b1 && invite) b1.addEventListener('click', function () { copyText(invite.value, 'Invite copied to clipboard.'); });
-  if (b2 && pwd) b2.addEventListener('click', function () { copyText(pwd.textContent || '', 'Password copied.'); });
-})();
-</script>
-{% endif %}
-
-{# Create user #}
-<div class="card p-4 sm:p-5 mb-6 max-w-3xl">
-  <h2 class="font-semibold text-text mb-1">Create user</h2>
-  <p class="text-xs text-muted mb-3">
-    {{ password_policy_text or 'Strong password required.' }}
-  </p>
-  <form method="post" action="/auth/users/create" class="space-y-3" id="create-user-form">
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <label class="block text-xs text-muted mb-1">Email</label>
-        <input name="email" type="email" required autocomplete="off"
-               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
-      </div>
-      <div>
-        <label class="block text-xs text-muted mb-1">Display name (optional)</label>
-        <input name="display_name" type="text" autocomplete="off"
-               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
-      </div>
-      <div class="sm:col-span-2">
-        <label class="block text-xs text-muted mb-1">Temporary password</label>
-        <div class="flex flex-col sm:flex-row gap-2">
-          <input name="password" id="new-user-password" type="text" required
-                 minlength="{{ password_min_length or 10 }}" autocomplete="new-password"
-                 class="w-full flex-1 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
-          <button type="button" id="gen-password-btn" class="btn btn-secondary min-h-11 w-full sm:w-auto flex-shrink-0">
-            Generate
-          </button>
-        </div>
-        <div class="pw-strength mt-2" id="pw-strength" aria-live="polite">
-          <div class="pw-strength-bar"><div class="pw-strength-fill" id="pw-strength-fill"></div></div>
-          <div class="text-[10px] text-muted mt-1" id="pw-strength-label">Enter or generate a password</div>
-        </div>
-      </div>
-      <div>
-        <label class="block text-xs text-muted mb-1">Role</label>
-        <select name="role" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
-          <option value="operator" selected>operator</option>
-          <option value="viewer">viewer</option>
-          <option value="admin">admin</option>
-        </select>
-      </div>
-    </div>
-    <button type="submit" class="btn btn-accent min-h-11 w-full sm:w-auto" id="create-user-submit">Create user</button>
-  </form>
-</div>
 
 {# User list #}
 <div class="space-y-3 max-w-3xl">
@@ -202,6 +109,88 @@
   {% endfor %}
 </div>
 
+{# Create user modal #}
+<div id="create-user-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3" aria-modal="true" role="dialog" aria-labelledby="create-user-title">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-3">
+      <h3 id="create-user-title" class="font-semibold text-lg text-text">Create user</h3>
+      <button type="button" class="text-muted hover:text-text" id="create-user-close" aria-label="Close">✕</button>
+    </div>
+    <p class="text-xs text-muted mb-3">
+      {{ password_policy_text or 'Strong password required.' }}
+      After create, credentials are shown once for you to copy.
+    </p>
+    <form method="post" action="/auth/users/create" class="space-y-3" id="create-user-form">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="sm:col-span-2">
+          <label class="block text-xs text-muted mb-1">Email</label>
+          <input name="email" type="email" required autocomplete="off"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-xs text-muted mb-1">Display name (optional)</label>
+          <input name="display_name" type="text" autocomplete="off"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-xs text-muted mb-1">Temporary password</label>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input name="password" id="new-user-password" type="text" required
+                   minlength="{{ password_min_length or 10 }}" autocomplete="new-password"
+                   class="w-full flex-1 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
+            <button type="button" id="gen-password-btn" class="btn btn-secondary min-h-11 w-full sm:w-auto flex-shrink-0">
+              Generate
+            </button>
+          </div>
+          <div class="pw-strength mt-2" id="pw-strength" aria-live="polite">
+            <div class="pw-strength-bar"><div class="pw-strength-fill" id="pw-strength-fill"></div></div>
+            <div class="text-[10px] text-muted mt-1" id="pw-strength-label">Enter or generate a password</div>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Role</label>
+          <select name="role" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+            <option value="operator" selected>operator</option>
+            <option value="viewer">viewer</option>
+            <option value="admin">admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+        <button type="button" class="btn btn-secondary min-h-11 w-full sm:w-auto" id="create-user-cancel">Cancel</button>
+        <button type="submit" class="btn btn-accent min-h-11 w-full sm:w-auto" id="create-user-submit">Create user</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# Credentials confirmation modal (shown once after create) #}
+{% if new_user_credentials %}
+<div id="new-user-creds-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3" aria-modal="true" role="dialog">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto border-accent">
+    <h2 class="font-semibold text-text mb-1">User created — copy credentials now</h2>
+    <p class="text-xs text-muted mb-3">
+      This password is shown <strong>once</strong>. Copy the invite below and share it securely.
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm mb-3">
+      <div><span class="text-muted text-xs">Login URL</span><div class="font-mono break-all">{{ new_user_credentials.login_url }}</div></div>
+      <div><span class="text-muted text-xs">Role</span><div>{{ new_user_credentials.role }}</div></div>
+      <div><span class="text-muted text-xs">Email</span><div class="font-mono break-all">{{ new_user_credentials.email }}</div></div>
+      <div><span class="text-muted text-xs">Password</span><div class="font-mono break-all" id="cred-password">{{ new_user_credentials.password }}</div></div>
+    </div>
+    <label class="block text-xs text-muted mb-1">Invite text</label>
+    <textarea id="invite-text" readonly rows="10"
+              class="w-full bg-surface border border-border px-3 py-2 rounded text-xs font-mono min-h-[10rem]">{{ new_user_credentials.invite_text }}</textarea>
+    <div class="flex flex-col sm:flex-row gap-2 mt-3">
+      <button type="button" class="btn btn-accent min-h-11 w-full sm:w-auto" id="copy-invite-btn">Copy invite</button>
+      <button type="button" class="btn btn-secondary min-h-11 w-full sm:w-auto" id="copy-password-btn">Copy password only</button>
+      <button type="button" class="btn btn-secondary min-h-11 w-full sm:w-auto sm:ml-auto" id="creds-done-btn">Done</button>
+    </div>
+    <p class="text-[10px] text-muted mt-2 mb-0" id="copy-status" aria-live="polite"></p>
+  </div>
+</div>
+{% endif %}
+
 {# Delete user confirm modal #}
 <div id="delete-user-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" aria-modal="true" role="dialog">
   <div class="modal-content card p-5 sm:p-6 w-full max-w-md mx-3">
@@ -225,11 +214,173 @@
 
 <script>
 (function () {
-  const modal = document.getElementById('delete-user-modal');
-  const form = document.getElementById('delete-user-form');
-  const labelEl = document.getElementById('delete-user-label');
-  const emailEl = document.getElementById('delete-user-email');
-  const cancelBtn = document.getElementById('delete-user-cancel');
+  // Create user modal
+  var createModal = document.getElementById('create-user-modal');
+  var openCreate = document.getElementById('btn-open-create-user');
+  var closeCreate = document.getElementById('create-user-close');
+  var cancelCreate = document.getElementById('create-user-cancel');
+  function showCreate() {
+    if (!createModal) return;
+    createModal.classList.remove('hidden');
+    createModal.classList.add('flex');
+  }
+  function hideCreate() {
+    if (!createModal) return;
+    createModal.classList.add('hidden');
+    createModal.classList.remove('flex');
+  }
+  if (openCreate) openCreate.addEventListener('click', showCreate);
+  if (closeCreate) closeCreate.addEventListener('click', hideCreate);
+  if (cancelCreate) cancelCreate.addEventListener('click', hideCreate);
+  if (createModal) {
+    createModal.addEventListener('click', function (e) {
+      if (e.target === createModal) hideCreate();
+    });
+  }
+  {% if error in ('email_taken', 'password_policy', 'bad_email', 'create_failed', 'bad_role') %}
+  showCreate();
+  {% endif %}
+
+  // Password generate + strength
+  var MIN = {{ password_min_length or 10 }};
+  var input = document.getElementById('new-user-password');
+  var fill = document.getElementById('pw-strength-fill');
+  var label = document.getElementById('pw-strength-label');
+  var genBtn = document.getElementById('gen-password-btn');
+  var form = document.getElementById('create-user-form');
+
+  function scorePassword(p) {
+    if (!p) return { score: 0, label: 'empty', ok: false };
+    var score = 0;
+    if (p.length >= MIN) score += 1;
+    if (p.length >= 14) score += 1;
+    var classes = 0;
+    if (/[a-z]/.test(p)) classes++;
+    if (/[A-Z]/.test(p)) classes++;
+    if (/[0-9]/.test(p)) classes++;
+    if (/[^A-Za-z0-9]/.test(p)) classes++;
+    if (classes >= 3) score += 1;
+    if (classes >= 4 && p.length >= MIN) score += 1;
+    score = Math.min(4, score);
+    var ok = p.length >= MIN && /[a-z]/.test(p) && /[A-Z]/.test(p) && /[0-9]/.test(p);
+    if (!ok && score > 2) score = 2;
+    var labels = ['very weak', 'weak', 'fair', 'good', 'strong'];
+    return { score: score, label: labels[score] || 'weak', ok: ok };
+  }
+
+  function updateMeter() {
+    if (!input || !fill || !label) return;
+    var r = scorePassword(input.value || '');
+    fill.style.width = (r.score * 25) + '%';
+    fill.dataset.score = String(r.score);
+    label.textContent = r.ok
+      ? ('Strength: ' + r.label)
+      : (input.value ? ('Strength: ' + r.label + ' — needs upper, lower, digit, min ' + MIN) : 'Enter or generate a password');
+  }
+
+  function generatePassword(len) {
+    len = len || 16;
+    var lower = 'abcdefghjkmnpqrstuvwxyz';
+    var upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    var digits = '23456789';
+    var specials = '!@#$%^&*_-+=?';
+    var all = lower + upper + digits + specials;
+    var arr = [
+      lower[Math.floor(Math.random() * lower.length)],
+      upper[Math.floor(Math.random() * upper.length)],
+      digits[Math.floor(Math.random() * digits.length)],
+      specials[Math.floor(Math.random() * specials.length)],
+    ];
+    var rnd = function (max) {
+      if (window.crypto && crypto.getRandomValues) {
+        var buf = new Uint32Array(1);
+        crypto.getRandomValues(buf);
+        return buf[0] % max;
+      }
+      return Math.floor(Math.random() * max);
+    };
+    while (arr.length < len) arr.push(all[rnd(all.length)]);
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = rnd(i + 1);
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr.join('');
+  }
+
+  if (input) {
+    input.addEventListener('input', updateMeter);
+    updateMeter();
+  }
+  if (genBtn && input) {
+    genBtn.addEventListener('click', function () {
+      input.value = generatePassword(16);
+      input.type = 'text';
+      updateMeter();
+      input.focus();
+      input.select();
+    });
+  }
+  if (form && input) {
+    form.addEventListener('submit', function (e) {
+      var r = scorePassword(input.value || '');
+      if (!r.ok) {
+        e.preventDefault();
+        if (label) label.textContent = 'Password does not meet policy (upper, lower, digit, min ' + MIN + ').';
+        input.focus();
+      }
+    });
+  }
+
+  // Credentials modal
+  {% if new_user_credentials %}
+  (function () {
+    function copyText(text, statusMsg) {
+      var el = document.getElementById('copy-status');
+      function ok() { if (el) el.textContent = statusMsg || 'Copied.'; }
+      function fail() { if (el) el.textContent = 'Copy failed — select text manually.'; }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(ok).catch(fail);
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); ok(); } catch (e) { fail(); }
+        document.body.removeChild(ta);
+      }
+    }
+    var invite = document.getElementById('invite-text');
+    var pwd = document.getElementById('cred-password');
+    var b1 = document.getElementById('copy-invite-btn');
+    var b2 = document.getElementById('copy-password-btn');
+    var done = document.getElementById('creds-done-btn');
+    var credsModal = document.getElementById('new-user-creds-modal');
+    if (b1 && invite) b1.addEventListener('click', function () { copyText(invite.value, 'Invite copied to clipboard.'); });
+    if (b2 && pwd) b2.addEventListener('click', function () { copyText(pwd.textContent || '', 'Password copied.'); });
+    function hideCreds() {
+      if (credsModal) {
+        credsModal.classList.add('hidden');
+        credsModal.classList.remove('flex');
+      }
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState({}, '', '/auth/users');
+      }
+    }
+    if (done) done.addEventListener('click', hideCreds);
+    if (credsModal) {
+      credsModal.addEventListener('click', function (e) {
+        if (e.target === credsModal) hideCreds();
+      });
+    }
+  })();
+  {% endif %}
+
+  // Delete user modal
+  var modal = document.getElementById('delete-user-modal');
+  var form = document.getElementById('delete-user-form');
+  var labelEl = document.getElementById('delete-user-label');
+  var emailEl = document.getElementById('delete-user-email');
+  var cancelBtn = document.getElementById('delete-user-cancel');
   if (!modal || !form) return;
 
   function openDelete(id, email, label) {
@@ -252,106 +403,11 @@
     if (e.target === modal) closeDelete();
   });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !modal.classList.contains('hidden')) closeDelete();
-  });
-})();
-</script>
-
-<p class="mt-4 text-xs text-muted max-w-3xl">
-  <a href="/auth/account" class="text-accent hover:underline">← Account</a>
-</p>
-
-<script>
-(function () {
-  const MIN = {{ password_min_length or 10 }};
-  const input = document.getElementById('new-user-password');
-  const fill = document.getElementById('pw-strength-fill');
-  const label = document.getElementById('pw-strength-label');
-  const genBtn = document.getElementById('gen-password-btn');
-  const form = document.getElementById('create-user-form');
-
-  function scorePassword(p) {
-    if (!p) return { score: 0, label: 'empty', ok: false };
-    let score = 0;
-    if (p.length >= MIN) score += 1;
-    if (p.length >= 14) score += 1;
-    let classes = 0;
-    if (/[a-z]/.test(p)) classes++;
-    if (/[A-Z]/.test(p)) classes++;
-    if (/[0-9]/.test(p)) classes++;
-    if (/[^A-Za-z0-9]/.test(p)) classes++;
-    if (classes >= 3) score += 1;
-    if (classes >= 4 && p.length >= MIN) score += 1;
-    score = Math.min(4, score);
-    const ok = p.length >= MIN && /[a-z]/.test(p) && /[A-Z]/.test(p) && /[0-9]/.test(p);
-    if (!ok && score > 2) score = 2;
-    const labels = ['very weak', 'weak', 'fair', 'good', 'strong'];
-    return { score: score, label: labels[score] || 'weak', ok: ok };
-  }
-
-  function updateMeter() {
-    if (!input || !fill || !label) return;
-    const r = scorePassword(input.value || '');
-    fill.style.width = (r.score * 25) + '%';
-    fill.dataset.score = String(r.score);
-    label.textContent = r.ok
-      ? ('Strength: ' + r.label)
-      : (input.value ? ('Strength: ' + r.label + ' — needs upper, lower, digit, min ' + MIN) : 'Enter or generate a password');
-  }
-
-  function generatePassword(len) {
-    len = len || 16;
-    const lower = 'abcdefghjkmnpqrstuvwxyz';
-    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-    const digits = '23456789';
-    const specials = '!@#$%^&*_-+=?';
-    const all = lower + upper + digits + specials;
-    const arr = [
-      lower[Math.floor(Math.random() * lower.length)],
-      upper[Math.floor(Math.random() * upper.length)],
-      digits[Math.floor(Math.random() * digits.length)],
-      specials[Math.floor(Math.random() * specials.length)],
-    ];
-    // Prefer crypto when available
-    const rnd = (max) => {
-      if (window.crypto && crypto.getRandomValues) {
-        const buf = new Uint32Array(1);
-        crypto.getRandomValues(buf);
-        return buf[0] % max;
-      }
-      return Math.floor(Math.random() * max);
-    };
-    while (arr.length < len) arr.push(all[rnd(all.length)]);
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = rnd(i + 1);
-      const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    if (e.key === 'Escape') {
+      if (createModal && !createModal.classList.contains('hidden')) hideCreate();
+      else if (modal && !modal.classList.contains('hidden')) closeDelete();
     }
-    return arr.join('');
-  }
-
-  if (input) {
-    input.addEventListener('input', updateMeter);
-    updateMeter();
-  }
-  if (genBtn && input) {
-    genBtn.addEventListener('click', function () {
-      input.value = generatePassword(16);
-      input.type = 'text';
-      updateMeter();
-      input.focus();
-      input.select();
-    });
-  }
-  if (form && input) {
-    form.addEventListener('submit', function (e) {
-      const r = scorePassword(input.value || '');
-      if (!r.ok) {
-        e.preventDefault();
-        if (label) label.textContent = 'Password does not meet policy (upper, lower, digit, min ' + MIN + ').';
-        input.focus();
-      }
-    });
-  }
+  });
 })();
 </script>
 {% endblock %}

@@ -1,6 +1,6 @@
 # Service templates
 
-**Templates** (top-level nav) are **your** versioned stack definitions. Create, edit, and save them; deploy is separate.
+**Templates** live under top-nav **Catalog** (tabs: **Templates** | **Integrations**). They are **your** versioned stack definitions. Create, edit, and save them; deploy is separate.
 
 **Shipped foundation:** v0.4.0 · polish/ops → [v0.5.0 plan](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md)
 

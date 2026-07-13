@@ -257,7 +257,15 @@ def _poll_grafana(
                 meta["docker_project"] = b.docker_project
             if b.docker_container:
                 meta["docker_container"] = b.docker_container
-            b.external_label = dash.title
+            # Grafana title for reference; operator display name (label_override) wins
+            meta["grafana_title"] = dash.title
+            override = (prev_meta.get("label_override") or "").strip()
+            if override:
+                meta["label_override"] = override
+                b.external_label = override
+            else:
+                meta.pop("label_override", None)
+                b.external_label = dash.title
             b.external_meta_json = json.dumps(meta)
             b.last_message = dash.folder_title or result.version or "dashboard"
         else:

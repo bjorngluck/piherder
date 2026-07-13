@@ -59,13 +59,21 @@
     </div>
 
     <div class="flex flex-wrap gap-2 mb-4">
-      <form method="post" action="/servers/{{ server.id }}/ssh/test">
-        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Test connection</button>
+      <form method="post" action="/servers/{{ server.id }}/ssh/test"
+            data-wait-title="Testing SSH access"
+            data-wait-message="Connecting over SSH, then probing host tools (rsync, docker, apt) when login succeeds…">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm"
+                title="Verify SSH login, then refresh host dependency checks">
+          Test connection
+        </button>
       </form>
       <form method="post" action="/servers/{{ server.id }}/host-deps/check"
             data-wait-title="Checking host dependencies"
             data-wait-message="Probing remote tools over SSH (rsync, docker, apt). Please wait…">
-        <button type="submit" class="btn btn-secondary min-h-11 text-sm" title="Probe rsync/docker/apt for enabled features">Check dependencies</button>
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm"
+                title="Re-probe rsync/docker/apt only (after SSH already works)">
+          Check dependencies
+        </button>
       </form>
       {% if not server.has_ssh_key %}
       <form method="post" action="/servers/{{ server.id }}/ssh/generate-key">
@@ -281,116 +289,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{# Grafana — host metrics / containers overview / logs #}
-{% if grafana_dashboards %}
-<div class="mb-4 card p-3 border border-border">
-  <div class="text-sm font-medium text-text mb-2">Grafana</div>
-  <div class="space-y-2">
-    {% for g in grafana_dashboards %}
-    <a href="{{ g.open_url or ('/integrations/' ~ g.integration_id) }}"
-       {% if g.open_url %}target="_blank" rel="noopener"{% endif %}
-       class="flex flex-wrap items-center justify-between gap-2 p-2 rounded border border-border/60 no-underline hover:border-primary/40 transition-colors"
-       title="Open dashboard in Grafana">
-      <div class="min-w-0">
-        <span class="text-sm font-medium text-text">{{ g.label }}</span>
-        {% if g.kind_label %}
-        <span class="status-pill text-xs ml-1 feature-off">{{ g.kind_label }}</span>
-        {% endif %}
-        <span class="status-pill text-xs ml-1
-          {% if g.state == 'up' or g.state == 'linked' %}status-success
-          {% elif g.state == 'down' %}status-failed
-          {% else %}feature-off{% endif %}">{{ g.state }}</span>
-        {% if g.location or g.message %}
-        <div class="text-[11px] text-muted mt-0.5">
-          {% if g.location %}<span class="font-mono">{{ g.location }}</span>{% endif %}
-          {% if g.message %}{% if g.location %} · {% endif %}{{ g.message }}{% endif %}
-        </div>
-        {% endif %}
-      </div>
-      <span class="text-xs text-accent shrink-0">Open in Grafana →</span>
-    </a>
-    {% endfor %}
-  </div>
-</div>
-{% endif %}
-
-{# Uptime Kuma — SSH + host services (HAOS / bare metal); Docker monitors on Docker page #}
-{% if kuma_ssh or kuma_host_services %}
-<div class="mb-4 space-y-2">
-  {% if kuma_ssh %}
-  <a href="{{ kuma_ssh.open_url or ('/integrations/' ~ kuma_ssh.integration_id) }}"
-     {% if kuma_ssh.open_url %}target="_blank" rel="noopener"{% endif %}
-     class="card p-3 border border-border block no-underline hover:border-primary/40 transition-colors"
-     title="Open SSH monitor in Uptime Kuma">
-    <div class="flex flex-wrap items-center justify-between gap-2">
-      <div class="text-sm font-medium text-text">
-        SSH (Uptime Kuma)
-        <span class="status-pill text-xs ml-1
-          {% if kuma_ssh.state == 'up' %}status-success
-          {% elif kuma_ssh.state == 'down' %}status-failed
-          {% elif kuma_ssh.state == 'pending' or kuma_ssh.state == 'maintenance' %}status-running
-          {% else %}feature-off{% endif %}">{{ kuma_ssh.state }}</span>
-      </div>
-      <span class="text-xs text-accent">Open in Kuma →</span>
-    </div>
-    <p class="text-xs text-muted mt-1">
-      {{ kuma_ssh.label }}{% if kuma_ssh.message %} · {{ kuma_ssh.message }}{% endif %}
-      {% if kuma_ssh.checked_at %} · checked {{ kuma_ssh.checked_at }}{% endif %}
-    </p>
-  </a>
-  {% endif %}
-
-  {% if kuma_host_services %}
-  <div class="card p-3 border border-border">
-    <div class="text-sm font-medium text-text mb-2">Host services (Uptime Kuma)</div>
-    <p class="text-[11px] text-muted mb-2">
-      Apps on this host that are not a Docker project here (e.g. Home Assistant OS).
-    </p>
-    <div class="space-y-2">
-      {% for svc in kuma_host_services %}
-      <a href="{{ svc.open_url or ('/integrations/' ~ svc.integration_id) }}"
-         {% if svc.open_url %}target="_blank" rel="noopener"{% endif %}
-         class="flex flex-wrap items-center justify-between gap-2 p-2 rounded border border-border/60 no-underline hover:border-primary/40 transition-colors"
-         title="Open in Uptime Kuma">
-        <div class="min-w-0">
-          <span class="text-sm font-medium text-text">{{ svc.label }}</span>
-          <span class="status-pill text-xs ml-1
-            {% if svc.state == 'up' %}status-success
-            {% elif svc.state == 'down' %}status-failed
-            {% elif svc.state == 'pending' or svc.state == 'maintenance' %}status-running
-            {% else %}feature-off{% endif %}">{{ svc.state }}</span>
-          {% if svc.cert_valid is sameas true and svc.cert_days is not none %}
-          <span class="status-pill text-xs status-success">TLS {{ svc.cert_days|int }}d</span>
-          {% elif svc.cert_valid is sameas false %}
-          <span class="status-pill text-xs status-failed">TLS invalid</span>
-          {% endif %}
-          {% if svc.url or svc.message %}
-          <div class="text-[11px] text-muted mt-0.5">
-            {% if svc.url %}<span class="font-mono">{{ svc.url }}</span>{% endif %}
-            {% if svc.message %}{% if svc.url %} · {% endif %}{{ svc.message }}{% endif %}
-          </div>
-          {% endif %}
-        </div>
-        <span class="text-xs text-accent shrink-0">Open in Kuma →</span>
-      </a>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  <p class="text-[11px] text-muted pl-1">
-    Full list with URLs:
-    <a href="/servers/{{ server.id }}/services" class="text-accent hover:underline">Services</a>
-    {% set _integ = (kuma_ssh.integration_id if kuma_ssh else (kuma_host_services[0].integration_id if kuma_host_services else none)) %}
-    {% if _integ %}
-    · manage in
-    <a href="/integrations/{{ _integ }}#kuma-services" class="text-accent hover:underline">Integrations</a>
-    {% endif %}
-  </p>
-</div>
-{% endif %}
-
-{# Host dependency snapshot (from last check) #}
+{# Host dependency snapshot (read-only; re-check via SSH access / Test connection) #}
 {% if host_deps and host_deps.checks %}
 <div class="card p-3 mb-4 border border-border">
   <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -401,14 +300,15 @@ document.addEventListener('DOMContentLoaded', function() {
         {% elif host_deps.overall == 'warn' %}status-running
         {% else %}status-failed{% endif %}">{{ host_deps.overall }}</span>
     </div>
-    <form method="post" action="/servers/{{ server.id }}/host-deps/check" class="inline"
-          data-wait-title="Checking host dependencies"
-          data-wait-message="Probing remote tools over SSH (rsync, docker, apt). Please wait…">
-      <button type="submit" class="btn btn-secondary text-xs min-h-9">Re-check</button>
-    </form>
+    <button type="button" onclick="showSshAccessModal()" class="btn btn-secondary text-xs min-h-9">
+      SSH access →
+    </button>
   </div>
   {% if host_deps.checked_at %}
-  <p class="text-[10px] text-muted mb-2">Last check: {{ host_deps.checked_at }}</p>
+  <p class="text-[10px] text-muted mb-2">
+    Last check: {{ host_deps.checked_at }}
+    · <span class="text-muted">Re-check with <strong class="text-text">Test connection</strong> or <strong class="text-text">Check dependencies</strong> under SSH access</span>
+  </p>
   {% endif %}
   <div class="feature-status flex flex-wrap gap-1.5">
     {% for c in host_deps.checks %}
@@ -438,12 +338,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 {% elif server.backup_enabled or server.os_patch_enabled or server.container_patch_enabled %}
 <div class="mb-4 p-3 border border-border rounded text-sm text-muted flex flex-wrap items-center justify-between gap-2">
-  <span>Host tools for enabled features have not been checked yet.</span>
-  <form method="post" action="/servers/{{ server.id }}/host-deps/check"
-        data-wait-title="Checking host dependencies"
-        data-wait-message="Probing remote tools over SSH (rsync, docker, apt). Please wait…">
-    <button type="submit" class="btn btn-secondary text-xs min-h-9">Check dependencies</button>
-  </form>
+  <span>Host tools for enabled features have not been checked yet (runs with SSH <strong class="text-text">Test connection</strong>).</span>
+  <button type="button" onclick="showSshAccessModal()" class="btn btn-secondary text-xs min-h-9">Open SSH access</button>
 </div>
 {% endif %}
 
@@ -493,7 +389,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {% if flash_msg %}
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm">
-  {% if flash_msg == 'ssh_ok' %}<strong>SSH connection OK.</strong> Dependency check refreshed when possible.
+  {% if flash_msg == 'ssh_ok' %}<strong>SSH connection OK.</strong> Host dependency check ran as part of the test when possible.
   {% elif flash_msg == 'host_deps_ok' %}<strong>Host dependency check finished</strong>
     {% if flash_detail %}— overall <code class="font-mono">{{ flash_detail }}</code>{% endif %}.
   {% elif flash_msg == 'key_deployed' %}<strong>SSH key deployed</strong> and key-only login verified. You can clear any stored password if you have not already.
@@ -540,9 +436,8 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 {% endif %}
 
-{# Destination cards #}
+{# Destination + monitoring cards (equal size grid on desktop) #}
 {% set _svc_n = (kuma_host_services|length if kuma_host_services else 0) + (kuma_docker_service_count or 0) %}
-{% if server.backup_enabled or server.container_patch_enabled or kuma_ssh or _svc_n or true %}
 <div class="dest-cards mb-6">
   {% if server.backup_enabled %}
   <a href="/servers/{{ server.id }}/backups" class="card dest-card">
@@ -586,67 +481,104 @@ document.addEventListener('DOMContentLoaded', function() {
     </p>
     <span class="dest-card-cta">Open Services →</span>
   </a>
-</div>
-{% endif %}
 
-{# Host status + compact ⋯ actions (matches Servers list theme) #}
-<div class="card p-4 sm:p-5 mb-6">
-  <div class="source-list fleet-status-list server-detail-status">
-    <div class="source-row fleet-status-row {% if server.reboot_pending or (server.os_updates_count and server.os_updates_count > 0) or (server.container_updates_count and server.container_updates_count > 0) %}is-attention{% endif %}">
-      <div class="source-row-body min-w-0">
-        <div class="fleet-status-name">Host status</div>
-        <div class="fleet-status-pills mt-1">
-          {% if server.backup_enabled %}
-          {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
-          <span class="status-pill status-running">backup running</span>
-          {% elif overall_last_backup %}
-          <span class="text-xs text-muted">backup {{ overall_last_backup | app_tz }}</span>
-          {% else %}
-          <span class="text-xs text-muted">no backup yet</span>
-          {% endif %}
-          {% endif %}
-
-          {% if server.reboot_pending or (diagnostics and diagnostics.reboot_pending) %}
-          <span class="status-pill status-failed">reboot</span>
-          {% endif %}
-          {% if server.os_patch_enabled %}
-          {% if server.os_updates_count is not none and server.os_updates_count > 0 %}
-          <span class="status-pill status-failed" title="Installable now">{{ server.os_updates_count }} OS</span>
-          {% if os_phased_count %}<span class="text-xs text-muted">· {{ os_phased_count }} phased</span>{% endif %}
-          {% elif os_phased_count %}
-          <span class="status-pill status-success" title="Ubuntu phased — not installable yet">{{ os_phased_count }} phased</span>
-          {% elif server.os_updates_count == 0 %}
-          <span class="status-pill status-success">OS 0</span>
-          {% endif %}
-          {% endif %}
-          {% if server.container_patch_enabled %}
-          {% if server.container_updates_count is not none and server.container_updates_count > 0 %}
-          <span class="status-pill status-failed">{{ server.container_updates_count }} img</span>
-          {% elif server.container_updates_count == 0 %}
-          <span class="status-pill status-success">Img 0</span>
-          {% endif %}
-          {% endif %}
-        </div>
-        <p class="text-[10px] text-muted mt-1 mb-0">Audited jobs · progress is DB-backed · schedules in Edit</p>
-      </div>
-      <div class="source-row-tools">
-        <button type="button"
-                class="source-icon-btn server-more-btn"
-                id="server-detail-more-btn"
-                data-server-detail-more
-                title="Actions"
-                aria-label="Host actions"
-                aria-haspopup="menu">⋯</button>
-      </div>
+  {% if grafana_dashboards %}
+  <div class="card dest-card dest-card-static">
+    <div class="dest-card-title">Grafana</div>
+    <div class="dest-card-desc space-y-1.5">
+      {% for g in grafana_dashboards %}
+      <a href="{{ g.open_url or ('/integrations/' ~ g.integration_id) }}"
+         {% if g.open_url %}target="_blank" rel="noopener"{% endif %}
+         class="block no-underline hover:text-accent"
+         title="Open dashboard in Grafana">
+        <span class="text-sm font-medium text-text">{{ g.label }}</span>
+        {% if g.kind_label %}
+        <span class="status-pill text-[10px] ml-1 feature-off">{{ g.kind_label }}</span>
+        {% endif %}
+        <span class="status-pill text-[10px] ml-1
+          {% if g.state == 'up' or g.state == 'linked' %}status-success
+          {% elif g.state == 'down' %}status-failed
+          {% else %}feature-off{% endif %}">{{ g.state }}</span>
+      </a>
+      {% endfor %}
     </div>
+    <span class="dest-card-cta">Deep links · rename in Integrations</span>
   </div>
-
-  {% if running_backup_job and (not full_backup_job or full_backup_job.id != running_backup_job.id) %}
-  <p class="text-xs text-muted mt-3 mb-0">
-    A per-source backup is running.
-    <a href="/servers/{{ server.id }}/backups" class="text-accent hover:underline">Open backups →</a>
-  </p>
   {% endif %}
+
+  {% if kuma_ssh %}
+  <a href="{{ kuma_ssh.open_url or ('/integrations/' ~ kuma_ssh.integration_id) }}"
+     {% if kuma_ssh.open_url %}target="_blank" rel="noopener"{% endif %}
+     class="card dest-card"
+     title="Open SSH monitor in Uptime Kuma">
+    <div class="dest-card-title">
+      SSH (Uptime Kuma)
+      <span class="status-pill text-xs ml-1
+        {% if kuma_ssh.state == 'up' %}status-success
+        {% elif kuma_ssh.state == 'down' %}status-failed
+        {% elif kuma_ssh.state == 'pending' or kuma_ssh.state == 'maintenance' %}status-running
+        {% else %}feature-off{% endif %}">{{ kuma_ssh.state }}</span>
+    </div>
+    <p class="dest-card-desc">
+      {{ kuma_ssh.label }}{% if kuma_ssh.message %} · {{ kuma_ssh.message }}{% endif %}
+    </p>
+    <span class="dest-card-cta">Open in Kuma →</span>
+  </a>
+  {% endif %}
+
+  {# Host status — same card size as dest cards on desktop #}
+  <div class="card dest-card dest-card-static {% if server.reboot_pending or (server.os_updates_count and server.os_updates_count > 0) or (server.container_updates_count and server.container_updates_count > 0) %}border-warning/50{% endif %}">
+    <div class="flex items-start justify-between gap-2">
+      <div class="dest-card-title">Host status</div>
+      <button type="button"
+              class="source-icon-btn server-more-btn shrink-0"
+              id="server-detail-more-btn"
+              data-server-detail-more
+              title="Actions"
+              aria-label="Host actions"
+              aria-haspopup="menu">⋯</button>
+    </div>
+    <div class="dest-card-desc">
+      <div class="fleet-status-pills flex flex-wrap gap-1">
+        {% if server.backup_enabled %}
+        {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
+        <span class="status-pill status-running">backup running</span>
+        {% elif overall_last_backup %}
+        <span class="text-xs text-muted">backup {{ overall_last_backup | app_tz }}</span>
+        {% else %}
+        <span class="text-xs text-muted">no backup yet</span>
+        {% endif %}
+        {% endif %}
+        {% if server.reboot_pending or (diagnostics and diagnostics.reboot_pending) %}
+        <span class="status-pill status-failed">reboot</span>
+        {% endif %}
+        {% if server.os_patch_enabled %}
+        {% if server.os_updates_count is not none and server.os_updates_count > 0 %}
+        <span class="status-pill status-failed" title="Installable now">{{ server.os_updates_count }} OS</span>
+        {% if os_phased_count %}<span class="text-xs text-muted">· {{ os_phased_count }} phased</span>{% endif %}
+        {% elif os_phased_count %}
+        <span class="status-pill status-success" title="Ubuntu phased — not installable yet">{{ os_phased_count }} phased</span>
+        {% elif server.os_updates_count == 0 %}
+        <span class="status-pill status-success">OS 0</span>
+        {% endif %}
+        {% endif %}
+        {% if server.container_patch_enabled %}
+        {% if server.container_updates_count is not none and server.container_updates_count > 0 %}
+        <span class="status-pill status-failed">{{ server.container_updates_count }} img</span>
+        {% elif server.container_updates_count == 0 %}
+        <span class="status-pill status-success">Img 0</span>
+        {% endif %}
+        {% endif %}
+      </div>
+      {% if running_backup_job and (not full_backup_job or full_backup_job.id != running_backup_job.id) %}
+      <p class="text-[11px] text-muted mt-1 mb-0">
+        Per-source backup running ·
+        <a href="/servers/{{ server.id }}/backups" class="text-accent hover:underline">Backups</a>
+      </p>
+      {% endif %}
+    </div>
+    <span class="dest-card-cta">⋯ actions · schedules in Edit</span>
+  </div>
 </div>
 
 {# Job queue + recent history — card feed (no horizontal scroll) #}
@@ -887,102 +819,10 @@ document.addEventListener('DOMContentLoaded', function() {
   <a href="/servers" class="hover:underline">← All servers</a>
 </div>
 
-{# Danger zone — remove from fleet only #}
-<div class="card p-4 sm:p-5 border border-danger/40 mb-8">
-  <h2 class="text-sm font-semibold text-danger mb-1">Remove from PiHerder</h2>
-  <p class="text-xs text-muted mb-3 max-w-2xl">
-    Deletes this server from the fleet: schedules stop, stored SSH credentials and compose drafts in PiHerder go away.
-    <strong class="text-text">Nothing on the host is changed</strong> — Docker stacks, data, users, sudoers, and keys stay as they are.
-    Backup archives under the PiHerder backup volume are kept for manual cleanup if you want them gone later.
-  </p>
-
-  {% if host_cleanup_script %}
-  <div class="border border-border rounded p-3 mb-4 bg-surface/40">
-    <div class="text-sm font-medium text-text mb-1">Optional: host cleanup script</div>
-    <p class="text-xs text-muted mb-2 max-w-2xl">
-      Run on <span class="font-mono">{{ server.hostname }}</span> as root only if you want to remove the
-      <span class="font-mono">{{ server.ssh_username }}</span> service user / sudoers / docker group.
-      Does not touch Docker stacks or data.
-    </p>
-    <textarea id="host-cleanup-script-danger" readonly
-              class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-28 resize-y">{{ host_cleanup_script }}</textarea>
-    <div class="flex flex-wrap gap-2 mt-2">
-      <button type="button" onclick="copyTextFrom('host-cleanup-script-danger', this)" class="btn btn-secondary text-sm min-h-11">
-        Copy script
-      </button>
-      <a href="/servers/{{ server.id }}/ssh/cleanup-script"
-         class="btn btn-accent text-sm min-h-11 inline-flex items-center"
-         download="cleanup-piherder-user-{{ server.ssh_username or 'piherder' }}.sh">
-        Download .sh
-      </a>
-      <button type="button"
-              onclick="downloadTextAsFile('host-cleanup-script-danger', 'cleanup-piherder-user-{{ server.ssh_username or 'piherder' }}.sh', this)"
-              class="btn btn-secondary text-sm min-h-11">
-        Save as file
-      </button>
-    </div>
-    <p class="text-[10px] text-muted mt-2">
-      On the host:
-      <code class="font-mono">sudo bash cleanup-piherder-user-*.sh</code>
-      · delete account:
-      <code class="font-mono">REMOVE_USER=1 sudo -E bash …</code>
-    </p>
-  </div>
-  {% endif %}
-
-  <button type="button" id="btn-open-delete-server" class="btn btn-danger min-h-11 text-sm">
-    Remove server…
-  </button>
-</div>
-
-<div id="delete-server-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3" role="dialog" aria-modal="true">
-  <div class="modal-content card p-5 sm:p-6 w-full max-w-md">
-    <h3 class="font-semibold text-lg text-text mb-2">Remove {{ server.name }}?</h3>
-    <p class="text-sm text-muted mb-2">
-      This only removes the host from <strong>PiHerder</strong>. Remote configuration stays intact.
-    </p>
-    <ul class="text-xs text-muted list-disc pl-4 mb-3 space-y-1">
-      <li>No SSH changes on {{ server.hostname }}</li>
-      <li>Docker / data / piherder user left alone</li>
-      <li>Jobs cancelled; schedules unregistered</li>
-      <li>Audit history kept (unlinked from this server)</li>
-    </ul>
-    <form method="post" action="/servers/{{ server.id }}/delete" class="space-y-3">
-      <div>
-        <label class="block text-xs text-muted mb-1">Type the server name to confirm:
-          <span class="font-mono text-text">{{ server.name }}</span>
-        </label>
-        <input name="confirm_name" required autocomplete="off" placeholder="{{ server.name }}"
-               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
-      </div>
-      <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-        <button type="button" class="btn btn-secondary min-h-11 text-sm" id="btn-close-delete-server">Keep server</button>
-        <button type="submit" class="btn btn-danger min-h-11 text-sm">Remove from PiHerder</button>
-      </div>
-    </form>
-  </div>
-</div>
-<script>
-(function () {
-  var modal = document.getElementById('delete-server-modal');
-  var openBtn = document.getElementById('btn-open-delete-server');
-  var closeBtn = document.getElementById('btn-close-delete-server');
-  if (!modal) return;
-  function open() { modal.classList.remove('hidden'); modal.classList.add('flex'); }
-  function close() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
-  if (openBtn) openBtn.addEventListener('click', open);
-  if (closeBtn) closeBtn.addEventListener('click', close);
-  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !modal.classList.contains('hidden')) close();
-  });
-})();
-</script>
-
 {% set _os_steps = server.os_apply_steps or '' %}
 {% set _use_full = 'full-upgrade' in _os_steps %}
 
-<!-- Edit Server Modal (tabs: General · Features · Schedules) -->
+<!-- Edit Server Modal (tabs: General · Features · Schedules · Remove) -->
 <div id="edit-server-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3">
   <div class="modal-content card p-5 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto mx-auto">
     <div class="flex items-center justify-between mb-3">
@@ -994,6 +834,7 @@ document.addEventListener('DOMContentLoaded', function() {
       <button type="button" role="tab" data-edit-tab="general" class="edit-tab-btn btn btn-secondary text-xs min-h-10 is-active" aria-selected="true">General</button>
       <button type="button" role="tab" data-edit-tab="features" class="edit-tab-btn btn btn-secondary text-xs min-h-10" aria-selected="false">Features</button>
       <button type="button" role="tab" data-edit-tab="schedules" class="edit-tab-btn btn btn-secondary text-xs min-h-10" aria-selected="false">Schedules</button>
+      <button type="button" role="tab" data-edit-tab="remove" class="edit-tab-btn btn btn-secondary text-xs min-h-10 text-danger" aria-selected="false">Remove</button>
     </div>
     <style>
       .edit-tab-btn.is-active { border-color: var(--color-accent, #e60012); color: var(--color-text); background: var(--color-accent-subtle, rgba(230,0,18,0.08)); }
@@ -1205,6 +1046,76 @@ document.addEventListener('DOMContentLoaded', function() {
         <button type="button" onclick="hideEditServerModal()" class="btn btn-secondary text-sm min-h-11 ml-auto">Close</button>
       </div>
     </div>
+
+    {# ── Remove from PiHerder ── #}
+    <div data-edit-panel="remove" class="edit-tab-panel hidden">
+      <div class="border border-danger/40 rounded p-4 space-y-3">
+        <h4 class="text-sm font-semibold text-danger">Remove from PiHerder</h4>
+        <p class="text-xs text-muted">
+          Deletes this server from the fleet: schedules stop, stored SSH credentials and compose drafts in PiHerder go away.
+          <strong class="text-text">Nothing on the host is changed</strong> — Docker stacks, data, users, sudoers, and keys stay as they are.
+          Backup archives under the PiHerder backup volume are kept for manual cleanup if you want them gone later.
+        </p>
+        <ul class="text-xs text-muted list-disc pl-4 space-y-1">
+          <li>No SSH changes on {{ server.hostname }}</li>
+          <li>Docker / data / piherder user left alone</li>
+          <li>Jobs cancelled; schedules unregistered</li>
+          <li>Audit history kept (unlinked from this server)</li>
+        </ul>
+
+        {% if host_cleanup_script %}
+        <div class="border border-border rounded p-3 bg-surface/40">
+          <div class="text-sm font-medium text-text mb-1">Optional: host cleanup script</div>
+          <p class="text-xs text-muted mb-2">
+            Run on <span class="font-mono">{{ server.hostname }}</span> as root only if you want to remove the
+            <span class="font-mono">{{ server.ssh_username }}</span> service user / sudoers / docker group.
+            Also available under <strong class="text-text">SSH access</strong>.
+          </p>
+          <textarea id="host-cleanup-script-danger" readonly
+                    class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-24 resize-y">{{ host_cleanup_script }}</textarea>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" onclick="copyTextFrom('host-cleanup-script-danger', this)" class="btn btn-secondary text-sm min-h-11">
+              Copy script
+            </button>
+            <a href="/servers/{{ server.id }}/ssh/cleanup-script"
+               class="btn btn-accent text-sm min-h-11 inline-flex items-center"
+               download="cleanup-piherder-user-{{ server.ssh_username or 'piherder' }}.sh">
+              Download .sh
+            </a>
+          </div>
+        </div>
+        {% endif %}
+
+        <button type="button" id="btn-open-delete-server" class="btn btn-danger min-h-11 text-sm">
+          Remove server…
+        </button>
+      </div>
+      <div class="flex gap-2 pt-4">
+        <button type="button" onclick="hideEditServerModal()" class="btn btn-secondary text-sm min-h-11 ml-auto">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="delete-server-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[60] p-3" role="dialog" aria-modal="true">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-md">
+    <h3 class="font-semibold text-lg text-text mb-2">Remove {{ server.name }}?</h3>
+    <p class="text-sm text-muted mb-2">
+      This only removes the host from <strong>PiHerder</strong>. Remote configuration stays intact.
+    </p>
+    <form method="post" action="/servers/{{ server.id }}/delete" class="space-y-3">
+      <div>
+        <label class="block text-xs text-muted mb-1">Type the server name to confirm:
+          <span class="font-mono text-text">{{ server.name }}</span>
+        </label>
+        <input name="confirm_name" required autocomplete="off" placeholder="{{ server.name }}"
+               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
+      </div>
+      <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+        <button type="button" class="btn btn-secondary min-h-11 text-sm" id="btn-close-delete-server">Keep server</button>
+        <button type="submit" class="btn btn-danger min-h-11 text-sm">Remove from PiHerder</button>
+      </div>
+    </form>
   </div>
 </div>
 <script>
@@ -1225,6 +1136,20 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
   window.showEditServerTab = setEditTab;
+
+  var delModal = document.getElementById('delete-server-modal');
+  var openBtn = document.getElementById('btn-open-delete-server');
+  var closeBtn = document.getElementById('btn-close-delete-server');
+  if (delModal) {
+    function openDel() { delModal.classList.remove('hidden'); delModal.classList.add('flex'); }
+    function closeDel() { delModal.classList.add('hidden'); delModal.classList.remove('flex'); }
+    if (openBtn) openBtn.addEventListener('click', openDel);
+    if (closeBtn) closeBtn.addEventListener('click', closeDel);
+    delModal.addEventListener('click', function (e) { if (e.target === delModal) closeDel(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !delModal.classList.contains('hidden')) closeDel();
+    });
+  }
 })();
 </script>
 

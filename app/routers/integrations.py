@@ -486,11 +486,22 @@ async def _grafana_detail(
         "external_id": (request.query_params.get("external_id") or "").strip(),
         "docker_project": (request.query_params.get("docker_project") or "").strip(),
         "docker_container": (request.query_params.get("docker_container") or "").strip(),
+        "display_name": (request.query_params.get("display_name") or "").strip(),
     }
     if prefill["mode"] not in ("clone", "edit"):
         prefill["mode"] = ""
     if prefill["mode"] != "edit":
         prefill["binding_id"] = ""
+    if prefill["mode"] == "edit" and prefill["binding_id"] and not prefill["display_name"]:
+        try:
+            bid = int(prefill["binding_id"])
+        except ValueError:
+            bid = None
+        if bid is not None:
+            for row in bound_rows:
+                if row.get("id") == bid:
+                    prefill["display_name"] = row.get("label_override") or ""
+                    break
 
     docker_options: dict[int, list] = {}
     for s in servers:
@@ -835,6 +846,7 @@ async def set_binding(
     docker_project: str = Form(""),
     docker_container: str = Form(""),
     kind: str = Form(reg.GRAFANA_KIND_METRICS),
+    display_name: str = Form(""),
     clear: Optional[str] = Form(None),
     binding_id: Optional[str] = Form(None),
 ):
@@ -888,6 +900,15 @@ async def set_binding(
             mon_meta = {"uid": external_id.strip()}
             mon_label = external_id.strip()
         mon_meta["kind"] = gkind
+        if mon_label:
+            mon_meta["grafana_title"] = mon_label
+        # Operator display name (survives poll); blank = follow Grafana title
+        custom_label = (display_name or "").strip()
+        if custom_label:
+            mon_meta["label_override"] = custom_label
+            mon_label = custom_label
+        else:
+            mon_meta.pop("label_override", None)
         proj = (docker_project or "").strip() if gkind == reg.GRAFANA_KIND_CONTAINERS else ""
         cont = (docker_container or "").strip() if gkind == reg.GRAFANA_KIND_CONTAINERS else ""
         msg_bits = [gkind]

@@ -24,9 +24,18 @@ Read-mostly deep links into an existing Grafana. PiHerder does **not** have to d
 
 | Kind | Surfaces |
 |------|----------|
-| Host metrics / Host logs | Server detail rows |
-| Containers (host) | Server detail |
+| Host metrics / Host logs | Server detail Grafana card |
+| Containers (host) | Server detail Grafana card |
 | Containers + container name | Docker page chip / ⋯ / expand |
+
+### Display name (rename in PiHerder)
+
+When binding or editing a dashboard:
+
+- Optional **Display name in PiHerder** — shown on server detail / Docker chips.  
+- Survives **Poll** (Grafana’s own title is kept as reference).  
+- Leave blank (or clear and save) to follow the Grafana dashboard title again.  
+- You can still rename the dashboard in Grafana; without an override, PiHerder picks up the new title on the next poll.
 
 ### Placeholders
 
