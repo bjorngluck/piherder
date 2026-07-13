@@ -46,11 +46,23 @@
 </div>
 {% endif %}
 
-<div class="flex flex-wrap gap-2 mb-4">
-  <a href="?tab=overview" class="settings-tab-btn {% if tab == 'overview' %}active{% endif %}">Overview</a>
-  <a href="?tab=dns" class="settings-tab-btn {% if tab == 'dns' %}active{% endif %}">Local DNS</a>
-  <a href="?tab=cname" class="settings-tab-btn {% if tab == 'cname' %}active{% endif %}">CNAME</a>
-  <a href="?tab=actions" class="settings-tab-btn {% if tab == 'actions' %}active{% endif %}">Actions</a>
+{# Tabs: same Settings / Catalog / Grafana chrome #}
+<div class="flex flex-wrap gap-1 mb-5 border-b border-border pb-2" role="tablist" aria-label="Pi-hole sections">
+  <a href="?tab=overview" role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'overview' else '' }}"
+     aria-selected="{{ 'true' if tab == 'overview' else 'false' }}">Overview</a>
+  <a href="?tab=dns" role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'dns' else '' }}"
+     aria-selected="{{ 'true' if tab == 'dns' else 'false' }}">Local DNS</a>
+  <a href="?tab=cname" role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'cname' else '' }}"
+     aria-selected="{{ 'true' if tab == 'cname' else 'false' }}">CNAME</a>
+  <a href="?tab=actions" role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'actions' else '' }}"
+     aria-selected="{{ 'true' if tab == 'actions' else 'false' }}">Actions</a>
+  <a href="?tab=host" role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'host' else '' }}"
+     aria-selected="{{ 'true' if tab == 'host' else 'false' }}">Host link</a>
 </div>
 
 {% if tab == 'overview' %}
@@ -242,6 +254,183 @@
     <a href="{{ gravity_url }}" class="text-primary hover:underline" target="_blank" rel="noopener">Gravity UI</a> ·
     <a href="{{ system_url }}" class="text-primary hover:underline" target="_blank" rel="noopener">System</a>
   </div>
+</div>
+
+{% elif tab == 'host' %}
+<div class="card p-4 max-w-xl space-y-4">
+  <div>
+    <h3 class="text-sm font-semibold text-text mb-1">Link to fleet host / service</h3>
+    <p class="text-sm text-muted">
+      Optional: mark which PiHerder server (and optional Docker stack) runs this Pi-hole.
+      Use <strong>Host service</strong> when Pi-hole is not containerized (or you only care about the host),
+      or <strong>Docker</strong> for compose project / container — same pattern as Grafana and NPM.
+    </p>
+  </div>
+  {% if host_binding %}
+  <div class="text-sm border border-border rounded p-3">
+    Linked to
+    <a href="/servers/{{ host_binding.server_id }}" class="text-primary hover:underline">{{ host_binding.server_name }}</a>
+    {% if host_binding.docker_project %}
+      <span class="text-muted"> · Docker / {{ host_binding.docker_project }}{% if host_binding.docker_container %} / {{ host_binding.docker_container }}{% endif %}</span>
+    {% else %}
+      <span class="text-muted"> · host service</span>
+    {% endif %}
+  </div>
+  {% else %}
+  <p class="text-sm text-muted">Not linked to a fleet host yet.</p>
+  {% endif %}
+  {% if can_mutate %}
+  <form method="post" action="/integrations/{{ integration.id }}/pihole/host-bind"
+        class="pihole-host-bind-form space-y-3"
+        data-confirm="Save host / service link for this Pi-hole?"
+        data-confirm-title="Link Pi-hole host"
+        data-confirm-label="Save link"
+        data-wait-title="Saving host link"
+        data-wait-message="Updating binding…">
+    <div>
+      <label class="block text-xs text-muted mb-1" for="ph-server">Server (host)</label>
+      <select id="ph-server" name="server_id" class="ph-bind-server input w-full text-sm" required>
+        <option value="">Select server…</option>
+        {% for s in servers %}
+        <option value="{{ s.id }}"
+          {% if host_binding and host_binding.server_id == s.id %}selected{% endif %}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs text-muted mb-1" for="ph-scope">Scope</label>
+      <select id="ph-scope" class="ph-bind-scope input w-full text-sm">
+        <option value="host" {% if not host_binding or not host_binding.docker_project %}selected{% endif %}>Host service (no Docker)</option>
+        <option value="docker" {% if host_binding and host_binding.docker_project %}selected{% endif %}>Docker project / container</option>
+      </select>
+    </div>
+    <div class="ph-bind-docker-fields space-y-3 {% if not host_binding or not host_binding.docker_project %}hidden{% endif %}">
+      <div>
+        <label class="block text-xs text-muted mb-1">Compose project</label>
+        <select name="docker_project" class="ph-bind-project input w-full text-sm"
+                data-prefill="{{ host_binding.docker_project if host_binding else '' }}">
+          <option value="">—</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1">Container / service</label>
+        <select name="docker_container" class="ph-bind-container input w-full text-sm"
+                data-prefill="{{ host_binding.docker_container if host_binding else '' }}">
+          <option value="">—</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary min-h-11">Save host link</button>
+    </div>
+  </form>
+  {% if host_binding %}
+  <form method="post" action="/integrations/{{ integration.id }}/pihole/host-unbind"
+        data-confirm="Remove the host / service link for this Pi-hole?"
+        data-confirm-title="Clear host link"
+        data-confirm-label="Clear"
+        data-confirm-danger
+        data-wait-title="Clearing host link"
+        data-wait-message="Removing binding…">
+    <input type="hidden" name="binding_id" value="{{ host_binding.id }}">
+    <button type="submit" class="btn btn-secondary min-h-11">Clear host link</button>
+  </form>
+  {% endif %}
+  <script>
+  (function () {
+    var dockerOpts = {{ docker_options_json|safe }};
+    var form = document.querySelector('form.pihole-host-bind-form');
+    if (!form) return;
+    var serverEl = form.querySelector('.ph-bind-server');
+    var scopeEl = form.querySelector('.ph-bind-scope');
+    var projEl = form.querySelector('.ph-bind-project');
+    var contEl = form.querySelector('.ph-bind-container');
+    var box = form.querySelector('.ph-bind-docker-fields');
+    var prefillProj = (projEl && projEl.dataset.prefill) || '';
+    var prefillCont = (contEl && contEl.dataset.prefill) || '';
+
+    function projectsFor(sid) {
+      return dockerOpts[String(sid)] || dockerOpts[sid] || [];
+    }
+    function isDocker() { return scopeEl && scopeEl.value === 'docker'; }
+
+    function fillProjects(prefer) {
+      var sid = serverEl.value;
+      var projects = projectsFor(sid);
+      var want = prefer != null ? prefer : projEl.value;
+      projEl.innerHTML = '';
+      contEl.innerHTML = '';
+      if (!sid) {
+        projEl.disabled = true;
+        contEl.disabled = true;
+        projEl.innerHTML = '<option value="">— select server first —</option>';
+        contEl.innerHTML = '<option value="">— select project first —</option>';
+        return;
+      }
+      projEl.disabled = false;
+      var o0 = document.createElement('option');
+      o0.value = '';
+      o0.textContent = projects.length ? '— project optional —' : '— no compose projects in inventory —';
+      projEl.appendChild(o0);
+      projects.forEach(function (p) {
+        var o = document.createElement('option');
+        o.value = p.name;
+        o.textContent = p.name;
+        projEl.appendChild(o);
+      });
+      if (want) projEl.value = want;
+      fillContainers(null);
+    }
+    function fillContainers(prefer) {
+      var projects = projectsFor(serverEl.value);
+      var pname = projEl.value;
+      var want = prefer != null ? prefer : contEl.value;
+      contEl.innerHTML = '';
+      if (!pname) {
+        contEl.disabled = true;
+        contEl.innerHTML = '<option value="">— select project first —</option>';
+        return;
+      }
+      contEl.disabled = false;
+      var o0 = document.createElement('option');
+      o0.value = '';
+      o0.textContent = '— project only (optional) —';
+      contEl.appendChild(o0);
+      projects.forEach(function (p) {
+        if (p.name !== pname) return;
+        (p.containers || []).forEach(function (c) {
+          var o = document.createElement('option');
+          o.value = c.name;
+          o.textContent = c.name + (c.running === false ? ' · stopped' : '');
+          contEl.appendChild(o);
+        });
+      });
+      if (want) contEl.value = want;
+    }
+    function applyScope() {
+      var docker = isDocker();
+      if (box) box.classList.toggle('hidden', !docker);
+      if (!docker) {
+        projEl.value = '';
+        contEl.value = '';
+        projEl.disabled = true;
+        contEl.disabled = true;
+        return;
+      }
+      fillProjects(prefillProj || '');
+      if (prefillCont) fillContainers(prefillCont);
+      prefillProj = '';
+      prefillCont = '';
+    }
+    scopeEl.addEventListener('change', applyScope);
+    serverEl.addEventListener('change', function () {
+      if (isDocker()) fillProjects('');
+    });
+    projEl.addEventListener('change', function () { fillContainers(''); });
+    applyScope();
+  })();
+  </script>
+  {% endif %}
 </div>
 {% endif %}
 

@@ -1582,6 +1582,26 @@ async def _pihole_detail(request, session, user, integration: Integration):
         for r in reg.list_integrations(session, type_filter=reg.TYPE_PIHOLE)
         if r.id != integration.id
     ]
+    servers = list(
+        session.exec(select(Server).order_by(Server.sort_order, Server.name)).all()
+    )
+    docker_options: dict[int, list] = {
+        s.id: reg.docker_inventory_options(session, s.id) for s in servers
+    }
+    host_binding = None
+    hb_rows = reg.list_bindings(
+        session, integration_id=integration.id, role=reg.ROLE_PIHOLE_HOST
+    )
+    if hb_rows:
+        b = hb_rows[0]
+        srv = session.get(Server, b.server_id)
+        host_binding = {
+            "id": b.id,
+            "server_id": b.server_id,
+            "server_name": srv.name if srv else f"#{b.server_id}",
+            "docker_project": b.docker_project or "",
+            "docker_container": b.docker_container or "",
+        }
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="integrations_pihole_detail.html",
@@ -1596,6 +1616,11 @@ async def _pihole_detail(request, session, user, integration: Integration):
             "cnames": cnames,
             "dns_error": dns_error,
             "other_piholes": others,
+            "servers": servers,
+            "host_binding": host_binding,
+            "docker_options_json": json.dumps(
+                {str(k): v for k, v in docker_options.items()}
+            ),
             "admin_url": ph.admin_url(integration.base_url),
             "gravity_url": ph.admin_url(integration.base_url, "/gravity"),
             "system_url": ph.admin_url(integration.base_url, "/settings/system"),
@@ -1863,6 +1888,75 @@ async def pihole_action(
         msg="action_ok" if not fail else "action_partial",
         detail=detail,
     )
+
+
+@router.post("/integrations/{integration_id}/pihole/host-bind")
+async def pihole_host_bind(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    server_id: int = Form(...),
+    docker_project: str = Form(""),
+    docker_container: str = Form(""),
+):
+    """Link a Pi-hole integration to a fleet host (optional Docker scope)."""
+    integration = reg.get_integration(session, integration_id)
+    if not integration or integration.type != reg.TYPE_PIHOLE:
+        raise HTTPException(404)
+    # One host link per Pi-hole integration — replace prior rows
+    for old in reg.list_bindings(
+        session, integration_id=integration_id, role=reg.ROLE_PIHOLE_HOST
+    ):
+        session.delete(old)
+    session.commit()
+    try:
+        reg.set_binding(
+            session,
+            integration_id=integration_id,
+            server_id=server_id,
+            external_id="instance",
+            role=reg.ROLE_PIHOLE_HOST,
+            docker_project=docker_project or None,
+            docker_container=docker_container or None,
+            external_label=integration.name,
+            external_meta={"scope": "docker" if (docker_project or "").strip() else "host"},
+            last_state="up",
+        )
+        _audit(
+            session,
+            user,
+            "pihole_host_bound",
+            server_id=server_id,
+            details=f"pihole={integration_id}",
+        )
+        return _redirect(
+            f"/integrations/{integration_id}", tab="host", msg="host_linked"
+        )
+    except ValueError as e:
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab="host",
+            error="bind_failed",
+            detail=str(e)[:200],
+        )
+
+
+@router.post("/integrations/{integration_id}/pihole/host-unbind")
+async def pihole_host_unbind(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    binding_id: int = Form(...),
+):
+    integration = reg.get_integration(session, integration_id)
+    if not integration or integration.type != reg.TYPE_PIHOLE:
+        raise HTTPException(404)
+    ok = reg.clear_binding(
+        session, integration_id=integration_id, server_id=0, binding_id=binding_id
+    )
+    if ok:
+        _audit(session, user, "pihole_host_unbound", details=f"binding={binding_id}")
+    return _redirect(f"/integrations/{integration_id}", tab="host", msg="host_cleared")
 
 
 @router.post("/integrations/{integration_id}/npm/bind")
