@@ -502,7 +502,18 @@ def test_build_fabric_view_lazy_and_no_persist():
             "docker_container": None,
             "npm_forward": None,
         },
-    ) as bap, patch.object(fabric, "certs_matching_fqdn", return_value=[]):
+    ) as bap, patch.object(fabric, "certs_matching_fqdn", return_value=[]), patch(
+        "app.services.app_settings.load_settings",
+        return_value={
+            "network_lan_subnet": "",
+            "network_gateway_ip": "",
+            "network_public_ip": "",
+            "network_public_ip_checked_at": "",
+            "network_gateway_kuma_external_id": "",
+            "network_public_kuma_external_id": "",
+            "network_kuma_integration_id": "",
+        },
+    ):
         view = fabric.build_fabric_view(session)
         assert view["physical"] == {}
         assert view["logical"] == {}
