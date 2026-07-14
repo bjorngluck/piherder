@@ -2631,22 +2631,22 @@ a.fabric-hop:hover {
   opacity: 0.85;
 }
 
-/* Full-page mesh SVG */
+/* Full-page DNS map SVG — pan/zoom via viewBox (no CSS transform = crisp vectors) */
 .fabric-mesh-scroll {
-  overflow: auto;
+  overflow: hidden;
   max-height: min(78vh, 900px);
   border-radius: 10px;
-  background:
-    radial-gradient(ellipse at 50% 40%,
-      color-mix(in srgb, var(--color-accent) 6%, transparent) 0%,
-      transparent 55%),
-    var(--color-bg);
+  background: var(--color-bg);
   border: 1px solid var(--color-border);
 }
 .fabric-mesh-svg {
   display: block;
-  min-width: 720px;
-  height: auto;
+  width: 100%;
+  height: 100%;
+  min-height: 280px;
+  /* Do not use CSS transform/filter here — blurs text and lines */
+  transform: none !important;
+  filter: none !important;
 }
 .fabric-mesh-edge {
   stroke: var(--color-muted);
@@ -2683,6 +2683,14 @@ a.fabric-hop:hover {
 .fabric-mesh-node circle {
   stroke-width: 1.5;
 }
+.fabric-mesh-node--host,
+.fabric-mesh-node--gateway,
+.fabric-mesh-node--internet,
+.fabric-mesh-node--lan,
+.fabric-mesh-node--app,
+.fabric-mesh-node--more {
+  cursor: pointer;
+}
 .fabric-mesh-node--host rect {
   fill: var(--color-surface);
   stroke: var(--color-border);
@@ -2699,6 +2707,12 @@ a.fabric-hop:hover {
   fill: color-mix(in srgb, var(--color-warning, #d97706) 8%, var(--color-surface));
   stroke: color-mix(in srgb, var(--color-warning, #d97706) 40%, var(--color-border));
 }
+/* "+N more" overflow marker when a host has many apps on the physical mesh */
+.fabric-mesh-node--more rect {
+  fill: color-mix(in srgb, var(--color-muted, #888) 12%, var(--color-surface));
+  stroke: var(--color-border);
+  stroke-dasharray: 4 3;
+}
 .fabric-mesh-node--url rect {
   fill: color-mix(in srgb, var(--color-primary, #e60012) 7%, var(--color-surface));
   stroke: color-mix(in srgb, var(--color-primary, #e60012) 35%, var(--color-border));
@@ -2707,9 +2721,55 @@ a.fabric-hop:hover {
   fill: var(--color-surface);
   stroke: var(--color-border);
 }
+/* NPM hub + infrastructure nodes — always theme-aware (never default SVG black fill) */
 .fabric-mesh-node--hub circle {
-  stroke: color-mix(in srgb, var(--color-warning, #d97706) 70%, var(--color-border));
+  fill: color-mix(in srgb, var(--color-warning, #d97706) 18%, var(--color-surface)) !important;
+  stroke: color-mix(in srgb, var(--color-warning, #d97706) 65%, var(--color-border));
   stroke-width: 2;
+}
+.fabric-mesh-node--internet rect,
+.fabric-mesh-node--internet circle,
+.fabric-mesh-node--internet ellipse {
+  fill: color-mix(in srgb, var(--color-accent, #00a651) 12%, var(--color-surface)) !important;
+  stroke: color-mix(in srgb, var(--color-accent, #00a651) 50%, var(--color-border));
+}
+.fabric-mesh-status--up {
+  fill: var(--color-accent, #00a651);
+}
+.fabric-mesh-status--down {
+  fill: var(--color-danger, #dc2626);
+}
+.fabric-mesh-status--pending,
+.fabric-mesh-status--maintenance {
+  fill: var(--color-warning, #d97706);
+}
+.fabric-mesh-status--unknown {
+  fill: var(--color-muted, #888);
+}
+.fabric-mesh-node--lan rect,
+.fabric-mesh-node--lan ellipse {
+  fill: color-mix(in srgb, var(--color-primary, #e60012) 6%, var(--color-surface)) !important;
+  stroke: color-mix(in srgb, var(--color-primary, #e60012) 35%, var(--color-border));
+  stroke-dasharray: 6 4;
+}
+.fabric-mesh-node--gateway rect {
+  fill: color-mix(in srgb, var(--color-warning, #d97706) 14%, var(--color-surface)) !important;
+  stroke: color-mix(in srgb, var(--color-warning, #d97706) 55%, var(--color-border));
+}
+.fabric-mesh-node--host.is-cloud rect {
+  fill: color-mix(in srgb, var(--color-accent, #00a651) 8%, var(--color-surface));
+  stroke: color-mix(in srgb, var(--color-accent, #00a651) 40%, var(--color-border));
+}
+.fabric-mesh-edge--wan {
+  stroke: var(--color-accent, #00a651);
+  stroke-width: 2;
+  opacity: 0.7;
+  stroke-dasharray: 4 3;
+}
+.fabric-mesh-edge--lan {
+  stroke: color-mix(in srgb, var(--color-primary, #e60012) 50%, var(--color-muted));
+  stroke-width: 1.5;
+  opacity: 0.55;
 }
 .fabric-mesh-label {
   fill: var(--color-text);
@@ -2762,4 +2822,238 @@ a.fabric-hop:hover {
 }
 .fabric-legend-swatch--npm-line {
   color: var(--color-warning, #d97706);
+}
+
+/* ── Fabric focus + mobile graph priority + scroll cues (v0.5 polish) ── */
+
+/* Shared focus language: soft-dim unrelated (not near-invisible — looked “blurred”) */
+.ph-focus-dim {
+  opacity: 0.42 !important;
+  transition: opacity 0.1s ease;
+}
+.ph-focus-active {
+  opacity: 1 !important;
+  transition: opacity 0.1s ease;
+}
+/* Prefer stroke emphasis over drop-shadow (shadows read as blur on SVG) */
+.fabric-mesh-edge.ph-focus-active {
+  stroke-width: 3;
+  opacity: 1 !important;
+}
+.fabric-mesh-edge--npm.ph-focus-active,
+.fabric-mesh-edge--to_npm.ph-focus-active,
+.fabric-mesh-edge--from_npm.ph-focus-active {
+  stroke-width: 3;
+  opacity: 1 !important;
+}
+.fabric-mesh-node.ph-focus-active rect,
+.fabric-mesh-node.ph-focus-active circle {
+  stroke-width: 2.5;
+  stroke: var(--color-accent);
+}
+/* While focusing, kill host glow filter — it softens the whole node */
+.is-focusing .fabric-mesh-node--host {
+  filter: none !important;
+}
+.fabric-path-card.ph-focus-active,
+.fabric-flow.ph-focus-active,
+.fabric-rack.ph-focus-active,
+.fabric-app-chip.ph-focus-active {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+.fabric-path-card.ph-focus-dim,
+.fabric-flow.ph-focus-dim,
+.fabric-rack.ph-focus-dim,
+.fabric-app-chip.ph-focus-dim {
+  opacity: 0.28 !important;
+}
+
+.fabric-callout {
+  color: var(--color-text);
+  padding: 0.45rem 0.65rem;
+  border-radius: 8px;
+  border: 1px dashed var(--color-border);
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+  word-break: break-word;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.fabric-callout.is-empty {
+  color: var(--color-muted);
+  background: transparent;
+  border-style: solid;
+  border-color: transparent;
+  padding-left: 0.15rem;
+}
+.fabric-callout-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Map pan / pinch zoom (viewBox) */
+.fabric-mesh-viewport {
+  position: relative;
+  width: 100%;
+  min-height: 280px;
+  height: min(72vh, 720px);
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  border-radius: 8px;
+  user-select: none;
+  -webkit-user-select: none;
+  background: var(--color-bg);
+}
+.fabric-mesh-viewport.is-panning {
+  cursor: grabbing;
+}
+.fabric-mesh-zoom-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+/* Light-mode safe: explicit surface + text (never dark-on-dark / ghost-on-ghost) */
+.fabric-mesh-zoom-bar .btn {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text) !important;
+  border: 1px solid var(--color-border) !important;
+  filter: none !important;
+}
+.fabric-mesh-zoom-bar .btn:hover {
+  background-color: var(--color-bg) !important;
+  color: var(--color-text) !important;
+  filter: none !important;
+}
+.fabric-mesh-zoom-label {
+  font-size: 0.7rem;
+  min-width: 2.75rem;
+  color: var(--color-text);
+  opacity: 0.85;
+}
+/* Clear-focus / hide-map controls on map pages */
+[data-fabric-clear-focus],
+[data-fabric-close-graph],
+[data-fabric-open-graph] {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text) !important;
+  border: 1px solid var(--color-border) !important;
+  filter: none !important;
+}
+[data-fabric-clear-focus]:hover,
+[data-fabric-close-graph]:hover,
+[data-fabric-open-graph]:hover {
+  background-color: var(--color-bg) !important;
+  color: var(--color-text) !important;
+}
+
+/* Sync / cert status indicators */
+.fabric-mesh-status {
+  stroke: var(--color-surface);
+  stroke-width: 1;
+}
+.fabric-mesh-status--ok {
+  fill: var(--color-success, #16a34a);
+}
+.fabric-mesh-status--partial {
+  fill: var(--color-warning, #d97706);
+}
+.fabric-mesh-status--error {
+  fill: var(--color-error, #dc2626);
+}
+.fabric-mesh-status--cert {
+  fill: color-mix(in srgb, var(--color-warning, #d97706) 80%, white);
+  stroke: color-mix(in srgb, var(--color-warning, #d97706) 50%, var(--color-border));
+}
+.fabric-status-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  vertical-align: middle;
+  margin-right: 0.2rem;
+  flex-shrink: 0;
+}
+.fabric-status-dot--ok {
+  background: var(--color-success, #16a34a);
+}
+.fabric-status-dot--partial {
+  background: var(--color-warning, #d97706);
+}
+.fabric-status-dot--error {
+  background: var(--color-error, #dc2626);
+}
+.fabric-status-dot--cert {
+  background: color-mix(in srgb, var(--color-warning, #d97706) 75%, white);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-warning, #d97706) 40%, transparent);
+}
+.fabric-flow-url {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+/* Mobile: list-first; graph secondary until opened */
+@media (max-width: 767px) {
+  .fabric-mesh-priority-graph:not(.is-open) {
+    display: none !important;
+  }
+  .fabric-mesh-priority-graph.is-open {
+    display: block !important;
+  }
+  .fabric-mesh-viewport {
+    height: min(65vh, 560px);
+  }
+  .fabric-hop {
+    min-height: 2.75rem;
+    padding: 0.5rem 0.65rem;
+    min-width: 5.5rem;
+  }
+  .fabric-path-actions .btn {
+    min-height: 2.75rem;
+  }
+  .fabric-app-chip {
+    min-height: 2.75rem;
+    cursor: pointer;
+  }
+  .fabric-flow {
+    cursor: pointer;
+  }
+}
+@media (min-width: 768px) {
+  .fabric-mesh-priority-graph {
+    display: block !important;
+  }
+  [data-fabric-close-graph] {
+    display: none !important;
+  }
+}
+
+/* Horizontal scroll edge cues (tables only — maps stay solid for crisp SVG) */
+.table-scroll {
+  background:
+    linear-gradient(90deg, var(--color-surface) 30%, transparent) 0 0 / 1.25rem 100% no-repeat local,
+    linear-gradient(270deg, var(--color-surface) 30%, transparent) 100% 0 / 1.25rem 100% no-repeat local,
+    var(--color-bg);
+}
+
+/* Clickable focus affordance on list rows */
+.fabric-app-chip[data-path-id],
+.fabric-flow[data-path-id],
+.fabric-path-card[data-path-id] {
+  cursor: pointer;
+}
+.fabric-app-chip[data-path-id]:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+}
+
+/* Filter bar spacing */
+[data-fabric-filters] label {
+  font-weight: 500;
 }

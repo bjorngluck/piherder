@@ -10,29 +10,47 @@
     width: 100% !important;
     box-sizing: border-box;
   }
+  /* Shared monospace metrics: gutter + highlight + textarea MUST match or lines drift */
+  .compose-editor-wrap {
+    --ce-font: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --ce-size: 13px;
+    --ce-lh: 1.5;           /* unitless; multiplies font-size → 19.5px */
+    --ce-pad-y: 12px;
+    --ce-pad-x: 12px;
+    --ce-pad-left: 16px;
+    --ce-gutter-w: 2.75rem;
+    font-family: var(--ce-font);
+    font-size: var(--ce-size);
+    line-height: var(--ce-lh);
+    font-variant-ligatures: none;
+    font-feature-settings: "tnum" 1; /* tabular nums in gutter */
+  }
   .compose-editor-wrap .gutter,
   #gutter {
-    font-size: 10px;
-    line-height: 1.45;
+    font-family: var(--ce-font) !important;
+    font-size: var(--ce-size) !important; /* same as code — was 10px (misaligned) */
+    line-height: var(--ce-lh) !important;
     user-select: none;
     border-right: 1px solid var(--color-code-border);
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     bottom: 0 !important;
-    width: 2.75rem !important; /* 44px */
+    width: var(--ce-gutter-w) !important;
     box-sizing: border-box;
     z-index: 30;
+    padding: var(--ce-pad-y) 6px var(--ce-pad-y) 0 !important;
   }
-  /* Ensure the code area (after gutter) and gutter rows share exact vertical rhythm */
-  .compose-editor-wrap pre#highlight,
-  .compose-editor-wrap textarea#editor {
-    line-height: 1.45 !important;
-  }
-  .compose-editor-wrap {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    font-size: 13px;
-    line-height: 1.45;
+  .compose-editor-wrap .gutter .ln {
+    height: calc(var(--ce-size) * var(--ce-lh));
+    line-height: calc(var(--ce-size) * var(--ce-lh));
+    font-size: var(--ce-size);
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 4px;
+    box-sizing: border-box;
   }
   /* Overlay editor styles - pre under transparent textarea for colours.
      Theme via .code-surface + CSS vars (light/dark kicks in uniformly on the element) */
@@ -42,9 +60,9 @@
     color: var(--color-code-text) !important;
   }
   .compose-editor-wrap pre#highlight {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
-    font-size: 13px !important;
-    line-height: 1.45 !important;
+    font-family: var(--ce-font) !important;
+    font-size: var(--ce-size) !important;
+    line-height: calc(var(--ce-size) * var(--ce-lh)) !important;
     tab-size: 2 !important;
     border: none !important;
     outline: none !important;
@@ -52,16 +70,17 @@
     border-radius: 0 !important;
     margin: 0 !important;
     box-sizing: border-box !important;
-    padding: 12px 12px 12px 16px !important;
+    padding: var(--ce-pad-y) var(--ce-pad-x) var(--ce-pad-y) var(--ce-pad-left) !important;
     pointer-events: none;
-    white-space: pre;
+    white-space: pre; /* toggled via JS for wrap */
+    color: var(--color-code-text) !important; /* visible syntax layer (textarea is transparent) */
     position: absolute !important;
     z-index: 10;
   }
   .compose-editor-wrap textarea#editor {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
-    font-size: 13px !important;
-    line-height: 1.45 !important;
+    font-family: var(--ce-font) !important;
+    font-size: var(--ce-size) !important;
+    line-height: calc(var(--ce-size) * var(--ce-lh)) !important;
     tab-size: 2 !important;
     border: none !important;
     outline: none !important;
@@ -69,13 +88,21 @@
     border-radius: 0 !important;
     margin: 0 !important;
     box-sizing: border-box !important;
-    color: transparent !important;
+    color: transparent !important; /* caret-only; text rendered by #highlight */
     background: transparent !important;
-    caret-color: var(--color-accent);
-    padding: 12px 12px 12px 16px !important;
+    caret-color: var(--color-accent) !important;
+    padding: var(--ce-pad-y) var(--ce-pad-x) var(--ce-pad-y) var(--ce-pad-left) !important;
     position: absolute !important;
     z-index: 20;
+    white-space: pre;
   }
+  /* Token colours must beat code-surface text colour */
+  .compose-editor-wrap pre#highlight .tok-comment { color: var(--color-muted) !important; }
+  .compose-editor-wrap pre#highlight .tok-key     { color: var(--color-accent) !important; }
+  .compose-editor-wrap pre#highlight .tok-string  { color: var(--color-warning) !important; }
+  .compose-editor-wrap pre#highlight .tok-number  { color: var(--color-syntax-number) !important; }
+  .compose-editor-wrap pre#highlight .tok-bool    { color: var(--color-syntax-bool) !important; }
+  .compose-editor-wrap pre#highlight .tok-punct   { color: var(--color-muted) !important; }
   .tok-comment { color: var(--color-muted); }
   .tok-key     { color: var(--color-accent); }
   .tok-string  { color: var(--color-warning); }
@@ -146,7 +173,17 @@
   <div class="mb-3 p-2.5 banner-error border border-border text-sm rounded">{{ unlock_error }}</div>
   {% endif %}
 
-  {% if not is_dockerfile and not secrets_revealed|default(false) %}
+  {# Only show secrets unlock when this project actually has a .env (or .env.*) file #}
+  {% set ns = namespace(has_env=false) %}
+  {% if not is_dockerfile and file_names is defined and file_names %}
+    {% for fn in file_names %}
+      {% if fn == '.env' or fn.startswith('.env.') or fn.startswith('.env_') %}
+        {% set ns.has_env = true %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  {% if ns.has_env and not secrets_revealed|default(false) %}
   <div class="mb-3 p-3 border border-border rounded text-sm bg-surface">
     <div class="flex flex-wrap items-start justify-between gap-2">
       <div>
@@ -164,7 +201,9 @@
     </div>
     <div id="compose-secrets-unlock" class="hidden mt-3 pt-3 border-t border-border">
       {% if user_has_2fa %}
-      <form method="post" action="/templates/secrets/unlock" class="flex flex-wrap gap-2 items-end">
+      <form method="post" action="/templates/secrets/unlock" class="flex flex-wrap gap-2 items-end"
+            data-wait-title="Unlocking secrets"
+            data-wait-message="Verifying 2FA…">
         <input type="hidden" name="return_to"
                value="/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/edit{% if active_file %}?file={{ active_file | urlencode }}{% endif %}">
         <div class="flex-1 min-w-[10rem]">
@@ -182,7 +221,7 @@
       {% endif %}
     </div>
   </div>
-  {% elif not is_dockerfile and secrets_revealed|default(false) %}
+  {% elif ns.has_env and secrets_revealed|default(false) %}
   <div class="mb-3 p-2.5 banner-warning border border-border text-sm rounded flex flex-wrap items-center justify-between gap-2">
     <span>.env secrets unlocked for this browser (~{{ secrets_unlock_minutes }} min).</span>
     <form method="post" action="/templates/secrets/lock" class="inline">
@@ -194,13 +233,32 @@
   {% endif %}
 
   {% if request.query_params.get('saved') %}
-  <div class="mb-3 p-2.5 banner-success border border-border text-sm rounded">File saved successfully.</div>
+  <div class="mb-3 p-2.5 banner-success border border-border text-sm rounded">
+    {% if is_dockerfile %}
+    Dockerfile saved successfully{% if request.query_params.get('version') %} (v{{ request.query_params.get('version') }}){% endif %}.
+    Rebuild the image from the Docker screen to apply.
+    {% elif request.query_params.get('version') %}
+    Saved &amp; deployed as version {{ request.query_params.get('version') }}. Files written to host; stack redeploy was attempted.
+    {% else %}
+    File saved successfully.
+    {% endif %}
+  </div>
   {% endif %}
   {% if request.query_params.get('write_failed') %}
   <div class="mb-3 p-2.5 banner-error border border-border text-sm rounded">Failed to write file to host (check SSH user permissions, ownership, and that the target directory exists and is writable).</div>
   {% endif %}
-  {% if request.query_params.get('saved') and request.query_params.get('version') %}
-  <div class="mb-3 p-2.5 banner-success border border-border text-sm rounded">Deployed as version {{ request.query_params.get('version') }}.</div>
+  {% if request.query_params.get('draft_failed') %}
+  <div class="mb-3 p-2.5 banner-error border border-border text-sm rounded">Failed to save draft. Try again.</div>
+  {% endif %}
+  {% if request.query_params.get('deploy_status') == 'deployed' %}
+  <div class="mb-3 p-2.5 banner-success border border-border text-sm rounded">Selected version written to host and redeployed.</div>
+  {% elif request.query_params.get('deploy_status') == 'failed' %}
+  <div class="mb-3 p-2.5 banner-error border border-border text-sm rounded">Deploy version failed. Check SSH/Docker logs.</div>
+  {% endif %}
+  {% if request.query_params.get('rollback') == 'ok' %}
+  <div class="mb-3 p-2.5 banner-success border border-border text-sm rounded">Rollback applied.</div>
+  {% elif request.query_params.get('rollback') == 'fail' %}
+  <div class="mb-3 p-2.5 banner-error border border-border text-sm rounded">Rollback failed.</div>
   {% endif %}
 
   {% if errors and errors|length > 0 %}
@@ -240,7 +298,9 @@
 
   <form method="post" 
         action="{% if is_dockerfile %}/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/dockerfile/save{% else %}/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/save{% endif %}" 
-        id="compose-form">
+        id="compose-form"
+        data-wait-title="{% if is_dockerfile %}Saving Dockerfile{% else %}Saving project files{% endif %}"
+        data-wait-message="{% if is_dockerfile %}Writing Dockerfile to host…{% else %}Writing files over SSH and updating stack…{% endif %}">
     {% if editing_version_id %}<input type="hidden" name="editing_version_id" value="{{ editing_version_id }}">{% endif %}
     {% if not is_dockerfile %}
     <input type="hidden" name="files_json" id="files-json" value="{{ files_json | e }}">
@@ -297,19 +357,19 @@
     <div class="compose-editor-wrap code-surface relative border border-border rounded-xl overflow-hidden editor-tall">
       <!-- Line numbers gutter (same bg as editor for single box look) -->
       <div id="gutter"
-           class="gutter absolute left-0 top-0 bottom-0 w-11 overflow-hidden text-right pr-2 font-mono select-none border-r z-30 code-surface text-muted"
-           style="padding-top:12px; padding-bottom:12px; line-height:1.45;"></div>
+           class="gutter absolute left-0 top-0 bottom-0 overflow-hidden text-right select-none border-r z-30 code-surface text-muted"
+           aria-hidden="true"></div>
 
       <!-- Coloured syntax layer (pre) -->
       <pre id="highlight"
-           class="absolute left-[2.75rem] right-0 top-0 bottom-0 m-0 p-3 pl-4 overflow-auto pointer-events-none z-10 font-mono text-sm code-surface text-text"
-           style="white-space: pre; line-height: 1.45; tab-size: 2;"
+           class="absolute left-[2.75rem] right-0 top-0 bottom-0 m-0 overflow-auto pointer-events-none z-10 code-surface text-text"
+           style="white-space: pre; tab-size: 2;"
            aria-hidden="true"></pre>
 
       <!-- Editable layer on top (transparent so colours show through, but caret and input work) -->
       <textarea id="editor" name="content" spellcheck="false"
-                class="absolute left-[2.75rem] right-0 top-0 bottom-0 m-0 p-3 pl-4 overflow-auto resize-none z-20 font-mono text-sm"
-                style="white-space: pre; line-height: 1.45; tab-size: 2; color: transparent; background: transparent; caret-color: var(--color-accent); border: none; outline: none;"
+                class="absolute left-[2.75rem] right-0 top-0 bottom-0 m-0 overflow-auto resize-none z-20"
+                style="white-space: pre; tab-size: 2; color: transparent; background: transparent; caret-color: var(--color-accent); border: none; outline: none;"
       >{{ content }}</textarea>
     </div>
 
@@ -329,23 +389,46 @@
       <div class="text-[10px] text-danger/70 mt-1">Click an issue to jump to the line.</div>
     </div>
 
-    <div class="flex items-center gap-3 mt-4">
-      <button type="submit" {% if not is_dockerfile %}formaction="/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/save-draft"{% endif %} name="action" value="draft"
-              class="px-4 py-2 btn btn-secondary rounded text-sm">
+    <div class="flex flex-wrap items-center gap-3 mt-4">
+      {% if not is_dockerfile %}
+      <button type="submit"
+              formaction="/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/save-draft"
+              name="action" value="draft"
+              class="px-4 py-2 btn btn-secondary rounded text-sm min-h-11"
+              data-confirm="Save a draft of all listed project files in PiHerder (DB only — not written to the host)?"
+              data-confirm-title="Save draft"
+              data-confirm-label="Save draft"
+              data-wait-title="Saving draft"
+              data-wait-message="Storing draft version…">
         Save Draft
       </button>
+      {% endif %}
       <button type="submit" name="action" value="deploy"
-              class="px-6 py-2 btn btn-accent rounded font-medium text-sm">
+              class="px-6 py-2 btn btn-accent rounded font-medium text-sm min-h-11"
+              {% if is_dockerfile %}
+              data-confirm="Write this Dockerfile to the host? You still need to rebuild the image from the Docker screen."
+              data-confirm-title="Save Dockerfile"
+              data-confirm-label="Save"
+              data-wait-title="Saving Dockerfile"
+              data-wait-message="Writing Dockerfile over SSH…"
+              {% else %}
+              data-confirm="Write all project files to the host and record a new live version? A stack redeploy will be attempted."
+              data-confirm-title="Save &amp; deploy"
+              data-confirm-label="Save &amp; deploy"
+              data-wait-title="Saving &amp; deploying"
+              data-wait-message="Writing files over SSH and redeploying stack…"
+              {% endif %}>
         {% if is_dockerfile %}Save Dockerfile{% else %}Save &amp; Deploy (new version){% endif %}
       </button>
       <a href="/servers/{{ server.id }}/docker?nocache=1"
-         class="px-5 py-2 btn btn-secondary rounded text-sm"
+         class="px-5 py-2 btn btn-secondary rounded text-sm min-h-11 inline-flex items-center"
          data-nav-loading="Back to Docker…">Cancel</a>
-      <div class="text-xs text-warning ml-2">
+      <div class="text-xs text-muted ml-0 sm:ml-2 max-w-md">
         {% if is_dockerfile %}
         After saving, rebuild the image from the Docker screen to apply changes.
         {% else %}
-        After saving, return to Docker screen and use <strong>Redeploy</strong> to apply.
+        <strong class="text-text">Save Draft</strong> = PiHerder only.
+        <strong class="text-text">Save &amp; Deploy</strong> writes the host and redeploys.
         {% endif %}
       </div>
     </div>
@@ -353,15 +436,21 @@
 
   {% if not is_dockerfile and drafts %}
   <div class="mt-4">
-    <div class="text-xs mb-1">Deploy/rollback specific version (writes files + redeploys; drafts are DB-only):</div>
-    <form method="post" action="/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/deploy-version" class="flex gap-2">
-      <select name="version_id" class="bg-surface border border-border text-xs p-1 rounded">
+    <div class="text-xs mb-1">Deploy/rollback a specific version (writes files + redeploys; drafts are DB-only until deployed):</div>
+    <form method="post" action="/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/deploy-version"
+          class="flex flex-wrap gap-2 items-center"
+          data-confirm="Write the selected version to the host and redeploy the stack?"
+          data-confirm-title="Deploy version"
+          data-confirm-label="Deploy"
+          data-wait-title="Deploying version"
+          data-wait-message="Writing files and redeploying…">
+      <select name="version_id" class="bg-surface border border-border text-sm p-2 rounded min-h-11">
         {% for d in drafts %}
         {% set label = 'draft (db only)' if d.is_draft else ('live (current on host)' if live_version and d.id == live_version.id else 'inactive (previous live)') %}
         <option value="{{ d.id }}">v{{ d.version }} - {{ label }} ({{ (d.deployed_at or d.created_at) | app_tz }})</option>
         {% endfor %}
       </select>
-      <button class="px-3 py-1 btn btn-secondary rounded text-xs">Deploy This Version</button>
+      <button type="submit" class="px-3 py-2 btn btn-secondary rounded text-sm min-h-11">Deploy this version</button>
     </form>
   </div>
   {% endif %}
@@ -428,30 +517,25 @@
     if (!textarea || !g) return;
     const text = normalizeNewlines(textarea.value || '');
     const lines = text.split('\n').length;
-    // Use fixed pixel row height that exactly matches the editor's line box (13px font * 1.45)
-    const ROW_H = LINE_HEIGHT_PX; // px - must match code line-height
     let html = '';
     for (let i = 1; i <= lines; i++) {
-      html += `<div style="height:${ROW_H}px; line-height:${ROW_H}px; font-size:10px; padding-right:4px; display:flex; align-items:center; justify-content:flex-end;">${i}</div>`;
+      html += `<div class="ln">${i}</div>`;
     }
     g.innerHTML = html;
     if (lineCountEl()) lineCountEl().textContent = lines;
     applyErrorHighlightsToGutter();
-    // Re-force sizes now that gutter has content (affects offsetWidth in some browsers)
     try { forceOverlaySize(); } catch (e) {}
   }
 
   function applyErrorHighlightsToGutter() {
     const g = gutter();
     if (!g) return;
-    g.querySelectorAll('div').forEach((div, idx) => {
+    g.querySelectorAll('.ln').forEach((div, idx) => {
       const ln = idx + 1;
       if (currentErrorLines.has(ln)) {
         div.classList.add('error-line');
-        div.style.fontWeight = '600';
       } else {
         div.classList.remove('error-line');
-        div.style.fontWeight = '';
       }
     });
   }
@@ -501,9 +585,11 @@
     if (g) g.scrollTop = textarea.scrollTop;
   }
 
-  const LINE_HEIGHT_PX = 19;
   const GUTTER_WIDTH_PX = 44;
+  // Keep pixel line-height in sync with CSS --ce-size (13) * --ce-lh (1.5)
+  const LINE_HEIGHT_PX = 19.5;
   const CODE_FONT_SIZE = '13px';
+  const CODE_LINE_HEIGHT = LINE_HEIGHT_PX + 'px';
   const CODE_FONT_FAMILY = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
 
   function forceFontMetrics() {
@@ -513,15 +599,17 @@
     if (t) {
       t.style.fontFamily = CODE_FONT_FAMILY;
       t.style.fontSize = CODE_FONT_SIZE;
-      t.style.lineHeight = LINE_HEIGHT_PX + 'px';
+      t.style.lineHeight = CODE_LINE_HEIGHT;
     }
     if (p) {
       p.style.fontFamily = CODE_FONT_FAMILY;
       p.style.fontSize = CODE_FONT_SIZE;
-      p.style.lineHeight = LINE_HEIGHT_PX + 'px';
+      p.style.lineHeight = CODE_LINE_HEIGHT;
     }
     if (g) {
-      g.style.fontFamily = CODE_FONT_FAMILY;  // numbers use smaller but for consistency
+      g.style.fontFamily = CODE_FONT_FAMILY;
+      g.style.fontSize = CODE_FONT_SIZE;
+      g.style.lineHeight = CODE_LINE_HEIGHT;
     }
   }
 
@@ -567,7 +655,9 @@
     p.style.height = h;
     p.style.width = codeW;
     p.style.zIndex = '10';
-    p.style.lineHeight = LINE_HEIGHT_PX + 'px';
+    p.style.lineHeight = CODE_LINE_HEIGHT;
+    // Keep colour from theme; never leave highlight empty/invisible
+    if (!p.style.color) p.style.color = 'var(--color-code-text)';
 
     t.style.position = 'absolute';
     t.style.left = codeLeft;
@@ -577,12 +667,24 @@
     t.style.height = h;
     t.style.width = codeW;
     t.style.zIndex = '20';
-    t.style.lineHeight = LINE_HEIGHT_PX + 'px';
+    t.style.lineHeight = CODE_LINE_HEIGHT;
+    // Overlay caret only — syntax colour lives on #highlight
+    t.style.color = 'transparent';
+    t.style.background = 'transparent';
+    t.style.caretColor = 'var(--color-accent)';
   }
 
   function updateAll() {
-    updateLineNumbers();
-    updateHighlight();
+    try {
+      updateLineNumbers();
+    } catch (e) {
+      console.error('updateLineNumbers', e);
+    }
+    try {
+      updateHighlight();
+    } catch (e) {
+      console.error('updateHighlight', e);
+    }
   }
 
   function setWrap(enabled) {
@@ -590,9 +692,10 @@
     const p = pre();
     if (!textarea) return;
     const ws = enabled ? 'pre-wrap' : 'pre';
-    textarea.style.whiteSpace = ws;
+    // !important in CSS would block this — use setProperty so wrap wins
+    textarea.style.setProperty('white-space', ws, 'important');
     textarea.setAttribute('wrap', enabled ? 'soft' : 'off');
-    if (p) p.style.whiteSpace = ws;
+    if (p) p.style.setProperty('white-space', ws, 'important');
   }
 
   function goToLine(lineNum) {
@@ -610,8 +713,7 @@
     textarea.setSelectionRange(pos, pos);
 
     // scroll the line roughly into view
-    const lineHeight = 19; // must match gutter ROW_H
-    const targetScroll = Math.max(0, (lineNum - 6) * lineHeight);
+    const targetScroll = Math.max(0, (lineNum - 6) * LINE_HEIGHT_PX);
     textarea.scrollTop = targetScroll;
     syncScroll();
   }
@@ -716,22 +818,24 @@
       // re-apply in case any weirdness on parse (defensive)
       textarea.value = initial;
     }
-    updateAll();
-    syncScroll();
-    updateCursorPos();
-    forceFontMetrics();
-    forceOverlaySize();
+    // Never let layout helpers abort the rest of init (listeners, tabs, wrap).
+    try {
+      updateAll();
+      syncScroll();
+      updateCursorPos();
+      forceFontMetrics();
+      forceOverlaySize();
+    } catch (err) {
+      console.error('compose editor initial layout', err);
+      try { updateHighlight(); } catch (e2) {}
+      try { updateLineNumbers(); } catch (e3) {}
+    }
 
     // input / change
     textarea.addEventListener('input', () => {
       updateAll();
       updateCursorPos();
-      forceOverlaySize();
-      // also clear previous success errors if user edits
-      const panel = errorsPanel();
-      if (panel && !panel.classList.contains('hidden')) {
-        // leave visible but user knows they are editing
-      }
+      try { forceOverlaySize(); } catch (e) {}
     });
 
     textarea.addEventListener('scroll', syncScroll);
@@ -806,11 +910,15 @@
     // wrap toggle
     if (wrapCb) {
       wrapCb.addEventListener('change', (e) => {
-        setWrap(e.target.checked);
+        setWrap(!!e.target.checked);
         setTimeout(function() {
-          updateHighlight();
-          syncScroll();
-          forceOverlaySize();
+          try {
+            updateAll();
+            syncScroll();
+            forceOverlaySize();
+          } catch (err) {
+            console.error('wrap toggle', err);
+          }
         }, 0);
       });
       // start unwrapped (classic code editor default)
@@ -1019,9 +1127,14 @@
           console.error('pre-save validate failed', ex);
           // fall through to submit anyway (server will also validate)
         }
-        // valid (or couldn't validate) -> allow submit
+        // valid (or couldn't validate) -> allow submit via requestSubmit so
+        // confirmSkip/wait modal listeners still run when appropriate.
         form.dataset.bypassValidate = '1';
-        form.submit();
+        if (submitter && typeof form.requestSubmit === 'function') {
+          form.requestSubmit(submitter);
+        } else {
+          form.submit();
+        }
       });
     }
 

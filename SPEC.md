@@ -307,7 +307,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 
 ## Phase 7 — Ecosystem depth (post-v0.5 / Horizon 3)
 
-- [x] **DNS fabric** (v0.5.0) — host `dns_name` A records; `ServiceDnsRecord` (CNAME or host-identity A); Catalog → DNS hub + `/dns/physical` + `/dns/logical` full meshes; Pi-hole adopt (duplicates = ok); Kuma/NPM path layers; external checklist — [wiki](wiki/integrations/dns-fabric.md)
+- [x] **Network maps / DNS fabric** (v0.5.0) — host `dns_name` A records; `ServiceDnsRecord` (CNAME or host-identity A); Catalog → **Network** hub + Hosts map `/dns/physical` (Internet→router→LAN→hosts, cloud hosts, Kuma on router/WAN) + Path map `/dns/logical`; Pi-hole adopt (duplicates = ok); node + path focus; viewBox zoom; GET-safe topology; external checklist — [wiki](wiki/integrations/dns-fabric.md)
 - [ ] Cloudflare DNS automation from template hints / fabric
 - [ ] Service → container first-class map + **container dependency graph** (DB, Redis, …) — ROADMAP H2.5
 - [ ] Pi-hole / NPM write paths beyond local DNS (proxy host CRUD, lists, etc.)

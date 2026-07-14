@@ -31,6 +31,7 @@
     </form>
     <a href="/integrations/{{ integration.id }}/edit" class="btn btn-secondary min-h-11">Edit</a>
     {% endif %}
+    <a href="/integrations" class="btn btn-secondary min-h-11">All integrations</a>
     <a href="{{ admin_url }}" target="_blank" rel="noopener" class="btn btn-primary min-h-11">Open Pi-hole</a>
   </div>
 </div>
@@ -103,7 +104,7 @@
   <p class="text-sm text-muted mb-3">
     Entries listed from <strong>this</strong> instance.
     <strong>Add</strong> fans out to all enabled Pi-holes.
-    <strong>Remove</strong> can target this instance only, other (secondary) instances, or everywhere.
+    <strong>Remove</strong> opens a confirm dialog: this instance, secondaries only, or all.
   </p>
   {% if dns_error %}
   <div class="mb-3 p-2 banner-error rounded text-sm">{{ dns_error }}</div>
@@ -145,47 +146,14 @@
           <td class="font-mono text-xs">{{ h.domain }}</td>
           <td class="text-right py-2">
             {% if can_mutate %}
-            <div class="inline-flex flex-wrap gap-1 justify-end">
-              <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-host" class="inline"
-                    data-confirm="Remove {{ h.domain }} ({{ h.ip }}) from this Pi-hole only?"
-                    data-confirm-title="Remove on this instance"
-                    data-confirm-label="Remove here"
-                    data-confirm-danger
-                    data-wait-title="Updating DNS"
-                    data-wait-message="Removing host record on this instance…">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="scope" value="this">
-                <input type="hidden" name="ip" value="{{ h.ip }}">
-                <input type="hidden" name="domain" value="{{ h.domain }}">
-                <button type="submit" class="btn btn-secondary text-xs min-h-9" title="This instance only">Here</button>
-              </form>
-              <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-host" class="inline"
-                    data-confirm="Remove {{ h.domain }} ({{ h.ip }}) from all other (secondary) Pi-hole instances? This instance is kept."
-                    data-confirm-title="Remove from secondaries"
-                    data-confirm-label="Remove secondaries"
-                    data-confirm-danger
-                    data-wait-title="Updating DNS"
-                    data-wait-message="Removing host record on secondary instances…">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="scope" value="secondaries">
-                <input type="hidden" name="ip" value="{{ h.ip }}">
-                <input type="hidden" name="domain" value="{{ h.domain }}">
-                <button type="submit" class="btn btn-secondary text-xs min-h-9" title="Other instances only">Secondaries</button>
-              </form>
-              <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-host" class="inline"
-                    data-confirm="Remove {{ h.domain }} ({{ h.ip }}) from ALL enabled Pi-hole instances?"
-                    data-confirm-title="Remove everywhere"
-                    data-confirm-label="Remove all"
-                    data-confirm-danger
-                    data-wait-title="Updating DNS"
-                    data-wait-message="Removing host record on all instances…">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="scope" value="all">
-                <input type="hidden" name="ip" value="{{ h.ip }}">
-                <input type="hidden" name="domain" value="{{ h.domain }}">
-                <button type="submit" class="btn btn-secondary text-xs min-h-9 text-red-600" title="All instances">All</button>
-              </form>
-            </div>
+            <button type="button"
+                    class="btn btn-secondary text-xs min-h-11 px-3 text-error ph-dns-remove"
+                    data-kind="host"
+                    data-ip="{{ h.ip }}"
+                    data-domain="{{ h.domain }}"
+                    data-label="{{ h.domain }} ({{ h.ip }})">
+              Remove
+            </button>
             {% endif %}
           </td>
         </tr>
@@ -202,7 +170,7 @@
   <p class="text-sm text-muted mb-3">
     CNAMEs listed from <strong>this</strong> instance.
     <strong>Add</strong> fans out to all enabled Pi-holes.
-    <strong>Remove</strong>: this instance, secondaries only, or everywhere.
+    <strong>Remove</strong> opens a confirm dialog: this instance, secondaries only, or all.
   </p>
   {% if dns_error %}
   <div class="mb-3 p-2 banner-error rounded text-sm">{{ dns_error }}</div>
@@ -244,47 +212,14 @@
           <td class="font-mono text-xs">{{ c.target }}</td>
           <td class="text-right py-2">
             {% if can_mutate %}
-            <div class="inline-flex flex-wrap gap-1 justify-end">
-              <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-cname" class="inline"
-                    data-confirm="Remove CNAME {{ c.domain }} → {{ c.target }} from this Pi-hole only?"
-                    data-confirm-title="Remove on this instance"
-                    data-confirm-label="Remove here"
-                    data-confirm-danger
-                    data-wait-title="Updating CNAME"
-                    data-wait-message="Removing CNAME on this instance…">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="scope" value="this">
-                <input type="hidden" name="domain" value="{{ c.domain }}">
-                <input type="hidden" name="target" value="{{ c.target }}">
-                <button type="submit" class="btn btn-secondary text-xs min-h-9" title="This instance only">Here</button>
-              </form>
-              <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-cname" class="inline"
-                    data-confirm="Remove CNAME {{ c.domain }} → {{ c.target }} from all other (secondary) Pi-hole instances?"
-                    data-confirm-title="Remove from secondaries"
-                    data-confirm-label="Remove secondaries"
-                    data-confirm-danger
-                    data-wait-title="Updating CNAME"
-                    data-wait-message="Removing CNAME on secondary instances…">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="scope" value="secondaries">
-                <input type="hidden" name="domain" value="{{ c.domain }}">
-                <input type="hidden" name="target" value="{{ c.target }}">
-                <button type="submit" class="btn btn-secondary text-xs min-h-9" title="Other instances only">Secondaries</button>
-              </form>
-              <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-cname" class="inline"
-                    data-confirm="Remove CNAME {{ c.domain }} → {{ c.target }} from ALL enabled Pi-hole instances?"
-                    data-confirm-title="Remove everywhere"
-                    data-confirm-label="Remove all"
-                    data-confirm-danger
-                    data-wait-title="Updating CNAME"
-                    data-wait-message="Removing CNAME on all instances…">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="scope" value="all">
-                <input type="hidden" name="domain" value="{{ c.domain }}">
-                <input type="hidden" name="target" value="{{ c.target }}">
-                <button type="submit" class="btn btn-secondary text-xs min-h-9 text-red-600" title="All instances">All</button>
-              </form>
-            </div>
+            <button type="button"
+                    class="btn btn-secondary text-xs min-h-11 px-3 text-error ph-dns-remove"
+                    data-kind="cname"
+                    data-domain="{{ c.domain }}"
+                    data-target="{{ c.target }}"
+                    data-label="{{ c.domain }} → {{ c.target }}">
+              Remove
+            </button>
             {% endif %}
           </td>
         </tr>
@@ -610,5 +545,138 @@
     <button type="submit" class="btn btn-secondary text-red-600 min-h-11">Delete integration</button>
   </form>
 </div>
+
+{# Single Remove → scope picker (this / secondaries / all) #}
+<div id="ph-dns-remove-modal"
+     class="hidden fixed inset-0 z-[80] items-center justify-center p-4 bg-black/70"
+     role="dialog" aria-modal="true" aria-labelledby="ph-dns-remove-title">
+  <div class="modal-content card p-5 w-full max-w-md shadow-lg border border-border" id="ph-dns-remove-panel">
+    <h2 id="ph-dns-remove-title" class="text-lg font-semibold text-text mb-1">Remove DNS record</h2>
+    <p class="text-sm text-muted mb-3 font-mono" id="ph-dns-remove-label"></p>
+    <p class="text-xs text-muted mb-3">Where should this record be deleted?</p>
+    <div class="space-y-2 mb-5" role="radiogroup" aria-label="Remove scope">
+      <label class="flex items-start gap-2 p-2 rounded border border-border cursor-pointer hover:border-accent">
+        <input type="radio" name="ph-dns-scope" value="this" class="mt-1" checked>
+        <span>
+          <span class="text-sm font-medium text-text">This instance only</span>
+          <span class="block text-xs text-muted">Only {{ integration.name }}</span>
+        </span>
+      </label>
+      <label class="flex items-start gap-2 p-2 rounded border border-border cursor-pointer hover:border-accent">
+        <input type="radio" name="ph-dns-scope" value="secondaries" class="mt-1">
+        <span>
+          <span class="text-sm font-medium text-text">Secondaries only</span>
+          <span class="block text-xs text-muted">Other enabled Pi-holes; keep this one</span>
+        </span>
+      </label>
+      <label class="flex items-start gap-2 p-2 rounded border border-border cursor-pointer hover:border-accent">
+        <input type="radio" name="ph-dns-scope" value="all" class="mt-1">
+        <span>
+          <span class="text-sm font-medium text-text">All instances</span>
+          <span class="block text-xs text-muted">Every enabled Pi-hole</span>
+        </span>
+      </label>
+    </div>
+    <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+      <button type="button" id="ph-dns-remove-cancel" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+      <button type="button" id="ph-dns-remove-ok" class="btn btn-danger min-h-11 text-sm">Remove</button>
+    </div>
+  </div>
+</div>
+<form id="ph-dns-remove-form" method="post" class="hidden"
+      data-wait-title="Updating DNS"
+      data-wait-message="Removing record…">
+  <input type="hidden" name="action" value="delete">
+  <input type="hidden" name="scope" id="ph-dns-rm-scope" value="this">
+  <input type="hidden" name="ip" id="ph-dns-rm-ip" value="">
+  <input type="hidden" name="domain" id="ph-dns-rm-domain" value="">
+  <input type="hidden" name="target" id="ph-dns-rm-target" value="">
+</form>
+<script>
+(function () {
+  var modal = document.getElementById('ph-dns-remove-modal');
+  var form = document.getElementById('ph-dns-remove-form');
+  var labelEl = document.getElementById('ph-dns-remove-label');
+  var cancelBtn = document.getElementById('ph-dns-remove-cancel');
+  var okBtn = document.getElementById('ph-dns-remove-ok');
+  var integId = {{ integration.id }};
+  if (!modal || !form) return;
+
+  function close() {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    document.body.style.overflow = '';
+  }
+  function open(btn) {
+    var kind = btn.getAttribute('data-kind') || 'host';
+    if (labelEl) labelEl.textContent = btn.getAttribute('data-label') || '';
+    form.action = kind === 'cname'
+      ? '/integrations/' + integId + '/pihole/dns-cname'
+      : '/integrations/' + integId + '/pihole/dns-host';
+    document.getElementById('ph-dns-rm-ip').value = btn.getAttribute('data-ip') || '';
+    document.getElementById('ph-dns-rm-domain').value = btn.getAttribute('data-domain') || '';
+    document.getElementById('ph-dns-rm-target').value = btn.getAttribute('data-target') || '';
+    var radios = modal.querySelectorAll('input[name="ph-dns-scope"]');
+    radios.forEach(function (r) { r.checked = r.value === 'this'; });
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.body.style.overflow = 'hidden';
+    if (cancelBtn) {
+      try { cancelBtn.focus(); } catch (err) {}
+    }
+  }
+
+  // Open from host/CNAME Remove buttons (capture so nested text nodes work)
+  document.addEventListener('click', function (e) {
+    var el = e.target;
+    if (el && el.nodeType !== 1) el = el.parentElement;
+    if (!el || !el.closest) return;
+    var btn = el.closest('.ph-dns-remove');
+    if (btn) {
+      e.preventDefault();
+      open(btn);
+    }
+  }, true);
+
+  // Backdrop click closes (only the dimmed overlay, not the card)
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) close();
+  });
+
+  // Direct handlers — do not rely on document bubble (card used to stopPropagation)
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    });
+  }
+  if (okBtn) {
+    okBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var scope = 'this';
+      var sel = modal.querySelector('input[name="ph-dns-scope"]:checked');
+      if (sel) scope = sel.value;
+      document.getElementById('ph-dns-rm-scope').value = scope;
+      var msgs = {
+        this: 'Removing on this instance…',
+        secondaries: 'Removing on secondary instances…',
+        all: 'Removing on all instances…'
+      };
+      form.setAttribute('data-wait-message', msgs[scope] || msgs.this);
+      close();
+      if (typeof form.requestSubmit === 'function') form.requestSubmit();
+      else form.submit();
+    });
+  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal && !modal.classList.contains('hidden')) {
+      e.preventDefault();
+      close();
+    }
+  });
+})();
+</script>
 {% endif %}
 {% endblock %}

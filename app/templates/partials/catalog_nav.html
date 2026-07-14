@@ -1,14 +1,16 @@
 {# Shared Catalog chrome — identical tab chrome to Settings (settings-tab-btn).
    Pass catalog_section via {% with catalog_section='integrations' %} … {% endwith %} #}
 {% set section = catalog_section if catalog_section is defined else 'integrations' %}
-{% if section not in ('integrations', 'templates', 'dns') %}
+{% if section not in ('integrations', 'templates', 'dns', 'network') %}
   {% set section = 'integrations' %}
 {% endif %}
+{# 'dns' slug kept for URLs; UI label is Network #}
+{% set is_network = section in ('dns', 'network') %}
 <div class="page-header mb-4">
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Catalog</h1>
     <p class="text-sm text-muted mt-1">
-      Integrations, service templates, and end-to-end DNS (hosts → apps → proxy).
+      Integrations, service templates, and network maps (hosts → apps → proxy → internet).
     </p>
   </div>
 </div>
@@ -25,7 +27,7 @@
      {% if section == 'templates' %}aria-current="page"{% endif %}>Templates</a>
   <a href="/dns"
      role="tab"
-     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if section == 'dns' else '' }}"
-     aria-selected="{{ 'true' if section == 'dns' else 'false' }}"
-     {% if section == 'dns' %}aria-current="page"{% endif %}>DNS</a>
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if is_network else '' }}"
+     aria-selected="{{ 'true' if is_network else 'false' }}"
+     {% if is_network %}aria-current="page"{% endif %}>Network</a>
 </div>

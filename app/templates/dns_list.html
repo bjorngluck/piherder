@@ -12,23 +12,23 @@
 <div class="banner-error border rounded p-3 text-sm mb-4">{{ error }}</div>
 {% endif %}
 
-{# Full-picture mesh entry points #}
+{# Map entry points (not "service mesh" — DNS path maps) #}
 <div class="grid gap-3 sm:grid-cols-2 mb-5">
   <a href="/dns/physical" class="fabric-nav-card fabric-nav-card--physical">
-    <div class="fabric-nav-card-kicker">Full mesh</div>
-    <div class="fabric-nav-card-title">Physical topology</div>
+    <div class="fabric-nav-card-kicker">Map</div>
+    <div class="fabric-nav-card-title">Hosts map</div>
     <p class="fabric-nav-card-desc">
-      All hosts, IPs, NPM edge machines, and which apps land on each rack.
+      Fleet hosts, IPs, NPM edge machines, and which app names land on each rack.
     </p>
-    <span class="fabric-nav-card-cta">Open physical mesh →</span>
+    <span class="fabric-nav-card-cta">Open hosts map →</span>
   </a>
   <a href="/dns/logical" class="fabric-nav-card fabric-nav-card--logical">
-    <div class="fabric-nav-card-kicker">Full mesh</div>
-    <div class="fabric-nav-card-title">Logical topology</div>
+    <div class="fabric-nav-card-kicker">Map</div>
+    <div class="fabric-nav-card-title">Path map</div>
     <p class="fabric-nav-card-desc">
-      Every URL → via NPM or direct → host / project / container.
+      Each published name → via NPM or direct → host / project / container.
     </p>
-    <span class="fabric-nav-card-cta">Open logical mesh →</span>
+    <span class="fabric-nav-card-cta">Open path map →</span>
   </a>
 </div>
 
@@ -56,7 +56,7 @@
 </div>
 
 {# ── Per-service paths (this page) ── #}
-<div class="card p-4 mb-5 fabric-topology" id="service-paths">
+<div class="card p-4 mb-5 fabric-topology" id="service-paths" data-fabric-root>
   <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
     <div>
       <h2 class="font-semibold text-lg tracking-tight">Service paths</h2>
@@ -67,41 +67,109 @@
         <strong class="text-text">host</strong> →
         <strong class="text-text">service</strong> →
         <strong class="text-text">container</strong>.
+        Hover or tap a card to focus; open maps with the same focus.
+        On maps, finger tap focuses only — use <strong class="text-text">Open host</strong> to browse to the server.
       </p>
     </div>
-    <div class="flex flex-wrap gap-2 text-[11px]">
+    <div class="flex flex-wrap gap-2 text-[11px] items-center">
       {% for pk in view.path_kinds or [] %}
       <span class="fabric-legend-pill">{{ pk.title }}</span>
       {% endfor %}
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2 hidden" data-fabric-clear-focus>Clear focus</button>
     </div>
   </div>
 
   {% if view.services %}
+  <div class="mb-4" data-fabric-filters>
+    <div class="flex flex-wrap gap-2 items-end">
+      <div class="flex-1 min-w-[10rem]">
+        <label class="text-[10px] text-muted block mb-0.5">Search</label>
+        <input type="search" data-fabric-filter-q placeholder="FQDN, host, project…"
+               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+      </div>
+      <div class="min-w-[8rem]">
+        <label class="text-[10px] text-muted block mb-0.5">Path type</label>
+        <select data-fabric-filter-mode class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+          <option value="all">All</option>
+          <option value="npm">Via NPM</option>
+          <option value="direct">Direct</option>
+          <option value="identity">Host identity</option>
+        </select>
+      </div>
+      <div class="min-w-[8rem]">
+        <label class="text-[10px] text-muted block mb-0.5">Host</label>
+        <select data-fabric-filter-host class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+          <option value="">Any host</option>
+          {% for h in view.hosts %}
+          {% if h.server_id %}
+          <option value="{{ h.server_id }}">{{ h.name }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+      </div>
+      <div class="text-xs text-muted pb-2">
+        <span data-fabric-filter-count">{{ view.services|length }}</span> shown
+      </div>
+    </div>
+  </div>
+
   <div class="fabric-path-grid">
     {% for s in view.services %}
-    <article class="fabric-path-card fabric-path-card--{{ s.path_kind or 'host' }}">
+    <article class="fabric-path-card fabric-path-card--{{ s.path_kind or 'host' }}"
+             data-fabric-filter-item
+             data-path-id="{{ s.id }}"
+             data-path-chain="{{ s.path_chain or s.fqdn }}"
+             data-path-kind="{{ s.path_kind or '' }}"
+             data-via-npm="{{ 1 if s.via_proxy else 0 }}"
+             data-open-href="{{ s.backend_href or s.target_href or s.dep_href or '' }}"
+             data-hosts="{{ s.backend_server_id or '' }}{% if s.target_server_id and s.target_server_id != s.backend_server_id %},{{ s.target_server_id }}{% endif %}"
+             data-filter-text="{{ s.fqdn }} {{ s.backend_name or '' }} {{ s.target_name or '' }} {{ s.docker_project or '' }} {{ s.docker_container or '' }} {{ s.label or '' }}"
+             data-fabric-focus-click>
       <header class="fabric-path-card-head">
         <div class="flex flex-wrap items-center gap-2">
           <span class="fabric-badge fabric-badge--{{ s.path_kind or 'host' }}">{{ s.path_title or s.path_kind }}</span>
           {% if s.last_sync_status == 'ok' %}
+          <span class="fabric-status-dot fabric-status-dot--ok" title="Synced"></span>
           <span class="text-[10px] text-success font-medium">synced</span>
           {% elif s.last_sync_status == 'partial' %}
+          <span class="fabric-status-dot fabric-status-dot--partial" title="Partial sync"></span>
           <span class="text-[10px] text-warning font-medium">partial</span>
+          {% elif s.last_sync_status in ('error', 'failed') %}
+          <span class="fabric-status-dot fabric-status-dot--error" title="Sync error"></span>
+          <span class="text-[10px] text-error font-medium">error</span>
+          {% endif %}
+          {% if s.certificate_id or s.cert_name %}
+          <span class="fabric-status-dot fabric-status-dot--cert" title="Certificate{% if s.cert_name %}: {{ s.cert_name }}{% endif %}"></span>
+          <span class="text-[10px] text-muted font-medium">TLS</span>
           {% endif %}
         </div>
         {% if can_mutate %}
-        <div class="flex flex-wrap gap-1">
+        <div class="flex flex-wrap gap-1 fabric-path-actions">
           <form method="post" action="/dns/services/{{ s.id }}/sync" class="inline">
-            <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2">Sync</button>
+            <button type="submit" class="btn btn-secondary text-xs min-h-11 px-2">Sync</button>
           </form>
+          <button type="button" class="btn btn-secondary text-xs min-h-11 px-2"
+                  data-fabric-copy-path
+                  data-copy-text="{{ s.path_chain or s.fqdn }}"
+                  title="Copy path as text">Copy path</button>
+          <a href="/dns/physical?focus={{ s.id }}" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center" title="Focus on hosts map">Hosts map</a>
+          <a href="/dns/logical?focus={{ s.id }}" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center" title="Focus on path map">Path map</a>
           {% if s.dep_href %}
-          <a href="{{ s.dep_href }}" class="btn btn-secondary text-xs min-h-9 px-2 inline-flex items-center">Open</a>
+          <a href="{{ s.dep_href }}" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center">Open</a>
           {% endif %}
           <form method="post" action="/dns/services/{{ s.id }}/delete"
                 data-confirm="Remove mapping for {{ s.fqdn }}?"
                 data-confirm-label="Remove" class="inline">
-            <button type="submit" class="btn btn-ghost text-xs min-h-9 px-2 text-error">Remove</button>
+            <button type="submit" class="btn btn-ghost text-xs min-h-11 px-2 text-error">Remove</button>
           </form>
+        </div>
+        {% else %}
+        <div class="flex flex-wrap gap-1">
+          <button type="button" class="btn btn-secondary text-xs min-h-11 px-2"
+                  data-fabric-copy-path
+                  data-copy-text="{{ s.path_chain or s.fqdn }}">Copy path</button>
+          <a href="/dns/physical?focus={{ s.id }}" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center">Hosts map</a>
+          <a href="/dns/logical?focus={{ s.id }}" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center">Path map</a>
         </div>
         {% endif %}
       </header>
@@ -131,6 +199,7 @@
     </article>
     {% endfor %}
   </div>
+  <p class="text-xs text-muted hidden mt-3" data-fabric-filter-empty>No paths match this filter.</p>
   {% else %}
   <p class="text-sm text-muted py-4">
     No service mappings yet. Import Pi-hole CNAMEs below, or map a host identity.
@@ -196,7 +265,7 @@
     {% if can_mutate %}
     <form method="post" action="/dns/base-domain" class="mt-4 pt-3 border-t border-border flex flex-wrap gap-2 items-end">
       <div class="flex-1 min-w-[12rem]">
-        <label class="text-xs text-muted block mb-1">Base domain (suggestions)</label>
+        <label class="text-xs text-muted block mb-1">Base domain (name suggestions)</label>
         <input name="domain" value="{{ dns_base_domain }}" placeholder="hacknow.info"
                class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
       </div>
@@ -206,14 +275,103 @@
   </div>
 </div>
 
-{% if can_mutate %}
 <div class="card p-4 mb-5">
+  <h2 class="font-semibold text-sm mb-1">Network map (LAN &amp; internet)</h2>
+  <p class="text-xs text-muted mb-3">
+    Used on the <a href="/dns/physical" class="text-accent hover:underline">Hosts map</a>:
+    <strong class="text-text">Internet</strong> → <strong class="text-text">Router</strong> →
+    <strong class="text-text">LAN</strong> → home hosts.
+    Hosts with a <strong>public IP</strong> (or outside the LAN CIDR) are
+    <strong>cloud</strong> and attach to Internet (e.g. Nomad VPS).
+    Without a CIDR, private (RFC1918) IPs stay on LAN; public IPs go to cloud.
+  </p>
+  {% if can_mutate %}
+  <form method="post" action="/dns/network" class="space-y-3">
+    <div class="grid gap-3 sm:grid-cols-3">
+      <div>
+        <label class="text-xs text-muted block mb-1">LAN subnet (CIDR)</label>
+        <input name="lan_subnet" value="{{ network_lan_subnet }}" placeholder="192.168.86.0/24"
+               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+      </div>
+      <div>
+        <label class="text-xs text-muted block mb-1">Gateway / router IP</label>
+        <input name="gateway_ip" value="{{ network_gateway_ip }}" placeholder="192.168.86.1"
+               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+      </div>
+      <div>
+        <label class="text-xs text-muted block mb-1">Public (WAN) IP</label>
+        <input name="public_ip" value="{{ network_public_ip }}" placeholder="x.x.x.x"
+               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+      </div>
+    </div>
+    <div class="grid gap-3 sm:grid-cols-2">
+      <div>
+        <label class="text-xs text-muted block mb-1">Router Uptime Kuma monitor</label>
+        <select name="gateway_kuma_external_id"
+                class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+          <option value="">— none —</option>
+          {% for m in network_kuma_monitors or [] %}
+          <option value="{{ m.external_id }}"
+                  {% if m.external_id == network_gateway_kuma_external_id or m.name == network_gateway_kuma_external_id %}selected{% endif %}>
+            {{ m.label }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="text-[11px] text-muted mt-1">Shown on the Router node (status + open in Kuma).</p>
+      </div>
+      <div>
+        <label class="text-xs text-muted block mb-1">Public IP / WAN Kuma monitor</label>
+        <select name="public_kuma_external_id"
+                class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+          <option value="">— none —</option>
+          {% for m in network_kuma_monitors or [] %}
+          <option value="{{ m.external_id }}"
+                  {% if m.external_id == network_public_kuma_external_id or m.name == network_public_kuma_external_id %}selected{% endif %}>
+            {{ m.label }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="text-[11px] text-muted mt-1">Optional ping/HTTP check for your WAN address.</p>
+      </div>
+    </div>
+    {% if network_kuma_monitors %}
+    <input type="hidden" name="kuma_integration_id" value="{{ network_kuma_integration_id }}">
+    {% else %}
+    <p class="text-[11px] text-muted">
+      No Kuma monitors cached yet —
+      <a href="/integrations" class="text-accent hover:underline">connect Uptime Kuma</a> and poll,
+      then pick monitors here for the router / public IP.
+    </p>
+    {% endif %}
+    <div class="flex flex-wrap gap-2 items-center">
+      <button type="submit" class="btn btn-secondary text-sm min-h-11">Save network map</button>
+      <button type="submit" formaction="/dns/network/lookup-public-ip" formmethod="post"
+              class="btn btn-secondary text-sm min-h-11"
+              data-wait-title="Looking up public IP"
+              data-wait-message="Calling public IP service from this host…">
+        Lookup public IP now
+      </button>
+      {% if network_public_ip_checked_at %}
+      <span class="text-[11px] text-muted">Last lookup: {{ network_public_ip_checked_at }}</span>
+      {% endif %}
+    </div>
+  </form>
+  {% else %}
+  <p class="text-sm font-mono">
+    LAN {{ network_lan_subnet or '—' }} · gateway {{ network_gateway_ip or '—' }} · public {{ network_public_ip or '—' }}
+  </p>
+  {% endif %}
+</div>
+
+{% if can_mutate %}
+<div class="card p-4 mb-5" id="dns-adopt-card">
   <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
     <div>
       <h2 class="font-semibold text-sm">Adopt existing DNS</h2>
       <p class="text-xs text-muted mt-0.5">
         Pi-hole CNAMEs already live — import maps them (duplicates = success).
         Host identity = app name is the host A record (no CNAME).
+        Candidates load after the page paints so a slow Pi-hole does not block the hub.
       </p>
     </div>
     <form method="post" action="/dns/import-pihole"
@@ -222,88 +380,18 @@
       <button type="submit" class="btn btn-accent text-sm min-h-11">Import all from Pi-hole</button>
     </form>
   </div>
-  {% if candidates %}
-  <div class="table-scroll">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-left text-xs text-muted border-b border-border">
-          <th class="py-2 pr-2">Source</th>
-          <th class="py-2 pr-2">Plan</th>
-          <th class="py-2">Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for c in candidates %}
-        <tr class="border-b border-border/60 align-top">
-          <td class="py-2 pr-2">
-            {% if c.kind == 'pihole_cname' %}
-            <span class="text-[10px] uppercase text-success">Pi-hole CNAME</span>
-            <div class="font-mono text-xs">{{ c.fqdn }}</div>
-            <div class="text-[10px] text-muted">→ {{ c.cname_target }}</div>
-            {% elif c.kind == 'host_identity' %}
-            <span class="text-[10px] uppercase text-accent">Host identity (A)</span>
-            <div class="font-mono text-xs">{{ c.fqdn }}</div>
-            <div class="text-xs text-muted">
-              <a href="/servers/{{ c.server_id }}" class="text-accent hover:underline">{{ c.server_name }}</a>
-              {% if c.kuma_label %} · {{ c.kuma_label }}{% endif %}
-            </div>
-            {% else %}
-            <span class="text-[10px] uppercase text-muted">Deployment</span>
-            <div>
-              <a href="/templates/deployments/{{ c.deployment_id }}" class="text-accent hover:underline font-medium">{{ c.project_name }}</a>
-            </div>
-            <div class="text-xs text-muted">{{ c.server_name }}</div>
-            {% endif %}
-          </td>
-          <td class="py-2 pr-2 text-xs font-mono">
-            {{ c.plan.summary if c.plan else '—' }}
-            {% if c.plan and c.plan.path_title %}
-            <div class="text-[10px] text-muted font-sans mt-0.5">{{ c.plan.path_title }}</div>
-            {% endif %}
-            {% if c.plan and c.plan.blockers %}
-            <div class="text-warning mt-1 font-sans">{{ c.plan.blockers[0] }}</div>
-            {% endif %}
-          </td>
-          <td class="py-2">
-            {% if c.kind == 'pihole_cname' %}
-            <form method="post" action="/dns/attach-cname" class="inline">
-              <input type="hidden" name="fqdn" value="{{ c.fqdn }}">
-              <input type="hidden" name="cname_target" value="{{ c.cname_target }}">
-              <button type="submit" class="btn btn-accent text-xs min-h-9 px-2"
-                      {% if c.plan and c.plan.ready is defined and not c.plan.ready %}disabled{% endif %}>
-                Adopt
-              </button>
-            </form>
-            {% elif c.kind == 'host_identity' %}
-            <form method="post" action="/dns/attach-host-identity" class="inline">
-              <input type="hidden" name="server_id" value="{{ c.server_id }}">
-              <button type="submit" class="btn btn-accent text-xs min-h-9 px-2"
-                      {% if c.plan and c.plan.ready is defined and not c.plan.ready %}disabled{% endif %}>
-                Map host identity
-              </button>
-            </form>
-            {% else %}
-            <form method="post" action="/dns/attach-deployment" class="inline">
-              <input type="hidden" name="deployment_id" value="{{ c.deployment_id }}">
-              {% if c.plan and c.plan.fqdn %}
-              <input type="hidden" name="fqdn" value="{{ c.plan.fqdn }}">
-              {% endif %}
-              <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2"
-                      {% if c.plan and not c.plan.ready and not c.plan.fqdn %}disabled{% endif %}>
-                Attach
-              </button>
-            </form>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div id="dns-candidates"
+       hx-get="/dns/candidates"
+       hx-trigger="load"
+       hx-swap="innerHTML"
+       hx-target="this">
+    <p class="text-xs text-muted flex items-center gap-2 min-h-11">
+      <span class="inline-block w-3.5 h-3.5 border-2 border-border border-t-accent rounded-full animate-spin" aria-hidden="true"></span>
+      Loading Pi-hole candidates…
+    </p>
   </div>
-  {% else %}
-  <p class="text-xs text-muted">Nothing left to adopt.</p>
-  {% endif %}
 </div>
 {% endif %}
 
+<script src="/static/js/fabric-mesh.js" defer></script>
 {% endblock %}

@@ -199,13 +199,13 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 
 ## Horizon 2.5 — Service fabric & topology (post-0.5 / pre-1.0)
 
-DNS fabric (host A + service names, Pi-hole adopt, physical/logical views) lands in **v0.5.0**. Next topology depth:
+**Network maps / DNS fabric** (host A + service names, Pi-hole adopt, Hosts map + Path map, LAN/gateway/public IP, cloud hosts, optional Kuma on router/WAN) lands in **v0.5.0**. Next topology depth:
 
 | Item | Direction |
 |------|-----------|
 | **Service → container mapping** | First-class link from a published name / deployment to the **compose service + container** (beyond Kuma/NPM inference) |
 | **Container dependency graph** | Model runtime deps between containers (e.g. app → **Postgres**, **Redis**, queue workers) — discover from compose `depends_on` / labels + optional operator edges |
-| **Physical + logical topology** | Physical = hosts & what runs on them; logical = URL → (NPM as link) → destination. Enrich with dep edges and health from Kuma |
+| **Richer topology** | Enrich Hosts/Path maps with dep edges, more Kuma health, operator force LAN/cloud overrides |
 | **External DNS providers** | Cloudflare (etc.) automation; until then external checklist remains |
 | **Service migrate / remove** | Move stack host↔host with DNS retarget; destructive remove with volume cleanup |
 

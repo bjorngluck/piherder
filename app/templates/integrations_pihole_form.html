@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% with catalog_section='integrations' %}
+{% include "partials/catalog_nav.html" %}
+{% endwith %}
+
 <div class="page-header mb-6">
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">

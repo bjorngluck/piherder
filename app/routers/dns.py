@@ -39,15 +39,19 @@ def _dns_page_context(
     *,
     page: str = "index",
 ) -> dict:
-    view = fabric.build_fabric_view(session)
+    # Build only the topology payload the page needs (GET-safe, no DB writes).
+    # Pi-hole adopt candidates are loaded lazily via GET /dns/candidates (HTMX).
+    view = fabric.build_fabric_view(
+        session,
+        include_mesh=False,
+        include_physical=(page == "physical"),
+        include_logical=(page == "logical"),
+        persist_links=False,
+    )
     settings = load_settings()
     base = (settings.get("dns_base_domain") or "").strip()
-    candidates: list = []
-    if page == "index":
-        try:
-            candidates = fabric.list_service_dns_candidates(session, base_domain=base)
-        except Exception:
-            candidates = []
+    focus = (request.query_params.get("focus") or "").strip()
+    kuma_opts = fabric.list_kuma_monitor_options(session) if page == "index" else []
     return {
         "request": request,
         "user": user,
@@ -57,11 +61,27 @@ def _dns_page_context(
         "physical": view.get("physical") or {},
         "logical": view.get("logical") or {},
         "dns_base_domain": base,
-        "candidates": candidates,
+        "network_lan_subnet": (settings.get("network_lan_subnet") or "").strip(),
+        "network_gateway_ip": (settings.get("network_gateway_ip") or "").strip(),
+        "network_public_ip": (settings.get("network_public_ip") or "").strip(),
+        "network_public_ip_checked_at": (
+            settings.get("network_public_ip_checked_at") or ""
+        ).strip(),
+        "network_gateway_kuma_external_id": (
+            settings.get("network_gateway_kuma_external_id") or ""
+        ).strip(),
+        "network_public_kuma_external_id": (
+            settings.get("network_public_kuma_external_id") or ""
+        ).strip(),
+        "network_kuma_integration_id": (
+            settings.get("network_kuma_integration_id") or ""
+        ).strip(),
+        "network_kuma_monitors": kuma_opts,
         "msg": request.query_params.get("msg") or "",
         "error": request.query_params.get("error") or "",
         "catalog_section": "dns",
         "dns_page": page,
+        "focus_path_id": focus,
     }
 
 
@@ -77,6 +97,39 @@ async def dns_list(
         request=request,
         name="dns_list.html",
         context=ctx,
+    )
+
+
+@router.get("/dns/candidates", response_class=HTMLResponse)
+async def dns_candidates_partial(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """HTMX partial: Pi-hole / host-identity adopt rows (live Pi-hole call off hub paint)."""
+    if not _can_mutate(user):
+        return HTMLResponse(
+            '<p class="text-xs text-muted">Sign in as operator to adopt DNS records.</p>'
+        )
+    settings = load_settings()
+    base = (settings.get("dns_base_domain") or "").strip()
+    error = ""
+    candidates: list = []
+    try:
+        candidates = fabric.list_service_dns_candidates(session, base_domain=base)
+    except Exception as e:
+        candidates = []
+        error = str(e)[:200] or "Could not load Pi-hole candidates"
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/dns_candidates.html",
+        context={
+            "request": request,
+            "user": user,
+            "can_mutate": True,
+            "candidates": candidates,
+            "candidates_error": error,
+        },
     )
 
 
@@ -124,10 +177,108 @@ async def save_base_domain(
         or (d and all(c.isalnum() or c in ".-" for c in d) and "." in d)
     ):
         return _redirect(error="Invalid base domain")
-    data = load_settings()
-    data["dns_base_domain"] = d
-    save_settings(data)
+    save_settings({"dns_base_domain": d})
     return _redirect(msg="Base domain saved")
+
+
+@router.post("/dns/network")
+async def save_network_map(
+    lan_subnet: str = Form(""),
+    gateway_ip: str = Form(""),
+    public_ip: str = Form(""),
+    gateway_kuma_external_id: str = Form(""),
+    public_kuma_external_id: str = Form(""),
+    kuma_integration_id: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Save LAN / gateway / public IP / Kuma monitors for the hosts map."""
+    import ipaddress
+    from datetime import datetime
+
+    from ..services.app_settings import save_settings
+
+    subnet = (lan_subnet or "").strip()
+    gw = (gateway_ip or "").strip()
+    pub = (public_ip or "").strip()
+    gw_kuma = (gateway_kuma_external_id or "").strip()
+    pub_kuma = (public_kuma_external_id or "").strip()
+    kuma_iid = (kuma_integration_id or "").strip()
+    if subnet:
+        try:
+            ipaddress.ip_network(subnet, strict=False)
+        except Exception:
+            return _redirect(error="Invalid LAN subnet (use CIDR, e.g. 192.168.86.0/24)")
+    if gw:
+        try:
+            ipaddress.ip_address(gw)
+        except Exception:
+            return _redirect(error="Invalid gateway IP")
+    if pub:
+        try:
+            ipaddress.ip_address(pub)
+        except Exception:
+            return _redirect(error="Invalid public IP")
+    if kuma_iid and not kuma_iid.isdigit():
+        return _redirect(error="Invalid Kuma integration id")
+    payload = {
+        "network_lan_subnet": subnet,
+        "network_gateway_ip": gw,
+        "network_public_ip": pub,
+        "network_gateway_kuma_external_id": gw_kuma,
+        "network_public_kuma_external_id": pub_kuma,
+        "network_kuma_integration_id": kuma_iid,
+    }
+    # Keep prior lookup timestamp if public IP unchanged
+    prev = load_settings()
+    if pub and pub != (prev.get("network_public_ip") or "").strip():
+        payload["network_public_ip_checked_at"] = datetime.utcnow().isoformat() + "Z"
+    save_settings(payload)
+    return _redirect(msg="Network map settings saved")
+
+
+@router.post("/dns/network/lookup-public-ip")
+async def lookup_public_ip(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Look up this PiHerder host's public WAN IP (outbound)."""
+    import ipaddress
+    from datetime import datetime
+
+    import httpx
+
+    from ..services.app_settings import save_settings
+
+    ip = ""
+    last_err = ""
+    for url in (
+        "https://api.ipify.org",
+        "https://ifconfig.me/ip",
+        "https://icanhazip.com",
+    ):
+        try:
+            with httpx.Client(timeout=6.0, follow_redirects=True) as client:
+                r = client.get(url)
+                if r.status_code == 200:
+                    cand = (r.text or "").strip().split()[0]
+                    ipaddress.ip_address(cand)
+                    ip = cand
+                    break
+        except Exception as e:
+            last_err = str(e)[:120]
+            continue
+    if not ip:
+        return _redirect(
+            error=f"Could not look up public IP{(': ' + last_err) if last_err else ''}"
+        )
+    save_settings(
+        {
+            "network_public_ip": ip,
+            "network_public_ip_checked_at": datetime.utcnow().isoformat() + "Z",
+        }
+    )
+    return _redirect(msg=f"Public IP looked up: {ip}")
 
 
 @router.post("/dns/services")

@@ -1,0 +1,51 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "tests/**"
+      - "migrations/**"
+      - "pyproject.toml"
+      - ".github/workflows/test.yml"
+  pull_request:
+    paths:
+      - "app/**"
+      - "tests/**"
+      - "migrations/**"
+      - "pyproject.toml"
+      - ".github/workflows/test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install package + dev deps
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -e ".[dev]"
+
+      - name: Run unit tests
+        env:
+          # conftest also sets these if missing; explicit for clarity
+          PIHERDER_MASTER_KEY: ""
+          DATABASE_URL: "postgresql://piherder:piherder@localhost:5432/piherder"
+        run: pytest -q --tb=short

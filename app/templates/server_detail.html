@@ -294,60 +294,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-{# Host dependency snapshot (read-only; re-check via SSH access / Test connection) #}
-{% if host_deps and host_deps.checks %}
-<div class="card p-3 mb-4 border border-border">
-  <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-    <div class="text-sm font-medium">
-      Host dependencies
-      <span class="status-pill text-xs ml-1
-        {% if host_deps.overall == 'ok' %}status-success
-        {% elif host_deps.overall == 'warn' %}status-running
-        {% else %}status-failed{% endif %}">{{ host_deps.overall }}</span>
-    </div>
-    <button type="button" onclick="showSshAccessModal()" class="btn btn-secondary text-xs min-h-9">
-      SSH access →
-    </button>
-  </div>
-  {% if host_deps.checked_at %}
-  <p class="text-[10px] text-muted mb-2">
-    Last check: {{ host_deps.checked_at }}
-    · <span class="text-muted">Re-check with <strong class="text-text">Test connection</strong> or <strong class="text-text">Check dependencies</strong> under SSH access</span>
-  </p>
-  {% endif %}
-  <div class="feature-status flex flex-wrap gap-1.5">
-    {% for c in host_deps.checks %}
-      {% if c.status != 'skip' %}
-      <span class="feature-chip text-xs
-        {% if c.status == 'ok' %}status-success
-        {% elif c.status == 'warn' %}status-running
-        {% elif c.status == 'fail' %}status-failed
-        {% else %}feature-off{% endif %}"
-        title="{{ c.message }}{% if c.hint %} — {{ c.hint }}{% endif %}">
-        {{ c.label }}: {{ c.status }}
-      </span>
-      {% endif %}
-    {% endfor %}
-  </div>
-  {% set fail_hints = host_deps.checks | selectattr('status', 'equalto', 'fail') | list %}
-  {% if fail_hints %}
-  <ul class="mt-2 text-xs text-muted space-y-1 list-disc pl-4">
-    {% for c in fail_hints %}
-    <li><strong class="text-text">{{ c.label }}</strong>
-      {% if c.message %}— {{ c.message }}{% endif %}
-      {% if c.hint %}<span class="block text-[11px] mt-0.5">{{ c.hint }}</span>{% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% endif %}
-</div>
-{% elif server.backup_enabled or server.os_patch_enabled or server.container_patch_enabled %}
-<div class="mb-4 p-3 border border-border rounded text-sm text-muted flex flex-wrap items-center justify-between gap-2">
-  <span>Host tools for enabled features have not been checked yet (runs with SSH <strong class="text-text">Test connection</strong>).</span>
-  <button type="button" onclick="showSshAccessModal()" class="btn btn-secondary text-xs min-h-9">Open SSH access</button>
-</div>
-{% endif %}
-
 {# Compact feature status — only chips for enabled features (hard-hide) #}
 <div class="feature-status mb-4">
   {% if server.backup_enabled %}
@@ -411,7 +357,7 @@ document.addEventListener('DOMContentLoaded', function() {
   {% elif flash_msg == 'key_generated' %}<strong>Keypair generated.</strong> Use <strong>Deploy key</strong> (with password if needed) or the install script.
   {% elif flash_msg == 'dns_synced' %}<strong>Host DNS A record synced to Pi-hole</strong>
     {% if flash_detail %}— {{ flash_detail }} instance(s) OK{% endif %}.
-    <a href="/dns" class="text-accent underline ml-1">Open DNS mesh</a>
+    <a href="/dns" class="text-accent underline ml-1">Open Network</a>
   {% elif flash_msg == 'dns_removed' %}<strong>Host DNS A record removed from Pi-hole</strong>
     {% if flash_detail %}— {{ flash_detail }}{% endif %}.
   {% elif flash_msg == 'dns_saved' %}<strong>Host DNS name saved</strong> (manage A is off — not pushed to Pi-hole).
@@ -543,15 +489,28 @@ document.addEventListener('DOMContentLoaded', function() {
     <div class="flex items-start justify-between gap-2">
       <div class="dest-card-title">Host status</div>
       <button type="button"
-              class="source-icon-btn server-more-btn shrink-0"
+              class="btn btn-secondary text-xs min-h-9 px-2.5 shrink-0"
               id="server-detail-more-btn"
               data-server-detail-more
-              title="Actions"
+              title="Host actions: backup, patch, reboot…"
               aria-label="Host actions"
-              aria-haspopup="menu">⋯</button>
+              aria-haspopup="menu">
+        Actions ▾
+      </button>
     </div>
     <div class="dest-card-desc">
       <div class="fleet-status-pills flex flex-wrap gap-1">
+        {% if host_deps and host_deps.checks %}
+        <span class="status-pill text-xs
+          {% if host_deps.overall == 'ok' %}status-success
+          {% elif host_deps.overall == 'warn' %}status-running
+          {% else %}status-failed{% endif %}"
+          title="Host tools for enabled features. Re-check under SSH access → Test connection.">
+          {% if host_deps.overall == 'ok' %}Host deps OK
+          {% elif host_deps.overall == 'warn' %}Host deps warn
+          {% else %}Host deps issue{% endif %}
+        </span>
+        {% endif %}
         {% if server.backup_enabled %}
         {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
         <span class="status-pill status-running">backup running</span>
@@ -589,7 +548,7 @@ document.addEventListener('DOMContentLoaded', function() {
       </p>
       {% endif %}
     </div>
-    <span class="dest-card-cta">⋯ actions · schedules in Edit</span>
+    <span class="dest-card-cta">Backup · patch · reboot · check updates</span>
   </div>
 </div>
 
@@ -733,6 +692,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!menu || !list) return;
 
     var items = [];
+    // Grouped actions so backup / patch / reboot are obvious
+    items.push({ label: 'Quick actions', heading: true });
     {% if server.backup_enabled %}
     {% if full_backup_job and full_backup_job.status in ('pending', 'running') %}
     items.push({ label: 'Backup log', key: 'backup-log', accent: true });
@@ -742,24 +703,36 @@ document.addEventListener('DOMContentLoaded', function() {
     {% else %}
     items.push({ label: 'Backup now', key: 'backup', accent: true });
     {% endif %}
+    {% endif %}
+    {% if server.os_patch_enabled %}
+    items.push({ label: 'Check OS updates', key: 'check-os' });
+    items.push({ label: 'OS patch…', key: 'os-patch' });
+    {% endif %}
+    {% if server.container_patch_enabled %}
+    items.push({ label: 'Check container updates', key: 'check-containers' });
+    items.push({ label: 'Container patch now', key: 'container-patch' });
+    {% endif %}
+    items.push({ label: 'Reboot…', key: 'reboot', danger: true });
+    items.push({ label: 'More', heading: true });
+    {% if server.backup_enabled %}
     items.push({ label: 'Retention cleanup', key: 'retention' });
     items.push({ label: 'Backups page', href: '/servers/{{ server.id }}/backups' });
     {% endif %}
     items.push({ label: 'Services', href: '/servers/{{ server.id }}/services' });
-    {% if server.os_patch_enabled %}
-    items.push({ label: 'OS patch…', key: 'os-patch' });
-    items.push({ label: 'Check OS updates', key: 'check-os' });
-    {% endif %}
     {% if server.container_patch_enabled %}
-    items.push({ label: 'Container patch now', key: 'container-patch' });
-    items.push({ label: 'Check container updates', key: 'check-containers' });
     items.push({ label: 'Docker', href: '/servers/{{ server.id }}/docker' });
     {% endif %}
     items.push({ label: 'Edit server…', act: 'edit' });
-    items.push({ label: 'Reboot…', key: 'reboot', danger: true });
 
     list.innerHTML = '';
     items.forEach(function (item) {
+      if (item.heading) {
+        var h = document.createElement('div');
+        h.className = 'docker-popover-title text-muted';
+        h.textContent = item.label;
+        list.appendChild(h);
+        return;
+      }
       var el = document.createElement(item.href ? 'a' : 'button');
       if (item.href) el.href = item.href;
       else el.type = 'button';
@@ -896,7 +869,7 @@ document.addEventListener('DOMContentLoaded', function() {
           <p class="text-[10px] text-muted">
             One name for this server. Apps CNAME here (or via NPM edge).
             Prefills from Pi-hole / IP when known.
-            <a href="/dns" class="text-accent underline">Fleet DNS</a>
+            <a href="/dns" class="text-accent underline">Network maps</a>
           </p>
           {% if df.pihole_match and not df.is_saved %}
           <p class="text-[11px] text-muted font-mono">

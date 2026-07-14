@@ -190,6 +190,7 @@
         {% set secondary_items = [
           secondary_items[0],
           {"label": "Users", "href": "/auth/users", "kind": "normal"},
+          {"label": "API tokens", "href": "/herder-backups?tab=api", "kind": "normal"},
           secondary_items[1],
           secondary_items[2]
         ] %}
@@ -1196,8 +1197,13 @@
     // Do not preventDefault — let the normal POST navigate; modal stays until unload
     if (form.dataset.waitShown === '1') return;
     form.dataset.waitShown = '1';
-    var title = form.getAttribute('data-wait-title') || 'Working…';
-    var message = form.getAttribute('data-wait-message') || 'Please wait…';
+    var submitterWait = e.submitter || null;
+    var title = (submitterWait && submitterWait.getAttribute('data-wait-title'))
+      || form.getAttribute('data-wait-title')
+      || 'Working…';
+    var message = (submitterWait && submitterWait.getAttribute('data-wait-message'))
+      || form.getAttribute('data-wait-message')
+      || 'Please wait…';
     if (window.PiHerderWaitModal) {
       window.PiHerderWaitModal.show(title, message);
     }

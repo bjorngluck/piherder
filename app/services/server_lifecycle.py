@@ -13,7 +13,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from ..models import DockerVersion, Job, Notification, Server
+from ..models import AuditLog, DockerVersion, Job, Notification, Server
 from . import jobs as job_service
 
 logger = logging.getLogger(__name__)

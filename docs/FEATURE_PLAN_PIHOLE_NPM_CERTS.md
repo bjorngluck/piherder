@@ -45,7 +45,7 @@ Ship first-class **Pi-hole (v6)** and **Nginx Proxy Manager** integrations, plus
 - [x] Auto-renew schedule (6h) for NPM-sourced certs  
 - [x] Herder backup includes certs  
 - [x] pytest coverage for adapters + PEM parse  
-- [x] **DNS fabric** (follow-on): host DNS identity, service mappings, Pi-hole adopt, physical/logical meshes — see PLAN § F.1 + wiki  
+- [x] **Network maps / DNS fabric** (follow-on): host DNS identity, service mappings, Pi-hole adopt, Hosts + Path maps, LAN/gateway/public IP + Kuma infra monitors — see PLAN § F.1 + wiki  
 
 ## File map
 
@@ -53,9 +53,10 @@ Ship first-class **Pi-hole (v6)** and **Nginx Proxy Manager** integrations, plus
 |------|------|
 | Adapters | `app/services/integrations/pihole.py`, `npm.py` |
 | Certs | `app/services/certificates.py` |
-| Routers | `app/routers/integrations.py`, `certificates.py` |
+| Routers | `app/routers/integrations.py`, `certificates.py`, `dns.py` |
+| Network / fabric | `app/services/dns_fabric.py`, `app/static/js/fabric-mesh.js`, `dns_*.html` |
 | UI | `integrations_pihole_*.html`, `integrations_npm_*.html`, `certificates_*.html` |
-| Migration | `017_pihole_npm_certs` |
-| Tests | `tests/test_integrations_pihole.py`, `test_integrations_npm.py`, `test_certificates.py` |
+| Migration | `017_pihole_npm_certs` (+ host DNS / service DNS migrations as landed) |
+| Tests | `tests/test_integrations_pihole.py`, `test_integrations_npm.py`, `test_certificates.py`, `test_dns_fabric.py` |
 
 **End of Feature Plan**

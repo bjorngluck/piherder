@@ -50,6 +50,15 @@ DEFAULTS: Dict[str, Any] = {
     "template_require_2fa": False,
     # Suggest host/service FQDNs as {slug}.{dns_base_domain}
     "dns_base_domain": "",
+    # Network map (hosts map): LAN topology + public edge
+    "network_lan_subnet": "",  # e.g. 192.168.86.0/24
+    "network_gateway_ip": "",  # e.g. 192.168.86.1 (router)
+    "network_public_ip": "",  # WAN / public IP (manual or looked up)
+    "network_public_ip_checked_at": "",  # ISO UTC when last looked up
+    # Optional Uptime Kuma monitors for infra nodes (external_id = name or numeric id)
+    "network_gateway_kuma_external_id": "",
+    "network_public_kuma_external_id": "",
+    "network_kuma_integration_id": "",  # empty = first enabled Kuma
 }
 
 

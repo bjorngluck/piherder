@@ -7,125 +7,231 @@
 
 {% set logi = logical if logical is defined else (view.logical if view is defined else {}) %}
 {% set svg = logi.svg if logi.svg is defined else {} %}
+{% set focus_id = focus_path_id if focus_path_id is defined else '' %}
 
-<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-  <div>
-    <div class="flex flex-wrap gap-2 text-xs mb-1">
-      <a href="/dns" class="text-accent hover:underline">← DNS hub</a>
-      <span class="text-muted">·</span>
-      <a href="/dns/physical" class="text-accent hover:underline">Physical mesh</a>
+<div class="mb-4" data-fabric-root data-fabric-initial-focus="{{ focus_id }}">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div>
+      <div class="flex flex-wrap gap-2 text-xs mb-1">
+        <a href="/dns" class="text-accent hover:underline">← Network</a>
+        <span class="text-muted">·</span>
+        <a href="/dns/physical{% if focus_id %}?focus={{ focus_id }}{% endif %}" class="text-accent hover:underline">Hosts map</a>
+      </div>
+      <h1 class="text-2xl font-semibold tracking-tight">Path map</h1>
+      <p class="text-sm text-muted mt-1 max-w-2xl">
+        Access picture: <strong class="text-text">name</strong> on the left,
+        <strong class="text-text">NPM</strong> as the shared edge in the middle (when used),
+        <strong class="text-text">destination</strong> (host / project / container) on the right.
+      </p>
     </div>
-    <h1 class="text-2xl font-semibold tracking-tight">Logical topology</h1>
-    <p class="text-sm text-muted mt-1 max-w-2xl">
-      Full access picture: <strong class="text-text">URL</strong> on the left,
-      <strong class="text-text">NPM</strong> as the shared edge in the middle (when used),
-      <strong class="text-text">destination</strong> (host / project / container) on the right.
-    </p>
+    <div class="flex flex-wrap gap-2 items-center text-xs text-muted">
+      <span>{{ logi.via_npm_count or 0 }} via NPM · {{ logi.direct_count or 0 }} direct / identity</span>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2 hidden" data-fabric-clear-focus>Clear focus</button>
+    </div>
   </div>
-  <div class="text-xs text-muted">
-    {{ logi.via_npm_count or 0 }} via NPM · {{ logi.direct_count or 0 }} direct / identity
+
+  {# Filters (list + graph focus share path ids) #}
+  {% if logi.flows %}
+  <div class="card p-3 mb-4" data-fabric-filters>
+    <div class="flex flex-wrap gap-2 items-end">
+      <div class="flex-1 min-w-[10rem]">
+        <label class="text-[10px] text-muted block mb-0.5">Search</label>
+        <input type="search" data-fabric-filter-q placeholder="FQDN, host, project…"
+               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+      </div>
+      <div class="min-w-[8rem]">
+        <label class="text-[10px] text-muted block mb-0.5">Path type</label>
+        <select data-fabric-filter-mode class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+          <option value="all">All</option>
+          <option value="npm">Via NPM</option>
+          <option value="direct">Direct</option>
+          <option value="identity">Host identity</option>
+        </select>
+      </div>
+      <div class="text-xs text-muted pb-2">
+        <span data-fabric-filter-count>{{ logi.flows|length }}</span> shown
+      </div>
+    </div>
   </div>
-</div>
-
-<div class="card p-3 mb-5 overflow-hidden">
-  {% if svg.nodes %}
-  <div class="fabric-mesh-scroll">
-    <svg class="fabric-mesh-svg fabric-mesh-svg--logical"
-         viewBox="0 0 {{ svg.width }} {{ svg.height }}"
-         width="100%"
-         role="img"
-         aria-label="Logical access mesh">
-      <defs>
-        <marker id="ml-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
-          <path d="M0,0 L10,5 L0,10 z" fill="var(--color-accent, #00a651)"/>
-        </marker>
-        <marker id="ml-npm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
-          <path d="M0,0 L10,5 L0,10 z" fill="var(--color-warning, #d97706)"/>
-        </marker>
-        <linearGradient id="g-npm" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="var(--color-warning, #d97706)" stop-opacity="0.25"/>
-          <stop offset="100%" stop-color="var(--color-warning, #d97706)" stop-opacity="0.05"/>
-        </linearGradient>
-      </defs>
-
-      {% for col in svg.columns or [] %}
-      <text x="{{ col.x }}" y="36" text-anchor="middle" class="fabric-mesh-col-label">{{ col.label }}</text>
-      {% endfor %}
-
-      {% for e in svg.edges %}
-      <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}"
-            class="fabric-mesh-edge fabric-mesh-edge--{{ e.kind }}"
-            {% if e.dashed %}stroke-dasharray="6 4"{% endif %}
-            marker-end="{% if e.kind in ('to_npm','from_npm') %}url(#ml-npm){% else %}url(#ml-arr){% endif %}"/>
-      {% if e.label %}
-      <text x="{{ e.mx }}" y="{{ e.my }}" text-anchor="middle" class="fabric-mesh-edge-label">{{ e.label }}</text>
-      {% endif %}
-      {% endfor %}
-
-      {% for n in svg.nodes %}
-        {% if n.kind == 'hub' %}
-        <g class="fabric-mesh-node fabric-mesh-node--hub">
-          <circle cx="{{ n.x }}" cy="{{ n.y }}" r="42" fill="url(#g-npm)"/>
-          <circle cx="{{ n.x }}" cy="{{ n.y }}" r="42"/>
-          <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label }}</text>
-          <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ n.sub }}</text>
-        </g>
-        {% elif n.kind == 'url' %}
-        <a href="{{ n.href or '#' }}">
-          <g class="fabric-mesh-node fabric-mesh-node--url {% if n.via_npm %}is-npm{% endif %}">
-            <rect x="{{ n.x - 100 }}" y="{{ n.y - 20 }}" width="200" height="40" rx="10"/>
-            <text x="{{ n.x }}" y="{{ n.y + 1 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label }}</text>
-            <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ n.sub }}</text>
-          </g>
-        </a>
-        {% else %}
-        <a href="{{ n.href or '#' }}">
-          <g class="fabric-mesh-node fabric-mesh-node--dest">
-            <rect x="{{ n.x - 90 }}" y="{{ n.y - 20 }}" width="180" height="40" rx="10"/>
-            <text x="{{ n.x }}" y="{{ n.y + 1 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label }}</text>
-            <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:26] }}</text>
-          </g>
-        </a>
-        {% endif %}
-      {% endfor %}
-    </svg>
-  </div>
-  {% else %}
-  <p class="text-sm text-muted p-6 text-center">No logical flows yet — import mappings from the DNS hub.</p>
   {% endif %}
-</div>
 
-{# Readable flow list #}
-{% if logi.flows %}
-<div class="fabric-flow-list mb-6">
-  {% for f in logi.flows %}
-  <div class="fabric-flow {% if f.via_npm %}fabric-flow--npm{% else %}fabric-flow--direct{% endif %}">
-    <div class="fabric-flow-url">
-      <span class="fabric-flow-scheme">https://</span>
-      <span class="fabric-flow-host">{{ f.url }}</span>
+  {# Mobile: flow list first #}
+  {% if logi.flows %}
+  <div class="fabric-mesh-priority-list mb-5">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <p class="text-xs text-muted m-0">One row per URL — tap to focus the route.</p>
+      <button type="button"
+              class="btn btn-secondary text-sm min-h-11 md:hidden"
+              data-fabric-open-graph
+              aria-expanded="false">
+        View full map
+      </button>
     </div>
-    <div class="fabric-flow-edge" title="{{ f.link_detail or f.link_label }}">
-      <span class="fabric-flow-edge-line"></span>
-      <span class="fabric-flow-edge-label">{{ f.link_label }}</span>
-      <span class="fabric-flow-edge-line"></span>
-      <span class="fabric-flow-arrow" aria-hidden="true">→</span>
+    <div class="fabric-flow-list">
+      {% for f in logi.flows %}
+      <div class="fabric-flow {% if f.via_npm %}fabric-flow--npm{% else %}fabric-flow--direct{% endif %}"
+           data-fabric-filter-item
+           data-path-id="{{ f.id }}"
+           data-path-chain="{{ f.path_chain or f.url }}"
+           data-path-kind="{{ f.path_kind or '' }}"
+           data-via-npm="{{ 1 if f.via_npm else 0 }}"
+           data-hosts="{{ f.backend_server_id or '' }}{% if f.target_server_id and f.target_server_id != f.backend_server_id %},{{ f.target_server_id }}{% endif %}"
+           data-filter-text="{{ f.url }} {{ f.dest_host or '' }} {{ f.dest_project or '' }} {{ f.dest_container or '' }} {{ f.npm_edge or '' }}"
+           data-fabric-focus-click>
+        <div class="fabric-flow-url">
+          {% if f.sync_status == 'ok' %}<span class="fabric-status-dot fabric-status-dot--ok" title="Synced"></span>
+          {% elif f.sync_status == 'partial' %}<span class="fabric-status-dot fabric-status-dot--partial" title="Partial"></span>
+          {% elif f.sync_status in ('error', 'failed') %}<span class="fabric-status-dot fabric-status-dot--error" title="Error"></span>
+          {% endif %}
+          {% if f.has_cert %}<span class="fabric-status-dot fabric-status-dot--cert" title="TLS"></span>{% endif %}
+          <span class="fabric-flow-scheme">https://</span>
+          <span class="fabric-flow-host">{{ f.url }}</span>
+          <button type="button" class="btn btn-ghost text-[10px] min-h-8 px-1.5 ml-auto"
+                  data-fabric-copy-path data-copy-text="{{ f.path_chain or f.url }}">Copy</button>
+        </div>
+        <div class="fabric-flow-edge" title="{{ f.link_detail or f.link_label }}">
+          <span class="fabric-flow-edge-line"></span>
+          <span class="fabric-flow-edge-label">{{ f.link_label }}</span>
+          <span class="fabric-flow-edge-line"></span>
+          <span class="fabric-flow-arrow" aria-hidden="true">→</span>
+        </div>
+        <div class="fabric-flow-dest">
+          {% if f.dest_host_href %}
+          <a href="{{ f.dest_host_href }}" class="fabric-flow-dest-host">{{ f.dest_host }}</a>
+          {% else %}
+          <span class="fabric-flow-dest-host">{{ f.dest_host or '—' }}</span>
+          {% endif %}
+          {% if f.dest_project or f.dest_container %}
+          <span class="fabric-flow-dest-app font-mono">
+            {% if f.dest_project %}{{ f.dest_project }}{% endif %}
+            {% if f.dest_container %}<span class="text-muted">/</span>{{ f.dest_container }}{% endif %}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
     </div>
-    <div class="fabric-flow-dest">
-      {% if f.dest_host_href %}
-      <a href="{{ f.dest_host_href }}" class="fabric-flow-dest-host">{{ f.dest_host }}</a>
-      {% else %}
-      <span class="fabric-flow-dest-host">{{ f.dest_host or '—' }}</span>
-      {% endif %}
-      {% if f.dest_project or f.dest_container %}
-      <span class="fabric-flow-dest-app font-mono">
-        {% if f.dest_project %}{{ f.dest_project }}{% endif %}
-        {% if f.dest_container %}<span class="text-muted">/</span>{{ f.dest_container }}{% endif %}
-      </span>
-      {% endif %}
-    </div>
+    <p class="text-xs text-muted hidden mt-2" data-fabric-filter-empty>No flows match this filter.</p>
   </div>
-  {% endfor %}
-</div>
-{% endif %}
+  {% endif %}
 
+  <div class="card p-3 mb-5 overflow-hidden fabric-mesh-priority-graph" data-fabric-graph>
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <div class="flex flex-wrap items-center gap-2 md:hidden">
+        <span class="text-xs font-medium text-text">Full map</span>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2" data-fabric-close-graph>Hide map</button>
+      </div>
+      <div class="fabric-mesh-zoom-bar ml-auto" role="group" aria-label="Zoom map">
+        <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-out title="Zoom out" aria-label="Zoom out">−</button>
+        <span class="fabric-mesh-zoom-label font-mono text-center" data-fabric-zoom-label>100%</span>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-in title="Zoom in" aria-label="Zoom in">+</button>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2" data-fabric-zoom-reset title="Reset zoom">1:1</button>
+      </div>
+    </div>
+    {% if svg.nodes %}
+    <div class="fabric-mesh-scroll">
+      <div class="fabric-mesh-viewport" data-fabric-viewport>
+          <svg class="fabric-mesh-svg fabric-mesh-svg--logical"
+               viewBox="0 0 {{ svg.width }} {{ svg.height }}"
+               width="100%"
+               height="100%"
+               preserveAspectRatio="xMidYMid meet"
+               role="img"
+               aria-label="Path map"
+               data-fabric-mesh="logical">
+            <defs>
+              <marker id="ml-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--color-accent, #00a651)"/>
+              </marker>
+              <marker id="ml-npm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--color-warning, #d97706)"/>
+              </marker>
+              <linearGradient id="g-npm" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="var(--color-warning, #d97706)" stop-opacity="0.25"/>
+                <stop offset="100%" stop-color="var(--color-warning, #d97706)" stop-opacity="0.05"/>
+              </linearGradient>
+            </defs>
+
+            {% for col in svg.columns or [] %}
+            <text x="{{ col.x }}" y="36" text-anchor="middle" class="fabric-mesh-col-label">{{ col.label }}</text>
+            {% endfor %}
+
+            {% for e in svg.edges %}
+            <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}"
+                  class="fabric-mesh-edge fabric-mesh-edge--{{ e.kind }}"
+                  {% if e.dashed %}stroke-dasharray="6 4"{% endif %}
+                  {% if e.path_id is defined and e.path_id is not none %}data-path-id="{{ e.path_id }}"{% endif %}
+                  marker-end="{% if e.kind in ('to_npm','from_npm') %}url(#ml-npm){% else %}url(#ml-arr){% endif %}"/>
+            {% if e.label %}
+            <text x="{{ e.mx }}" y="{{ e.my }}" text-anchor="middle" class="fabric-mesh-edge-label">{{ e.label }}</text>
+            {% endif %}
+            {% endfor %}
+
+            {% for n in svg.nodes %}
+              {% if n.kind == 'hub' %}
+              <g class="fabric-mesh-node fabric-mesh-node--hub"
+                 {% if n.path_ids %}data-path-ids="{% for pid in n.path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}>
+                {# Single circle — bare <circle> defaults to black fill in light mode #}
+                <circle cx="{{ n.x }}" cy="{{ n.y }}" r="42"/>
+                <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label }}</text>
+                <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ n.sub }}</text>
+              </g>
+              {% elif n.kind == 'url' %}
+              <a href="{{ n.href or '#' }}">
+                <g class="fabric-mesh-node fabric-mesh-node--url {% if n.via_npm %}is-npm{% endif %}"
+                   {% if n.path_id is defined and n.path_id is not none %}data-path-id="{{ n.path_id }}"{% endif %}
+                   {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}>
+                  <rect x="{{ n.x - 100 }}" y="{{ n.y - 20 }}" width="200" height="40" rx="10"/>
+                  <text x="{{ n.x }}" y="{{ n.y + 1 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label }}</text>
+                  <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ n.sub }}</text>
+                  {% if n.sync_status == 'ok' %}
+                  <circle class="fabric-mesh-status fabric-mesh-status--ok" cx="{{ n.x + 88 }}" cy="{{ n.y - 12 }}" r="4"/>
+                  {% elif n.sync_status == 'partial' %}
+                  <circle class="fabric-mesh-status fabric-mesh-status--partial" cx="{{ n.x + 88 }}" cy="{{ n.y - 12 }}" r="4"/>
+                  {% elif n.sync_status == 'error' or n.sync_status == 'failed' %}
+                  <circle class="fabric-mesh-status fabric-mesh-status--error" cx="{{ n.x + 88 }}" cy="{{ n.y - 12 }}" r="4"/>
+                  {% endif %}
+                  {% if n.has_cert %}
+                  <circle class="fabric-mesh-status fabric-mesh-status--cert" cx="{{ n.x + 76 }}" cy="{{ n.y - 12 }}" r="3.5"/>
+                  {% endif %}
+                </g>
+              </a>
+              {% else %}
+              <a href="{{ n.href or '#' }}">
+                <g class="fabric-mesh-node fabric-mesh-node--dest"
+                   {% if n.path_id is defined and n.path_id is not none %}data-path-id="{{ n.path_id }}"{% endif %}
+                   {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}>
+                  <rect x="{{ n.x - 90 }}" y="{{ n.y - 20 }}" width="180" height="40" rx="10"/>
+                  <text x="{{ n.x }}" y="{{ n.y + 1 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label }}</text>
+                  <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:26] }}</text>
+                </g>
+              </a>
+              {% endif %}
+            {% endfor %}
+          </svg>
+      </div>
+    </div>
+    <p class="text-[11px] text-muted mt-2 px-1">
+      Pinch / scroll to zoom · drag to pan · double-click 1:1 · hover or tap a path to focus
+      · amber edges via NPM · green = synced · amber cert = TLS linked
+    </p>
+    <div class="fabric-callout-row mt-2 px-1">
+      <p class="fabric-callout text-xs font-mono is-empty"
+         data-fabric-callout
+         data-fabric-callout-empty="Hover or tap a path to highlight. Use Open host to navigate."></p>
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-9 px-2 hidden"
+              data-fabric-copy-callout>Copy path</button>
+      <a href="#"
+         class="btn btn-primary text-xs min-h-9 px-2 hidden"
+         data-fabric-open-link
+         hidden>Open host</a>
+    </div>
+    {% else %}
+    <p class="text-sm text-muted p-6 text-center">No logical flows yet — import mappings from the DNS hub.</p>
+    {% endif %}
+  </div>
+</div>
+
+<script src="/static/js/fabric-mesh.js" defer></script>
 {% endblock %}
