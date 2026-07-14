@@ -18,10 +18,21 @@
 6. Desired state **Vn** stored encrypted in PiHerder.  
 7. Post-deploy **checklist** (manual DNS, first login, …).
 
-## Redeploy
+## Redeploy & ops (deployment page)
 
-From the **deployment** page for that host+project — same wait modal.  
-(Volume editor polish is planned for v0.5.0.)
+Open the **deployment** for that host+project (`/templates/deployments/{id}`):
+
+| Action | Effect |
+|--------|--------|
+| **Volumes / storage** | Change named volume, project folder, or host path without re-wizard |
+| **Save & redeploy** | New config version → write files → compose pull/up (wait modal) |
+| **Check drift** | Compare host compose/.env to desired state; updates drift badge + alert |
+| **Import host .env** | Pull host secrets into PiHerder encrypted store |
+| **Apply last known config** | Re-write stored desired state after host wipe / DR |
+| **Restore data** | Lists matching backup sources → use server **Backups** dry-run/apply |
+
+Post-redeploy banner links to **Docker**, this deployment, and **Audit**.  
+Drift also runs on a schedule (~every **6 hours**).
 
 ## Create / edit a template
 

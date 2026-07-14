@@ -65,7 +65,7 @@
     or <strong>Docker</strong> for compose project / container (same cascade as Grafana).
     Docker lists use the host inventory cache — refresh on the server Docker page if empty.
   </p>
-  <div class="overflow-x-auto">
+  <div class="table-scroll">
     <table class="w-full text-sm">
       <thead>
         <tr class="text-xs text-muted border-b border-border">
@@ -73,7 +73,7 @@
           <th class="text-left">Forward</th>
           <th class="text-left">SSL</th>
           <th class="text-left">Binding</th>
-          <th></th>
+          <th class="text-right"></th>
         </tr>
       </thead>
       <tbody>
@@ -95,7 +95,7 @@
               <span class="text-muted">unbound</span>
             {% endif %}
           </td>
-          <td class="text-right">
+          <td class="text-right py-2">
             {% if can_mutate %}
               {% if b %}
               <form method="post" action="/integrations/{{ integration.id }}/npm/unbind" class="inline"
@@ -109,7 +109,7 @@
               </form>
               {% else %}
               <form method="post" action="/integrations/{{ integration.id }}/npm/bind"
-                    class="npm-bind-form flex flex-col gap-1.5 items-stretch sm:items-end min-w-[15rem] max-w-xs ml-auto"
+                    class="npm-bind-form flex flex-col gap-1.5 items-stretch sm:items-end min-w-[14rem] max-w-xs ml-auto"
                     data-confirm="Bind proxy host “{{ h.label }}” to the selected host / service?"
                     data-confirm-title="Bind proxy host"
                     data-confirm-label="Bind"
@@ -291,7 +291,7 @@
     <a href="/certificates" class="text-primary hover:underline">Certificates</a>.
     You can also <a href="/certificates/upload" class="text-primary hover:underline">upload PEM files</a> without NPM.
   </p>
-  <div class="overflow-x-auto">
+  <div class="table-scroll">
     <table class="w-full text-sm">
       <thead>
         <tr class="text-xs text-muted border-b border-border">
@@ -299,7 +299,7 @@
           <th class="text-left">Name</th>
           <th class="text-left">Domains</th>
           <th class="text-left">Provider</th>
-          <th></th>
+          <th class="text-right"></th>
         </tr>
       </thead>
       <tbody>

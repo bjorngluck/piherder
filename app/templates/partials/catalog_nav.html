@@ -1,14 +1,14 @@
 {# Shared Catalog chrome — identical tab chrome to Settings (settings-tab-btn).
    Pass catalog_section via {% with catalog_section='integrations' %} … {% endwith %} #}
 {% set section = catalog_section if catalog_section is defined else 'integrations' %}
-{% if section not in ('integrations', 'templates') %}
+{% if section not in ('integrations', 'templates', 'dns') %}
   {% set section = 'integrations' %}
 {% endif %}
 <div class="page-header mb-4">
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Catalog</h1>
     <p class="text-sm text-muted mt-1">
-      Integrations (Uptime Kuma, Grafana) and service templates.
+      Integrations, service templates, and end-to-end DNS (hosts → apps → proxy).
     </p>
   </div>
 </div>
@@ -23,4 +23,9 @@
      class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if section == 'templates' else '' }}"
      aria-selected="{{ 'true' if section == 'templates' else 'false' }}"
      {% if section == 'templates' %}aria-current="page"{% endif %}>Templates</a>
+  <a href="/dns"
+     role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if section == 'dns' else '' }}"
+     aria-selected="{{ 'true' if section == 'dns' else 'false' }}"
+     {% if section == 'dns' %}aria-current="page"{% endif %}>DNS</a>
 </div>

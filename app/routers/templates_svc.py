@@ -32,9 +32,11 @@ from ..security.auth import (
 from ..services import app_settings as app_cfg
 from ..services.service_templates import (
     TemplateError,
+    apply_last_known_config,
     apply_template_to_host,
     blank_editor_form,
     build_definition_from_editor,
+    check_deployment_drift,
     definition_to_editor_form,
     delete_template,
     get_deployment,
@@ -44,9 +46,13 @@ from ..services.service_templates import (
     import_template_from_zip_bytes,
     list_catalog,
     list_deployments_for_server,
+    matching_backup_sources_for_deployment,
+    migrate_host_env_into_deployment,
     preview_template,
+    public_vars_excluding_volume_meta,
     redeploy_desired_state,
     save_template_definition,
+    volume_fields_for_ui,
 )
 from ..services.service_templates.editor import (
     apply_harden_env_to_form,
@@ -78,8 +84,10 @@ def _audit(
     status: str = "success",
 ) -> None:
     try:
+        from ..services.audit_write import make_audit_log
+
         session.add(
-            AuditLog(
+            make_audit_log(
                 user_id=user.id,
                 server_id=server_id,
                 action=action,
@@ -161,10 +169,9 @@ def _safe_return_to(path: Optional[str], default: str = "/templates") -> str:
 
 
 def _client_ip(request: Request) -> Optional[str]:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else None
+    from ..services.request_ip import client_ip_from_request
+
+    return client_ip_from_request(request)
 
 
 def _set_secrets_unlock_cookie(response: RedirectResponse, user: User) -> None:
@@ -805,6 +812,7 @@ async def deployment_detail(
         masked_files = merge_secrets_into_env_files(masked_files, full_secrets)
 
     checklist = []
+    definition = None
     try:
         if dep.template_slug:
             definition = get_template_definition(session, slug=dep.template_slug)
@@ -816,9 +824,43 @@ async def deployment_detail(
 
             checklist = render_checklist(definition, values)
     except Exception:
-        pass
+        definition = None
+
+    volume_rows = volume_fields_for_ui(public, definition)
+    public_simple = public_vars_excluding_volume_meta(public, definition)
+    backup_matches = []
+    if server:
+        try:
+            backup_matches = matching_backup_sources_for_deployment(server, dep)
+        except Exception:
+            backup_matches = []
 
     unlock_error = request.query_params.get("unlock_error")
+    drift_detail = request.query_params.get("drift_detail")
+
+    from ..services import dns_fabric as fabric
+    from ..services.app_settings import load_settings
+
+    dns_record = fabric.find_service_for_deployment(session, deployment_id)
+    dns_target_name = None
+    if dns_record:
+        t = session.get(Server, dns_record.target_server_id)
+        dns_target_name = fabric.normalize_fqdn(t.dns_name) if t else None
+    base = (load_settings().get("dns_base_domain") or "").strip()
+    dns_plan = None
+    try:
+        dns_plan = fabric.resolve_service_dns_plan(
+            session,
+            backend_server_id=dep.server_id,
+            docker_project=dep.project_name,
+            stack_deployment_id=dep.id,
+            base_domain=base,
+        )
+    except Exception:
+        dns_plan = None
+    dns_suggest = (dns_plan or {}).get("fqdn") or (
+        f"{(dep.project_name or 'app').lower().replace('_', '-')}.{base}" if base else ""
+    )
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -828,17 +870,24 @@ async def deployment_detail(
             "title": f"{dep.project_name} · V{dep.config_version}",
             "dep": dep,
             "server": server,
-            "public": public,
+            "public": public_simple,
+            "volume_rows": volume_rows,
             "secret_keys": secret_key_names,
             "secrets_map": secrets_map if secrets_visible else {},
             "secrets_visible": secrets_visible,
             "files_masked": masked_files,
             "checklist": checklist,
+            "backup_matches": backup_matches,
             "msg": msg,
             "error": error,
             "unlock_error": unlock_error,
+            "drift_detail": drift_detail,
             "can_mutate": can_op,
             "template_require_2fa": _template_require_2fa(),
+            "dns_record": dns_record,
+            "dns_plan": dns_plan,
+            "dns_target_name": dns_target_name,
+            "dns_suggest": dns_suggest,
             **_secrets_ui_context(request, user),
         },
     )
@@ -871,12 +920,21 @@ async def deployment_redeploy(
     updated_public = {}
     updated_secrets = {}
     for k, v in form.items():
-        if k.startswith("pub_"):
-            updated_public[k[4:]] = str(v)
-        elif k.startswith("sec_"):
+        sk = str(k)
+        if sk.startswith("pub_"):
+            updated_public[sk[4:]] = str(v)
+        elif sk.startswith("vol_") and sk.endswith("__mode"):
+            # vol_NAME__mode
+            name = sk[4 : -len("__mode")]
+            updated_public[f"{name}__mode"] = str(v)
+        elif sk.startswith("vol_") and sk.endswith("__source"):
+            name = sk[4 : -len("__source")]
+            updated_public[f"{name}__source"] = str(v)
+            updated_public[name] = str(v)  # merge_variable_values also accepts raw source
+        elif sk.startswith("sec_"):
             val = str(v)
             if val and val != "********":
-                updated_secrets[k[4:]] = val
+                updated_secrets[sk[4:]] = val
 
     try:
         result = redeploy_desired_state(
@@ -897,6 +955,19 @@ async def deployment_redeploy(
             status="failed",
         )
         return _redirect(f"/templates/deployments/{deployment_id}", error=str(e)[:200])
+    except Exception as e:
+        _audit(
+            session,
+            user,
+            "template.redeploy",
+            server_id=server.id,
+            details=f"deployment={deployment_id} error={e}",
+            status="failed",
+        )
+        return _redirect(
+            f"/templates/deployments/{deployment_id}",
+            error=f"Redeploy failed: {str(e)[:180]}",
+        )
 
     _audit(
         session,
@@ -905,9 +976,172 @@ async def deployment_redeploy(
         server_id=server.id,
         details=f"deployment={deployment_id} config_v={result.get('config_version')}",
     )
+    rd = result.get("redeploy") or {}
+    ok_host = rd.get("success") if isinstance(rd, dict) else True
+    msg = f"Redeployed as V{result.get('config_version')}"
+    if ok_host is False:
+        msg += " — compose up reported failure (see Audit / Docker)"
+    if server:
+        msg += f". Open Docker · {dep.project_name}."
     return _redirect(
         f"/templates/deployments/{result['deployment_id']}",
-        msg=f"Redeployed as V{result.get('config_version')}",
+        msg=msg[:240],
+    )
+
+
+@router.post("/templates/deployments/{deployment_id}/check-drift")
+async def deployment_check_drift(
+    deployment_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    dep = get_deployment(session, deployment_id)
+    if not dep:
+        raise HTTPException(404)
+    from ..models import Server
+
+    server = session.get(Server, dep.server_id)
+    if not server:
+        raise HTTPException(404, "Server missing")
+    try:
+        result = check_deployment_drift(session, server=server, deployment=dep)
+    except Exception as e:
+        return _redirect(
+            f"/templates/deployments/{deployment_id}",
+            error=f"Drift check failed: {str(e)[:180]}",
+        )
+    _audit(
+        session,
+        user,
+        "template.drift_check",
+        server_id=server.id,
+        details=(
+            f"deployment={deployment_id} status={result.get('status')} "
+            f"diffs={len(result.get('diffs') or [])}"
+        ),
+        status="success" if result.get("status") != "unknown" else "failed",
+    )
+    st = result.get("status") or "unknown"
+    detail = ""
+    diffs = result.get("diffs") or []
+    if diffs:
+        detail = "; ".join(
+            f"{d.get('file')}: {d.get('detail')}" for d in diffs[:6]
+        )[:180]
+    if st == "in_sync":
+        msg = "Host matches desired state (in sync)"
+    elif st == "drifted":
+        msg = f"Drift detected ({len(diffs)} file(s))"
+    else:
+        msg = f"Drift unknown: {result.get('error') or result.get('reason') or 'check failed'}"
+    return _redirect(
+        f"/templates/deployments/{deployment_id}",
+        msg=msg,
+        drift_detail=detail or None,
+    )
+
+
+@router.post("/templates/deployments/{deployment_id}/migrate-env")
+async def deployment_migrate_env(
+    request: Request,
+    deployment_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Pull host .env secrets into PiHerder encrypted store (B — .env migrate UX)."""
+    try:
+        _check_secrets_2fa(user)
+        # Storing secrets requires account 2FA; step-up unlock optional but preferred
+        if _user_has_2fa(user) and not _secrets_revealed(request, user):
+            # Allow migrate without unlock (import only into DB encrypted store)
+            pass
+    except HTTPException as e:
+        return _redirect(f"/templates/deployments/{deployment_id}", error=str(e.detail)[:200])
+    dep = get_deployment(session, deployment_id)
+    if not dep:
+        raise HTTPException(404)
+    server = session.get(Server, dep.server_id)
+    if not server:
+        raise HTTPException(404, "Server missing")
+    try:
+        result = migrate_host_env_into_deployment(
+            session, server=server, deployment=dep
+        )
+    except TemplateError as e:
+        return _redirect(f"/templates/deployments/{deployment_id}", error=str(e)[:200])
+    except Exception as e:
+        return _redirect(
+            f"/templates/deployments/{deployment_id}",
+            error=f"Env migrate failed: {str(e)[:180]}",
+        )
+    _audit(
+        session,
+        user,
+        "template.env_migrate",
+        server_id=server.id,
+        details=(
+            f"deployment={deployment_id} secrets={result.get('imported_secrets')} "
+            f"public={result.get('imported_public')}"
+        ),
+    )
+    n_s = len(result.get("imported_secrets") or [])
+    n_p = len(result.get("imported_public") or [])
+    return _redirect(
+        f"/templates/deployments/{deployment_id}",
+        msg=f"Imported from host .env: {n_s} secret(s), {n_p} public key(s). Redeploy to write host if needed.",
+    )
+
+
+@router.post("/templates/deployments/{deployment_id}/apply-config")
+async def deployment_apply_last_known(
+    deployment_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Write last known desired state to host (C — after wipe / DR)."""
+    dep = get_deployment(session, deployment_id)
+    if not dep:
+        raise HTTPException(404)
+    from ..models import Server
+
+    server = session.get(Server, dep.server_id)
+    if not server:
+        raise HTTPException(404, "Server missing")
+    try:
+        _check_template_2fa(user)
+        result = apply_last_known_config(
+            session, server=server, deployment=dep, deploy_now=True
+        )
+    except TemplateError as e:
+        _audit(
+            session,
+            user,
+            "template.apply_config",
+            server_id=server.id,
+            details=f"deployment={deployment_id} error={e}",
+            status="failed",
+        )
+        return _redirect(f"/templates/deployments/{deployment_id}", error=str(e)[:200])
+    except HTTPException as e:
+        return _redirect(f"/templates/deployments/{deployment_id}", error=str(e.detail)[:200])
+    except Exception as e:
+        return _redirect(
+            f"/templates/deployments/{deployment_id}",
+            error=f"Apply failed: {str(e)[:180]}",
+        )
+    _audit(
+        session,
+        user,
+        "template.apply_config",
+        server_id=server.id,
+        details=f"deployment={deployment_id} config_v={result.get('config_version')}",
+    )
+    return _redirect(
+        f"/templates/deployments/{result.get('deployment_id', deployment_id)}",
+        msg=(
+            f"Applied last known config V{result.get('config_version')} to host. "
+            f"Restore volume data from Backups if needed."
+        )[:240],
     )
 
 

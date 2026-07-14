@@ -47,7 +47,9 @@ Also see the repo [`certs/README.md`](https://github.com/bjorngluck/piherder/blo
 You may terminate TLS at Nginx Proxy Manager (or similar) and reverse-proxy to `web:8000` or to Caddy. Keep:
 
 - A stable public origin in `PIHERDER_PUBLIC_URL`  
-- Correct `X-Forwarded-For` / client IP if you use [API token IP allowlists](../operations/api-tokens.md)
+- Correct `X-Forwarded-For` / client IP for [API token IP allowlists](../operations/api-tokens.md) **and** Audit trail source IP (PiHerder trusts the first XFF hop / X-Real-IP the same way)  
+
+Bundled Caddy overwrites those headers with the true client — prefer it as the edge for accurate audit IPs.
 
 ## Local development without certs
 

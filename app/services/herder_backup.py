@@ -11,6 +11,7 @@ Backs up PiHerder's own configuration as a compressed tar.gz on a host-mapped di
 - In-app notifications
 - Herder settings (timezone, force_2FA, self-backup schedule, fleet check defaults)
 - Avatar files under DATA_ROOT
+- Service logo files under DATA_ROOT/service_logos
 - Optionally AuditLog (full mode)
 
 Not included: Job queue rows (ephemeral running/finished job state).
@@ -228,6 +229,12 @@ def _snapshot_stack_deployments() -> List[Dict[str, Any]]:
     return _snapshot_table(StackDeployment)
 
 
+def _snapshot_service_dns_records() -> List[Dict[str, Any]]:
+    from ..models import ServiceDnsRecord
+
+    return _snapshot_table(ServiceDnsRecord)
+
+
 def _snapshot_audit(since_days: Optional[int] = None) -> List[Dict[str, Any]]:
     with Session(engine) as s:
         q = select(AuditLog).order_by(AuditLog.started_at.desc())
@@ -247,6 +254,22 @@ def _avatar_files() -> List[Path]:
     out: List[Path] = []
     for p in avatars.rglob("*"):
         if p.is_file() and p.stat().st_size <= settings.AVATAR_MAX_BYTES * 2:
+            out.append(p)
+        if len(out) >= 500:
+            break
+    return out
+
+
+def _service_logo_files() -> List[Path]:
+    """List service logo files under DATA_ROOT/service_logos (B08)."""
+    root = Path(settings.DATA_ROOT or "/data")
+    logos = root / "service_logos"
+    if not logos.is_dir():
+        return []
+    max_bytes = min(getattr(settings, "AVATAR_MAX_BYTES", 2 * 1024 * 1024), 512 * 1024) * 2
+    out: List[Path] = []
+    for p in logos.iterdir():
+        if p.is_file() and p.stat().st_size <= max_bytes:
             out.append(p)
         if len(out) >= 500:
             break
@@ -281,8 +304,10 @@ def _build_backup_payload(
             "certificate_targets",
             "service_templates",
             "stack_deployments",
+            "service_dns_records",
             "herder_config",
             "avatars",
+            "service_logos",
         ]
         + (["audit_logs"] if include_audit else []),
         "excludes": ["jobs"],
@@ -305,6 +330,7 @@ def _build_backup_payload(
         "certificate_targets": _snapshot_certificate_targets(),
         "service_templates": _snapshot_service_templates(),
         "stack_deployments": _snapshot_stack_deployments(),
+        "service_dns_records": _snapshot_service_dns_records(),
         "herder_config": load_settings(),
     }
     if include_audit:
@@ -318,7 +344,7 @@ def create_herder_backup(
     include_audit: bool = False, config_only: bool = True, since_days: int = 90
 ) -> Path:
     """
-    Create a compressed backup of PiHerder config + IAM + push + avatars.
+    Create a compressed backup of PiHerder config + IAM + push + avatars + logos.
 
     include_audit=False + config_only=True is the recommended default.
     The resulting .tar.gz lives under HERDER_BACKUP_ROOT on the host (map the volume!).
@@ -339,7 +365,7 @@ def create_herder_backup(
         since_days=since_days,
     )
 
-    # Write JSON to a safe temp file (always /tmp), then add to tar with avatars.
+    # Write JSON to a safe temp file (always /tmp), then add to tar with data files.
     tmp_json_path = None
     try:
         with tempfile.NamedTemporaryFile(
@@ -359,6 +385,12 @@ def create_herder_backup(
                     except ValueError:
                         rel = Path("avatars") / ap.name
                     tar.add(ap, arcname=str(Path("data") / rel))
+                for lp in _service_logo_files():
+                    try:
+                        rel = lp.relative_to(data_root)
+                    except ValueError:
+                        rel = Path("service_logos") / lp.name
+                    tar.add(lp, arcname=str(Path("data") / rel))
 
         try:
             _write_tar(out_path)
@@ -660,7 +692,7 @@ def _append_audit(session: Session, rows: List[Dict[str, Any]]) -> int:
 
 
 def _restore_avatars_from_tar(archive_path: Path) -> int:
-    """Extract data/* members into DATA_ROOT. Returns file count."""
+    """Extract data/* members into DATA_ROOT (avatars + service logos). Returns file count."""
     data_root = Path(settings.DATA_ROOT or "/data")
     data_root.mkdir(parents=True, exist_ok=True)
     n = 0
@@ -693,7 +725,7 @@ def restore_herder_backup(
     - Users, servers, docker versions, 2FA codes, trusted devices, push, notifications
     - Encrypted fields travel as-is (master key must match)
     - Herder settings JSON merged into live config
-    - Avatars extracted into DATA_ROOT
+    - Avatars + service logos extracted into DATA_ROOT
     - Audit optional append-only
     - Jobs never restored
     """
@@ -763,6 +795,9 @@ def restore_herder_backup(
         result["would_restore_stack_deployments"] = len(
             payload.get("stack_deployments") or []
         )
+        result["would_restore_service_dns_records"] = len(
+            payload.get("service_dns_records") or []
+        )
         result["would_restore_herder_config"] = bool(payload.get("herder_config"))
         with tarfile.open(p, "r:gz") as tar:
             result["would_restore_avatars"] = sum(
@@ -815,6 +850,12 @@ def restore_herder_backup(
         s.flush()
         result["restored_stack_deployments"] = _upsert_rows(
             s, StackDeployment, payload.get("stack_deployments") or []
+        )
+        s.flush()
+        from ..models import ServiceDnsRecord
+
+        result["restored_service_dns_records"] = _upsert_rows(
+            s, ServiceDnsRecord, payload.get("service_dns_records") or []
         )
 
         result["restored_docker_versions"] = _upsert_rows(
@@ -884,6 +925,7 @@ def _fix_postgres_sequences() -> None:
         "auditlog",
         "servicetemplate",
         "stackdeployment",
+        "servicednsrecord",
         "integration",
         "integrationbinding",
     ]

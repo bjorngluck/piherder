@@ -57,10 +57,10 @@ Template **polish** and deeper ops land in the **v0.5.0** cycle (single target; 
 
 | Horizon | Items |
 |---------|--------|
-| **v0.5.0** | Config drift · `.env` migrate · template UX polish · restore + last known config · production wikis · Docker Hub multi-arch · RC freeze; nice-to-have: git catalog, NPM connector, B07 |
+| **v0.5.0** | Config drift · `.env` migrate · template UX polish · restore + last known config · production wikis · Docker Hub multi-arch · RC freeze; B07–B09 done (stack jobs, logos backup, resolve push); nice-to-have: git catalog |
 | **Later** | Advanced secret backends · automated DNS · expanded curated pack |
 
-Open stretch bugs (not required for this tag): **B07** (async Docker deploy jobs), **B08** (logos in self-backup), **B09** (push on auto-resolve) — tracked under v0.5.0.
+Stretch bugs **B07–B09** landed in the v0.5.0 track — see [PLAN_v0.5.0.md](PLAN_v0.5.0.md) workstream G.
 
 ---
 

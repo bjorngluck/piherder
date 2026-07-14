@@ -65,6 +65,38 @@ def test_enqueue_container_update_check_returns_existing():
     pool.submit.assert_not_called()
 
 
+def test_enqueue_docker_stack_check_raises_when_active():
+    active = _active_job("docker_stack_check", 21, status="running")
+    mock_session = MagicMock()
+    mock_session.get.return_value = SimpleNamespace(id=5, name="pi")
+    mock_session.__enter__ = MagicMock(return_value=mock_session)
+    mock_session.__exit__ = MagicMock(return_value=False)
+
+    with (
+        patch.object(job_service, "_get_fresh_session", return_value=mock_session),
+        patch.object(job_service, "_active_docker_stack_job", return_value=active),
+        patch.object(job_service, "_update_check_pool") as pool,
+    ):
+        with pytest.raises(job_service.JobAlreadyActive) as ei:
+            job_service.enqueue_docker_stack_check(5, "/opt/stacks/foo", user_id=1)
+    assert ei.value.job.id == 21
+    pool.submit.assert_not_called()
+
+
+def test_human_summary_docker_stack_check():
+    snip = '{"project":"kuma","has_updates":true,"updated_images":["a:latest"],"success":true}'
+    s = job_service._human_job_summary("docker_stack_check", "success", snip)
+    assert "kuma" in s
+    assert "updates" in s.lower()
+
+
+def test_human_summary_docker_stack_deploy():
+    snip = '{"project":"npm","success":true,"project_path":"/opt/npm"}'
+    s = job_service._human_job_summary("docker_stack_deploy", "success", snip)
+    assert "npm" in s
+    assert "ok" in s.lower()
+
+
 def test_enqueue_os_update_check_returns_existing():
     server = SimpleNamespace(id=5, name="pi")
     active = _active_job("os_update_check", 12, status="running")

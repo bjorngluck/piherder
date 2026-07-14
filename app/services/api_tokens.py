@@ -53,6 +53,8 @@ JOB_FEATURE_KEY = {
     "os_update_check": "os",
     "container_patch": "docker",
     "container_update_check": "docker",
+    "docker_stack_check": "docker",
+    "docker_stack_deploy": "docker",
 }
 
 FEATURE_SCOPE_BY_KEY = {
@@ -249,24 +251,13 @@ def _normalize_ip_candidate(raw: str | None) -> str:
 
 
 def extract_client_ip(headers: dict | None, peer_host: str | None) -> str:
-    """Resolve client IP for API token allowlists.
+    """Resolve client IP for API token allowlists (Caddy XFF / peer).
 
-    Preference (edge proxy should *set* these, not pass client spoofed values):
-      1. X-Forwarded-For — first hop only
-      2. X-Real-IP
-      3. TCP peer (request.client.host)
-
-    Caddy is configured to overwrite X-Forwarded-For / X-Real-IP with the true
-    remote host so allowlists work behind the reverse proxy.
+    Implementation lives in ``request_ip`` so audit logging uses the same rules.
     """
-    h = {str(k).lower(): str(v) for k, v in (headers or {}).items()}
-    xff = h.get("x-forwarded-for") or h.get("x-forwarded_for")
-    if xff:
-        return _normalize_ip_candidate(xff.split(",")[0])
-    xri = h.get("x-real-ip") or h.get("x-real_ip")
-    if xri:
-        return _normalize_ip_candidate(xri)
-    return _normalize_ip_candidate(peer_host)
+    from .request_ip import extract_client_ip as _extract
+
+    return _extract(headers, peer_host)
 
 
 def create_api_token(

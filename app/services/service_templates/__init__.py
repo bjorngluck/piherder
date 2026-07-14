@@ -38,15 +38,22 @@ from .editor import (
 from .from_host import list_host_projects_for_picker, pull_project_as_editor_form
 from .deploy import (
     annotate_projects_with_deployments,
+    apply_last_known_config,
     apply_template_to_host,
+    check_all_deployments_drift,
+    check_deployment_drift,
     deployments_index_by_project,
     get_deployment,
     get_deployment_for_project,
     host_picker_rows,
     list_deployments_for_server,
+    matching_backup_sources_for_deployment,
+    migrate_host_env_into_deployment,
     preview_template,
+    public_vars_excluding_volume_meta,
     redeploy_desired_state,
     save_desired_state,
+    volume_fields_for_ui,
 )
 
 __all__ = [
@@ -82,13 +89,20 @@ __all__ = [
     "list_host_projects_for_picker",
     "pull_project_as_editor_form",
     "annotate_projects_with_deployments",
+    "apply_last_known_config",
     "apply_template_to_host",
+    "check_all_deployments_drift",
+    "check_deployment_drift",
     "deployments_index_by_project",
     "get_deployment",
     "get_deployment_for_project",
     "host_picker_rows",
     "list_deployments_for_server",
+    "matching_backup_sources_for_deployment",
+    "migrate_host_env_into_deployment",
     "preview_template",
+    "public_vars_excluding_volume_meta",
     "redeploy_desired_state",
     "save_desired_state",
+    "volume_fields_for_ui",
 ]

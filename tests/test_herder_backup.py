@@ -126,10 +126,25 @@ def test_build_payload_keys(monkeypatch):
         "herder_config",
     ):
         assert key in payload
+    assert "avatars" in payload["manifest"]["includes"]
+    assert "service_logos" in payload["manifest"]["includes"]
     assert payload["users"][0]["hashed_password"] == "x"
     assert payload["integrations"][0]["type"] == "grafana"
     assert payload["integration_bindings"][0]["role"] == "dashboard"
     assert payload["herder_config"]["timezone"] == "UTC"
+
+
+def test_service_logo_files(tmp_path, monkeypatch):
+    data = tmp_path / "data"
+    logos = data / "service_logos"
+    logos.mkdir(parents=True)
+    (logos / "1.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 20)
+    (logos / "skip.txt").write_bytes(b"x" * 10)
+    monkeypatch.setattr(hb.settings, "DATA_ROOT", str(data))
+    monkeypatch.setattr(hb.settings, "AVATAR_MAX_BYTES", 2 * 1024 * 1024)
+    files = hb._service_logo_files()
+    names = {p.name for p in files}
+    assert "1.png" in names
 
 
 def test_build_payload_includes_audit_when_requested(monkeypatch):

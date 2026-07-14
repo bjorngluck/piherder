@@ -1,6 +1,6 @@
 # Integrations
 
-Optional **integration hub**. Top-nav **Catalog** (`/catalog`) always opens **Integrations**, with the same Settings-style tab buttons for **Integrations** | **Templates**. Grafana preferred names are set on the integration **Inventory** tab; see [Grafana](grafana.md).
+Optional **integration hub**. Top-nav **Catalog** (`/catalog`) opens **Integrations**, with Settings-style tabs: **Integrations** | **Templates** | **DNS**. Grafana preferred names are set on the integration **Inventory** tab; see [Grafana](grafana.md).
 
 Core fleet ops work **without** any integration.
 
@@ -9,6 +9,7 @@ Core fleet ops work **without** any integration.
 | [Uptime Kuma](uptime-kuma.md) | Status, TLS days, deep links, Services pages |
 | [Grafana](grafana.md) | Dashboard inventory, deep links with query templates |
 | [Pi-hole](pihole.md) | v6 multi-instance stats, local DNS/CNAME fan-out, gravity/actions |
+| [DNS fabric](dns-fabric.md) | Host A + service paths; Pi-hole adopt; **physical** + **logical** full meshes; host identity |
 | [Nginx Proxy Manager](npm.md) | Proxy hosts (read-only) + certificate pull |
 | [Certificates](certificates.md) | Encrypted store, PEM upload, deploy targets, NPM renew |
 

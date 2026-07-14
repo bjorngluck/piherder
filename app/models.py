@@ -138,6 +138,12 @@ class Server(SQLModel, table=True):
     host_deps_json: Optional[str] = None
     host_deps_checked_at: Optional[datetime] = None
 
+    # LAN DNS identity (A/AAAA on Pi-hole) — apps CNAME to this name
+    # e.g. rpi5-1.hacknow.info → ip_address (or dns_ip_override)
+    dns_name: Optional[str] = Field(default=None, index=True, max_length=253)
+    dns_manage_a: bool = False
+    dns_ip_override: Optional[str] = Field(default=None, max_length=64)
+
     audit_logs: List["AuditLog"] = Relationship(back_populates="server")
     jobs: List["Job"] = Relationship(back_populates="server")
     docker_versions: List["DockerVersion"] = Relationship(back_populates="server")
@@ -212,6 +218,9 @@ class AuditLog(SQLModel, table=True):
     status: str  # "success", "failed", "running"
     details: Optional[str] = None
     output_snippet: Optional[str] = None
+    # Client IP of the HTTP request that caused this event (via Caddy XFF / peer).
+    # Null for scheduler / pure background work with no user request.
+    client_ip: Optional[str] = Field(default=None, index=True)
     started_at: datetime = Field(default_factory=datetime.utcnow)
     finished_at: Optional[datetime] = None
 
@@ -222,7 +231,7 @@ class AuditLog(SQLModel, table=True):
 class Job(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     server_id: Optional[int] = Field(default=None, foreign_key="server.id")
-    job_type: str  # backup, container_patch, os_patch, os_update_check, container_update_check, retention, diagnostics, herder_backup
+    job_type: str  # backup, container_patch, os_patch, os_update_check, container_update_check, docker_stack_check, docker_stack_deploy, retention, diagnostics, herder_backup
     status: str = "pending"  # pending, running, success, failed, cancelled
     celery_task_id: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -475,10 +484,17 @@ class ManagedCertificate(SQLModel, table=True):
 
 
 class CertificateTarget(SQLModel, table=True):
-    """Where a managed certificate is deployed on a fleet host."""
+    """Where a managed certificate is deployed on a fleet host.
+
+    Think of this as a *service map*: one vaulted cert → host path + filenames +
+    permissions + optional restart command for a specific consumer (NPM volume,
+    Unifi, mail, etc.).
+    """
     id: Optional[int] = Field(default=None, primary_key=True)
     certificate_id: int = Field(foreign_key="managedcertificate.id", index=True)
     server_id: int = Field(foreign_key="server.id", index=True)
+    # Human label: "NPM proxy", "Unifi controller", "HAOS reverse proxy"
+    label: Optional[str] = Field(default=None, max_length=200)
     remote_dir: str = Field(default="~/certs")
     layout: str = Field(default="pair")  # pair | combined | pair_and_combined | pair_and_pfx
     fullchain_filename: str = Field(default="fullchain.pem")
@@ -499,3 +515,37 @@ class CertificateTarget(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     certificate: Optional[ManagedCertificate] = Relationship(back_populates="targets")
+
+
+class ServiceDnsRecord(SQLModel, table=True):
+    """Service / app DNS identity in the fleet fabric.
+
+    Default: CNAME → target host's dns_name (often NPM edge).
+    Backend host is where the stack runs (may differ from DNS target).
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    fqdn: str = Field(index=True, unique=True, max_length=253)
+    record_type: str = Field(default="cname", index=True)  # cname | a
+    # DNS CNAME target (edge): must have Server.dns_name
+    target_server_id: int = Field(foreign_key="server.id", index=True)
+    # Where the app stack runs (backend)
+    backend_server_id: int = Field(foreign_key="server.id", index=True)
+    stack_deployment_id: Optional[int] = Field(
+        default=None, foreign_key="stackdeployment.id", index=True
+    )
+    docker_project: Optional[str] = Field(default=None, max_length=200, index=True)
+    label: Optional[str] = Field(default=None, max_length=200)
+    managed_on_pihole: bool = True
+    via_proxy: bool = False  # CNAME target is NPM/proxy edge, not backend
+    npm_hint: Optional[str] = Field(default=None, max_length=300)
+    certificate_id: Optional[int] = Field(
+        default=None, foreign_key="managedcertificate.id", index=True
+    )
+    # none | checklist | done
+    external_dns_status: str = Field(default="checklist", max_length=32)
+    notes: Optional[str] = None
+    last_synced_at: Optional[datetime] = None
+    last_sync_status: Optional[str] = None  # ok | partial | error
+    last_sync_detail: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)

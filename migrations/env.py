@@ -54,6 +54,13 @@ def run_migrations_online() -> None:
         )
         with context.begin_transaction():
             context.run_migrations()
+        # SQLAlchemy 2.x: ensure migration DDL + alembic_version stamp are committed.
+        # Without this, upgrades can log as applied while the transaction rolls back
+        # on connection close — leaving the app schema behind the model (500s).
+        try:
+            connection.commit()
+        except Exception:
+            pass
 
 
 if context.is_offline_mode():

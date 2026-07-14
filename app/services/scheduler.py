@@ -502,6 +502,51 @@ def schedule_cert_renew_job():
         logger.warning(f"[SCHEDULER] cert renew check failed: {e}")
 
 
+TEMPLATE_DRIFT_JOB_ID = "template_drift_check"
+TEMPLATE_DRIFT_INTERVAL_HOURS = 6
+
+
+def run_template_drift_checks():
+    """Scheduled: compare host compose/.env to StackDeployment desired state."""
+    try:
+        from ..database import engine
+        from .service_templates.deploy import check_all_deployments_drift
+
+        with Session(engine) as s:
+            res = check_all_deployments_drift(s)
+            logger.info("[SCHEDULER] template drift check: %s", res)
+    except Exception as e:
+        logger.warning("[SCHEDULER] template drift check failed: %s", e)
+
+
+def sync_template_drift_schedule(scheduler, HAS_SCHEDULER):
+    """Register periodic config drift checks for template deployments."""
+    if not HAS_SCHEDULER or not scheduler:
+        return
+    try:
+        try:
+            scheduler.remove_job(TEMPLATE_DRIFT_JOB_ID)
+        except Exception:
+            pass
+        from apscheduler.triggers.interval import IntervalTrigger
+
+        scheduler.add_job(
+            run_template_drift_checks,
+            trigger=IntervalTrigger(hours=TEMPLATE_DRIFT_INTERVAL_HOURS),
+            id=TEMPLATE_DRIFT_JOB_ID,
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
+        logger.info(
+            "[SCHEDULER] template drift every %sh id=%s",
+            TEMPLATE_DRIFT_INTERVAL_HOURS,
+            TEMPLATE_DRIFT_JOB_ID,
+        )
+    except Exception as e:
+        logger.warning("sync_template_drift_schedule: %s", e)
+
+
 def sync_cert_renew_schedule(scheduler, HAS_SCHEDULER):
     """Register periodic certificate expiry / renew / distribute job."""
     if not HAS_SCHEDULER or not scheduler:
@@ -577,7 +622,9 @@ def schedule_herder_backup_job():
         logger.info(f"[SCHEDULER] PiHerder self-backup written: {path}")
         try:
             with Session(engine) as s:
-                al = AuditLog(
+                from .audit_write import make_audit_log
+
+                al = make_audit_log(
                     user_id=None,
                     server_id=None,
                     action="herder_backup",
@@ -586,6 +633,7 @@ def schedule_herder_backup_job():
                     output_snippet=json.dumps({"path": str(path), "mode": mode}),
                     started_at=datetime.utcnow(),
                     finished_at=datetime.utcnow(),
+                    client_ip=None,  # system / scheduler — no HTTP request
                 )
                 s.add(al)
                 s.commit()

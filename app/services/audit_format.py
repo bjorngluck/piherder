@@ -40,6 +40,10 @@ _ACTION_LABELS = {
     "os_patch": "OS patch",
     "os_update_check": "OS update check",
     "container_update_check": "Container update check",
+    "docker_stack_check": "Stack update check",
+    "docker_stack_deploy": "Stack deploy",
+    "docker_check-updates": "Stack update check",
+    "docker_redeploy": "Stack deploy",
     "server_os_check_schedule": "OS check schedule",
     "server_container_check_schedule": "Container check schedule",
     "server_os_apply_schedule": "OS apply schedule",
@@ -62,6 +66,14 @@ _ACTION_LABELS = {
     "api_token_updated": "API token updated",
     "api_token_rotated": "API token rotated",
     "api_token_revoked": "API token revoked",
+    "user_login": "Login",
+    "user_login_failed": "Login failed",
+    "template.deploy": "Template deploy",
+    "template.redeploy": "Template redeploy",
+    "template.from_host": "Template from host",
+    "template.drift_check": "Template drift check",
+    "template.env_migrate": "Import host .env",
+    "template.apply_config": "Apply last known config",
 }
 
 

@@ -31,16 +31,33 @@ def pull_project_as_editor_form(
     *,
     auto_harden_env: bool = True,
 ) -> Dict[str, Any]:
-    """SSH-read project files and return an editor form dict + messages."""
+    """SSH-read project files and return an editor form dict + messages.
+
+    Handles common edge cases (v0.5.0 A):
+    - Multi-file compose (primary + override merged note)
+    - Missing ``.env`` (uses ``.env.example`` or empty with a clear message)
+    - Odd layouts still fail with path + basenames tried
+    """
     project_name = (project_name or "").strip()
     if not project_name or "/" in project_name or ".." in project_name:
-        raise TemplateError("Invalid project name")
+        raise TemplateError(
+            "Invalid project name — use the compose folder name only "
+            "(no path separators)"
+        )
 
     base = docker_base_expanded(server)
     path = f"{base}/{project_name}".replace("//", "/")
-    files = get_project_live_files(server, path)
+    try:
+        files = get_project_live_files(server, path)
+    except Exception as e:
+        raise TemplateError(
+            f"Could not read {server.name}:{path} over SSH — {e}"
+        ) from e
     if not files:
-        raise TemplateError(f"No compose files found under {path}")
+        raise TemplateError(
+            f"No files found under {path} on {server.name}. "
+            "Confirm Docker base dir, project folder name, and Force refresh inventory."
+        )
 
     compose_key = primary_compose_key(files)
     if not compose_key:
@@ -50,11 +67,59 @@ def pull_project_as_editor_form(
                 compose_key = k
                 break
     if not compose_key or compose_key not in files:
-        raise TemplateError("Could not find docker-compose.yml / compose.yml on host")
+        found = ", ".join(sorted(files.keys())[:12]) or "(none)"
+        raise TemplateError(
+            f"Could not find docker-compose.yml / compose.yml under {path}. "
+            f"Files present: {found}"
+        )
 
     compose = files.get(compose_key) or ""
-    env = files.get(".env") or files.get(".env.example") or ""
-    messages: List[str] = [f"Loaded {compose_key}" + (" and .env" if env else "") + f" from {server.name}:{path}"]
+    # Multi-file: note override if present (editor stores single compose body; override kept as hint)
+    override_keys = [
+        k
+        for k in files
+        if "override" in k.lower() and k.lower().endswith((".yml", ".yaml"))
+    ]
+    env = files.get(".env") or ""
+    env_from_example = False
+    if not env and files.get(".env.example"):
+        env = files.get(".env.example") or ""
+        env_from_example = True
+    messages: List[str] = [
+        f"Loaded {compose_key}"
+        + (" + .env" if files.get(".env") else "")
+        + (f" + {override_keys[0]}" if override_keys else "")
+        + f" from {server.name}:{path}"
+    ]
+    if env_from_example:
+        messages.append(
+            "No .env on host — used .env.example as a starting point. "
+            "Review secrets before deploy (values may be placeholders)."
+        )
+    elif not env:
+        messages.append(
+            "No .env or .env.example on host — variables will be inferred from compose only. "
+            "Add secrets at deploy time."
+        )
+    if override_keys:
+        messages.append(
+            f"Compose override present ({', '.join(override_keys)}). "
+            "Primary file is parameterized; re-check override mounts after import."
+        )
+    # Attach secondary compose files into editor notes if multiple compose basenames
+    extra_compose = [
+        k
+        for k in files
+        if k != compose_key
+        and k.lower().endswith((".yml", ".yaml"))
+        and "override" not in k.lower()
+    ]
+    if extra_compose:
+        messages.append(
+            "Additional compose files found: "
+            + ", ".join(extra_compose)
+            + " — only the primary file is imported into the template body."
+        )
 
     extracted_defaults: Dict[str, str] = {}
     if auto_harden_env:

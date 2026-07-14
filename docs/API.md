@@ -271,7 +271,7 @@ Every job trigger checks **all three** layers:
 
 Missing capability or feature allowlist → **403**. Server flag off → **400** with a clear “feature is disabled for this server” message. Feature edits require `edit` plus each affected feature allowlist scope before any flag is written.
 
-Audit entries for API-triggered jobs and feature patches record the **token name + id** (and the creating user when known). In the UI: **Settings → API tokens → Audit trail**, or **Audit → filter by API token**.
+Audit entries for API-triggered jobs and feature patches record the **token name + id** (and the creating user when known), plus **`client_ip`** resolved from Caddy’s `X-Forwarded-For` / `X-Real-IP` (or TCP peer if hit direct). In the UI: **Settings → API tokens → Audit trail**, or **Audit → filter by API token** (list/detail show IP; search matches IP).
 
 ---
 

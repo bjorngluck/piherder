@@ -765,12 +765,34 @@ async def server_detail(
     except Exception:
         inventory_meta = {}
 
+    # Prefill Host DNS form from saved fields, Pi-hole A records, or heuristics
+    dns_form = {
+        "dns_name": "",
+        "ip_address": "",
+        "dns_ip_override": "",
+        "dns_manage_a": False,
+        "is_saved": False,
+        "source": "empty",
+        "pihole_match": None,
+    }
+    try:
+        from ..services import dns_fabric as fabric
+        from ..services.app_settings import load_settings as load_app_settings
+
+        base = (load_app_settings().get("dns_base_domain") or "").strip()
+        dns_form = fabric.host_dns_form_defaults(
+            session, server, base_domain=base, probe_pihole=True
+        )
+    except Exception:
+        pass
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_detail.html",
         context={
             "title": server.name,
             "server": server_dict,
+            "dns_form": dns_form,
             "inventory_meta": inventory_meta,
             "os_phased_count": os_phased_count,
             "os_total_upgradable": os_total_upgradable,
@@ -1096,6 +1118,14 @@ async def update_server(
     ssh_password: str = Form(""),
     clear_password: Optional[str] = Form(None),
     docker_base_dir: str = Form("~/docker"),
+    # Optional — only General form sends these. Features form must NOT send
+    # empty dns_* fields (that used to wipe DNS identity on every feature save).
+    include_dns: Optional[str] = Form(None),
+    dns_name: str = Form(""),
+    dns_ip_override: str = Form(""),
+    ip_address: str = Form(""),
+    dns_manage_a: Optional[str] = Form(None),
+    dns_sync_now: Optional[str] = Form(None),
     backup_enabled: bool = Form(False),
     container_patch_enabled: bool = Form(False),
     os_patch_enabled: bool = Form(False),
@@ -1111,6 +1141,8 @@ async def update_server(
     new_host = hostname.strip()
     new_user = ssh_username.strip()
     new_docker_base = (docker_base_dir or "~/docker").strip() or "~/docker"
+    touch_dns = include_dns in ("1", "on", "true", "yes")
+    new_ip = (ip_address or "").strip() or None
     if server.name != new_name:
         changed.append("name")
     if server.hostname != new_host:
@@ -1121,6 +1153,8 @@ async def update_server(
         changed.append("ssh_port")
     if (server.docker_base_dir or "") != new_docker_base:
         changed.append("docker_base_dir")
+    if touch_dns and (server.ip_address or None) != new_ip:
+        changed.append("ip_address")
     if server.backup_enabled != backup_enabled:
         changed.append("backup_enabled")
     if server.container_patch_enabled != container_patch_enabled:
@@ -1133,6 +1167,8 @@ async def update_server(
     server.ssh_username = new_user
     server.ssh_port = ssh_port
     server.docker_base_dir = new_docker_base
+    if touch_dns:
+        server.ip_address = new_ip
 
     if clear_password:
         server.ssh_password_encrypted = None
@@ -1171,6 +1207,51 @@ async def update_server(
 
     session.add(server)
     session.commit()
+
+    # Host DNS only when General form explicitly includes the DNS section
+    if touch_dns:
+        from urllib.parse import quote
+
+        try:
+            from ..services import dns_fabric as fabric
+
+            dns_result = fabric.update_server_dns(
+                session,
+                server,
+                dns_name=dns_name or None,
+                dns_manage_a=dns_manage_a in ("on", "1", "true"),
+                dns_ip_override=dns_ip_override or None,
+                user_id=user.id,
+                sync_now=dns_sync_now in ("on", "1", "true"),
+            )
+        except Exception as e:
+            msg = getattr(e, "message", None) or str(e)
+            return RedirectResponse(
+                f"/servers/{server_id}?error={quote(msg[:220])}",
+                status_code=303,
+            )
+
+        action = (dns_result or {}).get("action") or "saved"
+        sync = (dns_result or {}).get("sync") or []
+        if action == "synced" and sync:
+            ok = sum(1 for r in sync if r.get("ok"))
+            n = len(sync)
+            return RedirectResponse(
+                f"/servers/{server_id}?msg=dns_synced&detail={quote(f'{ok}/{n}')}",
+                status_code=303,
+            )
+        if action == "removed":
+            ok = sum(1 for r in sync if r.get("ok")) if sync else 0
+            n = len(sync) if sync else 0
+            return RedirectResponse(
+                f"/servers/{server_id}?msg=dns_removed&detail={quote(f'{ok}/{n}')}",
+                status_code=303,
+            )
+        if (dns_name or "").strip():
+            return RedirectResponse(
+                f"/servers/{server_id}?msg=dns_saved",
+                status_code=303,
+            )
 
     return RedirectResponse(_server_redirect(server_id), status_code=303)
 

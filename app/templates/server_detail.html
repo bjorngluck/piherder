@@ -9,7 +9,12 @@
   <div>
     <a href="/servers" class="text-xs text-accent hover:underline">← All servers</a>
     <h1 class="text-3xl font-semibold tracking-tighter text-text mt-1">{{ server.name }}</h1>
-    <p class="text-sm text-muted mt-1">{{ server.ssh_username }}@{{ server.hostname }}:{{ server.ssh_port }}</p>
+    <p class="text-sm text-muted mt-1">{{ server.ssh_username }}@{{ server.hostname }}:{{ server.ssh_port }}
+      {% if server.dns_name %}
+      · DNS <a href="/dns" class="text-accent font-mono text-xs hover:underline">{{ server.dns_name }}</a>
+      {% if server.ip_address %}<span class="font-mono text-xs">({{ server.ip_address }})</span>{% endif %}
+      {% endif %}
+    </p>
   </div>
   <div class="page-header-actions">
     <button type="button" onclick="showEditServerModal()" class="btn btn-secondary min-h-11">Edit</button>
@@ -404,6 +409,13 @@ document.addEventListener('DOMContentLoaded', function() {
     After running it on the host, use <strong>Use piherder</strong> / <strong>Save username</strong> so PiHerder re-points.
   {% elif flash_msg == 'server_added' %}<strong>Server added.</strong> Open <strong>SSH access</strong> to deploy the public key or copy the install script.
   {% elif flash_msg == 'key_generated' %}<strong>Keypair generated.</strong> Use <strong>Deploy key</strong> (with password if needed) or the install script.
+  {% elif flash_msg == 'dns_synced' %}<strong>Host DNS A record synced to Pi-hole</strong>
+    {% if flash_detail %}— {{ flash_detail }} instance(s) OK{% endif %}.
+    <a href="/dns" class="text-accent underline ml-1">Open DNS mesh</a>
+  {% elif flash_msg == 'dns_removed' %}<strong>Host DNS A record removed from Pi-hole</strong>
+    {% if flash_detail %}— {{ flash_detail }}{% endif %}.
+  {% elif flash_msg == 'dns_saved' %}<strong>Host DNS name saved</strong> (manage A is off — not pushed to Pi-hole).
+    Tick <em>Manage A on Pi-holes</em> to create the record, and set an IP address.
   {% else %}{{ flash_msg }}{% endif %}
 </div>
 {% endif %}
@@ -877,6 +889,47 @@ document.addEventListener('DOMContentLoaded', function() {
           </p>
         </div>
 
+        {% set df = dns_form if dns_form is defined else {} %}
+        <div class="border-t border-border pt-3 space-y-3">
+          <input type="hidden" name="include_dns" value="1">
+          <p class="text-xs font-medium text-text">Host DNS (LAN A record)</p>
+          <p class="text-[10px] text-muted">
+            One name for this server. Apps CNAME here (or via NPM edge).
+            Prefills from Pi-hole / IP when known.
+            <a href="/dns" class="text-accent underline">Fleet DNS</a>
+          </p>
+          {% if df.pihole_match and not df.is_saved %}
+          <p class="text-[11px] text-muted font-mono">
+            Pi-hole match: {{ df.pihole_match.domain }} → {{ df.pihole_match.ip }}
+          </p>
+          {% endif %}
+          <div>
+            <label class="block text-xs text-muted mb-1">DNS name (FQDN)</label>
+            <input name="dns_name" value="{{ df.dns_name or '' }}" autocomplete="off"
+                   placeholder="rpi5-1.hacknow.info"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1">IP address</label>
+            <input name="ip_address" value="{{ df.ip_address or '' }}" autocomplete="off"
+                   placeholder="192.168.1.10"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1">IP override (optional)</label>
+            <input name="dns_ip_override" value="{{ df.dns_ip_override or '' }}" autocomplete="off"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </div>
+          <label class="flex items-start gap-2 text-xs min-h-11">
+            <input type="checkbox" name="dns_manage_a" value="on" class="mt-1"
+                   {% if df.dns_manage_a %}checked{% endif %}>
+            <span>
+              <strong>Manage A on all Pi-holes</strong>
+              <span class="block text-muted">Save creates/updates the A record. Untick + save removes it.</span>
+            </span>
+          </label>
+        </div>
+
         <div class="border-t border-border pt-3">
           <label class="block text-xs text-warning mb-1 font-medium">Password Authentication (discouraged)</label>
           <p class="text-[10px] text-muted mb-2">Prefer SSH keys. Passwords are stored encrypted but are less secure.</p>
@@ -914,6 +967,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <input type="hidden" name="ssh_port" value="{{ server.ssh_port }}">
         <input type="hidden" name="ssh_username" value="{{ server.ssh_username }}">
         <input type="hidden" name="docker_base_dir" value="{{ server.docker_base_dir or '~/docker' }}">
+        {# Do not post dns_* here — empty values wiped host DNS on every Features save. #}
 
         <p class="text-xs text-muted">Turn features on to show dest cards, host actions, and schedule options. Off features are hidden from this server’s ops screen.</p>
         <div class="space-y-3">

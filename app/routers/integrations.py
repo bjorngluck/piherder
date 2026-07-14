@@ -9,14 +9,15 @@ from urllib.parse import urlencode
 
 # json used for docker_options_json in detail view
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlmodel import Session, select
 
 from .. import templates as templates_mod
 from ..database import get_session
 from ..models import AuditLog, Integration, Server, User
 from ..security.auth import get_current_user, get_operator_user, role_at_least, ROLE_OPERATOR
+from ..services import jobs as job_service
 from ..services.integrations import grafana as gf
 from ..services.integrations import npm as npm_mod
 from ..services.integrations import pihole as ph
@@ -38,8 +39,10 @@ def _audit(
     status: str = "success",
 ) -> None:
     try:
+        from ..services.audit_write import make_audit_log
+
         session.add(
-            AuditLog(
+            make_audit_log(
                 user_id=user.id,
                 server_id=server_id,
                 action=action,
@@ -1698,42 +1701,131 @@ def _fanout_pihole_dns(
     ip: str = "",
     domain: str = "",
     target: str = "",
+    scope: str = "all",
+    source_id: int | None = None,
 ) -> list[dict]:
-    """Apply DNS mutation to primary first, then all other enabled piholes."""
-    rows = [
-        r
-        for r in reg.list_integrations(session, type_filter=reg.TYPE_PIHOLE)
-        if r.enabled
-    ]
-    # Primary first
-    rows.sort(key=lambda r: (0 if reg.is_pihole_primary(r) else 1, r.id or 0))
-    results = []
-    for r in rows:
-        item = {"id": r.id, "name": r.name, "ok": False, "error": ""}
-        try:
-            sess = ph.login(
-                r.base_url,
-                reg.pihole_password(r),
-                tls_verify=reg.tls_verify(r),
+    """Apply DNS mutation with scope: all | this | secondaries."""
+    from ..services.dns_fabric import fanout_pihole_dns
+
+    return fanout_pihole_dns(
+        session,
+        op=op,
+        kind=kind,
+        ip=ip,
+        domain=domain,
+        target=target,
+        scope=scope,
+        source_id=source_id,
+    )
+
+
+def _wants_async_json(request: Request) -> bool:
+    if (request.headers.get("X-PiHerder-Async") or "").strip() == "1":
+        return True
+    accept = (request.headers.get("accept") or "").lower()
+    return "application/json" in accept and "text/html" not in accept
+
+
+def _run_pihole_action_job(job_id: int, audit_id: int, target_ids: list[int], action: str) -> None:
+    """Background worker: gravity / restartdns / flush_network on target integrations."""
+    from datetime import datetime as dt
+
+    from ..models import Job as JobModel
+
+    labels = {
+        "gravity": "Update Gravity",
+        "restartdns": "Restart DNS",
+        "flush_network": "Flush network table",
+    }
+    label = labels.get(action, action)
+    try:
+        with job_service._get_fresh_session() as s:
+            job = s.get(JobModel, job_id)
+            if not job or job.status == "cancelled":
+                return
+            job.status = "running"
+            job.started_at = dt.utcnow()
+            job_service._merge_job_details(
+                job,
+                current=f"Running {label}…",
+                log_line=f"Starting {label} on {len(target_ids)} instance(s)…",
+                done=False,
             )
+            s.add(job)
+            s.commit()
+
+            targets = []
+            for tid in target_ids:
+                row = reg.get_integration(s, tid)
+                if row and row.enabled and row.type == reg.TYPE_PIHOLE:
+                    targets.append(
+                        {
+                            "id": row.id,
+                            "name": row.name,
+                            "base_url": row.base_url,
+                            "password": reg.pihole_password(row),
+                            "tls_verify": reg.tls_verify(row),
+                        }
+                    )
+
+        results = []
+        for r in targets:
+            job_service._flush_job_progress(
+                job_id, f"{r['name']}…", f"→ {r['name']}: {label}…"
+            )
+            item = {"name": r["name"], "ok": False, "error": ""}
             try:
-                if kind == "host":
-                    if op == "add":
-                        ph.add_dns_host(sess, ip, domain)
-                    else:
-                        ph.delete_dns_host(sess, ip, domain)
-                else:
-                    if op == "add":
-                        ph.add_dns_cname(sess, domain, target)
-                    else:
-                        ph.delete_dns_cname(sess, domain, target)
-                item["ok"] = True
-            finally:
-                ph.logout(sess)
-        except Exception as e:
-            item["error"] = str(e)[:200]
-        results.append(item)
-    return results
+                sess = ph.login(
+                    r["base_url"],
+                    r["password"],
+                    tls_verify=r["tls_verify"],
+                )
+                try:
+                    out = ph.run_action(sess, action)
+                    item["ok"] = True
+                    tail = f" · {(out or '')[:120]}" if out else ""
+                    job_service._flush_job_progress(
+                        job_id, f"{r['name']} ok", f"  {r['name']}: ok{tail}"
+                    )
+                finally:
+                    ph.logout(sess)
+            except Exception as e:
+                item["error"] = str(e)[:200]
+                job_service._flush_job_progress(
+                    job_id,
+                    f"{r['name']} failed",
+                    f"  {r['name']}: failed — {item['error']}",
+                )
+            results.append(item)
+
+        ok_n = sum(1 for x in results if x["ok"])
+        fail = [x for x in results if not x["ok"]]
+        if not results:
+            status = "failed"
+            summary = f"{label}: no enabled targets"
+        elif not fail:
+            status = "success"
+            summary = f"{label}: {ok_n}/{len(results)} ok"
+        else:
+            status = "failed"
+            summary = f"{label}: {ok_n}/{len(results)} ok · " + "; ".join(
+                f"{f['name']}: {f['error']}" for f in fail
+            )[:200]
+        job_service._finish(
+            audit_id, job_id, status, summary, job_type="pihole_action"
+        )
+    except Exception as e:
+        logger.exception("pihole action job %s: %s", job_id, e)
+        try:
+            job_service._finish(
+                audit_id,
+                job_id,
+                "failed",
+                f"Pi-hole action failed: {str(e)[:300]}",
+                job_type="pihole_action",
+            )
+        except Exception:
+            pass
 
 
 @router.post("/integrations/{integration_id}/pihole/dns-host")
@@ -1744,6 +1836,7 @@ async def pihole_dns_host(
     action: str = Form("add"),
     ip: str = Form(""),
     domain: str = Form(""),
+    scope: str = Form("all"),
 ):
     integration = reg.get_integration(session, integration_id)
     if not integration or integration.type != reg.TYPE_PIHOLE:
@@ -1758,19 +1851,34 @@ async def pihole_dns_host(
             detail="IP and domain required",
         )
     op = "add" if action == "add" else "delete"
+    # Adds always fan out to all; deletes honour scope (this / secondaries / all)
+    sc = "all" if op == "add" else (scope or "all")
     results = _fanout_pihole_dns(
-        session, op=op, kind="host", ip=ip, domain=domain
+        session,
+        op=op,
+        kind="host",
+        ip=ip,
+        domain=domain,
+        scope=sc,
+        source_id=integration_id,
     )
+    if not results:
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab="dns",
+            error="no_targets",
+            detail="No matching Pi-hole instances for that scope",
+        )
     ok_n = sum(1 for r in results if r["ok"])
     fail = [r for r in results if not r["ok"]]
     _audit(
         session,
         user,
         f"pihole_dns_host_{op}",
-        details=f"{ip} {domain} ok={ok_n}/{len(results)}",
+        details=f"{ip} {domain} scope={sc} ok={ok_n}/{len(results)}",
         status="success" if not fail else "partial",
     )
-    detail = f"{ok_n}/{len(results)} instances"
+    detail = f"{ok_n}/{len(results)} instances ({sc})"
     if fail:
         detail += " · " + "; ".join(f"{f['name']}: {f['error']}" for f in fail)[:180]
     return _redirect(
@@ -1789,6 +1897,7 @@ async def pihole_dns_cname(
     action: str = Form("add"),
     domain: str = Form(""),
     target: str = Form(""),
+    scope: str = Form("all"),
 ):
     integration = reg.get_integration(session, integration_id)
     if not integration or integration.type != reg.TYPE_PIHOLE:
@@ -1803,19 +1912,33 @@ async def pihole_dns_cname(
             detail="domain and target required",
         )
     op = "add" if action == "add" else "delete"
+    sc = "all" if op == "add" else (scope or "all")
     results = _fanout_pihole_dns(
-        session, op=op, kind="cname", domain=domain, target=target
+        session,
+        op=op,
+        kind="cname",
+        domain=domain,
+        target=target,
+        scope=sc,
+        source_id=integration_id,
     )
+    if not results:
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab="cname",
+            error="no_targets",
+            detail="No matching Pi-hole instances for that scope",
+        )
     ok_n = sum(1 for r in results if r["ok"])
     fail = [r for r in results if not r["ok"]]
     _audit(
         session,
         user,
         f"pihole_dns_cname_{op}",
-        details=f"{domain} -> {target} ok={ok_n}/{len(results)}",
+        details=f"{domain} -> {target} scope={sc} ok={ok_n}/{len(results)}",
         status="success" if not fail else "partial",
     )
-    detail = f"{ok_n}/{len(results)} instances"
+    detail = f"{ok_n}/{len(results)} instances ({sc})"
     if fail:
         detail += " · " + "; ".join(f"{f['name']}: {f['error']}" for f in fail)[:180]
     return _redirect(
@@ -1828,17 +1951,47 @@ async def pihole_dns_cname(
 
 @router.post("/integrations/{integration_id}/pihole/action")
 async def pihole_action(
+    request: Request,
     integration_id: int,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
-    action: str = Form(...),
+    action: Optional[str] = Form(None),
     all_instances: Optional[str] = Form(None),
 ):
     integration = reg.get_integration(session, integration_id)
     if not integration or integration.type != reg.TYPE_PIHOLE:
         raise HTTPException(404)
+    # Form() may miss multi-button submitter after confirm/async; also read raw form
     act = (action or "").strip().lower()
+    if not act:
+        try:
+            form = await request.form()
+            act = str(form.get("action") or "").strip().lower()
+        except Exception:
+            act = ""
+    logger.info(
+        "pihole action request integration=%s action=%r all=%r user=%s async=%s",
+        integration_id,
+        act,
+        all_instances,
+        getattr(user, "id", None),
+        _wants_async_json(request),
+    )
     if act not in ("gravity", "restartdns", "flush_network"):
+        logger.warning(
+            "pihole action rejected integration=%s action=%r user=%s",
+            integration_id,
+            action,
+            getattr(user, "id", None),
+        )
+        if _wants_async_json(request):
+            return JSONResponse(
+                {
+                    "detail": "Missing or unknown action (expected gravity, restartdns, or flush_network)",
+                },
+                status_code=400,
+            )
         return _redirect(
             f"/integrations/{integration_id}",
             tab="actions",
@@ -1852,41 +2005,43 @@ async def pihole_action(
             for r in reg.list_integrations(session, type_filter=reg.TYPE_PIHOLE)
             if r.enabled
         ]
-    results = []
-    for r in targets:
-        item = {"name": r.name, "ok": False, "error": "", "output": ""}
-        try:
-            sess = ph.login(
-                r.base_url,
-                reg.pihole_password(r),
-                tls_verify=reg.tls_verify(r),
-            )
-            try:
-                out = ph.run_action(sess, act)
-                item["ok"] = True
-                item["output"] = (out or "")[:500]
-            finally:
-                ph.logout(sess)
-        except Exception as e:
-            item["error"] = str(e)[:200]
-        results.append(item)
-    ok_n = sum(1 for r in results if r["ok"])
-    _audit(
+    target_ids = [int(r.id) for r in targets if r.id is not None]
+    labels = {
+        "gravity": "Update Gravity",
+        "restartdns": "Restart DNS",
+        "flush_network": "Flush network table",
+    }
+    label = labels.get(act, act)
+    queue_msg = f"{label} queued for {len(target_ids)} instance(s)…"
+    job, audit = job_service._create_queued_job_with_audit(
         session,
-        user,
-        f"pihole_action_{act}",
-        details=f"ok={ok_n}/{len(results)}",
-        status="success" if ok_n == len(results) else "partial",
+        server_id=None,
+        job_type="pihole_action",
+        queue_message=queue_msg,
+        user_id=user.id,
+        audit_details=f"Job #{{job_id}} · {label} · {len(target_ids)} target(s)",
+        action=act,
+        integration_id=integration_id,
+        target_ids=target_ids,
     )
-    fail = [r for r in results if not r["ok"]]
-    detail = f"{ok_n}/{len(results)} ok"
-    if fail:
-        detail += " · " + "; ".join(f"{f['name']}: {f['error']}" for f in fail)[:160]
+    background_tasks.add_task(
+        _run_pihole_action_job, job.id, audit.id, target_ids, act
+    )
+    if _wants_async_json(request):
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "poll_url": f"/jobs/{job.id}",
+                "status": "pending",
+                "action": act,
+                "detail": queue_msg,
+            }
+        )
     return _redirect(
         f"/integrations/{integration_id}",
         tab="actions",
-        msg="action_ok" if not fail else "action_partial",
-        detail=detail,
+        msg="action_queued",
+        detail=f"Job #{job.id} · {label}",
     )
 
 

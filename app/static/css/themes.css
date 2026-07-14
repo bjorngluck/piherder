@@ -2183,3 +2183,583 @@ a.docker-popover-item {
 }
 
 /* Add more as needed */
+/* ============================================================
+   DNS fabric topology (physical / logical / paths)
+   ============================================================ */
+[x-cloak] { display: none !important; }
+
+.fabric-topology .settings-tab-btn.is-active {
+  border-color: var(--color-accent, #00a651);
+  color: var(--color-text);
+  background: var(--accent-subtle-bg, rgba(0, 166, 81, 0.10));
+}
+
+/* Physical — host racks */
+.fabric-rack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr));
+  gap: 0.85rem;
+}
+.fabric-rack {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: linear-gradient(
+    165deg,
+    var(--color-surface) 0%,
+    var(--color-bg) 100%
+  );
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.fabric-rack:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
+}
+.fabric-rack--edge {
+  border-color: color-mix(in srgb, var(--color-warning, #d97706) 55%, var(--color-border));
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--color-warning, #d97706) 8%, var(--color-surface)) 0%,
+    var(--color-surface) 70%
+  );
+}
+.fabric-rack--empty { opacity: 0.72; }
+.fabric-rack-head {
+  padding: 0.75rem 0.85rem 0.55rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.fabric-rack-title {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  text-decoration: none;
+}
+.fabric-rack-title:hover { color: var(--color-accent); }
+.fabric-rack-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  margin-top: 0.35rem;
+  font-size: 0.68rem;
+  color: var(--color-muted);
+}
+.fabric-rack-count {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+  white-space: nowrap;
+}
+.fabric-rack-apps {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}
+.fabric-rack-empty-msg {
+  padding: 0.75rem;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  margin: 0;
+}
+.fabric-app-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-muted);
+}
+.fabric-app-chip--npm_app,
+.fabric-app-chip--npm_host { border-left-color: var(--color-warning, #d97706); }
+.fabric-app-chip--app { border-left-color: var(--color-success, #059669); }
+.fabric-app-chip--host_identity,
+.fabric-app-chip--host_app { border-left-color: var(--color-primary, #e60012); }
+.fabric-app-url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+  color: var(--color-text);
+  text-decoration: none;
+  word-break: break-all;
+}
+a.fabric-app-url:hover { color: var(--color-accent); }
+.fabric-app-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.6rem;
+  font-size: 0.65rem;
+  color: var(--color-muted);
+}
+.fabric-link-via {
+  color: var(--color-warning, #d97706);
+  font-weight: 500;
+}
+
+.fabric-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+  vertical-align: middle;
+  margin-left: 0.35rem;
+}
+.fabric-badge--npm {
+  border-color: color-mix(in srgb, var(--color-warning, #d97706) 50%, var(--color-border));
+  color: var(--color-warning, #d97706);
+  background: color-mix(in srgb, var(--color-warning, #d97706) 10%, transparent);
+}
+.fabric-badge--npm_app,
+.fabric-badge--npm_host {
+  border-color: color-mix(in srgb, var(--color-warning, #d97706) 50%, var(--color-border));
+  color: var(--color-warning, #d97706);
+}
+.fabric-badge--app {
+  border-color: color-mix(in srgb, var(--color-success, #059669) 50%, var(--color-border));
+  color: var(--color-success, #059669);
+}
+.fabric-badge--host_identity,
+.fabric-badge--host_app {
+  border-color: color-mix(in srgb, var(--color-primary, #e60012) 45%, var(--color-border));
+  color: var(--color-primary, #e60012);
+}
+
+/* Logical — URL flows */
+.fabric-flow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.fabric-flow {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1.2fr) minmax(7rem, 0.9fr) minmax(10rem, 1.1fr) auto;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.7rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  transition: border-color 0.12s ease, transform 0.12s ease;
+}
+.fabric-flow:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+}
+.fabric-flow--npm {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-warning, #d97706) 7%, var(--color-surface)) 0%,
+    var(--color-surface) 45%
+  );
+}
+.fabric-flow-url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  min-width: 0;
+  word-break: break-all;
+}
+.fabric-flow-scheme { color: var(--color-muted); font-size: 0.7rem; }
+.fabric-flow-host { color: var(--color-text); font-weight: 600; }
+.fabric-flow-edge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.fabric-flow-edge-line {
+  flex: 1;
+  height: 2px;
+  min-width: 0.5rem;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-accent) 55%, var(--color-border)),
+    transparent
+  );
+  border-radius: 1px;
+}
+.fabric-flow--npm .fabric-flow-edge-line {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-warning, #d97706) 70%, var(--color-border)),
+    transparent
+  );
+}
+.fabric-flow-edge-label {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted);
+  white-space: nowrap;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+}
+.fabric-flow--npm .fabric-flow-edge-label {
+  color: var(--color-warning, #d97706);
+  border-color: color-mix(in srgb, var(--color-warning, #d97706) 40%, var(--color-border));
+}
+.fabric-flow-arrow {
+  color: var(--color-muted);
+  font-size: 0.85rem;
+  line-height: 1;
+}
+.fabric-flow-dest {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.fabric-flow-dest-host {
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  text-decoration: none;
+}
+a.fabric-flow-dest-host:hover { color: var(--color-accent); }
+.fabric-flow-dest-app {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+}
+.fabric-flow-sync {
+  color: var(--color-success, #059669);
+  font-size: 0.55rem;
+  opacity: 0.85;
+}
+@media (max-width: 720px) {
+  .fabric-flow {
+    grid-template-columns: 1fr;
+    gap: 0.4rem;
+  }
+  .fabric-flow-edge { max-width: 12rem; }
+}
+
+/* Paths — hop chain cards */
+.fabric-path-card {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 0.75rem 0.9rem;
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-muted);
+}
+.fabric-path-card--npm_app,
+.fabric-path-card--npm_host { border-left-color: var(--color-warning, #d97706); }
+.fabric-path-card--app { border-left-color: var(--color-success, #059669); }
+.fabric-path-card--host_identity,
+.fabric-path-card--host_app { border-left-color: var(--color-primary, #e60012); }
+.fabric-path-hops {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.2rem;
+}
+.fabric-path-connector {
+  display: flex;
+  align-items: center;
+  width: 1.1rem;
+  flex-shrink: 0;
+}
+.fabric-path-connector-line {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  border-radius: 1px;
+}
+.fabric-hop {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 5.25rem;
+  max-width: 10rem;
+  padding: 0.4rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  text-decoration: none;
+  color: var(--color-text);
+  transition: border-color 0.1s ease, transform 0.1s ease;
+}
+a.fabric-hop:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-1px);
+}
+.fabric-hop--name {
+  border-color: color-mix(in srgb, var(--color-primary, #e60012) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-primary, #e60012) 6%, var(--color-surface));
+}
+.fabric-hop--npm {
+  border-color: color-mix(in srgb, var(--color-warning, #d97706) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning, #d97706) 8%, var(--color-surface));
+}
+.fabric-hop--host {
+  border-color: var(--color-border);
+}
+.fabric-hop--service,
+.fabric-hop--container {
+  border-style: dashed;
+}
+.fabric-hop-kind {
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted);
+  font-weight: 600;
+}
+.fabric-hop-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fabric-hop-sub {
+  font-size: 0.62rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Nav cards to full mesh pages */
+.fabric-nav-card {
+  display: block;
+  padding: 1.15rem 1.25rem;
+  border-radius: 14px;
+  border: 1px solid var(--color-border);
+  text-decoration: none;
+  color: var(--color-text);
+  background: var(--color-surface);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.fabric-nav-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.07);
+  transform: translateY(-1px);
+}
+.fabric-nav-card--physical {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--color-accent) 8%, var(--color-surface)) 0%,
+    var(--color-surface) 55%);
+}
+.fabric-nav-card--logical {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--color-warning, #d97706) 10%, var(--color-surface)) 0%,
+    var(--color-surface) 55%);
+}
+.fabric-nav-card-kicker {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  margin-bottom: 0.25rem;
+}
+.fabric-nav-card-title {
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.fabric-nav-card-desc {
+  margin: 0.4rem 0 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-muted);
+  line-height: 1.4;
+}
+.fabric-nav-card-cta {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.fabric-path-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.fabric-path-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+.fabric-legend-pill {
+  display: inline-block;
+  font-size: 0.65rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-muted);
+}
+.fabric-path-connector {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+}
+.fabric-path-connector-line {
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--color-accent) 20%, var(--color-border)),
+    color-mix(in srgb, var(--color-accent) 70%, var(--color-border)));
+  border-radius: 1px;
+}
+.fabric-path-connector-dot {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  opacity: 0.85;
+}
+
+/* Full-page mesh SVG */
+.fabric-mesh-scroll {
+  overflow: auto;
+  max-height: min(78vh, 900px);
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 50% 40%,
+      color-mix(in srgb, var(--color-accent) 6%, transparent) 0%,
+      transparent 55%),
+    var(--color-bg);
+  border: 1px solid var(--color-border);
+}
+.fabric-mesh-svg {
+  display: block;
+  min-width: 720px;
+  height: auto;
+}
+.fabric-mesh-edge {
+  stroke: var(--color-muted);
+  stroke-width: 1.5;
+  opacity: 0.55;
+  fill: none;
+}
+.fabric-mesh-edge--land { stroke: var(--color-muted); opacity: 0.45; }
+.fabric-mesh-edge--npm,
+.fabric-mesh-edge--to_npm,
+.fabric-mesh-edge--from_npm {
+  stroke: var(--color-warning, #d97706);
+  stroke-width: 1.75;
+  opacity: 0.75;
+}
+.fabric-mesh-edge--direct {
+  stroke: var(--color-accent);
+  stroke-width: 1.6;
+  opacity: 0.55;
+}
+.fabric-mesh-edge-label {
+  fill: var(--color-muted);
+  font-size: 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.fabric-mesh-col-label {
+  fill: var(--color-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.fabric-mesh-node rect,
+.fabric-mesh-node circle {
+  stroke-width: 1.5;
+}
+.fabric-mesh-node--host rect {
+  fill: var(--color-surface);
+  stroke: var(--color-border);
+}
+.fabric-mesh-node--host.is-edge rect {
+  fill: color-mix(in srgb, var(--color-warning, #d97706) 12%, var(--color-surface));
+  stroke: color-mix(in srgb, var(--color-warning, #d97706) 55%, var(--color-border));
+}
+.fabric-mesh-node--app rect {
+  fill: color-mix(in srgb, var(--color-primary, #e60012) 6%, var(--color-surface));
+  stroke: color-mix(in srgb, var(--color-primary, #e60012) 30%, var(--color-border));
+}
+.fabric-mesh-node--app.is-npm rect {
+  fill: color-mix(in srgb, var(--color-warning, #d97706) 8%, var(--color-surface));
+  stroke: color-mix(in srgb, var(--color-warning, #d97706) 40%, var(--color-border));
+}
+.fabric-mesh-node--url rect {
+  fill: color-mix(in srgb, var(--color-primary, #e60012) 7%, var(--color-surface));
+  stroke: color-mix(in srgb, var(--color-primary, #e60012) 35%, var(--color-border));
+}
+.fabric-mesh-node--dest rect {
+  fill: var(--color-surface);
+  stroke: var(--color-border);
+}
+.fabric-mesh-node--hub circle {
+  stroke: color-mix(in srgb, var(--color-warning, #d97706) 70%, var(--color-border));
+  stroke-width: 2;
+}
+.fabric-mesh-label {
+  fill: var(--color-text);
+  font-size: 12px;
+  font-weight: 650;
+  font-family: system-ui, sans-serif;
+}
+.fabric-mesh-label-sm {
+  fill: var(--color-text);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.fabric-mesh-sub {
+  fill: var(--color-muted);
+  font-size: 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.fabric-mesh-tag {
+  fill: var(--color-warning, #d97706);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.fabric-legend-swatch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-size: 0.7rem;
+}
+.fabric-legend-swatch--host::before,
+.fabric-legend-swatch--edge::before,
+.fabric-legend-swatch--app::before {
+  content: "";
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 3px;
+  background: var(--color-border);
+}
+.fabric-legend-swatch--edge::before {
+  background: var(--color-warning, #d97706);
+}
+.fabric-legend-swatch--app::before {
+  background: var(--color-primary, #e60012);
+}
+.fabric-legend-swatch--npm-line {
+  color: var(--color-warning, #d97706);
+}

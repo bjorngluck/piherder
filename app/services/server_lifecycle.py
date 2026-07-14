@@ -13,7 +13,7 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from ..models import AuditLog, DockerVersion, Job, Notification, Server
+from ..models import DockerVersion, Job, Notification, Server
 from . import jobs as job_service
 
 logger = logging.getLogger(__name__)
@@ -128,6 +128,15 @@ def delete_server_from_fleet(
     ).all():
         session.delete(dv)
 
+    # DNS fabric rows that reference this host
+    try:
+        from .dns_fabric import cleanup_dns_for_server
+
+        n_dns = cleanup_dns_for_server(session, server_id)
+        snapshot["dns_records_removed"] = n_dns
+    except Exception as e:
+        logger.warning(f"[lifecycle] dns cleanup for server {server_id}: {e}")
+
     # Keep job / audit / notification rows; unlink from server
     for job in session.exec(select(Job).where(Job.server_id == server_id)).all():
         job.server_id = None
@@ -144,8 +153,10 @@ def delete_server_from_fleet(
         session.add(note)
 
     # Fleet-level audit (no server_id — row is about to go away)
+    from .audit_write import make_audit_log
+
     session.add(
-        AuditLog(
+        make_audit_log(
             user_id=user_id,
             server_id=None,
             action="server_deleted",

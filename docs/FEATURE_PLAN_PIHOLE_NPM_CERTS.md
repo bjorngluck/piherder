@@ -1,7 +1,7 @@
 # Feature Plan: Pi-hole + NPM + TLS certificates (v0.5.0)
 
 **Status:** Implemented on main (v0.5.0 track)  
-**Related:** [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md)
+**Related:** [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · Wiki [DNS fabric](../wiki/integrations/dns-fabric.md) (host/service topology beyond raw Pi-hole CRUD)
 
 ## Goal
 
@@ -45,6 +45,7 @@ Ship first-class **Pi-hole (v6)** and **Nginx Proxy Manager** integrations, plus
 - [x] Auto-renew schedule (6h) for NPM-sourced certs  
 - [x] Herder backup includes certs  
 - [x] pytest coverage for adapters + PEM parse  
+- [x] **DNS fabric** (follow-on): host DNS identity, service mappings, Pi-hole adopt, physical/logical meshes — see PLAN § F.1 + wiki  
 
 ## File map
 

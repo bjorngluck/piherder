@@ -19,7 +19,7 @@
     <a href="/certificates" class="btn btn-secondary min-h-11">All certificates</a>
     {% if can_mutate and cert.source == 'npm' %}
     <form method="post" action="/certificates/{{ cert.id }}/renew"
-          data-confirm="Request renew via NPM, poll for a new certificate, then redistribute to deploy targets? This can take several minutes."
+          data-confirm="Request renew via NPM, poll for a new certificate, then redistribute to all service maps? This can take several minutes."
           data-confirm-title="Renew certificate"
           data-confirm-label="Renew"
           data-confirm-danger
@@ -28,15 +28,15 @@
       <button class="btn btn-secondary min-h-11" type="submit">Renew (NPM)</button>
     </form>
     {% endif %}
-    {% if can_mutate %}
+    {% if can_mutate and targets %}
     <form method="post" action="/certificates/{{ cert.id }}/deploy"
-          data-confirm="Deploy this certificate to all enabled targets over SSH?"
-          data-confirm-title="Deploy all targets"
+          data-confirm="Deploy this certificate to every service map over SSH (write files, set perms, run restarts)?"
+          data-confirm-title="Deploy all service maps"
           data-confirm-label="Deploy all"
           data-wait-title="Deploying certificate"
-          data-wait-message="Writing PEMs to hosts via SSH…">
+          data-wait-message="Writing files to hosts via SSH…">
       <input type="hidden" name="force" value="on">
-      <button class="btn btn-primary min-h-11" type="submit">Deploy all targets</button>
+      <button class="btn btn-primary min-h-11" type="submit">Deploy all maps</button>
     </form>
     {% endif %}
   </div>
@@ -49,9 +49,25 @@
 <div class="mb-3 p-3 banner-error border border-border rounded text-sm">{{ error }}{% if detail %} — {{ detail }}{% endif %}</div>
 {% endif %}
 
+{# Mental model #}
+<div class="card p-4 mb-6 border border-primary/20 bg-surface">
+  <h3 class="text-sm font-semibold text-text mb-2">How certificates work here</h3>
+  <ol class="text-sm text-muted space-y-1.5 list-decimal list-inside">
+    <li><strong class="text-text">Vault</strong> — this page holds one TLS identity (fullchain + key), encrypted. Never shown again.</li>
+    <li><strong class="text-text">Service maps</strong> — each consumer (NPM volume, UniFi, mail, …) is a map: host + directory + filenames + owner/mode + optional restart.</li>
+    <li><strong class="text-text">Deploy</strong> — PiHerder SSHs to the host, writes those exact files, applies permissions, runs your post-deploy command (e.g. container restart).</li>
+  </ol>
+  <p class="text-xs text-muted mt-3">
+    Example: map “NPM on edge” → <code class="text-[11px]">/opt/stacks/npm/data/custom_ssl</code>, layout <em>pair</em>,
+    files <code class="text-[11px]">fullchain.pem</code> + <code class="text-[11px]">privkey.pem</code>, owner <code class="text-[11px]">root:root</code> mode <code class="text-[11px]">600</code>,
+    post-deploy <code class="text-[11px]">docker compose -f /opt/stacks/npm/docker-compose.yml restart</code>.
+    Point the app at those paths (or the volume that mounts them).
+  </p>
+</div>
+
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
   <div class="card p-4 text-sm space-y-2">
-    <h3 class="font-semibold">Details</h3>
+    <h3 class="font-semibold">Vault details</h3>
     <div><span class="text-muted">Domains:</span> {{ cert.domains|join(', ') if cert.domains else '—' }}</div>
     <div><span class="text-muted">Issuer:</span> <span class="text-xs break-all">{{ cert.issuer or '—' }}</span></div>
     <div><span class="text-muted">Not before:</span> {{ cert.not_before or '—' }}</div>
@@ -65,12 +81,12 @@
 
   {% if can_mutate %}
   <div class="card p-4">
-    <h3 class="font-semibold text-sm mb-3">Settings</h3>
+    <h3 class="font-semibold text-sm mb-3">Vault settings</h3>
     <form method="post" action="/certificates/{{ cert.id }}/settings" class="space-y-3"
           data-wait-title="Saving"
           data-wait-message="Updating certificate settings…">
       <div>
-        <label class="block text-xs text-muted mb-1">Name</label>
+        <label class="block text-xs text-muted mb-1">Display name</label>
         <input name="name" class="input w-full" value="{{ cert.name }}" required>
       </div>
       <label class="flex items-center gap-2 text-sm">
@@ -89,142 +105,462 @@
   {% endif %}
 </div>
 
-<div class="card p-4 mb-6">
-  <h3 class="font-semibold text-sm mb-3">Deploy targets</h3>
+{# Service maps #}
+<div class="card p-4 mb-6" id="service-maps">
+  <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+    <div>
+      <h3 class="font-semibold text-sm">Service maps</h3>
+      <p class="text-xs text-muted mt-1 max-w-2xl">
+        One map per place this cert must land. Same vault can feed NPM, a Docker bind-mount, and a PFX consumer.
+        Deploy writes files — it does not delete old ones or reconfigure the app beyond your post-deploy command.
+      </p>
+    </div>
+  </div>
+
   {% if targets %}
-  <div class="overflow-x-auto mb-4">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-xs text-muted border-b border-border">
-          <th class="py-2 text-left">Server</th>
-          <th class="text-left">Path</th>
-          <th class="text-left">Layout</th>
-          <th class="text-left">Last deploy</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for t in targets %}
-        <tr class="border-b border-border/60">
-          <td class="py-2">{{ t.server_name }}</td>
-          <td class="font-mono text-xs">{{ t.remote_dir }}</td>
-          <td class="text-xs">{{ t.layout }}</td>
-          <td class="text-xs">
-            {% if t.last_deploy_status == 'success' %}
-            <span class="status-pill status-success">ok</span>
-            {% elif t.last_deploy_status == 'failed' %}
-            <span class="status-pill status-failed" title="{{ t.last_deploy_message or '' }}">failed</span>
-            {% else %}
-            <span class="text-muted">never</span>
-            {% endif %}
-            {% if t.last_deployed_at %}<span class="text-muted"> · {{ t.last_deployed_at }}</span>{% endif %}
-          </td>
-          <td class="text-right space-x-1">
-            {% if can_mutate %}
-            <form method="post" action="/certificates/{{ cert.id }}/deploy" class="inline"
-                  data-confirm="Deploy this certificate to {{ t.server_name }} ({{ t.remote_dir }})?"
-                  data-confirm-title="Deploy to host"
-                  data-confirm-label="Deploy"
-                  data-wait-title="Deploying certificate"
-                  data-wait-message="Writing PEMs to {{ t.server_name }} via SSH…">
-              <input type="hidden" name="target_id" value="{{ t.id }}">
-              <input type="hidden" name="force" value="on">
-              <button class="btn btn-secondary text-xs min-h-9" type="submit">Deploy</button>
-            </form>
-            <form method="post" action="/certificates/{{ cert.id }}/targets/{{ t.id }}/delete" class="inline"
-                  data-confirm="Remove deploy target on {{ t.server_name }}? Files already on the host are not deleted."
-                  data-confirm-title="Remove target"
-                  data-confirm-label="Remove"
-                  data-confirm-danger
-                  data-wait-title="Removing target"
-                  data-wait-message="Updating database…">
-              <button class="btn btn-secondary text-xs min-h-9" type="submit">Remove</button>
-            </form>
-            {% endif %}
-          </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <div class="space-y-3 mb-6">
+    {% for t in targets %}
+    <article class="border border-border rounded-lg p-3 sm:p-4 space-y-2">
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="font-medium text-sm">
+            {% if t.label %}{{ t.label }}{% else %}Map #{{ t.id }}{% endif %}
+          </div>
+          <div class="text-xs text-muted mt-0.5">
+            Host:
+            <a href="/servers/{{ t.server_id }}" class="text-primary hover:underline">{{ t.server_name }}</a>
+            · <span class="font-mono break-all">{{ t.remote_dir }}</span>
+          </div>
+        </div>
+        <div class="text-xs">
+          {% if t.last_deploy_status == 'success' %}
+          <span class="status-pill status-success">deployed</span>
+          {% elif t.last_deploy_status == 'failed' %}
+          <span class="status-pill status-failed" title="{{ t.last_deploy_message or '' }}">failed</span>
+          {% else %}
+          <span class="status-pill feature-off">never deployed</span>
+          {% endif %}
+          {% if t.last_deployed_at %}<span class="text-muted ml-1">{{ t.last_deployed_at }}</span>{% endif %}
+        </div>
+      </div>
+
+      <div class="text-xs text-muted">{{ t.layout_help or t.layout }}</div>
+
+      <ul class="text-xs font-mono space-y-0.5 bg-bg border border-border rounded p-2">
+        {% for f in t.files %}
+        <li class="break-all"><span class="text-muted">{{ f.kind }}:</span> {{ f.path }}</li>
+        {% endfor %}
+      </ul>
+
+      <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
+        <span>mode <code class="text-[11px]">{{ t.file_mode or '600' }}</code></span>
+        {% if t.file_owner or t.file_group %}
+        <span>owner <code class="text-[11px]">{{ t.file_owner or '—' }}{% if t.file_group %}:{{ t.file_group }}{% endif %}</code></span>
+        {% else %}
+        <span>owner unchanged</span>
+        {% endif %}
+      </div>
+      {% if t.post_deploy_command %}
+      <div class="text-xs">
+        <span class="text-muted">After write:</span>
+        <code class="text-[11px] break-all">{{ t.post_deploy_command }}</code>
+      </div>
+      {% else %}
+      <div class="text-xs text-muted">No post-deploy restart — app will keep old cert until you restart it yourself.</div>
+      {% endif %}
+      {% if t.last_deploy_status == 'failed' and t.last_deploy_message %}
+      <div class="text-xs text-amber-600 break-words">{{ t.last_deploy_message }}</div>
+      {% endif %}
+
+      {% if can_mutate %}
+      <div class="flex flex-wrap gap-2 pt-1">
+        <form method="post" action="/certificates/{{ cert.id }}/deploy"
+              data-confirm="Deploy to “{{ t.label or t.server_name }}” ({{ t.remote_dir }}) now?"
+              data-confirm-title="Deploy service map"
+              data-confirm-label="Deploy"
+              data-wait-title="Deploying certificate"
+              data-wait-message="Writing PEMs to {{ t.server_name }} via SSH…">
+          <input type="hidden" name="target_id" value="{{ t.id }}">
+          <input type="hidden" name="force" value="on">
+          <button class="btn btn-primary text-xs min-h-10" type="submit">Deploy</button>
+        </form>
+        <a href="/certificates/{{ cert.id }}?edit_target={{ t.id }}#map-form"
+           class="btn btn-secondary text-xs min-h-10">Edit map</a>
+        <form method="post" action="/certificates/{{ cert.id }}/targets/{{ t.id }}/delete"
+              data-confirm="Remove service map “{{ t.label or t.server_name }}”? Files already on the host are not deleted."
+              data-confirm-title="Remove service map"
+              data-confirm-label="Remove"
+              data-confirm-danger
+              data-wait-title="Removing map"
+              data-wait-message="Updating database…">
+          <button class="btn btn-secondary text-xs min-h-10" type="submit">Remove</button>
+        </form>
+      </div>
+      {% endif %}
+    </article>
+    {% endfor %}
   </div>
   {% else %}
-  <p class="text-sm text-muted mb-3">No deploy targets yet.</p>
+  <p class="text-sm text-muted mb-4">
+    No service maps yet. Add one below so PiHerder knows <em>where</em> and <em>how</em> to drop this cert.
+  </p>
   {% endif %}
 
   {% if can_mutate %}
-  <form method="post" action="/certificates/{{ cert.id }}/targets"
-        class="grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-border pt-4"
-        data-confirm="Add this deploy target? Certificate files will not be written until you Deploy."
-        data-confirm-title="Add deploy target"
-        data-confirm-label="Add target"
-        data-wait-title="Adding target"
-        data-wait-message="Saving deploy target…">
-    <div>
-      <label class="block text-xs text-muted mb-1">Server</label>
-      <select name="server_id" class="input w-full" required>
-        {% for s in servers %}
-        <option value="{{ s.id }}">{{ s.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div>
-      <label class="block text-xs text-muted mb-1">Remote directory</label>
-      <input name="remote_dir" class="input w-full font-mono text-sm" value="~/certs">
-    </div>
-    <div>
-      <label class="block text-xs text-muted mb-1">Layout</label>
-      <select name="layout" class="input w-full">
-        <option value="pair">pair (fullchain + privkey)</option>
-        <option value="combined">combined only (key+chain)</option>
-        <option value="pair_and_combined">pair + combined</option>
-        <option value="pair_and_pfx">pair + PFX</option>
-        <option value="pair_combined_pfx">pair + combined + PFX</option>
-      </select>
-    </div>
-    <div>
-      <label class="block text-xs text-muted mb-1">File mode</label>
-      <input name="file_mode" class="input w-full font-mono text-sm" value="600">
-    </div>
-    <div>
-      <label class="block text-xs text-muted mb-1">Owner (optional)</label>
-      <input name="file_owner" class="input w-full" placeholder="root">
-    </div>
-    <div>
-      <label class="block text-xs text-muted mb-1">Group (optional)</label>
-      <input name="file_group" class="input w-full" placeholder="root">
-    </div>
-    <div>
-      <label class="block text-xs text-muted mb-1">fullchain filename</label>
-      <input name="fullchain_filename" class="input w-full font-mono text-sm" value="fullchain.pem">
-    </div>
-    <div>
-      <label class="block text-xs text-muted mb-1">privkey filename</label>
-      <input name="privkey_filename" class="input w-full font-mono text-sm" value="privkey.pem">
-    </div>
-    <div>
-      <label class="block text-xs text-muted mb-1">combined filename</label>
-      <input name="combined_filename" class="input w-full font-mono text-sm" value="snakeoil.pem">
-    </div>
-    <div>
-      <label class="block text-xs text-muted mb-1">pfx filename</label>
-      <input name="pfx_filename" class="input w-full font-mono text-sm" value="Certificate.pfx">
-    </div>
-    <div class="md:col-span-2">
-      <label class="block text-xs text-muted mb-1">Post-deploy command (optional)</label>
-      <input name="post_deploy_command" class="input w-full font-mono text-sm"
-             placeholder="sudo systemctl restart myapp">
-    </div>
-    <div class="md:col-span-2">
-      <button type="submit" class="btn btn-primary min-h-11">Add target</button>
-    </div>
-  </form>
+  {% set et = edit_target %}
+  <div id="map-form" class="border-t border-border pt-4">
+    <h4 class="text-sm font-semibold mb-1">
+      {% if et %}Edit service map{% else %}Add service map{% endif %}
+    </h4>
+    <p class="text-xs text-muted mb-3">
+      Start with a <strong>preset</strong> for common layouts, then adjust path and restart for your stack.
+      {% if et %}<a href="/certificates/{{ cert.id }}#map-form" class="text-primary hover:underline">Cancel edit</a>{% endif %}
+    </p>
+
+    <form method="post"
+          action="{% if et %}/certificates/{{ cert.id }}/targets/{{ et.id }}/edit{% else %}/certificates/{{ cert.id }}/targets{% endif %}"
+          class="cert-map-form space-y-4"
+          data-confirm="{% if et %}Save changes to this service map?{% else %}Add this service map? Files are not written until you Deploy.{% endif %}"
+          data-confirm-title="{% if et %}Save service map{% else %}Add service map{% endif %}"
+          data-confirm-label="{% if et %}Save{% else %}Add map{% endif %}"
+          data-wait-title="{% if et %}Saving map{% else %}Adding map{% endif %}"
+          data-wait-message="Updating database…">
+
+      {# Presets #}
+      {% if not et %}
+      <div>
+        <label class="block text-xs text-muted mb-1">Preset</label>
+        <select id="cert-map-preset" class="input w-full text-sm">
+          <option value="">Choose a starting point…</option>
+          <option value="nginx_pair">Nginx / Caddy / NPM-style PEM pair</option>
+          <option value="docker_volume">Docker host path (bind-mounted certs dir)</option>
+          <option value="combined">Combined single PEM (key + chain)</option>
+          <option value="pfx">PEM pair + PFX (Windows / UniFi-style)</option>
+          <option value="custom">Custom (blank defaults)</option>
+        </select>
+        <p class="text-[11px] text-muted mt-1" id="cert-map-preset-help">
+          Presets fill layout, filenames, and example paths — edit for your host.
+        </p>
+      </div>
+      {% endif %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="md:col-span-2">
+          <label class="block text-xs text-muted mb-1">What is this for? (label)</label>
+          <input name="label" class="input w-full" maxlength="200"
+                 value="{{ et.label if et else '' }}"
+                 placeholder="e.g. NPM custom SSL, UniFi controller, HA reverse proxy">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Host (PiHerder server)</label>
+          <select name="server_id" class="input w-full" required>
+            {% for s in servers %}
+            <option value="{{ s.id }}"
+              {% if et and et.server_id == s.id %}selected{% elif not et and loop.first %}selected{% endif %}>
+              {{ s.name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Directory on host</label>
+          <input name="remote_dir" id="cert-map-dir" class="input w-full font-mono text-sm"
+                 value="{{ et.remote_dir if et else '~/certs' }}"
+                 placeholder="/opt/stacks/npm/certs or ~/certs" required>
+          <p class="text-[11px] text-muted mt-1">
+            Absolute path or <code class="text-[10px]">~/…</code>. Use the host path that your container volume mounts.
+          </p>
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs text-muted mb-1">File layout</label>
+          <select name="layout" id="cert-map-layout" class="input w-full text-sm">
+            <option value="pair" {% if not et or et.layout == 'pair' %}selected{% endif %}>
+              pair — fullchain + privkey (most common)
+            </option>
+            <option value="combined" {% if et and et.layout == 'combined' %}selected{% endif %}>
+              combined only — one PEM (key then chain)
+            </option>
+            <option value="pair_and_combined" {% if et and et.layout == 'pair_and_combined' %}selected{% endif %}>
+              pair + combined
+            </option>
+            <option value="pair_and_pfx" {% if et and et.layout == 'pair_and_pfx' %}selected{% endif %}>
+              pair + PFX
+            </option>
+            <option value="pair_combined_pfx" {% if et and et.layout == 'pair_combined_pfx' %}selected{% endif %}>
+              pair + combined + PFX
+            </option>
+          </select>
+          <p class="text-[11px] text-muted mt-1" id="cert-map-layout-help">
+            {{ layout_help.get('pair', '') if layout_help else '' }}
+          </p>
+        </div>
+      </div>
+
+      {# Filenames #}
+      <details class="border border-border rounded p-3" id="cert-map-filenames" open>
+        <summary class="text-sm font-medium cursor-pointer">Filenames the service expects</summary>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+          <div data-file-field="fullchain">
+            <label class="block text-xs text-muted mb-1">Fullchain filename</label>
+            <input name="fullchain_filename" id="cert-map-fullchain" class="input w-full font-mono text-sm"
+                   value="{{ et.fullchain_filename if et else 'fullchain.pem' }}">
+          </div>
+          <div data-file-field="privkey">
+            <label class="block text-xs text-muted mb-1">Private key filename</label>
+            <input name="privkey_filename" id="cert-map-privkey" class="input w-full font-mono text-sm"
+                   value="{{ et.privkey_filename if et else 'privkey.pem' }}">
+          </div>
+          <div data-file-field="combined">
+            <label class="block text-xs text-muted mb-1">Combined filename</label>
+            <input name="combined_filename" id="cert-map-combined" class="input w-full font-mono text-sm"
+                   value="{{ et.combined_filename if et else 'snakeoil.pem' }}">
+          </div>
+          <div data-file-field="pfx">
+            <label class="block text-xs text-muted mb-1">PFX filename</label>
+            <input name="pfx_filename" id="cert-map-pfx" class="input w-full font-mono text-sm"
+                   value="{{ et.pfx_filename if et else 'Certificate.pfx' }}">
+          </div>
+          <div data-file-field="pfx" class="sm:col-span-2">
+            <label class="block text-xs text-muted mb-1">PFX export password {% if et and et.has_pfx_password %}(leave blank to keep){% else %}(optional){% endif %}</label>
+            <input name="pfx_export_password" type="password" class="input w-full font-mono text-sm"
+                   autocomplete="new-password" placeholder="{% if et and et.has_pfx_password %}•••• stored{% else %}empty = no password{% endif %}">
+          </div>
+        </div>
+      </details>
+
+      {# Permissions #}
+      <details class="border border-border rounded p-3" open>
+        <summary class="text-sm font-medium cursor-pointer">Permissions</summary>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+          <div>
+            <label class="block text-xs text-muted mb-1">Mode (octal)</label>
+            <input name="file_mode" class="input w-full font-mono text-sm"
+                   value="{{ et.file_mode if et else '600' }}">
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1">Owner user</label>
+            <input name="file_owner" class="input w-full"
+                   value="{{ et.file_owner if et else '' }}" placeholder="root (optional)">
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1">Owner group</label>
+            <input name="file_group" class="input w-full"
+                   value="{{ et.file_group if et else '' }}" placeholder="root (optional)">
+          </div>
+        </div>
+        <p class="text-[11px] text-muted mt-2">
+          Mode is applied with chmod. Owner uses <code class="text-[10px]">chown</code> (sudo if needed). Leave owner empty to keep the SSH user.
+        </p>
+      </details>
+
+      {# Restart #}
+      <div>
+        <label class="block text-xs text-muted mb-1">Post-deploy command (restart / reload)</label>
+        <input name="post_deploy_command" id="cert-map-post" class="input w-full font-mono text-sm"
+               value="{{ et.post_deploy_command if et else '' }}"
+               placeholder="docker compose -f /opt/stacks/npm/docker-compose.yml restart">
+        <p class="text-[11px] text-muted mt-1">
+          Runs over SSH after files are written. Failures mark the deploy failed. Leave empty if you reload manually.
+        </p>
+      </div>
+
+      {# Live preview #}
+      <div class="border border-border rounded p-3 bg-bg">
+        <div class="text-xs font-medium mb-1">Preview — files that Deploy will write</div>
+        <ul id="cert-map-preview" class="text-xs font-mono space-y-0.5 text-muted"></ul>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <button type="submit" class="btn btn-primary min-h-11">
+          {% if et %}Save service map{% else %}Add service map{% endif %}
+        </button>
+        {% if et %}
+        <a href="/certificates/{{ cert.id }}#map-form" class="btn btn-secondary min-h-11">Cancel</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <script>
+  (function () {
+    var layoutHelp = {{ (layout_help or {})|tojson }};
+    var PRESETS = {
+      nginx_pair: {
+        label: 'NPM / reverse proxy SSL',
+        remote_dir: '/opt/stacks/npm/certs',
+        layout: 'pair',
+        fullchain: 'fullchain.pem',
+        privkey: 'privkey.pem',
+        mode: '600',
+        owner: 'root',
+        group: 'root',
+        post: 'docker compose -f /opt/stacks/npm/docker-compose.yml restart',
+        help: 'Two PEM files — typical for Nginx Proxy Manager custom certs or Caddy file_server TLS.'
+      },
+      docker_volume: {
+        label: 'App Docker stack certs',
+        remote_dir: '/opt/stacks/myservice/certs',
+        layout: 'pair',
+        fullchain: 'fullchain.pem',
+        privkey: 'privkey.pem',
+        mode: '600',
+        owner: 'root',
+        group: 'root',
+        post: 'docker compose -f /opt/stacks/myservice/docker-compose.yml restart',
+        help: 'Host directory you bind-mount into the container (e.g. ./certs:/certs:ro).'
+      },
+      combined: {
+        label: 'Combined PEM consumer',
+        remote_dir: '~/certs',
+        layout: 'combined',
+        combined: 'snakeoil.pem',
+        mode: '600',
+        owner: '',
+        group: '',
+        post: '',
+        help: 'Single file: private key first, then full chain — used by some HAProxy / legacy apps.'
+      },
+      pfx: {
+        label: 'PFX consumer (UniFi / Windows)',
+        remote_dir: '~/certs',
+        layout: 'pair_and_pfx',
+        fullchain: 'fullchain.pem',
+        privkey: 'privkey.pem',
+        pfx: 'Certificate.pfx',
+        mode: '600',
+        owner: '',
+        group: '',
+        post: '',
+        help: 'Writes PEM pair, then runs openssl pkcs12 on the host to create .pfx.'
+      },
+      custom: {
+        label: '',
+        remote_dir: '~/certs',
+        layout: 'pair',
+        fullchain: 'fullchain.pem',
+        privkey: 'privkey.pem',
+        combined: 'snakeoil.pem',
+        pfx: 'Certificate.pfx',
+        mode: '600',
+        owner: '',
+        group: '',
+        post: '',
+        help: 'Fill every field for your service.'
+      }
+    };
+
+    var form = document.querySelector('form.cert-map-form');
+    if (!form) return;
+    var dirEl = form.querySelector('#cert-map-dir');
+    var layoutEl = form.querySelector('#cert-map-layout');
+    var fullEl = form.querySelector('#cert-map-fullchain');
+    var keyEl = form.querySelector('#cert-map-privkey');
+    var combEl = form.querySelector('#cert-map-combined');
+    var pfxEl = form.querySelector('#cert-map-pfx');
+    var postEl = form.querySelector('#cert-map-post');
+    var preview = form.querySelector('#cert-map-preview');
+    var layoutHelpEl = form.querySelector('#cert-map-layout-help');
+    var presetEl = document.getElementById('cert-map-preset');
+    var presetHelp = document.getElementById('cert-map-preset-help');
+
+    function filesFor(layout, dir, names) {
+      var base = (dir || '~/certs').replace(/\/+$/, '') || '~/certs';
+      var out = [];
+      var L = layout || 'pair';
+      if (['pair', 'pair_and_combined', 'pair_and_pfx', 'pair_combined_pfx'].indexOf(L) >= 0) {
+        out.push({ kind: 'fullchain', path: base + '/' + (names.fullchain || 'fullchain.pem') });
+        out.push({ kind: 'privkey', path: base + '/' + (names.privkey || 'privkey.pem') });
+      }
+      if (['combined', 'pair_and_combined', 'pair_combined_pfx'].indexOf(L) >= 0) {
+        out.push({ kind: 'combined', path: base + '/' + (names.combined || 'snakeoil.pem') });
+      }
+      if (['pair_and_pfx', 'pair_combined_pfx'].indexOf(L) >= 0) {
+        out.push({ kind: 'pfx', path: base + '/' + (names.pfx || 'Certificate.pfx') });
+      }
+      return out;
+    }
+
+    function toggleFilenameFields(layout) {
+      var L = layout || 'pair';
+      var showPair = ['pair', 'pair_and_combined', 'pair_and_pfx', 'pair_combined_pfx'].indexOf(L) >= 0;
+      var showComb = ['combined', 'pair_and_combined', 'pair_combined_pfx'].indexOf(L) >= 0;
+      var showPfx = ['pair_and_pfx', 'pair_combined_pfx'].indexOf(L) >= 0;
+      form.querySelectorAll('[data-file-field]').forEach(function (el) {
+        var k = el.getAttribute('data-file-field');
+        var show = (k === 'fullchain' || k === 'privkey') ? showPair
+          : (k === 'combined') ? showComb
+          : (k === 'pfx') ? showPfx : true;
+        el.classList.toggle('hidden', !show);
+      });
+    }
+
+    function refreshPreview() {
+      var layout = layoutEl ? layoutEl.value : 'pair';
+      var files = filesFor(layout, dirEl && dirEl.value, {
+        fullchain: fullEl && fullEl.value,
+        privkey: keyEl && keyEl.value,
+        combined: combEl && combEl.value,
+        pfx: pfxEl && pfxEl.value
+      });
+      if (preview) {
+        if (!files.length) {
+          preview.innerHTML = '<li>No files for this layout</li>';
+        } else {
+          preview.innerHTML = files.map(function (f) {
+            return '<li class="break-all"><span class="text-muted">' + f.kind + ':</span> ' + f.path + '</li>';
+          }).join('');
+        }
+      }
+      if (layoutHelpEl && layoutHelp) {
+        layoutHelpEl.textContent = layoutHelp[layout] || '';
+      }
+      toggleFilenameFields(layout);
+    }
+
+    if (presetEl) {
+      presetEl.addEventListener('change', function () {
+        var p = PRESETS[presetEl.value];
+        if (!p) return;
+        var labelIn = form.querySelector('input[name="label"]');
+        if (labelIn && p.label) labelIn.value = p.label;
+        if (dirEl) dirEl.value = p.remote_dir || '~/certs';
+        if (layoutEl) layoutEl.value = p.layout || 'pair';
+        if (fullEl && p.fullchain) fullEl.value = p.fullchain;
+        if (keyEl && p.privkey) keyEl.value = p.privkey;
+        if (combEl && p.combined) combEl.value = p.combined;
+        if (pfxEl && p.pfx) pfxEl.value = p.pfx;
+        var modeIn = form.querySelector('input[name="file_mode"]');
+        var ownIn = form.querySelector('input[name="file_owner"]');
+        var grpIn = form.querySelector('input[name="file_group"]');
+        if (modeIn && p.mode != null) modeIn.value = p.mode;
+        if (ownIn && p.owner != null) ownIn.value = p.owner;
+        if (grpIn && p.group != null) grpIn.value = p.group;
+        if (postEl && p.post != null) postEl.value = p.post;
+        if (presetHelp) presetHelp.textContent = p.help || '';
+        refreshPreview();
+      });
+    }
+
+    ['input', 'change'].forEach(function (ev) {
+      form.addEventListener(ev, function (e) {
+        if (e.target && (e.target === dirEl || e.target === layoutEl ||
+            e.target === fullEl || e.target === keyEl || e.target === combEl || e.target === pfxEl)) {
+          refreshPreview();
+        }
+      });
+    });
+    refreshPreview();
+  })();
+  </script>
   {% endif %}
 </div>
 
 {% if can_mutate %}
 <div class="card p-4 mb-6">
   <h3 class="font-semibold text-sm mb-2">Replace PEM material</h3>
-  <p class="text-xs text-muted mb-3">Upload a new fullchain + key (e.g. after manual renewal outside NPM).</p>
+  <p class="text-xs text-muted mb-3">
+    Paste a new fullchain + key (e.g. after manual renewal outside NPM). Then <strong>Deploy all maps</strong> to push to hosts.
+  </p>
   <form method="post" action="/certificates/{{ cert.id }}/replace-pem" class="space-y-3"
         data-confirm="Replace encrypted fullchain and private key for this certificate? Previous material is overwritten."
         data-confirm-title="Replace PEM material"
@@ -241,7 +577,7 @@
 <div class="card p-4 border border-failed/30 max-w-xl">
   <h2 class="text-sm font-semibold text-text mb-2">Danger zone</h2>
   <form method="post" action="/certificates/{{ cert.id }}/delete"
-        data-confirm="Delete this certificate and all deploy targets? Host files are not removed automatically."
+        data-confirm="Delete this certificate and all service maps? Host files are not removed automatically."
         data-confirm-title="Delete certificate"
         data-confirm-label="Delete"
         data-confirm-danger

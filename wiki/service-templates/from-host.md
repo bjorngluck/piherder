@@ -13,5 +13,8 @@ Turn an existing compose project into an operator-owned template.
 
 ## Tips
 
-- Multi-file and odd layouts: polish continues in v0.5.0 — if pull fails, see [Templates troubleshooting](../troubleshooting/templates-docker.md).  
+- **Missing `.env`:** uses `.env.example` when present, or parameterizes compose only — messages explain what happened.  
+- **Override files:** noted in pull messages; primary compose is imported.  
+- **Errors:** invalid project names and missing compose basenames list path + files found.  
+- If pull still fails, see [Templates troubleshooting](../troubleshooting/templates-docker.md).  
 - After save, you can [deploy](deploy.md) to the same or another host.  

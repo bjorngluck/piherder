@@ -138,6 +138,60 @@ def test_send_for_notification_filters_and_calls_webpush(monkeypatch):
     assert "vapid_public_key" not in mock_webpush.call_args.kwargs
 
 
+def test_send_for_resolved_notification(monkeypatch):
+    """B09: auto-resolve pushes use same type prefs and Resolved: title."""
+    creds = push_svc.VapidCredentials(
+        public_key="pub",
+        private_key="-----BEGIN PRIVATE KEY-----\nX\n-----END PRIVATE KEY-----",
+        contact="mailto:a@b.c",
+        source="env",
+    )
+    monkeypatch.setattr(push_svc, "ensure_vapid_keys", lambda session: creds)
+    monkeypatch.setattr(push_svc, "_vapid_private_for_webpush", lambda pem: "vapid-obj")
+
+    sub = PushSubscription(
+        id=10,
+        user_id=1,
+        endpoint="https://push.example/x",
+        p256dh="k",
+        auth="a",
+        created_at=datetime.utcnow(),
+    )
+    pref = PushPreference(
+        user_id=1,
+        push_enabled=True,
+        backup_failed=True,
+        os_updates=True,
+        reboot_pending=True,
+        container_updates=True,
+        herder_backup_failed=True,
+    )
+    session = _session_with_subs_and_prefs(sub, pref)
+    n = Notification(
+        id=2,
+        type="backup_failed",
+        title="Backup failed on pi1",
+        body="rsync exit 1",
+        link_url="/servers/1/backups",
+        fingerprint="backup_failed:server:1",
+        severity="critical",
+    )
+    mock_webpush = MagicMock()
+    fake_mod = SimpleNamespace(webpush=mock_webpush, WebPushException=Exception)
+    with patch.dict("sys.modules", {"pywebpush": fake_mod}):
+        sent = push_svc.send_for_resolved_notification(session, n)
+    assert sent == 1
+    data = mock_webpush.call_args.kwargs.get("data") or mock_webpush.call_args[1].get("data")
+    if data is None and mock_webpush.call_args.args:
+        # positional not used for data typically
+        pass
+    import json as _json
+    payload = _json.loads(mock_webpush.call_args.kwargs["data"])
+    assert payload["title"].startswith("Resolved:")
+    assert payload["tag"] == "resolved:backup_failed:server:1"
+    assert payload["severity"] == "info"
+
+
 def test_send_skips_disabled_pref(monkeypatch):
     creds = push_svc.VapidCredentials(
         public_key="pub", private_key="priv", contact="mailto:a@b.c", source="env"

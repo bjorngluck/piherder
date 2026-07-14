@@ -5,7 +5,7 @@ Three related systems — do not confuse them.
 | System | Purpose |
 |--------|---------|
 | **Jobs** | Queue + live progress of work units |
-| **Audit** | Immutable history (who / what / when / snippet) |
+| **Audit** | Immutable history (who / what / when / **client IP** / snippet) |
 | **Notifications** | Dismissible inbox (updates pending, failed backup, …). Open via the **bell** icon (no separate Alerts nav link). |
 
 <figure class="ph-figure" markdown>
@@ -24,6 +24,7 @@ Three related systems — do not confuse them.
 | `backup` | Manual or backup cron → Celery |
 | `os_patch` / `container_patch` | Manual or apply schedule |
 | `os_update_check` / `container_update_check` | Manual or check schedule |
+| `docker_stack_check` / `docker_stack_deploy` | Stack ⋯ Check updates / Deploy |
 | `retention` | Retention cleanup |
 | `herder_backup` | PiHerder self-backup |
 
@@ -68,7 +69,18 @@ Actors may be:
 - **API token name + id** (automation)  
 - **system / scheduler** for cron jobs  
 
-Filter by user, server, token, action, status, date range.
+**Client IP (v0.5.0):** every request-driven audit row stores the source IP.
+
+| Path | What you see |
+|------|----------------|
+| Via Caddy (`:8888` / `:8443`) | True browser/API client (`X-Forwarded-For` / `X-Real-IP` overwritten by Caddy) |
+| Direct app `:8000` | TCP peer (often a Docker network IP) — production should not expose this |
+| Scheduler / cron only | **—** (no HTTP request) |
+| Job finish (Celery etc.) | IP **snapshotted when the job was queued** |
+
+Also audited with IP: **login** / **login failed** / **2FA**, and **API token** create/update/rotate/revoke. Free-text search matches IPs. Detail modal shows **IP**.
+
+Filter by user, server, token, action, status, date range, or free-text (includes IP).
 
 ### Backup lifecycle events
 
@@ -92,6 +104,7 @@ All event times are **stored in UTC** and **rendered in the app timezone** from 
 - Bell icon → open / dismiss  
 - Deep links into the relevant server or page  
 - Optional **Web Push** for new open notifications — [PWA & Web Push](../account-security/pwa-push.md)  
+- **B09:** when an alert **auto-resolves** (e.g. backup succeeds, updates clear), a push may fire as `Resolved: …` using the **same** type preference as the original alert  
 - Dismiss is **idempotent** if already closed  
 
 ## API

@@ -30,5 +30,6 @@ Partial fan-out failures are reported in the flash message and audit trail.
 
 ## Related
 
+- **DNS fabric** (Catalog → **DNS**): adopt existing local DNS/CNAMEs into host/service topology, physical/logical meshes — [DNS fabric](dns-fabric.md)
 - Deploy Pi-hole via [Templates](../service-templates/overview.md)
 - Env fallback `PIHOLE_URL` still works if no integration exists

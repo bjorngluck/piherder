@@ -101,8 +101,9 @@
 {% elif tab == 'dns' %}
 <div class="card p-4 mb-4">
   <p class="text-sm text-muted mb-3">
-    Entries listed from this instance. Add/remove applies to <strong>all enabled Pi-hole integrations</strong>
-    (primary first). Prefer editing on the primary.
+    Entries listed from <strong>this</strong> instance.
+    <strong>Add</strong> fans out to all enabled Pi-holes.
+    <strong>Remove</strong> can target this instance only, other (secondary) instances, or everywhere.
   </p>
   {% if dns_error %}
   <div class="mb-3 p-2 banner-error rounded text-sm">{{ dns_error }}</div>
@@ -116,6 +117,7 @@
         data-wait-title="Updating DNS"
         data-wait-message="Applying host record on all Pi-hole instances…">
     <input type="hidden" name="action" value="add">
+    <input type="hidden" name="scope" value="all">
     <div>
       <label class="block text-xs text-muted mb-1">IP</label>
       <input name="ip" class="input font-mono text-sm w-40" required placeholder="192.168.1.10">
@@ -127,28 +129,63 @@
     <button type="submit" class="btn btn-primary min-h-11">Add to all instances</button>
   </form>
   {% endif %}
-  <div class="overflow-x-auto">
+  <div class="table-scroll">
     <table class="w-full text-sm">
-      <thead><tr class="text-xs text-muted border-b border-border"><th class="py-2">IP</th><th>Domain</th><th></th></tr></thead>
+      <thead>
+        <tr class="text-xs text-muted border-b border-border">
+          <th class="py-2 text-left">IP</th>
+          <th class="text-left">Domain</th>
+          <th class="text-right">Remove</th>
+        </tr>
+      </thead>
       <tbody>
       {% for h in hosts %}
-        <tr class="border-b border-border/60">
+        <tr class="border-b border-border/60 align-middle">
           <td class="py-2 font-mono text-xs">{{ h.ip }}</td>
           <td class="font-mono text-xs">{{ h.domain }}</td>
-          <td class="text-right">
+          <td class="text-right py-2">
             {% if can_mutate %}
-            <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-host" class="inline"
-                  data-confirm="Remove {{ h.domain }} ({{ h.ip }}) from all enabled Pi-hole instances?"
-                  data-confirm-title="Remove local DNS"
-                  data-confirm-label="Remove"
-                  data-confirm-danger
-                  data-wait-title="Updating DNS"
-                  data-wait-message="Removing host record on all Pi-hole instances…">
-              <input type="hidden" name="action" value="delete">
-              <input type="hidden" name="ip" value="{{ h.ip }}">
-              <input type="hidden" name="domain" value="{{ h.domain }}">
-              <button type="submit" class="btn btn-secondary text-xs min-h-9">Remove</button>
-            </form>
+            <div class="inline-flex flex-wrap gap-1 justify-end">
+              <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-host" class="inline"
+                    data-confirm="Remove {{ h.domain }} ({{ h.ip }}) from this Pi-hole only?"
+                    data-confirm-title="Remove on this instance"
+                    data-confirm-label="Remove here"
+                    data-confirm-danger
+                    data-wait-title="Updating DNS"
+                    data-wait-message="Removing host record on this instance…">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="scope" value="this">
+                <input type="hidden" name="ip" value="{{ h.ip }}">
+                <input type="hidden" name="domain" value="{{ h.domain }}">
+                <button type="submit" class="btn btn-secondary text-xs min-h-9" title="This instance only">Here</button>
+              </form>
+              <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-host" class="inline"
+                    data-confirm="Remove {{ h.domain }} ({{ h.ip }}) from all other (secondary) Pi-hole instances? This instance is kept."
+                    data-confirm-title="Remove from secondaries"
+                    data-confirm-label="Remove secondaries"
+                    data-confirm-danger
+                    data-wait-title="Updating DNS"
+                    data-wait-message="Removing host record on secondary instances…">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="scope" value="secondaries">
+                <input type="hidden" name="ip" value="{{ h.ip }}">
+                <input type="hidden" name="domain" value="{{ h.domain }}">
+                <button type="submit" class="btn btn-secondary text-xs min-h-9" title="Other instances only">Secondaries</button>
+              </form>
+              <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-host" class="inline"
+                    data-confirm="Remove {{ h.domain }} ({{ h.ip }}) from ALL enabled Pi-hole instances?"
+                    data-confirm-title="Remove everywhere"
+                    data-confirm-label="Remove all"
+                    data-confirm-danger
+                    data-wait-title="Updating DNS"
+                    data-wait-message="Removing host record on all instances…">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="scope" value="all">
+                <input type="hidden" name="ip" value="{{ h.ip }}">
+                <input type="hidden" name="domain" value="{{ h.domain }}">
+                <button type="submit" class="btn btn-secondary text-xs min-h-9 text-red-600" title="All instances">All</button>
+              </form>
+            </div>
             {% endif %}
           </td>
         </tr>
@@ -162,7 +199,11 @@
 
 {% elif tab == 'cname' %}
 <div class="card p-4 mb-4">
-  <p class="text-sm text-muted mb-3">CNAME records fan out to all enabled Pi-hole instances.</p>
+  <p class="text-sm text-muted mb-3">
+    CNAMEs listed from <strong>this</strong> instance.
+    <strong>Add</strong> fans out to all enabled Pi-holes.
+    <strong>Remove</strong>: this instance, secondaries only, or everywhere.
+  </p>
   {% if dns_error %}
   <div class="mb-3 p-2 banner-error rounded text-sm">{{ dns_error }}</div>
   {% endif %}
@@ -175,6 +216,7 @@
         data-wait-title="Updating CNAME"
         data-wait-message="Applying CNAME on all Pi-hole instances…">
     <input type="hidden" name="action" value="add">
+    <input type="hidden" name="scope" value="all">
     <div>
       <label class="block text-xs text-muted mb-1">Domain</label>
       <input name="domain" class="input font-mono text-sm w-48" required placeholder="alias.local">
@@ -186,28 +228,63 @@
     <button type="submit" class="btn btn-primary min-h-11">Add to all instances</button>
   </form>
   {% endif %}
-  <div class="overflow-x-auto">
+  <div class="table-scroll">
     <table class="w-full text-sm">
-      <thead><tr class="text-xs text-muted border-b border-border"><th class="py-2">Domain</th><th>Target</th><th></th></tr></thead>
+      <thead>
+        <tr class="text-xs text-muted border-b border-border">
+          <th class="py-2 text-left">Domain</th>
+          <th class="text-left">Target</th>
+          <th class="text-right">Remove</th>
+        </tr>
+      </thead>
       <tbody>
       {% for c in cnames %}
-        <tr class="border-b border-border/60">
+        <tr class="border-b border-border/60 align-middle">
           <td class="py-2 font-mono text-xs">{{ c.domain }}</td>
           <td class="font-mono text-xs">{{ c.target }}</td>
-          <td class="text-right">
+          <td class="text-right py-2">
             {% if can_mutate %}
-            <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-cname" class="inline"
-                  data-confirm="Remove CNAME {{ c.domain }} → {{ c.target }} from all enabled Pi-hole instances?"
-                  data-confirm-title="Remove CNAME"
-                  data-confirm-label="Remove"
-                  data-confirm-danger
-                  data-wait-title="Updating CNAME"
-                  data-wait-message="Removing CNAME on all Pi-hole instances…">
-              <input type="hidden" name="action" value="delete">
-              <input type="hidden" name="domain" value="{{ c.domain }}">
-              <input type="hidden" name="target" value="{{ c.target }}">
-              <button type="submit" class="btn btn-secondary text-xs min-h-9">Remove</button>
-            </form>
+            <div class="inline-flex flex-wrap gap-1 justify-end">
+              <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-cname" class="inline"
+                    data-confirm="Remove CNAME {{ c.domain }} → {{ c.target }} from this Pi-hole only?"
+                    data-confirm-title="Remove on this instance"
+                    data-confirm-label="Remove here"
+                    data-confirm-danger
+                    data-wait-title="Updating CNAME"
+                    data-wait-message="Removing CNAME on this instance…">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="scope" value="this">
+                <input type="hidden" name="domain" value="{{ c.domain }}">
+                <input type="hidden" name="target" value="{{ c.target }}">
+                <button type="submit" class="btn btn-secondary text-xs min-h-9" title="This instance only">Here</button>
+              </form>
+              <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-cname" class="inline"
+                    data-confirm="Remove CNAME {{ c.domain }} → {{ c.target }} from all other (secondary) Pi-hole instances?"
+                    data-confirm-title="Remove from secondaries"
+                    data-confirm-label="Remove secondaries"
+                    data-confirm-danger
+                    data-wait-title="Updating CNAME"
+                    data-wait-message="Removing CNAME on secondary instances…">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="scope" value="secondaries">
+                <input type="hidden" name="domain" value="{{ c.domain }}">
+                <input type="hidden" name="target" value="{{ c.target }}">
+                <button type="submit" class="btn btn-secondary text-xs min-h-9" title="Other instances only">Secondaries</button>
+              </form>
+              <form method="post" action="/integrations/{{ integration.id }}/pihole/dns-cname" class="inline"
+                    data-confirm="Remove CNAME {{ c.domain }} → {{ c.target }} from ALL enabled Pi-hole instances?"
+                    data-confirm-title="Remove everywhere"
+                    data-confirm-label="Remove all"
+                    data-confirm-danger
+                    data-wait-title="Updating CNAME"
+                    data-wait-message="Removing CNAME on all instances…">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="scope" value="all">
+                <input type="hidden" name="domain" value="{{ c.domain }}">
+                <input type="hidden" name="target" value="{{ c.target }}">
+                <button type="submit" class="btn btn-secondary text-xs min-h-9 text-red-600" title="All instances">All</button>
+              </form>
+            </div>
             {% endif %}
           </td>
         </tr>
@@ -221,35 +298,121 @@
 
 {% elif tab == 'actions' %}
 <div class="card p-4 space-y-4 max-w-xl">
-  <p class="text-sm text-muted">Privileged actions — audited. Gravity can take several minutes.</p>
+  <p class="text-sm text-muted">
+    Privileged actions — audited and run as a background job with live progress.
+    Gravity can take several minutes.
+  </p>
   {% if can_mutate %}
-  <form method="post" action="/integrations/{{ integration.id }}/pihole/action" class="space-y-3"
-        data-wait-title="Running Pi-hole action"
-        data-wait-message="Please wait — this may take a while…">
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" name="all_instances" value="on">
-      Apply to all enabled Pi-hole instances
-    </label>
-    <div class="flex flex-wrap gap-2">
-      <button name="action" value="gravity" type="submit" class="btn btn-primary min-h-11"
-              data-confirm="Update Gravity (blocklists) now? This can take several minutes."
-              data-confirm-title="Update Gravity"
-              data-confirm-label="Update Gravity"
-              data-confirm-danger>Update Gravity</button>
-      <button name="action" value="restartdns" type="submit" class="btn btn-secondary min-h-11"
-              data-confirm="Restart the DNS resolver on the selected Pi-hole instance(s)?"
-              data-confirm-title="Restart DNS Resolver"
-              data-confirm-label="Restart DNS"
-              data-confirm-danger>Restart DNS Resolver</button>
-      <button name="action" value="flush_network" type="submit" class="btn btn-secondary min-h-11"
-              data-confirm="Flush the network table on the selected Pi-hole instance(s)?"
-              data-confirm-title="Flush network table"
-              data-confirm-label="Flush"
-              data-confirm-danger>Flush network table</button>
-    </div>
-  </form>
+  {# type=button + dedicated click handler (global form submit/confirm/job-hold chain was not firing POST) #}
+  <label class="flex items-center gap-2 text-sm">
+    <input type="checkbox" id="ph-all-instances" value="on">
+    Apply to all enabled Pi-hole instances
+  </label>
+  <div class="flex flex-wrap gap-2" id="ph-actions-btns">
+    <button type="button" class="btn btn-primary min-h-11 ph-run-action"
+            data-action="gravity"
+            data-title="Update Gravity"
+            data-confirm-msg="Update Gravity (blocklists) now? This can take several minutes and runs in the background.">
+      Update Gravity
+    </button>
+    <button type="button" class="btn btn-secondary min-h-11 ph-run-action"
+            data-action="restartdns"
+            data-title="Restart DNS"
+            data-confirm-msg="Restart the DNS resolver on the selected Pi-hole instance(s)?">
+      Restart DNS Resolver
+    </button>
+    <button type="button" class="btn btn-secondary min-h-11 ph-run-action"
+            data-action="flush_network"
+            data-title="Flush network table"
+            data-confirm-msg="Flush the network table on the selected Pi-hole instance(s)?">
+      Flush network table
+    </button>
+  </div>
+  <p id="ph-action-status" class="text-xs text-muted hidden" role="status"></p>
+  <script>
+  (function () {
+    var ACTION_URL = {{ ("/integrations/" ~ integration.id ~ "/pihole/action")|tojson }};
+    var statusEl = document.getElementById('ph-action-status');
+
+    function setStatus(msg, isErr) {
+      if (!statusEl) return;
+      statusEl.textContent = msg || '';
+      statusEl.classList.toggle('hidden', !msg);
+      statusEl.classList.toggle('text-red-600', !!isErr);
+      statusEl.classList.toggle('text-muted', !isErr);
+    }
+
+    function runAction(act, title) {
+      var fd = new FormData();
+      fd.set('action', act);
+      var all = document.getElementById('ph-all-instances');
+      if (all && all.checked) fd.set('all_instances', 'on');
+
+      setStatus('Starting ' + title + '…', false);
+
+      if (window.PiHerderJobHold && typeof window.PiHerderJobHold.run === 'function') {
+        window.PiHerderJobHold.run({
+          url: ACTION_URL,
+          body: fd,
+          title: title,
+          closeMode: 'reload',
+          initialMessage: title + '\nQueued…\n',
+        });
+        return;
+      }
+
+      // Fallback: plain fetch + poll if JobHold missing
+      fetch(ACTION_URL, {
+        method: 'POST',
+        body: fd,
+        credentials: 'same-origin',
+        headers: { 'X-PiHerder-Async': '1', 'Accept': 'application/json' },
+      }).then(function (res) {
+        return res.text().then(function (text) {
+          var data = {};
+          try { data = text ? JSON.parse(text) : {}; } catch (e) {
+            throw new Error('Bad response (' + res.status + '): ' + (text || '').slice(0, 120));
+          }
+          if (!res.ok) {
+            var d = data.detail;
+            if (Array.isArray(d)) d = d.map(function (x) { return x.msg || JSON.stringify(x); }).join('; ');
+            throw new Error(d || data.error || ('HTTP ' + res.status));
+          }
+          if (!data.job_id) throw new Error('No job_id in response');
+          setStatus('Job #' + data.job_id + ' started — see Jobs for progress.', false);
+          window.location.href = '/jobs?job_type=pihole_action';
+        });
+      }).catch(function (err) {
+        setStatus((err && err.message) ? err.message : 'Request failed', true);
+      });
+    }
+
+    document.querySelectorAll('.ph-run-action').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var act = btn.getAttribute('data-action');
+        var title = btn.getAttribute('data-title') || act;
+        var msg = btn.getAttribute('data-confirm-msg') || ('Run ' + title + '?');
+        if (!act) return;
+
+        function go() { runAction(act, title); }
+
+        if (window.PiHerderConfirm && typeof window.PiHerderConfirm.confirm === 'function') {
+          window.PiHerderConfirm.confirm(msg, {
+            title: title,
+            confirmLabel: title,
+            danger: true,
+          }).then(function (ok) { if (ok) go(); });
+        } else if (window.confirm(msg)) {
+          go();
+        }
+      });
+    });
+  })();
+  </script>
   {% endif %}
   <div class="text-xs text-muted">
+    Progress appears in the holding dialog; history is on
+    <a href="/jobs?job_type=pihole_action" class="text-primary hover:underline">Jobs</a>.
     Deep links:
     <a href="{{ gravity_url }}" class="text-primary hover:underline" target="_blank" rel="noopener">Gravity UI</a> ·
     <a href="{{ system_url }}" class="text-primary hover:underline" target="_blank" rel="noopener">System</a>

@@ -22,6 +22,8 @@ from ..config import settings
 from . import backup, container_patching, os_patching, herder_backup
 from .backup_audit import record_backup_audit_event, record_backup_audit_from_job
 from .app_settings import utc_isoformat
+from .audit_write import make_audit_log, resolve_client_ip
+from .request_ip import get_request_client_ip
 import logging
 from starlette.concurrency import run_in_threadpool
 
@@ -55,6 +57,8 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "container_patch",
         "os_update_check",
         "container_update_check",
+        "docker_stack_check",
+        "docker_stack_deploy",
     }
 )
 
@@ -222,9 +226,12 @@ JOB_TYPE_LABELS = {
     "container_patch": "Container patch",
     "os_update_check": "OS check",
     "container_update_check": "Image check",
+    "docker_stack_check": "Stack check",
+    "docker_stack_deploy": "Stack deploy",
     "retention": "Retention",
     "diagnostics": "Diagnostics",
     "herder_backup": "PiHerder backup",
+    "pihole_action": "Pi-hole action",
 }
 
 
@@ -371,6 +378,8 @@ def job_public_dict(job: Job, *, detail: bool = False) -> dict:
         "error": details.get("error"),
     }
     if detail:
+        # Full log for JobHold / jobs modal (alias log_lines for poll UIs)
+        out["log_lines"] = list(log_lines) if log_lines else []
         out["result_snippet"] = (details.get("result_snippet") or "")[:4000]
         # Pretty raw details minus huge keys already shown
         safe = {
@@ -513,7 +522,13 @@ def cancel_job(
 
     # Fleet audit row for cancel action (jobs screen / operators)
     try:
-        audit = AuditLog(
+        # Prefer request IP; fall back to IP stored when the job was created
+        job_ip = None
+        try:
+            job_ip = (json.loads(job.details or "{}") or {}).get("client_ip")
+        except Exception:
+            job_ip = None
+        audit = make_audit_log(
             user_id=user_id,
             server_id=job.server_id,
             action="job_cancel",
@@ -526,6 +541,7 @@ def cancel_job(
                 }
             ),
             finished_at=datetime.utcnow(),
+            client_ip=resolve_client_ip(None, fallback=job_ip),
         )
         session.add(audit)
     except Exception as e:
@@ -657,6 +673,8 @@ def create_job_and_run(
             "retention": "Retention cleanup queued…",
             "os_update_check": "OS update check queued…",
             "container_update_check": "Container update check queued…",
+            "docker_stack_check": "Stack update check queued…",
+            "docker_stack_deploy": "Stack deploy queued…",
         }
         job.details = _initial_job_details(
             labels.get(job_type, f"{job_type} queued…"),
@@ -708,14 +726,20 @@ def create_job_and_run(
         start_details = f"Job #{job.id} started"
         if job_type == "os_patch" and os_steps:
             start_details = f"Job #{job.id} started · {','.join(os_steps)}"
-        audit = AuditLog(
+        audit = make_audit_log(
             user_id=user_id,
             server_id=server_id,
             api_token_id=api_token_id,
-            api_token_name=(str(api_token_name)[:120] if api_token_name else None),
+            api_token_name=api_token_name,
             action=job_type,
             status="running",
             details=start_details,
+            client_ip=resolve_client_ip(
+                None,
+                fallback=(json.loads(job.details or "{}") or {}).get("client_ip")
+                if job.details
+                else None,
+            ),
         )
         session.add(audit)
         session.commit()
@@ -729,6 +753,16 @@ def create_job_and_run(
         background_tasks.add_task(_run_os_update_check_job, job.id, server.id, audit.id)
     elif job_type == "container_update_check":
         background_tasks.add_task(_run_container_update_check_job, job.id, server.id, audit.id)
+    elif job_type == "docker_stack_check":
+        project_path = (source_filter or "").strip()  # reuse source_filter slot for path
+        background_tasks.add_task(
+            _run_docker_stack_check_job, job.id, server.id, audit.id, project_path
+        )
+    elif job_type == "docker_stack_deploy":
+        project_path = (source_filter or "").strip()
+        background_tasks.add_task(
+            _run_docker_stack_deploy_job, job.id, server.id, audit.id, project_path, True
+        )
     elif job_type == "retention":
         background_tasks.add_task(_run_retention_job, job.id, server.id, audit.id)
     elif job_type == "herder_backup":
@@ -750,13 +784,12 @@ def enqueue_backup_for_server(
         logger.info(f"[Jobs] Skipping enqueue — backup job #{active.id} already active for server {server.id}")
         return active
     job = Job(server_id=server.id, job_type="backup", status="pending")
-    job.details = json.dumps({
-        "current": "queued",
-        "source_filter": source_filter,
-        "user_id": user_id,
-        "log_lines": ["Backup queued…"],
-        "queued_at": datetime.utcnow().isoformat(),
-    })
+    job.details = _initial_job_details(
+        "Backup queued…",
+        source_filter=source_filter,
+        user_id=user_id,
+        queued_at=datetime.utcnow().isoformat(),
+    )
     session.add(job)
     session.commit()
     session.refresh(job)
@@ -798,13 +831,21 @@ def enqueue_backup_for_server(
 
 
 def _initial_job_details(queue_message: str, **extra) -> str:
-    """JSON for a newly queued job (UI poll shape)."""
+    """JSON for a newly queued job (UI poll shape).
+
+    Always snapshot ``client_ip`` from the current request (when present) so
+    Celery/background audit rows can attribute the original operator IP.
+    """
     data = {
         "current": "queued",
         "log_lines": [queue_message],
         "done": False,
     }
     data.update(extra)
+    if not data.get("client_ip"):
+        ip = get_request_client_ip()
+        if ip:
+            data["client_ip"] = ip
     return json.dumps(data)
 
 
@@ -884,14 +925,19 @@ def _create_queued_job_with_audit(
         details = f"Job #{job.id} started"
     else:
         details = audit_details.format(job_id=job.id)
-    audit = AuditLog(
+    try:
+        job_ip = (json.loads(job.details or "{}") or {}).get("client_ip")
+    except Exception:
+        job_ip = None
+    audit = make_audit_log(
         user_id=user_id,
         server_id=server_id,
         api_token_id=api_token_id,
-        api_token_name=(str(api_token_name)[:120] if api_token_name else None),
+        api_token_name=api_token_name,
         action=job_type,
         status="running",
         details=details,
+        client_ip=resolve_client_ip(None, fallback=job_ip),
     )
     session.add(audit)
     session.commit()
@@ -923,6 +969,20 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
         n = len(data.get("projects_with_updates") or [])
         checked = len(data.get("projects_checked") or data.get("checked") or [])
         return f"{n} project(s) with image updates" + (f" ({checked} checked)" if checked else "")
+    if job_type == "docker_stack_check" and isinstance(data, dict):
+        proj = data.get("project") or data.get("project_path") or "stack"
+        if data.get("has_updates"):
+            imgs = data.get("updated_images") or []
+            return f"{proj}: updates available ({len(imgs)} image(s))"
+        if data.get("success"):
+            return f"{proj}: images up to date"
+        return f"{proj}: check failed"
+    if job_type == "docker_stack_deploy" and isinstance(data, dict):
+        proj = data.get("project") or data.get("project_path") or "stack"
+        if data.get("success"):
+            return f"{proj}: deploy ok"
+        err = data.get("error") or status
+        return f"{proj}: deploy failed — {err}"[:200]
     if job_type == "os_patch" and isinstance(data, dict):
         return (data.get("summary") or snippet or status)[:200]
     if job_type == "container_patch":
@@ -960,6 +1020,14 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
             max_snip = 16000 if jt == "os_patch" else 2000
             audit.output_snippet = (snippet or "")[:max_snip]
             audit.finished_at = datetime.utcnow()
+            # Backfill request IP from job.details when audit was started without context
+            if not getattr(audit, "client_ip", None) and job and job.details:
+                try:
+                    jip = (json.loads(job.details or "{}") or {}).get("client_ip")
+                    if jip:
+                        audit.client_ip = str(jip)[:64]
+                except Exception:
+                    pass
             # Replace "Job #N started" with a scannable finished line for the audit list
             if jt == "os_patch" and summary:
                 audit.details = f"Job #{job_id} · {summary}"[:500]
@@ -1740,3 +1808,406 @@ async def _run_container_update_check_job(job_id: int, server_id: int, audit_id:
         _finish(audit_id, job_id, "success", json.dumps(res), hostname, "container_update_check")
     except Exception as e:
         _finish(audit_id, job_id, "failed", str(e), hostname, "container_update_check")
+
+
+# ---------- B07: per-stack Docker check / deploy as Jobs + live log ----------
+
+
+def _project_basename(project_path: str) -> str:
+    import os
+
+    return os.path.basename((project_path or "").rstrip("/")) or (project_path or "project")
+
+
+def _active_docker_stack_job(
+    session: Session, server_id: int, job_type: str, project_path: str
+) -> Job | None:
+    """Find active stack job for same host + project path (or any if path empty)."""
+    want = (project_path or "").strip()
+    want_base = _project_basename(want) if want else ""
+    rows = session.exec(
+        select(Job)
+        .where(Job.server_id == server_id)
+        .where(Job.job_type == job_type)
+        .where(Job.status.in_(["pending", "running"]))
+        .order_by(Job.created_at.desc())
+    ).all()
+    for job in rows:
+        if not want:
+            return job
+        try:
+            data = json.loads(job.details or "{}")
+        except Exception:
+            data = {}
+        path = (data.get("project_path") or data.get("source_filter") or "").strip()
+        if path == want or _project_basename(path) == want_base:
+            return job
+    return None
+
+
+def enqueue_docker_stack_check(
+    server_id: int,
+    project_path: str,
+    user_id: int | None = None,
+    *,
+    background_tasks: BackgroundTasks | None = None,
+) -> Job:
+    """Queue a per-project compose image check (B07).
+
+    Raises JobAlreadyActive if a stack check is already pending/running on this host.
+    """
+    path = (project_path or "").strip()
+    if not path:
+        raise ValueError("project_path required")
+    with _get_fresh_session() as session:
+        server = session.get(Server, server_id)
+        if not server:
+            raise ValueError("server not found")
+        active = _active_docker_stack_job(session, server_id, "docker_stack_check", path)
+        if not active:
+            active = _active_job_of_type(session, server_id, "docker_stack_check")
+        if active:
+            logger.info(
+                f"[Jobs] docker_stack_check skip — job #{active.id} already active "
+                f"for server {server_id}"
+            )
+            session.expunge(active)
+            raise JobAlreadyActive(active)
+        proj = _project_basename(path)
+        job, audit = _create_queued_job_with_audit(
+            session,
+            server_id=server.id,
+            job_type="docker_stack_check",
+            queue_message=f"Stack check queued for {proj}…",
+            user_id=user_id,
+            audit_details=f"Job #{{job_id}} · check {proj}",
+            project_path=path,
+            project=proj,
+        )
+        jid, aid, sid = job.id, audit.id, server.id
+    if background_tasks is not None:
+        background_tasks.add_task(_run_docker_stack_check_job, jid, sid, aid, path)
+    else:
+        _update_check_pool.submit(_execute_docker_stack_check, jid, sid, aid, path)
+    with _get_fresh_session() as session:
+        job = session.get(Job, jid)
+        if job:
+            session.expunge(job)
+        return job
+
+
+def enqueue_docker_stack_deploy(
+    server_id: int,
+    project_path: str,
+    *,
+    pull: bool = True,
+    user_id: int | None = None,
+    background_tasks: BackgroundTasks | None = None,
+) -> Job:
+    """Queue a per-project compose deploy (pull + up) as a Job (B07).
+
+    Raises JobAlreadyActive if a stack deploy is already pending/running on this host.
+    """
+    path = (project_path or "").strip()
+    if not path:
+        raise ValueError("project_path required")
+    with _get_fresh_session() as session:
+        server = session.get(Server, server_id)
+        if not server:
+            raise ValueError("server not found")
+        active = _active_docker_stack_job(session, server_id, "docker_stack_deploy", path)
+        if not active:
+            active = _active_job_of_type(session, server_id, "docker_stack_deploy")
+        if active:
+            logger.info(
+                f"[Jobs] docker_stack_deploy skip — job #{active.id} already active "
+                f"for server {server_id}"
+            )
+            session.expunge(active)
+            raise JobAlreadyActive(active)
+        proj = _project_basename(path)
+        job, audit = _create_queued_job_with_audit(
+            session,
+            server_id=server.id,
+            job_type="docker_stack_deploy",
+            queue_message=f"Stack deploy queued for {proj}…",
+            user_id=user_id,
+            audit_details=f"Job #{{job_id}} · deploy {proj}",
+            project_path=path,
+            project=proj,
+            pull=bool(pull),
+        )
+        jid, aid, sid = job.id, audit.id, server.id
+        do_pull = bool(pull)
+    if background_tasks is not None:
+        background_tasks.add_task(
+            _run_docker_stack_deploy_job, jid, sid, aid, path, do_pull
+        )
+    else:
+        _update_check_pool.submit(
+            _execute_docker_stack_deploy, jid, sid, aid, path, do_pull
+        )
+    with _get_fresh_session() as session:
+        job = session.get(Job, jid)
+        if job:
+            session.expunge(job)
+        return job
+
+
+def _append_output_log_lines(job_id: int, current: str, output: str, *, prefix: str = "") -> None:
+    """Split command output into a few progress log lines for JobHold."""
+    text = (output or "").strip()
+    if not text:
+        return
+    lines = [ln for ln in text.splitlines() if ln.strip()][-20:]
+    for ln in lines:
+        msg = f"{prefix}{ln}" if prefix else ln
+        _flush_job_progress(job_id, current, msg[:300], default_current=current)
+
+
+def _apply_single_project_check_result(
+    session: Session, server_id: int, project_path: str, result: dict
+) -> None:
+    """Merge one-project check into Server.container_updates_summary (same as old route)."""
+    import os
+
+    server = session.get(Server, server_id)
+    if not server:
+        return
+    proj_name = os.path.basename((project_path or "").rstrip("/")) or project_path
+    summary: dict = {}
+    if server.container_updates_summary:
+        try:
+            summary = json.loads(server.container_updates_summary) or {}
+        except Exception:
+            summary = {}
+    projects = list(summary.get("projects") or [])
+    details = dict(summary.get("project_details") or {})
+    if result.get("has_updates"):
+        if proj_name not in projects:
+            projects.append(proj_name)
+        details[proj_name] = {"images": list(result.get("updated_images") or [])}
+    else:
+        projects = [p for p in projects if p != proj_name]
+        details.pop(proj_name, None)
+    server.container_updates_summary = json.dumps(
+        {
+            "projects": projects,
+            "project_details": details,
+            "failed": summary.get("failed") or [],
+            "checked": summary.get("checked") or [],
+        }
+    )
+    server.container_updates_count = len(projects)
+    server.last_container_check_at = datetime.utcnow()
+    session.add(server)
+    session.commit()
+    try:
+        from .notifications import notify_container_updates
+
+        notify_container_updates(
+            session,
+            server_id=server.id,
+            server_name=server.name or proj_name,
+            projects=projects,
+        )
+    except Exception as e:
+        logger.debug(f"notify_container_updates after stack check: {e}")
+
+
+def _apply_single_project_deploy_result(
+    session: Session, server_id: int, project_path: str, ok: bool
+) -> None:
+    """Clear pending update badge for this stack after successful deploy."""
+    if not ok:
+        return
+    import os
+
+    server = session.get(Server, server_id)
+    if not server:
+        return
+    proj_name = os.path.basename((project_path or "").rstrip("/")) or project_path
+    summary: dict = {}
+    if server.container_updates_summary:
+        try:
+            summary = json.loads(server.container_updates_summary) or {}
+        except Exception:
+            summary = {}
+    remaining = [
+        p
+        for p in (summary.get("projects") or [])
+        if str(p).strip() and str(p).strip() != str(proj_name).strip()
+    ]
+    details = dict(summary.get("project_details") or {})
+    details.pop(proj_name, None)
+    for k in list(details.keys()):
+        if str(k).strip() == str(proj_name).strip() or os.path.basename(
+            str(k).rstrip("/")
+        ) == str(proj_name).strip():
+            details.pop(k, None)
+    server.container_updates_summary = json.dumps(
+        {
+            "projects": remaining,
+            "project_details": details,
+            "failed": summary.get("failed") or [],
+            "checked": summary.get("checked") or [],
+        }
+    )
+    server.container_updates_count = len(remaining)
+    session.add(server)
+    session.commit()
+    try:
+        from .notifications import notify_container_updates
+
+        notify_container_updates(
+            session,
+            server_id=server.id,
+            server_name=server.name or proj_name,
+            projects=remaining,
+        )
+    except Exception as e:
+        logger.debug(f"notify_container_updates after stack deploy: {e}")
+
+
+def _execute_docker_stack_check(
+    job_id: int, server_id: int, audit_id: int, project_path: str
+) -> None:
+    from . import docker_management as docker_svc
+
+    server, hostname = _load_server_for_job(server_id)
+    path = (project_path or "").strip()
+    proj = _project_basename(path)
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="checking",
+                log_line=f"Checking registry images for {proj}…",
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "docker_stack_check")
+        return
+    try:
+        _flush_job_progress(
+            job_id, "pulling", f"docker compose pull in {path}…", default_current="checking"
+        )
+        result = docker_svc.check_compose_updates(server, path)
+        pull_out = result.get("pull_output") or ""
+        _append_output_log_lines(job_id, "checking", pull_out)
+        with _get_fresh_session() as s:
+            _apply_single_project_check_result(s, server_id, path, result)
+        payload = {
+            "project": proj,
+            "project_path": path,
+            "has_updates": bool(result.get("has_updates")),
+            "updated_images": list(result.get("updated_images") or []),
+            "success": bool(result.get("success")),
+            "pull_output": (pull_out or "")[:800],
+        }
+        status = "success" if result.get("success") or result.get("has_updates") else "failed"
+        if result.get("has_updates"):
+            _flush_job_progress(
+                job_id,
+                "updates",
+                f"Updates: {', '.join(payload['updated_images'][:8]) or 'yes'}",
+                default_current="checking",
+            )
+        else:
+            _flush_job_progress(
+                job_id, "ok", "No newer registry images", default_current="checking"
+            )
+        _finish(audit_id, job_id, status, json.dumps(payload), hostname, "docker_stack_check")
+    except Exception as e:
+        logger.exception("docker_stack_check failed")
+        _finish(audit_id, job_id, "failed", str(e), hostname, "docker_stack_check")
+
+
+def _execute_docker_stack_deploy(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    project_path: str,
+    pull: bool = True,
+) -> None:
+    from . import docker_management as docker_svc
+
+    server, hostname = _load_server_for_job(server_id)
+    path = (project_path or "").strip()
+    proj = _project_basename(path)
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="deploying",
+                log_line=f"Deploying {proj} (pull={pull})…",
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "docker_stack_deploy")
+        return
+    try:
+        if pull:
+            _flush_job_progress(
+                job_id, "pulling", "docker compose pull…", default_current="deploying"
+            )
+        _flush_job_progress(
+            job_id, "up", "docker compose up -d…", default_current="deploying"
+        )
+        result = docker_svc.redeploy_project(server, path, pull=pull) or {}
+        _append_output_log_lines(job_id, "deploying", result.get("output") or "")
+        ok = bool(result.get("success"))
+        with _get_fresh_session() as s:
+            _apply_single_project_deploy_result(s, server_id, path, ok)
+        payload = {
+            "project": proj,
+            "project_path": path,
+            "pull": pull,
+            "success": ok,
+            "pull_status": result.get("pull_status"),
+            "up_status": result.get("up_status"),
+            "error": result.get("error"),
+            "output": (result.get("output") or "")[:1500],
+        }
+        status = "success" if ok else "failed"
+        _finish(audit_id, job_id, status, json.dumps(payload), hostname, "docker_stack_deploy")
+    except Exception as e:
+        logger.exception("docker_stack_deploy failed")
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps({"project": proj, "project_path": path, "error": str(e)}),
+            hostname,
+            "docker_stack_deploy",
+        )
+
+
+async def _run_docker_stack_check_job(
+    job_id: int, server_id: int, audit_id: int, project_path: str
+):
+    await run_in_threadpool(
+        _execute_docker_stack_check, job_id, server_id, audit_id, project_path
+    )
+
+
+async def _run_docker_stack_deploy_job(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    project_path: str,
+    pull: bool = True,
+):
+    await run_in_threadpool(
+        _execute_docker_stack_deploy, job_id, server_id, audit_id, project_path, pull
+    )

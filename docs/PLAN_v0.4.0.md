@@ -45,9 +45,9 @@ git log --oneline v0.3.0..v0.4.0
 | **B04** | Jobs | List Cancel no-op | **fixed** | `069b065` |
 | **B05** | Notifications | backup_failed not resolved | **fixed** | `069b065` |
 | **B06** | Notifications | Dismiss 404 if already closed | **fixed** | `069b065` |
-| **B07** | Docker | Deploy/Check as Jobs + live log | **deferred** → v0.5.0 | — |
-| **B08** | Backup | Logos not in herder self-backup | **deferred** → v0.5.0 | — |
-| **B09** | Notifications | Push on auto-resolve | **deferred** (stretch) | — |
+| **B07** | Docker | Deploy/Check as Jobs + live log | **fixed** in v0.5.0 | see PLAN_v0.5.0 G |
+| **B08** | Backup | Logos not in herder self-backup | **fixed** in v0.5.0 | see PLAN_v0.5.0 G |
+| **B09** | Notifications | Push on auto-resolve | **fixed** in v0.5.0 | see PLAN_v0.5.0 G |
 
 ---
 

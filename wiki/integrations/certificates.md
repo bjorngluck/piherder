@@ -1,33 +1,75 @@
 # Managed certificates
 
-PiHerder can store TLS **fullchain + private key** encrypted (Fernet / `PIHERDER_MASTER_KEY`) and deploy them to fleet hosts over SSH.
+PiHerder stores TLS **fullchain + private key** encrypted (Fernet / `PIHERDER_MASTER_KEY`) and **deploys** them to fleet hosts over SSH.
+
+## Mental model
+
+| Piece | What it is |
+|-------|------------|
+| **Vault** | One certificate identity in PiHerder (domains, expiry, encrypted PEMs) |
+| **Service map** | One consumer of that cert: host + directory + layout/filenames + mode/owner + optional post-deploy command |
+| **Deploy** | SSH write files → chmod/chown → run restart command |
+
+Typical flow:
+
+1. **Get material in** — NPM → Certificates → Pull, or **Upload PEM**
+2. **Map consumers** — on the cert detail page, add a **service map** per app (NPM volume, UniFi PFX path, Docker bind-mount, …)
+3. **Deploy** — per map or “Deploy all maps”; renew/auto-renew re-deploys maps after a successful NPM renew
+
+PiHerder does **not** reconfigure the app’s TLS settings. Point the service at the files you wrote (or the volume that mounts them).
 
 ## Sources
 
 1. **NPM pull** — Integrations → NPM → Certificates → Pull  
 2. **PEM upload** — Certificates → Upload PEM (cleartext paste; encrypted immediately; never shown again)
 
-Upload is for operators who issue certs outside NPM (or do not run NPM at all) but still want conversion and distribution.
+## Service maps (deploy targets)
 
-## Certificate detail
+Each map answers: *for this service, where and how should the cert land?*
 
-- Domains, issuer, not-before/after, days left, fingerprint  
-- Auto-renew (NPM only) and renew-days-before (default 21)  
-- Replace PEM material in place  
-- Deploy targets: server, remote dir, layout, filenames, mode/owner, post-deploy command  
+| Field | Purpose |
+|-------|---------|
+| **Label** | Human name (“NPM custom SSL”, “UniFi”) |
+| **Host** | PiHerder server (SSH) |
+| **Directory** | Remote path (`~/certs` or absolute, e.g. `/opt/stacks/npm/certs`) |
+| **Layout** | Which files to write (see below) |
+| **Filenames** | Exact names the app expects |
+| **Mode / owner** | `chmod` + optional `chown` |
+| **Post-deploy** | Shell command after write (e.g. `docker compose … restart`) |
 
-Private keys are **never** returned to the browser.
+### Layouts
 
-## Scheduler
+| Layout | Files written |
+|--------|----------------|
+| **pair** | `fullchain.pem` + `privkey.pem` (defaults; rename as needed) |
+| **combined** | One PEM: private key then fullchain |
+| **pair_and_combined** | Both |
+| **pair_and_pfx** | Pair + PKCS#12 via host `openssl pkcs12` |
+| **pair_combined_pfx** | All three |
 
-Every **6 hours**: for each NPM-sourced cert with auto-renew and expiry within the window → renew orchestration → deploy all enabled targets. Failures raise in-app notifications (`cert_expiring`, `cert_renew_failed`).
+Presets in the UI fill common patterns; always adjust path and restart for your stack.
+
+### Example: NPM custom cert on a Docker host
+
+- Label: `NPM custom SSL`
+- Directory: `/opt/stacks/npm/certs` (bind-mounted into the container if needed)
+- Layout: **pair** → `fullchain.pem`, `privkey.pem`
+- Mode: `600`, owner `root:root`
+- Post-deploy: `docker compose -f /opt/stacks/npm/docker-compose.yml restart`
+
+Then configure NPM (or the proxy) to use those files.
+
+## Auto-renew
+
+Every **6 hours**: NPM-sourced certs with auto-renew and expiry within the window → renew orchestration → deploy all enabled maps. Failures raise notifications (`cert_expiring`, `cert_renew_failed`).
 
 ## Herder self-backup
 
-Certificate rows and targets are included. Restore requires the **same** master key.
+Certificate rows and maps are included. Restore requires the **same** master key.
 
 ## Security notes
 
 - Prefer `600` mode and a dedicated remote directory  
 - Post-deploy commands are operator-supplied and audited — treat like any remote shell privilege  
 - PFX export uses host `openssl pkcs12` (empty or stored export password)
+- Removing a map does **not** delete files already on the host

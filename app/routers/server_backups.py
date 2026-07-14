@@ -14,7 +14,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Stre
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 from ..database import get_session, engine
-from ..models import Server, AuditLog, Job
+from ..models import Server, Job
+from ..services.audit_write import make_audit_log
 from datetime import datetime
 import json
 from typing import Optional
@@ -200,12 +201,13 @@ async def stop_backup(
         session, server_id, job_id=job_id, source_filter=source
     )
     job_service.stop_active_backup(session, server, job=target)
-    audit = AuditLog(
+    audit = make_audit_log(
         user_id=user.id,
         server_id=server.id,
         action="backup_stop",
         status="success",
         details="Backup stopped by user",
+        finished_at=datetime.utcnow(),
     )
     session.add(audit)
     session.commit()

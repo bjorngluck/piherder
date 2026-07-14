@@ -202,7 +202,7 @@
           {% if item.match == 'exact' %}
             {% set is_active = (current_path == item.href) %}
           {% elif item.match == 'catalog' %}
-            {% set is_active = current_path == '/catalog' or current_path.startswith('/templates') or current_path.startswith('/integrations') %}
+            {% set is_active = current_path == '/catalog' or current_path.startswith('/templates') or current_path.startswith('/integrations') or current_path.startswith('/dns') or current_path.startswith('/certificates') %}
           {% else %}
             {% set is_active = current_path.startswith(item.href) %}
           {% endif %}
@@ -249,7 +249,7 @@
               {% if item.match == 'exact' %}
                 {% set is_active = (current_path == item.href) %}
               {% elif item.match == 'catalog' %}
-                {% set is_active = current_path == '/catalog' or current_path.startswith('/templates') or current_path.startswith('/integrations') %}
+                {% set is_active = current_path == '/catalog' or current_path.startswith('/templates') or current_path.startswith('/integrations') or current_path.startswith('/dns') or current_path.startswith('/certificates') %}
               {% else %}
                 {% set is_active = current_path.startswith(item.href) %}
               {% endif %}
@@ -364,7 +364,8 @@
   </div>
 
   {# Holding modal for checks / patches / retention (polls Job status) #}
-  <div id="job-hold-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" aria-modal="true" role="dialog">
+  {# Do not put both "hidden" and "flex" together — base .hidden uses display:none !important #}
+  <div id="job-hold-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50" aria-modal="true" role="dialog">
     <div class="modal-content card p-6 w-full max-w-lg mx-4 flex flex-col max-h-[70vh]">
       <div class="flex justify-between items-center mb-2 gap-2 flex-shrink-0">
         <h3 id="job-hold-title" class="font-semibold">Working…</h3>
@@ -645,7 +646,7 @@
           if (inFlight[key]) return;
           inFlight[key] = true;
           try {
-            const res = await fetch(url);
+            const res = await fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } });
             if (!res.ok) return;
             const data = await res.json();
             const stop = onUpdate(data);
@@ -916,6 +917,7 @@
       if (e.modal) {
         e.modal.classList.add('hidden');
         e.modal.classList.remove('flex');
+        e.modal.style.display = '';
       }
     }
 
@@ -930,7 +932,10 @@
     function open(opts) {
       opts = opts || {};
       var e = els();
-      if (!e.modal) return;
+      if (!e.modal) {
+        console.error('PiHerderJobHold: #job-hold-modal missing');
+        return;
+      }
       state.serverId = opts.serverId || window.PIHERDER_SERVER_ID || null;
       state.jobId = opts.jobId || null;
       state.closeMode = opts.closeMode || window.PIHERDER_PROGRESS_CLOSE || 'reload';
@@ -942,38 +947,44 @@
         e.hint.textContent = opts.hint
           || 'Please wait — this page will refresh when finished.';
       }
+      // base.css: .hidden { display:none !important } — must remove before flex can show
       e.modal.classList.remove('hidden');
       e.modal.classList.add('flex');
+      e.modal.style.display = 'flex';
       if (state.serverId && state.jobId) startPoll(state.serverId, state.jobId);
     }
 
-    function startPoll(serverId, jobId) {
-      state.serverId = serverId;
+    function startPoll(serverId, jobId, pollUrl) {
+      state.serverId = serverId || null;
       state.jobId = jobId;
-      if (!window.PiHerderPoll || !serverId || !jobId) return;
+      if (!window.PiHerderPoll || !jobId) return;
+      var url = pollUrl
+        || (serverId ? ('/servers/' + serverId + '/jobs/' + jobId) : ('/jobs/' + jobId));
       window.PiHerderPoll.stop(pollKey);
       window.PiHerderPoll.start(
         pollKey,
-        '/servers/' + serverId + '/jobs/' + jobId,
+        url,
         function (data) {
           var e = els();
           if (e.status) {
-            if (data.done) {
-              e.status.textContent = data.status === 'success' ? '✓ Complete' : '✗ Failed';
+            if (data.done || data.status === 'success' || data.status === 'failed' || data.status === 'cancelled') {
+              e.status.textContent = data.status === 'success' ? '✓ Complete'
+                : (data.status === 'cancelled' ? 'Cancelled' : '✗ Failed');
             } else if (data.current) {
               e.status.textContent = data.current;
             } else {
               e.status.textContent = data.status || 'running…';
             }
           }
-          if (e.log && data.log_lines && data.log_lines.length) {
-            e.log.textContent = data.log_lines.join('\n') + '\n';
+          var lines = data.log_lines || data.log_tail || [];
+          if (e.log && lines.length) {
+            e.log.textContent = lines.join('\n') + '\n';
             if (data.summary) e.log.textContent += '\n' + data.summary + '\n';
             e.log.scrollTop = e.log.scrollHeight;
           } else if (e.log && data.summary) {
             e.log.textContent += data.summary + '\n';
           }
-          if (data.done || data.status === 'success' || data.status === 'failed') {
+          if (data.done || data.status === 'success' || data.status === 'failed' || data.status === 'cancelled') {
             if (e.hint) e.hint.textContent = 'Refreshing…';
             setTimeout(finishClose, state.reloadDelayMs);
             return true;
@@ -985,9 +996,9 @@
     }
 
     function run(opts) {
-      /* opts: { url, title, serverId, formData?, closeMode?, body? } */
+      /* opts: { url, title, serverId, formData?, closeMode?, body?, submitter? } */
       opts = opts || {};
-      var serverId = opts.serverId || window.PIHERDER_SERVER_ID;
+      var serverId = opts.serverId || window.PIHERDER_SERVER_ID || null;
       open({
         title: opts.title || 'Working…',
         serverId: serverId,
@@ -997,19 +1008,42 @@
         hint: opts.hint,
       });
       var body = opts.body;
-      if (!body && opts.form) body = new FormData(opts.form);
+      if (!body && opts.form) {
+        body = new FormData(opts.form);
+        // Include the clicked submit button (name/value) — FormData(form) alone drops it
+        var sub = opts.submitter;
+        if (sub && sub.name) {
+          body.set(sub.name, sub.value != null ? sub.value : 'on');
+        }
+        // Stashed by confirm handler when multi-button + async re-submit loses submitter
+        if (opts.form.dataset.phSubmitName && !body.get(opts.form.dataset.phSubmitName)) {
+          body.set(opts.form.dataset.phSubmitName, opts.form.dataset.phSubmitValue || '');
+        }
+      }
       if (!body) body = new FormData();
-      fetch(opts.url, {
+      var postUrl = opts.url || (opts.form && opts.form.action) || '';
+      fetch(postUrl, {
         method: 'POST',
         body: body,
-        headers: { 'X-PiHerder-Async': '1' },
+        credentials: 'same-origin',
+        headers: { 'X-PiHerder-Async': '1', 'Accept': 'application/json' },
       }).then(function (res) {
-        return res.json().catch(function () { return {}; }).then(function (data) {
+        return res.text().then(function (text) {
+          var data = {};
+          try { data = text ? JSON.parse(text) : {}; } catch (err) {
+            data = { detail: (text || '').slice(0, 200) || 'Non-JSON response' };
+          }
           // 409 = same exclusive job already active — attach to existing job_id
           if (!res.ok && res.status !== 409) {
             var e = els();
+            var errMsg = data.detail;
+            if (Array.isArray(errMsg)) {
+              errMsg = errMsg.map(function (x) { return x.msg || JSON.stringify(x); }).join('; ');
+            } else if (errMsg && typeof errMsg === 'object') {
+              errMsg = JSON.stringify(errMsg);
+            }
             if (e.status) e.status.textContent = '✗ Failed to start';
-            if (e.log) e.log.textContent += (data.detail || 'Request failed') + '\n';
+            if (e.log) e.log.textContent += (errMsg || data.error || ('HTTP ' + res.status)) + '\n';
             if (e.hint) e.hint.textContent = 'Close and try again.';
             return;
           }
@@ -1018,17 +1052,18 @@
               var e0 = els();
               if (e0.log) e0.log.textContent += 'Already running — following existing job…\n';
             }
-            startPoll(serverId, data.job_id);
+            startPoll(serverId || data.server_id || null, data.job_id, data.poll_url || null);
           } else {
             var e2 = els();
-            if (e2.status) e2.status.textContent = '✓ Done';
-            setTimeout(finishClose, state.reloadDelayMs);
+            if (e2.status) e2.status.textContent = '✗ No job id returned';
+            if (e2.log) e2.log.textContent += (data.detail || data.error || 'Server did not queue a job.') + '\n';
+            if (e2.hint) e2.hint.textContent = 'Close and try again.';
           }
         });
-      }).catch(function () {
+      }).catch(function (err) {
         var e = els();
         if (e.status) e.status.textContent = '✗ Network error';
-        if (e.log) e.log.textContent += 'Could not start job.\n';
+        if (e.log) e.log.textContent += 'Could not start job.\n' + (err && err.message ? err.message : '') + '\n';
       });
     }
 
@@ -1078,20 +1113,33 @@
     });
   }, true);
 
-  // Holding-modal forms: data-job-hold="Title" on form
+  // Holding-modal forms: data-job-hold="Title" on form (or submit button)
   document.addEventListener('submit', function (e) {
     var form = e.target && e.target.closest ? e.target.closest('form[data-job-hold]') : null;
     if (!form) return;
+    // Respect confirm flow first (confirm sets confirmSkip then re-submits)
+    if (form.dataset.confirmSkip !== '1') {
+      var sub0 = e.submitter || null;
+      var needsConfirm = false;
+      if (sub0 && sub0.getAttribute && sub0.getAttribute('data-confirm')) needsConfirm = true;
+      else if (form.getAttribute('data-confirm')) needsConfirm = true;
+      if (needsConfirm) return;
+    }
     e.preventDefault();
+    e.stopPropagation();
     var match = (form.action || '').match(/\/servers\/(\d+)\//);
     var serverId = match ? match[1] : (window.PIHERDER_SERVER_ID || null);
-    var title = form.getAttribute('data-job-hold') || 'Working…';
+    var submitter = e.submitter || null;
+    var title = (submitter && submitter.getAttribute('data-job-hold'))
+      || form.getAttribute('data-job-hold')
+      || 'Working…';
     var closeMode = form.getAttribute('data-job-hold-close')
       || window.PIHERDER_PROGRESS_CLOSE || 'reload';
     if (window.PiHerderJobHold) {
       window.PiHerderJobHold.run({
         url: form.action,
         form: form,
+        submitter: submitter,
         serverId: serverId,
         title: title,
         closeMode: closeMode,
@@ -1330,7 +1378,8 @@
       var form = e.target;
       if (!form || form.tagName !== 'FORM') return;
       if (form.dataset.confirmSkip === '1') {
-        delete form.dataset.confirmSkip;
+        // Defer clear so other capture listeners (job-hold) still see confirmSkip=1
+        setTimeout(function () { try { delete form.dataset.confirmSkip; } catch (err) {} }, 0);
         return;
       }
       var submitter = e.submitter || null;
@@ -1342,6 +1391,11 @@
       if (!message) return;
       e.preventDefault();
       e.stopPropagation();
+      // Stash submitter fields for JobHold FormData (multi-button forms lose them after async confirm)
+      if (submitter && submitter.name) {
+        form.dataset.phSubmitName = submitter.name;
+        form.dataset.phSubmitValue = submitter.value != null ? String(submitter.value) : '';
+      }
       open({
         title: src.getAttribute('data-confirm-title') || form.getAttribute('data-confirm-title') || 'Please confirm',
         message: message,
@@ -1349,8 +1403,33 @@
         cancelLabel: src.getAttribute('data-confirm-cancel') || 'Cancel',
         danger: src.hasAttribute('data-confirm-danger') || form.hasAttribute('data-confirm-danger')
       }).then(function (ok) {
-        if (!ok) return;
+        if (!ok) {
+          try {
+            delete form.dataset.phSubmitName;
+            delete form.dataset.phSubmitValue;
+          } catch (err) {}
+          return;
+        }
         form.dataset.confirmSkip = '1';
+        // Prefer direct JobHold when form is async-held — avoids second confirm / lost submitter
+        if (form.hasAttribute('data-job-hold') && window.PiHerderJobHold) {
+          var match = (form.action || '').match(/\/servers\/(\d+)\//);
+          var serverId = match ? match[1] : (window.PIHERDER_SERVER_ID || null);
+          var title = (submitter && submitter.getAttribute('data-job-hold'))
+            || form.getAttribute('data-job-hold')
+            || 'Working…';
+          window.PiHerderJobHold.run({
+            url: form.action,
+            form: form,
+            submitter: submitter,
+            serverId: serverId,
+            title: title,
+            closeMode: form.getAttribute('data-job-hold-close') || window.PIHERDER_PROGRESS_CLOSE || 'reload',
+            initialMessage: title + '\nQueued…\n',
+          });
+          setTimeout(function () { try { delete form.dataset.confirmSkip; } catch (err) {} }, 0);
+          return;
+        }
         if (typeof form.requestSubmit === 'function') {
           try {
             form.requestSubmit(submitter || undefined);

@@ -25,7 +25,7 @@ Design principles stay the same as SPEC:
 | **v0.3.0** | Integration hub — Kuma + **Grafana** (kinds, templates, Docker chips) | H1 | **Tagged** 2026-07-11 — [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md) |
 | **v0.4.0** | Post-0.3 quality + **service templates** foundation (wizard, volumes/booleans, from-host, step-up secrets, wait modal, OOTB pack, desired state V1) | H2 + fixes | **Tagged** 2026-07-12 — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) |
 | **v0.4.x** | *(folded)* Former ops track — drift, NPM connector, git catalog, `.env` migrate | H1/H2 | **Absorbed into v0.5.0** (no separate planning phase) |
-| **v0.5.0** | **First RC** — ops depth + template polish + restore + last known config + production wikis + multi-arch + freeze bar | RC | **In development** — [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
+| **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **QA / release prep** — [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
@@ -172,24 +172,44 @@ Versioned **templates**: compose/install recipe + variables + post-deploy checkl
 
 **Must-have / primary:**
 
-- Scheduled **config drift** validation vs desired state; alert + audit  
-- Migrate existing host `.env` into PiHerder encrypted store (UX polish)  
-- Template UX polish (redeploy volume editor, from-host edge cases)  
-- Restore service from backup **+ last known config** from PiHerder  
-- Production user wiki + dev wiki  
+- Scheduled **config drift** validation vs desired state; alert + audit — **done**  
+- Migrate existing host `.env` into PiHerder encrypted store — **done**  
+- Template UX polish (redeploy volume editor, from-host edge cases) — **done**  
+- Restore service from backup **+ last known config** from PiHerder — **done**  
+- Production user wiki + dev wiki (scaffold **live**; screenshots ongoing)  
 - Docker Hub / GHCR multi-arch image  
 - RC freeze bar (pytest, smoke, secret-path review)  
+- **Audit client IP** on request-driven events (Caddy XFF) — **done**  
+- Pi-hole multi + NPM RO + managed certs — **done** (workstream F)  
 
-**Nice-to-have in same tag:**
+**Nice-to-have in same tag (partially landed):**
 
 - **Git** template catalog pull (preview before enable)  
-- **NPM connector** (proxy hosts, app bindings, encrypted cert store)  
-- Async Docker/template deploy jobs + live log (B07)  
+- ~~NPM connector~~ **done**  
+- ~~Stack Docker Deploy/Check as Jobs + live log (B07)~~ **done**  
+- B08 logos in self-backup · B09 push on auto-resolve — **done**  
+- Template wizard as Jobs + live log (still wait-modal)  
 - Contribute path remains Issues/PR for builtin inclusion  
 
 **Secrets stance (home production):** templates use **locked-down host `.env` (`chmod 600`)** + PiHerder encrypted source of truth; restarts do not call PiHerder. Advanced options (Swarm secrets, vault, sealed host blob) stay **post-0.5 / Horizon 3** exploration — not the default path.
 
 Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provider automation remain **post-RC**.
+
+---
+
+## Horizon 2.5 — Service fabric & topology (post-0.5 / pre-1.0)
+
+DNS fabric (host A + service names, Pi-hole adopt, physical/logical views) lands in **v0.5.0**. Next topology depth:
+
+| Item | Direction |
+|------|-----------|
+| **Service → container mapping** | First-class link from a published name / deployment to the **compose service + container** (beyond Kuma/NPM inference) |
+| **Container dependency graph** | Model runtime deps between containers (e.g. app → **Postgres**, **Redis**, queue workers) — discover from compose `depends_on` / labels + optional operator edges |
+| **Physical + logical topology** | Physical = hosts & what runs on them; logical = URL → (NPM as link) → destination. Enrich with dep edges and health from Kuma |
+| **External DNS providers** | Cloudflare (etc.) automation; until then external checklist remains |
+| **Service migrate / remove** | Move stack host↔host with DNS retarget; destructive remove with volume cleanup |
+
+**Design principle:** one **entity graph** (name, NPM, host, project, container, volume, dep) — views are projections, not separate data models.
 
 ---
 
@@ -202,6 +222,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | Ansible / cloud-init | Inventory export + first-boot snippets for new Pis |
 | **Advanced secrets** | Explore beyond locked `.env`: Swarm/file permissions hardening, sealed host store for offline recreate, optional vault — never require PiHerder for normal container restart |
 | Optional AI | OpenAI-compatible BYO (cloud or private LLM); **off by default**; never send private keys; Frigate vision stays on Frigate / AI Hat |
+| **Topology plugins** | Optional export to graph tools (e.g. Mermaid, Graphviz DOT, or browser libraries like Cytoscape.js / vis-network) for large fleets — keep core views offline-first CSS/SVG |
 
 ---
 

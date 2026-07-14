@@ -51,6 +51,8 @@ Self-signed (`Caddyfile.dev`) does **not** give reliable Android/iOS Web Push.
 
 **Events that can push:** `backup_failed`, `os_updates`, `reboot_pending`, `container_updates`, `herder_backup_failed` (only on **new** open rows; preference-filtered).
 
+**Auto-resolve push (B09 — done):** when an open alert is resolved by fingerprint (e.g. backup succeeds, updates cleared), a second push is sent with title `Resolved: …`, severity `info`, tag `resolved:{fingerprint}`, using the **same** type preference as the original alert.
+
 ### Phase 2: iOS + investigation (decided + polish)
 
 | Item | Status |
