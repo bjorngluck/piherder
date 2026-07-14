@@ -7,6 +7,7 @@
     {% if server %}
     <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-accent hover:underline">Docker on {{ server.name }}</a>
     <a href="/servers/{{ server.id }}/deployments" class="text-accent hover:underline">All deployments</a>
+    <a href="/servers/{{ server.id }}/backups" class="text-accent hover:underline">Backups</a>
     {% endif %}
     {% if dep.template_slug %}
     <a href="/templates/{{ dep.template_slug }}" class="text-accent hover:underline">Template catalog</a>
@@ -17,14 +18,16 @@
   <p class="text-sm text-muted mt-1">
     Template <code class="text-xs">{{ dep.template_slug or '—' }}</code>
     · config <strong>V{{ dep.config_version }}</strong>
-    · drift: {{ dep.drift_status }}
-    {% if dep.last_deployed_at %} · last deploy {{ dep.last_deployed_at }}{% endif %}
+    · drift:
+    <span class="{% if dep.drift_status == 'in_sync' %}text-success{% elif dep.drift_status == 'drifted' %}text-warning{% endif %}">
+      {{ dep.drift_status or 'unknown' }}
+    </span>
+    {% if dep.last_deployed_at %} · last deploy <span data-utc="{{ dep.last_deployed_at }}">{{ dep.last_deployed_at }}</span>{% endif %}
   </p>
   <p class="text-xs text-muted mt-2 max-w-2xl">
     This is the <strong>deployed instance</strong> of a service template (desired state in PiHerder).
-    Change non-secret variables or unlock secrets below, then <strong>Save &amp; redeploy</strong>
-    to write a new config version to the host. Day-to-day start/stop/logs stay on
-    {% if server %}<a href="/servers/{{ server.id }}/docker?nocache=1" class="text-accent underline">Docker management</a>{% else %}Docker management{% endif %}.
+    Change variables or volumes below, then <strong>Save &amp; redeploy</strong>.
+    After host wipe: <strong>Apply last known config</strong>, then restore data from Backups if needed.
   </p>
   {% if server %}
   <div class="banner-warning border rounded p-3 text-sm mt-3 max-w-2xl">
@@ -37,14 +40,145 @@
   {% endif %}
 
   {% if msg %}
-  <div class="banner-success border rounded p-3 text-sm mt-3">{{ msg }}</div>
+  <div class="banner-success border rounded p-3 text-sm mt-3">
+    {{ msg }}
+    {% if server %}
+    <div class="mt-2 flex flex-wrap gap-2 text-xs">
+      <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-accent underline">Open Docker</a>
+      <a href="/templates/deployments/{{ dep.id }}" class="text-accent underline">This deployment</a>
+      <a href="/audit?server_id={{ server.id }}" class="text-accent underline">Audit</a>
+    </div>
+    {% endif %}
+  </div>
   {% endif %}
   {% if error %}
   <div class="banner-error border rounded p-3 text-sm mt-3">{{ error }}</div>
   {% endif %}
+  {% if drift_detail %}
+  <div class="banner-warning border rounded p-3 text-sm mt-3 font-mono text-xs">{{ drift_detail }}</div>
+  {% endif %}
   {% if unlock_error %}
   <div class="banner-error border rounded p-3 text-sm mt-3">{{ unlock_error }}</div>
   {% endif %}
+
+  {% if can_mutate %}
+  <div class="card p-4 mt-4">
+    <h2 class="font-semibold text-sm mb-2">Ops actions</h2>
+    <div class="flex flex-wrap gap-2">
+      <form method="post" action="/templates/deployments/{{ dep.id }}/check-drift"
+            data-wait-title="Checking drift"
+            data-wait-message="Comparing host compose/.env to desired state…">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Check drift</button>
+      </form>
+      <form method="post" action="/templates/deployments/{{ dep.id }}/migrate-env"
+            data-wait-title="Importing .env"
+            data-wait-message="Reading host .env into PiHerder encrypted store…">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm"
+                title="Pull host .env secrets into PiHerder">Import host .env</button>
+      </form>
+      <form method="post" action="/templates/deployments/{{ dep.id }}/apply-config"
+            data-wait-title="Applying config"
+            data-wait-message="Writing last known desired state and running compose…">
+        <button type="submit" class="btn btn-accent min-h-11 text-sm"
+                title="Re-write stored files after host wipe">Apply last known config</button>
+      </form>
+    </div>
+    <p class="text-[11px] text-muted mt-2">
+      <strong>Check drift</strong> compares host files to PiHerder.
+      <strong>Import host .env</strong> migrates secrets into encrypted SoT.
+      <strong>Apply last known config</strong> redeploys stored compose/.env (desired state).
+    </p>
+  </div>
+  {% endif %}
+
+  {% if backup_matches %}
+  <div class="card p-4 mt-4">
+    <h2 class="font-semibold text-sm mb-2">Restore data from backup</h2>
+    <p class="text-xs text-muted mb-2">
+      Matching backup sources for this stack. Use dry-run first on the server backups page.
+    </p>
+    <ul class="text-sm space-y-1">
+      {% for b in backup_matches %}
+      <li class="font-mono text-xs flex flex-wrap gap-2 items-center">
+        <span>{{ b.source }}</span>
+        {% if b.exists %}
+        <span class="text-success">has data</span>
+        {% else %}
+        <span class="text-muted">empty</span>
+        {% endif %}
+        {% if server %}
+        <a href="/servers/{{ server.id }}/backups" class="text-accent underline">Open backups</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% elif server %}
+  <div class="card p-4 mt-4 text-xs text-muted">
+    No backup sources matched this project path.
+    Configure backups under
+    <a href="/servers/{{ server.id }}/backups" class="text-accent underline">server backups</a>
+    to restore volume data after a wipe, then use <strong>Apply last known config</strong>.
+  </div>
+  {% endif %}
+
+  {# Service DNS — inferred from host + NPM + project; one field if needed #}
+  {% set plan = dns_plan if dns_plan is defined else None %}
+  <div class="card p-4 mt-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <h2 class="font-semibold text-sm">Service DNS</h2>
+      <a href="/dns" class="text-xs text-accent underline">Fleet DNS mesh</a>
+    </div>
+    {% if dns_record %}
+    <p class="text-sm font-mono">{{ dns_record.fqdn }}</p>
+    <p class="text-xs text-muted mt-1">
+      CNAME → {{ dns_target_name or '—' }}
+      · stack on {{ server.name if server else '—' }}
+      {% if dns_record.via_proxy %} · <span class="text-accent">via NPM</span>{% endif %}
+      {% if dns_record.last_sync_status %} · sync {{ dns_record.last_sync_status }}{% endif %}
+    </p>
+    {% if dns_record.npm_hint %}<p class="text-[11px] text-muted mt-1">{{ dns_record.npm_hint }}</p>{% endif %}
+    {% if can_mutate %}
+    <form method="post" action="/dns/services/{{ dns_record.id }}/sync" class="mt-2 inline">
+      <button type="submit" class="btn btn-secondary text-xs min-h-11">Re-sync CNAME</button>
+    </form>
+    {% endif %}
+    {% elif can_mutate and plan %}
+    <p class="text-xs font-mono text-text mb-2">{{ plan.summary }}</p>
+    {% if plan.npm_hint %}<p class="text-[11px] text-muted mb-2">{{ plan.npm_hint }}</p>{% endif %}
+    {% if plan.blockers %}
+    <ul class="text-xs text-warning mb-2 list-disc pl-4">
+      {% for b in plan.blockers %}<li>{{ b }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    <form method="post" action="/templates/deployments/{{ dep.id }}/dns" class="space-y-3">
+      {# Backend + target inferred — only FQDN may need a tweak #}
+      <div>
+        <label class="text-xs text-muted block mb-1">
+          Service FQDN
+          {% if plan.fqdn_source %}<span class="text-muted">(from {{ plan.fqdn_source }})</span>{% endif %}
+        </label>
+        <input name="fqdn" required value="{{ plan.fqdn or dns_suggest or '' }}"
+               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+               placeholder="app.hacknow.info">
+      </div>
+      <input type="hidden" name="use_inferred" value="1">
+      <p class="text-[11px] text-muted">
+        Target and backend are taken from this deployment
+        {% if plan.via_proxy %}and NPM edge{% endif %}.
+        Host DNS: Edit server → General.
+      </p>
+      <button type="submit" class="btn btn-accent text-sm min-h-11"
+              {% if not plan.ready and not plan.fqdn %}disabled title="{{ plan.blockers[0] if plan.blockers else 'Not ready' }}"{% endif %}>
+        Attach DNS &amp; sync Pi-hole
+      </button>
+    </form>
+    {% elif can_mutate %}
+    <p class="text-xs text-muted">Could not build a DNS plan for this deployment.</p>
+    {% else %}
+    <p class="text-xs text-muted">No service DNS record linked.</p>
+    {% endif %}
+  </div>
 
   {% if checklist %}
   <div class="card p-4 mt-4">
@@ -120,8 +254,45 @@
                {% if not can_mutate %}readonly{% endif %}>
       </div>
       {% else %}
-      <p class="text-xs text-muted">No public variables stored.</p>
+      <p class="text-xs text-muted">No simple public variables stored.</p>
       {% endfor %}
+
+      {% if volume_rows %}
+      <h3 class="text-xs font-medium text-muted mt-3">Volumes / storage</h3>
+      <p class="text-[11px] text-muted mb-2">
+        Change named volume, project folder, or host path without re-running the full deploy wizard.
+      </p>
+      {% for vol in volume_rows %}
+      <div class="border border-border rounded p-3 space-y-2">
+        <div class="text-xs font-medium">{{ vol.label }} <span class="text-muted font-mono">({{ vol.name }})</span></div>
+        {% if vol.volume_target %}
+        <p class="text-[11px] text-muted">Container path <code class="text-[10px]">{{ vol.volume_target }}</code></p>
+        {% endif %}
+        <div class="grid gap-2 sm:grid-cols-2">
+          <div>
+            <label class="text-[10px] text-muted block mb-0.5">Storage type</label>
+            <select name="vol_{{ vol.name }}__mode"
+                    class="w-full bg-surface border border-border p-2 rounded text-sm"
+                    {% if not can_mutate %}disabled{% endif %}>
+              <option value="named" {% if vol.mode == 'named' %}selected{% endif %}>Named Docker volume</option>
+              <option value="bind_relative" {% if vol.mode == 'bind_relative' %}selected{% endif %}>Folder in project</option>
+              <option value="bind_absolute" {% if vol.mode == 'bind_absolute' %}selected{% endif %}>Host path</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[10px] text-muted block mb-0.5">Name or path</label>
+            <input name="vol_{{ vol.name }}__source"
+                   type="text"
+                   value="{{ vol.source }}"
+                   class="w-full bg-surface border border-border p-2 rounded text-sm font-mono"
+                   {% if vol.required %}required{% endif %}
+                   {% if not can_mutate %}readonly{% endif %}>
+          </div>
+        </div>
+        {% if vol.help %}<p class="text-[11px] text-muted">{{ vol.help }}</p>{% endif %}
+      </div>
+      {% endfor %}
+      {% endif %}
 
       {% if secrets_visible %}
       <h3 class="text-xs font-medium text-muted mt-3">Secrets</h3>
@@ -151,7 +322,8 @@
       <h3 class="text-xs font-medium text-muted mt-3">Secrets</h3>
       <p class="text-xs text-muted mt-1">
         Secrets are stored <strong>encrypted</strong> in PiHerder.
-        Use the always-visible <strong>View secrets</strong> control and enter a 2FA code to decrypt.
+        Use <strong>View secrets</strong> and enter a 2FA code to decrypt, or
+        <strong>Import host .env</strong> to pull secrets from the host.
       </p>
       {% if secret_keys %}
       <ul class="text-xs font-mono text-muted mt-2 list-disc list-inside">

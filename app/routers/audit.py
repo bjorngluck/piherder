@@ -60,6 +60,7 @@ def _apply_audit_filters(
             | (AuditLog.details.contains(search))
             | (AuditLog.output_snippet.contains(search))
             | (AuditLog.api_token_name.contains(search))
+            | (AuditLog.client_ip.contains(search))
         )
     if server_id and str(server_id).strip():
         try:

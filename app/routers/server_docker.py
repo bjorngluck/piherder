@@ -13,7 +13,8 @@ from typing import Optional
 from datetime import datetime
 
 from ..database import get_session
-from ..models import Server, AuditLog
+from ..models import Server
+from ..services.audit_write import make_audit_log
 from ..services import docker_management as docker_svc
 from ..services import docker_inventory as inventory_svc
 from ..services import env_file_ui
@@ -207,7 +208,7 @@ async def docker_container_action(
     ok = bool(result.get("success"))
     try:
         _invalidate_inventory(session, server)
-        audit = AuditLog(
+        audit = make_audit_log(
             user_id=user.id if user else None,
             server_id=server_id,
             action=f"docker_container_{action}",
@@ -574,7 +575,7 @@ async def save_dockerfile(
             session.commit()
 
             try:
-                audit = AuditLog(
+                audit = make_audit_log(
                     user_id=user.id if user else None,
                     server_id=server_id,
                     action="docker_dockerfile_save",
@@ -839,7 +840,7 @@ async def save_compose(
 
         try:
             names = ", ".join(docker_svc.sort_project_filenames(list(docker_svc.files_for_sftp(files).keys())))
-            audit = AuditLog(
+            audit = make_audit_log(
                 user_id=user.id if user else None,
                 server_id=server_id,
                 action="docker_compose_save",
@@ -869,115 +870,59 @@ async def save_compose(
 
 @router.post("/{server_id}/docker/redeploy")
 async def redeploy(
+    request: Request,
     server_id: int,
+    background_tasks: BackgroundTasks,
     project_path: str = Form(...),
     pull: str = Form("true"),
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
 ):
+    """Deploy/redeploy a compose project as a Job with live log (B07)."""
+    from ..services import jobs as job_service
+    from urllib.parse import quote
+    import os
 
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
 
     do_pull = (pull or "true").strip().lower() in ("1", "true", "yes", "on")
-    result: dict = {}
-    try:
-        result = docker_svc.redeploy_project(server, project_path, pull=do_pull) or {}
-    except Exception as e:
-        result = {
-            "success": False,
-            "pull": do_pull,
-            "output": str(e)[:800],
-            "error": str(e)[:200],
-        }
-
-    ok = bool(result.get("success"))
-    import os
-    from urllib.parse import quote
-
     proj_name = os.path.basename((project_path or "").rstrip("/")) or project_path
-
-    # After a successful apply: drop this stack from pending updates + resolve
-    # (or shrink) the in-app / push alert. Check-only leaves alerts open until
-    # a clean recheck or all stacks are deployed.
-    if ok:
-        try:
-            summary = {}
-            if server.container_updates_summary:
-                try:
-                    summary = json.loads(server.container_updates_summary) or {}
-                except Exception:
-                    summary = {}
-            remaining = [
-                p
-                for p in (summary.get("projects") or [])
-                if str(p).strip() and str(p).strip() != str(proj_name).strip()
-            ]
-            details = dict(summary.get("project_details") or {})
-            details.pop(proj_name, None)
-            # Also drop keys that match by basename (path-style entries)
-            for k in list(details.keys()):
-                if str(k).strip() == str(proj_name).strip() or os.path.basename(
-                    str(k).rstrip("/")
-                ) == str(proj_name).strip():
-                    details.pop(k, None)
-            server.container_updates_summary = json.dumps({
-                "projects": remaining,
-                "project_details": details,
-                "failed": summary.get("failed") or [],
-                "checked": summary.get("checked") or [],
-            })
-            server.container_updates_count = len(remaining)
-            session.add(server)
-            try:
-                from ..services.notifications import notify_container_updates
-
-                notify_container_updates(
-                    session,
-                    server_id=server.id,
-                    server_name=server.name or proj_name,
-                    projects=remaining,
-                )
-            except Exception:
-                pass
-        except Exception:
-            pass
-
+    path = (project_path or "").strip()
+    already_active = False
     try:
-        bits = [f"Project {project_path}", f"pull={do_pull}"]
-        if result.get("pull_status") is not None:
-            bits.append(f"pull_rc={result.get('pull_status')}")
-        if result.get("up_status") is not None:
-            bits.append(f"up_rc={result.get('up_status')}")
-        audit = AuditLog(
+        job = job_service.enqueue_docker_stack_deploy(
+            server.id,
+            path,
+            pull=do_pull,
             user_id=user.id if user else None,
-            server_id=server_id,
-            action="docker_redeploy",
-            status="success" if ok else "failed",
-            details="; ".join(bits),
-            output_snippet=(result.get("output") or result.get("error") or "")[:1500],
-            started_at=datetime.utcnow(),
-            finished_at=datetime.utcnow(),
+            background_tasks=background_tasks,
         )
-        session.add(audit)
-        session.commit()
-    except Exception:
-        try:
-            session.rollback()
-        except Exception:
-            pass
+    except job_service.JobAlreadyActive as e:
+        job = e.job
+        already_active = True
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    if not job:
+        raise HTTPException(500, "Could not queue stack deploy")
 
-    status = "ok" if ok else "fail"
-    q = (
-        f"/servers/{server_id}/docker"
-        f"?deploy={status}"
-        f"&project={quote(str(proj_name), safe='')}"
-        f"&pull={'1' if do_pull else '0'}"
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "job_type": "docker_stack_deploy",
+                "project": proj_name,
+                "already_active": already_active,
+            },
+            status_code=409 if already_active else 200,
+        )
+
+    return RedirectResponse(
+        f"/servers/{server_id}/docker?deploy=queued&project={quote(str(proj_name), safe='')}&job_id={job.id}",
+        status_code=303,
     )
-    if not ok and result.get("error"):
-        q += f"&detail={quote(str(result.get('error'))[:120], safe='')}"
-    return RedirectResponse(q, status_code=303)
 
 
 @router.post("/{server_id}/docker/compose/{action}")
@@ -1000,7 +945,7 @@ async def compose_project_action(
         details = f"Project {project_path}"
         if svc:
             details += f" service={svc}"
-        audit = AuditLog(
+        audit = make_audit_log(
             user_id=user.id if user else None,
             server_id=server_id,
             action=f"docker_compose_{action}",
@@ -1196,69 +1141,54 @@ async def stack_fragment(
 
 @router.post("/{server_id}/docker/check-updates")
 async def check_updates(
+    request: Request,
     server_id: int,
+    background_tasks: BackgroundTasks,
     project_path: str = Form(...),
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
 ):
+    """Check one compose project for registry image updates as a Job (B07)."""
+    from ..services import jobs as job_service
+    from urllib.parse import quote
+    import os
 
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
 
-    result = docker_svc.check_compose_updates(server, project_path)
-    status = "updates" if result.get("has_updates") else ("ok" if result.get("success") else "fail")
-    # Merge single-project result into fleet summary for UI highlights
+    path = (project_path or "").strip()
+    proj_name = os.path.basename(path.rstrip("/")) or path
+    already_active = False
     try:
-        import os
-        proj_name = os.path.basename((project_path or "").rstrip("/")) or project_path
-        summary = {}
-        if server.container_updates_summary:
-            try:
-                summary = json.loads(server.container_updates_summary) or {}
-            except Exception:
-                summary = {}
-        projects = list(summary.get("projects") or [])
-        details = dict(summary.get("project_details") or {})
-        if result.get("has_updates"):
-            if proj_name not in projects:
-                projects.append(proj_name)
-            details[proj_name] = {"images": list(result.get("updated_images") or [])}
-        else:
-            projects = [p for p in projects if p != proj_name]
-            details.pop(proj_name, None)
-        server.container_updates_summary = json.dumps({
-            "projects": projects,
-            "project_details": details,
-            "failed": summary.get("failed") or [],
-            "checked": summary.get("checked") or [],
-        })
-        server.container_updates_count = len(projects)
-        server.last_container_check_at = datetime.utcnow()
-        session.add(server)
-        audit = AuditLog(
+        job = job_service.enqueue_docker_stack_check(
+            server.id,
+            path,
             user_id=user.id if user else None,
-            server_id=server_id,
-            action="docker_check-updates",
-            status="success" if result.get("success") or result.get("has_updates") else "failed",
-            details=f"Project {project_path}",
-            output_snippet=str({
-                "has_updates": result.get("has_updates"),
-                "updated_images": result.get("updated_images"),
-            })[:300],
-            started_at=datetime.utcnow(),
-            finished_at=datetime.utcnow(),
+            background_tasks=background_tasks,
         )
-        session.add(audit)
-        session.commit()
-    except Exception:
-        try:
-            session.rollback()
-        except Exception:
-            pass
-    from urllib.parse import quote
+    except job_service.JobAlreadyActive as e:
+        job = e.job
+        already_active = True
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    if not job:
+        raise HTTPException(500, "Could not queue stack check")
+
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "job_type": "docker_stack_check",
+                "project": proj_name,
+                "already_active": already_active,
+            },
+            status_code=409 if already_active else 200,
+        )
+
     return RedirectResponse(
-        f"/servers/{server_id}/docker?update_check={quote(project_path, safe='')}&status={status}",
+        f"/servers/{server_id}/docker?update_check={quote(path, safe='')}&status=queued&job_id={job.id}",
         status_code=303,
     )
 
@@ -1298,7 +1228,7 @@ async def build_progress(
     no_cache = (request.query_params.get("no_cache") or "false").lower() in ("true", "1", "yes")
 
     try:
-        audit = AuditLog(
+        audit = make_audit_log(
             user_id=user.id if user else None,
             server_id=server_id,
             action="docker_compose_build",
@@ -1426,7 +1356,7 @@ async def prune_unused_route(
         ok = "ok" if res.get("success") else "fail"
         # record audit
         try:
-            audit = AuditLog(
+            audit = make_audit_log(
                 user_id=user.id if user else None,
                 server_id=server_id,
                 action="docker_prune_unused",
@@ -1444,7 +1374,7 @@ async def prune_unused_route(
         ok = "fail"
         # best effort audit fail
         try:
-            audit = AuditLog(
+            audit = make_audit_log(
                 user_id=user.id if user else None,
                 server_id=server_id,
                 action="docker_prune_unused",

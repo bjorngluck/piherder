@@ -6,7 +6,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, Resp
 from sqlmodel import Session, select
 
 from ..database import get_session
-from ..models import User, AuditLog, TotpBackupCode
+from ..models import User, TotpBackupCode
+from ..services.audit_write import make_audit_log
+from ..services.request_ip import client_ip_from_request
 from ..security.auth import (
     authenticate_user,
     create_access_token,
@@ -54,11 +56,12 @@ PENDING_COOKIE = "pending_2fa"
 
 
 def _client_ip(request: Request) -> Optional[str]:
-    return request.client.host if request.client else None
+    """Prefer Caddy XFF / X-Real-IP; fall back to TCP peer."""
+    return client_ip_from_request(request)
 
 
 def _audit(session: Session, user_id: int, action: str, details: str, status: str = "success"):
-    al = AuditLog(
+    al = make_audit_log(
         user_id=user_id,
         server_id=None,
         action=action,
@@ -111,6 +114,18 @@ async def login(
 
     user = authenticate_user(session, email, password)
     if not user:
+        try:
+            al = make_audit_log(
+                user_id=None,
+                action="user_login_failed",
+                status="failed",
+                details=f"Invalid credentials for {(email or '')[:120]}",
+                finished_at=datetime.utcnow(),
+            )
+            session.add(al)
+            session.commit()
+        except Exception:
+            session.rollback()
         return RedirectResponse("/auth/login?error=invalid", status_code=303)
 
     # 2FA path (skip when user must change password first — they re-login after)
@@ -122,6 +137,7 @@ async def login(
         raw_trusted = request.cookies.get(TRUSTED_COOKIE)
         if raw_trusted and find_valid_trusted_device(session, user.id, raw_trusted):
             _touch_last_login(session, user)
+            _audit(session, user.id, "user_login", "Login (trusted device, 2FA skipped)")
             token = create_access_token({"sub": str(user.id)})
             response = RedirectResponse(url=post_login_path(user), status_code=303)
             _set_auth_cookie(response, token)
@@ -135,6 +151,7 @@ async def login(
         return response
 
     _touch_last_login(session, user)
+    _audit(session, user.id, "user_login", "Login")
     token = create_access_token({"sub": str(user.id)})
     response = RedirectResponse(url=post_login_path(user), status_code=303)
     _set_auth_cookie(response, token)
@@ -186,9 +203,22 @@ async def two_factor_submit(
             ok = False
 
     if not ok:
+        try:
+            al = make_audit_log(
+                user_id=user.id,
+                action="user_login_failed",
+                status="failed",
+                details="Invalid 2FA code",
+                finished_at=datetime.utcnow(),
+            )
+            session.add(al)
+            session.commit()
+        except Exception:
+            session.rollback()
         return RedirectResponse("/auth/2fa?error=invalid", status_code=303)
 
     _touch_last_login(session, user)
+    _audit(session, user.id, "user_login", "Login (2FA verified)")
     token = create_access_token({"sub": str(user.id)})
     response = RedirectResponse(url=post_login_path(user), status_code=303)
     _set_auth_cookie(response, token)

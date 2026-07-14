@@ -139,6 +139,7 @@
       <span>Server: —</span>
       {% endif %}
       <span>Actor: {{ log.actor_label or log.user_label or log.user_email or 'system / scheduler' }}</span>
+      <span title="Client IP (via Caddy X-Forwarded-For / peer)">IP: {{ log.client_ip or '—' }}</span>
     </div>
     <div class="audit-event-summary">{{ log.summary or '—' }}</div>
   </button>
@@ -239,6 +240,7 @@ function showAuditDetailsModal(log) {
     }
     const actor = log.actor_label || log.user_label || log.user_email || 'system / scheduler';
     parts.push('<span><strong>Actor</strong> ' + esc(actor) + '</span>');
+    parts.push('<span><strong>IP</strong> <code>' + esc(log.client_ip || '—') + '</code></span>');
     if (log.api_token_id) {
       parts.push(
         '<span><strong>Token</strong> <a class="text-accent" href="/audit?api_token_id=' +

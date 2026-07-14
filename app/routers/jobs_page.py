@@ -167,7 +167,7 @@ async def job_detail_api(
     job_id: int,
     user: User = Depends(get_current_user),
 ):
-    """JSON detail for jobs modal / API consumers."""
+    """JSON detail for jobs modal / API consumers / JobHold poll (no server)."""
     with next(get_session()) as s:
         job = s.get(Job, job_id)
         if not job:
@@ -178,6 +178,10 @@ async def job_detail_api(
             d["server_name"] = srv.name if srv else None
         when = job.finished_at or job.started_at or job.created_at
         d["when_display"] = format_datetime_in_app_tz(when) if when else "—"
+        # JobHold expects job_id + log_lines (same shape as /servers/{id}/jobs/{id})
+        d["job_id"] = job.id
+        if "log_lines" not in d:
+            d["log_lines"] = d.get("log_tail") or []
         return d
 
 

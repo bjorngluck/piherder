@@ -34,6 +34,62 @@ LAYOUTS = frozenset(
     {"pair", "combined", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx"}
 )
 
+# Human descriptions for UI
+LAYOUT_HELP = {
+    "pair": "Two files: fullchain + private key (Nginx, Caddy, most Docker apps)",
+    "combined": "One file: private key then fullchain (some HAProxy / “snakeoil” apps)",
+    "pair_and_combined": "Both pair and combined PEM in the same directory",
+    "pair_and_pfx": "PEM pair plus PKCS#12 .pfx (Windows / UniFi-style consumers)",
+    "pair_combined_pfx": "Pair + combined + PFX in the same directory",
+}
+
+
+def files_for_layout(
+    layout: str,
+    *,
+    remote_dir: str = "~/certs",
+    fullchain_filename: str = "fullchain.pem",
+    privkey_filename: str = "privkey.pem",
+    combined_filename: str = "snakeoil.pem",
+    pfx_filename: str = "Certificate.pfx",
+) -> list[dict[str, str]]:
+    """Return planned remote paths for UI preview (no I/O)."""
+    base = (remote_dir or "~/certs").rstrip("/") or "~/certs"
+    lay = (layout or "pair").strip()
+    out: list[dict[str, str]] = []
+    if lay in ("pair", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx"):
+        out.append(
+            {
+                "name": fullchain_filename or "fullchain.pem",
+                "path": f"{base}/{fullchain_filename or 'fullchain.pem'}",
+                "kind": "fullchain",
+            }
+        )
+        out.append(
+            {
+                "name": privkey_filename or "privkey.pem",
+                "path": f"{base}/{privkey_filename or 'privkey.pem'}",
+                "kind": "privkey",
+            }
+        )
+    if lay in ("combined", "pair_and_combined", "pair_combined_pfx"):
+        out.append(
+            {
+                "name": combined_filename or "snakeoil.pem",
+                "path": f"{base}/{combined_filename or 'snakeoil.pem'}",
+                "kind": "combined",
+            }
+        )
+    if lay in ("pair_and_pfx", "pair_combined_pfx"):
+        out.append(
+            {
+                "name": pfx_filename or "Certificate.pfx",
+                "path": f"{base}/{pfx_filename or 'Certificate.pfx'}",
+                "kind": "pfx",
+            }
+        )
+    return out
+
 
 def parse_pem_metadata(fullchain_pem: str) -> dict[str, Any]:
     """Extract CN, SANs, not_before/after, issuer, serial, fingerprint from leaf cert."""
@@ -294,6 +350,7 @@ def create_target(
     *,
     certificate_id: int,
     server_id: int,
+    label: str = "",
     remote_dir: str = "~/certs",
     layout: str = "pair",
     fullchain_filename: str = "fullchain.pem",
@@ -318,6 +375,7 @@ def create_target(
     row = CertificateTarget(
         certificate_id=certificate_id,
         server_id=server_id,
+        label=(label or "").strip()[:200] or None,
         remote_dir=(remote_dir or "~/certs").strip() or "~/certs",
         layout=lay,
         fullchain_filename=(fullchain_filename or "fullchain.pem").strip(),
@@ -339,6 +397,105 @@ def create_target(
     session.commit()
     session.refresh(row)
     return row
+
+
+def update_target(
+    session: Session,
+    target_id: int,
+    *,
+    server_id: int | None = None,
+    label: str | None = None,
+    remote_dir: str | None = None,
+    layout: str | None = None,
+    fullchain_filename: str | None = None,
+    privkey_filename: str | None = None,
+    combined_filename: str | None = None,
+    pfx_filename: str | None = None,
+    file_mode: str | None = None,
+    file_owner: str | None = None,
+    file_group: str | None = None,
+    pfx_export_password: str | None = None,
+    clear_pfx_password: bool = False,
+    post_deploy_command: str | None = None,
+    enabled: bool | None = None,
+) -> CertificateTarget:
+    row = session.get(CertificateTarget, target_id)
+    if not row:
+        raise ValueError("Target not found")
+    if server_id is not None:
+        if not session.get(Server, server_id):
+            raise ValueError("Server not found")
+        row.server_id = server_id
+    if label is not None:
+        row.label = (label or "").strip()[:200] or None
+    if remote_dir is not None:
+        row.remote_dir = (remote_dir or "").strip() or "~/certs"
+    if layout is not None:
+        lay = (layout or "pair").strip()
+        row.layout = lay if lay in LAYOUTS else "pair"
+    if fullchain_filename is not None:
+        row.fullchain_filename = (fullchain_filename or "fullchain.pem").strip()
+    if privkey_filename is not None:
+        row.privkey_filename = (privkey_filename or "privkey.pem").strip()
+    if combined_filename is not None:
+        row.combined_filename = (combined_filename or "snakeoil.pem").strip()
+    if pfx_filename is not None:
+        row.pfx_filename = (pfx_filename or "Certificate.pfx").strip()
+    if file_mode is not None:
+        row.file_mode = (file_mode or "600").strip() or "600"
+    if file_owner is not None:
+        row.file_owner = (file_owner or "").strip() or None
+    if file_group is not None:
+        row.file_group = (file_group or "").strip() or None
+    if clear_pfx_password:
+        row.pfx_export_password_encrypted = None
+    elif pfx_export_password is not None and pfx_export_password != "":
+        row.pfx_export_password_encrypted = encrypt_str(pfx_export_password)
+    if post_deploy_command is not None:
+        row.post_deploy_command = (post_deploy_command or "").strip() or None
+    if enabled is not None:
+        row.enabled = bool(enabled)
+    row.updated_at = datetime.utcnow()
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
+
+
+def public_target_dict(
+    target: CertificateTarget, *, server_name: str = ""
+) -> dict[str, Any]:
+    files = files_for_layout(
+        target.layout or "pair",
+        remote_dir=target.remote_dir or "~/certs",
+        fullchain_filename=target.fullchain_filename or "fullchain.pem",
+        privkey_filename=target.privkey_filename or "privkey.pem",
+        combined_filename=target.combined_filename or "snakeoil.pem",
+        pfx_filename=target.pfx_filename or "Certificate.pfx",
+    )
+    return {
+        "id": target.id,
+        "server_id": target.server_id,
+        "server_name": server_name or f"#{target.server_id}",
+        "label": target.label or "",
+        "remote_dir": target.remote_dir,
+        "layout": target.layout,
+        "layout_help": LAYOUT_HELP.get(target.layout or "pair", ""),
+        "enabled": target.enabled,
+        "file_mode": target.file_mode,
+        "file_owner": target.file_owner or "",
+        "file_group": target.file_group or "",
+        "fullchain_filename": target.fullchain_filename,
+        "privkey_filename": target.privkey_filename,
+        "combined_filename": target.combined_filename,
+        "pfx_filename": target.pfx_filename,
+        "post_deploy_command": target.post_deploy_command or "",
+        "has_pfx_password": bool(target.pfx_export_password_encrypted),
+        "files": files,
+        "last_deployed_at": target.last_deployed_at,
+        "last_deploy_status": target.last_deploy_status,
+        "last_deploy_message": target.last_deploy_message,
+    }
 
 
 def delete_target(session: Session, target_id: int) -> bool:

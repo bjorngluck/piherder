@@ -54,7 +54,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - Installable **PWA** (manifest + service worker + home-screen install).
 - Link to Pi-hole admin from dashboard (configurable env fallback; prefer integrations when configured).
 - **Service templates:** under **Catalog** — deploy NPM, Uptime Kuma, Pi-hole, Grafana (and custom / from-host stacks) via wizard — variables (incl. **boolean** + **volume** storage modes), preview, host picker, encrypted desired state V1; step-up 2FA for secrets; wait modal while deploy runs.
-- **Integrations:** **Catalog** (`/catalog` → Integrations) — **Uptime Kuma**, **Grafana**, **Pi-hole** (v6 multi-instance stats, local DNS/CNAME fan-out, gravity/actions), **Nginx Proxy Manager** (proxy hosts RO + bind; cert pull). **Certificates:** encrypted store from NPM pull or PEM upload; deploy targets (pair/combined/pfx); NPM auto-renew loop.
+- **Integrations:** **Catalog** (`/catalog` → Integrations) — **Uptime Kuma**, **Grafana**, **Pi-hole** (v6 multi-instance stats, local DNS/CNAME fan-out, gravity/actions), **Nginx Proxy Manager** (proxy hosts RO + bind; cert pull). **DNS fabric** (Catalog → DNS): host A records, service paths, Pi-hole adopt, physical/logical full meshes. **Certificates:** encrypted store from NPM pull or PEM upload; deploy targets (pair/combined/pfx); NPM auto-renew loop.
 - HTTPS via Caddy with **operator-supplied TLS certs** (volume `./certs`) and `PIHERDER_HOSTNAME` (default ports **8888** HTTP / **8443** HTTPS).
 
 ### Account & security
@@ -71,7 +71,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - `./piherder_data:/data` — avatars (instance Settings live in Postgres).
 - `./certs:/certs` (Caddy, read-only) — `fullchain.pem` + `privkey.pem` for trusted HTTPS (see `certs/README.md`).
 
-**Current release:** **v0.4.0** (git tag) — service templates foundation + post-0.3 quality. Integration hub: **Uptime Kuma** + **Grafana**. **In development:** **v0.5.0** first RC (ops + template polish + restore + multi-arch) — [PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md). **Docs:** [online wiki](https://bjorngluck.github.io/piherder/) · env: [`.env.example`](.env.example) · notes: [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md).
+**Current release:** **v0.4.0** (git tag). **In development / QA:** **v0.5.0** first RC — template polish, drift, restore, Pi-hole/NPM/certs, **DNS fabric**, fleet ops, B07–B09, audit client IP; multi-arch + freeze remaining — [PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md). **Docs:** [online wiki](https://bjorngluck.github.io/piherder/) · env: [`.env.example`](.env.example) · notes: [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md).
 
 ## Tech Stack
 
@@ -234,12 +234,12 @@ Bind-mount host directories as needed for persistence.
 | **v0.2 / H0** | Production: clean compose, token REST API, prod ADMIN |
 | **v0.3 / H1** | Integration hub: Uptime Kuma + Grafana — [feature plan](docs/FEATURE_PLAN_INTEGRATIONS.md) |
 | **v0.4 / H2** | **Shipped:** service templates foundation — [RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md) |
-| **v0.5 RC** | **In development:** ops + polish + restore + wikis + multi-arch — [PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md) |
+| **v0.5 RC** | **In development:** multi-arch · freeze; **landed:** A–H (templates/drift/restore, fleet ops, Pi-hole/NPM/certs, B07–B09, audit IP) — [PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md) |
 | **Later / H3** | HA plugin, optional BYO LLM, Ansible, community on Discord + hacknow.info |
 
-**Recently completed (high level):** Service templates (wizard, volumes/booleans, from-host, desired state V1), Grafana + Kuma hub, host deps, Status, multi-worker Celery, Docker inventory, PWA + Web Push, RBAC/2FA, token REST API, Alembic + pytest.
+**Recently completed (high level):** Service templates (wizard, volumes/booleans, from-host, desired state V1), Grafana + Kuma + Pi-hole + NPM + managed certs, fleet ops polish, stack Deploy/Check as Jobs, audit client IP, host deps, Status, multi-worker Celery, Docker inventory, PWA + Web Push (incl. resolve), RBAC/2FA, token REST API, Alembic + pytest.
 
-**Still open (examples):** config drift, restore + last known config, published Docker Hub/GHCR image, NPM connector, multi Pi-hole, HA plugin, optional AI.
+**Still open (examples):** published Docker Hub/GHCR multi-arch image, RC freeze bar, HA plugin, optional AI.
 
 To track work in a GitHub Project: link the `piherder` repo, then create issues from the unchecked items in SPEC.md.
 

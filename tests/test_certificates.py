@@ -67,3 +67,28 @@ def test_fingerprint_of_pems_stable():
 def test_parse_pem_empty():
     with pytest.raises(ValueError):
         cert_svc.parse_pem_metadata("")
+
+
+def test_files_for_layout_pair_and_pfx():
+    pair = cert_svc.files_for_layout("pair", remote_dir="/opt/certs")
+    assert [f["kind"] for f in pair] == ["fullchain", "privkey"]
+    assert pair[0]["path"] == "/opt/certs/fullchain.pem"
+
+    comb = cert_svc.files_for_layout("combined", remote_dir="~/c", combined_filename="one.pem")
+    assert len(comb) == 1
+    assert comb[0]["kind"] == "combined"
+    assert comb[0]["path"].endswith("one.pem")
+
+    pfx = cert_svc.files_for_layout(
+        "pair_and_pfx",
+        remote_dir="/data",
+        pfx_filename="Unifi.pfx",
+    )
+    kinds = [f["kind"] for f in pfx]
+    assert kinds == ["fullchain", "privkey", "pfx"]
+    assert pfx[-1]["path"] == "/data/Unifi.pfx"
+
+
+def test_layout_help_covers_all_layouts():
+    for lay in cert_svc.LAYOUTS:
+        assert lay in cert_svc.LAYOUT_HELP

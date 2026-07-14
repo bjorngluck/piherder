@@ -20,13 +20,14 @@ from starlette.concurrency import run_in_threadpool
 
 from .. import templates as templates_mod
 from ..database import engine, get_session
-from ..models import AuditLog, User
+from ..models import User
 from ..security.auth import ROLE_ADMIN, get_admin_user, get_current_user, user_role
 from ..services import api_tokens as tok_svc
 from ..services import app_settings as app_cfg
 from ..services import herder_backup as hb
 from ..services import stack_health as stack_svc
 from ..services import update_check_config as ucc
+from ..services.audit_write import make_audit_log
 from ..services.markdown_lite import load_repo_markdown, markdown_to_html
 from ..services.scheduler import (
     HERDER_SCHEDULE_JOB_ID,
@@ -312,6 +313,19 @@ async def create_api_token_form(
         scopes=scopes,
         allowed_cidrs=allowed_cidrs or None,
     )
+    try:
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                action="api_token_created",
+                status="success",
+                details=f"Token #{row.id} {row.name!r}",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
     return RedirectResponse(
         _settings_url(
             "api",
@@ -366,6 +380,19 @@ async def update_api_token_form(
             _settings_url("api", error=str(e)[:120], api_panel="tokens"),
             status_code=303,
         )
+    try:
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                action="api_token_updated",
+                status="success",
+                details=f"Token #{row.id} {row.name!r}",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
     return RedirectResponse(
         _settings_url(
             "api",
@@ -397,6 +424,19 @@ async def rotate_api_token_form(
             _settings_url("api", error=str(e)[:120], api_panel="tokens"),
             status_code=303,
         )
+    try:
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                action="api_token_rotated",
+                status="success",
+                details=f"Token #{row.id} {row.name!r}",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    except Exception:
+        session.rollback()
     return RedirectResponse(
         _settings_url(
             "api",
@@ -419,6 +459,19 @@ async def revoke_api_token_form(
     row = tok_svc.get_api_token(session, token_id)
     if row:
         tok_svc.revoke_api_token(session, row)
+        try:
+            session.add(
+                make_audit_log(
+                    user_id=user.id,
+                    action="api_token_revoked",
+                    status="success",
+                    details=f"Token #{row.id} {row.name!r}",
+                    finished_at=datetime.utcnow(),
+                )
+            )
+            session.commit()
+        except Exception:
+            session.rollback()
     # Soft-revoke keeps the row — land on Revoked filter for traceability
     return RedirectResponse(
         _settings_url(
@@ -440,7 +493,7 @@ async def trigger_herder_backup(
     include_audit = mode == "full"
     config_only = mode != "full"
     with next(get_session()) as s:
-        audit = AuditLog(
+        audit = make_audit_log(
             user_id=user.id,
             server_id=None,
             action="herder_backup",
@@ -510,7 +563,7 @@ async def restore_herder_backup(
 
         with next(get_session()) as s:
             s.add(
-                AuditLog(
+                make_audit_log(
                     user_id=user.id,
                     server_id=None,
                     action="herder_restore",

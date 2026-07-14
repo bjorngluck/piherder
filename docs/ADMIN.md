@@ -526,7 +526,7 @@ Herder self-backup includes `service_templates` catalog rows and `stack_deployme
 
 ### Uptime Kuma integration
 
-Optional **integration hub** under top-nav **Catalog** (`/catalog` → **Integrations**; Settings-style **Templates** button second). You can **deploy** Kuma via Templates, then connect the integration for status/bindings.
+Optional **integration hub** under top-nav **Catalog** (`/catalog` → **Integrations**; Settings-style **Integrations | Templates | DNS**). You can **deploy** Kuma via Templates, then connect the integration for status/bindings. **DNS fabric** (Catalog → DNS / physical / logical meshes): host A records, service paths, Pi-hole adopt — see wiki [DNS fabric](../wiki/integrations/dns-fabric.md).
 
 **Design / plan:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md)
 
@@ -732,6 +732,16 @@ Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`
 **CORS:** Off by default. Server-side n8n/HA/curl do not need it. Only set `CORS_ORIGINS` for browser apps on other origins (exact origins; never `*`). See [API.md](API.md).
 
 **Client IP check:** Call via Caddy (8888/8443). `GET /api/v1/health` returns `client_ip` for debugging allowlists.
+
+**Audit client IP (must-have for v0.5.0):** Every request-driven **Audit** row stores `client_ip`.
+
+| Source | Resolution |
+|--------|------------|
+| Behind Caddy | `X-Forwarded-For` (first hop) → `X-Real-IP` → peer (Caddy **overwrites** headers with `{remote_host}`) |
+| Jobs / Celery | IP from job.details at **queue** time |
+| Scheduler | Often empty (no HTTP request) |
+
+Also covered: login / login-failed / 2FA, API token lifecycle. UI list + detail show **IP**; search matches IP. Schema: migration **`018_audit_client_ip`**. Middleware + `make_audit_log()` ensure writers do not skip the field. Prefer Caddy ports in production so IPs match real clients (direct `:8000` records the TCP peer only).
 
 ### Examples
 

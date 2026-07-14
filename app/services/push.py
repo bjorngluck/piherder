@@ -478,11 +478,60 @@ def _deliver_payload(
 
 def send_for_notification(session: Session, notification: Notification) -> int:
     """Send Web Push for a newly created open notification. Returns send attempts succeeded."""
+    return _send_typed_notification(
+        session,
+        notif_type=notification.type,
+        title=notification.title,
+        body=notification.body or "",
+        url=notification.link_url or "/notifications",
+        tag=notification.fingerprint or "piherder",
+        severity=notification.severity or "warning",
+    )
+
+
+def send_for_resolved_notification(session: Session, notification: Notification) -> int:
+    """Send Web Push when an open alert is auto-resolved (B09).
+
+    Uses the same type preferences as the original alert so users who opted into
+    e.g. backup_failed also hear when the condition clears.
+    """
+    title = (notification.title or "Alert").strip() or "Alert"
+    if not title.lower().startswith("resolved"):
+        title = f"Resolved: {title}"
+    body = (notification.body or "").strip()
+    if body:
+        body = f"Condition cleared. {body}"[:240]
+    else:
+        body = "Condition cleared — no action needed."
+    tag = notification.fingerprint or "piherder"
+    if not str(tag).startswith("resolved:"):
+        tag = f"resolved:{tag}"
+    return _send_typed_notification(
+        session,
+        notif_type=notification.type,
+        title=title[:120],
+        body=body,
+        url=notification.link_url or "/notifications",
+        tag=tag,
+        severity="info",
+    )
+
+
+def _send_typed_notification(
+    session: Session,
+    *,
+    notif_type: str,
+    title: str,
+    body: str,
+    url: str,
+    tag: str,
+    severity: str,
+) -> int:
+    """Shared delivery path: VAPID + prefs filter + webpush."""
     creds = ensure_vapid_keys(session)
     if not creds:
         return 0
 
-    # Load active subscriptions with prefs enabled
     subs = list(
         session.exec(
             select(PushSubscription).where(PushSubscription.disabled_at.is_(None))
@@ -491,7 +540,6 @@ def send_for_notification(session: Session, notification: Notification) -> int:
     if not subs:
         return 0
 
-    # Prefetch prefs by user
     user_ids = {s.user_id for s in subs}
     prefs = {
         p.user_id: p
@@ -503,14 +551,14 @@ def send_for_notification(session: Session, notification: Notification) -> int:
     targets = [
         s
         for s in subs
-        if (pref := prefs.get(s.user_id)) and preference_allows(pref, notification.type)
+        if (pref := prefs.get(s.user_id)) and preference_allows(pref, notif_type)
     ]
     payload = build_push_payload(
-        title=notification.title,
-        body=notification.body or "",
-        url=notification.link_url or "/notifications",
-        tag=notification.fingerprint or "piherder",
-        severity=notification.severity or "warning",
+        title=title,
+        body=body,
+        url=url,
+        tag=tag,
+        severity=severity,
     )
     return _deliver_payload(session, subs=targets, payload=payload, creds=creds)
 

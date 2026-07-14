@@ -491,4 +491,388 @@ def redeploy_desired_state(
         "deployment_id": dep.id,
         "config_version": dep.config_version,
         "redeploy": redeploy_result,
+        "project_name": dep.project_name,
+        "server_id": server.id,
+        "project_path": project_path,
     }
+
+
+def apply_last_known_config(
+    session: Session,
+    *,
+    server: Server,
+    deployment: StackDeployment,
+    deploy_now: bool = True,
+) -> Dict[str, Any]:
+    """Re-apply stored desired state to the host (after wipe / DR) without form edits."""
+    return redeploy_desired_state(
+        session,
+        server=server,
+        deployment=deployment,
+        updated_public=None,
+        updated_secrets=None,
+        deploy_now=deploy_now,
+    )
+
+
+def _normalize_compose_text(text: str) -> str:
+    """Stable compare: strip trailing whitespace per line, collapse blank runs."""
+    lines = [(ln.rstrip()) for ln in (text or "").replace("\r\n", "\n").split("\n")]
+    # Drop trailing empty lines
+    while lines and lines[-1] == "":
+        lines.pop()
+    return "\n".join(lines) + ("\n" if lines else "")
+
+
+def _project_path_for(server: Server, project_name: str) -> str:
+    base = docker_base_expanded(server)
+    return f"{base}/{project_name}".replace("//", "/")
+
+
+def check_deployment_drift(
+    session: Session,
+    *,
+    server: Server,
+    deployment: StackDeployment,
+) -> Dict[str, Any]:
+    """Compare host compose/.env to PiHerder desired-state files; update drift_status.
+
+    Returns status in_sync | drifted | unknown (SSH/missing path failures).
+    """
+    from ..docker_versions import get_project_live_files, primary_compose_key
+
+    desired = json.loads(deployment.files_json or "{}") or {}
+    # Merge secrets for host-equivalent .env compare (host has cleartext secrets)
+    secrets_map = decrypt_deployment_secrets(deployment)
+    desired_full = merge_secrets_into_env_files(dict(desired), secrets_map)
+
+    path = _project_path_for(server, deployment.project_name)
+    try:
+        live = get_project_live_files(server, path)
+    except Exception as e:
+        logger.warning("drift check SSH failed dep=%s: %s", deployment.id, e)
+        deployment.drift_status = "unknown"
+        deployment.updated_at = datetime.utcnow()
+        session.add(deployment)
+        session.commit()
+        return {
+            "status": "unknown",
+            "error": str(e)[:200],
+            "deployment_id": deployment.id,
+            "project_path": path,
+            "diffs": [],
+        }
+
+    if not live:
+        deployment.drift_status = "drifted"
+        deployment.updated_at = datetime.utcnow()
+        session.add(deployment)
+        session.commit()
+        return {
+            "status": "drifted",
+            "reason": "no_files_on_host",
+            "deployment_id": deployment.id,
+            "project_path": path,
+            "diffs": [{"file": "*", "detail": "no compose/.env found on host"}],
+        }
+
+    diffs: List[Dict[str, str]] = []
+    # Compare primary compose (+ override if stored)
+    for key in list(desired_full.keys()):
+        if key.startswith("secrets/"):
+            continue
+        want = desired_full.get(key) or ""
+        # .env: compare keys that exist in desired (host may have extra)
+        if key == ".env":
+            from .harden import parse_env_file
+
+            want_map = parse_env_file(want)
+            have_map = parse_env_file(live.get(".env") or "")
+            missing = [k for k in want_map if k not in have_map]
+            changed = [
+                k
+                for k in want_map
+                if k in have_map and str(want_map[k]) != str(have_map[k])
+            ]
+            if missing or changed:
+                diffs.append(
+                    {
+                        "file": ".env",
+                        "detail": (
+                            f"keys missing={len(missing)} changed={len(changed)}"
+                            + (f" ({', '.join((missing + changed)[:6])})" if (missing or changed) else "")
+                        ),
+                    }
+                )
+            continue
+        have = live.get(key)
+        if have is None:
+            # try alternate compose basenames for primary compose
+            if key in ("docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"):
+                alt = primary_compose_key(live)
+                if alt and alt != key:
+                    have = live.get(alt)
+                    if have is not None:
+                        key_label = f"{key} (host: {alt})"
+                    else:
+                        key_label = key
+                else:
+                    key_label = key
+            else:
+                key_label = key
+            if have is None:
+                diffs.append({"file": key, "detail": "missing on host"})
+                continue
+        else:
+            key_label = key
+        if _normalize_compose_text(want) != _normalize_compose_text(have or ""):
+            diffs.append({"file": key_label, "detail": "content differs"})
+
+    status = "in_sync" if not diffs else "drifted"
+    deployment.drift_status = status
+    deployment.updated_at = datetime.utcnow()
+    session.add(deployment)
+    session.commit()
+    session.refresh(deployment)
+
+    # Notify / resolve
+    try:
+        from .. import notifications as notif_svc
+
+        fp = f"template_drift:deployment:{deployment.id}"
+        if status == "drifted":
+            notif_svc.upsert_notification(
+                session,
+                fingerprint=fp,
+                type="template_drift",
+                title=f"Config drift: {deployment.project_name}",
+                body=(
+                    f"Host differs from desired state V{deployment.config_version} "
+                    f"({len(diffs)} file(s))"
+                )[:400],
+                link_url=f"/templates/deployments/{deployment.id}",
+                severity="warning",
+                server_id=server.id,
+                payload={"diffs": diffs[:20], "deployment_id": deployment.id},
+            )
+        else:
+            notif_svc.resolve_by_fingerprint(session, fp)
+    except Exception as e:
+        logger.debug("drift notify: %s", e)
+
+    return {
+        "status": status,
+        "deployment_id": deployment.id,
+        "project_path": path,
+        "diffs": diffs,
+        "config_version": deployment.config_version,
+    }
+
+
+def check_all_deployments_drift(session: Session) -> Dict[str, Any]:
+    """Scheduled sweep: check every stack deployment (best-effort)."""
+    deps = list(session.exec(select(StackDeployment)).all())
+    results = {"checked": 0, "in_sync": 0, "drifted": 0, "unknown": 0, "errors": 0}
+    for dep in deps:
+        server = session.get(Server, dep.server_id)
+        if not server:
+            continue
+        try:
+            r = check_deployment_drift(session, server=server, deployment=dep)
+            results["checked"] += 1
+            st = r.get("status") or "unknown"
+            if st in results:
+                results[st] += 1
+            else:
+                results["unknown"] += 1
+        except Exception as e:
+            logger.warning("drift sweep dep=%s: %s", dep.id, e)
+            results["errors"] += 1
+    return results
+
+
+def migrate_host_env_into_deployment(
+    session: Session,
+    *,
+    server: Server,
+    deployment: StackDeployment,
+    secret_keys: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Pull host .env into PiHerder encrypted secrets (and non-secret public vars).
+
+    By default only updates known secret keys already in the deployment (or template).
+    Pass secret_keys to limit; empty list means all host keys that match secret names
+    from the template definition when available.
+    """
+    from ..docker_versions import get_project_live_files
+    from .harden import parse_env_file
+
+    path = _project_path_for(server, deployment.project_name)
+    live = get_project_live_files(server, path)
+    host_env = parse_env_file(live.get(".env") or "")
+    if not host_env:
+        raise TemplateError(
+            f"No .env on host at {path}/.env — create secrets on the host or redeploy from PiHerder first"
+        )
+
+    secrets_map = decrypt_deployment_secrets(deployment)
+    public = json.loads(deployment.variables_json or "{}") or {}
+
+    # Determine which keys are secrets
+    secret_name_set = set(secrets_map.keys())
+    try:
+        if deployment.template_slug:
+            definition = get_template_definition(session, slug=deployment.template_slug)
+            for v in definition.variables:
+                if v.secret or v.type == "password":
+                    secret_name_set.add(v.name)
+    except Exception:
+        pass
+
+    if secret_keys is not None:
+        targets = [k for k in secret_keys if k]
+    else:
+        targets = list(secret_name_set) if secret_name_set else list(host_env.keys())
+
+    updated_secrets: Dict[str, str] = {}
+    updated_public: Dict[str, str] = {}
+    skipped: List[str] = []
+    for k in targets:
+        if k not in host_env:
+            skipped.append(k)
+            continue
+        val = str(host_env[k])
+        if k in secret_name_set or (k not in public and k in secrets_map):
+            updated_secrets[k] = val
+        elif k in secret_name_set or k.endswith(("_PASSWORD", "_SECRET", "_TOKEN", "_KEY")):
+            updated_secrets[k] = val
+        else:
+            # Only update public if already tracked as a variable
+            if k in public or k == "PROJECT_NAME":
+                updated_public[k] = val
+            else:
+                skipped.append(k)
+
+    if not updated_secrets and not updated_public:
+        raise TemplateError(
+            "No matching keys to import from host .env "
+            f"(looked for {len(targets)} secret/public keys; host has {len(host_env)} keys)"
+        )
+
+    # Persist secrets + public without necessarily redeploying compose
+    secrets_map.update(updated_secrets)
+    public.update(updated_public)
+    deployment.variables_json = json.dumps(public, ensure_ascii=False)
+    deployment.secrets_encrypted = (
+        encrypt_str(json.dumps(secrets_map, ensure_ascii=False)) if secrets_map else None
+    )
+    deployment.updated_at = datetime.utcnow()
+    # Refresh stored files .env structure (placeholders for secrets)
+    try:
+        files = json.loads(deployment.files_json or "{}") or {}
+        files = merge_secrets_into_env_files(files, secrets_map)
+        from .schema import files_for_db_storage
+
+        deployment.files_json = json.dumps(
+            files_for_db_storage(files, secrets_map), ensure_ascii=False
+        )
+    except Exception as e:
+        logger.debug("env migrate files refresh: %s", e)
+    session.add(deployment)
+    session.commit()
+    session.refresh(deployment)
+
+    return {
+        "ok": True,
+        "deployment_id": deployment.id,
+        "imported_secrets": sorted(updated_secrets.keys()),
+        "imported_public": sorted(updated_public.keys()),
+        "skipped": skipped[:30],
+        "host_env_keys": len(host_env),
+    }
+
+
+def volume_fields_for_ui(
+    public: Dict[str, Any],
+    definition: Optional[TemplateDefinition],
+) -> List[Dict[str, Any]]:
+    """Build volume editor rows from stored public vars + template metadata."""
+    rows: List[Dict[str, Any]] = []
+    if not definition:
+        return rows
+    for var in definition.variables:
+        if var.type != "volume":
+            continue
+        mode = str(public.get(f"{var.name}__mode") or var.volume_default_mode or "named")
+        source = str(public.get(f"{var.name}__source") or "")
+        raw = str(public.get(var.name) or "")
+        tgt = (var.volume_target or "").strip()
+        if not source and raw:
+            # raw is often "source:target" mount
+            if tgt and raw.endswith(":" + tgt):
+                source = raw[: -(len(tgt) + 1)]
+            elif ":" in raw:
+                source = raw.rsplit(":", 1)[0]
+            else:
+                source = raw
+        rows.append(
+            {
+                "name": var.name,
+                "label": var.label or var.name,
+                "mode": mode,
+                "source": source,
+                "volume_target": tgt,
+                "help": var.help or "",
+                "required": bool(var.required),
+            }
+        )
+    return rows
+
+
+def public_vars_excluding_volume_meta(public: Dict[str, Any], definition: Optional[TemplateDefinition]) -> Dict[str, str]:
+    """Public variables for simple text fields (skip volume mounts + __mode/__source)."""
+    skip = set()
+    if definition:
+        for var in definition.variables:
+            if var.type == "volume":
+                skip.add(var.name)
+                skip.add(f"{var.name}__mode")
+                skip.add(f"{var.name}__source")
+    out = {}
+    for k, v in (public or {}).items():
+        if k in skip or k.startswith("__"):
+            continue
+        if k.endswith("__mode") or k.endswith("__source"):
+            continue
+        out[str(k)] = "" if v is None else str(v)
+    return out
+
+
+def matching_backup_sources_for_deployment(
+    server: Server, deployment: StackDeployment
+) -> List[Dict[str, Any]]:
+    """Backup sources whose path overlaps this stack (for restore after wipe)."""
+    from .. import backup_profiles
+    from ..backup_restore import list_restore_candidates
+
+    project = (deployment.project_name or "").strip()
+    if not project:
+        return []
+    base = docker_base_expanded(server)
+    project_path = f"{base}/{project}".replace("//", "/").rstrip("/")
+    candidates = list_restore_candidates(server)
+    out = []
+    for c in candidates:
+        src = (c.get("source") or "").rstrip("/")
+        if not src:
+            continue
+        # Match exact project path, parent docker base, or source containing project name
+        if (
+            src == project_path
+            or src.startswith(project_path + "/")
+            or project_path.startswith(src + "/")
+            or src.endswith("/" + project)
+            or f"/{project}/" in src + "/"
+        ):
+            out.append(c)
+    return out

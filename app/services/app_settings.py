@@ -48,6 +48,8 @@ DEFAULTS: Dict[str, Any] = {
     "force_2fa": False,
     # Require TOTP enabled to deploy templates / view deployment secrets
     "template_require_2fa": False,
+    # Suggest host/service FQDNs as {slug}.{dns_base_domain}
+    "dns_base_domain": "",
 }
 
 

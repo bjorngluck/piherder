@@ -12,9 +12,10 @@ from urllib.parse import urlencode
 
 from .. import templates as templates_mod
 from ..database import get_session
-from ..models import AuditLog, Server, User
+from ..models import Server, User
 from ..security.auth import get_current_user, get_operator_user, role_at_least, ROLE_OPERATOR
 from ..services import certificates as cert_svc
+from ..services.audit_write import make_audit_log
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["certificates"])
@@ -31,7 +32,7 @@ def _audit(
 ) -> None:
     try:
         session.add(
-            AuditLog(
+            make_audit_log(
                 user_id=user.id,
                 server_id=server_id,
                 action=action,
@@ -143,25 +144,21 @@ async def certificate_detail(
     targets = cert_svc.list_targets(session, cert_id)
     servers = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
     server_names = {s.id: s.name for s in servers}
-    target_rows = []
-    for t in targets:
-        target_rows.append(
-            {
-                "id": t.id,
-                "server_id": t.server_id,
-                "server_name": server_names.get(t.server_id, f"#{t.server_id}"),
-                "remote_dir": t.remote_dir,
-                "layout": t.layout,
-                "enabled": t.enabled,
-                "last_deployed_at": t.last_deployed_at,
-                "last_deploy_status": t.last_deploy_status,
-                "last_deploy_message": t.last_deploy_message,
-                "fullchain_filename": t.fullchain_filename,
-                "privkey_filename": t.privkey_filename,
-                "combined_filename": t.combined_filename,
-                "pfx_filename": t.pfx_filename,
-            }
+    target_rows = [
+        cert_svc.public_target_dict(
+            t, server_name=server_names.get(t.server_id, f"#{t.server_id}")
         )
+        for t in targets
+    ]
+    edit_id = request.query_params.get("edit_target")
+    edit_target = None
+    if edit_id:
+        try:
+            eid = int(edit_id)
+        except ValueError:
+            eid = None
+        if eid:
+            edit_target = next((r for r in target_rows if r["id"] == eid), None)
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="certificates_detail.html",
@@ -171,6 +168,8 @@ async def certificate_detail(
             "cert": cert_svc.public_cert_dict(cert),
             "targets": target_rows,
             "servers": servers,
+            "edit_target": edit_target,
+            "layout_help": cert_svc.LAYOUT_HELP,
             "can_mutate": _can_mutate(user),
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or "",
@@ -239,6 +238,7 @@ async def certificate_add_target(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     server_id: int = Form(...),
+    label: str = Form(""),
     remote_dir: str = Form("~/certs"),
     layout: str = Form("pair"),
     fullchain_filename: str = Form("fullchain.pem"),
@@ -256,6 +256,7 @@ async def certificate_add_target(
             session,
             certificate_id=cert_id,
             server_id=server_id,
+            label=label,
             remote_dir=remote_dir,
             layout=layout,
             fullchain_filename=fullchain_filename,
@@ -273,12 +274,73 @@ async def certificate_add_target(
             user,
             "cert_target_added",
             server_id=server_id,
-            details=f"cert={cert_id} target={t.id}",
+            details=f"cert={cert_id} target={t.id} label={t.label or ''}",
         )
         return _redirect(f"/certificates/{cert_id}", msg="target_added")
     except ValueError as e:
         return _redirect(
             f"/certificates/{cert_id}", error="invalid", detail=str(e)[:200]
+        )
+
+
+@router.post("/certificates/{cert_id}/targets/{target_id}/edit")
+async def certificate_edit_target(
+    cert_id: int,
+    target_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    server_id: int = Form(...),
+    label: str = Form(""),
+    remote_dir: str = Form("~/certs"),
+    layout: str = Form("pair"),
+    fullchain_filename: str = Form("fullchain.pem"),
+    privkey_filename: str = Form("privkey.pem"),
+    combined_filename: str = Form("snakeoil.pem"),
+    pfx_filename: str = Form("Certificate.pfx"),
+    file_mode: str = Form("600"),
+    file_owner: str = Form(""),
+    file_group: str = Form(""),
+    pfx_export_password: str = Form(""),
+    post_deploy_command: str = Form(""),
+):
+    from ..models import CertificateTarget
+
+    row = session.get(CertificateTarget, target_id)
+    if not row or row.certificate_id != cert_id:
+        raise HTTPException(404)
+    try:
+        # Empty password field = keep existing encrypted password
+        t = cert_svc.update_target(
+            session,
+            target_id,
+            server_id=server_id,
+            label=label,
+            remote_dir=remote_dir,
+            layout=layout,
+            fullchain_filename=fullchain_filename,
+            privkey_filename=privkey_filename,
+            combined_filename=combined_filename,
+            pfx_filename=pfx_filename,
+            file_mode=file_mode,
+            file_owner=file_owner,
+            file_group=file_group,
+            pfx_export_password=pfx_export_password if pfx_export_password else None,
+            post_deploy_command=post_deploy_command,
+        )
+        _audit(
+            session,
+            user,
+            "cert_target_updated",
+            server_id=server_id,
+            details=f"cert={cert_id} target={t.id}",
+        )
+        return _redirect(f"/certificates/{cert_id}", msg="target_saved")
+    except ValueError as e:
+        return _redirect(
+            f"/certificates/{cert_id}",
+            error="invalid",
+            detail=str(e)[:200],
+            edit_target=str(target_id),
         )
 
 

@@ -162,6 +162,7 @@ nav:
       - Uptime Kuma: integrations/uptime-kuma.md
       - Grafana: integrations/grafana.md
       - Pi-hole: integrations/pihole.md
+      - DNS fabric: integrations/dns-fabric.md
       - Nginx Proxy Manager: integrations/npm.md
       - Certificates: integrations/certificates.md
   - Account & security:

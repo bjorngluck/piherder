@@ -136,18 +136,24 @@
   {% endif %}
   {% set _deploy = request.query_params.get('deploy') %}
   {% if _deploy %}
-    <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-success' if _deploy == 'ok' else 'banner-error' }}">
-      {% if _deploy == 'ok' %}
+    <div class="mb-3 p-2 text-xs rounded border border-border {{ 'banner-success' if _deploy in ('ok', 'queued') else 'banner-error' }}">
+      {% if _deploy == 'queued' %}
+        <strong>Deploy queued</strong> for
+        <span class="font-mono">{{ request.query_params.get('project') or 'stack' }}</span>
+        {% if request.query_params.get('job_id') %}(job #{{ request.query_params.get('job_id') }}){% endif %}.
+        Follow live progress under <a href="/jobs" class="text-primary underline">Jobs</a>
+        (audit action <code>docker_stack_deploy</code>).
+      {% elif _deploy == 'ok' %}
         <strong>Deploy finished</strong> for
         <span class="font-mono">{{ request.query_params.get('project') or 'stack' }}</span>
         ({{ 'pull + ' if request.query_params.get('pull') == '1' else '' }}compose up -d).
         Pending-update badge for this stack is cleared; the host alert closes when no stacks remain.
-        Evidence is in <strong>Audit</strong> → <code>docker_redeploy</code> (pull/up exit codes + command output).
+        Evidence is in <strong>Audit</strong> → <code>docker_stack_deploy</code> (pull/up exit codes + command output).
       {% else %}
         <strong>Deploy failed</strong> for
         <span class="font-mono">{{ request.query_params.get('project') or 'stack' }}</span>
         {% if request.query_params.get('detail') %} — {{ request.query_params.get('detail') }}{% endif %}.
-        See <strong>Audit</strong> → <code>docker_redeploy</code> for pull/up output (auth, path, or registry errors often show there).
+        See <strong>Jobs</strong> / <strong>Audit</strong> → <code>docker_stack_deploy</code> for pull/up output.
       {% endif %}
     </div>
   {% endif %}
@@ -1557,7 +1563,8 @@ document.addEventListener('click', function(e) {
 }, true);
 
 // === Loading / waiting feedback for Check Updates, Deploy, Undeploy ===
-// Prevents multiple clicks and gives clear visual feedback (loading button + popup notice)
+// Check + Deploy run as Jobs with live log (B07 / PiHerderJobHold).
+// Other compose actions keep the blocking progress overlay.
 (function setupLongActionFeedback() {
   function showActionProgress(actionName, projectName) {
     // Remove any existing
@@ -1589,6 +1596,11 @@ document.addEventListener('click', function(e) {
     if (a.includes('/compose/start')) return 'Starting...';
     if (a.includes('/compose/restart')) return 'Restarting...';
     return null;
+  }
+
+  function isJobHoldAction(form) {
+    const a = form.getAttribute('action') || '';
+    return a.includes('/check-updates') || a.includes('/redeploy');
   }
 
   // One delegated submit handler (works after HTMX stack refresh)
@@ -1625,6 +1637,28 @@ document.addEventListener('click', function(e) {
       return;
     }
     if (form.dataset.confirmed) delete form.dataset.confirmed;
+
+    // B07: Check updates + Deploy → Job queue + live log modal
+    if (isJobHoldAction(form) && window.PiHerderJobHold) {
+      e.preventDefault();
+      if (btn) {
+        btn.disabled = true;
+        btn.dataset.originalText = btn.textContent;
+        btn.textContent = actionLabel;
+      }
+      var holdTitle = actionLabel.includes('Check')
+        ? ('Check updates: ' + projName)
+        : ('Deploy: ' + projName);
+      window.PiHerderJobHold.run({
+        url: form.action,
+        form: form,
+        title: holdTitle,
+        serverId: CURRENT_SERVER_ID || {{ server.id }},
+        initialMessage: holdTitle + '…\n',
+        hint: 'Live log from the job — this page refreshes when finished.',
+      });
+      return;
+    }
 
     if (btn) {
       btn.disabled = true;

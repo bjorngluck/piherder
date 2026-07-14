@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 from sqlmodel import select, Session
 import os
@@ -18,6 +19,7 @@ from .routers import integrations as integrations_router
 from .routers import certificates as certificates_router
 from .routers import fleet_services as fleet_services_router
 from .routers import templates_svc as templates_svc_router
+from .routers import dns as dns_router
 from . import templates as templates_mod  # shared Jinja instance (avoids circular)
 from .security.auth import get_optional_current_user, get_password_hash
 import logging
@@ -108,6 +110,7 @@ async def lifespan(app: FastAPI):
                 sync_stack_health_schedule,
                 sync_integrations_poll_schedule,
                 sync_cert_renew_schedule,
+                sync_template_drift_schedule,
             )
             sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER)
             sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
@@ -115,6 +118,7 @@ async def lifespan(app: FastAPI):
             sync_stack_health_schedule(scheduler, HAS_SCHEDULER)
             sync_integrations_poll_schedule(scheduler, HAS_SCHEDULER)
             sync_cert_renew_schedule(scheduler, HAS_SCHEDULER)
+            sync_template_drift_schedule(scheduler, HAS_SCHEDULER)
         except Exception as e:
             print(f"Scheduler init skipped: {e}")
 
@@ -158,6 +162,32 @@ app = FastAPI(
         {"name": "metrics", "description": "Prometheus scrape (/metrics)"},
     ],
 )
+
+
+class ClientIpMiddleware(BaseHTTPMiddleware):
+    """Bind resolved client IP (Caddy XFF / peer) for AuditLog + rate limits."""
+
+    async def dispatch(self, request: Request, call_next):
+        from .services.request_ip import (
+            client_ip_from_request,
+            reset_request_client_ip,
+            set_request_client_ip,
+        )
+
+        ip = client_ip_from_request(request)
+        token = set_request_client_ip(ip)
+        # Expose on request.state for handlers that prefer explicit access
+        try:
+            request.state.client_ip = ip
+        except Exception:
+            pass
+        try:
+            return await call_next(request)
+        finally:
+            reset_request_client_ip(token)
+
+
+app.add_middleware(ClientIpMiddleware)
 
 # Optional CORS (opt-in allowlist). Default off — UI is same-origin; n8n/HA are server-side.
 # CORS is not an auth layer: /api/v1 still requires Bearer + scopes + IP allowlist.
@@ -230,6 +260,7 @@ app.include_router(integrations_router.router, prefix="", tags=["integrations"])
 app.include_router(certificates_router.router, prefix="", tags=["certificates"])
 app.include_router(fleet_services_router.router, prefix="", tags=["fleet-services"])
 app.include_router(templates_svc_router.router, prefix="", tags=["templates"])
+app.include_router(dns_router.router, prefix="", tags=["dns"])
 
 # Re-export schedule helpers used by lifespan and other routers
 schedule_backup_job = sched.schedule_backup_job

@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% with catalog_section='dns' %}
+{% include "partials/catalog_nav.html" %}
+{% endwith %}
+
+{% set phys = physical if physical is defined else (view.physical if view is defined else {}) %}
+{% set svg = phys.svg if phys.svg is defined else {} %}
+
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <div>
+    <div class="flex flex-wrap gap-2 text-xs mb-1">
+      <a href="/dns" class="text-accent hover:underline">← DNS hub</a>
+      <span class="text-muted">·</span>
+      <a href="/dns/logical" class="text-accent hover:underline">Logical mesh</a>
+    </div>
+    <h1 class="text-2xl font-semibold tracking-tight">Physical topology</h1>
+    <p class="text-sm text-muted mt-1 max-w-2xl">
+      Full fleet mesh: <strong class="text-text">hosts</strong> (with DNS + IP) and
+      <strong class="text-text">apps</strong> that land on them.
+      Dashed lines go to the NPM edge host when traffic is proxied.
+    </p>
+  </div>
+  <div class="flex flex-wrap gap-2 text-xs">
+    <span class="fabric-legend-swatch fabric-legend-swatch--host">Host</span>
+    <span class="fabric-legend-swatch fabric-legend-swatch--edge">NPM edge host</span>
+    <span class="fabric-legend-swatch fabric-legend-swatch--app">App name</span>
+    <span class="fabric-legend-swatch fabric-legend-swatch--npm-line">── NPM path</span>
+  </div>
+</div>
+
+<div class="card p-3 mb-5 overflow-hidden">
+  {% if svg.nodes %}
+  <div class="fabric-mesh-scroll">
+    <svg class="fabric-mesh-svg"
+         viewBox="0 0 {{ svg.width }} {{ svg.height }}"
+         width="100%"
+         role="img"
+         aria-label="Physical fleet mesh">
+      <defs>
+        <marker id="m-land" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--color-muted, #888)"/>
+        </marker>
+        <marker id="m-npm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--color-warning, #d97706)"/>
+        </marker>
+        <filter id="glow-host" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.18"/>
+        </filter>
+      </defs>
+
+      {% for e in svg.edges %}
+      <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}"
+            class="fabric-mesh-edge fabric-mesh-edge--{{ e.kind }}"
+            {% if e.dashed %}stroke-dasharray="5 4"{% endif %}
+            marker-end="{% if e.kind == 'npm' %}url(#m-npm){% else %}url(#m-land){% endif %}"/>
+      {% endfor %}
+
+      {% for n in svg.nodes %}
+        {% if n.kind == 'host' %}
+        <a href="{{ n.href or '#' }}">
+          <g class="fabric-mesh-node fabric-mesh-node--host {% if n.npm_edge %}is-edge{% endif %}" filter="url(#glow-host)">
+            <rect x="{{ n.x - 62 }}" y="{{ n.y - 30 }}" width="124" height="60" rx="12"/>
+            <text x="{{ n.x }}" y="{{ n.y - 6 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label[:16] }}</text>
+            <text x="{{ n.x }}" y="{{ n.y + 12 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or n.ip or '')[:20] }}</text>
+            {% if n.npm_edge %}
+            <text x="{{ n.x }}" y="{{ n.y + 24 }}" text-anchor="middle" class="fabric-mesh-tag">NPM</text>
+            {% endif %}
+          </g>
+        </a>
+        {% else %}
+        <a href="{{ n.href or '#' }}">
+          <g class="fabric-mesh-node fabric-mesh-node--app {% if n.via_npm %}is-npm{% endif %}">
+            <rect x="{{ n.x - 70 }}" y="{{ n.y - 22 }}" width="140" height="44" rx="10"/>
+            <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label[:22] }}</text>
+            <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:20] }}</text>
+          </g>
+        </a>
+        {% endif %}
+      {% endfor %}
+    </svg>
+  </div>
+  <p class="text-[11px] text-muted mt-2 px-1">
+    {{ svg.host_count or 0 }} hosts · {{ svg.app_count or 0 }} apps ·
+    scroll / pinch if needed · solid = lands on host · dashed = via NPM edge
+  </p>
+  {% else %}
+  <p class="text-sm text-muted p-6 text-center">No hosts to draw yet.</p>
+  {% endif %}
+</div>
+
+{# Rack list under the mesh for detail #}
+{% if phys.racks %}
+<div class="fabric-rack-grid mb-6">
+  {% for rack in phys.racks %}
+  {% if rack.dns_name or rack.apps %}
+  <article class="fabric-rack {% if rack.is_npm_edge %}fabric-rack--edge{% endif %}">
+    <header class="fabric-rack-head">
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <a href="{{ rack.href }}" class="fabric-rack-title">{{ rack.name }}</a>
+          {% if rack.is_npm_edge %}<span class="fabric-badge fabric-badge--npm">NPM edge</span>{% endif %}
+        </div>
+        <span class="fabric-rack-count">{{ rack.app_count }}</span>
+      </div>
+      <div class="fabric-rack-meta font-mono">
+        {% if rack.dns_name %}<span>{{ rack.dns_name }}</span>{% endif %}
+        {% if rack.ip %}<span>{{ rack.ip }}</span>{% endif %}
+      </div>
+    </header>
+    {% if rack.apps %}
+    <ul class="fabric-rack-apps">
+      {% for app in rack.apps %}
+      <li class="fabric-app-chip fabric-app-chip--{{ app.path_kind or 'host' }}">
+        <span class="fabric-app-url">{{ app.fqdn }}</span>
+        <span class="fabric-app-meta">
+          {% if app.via_npm and app.npm_edge %}<span class="fabric-link-via">via {{ app.npm_edge }}</span>{% endif %}
+          {% if app.container %}<span class="font-mono">{{ app.project }}/{{ app.container }}</span>
+          {% elif app.project %}<span class="font-mono">{{ app.project }}</span>{% endif %}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="fabric-rack-empty-msg">No mapped apps</p>
+    {% endif %}
+  </article>
+  {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endblock %}

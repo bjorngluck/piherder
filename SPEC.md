@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** **v0.5.0 in development** — Phase 1–5 complete; Phase 6 templates **foundation shipped** in v0.4.0; ops + polish + RC → **v0.5.0**  
-> **Last updated:** 2026-07-13 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target; former v0.4.x folded in). Fleet ops polish (exclusive jobs, reboot, bulk actions, full editor, backup complete audit + app-timezone display) in plan workstream **E**.
+> **Last updated:** 2026-07-14 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target). Landed: **A–H** (template polish, drift/env migrate, restore/last config, fleet ops, Pi-hole/NPM/certs, B07–B09, audit IP). Still open: multi-arch image, RC freeze.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -92,6 +92,7 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 - Backup success/failure is now determined by per-source `rc == 0` (and absence of errors). Failed runs set status="failed", populate error details in audit, and do **not** update `last_backup_at`.
 - **Backup terminal audit (0.5.0):** Celery success path refreshes the Job after `_update_job_status` (fixes stale Session skipping `backup` complete rows). Compact snippet stores source count + sizes for Audit summary lines; duration uses job wall-clock.
 - **App timezone display (0.5.0):** Settings IANA zone (e.g. `Africa/Johannesburg`) formats Audit, Jobs, Notifications, and fleet timestamps; ISO strings treated as UTC; client `data-utc` appends `Z` for naive values.
+- **Audit client IP (0.5.0):** `AuditLog.client_ip` on every request-driven event (Caddy XFF / X-Real-IP / peer); job queue snapshots IP for Celery finish; login and API-token lifecycle audited; UI list/detail + search.
 - rsync always uses `--rsync-path "sudo -n rsync"` (or local sudo) except for explicit root users / HAOS installs, where plain `rsync` is auto-probed and retried.
 - PiHerder self-backup scheduling is fully wired (enable, cron, mode=config_only|full, keep, timezone) with UI at `/herder-backups`, APScheduler registration on startup, manual trigger, preview restore, and audit entries.
 - Internal refactor for maintainability completed: god modules split (servers.py, backup.py into progress+profiles, docker_management.py → +docker_versions.py, main.py scheduler slim, new focused routers server_docker.py + server_backups.py + audit.py + scheduler.py). All via small modules + re-exports; behavior, routes, and lightweight principle preserved. Largest files now ~500-700 LOC.
@@ -268,10 +269,10 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 
 **Primary**
 
-- [ ] Template UX polish (redeploy volume editor, from-host edge cases, operator feedback)
-- [ ] Scheduled config drift vs desired state; alert + audit
-- [ ] Migrate existing host `.env` into PiHerder (UX polish)
-- [ ] Restore service from backup + apply last known config from PiHerder
+- [x] Template UX polish (redeploy volume editor, from-host edge cases, operator feedback)
+- [x] Scheduled config drift vs desired state; alert + audit (manual + every 6h)
+- [x] Migrate existing host `.env` into PiHerder (Import host .env on deployment)
+- [x] Restore service from backup (matched sources) + apply last known config from PiHerder
 - [x] Production user wiki + dev wiki scaffold (MkDocs Material under `wiki/`; real screenshots + Pages go-live ongoing)
 - [ ] Docker Hub / GHCR multi-arch image publish
 - [ ] RC freeze bar (pytest, smoke, security of secret paths)
@@ -282,12 +283,20 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [x] Reboot reliability (deferred background reboot; no hang when rebooting herder host)
 - [x] Servers list bulk actions (check/upgrade OS, check/patch containers, backup; feature-flag aware)
 - [x] Docker full editor navigation (⋯ **Full editor…** + quick-edit link)
+- [x] Backup complete audit + app timezone display (Audit/Jobs/Notifications/fleet)
+
+**Stretch quality G + audit IP H**
+
+- [x] **B07** Docker stack Check/Deploy as Jobs + live log (`docker_stack_check` / `docker_stack_deploy`)
+- [x] **B08** Service logos in herder self-backup
+- [x] **B09** Web Push on auto-resolve of alerts
+- [x] **Audit `client_ip`** on every request-driven event (Caddy XFF; login + token audits; job IP snapshotted for Celery)
 
 **Nice-to-have in same tag**
 
 - [ ] Git template catalog pull
 - [x] NPM integration connector (proxy hosts RO, bindings, encrypted certs + PEM upload + deploy/renew)
-- [ ] Async Docker/template deploy jobs + live log (**B07**)
+- [ ] Template deploy as Jobs + live log (stack path done; template wizard still wait-modal)
 
 **Deferred (post-0.5 / Horizon 3)**
 
@@ -298,8 +307,11 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 
 ## Phase 7 — Ecosystem depth (post-v0.5 / Horizon 3)
 
-- [ ] Cloudflare DNS automation from template hints
+- [x] **DNS fabric** (v0.5.0) — host `dns_name` A records; `ServiceDnsRecord` (CNAME or host-identity A); Catalog → DNS hub + `/dns/physical` + `/dns/logical` full meshes; Pi-hole adopt (duplicates = ok); Kuma/NPM path layers; external checklist — [wiki](wiki/integrations/dns-fabric.md)
+- [ ] Cloudflare DNS automation from template hints / fabric
+- [ ] Service → container first-class map + **container dependency graph** (DB, Redis, …) — ROADMAP H2.5
 - [ ] Pi-hole / NPM write paths beyond local DNS (proxy host CRUD, lists, etc.)
+- [ ] Service migrate host→host; destructive service remove
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis

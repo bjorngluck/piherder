@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% with catalog_section='dns' %}
+{% include "partials/catalog_nav.html" %}
+{% endwith %}
+
+{% if msg %}
+<div class="banner-success border rounded p-3 text-sm mb-4">{{ msg }}</div>
+{% endif %}
+{% if error %}
+<div class="banner-error border rounded p-3 text-sm mb-4">{{ error }}</div>
+{% endif %}
+
+{# Full-picture mesh entry points #}
+<div class="grid gap-3 sm:grid-cols-2 mb-5">
+  <a href="/dns/physical" class="fabric-nav-card fabric-nav-card--physical">
+    <div class="fabric-nav-card-kicker">Full mesh</div>
+    <div class="fabric-nav-card-title">Physical topology</div>
+    <p class="fabric-nav-card-desc">
+      All hosts, IPs, NPM edge machines, and which apps land on each rack.
+    </p>
+    <span class="fabric-nav-card-cta">Open physical mesh →</span>
+  </a>
+  <a href="/dns/logical" class="fabric-nav-card fabric-nav-card--logical">
+    <div class="fabric-nav-card-kicker">Full mesh</div>
+    <div class="fabric-nav-card-title">Logical topology</div>
+    <p class="fabric-nav-card-desc">
+      Every URL → via NPM or direct → host / project / container.
+    </p>
+    <span class="fabric-nav-card-cta">Open logical mesh →</span>
+  </a>
+</div>
+
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-5">
+  <div class="card p-3">
+    <div class="text-xs text-muted">Hosts named</div>
+    <div class="text-2xl font-semibold">{{ view.stats.hosts_named }}<span class="text-sm text-muted font-normal"> / {{ view.stats.hosts_total }}</span></div>
+  </div>
+  <div class="card p-3">
+    <div class="text-xs text-muted">Mapped names</div>
+    <div class="text-2xl font-semibold">{{ view.stats.services }}</div>
+  </div>
+  <div class="card p-3">
+    <div class="text-xs text-muted">Via NPM</div>
+    <div class="text-2xl font-semibold">{{ view.stats.via_proxy }}</div>
+  </div>
+  <div class="card p-3">
+    <div class="text-xs text-muted">Path mix</div>
+    <div class="text-xs mt-1 space-y-0.5 text-muted">
+      {% set bp = view.stats.by_path or {} %}
+      <div>identity {{ bp.host_identity or 0 }} · app {{ bp.app or 0 }}</div>
+      <div>npm {{ (bp.npm_app or 0) + (bp.npm_host or 0) }}</div>
+    </div>
+  </div>
+</div>
+
+{# ── Per-service paths (this page) ── #}
+<div class="card p-4 mb-5 fabric-topology" id="service-paths">
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+    <div>
+      <h2 class="font-semibold text-lg tracking-tight">Service paths</h2>
+      <p class="text-xs text-muted mt-1 max-w-2xl">
+        One card per published name. Optional layers:
+        <strong class="text-text">name</strong> →
+        <strong class="text-text">NPM</strong> →
+        <strong class="text-text">host</strong> →
+        <strong class="text-text">service</strong> →
+        <strong class="text-text">container</strong>.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2 text-[11px]">
+      {% for pk in view.path_kinds or [] %}
+      <span class="fabric-legend-pill">{{ pk.title }}</span>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if view.services %}
+  <div class="fabric-path-grid">
+    {% for s in view.services %}
+    <article class="fabric-path-card fabric-path-card--{{ s.path_kind or 'host' }}">
+      <header class="fabric-path-card-head">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="fabric-badge fabric-badge--{{ s.path_kind or 'host' }}">{{ s.path_title or s.path_kind }}</span>
+          {% if s.last_sync_status == 'ok' %}
+          <span class="text-[10px] text-success font-medium">synced</span>
+          {% elif s.last_sync_status == 'partial' %}
+          <span class="text-[10px] text-warning font-medium">partial</span>
+          {% endif %}
+        </div>
+        {% if can_mutate %}
+        <div class="flex flex-wrap gap-1">
+          <form method="post" action="/dns/services/{{ s.id }}/sync" class="inline">
+            <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2">Sync</button>
+          </form>
+          {% if s.dep_href %}
+          <a href="{{ s.dep_href }}" class="btn btn-secondary text-xs min-h-9 px-2 inline-flex items-center">Open</a>
+          {% endif %}
+          <form method="post" action="/dns/services/{{ s.id }}/delete"
+                data-confirm="Remove mapping for {{ s.fqdn }}?"
+                data-confirm-label="Remove" class="inline">
+            <button type="submit" class="btn btn-ghost text-xs min-h-9 px-2 text-error">Remove</button>
+          </form>
+        </div>
+        {% endif %}
+      </header>
+      <div class="fabric-path-hops">
+        {% for h in s.hops %}
+          {% if not loop.first %}
+          <span class="fabric-path-connector" aria-hidden="true">
+            <span class="fabric-path-connector-line"></span>
+            <span class="fabric-path-connector-dot"></span>
+          </span>
+          {% endif %}
+          {% if h.href %}
+          <a href="{{ h.href }}" class="fabric-hop fabric-hop--{{ h.kind }}">
+            <span class="fabric-hop-kind">{{ h.kind }}</span>
+            <span class="fabric-hop-label">{{ h.label }}</span>
+            {% if h.sub %}<span class="fabric-hop-sub">{{ h.sub }}</span>{% endif %}
+          </a>
+          {% else %}
+          <span class="fabric-hop fabric-hop--{{ h.kind }}">
+            <span class="fabric-hop-kind">{{ h.kind }}</span>
+            <span class="fabric-hop-label">{{ h.label }}</span>
+            {% if h.sub %}<span class="fabric-hop-sub">{{ h.sub }}</span>{% endif %}
+          </span>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-muted py-4">
+    No service mappings yet. Import Pi-hole CNAMEs below, or map a host identity.
+  </p>
+  {% endif %}
+</div>
+
+<div class="grid gap-5 lg:grid-cols-2 mb-5">
+  <div class="card p-4">
+    <h2 class="font-semibold text-sm mb-2">Host DNS (A records)</h2>
+    <p class="text-xs text-muted mb-3">
+      Set under each server <strong>Edit → General</strong>. Apps CNAME here (or use host identity when name = host).
+    </p>
+    <div class="table-scroll">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-muted border-b border-border">
+            <th class="py-2 pr-2">Server</th>
+            <th class="py-2 pr-2">DNS name</th>
+            <th class="py-2 pr-2">IP</th>
+            <th class="py-2">Manage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for h in view.hosts %}
+          <tr class="border-b border-border/60">
+            <td class="py-2 pr-2">
+              <a href="{{ h.href }}" class="text-accent hover:underline font-medium">{{ h.name }}</a>
+            </td>
+            <td class="py-2 pr-2 font-mono text-xs">{{ h.dns_name or '—' }}</td>
+            <td class="py-2 pr-2 font-mono text-xs">{{ h.ip or '—' }}</td>
+            <td class="py-2 text-xs">
+              {% if h.dns_manage_a %}<span class="text-success">Pi-hole A</span>{% else %}<span class="text-muted">off</span>{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="py-3 text-muted text-xs">No servers in fleet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card p-4">
+    <h2 class="font-semibold text-sm mb-2">External DNS checklist</h2>
+    <p class="text-xs text-muted mb-3">
+      Public providers (Cloudflare, etc.) are not automated yet.
+    </p>
+    {% if view.external_checklist %}
+    <ul class="space-y-2 text-sm">
+      {% for c in view.external_checklist %}
+      <li class="border border-border rounded p-2 font-mono text-xs">
+        <span class="text-muted">{{ c.type }}</span>
+        <strong class="text-text">{{ c.name }}</strong>
+        → {{ c.target }}
+        {% if c.note %}<span class="text-muted block mt-0.5 font-sans">{{ c.note }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-xs text-muted">No pending external checklist items.</p>
+    {% endif %}
+    {% if can_mutate %}
+    <form method="post" action="/dns/base-domain" class="mt-4 pt-3 border-t border-border flex flex-wrap gap-2 items-end">
+      <div class="flex-1 min-w-[12rem]">
+        <label class="text-xs text-muted block mb-1">Base domain (suggestions)</label>
+        <input name="domain" value="{{ dns_base_domain }}" placeholder="hacknow.info"
+               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+      </div>
+      <button type="submit" class="btn btn-secondary text-sm min-h-11">Save</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+{% if can_mutate %}
+<div class="card p-4 mb-5">
+  <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+    <div>
+      <h2 class="font-semibold text-sm">Adopt existing DNS</h2>
+      <p class="text-xs text-muted mt-0.5">
+        Pi-hole CNAMEs already live — import maps them (duplicates = success).
+        Host identity = app name is the host A record (no CNAME).
+      </p>
+    </div>
+    <form method="post" action="/dns/import-pihole"
+          data-confirm="Adopt all unmapped Pi-hole CNAMEs that match fleet hosts/NPM?"
+          data-confirm-label="Import all">
+      <button type="submit" class="btn btn-accent text-sm min-h-11">Import all from Pi-hole</button>
+    </form>
+  </div>
+  {% if candidates %}
+  <div class="table-scroll">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-muted border-b border-border">
+          <th class="py-2 pr-2">Source</th>
+          <th class="py-2 pr-2">Plan</th>
+          <th class="py-2">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in candidates %}
+        <tr class="border-b border-border/60 align-top">
+          <td class="py-2 pr-2">
+            {% if c.kind == 'pihole_cname' %}
+            <span class="text-[10px] uppercase text-success">Pi-hole CNAME</span>
+            <div class="font-mono text-xs">{{ c.fqdn }}</div>
+            <div class="text-[10px] text-muted">→ {{ c.cname_target }}</div>
+            {% elif c.kind == 'host_identity' %}
+            <span class="text-[10px] uppercase text-accent">Host identity (A)</span>
+            <div class="font-mono text-xs">{{ c.fqdn }}</div>
+            <div class="text-xs text-muted">
+              <a href="/servers/{{ c.server_id }}" class="text-accent hover:underline">{{ c.server_name }}</a>
+              {% if c.kuma_label %} · {{ c.kuma_label }}{% endif %}
+            </div>
+            {% else %}
+            <span class="text-[10px] uppercase text-muted">Deployment</span>
+            <div>
+              <a href="/templates/deployments/{{ c.deployment_id }}" class="text-accent hover:underline font-medium">{{ c.project_name }}</a>
+            </div>
+            <div class="text-xs text-muted">{{ c.server_name }}</div>
+            {% endif %}
+          </td>
+          <td class="py-2 pr-2 text-xs font-mono">
+            {{ c.plan.summary if c.plan else '—' }}
+            {% if c.plan and c.plan.path_title %}
+            <div class="text-[10px] text-muted font-sans mt-0.5">{{ c.plan.path_title }}</div>
+            {% endif %}
+            {% if c.plan and c.plan.blockers %}
+            <div class="text-warning mt-1 font-sans">{{ c.plan.blockers[0] }}</div>
+            {% endif %}
+          </td>
+          <td class="py-2">
+            {% if c.kind == 'pihole_cname' %}
+            <form method="post" action="/dns/attach-cname" class="inline">
+              <input type="hidden" name="fqdn" value="{{ c.fqdn }}">
+              <input type="hidden" name="cname_target" value="{{ c.cname_target }}">
+              <button type="submit" class="btn btn-accent text-xs min-h-9 px-2"
+                      {% if c.plan and c.plan.ready is defined and not c.plan.ready %}disabled{% endif %}>
+                Adopt
+              </button>
+            </form>
+            {% elif c.kind == 'host_identity' %}
+            <form method="post" action="/dns/attach-host-identity" class="inline">
+              <input type="hidden" name="server_id" value="{{ c.server_id }}">
+              <button type="submit" class="btn btn-accent text-xs min-h-9 px-2"
+                      {% if c.plan and c.plan.ready is defined and not c.plan.ready %}disabled{% endif %}>
+                Map host identity
+              </button>
+            </form>
+            {% else %}
+            <form method="post" action="/dns/attach-deployment" class="inline">
+              <input type="hidden" name="deployment_id" value="{{ c.deployment_id }}">
+              {% if c.plan and c.plan.fqdn %}
+              <input type="hidden" name="fqdn" value="{{ c.plan.fqdn }}">
+              {% endif %}
+              <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2"
+                      {% if c.plan and not c.plan.ready and not c.plan.fqdn %}disabled{% endif %}>
+                Attach
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-xs text-muted">Nothing left to adopt.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

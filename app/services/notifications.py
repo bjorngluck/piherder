@@ -85,7 +85,11 @@ def upsert_notification(
 
 
 def resolve_by_fingerprint(session: Session, fingerprint: str) -> int:
-    """Mark all open notifications with this fingerprint as resolved."""
+    """Mark all open notifications with this fingerprint as resolved.
+
+    Sends Web Push on auto-resolve (B09) for each closed row, using the same
+    type preferences as the original alert (title: "Resolved: …").
+    """
     rows = list(
         session.exec(
             select(Notification).where(
@@ -102,6 +106,8 @@ def resolve_by_fingerprint(session: Session, fingerprint: str) -> int:
         session.add(n)
     if rows:
         session.commit()
+        for n in rows:
+            _maybe_push_resolved(session, n)
     return len(rows)
 
 
@@ -195,6 +201,16 @@ def _maybe_push(session: Session, notification: Notification) -> None:
         send_for_notification(session, notification)
     except Exception as e:
         logger.debug("Web push dispatch failed: %s", e)
+
+
+def _maybe_push_resolved(session: Session, notification: Notification) -> None:
+    """Best-effort Web Push when an alert auto-resolves (B09)."""
+    try:
+        from .push import send_for_resolved_notification
+
+        send_for_resolved_notification(session, notification)
+    except Exception as e:
+        logger.debug("Web push resolve dispatch failed: %s", e)
 
 
 # --- Domain helpers used by check jobs ---

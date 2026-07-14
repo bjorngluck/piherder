@@ -8,6 +8,7 @@ from typing import Any
 from sqlmodel import Session
 
 from ..models import AuditLog, Job
+from .audit_write import make_audit_log, resolve_client_ip
 
 PHASE_ACTIONS: dict[str, tuple[str, str]] = {
     "request": ("backup_request", "success"),
@@ -88,6 +89,7 @@ def record_backup_audit_event(
     output_snippet: str | dict | None = None,
     started_at: datetime | None = None,
     finished_at: datetime | None = None,
+    client_ip: str | None = None,
 ) -> AuditLog:
     if phase not in PHASE_ACTIONS:
         raise ValueError(f"Unknown backup audit phase: {phase}")
@@ -116,17 +118,18 @@ def record_backup_audit_event(
     if phase in ("request", "queued", "running"):
         start = end = now
 
-    audit = AuditLog(
+    audit = make_audit_log(
         user_id=user_id,
         server_id=server_id,
         api_token_id=api_token_id,
-        api_token_name=(api_token_name[:120] if api_token_name else None),
+        api_token_name=api_token_name,
         action=action,
         status=status,
         details=json.dumps(payload),
         output_snippet=snippet,
         started_at=start,
         finished_at=end,
+        client_ip=client_ip,
     )
     session.add(audit)
     return audit
@@ -146,6 +149,8 @@ def record_backup_audit_from_job(
         tok_id = int(tok_id) if tok_id is not None else None
     except (TypeError, ValueError):
         tok_id = None
+    # Prefer IP captured when the job was requested (survives Celery workers)
+    job_ip = meta.get("client_ip")
     return record_backup_audit_event(
         session,
         server_id=job.server_id,
@@ -159,4 +164,5 @@ def record_backup_audit_from_job(
         output_snippet=output_snippet,
         started_at=job.started_at or job.created_at,
         finished_at=job.finished_at,
+        client_ip=resolve_client_ip(None, fallback=job_ip),
     )

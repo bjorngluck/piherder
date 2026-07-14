@@ -561,6 +561,52 @@ def test_annotate_projects_with_template_deployments():
     assert "template_deployment_id" not in projects[1]
 
 
+def test_volume_fields_and_public_filter_for_redeploy_ui():
+    """A: redeploy volume editor rows from stored public vars."""
+    from app.services.service_templates.deploy import (
+        public_vars_excluding_volume_meta,
+        volume_fields_for_ui,
+    )
+    from app.services.service_templates.schema import load_template_dir
+
+    d = load_template_dir(_repo_templates_root() / "uptime-kuma")
+    public = {
+        "PROJECT_NAME": "kuma",
+        "KUMA_PORT": "3001",
+        "KUMA_DATA": "kuma_data:/app/data",
+        "KUMA_DATA__mode": "named",
+        "KUMA_DATA__source": "kuma_data",
+        "__named_volumes": "[]",
+    }
+    rows = volume_fields_for_ui(public, d)
+    assert any(r["name"] == "KUMA_DATA" for r in rows)
+    kuma = next(r for r in rows if r["name"] == "KUMA_DATA")
+    assert kuma["mode"] == "named"
+    assert kuma["source"] == "kuma_data"
+    simple = public_vars_excluding_volume_meta(public, d)
+    assert "KUMA_PORT" in simple
+    assert "KUMA_DATA" not in simple
+    assert "KUMA_DATA__mode" not in simple
+
+
+def test_normalize_compose_text_for_drift():
+    from app.services.service_templates.deploy import _normalize_compose_text
+
+    a = "services:\n  web:\n    image: x  \n\n"
+    b = "services:\n  web:\n    image: x\n"
+    assert _normalize_compose_text(a) == _normalize_compose_text(b)
+
+
+def test_from_host_invalid_project_name():
+    from app.services.service_templates.from_host import pull_project_as_editor_form
+    from app.services.service_templates.schema import TemplateError
+    from app.models import Server
+
+    server = Server(id=1, name="s", hostname="h", ssh_username="u")
+    with pytest.raises(TemplateError, match="Invalid project"):
+        pull_project_as_editor_form(server, "../etc")
+
+
 def test_secrets_unlock_token_is_step_up_not_login_2fa():
     """Having TOTP enabled is not enough — need secrets_unlock cookie after re-check."""
     from unittest.mock import MagicMock

@@ -17,6 +17,7 @@ Archives: format **v2** `.tar.gz` under `./piherder_backups` → `/herder_backup
 | Integrations + bindings | Encrypted credentials |
 | Operational settings | Timezone, force 2FA, schedules (`appsetting`) |
 | Avatars | Packed under `data/avatars/…` |
+| Service logos | Packed under `data/service_logos/…` (integration icons; **B08**) |
 | Templates + stack deployments | Ciphertext secrets |
 | Audit log | **Full** mode only (optional, capped) |
 
@@ -26,7 +27,6 @@ Archives: format **v2** `.tar.gz` under `./piherder_backups` → `/herder_backup
 |---------|-----|
 | Jobs queue | Ephemeral |
 | Per-server rsync **files** | Different volume |
-| Service logo files | Re-fetch/upload after DR (v0.5 stretch B08) |
 | External Kuma/Grafana instances | Only PiHerder-side config |
 
 ## Restore

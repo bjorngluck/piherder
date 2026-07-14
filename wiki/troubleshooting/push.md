@@ -24,3 +24,11 @@
 ## In-app notifications work, push does not
 
 Expected if VAPID missing or insecure origin — fix TLS/VAPID first.
+
+## No push when an alert clears (auto-resolve)
+
+v0.5.0 sends a **Resolved:** push when an open alert auto-resolves (same type toggles as the original event under Account → push preferences). Check:
+
+1. Master push switch + that event type are enabled.  
+2. Device still subscribed (test push).  
+3. Condition actually cleared via resolve fingerprint (not only dismissed).

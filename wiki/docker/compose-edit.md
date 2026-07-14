@@ -31,8 +31,10 @@ On the host, Compose still auto-loads override + `.env` in the project directory
 
 | Button | Effect |
 |--------|--------|
-| **Check updates** | Pull / image compare — no `up -d` |
-| **Deploy** | Pull + `up -d`; audit + banner show pull/up exit codes and output |
+| **Check updates** | Pull / image compare — no `up -d`. Runs as a **Job** (`docker_stack_check`) with live log. |
+| **Deploy** | Pull + `up -d`. Runs as a **Job** (`docker_stack_deploy`) with live log; pending-update badge cleared on success. |
+
+Both actions open the job holding modal (same pattern as OS/container patch). Follow progress under **Jobs** or **Audit** if you leave the page. Only one stack check and one stack deploy run at a time per host.
 
 ## New project wizard
 
