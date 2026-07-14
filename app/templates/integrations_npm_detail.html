@@ -32,6 +32,7 @@
     <a href="/integrations/{{ integration.id }}/edit" class="btn btn-secondary min-h-11">Edit</a>
     {% endif %}
     <a href="/certificates" class="btn btn-secondary min-h-11">Certificates</a>
+    <a href="/integrations" class="btn btn-secondary min-h-11">All integrations</a>
     <a href="{{ open_url }}" target="_blank" rel="noopener" class="btn btn-primary min-h-11">Open NPM</a>
   </div>
 </div>
@@ -65,51 +66,52 @@
     or <strong>Docker</strong> for compose project / container (same cascade as Grafana).
     Docker lists use the host inventory cache — refresh on the server Docker page if empty.
   </p>
-  <div class="table-scroll">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-xs text-muted border-b border-border">
-          <th class="py-2 text-left">Domains</th>
-          <th class="text-left">Forward</th>
-          <th class="text-left">SSL</th>
-          <th class="text-left">Binding</th>
-          <th class="text-right"></th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for h in proxy_hosts %}
-        {% set b = bind_by_ext.get(h.id|string) or bind_by_ext.get(h.id) %}
-        <tr class="border-b border-border/60 align-top">
-          <td class="py-2 font-medium">{{ h.label }}</td>
-          <td class="font-mono text-xs">{{ h.forward_scheme }}://{{ h.forward_host }}:{{ h.forward_port }}</td>
-          <td class="text-xs">{% if h.certificate_id %}cert #{{ h.certificate_id }}{% else %}—{% endif %}</td>
-          <td class="text-xs">
-            {% if b %}
-              <a href="/servers/{{ b.server_id }}" class="text-primary hover:underline">{{ b.server_name }}</a>
-              {% if b.docker_project %}
-                <span class="text-muted"> · Docker / {{ b.docker_project }}{% if b.docker_container %} / {{ b.docker_container }}{% endif %}</span>
-              {% else %}
-                <span class="text-muted"> · host service</span>
-              {% endif %}
-            {% else %}
-              <span class="text-muted">unbound</span>
-            {% endif %}
-          </td>
-          <td class="text-right py-2">
+  {# Card layout (mobile-first): one card per proxy host — avoids cramped table+selects on phones #}
+  <div class="npm-host-list space-y-3">
+    {% for h in proxy_hosts %}
+      {% set b = bind_by_ext.get(h.id|string) or bind_by_ext.get(h.id) %}
+      <article class="npm-host-card border border-border rounded-lg p-3 sm:p-4 bg-surface">
+        <div class="flex flex-col lg:flex-row lg:items-start gap-3 lg:gap-4">
+          <div class="flex-1 min-w-0 space-y-1.5">
+            <div class="font-medium text-sm break-words">{{ h.label }}</div>
+            <div class="font-mono text-xs text-muted break-all">
+              {{ h.forward_scheme }}://{{ h.forward_host }}:{{ h.forward_port }}
+            </div>
+            <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs">
+              <span class="text-muted">
+                SSL:
+                {% if h.certificate_id %}cert #{{ h.certificate_id }}{% else %}—{% endif %}
+              </span>
+              <span>
+                {% if b %}
+                  <a href="/servers/{{ b.server_id }}" class="text-primary hover:underline">{{ b.server_name }}</a>
+                  {% if b.docker_project %}
+                    <span class="text-muted"> · Docker / {{ b.docker_project }}{% if b.docker_container %} / {{ b.docker_container }}{% endif %}</span>
+                  {% else %}
+                    <span class="text-muted"> · host service</span>
+                  {% endif %}
+                {% else %}
+                  <span class="text-muted">unbound</span>
+                {% endif %}
+              </span>
+            </div>
+          </div>
+          <div class="w-full lg:w-72 shrink-0">
             {% if can_mutate %}
               {% if b %}
-              <form method="post" action="/integrations/{{ integration.id }}/npm/unbind" class="inline"
+              <form method="post" action="/integrations/{{ integration.id }}/npm/unbind"
+                    class="flex lg:justify-end"
                     data-confirm="Unbind proxy host “{{ h.label }}” from {{ b.server_name }}?"
                     data-confirm-title="Unbind proxy host"
                     data-confirm-label="Unbind"
                     data-wait-title="Unbinding"
                     data-wait-message="Removing binding…">
                 <input type="hidden" name="binding_id" value="{{ b.id }}">
-                <button class="btn btn-secondary text-xs min-h-9" type="submit">Unbind</button>
+                <button class="btn btn-secondary text-sm min-h-11 w-full lg:w-auto" type="submit">Unbind</button>
               </form>
               {% else %}
               <form method="post" action="/integrations/{{ integration.id }}/npm/bind"
-                    class="npm-bind-form flex flex-col gap-1.5 items-stretch sm:items-end min-w-[14rem] max-w-xs ml-auto"
+                    class="npm-bind-form flex flex-col gap-2 items-stretch w-full"
                     data-confirm="Bind proxy host “{{ h.label }}” to the selected host / service?"
                     data-confirm-title="Bind proxy host"
                     data-confirm-label="Bind"
@@ -118,7 +120,7 @@
                 <input type="hidden" name="external_id" value="{{ h.id }}">
                 <div class="w-full text-left">
                   <label class="block text-[10px] text-muted mb-0.5">Server (host)</label>
-                  <select name="server_id" class="npm-bind-server input text-xs min-h-9 w-full" required>
+                  <select name="server_id" class="npm-bind-server input text-sm min-h-11 w-full" required>
                     <option value="">Select server…</option>
                     {% for s in servers %}
                     <option value="{{ s.id }}">{{ s.name }}</option>
@@ -127,36 +129,35 @@
                 </div>
                 <div class="w-full text-left">
                   <label class="block text-[10px] text-muted mb-0.5">Scope</label>
-                  <select class="npm-bind-scope input text-xs min-h-9 w-full">
+                  <select class="npm-bind-scope input text-sm min-h-11 w-full">
                     <option value="host" selected>Host service (no Docker)</option>
                     <option value="docker">Docker project / container</option>
                   </select>
                 </div>
-                <div class="npm-bind-docker-fields w-full space-y-1.5 hidden">
+                <div class="npm-bind-docker-fields w-full space-y-2 hidden">
                   <div class="w-full text-left">
                     <label class="block text-[10px] text-muted mb-0.5">Compose project</label>
-                    <select name="docker_project" class="npm-bind-project input text-xs min-h-9 w-full">
+                    <select name="docker_project" class="npm-bind-project input text-sm min-h-11 w-full">
                       <option value="">— select server first —</option>
                     </select>
                   </div>
                   <div class="w-full text-left">
                     <label class="block text-[10px] text-muted mb-0.5">Container / service</label>
-                    <select name="docker_container" class="npm-bind-container input text-xs min-h-9 w-full">
+                    <select name="docker_container" class="npm-bind-container input text-sm min-h-11 w-full">
                       <option value="">— select project first —</option>
                     </select>
                   </div>
                 </div>
-                <button class="btn btn-primary text-xs min-h-9 self-end" type="submit">Bind</button>
+                <button class="btn btn-primary text-sm min-h-11 w-full" type="submit">Bind</button>
               </form>
               {% endif %}
             {% endif %}
-          </td>
-        </tr>
-      {% else %}
-        <tr><td colspan="5" class="py-4 text-muted">No proxy hosts (poll or check credentials).</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+          </div>
+        </div>
+      </article>
+    {% else %}
+      <p class="text-sm text-muted py-4">No proxy hosts (poll or check credentials).</p>
+    {% endfor %}
   </div>
 </div>
 

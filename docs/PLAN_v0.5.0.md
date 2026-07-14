@@ -2,9 +2,10 @@
 
 **Status:** **QA / release prep** (feature work for RC substantially complete; operator QA then freeze)  
 **Date opened:** 2026-07-12  
+**Last plan refresh:** 2026-07-15  
 **Baseline:** `v0.4.0` (templates foundation + post-0.3 quality)  
 **Package version on main:** `0.5.0.dev0` (`pyproject.toml`) — bump to `0.5.0` at tag  
-**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [SPEC.md](../SPEC.md) · Wiki: [DNS fabric](../wiki/integrations/dns-fabric.md)
+**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [SPEC.md](../SPEC.md) · Wiki: [Network maps](../wiki/integrations/dns-fabric.md)
 
 ### Decision (locked)
 
@@ -103,23 +104,29 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 | **Cert deploy targets** | pair / combined / pfx; perms/owner; post-deploy command via SSH | **Done** |
 | **Cert renew loop** | ≤21d → NPM renew → poll → distribute; scheduler every 6h | **Done** |
 | **Herder backup** | Includes managed certs + targets | **Done** |
-| **Docs / wiki** | Feature plan + wiki pages + PLAN/SPEC/ROADMAP | **Done** (refresh at QA) |
-| **DNS fabric** | See § F.1 below | **Done** — **in operator QA** |
+| **Docs / wiki** | Feature plan + wiki pages + PLAN/SPEC/ROADMAP | **Done** (refreshed 2026-07-15) |
+| **Network maps (DNS fabric)** | See § F.1 below | **Done** — **in operator QA** |
 
-#### F.1 — DNS fabric (detail, 2026-07-14)
+#### F.1 — Network maps / DNS fabric (detail, updated 2026-07-15)
 
-| Capability | Notes |
-|------------|--------|
-| Host DNS | `Server.dns_name` / `dns_manage_a` / IP; Edit → General; Pi-hole A fan-out; duplicates = ok |
-| Service mappings | `ServiceDnsRecord` — CNAME or **host identity** (`record_type=a` when name = host FQDN) |
-| Adopt existing | Catalog → DNS: **Import all from Pi-hole**; per-row Adopt; host-identity map for Kuma host apps |
-| Path resolution | NPM proxy_host + Kuma service + deployments → project/container layers |
-| Topology | **Hub** `/dns` (per-service paths) · **Physical** `/dns/physical` (full mesh SVG) · **Logical** `/dns/logical` (URL mesh SVG) |
-| External DNS | Checklist only (Cloudflare automation = post-0.5) |
-| Tests | `tests/test_dns_fabric.py` |
-| Wiki | [DNS fabric](../wiki/integrations/dns-fabric.md) |
+| Capability | Notes | Status |
+|------------|--------|--------|
+| Host DNS | `Server.dns_name` / `dns_manage_a` / IP; Edit → General; Pi-hole A fan-out; duplicates = ok | **Done** |
+| Service mappings | `ServiceDnsRecord` — CNAME or **host identity** (`record_type=a` when name = host FQDN) | **Done** |
+| Adopt existing | Catalog → **Network**: **Import all from Pi-hole**; HTMX candidates; host-identity map | **Done** |
+| Path resolution | NPM proxy_host + Kuma service + deployments → project/container layers | **Done** |
+| Network settings | LAN CIDR, gateway IP, public WAN IP, lookup-public-ip; app settings keys | **Done** |
+| Hosts map topology | Internet → Router → LAN → home hosts; **cloud** hosts (public IP / outside CIDR) → Internet; RFC1918 fallback when no CIDR; spine always drawn | **Done** |
+| Kuma on infra | Optional Router + Public IP monitor dropdowns; status chip + Open in Kuma | **Done** |
+| Layout polish | LAN ring top-gap (no host on Router→LAN spine); theme-aware Internet/Router/LAN/NPM fills (light mode) | **Done** |
+| Focus UX | Path focus **and** node focus (any host incl. Nomad w/o services, Router, LAN, Internet); Open host / Open in Kuma; copy path; touch lock | **Done** |
+| Map chrome | viewBox pinch/zoom to 500%, pan, +/−/1:1; mobile list-first + View full map; filters; status dots | **Done** |
+| Catalog label | UI **Network** (URL `/dns*` kept) | **Done** |
+| External DNS | Checklist only (Cloudflare automation = post-0.5) | **Done** |
+| Tests / CI | `tests/test_dns_fabric.py` · `.github/workflows/test.yml` | **Done** |
+| Wiki / docs | [Network maps](../wiki/integrations/dns-fabric.md) · ADMIN · SPEC · README · ROADMAP | **Done** |
 
-**QA smoke (operator):** host DNS on 2+ servers → import Pi-hole CNAMEs → open physical + logical meshes → sync path card → host identity (e.g. 3D Print) → external checklist.
+**QA smoke (operator):** set network map (LAN/gateway/public ± Kuma) → host DNS on 2+ servers → import Pi-hole → Hosts map (spine + Nomad cloud + selectable empty hosts) → Path map → sync path card → host identity (e.g. 3D Print) → external checklist · hard-refresh after image rebuild.
 
 ### G — Stretch quality (B07–B09)
 
@@ -219,7 +226,7 @@ git log --oneline v0.4.0..HEAD
 | B09 resolve push | Web Push when alerts auto-resolve (type prefs) |
 | Audit client IP (H) | `client_ip` on all request audits; login/token audits; Celery keeps queue IP; Alembic commit fix |
 | Pi-hole / NPM / certs | Workstream F (multi Pi-hole, NPM RO, managed certs, renew) |
-| DNS fabric | Host A + service mappings; adopt Pi-hole; physical/logical meshes; host identity |
+| Network maps (DNS fabric) | Host A + service mappings; adopt Pi-hole; Hosts/Path maps; LAN/cloud/Internet spine; Kuma infra; node+path focus |
 | A template polish | Volume editor on redeploy; from-host edges; post-redeploy links |
 | B drift + env migrate | Scheduled/manual drift; import host `.env` into encrypted SoT |
 | C restore / last config | Apply last known config; backup sources matched on deployment |

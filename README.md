@@ -54,7 +54,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - Installable **PWA** (manifest + service worker + home-screen install).
 - Link to Pi-hole admin from dashboard (configurable env fallback; prefer integrations when configured).
 - **Service templates:** under **Catalog** — deploy NPM, Uptime Kuma, Pi-hole, Grafana (and custom / from-host stacks) via wizard — variables (incl. **boolean** + **volume** storage modes), preview, host picker, encrypted desired state V1; step-up 2FA for secrets; wait modal while deploy runs.
-- **Integrations:** **Catalog** (`/catalog` → Integrations) — **Uptime Kuma**, **Grafana**, **Pi-hole** (v6 multi-instance stats, local DNS/CNAME fan-out, gravity/actions), **Nginx Proxy Manager** (proxy hosts RO + bind; cert pull). **DNS fabric** (Catalog → DNS): host A records, service paths, Pi-hole adopt, physical/logical full meshes. **Certificates:** encrypted store from NPM pull or PEM upload; deploy targets (pair/combined/pfx); NPM auto-renew loop.
+- **Integrations:** **Catalog** (`/catalog` → Integrations) — **Uptime Kuma**, **Grafana**, **Pi-hole** (v6 multi-instance stats, local DNS/CNAME fan-out, gravity/actions), **Nginx Proxy Manager** (proxy hosts RO + bind; cert pull). **Network maps** (Catalog → Network): host A records, service paths, Pi-hole adopt, Hosts map (Internet → router → LAN → hosts + cloud/VPS) and Path map, network settings + optional Kuma on router/WAN. **Certificates:** encrypted store from NPM pull or PEM upload; deploy targets (pair/combined/pfx); NPM auto-renew loop.
 - HTTPS via Caddy with **operator-supplied TLS certs** (volume `./certs`) and `PIHERDER_HOSTNAME` (default ports **8888** HTTP / **8443** HTTPS).
 
 ### Account & security
@@ -71,7 +71,7 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - `./piherder_data:/data` — avatars (instance Settings live in Postgres).
 - `./certs:/certs` (Caddy, read-only) — `fullchain.pem` + `privkey.pem` for trusted HTTPS (see `certs/README.md`).
 
-**Current release:** **v0.4.0** (git tag). **In development / QA:** **v0.5.0** first RC — template polish, drift, restore, Pi-hole/NPM/certs, **DNS fabric**, fleet ops, B07–B09, audit client IP; multi-arch + freeze remaining — [PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md). **Docs:** [online wiki](https://bjorngluck.github.io/piherder/) · env: [`.env.example`](.env.example) · notes: [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md).
+**Current release:** **v0.4.0** (git tag). **In development / QA:** **v0.5.0** first RC — template polish, drift, restore, Pi-hole/NPM/certs, **Network maps** (DNS fabric), fleet ops, B07–B09, audit client IP; multi-arch + freeze remaining — [PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md). **Docs:** [online wiki](https://bjorngluck.github.io/piherder/) · env: [`.env.example`](.env.example) · notes: [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md).
 
 ## Tech Stack
 

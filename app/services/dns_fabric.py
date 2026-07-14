@@ -1926,8 +1926,19 @@ def build_access_path_for_record(
     return path
 
 
-def build_fabric_view(session: Session) -> dict[str, Any]:
-    """Data for DNS page: hosts, service paths, path-chain mesh."""
+def build_fabric_view(
+    session: Session,
+    *,
+    include_mesh: bool = False,
+    include_physical: bool = False,
+    include_logical: bool = False,
+    persist_links: bool = False,
+) -> dict[str, Any]:
+    """Data for DNS pages: hosts, service paths, optional topology payloads.
+
+    GET-safe by default: does **not** write discovered docker_project links.
+    Topology SVG builders are opt-in so hub loads skip unused layout work.
+    """
     servers = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
     records = list_service_records(session)
     server_by_id = {s.id: s for s in servers if s.id is not None}
@@ -1952,8 +1963,9 @@ def build_fabric_view(session: Session) -> dict[str, Any]:
     for r in records:
         target = server_by_id.get(r.target_server_id)
         backend = server_by_id.get(r.backend_server_id)
-        # Re-resolve Kuma/deploy links for host-direct names missing project
-        path = build_access_path_for_record(session, r, persist_links=True)
+        # Display-only resolution on GET; persist only when explicitly requested
+        # (attach/sync paths), never as a page-load side effect.
+        path = build_access_path_for_record(session, r, persist_links=persist_links)
         path_kind_counts[path["path_kind"]] = path_kind_counts.get(path["path_kind"], 0) + 1
         cert_name = None
         if r.certificate_id:
@@ -2014,9 +2026,42 @@ def build_fabric_view(session: Session) -> dict[str, Any]:
                 }
             )
 
-    mesh = _build_path_mesh(services)
-    physical = _build_physical_view(hosts, services)
-    logical = _build_logical_view(services)
+    # Network map settings (LAN / gateway / public IP + optional Kuma)
+    from .app_settings import load_settings as _load_app_settings
+
+    _cfg = _load_app_settings()
+    network_cfg = {
+        "lan_subnet": (_cfg.get("network_lan_subnet") or "").strip(),
+        "gateway_ip": (_cfg.get("network_gateway_ip") or "").strip(),
+        "public_ip": (_cfg.get("network_public_ip") or "").strip(),
+        "public_ip_checked_at": (_cfg.get("network_public_ip_checked_at") or "").strip(),
+        "gateway_kuma_external_id": (
+            _cfg.get("network_gateway_kuma_external_id") or ""
+        ).strip(),
+        "public_kuma_external_id": (
+            _cfg.get("network_public_kuma_external_id") or ""
+        ).strip(),
+        "kuma_integration_id": (_cfg.get("network_kuma_integration_id") or "").strip(),
+    }
+    network_cfg["gateway_kuma"] = _resolve_network_kuma_monitor(
+        session,
+        external_id=network_cfg["gateway_kuma_external_id"],
+        integration_id=network_cfg["kuma_integration_id"],
+    )
+    network_cfg["public_kuma"] = _resolve_network_kuma_monitor(
+        session,
+        external_id=network_cfg["public_kuma_external_id"],
+        integration_id=network_cfg["kuma_integration_id"],
+    )
+
+    # Topology payloads are opt-in (hub needs services only).
+    mesh = _build_path_mesh(services) if include_mesh else {}
+    physical = (
+        _build_physical_view(hosts, services, network=network_cfg)
+        if include_physical
+        else {}
+    )
+    logical = _build_logical_view(services) if include_logical else {}
 
     named_hosts = [h for h in hosts if h.get("dns_name")]
     unnamed = [h for h in hosts if not h.get("dns_name")]
@@ -2027,6 +2072,7 @@ def build_fabric_view(session: Session) -> dict[str, Any]:
         "unnamed_hosts": unnamed,
         "services": services,
         "external_checklist": external_checklist,
+        "network": network_cfg,
         "mesh": mesh,
         "physical": physical,
         "logical": logical,
@@ -2063,21 +2109,216 @@ def build_fabric_view(session: Session) -> dict[str, Any]:
     }
 
 
+def _ip_in_lan(ip: str | None, lan_subnet: str) -> bool | None:
+    """True if IP in subnet, False if not, None if cannot decide."""
+    import ipaddress
+
+    if not ip or not (lan_subnet or "").strip():
+        return None
+    try:
+        return ipaddress.ip_address(str(ip).strip()) in ipaddress.ip_network(
+            lan_subnet.strip(), strict=False
+        )
+    except Exception:
+        return None
+
+
+# Explicit home/LAN ranges (do not use ipaddress.is_private — newer Python also
+# treats documentation TEST-NET and other reserved blocks as "private").
+_LAN_LIKE_V4 = (
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    "100.64.0.0/10",  # CGNAT / some home ISP
+)
+
+
+def _is_private_ip(ip: str | None) -> bool | None:
+    """True if RFC1918/CGNAT/link-local, False if public-ish, None if unknown."""
+    import ipaddress
+
+    if not ip:
+        return None
+    try:
+        addr = ipaddress.ip_address(str(ip).strip())
+    except Exception:
+        return None
+    if addr.is_loopback or addr.is_link_local:
+        return True
+    if addr.version == 4:
+        for cidr in _LAN_LIKE_V4:
+            if addr in ipaddress.ip_network(cidr):
+                return True
+        return False
+    # IPv6: unique-local + link-local already handled
+    if getattr(addr, "is_private", False):
+        return True
+    return False
+
+
+def _host_is_cloud(ip: str | None, lan_subnet: str) -> bool:
+    """Cloud/VPS when outside configured LAN, or public IP when no subnet set."""
+    on_lan = _ip_in_lan(ip, lan_subnet)
+    if on_lan is True:
+        return False
+    if on_lan is False:
+        return True
+    # No subnet (or no IP match): treat non-RFC1918 addresses as cloud/WAN hosts.
+    priv = _is_private_ip(ip)
+    if priv is False:
+        return True
+    return False
+
+
+def _resolve_network_kuma_monitor(
+    session: Session,
+    *,
+    external_id: str,
+    integration_id: str = "",
+) -> dict[str, Any] | None:
+    """Resolve an optional infra Kuma monitor (gateway / public IP) for map chips."""
+    ext = (external_id or "").strip()
+    if not ext:
+        return None
+    try:
+        from .integrations import registry as reg
+        from .integrations import uptime_kuma as kuma
+    except Exception:
+        return None
+
+    integ = None
+    iid_raw = (integration_id or "").strip()
+    if iid_raw.isdigit():
+        integ = reg.get_integration(session, int(iid_raw))
+        if integ and (integ.type != reg.TYPE_UPTIME_KUMA or not integ.enabled):
+            integ = None
+    if integ is None:
+        rows = reg.list_integrations(session, type_filter=reg.TYPE_UPTIME_KUMA)
+        integ = next((r for r in rows if r.enabled), None)
+    if integ is None:
+        return {
+            "external_id": ext,
+            "label": ext,
+            "state": "unknown",
+            "message": "No Uptime Kuma integration",
+            "open_url": "",
+            "integration_id": None,
+        }
+
+    mon_dicts = reg.monitors_from_cache(integ)
+    mon_objs: list[Any] = []
+    for m in mon_dicts:
+        mid = str(m.get("id") or "").strip()
+        mname = str(m.get("name") or "").strip()
+        if not mid and not mname:
+            continue
+        mon_objs.append(
+            kuma.KumaMonitor(
+                id=mid or mname,
+                name=mname or mid,
+                type=str(m.get("type") or ""),
+                hostname=str(m.get("hostname") or ""),
+                port=str(m.get("port") or ""),
+                url=str(m.get("url") or ""),
+                status=str(m.get("status") or m.get("state") or "unknown"),
+                response_time_ms=m.get("response_time_ms"),
+                dashboard_id=str(m["dashboard_id"]) if m.get("dashboard_id") else None,
+                cert_days_remaining=m.get("cert_days_remaining"),
+                cert_is_valid=m.get("cert_is_valid"),
+            )
+        )
+    mon = kuma.find_monitor(mon_objs, ext)
+    label = ext
+    state = "unknown"
+    message = ""
+    meta: dict[str, Any] = {}
+    if mon is not None:
+        label = mon.name or ext
+        state = (mon.status or "unknown").lower()
+        message = reg.binding_message_from_monitor(mon) or ""
+        meta = {
+            "dashboard_id": getattr(mon, "dashboard_id", None),
+        }
+    else:
+        for m in mon_dicts:
+            mid = str(m.get("id") or "").strip()
+            mname = str(m.get("name") or "").strip()
+            if ext in (mid, mname) or (mname and ext.lower() == mname.lower()):
+                label = mname or mid or ext
+                state = str(m.get("status") or m.get("state") or "unknown").lower()
+                message = str(m.get("message") or "")
+                meta = dict(m)
+                break
+        else:
+            message = "Monitor not in last Kuma poll — try Poll now"
+    did = kuma.resolve_dashboard_id(mon, external_id=ext, meta=meta)
+    return {
+        "external_id": ext,
+        "label": label,
+        "state": state,
+        "message": message,
+        "open_url": kuma.open_kuma_url(integ.base_url, dashboard_id=did),
+        "integration_id": integ.id,
+    }
+
+
+def list_kuma_monitor_options(session: Session) -> list[dict[str, Any]]:
+    """Dropdown options for network map Kuma binding (id + label)."""
+    try:
+        from .integrations import registry as reg
+    except Exception:
+        return []
+    rows = reg.list_integrations(session, type_filter=reg.TYPE_UPTIME_KUMA)
+    out: list[dict[str, Any]] = []
+    for integ in rows:
+        if not integ.enabled:
+            continue
+        for m in reg.monitors_from_cache(integ):
+            mid = str(m.get("id") or m.get("name") or "").strip()
+            if not mid:
+                continue
+            name = str(m.get("name") or mid).strip()
+            state = str(m.get("status") or m.get("state") or "").strip()
+            label = name if name == mid else f"{name} ({mid})"
+            if state:
+                label = f"{label} · {state}"
+            out.append(
+                {
+                    "external_id": mid,
+                    "name": name,
+                    "label": label,
+                    "state": state,
+                    "integration_id": integ.id,
+                    "integration_name": integ.name,
+                }
+            )
+    out.sort(key=lambda o: (o.get("label") or "").lower())
+    return out
+
+
 def _build_physical_view(
-    hosts: list[dict[str, Any]], services: list[dict[str, Any]]
+    hosts: list[dict[str, Any]],
+    services: list[dict[str, Any]],
+    *,
+    network: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Physical topology: every host as a rack unit + apps that land on it."""
+    net = network or {}
+    lan_subnet = (net.get("lan_subnet") or "").strip()
     by_id: dict[int, dict[str, Any]] = {}
     for h in hosts:
         sid = h.get("server_id")
         if sid is None:
             continue
+        is_cloud = _host_is_cloud(h.get("ip"), lan_subnet)
         by_id[int(sid)] = {
             **h,
             "apps": [],
             "is_npm_edge": False,
             "ingress_count": 0,
             "app_count": 0,
+            "on_lan": not is_cloud,
+            "is_cloud": is_cloud,
         }
 
     for s in services:
@@ -2092,6 +2333,7 @@ def _build_physical_view(
             "fqdn": s.get("fqdn"),
             "path_kind": s.get("path_kind"),
             "path_title": s.get("path_title"),
+            "path_chain": s.get("path_chain"),
             "via_npm": s.get("via_proxy"),
             "npm_edge": s.get("target_name") if s.get("via_proxy") else None,
             "project": s.get("docker_project"),
@@ -2099,6 +2341,9 @@ def _build_physical_view(
             "label": s.get("label"),
             "href": s.get("dep_href") or s.get("backend_href"),
             "record_id": s.get("id"),
+            "path_id": s.get("id"),
+            "sync_status": s.get("last_sync_status") or "",
+            "has_cert": bool(s.get("certificate_id") or s.get("cert_name")),
         }
         by_id[int(bid)]["apps"].append(app)
         by_id[int(bid)]["app_count"] += 1
@@ -2111,7 +2356,8 @@ def _build_physical_view(
         "racks": racks,
         "npm_edges": [r for r in racks if r.get("is_npm_edge")],
         "empty_hosts": [r for r in racks if not r.get("apps") and r.get("dns_name")],
-        "svg": _build_physical_mesh_svg(hosts, services),
+        "network": net,
+        "svg": _build_physical_mesh_svg(hosts, services, network=net),
     }
 
 
@@ -2138,6 +2384,7 @@ def _build_logical_view(services: list[dict[str, Any]]) -> dict[str, Any]:
                 "url_scheme": "https",
                 "path_kind": s.get("path_kind"),
                 "path_title": s.get("path_title"),
+                "path_chain": s.get("path_chain"),
                 "via_npm": bool(s.get("via_proxy") or npm_hop),
                 "link_label": (
                     f"via NPM · {npm_hop.get('label')}"
@@ -2161,6 +2408,8 @@ def _build_logical_view(services: list[dict[str, Any]]) -> dict[str, Any]:
                 "target_server_id": s.get("target_server_id"),
                 "href": s.get("dep_href") or s.get("backend_href"),
                 "synced": s.get("last_sync_status") == "ok",
+                "sync_status": s.get("last_sync_status") or "",
+                "has_cert": bool(s.get("certificate_id") or s.get("cert_name")),
             }
         )
     flows.sort(key=lambda f: (0 if f.get("via_npm") else 1, f.get("url") or ""))
@@ -2172,55 +2421,330 @@ def _build_logical_view(services: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+# Soft-cap satellite app nodes per host on the physical mesh (rest on rack cards).
+PHYSICAL_MESH_MAX_APPS_PER_HOST = 6
+
+
 def _build_physical_mesh_svg(
-    hosts: list[dict[str, Any]], services: list[dict[str, Any]]
+    hosts: list[dict[str, Any]],
+    services: list[dict[str, Any]],
+    *,
+    network: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Full-fleet physical SVG: host nodes + app nodes + edges."""
+    """Full-fleet physical SVG: Internet → gateway → LAN → hosts + apps.
+
+    Always draws the WAN/LAN spine when any fleet host exists:
+      Internet ──(wan)── Router ──(lan)── LAN hub ──(lan)── home hosts
+      Internet ──(wan)── cloud hosts (public IP / outside subnet)
+
+    Dense hosts: draw at most PHYSICAL_MESH_MAX_APPS_PER_HOST satellites, then a
+    compact "+N more" marker. Full list remains on rack cards.
+    """
     import math
 
+    net = network or {}
+    lan_subnet = (net.get("lan_subnet") or "").strip()
+    gateway_ip = (net.get("gateway_ip") or "").strip()
+    public_ip = (net.get("public_ip") or "").strip()
+    gateway_kuma = net.get("gateway_kuma") if isinstance(net.get("gateway_kuma"), dict) else None
+    public_kuma = net.get("public_kuma") if isinstance(net.get("public_kuma"), dict) else None
+
     named = [h for h in hosts if h.get("dns_name") or h.get("server_id")]
-    if not named:
+    if not named and not (lan_subnet or gateway_ip or public_ip):
         return {"width": 800, "height": 400, "nodes": [], "edges": [], "labels": []}
 
-    n = len(named)
-    # Hosts on a wide ellipse
-    width = max(960, 120 * n)
-    height = max(640, 80 * max(len(services), 4) + 200)
-    cx, cy = width / 2, height * 0.42
-    rx, ry = width * 0.38, height * 0.28
+    lan_hosts: list[dict[str, Any]] = []
+    cloud_hosts: list[dict[str, Any]] = []
+    for h in named:
+        if _host_is_cloud(h.get("ip"), lan_subnet):
+            cloud_hosts.append(h)
+        else:
+            lan_hosts.append(h)
+
+    # Always show full Internet → gateway → LAN spine when we have any hosts
+    # (or any explicit network settings). Previously only partial settings left
+    # hosts floating with no edges.
+    show_spine = bool(named or lan_subnet or gateway_ip or public_ip)
+    show_gateway = show_spine and (
+        bool(gateway_ip) or bool(lan_hosts) or bool(lan_subnet)
+    )
+    show_lan = show_spine and (bool(lan_hosts) or bool(lan_subnet))
+    show_internet = show_spine
+
+    n_lan = max(len(lan_hosts), 1)
+    n_cloud = len(cloud_hosts)
+    width = max(1000, 140 * max(n_lan, n_cloud, 4) + 220)
+    height = max(820, 90 * max(len(services), 4) + 340)
+
+    # Layout centers (top: Internet/cloud, mid: router, lower: LAN ring)
+    inet_x, inet_y = width / 2, 72
+    gw_x, gw_y = width / 2, 168
+    lan_rx, lan_ry = width * 0.38, height * 0.22
+    # Keep host ring fully below the router so no node sits on the spine link
+    lan_cx = width / 2
+    lan_cy = max(height * 0.54, gw_y + 120 + lan_ry)
+
+    infra_nodes: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
+
+    if show_internet:
+        inet_href = None
+        inet_sub = public_ip or "public WAN"
+        if public_kuma and public_kuma.get("open_url"):
+            inet_href = public_kuma.get("open_url")
+        if public_kuma and public_kuma.get("state"):
+            inet_sub = f"{public_ip or 'WAN'} · {public_kuma.get('state')}"
+        infra_nodes.append(
+            {
+                "id": "infra-internet",
+                "kind": "internet",
+                "label": "Internet",
+                "sub": inet_sub[:28],
+                "x": round(inet_x, 1),
+                "y": round(inet_y, 1),
+                "href": inet_href,
+                "kuma": public_kuma,
+                "node_id": "internet",
+                "path_chain": f"Internet · {inet_sub}",
+                "open_label": "Open in Kuma" if inet_href else "",
+            }
+        )
+        if public_ip:
+            pub_href = (public_kuma or {}).get("open_url") or None
+            pub_sub = public_ip
+            if public_kuma:
+                pub_sub = f"{public_ip} · {(public_kuma.get('state') or '?')}"
+            infra_nodes.append(
+                {
+                    "id": "infra-public-ip",
+                    "kind": "public_ip",
+                    "label": "Public IP",
+                    "sub": pub_sub[:22],
+                    "x": round(inet_x + 150, 1),
+                    "y": round(inet_y + 6, 1),
+                    "href": pub_href,
+                    "kuma": public_kuma,
+                    "node_id": "public-ip",
+                    "path_chain": f"Public IP · {pub_sub}",
+                    "open_label": "Open in Kuma" if pub_href else "",
+                }
+            )
+            # Public IP badge sits next to Internet cloud
+            edges.append(
+                {
+                    "x1": inet_x + 52,
+                    "y1": inet_y,
+                    "x2": inet_x + 92,
+                    "y2": inet_y + 6,
+                    "kind": "wan",
+                    "dashed": True,
+                }
+            )
+
+    if show_gateway:
+        gw_href = (gateway_kuma or {}).get("open_url") or None
+        gw_sub = gateway_ip or "home gateway"
+        if gateway_kuma:
+            st = gateway_kuma.get("state") or "?"
+            lab = gateway_kuma.get("label") or "Kuma"
+            gw_sub = f"{gateway_ip or 'gateway'} · {st}"
+            if lab and lab != gateway_ip:
+                gw_sub = f"{gateway_ip or lab} · {st}"
+        infra_nodes.append(
+            {
+                "id": "infra-gateway",
+                "kind": "gateway",
+                "label": "Router",
+                "sub": gw_sub[:22],
+                "x": round(gw_x, 1),
+                "y": round(gw_y, 1),
+                "href": gw_href,
+                "kuma": gateway_kuma,
+                "ip": gateway_ip,
+                "node_id": "gateway",
+                "path_chain": f"Router · {gw_sub}",
+                "open_label": "Open in Kuma" if gw_href else "",
+            }
+        )
+        if show_internet:
+            # Internet → gateway (WAN uplink)
+            edges.append(
+                {
+                    "x1": inet_x,
+                    "y1": inet_y + 28,
+                    "x2": gw_x,
+                    "y2": gw_y - 24,
+                    "kind": "wan",
+                    "dashed": True,
+                }
+            )
+
+    if show_lan:
+        lan_label_sub = lan_subnet or (
+            "private network" if any(_is_private_ip(h.get("ip")) for h in lan_hosts) else "home LAN"
+        )
+        infra_nodes.append(
+            {
+                "id": "infra-lan",
+                "kind": "lan",
+                "label": "LAN",
+                "sub": lan_label_sub[:22],
+                "x": round(lan_cx, 1),
+                "y": round(lan_cy, 1),
+                "rx": round(lan_rx * 0.55, 1),
+                "ry": round(lan_ry * 0.45, 1),
+                "href": None,
+                "node_id": "lan",
+                "path_chain": f"LAN · {lan_label_sub} · {len(lan_hosts)} host(s)",
+                "open_label": "",
+            }
+        )
+        if show_gateway:
+            # Gateway → LAN
+            edges.append(
+                {
+                    "x1": gw_x,
+                    "y1": gw_y + 24,
+                    "x2": lan_cx,
+                    "y2": lan_cy - (lan_ry * 0.45),
+                    "kind": "lan",
+                    "dashed": False,
+                }
+            )
+        elif show_internet:
+            # No router configured — still show WAN attachment to LAN hub
+            edges.append(
+                {
+                    "x1": inet_x,
+                    "y1": inet_y + 28,
+                    "x2": lan_cx,
+                    "y2": lan_cy - (lan_ry * 0.45),
+                    "kind": "wan",
+                    "dashed": True,
+                }
+            )
 
     host_nodes: list[dict[str, Any]] = []
     host_pos: dict[int, tuple[float, float]] = {}
-    for i, h in enumerate(named):
-        angle = (2 * math.pi * i / n) - math.pi / 2
-        x = cx + rx * math.cos(angle)
-        y = cy + ry * math.sin(angle)
+
+    def _place_host(h: dict[str, Any], x: float, y: float, *, is_cloud: bool) -> None:
         sid = int(h["server_id"])
         host_pos[sid] = (x, y)
         is_edge = any(
             s.get("via_proxy") and s.get("target_server_id") == sid for s in services
         )
         apps_here = sum(1 for s in services if s.get("backend_server_id") == sid)
+        path_ids = [
+            s.get("id")
+            for s in services
+            if s.get("id") is not None
+            and (
+                s.get("backend_server_id") == sid
+                or (s.get("via_proxy") and s.get("target_server_id") == sid)
+            )
+        ]
+        name = h.get("name") or f"#{sid}"
+        ip = h.get("ip") or ""
+        dns = h.get("dns_name") or ""
+        role = "cloud · Internet" if is_cloud else "LAN host"
+        if is_edge:
+            role = "NPM edge · " + role
+        chain_parts = [name]
+        if ip:
+            chain_parts.append(ip)
+        if dns:
+            chain_parts.append(dns)
+        chain_parts.append(role)
+        if apps_here:
+            chain_parts.append(f"{apps_here} mapped app(s)")
         host_nodes.append(
             {
                 "id": f"h{sid}",
                 "kind": "host",
-                "label": h.get("name") or f"#{sid}",
-                "sub": h.get("dns_name") or h.get("ip") or "",
-                "ip": h.get("ip") or "",
+                "label": name,
+                "sub": dns or ip or "",
+                "ip": ip,
                 "x": round(x, 1),
                 "y": round(y, 1),
                 "href": h.get("href"),
                 "npm_edge": is_edge,
+                "is_cloud": is_cloud,
                 "app_count": apps_here,
                 "server_id": sid,
+                "path_ids": path_ids,
+                # Always selectable even with zero mapped services
+                "node_id": f"host-{sid}",
+                "path_chain": " · ".join(chain_parts),
+                "open_label": "Open host",
             }
         )
+        # Always link host into topology spine
+        if is_cloud:
+            if show_internet:
+                edges.append(
+                    {
+                        "x1": x,
+                        "y1": y - 20,
+                        "x2": inet_x,
+                        "y2": inet_y + 28,
+                        "kind": "wan",
+                        "dashed": True,
+                    }
+                )
+        elif show_lan:
+            edges.append(
+                {
+                    "x1": x,
+                    "y1": y,
+                    "x2": lan_cx,
+                    "y2": lan_cy,
+                    "kind": "lan",
+                    "dashed": False,
+                }
+            )
+        elif show_gateway:
+            edges.append(
+                {
+                    "x1": x,
+                    "y1": y,
+                    "x2": gw_x,
+                    "y2": gw_y + 24,
+                    "kind": "lan",
+                    "dashed": False,
+                }
+            )
 
-    # Apps as satellites outside their host
+    # LAN hosts on ellipse — leave a clear top gap for the Router → LAN spine
+    # so no host (e.g. first in list) sits on the vertical uplink path.
+    n_lan_h = len(lan_hosts)
+    top_gap = math.radians(75)  # empty sector facing the router
+    for i, h in enumerate(lan_hosts):
+        if n_lan_h == 1:
+            angle = math.pi / 2  # bottom of ring
+        else:
+            span = 2 * math.pi - top_gap
+            # Slot midpoints so hosts never land in the gap
+            t = (i + 0.5) / n_lan_h
+            angle = -math.pi / 2 + top_gap / 2 + span * t
+        x = lan_cx + lan_rx * math.cos(angle)
+        y = lan_cy + lan_ry * math.sin(angle)
+        _place_host(h, x, y, is_cloud=False)
+
+    # Cloud hosts to the side of Internet (public VPS / Nomad) — avoid spine x
+    for i, h in enumerate(cloud_hosts):
+        if len(cloud_hosts) == 1:
+            x, y = inet_x - 220, inet_y + 55
+        else:
+            # Alternate left/right of the Internet cloud
+            side = -1 if i % 2 == 0 else 1
+            row = i // 2
+            x = inet_x + side * (200 + row * 30)
+            y = inet_y + 50 + row * 48
+        _place_host(h, x, y, is_cloud=True)
+
+    # Apps as satellites outside their host (capped per host)
     app_nodes: list[dict[str, Any]] = []
-    edges: list[dict[str, Any]] = []
-    # Group apps by backend for radial offset
+    overflow_total = 0
     by_backend: dict[int, list[dict[str, Any]]] = {}
     for s in services:
         bid = s.get("backend_server_id")
@@ -2228,33 +2752,45 @@ def _build_physical_mesh_svg(
             continue
         by_backend.setdefault(int(bid), []).append(s)
 
+    max_shown = PHYSICAL_MESH_MAX_APPS_PER_HOST
     for bid, apps in by_backend.items():
-        hx, hy = host_pos.get(bid, (cx, cy))
-        # Direction away from center
-        dx, dy = hx - cx, hy - cy
+        hx, hy = host_pos.get(bid, (lan_cx, lan_cy))
+        # Direction away from LAN center (or map center)
+        dx, dy = hx - lan_cx, hy - lan_cy
         dist = math.hypot(dx, dy) or 1
         ux, uy = dx / dist, dy / dist
-        for j, s in enumerate(apps):
-            # perpendicular spread
+        shown = apps[:max_shown]
+        hidden = apps[max_shown:]
+        n_shown = len(shown)
+        step = 42 if n_shown <= 4 else 36
+        for j, s in enumerate(shown):
             px, py = -uy, ux
-            spread = (j - (len(apps) - 1) / 2) * 36
-            ax = hx + ux * 95 + px * spread
-            ay = hy + uy * 95 + py * spread
-            aid = f"a{s.get('id')}"
+            spread = (j - (n_shown - 1) / 2) * step
+            ax = hx + ux * 100 + px * spread
+            ay = hy + uy * 100 + py * spread
+            path_id = s.get("id")
             app_nodes.append(
                 {
-                    "id": aid,
+                    "id": f"a{path_id}",
                     "kind": "app",
                     "label": (s.get("fqdn") or "")[:28],
-                    "sub": (s.get("docker_container") or s.get("docker_project") or s.get("path_kind") or "")[:22],
+                    "sub": (
+                        s.get("docker_container")
+                        or s.get("docker_project")
+                        or s.get("path_kind")
+                        or ""
+                    )[:22],
                     "x": round(ax, 1),
                     "y": round(ay, 1),
                     "href": s.get("dep_href") or s.get("backend_href"),
                     "path_kind": s.get("path_kind"),
                     "via_npm": s.get("via_proxy"),
+                    "path_id": path_id,
+                    "path_chain": s.get("path_chain") or s.get("fqdn"),
+                    "sync_status": s.get("last_sync_status") or "",
+                    "has_cert": bool(s.get("certificate_id") or s.get("cert_name")),
                 }
             )
-            # app → host
             edges.append(
                 {
                     "x1": ax,
@@ -2263,9 +2799,9 @@ def _build_physical_mesh_svg(
                     "y2": hy,
                     "kind": "land",
                     "dashed": False,
+                    "path_id": path_id,
                 }
             )
-            # if via NPM, also line app → npm edge host
             tid = s.get("target_server_id")
             if s.get("via_proxy") and tid and int(tid) in host_pos and int(tid) != bid:
                 tx, ty = host_pos[int(tid)]
@@ -2277,16 +2813,61 @@ def _build_physical_mesh_svg(
                         "y2": ty,
                         "kind": "npm",
                         "dashed": True,
+                        "path_id": path_id,
                     }
                 )
 
+        if hidden:
+            overflow_total += len(hidden)
+            px, py = -uy, ux
+            spread = (n_shown / 2) * step + 28
+            mx = hx + ux * 100 + px * spread
+            my = hy + uy * 100 + py * spread
+            hidden_ids = [s.get("id") for s in hidden if s.get("id") is not None]
+            app_nodes.append(
+                {
+                    "id": f"more-{bid}",
+                    "kind": "more",
+                    "label": f"+{len(hidden)} more",
+                    "sub": "see rack card",
+                    "x": round(mx, 1),
+                    "y": round(my, 1),
+                    "href": f"/servers/{bid}",
+                    "path_ids": hidden_ids,
+                    "path_chain": f"+{len(hidden)} more apps on host (rack list)",
+                }
+            )
+            edges.append(
+                {
+                    "x1": mx,
+                    "y1": my,
+                    "x2": hx,
+                    "y2": hy,
+                    "kind": "land",
+                    "dashed": True,
+                    "path_ids": hidden_ids,
+                }
+            )
+
+    drawn_apps = sum(1 for n in app_nodes if n.get("kind") == "app")
     return {
         "width": int(width),
         "height": int(height),
-        "nodes": host_nodes + app_nodes,
+        "nodes": infra_nodes + host_nodes + app_nodes,
         "edges": edges,
         "host_count": len(host_nodes),
-        "app_count": len(app_nodes),
+        "app_count": drawn_apps,
+        "app_total": drawn_apps + overflow_total,
+        "overflow_count": overflow_total,
+        "lan_count": len(lan_hosts),
+        "cloud_count": len(cloud_hosts),
+        "network": {
+            "lan_subnet": lan_subnet,
+            "gateway_ip": gateway_ip,
+            "public_ip": public_ip,
+            "gateway_kuma": gateway_kuma,
+            "public_kuma": public_kuma,
+        },
     }
 
 
@@ -2296,7 +2877,8 @@ def _build_logical_mesh_svg(flows: list[dict[str, Any]]) -> dict[str, Any]:
         return {"width": 900, "height": 400, "nodes": [], "edges": [], "hub": None}
 
     n = len(flows)
-    row_h = 52
+    # Slightly taller rows when dense to reduce edge/label collisions
+    row_h = 56 if n > 12 else 52
     pad_top = 70
     width = 1000
     height = pad_top + n * row_h + 40
@@ -2320,10 +2902,21 @@ def _build_logical_mesh_svg(flows: list[dict[str, Any]]) -> dict[str, Any]:
             }
         )
 
+    npm_path_ids: list[Any] = []
     for i, f in enumerate(flows):
         y = pad_top + i * row_h
-        uid = f"u{f.get('id') or i}"
-        did = f"d{f.get('id') or i}"
+        path_id = f.get("id")
+        uid = f"u{path_id if path_id is not None else i}"
+        did = f"d{path_id if path_id is not None else i}"
+        chain = " → ".join(
+            p
+            for p in (
+                f.get("url"),
+                (f"via {f.get('npm_edge')}" if f.get("via_npm") and f.get("npm_edge") else None),
+                f.get("dest_summary") or f.get("dest_host"),
+            )
+            if p
+        )
         nodes.append(
             {
                 "id": uid,
@@ -2334,6 +2927,10 @@ def _build_logical_mesh_svg(flows: list[dict[str, Any]]) -> dict[str, Any]:
                 "y": y,
                 "href": f.get("href"),
                 "via_npm": f.get("via_npm"),
+                "path_id": path_id,
+                "path_chain": chain,
+                "sync_status": f.get("sync_status") or "",
+                "has_cert": bool(f.get("has_cert")),
             }
         )
         dest_label = f.get("dest_container") or f.get("dest_project") or f.get("dest_host") or "—"
@@ -2349,9 +2946,15 @@ def _build_logical_mesh_svg(flows: list[dict[str, Any]]) -> dict[str, Any]:
                 "x": x_dest,
                 "y": y,
                 "href": f.get("dest_host_href") or f.get("href"),
+                "path_id": path_id,
+                "path_chain": chain,
+                "sync_status": f.get("sync_status") or "",
+                "has_cert": bool(f.get("has_cert")),
             }
         )
         if f.get("via_npm") and has_npm:
+            if path_id is not None:
+                npm_path_ids.append(path_id)
             edges.append(
                 {
                     "x1": x_url + 90,
@@ -2361,6 +2964,7 @@ def _build_logical_mesh_svg(flows: list[dict[str, Any]]) -> dict[str, Any]:
                     "kind": "to_npm",
                     "dashed": False,
                     "label": "",
+                    "path_id": path_id,
                 }
             )
             edges.append(
@@ -2372,6 +2976,7 @@ def _build_logical_mesh_svg(flows: list[dict[str, Any]]) -> dict[str, Any]:
                     "kind": "from_npm",
                     "dashed": True,
                     "label": f.get("npm_edge") or "proxy",
+                    "path_id": path_id,
                 }
             )
         else:
@@ -2384,8 +2989,14 @@ def _build_logical_mesh_svg(flows: list[dict[str, Any]]) -> dict[str, Any]:
                     "kind": "direct",
                     "dashed": False,
                     "label": "direct" if f.get("path_kind") not in ("host_identity", "host_app") else "A",
+                    "path_id": path_id,
                 }
             )
+
+    # Tag NPM hub with all via-proxy path ids for multi-path focus
+    for n in nodes:
+        if n.get("kind") == "hub":
+            n["path_ids"] = npm_path_ids
 
     # mid labels
     for e in edges:

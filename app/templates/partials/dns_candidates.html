@@ -1,0 +1,91 @@
+{# HTMX fragment for Catalog → DNS adopt table (GET /dns/candidates) #}
+{% if candidates_error %}
+<p class="text-xs text-warning mb-2">
+  Could not load candidates from Pi-hole: {{ candidates_error }}
+  <button type="button" class="btn btn-ghost text-xs min-h-9 px-2 ml-1"
+          hx-get="/dns/candidates" hx-target="#dns-candidates" hx-swap="innerHTML">
+    Retry
+  </button>
+</p>
+{% endif %}
+{% if candidates %}
+<div class="table-scroll">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-left text-xs text-muted border-b border-border">
+        <th class="py-2 pr-2">Source</th>
+        <th class="py-2 pr-2">Plan</th>
+        <th class="py-2">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in candidates %}
+      <tr class="border-b border-border/60 align-top">
+        <td class="py-2 pr-2">
+          {% if c.kind == 'pihole_cname' %}
+          <span class="text-[10px] uppercase text-success">Pi-hole CNAME</span>
+          <div class="font-mono text-xs">{{ c.fqdn }}</div>
+          <div class="text-[10px] text-muted">→ {{ c.cname_target }}</div>
+          {% elif c.kind == 'host_identity' %}
+          <span class="text-[10px] uppercase text-accent">Host identity (A)</span>
+          <div class="font-mono text-xs">{{ c.fqdn }}</div>
+          <div class="text-xs text-muted">
+            <a href="/servers/{{ c.server_id }}" class="text-accent hover:underline">{{ c.server_name }}</a>
+            {% if c.kuma_label %} · {{ c.kuma_label }}{% endif %}
+          </div>
+          {% else %}
+          <span class="text-[10px] uppercase text-muted">Deployment</span>
+          <div>
+            <a href="/templates/deployments/{{ c.deployment_id }}" class="text-accent hover:underline font-medium">{{ c.project_name }}</a>
+          </div>
+          <div class="text-xs text-muted">{{ c.server_name }}</div>
+          {% endif %}
+        </td>
+        <td class="py-2 pr-2 text-xs font-mono">
+          {{ c.plan.summary if c.plan else '—' }}
+          {% if c.plan and c.plan.path_title %}
+          <div class="text-[10px] text-muted font-sans mt-0.5">{{ c.plan.path_title }}</div>
+          {% endif %}
+          {% if c.plan and c.plan.blockers %}
+          <div class="text-warning mt-1 font-sans">{{ c.plan.blockers[0] }}</div>
+          {% endif %}
+        </td>
+        <td class="py-2">
+          {% if c.kind == 'pihole_cname' %}
+          <form method="post" action="/dns/attach-cname" class="inline">
+            <input type="hidden" name="fqdn" value="{{ c.fqdn }}">
+            <input type="hidden" name="cname_target" value="{{ c.cname_target }}">
+            <button type="submit" class="btn btn-accent text-xs min-h-11 px-2"
+                    {% if c.plan and c.plan.ready is defined and not c.plan.ready %}disabled{% endif %}>
+              Adopt
+            </button>
+          </form>
+          {% elif c.kind == 'host_identity' %}
+          <form method="post" action="/dns/attach-host-identity" class="inline">
+            <input type="hidden" name="server_id" value="{{ c.server_id }}">
+            <button type="submit" class="btn btn-accent text-xs min-h-11 px-2"
+                    {% if c.plan and c.plan.ready is defined and not c.plan.ready %}disabled{% endif %}>
+              Map host identity
+            </button>
+          </form>
+          {% else %}
+          <form method="post" action="/dns/attach-deployment" class="inline">
+            <input type="hidden" name="deployment_id" value="{{ c.deployment_id }}">
+            {% if c.plan and c.plan.fqdn %}
+            <input type="hidden" name="fqdn" value="{{ c.plan.fqdn }}">
+            {% endif %}
+            <button type="submit" class="btn btn-secondary text-xs min-h-11 px-2"
+                    {% if c.plan and not c.plan.ready and not c.plan.fqdn %}disabled{% endif %}>
+              Attach
+            </button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% elif not candidates_error %}
+<p class="text-xs text-muted">Nothing left to adopt.</p>
+{% endif %}

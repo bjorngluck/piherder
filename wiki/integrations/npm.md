@@ -14,6 +14,7 @@ Connect an existing **Nginx Proxy Manager** instance for proxy host inventory (r
 - Inventory from `GET /api/nginx/proxy-hosts`
 - **Bind** a host to a PiHerder server (optional Docker project/container)
 - Create/edit/delete of proxy hosts stays in the NPM UI for this release
+- Proxy host **binding** UI is card-based (mobile-friendly selects; host service or Docker cascade)
 
 ## Certificates
 

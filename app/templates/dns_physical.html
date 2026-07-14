@@ -7,128 +7,281 @@
 
 {% set phys = physical if physical is defined else (view.physical if view is defined else {}) %}
 {% set svg = phys.svg if phys.svg is defined else {} %}
+{% set focus_id = focus_path_id if focus_path_id is defined else '' %}
 
-<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-  <div>
-    <div class="flex flex-wrap gap-2 text-xs mb-1">
-      <a href="/dns" class="text-accent hover:underline">← DNS hub</a>
-      <span class="text-muted">·</span>
-      <a href="/dns/logical" class="text-accent hover:underline">Logical mesh</a>
+<div class="mb-4" data-fabric-root data-fabric-initial-focus="{{ focus_id }}">
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div>
+      <div class="flex flex-wrap gap-2 text-xs mb-1">
+        <a href="/dns" class="text-accent hover:underline">← Network</a>
+        <span class="text-muted">·</span>
+        <a href="/dns/logical{% if focus_id %}?focus={{ focus_id }}{% endif %}" class="text-accent hover:underline">Path map</a>
+      </div>
+      <h1 class="text-2xl font-semibold tracking-tight">Hosts map</h1>
+      <p class="text-sm text-muted mt-1 max-w-2xl">
+        <strong class="text-text">Internet</strong> → router → <strong class="text-text">LAN</strong> → home hosts;
+        public/cloud hosts (e.g. Nomad) attach to Internet.
+        Solid LAN edges · dashed WAN / NPM · configure under
+        <a href="/dns" class="text-accent hover:underline">Network map settings</a>.
+      </p>
     </div>
-    <h1 class="text-2xl font-semibold tracking-tight">Physical topology</h1>
-    <p class="text-sm text-muted mt-1 max-w-2xl">
-      Full fleet mesh: <strong class="text-text">hosts</strong> (with DNS + IP) and
-      <strong class="text-text">apps</strong> that land on them.
-      Dashed lines go to the NPM edge host when traffic is proxied.
-    </p>
+    <div class="flex flex-wrap gap-2 text-xs items-center">
+      <span class="fabric-legend-swatch fabric-legend-swatch--host">LAN host</span>
+      <span class="fabric-legend-swatch fabric-legend-swatch--edge">NPM edge</span>
+      <span class="fabric-legend-swatch fabric-legend-swatch--app">App name</span>
+      <span class="fabric-legend-swatch fabric-legend-swatch--npm-line">cloud / WAN</span>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2 hidden" data-fabric-clear-focus>Clear focus</button>
+    </div>
   </div>
-  <div class="flex flex-wrap gap-2 text-xs">
-    <span class="fabric-legend-swatch fabric-legend-swatch--host">Host</span>
-    <span class="fabric-legend-swatch fabric-legend-swatch--edge">NPM edge host</span>
-    <span class="fabric-legend-swatch fabric-legend-swatch--app">App name</span>
-    <span class="fabric-legend-swatch fabric-legend-swatch--npm-line">── NPM path</span>
-  </div>
-</div>
 
-<div class="card p-3 mb-5 overflow-hidden">
-  {% if svg.nodes %}
-  <div class="fabric-mesh-scroll">
-    <svg class="fabric-mesh-svg"
-         viewBox="0 0 {{ svg.width }} {{ svg.height }}"
-         width="100%"
-         role="img"
-         aria-label="Physical fleet mesh">
-      <defs>
-        <marker id="m-land" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0,0 L10,5 L0,10 z" fill="var(--color-muted, #888)"/>
-        </marker>
-        <marker id="m-npm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-          <path d="M0,0 L10,5 L0,10 z" fill="var(--color-warning, #d97706)"/>
-        </marker>
-        <filter id="glow-host" x="-30%" y="-30%" width="160%" height="160%">
-          <feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity="0.18"/>
-        </filter>
-      </defs>
-
-      {% for e in svg.edges %}
-      <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}"
-            class="fabric-mesh-edge fabric-mesh-edge--{{ e.kind }}"
-            {% if e.dashed %}stroke-dasharray="5 4"{% endif %}
-            marker-end="{% if e.kind == 'npm' %}url(#m-npm){% else %}url(#m-land){% endif %}"/>
-      {% endfor %}
-
-      {% for n in svg.nodes %}
-        {% if n.kind == 'host' %}
-        <a href="{{ n.href or '#' }}">
-          <g class="fabric-mesh-node fabric-mesh-node--host {% if n.npm_edge %}is-edge{% endif %}" filter="url(#glow-host)">
-            <rect x="{{ n.x - 62 }}" y="{{ n.y - 30 }}" width="124" height="60" rx="12"/>
-            <text x="{{ n.x }}" y="{{ n.y - 6 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label[:16] }}</text>
-            <text x="{{ n.x }}" y="{{ n.y + 12 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or n.ip or '')[:20] }}</text>
-            {% if n.npm_edge %}
-            <text x="{{ n.x }}" y="{{ n.y + 24 }}" text-anchor="middle" class="fabric-mesh-tag">NPM</text>
-            {% endif %}
-          </g>
-        </a>
+  {# Mobile: list first #}
+  {% if phys.racks %}
+  <div class="fabric-mesh-priority-list w-full mb-4">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+      <p class="text-xs text-muted m-0">Hosts as racks — tap an app to highlight its path.</p>
+      <button type="button"
+              class="btn btn-secondary text-sm min-h-11 md:hidden"
+              data-fabric-open-graph
+              aria-expanded="false">
+        View full map
+      </button>
+    </div>
+    <div class="fabric-rack-grid">
+      {% for rack in phys.racks %}
+      {% if rack.dns_name or rack.apps %}
+      <article class="fabric-rack {% if rack.is_npm_edge %}fabric-rack--edge{% endif %}"
+               {% if rack.apps %}
+               data-path-ids="{% for app in rack.apps %}{{ app.path_id or app.record_id }}{% if not loop.last %},{% endif %}{% endfor %}"
+               {% endif %}>
+        <header class="fabric-rack-head">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <a href="{{ rack.href }}" class="fabric-rack-title">{{ rack.name }}</a>
+              {% if rack.is_npm_edge %}<span class="fabric-badge fabric-badge--npm">NPM edge</span>{% endif %}
+            </div>
+            <span class="fabric-rack-count">{{ rack.app_count }}</span>
+          </div>
+          <div class="fabric-rack-meta font-mono">
+            {% if rack.dns_name %}<span>{{ rack.dns_name }}</span>{% endif %}
+            {% if rack.ip %}<span>{{ rack.ip }}</span>{% endif %}
+          </div>
+        </header>
+        {% if rack.apps %}
+        <ul class="fabric-rack-apps">
+          {% for app in rack.apps %}
+          <li class="fabric-app-chip fabric-app-chip--{{ app.path_kind or 'host' }}"
+              data-path-id="{{ app.path_id or app.record_id }}"
+              data-path-chain="{{ app.path_chain or app.fqdn }}"
+              data-fabric-focus-click>
+            <span class="fabric-app-url">
+              {% if app.sync_status == 'ok' %}<span class="fabric-status-dot fabric-status-dot--ok" title="Synced"></span>
+              {% elif app.sync_status == 'partial' %}<span class="fabric-status-dot fabric-status-dot--partial" title="Partial sync"></span>
+              {% elif app.sync_status in ('error', 'failed') %}<span class="fabric-status-dot fabric-status-dot--error" title="Sync error"></span>
+              {% endif %}
+              {% if app.has_cert %}<span class="fabric-status-dot fabric-status-dot--cert" title="Certificate linked"></span>{% endif %}
+              {{ app.fqdn }}
+            </span>
+            <span class="fabric-app-meta">
+              {% if app.via_npm and app.npm_edge %}<span class="fabric-link-via">via {{ app.npm_edge }}</span>{% endif %}
+              {% if app.container %}<span class="font-mono">{{ app.project }}/{{ app.container }}</span>
+              {% elif app.project %}<span class="font-mono">{{ app.project }}</span>{% endif %}
+              <button type="button" class="btn btn-ghost text-[10px] min-h-8 px-1.5"
+                      data-fabric-copy-path data-copy-text="{{ app.path_chain or app.fqdn }}">Copy</button>
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
         {% else %}
-        <a href="{{ n.href or '#' }}">
-          <g class="fabric-mesh-node fabric-mesh-node--app {% if n.via_npm %}is-npm{% endif %}">
-            <rect x="{{ n.x - 70 }}" y="{{ n.y - 22 }}" width="140" height="44" rx="10"/>
-            <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label[:22] }}</text>
-            <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:20] }}</text>
-          </g>
-        </a>
+        <p class="fabric-rack-empty-msg">No mapped apps</p>
         {% endif %}
+      </article>
+      {% endif %}
       {% endfor %}
-    </svg>
+    </div>
   </div>
-  <p class="text-[11px] text-muted mt-2 px-1">
-    {{ svg.host_count or 0 }} hosts · {{ svg.app_count or 0 }} apps ·
-    scroll / pinch if needed · solid = lands on host · dashed = via NPM edge
-  </p>
-  {% else %}
-  <p class="text-sm text-muted p-6 text-center">No hosts to draw yet.</p>
   {% endif %}
-</div>
 
-{# Rack list under the mesh for detail #}
-{% if phys.racks %}
-<div class="fabric-rack-grid mb-6">
-  {% for rack in phys.racks %}
-  {% if rack.dns_name or rack.apps %}
-  <article class="fabric-rack {% if rack.is_npm_edge %}fabric-rack--edge{% endif %}">
-    <header class="fabric-rack-head">
-      <div class="flex items-start justify-between gap-2">
-        <div>
-          <a href="{{ rack.href }}" class="fabric-rack-title">{{ rack.name }}</a>
-          {% if rack.is_npm_edge %}<span class="fabric-badge fabric-badge--npm">NPM edge</span>{% endif %}
-        </div>
-        <span class="fabric-rack-count">{{ rack.app_count }}</span>
+  {# Graph: desktop always; mobile after toggle #}
+  <div class="card p-3 mb-5 overflow-hidden w-full fabric-mesh-priority-graph"
+       data-fabric-graph>
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <div class="flex flex-wrap items-center gap-2 md:hidden">
+        <span class="text-xs font-medium text-text">Full map</span>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2" data-fabric-close-graph>Hide map</button>
       </div>
-      <div class="fabric-rack-meta font-mono">
-        {% if rack.dns_name %}<span>{{ rack.dns_name }}</span>{% endif %}
-        {% if rack.ip %}<span>{{ rack.ip }}</span>{% endif %}
+      <div class="fabric-mesh-zoom-bar ml-auto" role="group" aria-label="Zoom map">
+        <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-out title="Zoom out" aria-label="Zoom out">−</button>
+        <span class="fabric-mesh-zoom-label font-mono text-center" data-fabric-zoom-label>100%</span>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-in title="Zoom in" aria-label="Zoom in">+</button>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2" data-fabric-zoom-reset title="Reset zoom">1:1</button>
       </div>
-    </header>
-    {% if rack.apps %}
-    <ul class="fabric-rack-apps">
-      {% for app in rack.apps %}
-      <li class="fabric-app-chip fabric-app-chip--{{ app.path_kind or 'host' }}">
-        <span class="fabric-app-url">{{ app.fqdn }}</span>
-        <span class="fabric-app-meta">
-          {% if app.via_npm and app.npm_edge %}<span class="fabric-link-via">via {{ app.npm_edge }}</span>{% endif %}
-          {% if app.container %}<span class="font-mono">{{ app.project }}/{{ app.container }}</span>
-          {% elif app.project %}<span class="font-mono">{{ app.project }}</span>{% endif %}
-        </span>
-      </li>
-      {% endfor %}
-    </ul>
+    </div>
+    {% if svg.nodes %}
+    <div class="fabric-mesh-scroll">
+      <div class="fabric-mesh-viewport" data-fabric-viewport>
+          <svg class="fabric-mesh-svg"
+               viewBox="0 0 {{ svg.width }} {{ svg.height }}"
+               width="100%"
+               height="100%"
+               preserveAspectRatio="xMidYMid meet"
+               role="img"
+               aria-label="Hosts map"
+               data-fabric-mesh="physical">
+            <defs>
+              <marker id="m-land" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--color-muted, #888)"/>
+              </marker>
+              <marker id="m-npm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill="var(--color-warning, #d97706)"/>
+              </marker>
+            </defs>
+
+            {% for e in svg.edges %}
+            <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}"
+                  class="fabric-mesh-edge fabric-mesh-edge--{{ e.kind }}"
+                  {% if e.dashed %}stroke-dasharray="5 4"{% endif %}
+                  {% if e.path_ids %}data-path-ids="{% for pid in e.path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"
+                  {% elif e.path_id is defined and e.path_id is not none %}data-path-id="{{ e.path_id }}"{% endif %}
+                  marker-end="{% if e.kind == 'npm' %}url(#m-npm){% else %}url(#m-land){% endif %}"/>
+            {% endfor %}
+
+            {% for n in svg.nodes %}
+              {% if n.kind == 'internet' %}
+              {% if n.href %}<a href="{{ n.href }}" target="_blank" rel="noopener" data-open-href="{{ n.href }}">{% endif %}
+              <g class="fabric-mesh-node fabric-mesh-node--internet"
+                 data-node-id="{{ n.node_id or 'internet' }}"
+                 {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
+                 {% if n.href %}data-open-href="{{ n.href }}"{% endif %}
+                 {% if n.open_label %}data-open-label="{{ n.open_label }}"{% endif %}>
+                <ellipse cx="{{ n.x }}" cy="{{ n.y }}" rx="52" ry="28"/>
+                <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label">☁ {{ n.label }}</text>
+                <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:22] }}</text>
+                {% if n.kuma and n.kuma.state %}
+                <circle class="fabric-mesh-status fabric-mesh-status--{{ n.kuma.state }}" cx="{{ n.x + 42 }}" cy="{{ n.y - 16 }}" r="4"/>
+                {% endif %}
+              </g>
+              {% if n.href %}</a>{% endif %}
+              {% elif n.kind == 'public_ip' %}
+              {% if n.href %}<a href="{{ n.href }}" target="_blank" rel="noopener" data-open-href="{{ n.href }}">{% endif %}
+              <g class="fabric-mesh-node fabric-mesh-node--internet"
+                 data-node-id="{{ n.node_id or 'public-ip' }}"
+                 {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
+                 {% if n.href %}data-open-href="{{ n.href }}"{% endif %}
+                 {% if n.open_label %}data-open-label="{{ n.open_label }}"{% endif %}>
+                <rect x="{{ n.x - 58 }}" y="{{ n.y - 18 }}" width="116" height="36" rx="8"/>
+                <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label }}</text>
+                <text x="{{ n.x }}" y="{{ n.y + 12 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:18] }}</text>
+                {% if n.kuma and n.kuma.state %}
+                <circle class="fabric-mesh-status fabric-mesh-status--{{ n.kuma.state }}" cx="{{ n.x + 48 }}" cy="{{ n.y - 12 }}" r="4"/>
+                {% endif %}
+              </g>
+              {% if n.href %}</a>{% endif %}
+              {% elif n.kind == 'gateway' %}
+              {% if n.href %}<a href="{{ n.href }}" target="_blank" rel="noopener" data-open-href="{{ n.href }}">{% endif %}
+              <g class="fabric-mesh-node fabric-mesh-node--gateway"
+                 data-node-id="{{ n.node_id or 'gateway' }}"
+                 {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
+                 {% if n.href %}data-open-href="{{ n.href }}"{% endif %}
+                 {% if n.open_label %}data-open-label="{{ n.open_label }}"{% endif %}>
+                <rect x="{{ n.x - 58 }}" y="{{ n.y - 24 }}" width="116" height="48" rx="10"/>
+                <text x="{{ n.x }}" y="{{ n.y - 4 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label }}</text>
+                <text x="{{ n.x }}" y="{{ n.y + 12 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:18] }}</text>
+                {% if n.kuma and n.kuma.state %}
+                <circle class="fabric-mesh-status fabric-mesh-status--{{ n.kuma.state }}" cx="{{ n.x + 48 }}" cy="{{ n.y - 16 }}" r="4.5"/>
+                {% endif %}
+              </g>
+              {% if n.href %}</a>{% endif %}
+              {% elif n.kind == 'lan' %}
+              <g class="fabric-mesh-node fabric-mesh-node--lan"
+                 data-node-id="{{ n.node_id or 'lan' }}"
+                 {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}>
+                <ellipse cx="{{ n.x }}" cy="{{ n.y }}" rx="{{ n.rx or 80 }}" ry="{{ n.ry or 36 }}"/>
+                <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label }}</text>
+                <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:22] }}</text>
+              </g>
+              {% elif n.kind == 'host' %}
+              <a href="{{ n.href or '#' }}" data-open-href="{{ n.href or '' }}">
+                <g class="fabric-mesh-node fabric-mesh-node--host {% if n.npm_edge %}is-edge{% endif %} {% if n.is_cloud %}is-cloud{% endif %}"
+                   data-node-id="{{ n.node_id or ('host-' ~ n.server_id) }}"
+                   data-open-href="{{ n.href or '' }}"
+                   data-open-label="{{ n.open_label or 'Open host' }}"
+                   {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
+                   {% if n.path_ids %}data-path-ids="{% for pid in n.path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}>
+                  <rect x="{{ n.x - 62 }}" y="{{ n.y - 30 }}" width="124" height="60" rx="12"/>
+                  <text x="{{ n.x }}" y="{{ n.y - 6 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label[:16] }}</text>
+                  <text x="{{ n.x }}" y="{{ n.y + 12 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or n.ip or '')[:20] }}</text>
+                  {% if n.npm_edge %}
+                  <text x="{{ n.x }}" y="{{ n.y + 24 }}" text-anchor="middle" class="fabric-mesh-tag">NPM</text>
+                  {% elif n.is_cloud %}
+                  <text x="{{ n.x }}" y="{{ n.y + 24 }}" text-anchor="middle" class="fabric-mesh-tag">cloud</text>
+                  {% endif %}
+                </g>
+              </a>
+              {% elif n.kind == 'more' %}
+              <a href="{{ n.href or '#' }}">
+                <g class="fabric-mesh-node fabric-mesh-node--more"
+                   {% if n.path_ids %}data-path-ids="{% for pid in n.path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}
+                   {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}>
+                  <rect x="{{ n.x - 48 }}" y="{{ n.y - 18 }}" width="96" height="36" rx="18"/>
+                  <text x="{{ n.x }}" y="{{ n.y + 1 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label[:16] }}</text>
+                  <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:16] }}</text>
+                </g>
+              </a>
+              {% else %}
+              <a href="{{ n.href or '#' }}" data-open-href="{{ n.href or '' }}">
+                <g class="fabric-mesh-node fabric-mesh-node--app {% if n.via_npm %}is-npm{% endif %}"
+                   data-open-href="{{ n.href or '' }}"
+                   {% if n.path_id is defined and n.path_id is not none %}data-path-id="{{ n.path_id }}"{% endif %}
+                   {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}>
+                  <rect x="{{ n.x - 70 }}" y="{{ n.y - 22 }}" width="140" height="44" rx="10"/>
+                  <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label[:22] }}</text>
+                  <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:20] }}</text>
+                  {% if n.sync_status == 'ok' %}
+                  <circle class="fabric-mesh-status fabric-mesh-status--ok" cx="{{ n.x + 58 }}" cy="{{ n.y - 14 }}" r="4"/>
+                  {% elif n.sync_status == 'partial' %}
+                  <circle class="fabric-mesh-status fabric-mesh-status--partial" cx="{{ n.x + 58 }}" cy="{{ n.y - 14 }}" r="4"/>
+                  {% elif n.sync_status == 'error' or n.sync_status == 'failed' %}
+                  <circle class="fabric-mesh-status fabric-mesh-status--error" cx="{{ n.x + 58 }}" cy="{{ n.y - 14 }}" r="4"/>
+                  {% endif %}
+                  {% if n.has_cert %}
+                  <circle class="fabric-mesh-status fabric-mesh-status--cert" cx="{{ n.x + 46 }}" cy="{{ n.y - 14 }}" r="3.5"/>
+                  {% endif %}
+                </g>
+              </a>
+              {% endif %}
+            {% endfor %}
+          </svg>
+      </div>
+    </div>
+    <p class="text-[11px] text-muted mt-2 px-1">
+      {{ svg.host_count or 0 }} hosts ·
+      {% if svg.app_total is defined and svg.overflow_count %}
+      {{ svg.app_total }} apps ({{ svg.app_count }} on map{% if svg.overflow_count %}, +{{ svg.overflow_count }} on rack cards{% endif %})
+      {% else %}
+      {{ svg.app_count or 0 }} apps
+      {% endif %}
+      · pinch / scroll to zoom · drag to pan · double-click 1:1
+      · tap any host, Router, LAN, Internet, or app path to focus
+      · solid = LAN · dashed = WAN / NPM · green = synced · amber cert = TLS linked
+    </p>
+    <div class="fabric-callout-row mt-2 px-1">
+      <p class="fabric-callout text-xs font-mono is-empty"
+         data-fabric-callout
+         data-fabric-callout-empty="Tap a host, Router, LAN, Internet, or app path. Use Open host / Open in Kuma to navigate."></p>
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-9 px-2 hidden"
+              data-fabric-copy-callout>Copy path</button>
+      <a href="#"
+         class="btn btn-primary text-xs min-h-9 px-2 hidden"
+         data-fabric-open-link
+         data-default-label="Open host"
+         hidden>Open host</a>
+    </div>
     {% else %}
-    <p class="fabric-rack-empty-msg">No mapped apps</p>
+    <p class="text-sm text-muted p-6 text-center">No hosts to draw yet.</p>
     {% endif %}
-  </article>
-  {% endif %}
-  {% endfor %}
+  </div>
 </div>
-{% endif %}
 
+<script src="/static/js/fabric-mesh.js" defer></script>
 {% endblock %}

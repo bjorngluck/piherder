@@ -11,9 +11,15 @@
   </div>
   <div class="page-header-actions flex flex-wrap gap-2">
     <button type="button" id="btn-open-create-user" class="btn btn-accent min-h-11 text-sm">Create user</button>
+    <a href="/herder-backups?tab=api" class="btn btn-secondary min-h-11 text-sm">API tokens</a>
     <a href="/auth/account" class="btn btn-secondary min-h-11 text-sm">Account</a>
   </div>
 </div>
+<p class="text-xs text-muted mb-4 max-w-3xl">
+  User accounts and roles live here.
+  <a href="/herder-backups?tab=api" class="text-accent hover:underline">Automation API tokens</a>
+  (Bearer keys for scripts / CI) are under the same Access area — also linked from Settings.
+</p>
 
 {% if msg == 'role_saved' %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4 max-w-3xl">Role updated.</div>
