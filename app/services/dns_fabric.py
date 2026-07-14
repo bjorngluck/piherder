@@ -2187,14 +2187,28 @@ def _resolve_network_kuma_monitor(
         return None
 
     integ = None
-    iid_raw = (integration_id or "").strip()
-    if iid_raw.isdigit():
-        integ = reg.get_integration(session, int(iid_raw))
-        if integ and (integ.type != reg.TYPE_UPTIME_KUMA or not integ.enabled):
-            integ = None
-    if integ is None:
-        rows = reg.list_integrations(session, type_filter=reg.TYPE_UPTIME_KUMA)
-        integ = next((r for r in rows if r.enabled), None)
+    try:
+        iid_raw = (integration_id or "").strip()
+        if iid_raw.isdigit():
+            integ = reg.get_integration(session, int(iid_raw))
+            if integ and (
+                getattr(integ, "type", None) != reg.TYPE_UPTIME_KUMA
+                or not getattr(integ, "enabled", False)
+            ):
+                integ = None
+        if integ is None:
+            rows = reg.list_integrations(session, type_filter=reg.TYPE_UPTIME_KUMA) or []
+            integ = next(
+                (
+                    r
+                    for r in rows
+                    if getattr(r, "enabled", False)
+                    and getattr(r, "type", reg.TYPE_UPTIME_KUMA) == reg.TYPE_UPTIME_KUMA
+                ),
+                None,
+            )
+    except Exception:
+        integ = None
     if integ is None:
         return {
             "external_id": ext,
