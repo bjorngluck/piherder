@@ -1344,6 +1344,9 @@ body.fabric-map-fullscreen {
   }
   .fabric-path-hops {
     max-width: 100%;
+    /* Wrap hops to the next line (not horizontal scroll per card) */
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
   .fabric-mesh-scroll,
   .fabric-mesh-viewport {
@@ -1355,15 +1358,10 @@ body.fabric-map-fullscreen {
     max-width: 100%;
     width: 100% !important;
   }
-  /* Path hop rows: scroll inside the card instead of growing the page */
-  .fabric-path-hops {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    flex-wrap: nowrap;
-    padding-bottom: 0.15rem;
-  }
   .fabric-path-card {
-    overflow: hidden;
+    /* Allow multi-line hop chains; clip only sideways bleed from children */
+    overflow-x: clip;
+    overflow-y: visible;
   }
 }
 @media (min-width: 768px) {
