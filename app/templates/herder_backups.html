@@ -10,19 +10,23 @@
 {% set sp = settings_pulse or {} %}
 {% set sh = sp.health if sp.health is defined else 'ok' %}
 
-<section class="ops-hero ops-hero--settings is-{{ sh }} mb-3">
+{% set hero_by_tab = settings_hero_by_tab or {} %}
+{% set hero_now = hero_by_tab.get(tab) if hero_by_tab is mapping else none %}
+<section class="ops-hero ops-hero--settings is-{{ sh }} mb-3" id="settings-hero" data-settings-hero>
   <div class="ops-hero-main">
     <div class="ops-hero-kicker">Control plane</div>
-    <h1 class="ops-hero-title">
-      {% if tab == 'api' %}API management
+    <h1 class="ops-hero-title" id="settings-hero-title">
+      {% if hero_now and hero_now.title is defined %}{{ hero_now.title }}
+      {% elif tab == 'api' %}API management
       {% elif tab == 'backup' %}PiHerder backup
       {% elif tab == 'status' %}Stack status
       {% elif tab == 'fleet' %}Fleet defaults
       {% else %}Settings
       {% endif %}
     </h1>
-    <p class="ops-hero-sub">
-      {% if tab == 'api' %}
+    <p class="ops-hero-sub" id="settings-hero-sub">
+      {% if hero_now and hero_now.sub is defined %}{{ hero_now.sub }}
+      {% elif tab == 'api' %}
       Instance-wide Bearer tokens, scopes, docs, and endpoint catalog.
       {% elif tab == 'backup' %}
       Self-backup schedule, archives, and restore.
@@ -45,8 +49,8 @@
   <div class="ops-hero-viz">
     <div class="ops-hero-orb {% if sh == 'hot' or sh == 'warn' %}ops-hero-orb--hot{% else %}ops-hero-orb--ok{% endif %}" aria-hidden="true">
       <div class="ops-alert-orb-core">
-        <div class="ops-queue-n">{{ sp.primary if sp.primary is defined else '—' }}</div>
-        <div class="ops-queue-l">{{ sp.primary_label if sp.primary_label is defined else 'settings' }}</div>
+        <div class="ops-queue-n" id="settings-hero-primary">{{ sp.primary if sp.primary is defined else '—' }}</div>
+        <div class="ops-queue-l" id="settings-hero-primary-label">{{ sp.primary_label if sp.primary_label is defined else 'settings' }}</div>
       </div>
     </div>
     {% if sp.bar %}
@@ -78,9 +82,10 @@
       {% endfor %}
     </div>
     {% endif %}
-    {% if sp.caption %}<p class="ops-pulse-caption">{{ sp.caption }}</p>{% endif %}
+    <p class="ops-pulse-caption" id="settings-hero-caption"{% if not sp.caption %} hidden{% endif %}>{{ sp.caption or '' }}</p>
   </div>
 </section>
+<script type="application/json" id="settings-hero-by-tab">{{ hero_by_tab | tojson }}</script>
 
 {# ── Flash banners (tab-aware; only shown on relevant context) ── #}
 {% if request.query_params.get('error') %}
@@ -968,6 +973,34 @@
 
 <script>
 (function () {
+  var heroByTab = {};
+  try {
+    var heroMetaEl = document.getElementById('settings-hero-by-tab');
+    if (heroMetaEl && heroMetaEl.textContent) {
+      heroByTab = JSON.parse(heroMetaEl.textContent) || {};
+    }
+  } catch (e) { heroByTab = {}; }
+
+  function applySettingsHero(name) {
+    var meta = heroByTab[name] || heroByTab.general;
+    if (!meta) return;
+    var titleEl = document.getElementById('settings-hero-title');
+    var subEl = document.getElementById('settings-hero-sub');
+    var primaryEl = document.getElementById('settings-hero-primary');
+    var labelEl = document.getElementById('settings-hero-primary-label');
+    var captionEl = document.getElementById('settings-hero-caption');
+    if (titleEl && meta.title != null) titleEl.textContent = meta.title;
+    if (subEl && meta.sub != null) subEl.textContent = meta.sub;
+    if (primaryEl && meta.primary != null) primaryEl.textContent = String(meta.primary);
+    if (labelEl && meta.primary_label != null) labelEl.textContent = meta.primary_label;
+    if (captionEl) {
+      var cap = meta.caption || '';
+      captionEl.textContent = cap;
+      if (cap) captionEl.removeAttribute('hidden');
+      else captionEl.setAttribute('hidden', '');
+    }
+  }
+
   function setSettingsTab(name) {
     document.querySelectorAll('[data-settings-panel]').forEach(function (el) {
       el.classList.toggle('hidden', el.getAttribute('data-settings-panel') !== name);
@@ -977,6 +1010,7 @@
       btn.classList.toggle('is-active', on);
       btn.setAttribute('aria-selected', on ? 'true' : 'false');
     });
+    applySettingsHero(name);
     try {
       var u = new URL(window.location.href);
       u.searchParams.set('tab', name);

@@ -190,18 +190,51 @@ async def settings_page(
     else:
         health = "ok"
 
-    if tab == "api":
-        primary, primary_label = tok_active, "active tok"
-    elif tab == "backup":
-        primary, primary_label = n_backups, "archives"
-    elif tab == "status":
-        primary, primary_label = (stack_overall or "—"), "stack"
-    elif tab == "fleet":
-        os_on = cfg.get("os_check_global_enabled") is not False
-        cont_on = cfg.get("container_check_global_enabled") is not False
-        primary, primary_label = (int(os_on) + int(cont_on)), "checks on"
-    else:
-        primary, primary_label = tz_short[:10], "timezone"
+    os_on = cfg.get("os_check_global_enabled") is not False
+    cont_on = cfg.get("container_check_global_enabled") is not False
+    fleet_checks_on = int(os_on) + int(cont_on)
+
+    # Per-tab hero copy + orb — client tab switches re-apply this without reload
+    settings_hero_by_tab = {
+        "general": {
+            "title": "Settings",
+            "sub": "Timezone, security policy, and platform defaults.",
+            "primary": tz_short[:10],
+            "primary_label": "timezone",
+            "caption": f"{tz_short} · platform defaults",
+        },
+        "fleet": {
+            "title": "Fleet defaults",
+            "sub": "Global OS / container update-check defaults for the fleet.",
+            "primary": fleet_checks_on,
+            "primary_label": "checks on",
+            "caption": f"{tz_short} · fleet update checks",
+        },
+        "backup": {
+            "title": "PiHerder backup",
+            "sub": "Self-backup schedule, archives, and restore.",
+            "primary": n_backups,
+            "primary_label": "archives",
+            "caption": f"{tz_short} · self-backup",
+        },
+        "status": {
+            "title": "Stack status",
+            "sub": "Web, DB, Redis, Celery, mounts — checked on an interval.",
+            "primary": stack_overall or "—",
+            "primary_label": "stack",
+            "caption": f"{tz_short} · stack health",
+        },
+        "api": {
+            "title": "API management",
+            "sub": "Instance-wide Bearer tokens, scopes, docs, and endpoint catalog.",
+            "primary": tok_active,
+            "primary_label": "active tok",
+            "caption": f"{tz_short} · API tokens",
+        },
+    }
+    hero_tab = settings_hero_by_tab.get(tab) or settings_hero_by_tab["general"]
+    primary = hero_tab["primary"]
+    primary_label = hero_tab["primary_label"]
 
     settings_pulse = {
         "health": health,
@@ -270,22 +303,18 @@ async def settings_page(
                 ),
             },
             {
-                "n": "on"
-                if cfg.get("os_check_global_enabled") is not False
-                else "off",
+                "n": "on" if os_on else "off",
                 "l": "os chk",
                 "cls": "",
             },
             {
-                "n": "on"
-                if cfg.get("container_check_global_enabled") is not False
-                else "off",
+                "n": "on" if cont_on else "off",
                 "l": "img chk",
                 "cls": "",
             },
             {"n": cfg.get("keep") or 10, "l": "keep", "cls": ""},
         ],
-        "caption": f"{tz_short} · settings overview",
+        "caption": hero_tab.get("caption") or f"{tz_short} · settings overview",
         "tok_active": tok_active,
         "tok_revoked": tok_revoked,
         "tok_all": tok_all,
@@ -315,6 +344,7 @@ async def settings_page(
             "stack_report": stack_report,
             "stack_health_interval_min": STACK_HEALTH_INTERVAL_MIN,
             "settings_pulse": settings_pulse,
+            "settings_hero_by_tab": settings_hero_by_tab,
         },
     )
 
