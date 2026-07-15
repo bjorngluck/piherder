@@ -1373,14 +1373,17 @@ body.fabric-map-fullscreen {
   font-weight: 500;
 }
 
-/* ── Dashboard hero + network showcase ─────────────────────────────── */
+/* ── Dashboard hero + network showcase ───────────────────────────────
+   Same layout contract as .ops-hero: stacked mobile, title|viz desktop. */
 .dash-hero {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.25rem 2rem;
-  padding: 1.35rem 1.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "main"
+    "viz";
+  align-items: start;
+  gap: 1rem 1.75rem;
+  padding: 1.15rem 1.25rem;
   border-radius: 16px;
   border: 1px solid var(--color-border);
   background:
@@ -1389,6 +1392,21 @@ body.fabric-map-fullscreen {
       transparent 55%),
     linear-gradient(145deg, var(--color-surface) 0%, var(--color-bg) 100%);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+}
+@media (min-width: 768px) {
+  .dash-hero {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "main viz";
+    align-items: center;
+    padding: 1.35rem 1.5rem;
+  }
+}
+.dash-hero-main {
+  grid-area: main;
+  min-width: 0;
+}
+.dash-hero-pulse {
+  grid-area: viz;
 }
 .dash-hero.is-attention {
   background:
@@ -1458,8 +1476,30 @@ body.fabric-map-fullscreen {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.55rem;
   flex-shrink: 0;
+  justify-self: center;
+}
+@media (min-width: 768px) {
+  .dash-hero-pulse {
+    justify-self: end;
+  }
+}
+@media (max-width: 767.98px) {
+  .dash-hero-pulse {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+    width: 100%;
+  }
+  .dash-pulse-ring {
+    width: 4.75rem !important;
+    height: 4.75rem !important;
+  }
 }
 .dash-pulse-ring {
   width: 6.5rem;

@@ -1,44 +1,47 @@
 {# Shared Catalog chrome — ops-hero + full-width tab strip.
-   Pass catalog_section + optional catalog_pulse (dict of compact stats). #}
+   Pass catalog_section + optional catalog_pulse (dict of compact stats).
+   Viz is ALWAYS rendered (placeholder if pulse missing) so all 4 tabs share
+   the same heading-card geometry on mobile and desktop. #}
 {% set section = catalog_section if catalog_section is defined else 'integrations' %}
 {% if section not in ('integrations', 'templates', 'dns', 'network', 'certificates') %}
   {% set section = 'integrations' %}
 {% endif %}
 {% set is_network = section in ('dns', 'network') %}
-{% set cp = catalog_pulse if catalog_pulse is defined else {} %}
+{% set cp = catalog_pulse if catalog_pulse is defined and catalog_pulse else {} %}
+{% set has_pulse = cp is mapping and (cp.primary is defined or cp.line1 is defined or cp.bar is defined) %}
 {% set ch = (cp.get('health') if cp is mapping else none) or 'ok' %}
+{% if section == 'integrations' %}
+  {% set sec_title = 'Integrations' %}
+  {% set sec_sub = 'External products — Kuma, Grafana, Pi-hole, NPM. Core fleet ops work without these.' %}
+  {% set sec_label = 'linked' %}
+{% elif section == 'certificates' %}
+  {% set sec_title = 'Certificates' %}
+  {% set sec_sub = 'TLS vault — pull from NPM or upload PEMs, map consumers, deploy over SSH.' %}
+  {% set sec_label = 'certs' %}
+{% elif section == 'templates' %}
+  {% set sec_title = 'Templates' %}
+  {% set sec_sub = 'Stack definitions you own — create, import, deploy to a host.' %}
+  {% set sec_label = 'templates' %}
+{% else %}
+  {% set sec_title = 'Network' %}
+  {% set sec_sub = 'Network maps — hosts map, path map, mapped names, and network settings.' %}
+  {% set sec_label = 'names' %}
+{% endif %}
 
 <section class="ops-hero ops-hero--catalog is-{{ ch }} mb-3">
   <div class="ops-hero-main">
     <div class="ops-hero-kicker">Catalog</div>
-    <h1 class="ops-hero-title">
-      {% if section == 'integrations' %}Integrations
-      {% elif section == 'certificates' %}Certificates
-      {% elif section == 'templates' %}Templates
-      {% else %}Network
-      {% endif %}
-    </h1>
-    <p class="ops-hero-sub">
-      {% if section == 'integrations' %}
-      External products — Kuma, Grafana, Pi-hole, NPM. Core fleet ops work without these.
-      {% elif section == 'certificates' %}
-      TLS vault — pull from NPM or upload PEMs, map consumers, deploy over SSH.
-      {% elif section == 'templates' %}
-      Stack definitions you own — create, import, deploy to a host.
-      {% else %}
-      Network maps — hosts map, path map, mapped names, and network settings.
-      {% endif %}
-    </p>
+    <h1 class="ops-hero-title">{{ sec_title }}</h1>
+    <p class="ops-hero-sub">{{ sec_sub }}</p>
   </div>
-  {% if cp %}
-  <div class="ops-hero-viz">
+  <div class="ops-hero-viz{% if not has_pulse %} ops-hero-viz--empty{% endif %}">
     <div class="ops-hero-orb {% if ch == 'hot' or ch == 'warn' %}ops-hero-orb--hot{% else %}ops-hero-orb--ok{% endif %}" aria-hidden="true">
       <div class="ops-alert-orb-core">
-        <div class="ops-queue-n">{{ cp.primary if cp.primary is defined else '—' }}</div>
-        <div class="ops-queue-l">{{ cp.primary_label if cp.primary_label is defined else 'items' }}</div>
+        <div class="ops-queue-n">{{ cp.primary if has_pulse and cp.primary is defined else '—' }}</div>
+        <div class="ops-queue-l">{{ cp.primary_label if has_pulse and cp.primary_label is defined else sec_label }}</div>
       </div>
     </div>
-    {% if cp.bar %}
+    {% if has_pulse and cp.bar %}
     <div class="ops-bars" aria-hidden="true">
       {% for b in cp.bar %}
       <div class="ops-bar {{ b.cls if b.cls is defined else '' }}"
@@ -46,8 +49,12 @@
            title="{{ b.title if b.title is defined else '' }}"></div>
       {% endfor %}
     </div>
+    {% else %}
+    <div class="ops-bars" aria-hidden="true">
+      <div class="ops-bar ops-bar--mute" style="flex: 1" title=""></div>
+    </div>
     {% endif %}
-    {% if cp.line1 %}
+    {% if has_pulse and cp.line1 %}
     <div class="ops-pulse-stats">
       {% for s in cp.line1 %}
       <div class="ops-pulse-stat">
@@ -57,7 +64,7 @@
       {% endfor %}
     </div>
     {% endif %}
-    {% if cp.line2 %}
+    {% if has_pulse and cp.line2 %}
     <div class="ops-pulse-stats">
       {% for s in cp.line2 %}
       <div class="ops-pulse-stat">
@@ -67,11 +74,12 @@
       {% endfor %}
     </div>
     {% endif %}
-    {% if cp.caption %}
+    {% if has_pulse and cp.caption %}
     <p class="ops-pulse-caption">{{ cp.caption }}</p>
+    {% elif not has_pulse %}
+    <p class="ops-pulse-caption">{{ sec_title }} · catalog</p>
     {% endif %}
   </div>
-  {% endif %}
 </section>
 
 {# Full-width tab strip — always under the hero so it never gets swallowed by viz layout #}
