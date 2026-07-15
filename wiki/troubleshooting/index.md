@@ -11,6 +11,8 @@
 | Full editor link does nothing | [Compose edit](../docker/compose-edit.md#opening-the-editor) — use ⋯ **Full editor…** |
 | Fleet Services empty | [Dashboard & Services](../day-to-day/dashboard-and-services.md) — bind Kuma monitors |
 | Network map hosts not linked / cloud wrong | [Network maps](../integrations/dns-fabric.md) — set LAN/gateway/public IP; hard-refresh after rebuild |
+| Layout stuck after phone rotate (esp. Network) | Hard-reload once after deploy; maps should reflow without leaving the page ([Appearance](../getting-started/appearance.md)) |
+| Dashboard NPM hosts ≠ NPM proxy count | Dashboard uses poll `proxy_host_count`; poll NPM integration if stale |
 | Cert deploy / renew failed | [Certificates](../integrations/certificates.md) · Jobs + Audit |
 | Drift after host edit | [Deploy — Check drift](../service-templates/deploy.md#redeploy-ops-deployment-page) |
 | Stack unhealthy after upgrade | [Status](../operations/status.md) · [Upgrades](../operations/upgrades.md) |

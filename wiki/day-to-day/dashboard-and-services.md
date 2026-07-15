@@ -13,10 +13,16 @@ After login, **Dashboard** is the home page: fleet health at a glance.
 | **Open alerts** | Inbox count → [Notifications](jobs-audit-notifications.md) (bell) |
 | OS / container summary cards | Aggregate package/image update counts |
 | **Needs attention** table | Only hosts that need work; Open / Docker shortcuts |
-| **Network maps** panel | Named hosts / paths pulse → Catalog **Network**, Hosts map, Path map ([Network maps](../integrations/dns-fabric.md)) |
+| **Network maps** panel | Constellation graphic + **named hosts** / **mapped names** / **NPM hosts** → Catalog **Network**, Hosts map, Path map ([Network maps](../integrations/dns-fabric.md)) |
 | **Quick links** | Servers, notifications, audit, Settings, Pi-hole, Certificates, Catalog |
 
 Status comes from **last check jobs** (and related caches) — not a continuous SSH poll on every open. The Network maps panel uses a **cheap pulse** (counts only), not a full SVG build.
+
+| Pulse field | Source |
+|-------------|--------|
+| **Named hosts** | Fleet servers with `dns_name` set |
+| **Mapped names** | `ServiceDnsRecord` rows |
+| **NPM hosts** | Sum of NPM integration poll `proxy_host_count` (matches Catalog → NPM detail; not only DNS `via_proxy` flags — the edge hostname itself is often `via_proxy=false`) |
 
 ## Fleet Services (`/services`)
 

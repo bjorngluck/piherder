@@ -53,8 +53,8 @@ Quick map from **what you want to do** → the right wiki page. Use this after [
 | Connect Kuma + bind services | [Uptime Kuma](../integrations/uptime-kuma.md) |
 | Grafana deep links + preferred names | [Grafana](../integrations/grafana.md) |
 | Multi Pi-hole, DNS fan-out, gravity | [Pi-hole](../integrations/pihole.md) |
-| Host A records, service paths, Hosts/Path maps (incl. mobile Hide map / Full screen) | [Network maps](../integrations/dns-fabric.md) |
-| Switch light/dark; understand ops-hero UI | [Appearance](appearance.md) |
+| Host A records, service paths, Hosts/Path maps (incl. mobile Hide map / Full screen / rotate) | [Network maps](../integrations/dns-fabric.md) |
+| Switch light/dark; ops-hero layout; portrait↔landscape | [Appearance](appearance.md) |
 | NPM proxy hosts (read-only) + pull cert | [NPM](../integrations/npm.md) |
 | Cert vault, maps, deploy, renew | [Certificates](../integrations/certificates.md) |
 
