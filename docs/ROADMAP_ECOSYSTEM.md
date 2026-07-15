@@ -207,7 +207,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **HTTP smoke (pytest TestClient)** | Optional thin layer for auth redirects + main page 200s — cheap middle ground before full browser tests. |
 | **UI walkthrough — Playwright** | See phases below. Separate job from unit `pytest` (slower; nightly or main-only at first). |
 | **Dependency hygiene** | Honor `uv.lock` (or export pinned `requirements.txt`) in **image build + CI**; periodic `pip-audit` / Dependabot; intentional bumps with regression tests. Today: loose `>=` in `pyproject.toml` + lockfile present but **not** used by Dockerfile/`pip install -e .`. |
-| **JWT stack** | Session cookies are **HS256** via `python-jose` (pulls transitive `ecdsa`). Known ecdsa Minerva/timing advisory has **no upstream fix**; low practical risk for HS256-only use. Post-RC: migrate to **PyJWT + cryptography** and drop jose/ecdsa. |
+| **JWT stack** | **Done (pre-0.5.0 tag):** sessions use **PyJWT[crypto]** HS256 — `python-jose` / `ecdsa` removed. |
 | **Custom branding** | Operator logo + accent colours — **far horizon** (well after 1.0 production). Not near-term polish. Built-in light/dark only for now. |
 
 ### Playwright phases (recommended)

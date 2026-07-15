@@ -404,7 +404,7 @@ flowchart TB
 | User passwords | bcrypt hashed |
 | 2FA | TOTP secret Fernet-encrypted; hashed backup codes; optional trusted device cookie; optional global force-2FA |
 | User passwords | bcrypt; policy min 10 + complexity; admin-created users forced reset on first login |
-| Sessions | JWT (HS256) cookie |
+| Sessions | JWT (HS256) cookie via PyJWT + cryptography |
 | Transport | HTTPS via Caddy + volume-mounted PEMs (or `Caddyfile.dev` self-signed for local) |
 
 **SSH onboarding helpers:** `app/services/ssh_onboarding.py` (deploy / rotate / least-priv). Least-priv automation targets **Debian / Pi OS / Ubuntu** only; HAOS gets copy-paste guidance.

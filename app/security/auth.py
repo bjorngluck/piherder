@@ -4,7 +4,8 @@ import hashlib
 import secrets
 import hmac
 import io
-from jose import jwt, JWTError
+import jwt
+from jwt.exceptions import InvalidTokenError
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
@@ -40,10 +41,15 @@ def get_password_hash(password: str) -> str:
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """Create a signed HS256 JWT (PyJWT + cryptography; no python-jose/ecdsa)."""
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    token = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    # PyJWT 1.x returned bytes; 2.x returns str
+    if isinstance(token, bytes):
+        return token.decode("utf-8")
+    return token
 
 
 def create_pending_2fa_token(user_id: int) -> str:
@@ -80,8 +86,12 @@ def secrets_unlock_active(request: Request, user: User) -> bool:
 
 def decode_token_payload(token: str) -> Optional[dict]:
     try:
-        return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    except JWTError:
+        return jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
+    except InvalidTokenError:
         return None
 
 
@@ -224,14 +234,18 @@ def get_current_user(
         raise credentials_exception
 
     try:
-        payload = jwt.decode(auth_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(
+            auth_token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+        )
         # Pending 2FA tokens must not grant access
         if payload.get("2fa_pending"):
             raise credentials_exception
         user_id: Optional[int] = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
 
     user = session.get(User, int(user_id))

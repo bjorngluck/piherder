@@ -156,7 +156,8 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 | Phase 5 remainder | HA / Frigate / n8n generic URL integrations |
 | Template deploy as Jobs | Wait-modal remains; optional later (beyond stack B07) |
 | **Test coverage + Playwright** | Post-RC / post first production — [ROADMAP Quality & platform](ROADMAP_ECOSYSTEM.md#quality--platform-post-rc--post-10-first-production) (phases A/B/C) |
-| **Dep lock + audit in CI** | Use `uv.lock` (or pinned requirements) in Docker/CI; `pip-audit`; jose→PyJWT later |
+| **Dep lock + audit in CI** | Use `uv.lock` (or pinned requirements) in Docker/CI; `pip-audit` in CI later |
+| **JWT → PyJWT** | Drop `python-jose`/`ecdsa`; sessions via PyJWT HS256 | **Done** |
 | **Custom branding** | Far horizon — not post-RC 1.0 |
 
 ### UX (this cycle, non-blocking polish)
