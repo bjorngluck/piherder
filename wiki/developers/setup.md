@@ -33,6 +33,21 @@ bash scripts/vendor_cdns.sh
 # or VENDOR_INSECURE=1 if TLS intercept issues
 ```
 
+## Dependency locks
+
+| File | Role |
+|------|------|
+| `pyproject.toml` | Declared mins |
+| `uv.lock` | Resolver source of truth |
+| `requirements.lock.txt` | Hashed pins for Docker + CI (runtime + dev) |
+| `requirements.runtime.lock.txt` | Runtime-only pins |
+
+```bash
+./scripts/refresh-lockfiles.sh   # after changing pyproject deps (needs uv)
+```
+
+See [SECURITY.md](https://github.com/bjorngluck/piherder/blob/main/SECURITY.md) (Dependencies & supply chain).
+
 ## Docs site (this wiki)
 
 ```bash

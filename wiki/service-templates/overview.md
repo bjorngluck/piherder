@@ -1,6 +1,6 @@
 # Service templates
 
-**Templates** live under top-nav **Catalog** (`/catalog` lands on Integrations) → Settings-style **Templates** button. They are **your** versioned stack definitions. Create, edit, and save them; deploy is separate.
+**Templates** live under top-nav **Catalog** → tab **Templates** (`/templates`). Same Catalog chrome as Integrations, Certificates, and Network. They are **your** versioned stack definitions. Create, edit, and save them; deploy is separate.
 
 **Shipped foundation:** v0.4.0 · polish/ops → [v0.5.0 plan](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md)
 

@@ -8,8 +8,10 @@ This section gets you from zero to a running PiHerder with a first admin account
 2. [Install (Docker Compose)](install.md) — clone, `.env`, `docker compose up`  
 3. [First login](first-login.md) — register admin, lock registration  
 4. [Trusted HTTPS & TLS](https-tls.md) — required for PWA / mobile Web Push  
+5. [Appearance](appearance.md) — light / dark theme (optional)  
+6. [Operator scenarios](operator-scenarios.md) — “I want to…” index for the rest of the wiki  
 
-Then continue with [Add a server](../day-to-day/add-server.md).
+Then continue with [Add a server](../day-to-day/add-server.md) and the [Dashboard](../day-to-day/dashboard-and-services.md).
 
 ## Supported install path
 

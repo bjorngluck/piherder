@@ -9,7 +9,7 @@
 | | |
 |---|---|
 | **Latest release** | [v0.4.0](https://github.com/bjorngluck/piherder/releases/tag/v0.4.0) |
-| **In development** | [v0.5.0 plan](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md) |
+| **In development** | [v0.5.0 plan](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md) (QA / RC prep) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [bjorngluck.github.io/piherder](https://bjorngluck.github.io/piherder/) |
 | **License** | [PolyForm Noncommercial 1.0.0](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (non-commercial source-available) |
@@ -44,13 +44,13 @@
 
     [:octicons-arrow-right-24: Templates](service-templates/overview.md)
 
--   :material-lifebuoy:{ .lg .middle } **Something broken?**
+-   :material-map-search:{ .lg .middle } **Operator scenarios**
 
     ---
 
-    SSH, rsync, backups, push, template stacks.
+    “I want to…” → the right page for every common task.
 
-    [:octicons-arrow-right-24: Troubleshooting](troubleshooting/index.md)
+    [:octicons-arrow-right-24: Scenario index](getting-started/operator-scenarios.md)
 
 </div>
 
@@ -69,14 +69,15 @@ flowchart LR
   Celery -->|SSH · rsync · docker · apt| Fleet[Pi / Linux fleet]
   Web -.->|deep links| Kuma[Uptime Kuma]
   Web -.->|deep links| GF[Grafana]
+  Web -.->|DNS / proxy| PH[Pi-hole / NPM]
 ```
 
-- **Fleet ops:** rsync backups, apt OS patch, Docker compose projects  
-- **Safety:** Fernet-encrypted SSH keys, audit trail, RBAC, optional 2FA + Web Push  
-- **Templates:** versioned stacks with variables, desired state, step-up secrets  
-- **Integrations (optional):** Uptime Kuma + Grafana bindings  
+- **Fleet ops:** rsync backups, apt OS patch, Docker compose projects, bulk actions  
+- **Safety:** Fernet-encrypted SSH keys & certs, audit trail (+ client IP), RBAC, optional 2FA + Web Push  
+- **Templates:** versioned stacks, desired state, drift, step-up secrets  
+- **Catalog (optional):** Kuma, Grafana, Pi-hole, NPM, **Certificates**, **Network maps**  
 
-Core fleet work **never** requires Kuma, Grafana, or templates.
+Core fleet work **never** requires Kuma, Grafana, NPM, or templates.
 
 ---
 
@@ -84,15 +85,15 @@ Core fleet work **never** requires Kuma, Grafana, or templates.
 
 | Section | For |
 |---------|-----|
-| [Getting started](getting-started/index.md) | First install & HTTPS |
-| [Day to day](day-to-day/add-server.md) | Servers, backups, updates, jobs |
+| [Getting started](getting-started/index.md) | Install, HTTPS, [appearance](getting-started/appearance.md), [scenarios](getting-started/operator-scenarios.md) |
+| [Day to day](day-to-day/dashboard-and-services.md) | Dashboard, Services, servers, backups, updates, jobs |
 | [Docker](docker/overview.md) | Host containers & compose |
-| [Templates](service-templates/overview.md) | Catalog → Templates (deploy / from-host / secrets) |
-| [Integrations](integrations/overview.md) | Catalog → Integrations (Kuma, Grafana, Pi-hole, NPM) |
-| [Certificates](integrations/certificates.md) | Catalog → Certificates (vault + deploy maps) |
+| [Templates](service-templates/overview.md) | Catalog → Templates (deploy / from-host / secrets / drift) |
+| [Integrations](integrations/overview.md) | Catalog → Integrations · Certificates · Network |
 | [Account & security](account-security/roles.md) | RBAC, users, 2FA, PWA |
-| [Operations](operations/env-reference.md) | Env, DR, metrics, API |
-| [Developers](developers/index.md) | Code, tests, schema, publish |
+| [Operations](operations/settings.md) | Settings, env, DR, metrics, API |
+| [Troubleshooting](troubleshooting/index.md) | Common failures |
+| [Developers](developers/index.md) | Code, tests, locks, [screenshots](developers/contributing-docs.md) |
 
 Maintainer roadmaps and release plans stay in the **repo** under [`docs/`](https://github.com/bjorngluck/piherder/tree/main/docs) — not in this user-facing tree.
 
@@ -102,13 +103,15 @@ Maintainer roadmaps and release plans stay in the **repo** under [`docs/`](https
 
 <figure class="ph-figure" markdown>
   ![Dashboard wireframe](assets/screenshots/dashboard.svg)
-  <figcaption>Dashboard — fleet summary and attention table. <span class="ph-wireframe-badge">wireframe</span> Replace with a real capture when ready (see <code>wiki/assets/screenshots/README.md</code>).</figcaption>
+  <figcaption>Dashboard — fleet summary and attention table. <span class="ph-wireframe-badge">wireframe</span> Replace with a real capture when ready — local git workflow in <a href="developers/contributing-docs.md#screenshots-best-practice">Contributing docs</a>.</figcaption>
 </figure>
+
+Default: **light + desktop**. Optional dark/mobile showcases only. Capture inventory: [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).
 
 ---
 
 ## Quick links
 
 - Interactive API (on your instance): **`/docs`** (OpenAPI, tag `api-v1`)  
-- Security policy for the project: [SECURITY.md](https://github.com/bjorngluck/piherder/blob/main/SECURITY.md)  
+- Security policy: [SECURITY.md](https://github.com/bjorngluck/piherder/blob/main/SECURITY.md)  
 - Report issues: [GitHub Issues](https://github.com/bjorngluck/piherder/issues)  
