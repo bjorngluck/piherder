@@ -221,11 +221,10 @@ _TZ_REGION_CODE = {
 
 
 def describe_timezone(tz_name: str | None = None) -> Dict[str, str]:
-    """Compact timezone display for heroes and chips.
+    """Timezone identity for settings hero card / chips.
 
-    City names like ``Johannesburg`` overflow the ops-hero orb; instead we
-    surface a short UTC offset (always fits) + continent/area code, with the
-    full IANA id and local clock for captions.
+    Prefer a dedicated card (city + UTC offset + local clock + region badge)
+    over stuffing a city name into the numeric ops-hero orb.
     """
     from datetime import datetime, timedelta, timezone as _tz
 
@@ -248,34 +247,44 @@ def describe_timezone(tz_name: str | None = None) -> Dict[str, str]:
     mm = rem // 60
     if abs_sec == 0:
         offset = "±0"
+        offset_utc = "UTC"
     elif mm:
         offset = f"{sign}{hh:02d}:{mm:02d}"
+        offset_utc = f"UTC{sign}{hh:02d}:{mm:02d}"
     else:
         offset = f"{sign}{hh:02d}"
+        offset_utc = f"UTC{sign}{hh:02d}"
 
+    area = ""
     parts = iana.split("/")
     if len(parts) == 1:
         head = parts[0]
         if head.upper() in ("UTC", "GMT", "UCT", "ZULU"):
             region = "UTC"
             city = "UTC"
+            area = "Universal"
         else:
             region = (head[:2] or "TZ").upper()
             city = head.replace("_", " ")
+            area = city
     else:
+        area = parts[0].replace("_", " ")
         region = _TZ_REGION_CODE.get(parts[0], (parts[0][:2] or "TZ").upper())
         city = parts[-1].replace("_", " ")
 
+    local = now.strftime("%H:%M")
     return {
         "iana": iana,
+        "area": area,
         "region": region,
         "city": city,
         "offset": offset,
-        "local": now.strftime("%H:%M"),
-        # Orb: big offset, small region badge (never a long city name)
-        "primary": offset,
-        "primary_label": region,
-        "caption": f"{iana} · local {now.strftime('%H:%M')}",
+        "offset_utc": offset_utc,
+        "local": local,
+        # Fallbacks if a consumer still expects orb primary/label
+        "primary": local,
+        "primary_label": "local",
+        "caption": f"{city} · {offset_utc}",
     }
 
 

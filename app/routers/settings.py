@@ -196,20 +196,29 @@ async def settings_page(
     cont_on = cfg.get("container_check_global_enabled") is not False
     fleet_checks_on = int(os_on) + int(cont_on)
 
-    # Per-tab hero copy + orb — client tab switches re-apply this without reload.
-    # General tab: UTC offset + continent code (city names overflow the orb).
+    # Per-tab hero: general uses a timezone identity card; other tabs use the orb.
     settings_hero_by_tab = {
         "general": {
             "title": "Settings",
             "sub": "Timezone, security policy, and platform defaults.",
-            "primary": tz_info["primary"],
-            "primary_label": tz_info["primary_label"],
-            "primary_cls": "is-tz-offset",
+            "viz": "tz",
+            "primary": tz_info["local"],
+            "primary_label": "local",
+            "primary_cls": "",
             "caption": tz_info["caption"],
+            "tz": {
+                "region": tz_info["region"],
+                "area": tz_info["area"],
+                "city": tz_info["city"],
+                "offset_utc": tz_info["offset_utc"],
+                "local": tz_info["local"],
+                "iana": tz_info["iana"],
+            },
         },
         "fleet": {
             "title": "Fleet defaults",
             "sub": "Global OS / container update-check defaults for the fleet.",
+            "viz": "orb",
             "primary": fleet_checks_on,
             "primary_label": "checks on",
             "primary_cls": "",
@@ -218,6 +227,7 @@ async def settings_page(
         "backup": {
             "title": "PiHerder backup",
             "sub": "Self-backup schedule, archives, and restore.",
+            "viz": "orb",
             "primary": n_backups,
             "primary_label": "archives",
             "primary_cls": "",
@@ -226,6 +236,7 @@ async def settings_page(
         "status": {
             "title": "Stack status",
             "sub": "Web, DB, Redis, Celery, mounts — checked on an interval.",
+            "viz": "orb",
             "primary": stack_overall or "—",
             "primary_label": "stack",
             "primary_cls": "",
@@ -234,6 +245,7 @@ async def settings_page(
         "api": {
             "title": "API management",
             "sub": "Instance-wide Bearer tokens, scopes, docs, and endpoint catalog.",
+            "viz": "orb",
             "primary": tok_active,
             "primary_label": "active tok",
             "primary_cls": "",
