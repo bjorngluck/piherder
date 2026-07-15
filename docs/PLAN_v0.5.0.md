@@ -2,7 +2,7 @@
 
 **Status:** **QA / release prep** (feature work for RC substantially complete; operator QA then freeze)  
 **Date opened:** 2026-07-12  
-**Last plan refresh:** 2026-07-15 (Catalog Certificates tab + Services polish + quality roadmap)  
+**Last plan refresh:** 2026-07-15 (dep lock for RC; PyJWT; Catalog certs / Services polish)  
 **Baseline:** `v0.4.0` (templates foundation + post-0.3 quality)  
 **Package version on main:** `0.5.0.dev0` (`pyproject.toml`) — bump to `0.5.0` at tag  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [SPEC.md](../SPEC.md) · Wiki: [Network maps](../wiki/integrations/dns-fabric.md)
@@ -156,7 +156,8 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 | Phase 5 remainder | HA / Frigate / n8n generic URL integrations |
 | Template deploy as Jobs | Wait-modal remains; optional later (beyond stack B07) |
 | **Test coverage + Playwright** | Post-RC / post first production — [ROADMAP Quality & platform](ROADMAP_ECOSYSTEM.md#quality--platform-post-rc--post-10-first-production) (phases A/B/C) |
-| **Dep lock + audit in CI** | Use `uv.lock` (or pinned requirements) in Docker/CI; `pip-audit` in CI later |
+| **Dep lock in Docker/CI** | `uv.lock` + `requirements.lock.txt` (hashes); Dockerfile/`test.yml` install frozen | **Done** |
+| **pip-audit in CI** | Optional workflow step / Dependabot | Open (post-tag ok) |
 | **JWT → PyJWT** | Drop `python-jose`/`ecdsa`; sessions via PyJWT HS256 | **Done** |
 | **Custom branding** | Far horizon — not post-RC 1.0 |
 

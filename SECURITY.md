@@ -43,14 +43,18 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md).
 
 ## Dependencies & supply chain
 
-| Practice | Status / plan |
-|----------|----------------|
-| Declared deps | `pyproject.toml` with minimum versions (`>=`) |
-| Lockfile | `uv.lock` in repo (hashes) — **not yet** consumed by Dockerfile / CI (`pip install -e .` resolves floating) |
-| Image / CI pins | **Post-RC:** install from lock (`uv sync --frozen` or exported requirements) so rebuilds are reproducible |
-| Vulnerability scan | Run `pip-audit` (or Dependabot) periodically; track in [ROADMAP quality track](docs/ROADMAP_ECOSYSTEM.md#quality--platform-post-rc--post-10-first-production) |
-| JWT library | **PyJWT[crypto]** (HS256). Former `python-jose` / transitive `ecdsa` removed (ecdsa Minerva advisory had no fix). |
-| Intentional patching | Bump with tests + `pip-audit` clean (or documented accepted risk); avoid silent floating major upgrades in production images |
+| Practice | Status |
+|----------|--------|
+| Declared deps | `pyproject.toml` — minimum versions / ranges (`>=`) for package metadata |
+| Resolver lock | **`uv.lock`** — full resolved graph + hashes (source of truth) |
+| Pip export | **`requirements.lock.txt`** (runtime + `[dev]`) and **`requirements.runtime.lock.txt`** (runtime only) — generated with hashes via `scripts/refresh-lockfiles.sh` |
+| Docker image | `pip install --require-hashes -r requirements.lock.txt` then `pip install --no-deps -e .` ([Dockerfile](Dockerfile)) |
+| CI | Same locked install ([`.github/workflows/test.yml`](.github/workflows/test.yml)) |
+| JWT library | **PyJWT[crypto]** (HS256). Former `python-jose` / transitive `ecdsa` removed |
+| Vulnerability scan | Run `pip-audit` periodically (and/or Dependabot); deepen in [ROADMAP quality track](docs/ROADMAP_ECOSYSTEM.md#quality--platform-post-rc--post-10-first-production) |
+| Intentional patching | Change `pyproject.toml` if needed → `./scripts/refresh-lockfiles.sh` → tests + `pip-audit` → commit **all three** lock artifacts → rebuild images |
+
+**Do not** `pip install -e ".[dev]"` for release/RC images without the lock — that re-resolves floating versions from PyPI.
 
 ## Operational recommendations
 

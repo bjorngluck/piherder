@@ -9,7 +9,11 @@ Same as [Install](../getting-started/install.md). Use `Caddyfile.dev` for self-s
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+# Locked deps (same as Docker/CI) — do not use floating pip install -e ".[dev]" for release work
+pip install --require-hashes -r requirements.lock.txt
+pip install --no-deps -e .
+# Or: uv sync --frozen --extra dev
+# Refresh pins: ./scripts/refresh-lockfiles.sh
 # Need Postgres + Redis (compose up db redis) and .env
 uvicorn app.main:app --reload
 ```

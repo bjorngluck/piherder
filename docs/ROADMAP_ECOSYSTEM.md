@@ -206,7 +206,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Unit / service coverage** | Grow beyond ~30% line coverage intentionally: critical paths first (crypto, RBAC, path policy, fabric pure functions, cert vault). **No** 100% target. Prefer meaningful service tests over chasing router %. |
 | **HTTP smoke (pytest TestClient)** | Optional thin layer for auth redirects + main page 200s — cheap middle ground before full browser tests. |
 | **UI walkthrough — Playwright** | See phases below. Separate job from unit `pytest` (slower; nightly or main-only at first). |
-| **Dependency hygiene** | Honor `uv.lock` (or export pinned `requirements.txt`) in **image build + CI**; periodic `pip-audit` / Dependabot; intentional bumps with regression tests. Today: loose `>=` in `pyproject.toml` + lockfile present but **not** used by Dockerfile/`pip install -e .`. |
+| **Dependency hygiene** | **Done for RC path:** `uv.lock` + hashed `requirements*.lock.txt`; Dockerfile/CI install with `--require-hashes`. Ongoing: periodic `pip-audit` / Dependabot; intentional bumps via `scripts/refresh-lockfiles.sh`. |
 | **JWT stack** | **Done (pre-0.5.0 tag):** sessions use **PyJWT[crypto]** HS256 — `python-jose` / `ecdsa` removed. |
 | **Custom branding** | Operator logo + accent colours — **far horizon** (well after 1.0 production). Not near-term polish. Built-in light/dark only for now. |
 
