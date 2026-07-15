@@ -51,6 +51,29 @@ def test_set_timezone_ok(_memory_settings):
     assert cfg.get_app_timezone() == "Africa/Johannesburg"
 
 
+def test_describe_timezone_compact_orb():
+    """Hero orb must use short offset + region — not a long city name."""
+    d = cfg.describe_timezone("Africa/Johannesburg")
+    assert d["iana"] == "Africa/Johannesburg"
+    assert d["region"] == "AF"
+    assert d["city"] == "Johannesburg"
+    assert d["primary"] == d["offset"]
+    assert d["primary_label"] == "AF"
+    # Offset always short enough for the circle (e.g. +02, +05:30, ±0)
+    assert len(d["primary"]) <= 7
+    assert "Johannesburg" not in d["primary"]
+    assert "Africa/Johannesburg" in d["caption"]
+
+    utc = cfg.describe_timezone("UTC")
+    assert utc["region"] == "UTC"
+    assert utc["primary"] in ("±0", "+00", "UTC")
+    assert len(utc["primary"]) <= 7
+
+    ny = cfg.describe_timezone("America/New_York")
+    assert ny["region"] == "AM"
+    assert ny["primary"].startswith(("+", "-")) or ny["primary"] == "±0"
+
+
 def test_validate_cron_ok():
     assert cfg.validate_cron_expression("0 3 * * *") == "0 3 * * *"
 

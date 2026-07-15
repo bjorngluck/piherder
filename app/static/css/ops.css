@@ -522,6 +522,24 @@ html.dark .ops-hero-status--run,
     color-mix(in srgb, var(--color-primary) 35%, var(--color-accent)) 0 100%
   );
 }
+/* Settings General: UTC offset (+02) in orb — not long city names */
+.ops-hero--settings .ops-queue-n.is-tz-offset {
+  font-size: 1.05rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  max-width: 3.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.05;
+}
+.ops-hero--settings .ops-queue-l {
+  max-width: 3.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .account-hero-identity {
   display: flex;
   align-items: center;

@@ -204,6 +204,81 @@ def get_app_timezone() -> str:
     return load_settings().get("timezone") or "UTC"
 
 
+# IANA area → short region badge for compact UI (orb / chips).
+_TZ_REGION_CODE = {
+    "Africa": "AF",
+    "America": "AM",
+    "Antarctica": "AQ",
+    "Arctic": "AR",
+    "Asia": "AS",
+    "Atlantic": "AT",
+    "Australia": "AU",
+    "Europe": "EU",
+    "Indian": "IO",
+    "Pacific": "PC",
+    "Etc": "UTC",
+}
+
+
+def describe_timezone(tz_name: str | None = None) -> Dict[str, str]:
+    """Compact timezone display for heroes and chips.
+
+    City names like ``Johannesburg`` overflow the ops-hero orb; instead we
+    surface a short UTC offset (always fits) + continent/area code, with the
+    full IANA id and local clock for captions.
+    """
+    from datetime import datetime, timedelta, timezone as _tz
+
+    raw = (tz_name if tz_name is not None else get_app_timezone()).strip() or "UTC"
+    try:
+        zi = ZoneInfo(raw)
+        iana = raw
+    except Exception:
+        zi = ZoneInfo("UTC")
+        iana = "UTC"
+
+    now = datetime.now(_tz.utc).astimezone(zi)
+    off = now.utcoffset()
+    if off is None:
+        off = timedelta(0)
+    total = int(off.total_seconds())
+    sign = "+" if total >= 0 else "-"
+    abs_sec = abs(total)
+    hh, rem = divmod(abs_sec, 3600)
+    mm = rem // 60
+    if abs_sec == 0:
+        offset = "±0"
+    elif mm:
+        offset = f"{sign}{hh:02d}:{mm:02d}"
+    else:
+        offset = f"{sign}{hh:02d}"
+
+    parts = iana.split("/")
+    if len(parts) == 1:
+        head = parts[0]
+        if head.upper() in ("UTC", "GMT", "UCT", "ZULU"):
+            region = "UTC"
+            city = "UTC"
+        else:
+            region = (head[:2] or "TZ").upper()
+            city = head.replace("_", " ")
+    else:
+        region = _TZ_REGION_CODE.get(parts[0], (parts[0][:2] or "TZ").upper())
+        city = parts[-1].replace("_", " ")
+
+    return {
+        "iana": iana,
+        "region": region,
+        "city": city,
+        "offset": offset,
+        "local": now.strftime("%H:%M"),
+        # Orb: big offset, small region badge (never a long city name)
+        "primary": offset,
+        "primary_label": region,
+        "caption": f"{iana} · local {now.strftime('%H:%M')}",
+    }
+
+
 def calendar_today_in_app_tz() -> str:
     """Today's calendar date (YYYY-MM-DD) in the operator app timezone."""
     from datetime import timezone as _tz
