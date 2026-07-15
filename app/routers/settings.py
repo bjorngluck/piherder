@@ -182,7 +182,9 @@ async def settings_page(
     stack_overall = (stack_report or {}).get("overall") if stack_report else None
     force_2fa = bool(cfg.get("force_2fa"))
     sched_on = schedule_status == "enabled"
-    tz_short = (cfg.get("timezone") or "UTC").split("/")[-1]
+    tz_info = app_cfg.describe_timezone(cfg.get("timezone") or "UTC")
+    tz_short = tz_info.get("city") or (cfg.get("timezone") or "UTC").split("/")[-1]
+    tz_iana = tz_info.get("iana") or (cfg.get("timezone") or "UTC")
     if stack_overall in ("fail", "error", "failed"):
         health = "hot"
     elif stack_overall == "warn" or (is_admin and not stack_report):
@@ -194,42 +196,48 @@ async def settings_page(
     cont_on = cfg.get("container_check_global_enabled") is not False
     fleet_checks_on = int(os_on) + int(cont_on)
 
-    # Per-tab hero copy + orb — client tab switches re-apply this without reload
+    # Per-tab hero copy + orb — client tab switches re-apply this without reload.
+    # General tab: UTC offset + continent code (city names overflow the orb).
     settings_hero_by_tab = {
         "general": {
             "title": "Settings",
             "sub": "Timezone, security policy, and platform defaults.",
-            "primary": tz_short[:10],
-            "primary_label": "timezone",
-            "caption": f"{tz_short} · platform defaults",
+            "primary": tz_info["primary"],
+            "primary_label": tz_info["primary_label"],
+            "primary_cls": "is-tz-offset",
+            "caption": tz_info["caption"],
         },
         "fleet": {
             "title": "Fleet defaults",
             "sub": "Global OS / container update-check defaults for the fleet.",
             "primary": fleet_checks_on,
             "primary_label": "checks on",
-            "caption": f"{tz_short} · fleet update checks",
+            "primary_cls": "",
+            "caption": f"{tz_iana} · fleet update checks",
         },
         "backup": {
             "title": "PiHerder backup",
             "sub": "Self-backup schedule, archives, and restore.",
             "primary": n_backups,
             "primary_label": "archives",
-            "caption": f"{tz_short} · self-backup",
+            "primary_cls": "",
+            "caption": f"{tz_iana} · self-backup",
         },
         "status": {
             "title": "Stack status",
             "sub": "Web, DB, Redis, Celery, mounts — checked on an interval.",
             "primary": stack_overall or "—",
             "primary_label": "stack",
-            "caption": f"{tz_short} · stack health",
+            "primary_cls": "",
+            "caption": f"{tz_iana} · stack health",
         },
         "api": {
             "title": "API management",
             "sub": "Instance-wide Bearer tokens, scopes, docs, and endpoint catalog.",
             "primary": tok_active,
             "primary_label": "active tok",
-            "caption": f"{tz_short} · API tokens",
+            "primary_cls": "",
+            "caption": f"{tz_iana} · API tokens",
         },
     }
     hero_tab = settings_hero_by_tab.get(tab) or settings_hero_by_tab["general"]

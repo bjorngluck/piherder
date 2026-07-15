@@ -47,9 +47,11 @@
     </div>
   </div>
   <div class="ops-hero-viz">
-    <div class="ops-hero-orb {% if sh == 'hot' or sh == 'warn' %}ops-hero-orb--hot{% else %}ops-hero-orb--ok{% endif %}" aria-hidden="true">
+    <div class="ops-hero-orb {% if sh == 'hot' or sh == 'warn' %}ops-hero-orb--hot{% else %}ops-hero-orb--ok{% endif %}" aria-hidden="true"
+         title="{% if hero_now and hero_now.caption is defined %}{{ hero_now.caption }}{% elif sp.caption is defined %}{{ sp.caption }}{% endif %}">
       <div class="ops-alert-orb-core">
-        <div class="ops-queue-n" id="settings-hero-primary">{{ sp.primary if sp.primary is defined else '—' }}</div>
+        <div class="ops-queue-n{% if hero_now and hero_now.primary_cls is defined and hero_now.primary_cls %} {{ hero_now.primary_cls }}{% endif %}"
+             id="settings-hero-primary">{{ sp.primary if sp.primary is defined else '—' }}</div>
         <div class="ops-queue-l" id="settings-hero-primary-label">{{ sp.primary_label if sp.primary_label is defined else 'settings' }}</div>
       </div>
     </div>
@@ -989,9 +991,19 @@
     var primaryEl = document.getElementById('settings-hero-primary');
     var labelEl = document.getElementById('settings-hero-primary-label');
     var captionEl = document.getElementById('settings-hero-caption');
+    var orbEl = document.querySelector('#settings-hero .ops-hero-orb');
     if (titleEl && meta.title != null) titleEl.textContent = meta.title;
     if (subEl && meta.sub != null) subEl.textContent = meta.sub;
-    if (primaryEl && meta.primary != null) primaryEl.textContent = String(meta.primary);
+    if (primaryEl && meta.primary != null) {
+      primaryEl.textContent = String(meta.primary);
+      // Tab-specific sizing (tz offset uses mono + smaller type)
+      primaryEl.classList.remove('is-tz-offset');
+      if (meta.primary_cls) {
+        String(meta.primary_cls).split(/\s+/).forEach(function (c) {
+          if (c) primaryEl.classList.add(c);
+        });
+      }
+    }
     if (labelEl && meta.primary_label != null) labelEl.textContent = meta.primary_label;
     if (captionEl) {
       var cap = meta.caption || '';
@@ -999,6 +1011,7 @@
       if (cap) captionEl.removeAttribute('hidden');
       else captionEl.setAttribute('hidden', '');
     }
+    if (orbEl && meta.caption) orbEl.setAttribute('title', meta.caption);
   }
 
   function setSettingsTab(name) {
