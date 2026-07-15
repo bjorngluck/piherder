@@ -527,15 +527,20 @@ a.fabric-hop:hover {
 /* Full-page DNS map SVG — pan/zoom via viewBox (no CSS transform = crisp vectors) */
 .fabric-mesh-scroll {
   overflow: hidden;
+  max-width: 100%;
+  width: 100%;
   max-height: min(78vh, 900px);
+  max-height: min(calc(var(--app-vh, 1vh) * 78), 900px);
   border-radius: 10px;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
+  box-sizing: border-box;
 }
 .fabric-mesh-svg {
   display: block;
   width: 100%;
   height: 100%;
+  max-width: 100%;
   min-height: 280px;
   /* Do not use CSS transform/filter here — blurs text and lines */
   transform: none !important;
@@ -1103,8 +1108,10 @@ a:has(> .fabric-mesh-node.ph-focus-dim) {
 .fabric-mesh-viewport {
   position: relative;
   width: 100%;
+  max-width: 100%;
   min-height: 280px;
   height: min(72vh, 720px);
+  height: min(calc(var(--app-vh, 1vh) * 72), 720px);
   overflow: hidden;
   touch-action: none;
   cursor: grab;
@@ -1112,6 +1119,7 @@ a:has(> .fabric-mesh-node.ph-focus-dim) {
   user-select: none;
   -webkit-user-select: none;
   background: var(--color-bg);
+  box-sizing: border-box;
 }
 .fabric-mesh-viewport.is-panning {
   cursor: grabbing;
@@ -1300,6 +1308,7 @@ body.fabric-map-fullscreen {
   }
   .fabric-mesh-viewport {
     height: min(65vh, 560px);
+    height: min(calc(var(--app-vh, 1vh) * 65), 560px);
   }
   .fabric-hop {
     min-height: 2.75rem;
@@ -1315,6 +1324,7 @@ body.fabric-map-fullscreen {
   }
   .fabric-rack-apps {
     max-height: min(20rem, 45vh);
+    max-height: min(20rem, calc(var(--app-vh, 1vh) * 45));
   }
   .fabric-flow {
     cursor: pointer;
@@ -1325,9 +1335,12 @@ body.fabric-map-fullscreen {
   .fabric-path-card,
   .fabric-mesh-priority-list,
   .fabric-mesh-priority-graph,
-  [data-fabric-root] {
+  [data-fabric-root],
+  .fabric-path-grid,
+  .fabric-legend-bar {
     max-width: 100%;
     min-width: 0;
+    box-sizing: border-box;
   }
   .fabric-path-hops {
     max-width: 100%;
@@ -1335,10 +1348,22 @@ body.fabric-map-fullscreen {
   .fabric-mesh-scroll,
   .fabric-mesh-viewport {
     max-width: 100%;
+    width: 100%;
     overflow: hidden;
   }
   .fabric-mesh-svg {
     max-width: 100%;
+    width: 100% !important;
+  }
+  /* Path hop rows: scroll inside the card instead of growing the page */
+  .fabric-path-hops {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    padding-bottom: 0.15rem;
+  }
+  .fabric-path-card {
+    overflow: hidden;
   }
 }
 @media (min-width: 768px) {

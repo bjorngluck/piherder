@@ -970,6 +970,8 @@
    * chrome) can fully tear down label/aria/listeners — not only CSS classes.
    */
   var _mapFullscreenControllers = [];
+  /** Pan/zoom controllers — reflow after portrait↔landscape without remount. */
+  var _panZoomControllers = [];
 
   /** Expand hosts/path map to full viewport (width + height). Esc or button to exit. */
   function initMapFullscreen(root) {
@@ -1110,7 +1112,13 @@
 
     window.addEventListener('pagehide', exit);
 
-    _mapFullscreenControllers.push({ root: root, graph: graph, exit: exit, setLabel: setLabel });
+    _mapFullscreenControllers.push({
+      root: root,
+      graph: graph,
+      exit: exit,
+      setLabel: setLabel,
+      applyViewportSize: applyViewportSize,
+    });
   }
 
   function initFilters(root) {
@@ -1287,6 +1295,13 @@
         cy = base.y + base.h / 2;
         applyView();
       }
+
+      _panZoomControllers.push({
+        viewport: viewport,
+        svg: svg,
+        reset: reset,
+        applyView: applyView,
+      });
 
       function dist(a, b) {
         var dx = a.x - b.x;
@@ -1501,10 +1516,114 @@
     document.body.classList.remove('fabric-map-fullscreen');
   }
 
+  /**
+   * Network maps keep wide SVG viewBoxes + vh heights that iOS often leaves
+   * stale after portrait↔landscape. Called from the global orientation
+   * reflow and from fabric's own listeners.
+   */
+  function refreshLayout(opts) {
+    opts = opts || {};
+    var resetZoom = opts.resetZoom !== false; // default true on orient
+
+    try {
+      document.documentElement.scrollLeft = 0;
+      document.body.scrollLeft = 0;
+      document.querySelectorAll(
+        '[data-fabric-root], .fabric-topology, .fabric-mesh-scroll, .fabric-mesh-viewport, main'
+      ).forEach(function (el) {
+        try {
+          el.scrollLeft = 0;
+        } catch (err) {}
+      });
+    } catch (e) {}
+
+    // Clear non-fullscreen inline sizes left from a previous landscape pass
+    document.querySelectorAll('[data-fabric-graph]').forEach(function (graph) {
+      if (graph.classList.contains('is-map-fullscreen')) return;
+      graph.style.height = '';
+      graph.style.maxHeight = '';
+      graph.style.minHeight = '';
+      var scroll = graph.querySelector('.fabric-mesh-scroll');
+      var vp = graph.querySelector('[data-fabric-viewport]');
+      if (scroll) {
+        scroll.style.flex = '';
+        scroll.style.height = '';
+        scroll.style.minHeight = '';
+        scroll.style.width = '';
+      }
+      if (vp) {
+        vp.style.height = '';
+        vp.style.minHeight = '';
+        vp.style.maxHeight = '';
+        vp.style.width = '';
+      }
+    });
+
+    // Fullscreen maps: re-pin to the new visual viewport
+    _mapFullscreenControllers.forEach(function (c) {
+      try {
+        if (
+          c.graph &&
+          c.graph.classList.contains('is-map-fullscreen') &&
+          typeof c.applyViewportSize === 'function'
+        ) {
+          c.applyViewportSize();
+        }
+      } catch (err) {}
+    });
+
+    // Reset / re-apply pan-zoom so the SVG fits the new aspect ratio
+    _panZoomControllers.forEach(function (c) {
+      try {
+        if (resetZoom && typeof c.reset === 'function') c.reset();
+        else if (typeof c.applyView === 'function') c.applyView();
+      } catch (err) {}
+    });
+
+    // Force a measure pass on viewports (unsticks width=100% of stale parent)
+    document.querySelectorAll('.fabric-mesh-viewport, .fabric-mesh-svg').forEach(function (el) {
+      try {
+        void el.offsetWidth;
+      } catch (err) {}
+    });
+  }
+
+  // Listen even if base.html reflow already fires — fabric needs its own cleanup
+  (function bindFabricOrient() {
+    var lastW = window.innerWidth || 0;
+    var lastO =
+      typeof window.orientation === 'number' ? window.orientation : null;
+    var t = null;
+    function schedule(forceReset) {
+      clearTimeout(t);
+      t = setTimeout(function () {
+        refreshLayout({ resetZoom: !!forceReset });
+        // Second pass after iOS chrome settles
+        setTimeout(function () {
+          refreshLayout({ resetZoom: false });
+        }, 280);
+      }, 40);
+    }
+    window.addEventListener('orientationchange', function () {
+      schedule(true);
+    });
+    window.addEventListener('resize', function () {
+      var w = window.innerWidth || 0;
+      var o =
+        typeof window.orientation === 'number' ? window.orientation : null;
+      var crossed = (lastW < 768) !== (w < 768);
+      var rotated = o !== null && lastO !== null && o !== lastO;
+      lastW = w;
+      if (o !== null) lastO = o;
+      if (crossed || rotated) schedule(true);
+    });
+  })();
+
   window.PiHerderFabric = {
     focusPath: focusPath,
     clearFocus: clearFocus,
     boot: boot,
     exitMapFullscreen: exitMapFullscreenAll,
+    refreshLayout: refreshLayout,
   };
 })();
