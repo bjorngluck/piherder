@@ -1578,21 +1578,23 @@ body.fabric-map-fullscreen {
   border-color: var(--color-danger, #dc2626);
 }
 
-/* Network fabric showcase */
+/* Network fabric showcase — constellation mesh */
 .dash-network {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
-  gap: 1rem 1.5rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+  gap: 1rem 1.75rem;
   align-items: center;
-  padding: 1.15rem 1.25rem;
+  padding: 1.2rem 1.35rem;
   border-radius: 16px;
   border: 1px solid var(--color-border);
-  background: linear-gradient(
-    160deg,
-    color-mix(in srgb, var(--color-accent) 8%, var(--color-surface)) 0%,
-    var(--color-surface) 45%,
-    color-mix(in srgb, var(--color-warning, #d97706) 6%, var(--color-surface)) 100%
-  );
+  background:
+    radial-gradient(90% 120% at 12% 40%,
+      color-mix(in srgb, var(--color-accent) 12%, transparent) 0%,
+      transparent 55%),
+    radial-gradient(70% 90% at 88% 70%,
+      color-mix(in srgb, var(--color-primary) 10%, transparent) 0%,
+      transparent 50%),
+    linear-gradient(155deg, var(--color-surface) 0%, var(--color-bg) 100%);
   overflow: hidden;
 }
 @media (max-width: 720px) {
@@ -1600,70 +1602,183 @@ body.fabric-map-fullscreen {
     grid-template-columns: 1fr;
   }
   .dash-network-viz {
-    max-width: 18rem;
+    max-width: 17rem;
     margin: 0 auto;
   }
 }
 .dash-network-viz {
   min-width: 0;
 }
+.dash-net-stage {
+  position: relative;
+  border-radius: 14px;
+  padding: 0.35rem 0.25rem 0.15rem;
+}
 .dash-net-svg {
   width: 100%;
   height: auto;
   display: block;
+  overflow: visible;
 }
-.dash-net-cloud {
-  fill: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface));
-  stroke: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
-  stroke-width: 1.75;
+
+/* Gradient stops (theme-aware via currentColor proxies) */
+.dash-net-grad-core {
+  stop-color: color-mix(in srgb, var(--color-accent) 28%, transparent);
 }
-.dash-net-gw-wan {
-  fill: color-mix(in srgb, var(--color-warning, #d97706) 22%, var(--color-surface));
-  stroke: color-mix(in srgb, var(--color-warning, #d97706) 50%, var(--color-border));
-  stroke-width: 1.25;
+.dash-net-grad-mid {
+  stop-color: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
-.dash-net-gw-lan {
-  fill: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
-  stroke: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
-  stroke-width: 1.25;
+.dash-net-grad-edge {
+  stop-color: transparent;
 }
-.dash-net-lan {
-  fill: color-mix(in srgb, var(--color-primary) 6%, var(--color-bg));
-  stroke: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
-  stroke-width: 1.5;
-  stroke-dasharray: 5 4;
+.dash-net-flow-a {
+  stop-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
 }
-.dash-net-host {
-  fill: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
-  stroke: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
-  stroke-width: 1.25;
+.dash-net-flow-b {
+  stop-color: color-mix(in srgb, var(--color-primary) 70%, transparent);
 }
-.dash-net-edge {
-  stroke: var(--color-muted);
-  stroke-width: 1.5;
+
+.dash-net-ambient {
+  opacity: 0.95;
+  pointer-events: none;
+}
+
+.dash-net-link {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-muted) 45%, var(--color-border));
+  stroke-width: 1.15;
+  stroke-linecap: round;
   opacity: 0.55;
 }
-.dash-net-edge--wan {
-  stroke: var(--color-warning, #d97706);
-  stroke-dasharray: 4 3;
-  opacity: 0.75;
+.dash-net-link--wan {
+  stroke: color-mix(in srgb, var(--color-warning, #d97706) 50%, var(--color-muted));
+  opacity: 0.45;
 }
-.dash-net-edge--land {
-  stroke: var(--color-muted);
-  opacity: 0.5;
+
+/* Traveling pulse along paths */
+.dash-net-pulse {
+  fill: none;
+  stroke: url(#dashNetFlow);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 10 120;
+  stroke-dashoffset: 0;
+  opacity: 0.85;
+  animation: dash-net-flow 3.6s linear infinite;
 }
-.dash-net-label {
-  fill: var(--color-text);
-  font-size: 11px;
-  font-weight: 700;
-  font-family: system-ui, sans-serif;
+.dash-net-pulse--delay {
+  animation-delay: -1.2s;
+  opacity: 0.65;
 }
-.dash-net-label-sm {
-  fill: var(--color-muted);
-  font-size: 8px;
-  font-weight: 600;
-  font-family: system-ui, sans-serif;
+.dash-net-pulse--delay2 {
+  animation-delay: -2.4s;
+  opacity: 0.55;
+  stroke-width: 1.35;
 }
+@keyframes dash-net-flow {
+  to { stroke-dashoffset: -130; }
+}
+
+.dash-net-halo {
+  fill: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  stroke: none;
+}
+.dash-net-halo--hub {
+  fill: color-mix(in srgb, var(--color-accent) 16%, transparent);
+  animation: dash-net-breathe 3.2s ease-in-out infinite;
+}
+.dash-net-ring {
+  fill: var(--color-surface);
+  stroke: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  stroke-width: 1.35;
+}
+.dash-net-ring--hub {
+  stroke: var(--color-accent);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--color-accent) 35%, transparent));
+}
+.dash-net-core {
+  fill: color-mix(in srgb, var(--color-accent) 75%, var(--color-text));
+}
+.dash-net-core--hub {
+  fill: var(--color-accent);
+}
+.dash-net-node--inet .dash-net-ring {
+  stroke: color-mix(in srgb, var(--color-warning, #d97706) 65%, var(--color-border));
+}
+.dash-net-node--inet .dash-net-core {
+  fill: var(--color-warning, #d97706);
+}
+.dash-net-node--inet .dash-net-halo {
+  fill: color-mix(in srgb, var(--color-warning, #d97706) 14%, transparent);
+}
+.dash-net-node--cloud .dash-net-ring {
+  stroke: color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
+  stroke-dasharray: 3 2.5;
+}
+.dash-net-node--cloud .dash-net-core {
+  fill: color-mix(in srgb, var(--color-primary) 80%, var(--color-text));
+}
+.dash-net-node--cloud .dash-net-halo {
+  fill: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+.dash-net-node--host .dash-net-ring {
+  stroke: color-mix(in srgb, var(--color-muted) 55%, var(--color-border));
+}
+.dash-net-node--host .dash-net-core {
+  fill: color-mix(in srgb, var(--color-text) 55%, var(--color-muted));
+}
+
+@keyframes dash-net-breathe {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.06); }
+}
+/* SVG transform origin for hub breathe — applied on halo via CSS doesn't scale SVG circle from center easily;
+   keep opacity-only fallback: */
+.dash-net-halo--hub {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.dash-net-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem;
+  margin-top: 0.15rem;
+}
+.dash-net-chip {
+  font-size: 0.58rem;
+  font-weight: 650;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  color: var(--color-muted);
+}
+.dash-net-chip--inet {
+  border-color: color-mix(in srgb, var(--color-warning, #d97706) 40%, var(--color-border));
+  color: color-mix(in srgb, var(--color-warning, #d97706) 80%, var(--color-text));
+}
+.dash-net-chip--hub {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  color: color-mix(in srgb, var(--color-accent) 85%, var(--color-text));
+}
+.dash-net-chip--host {
+  border-color: var(--color-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash-net-pulse,
+  .dash-net-pulse--delay,
+  .dash-net-pulse--delay2,
+  .dash-net-halo--hub {
+    animation: none;
+  }
+}
+
 .dash-network-kicker {
   font-size: 0.65rem;
   font-weight: 700;

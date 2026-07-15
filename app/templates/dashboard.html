@@ -81,30 +81,83 @@
 </div>
 {% endif %}
 
-{# Network maps showcase — fleet topology entry #}
+{# Network maps showcase — abstract constellation (not a labeled diagram) #}
 <section class="dash-network mb-6">
   <div class="dash-network-viz" aria-hidden="true">
-    <svg class="dash-net-svg" viewBox="0 0 280 140" fill="none" xmlns="http://www.w3.org/2000/svg">
-      {# Internet cloud #}
-      <path class="dash-net-cloud" d="M70 58c-14 0-24-10-22-22-6-8 2-20 16-18 4-10 18-12 28-4 8-6 22-4 28 6 14-2 24 10 20 20 8 4 10 16-2 20-4 6-14 8-24 6H70z"/>
-      <text x="78" y="52" text-anchor="middle" class="dash-net-label">Internet</text>
-      {# Spine #}
-      <line class="dash-net-edge" x1="78" y1="70" x2="78" y2="88"/>
-      {# Router #}
-      <rect class="dash-net-gw-wan" x="48" y="88" width="60" height="16" rx="4"/>
-      <rect class="dash-net-gw-lan" x="48" y="104" width="60" height="16" rx="4"/>
-      <text x="78" y="100" text-anchor="middle" class="dash-net-label-sm">WAN</text>
-      <text x="78" y="116" text-anchor="middle" class="dash-net-label-sm">LAN</text>
-      {# LAN zone #}
-      <ellipse class="dash-net-lan" cx="200" cy="100" rx="58" ry="32"/>
-      <text x="200" y="96" text-anchor="middle" class="dash-net-label">LAN</text>
-      <text x="200" y="110" text-anchor="middle" class="dash-net-label-sm">hosts · apps</text>
-      <line class="dash-net-edge dash-net-edge--land" x1="108" y1="104" x2="142" y2="100"/>
-      {# Cloud host #}
-      <rect class="dash-net-host" x="210" y="28" width="48" height="28" rx="6"/>
-      <text x="234" y="46" text-anchor="middle" class="dash-net-label-sm">cloud</text>
-      <line class="dash-net-edge dash-net-edge--wan" x1="120" y1="48" x2="210" y2="42"/>
-    </svg>
+    <div class="dash-net-stage">
+      <svg class="dash-net-svg" viewBox="0 0 280 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="dashNetGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" class="dash-net-grad-core"/>
+            <stop offset="70%" class="dash-net-grad-mid"/>
+            <stop offset="100%" class="dash-net-grad-edge"/>
+          </radialGradient>
+          <linearGradient id="dashNetFlow" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" class="dash-net-flow-a"/>
+            <stop offset="50%" class="dash-net-flow-b"/>
+            <stop offset="100%" class="dash-net-flow-a"/>
+          </linearGradient>
+        </defs>
+
+        {# Soft ambient field #}
+        <circle class="dash-net-ambient" cx="148" cy="96" r="78" fill="url(#dashNetGlow)"/>
+
+        {# Mesh links (curves — cleaner than stubby straight segments) #}
+        <path class="dash-net-link dash-net-link--wan" d="M52 48 C 88 48, 108 78, 148 96"/>
+        <path class="dash-net-link dash-net-link--wan" d="M52 48 C 100 40, 170 36, 218 42"/>
+        <path class="dash-net-link" d="M148 96 C 168 88, 190 72, 218 42"/>
+        <path class="dash-net-link" d="M148 96 C 172 100, 196 108, 224 118"/>
+        <path class="dash-net-link" d="M148 96 C 160 118, 168 138, 176 152"/>
+        <path class="dash-net-link" d="M148 96 C 128 118, 112 138, 96 152"/>
+        <path class="dash-net-link" d="M148 96 C 118 100, 88 96, 62 92"/>
+
+        {# Animated pulse traces #}
+        <path class="dash-net-pulse" d="M52 48 C 88 48, 108 78, 148 96"/>
+        <path class="dash-net-pulse dash-net-pulse--delay" d="M148 96 C 172 100, 196 108, 224 118"/>
+        <path class="dash-net-pulse dash-net-pulse--delay2" d="M52 48 C 100 40, 170 36, 218 42"/>
+
+        {# Internet #}
+        <g class="dash-net-node dash-net-node--inet" transform="translate(52 48)">
+          <circle class="dash-net-halo" r="18"/>
+          <circle class="dash-net-ring" r="11"/>
+          <circle class="dash-net-core" r="4"/>
+        </g>
+        {# Hub / LAN #}
+        <g class="dash-net-node dash-net-node--hub" transform="translate(148 96)">
+          <circle class="dash-net-halo dash-net-halo--hub" r="26"/>
+          <circle class="dash-net-ring dash-net-ring--hub" r="14"/>
+          <circle class="dash-net-core dash-net-core--hub" r="5.5"/>
+        </g>
+        {# Cloud / remote #}
+        <g class="dash-net-node dash-net-node--cloud" transform="translate(218 42)">
+          <circle class="dash-net-halo" r="15"/>
+          <circle class="dash-net-ring" r="9"/>
+          <circle class="dash-net-core" r="3.5"/>
+        </g>
+        {# Host cluster #}
+        <g class="dash-net-node dash-net-node--host" transform="translate(224 118)">
+          <circle class="dash-net-ring" r="8"/>
+          <circle class="dash-net-core" r="3"/>
+        </g>
+        <g class="dash-net-node dash-net-node--host" transform="translate(176 152)">
+          <circle class="dash-net-ring" r="8"/>
+          <circle class="dash-net-core" r="3"/>
+        </g>
+        <g class="dash-net-node dash-net-node--host" transform="translate(96 152)">
+          <circle class="dash-net-ring" r="8"/>
+          <circle class="dash-net-core" r="3"/>
+        </g>
+        <g class="dash-net-node dash-net-node--host" transform="translate(62 92)">
+          <circle class="dash-net-ring" r="7"/>
+          <circle class="dash-net-core" r="2.75"/>
+        </g>
+      </svg>
+      <div class="dash-net-legend">
+        <span class="dash-net-chip dash-net-chip--inet">Internet</span>
+        <span class="dash-net-chip dash-net-chip--hub">LAN hub</span>
+        <span class="dash-net-chip dash-net-chip--host">Hosts</span>
+      </div>
+    </div>
   </div>
   <div class="dash-network-body">
     <div class="dash-network-kicker">Network maps</div>
