@@ -28,9 +28,9 @@
   <!-- Theme CSS variables (light/dark + Raspberry Pi branding).
        Companion sheets: fabric (network maps), ops (heroes/filters).
        Query busts browser + older SW caches when tokens change. -->
-  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-orient">
-  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-orient">
-  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-orient">
+  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-net">
+  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-net">
+  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-net">
 
   <!-- Apply saved theme ASAP (before paint) so the page doesn't flash light → dark -->
   <script>
@@ -322,7 +322,7 @@
   </div>
   {% endif %}
 
-  <main class="max-w-5xl mx-auto px-6 py-8">
+  <main class="max-w-5xl mx-auto px-6 py-8 w-full min-w-0 overflow-x-clip">
     {% block content %}{% endblock %}
   </main>
 
@@ -647,6 +647,16 @@
           try {
             window.dispatchEvent(new Event('resize'));
           } catch (e7) {}
+
+          // Network maps: wide SVG + vh heights need their own cleanup
+          try {
+            if (
+              window.PiHerderFabric &&
+              typeof window.PiHerderFabric.refreshLayout === 'function'
+            ) {
+              window.PiHerderFabric.refreshLayout({ resetZoom: true });
+            }
+          } catch (e8) {}
         }
 
         function scheduleHard() {
