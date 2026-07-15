@@ -525,102 +525,107 @@ html.dark .ops-hero-status--run,
 
 /* ── Settings timezone identity card (General tab) ───────────────── */
 .ops-tz-card {
+  --ops-tz-accent: var(--color-accent);
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.7rem;
   min-width: min(100%, 15rem);
   max-width: 22rem;
-  padding: 0.65rem 0.85rem;
+  padding: 0.55rem 0.75rem;
   border-radius: 12px;
   border: 1px solid var(--color-border);
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 14%, var(--color-surface)) 0%,
-      var(--color-surface) 55%,
-      var(--color-bg) 100%
-    );
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--color-border) 60%, transparent);
+  background: var(--color-surface);
 }
-.ops-tz-card[data-region="AF"] { --ops-tz-accent: #16a34a; }
-.ops-tz-card[data-region="EU"] { --ops-tz-accent: #2563eb; }
-.ops-tz-card[data-region="AS"] { --ops-tz-accent: #d97706; }
-.ops-tz-card[data-region="AM"] { --ops-tz-accent: #0d9488; }
-.ops-tz-card[data-region="PC"] { --ops-tz-accent: #7c3aed; }
-.ops-tz-card[data-region="AU"] { --ops-tz-accent: #ea580c; }
-.ops-tz-card[data-region="AT"] { --ops-tz-accent: #0284c7; }
-.ops-tz-card[data-region="IO"] { --ops-tz-accent: #db2777; }
+.ops-tz-card[data-region="AF"] { --ops-tz-accent: #22c55e; }
+.ops-tz-card[data-region="EU"] { --ops-tz-accent: #3b82f6; }
+.ops-tz-card[data-region="AS"] { --ops-tz-accent: #f59e0b; }
+.ops-tz-card[data-region="AM"] { --ops-tz-accent: #14b8a6; }
+.ops-tz-card[data-region="PC"] { --ops-tz-accent: #a78bfa; }
+.ops-tz-card[data-region="AU"] { --ops-tz-accent: #fb923c; }
+.ops-tz-card[data-region="AT"] { --ops-tz-accent: #38bdf8; }
+.ops-tz-card[data-region="IO"] { --ops-tz-accent: #f472b6; }
 .ops-tz-card[data-region="AQ"],
-.ops-tz-card[data-region="AR"] { --ops-tz-accent: #64748b; }
-.ops-tz-card[data-region="UTC"] { --ops-tz-accent: var(--color-primary); }
+.ops-tz-card[data-region="AR"] { --ops-tz-accent: #94a3b8; }
+.ops-tz-card[data-region="UTC"] { --ops-tz-accent: var(--color-primary, #64748b); }
 
+/* Open wireframe — never a filled black disc */
 .ops-tz-globe {
-  position: relative;
-  width: 3.35rem;
-  height: 3.35rem;
+  width: 2.5rem;
+  height: 2.5rem;
   flex-shrink: 0;
-  border-radius: 999px;
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 32% 28%,
-      color-mix(in srgb, #fff 35%, transparent) 0%,
-      transparent 42%),
-    radial-gradient(circle at 50% 55%,
-      color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 55%, var(--color-surface)) 0%,
-      color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 25%, var(--color-bg)) 100%);
-  border: 1px solid color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 40%, var(--color-border));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent),
-    0 0 0 3px color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 12%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 .ops-tz-globe-svg {
-  width: 2.55rem;
-  height: 2.55rem;
-  opacity: 0.55;
+  width: 2.35rem;
+  height: 2.35rem;
+  display: block;
+  overflow: visible;
 }
-.ops-tz-globe-disk {
-  fill: color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 22%, transparent);
-  stroke: color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 55%, var(--color-border));
-  stroke-width: 1.25;
+.ops-tz-globe-rim {
+  stroke: var(--ops-tz-accent);
+  stroke-width: 1.35;
+  opacity: 0.9;
 }
-.ops-tz-globe-meridian {
-  fill: none;
-  stroke: color-mix(in srgb, var(--color-text) 35%, transparent);
+.ops-tz-globe-line {
+  stroke: color-mix(in srgb, var(--ops-tz-accent) 55%, var(--color-muted));
   stroke-width: 1;
+  opacity: 0.75;
+  stroke-linecap: round;
 }
-.ops-tz-globe-lat {
-  stroke: color-mix(in srgb, var(--color-text) 28%, transparent);
-  stroke-width: 1;
+html.dark .ops-tz-globe-rim,
+[data-theme="dark"] .ops-tz-globe-rim {
+  opacity: 0.95;
 }
-.ops-tz-region {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  color: var(--color-text);
-  text-shadow: 0 1px 0 color-mix(in srgb, var(--color-surface) 70%, transparent);
-  pointer-events: none;
+html.dark .ops-tz-globe-line,
+[data-theme="dark"] .ops-tz-globe-line {
+  stroke: color-mix(in srgb, var(--ops-tz-accent) 45%, var(--color-muted));
+  opacity: 0.85;
 }
+
 .ops-tz-meta {
   min-width: 0;
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 0.12rem;
+  gap: 0.1rem;
+}
+.ops-tz-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.ops-tz-region {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.55rem;
+  padding: 0.1rem 0.32rem;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--ops-tz-accent) 85%, var(--color-text));
+  background: color-mix(in srgb, var(--ops-tz-accent) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ops-tz-accent) 28%, var(--color-border));
 }
 .ops-tz-city {
-  font-size: 1.05rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 650;
   letter-spacing: -0.02em;
-  line-height: 1.15;
+  line-height: 1.2;
   color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
 }
 .ops-tz-row {
   display: flex;
@@ -633,20 +638,20 @@ html.dark .ops-hero-status--run,
 }
 .ops-tz-offset {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-weight: 650;
-  font-size: 0.8rem;
-  color: color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 75%, var(--color-text));
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: color-mix(in srgb, var(--ops-tz-accent) 55%, var(--color-text));
   letter-spacing: -0.02em;
 }
-.ops-tz-sep { opacity: 0.55; }
+.ops-tz-sep { opacity: 0.5; }
 .ops-tz-local {
   font-variant-numeric: tabular-nums;
-  color: var(--color-text);
+  color: var(--color-muted);
 }
-.ops-tz-local #settings-tz-local,
-.ops-tz-local span {
+.ops-tz-local #settings-tz-local {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-weight: 650;
+  font-weight: 600;
+  color: var(--color-text);
 }
 .ops-tz-iana {
   font-size: 0.62rem;
@@ -656,17 +661,7 @@ html.dark .ops-hero-status--run,
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: -0.01em;
-  opacity: 0.9;
-}
-html.dark .ops-tz-card,
-[data-theme="dark"] .ops-tz-card {
-  background:
-    linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 18%, var(--color-surface)) 0%,
-      var(--color-surface) 60%,
-      var(--color-bg) 100%
-    );
+  opacity: 0.85;
 }
 .account-hero-identity {
   display: flex;
