@@ -18,7 +18,7 @@ dependencies = [
     "sqlmodel>=0.0.16",
     "alembic>=1.13",
     "psycopg2-binary>=2.9",
-    "python-jose[cryptography]>=3.3",
+    "PyJWT[crypto]>=2.8",
     "passlib[bcrypt]>=1.7",
     "bcrypt<4.0",
     "cryptography>=42.0",

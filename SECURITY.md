@@ -36,7 +36,7 @@ We aim to acknowledge reports within a few days and will work with you on a fix 
 | User passwords | bcrypt + password policy |
 | 2FA secrets | Fernet-encrypted TOTP; hashed backup codes |
 | API tokens (`ph_…`) | Stored as hashes only; shown once at create/rotate; scopes + optional IP allowlist |
-| Sessions | JWT cookie (HS256) |
+| Sessions | JWT cookie (HS256 via **PyJWT** + cryptography) |
 | Transport | HTTPS via Caddy + operator-supplied PEMs recommended for production |
 
 Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md).
@@ -49,7 +49,7 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md).
 | Lockfile | `uv.lock` in repo (hashes) — **not yet** consumed by Dockerfile / CI (`pip install -e .` resolves floating) |
 | Image / CI pins | **Post-RC:** install from lock (`uv sync --frozen` or exported requirements) so rebuilds are reproducible |
 | Vulnerability scan | Run `pip-audit` (or Dependabot) periodically; track in [ROADMAP quality track](docs/ROADMAP_ECOSYSTEM.md#quality--platform-post-rc--post-10-first-production) |
-| Known transitive note | `python-jose` → `ecdsa` (PYSEC-2026-1325 / Minerva timing). Sessions use **HS256** only; ecdsa signing not used for cookies. **No upstream fix.** Prefer **PyJWT + cryptography** after RC. |
+| JWT library | **PyJWT[crypto]** (HS256). Former `python-jose` / transitive `ecdsa` removed (ecdsa Minerva advisory had no fix). |
 | Intentional patching | Bump with tests + `pip-audit` clean (or documented accepted risk); avoid silent floating major upgrades in production images |
 
 ## Operational recommendations
