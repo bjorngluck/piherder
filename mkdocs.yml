@@ -142,7 +142,10 @@ nav:
       - Install (Docker Compose): getting-started/install.md
       - First login: getting-started/first-login.md
       - Trusted HTTPS & TLS: getting-started/https-tls.md
+      - Appearance (light / dark): getting-started/appearance.md
+      - Operator scenarios: getting-started/operator-scenarios.md
   - Day to day:
+      - Dashboard & Services: day-to-day/dashboard-and-services.md
       - Add a server: day-to-day/add-server.md
       - Backups & restore: day-to-day/backups.md
       - Updates & patching: day-to-day/updates-and-patching.md
@@ -158,7 +161,7 @@ nav:
       - From host: service-templates/from-host.md
       - Secrets model: service-templates/secrets.md
   - Integrations:
-      - Overview: integrations/overview.md
+      - Overview (Catalog): integrations/overview.md
       - Uptime Kuma: integrations/uptime-kuma.md
       - Grafana: integrations/grafana.md
       - Pi-hole: integrations/pihole.md
@@ -173,6 +176,7 @@ nav:
   - Operations:
       - Environment reference: operations/env-reference.md
       - Volumes: operations/volumes.md
+      - Settings: operations/settings.md
       - Stack Status: operations/status.md
       - Self-backup & DR: operations/self-backup.md
       - Upgrades: operations/upgrades.md
@@ -192,4 +196,4 @@ nav:
       - Template schema: developers/templates-schema.md
       - Testing: developers/testing.md
       - Publish image: developers/publish-image.md
-      - Contributing docs: developers/contributing-docs.md
+      - Contributing docs (screenshots): developers/contributing-docs.md

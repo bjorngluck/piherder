@@ -4,12 +4,12 @@ Contributor-facing docs. Operator guides live in the rest of this site.
 
 | Topic | Page |
 |-------|------|
-| Local setup | [setup](setup.md) |
+| Local setup (+ dep locks) | [setup](setup.md) |
 | Architecture | [architecture](architecture.md) |
 | Template schema | [templates-schema](templates-schema.md) |
 | Testing | [testing](testing.md) |
 | Publish image | [publish-image](publish-image.md) |
-| Contributing to this wiki | [contributing-docs](contributing-docs.md) |
+| Wiki + **screenshots** workflow | [contributing-docs](contributing-docs.md) |
 
 ## Collaboration
 
