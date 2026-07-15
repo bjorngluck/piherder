@@ -41,6 +41,17 @@ We aim to acknowledge reports within a few days and will work with you on a fix 
 
 Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md).
 
+## Dependencies & supply chain
+
+| Practice | Status / plan |
+|----------|----------------|
+| Declared deps | `pyproject.toml` with minimum versions (`>=`) |
+| Lockfile | `uv.lock` in repo (hashes) — **not yet** consumed by Dockerfile / CI (`pip install -e .` resolves floating) |
+| Image / CI pins | **Post-RC:** install from lock (`uv sync --frozen` or exported requirements) so rebuilds are reproducible |
+| Vulnerability scan | Run `pip-audit` (or Dependabot) periodically; track in [ROADMAP quality track](docs/ROADMAP_ECOSYSTEM.md#quality--platform-post-rc--post-10-first-production) |
+| Known transitive note | `python-jose` → `ecdsa` (PYSEC-2026-1325 / Minerva timing). Sessions use **HS256** only; ecdsa signing not used for cookies. **No upstream fix.** Prefer **PyJWT + cryptography** after RC. |
+| Intentional patching | Bump with tests + `pip-audit` clean (or documented accepted risk); avoid silent floating major upgrades in production images |
+
 ## Operational recommendations
 
 - Use a unique strong `PIHERDER_MASTER_KEY` and `SECRET_KEY` (see [`.env.example`](.env.example) for the full env catalog).  

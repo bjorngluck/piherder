@@ -18,12 +18,12 @@ Connect an existing **Nginx Proxy Manager** instance for proxy host inventory (r
 
 ## Certificates
 
-From the **Certificates** tab:
+From the NPM integration detail **Certificates** section:
 
 1. **Pull into PiHerder** — downloads the NPM zip, stores fullchain + private key **encrypted**
-2. Manage deploy targets under **Certificates** in the catalog
+2. Manage deploy targets under **Catalog → Certificates** (`/certificates`)
 
-You can also **upload PEM** fullchain + key without NPM: **Certificates → Upload PEM**.
+You can also **upload PEM** fullchain + key without NPM: **Catalog → Certificates → Upload PEM**.
 
 ### Renew
 

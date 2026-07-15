@@ -1,16 +1,20 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header mb-6">
+{% with catalog_section='certificates' %}
+{% include "partials/catalog_nav.html" %}
+{% endwith %}
+
+<div class="flex flex-wrap items-start justify-between gap-3 mb-4">
   <div>
-    <h1 class="text-3xl font-semibold tracking-tighter text-text">Upload certificate (PEM)</h1>
-    <p class="text-sm text-muted mt-1">
+    <h2 class="text-lg font-semibold tracking-tight text-text">Upload certificate (PEM)</h2>
+    <p class="text-sm text-muted mt-1 max-w-2xl">
       Paste cleartext fullchain and private key PEMs. Material is encrypted at rest with
       <code class="text-xs">PIHERDER_MASTER_KEY</code> and never shown again in the UI.
       Use this when you do not use Nginx Proxy Manager.
     </p>
   </div>
-  <div class="page-header-actions">
+  <div class="flex flex-wrap gap-2">
     <a href="/certificates" class="btn btn-secondary min-h-11">Cancel</a>
   </div>
 </div>

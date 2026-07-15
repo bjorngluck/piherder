@@ -36,7 +36,7 @@ PiHerder is an optional **integration hub** for the homelab stack:
 - **Preferred name** per dashboard UID on the integration (`config_json.display_names[uid]`) — set on **Inventory** tab; chips use it for all current and future bindings; blank clears. Legacy per-row `meta.label_override` is fallback only. Survives poll.
 - Binding tabs: **Clone** / **Remove** only (unlink host/container); preferred name retained for other binds / new binds.
 
-**Catalog** nav: `/catalog` redirects to Integrations; Settings-style **Integrations | Templates** buttons. Later adapters (multi Pi-hole, NPM, …) reuse the same registry + binding model.
+**Catalog** nav: `/catalog` redirects to Integrations; Settings-style **Integrations | Certificates | Templates | Network** tabs. Later adapters (multi Pi-hole, NPM, …) reuse the same registry + binding model.
 
 ---
 

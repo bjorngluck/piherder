@@ -87,8 +87,9 @@ Core fleet work **never** requires Kuma, Grafana, or templates.
 | [Getting started](getting-started/index.md) | First install & HTTPS |
 | [Day to day](day-to-day/add-server.md) | Servers, backups, updates, jobs |
 | [Docker](docker/overview.md) | Host containers & compose |
-| [Templates](service-templates/overview.md) | Catalog → Templates button (deploy / from-host / secrets) |
-| [Integrations](integrations/overview.md) | Catalog default (`/catalog` → Integrations; Kuma & Grafana) |
+| [Templates](service-templates/overview.md) | Catalog → Templates (deploy / from-host / secrets) |
+| [Integrations](integrations/overview.md) | Catalog → Integrations (Kuma, Grafana, Pi-hole, NPM) |
+| [Certificates](integrations/certificates.md) | Catalog → Certificates (vault + deploy maps) |
 | [Account & security](account-security/roles.md) | RBAC, users, 2FA, PWA |
 | [Operations](operations/env-reference.md) | Env, DR, metrics, API |
 | [Developers](developers/index.md) | Code, tests, schema, publish |

@@ -2,7 +2,7 @@
 
 **Status:** **QA / release prep** (feature work for RC substantially complete; operator QA then freeze)  
 **Date opened:** 2026-07-12  
-**Last plan refresh:** 2026-07-15  
+**Last plan refresh:** 2026-07-15 (Catalog Certificates tab + Services polish + quality roadmap)  
 **Baseline:** `v0.4.0` (templates foundation + post-0.3 quality)  
 **Package version on main:** `0.5.0.dev0` (`pyproject.toml`) — bump to `0.5.0` at tag  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [SPEC.md](../SPEC.md) · Wiki: [Network maps](../wiki/integrations/dns-fabric.md)
@@ -81,7 +81,7 @@ Operator friction fixes and multi-host workflows that do not depend on templates
 | **App timezone display** | Settings timezone applied consistently: Audit/Jobs/Notifications/server list & detail; ISO strings + naive UTC parsed as UTC; client `data-utc` treats naive as UTC. | **Done** |
 | **Server detail UX** | Remove → Edit **Remove** tab; host deps checks under SSH access (Test connection also probes deps); Grafana + Kuma SSH cards in dest-card grid with Host status; equal desktop card sizing. | **Done** |
 | **Nav: bell vs Alerts** | Dropped Alerts nav link; notifications via bell only. | **Done** |
-| **Catalog nav** | **Catalog** → `/catalog` → Integrations; Settings-style **Integrations | Templates** buttons (shared `settings-tab-btn`). | **Done** |
+| **Catalog nav** | **Catalog** → `/catalog` → **Integrations \| Certificates \| Templates \| Network** (shared `settings-tab-btn`). | **Done** |
 | **Grafana preferred name** | Integration-level `display_names[uid]` edited only on **Inventory** tab; binding rows Clone/Remove only; new binds inherit; poll preserves. | **Done** |
 | **Users create modal** | Create user + one-time credentials confirmation in modals. | **Done** |
 | **Server audit footer** | Host detail: All / Backup / Docker / OS audit log deep links. | **Done** |
@@ -155,6 +155,17 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 |----|------|
 | Phase 5 remainder | HA / Frigate / n8n generic URL integrations |
 | Template deploy as Jobs | Wait-modal remains; optional later (beyond stack B07) |
+| **Test coverage + Playwright** | Post-RC / post first production — [ROADMAP Quality & platform](ROADMAP_ECOSYSTEM.md#quality--platform-post-rc--post-10-first-production) (phases A/B/C) |
+| **Dep lock + audit in CI** | Use `uv.lock` (or pinned requirements) in Docker/CI; `pip-audit`; jose→PyJWT later |
+| **Custom branding** | Far horizon — not post-RC 1.0 |
+
+### UX (this cycle, non-blocking polish)
+
+| Item | Notes | Status |
+|------|--------|--------|
+| Catalog **Certificates** tab | First-class Catalog section; list shows maps + expiry summary | **Done** (2026-07-15) |
+| Fleet **Services** polish | Filter All/Up/Down/TLS; search; clearer empty state; Docker deep link | **Done** (2026-07-15) |
+| Repo cruft cleanup | Removed `Caddyfile.old`, `THEMING_VARIABLES.md`, `UI_UNIFICATION_PLAN.md` | **Done** |
 
 ---
 
@@ -227,6 +238,7 @@ git log --oneline v0.4.0..HEAD
 | Audit client IP (H) | `client_ip` on all request audits; login/token audits; Celery keeps queue IP; Alembic commit fix |
 | Pi-hole / NPM / certs | Workstream F (multi Pi-hole, NPM RO, managed certs, renew) |
 | Network maps (DNS fabric) | Host A + service mappings; adopt Pi-hole; Hosts/Path maps; LAN/cloud/Internet spine; Kuma infra; node+path focus |
+| Catalog Certificates + Services UX | Certificates as Catalog tab; list maps/expiry; fleet Services filters + search |
 | A template polish | Volume editor on redeploy; from-host edges; post-redeploy links |
 | B drift + env migrate | Scheduled/manual drift; import host `.env` into encrypted SoT |
 | C restore / last config | Apply last known config; backup sources matched on deployment |

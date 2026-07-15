@@ -18,10 +18,16 @@ Typical flow:
 
 PiHerder does **not** reconfigure the app’s TLS settings. Point the service at the files you wrote (or the volume that mounts them).
 
+## Where to find it
+
+**Catalog → Certificates** (`/certificates`) — same Catalog tabs as Integrations / Templates / Network.
+
+List shows expiry chips, source (npm / upload), and **service map** count. Certs with **no maps** get an **Add map** shortcut.
+
 ## Sources
 
-1. **NPM pull** — Integrations → NPM → Certificates → Pull  
-2. **PEM upload** — Certificates → Upload PEM (cleartext paste; encrypted immediately; never shown again)
+1. **NPM pull** — Catalog → Integrations → NPM → Certificates → Pull  
+2. **PEM upload** — Catalog → Certificates → **Upload PEM** (cleartext paste; encrypted immediately; never shown again)
 
 ## Service maps (deploy targets)
 

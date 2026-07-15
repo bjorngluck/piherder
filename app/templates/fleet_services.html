@@ -4,8 +4,10 @@
 <div class="page-header mb-6">
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Services</h1>
-    <p class="text-sm text-muted mt-1">
-      Fleet-wide HTTP/TLS apps monitored via Uptime Kuma. Icons from favicon discovery or your upload.
+    <p class="text-sm text-muted mt-1 max-w-2xl">
+      Fleet-wide apps monitored via
+      <a href="/integrations" class="text-accent hover:underline">Uptime Kuma</a>
+      (host service or Docker bindings). Icons from favicon discovery or your upload.
     </p>
   </div>
   <div class="page-header-actions flex flex-wrap gap-2">
@@ -27,24 +29,53 @@
 </div>
 {% endif %}
 
-<div class="flex flex-wrap gap-3 text-sm mb-6">
-  <span class="card px-3 py-2"><strong class="text-primary text-xl">{{ service_count }}</strong> <span class="text-muted text-xs">total</span></span>
-  <span class="card px-3 py-2"><strong class="text-xl {% if up_count %}text-text{% endif %}">{{ up_count }}</strong> <span class="text-muted text-xs">up</span></span>
-  <span class="card px-3 py-2"><strong class="text-xl {% if down_count %}text-amber-500{% else %}text-text{% endif %}">{{ down_count }}</strong> <span class="text-muted text-xs">down</span></span>
-</div>
-
 {% if not services %}
-<div class="card p-6 max-w-lg">
-  <p class="text-sm text-muted mb-3">
-    No service monitors yet. Bind HTTP checks under Integrations (host service or Docker project).
+<div class="card p-6 max-w-lg space-y-3">
+  <p class="text-sm text-muted">
+    No fleet services yet. Services appear when you bind an
+    <strong>Uptime Kuma</strong> HTTP/HTTPS monitor to a host service or Docker project.
   </p>
-  <a href="/integrations" class="btn btn-accent min-h-11">Open Integrations</a>
+  <ol class="list-decimal list-inside text-sm text-muted space-y-1">
+    <li>Connect Kuma under <a href="/integrations" class="text-primary hover:underline">Integrations</a>.</li>
+    <li>On the integration, add <strong>service</strong> bindings (or use Suggest matches).</li>
+    <li>Return here for the fleet icon grid; open a host for per-server detail.</li>
+  </ol>
+  <div class="flex flex-wrap gap-2">
+    <a href="/integrations" class="btn btn-accent min-h-11">Open Integrations</a>
+    <a href="/integrations/new/uptime-kuma" class="btn btn-secondary min-h-11">Add Uptime Kuma</a>
+  </div>
 </div>
 {% else %}
 
-<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+<div class="flex flex-wrap gap-2 mb-4" role="group" aria-label="Filter services">
+  <button type="button" class="server-filter-chip is-active svc-filter" data-svc-filter="all" aria-pressed="true">
+    All <span class="text-muted">({{ service_count }})</span>
+  </button>
+  <button type="button" class="server-filter-chip svc-filter" data-svc-filter="up" aria-pressed="false">
+    Up <span class="text-muted">({{ up_count }})</span>
+  </button>
+  <button type="button" class="server-filter-chip svc-filter" data-svc-filter="down" aria-pressed="false">
+    Down <span class="text-muted">({{ down_count }})</span>
+  </button>
+  <button type="button" class="server-filter-chip svc-filter" data-svc-filter="tls" aria-pressed="false">
+    TLS issue <span class="text-muted" id="svc-tls-count"></span>
+  </button>
+</div>
+
+<div class="flex flex-wrap items-center gap-2 mb-4">
+  <label class="sr-only" for="svc-search">Search services</label>
+  <input id="svc-search" type="search" class="input min-h-11 max-w-md w-full text-sm"
+         placeholder="Filter by name, host, or location…" autocomplete="off">
+  <span class="text-xs text-muted" id="svc-visible-hint"></span>
+</div>
+
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4" id="svc-grid">
   {% for s in services %}
-  <div class="card p-3 sm:p-4 flex flex-col items-center text-center gap-2 border border-border hover:border-primary/30 transition-colors relative group">
+  {% set tls_bad = s.cert_valid is sameas false %}
+  <div class="card p-3 sm:p-4 flex flex-col items-center text-center gap-2 border border-border hover:border-primary/30 transition-colors relative group svc-card"
+       data-state="{{ s.state or 'unknown' }}"
+       data-tls-bad="{{ '1' if tls_bad else '0' }}"
+       data-search="{{ (s.label or '')|lower }} {{ (s.server_name or '')|lower }} {{ (s.location or '')|lower }}">
     {# Main open target: service URL preferred, else Kuma #}
     {% set href = s.url if s.url and s.url.startswith('http') else (s.open_url or ('/servers/' ~ s.server_id ~ '/services')) %}
     <a href="{{ href }}"
@@ -63,13 +94,15 @@
       </div>
       <div class="min-w-0 w-full">
         <div class="text-sm font-medium text-text truncate" title="{{ s.label }}">{{ s.label }}</div>
-        <div class="text-[10px] text-muted truncate" title="{{ s.server_name }}">{{ s.server_name }}</div>
+        <div class="text-[10px] text-muted truncate" title="{{ s.server_name }}{% if s.location %} · {{ s.location }}{% endif %}">
+          {{ s.server_name }}{% if s.location %} · {{ s.location }}{% endif %}
+        </div>
       </div>
       <div class="flex flex-wrap justify-center gap-1">
         <span class="status-pill text-[10px]
           {% if s.state == 'up' %}status-success
           {% elif s.state == 'down' %}status-failed
-          {% else %}feature-off{% endif %}">{{ s.state }}</span>
+          {% else %}feature-off{% endif %}">{{ s.state or 'unknown' }}</span>
         {% if s.cert_valid is sameas true and s.cert_days is not none %}
         <span class="status-pill text-[10px] status-success">TLS {{ s.cert_days|int }}d</span>
         {% elif s.cert_valid is sameas false %}
@@ -85,6 +118,9 @@
       <a href="{{ s.open_url }}" target="_blank" rel="noopener" class="text-accent hover:underline">Kuma</a>
       {% endif %}
       <a href="/servers/{{ s.server_id }}/services" class="text-muted hover:underline">Host</a>
+      {% if s.location_kind == 'docker' %}
+      <a href="/servers/{{ s.server_id }}/docker" class="text-muted hover:underline">Docker</a>
+      {% endif %}
     </div>
     {% if can_mutate and s.id %}
     <details class="w-full text-left mt-1">
@@ -111,6 +147,58 @@
   </div>
   {% endfor %}
 </div>
+
+<p class="text-sm text-muted mt-4 hidden" id="svc-empty-filter">No services match this filter.</p>
+
+<script>
+(function () {
+  var grid = document.getElementById('svc-grid');
+  if (!grid) return;
+  var cards = Array.prototype.slice.call(grid.querySelectorAll('.svc-card'));
+  var search = document.getElementById('svc-search');
+  var hint = document.getElementById('svc-visible-hint');
+  var empty = document.getElementById('svc-empty-filter');
+  var tlsCountEl = document.getElementById('svc-tls-count');
+  var filter = 'all';
+
+  var tlsN = cards.filter(function (c) { return c.getAttribute('data-tls-bad') === '1'; }).length;
+  if (tlsCountEl) tlsCountEl.textContent = '(' + tlsN + ')';
+
+  function apply() {
+    var q = (search && search.value || '').trim().toLowerCase();
+    var shown = 0;
+    cards.forEach(function (card) {
+      var state = card.getAttribute('data-state') || '';
+      var tlsBad = card.getAttribute('data-tls-bad') === '1';
+      var hay = card.getAttribute('data-search') || '';
+      var okFilter = true;
+      if (filter === 'up') okFilter = state === 'up';
+      else if (filter === 'down') okFilter = state === 'down';
+      else if (filter === 'tls') okFilter = tlsBad;
+      var okSearch = !q || hay.indexOf(q) !== -1;
+      var show = okFilter && okSearch;
+      card.classList.toggle('hidden', !show);
+      if (show) shown += 1;
+    });
+    if (hint) hint.textContent = shown === cards.length ? '' : ('Showing ' + shown + ' of ' + cards.length);
+    if (empty) empty.classList.toggle('hidden', shown > 0);
+  }
+
+  document.querySelectorAll('.svc-filter').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      filter = btn.getAttribute('data-svc-filter') || 'all';
+      document.querySelectorAll('.svc-filter').forEach(function (b) {
+        var on = b === btn;
+        b.classList.toggle('is-active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      apply();
+    });
+  });
+  if (search) search.addEventListener('input', apply);
+  apply();
+})();
+</script>
 
 {% endif %}
 {% endblock %}

@@ -1,16 +1,17 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% with catalog_section='integrations' %}
+{% with catalog_section='certificates' %}
 {% include "partials/catalog_nav.html" %}
 {% endwith %}
 
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <div>
     <h2 class="text-lg font-semibold tracking-tight text-text">Certificates</h2>
-    <p class="text-sm text-muted mt-1">
-      Encrypted vault for TLS identities. Pull from NPM or upload PEMs, then map each consumer
-      (path, filenames, permissions, restart) and deploy over SSH.
+    <p class="text-sm text-muted mt-1 max-w-2xl">
+      Encrypted vault for TLS identities. Pull from
+      <a href="/integrations" class="text-accent hover:underline">NPM</a>
+      or upload PEMs, map each consumer (path, filenames, permissions, restart), deploy over SSH.
     </p>
   </div>
   <div class="flex flex-wrap gap-2">
@@ -28,24 +29,51 @@
 <div class="mb-3 p-3 banner-error border border-border rounded text-sm">{{ error }}{% if detail %} — {{ detail }}{% endif %}</div>
 {% endif %}
 
+{% if certificates %}
+<div class="flex flex-wrap gap-3 text-sm mb-4">
+  <span class="card px-3 py-2"><strong class="text-primary text-xl">{{ cert_count }}</strong> <span class="text-muted text-xs">total</span></span>
+  <span class="card px-3 py-2"><strong class="text-xl {% if expiring_count %}text-amber-500{% else %}text-text{% endif %}">{{ expiring_count }}</strong> <span class="text-muted text-xs">expiring soon</span></span>
+  <span class="card px-3 py-2"><strong class="text-xl {% if expired_count %}text-amber-500{% else %}text-text{% endif %}">{{ expired_count }}</strong> <span class="text-muted text-xs">expired</span></span>
+</div>
+{% endif %}
+
 {% if not certificates %}
-<div class="card p-6 max-w-xl">
-  <p class="text-sm text-muted mb-3">
-    No managed certificates yet. Pull from an
-    <a href="/integrations" class="text-primary hover:underline">NPM integration</a>
-    or upload fullchain + private key PEMs.
+<div class="card p-6 max-w-xl space-y-3">
+  <p class="text-sm text-muted">
+    No managed certificates yet. Two ways to get material in:
   </p>
-  {% if can_mutate %}
-  <a href="/certificates/upload" class="btn btn-accent min-h-11">Upload PEM</a>
-  {% endif %}
+  <ol class="list-decimal list-inside text-sm text-muted space-y-1.5">
+    <li>
+      Connect <strong>Nginx Proxy Manager</strong> under
+      <a href="/integrations" class="text-primary hover:underline">Integrations</a>,
+      open the instance, and <strong>Pull</strong> a cert into the vault.
+    </li>
+    <li>
+      <strong>Upload PEM</strong> — paste fullchain + private key (encrypted immediately; never shown again).
+    </li>
+  </ol>
+  <p class="text-xs text-muted">
+    After import, open the cert → add a <strong>service map</strong> (host + path + layout) →
+    <strong>Deploy</strong> over SSH. PiHerder writes files; you point the app at those paths.
+  </p>
+  <div class="flex flex-wrap gap-2 pt-1">
+    {% if can_mutate %}
+    <a href="/certificates/upload" class="btn btn-accent min-h-11">Upload PEM</a>
+    <a href="/integrations/new/npm" class="btn btn-secondary min-h-11">Add NPM</a>
+    {% endif %}
+    <a href="/integrations" class="btn btn-secondary min-h-11">Integrations</a>
+  </div>
 </div>
 {% else %}
-<div class="space-y-3">
+<div class="space-y-3" id="cert-list">
   {% for c in certificates %}
-  <div class="card p-4 flex flex-wrap items-center justify-between gap-3">
+  <div class="card p-4 flex flex-wrap items-center justify-between gap-3"
+       data-cert-card
+       data-expired="{{ '1' if c.expired else '0' }}"
+       data-expiring="{{ '1' if c.expiring_soon else '0' }}">
     <div class="min-w-0">
       <a href="/certificates/{{ c.id }}" class="font-semibold text-text hover:text-primary">{{ c.name }}</a>
-      <div class="text-xs text-muted mt-0.5">
+      <div class="text-xs text-muted mt-0.5 truncate max-w-xl" title="{{ c.domains|join(', ') if c.domains else '' }}">
         {{ c.domains|join(', ') if c.domains else '—' }}
       </div>
       <div class="flex flex-wrap gap-2 mt-2 text-xs">
@@ -57,10 +85,21 @@
         {% elif c.days_left is not none %}
         <span class="status-pill status-success">{{ c.days_left }}d left</span>
         {% endif %}
+        <span class="status-pill feature-off">
+          {{ c.target_count }} map{{ 's' if c.target_count != 1 else '' }}
+        </span>
         {% if c.auto_renew %}<span class="text-muted">auto-renew</span>{% endif %}
+        {% if c.target_count == 0 %}
+        <span class="text-amber-500">no deploy targets</span>
+        {% endif %}
       </div>
     </div>
-    <a href="/certificates/{{ c.id }}" class="btn btn-secondary min-h-11">Open</a>
+    <div class="flex flex-wrap gap-2">
+      <a href="/certificates/{{ c.id }}" class="btn btn-secondary min-h-11">Open</a>
+      {% if can_mutate and c.target_count == 0 %}
+      <a href="/certificates/{{ c.id }}#map-form" class="btn btn-accent min-h-11">Add map</a>
+      {% endif %}
+    </div>
   </div>
   {% endfor %}
 </div>
