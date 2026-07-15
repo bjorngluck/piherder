@@ -304,12 +304,31 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
                 service_count = 0
                 service_down = 0
                 down_services = []
-            # Cheap fabric counts for the network showcase (no SVG layout)
+            # Cheap fabric counts for the network showcase (no SVG layout).
+            # "via NPM" = proxy hosts from NPM integrations (matches Catalog/NPM
+            # detail). Not DNS via_proxy flags — the edge hostname itself is often
+            # an NPM host but via_proxy=false (CNAME to self).
             try:
                 recs = list(db.exec(select(ServiceDnsRecord)).all())
+                npm_proxy_hosts = 0
+                npm_seen = False
+                for integ in integ_reg.list_integrations(
+                    db, type_filter=integ_reg.TYPE_NPM
+                ):
+                    npm_seen = True
+                    st = integ_reg.parse_last_status(integ)
+                    if st.get("proxy_host_count") is not None:
+                        npm_proxy_hosts += int(st.get("proxy_host_count") or 0)
+                    else:
+                        npm_proxy_hosts += len(st.get("proxy_hosts") or [])
+                via_npm = (
+                    npm_proxy_hosts
+                    if npm_seen
+                    else sum(1 for r in recs if getattr(r, "via_proxy", False))
+                )
                 network_pulse = {
                     "mapped_names": len(recs),
-                    "via_npm": sum(1 for r in recs if r.via_proxy),
+                    "via_npm": via_npm,
                     "hosts_named": sum(
                         1 for s in rows if (getattr(s, "dns_name", None) or "").strip()
                     ),
