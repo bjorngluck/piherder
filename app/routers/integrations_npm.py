@@ -1,6 +1,7 @@
 """Nginx Proxy Manager detail helpers + bind / cert routes."""
 from __future__ import annotations
 
+import json
 import logging
 from typing import Optional
 
@@ -13,7 +14,7 @@ from ..models import Integration, Server, User
 from ..security.auth import get_operator_user
 from ..services.integrations import npm as npm_mod
 from ..services.integrations import registry as reg
-from .integrations_common import router, _audit, _redirect
+from .integrations_common import router, _audit, _redirect, _can_mutate
 
 logger = logging.getLogger(__name__)
 

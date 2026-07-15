@@ -53,3 +53,12 @@ def test_open_npm_url():
     assert npm_mod.open_npm_url("https://nginx.example.com", "/nginx/proxy") == (
         "https://nginx.example.com/nginx/proxy"
     )
+
+
+def test_npm_detail_router_exports_detail_deps():
+    """Regression: render_npm_detail needs json + _can_mutate (split-out bug)."""
+    from app.routers import integrations_npm as npm_routes
+
+    assert hasattr(npm_routes, "json")
+    assert callable(npm_routes._can_mutate)
+    assert callable(npm_routes.render_npm_detail)
