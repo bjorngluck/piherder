@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{ title or "PiHerder" }}</title>
   <meta name="theme-color" content="#e60012">
   <meta name="mobile-web-app-capable" content="yes">
@@ -28,9 +28,9 @@
   <!-- Theme CSS variables (light/dark + Raspberry Pi branding).
        Companion sheets: fabric (network maps), ops (heroes/filters).
        Query busts browser + older SW caches when tokens change. -->
-  <link rel="stylesheet" href="/static/css/themes.css?v=20260715-p0p2">
-  <link rel="stylesheet" href="/static/css/fabric.css?v=20260715-p0p2">
-  <link rel="stylesheet" href="/static/css/ops.css?v=20260715-p0p2">
+  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-orient">
+  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-orient">
+  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-orient">
 
   <!-- Apply saved theme ASAP (before paint) so the page doesn't flash light → dark -->
   <script>
@@ -566,6 +566,131 @@
       } else {
         initMobileMenu();
       }
+
+      /**
+       * Mobile portrait ↔ landscape: iOS/Android often keep a stale layout width
+       * (or a stuck zoom / sideways scroll) until the next full navigation.
+       * Force a reflow + close slide-out on orientation / breakpoint flip so
+       * heroes, nav, and maps rescale without tapping another menu item.
+       */
+      (function initViewportRefresh() {
+        var meta = document.querySelector('meta[name="viewport"]');
+        var baseVp = 'width=device-width, initial-scale=1, viewport-fit=cover';
+        var lastW = window.innerWidth || 0;
+        var lastOrient =
+          typeof window.orientation === 'number' ? window.orientation : null;
+        var hardTimer = null;
+        var softTimer = null;
+
+        function applyAppViewportVars() {
+          var h = window.innerHeight || 0;
+          var w = window.innerWidth || 0;
+          try {
+            if (window.visualViewport) {
+              if (window.visualViewport.height) h = window.visualViewport.height;
+              if (window.visualViewport.width) w = window.visualViewport.width;
+            }
+          } catch (e) {}
+          var root = document.documentElement;
+          if (!root || !root.style) return;
+          root.style.setProperty('--app-vh', (Math.max(h, 1) * 0.01) + 'px');
+          root.style.setProperty('--app-vw', (Math.max(w, 1) * 0.01) + 'px');
+          root.style.setProperty('--app-height', Math.max(h, 1) + 'px');
+          root.style.setProperty('--app-width', Math.max(w, 1) + 'px');
+          root.classList.toggle('is-narrow', w < 768);
+          root.classList.toggle('is-wide', w >= 768);
+        }
+
+        function hardReflow() {
+          try {
+            if (typeof window.closeMobileMenu === 'function') {
+              window.closeMobileMenu();
+            }
+          } catch (e) {}
+          try {
+            document.body.classList.remove('mobile-nav-open');
+            document.body.style.overflow = '';
+            document.body.style.touchAction = '';
+          } catch (e2) {}
+          try {
+            document.documentElement.scrollLeft = 0;
+            document.body.scrollLeft = 0;
+            if (window.scrollTo) {
+              window.scrollTo(0, window.scrollY || window.pageYOffset || 0);
+            }
+          } catch (e3) {}
+
+          applyAppViewportVars();
+
+          // Force style recalc (unsticks iOS after rotate)
+          try {
+            var root = document.documentElement;
+            var prev = root.style.width;
+            root.style.width = '99.9%';
+            void root.offsetWidth;
+            root.style.width = prev || '';
+          } catch (e4) {}
+
+          // Brief max-scale lock then restore — clears stuck page zoom after rotate
+          if (meta) {
+            try {
+              meta.setAttribute('content', baseVp + ', maximum-scale=1');
+              setTimeout(function () {
+                try {
+                  meta.setAttribute('content', baseVp);
+                } catch (e5) {}
+                applyAppViewportVars();
+              }, 150);
+            } catch (e6) {}
+          }
+
+          try {
+            window.dispatchEvent(new Event('resize'));
+          } catch (e7) {}
+        }
+
+        function scheduleHard() {
+          clearTimeout(hardTimer);
+          hardTimer = setTimeout(hardReflow, 50);
+          // Second pass after browser chrome finishes settling
+          setTimeout(hardReflow, 300);
+        }
+
+        function onOrientationChange() {
+          scheduleHard();
+        }
+
+        function onResize() {
+          applyAppViewportVars();
+          var w = window.innerWidth || 0;
+          var o =
+            typeof window.orientation === 'number' ? window.orientation : null;
+          var crossed = (lastW < 768) !== (w < 768);
+          var rotated = o !== null && lastOrient !== null && o !== lastOrient;
+          lastW = w;
+          if (o !== null) lastOrient = o;
+          if (crossed || rotated) {
+            scheduleHard();
+            return;
+          }
+          // Soft path: keyboard / URL bar only — don't thrash the menu
+          clearTimeout(softTimer);
+          softTimer = setTimeout(applyAppViewportVars, 80);
+        }
+
+        window.addEventListener('orientationchange', onOrientationChange);
+        window.addEventListener('resize', onResize);
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', function () {
+            applyAppViewportVars();
+          });
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', applyAppViewportVars);
+        } else {
+          applyAppViewportVars();
+        }
+      })();
 
       // Notification badge poll
       function refreshNotifBadge() {
