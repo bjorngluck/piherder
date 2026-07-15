@@ -1,30 +1,75 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header mb-6 max-w-2xl">
-  <div class="flex items-center gap-3">
-    {% if user.avatar_path %}
-    <img src="/auth/me/avatar" alt="" class="w-12 h-12 rounded-full object-cover border border-border flex-shrink-0">
-    {% else %}
-    <div class="w-12 h-12 rounded-full bg-surface border border-border flex items-center justify-center text-xl flex-shrink-0">
-      {{ (user.display_name or user.email)[0].upper() }}
+{% set ap = account_pulse or {} %}
+{% set ah = ap.health if ap.health is defined else 'ok' %}
+<section class="ops-hero ops-hero--account is-{{ ah }} mb-3 max-w-3xl">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker">Access</div>
+    <div class="account-hero-identity">
+      {% if user.avatar_path %}
+      <img src="/auth/me/avatar" alt="" class="account-hero-avatar" width="48" height="48">
+      {% else %}
+      <div class="account-hero-avatar account-hero-avatar--letter" aria-hidden="true">
+        {{ (user.display_name or user.email)[0].upper() }}
+      </div>
+      {% endif %}
+      <div class="min-w-0">
+        <h1 class="ops-hero-title">Account</h1>
+        <p class="ops-hero-sub">
+          {{ user.display_name or user.email }}
+          · <span class="status-pill status-running text-[10px]">{{ user_role or user.role or 'admin' }}</span>
+        </p>
+      </div>
     </div>
-    {% endif %}
-    <div>
-      <h1 class="text-3xl font-semibold tracking-tighter text-text">Account</h1>
-      <p class="text-sm text-muted mt-0.5">
-        {{ user.display_name or user.email }}
-        · <span class="status-pill status-running text-[10px]">{{ user_role or user.role or 'admin' }}</span>
-      </p>
+    <div class="ops-hero-actions">
+      <a href="/herder-backups" class="btn btn-secondary text-xs min-h-9 px-2.5">Settings</a>
+      {% if is_admin %}
+      <a href="/auth/users" class="btn btn-secondary text-xs min-h-9 px-2.5">Users</a>
+      <a href="/herder-backups?tab=api" class="btn btn-secondary text-xs min-h-9 px-2.5">API tokens</a>
+      {% endif %}
+      <a href="/" class="btn btn-secondary text-xs min-h-9 px-2.5">Dashboard</a>
     </div>
   </div>
-</div>
-
-{% if is_admin %}
-<div class="mb-4 max-w-2xl">
-  <a href="/auth/users" class="text-sm text-accent hover:underline">Manage users &amp; roles →</a>
-</div>
-{% endif %}
+  <div class="ops-hero-viz">
+    <div class="ops-hero-orb {% if ah == 'hot' or ah == 'warn' %}ops-hero-orb--hot{% else %}ops-hero-orb--ok{% endif %}" aria-hidden="true">
+      <div class="ops-alert-orb-core">
+        <div class="ops-queue-n">{{ ap.primary if ap.primary is defined else '—' }}</div>
+        <div class="ops-queue-l">{{ ap.primary_label if ap.primary_label is defined else '2fa' }}</div>
+      </div>
+    </div>
+    {% if ap.bar %}
+    <div class="ops-bars" aria-hidden="true">
+      {% for b in ap.bar %}
+      <div class="ops-bar {{ b.cls if b.cls is defined else '' }}"
+           style="flex: {{ b.n or 0.001 }}"
+           title="{{ b.title if b.title is defined else '' }}"></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if ap.line1 %}
+    <div class="ops-pulse-stats">
+      {% for s in ap.line1 %}
+      <div class="ops-pulse-stat">
+        <span class="ops-pulse-n {{ s.cls if s.cls is defined else '' }}">{{ s.n }}</span>
+        <span class="ops-pulse-l">{{ s.l }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if ap.line2 %}
+    <div class="ops-pulse-stats">
+      {% for s in ap.line2 %}
+      <div class="ops-pulse-stat">
+        <span class="ops-pulse-n {{ s.cls if s.cls is defined else '' }}">{{ s.n }}</span>
+        <span class="ops-pulse-l">{{ s.l }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if ap.caption %}<p class="ops-pulse-caption">{{ ap.caption }}</p>{% endif %}
+  </div>
+</section>
 
 {% if msg %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4 max-w-2xl">

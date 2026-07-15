@@ -1,11 +1,24 @@
-/* PiHerder service worker — PWA install + Web Push (minimal shell cache). */
-const CACHE = "piherder-shell-v1";
+/* PiHerder service worker — PWA install + Web Push (minimal shell cache).
+ *
+ * CSS/JS must be network-first. Cache-first on themes.css previously hid
+ * theme updates until the SW cache was manually cleared.
+ */
+const CACHE = "piherder-shell-v3";
 const SHELL = [
-  "/static/css/themes.css",
   "/static/favicon.png",
   "/static/icons/icon-192.png",
   "/static/manifest.webmanifest",
 ];
+
+function isVersionedShellAsset(pathname) {
+  // Icons / manifest only — safe to cache-first. Never cache CSS/JS first.
+  return (
+    pathname === "/static/manifest.webmanifest" ||
+    pathname.startsWith("/static/icons/") ||
+    pathname === "/static/favicon.png" ||
+    pathname === "/static/favicon.ico"
+  );
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -21,7 +34,7 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Network-first for navigations; cache-first only for listed static assets.
+// Navigations: network-first. Static CSS/JS: network-first. Icons: cache-first.
 // Never put authenticated HTML pages into the shell cache.
 self.addEventListener("fetch", (event) => {
   const req = event.request;
@@ -30,18 +43,36 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (url.pathname.startsWith("/static/")) {
+    if (isVersionedShellAsset(url.pathname)) {
+      event.respondWith(
+        caches.match(req).then((cached) => {
+          const network = fetch(req).then((res) => {
+            if (res && res.ok) {
+              const clone = res.clone();
+              caches.open(CACHE).then((c) => c.put(req, clone));
+            }
+            return res;
+          }).catch(() => cached);
+          return cached || network;
+        })
+      );
+      return;
+    }
+
+    // CSS, JS, images used by UI — always prefer network so deploys apply
     event.respondWith(
-      caches.match(req).then((cached) => {
-        const network = fetch(req).then((res) => {
-          if (res && res.ok) {
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok && (url.pathname.endsWith(".css") || url.pathname.endsWith(".js"))) {
+            // Optional offline fallback only; do not serve stale CSS on success path
             const clone = res.clone();
-            caches.open(CACHE).then((c) => c.put(req, clone));
+            caches.open(CACHE).then((c) => c.put(req, clone)).catch(() => {});
           }
           return res;
-        }).catch(() => cached);
-        return cached || network;
-      })
+        })
+        .catch(() => caches.match(req))
     );
+    return;
   }
 });
 

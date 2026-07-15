@@ -78,13 +78,15 @@ Internet (☁) ── WAN ── Router ── LAN ── home hosts (RFC1918 / 
 - **Open host** / **Open in Kuma** appears when the focused node has a link (same-tab for fleet hosts; new tab for external Kuma).
 - **Copy path** copies the callout route string.
 - **Clear focus** / tap the same node again to clear.
-- Maps: **pinch** / scroll-wheel zoom up to **500%** (SVG **viewBox** — stays sharp), **drag** to pan, **+/− / 1:1**, double-click reset. Hover preview is mouse/stylus only; finger tap locks focus without navigating.
+- Maps: **pinch** / scroll-wheel zoom up to **500%** (SVG **viewBox** — stays sharp), **drag** to pan, **+/− / 1:1**, **Full screen** (Esc or **Exit full** to leave), double-click reset. Hover preview is mouse/stylus only; finger tap locks focus without navigating.
 - Status dots: **green** = last Pi-hole sync ok · **amber** partial · **red** error · small amber ring = managed cert linked · Kuma **up/down** on Router / Public IP when bound.
-- Deep links: `/dns/physical?focus=<service_id>` and `/dns/logical?focus=<service_id>` (also from each path card).
-- On **narrow screens**, maps default to the **list** (racks / flows). Use **View full map** for the SVG.
+- Deep links: `/dns/physical?focus=<service_id|#map>` and `/dns/logical?focus=…#map` (also from each path card / dashboard / Docker **Path map** pills). Deep links **auto-open** the SVG on mobile.
+- On **narrow screens**, maps default to the **list** (racks / flows). Use **View full map** for the SVG; use **Hide map** on the graph toolbar to return to list-first density.
+- **Hamburger while fullscreen:** the slide-out menu is portaled to `body` and sits **above** map fullscreen. Opening **☰** fully exits fullscreen (label, listeners, and viewport sizes reset) so the drawer is never painted off-screen.
 - Hub and path map support **search** and path-type filters (All / Via NPM / Direct / Host identity).
 - **Adopt candidates** load after the hub paints (HTMX → `/dns/candidates`) so a slow or down Pi-hole does not block path cards / host DNS.
 - Hosts map caps app satellites per host (then a **+N more** marker); full app list stays on rack cards.
+- **Docker UI:** project **Path map** links use a cheap, **case-insensitive** project index (no full access-path resolve on HTMX stack polls).
 
 ### Light / dark theme
 
@@ -132,7 +134,7 @@ Audit actions include `dns_host_*`, `dns_service_cname_sync`, `dns_service_a_syn
 
 Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma service binds, and stack deployments.
 
-**Code:** `app/services/dns_fabric.py` · `app/routers/dns.py` · `app/static/js/fabric-mesh.js` · templates `dns_*.html`  
+**Code:** package `app/services/dns_fabric/` (`core`, `mesh_physical`, `mesh_logical`) · `app/routers/dns.py` · `app/static/js/fabric-mesh.js` · `app/static/css/fabric.css` · templates `dns_*.html`  
 **Tests:** `tests/test_dns_fabric.py`
 
 ---

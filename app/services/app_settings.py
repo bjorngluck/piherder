@@ -204,6 +204,33 @@ def get_app_timezone() -> str:
     return load_settings().get("timezone") or "UTC"
 
 
+def calendar_today_in_app_tz() -> str:
+    """Today's calendar date (YYYY-MM-DD) in the operator app timezone."""
+    from datetime import timezone as _tz
+
+    tz_name = get_app_timezone()
+    try:
+        now = datetime.now(_tz.utc).astimezone(ZoneInfo(tz_name))
+    except Exception:
+        now = datetime.utcnow()
+    return now.strftime("%Y-%m-%d")
+
+
+def calendar_date_range_preset(days: int) -> Dict[str, str]:
+    """Inclusive date_from/date_to for an N-day window ending today (app TZ)."""
+    from datetime import date, timedelta
+
+    n = max(1, int(days or 1))
+    today_s = calendar_today_in_app_tz()
+    try:
+        y, m, d = (int(x) for x in today_s.split("-"))
+        end = date(y, m, d)
+    except Exception:
+        end = date.today()
+    start = end - timedelta(days=n - 1)
+    return {"date_from": start.isoformat(), "date_to": end.isoformat()}
+
+
 def set_app_timezone(tz: str) -> None:
     name = (tz or "UTC").strip() or "UTC"
     try:

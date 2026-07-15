@@ -40,17 +40,31 @@ flowchart TB
 | Backup | `app/services/backup.py` (+ progress, profiles) |
 | Docker inventory | `app/services/docker_inventory.py` |
 | Templates | `app/services/service_templates/` |
-| Integrations | `app/services/integrations/` |
+| Integrations (domain) | `app/services/integrations/` |
+| Integrations (HTTP) | `app/routers/integrations.py` + `integrations_common` / `_pihole` / `_npm` |
+| Network maps | `app/services/dns_fabric/` (`core`, `mesh_physical`, `mesh_logical`) · `app/routers/dns.py` |
+| Ops-hero pulse helpers | `app/services/ops_pulse.py` |
 | Push | `app/services/push.py` |
 | API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py` |
 | Herder backup | `app/services/herder_backup.py` |
 | Metrics | `app/services/metrics.py` |
 | Bulk server actions | `app/routers/servers.py` (`POST /servers/bulk`) |
+| Theme / map / ops CSS | `app/static/css/themes.css`, `fabric.css`, `ops.css` |
+| Map client | `app/static/js/fabric-mesh.js` |
+
+## Frontend stack
+
+- **Server-rendered** Jinja2 + HTMX fragments + Alpine for small widgets  
+- Vendored Tailwind / HTMX / Alpine (no runtime CDN)  
+- Progressive enhancement vanilla JS for Network maps, job hold, push  
 
 ## Design principles
 
-- Privileged actions audited  
+- Privileged actions audited (incl. client IP)  
 - Secrets encrypted at rest; decrypt only in memory for jobs  
 - Offline/air-gapped ready once built (vendored assets)  
 - External/dangerous actions opt-in: preview → confirm → audit  
 - One exclusive OS/container job type per host (no silent double SSH)  
+- Thin routers where practical; domain logic in `app/services/`  
+- Compose-first deployment; DB-first operational settings  
+- Integrations optional — core fleet never depends on Kuma/Grafana/NPM/Pi-hole

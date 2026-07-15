@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% with catalog_section='dns' %}
+{% with catalog_section='dns', catalog_pulse=catalog_pulse %}
 {% include "partials/catalog_nav.html" %}
 {% endwith %}
 
@@ -15,7 +15,7 @@
       <div class="flex flex-wrap gap-2 text-xs mb-1">
         <a href="/dns" class="text-accent hover:underline">← Network</a>
         <span class="text-muted">·</span>
-        <a href="/dns/logical{% if focus_id %}?focus={{ focus_id }}{% endif %}" class="text-accent hover:underline">Path map</a>
+        <a href="/dns/logical{% if focus_id %}?focus={{ focus_id }}{% endif %}#map" class="text-accent hover:underline">Path map</a>
       </div>
       <h1 class="text-2xl font-semibold tracking-tight">Hosts map</h1>
       <p class="text-sm text-muted mt-1 max-w-2xl">
@@ -26,10 +26,6 @@
       </p>
     </div>
     <div class="flex flex-wrap gap-2 text-xs items-center">
-      <span class="fabric-legend-swatch fabric-legend-swatch--host">LAN host</span>
-      <span class="fabric-legend-swatch fabric-legend-swatch--edge">NPM edge</span>
-      <span class="fabric-legend-swatch fabric-legend-swatch--app">App name</span>
-      <span class="fabric-legend-swatch fabric-legend-swatch--npm-line">cloud / WAN</span>
       <button type="button" class="btn btn-secondary text-xs min-h-9 px-2 hidden" data-fabric-clear-focus>Clear focus</button>
     </div>
   </div>
@@ -37,7 +33,7 @@
   {# Mobile: list first #}
   {% if phys.racks %}
   <div class="fabric-mesh-priority-list w-full mb-4">
-    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
       <p class="text-xs text-muted m-0">Hosts as racks — tap an app to highlight its path.</p>
       <button type="button"
               class="btn btn-secondary text-sm min-h-11 md:hidden"
@@ -45,6 +41,43 @@
               aria-expanded="false">
         View full map
       </button>
+    </div>
+    {# Card-only legend — mirrors rack headers + app chip left borders + dots #}
+    <div class="fabric-legend-bar fabric-legend-bar--cards mb-3" aria-label="Host cards key">
+      <span class="fabric-legend-bar-label">Cards</span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--rack-npm" aria-hidden="true"></span>
+        NPM edge host
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--chip-npm" aria-hidden="true"></span>
+        app via NPM
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--chip-host" aria-hidden="true"></span>
+        host / local name
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--chip-app" aria-hidden="true"></span>
+        mapped app
+      </span>
+      <span class="fabric-legend-sep" aria-hidden="true"></span>
+      <span class="fabric-legend-item">
+        <span class="fabric-status-dot fabric-status-dot--ok" aria-hidden="true"></span>
+        synced
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-status-dot fabric-status-dot--partial" aria-hidden="true"></span>
+        partial
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-status-dot fabric-status-dot--error" aria-hidden="true"></span>
+        error
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-status-dot fabric-status-dot--cert" aria-hidden="true"></span>
+        TLS cert
+      </span>
     </div>
     <div class="fabric-rack-grid">
       {% for rack in phys.racks %}
@@ -73,21 +106,21 @@
               data-path-id="{{ app.path_id or app.record_id }}"
               data-path-chain="{{ app.path_chain or app.fqdn }}"
               data-fabric-focus-click>
-            <span class="fabric-app-url">
+            <div class="fabric-app-url">
               {% if app.sync_status == 'ok' %}<span class="fabric-status-dot fabric-status-dot--ok" title="Synced"></span>
               {% elif app.sync_status == 'partial' %}<span class="fabric-status-dot fabric-status-dot--partial" title="Partial sync"></span>
               {% elif app.sync_status in ('error', 'failed') %}<span class="fabric-status-dot fabric-status-dot--error" title="Sync error"></span>
               {% endif %}
               {% if app.has_cert %}<span class="fabric-status-dot fabric-status-dot--cert" title="Certificate linked"></span>{% endif %}
-              {{ app.fqdn }}
-            </span>
-            <span class="fabric-app-meta">
+              <span class="fabric-app-fqdn">{{ app.fqdn }}</span>
+            </div>
+            <div class="fabric-app-meta-info">
               {% if app.via_npm and app.npm_edge %}<span class="fabric-link-via">via {{ app.npm_edge }}</span>{% endif %}
-              {% if app.container %}<span class="font-mono">{{ app.project }}/{{ app.container }}</span>
-              {% elif app.project %}<span class="font-mono">{{ app.project }}</span>{% endif %}
-              <button type="button" class="btn btn-ghost text-[10px] min-h-8 px-1.5"
-                      data-fabric-copy-path data-copy-text="{{ app.path_chain or app.fqdn }}">Copy</button>
-            </span>
+              {% if app.container %}<span class="font-mono fabric-app-project">{{ app.project }}/{{ app.container }}</span>
+              {% elif app.project %}<span class="font-mono fabric-app-project">{{ app.project }}</span>{% endif %}
+            </div>
+            <button type="button" class="btn btn-ghost text-[10px] min-h-8 px-1.5 fabric-app-copy"
+                    data-fabric-copy-path data-copy-text="{{ app.path_chain or app.fqdn }}">Copy</button>
           </li>
           {% endfor %}
         </ul>
@@ -102,19 +135,75 @@
   {% endif %}
 
   {# Graph: desktop always; mobile after toggle #}
-  <div class="card p-3 mb-5 overflow-hidden w-full fabric-mesh-priority-graph"
+  <div id="map"
+       class="card p-3 mb-5 overflow-hidden w-full fabric-mesh-priority-graph"
        data-fabric-graph>
     <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-      <div class="flex flex-wrap items-center gap-2 md:hidden">
-        <span class="text-xs font-medium text-text">Full map</span>
-        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2" data-fabric-close-graph>Hide map</button>
-      </div>
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-9 px-2.5 md:hidden"
+              data-fabric-close-graph
+              title="Hide map and return to list">Hide map</button>
       <div class="fabric-mesh-zoom-bar ml-auto" role="group" aria-label="Zoom map">
         <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-out title="Zoom out" aria-label="Zoom out">−</button>
         <span class="fabric-mesh-zoom-label font-mono text-center" data-fabric-zoom-label>100%</span>
         <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-in title="Zoom in" aria-label="Zoom in">+</button>
         <button type="button" class="btn btn-secondary text-xs min-h-9 px-2" data-fabric-zoom-reset title="Reset zoom">1:1</button>
+        <button type="button"
+                class="btn btn-secondary text-xs min-h-9 px-2"
+                data-fabric-fullscreen
+                aria-pressed="false"
+                title="Expand map to full screen">Full screen</button>
       </div>
+    </div>
+    {# Map-only legend — node shapes + edge styles (not card borders) #}
+    <div class="fabric-legend-bar fabric-legend-bar--map mb-2" aria-label="Topology map key">
+      <span class="fabric-legend-bar-label">Map</span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--inet" aria-hidden="true"></span>
+        Internet
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--gw" aria-hidden="true"></span>
+        Router WAN / LAN
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--lan" aria-hidden="true"></span>
+        LAN zone
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--host-box" aria-hidden="true"></span>
+        host
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--host-npm" aria-hidden="true"></span>
+        NPM host
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--app-box" aria-hidden="true"></span>
+        app name
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--cloud-host" aria-hidden="true"></span>
+        cloud host
+      </span>
+      <span class="fabric-legend-sep" aria-hidden="true"></span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--line-land" aria-hidden="true"></span>
+        solid = LAN
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--line-npm" aria-hidden="true"></span>
+        dashed = WAN / NPM
+      </span>
+      <span class="fabric-legend-sep" aria-hidden="true"></span>
+      <span class="fabric-legend-item">
+        <span class="fabric-status-dot fabric-status-dot--ok" aria-hidden="true"></span>
+        monitor up
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-status-dot fabric-status-dot--error" aria-hidden="true"></span>
+        monitor down
+      </span>
     </div>
     {% if svg.nodes %}
     <div class="fabric-mesh-scroll">
@@ -128,13 +217,44 @@
                aria-label="Hosts map"
                data-fabric-mesh="physical">
             <defs>
-              <marker id="m-land" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M0,0 L10,5 L0,10 z" fill="var(--color-muted, #888)"/>
+              {# context-stroke = arrow matches the line stroke colour #}
+              <marker id="m-land" class="fabric-mesh-marker fabric-mesh-marker--land"
+                      viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+                      orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L10,5 L0,10 z" fill="context-stroke" class="fabric-mesh-marker-path fabric-mesh-marker-path--land"/>
               </marker>
-              <marker id="m-npm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-                <path d="M0,0 L10,5 L0,10 z" fill="var(--color-warning, #d97706)"/>
+              <marker id="m-npm" class="fabric-mesh-marker fabric-mesh-marker--npm"
+                      viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6"
+                      orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L10,5 L0,10 z" fill="context-stroke" class="fabric-mesh-marker-path fabric-mesh-marker-path--npm"/>
               </marker>
+              {# Vector cloud (viewBox 0 0 160 90) — scaled as Internet boundary #}
+              <symbol id="ph-internet-cloud" viewBox="0 0 160 90" overflow="visible">
+                <path d="M38 72
+                         C18 72 6 58 10 42
+                         C2 30 12 14 32 16
+                         C38 4 58 0 74 10
+                         C86 2 108 4 118 18
+                         C138 16 152 32 148 48
+                         C160 52 162 70 146 74
+                         C142 82 128 86 112 82
+                         L48 82
+                         C40 84 36 78 38 72 Z"/>
+              </symbol>
+              {% for n in svg.nodes if n.kind == 'gateway' and n.split %}
+              <clipPath id="gw-clip-{{ n.node_id or 'gateway' }}">
+                <rect x="{{ n.x - 66 }}" y="{{ n.y - 38 }}" width="132" height="76" rx="10"/>
+              </clipPath>
+              {% endfor %}
             </defs>
+
+            {# LAN zones first (behind) so host↔LAN edges paint on top #}
+            {% for n in svg.nodes if n.kind == 'lan' and n.zone_rx and n.zone_ry %}
+            <ellipse class="fabric-mesh-lan-zone"
+                     cx="{{ n.x }}" cy="{{ n.y }}"
+                     rx="{{ n.zone_rx }}" ry="{{ n.zone_ry }}"
+                     aria-hidden="true"/>
+            {% endfor %}
 
             {% for e in svg.edges %}
             <line x1="{{ e.x1 }}" y1="{{ e.y1 }}" x2="{{ e.x2 }}" y2="{{ e.y2 }}"
@@ -142,6 +262,8 @@
                   {% if e.dashed %}stroke-dasharray="5 4"{% endif %}
                   {% if e.path_ids %}data-path-ids="{% for pid in e.path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"
                   {% elif e.path_id is defined and e.path_id is not none %}data-path-id="{{ e.path_id }}"{% endif %}
+                  {% if e.from_node %}data-from-node="{{ e.from_node }}"{% endif %}
+                  {% if e.to_node %}data-to-node="{{ e.to_node }}"{% endif %}
                   marker-end="{% if e.kind == 'npm' %}url(#m-npm){% else %}url(#m-land){% endif %}"/>
             {% endfor %}
 
@@ -153,41 +275,52 @@
                  {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
                  {% if n.href %}data-open-href="{{ n.href }}"{% endif %}
                  {% if n.open_label %}data-open-label="{{ n.open_label }}"{% endif %}>
-                <ellipse cx="{{ n.x }}" cy="{{ n.y }}" rx="52" ry="28"/>
-                <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label">☁ {{ n.label }}</text>
-                <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:22] }}</text>
+                {# Vector cloud = boundary. Status + “Internet” label both inside. #}
+                {% set cw = (n.rx or 78) * 2.15 %}
+                {% set ch = (n.ry or 48) * 2.05 %}
+                <use href="#ph-internet-cloud"
+                     xlink:href="#ph-internet-cloud"
+                     x="{{ n.x - cw / 2 }}" y="{{ n.y - ch / 2 }}"
+                     width="{{ cw }}" height="{{ ch }}"
+                     class="fabric-mesh-internet-cloud-use"/>
                 {% if n.kuma and n.kuma.state %}
-                <circle class="fabric-mesh-status fabric-mesh-status--{{ n.kuma.state }}" cx="{{ n.x + 42 }}" cy="{{ n.y - 16 }}" r="4"/>
+                <circle class="fabric-mesh-status fabric-mesh-status--{{ n.kuma.state }}"
+                        cx="{{ n.x }}" cy="{{ n.y - 12 }}" r="5.5"
+                        title="Monitor: {{ n.kuma.state }}"/>
                 {% endif %}
-              </g>
-              {% if n.href %}</a>{% endif %}
-              {% elif n.kind == 'public_ip' %}
-              {% if n.href %}<a href="{{ n.href }}" target="_blank" rel="noopener" data-open-href="{{ n.href }}">{% endif %}
-              <g class="fabric-mesh-node fabric-mesh-node--internet"
-                 data-node-id="{{ n.node_id or 'public-ip' }}"
-                 {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
-                 {% if n.href %}data-open-href="{{ n.href }}"{% endif %}
-                 {% if n.open_label %}data-open-label="{{ n.open_label }}"{% endif %}>
-                <rect x="{{ n.x - 58 }}" y="{{ n.y - 18 }}" width="116" height="36" rx="8"/>
-                <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label }}</text>
-                <text x="{{ n.x }}" y="{{ n.y + 12 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:18] }}</text>
-                {% if n.kuma and n.kuma.state %}
-                <circle class="fabric-mesh-status fabric-mesh-status--{{ n.kuma.state }}" cx="{{ n.x + 48 }}" cy="{{ n.y - 12 }}" r="4"/>
-                {% endif %}
+                <text x="{{ n.x }}" y="{{ n.y + 12 }}" text-anchor="middle"
+                      class="fabric-mesh-label fabric-mesh-internet-label">{{ n.label }}</text>
               </g>
               {% if n.href %}</a>{% endif %}
               {% elif n.kind == 'gateway' %}
               {% if n.href %}<a href="{{ n.href }}" target="_blank" rel="noopener" data-open-href="{{ n.href }}">{% endif %}
-              <g class="fabric-mesh-node fabric-mesh-node--gateway"
+              <g class="fabric-mesh-node fabric-mesh-node--gateway is-split"
                  data-node-id="{{ n.node_id or 'gateway' }}"
                  {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
                  {% if n.href %}data-open-href="{{ n.href }}"{% endif %}
                  {% if n.open_label %}data-open-label="{{ n.open_label }}"{% endif %}>
-                <rect x="{{ n.x - 58 }}" y="{{ n.y - 24 }}" width="116" height="48" rx="10"/>
-                <text x="{{ n.x }}" y="{{ n.y - 4 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label }}</text>
-                <text x="{{ n.x }}" y="{{ n.y + 12 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:18] }}</text>
+                {# Always dual-tone: top public WAN · bottom private gateway #}
+                {% set gw_top = (n.sub_top or n.public_ip or 'public IP —')|string %}
+                {% set gw_bot = (n.sub_bottom or n.lan_ip or n.ip or n.sub or 'gateway —')|string %}
+                <g clip-path="url(#gw-clip-{{ n.node_id or 'gateway' }})">
+                  <rect class="fabric-mesh-gw-wan"
+                        x="{{ n.x - 66 }}" y="{{ n.y - 38 }}" width="132" height="38"/>
+                  <rect class="fabric-mesh-gw-lan"
+                        x="{{ n.x - 66 }}" y="{{ n.y }}" width="132" height="38"/>
+                </g>
+                <rect class="fabric-mesh-gw-outline"
+                      x="{{ n.x - 66 }}" y="{{ n.y - 38 }}" width="132" height="76" rx="10"
+                      fill="none"/>
+                <line class="fabric-mesh-gw-divider"
+                      x1="{{ n.x - 60 }}" y1="{{ n.y }}" x2="{{ n.x + 60 }}" y2="{{ n.y }}"/>
+                <text x="{{ n.x }}" y="{{ n.y - 22 }}" text-anchor="middle" class="fabric-mesh-gw-cap">WAN</text>
+                <text x="{{ n.x }}" y="{{ n.y - 8 }}" text-anchor="middle"
+                      class="fabric-mesh-gw-ip fabric-mesh-gw-ip--wan">{{ gw_top[:22] }}</text>
+                <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-gw-cap">LAN gw</text>
+                <text x="{{ n.x }}" y="{{ n.y + 28 }}" text-anchor="middle"
+                      class="fabric-mesh-gw-ip fabric-mesh-gw-ip--lan">{{ gw_bot[:22] }}</text>
                 {% if n.kuma and n.kuma.state %}
-                <circle class="fabric-mesh-status fabric-mesh-status--{{ n.kuma.state }}" cx="{{ n.x + 48 }}" cy="{{ n.y - 16 }}" r="4.5"/>
+                <circle class="fabric-mesh-status fabric-mesh-status--{{ n.kuma.state }}" cx="{{ n.x + 54 }}" cy="{{ n.y - 28 }}" r="4"/>
                 {% endif %}
               </g>
               {% if n.href %}</a>{% endif %}
@@ -195,9 +328,12 @@
               <g class="fabric-mesh-node fabric-mesh-node--lan"
                  data-node-id="{{ n.node_id or 'lan' }}"
                  {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}>
-                <ellipse cx="{{ n.x }}" cy="{{ n.y }}" rx="{{ n.rx or 80 }}" ry="{{ n.ry or 36 }}"/>
-                <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label }}</text>
-                <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:22] }}</text>
+                {# Zone already painted behind edges; centre badge = LAN + subnet #}
+                <circle class="fabric-mesh-lan-badge"
+                        cx="{{ n.x }}" cy="{{ n.y }}"
+                        r="{{ n.rx or 54 }}"/>
+                <text x="{{ n.x }}" y="{{ n.y - 8 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label }}</text>
+                <text x="{{ n.x }}" y="{{ n.y + 10 }}" text-anchor="middle" class="fabric-mesh-sub fabric-mesh-lan-subnet">{{ (n.subnet or n.sub or '')[:32] }}</text>
               </g>
               {% elif n.kind == 'host' %}
               <a href="{{ n.href or '#' }}" data-open-href="{{ n.href or '' }}">
@@ -206,7 +342,8 @@
                    data-open-href="{{ n.href or '' }}"
                    data-open-label="{{ n.open_label or 'Open host' }}"
                    {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
-                   {% if n.path_ids %}data-path-ids="{% for pid in n.path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}>
+                   {% if n.path_ids %}data-path-ids="{% for pid in n.path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}
+                   {% if n.npm_path_ids %}data-npm-path-ids="{% for pid in n.npm_path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}>
                   <rect x="{{ n.x - 62 }}" y="{{ n.y - 30 }}" width="124" height="60" rx="12"/>
                   <text x="{{ n.x }}" y="{{ n.y - 6 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label[:16] }}</text>
                   <text x="{{ n.x }}" y="{{ n.y + 12 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or n.ip or '')[:20] }}</text>
@@ -283,5 +420,5 @@
   </div>
 </div>
 
-<script src="/static/js/fabric-mesh.js" defer></script>
+<script src="/static/js/fabric-mesh.js?v=20260715-p0p2" defer></script>
 {% endblock %}

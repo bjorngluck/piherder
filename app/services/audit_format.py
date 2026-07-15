@@ -77,6 +77,12 @@ _ACTION_LABELS = {
 }
 
 
+def action_label(action: str | None) -> str:
+    """Human label for an audit action key."""
+    act = (action or "").strip() or "other"
+    return _ACTION_LABELS.get(act, act.replace("_", " ").title())
+
+
 def format_actor_label(
     *,
     user_label: str | None = None,

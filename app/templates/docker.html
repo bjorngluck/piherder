@@ -72,7 +72,10 @@
     <div>
       <a href="/servers/{{ server.id }}" class="text-xs text-accent hover:underline">← Back to {{ server.name }}</a>
       <h1 class="text-3xl font-semibold tracking-tighter text-text mt-1">Docker</h1>
-      <p class="text-sm text-muted mt-1">{{ server.name }} · {{ server.hostname }}</p>
+      <p class="text-sm text-muted mt-1">
+        {{ server.name }} · {{ server.hostname }}
+        · <a href="/dns/physical?focus=n:host-{{ server.id }}#map" class="text-accent hover:underline">Hosts map</a>
+      </p>
     </div>
     <div class="page-header-actions">
       <a href="/servers/{{ server.id }}/deployments" class="btn btn-secondary min-h-11 text-sm"

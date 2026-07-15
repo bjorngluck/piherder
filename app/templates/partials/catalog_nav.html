@@ -1,38 +1,95 @@
-{# Shared Catalog chrome — identical tab chrome to Settings (settings-tab-btn).
-   Pass catalog_section via {% with catalog_section='integrations' %} … {% endwith %} #}
+{# Shared Catalog chrome — ops-hero + full-width tab strip.
+   Pass catalog_section + optional catalog_pulse (dict of compact stats). #}
 {% set section = catalog_section if catalog_section is defined else 'integrations' %}
 {% if section not in ('integrations', 'templates', 'dns', 'network', 'certificates') %}
   {% set section = 'integrations' %}
 {% endif %}
-{# 'dns' slug kept for URLs; UI label is Network #}
 {% set is_network = section in ('dns', 'network') %}
-<div class="page-header mb-4">
-  <div>
-    <h1 class="text-3xl font-semibold tracking-tighter text-text">Catalog</h1>
-    <p class="text-sm text-muted mt-1">
-      Integrations, certificates, service templates, and network maps (hosts → apps → proxy → internet).
+{% set cp = catalog_pulse if catalog_pulse is defined else {} %}
+{% set ch = (cp.get('health') if cp is mapping else none) or 'ok' %}
+
+<section class="ops-hero ops-hero--catalog is-{{ ch }} mb-3">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker">Catalog</div>
+    <h1 class="ops-hero-title">
+      {% if section == 'integrations' %}Integrations
+      {% elif section == 'certificates' %}Certificates
+      {% elif section == 'templates' %}Templates
+      {% else %}Network
+      {% endif %}
+    </h1>
+    <p class="ops-hero-sub">
+      {% if section == 'integrations' %}
+      External products — Kuma, Grafana, Pi-hole, NPM. Core fleet ops work without these.
+      {% elif section == 'certificates' %}
+      TLS vault — pull from NPM or upload PEMs, map consumers, deploy over SSH.
+      {% elif section == 'templates' %}
+      Stack definitions you own — create, import, deploy to a host.
+      {% else %}
+      Network maps — hosts map, path map, mapped names, and network settings.
+      {% endif %}
     </p>
   </div>
-</div>
-<div class="flex flex-wrap gap-1 mb-5 border-b border-border pb-2" role="tablist" aria-label="Catalog sections">
-  <a href="/integrations"
-     role="tab"
+  {% if cp %}
+  <div class="ops-hero-viz">
+    <div class="ops-hero-orb {% if ch == 'hot' or ch == 'warn' %}ops-hero-orb--hot{% else %}ops-hero-orb--ok{% endif %}" aria-hidden="true">
+      <div class="ops-alert-orb-core">
+        <div class="ops-queue-n">{{ cp.primary if cp.primary is defined else '—' }}</div>
+        <div class="ops-queue-l">{{ cp.primary_label if cp.primary_label is defined else 'items' }}</div>
+      </div>
+    </div>
+    {% if cp.bar %}
+    <div class="ops-bars" aria-hidden="true">
+      {% for b in cp.bar %}
+      <div class="ops-bar {{ b.cls if b.cls is defined else '' }}"
+           style="flex: {{ b.n or 0.001 }};{% if b.color %} background: {{ b.color }};{% endif %}"
+           title="{{ b.title if b.title is defined else '' }}"></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if cp.line1 %}
+    <div class="ops-pulse-stats">
+      {% for s in cp.line1 %}
+      <div class="ops-pulse-stat">
+        <span class="ops-pulse-n {{ s.cls if s.cls is defined else '' }}">{{ s.n }}</span>
+        <span class="ops-pulse-l">{{ s.l }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if cp.line2 %}
+    <div class="ops-pulse-stats">
+      {% for s in cp.line2 %}
+      <div class="ops-pulse-stat">
+        <span class="ops-pulse-n {{ s.cls if s.cls is defined else '' }}">{{ s.n }}</span>
+        <span class="ops-pulse-l" title="{{ s.full if s.full is defined else s.l }}">{{ s.l }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if cp.caption %}
+    <p class="ops-pulse-caption">{{ cp.caption }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+</section>
+
+{# Full-width tab strip — always under the hero so it never gets swallowed by viz layout #}
+<nav class="catalog-tabbar mb-4" role="tablist" aria-label="Catalog sections">
+  <a href="/integrations" role="tab"
      class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if section == 'integrations' else '' }}"
      aria-selected="{{ 'true' if section == 'integrations' else 'false' }}"
      {% if section == 'integrations' %}aria-current="page"{% endif %}>Integrations</a>
-  <a href="/certificates"
-     role="tab"
+  <a href="/certificates" role="tab"
      class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if section == 'certificates' else '' }}"
      aria-selected="{{ 'true' if section == 'certificates' else 'false' }}"
      {% if section == 'certificates' %}aria-current="page"{% endif %}>Certificates</a>
-  <a href="/templates"
-     role="tab"
+  <a href="/templates" role="tab"
      class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if section == 'templates' else '' }}"
      aria-selected="{{ 'true' if section == 'templates' else 'false' }}"
      {% if section == 'templates' %}aria-current="page"{% endif %}>Templates</a>
-  <a href="/dns"
-     role="tab"
+  <a href="/dns" role="tab"
      class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if is_network else '' }}"
      aria-selected="{{ 'true' if is_network else 'false' }}"
      {% if is_network %}aria-current="page"{% endif %}>Network</a>
-</div>
+</nav>

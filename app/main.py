@@ -271,12 +271,14 @@ HERDER_SCHEDULE_JOB_ID = sched.HERDER_SCHEDULE_JOB_ID
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request, user: User = Depends(get_optional_current_user)):
-    # Lightweight fleet dashboard from DB (no SSH).
+    # Lightweight fleet dashboard from DB (no SSH, no full fabric SVG).
     servers = []
     fleet = None
     open_alerts = 0
     service_count = 0
     service_down = 0
+    down_services: list = []
+    network_pulse: dict = {}
     db = Session(engine)
     try:
         rows = list(db.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
@@ -285,6 +287,8 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
             from .services.fleet_status import summarize_fleet
             from .services import notifications as notif_svc
             from .services.integrations import registry as integ_reg
+            from .models import ServiceDnsRecord
+
             fleet = summarize_fleet(rows)
             try:
                 open_alerts = notif_svc.open_count(db)
@@ -293,10 +297,31 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
             try:
                 chips = integ_reg.fleet_service_chips(db)
                 service_count = len(chips)
-                service_down = sum(1 for c in chips if c.get("state") == "down")
+                downs = [c for c in chips if c.get("state") == "down"]
+                service_down = len(downs)
+                down_services = downs[:8]
             except Exception:
                 service_count = 0
                 service_down = 0
+                down_services = []
+            # Cheap fabric counts for the network showcase (no SVG layout)
+            try:
+                recs = list(db.exec(select(ServiceDnsRecord)).all())
+                network_pulse = {
+                    "mapped_names": len(recs),
+                    "via_npm": sum(1 for r in recs if r.via_proxy),
+                    "hosts_named": sum(
+                        1 for s in rows if (getattr(s, "dns_name", None) or "").strip()
+                    ),
+                    "hosts_total": len(rows),
+                }
+            except Exception:
+                network_pulse = {
+                    "mapped_names": 0,
+                    "via_npm": 0,
+                    "hosts_named": 0,
+                    "hosts_total": len(rows),
+                }
     except Exception:
         servers = []
         fleet = None
@@ -343,6 +368,8 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
             "open_alerts": open_alerts,
             "service_count": service_count,
             "service_down": service_down,
+            "down_services": down_services,
+            "network_pulse": network_pulse,
             "user": user,
             "pihole_url": pihole_url,
             "pihole_integrations": pihole_integrations,

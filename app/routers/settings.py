@@ -174,6 +174,123 @@ async def settings_page(
     if is_admin:
         stack_report = stack_svc.load_last_report()
 
+    # Compact hero pulse (tab-aware primary + dual lines)
+    n_backups = len(backups or [])
+    tok_active = int(api_token_counts.get("active") or 0)
+    tok_revoked = int(api_token_counts.get("revoked") or 0)
+    tok_all = int(api_token_counts.get("all") or 0)
+    stack_overall = (stack_report or {}).get("overall") if stack_report else None
+    force_2fa = bool(cfg.get("force_2fa"))
+    sched_on = schedule_status == "enabled"
+    tz_short = (cfg.get("timezone") or "UTC").split("/")[-1]
+    if stack_overall in ("fail", "error", "failed"):
+        health = "hot"
+    elif stack_overall == "warn" or (is_admin and not stack_report):
+        health = "warn"
+    else:
+        health = "ok"
+
+    if tab == "api":
+        primary, primary_label = tok_active, "active tok"
+    elif tab == "backup":
+        primary, primary_label = n_backups, "archives"
+    elif tab == "status":
+        primary, primary_label = (stack_overall or "—"), "stack"
+    elif tab == "fleet":
+        os_on = cfg.get("os_check_global_enabled") is not False
+        cont_on = cfg.get("container_check_global_enabled") is not False
+        primary, primary_label = (int(os_on) + int(cont_on)), "checks on"
+    else:
+        primary, primary_label = tz_short[:10], "timezone"
+
+    settings_pulse = {
+        "health": health,
+        "primary": primary,
+        "primary_label": primary_label,
+        "bar": [
+            {
+                "n": tok_active or 0.001,
+                "cls": "ops-bar--ok",
+                "title": f"{tok_active} active tokens",
+            },
+            {
+                "n": tok_revoked or 0.001,
+                "cls": "ops-bar--mute",
+                "title": f"{tok_revoked} revoked",
+            },
+            {
+                "n": n_backups or 0.001,
+                "cls": "ops-bar--run",
+                "title": f"{n_backups} self-backups",
+            },
+        ]
+        if is_admin
+        else [
+            {
+                "n": n_backups or 0.001,
+                "cls": "ops-bar--ok",
+                "title": f"{n_backups} self-backups",
+            },
+            {
+                "n": 1 if sched_on else 0.001,
+                "cls": "ops-bar--run" if sched_on else "ops-bar--mute",
+                "title": "schedule",
+            },
+        ],
+        "line1": [
+            {
+                "n": "on" if force_2fa else "off",
+                "l": "force 2fa",
+                "cls": "text-accent" if force_2fa else "text-warning",
+            },
+            {
+                "n": "on" if sched_on else "off",
+                "l": "schedule",
+                "cls": "text-accent" if sched_on else "",
+            },
+            {"n": n_backups, "l": "archives", "cls": ""},
+            {
+                "n": tok_active if is_admin else "—",
+                "l": "api tok",
+                "cls": "text-info" if is_admin and tok_active else "",
+            },
+        ],
+        "line2": [
+            {
+                "n": (stack_overall or "—") if is_admin else "—",
+                "l": "stack",
+                "cls": (
+                    "text-danger"
+                    if stack_overall in ("fail", "error", "failed")
+                    else (
+                        "text-warning"
+                        if stack_overall == "warn"
+                        else ("text-accent" if stack_overall == "ok" else "")
+                    )
+                ),
+            },
+            {
+                "n": "on"
+                if cfg.get("os_check_global_enabled") is not False
+                else "off",
+                "l": "os chk",
+                "cls": "",
+            },
+            {
+                "n": "on"
+                if cfg.get("container_check_global_enabled") is not False
+                else "off",
+                "l": "img chk",
+                "cls": "",
+            },
+            {"n": cfg.get("keep") or 10, "l": "keep", "cls": ""},
+        ],
+        "caption": f"{tz_short} · settings overview",
+        "tok_active": tok_active,
+        "tok_revoked": tok_revoked,
+        "tok_all": tok_all,
+    }
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="herder_backups.html",
@@ -197,6 +314,7 @@ async def settings_page(
             "new_api_token_name": qp.get("token_name"),
             "stack_report": stack_report,
             "stack_health_interval_min": STACK_HEALTH_INTERVAL_MIN,
+            "settings_pulse": settings_pulse,
         },
     )
 

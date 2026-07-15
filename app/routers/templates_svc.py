@@ -207,6 +207,66 @@ async def templates_list(
     error: Optional[str] = None,
 ):
     items = list_catalog(session)
+    by_cat: dict = {}
+    by_src: dict = {}
+    vars_n = 0
+    for t in items:
+        c = str(t.get("category") or "other")
+        s = str(t.get("source") or "user")
+        by_cat[c] = by_cat.get(c, 0) + 1
+        by_src[s] = by_src.get(s, 0) + 1
+        try:
+            vars_n += int(t.get("var_count") or 0)
+        except Exception:
+            pass
+    ranked_cat = sorted(by_cat.items(), key=lambda kv: (-kv[1], kv[0]))
+    catalog_pulse = {
+        "health": "ok",
+        "primary": len(items),
+        "primary_label": "templates",
+        "bar": [
+            {
+                "n": n or 0.001,
+                "cls": "ops-bar--ok" if i == 0 else ("ops-bar--run" if i == 1 else "ops-bar--mute"),
+                "title": f"{k}: {n}",
+            }
+            for i, (k, n) in enumerate(ranked_cat[:4])
+        ]
+        or [{"n": 1, "cls": "ops-bar--mute"}],
+        "line1": [
+            {"n": len(items), "l": "total", "cls": "text-accent"},
+            {
+                "n": by_src.get("user", 0) + by_src.get("custom", 0),
+                "l": "custom",
+                "cls": "",
+            },
+            {
+                "n": by_src.get("starter", 0) + by_src.get("builtin", 0),
+                "l": "starter",
+                "cls": "",
+            },
+            {"n": vars_n, "l": "settings", "cls": ""},
+        ],
+        "line2": [
+            {
+                "n": n,
+                # Short labels that still read as full category names
+                "l": {
+                    "observability": "observe",
+                    "monitoring": "monitor",
+                    "Proxy TLS": "proxy tls",
+                    "dns": "dns",
+                    "proxy": "proxy",
+                    "other": "other",
+                }.get(k, (k[:10] if len(k) > 10 else k)),
+                "full": k,
+                "cls": "",
+            }
+            for k, n in ranked_cat[:4]
+        ]
+        or [{"n": 0, "l": "none", "cls": ""}],
+        "caption": "Catalog size · categories",
+    }
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="templates_list.html",
@@ -216,6 +276,7 @@ async def templates_list(
             "items": items,
             "msg": msg,
             "error": error,
+            "catalog_pulse": catalog_pulse,
             "can_mutate": role_at_least(user, ROLE_OPERATOR),
         },
     )

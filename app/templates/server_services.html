@@ -22,6 +22,7 @@
     {% else %}
     <a href="/integrations" class="btn btn-primary min-h-11">Integrations</a>
     {% endif %}
+    <a href="{{ hosts_map_url or ('/dns/physical?focus=n:host-' ~ server.id ~ '#map') }}" class="btn btn-secondary min-h-11">Hosts map</a>
     <a href="/servers/{{ server.id }}" class="btn btn-secondary min-h-11">Server</a>
   </div>
 </div>
@@ -143,6 +144,9 @@
         {% if s.open_url %}
         <a href="{{ s.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open in Kuma</a>
         {% endif %}
+        {% if s.path_map_url %}
+        <a href="{{ s.path_map_url }}" class="btn btn-secondary text-xs min-h-9" title="{{ s.fabric_fqdn or 'Path map' }}">Path map</a>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -232,6 +236,9 @@
         {% endif %}
         {% if s.open_url %}
         <a href="{{ s.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open in Kuma</a>
+        {% endif %}
+        {% if s.path_map_url %}
+        <a href="{{ s.path_map_url }}" class="btn btn-secondary text-xs min-h-9" title="{{ s.fabric_fqdn or 'Path map' }}">Path map</a>
         {% endif %}
       </div>
     </div>

@@ -1,11 +1,57 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="mb-8">
-  <h1 class="text-4xl font-semibold tracking-tighter text-text">Dashboard</h1>
-  <p class="mt-2 text-muted max-w-lg text-sm">
-    Fleet overview — hosts that need attention (OS updates, image updates, reboot).
-  </p>
+{% set sc = fleet.server_count if fleet else (servers|length) %}
+{% set attn = fleet.attention_count if fleet else 0 %}
+{% set healthy = (attn == 0) and (not service_down) and (not open_alerts) %}
+{% set net = network_pulse or {} %}
+
+<div class="dash-hero mb-6 {% if healthy %}is-clear{% elif attn or service_down %}is-attention{% else %}is-neutral{% endif %}">
+  <div class="dash-hero-main">
+    <div class="dash-hero-kicker">Fleet overview</div>
+    <h1 class="dash-hero-title">Dashboard</h1>
+    {% if not user %}
+    <p class="dash-hero-sub">Sign in to see fleet patch status, services, and network maps.</p>
+    {% elif sc == 0 %}
+    <p class="dash-hero-sub">No hosts yet — add a server to start herding your Pis.</p>
+    {% elif healthy %}
+    <p class="dash-hero-sub">
+      <span class="dash-hero-status dash-hero-status--ok">All clear</span>
+      {{ sc }} host{% if sc != 1 %}s{% endif %} · no updates, reboots, or open alerts.
+    </p>
+    {% else %}
+    <p class="dash-hero-sub">
+      <span class="dash-hero-status dash-hero-status--warn">Needs care</span>
+      {% if attn %}{{ attn }} host{% if attn != 1 %}s{% endif %} need attention{% endif %}
+      {% if service_down %}{% if attn %} · {% endif %}{{ service_down }} service{% if service_down != 1 %}s{% endif %} down{% endif %}
+      {% if open_alerts %}{% if attn or service_down %} · {% endif %}{{ open_alerts }} alert{% if open_alerts != 1 %}s{% endif %}{% endif %}.
+    </p>
+    {% endif %}
+    {% if user %}
+    <div class="dash-hero-actions">
+      <a href="/dns/physical#map" class="btn btn-accent min-h-11">Hosts map</a>
+      <a href="/servers{% if attn %}?filter=attention{% endif %}" class="btn btn-secondary min-h-11">
+        {% if attn %}Attention list{% else %}All servers{% endif %}
+      </a>
+      <a href="/services" class="btn btn-secondary min-h-11">Services</a>
+    </div>
+    {% endif %}
+  </div>
+  {% if user %}
+  <div class="dash-hero-pulse" aria-hidden="true">
+    <div class="dash-pulse-ring {% if healthy %}is-ok{% elif attn or service_down %}is-warn{% endif %}">
+      <div class="dash-pulse-core">
+        <div class="dash-pulse-num">{{ sc }}</div>
+        <div class="dash-pulse-label">hosts</div>
+      </div>
+    </div>
+    <div class="dash-pulse-meta">
+      <span><strong class="{% if attn %}text-warning{% else %}text-accent{% endif %}">{{ attn }}</strong> attention</span>
+      <span><strong class="{% if service_down %}text-warning{% else %}text-text{% endif %}">{{ service_down or 0 }}</strong> down</span>
+      <span><strong>{{ open_alerts or 0 }}</strong> alerts</span>
+    </div>
+  </div>
+  {% endif %}
 </div>
 
 {% if not user %}
@@ -15,57 +61,131 @@
 </div>
 {% else %}
 
-{# Summary strip #}
-<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
-  <div class="card p-4">
-    <div class="text-xs text-muted">Servers</div>
-    <div class="text-3xl font-semibold text-primary mt-0.5">{{ fleet.server_count if fleet else (servers|length) }}</div>
-    <a href="/servers" class="text-xs text-accent hover:underline mt-1 inline-block">All servers →</a>
+{% if service_down and down_services %}
+<div class="dash-alert-strip mb-5" role="status">
+  <div class="dash-alert-strip-head">
+    <span class="dash-alert-dot"></span>
+    <strong>{{ service_down }} monitored service{% if service_down != 1 %}s{% endif %} down</strong>
+    <a href="/services" class="text-xs text-accent hover:underline ml-auto">Fleet services →</a>
   </div>
-  <a href="/services" class="card p-4 no-underline hover:border-primary/40 transition-colors block">
-    <div class="text-xs text-muted">Services</div>
-    <div class="text-3xl font-semibold text-primary mt-0.5">{{ service_count or 0 }}</div>
-    <div class="text-[10px] text-muted mt-1">
-      {% if service_down %}
-      <span class="text-amber-500">{{ service_down }} down</span> ·
-      {% endif %}
-      monitored apps →
+  <div class="dash-alert-chips">
+    {% for s in down_services %}
+    <a href="{{ s.open_url or '/services' }}"
+       {% if s.open_url %}target="_blank" rel="noopener"{% endif %}
+       class="dash-alert-chip"
+       title="{{ s.server_name or '' }} · {{ s.label }}">
+      {{ s.label }}{% if s.server_name %} <span class="text-muted">· {{ s.server_name }}</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# Network maps showcase — fleet topology entry #}
+<section class="dash-network mb-6">
+  <div class="dash-network-viz" aria-hidden="true">
+    <svg class="dash-net-svg" viewBox="0 0 280 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {# Internet cloud #}
+      <path class="dash-net-cloud" d="M70 58c-14 0-24-10-22-22-6-8 2-20 16-18 4-10 18-12 28-4 8-6 22-4 28 6 14-2 24 10 20 20 8 4 10 16-2 20-4 6-14 8-24 6H70z"/>
+      <text x="78" y="52" text-anchor="middle" class="dash-net-label">Internet</text>
+      {# Spine #}
+      <line class="dash-net-edge" x1="78" y1="70" x2="78" y2="88"/>
+      {# Router #}
+      <rect class="dash-net-gw-wan" x="48" y="88" width="60" height="16" rx="4"/>
+      <rect class="dash-net-gw-lan" x="48" y="104" width="60" height="16" rx="4"/>
+      <text x="78" y="100" text-anchor="middle" class="dash-net-label-sm">WAN</text>
+      <text x="78" y="116" text-anchor="middle" class="dash-net-label-sm">LAN</text>
+      {# LAN zone #}
+      <ellipse class="dash-net-lan" cx="200" cy="100" rx="58" ry="32"/>
+      <text x="200" y="96" text-anchor="middle" class="dash-net-label">LAN</text>
+      <text x="200" y="110" text-anchor="middle" class="dash-net-label-sm">hosts · apps</text>
+      <line class="dash-net-edge dash-net-edge--land" x1="108" y1="104" x2="142" y2="100"/>
+      {# Cloud host #}
+      <rect class="dash-net-host" x="210" y="28" width="48" height="28" rx="6"/>
+      <text x="234" y="46" text-anchor="middle" class="dash-net-label-sm">cloud</text>
+      <line class="dash-net-edge dash-net-edge--wan" x1="120" y1="48" x2="210" y2="42"/>
+    </svg>
+  </div>
+  <div class="dash-network-body">
+    <div class="dash-network-kicker">Network maps</div>
+    <h2 class="dash-network-title">See how your fleet connects</h2>
+    <p class="dash-network-desc">
+      Interactive maps: Internet → router → LAN, NPM edges, and every published name path.
+    </p>
+    <div class="dash-network-stats">
+      <div class="dash-network-stat">
+        <span class="dash-network-stat-n">{{ net.hosts_named if net.hosts_named is defined else '—' }}</span>
+        <span class="dash-network-stat-l">named hosts</span>
+      </div>
+      <div class="dash-network-stat">
+        <span class="dash-network-stat-n">{{ net.mapped_names if net.mapped_names is defined else '—' }}</span>
+        <span class="dash-network-stat-l">mapped names</span>
+      </div>
+      <div class="dash-network-stat">
+        <span class="dash-network-stat-n">{{ net.via_npm if net.via_npm is defined else '—' }}</span>
+        <span class="dash-network-stat-l">via NPM</span>
+      </div>
+    </div>
+    <div class="dash-network-ctas">
+      <a href="/dns/physical#map" class="fabric-nav-card fabric-nav-card--physical dash-net-card">
+        <div class="fabric-nav-card-kicker">Map</div>
+        <div class="fabric-nav-card-title">Hosts map</div>
+        <span class="fabric-nav-card-cta">Open topology →</span>
+      </a>
+      <a href="/dns/logical#map" class="fabric-nav-card fabric-nav-card--logical dash-net-card">
+        <div class="fabric-nav-card-kicker">Map</div>
+        <div class="fabric-nav-card-title">Path map</div>
+        <span class="fabric-nav-card-cta">Open paths →</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+{# Metric strip #}
+<div class="dash-metrics mb-6">
+  <a href="/servers" class="dash-metric-card">
+    <div class="dash-metric-label">Servers</div>
+    <div class="dash-metric-value text-primary">{{ sc }}</div>
+    <div class="dash-metric-foot">All servers →</div>
+  </a>
+  <a href="/services" class="dash-metric-card">
+    <div class="dash-metric-label">Services</div>
+    <div class="dash-metric-value text-primary">{{ service_count or 0 }}</div>
+    <div class="dash-metric-foot">
+      {% if service_down %}<span class="text-warning">{{ service_down }} down</span>{% else %}monitored apps{% endif %}
     </div>
   </a>
-  <div class="card p-4">
-    <div class="text-xs text-muted">Need attention</div>
-    <div class="text-3xl font-semibold mt-0.5 {% if fleet and fleet.attention_count %}text-amber-500{% else %}text-text{% endif %}">
-      {{ fleet.attention_count if fleet else 0 }}
-    </div>
-    <div class="text-[10px] text-muted mt-1">updates or reboot</div>
-  </div>
-  <div class="card p-4">
-    <div class="text-xs text-muted">Reboot pending</div>
-    <div class="text-3xl font-semibold mt-0.5 {% if fleet and fleet.reboot_count %}text-amber-500{% else %}text-text{% endif %}">
+  <a href="/servers?filter=attention" class="dash-metric-card {% if attn %}is-hot{% endif %}">
+    <div class="dash-metric-label">Need attention</div>
+    <div class="dash-metric-value {% if attn %}text-warning{% else %}text-text{% endif %}">{{ attn }}</div>
+    <div class="dash-metric-foot">updates or reboot</div>
+  </a>
+  <div class="dash-metric-card {% if fleet and fleet.reboot_count %}is-hot{% endif %}">
+    <div class="dash-metric-label">Reboot pending</div>
+    <div class="dash-metric-value {% if fleet and fleet.reboot_count %}text-warning{% else %}text-text{% endif %}">
       {{ fleet.reboot_count if fleet else 0 }}
     </div>
+    <div class="dash-metric-foot">host reboot flag</div>
   </div>
-  <div class="card p-4">
-    <div class="text-xs text-muted">Open alerts</div>
-    <div class="text-3xl font-semibold mt-0.5 {% if open_alerts %}text-amber-500{% else %}text-text{% endif %}">
-      {{ open_alerts }}
-    </div>
-    <a href="/notifications" class="text-xs text-accent hover:underline mt-1 inline-block">Notifications →</a>
-  </div>
+  <a href="/notifications" class="dash-metric-card {% if open_alerts %}is-hot{% endif %}">
+    <div class="dash-metric-label">Open alerts</div>
+    <div class="dash-metric-value {% if open_alerts %}text-warning{% else %}text-text{% endif %}">{{ open_alerts or 0 }}</div>
+    <div class="dash-metric-foot">Notifications →</div>
+  </a>
 </div>
 
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
-  <div class="card p-4">
+  <div class="card p-4 dash-stat-soft">
     <div class="text-xs text-muted">OS packages upgradable</div>
     <div class="text-xl font-semibold text-text">{{ fleet.total_os_packages if fleet else 0 }}</div>
     <div class="text-[10px] text-muted">on {{ fleet.os_host_count if fleet else 0 }} host(s)</div>
   </div>
-  <div class="card p-4">
+  <div class="card p-4 dash-stat-soft">
     <div class="text-xs text-muted">Container projects with updates</div>
     <div class="text-xl font-semibold text-text">{{ fleet.total_container_projects if fleet else 0 }}</div>
     <div class="text-[10px] text-muted">on {{ fleet.container_host_count if fleet else 0 }} host(s)</div>
   </div>
-  <div class="card p-4">
+  <div class="card p-4 dash-stat-soft">
     <div class="text-xs text-muted">Never checked</div>
     <div class="text-sm text-text mt-1">
       OS: <strong>{{ fleet.never_checked_os if fleet else 0 }}</strong>
@@ -112,6 +232,7 @@
       </div>
       <div class="source-row-tools fleet-status-tools">
         <a href="/servers/{{ r.id }}" class="btn btn-secondary text-xs min-h-11 px-3">Open</a>
+        <a href="/dns/physical?focus=n:host-{{ r.id }}#map" class="btn btn-secondary text-xs min-h-11 px-3" title="Focus on hosts map">Map</a>
         {% if r.container_updates_count and r.container_updates_count > 0 %}
         <a href="/servers/{{ r.id }}/docker" class="btn btn-secondary text-xs min-h-11 px-3">Docker</a>
         {% endif %}
@@ -123,38 +244,51 @@
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-  <div class="card p-5 text-sm">
+  {% if pihole_integrations %}
+  <div class="card p-5 text-sm dash-pihole">
+    <div class="font-medium mb-2 text-text flex items-center justify-between gap-2">
+      <span>Pi-hole</span>
+      <a href="/integrations" class="text-[10px] text-accent hover:underline font-normal">Integrations</a>
+    </div>
+    {% for p in pihole_integrations %}
+    <a href="{{ p.admin_url }}" target="_blank" rel="noopener"
+       class="dash-pihole-row no-underline {% if p.is_primary %}is-primary{% endif %}">
+      <div class="min-w-0">
+        <div class="text-sm font-medium text-text truncate">{{ p.name or 'Pi-hole' }}{% if p.is_primary %} · primary{% endif %}</div>
+        <div class="text-[10px] text-muted">
+          {% if p.queries is not none %}{{ "{:,}".format(p.queries or 0) }} queries{% else %}admin{% endif %}
+          {% if p.percent_blocked is not none %} · {{ "%.1f"|format(p.percent_blocked) }}% blocked{% endif %}
+        </div>
+      </div>
+      <span class="status-pill text-[10px] {% if p.ok %}status-success{% elif p.ok is sameas false %}status-failed{% else %}feature-off{% endif %}">
+        {% if p.ok %}ok{% elif p.ok is sameas false %}err{% else %}—{% endif %}
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="card p-5 text-sm {% if pihole_integrations %}{% else %}md:col-span-1{% endif %}">
     <div class="font-medium mb-2 text-text">Quick links</div>
     <ul class="space-y-1.5 text-muted">
       <li><a href="/servers" class="text-primary hover:underline">Servers</a></li>
-      <li><a href="/notifications" class="text-primary hover:underline">Notifications</a></li>
-      <li><a href="/audit" class="text-primary hover:underline">Audit log</a></li>
-      <li><a href="/herder-backups" class="text-primary hover:underline">Settings / self-backup</a></li>
-      {% if pihole_integrations %}
-        {% for p in pihole_integrations %}
-        <li>
-          <a href="{{ p.admin_url }}" class="text-primary hover:underline" target="_blank" rel="noopener">
-            Pi-hole{% if p.name %}: {{ p.name }}{% endif %}{% if p.is_primary %} (primary){% endif %}
-          </a>
-          {% if p.queries is not none %}
-          <span class="text-[10px] text-muted"> · {{ "{:,}".format(p.queries or 0) }} q</span>
-          {% endif %}
-        </li>
-        {% endfor %}
-        <li><a href="/integrations" class="text-accent hover:underline">Pi-hole integrations →</a></li>
-      {% elif pihole_url %}
-      <li><a href="{{ pihole_url }}" class="text-primary hover:underline" target="_blank" rel="noopener">Pi-hole admin</a></li>
-      {% endif %}
+      <li><a href="/dns/physical#map" class="text-primary hover:underline">Hosts map</a>
+        · <a href="/dns/logical#map" class="text-primary hover:underline">Path map</a></li>
       <li><a href="/services" class="text-primary hover:underline">Services (fleet)</a></li>
       <li><a href="/certificates" class="text-primary hover:underline">Certificates</a></li>
       <li><a href="/catalog" class="text-primary hover:underline">Catalog</a></li>
+      <li><a href="/notifications" class="text-primary hover:underline">Notifications</a></li>
+      <li><a href="/audit" class="text-primary hover:underline">Audit log</a></li>
+      <li><a href="/herder-backups" class="text-primary hover:underline">Settings / self-backup</a></li>
     </ul>
   </div>
-  <div class="card p-5 text-sm md:col-span-2">
+
+  <div class="card p-5 text-sm {% if pihole_integrations %}{% else %}md:col-span-2{% endif %}">
     <div class="font-medium mb-2 text-text">How status is updated</div>
     <ul class="space-y-1 text-muted text-xs">
       <li>• <strong>Check-only</strong> jobs refresh package/image counts — they do not apply upgrades.</li>
       <li>• Apply patches from each server (⋯ menu on Servers, or server detail).</li>
+      <li>• Network maps use DNS records + integrations — open from the panel above.</li>
       <li>• Alerts also appear under <a href="/notifications" class="text-accent hover:underline">Notifications</a>.</li>
     </ul>
   </div>

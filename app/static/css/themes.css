@@ -1,17 +1,20 @@
 :root {
-  /* Light theme defaults (Raspberry Pi inspired) */
-  --color-bg: #f8f9fa;
+  /* Light theme defaults (Raspberry Pi inspired)
+     Page canvas is a cool grey so white cards / sections separate cleanly.
+     Borders are intentionally stronger than typical gray-200 — light mode
+     previously washed out (#e5e7eb on #fff) and looked flatter than dark. */
+  --color-bg: #e8edf3;
   --color-surface: #ffffff;
   --color-text: #111827;
   --color-primary: #e60012;
   --color-accent: #00a651;
-  --color-border: #e5e7eb;
-  --color-muted: #6b7280;
+  --color-border: #a8b2c0;
+  --color-muted: #5b6472;
 
   /* Code / logs / editors (adapt for light mode) */
-  --color-code-bg: #f1f3f5;
+  --color-code-bg: #dde4ee;
   --color-code-text: #111827;
-  --color-code-border: #e5e7eb;
+  --color-code-border: #a8b2c0;
 
   /* Semantic */
   --color-success: #059669;
@@ -47,17 +50,18 @@
   /* === Menu bar (top navigation) dedicated variables ===
      The menu bar has its own background so it can be a distinct subtle tone
      from the main page surface / cards.
-     - Light mode: light grey
+     - Light mode: slightly deeper cool grey than page canvas
      - Dark mode: darker grey
   */
-  --color-nav-bg: #f1f5f9;   /* menu bar background - light grey (light mode) */
+  --color-nav-bg: #dce3ed;   /* menu bar — a step above page canvas (light) */
 
   /* Mobile slide-out menu panel (CSS + var driven) */
   --mobile-menu-panel-width: 78%;
   --mobile-menu-panel-max-width: 260px;
   --mobile-menu-transition: transform 0.25s ease;
-  --mobile-menu-z: 99999;
-  --mobile-menu-backdrop-z: 99998;
+  /* Above fabric map fullscreen (100000) so hamburger always wins */
+  --mobile-menu-z: 100100;
+  --mobile-menu-backdrop-z: 100090;
 
   /* Mobile menu backdrop */
   --mobile-menu-backdrop-bg: rgba(0, 0, 0, 0.40);
@@ -159,11 +163,14 @@
   /* Dropdown positioning (avatar + future menus) */
   --dropdown-offset-top: 1rem;
   --dropdown-z: 99999;
-  --dropdown-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --dropdown-shadow: 0 4px 14px rgba(15, 23, 42, 0.12);
   --dropdown-shadow-dark: 0 4px 12px rgba(0, 0, 0, 0.35);
   --dropdown-radius: 0.5rem;
   --dropdown-width: 16rem;
   --dropdown-content-py: 2px;
+
+  /* Card elevation (light mode) — reinforces section outlines on pale canvas */
+  --card-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.05);
 }
 
 /* Dark theme: applied when JS adds class "dark" to <html> */
@@ -217,6 +224,9 @@ html.dark,
 
   /* Menu / header bar background (dark mode - darker grey) */
   --color-nav-bg: #1e293b;
+
+  /* Cards sit on a deep canvas already — no extra elevation needed */
+  --card-shadow: none;
 }
 
 body {
@@ -228,10 +238,12 @@ body {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 12px;
+  box-shadow: var(--card-shadow);
 }
 .dark .card, .dark .bg-surface {
   background-color: var(--color-surface);
   border-color: var(--color-border);
+  box-shadow: var(--card-shadow);
 }
 
 .text-primary { color: var(--color-primary); }
@@ -397,39 +409,75 @@ body {
    ============================================ */
 .mobile-menu-backdrop {
   position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   inset: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  margin: 0;
   background-color: var(--mobile-menu-backdrop-bg);
   z-index: var(--mobile-menu-backdrop-z);
   display: none;
+  /* Avoid iOS Safari treating this as a scroll container that shifts fixed siblings */
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 .mobile-menu-panel {
   position: fixed;
   top: 0;
   right: 0;
+  left: auto;
+  bottom: 0;
   height: 100%;
+  height: 100dvh;
   width: var(--mobile-menu-panel-width);
   max-width: var(--mobile-menu-panel-max-width);
+  /* Pin to visual viewport edge even if page content overflowed horizontally */
+  max-width: min(var(--mobile-menu-panel-max-width), 100vw);
   background-color: var(--color-surface);
   border-left: 1px solid var(--color-border);
   transition: var(--mobile-menu-transition);
-  transform: translateX(100%);
+  transform: translate3d(100%, 0, 0);
   z-index: var(--mobile-menu-z);
   display: flex;
   flex-direction: column;
+  overflow-x: hidden;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   box-shadow: -8px 0 30px rgba(0,0,0,0.12);
+  /* Independent of any ancestor filter/transform stacking context */
+  isolation: isolate;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-right: env(safe-area-inset-right, 0);
 }
-.dark .mobile-menu-panel {
+.dark .mobile-menu-panel,
+html.dark .mobile-menu-panel,
+[data-theme="dark"] .mobile-menu-panel {
   box-shadow: -8px 0 30px rgba(0,0,0,0.4);
 }
 
 .mobile-menu-panel.open {
-  transform: translateX(0) !important;
+  transform: translate3d(0, 0, 0) !important;
 }
-.mobile-menu-panel.open ~ .mobile-menu-backdrop,
 .mobile-menu-backdrop.open {
   display: block !important;
+}
+/* While open: lock page scroll + clip any sideways overflow that could
+   shove fixed UI (common on Network / fabric map pages). */
+body.mobile-nav-open {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+body.mobile-nav-open,
+html:has(body.mobile-nav-open) {
+  overflow-x: hidden !important;
 }
 
 /* Header bar inside the slide-out panel */
@@ -820,12 +868,18 @@ body {
 }
 
 .btn-secondary {
-  background-color: var(--color-surface);
+  /* Page-canvas fill so buttons stay readable on white cards (light) and
+     slightly recessed on elevated surfaces (dark). Border uses --color-border. */
+  background-color: var(--color-bg);
   color: var(--color-text);
   border-color: var(--color-border);
 }
 
-.btn-secondary:hover { filter: brightness(0.96); }
+.btn-secondary:hover {
+  filter: none;
+  background-color: color-mix(in srgb, var(--color-border) 28%, var(--color-bg));
+  border-color: color-mix(in srgb, var(--color-muted) 45%, var(--color-border));
+}
 
 .btn-danger {
   background-color: var(--color-danger);
@@ -838,7 +892,11 @@ body {
   color: var(--color-muted);
   border-color: var(--color-border);
 }
-.btn-ghost:hover { background-color: var(--color-surface); color: var(--color-text); }
+.btn-ghost:hover {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-muted) 45%, var(--color-border));
+}
 
 /* Form controls using vars */
 input, textarea, select {
@@ -940,6 +998,9 @@ pre.log, .backup-progress-log {
 /* Text helpers */
 .text-text { color: var(--color-text); }
 .text-danger { color: var(--color-danger); }
+.text-info { color: var(--color-info-text, #1e40af); }
+html.dark .text-info,
+[data-theme="dark"] .text-info { color: #93c5fd; }
 .text-success { color: var(--color-success); }
 .text-warning { color: var(--color-warning); }
 
@@ -1270,12 +1331,72 @@ a.settings-tab-btn {
 .fleet-status-list {
   max-height: none;
 }
-.fleet-status-row {
+/* Host lists: one card per host (same visual language as audit events).
+   Override the compact .source-list strip so rows don't blend together. */
+.fleet-status-list.source-list,
+.server-host-list.source-list {
+  gap: 0.55rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+.fleet-status-list .fleet-status-row,
+.server-host-list .server-host-row,
+.fleet-status-list .source-row,
+.server-host-list .source-row {
   align-items: center;
   flex-wrap: wrap;
+  gap: 0.5rem 0.65rem;
+  padding: 0.8rem 0.95rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  border-bottom: 1px solid var(--color-border); /* beat .source-row:last-child */
+  box-shadow: var(--card-shadow);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, opacity 0.12s ease;
 }
-.fleet-status-row.is-attention {
-  background: color-mix(in srgb, var(--color-warning, #e6a817) 8%, var(--color-surface));
+.fleet-status-list .fleet-status-row:last-child,
+.server-host-list .server-host-row:last-child,
+.fleet-status-list .source-row:last-child,
+.server-host-list .source-row:last-child {
+  border-bottom: 1px solid var(--color-border);
+}
+.fleet-status-list .fleet-status-row:hover,
+.server-host-list .server-host-row:hover {
+  border-color: color-mix(in srgb, var(--color-primary) 40%, var(--color-border));
+}
+/* Needs-attention host cards — amber fill + bar so alerts read at a glance.
+   Dark mode gets a stronger wash (8% was nearly invisible on #111827). */
+.fleet-status-row.is-attention,
+.server-host-row.is-attention {
+  background: color-mix(in srgb, var(--color-warning, #d97706) 14%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-warning, #d97706) 48%, var(--color-border));
+  box-shadow:
+    inset 4px 0 0 var(--color-warning, #d97706),
+    var(--card-shadow);
+}
+html.dark .fleet-status-row.is-attention,
+html.dark .server-host-row.is-attention,
+.dark .fleet-status-row.is-attention,
+.dark .server-host-row.is-attention {
+  background: color-mix(in srgb, var(--color-warning, #fcd34d) 22%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-warning, #fcd34d) 55%, var(--color-border));
+  box-shadow:
+    inset 5px 0 0 var(--color-warning, #fcd34d),
+    0 0 0 1px color-mix(in srgb, var(--color-warning, #fcd34d) 22%, transparent),
+    var(--card-shadow);
+}
+.fleet-status-list .fleet-status-row.is-attention:hover,
+.server-host-list .server-host-row.is-attention:hover {
+  border-color: color-mix(in srgb, var(--color-warning, #d97706) 65%, var(--color-border));
+}
+html.dark .fleet-status-list .fleet-status-row.is-attention:hover,
+html.dark .server-host-list .server-host-row.is-attention:hover,
+.dark .fleet-status-list .fleet-status-row.is-attention:hover,
+.dark .server-host-list .server-host-row.is-attention:hover {
+  border-color: color-mix(in srgb, var(--color-warning, #fcd34d) 72%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning, #fcd34d) 28%, var(--color-surface));
 }
 .fleet-status-name {
   font-size: 0.95rem;
@@ -1303,10 +1424,9 @@ a.settings-tab-btn {
   text-decoration: none;
 }
 
-/* Servers list: compact rows + drag reorder mode + ⋯ */
+/* Servers list: drag reorder mode + ⋯ */
 .server-host-list .server-host-row {
-  gap: 0.45rem;
-  transition: box-shadow 0.12s ease, opacity 0.12s ease, background 0.12s ease;
+  gap: 0.5rem 0.65rem;
 }
 .server-more-btn {
   width: 2.25rem;
@@ -2076,6 +2196,21 @@ a.docker-popover-item {
 .audit-event.is-noise {
   opacity: 0.6;
 }
+/* Status-tinted left rail on feed events */
+.ops-event {
+  border-left-width: 3px;
+  border-left-style: solid;
+  border-left-color: var(--color-border);
+}
+.ops-event.status-success { border-left-color: var(--color-success, #059669); }
+.ops-event.status-failed { border-left-color: var(--color-danger, #dc2626); }
+.ops-event.status-running,
+.ops-event.status-pending { border-left-color: var(--color-info-text, #2563eb); }
+.ops-event.status-cancelled,
+.ops-event.status-stopped { border-left-color: var(--color-muted); }
+.ops-feed .audit-event {
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.03);
+}
 .audit-event-top {
   display: flex;
   flex-wrap: wrap;
@@ -2182,878 +2317,7 @@ a.docker-popover-item {
   font-weight: 500;
 }
 
-/* Add more as needed */
-/* ============================================================
-   DNS fabric topology (physical / logical / paths)
-   ============================================================ */
-[x-cloak] { display: none !important; }
-
-.fabric-topology .settings-tab-btn.is-active {
-  border-color: var(--color-accent, #00a651);
-  color: var(--color-text);
-  background: var(--accent-subtle-bg, rgba(0, 166, 81, 0.10));
-}
-
-/* Physical — host racks */
-.fabric-rack-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr));
-  gap: 0.85rem;
-}
-.fabric-rack {
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: linear-gradient(
-    165deg,
-    var(--color-surface) 0%,
-    var(--color-bg) 100%
-  );
-  overflow: hidden;
-  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.fabric-rack:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.06);
-}
-.fabric-rack--edge {
-  border-color: color-mix(in srgb, var(--color-warning, #d97706) 55%, var(--color-border));
-  background: linear-gradient(
-    165deg,
-    color-mix(in srgb, var(--color-warning, #d97706) 8%, var(--color-surface)) 0%,
-    var(--color-surface) 70%
-  );
-}
-.fabric-rack--empty { opacity: 0.72; }
-.fabric-rack-head {
-  padding: 0.75rem 0.85rem 0.55rem;
-  border-bottom: 1px solid var(--color-border);
-}
-.fabric-rack-title {
-  font-weight: 600;
-  font-size: 0.95rem;
-  color: var(--color-text);
-  text-decoration: none;
-}
-.fabric-rack-title:hover { color: var(--color-accent); }
-.fabric-rack-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 0.85rem;
-  margin-top: 0.35rem;
-  font-size: 0.68rem;
-  color: var(--color-muted);
-}
-.fabric-rack-count {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-muted);
-  white-space: nowrap;
-}
-.fabric-rack-apps {
-  list-style: none;
-  margin: 0;
-  padding: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  max-height: 14rem;
-  overflow-y: auto;
-}
-.fabric-rack-empty-msg {
-  padding: 0.75rem;
-  font-size: 0.75rem;
-  color: var(--color-muted);
-  margin: 0;
-}
-.fabric-app-chip {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  padding: 0.45rem 0.55rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  border-left: 3px solid var(--color-muted);
-}
-.fabric-app-chip--npm_app,
-.fabric-app-chip--npm_host { border-left-color: var(--color-warning, #d97706); }
-.fabric-app-chip--app { border-left-color: var(--color-success, #059669); }
-.fabric-app-chip--host_identity,
-.fabric-app-chip--host_app { border-left-color: var(--color-primary, #e60012); }
-.fabric-app-url {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.72rem;
-  color: var(--color-text);
-  text-decoration: none;
-  word-break: break-all;
-}
-a.fabric-app-url:hover { color: var(--color-accent); }
-.fabric-app-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 0.6rem;
-  font-size: 0.65rem;
-  color: var(--color-muted);
-}
-.fabric-link-via {
-  color: var(--color-warning, #d97706);
-  font-weight: 500;
-}
-
-.fabric-badge {
-  display: inline-block;
-  font-size: 0.6rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 0.12rem 0.4rem;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  color: var(--color-muted);
-  vertical-align: middle;
-  margin-left: 0.35rem;
-}
-.fabric-badge--npm {
-  border-color: color-mix(in srgb, var(--color-warning, #d97706) 50%, var(--color-border));
-  color: var(--color-warning, #d97706);
-  background: color-mix(in srgb, var(--color-warning, #d97706) 10%, transparent);
-}
-.fabric-badge--npm_app,
-.fabric-badge--npm_host {
-  border-color: color-mix(in srgb, var(--color-warning, #d97706) 50%, var(--color-border));
-  color: var(--color-warning, #d97706);
-}
-.fabric-badge--app {
-  border-color: color-mix(in srgb, var(--color-success, #059669) 50%, var(--color-border));
-  color: var(--color-success, #059669);
-}
-.fabric-badge--host_identity,
-.fabric-badge--host_app {
-  border-color: color-mix(in srgb, var(--color-primary, #e60012) 45%, var(--color-border));
-  color: var(--color-primary, #e60012);
-}
-
-/* Logical — URL flows */
-.fabric-flow-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-.fabric-flow {
-  display: grid;
-  grid-template-columns: minmax(10rem, 1.2fr) minmax(7rem, 0.9fr) minmax(10rem, 1.1fr) auto;
-  gap: 0.5rem 0.75rem;
-  align-items: center;
-  padding: 0.7rem 0.9rem;
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  transition: border-color 0.12s ease, transform 0.12s ease;
-}
-.fabric-flow:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
-}
-.fabric-flow--npm {
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--color-warning, #d97706) 7%, var(--color-surface)) 0%,
-    var(--color-surface) 45%
-  );
-}
-.fabric-flow-url {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.8rem;
-  min-width: 0;
-  word-break: break-all;
-}
-.fabric-flow-scheme { color: var(--color-muted); font-size: 0.7rem; }
-.fabric-flow-host { color: var(--color-text); font-weight: 600; }
-.fabric-flow-edge {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  min-width: 0;
-}
-.fabric-flow-edge-line {
-  flex: 1;
-  height: 2px;
-  min-width: 0.5rem;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--color-accent) 55%, var(--color-border)),
-    transparent
-  );
-  border-radius: 1px;
-}
-.fabric-flow--npm .fabric-flow-edge-line {
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, var(--color-warning, #d97706) 70%, var(--color-border)),
-    transparent
-  );
-}
-.fabric-flow-edge-label {
-  font-size: 0.62rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--color-muted);
-  white-space: nowrap;
-  padding: 0.15rem 0.4rem;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-}
-.fabric-flow--npm .fabric-flow-edge-label {
-  color: var(--color-warning, #d97706);
-  border-color: color-mix(in srgb, var(--color-warning, #d97706) 40%, var(--color-border));
-}
-.fabric-flow-arrow {
-  color: var(--color-muted);
-  font-size: 0.85rem;
-  line-height: 1;
-}
-.fabric-flow-dest {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
-.fabric-flow-dest-host {
-  font-weight: 600;
-  font-size: 0.85rem;
-  color: var(--color-text);
-  text-decoration: none;
-}
-a.fabric-flow-dest-host:hover { color: var(--color-accent); }
-.fabric-flow-dest-app {
-  font-size: 0.7rem;
-  color: var(--color-muted);
-}
-.fabric-flow-sync {
-  color: var(--color-success, #059669);
-  font-size: 0.55rem;
-  opacity: 0.85;
-}
-@media (max-width: 720px) {
-  .fabric-flow {
-    grid-template-columns: 1fr;
-    gap: 0.4rem;
-  }
-  .fabric-flow-edge { max-width: 12rem; }
-}
-
-/* Paths — hop chain cards */
-.fabric-path-card {
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 0.75rem 0.9rem;
-  background: var(--color-surface);
-  border-left: 3px solid var(--color-muted);
-}
-.fabric-path-card--npm_app,
-.fabric-path-card--npm_host { border-left-color: var(--color-warning, #d97706); }
-.fabric-path-card--app { border-left-color: var(--color-success, #059669); }
-.fabric-path-card--host_identity,
-.fabric-path-card--host_app { border-left-color: var(--color-primary, #e60012); }
-.fabric-path-hops {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 0.2rem;
-}
-.fabric-path-connector {
-  display: flex;
-  align-items: center;
-  width: 1.1rem;
-  flex-shrink: 0;
-}
-.fabric-path-connector-line {
-  display: block;
-  width: 100%;
-  height: 2px;
-  background: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
-  border-radius: 1px;
-}
-.fabric-hop {
-  display: inline-flex;
-  flex-direction: column;
-  min-width: 5.25rem;
-  max-width: 10rem;
-  padding: 0.4rem 0.55rem;
-  border-radius: 10px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-  text-decoration: none;
-  color: var(--color-text);
-  transition: border-color 0.1s ease, transform 0.1s ease;
-}
-a.fabric-hop:hover {
-  border-color: var(--color-accent);
-  transform: translateY(-1px);
-}
-.fabric-hop--name {
-  border-color: color-mix(in srgb, var(--color-primary, #e60012) 40%, var(--color-border));
-  background: color-mix(in srgb, var(--color-primary, #e60012) 6%, var(--color-surface));
-}
-.fabric-hop--npm {
-  border-color: color-mix(in srgb, var(--color-warning, #d97706) 45%, var(--color-border));
-  background: color-mix(in srgb, var(--color-warning, #d97706) 8%, var(--color-surface));
-}
-.fabric-hop--host {
-  border-color: var(--color-border);
-}
-.fabric-hop--service,
-.fabric-hop--container {
-  border-style: dashed;
-}
-.fabric-hop-kind {
-  font-size: 0.58rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--color-muted);
-  font-weight: 600;
-}
-.fabric-hop-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.fabric-hop-sub {
-  font-size: 0.62rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: var(--color-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Nav cards to full mesh pages */
-.fabric-nav-card {
-  display: block;
-  padding: 1.15rem 1.25rem;
-  border-radius: 14px;
-  border: 1px solid var(--color-border);
-  text-decoration: none;
-  color: var(--color-text);
-  background: var(--color-surface);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
-}
-.fabric-nav-card:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.07);
-  transform: translateY(-1px);
-}
-.fabric-nav-card--physical {
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--color-accent) 8%, var(--color-surface)) 0%,
-    var(--color-surface) 55%);
-}
-.fabric-nav-card--logical {
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--color-warning, #d97706) 10%, var(--color-surface)) 0%,
-    var(--color-surface) 55%);
-}
-.fabric-nav-card-kicker {
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-muted);
-  margin-bottom: 0.25rem;
-}
-.fabric-nav-card-title {
-  font-size: 1.15rem;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-}
-.fabric-nav-card-desc {
-  margin: 0.4rem 0 0.75rem;
-  font-size: 0.8rem;
-  color: var(--color-muted);
-  line-height: 1.4;
-}
-.fabric-nav-card-cta {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--color-accent);
-}
-
-.fabric-path-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-.fabric-path-card-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.65rem;
-}
-.fabric-legend-pill {
-  display: inline-block;
-  font-size: 0.65rem;
-  padding: 0.2rem 0.55rem;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg);
-  color: var(--color-muted);
-}
-.fabric-path-connector {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.35rem;
-}
-.fabric-path-connector-line {
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg,
-    color-mix(in srgb, var(--color-accent) 20%, var(--color-border)),
-    color-mix(in srgb, var(--color-accent) 70%, var(--color-border)));
-  border-radius: 1px;
-}
-.fabric-path-connector-dot {
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--color-accent);
-  opacity: 0.85;
-}
-
-/* Full-page DNS map SVG — pan/zoom via viewBox (no CSS transform = crisp vectors) */
-.fabric-mesh-scroll {
-  overflow: hidden;
-  max-height: min(78vh, 900px);
-  border-radius: 10px;
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-}
-.fabric-mesh-svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: 280px;
-  /* Do not use CSS transform/filter here — blurs text and lines */
-  transform: none !important;
-  filter: none !important;
-}
-.fabric-mesh-edge {
-  stroke: var(--color-muted);
-  stroke-width: 1.5;
-  opacity: 0.55;
-  fill: none;
-}
-.fabric-mesh-edge--land { stroke: var(--color-muted); opacity: 0.45; }
-.fabric-mesh-edge--npm,
-.fabric-mesh-edge--to_npm,
-.fabric-mesh-edge--from_npm {
-  stroke: var(--color-warning, #d97706);
-  stroke-width: 1.75;
-  opacity: 0.75;
-}
-.fabric-mesh-edge--direct {
-  stroke: var(--color-accent);
-  stroke-width: 1.6;
-  opacity: 0.55;
-}
-.fabric-mesh-edge-label {
-  fill: var(--color-muted);
-  font-size: 9px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-.fabric-mesh-col-label {
-  fill: var(--color-muted);
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.fabric-mesh-node rect,
-.fabric-mesh-node circle {
-  stroke-width: 1.5;
-}
-.fabric-mesh-node--host,
-.fabric-mesh-node--gateway,
-.fabric-mesh-node--internet,
-.fabric-mesh-node--lan,
-.fabric-mesh-node--app,
-.fabric-mesh-node--more {
-  cursor: pointer;
-}
-.fabric-mesh-node--host rect {
-  fill: var(--color-surface);
-  stroke: var(--color-border);
-}
-.fabric-mesh-node--host.is-edge rect {
-  fill: color-mix(in srgb, var(--color-warning, #d97706) 12%, var(--color-surface));
-  stroke: color-mix(in srgb, var(--color-warning, #d97706) 55%, var(--color-border));
-}
-.fabric-mesh-node--app rect {
-  fill: color-mix(in srgb, var(--color-primary, #e60012) 6%, var(--color-surface));
-  stroke: color-mix(in srgb, var(--color-primary, #e60012) 30%, var(--color-border));
-}
-.fabric-mesh-node--app.is-npm rect {
-  fill: color-mix(in srgb, var(--color-warning, #d97706) 8%, var(--color-surface));
-  stroke: color-mix(in srgb, var(--color-warning, #d97706) 40%, var(--color-border));
-}
-/* "+N more" overflow marker when a host has many apps on the physical mesh */
-.fabric-mesh-node--more rect {
-  fill: color-mix(in srgb, var(--color-muted, #888) 12%, var(--color-surface));
-  stroke: var(--color-border);
-  stroke-dasharray: 4 3;
-}
-.fabric-mesh-node--url rect {
-  fill: color-mix(in srgb, var(--color-primary, #e60012) 7%, var(--color-surface));
-  stroke: color-mix(in srgb, var(--color-primary, #e60012) 35%, var(--color-border));
-}
-.fabric-mesh-node--dest rect {
-  fill: var(--color-surface);
-  stroke: var(--color-border);
-}
-/* NPM hub + infrastructure nodes — always theme-aware (never default SVG black fill) */
-.fabric-mesh-node--hub circle {
-  fill: color-mix(in srgb, var(--color-warning, #d97706) 18%, var(--color-surface)) !important;
-  stroke: color-mix(in srgb, var(--color-warning, #d97706) 65%, var(--color-border));
-  stroke-width: 2;
-}
-.fabric-mesh-node--internet rect,
-.fabric-mesh-node--internet circle,
-.fabric-mesh-node--internet ellipse {
-  fill: color-mix(in srgb, var(--color-accent, #00a651) 12%, var(--color-surface)) !important;
-  stroke: color-mix(in srgb, var(--color-accent, #00a651) 50%, var(--color-border));
-}
-.fabric-mesh-status--up {
-  fill: var(--color-accent, #00a651);
-}
-.fabric-mesh-status--down {
-  fill: var(--color-danger, #dc2626);
-}
-.fabric-mesh-status--pending,
-.fabric-mesh-status--maintenance {
-  fill: var(--color-warning, #d97706);
-}
-.fabric-mesh-status--unknown {
-  fill: var(--color-muted, #888);
-}
-.fabric-mesh-node--lan rect,
-.fabric-mesh-node--lan ellipse {
-  fill: color-mix(in srgb, var(--color-primary, #e60012) 6%, var(--color-surface)) !important;
-  stroke: color-mix(in srgb, var(--color-primary, #e60012) 35%, var(--color-border));
-  stroke-dasharray: 6 4;
-}
-.fabric-mesh-node--gateway rect {
-  fill: color-mix(in srgb, var(--color-warning, #d97706) 14%, var(--color-surface)) !important;
-  stroke: color-mix(in srgb, var(--color-warning, #d97706) 55%, var(--color-border));
-}
-.fabric-mesh-node--host.is-cloud rect {
-  fill: color-mix(in srgb, var(--color-accent, #00a651) 8%, var(--color-surface));
-  stroke: color-mix(in srgb, var(--color-accent, #00a651) 40%, var(--color-border));
-}
-.fabric-mesh-edge--wan {
-  stroke: var(--color-accent, #00a651);
-  stroke-width: 2;
-  opacity: 0.7;
-  stroke-dasharray: 4 3;
-}
-.fabric-mesh-edge--lan {
-  stroke: color-mix(in srgb, var(--color-primary, #e60012) 50%, var(--color-muted));
-  stroke-width: 1.5;
-  opacity: 0.55;
-}
-.fabric-mesh-label {
-  fill: var(--color-text);
-  font-size: 12px;
-  font-weight: 650;
-  font-family: system-ui, sans-serif;
-}
-.fabric-mesh-label-sm {
-  fill: var(--color-text);
-  font-size: 10px;
-  font-weight: 600;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-.fabric-mesh-sub {
-  fill: var(--color-muted);
-  font-size: 9px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-.fabric-mesh-tag {
-  fill: var(--color-warning, #d97706);
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-}
-.fabric-legend-swatch {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-muted);
-  font-size: 0.7rem;
-}
-.fabric-legend-swatch--host::before,
-.fabric-legend-swatch--edge::before,
-.fabric-legend-swatch--app::before {
-  content: "";
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 3px;
-  background: var(--color-border);
-}
-.fabric-legend-swatch--edge::before {
-  background: var(--color-warning, #d97706);
-}
-.fabric-legend-swatch--app::before {
-  background: var(--color-primary, #e60012);
-}
-.fabric-legend-swatch--npm-line {
-  color: var(--color-warning, #d97706);
-}
-
-/* ── Fabric focus + mobile graph priority + scroll cues (v0.5 polish) ── */
-
-/* Shared focus language: soft-dim unrelated (not near-invisible — looked “blurred”) */
-.ph-focus-dim {
-  opacity: 0.42 !important;
-  transition: opacity 0.1s ease;
-}
-.ph-focus-active {
-  opacity: 1 !important;
-  transition: opacity 0.1s ease;
-}
-/* Prefer stroke emphasis over drop-shadow (shadows read as blur on SVG) */
-.fabric-mesh-edge.ph-focus-active {
-  stroke-width: 3;
-  opacity: 1 !important;
-}
-.fabric-mesh-edge--npm.ph-focus-active,
-.fabric-mesh-edge--to_npm.ph-focus-active,
-.fabric-mesh-edge--from_npm.ph-focus-active {
-  stroke-width: 3;
-  opacity: 1 !important;
-}
-.fabric-mesh-node.ph-focus-active rect,
-.fabric-mesh-node.ph-focus-active circle {
-  stroke-width: 2.5;
-  stroke: var(--color-accent);
-}
-/* While focusing, kill host glow filter — it softens the whole node */
-.is-focusing .fabric-mesh-node--host {
-  filter: none !important;
-}
-.fabric-path-card.ph-focus-active,
-.fabric-flow.ph-focus-active,
-.fabric-rack.ph-focus-active,
-.fabric-app-chip.ph-focus-active {
-  outline: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 14%, transparent);
-}
-.fabric-path-card.ph-focus-dim,
-.fabric-flow.ph-focus-dim,
-.fabric-rack.ph-focus-dim,
-.fabric-app-chip.ph-focus-dim {
-  opacity: 0.28 !important;
-}
-
-.fabric-callout {
-  color: var(--color-text);
-  padding: 0.45rem 0.65rem;
-  border-radius: 8px;
-  border: 1px dashed var(--color-border);
-  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
-  word-break: break-word;
-  flex: 1 1 auto;
-  min-width: 0;
-  margin: 0;
-}
-.fabric-callout.is-empty {
-  color: var(--color-muted);
-  background: transparent;
-  border-style: solid;
-  border-color: transparent;
-  padding-left: 0.15rem;
-}
-.fabric-callout-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-/* Map pan / pinch zoom (viewBox) */
-.fabric-mesh-viewport {
-  position: relative;
-  width: 100%;
-  min-height: 280px;
-  height: min(72vh, 720px);
-  overflow: hidden;
-  touch-action: none;
-  cursor: grab;
-  border-radius: 8px;
-  user-select: none;
-  -webkit-user-select: none;
-  background: var(--color-bg);
-}
-.fabric-mesh-viewport.is-panning {
-  cursor: grabbing;
-}
-.fabric-mesh-zoom-bar {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  flex-wrap: wrap;
-}
-/* Light-mode safe: explicit surface + text (never dark-on-dark / ghost-on-ghost) */
-.fabric-mesh-zoom-bar .btn {
-  background-color: var(--color-surface) !important;
-  color: var(--color-text) !important;
-  border: 1px solid var(--color-border) !important;
-  filter: none !important;
-}
-.fabric-mesh-zoom-bar .btn:hover {
-  background-color: var(--color-bg) !important;
-  color: var(--color-text) !important;
-  filter: none !important;
-}
-.fabric-mesh-zoom-label {
-  font-size: 0.7rem;
-  min-width: 2.75rem;
-  color: var(--color-text);
-  opacity: 0.85;
-}
-/* Clear-focus / hide-map controls on map pages */
-[data-fabric-clear-focus],
-[data-fabric-close-graph],
-[data-fabric-open-graph] {
-  background-color: var(--color-surface) !important;
-  color: var(--color-text) !important;
-  border: 1px solid var(--color-border) !important;
-  filter: none !important;
-}
-[data-fabric-clear-focus]:hover,
-[data-fabric-close-graph]:hover,
-[data-fabric-open-graph]:hover {
-  background-color: var(--color-bg) !important;
-  color: var(--color-text) !important;
-}
-
-/* Sync / cert status indicators */
-.fabric-mesh-status {
-  stroke: var(--color-surface);
-  stroke-width: 1;
-}
-.fabric-mesh-status--ok {
-  fill: var(--color-success, #16a34a);
-}
-.fabric-mesh-status--partial {
-  fill: var(--color-warning, #d97706);
-}
-.fabric-mesh-status--error {
-  fill: var(--color-error, #dc2626);
-}
-.fabric-mesh-status--cert {
-  fill: color-mix(in srgb, var(--color-warning, #d97706) 80%, white);
-  stroke: color-mix(in srgb, var(--color-warning, #d97706) 50%, var(--color-border));
-}
-.fabric-status-dot {
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 999px;
-  vertical-align: middle;
-  margin-right: 0.2rem;
-  flex-shrink: 0;
-}
-.fabric-status-dot--ok {
-  background: var(--color-success, #16a34a);
-}
-.fabric-status-dot--partial {
-  background: var(--color-warning, #d97706);
-}
-.fabric-status-dot--error {
-  background: var(--color-error, #dc2626);
-}
-.fabric-status-dot--cert {
-  background: color-mix(in srgb, var(--color-warning, #d97706) 75%, white);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-warning, #d97706) 40%, transparent);
-}
-.fabric-flow-url {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-/* Mobile: list-first; graph secondary until opened */
-@media (max-width: 767px) {
-  .fabric-mesh-priority-graph:not(.is-open) {
-    display: none !important;
-  }
-  .fabric-mesh-priority-graph.is-open {
-    display: block !important;
-  }
-  .fabric-mesh-viewport {
-    height: min(65vh, 560px);
-  }
-  .fabric-hop {
-    min-height: 2.75rem;
-    padding: 0.5rem 0.65rem;
-    min-width: 5.5rem;
-  }
-  .fabric-path-actions .btn {
-    min-height: 2.75rem;
-  }
-  .fabric-app-chip {
-    min-height: 2.75rem;
-    cursor: pointer;
-  }
-  .fabric-flow {
-    cursor: pointer;
-  }
-}
-@media (min-width: 768px) {
-  .fabric-mesh-priority-graph {
-    display: block !important;
-  }
-  [data-fabric-close-graph] {
-    display: none !important;
-  }
-}
-
-/* Horizontal scroll edge cues (tables only — maps stay solid for crisp SVG) */
-.table-scroll {
-  background:
-    linear-gradient(90deg, var(--color-surface) 30%, transparent) 0 0 / 1.25rem 100% no-repeat local,
-    linear-gradient(270deg, var(--color-surface) 30%, transparent) 100% 0 / 1.25rem 100% no-repeat local,
-    var(--color-bg);
-}
-
-/* Clickable focus affordance on list rows */
-.fabric-app-chip[data-path-id],
-.fabric-flow[data-path-id],
-.fabric-path-card[data-path-id] {
-  cursor: pointer;
-}
-.fabric-app-chip[data-path-id]:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
-}
-
-/* Filter bar spacing */
-[data-fabric-filters] label {
-  font-weight: 500;
-}
+/* Companion stylesheets (loaded after this file from base.html):
+   - /static/css/fabric.css  — Network maps / mesh / fullscreen
+   - /static/css/ops.css     — ops-hero, filters, catalog, access heroes
+*/

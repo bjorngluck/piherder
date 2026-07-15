@@ -1,13 +1,16 @@
 # Catalog & integrations
 
-Top-nav **Catalog** (`/catalog`) is the hub for optional products and topology. Settings-style tabs:
+Top-nav **Catalog** (`/catalog` → 303 to Integrations) is the hub for optional products and topology. Each section shares:
+
+- An **ops-hero** (title + dual-line pulse for the section)  
+- A **full-width tab bar** under the hero: Integrations · Certificates · Templates · Network  
 
 | Tab | Path | Purpose |
 |-----|------|---------|
 | **Integrations** | `/integrations` (default) | Connect Kuma, Grafana, Pi-hole, NPM |
 | **Certificates** | `/certificates` | TLS vault + service maps + SSH deploy |
 | **Templates** | `/templates` | Service template catalog & deploy |
-| **Network** | `/dns` | Host DNS, service paths, Hosts/Path maps |
+| **Network** | `/dns` | Host DNS, service paths, Hosts/Path maps ([Network maps](dns-fabric.md)) |
 
 Core fleet ops (SSH, backups, patch, Docker) work **without** any Catalog entry.
 

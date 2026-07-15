@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% with catalog_section='dns' %}
+{% with catalog_section='dns', catalog_pulse=catalog_pulse %}
 {% include "partials/catalog_nav.html" %}
 {% endwith %}
 
@@ -12,23 +12,17 @@
 <div class="banner-error border rounded p-3 text-sm mb-4">{{ error }}</div>
 {% endif %}
 
-{# Map entry points (not "service mesh" — DNS path maps) #}
-<div class="grid gap-3 sm:grid-cols-2 mb-5">
-  <a href="/dns/physical" class="fabric-nav-card fabric-nav-card--physical">
+{# Map entry points #}
+<div class="grid gap-3 sm:grid-cols-2 mb-4">
+  <a href="/dns/physical#map" class="fabric-nav-card fabric-nav-card--physical dash-net-card">
     <div class="fabric-nav-card-kicker">Map</div>
     <div class="fabric-nav-card-title">Hosts map</div>
-    <p class="fabric-nav-card-desc">
-      Fleet hosts, IPs, NPM edge machines, and which app names land on each rack.
-    </p>
-    <span class="fabric-nav-card-cta">Open hosts map →</span>
+    <span class="fabric-nav-card-cta">Open topology →</span>
   </a>
-  <a href="/dns/logical" class="fabric-nav-card fabric-nav-card--logical">
+  <a href="/dns/logical#map" class="fabric-nav-card fabric-nav-card--logical dash-net-card">
     <div class="fabric-nav-card-kicker">Map</div>
     <div class="fabric-nav-card-title">Path map</div>
-    <p class="fabric-nav-card-desc">
-      Each published name → via NPM or direct → host / project / container.
-    </p>
-    <span class="fabric-nav-card-cta">Open path map →</span>
+    <span class="fabric-nav-card-cta">Open paths →</span>
   </a>
 </div>
 
@@ -108,7 +102,7 @@
         </select>
       </div>
       <div class="text-xs text-muted pb-2">
-        <span data-fabric-filter-count">{{ view.services|length }}</span> shown
+        <span data-fabric-filter-count>{{ view.services|length }}</span> shown
       </div>
     </div>
   </div>
@@ -152,8 +146,8 @@
                   data-fabric-copy-path
                   data-copy-text="{{ s.path_chain or s.fqdn }}"
                   title="Copy path as text">Copy path</button>
-          <a href="/dns/physical?focus={{ s.id }}" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center" title="Focus on hosts map">Hosts map</a>
-          <a href="/dns/logical?focus={{ s.id }}" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center" title="Focus on path map">Path map</a>
+          <a href="/dns/physical?focus={{ s.id }}#map" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center" title="Focus on hosts map">Hosts map</a>
+          <a href="/dns/logical?focus={{ s.id }}#map" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center" title="Focus on path map">Path map</a>
           {% if s.dep_href %}
           <a href="{{ s.dep_href }}" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center">Open</a>
           {% endif %}
@@ -168,8 +162,8 @@
           <button type="button" class="btn btn-secondary text-xs min-h-11 px-2"
                   data-fabric-copy-path
                   data-copy-text="{{ s.path_chain or s.fqdn }}">Copy path</button>
-          <a href="/dns/physical?focus={{ s.id }}" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center">Hosts map</a>
-          <a href="/dns/logical?focus={{ s.id }}" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center">Path map</a>
+          <a href="/dns/physical?focus={{ s.id }}#map" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center">Hosts map</a>
+          <a href="/dns/logical?focus={{ s.id }}#map" class="btn btn-secondary text-xs min-h-11 px-2 inline-flex items-center">Path map</a>
         </div>
         {% endif %}
       </header>
@@ -278,7 +272,7 @@
 <div class="card p-4 mb-5">
   <h2 class="font-semibold text-sm mb-1">Network map (LAN &amp; internet)</h2>
   <p class="text-xs text-muted mb-3">
-    Used on the <a href="/dns/physical" class="text-accent hover:underline">Hosts map</a>:
+    Used on the <a href="/dns/physical#map" class="text-accent hover:underline">Hosts map</a>:
     <strong class="text-text">Internet</strong> → <strong class="text-text">Router</strong> →
     <strong class="text-text">LAN</strong> → home hosts.
     Hosts with a <strong>public IP</strong> (or outside the LAN CIDR) are
@@ -393,5 +387,5 @@
 </div>
 {% endif %}
 
-<script src="/static/js/fabric-mesh.js" defer></script>
+<script src="/static/js/fabric-mesh.js?v=20260715-p0p2" defer></script>
 {% endblock %}

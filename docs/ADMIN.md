@@ -526,7 +526,7 @@ Herder self-backup includes `service_templates` catalog rows and `stack_deployme
 
 ### Uptime Kuma integration
 
-Optional **integration hub** under top-nav **Catalog** (`/catalog` → **Integrations | Certificates | Templates | Network**). You can **deploy** Kuma via Templates, then connect the integration for status/bindings. **Certificates** vault (Catalog → Certificates): NPM pull or PEM upload, service maps, SSH deploy. **Network maps** (Catalog → Network / Hosts map `/dns/physical` / Path map `/dns/logical`): host A records, service paths, Pi-hole adopt, LAN/gateway/public IP + optional Kuma on router/WAN — see wiki [Network maps](../wiki/integrations/dns-fabric.md).
+Optional **integration hub** under top-nav **Catalog** (`/catalog` → **Integrations | Certificates | Templates | Network**, ops-hero + full-width tabs). You can **deploy** Kuma via Templates, then connect the integration for status/bindings. **Certificates** vault (Catalog → Certificates): NPM pull or PEM upload, service maps, SSH deploy. **Network maps** (Catalog → Network / Hosts map `/dns/physical` / Path map `/dns/logical`): host A records, service paths, Pi-hole adopt, LAN/gateway/public IP + optional Kuma on router/WAN; mobile list-first with **View full map** / **Hide map** / Full screen (hamburger exits fullscreen) — see wiki [Network maps](../wiki/integrations/dns-fabric.md).
 
 **Design / plan:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md)
 

@@ -40,10 +40,64 @@ async def notifications_page(
     servers = list(session.exec(select(Server).order_by(Server.name)).all())
     server_map = {s.id: s.name for s in servers}
     items = []
+    pulse = {
+        "open": 0,
+        "dismissed": 0,
+        "resolved": 0,
+        "total": 0,
+        # Severity across ALL statuses (open + dismissed + resolved)
+        "critical": 0,
+        "warning": 0,
+        "info": 0,
+        # Severity among open only (for health / urgency)
+        "open_critical": 0,
+        "open_warning": 0,
+        "open_info": 0,
+        "shown": 0,
+        "by_type": {},
+    }
+    open_n = notif_svc.open_count(session)
+    pulse["open"] = open_n
+    # Fleet-wide stats (all statuses) for hero breakdown
+    try:
+        all_rows = notif_svc.list_notifications(session, status=None, limit=800)
+        pulse["total"] = len(all_rows)
+        for n in all_rows:
+            st = (n.status or "").lower()
+            if st == "open":
+                pulse["open"] = pulse.get("open", 0)  # keep open_count as source of truth below
+            elif st == "dismissed":
+                pulse["dismissed"] += 1
+            elif st == "resolved":
+                pulse["resolved"] += 1
+            sev = (n.severity or "warning").lower()
+            if sev == "critical":
+                pulse["critical"] += 1
+            elif sev == "info":
+                pulse["info"] += 1
+            else:
+                pulse["warning"] += 1
+            if st == "open":
+                if sev == "critical":
+                    pulse["open_critical"] += 1
+                elif sev == "info":
+                    pulse["open_info"] += 1
+                else:
+                    pulse["open_warning"] += 1
+        # Prefer exact open_count (same as bell badge)
+        pulse["open"] = open_n
+        if pulse["total"] == 0:
+            pulse["total"] = open_n + pulse["dismissed"] + pulse["resolved"]
+    except Exception:
+        pulse["open"] = open_n
+        pulse["total"] = open_n
     for n in rows:
         d = n.model_dump()
         d["server_name"] = server_map.get(n.server_id) if n.server_id else None
         items.append(d)
+        pulse["shown"] += 1
+        t = n.type or "other"
+        pulse["by_type"][t] = pulse["by_type"].get(t, 0) + 1
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -56,7 +110,8 @@ async def notifications_page(
             "status": status_filter,
             "type_filter": type,
             "server_id": sid,
-            "open_count": notif_svc.open_count(session),
+            "open_count": open_n,
+            "pulse": pulse,
         },
     )
 

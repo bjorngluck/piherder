@@ -41,7 +41,9 @@ A second start reuses the existing job (UI follows it; REST **409** with `alread
 
 ### Fleet Jobs UI
 
-- Filters: server, status, type, date range, per-page  
+- **Ops hero** at the top: dual-line pulse (running / queue / ok / fail + type chips) and app timezone caption  
+- Filters: server, status, type, **date range** with **7d / 30d / 90d / Clear** presets, per-page  
+- Date presets use the **Settings timezone** calendar day (not the browser’s local midnight)  
 - **Active only** — pending + running  
 - Row → detail modal (summary, log tail, scheduled flag)  
 - **Cancel** works from list and modal (where applicable)  
@@ -80,7 +82,9 @@ Actors may be:
 
 Also audited with IP: **login** / **login failed** / **2FA**, and **API token** create/update/rotate/revoke. Free-text search matches IPs. Detail modal shows **IP**.
 
-Filter by user, server, token, action, status, date range, or free-text (includes IP).
+Filter by user, server, token, action, status, **date range** (same **7d / 30d / 90d** presets as Jobs — app timezone), or free-text (includes IP).
+
+The Audit page uses the same **ops-hero** pattern: status bars, top action-type chips (as filter links), and the active timezone in the subtitle.
 
 ### Backup lifecycle events
 

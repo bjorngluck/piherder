@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** **v0.5.0 in development** — Phase 1–5 complete; Phase 6 templates **foundation shipped** in v0.4.0; ops + polish + RC → **v0.5.0**  
-> **Last updated:** 2026-07-14 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target). Landed: **A–H** (template polish, drift/env migrate, restore/last config, fleet ops, Pi-hole/NPM/certs, B07–B09, audit IP). Still open: multi-arch image, RC freeze.
+> **Last updated:** 2026-07-15 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target). Landed: **A–H** + Network maps QA polish (mobile nav, ops-hero UI, `dns_fabric` package). Still open: multi-arch image, RC freeze.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -23,7 +23,8 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 ### UI Theming
 - Base: Light + Dark themes using Raspberry Pi branding (red `#E60012`/`#C8102E`, green `#00A651`).
 - Default to system preference, with manual toggle.
-- Extensible via Tailwind config + CSS variables for future themes/user customization.
+- Stylesheets: `themes.css` (tokens + chrome) + `fabric.css` (Network maps) + `ops.css` (ops-hero / filters) — query-busted; SW network-first for CSS/JS.
+- Ops UI: shared **ops-hero** dual-line pulse on Servers, Jobs, Audit, Alerts, Catalog, Settings, Account, Users (`app/services/ops_pulse.py`).
 - Goal: Consistent branding, mobile-friendly, delightful UX.
 - A standalone test page is available at `/static/theme-test.html` for safe visual validation of the colour scheme without affecting the main application.
 
@@ -307,7 +308,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 
 ## Phase 7 — Ecosystem depth (post-v0.5 / Horizon 3)
 
-- [x] **Network maps / DNS fabric** (v0.5.0) — host `dns_name` A records; `ServiceDnsRecord` (CNAME or host-identity A); Catalog → **Network** hub + Hosts map `/dns/physical` (Internet→router→LAN→hosts, cloud hosts, Kuma on router/WAN) + Path map `/dns/logical`; Pi-hole adopt (duplicates = ok); node + path focus; viewBox zoom; GET-safe topology; external checklist — [wiki](wiki/integrations/dns-fabric.md)
+- [x] **Network maps / DNS fabric** (v0.5.0) — host `dns_name` A records; `ServiceDnsRecord` (CNAME or host-identity A); Catalog → **Network** hub + Hosts map `/dns/physical` (Internet→router→LAN→hosts, cloud hosts, Kuma on router/WAN) + Path map `/dns/logical`; Pi-hole adopt (duplicates = ok); node + path focus; viewBox zoom; mobile list-first + Hide map + Full screen (hamburger exits fullscreen); GET-safe topology; external checklist — [wiki](wiki/integrations/dns-fabric.md) · package `app/services/dns_fabric/`
 - [ ] Cloudflare DNS automation from template hints / fabric
 - [ ] Service → container first-class map + **container dependency graph** (DB, Redis, …) — ROADMAP H2.5
 - [ ] Pi-hole / NPM write paths beyond local DNS (proxy host CRUD, lists, etc.)

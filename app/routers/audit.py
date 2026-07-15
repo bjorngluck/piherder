@@ -10,6 +10,7 @@ from ..database import get_session
 from ..models import ApiToken, AuditLog, Server, User
 from ..security.auth import get_current_user
 from ..services.audit_format import format_audit_entry, format_actor_label
+from ..services.app_settings import calendar_today_in_app_tz
 
 router = APIRouter()
 
@@ -112,6 +113,14 @@ async def audit_page(
     logs_data: list = []
     distinct_actions: list = []
     distinct_statuses: list = []
+    pulse: dict = {
+        "success": 0,
+        "failed": 0,
+        "running": 0,
+        "other": 0,
+        "sample": 0,
+        "by_action": [],
+    }
     hide_incomplete = hide_noise not in ("0", "false", "no")
     per_page = _clamp_per_page(per_page)
     try:
@@ -149,6 +158,43 @@ async def audit_page(
             recent = s.exec(select(AuditLog).order_by(AuditLog.started_at.desc()).limit(300)).all()
             distinct_actions = sorted({l.action for l in recent if l.action})
             distinct_statuses = sorted({l.status for l in recent if l.status})
+            # Pulse stats from recent window (not the current page alone)
+            from ..services.audit_format import action_label as audit_action_label
+
+            pulse = {
+                "success": 0,
+                "failed": 0,
+                "running": 0,
+                "other": 0,
+                "sample": len(recent),
+                "by_action": [],
+            }
+            action_counts: dict[str, int] = {}
+            for l in recent:
+                st = (l.status or "").lower()
+                if st == "success":
+                    pulse["success"] += 1
+                elif st == "failed":
+                    pulse["failed"] += 1
+                elif st in ("running", "pending"):
+                    pulse["running"] += 1
+                else:
+                    pulse["other"] += 1
+                act = (l.action or "other").strip() or "other"
+                action_counts[act] = action_counts.get(act, 0) + 1
+            # Top action types for breakdown chart
+            ranked = sorted(action_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+            max_c = ranked[0][1] if ranked else 1
+            pulse["by_action"] = [
+                {
+                    "id": act,
+                    "label": audit_action_label(act),
+                    "count": n,
+                    "pct": round(100.0 * n / max(1, len(recent)), 1),
+                    "bar": round(100.0 * n / max(1, max_c), 1),
+                }
+                for act, n in ranked[:10]
+            ]
 
             filt = dict(
                 search=search,
@@ -237,6 +283,7 @@ async def audit_page(
             "search": search,
             "date_from": date_from,
             "date_to": date_to,
+            "app_date_today": calendar_today_in_app_tz(),
             "server_id": server_id,
             "servers": servers_list,
             "user_id": user_id,
@@ -263,5 +310,6 @@ async def audit_page(
             "per_page_choices": list(PER_PAGE_CHOICES),
             "total": total,
             "total_pages": total_pages,
+            "pulse": pulse,
         },
     )

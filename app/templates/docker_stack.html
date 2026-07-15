@@ -93,6 +93,14 @@
               {% else %}mon {{ chip.state }}{% endif %}
             </a>
             {% endfor %}
+            {% set proj_map = (fabric_by_project or {}).get((proj.name or '')|lower) %}
+            {% if proj_map and proj_map.path_map_url %}
+            <a href="{{ proj_map.path_map_url }}"
+               class="status-pill text-xs no-underline feature-off"
+               title="Open on path map{% if proj_map.fqdn %}: {{ proj_map.fqdn }}{% endif %}{% if proj_map.count and proj_map.count > 1 %} (+{{ proj_map.count - 1 }} more){% endif %}">
+              Map{% if proj_map.count and proj_map.count > 1 %} · {{ proj_map.count }}{% endif %}
+            </a>
+            {% endif %}
           </div>
           <div class="docker-proj-path text-muted" title="{{ proj.path | e }}">{{ proj.path }}</div>
         </div>
@@ -170,6 +178,11 @@
                   data-proj-name="{{ proj.name | e }}"
                   data-build-services='{{ proj.build_services | tojson | safe }}'
                   data-server-id="{{ server.id }}">Build…</button>
+          {% endif %}
+          {% set proj_map = (fabric_by_project or {}).get((proj.name or '')|lower) %}
+          {% if proj_map and proj_map.path_map_url %}
+          <a href="{{ proj_map.path_map_url }}" data-sec-btn="path-map" class="no-underline"
+             title="{{ proj_map.fqdn or 'Path map' }}">Path map</a>
           {% endif %}
           <button type="button"
                   data-sec-btn="edit"

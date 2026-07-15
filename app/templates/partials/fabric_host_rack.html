@@ -1,0 +1,72 @@
+{# Single-host network rack (server detail). Expects `fabric_rack` dict from fabric_rack_for_server. #}
+{% if fabric_rack is defined and fabric_rack %}
+<section class="fabric-host-panel mb-6" aria-label="Network names on this host">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+    <div>
+      <h2 class="text-sm font-semibold text-text m-0">Network</h2>
+      <p class="text-xs text-muted m-0 mt-0.5">
+        Mapped names that land on this host
+        {% if fabric_rack.is_npm_edge %}· also an <span class="text-warning">NPM edge</span>{% endif %}
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2 items-center">
+      <a href="{{ fabric_rack.hosts_map_url }}" class="btn btn-secondary text-xs min-h-9 px-2">Open on hosts map</a>
+      <a href="/dns/logical#map" class="text-xs text-accent hover:underline">Path map</a>
+    </div>
+  </div>
+
+  <article class="fabric-rack {% if fabric_rack.is_npm_edge %}fabric-rack--edge{% endif %}">
+    <header class="fabric-rack-head">
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <span class="fabric-rack-title">{{ fabric_rack.name }}</span>
+          {% if fabric_rack.is_npm_edge %}<span class="fabric-badge fabric-badge--npm">NPM edge</span>{% endif %}
+        </div>
+        <span class="fabric-rack-count">{{ fabric_rack.app_count }} name{% if fabric_rack.app_count != 1 %}s{% endif %}</span>
+      </div>
+      <div class="fabric-rack-meta font-mono">
+        {% if fabric_rack.dns_name %}<span>{{ fabric_rack.dns_name }}</span>{% endif %}
+        {% if fabric_rack.ip %}<span>{{ fabric_rack.ip }}</span>{% endif %}
+      </div>
+    </header>
+    {% if fabric_rack.apps %}
+    <ul class="fabric-rack-apps">
+      {% for app in fabric_rack.apps %}
+      <li class="fabric-app-chip fabric-app-chip--{{ app.path_kind or 'host' }}">
+        <div class="fabric-app-url">
+          {% if app.sync_status == 'ok' %}<span class="fabric-status-dot fabric-status-dot--ok" title="Synced"></span>
+          {% elif app.sync_status == 'partial' %}<span class="fabric-status-dot fabric-status-dot--partial" title="Partial sync"></span>
+          {% elif app.sync_status in ('error', 'failed') %}<span class="fabric-status-dot fabric-status-dot--error" title="Sync error"></span>
+          {% endif %}
+          {% if app.has_cert %}<span class="fabric-status-dot fabric-status-dot--cert" title="Certificate linked"></span>{% endif %}
+          <span class="fabric-app-fqdn">{{ app.fqdn }}</span>
+        </div>
+        <div class="fabric-app-meta-info">
+          {% if app.via_npm and app.npm_edge %}<span class="fabric-link-via">via {{ app.npm_edge }}</span>{% endif %}
+          {% if app.container %}<span class="font-mono fabric-app-project">{{ app.project }}/{{ app.container }}</span>
+          {% elif app.project %}<span class="font-mono fabric-app-project">{{ app.project }}</span>{% endif %}
+        </div>
+        <div class="fabric-app-copy-group">
+          {% if app.path_map_url %}
+          <a href="{{ app.path_map_url }}" class="btn btn-ghost text-[10px] min-h-8 px-1.5 no-underline">Path</a>
+          {% endif %}
+          <button type="button"
+                  class="btn btn-ghost text-[10px] min-h-8 px-1.5 fabric-app-copy"
+                  data-copy-text="{{ app.path_chain or app.fqdn }}"
+                  onclick="(function(b){var t=b.getAttribute('data-copy-text')||'';if(!t)return;function d(ok){b.textContent=ok?'Copied':'Copy';setTimeout(function(){b.textContent='Copy';},1200);}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){d(true);}).catch(function(){d(false);});}else{d(false);}})(this)">Copy</button>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="fabric-rack-empty-msg">
+      No mapped app names yet.
+      <a href="/dns" class="text-accent hover:underline">Catalog → Network</a>
+      to attach FQDNs, or open the
+      <a href="{{ fabric_rack.hosts_map_url }}" class="text-accent hover:underline">hosts map</a>
+      for fleet topology.
+    </p>
+    {% endif %}
+  </article>
+</section>
+{% endif %}

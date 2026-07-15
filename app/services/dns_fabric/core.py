@@ -14,10 +14,10 @@ from typing import Any, Optional
 
 from sqlmodel import Session, select
 
-from ..models import ManagedCertificate, Server, ServiceDnsRecord
-from .audit_write import make_audit_log
-from .integrations import pihole as ph
-from .integrations import registry as reg
+from ...models import ManagedCertificate, Server, ServiceDnsRecord
+from ..audit_write import make_audit_log
+from ..integrations import pihole as ph
+from ..integrations import registry as reg
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,17 @@ class DnsFabricError(Exception):
         self.message = message
         self.code = code
         super().__init__(message)
+
+
+def _mesh_physical():
+    from . import mesh_physical as m
+    return m
+
+
+def _mesh_logical():
+    from . import mesh_logical as m
+    return m
+
 
 
 def normalize_fqdn(value: str | None) -> str:
@@ -174,7 +185,7 @@ def _servers_by_id(session: Session) -> dict[int, Server]:
 
 def _npm_proxy_hosts_cached(session: Session) -> list[dict[str, Any]]:
     """Proxy hosts from last NPM poll cache (+ binding server/project when known)."""
-    from ..models import IntegrationBinding
+    from ...models import IntegrationBinding
 
     out: list[dict[str, Any]] = []
     npm_rows = [
@@ -228,7 +239,7 @@ def _npm_proxy_hosts_cached(session: Session) -> list[dict[str, Any]]:
 
 def find_npm_host_server(session: Session) -> Optional[Server]:
     """Server where NPM stack is bound / deployed (edge for CNAMEs)."""
-    from ..models import IntegrationBinding, StackDeployment
+    from ...models import IntegrationBinding, StackDeployment
 
     # Prefer binding role=service on npm docker project
     for b in session.exec(
@@ -272,7 +283,7 @@ def resolve_service_dns_plan(
     project = (docker_project or "").strip() or None
     dep = None
     if stack_deployment_id:
-        from ..models import StackDeployment
+        from ...models import StackDeployment
 
         dep = session.get(StackDeployment, stack_deployment_id)
         if dep and not project:
@@ -310,7 +321,7 @@ def resolve_service_dns_plan(
 
     # Kuma service bindings — external_label sometimes is a URL/host
     kuma_hint = ""
-    from ..models import IntegrationBinding
+    from ...models import IntegrationBinding
 
     for b in session.exec(
         select(IntegrationBinding).where(
@@ -650,7 +661,7 @@ def plan_from_pihole_cname(
 
 def list_service_dns_candidates(session: Session, *, base_domain: str = "") -> list[dict[str, Any]]:
     """Unmapped Pi-hole CNAMEs (primary) + unmapped template deployments."""
-    from ..models import StackDeployment
+    from ...models import StackDeployment
 
     existing_fqdn = {normalize_fqdn(r.fqdn) for r in list_service_records(session)}
     existing_dep = {
@@ -704,7 +715,7 @@ def list_service_dns_candidates(session: Session, *, base_domain: str = "") -> l
         if any(x.get("fqdn") == hd for x in out):
             continue
         kuma_label = None
-        from ..models import IntegrationBinding
+        from ...models import IntegrationBinding
 
         for b in session.exec(
             select(IntegrationBinding).where(
@@ -1531,7 +1542,7 @@ def _find_docker_container(
     """Container name from Kuma service binding for project."""
     if not docker_project:
         return None
-    from ..models import IntegrationBinding
+    from ...models import IntegrationBinding
 
     proj = docker_project.lower()
     for b in session.exec(
@@ -1580,7 +1591,7 @@ def resolve_app_layers(
 
     Returns ``{docker_project, docker_container, source}``.
     """
-    from ..models import IntegrationBinding, StackDeployment
+    from ...models import IntegrationBinding, StackDeployment
 
     tokens = _fqdn_match_tokens(fqdn, docker_project)
     project = (docker_project or "").strip() or None
@@ -1926,6 +1937,239 @@ def build_access_path_for_record(
     return path
 
 
+# ── Deep links + lightweight per-host rack (no full-fleet SVG) ──────────────
+
+
+def host_focus_key(server_id: int) -> str:
+    """Focus id for Hosts map host node (fabric-mesh.js node focus)."""
+    return f"n:host-{int(server_id)}"
+
+
+def _with_map_anchor(url: str) -> str:
+    """Land on the SVG map panel (#map), not the list-first chrome above it."""
+    u = (url or "").strip() or "/"
+    if "#map" in u:
+        return u
+    return f"{u}#map"
+
+
+def hosts_map_url(
+    *,
+    server_id: int | None = None,
+    path_id: int | str | None = None,
+) -> str:
+    """URL into Hosts map (map panel), optionally focused on a host or path."""
+    if server_id is not None:
+        return _with_map_anchor(f"/dns/physical?focus={host_focus_key(server_id)}")
+    if path_id is not None and str(path_id).strip() != "":
+        return _with_map_anchor(f"/dns/physical?focus={path_id}")
+    return _with_map_anchor("/dns/physical")
+
+
+def path_map_url(*, path_id: int | str | None = None) -> str:
+    """URL into Path map (map panel), optionally focused on a service path."""
+    if path_id is not None and str(path_id).strip() != "":
+        return _with_map_anchor(f"/dns/logical?focus={path_id}")
+    return _with_map_anchor("/dns/logical")
+
+
+def _service_app_chip(
+    session: Session,
+    row: ServiceDnsRecord,
+    *,
+    target: Server | None,
+    path: dict[str, Any],
+) -> dict[str, Any]:
+    """One app row shaped like physical rack chips (no SVG)."""
+    via = bool(path.get("via_proxy") if path.get("via_proxy") is not None else row.via_proxy)
+    rid = row.id
+    return {
+        "fqdn": row.fqdn,
+        "path_kind": path.get("path_kind") or "",
+        "path_title": path.get("path_title") or "",
+        "path_chain": path.get("chain") or row.fqdn,
+        "via_npm": via,
+        "npm_edge": (target.name if target and via else None),
+        "project": path.get("docker_project") or row.docker_project,
+        "container": path.get("docker_container"),
+        "label": row.label or row.docker_project or row.fqdn,
+        "href": f"/servers/{row.backend_server_id}",
+        "record_id": rid,
+        "path_id": rid,
+        "sync_status": row.last_sync_status or "",
+        "has_cert": bool(row.certificate_id),
+        "hosts_map_url": hosts_map_url(path_id=rid) if rid is not None else hosts_map_url(),
+        "path_map_url": path_map_url(path_id=rid) if rid is not None else path_map_url(),
+    }
+
+
+def fabric_rack_for_server(
+    session: Session, server_id: int
+) -> dict[str, Any] | None:
+    """Single-host rack for server detail — apps that land here + NPM-edge flag.
+
+    Scoped to records touching this server; does **not** build fleet SVG.
+    """
+    server = session.get(Server, int(server_id))
+    if not server or server.id is None:
+        return None
+    sid = int(server.id)
+    records = [
+        r
+        for r in list_service_records(session)
+        if int(r.backend_server_id) == sid or int(r.target_server_id) == sid
+    ]
+    servers_cache: dict[int, Server | None] = {}
+
+    def _srv(i: int | None) -> Server | None:
+        if i is None:
+            return None
+        ii = int(i)
+        if ii not in servers_cache:
+            servers_cache[ii] = session.get(Server, ii)
+        return servers_cache[ii]
+
+    apps: list[dict[str, Any]] = []
+    is_npm_edge = False
+    ingress_count = 0
+    for r in records:
+        path = build_access_path_for_record(session, r, persist_links=False)
+        via = bool(path.get("via_proxy") if path.get("via_proxy") is not None else r.via_proxy)
+        if int(r.target_server_id) == sid and via and int(r.backend_server_id) != sid:
+            is_npm_edge = True
+            ingress_count += 1
+        # Apps list = backend landings (same as Hosts map racks)
+        if int(r.backend_server_id) != sid:
+            continue
+        apps.append(
+            _service_app_chip(
+                session, r, target=_srv(r.target_server_id), path=path
+            )
+        )
+    apps.sort(key=lambda a: (a.get("fqdn") or "").lower())
+    ip = host_ip_for_dns(server)
+    return {
+        "server_id": sid,
+        "name": server.name,
+        "dns_name": normalize_fqdn(server.dns_name) or None,
+        "ip": ip or None,
+        "href": f"/servers/{sid}",
+        "apps": apps,
+        "app_count": len(apps),
+        "is_npm_edge": is_npm_edge,
+        "ingress_count": ingress_count,
+        "hosts_map_url": hosts_map_url(server_id=sid),
+        "path_map_url": path_map_url(),
+    }
+
+
+def fabric_paths_for_docker(
+    session: Session,
+    server_id: int,
+    *,
+    project: str | None = None,
+    container: str | None = None,
+) -> list[dict[str, Any]]:
+    """DNS paths for a Docker project/container on a host (deep-link helpers)."""
+    sid = int(server_id)
+    proj = (project or "").strip().lower()
+    cont = (container or "").strip().lower()
+    out: list[dict[str, Any]] = []
+    for r in list_service_records(session):
+        if int(r.backend_server_id) != sid:
+            continue
+        path = build_access_path_for_record(session, r, persist_links=False)
+        pproj = (path.get("docker_project") or r.docker_project or "").strip().lower()
+        pcont = (path.get("docker_container") or "").strip().lower()
+        if proj and pproj != proj:
+            continue
+        if cont and pcont and pcont != cont:
+            continue
+        if cont and not pcont:
+            # project-level mapping still useful for container rows
+            pass
+        rid = r.id
+        out.append(
+            {
+                "path_id": rid,
+                "fqdn": r.fqdn,
+                "project": path.get("docker_project") or r.docker_project,
+                "container": path.get("docker_container"),
+                "path_map_url": path_map_url(path_id=rid) if rid is not None else path_map_url(),
+                "hosts_map_url": hosts_map_url(path_id=rid) if rid is not None else hosts_map_url(
+                    server_id=sid
+                ),
+            }
+        )
+    out.sort(key=lambda x: (x.get("fqdn") or "").lower())
+    return out
+
+
+def fabric_index_for_server(session: Session, server_id: int) -> dict[str, Any]:
+    """Cheap Docker UI index: project name → first path + count.
+
+    Uses fields already on ``ServiceDnsRecord`` only (no access-path resolve /
+    NPM layer walk). Keys are lowercased so Compose project casing mismatches
+    still resolve. Safe for HTMX stack polls.
+    """
+    sid = int(server_id)
+    by_project: dict[str, dict[str, Any]] = {}
+    for r in list_service_records(session):
+        if int(r.backend_server_id) != sid:
+            continue
+        pproj = (getattr(r, "docker_project", None) or "").strip()
+        if not pproj:
+            continue
+        key = pproj.lower()
+        rid = r.id
+        entry = by_project.get(key)
+        if not entry:
+            by_project[key] = {
+                "path_id": rid,
+                "fqdn": r.fqdn,
+                "project": pproj,
+                "count": 1,
+                "path_map_url": path_map_url(path_id=rid) if rid is not None else path_map_url(),
+                "hosts_map_url": hosts_map_url(path_id=rid)
+                if rid is not None
+                else hosts_map_url(server_id=sid),
+            }
+        else:
+            entry["count"] = int(entry.get("count") or 1) + 1
+    return {"by_project": by_project, "hosts_map_url": hosts_map_url(server_id=sid)}
+
+
+def fabric_path_for_fqdn(session: Session, fqdn: str | None) -> dict[str, Any] | None:
+    """Match a service FQDN (or hostname from URL) to a DNS path for map links."""
+    raw = (fqdn or "").strip()
+    if not raw:
+        return None
+    # Accept bare FQDN or https://host/...
+    name = raw
+    if "://" in name:
+        try:
+            from urllib.parse import urlparse
+
+            name = urlparse(name).hostname or name
+        except Exception:
+            name = name.split("://", 1)[-1].split("/", 1)[0]
+    name = normalize_fqdn(name.split(":")[0])
+    if not name:
+        return None
+    for r in list_service_records(session):
+        if normalize_fqdn(r.fqdn) == name:
+            rid = r.id
+            return {
+                "path_id": rid,
+                "fqdn": r.fqdn,
+                "path_map_url": path_map_url(path_id=rid) if rid is not None else path_map_url(),
+                "hosts_map_url": hosts_map_url(path_id=rid)
+                if rid is not None
+                else hosts_map_url(server_id=r.backend_server_id),
+            }
+    return None
+
+
 def build_fabric_view(
     session: Session,
     *,
@@ -2027,7 +2271,7 @@ def build_fabric_view(
             )
 
     # Network map settings (LAN / gateway / public IP + optional Kuma)
-    from .app_settings import load_settings as _load_app_settings
+    from ..app_settings import load_settings as _load_app_settings
 
     _cfg = _load_app_settings()
     network_cfg = {
@@ -2055,7 +2299,7 @@ def build_fabric_view(
     )
 
     # Topology payloads are opt-in (hub needs services only).
-    mesh = _build_path_mesh(services) if include_mesh else {}
+    mesh = _mesh_logical()._build_path_mesh(services) if include_mesh else {}
     physical = (
         _build_physical_view(hosts, services, network=network_cfg)
         if include_physical
@@ -2181,8 +2425,8 @@ def _resolve_network_kuma_monitor(
     if not ext:
         return None
     try:
-        from .integrations import registry as reg
-        from .integrations import uptime_kuma as kuma
+        from ..integrations import registry as reg
+        from ..integrations import uptime_kuma as kuma
     except Exception:
         return None
 
@@ -2279,7 +2523,7 @@ def _resolve_network_kuma_monitor(
 def list_kuma_monitor_options(session: Session) -> list[dict[str, Any]]:
     """Dropdown options for network map Kuma binding (id + label)."""
     try:
-        from .integrations import registry as reg
+        from ..integrations import registry as reg
     except Exception:
         return []
     rows = reg.list_integrations(session, type_filter=reg.TYPE_UPTIME_KUMA)
@@ -2371,7 +2615,7 @@ def _build_physical_view(
         "npm_edges": [r for r in racks if r.get("is_npm_edge")],
         "empty_hosts": [r for r in racks if not r.get("apps") and r.get("dns_name")],
         "network": net,
-        "svg": _build_physical_mesh_svg(hosts, services, network=net),
+        "svg": _mesh_physical()._build_physical_mesh_svg(hosts, services, network=net),
     }
 
 
@@ -2431,685 +2675,8 @@ def _build_logical_view(services: list[dict[str, Any]]) -> dict[str, Any]:
         "flows": flows,
         "via_npm_count": sum(1 for f in flows if f.get("via_npm")),
         "direct_count": sum(1 for f in flows if not f.get("via_npm")),
-        "svg": _build_logical_mesh_svg(flows),
+        "svg": _mesh_logical()._build_logical_mesh_svg(flows),
     }
-
-
-# Soft-cap satellite app nodes per host on the physical mesh (rest on rack cards).
-PHYSICAL_MESH_MAX_APPS_PER_HOST = 6
-
-
-def _build_physical_mesh_svg(
-    hosts: list[dict[str, Any]],
-    services: list[dict[str, Any]],
-    *,
-    network: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    """Full-fleet physical SVG: Internet → gateway → LAN → hosts + apps.
-
-    Always draws the WAN/LAN spine when any fleet host exists:
-      Internet ──(wan)── Router ──(lan)── LAN hub ──(lan)── home hosts
-      Internet ──(wan)── cloud hosts (public IP / outside subnet)
-
-    Dense hosts: draw at most PHYSICAL_MESH_MAX_APPS_PER_HOST satellites, then a
-    compact "+N more" marker. Full list remains on rack cards.
-    """
-    import math
-
-    net = network or {}
-    lan_subnet = (net.get("lan_subnet") or "").strip()
-    gateway_ip = (net.get("gateway_ip") or "").strip()
-    public_ip = (net.get("public_ip") or "").strip()
-    gateway_kuma = net.get("gateway_kuma") if isinstance(net.get("gateway_kuma"), dict) else None
-    public_kuma = net.get("public_kuma") if isinstance(net.get("public_kuma"), dict) else None
-
-    named = [h for h in hosts if h.get("dns_name") or h.get("server_id")]
-    if not named and not (lan_subnet or gateway_ip or public_ip):
-        return {"width": 800, "height": 400, "nodes": [], "edges": [], "labels": []}
-
-    lan_hosts: list[dict[str, Any]] = []
-    cloud_hosts: list[dict[str, Any]] = []
-    for h in named:
-        if _host_is_cloud(h.get("ip"), lan_subnet):
-            cloud_hosts.append(h)
-        else:
-            lan_hosts.append(h)
-
-    # Always show full Internet → gateway → LAN spine when we have any hosts
-    # (or any explicit network settings). Previously only partial settings left
-    # hosts floating with no edges.
-    show_spine = bool(named or lan_subnet or gateway_ip or public_ip)
-    show_gateway = show_spine and (
-        bool(gateway_ip) or bool(lan_hosts) or bool(lan_subnet)
-    )
-    show_lan = show_spine and (bool(lan_hosts) or bool(lan_subnet))
-    show_internet = show_spine
-
-    n_lan = max(len(lan_hosts), 1)
-    n_cloud = len(cloud_hosts)
-    width = max(1000, 140 * max(n_lan, n_cloud, 4) + 220)
-    height = max(820, 90 * max(len(services), 4) + 340)
-
-    # Layout centers (top: Internet/cloud, mid: router, lower: LAN ring)
-    inet_x, inet_y = width / 2, 72
-    gw_x, gw_y = width / 2, 168
-    lan_rx, lan_ry = width * 0.38, height * 0.22
-    # Keep host ring fully below the router so no node sits on the spine link
-    lan_cx = width / 2
-    lan_cy = max(height * 0.54, gw_y + 120 + lan_ry)
-
-    infra_nodes: list[dict[str, Any]] = []
-    edges: list[dict[str, Any]] = []
-
-    if show_internet:
-        inet_href = None
-        inet_sub = public_ip or "public WAN"
-        if public_kuma and public_kuma.get("open_url"):
-            inet_href = public_kuma.get("open_url")
-        if public_kuma and public_kuma.get("state"):
-            inet_sub = f"{public_ip or 'WAN'} · {public_kuma.get('state')}"
-        infra_nodes.append(
-            {
-                "id": "infra-internet",
-                "kind": "internet",
-                "label": "Internet",
-                "sub": inet_sub[:28],
-                "x": round(inet_x, 1),
-                "y": round(inet_y, 1),
-                "href": inet_href,
-                "kuma": public_kuma,
-                "node_id": "internet",
-                "path_chain": f"Internet · {inet_sub}",
-                "open_label": "Open in Kuma" if inet_href else "",
-            }
-        )
-        if public_ip:
-            pub_href = (public_kuma or {}).get("open_url") or None
-            pub_sub = public_ip
-            if public_kuma:
-                pub_sub = f"{public_ip} · {(public_kuma.get('state') or '?')}"
-            infra_nodes.append(
-                {
-                    "id": "infra-public-ip",
-                    "kind": "public_ip",
-                    "label": "Public IP",
-                    "sub": pub_sub[:22],
-                    "x": round(inet_x + 150, 1),
-                    "y": round(inet_y + 6, 1),
-                    "href": pub_href,
-                    "kuma": public_kuma,
-                    "node_id": "public-ip",
-                    "path_chain": f"Public IP · {pub_sub}",
-                    "open_label": "Open in Kuma" if pub_href else "",
-                }
-            )
-            # Public IP badge sits next to Internet cloud
-            edges.append(
-                {
-                    "x1": inet_x + 52,
-                    "y1": inet_y,
-                    "x2": inet_x + 92,
-                    "y2": inet_y + 6,
-                    "kind": "wan",
-                    "dashed": True,
-                }
-            )
-
-    if show_gateway:
-        gw_href = (gateway_kuma or {}).get("open_url") or None
-        gw_sub = gateway_ip or "home gateway"
-        if gateway_kuma:
-            st = gateway_kuma.get("state") or "?"
-            lab = gateway_kuma.get("label") or "Kuma"
-            gw_sub = f"{gateway_ip or 'gateway'} · {st}"
-            if lab and lab != gateway_ip:
-                gw_sub = f"{gateway_ip or lab} · {st}"
-        infra_nodes.append(
-            {
-                "id": "infra-gateway",
-                "kind": "gateway",
-                "label": "Router",
-                "sub": gw_sub[:22],
-                "x": round(gw_x, 1),
-                "y": round(gw_y, 1),
-                "href": gw_href,
-                "kuma": gateway_kuma,
-                "ip": gateway_ip,
-                "node_id": "gateway",
-                "path_chain": f"Router · {gw_sub}",
-                "open_label": "Open in Kuma" if gw_href else "",
-            }
-        )
-        if show_internet:
-            # Internet → gateway (WAN uplink)
-            edges.append(
-                {
-                    "x1": inet_x,
-                    "y1": inet_y + 28,
-                    "x2": gw_x,
-                    "y2": gw_y - 24,
-                    "kind": "wan",
-                    "dashed": True,
-                }
-            )
-
-    if show_lan:
-        lan_label_sub = lan_subnet or (
-            "private network" if any(_is_private_ip(h.get("ip")) for h in lan_hosts) else "home LAN"
-        )
-        infra_nodes.append(
-            {
-                "id": "infra-lan",
-                "kind": "lan",
-                "label": "LAN",
-                "sub": lan_label_sub[:22],
-                "x": round(lan_cx, 1),
-                "y": round(lan_cy, 1),
-                "rx": round(lan_rx * 0.55, 1),
-                "ry": round(lan_ry * 0.45, 1),
-                "href": None,
-                "node_id": "lan",
-                "path_chain": f"LAN · {lan_label_sub} · {len(lan_hosts)} host(s)",
-                "open_label": "",
-            }
-        )
-        if show_gateway:
-            # Gateway → LAN
-            edges.append(
-                {
-                    "x1": gw_x,
-                    "y1": gw_y + 24,
-                    "x2": lan_cx,
-                    "y2": lan_cy - (lan_ry * 0.45),
-                    "kind": "lan",
-                    "dashed": False,
-                }
-            )
-        elif show_internet:
-            # No router configured — still show WAN attachment to LAN hub
-            edges.append(
-                {
-                    "x1": inet_x,
-                    "y1": inet_y + 28,
-                    "x2": lan_cx,
-                    "y2": lan_cy - (lan_ry * 0.45),
-                    "kind": "wan",
-                    "dashed": True,
-                }
-            )
-
-    host_nodes: list[dict[str, Any]] = []
-    host_pos: dict[int, tuple[float, float]] = {}
-
-    def _place_host(h: dict[str, Any], x: float, y: float, *, is_cloud: bool) -> None:
-        sid = int(h["server_id"])
-        host_pos[sid] = (x, y)
-        is_edge = any(
-            s.get("via_proxy") and s.get("target_server_id") == sid for s in services
-        )
-        apps_here = sum(1 for s in services if s.get("backend_server_id") == sid)
-        path_ids = [
-            s.get("id")
-            for s in services
-            if s.get("id") is not None
-            and (
-                s.get("backend_server_id") == sid
-                or (s.get("via_proxy") and s.get("target_server_id") == sid)
-            )
-        ]
-        name = h.get("name") or f"#{sid}"
-        ip = h.get("ip") or ""
-        dns = h.get("dns_name") or ""
-        role = "cloud · Internet" if is_cloud else "LAN host"
-        if is_edge:
-            role = "NPM edge · " + role
-        chain_parts = [name]
-        if ip:
-            chain_parts.append(ip)
-        if dns:
-            chain_parts.append(dns)
-        chain_parts.append(role)
-        if apps_here:
-            chain_parts.append(f"{apps_here} mapped app(s)")
-        host_nodes.append(
-            {
-                "id": f"h{sid}",
-                "kind": "host",
-                "label": name,
-                "sub": dns or ip or "",
-                "ip": ip,
-                "x": round(x, 1),
-                "y": round(y, 1),
-                "href": h.get("href"),
-                "npm_edge": is_edge,
-                "is_cloud": is_cloud,
-                "app_count": apps_here,
-                "server_id": sid,
-                "path_ids": path_ids,
-                # Always selectable even with zero mapped services
-                "node_id": f"host-{sid}",
-                "path_chain": " · ".join(chain_parts),
-                "open_label": "Open host",
-            }
-        )
-        # Always link host into topology spine
-        if is_cloud:
-            if show_internet:
-                edges.append(
-                    {
-                        "x1": x,
-                        "y1": y - 20,
-                        "x2": inet_x,
-                        "y2": inet_y + 28,
-                        "kind": "wan",
-                        "dashed": True,
-                    }
-                )
-        elif show_lan:
-            edges.append(
-                {
-                    "x1": x,
-                    "y1": y,
-                    "x2": lan_cx,
-                    "y2": lan_cy,
-                    "kind": "lan",
-                    "dashed": False,
-                }
-            )
-        elif show_gateway:
-            edges.append(
-                {
-                    "x1": x,
-                    "y1": y,
-                    "x2": gw_x,
-                    "y2": gw_y + 24,
-                    "kind": "lan",
-                    "dashed": False,
-                }
-            )
-
-    # LAN hosts on ellipse — leave a clear top gap for the Router → LAN spine
-    # so no host (e.g. first in list) sits on the vertical uplink path.
-    n_lan_h = len(lan_hosts)
-    top_gap = math.radians(75)  # empty sector facing the router
-    for i, h in enumerate(lan_hosts):
-        if n_lan_h == 1:
-            angle = math.pi / 2  # bottom of ring
-        else:
-            span = 2 * math.pi - top_gap
-            # Slot midpoints so hosts never land in the gap
-            t = (i + 0.5) / n_lan_h
-            angle = -math.pi / 2 + top_gap / 2 + span * t
-        x = lan_cx + lan_rx * math.cos(angle)
-        y = lan_cy + lan_ry * math.sin(angle)
-        _place_host(h, x, y, is_cloud=False)
-
-    # Cloud hosts to the side of Internet (public VPS / Nomad) — avoid spine x
-    for i, h in enumerate(cloud_hosts):
-        if len(cloud_hosts) == 1:
-            x, y = inet_x - 220, inet_y + 55
-        else:
-            # Alternate left/right of the Internet cloud
-            side = -1 if i % 2 == 0 else 1
-            row = i // 2
-            x = inet_x + side * (200 + row * 30)
-            y = inet_y + 50 + row * 48
-        _place_host(h, x, y, is_cloud=True)
-
-    # Apps as satellites outside their host (capped per host)
-    app_nodes: list[dict[str, Any]] = []
-    overflow_total = 0
-    by_backend: dict[int, list[dict[str, Any]]] = {}
-    for s in services:
-        bid = s.get("backend_server_id")
-        if bid is None:
-            continue
-        by_backend.setdefault(int(bid), []).append(s)
-
-    max_shown = PHYSICAL_MESH_MAX_APPS_PER_HOST
-    for bid, apps in by_backend.items():
-        hx, hy = host_pos.get(bid, (lan_cx, lan_cy))
-        # Direction away from LAN center (or map center)
-        dx, dy = hx - lan_cx, hy - lan_cy
-        dist = math.hypot(dx, dy) or 1
-        ux, uy = dx / dist, dy / dist
-        shown = apps[:max_shown]
-        hidden = apps[max_shown:]
-        n_shown = len(shown)
-        step = 42 if n_shown <= 4 else 36
-        for j, s in enumerate(shown):
-            px, py = -uy, ux
-            spread = (j - (n_shown - 1) / 2) * step
-            ax = hx + ux * 100 + px * spread
-            ay = hy + uy * 100 + py * spread
-            path_id = s.get("id")
-            app_nodes.append(
-                {
-                    "id": f"a{path_id}",
-                    "kind": "app",
-                    "label": (s.get("fqdn") or "")[:28],
-                    "sub": (
-                        s.get("docker_container")
-                        or s.get("docker_project")
-                        or s.get("path_kind")
-                        or ""
-                    )[:22],
-                    "x": round(ax, 1),
-                    "y": round(ay, 1),
-                    "href": s.get("dep_href") or s.get("backend_href"),
-                    "path_kind": s.get("path_kind"),
-                    "via_npm": s.get("via_proxy"),
-                    "path_id": path_id,
-                    "path_chain": s.get("path_chain") or s.get("fqdn"),
-                    "sync_status": s.get("last_sync_status") or "",
-                    "has_cert": bool(s.get("certificate_id") or s.get("cert_name")),
-                }
-            )
-            edges.append(
-                {
-                    "x1": ax,
-                    "y1": ay,
-                    "x2": hx,
-                    "y2": hy,
-                    "kind": "land",
-                    "dashed": False,
-                    "path_id": path_id,
-                }
-            )
-            tid = s.get("target_server_id")
-            if s.get("via_proxy") and tid and int(tid) in host_pos and int(tid) != bid:
-                tx, ty = host_pos[int(tid)]
-                edges.append(
-                    {
-                        "x1": ax,
-                        "y1": ay,
-                        "x2": tx,
-                        "y2": ty,
-                        "kind": "npm",
-                        "dashed": True,
-                        "path_id": path_id,
-                    }
-                )
-
-        if hidden:
-            overflow_total += len(hidden)
-            px, py = -uy, ux
-            spread = (n_shown / 2) * step + 28
-            mx = hx + ux * 100 + px * spread
-            my = hy + uy * 100 + py * spread
-            hidden_ids = [s.get("id") for s in hidden if s.get("id") is not None]
-            app_nodes.append(
-                {
-                    "id": f"more-{bid}",
-                    "kind": "more",
-                    "label": f"+{len(hidden)} more",
-                    "sub": "see rack card",
-                    "x": round(mx, 1),
-                    "y": round(my, 1),
-                    "href": f"/servers/{bid}",
-                    "path_ids": hidden_ids,
-                    "path_chain": f"+{len(hidden)} more apps on host (rack list)",
-                }
-            )
-            edges.append(
-                {
-                    "x1": mx,
-                    "y1": my,
-                    "x2": hx,
-                    "y2": hy,
-                    "kind": "land",
-                    "dashed": True,
-                    "path_ids": hidden_ids,
-                }
-            )
-
-    drawn_apps = sum(1 for n in app_nodes if n.get("kind") == "app")
-    return {
-        "width": int(width),
-        "height": int(height),
-        "nodes": infra_nodes + host_nodes + app_nodes,
-        "edges": edges,
-        "host_count": len(host_nodes),
-        "app_count": drawn_apps,
-        "app_total": drawn_apps + overflow_total,
-        "overflow_count": overflow_total,
-        "lan_count": len(lan_hosts),
-        "cloud_count": len(cloud_hosts),
-        "network": {
-            "lan_subnet": lan_subnet,
-            "gateway_ip": gateway_ip,
-            "public_ip": public_ip,
-            "gateway_kuma": gateway_kuma,
-            "public_kuma": public_kuma,
-        },
-    }
-
-
-def _build_logical_mesh_svg(flows: list[dict[str, Any]]) -> dict[str, Any]:
-    """Full logical mesh: URLs left, NPM hub center, destinations right."""
-    if not flows:
-        return {"width": 900, "height": 400, "nodes": [], "edges": [], "hub": None}
-
-    n = len(flows)
-    # Slightly taller rows when dense to reduce edge/label collisions
-    row_h = 56 if n > 12 else 52
-    pad_top = 70
-    width = 1000
-    height = pad_top + n * row_h + 40
-    x_url, x_hub, x_dest = 160, 500, 820
-    hub_y = pad_top + (n * row_h) / 2 - 10
-
-    nodes: list[dict[str, Any]] = []
-    edges: list[dict[str, Any]] = []
-
-    # NPM hub (only if any flow uses it)
-    has_npm = any(f.get("via_npm") for f in flows)
-    if has_npm:
-        nodes.append(
-            {
-                "id": "hub-npm",
-                "kind": "hub",
-                "label": "NPM",
-                "sub": "reverse proxy",
-                "x": x_hub,
-                "y": hub_y,
-            }
-        )
-
-    npm_path_ids: list[Any] = []
-    for i, f in enumerate(flows):
-        y = pad_top + i * row_h
-        path_id = f.get("id")
-        uid = f"u{path_id if path_id is not None else i}"
-        did = f"d{path_id if path_id is not None else i}"
-        chain = " → ".join(
-            p
-            for p in (
-                f.get("url"),
-                (f"via {f.get('npm_edge')}" if f.get("via_npm") and f.get("npm_edge") else None),
-                f.get("dest_summary") or f.get("dest_host"),
-            )
-            if p
-        )
-        nodes.append(
-            {
-                "id": uid,
-                "kind": "url",
-                "label": (f.get("url") or "")[:32],
-                "sub": "https",
-                "x": x_url,
-                "y": y,
-                "href": f.get("href"),
-                "via_npm": f.get("via_npm"),
-                "path_id": path_id,
-                "path_chain": chain,
-                "sync_status": f.get("sync_status") or "",
-                "has_cert": bool(f.get("has_cert")),
-            }
-        )
-        dest_label = f.get("dest_container") or f.get("dest_project") or f.get("dest_host") or "—"
-        dest_sub = f.get("dest_host") or ""
-        if f.get("dest_project") and f.get("dest_container"):
-            dest_sub = f"{f.get('dest_host')} · {f.get('dest_project')}"
-        nodes.append(
-            {
-                "id": did,
-                "kind": "dest",
-                "label": (dest_label or "")[:24],
-                "sub": (dest_sub or "")[:28],
-                "x": x_dest,
-                "y": y,
-                "href": f.get("dest_host_href") or f.get("href"),
-                "path_id": path_id,
-                "path_chain": chain,
-                "sync_status": f.get("sync_status") or "",
-                "has_cert": bool(f.get("has_cert")),
-            }
-        )
-        if f.get("via_npm") and has_npm:
-            if path_id is not None:
-                npm_path_ids.append(path_id)
-            edges.append(
-                {
-                    "x1": x_url + 90,
-                    "y1": y,
-                    "x2": x_hub - 50,
-                    "y2": hub_y,
-                    "kind": "to_npm",
-                    "dashed": False,
-                    "label": "",
-                    "path_id": path_id,
-                }
-            )
-            edges.append(
-                {
-                    "x1": x_hub + 50,
-                    "y1": hub_y,
-                    "x2": x_dest - 90,
-                    "y2": y,
-                    "kind": "from_npm",
-                    "dashed": True,
-                    "label": f.get("npm_edge") or "proxy",
-                    "path_id": path_id,
-                }
-            )
-        else:
-            edges.append(
-                {
-                    "x1": x_url + 90,
-                    "y1": y,
-                    "x2": x_dest - 90,
-                    "y2": y,
-                    "kind": "direct",
-                    "dashed": False,
-                    "label": "direct" if f.get("path_kind") not in ("host_identity", "host_app") else "A",
-                    "path_id": path_id,
-                }
-            )
-
-    # Tag NPM hub with all via-proxy path ids for multi-path focus
-    for n in nodes:
-        if n.get("kind") == "hub":
-            n["path_ids"] = npm_path_ids
-
-    # mid labels
-    for e in edges:
-        e["mx"] = (e["x1"] + e["x2"]) / 2
-        e["my"] = (e["y1"] + e["y2"]) / 2 - 6
-
-    return {
-        "width": width,
-        "height": int(height),
-        "nodes": nodes,
-        "edges": edges,
-        "columns": [
-            {"label": "URL / name", "x": x_url},
-            {"label": "Edge", "x": x_hub},
-            {"label": "Destination", "x": x_dest},
-        ],
-    }
-
-
-def _build_path_mesh(services: list[dict[str, Any]]) -> dict[str, Any]:
-    """One horizontal path chain per service for the mesh diagram."""
-    # Column X by hop kind
-    col_x = {
-        "name": 90,
-        "npm": 280,
-        "host": 470,
-        "service": 660,
-        "container": 850,
-    }
-    row_h = 72
-    pad_top = 48
-    n = max(len(services), 1)
-    width = 960
-    height = pad_top + n * row_h + 24
-
-    nodes: list[dict[str, Any]] = []
-    edges: list[dict[str, Any]] = []
-
-    for i, s in enumerate(services):
-        y = pad_top + i * row_h + 20
-        hops = s.get("hops") or []
-        prev_id = None
-        for hi, hop in enumerate(hops):
-            kind = hop.get("kind") or "name"
-            nid = f"s{s.get('id')}_{hi}_{kind}"
-            x = col_x.get(kind, 90 + hi * 180)
-            nodes.append(
-                {
-                    "id": nid,
-                    "kind": kind,
-                    "label": (hop.get("label") or "")[:22],
-                    "sub": (hop.get("sub") or "")[:28],
-                    "x": x,
-                    "y": y,
-                    "href": hop.get("href"),
-                    "path_kind": s.get("path_kind"),
-                    "row": i,
-                }
-            )
-            if prev_id:
-                edge_kind = "npm" if kind == "host" and hops[hi - 1].get("kind") == "npm" else kind
-                edges.append(
-                    {
-                        "from": prev_id,
-                        "to": nid,
-                        "kind": edge_kind,
-                        "label": "",
-                        "dashed": kind in ("service", "container"),
-                    }
-                )
-            prev_id = nid
-
-    by_id = {n["id"]: n for n in nodes}
-    for e in edges:
-        a = by_id.get(e["from"]) or {}
-        b = by_id.get(e["to"]) or {}
-        e["x1"] = (a.get("x") or 0) + 70
-        e["y1"] = a.get("y") or 0
-        e["x2"] = (b.get("x") or 0) - 70
-        e["y2"] = b.get("y") or 0
-        e["mx"] = (e["x1"] + e["x2"]) / 2
-        e["my"] = (e["y1"] + e["y2"]) / 2 - 4
-
-    return {
-        "width": width,
-        "height": height,
-        "nodes": nodes,
-        "edges": edges,
-        "columns": [
-            {"id": "name", "label": "Name", "x": col_x["name"]},
-            {"id": "npm", "label": "NPM edge", "x": col_x["npm"]},
-            {"id": "host", "label": "Host", "x": col_x["host"]},
-            {"id": "service", "label": "Service", "x": col_x["service"]},
-            {"id": "container", "label": "Container", "x": col_x["container"]},
-        ],
-        "mode": "paths",
-    }
-
-
 def servers_with_dns_name(session: Session) -> list[Server]:
     rows = list(session.exec(select(Server).order_by(Server.name)).all())
     return [s for s in rows if normalize_fqdn(s.dns_name)]
