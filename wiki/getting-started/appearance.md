@@ -32,13 +32,23 @@ If light mode ever looks like “one flat white screen”, borders or canvas gre
 
 ### Ops-hero UI (v0.5.0)
 
-Fleet ops pages share a compact **ops-hero**: primary orb + dual-line stats + optional type chips. Used on **Servers**, **Jobs**, **Audit**, **Notifications**, **Catalog** (Integrations / Certificates / Templates / Network), **Settings**, **Account**, and **Users**. Dashboard keeps a distinct showcase hero plus a **Network maps** entry panel.
+Fleet ops pages share a compact **ops-hero**: primary orb + dual-line stats + optional type chips. Used on **Servers**, **Jobs**, **Audit**, **Notifications**, **Catalog** (Integrations / Certificates / Templates / Network), **Settings**, **Account**, and **Users**. Dashboard keeps a distinct showcase hero plus a **Network maps** entry panel (constellation mesh).
+
+**Layout contract (all ops-heroes + dashboard hero):**
+
+| Viewport | Layout |
+|----------|--------|
+| **&lt; 768px** | Title / actions first · compact pulse strip under it |
+| **≥ 768px** | Title **left** · pulse / viz **right** (fixed grid column) |
+
+Catalog always draws the viz shell (placeholder if a detail page has no stats) so switching Integrations → Certificates → Templates → Network does not jump chrome height.
 
 ### Mobile navigation
 
 - Desktop and mobile menus share one `nav_items` / `secondary_items` source in `base.html` (no drift).  
 - The hamburger **slide-out is portaled to `body`** so fixed positioning is not trapped by page overflow (especially Network maps).  
-- **Z-index contract:** map fullscreen `100000` · menu backdrop `100090` · menu panel `100100`. Opening **☰** exits map fullscreen cleanly (label, aria, and viewport listeners).
+- **Z-index contract:** map fullscreen `100000` · menu backdrop `100090` · menu panel `100100`. Opening **☰** exits map fullscreen cleanly (label, aria, and viewport listeners).  
+- **Portrait ↔ landscape:** the app recomputes `--app-vh` / `--app-vw`, closes the drawer if open, and forces a short reflow so pages rescale without navigating away. Network maps also call `PiHerderFabric.refreshLayout` (reset map zoom, clear sticky sizes).
 
 ### Theme CSS not updating after a deploy
 

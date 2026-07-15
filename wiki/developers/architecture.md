@@ -50,13 +50,16 @@ flowchart TB
 | Metrics | `app/services/metrics.py` |
 | Bulk server actions | `app/routers/servers.py` (`POST /servers/bulk`) |
 | Theme / map / ops CSS | `app/static/css/themes.css`, `fabric.css`, `ops.css` |
-| Map client | `app/static/js/fabric-mesh.js` |
+| Map client | `app/static/js/fabric-mesh.js` (`PiHerderFabric.refreshLayout` on orient) |
+| App timezone display | `app/services/app_settings.describe_timezone` · Settings General card |
 
 ## Frontend stack
 
 - **Server-rendered** Jinja2 + HTMX fragments + Alpine for small widgets  
 - Vendored Tailwind / HTMX / Alpine (no runtime CDN)  
 - Progressive enhancement vanilla JS for Network maps, job hold, push  
+- Shared ops-hero grid contract (`ops.css`); mobile orientation reflow in `base.html`  
+
 
 ## Design principles
 

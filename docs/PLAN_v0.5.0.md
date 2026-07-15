@@ -2,7 +2,7 @@
 
 **Status:** **QA / release prep** (feature work for RC substantially complete; operator QA then freeze)  
 **Date opened:** 2026-07-12  
-**Last plan refresh:** 2026-07-15 (ops-hero UI polish; Network maps mobile nav; `dns_fabric` package + CSS split; wiki sync)  
+**Last plan refresh:** 2026-07-16 (hero layout contract; mobile orientation reflow; Network fabric refresh; dashboard NPM hosts; Settings TZ card; wiki/docs sync)  
 **Baseline:** `v0.4.0` (templates foundation + post-0.3 quality)  
 **Package version on main:** `0.5.0.dev0` (`pyproject.toml`) — bump to `0.5.0` at tag  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [SPEC.md](../SPEC.md) · Wiki: [Network maps](../wiki/integrations/dns-fabric.md)
@@ -127,7 +127,7 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 | External DNS | Checklist only (Cloudflare automation = post-0.5) | **Done** |
 | Code layout | `app/services/dns_fabric/` package (`core`, `mesh_physical`, `mesh_logical`); CSS `fabric.css` + `ops.css` | **Done** |
 | Tests / CI | `tests/test_dns_fabric.py` · `.github/workflows/test.yml` | **Done** |
-| Wiki / docs | [Network maps](../wiki/integrations/dns-fabric.md) · ADMIN · SPEC · README · ROADMAP · appearance / jobs-audit / architecture | **Done** (refreshed 2026-07-15) |
+| Wiki / docs | [Network maps](../wiki/integrations/dns-fabric.md) · ADMIN · SPEC · README · ROADMAP · appearance / jobs-audit / architecture | **Done** (refreshed 2026-07-16) |
 
 **QA smoke (operator):** set network map (LAN/gateway/public ± Kuma) → host DNS on 2+ servers → import Pi-hole → Hosts map (spine + Nomad cloud + selectable empty hosts) → Path map → mobile **View full map** / **Hide map** / Full screen then **☰** (drawer on-screen) → sync path card → host identity → external checklist · hard-refresh after deploy (`?v=` CSS/JS bust).
 
@@ -172,7 +172,10 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 | Fleet **Services** polish | Filter All/Up/Down/TLS; search; clearer empty state; Docker deep link | **Done** (2026-07-15) |
 | Repo cruft cleanup | Removed `Caddyfile.old`, `THEMING_VARIABLES.md`, `UI_UNIFICATION_PLAN.md` | **Done** |
 | **Ops-hero design system** | Dual-line pulse + compact filters on Servers, Jobs, Audit, Alerts, Catalog sections, Settings, Account, Users; shared `ops_pulse` helper | **Done** (2026-07-15) |
-| **Dashboard network showcase** | Fleet home panel → Network maps (Hosts / Path deep links) | **Done** |
+| **Hero layout contract** | Desktop: title left · viz right (≥768px grid). Mobile: compact viz strip under title. Catalog always renders viz shell | **Done** (2026-07-16) |
+| **Mobile orientation reflow** | Portrait↔landscape: close slide-out, reset scroll/zoom, recompute `--app-vh`/`--app-vw`; Network maps call `PiHerderFabric.refreshLayout` | **Done** (2026-07-16) |
+| **Dashboard network showcase** | Constellation mesh panel; **NPM hosts** = integration `proxy_host_count` (not DNS `via_proxy` alone) | **Done** (2026-07-16) |
+| **Settings timezone card** | General tab: wireframe globe + city + `UTC±offset` + local clock (not city crammed in orb) | **Done** (2026-07-16) |
 | **Audit/Jobs date presets** | 7d / 30d / 90d use **app timezone** calendar day (not browser local midnight) | **Done** |
 | **Integrations router split** | `integrations_common` + `integrations_pihole` + `integrations_npm` (thin product shells on shared router) | **Done** |
 | **Theme CSS split** | `themes.css` + `fabric.css` (maps/fullscreen) + `ops.css` (heroes/filters); network-first SW + query bust | **Done** |
@@ -214,7 +217,10 @@ Must-have:
 ### QA / freeze checklist (operator)
 
 - [ ] Network maps smoke (F.1) incl. mobile Hide map / Full screen / hamburger  
-
+- [ ] Mobile portrait ↔ landscape on Catalog (all 4 tabs) + Network hub/Hosts/Path maps (layout rescales without remount)  
+- [ ] Catalog ops-hero consistency (Integrations / Certificates / Templates / Network) desktop + phone  
+- [ ] Settings tabs: General TZ card, Fleet / Backup / Status / API hero switches client-side  
+- [ ] Dashboard: NPM hosts count matches NPM integration proxy hosts  
 - [ ] Template deploy + drift + apply last known config  
 - [ ] Pi-hole Actions → job + audit  
 - [ ] Cert list / target deploy (if used)  
@@ -248,8 +254,8 @@ git log --oneline v0.4.0..HEAD
 | B09 resolve push | Web Push when alerts auto-resolve (type prefs) |
 | Audit client IP (H) | `client_ip` on all request audits; login/token audits; Celery keeps queue IP; Alembic commit fix |
 | Pi-hole / NPM / certs | Workstream F (multi Pi-hole, NPM RO, managed certs, renew) |
-| Network maps (DNS fabric) | Host A + service mappings; adopt Pi-hole; Hosts/Path maps; LAN/cloud/Internet spine; Kuma infra; node+path focus; mobile hide/fullscreen vs hamburger |
-| Ops UI polish | ops-hero dual-line pulse across ops/catalog/access; app-TZ date presets; Network maps naming |
+| Network maps (DNS fabric) | Host A + service mappings; adopt Pi-hole; Hosts/Path maps; LAN/cloud/Internet spine; Kuma infra; node+path focus; mobile hide/fullscreen vs hamburger; orientation reflow |
+| Ops UI polish | ops-hero dual-line pulse + layout contract; app-TZ date presets; Network maps naming; Settings TZ card; dashboard constellation + NPM host count |
 | Architecture maintainability | `dns_fabric` package; fabric/ops CSS split; integrations product modules; `ops_pulse`; cheap Docker fabric index |
 | Catalog Certificates + Services UX | Certificates as Catalog tab; list maps/expiry; fleet Services filters + search |
 | A template polish | Volume editor on redeploy; from-host edges; post-redeploy links |

@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** **v0.5.0 in development** — Phase 1–5 complete; Phase 6 templates **foundation shipped** in v0.4.0; ops + polish + RC → **v0.5.0**  
-> **Last updated:** 2026-07-15 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target). Landed: **A–H** + Network maps QA polish (mobile nav, ops-hero UI, `dns_fabric` package). Still open: multi-arch image, RC freeze.
+> **Last updated:** 2026-07-16 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target). Landed: **A–H** + Network maps QA polish + hero layout contract + mobile orientation reflow + dashboard/settings UI polish. Still open: multi-arch image, RC freeze.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -25,6 +25,8 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - Default to system preference, with manual toggle.
 - Stylesheets: `themes.css` (tokens + chrome) + `fabric.css` (Network maps) + `ops.css` (ops-hero / filters) — query-busted; SW network-first for CSS/JS.
 - Ops UI: shared **ops-hero** dual-line pulse on Servers, Jobs, Audit, Alerts, Catalog, Settings, Account, Users (`app/services/ops_pulse.py`).
+- **Hero layout contract:** desktop (≥768px) title left · viz right; mobile compact viz under title. Catalog always renders a viz shell so tabs share chrome.
+- **Mobile orientation:** portrait↔landscape reflow (viewport vars, close slide-out, Network `PiHerderFabric.refreshLayout` resets map zoom/sizes).
 - Goal: Consistent branding, mobile-friendly, delightful UX.
 - A standalone test page is available at `/static/theme-test.html` for safe visual validation of the colour scheme without affecting the main application.
 
