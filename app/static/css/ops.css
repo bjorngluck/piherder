@@ -522,23 +522,151 @@ html.dark .ops-hero-status--run,
     color-mix(in srgb, var(--color-primary) 35%, var(--color-accent)) 0 100%
   );
 }
-/* Settings General: UTC offset (+02) in orb — not long city names */
-.ops-hero--settings .ops-queue-n.is-tz-offset {
-  font-size: 1.05rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  max-width: 3.5rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.05;
+
+/* ── Settings timezone identity card (General tab) ───────────────── */
+.ops-tz-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: min(100%, 15rem);
+  max-width: 22rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 14%, var(--color-surface)) 0%,
+      var(--color-surface) 55%,
+      var(--color-bg) 100%
+    );
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--color-border) 60%, transparent);
 }
-.ops-hero--settings .ops-queue-l {
-  max-width: 3.5rem;
+.ops-tz-card[data-region="AF"] { --ops-tz-accent: #16a34a; }
+.ops-tz-card[data-region="EU"] { --ops-tz-accent: #2563eb; }
+.ops-tz-card[data-region="AS"] { --ops-tz-accent: #d97706; }
+.ops-tz-card[data-region="AM"] { --ops-tz-accent: #0d9488; }
+.ops-tz-card[data-region="PC"] { --ops-tz-accent: #7c3aed; }
+.ops-tz-card[data-region="AU"] { --ops-tz-accent: #ea580c; }
+.ops-tz-card[data-region="AT"] { --ops-tz-accent: #0284c7; }
+.ops-tz-card[data-region="IO"] { --ops-tz-accent: #db2777; }
+.ops-tz-card[data-region="AQ"],
+.ops-tz-card[data-region="AR"] { --ops-tz-accent: #64748b; }
+.ops-tz-card[data-region="UTC"] { --ops-tz-accent: var(--color-primary); }
+
+.ops-tz-globe {
+  position: relative;
+  width: 3.35rem;
+  height: 3.35rem;
+  flex-shrink: 0;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 32% 28%,
+      color-mix(in srgb, #fff 35%, transparent) 0%,
+      transparent 42%),
+    radial-gradient(circle at 50% 55%,
+      color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 55%, var(--color-surface)) 0%,
+      color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 25%, var(--color-bg)) 100%);
+  border: 1px solid color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 40%, var(--color-border));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 18%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 12%, transparent);
+}
+.ops-tz-globe-svg {
+  width: 2.55rem;
+  height: 2.55rem;
+  opacity: 0.55;
+}
+.ops-tz-globe-disk {
+  fill: color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 22%, transparent);
+  stroke: color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 55%, var(--color-border));
+  stroke-width: 1.25;
+}
+.ops-tz-globe-meridian {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-text) 35%, transparent);
+  stroke-width: 1;
+}
+.ops-tz-globe-lat {
+  stroke: color-mix(in srgb, var(--color-text) 28%, transparent);
+  stroke-width: 1;
+}
+.ops-tz-region {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: var(--color-text);
+  text-shadow: 0 1px 0 color-mix(in srgb, var(--color-surface) 70%, transparent);
+  pointer-events: none;
+}
+.ops-tz-meta {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+.ops-tz-city {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--color-text);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.ops-tz-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.35rem;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  color: var(--color-muted);
+}
+.ops-tz-offset {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 650;
+  font-size: 0.8rem;
+  color: color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 75%, var(--color-text));
+  letter-spacing: -0.02em;
+}
+.ops-tz-sep { opacity: 0.55; }
+.ops-tz-local {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+}
+.ops-tz-local #settings-tz-local,
+.ops-tz-local span {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 650;
+}
+.ops-tz-iana {
+  font-size: 0.62rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--color-muted);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+  opacity: 0.9;
+}
+html.dark .ops-tz-card,
+[data-theme="dark"] .ops-tz-card {
+  background:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--ops-tz-accent, var(--color-accent)) 18%, var(--color-surface)) 0%,
+      var(--color-surface) 60%,
+      var(--color-bg) 100%
+    );
 }
 .account-hero-identity {
   display: flex;

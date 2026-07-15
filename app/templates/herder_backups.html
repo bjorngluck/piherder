@@ -46,45 +46,74 @@
       <a href="/" class="btn btn-secondary text-xs min-h-9 px-2.5">Dashboard</a>
     </div>
   </div>
-  <div class="ops-hero-viz">
-    <div class="ops-hero-orb {% if sh == 'hot' or sh == 'warn' %}ops-hero-orb--hot{% else %}ops-hero-orb--ok{% endif %}" aria-hidden="true"
+  {% set show_tz = (hero_now and hero_now.viz is defined and hero_now.viz == 'tz') or (not hero_now and tab == 'general') %}
+  {% set tzv = (hero_now.tz if hero_now and hero_now.tz is defined else none) or {} %}
+  <div class="ops-hero-viz" id="settings-hero-viz">
+    {# Timezone identity card (General tab) — city/offset/clock, not jammed into the orb #}
+    <div class="ops-tz-card{% if not show_tz %} hidden{% endif %}" id="settings-hero-tz"
+         data-region="{{ tzv.region if tzv.region is defined else 'UTC' }}"
+         title="{{ tzv.iana if tzv.iana is defined else '' }}">
+      <div class="ops-tz-globe" aria-hidden="true">
+        <svg class="ops-tz-globe-svg" viewBox="0 0 48 48" width="48" height="48" focusable="false">
+          <circle cx="24" cy="24" r="18" class="ops-tz-globe-disk"/>
+          <ellipse cx="24" cy="24" rx="7" ry="18" class="ops-tz-globe-meridian"/>
+          <path d="M6 24h36M10 15h28M10 33h28" class="ops-tz-globe-lat" fill="none"/>
+        </svg>
+        <span class="ops-tz-region" id="settings-tz-region">{{ tzv.region if tzv.region is defined else 'UTC' }}</span>
+      </div>
+      <div class="ops-tz-meta">
+        <div class="ops-tz-city" id="settings-tz-city">{{ tzv.city if tzv.city is defined else '—' }}</div>
+        <div class="ops-tz-row">
+          <span class="ops-tz-offset" id="settings-tz-offset">{{ tzv.offset_utc if tzv.offset_utc is defined else 'UTC' }}</span>
+          <span class="ops-tz-sep" aria-hidden="true">·</span>
+          <span class="ops-tz-local"><span id="settings-tz-local">{{ tzv.local if tzv.local is defined else '—' }}</span> local</span>
+        </div>
+        <div class="ops-tz-iana" id="settings-tz-iana">{{ tzv.iana if tzv.iana is defined else '' }}</div>
+      </div>
+    </div>
+
+    {# Standard numeric orb (Fleet / Backup / Status / API) #}
+    <div class="ops-hero-orb {% if sh == 'hot' or sh == 'warn' %}ops-hero-orb--hot{% else %}ops-hero-orb--ok{% endif %}{% if show_tz %} hidden{% endif %}"
+         id="settings-hero-orb" aria-hidden="true"
          title="{% if hero_now and hero_now.caption is defined %}{{ hero_now.caption }}{% elif sp.caption is defined %}{{ sp.caption }}{% endif %}">
       <div class="ops-alert-orb-core">
-        <div class="ops-queue-n{% if hero_now and hero_now.primary_cls is defined and hero_now.primary_cls %} {{ hero_now.primary_cls }}{% endif %}"
-             id="settings-hero-primary">{{ sp.primary if sp.primary is defined else '—' }}</div>
+        <div class="ops-queue-n" id="settings-hero-primary">{{ sp.primary if sp.primary is defined else '—' }}</div>
         <div class="ops-queue-l" id="settings-hero-primary-label">{{ sp.primary_label if sp.primary_label is defined else 'settings' }}</div>
       </div>
     </div>
-    {% if sp.bar %}
-    <div class="ops-bars" aria-hidden="true">
-      {% for b in sp.bar %}
-      <div class="ops-bar {{ b.cls if b.cls is defined else '' }}"
-           style="flex: {{ b.n or 0.001 }}"
-           title="{{ b.title if b.title is defined else '' }}"></div>
-      {% endfor %}
-    </div>
-    {% endif %}
-    {% if sp.line1 %}
-    <div class="ops-pulse-stats">
-      {% for s in sp.line1 %}
-      <div class="ops-pulse-stat">
-        <span class="ops-pulse-n {{ s.cls if s.cls is defined else '' }}">{{ s.n }}</span>
-        <span class="ops-pulse-l">{{ s.l }}</span>
+
+    <div id="settings-hero-stats"{% if show_tz %} class="hidden"{% endif %}>
+      {% if sp.bar %}
+      <div class="ops-bars" aria-hidden="true">
+        {% for b in sp.bar %}
+        <div class="ops-bar {{ b.cls if b.cls is defined else '' }}"
+             style="flex: {{ b.n or 0.001 }}"
+             title="{{ b.title if b.title is defined else '' }}"></div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-    {% if sp.line2 %}
-    <div class="ops-pulse-stats">
-      {% for s in sp.line2 %}
-      <div class="ops-pulse-stat">
-        <span class="ops-pulse-n {{ s.cls if s.cls is defined else '' }}">{{ s.n }}</span>
-        <span class="ops-pulse-l">{{ s.l }}</span>
+      {% endif %}
+      {% if sp.line1 %}
+      <div class="ops-pulse-stats">
+        {% for s in sp.line1 %}
+        <div class="ops-pulse-stat">
+          <span class="ops-pulse-n {{ s.cls if s.cls is defined else '' }}">{{ s.n }}</span>
+          <span class="ops-pulse-l">{{ s.l }}</span>
+        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
+      {% endif %}
+      {% if sp.line2 %}
+      <div class="ops-pulse-stats">
+        {% for s in sp.line2 %}
+        <div class="ops-pulse-stat">
+          <span class="ops-pulse-n {{ s.cls if s.cls is defined else '' }}">{{ s.n }}</span>
+          <span class="ops-pulse-l">{{ s.l }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
-    {% endif %}
-    <p class="ops-pulse-caption" id="settings-hero-caption"{% if not sp.caption %} hidden{% endif %}>{{ sp.caption or '' }}</p>
+    <p class="ops-pulse-caption" id="settings-hero-caption"{% if not sp.caption or show_tz %} hidden{% endif %}>{{ sp.caption or '' }}</p>
   </div>
 </section>
 <script type="application/json" id="settings-hero-by-tab">{{ hero_by_tab | tojson }}</script>
@@ -983,6 +1012,11 @@
     }
   } catch (e) { heroByTab = {}; }
 
+  function setHidden(el, hide) {
+    if (!el) return;
+    el.classList.toggle('hidden', !!hide);
+  }
+
   function applySettingsHero(name) {
     var meta = heroByTab[name] || heroByTab.general;
     if (!meta) return;
@@ -991,27 +1025,46 @@
     var primaryEl = document.getElementById('settings-hero-primary');
     var labelEl = document.getElementById('settings-hero-primary-label');
     var captionEl = document.getElementById('settings-hero-caption');
-    var orbEl = document.querySelector('#settings-hero .ops-hero-orb');
+    var orbEl = document.getElementById('settings-hero-orb');
+    var tzCard = document.getElementById('settings-hero-tz');
+    var statsEl = document.getElementById('settings-hero-stats');
+    var useTz = meta.viz === 'tz';
+
     if (titleEl && meta.title != null) titleEl.textContent = meta.title;
     if (subEl && meta.sub != null) subEl.textContent = meta.sub;
-    if (primaryEl && meta.primary != null) {
-      primaryEl.textContent = String(meta.primary);
-      // Tab-specific sizing (tz offset uses mono + smaller type)
-      primaryEl.classList.remove('is-tz-offset');
-      if (meta.primary_cls) {
-        String(meta.primary_cls).split(/\s+/).forEach(function (c) {
-          if (c) primaryEl.classList.add(c);
-        });
+
+    setHidden(tzCard, !useTz);
+    setHidden(orbEl, useTz);
+    setHidden(statsEl, useTz);
+
+    if (useTz && meta.tz) {
+      var t = meta.tz;
+      var regionEl = document.getElementById('settings-tz-region');
+      var cityEl = document.getElementById('settings-tz-city');
+      var offEl = document.getElementById('settings-tz-offset');
+      var localEl = document.getElementById('settings-tz-local');
+      var ianaEl = document.getElementById('settings-tz-iana');
+      if (regionEl && t.region != null) regionEl.textContent = t.region;
+      if (cityEl && t.city != null) cityEl.textContent = t.city;
+      if (offEl && t.offset_utc != null) offEl.textContent = t.offset_utc;
+      if (localEl && t.local != null) localEl.textContent = t.local;
+      if (ianaEl && t.iana != null) ianaEl.textContent = t.iana;
+      if (tzCard) {
+        if (t.region) tzCard.setAttribute('data-region', t.region);
+        if (t.iana) tzCard.setAttribute('title', t.iana);
+      }
+      if (captionEl) captionEl.setAttribute('hidden', '');
+    } else {
+      if (primaryEl && meta.primary != null) primaryEl.textContent = String(meta.primary);
+      if (labelEl && meta.primary_label != null) labelEl.textContent = meta.primary_label;
+      if (orbEl && meta.caption) orbEl.setAttribute('title', meta.caption);
+      if (captionEl) {
+        var cap = meta.caption || '';
+        captionEl.textContent = cap;
+        if (cap) captionEl.removeAttribute('hidden');
+        else captionEl.setAttribute('hidden', '');
       }
     }
-    if (labelEl && meta.primary_label != null) labelEl.textContent = meta.primary_label;
-    if (captionEl) {
-      var cap = meta.caption || '';
-      captionEl.textContent = cap;
-      if (cap) captionEl.removeAttribute('hidden');
-      else captionEl.setAttribute('hidden', '');
-    }
-    if (orbEl && meta.caption) orbEl.setAttribute('title', meta.caption);
   }
 
   function setSettingsTab(name) {
