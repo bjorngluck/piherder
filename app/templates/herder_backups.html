@@ -53,16 +53,19 @@
     <div class="ops-tz-card{% if not show_tz %} hidden{% endif %}" id="settings-hero-tz"
          data-region="{{ tzv.region if tzv.region is defined else 'UTC' }}"
          title="{{ tzv.iana if tzv.iana is defined else '' }}">
+      {# Wireframe globe only — no filled disc (reads as a black blob in dark theme) #}
       <div class="ops-tz-globe" aria-hidden="true">
-        <svg class="ops-tz-globe-svg" viewBox="0 0 48 48" width="48" height="48" focusable="false">
-          <circle cx="24" cy="24" r="18" class="ops-tz-globe-disk"/>
-          <ellipse cx="24" cy="24" rx="7" ry="18" class="ops-tz-globe-meridian"/>
-          <path d="M6 24h36M10 15h28M10 33h28" class="ops-tz-globe-lat" fill="none"/>
+        <svg class="ops-tz-globe-svg" viewBox="0 0 40 40" width="40" height="40" focusable="false">
+          <circle cx="20" cy="20" r="14.5" fill="none" class="ops-tz-globe-rim"/>
+          <ellipse cx="20" cy="20" rx="5.5" ry="14.5" fill="none" class="ops-tz-globe-line"/>
+          <path d="M6 20h28M9.5 13.5h21M9.5 26.5h21" fill="none" class="ops-tz-globe-line"/>
         </svg>
-        <span class="ops-tz-region" id="settings-tz-region">{{ tzv.region if tzv.region is defined else 'UTC' }}</span>
       </div>
       <div class="ops-tz-meta">
-        <div class="ops-tz-city" id="settings-tz-city">{{ tzv.city if tzv.city is defined else '—' }}</div>
+        <div class="ops-tz-title-row">
+          <span class="ops-tz-region" id="settings-tz-region">{{ tzv.region if tzv.region is defined else 'UTC' }}</span>
+          <span class="ops-tz-city" id="settings-tz-city">{{ tzv.city if tzv.city is defined else '—' }}</span>
+        </div>
         <div class="ops-tz-row">
           <span class="ops-tz-offset" id="settings-tz-offset">{{ tzv.offset_utc if tzv.offset_utc is defined else 'UTC' }}</span>
           <span class="ops-tz-sep" aria-hidden="true">·</span>
