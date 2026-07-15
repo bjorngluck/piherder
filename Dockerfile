@@ -1,4 +1,5 @@
 # PiHerder - python:3.12-slim-bookworm per spec
+# Dependencies are installed from the committed lockfile (reproducible RC/prod builds).
 FROM python:3.12-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -18,13 +19,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install python deps first for layer caching
-COPY pyproject.toml ./
+# Locked third-party deps first (layer cache when requirements.lock.txt is unchanged).
+# Source of truth: uv.lock → export via scripts/refresh-lockfiles.sh
+# requirements.lock.txt = runtime + [dev] (pytest) for compose / CI image parity.
+COPY requirements.lock.txt ./
 RUN pip install --upgrade pip setuptools wheel && \
-    pip install -e .[dev]
+    pip install --require-hashes -r requirements.lock.txt
 
-# Copy source
+# Project source + install without re-resolving dependencies
 COPY . .
+RUN pip install --no-deps -e .
 
 # Vendor frontend CDNs (Tailwind Play, HTMX, Alpine).
 # This step REQUIRES internet access on the build machine (or pre-vendored files

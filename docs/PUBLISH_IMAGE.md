@@ -9,6 +9,8 @@ Until an image is published, operators use:
 docker compose up -d --build
 ```
 
+**Dependency pins:** the image installs from committed `requirements.lock.txt` (`pip install --require-hashes`). Bump deps with `./scripts/refresh-lockfiles.sh` before a release build so Hub tags match the lockfile in the git tag.
+
 ---
 
 ## 1. Docker Hub account (one-time)

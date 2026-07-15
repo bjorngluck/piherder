@@ -4,14 +4,15 @@
 # Inside compose (recommended)
 docker compose run --rm --no-deps web pytest -q
 
-# Host venv
-pip install -e ".[dev]"
+# Host venv (locked — matches CI/image)
+pip install --require-hashes -r requirements.lock.txt
+pip install --no-deps -e .
 pytest -q
 ```
 
 Unit tests live under `tests/` — no live SSH required for the main suite.
 
-Examples: `test_rbac.py`, `test_api_tokens.py`, `test_service_templates.py`, `test_backup_paths.py`, `test_herder_backup.py`, `test_job_exclusive.py` (no double OS/container jobs; stack job types), `test_request_ip_audit.py` (Caddy XFF + audit `client_ip`), `test_dns_fabric.py` (paths, Hosts/Path SVG, cloud/LAN classification, spine layout, GET-safe view), `test_server_job_lock.py` (backup mutex), …
+Examples: `test_rbac.py`, `test_api_tokens.py`, `test_service_templates.py`, `test_backup_paths.py`, `test_herder_backup.py`, `test_job_exclusive.py` (no double OS/container jobs; stack job types), `test_request_ip_audit.py` (Caddy XFF + audit `client_ip`), `test_dns_fabric.py` (paths, Hosts/Path SVG, cloud/LAN classification, spine layout, GET-safe view), `test_jwt_tokens.py` (PyJWT HS256), `test_server_job_lock.py` (backup mutex), …
 
 ```bash
 # Network maps only
@@ -20,10 +21,10 @@ docker compose exec -T web python -m pytest tests/test_dns_fabric.py -q
 
 ## CI
 
-GitHub Actions runs unit tests on push/PR to `main` when app, tests, migrations, or `pyproject.toml` change:
+GitHub Actions runs unit tests on push/PR to `main` when app, tests, migrations, lockfiles, or `pyproject.toml` change:
 
 - Workflow: [`.github/workflows/test.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/test.yml)
-- `pip install -e ".[dev]"` + `pytest -q` on Python 3.12
+- `pip install --require-hashes -r requirements.lock.txt` + `pip install --no-deps -e .` + `pytest -q` on Python 3.12
 
 Docs site builds separately via [`.github/workflows/docs.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/docs.yml).
 

@@ -195,8 +195,11 @@ Silent auto-upgrade is never the default: apply schedules are opt-in and prefer 
 ## Development
 
 ```bash
-# Local python (after docker db or sqlite for quick dev)
-pip install -e ".[dev]"
+# Local python — prefer locked deps (same as Docker/CI)
+pip install --require-hashes -r requirements.lock.txt
+pip install --no-deps -e .
+# Or with uv: uv sync --frozen --extra dev
+# Refresh pins after dependency changes: ./scripts/refresh-lockfiles.sh
 uvicorn app.main:app --reload
 ```
 
@@ -210,7 +213,7 @@ alembic upgrade head
 Unit tests (no live SSH required):
 ```bash
 docker compose run --rm --no-deps web pytest -q
-# or locally with: pip install -e '.[dev]' && pytest -q
+# or locally with locked deps: pip install --require-hashes -r requirements.lock.txt && pip install --no-deps -e . && pytest -q
 ```
 
 ## Volumes

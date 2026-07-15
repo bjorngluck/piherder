@@ -47,10 +47,23 @@ Feature requests are welcome; acceptance depends on roadmap fit ([SPEC.md](SPEC.
 5. Expect review comments; maintainers may edit or rework before merge.  
 6. Do not expect merge without maintainer approval.
 
+### Dependencies
+
+Third-party versions are **locked** for reproducible RC/prod builds:
+
+| File | Role |
+|------|------|
+| `pyproject.toml` | Declared mins / ranges |
+| `uv.lock` | Full resolver lock (source of truth) |
+| `requirements.lock.txt` | Pip pins + hashes (runtime + dev) — used by Docker & CI |
+| `requirements.runtime.lock.txt` | Runtime-only pins (lean image option) |
+
+After changing dependencies: run `./scripts/refresh-lockfiles.sh` (needs [uv](https://docs.astral.sh/uv/)) and commit **all** updated lock files. See [SECURITY.md](SECURITY.md) (Dependencies & supply chain).
+
 ### What we look for
 
 - Fits project scope and design principles (auditable actions, secrets model, Compose-first)  
-- No drive-by dependency or license changes without discussion  
+- No drive-by dependency or license changes without discussion; lockfiles updated when deps change  
 - Tests for non-trivial behavior when practical  
 - Docs updated when user-facing behavior changes  
 
