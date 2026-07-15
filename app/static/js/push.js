@@ -127,10 +127,18 @@
     iosInstallRequired: iosInstallRequired,
   };
 
-  // Always try to register SW for installability (even without push config)
+  // Always try to register SW for installability (even without push config).
+  // Call update() so a new sw.js (cache strategy / shell version) activates promptly.
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
-      navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(function () {});
+      navigator.serviceWorker
+        .register("/sw.js", { scope: "/" })
+        .then(function (reg) {
+          try {
+            reg.update();
+          } catch (e) {}
+        })
+        .catch(function () {});
     });
   }
 

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% with catalog_section='dns' %}
+{% with catalog_section='dns', catalog_pulse=catalog_pulse %}
 {% include "partials/catalog_nav.html" %}
 {% endwith %}
 
@@ -15,7 +15,7 @@
       <div class="flex flex-wrap gap-2 text-xs mb-1">
         <a href="/dns" class="text-accent hover:underline">← Network</a>
         <span class="text-muted">·</span>
-        <a href="/dns/physical{% if focus_id %}?focus={{ focus_id }}{% endif %}" class="text-accent hover:underline">Hosts map</a>
+        <a href="/dns/physical{% if focus_id %}?focus={{ focus_id }}{% endif %}#map" class="text-accent hover:underline">Hosts map</a>
       </div>
       <h1 class="text-2xl font-semibold tracking-tight">Path map</h1>
       <p class="text-sm text-muted mt-1 max-w-2xl">
@@ -25,7 +25,7 @@
       </p>
     </div>
     <div class="flex flex-wrap gap-2 items-center text-xs text-muted">
-      <span>{{ logi.via_npm_count or 0 }} via NPM · {{ logi.direct_count or 0 }} direct / identity</span>
+      <span>{{ logi.via_npm_count or 0 }} via NPM · {{ logi.direct_count or 0 }} direct</span>
       <button type="button" class="btn btn-secondary text-xs min-h-9 px-2 hidden" data-fabric-clear-focus>Clear focus</button>
     </div>
   </div>
@@ -58,7 +58,7 @@
   {# Mobile: flow list first #}
   {% if logi.flows %}
   <div class="fabric-mesh-priority-list mb-5">
-    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
       <p class="text-xs text-muted m-0">One row per URL — tap to focus the route.</p>
       <button type="button"
               class="btn btn-secondary text-sm min-h-11 md:hidden"
@@ -66,6 +66,35 @@
               aria-expanded="false">
         View full map
       </button>
+    </div>
+    {# Flow-list legend — row tint + status dots only #}
+    <div class="fabric-legend-bar fabric-legend-bar--cards mb-3" aria-label="Path list key">
+      <span class="fabric-legend-bar-label">List</span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--flow-npm" aria-hidden="true"></span>
+        via NPM
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--flow-direct" aria-hidden="true"></span>
+        direct / identity
+      </span>
+      <span class="fabric-legend-sep" aria-hidden="true"></span>
+      <span class="fabric-legend-item">
+        <span class="fabric-status-dot fabric-status-dot--ok" aria-hidden="true"></span>
+        synced
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-status-dot fabric-status-dot--partial" aria-hidden="true"></span>
+        partial
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-status-dot fabric-status-dot--error" aria-hidden="true"></span>
+        error
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-status-dot fabric-status-dot--cert" aria-hidden="true"></span>
+        TLS cert
+      </span>
     </div>
     <div class="fabric-flow-list">
       {% for f in logi.flows %}
@@ -115,18 +144,57 @@
   </div>
   {% endif %}
 
-  <div class="card p-3 mb-5 overflow-hidden fabric-mesh-priority-graph" data-fabric-graph>
+  <div id="map" class="card p-3 mb-5 overflow-hidden fabric-mesh-priority-graph" data-fabric-graph>
     <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-      <div class="flex flex-wrap items-center gap-2 md:hidden">
-        <span class="text-xs font-medium text-text">Full map</span>
-        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2" data-fabric-close-graph>Hide map</button>
-      </div>
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-9 px-2.5 md:hidden"
+              data-fabric-close-graph
+              title="Hide map and return to list">Hide map</button>
       <div class="fabric-mesh-zoom-bar ml-auto" role="group" aria-label="Zoom map">
         <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-out title="Zoom out" aria-label="Zoom out">−</button>
         <span class="fabric-mesh-zoom-label font-mono text-center" data-fabric-zoom-label>100%</span>
         <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-in title="Zoom in" aria-label="Zoom in">+</button>
         <button type="button" class="btn btn-secondary text-xs min-h-9 px-2" data-fabric-zoom-reset title="Reset zoom">1:1</button>
+        <button type="button"
+                class="btn btn-secondary text-xs min-h-9 px-2"
+                data-fabric-fullscreen
+                aria-pressed="false"
+                title="Expand map to full screen">Full screen</button>
       </div>
+    </div>
+    {# Map-only legend for path graph #}
+    <div class="fabric-legend-bar fabric-legend-bar--map mb-2" aria-label="Path map key">
+      <span class="fabric-legend-bar-label">Map</span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--url-box" aria-hidden="true"></span>
+        URL / name
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--hub" aria-hidden="true"></span>
+        NPM hub
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--host-box" aria-hidden="true"></span>
+        destination
+      </span>
+      <span class="fabric-legend-sep" aria-hidden="true"></span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--line-land" aria-hidden="true"></span>
+        solid = direct
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--line-npm" aria-hidden="true"></span>
+        amber = via NPM
+      </span>
+      <span class="fabric-legend-sep" aria-hidden="true"></span>
+      <span class="fabric-legend-item">
+        <span class="fabric-status-dot fabric-status-dot--ok" aria-hidden="true"></span>
+        synced
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-status-dot fabric-status-dot--cert" aria-hidden="true"></span>
+        TLS
+      </span>
     </div>
     {% if svg.nodes %}
     <div class="fabric-mesh-scroll">
@@ -140,11 +208,15 @@
                aria-label="Path map"
                data-fabric-mesh="logical">
             <defs>
-              <marker id="ml-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
-                <path d="M0,0 L10,5 L0,10 z" fill="var(--color-accent, #00a651)"/>
+              <marker id="ml-arr" class="fabric-mesh-marker fabric-mesh-marker--direct"
+                      viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5"
+                      orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L10,5 L0,10 z" fill="context-stroke" class="fabric-mesh-marker-path fabric-mesh-marker-path--direct"/>
               </marker>
-              <marker id="ml-npm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto">
-                <path d="M0,0 L10,5 L0,10 z" fill="var(--color-warning, #d97706)"/>
+              <marker id="ml-npm" class="fabric-mesh-marker fabric-mesh-marker--npm"
+                      viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5"
+                      orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L10,5 L0,10 z" fill="context-stroke" class="fabric-mesh-marker-path fabric-mesh-marker-path--npm"/>
               </marker>
               <linearGradient id="g-npm" x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0%" stop-color="var(--color-warning, #d97706)" stop-opacity="0.25"/>
@@ -233,5 +305,5 @@
   </div>
 </div>
 
-<script src="/static/js/fabric-mesh.js" defer></script>
+<script src="/static/js/fabric-mesh.js?v=20260715-p0p2" defer></script>
 {% endblock %}

@@ -77,6 +77,38 @@ async def certificates_list(
         elif d.get("expiring_soon"):
             expiring += 1
         items.append(d)
+    ok_certs = max(0, len(items) - expiring - expired)
+    catalog_pulse = {
+        "health": "hot" if expired else ("warn" if expiring else "ok"),
+        "primary": len(items),
+        "primary_label": "certs",
+        "bar": [
+            {"n": ok_certs or 0.001, "cls": "ops-bar--ok", "title": f"{ok_certs} ok"},
+            {"n": expiring or 0.001, "color": "var(--color-warning, #d97706)", "title": f"{expiring} expiring"},
+            {"n": expired or 0.001, "cls": "ops-bar--fail", "title": f"{expired} expired"},
+        ]
+        if items
+        else [{"n": 1, "cls": "ops-bar--mute"}],
+        "line1": [
+            {"n": len(items), "l": "total", "cls": "text-accent"},
+            {"n": expiring, "l": "expiring", "cls": "text-warning" if expiring else ""},
+            {"n": expired, "l": "expired", "cls": "text-danger" if expired else ""},
+            {"n": ok_certs, "l": "ok", "cls": ""},
+        ],
+        "line2": [
+            {
+                "n": sum(1 for d in items if (d.get("target_count") or 0) > 0),
+                "l": "mapped",
+                "cls": "",
+            },
+            {
+                "n": sum(1 for d in items if not (d.get("target_count") or 0)),
+                "l": "unmapped",
+                "cls": "",
+            },
+        ],
+        "caption": "Vault health · consumer maps",
+    }
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="certificates_list.html",
@@ -87,6 +119,7 @@ async def certificates_list(
             "cert_count": len(items),
             "expiring_count": expiring,
             "expired_count": expired,
+            "catalog_pulse": catalog_pulse,
             "can_mutate": _can_mutate(user),
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or "",

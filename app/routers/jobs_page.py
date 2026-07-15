@@ -14,7 +14,7 @@ from ..database import get_session
 from ..models import Job, Server, User
 from ..security.auth import get_current_user
 from ..services import jobs as job_service
-from ..services.app_settings import format_datetime_in_app_tz
+from ..services.app_settings import calendar_today_in_app_tz, format_datetime_in_app_tz
 
 router = APIRouter()
 
@@ -68,6 +68,19 @@ async def jobs_page(
     total = 0
     distinct_types: list = []
     distinct_statuses = ["pending", "running", "success", "failed", "cancelled"]
+    pulse: dict = {
+        "running": 0,
+        "pending": 0,
+        "success": 0,
+        "failed": 0,
+        "cancelled": 0,
+        "sample": 0,
+        "active": 0,
+        "by_type": [],
+        "avg_queue_s": None,
+        "avg_queue_label": "—",
+        "queue_samples": 0,
+    }
     sid: int | None = None
     only_active = active_only in ("1", "on", "true", "yes")
     per_page = _clamp_per_page(per_page)
@@ -116,6 +129,57 @@ async def jobs_page(
             )
             recent = s.exec(select(Job).order_by(Job.created_at.desc()).limit(200)).all()
             distinct_types = sorted({j.job_type for j in recent if j.job_type})
+            pulse = {
+                "running": 0,
+                "pending": 0,
+                "success": 0,
+                "failed": 0,
+                "cancelled": 0,
+                "sample": len(recent),
+                "active": active_count,
+                "by_type": [],
+                "avg_queue_s": None,
+                "avg_queue_label": "—",
+                "queue_samples": 0,
+            }
+            type_counts: dict[str, int] = {}
+            queue_secs: list[float] = []
+            for j in recent:
+                st = (j.status or "").lower()
+                if st in pulse:
+                    pulse[st] += 1
+                jt = (j.job_type or "other").strip() or "other"
+                type_counts[jt] = type_counts.get(jt, 0) + 1
+                # Queue wait = start − create (only when both known)
+                if j.started_at and j.created_at:
+                    try:
+                        delta = (j.started_at - j.created_at).total_seconds()
+                        if delta >= 0:
+                            queue_secs.append(float(delta))
+                    except Exception:
+                        pass
+            ranked_t = sorted(type_counts.items(), key=lambda kv: (-kv[1], kv[0]))
+            max_t = ranked_t[0][1] if ranked_t else 1
+            pulse["by_type"] = [
+                {
+                    "id": jt,
+                    "label": job_service.job_type_label(jt),
+                    "count": n,
+                    "pct": round(100.0 * n / max(1, len(recent)), 1),
+                    "bar": round(100.0 * n / max(1, max_t), 1),
+                }
+                for jt, n in ranked_t[:10]
+            ]
+            if queue_secs:
+                avg = sum(queue_secs) / len(queue_secs)
+                pulse["avg_queue_s"] = round(avg, 1)
+                pulse["queue_samples"] = len(queue_secs)
+                if avg < 60:
+                    pulse["avg_queue_label"] = f"{avg:.0f}s"
+                elif avg < 3600:
+                    pulse["avg_queue_label"] = f"{avg / 60:.1f}m"
+                else:
+                    pulse["avg_queue_label"] = f"{avg / 3600:.1f}h"
             for j in jobs:
                 d = job_service.job_public_dict(j, detail=True)
                 d["server_name"] = name_map.get(j.server_id) if j.server_id else None
@@ -149,6 +213,7 @@ async def jobs_page(
             "active_only": only_active,
             "date_from": date_from or "",
             "date_to": date_to or "",
+            "app_date_today": calendar_today_in_app_tz(),
             "active_count": active_count,
             "job_types": distinct_types,
             "statuses": distinct_statuses,
@@ -158,6 +223,7 @@ async def jobs_page(
             "per_page_choices": list(PER_PAGE_CHOICES),
             "total": total,
             "total_pages": total_pages,
+            "pulse": pulse,
         },
     )
 

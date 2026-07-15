@@ -1,88 +1,158 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header mb-6">
-  <div>
-    <h1 class="text-3xl font-semibold tracking-tighter text-text">Jobs</h1>
-    <p class="text-sm text-muted mt-1">
-      Task queue &amp; history · times in {{ get_app_timezone() }} ·
-      {% if active_count %}{{ active_count }} active{% else %}none active{% endif %}
+{% set p = pulse or {} %}
+{% set p_run = p.running or 0 %}
+{% set p_pend = p.pending or 0 %}
+{% set p_ok = p.success or 0 %}
+{% set p_fail = p.failed or 0 %}
+{% set p_can = p.cancelled or 0 %}
+{% set p_act = p.active if p.active is defined else (active_count or 0) %}
+{% set p_sample = p.sample or 0 %}
+{% set p_tot = p_run + p_pend + p_ok + p_fail + p_can %}
+{% set health = 'busy' if p_act else ('hot' if p_fail else 'ok') %}
+
+<section class="ops-hero ops-hero--jobs is-{{ health }} mb-4">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker">Operations</div>
+    <h1 class="ops-hero-title">Jobs</h1>
+    <p class="ops-hero-sub">
+      Queue &amp; history · {{ get_app_timezone() }}
+      · {% if p_act %}<span class="ops-hero-status ops-hero-status--run">{{ p_act }} active</span>{% else %}<span class="ops-hero-status ops-hero-status--ok">idle</span>{% endif %}
       · {{ total or 0 }} match{% if total != 1 %}es{% endif %}
     </p>
+    <div class="ops-hero-actions">
+      <a href="/jobs?active_only=1" class="btn btn-accent text-xs min-h-9 px-2.5">Active only</a>
+      <a href="/audit" class="btn btn-secondary text-xs min-h-9 px-2.5">Audit</a>
+      <a href="/servers" class="btn btn-secondary text-xs min-h-9 px-2.5">Servers</a>
+    </div>
   </div>
-  <div class="page-header-actions">
-    <a href="/audit" class="btn btn-secondary min-h-11 text-sm">Audit log</a>
+  <div class="ops-hero-viz">
+    <div class="ops-queue-ring {% if p_act %}is-active{% endif %}" aria-hidden="true">
+      <div class="ops-queue-core">
+        <div class="ops-queue-n">{{ p_act }}</div>
+        <div class="ops-queue-l">active</div>
+      </div>
+    </div>
+    {# Line 1 — status #}
+    <div class="ops-bars" aria-hidden="true">
+      {% if p_tot %}
+      <div class="ops-bar ops-bar--run" style="flex: {{ (p_run + p_pend) or 0.001 }}"></div>
+      <div class="ops-bar ops-bar--ok" style="flex: {{ p_ok or 0.001 }}"></div>
+      <div class="ops-bar ops-bar--fail" style="flex: {{ p_fail or 0.001 }}"></div>
+      <div class="ops-bar ops-bar--mute" style="flex: {{ p_can or 0.001 }}"></div>
+      {% else %}
+      <div class="ops-bar ops-bar--mute" style="flex: 1"></div>
+      {% endif %}
+    </div>
+    <div class="ops-pulse-stats">
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-info">{{ p_run }}</span><span class="ops-pulse-l">run</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ p_pend }}</span><span class="ops-pulse-l">queue</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-accent">{{ p_ok }}</span><span class="ops-pulse-l">ok</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n {% if p_fail %}text-danger{% endif %}">{{ p_fail }}</span><span class="ops-pulse-l">fail</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ p.avg_queue_label or '—' }}</span><span class="ops-pulse-l">avg wait</span></div>
+    </div>
+    {# Line 2 — job types #}
+    {% if p.by_type %}
+    <div class="ops-mini-types" aria-label="Top job types">
+      {% for row in p.by_type[:5] %}
+      <a href="/jobs?job_type={{ row.id }}{% if active_only %}&active_only=1{% endif %}"
+         class="ops-mini-type ops-mini-type--jobs {% if job_type == row.id %}is-active{% endif %}"
+         title="{{ row.label }} · {{ row.count }} ({{ row.pct }}%)">
+        <span class="ops-mini-type-n">{{ row.count }}</span>
+        <span class="ops-mini-type-l">{{ row.label }}</span>
+        <span class="ops-mini-type-bar" aria-hidden="true"><span style="width: {{ row.bar }}%"></span></span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <p class="ops-pulse-caption">
+      Status · types · last {{ p_sample }}
+      {% if p.queue_samples %} · wait n={{ p.queue_samples }}{% endif %}
+    </p>
   </div>
-</div>
+</section>
 
 {% if request.query_params.get('cancelled') %}
-<div class="card p-3 mb-4 border border-border text-sm text-accent">
+<div class="card p-2 mb-3 border border-border text-sm text-accent">
   Job #{{ request.query_params.get('cancelled') }} cancelled.
 </div>
 {% elif request.query_params.get('error') == 'cancel' %}
-<div class="card p-3 mb-4 border border-border text-sm text-danger">
+<div class="card p-2 mb-3 border border-border text-sm text-danger">
   Could not cancel job{% if request.query_params.get('msg') %}: {{ request.query_params.get('msg') }}{% endif %}.
 </div>
 {% endif %}
 
-<form method="get" class="card p-4 mb-4" id="jobs-filter-form">
-  <div class="audit-filters-primary">
-    <select name="server_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11 sm:w-auto">
+<form method="get" class="card ops-filters mb-4" id="jobs-filter-form">
+  <div class="ops-filters-row">
+    <select name="server_id" class="ops-f-control" aria-label="Server">
       <option value="">All servers</option>
       {% for srv in (servers or []) %}
       <option value="{{ srv.id }}" {% if server_id and server_id|string == srv.id|string %}selected{% endif %}>{{ srv.name }}</option>
       {% endfor %}
     </select>
-    <select name="status" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11 sm:w-auto" {% if active_only %}disabled{% endif %}>
+    <select name="status" class="ops-f-control" aria-label="Status" {% if active_only %}disabled{% endif %}>
       <option value="">All statuses</option>
       {% for st in (statuses or []) %}
       <option value="{{ st }}" {% if status and status == st %}selected{% endif %}>{{ st }}</option>
       {% endfor %}
     </select>
-    <select name="job_type" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11 sm:w-auto">
+    <select name="job_type" class="ops-f-control" aria-label="Job type">
       <option value="">All types</option>
       {% for jt in (job_types or []) %}
       <option value="{{ jt }}" {% if job_type and job_type == jt %}selected{% endif %}>{{ type_labels.get(jt, jt) if type_labels else jt }}</option>
       {% endfor %}
     </select>
+    <select name="per_page" class="ops-f-control ops-f-narrow" aria-label="Per page">
+      {% for n in per_page_choices or [10, 20, 50] %}
+      <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/pg</option>
+      {% endfor %}
+    </select>
   </div>
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-    <div>
-      <label class="block text-xs text-muted mb-1">From</label>
-      <input type="date" name="date_from" value="{{ date_from or '' }}" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
+  {% set more_open = date_from or date_to %}
+  <details class="ops-filters-more" {% if more_open %}open{% endif %}>
+    <summary>Date range</summary>
+    <div class="ops-date-range" role="group" aria-label="Date range">
+      <label class="ops-f-field">
+        <span class="ops-f-label">From</span>
+        <input type="date" name="date_from" value="{{ date_from or '' }}" class="ops-f-control ops-f-date"
+               autocomplete="off">
+      </label>
+      <span class="ops-date-range-sep" aria-hidden="true">→</span>
+      <label class="ops-f-field">
+        <span class="ops-f-label">To</span>
+        <input type="date" name="date_to" value="{{ date_to or '' }}" class="ops-f-control ops-f-date"
+               autocomplete="off">
+      </label>
+      <div class="ops-date-presets" aria-label="Quick ranges"
+           data-app-today="{{ app_date_today or '' }}"
+           title="Ranges use app timezone ({{ get_app_timezone() }})">
+        <button type="button" class="ops-date-preset" data-date-preset="7">7d</button>
+        <button type="button" class="ops-date-preset" data-date-preset="30">30d</button>
+        <button type="button" class="ops-date-preset" data-date-preset="90">90d</button>
+        <button type="button" class="ops-date-preset" data-date-preset="clear">Clear</button>
+      </div>
     </div>
-    <div>
-      <label class="block text-xs text-muted mb-1">To</label>
-      <input type="date" name="date_to" value="{{ date_to or '' }}" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
-    </div>
-    <div>
-      <label class="block text-xs text-muted mb-1">Per page</label>
-      <select name="per_page" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
-        {% for n in per_page_choices or [10, 20, 50] %}
-        <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}</option>
-        {% endfor %}
-      </select>
-    </div>
-  </div>
-  <div class="flex flex-wrap items-center justify-between gap-3 mt-3 pt-3 border-t border-border">
-    <label class="flex items-center gap-2 text-xs text-muted min-h-11">
+  </details>
+  <div class="ops-filters-foot">
+    <label class="ops-f-check">
       <input type="checkbox" name="active_only" value="1" {% if active_only %}checked{% endif %}>
-      Active only (running / queued)
+      Active only
     </label>
-    <div class="flex flex-wrap gap-2">
+    <div class="ops-f-actions">
       {% if server_id or status or job_type or active_only or date_from or date_to %}
-      <a href="/jobs" class="btn btn-secondary min-h-11 text-sm">Clear</a>
+      <a href="/jobs" class="btn btn-secondary text-xs min-h-9 px-2.5">Clear</a>
       {% endif %}
-      <button type="submit" class="btn btn-accent min-h-11 text-sm">Apply</button>
+      <button type="submit" class="btn btn-accent text-xs min-h-9 px-3">Apply</button>
     </div>
   </div>
 </form>
 
 {% if jobs %}
-<div class="audit-feed" role="list">
+<div class="audit-feed ops-feed" role="list">
   {% for j in jobs %}
   {% set sd = j.status %}
-  <div class="audit-event relative"
+  <div class="audit-event ops-event status-{{ sd }} relative"
        role="listitem"
        title="Click for job details">
     <button type="button"
@@ -305,5 +375,51 @@ document.addEventListener('click', function (e) {
   var label = btn.getAttribute('data-job-label') || ('Job #' + id);
   if (id) cancelJobById(id, label);
 }, true);
+
+// Date range presets (7d / 30d / 90d / clear) — calendar math from app TZ "today"
+(function () {
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function ymdFromParts(y, m, d) { return y + '-' + pad2(m) + '-' + pad2(d); }
+  function parseYmd(s) {
+    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+    var p = s.split('-').map(function (x) { return parseInt(x, 10); });
+    return { y: p[0], m: p[1], d: p[2] };
+  }
+  function addDaysYmd(parts, delta) {
+    var dt = new Date(Date.UTC(parts.y, parts.m - 1, parts.d, 12, 0, 0));
+    dt.setUTCDate(dt.getUTCDate() + delta);
+    return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+  }
+  function appTodayParts(el) {
+    var wrap = el.closest('[data-app-today]') || document.querySelector('[data-app-today]');
+    var s = wrap ? (wrap.getAttribute('data-app-today') || '') : '';
+    var p = parseYmd(s);
+    if (p) return p;
+    var now = new Date();
+    return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
+  }
+  document.querySelectorAll('[data-date-preset]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var form = btn.closest('form');
+      if (!form) return;
+      var from = form.querySelector('input[name="date_from"]');
+      var to = form.querySelector('input[name="date_to"]');
+      if (!from || !to) return;
+      var preset = btn.getAttribute('data-date-preset');
+      if (preset === 'clear') {
+        from.value = '';
+        to.value = '';
+        return;
+      }
+      var days = parseInt(preset, 10);
+      if (!days) return;
+      var end = appTodayParts(btn);
+      var start = addDaysYmd(end, -(days - 1));
+      from.value = ymdFromParts(start.y, start.m, start.d);
+      to.value = ymdFromParts(end.y, end.m, end.d);
+    });
+  });
+})();
 </script>
 {% endblock %}
+

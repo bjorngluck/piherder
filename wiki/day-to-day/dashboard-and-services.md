@@ -13,9 +13,10 @@ After login, **Dashboard** is the home page: fleet health at a glance.
 | **Open alerts** | Inbox count → [Notifications](jobs-audit-notifications.md) (bell) |
 | OS / container summary cards | Aggregate package/image update counts |
 | **Needs attention** table | Only hosts that need work; Open / Docker shortcuts |
+| **Network maps** panel | Named hosts / paths pulse → Catalog **Network**, Hosts map, Path map ([Network maps](../integrations/dns-fabric.md)) |
 | **Quick links** | Servers, notifications, audit, Settings, Pi-hole, Certificates, Catalog |
 
-Status comes from **last check jobs** (and related caches) — not a continuous SSH poll on every open.
+Status comes from **last check jobs** (and related caches) — not a continuous SSH poll on every open. The Network maps panel uses a **cheap pulse** (counts only), not a full SVG build.
 
 ## Fleet Services (`/services`)
 

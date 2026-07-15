@@ -1,6 +1,6 @@
 /**
- * DNS fabric mesh: path focus, mobile graph toggle, filters,
- * pinch/wheel zoom + drag pan, copy path.
+ * DNS fabric mesh: path focus, mobile graph toggle, map full-screen,
+ * filters, pinch/wheel zoom + drag pan, copy path.
  * No external deps — works with server-rendered SVG + list markup.
  */
 (function () {
@@ -14,6 +14,18 @@
     }
     var one = el.getAttribute('data-path-id');
     return one ? [String(one)] : [];
+  }
+
+  function npmPathIdsFromEl(el) {
+    if (!el) return [];
+    var multi = el.getAttribute('data-npm-path-ids');
+    if (!multi) return [];
+    return multi.split(/[\s,]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
+  function parseIdList(attr) {
+    if (!attr) return [];
+    return String(attr).split(/[\s,]+/).map(function (s) { return s.trim(); }).filter(Boolean);
   }
 
   function nodeIdFromEl(el) {
@@ -50,16 +62,215 @@
     return elMatchesPath(el, want);
   }
 
+  /**
+   * Host focus is role-aware for service edges:
+   *  - land edge only for services this host *backends*
+   *  - npm dashed only for services this host *NPM-edges*
+   * Never light the far-side host / the other edge type for that service.
+   */
+  function elMatchesActiveSet(el, active) {
+    if (!el || !active) return false;
+    var nodes = active.nodes || {};
+    var paths = active.paths || {};
+    var backendPaths = active.backendPaths || {};
+    var npmPaths = active.npmPaths || {};
+    var hostNid = active.hostNid || '';
+    var mode = active.mode || 'path';
+
+    if (el.classList && el.classList.contains('fabric-mesh-edge')) {
+      var edgePaths = pathIdsFromEl(el);
+      var fn = (el.getAttribute('data-from-node') || '').trim();
+      var tn = (el.getAttribute('data-to-node') || '').trim();
+      var isLand = el.classList.contains('fabric-mesh-edge--land');
+      var isNpm = el.classList.contains('fabric-mesh-edge--npm');
+
+      if (mode === 'host' && hostNid) {
+        // Pure topology (host ↔ LAN / Internet) — no path id
+        if (!edgePaths.length && fn && tn &&
+            nodes[nodeFocusKey(fn)] && nodes[nodeFocusKey(tn)]) {
+          return true;
+        }
+        for (var i = 0; i < edgePaths.length; i++) {
+          var ep = String(edgePaths[i]);
+          // Backend service: only land edge touching this host
+          if (isLand && backendPaths[ep] && (tn === hostNid || fn === hostNid)) {
+            return true;
+          }
+          // NPM-edge service: only dashed npm edge touching this host
+          if (isNpm && npmPaths[ep] && (tn === hostNid || fn === hostNid)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      // Path / app focus: any edge for that path (land + npm)
+      for (var j = 0; j < edgePaths.length; j++) {
+        if (paths[String(edgePaths[j])]) return true;
+      }
+      if (fn && tn && nodes[nodeFocusKey(fn)] && nodes[nodeFocusKey(tn)] && !edgePaths.length) {
+        return true;
+      }
+      return false;
+    }
+
+    // Host / infra / any node-id: ONLY explicit membership in the node set.
+    // Never match another server because it shares a service path id (that was
+    // lighting rpi5-4 when selecting rpi5-3 as NPM edge for the same service).
+    var nid = nodeIdFromEl(el);
+    if (nid) {
+      return !!nodes[nodeFocusKey(nid)];
+    }
+
+    // App / service cards (path-id only, no node-id)
+    var pids = pathIdsFromEl(el);
+    if (mode === 'host') {
+      for (var k = 0; k < pids.length; k++) {
+        var pp = String(pids[k]);
+        if (backendPaths[pp] || npmPaths[pp]) return true;
+      }
+      return false;
+    }
+    for (var m = 0; m < pids.length; m++) {
+      if (paths[String(pids[m])]) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Selecting a host (e.g. rpi5-3):
+   *  1) host + LAN/Internet + topo lines
+   *  2) services this host backends + land edges only (not npm dashed to other hosts)
+   *  3) services this host NPM-edges + npm dashed only (not land edge / not backend host)
+   */
+  function buildActiveSet(root, focusId) {
+    var nodes = {};
+    var paths = {};
+    var backendPaths = {};
+    var npmPaths = {};
+    var hostNid = '';
+    var mode = 'path';
+
+    if (focusId == null || focusId === '') {
+      return {
+        mode: mode,
+        nodes: nodes,
+        paths: paths,
+        backendPaths: backendPaths,
+        npmPaths: npmPaths,
+        hostNid: hostNid,
+      };
+    }
+
+    function markNode(nid) {
+      if (!nid) return;
+      nodes[nodeFocusKey(String(nid).trim())] = true;
+    }
+
+    var primary = String(focusId);
+
+    if (isNodeFocusId(primary)) {
+      mode = 'host';
+      hostNid = primary.slice(2);
+      markNode(hostNid);
+
+      // Topo one-hop only (edges without service path ids)
+      root.querySelectorAll('.fabric-mesh-edge').forEach(function (edge) {
+        var eps = pathIdsFromEl(edge);
+        if (eps.length) return;
+        var fn = (edge.getAttribute('data-from-node') || '').trim();
+        var tn = (edge.getAttribute('data-to-node') || '').trim();
+        if (fn === hostNid || tn === hostNid) {
+          markNode(fn);
+          markNode(tn);
+        }
+      });
+
+      var nodeEl = root.querySelector('[data-node-id="' + hostNid.replace(/"/g, '') + '"]');
+      if (nodeEl) {
+        pathIdsFromEl(nodeEl).forEach(function (p) {
+          backendPaths[String(p)] = true;
+        });
+        npmPathIdsFromEl(nodeEl).forEach(function (p) {
+          npmPaths[String(p)] = true;
+        });
+      }
+      // Also discover from edges (in case attributes lag)
+      root.querySelectorAll('.fabric-mesh-edge').forEach(function (edge) {
+        var tn = (edge.getAttribute('data-to-node') || '').trim();
+        var fn = (edge.getAttribute('data-from-node') || '').trim();
+        if (tn !== hostNid && fn !== hostNid) return;
+        var isLand = edge.classList.contains('fabric-mesh-edge--land');
+        var isNpm = edge.classList.contains('fabric-mesh-edge--npm');
+        pathIdsFromEl(edge).forEach(function (p) {
+          if (isLand) backendPaths[String(p)] = true;
+          if (isNpm) npmPaths[String(p)] = true;
+        });
+      });
+      // Do not mark other hosts for these services
+    } else {
+      mode = 'path';
+      paths[primary] = true;
+      root.querySelectorAll('.fabric-mesh-edge').forEach(function (edge) {
+        if (!elMatchesPath(edge, primary)) return;
+        markNode(edge.getAttribute('data-from-node'));
+        markNode(edge.getAttribute('data-to-node'));
+      });
+      root.querySelectorAll('[data-path-id], [data-path-ids]').forEach(function (el) {
+        if (!elMatchesPath(el, primary)) return;
+        var n = nodeIdFromEl(el);
+        if (n) markNode(n);
+      });
+    }
+
+    return {
+      mode: mode,
+      nodes: nodes,
+      paths: paths,
+      backendPaths: backendPaths,
+      npmPaths: npmPaths,
+      hostNid: hostNid,
+    };
+  }
+
   function focusableIn(root) {
     return root.querySelectorAll(
-      '[data-path-id], [data-path-ids], [data-node-id], .fabric-mesh-edge, .fabric-mesh-node, ' +
+      '[data-path-id], [data-path-ids], [data-node-id], [data-from-node], [data-to-node], ' +
+      '.fabric-mesh-edge, .fabric-mesh-node, ' +
       '.fabric-path-card, .fabric-flow, .fabric-rack, .fabric-app-chip'
     );
+  }
+
+  /** Raise focused cards/edges so overlapping neighbours don't hide them. */
+  function raiseActiveToFront(root) {
+    var svg = root.querySelector('svg.fabric-mesh-svg');
+    if (!svg) return;
+    var edges = [];
+    var nodes = [];
+    svg.querySelectorAll('.ph-focus-active').forEach(function (el) {
+      var top = el;
+      while (top.parentNode && top.parentNode !== svg) top = top.parentNode;
+      if (top.parentNode !== svg) return;
+      if (top.classList && top.classList.contains('fabric-mesh-edge')) edges.push(top);
+      else nodes.push(top);
+    });
+    // Active edges under active nodes (both above dimmed content)
+    edges.forEach(function (n) {
+      try {
+        svg.appendChild(n);
+      } catch (err) {}
+    });
+    nodes.forEach(function (n) {
+      try {
+        svg.appendChild(n);
+      } catch (err) {}
+    });
   }
 
   function clearFocus(root) {
     root.classList.remove('is-focusing');
     root._fabricFocusId = null;
+    root._fabricActiveSet = null;
     focusableIn(root).forEach(function (el) {
       el.classList.remove('ph-focus-active', 'ph-focus-dim');
     });
@@ -201,26 +412,30 @@
       return;
     }
 
+    var activeSet = buildActiveSet(root, idStr);
     root.classList.add('is-focusing');
     root._fabricFocusId = idStr;
+    root._fabricActiveSet = activeSet;
     var found = false;
     focusableIn(root).forEach(function (el) {
       var hasPath =
         el.hasAttribute('data-path-id') || el.hasAttribute('data-path-ids');
       var hasNode = el.hasAttribute('data-node-id');
-      if (!hasPath && !hasNode) {
+      var hasTopo =
+        el.hasAttribute('data-from-node') || el.hasAttribute('data-to-node');
+      if (!hasPath && !hasNode && !hasTopo) {
         if (el.classList.contains('fabric-mesh-edge') || el.classList.contains('fabric-mesh-node')) {
           el.classList.remove('ph-focus-active');
           el.classList.add('ph-focus-dim');
         }
         return;
       }
-      var on = elMatchesFocus(el, pathId);
+      var on = elMatchesActiveSet(el, activeSet);
       el.classList.toggle('ph-focus-active', on);
       el.classList.toggle('ph-focus-dim', !on);
       if (on) {
         found = true;
-        if (!chainText) {
+        if (!chainText && (hasNode || hasPath)) {
           chainText =
             el.getAttribute('data-path-chain') ||
             el.getAttribute('data-path-title') ||
@@ -240,6 +455,7 @@
     );
     var clearBtn = root.querySelector('[data-fabric-clear-focus]');
     if (clearBtn) clearBtn.classList.remove('hidden');
+    raiseActiveToFront(root);
   }
 
   function copyText(text, btn) {
@@ -453,10 +669,10 @@
     root.addEventListener(
       'click',
       function (e) {
-        // Explicit chrome — leave alone (View full map, zoom, copy, Open host, forms…)
+        // Explicit chrome — leave alone (View full map, zoom, full screen, copy, Open host, forms…)
         if (
           e.target.closest(
-            '[data-fabric-open-graph], [data-fabric-close-graph], ' +
+            '[data-fabric-open-graph], [data-fabric-close-graph], [data-fabric-fullscreen], ' +
             '[data-fabric-zoom-in], [data-fabric-zoom-out], [data-fabric-zoom-reset], ' +
             '[data-fabric-copy-path], [data-fabric-copy-callout], [data-fabric-open-link], ' +
             'input, select, textarea, summary, label'
@@ -661,9 +877,33 @@
     }
   }
 
+  function preferMapOnLoad() {
+    try {
+      var u = new URL(window.location.href);
+      if ((u.hash || '').replace(/^#/, '') === 'map') return true;
+      if (u.searchParams.get('map') === '1') return true;
+      // Deep-linked focus (host or path) → open the SVG, not list-first chrome
+      if ((u.searchParams.get('focus') || '').trim()) return true;
+    } catch (err) {}
+    return false;
+  }
+
+  function scrollMapIntoView(graph) {
+    if (!graph) return;
+    try {
+      graph.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err2) {
+      try {
+        graph.scrollIntoView(true);
+      } catch (err3) {}
+    }
+  }
+
   function initGraphToggle(root) {
     var graph = root.querySelector('[data-fabric-graph]');
     if (!graph) return;
+    // Anchor target for #map deep links
+    if (!graph.id) graph.id = 'map';
     var btn = root.querySelector('[data-fabric-open-graph]');
     var closeBtn = root.querySelector('[data-fabric-close-graph]');
 
@@ -672,6 +912,10 @@
       if (btn) btn.setAttribute('aria-expanded', 'true');
     }
     function close() {
+      // Leaving list-first density: exit fullscreen chrome fully first
+      if (graph.classList.contains('is-map-fullscreen')) {
+        exitMapFullscreenAll();
+      }
       graph.classList.remove('is-open');
       if (btn) btn.setAttribute('aria-expanded', 'false');
     }
@@ -684,13 +928,13 @@
           e.preventDefault();
           e.stopPropagation();
           if (graph.classList.contains('is-open')) {
-            graph.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            scrollMapIntoView(graph);
             return;
           }
           open();
           // next frame so display:block applies before scroll
           requestAnimationFrame(function () {
-            graph.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            scrollMapIntoView(graph);
           });
         },
         true
@@ -707,6 +951,166 @@
         true
       );
     }
+
+    // Map links from dashboard / server / docker land on the SVG panel
+    if (preferMapOnLoad()) {
+      open();
+      requestAnimationFrame(function () {
+        scrollMapIntoView(graph);
+        // Second tick: layout after mobile display:block
+        requestAnimationFrame(function () {
+          scrollMapIntoView(graph);
+        });
+      });
+    }
+  }
+
+  /**
+   * Registry of per-root fullscreen controllers so the hamburger (and other
+   * chrome) can fully tear down label/aria/listeners — not only CSS classes.
+   */
+  var _mapFullscreenControllers = [];
+
+  /** Expand hosts/path map to full viewport (width + height). Esc or button to exit. */
+  function initMapFullscreen(root) {
+    var graph = root.querySelector('[data-fabric-graph]');
+    if (!graph) return;
+    var btn = root.querySelector('[data-fabric-fullscreen]');
+    if (!btn) return;
+    var onVv = null;
+
+    function setLabel(on) {
+      btn.textContent = on ? 'Exit full' : 'Full screen';
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.title = on ? 'Exit full screen (Esc)' : 'Expand map to full screen';
+    }
+
+    /** Pin height to visual viewport (fixes mobile browser chrome / only-widens bug). */
+    function applyViewportSize() {
+      if (!graph.classList.contains('is-map-fullscreen')) return;
+      var h = window.innerHeight || document.documentElement.clientHeight || 0;
+      try {
+        if (window.visualViewport && window.visualViewport.height) {
+          h = window.visualViewport.height;
+        }
+      } catch (err) {}
+      if (h > 0) {
+        graph.style.height = h + 'px';
+        graph.style.maxHeight = h + 'px';
+        graph.style.minHeight = h + 'px';
+      }
+      var scroll = graph.querySelector('.fabric-mesh-scroll');
+      var vp = graph.querySelector('[data-fabric-viewport]');
+      if (scroll && vp) {
+        // Fill remaining space below toolbar / callout
+        var used = 0;
+        Array.prototype.forEach.call(graph.children, function (ch) {
+          if (ch === scroll) return;
+          used += ch.getBoundingClientRect().height || 0;
+        });
+        var pad = 16;
+        var avail = Math.max(160, h - used - pad);
+        scroll.style.flex = '1 1 auto';
+        scroll.style.height = avail + 'px';
+        scroll.style.minHeight = avail + 'px';
+        vp.style.height = avail + 'px';
+        vp.style.minHeight = avail + 'px';
+        vp.style.maxHeight = 'none';
+      }
+    }
+
+    function clearInlineSizes() {
+      graph.style.height = '';
+      graph.style.maxHeight = '';
+      graph.style.minHeight = '';
+      var scroll = graph.querySelector('.fabric-mesh-scroll');
+      var vp = graph.querySelector('[data-fabric-viewport]');
+      if (scroll) {
+        scroll.style.flex = '';
+        scroll.style.height = '';
+        scroll.style.minHeight = '';
+      }
+      if (vp) {
+        vp.style.height = '';
+        vp.style.minHeight = '';
+        vp.style.maxHeight = '';
+      }
+    }
+
+    function detachViewportListeners() {
+      if (!onVv) return;
+      window.removeEventListener('resize', onVv);
+      try {
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener('resize', onVv);
+          window.visualViewport.removeEventListener('scroll', onVv);
+        }
+      } catch (err) {}
+      onVv = null;
+    }
+
+    function enter() {
+      graph.classList.add('is-map-fullscreen', 'is-open');
+      document.body.classList.add('fabric-map-fullscreen');
+      setLabel(true);
+      var openBtn = root.querySelector('[data-fabric-open-graph]');
+      if (openBtn) openBtn.setAttribute('aria-expanded', 'true');
+      applyViewportSize();
+      detachViewportListeners();
+      onVv = function () {
+        applyViewportSize();
+      };
+      window.addEventListener('resize', onVv);
+      try {
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', onVv);
+          window.visualViewport.addEventListener('scroll', onVv);
+        }
+      } catch (err) {}
+      requestAnimationFrame(function () {
+        applyViewportSize();
+        try {
+          window.dispatchEvent(new Event('resize'));
+        } catch (e2) {}
+      });
+    }
+
+    function exit() {
+      if (!graph.classList.contains('is-map-fullscreen') && !document.body.classList.contains('fabric-map-fullscreen')) {
+        // Still reset chrome if a partial teardown left labels stale
+        setLabel(false);
+        clearInlineSizes();
+        detachViewportListeners();
+        return;
+      }
+      graph.classList.remove('is-map-fullscreen');
+      document.body.classList.remove('fabric-map-fullscreen');
+      setLabel(false);
+      clearInlineSizes();
+      detachViewportListeners();
+    }
+
+    btn.addEventListener(
+      'click',
+      function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (graph.classList.contains('is-map-fullscreen')) exit();
+        else enter();
+      },
+      true
+    );
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (!graph.classList.contains('is-map-fullscreen')) return;
+      e.preventDefault();
+      exit();
+    });
+
+    window.addEventListener('pagehide', exit);
+
+    _mapFullscreenControllers.push({ root: root, graph: graph, exit: exit, setLabel: setLabel });
   }
 
   function initFilters(root) {
@@ -1046,6 +1450,7 @@
     document.querySelectorAll('[data-fabric-root]').forEach(function (root) {
       initFocusRoot(root);
       initGraphToggle(root);
+      initMapFullscreen(root);
       initFilters(root);
       initCopy(root);
       initPanZoom(root);
@@ -1058,9 +1463,48 @@
     boot();
   }
 
+  function exitMapFullscreenAll() {
+    // Prefer registered controllers (full label/aria/listener teardown)
+    if (_mapFullscreenControllers.length) {
+      _mapFullscreenControllers.forEach(function (c) {
+        try {
+          c.exit();
+        } catch (err) {}
+      });
+    } else {
+      // Fallback if boot never ran (still clear classes for hamburger)
+      document.querySelectorAll('[data-fabric-graph].is-map-fullscreen').forEach(function (graph) {
+        graph.classList.remove('is-map-fullscreen');
+        graph.style.height = '';
+        graph.style.maxHeight = '';
+        graph.style.minHeight = '';
+        var scroll = graph.querySelector('.fabric-mesh-scroll');
+        var vp = graph.querySelector('[data-fabric-viewport]');
+        if (scroll) {
+          scroll.style.flex = '';
+          scroll.style.height = '';
+          scroll.style.minHeight = '';
+        }
+        if (vp) {
+          vp.style.height = '';
+          vp.style.minHeight = '';
+          vp.style.maxHeight = '';
+        }
+        var btn = graph.querySelector('[data-fabric-fullscreen]');
+        if (btn) {
+          btn.textContent = 'Full screen';
+          btn.setAttribute('aria-pressed', 'false');
+          btn.title = 'Expand map to full screen';
+        }
+      });
+    }
+    document.body.classList.remove('fabric-map-fullscreen');
+  }
+
   window.PiHerderFabric = {
     focusPath: focusPath,
     clearFocus: clearFocus,
     boot: boot,
+    exitMapFullscreen: exitMapFullscreenAll,
   };
 })();

@@ -2,7 +2,7 @@
 
 **Where:** avatar menu → **Users** (admin only) · `/auth/users`
 
-Each card shows **last login** (app timezone) and a link to that user’s **Audit trail**.
+The page uses the shared **ops-hero** (role / 2FA coverage pulse). Each user card shows **last login** (app timezone) and a link to that user’s **Audit trail**.
 
 ## Create a user
 

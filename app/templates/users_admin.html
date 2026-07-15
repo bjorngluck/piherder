@@ -1,25 +1,62 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header mb-6 max-w-3xl">
-  <div>
-    <h1 class="text-3xl font-semibold tracking-tighter text-text">Users &amp; roles</h1>
-    <p class="text-sm text-muted mt-1">
-      Admin · operator · viewer. At least one <strong>admin</strong> is always required
+{% set up = users_pulse or {} %}
+{% set uh = up.health if up.health is defined else 'ok' %}
+<section class="ops-hero ops-hero--users is-{{ uh }} mb-3">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker">Access</div>
+    <h1 class="ops-hero-title">Users &amp; roles</h1>
+    <p class="ops-hero-sub">
+      Admin · operator · viewer. At least one <strong class="text-text">admin</strong> required
       ({{ admin_count or 0 }} now).
     </p>
+    <div class="ops-hero-actions">
+      <button type="button" id="btn-open-create-user" class="btn btn-accent text-xs min-h-9 px-2.5">+ Create user</button>
+      <a href="/herder-backups?tab=api" class="btn btn-secondary text-xs min-h-9 px-2.5">API tokens</a>
+      <a href="/auth/account" class="btn btn-secondary text-xs min-h-9 px-2.5">Account</a>
+      <a href="/herder-backups" class="btn btn-secondary text-xs min-h-9 px-2.5">Settings</a>
+    </div>
   </div>
-  <div class="page-header-actions flex flex-wrap gap-2">
-    <button type="button" id="btn-open-create-user" class="btn btn-accent min-h-11 text-sm">Create user</button>
-    <a href="/herder-backups?tab=api" class="btn btn-secondary min-h-11 text-sm">API tokens</a>
-    <a href="/auth/account" class="btn btn-secondary min-h-11 text-sm">Account</a>
+  <div class="ops-hero-viz">
+    <div class="ops-hero-orb {% if uh == 'hot' or uh == 'warn' %}ops-hero-orb--hot{% else %}ops-hero-orb--ok{% endif %}" aria-hidden="true">
+      <div class="ops-alert-orb-core">
+        <div class="ops-queue-n">{{ up.primary if up.primary is defined else (users|length) }}</div>
+        <div class="ops-queue-l">{{ up.primary_label if up.primary_label is defined else 'users' }}</div>
+      </div>
+    </div>
+    {% if up.bar %}
+    <div class="ops-bars" aria-hidden="true">
+      {% for b in up.bar %}
+      <div class="ops-bar {{ b.cls if b.cls is defined else '' }}"
+           style="flex: {{ b.n or 0.001 }}"
+           title="{{ b.title if b.title is defined else '' }}"></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if up.line1 %}
+    <div class="ops-pulse-stats">
+      {% for s in up.line1 %}
+      <div class="ops-pulse-stat">
+        <span class="ops-pulse-n {{ s.cls if s.cls is defined else '' }}">{{ s.n }}</span>
+        <span class="ops-pulse-l">{{ s.l }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if up.line2 %}
+    <div class="ops-pulse-stats">
+      {% for s in up.line2 %}
+      <div class="ops-pulse-stat">
+        <span class="ops-pulse-n {{ s.cls if s.cls is defined else '' }}">{{ s.n }}</span>
+        <span class="ops-pulse-l">{{ s.l }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if up.caption %}<p class="ops-pulse-caption">{{ up.caption }}</p>{% endif %}
   </div>
-</div>
-<p class="text-xs text-muted mb-4 max-w-3xl">
-  User accounts and roles live here.
-  <a href="/herder-backups?tab=api" class="text-accent hover:underline">Automation API tokens</a>
-  (Bearer keys for scripts / CI) are under the same Access area — also linked from Settings.
-</p>
+</section>
 
 {% if msg == 'role_saved' %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4 max-w-3xl">Role updated.</div>
@@ -52,36 +89,32 @@
 <div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-3xl">{{ error }}</div>
 {% endif %}
 
-{# User list #}
-<div class="space-y-3 max-w-3xl">
+{# User cards #}
+<div class="user-card-grid">
   {% for u in users %}
   {% set is_sole = sole_admin_ids and u.id in sole_admin_ids %}
-  <div class="card p-4">
-    <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
-      <div class="min-w-0">
-        <div class="font-medium text-text break-words">{{ u.display_name or u.email }}</div>
-        {% if u.display_name %}<div class="text-xs text-muted break-all">{{ u.email }}</div>{% endif %}
-        <div class="mt-1 flex flex-wrap items-center gap-2">
-          <span class="status-pill status-running text-[10px]">{{ u.role or 'admin' }}</span>
-          {% if u.id == user.id %}<span class="text-[10px] text-accent">you</span>{% endif %}
-          {% if is_sole %}<span class="text-[10px] text-warning">sole admin</span>{% endif %}
-        </div>
-        <div class="mt-2 text-xs text-muted">
-          Last login:
-          {% if u.last_login_at %}
-          <span class="text-text">{{ u.last_login_at | app_tz }}</span>
-          {% else %}
-          <span>—</span>
-          {% endif %}
-          <span class="mx-1">·</span>
-          <a href="/audit?user_id={{ u.id }}" class="text-accent hover:underline">Audit trail</a>
-        </div>
+  <article class="card user-card {% if u.id == user.id %}is-you{% endif %}">
+    <div class="user-card-body">
+      <div class="font-semibold text-text break-words">{{ u.display_name or u.email }}</div>
+      {% if u.display_name %}<div class="text-xs text-muted break-all">{{ u.email }}</div>{% endif %}
+      <div class="user-card-meta">
+        <span class="status-pill status-running text-[10px]">{{ u.role or 'admin' }}</span>
+        {% if u.totp_enabled %}<span class="status-pill status-success text-[10px]">2fa</span>
+        {% else %}<span class="status-pill feature-off text-[10px]">no 2fa</span>{% endif %}
+        {% if u.id == user.id %}<span class="text-[10px] text-accent font-medium">you</span>{% endif %}
+        {% if is_sole %}<span class="text-[10px] text-warning font-medium">sole admin</span>{% endif %}
+      </div>
+      <div class="text-xs text-muted mt-2">
+        Last login:
+        {% if u.last_login_at %}
+        <span class="text-text">{{ u.last_login_at | app_tz }}</span>
+        {% else %}—{% endif %}
       </div>
     </div>
-    <form method="post" action="/auth/users/{{ u.id }}/role" class="flex flex-col sm:flex-row sm:items-center gap-2">
+    <form method="post" action="/auth/users/{{ u.id }}/role" class="user-card-role">
       <label class="sr-only" for="role-{{ u.id }}">Role for {{ u.email }}</label>
       <select id="role-{{ u.id }}" name="role"
-              class="w-full sm:flex-1 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
+              class="ops-f-control flex-1 min-w-0"
               {% if is_sole %}title="Cannot demote the last admin"{% endif %}>
         {% for r in roles %}
         <option value="{{ r }}" {% if (u.role or 'admin') == r %}selected{% endif %}
@@ -89,7 +122,7 @@
         {% endfor %}
       </select>
       <button type="submit"
-              class="btn btn-secondary min-h-11 w-full sm:w-auto sm:flex-shrink-0 px-4"
+              class="btn btn-secondary text-xs min-h-9 px-2.5"
               {% if is_sole %}disabled title="Promote another admin before changing this role"{% endif %}>
         Save role
       </button>
@@ -97,21 +130,22 @@
     {% if is_sole %}
     <p class="text-[10px] text-muted mt-2 mb-0">Create or promote another admin before demoting this account.</p>
     {% endif %}
-    {% if u.id != user.id and not is_sole %}
-    <div class="mt-3 pt-3 border-t border-border">
+    <div class="user-card-actions">
+      <a href="/audit?user_id={{ u.id }}" class="btn btn-secondary text-xs min-h-9 px-2.5">Audit</a>
+      {% if u.id != user.id and not is_sole %}
       <button type="button"
-              class="btn btn-danger min-h-11 w-full sm:w-auto text-sm"
+              class="btn btn-danger text-xs min-h-9 px-2.5"
               data-delete-user
               data-user-id="{{ u.id }}"
               data-user-email="{{ u.email | e }}"
               data-user-label="{{ (u.display_name or u.email) | e }}">
-        Delete user
+        Delete
       </button>
+      {% elif u.id == user.id %}
+      <span class="text-[10px] text-muted self-center">Can’t delete yourself</span>
+      {% endif %}
     </div>
-    {% elif u.id == user.id %}
-    <p class="text-[10px] text-muted mt-3 mb-0">You cannot delete your own account.</p>
-    {% endif %}
-  </div>
+  </article>
   {% endfor %}
 </div>
 

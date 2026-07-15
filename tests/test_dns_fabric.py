@@ -1,6 +1,8 @@
 """Unit tests for DNS fabric helpers (no live Pi-hole)."""
 from __future__ import annotations
 
+import re
+
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -16,6 +18,103 @@ def test_normalize_and_validate_fqdn():
     assert not fabric.is_valid_fqdn("noperiod")
     assert not fabric.is_valid_fqdn("")
     assert not fabric.is_valid_fqdn("-bad.hacknow.info")
+
+
+def test_host_focus_key_and_map_urls():
+    assert fabric.host_focus_key(3) == "n:host-3"
+    # Deep links land on the map panel (#map), not list-first chrome
+    assert fabric.hosts_map_url() == "/dns/physical#map"
+    assert fabric.hosts_map_url(server_id=3) == "/dns/physical?focus=n:host-3#map"
+    assert fabric.hosts_map_url(path_id=12) == "/dns/physical?focus=12#map"
+    assert fabric.path_map_url() == "/dns/logical#map"
+    assert fabric.path_map_url(path_id=12) == "/dns/logical?focus=12#map"
+
+
+def test_fabric_rack_for_server_backend_and_npm_edge():
+    """Rack lists backend apps; target-only proxy edge marks is_npm_edge."""
+    backend = SimpleNamespace(
+        id=1, name="rpi5-1", dns_name="rpi5-1.example.com",
+        hostname="10.0.0.1", ip_address="10.0.0.1", dns_ip_override=None,
+    )
+    edge = SimpleNamespace(
+        id=2, name="npm", dns_name="npm.example.com",
+        hostname="10.0.0.2", ip_address="10.0.0.2", dns_ip_override=None,
+    )
+    rec = SimpleNamespace(
+        id=10,
+        fqdn="app.example.com",
+        backend_server_id=1,
+        target_server_id=2,
+        via_proxy=True,
+        docker_project="web",
+        label="App",
+        record_type="cname",
+        npm_hint=None,
+        certificate_id=None,
+        last_sync_status="ok",
+    )
+
+    session = MagicMock()
+
+    def _get(model, pk):
+        if pk == 1:
+            return backend
+        if pk == 2:
+            return edge
+        return None
+
+    session.get.side_effect = _get
+
+    with patch.object(fabric.core, "list_service_records", return_value=[rec]), patch.object(
+        fabric.core,
+        "build_access_path_for_record",
+        return_value={
+            "via_proxy": True,
+            "path_kind": "npm_app",
+            "path_title": "via NPM",
+            "chain": "app.example.com → npm → rpi5-1 → web",
+            "docker_project": "web",
+            "docker_container": "web",
+        },
+    ):
+        rack_b = fabric.fabric_rack_for_server(session, 1)
+        rack_e = fabric.fabric_rack_for_server(session, 2)
+
+    assert rack_b is not None
+    assert rack_b["app_count"] == 1
+    assert rack_b["apps"][0]["fqdn"] == "app.example.com"
+    assert rack_b["apps"][0]["path_map_url"] == "/dns/logical?focus=10#map"
+    assert rack_b["hosts_map_url"] == "/dns/physical?focus=n:host-1#map"
+    assert rack_b["is_npm_edge"] is False
+
+    assert rack_e is not None
+    assert rack_e["app_count"] == 0
+    assert rack_e["is_npm_edge"] is True
+    assert rack_e["ingress_count"] == 1
+    assert rack_e["hosts_map_url"] == "/dns/physical?focus=n:host-2#map"
+
+
+def test_fabric_rack_for_server_missing():
+    session = MagicMock()
+    session.get.return_value = None
+    assert fabric.fabric_rack_for_server(session, 99) is None
+
+
+def test_fabric_path_for_fqdn_from_url():
+    rec = SimpleNamespace(
+        id=5,
+        fqdn="grafana.example.com",
+        backend_server_id=1,
+        target_server_id=1,
+    )
+    session = MagicMock()
+    with patch.object(fabric.core, "list_service_records", return_value=[rec]):
+        hit = fabric.fabric_path_for_fqdn(session, "https://grafana.example.com/login")
+        miss = fabric.fabric_path_for_fqdn(session, "https://other.example.com/")
+    assert hit is not None
+    assert hit["path_id"] == 5
+    assert hit["path_map_url"] == "/dns/logical?focus=5#map"
+    assert miss is None
 
 
 def test_is_valid_ipv4():
@@ -61,7 +160,7 @@ def test_host_dns_form_defaults_saved_wins():
         dns_manage_a=True,
     )
     session = MagicMock()
-    with patch.object(fabric, "match_pihole_host_for_server", return_value=None):
+    with patch.object(fabric.core, "match_pihole_host_for_server", return_value=None):
         d = fabric.host_dns_form_defaults(session, s, base_domain="hacknow.info")
     assert d["dns_name"] == "rpi5-1.hacknow.info"
     assert d["ip_address"] == "10.0.0.9"
@@ -80,7 +179,7 @@ def test_host_dns_form_defaults_from_pihole():
     )
     session = MagicMock()
     match = {"domain": "rpi5-1.hacknow.info", "ip": "192.168.1.51", "source": "pi1"}
-    with patch.object(fabric, "match_pihole_host_for_server", return_value=match):
+    with patch.object(fabric.core, "match_pihole_host_for_server", return_value=match):
         d = fabric.host_dns_form_defaults(session, s, base_domain="hacknow.info")
     assert d["dns_name"] == "rpi5-1.hacknow.info"
     assert d["ip_address"] == "192.168.1.51"
@@ -99,7 +198,7 @@ def test_host_dns_form_defaults_hostname_ip():
         dns_manage_a=False,
     )
     session = MagicMock()
-    with patch.object(fabric, "match_pihole_host_for_server", return_value=None):
+    with patch.object(fabric.core, "match_pihole_host_for_server", return_value=None):
         d = fabric.host_dns_form_defaults(session, s, base_domain="hacknow.info")
     assert d["dns_name"] == "rpi5-2.hacknow.info"
     assert d["ip_address"] == "10.0.0.22"
@@ -121,10 +220,8 @@ def test_build_access_path_host_direct():
         id=8, name="3DPRINT", dns_name="3dprint.hacknow.info", hostname="3dprint.hacknow.info",
         ip_address="192.168.86.41", dns_ip_override=None,
     )
-    with patch.object(fabric, "_servers_by_id", return_value={8: host}), patch.object(
-        fabric, "_find_npm_forward", return_value=None
-    ), patch.object(fabric, "_find_docker_container", return_value=None), patch.object(
-        fabric, "resolve_app_layers",
+    with patch.object(fabric.core, "_servers_by_id", return_value={8: host}), patch.object(fabric.core, "_find_npm_forward", return_value=None
+    ), patch.object(fabric.core, "_find_docker_container", return_value=None), patch.object(fabric.core, "resolve_app_layers",
         return_value={"docker_project": None, "docker_container": None, "source": ""},
     ):
         path = fabric.build_access_path(
@@ -159,11 +256,9 @@ def test_build_access_path_npm_app():
         id=1, name="RPI5-2", dns_name="rpi5-2.hacknow.info", hostname="rpi5-2",
         ip_address="192.168.86.49", dns_ip_override=None,
     )
-    with patch.object(fabric, "_servers_by_id", return_value={5: edge, 1: backend}), patch.object(
-        fabric, "_find_npm_forward",
+    with patch.object(fabric.core, "_servers_by_id", return_value={5: edge, 1: backend}), patch.object(fabric.core, "_find_npm_forward",
         return_value={"forward_host": "192.168.86.49", "forward_port": 8090, "domain_names": ["download.hacknow.info"]},
-    ), patch.object(fabric, "_find_docker_container", return_value="qbittorrent"), patch.object(
-        fabric, "resolve_app_layers",
+    ), patch.object(fabric.core, "_find_docker_container", return_value="qbittorrent"), patch.object(fabric.core, "resolve_app_layers",
         return_value={"docker_project": "qbittorrent", "docker_container": "qbittorrent", "source": "explicit"},
     ):
         path = fabric.build_access_path(
@@ -186,11 +281,8 @@ def test_build_access_path_host_direct_with_app_layers():
         id=4, name="RPI5-6", dns_name="rpi5-6.hacknow.info", hostname="rpi5-6",
         ip_address="192.168.86.34", dns_ip_override=None,
     )
-    with patch.object(fabric, "_servers_by_id", return_value={4: host}), patch.object(
-        fabric, "_find_npm_forward", return_value=None
-    ), patch.object(
-        fabric,
-        "resolve_app_layers",
+    with patch.object(fabric.core, "_servers_by_id", return_value={4: host}), patch.object(fabric.core, "_find_npm_forward", return_value=None
+    ), patch.object(fabric.core, "resolve_app_layers",
         return_value={
             "docker_project": "grafana",
             "docker_container": "grafana",
@@ -244,13 +336,13 @@ def test_fanout_calls_pihole_adapter():
     integ = SimpleNamespace(
         id=1, name="pi1", enabled=True, base_url="https://pi.example"
     )
-    with patch.object(fabric.reg, "list_integrations", return_value=[integ]), patch.object(
-        fabric.reg, "is_pihole_primary", return_value=True
-    ), patch.object(fabric.reg, "pihole_password", return_value="secret"), patch.object(
-        fabric.reg, "tls_verify", return_value=True
-    ), patch.object(fabric.ph, "login") as login, patch.object(
-        fabric.ph, "logout"
-    ), patch.object(fabric.ph, "add_dns_cname") as add_c:
+    with patch.object(fabric.core.reg, "list_integrations", return_value=[integ]), patch.object(
+        fabric.core.reg, "is_pihole_primary", return_value=True
+    ), patch.object(fabric.core.reg, "pihole_password", return_value="secret"), patch.object(
+        fabric.core.reg, "tls_verify", return_value=True
+    ), patch.object(fabric.core.ph, "login") as login, patch.object(
+        fabric.core.ph, "logout"
+    ), patch.object(fabric.core.ph, "add_dns_cname") as add_c:
         sess = MagicMock()
         login.return_value = sess
         results = fabric.fanout_pihole_dns(
@@ -270,14 +362,14 @@ def test_fanout_duplicate_cname_is_ok():
     integ = SimpleNamespace(
         id=1, name="pi1", enabled=True, base_url="https://pi.example"
     )
-    with patch.object(fabric.reg, "list_integrations", return_value=[integ]), patch.object(
-        fabric.reg, "is_pihole_primary", return_value=True
-    ), patch.object(fabric.reg, "pihole_password", return_value="secret"), patch.object(
-        fabric.reg, "tls_verify", return_value=True
-    ), patch.object(fabric.ph, "login") as login, patch.object(
-        fabric.ph, "logout"
+    with patch.object(fabric.core.reg, "list_integrations", return_value=[integ]), patch.object(
+        fabric.core.reg, "is_pihole_primary", return_value=True
+    ), patch.object(fabric.core.reg, "pihole_password", return_value="secret"), patch.object(
+        fabric.core.reg, "tls_verify", return_value=True
+    ), patch.object(fabric.core.ph, "login") as login, patch.object(
+        fabric.core.ph, "logout"
     ), patch.object(
-        fabric.ph,
+        fabric.core.ph,
         "add_dns_cname",
         side_effect=RuntimeError(
             'add cname failed HTTP 400: {"error":{"message":"dnsmasq: duplicate CNAME"}}'
@@ -486,8 +578,8 @@ def test_build_fabric_view_lazy_and_no_persist():
 
     session.exec = MagicMock(return_value=_Exec([srv]))
 
-    with patch.object(fabric, "list_service_records", return_value=[rec]), patch.object(
-        fabric,
+    with patch.object(fabric.core, "list_service_records", return_value=[rec]), patch.object(
+        fabric.core,
         "build_access_path_for_record",
         return_value={
             "path_kind": "host",
@@ -502,7 +594,7 @@ def test_build_fabric_view_lazy_and_no_persist():
             "docker_container": None,
             "npm_forward": None,
         },
-    ) as bap, patch.object(fabric, "certs_matching_fqdn", return_value=[]), patch(
+    ) as bap, patch.object(fabric.core, "certs_matching_fqdn", return_value=[]), patch(
         "app.services.app_settings.load_settings",
         return_value={
             "network_lan_subnet": "",
@@ -605,7 +697,12 @@ def test_physical_mesh_places_cloud_and_infra():
     assert edge_kinds.count("lan") >= 2  # gateway→lan + host→lan
     gw = next(n for n in svg["nodes"] if n["kind"] == "gateway")
     assert gw.get("kuma", {}).get("state") == "up"
-    assert "up" in (gw.get("sub") or "")
+    assert gw.get("split") is True
+    assert "up" in (gw.get("path_chain") or "")
+    assert "198.51.100.9" in (gw.get("sub_top") or "")
+    assert "192.168.86.1" in (gw.get("sub_bottom") or gw.get("lan_ip") or "")
+    # No separate Public IP card — WAN IP is on the Router
+    assert not any(n.get("kind") == "public_ip" for n in svg["nodes"])
 
 
 def test_physical_mesh_links_without_network_settings():
@@ -675,6 +772,196 @@ def test_physical_mesh_hosts_not_on_router_spine():
         assert not (on_spine_x and between), (
             f"host {h['label']} at ({h['x']},{h['y']}) overlaps router→LAN path"
         )
+
+
+def test_physical_mesh_lan_hosts_inside_zone_apps_outside():
+    """LAN server cards sit inside the zone ellipse; apps outside it."""
+    hosts = [
+        {
+            "server_id": 1,
+            "name": "RPI",
+            "dns_name": "rpi.example",
+            "ip": "192.168.86.20",
+            "href": "/servers/1",
+        },
+        {
+            "server_id": 2,
+            "name": "Pi2",
+            "dns_name": "pi2.example",
+            "ip": "192.168.86.21",
+            "href": "/servers/2",
+        },
+    ]
+    services = [
+        {
+            "id": 1,
+            "fqdn": "app.example",
+            "backend_server_id": 1,
+            "target_server_id": 1,
+            "via_proxy": False,
+            "path_kind": "app",
+            "path_chain": "app.example → RPI",
+            "dep_href": None,
+            "backend_href": "/servers/1",
+        }
+    ]
+    net = {
+        "lan_subnet": "192.168.86.0/24",
+        "gateway_ip": "192.168.86.1",
+        "public_ip": "198.51.100.9",
+    }
+    svg = fabric._build_physical_mesh_svg(hosts, services, network=net)
+    lan = next(n for n in svg["nodes"] if n["kind"] == "lan")
+    assert lan.get("zone_rx") and lan.get("zone_ry")
+    assert lan.get("sub") == "192.168.86.0/24"
+    # Circular centre badge
+    assert lan.get("rx") == lan.get("ry")
+    zrx, zry = float(lan["zone_rx"]), float(lan["zone_ry"])
+    lcx, lcy = float(lan["x"]), float(lan["y"])
+
+    def _inside(x: float, y: float, pad: float = 0.92) -> bool:
+        return ((x - lcx) / zrx) ** 2 + ((y - lcy) / zry) ** 2 <= pad**2
+
+    for h in svg["nodes"]:
+        if h["kind"] != "host" or h.get("is_cloud"):
+            continue
+        assert _inside(float(h["x"]), float(h["y"])), (
+            f"LAN host {h['label']} at ({h['x']},{h['y']}) should be inside zone"
+        )
+    apps = [n for n in svg["nodes"] if n["kind"] == "app"]
+    assert apps
+    for a in apps:
+        assert not _inside(float(a["x"]), float(a["y"]), pad=1.02), (
+            f"app {a['label']} at ({a['x']},{a['y']}) should be outside LAN zone"
+        )
+    # Router sits on the top rim of the LAN zone; Internet above, no public-IP card
+    inet = next(n for n in svg["nodes"] if n["kind"] == "internet")
+    gw = next(n for n in svg["nodes"] if n["kind"] == "gateway")
+    assert not any(n.get("kind") == "public_ip" for n in svg["nodes"])
+    assert (inet.get("sub") or "") == ""
+    assert gw.get("split") is True
+    assert gw.get("sub_top") == "198.51.100.9"
+    assert gw.get("sub_bottom") == "192.168.86.1"
+    zone_top = lcy - zry
+    assert abs(gw["y"] - zone_top) < 2.0  # on the rim
+    assert inet["y"] < gw["y"]
+    assert abs(inet["x"] - gw["x"]) < 1.0  # centred spine
+
+
+def test_physical_mesh_cloud_hooks_internet_side():
+    """Cloud host (e.g. Nomad) attaches to the side of the Internet ellipse."""
+    hosts = [
+        {
+            "server_id": 1,
+            "name": "RPI",
+            "dns_name": "rpi.example",
+            "ip": "192.168.86.20",
+            "href": "/servers/1",
+        },
+        {
+            "server_id": 2,
+            "name": "Nomad",
+            "dns_name": "nomad.example",
+            "ip": "203.0.113.50",
+            "href": "/servers/2",
+        },
+    ]
+    net = {
+        "lan_subnet": "192.168.86.0/24",
+        "gateway_ip": "192.168.86.1",
+        "public_ip": "198.51.100.9",
+    }
+    svg = fabric._build_physical_mesh_svg(hosts, [], network=net)
+    inet = next(n for n in svg["nodes"] if n["kind"] == "internet")
+    nomad = next(n for n in svg["nodes"] if n.get("label") == "Nomad")
+    assert nomad.get("is_cloud") is True
+    # Side of cloud: similar y to Internet, offset in x beyond ellipse
+    assert abs(nomad["y"] - inet["y"]) < 30
+    assert abs(nomad["x"] - inet["x"]) > float(inet.get("rx") or 52)
+    assert not any(n.get("kind") == "public_ip" for n in svg["nodes"])
+
+
+def test_physical_mesh_edges_meet_node_borders():
+    """Connectors clip to card/ellipse borders, not centres."""
+    import math
+
+    hosts = [
+        {
+            "server_id": 1,
+            "name": "RPI",
+            "dns_name": "rpi.example",
+            "ip": "192.168.86.20",
+            "href": "/servers/1",
+        },
+        {
+            "server_id": 2,
+            "name": "Nomad",
+            "dns_name": "nomad.example",
+            "ip": "203.0.113.50",
+            "href": "/servers/2",
+        },
+    ]
+    services = [
+        {
+            "id": 1,
+            "fqdn": "app.example",
+            "backend_server_id": 1,
+            "target_server_id": 1,
+            "via_proxy": False,
+            "path_kind": "app",
+            "path_chain": "app.example → RPI",
+            "dep_href": None,
+            "backend_href": "/servers/1",
+        }
+    ]
+    net = {
+        "lan_subnet": "192.168.86.0/24",
+        "gateway_ip": "192.168.86.1",
+        "public_ip": "198.51.100.9",
+    }
+    svg = fabric._build_physical_mesh_svg(hosts, services, network=net)
+    rpi = next(n for n in svg["nodes"] if n["label"] == "RPI")
+    lan = next(n for n in svg["nodes"] if n["kind"] == "lan")
+    app = next(n for n in svg["nodes"] if n["kind"] == "app")
+    host_hw, host_hh = 62.0, 30.0
+    lan_edges = [e for e in svg["edges"] if e.get("kind") == "lan"]
+    assert lan_edges
+
+    def near_host_border(x: float, y: float, hx: float, hy: float) -> bool:
+        dx, dy = abs(x - hx), abs(y - hy)
+        on_side = abs(dx - host_hw) < 2.5 and dy <= host_hh + 2.5
+        on_topbot = abs(dy - host_hh) < 2.5 and dx <= host_hw + 2.5
+        return on_side or on_topbot
+
+    def near_circle(x: float, y: float, cx: float, cy: float, r: float) -> bool:
+        return abs(math.hypot(x - cx, y - cy) - r) < 2.5
+
+    found_host_lan = False
+    for e in lan_edges:
+        for xa, ya, xb, yb in (
+            (e["x1"], e["y1"], e["x2"], e["y2"]),
+            (e["x2"], e["y2"], e["x1"], e["y1"]),
+        ):
+            if near_host_border(xa, ya, rpi["x"], rpi["y"]) and near_circle(
+                xb, yb, lan["x"], lan["y"], float(lan["rx"])
+            ):
+                found_host_lan = True
+    assert found_host_lan, "host↔LAN edge should hit host card edge and LAN badge rim"
+
+    land = [e for e in svg["edges"] if e.get("kind") == "land" and e.get("path_id") == 1]
+    assert land
+    e = land[0]
+    app_hw, app_hh = 70.0, 22.0
+    ends = [(e["x1"], e["y1"]), (e["x2"], e["y2"])]
+
+    def near_app(x: float, y: float) -> bool:
+        dx, dy = abs(x - app["x"]), abs(y - app["y"])
+        return (abs(dx - app_hw) < 2.5 and dy <= app_hh + 2.5) or (
+            abs(dy - app_hh) < 2.5 and dx <= app_hw + 2.5
+        )
+
+    assert any(near_app(x, y) for x, y in ends)
+    assert any(near_host_border(x, y, rpi["x"], rpi["y"]) for x, y in ends)
 
 
 def test_physical_mesh_caps_satellites_per_host():
@@ -807,3 +1094,52 @@ def test_logical_mesh_dimensions_scale_with_flows():
     assert any(n.get("kind") == "hub" for n in svg["nodes"])
     assert len([n for n in svg["nodes"] if n["kind"] == "url"]) == 15
     assert svg["height"] >= 70 + 15 * 52
+
+
+def test_fabric_index_for_server_case_insensitive_and_cheap():
+    """Docker project keys are lowercased; no access-path resolve required."""
+    rec_a = SimpleNamespace(
+        id=1,
+        fqdn="a.example.com",
+        backend_server_id=7,
+        docker_project="MyApp",
+    )
+    rec_b = SimpleNamespace(
+        id=2,
+        fqdn="b.example.com",
+        backend_server_id=7,
+        docker_project="myapp",
+    )
+    rec_other = SimpleNamespace(
+        id=3,
+        fqdn="c.example.com",
+        backend_server_id=8,
+        docker_project="other",
+    )
+    session = MagicMock()
+
+    def _boom(*_a, **_k):
+        raise AssertionError("fabric_index must not call build_access_path_for_record")
+
+    with patch.object(fabric.core, "list_service_records", return_value=[rec_a, rec_b, rec_other]), patch.object(
+        fabric.core, "build_access_path_for_record", side_effect=_boom
+    ):
+        idx = fabric.fabric_index_for_server(session, 7)
+    by = idx["by_project"]
+    assert "myapp" in by
+    assert by["myapp"]["count"] == 2
+    assert by["myapp"]["project"] in ("MyApp", "myapp")
+    assert by["myapp"]["path_map_url"].startswith("/dns/logical")
+    assert "other" not in by
+    assert idx["hosts_map_url"] == "/dns/physical?focus=n:host-7#map"
+
+
+def test_calendar_today_and_date_preset_app_tz():
+    from app.services import app_settings as aset
+
+    with patch.object(aset, "get_app_timezone", return_value="UTC"):
+        today = aset.calendar_today_in_app_tz()
+        assert re.match(r"^\d{4}-\d{2}-\d{2}$", today)
+        r = aset.calendar_date_range_preset(7)
+        assert r["date_to"] == today
+        assert r["date_from"] <= r["date_to"]

@@ -25,8 +25,12 @@
   <script src="/static/htmx.min.js"></script>
   <script defer src="/static/alpine.min.js"></script>
 
-  <!-- Theme CSS variables (light/dark + Raspberry Pi branding) -->
-  <link rel="stylesheet" href="/static/css/themes.css">
+  <!-- Theme CSS variables (light/dark + Raspberry Pi branding).
+       Companion sheets: fabric (network maps), ops (heroes/filters).
+       Query busts browser + older SW caches when tokens change. -->
+  <link rel="stylesheet" href="/static/css/themes.css?v=20260715-p0p2">
+  <link rel="stylesheet" href="/static/css/fabric.css?v=20260715-p0p2">
+  <link rel="stylesheet" href="/static/css/ops.css?v=20260715-p0p2">
 
   <!-- Apply saved theme ASAP (before paint) so the page doesn't flash light → dark -->
   <script>
@@ -223,54 +227,13 @@
           </a>
         </div>
 
-        <!-- Mobile-only hamburger trigger -->
+        <!-- Mobile-only hamburger trigger (panel/backdrop are body-level — see end of body) -->
         <button id="nav-hamburger-btn"
                 class="mobile-hamburger"
                 aria-label="Open menu"
                 aria-expanded="false">
           ☰
         </button>
-
-        <!-- Slide-out menu + backdrop — fully generated + CSS/var driven -->
-        <div id="mobile-menu-backdrop" class="mobile-menu-backdrop hidden"></div>
-        <div id="mobile-menu-panel" class="mobile-menu-panel hidden">
-          {# Header — uses .mobile-menu-header (all padding + layout via CSS vars) #}
-          <div class="mobile-menu-header">
-            <div class="mobile-menu-header-brand">
-              <img src="/static/images/piherder-logo-small.png" alt="" class="mobile-menu-header-logo">
-              <span class="mobile-menu-header-title">PiHerder</span>
-            </div>
-            <button id="mobile-menu-close" class="mobile-menu-close" aria-label="Close menu">×</button>
-          </div>
-
-          {# Content area — uses .mobile-menu-content #}
-          <div class="mobile-menu-content">
-            {# Primary nav items — from SINGLE SOURCE nav_items #}
-            {% for item in nav_items %}
-              {% if item.match == 'exact' %}
-                {% set is_active = (current_path == item.href) %}
-              {% elif item.match == 'catalog' %}
-                {% set is_active = current_path == '/catalog' or current_path.startswith('/templates') or current_path.startswith('/integrations') or current_path.startswith('/dns') or current_path.startswith('/certificates') %}
-              {% else %}
-                {% set is_active = current_path.startswith(item.href) %}
-              {% endif %}
-              <a href="{{ item.href }}" class="mobile-menu-link {{ 'is-active' if is_active else '' }}">{{ item.label }}</a>
-            {% endfor %}
-
-            <div class="menu-divider"></div>
-
-            {# Secondary items — from the SAME secondary_items list #}
-            {% for item in secondary_items %}
-              {% if item.kind == 'action' %}
-                <button type="button" class="mobile-menu-link" data-action="{{ item.action }}">{{ item.label }}</button>
-              {% elif item.kind == 'danger' %}
-                <a href="{{ item.href }}" class="mobile-menu-link is-danger">{{ item.label }}</a>
-              {% else %}
-                <a href="{{ item.href }}" class="mobile-menu-link">{{ item.label }}</a>
-              {% endif %}
-            {% endfor %}
-          </div>
-        </div>
 
         <!-- Avatar + account menu (DESKTOP ONLY) -->
         <div class="desktop-avatar">
@@ -308,6 +271,43 @@
       </div>
     </div>
   </nav>
+
+  {# Mobile slide-out: body-level (not inside header). Nested fixed panels break on
+     Network/map pages when ancestors create overflow / stacking contexts. #}
+  {% if user %}
+  <div id="mobile-menu-backdrop" class="mobile-menu-backdrop hidden" aria-hidden="true"></div>
+  <div id="mobile-menu-panel" class="mobile-menu-panel hidden" role="dialog" aria-modal="true" aria-label="Main menu">
+    <div class="mobile-menu-header">
+      <div class="mobile-menu-header-brand">
+        <img src="/static/images/piherder-logo-small.png" alt="" class="mobile-menu-header-logo">
+        <span class="mobile-menu-header-title">PiHerder</span>
+      </div>
+      <button type="button" id="mobile-menu-close" class="mobile-menu-close" aria-label="Close menu">×</button>
+    </div>
+    <div class="mobile-menu-content">
+      {% for item in nav_items %}
+        {% if item.match == 'exact' %}
+          {% set is_active = (current_path == item.href) %}
+        {% elif item.match == 'catalog' %}
+          {% set is_active = current_path == '/catalog' or current_path.startswith('/templates') or current_path.startswith('/integrations') or current_path.startswith('/dns') or current_path.startswith('/certificates') %}
+        {% else %}
+          {% set is_active = current_path.startswith(item.href) %}
+        {% endif %}
+        <a href="{{ item.href }}" class="mobile-menu-link {{ 'is-active' if is_active else '' }}">{{ item.label }}</a>
+      {% endfor %}
+      <div class="menu-divider"></div>
+      {% for item in secondary_items %}
+        {% if item.kind == 'action' %}
+          <button type="button" class="mobile-menu-link" data-action="{{ item.action }}">{{ item.label }}</button>
+        {% elif item.kind == 'danger' %}
+          <a href="{{ item.href }}" class="mobile-menu-link is-danger">{{ item.label }}</a>
+        {% else %}
+          <a href="{{ item.href }}" class="mobile-menu-link">{{ item.label }}</a>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
 
   {% if user %}
   <!-- Dismissible PWA install hint (Android beforeinstallprompt + iOS A2HS steps) -->
@@ -481,7 +481,7 @@
         setTheme('light');
       }
 
-      // Vanilla JS slide-out mobile menu
+      // Vanilla JS slide-out mobile menu (panel is a direct body child)
       function initMobileMenu() {
         var btn = document.getElementById('nav-hamburger-btn');
         var panel = document.getElementById('mobile-menu-panel');
@@ -490,12 +490,44 @@
 
         if (!btn || !panel || !backdrop) return;
 
+        // Always re-parent to <body> so fixed positioning uses the viewport
+        // (never a transformed/overflow header ancestor).
+        function ensureBodyPortal() {
+          if (panel.parentElement !== document.body) {
+            document.body.appendChild(backdrop);
+            document.body.appendChild(panel);
+          }
+        }
+        ensureBodyPortal();
+
+        function exitFabricMapIfNeeded() {
+          try {
+            if (window.PiHerderFabric && typeof window.PiHerderFabric.exitMapFullscreen === 'function') {
+              window.PiHerderFabric.exitMapFullscreen();
+            } else {
+              document.querySelectorAll('[data-fabric-graph].is-map-fullscreen').forEach(function (g) {
+                g.classList.remove('is-map-fullscreen');
+              });
+              document.body.classList.remove('fabric-map-fullscreen');
+            }
+          } catch (e) {}
+        }
+
         function open() {
+          ensureBodyPortal();
+          exitFabricMapIfNeeded();
+          // Wide Network/map content can leave layout scrolled sideways on iOS
+          try {
+            document.documentElement.scrollLeft = 0;
+            document.body.scrollLeft = 0;
+            if (window.scrollTo) window.scrollTo(window.scrollX || 0, window.scrollY || 0);
+          } catch (e2) {}
           panel.classList.remove('hidden');
           backdrop.classList.remove('hidden');
           void panel.offsetWidth;
           panel.classList.add('open');
           backdrop.classList.add('open');
+          document.body.classList.add('mobile-nav-open');
           btn.setAttribute('aria-expanded', 'true');
           document.body.style.overflow = 'hidden';
         }
@@ -503,6 +535,7 @@
         function close() {
           panel.classList.remove('open');
           backdrop.classList.remove('open');
+          document.body.classList.remove('mobile-nav-open');
           btn.setAttribute('aria-expanded', 'false');
           document.body.style.overflow = '';
           setTimeout(function () {

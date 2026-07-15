@@ -33,6 +33,26 @@ async def server_services_page(
     host_n = sum(1 for s in services if s.get("location_kind") == "host")
     docker_n = sum(1 for s in services if s.get("location_kind") == "docker")
 
+    # Optional path-map deep links when a DNS fabric record matches the monitor URL
+    try:
+        from ..services import dns_fabric as fabric
+
+        for s in services:
+            hit = fabric.fabric_path_for_fqdn(session, s.get("url") or s.get("label"))
+            if hit:
+                s["path_map_url"] = hit.get("path_map_url")
+                s["hosts_map_url"] = hit.get("hosts_map_url")
+                s["fabric_fqdn"] = hit.get("fqdn")
+    except Exception:
+        pass
+    hosts_map_url = f"/dns/physical?focus=n:host-{server_id}#map"
+    try:
+        from ..services import dns_fabric as fabric
+
+        hosts_map_url = fabric.hosts_map_url(server_id=server_id)
+    except Exception:
+        pass
+
     # Prefer first Kuma integration for "manage" link
     manage_id = None
     for s in services:
@@ -81,6 +101,7 @@ async def server_services_page(
             "docker_count": docker_n,
             "manage_integration_id": manage_id,
             "kuma_ssh": ssh,
+            "hosts_map_url": hosts_map_url,
             "lean_page": True,
         },
     )

@@ -1,4 +1,4 @@
-"""Integrations hub — Uptime Kuma, Grafana, Pi-hole, Nginx Proxy Manager."""
+"""Integrations hub — list, CRUD, Kuma/Grafana bindings (Pi-hole/NPM in sibling modules)."""
 from __future__ import annotations
 
 import json
@@ -6,8 +6,6 @@ import logging
 from datetime import datetime
 from typing import Optional
 from urllib.parse import urlencode
-
-# json used for docker_options_json in detail view
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -24,53 +22,9 @@ from ..services.integrations import pihole as ph
 from ..services.integrations import poll as poll_svc
 from ..services.integrations import registry as reg
 from ..services.integrations import uptime_kuma as kuma
+from .integrations_common import router, _audit, _redirect, _can_mutate
 
 logger = logging.getLogger(__name__)
-router = APIRouter(tags=["integrations"])
-
-
-def _audit(
-    session: Session,
-    user: User,
-    action: str,
-    *,
-    server_id: Optional[int] = None,
-    details: str = "",
-    status: str = "success",
-) -> None:
-    try:
-        from ..services.audit_write import make_audit_log
-
-        session.add(
-            make_audit_log(
-                user_id=user.id,
-                server_id=server_id,
-                action=action,
-                status=status,
-                details=(details or "")[:2000],
-                started_at=datetime.utcnow(),
-                finished_at=datetime.utcnow(),
-            )
-        )
-        session.commit()
-    except Exception as e:
-        logger.debug("audit skip: %s", e)
-        session.rollback()
-
-
-def _redirect(path: str, *, fragment: str | None = None, **params) -> RedirectResponse:
-    """303 redirect; optional URL fragment keeps scroll position on long pages."""
-    if params:
-        path = f"{path}?{urlencode({k: v for k, v in params.items() if v is not None})}"
-    frag = (fragment or "").strip().lstrip("#")
-    if frag:
-        path = f"{path}#{frag}"
-    return RedirectResponse(path, status_code=303)
-
-
-def _can_mutate(user: User) -> bool:
-    return role_at_least(user, ROLE_OPERATOR)
-
 
 @router.get("/catalog", response_class=HTMLResponse)
 async def catalog_entry(
@@ -141,6 +95,53 @@ async def integrations_list(
                 for i in pihole_items
             ]
         )
+    # Compact hero pulse
+    by_type: dict = {}
+    ok_n = err_n = off_n = never_n = 0
+    for i in items:
+        t = i.get("type") or "other"
+        by_type[t] = by_type.get(t, 0) + 1
+        if not i.get("enabled"):
+            off_n += 1
+        elif i.get("ok") is True:
+            ok_n += 1
+        elif i.get("ok") is False or i.get("last_error"):
+            err_n += 1
+        else:
+            never_n += 1
+    type_line = [
+        {"n": by_type.get(t, 0), "l": lab, "cls": ""}
+        for t, lab in (
+            ("uptime_kuma", "kuma"),
+            ("grafana", "grafana"),
+            ("pihole", "pihole"),
+            ("npm", "npm"),
+        )
+        if by_type.get(t)
+    ]
+    from ..services.ops_pulse import catalog_health, dual_line_pulse, stat, bar_seg
+
+    catalog_pulse = dual_line_pulse(
+        health=catalog_health(err_n=err_n, items=len(items)),
+        primary=len(items),
+        primary_label="linked",
+        bar=[
+            bar_seg(ok_n, "ops-bar--ok", f"{ok_n} ok"),
+            bar_seg(err_n, "ops-bar--fail", f"{err_n} error"),
+            bar_seg(never_n, "ops-bar--run", f"{never_n} never"),
+            bar_seg(off_n, "ops-bar--mute", f"{off_n} off"),
+        ]
+        if items
+        else [{"n": 1, "cls": "ops-bar--mute", "title": "empty"}],
+        line1=[
+            stat(ok_n, "ok", "text-accent"),
+            stat(err_n, "error", "text-danger" if err_n else ""),
+            stat(never_n, "never"),
+            stat(off_n, "off"),
+        ],
+        line2=type_line or [stat(0, "none")],
+        caption="Connection health · by product",
+    )
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="integrations_list.html",
@@ -149,6 +150,7 @@ async def integrations_list(
             "user": user,
             "integrations": items,
             "pihole_summary": pihole_summary,
+            "catalog_pulse": catalog_pulse,
             "can_mutate": _can_mutate(user),
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or "",
@@ -489,9 +491,11 @@ async def integration_detail(
     if integration.type == reg.TYPE_GRAFANA:
         return await _grafana_detail(request, session, user, integration)
     if integration.type == reg.TYPE_PIHOLE:
-        return await _pihole_detail(request, session, user, integration)
+        from .integrations_pihole import render_pihole_detail
+        return await render_pihole_detail(request, session, user, integration)
     if integration.type == reg.TYPE_NPM:
-        return await _npm_detail(request, session, user, integration)
+        from .integrations_npm import render_npm_detail
+        return await render_npm_detail(request, session, user, integration)
     if integration.type != reg.TYPE_UPTIME_KUMA:
         raise HTTPException(400, "Unsupported integration type in UI yet")
 
@@ -1551,713 +1555,6 @@ async def suggest_bindings(
         scope="ssh",
     )
 
-
-# ---------------------------------------------------------------------------
-# Pi-hole detail + DNS / actions
-# ---------------------------------------------------------------------------
-
-
-async def _pihole_detail(request, session, user, integration: Integration):
-    status = reg.parse_last_status(integration)
-    tab = (request.query_params.get("tab") or "overview").strip().lower()
-    hosts: list = []
-    cnames: list = []
-    dns_error = ""
-    if tab in ("dns", "cname") and reg.pihole_password(integration):
-        try:
-            sess = ph.login(
-                integration.base_url,
-                reg.pihole_password(integration),
-                tls_verify=reg.tls_verify(integration),
-            )
-            try:
-                if tab == "dns":
-                    hosts = ph.list_dns_hosts(sess)
-                else:
-                    cnames = ph.list_dns_cnames(sess)
-            finally:
-                ph.logout(sess)
-        except Exception as e:
-            dns_error = str(e)[:300]
-    # All pihole instances for fan-out context
-    others = [
-        r
-        for r in reg.list_integrations(session, type_filter=reg.TYPE_PIHOLE)
-        if r.id != integration.id
-    ]
-    servers = list(
-        session.exec(select(Server).order_by(Server.sort_order, Server.name)).all()
-    )
-    docker_options: dict[int, list] = {
-        s.id: reg.docker_inventory_options(session, s.id) for s in servers
-    }
-    host_binding = None
-    hb_rows = reg.list_bindings(
-        session, integration_id=integration.id, role=reg.ROLE_PIHOLE_HOST
-    )
-    if hb_rows:
-        b = hb_rows[0]
-        srv = session.get(Server, b.server_id)
-        host_binding = {
-            "id": b.id,
-            "server_id": b.server_id,
-            "server_name": srv.name if srv else f"#{b.server_id}",
-            "docker_project": b.docker_project or "",
-            "docker_container": b.docker_container or "",
-        }
-    return templates_mod.templates.TemplateResponse(
-        request=request,
-        name="integrations_pihole_detail.html",
-        context={
-            "title": integration.name,
-            "user": user,
-            "integration": integration,
-            "status": status,
-            "is_primary": reg.is_pihole_primary(integration),
-            "tab": tab,
-            "hosts": hosts,
-            "cnames": cnames,
-            "dns_error": dns_error,
-            "other_piholes": others,
-            "servers": servers,
-            "host_binding": host_binding,
-            "docker_options_json": json.dumps(
-                {str(k): v for k, v in docker_options.items()}
-            ),
-            "admin_url": ph.admin_url(integration.base_url),
-            "gravity_url": ph.admin_url(integration.base_url, "/gravity"),
-            "system_url": ph.admin_url(integration.base_url, "/settings/system"),
-            "can_mutate": _can_mutate(user),
-            "msg": request.query_params.get("msg") or "",
-            "error": request.query_params.get("error") or "",
-            "detail": request.query_params.get("detail") or "",
-        },
-    )
-
-
-async def _npm_detail(request, session, user, integration: Integration):
-    status = reg.parse_last_status(integration)
-    tab = (request.query_params.get("tab") or "hosts").strip().lower()
-    servers = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
-    server_names = {s.id: s.name for s in servers}
-    bindings = reg.list_bindings(
-        session, integration_id=integration.id, role=reg.ROLE_PROXY_HOST
-    )
-    bind_by_ext: dict[str, dict] = {}
-    for b in bindings:
-        bind_by_ext[str(b.external_id)] = {
-            "id": b.id,
-            "server_id": b.server_id,
-            "server_name": server_names.get(b.server_id, f"#{b.server_id}"),
-            "docker_project": b.docker_project or "",
-            "docker_container": b.docker_container or "",
-            "external_label": b.external_label or "",
-        }
-    proxy_hosts = status.get("proxy_hosts") or []
-    certificates = status.get("certificates") or []
-    docker_options: dict[int, list] = {}
-    for s in servers:
-        docker_options[s.id] = reg.docker_inventory_options(session, s.id)
-    from ..services import certificates as cert_svc
-
-    managed = [
-        cert_svc.public_cert_dict(c)
-        for c in cert_svc.list_certificates(session)
-        if c.source_integration_id == integration.id
-    ]
-    return templates_mod.templates.TemplateResponse(
-        request=request,
-        name="integrations_npm_detail.html",
-        context={
-            "title": integration.name,
-            "user": user,
-            "integration": integration,
-            "status": status,
-            "tab": tab,
-            "proxy_hosts": proxy_hosts,
-            "certificates": certificates,
-            "servers": servers,
-            "bindings": bindings,
-            "bind_by_ext": bind_by_ext,
-            # String keys so JS dockerOpts[serverId] works (JSON object keys)
-            "docker_options_json": json.dumps(
-                {str(k): v for k, v in docker_options.items()}
-            ),
-            "managed_certs": managed,
-            "open_url": npm_mod.open_npm_url(integration.base_url),
-            "can_mutate": _can_mutate(user),
-            "msg": request.query_params.get("msg") or "",
-            "error": request.query_params.get("error") or "",
-            "detail": request.query_params.get("detail") or "",
-        },
-    )
-
-
-def _fanout_pihole_dns(
-    session: Session,
-    *,
-    op: str,
-    kind: str,
-    ip: str = "",
-    domain: str = "",
-    target: str = "",
-    scope: str = "all",
-    source_id: int | None = None,
-) -> list[dict]:
-    """Apply DNS mutation with scope: all | this | secondaries."""
-    from ..services.dns_fabric import fanout_pihole_dns
-
-    return fanout_pihole_dns(
-        session,
-        op=op,
-        kind=kind,
-        ip=ip,
-        domain=domain,
-        target=target,
-        scope=scope,
-        source_id=source_id,
-    )
-
-
-def _wants_async_json(request: Request) -> bool:
-    if (request.headers.get("X-PiHerder-Async") or "").strip() == "1":
-        return True
-    accept = (request.headers.get("accept") or "").lower()
-    return "application/json" in accept and "text/html" not in accept
-
-
-def _run_pihole_action_job(job_id: int, audit_id: int, target_ids: list[int], action: str) -> None:
-    """Background worker: gravity / restartdns / flush_network on target integrations."""
-    from datetime import datetime as dt
-
-    from ..models import Job as JobModel
-
-    labels = {
-        "gravity": "Update Gravity",
-        "restartdns": "Restart DNS",
-        "flush_network": "Flush network table",
-    }
-    label = labels.get(action, action)
-    try:
-        with job_service._get_fresh_session() as s:
-            job = s.get(JobModel, job_id)
-            if not job or job.status == "cancelled":
-                return
-            job.status = "running"
-            job.started_at = dt.utcnow()
-            job_service._merge_job_details(
-                job,
-                current=f"Running {label}…",
-                log_line=f"Starting {label} on {len(target_ids)} instance(s)…",
-                done=False,
-            )
-            s.add(job)
-            s.commit()
-
-            targets = []
-            for tid in target_ids:
-                row = reg.get_integration(s, tid)
-                if row and row.enabled and row.type == reg.TYPE_PIHOLE:
-                    targets.append(
-                        {
-                            "id": row.id,
-                            "name": row.name,
-                            "base_url": row.base_url,
-                            "password": reg.pihole_password(row),
-                            "tls_verify": reg.tls_verify(row),
-                        }
-                    )
-
-        results = []
-        for r in targets:
-            job_service._flush_job_progress(
-                job_id, f"{r['name']}…", f"→ {r['name']}: {label}…"
-            )
-            item = {"name": r["name"], "ok": False, "error": ""}
-            try:
-                sess = ph.login(
-                    r["base_url"],
-                    r["password"],
-                    tls_verify=r["tls_verify"],
-                )
-                try:
-                    out = ph.run_action(sess, action)
-                    item["ok"] = True
-                    tail = f" · {(out or '')[:120]}" if out else ""
-                    job_service._flush_job_progress(
-                        job_id, f"{r['name']} ok", f"  {r['name']}: ok{tail}"
-                    )
-                finally:
-                    ph.logout(sess)
-            except Exception as e:
-                item["error"] = str(e)[:200]
-                job_service._flush_job_progress(
-                    job_id,
-                    f"{r['name']} failed",
-                    f"  {r['name']}: failed — {item['error']}",
-                )
-            results.append(item)
-
-        ok_n = sum(1 for x in results if x["ok"])
-        fail = [x for x in results if not x["ok"]]
-        if not results:
-            status = "failed"
-            summary = f"{label}: no enabled targets"
-        elif not fail:
-            status = "success"
-            summary = f"{label}: {ok_n}/{len(results)} ok"
-        else:
-            status = "failed"
-            summary = f"{label}: {ok_n}/{len(results)} ok · " + "; ".join(
-                f"{f['name']}: {f['error']}" for f in fail
-            )[:200]
-        job_service._finish(
-            audit_id, job_id, status, summary, job_type="pihole_action"
-        )
-    except Exception as e:
-        logger.exception("pihole action job %s: %s", job_id, e)
-        try:
-            job_service._finish(
-                audit_id,
-                job_id,
-                "failed",
-                f"Pi-hole action failed: {str(e)[:300]}",
-                job_type="pihole_action",
-            )
-        except Exception:
-            pass
-
-
-@router.post("/integrations/{integration_id}/pihole/dns-host")
-async def pihole_dns_host(
-    integration_id: int,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
-    action: str = Form("add"),
-    ip: str = Form(""),
-    domain: str = Form(""),
-    scope: str = Form("all"),
-):
-    integration = reg.get_integration(session, integration_id)
-    if not integration or integration.type != reg.TYPE_PIHOLE:
-        raise HTTPException(404)
-    ip = (ip or "").strip()
-    domain = (domain or "").strip()
-    if not ip or not domain:
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="dns",
-            error="invalid",
-            detail="IP and domain required",
-        )
-    op = "add" if action == "add" else "delete"
-    # Adds always fan out to all; deletes honour scope (this / secondaries / all)
-    sc = "all" if op == "add" else (scope or "all")
-    results = _fanout_pihole_dns(
-        session,
-        op=op,
-        kind="host",
-        ip=ip,
-        domain=domain,
-        scope=sc,
-        source_id=integration_id,
-    )
-    if not results:
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="dns",
-            error="no_targets",
-            detail="No matching Pi-hole instances for that scope",
-        )
-    ok_n = sum(1 for r in results if r["ok"])
-    fail = [r for r in results if not r["ok"]]
-    _audit(
-        session,
-        user,
-        f"pihole_dns_host_{op}",
-        details=f"{ip} {domain} scope={sc} ok={ok_n}/{len(results)}",
-        status="success" if not fail else "partial",
-    )
-    detail = f"{ok_n}/{len(results)} instances ({sc})"
-    if fail:
-        detail += " · " + "; ".join(f"{f['name']}: {f['error']}" for f in fail)[:180]
-    return _redirect(
-        f"/integrations/{integration_id}",
-        tab="dns",
-        msg="dns_ok" if not fail else "dns_partial",
-        detail=detail,
-    )
-
-
-@router.post("/integrations/{integration_id}/pihole/dns-cname")
-async def pihole_dns_cname(
-    integration_id: int,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
-    action: str = Form("add"),
-    domain: str = Form(""),
-    target: str = Form(""),
-    scope: str = Form("all"),
-):
-    integration = reg.get_integration(session, integration_id)
-    if not integration or integration.type != reg.TYPE_PIHOLE:
-        raise HTTPException(404)
-    domain = (domain or "").strip()
-    target = (target or "").strip()
-    if not domain or not target:
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="cname",
-            error="invalid",
-            detail="domain and target required",
-        )
-    op = "add" if action == "add" else "delete"
-    sc = "all" if op == "add" else (scope or "all")
-    results = _fanout_pihole_dns(
-        session,
-        op=op,
-        kind="cname",
-        domain=domain,
-        target=target,
-        scope=sc,
-        source_id=integration_id,
-    )
-    if not results:
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="cname",
-            error="no_targets",
-            detail="No matching Pi-hole instances for that scope",
-        )
-    ok_n = sum(1 for r in results if r["ok"])
-    fail = [r for r in results if not r["ok"]]
-    _audit(
-        session,
-        user,
-        f"pihole_dns_cname_{op}",
-        details=f"{domain} -> {target} scope={sc} ok={ok_n}/{len(results)}",
-        status="success" if not fail else "partial",
-    )
-    detail = f"{ok_n}/{len(results)} instances ({sc})"
-    if fail:
-        detail += " · " + "; ".join(f"{f['name']}: {f['error']}" for f in fail)[:180]
-    return _redirect(
-        f"/integrations/{integration_id}",
-        tab="cname",
-        msg="dns_ok" if not fail else "dns_partial",
-        detail=detail,
-    )
-
-
-@router.post("/integrations/{integration_id}/pihole/action")
-async def pihole_action(
-    request: Request,
-    integration_id: int,
-    background_tasks: BackgroundTasks,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
-    action: Optional[str] = Form(None),
-    all_instances: Optional[str] = Form(None),
-):
-    integration = reg.get_integration(session, integration_id)
-    if not integration or integration.type != reg.TYPE_PIHOLE:
-        raise HTTPException(404)
-    # Form() may miss multi-button submitter after confirm/async; also read raw form
-    act = (action or "").strip().lower()
-    if not act:
-        try:
-            form = await request.form()
-            act = str(form.get("action") or "").strip().lower()
-        except Exception:
-            act = ""
-    logger.info(
-        "pihole action request integration=%s action=%r all=%r user=%s async=%s",
-        integration_id,
-        act,
-        all_instances,
-        getattr(user, "id", None),
-        _wants_async_json(request),
-    )
-    if act not in ("gravity", "restartdns", "flush_network"):
-        logger.warning(
-            "pihole action rejected integration=%s action=%r user=%s",
-            integration_id,
-            action,
-            getattr(user, "id", None),
-        )
-        if _wants_async_json(request):
-            return JSONResponse(
-                {
-                    "detail": "Missing or unknown action (expected gravity, restartdns, or flush_network)",
-                },
-                status_code=400,
-            )
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="actions",
-            error="invalid",
-            detail="unknown action",
-        )
-    targets = [integration]
-    if all_instances in ("on", "1", "true"):
-        targets = [
-            r
-            for r in reg.list_integrations(session, type_filter=reg.TYPE_PIHOLE)
-            if r.enabled
-        ]
-    target_ids = [int(r.id) for r in targets if r.id is not None]
-    labels = {
-        "gravity": "Update Gravity",
-        "restartdns": "Restart DNS",
-        "flush_network": "Flush network table",
-    }
-    label = labels.get(act, act)
-    queue_msg = f"{label} queued for {len(target_ids)} instance(s)…"
-    job, audit = job_service._create_queued_job_with_audit(
-        session,
-        server_id=None,
-        job_type="pihole_action",
-        queue_message=queue_msg,
-        user_id=user.id,
-        audit_details=f"Job #{{job_id}} · {label} · {len(target_ids)} target(s)",
-        action=act,
-        integration_id=integration_id,
-        target_ids=target_ids,
-    )
-    background_tasks.add_task(
-        _run_pihole_action_job, job.id, audit.id, target_ids, act
-    )
-    if _wants_async_json(request):
-        return JSONResponse(
-            {
-                "job_id": job.id,
-                "poll_url": f"/jobs/{job.id}",
-                "status": "pending",
-                "action": act,
-                "detail": queue_msg,
-            }
-        )
-    return _redirect(
-        f"/integrations/{integration_id}",
-        tab="actions",
-        msg="action_queued",
-        detail=f"Job #{job.id} · {label}",
-    )
-
-
-@router.post("/integrations/{integration_id}/pihole/host-bind")
-async def pihole_host_bind(
-    integration_id: int,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
-    server_id: int = Form(...),
-    docker_project: str = Form(""),
-    docker_container: str = Form(""),
-):
-    """Link a Pi-hole integration to a fleet host (optional Docker scope)."""
-    integration = reg.get_integration(session, integration_id)
-    if not integration or integration.type != reg.TYPE_PIHOLE:
-        raise HTTPException(404)
-    # One host link per Pi-hole integration — replace prior rows
-    for old in reg.list_bindings(
-        session, integration_id=integration_id, role=reg.ROLE_PIHOLE_HOST
-    ):
-        session.delete(old)
-    session.commit()
-    try:
-        reg.set_binding(
-            session,
-            integration_id=integration_id,
-            server_id=server_id,
-            external_id="instance",
-            role=reg.ROLE_PIHOLE_HOST,
-            docker_project=docker_project or None,
-            docker_container=docker_container or None,
-            external_label=integration.name,
-            external_meta={"scope": "docker" if (docker_project or "").strip() else "host"},
-            last_state="up",
-        )
-        _audit(
-            session,
-            user,
-            "pihole_host_bound",
-            server_id=server_id,
-            details=f"pihole={integration_id}",
-        )
-        return _redirect(
-            f"/integrations/{integration_id}", tab="host", msg="host_linked"
-        )
-    except ValueError as e:
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="host",
-            error="bind_failed",
-            detail=str(e)[:200],
-        )
-
-
-@router.post("/integrations/{integration_id}/pihole/host-unbind")
-async def pihole_host_unbind(
-    integration_id: int,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
-    binding_id: int = Form(...),
-):
-    integration = reg.get_integration(session, integration_id)
-    if not integration or integration.type != reg.TYPE_PIHOLE:
-        raise HTTPException(404)
-    ok = reg.clear_binding(
-        session, integration_id=integration_id, server_id=0, binding_id=binding_id
-    )
-    if ok:
-        _audit(session, user, "pihole_host_unbound", details=f"binding={binding_id}")
-    return _redirect(f"/integrations/{integration_id}", tab="host", msg="host_cleared")
-
-
-@router.post("/integrations/{integration_id}/npm/bind")
-async def npm_bind_proxy(
-    integration_id: int,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
-    external_id: str = Form(...),
-    server_id: int = Form(...),
-    docker_project: str = Form(""),
-    docker_container: str = Form(""),
-):
-    integration = reg.get_integration(session, integration_id)
-    if not integration or integration.type != reg.TYPE_NPM:
-        raise HTTPException(404)
-    st = reg.parse_last_status(integration)
-    host = None
-    for h in st.get("proxy_hosts") or []:
-        if str(h.get("id")) == str(external_id).strip():
-            host = h
-            break
-    label = (host or {}).get("label") or str(external_id)
-    try:
-        reg.set_binding(
-            session,
-            integration_id=integration_id,
-            server_id=server_id,
-            external_id=str(external_id).strip(),
-            role=reg.ROLE_PROXY_HOST,
-            docker_project=docker_project or None,
-            docker_container=docker_container or None,
-            external_label=label,
-            external_meta=host or {"id": external_id},
-            last_state="up",
-        )
-        _audit(
-            session,
-            user,
-            "npm_proxy_bound",
-            server_id=server_id,
-            details=f"proxy_host={external_id}",
-        )
-        return _redirect(
-            f"/integrations/{integration_id}", tab="hosts", msg="bound"
-        )
-    except ValueError as e:
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="hosts",
-            error="bind_failed",
-            detail=str(e)[:200],
-        )
-
-
-@router.post("/integrations/{integration_id}/npm/unbind")
-async def npm_unbind_proxy(
-    integration_id: int,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
-    binding_id: int = Form(...),
-):
-    ok = reg.clear_binding(
-        session, integration_id=integration_id, server_id=0, binding_id=binding_id
-    )
-    if ok:
-        _audit(session, user, "npm_proxy_unbound", details=f"binding={binding_id}")
-    return _redirect(f"/integrations/{integration_id}", tab="hosts", msg="unbound")
-
-
-@router.post("/integrations/{integration_id}/npm/pull-cert")
-async def npm_pull_cert(
-    integration_id: int,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
-    cert_id: str = Form(...),
-    name: str = Form(""),
-    auto_renew: Optional[str] = Form("on"),
-):
-    from ..services import certificates as cert_svc
-
-    integration = reg.get_integration(session, integration_id)
-    if not integration or integration.type != reg.TYPE_NPM:
-        raise HTTPException(404)
-    try:
-        row = cert_svc.pull_from_npm(
-            session,
-            integration,
-            cert_id,
-            name=name,
-            auto_renew=auto_renew in ("on", "1", "true"),
-        )
-        _audit(
-            session,
-            user,
-            "cert_pulled_npm",
-            details=f"npm_id={cert_id} cert={row.id} name={row.name}",
-        )
-        return _redirect(f"/certificates/{row.id}", msg="pulled")
-    except Exception as e:
-        logger.exception("npm pull cert")
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="certs",
-            error="pull_failed",
-            detail=str(e)[:200],
-        )
-
-
-@router.post("/integrations/{integration_id}/npm/renew-cert")
-async def npm_renew_cert(
-    integration_id: int,
-    session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
-    cert_id: str = Form(...),
-):
-    from ..services import certificates as cert_svc
-
-    integration = reg.get_integration(session, integration_id)
-    if not integration or integration.type != reg.TYPE_NPM:
-        raise HTTPException(404)
-    # Ensure we have a managed row
-    try:
-        row = cert_svc.pull_from_npm(
-            session, integration, cert_id, auto_renew=True
-        )
-    except Exception as e:
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="certs",
-            error="pull_failed",
-            detail=str(e)[:200],
-        )
-    result = cert_svc.renew_npm_certificate(
-        session, row, poll_interval_sec=5, poll_attempts=2
-    )
-    _audit(
-        session,
-        user,
-        "cert_renew_requested",
-        details=f"cert={row.id} ok={result.get('ok')}",
-        status="success" if result.get("ok") else "failed",
-    )
-    if result.get("ok"):
-        return _redirect(f"/certificates/{row.id}", msg="renewed")
-    return _redirect(
-        f"/certificates/{row.id}",
-        error="renew_failed",
-        detail=(result.get("error") or "")[:200],
-    )
+# Product-specific routes attach to the same router
+from . import integrations_pihole as _integrations_pihole  # noqa: E402,F401
+from . import integrations_npm as _integrations_npm  # noqa: E402,F401

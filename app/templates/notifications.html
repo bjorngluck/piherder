@@ -1,20 +1,86 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header mb-6">
-  <div>
-    <h1 class="text-3xl font-semibold tracking-tighter text-text">Notifications</h1>
-    <p class="text-sm text-muted mt-1">Actionable alerts (updates, reboot, failed backups). History stays in Audit · times in {{ get_app_timezone() }}</p>
+{% set p = pulse or {} %}
+{% set open_n = open_count if open_count is defined else (p.open or 0) %}
+{% set all_n = p.total if p.total is defined else open_n %}
+{% set n_dis = p.dismissed or 0 %}
+{% set n_res = p.resolved or 0 %}
+{% set a_crit = p.critical or 0 %}
+{% set a_warn = p.warning or 0 %}
+{% set a_info = p.info or 0 %}
+{% set o_crit = p.open_critical or 0 %}
+{% set sev_tot = a_crit + a_warn + a_info %}
+{% set st_tot = open_n + n_dis + n_res %}
+{% set health = 'hot' if o_crit else ('warn' if open_n else 'ok') %}
+
+<section class="ops-hero ops-hero--alerts is-{{ health }} mb-4">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker">Operations</div>
+    <h1 class="ops-hero-title">Alerts</h1>
+    <p class="ops-hero-sub">
+      Notifications · {{ get_app_timezone() }}
+      · <strong class="text-text">{{ open_n }}</strong> open
+      · <strong class="text-text">{{ all_n }}</strong> total
+    </p>
+    <div class="ops-hero-actions">
+      {% if open_n %}
+      <form method="post" action="/notifications/dismiss-all" class="inline">
+        <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Dismiss all open</button>
+      </form>
+      {% endif %}
+      <a href="/audit" class="btn btn-secondary text-xs min-h-9 px-2.5">Audit</a>
+      <a href="/jobs" class="btn btn-secondary text-xs min-h-9 px-2.5">Jobs</a>
+    </div>
   </div>
-  <div class="page-header-actions">
-    {% if open_count %}
-    <form method="post" action="/notifications/dismiss-all">
-      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Dismiss all open</button>
-    </form>
-    {% endif %}
-    <a href="/audit" class="btn btn-secondary min-h-11 text-sm">Audit log</a>
+  <div class="ops-hero-viz">
+    <div class="ops-alert-orb {% if health == 'hot' %}is-hot{% elif health == 'warn' %}is-warn{% else %}is-ok{% endif %}" aria-hidden="true">
+      <div class="ops-alert-orb-core">
+        <div class="ops-queue-n">{{ open_n }}</div>
+        <div class="ops-queue-l">open</div>
+      </div>
+    </div>
+    {# Status mix: open · dismissed · resolved #}
+    <div class="ops-bars" aria-hidden="true" title="Status mix (all alerts)">
+      {% if st_tot %}
+      <div class="ops-bar" style="flex: {{ open_n or 0.001 }}; background: var(--color-warning, #d97706)" title="{{ open_n }} open"></div>
+      <div class="ops-bar ops-bar--mute" style="flex: {{ n_dis or 0.001 }}" title="{{ n_dis }} dismissed"></div>
+      <div class="ops-bar ops-bar--ok" style="flex: {{ n_res or 0.001 }}" title="{{ n_res }} resolved"></div>
+      {% else %}
+      <div class="ops-bar ops-bar--mute" style="flex: 1"></div>
+      {% endif %}
+    </div>
+    <div class="ops-pulse-stats">
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ all_n }}</span><span class="ops-pulse-l">all</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-warning">{{ open_n }}</span><span class="ops-pulse-l">open</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ n_dis }}</span><span class="ops-pulse-l">dismissed</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-accent">{{ n_res }}</span><span class="ops-pulse-l">resolved</span></div>
+    </div>
+    {# Severity across all statuses #}
+    <div class="ops-bars mt-1" aria-hidden="true" title="Severity (all statuses)">
+      {% if sev_tot %}
+      <div class="ops-bar ops-bar--fail" style="flex: {{ a_crit or 0.001 }}" title="{{ a_crit }} critical"></div>
+      <div class="ops-bar" style="flex: {{ a_warn or 0.001 }}; background: var(--color-warning, #d97706)" title="{{ a_warn }} warning"></div>
+      <div class="ops-bar ops-bar--run" style="flex: {{ a_info or 0.001 }}" title="{{ a_info }} info"></div>
+      {% else %}
+      <div class="ops-bar ops-bar--mute" style="flex: 1"></div>
+      {% endif %}
+    </div>
+    <div class="ops-pulse-stats">
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-danger">{{ a_crit }}</span><span class="ops-pulse-l">critical</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-warning">{{ a_warn }}</span><span class="ops-pulse-l">warning</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-info">{{ a_info }}</span><span class="ops-pulse-l">info</span></div>
+      {% if o_crit %}
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-danger">{{ o_crit }}</span><span class="ops-pulse-l">open crit</span></div>
+      {% endif %}
+    </div>
+    <p class="ops-pulse-caption">
+      All alerts · severity includes closed
+      · list shows {{ items|length if items else 0 }}
+      {% if status != 'all' %} ({{ status }}){% endif %}
+    </p>
   </div>
-</div>
+</section>
 
 {% if request.query_params.get('dismissed') %}
 <div class="mb-3 p-2 text-xs rounded border border-border banner-success">Alert dismissed.</div>
@@ -22,39 +88,44 @@
 <div class="mb-3 p-2 text-xs rounded border border-border banner-error">Could not dismiss alert (not found).</div>
 {% endif %}
 
-<form method="get" action="/notifications" class="card p-4 mb-4 flex flex-wrap gap-3 items-end">
-  <div>
-    <label class="block text-xs text-muted mb-1">Status</label>
-    <select name="status" class="bg-surface border border-border rounded px-2 py-2 min-h-11 text-sm">
+<form method="get" action="/notifications" class="card ops-filters mb-4">
+  <div class="ops-filters-row">
+    <select name="status" class="ops-f-control" aria-label="Status">
       <option value="open" {% if status == 'open' %}selected{% endif %}>Open</option>
       <option value="dismissed" {% if status == 'dismissed' %}selected{% endif %}>Dismissed</option>
       <option value="resolved" {% if status == 'resolved' %}selected{% endif %}>Resolved</option>
       <option value="all" {% if status == 'all' %}selected{% endif %}>All</option>
     </select>
-  </div>
-  <div>
-    <label class="block text-xs text-muted mb-1">Type</label>
-    <select name="type" class="bg-surface border border-border rounded px-2 py-2 min-h-11 text-sm">
-      <option value="">Any</option>
+    <select name="type" class="ops-f-control" aria-label="Type">
+      <option value="">Any type</option>
       {% for t in ['os_updates','container_updates','reboot_pending','backup_failed','herder_backup_failed'] %}
       <option value="{{ t }}" {% if type_filter == t %}selected{% endif %}>{{ t }}</option>
       {% endfor %}
     </select>
-  </div>
-  <div>
-    <label class="block text-xs text-muted mb-1">Server</label>
-    <select name="server_id" class="bg-surface border border-border rounded px-2 py-2 min-h-11 text-sm">
-      <option value="">Any</option>
+    <select name="server_id" class="ops-f-control" aria-label="Server">
+      <option value="">Any server</option>
       {% for s in servers %}
       <option value="{{ s.id }}" {% if server_id == s.id %}selected{% endif %}>{{ s.name }}</option>
       {% endfor %}
     </select>
+    <button type="submit" class="btn btn-accent text-xs min-h-9 px-3">Filter</button>
   </div>
-  <button type="submit" class="btn btn-secondary min-h-11 text-sm">Filter</button>
 </form>
 
+{% if p.by_type and items %}
+<div class="ops-type-chips mb-3">
+  {% for t, c in p.by_type.items() %}
+  <a href="/notifications?status={{ status }}&type={{ t }}{% if server_id %}&server_id={{ server_id }}{% endif %}"
+     class="ops-type-chip {% if type_filter == t %}is-active{% endif %}">
+    <span class="ops-type-chip-n">{{ c }}</span> {{ t }}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if not items %}
-<div class="card empty-state">
+<div class="card empty-state ops-empty">
+  <div class="ops-empty-icon" aria-hidden="true">✓</div>
   <p>No notifications match.</p>
   <p class="empty-state-hint">
     {% if status == 'open' %}You’re all caught up — or switch status to see dismissed history.
@@ -66,20 +137,17 @@
   </div>
 </div>
 {% else %}
-<ul class="space-y-3">
+<ul class="ops-alert-list space-y-3">
   {% for n in items %}
-  <li class="card p-4 flex flex-col sm:flex-row sm:items-start gap-3 justify-between">
-    <div class="min-w-0 flex-1">
+  <li class="ops-alert-card severity-{{ n.severity or 'warning' }} status-{{ n.status }}">
+    <div class="ops-alert-card-body min-w-0 flex-1">
       <div class="flex flex-wrap items-center gap-2 mb-1">
-        <span class="text-xs uppercase tracking-wide
-          {% if n.severity == 'critical' %}text-red-500
-          {% elif n.severity == 'warning' %}text-amber-500
-          {% else %}text-muted{% endif %}">{{ n.severity }}</span>
+        <span class="ops-sev-pill ops-sev-pill--{{ n.severity or 'warning' }}">{{ n.severity }}</span>
         <span class="text-xs text-muted font-mono">{{ n.type }}</span>
         <span class="text-xs text-muted">{{ n.status }}</span>
         {% if n.server_name %}<span class="text-xs text-muted">· {{ n.server_name }}</span>{% endif %}
       </div>
-      <div class="font-medium text-text">
+      <div class="font-medium text-text text-base">
         {% if n.link_url and n.status == 'open' %}
         <a href="{{ n.link_url }}" class="text-primary hover:underline">{{ n.title }}</a>
         {% else %}

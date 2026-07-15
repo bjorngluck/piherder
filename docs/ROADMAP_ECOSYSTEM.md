@@ -224,7 +224,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 
 ## Horizon 2.5 — Service fabric & topology (post-0.5 / pre-1.0)
 
-**Network maps / DNS fabric** (host A + service names, Pi-hole adopt, Hosts map + Path map, LAN/gateway/public IP, cloud hosts, optional Kuma on router/WAN) lands in **v0.5.0**. Next topology depth:
+**Network maps / DNS fabric** (host A + service names, Pi-hole adopt, Hosts map + Path map, LAN/gateway/public IP, cloud hosts, optional Kuma on router/WAN, mobile list-first + fullscreen vs hamburger) lands in **v0.5.0**. Next topology depth:
 
 | Item | Direction |
 |------|-----------|

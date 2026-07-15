@@ -11,6 +11,47 @@ PiHerder ships with **built-in light and dark themes** (Raspberry Pi red / green
 
 Your choice is stored in the browser (local preference). It does not change other operators’ views.
 
+## Light vs dark structure
+
+Both themes use the same layout; contrast is **token-driven**. Stylesheets (loaded from `base.html`, query-busted):
+
+| File | Role |
+|------|------|
+| `app/static/css/themes.css` | Colour tokens, header/nav, cards, buttons, shared chrome |
+| `app/static/css/fabric.css` | Network maps (mesh SVG, focus, mobile list-first, map fullscreen) |
+| `app/static/css/ops.css` | Ops heroes, compact filters, catalog tab bar, Settings/Account/Users |
+
+| Role | Light | Dark |
+|------|-------|------|
+| **Page canvas** (`--color-bg`) | Cool grey so white cards separate | Deep navy |
+| **Cards / panels** (`--color-surface`) | White + border + light elevation | Elevated grey + border |
+| **borders / chrome** (`--color-border`) | Medium grey (readable on white) | Mid-grey on dark panels |
+| **Secondary buttons** | Canvas-tinted fill + border (not ghost-white) | Recessed panel + border |
+
+If light mode ever looks like “one flat white screen”, borders or canvas grey have slipped too close to pure white — fix tokens, not per-page CSS.
+
+### Ops-hero UI (v0.5.0)
+
+Fleet ops pages share a compact **ops-hero**: primary orb + dual-line stats + optional type chips. Used on **Servers**, **Jobs**, **Audit**, **Notifications**, **Catalog** (Integrations / Certificates / Templates / Network), **Settings**, **Account**, and **Users**. Dashboard keeps a distinct showcase hero plus a **Network maps** entry panel.
+
+### Mobile navigation
+
+- Desktop and mobile menus share one `nav_items` / `secondary_items` source in `base.html` (no drift).  
+- The hamburger **slide-out is portaled to `body`** so fixed positioning is not trapped by page overflow (especially Network maps).  
+- **Z-index contract:** map fullscreen `100000` · menu backdrop `100090` · menu panel `100100`. Opening **☰** exits map fullscreen cleanly (label, aria, and viewport listeners).
+
+### Theme CSS not updating after a deploy
+
+PiHerder registers a **service worker** (PWA / push). Older builds cache-first’d CSS, so the browser could keep serving **stale** tokens until the SW cache was replaced.
+
+Current behaviour: CSS/JS is **network-first**; shell cache is versioned (`piherder-shell-v3+`). Stylesheet links are query-busted (`themes.css?v=…`, `fabric.css?v=…`, `ops.css?v=…`).
+
+If a tab still looks unchanged after a theme fix:
+
+1. Hard reload once (or close all PiHerder tabs and reopen).  
+2. Or DevTools → Application → Service Workers → **Unregister**, then reload.  
+3. Or Application → Cache Storage → delete `piherder-shell-*`.
+
 ## What theme does *not* affect
 
 - Server data, jobs, or audits  
@@ -32,4 +73,5 @@ Capture conventions: [`wiki/assets/screenshots/README.md`](https://github.com/bj
 ## Related
 
 - [PWA & Web Push](../account-security/pwa-push.md) — install to home screen (theme still toggles in-app)  
+- [Network maps](../integrations/dns-fabric.md) — map chrome and mobile list-first  
 - Theme sandbox (developers): `/static/theme-test.html` on a running instance  

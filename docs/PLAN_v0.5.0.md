@@ -2,7 +2,7 @@
 
 **Status:** **QA / release prep** (feature work for RC substantially complete; operator QA then freeze)  
 **Date opened:** 2026-07-12  
-**Last plan refresh:** 2026-07-15 (dep lock for RC; PyJWT; Catalog certs / Services polish)  
+**Last plan refresh:** 2026-07-15 (ops-hero UI polish; Network maps mobile nav; `dns_fabric` package + CSS split; wiki sync)  
 **Baseline:** `v0.4.0` (templates foundation + post-0.3 quality)  
 **Package version on main:** `0.5.0.dev0` (`pyproject.toml`) — bump to `0.5.0` at tag  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [SPEC.md](../SPEC.md) · Wiki: [Network maps](../wiki/integrations/dns-fabric.md)
@@ -120,13 +120,16 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 | Kuma on infra | Optional Router + Public IP monitor dropdowns; status chip + Open in Kuma | **Done** |
 | Layout polish | LAN ring top-gap (no host on Router→LAN spine); theme-aware Internet/Router/LAN/NPM fills (light mode) | **Done** |
 | Focus UX | Path focus **and** node focus (any host incl. Nomad w/o services, Router, LAN, Internet); Open host / Open in Kuma; copy path; touch lock | **Done** |
-| Map chrome | viewBox pinch/zoom to 500%, pan, +/−/1:1; mobile list-first + View full map; filters; status dots | **Done** |
-| Catalog label | UI **Network** (URL `/dns*` kept) | **Done** |
+| Map chrome | viewBox pinch/zoom to 500%, pan, +/−/1:1, **Full screen**; mobile list-first + **View full map** + **Hide map**; filters; status dots | **Done** |
+| Mobile nav vs map | Body-level hamburger portal; z-index above map fullscreen (`100100` > `100000`); open menu fully exits fullscreen (label/aria/listeners) | **Done** |
+| Catalog label | UI **Network** / **Network maps** (URL `/dns*` kept; code package `dns_fabric`) | **Done** |
+| Docker path pills | Cheap case-insensitive project index (no access-path resolve on HTMX stack poll) | **Done** |
 | External DNS | Checklist only (Cloudflare automation = post-0.5) | **Done** |
+| Code layout | `app/services/dns_fabric/` package (`core`, `mesh_physical`, `mesh_logical`); CSS `fabric.css` + `ops.css` | **Done** |
 | Tests / CI | `tests/test_dns_fabric.py` · `.github/workflows/test.yml` | **Done** |
-| Wiki / docs | [Network maps](../wiki/integrations/dns-fabric.md) · ADMIN · SPEC · README · ROADMAP | **Done** |
+| Wiki / docs | [Network maps](../wiki/integrations/dns-fabric.md) · ADMIN · SPEC · README · ROADMAP · appearance / jobs-audit / architecture | **Done** (refreshed 2026-07-15) |
 
-**QA smoke (operator):** set network map (LAN/gateway/public ± Kuma) → host DNS on 2+ servers → import Pi-hole → Hosts map (spine + Nomad cloud + selectable empty hosts) → Path map → sync path card → host identity (e.g. 3D Print) → external checklist · hard-refresh after image rebuild.
+**QA smoke (operator):** set network map (LAN/gateway/public ± Kuma) → host DNS on 2+ servers → import Pi-hole → Hosts map (spine + Nomad cloud + selectable empty hosts) → Path map → mobile **View full map** / **Hide map** / Full screen then **☰** (drawer on-screen) → sync path card → host identity → external checklist · hard-refresh after deploy (`?v=` CSS/JS bust).
 
 ### G — Stretch quality (B07–B09)
 
@@ -168,6 +171,11 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 | Catalog **Certificates** tab | First-class Catalog section; list shows maps + expiry summary | **Done** (2026-07-15) |
 | Fleet **Services** polish | Filter All/Up/Down/TLS; search; clearer empty state; Docker deep link | **Done** (2026-07-15) |
 | Repo cruft cleanup | Removed `Caddyfile.old`, `THEMING_VARIABLES.md`, `UI_UNIFICATION_PLAN.md` | **Done** |
+| **Ops-hero design system** | Dual-line pulse + compact filters on Servers, Jobs, Audit, Alerts, Catalog sections, Settings, Account, Users; shared `ops_pulse` helper | **Done** (2026-07-15) |
+| **Dashboard network showcase** | Fleet home panel → Network maps (Hosts / Path deep links) | **Done** |
+| **Audit/Jobs date presets** | 7d / 30d / 90d use **app timezone** calendar day (not browser local midnight) | **Done** |
+| **Integrations router split** | `integrations_common` + `integrations_pihole` + `integrations_npm` (thin product shells on shared router) | **Done** |
+| **Theme CSS split** | `themes.css` + `fabric.css` (maps/fullscreen) + `ops.css` (heroes/filters); network-first SW + query bust | **Done** |
 
 ---
 
@@ -205,7 +213,8 @@ Must-have:
 
 ### QA / freeze checklist (operator)
 
-- [ ] DNS fabric smoke (F.1)  
+- [ ] Network maps smoke (F.1) incl. mobile Hide map / Full screen / hamburger  
+
 - [ ] Template deploy + drift + apply last known config  
 - [ ] Pi-hole Actions → job + audit  
 - [ ] Cert list / target deploy (if used)  
@@ -239,7 +248,9 @@ git log --oneline v0.4.0..HEAD
 | B09 resolve push | Web Push when alerts auto-resolve (type prefs) |
 | Audit client IP (H) | `client_ip` on all request audits; login/token audits; Celery keeps queue IP; Alembic commit fix |
 | Pi-hole / NPM / certs | Workstream F (multi Pi-hole, NPM RO, managed certs, renew) |
-| Network maps (DNS fabric) | Host A + service mappings; adopt Pi-hole; Hosts/Path maps; LAN/cloud/Internet spine; Kuma infra; node+path focus |
+| Network maps (DNS fabric) | Host A + service mappings; adopt Pi-hole; Hosts/Path maps; LAN/cloud/Internet spine; Kuma infra; node+path focus; mobile hide/fullscreen vs hamburger |
+| Ops UI polish | ops-hero dual-line pulse across ops/catalog/access; app-TZ date presets; Network maps naming |
+| Architecture maintainability | `dns_fabric` package; fabric/ops CSS split; integrations product modules; `ops_pulse`; cheap Docker fabric index |
 | Catalog Certificates + Services UX | Certificates as Catalog tab; list maps/expiry; fleet Services filters + search |
 | A template polish | Volume editor on redeploy; from-host edges; post-redeploy links |
 | B drift + env migrate | Scheduled/manual drift; import host `.env` into encrypted SoT |

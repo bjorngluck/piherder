@@ -1,100 +1,154 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header mb-6">
-  <div>
-    <h1 class="text-3xl font-semibold tracking-tighter text-text">Audit Log</h1>
-    <p class="text-sm text-muted mt-1">Event feed · times in {{ get_app_timezone() }}</p>
-  </div>
-  <div class="page-header-actions">
-    <a href="/" class="btn btn-secondary min-h-11 text-sm">← Dashboard</a>
-  </div>
-</div>
+{% set p = pulse or {} %}
+{% set p_ok = p.success or 0 %}
+{% set p_fail = p.failed or 0 %}
+{% set p_run = p.running or 0 %}
+{% set p_other = p.other or 0 %}
+{% set p_sample = p.sample or 0 %}
+{% set p_tot = p_ok + p_fail + p_run + p_other %}
+{% set health = 'ok' if p_fail == 0 and p_run == 0 else ('hot' if p_fail > 0 else 'busy') %}
 
-<form method="get" class="card p-4 mb-4" id="audit-filter-form">
-  <div class="audit-filters-primary">
-    <input type="text" name="search" value="{{ search }}" placeholder="Search actions, details, output…"
-           class="audit-search bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
-    <select name="server_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11 sm:w-auto">
+<section class="ops-hero ops-hero--audit is-{{ health }} mb-4">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker">Operations</div>
+    <h1 class="ops-hero-title">Audit log</h1>
+    <p class="ops-hero-sub">
+      Event feed · {{ get_app_timezone() }}
+      {% if total is defined %} · <strong class="text-text">{{ total }}</strong> match{% if total != 1 %}es{% endif %}{% endif %}
+    </p>
+    <div class="ops-hero-actions">
+      <a href="/jobs" class="btn btn-secondary text-xs min-h-9 px-2.5">Jobs</a>
+      <a href="/notifications" class="btn btn-secondary text-xs min-h-9 px-2.5">Alerts</a>
+      <a href="/" class="btn btn-secondary text-xs min-h-9 px-2.5">Dashboard</a>
+    </div>
+  </div>
+  <div class="ops-hero-viz">
+    <div class="ops-hero-orb ops-hero-orb--sample" aria-hidden="true">
+      <div class="ops-alert-orb-core">
+        <div class="ops-queue-n">{{ p_sample }}</div>
+        <div class="ops-queue-l">sample</div>
+      </div>
+    </div>
+    {# Line 1 — status #}
+    <div class="ops-bars" aria-hidden="true">
+      {% if p_tot %}
+      <div class="ops-bar ops-bar--ok" style="flex: {{ p_ok or 0.001 }}"></div>
+      <div class="ops-bar ops-bar--run" style="flex: {{ p_run or 0.001 }}"></div>
+      <div class="ops-bar ops-bar--fail" style="flex: {{ p_fail or 0.001 }}"></div>
+      <div class="ops-bar ops-bar--mute" style="flex: {{ p_other or 0.001 }}"></div>
+      {% else %}
+      <div class="ops-bar ops-bar--mute" style="flex: 1"></div>
+      {% endif %}
+    </div>
+    <div class="ops-pulse-stats">
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-accent">{{ p_ok }}</span><span class="ops-pulse-l">ok</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-info">{{ p_run }}</span><span class="ops-pulse-l">active</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n {% if p_fail %}text-danger{% endif %}">{{ p_fail }}</span><span class="ops-pulse-l">failed</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ p_other }}</span><span class="ops-pulse-l">other</span></div>
+    </div>
+    {# Line 2 — top event types (compact) #}
+    {% if p.by_action %}
+    <div class="ops-mini-types" aria-label="Top event types">
+      {% for row in p.by_action[:5] %}
+      <a href="/audit?action={{ row.id }}{% if hide_noise %}&hide_noise=1{% else %}&hide_noise=0{% endif %}"
+         class="ops-mini-type {% if action == row.id %}is-active{% endif %}"
+         title="{{ row.label }} · {{ row.count }} ({{ row.pct }}%)">
+        <span class="ops-mini-type-n">{{ row.count }}</span>
+        <span class="ops-mini-type-l">{{ row.label }}</span>
+        <span class="ops-mini-type-bar" aria-hidden="true"><span style="width: {{ row.bar }}%"></span></span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <p class="ops-pulse-caption">Status · top types · last {{ p_sample }} events</p>
+  </div>
+</section>
+
+<form method="get" class="card ops-filters mb-4" id="audit-filter-form">
+  <div class="ops-filters-row">
+    <input type="text" name="search" value="{{ search }}" placeholder="Search…"
+           class="ops-f-control ops-f-grow" aria-label="Search">
+    <select name="server_id" class="ops-f-control" aria-label="Server">
       <option value="">All servers</option>
       {% for srv in (servers or []) %}
       <option value="{{ srv.id }}" {% if server_id and server_id|string == srv.id|string %}selected{% endif %}>{{ srv.name }}</option>
       {% endfor %}
     </select>
-    <select name="status" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11 sm:w-auto">
+    <select name="status" class="ops-f-control" aria-label="Status">
       <option value="">All statuses</option>
       {% for st in (statuses or []) %}
       <option value="{{ st }}" {% if status and status == st %}selected{% endif %}>{{ st }}</option>
       {% endfor %}
     </select>
+    <select name="per_page" class="ops-f-control ops-f-narrow" aria-label="Per page">
+      {% for n in per_page_choices or [10, 20, 50] %}
+      <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}/pg</option>
+      {% endfor %}
+    </select>
   </div>
 
   {% set more_open = action or user_id or api_token_id or date_from or date_to %}
-  <details class="audit-filters-toggle" {% if more_open %}open{% endif %}>
-    <summary><span class="audit-chevron">▶</span> More filters</summary>
-    <div class="audit-filters-more">
-      <div>
-        <label class="block text-xs text-muted mb-1">Action</label>
-        <select name="action" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
-          <option value="">All actions</option>
-          {% for act in (actions or []) %}
-          <option value="{{ act }}" {% if action and action == act %}selected{% endif %}>{{ act }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="block text-xs text-muted mb-1">User</label>
-        <select name="user_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
-          <option value="">All users</option>
-          {% for u in (users or []) %}
-          <option value="{{ u.id }}" {% if user_id and user_id|string == u.id|string %}selected{% endif %}>{{ u.email }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="block text-xs text-muted mb-1">API token</label>
-        <select name="api_token_id" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
-          <option value="">All tokens</option>
-          {% for t in (api_tokens or []) %}
-          <option value="{{ t.id }}" {% if api_token_id and api_token_id|string == t.id|string %}selected{% endif %}>
-            {{ t.name }} (#{{ t.id }}){% if t.revoked_at %} · revoked{% endif %}
-          </option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="block text-xs text-muted mb-1">From</label>
-        <input type="date" name="date_from" value="{{ date_from }}" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
-      </div>
-      <div>
-        <label class="block text-xs text-muted mb-1">To</label>
-        <input type="date" name="date_to" value="{{ date_to }}" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
+  <details class="ops-filters-more" {% if more_open %}open{% endif %}>
+    <summary>More filters</summary>
+    <div class="ops-filters-row ops-filters-row--wrap">
+      <select name="action" class="ops-f-control" aria-label="Action">
+        <option value="">All actions</option>
+        {% for act in (actions or []) %}
+        <option value="{{ act }}" {% if action and action == act %}selected{% endif %}>{{ act }}</option>
+        {% endfor %}
+      </select>
+      <select name="user_id" class="ops-f-control" aria-label="User">
+        <option value="">All users</option>
+        {% for u in (users or []) %}
+        <option value="{{ u.id }}" {% if user_id and user_id|string == u.id|string %}selected{% endif %}>{{ u.email }}</option>
+        {% endfor %}
+      </select>
+      <select name="api_token_id" class="ops-f-control" aria-label="API token">
+        <option value="">All tokens</option>
+        {% for t in (api_tokens or []) %}
+        <option value="{{ t.id }}" {% if api_token_id and api_token_id|string == t.id|string %}selected{% endif %}>
+          {{ t.name }} (#{{ t.id }}){% if t.revoked_at %} · revoked{% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="ops-date-range" role="group" aria-label="Date range">
+      <label class="ops-f-field">
+        <span class="ops-f-label">From</span>
+        <input type="date" name="date_from" value="{{ date_from or '' }}" class="ops-f-control ops-f-date"
+               autocomplete="off">
+      </label>
+      <span class="ops-date-range-sep" aria-hidden="true">→</span>
+      <label class="ops-f-field">
+        <span class="ops-f-label">To</span>
+        <input type="date" name="date_to" value="{{ date_to or '' }}" class="ops-f-control ops-f-date"
+               autocomplete="off">
+      </label>
+      <div class="ops-date-presets" aria-label="Quick ranges"
+           data-app-today="{{ app_date_today or '' }}"
+           title="Ranges use app timezone ({{ get_app_timezone() }})">
+        <button type="button" class="ops-date-preset" data-date-preset="7">7d</button>
+        <button type="button" class="ops-date-preset" data-date-preset="30">30d</button>
+        <button type="button" class="ops-date-preset" data-date-preset="90">90d</button>
+        <button type="button" class="ops-date-preset" data-date-preset="clear">Clear</button>
       </div>
     </div>
   </details>
 
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
-    <div class="sm:col-span-1">
-      <label class="block text-xs text-muted mb-1">Per page</label>
-      <select name="per_page" class="bg-surface border border-border px-3 py-2 rounded text-sm w-full min-h-11">
-        {% for n in per_page_choices or [10, 20, 50] %}
-        <option value="{{ n }}" {% if per_page == n %}selected{% endif %}>{{ n }}</option>
-        {% endfor %}
-      </select>
-    </div>
-  </div>
-  <div class="flex flex-wrap items-center justify-between gap-3 mt-3 pt-3 border-t border-border">
-    <label class="flex items-center gap-2 text-xs text-muted min-h-11">
+  <div class="ops-filters-foot">
+    <label class="ops-f-check">
       <input type="hidden" name="hide_noise" value="0" id="audit-hide-noise-off">
       <input type="checkbox" name="hide_noise" value="1" id="audit-hide-noise-on" {% if hide_noise %}checked{% endif %}
              onchange="document.getElementById('audit-hide-noise-off').disabled=this.checked">
-      Hide incomplete runs
+      Hide incomplete
     </label>
-    <div class="flex flex-wrap gap-2">
+    <div class="ops-f-actions">
       {% if server_id or user_id or api_token_id or status or action or search or date_from or date_to %}
-      <a href="/audit" class="btn btn-secondary min-h-11 text-sm">Clear</a>
+      <a href="/audit" class="btn btn-secondary text-xs min-h-9 px-2.5">Clear</a>
       {% endif %}
-      <button type="submit" class="btn btn-accent min-h-11 text-sm">Apply</button>
+      <button type="submit" class="btn btn-accent text-xs min-h-9 px-3">Apply</button>
     </div>
   </div>
 </form>
@@ -112,11 +166,11 @@
 {% endif %}
 
 {% if logs %}
-<div class="audit-feed" role="list">
+<div class="audit-feed ops-feed" role="list">
   {% for log in logs %}
   {% set sd = log.status_display %}
   <button type="button"
-          class="audit-event {{ 'is-noise' if log.is_noise else '' }}"
+          class="audit-event ops-event status-{{ sd }} {{ 'is-noise' if log.is_noise else '' }}"
           role="listitem"
           title="Click to open full details"
           aria-label="{{ log.action_label or log.action }} — click for details"
@@ -287,6 +341,50 @@ function hideAuditDetailsModal() {
   const on = document.getElementById('audit-hide-noise-on');
   const off = document.getElementById('audit-hide-noise-off');
   if (on && off) off.disabled = on.checked;
+
+  // Date range presets (7d / 30d / 90d / clear) — calendar math from app TZ "today"
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function ymdFromParts(y, m, d) { return y + '-' + pad2(m) + '-' + pad2(d); }
+  function parseYmd(s) {
+    if (!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+    var p = s.split('-').map(function (x) { return parseInt(x, 10); });
+    return { y: p[0], m: p[1], d: p[2] };
+  }
+  function addDaysYmd(parts, delta) {
+    // UTC noon avoids DST edge cases when shifting calendar days
+    var dt = new Date(Date.UTC(parts.y, parts.m - 1, parts.d, 12, 0, 0));
+    dt.setUTCDate(dt.getUTCDate() + delta);
+    return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+  }
+  function appTodayParts(el) {
+    var wrap = el.closest('[data-app-today]') || document.querySelector('[data-app-today]');
+    var s = wrap ? (wrap.getAttribute('data-app-today') || '') : '';
+    var p = parseYmd(s);
+    if (p) return p;
+    var now = new Date();
+    return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
+  }
+  document.querySelectorAll('[data-date-preset]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var form = btn.closest('form');
+      if (!form) return;
+      var from = form.querySelector('input[name="date_from"]');
+      var to = form.querySelector('input[name="date_to"]');
+      if (!from || !to) return;
+      var preset = btn.getAttribute('data-date-preset');
+      if (preset === 'clear') {
+        from.value = '';
+        to.value = '';
+        return;
+      }
+      var days = parseInt(preset, 10);
+      if (!days) return;
+      var end = appTodayParts(btn);
+      var start = addDaysYmd(end, -(days - 1));
+      from.value = ymdFromParts(start.y, start.m, start.d);
+      to.value = ymdFromParts(end.y, end.m, end.d);
+    });
+  });
 })();
 </script>
 {% endblock %}

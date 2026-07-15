@@ -52,11 +52,45 @@ def _dns_page_context(
     base = (settings.get("dns_base_domain") or "").strip()
     focus = (request.query_params.get("focus") or "").strip()
     kuma_opts = fabric.list_kuma_monitor_options(session) if page == "index" else []
+    stats = view.get("stats") or {}
+    catalog_pulse = {
+        "health": "ok",
+        "primary": stats.get("services") or 0,
+        "primary_label": "names",
+        "bar": [
+            {
+                "n": (stats.get("services") or 0) - (stats.get("via_proxy") or 0) or 0.001,
+                "cls": "ops-bar--ok",
+                "title": "direct",
+            },
+            {
+                "n": stats.get("via_proxy") or 0.001,
+                "color": "var(--color-warning, #d97706)",
+                "title": "via npm",
+            },
+        ],
+        "line1": [
+            {
+                "n": f"{stats.get('hosts_named', 0)}/{stats.get('hosts_total', 0)}",
+                "l": "named",
+                "cls": "text-accent",
+            },
+            {"n": stats.get("services") or 0, "l": "mapped", "cls": ""},
+            {"n": stats.get("via_proxy") or 0, "l": "via npm", "cls": "text-warning"},
+            {"n": stats.get("checklist") or 0, "l": "checklist", "cls": ""},
+        ],
+        "line2": [
+            {"n": stats.get("hosts_total") or 0, "l": "hosts", "cls": ""},
+            {"n": stats.get("hosts_named") or 0, "l": "dns", "cls": ""},
+        ],
+        "caption": "Network maps · hosts & paths",
+    }
     return {
         "request": request,
         "user": user,
         "can_mutate": _can_mutate(user),
         "view": view,
+        "catalog_pulse": catalog_pulse,
         "mesh": view.get("mesh") or {},
         "physical": view.get("physical") or {},
         "logical": view.get("logical") or {},

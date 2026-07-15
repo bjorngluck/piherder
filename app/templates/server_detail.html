@@ -14,6 +14,7 @@
       · DNS <a href="/dns" class="text-accent font-mono text-xs hover:underline">{{ server.dns_name }}</a>
       {% if server.ip_address %}<span class="font-mono text-xs">({{ server.ip_address }})</span>{% endif %}
       {% endif %}
+      · <a href="{{ hosts_map_url or ('/dns/physical?focus=n:host-' ~ server.id ~ '#map') }}" class="text-accent text-xs hover:underline">Hosts map</a>
     </p>
   </div>
   <div class="page-header-actions">
@@ -551,6 +552,8 @@ document.addEventListener('DOMContentLoaded', function() {
     <span class="dest-card-cta">Backup · patch · reboot · check updates</span>
   </div>
 </div>
+
+{% include "partials/fabric_host_rack.html" %}
 
 {# Job queue + recent history — card feed (no horizontal scroll) #}
 <div class="card p-4 sm:p-5 mb-6" id="server-jobs-panel">

@@ -5,26 +5,66 @@
   window.PIHERDER_PROGRESS_CLOSE = 'servers';
 </script>
 
-<div class="page-header mb-6">
-  <div>
-    <h1 class="text-3xl font-semibold tracking-tighter text-text">Servers</h1>
-    <p class="text-sm text-muted mt-1" id="server-list-hint">
-      Compact host list — use ⋯ for actions. Reorder via <strong>Reorder</strong> when you need to drag hosts.
+{% set p = pulse or {} %}
+{% set p_tot = p.total or (filter_counts.all if filter_counts else 0) or (servers|length) %}
+{% set p_attn = p.attention or (filter_counts.attention if filter_counts else 0) %}
+{% set p_os = p.os or 0 %}
+{% set p_reb = p.reboot or 0 %}
+{% set p_cont = p.containers or 0 %}
+{% set health = 'hot' if p_attn else 'ok' %}
+
+<section class="ops-hero ops-hero--servers is-{{ health }} mb-4">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker">Fleet</div>
+    <h1 class="ops-hero-title">Servers</h1>
+    <p class="ops-hero-sub" id="server-list-hint">
+      Host list · ⋯ for actions ·
+      <a href="/dns/physical#map" class="text-accent hover:underline">Hosts map</a>
     </p>
+    <div class="ops-hero-actions">
+      <button type="button" id="btn-reorder-toggle" class="btn btn-secondary text-xs min-h-9 px-2.5"
+              {% if filter and filter != 'all' %}title="Switch to All servers to reorder"{% endif %}>
+        Reorder
+      </button>
+      <button type="button" onclick="location.reload()"
+              class="btn btn-secondary text-xs min-h-9 px-2.5"
+              title="Refresh list (no auto-reload)">
+        ↻ Refresh
+      </button>
+      <a href="/servers/add" class="btn btn-primary text-xs min-h-9 px-3" id="btn-add-server">+ Add</a>
+    </div>
   </div>
-  <div class="page-header-actions">
-    <button type="button" id="btn-reorder-toggle" class="btn btn-secondary min-h-11"
-            {% if filter and filter != 'all' %}title="Switch to All servers to reorder"{% endif %}>
-      Reorder
-    </button>
-    <button type="button" onclick="location.reload()"
-            class="btn btn-secondary min-h-11"
-            title="Refresh list (no auto-reload)">
-      ↻ Refresh
-    </button>
-    <a href="/servers/add" class="btn btn-primary min-h-11" id="btn-add-server">+ Add Server</a>
+  <div class="ops-hero-viz">
+    <div class="ops-hero-orb {% if health == 'hot' %}ops-hero-orb--hot{% else %}ops-hero-orb--ok{% endif %}" aria-hidden="true">
+      <div class="ops-alert-orb-core">
+        <div class="ops-queue-n">{{ p_tot }}</div>
+        <div class="ops-queue-l">hosts</div>
+      </div>
+    </div>
+    <div class="ops-bars" aria-hidden="true">
+      {% if p_tot %}
+      <div class="ops-bar ops-bar--ok" style="flex: {{ (p_tot - p_attn) or 0.001 }}" title="clear"></div>
+      <div class="ops-bar" style="flex: {{ p_attn or 0.001 }}; background: var(--color-warning, #d97706)" title="attention"></div>
+      {% else %}
+      <div class="ops-bar ops-bar--mute" style="flex: 1"></div>
+      {% endif %}
+    </div>
+    <div class="ops-pulse-stats">
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ p_tot }}</span><span class="ops-pulse-l">all</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n {% if p_attn %}text-warning{% endif %}">{{ p_attn }}</span><span class="ops-pulse-l">attention</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n {% if p_os %}text-warning{% endif %}">{{ p_os }}</span><span class="ops-pulse-l">os</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n {% if p_reb %}text-warning{% endif %}">{{ p_reb }}</span><span class="ops-pulse-l">reboot</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n {% if p_cont %}text-warning{% endif %}">{{ p_cont }}</span><span class="ops-pulse-l">images</span></div>
+    </div>
+    <div class="ops-pulse-stats">
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-accent">{{ p.backup or 0 }}</span><span class="ops-pulse-l">backup</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-info">{{ p.docker or 0 }}</span><span class="ops-pulse-l">docker</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ p.os_feat or 0 }}</span><span class="ops-pulse-l">os feat</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ p.named or 0 }}</span><span class="ops-pulse-l">dns named</span></div>
+    </div>
+    <p class="ops-pulse-caption">Fleet health · features enabled</p>
   </div>
-</div>
+</section>
 
 {% if request.query_params.get('reordered') %}
 <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Server order saved.</div>
@@ -53,28 +93,28 @@
 
 {% set fc = filter_counts or {} %}
 {% set f = filter or 'all' %}
-<div class="server-filter-bar" id="server-filter-bar" role="navigation" aria-label="Filter servers">
-  <a href="/servers" class="server-filter-chip {{ 'is-active' if f == 'all' else '' }}">
-    All <span class="server-filter-count">{{ fc.get('all', 0) }}</span>
+<div class="server-filter-bar ops-type-chips mb-3" id="server-filter-bar" role="navigation" aria-label="Filter servers">
+  <a href="/servers" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'all' else '' }}">
+    All <span class="server-filter-count ops-type-chip-n">{{ fc.get('all', 0) }}</span>
   </a>
-  <a href="/servers?filter=attention" class="server-filter-chip {{ 'is-active' if f == 'attention' else '' }}">
-    Needs attention <span class="server-filter-count">{{ fc.get('attention', 0) }}</span>
+  <a href="/servers?filter=attention" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'attention' else '' }}">
+    Attention <span class="server-filter-count ops-type-chip-n">{{ fc.get('attention', 0) }}</span>
   </a>
-  <a href="/servers?filter=os" class="server-filter-chip {{ 'is-active' if f == 'os' else '' }}">
-    OS updates <span class="server-filter-count">{{ fc.get('os', 0) }}</span>
+  <a href="/servers?filter=os" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'os' else '' }}">
+    OS <span class="server-filter-count ops-type-chip-n">{{ fc.get('os', 0) }}</span>
   </a>
-  <a href="/servers?filter=reboot" class="server-filter-chip {{ 'is-active' if f == 'reboot' else '' }}">
-    Reboot <span class="server-filter-count">{{ fc.get('reboot', 0) }}</span>
+  <a href="/servers?filter=reboot" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'reboot' else '' }}">
+    Reboot <span class="server-filter-count ops-type-chip-n">{{ fc.get('reboot', 0) }}</span>
   </a>
-  <a href="/servers?filter=containers" class="server-filter-chip {{ 'is-active' if f == 'containers' else '' }}">
-    Containers <span class="server-filter-count">{{ fc.get('containers', 0) }}</span>
+  <a href="/servers?filter=containers" class="server-filter-chip ops-type-chip {{ 'is-active' if f == 'containers' else '' }}">
+    Images <span class="server-filter-count ops-type-chip-n">{{ fc.get('containers', 0) }}</span>
   </a>
 </div>
 
 {# Bulk selection: select-all always visible when list has rows; action buttons when selection > 0 #}
 {% if servers %}
-<div id="bulk-select-bar" class="flex flex-wrap items-center gap-3 mb-2 text-sm">
-  <label class="flex items-center gap-2 min-h-11 cursor-pointer select-none">
+<div id="bulk-select-bar" class="flex flex-wrap items-center gap-2 mb-2 text-xs">
+  <label class="flex items-center gap-2 min-h-9 cursor-pointer select-none">
     <input type="checkbox" id="bulk-select-all" class="rounded border-border">
     <span class="text-muted">Select all visible</span>
   </label>
@@ -638,6 +678,7 @@
     var contOn = row.getAttribute('data-container-enabled') === '1';
     var items = [
       { label: 'Open', href: '/servers/' + id, accent: true },
+      { label: 'On hosts map', href: '/dns/physical?focus=n:host-' + id + '#map' },
     ];
     if (backupOn) {
       items.push({ label: 'Backup now', backup: true, accent: true });

@@ -1103,6 +1103,8 @@ async def stack_fragment(
     kuma_by_container: dict = {}
     grafana_by_project: dict = {}
     grafana_by_container: dict = {}
+    fabric_by_project: dict = {}
+    hosts_map_url = f"/dns/physical?focus=n:host-{server_id}#map"
     try:
         from ..services.integrations import registry as integ_reg
 
@@ -1114,6 +1116,14 @@ async def stack_fragment(
         grafana_by_container = gf_idx.get("by_container") or {}
     except Exception:
         pass
+    try:
+        from ..services import dns_fabric as fabric
+
+        fidx = fabric.fabric_index_for_server(session, server_id)
+        fabric_by_project = fidx.get("by_project") or {}
+        hosts_map_url = fidx.get("hosts_map_url") or hosts_map_url
+    except Exception:
+        fabric_by_project = {}
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -1134,6 +1144,8 @@ async def stack_fragment(
             "kuma_by_container": kuma_by_container,
             "grafana_by_project": grafana_by_project,
             "grafana_by_container": grafana_by_container,
+            "fabric_by_project": fabric_by_project,
+            "hosts_map_url": hosts_map_url,
             "template_deployments_count": template_deployments_count,
         },
     )

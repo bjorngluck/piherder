@@ -1,30 +1,23 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% with catalog_section='templates' %}
+{% with catalog_section='templates', catalog_pulse=catalog_pulse %}
 {% include "partials/catalog_nav.html" %}
 {% endwith %}
 
 <div class="max-w-5xl">
-  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-    <div>
-      <h2 class="text-lg font-semibold">Service templates</h2>
-      <p class="text-sm text-muted mt-1">
-        Create and edit your own stack definitions, then deploy to a host.
-        Starters (if any) are only seeds — edit them to match your specs.
-      </p>
-    </div>
-    {% if can_mutate %}
-    <div class="flex flex-wrap items-center gap-2">
-      <a href="/templates/new" class="btn btn-accent text-sm min-h-11 px-4">+ New template</a>
-      <a href="/templates/from-host" class="btn btn-secondary text-sm min-h-11 px-4">From host…</a>
-      <form method="post" action="/templates/import" enctype="multipart/form-data" class="flex items-center gap-2">
-        <input type="file" name="file" accept=".zip,application/zip" required class="text-xs">
-        <button type="submit" class="btn btn-secondary text-sm min-h-11">Import zip</button>
+  {% if can_mutate %}
+  <div class="ops-filters card mb-4">
+    <div class="ops-filters-row">
+      <a href="/templates/new" class="btn btn-accent text-xs min-h-9 px-2.5">+ New</a>
+      <a href="/templates/from-host" class="btn btn-secondary text-xs min-h-9 px-2.5">From host…</a>
+      <form method="post" action="/templates/import" enctype="multipart/form-data" class="flex flex-wrap items-center gap-2">
+        <input type="file" name="file" accept=".zip,application/zip" required class="text-xs max-w-[12rem]">
+        <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Import zip</button>
       </form>
     </div>
-    {% endif %}
   </div>
+  {% endif %}
 
   {% if msg %}
   <div class="banner-success border rounded p-3 text-sm mb-4">{{ msg }}</div>

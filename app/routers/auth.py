@@ -381,6 +381,64 @@ async def account_page(
     except Exception:
         push_prefs = None
 
+    role = user_role(user)
+    is_admin_user = role == ROLE_ADMIN
+    n_devices = len(devices or [])
+    account_pulse = {
+        "health": "ok" if user.totp_enabled else ("warn" if not pending_setup else "busy"),
+        "primary": "on" if user.totp_enabled else ("…" if pending_setup else "off"),
+        "primary_label": "2fa",
+        "bar": [
+            {
+                "n": 1 if user.totp_enabled else 0.001,
+                "cls": "ops-bar--ok" if user.totp_enabled else "ops-bar--mute",
+                "title": "2FA",
+            },
+            {
+                "n": n_devices or 0.001,
+                "cls": "ops-bar--run",
+                "title": f"{n_devices} trusted devices",
+            },
+            {
+                "n": push_subscription_count or 0.001,
+                "cls": "ops-bar--ok" if push_subscription_count else "ops-bar--mute",
+                "title": f"{push_subscription_count} push devices",
+            },
+        ],
+        "line1": [
+            {
+                "n": "on" if user.totp_enabled else "off",
+                "l": "2fa",
+                "cls": "text-accent" if user.totp_enabled else "text-warning",
+            },
+            {
+                "n": backup_remaining if user.totp_enabled else "—",
+                "l": "codes",
+                "cls": "text-warning" if user.totp_enabled and backup_remaining < 3 else "",
+            },
+            {"n": n_devices, "l": "trusted", "cls": ""},
+            {
+                "n": push_subscription_count,
+                "l": "push",
+                "cls": "text-info" if push_subscription_count else "",
+            },
+        ],
+        "line2": [
+            {"n": role or "admin", "l": "role", "cls": "text-accent"},
+            {
+                "n": "yes" if user.avatar_path else "no",
+                "l": "avatar",
+                "cls": "",
+            },
+            {
+                "n": "on" if (push_prefs and push_prefs.push_enabled) else "off",
+                "l": "push master",
+                "cls": "",
+            },
+        ],
+        "caption": "Security · devices · notifications",
+    }
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="account.html",
@@ -399,14 +457,15 @@ async def account_page(
             "show_2fa_modal": show_2fa_modal,
             "backup_codes_shown": backup_codes.split(",") if backup_codes else None,
             "trusted_device_days": settings.TRUSTED_DEVICE_DAYS,
-            "user_role": user_role(user),
-            "is_admin": user_role(user) == ROLE_ADMIN,
+            "user_role": role,
+            "is_admin": is_admin_user,
             "push_configured": bool(push_creds),
             "push_vapid_source": push_creds.source if push_creds else None,
             "push_prefs": push_prefs,
             "push_subscription_count": push_subscription_count,
             "public_url": settings.PIHERDER_PUBLIC_URL,
             "push_sent": push_sent,
+            "account_pulse": account_pulse,
         },
     )
 
@@ -650,6 +709,8 @@ async def users_admin_page(
     """Admin-only multi-user RBAC management + create user."""
     from ..services import password_policy as pwpol
 
+    from ..services.ops_pulse import users_pulse as build_users_pulse
+
     users = list(session.exec(select(User).order_by(User.email)).all())
     sole_admin_ids = {u.id for u in users if is_sole_admin(session, u)}
     return templates_mod.templates.TemplateResponse(
@@ -667,6 +728,13 @@ async def users_admin_page(
             "password_policy_text": pwpol.policy_rules_text(),
             "password_min_length": pwpol.MIN_LENGTH,
             "new_user_credentials": None,
+            "users_pulse": build_users_pulse(
+                users,
+                sole_admin_ids,
+                role_admin=ROLE_ADMIN,
+                role_operator=ROLE_OPERATOR,
+                role_viewer=ROLE_VIEWER,
+            ),
         },
     )
 
@@ -692,6 +760,8 @@ async def create_user(
     display_name = (display_name or "").strip() or None
 
     def _users_page(**extra):
+        from ..services.ops_pulse import users_pulse as build_users_pulse
+
         users = list(session.exec(select(User).order_by(User.email)).all())
         sole_admin_ids = {u.id for u in users if is_sole_admin(session, u)}
         ctx = {
@@ -706,6 +776,13 @@ async def create_user(
             "password_policy_text": pwpol.policy_rules_text(),
             "password_min_length": pwpol.MIN_LENGTH,
             "new_user_credentials": None,
+            "users_pulse": build_users_pulse(
+                users,
+                sole_admin_ids,
+                role_admin=ROLE_ADMIN,
+                role_operator=ROLE_OPERATOR,
+                role_viewer=ROLE_VIEWER,
+            ),
         }
         ctx.update(extra)
         return templates_mod.templates.TemplateResponse(

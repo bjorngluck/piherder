@@ -102,6 +102,17 @@ async def list_servers(
         "reboot": sum(1 for s in rows if s.reboot_pending),
         "containers": sum(1 for s in rows if _has_cont(s)),
     }
+    pulse = {
+        "total": filter_counts["all"],
+        "attention": filter_counts["attention"],
+        "os": filter_counts["os"],
+        "reboot": filter_counts["reboot"],
+        "containers": filter_counts["containers"],
+        "backup": sum(1 for s in rows if s.backup_enabled),
+        "docker": sum(1 for s in rows if s.container_patch_enabled),
+        "os_feat": sum(1 for s in rows if s.os_patch_enabled),
+        "named": sum(1 for s in rows if (s.dns_name or "").strip()),
+    }
 
     if filt == "attention":
         rows = [s for s in rows if _needs_attention(s)]
@@ -177,6 +188,7 @@ async def list_servers(
         context={
             "title": "Servers",
             "servers": servers,
+            "pulse": pulse,
             "user": user,
             "lean_page": True,
             "filter": filt,
@@ -786,6 +798,16 @@ async def server_detail(
     except Exception:
         pass
 
+    fabric_rack = None
+    hosts_map_url = f"/dns/physical?focus=n:host-{server.id}#map"
+    try:
+        from ..services import dns_fabric as fabric
+
+        fabric_rack = fabric.fabric_rack_for_server(session, server.id)
+        hosts_map_url = fabric.hosts_map_url(server_id=server.id)
+    except Exception:
+        fabric_rack = None
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_detail.html",
@@ -793,6 +815,8 @@ async def server_detail(
             "title": server.name,
             "server": server_dict,
             "dns_form": dns_form,
+            "fabric_rack": fabric_rack,
+            "hosts_map_url": hosts_map_url,
             "inventory_meta": inventory_meta,
             "os_phased_count": os_phased_count,
             "os_total_upgradable": os_total_upgradable,

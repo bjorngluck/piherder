@@ -1,24 +1,17 @@
 {% extends "base.html" %}
 
 {% block content %}
-{% with catalog_section='certificates' %}
+{% with catalog_section='certificates', catalog_pulse=catalog_pulse %}
 {% include "partials/catalog_nav.html" %}
 {% endwith %}
 
-<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-  <div>
-    <h2 class="text-lg font-semibold tracking-tight text-text">Certificates</h2>
-    <p class="text-sm text-muted mt-1 max-w-2xl">
-      Encrypted vault for TLS identities. Pull from
-      <a href="/integrations" class="text-accent hover:underline">NPM</a>
-      or upload PEMs, map each consumer (path, filenames, permissions, restart), deploy over SSH.
-    </p>
-  </div>
-  <div class="flex flex-wrap gap-2">
+<div class="ops-filters card mb-4">
+  <div class="ops-filters-row">
     {% if can_mutate %}
-    <a href="/certificates/upload" class="btn btn-primary min-h-11">Upload PEM</a>
+    <a href="/certificates/upload" class="btn btn-primary text-xs min-h-9 px-2.5">Upload PEM</a>
     {% endif %}
-    <a href="/integrations" class="btn btn-secondary min-h-11">Integrations</a>
+    <a href="/integrations" class="btn btn-secondary text-xs min-h-9 px-2.5">Integrations</a>
+    <span class="text-xs text-muted">Pull certs from NPM on an integration detail page</span>
   </div>
 </div>
 
@@ -27,14 +20,6 @@
 {% endif %}
 {% if error %}
 <div class="mb-3 p-3 banner-error border border-border rounded text-sm">{{ error }}{% if detail %} — {{ detail }}{% endif %}</div>
-{% endif %}
-
-{% if certificates %}
-<div class="flex flex-wrap gap-3 text-sm mb-4">
-  <span class="card px-3 py-2"><strong class="text-primary text-xl">{{ cert_count }}</strong> <span class="text-muted text-xs">total</span></span>
-  <span class="card px-3 py-2"><strong class="text-xl {% if expiring_count %}text-amber-500{% else %}text-text{% endif %}">{{ expiring_count }}</strong> <span class="text-muted text-xs">expiring soon</span></span>
-  <span class="card px-3 py-2"><strong class="text-xl {% if expired_count %}text-amber-500{% else %}text-text{% endif %}">{{ expired_count }}</strong> <span class="text-muted text-xs">expired</span></span>
-</div>
 {% endif %}
 
 {% if not certificates %}
