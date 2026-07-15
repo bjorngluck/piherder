@@ -446,7 +446,7 @@ Typical pattern: PiHerder → n8n webhook → Signal CLI. In-app notifications a
 
 ### Service templates (v0.4.0)
 
-**Templates** live under top-nav **Catalog** (`/catalog` → Integrations; Settings-style buttons **Integrations | Templates**). They are **your** versioned stack definitions. You **create**, **edit**, and **save** them; deploy is separate.
+**Templates** live under top-nav **Catalog** (`/catalog` → Settings-style tabs **Integrations | Certificates | Templates | Network**). They are **your** versioned stack definitions. You **create**, **edit**, and **save** them; deploy is separate.
 
 **Shipped in v0.4.0** (foundation; ops + polish → [PLAN_v0.5.0.md](PLAN_v0.5.0.md)).  
 **Docs:** [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · active [PLAN_v0.5.0.md](PLAN_v0.5.0.md)
@@ -526,7 +526,7 @@ Herder self-backup includes `service_templates` catalog rows and `stack_deployme
 
 ### Uptime Kuma integration
 
-Optional **integration hub** under top-nav **Catalog** (`/catalog` → **Integrations**; Settings-style **Integrations | Templates | Network**). You can **deploy** Kuma via Templates, then connect the integration for status/bindings. **Network maps** (Catalog → Network / Hosts map `/dns/physical` / Path map `/dns/logical`): host A records, service paths, Pi-hole adopt, LAN/gateway/public IP + optional Kuma on router/WAN — see wiki [Network maps](../wiki/integrations/dns-fabric.md).
+Optional **integration hub** under top-nav **Catalog** (`/catalog` → **Integrations | Certificates | Templates | Network**). You can **deploy** Kuma via Templates, then connect the integration for status/bindings. **Certificates** vault (Catalog → Certificates): NPM pull or PEM upload, service maps, SSH deploy. **Network maps** (Catalog → Network / Hosts map `/dns/physical` / Path map `/dns/logical`): host A records, service paths, Pi-hole adopt, LAN/gateway/public IP + optional Kuma on router/WAN — see wiki [Network maps](../wiki/integrations/dns-fabric.md).
 
 **Design / plan:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md)
 
@@ -563,7 +563,7 @@ Credentials (API key + optional login) are Fernet-encrypted with `PIHERDER_MASTE
 |------|---------|
 | `/integrations` | Connect Kuma, bind SSH + services, inventory |
 | `/servers/{id}/services` | Per-host service list: URL, status, TLS, Open service / Open in Kuma, logos |
-| `/services` | Fleet icon grid (dashboard **Services** tile) |
+| `/services` | Fleet icon grid: filter All/Up/Down/TLS issue, search, logos (dashboard **Services** tile) |
 | Dashboard | Services count (+ down count) → `/services` |
 
 #### Service logos

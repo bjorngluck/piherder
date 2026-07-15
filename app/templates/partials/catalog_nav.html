@@ -1,7 +1,7 @@
 {# Shared Catalog chrome — identical tab chrome to Settings (settings-tab-btn).
    Pass catalog_section via {% with catalog_section='integrations' %} … {% endwith %} #}
 {% set section = catalog_section if catalog_section is defined else 'integrations' %}
-{% if section not in ('integrations', 'templates', 'dns', 'network') %}
+{% if section not in ('integrations', 'templates', 'dns', 'network', 'certificates') %}
   {% set section = 'integrations' %}
 {% endif %}
 {# 'dns' slug kept for URLs; UI label is Network #}
@@ -10,7 +10,7 @@
   <div>
     <h1 class="text-3xl font-semibold tracking-tighter text-text">Catalog</h1>
     <p class="text-sm text-muted mt-1">
-      Integrations, service templates, and network maps (hosts → apps → proxy → internet).
+      Integrations, certificates, service templates, and network maps (hosts → apps → proxy → internet).
     </p>
   </div>
 </div>
@@ -20,6 +20,11 @@
      class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if section == 'integrations' else '' }}"
      aria-selected="{{ 'true' if section == 'integrations' else 'false' }}"
      {% if section == 'integrations' %}aria-current="page"{% endif %}>Integrations</a>
+  <a href="/certificates"
+     role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if section == 'certificates' else '' }}"
+     aria-selected="{{ 'true' if section == 'certificates' else 'false' }}"
+     {% if section == 'certificates' %}aria-current="page"{% endif %}>Certificates</a>
   <a href="/templates"
      role="tab"
      class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if section == 'templates' else '' }}"

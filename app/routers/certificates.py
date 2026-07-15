@@ -65,7 +65,18 @@ async def certificates_list(
     user: User = Depends(get_current_user),
 ):
     rows = cert_svc.list_certificates(session)
-    items = [cert_svc.public_cert_dict(c) for c in rows]
+    items = []
+    expiring = 0
+    expired = 0
+    for c in rows:
+        d = cert_svc.public_cert_dict(c)
+        targets = cert_svc.list_targets(session, c.id) if c.id else []
+        d["target_count"] = len(targets)
+        if d.get("expired"):
+            expired += 1
+        elif d.get("expiring_soon"):
+            expiring += 1
+        items.append(d)
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="certificates_list.html",
@@ -73,6 +84,9 @@ async def certificates_list(
             "title": "Certificates",
             "user": user,
             "certificates": items,
+            "cert_count": len(items),
+            "expiring_count": expiring,
+            "expired_count": expired,
             "can_mutate": _can_mutate(user),
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or "",

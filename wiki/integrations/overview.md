@@ -1,6 +1,6 @@
 # Integrations
 
-Optional **integration hub**. Top-nav **Catalog** (`/catalog`) opens **Integrations**, with Settings-style tabs: **Integrations** | **Templates** | **Network**. Grafana preferred names are set on the integration **Inventory** tab; see [Grafana](grafana.md).
+Optional **integration hub**. Top-nav **Catalog** (`/catalog`) opens **Integrations**, with Settings-style tabs: **Integrations** | **Certificates** | **Templates** | **Network**. Grafana preferred names are set on the integration **Inventory** tab; see [Grafana](grafana.md).
 
 Core fleet ops work **without** any integration.
 

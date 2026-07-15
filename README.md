@@ -28,7 +28,6 @@ PiHerder is a self-hosted web app that manages one or more remote Linux servers 
 - **v0.5.0 plan (active):** [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md)
 - **Service templates:** [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · ops in [docs/ADMIN.md](docs/ADMIN.md)
 - **Stabilisation plan:** [docs/DECISION_PLAN_STABILISATION.md](docs/DECISION_PLAN_STABILISATION.md)
-- **UI unification plan:** [UI_UNIFICATION_PLAN.md](UI_UNIFICATION_PLAN.md) (complete)
 
 **Community:** [Issues](https://github.com/bjorngluck/piherder/issues) welcome; [PRs](https://github.com/bjorngluck/piherder/pulls) accepted for **review** — only the maintainer merges. See [CONTRIBUTING.md](CONTRIBUTING.md). Discussions/Discord may be enabled later.
 

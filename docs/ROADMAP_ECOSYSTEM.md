@@ -197,6 +197,31 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 
 ---
 
+## Quality & platform (post-RC / post-1.0 first production)
+
+**Out of v0.5.0 freeze.** After the first RC tag and first official production release, raise confidence with automated depth — not a second feature stream during QA.
+
+| Track | Direction |
+|-------|-----------|
+| **Unit / service coverage** | Grow beyond ~30% line coverage intentionally: critical paths first (crypto, RBAC, path policy, fabric pure functions, cert vault). **No** 100% target. Prefer meaningful service tests over chasing router %. |
+| **HTTP smoke (pytest TestClient)** | Optional thin layer for auth redirects + main page 200s — cheap middle ground before full browser tests. |
+| **UI walkthrough — Playwright** | See phases below. Separate job from unit `pytest` (slower; nightly or main-only at first). |
+| **Dependency hygiene** | Honor `uv.lock` (or export pinned `requirements.txt`) in **image build + CI**; periodic `pip-audit` / Dependabot; intentional bumps with regression tests. Today: loose `>=` in `pyproject.toml` + lockfile present but **not** used by Dockerfile/`pip install -e .`. |
+| **JWT stack** | Session cookies are **HS256** via `python-jose` (pulls transitive `ecdsa`). Known ecdsa Minerva/timing advisory has **no upstream fix**; low practical risk for HS256-only use. Post-RC: migrate to **PyJWT + cryptography** and drop jose/ecdsa. |
+| **Custom branding** | Operator logo + accent colours — **far horizon** (well after 1.0 production). Not near-term polish. Built-in light/dark only for now. |
+
+### Playwright phases (recommended)
+
+| Phase | Scope | Goal |
+|-------|--------|------|
+| **A — Smoke** | Login → Dashboard, Servers, Catalog (Integrations / Certificates / Templates / Network maps), Jobs, Audit, Settings; one theme toggle; optional mobile viewport on Network map | “Shell still works” on every release candidate |
+| **B — Critical paths** | Template wizard first step; Pi-hole/NPM detail with fixtures; cert list/upload form; bulk-actions UI chrome | Catch HTMX/form regressions on money paths |
+| **C — Optional depth** | Screenshot baselines on 3–5 pages; a11y (`axe`) on main shells | Visual/a11y guardrails without full matrix |
+
+Docs screenshots stay **light + desktop** by default; a couple of showcase shots for dark/mobile only.
+
+---
+
 ## Horizon 2.5 — Service fabric & topology (post-0.5 / pre-1.0)
 
 **Network maps / DNS fabric** (host A + service names, Pi-hole adopt, Hosts map + Path map, LAN/gateway/public IP, cloud hosts, optional Kuma on router/WAN) lands in **v0.5.0**. Next topology depth:
@@ -223,6 +248,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Advanced secrets** | Explore beyond locked `.env`: Swarm/file permissions hardening, sealed host store for offline recreate, optional vault — never require PiHerder for normal container restart |
 | Optional AI | OpenAI-compatible BYO (cloud or private LLM); **off by default**; never send private keys; Frigate vision stays on Frigate / AI Hat |
 | **Topology plugins** | Optional export to graph tools (e.g. Mermaid, Graphviz DOT, or browser libraries like Cytoscape.js / vis-network) for large fleets — keep core views offline-first CSS/SVG |
+| **Custom theme / branding** | Operator logo + primary colours (instance skin). **Not** in v0.5 / v1.0 first production — revisit only after quality + fabric depth |
 
 ---
 

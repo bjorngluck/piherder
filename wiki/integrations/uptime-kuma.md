@@ -38,8 +38,10 @@ You can **deploy** Kuma via [Templates](../service-templates/overview.md), then 
 |------|---------|
 | `/integrations` | Connect + bind |
 | `/servers/{id}/services` | Per-host services |
-| `/services` | Fleet icon grid |
-| Dashboard | Services count tile |
+| `/services` | Fleet icon grid — filter **All / Up / Down / TLS issue**, search by name/host/location, App / Kuma / Host / Docker links |
+| Dashboard | Services count tile → `/services` |
+
+Empty fleet grid explains how to bind Kuma monitors. Prefer fixing **down** or **TLS** filters first when something looks wrong.
 
 ### Logos
 
