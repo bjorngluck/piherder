@@ -247,7 +247,7 @@ async def settings_page(
             "sub": "Instance-wide Bearer tokens, scopes, docs, and endpoint catalog.",
             "viz": "orb",
             "primary": tok_active,
-            "primary_label": "active tok",
+            "primary_label": "tokens",
             "primary_cls": "",
             "caption": f"{tz_iana} · API tokens",
         },
@@ -304,7 +304,7 @@ async def settings_page(
             {"n": n_backups, "l": "archives", "cls": ""},
             {
                 "n": tok_active if is_admin else "—",
-                "l": "api tok",
+                "l": "tokens",
                 "cls": "text-info" if is_admin and tok_active else "",
             },
         ],
