@@ -9,7 +9,7 @@ Contributor-facing docs. Operator guides live in the rest of this site.
 | Template schema | [templates-schema](templates-schema.md) |
 | Testing | [testing](testing.md) |
 | Publish image | [publish-image](publish-image.md) |
-| Wiki + **screenshots** workflow | [contributing-docs](contributing-docs.md) |
+| Wiki, screenshots, **doc versioning & 1.0** | [contributing-docs](contributing-docs.md) |
 
 ## Collaboration
 

@@ -2,6 +2,102 @@
 
 Docs are **Markdown in git** under `wiki/`, built with **MkDocs Material**, published to **GitHub Pages**.
 
+Repo-level contributor rules: [CONTRIBUTING.md](https://github.com/bjorngluck/piherder/blob/main/CONTRIBUTING.md).
+
+## Documentation version strategy (locked)
+
+### Default (through 0.x and into 1.0)
+
+| Layer | Role |
+|-------|------|
+| **`wiki/` → github.io** | **How it works now** — single living operator guide for the current line |
+| **`docs/RELEASE_vX.Y.Z.md`** | **What changed in this version** — upgrade notes, features, breaking changes |
+| **GitHub Releases** | Same narrative as RELEASE notes + tags (in-app About / update banner link here) |
+| **`docs/PLAN_*` · `FEATURE_PLAN_*` · SPEC** | Maintainer planning only — **not** in operator nav |
+
+**Do not** create a separate full wiki tree per minor/patch (no `wiki-v0.5/`, `wiki-v0.6/` forks).
+
+### When a feature ships
+
+1. **Update the existing page** (or add one page if the topic is new).  
+2. Prefer the same PR (or same release branch) as the code.  
+3. If behaviour depends on version, add a short callout on the **section**, not a whole parallel site:
+
+   ```markdown
+   !!! note "Availability"
+       Available from **v0.5.0**. Older tags lack this UI.
+   ```
+
+4. Put the release story in **`docs/RELEASE_vX.Y.Z.md`** (created at freeze / tag).  
+5. Bump in-app version constants when tagging (`app/version_info.py`, `pyproject.toml`) so About + update checks stay honest.
+
+### Version callouts — when to use them
+
+| Situation | What to write |
+|-----------|----------------|
+| New capability | *Requires PiHerder ≥ **vX.Y.Z**.* |
+| Behaviour change | Short *Before / after* or *Upgrade note* |
+| Breaking change | RELEASE notes **and** an admonition on the page operators will hit |
+| Env flag / optional | Env reference + one line on the feature page |
+| Entire major line still supported | Only then consider multi-version docs (see **v1.0** below) |
+
+### What not to do
+
+- Do not leave operator docs describing removed defaults (e.g. seeded admin) without a release note.  
+- Do not dump full `PLAN_*` / SPEC checklists into the user-facing wiki.  
+- Do not hand-edit built `site/` or `gh-pages` — always edit `wiki/` sources.
+
+---
+
+## Toward official **v1.0.0** (docs + process)
+
+Goal for **1.0.0**: operators can install, run day-to-day fleet ops, and upgrade with **one clear story** — not a maze of versioned sites.
+
+### Keep (confirmed)
+
+| Practice | At 1.0 |
+|----------|--------|
+| Single living wiki on `main` | **Yes** — documents the **1.x** line |
+| RELEASE notes per tag | **Yes** — required for every `v1.x.y` |
+| Feature PR updates wiki when UX/API changes | **Yes** |
+| In-app About + GitHub release check | **Yes** — points at tags / release notes |
+
+### Solidify before or at the 1.0 tag
+
+1. **Freeze bar for docs** (same PR/release checklist as code):  
+   - `mkdocs build --strict` green  
+   - Home / install / first-login / roles / env-reference accurate for the tagged version  
+   - Operator scenarios index covers every first-class nav area  
+   - Screenshots: replace remaining wireframes for critical paths (install, servers, docker, templates, network, About) where possible  
+
+2. **Single release note template** (`docs/RELEASE_v1.0.0.md` and later):  
+   - Highlights  
+   - Upgrade from 0.5.x (migrations, env keys, breaking UI)  
+   - Docs / wiki changes of note  
+   - Known limitations  
+
+3. **Version framing on the home page**  
+   - **Current line:** v1.0.x  
+   - **Previous major** (if any): link RELEASE or a short “0.x archive” note — not a full second wiki  
+
+4. **Support policy (write down at 1.0)**  
+   - Document which tags get security fixes (e.g. latest 1.0.x only, or N-1).  
+   - If only **latest 1.x** is supported, **do not** maintain multi-version MkDocs.  
+
+5. **Optional later: multi-version wiki**  
+   Only if you support **two majors in parallel** (e.g. 1.x + 2.x) with real install/API divergence.  
+   Then use a version selector (e.g. [mike](https://github.com/jimporter/mike) + Material) with:  
+   - `latest` / `1.x` → living docs  
+   - `0.x` or `1.0` frozen snapshot **once** at EOL of that line  
+   Not per minor release.
+
+### Pre-1.0 (0.5.x RC) remains
+
+- Ship **v0.5.0** with living wiki + `RELEASE_v0.5.0.md` at freeze.  
+- Treat 0.5.x docs as the draft of 1.0 operator docs; clean wireframes and checklists as you stabilize.
+
+---
+
 ## Edit flow (text)
 
 1. Edit or add pages under `wiki/`.  
@@ -77,7 +173,8 @@ That is the supported path for RC documentation with images.
 - Prefer numbered steps + tables + admonitions.  
 - Code blocks for every command an operator must run.  
 - Link **scenarios** from [Operator scenarios](../getting-started/operator-scenarios.md).  
-- Do **not** put `PLAN_*` / `FEATURE_PLAN_*` / SPEC checklists in the user nav — link out to GitHub blob if needed.
+- Do **not** put `PLAN_*` / `FEATURE_PLAN_*` / SPEC checklists in the user nav — link out to GitHub blob if needed.  
+- Feature availability: use a short admonition (*Available from **vX.Y.Z***) rather than duplicating pages.
 
 ## Mermaid
 

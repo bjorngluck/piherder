@@ -186,6 +186,7 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 | **Integrations router split** | `integrations_common` + `integrations_pihole` + `integrations_npm` (thin product shells on shared router) | **Done** |
 | **Theme CSS split** | `themes.css` + `fabric.css` (maps/fullscreen) + `ops.css` (heroes/filters); network-first SW + query bust | **Done** |
 | **Open source (MIT)** | LICENSE → MIT; README / CONTRIBUTING welcoming; remaining docs/wiki license lines aligned | **Done** (2026-07-16) |
+| **Docs version strategy** | Living wiki + RELEASE notes; no per-minor wiki forks; v1.0 freeze bar in [contributing-docs](../wiki/developers/contributing-docs.md) | **Done** (2026-07-16) |
 | **RC security hardening** | No default admin (first-register); admin-only herder restore/settings writes; escape Docker unused HTML; role fail-closed; Secure cookies; MIT/version metadata | **Done** (2026-07-16) |
 | **Multi-kLOC split** | `servers` → ssh/patch/common; docker → compose; `ops.css` → ops + ops-auth + ops-pages; template partials; integrations kuma/grafana; templates common/deploy; auth_users; jobs package | **Done** (2026-07-16) |
 | **Docker unused HTML tests** | `render_unused_list_html` pure helper + XSS/empty/error cases (not only raw `html.escape`) | **Done** (2026-07-16) |

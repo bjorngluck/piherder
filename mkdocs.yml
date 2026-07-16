@@ -196,4 +196,4 @@ nav:
       - Template schema: developers/templates-schema.md
       - Testing: developers/testing.md
       - Publish image: developers/publish-image.md
-      - Contributing docs (screenshots): developers/contributing-docs.md
+      - Contributing docs (versioning & screenshots): developers/contributing-docs.md
