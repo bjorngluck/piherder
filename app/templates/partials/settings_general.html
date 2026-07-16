@@ -1,0 +1,60 @@
+{# Settings tab: general #}
+<div data-settings-panel="general" class="settings-tab-panel {{ '' if tab == 'general' else 'hidden' }}">
+  {% if not is_admin|default(false) %}
+  <div class="card p-5 mb-4">
+    <h2 class="font-semibold text-text mb-2">Instance settings</h2>
+    <p class="text-sm text-muted">
+      Timezone, security policy, fleet defaults, and PiHerder self-backup are
+      <strong class="text-text">admin-only</strong>. Contact an administrator to change them.
+    </p>
+    <p class="text-xs text-muted mt-2">Current display timezone: <code class="font-mono">{{ current_tz }}</code></p>
+  </div>
+  {% else %}
+  <div class="card p-5 mb-4">
+    <h2 class="font-semibold text-text mb-3">Timezone</h2>
+    <form method="post" action="/herder-backups/timezone" class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
+      <div class="flex-1 min-w-[16rem]">
+        <label class="block text-xs text-muted mb-1">Continent / City (IANA)</label>
+        <select name="timezone" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          {% for tz in tz_choices %}
+          <option value="{{ tz }}" {% if tz == current_tz %}selected{% endif %}>{{ tz }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save timezone</button>
+    </form>
+    <p class="text-xs text-muted mt-2">Used for display and schedule interpretation (including update checks).</p>
+  </div>
+
+  <div class="card p-5 mb-4">
+    <h2 class="font-semibold text-text mb-1">Security policy</h2>
+    <p class="text-xs text-muted mb-3">
+      Global account rules. Admin-created users always must set a new password on first login.
+    </p>
+    <form method="post" action="/herder-backups/security" class="space-y-3">
+      <label class="flex items-start gap-2 min-h-11 text-sm">
+        <input type="checkbox" name="force_2fa" value="1" class="mt-1"
+               {% if cfg.force_2fa %}checked{% endif %}>
+        <span>
+          <strong>Require 2FA for all users</strong>
+          <span class="block text-xs text-muted mt-0.5">
+            After login, users without TOTP are sent to set up an authenticator app before using the fleet UI.
+          </span>
+        </span>
+      </label>
+      <label class="flex items-start gap-2 min-h-11 text-sm">
+        <input type="checkbox" name="template_require_2fa" value="1" class="mt-1"
+               {% if cfg.template_require_2fa %}checked{% endif %}>
+        <span>
+          <strong>Require 2FA for template deploy</strong>
+          <span class="block text-xs text-muted mt-0.5">
+            Operators must have TOTP to confirm template deploys. <strong>Viewing secrets always requires step-up 2FA</strong> (View secrets + fresh authenticator code), even if already logged in with 2FA.
+          </span>
+        </span>
+      </label>
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save security policy</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+

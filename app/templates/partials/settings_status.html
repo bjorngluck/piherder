@@ -1,0 +1,198 @@
+{# Settings tab: status #}
+{# ═══════════════ STATUS (admin) ═══════════════ #}
+{% if is_admin|default(false) %}
+<div data-settings-panel="status" class="settings-tab-panel {{ '' if tab == 'status' else 'hidden' }}">
+  <div class="card p-5 mb-4">
+    <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
+      <div>
+        <h2 class="font-semibold text-text">PiHerder stack status</h2>
+        <p class="text-xs text-muted mt-1">
+          Web, database, Redis, Celery, scheduler, and <strong class="text-text">mount free space</strong>
+          (fast probes). Per-folder backup usage is loaded on demand below.
+          Checked automatically every {{ stack_health_interval_min|default(2) }} minutes; alerts fire on unhealthy state changes only.
+        </p>
+      </div>
+      <form method="post" action="/herder-backups/status/check"
+            data-wait-title="Checking stack status"
+            data-wait-message="Probing database, Redis, Celery, and mount free space…">
+        <button type="submit" class="btn btn-accent min-h-11 text-sm">Check now</button>
+      </form>
+    </div>
+    {% if stack_report %}
+    <div class="flex flex-wrap items-center gap-2 mb-4 text-sm">
+      <span class="text-muted">Overall</span>
+      <span class="status-pill
+        {% if stack_report.overall == 'ok' %}status-success
+        {% elif stack_report.overall == 'warn' %}status-running
+        {% else %}status-failed{% endif %}">{{ stack_report.overall }}</span>
+      {% if stack_report.checked_at %}
+      <span class="text-[10px] text-muted">Last: {{ stack_report.checked_at }}</span>
+      {% endif %}
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {% for c in stack_report.components or [] %}
+      {# Skip legacy tree-usage rows from older reports; use lazy card below #}
+      {% if not (c.id and c.id.startswith('disk_used_')) %}
+      <div class="border border-border rounded p-3 bg-surface {% if c.id and c.id.startswith('disk_') %}sm:col-span-2{% endif %}">
+        <div class="flex items-center justify-between gap-2 mb-1">
+          <span class="text-sm font-medium">{{ c.label }}</span>
+          <span class="status-pill text-xs
+            {% if c.status == 'ok' %}status-success
+            {% elif c.status == 'warn' %}status-running
+            {% elif c.status == 'fail' %}status-failed
+            {% else %}feature-off{% endif %}">{{ c.status }}</span>
+        </div>
+        <p class="text-xs text-muted break-words mb-0">{{ c.message }}</p>
+        {% if c.id == 'celery' and c.detail %}
+        <p class="text-[10px] text-muted mt-1 mb-0">
+          Nodes answer the broker ping; <strong class="text-text">pool slots</strong> are parallel backup capacity
+          (<code class="font-mono">CELERY_CONCURRENCY</code>, default 2 in one container).
+          {% if c.detail.pool_slots is defined and c.detail.pool_slots %}
+          · Currently <strong class="text-text">{{ c.detail.pool_slots }}</strong> slot(s)
+          / <strong class="text-text">{{ c.detail.workers or 0 }}</strong> node(s).
+          {% endif %}
+        </p>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+
+      {# Lazy: expensive du of /backups + per-host folders #}
+      <div class="border border-border rounded p-3 bg-surface sm:col-span-2" id="backup-usage-card">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+          <span class="text-sm font-medium">Storage used · backups (detail)</span>
+          <button type="button" id="backup-usage-load-btn" class="btn btn-secondary min-h-9 text-xs">
+            View details
+          </button>
+        </div>
+        <p class="text-xs text-muted mb-0" id="backup-usage-summary">
+          Full tree size and top-level host folders under <code class="font-mono">/backups</code>.
+          Can take a while on multi‑TB disks — not run during Check now.
+        </p>
+        <div id="backup-usage-result" class="hidden mt-2">
+          <p class="text-xs text-text mb-2" id="backup-usage-total"></p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-[11px] text-muted">
+              <thead>
+                <tr class="text-left border-b border-border">
+                  <th class="py-1 pr-2 font-medium text-text">Under backups</th>
+                  <th class="py-1 font-medium text-text text-right">Size</th>
+                </tr>
+              </thead>
+              <tbody id="backup-usage-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state text-sm text-muted py-6">
+      No check has run yet. Click <strong>Check now</strong>, or wait for the scheduled poll.
+    </div>
+    {% endif %}
+  </div>
+  <div class="card p-4 text-xs text-muted">
+    <p class="mb-1"><strong class="text-text">Notes</strong></p>
+    <ul class="list-disc pl-4 space-y-1 mb-0">
+      <li>If the web process is down, this page cannot run — use Docker / external monitoring for that case.</li>
+      <li>Celery: one <code class="font-mono">celery-worker</code> container with <code class="font-mono">CELERY_CONCURRENCY=2</code> is <strong class="text-text">1 node · 2 pool slots</strong> (can run two backups on different hosts at once). “No workers” usually means the container is stopped or Redis is unreachable.</li>
+      <li><strong class="text-text">Mount free</strong> is free space on the disk/volume behind each path (deduped when paths share a mount — e.g. secondary backup disk).</li>
+      <li><strong class="text-text">View details</strong> runs <code class="font-mono">du</code> on the fleet backup tree and lists top-level host folders — on demand only.</li>
+    </ul>
+  </div>
+</div>
+<script>
+(function () {
+  var btn = document.getElementById('backup-usage-load-btn');
+  if (!btn) return;
+  var summary = document.getElementById('backup-usage-summary');
+  var result = document.getElementById('backup-usage-result');
+  var totalEl = document.getElementById('backup-usage-total');
+  var tbody = document.getElementById('backup-usage-tbody');
+  var loading = false;
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+
+  btn.addEventListener('click', function () {
+    if (loading) return;
+    loading = true;
+    btn.disabled = true;
+    var prevLabel = btn.textContent;
+    btn.textContent = 'Scanning…';
+    if (window.PiHerderWaitModal) {
+      window.PiHerderWaitModal.show(
+        'Scanning backup storage',
+        'Measuring tree size and per-host folders under /backups. On a multi‑TB disk this can take a minute or more…'
+      );
+    }
+    if (summary) {
+      summary.textContent = 'Scanning backup tree… please wait.';
+    }
+    if (result) result.classList.add('hidden');
+
+    fetch('/herder-backups/status/backup-usage', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' },
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        if (window.PiHerderWaitModal) window.PiHerderWaitModal.hide();
+        loading = false;
+        btn.disabled = false;
+        btn.textContent = 'Refresh details';
+
+        if (!data || data.ok === false) {
+          if (summary) {
+            summary.textContent = (data && data.error) || 'Could not measure backup storage.';
+          }
+          return;
+        }
+        if (summary) {
+          summary.textContent = 'Path ' + (data.path || '/backups') +
+            (data.method ? ' · method ' + data.method : '') +
+            (data.checked_at ? ' · ' + data.checked_at : '');
+        }
+        if (totalEl) {
+          totalEl.innerHTML = 'Total under backups: <strong>' +
+            esc(data.tree_human || (data.tree_bytes + ' B')) + '</strong>';
+        }
+        if (tbody) {
+          tbody.innerHTML = '';
+          var rows = data.children || [];
+          if (!rows.length) {
+            tbody.innerHTML = '<tr><td class="py-1 text-muted" colspan="2">No top-level folders found.</td></tr>';
+          } else {
+            rows.forEach(function (row) {
+              var tr = document.createElement('tr');
+              tr.className = 'border-b border-border/50';
+              tr.innerHTML =
+                '<td class="py-1 pr-2 font-mono break-all">' + esc(row.name) + '</td>' +
+                '<td class="py-1 text-right whitespace-nowrap">' + esc(row.human || row.bytes) + '</td>';
+              tbody.appendChild(tr);
+            });
+          }
+        }
+        if (result) result.classList.remove('hidden');
+      })
+      .catch(function (err) {
+        if (window.PiHerderWaitModal) window.PiHerderWaitModal.hide();
+        loading = false;
+        btn.disabled = false;
+        btn.textContent = prevLabel || 'View details';
+        if (summary) {
+          summary.textContent = 'Failed to load backup usage: ' + (err && err.message ? err.message : err);
+        }
+      });
+  });
+})();
+</script>
+{% endif %}
+

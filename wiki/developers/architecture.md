@@ -49,9 +49,12 @@ flowchart TB
 | Herder backup | `app/services/herder_backup.py` |
 | Metrics | `app/services/metrics.py` |
 | Bulk server actions | `app/routers/servers.py` (`POST /servers/bulk`) |
-| Theme / map / ops CSS | `app/static/css/themes.css`, `fabric.css`, `ops.css` |
+| Server SSH / patch sub-routers | `server_ssh.py`, `server_patch.py`, `server_common.py` (mounted under `/servers`) |
+| Docker UI | `server_docker.py` + `server_docker_compose.py` (editor/versions) |
+| Theme / map / ops CSS | `themes.css`, `fabric.css`, `ops.css`, `ops-auth.css`, `ops-pages.css` |
 | Map client | `app/static/js/fabric-mesh.js` (`PiHerderFabric.refreshLayout` on orient) |
 | App timezone display | `app/services/app_settings.describe_timezone` · Settings General card |
+| Large templates | Prefer `partials/` — e.g. `server_detail_*_modals`, `docker_modals`, `settings_{tab}` |
 
 ## Frontend stack
 
