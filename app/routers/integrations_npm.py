@@ -6,12 +6,13 @@ import logging
 from typing import Optional
 
 from fastapi import Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from sqlmodel import Session, select
 
 from .. import templates as templates_mod
 from ..database import get_session
 from ..models import Integration, Server, User
-from ..security.auth import get_operator_user
+from ..security.auth import get_current_user, get_operator_user
 from ..services.integrations import npm as npm_mod
 from ..services.integrations import registry as reg
 from .integrations_common import router, _audit, _redirect, _can_mutate
@@ -223,3 +224,80 @@ async def npm_renew_cert(
         error="renew_failed",
         detail=(result.get("error") or "")[:200],
     )
+
+# --- create forms (from integrations.py) ---
+@router.get("/integrations/new/npm", response_class=HTMLResponse)
+async def npm_new_form(
+    request: Request,
+    user: User = Depends(get_operator_user),
+):
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="integrations_npm_form.html",
+        context={
+            "title": "Add Nginx Proxy Manager",
+            "user": user,
+            "mode": "create",
+            "integration": None,
+            "form": {
+                "name": "Nginx Proxy Manager",
+                "base_url": "https://nginx.hacknow.info",
+                "identity": "",
+                "poll_interval_sec": reg.DEFAULT_NPM_POLL_SEC,
+                "tls_verify": True,
+                "enabled": True,
+            },
+            "has_password": False,
+            "error": request.query_params.get("error") or "",
+            "detail": request.query_params.get("detail") or "",
+        },
+    )
+
+
+@router.post("/integrations/new/npm")
+async def npm_create(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    name: str = Form("Nginx Proxy Manager"),
+    base_url: str = Form(...),
+    identity: str = Form(...),
+    password: str = Form(...),
+    poll_interval_sec: int = Form(reg.DEFAULT_NPM_POLL_SEC),
+    tls_verify: Optional[str] = Form(None),
+    enabled: Optional[str] = Form("on"),
+):
+    try:
+        base = npm_mod.normalize_base_url(base_url)
+        tls = tls_verify in ("on", "1", "true")
+        result = npm_mod.poll(base, identity, password, tls_verify=tls)
+        if not result.ok:
+            return _redirect(
+                "/integrations/new/npm",
+                error="test_failed",
+                detail=(result.error or "failed")[:200],
+            )
+        row = reg.create_npm(
+            session,
+            name=name,
+            base_url=base,
+            identity=identity,
+            password=password,
+            poll_interval_sec=poll_interval_sec,
+            tls_verify_flag=tls,
+            enabled=enabled in ("on", "1", "true") if enabled is not None else True,
+        )
+        poll_svc.poll_integration(row.id, notify=False)
+        _audit(
+            session, user, "integration_created", details=f"npm id={row.id} name={row.name}"
+        )
+        return _redirect(f"/integrations/{row.id}", msg="created")
+    except ValueError as e:
+        return _redirect("/integrations/new/npm", error="invalid", detail=str(e)[:200])
+    except Exception as e:
+        logger.exception("create npm failed")
+        return _redirect(
+            "/integrations/new/npm", error="save_failed", detail=str(e)[:200]
+        )
+
+
+

@@ -34,14 +34,17 @@ flowchart TB
 |---------|----------|
 | Roles / middleware | `app/security/auth.py` |
 | Password policy | `app/services/password_policy.py` |
-| Jobs / progress / exclusive types | `app/services/jobs.py` |
+| Jobs / progress / exclusive types | `app/services/jobs/` (`service.py`; package preserves `patch.object` surface) |
+| Docker unused cleanup HTML | `app/services/docker_unused_html.py` |
 | Per-server backup lock | `app/services/server_job_lock.py` |
 | Scheduler | `app/services/scheduler.py` |
 | Backup | `app/services/backup.py` (+ progress, profiles) |
 | Docker inventory | `app/services/docker_inventory.py` |
 | Templates | `app/services/service_templates/` |
 | Integrations (domain) | `app/services/integrations/` |
-| Integrations (HTTP) | `app/routers/integrations.py` + `integrations_common` / `_pihole` / `_npm` |
+| Integrations (HTTP) | `integrations.py` + `integrations_common` / `_kuma` / `_grafana` / `_pihole` / `_npm` |
+| Templates (HTTP) | `templates_common` + `templates_svc` (catalog) + `templates_deploy` |
+| Auth (HTTP) | `auth.py` + `auth_users.py` (admin users) |
 | Network maps | `app/services/dns_fabric/` (`core`, `mesh_physical`, `mesh_logical`) · `app/routers/dns.py` |
 | Ops-hero pulse helpers | `app/services/ops_pulse.py` |
 | Push | `app/services/push.py` |

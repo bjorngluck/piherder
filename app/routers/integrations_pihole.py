@@ -13,7 +13,7 @@ from sqlmodel import Session, select
 from .. import templates as templates_mod
 from ..database import get_session
 from ..models import AuditLog, Integration, Server, User
-from ..security.auth import get_operator_user
+from ..security.auth import get_current_user, get_operator_user
 from ..services import jobs as job_service
 from ..services.integrations import pihole as ph
 from ..services.integrations import poll as poll_svc
@@ -519,4 +519,86 @@ async def pihole_host_unbind(
     if ok:
         _audit(session, user, "pihole_host_unbound", details=f"binding={binding_id}")
     return _redirect(f"/integrations/{integration_id}", tab="host", msg="host_cleared")
+
+# --- create forms (from integrations.py) ---
+@router.get("/integrations/new/pihole", response_class=HTMLResponse)
+async def pihole_new_form(
+    request: Request,
+    user: User = Depends(get_operator_user),
+):
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="integrations_pihole_form.html",
+        context={
+            "title": "Add Pi-hole",
+            "user": user,
+            "mode": "create",
+            "integration": None,
+            "form": {
+                "name": "Pi-hole",
+                "base_url": "https://pihole.hacknow.info",
+                "poll_interval_sec": reg.DEFAULT_PIHOLE_POLL_SEC,
+                "tls_verify": True,
+                "enabled": True,
+                "is_primary": False,
+            },
+            "has_password": False,
+            "error": request.query_params.get("error") or "",
+            "detail": request.query_params.get("detail") or "",
+        },
+    )
+
+
+@router.post("/integrations/new/pihole")
+async def pihole_create(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    name: str = Form("Pi-hole"),
+    base_url: str = Form(...),
+    password: str = Form(...),
+    poll_interval_sec: int = Form(reg.DEFAULT_PIHOLE_POLL_SEC),
+    tls_verify: Optional[str] = Form(None),
+    enabled: Optional[str] = Form("on"),
+    is_primary: Optional[str] = Form(None),
+):
+    try:
+        base = ph.normalize_base_url(base_url)
+        result = ph.fetch_stats(
+            base, password, tls_verify=tls_verify in ("on", "1", "true")
+        )
+        if not result.ok:
+            return _redirect(
+                "/integrations/new/pihole",
+                error="test_failed",
+                detail=(result.error or "failed")[:200],
+            )
+        row = reg.create_pihole(
+            session,
+            name=name,
+            base_url=base,
+            password=password,
+            poll_interval_sec=poll_interval_sec,
+            tls_verify_flag=tls_verify in ("on", "1", "true"),
+            enabled=enabled in ("on", "1", "true") if enabled is not None else True,
+            is_primary=is_primary in ("on", "1", "true"),
+        )
+        poll_svc.poll_integration(row.id, notify=False)
+        _audit(
+            session,
+            user,
+            "integration_created",
+            details=f"pihole id={row.id} name={row.name}",
+        )
+        return _redirect(f"/integrations/{row.id}", msg="created")
+    except ValueError as e:
+        return _redirect(
+            "/integrations/new/pihole", error="invalid", detail=str(e)[:200]
+        )
+    except Exception as e:
+        logger.exception("create pihole failed")
+        return _redirect(
+            "/integrations/new/pihole", error="save_failed", detail=str(e)[:200]
+        )
+
+
 
