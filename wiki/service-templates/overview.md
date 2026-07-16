@@ -2,7 +2,7 @@
 
 **Templates** live under top-nav **Catalog** → tab **Templates** (`/templates`). Same Catalog chrome as Integrations, Certificates, and Network. They are **your** versioned stack definitions. Create, edit, and save them; deploy is separate.
 
-**Shipped foundation:** v0.4.0 · polish/ops → [v0.5.0 plan](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md)
+**Status:** Foundation shipped in v0.4.0; drift / migrate-env / apply last known config / redeploy polish are in the **v0.5.0** line — [PLAN](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md).
 
 <figure class="ph-figure" markdown>
   ![Templates catalog](../assets/screenshots/templates-catalog.svg)

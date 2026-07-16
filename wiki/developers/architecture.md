@@ -70,9 +70,6 @@ flowchart TB
 - Empty DB → first register is admin; no default password user; then registration closes  
 - Session cookies set `Secure` when `PIHERDER_PUBLIC_URL` is `https://` (or `COOKIE_SECURE=true`)  
 
-
-
-
 ## Design principles
 
 - Privileged actions audited (incl. client IP)  

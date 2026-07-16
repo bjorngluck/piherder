@@ -18,13 +18,15 @@ When **Docker / containers** is enabled for a server, PiHerder can list compose 
 
 | Action | Notes |
 |--------|--------|
-| Browse projects / containers | From inventory snapshot |
-| Logs | Per container / service |
+| Browse projects / containers | From inventory snapshot ([Inventory](inventory.md)) |
+| Logs | Per container / service (live stream on full log page) |
+| Container start / stop / restart | Row actions on the stack |
 | Quick edit / Full editor | ⋯ menu — modal vs multi-file page — [Compose edit](compose-edit.md) |
 | Multi-file compose edit | compose + override + `.env` + Dockerfile |
 | Version history | Snapshots; rollback |
-| Build / redeploy | Wait for job feedback |
-| Check updates vs Deploy | Pull-only vs pull+up — [Updates](../day-to-day/updates-and-patching.md) |
+| Build / redeploy | Wait for job / progress UI |
+| Check updates vs Deploy | Pull-only vs pull+up as **Jobs** — [Updates](../day-to-day/updates-and-patching.md) |
+| Cleanup unused | List dangling images / exited containers (escaped HTML); optional prune |
 | New project wizard | Create a stack on the host |
 | Template-managed stacks | Badge + gated full editor — [Templates](../service-templates/overview.md) |
 

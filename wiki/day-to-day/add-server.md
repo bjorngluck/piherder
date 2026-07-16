@@ -71,6 +71,10 @@ On the **Servers** list, bulk actions (check/upgrade OS, check/patch containers,
 
 After key deploy / least-priv / test, PiHerder stores a dependency snapshot. Failures show install/privilege **hints only** — nothing is auto-installed on the remote.
 
+## Host status / diagnostics
+
+From server detail **Host status** (⋯) or related chips, PiHerder can show a short **system info** snapshot over SSH (OS/kernel, reboot-pending, disk free — cached briefly). This is read-only diagnostics, not continuous monitoring (use Kuma for uptime).
+
 <figure class="ph-figure" markdown>
   ![Server detail](../assets/screenshots/server-detail.svg)
   <figcaption>Server detail with status chips and feature cards. <span class="ph-wireframe-badge">wireframe</span></figcaption>

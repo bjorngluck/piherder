@@ -22,7 +22,13 @@ Enforced on register, password change, and admin-created users:
 
 - At least **10** characters  
 - At least one **uppercase**, one **lowercase**, one **digit**  
-- At most **72 Latin letters/digits** (emoji/symbols count as more than one character)
+- At most **72 Latin letters/digits** (emoji/symbols count as more than one character; enforcement is UTF-8 **bytes**)
+
+### Invited users
+
+Admin-created accounts must set a personal password on first login (`/auth/force-password`), then optional force-2FA if enabled. Temporary passwords appear **once** on create — see [Users](../account-security/users.md).
+
+If you set `ALLOW_OPEN_REGISTRATION=true`, later self-registered accounts become **operator** (not admin). Prefer leaving open registration **off** and creating viewers/operators under Users.
 
 ## After login checklist
 

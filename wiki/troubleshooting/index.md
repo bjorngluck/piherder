@@ -16,6 +16,8 @@
 | Cert deploy / renew failed | [Certificates](../integrations/certificates.md) · Jobs + Audit |
 | Drift after host edit | [Deploy — Check drift](../service-templates/deploy.md#redeploy-ops-deployment-page) |
 | Stack unhealthy after upgrade | [Status](../operations/status.md) · [Upgrades](../operations/upgrades.md) |
+| Cannot open Settings tabs / herder restore | [Roles](../account-security/roles.md) — control plane is **admin only** |
+| First boot asks to register / no default password | Expected — [First login](../getting-started/first-login.md) |
 
 ## Always useful
 

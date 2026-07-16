@@ -21,9 +21,15 @@ Authorization: Bearer ph_<secret>
 | Scope | Allows |
 |-------|--------|
 | `read` | Catalog, health, servers, jobs GET |
-| `jobs` | `POST …/servers/{id}/jobs` |
-| `edit` | `PATCH …/features` |
-| `feature:backup` / `os` / `docker` | Optional allowlist; if any set, only those features |
+| `jobs` | `POST …/servers/{id}/jobs` (start work units) |
+| `edit` | `PATCH …/features` (feature flags) |
+| `feature:backup` | Restrict `jobs` to backup-related types when any `feature:*` is set |
+| `feature:os` | OS patch / OS update-check jobs |
+| `feature:docker` | Container patch / container update-check / stack check-deploy jobs |
+
+If **no** `feature:*` scopes are set, any job type allowed by `jobs` may run (still subject to server feature flags). Prefer least privilege: e.g. n8n backups = `read` + `jobs` + `feature:backup`.
+
+**409 / exclusive jobs:** a second start of the same exclusive type on a host returns **HTTP 409** with the existing `job_id` (same rule as the UI).
 
 ## IP allowlist
 
