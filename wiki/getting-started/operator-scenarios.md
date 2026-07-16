@@ -7,7 +7,7 @@ Quick map from **what you want to do** → the right wiki page. Use this after [
 | Scenario | Doc |
 |----------|-----|
 | Compose install + secrets | [Install](install.md) |
-| Register admin, change password | [First login](first-login.md) |
+| Register **first** admin (no default user), then invite others | [First login](first-login.md) · [Users](../account-security/users.md) |
 | Trusted HTTPS for PWA/push | [HTTPS & TLS](https-tls.md) |
 | Light / dark theme | [Appearance](appearance.md) |
 | Add a Pi, deploy SSH key, features | [Add a server](../day-to-day/add-server.md) |
@@ -34,6 +34,7 @@ Quick map from **what you want to do** → the right wiki page. Use this after [
 | Fast open via inventory cache | [Inventory](../docker/inventory.md) |
 | Edit compose, validate, deploy version | [Compose edit](../docker/compose-edit.md) |
 | Stack Check updates vs Deploy | [Updates — Docker](../day-to-day/updates-and-patching.md#docker-check-updates-vs-deploy) |
+| Prune dangling images / exited containers | [Docker overview](../docker/overview.md) |
 
 ## Service templates
 
@@ -75,7 +76,7 @@ Quick map from **what you want to do** → the right wiki page. Use this after [
 | Volume mounts | [Volumes](../operations/volumes.md) |
 | Settings tabs (backup, security, status, timezone, API) | [Settings](../operations/settings.md) |
 | Stack Status healthy? | [Status](../operations/status.md) |
-| Herder self-backup / restore | [Self-backup](../operations/self-backup.md) |
+| Herder self-backup / restore (**admin only**) | [Self-backup](../operations/self-backup.md) · [Roles](../account-security/roles.md) |
 | Upgrade compose / image | [Upgrades](../operations/upgrades.md) |
 | More backup parallelism | [Multi-worker](../operations/multi-worker.md) |
 | Prometheus / webhook | [Metrics](../operations/metrics-webhooks.md) |

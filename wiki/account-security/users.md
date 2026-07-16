@@ -27,6 +27,9 @@ Configurable admin policy (custom min length / classes) is **post-RC** — see r
 
 ## Open registration
 
-Only the **first** account self-registers. After that, login points people to **ask an admin**
-(Users → Create user). `ALLOW_OPEN_REGISTRATION=true` re-enables public sign-up if you
-intentionally want it.
+Only the **first** account self-registers (becomes **admin**). After that, login points people to
+**ask an admin** (Users → Create user).
+
+`ALLOW_OPEN_REGISTRATION=true` re-enables public sign-up if you intentionally want it.
+Later self-registered accounts become **operator** (not admin, not viewer). Leave this **off**
+in production and create viewers/operators via the Users UI.

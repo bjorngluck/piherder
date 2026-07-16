@@ -6,7 +6,7 @@
 # Also snapshot Postgres volume if you can
 
 git fetch --tags
-git checkout v0.4.0   # or newer
+git checkout main     # or a release tag (e.g. v0.5.0 when published)
 docker compose up -d --build
 # Alembic runs on web startup
 docker compose run --rm --no-deps web pytest -q   # optional
@@ -14,11 +14,13 @@ docker compose run --rm --no-deps web pytest -q   # optional
 
 ## Checklist
 
-- [ ] Self-backup successful  
+- [ ] Self-backup successful (**admin** — Settings → PiHerder backup)  
 - [ ] `PIHERDER_MASTER_KEY` unchanged and backed up offline  
-- [ ] Read release notes under `docs/RELEASE_v*.md`  
+- [ ] Read ship plan / release notes under `docs/PLAN_v0.5.0.md` or `docs/RELEASE_v*.md` when present  
 - [ ] `docker compose ps` healthy  
 - [ ] Smoke: login, one server, optional template  
+- [ ] Hard-refresh browser once after UI/CSS deploys (query-busted stylesheets)  
+
 
 ## Breaking notes
 
