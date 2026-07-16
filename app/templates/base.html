@@ -28,11 +28,11 @@
   <!-- Theme CSS variables (light/dark + Raspberry Pi branding).
        Companion sheets: fabric (network maps), ops (heroes/filters).
        Query busts browser + older SW caches when tokens change. -->
-  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-split">
-  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-split">
-  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-split">
-  <link rel="stylesheet" href="/static/css/ops-auth.css?v=20260716-split">
-  <link rel="stylesheet" href="/static/css/ops-pages.css?v=20260716-split">
+  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-about">
+  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-about">
+  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-about">
+  <link rel="stylesheet" href="/static/css/ops-auth.css?v=20260716-about">
+  <link rel="stylesheet" href="/static/css/ops-pages.css?v=20260716-about">
 
   <!-- Apply saved theme ASAP (before paint) so the page doesn't flash light → dark -->
   <script>
@@ -188,17 +188,19 @@
          Legacy users with missing role match backend normalize_role → viewer (fail-closed). #}
       {% set secondary_items = [
         {"label": "Account",      "href": "/auth/account", "kind": "normal"},
+        {"label": "About",        "href": "/about", "kind": "normal"},
         {"label": "Toggle theme", "kind": "action", "action": "toggle-theme"},
         {"label": "Sign out",     "href": "/auth/logout", "kind": "danger"}
       ] %}
-      {% set _user_role = (user.role if user and user.role else 'admin')|lower %}
+      {% set _user_role = (user.role if user and user.role else 'viewer')|lower %}
       {% if user and _user_role == 'admin' %}
         {% set secondary_items = [
           secondary_items[0],
           {"label": "Users", "href": "/auth/users", "kind": "normal"},
           {"label": "API tokens", "href": "/herder-backups?tab=api", "kind": "normal"},
           secondary_items[1],
-          secondary_items[2]
+          secondary_items[2],
+          secondary_items[3]
         ] %}
       {% endif %}
       {# action items use data-action; wired once in the footer script (no inline onclick) #}
@@ -312,6 +314,27 @@
   {% endif %}
 
   {% if user %}
+  {# New GitHub release notice (dismissed per browser via localStorage) #}
+  {% set _upd = get_update_notice() if get_update_notice is defined else none %}
+  {% if _upd and _upd.available and _upd.latest %}
+  <div id="ph-update-banner" class="border-b border-border bg-surface hidden"
+       data-latest="{{ _upd.latest }}"
+       data-notes="{{ _upd.notes_url or '' }}">
+    <div class="max-w-5xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+      <span class="text-muted">
+        <strong class="text-text">Update available:</strong>
+        <span class="font-mono">{{ _upd.latest }}</span>
+        (you are on <span class="font-mono">{{ _upd.current or app_version }}</span>).
+      </span>
+      <div class="flex flex-wrap gap-2">
+        <a id="ph-update-notes" href="{{ _upd.notes_url or '/about' }}"
+           class="btn btn-accent text-xs min-h-9" target="_blank" rel="noopener">Release notes</a>
+        <a href="/about" class="btn btn-secondary text-xs min-h-9">About</a>
+        <button type="button" id="ph-update-dismiss" class="btn btn-secondary text-xs min-h-9">Dismiss</button>
+      </div>
+    </div>
+  </div>
+  {% endif %}
   <!-- Dismissible PWA install hint (Android beforeinstallprompt + iOS A2HS steps) -->
   <div id="pwa-install-banner" class="hidden border-b border-border bg-surface">
     <div class="max-w-5xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -329,8 +352,11 @@
   </main>
 
   <footer class="text-center text-xs text-muted py-8 border-t border-border mt-12">
-    PiHerder • Secure fleet management for Raspberry Pi clusters<br>
-    <span class="text-[10px] text-muted">Zero plaintext secrets • All actions audited</span>
+    PiHerder{% if app_version %} <span class="font-mono">{{ app_version }}</span>{% endif %}
+    · Secure fleet management for Raspberry Pi clusters
+    {% if user %} · <a href="/about" class="text-accent hover:underline">About</a>{% endif %}
+    <br>
+    <span class="text-[10px] text-muted">Zero plaintext secrets · All actions audited · MIT</span>
   </footer>
 
   {# Instant feedback when leaving a screen for a slow destination (e.g. Docker).
@@ -1401,6 +1427,25 @@
   </script>
 
   {% if user %}
+  <script>
+  (function () {
+    var el = document.getElementById('ph-update-banner');
+    if (!el) return;
+    var latest = el.getAttribute('data-latest') || '';
+    var key = 'ph_dismiss_update_' + latest;
+    try {
+      if (latest && localStorage.getItem(key) === '1') return;
+    } catch (e) {}
+    el.classList.remove('hidden');
+    var btn = document.getElementById('ph-update-dismiss');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        try { if (latest) localStorage.setItem(key, '1'); } catch (e) {}
+        el.classList.add('hidden');
+      });
+    }
+  })();
+  </script>
   <script src="/static/js/push.js" defer></script>
   <script>
   (function () {

@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     # Never use * with API tokens. Backend still enforces Bearer + scopes + IP allowlist.
     CORS_ORIGINS: Optional[str] = None
 
+    # GitHub release check for “new version available” banner / About page
+    PIHERDER_UPDATE_CHECK: bool = True
+    PIHERDER_UPDATE_CHECK_TTL_HOURS: int = 12
+
     class Config:
         env_file = ".env"
         extra = "ignore"

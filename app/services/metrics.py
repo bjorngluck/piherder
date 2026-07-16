@@ -11,8 +11,8 @@ from ..config import settings
 from ..models import Job, Notification, Server
 from .fleet_status import summarize_fleet
 
-# Keep version in lockstep with pyproject.toml / FastAPI app.version
-APP_VERSION = "0.5.0.dev0"
+# Keep version in lockstep with version_info / pyproject / FastAPI app.version
+from ..version_info import APP_VERSION  # noqa: E402
 
 
 def _esc_label(value: str) -> str:

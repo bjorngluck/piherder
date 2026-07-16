@@ -10,6 +10,7 @@ Quick map from **what you want to do** → the right wiki page. Use this after [
 | Register **first** admin (no default user), then invite others | [First login](first-login.md) · [Users](../account-security/users.md) |
 | Trusted HTTPS for PWA/push | [HTTPS & TLS](https-tls.md) |
 | Light / dark theme | [Appearance](appearance.md) |
+| About PiHerder / GitHub / new version notice | Avatar menu → **About** (`/about`) |
 | Add a Pi, deploy SSH key, features | [Add a server](../day-to-day/add-server.md) |
 | Dashboard tiles & fleet services | [Dashboard & Services](../day-to-day/dashboard-and-services.md) |
 
