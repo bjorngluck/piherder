@@ -620,55 +620,16 @@ async def list_unused_route(
     try:
         data = docker_svc.list_unused_images_and_containers(server)
     except Exception as e:
-        data = {"dangling_images": [], "exited_containers": [], "success": False, "errors": [str(e)[:200]]}
+        data = {
+            "dangling_images": [],
+            "exited_containers": [],
+            "success": False,
+            "errors": [str(e)[:200]],
+        }
 
-    # Build a small HTML snippet for fetch().innerHTML — escape host-derived strings
-    import html as html_lib
+    from ..services.docker_unused_html import render_unused_list_html
 
-    def _esc(s: object) -> str:
-        return html_lib.escape(str(s if s is not None else ""), quote=True)
-
-    lines = []
-    di = data.get("dangling_images", []) or []
-    ec = data.get("exited_containers", []) or []
-    if not di and not ec:
-        lines.append(
-            "<div class='text-muted'>No dangling images or exited containers found.</div>"
-        )
-    else:
-        if di:
-            lines.append(
-                f"<div class='text-warning font-medium mb-0.5'>Dangling images "
-                f"<span class='text-muted font-normal'>({len(di)})</span></div>"
-            )
-            lines.append(
-                "<pre class='whitespace-pre-wrap text-[10px] mb-2'>"
-                + "\n".join(_esc(x) for x in di)
-                + "</pre>"
-            )
-        if ec:
-            lines.append(
-                f"<div class='text-warning font-medium mb-0.5 mt-1'>Exited containers "
-                f"<span class='text-muted font-normal'>({len(ec)})</span></div>"
-            )
-            lines.append(
-                "<pre class='whitespace-pre-wrap text-[10px]'>"
-                + "\n".join(_esc(x) for x in ec)
-                + "</pre>"
-            )
-    if data.get("errors"):
-        lines.append(
-            "<div class='text-danger mt-1'>Errors: "
-            + "; ".join(_esc(e) for e in data["errors"])
-            + "</div>"
-        )
-    if data.get("success") is False:
-        lines.append(
-            "<div class='text-xs text-muted mt-1'>"
-            "Command may have partially failed (non-zero exit).</div>"
-        )
-
-    return HTMLResponse("\n".join(lines))
+    return HTMLResponse(render_unused_list_html(data))
 
 
 @router.post("/{server_id}/docker/prune-unused")
