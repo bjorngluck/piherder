@@ -184,14 +184,14 @@ document.addEventListener('DOMContentLoaded', function() {
     {% if flash_detail %}— overall <code class="font-mono">{{ flash_detail }}</code>{% endif %}.
   {% elif flash_msg == 'key_deployed' %}<strong>SSH key deployed</strong> and key-only login verified. You can clear any stored password if you have not already.
   {% elif flash_msg == 'key_rotated' %}<strong>SSH key rotated</strong> successfully. Old public key removed when possible.
-  {% elif flash_msg == 'user_provisioned' %}<strong>Least-priv user provisioned</strong> — PiHerder now connects as
+  {% elif flash_msg == 'user_provisioned' %}<strong>Least-priv user provisioned</strong> — {{ ph_brand() }} now connects as
     <code class="font-mono">{{ flash_detail or 'piherder' }}</code> (same keypair; any stored SSH password was cleared).
     Docker base dir fixed if it used <code>~/…</code>. Run ACL script if stacks stay under another home.
   {% elif flash_msg == 'username_set' %}<strong>SSH username updated</strong> to
     <code class="font-mono">{{ flash_detail or '' }}</code>. Same keypair; stored password cleared if present. Test connection.
   {% elif flash_msg == 'username_unchanged' %}SSH username was already set to that value.
   {% elif flash_msg == 'provision_script' %}Use the <strong>SSH access</strong> panel to copy the least-priv script.
-    After running it on the host, use <strong>Use piherder</strong> / <strong>Save username</strong> so PiHerder re-points.
+    After running it on the host, use <strong>Use piherder</strong> / <strong>Save username</strong> so {{ ph_brand() }} re-points.
   {% elif flash_msg == 'server_added' %}<strong>Server added.</strong> Open <strong>SSH access</strong> to deploy the public key or copy the install script.
   {% elif flash_msg == 'key_generated' %}<strong>Keypair generated.</strong> Use <strong>Deploy key</strong> (with password if needed) or the install script.
   {% elif flash_msg == 'dns_synced' %}<strong>Host DNS A record synced to Pi-hole</strong>
@@ -413,7 +413,7 @@ document.addEventListener('DOMContentLoaded', function() {
     'container_update_check': 'Image check',
     'retention': 'Retention',
     'diagnostics': 'Diagnostics',
-    'herder_backup': 'PiHerder backup'
+    'herder_backup': 'Self-backup'
   } %}
   {% if active_jobs %}
   <div class="mb-3 space-y-2">

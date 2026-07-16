@@ -28,11 +28,11 @@
   <!-- Theme CSS variables (light/dark + Raspberry Pi branding).
        Companion sheets: fabric (network maps), ops (heroes/filters).
        Query busts browser + older SW caches when tokens change. -->
-  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-about">
-  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-about">
-  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-about">
-  <link rel="stylesheet" href="/static/css/ops-auth.css?v=20260716-about">
-  <link rel="stylesheet" href="/static/css/ops-pages.css?v=20260716-about">
+  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-brand">
+  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-brand">
+  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-brand">
+  <link rel="stylesheet" href="/static/css/ops-auth.css?v=20260716-brand">
+  <link rel="stylesheet" href="/static/css/ops-pages.css?v=20260716-brand">
 
   <!-- Apply saved theme ASAP (before paint) so the page doesn't flash light → dark -->
   <script>
@@ -140,21 +140,18 @@
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
-<body class="bg-bg">
+<body class="bg-bg{% if not user %} is-auth-chrome{% endif %}">
   <nav class="nav-header">
     <div class="nav-header-inner">
       <!-- Brand (left) — all sizing/spacing via CSS vars -->
       <div class="header-brand">
-        <a href="/" class="header-brand-link">
+        <a href="{% if user %}/{% else %}/auth/login{% endif %}" class="header-brand-link">
           <img src="/static/images/piherder-logo-small.png" alt="PiHerder">
           <div class="header-brand-text-wrap">
-            <span class="header-brand-text">PiHerder</span>
-            <div class="header-brand-sub">FLEET</div>
+            <span class="header-brand-text">{{ ph_brand() }}</span>
+            {% if user %}<div class="header-brand-sub">FLEET</div>{% endif %}
           </div>
         </a>
-        <div class="header-tagline">
-          Raspberry Pi backup management
-        </div>
       </div>
 
       {% set current_path = '' %}
@@ -205,6 +202,7 @@
       {% endif %}
       {# action items use data-action; wired once in the footer script (no inline onclick) #}
 
+      {% if user %}
       <!-- Desktop nav links — generated from SINGLE SOURCE (nav_items) -->
       <div class="desktop-nav">
         {% for item in nav_items %}
@@ -218,6 +216,7 @@
           <a href="{{ item.href }}" class="nav-link {{ 'nav-link-active' if is_active else '' }}">{{ item.label }}</a>
         {% endfor %}
       </div>
+      {% endif %}
 
       <!-- Right side actions: hamburger (mobile) + avatar (desktop).
            Fully driven by CSS classes + variables. -->
@@ -269,8 +268,6 @@
             </div>
           </details>
         </div>
-        {% else %}
-          <a href="/auth/login" class="header-login">Login</a>
         {% endif %}
       </div>
     </div>
@@ -284,7 +281,7 @@
     <div class="mobile-menu-header">
       <div class="mobile-menu-header-brand">
         <img src="/static/images/piherder-logo-small.png" alt="" class="mobile-menu-header-logo">
-        <span class="mobile-menu-header-title">PiHerder</span>
+        <span class="mobile-menu-header-title">{{ ph_brand() }}</span>
       </div>
       <button type="button" id="mobile-menu-close" class="mobile-menu-close" aria-label="Close menu">×</button>
     </div>
@@ -338,7 +335,7 @@
   <!-- Dismissible PWA install hint (Android beforeinstallprompt + iOS A2HS steps) -->
   <div id="pwa-install-banner" class="hidden border-b border-border bg-surface">
     <div class="max-w-5xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-      <span id="pwa-install-msg" class="text-muted">Install PiHerder on your home screen for a fuller app experience and push alerts.</span>
+      <span id="pwa-install-msg" class="text-muted">Install {{ ph_brand() }} on your home screen for a fuller app experience and push alerts.</span>
       <div class="flex gap-2">
         <button type="button" id="pwa-install-btn" class="btn btn-accent text-xs min-h-9">Install</button>
         <button type="button" id="pwa-install-dismiss" class="btn btn-secondary text-xs min-h-9">Not now</button>
@@ -352,7 +349,7 @@
   </main>
 
   <footer class="text-center text-xs text-muted py-8 border-t border-border mt-12">
-    PiHerder{% if app_version %} <span class="font-mono">{{ app_version }}</span>{% endif %}
+    {{ ph_brand() }}{% if app_version %} <span class="font-mono">{{ app_version }}</span>{% endif %}
     · Secure fleet management for Raspberry Pi clusters
     {% if user %} · <a href="/about" class="text-accent hover:underline">About</a>{% endif %}
     <br>
@@ -413,7 +410,7 @@
   <div id="ph-wait-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[60]"
        aria-modal="true" role="dialog" aria-labelledby="ph-wait-title" aria-busy="true">
     <div class="modal-content card p-6 w-full max-w-md mx-4 text-center ph-modal-brand">
-      <div class="ph-detail-kicker mb-2">PiHerder</div>
+      <div class="ph-detail-kicker mb-2">{{ ph_brand() }}</div>
       <div class="mx-auto mb-4 h-10 w-10 rounded-full border-2 border-accent border-t-transparent animate-spin" aria-hidden="true"></div>
       <h3 id="ph-wait-title" class="ph-detail-title mb-2">Working…</h3>
       <p id="ph-wait-message" class="text-sm text-muted mb-0">Please wait…</p>

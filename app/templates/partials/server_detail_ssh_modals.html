@@ -12,7 +12,7 @@
     </p>
 
     <div class="border border-border rounded p-3 mb-3 space-y-2">
-      <div class="text-sm font-medium">SSH username in PiHerder</div>
+      <div class="text-sm font-medium">SSH username in {{ ph_brand() }}</div>
       <p class="text-xs text-muted">
         This is what Edit and all jobs use. Creating <code>piherder</code> on the host does <strong>not</strong> change this
         unless you used <strong>Run on host</strong>, or set it here after a manual script.
@@ -83,7 +83,7 @@
 
     <div id="ssh-rotate-panel" class="hidden border border-border rounded p-3 mb-3 space-y-2">
       <div class="text-sm font-medium text-warning">Rotate SSH keypair</div>
-      <p class="text-xs text-muted">Generates a new key, installs it, verifies login, updates PiHerder, then removes the old public key. Type <code>rotate</code> to confirm.</p>
+      <p class="text-xs text-muted">Generates a new key, installs it, verifies login, updates {{ ph_brand() }}, then removes the old public key. Type <code>rotate</code> to confirm.</p>
       <form method="post" action="/servers/{{ server.id }}/ssh/rotate-key" class="space-y-2"
             data-confirm="Rotate SSH key for {{ server.name }}? Old key will stop working after success."
             data-confirm-title="Rotate SSH key"
@@ -121,7 +121,7 @@
         </div>
       </form>
       <p class="text-[10px] text-muted">
-        Copy-paste script below only creates the remote user — it does <strong>not</strong> change PiHerder’s SSH username.
+        Copy-paste script below only creates the remote user — it does <strong>not</strong> change {{ ph_brand() }}’s SSH username.
         After a manual run, use <strong>Use piherder</strong> above.
       </p>
     </div>
@@ -170,7 +170,7 @@
     <div class="border-t border-border pt-3 mt-3" id="ssh-host-cleanup-section">
       <div class="text-sm font-medium mb-1">Host cleanup script (optional)</div>
       <p class="text-xs text-muted mb-1">
-        After <strong>Remove from PiHerder</strong>, the remote host is unchanged. Run this <em>on the host as root</em>
+        After <strong>Remove from {{ ph_brand() }}</strong>, the remote host is unchanged. Run this <em>on the host as root</em>
         only if you want to drop the service user / sudoers / docker group membership.
         Does <strong>not</strong> remove Docker stacks or data. Default leaves the user account; set
         <code class="font-mono">REMOVE_USER=1</code> to delete it.

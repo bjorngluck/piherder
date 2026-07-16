@@ -25,7 +25,7 @@
     {% if dep.last_deployed_at %} · last deploy <span data-utc="{{ dep.last_deployed_at }}">{{ dep.last_deployed_at }}</span>{% endif %}
   </p>
   <p class="text-xs text-muted mt-2 max-w-2xl">
-    This is the <strong>deployed instance</strong> of a service template (desired state in PiHerder).
+    This is the <strong>deployed instance</strong> of a service template (desired state in {{ ph_brand() }}).
     Change variables or volumes below, then <strong>Save &amp; redeploy</strong>.
     After host wipe: <strong>Apply last known config</strong>, then restore data from Backups if needed.
   </p>
@@ -72,9 +72,9 @@
       </form>
       <form method="post" action="/templates/deployments/{{ dep.id }}/migrate-env"
             data-wait-title="Importing .env"
-            data-wait-message="Reading host .env into PiHerder encrypted store…">
+            data-wait-message="Reading host .env into {{ ph_brand() }} encrypted store…">
         <button type="submit" class="btn btn-secondary min-h-11 text-sm"
-                title="Pull host .env secrets into PiHerder">Import host .env</button>
+                title="Pull host .env secrets into {{ ph_brand() }}">Import host .env</button>
       </form>
       <form method="post" action="/templates/deployments/{{ dep.id }}/apply-config"
             data-wait-title="Applying config"
@@ -84,7 +84,7 @@
       </form>
     </div>
     <p class="text-[11px] text-muted mt-2">
-      <strong>Check drift</strong> compares host files to PiHerder.
+      <strong>Check drift</strong> compares host files to {{ ph_brand() }}.
       <strong>Import host .env</strong> migrates secrets into encrypted SoT.
       <strong>Apply last known config</strong> redeploys stored compose/.env (desired state).
     </p>
@@ -221,7 +221,7 @@
       {% if user_has_2fa %}
       <p class="text-xs text-muted mb-2">
         Secrets stay encrypted at rest. Enter a fresh authenticator code (even if you already
-        used 2FA at login) to decrypt values from PiHerder for this browser
+        used 2FA at login) to decrypt values from {{ ph_brand() }} for this browser
         (~{{ secrets_unlock_minutes }} minutes).
       </p>
       <form method="post" action="/templates/secrets/unlock" class="flex flex-wrap gap-2 items-end">
@@ -297,7 +297,7 @@
       {% if secrets_visible %}
       <h3 class="text-xs font-medium text-muted mt-3">Secrets</h3>
       <p class="text-[11px] text-muted mb-2">
-        Values decrypted from PiHerder (encrypted at rest). Edit then Save &amp; redeploy to update the host <code class="text-xs">.env</code>.
+        Values decrypted from {{ ph_brand() }} (encrypted at rest). Edit then Save &amp; redeploy to update the host <code class="text-xs">.env</code>.
       </p>
       {% for k, v in secrets_map.items() %}
       <div x-data="{ show: false }">
@@ -321,7 +321,7 @@
       {% elif dep.secrets_encrypted %}
       <h3 class="text-xs font-medium text-muted mt-3">Secrets</h3>
       <p class="text-xs text-muted mt-1">
-        Secrets are stored <strong>encrypted</strong> in PiHerder.
+        Secrets are stored <strong>encrypted</strong> in {{ ph_brand() }}.
         Use <strong>View secrets</strong> and enter a 2FA code to decrypt, or
         <strong>Import host .env</strong> to pull secrets from the host.
       </p>

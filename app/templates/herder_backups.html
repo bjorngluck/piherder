@@ -18,7 +18,7 @@
     <h1 class="ops-hero-title" id="settings-hero-title">
       {% if hero_now and hero_now.title is defined %}{{ hero_now.title }}
       {% elif tab == 'api' %}API management
-      {% elif tab == 'backup' %}PiHerder backup
+      {% elif tab == 'backup' %}{{ ph_brand() }} backup
       {% elif tab == 'status' %}Stack status
       {% elif tab == 'fleet' %}Fleet defaults
       {% else %}Settings
@@ -208,7 +208,7 @@
           aria-selected="{{ 'true' if tab == 'fleet' else 'false' }}">Fleet defaults</button>
   <button type="button" role="tab" data-settings-tab="backup"
           class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'backup' else '' }}"
-          aria-selected="{{ 'true' if tab == 'backup' else 'false' }}">PiHerder backup</button>
+          aria-selected="{{ 'true' if tab == 'backup' else 'false' }}">{{ ph_brand() }} backup</button>
   <button type="button" role="tab" data-settings-tab="status"
           class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'status' else '' }}"
           aria-selected="{{ 'true' if tab == 'status' else 'false' }}">Status</button>

@@ -330,6 +330,38 @@ body {
   color: var(--color-primary);
 }
 
+/* Wordmark: Pi = theme red, Herder = text (black in light / light in dark) */
+.ph-brand {
+  display: inline;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  white-space: nowrap;
+}
+.ph-brand-pi {
+  color: var(--color-primary);
+  font-weight: 700;
+}
+.ph-brand-herder {
+  color: var(--color-text);
+  font-weight: inherit;
+}
+.header-brand-text .ph-brand,
+.header-brand-text.ph-brand {
+  font-size: inherit;
+  letter-spacing: -0.05em;
+  font-weight: 600;
+}
+a.header-brand-link:hover .ph-brand-herder {
+  color: var(--color-text);
+}
+a.header-brand-link:hover .ph-brand-pi {
+  color: var(--color-primary);
+  filter: brightness(1.05);
+}
+.mobile-menu-header-title .ph-brand {
+  font-weight: 600;
+}
+
 /* "FLEET" sublabel */
 .header-brand-sub {
   font-size: 10px;

@@ -1,6 +1,7 @@
 # PiHerder user + developer wiki
 # Build:  pip install -r requirements-docs.txt && mkdocs serve
-# Deploy: GitHub Actions → GitHub Pages (see .github/workflows/docs.yml)
+# Deploy: GitHub Actions → Pages (Settings → Pages → Source: GitHub Actions)
+# Workflow: .github/workflows/docs.yml · validate: mkdocs build --strict
 
 site_name: PiHerder Docs
 site_description: Operator and developer documentation for PiHerder — fleet management for Raspberry Pi and Linux hosts.

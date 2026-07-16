@@ -325,7 +325,7 @@
         <div class="ph-config-section-title">Destination</div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="text-xs text-muted block mb-1">Path root (in PiHerder container)</label>
+            <label class="text-xs text-muted block mb-1">Path root (in {{ ph_brand() }} container)</label>
             <input name="dest_root" value="{{ server.backup_dest_root or g.dest_root or settings.BACKUP_ROOT }}" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
           </div>
           <div>

@@ -366,7 +366,7 @@
     <h2 class="font-semibold text-text">Push notifications</h2>
     <p class="text-sm text-muted">
       Optional browser push for fleet alerts (backup failed, OS updates, reboot pending, etc.).
-      Works on <strong>Android Chrome</strong> and on <strong>iPhone/iPad (iOS 16.4+)</strong> when PiHerder is
+      Works on <strong>Android Chrome</strong> and on <strong>iPhone/iPad (iOS 16.4+)</strong> when {{ ph_brand() }} is
       installed to the Home Screen over trusted HTTPS.
     </p>
     <div id="push-ios-hint" class="hidden text-sm rounded border border-border bg-surface-2 p-3 space-y-1">
@@ -374,7 +374,7 @@
       <ol class="list-decimal list-inside text-muted space-y-0.5">
         <li>Open this site in <strong>Safari</strong>.</li>
         <li>Tap <strong>Share</strong> → <strong>Add to Home Screen</strong> → Add.</li>
-        <li>Open PiHerder from the <strong>Home Screen icon</strong>.</li>
+        <li>Open {{ ph_brand() }} from the <strong>Home Screen icon</strong>.</li>
         <li>Return here and tap <strong>Enable on this device</strong>.</li>
       </ol>
     </div>
@@ -436,7 +436,7 @@
         </label>
         <label class="flex items-center gap-2">
           <input type="checkbox" name="herder_backup_failed" {% if not push_prefs or push_prefs.herder_backup_failed %}checked{% endif %}>
-          PiHerder self-backup failed
+          {{ ph_brand() }} self-backup failed
         </label>
         <label class="flex items-center gap-2">
           <input type="checkbox" name="integration_down" {% if not push_prefs or push_prefs.integration_down %}checked{% endif %}>

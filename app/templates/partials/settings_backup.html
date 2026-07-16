@@ -3,7 +3,7 @@
 {% if is_admin|default(false) %}
 <div data-settings-panel="backup" class="settings-tab-panel {{ '' if tab == 'backup' else 'hidden' }}">
   <div class="card p-5 mb-4">
-    <h2 class="font-semibold text-text mb-3">Scheduled PiHerder backups</h2>
+    <h2 class="font-semibold text-text mb-3">Scheduled {{ ph_brand() }} backups</h2>
     <form method="post" action="/herder-backups/config" class="space-y-3">
       <label class="flex items-center gap-2 min-h-11 text-sm">
         <input type="checkbox" name="schedule_enabled" value="1" {% if cfg.schedule_enabled %}checked{% endif %}>

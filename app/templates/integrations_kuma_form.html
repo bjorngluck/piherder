@@ -11,7 +11,7 @@
       {% if mode == 'edit' %}Edit Uptime Kuma{% else %}Add Uptime Kuma{% endif %}
     </h1>
     <p class="text-sm text-muted mt-1">
-      Use a Kuma <strong>API key</strong> (Settings → API Keys). PiHerder reads
+      Use a Kuma <strong>API key</strong> (Settings → API Keys). {{ ph_brand() }} reads
       <code class="text-xs">GET /metrics</code> — no admin password.
     </p>
   </div>
@@ -47,7 +47,7 @@
       <input id="base_url" name="base_url" type="url" required class="input w-full font-mono text-sm"
              placeholder="http://rpi5-4:3001"
              value="{{ form.base_url }}">
-      <p class="text-[11px] text-muted mt-1">Must be reachable from PiHerder web and Celery containers.</p>
+      <p class="text-[11px] text-muted mt-1">Must be reachable from {{ ph_brand() }} web and Celery containers.</p>
     </div>
     <div>
       <label class="block text-sm font-medium text-text mb-1" for="api_key">API key</label>
@@ -63,7 +63,7 @@
       <p class="text-sm font-medium text-text">Optional: Kuma login (deep links)</p>
       <p class="text-[11px] text-muted">
         Kuma 1.23 <code class="text-[10px]">/metrics</code> has no numeric monitor ids.
-        A one-time login lets PiHerder resolve <code class="text-[10px]">/dashboard/32</code> links automatically.
+        A one-time login lets {{ ph_brand() }} resolve <code class="text-[10px]">/dashboard/32</code> links automatically.
         Status still uses the API key.
       </p>
       <div>

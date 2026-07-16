@@ -39,7 +39,7 @@
                  autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other"
                  class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
                  id="edit-ssh-username">
-          <p class="text-[10px] text-muted mt-1">Must match the remote user PiHerder connects as (e.g. <code>piherder</code> after least-priv).</p>
+          <p class="text-[10px] text-muted mt-1">Must match the remote user {{ ph_brand() }} connects as (e.g. <code>piherder</code> after least-priv).</p>
         </div>
         <div>
           <label class="block text-xs text-muted mb-1">Docker base dir (compose stacks)</label>
@@ -265,14 +265,14 @@
       </div>
     </div>
 
-    {# ── Remove from PiHerder ── #}
+    {# ── Remove from {{ ph_brand() }} ── #}
     <div data-edit-panel="remove" class="edit-tab-panel hidden">
       <div class="border border-danger/40 rounded p-4 space-y-3">
-        <h4 class="text-sm font-semibold text-danger">Remove from PiHerder</h4>
+        <h4 class="text-sm font-semibold text-danger">Remove from {{ ph_brand() }}</h4>
         <p class="text-xs text-muted">
-          Deletes this server from the fleet: schedules stop, stored SSH credentials and compose drafts in PiHerder go away.
+          Deletes this server from the fleet: schedules stop, stored SSH credentials and compose drafts in {{ ph_brand() }} go away.
           <strong class="text-text">Nothing on the host is changed</strong> — Docker stacks, data, users, sudoers, and keys stay as they are.
-          Backup archives under the PiHerder backup volume are kept for manual cleanup if you want them gone later.
+          Backup archives under the {{ ph_brand() }} backup volume are kept for manual cleanup if you want them gone later.
         </p>
         <ul class="text-xs text-muted list-disc pl-4 space-y-1">
           <li>No SSH changes on {{ server.hostname }}</li>

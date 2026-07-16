@@ -1,3 +1,12 @@
+# MkDocs → GitHub Pages via GitHub Actions.
+#
+# Repo requirement (one-time):
+#   Settings → Pages → Build and deployment → Source: "GitHub Actions"
+# (not "Deploy from a branch" / gh-pages)
+#
+# Validate only: mkdocs build --strict (same as the build job).
+# Deploy runs only on push to main / workflow_dispatch.
+
 name: Docs
 
 on:
@@ -39,6 +48,10 @@ jobs:
 
       - name: Install docs deps
         run: pip install -r requirements-docs.txt
+
+      - name: Setup Pages
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
 
       - name: Build MkDocs
         run: mkdocs build --strict
