@@ -23,6 +23,22 @@ All contributions are offered under the **[MIT License](LICENSE)**. By submittin
 - Check [PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md) for current RC work.
 - Look for issues tagged `good first issue` or `help wanted`.
 
+## Documentation
+
+Operator docs live in **`wiki/`** (MkDocs → [GitHub Pages](https://bjorngluck.github.io/piherder/)). Maintainer release notes live in **`docs/RELEASE_v*.md`**.
+
+**Strategy (summary):**
+
+| Do | Don’t |
+|----|--------|
+| Update the **existing** wiki page when a feature ships | Fork a full wiki per minor version |
+| Prefer **same PR** as the code for operator-facing changes | Leave docs for “later” on UX/API changes |
+| Note *Available from **vX.Y.Z*** only where versions differ | Invent parallel guides for every release |
+| Put upgrade/breaking narrative in **RELEASE** notes at tag time | Put full PLAN/SPEC checklists in the operator nav |
+
+Full conventions, screenshot workflow, and **v1.0.0 docs freeze** expectations:  
+[wiki/developers/contributing-docs.md](wiki/developers/contributing-docs.md) (also on the live docs site under **Developers → Contributing docs**).
+
 ## Issues
 
 **Good issues include:**
@@ -41,8 +57,8 @@ Feature requests are welcome and will be considered against the roadmap.
 1. Fork the repo and create a branch.
 2. Prefer small, focused PRs.
 3. Include a clear description of what and why; link related issues.
-4. Update tests and documentation where relevant.
-5. Run `pytest` locally or via CI.
+4. Update tests and **documentation** where relevant (wiki + RELEASE notes for user-visible change).
+5. Run `pytest` locally or via CI; for wiki edits run `mkdocs build --strict` when you can.
 6. Be responsive to review comments.
 
 ### Dependencies
