@@ -241,7 +241,7 @@ async def npm_new_form(
             "integration": None,
             "form": {
                 "name": "Nginx Proxy Manager",
-                "base_url": "https://nginx.hacknow.info",
+                "base_url": "https://nginx.example.com",
                 "identity": "",
                 "poll_interval_sec": reg.DEFAULT_NPM_POLL_SEC,
                 "tls_verify": True,

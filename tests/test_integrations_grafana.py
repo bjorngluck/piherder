@@ -26,7 +26,7 @@ def test_dashboard_path_and_open_url():
 
 
 def test_hostname_short():
-    assert gf.hostname_short("rpi5-1.hacknow.info") == "rpi5-1"
+    assert gf.hostname_short("rpi5-1.example.com") == "rpi5-1"
     assert gf.hostname_short("", "RPI5-2") == "rpi5-2"
 
 
@@ -56,24 +56,24 @@ def test_binding_grafana_kind_infers_containers_from_docker_scope():
 def test_apply_query_template():
     q = gf.apply_query_template(
         "var-job={hostname_short}_exporter&var-instance={hostname}",
-        hostname="rpi5-1.hacknow.info",
+        hostname="rpi5-1.example.com",
         name="RPI5-1",
     )
-    assert q == "var-job=rpi5-1_exporter&var-instance=rpi5-1.hacknow.info"
+    assert q == "var-job=rpi5-1_exporter&var-instance=rpi5-1.example.com"
     assert gf.apply_query_template("", hostname="x") == ""
 
 
 def test_apply_query_template_container_and_logs():
     q = gf.apply_query_template(
         "var-job={hostname_short}_cadvisor&var-container={container}",
-        hostname="rpi5-1.hacknow.info",
+        hostname="rpi5-1.example.com",
         container="pihole",
         project="dns",
     )
     assert q == "var-job=rpi5-1_cadvisor&var-container=pihole"
     logs = gf.apply_query_template(
         "var-host={hostname_short}",
-        hostname="rpi5-2.hacknow.info",
+        hostname="rpi5-2.example.com",
     )
     assert logs == "var-host=rpi5-2"
 
@@ -84,7 +84,7 @@ def test_open_dashboard_url_with_query():
         uid="uid1",
         slug="hosts",
         query_template="var-job={hostname_short}_exporter",
-        hostname="rpi5-1.hacknow.info",
+        hostname="rpi5-1.example.com",
     )
     assert url.startswith("https://g.example.com/d/uid1/hosts")
     assert "var-job=rpi5-1_exporter" in url
@@ -221,7 +221,7 @@ def test_binding_open_url_grafana():
     binding.docker_project = None
 
     server = MagicMock()
-    server.hostname = "rpi5-2.hacknow.info"
+    server.hostname = "rpi5-2.example.com"
     server.name = "RPI5-2"
     server.ip_address = "10.0.0.2"
     server.id = 3
@@ -242,7 +242,7 @@ def test_binding_open_url_grafana_container_and_logs():
         }
     )
     server = MagicMock()
-    server.hostname = "rpi5-1.hacknow.info"
+    server.hostname = "rpi5-1.example.com"
     server.name = "RPI5-1"
     server.ip_address = ""
     server.id = 11
@@ -338,7 +338,7 @@ def test_grafana_chip_dict_touch_friendly_fields():
     )
 
     server = MagicMock()
-    server.hostname = "rpi5-1.hacknow.info"
+    server.hostname = "rpi5-1.example.com"
     server.name = "RPI5-1"
     server.ip_address = "10.0.0.1"
     server.id = 1

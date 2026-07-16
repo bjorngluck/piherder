@@ -18,7 +18,7 @@ name  →  [NPM]  →  host  →  [service/project]  →  [container]
 
 | Entity | Example | Notes |
 |--------|---------|--------|
-| **Name** | `grafana.hacknow.info` | CNAME, or **host identity A** when name = host FQDN |
+| **Name** | `grafana.example.com` | CNAME, or **host identity A** when name = host FQDN |
 | **NPM** | RPI5-3 | Only when proxied (edge host) |
 | **Host** | RPI5-6 | Fleet server + A record |
 | **Service** | `grafana` | Compose project (Kuma / NPM / deploy) |
@@ -28,7 +28,7 @@ name  →  [NPM]  →  host  →  [service/project]  →  [container]
 
 | Kind | Meaning |
 |------|---------|
-| **host_identity** | Name **is** the host A record (e.g. `3dprint.hacknow.info`) — **no CNAME** |
+| **host_identity** | Name **is** the host A record (e.g. `3dprint.example.com`) — **no CNAME** |
 | **app** | CNAME → host → Docker project/container (e.g. Grafana) |
 | **npm_host** | CNAME → NPM edge → host |
 | **npm_app** | CNAME → NPM → host → project/container (e.g. qBittorrent) |
@@ -97,7 +97,7 @@ Infrastructure nodes (Internet cloud, Router, LAN, NPM hub) use theme-aware fill
 
 ## Setup
 
-1. **Base domain** (optional) on Catalog → Network (e.g. `hacknow.info`) for name suggestions.  
+1. **Base domain** (optional) on Catalog → Network (e.g. `example.com`) for name suggestions.  
 2. **Network map** — set LAN CIDR, gateway, public IP (or **Lookup**); optionally bind Router / WAN Kuma monitors (poll Kuma first so the dropdown is populated).  
 3. **Host DNS** — each server **Edit → General**: FQDN + IP; tick **Manage A on all Pi-holes** (creates/updates A; duplicates treated as success).  
 4. **Import existing names** — Catalog → Network → **Import all from Pi-hole** (or Adopt per row after candidates load). Existing CNAMEs are mapped; Pi-hole is **not** recreated when the record already exists.  

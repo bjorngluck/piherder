@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![Release](https://img.shields.io/badge/release-v0.5.0--rc-green.svg)](docs/RELEASE_v0.5.0.md)
-[![Docs](https://img.shields.io/badge/docs-wiki-red.svg)](https://bjorngluck.github.io/piherder/)
+[![Docs](https://img.shields.io/badge/docs-wiki-red.svg)](https://piherder-docs.hacknow.info/)
 
 ### Why PiHerder?
 
@@ -31,7 +31,7 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 
 ### Quick Start
 
-See the full **[Getting Started guide](https://bjorngluck.github.io/piherder/getting-started/install/)**.
+See the full **[Getting Started guide](https://piherder-docs.hacknow.info/getting-started/install/)**.
 
 1. Clone this repo or copy `.env.example` → `.env`
 2. Generate `PIHERDER_MASTER_KEY` (critical)
@@ -49,7 +49,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 
 ### Documentation
 
-- Full docs & wiki: [bjorngluck.github.io/piherder](https://bjorngluck.github.io/piherder/)
+- Full docs & wiki: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - API reference: [docs/API.md](docs/API.md)

@@ -1,7 +1,7 @@
 # PiHerder Caddyfile — production-oriented
 # Host ports (compose): 8888→80 (HTTP), 8443→443 (HTTPS)
 # Trusted TLS: place fullchain.pem + privkey.pem in ./certs (mounted at /certs)
-# Hostname: set PIHERDER_HOSTNAME in .env (e.g. piherder.hacknow.com)
+# Hostname: set PIHERDER_HOSTNAME in .env (e.g. piherder.example.com)
 #
 # Local dev without certs: use Caddyfile.dev (see docs/ADMIN.md)
 

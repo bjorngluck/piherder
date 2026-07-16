@@ -1,7 +1,7 @@
 # Publishing a PiHerder image (Docker Hub / GHCR)
 
 **Status:** Docker Hub repo **created** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). First image push pending (login + buildx). Target multi-arch tags at **v0.5.0 RC**.  
-**Related:** [ADMIN](https://bjorngluck.github.io/piherder/operations/upgrades/) · [wiki publish page](https://bjorngluck.github.io/piherder/developers/publish-image/) · live docs: https://bjorngluck.github.io/piherder/
+**Related:** [ADMIN](https://piherder-docs.hacknow.info/operations/upgrades/) · [wiki publish page](https://piherder-docs.hacknow.info/developers/publish-image/) · live docs: https://piherder-docs.hacknow.info/
 
 Until an image is published, operators use:
 
@@ -29,7 +29,7 @@ docker compose up -d --build
 
      ```text
      https://github.com/bjorngluck/piherder
-     Docs: https://bjorngluck.github.io/piherder/
+     Docs: https://piherder-docs.hacknow.info/
      License: MIT
      ```
 
@@ -105,7 +105,7 @@ celery-worker:
 ```
 
 Keep the same env vars and volumes as [docker-compose.yml](../docker-compose.yml).  
-Install docs: https://bjorngluck.github.io/piherder/getting-started/install/
+Install docs: https://piherder-docs.hacknow.info/getting-started/install/
 
 ---
 

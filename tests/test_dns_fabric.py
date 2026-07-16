@@ -12,12 +12,12 @@ from app.services import dns_fabric as fabric
 
 
 def test_normalize_and_validate_fqdn():
-    assert fabric.normalize_fqdn("  RPi5-1.Hacknow.Info. ") == "rpi5-1.hacknow.info"
-    assert fabric.is_valid_fqdn("rpi5-1.hacknow.info")
-    assert fabric.is_valid_fqdn("piherder-dev.hacknow.info")
+    assert fabric.normalize_fqdn("  RPi5-1.example.com. ") == "rpi5-1.example.com"
+    assert fabric.is_valid_fqdn("rpi5-1.example.com")
+    assert fabric.is_valid_fqdn("piherder-dev.example.com")
     assert not fabric.is_valid_fqdn("noperiod")
     assert not fabric.is_valid_fqdn("")
-    assert not fabric.is_valid_fqdn("-bad.hacknow.info")
+    assert not fabric.is_valid_fqdn("-bad.example.com")
 
 
 def test_host_focus_key_and_map_urls():
@@ -140,7 +140,7 @@ def test_host_ip_for_dns_prefers_override():
 
 def test_suggest_host_dns_name():
     s = SimpleNamespace(name="RPI5-1", hostname="rpi5-1")
-    assert fabric.suggest_host_dns_name(s, "hacknow.info") == "rpi5-1.hacknow.info"
+    assert fabric.suggest_host_dns_name(s, "example.com") == "rpi5-1.example.com"
     assert fabric.suggest_host_dns_name(s, "") == ""
 
 
@@ -154,15 +154,15 @@ def test_host_dns_form_defaults_saved_wins():
     s = SimpleNamespace(
         name="RPI5-1",
         hostname="10.0.0.5",
-        dns_name="rpi5-1.hacknow.info",
+        dns_name="rpi5-1.example.com",
         ip_address="10.0.0.9",
         dns_ip_override=None,
         dns_manage_a=True,
     )
     session = MagicMock()
     with patch.object(fabric.core, "match_pihole_host_for_server", return_value=None):
-        d = fabric.host_dns_form_defaults(session, s, base_domain="hacknow.info")
-    assert d["dns_name"] == "rpi5-1.hacknow.info"
+        d = fabric.host_dns_form_defaults(session, s, base_domain="example.com")
+    assert d["dns_name"] == "rpi5-1.example.com"
     assert d["ip_address"] == "10.0.0.9"
     assert d["is_saved"] is True
     assert d["dns_manage_a"] is True
@@ -178,10 +178,10 @@ def test_host_dns_form_defaults_from_pihole():
         dns_manage_a=False,
     )
     session = MagicMock()
-    match = {"domain": "rpi5-1.hacknow.info", "ip": "192.168.1.51", "source": "pi1"}
+    match = {"domain": "rpi5-1.example.com", "ip": "192.168.1.51", "source": "pi1"}
     with patch.object(fabric.core, "match_pihole_host_for_server", return_value=match):
-        d = fabric.host_dns_form_defaults(session, s, base_domain="hacknow.info")
-    assert d["dns_name"] == "rpi5-1.hacknow.info"
+        d = fabric.host_dns_form_defaults(session, s, base_domain="example.com")
+    assert d["dns_name"] == "rpi5-1.example.com"
     assert d["ip_address"] == "192.168.1.51"
     assert d["is_saved"] is False
     assert "pihole" in d["source"]
@@ -199,25 +199,25 @@ def test_host_dns_form_defaults_hostname_ip():
     )
     session = MagicMock()
     with patch.object(fabric.core, "match_pihole_host_for_server", return_value=None):
-        d = fabric.host_dns_form_defaults(session, s, base_domain="hacknow.info")
-    assert d["dns_name"] == "rpi5-2.hacknow.info"
+        d = fabric.host_dns_form_defaults(session, s, base_domain="example.com")
+    assert d["dns_name"] == "rpi5-2.example.com"
     assert d["ip_address"] == "10.0.0.22"
     assert d["is_saved"] is False
 
 
 def test_plan_summary_direct_and_proxy():
     s = fabric._plan_summary(
-        "app.hacknow.info", "rpi5-3.hacknow.info", "RPI4-1", True, "NPM edge"
+        "app.example.com", "rpi5-3.example.com", "RPI4-1", True, "NPM edge"
     )
     assert "CNAME" in s and "via NPM" in s
-    s2 = fabric._plan_summary("app.hacknow.info", "rpi4-1.hacknow.info", "RPI4-1", False, "direct")
+    s2 = fabric._plan_summary("app.example.com", "rpi4-1.example.com", "RPI4-1", False, "direct")
     assert "direct" in s2
 
 
 def test_build_access_path_host_direct():
     session = MagicMock()
     host = SimpleNamespace(
-        id=8, name="3DPRINT", dns_name="3dprint.hacknow.info", hostname="3dprint.hacknow.info",
+        id=8, name="3DPRINT", dns_name="3dprint.example.com", hostname="3dprint.example.com",
         ip_address="192.168.86.41", dns_ip_override=None,
     )
     with patch.object(fabric.core, "_servers_by_id", return_value={8: host}), patch.object(fabric.core, "_find_npm_forward", return_value=None
@@ -226,7 +226,7 @@ def test_build_access_path_host_direct():
     ):
         path = fabric.build_access_path(
             session,
-            fqdn="3dprint.hacknow.info",
+            fqdn="3dprint.example.com",
             target_server_id=8,
             backend_server_id=8,
             via_proxy=False,
@@ -241,29 +241,29 @@ def test_build_access_path_host_direct():
 
 
 def test_is_host_identity_name():
-    host = SimpleNamespace(dns_name="3dprint.hacknow.info")
-    assert fabric.is_host_identity_name("3dprint.hacknow.info", host)
-    assert not fabric.is_host_identity_name("app.hacknow.info", host)
+    host = SimpleNamespace(dns_name="3dprint.example.com")
+    assert fabric.is_host_identity_name("3dprint.example.com", host)
+    assert not fabric.is_host_identity_name("app.example.com", host)
 
 
 def test_build_access_path_npm_app():
     session = MagicMock()
     edge = SimpleNamespace(
-        id=5, name="RPI5-3", dns_name="rpi5-3.hacknow.info", hostname="rpi5-3",
+        id=5, name="RPI5-3", dns_name="rpi5-3.example.com", hostname="rpi5-3",
         ip_address="192.168.86.35", dns_ip_override=None,
     )
     backend = SimpleNamespace(
-        id=1, name="RPI5-2", dns_name="rpi5-2.hacknow.info", hostname="rpi5-2",
+        id=1, name="RPI5-2", dns_name="rpi5-2.example.com", hostname="rpi5-2",
         ip_address="192.168.86.49", dns_ip_override=None,
     )
     with patch.object(fabric.core, "_servers_by_id", return_value={5: edge, 1: backend}), patch.object(fabric.core, "_find_npm_forward",
-        return_value={"forward_host": "192.168.86.49", "forward_port": 8090, "domain_names": ["download.hacknow.info"]},
+        return_value={"forward_host": "192.168.86.49", "forward_port": 8090, "domain_names": ["download.example.com"]},
     ), patch.object(fabric.core, "_find_docker_container", return_value="qbittorrent"), patch.object(fabric.core, "resolve_app_layers",
         return_value={"docker_project": "qbittorrent", "docker_container": "qbittorrent", "source": "explicit"},
     ):
         path = fabric.build_access_path(
             session,
-            fqdn="download.hacknow.info",
+            fqdn="download.example.com",
             target_server_id=5,
             backend_server_id=1,
             via_proxy=True,
@@ -278,7 +278,7 @@ def test_build_access_path_host_direct_with_app_layers():
     """Grafana-style: CNAME → host, plus Docker service/container from Kuma."""
     session = MagicMock()
     host = SimpleNamespace(
-        id=4, name="RPI5-6", dns_name="rpi5-6.hacknow.info", hostname="rpi5-6",
+        id=4, name="RPI5-6", dns_name="rpi5-6.example.com", hostname="rpi5-6",
         ip_address="192.168.86.34", dns_ip_override=None,
     )
     with patch.object(fabric.core, "_servers_by_id", return_value={4: host}), patch.object(fabric.core, "_find_npm_forward", return_value=None
@@ -291,7 +291,7 @@ def test_build_access_path_host_direct_with_app_layers():
     ):
         path = fabric.build_access_path(
             session,
-            fqdn="grafana.hacknow.info",
+            fqdn="grafana.example.com",
             target_server_id=4,
             backend_server_id=4,
             via_proxy=False,
@@ -309,7 +309,7 @@ def test_build_path_mesh_from_hops():
             "id": 10,
             "path_kind": "npm_app",
             "hops": [
-                {"kind": "name", "label": "app.hacknow.info", "sub": "CNAME"},
+                {"kind": "name", "label": "app.example.com", "sub": "CNAME"},
                 {"kind": "npm", "label": "RPI5-3", "sub": "edge", "href": "/servers/5"},
                 {"kind": "host", "label": "RPI5-2", "sub": "backend", "href": "/servers/1"},
                 {"kind": "service", "label": "qbittorrent", "sub": "compose project"},
@@ -320,7 +320,7 @@ def test_build_path_mesh_from_hops():
             "id": 11,
             "path_kind": "host",
             "hops": [
-                {"kind": "name", "label": "3dprint.hacknow.info", "sub": "name"},
+                {"kind": "name", "label": "3dprint.example.com", "sub": "name"},
                 {"kind": "host", "label": "3DPRINT", "sub": "host", "href": "/servers/8"},
             ],
         },

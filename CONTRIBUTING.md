@@ -25,7 +25,7 @@ All contributions are offered under the **[MIT License](LICENSE)**. By submittin
 
 ## Documentation
 
-Operator docs live in **`wiki/`** (MkDocs → [GitHub Pages](https://bjorngluck.github.io/piherder/)). Maintainer release notes live in **`docs/RELEASE_v*.md`**.
+Operator docs live in **`wiki/`** (MkDocs → [operator docs](https://piherder-docs.hacknow.info/)). Maintainer release notes live in **`docs/RELEASE_v*.md`**.
 
 **Strategy (summary):**
 

@@ -33,10 +33,10 @@ mkdocs build --strict
 | `operations/` | Settings, env, DR, API, metrics, multi-worker |
 | `troubleshooting/` | Common failures |
 | `developers/` | Setup, architecture, schema, testing, publish |
-| `assets/` | Logo + screenshots |
+| `assets/` | Brand marks (light/dark) + screenshots — see also `app/static/images/README.md` |
 
 Config: [`mkdocs.yml`](../mkdocs.yml) at repo root.  
-**Live site:** [https://bjorngluck.github.io/piherder/](https://bjorngluck.github.io/piherder/)
+**Live site:** [https://piherder-docs.hacknow.info/](https://piherder-docs.hacknow.info/)
 
 **Publish:** [`.github/workflows/docs.yml`](../.github/workflows/docs.yml) builds with `mkdocs build --strict` and deploys via **GitHub Actions → Pages**.
 

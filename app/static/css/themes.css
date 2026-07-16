@@ -299,10 +299,16 @@ body {
   min-width: 0;
 }
 
-.header-brand img {
+.header-brand img,
+.header-logo {
   height: var(--header-logo-h);
   width: auto;
   flex-shrink: 0;
+  object-fit: contain;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
 }
 
 /* The clickable brand link */
@@ -330,7 +336,7 @@ body {
   color: var(--color-primary);
 }
 
-/* Wordmark: Pi = theme red, Herder = text (black in light / light in dark) */
+/* Wordmark: Pi = ink (black in light / light ink in dark), Herder = brand red */
 .ph-brand {
   display: inline;
   font-weight: inherit;
@@ -338,11 +344,11 @@ body {
   white-space: nowrap;
 }
 .ph-brand-pi {
-  color: var(--color-primary);
+  color: var(--color-text);
   font-weight: 700;
 }
 .ph-brand-herder {
-  color: var(--color-text);
+  color: var(--color-primary);
   font-weight: inherit;
 }
 .header-brand-text .ph-brand,
@@ -351,10 +357,10 @@ body {
   letter-spacing: -0.05em;
   font-weight: 600;
 }
-a.header-brand-link:hover .ph-brand-herder {
+a.header-brand-link:hover .ph-brand-pi {
   color: var(--color-text);
 }
-a.header-brand-link:hover .ph-brand-pi {
+a.header-brand-link:hover .ph-brand-herder {
   color: var(--color-primary);
   filter: brightness(1.05);
 }
@@ -532,6 +538,7 @@ html:has(body.mobile-nav-open) {
 
 .mobile-menu-header-logo {
   height: var(--mobile-menu-header-logo-h);
+  width: auto;
   width: auto;
   flex-shrink: 0;
 }

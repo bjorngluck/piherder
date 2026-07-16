@@ -24,10 +24,10 @@ monitor_response_time{monitor_id="2",monitor_name="rpi5-2 SSH",monitor_type="por
 
 # Real Uptime Kuma export: NO monitor_id, hostname/port may be the string "null"
 SAMPLE_METRICS_NO_ID = """
-monitor_status{monitor_name="RPI5-1 SSH",monitor_type="port",monitor_url="https://",monitor_hostname="rpi5-1.hacknow.info",monitor_port="22"} 1
-monitor_status{monitor_name="RPI5-2 SSH",monitor_type="port",monitor_url="https://",monitor_hostname="rpi5-2.hacknow.info",monitor_port="22"} 0
+monitor_status{monitor_name="RPI5-1 SSH",monitor_type="port",monitor_url="https://",monitor_hostname="rpi5-1.example.com",monitor_port="22"} 1
+monitor_status{monitor_name="RPI5-2 SSH",monitor_type="port",monitor_url="https://",monitor_hostname="rpi5-2.example.com",monitor_port="22"} 0
 monitor_status{monitor_name="Home Assistant",monitor_type="http",monitor_url="https://homeassistant.example/",monitor_hostname="null",monitor_port="null"} 1
-monitor_response_time{monitor_name="RPI5-1 SSH",monitor_type="port",monitor_url="https://",monitor_hostname="rpi5-1.hacknow.info",monitor_port="22"} 2
+monitor_response_time{monitor_name="RPI5-1 SSH",monitor_type="port",monitor_url="https://",monitor_hostname="rpi5-1.example.com",monitor_port="22"} 2
 """
 
 
@@ -51,7 +51,7 @@ def test_parse_metrics_without_monitor_id():
     by_id = {m.id: m for m in mons}
     assert "RPI5-1 SSH" in by_id
     assert by_id["RPI5-1 SSH"].status == "up"
-    assert by_id["RPI5-1 SSH"].hostname == "rpi5-1.hacknow.info"
+    assert by_id["RPI5-1 SSH"].hostname == "rpi5-1.example.com"
     assert by_id["RPI5-1 SSH"].port == "22"
     assert by_id["RPI5-1 SSH"].response_time_ms == 2
     assert by_id["RPI5-2 SSH"].status == "down"
@@ -98,7 +98,7 @@ def test_suggest_fqdn_and_ssh_name():
     assert hit is not None
     assert hit.id == "RPI5-1 SSH"
     hit_fqdn = kuma.suggest_monitor_for_server(
-        mons, hostname="rpi5-2.hacknow.info", ssh_port=22
+        mons, hostname="rpi5-2.example.com", ssh_port=22
     )
     assert hit_fqdn is not None
     assert hit_fqdn.id == "RPI5-2 SSH"
@@ -188,6 +188,6 @@ def test_apply_dashboard_id_map():
     by_name = {m.name: m for m in mons}
     assert by_name["RPI5-1 SSH"].dashboard_id == "32"
     assert (
-        kuma.open_kuma_url("https://uptime.hacknow.info", dashboard_id=by_name["RPI5-1 SSH"].dashboard_id)
-        == "https://uptime.hacknow.info/dashboard/32"
+        kuma.open_kuma_url("https://uptime.example.com", dashboard_id=by_name["RPI5-1 SSH"].dashboard_id)
+        == "https://uptime.example.com/dashboard/32"
     )

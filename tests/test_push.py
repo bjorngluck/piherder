@@ -359,8 +359,8 @@ def test_ensure_vapid_generates_when_empty(monkeypatch):
 
 def test_default_contact_from_hostname(monkeypatch):
     monkeypatch.setattr(push_svc.settings, "VAPID_CONTACT", None)
-    monkeypatch.setattr(push_svc.settings, "PIHERDER_HOSTNAME", "piherder.hacknow.com")
-    assert push_svc._default_contact() == "mailto:admin@piherder.hacknow.com"
+    monkeypatch.setattr(push_svc.settings, "PIHERDER_HOSTNAME", "piherder.example.com")
+    assert push_svc._default_contact() == "mailto:admin@piherder.example.com"
 
 
 def test_send_test_to_user_no_subscription(monkeypatch):

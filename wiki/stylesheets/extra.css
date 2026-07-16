@@ -35,15 +35,18 @@
 
 .ph-hero-logo img {
   display: inline-block;
-  width: min(280px, 70vw);
+  width: min(300px, 72vw);
   height: auto;
-  max-height: 280px;
+  max-height: 320px;
   object-fit: contain;
-  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.12));
+  border-radius: 0;
+  background: transparent;
+  filter: drop-shadow(0 2px 12px rgba(15, 23, 42, 0.1));
 }
 
 [data-md-color-scheme="slate"] .ph-hero-logo img {
-  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
+  /* Prefer dark wordmark when docs are in slate; fall back to filter if only light asset */
+  filter: drop-shadow(0 2px 14px rgba(0, 0, 0, 0.4));
 }
 
 /* Screenshot / figure frame */

@@ -99,7 +99,7 @@ def dashboard_path(uid: str, slug: str = "") -> str:
 
 
 def hostname_short(hostname: str = "", name: str = "") -> str:
-    """First DNS label, lowercased — rpi5-1.hacknow.info → rpi5-1.
+    """First DNS label, lowercased — rpi5-1.example.com → rpi5-1.
 
     Falls back to a slug of the server display name.
     """

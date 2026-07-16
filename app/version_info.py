@@ -14,7 +14,7 @@ GITHUB_RELEASES_URL = f"{GITHUB_URL}/releases"
 GITHUB_API_LATEST = (
     f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/releases/latest"
 )
-DOCS_URL = "https://bjorngluck.github.io/piherder/"
+DOCS_URL = "https://piherder-docs.hacknow.info/"
 SPONSOR_URL = f"https://github.com/sponsors/{GITHUB_OWNER}"
 LICENSE_NAME = "MIT"
 LICENSE_URL = f"{GITHUB_URL}/blob/main/LICENSE"

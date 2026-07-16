@@ -19,7 +19,13 @@
   </div>
   <div class="ops-hero-viz" aria-hidden="true">
     <div class="about-logo-wrap">
-      <img src="/static/images/piherder-logo.png" alt="" class="about-logo" width="120" height="120">
+      {# Soft transparent wordmark — black ink light UI / light ink dark UI (no plate) #}
+      <img src="/static/images/piherder-about.png"
+           data-logo-light="/static/images/piherder-about.png"
+           data-logo-dark="/static/images/piherder-about-dark.png"
+           alt="PiHerder"
+           class="about-logo about-logo--wordmark ph-theme-logo"
+           width="220" height="220">
     </div>
   </div>
 </section>
@@ -33,7 +39,7 @@
       Full story and contributing guide on
       <a href="{{ github_url }}" class="text-accent hover:underline" target="_blank" rel="noopener">GitHub</a>
       · operator docs at
-      <a href="{{ docs_url }}" class="text-accent hover:underline" target="_blank" rel="noopener">bjorngluck.github.io/piherder</a>.
+      <a href="{{ docs_url }}" class="text-accent hover:underline" target="_blank" rel="noopener">piherder-docs.hacknow.info</a>.
     </p>
   </div>
 

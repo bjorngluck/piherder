@@ -297,9 +297,9 @@ Android **installable PWA** and **Web Push** need a **secure context** with a **
 In `.env` (compose loads these for **web** and **caddy**):
 
 ```bash
-PIHERDER_HOSTNAME=piherder.hacknow.com
+PIHERDER_HOSTNAME=piherder.example.com
 # Include :8443 when using compose host mapping 8443→443
-PIHERDER_PUBLIC_URL=https://piherder.hacknow.com:8443
+PIHERDER_PUBLIC_URL=https://piherder.example.com:8443
 ```
 
 - **DNS:** point `PIHERDER_HOSTNAME` at the host (or your outer reverse proxy).
@@ -615,7 +615,7 @@ Optional **read-mostly** link into an existing Grafana (**Catalog → Integratio
    | **Containers (one)** | Containers + container name | `var-job={hostname_short}_cadvisor&var-container={container}` |
    | **Host logs** | Binding kind = Host logs | `var-host={hostname_short}` |
 
-   `{hostname_short}` = first DNS label (`rpi5-1.hacknow.info` → `rpi5-1`).  
+   `{hostname_short}` = first DNS label (`rpi5-1.example.com` → `rpi5-1`).  
    Edit templates to match **your** Grafana variable names (`job`, `container`, `host`, …).
 4. **Poll / Test** stores health and dashboard inventory (with token).
 5. **Bind** with a **kind** (tabs on the integration detail page; **Clone** prefill supported):

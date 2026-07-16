@@ -23,7 +23,7 @@ Users should be able to:
 
 | Item | How |
 |------|-----|
-| Public hostname | `PIHERDER_HOSTNAME` (e.g. `piherder.hacknow.com`) |
+| Public hostname | `PIHERDER_HOSTNAME` (e.g. `piherder.example.com`) |
 | Public URL | `PIHERDER_PUBLIC_URL` (include `:8443` if using compose port map) |
 | Trusted TLS | Volume-mount `certs/fullchain.pem` + `certs/privkey.pem` into Caddy |
 | VAPID (push) | **Auto-generated at startup** → encrypted in `pushvapidconfig`; optional env override |

@@ -262,7 +262,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 | GitHub Discussions | Q&A, show-and-tell |
 | Discord | Real-time help (link from README when live) |
 | SECURITY.md | Vulnerability reporting |
-| hacknow.info | Project story, clickthrough, professional context |
+| Project website | Story, clickthrough, professional context (when published) |
 
 ---
 
@@ -349,4 +349,4 @@ An operator can:
 4. Onboard a service from a template with monitoring, DNS, and TLS/proxy steps — foundation **done** (v0.4.0); polish + restore **v0.5.0**.  
 5. Automate via n8n + token API (and later HA) — post-RC / parallel.  
 6. Optionally use a private LLM for summaries — never required; post-RC.  
-7. Find help on Discord / GitHub and the project story on hacknow.info — parallel.
+7. Find help on Discord / GitHub and the project website / story page — parallel.

@@ -35,7 +35,7 @@ async def kuma_new_form(
             "integration": None,
             "form": {
                 "name": "Uptime Kuma",
-                "base_url": "https://uptime.hacknow.info",
+                "base_url": "https://uptime.example.com",
                 "poll_interval_sec": reg.DEFAULT_POLL_INTERVAL_SEC,
                 "tls_verify": True,
                 "enabled": True,

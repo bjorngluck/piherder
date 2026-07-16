@@ -184,7 +184,7 @@ def test_cancel_job_backup_stops_rsync():
         details=json.dumps({"log_lines": ["Backing up…"], "current": "/home/bjorn/docker/"}),
         finished_at=None,
     )
-    server = SimpleNamespace(id=1, hostname="rpi5-2.hacknow.info")
+    server = SimpleNamespace(id=1, hostname="rpi5-2.example.com")
     session = MagicMock()
     session.get.return_value = server
 
@@ -196,7 +196,7 @@ def test_cancel_job_backup_stops_rsync():
         out = cancel_job(session, job, user_id=7)
 
     assert out.status == "cancelled"
-    stop.assert_called_once_with("rpi5-2.hacknow.info")
+    stop.assert_called_once_with("rpi5-2.example.com")
     revoke.assert_called_once_with("task-abc")
     session.commit.assert_called()
 

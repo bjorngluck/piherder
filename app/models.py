@@ -139,7 +139,7 @@ class Server(SQLModel, table=True):
     host_deps_checked_at: Optional[datetime] = None
 
     # LAN DNS identity (A/AAAA on Pi-hole) — apps CNAME to this name
-    # e.g. rpi5-1.hacknow.info → ip_address (or dns_ip_override)
+    # e.g. rpi5-1.example.com → ip_address (or dns_ip_override)
     dns_name: Optional[str] = Field(default=None, index=True, max_length=253)
     dns_manage_a: bool = False
     dns_ip_override: Optional[str] = Field(default=None, max_length=64)

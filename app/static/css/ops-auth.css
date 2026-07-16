@@ -149,16 +149,18 @@
   line-height: 1.35;
 }
 
-/* Login / register: brand logo in card (not the decorative mesh mark alone) */
+/* Login / register: brand logo (transparent mark — no plate) */
 .auth-logo {
   width: 3.25rem;
   height: 3.25rem;
   object-fit: contain;
   flex-shrink: 0;
-  border-radius: 12px;
-  background: var(--color-surface);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-border) 60%, transparent);
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
 }
+
 .auth-brand-wordmark {
   font-size: 1.15rem;
   font-weight: 650;

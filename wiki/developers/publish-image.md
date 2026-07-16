@@ -7,7 +7,7 @@ Multi-arch images on **Docker Hub** / GHCR (target **v0.5.0 RC**). Full maintain
 1. Account on [hub.docker.com](https://hub.docker.com)  
 2. Create repo **`bjorngluck/piherder`** (public)  
 3. Access token (Read/Write) → `docker login -u bjorngluck`  
-4. Link description to GitHub + [these docs](https://bjorngluck.github.io/piherder/)
+4. Link description to GitHub + [these docs](https://piherder-docs.hacknow.info/)
 
 ## Tags
 

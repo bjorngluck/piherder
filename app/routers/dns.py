@@ -667,7 +667,7 @@ async def attach_host_identity(
 ):
     """Map a host whose A name is also the app name (no CNAME).
 
-    Example: 3dprint.hacknow.info is the host A record and the service name.
+    Example: 3dprint.example.com is the host A record and the service name.
     """
     server = session.get(Server, server_id)
     if not server:
