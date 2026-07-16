@@ -36,7 +36,7 @@ They cannot start jobs, change servers, open the Users page, or change Settings 
 - All logged-in roles can **GET** most pages (read-only browsing).
 - Mutating methods (`POST` / `PUT` / `PATCH` / `DELETE`) are checked in auth middleware.
 - User admin routes always require **admin**, including GET.
-- Legacy users with a missing role are treated as **admin** (same as `normalize_role`).
+- Missing or unknown role is treated as **viewer** (fail-closed; same as `normalize_role`).
 
 ### Sole admin protection
 
