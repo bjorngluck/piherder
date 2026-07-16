@@ -1,0 +1,1193 @@
+{# Docker page modals: cleanup, build, quick-edit, logs, confirm #}
+<div id="cleanup-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="cleanup-title">
+  <div class="modal-content card p-5 mx-4 cleanup-modal-panel">
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <div>
+        <h3 id="cleanup-title" class="font-semibold text-lg">Docker cleanup</h3>
+        <p class="text-xs text-muted mt-0.5">Unused images &amp; exited containers on this host</p>
+      </div>
+      <button type="button" onclick="hideCleanupModal()" class="source-icon-btn" aria-label="Close">✕</button>
+    </div>
+
+    <div class="cleanup-modal-body">
+      <div id="cleanup-status" class="cleanup-status is-busy" role="status" aria-live="polite">
+        <span class="cleanup-status-spin" aria-hidden="true"></span>
+        <span id="cleanup-status-text">Listing unused resources via SSH…</span>
+      </div>
+
+      <div id="unused-list" class="cleanup-list" aria-label="Unused resources"></div>
+
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <button type="button" id="cleanup-refresh-btn" onclick="loadUnused()" class="btn btn-secondary text-xs min-h-9">↻ Refresh list</button>
+      </div>
+
+      <p class="text-xs text-muted mb-2">Destructive actions (confirm after reviewing the list):</p>
+      <div class="cleanup-actions">
+        <form method="post" action="/servers/{{ server.id }}/docker/prune-unused" class="cleanup-prune-form" data-prune-label="dangling images">
+          <input type="hidden" name="prune_type" value="images">
+          <button type="submit" class="btn btn-secondary text-sm min-h-11 w-full text-danger border-danger/30">
+            Prune dangling images
+          </button>
+        </form>
+        <form method="post" action="/servers/{{ server.id }}/docker/prune-unused" class="cleanup-prune-form" data-prune-label="exited containers">
+          <input type="hidden" name="prune_type" value="containers">
+          <button type="submit" class="btn btn-secondary text-sm min-h-11 w-full text-danger border-danger/30">
+            Prune exited containers
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="build-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-md mx-4 ph-modal-brand">
+    <div class="mb-4">
+      <div class="ph-detail-kicker">Docker · compose build</div>
+      <h3 class="ph-detail-title">Build services</h3>
+      <p class="text-xs text-muted mt-1">
+        <span class="ph-file-badge ph-file-badge--dockerfile">Dockerfile</span>
+        <span class="ph-file-badge ph-file-badge--compose ml-1">compose</span>
+        · streams live after start
+      </p>
+    </div>
+    <form id="build-form" method="post">
+      <input type="hidden" name="project" id="modal-project">
+      <div class="mb-3">
+        <label class="text-xs text-muted font-medium">Services to build</label>
+        <div id="modal-services" class="mt-2 space-y-1 max-h-40 overflow-auto border border-border rounded-lg p-2 bg-bg"></div>
+      </div>
+      <div class="flex items-center gap-2 mb-4 min-h-11">
+        <input type="checkbox" name="no_cache" id="modal-no-cache">
+        <label for="modal-no-cache" class="text-sm">--no-cache (full clean build)</label>
+      </div>
+      <div class="flex flex-wrap gap-2 justify-end">
+        <button type="button" onclick="hideBuildModal()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+        <button type="button" id="modal-start-build" onclick="startBuildFromModal()" class="btn btn-accent min-h-11 text-sm">Start build</button>
+      </div>
+    </form>
+    <div class="text-xs text-muted mt-3">Only services with a <code>build:</code> section are listed. Builds can take minutes on the host.</div>
+  </div>
+</div>
+
+<!-- Template-managed stack: gate before raw compose edit -->
+<div id="template-edit-gate-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="teg-title">
+  <div class="modal-content card p-6 w-full max-w-md mx-4">
+    <h3 id="teg-title" class="text-lg font-medium mb-2">Template-managed stack</h3>
+    <p class="text-sm text-muted mb-3">
+      <strong id="teg-project" class="font-mono text-text"></strong>
+      is driven by service template
+      <code id="teg-slug" class="text-xs text-accent"></code>.
+    </p>
+    <p class="text-sm mb-4">
+      Change variables, secrets, and redeploy from
+      <strong>Template settings</strong> so PiHerder keeps desired state in sync.
+      Raw compose edit is advanced and can cause drift until the next template redeploy.
+    </p>
+    <div class="flex flex-col sm:flex-row flex-wrap gap-2 justify-end">
+      <button type="button" onclick="hideTemplateEditGate()" class="btn btn-secondary min-h-11 text-sm order-3 sm:order-1">Cancel</button>
+      <button type="button" id="teg-raw-edit" class="btn btn-secondary min-h-11 text-sm order-2">Edit compose anyway</button>
+      <a id="teg-template-link" href="#" class="btn btn-accent min-h-11 text-sm inline-flex items-center justify-center order-1 sm:order-3 no-underline">Template settings…</a>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Edit Modal (compose + Dockerfile) -->
+<div id="quick-edit-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-3xl mx-4 ph-modal-brand max-h-[92vh] overflow-y-auto">
+    <div class="ph-detail-modal-head">
+      <div class="min-w-0">
+        <div class="ph-detail-kicker">Docker · quick edit</div>
+        <h3 class="ph-detail-title">Edit <span id="qe-project" class="font-mono text-accent"></span></h3>
+        <p class="text-xs text-muted mt-1" id="qe-file-hint">
+          <span class="ph-file-badge ph-file-badge--compose">compose</span>
+          · YAML snippets · full editor for syntax &amp; versions
+        </p>
+      </div>
+      <button type="button" onclick="hideQuickEditModal()" class="source-icon-btn" aria-label="Close">✕</button>
+    </div>
+    <div id="qe-template-banner" class="hidden mb-3 p-2.5 banner-warning border border-border text-sm rounded">
+      Template-managed stack. Prefer
+      <a id="qe-template-link" href="#" class="text-accent underline">template settings</a>
+      for variables/secrets. Raw edits can drift.
+    </div>
+
+    <div class="mb-2 flex flex-wrap gap-2 text-sm items-center ph-file-tabs">
+      <button id="qe-tab-compose" type="button" onclick="switchQuickEditTab('compose')" class="btn btn-accent min-h-11 text-sm">Compose</button>
+      <button id="qe-tab-dockerfile" type="button" onclick="switchQuickEditTab('dockerfile')" class="btn btn-secondary min-h-11 text-sm hidden">Dockerfile</button>
+      <a id="qe-full-link" href="#"
+         class="ml-auto text-accent hover:underline text-xs self-center min-h-11 inline-flex items-center px-1 relative z-10"
+         data-nav-loading="Opening full editor…"
+         onclick="return goToFullEditor(event);">Open full editor →</a>
+    </div>
+
+    <textarea id="qe-editor" class="w-full h-64 font-mono text-sm code-surface border border-border rounded-xl p-3 resize-y" spellcheck="false"></textarea>
+
+    <div class="flex flex-wrap items-center gap-2 mt-3">
+      <button type="button" onclick="quickSaveDraft()" class="btn btn-secondary min-h-11 text-sm">Save draft</button>
+      <button type="button" onclick="quickSaveDeploy()" class="btn btn-accent min-h-11 text-sm">Save &amp; deploy</button>
+      <button type="button" onclick="hideQuickEditModal()" class="btn btn-secondary min-h-11 text-sm ml-auto">Cancel</button>
+      <div id="qe-status" class="text-xs text-accent"></div>
+    </div>
+
+    <div class="text-xs text-muted mt-2">
+      Quick edit is a plain textarea. Full editor: syntax colours, wrap, history, multi-file
+      <span class="ph-file-badge ph-file-badge--env">.env</span>.
+    </div>
+  </div>
+</div>
+
+<!-- Undeploy confirmation modal (for consistency, instead of native browser confirm) -->
+<div id="undeploy-confirm-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="modal-content card p-6 w-full max-w-md mx-4">
+    <h3 class="text-lg font-medium mb-2">Undeploy project?</h3>
+    <p class="text-sm text-muted mb-4">
+      This will run <code class="text-danger">docker compose down</code> for
+      <strong id="undeploy-project-name" class="font-mono text-accent"></strong>.
+      <br>Containers and networks will be removed. Volumes are preserved.
+    </p>
+    <div class="flex flex-wrap gap-2 justify-end">
+      <button type="button" onclick="hideUndeployConfirm()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+      <button type="button" id="undeploy-confirm-btn" class="btn btn-danger min-h-11 text-sm">Undeploy</button>
+    </div>
+  </div>
+</div>
+
+<!-- Deploy modal (popup confirmation + options, like build/undeploy modals) -->
+<div id="deploy-confirm-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-md mx-4 ph-modal-brand">
+    <div class="ph-detail-kicker">Docker · deploy</div>
+    <h3 class="ph-detail-title mb-1">Deploy / redeploy?</h3>
+    <p class="text-sm text-muted mb-3">
+      Run <code class="text-accent">docker compose pull &amp;&amp; up -d</code> (or up -d only) for
+      <strong id="deploy-project-name" class="font-mono text-accent"></strong>.
+      <span class="ph-file-badge ph-file-badge--compose ml-1">compose</span>
+    </p>
+    <div class="mb-4">
+      <label class="flex items-center gap-2 text-sm cursor-pointer min-h-11">
+        <input type="checkbox" id="deploy-pull" checked >
+        <span>Pull latest images first (recommended)</span>
+      </label>
+    </div>
+    <div class="flex flex-wrap gap-2 justify-end">
+      <button type="button" onclick="hideDeployConfirm()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+      <button type="button" id="deploy-confirm-btn" class="btn btn-accent min-h-11 text-sm">Deploy</button>
+    </div>
+    <div class="text-xs text-muted mt-3">Updates running containers for the project. Use care on production.</div>
+  </div>
+</div>
+
+<!-- Logs modal (inline viewer, stays on Docker Management screen) -->
+<div id="logs-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div id="logs-modal-content" class="card rounded-xl p-3 sm:p-4 w-full max-w-5xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
+    <div class="logs-modal-toolbar flex items-center gap-2 mb-2 pb-2 border-b border-border flex-shrink-0 min-w-0">
+      <strong id="logs-container-name" class="logs-modal-title font-mono text-accent text-sm sm:text-base break-all min-w-0 flex-1"></strong>
+      <div class="logs-modal-controls flex items-center gap-1.5 flex-shrink-0">
+        <label class="sr-only" for="logs-lines-select">Lines</label>
+        <select id="logs-lines-select"
+                class="logs-lines-select bg-surface border border-border text-xs px-2 py-1.5 rounded min-h-9"
+                onchange="loadLogsForModal(parseInt(this.value, 10))"
+                title="How many log lines to load">
+          <option value="50">50 lines</option>
+          <option value="200" selected>200 lines</option>
+          <option value="500">500 lines</option>
+          <option value="1000">1000 lines</option>
+        </select>
+        <button type="button"
+                id="logs-fullscreen-btn"
+                onclick="expandLogsToFullScreen()"
+                class="btn btn-secondary text-xs px-2.5 py-1.5 min-h-9"
+                title="Full screen">Full screen</button>
+        <button type="button"
+                onclick="closeLogsModal()"
+                class="source-icon-btn"
+                title="Close"
+                aria-label="Close logs">×</button>
+      </div>
+    </div>
+
+    <pre id="logs-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded"></pre>
+
+    <div class="text-[10px] text-muted mt-2 pt-1 border-t border-border flex-shrink-0">Live tail streams new lines. Scroll up to pause auto-follow.</div>
+  </div>
+</div>
+
+<!-- Service selection modal for per-container actions (Stop/Start/Restart/Logs) -->
+<div id="service-select-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="card rounded-xl p-6 w-full max-w-md">
+    <h3 class="text-lg font-medium mb-2" id="service-select-title">Which service?</h3>
+    <div id="service-select-list" class="space-y-1.5 max-h-60 overflow-auto mb-4"></div>
+    <div class="flex gap-2 justify-end">
+      <button type="button" onclick="hideServiceSelectModal()" class="px-4 py-1 btn btn-secondary rounded text-sm">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showBuildModal(projName, buildServices, serverId) {
+  const modal = document.getElementById('build-modal');
+  const form = document.getElementById('build-form');
+  const svcDiv = document.getElementById('modal-services');
+  const projInput = document.getElementById('modal-project');
+  if (!modal || !form || !svcDiv || !projInput) {
+    console.error('Build modal elements missing');
+    return;
+  }
+  projInput.value = projName || '';
+  form.action = `/servers/${serverId || ''}/docker/compose/${projName || ''}/build`;
+  svcDiv.innerHTML = '';
+
+  if (!buildServices || buildServices.length === 0) {
+    svcDiv.innerHTML = '<div class="text-xs text-warning">No buildable services detected.</div>';
+  } else {
+    // All checkbox
+    const allLabel = document.createElement('label');
+    allLabel.className = 'flex items-center gap-2 text-sm cursor-pointer';
+    allLabel.innerHTML = `<input type="checkbox" id="build-all" checked > <span>Build all (${buildServices.length})</span>`;
+    svcDiv.appendChild(allLabel);
+
+    const allCb = allLabel.querySelector('input');
+    allCb.onchange = () => {
+      svcDiv.querySelectorAll('input[type=checkbox]').forEach(cb => { if (cb.id !== 'build-all') cb.checked = allCb.checked; });
+    };
+
+    buildServices.forEach(svc => {
+      const l = document.createElement('label');
+      l.className = 'flex items-center gap-2 text-sm pl-4 cursor-pointer';
+      l.innerHTML = `<input type="checkbox" name="services" value="${svc}" checked > <span>${svc}</span>`;
+      svcDiv.appendChild(l);
+      l.querySelector('input').onchange = () => {
+        const allChecked = Array.from(svcDiv.querySelectorAll('input[type=checkbox]')).filter(c=>c.id!=='build-all').every(c=>c.checked);
+        allCb.checked = allChecked;
+      };
+    });
+  }
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+  // Ensure visible even if Tailwind class order is odd
+  if (modal.style.display === 'none') modal.style.display = '';
+}
+
+function hideBuildModal() {
+  const modal = document.getElementById('build-modal');
+  modal.classList.remove('flex');
+  modal.classList.add('hidden');
+  modal.style.display = '';
+}
+
+function startBuildFromModal() {
+  const form = document.getElementById('build-form');
+  const project = document.getElementById('modal-project').value;
+  const noCache = document.getElementById('modal-no-cache').checked;
+  const services = [];
+  form.querySelectorAll('input[name="services"]:checked').forEach(cb => services.push(cb.value));
+  let url = `/servers/{{ server.id }}/docker/build-progress?project=${encodeURIComponent(project)}`;
+  if (services.length) url += `&services=${services.join(',')}`;
+  if (noCache) url += '&no_cache=true';
+  // immediate nav feedback
+  const startBtn = document.getElementById('modal-start-build') || document.querySelector('#build-modal button[onclick*="startBuildFromModal"]');
+  if (startBtn) { startBtn.disabled = true; startBtn.textContent = 'Starting...'; }
+  setTimeout(() => { window.location.href = url; }, 30);
+}
+
+// Build / Edit — delegated (secondary buttons may be re-injected via HTMX)
+document.addEventListener('click', function(e) {
+  const buildBtn = e.target.closest('button[data-proj-name][data-build-services]');
+  if (buildBtn) {
+    const projName = buildBtn.getAttribute('data-proj-name') || '';
+    let buildServices = [];
+    try { buildServices = JSON.parse(buildBtn.getAttribute('data-build-services') || '[]'); } catch (err) {}
+    const serverId = buildBtn.getAttribute('data-server-id') || '';
+    if (typeof showBuildModal === 'function') showBuildModal(projName, buildServices, serverId);
+    return;
+  }
+  const editBtn = e.target.closest('button[data-edit-proj]');
+  if (editBtn) {
+    openComposeEditFromBtn(editBtn);
+  }
+});
+
+function openComposeEditFromBtn(editBtn) {
+  if (!editBtn) return;
+  const projName = editBtn.getAttribute('data-edit-proj') || '';
+  const hasDfAttr = editBtn.getAttribute('data-has-df') || '0';
+  const hasDockerfile = (hasDfAttr === '1' || hasDfAttr === 'true');
+  const serverId = editBtn.getAttribute('data-server-id') || '';
+  const templated = editBtn.getAttribute('data-template-managed') === '1';
+  const depId = editBtn.getAttribute('data-template-deployment-id') || '';
+  const slug = editBtn.getAttribute('data-template-slug') || '';
+  if (templated && depId) {
+    showTemplateEditGate({
+      project: projName,
+      serverId: serverId,
+      hasDockerfile: hasDockerfile,
+      deploymentId: depId,
+      templateSlug: slug,
+    });
+    return;
+  }
+  showQuickEditModal(projName, hasDockerfile, serverId, null);
+}
+
+let _tegPending = null;
+
+function showTemplateEditGate(opts) {
+  opts = opts || {};
+  _tegPending = opts;
+  const modal = document.getElementById('template-edit-gate-modal');
+  if (!modal) {
+    // Fallback if modal missing: still open editor
+    showQuickEditModal(opts.project, opts.hasDockerfile, opts.serverId, opts);
+    return;
+  }
+  const projEl = document.getElementById('teg-project');
+  const slugEl = document.getElementById('teg-slug');
+  const link = document.getElementById('teg-template-link');
+  const rawBtn = document.getElementById('teg-raw-edit');
+  if (projEl) projEl.textContent = opts.project || '';
+  if (slugEl) slugEl.textContent = opts.templateSlug || 'template';
+  if (link) link.href = '/templates/deployments/' + encodeURIComponent(opts.deploymentId);
+  if (rawBtn) {
+    rawBtn.onclick = function() {
+      hideTemplateEditGate();
+      showQuickEditModal(opts.project, opts.hasDockerfile, opts.serverId, opts);
+    };
+  }
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function hideTemplateEditGate() {
+  const modal = document.getElementById('template-edit-gate-modal');
+  if (!modal) return;
+  modal.classList.remove('flex');
+  modal.classList.add('hidden');
+  _tegPending = null;
+}
+
+// === Quick Edit Modal (compose + Dockerfile in a popup, same spirit as Build modal) ===
+let qeCurrent = { project: '', fileType: 'compose', serverId: '', hasDockerfile: false, template: null };
+
+function showQuickEditModal(projName, hasDockerfile, serverId, templateMeta) {
+  const modal = document.getElementById('quick-edit-modal');
+  if (!modal) {
+    console.error('quick-edit-modal missing');
+    if (serverId && projName) {
+      window.location.href = `/servers/${serverId}/docker/compose/${encodeURIComponent(projName)}/edit`;
+    }
+    return;
+  }
+
+  qeCurrent = {
+    project: projName,
+    fileType: 'compose',
+    serverId: serverId,
+    hasDockerfile: !!hasDockerfile,
+    template: templateMeta || null,
+  };
+
+  document.getElementById('qe-project').textContent = projName;
+  const dfTab = document.getElementById('qe-tab-dockerfile');
+  if (dfTab) dfTab.classList.toggle('hidden', !hasDockerfile);
+
+  // full editor link (set before tab switch; tab switch refreshes for dockerfile)
+  const fullLink = document.getElementById('qe-full-link');
+  if (fullLink) {
+    fullLink.href = fullEditorUrl(serverId, projName, 'compose');
+    fullLink.textContent = 'Open full editor (syntax, versions, drafts…)';
+  }
+
+  const banner = document.getElementById('qe-template-banner');
+  const tLink = document.getElementById('qe-template-link');
+  if (banner) {
+    if (templateMeta && templateMeta.deploymentId) {
+      banner.classList.remove('hidden');
+      if (tLink) tLink.href = '/templates/deployments/' + encodeURIComponent(templateMeta.deploymentId);
+    } else {
+      banner.classList.add('hidden');
+    }
+  }
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  // default to compose
+  switchQuickEditTab('compose');
+}
+
+function hideQuickEditModal() {
+  const modal = document.getElementById('quick-edit-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+  document.getElementById('qe-status').textContent = '';
+}
+
+function switchQuickEditTab(type) {
+  const ta = document.getElementById('qe-editor');
+  const composeTab = document.getElementById('qe-tab-compose');
+  const dfTab = document.getElementById('qe-tab-dockerfile');
+  const fullLink = document.getElementById('qe-full-link');
+
+  qeCurrent.fileType = type;
+
+  // Use proper component classes (btn-accent / btn-secondary) for active state so theming is var-driven
+  if (composeTab) {
+    composeTab.classList.remove('btn-accent', 'btn-secondary');
+    composeTab.classList.add(type === 'compose' ? 'btn-accent' : 'btn-secondary');
+  }
+  if (dfTab) {
+    dfTab.classList.remove('btn-accent', 'btn-secondary');
+    dfTab.classList.add(type === 'dockerfile' ? 'btn-accent' : 'btn-secondary');
+  }
+
+  // update full editor link + branding hint to match current file
+  if (fullLink) {
+    fullLink.href = fullEditorUrl(qeCurrent.serverId, qeCurrent.project, type);
+    fullLink.textContent = type === 'dockerfile'
+      ? 'Open full Dockerfile editor'
+      : 'Open full editor (syntax, versions, drafts…)';
+  }
+  const hint = document.getElementById('qe-file-hint');
+  if (hint) {
+    if (type === 'dockerfile') {
+      hint.innerHTML = '<span class="ph-file-badge ph-file-badge--dockerfile">Dockerfile</span> · host build context · save then rebuild';
+    } else {
+      hint.innerHTML = '<span class="ph-file-badge ph-file-badge--compose">compose</span> · YAML · full editor for syntax &amp; versions';
+    }
+  }
+
+  if (!ta) return;
+  // load content for this type
+  const url = `/servers/${qeCurrent.serverId}/docker/compose/${encodeURIComponent(qeCurrent.project)}/file-content?file=${type}`;
+  ta.value = 'Loading...';
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.ok) ta.value = data.content || '';
+      else ta.value = '# Failed to load current content';
+    })
+    .catch(() => { ta.value = '# Error loading content from host'; });
+}
+
+async function quickSave(action /* 'draft' | 'deploy' */) {
+  const ta = document.getElementById('qe-editor');
+  const status = document.getElementById('qe-status');
+  const content = ta.value;
+  const { project, fileType, serverId } = qeCurrent;
+
+  status.textContent = 'Saving...';
+
+  let url, body;
+  const formData = new URLSearchParams();
+  formData.append('content', content);
+  formData.append('via_modal', '1');
+
+  if (fileType === 'dockerfile') {
+    url = `/servers/${serverId}/docker/compose/${encodeURIComponent(project)}/dockerfile/save`;
+    formData.append('action', action);
+  } else {
+    if (action === 'draft') {
+      url = `/servers/${serverId}/docker/compose/${encodeURIComponent(project)}/save-draft`;
+    } else {
+      url = `/servers/${serverId}/docker/compose/${encodeURIComponent(project)}/save`;
+    }
+  }
+
+  try {
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString()
+    });
+    const json = await resp.json().catch(() => ({}));
+
+    if (json && json.ok) {
+      status.textContent = json.message || 'Saved!';
+      setTimeout(() => {
+        hideQuickEditModal();
+        // light feedback on main page
+        const flash = document.createElement('div');
+        flash.className = 'fixed bottom-4 right-4 banner-success border border-border text-xs px-3 py-2 rounded shadow';
+        flash.textContent = json.message || 'Changes saved.';
+        document.body.appendChild(flash);
+        setTimeout(() => flash.remove(), 2200);
+      }, 650);
+    } else {
+      status.textContent = (json && json.message) || 'Save failed.';
+      if (json && json.errors) console.warn('errors', json.errors);
+    }
+  } catch (e) {
+    status.textContent = 'Network error while saving.';
+  }
+}
+
+function quickSaveDraft() { quickSave('draft'); }
+function quickSaveDeploy() { quickSave('deploy'); }
+
+// Undeploy confirmation helpers (custom modal for consistency with build/quick-edit modals)
+let pendingUndeployForm = null;
+
+function showUndeployConfirm(form, projectName) {
+  pendingUndeployForm = form;
+  const nameEl = document.getElementById('undeploy-project-name');
+  if (nameEl) nameEl.textContent = projectName || 'project';
+  const modal = document.getElementById('undeploy-confirm-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+
+function hideUndeployConfirm() {
+  const modal = document.getElementById('undeploy-confirm-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+  pendingUndeployForm = null;
+}
+
+// Wire the confirm button
+setTimeout(function() {
+  const confirmBtn = document.getElementById('undeploy-confirm-btn');
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', function() {
+      if (pendingUndeployForm) {
+        const form = pendingUndeployForm;
+        hideUndeployConfirm();
+        form.dataset.confirmed = '1';
+        form.submit();
+      }
+    });
+  }
+}, 0);
+
+// Deploy confirmation helpers (popup modal like build / undeploy)
+let pendingDeployForm = null;
+
+function showDeployConfirm(form, projectName) {
+  pendingDeployForm = form;
+  const nameEl = document.getElementById('deploy-project-name');
+  if (nameEl) nameEl.textContent = projectName || 'project';
+
+  // Reset checkbox default
+  const pullCb = document.getElementById('deploy-pull');
+  if (pullCb) pullCb.checked = true;
+
+  const modal = document.getElementById('deploy-confirm-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+
+function hideDeployConfirm() {
+  const modal = document.getElementById('deploy-confirm-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+  pendingDeployForm = null;
+}
+
+// Wire deploy confirm button (sets pull param + submits)
+setTimeout(function() {
+  const confirmBtn = document.getElementById('deploy-confirm-btn');
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', function() {
+      if (pendingDeployForm) {
+        const form = pendingDeployForm;
+        const pullCb = document.getElementById('deploy-pull');
+        // ensure a pull input exists and set value
+        let pullInput = form.querySelector('input[name="pull"]');
+        if (!pullInput) {
+          pullInput = document.createElement('input');
+          pullInput.type = 'hidden';
+          pullInput.name = 'pull';
+          form.appendChild(pullInput);
+        }
+        pullInput.value = (pullCb && pullCb.checked) ? 'true' : 'false';
+
+        hideDeployConfirm();
+        form.dataset.confirmed = '1';
+        form.submit();
+      }
+    });
+  }
+}, 0);
+
+// Logs modal globals and functions
+let CURRENT_SERVER_ID = {{ server.id }};
+
+/** On container expand: fetch full mount paths + per-volume disk usage (inspect + du). */
+window.loadContainerMountsDetail = function (row) {
+  if (!row || row.getAttribute('data-mounts-ready') === '1') return;
+  if (row.getAttribute('data-mounts-loading') === '1') return;
+  if (row.classList.contains('is-placeholder')) return;
+  const ref = (row.getAttribute('data-container-ref')
+    || row.getAttribute('data-container-id')
+    || row.getAttribute('data-container') || '').trim();
+  if (!ref || ref === 'error') return;
+  const panel = row.querySelector('[data-mounts-panel]');
+  if (!panel) return;
+  if (panel.getAttribute('data-mounts-ready') === '1') {
+    row.setAttribute('data-mounts-ready', '1');
+    return;
+  }
+  row.setAttribute('data-mounts-loading', '1');
+  const placeholder = panel.querySelector('[data-mounts-placeholder]');
+  if (placeholder) {
+    placeholder.innerHTML = '<span class="inline-flex items-center gap-1 text-xs text-muted">'
+      + '<span class="inline-block w-3 h-3 border border-accent border-t-transparent rounded-full animate-spin"></span>'
+      + ' Loading full paths + disk usage…</span>';
+  }
+  const url = '/servers/' + CURRENT_SERVER_ID + '/docker/container/mounts?name='
+    + encodeURIComponent(ref);
+  fetch(url, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+    .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) {
+      row.setAttribute('data-mounts-loading', '0');
+      const data = res.j || {};
+      if (!res.ok || !data.success) {
+        if (placeholder) {
+          placeholder.innerHTML = '<span class="text-warning text-xs">'
+            + (data.error || 'Could not load mount details') + '</span>';
+        }
+        return;
+      }
+      const mounts = data.mounts || [];
+      function esc(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+      let html = '';
+      if (!mounts.length) {
+        html = '<div class="font-mono text-muted text-xs">No mounts</div>';
+      } else {
+        html = '<ul class="docker-detail-lines font-mono" data-mounts-list>';
+        mounts.forEach(function (m) {
+          const src = m.source || m.name || '';
+          const dst = m.destination || '';
+          const label = (src && dst) ? (src + ' → ' + dst) : (dst || src || '—');
+          const title = (src && dst) ? (src + ' → ' + dst) : label;
+          let extra = '';
+          if (m.type) extra += '<span class="text-muted"> · ' + esc(m.type) + '</span>';
+          if (m.size_human) extra += '<span class="text-accent"> · ' + esc(m.size_human) + '</span>';
+          html += '<li title="' + esc(title) + '">' + esc(label) + extra + '</li>';
+        });
+        html += '</ul>';
+        if (data.mounts_total_human) {
+          html += '<div class="text-[10px] text-muted mt-1" data-mounts-total>'
+            + 'Mounts total ≈ ' + esc(data.mounts_total_human)
+            + ' <span class="opacity-80">(host path usage via du)</span></div>';
+        }
+      }
+      panel.innerHTML = html;
+      panel.setAttribute('data-mounts-ready', '1');
+      row.setAttribute('data-mounts-ready', '1');
+    })
+    .catch(function () {
+      row.setAttribute('data-mounts-loading', '0');
+      if (placeholder) {
+        placeholder.innerHTML = '<span class="text-warning text-xs">Could not load mount details</span>';
+      }
+    });
+};
+let currentLogsES = null;
+let currentLogsContainer = null;
+
+let currentLogsProjectPath = null;
+let logsIsFullscreen = false;
+
+function showLogsModal(container, serverId, projectPath) {
+  currentLogsContainer = container;
+  currentLogsProjectPath = projectPath || null;
+  const nameEl = document.getElementById('logs-container-name');
+  if (nameEl) nameEl.textContent = container;
+
+  if (currentLogsES) {
+    currentLogsES.close();
+    currentLogsES = null;
+  }
+
+  const modal = document.getElementById('logs-modal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+
+  // Reset size when opening
+  logsIsFullscreen = false;
+  setLogsModalSize(false);
+
+  const sel = document.getElementById('logs-lines-select');
+  const lines = sel ? parseInt(sel.value, 10) || 200 : 200;
+  loadLogsForModal(lines, serverId, projectPath);
+}
+
+function closeLogsModal() {
+  const modal = document.getElementById('logs-modal');
+  if (modal) {
+    modal.classList.remove('flex');
+    modal.classList.add('hidden');
+  }
+  logsIsFullscreen = false;
+  setLogsModalSize(false);
+  if (currentLogsES) {
+    currentLogsES.close();
+    currentLogsES = null;
+  }
+}
+
+function setLogsModalSize(full) {
+  const content = document.getElementById('logs-modal-content');
+  const btn = document.getElementById('logs-fullscreen-btn');
+  if (!content) return;
+  if (full) {
+    content.classList.remove('max-w-5xl', 'mx-4', 'h-[70vh]', 'max-h-[85vh]');
+    content.classList.add('max-w-[98vw]', 'w-[98vw]', 'h-[90vh]', 'max-h-[95vh]', 'mx-auto');
+    if (btn) btn.textContent = 'Exit full';
+  } else {
+    content.classList.remove('max-w-[98vw]', 'w-[98vw]', 'max-h-[95vh]', 'mx-auto', 'h-[90vh]');
+    content.classList.add('max-w-5xl', 'mx-4', 'h-[70vh]', 'max-h-[85vh]');
+    if (btn) btn.textContent = 'Full screen';
+  }
+}
+
+function loadLogsForModal(lines, serverIdParam, projectPath) {
+  const serverId = serverIdParam || CURRENT_SERVER_ID;
+  const container = currentLogsContainer;
+  if (!container || !serverId) return;
+  const path = projectPath !== undefined ? projectPath : currentLogsProjectPath;
+
+  // Keep dropdown in sync
+  const sel = document.getElementById('logs-lines-select');
+  if (sel && String(sel.value) !== String(lines)) {
+    const opt = Array.from(sel.options).find(function(o) { return o.value === String(lines); });
+    if (opt) sel.value = String(lines);
+  }
+
+  if (currentLogsES) {
+    currentLogsES.close();
+    currentLogsES = null;
+  }
+
+  const pre = document.getElementById('logs-content');
+  pre.textContent = 'Loading...';
+
+  let fetchUrl = `/servers/${serverId}/docker/logs/${encodeURIComponent(container)}?lines=${lines}&format=json`;
+  let streamUrl = `/servers/${serverId}/docker/logs/${encodeURIComponent(container)}/stream?lines=0`;
+  if (path) {
+    const encPath = encodeURIComponent(path);
+    fetchUrl += `&project_path=${encPath}`;
+    streamUrl += `&project_path=${encPath}`;
+  }
+
+  fetch(fetchUrl, {
+    headers: { 'Accept': 'application/json' }
+  })
+  .then(async (r) => {
+    if (!r.ok) {
+      const text = await r.text();
+      throw new Error(`HTTP ${r.status}: ${text.slice(0, 200)}`);
+    }
+    const contentType = r.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const text = await r.text();
+      throw new Error(`Expected JSON, got: ${contentType}. Body: ${text.slice(0, 200)}`);
+    }
+    return r.json();
+  })
+  .then(data => {
+    pre.textContent = (data && data.logs) || '(no logs)';
+    pre.scrollTop = pre.scrollHeight;
+
+    currentLogsES = new EventSource(streamUrl);
+    currentLogsES.onmessage = function(e) {
+      pre.textContent += e.data + '\n';
+      pre.scrollTop = pre.scrollHeight;
+    };
+    currentLogsES.onerror = function() {
+      pre.textContent += '\n[stream closed]\n';
+    };
+  })
+  .catch(err => {
+    pre.textContent = 'Failed to load logs: ' + (err.message || err);
+    console.error('Logs fetch error:', err);
+  });
+}
+
+function expandLogsToFullScreen() {
+  logsIsFullscreen = !logsIsFullscreen;
+  setLogsModalSize(logsIsFullscreen);
+  // Expanding does not force a reload; use the lines dropdown for history depth
+}
+
+
+
+// Service selection for multi-service projects (modal only if >1 service)
+let _pendingActionForm = null;
+let _pendingActionCallback = null;
+
+function handleProjectAction(projName, services, serverId, projectPath, action, form) {
+  services = services || [];
+  if (services.length <= 1) {
+    if (form) {
+      const svcInput = form.querySelector('input[name="service"]');
+      if (svcInput && services.length === 1) svcInput.value = services[0];
+      // do not call submit here - let the default submit happen (since we didn't prevent for <=1)
+    } else if (action === 'logs') {
+      const target = services.length ? services[0] : projName;
+      showLogsModal(target, serverId, projectPath);
+    }
+    return;
+  }
+  _pendingActionForm = form;
+  _pendingActionCallback = function(selected) {
+    if (action === 'logs') {
+      const target = selected || projName;
+      showLogsModal(target, serverId, projectPath);
+    } else if (_pendingActionForm) {
+      const svcInput = _pendingActionForm.querySelector('input[name="service"]');
+      if (svcInput) svcInput.value = selected || '';
+      _pendingActionForm.submit();
+      _pendingActionForm = null;
+    }
+  };
+  showServiceSelectModal(projName, services, action);
+}
+
+function showServiceSelectModal(projName, services, action) {
+  const modal = document.getElementById('service-select-modal');
+  const titleEl = document.getElementById('service-select-title');
+  const listEl = document.getElementById('service-select-list');
+  listEl.innerHTML = '';
+  titleEl.textContent = `Which service do you want to ${action} on ${projName}?`;
+
+  // All services
+  const allItem = document.createElement('div');
+  allItem.className = 'px-3 py-1.5 rounded bg-surface hover-bg-accent-subtle border border-border hover:border-accent cursor-pointer text-sm font-medium flex items-center gap-2';
+  allItem.innerHTML = '<span class="text-accent">↻</span> <span>All services</span>';
+  allItem.onclick = () => selectServiceAndAct('');
+  listEl.appendChild(allItem);
+
+  services.forEach(s => {
+    const item = document.createElement('div');
+    item.className = 'px-3 py-1.5 pl-5 rounded bg-surface hover-bg-bg border border-border hover-border-accent cursor-pointer text-sm flex items-center';
+    item.textContent = s;
+    item.onclick = () => selectServiceAndAct(s);
+    listEl.appendChild(item);
+  });
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+function selectServiceAndAct(val) {
+  const modal = document.getElementById('service-select-modal');
+  modal.classList.remove('flex');
+  modal.classList.add('hidden');
+  if (typeof _pendingActionCallback === 'function') {
+    _pendingActionCallback(val);
+    _pendingActionCallback = null;
+  }
+}
+
+function hideServiceSelectModal() {
+  const modal = document.getElementById('service-select-modal');
+  modal.classList.remove('flex');
+  modal.classList.add('hidden');
+}
+
+// Compose project action buttons (stop/start/restart/logs) — delegated for HTMX stack refresh
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn || btn.closest('#project-more-menu')) return;
+  // Only handle compose-level data-action buttons (have data-proj)
+  if (!btn.dataset.proj && !btn.dataset.action) return;
+  if (!btn.hasAttribute('data-action')) return;
+  if (!btn.dataset.proj) return;
+
+  const projName = btn.dataset.proj || '';
+  let services = [];
+  try {
+    services = JSON.parse(btn.dataset.services || '[]');
+  } catch (err) { services = []; }
+  const serverId = btn.dataset.serverId || '';
+  const projectPath = btn.dataset.projectPath || '';
+  const action = btn.dataset.action || '';
+  const form = btn.closest('form') || null;
+
+  if (services.length > 1) {
+    e.preventDefault();
+  }
+  handleProjectAction(projName, services, serverId, projectPath, action, form);
+}, true);
+
+// === Loading / waiting feedback for Check Updates, Deploy, Undeploy ===
+// Check + Deploy run as Jobs with live log (B07 / PiHerderJobHold).
+// Other compose actions keep the blocking progress overlay.
+(function setupLongActionFeedback() {
+  function showActionProgress(actionName, projectName) {
+    // Remove any existing
+    const existing = document.getElementById('action-progress-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'action-progress-overlay';
+    overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
+    const actionText = (actionName === 'Checking') ? 'Checking updates for' : actionName;
+    overlay.innerHTML = `
+      <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
+        <div class="flex justify-center mb-3">
+          <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+        </div>
+        <div class="font-medium">${actionText} <span class="font-mono text-accent">${projectName}</span>...</div>
+        <div class="text-xs text-muted mt-2">Please wait. The page will refresh when complete.</div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+
+  function labelForForm(form) {
+    const a = form.getAttribute('action') || '';
+    if (a.includes('/check-updates')) return 'Checking...';
+    if (a.includes('/redeploy')) return 'Deploying...';
+    if (a.includes('/compose/down')) return 'Undeploying...';
+    if (a.includes('/compose/stop')) return 'Stopping...';
+    if (a.includes('/compose/start')) return 'Starting...';
+    if (a.includes('/compose/restart')) return 'Restarting...';
+    return null;
+  }
+
+  function isJobHoldAction(form) {
+    const a = form.getAttribute('action') || '';
+    return a.includes('/check-updates') || a.includes('/redeploy');
+  }
+
+  // One delegated submit handler (works after HTMX stack refresh)
+  document.addEventListener('submit', function(e) {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement)) return;
+    const actionLabel = labelForForm(form);
+    if (!actionLabel) return;
+
+    const btn = form.querySelector('button');
+    if (btn && btn.disabled) {
+      e.preventDefault();
+      return;
+    }
+
+    const card = form.closest('.docker-stack-block') || form.closest('.docker-proj-row') || form.closest('.card');
+    let projName = 'project';
+    if (card) {
+      if (card.dataset && card.dataset.projName) projName = card.dataset.projName;
+      else {
+        const nameEl = card.querySelector('.docker-proj-name') || card.querySelector('.font-semibold');
+        if (nameEl) projName = nameEl.textContent.trim().split('\n')[0].trim();
+      }
+    }
+
+    if (actionLabel.includes('Undeploy') && !form.dataset.confirmed) {
+      e.preventDefault();
+      showUndeployConfirm(form, projName);
+      return;
+    }
+    if ((actionLabel.includes('Deploy') || actionLabel.includes('Deploying')) && !form.dataset.confirmed) {
+      e.preventDefault();
+      showDeployConfirm(form, projName);
+      return;
+    }
+    if (form.dataset.confirmed) delete form.dataset.confirmed;
+
+    // B07: Check updates + Deploy → Job queue + live log modal
+    if (isJobHoldAction(form) && window.PiHerderJobHold) {
+      e.preventDefault();
+      if (btn) {
+        btn.disabled = true;
+        btn.dataset.originalText = btn.textContent;
+        btn.textContent = actionLabel;
+      }
+      var holdTitle = actionLabel.includes('Check')
+        ? ('Check updates: ' + projName)
+        : ('Deploy: ' + projName);
+      window.PiHerderJobHold.run({
+        url: form.action,
+        form: form,
+        title: holdTitle,
+        serverId: CURRENT_SERVER_ID || {{ server.id }},
+        initialMessage: holdTitle + '…\n',
+        hint: 'Live log from the job — this page refreshes when finished.',
+      });
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      btn.dataset.originalText = btn.textContent;
+      btn.textContent = actionLabel;
+    }
+    if (card) {
+      card.querySelectorAll('button, a').forEach(function(el) {
+        if (el !== btn) {
+          el.style.pointerEvents = 'none';
+          el.setAttribute('aria-disabled', 'true');
+        }
+      });
+    }
+    showActionProgress(actionLabel.replace('...', ''), projName);
+  }, true);
+
+  // Refresh button - show loading overlay (shell reloads, then fragment collects host data)
+  document.querySelectorAll('a[href*="/docker?nocache"]').forEach(function(link) {
+    link.addEventListener('click', function() {
+      if (typeof window.showDockerPageLoading === 'function') window.showDockerPageLoading();
+      else {
+        const overlay = document.getElementById('docker-page-loading');
+        if (overlay) overlay.style.display = 'flex';
+      }
+    });
+  });
+
+  // Logs links - open inline modal (delegation for static + HTMX swapped content)
+  document.addEventListener('click', function(e) {
+    const link = e.target.closest('a[href*="/docker/logs/"]');
+    if (link) {
+      // Don't intercept the "full page" link inside the logs modal itself
+      if (link.closest('#logs-modal')) return;
+      e.preventDefault();
+      const href = link.getAttribute('href') || '';
+      const match = href.match(/\/logs\/([^/?#]+)/);
+      if (match) {
+        const cname = decodeURIComponent(match[1]);
+        showLogsModal(cname, CURRENT_SERVER_ID);
+      }
+    }
+  }, true);
+
+  // Container-level Stop/Start/Restart (in the containers table)
+  function setupContainerAction(form, actionLabel) {
+    form.addEventListener('submit', function(e) {
+      const btn = form.querySelector('button');
+      if (btn && btn.disabled) {
+        e.preventDefault();
+        return;
+      }
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = actionLabel;
+      }
+      // Get container name
+      const nameInput = form.querySelector('input[name="name"]');
+      const cname = nameInput ? nameInput.value : 'container';
+      // Show progress overlay
+      const overlay = document.createElement('div');
+      overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
+      overlay.innerHTML = `
+        <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
+          <div class="flex justify-center mb-3">
+            <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <div class="font-medium">${actionLabel} <span class="font-mono text-accent">${cname}</span>...</div>
+          <div class="text-xs text-muted mt-2">Please wait...</div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    });
+  }
+  // Event delegation to support HTMX-refreshed containers table (covers initial and dynamic)
+  document.addEventListener('submit', function(e) {
+    const form = e.target;
+    if (form.matches('form[action*="/docker/container/stop"]')) {
+      // prevent if already, but let the listener above? For simplicity re-apply logic
+      const btn = form.querySelector('button');
+      if (btn && !btn.disabled) {
+        btn.disabled = true;
+        btn.textContent = 'Stopping';
+        const nameInput = form.querySelector('input[name="name"]');
+        const cname = nameInput ? nameInput.value : 'container';
+        const overlay = document.createElement('div');
+        overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
+        overlay.innerHTML = `
+          <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
+            <div class="flex justify-center mb-3">
+              <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <div class="font-medium">Stopping <span class="font-mono text-accent">${cname}</span>...</div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+      }
+    } else if (form.matches('form[action*="/docker/container/start"]')) {
+      const btn = form.querySelector('button');
+      if (btn && !btn.disabled) {
+        btn.disabled = true;
+        btn.textContent = 'Starting';
+        const nameInput = form.querySelector('input[name="name"]');
+        const cname = nameInput ? nameInput.value : 'container';
+        const overlay = document.createElement('div');
+        overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
+        overlay.innerHTML = `
+          <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
+            <div class="flex justify-center mb-3">
+              <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <div class="font-medium">Starting <span class="font-mono text-accent">${cname}</span>...</div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+      }
+    } else if (form.matches('form[action*="/docker/container/restart"]')) {
+      const btn = form.querySelector('button');
+      if (btn && !btn.disabled) {
+        btn.disabled = true;
+        btn.textContent = 'Restarting';
+        const nameInput = form.querySelector('input[name="name"]');
+        const cname = nameInput ? nameInput.value : 'container';
+        const overlay = document.createElement('div');
+        overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
+        overlay.innerHTML = `
+          <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
+            <div class="flex justify-center mb-3">
+              <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <div class="font-medium">Restarting <span class="font-mono text-accent">${cname}</span>...</div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+      }
+    }
+  }, true);
+
+  // Prune forms — loading overlay + modal status feedback
+  document.querySelectorAll('form[action*="/prune-unused"], form.cleanup-prune-form').forEach(form => {
+    form.addEventListener('submit', function(e) {
+      const btn = form.querySelector('button');
+      if (btn && !btn.disabled) {
+        btn.disabled = true;
+        const label = form.getAttribute('data-prune-label') || 'resources';
+        btn.textContent = 'Pruning…';
+        if (typeof setCleanupStatus === 'function') {
+          setCleanupStatus('busy', 'Pruning ' + label + ' on host…');
+        }
+        const overlay = document.createElement('div');
+        overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
+        overlay.setAttribute('role', 'status');
+        overlay.innerHTML = `
+          <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
+            <div class="flex justify-center mb-3">
+              <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+            </div>
+            <div class="font-medium">Pruning ${label}…</div>
+            <div class="text-xs text-muted mt-2">SSH command running on host — please wait</div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}

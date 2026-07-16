@@ -23,7 +23,7 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 ### UI Theming
 - Base: Light + Dark themes using Raspberry Pi branding (red `#E60012`/`#C8102E`, green `#00A651`).
 - Default to system preference, with manual toggle.
-- Stylesheets: `themes.css` (tokens + chrome) + `fabric.css` (Network maps) + `ops.css` (ops-hero / filters) — query-busted; SW network-first for CSS/JS.
+- Stylesheets: `themes.css` (tokens + chrome) + `fabric.css` (Network maps) + `ops.css` / `ops-auth.css` / `ops-pages.css` (ops-hero + auth + page polish) — query-busted; SW network-first for CSS/JS.
 - Ops UI: shared **ops-hero** dual-line pulse on Servers, Jobs, Audit, Alerts, Catalog, Settings, Account, Users, fleet Services, host Docker/Backups (`app/services/ops_pulse.py` + page-local pulses).
 - **Hero layout contract:** desktop (≥768px) title left · viz right; mobile compact viz under title; **full content width** (no narrow page clamp on Account). Catalog always renders a viz shell so tabs share chrome.
 - **Mobile orientation:** portrait↔landscape reflow (viewport vars, close slide-out, Network `PiHerderFabric.refreshLayout` resets map zoom/sizes).

@@ -18,8 +18,10 @@ Both themes use the same layout; contrast is **token-driven**. Stylesheets (load
 | File | Role |
 |------|------|
 | `app/static/css/themes.css` | Colour tokens, header/nav, cards, buttons, shared chrome |
-| `app/static/css/fabric.css` | Network maps (mesh SVG, focus, mobile list-first, map fullscreen) |
-| `app/static/css/ops.css` | Ops heroes, compact filters, catalog tab bar, Settings/Account/Users |
+| `app/static/css/fabric.css` | Network maps (mesh SVG, focus, mobile list-first, map fullscreen) + dashboard hero |
+| `app/static/css/ops.css` | Ops heroes, compact filters, catalog tab bar, Settings/Account/Users core |
+| `app/static/css/ops-auth.css` | Login / register / force-password / 2FA stage |
+| `app/static/css/ops-pages.css` | Services, Docker, host/backup heroes, detail modals, streams |
 
 | Role | Light | Dark |
 |------|-------|------|

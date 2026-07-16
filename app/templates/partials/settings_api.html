@@ -1,0 +1,341 @@
+{# Settings tab: api #}
+{# ═══════════════ API MANAGEMENT (admin) ═══════════════ #}
+{% if is_admin|default(false) %}
+<div data-settings-panel="api" class="settings-tab-panel {{ '' if tab == 'api' else 'hidden' }}">
+
+  {% set tok_counts = api_token_counts or {'active': 0, 'revoked': 0, 'all': 0} %}
+  <div class="api-pulse-strip card mb-3">
+    <div class="ops-pulse-stats">
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-accent">{{ tok_counts.active or 0 }}</span><span class="ops-pulse-l">active</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ tok_counts.revoked or 0 }}</span><span class="ops-pulse-l">revoked</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ tok_counts.all or 0 }}</span><span class="ops-pulse-l">total</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-info">v1</span><span class="ops-pulse-l">api</span></div>
+    </div>
+    <p class="ops-pulse-caption mb-0">Bearer tokens · /api/v1 · instance-wide (not personal logins)</p>
+  </div>
+
+  <nav class="catalog-tabbar api-subnav mb-4" role="tablist" aria-label="API management sections">
+    <button type="button" class="api-subnav-btn settings-tab-btn btn btn-secondary text-xs min-h-10 {{ 'is-active' if api_panel == 'tokens' else '' }}"
+            data-api-panel="tokens" aria-selected="{{ 'true' if api_panel == 'tokens' else 'false' }}">Tokens</button>
+    <button type="button" class="api-subnav-btn settings-tab-btn btn btn-secondary text-xs min-h-10 {{ 'is-active' if api_panel == 'docs' else '' }}"
+            data-api-panel="docs" aria-selected="{{ 'true' if api_panel == 'docs' else 'false' }}">API reference</button>
+    <button type="button" class="api-subnav-btn settings-tab-btn btn btn-secondary text-xs min-h-10 {{ 'is-active' if api_panel == 'catalog' else '' }}"
+            data-api-panel="catalog" aria-selected="{{ 'true' if api_panel == 'catalog' else 'false' }}">Endpoint catalog</button>
+    <a href="/docs" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-10">OpenAPI /docs ↗</a>
+  </nav>
+
+  {# —— Tokens —— #}
+  <div data-api-panel-body="tokens" class="api-subpanel {{ '' if api_panel == 'tokens' else 'hidden' }}" id="api-tokens">
+    <div class="card p-5 mb-4">
+      <h2 class="font-semibold text-text mb-1">Automation API tokens</h2>
+      <p class="text-xs text-muted mb-3">
+        <strong>Admin-managed</strong>, instance-wide tokens for n8n, Home Assistant, and scripts
+        (<code class="font-mono">/api/v1/*</code>) — not personal logins.
+        Secrets are hashed; copy once at create or rotate.
+        Revoke keeps the token record for traceability (audit by id/name).
+        Review the full spec under <button type="button" class="text-primary underline" data-api-panel="docs">API reference</button>.
+      </p>
+
+      <details class="mb-5 border border-border rounded-lg open:shadow-sm">
+        <summary class="cursor-pointer select-none px-4 py-3 text-sm font-medium text-text min-h-11 flex items-center">
+          Create new token
+        </summary>
+        <form method="post" action="/herder-backups/api-tokens" class="space-y-3 px-4 pb-4 border-t border-border pt-3">
+          <div>
+            <label class="block text-xs text-muted mb-1">Name</label>
+            <input type="text" name="name" required maxlength="120" placeholder="e.g. n8n production"
+                   class="w-full sm:max-w-md bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+          </div>
+          <div>
+            <p class="text-xs text-muted mb-1 font-medium">Capability scopes</p>
+            <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              <label class="flex items-center gap-2 min-h-10" title="GET fleet and jobs">
+                <input type="checkbox" name="scope_read" value="1" checked>
+                <span>read</span>
+              </label>
+              <label class="flex items-center gap-2 min-h-10" title="POST job triggers">
+                <input type="checkbox" name="scope_jobs" value="1" checked>
+                <span>jobs</span>
+              </label>
+              <label class="flex items-center gap-2 min-h-10" title="PATCH feature flags">
+                <input type="checkbox" name="scope_edit" value="1">
+                <span>edit</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <p class="text-xs text-muted mb-1 font-medium">Feature allowlist <span class="font-normal">(optional — all unchecked = any feature)</span></p>
+            <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              <label class="flex items-center gap-2 min-h-10">
+                <input type="checkbox" name="scope_feature_backup" value="1">
+                <span>feature:backup</span>
+              </label>
+              <label class="flex items-center gap-2 min-h-10">
+                <input type="checkbox" name="scope_feature_os" value="1">
+                <span>feature:os</span>
+              </label>
+              <label class="flex items-center gap-2 min-h-10">
+                <input type="checkbox" name="scope_feature_docker" value="1">
+                <span>feature:docker</span>
+              </label>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1">Allowed IPs / CIDRs <span class="font-normal">(optional; empty = any IP)</span></label>
+            <textarea name="allowed_cidrs" rows="2" placeholder="10.0.0.0/8&#10;192.168.1.50"
+                      class="w-full sm:max-w-lg bg-surface border border-border px-3 py-2 rounded text-sm font-mono"></textarea>
+            <p class="text-[10px] text-muted mt-1">Uses <code>X-Forwarded-For</code> / <code>X-Real-IP</code> when behind a reverse proxy.</p>
+          </div>
+          <button type="submit" class="btn btn-primary min-h-11 text-sm">Create token</button>
+        </form>
+      </details>
+
+      {% set tok_status = api_token_status or 'active' %}
+      <div class="ops-filters card mb-3" style="padding: 0.55rem 0.7rem;">
+        <div class="ops-filters-row">
+          <span class="text-xs text-muted mr-1">Show</span>
+          <a href="/herder-backups?tab=api&amp;api_panel=tokens&amp;token_status=active"
+             class="btn text-xs min-h-9 px-2.5 {{ 'btn-accent' if tok_status == 'active' else 'btn-secondary' }}">
+            Active ({{ tok_counts.active or 0 }})
+          </a>
+          <a href="/herder-backups?tab=api&amp;api_panel=tokens&amp;token_status=revoked"
+             class="btn text-xs min-h-9 px-2.5 {{ 'btn-accent' if tok_status == 'revoked' else 'btn-secondary' }}">
+            Revoked ({{ tok_counts.revoked or 0 }})
+          </a>
+          <a href="/herder-backups?tab=api&amp;api_panel=tokens&amp;token_status=all"
+             class="btn text-xs min-h-9 px-2.5 {{ 'btn-accent' if tok_status == 'all' else 'btn-secondary' }}">
+            All ({{ tok_counts.all or 0 }})
+          </a>
+        </div>
+      </div>
+      <p class="text-[10px] text-muted mb-3">
+        Revoke disables the secret but keeps the row for audit. Default view is active only.
+      </p>
+
+      {% if api_tokens %}
+      <div class="api-token-grid">
+        {% for t in api_tokens %}
+        <article class="card api-token-card {% if not t.active %}is-revoked{% endif %}">
+          <div class="api-token-card-body">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-semibold text-text">{{ t.name }}</span>
+              <span class="text-[10px] text-muted font-mono">#{{ t.id }}</span>
+              {% if t.active %}
+              <span class="status-pill status-success text-xs">active</span>
+              {% else %}
+              <span class="status-pill status-cancelled text-xs">revoked</span>
+              {% endif %}
+            </div>
+            <p class="text-xs font-mono text-muted mt-1 break-all mb-0">{{ t.token_prefix }}…</p>
+            <dl class="api-token-meta">
+              <div>
+                <dt>Scopes</dt>
+                <dd>
+                  {% for s in t.scopes %}
+                  <span class="api-scope-chip">{{ s }}</span>
+                  {% endfor %}
+                </dd>
+              </div>
+              <div>
+                <dt>IP allowlist</dt>
+                <dd class="font-mono">{% if t.allowed_cidrs %}{{ t.allowed_cidrs | join(', ') }}{% else %}any{% endif %}</dd>
+              </div>
+              <div>
+                <dt>Last used</dt>
+                <dd>{{ t.last_used_display or t.last_used_at or '—' }}</dd>
+              </div>
+              <div>
+                <dt>Created</dt>
+                <dd>{{ t.created_display or t.created_at or '—' }}</dd>
+              </div>
+              {% if not t.active %}
+              <div>
+                <dt>Revoked</dt>
+                <dd>{{ t.revoked_display or t.revoked_at or '—' }}</dd>
+              </div>
+              {% endif %}
+            </dl>
+          </div>
+          <div class="api-token-card-actions">
+            <a href="/audit?api_token_id={{ t.id }}" class="btn btn-secondary text-xs min-h-9 px-2.5">Audit</a>
+            {% if t.active %}
+            <form method="post" action="/herder-backups/api-tokens/{{ t.id }}/rotate"
+                  data-confirm="Rotate this token? The current secret stops working immediately. You will get a new secret to copy once."
+                  data-confirm-title="Rotate API token"
+                  data-confirm-label="Rotate"
+                  data-confirm-danger>
+              <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Rotate</button>
+            </form>
+            <form method="post" action="/herder-backups/api-tokens/{{ t.id }}/revoke"
+                  data-confirm="Revoke this API token? Automations will fail. The token row is kept for audit trail (not deleted)."
+                  data-confirm-title="Revoke API token"
+                  data-confirm-label="Revoke"
+                  data-confirm-danger>
+              <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5 text-danger">Revoke</button>
+            </form>
+            {% endif %}
+          </div>
+          {% if t.active %}
+          <details class="api-token-edit">
+            <summary>Edit name, permissions &amp; IP allowlist</summary>
+            <form method="post" action="/herder-backups/api-tokens/{{ t.id }}/update" class="space-y-3 mt-3">
+              <div>
+                <label class="block text-xs text-muted mb-1">Name</label>
+                <input type="text" name="name" required maxlength="120" value="{{ t.name }}"
+                       class="w-full sm:max-w-md bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+              </div>
+              <div>
+                <p class="text-xs text-muted mb-1 font-medium">Capability scopes</p>
+                <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  <label class="flex items-center gap-2 min-h-10">
+                    <input type="checkbox" name="scope_read" value="1" {% if 'read' in t.scopes %}checked{% endif %}>
+                    <span>read</span>
+                  </label>
+                  <label class="flex items-center gap-2 min-h-10">
+                    <input type="checkbox" name="scope_jobs" value="1" {% if 'jobs' in t.scopes %}checked{% endif %}>
+                    <span>jobs</span>
+                  </label>
+                  <label class="flex items-center gap-2 min-h-10">
+                    <input type="checkbox" name="scope_edit" value="1" {% if 'edit' in t.scopes %}checked{% endif %}>
+                    <span>edit</span>
+                  </label>
+                </div>
+              </div>
+              <div>
+                <p class="text-xs text-muted mb-1 font-medium">Feature allowlist</p>
+                <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  <label class="flex items-center gap-2 min-h-10">
+                    <input type="checkbox" name="scope_feature_backup" value="1" {% if 'feature:backup' in t.scopes %}checked{% endif %}>
+                    <span>feature:backup</span>
+                  </label>
+                  <label class="flex items-center gap-2 min-h-10">
+                    <input type="checkbox" name="scope_feature_os" value="1" {% if 'feature:os' in t.scopes %}checked{% endif %}>
+                    <span>feature:os</span>
+                  </label>
+                  <label class="flex items-center gap-2 min-h-10">
+                    <input type="checkbox" name="scope_feature_docker" value="1" {% if 'feature:docker' in t.scopes %}checked{% endif %}>
+                    <span>feature:docker</span>
+                  </label>
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1">Allowed IPs / CIDRs</label>
+                <textarea name="allowed_cidrs" rows="2"
+                          class="w-full sm:max-w-lg bg-surface border border-border px-3 py-2 rounded text-sm font-mono"
+                          placeholder="empty = any IP">{% if t.allowed_cidrs %}{{ t.allowed_cidrs | join('\n') }}{% endif %}</textarea>
+              </div>
+              <button type="submit" class="btn btn-primary min-h-11 text-sm">Save permissions</button>
+            </form>
+          </details>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-muted empty-state">
+        {% if tok_status == 'revoked' %}
+        No revoked tokens. Revoked tokens are kept here for audit trail (never hard-deleted).
+        {% elif tok_status == 'all' %}
+        No API tokens yet.
+        {% else %}
+        No active tokens.
+        {% if (tok_counts.revoked or 0) > 0 %}
+        <a href="/herder-backups?tab=api&amp;api_panel=tokens&amp;token_status=revoked" class="text-accent hover:underline">View {{ tok_counts.revoked }} revoked</a>
+        {% endif %}
+        {% endif %}
+      </p>
+      {% endif %}
+    </div>
+  </div>
+
+  {# —— API reference (rendered docs/API.md) —— #}
+  <div data-api-panel-body="docs" class="api-subpanel {{ '' if api_panel == 'docs' else 'hidden' }}">
+    <div class="card p-5 mb-4">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div>
+          <h2 class="font-semibold text-text">API reference</h2>
+          <p class="text-xs text-muted mt-0.5">In-app copy of <code class="font-mono">docs/API.md</code> — scopes, IP allowlists, endpoints, examples.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <a href="/docs" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-10">Swagger /docs ↗</a>
+          <a href="/openapi.json" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-10">openapi.json ↗</a>
+        </div>
+      </div>
+      <div class="api-docs-prose border-t border-border pt-3 max-w-none">
+        {{ api_docs_html | safe }}
+      </div>
+    </div>
+  </div>
+
+  {# —— Endpoint catalog from api_meta —— #}
+  <div data-api-panel-body="catalog" class="api-subpanel {{ '' if api_panel == 'catalog' else 'hidden' }}">
+    <div class="card p-5 mb-4">
+      <h2 class="font-semibold text-text mb-1">Endpoint catalog</h2>
+      <p class="text-xs text-muted mb-3">
+        Live catalog from the app (same data as <code class="font-mono">GET /api/v1</code> with a <code>read</code> token).
+      </p>
+      {% if api_meta %}
+      <div class="mb-4">
+        <h3 class="text-sm font-semibold mb-2">Scopes</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-xs text-muted border-b border-border">
+                <th class="py-2 pr-3">Scope</th>
+                <th class="py-2">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for name, desc in api_meta.scopes.items() %}
+              <tr class="border-b border-border/60">
+                <td class="py-1.5 pr-3 font-mono text-xs">{{ name }}</td>
+                <td class="py-1.5 text-sm">{{ desc }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="mb-4">
+        <h3 class="text-sm font-semibold mb-2">Endpoints</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-xs text-muted border-b border-border">
+                <th class="py-2 pr-3">Method</th>
+                <th class="py-2 pr-3">Path</th>
+                <th class="py-2 pr-3">Scope</th>
+                <th class="py-2">Summary</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for e in api_meta.endpoints %}
+              <tr class="border-b border-border/60">
+                <td class="py-1.5 pr-3 font-mono text-xs font-semibold">{{ e.method }}</td>
+                <td class="py-1.5 pr-3 font-mono text-xs">{{ e.path }}</td>
+                <td class="py-1.5 pr-3 text-xs">{{ e.scope }}</td>
+                <td class="py-1.5 text-sm">{{ e.summary }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% if api_meta.ip_restriction %}
+      <p class="text-xs text-muted border-t border-border pt-3">{{ api_meta.ip_restriction }}</p>
+      {% endif %}
+      {% if api_meta.feature_notes %}
+      <p class="text-xs text-muted mt-2">{{ api_meta.feature_notes }}</p>
+      {% endif %}
+      {% else %}
+      <p class="text-sm text-muted">Catalog unavailable.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="text-xs text-muted mt-2">
+  <a href="/" class="text-accent hover:underline">← Back to dashboard</a>
+</div>
+
