@@ -28,9 +28,9 @@
   <!-- Theme CSS variables (light/dark + Raspberry Pi branding).
        Companion sheets: fabric (network maps), ops (heroes/filters).
        Query busts browser + older SW caches when tokens change. -->
-  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-hops">
-  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-hops">
-  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-hops">
+  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-account">
+  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-account">
+  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-account">
 
   <!-- Apply saved theme ASAP (before paint) so the page doesn't flash light → dark -->
   <script>
@@ -366,14 +366,17 @@
 
   {# Holding modal for checks / patches / retention (polls Job status) #}
   {# Do not put both "hidden" and "flex" together — base .hidden uses display:none !important #}
-  <div id="job-hold-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50" aria-modal="true" role="dialog">
-    <div class="modal-content card p-6 w-full max-w-lg mx-4 flex flex-col max-h-[70vh]">
-      <div class="flex justify-between items-center mb-2 gap-2 flex-shrink-0">
-        <h3 id="job-hold-title" class="font-semibold">Working…</h3>
+  <div id="job-hold-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3" aria-modal="true" role="dialog">
+    <div class="modal-content card p-5 w-full max-w-lg mx-4 flex flex-col max-h-[75vh] ph-detail-modal">
+      <div class="ph-detail-modal-head">
+        <div class="min-w-0">
+          <div class="ph-detail-kicker">Job · live</div>
+          <h3 id="job-hold-title" class="ph-detail-title">Working…</h3>
+        </div>
         <button type="button" id="job-hold-close" class="btn btn-secondary min-h-11 text-xs px-3">Close</button>
       </div>
       <p id="job-hold-status" class="text-sm text-accent font-mono mb-2 min-h-[1.25rem] flex-shrink-0">Starting…</p>
-      <pre id="job-hold-log" class="log-output flex-1 min-h-[8rem] max-h-[40vh] overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded">…</pre>
+      <pre id="job-hold-log" class="ph-detail-log flex-1 min-h-[8rem] max-h-[40vh]">…</pre>
       <p id="job-hold-hint" class="text-[10px] text-muted mt-2 mb-0 flex-shrink-0">Please wait — this page will refresh when finished.</p>
     </div>
   </div>
@@ -381,9 +384,10 @@
   {# Blocking wait modal for sync form POSTs (host deps, stack status) — form still submits #}
   <div id="ph-wait-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-[60]"
        aria-modal="true" role="dialog" aria-labelledby="ph-wait-title" aria-busy="true">
-    <div class="modal-content card p-6 w-full max-w-md mx-4 text-center">
+    <div class="modal-content card p-6 w-full max-w-md mx-4 text-center ph-modal-brand">
+      <div class="ph-detail-kicker mb-2">PiHerder</div>
       <div class="mx-auto mb-4 h-10 w-10 rounded-full border-2 border-accent border-t-transparent animate-spin" aria-hidden="true"></div>
-      <h3 id="ph-wait-title" class="font-semibold text-lg mb-2">Working…</h3>
+      <h3 id="ph-wait-title" class="ph-detail-title mb-2">Working…</h3>
       <p id="ph-wait-message" class="text-sm text-muted mb-0">Please wait…</p>
       <p class="text-[10px] text-muted mt-3 mb-0">This page will update when the operation finishes. Do not close or navigate away.</p>
     </div>

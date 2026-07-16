@@ -5,8 +5,8 @@ Per-server **rsync over SSH** to the PiHerder backup volume. Runs on **Celery** 
 ## Enable backups
 
 1. Server **Edit → Features** → enable **Backups**.  
-2. Open the server’s **Backups** page.  
-3. Add **source paths** on the remote host.  
+2. Open the server’s **Backups** page (ops-hero + source cards — same width as other host pages).  
+3. Add **source paths** on the remote host (configure form lists current sources; empty only when none are set).  
 4. Optional: destination override, retention, cron schedule.  
 5. **Path allow/deny** — default deny of OS roots; optional prefixes.
 

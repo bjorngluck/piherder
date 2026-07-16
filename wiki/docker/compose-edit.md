@@ -23,7 +23,9 @@ On **Docker → Full editor**, PiHerder loads when present:
 - `.env`  
 - `Dockerfile`  
 
-Tabs edit each file; **Save & Deploy** writes the full set and redeploys. Version history stores multi-file snapshots (merge-on-save so one file no longer wipes the others).
+Tabs edit each file (file badges in the chrome); **Save & Deploy** writes the full set and redeploys. Version history stores multi-file snapshots (merge-on-save so one file no longer wipes the others).
+
+**Word wrap:** toggle wrap in the editor. Line numbers stay aligned with wrapped lines (gutter heights remeasured after the overlay is forced to the editor size).
 
 On the host, Compose still auto-loads override + `.env` in the project directory.
 

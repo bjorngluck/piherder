@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** **v0.5.0 in development** — Phase 1–5 complete; Phase 6 templates **foundation shipped** in v0.4.0; ops + polish + RC → **v0.5.0**  
-> **Last updated:** 2026-07-16 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target). Landed: **A–H** + Network maps QA polish + hero layout contract + mobile orientation reflow + dashboard/settings UI polish. Still open: multi-arch image, RC freeze.
+> **Last updated:** 2026-07-16 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target). Landed: **A–H** + Network maps QA + full ops UI polish (login/services/docker/backups/account heroes; password & closed-registration UX) + **MIT open source**. Still open: multi-arch image, RC freeze.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -24,9 +24,10 @@ This document is the canonical spec for PiHerder. Use it to track work in a [Git
 - Base: Light + Dark themes using Raspberry Pi branding (red `#E60012`/`#C8102E`, green `#00A651`).
 - Default to system preference, with manual toggle.
 - Stylesheets: `themes.css` (tokens + chrome) + `fabric.css` (Network maps) + `ops.css` (ops-hero / filters) — query-busted; SW network-first for CSS/JS.
-- Ops UI: shared **ops-hero** dual-line pulse on Servers, Jobs, Audit, Alerts, Catalog, Settings, Account, Users (`app/services/ops_pulse.py`).
-- **Hero layout contract:** desktop (≥768px) title left · viz right; mobile compact viz under title. Catalog always renders a viz shell so tabs share chrome.
+- Ops UI: shared **ops-hero** dual-line pulse on Servers, Jobs, Audit, Alerts, Catalog, Settings, Account, Users, fleet Services, host Docker/Backups (`app/services/ops_pulse.py` + page-local pulses).
+- **Hero layout contract:** desktop (≥768px) title left · viz right; mobile compact viz under title; **full content width** (no narrow page clamp on Account). Catalog always renders a viz shell so tabs share chrome.
 - **Mobile orientation:** portrait↔landscape reflow (viewport vars, close slide-out, Network `PiHerderFabric.refreshLayout` resets map zoom/sizes).
+- Auth pages: mesh animation; closed self-registration points operators to admin invite (`ALLOW_OPEN_REGISTRATION` opt-in).
 - Goal: Consistent branding, mobile-friendly, delightful UX.
 - A standalone test page is available at `/static/theme-test.html` for safe visual validation of the colour scheme without affecting the main application.
 
@@ -146,7 +147,7 @@ Related backup hardening (same phase):
 - [x] **User profile / IAM** — display name, email change, avatar, password change; lock open registration after first user — see [feature plan](docs/FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
 - [x] **Role-based access (admin / operator / viewer)** — `User.role`; viewers read-only except self-service; operators run fleet jobs; admin manages roles at `/auth/users`
 - [x] **User admin** — create user (password generator, strength meter, policy, one-time copyable invite); delete with modal confirm; sole-admin protection
-- [x] **Password policy** — min 10 + upper/lower/digit; enforced on register, change password, admin create; admin-created users **must change password on first login**
+- [x] **Password policy** — min 10 + upper/lower/digit; soft max ~72 **characters** (storage); human-readable form text; enforced on register, change password, admin create; admin-created users **must change password on first login**
 - [x] **Force 2FA (global)** — Settings → Security policy `force_2fa`; blocks fleet UI until TOTP enabled
 - [x] **Multi-user audit attribution** — audit rows store `user_id`; UI shows display name + email; scheduled jobs labeled “system / scheduler”
 - [x] **Compose multi-file project support** — load/edit/deploy compose + override + `.env` + Dockerfile; merge-on-save version snapshots
@@ -288,6 +289,15 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [x] Docker full editor navigation (⋯ **Full editor…** + quick-edit link)
 - [x] Backup complete audit + app timezone display (Audit/Jobs/Notifications/fleet)
 
+**UI polish (RC cycle — non-blocking for freeze bar)**
+
+- [x] Ops-hero layout contract + mobile orientation reflow + Network fabric refresh
+- [x] Login / register (mesh, closed-reg invite copy) + password policy wording
+- [x] Fleet Services + host Services / Docker / Backups / server detail heroes and cards
+- [x] Compose full-editor wrap gutters; docker logs/build branding; audit compact pulse
+- [x] Account full-width hero + card grid (aligned with other ops pages)
+- [x] Open source **MIT** license + README / CONTRIBUTING
+
 **Stretch quality G + audit IP H**
 
 - [x] **B07** Docker stack Check/Deploy as Jobs + live log (`docker_stack_check` / `docker_stack_deploy`)
@@ -404,9 +414,8 @@ flowchart TB
 | `PIHERDER_MASTER_KEY` | Host `.env` only — never committed |
 | SSH private keys | Fernet-encrypted in DB; decrypted in-memory per job |
 | SSH passwords (optional) | Fernet-encrypted; discouraged; clear after key deploy |
-| User passwords | bcrypt hashed |
+| User passwords | bcrypt; policy min 10 + upper/lower/digit; soft max ~72 characters; admin-created users forced reset on first login |
 | 2FA | TOTP secret Fernet-encrypted; hashed backup codes; optional trusted device cookie; optional global force-2FA |
-| User passwords | bcrypt; policy min 10 + complexity; admin-created users forced reset on first login |
 | Sessions | JWT (HS256) cookie via PyJWT + cryptography |
 | Transport | HTTPS via Caddy + volume-mounted PEMs (or `Caddyfile.dev` self-signed for local) |
 
@@ -441,6 +450,6 @@ Configurable per-server fields that map 1:1: `backup_paths`, `docker_base_dir`, 
 
 ## License
 
-**PolyForm Noncommercial 1.0.0** — see [LICENSE](LICENSE).
+**MIT** — see [LICENSE](LICENSE).
 
-Non-commercial source-available use; copyright **Bjorn Gluck**. Commercial use requires a separate grant. Not OSI open source (by design).
+Open source; copyright **Bjorn Gluck**. Contributions under the same terms — see [CONTRIBUTING.md](CONTRIBUTING.md).

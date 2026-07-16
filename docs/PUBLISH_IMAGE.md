@@ -23,14 +23,14 @@ docker compose up -d --build
    - Copy the token once (treat like a password)
 4. **Create repository** (if it does not exist):
    - Name: `piherder`
-   - Visibility: **Public** (matches public GitHub; PolyForm NC still applies to *software* terms — Hub is just distribution)
+   - Visibility: **Public** (matches public GitHub; software is **MIT**)
    - Short description: e.g. *Self-hosted Raspberry Pi / Linux fleet manager (backups, patch, Docker, templates)*
    - Full description: link to GitHub + docs:
 
      ```text
      https://github.com/bjorngluck/piherder
      Docs: https://bjorngluck.github.io/piherder/
-     License: PolyForm Noncommercial 1.0.0
+     License: MIT
      ```
 
 5. On the build machine:

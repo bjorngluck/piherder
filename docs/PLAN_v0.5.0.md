@@ -2,7 +2,7 @@
 
 **Status:** **QA / release prep** (feature work for RC substantially complete; operator QA then freeze)  
 **Date opened:** 2026-07-12  
-**Last plan refresh:** 2026-07-16 (hero layout contract; mobile orientation reflow; Network fabric refresh; dashboard NPM hosts; Settings TZ card; wiki/docs sync)  
+**Last plan refresh:** 2026-07-16 (MIT license; full ops UI polish batch — auth/services/docker/backups/account; password + registration UX; wiki/docs sync)  
 **Baseline:** `v0.4.0` (templates foundation + post-0.3 quality)  
 **Package version on main:** `0.5.0.dev0` (`pyproject.toml`) — bump to `0.5.0` at tag  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [SPEC.md](../SPEC.md) · Wiki: [Network maps](../wiki/integrations/dns-fabric.md)
@@ -15,9 +15,9 @@
 | Planning frame | **Single target** — former v0.4.x ops + RC polish land in this cycle |
 | Intermediate tags | Optional only if something must ship early; not the plan structure |
 | Production path | ~~v0.4.0~~ **done** → **v0.5.0 QA → tag** → v1.0 |
-| **GitHub visibility** | Stay **private** while developing; **make public at RC** (enables free GitHub Pages) |
-| **Wiki / Pages go-live** | **Live** — https://bjorngluck.github.io/piherder/ (repo public; `gh-pages` branch deploy) |
-| **License** | **PolyForm Noncommercial 1.0.0** (source-available, non-commercial). Copyright Bjorn Gluck. Commercial use = separate grant. Not OSI open source. |
+| **GitHub visibility** | **Public** (open source) |
+| **Wiki / Pages go-live** | **Live** — https://bjorngluck.github.io/piherder/ (`gh-pages` / Pages deploy) |
+| **License** | **MIT** — open source. Copyright Bjorn Gluck. See [LICENSE](../LICENSE). |
 
 ### GitHub Pages
 
@@ -163,6 +163,7 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 | **pip-audit in CI** | Optional workflow step / Dependabot | Open (post-tag ok) |
 | **JWT → PyJWT** | Drop `python-jose`/`ecdsa`; sessions via PyJWT HS256 | **Done** |
 | **Custom branding** | Far horizon — not post-RC 1.0 |
+| **Custom password policy** | Post-RC: let admins configure min length / required character classes (today fixed in `password_policy.py`: min 10, upper+lower+digit, soft max ~72 characters). |
 
 ### UX (this cycle, non-blocking polish)
 
@@ -170,15 +171,21 @@ Elevated from nice-to-have / out-of-scope: **Pi-hole + NPM + TLS cert ops** are 
 |------|--------|--------|
 | Catalog **Certificates** tab | First-class Catalog section; list shows maps + expiry summary | **Done** (2026-07-15) |
 | Fleet **Services** polish | Filter All/Up/Down/TLS; search; clearer empty state; Docker deep link | **Done** (2026-07-15) |
+| **Login / register UX** | Auth mesh animation; closed registration → “ask an admin” (not hard error); password policy human text (`password_policy.policy_rules_text`); soft max ~72 characters | **Done** (2026-07-16) |
+| **Fleet Services / host Services** | Ops-hero + open-app tiles on `/services`; host Services cards; mobile stack (no action-column squash) | **Done** (2026-07-16) |
+| **Docker UX** | Host Docker ops-hero; cleanup lists unused by default; logs/build progress branding; compose full-editor file badges + wrap-mode gutter heights (forceOverlaySize before measure) | **Done** (2026-07-16) |
+| **Host / backups / ops detail** | Server detail + backups heroes; backup configure sources robust for Jinja; job-hold / audit & job detail modals (`ph-detail-modal`); audit compact filters + collapsible pulse | **Done** (2026-07-16) |
+| **Account layout** | Full-width ops-hero (same contract as other ops pages); 2-col `account-card-grid` for profile/security cards | **Done** (2026-07-16) |
 | Repo cruft cleanup | Removed `Caddyfile.old`, `THEMING_VARIABLES.md`, `UI_UNIFICATION_PLAN.md` | **Done** |
 | **Ops-hero design system** | Dual-line pulse + compact filters on Servers, Jobs, Audit, Alerts, Catalog sections, Settings, Account, Users; shared `ops_pulse` helper | **Done** (2026-07-15) |
-| **Hero layout contract** | Desktop: title left · viz right (≥768px grid). Mobile: compact viz strip under title. Catalog always renders viz shell | **Done** (2026-07-16) |
+| **Hero layout contract** | Desktop: title left · viz right (≥768px grid). Mobile: compact viz strip under title. Catalog always renders viz shell. Account matches full content width | **Done** (2026-07-16) |
 | **Mobile orientation reflow** | Portrait↔landscape: close slide-out, reset scroll/zoom, recompute `--app-vh`/`--app-vw`; Network maps call `PiHerderFabric.refreshLayout` | **Done** (2026-07-16) |
 | **Dashboard network showcase** | Constellation mesh panel; **NPM hosts** = integration `proxy_host_count` (not DNS `via_proxy` alone) | **Done** (2026-07-16) |
 | **Settings timezone card** | General tab: wireframe globe + city + `UTC±offset` + local clock (not city crammed in orb) | **Done** (2026-07-16) |
 | **Audit/Jobs date presets** | 7d / 30d / 90d use **app timezone** calendar day (not browser local midnight) | **Done** |
 | **Integrations router split** | `integrations_common` + `integrations_pihole` + `integrations_npm` (thin product shells on shared router) | **Done** |
 | **Theme CSS split** | `themes.css` + `fabric.css` (maps/fullscreen) + `ops.css` (heroes/filters); network-first SW + query bust | **Done** |
+| **Open source (MIT)** | LICENSE → MIT; README / CONTRIBUTING welcoming; remaining docs/wiki license lines aligned | **Done** (2026-07-16) |
 
 ---
 
@@ -219,6 +226,10 @@ Must-have:
 - [ ] Network maps smoke (F.1) incl. mobile Hide map / Full screen / hamburger  
 - [ ] Mobile portrait ↔ landscape on Catalog (all 4 tabs) + Network hub/Hosts/Path maps (layout rescales without remount)  
 - [ ] Catalog ops-hero consistency (Integrations / Certificates / Templates / Network) desktop + phone  
+- [ ] Account hero + cards same content width as other ops pages (not narrow max-w clamp)  
+- [ ] Login (closed reg → ask admin) + password policy copy (characters, not bytes)  
+- [ ] Fleet Services + host Services mobile (no action squash); Docker full editor wrap gutters  
+- [ ] Server detail + Backups heroes/cards match ops layout  
 - [ ] Settings tabs: General TZ card, Fleet / Backup / Status / API hero switches client-side  
 - [ ] Dashboard: NPM hosts count matches NPM integration proxy hosts  
 - [ ] Template deploy + drift + apply last known config  
@@ -255,12 +266,15 @@ git log --oneline v0.4.0..HEAD
 | Audit client IP (H) | `client_ip` on all request audits; login/token audits; Celery keeps queue IP; Alembic commit fix |
 | Pi-hole / NPM / certs | Workstream F (multi Pi-hole, NPM RO, managed certs, renew) |
 | Network maps (DNS fabric) | Host A + service mappings; adopt Pi-hole; Hosts/Path maps; LAN/cloud/Internet spine; Kuma infra; node+path focus; mobile hide/fullscreen vs hamburger; orientation reflow |
-| Ops UI polish | ops-hero dual-line pulse + layout contract; app-TZ date presets; Network maps naming; Settings TZ card; dashboard constellation + NPM host count |
+| Ops UI polish | ops-hero dual-line pulse + layout contract (incl. Account full-width); app-TZ date presets; Network maps; Settings TZ card; dashboard constellation + NPM host count |
+| Auth / password UX | Closed registration → admin invite; human password rules; soft max ~72 characters |
+| Services / Docker / backups polish | Fleet + host Services heroes/cards; Docker hero/logs/build/editor wrap; backups hero + configure sources |
 | Architecture maintainability | `dns_fabric` package; fabric/ops CSS split; integrations product modules; `ops_pulse`; cheap Docker fabric index |
 | Catalog Certificates + Services UX | Certificates as Catalog tab; list maps/expiry; fleet Services filters + search |
 | A template polish | Volume editor on redeploy; from-host edges; post-redeploy links |
 | B drift + env migrate | Scheduled/manual drift; import host `.env` into encrypted SoT |
 | C restore / last config | Apply last known config; backup sources matched on deployment |
+| Open source | MIT license; public repo + contributing guide |
 
 ---
 

@@ -11,7 +11,7 @@ repo_name: bjorngluck/piherder
 edit_uri: edit/main/wiki/
 docs_dir: wiki
 site_dir: site
-copyright: Copyright &copy; 2026 Bjorn Gluck · PolyForm Noncommercial 1.0.0
+copyright: Copyright &copy; 2026 Bjorn Gluck · MIT License
 
 # Do not treat repo notes as site pages (README conflicts with index.md in strict mode)
 exclude_docs: |

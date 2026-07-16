@@ -9,33 +9,55 @@
 {% set effective_root = server.backup_dest_root or g.dest_root or settings.BACKUP_ROOT %}
 {% set effective_folder = server.backup_folder_name or g.folder_name or server.hostname %}
 
-<div class="page-header mb-6">
-  <div>
-    <a href="/servers/{{ server.id }}" class="text-xs text-accent hover:underline">← {{ server.name }}</a>
-    <span class="text-xs text-muted mx-1">·</span>
-    <a href="/servers" class="text-xs text-accent hover:underline">All servers</a>
-    <h1 class="text-3xl font-semibold tracking-tighter text-text mt-1">Backups</h1>
-    <p class="text-sm text-muted mt-1">{{ server.name }} · {{ server.hostname }}</p>
+{% set _src_n = backup_profiles|length if backup_profiles else 0 %}
+{% set _bhealth = 'busy' if backup_running else ('hot' if last_backup_status == 'failed' else 'ok') %}
+<section class="ops-hero ops-hero--backup is-{{ _bhealth }} mb-4">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker">
+      <a href="/servers/{{ server.id }}" class="text-accent hover:underline">{{ server.name }}</a>
+      · Backups
+    </div>
+    <h1 class="ops-hero-title">Backups</h1>
+    <p class="ops-hero-sub">
+      {{ server.hostname }}
+      · → <code class="text-[10px]">{{ effective_root }}/{{ effective_folder }}/</code>
+      ·
+      {% if backup_running %}
+      <span class="ops-hero-status ops-hero-status--run">running</span>
+      {% elif last_backup_status == 'success' %}
+      <span class="ops-hero-status ops-hero-status--ok">last ok</span>
+      {% elif last_backup_status == 'failed' %}
+      <span class="ops-hero-status" style="background:color-mix(in srgb,var(--color-danger)12%,var(--color-surface));color:var(--color-danger);border:1px solid color-mix(in srgb,var(--color-danger)35%,var(--color-border));font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;padding:0.12rem 0.45rem;border-radius:999px">last failed</span>
+      {% else %}
+      <span class="ops-hero-status ops-hero-status--ok">ready</span>
+      {% endif %}
+    </p>
+    <div class="ops-hero-actions">
+      <button type="button" onclick="showBackupConfigModal()" class="btn btn-secondary min-h-11 text-sm">Configure</button>
+      {% if running_backup_job %}
+      <button type="button" onclick="openBackupLog(null, {{ running_backup_job.id }})" class="btn btn-secondary min-h-11 text-sm">📋 Log</button>
+      {% elif not backup_running %}
+      <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form">
+        <button type="submit" class="btn btn-accent min-h-11 text-sm">▶ Full backup</button>
+      </form>
+      {% endif %}
+      <a href="/servers/{{ server.id }}" class="btn btn-secondary min-h-11 text-sm">Server</a>
+    </div>
   </div>
-  <div class="page-header-actions">
-    <button type="button" onclick="showBackupConfigModal()" class="btn btn-secondary min-h-11">Configure</button>
-    {% if running_backup_job %}
-    <button type="button" onclick="openBackupLog(null, {{ running_backup_job.id }})" class="btn btn-secondary min-h-11">📋 Log</button>
-    {% elif not backup_running %}
-    <form method="post" action="/servers/{{ server.id }}/run/backup" class="backup-run-form">
-      <button type="submit" class="btn btn-accent min-h-11">▶ Full backup</button>
-    </form>
-    {% endif %}
+  <div class="ops-hero-viz">
+    <div class="ops-hero-orb {% if _bhealth == 'hot' %}ops-hero-orb--hot{% elif _bhealth == 'busy' %}{% else %}ops-hero-orb--ok{% endif %}" aria-hidden="true">
+      <div class="ops-alert-orb-core">
+        <div class="ops-queue-n">{{ _src_n }}</div>
+        <div class="ops-queue-l">src</div>
+      </div>
+    </div>
+    <div class="ops-pulse-stats">
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ server.retention_days or 7 }}</span><span class="ops-pulse-l">days keep</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-xs" style="font-size:0.7rem">{{ (server.backup_schedule or '—')[:12] }}</span><span class="ops-pulse-l">cron</span></div>
+    </div>
+    <p class="ops-pulse-caption">rsync sources · path policy</p>
   </div>
-</div>
-
-{% if last_backup_status %}
-<div class="mb-4">
-  <span class="status-pill {{ 'status-success' if last_backup_status == 'success' else 'status-failed' }}">
-    Last run: {{ last_backup_status }}
-  </span>
-</div>
-{% endif %}
+</section>
 
 <div class="card p-5">
   <div class="mb-3">
@@ -140,30 +162,35 @@
   <div id="add-source-error" class="text-danger text-xs mt-1 hidden"></div>
   <p class="text-[10px] text-muted mb-4">Paths must be absolute. OS roots (<code>/etc</code>, <code>/boot</code>, …) are denied by default — see path policy below.</p>
 
-  <div class="border-t border-border pt-4 mb-4">
-    <h3 class="font-semibold text-sm text-text mb-1">Path allow / deny policy</h3>
-    <p class="text-xs text-muted mb-3">
-      Deny always wins. If allow is non-empty, sources must match an allow prefix.
-      Built-in denials (always on unless overridden by allow for non-root):
-      <span class="font-mono">{{ (default_deny_paths or [])[:8] | join(', ') }}{% if (default_deny_paths or [])|length > 8 %}, …{% endif %}</span>
-    </p>
-    {% set pr = path_rules if path_rules is mapping else {'allow': [], 'deny': []} %}
-    <form method="post" action="/servers/{{ server.id }}/backup-path-rules" class="grid gap-3 sm:grid-cols-2">
-      <div>
-        <label class="block text-xs text-muted mb-1">Allow prefixes (one per line)</label>
-        <textarea name="allow_paths" rows="4" class="w-full bg-surface border border-border text-xs px-2 py-2 rounded font-mono"
-          placeholder="/home&#10;/var/lib/docker">{{ (pr.allow or []) | join('\n') }}</textarea>
-      </div>
-      <div>
-        <label class="block text-xs text-muted mb-1">Extra deny prefixes (one per line)</label>
-        <textarea name="deny_paths" rows="4" class="w-full bg-surface border border-border text-xs px-2 py-2 rounded font-mono"
-          placeholder="/tmp&#10;/var/tmp">{{ (pr.deny or []) | join('\n') }}</textarea>
-      </div>
-      <div class="sm:col-span-2">
-        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save path policy</button>
-      </div>
-    </form>
-  </div>
+  <details class="ph-collapse-card mt-4" open>
+    <summary>
+      Path allow / deny policy
+      <span class="ph-collapse-hint">Deny wins · built-in OS roots blocked by default</span>
+    </summary>
+    <div class="ph-collapse-card-body">
+      <p class="text-xs text-muted mb-3">
+        Deny always wins. If allow is non-empty, sources must match an allow prefix.
+        Built-in denials:
+        <span class="font-mono text-[10px]">{{ (default_deny_paths or [])[:8] | join(', ') }}{% if (default_deny_paths or [])|length > 8 %}, …{% endif %}</span>
+      </p>
+      {% set pr = path_rules if path_rules is mapping else {'allow': [], 'deny': []} %}
+      <form method="post" action="/servers/{{ server.id }}/backup-path-rules" class="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label class="block text-xs text-muted mb-1">Allow prefixes (one per line)</label>
+          <textarea name="allow_paths" rows="4" class="w-full bg-surface border border-border text-xs px-2 py-2 rounded font-mono"
+            placeholder="/home&#10;/var/lib/docker">{{ (pr.allow or []) | join('\n') }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Extra deny prefixes (one per line)</label>
+          <textarea name="deny_paths" rows="4" class="w-full bg-surface border border-border text-xs px-2 py-2 rounded font-mono"
+            placeholder="/tmp&#10;/var/tmp">{{ (pr.deny or []) | join('\n') }}</textarea>
+        </div>
+        <div class="sm:col-span-2">
+          <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save path policy</button>
+        </div>
+      </form>
+    </div>
+  </details>
 
   <div class="border-t border-border pt-4">
     <form method="post" action="/servers/{{ server.id }}/backup-config" class="flex flex-wrap gap-2 items-end text-sm mb-2">
@@ -171,66 +198,71 @@
         <label class="block text-xs text-muted mb-1">Retention days</label>
         <input type="number" name="retention_days" value="{{ server.retention_days or 7 }}" class="w-20 bg-surface border border-border px-2 py-2 rounded min-h-11">
       </div>
-      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Update</button>
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Update retention</button>
+      <button type="button" onclick="showBackupConfigModal()" class="btn btn-secondary min-h-11 text-sm">Full configure…</button>
     </form>
-    <p class="text-xs text-muted mt-1">Use Configure for schedule/cron and destination paths.</p>
+    <p class="text-xs text-muted mt-1">Schedule/cron and destination paths are under Configure.</p>
   </div>
 </div>
 
-{# Restore wizard #}
-<div class="card p-5 mt-6">
-  <h2 class="font-semibold text-text mb-1">Restore wizard</h2>
-  <p class="text-xs text-muted mb-3">
-    Reverse rsync: local backup destination → remote source. Always starts as <strong>dry-run</strong>.
-    Uncheck dry-run and check confirm to write for real. Path policy still applies.
-  </p>
+{# Restore wizard — collapsed by default to keep page calm #}
+<details class="ph-collapse-card mt-4" {% if restore_result %}open{% endif %}>
+  <summary>
+    Restore wizard
+    <span class="ph-collapse-hint">Reverse rsync · always starts dry-run</span>
+  </summary>
+  <div class="ph-collapse-card-body">
+    <p class="text-xs text-muted mb-3">
+      Local backup destination → remote source. Uncheck dry-run and check confirm to write for real. Path policy still applies.
+    </p>
 
-  {% if restore_result %}
-  <div class="mb-4 p-3 border border-border rounded text-sm {{ 'banner-success' if restore_result.rc == 0 and not restore_result.error else 'banner-error' }}">
-    <div class="font-medium mb-1">
-      {% if restore_result.dry_run %}Dry-run{% else %}Restore{% endif %}:
-      {{ restore_result.summary or restore_result.error or ('rc=' ~ restore_result.rc) }}
-    </div>
-    <div class="text-xs text-muted font-mono break-all">{{ restore_result.source }} ← {{ restore_result.destination }}</div>
-    {% if restore_result.output %}
-    <pre class="log-output mt-2 p-2 text-[10px] max-h-40 overflow-auto border border-border rounded">{{ restore_result.output[:3000] }}</pre>
-    {% endif %}
-  </div>
-  {% endif %}
-
-  {% if restore_candidates %}
-  <div class="space-y-3">
-    {% for c in restore_candidates %}
-    <div class="border border-border rounded p-3">
-      <div class="font-mono text-xs break-all">{{ c.source }}</div>
-      <div class="text-[10px] text-muted mt-0.5">
-        Local: {{ c.destination }}
-        · {% if c.exists %}ready{% else %}no local data{% endif %}
-        · last {{ c.last_backup_str }}
+    {% if restore_result %}
+    <div class="mb-4 p-3 border border-border rounded text-sm {{ 'banner-success' if restore_result.rc == 0 and not restore_result.error else 'banner-error' }}">
+      <div class="font-medium mb-1">
+        {% if restore_result.dry_run %}Dry-run{% else %}Restore{% endif %}:
+        {{ restore_result.summary or restore_result.error or ('rc=' ~ restore_result.rc) }}
       </div>
-      {% if c.exists %}
-      <form method="post" action="/servers/{{ server.id }}/backup/restore" class="mt-2 flex flex-wrap items-center gap-3 text-sm">
-        <input type="hidden" name="source" value="{{ c.source }}">
-        <label class="flex items-center gap-2 min-h-11">
-          <input type="checkbox" name="dry_run" value="1" checked>
-          Dry-run
-        </label>
-        <label class="flex items-center gap-2 min-h-11 text-warning">
-          <input type="checkbox" name="confirm" value="1">
-          Confirm write
-        </label>
-        <button type="submit" class="btn btn-secondary min-h-11 text-xs">Run restore</button>
-      </form>
-      {% else %}
-      <p class="text-xs text-muted mt-2 mb-0">No local backup data yet — run a backup first.</p>
+      <div class="text-xs text-muted font-mono break-all">{{ restore_result.source }} ← {{ restore_result.destination }}</div>
+      {% if restore_result.output %}
+      <pre class="log-output mt-2 p-2 text-[10px] max-h-40 overflow-auto border border-border rounded">{{ restore_result.output[:3000] }}</pre>
       {% endif %}
     </div>
-    {% endfor %}
+    {% endif %}
+
+    {% if restore_candidates %}
+    <div class="space-y-3">
+      {% for c in restore_candidates %}
+      <div class="border border-border rounded p-3">
+        <div class="font-mono text-xs break-all">{{ c.source }}</div>
+        <div class="text-[10px] text-muted mt-0.5">
+          Local: {{ c.destination }}
+          · {% if c.exists %}ready{% else %}no local data{% endif %}
+          · last {{ c.last_backup_str }}
+        </div>
+        {% if c.exists %}
+        <form method="post" action="/servers/{{ server.id }}/backup/restore" class="mt-2 flex flex-wrap items-center gap-3 text-sm">
+          <input type="hidden" name="source" value="{{ c.source }}">
+          <label class="flex items-center gap-2 min-h-11">
+            <input type="checkbox" name="dry_run" value="1" checked>
+            Dry-run
+          </label>
+          <label class="flex items-center gap-2 min-h-11 text-warning">
+            <input type="checkbox" name="confirm" value="1">
+            Confirm write
+          </label>
+          <button type="submit" class="btn btn-secondary min-h-11 text-xs">Run restore</button>
+        </form>
+        {% else %}
+        <p class="text-xs text-muted mt-2 mb-0">No local backup data yet — run a backup first.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-muted mb-0">Add backup sources first.</p>
+    {% endif %}
   </div>
-  {% else %}
-  <p class="text-sm text-muted mb-0">Add backup sources first.</p>
-  {% endif %}
-</div>
+</details>
 
 <div class="mt-6 text-xs text-muted flex flex-wrap gap-x-3 gap-y-1">
   <a href="/servers/{{ server.id }}" class="text-accent hover:underline">← Back to server</a>
@@ -241,57 +273,78 @@
 <!-- Include key modals and JS (duplicated from detail for self-contained page) -->
 
 <!-- Backup Config Modal -->
-<div id="backup-config-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="modal-content card p-6 w-full max-w-xl mx-4">
-    <div class="flex justify-between mb-3">
-      <h3 class="font-semibold">Configure Backups</h3>
-      <button onclick="hideBackupConfigModal()" class="text-muted">✕</button>
+<div id="backup-config-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-xl mx-4 ph-modal-brand ph-config-modal max-h-[90vh] overflow-y-auto">
+    <div class="ph-detail-modal-head">
+      <div class="min-w-0">
+        <div class="ph-detail-kicker">Backups · {{ server.name }}</div>
+        <h3 class="ph-detail-title">Configure backups</h3>
+        <p class="text-xs text-muted mt-1">Schedule, retention, destination, and source list</p>
+      </div>
+      <button type="button" onclick="hideBackupConfigModal()" class="source-icon-btn" aria-label="Close">✕</button>
     </div>
 
     <form method="post" action="/servers/{{ server.id }}/backup-config">
-      <div class="mb-3">
-        <label class="text-xs text-muted">Sources (one per line)</label>
-        <textarea name="backup_paths" class="w-full font-mono text-xs code-surface border border-border p-2 rounded h-20">{% set gsrc = current_sources if current_sources else (global_backup_defaults.sources if global_backup_defaults and global_backup_defaults.sources is defined else global_backup_defaults) %}
-{% for p in (gsrc or []) %}{{ p }}
-{% endfor %}</textarea>
+      <div class="ph-config-section" style="margin-top:0;padding-top:0;border-top:0">
+        <div class="ph-config-section-title">Sources</div>
+        <label class="text-xs text-muted block mb-1" for="backup-paths-input">Paths on remote (one per line)</label>
+        {# Single expression (Jinja if-set is block-scoped and would leave this empty) #}
+        {% set path_lines = (
+          current_sources
+          if current_sources
+          else (
+            (backup_profiles | map(attribute='source') | reject('none') | list)
+            if backup_profiles
+            else (
+              (global_backup_defaults.sources if global_backup_defaults is mapping and global_backup_defaults.sources else [])
+            )
+          )
+        ) %}
+        <textarea id="backup-paths-input" name="backup_paths" rows="6"
+                  class="w-full font-mono text-xs code-surface border border-border p-2.5 rounded min-h-[6rem]"
+                  placeholder="/home/user/docker/&#10;/var/lib/docker/volumes/"
+                  spellcheck="false">{{ path_lines | join('\n') }}</textarea>
       </div>
 
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="text-xs text-muted">Retention days</label>
-          <input type="number" name="retention_days" value="{{ server.retention_days or 7 }}" class="w-full bg-surface border border-border px-2 py-1 rounded">
-        </div>
-        <div>
-          <label class="text-xs text-muted">Schedule</label>
-          <input type="text" name="backup_schedule" id="cron-input" value="{{ server.backup_schedule or '' }}" placeholder="0 2 * * *" class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs">
-          <p class="text-[9px] text-muted">e.g. 0 2 * * * for 2am daily. Use Configure on main or advanced.</p>
-        </div>
-      </div>
-
-      <div class="mt-3 border-t border-border pt-2">
-        <div class="text-xs text-muted mb-1 font-medium">Destination config</div>
-        <div class="grid grid-cols-2 gap-2">
+      <div class="ph-config-section">
+        <div class="ph-config-section-title">Schedule &amp; retention</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label class="text-xs text-muted block">Default destination path root</label>
-            <input name="dest_root" value="{{ server.backup_dest_root or g.dest_root or settings.BACKUP_ROOT }}" class="w-full bg-surface border border-border px-2 py-1 rounded text-sm font-mono">
+            <label class="text-xs text-muted block mb-1">Retention days</label>
+            <input type="number" name="retention_days" value="{{ server.retention_days or 7 }}" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
           </div>
           <div>
-            <label class="text-xs text-muted block">Server folder name</label>
-            <input name="folder_name" value="{{ server.backup_folder_name or g.folder_name or '' }}" class="w-full bg-surface border border-border px-2 py-1 rounded text-sm font-mono">
+            <label class="text-xs text-muted block mb-1">Cron schedule</label>
+            <input type="text" name="backup_schedule" id="cron-input" value="{{ server.backup_schedule or '' }}" placeholder="0 2 * * *" class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11">
+            <p class="text-[10px] text-muted mt-1">e.g. <code>0 2 * * *</code> = 02:00 daily (app timezone)</p>
           </div>
         </div>
       </div>
 
-      <div class="mt-3">
-        <div class="text-xs text-muted mb-1">Save scope</div>
-        <label class="flex gap-2 text-sm"><input type="radio" name="scope" value="this_host" checked> This host only</label>
-        <label class="flex gap-2 text-sm"><input type="radio" name="scope" value="global"> Global default</label>
+      <div class="ph-config-section">
+        <div class="ph-config-section-title">Destination</div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-muted block mb-1">Path root (in PiHerder container)</label>
+            <input name="dest_root" value="{{ server.backup_dest_root or g.dest_root or settings.BACKUP_ROOT }}" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </div>
+          <div>
+            <label class="text-xs text-muted block mb-1">Server folder name</label>
+            <input name="folder_name" value="{{ server.backup_folder_name or g.folder_name or '' }}" placeholder="{{ server.hostname }}" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </div>
+        </div>
+      </div>
+
+      <div class="ph-config-section">
+        <div class="ph-config-section-title">Save scope</div>
+        <label class="flex gap-2 text-sm items-center min-h-11"><input type="radio" name="scope" value="this_host" checked> This host only</label>
+        <label class="flex gap-2 text-sm items-center min-h-11"><input type="radio" name="scope" value="global"> Global default (new hosts inherit)</label>
       </div>
 
       <div id="config-error" class="text-danger text-sm mb-2 hidden"></div>
-      <div class="flex gap-2 mt-4">
-        <button type="submit" class="px-4 py-1 btn btn-accent rounded text-sm">Save</button>
-        <button type="button" onclick="hideBackupConfigModal()" class="px-4 py-1 btn btn-secondary rounded text-sm ml-auto">Cancel</button>
+      <div class="flex flex-wrap gap-2 mt-4 justify-end">
+        <button type="button" onclick="hideBackupConfigModal()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+        <button type="submit" class="btn btn-accent min-h-11 text-sm">Save configuration</button>
       </div>
     </form>
   </div>

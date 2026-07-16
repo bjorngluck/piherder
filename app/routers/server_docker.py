@@ -1330,23 +1330,42 @@ async def list_unused_route(
     except Exception as e:
         data = {"dangling_images": [], "exited_containers": [], "success": False, "errors": [str(e)[:200]]}
 
-    # Build a small HTML snippet for the fetch().innerHTML
+    # Build a small HTML snippet for the fetch().innerHTML (theme tokens)
     lines = []
     di = data.get("dangling_images", []) or []
     ec = data.get("exited_containers", []) or []
     if not di and not ec:
-        lines.append("<div class='text-zinc-400'>No dangling images or exited containers found.</div>")
+        lines.append(
+            "<div class='text-muted'>No dangling images or exited containers found.</div>"
+        )
     else:
         if di:
-            lines.append("<div class='text-amber-400 font-medium'>Dangling images:</div>")
-            lines.append("<pre class='whitespace-pre-wrap text-[10px]'>" + "\n".join(di) + "</pre>")
+            lines.append(
+                f"<div class='text-warning font-medium mb-0.5'>Dangling images "
+                f"<span class='text-muted font-normal'>({len(di)})</span></div>"
+            )
+            lines.append(
+                "<pre class='whitespace-pre-wrap text-[10px] mb-2'>"
+                + "\n".join(di)
+                + "</pre>"
+            )
         if ec:
-            lines.append("<div class='text-amber-400 font-medium mt-1'>Exited containers:</div>")
-            lines.append("<pre class='whitespace-pre-wrap text-[10px]'>" + "\n".join(ec) + "</pre>")
+            lines.append(
+                f"<div class='text-warning font-medium mb-0.5 mt-1'>Exited containers "
+                f"<span class='text-muted font-normal'>({len(ec)})</span></div>"
+            )
+            lines.append(
+                "<pre class='whitespace-pre-wrap text-[10px]'>" + "\n".join(ec) + "</pre>"
+            )
     if data.get("errors"):
-        lines.append("<div class='text-red-400 mt-1'>Errors: " + "; ".join(data["errors"]) + "</div>")
+        lines.append(
+            "<div class='text-danger mt-1'>Errors: " + "; ".join(data["errors"]) + "</div>"
+        )
     if data.get("success") is False:
-        lines.append("<div class='text-xs text-zinc-500'>Command may have partially failed (non-zero exit).</div>")
+        lines.append(
+            "<div class='text-xs text-muted mt-1'>"
+            "Command may have partially failed (non-zero exit).</div>"
+        )
 
     html = "\n".join(lines)
     return HTMLResponse(html)

@@ -42,15 +42,18 @@
     padding: var(--ce-pad-y) 6px var(--ce-pad-y) 0 !important;
   }
   .compose-editor-wrap .gutter .ln {
+    /* Heights set in JS from measured editor line-height so wrap/non-wrap stay aligned */
+    min-height: calc(var(--ce-size) * var(--ce-lh));
     height: calc(var(--ce-size) * var(--ce-lh));
     line-height: calc(var(--ce-size) * var(--ce-lh));
     font-size: var(--ce-size);
     font-family: inherit;
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding-right: 4px;
+    display: block;
+    text-align: right;
+    padding: 0 4px 0 0;
+    margin: 0;
     box-sizing: border-box;
+    overflow: hidden;
   }
   /* Overlay editor styles - pre under transparent textarea for colours.
      Theme via .code-surface + CSS vars (light/dark kicks in uniformly on the element) */
@@ -72,10 +75,15 @@
     box-sizing: border-box !important;
     padding: var(--ce-pad-y) var(--ce-pad-x) var(--ce-pad-y) var(--ce-pad-left) !important;
     pointer-events: none;
-    white-space: pre; /* toggled via JS for wrap */
+    white-space: pre; /* toggled via JS / .is-wrapping */
+    overflow-wrap: normal;
+    word-break: normal;
     color: var(--color-code-text) !important; /* visible syntax layer (textarea is transparent) */
     position: absolute !important;
     z-index: 10;
+    /* Same overflow-y:scroll as textarea so soft-wrap column width matches */
+    overflow-x: hidden !important;
+    overflow-y: scroll !important;
   }
   .compose-editor-wrap textarea#editor {
     font-family: var(--ce-font) !important;
@@ -95,6 +103,21 @@
     position: absolute !important;
     z-index: 20;
     white-space: pre;
+    overflow-wrap: normal;
+    word-break: normal;
+    /* scroll (not auto): stable content width with/without overflow — wrap columns don't jump */
+    overflow-x: auto !important;
+    overflow-y: scroll !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+  }
+  /* Soft wrap: same break rules on textarea + highlight so gutter heights match (esp. mobile) */
+  .compose-editor-wrap.is-wrapping pre#highlight,
+  .compose-editor-wrap.is-wrapping textarea#editor {
+    white-space: pre-wrap !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+    word-wrap: break-word !important;
   }
   /* Token colours must beat code-surface text colour */
   .compose-editor-wrap pre#highlight .tok-comment { color: var(--color-muted) !important; }
@@ -140,23 +163,36 @@
 </style>
 
 <div class="max-w-6xl mx-auto">
-  <a href="/servers/{{ server.id }}/docker?nocache=1"
-     class="text-xs text-accent hover:underline"
-     data-nav-loading="Back to Docker…">← Docker Management</a>
-
-  <div class="flex items-end justify-between mt-2 mb-2">
-    <div>
-      {% if is_dockerfile %}
-      <h1 class="text-2xl font-semibold">Edit Dockerfile — {{ project.name }}</h1>
-      {% else %}
-      <h1 class="text-2xl font-semibold">Edit project files — {{ project.name }}</h1>
-      {% endif %}
-      <div class="text-xs text-muted font-mono">{{ project.path }}</div>
+  <header class="ph-subhead">
+    <div class="min-w-0">
+      <div class="ph-subhead-kicker">
+        <a href="/servers/{{ server.id }}/docker?nocache=1" class="text-accent hover:underline"
+           data-nav-loading="Back to Docker…">Docker</a>
+        · Full editor
+      </div>
+      <h1 class="ph-subhead-title">
+        {% if is_dockerfile %}
+        Edit Dockerfile
+        <span class="ph-file-badge ph-file-badge--dockerfile">Dockerfile</span>
+        {% else %}
+        Edit project files
+        <span class="ph-file-badge ph-file-badge--compose">compose</span>
+        <span class="ph-file-badge ph-file-badge--env">.env</span>
+        {% endif %}
+      </h1>
+      <p class="ph-subhead-sub">
+        <span class="font-mono text-accent">{{ project.name }}</span>
+        · <span class="font-mono break-all">{{ project.path }}</span>
+      </p>
     </div>
-    <div class="text-[10px] text-muted">
-      {% if is_dockerfile %}Dockerfile editor • basic syntax check on save{% else %}Multi-file • YAML / env • Compose auto-loads override + .env{% endif %}
+    <div class="ph-subhead-actions">
+      <span class="text-[10px] text-muted max-w-[12rem] text-right hidden sm:block">
+        {% if is_dockerfile %}Basic syntax check on save{% else %}YAML / env · override + .env auto-loaded{% endif %}
+      </span>
+      <a href="/servers/{{ server.id }}/docker?nocache=1" class="btn btn-secondary text-xs min-h-9"
+         data-nav-loading="Back to Docker…">← Docker</a>
     </div>
-  </div>
+  </header>
 
   {% if template_deployment %}
   <div class="mb-3 p-3 banner-warning border border-border text-sm rounded">
@@ -331,12 +367,17 @@
     </div>
 
     {% if not is_dockerfile and file_names %}
-    <div class="flex flex-wrap items-center gap-1.5 mb-2" id="file-tabs" role="tablist">
+    <div class="flex flex-wrap items-center gap-1.5 mb-2 ph-file-tabs" id="file-tabs" role="tablist">
       {% for fname in file_names %}
+      {% set is_env = fname == '.env' or fname.startswith('.env.') or fname.startswith('.env_') %}
+      {% set is_df = fname == 'Dockerfile' or fname.startswith('Dockerfile.') %}
       <button type="button"
-              class="file-tab px-2.5 py-1 rounded text-xs border font-mono {% if fname == active_file %}btn-accent border-accent{% else %}btn-secondary border-border{% endif %}"
+              class="file-tab px-2.5 py-1.5 rounded-lg text-xs border font-mono min-h-9 {% if fname == active_file %}btn-accent border-accent{% else %}btn-secondary border-border{% endif %}"
               data-file="{{ fname | e }}"
               title="{{ fname }}">
+        {% if is_env %}<span class="ph-file-badge ph-file-badge--env mr-0.5">env</span>
+        {% elif is_df %}<span class="ph-file-badge ph-file-badge--dockerfile mr-0.5">df</span>
+        {% else %}<span class="ph-file-badge ph-file-badge--compose mr-0.5">yml</span>{% endif %}
         {{ fname }}
       </button>
       {% endfor %}
@@ -511,20 +552,150 @@
     return h;
   }
 
+  // Editor metrics (shared by gutter wrap measure + overlay)
+  const GUTTER_WIDTH_PX = 44;
+  // Keep pixel line-height in sync with CSS --ce-size (13) * --ce-lh (1.5)
+  const LINE_HEIGHT_PX = 19.5;
+  const CODE_FONT_SIZE = '13px';
+  const CODE_LINE_HEIGHT = LINE_HEIGHT_PX + 'px';
+  const CODE_FONT_FAMILY = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
+
+  // Off-screen measure host — mirrors editor font/wrap so gutter heights match soft-wrap.
+  let _wrapMeasureEl = null;
+  function wrapMeasureEl() {
+    if (_wrapMeasureEl && _wrapMeasureEl.isConnected) return _wrapMeasureEl;
+    const el = document.createElement('div');
+    el.setAttribute('aria-hidden', 'true');
+    el.style.cssText = [
+      'position:absolute',
+      'visibility:hidden',
+      'pointer-events:none',
+      'left:-99999px',
+      'top:0',
+      'padding:0',
+      'margin:0',
+      'border:0',
+      'box-sizing:border-box',
+      'font-variant-ligatures:none',
+    ].join(';');
+    document.body.appendChild(el);
+    _wrapMeasureEl = el;
+    return el;
+  }
+
+  function escapeMeasureText(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function lineHeightPx(textarea) {
+    // Prefer forced metric (matches forceFontMetrics) so gutter + code share one grid
+    if (!textarea) return LINE_HEIGHT_PX;
+    const forced = parseFloat(textarea.style.lineHeight);
+    if (forced && isFinite(forced) && forced > 0) return forced;
+    const cs = window.getComputedStyle(textarea);
+    const lh = parseFloat(cs.lineHeight);
+    if (lh && isFinite(lh) && lh > 0) return lh;
+    const fs = parseFloat(cs.fontSize) || 13;
+    return fs * 1.5;
+  }
+
+  function contentWidthForWrap(textarea) {
+    // Soft-wrap content box = clientWidth − horizontal padding.
+    // With overflow-y: scroll, clientWidth is stable (scrollbar always reserved).
+    if (!textarea) return 1;
+    const cs = window.getComputedStyle(textarea);
+    const pl = parseFloat(cs.paddingLeft) || 0;
+    const pr = parseFloat(cs.paddingRight) || 0;
+    let w = (textarea.clientWidth || 0) - pl - pr;
+    if (w < 8) {
+      const container = document.querySelector('.compose-editor-wrap');
+      const gw = GUTTER_WIDTH_PX;
+      const cw = container ? container.clientWidth : 0;
+      // ~15px classic scrollbar reserve when clientWidth not ready yet
+      w = Math.max(1, cw - gw - pl - pr - 15);
+    }
+    return Math.max(1, Math.floor(w));
+  }
+
+  function syncMeasureFromTextarea(textarea) {
+    const m = wrapMeasureEl();
+    if (!textarea) return m;
+    const cs = window.getComputedStyle(textarea);
+    m.style.fontFamily = cs.fontFamily || CODE_FONT_FAMILY;
+    m.style.fontSize = cs.fontSize || CODE_FONT_SIZE;
+    m.style.lineHeight = cs.lineHeight || CODE_LINE_HEIGHT;
+    m.style.letterSpacing = cs.letterSpacing || 'normal';
+    m.style.fontWeight = cs.fontWeight || 'normal';
+    m.style.fontVariantLigatures = 'none';
+    m.style.tabSize = cs.tabSize || '2';
+    m.style.MozTabSize = cs.tabSize || '2';
+    m.style.whiteSpace = 'pre-wrap';
+    m.style.overflowWrap = 'anywhere';
+    m.style.wordBreak = 'break-word';
+    m.style.wordWrap = 'break-word';
+    return m;
+  }
+
+  function wrapEnabled() {
+    const wrapCb = document.getElementById('wrap-toggle');
+    return !!(wrapCb && wrapCb.checked);
+  }
+
   function updateLineNumbers() {
     const textarea = ta();
     const g = gutter();
     if (!textarea || !g) return;
-    const text = normalizeNewlines(textarea.value || '');
-    const lines = text.split('\n').length;
-    let html = '';
-    for (let i = 1; i <= lines; i++) {
-      html += `<div class="ln">${i}</div>`;
-    }
-    g.innerHTML = html;
-    if (lineCountEl()) lineCountEl().textContent = lines;
-    applyErrorHighlightsToGutter();
+
+    // Stabilize geometry BEFORE measuring — otherwise width/line-height lag and numbers drift
     try { forceOverlaySize(); } catch (e) {}
+
+    const text = normalizeNewlines(textarea.value || '');
+    const lines = text.split('\n');
+    const n = lines.length;
+    const wrapping = wrapEnabled();
+    const lh = lineHeightPx(textarea);
+    const lhCss = lh.toFixed(2) + 'px';
+    let html = '';
+
+    if (!wrapping) {
+      // One row each — same pixel grid as textarea line-height
+      for (let i = 1; i <= n; i++) {
+        html += '<div class="ln" style="height:' + lhCss + ';min-height:' + lhCss
+          + ';line-height:' + lhCss + '">' + i + '</div>';
+      }
+    } else {
+      // Measure each hard line as its own wrapping block (true pixel height)
+      const w = contentWidthForWrap(textarea);
+      const m = syncMeasureFromTextarea(textarea);
+      m.style.width = w + 'px';
+      m.innerHTML = lines.map(function (line) {
+        const body = escapeMeasureText(line.length ? line : ' ');
+        return '<div style="margin:0;padding:0;border:0;white-space:pre-wrap;'
+          + 'overflow-wrap:anywhere;word-break:break-word;word-wrap:break-word;'
+          + 'line-height:' + lhCss + '">' + body + '</div>';
+      }).join('');
+
+      const kids = m.children;
+      for (let i = 0; i < n; i++) {
+        const el = kids[i];
+        let hpx = el ? el.offsetHeight : lh;
+        if (!hpx || hpx < 1) hpx = lh;
+        // Snap to whole rows of the editor line-height (avoids subpixel drift vs textarea)
+        const rows = Math.max(1, Math.round(hpx / lh));
+        hpx = rows * lh;
+        const hCss = hpx.toFixed(2) + 'px';
+        html += '<div class="ln is-wrap" style="height:' + hCss + ';min-height:' + hCss
+          + ';line-height:' + lhCss + '">' + (i + 1) + '</div>';
+      }
+      m.innerHTML = '';
+    }
+
+    g.innerHTML = html;
+    if (lineCountEl()) lineCountEl().textContent = n;
+    applyErrorHighlightsToGutter();
   }
 
   function applyErrorHighlightsToGutter() {
@@ -585,31 +756,28 @@
     if (g) g.scrollTop = textarea.scrollTop;
   }
 
-  const GUTTER_WIDTH_PX = 44;
-  // Keep pixel line-height in sync with CSS --ce-size (13) * --ce-lh (1.5)
-  const LINE_HEIGHT_PX = 19.5;
-  const CODE_FONT_SIZE = '13px';
-  const CODE_LINE_HEIGHT = LINE_HEIGHT_PX + 'px';
-  const CODE_FONT_FAMILY = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace';
-
   function forceFontMetrics() {
     const p = pre();
     const t = ta();
     const g = gutter();
+    // One shared pixel line-height across gutter / highlight / textarea
     if (t) {
       t.style.fontFamily = CODE_FONT_FAMILY;
       t.style.fontSize = CODE_FONT_SIZE;
       t.style.lineHeight = CODE_LINE_HEIGHT;
+      t.style.fontVariantLigatures = 'none';
     }
     if (p) {
       p.style.fontFamily = CODE_FONT_FAMILY;
       p.style.fontSize = CODE_FONT_SIZE;
       p.style.lineHeight = CODE_LINE_HEIGHT;
+      p.style.fontVariantLigatures = 'none';
     }
     if (g) {
       g.style.fontFamily = CODE_FONT_FAMILY;
       g.style.fontSize = CODE_FONT_SIZE;
       g.style.lineHeight = CODE_LINE_HEIGHT;
+      g.style.fontVariantLigatures = 'none';
     }
   }
 
@@ -626,48 +794,48 @@
 
     forceFontMetrics();
 
-    // Reliable gutter width (w-11 / 44px). Measure only if it looks reasonable (>10px).
+    // Fixed gutter width — avoid measure thrash that shifts code column (and wrap) mid-edit
     let gutterW = GUTTER_WIDTH_PX;
     if (g) {
-      const measured = g.offsetWidth || 0;
-      if (measured > 10 && measured < 200) {
-        gutterW = measured;
-      }
-      // Force gutter layout regardless of Tailwind/fallback CSS
       g.style.position = 'absolute';
       g.style.left = '0px';
       g.style.top = '0';
       g.style.bottom = '0';
       g.style.width = gutterW + 'px';
       g.style.zIndex = '30';
+      // Match vertical padding of code so line 1 tops align
+      g.style.paddingTop = '12px';
+      g.style.paddingBottom = '12px';
+      g.style.boxSizing = 'border-box';
     }
 
     const h = container.clientHeight + 'px';
     const codeLeft = gutterW + 'px';
+    // border-box width for code column; do not set left+right+width together
     const codeW = Math.max(0, (container.clientWidth - gutterW)) + 'px';
 
-    // force position and size explicitly so overlay is perfect single area
     p.style.position = 'absolute';
     p.style.left = codeLeft;
-    p.style.right = '0';
+    p.style.right = 'auto';
     p.style.top = '0';
     p.style.bottom = '0';
     p.style.height = h;
     p.style.width = codeW;
     p.style.zIndex = '10';
     p.style.lineHeight = CODE_LINE_HEIGHT;
-    // Keep colour from theme; never leave highlight empty/invisible
+    p.style.boxSizing = 'border-box';
     if (!p.style.color) p.style.color = 'var(--color-code-text)';
 
     t.style.position = 'absolute';
     t.style.left = codeLeft;
-    t.style.right = '0';
+    t.style.right = 'auto';
     t.style.top = '0';
     t.style.bottom = '0';
     t.style.height = h;
     t.style.width = codeW;
     t.style.zIndex = '20';
     t.style.lineHeight = CODE_LINE_HEIGHT;
+    t.style.boxSizing = 'border-box';
     // Overlay caret only — syntax colour lives on #highlight
     t.style.color = 'transparent';
     t.style.background = 'transparent';
@@ -690,12 +858,35 @@
   function setWrap(enabled) {
     const textarea = ta();
     const p = pre();
+    const container = document.querySelector('.compose-editor-wrap');
     if (!textarea) return;
+    if (container) container.classList.toggle('is-wrapping', !!enabled);
+    // Prefer class-driven CSS (.is-wrapping) so pre + textarea stay in lockstep on mobile.
+    // Also set inline for environments where class CSS is slow to apply.
     const ws = enabled ? 'pre-wrap' : 'pre';
-    // !important in CSS would block this — use setProperty so wrap wins
     textarea.style.setProperty('white-space', ws, 'important');
     textarea.setAttribute('wrap', enabled ? 'soft' : 'off');
-    if (p) p.style.setProperty('white-space', ws, 'important');
+    if (enabled) {
+      textarea.style.setProperty('overflow-wrap', 'anywhere', 'important');
+      textarea.style.setProperty('word-break', 'break-word', 'important');
+      textarea.style.setProperty('word-wrap', 'break-word', 'important');
+    } else {
+      textarea.style.removeProperty('overflow-wrap');
+      textarea.style.removeProperty('word-break');
+      textarea.style.removeProperty('word-wrap');
+    }
+    if (p) {
+      p.style.setProperty('white-space', ws, 'important');
+      if (enabled) {
+        p.style.setProperty('overflow-wrap', 'anywhere', 'important');
+        p.style.setProperty('word-break', 'break-word', 'important');
+        p.style.setProperty('word-wrap', 'break-word', 'important');
+      } else {
+        p.style.removeProperty('overflow-wrap');
+        p.style.removeProperty('word-break');
+        p.style.removeProperty('word-wrap');
+      }
+    }
   }
 
   function goToLine(lineNum) {
@@ -907,24 +1098,52 @@
       }
     });
 
-    // wrap toggle
+    function remeasureWrap() {
+      try {
+        forceOverlaySize();
+        updateAll();
+        syncScroll();
+      } catch (err) {
+        console.error('remeasureWrap', err);
+      }
+    }
+
+    // wrap toggle — rebuild gutter so multi-row wraps expand line numbers
     if (wrapCb) {
       wrapCb.addEventListener('change', (e) => {
         setWrap(!!e.target.checked);
-        setTimeout(function() {
-          try {
-            updateAll();
-            syncScroll();
-            forceOverlaySize();
-          } catch (err) {
-            console.error('wrap toggle', err);
-          }
-        }, 0);
+        // Double rAF: mobile browsers need a layout pass before clientWidth is stable
+        requestAnimationFrame(function() {
+          requestAnimationFrame(remeasureWrap);
+        });
       });
       // start unwrapped (classic code editor default)
       wrapCb.checked = false;
       setWrap(false);
     }
+
+    // Re-measure wrap heights when the editor width changes (rotate / keyboard / resize)
+    try {
+      let wrapROTimer = null;
+      const wrapRO = new ResizeObserver(function() {
+        if (!wrapEnabled()) return;
+        clearTimeout(wrapROTimer);
+        wrapROTimer = setTimeout(remeasureWrap, 50);
+      });
+      const wrapContainer = document.querySelector('.compose-editor-wrap');
+      if (wrapContainer) wrapRO.observe(wrapContainer);
+    } catch (e) { /* ResizeObserver optional */ }
+
+    // Mobile: virtual keyboard / orientation can change wrap columns without a resize event
+    window.addEventListener('orientationchange', function() {
+      if (wrapEnabled()) setTimeout(remeasureWrap, 120);
+    });
+    window.addEventListener('resize', function() {
+      if (wrapEnabled()) {
+        clearTimeout(window.__ceWrapResizeT);
+        window.__ceWrapResizeT = setTimeout(remeasureWrap, 80);
+      }
+    });
 
     // validate button
     if (validateBtn) {

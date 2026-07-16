@@ -26,17 +26,19 @@ Status comes from **last check jobs** (and related caches) — not a continuous 
 
 ## Fleet Services (`/services`)
 
-Icon grid of **Uptime Kuma service bindings** across the fleet (host service or Docker project/container).
+Fleet-wide view of **Uptime Kuma service bindings** (host service or Docker project/container). Uses the shared **ops-hero** (up / down / TLS pulse) plus filter chips and search.
 
 | Feature | Use |
 |---------|-----|
 | **Filter** | All · Up · Down · TLS issue |
 | **Search** | Name, host, location |
-| **App** | Open service URL (if set) |
+| **App** | Open service URL (if set) — primary open-app tile |
 | **Kuma** | Open monitor in Kuma |
 | **Host** | Per-server services page |
 | **Docker** | Host Docker page when binding is a stack |
 | **Logo…** | Upload, fetch favicon, or remove (operator+) |
+
+On **narrow viewports**, service rows stack metadata and actions vertically so controls stay tappable (no horizontal squash).
 
 ### Empty grid
 
@@ -46,7 +48,7 @@ If you see “No fleet services yet”:
 2. Bind HTTP/HTTPS monitors as **service** (or use Suggest matches).  
 3. Return to `/services` or the Dashboard **Services** tile.
 
-Per-host view: **Server → Services** (`/servers/{id}/services`).
+Per-host view: **Server → Services** (`/servers/{id}/services`) — same card pattern and mobile stacking for that host only.
 
 ## Related
 

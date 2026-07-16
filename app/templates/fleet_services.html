@@ -1,20 +1,55 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header mb-6">
-  <div>
-    <h1 class="text-3xl font-semibold tracking-tighter text-text">Services</h1>
-    <p class="text-sm text-muted mt-1 max-w-2xl">
-      Fleet-wide apps monitored via
+{% set tls_n = services|selectattr('cert_valid', 'sameas', false)|list|length if services else 0 %}
+{% set health = 'hot' if down_count else ('warn' if tls_n else 'ok') %}
+
+<section class="ops-hero ops-hero--services is-{{ health }} mb-4">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker">Fleet</div>
+    <h1 class="ops-hero-title">Services</h1>
+    <p class="ops-hero-sub">
+      Apps monitored via
       <a href="/integrations" class="text-accent hover:underline">Uptime Kuma</a>
-      (host service or Docker bindings). Icons from favicon discovery or your upload.
+      ·
+      {% if down_count %}
+      <span class="ops-hero-status ops-hero-status--run" style="border-color:color-mix(in srgb,var(--color-danger) 40%,var(--color-border));color:var(--color-danger)">{{ down_count }} down</span>
+      {% else %}
+      <span class="ops-hero-status ops-hero-status--ok">all up</span>
+      {% endif %}
+      · {{ service_count }} total
     </p>
+    <div class="ops-hero-actions">
+      <a href="/integrations" class="btn btn-secondary min-h-11 text-sm">Integrations</a>
+      <a href="/" class="btn btn-secondary min-h-11 text-sm">Dashboard</a>
+    </div>
   </div>
-  <div class="page-header-actions flex flex-wrap gap-2">
-    <a href="/integrations" class="btn btn-secondary min-h-11">Integrations</a>
-    <a href="/" class="btn btn-secondary min-h-11">Dashboard</a>
+  <div class="ops-hero-viz">
+    <div class="svc-hero-mesh" aria-hidden="true">
+      <svg viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path class="svc-mesh-link" d="M80 60 L30 28"/>
+        <path class="svc-mesh-link" d="M80 60 L130 28"/>
+        <path class="svc-mesh-link" d="M80 60 L28 88"/>
+        <path class="svc-mesh-link" d="M80 60 L132 88"/>
+        <path class="svc-mesh-link" d="M80 60 L80 18"/>
+        <path class="svc-mesh-pulse" d="M80 60 L30 28"/>
+        <path class="svc-mesh-pulse svc-mesh-pulse--d" d="M80 60 L132 88"/>
+        <circle class="svc-mesh-hub" cx="80" cy="60" r="12"/>
+        <circle class="svc-mesh-node {% if down_count %}is-down{% else %}is-up{% endif %}" cx="30" cy="28" r="7"/>
+        <circle class="svc-mesh-node is-up" cx="130" cy="28" r="7"/>
+        <circle class="svc-mesh-node is-up" cx="28" cy="88" r="7"/>
+        <circle class="svc-mesh-node {% if down_count %}is-down{% else %}is-up{% endif %}" cx="132" cy="88" r="7"/>
+        <circle class="svc-mesh-node is-up" cx="80" cy="18" r="6"/>
+      </svg>
+    </div>
+    <div class="ops-pulse-stats">
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-accent">{{ up_count }}</span><span class="ops-pulse-l">up</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n {% if down_count %}text-danger{% endif %}">{{ down_count }}</span><span class="ops-pulse-l">down</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ service_count }}</span><span class="ops-pulse-l">total</span></div>
+    </div>
+    <p class="ops-pulse-caption">Tap a tile to open the app</p>
   </div>
-</div>
+</section>
 
 {% if msg == 'logo_saved' %}
 <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Logo saved.</div>
@@ -69,34 +104,36 @@
   <span class="text-xs text-muted" id="svc-visible-hint"></span>
 </div>
 
-<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4" id="svc-grid">
+<div class="svc-card-grid" id="svc-grid">
   {% for s in services %}
   {% set tls_bad = s.cert_valid is sameas false %}
-  <div class="card p-3 sm:p-4 flex flex-col items-center text-center gap-2 border border-border hover:border-primary/30 transition-colors relative group svc-card"
+  {# Primary click: open the app when we have an HTTP URL; else Kuma; else host services page #}
+  {% set app_href = s.url if s.url and s.url.startswith('http') else none %}
+  {% set href = app_href or s.open_url or ('/servers/' ~ s.server_id ~ '/services') %}
+  <div class="svc-tile card svc-card {% if s.state == 'up' %}is-up{% elif s.state == 'down' %}is-down{% endif %}"
        data-state="{{ s.state or 'unknown' }}"
        data-tls-bad="{{ '1' if tls_bad else '0' }}"
        data-search="{{ (s.label or '')|lower }} {{ (s.server_name or '')|lower }} {{ (s.location or '')|lower }}">
-    {# Main open target: service URL preferred, else Kuma #}
-    {% set href = s.url if s.url and s.url.startswith('http') else (s.open_url or ('/servers/' ~ s.server_id ~ '/services')) %}
     <a href="{{ href }}"
        {% if href.startswith('http') %}target="_blank" rel="noopener"{% endif %}
-       class="no-underline flex flex-col items-center gap-2 w-full min-w-0">
-      <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl border border-border bg-surface flex items-center justify-center overflow-hidden shadow-sm">
+       class="svc-tile-main"
+       title="{% if app_href %}Open {{ s.label }}{% else %}{{ s.label }}{% endif %}">
+      <div class="svc-tile-icon">
         {% if s.logo_url %}
-        <img src="{{ s.logo_url }}" alt="" class="w-full h-full object-contain p-1.5"
+        <img src="{{ s.logo_url }}" alt=""
              onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-        <span class="hidden w-full h-full items-center justify-center text-lg font-semibold text-primary">
+        <span class="svc-tile-icon-letter hidden w-full h-full items-center justify-center">
           {{ (s.label or '?')[0]|upper }}
         </span>
         {% else %}
-        <span class="text-lg font-semibold text-primary">{{ (s.label or '?')[0]|upper }}</span>
+        <span class="svc-tile-icon-letter">{{ (s.label or '?')[0]|upper }}</span>
         {% endif %}
+        <span class="svc-tile-status-dot {% if s.state == 'up' %}is-up{% elif s.state == 'down' %}is-down{% endif %}"
+              title="{{ s.state or 'unknown' }}"></span>
       </div>
-      <div class="min-w-0 w-full">
-        <div class="text-sm font-medium text-text truncate" title="{{ s.label }}">{{ s.label }}</div>
-        <div class="text-[10px] text-muted truncate" title="{{ s.server_name }}{% if s.location %} · {{ s.location }}{% endif %}">
-          {{ s.server_name }}{% if s.location %} · {{ s.location }}{% endif %}
-        </div>
+      <div class="svc-tile-name" title="{{ s.label }}">{{ s.label }}</div>
+      <div class="svc-tile-host" title="{{ s.server_name }}{% if s.location %} · {{ s.location }}{% endif %}">
+        {{ s.server_name }}{% if s.location %} · {{ s.location }}{% endif %}
       </div>
       <div class="flex flex-wrap justify-center gap-1">
         <span class="status-pill text-[10px]
@@ -110,20 +147,20 @@
         {% endif %}
       </div>
     </a>
-    <div class="flex flex-wrap justify-center gap-1 w-full text-[10px]">
-      {% if s.url and s.url.startswith('http') %}
-      <a href="{{ s.url }}" target="_blank" rel="noopener" class="text-accent hover:underline">App</a>
+    <div class="svc-tile-links">
+      {% if app_href %}
+      <a href="{{ app_href }}" target="_blank" rel="noopener">App</a>
       {% endif %}
       {% if s.open_url %}
-      <a href="{{ s.open_url }}" target="_blank" rel="noopener" class="text-accent hover:underline">Kuma</a>
+      <a href="{{ s.open_url }}" target="_blank" rel="noopener">Kuma</a>
       {% endif %}
-      <a href="/servers/{{ s.server_id }}/services" class="text-muted hover:underline">Host</a>
+      <a href="/servers/{{ s.server_id }}/services" class="muted">Host</a>
       {% if s.location_kind == 'docker' %}
-      <a href="/servers/{{ s.server_id }}/docker" class="text-muted hover:underline">Docker</a>
+      <a href="/servers/{{ s.server_id }}/docker" class="muted">Docker</a>
       {% endif %}
     </div>
     {% if can_mutate and s.id %}
-    <details class="w-full text-left mt-1">
+    <details class="w-full text-left mt-0.5">
       <summary class="text-[10px] text-muted cursor-pointer select-none">Logo…</summary>
       <div class="mt-2 space-y-1.5">
         <form method="post" action="/services/{{ s.id }}/logo" enctype="multipart/form-data" class="flex flex-col gap-1">

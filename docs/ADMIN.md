@@ -60,12 +60,15 @@ Each user card shows **last login** (app timezone) and a link to that user’s *
 
 ### Password policy
 
-Enforced on register, account change, and admin create:
+Enforced on register, account change, and admin create (`app/services/password_policy.py`):
 
 - At least **10** characters
 - At least one **uppercase**, one **lowercase**, one **digit**
-- Max **72** bytes (bcrypt limit)
+- Keep under **72 characters** (storage limit; emoji/symbols may count as more than one character)
 - Special characters recommended by the strength meter, not hard-required
+- Forms show human-readable rules via `policy_rules_text()` (not storage jargon)
+
+Admin-configurable min length / character classes is **post-RC** (roadmap).
 
 ### Roles and delete
 
@@ -74,7 +77,12 @@ Enforced on register, account change, and admin create:
 
 ### Open registration
 
-Only the **first** account can self-register. After that, only admins create users.
+Only the **first** account can self-register (becomes **admin**). After that:
+
+- Login no longer offers self-registration; newcomers are directed to **ask an admin**.
+- Direct `/auth/register` explains how to request access (not a hard config crash).
+- Admins create users under **Users → Create user** (one-time invite credentials).
+- Optional: set `ALLOW_OPEN_REGISTRATION=true` if you intentionally want public sign-up.
 
 ---
 

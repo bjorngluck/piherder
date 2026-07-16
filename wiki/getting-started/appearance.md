@@ -32,7 +32,16 @@ If light mode ever looks like “one flat white screen”, borders or canvas gre
 
 ### Ops-hero UI (v0.5.0)
 
-Fleet ops pages share a compact **ops-hero**: primary orb + dual-line stats + optional type chips. Used on **Servers**, **Jobs**, **Audit**, **Notifications**, **Catalog** (Integrations / Certificates / Templates / Network), **Settings**, **Account**, and **Users**. Dashboard keeps a distinct showcase hero plus a **Network maps** entry panel (constellation mesh).
+Fleet ops pages share a compact **ops-hero**: primary orb + dual-line stats + optional type chips. Used on:
+
+| Area | Pages |
+|------|--------|
+| Fleet | **Servers**, **Jobs**, **Audit**, **Notifications** (bell), fleet **Services** |
+| Catalog | **Integrations** / **Certificates** / **Templates** / **Network** |
+| Host | **Server detail**, host **Docker**, **Backups**, host **Services** |
+| Access | **Settings**, **Account**, **Users** |
+
+Dashboard keeps a distinct showcase hero plus a **Network maps** entry panel (constellation mesh). Login / register use a related mesh treatment (not the ops pulse).
 
 **Layout contract (all ops-heroes + dashboard hero):**
 
@@ -41,7 +50,9 @@ Fleet ops pages share a compact **ops-hero**: primary orb + dual-line stats + op
 | **&lt; 768px** | Title / actions first · compact pulse strip under it |
 | **≥ 768px** | Title **left** · pulse / viz **right** (fixed grid column) |
 
-Catalog always draws the viz shell (placeholder if a detail page has no stats) so switching Integrations → Certificates → Templates → Network does not jump chrome height.
+Heroes and body cards use the **full main content width** (Account is not clamped narrower than Servers/Jobs). Catalog always draws the viz shell (placeholder if a detail page has no stats) so switching Integrations → Certificates → Templates → Network does not jump chrome height.
+
+Supporting chrome: compact filters (`ph-subhead`), branded detail modals (`ph-detail-modal`), mobile service rows that **stack** actions instead of squashing.
 
 ### Mobile navigation
 

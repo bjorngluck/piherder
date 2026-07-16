@@ -4,57 +4,47 @@
 {% set sid = server.id %}
 {% set docker_href = '/servers/' ~ sid ~ '/docker?nocache=1' %}
 <div class="max-w-6xl mx-auto">
-  <a href="{{ docker_href }}"
-     class="text-xs text-accent"
-     data-back-docker
-     data-nav-loading="Back to Docker…"
-     data-nav-loading-sub="Closing log stream…">← Docker</a>
+  <header class="ph-subhead">
+    <div class="min-w-0">
+      <div class="ph-subhead-kicker">
+        <a href="{{ docker_href }}" class="text-accent hover:underline" data-back-docker
+           data-nav-loading="Back to Docker…" data-nav-loading-sub="Closing log stream…">Docker</a>
+        · Logs
+      </div>
+      <h1 class="ph-subhead-title">
+        Container logs
+        <span class="ph-file-badge ph-file-badge--compose ml-1">live</span>
+      </h1>
+      <p class="ph-subhead-sub font-mono break-all">{{ container }} · {{ server.name }}</p>
+    </div>
+    <div class="ph-subhead-actions">
+      <a href="{{ docker_href }}" class="btn btn-secondary text-xs min-h-9"
+         data-back-docker data-nav-loading="Back to Docker…" data-nav-loading-sub="Closing log stream…">← Docker</a>
+    </div>
+  </header>
 
-  <h1 class="text-2xl font-semibold mt-2">Logs: <span class="font-mono">{{ container }}</span></h1>
-
-  <!-- All buttons / controls grouped at top; logs underneath -->
-  <div class="flex flex-wrap items-center gap-2 my-3">
-    <a href="/servers/{{ sid }}/docker/logs/{{ container }}?lines=50" class="text-xs px-3 py-1 btn btn-secondary rounded">Last 50</a>
-    <a href="/servers/{{ sid }}/docker/logs/{{ container }}?lines=200" class="text-xs px-3 py-1 btn btn-secondary rounded">Last 200</a>
-    <a href="/servers/{{ sid }}/docker/logs/{{ container }}?lines=500" class="text-xs px-3 py-1 btn btn-secondary rounded">Last 500</a>
-    <span class="mx-1 text-muted">|</span>
-    <button type="button" onclick="startLiveStream()"
-            class="px-3 py-1 text-xs btn btn-accent rounded">
-      ▶ Live Tail
-    </button>
-    <button type="button" onclick="stopLiveStream()"
-            class="px-3 py-1 text-xs btn btn-secondary rounded">
-      ■ Stop
-    </button>
-    <button type="button" onclick="clearLogs()"
-            class="px-3 py-1 text-xs btn btn-secondary rounded">
-      Clear
-    </button>
-    <button type="button" onclick="toggleAutoScroll()"
-            id="autoscroll-btn"
-            class="px-3 py-1 text-xs btn btn-secondary rounded">
-      Auto-scroll: ON
-    </button>
-    <a href="?lines=500" class="px-3 py-1 text-xs btn btn-secondary rounded ml-auto">Reload static</a>
-    <a href="{{ docker_href }}"
-       class="text-xs px-3 py-1 btn btn-secondary rounded"
-       data-back-docker
-       data-nav-loading="Back to Docker…"
-       data-nav-loading-sub="Closing log stream…">← Back</a>
+  <div class="ph-stream-toolbar">
+    <a href="/servers/{{ sid }}/docker/logs/{{ container }}?lines=50" class="btn btn-secondary text-xs">Last 50</a>
+    <a href="/servers/{{ sid }}/docker/logs/{{ container }}?lines=200" class="btn btn-secondary text-xs">Last 200</a>
+    <a href="/servers/{{ sid }}/docker/logs/{{ container }}?lines=500" class="btn btn-secondary text-xs">Last 500</a>
+    <span class="text-muted text-xs mx-0.5">|</span>
+    <button type="button" onclick="startLiveStream()" class="btn btn-accent text-xs">▶ Live tail</button>
+    <button type="button" onclick="stopLiveStream()" class="btn btn-secondary text-xs">■ Stop</button>
+    <button type="button" onclick="clearLogs()" class="btn btn-secondary text-xs">Clear</button>
+    <button type="button" onclick="toggleAutoScroll()" id="autoscroll-btn" class="btn btn-secondary text-xs">Auto-scroll: ON</button>
+    <a href="?lines=500" class="btn btn-secondary text-xs ml-auto">Reload static</a>
   </div>
 
-  <!-- Logs area (middle) with description at bottom -->
-  <pre id="log-output" 
-       class="log-output border border-border p-4 rounded text-xs overflow-auto whitespace-pre-wrap font-mono leading-tight min-h-[300px]">{{ logs or "(no logs)" }}</pre>
+  <pre id="log-output"
+       class="log-output ph-stream-panel p-4 text-xs overflow-auto whitespace-pre-wrap font-mono leading-tight min-h-[320px] max-h-[70vh]">{{ logs or "(no logs)" }}</pre>
 
-  <div class="mt-3 text-xs text-muted">
-    Static view + live SSE streaming (follows <code>docker logs -f</code> via SSH).
-  </div>
+  <p class="mt-3 text-xs text-muted">
+    Static snapshot + live SSE (<code>docker logs -f</code> over SSH). Scroll up to pause auto-follow when live.
+  </p>
 
   <script>
     let eventSource = null;
     let autoScroll = true;
-
     const SERVER_ID = {{ server.id | tojson }};
     const CONTAINER_NAME = {{ container | tojson }};
 
@@ -62,45 +52,31 @@
       stopLiveStream();
       const output = document.getElementById('log-output');
       output.textContent = '';
-
       const streamUrl = `/servers/${SERVER_ID}/docker/logs/${encodeURIComponent(CONTAINER_NAME)}/stream?lines=20`;
       eventSource = new EventSource(streamUrl);
-
       eventSource.onmessage = function(e) {
         output.textContent += e.data + '\n';
         if (autoScroll) output.scrollTop = output.scrollHeight;
       };
-
       eventSource.onerror = function() {
         output.textContent += '\n[Stream ended or error]\n';
         stopLiveStream();
       };
     }
-
     function stopLiveStream() {
-      if (eventSource) {
-        eventSource.close();
-        eventSource = null;
-      }
+      if (eventSource) { eventSource.close(); eventSource = null; }
     }
-
     document.querySelectorAll('[data-back-docker]').forEach(function(a) {
-      a.addEventListener('click', function() {
-        stopLiveStream();
-      });
+      a.addEventListener('click', function() { stopLiveStream(); });
     });
-
     function clearLogs() {
       document.getElementById('log-output').textContent = '';
     }
-
     function toggleAutoScroll() {
       autoScroll = !autoScroll;
-      const btn = document.getElementById('autoscroll-btn');
-      btn.textContent = 'Auto-scroll: ' + (autoScroll ? 'ON' : 'OFF');
+      document.getElementById('autoscroll-btn').textContent = 'Auto-scroll: ' + (autoScroll ? 'ON' : 'OFF');
     }
-
-    window.addEventListener('load', () => {
+    window.addEventListener('load', function() {
       const out = document.getElementById('log-output');
       out.scrollTop = out.scrollHeight;
     });

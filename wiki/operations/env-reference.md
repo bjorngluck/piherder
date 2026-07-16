@@ -46,6 +46,7 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 
 | Variable | Purpose |
 |----------|---------|
+| `ALLOW_OPEN_REGISTRATION` | Default `false`. After the first admin exists, self-registration is closed; set `true` only if you want public sign-up |
 | `METRICS_TOKEN` | Bearer for `GET /metrics` |
 | `METRICS_BACKUP_STALE_HOURS` | Stale backup gauge (default 36) |
 | `CORS_ORIGINS` | Exact browser origins for `/api/v1` (empty = off) |
