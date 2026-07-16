@@ -38,6 +38,16 @@ mkdocs build --strict
 Config: [`mkdocs.yml`](../mkdocs.yml) at repo root.  
 **Live site:** [https://bjorngluck.github.io/piherder/](https://bjorngluck.github.io/piherder/)
 
-Publish: build with MkDocs → `gh-pages` branch (current Pages source), or [`.github/workflows/docs.yml`](../.github/workflows/docs.yml) if Pages is switched to GitHub Actions.
+**Publish:** [`.github/workflows/docs.yml`](../.github/workflows/docs.yml) builds with `mkdocs build --strict` and deploys via **GitHub Actions → Pages**.
+
+One-time repo setting (required for deploy):  
+**Settings → Pages → Build and deployment → Source: GitHub Actions**  
+(not “Deploy from a branch” / `gh-pages`).
+
+**Validate while editing** (same as CI build job):
+
+```bash
+mkdocs build --strict
+```
 
 How to contribute: [developers/contributing-docs.md](developers/contributing-docs.md).

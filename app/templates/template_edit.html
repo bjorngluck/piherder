@@ -7,7 +7,7 @@
   <a href="/templates" class="text-xs text-accent hover:underline">← Templates</a>
   <h1 class="text-2xl font-semibold mt-2">{% if is_new %}New template{% else %}Edit template{% endif %}</h1>
   <p class="text-sm text-muted mb-4">
-    Author compose + settings here. Secrets are stored encrypted in PiHerder and written to a
+    Author compose + settings here. Secrets are stored encrypted in {{ ph_brand() }} and written to a
     locked-down host <code class="text-xs">.env</code> on deploy (home production). Placeholders:
     <code class="text-xs">{{"{{VAR}}"}}</code> in files → form fields below.
   </p>
@@ -89,8 +89,8 @@
       <h2 class="font-semibold text-sm">.env template</h2>
       <p class="text-xs text-muted">
         Use <code class="text-xs">KEY={{"{{KEY}}"}}</code> for secrets; compose uses <code class="text-xs">${KEY}</code>.
-        On deploy, PiHerder writes a host <code class="text-xs">.env</code> with real values and
-        <code class="text-xs">chmod 600</code>. Restarts do not need PiHerder. Advanced secret stores (Swarm, etc.) are roadmap.
+        On deploy, {{ ph_brand() }} writes a host <code class="text-xs">.env</code> with real values and
+        <code class="text-xs">chmod 600</code>. Restarts do not need {{ ph_brand() }}. Advanced secret stores (Swarm, etc.) are roadmap.
       </p>
       <textarea name="env_content" rows="6" x-model="env"
                 class="w-full font-mono text-xs bg-surface border border-border p-2 rounded max-w-full min-w-0"></textarea>

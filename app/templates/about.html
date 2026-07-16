@@ -5,7 +5,7 @@
 <section class="ops-hero ops-hero--about is-ok mb-4">
   <div class="ops-hero-main">
     <div class="ops-hero-kicker">Project</div>
-    <h1 class="ops-hero-title">About PiHerder</h1>
+    <h1 class="ops-hero-title">About {{ ph_brand() }}</h1>
     <p class="ops-hero-sub">
       Version <span class="font-mono text-text">{{ app_version }}</span>
       · MIT open source
@@ -26,7 +26,7 @@
 
 <div class="account-card-grid">
   <div class="card p-5 account-card account-card--wide">
-    <h2 class="font-semibold text-text mb-2">Why PiHerder?</h2>
+    <h2 class="font-semibold text-text mb-2">Why {{ ph_brand() }}?</h2>
     <p class="text-sm text-muted leading-relaxed mb-3">{{ about_tagline }}</p>
     <p class="text-sm text-muted leading-relaxed">{{ about_story }}</p>
     <p class="text-xs text-muted mt-4">
@@ -61,31 +61,41 @@
     <p class="text-sm text-muted">{{ un.message or 'Update checks are disabled.' }}</p>
     {% elif un.available %}
     <div class="banner-warning border border-border rounded p-3 text-sm mb-3" role="status">
-      <strong class="text-text">{{ un.latest_name or un.latest }}</strong> is available
-      (you are on <span class="font-mono">{{ un.current or app_version }}</span>).
+      <div class="font-semibold text-text mb-1">New release available</div>
+      <p class="mb-0">
+        <strong class="font-mono text-text">{{ un.latest_name or un.latest }}</strong>
+        is published
+        (you are on <span class="font-mono">{{ un.current or app_version }}</span>).
+      </p>
     </div>
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap gap-2 mb-3">
       <a href="{{ un.notes_url or github_releases_url }}" class="btn btn-accent text-xs min-h-9"
          target="_blank" rel="noopener">Release notes</a>
       <a href="{{ github_releases_url }}" class="btn btn-secondary text-xs min-h-9"
          target="_blank" rel="noopener">All releases</a>
     </div>
     {% elif un.ok %}
-    <p class="text-sm text-muted mb-3">
+    <div class="border border-border rounded p-3 text-sm mb-3 bg-surface" role="status">
       {% if un.latest %}
-      Latest published release: <span class="font-mono text-text">{{ un.latest }}</span>.
-      {{ un.message or 'You are up to date (or running a newer build).' }}
+      <div class="font-semibold text-text mb-1">Latest release</div>
+      <p class="mb-0 text-muted">
+        <span class="font-mono text-text">{{ un.latest_name or un.latest }}</span>
+        · {{ un.message or 'You are up to date (or running a newer build).' }}
+      </p>
       {% else %}
-      {{ un.message or 'No published GitHub releases found yet.' }}
+      <div class="font-semibold text-text mb-1">Latest release</div>
+      <p class="mb-0 text-muted">{{ un.message or 'No published GitHub releases found yet.' }}</p>
       {% endif %}
-    </p>
+    </div>
     {% else %}
     <p class="text-sm text-muted mb-3">
       {{ un.message or 'Could not reach GitHub for an update check.' }}
       {% if un.error %}<span class="block text-xs mt-1 font-mono">{{ un.error }}</span>{% endif %}
     </p>
     {% endif %}
-    <form method="post" action="/about/check-update" class="mt-2">
+    <form method="post" action="/about/check-update" class="mt-2"
+          data-wait-title="Checking for updates"
+          data-wait-message="Contacting GitHub Releases…">
       <button type="submit" class="btn btn-secondary text-xs min-h-9">Check for updates now</button>
     </form>
     <p class="text-[10px] text-muted mt-2">

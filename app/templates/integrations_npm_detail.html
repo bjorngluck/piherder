@@ -61,7 +61,7 @@
 {% if tab == 'hosts' %}
 <div class="card p-4">
   <p class="text-sm text-muted mb-3">
-    Read-only inventory. Bind a proxy host to a PiHerder <strong>server</strong>.
+    Read-only inventory. Bind a proxy host to a {{ ph_brand() }} <strong>server</strong>.
     Choose <strong>Host service</strong> for non-container apps (HAOS, bare metal, host process),
     or <strong>Docker</strong> for compose project / container (same cascade as Grafana).
     Docker lists use the host inventory cache — refresh on the server Docker page if empty.
@@ -288,7 +288,7 @@
 {% elif tab == 'certs' %}
 <div class="card p-4 mb-4">
   <p class="text-sm text-muted mb-3">
-    Pull stores fullchain + private key encrypted in PiHerder. Deploy from
+    Pull stores fullchain + private key encrypted in {{ ph_brand() }}. Deploy from
     <a href="/certificates" class="text-primary hover:underline">Certificates</a>.
     You can also <a href="/certificates/upload" class="text-primary hover:underline">upload PEM files</a> without NPM.
   </p>
@@ -321,7 +321,7 @@
               <input type="hidden" name="cert_id" value="{{ c.id }}">
               <input type="hidden" name="name" value="{{ c.nice_name or '' }}">
               <input type="hidden" name="auto_renew" value="on">
-              <button type="submit" class="btn btn-primary text-xs min-h-9">Pull into PiHerder</button>
+              <button type="submit" class="btn btn-primary text-xs min-h-9">Pull into {{ ph_brand() }}</button>
             </form>
             {% endif %}
           </td>
@@ -335,7 +335,7 @@
 </div>
 {% if managed_certs %}
 <div class="card p-4">
-  <h3 class="text-sm font-semibold mb-2">Already in PiHerder from this NPM</h3>
+  <h3 class="text-sm font-semibold mb-2">Already in {{ ph_brand() }} from this NPM</h3>
   <ul class="text-sm space-y-1">
     {% for m in managed_certs %}
     <li>

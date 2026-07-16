@@ -26,17 +26,15 @@
 
   <div class="auth-card card">
     <div class="auth-card-brand">
-      <div class="auth-brand-mark" aria-hidden="true">
-        <span class="auth-brand-dot"></span>
-      </div>
+      <img src="/static/images/piherder-logo-small.png" alt="" class="auth-logo" width="52" height="52">
       <div>
-        <div class="header-brand-sub text-primary">PiHerder</div>
+        <p class="auth-brand-wordmark">{{ ph_brand() }}</p>
         <h1 class="auth-title">{% if closed %}Access closed{% else %}Create account{% endif %}</h1>
         <p class="auth-sub">
           {% if closed %}
           Self-registration is disabled after the first admin
           {% else %}
-          First admin for this PiHerder instance
+          First admin for this {{ ph_brand() }} instance
           {% endif %}
         </p>
       </div>

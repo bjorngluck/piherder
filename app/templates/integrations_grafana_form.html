@@ -42,7 +42,7 @@
       <input id="base_url" name="base_url" type="url" required class="input w-full font-mono text-sm"
              placeholder="https://grafana.example.com"
              value="{{ form.base_url }}">
-      <p class="text-[11px] text-muted mt-1">Must be reachable from PiHerder web and workers.</p>
+      <p class="text-[11px] text-muted mt-1">Must be reachable from {{ ph_brand() }} web and workers.</p>
     </div>
     <div>
       <label class="block text-sm font-medium text-text mb-1" for="api_key">

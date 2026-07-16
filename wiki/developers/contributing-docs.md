@@ -45,7 +45,8 @@ Repo-level contributor rules: [CONTRIBUTING.md](https://github.com/bjorngluck/pi
 
 - Do not leave operator docs describing removed defaults (e.g. seeded admin) without a release note.  
 - Do not dump full `PLAN_*` / SPEC checklists into the user-facing wiki.  
-- Do not hand-edit built `site/` or `gh-pages` — always edit `wiki/` sources.
+- Do not hand-edit built `site/` or the old `gh-pages` tree — always edit `wiki/` sources.  
+- Publish is **GitHub Actions** (Settings → Pages → Source: **GitHub Actions**). CI validates with `mkdocs build --strict`.
 
 ---
 
@@ -165,7 +166,7 @@ That is the supported path for RC documentation with images.
 
 - Do not paste multi‑megabyte full-desktop PNGs without cropping.  
 - Do not commit secrets visible in UI (API tokens, PEM previews — those should not appear in UI anyway).  
-- Do not edit only the built `site/` or `gh-pages` tree by hand — always edit `wiki/` sources.
+- Do not edit only the built `site/` tree by hand — always edit `wiki/` sources (Actions publishes from CI).
 
 ## Style
 

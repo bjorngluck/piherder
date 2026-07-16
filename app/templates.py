@@ -1,6 +1,7 @@
 import json
 
 from fastapi.templating import Jinja2Templates
+from markupsafe import Markup
 from .services.app_settings import (
     get_app_timezone,
     format_datetime_in_app_tz,
@@ -16,6 +17,22 @@ templates.env.auto_reload = True
 # Make timezone selection from Settings apply globally in all templates
 templates.env.globals["get_app_timezone"] = get_app_timezone
 templates.env.globals["utc_isoformat"] = utc_isoformat
+
+
+def ph_brand(extra_class: str = "") -> Markup:
+    """Pi (theme red) + Herder (text color) brand mark for UI copy."""
+    cls = "ph-brand"
+    if extra_class:
+        cls = f"{cls} {extra_class}".strip()
+    return Markup(
+        f'<span class="{cls}" aria-label="PiHerder">'
+        f'<span class="ph-brand-pi">Pi</span>'
+        f'<span class="ph-brand-herder">Herder</span>'
+        f"</span>"
+    )
+
+
+templates.env.globals["ph_brand"] = ph_brand
 
 
 def _app_tz_filter(dt, fmt="%Y-%m-%d %H:%M"):

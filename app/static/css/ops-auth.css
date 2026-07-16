@@ -148,6 +148,46 @@
   color: var(--color-muted);
   line-height: 1.35;
 }
+
+/* Login / register: brand logo in card (not the decorative mesh mark alone) */
+.auth-logo {
+  width: 3.25rem;
+  height: 3.25rem;
+  object-fit: contain;
+  flex-shrink: 0;
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-border) 60%, transparent);
+}
+.auth-brand-wordmark {
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+  margin: 0;
+}
+.auth-brand-wordmark .ph-brand {
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+/* Unauthenticated chrome: logo + wordmark only (no nav links / login button) */
+body.is-auth-chrome .nav-header-inner {
+  justify-content: center;
+}
+body.is-auth-chrome .header-brand {
+  margin: 0 auto;
+}
+body.is-auth-chrome .header-actions {
+  display: none;
+}
+body.is-auth-chrome .header-brand-sub {
+  display: none;
+}
+body.is-auth-chrome footer {
+  margin-top: 2rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .auth-mesh-pulse,
   .auth-node--hub,

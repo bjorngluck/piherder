@@ -201,7 +201,7 @@
     · config V{{ template_deployment.config_version }}).
     Prefer changing variables/secrets and redeploying from
     <a href="/templates/deployments/{{ template_deployment.id }}" class="text-accent underline">template deployment settings</a>
-    so PiHerder keeps desired state in sync. Raw file edits here can cause drift until the next template redeploy.
+    so {{ ph_brand() }} keeps desired state in sync. Raw file edits here can cause drift until the next template redeploy.
   </div>
   {% endif %}
 
@@ -468,7 +468,7 @@
         {% if is_dockerfile %}
         After saving, rebuild the image from the Docker screen to apply changes.
         {% else %}
-        <strong class="text-text">Save Draft</strong> = PiHerder only.
+        <strong class="text-text">Save Draft</strong> = {{ ph_brand() }} only.
         <strong class="text-text">Save &amp; Deploy</strong> writes the host and redeploys.
         {% endif %}
       </div>

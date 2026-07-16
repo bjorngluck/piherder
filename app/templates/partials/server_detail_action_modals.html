@@ -3,7 +3,7 @@
   <div class="modal-content card p-5 sm:p-6 w-full max-w-md">
     <h3 class="font-semibold text-lg text-text mb-2">Remove {{ server.name }}?</h3>
     <p class="text-sm text-muted mb-2">
-      This only removes the host from <strong>PiHerder</strong>. Remote configuration stays intact.
+      This only removes the host from <strong>{{ ph_brand() }}</strong>. Remote configuration stays intact.
     </p>
     <form method="post" action="/servers/{{ server.id }}/delete" class="space-y-3">
       <div>
@@ -15,7 +15,7 @@
       </div>
       <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
         <button type="button" class="btn btn-secondary min-h-11 text-sm" id="btn-close-delete-server">Keep server</button>
-        <button type="submit" class="btn btn-danger min-h-11 text-sm">Remove from PiHerder</button>
+        <button type="submit" class="btn btn-danger min-h-11 text-sm">Remove from {{ ph_brand() }}</button>
       </div>
     </form>
   </div>

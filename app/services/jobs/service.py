@@ -63,13 +63,15 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
 )
 
 
-# Import Celery task for backup jobs (integrated path)
+# Import Celery task for backup jobs (integrated path).
+# This file lives in app.services.jobs — use three dots to reach app.tasks.
 try:
-    from ..tasks import backup_server
+    from ...tasks import backup_server
     HAS_CELERY = True
-except Exception:
+except Exception as e:
     HAS_CELERY = False
     backup_server = None
+    logger.warning("Celery backup task unavailable (backups will not enqueue): %s", e)
 
 
 def _get_fresh_session() -> Session:
@@ -120,7 +122,7 @@ def _revoke_celery_task(task_id: str | None) -> None:
     if not task_id or not HAS_CELERY:
         return
     try:
-        from ..celery_app import celery
+        from ...celery_app import celery
         celery.control.revoke(task_id, terminate=True, signal="SIGTERM")
         logger.info(f"[Jobs] Revoked celery task {task_id}")
     except Exception as e:
@@ -710,7 +712,12 @@ def create_job_and_run(
             message="Waiting for worker",
         )
         session.commit()
-        if HAS_CELERY and backup_server:
+        if not HAS_CELERY or not backup_server:
+            msg = "Celery worker required for backups — start celery-worker container"
+            _mark_job_terminal(job, msg, session, status="failed", record_audit=True)
+            session.commit()
+            raise RuntimeError(msg)
+        try:
             logger.info(f"[Jobs] Enqueuing backup job #{job.id} for server {server_id} to Celery")
             async_result = backup_server.delay(
                 server.id,
@@ -720,8 +727,12 @@ def create_job_and_run(
             job.celery_task_id = async_result.id
             session.add(job)
             session.commit()
-        else:
-            raise RuntimeError("Celery worker required for backups — start celery-worker container")
+        except Exception as e:
+            msg = f"Failed to enqueue backup to Celery: {e}"
+            logger.exception("[Jobs] %s", msg)
+            _mark_job_terminal(job, msg, session, status="failed", record_audit=True)
+            session.commit()
+            raise RuntimeError(msg) from e
     else:
         start_details = f"Job #{job.id} started"
         if job_type == "os_patch" and os_steps:
@@ -816,17 +827,27 @@ def enqueue_backup_for_server(
     session.commit()
 
     if not HAS_CELERY or not backup_server:
-        raise RuntimeError("Celery worker required for backups")
+        msg = "Celery worker required for backups"
+        _mark_job_terminal(job, msg, session, status="failed", record_audit=True)
+        session.commit()
+        raise RuntimeError(msg)
 
-    async_result = backup_server.delay(
-        server.id,
-        job_id=job.id,
-        source_filter=source_filter,
-    )
-    job.celery_task_id = async_result.id
-    session.add(job)
-    session.commit()
-    session.refresh(job)
+    try:
+        async_result = backup_server.delay(
+            server.id,
+            job_id=job.id,
+            source_filter=source_filter,
+        )
+        job.celery_task_id = async_result.id
+        session.add(job)
+        session.commit()
+        session.refresh(job)
+    except Exception as e:
+        msg = f"Failed to enqueue backup to Celery: {e}"
+        logger.exception("[Jobs] %s", msg)
+        _mark_job_terminal(job, msg, session, status="failed", record_audit=True)
+        session.commit()
+        raise RuntimeError(msg) from e
     return job
 
 
@@ -1064,7 +1085,7 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
         # already terminal so a successful run still clears backup_failed.
         if jt == "backup" and server_id:
             try:
-                from .notifications import notify_backup_failed, resolve_backup_failed
+                from ..notifications import notify_backup_failed, resolve_backup_failed
                 server = s.get(Server, server_id)
                 name = server.name if server else hostname
                 if status == "failed":
@@ -1741,7 +1762,7 @@ def _apply_os_check_result(session: Session, server_id: int, res: dict) -> None:
     session.add(server)
     session.commit()
     try:
-        from .notifications import notify_os_updates
+        from ..notifications import notify_os_updates
         notify_os_updates(
             session,
             server_id=server.id,
@@ -1770,7 +1791,7 @@ def _apply_container_check_result(session: Session, server_id: int, res: dict) -
     session.add(server)
     session.commit()
     try:
-        from .notifications import notify_container_updates
+        from ..notifications import notify_container_updates
         notify_container_updates(
             session,
             server_id=server.id,
@@ -2003,7 +2024,7 @@ def _apply_single_project_check_result(
     session.add(server)
     session.commit()
     try:
-        from .notifications import notify_container_updates
+        from ..notifications import notify_container_updates
 
         notify_container_updates(
             session,
@@ -2057,7 +2078,7 @@ def _apply_single_project_deploy_result(
     session.add(server)
     session.commit()
     try:
-        from .notifications import notify_container_updates
+        from ..notifications import notify_container_updates
 
         notify_container_updates(
             session,
@@ -2072,7 +2093,7 @@ def _apply_single_project_deploy_result(
 def _execute_docker_stack_check(
     job_id: int, server_id: int, audit_id: int, project_path: str
 ) -> None:
-    from . import docker_management as docker_svc
+    from .. import docker_management as docker_svc
 
     server, hostname = _load_server_for_job(server_id)
     path = (project_path or "").strip()
@@ -2135,7 +2156,7 @@ def _execute_docker_stack_deploy(
     project_path: str,
     pull: bool = True,
 ) -> None:
-    from . import docker_management as docker_svc
+    from .. import docker_management as docker_svc
 
     server, hostname = _load_server_for_job(server_id)
     path = (project_path or "").strip()

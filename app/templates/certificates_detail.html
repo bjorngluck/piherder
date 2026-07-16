@@ -59,7 +59,7 @@
   <ol class="text-sm text-muted space-y-1.5 list-decimal list-inside">
     <li><strong class="text-text">Vault</strong> — this page holds one TLS identity (fullchain + key), encrypted. Never shown again.</li>
     <li><strong class="text-text">Service maps</strong> — each consumer (NPM volume, UniFi, mail, …) is a map: host + directory + filenames + owner/mode + optional restart.</li>
-    <li><strong class="text-text">Deploy</strong> — PiHerder SSHs to the host, writes those exact files, applies permissions, runs your post-deploy command (e.g. container restart).</li>
+    <li><strong class="text-text">Deploy</strong> — {{ ph_brand() }} SSHs to the host, writes those exact files, applies permissions, runs your post-deploy command (e.g. container restart).</li>
   </ol>
   <p class="text-xs text-muted mt-3">
     Example: map “NPM on edge” → <code class="text-[11px]">/opt/stacks/npm/data/custom_ssl</code>, layout <em>pair</em>,
@@ -206,7 +206,7 @@
   </div>
   {% else %}
   <p class="text-sm text-muted mb-4">
-    No service maps yet. Add one below so PiHerder knows <em>where</em> and <em>how</em> to drop this cert.
+    No service maps yet. Add one below so {{ ph_brand() }} knows <em>where</em> and <em>how</em> to drop this cert.
   </p>
   {% endif %}
 
@@ -256,7 +256,7 @@
                  placeholder="e.g. NPM custom SSL, UniFi controller, HA reverse proxy">
         </div>
         <div>
-          <label class="block text-xs text-muted mb-1">Host (PiHerder server)</label>
+          <label class="block text-xs text-muted mb-1">Host ({{ ph_brand() }} server)</label>
           <select name="server_id" class="input w-full" required>
             {% for s in servers %}
             <option value="{{ s.id }}"

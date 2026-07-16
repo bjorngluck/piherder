@@ -48,6 +48,7 @@ router.include_router(patch_router, prefix="")
 logger = logging.getLogger("piherder.servers")
 
 from .server_common import server_redirect as _server_redirect, safe_close_ssh as _safe_close_ssh
+from .server_ssh import host_cleanup_script_for_server as _host_cleanup_script_for_server
 
 @router.get("", response_class=HTMLResponse)
 async def list_servers(

@@ -16,14 +16,15 @@
 | Intermediate tags | Optional only if something must ship early; not the plan structure |
 | Production path | ~~v0.4.0~~ **done** → **v0.5.0 QA → tag** → v1.0 |
 | **GitHub visibility** | **Public** (open source) |
-| **Wiki / Pages go-live** | **Live** — https://bjorngluck.github.io/piherder/ (`gh-pages` / Pages deploy) |
+| **Wiki / Pages go-live** | **Live** — https://bjorngluck.github.io/piherder/ (MkDocs → GitHub Actions Pages) |
 | **License** | **MIT** — open source. Copyright Bjorn Gluck. See [LICENSE](../LICENSE). |
 
 ### GitHub Pages
 
 - **Live:** [https://bjorngluck.github.io/piherder/](https://bjorngluck.github.io/piherder/)  
-- **Source:** `wiki/` + `mkdocs.yml` on `main`  
-- **Publish path today:** force-push built site to **`gh-pages`** (branch Pages). Optional later: switch Pages source to **GitHub Actions** (`.github/workflows/docs.yml`).
+- **Source files:** `wiki/` + `mkdocs.yml` on `main`  
+- **Publish path:** [`.github/workflows/docs.yml`](../.github/workflows/docs.yml) — `mkdocs build --strict` + `actions/deploy-pages`  
+- **Repo setting:** Settings → Pages → Source: **GitHub Actions** (not deploy-from-branch / `gh-pages`)
 
 ---
 
