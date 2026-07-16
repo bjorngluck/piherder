@@ -2,7 +2,7 @@
 
 ## Optional per-user 2FA
 
-**Account** → enable TOTP, save **backup codes**, optional **trusted device** (30 days, revocable).
+**Account** (`/auth/account`) — profile, password, avatar, enable TOTP, save **backup codes**, optional **trusted device** (30 days, revocable), and push preferences.
 
 ## Force 2FA for all
 
