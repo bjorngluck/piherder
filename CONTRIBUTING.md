@@ -58,6 +58,6 @@ Dependency versions are locked for reproducible builds. After changes:
 
 ## Questions & Community
 
-Open an Issue (or use Discussions when enabled). For commercial licensing inquiries, contact the author privately.
+Open an Issue (or use Discussions when enabled).
 
 Thank you for helping make PiHerder better!

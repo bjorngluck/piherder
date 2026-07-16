@@ -68,35 +68,58 @@
 })();
 </script>
 
-  <div class="page-header mb-6">
-    <div>
-      <a href="/servers/{{ server.id }}" class="text-xs text-accent hover:underline">← Back to {{ server.name }}</a>
-      <h1 class="text-3xl font-semibold tracking-tighter text-text mt-1">Docker</h1>
-      <p class="text-sm text-muted mt-1">
-        {{ server.name }} · {{ server.hostname }}
+  {% set _ct = containers|length if containers is defined and containers is not none else 0 %}
+  {% set _run = containers|selectattr('running')|list|length if containers is defined and containers is not none else 0 %}
+  {% set _upd = server.container_updates_count or 0 %}
+  {% set _dhealth = 'busy' if docker_shell|default(false) else ('warn' if _upd else 'ok') %}
+  <section class="ops-hero ops-hero--docker is-{{ _dhealth }} mb-4">
+    <div class="ops-hero-main">
+      <div class="ops-hero-kicker">
+        <a href="/servers/{{ server.id }}" class="text-accent hover:underline">{{ server.name }}</a>
+        · Docker
+      </div>
+      <h1 class="ops-hero-title">Docker</h1>
+      <p class="ops-hero-sub">
+        {{ server.hostname }}
         · <a href="/dns/physical?focus=n:host-{{ server.id }}#map" class="text-accent hover:underline">Hosts map</a>
+        ·
+        <span id="stack-summary" class="text-muted">
+          {% if docker_shell|default(false) %}
+          <span class="ops-hero-status ops-hero-status--run">loading</span>
+          {% else %}
+          <span class="ops-hero-status ops-hero-status--ok">{{ _run }} running</span>
+          · {{ _ct }} container{% if _ct != 1 %}s{% endif %}
+          {% endif %}
+        </span>
       </p>
+      <div class="ops-hero-actions">
+        <a href="/servers/{{ server.id }}/deployments" class="btn btn-secondary min-h-11 text-sm"
+           title="Stacks managed via Service templates (desired state)">Template deployments</a>
+        <a href="/servers/{{ server.id }}/docker?nocache=1" class="btn btn-secondary min-h-11 text-sm">↻ Refresh</a>
+        <a href="/servers/{{ server.id }}/docker/new-project" class="btn btn-accent min-h-11 text-sm">+ New Service</a>
+        <button type="button" onclick="showCleanupModal()" class="btn btn-secondary min-h-11 text-sm">Cleanup…</button>
+      </div>
     </div>
-    <div class="page-header-actions">
-      <a href="/servers/{{ server.id }}/deployments" class="btn btn-secondary min-h-11 text-sm"
-         title="Stacks managed via Service templates (desired state)">Template deployments</a>
-      <a href="/servers/{{ server.id }}/docker?nocache=1" class="btn btn-secondary min-h-11 text-sm">↻ Refresh</a>
-      <a href="/servers/{{ server.id }}/docker/new-project" class="btn btn-accent min-h-11 text-sm">+ New Service</a>
+    <div class="ops-hero-viz">
+      <div class="docker-hero-viz" aria-hidden="true">
+        <div class="docker-whale {% if docker_shell|default(false) %}opacity-80{% endif %}">
+          <div class="docker-whale-ring"></div>
+          <div class="docker-whale-core">
+            <div class="docker-whale-n" id="docker-hero-run">{% if docker_shell|default(false) %}…{% else %}{{ _run }}{% endif %}</div>
+            <div class="docker-whale-l">running</div>
+          </div>
+        </div>
+      </div>
+      <div class="ops-pulse-stats">
+        <div class="ops-pulse-stat"><span class="ops-pulse-n" id="docker-hero-ct">{% if docker_shell|default(false) %}—{% else %}{{ _ct }}{% endif %}</span><span class="ops-pulse-l">total</span></div>
+        <div class="ops-pulse-stat"><span class="ops-pulse-n {% if _upd %}text-warning{% endif %}">{{ _upd }}</span><span class="ops-pulse-l">updates</span></div>
+      </div>
+      <p class="ops-pulse-caption">Compose stacks on this host</p>
     </div>
-  </div>
+  </section>
 
   <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-    <h2 class="text-lg font-medium">
-      Stacks
-      <span class="text-xs font-normal text-muted" id="stack-summary">
-        {% if docker_shell|default(false) %}
-        · loading…
-        {% else %}
-        · {{ containers|length }} containers
-        · {{ containers|selectattr('running')|list|length }} running
-        {% endif %}
-      </span>
-    </h2>
+    <h2 class="text-lg font-medium">Stacks</h2>
     <div class="flex flex-wrap items-center gap-2">
       <div class="text-xs text-muted flex items-center gap-1.5">
         Auto-refresh
@@ -108,7 +131,6 @@
           <option value="600" {% if cur==600 %}selected{% endif %}>10m</option>
         </select>
       </div>
-      <button type="button" onclick="showCleanupModal()" class="btn btn-secondary text-xs px-3 py-1.5 min-h-9">Cleanup…</button>
     </div>
   </div>
 
@@ -216,38 +238,86 @@
   <div id="container-more-list" class="docker-popover-list"></div>
 </div>
 
-<!-- Cleanup modal (destructive / multi-step stays full modal) -->
-<div id="cleanup-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="modal-content card p-5 w-full max-w-md mx-4">
-    <div class="flex items-center justify-between gap-2 mb-3">
-      <h3 class="font-semibold">Cleanup</h3>
+<!-- Cleanup modal: list unused by default, then optional prune -->
+<div id="cleanup-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="cleanup-title">
+  <div class="modal-content card p-5 mx-4 cleanup-modal-panel">
+    <div class="flex items-center justify-between gap-2 mb-2">
+      <div>
+        <h3 id="cleanup-title" class="font-semibold text-lg">Docker cleanup</h3>
+        <p class="text-xs text-muted mt-0.5">Unused images &amp; exited containers on this host</p>
+      </div>
       <button type="button" onclick="hideCleanupModal()" class="source-icon-btn" aria-label="Close">✕</button>
     </div>
-    <p class="text-xs text-muted mb-3">Prune unused Docker resources on the remote host. Dangling = unreferenced images; exited = stopped containers.</p>
-    <div class="docker-more-list mb-3">
-      <form method="post" action="/servers/{{ server.id }}/docker/prune-unused">
-        <input type="hidden" name="prune_type" value="images">
-        <button type="submit" class="docker-more-item docker-more-danger">Prune dangling images</button>
-      </form>
-      <form method="post" action="/servers/{{ server.id }}/docker/prune-unused">
-        <input type="hidden" name="prune_type" value="containers">
-        <button type="submit" class="docker-more-item docker-more-danger">Prune exited containers</button>
-      </form>
-      <button type="button" onclick="loadUnused()" class="docker-more-item">List unused…</button>
+
+    <div class="cleanup-modal-body">
+      <div id="cleanup-status" class="cleanup-status is-busy" role="status" aria-live="polite">
+        <span class="cleanup-status-spin" aria-hidden="true"></span>
+        <span id="cleanup-status-text">Listing unused resources via SSH…</span>
+      </div>
+
+      <div id="unused-list" class="cleanup-list" aria-label="Unused resources"></div>
+
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <button type="button" id="cleanup-refresh-btn" onclick="loadUnused()" class="btn btn-secondary text-xs min-h-9">↻ Refresh list</button>
+      </div>
+
+      <p class="text-xs text-muted mb-2">Destructive actions (confirm after reviewing the list):</p>
+      <div class="cleanup-actions">
+        <form method="post" action="/servers/{{ server.id }}/docker/prune-unused" class="cleanup-prune-form" data-prune-label="dangling images">
+          <input type="hidden" name="prune_type" value="images">
+          <button type="submit" class="btn btn-secondary text-sm min-h-11 w-full text-danger border-danger/30">
+            Prune dangling images
+          </button>
+        </form>
+        <form method="post" action="/servers/{{ server.id }}/docker/prune-unused" class="cleanup-prune-form" data-prune-label="exited containers">
+          <input type="hidden" name="prune_type" value="containers">
+          <button type="submit" class="btn btn-secondary text-sm min-h-11 w-full text-danger border-danger/30">
+            Prune exited containers
+          </button>
+        </form>
+      </div>
     </div>
-    <div id="unused-list" class="text-xs font-mono code-surface p-2 rounded border border-border max-h-40 overflow-auto empty:hidden"></div>
   </div>
 </div>
 
 <script>
+function setCleanupStatus(state, message) {
+  const box = document.getElementById('cleanup-status');
+  const text = document.getElementById('cleanup-status-text');
+  if (!box || !text) return;
+  box.classList.remove('is-busy', 'is-error', 'hidden');
+  if (state === 'busy') box.classList.add('is-busy');
+  else if (state === 'error') box.classList.add('is-error');
+  else if (state === 'hidden') box.classList.add('hidden');
+  // show/hide spinner
+  const spin = box.querySelector('.cleanup-status-spin');
+  if (spin) spin.style.display = state === 'busy' ? '' : 'none';
+  text.textContent = message || '';
+}
+
 function loadUnused() {
   const area = document.getElementById('unused-list');
+  const refreshBtn = document.getElementById('cleanup-refresh-btn');
   if (!area) return;
-  area.textContent = 'Loading via fresh SSH...';
+  if (refreshBtn) refreshBtn.disabled = true;
+  setCleanupStatus('busy', 'Listing unused resources via SSH…');
+  area.innerHTML = '<span class="text-muted">Waiting for host…</span>';
   fetch('/servers/{{ server.id }}/docker/unused')
-    .then(r => r.text())
-    .then(t => { area.innerHTML = t; })
-    .catch(e => area.textContent = 'Error: ' + e);
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    })
+    .then(function (t) {
+      area.innerHTML = t || '<div class="text-muted">Nothing to show.</div>';
+      setCleanupStatus('ok', 'List ready — review before pruning.');
+    })
+    .catch(function (e) {
+      area.innerHTML = '<div class="text-danger">Could not load unused list.</div>';
+      setCleanupStatus('error', 'Error: ' + (e && e.message ? e.message : e));
+    })
+    .finally(function () {
+      if (refreshBtn) refreshBtn.disabled = false;
+    });
 }
 
 function showCleanupModal() {
@@ -255,6 +325,8 @@ function showCleanupModal() {
   if (!modal) return;
   modal.classList.remove('hidden');
   modal.classList.add('flex');
+  // Default action: list unused on open
+  loadUnused();
 }
 function hideCleanupModal() {
   const modal = document.getElementById('cleanup-modal');
@@ -650,15 +722,20 @@ function applyDockerFilters() {
   });
 
   const summary = document.getElementById('stack-summary');
+  const heroRun = document.getElementById('docker-hero-run');
+  const heroCt = document.getElementById('docker-hero-ct');
+  const total = document.querySelectorAll('.docker-svc-row').length;
+  const run = document.querySelectorAll('.docker-svc-row[data-svc-status="running"]').length;
   if (summary) {
     if (status !== 'all' || q) {
-      summary.textContent = '· ' + visible + ' shown';
+      summary.textContent = visible + ' shown';
     } else {
-      const total = document.querySelectorAll('.docker-svc-row').length;
-      const run = document.querySelectorAll('.docker-svc-row[data-svc-status="running"]').length;
-      summary.textContent = '· ' + total + ' containers · ' + run + ' running';
+      summary.innerHTML = '<span class="ops-hero-status ops-hero-status--ok">' + run + ' running</span> · '
+        + total + ' container' + (total !== 1 ? 's' : '');
     }
   }
+  if (heroRun && !(status !== 'all' || q)) heroRun.textContent = String(run);
+  if (heroCt && !(status !== 'all' || q)) heroCt.textContent = String(total);
 }
 function initDockerFilters() {
   const bar = document.getElementById('docker-filter-bar');
@@ -706,24 +783,32 @@ document.body.addEventListener('htmx:afterSettle', function(e) {
 
 <!-- Simple Build Modal (vanilla JS) -->
 <div id="build-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="modal-content card p-6 w-full max-w-md mx-4">
-    <h3 class="text-lg font-medium mb-4">Build Compose Services</h3>
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-md mx-4 ph-modal-brand">
+    <div class="mb-4">
+      <div class="ph-detail-kicker">Docker · compose build</div>
+      <h3 class="ph-detail-title">Build services</h3>
+      <p class="text-xs text-muted mt-1">
+        <span class="ph-file-badge ph-file-badge--dockerfile">Dockerfile</span>
+        <span class="ph-file-badge ph-file-badge--compose ml-1">compose</span>
+        · streams live after start
+      </p>
+    </div>
     <form id="build-form" method="post">
       <input type="hidden" name="project" id="modal-project">
       <div class="mb-3">
-        <label class="text-xs text-muted">Services to build (select one or all)</label>
-        <div id="modal-services" class="mt-2 space-y-1 max-h-40 overflow-auto"></div>
+        <label class="text-xs text-muted font-medium">Services to build</label>
+        <div id="modal-services" class="mt-2 space-y-1 max-h-40 overflow-auto border border-border rounded-lg p-2 bg-bg"></div>
       </div>
-      <div class="flex items-center gap-2 mb-4">
-        <input type="checkbox" name="no_cache" id="modal-no-cache" >
-        <label for="modal-no-cache" class="text-sm"> --no-cache (full clean build)</label>
+      <div class="flex items-center gap-2 mb-4 min-h-11">
+        <input type="checkbox" name="no_cache" id="modal-no-cache">
+        <label for="modal-no-cache" class="text-sm">--no-cache (full clean build)</label>
       </div>
       <div class="flex flex-wrap gap-2 justify-end">
         <button type="button" onclick="hideBuildModal()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
-        <button type="button" id="modal-start-build" onclick="startBuildFromModal()" class="btn btn-accent min-h-11 text-sm">Start Build</button>
+        <button type="button" id="modal-start-build" onclick="startBuildFromModal()" class="btn btn-accent min-h-11 text-sm">Start build</button>
       </div>
     </form>
-    <div class="text-xs text-muted mt-3">Only services with a build section are listed. Builds can take minutes.</div>
+    <div class="text-xs text-muted mt-3">Only services with a <code>build:</code> section are listed. Builds can take minutes on the host.</div>
   </div>
 </div>
 
@@ -749,12 +834,19 @@ document.body.addEventListener('htmx:afterSettle', function(e) {
   </div>
 </div>
 
-<!-- Quick Edit Modal (modal mindset for compose / Dockerfile) -->
-<div id="quick-edit-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="modal-content card p-6 w-full max-w-3xl mx-4">
-    <div class="flex items-center justify-between mb-3 gap-2">
-      <h3 class="text-lg font-medium">Quick edit — <span id="qe-project"></span></h3>
-      <button type="button" onclick="hideQuickEditModal()" class="btn btn-secondary min-h-11 text-sm">✕</button>
+<!-- Quick Edit Modal (compose + Dockerfile) -->
+<div id="quick-edit-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-3xl mx-4 ph-modal-brand max-h-[92vh] overflow-y-auto">
+    <div class="ph-detail-modal-head">
+      <div class="min-w-0">
+        <div class="ph-detail-kicker">Docker · quick edit</div>
+        <h3 class="ph-detail-title">Edit <span id="qe-project" class="font-mono text-accent"></span></h3>
+        <p class="text-xs text-muted mt-1" id="qe-file-hint">
+          <span class="ph-file-badge ph-file-badge--compose">compose</span>
+          · YAML snippets · full editor for syntax &amp; versions
+        </p>
+      </div>
+      <button type="button" onclick="hideQuickEditModal()" class="source-icon-btn" aria-label="Close">✕</button>
     </div>
     <div id="qe-template-banner" class="hidden mb-3 p-2.5 banner-warning border border-border text-sm rounded">
       Template-managed stack. Prefer
@@ -762,26 +854,27 @@ document.body.addEventListener('htmx:afterSettle', function(e) {
       for variables/secrets. Raw edits can drift.
     </div>
 
-    <div class="mb-2 flex flex-wrap gap-2 text-sm items-center">
-      <button id="qe-tab-compose" type="button" onclick="switchQuickEditTab('compose')" class="btn btn-accent min-h-11">Compose</button>
-      <button id="qe-tab-dockerfile" type="button" onclick="switchQuickEditTab('dockerfile')" class="btn btn-secondary min-h-11 hidden">Dockerfile</button>
+    <div class="mb-2 flex flex-wrap gap-2 text-sm items-center ph-file-tabs">
+      <button id="qe-tab-compose" type="button" onclick="switchQuickEditTab('compose')" class="btn btn-accent min-h-11 text-sm">Compose</button>
+      <button id="qe-tab-dockerfile" type="button" onclick="switchQuickEditTab('dockerfile')" class="btn btn-secondary min-h-11 text-sm hidden">Dockerfile</button>
       <a id="qe-full-link" href="#"
          class="ml-auto text-accent hover:underline text-xs self-center min-h-11 inline-flex items-center px-1 relative z-10"
          data-nav-loading="Opening full editor…"
          onclick="return goToFullEditor(event);">Open full editor →</a>
     </div>
 
-    <textarea id="qe-editor" class="w-full h-64 font-mono text-sm code-surface border border-border rounded p-3 resize-y" spellcheck="false"></textarea>
+    <textarea id="qe-editor" class="w-full h-64 font-mono text-sm code-surface border border-border rounded-xl p-3 resize-y" spellcheck="false"></textarea>
 
     <div class="flex flex-wrap items-center gap-2 mt-3">
-      <button type="button" onclick="quickSaveDraft()" class="btn btn-secondary min-h-11 text-sm">Save Draft</button>
-      <button type="button" onclick="quickSaveDeploy()" class="btn btn-accent min-h-11 text-sm">Save &amp; Deploy</button>
+      <button type="button" onclick="quickSaveDraft()" class="btn btn-secondary min-h-11 text-sm">Save draft</button>
+      <button type="button" onclick="quickSaveDeploy()" class="btn btn-accent min-h-11 text-sm">Save &amp; deploy</button>
       <button type="button" onclick="hideQuickEditModal()" class="btn btn-secondary min-h-11 text-sm ml-auto">Cancel</button>
       <div id="qe-status" class="text-xs text-accent"></div>
     </div>
 
     <div class="text-xs text-muted mt-2">
-      Quick edit uses a basic textarea. Full editor has syntax, history, and drafts.
+      Quick edit is a plain textarea. Full editor: syntax colours, wrap, history, multi-file
+      <span class="ph-file-badge ph-file-badge--env">.env</span>.
     </div>
   </div>
 </div>
@@ -804,11 +897,13 @@ document.body.addEventListener('htmx:afterSettle', function(e) {
 
 <!-- Deploy modal (popup confirmation + options, like build/undeploy modals) -->
 <div id="deploy-confirm-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="modal-content card p-6 w-full max-w-md mx-4">
-    <h3 class="text-lg font-medium mb-2">Deploy / Redeploy project?</h3>
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-md mx-4 ph-modal-brand">
+    <div class="ph-detail-kicker">Docker · deploy</div>
+    <h3 class="ph-detail-title mb-1">Deploy / redeploy?</h3>
     <p class="text-sm text-muted mb-3">
       Run <code class="text-accent">docker compose pull &amp;&amp; up -d</code> (or up -d only) for
       <strong id="deploy-project-name" class="font-mono text-accent"></strong>.
+      <span class="ph-file-badge ph-file-badge--compose ml-1">compose</span>
     </p>
     <div class="mb-4">
       <label class="flex items-center gap-2 text-sm cursor-pointer min-h-11">
@@ -1090,12 +1185,20 @@ function switchQuickEditTab(type) {
     dfTab.classList.add(type === 'dockerfile' ? 'btn-accent' : 'btn-secondary');
   }
 
-  // update full editor link to match current file
+  // update full editor link + branding hint to match current file
   if (fullLink) {
     fullLink.href = fullEditorUrl(qeCurrent.serverId, qeCurrent.project, type);
     fullLink.textContent = type === 'dockerfile'
       ? 'Open full Dockerfile editor'
       : 'Open full editor (syntax, versions, drafts…)';
+  }
+  const hint = document.getElementById('qe-file-hint');
+  if (hint) {
+    if (type === 'dockerfile') {
+      hint.innerHTML = '<span class="ph-file-badge ph-file-badge--dockerfile">Dockerfile</span> · host build context · save then rebuild';
+    } else {
+      hint.innerHTML = '<span class="ph-file-badge ph-file-badge--compose">compose</span> · YAML · full editor for syntax &amp; versions';
+    }
   }
 
   if (!ta) return;
@@ -1800,23 +1903,27 @@ document.addEventListener('click', function(e) {
     }
   }, true);
 
-  // Prune buttons (global at bottom) - show feedback
-  document.querySelectorAll('form[action*="/prune-unused"]').forEach(form => {
+  // Prune forms — loading overlay + modal status feedback
+  document.querySelectorAll('form[action*="/prune-unused"], form.cleanup-prune-form').forEach(form => {
     form.addEventListener('submit', function(e) {
       const btn = form.querySelector('button');
       if (btn && !btn.disabled) {
         btn.disabled = true;
-        const original = btn.textContent;
-        btn.textContent = 'Pruning...';
+        const label = form.getAttribute('data-prune-label') || 'resources';
+        btn.textContent = 'Pruning…';
+        if (typeof setCleanupStatus === 'function') {
+          setCleanupStatus('busy', 'Pruning ' + label + ' on host…');
+        }
         const overlay = document.createElement('div');
         overlay.className = 'fixed inset-0 bg-black/70 flex items-center justify-center z-[70]';
+        overlay.setAttribute('role', 'status');
         overlay.innerHTML = `
           <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center">
             <div class="flex justify-center mb-3">
               <div class="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
             </div>
-            <div class="font-medium">Pruning unused resources...</div>
-            <div class="text-xs text-muted mt-2">Please wait...</div>
+            <div class="font-medium">Pruning ${label}…</div>
+            <div class="text-xs text-muted mt-2">SSH command running on host — please wait</div>
           </div>
         `;
         document.body.appendChild(overlay);

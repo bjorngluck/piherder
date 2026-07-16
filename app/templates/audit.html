@@ -10,28 +10,30 @@
 {% set p_tot = p_ok + p_fail + p_run + p_other %}
 {% set health = 'ok' if p_fail == 0 and p_run == 0 else ('hot' if p_fail > 0 else 'busy') %}
 
-<section class="ops-hero ops-hero--audit is-{{ health }} mb-4">
+<section class="ops-hero ops-hero--audit is-{{ health }} mb-3" id="audit-hero">
   <div class="ops-hero-main">
     <div class="ops-hero-kicker">Operations</div>
     <h1 class="ops-hero-title">Audit log</h1>
     <p class="ops-hero-sub">
       Event feed · {{ get_app_timezone() }}
       {% if total is defined %} · <strong class="text-text">{{ total }}</strong> match{% if total != 1 %}es{% endif %}{% endif %}
+      · <span class="text-accent">{{ p_ok }}</span> ok
+      {% if p_fail %} · <span class="text-danger">{{ p_fail }}</span> failed{% endif %}
     </p>
     <div class="ops-hero-actions">
       <a href="/jobs" class="btn btn-secondary text-xs min-h-9 px-2.5">Jobs</a>
       <a href="/notifications" class="btn btn-secondary text-xs min-h-9 px-2.5">Alerts</a>
       <a href="/" class="btn btn-secondary text-xs min-h-9 px-2.5">Dashboard</a>
+      <button type="button" class="ops-hero-collapse" id="audit-viz-toggle" aria-expanded="true" title="Hide or show pulse chart">Hide pulse</button>
     </div>
   </div>
-  <div class="ops-hero-viz">
+  <div class="ops-hero-viz" id="audit-hero-viz">
     <div class="ops-hero-orb ops-hero-orb--sample" aria-hidden="true">
       <div class="ops-alert-orb-core">
         <div class="ops-queue-n">{{ p_sample }}</div>
         <div class="ops-queue-l">sample</div>
       </div>
     </div>
-    {# Line 1 — status #}
     <div class="ops-bars" aria-hidden="true">
       {% if p_tot %}
       <div class="ops-bar ops-bar--ok" style="flex: {{ p_ok or 0.001 }}"></div>
@@ -48,10 +50,9 @@
       <div class="ops-pulse-stat"><span class="ops-pulse-n {% if p_fail %}text-danger{% endif %}">{{ p_fail }}</span><span class="ops-pulse-l">failed</span></div>
       <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ p_other }}</span><span class="ops-pulse-l">other</span></div>
     </div>
-    {# Line 2 — top event types (compact) #}
     {% if p.by_action %}
     <div class="ops-mini-types" aria-label="Top event types">
-      {% for row in p.by_action[:5] %}
+      {% for row in p.by_action[:4] %}
       <a href="/audit?action={{ row.id }}{% if hide_noise %}&hide_noise=1{% else %}&hide_noise=0{% endif %}"
          class="ops-mini-type {% if action == row.id %}is-active{% endif %}"
          title="{{ row.label }} · {{ row.count }} ({{ row.pct }}%)">
@@ -62,11 +63,11 @@
       {% endfor %}
     </div>
     {% endif %}
-    <p class="ops-pulse-caption">Status · top types · last {{ p_sample }} events</p>
+    <p class="ops-pulse-caption">Last {{ p_sample }} · top types</p>
   </div>
 </section>
 
-<form method="get" class="card ops-filters mb-4" id="audit-filter-form">
+<form method="get" class="card ops-filters ops-filters--compact mb-3" id="audit-filter-form">
   <div class="ops-filters-row">
     <input type="text" name="search" value="{{ search }}" placeholder="Search…"
            class="ops-f-control ops-f-grow" aria-label="Search">
@@ -236,17 +237,18 @@
 const AUDIT_LOGS = {{ logs | tojson | safe }};
 </script>
 
-<div id="audit-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="modal-content card p-4 sm:p-5 w-full max-w-3xl mx-3 sm:mx-4 h-[80vh] max-h-[90vh] flex flex-col overflow-hidden">
-    <div class="flex justify-between items-start gap-2 mb-2 flex-shrink-0">
+<div id="audit-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3">
+  <div class="modal-content card p-4 sm:p-5 w-full max-w-3xl mx-3 sm:mx-4 h-[80vh] max-h-[90vh] flex flex-col overflow-hidden ph-detail-modal">
+    <div class="ph-detail-modal-head">
       <div class="min-w-0">
-        <h3 id="audit-detail-title" class="font-semibold text-base break-words">Event details</h3>
+        <div class="ph-detail-kicker">Audit · event</div>
+        <h3 id="audit-detail-title" class="ph-detail-title">Event details</h3>
         <div id="audit-detail-meta" class="audit-detail-meta"></div>
       </div>
       <button type="button" onclick="hideAuditDetailsModal()" class="btn btn-secondary min-h-11 text-sm px-3 flex-shrink-0">Close</button>
     </div>
-    <div class="text-xs text-muted mb-1 flex-shrink-0">Output / details</div>
-    <pre id="audit-details-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded">—</pre>
+    <div class="ph-detail-log-label">Output / details</div>
+    <pre id="audit-details-content" class="ph-detail-log">—</pre>
   </div>
 </div>
 
@@ -341,6 +343,27 @@ function hideAuditDetailsModal() {
   const on = document.getElementById('audit-hide-noise-on');
   const off = document.getElementById('audit-hide-noise-off');
   if (on && off) off.disabled = on.checked;
+
+  // Collapse pulse viz to free vertical space (persist in session)
+  var hero = document.getElementById('audit-hero');
+  var viz = document.getElementById('audit-hero-viz');
+  var tog = document.getElementById('audit-viz-toggle');
+  function setAuditViz(open) {
+    if (!hero || !viz || !tog) return;
+    hero.classList.toggle('is-viz-collapsed', !open);
+    viz.classList.toggle('is-collapsed', !open);
+    tog.setAttribute('aria-expanded', open ? 'true' : 'false');
+    tog.textContent = open ? 'Hide pulse' : 'Show pulse';
+    try { sessionStorage.setItem('piherder.audit.viz', open ? '1' : '0'); } catch (e) {}
+  }
+  if (tog) {
+    var pref = '1';
+    try { pref = sessionStorage.getItem('piherder.audit.viz') || '1'; } catch (e) {}
+    setAuditViz(pref !== '0');
+    tog.addEventListener('click', function() {
+      setAuditViz(tog.getAttribute('aria-expanded') !== 'true');
+    });
+  }
 
   // Date range presets (7d / 30d / 90d / clear) — calendar math from app TZ "today"
   function pad2(n) { return String(n).padStart(2, '0'); }

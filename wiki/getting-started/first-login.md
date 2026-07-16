@@ -7,7 +7,9 @@
 3. You are the first user → role **admin**.
 
 !!! warning "Open registration locks after the first account"
-    Further users are created only by an admin under **Users** — see [Users](../account-security/users.md).
+    After the first admin exists, the login screen no longer offers self-registration.
+    New people **ask an admin** for an invite (Users → Create user). Direct `/auth/register`
+    explains how to request access instead of a hard config error.
 
 ### Password policy
 
@@ -15,16 +17,17 @@ Enforced on register, password change, and admin-created users:
 
 - At least **10** characters  
 - At least one **uppercase**, one **lowercase**, one **digit**  
-- Max **72** bytes (bcrypt)
+- Keep under **72 characters** (storage limit; emoji/symbols count more)
 
 ## After login checklist
 
 | Step | Where |
 |------|--------|
-| Set display name / avatar | **Account** |
+| Set display name / avatar | **Account** (full-width ops-hero + profile / security cards) |
 | Optional 2FA | **Account** → TOTP — or [force 2FA for all](../account-security/two-factor.md) |
+| Push notifications | **Account** → Push (after [HTTPS / PWA](../account-security/pwa-push.md)) |
 | Timezone | **Settings → General** |
-| Create operators/viewers | **Users** (admin) |
+| Create operators/viewers | **Users** (admin) — after first admin, no public self-register |
 | Add first server | [Add a server](../day-to-day/add-server.md) |
 
 ## Admin quick checklist

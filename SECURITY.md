@@ -4,8 +4,9 @@
 
 | Version | Support |
 |---------|---------|
-| **v0.2.x** (tag `v0.2.0`+) | Current release line |
-| `main` | Active development (pre-1.0) |
+| **v0.4.x** (tag `v0.4.0`+) | Latest tagged release line |
+| **v0.5.0** (`main` / RC) | Active development toward first RC |
+| Older tags | Best-effort; prefer latest tag or `main` for fixes |
 
 Security fixes are applied on the default branch (`main`) and cherry-picked or released as patch tags when warranted. Prefer the latest release tag or `main` for fixes.
 
@@ -33,7 +34,7 @@ We aim to acknowledge reports within a few days and will work with you on a fix 
 |-------|------------|
 | `PIHERDER_MASTER_KEY` | Host `.env` only — never commit |
 | SSH private keys / optional passwords | Fernet-encrypted in DB |
-| User passwords | bcrypt + password policy |
+| User passwords | bcrypt + password policy (min 10, upper/lower/digit; soft max ~72 characters) |
 | 2FA secrets | Fernet-encrypted TOTP; hashed backup codes |
 | API tokens (`ph_…`) | Stored as hashes only; shown once at create/rotate; scopes + optional IP allowlist |
 | Sessions | JWT cookie (HS256 via **PyJWT** + cryptography) |

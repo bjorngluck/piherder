@@ -232,11 +232,12 @@
 const JOBS = {{ jobs | tojson | safe }};
 </script>
 
-<div id="job-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-  <div class="modal-content card p-4 sm:p-5 w-full max-w-3xl mx-3 sm:mx-4 h-[80vh] max-h-[90vh] flex flex-col overflow-hidden">
-    <div class="flex justify-between items-start gap-2 mb-2 flex-shrink-0">
+<div id="job-details-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3">
+  <div class="modal-content card p-4 sm:p-5 w-full max-w-3xl mx-3 sm:mx-4 h-[80vh] max-h-[90vh] flex flex-col overflow-hidden ph-detail-modal">
+    <div class="ph-detail-modal-head">
       <div class="min-w-0">
-        <h3 id="job-detail-title" class="font-semibold text-base break-words">Job details</h3>
+        <div class="ph-detail-kicker">Jobs · detail</div>
+        <h3 id="job-detail-title" class="ph-detail-title">Job details</h3>
         <div id="job-detail-meta" class="audit-detail-meta"></div>
       </div>
       <div class="flex flex-wrap gap-2 flex-shrink-0">
@@ -244,8 +245,8 @@ const JOBS = {{ jobs | tojson | safe }};
         <button type="button" onclick="hideJobDetailsModal()" class="btn btn-secondary min-h-11 text-sm px-3">Close</button>
       </div>
     </div>
-    <div class="text-xs text-muted mb-1 flex-shrink-0">Log / details</div>
-    <pre id="job-details-content" class="log-output flex-1 min-h-0 overflow-auto p-3 text-xs font-mono whitespace-pre-wrap border border-border rounded">—</pre>
+    <div class="ph-detail-log-label">Log / details</div>
+    <pre id="job-details-content" class="ph-detail-log">—</pre>
   </div>
 </div>
 

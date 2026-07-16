@@ -3,7 +3,7 @@
 {% block content %}
 {% set ap = account_pulse or {} %}
 {% set ah = ap.health if ap.health is defined else 'ok' %}
-<section class="ops-hero ops-hero--account is-{{ ah }} mb-3 max-w-3xl">
+<section class="ops-hero ops-hero--account is-{{ ah }} mb-4">
   <div class="ops-hero-main">
     <div class="ops-hero-kicker">Access</div>
     <div class="account-hero-identity">
@@ -19,6 +19,7 @@
         <p class="ops-hero-sub">
           {{ user.display_name or user.email }}
           · <span class="status-pill status-running text-[10px]">{{ user_role or user.role or 'admin' }}</span>
+          · profile, security, and push
         </p>
       </div>
     </div>
@@ -72,7 +73,7 @@
 </section>
 
 {% if msg %}
-<div class="banner-success border border-border rounded p-3 text-sm mb-4 max-w-2xl">
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">
   {% if msg == 'profile_saved' %}Profile saved.
   {% elif msg == 'password_changed' %}Password changed. Trusted devices were revoked.
   {% elif msg == 'avatar_saved' %}Avatar updated.
@@ -92,7 +93,7 @@
 {% endif %}
 
 {% if error %}
-<div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-2xl">
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">
   {% if error == 'password_required' %}Current password required to change email.
   {% elif error == 'email_taken' %}That email is already in use.
   {% elif error == 'bad_password' %}Current password is incorrect.
@@ -112,20 +113,20 @@
 {% endif %}
 
 {% if backup_codes_shown %}
-<div class="card p-5 sm:p-6 mb-6 max-w-2xl border-accent">
+<div class="card p-5 sm:p-6 mb-4 border-accent account-card account-card--wide">
   <h2 class="font-semibold text-text mb-2">Backup codes — save these now</h2>
   <p class="text-xs text-muted mb-3">Each code works once. They will not be shown again.</p>
-  <ul class="font-mono text-sm grid grid-cols-2 gap-1 mb-2">
+  <ul class="font-mono text-sm grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5 mb-2">
     {% for c in backup_codes_shown %}
-    <li class="bg-surface border border-border rounded px-2 py-1">{{ c }}</li>
+    <li class="bg-surface border border-border rounded px-2 py-1.5">{{ c }}</li>
     {% endfor %}
   </ul>
 </div>
 {% endif %}
 
-<div class="space-y-6 max-w-2xl">
+<div class="account-card-grid">
   <!-- Profile -->
-  <div class="card p-5 sm:p-6 space-y-4">
+  <div class="card p-5 sm:p-6 space-y-4 account-card">
     <h2 class="font-semibold text-text">Profile</h2>
     <form method="post" action="/auth/account/profile" class="space-y-3">
       <div>
@@ -149,7 +150,7 @@
   </div>
 
   <!-- Avatar -->
-  <div class="card p-5 sm:p-6 space-y-3">
+  <div class="card p-5 sm:p-6 space-y-3 account-card">
     <h2 class="font-semibold text-text">Profile picture</h2>
     <div class="flex items-center gap-4">
       {% if user.avatar_path %}
@@ -173,9 +174,9 @@
   </div>
 
   <!-- Password -->
-  <div class="card p-5 sm:p-6 space-y-3">
+  <div class="card p-5 sm:p-6 space-y-3 account-card">
     <h2 class="font-semibold text-text">Password</h2>
-    <p class="text-xs text-muted">At least 10 characters with upper, lower, and a digit (max 72 bytes).</p>
+    <p class="text-xs text-muted">At least 10 characters with upper, lower, and a digit. Keep under 72 characters.</p>
     <form method="post" action="/auth/account/password" class="space-y-3" id="account-password-form">
       <div>
         <label class="block text-sm text-muted mb-1">Current password</label>
@@ -233,7 +234,7 @@
   </script>
 
   <!-- 2FA -->
-  <div class="card p-5 sm:p-6 space-y-4">
+  <div class="card p-5 sm:p-6 space-y-4 account-card">
     <h2 class="font-semibold text-text">Two-factor authentication (app)</h2>
     <p class="text-sm text-muted">Optional TOTP (Google Authenticator, Aegis, 1Password, etc.). Backup codes unlock you if you lose the app.</p>
 
@@ -361,7 +362,7 @@
   {% endif %}
 
   <!-- Push notifications (Android + iOS Home Screen Web Push) -->
-  <div class="card p-5 sm:p-6 space-y-4">
+  <div class="card p-5 sm:p-6 space-y-4 account-card account-card--wide">
     <h2 class="font-semibold text-text">Push notifications</h2>
     <p class="text-sm text-muted">
       Optional browser push for fleet alerts (backup failed, OS updates, reboot pending, etc.).
@@ -449,7 +450,7 @@
 
   <!-- Trusted devices -->
   {% if user.totp_enabled %}
-  <div class="card p-5 sm:p-6 space-y-3">
+  <div class="card p-5 sm:p-6 space-y-3 account-card">
     <h2 class="font-semibold text-text">Trusted devices</h2>
     <p class="text-xs text-muted">Devices can skip 2FA for up to {{ trusted_device_days }} days. Stolen laptop risk: revoke if unsure. Password change revokes all.</p>
     {% if devices %}
@@ -475,7 +476,7 @@
   </div>
   {% endif %}
 
-  <div class="flex flex-wrap gap-2">
+  <div class="account-card account-card--wide account-card--footer flex flex-wrap gap-2">
     <a href="/auth/logout" class="btn btn-danger min-h-11 text-sm">Sign out</a>
     <a href="/" class="btn btn-secondary min-h-11 text-sm">Dashboard</a>
   </div>

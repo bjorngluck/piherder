@@ -16,7 +16,9 @@ The page uses the shared **ops-hero** (role / 2FA coverage pulse). Each user car
 
 - ≥ **10** characters  
 - Upper + lower + digit  
-- Max **72** bytes  
+- Keep under **72 characters**  
+
+Configurable admin policy (custom min length / classes) is **post-RC** — see roadmap.
 
 ## Roles and delete
 
@@ -25,4 +27,6 @@ The page uses the shared **ops-hero** (role / 2FA coverage pulse). Each user car
 
 ## Open registration
 
-Only the **first** account self-registers. After that, only admins create users.
+Only the **first** account self-registers. After that, login points people to **ask an admin**
+(Users → Create user). `ALLOW_OPEN_REGISTRATION=true` re-enables public sign-up if you
+intentionally want it.

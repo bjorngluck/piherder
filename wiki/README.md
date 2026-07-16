@@ -24,15 +24,15 @@ mkdocs build --strict
 
 | Path | Content |
 |------|---------|
-| `getting-started/` | Install, TLS, first login |
-| `day-to-day/` | Servers, backups, updates, jobs |
-| `docker/` | Host Docker browser |
+| `getting-started/` | Install, TLS, first login, appearance, scenarios |
+| `day-to-day/` | Dashboard, Services, servers, backups, updates, jobs |
+| `docker/` | Host Docker browser, inventory, compose edit |
 | `service-templates/` | Deploy / from-host / secrets *(not named `templates/` — MkDocs reserves that)* |
-| `integrations/` | Kuma, Grafana |
-| `account-security/` | RBAC, 2FA, PWA |
-| `operations/` | Env, DR, API, metrics |
+| `integrations/` | Kuma, Grafana, Pi-hole, NPM, certificates, Network maps |
+| `account-security/` | RBAC, users, 2FA, PWA |
+| `operations/` | Settings, env, DR, API, metrics, multi-worker |
 | `troubleshooting/` | Common failures |
-| `developers/` | Setup, architecture, schema |
+| `developers/` | Setup, architecture, schema, testing, publish |
 | `assets/` | Logo + screenshots |
 
 Config: [`mkdocs.yml`](../mkdocs.yml) at repo root.  

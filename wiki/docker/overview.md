@@ -1,6 +1,6 @@
 # Docker on hosts
 
-When **Docker / containers** is enabled for a server, PiHerder can list compose projects, view logs, edit multi-file compose, build, and redeploy.
+When **Docker / containers** is enabled for a server, PiHerder can list compose projects, view logs, edit multi-file compose, build, and redeploy. The host Docker page uses the shared **ops-hero** (project counts / health) consistent with other host pages.
 
 <figure class="ph-figure" markdown>
   ![Server detail Docker card](../assets/screenshots/server-detail.svg)

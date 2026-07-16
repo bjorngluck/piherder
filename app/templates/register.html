@@ -1,37 +1,79 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-md mx-auto mt-6 sm:mt-10">
-  <div class="card p-6 sm:p-8">
-    <div class="mb-6">
-      <div class="header-brand-sub text-primary mb-1">FLEET</div>
-      <h1 class="text-2xl font-semibold tracking-tighter text-text">Create account</h1>
-      <p class="text-sm text-muted mt-1">Admin access for this PiHerder instance</p>
+<section class="auth-stage" aria-label="Register">
+  <div class="auth-stage-glow" aria-hidden="true"></div>
+  <div class="auth-mesh" aria-hidden="true">
+    <svg class="auth-mesh-svg" viewBox="0 0 280 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="authGlowR" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.2"/>
+          <stop offset="70%" stop-color="var(--color-primary)" stop-opacity="0.05"/>
+          <stop offset="100%" stop-color="transparent" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle cx="148" cy="96" r="78" fill="url(#authGlowR)"/>
+      <path class="auth-mesh-link" d="M52 48 C 88 48, 108 78, 148 96"/>
+      <path class="auth-mesh-link" d="M148 96 C 172 100, 196 108, 224 118"/>
+      <path class="auth-mesh-link" d="M148 96 C 128 118, 112 138, 96 152"/>
+      <path class="auth-mesh-pulse" d="M52 48 C 88 48, 108 78, 148 96"/>
+      <g transform="translate(148 96)"><circle class="auth-node auth-node--hub" r="11"/><circle class="auth-node-core auth-node-core--hub" r="5"/></g>
+      <g transform="translate(52 48)"><circle class="auth-node auth-node--inet" r="7"/><circle class="auth-node-core" r="3.5"/></g>
+      <g transform="translate(224 118)"><circle class="auth-node" r="6"/><circle class="auth-node-core" r="2.8"/></g>
+      <g transform="translate(96 152)"><circle class="auth-node" r="5.5"/><circle class="auth-node-core" r="2.5"/></g>
+    </svg>
+  </div>
+
+  <div class="auth-card card">
+    <div class="auth-card-brand">
+      <div class="auth-brand-mark" aria-hidden="true">
+        <span class="auth-brand-dot"></span>
+      </div>
+      <div>
+        <div class="header-brand-sub text-primary">PiHerder</div>
+        <h1 class="auth-title">{% if closed %}Access closed{% else %}Create account{% endif %}</h1>
+        <p class="auth-sub">
+          {% if closed %}
+          Self-registration is disabled after the first admin
+          {% else %}
+          First admin for this PiHerder instance
+          {% endif %}
+        </p>
+      </div>
     </div>
 
     {% if error %}
-      <div class="mb-4 p-3 banner-error border border-border text-sm rounded">
+      <div class="mb-4 p-3 banner-error border border-border text-sm rounded" role="alert">
         {{ error }}
       </div>
     {% endif %}
 
+    {% if closed %}
+    <div class="mb-4 p-3 bg-bg border border-border rounded text-sm text-muted space-y-2">
+      <p>To get an account, ask an <strong class="text-text">administrator</strong> to:</p>
+      <ol class="list-decimal list-inside space-y-1 text-xs">
+        <li>Open <strong class="text-text">Users</strong> and create a user for your email</li>
+        <li>Share the temporary password / invite text</li>
+      </ol>
+      <p class="text-xs">Operators: open registration only with <code class="text-[10px]">ALLOW_OPEN_REGISTRATION=true</code> if you intentionally want public sign-up.</p>
+    </div>
+    {% else %}
     <div class="mb-4 p-3 bg-bg border border-border rounded text-xs text-muted">
       First-time setup creates the initial admin user if none exist.<br>
-      Password: min 10 chars, upper + lower + digit (max 72 bytes).
+      {{ password_policy_text or 'Password must include at least 10 characters, one uppercase letter, one lowercase letter, one digit. Keep it under 72 characters.' }}
     </div>
 
-    {% if not closed %}
     <form method="post" action="/auth/register" class="space-y-4">
       <div>
-        <label class="block text-sm mb-1 text-muted">Email</label>
-        <input name="email" type="email" required
+        <label class="block text-sm mb-1 text-muted" for="reg-email">Email</label>
+        <input id="reg-email" name="email" type="email" required
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
       </div>
       <div>
-        <label class="block text-sm mb-1 text-muted">Password</label>
-        <input name="password" type="password" required minlength="10" maxlength="72"
+        <label class="block text-sm mb-1 text-muted" for="reg-password">Password</label>
+        <input id="reg-password" name="password" type="password" required minlength="10" maxlength="72"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
-        <p class="text-xs text-muted mt-1">Min 10 · upper · lower · digit</p>
+        <p class="text-xs text-muted mt-1">Min 10 · upper · lower · digit · under 72 characters</p>
       </div>
 
       <button type="submit" class="w-full mt-2 btn btn-accent font-medium min-h-11">
@@ -45,5 +87,5 @@
       <a href="/auth/login" class="text-primary hover:underline">Log in</a>
     </p>
   </div>
-</div>
+</section>
 {% endblock %}

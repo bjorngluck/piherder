@@ -21,6 +21,7 @@ _AMBIGUOUS = "0OIl1"  # omit from generated passwords for readability
 
 
 def policy_rules_text() -> str:
+    """Human-readable policy for forms (no storage jargon)."""
     parts = [f"at least {MIN_LENGTH} characters"]
     if REQUIRE_UPPER:
         parts.append("one uppercase letter")
@@ -30,7 +31,12 @@ def policy_rules_text() -> str:
         parts.append("one digit")
     if REQUIRE_SPECIAL:
         parts.append("one special character")
-    return "Password must include " + ", ".join(parts) + f" (max {MAX_PASSWORD_BYTES} bytes)."
+    # Soft cap: bcrypt uses 72 bytes; for normal letters/digits that is ~72 characters.
+    return (
+        "Password must include "
+        + ", ".join(parts)
+        + f". Keep it under {MAX_PASSWORD_BYTES} characters."
+    )
 
 
 def validate_password(password: str) -> tuple[bool, str]:
@@ -40,7 +46,11 @@ def validate_password(password: str) -> tuple[bool, str]:
     if not isinstance(password, str):
         password = str(password)
     if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
-        return False, f"Password too long (max {MAX_PASSWORD_BYTES} bytes for storage)"
+        return (
+            False,
+            f"Password is too long — use at most {MAX_PASSWORD_BYTES} characters "
+            "(or fewer if you use symbols/emoji).",
+        )
     if len(password) < MIN_LENGTH:
         return False, f"Password must be at least {MIN_LENGTH} characters"
     if REQUIRE_UPPER and not re.search(r"[A-Z]", password):

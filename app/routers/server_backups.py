@@ -71,12 +71,37 @@ async def server_backups(
     global_backup_defaults = {}
     current_sources = []
 
+    # Profiles / sources first so Configure always has paths even if audit lookup fails
     try:
         backup_profiles = job_service.attach_source_job_states(
             backup_svc.get_backup_profiles_db(server),
             active_backup_jobs,
         )
+    except Exception as e:
+        logger.debug("backup_profiles: %s", e)
+        try:
+            backup_profiles = backup_svc.get_backup_profiles_db(server)
+        except Exception:
+            backup_profiles = []
 
+    try:
+        global_backup_defaults = backup_svc.global_backup_defaults_from_server(server)
+    except Exception as e:
+        logger.debug("global_backup_defaults: %s", e)
+        global_backup_defaults = {}
+
+    current_sources = [
+        p.get("source") for p in (backup_profiles or []) if p.get("source")
+    ]
+    if not current_sources:
+        try:
+            current_sources = list(server.get_backup_paths() or [])
+        except Exception:
+            current_sources = []
+    if not current_sources and isinstance(global_backup_defaults, dict):
+        current_sources = list(global_backup_defaults.get("sources") or [])
+
+    try:
         last_backup_log = session.exec(
             select(AuditLog)
             .where(AuditLog.server_id == server.id, AuditLog.action == "backup")
@@ -90,11 +115,8 @@ async def server_backups(
             if last_backup_log
             else None
         )
-
-        global_backup_defaults = backup_svc.global_backup_defaults_from_server(server)
-        current_sources = [p.get("source") for p in backup_profiles]
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("last_backup_status: %s", e)
 
     from ..services.backup_path_policy import parse_rules, DEFAULT_DENY_PREFIXES
     from ..services import backup_restore as restore_svc

@@ -1,31 +1,65 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="page-header mb-6">
-  <div>
-    <p class="text-xs text-muted mb-1">
+{% set down_n = services|selectattr('state', 'equalto', 'down')|list|length if services else 0 %}
+{% set up_n = services|selectattr('state', 'equalto', 'up')|list|length if services else 0 %}
+{% set health = 'hot' if down_n else 'ok' %}
+
+<section class="ops-hero ops-hero--services is-{{ health }} mb-4">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker">
       <a href="/servers/{{ server.id }}" class="text-accent hover:underline">{{ server.name }}</a>
-      <span class="text-muted"> / Services</span>
+      · Services
+    </div>
+    <h1 class="ops-hero-title">Services</h1>
+    <p class="ops-hero-sub">
+      HTTP/TLS apps via Uptime Kuma — host services and Docker stacks
+      ·
+      {% if down_n %}
+      <span class="ops-hero-status" style="background:color-mix(in srgb,var(--color-danger)12%,var(--color-surface));color:var(--color-danger);border:1px solid color-mix(in srgb,var(--color-danger)35%,var(--color-border));font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;padding:0.12rem 0.45rem;border-radius:999px">{{ down_n }} down</span>
+      {% else %}
+      <span class="ops-hero-status ops-hero-status--ok">healthy</span>
+      {% endif %}
     </p>
-    <h1 class="text-3xl font-semibold tracking-tighter text-text">Services</h1>
-    <p class="text-sm text-muted mt-1">
-      HTTP/TLS apps monitored via Uptime Kuma — host services (e.g. HAOS) and Docker stacks.
-    </p>
+    <div class="ops-hero-actions">
+      {% if server.container_patch_enabled %}
+      <a href="/servers/{{ server.id }}/docker" class="btn btn-secondary min-h-11 text-sm">Docker</a>
+      {% endif %}
+      <a href="/services" class="btn btn-secondary min-h-11 text-sm">Fleet services</a>
+      {% if manage_integration_id %}
+      <a href="/integrations/{{ manage_integration_id }}#kuma-services" class="btn btn-primary min-h-11 text-sm">Manage bindings</a>
+      {% else %}
+      <a href="/integrations" class="btn btn-primary min-h-11 text-sm">Integrations</a>
+      {% endif %}
+      <a href="{{ hosts_map_url or ('/dns/physical?focus=n:host-' ~ server.id ~ '#map') }}" class="btn btn-secondary min-h-11 text-sm">Hosts map</a>
+      <a href="/servers/{{ server.id }}" class="btn btn-secondary min-h-11 text-sm">Server</a>
+    </div>
   </div>
-  <div class="page-header-actions flex flex-wrap gap-2">
-    {% if server.container_patch_enabled %}
-    <a href="/servers/{{ server.id }}/docker" class="btn btn-secondary min-h-11">Docker</a>
-    {% endif %}
-    <a href="/services" class="btn btn-secondary min-h-11">Fleet services</a>
-    {% if manage_integration_id %}
-    <a href="/integrations/{{ manage_integration_id }}#kuma-services" class="btn btn-primary min-h-11">Manage bindings</a>
-    {% else %}
-    <a href="/integrations" class="btn btn-primary min-h-11">Integrations</a>
-    {% endif %}
-    <a href="{{ hosts_map_url or ('/dns/physical?focus=n:host-' ~ server.id ~ '#map') }}" class="btn btn-secondary min-h-11">Hosts map</a>
-    <a href="/servers/{{ server.id }}" class="btn btn-secondary min-h-11">Server</a>
+  <div class="ops-hero-viz">
+    <div class="svc-hero-mesh" aria-hidden="true">
+      <svg viewBox="0 0 160 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path class="svc-mesh-link" d="M80 62 L40 30"/>
+        <path class="svc-mesh-link" d="M80 62 L120 30"/>
+        <path class="svc-mesh-link" d="M80 62 L36 96"/>
+        <path class="svc-mesh-link" d="M80 62 L124 96"/>
+        <path class="svc-mesh-pulse" d="M80 62 L40 30"/>
+        <path class="svc-mesh-pulse svc-mesh-pulse--d" d="M80 62 L124 96"/>
+        <circle class="svc-mesh-hub" cx="80" cy="62" r="13"/>
+        <circle class="svc-mesh-node {% if down_n %}is-down{% else %}is-up{% endif %}" cx="40" cy="30" r="7"/>
+        <circle class="svc-mesh-node is-up" cx="120" cy="30" r="7"/>
+        <circle class="svc-mesh-node is-up" cx="36" cy="96" r="7"/>
+        <circle class="svc-mesh-node {% if down_n %}is-down{% else %}is-up{% endif %}" cx="124" cy="96" r="7"/>
+      </svg>
+    </div>
+    <div class="ops-pulse-stats">
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ services|length }}</span><span class="ops-pulse-l">total</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ host_count }}</span><span class="ops-pulse-l">host</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ docker_count }}</span><span class="ops-pulse-l">docker</span></div>
+      <div class="ops-pulse-stat"><span class="ops-pulse-n text-accent">{{ up_n }}</span><span class="ops-pulse-l">up</span></div>
+    </div>
+    <p class="ops-pulse-caption">Open a service row to launch the app</p>
   </div>
-</div>
+</section>
 
 {% if kuma_ssh %}
 <div class="card p-3 mb-4 border border-border flex flex-wrap items-center justify-between gap-2">
@@ -42,12 +76,6 @@
   {% endif %}
 </div>
 {% endif %}
-
-<div class="flex flex-wrap gap-3 text-xs text-muted mb-4">
-  <span><strong class="text-text">{{ services|length }}</strong> service(s)</span>
-  <span>· <strong class="text-text">{{ host_count }}</strong> host</span>
-  <span>· <strong class="text-text">{{ docker_count }}</strong> Docker</span>
-</div>
 
 {% if not services %}
 <div class="card p-6 max-w-xl">
@@ -69,17 +97,23 @@
 <p class="text-xs text-muted mb-3">Not tied to a Docker project on this Pi (e.g. Home Assistant OS).</p>
 <div class="space-y-3 mb-6">
   {% for s in services if s.location_kind == 'host' %}
-  <div class="card p-4 border border-border">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div class="flex gap-3 min-w-0 flex-1">
-        <div class="w-12 h-12 rounded-xl border border-border bg-surface flex items-center justify-center overflow-hidden shrink-0">
+  {% set app_href = s.url if s.url and s.url.startswith('http') else none %}
+  <div class="card svc-row">
+    <div class="svc-row-body">
+      {% if app_href %}
+      <a href="{{ app_href }}" target="_blank" rel="noopener" class="svc-row-open">
+      {% else %}
+      <div class="svc-row-open" style="cursor:default">
+      {% endif %}
+        <div class="svc-tile-icon shrink-0" style="width:3rem;height:3rem;flex-shrink:0">
           {% if s.logo_url %}
-          <img src="{{ s.logo_url }}" alt="" class="w-full h-full object-contain p-1">
+          <img src="{{ s.logo_url }}" alt="">
           {% else %}
-          <span class="text-base font-semibold text-primary">{{ (s.label or '?')[0]|upper }}</span>
+          <span class="svc-tile-icon-letter">{{ (s.label or '?')[0]|upper }}</span>
           {% endif %}
+          <span class="svc-tile-status-dot {% if s.state == 'up' %}is-up{% elif s.state == 'down' %}is-down{% endif %}"></span>
         </div>
-        <div class="min-w-0 flex-1">
+        <div class="svc-row-copy min-w-0 flex-1 text-left">
           <div class="flex flex-wrap items-center gap-2">
             <h3 class="text-base font-semibold text-text">{{ s.label }}</h3>
             <span class="status-pill text-xs
@@ -94,17 +128,11 @@
             {% endif %}
             <span class="status-pill text-xs status-running">host</span>
           </div>
-          <dl class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <dl class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
             <div>
               <dt class="text-[10px] uppercase tracking-wide text-muted">Service URL</dt>
-              <dd class="font-mono text-xs break-all">
-                {% if s.url and s.url.startswith('http') %}
-                <a href="{{ s.url }}" target="_blank" rel="noopener" class="text-accent hover:underline">{{ s.url }}</a>
-                {% elif s.url %}
-                {{ s.url }}
-                {% else %}
-                <span class="text-muted">—</span>
-                {% endif %}
+              <dd class="font-mono text-xs break-all text-accent">
+                {% if app_href %}{{ s.url }}{% elif s.url %}{{ s.url }}{% else %}<span class="text-muted">—</span>{% endif %}
               </dd>
             </div>
             <div>
@@ -119,35 +147,35 @@
               <dd class="text-xs">{{ s.location }}</dd>
             </div>
           </dl>
-          {% if s.id %}
-          <details class="mt-2">
-            <summary class="text-[10px] text-muted cursor-pointer">Logo…</summary>
-            <div class="mt-1 flex flex-wrap gap-2 items-center">
-              <form method="post" action="/services/{{ s.id }}/logo" enctype="multipart/form-data" class="flex flex-wrap gap-1 items-center">
-                <input type="hidden" name="next" value="/servers/{{ server.id }}/services">
-                <input type="file" name="file" accept="image/*" class="text-[10px]" required>
-                <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Upload</button>
-              </form>
-              <form method="post" action="/services/{{ s.id }}/logo/discover">
-                <input type="hidden" name="next" value="/servers/{{ server.id }}/services">
-                <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Fetch favicon</button>
-              </form>
-            </div>
-          </details>
-          {% endif %}
         </div>
-      </div>
-      <div class="flex flex-col gap-2 shrink-0">
-        {% if s.url and s.url.startswith('http') %}
-        <a href="{{ s.url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open service</a>
-        {% endif %}
-        {% if s.open_url %}
-        <a href="{{ s.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open in Kuma</a>
-        {% endif %}
-        {% if s.path_map_url %}
-        <a href="{{ s.path_map_url }}" class="btn btn-secondary text-xs min-h-9" title="{{ s.fabric_fqdn or 'Path map' }}">Path map</a>
-        {% endif %}
-      </div>
+      {% if app_href %}</a>{% else %}</div>{% endif %}
+      {% if s.id %}
+      <details class="mt-1 w-full sm:w-auto">
+        <summary class="text-[10px] text-muted cursor-pointer">Logo…</summary>
+        <div class="mt-1 flex flex-wrap gap-2 items-center">
+          <form method="post" action="/services/{{ s.id }}/logo" enctype="multipart/form-data" class="flex flex-wrap gap-1 items-center">
+            <input type="hidden" name="next" value="/servers/{{ server.id }}/services">
+            <input type="file" name="file" accept="image/*" class="text-[10px]" required>
+            <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Upload</button>
+          </form>
+          <form method="post" action="/services/{{ s.id }}/logo/discover">
+            <input type="hidden" name="next" value="/servers/{{ server.id }}/services">
+            <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Fetch favicon</button>
+          </form>
+        </div>
+      </details>
+      {% endif %}
+    </div>
+    <div class="svc-row-actions">
+      {% if app_href %}
+      <a href="{{ app_href }}" target="_blank" rel="noopener" class="btn btn-accent text-xs min-h-9">Open app</a>
+      {% endif %}
+      {% if s.open_url %}
+      <a href="{{ s.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open in Kuma</a>
+      {% endif %}
+      {% if s.path_map_url %}
+      <a href="{{ s.path_map_url }}" class="btn btn-secondary text-xs min-h-9" title="{{ s.fabric_fqdn or 'Path map' }}">Path map</a>
+      {% endif %}
     </div>
   </div>
   {% endfor %}
@@ -160,17 +188,23 @@
 <p class="text-xs text-muted mb-3">Bound to a compose project or container on this host.</p>
 <div class="space-y-3 mb-6">
   {% for s in services if s.location_kind == 'docker' %}
-  <div class="card p-4 border border-border">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div class="flex gap-3 min-w-0 flex-1">
-        <div class="w-12 h-12 rounded-xl border border-border bg-surface flex items-center justify-center overflow-hidden shrink-0">
+  {% set app_href = s.url if s.url and s.url.startswith('http') else none %}
+  <div class="card svc-row">
+    <div class="svc-row-body">
+      {% if app_href %}
+      <a href="{{ app_href }}" target="_blank" rel="noopener" class="svc-row-open">
+      {% else %}
+      <div class="svc-row-open" style="cursor:default">
+      {% endif %}
+        <div class="svc-tile-icon shrink-0" style="width:3rem;height:3rem;flex-shrink:0">
           {% if s.logo_url %}
-          <img src="{{ s.logo_url }}" alt="" class="w-full h-full object-contain p-1">
+          <img src="{{ s.logo_url }}" alt="">
           {% else %}
-          <span class="text-base font-semibold text-primary">{{ (s.label or '?')[0]|upper }}</span>
+          <span class="svc-tile-icon-letter">{{ (s.label or '?')[0]|upper }}</span>
           {% endif %}
+          <span class="svc-tile-status-dot {% if s.state == 'up' %}is-up{% elif s.state == 'down' %}is-down{% endif %}"></span>
         </div>
-        <div class="min-w-0 flex-1">
+        <div class="svc-row-copy min-w-0 flex-1 text-left">
           <div class="flex flex-wrap items-center gap-2">
             <h3 class="text-base font-semibold text-text">{{ s.label }}</h3>
             <span class="status-pill text-xs
@@ -185,17 +219,11 @@
             {% endif %}
             <span class="status-pill text-xs feature-off">docker</span>
           </div>
-          <dl class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+          <dl class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
             <div>
               <dt class="text-[10px] uppercase tracking-wide text-muted">Service URL</dt>
-              <dd class="font-mono text-xs break-all">
-                {% if s.url and s.url.startswith('http') %}
-                <a href="{{ s.url }}" target="_blank" rel="noopener" class="text-accent hover:underline">{{ s.url }}</a>
-                {% elif s.url %}
-                {{ s.url }}
-                {% else %}
-                <span class="text-muted">—</span>
-                {% endif %}
+              <dd class="font-mono text-xs break-all text-accent">
+                {% if app_href %}{{ s.url }}{% elif s.url %}{{ s.url }}{% else %}<span class="text-muted">—</span>{% endif %}
               </dd>
             </div>
             <div>
@@ -208,39 +236,40 @@
             <div>
               <dt class="text-[10px] uppercase tracking-wide text-muted">Docker</dt>
               <dd class="text-xs font-mono">
-                <a href="/servers/{{ server.id }}/docker" class="text-accent hover:underline">{{ s.location }}</a>
+                <span class="text-muted">{{ s.location }}</span>
               </dd>
             </div>
           </dl>
-          {% if s.id %}
-          <details class="mt-2">
-            <summary class="text-[10px] text-muted cursor-pointer">Logo…</summary>
-            <div class="mt-1 flex flex-wrap gap-2 items-center">
-              <form method="post" action="/services/{{ s.id }}/logo" enctype="multipart/form-data" class="flex flex-wrap gap-1 items-center">
-                <input type="hidden" name="next" value="/servers/{{ server.id }}/services">
-                <input type="file" name="file" accept="image/*" class="text-[10px]" required>
-                <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Upload</button>
-              </form>
-              <form method="post" action="/services/{{ s.id }}/logo/discover">
-                <input type="hidden" name="next" value="/servers/{{ server.id }}/services">
-                <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Fetch favicon</button>
-              </form>
-            </div>
-          </details>
-          {% endif %}
         </div>
-      </div>
-      <div class="flex flex-col gap-2 shrink-0">
-        {% if s.url and s.url.startswith('http') %}
-        <a href="{{ s.url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open service</a>
-        {% endif %}
-        {% if s.open_url %}
-        <a href="{{ s.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open in Kuma</a>
-        {% endif %}
-        {% if s.path_map_url %}
-        <a href="{{ s.path_map_url }}" class="btn btn-secondary text-xs min-h-9" title="{{ s.fabric_fqdn or 'Path map' }}">Path map</a>
-        {% endif %}
-      </div>
+      {% if app_href %}</a>{% else %}</div>{% endif %}
+      {% if s.id %}
+      <details class="mt-1 w-full sm:w-auto">
+        <summary class="text-[10px] text-muted cursor-pointer">Logo…</summary>
+        <div class="mt-1 flex flex-wrap gap-2 items-center">
+          <form method="post" action="/services/{{ s.id }}/logo" enctype="multipart/form-data" class="flex flex-wrap gap-1 items-center">
+            <input type="hidden" name="next" value="/servers/{{ server.id }}/services">
+            <input type="file" name="file" accept="image/*" class="text-[10px]" required>
+            <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Upload</button>
+          </form>
+          <form method="post" action="/services/{{ s.id }}/logo/discover">
+            <input type="hidden" name="next" value="/servers/{{ server.id }}/services">
+            <button type="submit" class="btn btn-secondary text-[10px] min-h-8">Fetch favicon</button>
+          </form>
+        </div>
+      </details>
+      {% endif %}
+    </div>
+    <div class="svc-row-actions">
+      {% if app_href %}
+      <a href="{{ app_href }}" target="_blank" rel="noopener" class="btn btn-accent text-xs min-h-9">Open app</a>
+      {% endif %}
+      {% if s.open_url %}
+      <a href="{{ s.open_url }}" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9">Open in Kuma</a>
+      {% endif %}
+      <a href="/servers/{{ server.id }}/docker" class="btn btn-secondary text-xs min-h-9">Docker</a>
+      {% if s.path_map_url %}
+      <a href="{{ s.path_map_url }}" class="btn btn-secondary text-xs min-h-9" title="{{ s.fabric_fqdn or 'Path map' }}">Path map</a>
+      {% endif %}
     </div>
   </div>
   {% endfor %}

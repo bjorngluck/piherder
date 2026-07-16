@@ -93,11 +93,15 @@ def _registration_allowed(session: Session) -> bool:
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
+async def login_page(request: Request, session: Session = Depends(get_session)):
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="login.html",
-        context={"title": "Login"}
+        context={
+            "title": "Login",
+            "registration_open": _registration_allowed(session),
+            "lean_page": True,
+        },
     )
 
 
@@ -244,20 +248,31 @@ async def two_factor_submit(
 
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request, session: Session = Depends(get_session)):
+    from ..services import password_policy as pwpol
+
     if not _registration_allowed(session):
         return templates_mod.templates.TemplateResponse(
             request=request,
             name="register.html",
             context={
                 "title": "Register",
-                "error": "Registration is closed. Ask an admin or set ALLOW_OPEN_REGISTRATION=true.",
+                "error": (
+                    "Registration is closed. Ask an administrator to create an account "
+                    "for you (Users → Create user), or to send an invite."
+                ),
                 "closed": True,
+                "password_policy_text": pwpol.policy_rules_text(),
+                "lean_page": True,
             },
         )
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="register.html",
-        context={"title": "Register"}
+        context={
+            "title": "Register",
+            "password_policy_text": pwpol.policy_rules_text(),
+            "lean_page": True,
+        },
     )
 
 
@@ -269,31 +284,49 @@ async def register(
     session: Session = Depends(get_session)
 ):
     if not _registration_allowed(session):
+        from ..services import password_policy as pwpol
+
         return templates_mod.templates.TemplateResponse(
             request=request,
             name="register.html",
             context={
                 "title": "Register",
-                "error": "Registration is closed.",
+                "error": (
+                    "Registration is closed. Ask an administrator to create an account "
+                    "for you (Users → Create user)."
+                ),
                 "closed": True,
+                "password_policy_text": pwpol.policy_rules_text(),
+                "lean_page": True,
             },
         )
+
+    from ..services import password_policy as pwpol
 
     existing = session.exec(select(User).where(User.email == email)).first()
     if existing:
         return templates_mod.templates.TemplateResponse(
             request=request,
             name="register.html",
-            context={"title": "Register", "error": "User with that email already exists"}
+            context={
+                "title": "Register",
+                "error": "User with that email already exists",
+                "password_policy_text": pwpol.policy_rules_text(),
+                "lean_page": True,
+            },
         )
-    from ..services import password_policy as pwpol
 
     ok, pol_err = pwpol.validate_password(password or "")
     if not ok:
         return templates_mod.templates.TemplateResponse(
             request=request,
             name="register.html",
-            context={"title": "Register", "error": pol_err or "Password does not meet policy"},
+            context={
+                "title": "Register",
+                "error": pol_err or "Password does not meet policy",
+                "password_policy_text": pwpol.policy_rules_text(),
+                "lean_page": True,
+            },
         )
     try:
         hashed = get_password_hash(password)

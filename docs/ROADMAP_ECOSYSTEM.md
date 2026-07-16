@@ -1,8 +1,9 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md)
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-16  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md)  
+**License:** MIT open source (see [LICENSE](../LICENSE)).
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
 
@@ -209,6 +210,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Dependency hygiene** | **Done for RC path:** `uv.lock` + hashed `requirements*.lock.txt`; Dockerfile/CI install with `--require-hashes`. Ongoing: periodic `pip-audit` / Dependabot; intentional bumps via `scripts/refresh-lockfiles.sh`. |
 | **JWT stack** | **Done (pre-0.5.0 tag):** sessions use **PyJWT[crypto]** HS256 — `python-jose` / `ecdsa` removed. |
 | **Custom branding** | Operator logo + accent colours — **far horizon** (well after 1.0 production). Not near-term polish. Built-in light/dark only for now. |
+| **Custom password policy** | Admin-configurable policy (min length, required classes, optional specials) instead of fixed code defaults. First-time setup still creates the initial admin when none exist. Soft max remains ~72 characters (storage limit). |
 
 ### Playwright phases (recommended)
 

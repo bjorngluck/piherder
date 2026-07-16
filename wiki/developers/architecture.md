@@ -57,8 +57,11 @@ flowchart TB
 
 - **Server-rendered** Jinja2 + HTMX fragments + Alpine for small widgets  
 - Vendored Tailwind / HTMX / Alpine (no runtime CDN)  
-- Progressive enhancement vanilla JS for Network maps, job hold, push  
-- Shared ops-hero grid contract (`ops.css`); mobile orientation reflow in `base.html`  
+- Progressive enhancement vanilla JS for Network maps, job hold, push, compose editor  
+- Shared ops-hero grid contract (`ops.css`): full main content width; desktop title left · viz right (≥768px); mobile viz under title  
+- Mobile orientation reflow in `base.html`; service rows stack actions on narrow viewports  
+- Auth pages (login/register) use mesh treatment; closed registration UX when `ALLOW_OPEN_REGISTRATION` is false  
+
 
 
 ## Design principles

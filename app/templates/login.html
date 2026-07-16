@@ -1,16 +1,57 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-md mx-auto mt-6 sm:mt-10">
-  <div class="card p-6 sm:p-8">
-    <div class="mb-6">
-      <div class="header-brand-sub text-primary mb-1">FLEET</div>
-      <h1 class="text-2xl font-semibold tracking-tighter text-text">Sign in</h1>
-      <p class="text-sm text-muted mt-1">PiHerder fleet management</p>
+<section class="auth-stage" aria-label="Sign in">
+  <div class="auth-stage-glow" aria-hidden="true"></div>
+  <div class="auth-mesh" aria-hidden="true">
+    <svg class="auth-mesh-svg" viewBox="0 0 280 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="authGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.22"/>
+          <stop offset="70%" stop-color="var(--color-primary)" stop-opacity="0.06"/>
+          <stop offset="100%" stop-color="transparent" stop-opacity="0"/>
+        </radialGradient>
+        <linearGradient id="authFlow" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0"/>
+          <stop offset="50%" stop-color="var(--color-accent)" stop-opacity="0.85"/>
+          <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <circle cx="148" cy="96" r="78" fill="url(#authGlow)"/>
+      <path class="auth-mesh-link" d="M52 48 C 88 48, 108 78, 148 96"/>
+      <path class="auth-mesh-link" d="M52 48 C 100 40, 170 36, 218 42"/>
+      <path class="auth-mesh-link" d="M148 96 C 168 88, 190 72, 218 42"/>
+      <path class="auth-mesh-link" d="M148 96 C 172 100, 196 108, 224 118"/>
+      <path class="auth-mesh-link" d="M148 96 C 160 118, 168 138, 176 152"/>
+      <path class="auth-mesh-link" d="M148 96 C 128 118, 112 138, 96 152"/>
+      <path class="auth-mesh-link" d="M148 96 C 118 100, 88 96, 62 92"/>
+      <path class="auth-mesh-pulse" d="M52 48 C 88 48, 108 78, 148 96" stroke="url(#authFlow)"/>
+      <path class="auth-mesh-pulse auth-mesh-pulse--d" d="M148 96 C 172 100, 196 108, 224 118" stroke="url(#authFlow)"/>
+      <path class="auth-mesh-pulse auth-mesh-pulse--d2" d="M52 48 C 100 40, 170 36, 218 42" stroke="url(#authFlow)"/>
+      <g transform="translate(52 48)"><circle class="auth-node auth-node--inet" r="7"/><circle class="auth-node-core" r="3.5"/></g>
+      <g transform="translate(148 96)"><circle class="auth-node auth-node--hub" r="11"/><circle class="auth-node-core auth-node-core--hub" r="5"/></g>
+      <g transform="translate(218 42)"><circle class="auth-node" r="6"/><circle class="auth-node-core" r="2.8"/></g>
+      <g transform="translate(224 118)"><circle class="auth-node" r="6"/><circle class="auth-node-core" r="2.8"/></g>
+      <g transform="translate(176 152)"><circle class="auth-node" r="5.5"/><circle class="auth-node-core" r="2.5"/></g>
+      <g transform="translate(96 152)"><circle class="auth-node" r="5.5"/><circle class="auth-node-core" r="2.5"/></g>
+      <g transform="translate(62 92)"><circle class="auth-node" r="5.5"/><circle class="auth-node-core" r="2.5"/></g>
+    </svg>
+  </div>
+
+  <div class="auth-card card">
+    <div class="auth-card-brand">
+      <div class="auth-brand-mark" aria-hidden="true">
+        <span class="auth-brand-dot"></span>
+      </div>
+      <div>
+        <div class="header-brand-sub text-primary">PiHerder</div>
+        <h1 class="auth-title">Sign in</h1>
+        <p class="auth-sub">Fleet management for your Pis</p>
+      </div>
     </div>
 
     {% if request.query_params.get('error') %}
-      <div class="mb-4 p-3 banner-error border border-border text-sm rounded">
+      <div class="mb-4 p-3 banner-error border border-border text-sm rounded" role="alert">
         {% if request.query_params.get('error') == 'rate' %}
         Too many attempts. Wait a few minutes and try again.
         {% else %}
@@ -21,13 +62,13 @@
 
     <form method="post" action="/auth/login" class="space-y-4">
       <div>
-        <label class="block text-sm mb-1 text-muted">Email</label>
-        <input name="email" type="email" required autocomplete="username"
+        <label class="block text-sm mb-1 text-muted" for="login-email">Email</label>
+        <input id="login-email" name="email" type="email" required autocomplete="username"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
       </div>
       <div>
-        <label class="block text-sm mb-1 text-muted">Password</label>
-        <input name="password" type="password" required autocomplete="current-password"
+        <label class="block text-sm mb-1 text-muted" for="login-password">Password</label>
+        <input id="login-password" name="password" type="password" required autocomplete="current-password"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
       </div>
 
@@ -37,9 +78,13 @@
     </form>
 
     <p class="mt-6 text-center text-sm text-muted">
-      Don't have an account?
-      <a href="/auth/register" class="text-primary hover:underline">Register</a>
+      {% if registration_open %}
+      First-time setup?
+      <a href="/auth/register" class="text-primary hover:underline">Create admin account</a>
+      {% else %}
+      Need access? Ask an administrator to invite you.
+      {% endif %}
     </p>
   </div>
-</div>
+</section>
 {% endblock %}
