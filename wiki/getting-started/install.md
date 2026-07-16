@@ -54,7 +54,7 @@ First build vendors frontend assets and needs outbound network (or pre-vendored 
 | Caddy HTTP | `http://your.host:8888` |
 | Direct to web (no Caddy) | `http://localhost:8000` |
 
-Continue: [First login](first-login.md).
+Continue: [First login](first-login.md) — **register the first admin** (no default password user).
 
 ---
 

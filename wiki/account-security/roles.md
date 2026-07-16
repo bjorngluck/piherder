@@ -24,7 +24,7 @@ Viewers cannot start jobs, change servers, open Users, or change security policy
 - Logged-in roles can **GET** most pages (read browsing).  
 - Mutating methods checked in auth middleware.  
 - User admin routes always require **admin**.  
-- Missing legacy role → treated as **admin**.
+- Missing or unknown role → treated as **viewer** (fail-closed).
 
 ## Sole admin protection
 

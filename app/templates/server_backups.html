@@ -27,7 +27,7 @@
       {% elif last_backup_status == 'success' %}
       <span class="ops-hero-status ops-hero-status--ok">last ok</span>
       {% elif last_backup_status == 'failed' %}
-      <span class="ops-hero-status" style="background:color-mix(in srgb,var(--color-danger)12%,var(--color-surface));color:var(--color-danger);border:1px solid color-mix(in srgb,var(--color-danger)35%,var(--color-border));font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;padding:0.12rem 0.45rem;border-radius:999px">last failed</span>
+      <span class="ops-hero-status ops-hero-status--fail">last failed</span>
       {% else %}
       <span class="ops-hero-status ops-hero-status--ok">ready</span>
       {% endif %}

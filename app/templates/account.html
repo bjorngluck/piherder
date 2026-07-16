@@ -176,7 +176,7 @@
   <!-- Password -->
   <div class="card p-5 sm:p-6 space-y-3 account-card">
     <h2 class="font-semibold text-text">Password</h2>
-    <p class="text-xs text-muted">At least 10 characters with upper, lower, and a digit. Keep under 72 characters.</p>
+    <p class="text-xs text-muted">{{ password_policy_text or 'At least 10 characters with upper, lower, and a digit. Use at most 72 Latin letters/digits.' }}</p>
     <form method="post" action="/auth/account/password" class="space-y-3" id="account-password-form">
       <div>
         <label class="block text-sm text-muted mb-1">Current password</label>

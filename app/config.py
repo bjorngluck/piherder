@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     # Hostname must match the cert SANs and Caddy site block (compose env PIHERDER_HOSTNAME)
     PIHERDER_HOSTNAME: Optional[str] = None  # e.g. piherder.hacknow.com
     PIHERDER_PUBLIC_URL: Optional[str] = None  # e.g. https://piherder.hacknow.com:8443
+    # Auth cookies: empty = auto (Secure when PIHERDER_PUBLIC_URL is https://…); true/false to force
+    COOKIE_SECURE: Optional[str] = None
 
     # Web Push (VAPID) — optional env override. When unset, keys are auto-generated
     # once at startup and stored encrypted in the DB (PushVapidConfig).

@@ -102,6 +102,5 @@ async def server_services_page(
             "manage_integration_id": manage_id,
             "kuma_ssh": ssh,
             "hosts_map_url": hosts_map_url,
-            "lean_page": True,
         },
     )

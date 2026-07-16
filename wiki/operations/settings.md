@@ -2,7 +2,9 @@
 
 **Where:** top nav **Settings** → `/herder-backups` (tabs on one page; legacy path kept for bookmarks).
 
-Settings is **admin-oriented** for stack and policy; operators still use Account for self-service. The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-style tabs under the hero. Switching tabs is **client-side** (URL `?tab=` updates without a full reload); the hero title, caption, and viz follow the active tab.
+Settings is **admin-oriented** for stack and policy; operators still use Account for self-service. **Timezone, security policy, fleet defaults, PiHerder self-backup/restore, Status, and API tokens** require **admin** (UI tabs and POST routes). Non-admins see a short notice on General only.
+
+The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-style tabs under the hero. Switching tabs is **client-side** (URL `?tab=` updates without a full reload); the hero title, caption, and viz follow the active tab.
 
 ## Tabs (overview)
 

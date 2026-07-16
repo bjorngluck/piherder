@@ -1,16 +1,22 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-md mx-auto mt-6 sm:mt-10">
-  <div class="card p-6 sm:p-8">
-    <div class="mb-6">
-      <div class="header-brand-sub text-primary mb-1">SECURITY</div>
-      <h1 class="text-2xl font-semibold tracking-tighter text-text">Two-factor code</h1>
-      <p class="text-sm text-muted mt-1">Enter a code from your authenticator app or a backup code.</p>
+<section class="auth-stage" aria-label="Two-factor code">
+  <div class="auth-stage-glow" aria-hidden="true"></div>
+  <div class="auth-card card">
+    <div class="auth-card-brand">
+      <div class="auth-brand-mark" aria-hidden="true">
+        <span class="auth-brand-dot"></span>
+      </div>
+      <div>
+        <div class="header-brand-sub text-primary">Security</div>
+        <h1 class="auth-title">Two-factor code</h1>
+        <p class="auth-sub">Authenticator app or backup code</p>
+      </div>
     </div>
 
     {% if error %}
-    <div class="mb-4 p-3 banner-error border border-border text-sm rounded">
+    <div class="mb-4 p-3 banner-error border border-border text-sm rounded" role="alert">
       {% if error == 'invalid' %}Invalid code. Try again.
       {% elif error == 'rate' %}Too many attempts. Wait a few minutes.
       {% else %}{{ error }}{% endif %}
@@ -19,8 +25,8 @@
 
     <form method="post" action="/auth/2fa" class="space-y-4">
       <div>
-        <label class="block text-sm mb-1 text-muted">Code</label>
-        <input name="code" type="text" required autofocus inputmode="numeric"
+        <label class="block text-sm mb-1 text-muted" for="totp-code">Code</label>
+        <input id="totp-code" name="code" type="text" required autofocus inputmode="numeric"
                autocomplete="one-time-code"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono tracking-widest"
                placeholder="123456 or ABCD-EF01">
@@ -39,5 +45,5 @@
       <a href="/auth/login" class="text-primary hover:underline">Back to login</a>
     </p>
   </div>
-</div>
+</section>
 {% endblock %}

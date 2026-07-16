@@ -43,7 +43,6 @@ async def fleet_services_page(
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or "",
             "detail": request.query_params.get("detail") or "",
-            "lean_page": True,
         },
     )
 

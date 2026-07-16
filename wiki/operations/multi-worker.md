@@ -13,6 +13,12 @@ Backups run **in parallel across different hosts**. The same host never has two 
 |------|---------|--------|
 | `CELERY_CONCURRENCY` | `2` | Pool slots |
 | `PIHERDER_SERVER_LOCK_TTL` | `7200` | Lock TTL if worker dies mid-rsync |
+
+### Auth rate limiting
+
+Login / 2FA attempt limits are **in-process memory** (per web process). With the default
+single Uvicorn worker this is fine. If you run multiple web replicas, each process has its
+own counter — prefer a reverse-proxy rate limit or a future Redis-backed limiter for HA.
 | Shared volumes | required | Same `/backups` on web + worker |
 | Cancel | | Revoke via `celery_task_id`; mutex released in `finally` |
 

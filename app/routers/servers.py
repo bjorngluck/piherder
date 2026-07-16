@@ -190,7 +190,6 @@ async def list_servers(
             "servers": servers,
             "pulse": pulse,
             "user": user,
-            "lean_page": True,
             "filter": filt,
             "filter_counts": filter_counts,
         },
@@ -853,7 +852,6 @@ async def server_detail(
             "kuma_host_services": _kuma_host_services_for_server(session, server.id),
             "kuma_docker_service_count": _kuma_docker_service_count(session, server.id),
             "grafana_dashboards": _grafana_dashboards_for_server(session, server.id),
-            "lean_page": True,
         }
     )
 

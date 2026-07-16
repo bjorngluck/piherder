@@ -153,6 +153,9 @@ async def settings_page(
         tab = "general"
     if tab == "status" and not is_admin:
         tab = "general"
+    # Instance DR + fleet/security policy writes are admin-only
+    if tab in ("backup", "fleet") and not is_admin:
+        tab = "general"
     qp = request.query_params
     if (
         qp.get("token_created")
@@ -655,7 +658,7 @@ async def revoke_api_token_form(
 @router.post("/herder-backups/run")
 async def trigger_herder_backup(
     backup_mode: str = Form("config_only"),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     mode = backup_mode if backup_mode in ("config_only", "full") else "config_only"
     include_audit = mode == "full"
@@ -702,7 +705,7 @@ async def restore_herder_backup(
     restore_file: UploadFile = File(None),
     restore_audit: Optional[str] = Form(None),
     dry_run: Optional[str] = Form(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     tmp_path = None
     try:
@@ -776,7 +779,7 @@ async def restore_herder_backup(
 async def download_herder_backup(
     path: str = "",
     name: str = "",
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     roots = list(hb.archive_dir_candidates())
     if name:
@@ -796,7 +799,7 @@ async def save_backup_schedule(
     schedule_mode: str = Form("config_only"),
     schedule_enabled: Optional[str] = Form(None),
     schedule_cron: str = Form("0 3 * * *"),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     enabled = _form_on(schedule_enabled)
     cron = (schedule_cron or "").strip() or "0 3 * * *"
@@ -831,10 +834,8 @@ async def save_backup_schedule(
 async def save_security_policy(
     force_2fa: Optional[str] = Form(None),
     template_require_2fa: Optional[str] = Form(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
-    if user_role(user) != ROLE_ADMIN:
-        raise HTTPException(403, "Admin role required")
     try:
         app_cfg.save_settings(
             {
@@ -861,7 +862,7 @@ async def save_update_check_defaults(
     apply_to_all: Optional[str] = Form(None),
     enable_feature_flags: Optional[str] = Form(None),
     enable_backups: Optional[str] = Form(None),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     os_on = _form_on(os_check_global_enabled)
     cont_on = _form_on(container_check_global_enabled)
@@ -936,7 +937,7 @@ async def save_update_check_defaults(
 @router.post("/herder-backups/timezone")
 async def save_timezone(
     timezone: str = Form("UTC"),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     try:
         app_cfg.set_app_timezone(timezone)
@@ -952,7 +953,7 @@ async def save_timezone(
 @router.post("/herder-backups/delete")
 async def delete_herder_backup(
     name: str = Form(...),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_admin_user),
 ):
     deleted = False
     for root in hb.archive_dir_candidates():

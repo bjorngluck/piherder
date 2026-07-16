@@ -64,9 +64,9 @@ Enforced on register, account change, and admin create (`app/services/password_p
 
 - At least **10** characters
 - At least one **uppercase**, one **lowercase**, one **digit**
-- Keep under **72 characters** (storage limit; emoji/symbols may count as more than one character)
+- At most **72 UTF-8 bytes** (~72 Latin letters/digits; emoji/symbols count as more)
 - Special characters recommended by the strength meter, not hard-required
-- Forms show human-readable rules via `policy_rules_text()` (not storage jargon)
+- Forms show human-readable rules via `policy_rules_text()`
 
 Admin-configurable min length / character classes is **post-RC** (roadmap).
 
@@ -74,15 +74,20 @@ Admin-configurable min length / character classes is **post-RC** (roadmap).
 
 - Change role from the user list (sole-admin rules apply).
 - Delete requires explicit confirm; you cannot delete yourself.
+- Unknown / empty role → treated as **viewer** (fail-closed).
 
-### Open registration
+### Open registration (no default admin)
 
-Only the **first** account can self-register (becomes **admin**). After that:
+There is **no** built-in `admin@example.com` user. An empty database leaves Register open for the **first** account (role **admin**). After that:
 
 - Login no longer offers self-registration; newcomers are directed to **ask an admin**.
-- Direct `/auth/register` explains how to request access (not a hard config crash).
+- Direct `/auth/register` explains how to request access.
 - Admins create users under **Users → Create user** (one-time invite credentials).
 - Optional: set `ALLOW_OPEN_REGISTRATION=true` if you intentionally want public sign-up.
+
+### Settings / instance DR (admin)
+
+Timezone, security policy, fleet defaults, PiHerder self-backup **run/restore/download/delete**, Status, and API tokens require **admin**. Operators use fleet jobs and Account self-service only.
 
 ---
 

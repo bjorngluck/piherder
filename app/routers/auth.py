@@ -40,6 +40,7 @@ from ..security.auth import (
     count_active_admins,
     post_login_path,
     force_2fa_required,
+    cookie_secure,
     ROLE_ADMIN,
     ROLE_OPERATOR,
     ROLE_VIEWER,
@@ -82,7 +83,14 @@ def _touch_last_login(session: Session, user: User) -> None:
 
 
 def _set_auth_cookie(response: RedirectResponse, token: str):
-    response.set_cookie("access_token", token, httponly=True, max_age=60 * 60 * 24 * 7, samesite="lax")
+    response.set_cookie(
+        "access_token",
+        token,
+        httponly=True,
+        max_age=60 * 60 * 24 * 7,
+        samesite="lax",
+        secure=cookie_secure(),
+    )
 
 
 def _registration_allowed(session: Session) -> bool:
@@ -100,7 +108,6 @@ async def login_page(request: Request, session: Session = Depends(get_session)):
         context={
             "title": "Login",
             "registration_open": _registration_allowed(session),
-            "lean_page": True,
         },
     )
 
@@ -150,7 +157,12 @@ async def login(
         pending = create_pending_2fa_token(user.id)
         response = RedirectResponse(url="/auth/2fa", status_code=303)
         response.set_cookie(
-            PENDING_COOKIE, pending, httponly=True, max_age=60 * 10, samesite="lax"
+            PENDING_COOKIE,
+            pending,
+            httponly=True,
+            max_age=60 * 10,
+            samesite="lax",
+            secure=cookie_secure(),
         )
         return response
 
@@ -242,6 +254,7 @@ async def two_factor_submit(
             httponly=True,
             max_age=60 * 60 * 24 * settings.TRUSTED_DEVICE_DAYS,
             samesite="lax",
+            secure=cookie_secure(),
         )
     return response
 
@@ -262,7 +275,6 @@ async def register_page(request: Request, session: Session = Depends(get_session
                 ),
                 "closed": True,
                 "password_policy_text": pwpol.policy_rules_text(),
-                "lean_page": True,
             },
         )
     return templates_mod.templates.TemplateResponse(
@@ -271,7 +283,6 @@ async def register_page(request: Request, session: Session = Depends(get_session
         context={
             "title": "Register",
             "password_policy_text": pwpol.policy_rules_text(),
-            "lean_page": True,
         },
     )
 
@@ -297,7 +308,6 @@ async def register(
                 ),
                 "closed": True,
                 "password_policy_text": pwpol.policy_rules_text(),
-                "lean_page": True,
             },
         )
 
@@ -312,7 +322,6 @@ async def register(
                 "title": "Register",
                 "error": "User with that email already exists",
                 "password_policy_text": pwpol.policy_rules_text(),
-                "lean_page": True,
             },
         )
 
@@ -325,7 +334,6 @@ async def register(
                 "title": "Register",
                 "error": pol_err or "Password does not meet policy",
                 "password_policy_text": pwpol.policy_rules_text(),
-                "lean_page": True,
             },
         )
     try:
@@ -472,6 +480,8 @@ async def account_page(
         "caption": "Security · devices · notifications",
     }
 
+    from ..services import password_policy as pwpol
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="account.html",
@@ -499,6 +509,7 @@ async def account_page(
             "public_url": settings.PIHERDER_PUBLIC_URL,
             "push_sent": push_sent,
             "account_pulse": account_pulse,
+            "password_policy_text": pwpol.policy_rules_text(),
         },
     )
 
@@ -621,7 +632,14 @@ async def two_factor_start(
     # Secret is stored encrypted on the user; QR is generated on the account page (SVG).
     # Optional short-lived cookie helps if DB read is delayed; not used for QR (size limits).
     response = RedirectResponse("/auth/account?msg=2fa_setup", status_code=303)
-    response.set_cookie("totp_setup_secret", secret, httponly=True, max_age=600, samesite="lax")
+    response.set_cookie(
+        "totp_setup_secret",
+        secret,
+        httponly=True,
+        max_age=600,
+        samesite="lax",
+        secure=cookie_secure(),
+    )
     response.delete_cookie("totp_setup_qr")  # legacy oversized cookie
     return response
 
