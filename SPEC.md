@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** **v0.5.0 in development** — Phase 1–5 complete; Phase 6 templates **foundation shipped** in v0.4.0; ops + polish + RC → **v0.5.0**  
-> **Last updated:** 2026-07-16 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target). Landed: **A–H** + Network maps QA + full ops UI polish (login/services/docker/backups/account heroes; password & closed-registration UX) + **MIT open source**. Still open: multi-arch image, RC freeze.
+> **Last updated:** 2026-07-16 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target). Landed: **A–H** + UI polish + **MIT**. Security hardening: **no default admin** (first-register), admin-only instance DR, Docker cleanup HTML escape, role fail-closed, Secure cookies. Still open: multi-arch image, RC freeze.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 

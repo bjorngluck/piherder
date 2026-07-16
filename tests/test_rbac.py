@@ -52,17 +52,19 @@ class _FakeSession:
 
 
 def test_normalize_role_defaults_and_invalid():
-    assert normalize_role(None) == ROLE_ADMIN
-    assert normalize_role("") == ROLE_ADMIN
-    assert normalize_role("nope") == ROLE_ADMIN
+    # Fail-closed: unknown / empty → viewer (not admin)
+    assert normalize_role(None) == ROLE_VIEWER
+    assert normalize_role("") == ROLE_VIEWER
+    assert normalize_role("nope") == ROLE_VIEWER
     assert normalize_role("VIEWER") == ROLE_VIEWER
     assert normalize_role("operator") == ROLE_OPERATOR
+    assert normalize_role("admin") == ROLE_ADMIN
     assert VALID_ROLES == {ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER}
 
 
 def test_user_role_and_rank():
     assert user_role(_user("viewer")) == ROLE_VIEWER
-    assert user_role(_user(None)) == ROLE_ADMIN
+    assert user_role(_user(None)) == ROLE_VIEWER
     assert role_at_least(_user("admin"), ROLE_ADMIN)
     assert role_at_least(_user("operator"), ROLE_OPERATOR)
     assert role_at_least(_user("operator"), ROLE_VIEWER)
@@ -91,8 +93,12 @@ def test_admin_only_paths():
     assert _admin_only_path("/auth/users")
     assert _admin_only_path("/auth/users/create")
     assert _admin_only_path("/auth/users/5/delete")
+    assert _admin_only_path("/herder-backups/restore")
+    assert _admin_only_path("/herder-backups/run")
+    assert _admin_only_path("/herder-backups/api-tokens")
     assert not _admin_only_path("/auth/account")
     assert not _admin_only_path("/servers")
+    # Settings page GET is not admin-prefix (operators may view; mutations are gated)
     assert not _admin_only_path("/herder-backups")
 
 

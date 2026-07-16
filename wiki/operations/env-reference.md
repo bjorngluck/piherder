@@ -46,8 +46,9 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 
 | Variable | Purpose |
 |----------|---------|
-| `ALLOW_OPEN_REGISTRATION` | Default `false`. After the first admin exists, self-registration is closed; set `true` only if you want public sign-up |
-| `METRICS_TOKEN` | Bearer for `GET /metrics` |
+| `ALLOW_OPEN_REGISTRATION` | Default `false`. Empty DB allows first admin via Register; then closed unless `true` |
+| `COOKIE_SECURE` | Empty = auto (`Secure` cookies when `PIHERDER_PUBLIC_URL` is `https://…`); `true`/`false` to force |
+| `METRICS_TOKEN` | Bearer for `GET /metrics` — **set in production** (empty = open scrape on app port) |
 | `METRICS_BACKUP_STALE_HOURS` | Stale backup gauge (default 36) |
 | `CORS_ORIGINS` | Exact browser origins for `/api/v1` (empty = off) |
 | `WEBHOOK_URL` / `WEBHOOK_NUMBER` | Legacy webhook → e.g. Signal via n8n |

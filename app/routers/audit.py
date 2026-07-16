@@ -277,7 +277,6 @@ async def audit_page(
         name="audit.html",
         context={
             "title": "Audit Log",
-            "lean_page": True,
             "logs": logs_data,
             "user": user,
             "search": search,

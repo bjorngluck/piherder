@@ -21,7 +21,7 @@ _AMBIGUOUS = "0OIl1"  # omit from generated passwords for readability
 
 
 def policy_rules_text() -> str:
-    """Human-readable policy for forms (no storage jargon)."""
+    """Human-readable policy for forms (matches validate_password)."""
     parts = [f"at least {MIN_LENGTH} characters"]
     if REQUIRE_UPPER:
         parts.append("one uppercase letter")
@@ -31,11 +31,12 @@ def policy_rules_text() -> str:
         parts.append("one digit")
     if REQUIRE_SPECIAL:
         parts.append("one special character")
-    # Soft cap: bcrypt uses 72 bytes; for normal letters/digits that is ~72 characters.
+    # Soft cap: bcrypt uses 72 UTF-8 bytes (~72 Latin letters; fewer with emoji).
     return (
         "Password must include "
         + ", ".join(parts)
-        + f". Keep it under {MAX_PASSWORD_BYTES} characters."
+        + f". Use at most {MAX_PASSWORD_BYTES} Latin letters/digits "
+        f"(emoji and symbols count as more than one)."
     )
 
 

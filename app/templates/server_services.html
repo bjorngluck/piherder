@@ -16,7 +16,7 @@
       HTTP/TLS apps via Uptime Kuma — host services and Docker stacks
       ·
       {% if down_n %}
-      <span class="ops-hero-status" style="background:color-mix(in srgb,var(--color-danger)12%,var(--color-surface));color:var(--color-danger);border:1px solid color-mix(in srgb,var(--color-danger)35%,var(--color-border));font-weight:700;font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;padding:0.12rem 0.45rem;border-radius:999px">{{ down_n }} down</span>
+      <span class="ops-hero-status ops-hero-status--fail">{{ down_n }} down</span>
       {% else %}
       <span class="ops-hero-status ops-hero-status--ok">healthy</span>
       {% endif %}

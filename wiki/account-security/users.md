@@ -16,7 +16,7 @@ The page uses the shared **ops-hero** (role / 2FA coverage pulse). Each user car
 
 - ≥ **10** characters  
 - Upper + lower + digit  
-- Keep under **72 characters**  
+- At most **72 Latin letters/digits** (emoji/symbols count as more)  
 
 Configurable admin policy (custom min length / classes) is **post-RC** — see roadmap.
 

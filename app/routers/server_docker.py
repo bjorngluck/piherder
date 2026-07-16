@@ -1330,7 +1330,12 @@ async def list_unused_route(
     except Exception as e:
         data = {"dangling_images": [], "exited_containers": [], "success": False, "errors": [str(e)[:200]]}
 
-    # Build a small HTML snippet for the fetch().innerHTML (theme tokens)
+    # Build a small HTML snippet for fetch().innerHTML — escape host-derived strings
+    import html as html_lib
+
+    def _esc(s: object) -> str:
+        return html_lib.escape(str(s if s is not None else ""), quote=True)
+
     lines = []
     di = data.get("dangling_images", []) or []
     ec = data.get("exited_containers", []) or []
@@ -1346,7 +1351,7 @@ async def list_unused_route(
             )
             lines.append(
                 "<pre class='whitespace-pre-wrap text-[10px] mb-2'>"
-                + "\n".join(di)
+                + "\n".join(_esc(x) for x in di)
                 + "</pre>"
             )
         if ec:
@@ -1355,11 +1360,15 @@ async def list_unused_route(
                 f"<span class='text-muted font-normal'>({len(ec)})</span></div>"
             )
             lines.append(
-                "<pre class='whitespace-pre-wrap text-[10px]'>" + "\n".join(ec) + "</pre>"
+                "<pre class='whitespace-pre-wrap text-[10px]'>"
+                + "\n".join(_esc(x) for x in ec)
+                + "</pre>"
             )
     if data.get("errors"):
         lines.append(
-            "<div class='text-danger mt-1'>Errors: " + "; ".join(data["errors"]) + "</div>"
+            "<div class='text-danger mt-1'>Errors: "
+            + "; ".join(_esc(e) for e in data["errors"])
+            + "</div>"
         )
     if data.get("success") is False:
         lines.append(
@@ -1367,8 +1376,7 @@ async def list_unused_route(
             "Command may have partially failed (non-zero exit).</div>"
         )
 
-    html = "\n".join(lines)
-    return HTMLResponse(html)
+    return HTMLResponse("\n".join(lines))
 
 
 @router.post("/{server_id}/docker/prune-unused")

@@ -59,34 +59,34 @@
 </section>
 
 {% if msg == 'role_saved' %}
-<div class="banner-success border border-border rounded p-3 text-sm mb-4 max-w-3xl">Role updated.</div>
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">Role updated.</div>
 {% elif msg == 'user_created' and not new_user_credentials %}
-<div class="banner-success border border-border rounded p-3 text-sm mb-4 max-w-3xl">User created.</div>
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">User created.</div>
 {% elif msg == 'user_deleted' %}
-<div class="banner-success border border-border rounded p-3 text-sm mb-4 max-w-3xl">User deleted.</div>
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">User deleted.</div>
 {% endif %}
 {% if error == 'last_admin' %}
-<div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-3xl">
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">
   Cannot demote or delete the last admin. Promote another user to admin first.
 </div>
 {% elif error == 'delete_self' %}
-<div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-3xl">You cannot delete your own account.</div>
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">You cannot delete your own account.</div>
 {% elif error == 'delete_confirm' %}
-<div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-3xl">Check “Confirm delete” before removing a user.</div>
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">Check “Confirm delete” before removing a user.</div>
 {% elif error == 'bad_role' %}
-<div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-3xl">Invalid role.</div>
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">Invalid role.</div>
 {% elif error == 'email_taken' %}
-<div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-3xl">That email is already registered.</div>
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">That email is already registered.</div>
 {% elif error == 'password_policy' %}
-<div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-3xl">
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">
   {{ error_detail or password_policy_text or 'Password does not meet policy.' }}
 </div>
 {% elif error == 'bad_email' %}
-<div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-3xl">Enter a valid email.</div>
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">Enter a valid email.</div>
 {% elif error == 'create_failed' %}
-<div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-3xl">Could not create user.</div>
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">Could not create user.</div>
 {% elif error %}
-<div class="banner-error border border-border rounded p-3 text-sm mb-4 max-w-3xl">{{ error }}</div>
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">{{ error }}</div>
 {% endif %}
 
 {# User cards #}

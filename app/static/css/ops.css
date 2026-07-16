@@ -115,6 +115,20 @@ html.dark .ops-hero-status--run,
 [data-theme="dark"] .ops-hero-status--run {
   color: #93c5fd;
 }
+.ops-hero-status--fail {
+  background: color-mix(in srgb, var(--color-danger) 12%, var(--color-surface));
+  color: var(--color-danger);
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, var(--color-border));
+}
+.ops-hero-status--warn {
+  background: color-mix(in srgb, var(--color-warning, #d97706) 14%, var(--color-surface));
+  color: var(--color-warning, #b45309);
+  border: 1px solid color-mix(in srgb, var(--color-warning, #d97706) 40%, var(--color-border));
+}
+html.dark .ops-hero-status--warn,
+[data-theme="dark"] .ops-hero-status--warn {
+  color: #fbbf24;
+}
 .ops-hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -799,12 +813,13 @@ html.dark .ops-tz-globe-line,
   box-shadow: none;
 }
 
-/* Users grid cards */
+/* Users grid cards — full main column (same width contract as Account) */
 .user-card-grid {
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.65rem;
-  max-width: 48rem;
+  width: 100%;
+  max-width: none;
 }
 @media (min-width: 640px) {
   .user-card-grid {

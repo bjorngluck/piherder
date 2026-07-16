@@ -21,7 +21,7 @@ from .routers import fleet_services as fleet_services_router
 from .routers import templates_svc as templates_svc_router
 from .routers import dns as dns_router
 from . import templates as templates_mod  # shared Jinja instance (avoids circular)
-from .security.auth import get_optional_current_user, get_password_hash
+from .security.auth import get_optional_current_user
 import logging
 
 logger = logging.getLogger(__name__)
@@ -63,28 +63,37 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"Stale job cleanup skipped: {e}")
 
-    # Create default admin user if none exist (for first-time login)
+    # First boot: no default user. Empty DB → open /auth/register creates the admin;
+    # registration then closes unless ALLOW_OPEN_REGISTRATION=true.
     try:
-        db = Session(engine)
-        try:
+        with Session(engine) as db:
             existing = db.exec(select(User)).first()
             if not existing:
-                default_email = "admin@example.com"
-                default_pass = "admin"
-                user = User(
-                    email=default_email,
-                    hashed_password=get_password_hash(default_pass),
-                    role="admin",
+                print(
+                    "No users yet — open the UI and register the first admin account. "
+                    "Self-registration closes after that (unless ALLOW_OPEN_REGISTRATION=true)."
                 )
-                db.add(user)
-                db.commit()
-                print(f"Created default admin: {default_email} / {default_pass}  -- CHANGE THIS IMMEDIATELY!")
             else:
-                print(f"Default admin check: user {existing.email} already exists")
-        finally:
-            db.close()
+                print(f"Users present (example: {existing.email})")
     except Exception as e:
-        print(f"Could not create default user: {e}")
+        logger.warning("User bootstrap check skipped: %s", e)
+
+    # Warn on insecure production defaults (dev compose still works)
+    try:
+        from .config import settings as _cfg
+
+        if (_cfg.SECRET_KEY or "").strip() in ("", "dev-secret-change-in-prod"):
+            print(
+                "WARNING: SECRET_KEY is the default/dev value — set a long random "
+                "SECRET_KEY in .env before production use."
+            )
+        if not (_cfg.METRICS_TOKEN or "").strip():
+            print(
+                "NOTE: METRICS_TOKEN is unset — GET /metrics is open on the app port. "
+                "Set a bearer token (or firewall) for production scrapes."
+            )
+    except Exception as e:
+        logger.warning("Startup config checks skipped: %s", e)
 
     # Web Push: ensure VAPID keys exist (env override or auto-generate once into DB)
     try:
@@ -146,7 +155,7 @@ app = FastAPI(
         "Automation uses **Bearer API tokens** under `/api/v1` "
         "(admin-managed; see **docs/API.md** and Settings → API tokens)."
     ),
-    version="0.4.0",
+    version="0.5.0.dev0",
     lifespan=lifespan,
     openapi_tags=[
         {
@@ -392,7 +401,6 @@ async def root(request: Request, user: User = Depends(get_optional_current_user)
             "user": user,
             "pihole_url": pihole_url,
             "pihole_integrations": pihole_integrations,
-            "lean_page": True,
         },
     )
 

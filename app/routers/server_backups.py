@@ -149,7 +149,6 @@ async def server_backups(
             "default_deny_paths": list(DEFAULT_DENY_PREFIXES),
             "restore_candidates": restore_candidates,
             "restore_result": None,
-            "lean_page": True,
         }
     )
 
@@ -601,6 +600,5 @@ async def restore_backup_source(
             "default_deny_paths": list(DEFAULT_DENY_PREFIXES),
             "restore_candidates": restore_candidates,
             "restore_result": result,
-            "lean_page": True,
         },
     )

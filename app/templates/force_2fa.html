@@ -1,9 +1,20 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-md mx-auto mt-6 sm:mt-10">
-  <div class="card p-6 sm:p-8">
-    <h1 class="text-2xl font-semibold tracking-tighter text-text mb-1">Two-factor authentication required</h1>
+<section class="auth-stage" aria-label="Two-factor required">
+  <div class="auth-stage-glow" aria-hidden="true"></div>
+  <div class="auth-card card">
+    <div class="auth-card-brand">
+      <div class="auth-brand-mark" aria-hidden="true">
+        <span class="auth-brand-dot"></span>
+      </div>
+      <div>
+        <div class="header-brand-sub text-primary">Security</div>
+        <h1 class="auth-title">Two-factor required</h1>
+        <p class="auth-sub">Enable TOTP before using the fleet</p>
+      </div>
+    </div>
+
     <p class="text-sm text-muted mb-4">
       An administrator requires every account to enable app-based 2FA (TOTP) before using PiHerder.
     </p>
@@ -20,5 +31,5 @@
       <a href="/auth/logout" class="text-accent hover:underline">Sign out</a>
     </p>
   </div>
-</div>
+</section>
 {% endblock %}

@@ -2,14 +2,19 @@
 
 ## Register the first admin
 
+There is **no default user** (`admin@example.com` is not created). An empty database keeps
+self-registration open for the **first account only**.
+
 1. Open the app URL from [Install](install.md).  
-2. Complete **Register** with a strong email + password.  
-3. You are the first user → role **admin**.
+2. On first start, choose **Create account** / Register with a strong email + password.  
+3. You are the first user → role **admin**.  
+4. Self-registration then **closes** automatically.
 
 !!! warning "Open registration locks after the first account"
     After the first admin exists, the login screen no longer offers self-registration.
     New people **ask an admin** for an invite (Users → Create user). Direct `/auth/register`
     explains how to request access instead of a hard config error.
+    Set `ALLOW_OPEN_REGISTRATION=true` only if you intentionally want public sign-up.
 
 ### Password policy
 
@@ -17,7 +22,7 @@ Enforced on register, password change, and admin-created users:
 
 - At least **10** characters  
 - At least one **uppercase**, one **lowercase**, one **digit**  
-- Keep under **72 characters** (storage limit; emoji/symbols count more)
+- At most **72 Latin letters/digits** (emoji/symbols count as more than one character)
 
 ## After login checklist
 

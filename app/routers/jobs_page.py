@@ -203,7 +203,6 @@ async def jobs_page(
         name="jobs.html",
         context={
             "title": "Jobs",
-            "lean_page": True,
             "user": user,
             "jobs": rows,
             "servers": servers_list,

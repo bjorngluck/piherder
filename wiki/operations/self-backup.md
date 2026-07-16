@@ -1,6 +1,7 @@
 # Self-backup & DR
 
 **Settings → PiHerder backup** — not the same as per-server rsync backups.
+**Admin only** (run, restore, download, delete, and schedule).
 
 Archives: format **v2** `.tar.gz` under `./piherder_backups` → `/herder_backups`. Host dir must be writable by container user (uid 1000).
 

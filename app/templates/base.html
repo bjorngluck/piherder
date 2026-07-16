@@ -28,9 +28,9 @@
   <!-- Theme CSS variables (light/dark + Raspberry Pi branding).
        Companion sheets: fabric (network maps), ops (heroes/filters).
        Query busts browser + older SW caches when tokens change. -->
-  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-account">
-  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-account">
-  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-account">
+  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-p0">
+  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-p0">
+  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-p0">
 
   <!-- Apply saved theme ASAP (before paint) so the page doesn't flash light → dark -->
   <script>
@@ -183,7 +183,7 @@
 
       {# secondary_items: build once, then insert admin-only entries.
          kind: normal | action | danger — action uses data-action (footer script).
-         Legacy users with missing role match backend normalize_role → admin. #}
+         Legacy users with missing role match backend normalize_role → viewer (fail-closed). #}
       {% set secondary_items = [
         {"label": "Account",      "href": "/auth/account", "kind": "normal"},
         {"label": "Toggle theme", "kind": "action", "action": "toggle-theme"},

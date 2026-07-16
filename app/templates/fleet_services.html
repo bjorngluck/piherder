@@ -13,7 +13,7 @@
       <a href="/integrations" class="text-accent hover:underline">Uptime Kuma</a>
       ·
       {% if down_count %}
-      <span class="ops-hero-status ops-hero-status--run" style="border-color:color-mix(in srgb,var(--color-danger) 40%,var(--color-border));color:var(--color-danger)">{{ down_count }} down</span>
+      <span class="ops-hero-status ops-hero-status--fail">{{ down_count }} down</span>
       {% else %}
       <span class="ops-hero-status ops-hero-status--ok">all up</span>
       {% endif %}

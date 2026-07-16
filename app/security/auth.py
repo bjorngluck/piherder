@@ -24,6 +24,17 @@ SECRETS_UNLOCK_MINUTES = 10
 SECRETS_UNLOCK_COOKIE = "secrets_unlock"
 
 
+def cookie_secure() -> bool:
+    """Set Secure on session cookies when the public origin is HTTPS (or COOKIE_SECURE=true)."""
+    flag = (getattr(settings, "COOKIE_SECURE", None) or "").strip().lower()
+    if flag in ("1", "true", "yes", "on"):
+        return True
+    if flag in ("0", "false", "no", "off"):
+        return False
+    url = (settings.PIHERDER_PUBLIC_URL or "").strip().lower()
+    return url.startswith("https://")
+
+
 def verify_password(plain: str, hashed: str) -> bool:
     # Truncate input to 72 bytes to be consistent with hashing (prevents library errors on long passwords).
     if isinstance(plain, str):
@@ -125,9 +136,20 @@ _VIEWER_WRITE_PREFIXES = (
     "/notifications/",
     "/api/push",
 )
-# Admin-only management surfaces
+# Admin-only management surfaces (mutating methods on these prefixes)
 _ADMIN_ONLY_PREFIXES = (
     "/auth/users",
+    # Instance DR / control-plane writes (GET /herder-backups remains for all roles)
+    "/herder-backups/run",
+    "/herder-backups/restore",
+    "/herder-backups/download",
+    "/herder-backups/config",
+    "/herder-backups/security",
+    "/herder-backups/update-checks",
+    "/herder-backups/timezone",
+    "/herder-backups/delete",
+    "/herder-backups/api-tokens",
+    "/herder-backups/status",
 )
 
 # Paths allowed while must_change_password is set
@@ -185,8 +207,9 @@ def post_login_path(user: User) -> str:
 
 
 def normalize_role(role: str | None) -> str:
-    r = (role or ROLE_ADMIN).strip().lower()
-    return r if r in VALID_ROLES else ROLE_ADMIN
+    """Map stored role to a known role. Unknown/empty → viewer (fail closed)."""
+    r = (role or "").strip().lower()
+    return r if r in VALID_ROLES else ROLE_VIEWER
 
 
 def user_role(user: User) -> str:

@@ -31,10 +31,10 @@ def test_normalize_os_patch_steps_order():
 
 
 def test_normalize_role():
-    assert normalize_role(None) == ROLE_ADMIN
+    assert normalize_role(None) == ROLE_VIEWER
     assert normalize_role("viewer") == ROLE_VIEWER
     assert normalize_role("OPERATOR") == ROLE_OPERATOR
-    assert normalize_role("nope") == ROLE_ADMIN
+    assert normalize_role("nope") == ROLE_VIEWER
     assert VALID_ROLES == {ROLE_ADMIN, ROLE_OPERATOR, ROLE_VIEWER}
 
 
