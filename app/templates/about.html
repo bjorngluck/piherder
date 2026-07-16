@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set un = update_notice or {} %}
+<section class="ops-hero ops-hero--about is-ok mb-4">
+  <div class="ops-hero-main">
+    <div class="ops-hero-kicker">Project</div>
+    <h1 class="ops-hero-title">About PiHerder</h1>
+    <p class="ops-hero-sub">
+      Version <span class="font-mono text-text">{{ app_version }}</span>
+      · MIT open source
+    </p>
+    <div class="ops-hero-actions">
+      <a href="{{ github_url }}" class="btn btn-accent text-xs min-h-9 px-2.5" target="_blank" rel="noopener">GitHub</a>
+      <a href="{{ docs_url }}" class="btn btn-secondary text-xs min-h-9 px-2.5" target="_blank" rel="noopener">Docs</a>
+      <a href="{{ github_releases_url }}" class="btn btn-secondary text-xs min-h-9 px-2.5" target="_blank" rel="noopener">Releases</a>
+      <a href="/" class="btn btn-secondary text-xs min-h-9 px-2.5">Dashboard</a>
+    </div>
+  </div>
+  <div class="ops-hero-viz" aria-hidden="true">
+    <div class="about-logo-wrap">
+      <img src="/static/images/piherder-logo.png" alt="" class="about-logo" width="120" height="120">
+    </div>
+  </div>
+</section>
+
+<div class="account-card-grid">
+  <div class="card p-5 account-card account-card--wide">
+    <h2 class="font-semibold text-text mb-2">Why PiHerder?</h2>
+    <p class="text-sm text-muted leading-relaxed mb-3">{{ about_tagline }}</p>
+    <p class="text-sm text-muted leading-relaxed">{{ about_story }}</p>
+    <p class="text-xs text-muted mt-4">
+      Full story and contributing guide on
+      <a href="{{ github_url }}" class="text-accent hover:underline" target="_blank" rel="noopener">GitHub</a>
+      · operator docs at
+      <a href="{{ docs_url }}" class="text-accent hover:underline" target="_blank" rel="noopener">bjorngluck.github.io/piherder</a>.
+    </p>
+  </div>
+
+  <div class="card p-5 account-card">
+    <h2 class="font-semibold text-text mb-2">This instance</h2>
+    <dl class="text-sm space-y-2">
+      <div class="flex justify-between gap-3">
+        <dt class="text-muted">Running version</dt>
+        <dd class="font-mono text-text">{{ app_version }}</dd>
+      </div>
+      <div class="flex justify-between gap-3">
+        <dt class="text-muted">License</dt>
+        <dd><a href="{{ license_url }}" class="text-accent hover:underline" target="_blank" rel="noopener">{{ license_name }}</a></dd>
+      </div>
+      <div class="flex justify-between gap-3">
+        <dt class="text-muted">Repository</dt>
+        <dd class="truncate"><a href="{{ github_url }}" class="text-accent hover:underline" target="_blank" rel="noopener">{{ github_url | replace('https://', '') }}</a></dd>
+      </div>
+    </dl>
+  </div>
+
+  <div class="card p-5 account-card">
+    <h2 class="font-semibold text-text mb-2">Updates</h2>
+    {% if un.enabled is defined and un.enabled == false %}
+    <p class="text-sm text-muted">{{ un.message or 'Update checks are disabled.' }}</p>
+    {% elif un.available %}
+    <div class="banner-warning border border-border rounded p-3 text-sm mb-3" role="status">
+      <strong class="text-text">{{ un.latest_name or un.latest }}</strong> is available
+      (you are on <span class="font-mono">{{ un.current or app_version }}</span>).
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <a href="{{ un.notes_url or github_releases_url }}" class="btn btn-accent text-xs min-h-9"
+         target="_blank" rel="noopener">Release notes</a>
+      <a href="{{ github_releases_url }}" class="btn btn-secondary text-xs min-h-9"
+         target="_blank" rel="noopener">All releases</a>
+    </div>
+    {% elif un.ok %}
+    <p class="text-sm text-muted mb-3">
+      {% if un.latest %}
+      Latest published release: <span class="font-mono text-text">{{ un.latest }}</span>.
+      {{ un.message or 'You are up to date (or running a newer build).' }}
+      {% else %}
+      {{ un.message or 'No published GitHub releases found yet.' }}
+      {% endif %}
+    </p>
+    {% else %}
+    <p class="text-sm text-muted mb-3">
+      {{ un.message or 'Could not reach GitHub for an update check.' }}
+      {% if un.error %}<span class="block text-xs mt-1 font-mono">{{ un.error }}</span>{% endif %}
+    </p>
+    {% endif %}
+    <form method="post" action="/about/check-update" class="mt-2">
+      <button type="submit" class="btn btn-secondary text-xs min-h-9">Check for updates now</button>
+    </form>
+    <p class="text-[10px] text-muted mt-2">
+      Checks GitHub Releases (cached ~12h). Disable with <code class="font-mono">PIHERDER_UPDATE_CHECK=false</code>.
+    </p>
+  </div>
+
+  <div class="card p-5 account-card account-card--wide">
+    <h2 class="font-semibold text-text mb-2">Links</h2>
+    <ul class="text-sm space-y-1.5">
+      <li><a href="{{ github_url }}" class="text-accent hover:underline" target="_blank" rel="noopener">Source code &amp; issues</a></li>
+      <li><a href="{{ docs_url }}" class="text-accent hover:underline" target="_blank" rel="noopener">Operator documentation</a></li>
+      <li><a href="{{ github_releases_url }}" class="text-accent hover:underline" target="_blank" rel="noopener">Release notes</a></li>
+      <li><a href="{{ sponsor_url }}" class="text-accent hover:underline" target="_blank" rel="noopener">Sponsor the project</a></li>
+      <li><a href="{{ license_url }}" class="text-accent hover:underline" target="_blank" rel="noopener">{{ license_name }} license</a></li>
+    </ul>
+  </div>
+</div>
+{% endblock %}

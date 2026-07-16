@@ -65,6 +65,8 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 | `WEBHOOK_RECIPIENTS` | Optional JSON list of recipients for some webhook paths |
 | `VAPID_*` | Optional pin; auto-gen is default |
 | `PIHOLE_URL` | Dashboard quick-link (legacy single URL; multi Pi-hole lives under Catalog) |
+| `PIHERDER_UPDATE_CHECK` | Default `true`. Check GitHub Releases for a newer version (About + banner). Set `false` for air-gapped |
+| `PIHERDER_UPDATE_CHECK_TTL_HOURS` | Cache TTL for update check (default 12) |
 
 ## Herder schedule (optional seed)
 

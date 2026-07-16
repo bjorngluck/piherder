@@ -142,11 +142,21 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning("Service template seed skipped: %s", e)
 
+    # Optional GitHub release check (soft-fail; cached for About + banner)
+    try:
+        from .services.app_update import schedule_startup_check
+
+        schedule_startup_check(delay_sec=20.0)
+    except Exception as e:
+        logger.debug("Update check schedule skipped: %s", e)
+
     yield
 
     if HAS_SCHEDULER and scheduler and scheduler.running:
         scheduler.shutdown()
 
+
+from .version_info import APP_VERSION as _APP_VERSION
 
 app = FastAPI(
     title="PiHerder",
@@ -155,7 +165,7 @@ app = FastAPI(
         "Automation uses **Bearer API tokens** under `/api/v1` "
         "(admin-managed; see **docs/API.md** and Settings → API tokens)."
     ),
-    version="0.5.0.dev0",
+    version=_APP_VERSION,
     lifespan=lifespan,
     openapi_tags=[
         {
@@ -270,6 +280,9 @@ app.include_router(certificates_router.router, prefix="", tags=["certificates"])
 app.include_router(fleet_services_router.router, prefix="", tags=["fleet-services"])
 app.include_router(templates_svc_router.router, prefix="", tags=["templates"])
 app.include_router(dns_router.router, prefix="", tags=["dns"])
+from .routers import about as about_router
+
+app.include_router(about_router.router, prefix="", tags=["about"])
 
 # Re-export schedule helpers used by lifespan and other routers
 schedule_backup_job = sched.schedule_backup_job

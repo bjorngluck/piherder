@@ -37,3 +37,12 @@ def _fromjson_filter(value):
 
 
 templates.env.filters["fromjson"] = _fromjson_filter
+
+# About / update banner (soft-fail; cached GitHub check)
+from . import version_info as _vi
+from .services import app_update as _app_update
+
+templates.env.globals["app_version"] = _vi.get_app_version()
+templates.env.globals["github_url"] = _vi.GITHUB_URL
+templates.env.globals["docs_url"] = _vi.DOCS_URL
+templates.env.globals["get_update_notice"] = _app_update.get_update_notice
