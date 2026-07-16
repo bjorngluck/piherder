@@ -1690,7 +1690,7 @@ def _find_npm_forward(
 def is_host_identity_name(fqdn: str | None, server: Server | None) -> bool:
     """True when the service name *is* the host's LAN A name (CNAME impossible).
 
-    Example: 3dprint.hacknow.info is both the host DNS A record and the app name.
+    Example: 3dprint.example.com is both the host DNS A record and the app name.
     """
     if not server or not fqdn:
         return False

@@ -1,7 +1,7 @@
 # PiHerder documentation
 
 <figure class="ph-hero-logo" markdown>
-  ![PiHerder logo](assets/piherder-logo.png){ width="280" }
+  ![PiHerder logo](assets/piherder-about.png){ width="300" }
 </figure>
 
 **Secure fleet management for Raspberry Pi and Linux hosts** — backups, patching, Docker control, and service templates with secrets encrypted at rest.
@@ -12,7 +12,7 @@
 | **Previous tag** | [v0.4.0](https://github.com/bjorngluck/piherder/releases/tag/v0.4.0) (templates foundation) |
 | **Ship plan** | [PLAN_v0.5.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
-| **Docs (this site)** | [bjorngluck.github.io/piherder](https://bjorngluck.github.io/piherder/) |
+| **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |
 
 ---

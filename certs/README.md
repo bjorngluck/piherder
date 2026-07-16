@@ -16,8 +16,8 @@ Do **not** commit these files. `*.pem` is gitignored.
 Set in `.env` (example):
 
 ```bash
-PIHERDER_HOSTNAME=piherder.hacknow.com
-PIHERDER_PUBLIC_URL=https://piherder.hacknow.com:8443
+PIHERDER_HOSTNAME=piherder.example.com
+PIHERDER_PUBLIC_URL=https://piherder.example.com:8443
 ```
 
 Compose maps host **8443 → container 443**. Include `:8443` in `PIHERDER_PUBLIC_URL` unless something else terminates HTTPS on 443 for you.

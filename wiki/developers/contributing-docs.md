@@ -1,6 +1,6 @@
 # Contributing to this wiki
 
-Docs are **Markdown in git** under `wiki/`, built with **MkDocs Material**, published to **GitHub Pages**.
+Docs are **Markdown in git** under `wiki/`, built with **MkDocs Material**, published via GitHub Pages at **[piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)**.
 
 Repo-level contributor rules: [CONTRIBUTING.md](https://github.com/bjorngluck/piherder/blob/main/CONTRIBUTING.md).
 
@@ -10,7 +10,7 @@ Repo-level contributor rules: [CONTRIBUTING.md](https://github.com/bjorngluck/pi
 
 | Layer | Role |
 |-------|------|
-| **`wiki/` → github.io** | **How it works now** — single living operator guide for the current line |
+| **`wiki/` → piherder-docs.hacknow.info** | **How it works now** — single living operator guide for the current line |
 | **`docs/RELEASE_vX.Y.Z.md`** | **What changed in this version** — upgrade notes, features, breaking changes |
 | **GitHub Releases** | Same narrative as RELEASE notes + tags (in-app About / update banner link here) |
 | **`docs/PLAN_*` · `FEATURE_PLAN_*` · SPEC** | Maintainer planning only — **not** in operator nav |
@@ -116,7 +116,7 @@ Goal for **1.0.0**: operators can install, run day-to-day fleet ops, and upgrade
 6. **Docs** workflow deploys Pages automatically on `main` when `wiki/**` or `mkdocs.yml` change.
 
 !!! tip "Live docs"
-    **[https://bjorngluck.github.io/piherder/](https://bjorngluck.github.io/piherder/)**  
+    **[https://piherder-docs.hacknow.info/](https://piherder-docs.hacknow.info/)**  
     `edit_uri` on each page opens the file on GitHub — fine for small text fixes; use a **local clone** for screenshots and multi-file work.
 
 ## Screenshots (best practice)

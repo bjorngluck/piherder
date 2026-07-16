@@ -297,9 +297,9 @@ Android **installable PWA** and **Web Push** need a **secure context** with a **
 In `.env` (compose loads these for **web** and **caddy**):
 
 ```bash
-PIHERDER_HOSTNAME=piherder.hacknow.com
+PIHERDER_HOSTNAME=piherder.example.com
 # Include :8443 when using compose host mapping 8443→443
-PIHERDER_PUBLIC_URL=https://piherder.hacknow.com:8443
+PIHERDER_PUBLIC_URL=https://piherder.example.com:8443
 ```
 
 - **DNS:** point `PIHERDER_HOSTNAME` at the host (or your outer reverse proxy).

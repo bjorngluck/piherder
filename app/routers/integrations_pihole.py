@@ -536,7 +536,7 @@ async def pihole_new_form(
             "integration": None,
             "form": {
                 "name": "Pi-hole",
-                "base_url": "https://pihole.hacknow.info",
+                "base_url": "https://pihole.example.com",
                 "poll_interval_sec": reg.DEFAULT_PIHOLE_POLL_SEC,
                 "tls_verify": True,
                 "enabled": True,

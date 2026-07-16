@@ -6,7 +6,7 @@
 site_name: PiHerder Docs
 site_description: Operator and developer documentation for PiHerder — fleet management for Raspberry Pi and Linux hosts.
 site_author: Bjorn Gluck
-site_url: https://bjorngluck.github.io/piherder/
+site_url: https://piherder-docs.hacknow.info/
 repo_url: https://github.com/bjorngluck/piherder
 repo_name: bjorngluck/piherder
 edit_uri: edit/main/wiki/
@@ -22,7 +22,7 @@ exclude_docs: |
 theme:
   name: material
   custom_dir: wiki/overrides
-  # Official PiHerder mascot (same artwork as README / app) — not the placeholder SVG
+  # Official PiHerder mark (black-ink light variant; same family as app header)
   logo: assets/piherder-logo-header.png
   favicon: assets/favicon.png
   language: en

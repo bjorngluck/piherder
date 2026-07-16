@@ -111,7 +111,7 @@ services:
       - "8888:80"
       - "8443:443"
     environment:
-      # Public hostname for the HTTPS site block (e.g. piherder.hacknow.com)
+      # Public hostname for the HTTPS site block (e.g. piherder.example.com)
       - PIHERDER_HOSTNAME=${PIHERDER_HOSTNAME:-localhost}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro

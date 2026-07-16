@@ -20,7 +20,7 @@ templates.env.globals["utc_isoformat"] = utc_isoformat
 
 
 def ph_brand(extra_class: str = "") -> Markup:
-    """Pi (theme red) + Herder (text color) brand mark for UI copy."""
+    """Pi (ink / text color) + Herder (brand red) brand mark for UI copy."""
     cls = "ph-brand"
     if extra_class:
         cls = f"{cls} {extra_class}".strip()

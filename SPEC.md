@@ -8,7 +8,7 @@
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
-**Operator docs:** **[https://bjorngluck.github.io/piherder/](https://bjorngluck.github.io/piherder/)** (live wiki) · source [wiki/](wiki/) · [docs/ADMIN.md](docs/ADMIN.md) (long-form) · [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
+**Operator docs:** **[https://piherder-docs.hacknow.info/](https://piherder-docs.hacknow.info/)** (live wiki) · source [wiki/](wiki/) · [docs/ADMIN.md](docs/ADMIN.md) (long-form) · [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 
 ---
 
@@ -330,7 +330,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis
 - [ ] Home Assistant: custom component or REST sensors (read + safe actions)
 - [ ] Optional AI (OpenAI-compatible BYO; off by default; no private keys in prompts)
-- [ ] Community: Discord + Discussions; hacknow.info project page / clickthrough
+- [ ] Community: Discord + Discussions; project website / clickthrough
 
 ---
 

@@ -32,11 +32,24 @@ Both themes use the same layout; contrast is **token-driven**. Stylesheets (load
 
 If light mode ever looks like “one flat white screen”, borders or canvas grey have slipped too close to pure white — fix tokens, not per-page CSS.
 
+### Brand logos (light & dark)
+
+The product mark and About wordmark use **theme-aware PNGs** (no operator custom branding):
+
+| Asset | Light UI | Dark UI |
+|-------|----------|---------|
+| Header / login mark | Black-ink mascot (`piherder-mark*.png`) | Same art, ink recolored light (`piherder-mark-dark*.png`) |
+| About / docs hero | Transparent wordmark (`piherder-about.png`) | Light-ink wordmark (`piherder-about-dark.png`) |
+
+Toggle theme swaps the image `src` in the browser. Asset inventory: [`app/static/images/README.md`](https://github.com/bjorngluck/piherder/blob/main/app/static/images/README.md) (mirrored under `wiki/assets/` for this site).
+
+Live docs URL (custom domain only): **[piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)**. Example hostnames in guides use **`*.example.com`**.
+
 ### About & updates
 
-Avatar menu → **About** shows the project story, logo, running version, and links to GitHub / docs / releases.
+Avatar menu → **About** shows the project story, wordmark (theme-aware), running version, and links to GitHub / docs / releases.
 If a newer **GitHub release** is available, a dismissible banner appears under the header (per browser).
-**Check for updates** on the About page forces a refresh. Disable checks with `PIHERDER_UPDATE_CHECK=false` (air-gapped).
+**Check for updates** on the About page forces a refresh (wait modal). Disable checks with `PIHERDER_UPDATE_CHECK=false` (air-gapped).
 
 ### Ops-hero UI (v0.5.0)
 

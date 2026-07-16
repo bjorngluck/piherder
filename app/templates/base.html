@@ -28,11 +28,11 @@
   <!-- Theme CSS variables (light/dark + Raspberry Pi branding).
        Companion sheets: fabric (network maps), ops (heroes/filters).
        Query busts browser + older SW caches when tokens change. -->
-  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-brand">
-  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-brand">
-  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-brand">
-  <link rel="stylesheet" href="/static/css/ops-auth.css?v=20260716-brand">
-  <link rel="stylesheet" href="/static/css/ops-pages.css?v=20260716-brand">
+  <link rel="stylesheet" href="/static/css/themes.css?v=20260716-about-logo">
+  <link rel="stylesheet" href="/static/css/fabric.css?v=20260716-about-logo">
+  <link rel="stylesheet" href="/static/css/ops.css?v=20260716-about-logo">
+  <link rel="stylesheet" href="/static/css/ops-auth.css?v=20260716-about-logo">
+  <link rel="stylesheet" href="/static/css/ops-pages.css?v=20260716-about-logo">
 
   <!-- Apply saved theme ASAP (before paint) so the page doesn't flash light → dark -->
   <script>
@@ -41,6 +41,7 @@
         var t = localStorage.getItem('theme') || 'light';
         if (t === 'dark') document.documentElement.classList.add('dark');
         else document.documentElement.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
       } catch (e) {}
     })();
   </script>
@@ -146,7 +147,11 @@
       <!-- Brand (left) — all sizing/spacing via CSS vars -->
       <div class="header-brand">
         <a href="{% if user %}/{% else %}/auth/login{% endif %}" class="header-brand-link">
-          <img src="/static/images/piherder-logo-small.png" alt="PiHerder">
+          {# light-logo: black ink. Dark theme uses recolored mark (white ink), no plate. #}
+          <img src="/static/images/piherder-mark-128.png"
+               data-logo-light="/static/images/piherder-mark-128.png"
+               data-logo-dark="/static/images/piherder-mark-dark-128.png"
+               alt="PiHerder" class="header-logo ph-theme-logo" width="32" height="32">
           <div class="header-brand-text-wrap">
             <span class="header-brand-text">{{ ph_brand() }}</span>
             {% if user %}<div class="header-brand-sub">FLEET</div>{% endif %}
@@ -280,7 +285,10 @@
   <div id="mobile-menu-panel" class="mobile-menu-panel hidden" role="dialog" aria-modal="true" aria-label="Main menu">
     <div class="mobile-menu-header">
       <div class="mobile-menu-header-brand">
-        <img src="/static/images/piherder-logo-small.png" alt="" class="mobile-menu-header-logo">
+        <img src="/static/images/piherder-mark-128.png"
+             data-logo-light="/static/images/piherder-mark-128.png"
+             data-logo-dark="/static/images/piherder-mark-dark-128.png"
+             alt="" class="mobile-menu-header-logo header-logo ph-theme-logo" width="28" height="28">
         <span class="mobile-menu-header-title">{{ ph_brand() }}</span>
       </div>
       <button type="button" id="mobile-menu-close" class="mobile-menu-close" aria-label="Close menu">×</button>
@@ -465,16 +473,28 @@
     (function () {
       var html = document.documentElement;
 
+      function applyThemeLogos(theme) {
+        var dark = theme === 'dark';
+        document.querySelectorAll('img.ph-theme-logo[data-logo-light][data-logo-dark]').forEach(function (img) {
+          var next = dark ? img.getAttribute('data-logo-dark') : img.getAttribute('data-logo-light');
+          if (next && img.getAttribute('src') !== next) img.setAttribute('src', next);
+        });
+      }
+
       function setTheme(theme) {
         if (theme === 'dark') {
           html.classList.add('dark');
+          html.setAttribute('data-theme', 'dark');
         } else {
           html.classList.remove('dark');
+          html.setAttribute('data-theme', 'light');
         }
         try { localStorage.setItem('theme', theme); } catch (e) {}
+        applyThemeLogos(theme);
       }
 
       window.setTheme = setTheme;
+      window.applyThemeLogos = applyThemeLogos;
 
       // Single toggle path — used by data-action="toggle-theme" buttons
       window.toggleThemeFromMenu = function (el) {
@@ -508,6 +528,13 @@
         setTheme(saved);
       } catch (e) {
         setTheme('light');
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+          applyThemeLogos(html.classList.contains('dark') ? 'dark' : 'light');
+        });
+      } else {
+        applyThemeLogos(html.classList.contains('dark') ? 'dark' : 'light');
       }
 
       // Vanilla JS slide-out mobile menu (panel is a direct body child)

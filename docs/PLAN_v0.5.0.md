@@ -16,12 +16,12 @@
 | Intermediate tags | Optional only if something must ship early; not the plan structure |
 | Production path | ~~v0.4.0~~ **done** → **v0.5.0 QA → tag** → v1.0 |
 | **GitHub visibility** | **Public** (open source) |
-| **Wiki / Pages go-live** | **Live** — https://bjorngluck.github.io/piherder/ (MkDocs → GitHub Actions Pages) |
+| **Wiki / Pages go-live** | **Live** — https://piherder-docs.hacknow.info/ (MkDocs → GitHub Actions Pages) |
 | **License** | **MIT** — open source. Copyright Bjorn Gluck. See [LICENSE](../LICENSE). |
 
 ### GitHub Pages
 
-- **Live:** [https://bjorngluck.github.io/piherder/](https://bjorngluck.github.io/piherder/)  
+- **Live:** [https://piherder-docs.hacknow.info/](https://piherder-docs.hacknow.info/)  
 - **Source files:** `wiki/` + `mkdocs.yml` on `main`  
 - **Publish path:** [`.github/workflows/docs.yml`](../.github/workflows/docs.yml) — `mkdocs build --strict` + `actions/deploy-pages`  
 - **Repo setting:** Settings → Pages → Source: **GitHub Actions** (not deploy-from-branch / `gh-pages`)
@@ -64,7 +64,7 @@
 
 | Item | Notes | Status |
 |------|--------|--------|
-| Production user wiki + dev wiki | **Live** at github.io; source `wiki/`; real screenshots ongoing | Open (polish) |
+| Production user wiki + dev wiki | **Live** at [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/); source `wiki/`; real screenshots ongoing | Open (polish) |
 | Docker Hub / GHCR multi-arch image | [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md); tags for `0.5.0` | Open |
 | RC freeze bar | pytest, smoke (deploy + drift + restore), secret-path review | Open |
 
