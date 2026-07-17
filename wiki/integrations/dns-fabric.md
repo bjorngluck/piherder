@@ -27,6 +27,21 @@ After a few years of “this CNAME points somewhere,” operators lose the pictu
 
 Journey: [Operator scenarios — Journey E](../getting-started/operator-scenarios.md#journey-e).
 
+<figure class="ph-figure" markdown>
+  ![Network Hosts map](../assets/screenshots/dns-physical.png)
+  <figcaption>Hosts map — home ring vs cloud hosts (light desktop).</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Network Path map](../assets/screenshots/dns-logical.png)
+  <figcaption>Path map — name → proxy → host → service flow.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Network Hosts map mobile](../assets/screenshots/dns-physical-mobile.png)
+  <figcaption>Optional mobile showcase — Hosts map list-first layout.</figcaption>
+</figure>
+
 ---
 
 ## Mental model — entities & relationships

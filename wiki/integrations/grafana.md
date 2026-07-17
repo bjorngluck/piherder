@@ -11,8 +11,8 @@ Metrics usually already live in Grafana. PiHerder should not re-implement dashbo
 PiHerder does **not** have to deploy Grafana (you may still use the Grafana template for a new instance).
 
 <figure class="ph-figure" markdown>
-  ![Grafana integration](../assets/screenshots/integrations-grafana.svg)
-  <figcaption>Kinds + tabbed bindings. <span class="ph-wireframe-badge">wireframe</span></figcaption>
+  ![Grafana integration](../assets/screenshots/integrations-grafana.png)
+  <figcaption>Kinds + tabbed bindings.</figcaption>
 </figure>
 
 ---

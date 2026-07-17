@@ -18,8 +18,8 @@ Copy-pasting `docker-compose.yml` across Pis drifts immediately. Templates give 
 **Status:** Foundation shipped in v0.4.0; drift / migrate-env / apply last known config / redeploy polish are in the **v0.5.0** RC line — [PLAN](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md).
 
 <figure class="ph-figure" markdown>
-  ![Templates catalog](../assets/screenshots/templates-catalog.svg)
-  <figcaption>Catalog with OOTB packs and user templates. <span class="ph-wireframe-badge">wireframe</span></figcaption>
+  ![Templates catalog](../assets/screenshots/templates-catalog.png)
+  <figcaption>Catalog with OOTB packs and user templates.</figcaption>
 </figure>
 
 ---

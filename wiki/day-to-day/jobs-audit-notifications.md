@@ -29,8 +29,8 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 ---
 
 <figure class="ph-figure" markdown>
-  ![Jobs page](../assets/screenshots/jobs-page.svg)
-  <figcaption>Fleet Jobs with filters and detail modal. <span class="ph-wireframe-badge">wireframe</span></figcaption>
+  ![Jobs page](../assets/screenshots/jobs-page.png)
+  <figcaption>Fleet Jobs with filters and detail modal.</figcaption>
 </figure>
 
 ## Jobs

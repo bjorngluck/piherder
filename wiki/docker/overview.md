@@ -9,8 +9,8 @@ When **Docker / containers** is enabled for a server, PiHerder can list compose 
 Homelab hosts often run many stacks. SSHing into each machine for `docker compose ps` does not scale, and ad-hoc edits leave no version history. The Docker UI is the day-to-day surface for free-form stacks; [templates](../service-templates/overview.md) cover desired-state managed stacks.
 
 <figure class="ph-figure" markdown>
-  ![Server detail Docker card](../assets/screenshots/server-detail.svg)
-  <figcaption>Docker dest card on server detail. <span class="ph-wireframe-badge">wireframe</span></figcaption>
+  ![Server detail Docker card](../assets/screenshots/server-detail.png)
+  <figcaption>Docker dest card on server detail.</figcaption>
 </figure>
 
 ---

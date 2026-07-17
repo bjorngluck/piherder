@@ -69,7 +69,7 @@ Goal for **1.0.0**: operators can install, run day-to-day fleet ops, and upgrade
    - `mkdocs build --strict` green  
    - Home / install / first-login / roles / env-reference accurate for the tagged version  
    - Operator scenarios index covers every first-class nav area  
-   - Screenshots: replace remaining wireframes for critical paths (install, servers, docker, templates, network, About) where possible  
+   - Screenshots: refresh light-desktop PNGs when the UI changes on critical paths (install, servers, docker, templates, network, About)
 
 2. **Single release note template** (`docs/RELEASE_v1.0.0.md` and later):  
    - Highlights  
@@ -95,7 +95,7 @@ Goal for **1.0.0**: operators can install, run day-to-day fleet ops, and upgrade
 ### Pre-1.0 (0.5.x RC1) remains
 
 - Ship **v0.5.0 RC1** with living wiki + `RELEASE_v0.5.0.md` at freeze.  
-- Treat 0.5.x docs as the **draft of 1.0** operator docs; clean wireframes and checklists as you stabilize.  
+- Treat 0.5.x docs as the **draft of 1.0** operator docs; refresh screenshots and checklists as you stabilize.  
 - Home page carries a permanent **RC1 awareness** callout until **1.0.0**: product and docs may be uneven; 1.0 is the refined production bar.  
 - Page pattern for operator docs (preferred):
 
@@ -105,7 +105,7 @@ Goal for **1.0.0**: operators can install, run day-to-day fleet ops, and upgrade
   | **Why it exists** | Problem / value |
   | **End-to-end** | Numbered happy path |
   | How / reference | Tables, options, edge cases |
-  | Screenshot | Wireframe OK in RC; replace with light desktop PNG when UI freezes |
+  | Screenshot | Light desktop PNG on major pages; refresh when UI freezes for 1.0 |
 
 - Operator review workflow: walk [Operator scenarios](../getting-started/operator-scenarios.md) journeys, capture screenshots, amend thin “why” notes in the same PR when possible.
 

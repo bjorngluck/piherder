@@ -15,7 +15,7 @@
     |----------------|--------|
     | **Product** | Core fleet workflows work; some surfaces may still be rough, incomplete, or not optimal on every host type |
     | **Documentation** | Written for operators in plain language, but still a **working guide** — not the final polished 1.0 manual |
-    | **Screenshots** | Many figures are still **wireframes** or placeholders; real captures will land as the UI freezes |
+    | **Screenshots** | **Light desktop** captures are in place for major operator surfaces; optional dark/mobile showcases where useful |
     | **Production bar** | **v1.0.0** is the intended first refined production release (behaviour + docs) |
 
     If something is unclear, missing, or wrong in practice, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues) or amend the wiki after you review a page with your own screenshots and notes.
@@ -143,7 +143,7 @@ Use this table when you already know the area; use [Operator scenarios](getting-
 | [Developers](developers/index.md) | Code, tests, docs/screenshot workflow |
 
 !!! tip "Reviewing docs with screenshots"
-    As you walk each page in a running instance, replace wireframes with real light-desktop captures and add notes where the UI or “why” still feels thin. Capture conventions: [Contributing docs](developers/contributing-docs.md#screenshots-best-practice).
+    Captures use the live UI. If a figure is stale after a UI change, replace the PNG under `wiki/assets/screenshots/` and amend the page. Capture conventions: [Contributing docs](developers/contributing-docs.md#screenshots-best-practice).
 
 Maintainer roadmaps stay in the **repo** under [`docs/`](https://github.com/bjorngluck/piherder/tree/main/docs) — not in this user-facing tree.
 
@@ -152,8 +152,13 @@ Maintainer roadmaps stay in the **repo** under [`docs/`](https://github.com/bjor
 ## Screenshots
 
 <figure class="ph-figure" markdown>
-  ![Dashboard wireframe](assets/screenshots/dashboard.svg)
-  <figcaption>Dashboard — fleet summary and attention table. <span class="ph-wireframe-badge">wireframe</span> Replace with a real capture when ready — local git workflow in <a href="developers/contributing-docs.md#screenshots-best-practice">Contributing docs</a>.</figcaption>
+  ![Dashboard](assets/screenshots/dashboard.png)
+  <figcaption>Dashboard — fleet summary and attention table (light desktop).</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Dashboard dark](assets/screenshots/dashboard-dark.png)
+  <figcaption>Optional dark showcase of the same home surface.</figcaption>
 </figure>
 
 Default: **light + desktop**. Optional dark/mobile showcases only. Capture inventory: [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).

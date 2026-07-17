@@ -46,8 +46,8 @@ Full journey: [Operator scenarios — Journey B](../getting-started/operator-sce
 5. **Path allow/deny** — default deny of OS roots; optional prefixes.
 
 <figure class="ph-figure" markdown>
-  ![Backups page](../assets/screenshots/backups-page.svg)
-  <figcaption>Sources, policy, schedule, restore wizard. <span class="ph-wireframe-badge">wireframe</span></figcaption>
+  ![Backups page](../assets/screenshots/backups-page.png)
+  <figcaption>Sources, policy, schedule, restore wizard.</figcaption>
 </figure>
 
 ## How success is decided

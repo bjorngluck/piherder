@@ -11,8 +11,8 @@ Kuma is excellent at HTTP/TCP checks; PiHerder is excellent at fleet actions. Co
 You can **deploy** Kuma via [Templates](../service-templates/overview.md), then connect the integration for status and bindings.
 
 <figure class="ph-figure" markdown>
-  ![Kuma integration](../assets/screenshots/integrations-kuma.svg)
-  <figcaption>Connect + bind SSH/services/Docker. <span class="ph-wireframe-badge">wireframe</span></figcaption>
+  ![Kuma integration](../assets/screenshots/integrations-kuma.png)
+  <figcaption>Connect + bind SSH/services/Docker.</figcaption>
 </figure>
 
 ---

@@ -14,6 +14,11 @@ Without a server record you have no place to store the encrypted SSH key, featur
 - Every new Pi / VM / metal box you want under the same dashboard  
 - Replacing a host: often **add new** then [remove](remove-server.md) the old one after cutover  
 
+<figure class="ph-figure" markdown>
+  ![Servers list](../assets/screenshots/server-list.png)
+  <figcaption>Servers list with bulk action bar for checks, upgrades, and backups.</figcaption>
+</figure>
+
 ---
 
 ## End-to-end: first Pi (happy path)
@@ -42,8 +47,8 @@ Without a server record you have no place to store the encrypted SSH key, featur
 5. Save, open the server → **SSH access**.
 
 <figure class="ph-figure" markdown>
-  ![SSH access panel](../assets/screenshots/ssh-access.svg)
-  <figcaption>SSH access: deploy key, test, rotate, least-priv, dependency chips. <span class="ph-wireframe-badge">wireframe</span></figcaption>
+  ![SSH access panel](../assets/screenshots/ssh-access.png)
+  <figcaption>SSH access: deploy key, test, rotate, least-priv, dependency chips.</figcaption>
 </figure>
 
 ## SSH access panel
@@ -113,8 +118,8 @@ After key deploy / least-priv / test, PiHerder stores a dependency snapshot. Fai
 From server detail **Host status** (⋯) or related chips, PiHerder can show a short **system info** snapshot over SSH (OS/kernel, reboot-pending, disk free — cached briefly). This is read-only diagnostics, not continuous monitoring (use Kuma for uptime).
 
 <figure class="ph-figure" markdown>
-  ![Server detail](../assets/screenshots/server-detail.svg)
-  <figcaption>Server detail with status chips and feature cards. <span class="ph-wireframe-badge">wireframe</span></figcaption>
+  ![Server detail](../assets/screenshots/server-detail.png)
+  <figcaption>Server detail with status chips and feature cards.</figcaption>
 </figure>
 
 ## Planned post-RC (onboarding)

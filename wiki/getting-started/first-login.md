@@ -61,6 +61,6 @@ If you set `ALLOW_OPEN_REGISTRATION=true`, later self-registered accounts become
 6. DR: Settings → PiHerder backup; keep `PIHERDER_MASTER_KEY` offline safe.
 
 <figure class="ph-figure" markdown>
-  ![Dashboard](../assets/screenshots/dashboard.svg)
-  <figcaption>After login you land near the fleet dashboard. <span class="ph-wireframe-badge">wireframe</span></figcaption>
+  ![Dashboard](../assets/screenshots/dashboard.png)
+  <figcaption>After login you land near the fleet dashboard.</figcaption>
 </figure>

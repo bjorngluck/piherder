@@ -9,8 +9,8 @@ PiHerder can be installed as a **Progressive Web App** and send **Web Push** not
 You are not always on the desktop when a backup fails or a monitor goes down. Push brings the same events as the bell inbox to a phone — but browsers only allow reliable push under **trusted HTTPS** and (on iOS) a home-screen install.
 
 <figure class="ph-figure" markdown>
-  ![Account push](../assets/screenshots/account-push.svg)
-  <figcaption>Enable device + event toggles. <span class="ph-wireframe-badge">wireframe</span></figcaption>
+  ![Account push](../assets/screenshots/account-push.png)
+  <figcaption>Enable device + event toggles.</figcaption>
 </figure>
 
 ---
