@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import Session, select
 
@@ -227,12 +227,15 @@ async def set_user_role(
 
 @router.post("/users/{target_id}/delete")
 async def delete_user(
+    request: Request,
     target_id: int,
     confirm: Optional[str] = Form(None),
     admin: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
     """Delete a user (admin only). Cannot delete self or the last admin."""
+    from ..services.user_admin import detach_and_delete_user
+
     target = session.get(User, target_id)
     if not target:
         raise HTTPException(404)
@@ -243,20 +246,20 @@ async def delete_user(
     if confirm not in ("1", "on", "true", "yes", "DELETE"):
         return RedirectResponse("/auth/users?error=delete_confirm", status_code=303)
 
-    email = target.email
-    # Remove 2FA / device rows first (no ON DELETE CASCADE assumed)
-    for row in session.exec(select(TotpBackupCode).where(TotpBackupCode.user_id == target.id)).all():
-        session.delete(row)
-    from ..models import TrustedDevice
-    for row in session.exec(select(TrustedDevice).where(TrustedDevice.user_id == target.id)).all():
-        session.delete(row)
-    # Leave audit rows; null user_id so history remains
-    for al in session.exec(select(AuditLog).where(AuditLog.user_id == target.id)).all():
-        al.user_id = None
-        session.add(al)
-    session.delete(target)
+    email = detach_and_delete_user(session, target)
     session.commit()
-    _audit(session, admin.id, "user_deleted", f"Deleted user {email}")
+    al = make_audit_log(
+        user_id=admin.id,
+        server_id=None,
+        action="user_deleted",
+        status="success",
+        details=f"Deleted user {email}",
+        client_ip=_client_ip(request),
+        started_at=datetime.utcnow(),
+        finished_at=datetime.utcnow(),
+    )
+    session.add(al)
+    session.commit()
     return RedirectResponse("/auth/users?msg=user_deleted", status_code=303)
 
 

@@ -44,7 +44,17 @@ Configurable admin policy (custom min length / classes) is **post-RC** — see r
 ## Roles and delete
 
 - Change role from the list (sole-admin rules — [Roles](roles.md)).  
-- Delete requires confirm; you cannot delete yourself.
+- Delete requires confirm; you cannot delete yourself or the **last admin**.
+
+### What delete removes
+
+| Removed with the account | Kept (unlinked) |
+|--------------------------|-----------------|
+| Password, profile, avatar files | **Audit** rows (`user_id` cleared) |
+| TOTP secret, backup codes, trusted devices | **Notifications** (`user_id` cleared) |
+| Web Push subscriptions + push preferences | **API tokens** the user created (`created_by` cleared; token still works until revoked) |
+
+Delete fails closed if related rows cannot be detached (should not happen on a healthy DB).
 
 ## Open registration
 
