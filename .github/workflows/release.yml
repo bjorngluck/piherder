@@ -1,0 +1,43 @@
+# Create a GitHub Release when a version tag is pushed.
+# Body is taken from docs/RELEASE_vX.Y.Z.md when present.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  github-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release notes file
+        id: notes
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VER="${TAG#v}"
+          CANDIDATE="docs/RELEASE_v${VER}.md"
+          if [ -f "$CANDIDATE" ]; then
+            echo "path=${CANDIDATE}" >> "$GITHUB_OUTPUT"
+            echo "Using ${CANDIDATE}"
+          else
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "No ${CANDIDATE}; will generate notes from commits"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }} — PiHerder
+          body_path: ${{ steps.notes.outputs.path }}
+          generate_release_notes: ${{ steps.notes.outputs.path == '' }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: false
