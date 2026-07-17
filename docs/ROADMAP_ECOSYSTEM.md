@@ -1,7 +1,7 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-16  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-17  
 **Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
@@ -27,13 +27,14 @@ Design principles stay the same as SPEC:
 | **v0.4.0** | Post-0.3 quality + **service templates** foundation (wizard, volumes/booleans, from-host, step-up secrets, wait modal, OOTB pack, desired state V1) | H2 + fixes | **Tagged** 2026-07-12 — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) |
 | **v0.4.x** | *(folded)* Former ops track — drift, NPM connector, git catalog, `.env` migrate | H1/H2 | **Absorbed into v0.5.0** (no separate planning phase) |
 | **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **QA / release prep** — [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
+| **v0.6.x / post-RC** | Host lifecycle depth (Docker bulk, onboarding wizard, optional host console) — **not** RC freeze scope | H2.75 | **Under consideration** — [Host lifecycle & operator console](#horizon-275--host-lifecycle--operator-console-post-rc) |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
 **Decision (2026-07-12):** **Single development target `v0.5.0`** — former “v0.4.x ops” and “RC polish” are one cycle. Optional intermediate git tags only if something must ship early.
 
-**Production path:** ~~v0.4.0 templates~~ **done** → **v0.5.0 in development** (ops + polish + RC) → v1.0.
+**Production path:** ~~v0.4.0 templates~~ **done** → **v0.5.0 RC** → **post-RC host lifecycle (optional 0.6.x)** → **v1.0** refined production.
 
 **Note:** Registry image publish (`bjorngluck/piherder`) remains optional until Docker Hub/GHCR credentials are available; target Hub publish with **v0.5.0 RC**.
 
@@ -240,13 +241,121 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 
 ---
 
+## Horizon 2.75 — Host lifecycle & operator console (post-RC)
+
+**Captured:** 2026-07-17 (operator planning discussion).  
+**Stance:** **Under consideration after v0.5.0 RC** — not RC freeze scope, not required for a minimal **1.0.0** unless we choose a small slice. Prefer shipping as **0.6.x** (or staged PRs after 1.0) once RC is stable.
+
+These ideas deepen **day-to-day host operations** and **first-time host bring-up**. They sit next to H2.5 (topology) but focus on **SSH lifecycle** rather than DNS/proxy graphs.
+
+### Themes (operator intent)
+
+| Theme | Intent |
+|-------|--------|
+| **Docker project bulk control** | From a host Docker / stack UI: **start / stop / restart all services** in a project (and later multi-project bulk) without one-by-one container actions |
+| **Richer host health** | More **host stats**, **healthchecks**, and **safe remote commands** from the UI (beyond today’s short system-info snapshot) |
+| **In-browser SSH console** | Web terminal with **key-based credential injection** so operators never paste private keys into a laptop SSH client |
+| **Wizard onboarding** | Guided multi-step “add host” instead of form → SSH access panel discovery |
+| **Bootstrap / first boot** | Scripts + settings to create the **PiHerder user**, sudoers/ACL, hostname (and maybe IP), report DHCP-assigned address on first boot, create **Pi-hole / DNS** records |
+
+### Recommended order (risk vs value)
+
+| # | Item | Effort | Risk | Why this order |
+|---|------|--------|------|----------------|
+| **1** | **Docker bulk start/stop/restart** (project-level, then optional multi-select) | Low–med | Low | Extends existing Docker actions + Jobs/Audit pattern; high weekly value; no new trust model |
+| **2** | **Improved add-host wizard** (UI orchestration of today’s steps) | Med | Low | Same SSH/key/least-priv building blocks; fewer wrong-order mistakes for new operators |
+| **3** | **Host stats + healthcheck + allowlisted commands** | Med | Med | Needs clear **command allowlist**, RBAC, audit, rate limits — not a free shell |
+| **4** | **Bootstrap scripts + DNS handoff** (hostname, PiHerder user, Pi-hole A) | Med–high | Med | Builds on least-priv + Network/Pi-hole; “first boot report DHCP IP” needs a callback design |
+| **5** | **Web SSH client (key injection)** | High | **High** | Browser ↔ PTY bridge is a privileged attack surface; ship only with hard security bar (below) |
+
+### 1 — Docker bulk service control
+
+| Aspect | Direction |
+|--------|-----------|
+| **Scope (v1)** | Per **compose project**: Stop all / Start all / Restart all (map to `docker compose stop|start|restart` or service-level batch) |
+| **Scope (later)** | Multi-project multi-select on host Docker page; optional fleet-wide “restart all *X*” only with strong confirm |
+| **UX** | Confirm modal (list services); run as **Job** with live log; exclusive with other stack mutations on that host if needed |
+| **Not** | Unconditional `docker kill` across the whole host without project context |
+
+### 2 — Host stats, healthcheck, run command
+
+| Aspect | Direction |
+|--------|-----------|
+| **Stats** | Extend host status snapshot: load, memory, disk, uptime, temperature (where available), reboot-pending — **cached**, not continuous SSH poll on every page open |
+| **Healthcheck** | Operator-defined or built-in probes (e.g. “can resolve DNS”, “docker ps exits 0”) stored per host; schedule optional |
+| **Run command** | **Allowlist only** (or template commands with args), operator+ role, preview → confirm → audit + job log. **No** arbitrary root shell from the UI in the first cut |
+| **Why not free shell here** | Free shell belongs in the web SSH item (if ever); stats/commands stay structured so viewers never get a prompt |
+
+### 3 — Web-based SSH client (credential injection)
+
+| Aspect | Direction |
+|--------|-----------|
+| **UX** | xterm.js (or similar) in the browser → authenticated WebSocket → PiHerder server opens SSH with the **stored host key** (never send the private key to the browser) |
+| **Auth model** | Session must be **operator/admin**; prefer **step-up 2FA** (or force-2FA policy); optional “console session” time limit; idle disconnect |
+| **Injection** | Server-side only: decrypt key in worker/web process memory for that PTY session; browser never sees PEM |
+| **Audit** | `ssh_console_open` / `ssh_console_close` (+ client IP, duration); optional command logging is **hard** (interactive) — document limitations |
+| **Threats** | XSS → terminal takeover; shared admin sessions; browser extensions; long-lived websockets; herder host becomes jump box |
+| **Mitigations (ship bar)** | CSP + trusted TLS; short-lived console tickets; concurrent session limit; no console for **viewer**; kill switch env `PIHERDER_SSH_CONSOLE=false`; never log key material |
+| **Stance** | **Under consideration** — attractive for tablets/homelab, but **not** a 1.0 requirement. Prefer landing 1–4 first. |
+
+### 4 — Wizard-driven host onboarding
+
+Turn today’s multi-surface flow into one guided path:
+
+1. Identity (name, address/port, SSH user)  
+2. Trust (generate/upload key, optional bootstrap password)  
+3. Connect & deploy key  
+4. Least-priv / Docker base dir / ACL (Debian/Pi OS path)  
+5. Feature flags (Backups / OS / Docker)  
+6. Optional schedules (checks only by default)  
+7. Optional Network (FQDN, manage A on Pi-holes)  
+8. Summary + “first jobs” CTAs (test backup, update check)
+
+Reuse existing SSH access actions; the wizard is **orchestration + progress**, not a second implementation.
+
+### 5 — Bootstrap / first boot (scripts + DNS)
+
+| Layer | Direction |
+|-------|-----------|
+| **A — Offline scripts (near-term)** | Downloadable / copyable scripts from the wizard: create `piherder` user, authorized_keys, sudoers, docker group, optional hostname set — same spirit as today’s least-priv + cleanup scripts, but **pre-join** |
+| **B — Network identity** | Operator enters desired **hostname** + optional static IP notes; PiHerder can apply hostname over SSH after first connect; static IP remains **document + script**, not full network-manager product |
+| **C — DNS** | After connect (or after operator confirms IP): create/update **Pi-hole A** via existing fan-out when “Manage A” is on — already close to today’s Host DNS |
+| **D — First-boot callback (later)** | Image/cloud-init that phones home to PiHerder (“I booted; DHCP gave me *x.x.x.x*”) — needs enrollment token, one-time code, or mTLS; **do not** accept anonymous host registration on the open internet |
+| **E — Full imaging** | cloud-init / Raspberry Pi Imager integration, inventory export for Ansible — stays **Horizon 3** alignment |
+
+**Open design questions (resolve before building D/E):**
+
+- Enrollment secret: per-host one-time token vs shared fleet join key?  
+- Who owns DHCP (router only vs PiHerder-suggested static)?  
+- Does first boot create the server row, or only report IP for a pre-created row?  
+- How does this interact with HAOS / non-Debian (script matrix)?
+
+### Explicit non-goals (for this horizon)
+
+- Replacing Uptime Kuma for continuous monitoring  
+- Full remote desktop / VNC  
+- Agent-based management (PiHerder remains **SSH-first**)  
+- Shipping web SSH without step-up + audit + kill switch  
+
+### Links to existing code / docs
+
+| Today | Leverages |
+|-------|-----------|
+| Server bulk OS/container/backup | Pattern for Docker bulk confirm + Jobs |
+| Host status system-info snapshot | Seed for richer stats |
+| Least-priv + cleanup scripts | Seed for bootstrap scripts |
+| Network maps + Pi-hole A fan-out | DNS after onboard |
+| H3 Ansible / cloud-init | First-boot callback / imaging |
+
+---
+
 ## Horizon 3 — Deeper ecosystem
 
 | Area | Direction |
 |------|-----------|
 | Home Assistant | Token REST first → optional custom component (sensors + safe actions); MQTT later |
 | Plugin hooks | Prefer REST + n8n over arbitrary code on the herder host |
-| Ansible / cloud-init | Inventory export + first-boot snippets for new Pis |
+| Ansible / cloud-init | Inventory export + first-boot snippets for new Pis — **overlaps H2.75 bootstrap D/E**; keep imaging depth here |
 | **Advanced secrets** | Explore beyond locked `.env`: Swarm/file permissions hardening, sealed host store for offline recreate, optional vault — never require PiHerder for normal container restart |
 | Optional AI | OpenAI-compatible BYO (cloud or private LLM); **off by default**; never send private keys; Frigate vision stays on Frigate / AI Hat |
 | **Topology plugins** | Optional export to graph tools (e.g. Mermaid, Graphviz DOT, or browser libraries like Cytoscape.js / vis-network) for large fleets — keep core views offline-first CSS/SVG |
@@ -336,6 +445,9 @@ flowchart TB
 | **Kubernetes / bare install** | **Under consideration only** — not promised in H0–H2 |
 | **Multi-worker** | Done — per-server Redis mutex + `CELERY_CONCURRENCY`; not a v0.2.0 ship blocker |
 | **Host dep / stack health** | Done (v0.2.x): host deps → Status tab → multi-worker |
+| **Host lifecycle H2.75** | Post-RC under consideration — Docker bulk first; web SSH last / highest bar |
+| **Web SSH console** | Server-side key only; step-up 2FA; kill switch; not a 1.0 requirement |
+| **First-boot join** | No anonymous host registration; enrollment token required if built |
 
 ---
 
