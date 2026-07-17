@@ -2,14 +2,14 @@
 
 ## What this is
 
-How to move a running compose install to a newer **git tag or `main`**, rebuild images, and let Alembic migrate the database.
+How to move a running compose install to a newer **git tag or `main`**, pull the published image, and let Alembic migrate the database.
 
 ## Why a checklist
 
 Upgrades change code *and* schema. A self-backup + unchanged master key is the difference between a smooth pull and an unrecoverable encrypted store.
 
 !!! warning "RC1"
-    Prefer tagged releases once published; treat `main` as moving. See [Home — RC1](../index.md#rc1).
+    Prefer **tagged releases** (`v0.5.0`); treat `main` as moving. See [Home — RC1](../index.md#rc1).
 
 ```bash
 # Config DR first
@@ -17,18 +17,19 @@ Upgrades change code *and* schema. A self-backup + unchanged master key is the d
 # Also snapshot Postgres volume if you can
 
 git fetch --tags
-git checkout main     # or a release tag (e.g. v0.5.0 when published)
-docker compose up -d --build
+git checkout v0.5.0   # or main
+docker compose pull
+docker compose up -d
 # Alembic runs on web startup
-docker compose run --rm --no-deps web pytest -q   # optional
+# optional pin: PIHERDER_IMAGE=bjorngluck/piherder:0.5.0 docker compose up -d
 ```
 
 ## Checklist
 
 - [ ] Self-backup successful (**admin** — Settings → PiHerder backup)  
 - [ ] `PIHERDER_MASTER_KEY` unchanged and backed up offline  
-- [ ] Read ship plan / release notes under `docs/PLAN_v0.5.0.md` or `docs/RELEASE_v*.md` when present  
-- [ ] `docker compose ps` healthy  
+- [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.5.0.md) for the version you jump to  
+- [ ] `docker compose ps` healthy (image `bjorngluck/piherder:…`)  
 - [ ] Smoke: login, one server, optional template  
 - [ ] Hard-refresh browser once after UI/CSS deploys (query-busted stylesheets)  
 
