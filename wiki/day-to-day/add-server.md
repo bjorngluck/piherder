@@ -117,6 +117,12 @@ From server detail **Host status** (⋯) or related chips, PiHerder can show a s
   <figcaption>Server detail with status chips and feature cards. <span class="ph-wireframe-badge">wireframe</span></figcaption>
 </figure>
 
+## Planned post-RC (onboarding)
+
+After **v0.5.0 RC**, a **wizard-driven add-host** path and richer **bootstrap scripts** (create `piherder` user before first connect, hostname, Pi-hole A handoff, optional first-boot enrollment with a token) are planned. Web SSH console is last and highest bar.
+
+See [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md) (phases P2 / P4 / P5). Until then, use the steps above.
+
 ## Related
 
 - [Remove a server](remove-server.md) — UI teardown + optional host cleanup  

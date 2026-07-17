@@ -154,6 +154,8 @@ Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
 `POST /servers/bulk` with `action` + comma-separated `server_ids` (session auth). Ineligible hosts are skipped. Exclusive-job rules still apply per host.
 
+**Planned (post-RC):** per **compose project** Stop all / Start all / Restart all on the host Docker page — [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) phase P1 (not in v0.5.0 freeze).
+
 ### Backups
 
 Per-server backup enable + cron on the server/backups UI. Enqueues **Celery** workers (web never runs rsync).
@@ -823,3 +825,4 @@ Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backu
 | Unit tests | `tests/test_rbac.py`, `test_api_tokens.py`, `test_app_settings.py`, `test_cors_policy.py`, `test_herder_backup.py`, … |
 | Herder self-backup | `app/services/herder_backup.py` |
 | Ecosystem roadmap | `docs/ROADMAP_ECOSYSTEM.md` |
+| Host lifecycle plan (post-RC H2.75) | `docs/FEATURE_PLAN_HOST_LIFECYCLE.md` — Docker bulk, wizard onboard, host stats/commands, bootstrap/DNS, web SSH |

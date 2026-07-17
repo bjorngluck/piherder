@@ -30,7 +30,7 @@ Public contributors may open Issues and Pull Requests. **Only the project mainta
 | `SPEC.md` | Canonical phase checklist |
 | `docs/ROADMAP_ECOSYSTEM.md` | Multi-horizon roadmap |
 | `docs/PLAN_v*.md` | Release plans |
-| `docs/FEATURE_PLAN_*.md` | Feature designs |
+| `docs/FEATURE_PLAN_*.md` | Feature designs (incl. post-RC [HOST_LIFECYCLE](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md)) |
 | `docs/RELEASE_v*.md` | Release notes |
 | `docs/DECISION_*.md` | Locked decisions |
 
