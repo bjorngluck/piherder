@@ -22,9 +22,10 @@
 
 | | |
 |---|---|
-| **Current line** | **v0.5.0** (first RC) — image `bjorngluck/piherder:latest` |
+| **Current line** | **[v0.5.0](https://github.com/bjorngluck/piherder/releases/tag/v0.5.0)** (first RC) — image [`bjorngluck/piherder:latest`](https://hub.docker.com/r/bjorngluck/piherder) |
+| **Release notes** | [RELEASE_v0.5.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.5.0.md) |
 | **Previous tag** | [v0.4.0](https://github.com/bjorngluck/piherder/releases/tag/v0.4.0) (templates foundation) |
-| **Ship plan** | [PLAN_v0.5.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md) |
+| **Ship plan (frozen)** | [PLAN_v0.5.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |

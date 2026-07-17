@@ -94,7 +94,7 @@ Goal for **1.0.0**: operators can install, run day-to-day fleet ops, and upgrade
 
 ### Pre-1.0 (0.5.x RC1) remains
 
-- Ship **v0.5.0 RC1** with living wiki + `RELEASE_v0.5.0.md` at freeze.  
+- **v0.5.0 RC1** shipped with living wiki + [`RELEASE_v0.5.0.md`](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.5.0.md).  
 - Treat 0.5.x docs as the **draft of 1.0** operator docs; refresh screenshots and checklists as you stabilize.  
 - Home page carries a permanent **RC1 awareness** callout until **1.0.0**: product and docs may be uneven; 1.0 is the refined production bar.  
 - Page pattern for operator docs (preferred):
