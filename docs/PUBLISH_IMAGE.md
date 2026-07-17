@@ -1,12 +1,14 @@
 # Publishing a PiHerder image (Docker Hub / GHCR)
 
-**Status:** Docker Hub repo **created** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). First image push pending (login + buildx). Target multi-arch tags at **v0.5.0 RC**.  
+**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64** published for **v0.5.0**.  
 **Related:** [ADMIN](https://piherder-docs.hacknow.info/operations/upgrades/) · [wiki publish page](https://piherder-docs.hacknow.info/developers/publish-image/) · live docs: https://piherder-docs.hacknow.info/
 
-Until an image is published, operators use:
+Official compose pulls the published image:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
+# optional pin:
+# PIHERDER_IMAGE=bjorngluck/piherder:0.5.0 docker compose up -d
 ```
 
 **Dependency pins:** the image installs from committed `requirements.lock.txt` (`pip install --require-hashes`). Bump deps with `./scripts/refresh-lockfiles.sh` before a release build so Hub tags match the lockfile in the git tag.
@@ -74,12 +76,16 @@ Arm64 matters for Raspberry Pi hosts running the herder itself.
 export IMAGE=bjorngluck/piherder
 export VERSION=0.5.0   # match release
 
-docker buildx create --use --name piherder-builder 2>/dev/null || true
+docker buildx create --use --name piherder-builder --driver docker-container 2>/dev/null || true
+docker buildx use piherder-builder
 docker buildx inspect --bootstrap
+# On arm64 hosts: ensure QEMU for amd64
+# docker run --privileged --rm tonistiigi/binfmt --install all
 
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t "${IMAGE}:${VERSION}" \
+  -t "${IMAGE}:0.5" \
   -t "${IMAGE}:latest" \
   --push \
   .
@@ -95,27 +101,27 @@ docker build -t bjorngluck/piherder:local .
 
 ## 4. Compose with a published image
 
-Once published, operators can replace `build: .` with:
+Official `docker-compose.yml` already uses:
 
 ```yaml
-web:
-  image: bjorngluck/piherder:0.5.0
-celery-worker:
-  image: bjorngluck/piherder:0.5.0
+image: ${PIHERDER_IMAGE:-bjorngluck/piherder:latest}
 ```
 
-Keep the same env vars and volumes as [docker-compose.yml](../docker-compose.yml).  
+for `web` and `celery-worker`. Keep the same env vars and volumes.  
 Install docs: https://piherder-docs.hacknow.info/getting-started/install/
+
+To develop against local source again, temporarily restore `build: .` or point `PIHERDER_IMAGE` at a locally tagged build.
 
 ---
 
 ## 5. Checklist before a release push
 
+- [x] Multi-arch `docker buildx` push to Docker Hub (`0.5.0` / `0.5` / `latest`)  
+- [x] Hardened `.dockerignore` (no backups/certs/local data/git)  
+- [x] `pyproject.toml` version matches image tag  
 - [ ] `pytest -q` green  
 - [ ] Manual smoke: register, add server, backup, metrics, API token, template deploy  
-- [ ] Git tag + [RELEASE notes](RELEASE_v0.4.0.md) (or `RELEASE_v0.5.0.md` at freeze)  
-- [ ] `pyproject.toml` version matches image tag  
-- [ ] Multi-arch `docker buildx` push to Docker Hub  
+- [x] Git tag + [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md)  
 - [ ] Hub repo description + docs/GitHub links  
 - [ ] Optional: GitHub Release + GHCR mirror  
 - [ ] [SECURITY.md](../SECURITY.md) still accurate  

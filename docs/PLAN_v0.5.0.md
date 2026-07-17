@@ -1,10 +1,10 @@
 # PiHerder v0.5.0 — development plan
 
-**Status:** **QA / release prep** (feature work for RC substantially complete; operator QA then freeze)  
+**Status:** **Frozen / released** as `v0.5.0`  
 **Date opened:** 2026-07-12  
-**Last plan refresh:** 2026-07-16 (MIT license; full ops UI polish batch — auth/services/docker/backups/account; password + registration UX; wiki/docs sync)  
+**Last plan refresh:** 2026-07-17 (release freeze: multi-arch Hub image, compose pull path, RELEASE notes)  
 **Baseline:** `v0.4.0` (templates foundation + post-0.3 quality)  
-**Package version on main:** `0.5.0.dev0` (`pyproject.toml`) — bump to `0.5.0` at tag  
+**Package version at tag:** `0.5.0` (`pyproject.toml`)  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [SPEC.md](../SPEC.md) · Wiki: [Network maps](../wiki/integrations/dns-fabric.md)
 
 ### Decision (locked)
@@ -65,7 +65,7 @@
 | Item | Notes | Status |
 |------|--------|--------|
 | Production user wiki + dev wiki | **Live** at [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/); source `wiki/`; real screenshots ongoing | Open (polish) |
-| Docker Hub / GHCR multi-arch image | [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md); tags for `0.5.0` | Open |
+| Docker Hub multi-arch image | [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md); tags `0.5.0` / `0.5` / `latest` | **Done** |
 | RC freeze bar | pytest, smoke (deploy + drift + restore), secret-path review | Open |
 
 ### E — Fleet ops polish (v0.5.0 track)

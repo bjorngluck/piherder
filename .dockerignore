@@ -1,22 +1,43 @@
-# We ignore the vendored JS files from the build context.
-# This ensures the build always uses fresh copies produced by scripts/vendor_cdns.sh
-# (and prevents shipping a bad/stale file, e.g. from Pi-hole).
-#
-# The build will fail hard if the vendoring step cannot produce a valid tailwind.js.
-#
-# If you want to do a fully offline build, you can:
-#   1. Manually place valid files in app/static/ before building, AND
-#   2. Temporarily comment out the lines below, or use a multi-stage COPY.
+# Vendored frontend assets — always re-download via scripts/vendor_cdns.sh
+# so a bad/stale local file (e.g. Pi-hole block page) never ships.
 app/static/tailwind.js
 app/static/htmx.min.js
 app/static/alpine.min.js
 
-# Other common ignores
-__pycache__/
-*.pyc
+# Local runtime / secrets — never ship into public Hub images
 .env*
-*.log
-backups/
-tmp_ssh_key_*
 *.pem
 id_rsa*
+tmp_ssh_key_*
+certs/
+piherder_backups/
+piherder_data/
+backups/
+
+# VCS / tooling / caches
+.git/
+.github/
+.venv*/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.log
+
+# Docs build output and sources (not needed at runtime)
+site/
+wiki/
+docs/
+mkdocs.yml
+requirements-docs.txt
+
+# Dev-only / large lock sources not used by Dockerfile
+uv.lock
+.pytest_cache/
+
+# Local IDE / OS noise
+.idea/
+.vscode/
+*.swp
+.DS_Store

@@ -1,6 +1,6 @@
 # Publish image
 
-Multi-arch images on **Docker Hub** / GHCR (target **v0.5.0 RC**). Full maintainer checklist: [`docs/PUBLISH_IMAGE.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PUBLISH_IMAGE.md).
+Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (**v0.5.0+**, `linux/amd64` + `linux/arm64`). Full maintainer checklist: [`docs/PUBLISH_IMAGE.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PUBLISH_IMAGE.md).
 
 ## One-time Hub setup
 
@@ -17,7 +17,7 @@ Multi-arch images on **Docker Hub** / GHCR (target **v0.5.0 RC**). Full maintain
 | `0.5` | Latest patch in line (optional) |
 | `latest` | Current stable |
 
-Images: `bjorngluck/piherder` or `ghcr.io/bjorngluck/piherder`.
+Images: `bjorngluck/piherder` (optional later: `ghcr.io/bjorngluck/piherder`).
 
 ## Multi-arch build example
 
@@ -25,26 +25,22 @@ Images: `bjorngluck/piherder` or `ghcr.io/bjorngluck/piherder`.
 export IMAGE=bjorngluck/piherder
 export VERSION=0.5.0
 
-docker buildx create --use --name piherder-builder 2>/dev/null || true
+docker buildx create --use --name piherder-builder --driver docker-container 2>/dev/null || true
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t "${IMAGE}:${VERSION}" \
+  -t "${IMAGE}:0.5" \
   -t "${IMAGE}:latest" \
   --push \
   .
 ```
 
-## Compose with a published image
+## Compose
 
-```yaml
-web:
-  image: bjorngluck/piherder:0.5.0
-celery-worker:
-  image: bjorngluck/piherder:0.5.0
-```
-
-## Until published
+Official compose already pulls the published image:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
+# pin:
+# PIHERDER_IMAGE=bjorngluck/piherder:0.5.0 docker compose up -d
 ```

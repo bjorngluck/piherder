@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** **v0.5.0 in development** — Phase 1–5 complete; Phase 6 templates **foundation shipped** in v0.4.0; ops + polish + RC → **v0.5.0**  
-> **Last updated:** 2026-07-17 — Production path: ~~v0.4.0~~ done → **v0.5.0 RC** → post-RC **H2.75 host lifecycle** ([FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md)) → **v1.0**. Still open for RC: multi-arch image, freeze bar.
+> **Status:** **v0.5.0 released** (first RC) — Phase 1–6 RC bar met; multi-arch Hub image + compose pull path.  
+> **Last updated:** 2026-07-17 — Production path: ~~v0.4.0~~ done → ~~**v0.5.0 RC**~~ **tagged** → post-RC **H2.75 host lifecycle** ([FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md)) → **v1.0**.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -184,7 +184,7 @@ Carried refinements + ship blockers for a clean install story. Detail: [docs/ROA
 - [x] **Production ADMIN section** — TLS, upgrades, metrics, webhooks, API tokens
 - [x] **Git tag `v0.2.0`** + release notes — [docs/RELEASE_v0.2.0.md](docs/RELEASE_v0.2.0.md)
 - [x] **Git tag `v0.3.0`** + release notes — [docs/RELEASE_v0.3.0.md](docs/RELEASE_v0.3.0.md)
-- [ ] Pre-built multi-arch image on Docker Hub / GHCR + README pull path (process: [docs/PUBLISH_IMAGE.md](docs/PUBLISH_IMAGE.md); not required to keep the git tag)
+- [x] Pre-built multi-arch image on Docker Hub + README/compose pull path (`bjorngluck/piherder:latest`; process: [docs/PUBLISH_IMAGE.md](docs/PUBLISH_IMAGE.md))
 
 ---
 
@@ -241,7 +241,7 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 **Shipped foundation:** [docs/PLAN_v0.4.0.md](docs/PLAN_v0.4.0.md) · [docs/FEATURE_PLAN_TEMPLATES.md](docs/FEATURE_PLAN_TEMPLATES.md) · [docs/RELEASE_v0.4.0.md](docs/RELEASE_v0.4.0.md)  
 **Active plan:** [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md)  
 **Decision:** All post-`v0.3.0` work for the foundation shipped in **`v0.4.0`** (bug IDs B01… in PLAN §2).  
-**Production path:** ~~v0.4.0~~ **done** → **v0.5.0 in development** (ops + polish + first RC; former v0.4.x folded in).
+**Production path:** ~~v0.4.0~~ **done** → ~~**v0.5.0**~~ **tagged** (ops + polish + first RC; former v0.4.x folded in).
 
 ### Post–v0.3.0 quality (shipped in v0.4.0)
 
@@ -278,7 +278,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [x] Migrate existing host `.env` into PiHerder (Import host .env on deployment)
 - [x] Restore service from backup (matched sources) + apply last known config from PiHerder
 - [x] Production user wiki + dev wiki scaffold (MkDocs Material under `wiki/`; real screenshots + Pages go-live ongoing)
-- [ ] Docker Hub / GHCR multi-arch image publish
+- [x] Docker Hub multi-arch image publish (`bjorngluck/piherder:0.5.0` / `latest`)
 - [ ] RC freeze bar (pytest, smoke, security of secret paths)
 
 **Fleet ops polish (workstream E — landed in v0.5.0 track)**

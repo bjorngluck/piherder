@@ -6,7 +6,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v0.5.0--rc-green.svg)](docs/RELEASE_v0.5.0.md)
+[![Release](https://img.shields.io/badge/release-v0.5.0-green.svg)](docs/RELEASE_v0.5.0.md)
+[![Docker Hub](https://img.shields.io/badge/docker-bjorngluck%2Fpiherder-blue.svg)](https://hub.docker.com/r/bjorngluck/piherder)
 [![Docs](https://img.shields.io/badge/docs-wiki-red.svg)](https://piherder-docs.hacknow.info/)
 
 ### Why PiHerder?
@@ -36,7 +37,7 @@ See the full **[Getting Started guide](https://piherder-docs.hacknow.info/gettin
 1. Clone this repo or copy `.env.example` → `.env`
 2. Generate `PIHERDER_MASTER_KEY` (critical)
 3. (Recommended) Set hostname + trusted TLS certs for PWA/push
-4. `docker compose up -d --build`
+4. `docker compose up -d` (pulls multi-arch `bjorngluck/piherder:latest`)
 5. Register first admin user and start adding servers
 
 ### Open Source & Contributing

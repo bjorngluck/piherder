@@ -22,7 +22,7 @@
 
 | | |
 |---|---|
-| **Current line** | **v0.5.0** RC1 / `main` (package `0.5.0.dev0` until freeze) |
+| **Current line** | **v0.5.0** (first RC) — image `bjorngluck/piherder:latest` |
 | **Previous tag** | [v0.4.0](https://github.com/bjorngluck/piherder/releases/tag/v0.4.0) (templates foundation) |
 | **Ship plan** | [PLAN_v0.5.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
