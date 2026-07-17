@@ -28,6 +28,11 @@ The dashboard answers those from **last check jobs and caches** (not a full SSH 
 
 **Done when:** you can explain each tile without guessing, and empty Services is understood as “no Kuma binds yet” rather than a bug.
 
+<figure class="ph-figure" markdown>
+  ![Dashboard](../assets/screenshots/dashboard.png)
+  <figcaption>Fleet dashboard — counts, attention table, network pulse, quick links.</figcaption>
+</figure>
+
 ---
 
 ## Dashboard (`/`)
@@ -55,6 +60,12 @@ Status comes from **last check jobs** (and related caches) — not continuous SS
 ## Fleet Services (`/services`)
 
 Fleet-wide view of **Uptime Kuma service bindings** (host service or Docker project/container). Uses the shared **ops-hero** (up / down / TLS pulse) plus filter chips and search.
+
+<figure class="ph-figure" markdown>
+  ![Fleet Services](../assets/screenshots/services-fleet.png)
+  <figcaption>Fleet Services grid with status filters and deep links.</figcaption>
+</figure>
+
 
 | Feature | Use |
 |---------|-----|

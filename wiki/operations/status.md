@@ -11,8 +11,8 @@ When backups stay pending or the UI feels dead, you need a single place that ans
 **Where:** Settings → **Status** (admin).
 
 <figure class="ph-figure" markdown>
-  ![Status tab](../assets/screenshots/settings-status.svg)
-  <figcaption>Component health + mount free. <span class="ph-wireframe-badge">wireframe</span></figcaption>
+  ![Status tab](../assets/screenshots/settings-status.png)
+  <figcaption>Component health + mount free.</figcaption>
 </figure>
 
 ## What is checked

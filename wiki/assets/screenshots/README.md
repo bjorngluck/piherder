@@ -6,7 +6,7 @@ Real UI captures live here. Wiki pages reference them like:
 ![Dashboard](../assets/screenshots/dashboard.png)
 ```
 
-Wireframe SVGs (`*.svg`) are interim placeholders until PNGs exist.
+Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages now use real PNGs. You can delete unused SVGs once you are sure no external link points at them.
 
 ## Default convention (keep simple)
 

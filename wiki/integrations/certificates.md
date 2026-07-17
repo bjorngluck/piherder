@@ -8,6 +8,11 @@ PiHerder stores TLS **fullchain + private key** encrypted (Fernet / `PIHERDER_MA
 
 One Let’s Encrypt cert often feeds NPM, UniFi, reverse proxies, and app containers. Copying PEMs by hand is error-prone and expires on different schedules. The vault is a single encrypted store; maps describe each consumer; renew/redeploy keeps them aligned.
 
+<figure class="ph-figure" markdown>
+  ![Certificates list](../assets/screenshots/certificates-list.png)
+  <figcaption>Catalog → Certificates: vault list with expiry and deploy entry points.</figcaption>
+</figure>
+
 ---
 
 ## End-to-end: vault → host files

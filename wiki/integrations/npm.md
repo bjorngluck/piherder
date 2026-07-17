@@ -8,6 +8,11 @@ Connect an existing **Nginx Proxy Manager** instance for **proxy host inventory*
 
 NPM is often the edge of a homelab. Operators need to see which hostnames are proxied, bind them to fleet servers, and pull cert material for redistribution — without re-implementing NPM’s full proxy editor inside PiHerder.
 
+<figure class="ph-figure" markdown>
+  ![NPM integration](../assets/screenshots/integrations-npm.png)
+  <figcaption>NPM detail: proxy host inventory and certificate pull.</figcaption>
+</figure>
+
 ---
 
 ## End-to-end: inventory + pull a cert

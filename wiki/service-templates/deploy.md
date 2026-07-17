@@ -9,8 +9,8 @@
 A one-shot SSH paste is not recoverable after host loss and not comparable for drift. Deploy stores what *should* be on the host so you can redeploy, detect drift, import host `.env`, or apply last known config after DR.
 
 <figure class="ph-figure" markdown>
-  ![Deploy wizard](../assets/screenshots/templates-deploy.svg)
-  <figcaption>Wizard: variables → host → preview → confirm. <span class="ph-wireframe-badge">wireframe</span></figcaption>
+  ![Deploy wizard](../assets/screenshots/templates-deploy.png)
+  <figcaption>Wizard: variables → host → preview → confirm.</figcaption>
 </figure>
 
 ---
@@ -44,6 +44,12 @@ A one-shot SSH paste is not recoverable after host loss and not comparable for d
 ## Redeploy & ops (deployment page)
 
 Open the **deployment** for that host+project (`/templates/deployments/{id}`):
+
+<figure class="ph-figure" markdown>
+  ![Template deployment](../assets/screenshots/templates-deployment.png)
+  <figcaption>Deployment page: drift, redeploy, import host .env, apply last known config.</figcaption>
+</figure>
+
 
 | Action | Effect | Why |
 |--------|--------|-----|

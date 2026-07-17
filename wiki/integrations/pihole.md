@@ -8,6 +8,11 @@ Connect one or more **Pi-hole v6** instances so PiHerder can show stats, manage 
 
 LAN DNS is the glue between friendly names and hosts. Managing A/CNAME records on every Pi-hole by hand drifts. PiHerder fans changes from a primary workflow and feeds [Network maps](dns-fabric.md) so topology matches reality.
 
+<figure class="ph-figure" markdown>
+  ![Pi-hole integration](../assets/screenshots/integrations-pihole.png)
+  <figcaption>Pi-hole detail: stats, DNS actions, and instance settings.</figcaption>
+</figure>
+
 ---
 
 ## End-to-end: manage a host A record
