@@ -84,3 +84,4 @@ Per-host view: **Server → Services** (`/servers/{id}/services`) — same card 
 - [Jobs, audit & notifications](jobs-audit-notifications.md)  
 - [Uptime Kuma](../integrations/uptime-kuma.md)  
 - [Network maps](../integrations/dns-fabric.md)  
+- Post-RC host ops (planned): [FEATURE_PLAN_HOST_LIFECYCLE](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md)

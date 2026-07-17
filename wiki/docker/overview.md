@@ -49,6 +49,11 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | New project wizard | Create a stack on the host |
 | Template-managed stacks | Badge + gated full editor — [Templates](../service-templates/overview.md) |
 
+!!! note "Planned post-RC (not in 0.5.0 freeze)"
+    **Project lifecycle bulk:** Stop all / Start all / Restart all services for a compose project (confirm → Job → Audit). Later: wizard onboarding, richer host stats/allowlisted commands, bootstrap scripts, optional web SSH.
+
+    Design: [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md) (H2.75).
+
 ## Template vs free-form stacks
 
 | Kind | Edit path | Why |

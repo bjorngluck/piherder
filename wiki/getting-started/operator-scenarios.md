@@ -28,6 +28,9 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 
 **Done when:** Server detail shows green-enough SSH/deps for enabled features; no password left stored if key auth works.
 
+!!! note "Planned improvement"
+    A **wizard-driven** add-host path (and bootstrap scripts / optional web SSH) is planned post-RC — [Host lifecycle plan](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
+
 ---
 
 ### Journey B — Safe backup before you depend on it {#journey-b}
@@ -162,6 +165,7 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | Edit compose, validate, deploy version | [Compose edit](../docker/compose-edit.md) |
 | Stack Check updates vs Deploy | [Updates — Docker](../day-to-day/updates-and-patching.md#docker-check-updates-vs-deploy) |
 | Prune dangling images / exited containers | [Docker overview](../docker/overview.md) |
+| **Planned:** Stop/Start/Restart **all** services in a project | Post-RC — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md) P1 |
 
 ## Service templates
 

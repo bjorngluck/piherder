@@ -27,7 +27,7 @@ Design principles stay the same as SPEC:
 | **v0.4.0** | Post-0.3 quality + **service templates** foundation (wizard, volumes/booleans, from-host, step-up secrets, wait modal, OOTB pack, desired state V1) | H2 + fixes | **Tagged** 2026-07-12 — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) |
 | **v0.4.x** | *(folded)* Former ops track — drift, NPM connector, git catalog, `.env` migrate | H1/H2 | **Absorbed into v0.5.0** (no separate planning phase) |
 | **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **QA / release prep** — [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
-| **v0.6.x / post-RC** | Host lifecycle depth (Docker bulk, onboarding wizard, optional host console) — **not** RC freeze scope | H2.75 | **Under consideration** — [Host lifecycle & operator console](#horizon-275--host-lifecycle--operator-console-post-rc) |
+| **v0.6.x / post-RC** | Host lifecycle depth (Docker bulk, onboarding wizard, optional host console) — **not** RC freeze scope | H2.75 | **Planned** — [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [§ H2.75](#horizon-275--host-lifecycle--operator-console-post-rc) |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
@@ -244,7 +244,8 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 ## Horizon 2.75 — Host lifecycle & operator console (post-RC)
 
 **Captured:** 2026-07-17 (operator planning discussion).  
-**Stance:** **Under consideration after v0.5.0 RC** — not RC freeze scope, not required for a minimal **1.0.0** unless we choose a small slice. Prefer shipping as **0.6.x** (or staged PRs after 1.0) once RC is stable.
+**Feature plan:** [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) (phases P1–P5, UX sketches, acceptance criteria, security bar).  
+**Stance:** **Planned after v0.5.0 RC** — not RC freeze scope, not required for a minimal **1.0.0** unless we choose a small slice (e.g. P1 Docker bulk). Prefer shipping as **0.6.x** (or staged PRs after 1.0) once RC is stable.
 
 These ideas deepen **day-to-day host operations** and **first-time host bring-up**. They sit next to H2.5 (topology) but focus on **SSH lifecycle** rather than DNS/proxy graphs.
 
@@ -445,7 +446,7 @@ flowchart TB
 | **Kubernetes / bare install** | **Under consideration only** — not promised in H0–H2 |
 | **Multi-worker** | Done — per-server Redis mutex + `CELERY_CONCURRENCY`; not a v0.2.0 ship blocker |
 | **Host dep / stack health** | Done (v0.2.x): host deps → Status tab → multi-worker |
-| **Host lifecycle H2.75** | Post-RC under consideration — Docker bulk first; web SSH last / highest bar |
+| **Host lifecycle H2.75** | Planned — [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md); Docker bulk (P1) first; web SSH (P5) last |
 | **Web SSH console** | Server-side key only; step-up 2FA; kill switch; not a 1.0 requirement |
 | **First-boot join** | No anonymous host registration; enrollment token required if built |
 

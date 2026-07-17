@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** **v0.5.0 in development** — Phase 1–5 complete; Phase 6 templates **foundation shipped** in v0.4.0; ops + polish + RC → **v0.5.0**  
-> **Last updated:** 2026-07-16 — Production path: ~~v0.4.0~~ done → **v0.5.0** (single target). Landed: **A–H** + UI polish + **MIT**. Security hardening: **no default admin** (first-register), admin-only instance DR, Docker cleanup HTML escape, role fail-closed, Secure cookies. Still open: multi-arch image, RC freeze.
+> **Last updated:** 2026-07-17 — Production path: ~~v0.4.0~~ done → **v0.5.0 RC** → post-RC **H2.75 host lifecycle** ([FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md)) → **v1.0**. Still open for RC: multi-arch image, freeze bar.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -318,6 +318,16 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 
 ---
 
+## Phase 6.5 — Host lifecycle & operator console (post-RC / Horizon 2.75)
+
+**Out of v0.5.0 freeze.** Plan: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · [ROADMAP H2.75](docs/ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc).
+
+- [ ] **P1** Docker project bulk Stop all / Start all / Restart all (Jobs + Audit + confirm)
+- [ ] **P2** Wizard-driven add-host onboarding (orchestrate existing SSH / features / DNS steps)
+- [ ] **P3** Richer host stats + healthchecks + **allowlisted** remote commands (no free shell)
+- [ ] **P4** Bootstrap scripts (piherder user/permissions) + hostname + Pi-hole A handoff; first-boot enrollment **token** (no open join)
+- [ ] **P5** Web SSH console — server-side key injection only; step-up 2FA; kill switch; optional / high bar
+
 ## Phase 7 — Ecosystem depth (post-v0.5 / Horizon 3)
 
 - [x] **Network maps / DNS fabric** (v0.5.0) — host `dns_name` A records; `ServiceDnsRecord` (CNAME or host-identity A); Catalog → **Network** hub + Hosts map `/dns/physical` (Internet→router→LAN→hosts, cloud hosts, Kuma on router/WAN) + Path map `/dns/logical`; Pi-hole adopt (duplicates = ok); node + path focus; viewBox zoom; mobile list-first + Hide map + Full screen (hamburger exits fullscreen); GET-safe topology; external checklist — [wiki](wiki/integrations/dns-fabric.md) · package `app/services/dns_fabric/`
@@ -327,7 +337,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [ ] Service migrate host→host; destructive service remove
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
-- [ ] Ansible inventory / cloud-init bootstrap for new Pis
+- [ ] Ansible inventory / cloud-init bootstrap for new Pis (overlaps H2.75 P4 imaging depth)
 - [ ] Home Assistant: custom component or REST sensors (read + safe actions)
 - [ ] Optional AI (OpenAI-compatible BYO; off by default; no private keys in prompts)
 - [ ] Community: Discord + Discussions; project website / clickthrough

@@ -52,6 +52,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Full docs & wiki: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
+- Post-RC host lifecycle (planned): [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md)
 - API reference: [docs/API.md](docs/API.md)
 - Release notes: [docs/RELEASE_v0.5.0.md](docs/RELEASE_v0.5.0.md)
 
