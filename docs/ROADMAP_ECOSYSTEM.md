@@ -26,7 +26,7 @@ Design principles stay the same as SPEC:
 | **v0.3.0** | Integration hub — Kuma + **Grafana** (kinds, templates, Docker chips) | H1 | **Tagged** 2026-07-11 — [RELEASE_v0.3.0.md](RELEASE_v0.3.0.md) |
 | **v0.4.0** | Post-0.3 quality + **service templates** foundation (wizard, volumes/booleans, from-host, step-up secrets, wait modal, OOTB pack, desired state V1) | H2 + fixes | **Tagged** 2026-07-12 — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) |
 | **v0.4.x** | *(folded)* Former ops track — drift, NPM connector, git catalog, `.env` migrate | H1/H2 | **Absorbed into v0.5.0** (no separate planning phase) |
-| **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **QA / release prep** — [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
+| **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **Tagged** 2026-07-17 — [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
 | **v0.6.x / post-RC** | Host lifecycle depth (Docker bulk, onboarding wizard, optional host console) — **not** RC freeze scope | H2.75 | **Planned** — [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [§ H2.75](#horizon-275--host-lifecycle--operator-console-post-rc) |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
@@ -34,9 +34,9 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-12):** **Single development target `v0.5.0`** — former “v0.4.x ops” and “RC polish” are one cycle. Optional intermediate git tags only if something must ship early.
 
-**Production path:** ~~v0.4.0 templates~~ **done** → **v0.5.0 RC** → **post-RC host lifecycle (optional 0.6.x)** → **v1.0** refined production.
+**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC**~~ **tagged** → **post-RC host lifecycle (optional 0.6.x)** → **v1.0** refined production.
 
-**Note:** Registry image publish (`bjorngluck/piherder`) remains optional until Docker Hub/GHCR credentials are available; target Hub publish with **v0.5.0 RC**.
+**Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.5.0` / `latest`).
 
 ---
 
@@ -456,7 +456,7 @@ flowchart TB
 
 An operator can:
 
-1. Install PiHerder from a published image in under ~15 minutes with trusted TLS (Compose) — **target at v0.5.0 RC** (credentials permitting; compose-build remains primary until then).  
+1. Install PiHerder from a published image in under ~15 minutes with trusted TLS (Compose) — **done at v0.5.0** (`bjorngluck/piherder:latest`).  
 2. See PiHerder **stack** health (web/db/redis/worker) and fleet host readiness (remote tools for enabled features) — **done** (H0.5).  
 3. See fleet health and jump to Grafana / Uptime Kuma for detail — **done** (H1).  
 4. Onboard a service from a template with monitoring, DNS, and TLS/proxy steps — foundation **done** (v0.4.0); polish + restore **v0.5.0**.  

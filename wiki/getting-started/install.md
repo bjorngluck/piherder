@@ -20,8 +20,7 @@ One command brings up the whole control plane with migrations, workers for backu
 ```bash
 git clone https://github.com/bjorngluck/piherder.git
 cd piherder
-# optional: pin a release tag when cut (e.g. v0.5.0); otherwise stay on main
-# git checkout v0.5.0
+git checkout v0.5.0   # or stay on main
 cp .env.example .env
 ```
 
@@ -55,10 +54,16 @@ Place trusted PEMs in `certs/` — full steps: [Trusted HTTPS & TLS](https-tls.m
 ### 4. Start the stack
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
-First build vendors frontend assets and needs outbound network (or pre-vendored static files). Schema migrations run on **web** startup via Alembic.
+Compose pulls multi-arch **`bjorngluck/piherder:latest`** from Docker Hub (`linux/amd64` + `linux/arm64`). Schema migrations run on **web** startup via Alembic.
+
+To pin a release tag:
+
+```bash
+PIHERDER_IMAGE=bjorngluck/piherder:0.5.0 docker compose up -d
+```
 
 ### 5. Open the UI
 
@@ -109,9 +114,11 @@ Details: [Volumes](../operations/volumes.md).
 
 ---
 
-## Optional: published image
+## Image tags
 
-When multi-arch images are published (target **v0.5.0 RC**), you can replace `build: .` with an image tag. Until then, **compose build** is the primary path. See [Publish image](../developers/publish-image.md).
+Official image: [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Default compose tag is **`latest`**. See [Publish image](../developers/publish-image.md).
+
+To develop against local source, restore `build: .` for `web` / `celery-worker` or build and set `PIHERDER_IMAGE` to a local tag.
 
 ---
 
@@ -119,8 +126,9 @@ When multi-arch images are published (target **v0.5.0 RC**), you can replace `bu
 
 ```bash
 git fetch --tags
-git checkout main     # or a release tag, e.g. v0.5.0 when published
-docker compose up -d --build
+git checkout v0.5.0    # or main
+docker compose pull
+docker compose up -d
 ```
 
 Always keep a [self-backup](../operations/self-backup.md) and the same `PIHERDER_MASTER_KEY` before major upgrades.

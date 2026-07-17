@@ -31,9 +31,15 @@ x-piherder-app-env: &piherder-app-env
   PIHERDER_SERVER_LOCK_TTL: ${PIHERDER_SERVER_LOCK_TTL:-7200}
   TZ: ${TZ:-Etc/UTC}
 
+# App image: multi-arch from Docker Hub (linux/amd64 + linux/arm64).
+# Override pin: PIHERDER_IMAGE=bjorngluck/piherder:0.5.0
+# Local rebuild from source: docker compose build (requires restoring `build: .`).
+x-piherder-image: &piherder-image
+  image: ${PIHERDER_IMAGE:-bjorngluck/piherder:latest}
+
 services:
   web:
-    build: .
+    <<: *piherder-image
     container_name: piherder-web
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
     ports:
@@ -79,7 +85,7 @@ services:
   # To run multiple containers instead: remove container_name and
   # `docker compose up -d --scale celery-worker=N` (each replica needs the same volumes).
   celery-worker:
-    build: .
+    <<: *piherder-image
     container_name: piherder-celery
     command: >
       celery -A app.celery_app.celery worker

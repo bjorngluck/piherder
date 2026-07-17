@@ -674,7 +674,7 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 ### Image publish (when ready)
 
-Documented target: multi-arch image on Docker Hub or GHCR (e.g. `bjorngluck/piherder:0.5.0` at RC). Until then, build from this repo with `docker compose build`. See roadmap in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md). Current git release: **v0.4.0** — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md). In development: **v0.5.0** — [PLAN_v0.5.0.md](PLAN_v0.5.0.md).
+Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`0.5.0` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v0.5.0** — [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md).
 
 **Supported deploy path:** Docker Compose (this repo). Platform reliability (host dependency checks, Settings → **Status**, multi-worker Celery) is live — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 0.5. Kubernetes and bare/local install are under consideration only, not supported install paths today.
 
