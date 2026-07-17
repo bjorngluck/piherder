@@ -41,6 +41,7 @@ from ..services.service_templates import (
     volume_fields_for_ui,
 )
 from ..services.service_templates.deploy import decrypt_deployment_secrets
+from ..services.service_templates.editor import redact_secret_variable_dicts
 from ..services.service_templates.schema import redact_files_for_ui
 from .templates_common import (
     router,
