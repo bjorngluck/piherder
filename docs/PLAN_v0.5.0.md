@@ -225,6 +225,7 @@ Must-have:
 - Kubernetes / bare install  
 - Multi-tenant orgs  
 - Optional AI  
+- **Host lifecycle console (H2.75)** — Docker project bulk start/stop/restart; richer host stats/commands; web SSH; wizard onboarding; first-boot bootstrap/DNS — [ROADMAP H2.75](ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc) (post-RC / optional 0.6.x)
 
 ### QA / freeze checklist (operator)
 
