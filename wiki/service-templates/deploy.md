@@ -1,9 +1,32 @@
 # Deploy a template
 
+## What this is
+
+**Deploy** takes a template, fills variables, picks a Docker-enabled host, writes files over SSH, runs `compose pull` + `up -d`, and stores **desired state** (versioned, secrets encrypted) in PiHerder.
+
+## Why it exists
+
+A one-shot SSH paste is not recoverable after host loss and not comparable for drift. Deploy stores what *should* be on the host so you can redeploy, detect drift, import host `.env`, or apply last known config after DR.
+
 <figure class="ph-figure" markdown>
   ![Deploy wizard](../assets/screenshots/templates-deploy.svg)
   <figcaption>Wizard: variables → host → preview → confirm. <span class="ph-wireframe-badge">wireframe</span></figcaption>
 </figure>
+
+---
+
+## End-to-end: first OOTB deploy
+
+1. **Catalog → Templates** → open a template → **Deploy…**.  
+2. Fill variables (generate passwords if offered; choose volume mode).  
+3. Pick a **Docker-enabled** host with a correct Docker base dir.  
+4. **Preview** rendered files (secrets masked) — sanity-check ports and names.  
+5. **Confirm** — wait modal while write + lock `.env` + compose pull/up.  
+6. Read the **checklist** (DNS, first admin password in the app, firewall).  
+7. Open **Docker** on that host to confirm the project is up.  
+8. Open the **deployment** page bookmark for later redeploy / drift.
+
+---
 
 ## Flow
 
@@ -22,14 +45,14 @@
 
 Open the **deployment** for that host+project (`/templates/deployments/{id}`):
 
-| Action | Effect |
-|--------|--------|
-| **Volumes / storage** | Change named volume, project folder, or host path without re-wizard |
-| **Save & redeploy** | New config version → write files → compose pull/up (wait modal) |
-| **Check drift** | Compare host compose/.env to desired state; updates drift badge + alert |
-| **Import host .env** | Pull host secrets into PiHerder encrypted store |
-| **Apply last known config** | Re-write stored desired state after host wipe / DR |
-| **Restore data** | Lists matching backup sources → use server **Backups** dry-run/apply |
+| Action | Effect | Why |
+|--------|--------|-----|
+| **Volumes / storage** | Change named volume, project folder, or host path without re-wizard | Storage decisions change more often than the whole recipe |
+| **Save & redeploy** | New config version → write files → compose pull/up (wait modal) | Apply edited desired state |
+| **Check drift** | Compare host compose/.env to desired state; updates drift badge + alert | Detect hand-edits on the host |
+| **Import host .env** | Pull host secrets into PiHerder encrypted store | Capture changes made offline on the host |
+| **Apply last known config** | Re-write stored desired state after host wipe / DR | Rebuild without retyping secrets |
+| **Restore data** | Lists matching backup sources → use server **Backups** dry-run/apply | Config redeploy ≠ data restore |
 
 Post-redeploy banner links to **Docker**, this deployment, and **Audit**.  
 Drift also runs on a schedule (~every **6 hours**).
@@ -60,3 +83,8 @@ Archive with `template.yaml` + `files/`. Fully editable after import.
 | **Require 2FA for template deploy & secrets** | Operator must have TOTP to confirm deploy or view/edit secrets |
 
 Step-up unlock for cleartext secrets: [Secrets model](secrets.md).
+
+## Related
+
+- [From host](from-host.md) · [Secrets](secrets.md) · [Templates overview](overview.md)  
+- [Templates troubleshooting](../troubleshooting/templates-docker.md)  

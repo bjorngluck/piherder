@@ -1,6 +1,14 @@
 # Appearance (light & dark)
 
-PiHerder ships with **built-in light and dark themes** (Raspberry Pi red / green accents). There is **no** operator custom logo or colour branding in current releases — that is a far-horizon idea only.
+## What this is
+
+Built-in **light and dark** themes (Raspberry Pi red / green accents), shared **ops-hero** layout chrome, and theme-aware brand marks. There is **no** operator custom logo or colour branding in current releases — that is a far-horizon idea only.
+
+## Why it exists
+
+Operators work in bright workshops and dark server rooms. Theme is a **local browser preference**, not a fleet setting, so one instance can look right for everyone without admin policy.
+
+---
 
 ## How to switch
 

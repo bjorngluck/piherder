@@ -1,6 +1,8 @@
 # PiHerder wiki (source)
 
-Markdown sources for the **MkDocs Material** documentation site.
+Markdown sources for the **MkDocs Material** documentation site (**RC1 / 0.5.x** living docs toward **1.0.0**).
+
+Operator pages prefer: **What this is** → **Why** → **End-to-end** → reference detail. See [contributing-docs](developers/contributing-docs.md).
 
 ## Preview locally
 

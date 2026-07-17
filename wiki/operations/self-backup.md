@@ -1,7 +1,31 @@
 # Self-backup & DR
 
-**Settings → PiHerder backup** — not the same as per-server rsync backups.
-**Admin only** (run, restore, download, delete, and schedule).
+## What this is
+
+**PiHerder self-backup** archives the **control plane** (database config, encrypted secrets, users, templates, integrations, etc.) into `.tar.gz` files under the herder backup volume. It is **admin only**.
+
+It is **not** the same as per-server rsync backups of fleet files.
+
+## Why it exists
+
+If the herder host dies, fleet hosts keep running — but you lose the map of keys, schedules, and bindings unless you have an archive **and** the same `PIHERDER_MASTER_KEY`. Self-backup is the DR product for the brain of the fleet.
+
+**Where:** **Settings → PiHerder backup**
+
+---
+
+## End-to-end: first DR pack
+
+1. Write down / offline-store `PIHERDER_MASTER_KEY` (from `.env`).  
+2. Settings → **PiHerder backup** → run a **full** or **config_only** backup once.  
+3. Download or copy the archive off the herder host.  
+4. Enable a schedule (cron uses app timezone).  
+5. On a lab stack, practice **dry-run restore**, then a real restore if you maintain a spare.  
+6. After restore, restart web so scheduler / VAPID pick up DB state.
+
+Journey: [Operator scenarios — Journey F](../getting-started/operator-scenarios.md#journey-f).
+
+---
 
 Archives: format **v2** `.tar.gz` under `./piherder_backups` → `/herder_backups`. Host dir must be writable by container user (uid 1000).
 
@@ -18,7 +42,7 @@ Archives: format **v2** `.tar.gz` under `./piherder_backups` → `/herder_backup
 | Integrations + bindings | Encrypted credentials |
 | Operational settings | Timezone, force 2FA, schedules (`appsetting`) |
 | Avatars | Packed under `data/avatars/…` |
-| Service logos | Packed under `data/service_logos/…` (integration icons; **B08**) |
+| Service logos | Packed under `data/service_logos/…` (integration icons) |
 | Templates + stack deployments | Ciphertext secrets |
 | Audit log | **Full** mode only (optional, capped) |
 
@@ -27,7 +51,7 @@ Archives: format **v2** `.tar.gz` under `./piherder_backups` → `/herder_backup
 | Content | Why |
 |---------|-----|
 | Jobs queue | Ephemeral |
-| Per-server rsync **files** | Different volume |
+| Per-server rsync **files** | Different volume — see [Backups](../day-to-day/backups.md) |
 | External Kuma/Grafana instances | Only PiHerder-side config |
 
 ## Restore

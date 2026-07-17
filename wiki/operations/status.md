@@ -1,5 +1,13 @@
 # Stack Status
 
+## What this is
+
+Admin health check for the **PiHerder stack itself** (web, Postgres, Redis, Celery, scheduler, disk free) — not remote fleet SSH probes.
+
+## Why it exists
+
+When backups stay pending or the UI feels dead, you need a single place that answers “is Redis up? is Celery registered? is `/backups` full?” before you dig into host troubleshooting.
+
 **Where:** Settings → **Status** (admin).
 
 <figure class="ph-figure" markdown>

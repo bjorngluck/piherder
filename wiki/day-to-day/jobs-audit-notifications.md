@@ -1,12 +1,32 @@
 # Jobs, audit & notifications
 
-Three related systems — do not confuse them.
+## What this is
 
-| System | Purpose |
-|--------|---------|
-| **Jobs** | Queue + live progress of work units |
-| **Audit** | Immutable history (who / what / when / **client IP** / snippet) |
-| **Notifications** | Dismissible inbox (updates pending, failed backup, …). Open via the **bell** icon (no separate Alerts nav link). |
+Three related systems — do not confuse them:
+
+| System | Purpose | Think of it as… |
+|--------|---------|-----------------|
+| **Jobs** | Queue + live progress of work units | *What is running right now?* |
+| **Audit** | Immutable history (who / what / when / **client IP** / snippet) | *Who did that last Tuesday?* |
+| **Notifications** | Dismissible inbox (updates pending, failed backup, …) | *What still needs my eyes?* |
+
+Open notifications via the **bell** icon (no separate Alerts nav link).
+
+## Why they exist
+
+Long SSH work must not block the browser (jobs). Homelab and multi-operator setups need accountability (audit). Noise should not bury failures (notifications + optional Web Push). Together they replace “did that cron fire?” shell archaeology.
+
+---
+
+## End-to-end: follow one backup through all three
+
+1. Start a backup from a server Backups page.  
+2. **Jobs** → row goes `pending` → `running` → `success` / `failed`; open detail for log tail.  
+3. **Audit** → filter that server / backup actions; see request → queued → running → complete phases and client IP.  
+4. If it failed earlier, a **notification** may open; on success, related open alerts can auto-resolve (optional push: `Resolved: …`).  
+5. Dismiss the inbox item when you have acted.
+
+---
 
 <figure class="ph-figure" markdown>
   ![Jobs page](../assets/screenshots/jobs-page.svg)
@@ -19,14 +39,14 @@ Three related systems — do not confuse them.
 
 ### Job types (examples)
 
-| Type | Typical trigger |
-|------|-----------------|
-| `backup` | Manual or backup cron → Celery |
-| `os_patch` / `container_patch` | Manual or apply schedule |
-| `os_update_check` / `container_update_check` | Manual or check schedule |
-| `docker_stack_check` / `docker_stack_deploy` | Stack ⋯ Check updates / Deploy |
-| `retention` | Retention cleanup |
-| `herder_backup` | PiHerder self-backup |
+| Type | Typical trigger | Runner |
+|------|-----------------|--------|
+| `backup` | Manual or backup cron | **Celery** |
+| `os_patch` / `container_patch` | Manual or apply schedule | Web background |
+| `os_update_check` / `container_update_check` | Manual or check schedule | Web background |
+| `docker_stack_check` / `docker_stack_deploy` | Stack ⋯ Check updates / Deploy | Web background |
+| `retention` | Retention cleanup | As configured |
+| `herder_backup` | PiHerder self-backup | As configured |
 
 Statuses: `pending` → `running` → `success` / `failed`.
 
@@ -38,6 +58,8 @@ These types do not stack on the same server while already **pending** or **runni
 - `os_update_check`, `container_update_check`  
 
 A second start reuses the existing job (UI follows it; REST **409** with `already_active` / existing `job`). Backups use a separate rule: per-host Redis mutex + Celery (see [Multi-worker](../operations/multi-worker.md)).
+
+**Why exclusive:** two apt upgrades at once on one host is a recipe for lock conflicts and opaque failure.
 
 ### Fleet Jobs UI
 
@@ -108,8 +130,10 @@ All event times are **stored in UTC** and **rendered in the app timezone** from 
 - Bell icon → open / dismiss  
 - Deep links into the relevant server or page  
 - Optional **Web Push** for new open notifications — [PWA & Web Push](../account-security/pwa-push.md)  
-- **B09:** when an alert **auto-resolves** (e.g. backup succeeds, updates clear), a push may fire as `Resolved: …` using the **same** type preference as the original alert  
+- When an alert **auto-resolves** (e.g. backup succeeds, updates clear), a push may fire as `Resolved: …` using the **same** type preference as the original alert  
 - Dismiss is **idempotent** if already closed  
+
+**Why an inbox separate from Audit:** Audit is forever; the inbox is a short “todo” list for open problems.
 
 ## API
 

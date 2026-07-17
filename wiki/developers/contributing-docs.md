@@ -92,10 +92,22 @@ Goal for **1.0.0**: operators can install, run day-to-day fleet ops, and upgrade
    - `0.x` or `1.0` frozen snapshot **once** at EOL of that line  
    Not per minor release.
 
-### Pre-1.0 (0.5.x RC) remains
+### Pre-1.0 (0.5.x RC1) remains
 
-- Ship **v0.5.0** with living wiki + `RELEASE_v0.5.0.md` at freeze.  
-- Treat 0.5.x docs as the draft of 1.0 operator docs; clean wireframes and checklists as you stabilize.
+- Ship **v0.5.0 RC1** with living wiki + `RELEASE_v0.5.0.md` at freeze.  
+- Treat 0.5.x docs as the **draft of 1.0** operator docs; clean wireframes and checklists as you stabilize.  
+- Home page carries a permanent **RC1 awareness** callout until **1.0.0**: product and docs may be uneven; 1.0 is the refined production bar.  
+- Page pattern for operator docs (preferred):
+
+  | Block | Purpose |
+  |-------|---------|
+  | **What this is** | Plain-language definition |
+  | **Why it exists** | Problem / value |
+  | **End-to-end** | Numbered happy path |
+  | How / reference | Tables, options, edge cases |
+  | Screenshot | Wireframe OK in RC; replace with light desktop PNG when UI freezes |
+
+- Operator review workflow: walk [Operator scenarios](../getting-started/operator-scenarios.md) journeys, capture screenshots, amend thin “why” notes in the same PR when possible.
 
 ---
 

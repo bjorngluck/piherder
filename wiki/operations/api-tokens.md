@@ -1,6 +1,12 @@
 # API tokens (`/api/v1`)
 
-Automation API for n8n, Home Assistant, scripts. Browser UI uses session cookies separately.
+## What this is
+
+Long-lived **Bearer tokens** for automating PiHerder from n8n, Home Assistant, or scripts. The browser UI uses session cookies separately.
+
+## Why it exists
+
+Operators want “backup host X every night from HA” without storing a human password. Tokens are scoped, rotatable, revocable, and audited — admin only.
 
 **Where:** Settings → **API management** (`/herder-backups?tab=api`) — **admin only**.  
 **Interactive OpenAPI:** on your instance at `/docs` (tag `api-v1`).  

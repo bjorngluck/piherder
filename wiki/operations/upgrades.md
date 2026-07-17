@@ -1,5 +1,16 @@
 # Upgrades
 
+## What this is
+
+How to move a running compose install to a newer **git tag or `main`**, rebuild images, and let Alembic migrate the database.
+
+## Why a checklist
+
+Upgrades change code *and* schema. A self-backup + unchanged master key is the difference between a smooth pull and an unrecoverable encrypted store.
+
+!!! warning "RC1"
+    Prefer tagged releases once published; treat `main` as moving. See [Home — RC1](../index.md#rc1).
+
 ```bash
 # Config DR first
 # Settings → PiHerder backup → run now

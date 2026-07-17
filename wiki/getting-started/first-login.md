@@ -1,5 +1,15 @@
 # First login
 
+## What this is
+
+The first time you open a new PiHerder instance, you **register the first human admin**. There is no seeded password account.
+
+## Why it works this way
+
+Default passwords in compose projects get left on the internet. An empty database allows **exactly one** self-registration (admin), then closes the door so later users are invited on purpose.
+
+---
+
 ## Register the first admin
 
 There is **no default user** (`admin@example.com` is not created). An empty database keeps

@@ -1,5 +1,18 @@
 # Install (Docker Compose)
 
+## What this is
+
+The **supported** way to run PiHerder: Docker Compose stack (`web`, `db`, `redis`, `celery-worker`, `caddy`) with secrets in `.env` and data on host volumes.
+
+## Why Compose
+
+One command brings up the whole control plane with migrations, workers for backups, and optional TLS termination. Other topologies are not documented as supported in RC1.
+
+!!! warning "RC1"
+    Prefer a lab host first. See [Home — RC1](../index.md#rc1).
+
+---
+
 ## Steps
 
 ### 1. Clone and enter the repo

@@ -1,9 +1,30 @@
 # PWA & Web Push
 
+## What this is
+
+PiHerder can be installed as a **Progressive Web App** and send **Web Push** notifications to enrolled devices when new in-app notifications open (and related resolve events).
+
+## Why it exists
+
+You are not always on the desktop when a backup fails or a monitor goes down. Push brings the same events as the bell inbox to a phone — but browsers only allow reliable push under **trusted HTTPS** and (on iOS) a home-screen install.
+
 <figure class="ph-figure" markdown>
   ![Account push](../assets/screenshots/account-push.svg)
   <figcaption>Enable device + event toggles. <span class="ph-wireframe-badge">wireframe</span></figcaption>
 </figure>
+
+---
+
+## End-to-end: phone alerts
+
+1. Complete [Trusted HTTPS](../getting-started/https-tls.md) with a stable `PIHERDER_PUBLIC_URL`.  
+2. Confirm web logs show VAPID ready after startup.  
+3. On Android: open the site / install PWA → Account → **Enable on this device** → test.  
+4. On iOS 16.4+: **Add to Home Screen**, open from icon, then enable.  
+5. Toggle event types you care about and save.  
+6. Trigger a test notification; confirm the bell and the OS banner.
+
+---
 
 ## Prerequisites
 
@@ -47,7 +68,7 @@ Push does **not** work from a plain Safari tab.
 
 ## When push fires
 
-Only when a **new** open in-app notification is created (not on every fingerprint refresh).
+Only when a **new** open in-app notification is created (not on every fingerprint refresh). Resolve events may also push if preferences match.
 
 ## In-app notifications without push
 

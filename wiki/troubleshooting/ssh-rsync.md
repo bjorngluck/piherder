@@ -1,5 +1,9 @@
 # SSH, rsync & dependencies
 
+## What this is
+
+Fixes when PiHerder **cannot log into a host**, key deploy fails, or enabled features lack **rsync / docker / apt** on the remote. Start from server **SSH access → Test connection**.
+
 ## Cannot connect
 
 1. Hostname/IP and port correct?  

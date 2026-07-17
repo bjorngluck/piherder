@@ -1,10 +1,30 @@
 # Settings
 
+## What this is
+
+**Settings** is the admin control plane for the **instance**: timezone, security policy, fleet update-check defaults, PiHerder self-backup, stack Status, and API tokens.
+
 **Where:** top nav **Settings** → `/herder-backups` (tabs on one page; legacy path kept for bookmarks).
+
+## Why it exists
+
+Day-to-day fleet work lives on Servers / Jobs / Catalog. Settings keeps **policy and DR** in one place so operators are not hunting for “where do I force 2FA?” or “where is the herder backup?”
 
 Settings is **admin-oriented** for stack and policy; operators still use Account for self-service. **Timezone, security policy, fleet defaults, PiHerder self-backup/restore, Status, and API tokens** require **admin** (UI tabs and POST routes). Non-admins see a short notice on General only.
 
 The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-style tabs under the hero. Switching tabs is **client-side** (URL `?tab=` updates without a full reload); the hero title, caption, and viz follow the active tab.
+
+---
+
+## End-to-end: harden a new instance
+
+1. **General** → set app **timezone** (Audit/Jobs clocks).  
+2. **General** → enable **force 2FA** if everyone should enrol.  
+3. **PiHerder backup** → run once + schedule; store archive + master key offline.  
+4. **Status** → Check now until green.  
+5. Optional **API** tokens for n8n/HA only if needed.  
+
+---
 
 ## Tabs (overview)
 

@@ -1,13 +1,42 @@
 # Updates & patching
 
-Two layers: **check** (safe, detect only) and **apply** (real upgrades). Silent auto-upgrade is **never** the default.
+## What this is
+
+PiHerder’s update system has two layers:
+
+| Layer | Meaning |
+|-------|---------|
+| **Check** | Safe detection — count packages or compare images; **no** upgrade |
+| **Apply** | Real change — apt upgrade / compose pull + up |
+
+You can run either **manually** or on a **schedule**. Silent auto-upgrade is **never** the default.
+
+## Why it exists
+
+Keeping a fleet patched without a shared process leads to “I forgot that Pi for six months.” Checks fill the dashboard **need attention** view; apply is deliberate so you choose the maintenance window. Live logs and exclusive jobs stop double-clicks from stacking conflicting upgrades.
 
 ## Feature flags
 
-| Feature | Edit → Features |
-|---------|-----------------|
-| OS packages | OS patch |
-| Container images | Docker / containers |
+| Feature | Edit → Features | Why gated |
+|---------|-----------------|-----------|
+| OS packages | OS patch | Non-apt hosts should not offer apt actions |
+| Container images | Docker / containers | No Docker → no image checks |
+
+---
+
+## End-to-end: one host, check then apply
+
+1. Enable **OS patch** and/or **Docker** on the server.  
+2. Run **Check OS** / **Check containers** (manual).  
+3. Open [Jobs](jobs-audit-notifications.md) and confirm success; dashboard counts move.  
+4. Read package/image results on the host.  
+5. When ready, run **Upgrade** / **Patch containers** (or full-upgrade if you understand the extra packages).  
+6. If reboot is required, use [Reboot](#reboot) after apply finishes.  
+7. Only after a few manual cycles, enable **check** schedules; enable **apply** schedules later with “only when last check found updates.”
+
+Full journey: [Operator scenarios — Journey C](../getting-started/operator-scenarios.md#journey-c).
+
+---
 
 ## Update checks (safe)
 
@@ -24,12 +53,12 @@ Results feed the dashboard, badges, and notifications.
 
 Off by default. Requires the matching feature flag.
 
-| Option | Behaviour |
-|--------|-----------|
-| Enable scheduled apply | Registers APScheduler job |
-| Only when last check found updates | Skips if last check count is `0` |
-| OS: full-upgrade | Uses `full-upgrade` instead of `upgrade` (+ update + autoremove) |
-| Cron | e.g. weekly Sunday `30 3 * * 0` |
+| Option | Behaviour | Why |
+|--------|-----------|-----|
+| Enable scheduled apply | Registers APScheduler job | Automate after you trust checks |
+| Only when last check found updates | Skips if last check count is `0` | Avoid empty upgrade noise |
+| OS: full-upgrade | Uses `full-upgrade` instead of `upgrade` (+ update + autoremove) | Opt-in broader package moves |
+| Cron | e.g. weekly Sunday `30 3 * * 0` | Quiet maintenance window |
 
 Also skipped when a job of the same type is already **pending/running** on that server.
 
@@ -67,6 +96,8 @@ Successful Deploy clears pending stack badges and resolves `container_updates` w
 
 ## Bulk actions (Servers list)
 
+**Why bulk:** patching ten hosts one-by-one is how fleets drift. Bulk queues the **same job type** across eligible hosts; feature flags and exclusive-job rules still apply.
+
 On **Servers** (`/servers`):
 
 1. Tick one or more host checkboxes (or **Select all visible**).  
@@ -92,4 +123,10 @@ Least-priv sudoers may allow `/usr/sbin/reboot` (and common alternate paths). Pi
 2. Closes SSH with a short timeout (hosts dying mid-session no longer hang the request).  
 3. Clears local `reboot_pending` after a successful send so the UI does not stick.
 
-This matters most when rebooting the **same host that runs PiHerder** — the stack goes down moments later; the HTTP response and audit row should already be finished.
+**Why this design:** rebooting the **same host that runs PiHerder** takes the stack down moments later; the HTTP response and audit row should already be finished.
+
+## Related
+
+- [Jobs, audit & notifications](jobs-audit-notifications.md)  
+- [Docker overview](../docker/overview.md)  
+- [Troubleshooting](../troubleshooting/index.md)  
