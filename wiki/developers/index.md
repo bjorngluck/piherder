@@ -2,6 +2,14 @@
 
 Contributor-facing docs. Operator guides live in the rest of this site.
 
+## What this is
+
+How to run PiHerder from source, understand architecture, extend templates, test, publish images, and maintain the wiki.
+
+## Why separate from operator docs
+
+Operators need “what / why / how on a running instance.” Developers need setup, schemas, and contribution rules without cluttering the day-to-day nav.
+
 | Topic | Page |
 |-------|------|
 | Local setup (+ dep locks) | [setup](setup.md) |

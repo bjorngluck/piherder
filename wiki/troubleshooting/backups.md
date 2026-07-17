@@ -1,5 +1,9 @@
 # Backups stuck or failing
 
+## What this is
+
+Diagnosis when a **server backup** job fails, stays pending, or never updates `last_backup_at`. For product behaviour see [Backups](../day-to-day/backups.md).
+
 ## Failed status
 
 - Open job detail + audit for rsync output.  

@@ -1,5 +1,25 @@
 # Compose edit & deploy
 
+## What this is
+
+Tools to **edit** compose (and related files) on a free-form host project, keep **version history**, **validate**, and **deploy** changes — including pull-only checks vs full `up -d`.
+
+## Why it exists
+
+Editing compose only over SSH loses history and audit. The editor records versions, can multi-file save, and runs deploy as a **job** with logs so operators see pull/up failures instead of silent “success.”
+
+---
+
+## End-to-end: small compose change
+
+1. Docker page → project **⋯** → **Quick edit** (tiny change) or **Full editor…** (history / multi-file).  
+2. Edit compose / override / `.env` as needed.  
+3. Validate YAML if offered.  
+4. **Save & Deploy** (or deploy action) — wait for job.  
+5. Confirm containers healthy; check Audit for the change actor.
+
+---
+
 ## Opening the editor
 
 From a project’s **⋯** menu on the Docker page:

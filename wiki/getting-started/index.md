@@ -1,17 +1,36 @@
 # Getting started
 
-This section gets you from zero to a running PiHerder with a first admin account.
+This section takes you from **zero** to a **running PiHerder** with a first admin account and a clear idea of what to do next.
 
-## Path
+!!! warning "Release Candidate 1 (RC1)"
+    You are installing / learning the **first release candidate** line (**0.5.x → 1.0.0**).
 
-1. [Requirements](requirements.md) — what you need on the host and the fleet  
-2. [Install (Docker Compose)](install.md) — clone, `.env`, `docker compose up`  
-3. [First login](first-login.md) — register admin, lock registration  
-4. [Trusted HTTPS & TLS](https-tls.md) — required for PWA / mobile Web Push  
-5. [Appearance](appearance.md) — light / dark theme (optional)  
-6. [Operator scenarios](operator-scenarios.md) — “I want to…” index for the rest of the wiki  
+    - Features and docs may still be uneven; treat this as a working path, not a finished production manual.  
+    - **v1.0.0** is the intended first refined production release.  
+    - Full context: [Home — RC1 notice](../index.md#rc1).
 
-Then continue with [Add a server](../day-to-day/add-server.md) and the [Dashboard](../day-to-day/dashboard-and-services.md).
+## What you are setting up
+
+| Piece | Role |
+|-------|------|
+| **PiHerder stack** | Web UI + API, Postgres, Redis, Celery workers, Caddy TLS — on **one** Linux host |
+| **Fleet hosts** | Pis / Linux boxes you manage later over SSH |
+| **You (first admin)** | First registered account owns the instance; then you invite others |
+
+You do **not** need Catalog integrations, templates, or Web Push on day one. Those are optional after the fleet basics work.
+
+## Path (recommended order)
+
+| Step | Doc | Why this step exists |
+|------|-----|----------------------|
+| 1 | [Requirements](requirements.md) | Avoid install surprises (disk, ports, remote tools) |
+| 2 | [Install (Docker Compose)](install.md) | Supported way to run the stack and secrets |
+| 3 | [First login](first-login.md) | Create the only self-serve admin; lock registration |
+| 4 | [Trusted HTTPS & TLS](https-tls.md) | Needed for reliable mobile PWA / Web Push |
+| 5 | [Appearance](appearance.md) | Light/dark (optional comfort) |
+| 6 | [Operator scenarios](operator-scenarios.md) | Map goals → docs for everything after install |
+
+Then: [Add a server](../day-to-day/add-server.md) → [Dashboard](../day-to-day/dashboard-and-services.md).
 
 ## Supported install path
 
@@ -29,6 +48,19 @@ Then continue with [Add a server](../day-to-day/add-server.md) and the [Dashboar
 | Register + open UI | 2 min |
 | Trusted certs (if not ready) | depends on your CA / ACME |
 | First server + key deploy | 10–20 min |
+
+## First successful week (end-to-end sketch)
+
+A realistic RC1 onboarding path:
+
+1. **Install + first admin** — this section.  
+2. **Add one non-critical Pi** — [Add a server](../day-to-day/add-server.md) (key deploy, enable only the features you need).  
+3. **Run one manual backup** — [Backups](../day-to-day/backups.md) (confirm Celery + rsync path before schedules).  
+4. **Run one OS update check** — [Updates](../day-to-day/updates-and-patching.md) (check before any apply schedule).  
+5. **Open Jobs + Audit** — [Jobs, audit & notifications](../day-to-day/jobs-audit-notifications.md) so you trust the trail.  
+6. **Optional:** Kuma / templates / network — only after the host path feels solid.
+
+Detailed “I want to…” tables and longer journeys: [Operator scenarios](operator-scenarios.md).
 
 ## Related repo docs
 

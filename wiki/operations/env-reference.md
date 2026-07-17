@@ -1,5 +1,13 @@
 # Environment reference
 
+## What this is
+
+The knobs that live in **`.env`** (not the Settings UI): encryption keys, public URL, ports, Celery, metrics, feature toggles.
+
+## Why `.env` vs Settings
+
+Secrets and process-level config must be available **before** the app boots. Policy that belongs in the database (timezone, force 2FA, schedules) lives under [Settings](settings.md) so it rides along with self-backup.
+
 Full commented catalog: [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example) in the repo. Copy to `.env`.
 
 Compose injects matching keys into **web** and **celery-worker**. Caddy mainly needs `PIHERDER_HOSTNAME`.

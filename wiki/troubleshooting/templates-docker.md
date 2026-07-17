@@ -1,5 +1,9 @@
 # Templates & Docker
 
+## What this is
+
+Fixes for **template deploy**, wait modals, compose editor, and related Docker host issues. Product pages: [Deploy](../service-templates/deploy.md) · [Compose edit](../docker/compose-edit.md).
+
 ## Wait modal sits forever
 
 - SSH hang on host (disk, pull, network).  

@@ -1,5 +1,13 @@
 # Multi-worker Celery
 
+## What this is
+
+How PiHerder runs **backup jobs** on Celery: pool slots, optional multiple worker containers, and a **per-server Redis mutex** so one host is never rsync’d twice at once.
+
+## Why it exists
+
+Large fleets want parallel backups; a single host’s destination tree must stay consistent. Mutex + concurrency knobs give both without inventing a second queue system.
+
 Backups run **in parallel across different hosts**. The same host never has two active backups (Redis mutex `piherder:server_lock:backup:{server_id}`).
 
 | Concept | Meaning |

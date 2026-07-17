@@ -1,5 +1,15 @@
 # Requirements
 
+## What this is
+
+What you need **before** install: the machine that runs PiHerder, the fleet hosts it will manage, and the secrets you must not lose.
+
+## Why check this first
+
+Most “it doesn’t work” days are missing disk, no SSH path to the fleet, or a lost `PIHERDER_MASTER_KEY`. Five minutes here saves an evening of troubleshooting.
+
+---
+
 ## PiHerder host (where the stack runs)
 
 | Need | Notes |

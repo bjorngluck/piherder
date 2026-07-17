@@ -1,5 +1,13 @@
 # Troubleshooting
 
+## What this is
+
+A **symptom → page** map when something fails. Start here, then open Jobs, Audit, and Settings → Status before deep host dives.
+
+## Why this section
+
+RC1 still has rough edges. Most failures cluster around SSH path, Celery/backups, push TLS, or template/Docker paths — the linked pages list concrete checks.
+
 | Symptom | Page |
 |---------|------|
 | SSH / key / deps / docker group | [SSH, rsync & dependencies](ssh-rsync.md) |

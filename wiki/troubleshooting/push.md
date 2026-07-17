@@ -1,5 +1,9 @@
 # Push / PWA
 
+## What this is
+
+Fixes when **Web Push** or **PWA install** fails. Product setup: [PWA & Web Push](../account-security/pwa-push.md) · TLS: [HTTPS](../getting-started/https-tls.md).
+
 ## No push on Android
 
 1. Trusted HTTPS (not self-signed).  

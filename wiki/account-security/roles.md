@@ -1,5 +1,17 @@
 # Roles (RBAC)
 
+## What this is
+
+PiHerder has three **roles** that control what a signed-in user can **change** (and a few admin-only control-plane pages). Most pages remain readable for logged-in users; mutating actions and sensitive settings are role-gated.
+
+## Why it exists
+
+A household or small team often has people who should **look** (viewer), people who should **operate the fleet** (operator), and one or two people who own **users, secrets policy, and DR** (admin). RBAC keeps an accidental click from wiping herder backups or inviting strangers.
+
+---
+
+## Role matrix
+
 Three roles, lowest → highest privilege:
 
 | Role | Read fleet UI | Fleet jobs (backup / patch / Docker) | Users | Settings policy / timezone / fleet defaults | Herder self-backup / restore | Status / API tokens |
@@ -22,6 +34,16 @@ Three roles, lowest → highest privilege:
 - Own Web Push subscription + prefs  
 
 Viewers cannot start jobs, change servers, open Users, or change security policy.
+
+## End-to-end: add a least-privilege operator
+
+1. As admin, [create a user](users.md) with role **operator**.  
+2. Share one-time password carefully; they change password on first login.  
+3. Optional: enable [force 2FA](two-factor.md).  
+4. As operator, run a backup or update check — should work.  
+5. Confirm operator cannot open herder restore or API token create.
+
+Journey: [Operator scenarios — Journey G](../getting-started/operator-scenarios.md#journey-g).
 
 ## Enforcement
 

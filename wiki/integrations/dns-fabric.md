@@ -1,10 +1,31 @@
 # Network (hosts ↔ apps ↔ proxy ↔ internet)
 
-End-to-end **network maps**: Pi-hole records, fleet hosts, NPM, LAN/gateway/public IP, Uptime Kuma, and Docker links — path cards and topology maps (not a “service mesh”).
+## What this is
+
+**Network** is PiHerder’s view of how **names** reach **hosts** and **apps**: Pi-hole records, fleet FQDNs, NPM edges, LAN/gateway/public IP, optional Kuma status, and Docker project links — shown as path cards and topology maps.
+
+It is **not** a Kubernetes-style service mesh. It is a homelab **map** of DNS + proxy + inventory.
 
 **UI label:** **Catalog → Network** (URL slug remains `/dns` for compatibility).
 
 **Pages:** [Network hub](#map-pages) · [Hosts map](#map-pages) · [Path map](#map-pages)
+
+## Why it exists
+
+After a few years of “this CNAME points somewhere,” operators lose the picture of *name → proxy? → host → container*. Network maps rebuild that picture so you can answer “where does `grafana.example.com` go?” without opening three admin UIs.
+
+---
+
+## End-to-end: first useful Hosts map
+
+1. Connect [Pi-hole](pihole.md); set host FQDNs + manage A where appropriate.  
+2. On the Network hub, set **LAN subnet**, **gateway**, and public IP (or Lookup).  
+3. Optional: bind Router / Public IP Kuma monitors.  
+4. **Import all from Pi-hole** or Adopt candidates.  
+5. Open **Hosts map** — confirm home ring vs cloud hosts.  
+6. Open **Path map** for a specific FQDN flow.  
+
+Journey: [Operator scenarios — Journey E](../getting-started/operator-scenarios.md#journey-e).
 
 ---
 

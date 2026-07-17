@@ -1,6 +1,35 @@
 # Remove a server
 
-**Where:** Server detail → **Edit** → **Remove** tab → **Remove server…**
+## What this is
+
+**Remove server** deletes the host’s **control-plane record** from PiHerder: credentials, schedules, feature links, and UI presence. It is **not**, by default, a remote wipe of Docker stacks or the least-priv user on the machine.
+
+## Why it exists
+
+Hosts come and go (replacement Pi, decommission, renumber). Operators need a clear teardown that:
+
+- Stops schedules and in-flight jobs for that host  
+- Removes stored SSH secrets from the DB  
+- Does **not** surprise-delete data on the remote disk  
+
+Optional host cleanup is a **separate**, copy-pasteable script so you choose when the OS-side user goes away.
+
+---
+
+## End-to-end: retire a host
+
+1. Finish or cancel active jobs on that server ([Jobs](jobs-audit-notifications.md)).  
+2. Optional: take a last [backup](backups.md) if you still need files.  
+3. Server detail → **Edit** → **Remove** tab.  
+4. Type the **exact server name** to confirm.  
+5. After remove, optionally run **Host cleanup** script on the machine as root if you used a least-priv `piherder` user.  
+6. Confirm Dashboard / Servers list no longer shows the host; Audit history for past actions remains.
+
+---
+
+## Where
+
+Server detail → **Edit** → **Remove** tab → **Remove server…**
 
 ## What happens
 
@@ -29,3 +58,8 @@ DRY_RUN=1 sudo -E bash cleanup-piherder-user.sh    # preview
 ```
 
 Does not remove Docker projects or data. Does not remove the server from the UI — do that separately if still listed.
+
+## Related
+
+- [Add a server](add-server.md)  
+- [Self-backup](../operations/self-backup.md) — herder still holds other hosts after one is removed  

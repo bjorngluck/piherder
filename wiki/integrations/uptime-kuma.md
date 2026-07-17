@@ -1,11 +1,32 @@
 # Uptime Kuma
 
+## What this is
+
+The **Uptime Kuma integration** connects PiHerder to an existing (or template-deployed) Kuma instance so monitor status, TLS days, and bindings show up on servers, Docker, Dashboard tiles, and the fleet **Services** grid.
+
+## Why it exists
+
+Kuma is excellent at HTTP/TCP checks; PiHerder is excellent at fleet actions. Connecting them avoids a second mental model: when something is down or TLS is expiring, you see it next to the host that owns the service — and can jump into Kuma or the Docker page in one click.
+
 You can **deploy** Kuma via [Templates](../service-templates/overview.md), then connect the integration for status and bindings.
 
 <figure class="ph-figure" markdown>
   ![Kuma integration](../assets/screenshots/integrations-kuma.svg)
   <figcaption>Connect + bind SSH/services/Docker. <span class="ph-wireframe-badge">wireframe</span></figcaption>
 </figure>
+
+---
+
+## End-to-end: Kuma → fleet Services
+
+1. Run Kuma (template or existing) and create an **API key**.  
+2. From a host that can reach Kuma, probe metrics (optional sanity check).  
+3. **Catalog → Integrations → + Uptime Kuma** — URL + key → Test / Poll.  
+4. Bind monitors (SSH, host service, or Docker) or **Suggest matches**.  
+5. Open `/services` and filter **Down** / **TLS issue**.  
+6. Optional: enable Web Push for **Integration monitor down**.
+
+---
 
 ## Connect
 
@@ -22,11 +43,11 @@ You can **deploy** Kuma via [Templates](../service-templates/overview.md), then 
 
 ## Binding scopes
 
-| Scope | Where you see it |
-|-------|------------------|
-| **SSH** reachability | Server chips, detail, Services |
-| **Host service** (no Docker) | Server detail, Services — e.g. HAOS |
-| **Docker** project/container | Docker chips + Services |
+| Scope | Where you see it | Why bind that way |
+|-------|------------------|-------------------|
+| **SSH** reachability | Server chips, detail, Services | Host alive vs app alive |
+| **Host service** (no Docker) | Server detail, Services — e.g. HAOS | Non-compose apps |
+| **Docker** project/container | Docker chips + Services | Stack-level status |
 
 - **Suggest matches** maps unbound servers to TCP/SSH monitors.  
 - HTTP monitors expose **TLS valid** + **days remaining**.  
@@ -46,3 +67,8 @@ Empty fleet grid explains how to bind Kuma monitors. Prefer fixing **down** or *
 ### Logos
 
 Auto favicon fetch + manual upload under `DATA_ROOT/service_logos/` (`./piherder_data`).
+
+## Related
+
+- [Dashboard & Services](../day-to-day/dashboard-and-services.md)  
+- [PWA & Web Push](../account-security/pwa-push.md)  

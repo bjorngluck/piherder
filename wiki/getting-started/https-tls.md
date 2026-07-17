@@ -1,6 +1,14 @@
 # Trusted HTTPS & TLS
 
-Android **installable PWA** and **Web Push** need a **secure context** with a **trusted certificate** and a stable origin. Self-signed Caddy (`Caddyfile.dev` / `tls internal`) is fine for desktop poking; it is **not** reliable for push on phones.
+## What this is
+
+How to put a **trusted certificate** and a **stable public origin** in front of PiHerder (via bundled Caddy or an outer reverse proxy).
+
+## Why it matters
+
+Android **installable PWA** and **Web Push** need a **secure context** with a **trusted certificate** and a stable origin. Self-signed Caddy (`Caddyfile.dev` / `tls internal`) is fine for desktop poking; it is **not** reliable for push on phones. Correct edge TLS also feeds accurate **client IP** into Audit when Caddy is the edge.
+
+---
 
 ## Hostname and public URL
 

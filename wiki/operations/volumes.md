@@ -1,5 +1,13 @@
 # Volumes
 
+## What this is
+
+Host directories Docker Compose bind-mounts into the stack for **fleet backups**, **herder DR archives**, **avatars/logos**, and **TLS PEMs**.
+
+## Why it matters
+
+Backups and self-backup are only as durable as the disk under these paths. Celery workers must see the **same** `/backups` (and usually `/data`, `/herder_backups`) as web.
+
 | Host path | Container | Purpose |
 |-----------|-----------|---------|
 | `${PIHERDER_BACKUP_HOST_PATH:-./backups}` | `/backups` | rsync destinations for server backups |

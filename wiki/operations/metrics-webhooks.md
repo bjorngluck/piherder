@@ -1,5 +1,13 @@
 # Metrics & webhooks
 
+## What this is
+
+Optional **Prometheus metrics** scrape endpoint and outbound **webhooks** so external observability stacks can watch PiHerder health and events without scraping the full UI.
+
+## Why it exists
+
+Homelabs already run Prometheus/Grafana or notification bridges. Exposing gauges and hooks avoids reinventing alerting inside every consumer.
+
 ## Prometheus (`GET /metrics`)
 
 Scrape-time gauges (DB only, no SSH). Not behind login cookies.

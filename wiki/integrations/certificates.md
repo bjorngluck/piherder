@@ -1,6 +1,24 @@
 # Managed certificates
 
-PiHerder stores TLS **fullchain + private key** encrypted (Fernet / `PIHERDER_MASTER_KEY`) and **deploys** them to fleet hosts over SSH.
+## What this is
+
+PiHerder stores TLS **fullchain + private key** encrypted (Fernet / `PIHERDER_MASTER_KEY`) and **deploys** them to fleet hosts over SSH via **service maps** (path, layout, permissions, optional restart command).
+
+## Why it exists
+
+One Let’s Encrypt cert often feeds NPM, UniFi, reverse proxies, and app containers. Copying PEMs by hand is error-prone and expires on different schedules. The vault is a single encrypted store; maps describe each consumer; renew/redeploy keeps them aligned.
+
+---
+
+## End-to-end: vault → host files
+
+1. **Get material in** — NPM pull or **Upload PEM**.  
+2. Open the cert detail → **Add service map** (host, directory, layout, mode, post-deploy).  
+3. **Deploy** that map (or all maps).  
+4. Confirm files on the host and that the app reloaded.  
+5. Enable auto-renew for NPM-sourced certs if desired.  
+
+---
 
 ## Mental model
 

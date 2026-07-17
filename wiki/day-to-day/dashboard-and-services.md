@@ -1,22 +1,50 @@
 # Dashboard & fleet Services
 
+## What this is
+
+The **Dashboard** (`/`) is the home page after login: a **fleet health at a glance** view.  
+**Fleet Services** (`/services`) is a separate page: an icon grid of apps monitored via **Uptime Kuma** bindings.
+
+## Why it exists
+
+Operators should not need to open every host to answer:
+
+- How many hosts exist?  
+- Which ones need OS or container work?  
+- Are any watched services down or TLS-expiring?  
+- Where do I jump for network topology?
+
+The dashboard answers those from **last check jobs and caches** (not a full SSH scan on every page load). Fleet Services exists so “apps that matter” are one filter away from Kuma, the host, or Docker.
+
+---
+
+## End-to-end: first useful dashboard
+
+1. Add at least one server ([Add a server](add-server.md)).  
+2. Run an **OS** or **container update check** if those features are on ([Updates](updates-and-patching.md)).  
+3. Open `/` — host count and attention table should reflect checks.  
+4. Optional: connect [Uptime Kuma](../integrations/uptime-kuma.md), bind monitors → `/services` fills.  
+5. Optional: set host DNS / network settings → Network maps panel pulse moves off zero.
+
+**Done when:** you can explain each tile without guessing, and empty Services is understood as “no Kuma binds yet” rather than a bug.
+
+---
+
 ## Dashboard (`/`)
 
-After login, **Dashboard** is the home page: fleet health at a glance.
+| Tile / block | Meaning | Why it is there |
+|--------------|---------|-----------------|
+| **Servers** | Host count → [Servers](add-server.md) | Jump to the fleet list |
+| **Services** | Monitored apps (Kuma bindings) → **`/services`** | Apps, not only hosts |
+| **Need attention** | Hosts with OS/image updates or reboot pending | Work queue for the week |
+| **Reboot pending** | Count of hosts flagging reboot-required | After kernel/OS upgrades |
+| **Open alerts** | Inbox count → [Notifications](jobs-audit-notifications.md) (bell) | Unread problems |
+| OS / container summary cards | Aggregate package/image update counts | Fleet-wide patch pressure |
+| **Needs attention** table | Only hosts that need work; Open / Docker shortcuts | Act without hunting |
+| **Network maps** panel | Constellation + named/mapped/NPM counts | Homelab topology entry |
+| **Quick links** | Servers, notifications, audit, Settings, Pi-hole, Certificates, Catalog | Frequent destinations |
 
-| Tile / block | Meaning |
-|--------------|---------|
-| **Servers** | Host count → [Servers](add-server.md) |
-| **Services** | Monitored apps (Kuma bindings) → **`/services`** (this page below) |
-| **Need attention** | Hosts with OS/image updates or reboot pending |
-| **Reboot pending** | Count of hosts flagging reboot-required |
-| **Open alerts** | Inbox count → [Notifications](jobs-audit-notifications.md) (bell) |
-| OS / container summary cards | Aggregate package/image update counts |
-| **Needs attention** table | Only hosts that need work; Open / Docker shortcuts |
-| **Network maps** panel | Constellation graphic + **named hosts** / **mapped names** / **NPM hosts** → Catalog **Network**, Hosts map, Path map ([Network maps](../integrations/dns-fabric.md)) |
-| **Quick links** | Servers, notifications, audit, Settings, Pi-hole, Certificates, Catalog |
-
-Status comes from **last check jobs** (and related caches) — not a continuous SSH poll on every open. The Network maps panel uses a **cheap pulse** (counts only), not a full SVG build.
+Status comes from **last check jobs** (and related caches) — not continuous SSH on every open. The Network maps panel uses a **cheap pulse** (counts only), not a full SVG build.
 
 | Pulse field | Source |
 |-------------|--------|
@@ -55,3 +83,4 @@ Per-host view: **Server → Services** (`/servers/{id}/services`) — same card 
 - [Updates & patching](updates-and-patching.md) — what “attention” means  
 - [Jobs, audit & notifications](jobs-audit-notifications.md)  
 - [Uptime Kuma](../integrations/uptime-kuma.md)  
+- [Network maps](../integrations/dns-fabric.md)  

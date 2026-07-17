@@ -1,11 +1,32 @@
 # Grafana
 
-Read-mostly deep links into an existing Grafana. PiHerder does **not** have to deploy Grafana (you may still use the Grafana template for a new instance).
+## What this is
+
+A **read-mostly** integration that inventories Grafana dashboards and places **deep links** (chips) on server and Docker pages — with optional **preferred names** and query templates.
+
+## Why it exists
+
+Metrics usually already live in Grafana. PiHerder should not re-implement dashboards; it should put the right dashboard **one click away** from the host or container you are looking at, with host/container variables filled in.
+
+PiHerder does **not** have to deploy Grafana (you may still use the Grafana template for a new instance).
 
 <figure class="ph-figure" markdown>
   ![Grafana integration](../assets/screenshots/integrations-grafana.svg)
   <figcaption>Kinds + tabbed bindings. <span class="ph-wireframe-badge">wireframe</span></figcaption>
 </figure>
+
+---
+
+## End-to-end: chip on a server
+
+1. Create a Grafana **service account** Viewer token.  
+2. Connect integration (URL + token) → **Poll** for inventory.  
+3. On **Inventory**, set preferred chip names if titles are noisy.  
+4. **Bind** a dashboard as Host metrics (or Containers / Host logs).  
+5. Open the server detail Grafana card → chip opens the filtered dashboard.  
+6. For container-scoped binds, confirm the Docker page chip appears.
+
+---
 
 ## Connect
 

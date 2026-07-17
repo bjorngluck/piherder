@@ -1,11 +1,30 @@
 # Docker on hosts
 
-When **Docker / containers** is enabled for a server, PiHerder can list compose projects, view logs, edit multi-file compose, build, and redeploy. The host Docker page uses the shared **ops-hero** (project counts / health) consistent with other host pages.
+## What this is
+
+When **Docker / containers** is enabled for a server, PiHerder can list compose projects, stream logs, edit multi-file compose, build, check/update images, and redeploy — all over SSH as the server’s configured user.
+
+## Why it exists
+
+Homelab hosts often run many stacks. SSHing into each machine for `docker compose ps` does not scale, and ad-hoc edits leave no version history. The Docker UI is the day-to-day surface for free-form stacks; [templates](../service-templates/overview.md) cover desired-state managed stacks.
 
 <figure class="ph-figure" markdown>
   ![Server detail Docker card](../assets/screenshots/server-detail.svg)
   <figcaption>Docker dest card on server detail. <span class="ph-wireframe-badge">wireframe</span></figcaption>
 </figure>
+
+---
+
+## End-to-end: open a stack and redeploy
+
+1. Enable **Docker / containers**; set **Docker base dir** correctly.  
+2. Confirm dependency check for docker is green ([SSH access](../day-to-day/add-server.md)).  
+3. Open **Docker** — inventory snapshot appears immediately ([Inventory](inventory.md)).  
+4. Expand a project; open logs if needed.  
+5. **Check updates** vs **Deploy** when you want pull-only vs pull+up ([Updates](../day-to-day/updates-and-patching.md)).  
+6. For compose edits, use [Compose edit](compose-edit.md) (quick modal or full editor with history).  
+
+---
 
 ## Prerequisites
 
@@ -32,10 +51,10 @@ When **Docker / containers** is enabled for a server, PiHerder can list compose 
 
 ## Template vs free-form stacks
 
-| Kind | Edit path |
-|------|-----------|
-| **Template-managed** | Desired state / redeploy on deployment page; compose editor gated |
-| **Free-form** | Full compose multi-file editor |
+| Kind | Edit path | Why |
+|------|-----------|-----|
+| **Template-managed** | Desired state / redeploy on deployment page; compose editor gated | Template is source of truth |
+| **Free-form** | Full compose multi-file editor | Bring-your-own stacks |
 
 ## Related
 
