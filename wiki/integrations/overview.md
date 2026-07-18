@@ -50,7 +50,7 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 | [Pi-hole](pihole.md) | v6 multi-instance stats, local DNS/CNAME fan-out | Manage LAN DNS from the herder |
 | [Nginx Proxy Manager](npm.md) | Proxy hosts (read-only) + certificate pull | Inventory edge hosts and cert material |
 | [Certificates](certificates.md) | Encrypted store, PEM upload, deploy maps, NPM renew | Push TLS files to many consumers |
-| [Network maps](dns-fabric.md) | Host A + service paths; Hosts map + Path map | Visualise name → host → app |
+| [Network maps](dns-fabric.md) | Host A + service paths; Hosts/Path maps; **runtime stack** expand + order | Visualise name → host → app → containers |
 
 Credentials and cert PEMs are Fernet-encrypted and included in [self-backup](../operations/self-backup.md).
 

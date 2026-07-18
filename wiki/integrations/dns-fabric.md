@@ -126,6 +126,39 @@ Internet (☁) ── WAN ── Router ── LAN ── home hosts (RFC1918 / 
 - Hosts map caps app satellites per host (then a **+N more** marker); full app list stays on rack cards.
 - **Docker UI:** project **Path map** links use a cheap, **case-insensitive** project index (no full access-path resolve on HTMX stack polls).
 
+### Runtime stack (detail altitude)
+
+Maps stay **customer-facing** by default. For **one** focused service (or host project), open the **Stack** panel and/or map **expand** to see containers, roles, Kuma binds, and runtime links.
+
+| Surface | What you get |
+|---------|----------------|
+| **Stack panel** | Modal/drawer: containers (role, running, Kuma), detail expand, suggested/confirmed edges, accept/dismiss/manual link, **Refresh** inventory, deep links to Server / Service / Docker / maps |
+| **Map expand** | On Path map or Hosts map focus: sideways fan to the right of the path — **not** a fleet-wide container mesh |
+
+#### Map expand layout (locked)
+
+```text
+  focused path ──►  edge → app → queue → data
+```
+
+- **data** is one column: **db + redis** (and similar tooling) together — not a separate cache column.  
+- Role colors + type chips on boxes; confirmed dependency curves; soft structure lines between **adjacent** columns only.  
+- **No Server / Service / Docker chips on the map** — use the Stack panel for navigation.  
+- Click a container box → opens Stack panel focused on that container.
+
+#### Reorder containers (operators)
+
+1. Open **Stack** for the service/project.  
+2. **Desktop:** drag the **⋮⋮** handle. **Mobile:** long-press a row, then drag.  
+3. Order is saved per host project (`stack_container_order_json`).  
+
+**Effect on the map:** with a custom order, **column left→right** follows that order (by earliest container in each role group). Example: put **celery last** in the panel → **queue column moves to the right** of **data**, so soft lines stay left→right instead of reversing through redis/db.
+
+Default (no custom order): fixed `edge → app → queue → data`.
+
+!!! note "Later (roadmap)"
+    Operator-configurable columns and explicit link-to-column rules are **not** in this release. See [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md) § 12b.
+
 ### Light / dark theme
 
 Infrastructure nodes (Internet cloud, Router, LAN, NPM hub) use theme-aware fills (no default black SVG fill). Zoom chrome stays readable in light mode.
@@ -220,11 +253,14 @@ Below path coverage, **Stack dependencies** lists **compose containers** from ho
 | `network_kuma_integration_id` | App settings | Empty = first enabled Kuma |
 | **Server** | `dns_name`, `dns_manage_a`, `dns_ip_override` | Host A |
 | **ServiceDnsRecord** | FQDN, `record_type` (`cname` \| `a`), servers, project, NPM, sync | Service path |
+| **RuntimeEdge** | Confirmed/manual/suggested stack dependency edges | Panel + map expand; herder backup |
+| `stack_container_order_json` | App settings | Operator container order per `server_id:project` |
+| `stack_inventory_down_alerts` | App settings | Optional alert when Kuma-bound container is down in inventory |
 
-Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma service binds, and stack deployments.
+Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma service binds, Docker inventory (compose graph v2), and stack deployments.
 
-**Code:** package `app/services/dns_fabric/` (`core`, `mesh_physical`, `mesh_logical`, `kuma_coverage`) · `app/routers/dns.py` · `app/static/js/fabric-mesh.js` · `app/static/css/fabric.css` · templates `dns_*.html`  
-**Tests:** `tests/test_dns_fabric.py` · `tests/test_kuma_coverage.py`
+**Code:** `app/services/dns_fabric/` (`core`, mesh, `kuma_coverage`, `stack_panel`, `stack_expand`) · `stack_order.py` · `compose_graph.py` · `runtime_edges.py` · `stack_monitor.py` · `app/routers/dns.py` · `fabric-mesh.js` / `fabric-stack-*.js` · `fabric.css` · `dns_*.html`  
+**Tests:** `tests/test_dns_fabric.py` · `test_kuma_coverage.py` · `test_stack_*.py` · `test_compose_graph.py` · `test_runtime_edges.py`
 
 ---
 

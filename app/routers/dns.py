@@ -5,8 +5,8 @@ import json
 from typing import Optional
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlmodel import Session
 
 from ..database import get_session
@@ -14,6 +14,7 @@ from ..models import Server, User
 from ..security.auth import get_admin_user, get_current_user, get_operator_user, user_role
 from ..services import dns_fabric as fabric
 from ..services.app_settings import load_settings, save_settings
+from ..services.audit_write import make_audit_log
 from ..templates import templates
 
 router = APIRouter()
@@ -24,13 +25,16 @@ def _can_mutate(user: User) -> bool:
 
 
 def _redirect(path: str = "/dns", *, msg: str = "", error: str = "") -> RedirectResponse:
+    """Redirect with optional msg/error. Path may already include a query string."""
     q = []
     if msg:
         q.append(f"msg={quote(msg)}")
     if error:
         q.append(f"error={quote(error[:300])}")
-    url = path + (("?" + "&".join(q)) if q else "")
-    return RedirectResponse(url, status_code=303)
+    if not q:
+        return RedirectResponse(path, status_code=303)
+    sep = "&" if "?" in path else "?"
+    return RedirectResponse(path + sep + "&".join(q), status_code=303)
 
 
 def _dns_page_context(
@@ -140,6 +144,11 @@ def _dns_page_context(
             settings.get("network_kuma_integration_id") or ""
         ).strip(),
         "network_kuma_monitors": kuma_opts,
+        "stack_inventory_down_alerts": bool(
+            settings.get("stack_inventory_down_alerts")
+            if settings.get("stack_inventory_down_alerts") is not None
+            else True
+        ),
         "msg": request.query_params.get("msg") or "",
         "error": request.query_params.get("error") or "",
         "detail": request.query_params.get("detail") or "",
@@ -181,18 +190,396 @@ async def dns_coverage(
     )
 
 
+@router.get("/dns/stack-panel", response_class=HTMLResponse)
+async def dns_stack_panel(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    service_id: Optional[int] = None,
+    server_id: Optional[int] = None,
+    project: Optional[str] = None,
+    force: Optional[str] = None,
+):
+    """HTMX partial: runtime stack side panel (one project / path at a time).
+
+    ``force=1`` schedules a background Docker inventory refresh (P1b on-command)
+    so compose ``depends_on`` re-enriches; panel returns last good snapshot now.
+    """
+    from ..services.dns_fabric.stack_panel import build_stack_panel
+    from ..services import docker_inventory as inv_svc
+
+    sid = service_id
+    if sid is None:
+        raw = (request.query_params.get("service_id") or "").strip()
+        if raw.isdigit():
+            sid = int(raw)
+    srv = server_id
+    if srv is None:
+        raw = (request.query_params.get("server_id") or "").strip()
+        if raw.isdigit():
+            srv = int(raw)
+    proj = (project or request.query_params.get("project") or "").strip() or None
+    do_force = (force or request.query_params.get("force") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    focus_container = (
+        request.query_params.get("focus_container")
+        or request.query_params.get("container")
+        or ""
+    ).strip() or None
+
+    panel = build_stack_panel(
+        session,
+        service_id=sid,
+        server_id=srv,
+        project=proj,
+    )
+    if panel.get("ok") and focus_container:
+        panel["focus_container"] = focus_container
+
+    if do_force and panel.get("ok") and panel.get("server_id"):
+        try:
+            server = session.get(Server, int(panel["server_id"]))
+            if server:
+                kicked = inv_svc.request_refresh(
+                    background_tasks,
+                    int(panel["server_id"]),
+                    force=True,
+                    server=server,
+                    session=session,
+                )
+                panel["refresh_note"] = (
+                    "Refreshing inventory from host… tap Refresh again in a few seconds."
+                    if kicked
+                    else "Inventory refresh already running or not needed."
+                )
+            else:
+                panel["refresh_note"] = "Host not found for refresh."
+        except Exception:
+            panel["refresh_note"] = "Could not schedule inventory refresh."
+
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/dns_stack_panel.html",
+        context={
+            "request": request,
+            "user": user,
+            "can_mutate": _can_mutate(user),
+            "panel": panel,
+        },
+    )
+
+
+def _stack_next(next_path: str, *, service_id: Optional[str] = None) -> str:
+    """Return path after edge mutation — prefer stack deep-link."""
+    dest = _safe_next_path(next_path, default="")
+    if dest:
+        return dest
+    if service_id and str(service_id).isdigit():
+        return f"/dns?stack={int(service_id)}"
+    return "/dns"
+
+
+@router.post("/dns/stack-order")
+async def stack_save_order(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    server_id: int = Form(...),
+    project: str = Form(...),
+    order: str = Form(...),  # JSON array of container names
+    service_id: str = Form(""),
+    next: str = Form(""),
+):
+    """Save operator container order for stack panel + map expand.
+
+    Returns JSON when Accept includes application/json (stack panel AJAX);
+    otherwise redirects for form POSTs.
+    """
+    from ..services import stack_order as so_svc
+
+    want_json = "application/json" in (request.headers.get("accept") or "").lower()
+
+    proj = (project or "").strip()
+    if not proj:
+        if want_json:
+            return JSONResponse(
+                {"ok": False, "error": "order_need_project"}, status_code=400
+            )
+        return _redirect(
+            _stack_next(next, service_id=service_id), error="order_need_project"
+        )
+    try:
+        names = json.loads(order) if isinstance(order, str) else list(order or [])
+        if not isinstance(names, list):
+            names = []
+    except Exception:
+        names = [x.strip() for x in (order or "").split(",") if x.strip()]
+    saved = so_svc.set_order(int(server_id), proj, [str(n) for n in names])
+    try:
+        session.add(
+            make_audit_log(
+                action="fabric.stack_order",
+                status="success",
+                user_id=user.id,
+                server_id=int(server_id),
+                details=f"{proj}: {', '.join(str(n) for n in saved)[:200]}",
+            )
+        )
+        session.commit()
+    except Exception:
+        pass
+    if want_json:
+        return JSONResponse(
+            {
+                "ok": True,
+                "msg": "order_saved",
+                "server_id": int(server_id),
+                "project": proj,
+                "order": saved,
+            }
+        )
+    return _redirect(_stack_next(next, service_id=service_id), msg="order_saved")
+
+
+@router.get("/dns/stack-expand.json")
+async def stack_expand_json(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    service_id: Optional[int] = None,
+    server_id: Optional[int] = None,
+    project: Optional[str] = None,
+):
+    """JSON payload for path-map stack blow-up (P4) — one stack's containers + confirmed edges."""
+    del user
+    from ..services.dns_fabric.stack_expand import build_stack_expand_payload
+
+    payload = build_stack_expand_payload(
+        session,
+        service_id=service_id,
+        server_id=server_id,
+        project=project,
+    )
+    status = 200 if payload.get("ok") else 404
+    return JSONResponse(payload, status_code=status)
+
+
+@router.post("/dns/stack-edges/accept")
+async def stack_edge_accept(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    from_server_id: int = Form(...),
+    from_project: str = Form(...),
+    from_container: str = Form(""),
+    to_server_id: int = Form(...),
+    to_project: str = Form(...),
+    to_container: str = Form(""),
+    kind: str = Form("depends_on"),
+    confidence: int = Form(85),
+    service_id: str = Form(""),
+    next: str = Form(""),
+):
+    """Accept a suggested runtime edge (P2)."""
+    from ..services import runtime_edges as re_svc
+
+    try:
+        row = re_svc.accept_suggestion(
+            session,
+            from_server_id=from_server_id,
+            from_project=from_project,
+            from_container=from_container or None,
+            to_server_id=to_server_id,
+            to_project=to_project,
+            to_container=to_container or None,
+            kind=kind,
+            confidence=confidence,
+            user_id=user.id,
+        )
+        session.add(
+            make_audit_log(
+                action="fabric.edge_accept",
+                status="success",
+                user_id=user.id,
+                server_id=from_server_id,
+                details=(
+                    f"{from_project}/{from_container or '*'} → "
+                    f"{to_project}/{to_container or '*'} "
+                    f"(edge_id={row.id})"
+                ),
+            )
+        )
+        session.commit()
+        return _redirect(_stack_next(next, service_id=service_id), msg="edge_accepted")
+    except Exception as e:
+        return _redirect(
+            _stack_next(next, service_id=service_id),
+            error=f"edge_accept_failed: {str(e)[:120]}",
+        )
+
+
+@router.post("/dns/stack-edges/dismiss")
+async def stack_edge_dismiss(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    from_server_id: int = Form(...),
+    from_project: str = Form(...),
+    from_container: str = Form(""),
+    to_server_id: int = Form(...),
+    to_project: str = Form(...),
+    to_container: str = Form(""),
+    service_id: str = Form(""),
+    next: str = Form(""),
+):
+    """Dismiss a suggestion so it does not re-appear (P2)."""
+    from ..services import runtime_edges as re_svc
+
+    try:
+        re_svc.dismiss_suggestion(
+            session,
+            from_server_id=from_server_id,
+            from_project=from_project,
+            from_container=from_container or None,
+            to_server_id=to_server_id,
+            to_project=to_project,
+            to_container=to_container or None,
+            user_id=user.id,
+        )
+        session.add(
+            make_audit_log(
+                action="fabric.edge_dismiss",
+                status="success",
+                user_id=user.id,
+                server_id=from_server_id,
+                details=(
+                    f"{from_project}/{from_container or '*'} → "
+                    f"{to_project}/{to_container or '*'}"
+                ),
+            )
+        )
+        session.commit()
+        return _redirect(_stack_next(next, service_id=service_id), msg="edge_dismissed")
+    except Exception as e:
+        return _redirect(
+            _stack_next(next, service_id=service_id),
+            error=f"edge_dismiss_failed: {str(e)[:120]}",
+        )
+
+
+@router.post("/dns/stack-edges/manual")
+async def stack_edge_manual(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    from_server_id: int = Form(...),
+    from_project: str = Form(...),
+    from_container: str = Form(""),
+    to_server_id: int = Form(...),
+    to_project: str = Form(...),
+    to_container: str = Form(""),
+    kind: str = Form("talks_to"),
+    note: str = Form(""),
+    service_id: str = Form(""),
+    next: str = Form(""),
+):
+    """Create or update a manual dependency edge (P3). Cross-host allowed."""
+    from ..services import runtime_edges as re_svc
+
+    if not (from_project or "").strip() or not (to_project or "").strip():
+        return _redirect(
+            _stack_next(next, service_id=service_id), error="edge_need_projects"
+        )
+    try:
+        row = re_svc.create_manual_edge(
+            session,
+            from_server_id=from_server_id,
+            from_project=from_project,
+            from_container=from_container or None,
+            to_server_id=to_server_id,
+            to_project=to_project,
+            to_container=to_container or None,
+            kind=kind or "talks_to",
+            note=note or None,
+            user_id=user.id,
+        )
+        session.add(
+            make_audit_log(
+                action="fabric.edge_manual",
+                status="success",
+                user_id=user.id,
+                server_id=from_server_id,
+                details=(
+                    f"{from_project}/{from_container or '*'} → "
+                    f"{to_project}/{to_container or '*'} "
+                    f"kind={kind} edge_id={row.id}"
+                ),
+            )
+        )
+        session.commit()
+        return _redirect(_stack_next(next, service_id=service_id), msg="edge_saved")
+    except Exception as e:
+        return _redirect(
+            _stack_next(next, service_id=service_id),
+            error=f"edge_manual_failed: {str(e)[:120]}",
+        )
+
+
+@router.post("/dns/stack-edges/{edge_id}/delete")
+async def stack_edge_delete(
+    edge_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    service_id: str = Form(""),
+    next: str = Form(""),
+):
+    """Hard-delete a confirmed/manual edge (no cascade to Kuma)."""
+    from ..services import runtime_edges as re_svc
+
+    ok = re_svc.delete_edge(session, edge_id)
+    if ok:
+        session.add(
+            make_audit_log(
+                action="fabric.edge_delete",
+                status="success",
+                user_id=user.id,
+                details=f"edge_id={edge_id}",
+            )
+        )
+        session.commit()
+        return _redirect(_stack_next(next, service_id=service_id), msg="edge_deleted")
+    return _redirect(
+        _stack_next(next, service_id=service_id), error="edge_not_found"
+    )
+
+
+def _safe_next_path(next_path: str, default: str = "/dns/coverage#kuma-deps") -> str:
+    """Allow only same-origin relative paths (no open redirects)."""
+    nxt = (next_path or "").strip()
+    if not nxt or not nxt.startswith("/") or nxt.startswith("//"):
+        return default
+    if "://" in nxt or "\n" in nxt or "\r" in nxt:
+        return default
+    return nxt[:500]
+
+
 @router.post("/dns/coverage/mute")
 async def coverage_mute_dependency(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     key: str = Form(...),
     unmute: Optional[str] = Form(None),
+    next: str = Form(""),
 ):
     """Mute/unmute a docker dependency from coverage suggestions (server:project:container)."""
     del session  # settings are session-free
+    del user
     key = (key or "").strip()
+    dest = _safe_next_path(next, default="/dns/coverage#kuma-deps")
     if not key or key.count(":") < 2 or len(key) > 200:
-        return _redirect("/dns", error="invalid mute key")
+        return _redirect(dest, error="invalid mute key")
     cfg = load_settings()
     raw = cfg.get("kuma_coverage_mute_keys") or "[]"
     try:
@@ -210,7 +597,7 @@ async def coverage_mute_dependency(
             keys.append(key)
         msg = "dep_muted"
     save_settings({"kuma_coverage_mute_keys": json.dumps(keys)})
-    return _redirect("/dns/coverage#kuma-deps", msg=msg)
+    return _redirect(dest, msg=msg)
 
 
 @router.post("/dns/coverage/show-infra")
@@ -316,6 +703,7 @@ async def save_network_map(
     gateway_kuma_external_id: str = Form(""),
     public_kuma_external_id: str = Form(""),
     kuma_integration_id: str = Form(""),
+    stack_inventory_down_alerts: Optional[str] = Form(None),
     session: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
@@ -325,6 +713,8 @@ async def save_network_map(
 
     from ..services.app_settings import save_settings
 
+    del session
+    del user
     subnet = (lan_subnet or "").strip()
     gw = (gateway_ip or "").strip()
     pub = (public_ip or "").strip()
@@ -355,6 +745,9 @@ async def save_network_map(
         "network_gateway_kuma_external_id": gw_kuma,
         "network_public_kuma_external_id": pub_kuma,
         "network_kuma_integration_id": kuma_iid,
+        # checkbox: only present when checked
+        "stack_inventory_down_alerts": stack_inventory_down_alerts
+        in ("1", "on", "true", "yes"),
     }
     # Keep prior lookup timestamp if public IP unchanged
     prev = load_settings()

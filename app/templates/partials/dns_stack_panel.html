@@ -1,0 +1,472 @@
+{# Runtime stack side panel body (HTMX into #fabric-stack-panel-body) #}
+{% set p = panel %}
+{% if not p or not p.ok %}
+<div class="fabric-stack-empty">
+  <p class="text-sm text-muted">{{ (p.error if p else 'Could not load stack') or 'Could not load stack' }}</p>
+  <p class="text-xs text-muted mt-2">Open a service path that has a Docker project, or pick a host project.</p>
+</div>
+{% else %}
+<div class="fabric-stack-panel-inner" data-stack-service="{{ p.service_id or '' }}" data-stack-server="{{ p.server_id }}" data-stack-project="{{ p.project or '' }}">
+  <header class="fabric-stack-header">
+    <div class="min-w-0">
+      <div class="ph-detail-kicker">Runtime stack</div>
+      <h2 class="font-semibold text-base truncate text-text" title="{{ p.fqdn or p.label }}">
+        {% if p.fqdn %}<span class="font-mono text-sm">{{ p.fqdn }}</span>{% else %}{{ p.label }}{% endif %}
+      </h2>
+      <p class="text-xs text-muted mt-0.5">
+        {% if p.project %}
+        project <span class="font-mono text-text">{{ p.project }}</span>
+        {% else %}
+        <span class="text-warning">no Docker project linked</span>
+        {% endif %}
+        {% if p.kuma_path_coverage == 'covered' %}
+        · <span class="text-success">path Kuma ✓</span>
+        {% elif p.kuma_path_coverage == 'partial' %}
+        · <span class="text-warning">path Kuma·</span>
+        {% elif p.kuma_path_coverage == 'none' %}
+        · <span class="text-error">path no Kuma</span>
+        {% endif %}
+      </p>
+    </div>
+    <div class="shrink-0">
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-9 px-3"
+              hx-get="/dns/stack-panel?{{ p.refresh_query }}&force=1"
+              hx-target="#fabric-stack-panel-body"
+              hx-swap="innerHTML"
+              title="SSH refresh Docker inventory (compose + containers), then reload this panel">
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  {# Clear nav links — not buried in a button soup #}
+  <nav class="fabric-stack-nav" aria-label="Stack destinations">
+    {% if p.server_href %}
+    <a href="{{ p.server_href }}" class="fabric-stack-nav-link">
+      <span class="fabric-stack-nav-k">Server</span>
+      <span class="fabric-stack-nav-v">{{ p.server_name }}</span>
+    </a>
+    {% endif %}
+    {% if p.fqdn %}
+    <a href="{{ p.path_map_href or '#' }}" class="fabric-stack-nav-link">
+      <span class="fabric-stack-nav-k">Service</span>
+      <span class="fabric-stack-nav-v font-mono">{{ p.fqdn }}</span>
+    </a>
+    {% endif %}
+    {% if p.docker_href %}
+    <a href="{{ p.docker_href }}" class="fabric-stack-nav-link">
+      <span class="fabric-stack-nav-k">Docker</span>
+      <span class="fabric-stack-nav-v">{{ p.project or 'open' }}</span>
+    </a>
+    {% endif %}
+    {% if p.path_map_href %}
+    <a href="{{ p.path_map_href }}" class="fabric-stack-nav-link">
+      <span class="fabric-stack-nav-k">Path map</span>
+      <span class="fabric-stack-nav-v">focus</span>
+    </a>
+    {% endif %}
+    {% if p.hosts_map_href %}
+    <a href="{{ p.hosts_map_href }}" class="fabric-stack-nav-link">
+      <span class="fabric-stack-nav-k">Hosts map</span>
+      <span class="fabric-stack-nav-v">focus</span>
+    </a>
+    {% endif %}
+    {% if p.deployment_href %}
+    <a href="{{ p.deployment_href }}" class="fabric-stack-nav-link">
+      <span class="fabric-stack-nav-k">Deploy</span>
+      <span class="fabric-stack-nav-v">template</span>
+    </a>
+    {% endif %}
+    <a href="{{ p.coverage_href }}" class="fabric-stack-nav-link">
+      <span class="fabric-stack-nav-k">Coverage</span>
+      <span class="fabric-stack-nav-v">Kuma</span>
+    </a>
+  </nav>
+
+  {% if p.refresh_note %}
+  <p class="text-[11px] text-warning mb-2">{{ p.refresh_note }}</p>
+  {% endif %}
+
+  <div class="fabric-stack-summary">
+    {% if p.has_inventory %}
+    <span>{{ p.summary.running }}/{{ p.summary.total }} running</span>
+    {% if p.has_kuma %}
+    <span class="text-muted">·</span>
+    <span>{{ p.summary.kuma_covered }} Kuma</span>
+    {% if p.summary.kuma_gaps %}
+    <span class="text-warning">· {{ p.summary.kuma_gaps }} gap{{ 's' if p.summary.kuma_gaps != 1 else '' }}</span>
+    {% endif %}
+    {% endif %}
+    {% if p.summary.suggested_edges %}
+    <span class="text-muted">·</span>
+    <span>{{ p.summary.suggested_edges }} link{{ 's' if p.summary.suggested_edges != 1 else '' }}</span>
+    {% endif %}
+    {% if p.summary.has_compose_graph %}
+    <span class="text-muted">·</span>
+    <span class="text-success" title="depends_on from compose in inventory">compose graph</span>
+    {% endif %}
+    {% if p.inventory_status and p.inventory_status != 'ok' %}
+    <span class="text-muted">·</span>
+    <span class="text-warning" title="{{ p.inventory_error or '' }}">inv {{ p.inventory_status }}</span>
+    {% endif %}
+    {% else %}
+    <span class="text-warning">No Docker inventory on this host yet</span>
+    {% endif %}
+  </div>
+
+  {% if not p.project %}
+  <div class="fabric-stack-empty mt-3">
+    <p class="text-sm text-muted">
+      This path has no Docker project. Map a project on the service, or open Docker on the host.
+    </p>
+    {% if p.projects_available %}
+    <p class="text-xs text-muted mt-2 mb-1">Projects on {{ p.server_name }}:</p>
+    <ul class="space-y-1">
+      {% for pname in p.projects_available %}
+      <li>
+        <button type="button"
+                class="btn btn-ghost text-xs min-h-9 px-2 font-mono"
+                hx-get="/dns/stack-panel?server_id={{ p.server_id }}&project={{ pname|urlencode }}"
+                hx-target="#fabric-stack-panel-body"
+                hx-swap="innerHTML">{{ pname }}</button>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% elif not p.has_inventory %}
+  <div class="fabric-stack-empty mt-3">
+    <p class="text-sm text-muted">
+      Inventory not cached. Open
+      <a href="{{ p.docker_href }}" class="text-accent hover:underline">Docker on {{ p.server_name }}</a>
+      to refresh, then reopen this panel.
+    </p>
+  </div>
+  {% elif not p.project_found %}
+  <div class="fabric-stack-empty mt-3">
+    <p class="text-sm text-muted">
+      Project <span class="font-mono">{{ p.project }}</span> not in last inventory.
+    </p>
+    {% if p.projects_available %}
+    <p class="text-xs text-muted mt-2 mb-1">Available:</p>
+    <ul class="space-y-1">
+      {% for pname in p.projects_available %}
+      <li>
+        <button type="button"
+                class="btn btn-ghost text-xs min-h-9 px-2 font-mono"
+                hx-get="/dns/stack-panel?{% if p.service_id %}service_id={{ p.service_id }}&{% endif %}server_id={{ p.server_id }}&project={{ pname|urlencode }}"
+                hx-target="#fabric-stack-panel-body"
+                hx-swap="innerHTML">{{ pname }}</button>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% elif not p.containers %}
+  <div class="fabric-stack-empty mt-3">
+    <p class="text-sm text-muted">No containers in this project snapshot.</p>
+  </div>
+  {% else %}
+  {% if p.compose_path or p.networks %}
+  <div class="text-[10px] text-muted mb-2 leading-snug">
+    {% if p.compose_path %}<span class="font-mono">{{ p.compose_path }}</span>{% endif %}
+    {% if p.networks %} · nets {{ p.networks | join(', ') }}{% endif %}
+  </div>
+  {% endif %}
+  {% if can_mutate %}
+  <p class="text-[10px] text-muted mb-2 leading-snug">
+    <strong class="text-text">Drag ⋮⋮</strong> (desktop) or <strong class="text-text">long-press</strong> a row (mobile) to reorder.
+    Saved order sorts the panel and the map column left→right (e.g. celery last → queue column on the right). data keeps db+redis together.
+    {% if p.has_custom_order %}<span class="text-success"> · custom order on</span>{% endif %}
+  </p>
+  {% endif %}
+  <ul class="fabric-stack-list" role="list"
+      data-stack-sortable
+      data-server-id="{{ p.server_id }}"
+      data-project="{{ p.project }}"
+      data-service-id="{{ p.service_id or '' }}"
+      data-next="{{ p.next_url }}"
+      data-can-reorder="{{ '1' if can_mutate else '0' }}">
+    {% for c in p.containers %}
+    {% set ckey = c.compose_service or c.name %}
+    {% set open_detail = p.focus_container and (p.focus_container == ckey or p.focus_container == c.name) %}
+    <li class="fabric-stack-item fabric-stack-item--{{ c.role }} {% if not c.running %}is-stopped{% endif %}"
+        id="stack-ct-{{ ckey | replace('/', '-') }}"
+        data-stack-container="{{ ckey }}"
+        draggable="{{ 'true' if can_mutate else 'false' }}">
+      {% if can_mutate %}
+      <span class="fabric-stack-drag-handle" title="Drag to reorder" aria-label="Drag to reorder {{ ckey }}"
+            data-stack-drag-handle draggable="true">⋮⋮</span>
+      <span class="fabric-stack-order-badge" data-stack-order-badge title="Map order">{{ loop.index }}</span>
+      {% elif p.has_custom_order %}
+      <span class="fabric-stack-order-badge" data-stack-order-badge title="Map order">{{ loop.index }}</span>
+      {% endif %}
+      <details class="fabric-stack-detail w-full min-w-0" {% if open_detail %}open{% endif %}>
+        <summary class="fabric-stack-detail-sum">
+          <div class="fabric-stack-item-main min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+              <span class="fabric-stack-run {% if c.running %}is-up{% else %}is-down{% endif %}"
+                    title="{% if c.running %}running{% else %}stopped{% endif %}"></span>
+              <span class="font-mono text-sm font-medium truncate">{{ ckey }}</span>
+              <span class="fabric-stack-role fabric-stack-role--{{ c.role }}">{{ c.role_label or c.role }}</span>
+              {% if c.mon_status == 'covered' %}
+              <span class="text-[10px] text-success font-medium" title="Kuma bound{% if c.kuma_state %}: {{ c.kuma_state }}{% endif %}">Kuma{% if c.kuma_state %} · {{ c.kuma_state }}{% endif %}</span>
+              {% elif c.mon_status == 'muted' %}
+              <span class="text-[10px] text-muted font-medium">muted</span>
+              {% elif c.mon_status == 'infra' %}
+              <span class="text-[10px] text-muted font-medium">infra</span>
+              {% elif c.mon_status == 'none' %}
+              <span class="text-[10px] text-warning font-medium">gap</span>
+              {% endif %}
+              {% if not c.running %}<span class="text-[10px] text-warning font-medium">stopped</span>{% endif %}
+            </div>
+            <div class="text-[10px] font-mono text-muted mt-0.5">
+              {% if c.ports %}ports {{ c.ports | join(', ') }}{% else %}ports —{% endif %}
+              · {{ (c.image or '—')[:48] }}
+            </div>
+          </div>
+        </summary>
+        <div class="fabric-stack-detail-body">
+          <dl class="fabric-stack-dl">
+            <div><dt>Role</dt><dd>{{ c.role_label or c.role }}{% if c.is_infra %} · infra{% endif %}</dd></div>
+            <div><dt>State</dt><dd>{% if c.running %}<span class="text-success">running</span>{% else %}<span class="text-warning">stopped</span>{% endif %}{% if c.status %} · {{ c.status }}{% endif %}</dd></div>
+            <div><dt>Image</dt><dd class="font-mono break-all">{{ c.image or '—' }}{% if c.version %} · {{ c.version }}{% endif %}</dd></div>
+            <div><dt>Ports</dt><dd class="font-mono">{% if c.ports %}{{ c.ports | join(', ') }}{% elif c.ports_display %}{{ c.ports_display }}{% else %}—{% endif %}</dd></div>
+            <div><dt>Networks</dt><dd class="font-mono">{% if c.networks %}{{ c.networks | join(', ') }}{% else %}—{% endif %}</dd></div>
+            <div><dt>Compose</dt><dd class="font-mono break-all text-[10px]">{{ c.compose_file or c.compose_path or '—' }}</dd></div>
+            <div><dt>Kuma</dt><dd>
+              {% if c.binding %}
+                <span class="text-success">{{ c.kuma_label or c.binding.external_id }}</span>
+                {% if c.kuma_state %} · {{ c.kuma_state }}{% endif %}
+                {% if c.kuma_href %} · <a href="{{ c.kuma_href }}" class="text-accent hover:underline">open</a>{% endif %}
+              {% else %}
+                <span class="text-muted">not bound</span>
+                {% if c.mon_status == 'infra' %} (infra default mute){% endif %}
+              {% endif %}
+            </dd></div>
+            {% if c.id_short %}<div><dt>ID</dt><dd class="font-mono">{{ c.id_short }}</dd></div>{% endif %}
+          </dl>
+          <div class="flex flex-wrap gap-1 mt-2">
+            {% if c.docker_href %}
+            <a href="{{ c.docker_href }}" class="btn btn-secondary text-[10px] min-h-8 px-2">Docker</a>
+            {% endif %}
+            {% if can_mutate and c.mon_status != 'covered' and c.bind_action %}
+            <details class="fabric-stack-bind">
+              <summary class="btn btn-secondary text-[10px] min-h-8 px-2 cursor-pointer">Bind Kuma</summary>
+              <form method="post" action="{{ c.bind_action }}" class="fabric-stack-bind-form mt-1 space-y-1">
+                <input type="hidden" name="role" value="service">
+                <input type="hidden" name="server_id" value="{{ p.server_id }}">
+                <input type="hidden" name="docker_project" value="{{ p.project }}">
+                <input type="hidden" name="docker_container" value="{{ ckey }}">
+                <input type="hidden" name="next" value="{{ p.next_url }}">
+                <select name="external_id" class="input text-xs min-h-9 w-full" required>
+                  <option value="">— TCP / HTTP monitor —</option>
+                  {% if c.tcp_suggestions %}
+                  <optgroup label="Suggested TCP/DB">
+                    {% for m in c.tcp_suggestions %}
+                    <option value="{{ m.external_id }}"
+                      {% if m.external_id == c.suggested_external_id %}selected{% endif %}>
+                      {{ m.label }}
+                    </option>
+                    {% endfor %}
+                  </optgroup>
+                  {% endif %}
+                  {% if p.all_service_monitors %}
+                  <optgroup label="All monitors">
+                    {% for m in p.all_service_monitors %}
+                    <option value="{{ m.external_id }}">{{ m.label }}</option>
+                    {% endfor %}
+                  </optgroup>
+                  {% endif %}
+                </select>
+                <button type="submit" class="btn btn-accent text-xs min-h-9 w-full">Save bind</button>
+              </form>
+            </details>
+            {% endif %}
+            {% if can_mutate and c.mon_status != 'covered' %}
+            <form method="post" action="/dns/coverage/mute" class="inline">
+              <input type="hidden" name="key" value="{{ c.mute_key }}">
+              <input type="hidden" name="next" value="{{ p.next_url }}">
+              {% if c.explicitly_muted %}
+              <input type="hidden" name="unmute" value="1">
+              <button type="submit" class="btn btn-ghost text-[10px] min-h-8 px-2">Unmute</button>
+              {% else %}
+              <button type="submit" class="btn btn-ghost text-[10px] min-h-8 px-2">Mute</button>
+              {% endif %}
+            </form>
+            {% endif %}
+          </div>
+        </div>
+      </details>
+    </li>
+    {% endfor %}
+  </ul>
+  {# ── Confirmed / suggested / manual edges (P2–P3) ── #}
+  {% if p.confirmed_edges %}
+  <div class="fabric-stack-edges mt-4">
+    <div class="text-[10px] uppercase tracking-wide text-muted font-semibold mb-1.5">
+      Confirmed links ({{ p.confirmed_edges|length }})
+    </div>
+    <ul class="fabric-stack-edge-list">
+      {% for e in p.confirmed_edges %}
+      <li class="fabric-stack-edge fabric-stack-edge--{{ e.source or 'manual' }}">
+        <div class="min-w-0 flex flex-wrap items-center gap-1">
+          <span class="font-mono text-xs">
+            {% if not e.same_host %}<span class="text-muted">{{ e.from_server_name }}/</span>{% endif %}
+            {% if e.from_container %}{{ e.from_container }}{% else %}{{ e.from_project }}{% endif %}
+          </span>
+          <span class="fabric-stack-edge-arrow" aria-hidden="true">→</span>
+          <span class="font-mono text-xs">
+            {% if not e.same_host %}<span class="text-muted">{{ e.to_server_name }}/</span>{% endif %}
+            {% if e.to_container %}{{ e.to_container }}{% else %}{{ e.to_project }}{% endif %}
+          </span>
+          <span class="fabric-stack-edge-meta">{{ e.kind }} · {{ e.source }}</span>
+        </div>
+        {% if can_mutate and e.id %}
+        <form method="post" action="/dns/stack-edges/{{ e.id }}/delete" class="inline">
+          <input type="hidden" name="next" value="{{ p.next_url }}">
+          <input type="hidden" name="service_id" value="{{ p.service_id or '' }}">
+          <button type="submit" class="btn btn-ghost text-[10px] min-h-8 px-2 text-error">Remove</button>
+        </form>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if p.suggested_edges %}
+  <div class="fabric-stack-edges mt-4">
+    <div class="text-[10px] uppercase tracking-wide text-muted font-semibold mb-1.5">
+      Suggested links ({{ p.suggested_edges|length }})
+    </div>
+    <ul class="fabric-stack-edge-list">
+      {% for e in p.suggested_edges %}
+      <li class="fabric-stack-edge fabric-stack-edge--{{ e.source or 'compose' }}">
+        <div class="min-w-0 flex flex-wrap items-center gap-1">
+          <span class="font-mono text-xs">{{ e.from }}</span>
+          <span class="fabric-stack-edge-arrow" aria-hidden="true">→</span>
+          <span class="font-mono text-xs">{{ e.to }}</span>
+          <span class="fabric-stack-edge-meta">
+            {{ e.kind or 'depends_on' }}
+            · {{ e.source or 'compose' }}
+            {% if e.confidence %}<span class="text-muted">· {{ e.confidence }}%</span>{% endif %}
+            {% if e.cross_host %}<span class="text-warning">· cross-host</span>{% endif %}
+          </span>
+        </div>
+        {% if can_mutate %}
+        <div class="flex flex-wrap gap-1">
+          <form method="post" action="/dns/stack-edges/accept" class="inline">
+            <input type="hidden" name="from_server_id" value="{{ e.from_server_id or p.server_id }}">
+            <input type="hidden" name="from_project" value="{{ e.from_project or p.project }}">
+            <input type="hidden" name="from_container" value="{{ e.from }}">
+            <input type="hidden" name="to_server_id" value="{{ e.to_server_id or p.server_id }}">
+            <input type="hidden" name="to_project" value="{{ e.to_project or p.project }}">
+            <input type="hidden" name="to_container" value="{{ e.to }}">
+            <input type="hidden" name="kind" value="{{ e.kind or 'depends_on' }}">
+            <input type="hidden" name="confidence" value="{{ e.confidence or 85 }}">
+            <input type="hidden" name="next" value="{{ p.next_url }}">
+            <input type="hidden" name="service_id" value="{{ p.service_id or '' }}">
+            <button type="submit" class="btn btn-accent text-[10px] min-h-8 px-2">Accept</button>
+          </form>
+          <form method="post" action="/dns/stack-edges/dismiss" class="inline">
+            <input type="hidden" name="from_server_id" value="{{ e.from_server_id or p.server_id }}">
+            <input type="hidden" name="from_project" value="{{ e.from_project or p.project }}">
+            <input type="hidden" name="from_container" value="{{ e.from }}">
+            <input type="hidden" name="to_server_id" value="{{ e.to_server_id or p.server_id }}">
+            <input type="hidden" name="to_project" value="{{ e.to_project or p.project }}">
+            <input type="hidden" name="to_container" value="{{ e.to }}">
+            <input type="hidden" name="next" value="{{ p.next_url }}">
+            <input type="hidden" name="service_id" value="{{ p.service_id or '' }}">
+            <button type="submit" class="btn btn-ghost text-[10px] min-h-8 px-2">Dismiss</button>
+          </form>
+        </div>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="text-[10px] text-muted mt-1.5 leading-snug">
+      From compose <code class="text-text">depends_on</code>, heuristics, or fabric NPM→backend.
+      Accept stores the link; dismiss hides it.
+    </p>
+  </div>
+  {% elif p.project_found and p.containers and not p.confirmed_edges %}
+  <p class="text-[10px] text-muted mt-3 leading-snug">
+    No suggested links. Use <strong class="text-text">Refresh host</strong> for compose
+    <code class="text-text">depends_on</code>, or add a manual link below.
+  </p>
+  {% endif %}
+
+  {% if can_mutate and p.project and p.server_id %}
+  <details class="fabric-stack-manual mt-4" open>
+    <summary class="text-[11px] font-semibold text-muted cursor-pointer">+ Manual link (e.g. web → celery)</summary>
+    <p class="text-[10px] text-muted mt-1.5 leading-snug">
+      Compose often omits app→worker links (PiHerder: <span class="font-mono">web</span> and
+      <span class="font-mono">celery-worker</span> both use redis, but nothing in compose joins them).
+      Add a <strong class="text-text">talks_to</strong> link here — it shows as confirmed on the map.
+    </p>
+    <form method="post" action="/dns/stack-edges/manual" class="mt-2 space-y-2">
+      <input type="hidden" name="from_server_id" value="{{ p.server_id }}">
+      <input type="hidden" name="from_project" value="{{ p.project }}">
+      <input type="hidden" name="to_server_id" value="{{ p.server_id }}">
+      <input type="hidden" name="to_project" value="{{ p.project }}">
+      <input type="hidden" name="next" value="{{ p.next_url }}">
+      <input type="hidden" name="service_id" value="{{ p.service_id or '' }}">
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-[10px] text-muted block mb-0.5">From</label>
+          <select name="from_container" class="input text-xs min-h-9 w-full" required>
+            <option value="">— pick —</option>
+            {% for c in p.containers or [] %}
+            <option value="{{ c.compose_service or c.name }}"
+              {% if (c.compose_service or c.name) in ('web', 'api', 'app') %}selected{% endif %}>
+              {{ c.compose_service or c.name }} · {{ c.role }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="text-[10px] text-muted block mb-0.5">To</label>
+          <select name="to_container" class="input text-xs min-h-9 w-full" required>
+            <option value="">— pick —</option>
+            {% for c in p.containers or [] %}
+            <option value="{{ c.compose_service or c.name }}"
+              {% if c.role == 'queue' %}selected{% endif %}>
+              {{ c.compose_service or c.name }} · {{ c.role }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="text-[10px] text-muted block mb-0.5">Kind</label>
+          <select name="kind" class="input text-xs min-h-9 w-full">
+            <option value="talks_to" selected>talks_to (shared redis / API)</option>
+            <option value="depends_on">depends_on</option>
+            <option value="mounts">mounts</option>
+            <option value="custom">custom</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-[10px] text-muted block mb-0.5">Note (optional)</label>
+          <input name="note" class="input text-xs min-h-9 w-full" maxlength="500"
+                 placeholder="e.g. Celery broker via redis">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-accent text-xs min-h-9 px-3">Save link</button>
+    </form>
+  </details>
+  {% endif %}
+
+  {% if p.dismissed_edge_count %}
+  <p class="text-[10px] text-muted mt-2">{{ p.dismissed_edge_count }} dismissed suggestion(s) hidden.</p>
+  {% endif %}
+
+  <p class="text-[10px] text-muted mt-2 leading-snug">
+    Monitoring stays in Kuma. Drawing confirmed links on the path map is P4.
+  </p>
+  {% endif %}
+</div>
+{% endif %}

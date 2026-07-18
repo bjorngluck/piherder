@@ -727,16 +727,40 @@ if (document.readyState === 'loading') {
   initDockerFilters();
 }
 // Re-apply filters after HTMX refreshes #docker-stack (innerHTML)
+function highlightDockerProjectFromUrl() {
+  try {
+    var params = new URLSearchParams(window.location.search || '');
+    var qProj = (params.get('project') || '').trim();
+    var hash = (window.location.hash || '').replace(/^#/, '');
+    var target = null;
+    if (hash && hash.indexOf('docker-proj-') === 0) {
+      target = document.getElementById(hash);
+    }
+    if (!target && qProj) {
+      target = document.getElementById('docker-proj-' + qProj)
+        || document.querySelector('.docker-stack-block[data-proj-name="' + qProj.replace(/"/g, '') + '"]');
+    }
+    if (target) {
+      target.classList.add('docker-stack-block--highlight');
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(function () {
+        target.classList.remove('docker-stack-block--highlight');
+      }, 3500);
+    }
+  } catch (err) { /* ignore */ }
+}
 document.body.addEventListener('htmx:afterSwap', function(e) {
   const t = (e.detail && e.detail.target) || e.target;
   if (t && (t.id === 'docker-stack' || (t.closest && t.closest('#docker-stack')))) {
     applyDockerFilters();
+    highlightDockerProjectFromUrl();
   }
 });
 document.body.addEventListener('htmx:afterSettle', function(e) {
   const t = (e.detail && e.detail.target) || e.target;
   if (t && (t.id === 'docker-stack' || (t.closest && t.closest('#docker-stack')))) {
     applyDockerFilters();
+    highlightDockerProjectFromUrl();
   }
 });
 </script>

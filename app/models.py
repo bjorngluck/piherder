@@ -549,3 +549,30 @@ class ServiceDnsRecord(SQLModel, table=True):
     last_sync_detail: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class RuntimeEdge(SQLModel, table=True):
+    """Confirmed / dismissed / manual runtime dependency (topology P2–P3).
+
+    Cross-host allowed: from_server may differ from to_server (NPM edge, shared DB).
+    Container fields hold compose service names when known; empty = whole project.
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    from_server_id: int = Field(foreign_key="server.id", index=True)
+    from_project: str = Field(max_length=200, index=True)
+    from_container: Optional[str] = Field(default=None, max_length=200)
+    to_server_id: int = Field(foreign_key="server.id", index=True)
+    to_project: str = Field(max_length=200, index=True)
+    to_container: Optional[str] = Field(default=None, max_length=200)
+    # depends_on | talks_to | mounts | custom
+    kind: str = Field(default="depends_on", max_length=32, index=True)
+    # suggested | accepted | manual
+    source: str = Field(default="manual", max_length=32, index=True)
+    confidence: int = Field(default=100)
+    note: Optional[str] = Field(default=None, max_length=500)
+    dismissed_at: Optional[datetime] = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by_user_id: Optional[int] = Field(
+        default=None, foreign_key="user.id", index=True
+    )

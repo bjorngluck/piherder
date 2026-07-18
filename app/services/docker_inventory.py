@@ -139,14 +139,16 @@ def build_inventory_l1(server: Server) -> Dict[str, Any]:
         for c in (p.get("containers") or [])
         if not c.get("placeholder")
     ]
+    graphs = sum(1 for p in slim_projects if p.get("compose_graph"))
     return {
-        "v": 1,
+        "v": 2,  # v2: optional compose_graph on projects (P1b)
         "projects": slim_projects,
         "orphan_containers": slim_orphans,
         "meta": {
             "container_count": len(real_containers) + len(slim_orphans),
             "project_count": len(slim_projects),
             "duration_ms": duration_ms,
+            "compose_graphs": graphs,
         },
     }
 
@@ -195,6 +197,27 @@ def _slim_project(p: Dict[str, Any]) -> Dict[str, Any]:
         "container_count": p.get("container_count") or 0,
         "containers": [_slim_container(c) for c in (p.get("containers") or [])],
     }
+    # P1b — compose dependency graph (depends_on, networks, sha)
+    cg = p.get("compose_graph")
+    if isinstance(cg, dict) and cg:
+        # Keep compact: drop empty keys
+        slim_cg: Dict[str, Any] = {}
+        deps = cg.get("depends_on")
+        if isinstance(deps, dict) and deps:
+            slim_cg["depends_on"] = deps
+        names = cg.get("service_names")
+        if isinstance(names, list) and names:
+            slim_cg["service_names"] = names[:40]
+        nets = cg.get("networks")
+        if isinstance(nets, list) and nets:
+            slim_cg["networks"] = nets[:20]
+        links = cg.get("links")
+        if isinstance(links, dict) and links:
+            slim_cg["links"] = links
+        if cg.get("compose_sha"):
+            slim_cg["compose_sha"] = str(cg["compose_sha"])[:16]
+        if slim_cg:
+            row["compose_graph"] = slim_cg
     return row
 
 
@@ -268,6 +291,15 @@ def refresh_server_inventory(server_id: int, *, force: bool = False) -> bool:
                     payload.get("meta", {}).get("container_count"),
                     payload.get("meta", {}).get("duration_ms"),
                 )
+                # P5 — optional alerts for monitored (Kuma-bound) containers that are down
+                try:
+                    from .stack_monitor import scan_server_inventory_for_down_alerts
+
+                    scan_server_inventory_for_down_alerts(session, server)
+                except Exception:
+                    logger.exception(
+                        "stack monitor scan failed after inventory server=%s", server_id
+                    )
                 return True
             except Exception as e:
                 logger.warning("docker inventory refresh failed server=%s: %s", server_id, e)

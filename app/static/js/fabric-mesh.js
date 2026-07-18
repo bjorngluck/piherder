@@ -286,12 +286,39 @@
       copyCallout.classList.add('hidden');
       copyCallout.removeAttribute('data-copy-text');
     }
+    var stackFocus = root.querySelector('[data-fabric-stack-from-focus]');
+    if (stackFocus) {
+      stackFocus.classList.add('hidden');
+      stackFocus.removeAttribute('data-stack-url');
+    }
     var openLink = root.querySelector('[data-fabric-open-link]');
     if (openLink) {
       openLink.href = '#';
       openLink.classList.add('hidden');
       openLink.setAttribute('hidden', '');
       openLink.textContent = openLink.getAttribute('data-default-label') || 'Open host';
+    }
+    try {
+      if (window.PiHerderStackExpand && typeof window.PiHerderStackExpand.clear === 'function') {
+        window.PiHerderStackExpand.clear();
+      }
+    } catch (err) { /* optional */ }
+  }
+
+  function setStackFocusButton(root, focusId) {
+    var stackFocus = root.querySelector('[data-fabric-stack-from-focus]');
+    if (!stackFocus) return;
+    var fid = focusId != null ? String(focusId) : '';
+    // Only service path ids (numeric) — not host node focus "n:…"
+    if (fid && fid.indexOf('n:') !== 0 && /^\d+$/.test(fid)) {
+      stackFocus.setAttribute(
+        'data-stack-url',
+        '/dns/stack-panel?service_id=' + encodeURIComponent(fid)
+      );
+      stackFocus.classList.remove('hidden');
+    } else {
+      stackFocus.classList.add('hidden');
+      stackFocus.removeAttribute('data-stack-url');
     }
   }
 
@@ -317,6 +344,8 @@
         copyCallout.removeAttribute('data-copy-text');
       }
     }
+    // Stack only when focus is a mapped service path (set in focusPath)
+    setStackFocusButton(root, root._fabricFocusId);
     if (openLink) {
       if (!openLink.getAttribute('data-default-label')) {
         openLink.setAttribute('data-default-label', openLink.textContent || 'Open host');
@@ -416,6 +445,7 @@
     root.classList.add('is-focusing');
     root._fabricFocusId = idStr;
     root._fabricActiveSet = activeSet;
+    setStackFocusButton(root, idStr);
     var found = false;
     focusableIn(root).forEach(function (el) {
       var hasPath =
@@ -456,6 +486,12 @@
     var clearBtn = root.querySelector('[data-fabric-clear-focus]');
     if (clearBtn) clearBtn.classList.remove('hidden');
     raiseActiveToFront(root);
+    // P4 — path map stack expand (containers + confirmed edges)
+    try {
+      if (window.PiHerderStackExpand && typeof window.PiHerderStackExpand.show === 'function') {
+        window.PiHerderStackExpand.show(idStr);
+      }
+    } catch (err) { /* optional */ }
   }
 
   function copyText(text, btn) {
@@ -517,8 +553,29 @@
     ));
   }
 
+  /**
+   * Card/list controls only — NOT map nodes.
+   * Map nodes are wrapped in <a href="…">; treating those as chrome
+   * broke all path/host focus (regression).
+   */
+  function isFabricChrome(el) {
+    if (!el || !el.closest) return false;
+    // Never classify SVG mesh content as chrome (even when inside <a>)
+    if (isInMesh(el)) return false;
+    return !!el.closest(
+      'button, input, select, textarea, summary, label, form, ' +
+      '[data-fabric-stack-open], [data-fabric-copy-path], [data-fabric-copy-callout], ' +
+      '[data-fabric-open-graph], [data-fabric-close-graph], ' +
+      '[data-fabric-fullscreen], [data-fabric-zoom-in], [data-fabric-zoom-out], ' +
+      '[data-fabric-zoom-reset], [data-fabric-clear-focus], [data-fabric-stack-close]'
+    );
+  }
+
   function pathTargetFrom(el) {
     if (!el || !el.closest) return null;
+    // Buttons on path cards / flow rows: do not resolve to the card for focus
+    // (pointerup preventDefault would kill the following click on mobile).
+    if (isFabricChrome(el)) return null;
     return el.closest('[data-path-id], [data-path-ids], [data-node-id]');
   }
 
@@ -669,13 +726,17 @@
     root.addEventListener(
       'click',
       function (e) {
-        // Explicit chrome — leave alone (View full map, zoom, full screen, copy, Open host, forms…)
+        // Explicit chrome — leave alone (zoom, stack, copy, forms…).
+        // Also leave mesh <a> alone for the special mesh click handler below;
+        // list/card chrome uses isFabricChrome (never matches mesh).
         if (
+          isFabricChrome(e.target) ||
           e.target.closest(
             '[data-fabric-open-graph], [data-fabric-close-graph], [data-fabric-fullscreen], ' +
             '[data-fabric-zoom-in], [data-fabric-zoom-out], [data-fabric-zoom-reset], ' +
             '[data-fabric-copy-path], [data-fabric-copy-callout], [data-fabric-open-link], ' +
-            'input, select, textarea, summary, label'
+            '[data-fabric-stack-open], [data-fabric-stack-close], ' +
+            'input, select, textarea, summary, label, button'
           )
         ) {
           return;
@@ -757,6 +818,11 @@
       function (e) {
         if (e.pointerType !== 'touch') return;
         markTouchActivity();
+        // Buttons/links on path cards must keep their own click (mobile)
+        if (isFabricChrome(e.target)) {
+          touchDown = null;
+          return;
+        }
         var t = pathTargetFrom(e.target);
         if (t && root.contains(t)) {
           var key = focusKeyFrom(t);
@@ -783,6 +849,12 @@
         if (e.pointerType !== 'touch') return;
         if (e.button != null && e.button !== 0) return;
         markTouchActivity();
+
+        // Never preventDefault on chrome — that kills the following click on iOS/Android
+        if (isFabricChrome(e.target)) {
+          touchDown = null;
+          return;
+        }
 
         var vp = e.target.closest('[data-fabric-viewport]');
         if (!vp) {

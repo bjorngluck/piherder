@@ -62,6 +62,14 @@ from .kuma_coverage import (  # noqa: F401
     suggest_monitors_for_service,
     enrich_gaps_with_bind_hints,
 )
+from .stack_panel import (  # noqa: F401
+    build_stack_panel,
+    resolve_stack_target,
+    guess_container_role,
+)
+from .stack_expand import (  # noqa: F401
+    build_stack_expand_payload,
+)
 
 __all__ = [n for n in dir(_core) if not n.startswith("__")]
 

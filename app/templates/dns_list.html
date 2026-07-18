@@ -81,8 +81,8 @@
         <strong class="text-text">host</strong> →
         <strong class="text-text">service</strong> →
         <strong class="text-text">container</strong>.
-        Hover or tap a card to focus; open maps with the same focus.
-        On maps, finger tap focuses only — use <strong class="text-text">Open host</strong> to browse to the server.
+        Tap <strong class="text-text">Stack</strong> for containers / ports / Kuma.
+        Maps: focus a path, then <strong class="text-text">Stack</strong> under the map.
       </p>
     </div>
     <div class="flex flex-wrap gap-2 text-[11px] items-center">
@@ -171,6 +171,12 @@
         </div>
         {% if can_mutate %}
         <div class="flex flex-wrap gap-1 fabric-path-actions">
+          <button type="button"
+                  class="btn btn-secondary text-xs min-h-11 px-2"
+                  data-fabric-stack-open
+                  data-stack-url="/dns/stack-panel?service_id={{ s.id }}"
+                  title="Containers, ports, and Kuma for this runtime stack"
+                  onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){PiHerderStackPanel.open(this.getAttribute('data-stack-url'));}return false;">Stack</button>
           <form method="post" action="/dns/services/{{ s.id }}/sync" class="inline">
             <button type="submit" class="btn btn-secondary text-xs min-h-11 px-2">Sync</button>
           </form>
@@ -190,7 +196,13 @@
           </form>
         </div>
         {% else %}
-        <div class="flex flex-wrap gap-1">
+        <div class="flex flex-wrap gap-1 fabric-path-actions">
+          <button type="button"
+                  class="btn btn-secondary text-xs min-h-11 px-2"
+                  data-fabric-stack-open
+                  data-stack-url="/dns/stack-panel?service_id={{ s.id }}"
+                  title="Containers, ports, and Kuma for this runtime stack"
+                  onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){PiHerderStackPanel.open(this.getAttribute('data-stack-url'));}return false;">Stack</button>
           <button type="button" class="btn btn-secondary text-xs min-h-11 px-2"
                   data-fabric-copy-path
                   data-copy-text="{{ s.path_chain or s.fqdn }}">Copy path</button>
@@ -369,6 +381,17 @@
       then pick monitors here for the router / public IP.
     </p>
     {% endif %}
+    <label class="flex items-start gap-2 min-h-11 text-sm">
+      <input type="checkbox" name="stack_inventory_down_alerts" value="1" class="mt-1"
+             {% if stack_inventory_down_alerts is not defined or stack_inventory_down_alerts %}checked{% endif %}>
+      <span>
+        <strong class="text-text">Alert when a Kuma-bound container is stopped</strong>
+        <span class="block text-[11px] text-muted">
+          After Docker inventory refresh: only containers with a service bind (not muted-unbound infra).
+          Uses Notifications · default on.
+        </span>
+      </span>
+    </label>
     <div class="flex flex-wrap gap-2 items-center">
       <button type="submit" class="btn btn-secondary text-sm min-h-11">Save network map</button>
       <button type="submit" formaction="/dns/network/lookup-public-ip" formmethod="post"
@@ -419,5 +442,6 @@
 </div>
 {% endif %}
 
-<script src="/static/js/fabric-mesh.js?v=20260716-orient" defer></script>
+{% include "partials/dns_stack_drawer.html" %}
+<script src="/static/js/fabric-mesh.js?v=20260718-fix2" defer></script>
 {% endblock %}

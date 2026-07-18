@@ -55,7 +55,7 @@ from .app_settings import load_settings
 logger = logging.getLogger(__name__)
 
 # Bump when payload shape gains tables (restore stays backward compatible)
-BACKUP_FORMAT_VERSION = "2"
+BACKUP_FORMAT_VERSION = "3"
 
 # Relationship / non-column keys to drop from model_dump
 _EXCLUDE_REL = {
@@ -235,6 +235,12 @@ def _snapshot_service_dns_records() -> List[Dict[str, Any]]:
     return _snapshot_table(ServiceDnsRecord)
 
 
+def _snapshot_runtime_edges() -> List[Dict[str, Any]]:
+    from ..models import RuntimeEdge
+
+    return _snapshot_table(RuntimeEdge)
+
+
 def _snapshot_audit(since_days: Optional[int] = None) -> List[Dict[str, Any]]:
     with Session(engine) as s:
         q = select(AuditLog).order_by(AuditLog.started_at.desc())
@@ -305,6 +311,7 @@ def _build_backup_payload(
             "service_templates",
             "stack_deployments",
             "service_dns_records",
+            "runtime_edges",
             "herder_config",
             "avatars",
             "service_logos",
@@ -331,6 +338,7 @@ def _build_backup_payload(
         "service_templates": _snapshot_service_templates(),
         "stack_deployments": _snapshot_stack_deployments(),
         "service_dns_records": _snapshot_service_dns_records(),
+        "runtime_edges": _snapshot_runtime_edges(),
         "herder_config": load_settings(),
     }
     if include_audit:
@@ -857,6 +865,11 @@ def restore_herder_backup(
         result["restored_service_dns_records"] = _upsert_rows(
             s, ServiceDnsRecord, payload.get("service_dns_records") or []
         )
+        from ..models import RuntimeEdge
+
+        result["restored_runtime_edges"] = _upsert_rows(
+            s, RuntimeEdge, payload.get("runtime_edges") or []
+        )
 
         result["restored_docker_versions"] = _upsert_rows(
             s, DockerVersion, payload.get("docker_versions") or []
@@ -926,6 +939,7 @@ def _fix_postgres_sequences() -> None:
         "servicetemplate",
         "stackdeployment",
         "servicednsrecord",
+        "runtimeedge",
         "integration",
         "integrationbinding",
     ]

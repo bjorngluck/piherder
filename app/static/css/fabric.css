@@ -1005,6 +1005,13 @@ a.fabric-hop:hover {
   background: var(--color-surface);
   border: 1.5px solid var(--color-border);
 }
+.fabric-legend-sample--stack-box {
+  width: 1.1rem;
+  height: 0.7rem;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--color-success, #059669) 10%, var(--color-surface));
+  border: 1.5px solid color-mix(in srgb, var(--color-success, #059669) 50%, var(--color-border));
+}
 .fabric-legend-sample--host-npm {
   width: 1.1rem;
   height: 0.7rem;
@@ -1082,9 +1089,17 @@ a.fabric-hop:hover {
 }
 /* Dimmed edges almost gone — stops “line in front of card” when boxes fade */
 .is-focusing .fabric-mesh-edge.ph-focus-dim,
-.is-focusing .fabric-mesh-edge:not(.ph-focus-active) {
+.is-focusing .fabric-mesh-edge:not(.ph-focus-active):not(.fabric-mesh-edge--stack-lead):not(.fabric-mesh-edge--stack-struct):not(.fabric-mesh-edge--stack-dep) {
   opacity: 0.07 !important;
   stroke-width: 1.25;
+}
+/* Runtime stack connectors always stay visible while focused */
+.is-focusing .fabric-stack-expand-layer .fabric-mesh-edge--stack-lead,
+.is-focusing .fabric-stack-expand-layer .fabric-mesh-edge--stack-struct,
+.is-focusing .fabric-stack-expand-layer .fabric-mesh-edge--stack-dep,
+.is-focusing .fabric-stack-expand-layer path,
+.is-focusing .fabric-stack-expand-layer line {
+  opacity: 1 !important;
 }
 /* Dimmed nodes: solid muted fills (no transparency over edges) */
 .fabric-mesh-node.ph-focus-dim,
@@ -1113,6 +1128,15 @@ a:has(> .fabric-mesh-node.ph-focus-dim) {
 .fabric-mesh-node.ph-focus-active ellipse {
   stroke-width: 2.5;
   stroke: var(--color-accent);
+}
+/* Stack expand chips keep role colors (do not force accent fill/stroke) */
+.fabric-mesh-stack-node.ph-focus-active rect.fabric-mesh-stack-box,
+.fabric-stack-expand-layer .fabric-mesh-stack-node rect.fabric-mesh-stack-box {
+  /* inline stroke wins; ensure no wash-out */
+  filter: none !important;
+}
+.fabric-mesh-stack-node.ph-focus-active {
+  filter: none !important;
 }
 /* While focusing, kill host glow filter — it softens the whole node */
 .is-focusing .fabric-mesh-node--host {
@@ -2034,5 +2058,568 @@ a.dash-metric-card:hover {
 }
 .dash-pihole-row.is-primary {
   background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+}
+
+/* ── Runtime stack modal (same family as job-hold / confirm) ─── */
+body.fabric-stack-open {
+  overflow: hidden;
+}
+/* Closed by default — never cover the page while inert */
+.fabric-stack-drawer {
+  display: none !important;
+  position: fixed;
+  inset: 0;
+  z-index: 120000; /* above map fullscreen (100000) */
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem;
+  pointer-events: none !important;
+}
+.fabric-stack-drawer.is-open {
+  display: flex !important;
+  pointer-events: auto !important;
+}
+.fabric-stack-drawer[hidden] {
+  display: none !important;
+  pointer-events: none !important;
+}
+.fabric-stack-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7); /* match job-hold / wait modal */
+  pointer-events: auto;
+}
+.fabric-stack-sheet {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 28rem;
+  max-height: min(85vh, 40rem);
+  max-height: min(calc(var(--app-vh, 1vh) * 85), 40rem);
+  margin: 0 auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto;
+  animation: fabric-stack-pop 0.16s ease-out;
+  overflow: hidden;
+}
+@keyframes fabric-stack-pop {
+  from { transform: translateY(0.5rem) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+@media (max-width: 640px) {
+  .fabric-stack-drawer.is-open {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .fabric-stack-sheet {
+    max-width: 100%;
+    width: 100%;
+    max-height: min(92vh, 100%);
+    max-height: min(calc(var(--app-vh, 1vh) * 92), 100%);
+    border-radius: 14px 14px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    animation-name: fabric-stack-sheet-up;
+  }
+  @keyframes fabric-stack-sheet-up {
+    from { transform: translateY(100%); opacity: 0.85; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+}
+.fabric-stack-sheet-bar {
+  /* layout from .ph-detail-modal-head; keep padding for card rhythm */
+  padding: 0.15rem 0.15rem 0.35rem;
+  margin: 0 0.15rem;
+  flex-shrink: 0;
+}
+.fabric-stack-sheet-body {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 0.85rem 1rem 1.15rem;
+  -webkit-overflow-scrolling: touch;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+/* Loading — same spinner language as ph-wait-modal / nav-loading */
+.fabric-stack-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 1.75rem 1rem 1.5rem;
+  min-height: 9rem;
+}
+.fabric-stack-loading-spin {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-bottom: 1rem;
+  border-radius: 999px;
+  border: 2px solid var(--color-accent, #e60012);
+  border-top-color: transparent;
+  animation: fabric-stack-spin 0.85s linear infinite;
+}
+@keyframes fabric-stack-spin {
+  to { transform: rotate(360deg); }
+}
+.fabric-stack-loading-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 0.35rem;
+}
+.fabric-stack-loading-sub {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  margin: 0;
+}
+.fabric-stack-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+/* Clear destination links in stack modal */
+.fabric-stack-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: 0.4rem;
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg) 45%, var(--color-surface));
+}
+.fabric-stack-nav-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-height: 2.5rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-accent, #2563eb) 28%, var(--color-border));
+  background: var(--color-surface);
+  text-decoration: none;
+  color: var(--color-text);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.fabric-stack-nav-link:hover {
+  border-color: var(--color-accent, #2563eb);
+  background: color-mix(in srgb, var(--color-accent, #2563eb) 8%, var(--color-surface));
+}
+.fabric-stack-nav-k {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-accent, #2563eb);
+}
+.fabric-stack-nav-v {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fabric-stack-summary {
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.35rem;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+.fabric-stack-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.fabric-stack-item {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg) 35%, var(--color-surface));
+  touch-action: pan-y;
+}
+.fabric-stack-item.is-dragging {
+  opacity: 0.55;
+  border-color: var(--color-accent, #2563eb);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  z-index: 2;
+  /* Critical for touch reorder: finger sits on this row; without this,
+     elementFromPoint / hit tests never see neighbours under the gesture. */
+  pointer-events: none;
+}
+.fabric-stack-item.is-drag-over {
+  border-top: 2px solid var(--color-accent, #2563eb);
+}
+.fabric-stack-list.is-reordering {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+.fabric-stack-list.is-order-saved {
+  outline: 2px solid color-mix(in srgb, var(--color-success, #059669) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+.fabric-stack-list.is-order-error {
+  outline: 2px solid color-mix(in srgb, var(--color-danger, #dc2626) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+.fabric-stack-drag-handle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  min-height: 2.5rem;
+  margin: 0;
+  padding: 0.25rem 0;
+  border: none;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-bg) 60%, transparent);
+  color: var(--color-muted);
+  font-size: 0.7rem;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.fabric-stack-drag-handle:active {
+  cursor: grabbing;
+  color: var(--color-accent, #2563eb);
+}
+.fabric-stack-order-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.55rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-accent, #2563eb) 18%, var(--color-surface));
+  color: var(--color-accent, #2563eb);
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.fabric-stack-detail {
+  width: 100%;
+}
+.fabric-stack-detail-sum {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+.fabric-stack-detail-sum::-webkit-details-marker {
+  display: none;
+}
+.fabric-stack-detail-body {
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+.fabric-stack-dl {
+  display: grid;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.7rem;
+}
+.fabric-stack-dl > div {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  gap: 0.35rem;
+}
+.fabric-stack-dl dt {
+  color: var(--color-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  padding-top: 0.1rem;
+}
+.fabric-stack-dl dd {
+  margin: 0;
+  color: var(--color-text);
+  min-width: 0;
+}
+.fabric-stack-item.is-stopped {
+  opacity: 0.78;
+}
+.fabric-stack-item-main {
+  min-width: 0;
+  flex: 1 1 10rem;
+}
+.fabric-stack-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  align-items: flex-start;
+  flex-shrink: 0;
+}
+.fabric-stack-run {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: var(--color-muted);
+}
+.fabric-stack-run.is-up {
+  background: var(--color-success, #059669);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-success, #059669) 25%, transparent);
+}
+.fabric-stack-run.is-down {
+  background: var(--color-warning, #d97706);
+}
+.fabric-stack-role {
+  font-size: 0.58rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.08rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+}
+.fabric-stack-role--data {
+  border-color: color-mix(in srgb, #6366f1 45%, var(--color-border));
+  color: #818cf8;
+}
+.fabric-stack-role--cache {
+  border-color: color-mix(in srgb, #06b6d4 45%, var(--color-border));
+  color: #22d3ee;
+}
+.fabric-stack-role--edge {
+  border-color: color-mix(in srgb, var(--color-warning, #d97706) 50%, var(--color-border));
+  color: var(--color-warning, #d97706);
+}
+.fabric-stack-role--queue {
+  border-color: color-mix(in srgb, #a855f7 45%, var(--color-border));
+  color: #c084fc;
+}
+.fabric-stack-role--app {
+  border-color: color-mix(in srgb, var(--color-success, #059669) 45%, var(--color-border));
+  color: var(--color-success, #059669);
+}
+.fabric-stack-bind summary {
+  list-style: none;
+}
+.fabric-stack-bind summary::-webkit-details-marker {
+  display: none;
+}
+.fabric-stack-bind-form {
+  min-width: 11rem;
+  max-width: 16rem;
+  padding: 0.4rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.fabric-stack-empty {
+  padding: 0.75rem 0.25rem;
+}
+
+/* ── P4 path-map stack expand layer ───────────────────────────── */
+.fabric-stack-expand-layer {
+  pointer-events: none; /* edges non-interactive */
+}
+.fabric-stack-expand-layer .fabric-mesh-stack-node,
+.fabric-stack-expand-layer .fabric-mesh-stack-deeplink {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.fabric-mesh-stack-deeplink:hover rect {
+  stroke-opacity: 1;
+  fill-opacity: 1;
+}
+/* Stack expand connecting lines — thick, high contrast */
+.fabric-mesh-edge--stack-lead {
+  stroke: #475569 !important;
+  stroke-width: 3.5 !important;
+  stroke-linecap: round;
+  opacity: 1 !important;
+}
+.fabric-mesh-edge--stack-struct {
+  stroke: #475569 !important;
+  stroke-width: 3 !important;
+  stroke-dasharray: 6 4 !important;
+  stroke-linecap: round;
+  opacity: 1 !important;
+}
+.fabric-mesh-edge--stack-dep {
+  stroke: #0f766e !important;
+  stroke-width: 3.5 !important;
+  stroke-linecap: round;
+  opacity: 1 !important;
+}
+.fabric-mesh-edge--stack-dep.fabric-mesh-edge--manual {
+  stroke: #d97706 !important;
+}
+.fabric-mesh-edge--stack-dep.fabric-mesh-edge--accepted {
+  stroke: #0f766e !important;
+}
+/* Don't dim stack connectors when path is focused */
+.is-focusing .fabric-stack-expand-layer .fabric-mesh-edge--stack-lead,
+.is-focusing .fabric-stack-expand-layer .fabric-mesh-edge--stack-struct,
+.is-focusing .fabric-stack-expand-layer .fabric-mesh-edge--stack-dep {
+  opacity: 1 !important;
+}
+.fabric-mesh-stack-col-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  fill: var(--color-muted);
+}
+.fabric-mesh-stack-box {
+  stroke-width: 1.5;
+}
+.fabric-mesh-stack-node--app .fabric-mesh-stack-box {
+  fill: color-mix(in srgb, var(--color-success, #059669) 14%, var(--color-surface));
+  stroke: color-mix(in srgb, var(--color-success, #059669) 60%, var(--color-border));
+}
+.fabric-mesh-stack-node--data .fabric-mesh-stack-box {
+  fill: color-mix(in srgb, #6366f1 16%, var(--color-surface));
+  stroke: color-mix(in srgb, #6366f1 65%, var(--color-border));
+}
+.fabric-mesh-stack-node--cache .fabric-mesh-stack-box {
+  fill: color-mix(in srgb, #06b6d4 16%, var(--color-surface));
+  stroke: color-mix(in srgb, #06b6d4 65%, var(--color-border));
+}
+.fabric-mesh-stack-node--edge .fabric-mesh-stack-box {
+  fill: color-mix(in srgb, var(--color-warning, #d97706) 16%, var(--color-surface));
+  stroke: color-mix(in srgb, var(--color-warning, #d97706) 65%, var(--color-border));
+}
+.fabric-mesh-stack-node--queue .fabric-mesh-stack-box {
+  fill: color-mix(in srgb, #a855f7 16%, var(--color-surface));
+  stroke: color-mix(in srgb, #a855f7 65%, var(--color-border));
+}
+.fabric-mesh-stack-node--tooling .fabric-mesh-stack-box {
+  fill: color-mix(in srgb, var(--color-muted) 12%, var(--color-surface));
+  stroke: var(--color-border);
+}
+.fabric-mesh-stack-type-bg {
+  fill: color-mix(in srgb, var(--color-bg) 40%, transparent);
+}
+.fabric-mesh-stack-type-bg--edge { fill: color-mix(in srgb, var(--color-warning, #d97706) 35%, var(--color-surface)); }
+.fabric-mesh-stack-type-bg--app { fill: color-mix(in srgb, var(--color-success, #059669) 35%, var(--color-surface)); }
+.fabric-mesh-stack-type-bg--queue { fill: color-mix(in srgb, #a855f7 35%, var(--color-surface)); }
+.fabric-mesh-stack-type-bg--data { fill: color-mix(in srgb, #6366f1 35%, var(--color-surface)); }
+.fabric-mesh-stack-type-bg--cache { fill: color-mix(in srgb, #06b6d4 35%, var(--color-surface)); }
+.fabric-mesh-stack-type {
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  fill: var(--color-text);
+  opacity: 0.9;
+}
+.fabric-mesh-stack-node.is-stopped {
+  opacity: 0.72;
+}
+.fabric-mesh-stack-label {
+  font-size: 10px;
+  font-weight: 650;
+  fill: var(--color-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.fabric-mesh-stack-run.is-up {
+  fill: var(--color-success, #059669);
+}
+.fabric-mesh-stack-run.is-down {
+  fill: var(--color-warning, #d97706);
+}
+/* Focused path: keep expand visible (not dimmed) */
+.is-focusing .fabric-stack-expand-layer .fabric-mesh-stack-node,
+.is-focusing .fabric-stack-expand-layer .fabric-mesh-edge {
+  opacity: 1;
+}
+.fabric-stack-edges {
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  padding-top: 0.65rem;
+}
+.fabric-stack-edge-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.fabric-stack-edge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg) 30%, var(--color-surface));
+  font-size: 0.75rem;
+}
+.fabric-stack-edge--compose {
+  border-left: 3px solid var(--color-success, #059669);
+}
+.fabric-stack-edge--heuristic,
+.fabric-stack-edge--fabric {
+  border-left: 3px solid var(--color-muted);
+  opacity: 0.92;
+}
+.fabric-stack-edge--accepted {
+  border-left: 3px solid var(--color-accent, #2563eb);
+}
+.fabric-stack-edge--manual {
+  border-left: 3px solid var(--color-warning, #d97706);
+}
+.fabric-stack-edge {
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.fabric-stack-manual {
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+  padding-top: 0.5rem;
+}
+.fabric-stack-manual summary {
+  list-style: none;
+}
+.fabric-stack-manual summary::-webkit-details-marker {
+  display: none;
+}
+.fabric-stack-edge-arrow {
+  color: var(--color-muted);
+  font-size: 0.7rem;
+}
+.fabric-stack-edge-meta {
+  margin-left: auto;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted);
 }
 

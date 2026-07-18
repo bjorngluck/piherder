@@ -1897,6 +1897,12 @@ body.server-reorder-active #bulk-hint {
   flex-direction: column;
   gap: 0.75rem;
 }
+.docker-stack-block--highlight {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 16%, transparent);
+  border-radius: 12px;
+  transition: outline 0.2s ease, box-shadow 0.2s ease;
+}
 .docker-stack-block {
   border: 1px solid var(--color-border);
   border-radius: 10px;

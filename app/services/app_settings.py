@@ -63,6 +63,10 @@ DEFAULTS: Dict[str, Any] = {
     "kuma_coverage_mute_patterns": "",  # e.g. ["minio","vault"] or comma-separated
     "kuma_coverage_mute_keys": "[]",  # JSON list of "server_id:project:container"
     "kuma_coverage_show_infra": False,  # if true, postgres/redis etc. appear as dep gaps
+    # P5: after Docker inventory refresh, alert when a Kuma-bound container is stopped
+    "stack_inventory_down_alerts": True,
+    # Operator stack container order: {"server_id:project": ["caddy","web","db",...]}
+    "stack_container_order_json": "{}",
 }
 
 
