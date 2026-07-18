@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% set step = wizard_step or 'identity' %}
+{% set srv = server %}
+
+<div class="max-w-2xl mx-auto" data-testid="add-server-wizard" data-wizard-step="{{ step }}">
+  <div class="mb-4">
+    <a href="/servers" class="text-xs text-accent hover:underline">← All servers</a>
+    <h1 class="text-2xl sm:text-3xl font-semibold tracking-tighter text-text mt-1">Add server</h1>
+    <p class="text-sm text-muted mt-1">
+      Guided setup · step {{ wizard_step_index }} of {{ wizard_step_total }}
+      <span class="text-muted">·</span>
+      <a href="/servers/new/advanced" class="text-accent hover:underline" data-testid="wizard-advanced-link">Advanced form</a>
+    </p>
+  </div>
+
+  {# Step indicator #}
+  <nav class="wizard-steps mb-6" aria-label="Setup steps" data-testid="wizard-step-indicator">
+    <ol class="wizard-steps-list">
+      {% for s in wizard_steps %}
+      <li class="wizard-step wizard-step--{{ s.state }}"
+          data-testid="wizard-step-{{ s.key }}"
+          {% if s.state == 'current' %}aria-current="step"{% endif %}>
+        <span class="wizard-step-num" aria-hidden="true">{{ s.index }}</span>
+        <span class="wizard-step-label">{{ s.label }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </nav>
+
+  {% if error %}
+  <div class="mb-4 p-3 banner-error border border-border rounded text-sm" role="alert">{{ error }}</div>
+  {% endif %}
+  {% if flash_error %}
+  <div class="mb-4 p-3 banner-error border border-border rounded text-sm" role="alert" data-testid="wizard-flash-error">
+    {% if flash_error == 'ssh_fail' %}SSH test failed{% elif flash_error == 'key_deploy_fail' %}Key deploy failed{% else %}{{ flash_error }}{% endif %}{% if flash_detail %}: {{ flash_detail }}{% endif %}
+  </div>
+  {% endif %}
+  {% if flash_msg %}
+  <div class="mb-4 p-3 banner-success border border-border rounded text-sm" role="status" data-testid="wizard-flash-ok">
+    {% if flash_msg == 'ssh_ok' %}
+    <strong>SSH OK</strong> — key (or password) login works. Clear any bootstrap password when ready.
+    {% elif flash_msg == 'key_deployed' %}
+    <strong>Key deployed</strong> and verified. Prefer keys-only — clear stored password below if still set.
+    {% elif flash_msg == 'password_cleared' %}
+    <strong>Password cleared</strong> — this host is keys-only in PiHerder.
+    {% elif flash_msg == 'password_already_clear' %}
+    No stored SSH password on this host.
+    {% else %}
+    {{ flash_msg }}
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# ── 1 Identity ─────────────────────────────────────────────── #}
+  {% if step == 'identity' %}
+  <form method="post" action="/servers/new/identity" class="card p-5 sm:p-6 space-y-4"
+        data-testid="wizard-form-identity">
+    <h2 class="font-semibold text-sm text-text">Identity</h2>
+    <p class="text-xs text-muted -mt-2">Name people will recognise, and how PiHerder reaches the host over SSH.</p>
+    <div>
+      <label class="block text-sm text-muted mb-1" for="wiz-name">Name</label>
+      <input id="wiz-name" name="name" required data-testid="wizard-input-name"
+             class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+    </div>
+    <div>
+      <label class="block text-sm text-muted mb-1" for="wiz-hostname">Hostname or IP</label>
+      <input id="wiz-hostname" name="hostname" required placeholder="rpi5-2.example.com"
+             data-testid="wizard-input-hostname"
+             class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono text-sm">
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="block text-sm text-muted mb-1" for="wiz-user">SSH username</label>
+        <input id="wiz-user" name="ssh_username" value="bjorn"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono text-sm">
+      </div>
+      <div>
+        <label class="block text-sm text-muted mb-1" for="wiz-port">Port</label>
+        <input id="wiz-port" name="ssh_port" type="number" value="22"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+      </div>
+    </div>
+    <div class="flex flex-wrap gap-2 pt-2">
+      <button type="submit" class="btn btn-accent min-h-11 font-medium" data-testid="wizard-continue">Continue →</button>
+      <a href="/servers" class="btn btn-secondary min-h-11">Cancel</a>
+    </div>
+  </form>
+  {% endif %}
+
+  {# ── 2 Trust ────────────────────────────────────────────────── #}
+  {% if step == 'trust' and srv %}
+  <form method="post" action="/servers/new/trust" class="card p-5 sm:p-6 space-y-4"
+        data-testid="wizard-form-trust">
+    <input type="hidden" name="server_id" value="{{ srv.id }}">
+    <h2 class="font-semibold text-sm text-text">Trust</h2>
+    <p class="text-xs text-muted -mt-2">
+      Keys are encrypted with the master key immediately.
+      <span class="font-mono text-[11px]">{{ srv.name }} · {{ srv.hostname }}</span>
+    </p>
+    <div class="pt-1">
+      <div class="font-medium mb-2 text-sm">Auth method <span class="text-muted font-normal">(keys recommended)</span></div>
+      <label class="flex items-center gap-2 text-sm min-h-11">
+        <input type="radio" name="key_mode" value="generate" checked onchange="toggleWizardAuth()"> Generate new keypair (recommended)
+      </label>
+      <label class="flex items-center gap-2 text-sm min-h-11">
+        <input type="radio" name="key_mode" value="upload" onchange="toggleWizardAuth()"> Upload private key
+      </label>
+      <label class="flex items-center gap-2 text-sm min-h-11 text-warning">
+        <input type="radio" name="key_mode" value="password" onchange="toggleWizardAuth()"> Use password only (discouraged)
+      </label>
+    </div>
+    <div id="wiz-upload-key" class="hidden">
+      <label class="block text-sm text-muted mb-1">Private key</label>
+      <textarea name="private_key" rows="8" placeholder="-----BEGIN OPENSSH PRIVATE KEY-----&#10;..."
+                class="w-full font-mono text-xs code-surface border border-border p-3 rounded"></textarea>
+    </div>
+    <div>
+      <label class="block text-sm text-muted mb-1" id="wiz-pw-label">Optional password <span class="text-muted font-normal">(for Deploy key)</span></label>
+      <input type="password" name="ssh_password" id="wiz-ssh-password"
+             class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
+             placeholder="SSH password (encrypted at rest)">
+      <p class="text-xs text-muted mt-1" id="wiz-pw-hint">
+        Store a one-time password only to bootstrap key deploy. Clear it after key auth works.
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2 pt-2">
+      {% if wizard_prev %}
+      <a href="/servers/new?step={{ wizard_prev }}&amp;server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-back">← Back</a>
+      {% endif %}
+      <button type="submit" class="btn btn-accent min-h-11 font-medium" data-testid="wizard-continue">Continue →</button>
+      <a href="/servers/new/exit?server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-save-exit">Save &amp; exit</a>
+    </div>
+  </form>
+  <script>
+  function toggleWizardAuth() {
+    const mode = (document.querySelector('input[name="key_mode"]:checked') || {}).value || 'generate';
+    const upload = document.getElementById('wiz-upload-key');
+    const label = document.getElementById('wiz-pw-label');
+    const hint = document.getElementById('wiz-pw-hint');
+    if (upload) upload.classList.toggle('hidden', mode !== 'upload');
+    if (mode === 'password') {
+      if (label) label.innerHTML = 'Password <span class="text-warning font-normal">(required)</span>';
+      if (hint) hint.textContent = 'Password-only works for some jobs; backups need a private key for rsync. Prefer generate + deploy.';
+    } else {
+      if (label) label.innerHTML = 'Optional password <span class="text-muted font-normal">(for Deploy key)</span>';
+      if (hint) hint.textContent = 'Store a one-time password only to bootstrap key deploy. Clear it after key auth works.';
+    }
+  }
+  document.addEventListener('DOMContentLoaded', toggleWizardAuth);
+  </script>
+  {% endif %}
+
+  {# ── 3 Connect ──────────────────────────────────────────────── #}
+  {% if step == 'connect' and srv %}
+  <div class="card p-5 sm:p-6 space-y-4" data-testid="wizard-panel-connect">
+    <h2 class="font-semibold text-sm text-text">Connect</h2>
+    <p class="text-sm text-muted">
+      Reach the host: deploy the public key (if needed), test login, then clear any one-time password.
+      Host: <span class="font-mono text-xs text-text">{{ srv.ssh_username }}@{{ srv.hostname }}:{{ srv.ssh_port }}</span>
+    </p>
+
+    <div class="space-y-3 border border-border rounded p-3 bg-bg">
+      <form method="post" action="/servers/new/connect/deploy-key" class="space-y-2" data-testid="wizard-form-deploy-key">
+        <input type="hidden" name="server_id" value="{{ srv.id }}">
+        <div class="font-medium text-sm text-text">Deploy key</div>
+        <p class="text-xs text-muted">Installs the public key into <code class="text-[10px]">authorized_keys</code> (uses stored password if set).</p>
+        <input type="password" name="ssh_password" autocomplete="off" placeholder="One-time password if key not working yet"
+               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
+               data-testid="wizard-deploy-password">
+        <label class="flex items-center gap-2 text-xs min-h-9 text-muted">
+          <input type="checkbox" name="clear_password_after" value="1" {% if has_ssh_password %}checked{% endif %}
+                 data-testid="wizard-deploy-clear-after">
+          Clear stored password after successful deploy
+        </label>
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm" data-testid="wizard-deploy-key">Deploy key</button>
+      </form>
+
+      <form method="post" action="/servers/new/connect/test" class="pt-2 border-t border-border" data-testid="wizard-form-test">
+        <input type="hidden" name="server_id" value="{{ srv.id }}">
+        <div class="font-medium text-sm text-text mb-1">Test connection</div>
+        <p class="text-xs text-muted mb-2">Verifies key (or password) login and refreshes dependency chips on success.</p>
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm" data-testid="wizard-test-connection">Test connection</button>
+      </form>
+
+      {% if has_ssh_password %}
+      <form method="post" action="/servers/new/connect/clear-password"
+            class="pt-2 border-t border-border" data-testid="wizard-form-clear-password">
+        <input type="hidden" name="server_id" value="{{ srv.id }}">
+        <div class="font-medium text-sm text-warning mb-1">Stored bootstrap password</div>
+        <p class="text-xs text-muted mb-2">
+          A one-time password is still encrypted at rest. After key-only login works, clear it so day-to-day is keys-only.
+        </p>
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm text-warning border-warning"
+                data-testid="wizard-clear-password">Clear stored password</button>
+      </form>
+      {% else %}
+      <p class="text-xs text-muted pt-2 border-t border-border" data-testid="wizard-no-password">
+        No stored SSH password — keys-only (or password-only auth was never saved).
+      </p>
+      {% endif %}
+    </div>
+
+    <p class="text-xs text-muted">
+      Full panel (scripts, rotate, least-priv):
+      <a href="/servers/{{ srv.id }}?show_ssh_key=1" class="text-accent hover:underline" data-testid="wizard-open-ssh">Open SSH access</a>
+    </p>
+
+    <form method="post" action="/servers/new/continue" class="flex flex-wrap gap-2 pt-2 border-t border-border">
+      <input type="hidden" name="server_id" value="{{ srv.id }}">
+      <input type="hidden" name="step" value="connect">
+      {% if wizard_prev %}
+      <a href="/servers/new?step={{ wizard_prev }}&amp;server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-back">← Back</a>
+      {% endif %}
+      <button type="submit" class="btn btn-accent min-h-11 font-medium" data-testid="wizard-continue">Continue →</button>
+      <a href="/servers/new/exit?server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-save-exit">Save &amp; exit</a>
+    </form>
+  </div>
+  {% endif %}
+
+  {# ── 4 Privilege (stub + least-priv guidance) ───────────────── #}
+  {% if step == 'privilege' and srv %}
+  <div class="card p-5 sm:p-6 space-y-4" data-testid="wizard-panel-privilege">
+    <h2 class="font-semibold text-sm text-text">Privilege</h2>
+    <p class="text-sm text-muted">
+      On Raspberry Pi OS / Debian / Ubuntu you can create a dedicated <code class="text-xs">piherder</code> user
+      with limited sudoers from the SSH access panel. <strong class="text-text">HAOS and specialised OS</strong>
+      skip automated least-priv — leave the connect user as-is.
+    </p>
+    <a href="/servers/{{ srv.id }}?show_ssh_key=1" class="btn btn-secondary min-h-11 text-sm">Open least-priv on server</a>
+    <form method="post" action="/servers/new/continue" class="flex flex-wrap gap-2 pt-2 border-t border-border">
+      <input type="hidden" name="server_id" value="{{ srv.id }}">
+      <input type="hidden" name="step" value="privilege">
+      {% if wizard_prev %}
+      <a href="/servers/new?step={{ wizard_prev }}&amp;server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-back">← Back</a>
+      {% endif %}
+      <button type="submit" class="btn btn-accent min-h-11 font-medium" data-testid="wizard-continue">Continue →</button>
+      <a href="/servers/new/exit?server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-save-exit">Save &amp; exit</a>
+    </form>
+  </div>
+  {% endif %}
+
+  {# ── 5 Features ─────────────────────────────────────────────── #}
+  {% if step == 'features' and srv %}
+  <form method="post" action="/servers/new/features" class="card p-5 sm:p-6 space-y-4"
+        data-testid="wizard-form-features">
+    <input type="hidden" name="server_id" value="{{ srv.id }}">
+    <h2 class="font-semibold text-sm text-text">Features</h2>
+    <p class="text-xs text-muted -mt-2">Enable only what this host should manage. You can change these later.</p>
+    <label class="flex items-center gap-2 text-sm min-h-11">
+      <input type="checkbox" name="backup_enabled" value="on" {% if srv.backup_enabled %}checked{% endif %}>
+      Backups
+    </label>
+    <label class="flex items-center gap-2 text-sm min-h-11">
+      <input type="checkbox" name="os_patch_enabled" value="on" {% if srv.os_patch_enabled %}checked{% endif %}>
+      OS patching
+    </label>
+    <label class="flex items-center gap-2 text-sm min-h-11">
+      <input type="checkbox" name="container_patch_enabled" value="on" {% if srv.container_patch_enabled %}checked{% endif %}>
+      Docker / containers
+    </label>
+    <div class="flex flex-wrap gap-2 pt-2">
+      {% if wizard_prev %}
+      <a href="/servers/new?step={{ wizard_prev }}&amp;server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-back">← Back</a>
+      {% endif %}
+      <button type="submit" class="btn btn-accent min-h-11 font-medium" data-testid="wizard-continue">Continue →</button>
+      <a href="/servers/new/exit?server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-save-exit">Save &amp; exit</a>
+    </div>
+  </form>
+  {% endif %}
+
+  {# ── 6 Schedules (checks-only guidance; deep edit on server) ── #}
+  {% if step == 'schedules' and srv %}
+  <div class="card p-5 sm:p-6 space-y-4" data-testid="wizard-panel-schedules">
+    <h2 class="font-semibold text-sm text-text">Schedules</h2>
+    <p class="text-sm text-muted">
+      Default stance: enable <strong class="text-text">check-only</strong> schedules when you are ready
+      (they refresh package/image counts and do not apply upgrades). Full schedule editing stays on the server page.
+    </p>
+    <a href="/servers/{{ srv.id }}?edit=1" class="btn btn-secondary min-h-11 text-sm">Open server schedules</a>
+    <form method="post" action="/servers/new/continue" class="flex flex-wrap gap-2 pt-2 border-t border-border">
+      <input type="hidden" name="server_id" value="{{ srv.id }}">
+      <input type="hidden" name="step" value="schedules">
+      {% if wizard_prev %}
+      <a href="/servers/new?step={{ wizard_prev }}&amp;server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-back">← Back</a>
+      {% endif %}
+      <button type="submit" class="btn btn-accent min-h-11 font-medium" data-testid="wizard-continue">Continue →</button>
+      <a href="/servers/new/exit?server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-save-exit">Save &amp; exit</a>
+    </form>
+  </div>
+  {% endif %}
+
+  {# ── 7 Network ──────────────────────────────────────────────── #}
+  {% if step == 'network' and srv %}
+  <div class="card p-5 sm:p-6 space-y-4" data-testid="wizard-panel-network">
+    <h2 class="font-semibold text-sm text-text">Network</h2>
+    <p class="text-sm text-muted">
+      Optional FQDN and Pi-hole A records are managed on the server detail / Network maps.
+      You can add a Pi-hole integration later under Catalog.
+    </p>
+    <a href="/servers/{{ srv.id }}" class="btn btn-secondary min-h-11 text-sm">Open host DNS fields</a>
+    <form method="post" action="/servers/new/continue" class="flex flex-wrap gap-2 pt-2 border-t border-border">
+      <input type="hidden" name="server_id" value="{{ srv.id }}">
+      <input type="hidden" name="step" value="network">
+      {% if wizard_prev %}
+      <a href="/servers/new?step={{ wizard_prev }}&amp;server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-back">← Back</a>
+      {% endif %}
+      <button type="submit" class="btn btn-accent min-h-11 font-medium" data-testid="wizard-continue">Continue →</button>
+      <a href="/servers/new/exit?server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-save-exit">Save &amp; exit</a>
+    </form>
+  </div>
+  {% endif %}
+
+  {# ── 8 Done ─────────────────────────────────────────────────── #}
+  {% if step == 'done' and srv %}
+  <div class="card p-5 sm:p-6 space-y-4" data-testid="wizard-panel-done">
+    <h2 class="font-semibold text-lg text-text">{{ srv.name }} is on the fleet</h2>
+    <p class="text-sm text-muted">
+      <span class="font-mono text-xs">{{ srv.hostname }}:{{ srv.ssh_port }}</span>
+      as <span class="font-mono text-xs">{{ srv.ssh_username }}</span>
+    </p>
+    <p class="text-sm text-muted">Suggested next jobs:</p>
+    <div class="flex flex-wrap gap-2">
+      <a href="/servers/{{ srv.id }}" class="btn btn-accent min-h-11" data-testid="wizard-done-open">Open server</a>
+      <a href="/servers/{{ srv.id }}?show_ssh_key=1" class="btn btn-secondary min-h-11">SSH access</a>
+      {% if srv.container_patch_enabled %}
+      <a href="/servers/{{ srv.id }}/docker" class="btn btn-secondary min-h-11">Docker</a>
+      {% endif %}
+      <a href="/servers/new" class="btn btn-secondary min-h-11">Add another</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

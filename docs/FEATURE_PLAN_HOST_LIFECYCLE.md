@@ -1,8 +1,8 @@
 # Feature plan — Host lifecycle & operator console (H2.75)
 
-**Status:** Design agreed 2026-07-17 · **P1 Docker bulk shipped** (2026-07-18) · **P2 wizard deferred to v0.7.0** (locked 2026-07-18 freeze — [PLAN §7](PLAN_v0.6.0.md#7-pre-release-readiness-review-2026-07-18))  
-**Horizon:** H2.75 · P1 via [PLAN_v0.6.0.md](PLAN_v0.6.0.md); **P2 → v0.7.0**; P3–P5 post-0.7  
-**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § [Horizon 2.75](ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · Wiki [Docker](../wiki/docker/overview.md) · [Add server](../wiki/day-to-day/add-server.md)
+**Status:** Design agreed 2026-07-17 · **P1 Docker bulk shipped** (2026-07-18) · **P2 wizard active in v0.7.0** ([PLAN_v0.7.0.md](PLAN_v0.7.0.md))  
+**Horizon:** H2.75 · P1 via [PLAN_v0.6.0.md](PLAN_v0.6.0.md); **P2 ship plan → [PLAN_v0.7.0.md](PLAN_v0.7.0.md)**; P3–P5 post-0.7  
+**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § [Horizon 2.75](ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · Wiki [Docker](../wiki/docker/overview.md) · [Add server](../wiki/day-to-day/add-server.md)
 
 ## Goal
 
@@ -22,7 +22,7 @@ Deepen **day-to-day host operations** and **first-time host bring-up** without c
 
 | # | Decision |
 |---|----------|
-| 1 | **v0.6.0 RC2** — P1 Docker bulk **shipped**; **P2 wizard → v0.7.0** (freeze decision 2026-07-18); see [PLAN_v0.6.0.md](PLAN_v0.6.0.md) |
+| 1 | **v0.6.0 RC2** — P1 Docker bulk **shipped**; **P2 wizard ships in v0.7.0** — [PLAN_v0.7.0.md](PLAN_v0.7.0.md) |
 | 2 | Ship order = **risk/value:** Docker bulk (0.6) → wizard (0.7) → stats/commands → bootstrap/DNS → web SSH last |
 | 3 | **Not required for minimal 1.0.0** unless we deliberately pull P1 into 1.0 as polish |
 | 4 | Web SSH: private key **never** sent to the browser; decrypt only in server memory for the PTY session |
@@ -40,7 +40,7 @@ Deepen **day-to-day host operations** and **first-time host bring-up** without c
 | Phase | Name | Target | Status |
 |-------|------|--------|--------|
 | **P1** | Docker project bulk control | 0.6.0 nice-to-have | **Done** (2026-07-18) |
-| **P2** | Add-host wizard | **v0.7.0** | **Deferred** (from 0.6 freeze) |
+| **P2** | Add-host wizard | **v0.7.0** | **In progress** — shell on `main` path (`/servers/new`); [PLAN_v0.7.0.md](PLAN_v0.7.0.md) |
 | **P3** | Host stats + healthcheck + allowlisted commands | post-0.7 | Planned |
 | **P4** | Bootstrap scripts + hostname + DNS handoff | post-0.7 | Planned |
 | **P5** | Web SSH console | Last; separate ship bar | Planned / under consideration |
@@ -160,11 +160,11 @@ Progress: step indicator; “Save & exit” leaves a partial server (same as tod
 
 ### Acceptance criteria (P2)
 
-- [ ] New entry point “Add server (wizard)” + keep advanced/single-form path or collapse into wizard only  
-- [ ] Each step calls existing SSH/feature/DNS endpoints (no duplicate business logic)  
-- [ ] Password bootstrap cleared recommendation at Connect success  
-- [ ] HAOS path skips automated least-priv with clear copy  
-- [ ] Wiki [Add a server](../wiki/day-to-day/add-server.md) primary path becomes wizard  
+- [x] New entry point “Add server (wizard)” + keep advanced/single-form path or collapse into wizard only  
+- [x] Each step calls existing SSH/feature/DNS endpoints (no duplicate business logic)  
+- [x] Password bootstrap cleared recommendation at Connect success *(in-wizard clear CTA + deploy option)*  
+- [x] HAOS path skips automated least-priv with clear copy  
+- [x] Wiki [Add a server](../wiki/day-to-day/add-server.md) primary path becomes wizard  
 
 ---
 
@@ -338,3 +338,4 @@ An operator can:
 | Date | Note |
 |------|------|
 | 2026-07-17 | Initial plan; aligned with ROADMAP H2.75; operator agreement on order and security bar |
+| 2026-07-18 | P1 shipped in 0.6; P2 deferred at freeze then opened under [PLAN_v0.7.0.md](PLAN_v0.7.0.md) |

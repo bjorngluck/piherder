@@ -44,12 +44,21 @@ dev = [
     "pytest",
     "httpx",
 ]
+e2e = [
+    "pytest>=8",
+    "pytest-playwright>=0.5",
+    "playwright>=1.40",
+]
 
 [tool.pytest.ini_options]
+# Default unit suite only — run E2E explicitly: pytest e2e -q
 testpaths = ["tests"]
 pythonpath = ["."]
 filterwarnings = [
     "ignore::DeprecationWarning",
+]
+markers = [
+    "e2e: browser end-to-end tests (requires running app + Playwright)",
 ]
 
 [tool.setuptools.packages.find]

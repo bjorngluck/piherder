@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** **v0.6.0 live** (RC2) · next product: **v0.7.0** (wizard + screenshots).  
-> **Last updated:** 2026-07-18 — Production path: ~~v0.4.0~~ → ~~**v0.5.0 RC1**~~ → **v0.6.0 RC2** ([RELEASE_v0.6.0.md](docs/RELEASE_v0.6.0.md)) → **v0.7.0** wizard/screenshots → **v0.8.0** nmap → **v1.0**.
+> **Status:** **v0.6.0 live** (RC2) · **v0.7.0 dev** (wizard + screenshots + Playwright E2E) — [PLAN_v0.7.0.md](docs/PLAN_v0.7.0.md).  
+> **Last updated:** 2026-07-18 — Production path: ~~v0.4.0~~ → ~~**v0.5.0 RC1**~~ → ~~**v0.6.0 RC2**~~ ([RELEASE_v0.6.0.md](docs/RELEASE_v0.6.0.md)) → **v0.7.0** (active) → **v0.8.0** nmap → **v1.0**.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -320,14 +320,14 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 
 ## Phase 6.5 — Host lifecycle & operator console (Horizon 2.75 · v0.6.0+)
 
-**v0.6.0 RC2 ship plan:** [docs/PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md) · Design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · [ROADMAP H2.75](docs/ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc).
+**v0.7.0 ship plan:** [docs/PLAN_v0.7.0.md](docs/PLAN_v0.7.0.md) · Design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · Prior: [PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md) · [ROADMAP H2.75](docs/ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc).
 
-Also in **v0.6.0** (polish, not only H2.75): template deploy as Jobs + live log; cert setup / service-map UX; docs prose; light performance.  
-**Shipped on 0.6 track:** Kuma coverage (H3); runtime topology (H2); Docker bulk (P1); cert first-setup + presets + self-managed edge map + stage_sudo — [PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md).  
-**Deferred to v0.7.0:** add-host wizard (P2); wiki screenshot pack.
+**Shipped on 0.6 track:** Kuma coverage (H3); runtime topology (H2); Docker bulk (P1); template deploy Jobs; cert first-setup + presets + self-managed edge map + stage_sudo.  
+**v0.7.0 musts:** add-host wizard (P2); wiki screenshot pack (stale + new 0.6 surfaces + wizard UI); **Playwright E2E** Phase A shell + Phase B wizard (separate CI job; hard tag gate) — [PLAN_v0.7.0.md](docs/PLAN_v0.7.0.md) stream E.
 
 - [x] **P1** Docker project bulk Stop all / Start all / Restart all (Jobs + Audit + confirm) — *done 2026-07-18*
-- [ ] **P2** Wizard-driven add-host onboarding (orchestrate existing SSH / features / DNS steps) — **→ v0.7.0**
+- [ ] **P2** Wizard-driven add-host onboarding (orchestrate existing SSH / features / DNS steps) — **v0.7.0 active**
+- [ ] **E2E** Playwright Phase A (shell) + Phase B (wizard journeys) — **v0.7.0 must**
 - [ ] **P3** Richer host stats + healthchecks + **allowlisted** remote commands (no free shell) — *post-0.7*
 - [ ] **P4** Bootstrap scripts (piherder user/permissions) + hostname + Pi-hole A handoff; first-boot enrollment **token** (no open join) — *post-0.7*
 - [ ] **P5** Web SSH console — server-side key injection only; step-up 2FA; kill switch; optional / high bar — *later*

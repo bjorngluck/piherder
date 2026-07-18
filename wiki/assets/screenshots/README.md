@@ -13,9 +13,9 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages now use real PNGs. 
 | Release | Screenshot bar |
 |---------|----------------|
 | **v0.6.0** (released) | **Prose only** — no PNG gate. Existing captures stay until refreshed. |
-| **v0.7.0** | **Full capture pack** — refresh stale shots + new 0.6 surfaces + wizard UI when it lands |
+| **v0.7.0** (active) | **Full capture pack** — refresh stale shots + new 0.6 surfaces + wizard UI — ship plan [PLAN_v0.7.0.md](../../../docs/PLAN_v0.7.0.md) |
 
-Track status below; work the **v0.7.0 capture list** in one docs PR with the wizard ship when possible.
+Track status below; non-wizard 0.6 surfaces can land early; wizard PNGs when UI freezes. Prefer one docs PR near ship when possible.
 
 ## Default convention (keep simple)
 
@@ -77,8 +77,8 @@ Add these files under `wiki/assets/screenshots/` and wire Markdown when capturin
 | `jobs-live-log.png` | JobHold live log (template deploy or stack restart) | Jobs pattern operators rely on | **High** |
 | `dns-coverage.png` | `/dns/coverage` Kuma coverage | H3 shipped in 0.6 | **Medium** |
 | `dns-stack-panel.png` | Path map with stack expand / side panel | Runtime topology | **Medium** |
-| `add-server-wizard.png` | Multi-step add-host wizard | **Ships with P2 wizard** | **High** (with feature) |
-| `add-server-wizard-done.png` | Wizard summary / done CTAs | Same | Medium (with feature) |
+| `add-server-wizard.png` | Multi-step add-host wizard (`/servers/new`) | **Feature on main** — capture for tag | **High** |
+| `add-server-wizard-done.png` | Wizard summary / done CTAs | Same | Medium |
 
 Wiki pages to update when PNGs land:
 

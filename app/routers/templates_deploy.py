@@ -26,7 +26,6 @@ from ..services.service_templates import (
     TemplateError,
     apply_last_known_config,
     apply_template_to_host,
-    check_deployment_drift,
     get_deployment,
     get_template_definition,
     get_template_row,
@@ -321,10 +320,15 @@ async def deployment_redeploy(
 
 @router.post("/templates/deployments/{deployment_id}/check-drift")
 async def deployment_check_drift(
+    request: Request,
     deployment_id: int,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
+    """Queue drift check as a Job (live log / JobHold), like deploy/redeploy."""
+    from ..services import jobs as job_service
+
     dep = get_deployment(session, deployment_id)
     if not dep:
         raise HTTPException(404)
@@ -333,41 +337,64 @@ async def deployment_check_drift(
     server = session.get(Server, dep.server_id)
     if not server:
         raise HTTPException(404, "Server missing")
+
+    already_active = False
     try:
-        result = check_deployment_drift(session, server=server, deployment=dep)
+        job = job_service.enqueue_template_drift_check(
+            server.id,
+            deployment_id=deployment_id,
+            user_id=user.id if user else None,
+            background_tasks=background_tasks,
+        )
+    except job_service.JobAlreadyActive as e:
+        job = e.job
+        already_active = True
+    except ValueError as e:
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse({"detail": str(e)}, status_code=400)
+        return _redirect(
+            f"/templates/deployments/{deployment_id}",
+            error=str(e)[:200],
+        )
     except Exception as e:
+        logger.exception("template drift check enqueue")
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse({"detail": str(e)[:200]}, status_code=500)
         return _redirect(
             f"/templates/deployments/{deployment_id}",
             error=f"Drift check failed: {str(e)[:180]}",
         )
-    _audit(
-        session,
-        user,
-        "template.drift_check",
-        server_id=server.id,
-        details=(
-            f"deployment={deployment_id} status={result.get('status')} "
-            f"diffs={len(result.get('diffs') or [])}"
-        ),
-        status="success" if result.get("status") != "unknown" else "failed",
-    )
-    st = result.get("status") or "unknown"
-    detail = ""
-    diffs = result.get("diffs") or []
-    if diffs:
-        detail = "; ".join(
-            f"{d.get('file')}: {d.get('detail')}" for d in diffs[:6]
-        )[:180]
-    if st == "in_sync":
-        msg = "Host matches desired state (in sync)"
-    elif st == "drifted":
-        msg = f"Drift detected ({len(diffs)} file(s))"
-    else:
-        msg = f"Drift unknown: {result.get('error') or result.get('reason') or 'check failed'}"
+
+    if not job:
+        raise HTTPException(500, "Could not queue drift check")
+
+    if not already_active:
+        _audit(
+            session,
+            user,
+            "template.drift_check",
+            server_id=server.id,
+            details=f"deployment={deployment_id} job={job.id} queued",
+            status="success",
+        )
+
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "job_type": "template_drift_check",
+                "server_id": server.id,
+                "deployment_id": deployment_id,
+                "already_active": already_active,
+                "poll_url": f"/jobs/{job.id}",
+            },
+            status_code=409 if already_active else 200,
+        )
+
     return _redirect(
         f"/templates/deployments/{deployment_id}",
-        msg=msg,
-        drift_detail=detail or None,
+        msg=f"Drift check queued as job #{job.id}",
     )
 
 

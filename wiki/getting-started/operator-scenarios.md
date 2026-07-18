@@ -22,14 +22,14 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | 1 | [Install](install.md) + secrets | Stack + encryption key for fleet secrets |
 | 2 | [First login](first-login.md) | First account becomes admin; registration locks |
 | 3 | Optional [HTTPS](https-tls.md) | Trust for browsers and later push |
-| 4 | [Add a server](../day-to-day/add-server.md) | Generate key, deploy, test connection |
-| 5 | **Edit → Features** | Enable only backups / OS / Docker you need |
+| 4 | [Add a server](../day-to-day/add-server.md) | **Wizard** — identity → trust → deploy key → test → clear password |
+| 5 | Wizard **Features** (or Edit → Features) | Enable only backups / OS / Docker you need |
 | 6 | Open [Dashboard](../day-to-day/dashboard-and-services.md) | Confirm the host appears; no mystery tiles yet |
 
 **Done when:** Server detail shows green-enough SSH/deps for enabled features; no password left stored if key auth works.
 
-!!! note "Planned for v0.7.0"
-    A **wizard-driven** add-host path is scheduled for **v0.7.0** (deferred from 0.6 freeze). Bootstrap scripts / optional web SSH remain later — [Host lifecycle plan](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
+!!! note "Later host lifecycle"
+    Bootstrap scripts / optional web SSH remain later — [Host lifecycle plan](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
 
 ---
 

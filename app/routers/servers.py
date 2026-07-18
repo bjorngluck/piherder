@@ -35,9 +35,12 @@ import logging
 router = APIRouter()
 
 # Mount sub-routers (keep paths unchanged)
+# Wizard /new* must register before /{server_id}
+from .server_wizard import router as wizard_router
 from .server_docker import router as docker_router
 from .server_backups import router as backups_router
 from .server_services import router as services_router
+router.include_router(wizard_router, prefix="")
 router.include_router(docker_router, prefix="")
 router.include_router(backups_router, prefix="")
 router.include_router(services_router, prefix="")
@@ -490,10 +493,13 @@ async def move_server(
 
 @router.get("/add", response_class=HTMLResponse)
 async def add_server_form(request: Request, user: User = Depends(get_current_user)):
+    """Legacy URL — advanced single form (wizard primary is /servers/new)."""
+    # Viewer can open form but POST still hits create; match prior open GET.
+    # Prefer operator for consistency with wizard.
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="add_server.html",
-        context={"title": "Add Server", "user": user}
+        context={"title": "Add Server (advanced)", "user": user, "advanced": True},
     )
 
 
