@@ -1374,6 +1374,60 @@ def deploy_all_targets(
     return {"ok": ok, "results": results, "count": len(results)}
 
 
+def should_auto_apply_edge(cert: ManagedCertificate) -> bool:
+    """True when this cert was previously applied to this PiHerder instance.
+
+    Used after NPM renew so Caddy tracks the vault without a manual re-click.
+    Never auto-applies for certs that were only used for fleet maps.
+    """
+    if getattr(cert, "last_edge_deploy_status", None) == "success":
+        return True
+    if (getattr(cert, "last_edge_deploy_fingerprint", None) or "").strip():
+        return True
+    return False
+
+
+def redistribute_after_renew(
+    session: Session,
+    certificate_id: int,
+    *,
+    force: bool = True,
+    progress: Optional[Any] = None,
+) -> dict[str, Any]:
+    """Fleet maps + optional edge (Caddy) re-apply after vault material changes."""
+
+    def log(msg: str) -> None:
+        if progress:
+            try:
+                progress(msg)
+            except Exception:
+                pass
+
+    dist = deploy_all_targets(
+        session, certificate_id, force=force, progress=progress
+    )
+    edge: dict[str, Any] | None = None
+    cert = session.get(ManagedCertificate, certificate_id)
+    if cert and should_auto_apply_edge(cert) and edge_certs_writable():
+        log("re-apply to this PiHerder (Caddy edge)")
+        edge = deploy_to_edge_caddy(session, certificate_id, force=True)
+        if not edge.get("ok"):
+            log(f"edge re-apply failed: {edge.get('error')}")
+    elif cert and should_auto_apply_edge(cert) and not edge_certs_writable():
+        edge = {
+            "ok": False,
+            "skipped": True,
+            "error": "edge certs dir not writable — skip Caddy re-apply",
+        }
+        log(edge["error"])
+    return {
+        "ok": bool(dist.get("ok")) and (edge is None or bool(edge.get("ok"))),
+        "fleet": dist,
+        "edge": edge,
+        "count": dist.get("count") or 0,
+    }
+
+
 def renew_npm_certificate(
     session: Session,
     cert: ManagedCertificate,
@@ -1425,7 +1479,9 @@ def renew_npm_certificate(
             cert.updated_at = datetime.utcnow()
             session.add(cert)
             session.commit()
-            dist = deploy_all_targets(session, cert.id, force=True, progress=progress)
+            dist = redistribute_after_renew(
+                session, cert.id, force=True, progress=progress
+            )
             return {"ok": True, "renewed": True, "via": "pull", "distribute": dist}
     except Exception as e:
         log(f"pre-pull warning: {e}")
@@ -1474,7 +1530,7 @@ def renew_npm_certificate(
                 cert.last_error = None
                 session.add(cert)
                 session.commit()
-                dist = deploy_all_targets(
+                dist = redistribute_after_renew(
                     session, cert.id, force=True, progress=progress
                 )
                 return {
