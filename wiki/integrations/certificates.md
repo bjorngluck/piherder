@@ -203,80 +203,81 @@ Same map, but Directory can still be staging under that user’s home (`/home/bj
 
 ### Cookbook: Grafana TLS into a Docker named volume
 
-Use when Grafana (or similar) expects PEMs **inside a Docker named volume** (not a bind-mount you control under `/opt/…`), e.g.:
+Use when Grafana expects PEMs **inside its data volume**, e.g. in-container:
 
 ```text
-/var/lib/docker/volumes/grafana_grafana_data/_data/fullchain.pem
-/var/lib/docker/volumes/grafana_grafana_data/_data/privkey.pem
+/var/lib/grafana/fullchain.pem
+/var/lib/grafana/privkey.pem
 ```
 
-and the stack lives at `~/docker/grafana/` with `docker compose restart`.
+(host path often `/var/lib/docker/volumes/grafana_grafana_data/_data/…`).
 
-**Pair layout** writes two files. SFTP as a normal user cannot write under `/var/lib/docker/…`, so stage under the SSH user’s home, then **`sudo install`** (or `mv`) into the volume and restart Compose.
+#### Why Grafana crashed after a “successful” deploy
 
-#### Service map
+Official `grafana/grafana` runs as **UID 472**. Installing PEMs as **`root:root` mode `600`** makes them unreadable:
+
+```text
+could not load SSL certificate: open /var/lib/grafana/fullchain.pem: permission denied
+```
+
+→ crash loop (`Restarting (1)`). Deploy “success” only means SSH + commands exited 0, not that Grafana can read the files.
+
+**Fix on a broken host** (SSH user in `docker` group):
+
+```bash
+docker run --rm -v grafana_grafana_data:/data alpine:3.20 \
+  sh -c 'chown 472:0 /data/fullchain.pem /data/privkey.pem && \
+         chmod 644 /data/fullchain.pem && chmod 600 /data/privkey.pem'
+cd /home/bjorn/docker/grafana && docker compose restart grafana   # adjust path
+```
+
+#### Service map (recommended — no sudo)
 
 | Field | Value |
 |--------|--------|
 | **Label** | `Grafana TLS` |
 | **Host** | Grafana host |
-| **Directory** | `~` (or absolute home, e.g. `/home/bjorn`) |
+| **Directory** | `~` (home of SSH user, e.g. `/home/piherder`) |
 | **Layout** | **pair** |
-| **Fullchain filename** | `fullchain.pem` |
-| **Privkey filename** | `privkey.pem` |
-| **Mode** | `600` |
-| **Owner / group** | leave empty (owner unchanged on staging files) |
+| **Write mode** | **Direct SFTP** |
+| **Filenames** | `fullchain.pem` / `privkey.pem` |
+| **Mode** | `600` on staging only |
+| **Owner** | leave empty |
 | **Post-deploy** | (command below) |
 
-Adjust **Directory** / paths if the SSH user is `piherder` (`/home/piherder`) instead of `bjorn`.
-
-#### Post-deploy (recommended — explicit paths)
-
-Safer than `mv ~/*.pem` (which can scoop up unrelated PEMs in home). Prefer **absolute paths** so the line matches a tight sudoers rule:
-
 ```bash
-sudo install -o root -g root -m 600 /home/piherder/fullchain.pem /home/piherder/privkey.pem /var/lib/docker/volumes/grafana_grafana_data/_data/ && cd /home/piherder/docker/grafana && docker compose restart
+docker run --rm \
+  -v grafana_grafana_data:/data \
+  -v /home/piherder:/src:ro \
+  alpine:3.20 \
+  sh -c 'cp /src/fullchain.pem /src/privkey.pem /data/ && \
+         chown 472:0 /data/fullchain.pem /data/privkey.pem && \
+         chmod 644 /data/fullchain.pem && chmod 600 /data/privkey.pem' && \
+cd /home/bjorn/docker/grafana && docker compose restart grafana
 ```
 
-If the SSH user is `bjorn`, use `/home/bjorn/…` instead. `~` expansion is fine for interactive shells; for sudoers matching, absolute paths are clearer.
+Adjust:
 
-Operator-equivalent pattern with `mv`:
+- `/home/piherder` if the SSH user differs  
+- `grafana_grafana_data` (`docker volume ls \| grep -i grafana`)  
+- compose project path (`/home/bjorn/docker/grafana` on this lab host)
+
+SSH user needs the **`docker`** group (not root for volume path).
+
+#### Avoid
 
 ```bash
-sudo mv /home/piherder/fullchain.pem /home/piherder/privkey.pem /var/lib/docker/volumes/grafana_grafana_data/_data/ && cd /home/piherder/docker/grafana && docker compose restart
+# BAD for Grafana — process cannot read the certs
+sudo install -o root -g root -m 600 … /var/lib/docker/volumes/…/_data/
 ```
 
-Prefer **`install`**: sets mode/owner on the volume side and fails clearly if names differ.
+If you insist on `sudo install` into the volume, use **`-o 472 -g 0`** (not root) and matching sudoers; the docker-copy method above is simpler when Docker feature is on.
 
 #### One-time host notes
 
-1. **Volume name** — confirm on the host:
-
-   ```bash
-   docker volume ls | grep -i grafana
-   # then: sudo ls -la /var/lib/docker/volumes/<name>/_data
-   ```
-
-   Compose project `grafana` + volume `grafana_data` often becomes `grafana_grafana_data`; yours may differ.
-
-2. **Grafana config** — point Grafana at the in-container paths that map to those PEMs (e.g. under `/var/lib/grafana/…` if that is the volume mount). PiHerder only places files + restarts Compose; it does not edit `grafana.ini`.
-
-3. **Docker access** — `docker compose restart` as the SSH user needs membership in the **`docker`** group (or a sudoers rule for compose). Least-priv with Docker feature on usually adds the group.
-
-4. **Sudo for volume path** — stock least-priv does **not** allow writing under `/var/lib/docker`. For a `piherder` (or non-root) account, add a tight rule, e.g.:
-
-   ```bash
-   # Example — replace user and volume name to match the host
-   cat <<'EOF' | sudo tee /etc/sudoers.d/piherder-grafana-certs
-   piherder ALL=(root) NOPASSWD: /usr/bin/install -o root -g root -m 600 /home/piherder/fullchain.pem /home/piherder/privkey.pem /var/lib/docker/volumes/grafana_grafana_data/_data/
-   EOF
-   sudo chmod 440 /etc/sudoers.d/piherder-grafana-certs
-   sudo visudo -cf /etc/sudoers.d/piherder-grafana-certs
-   ```
-
-   With full-sudo `bjorn`, a separate drop-in is optional; still require `sudo -n` (no password prompt).
-
-5. **Fingerprint sidecar** — deploy also writes `~/.piherder-cert-fp` next to the PEMs under **Directory**. That is normal; do not `mv ~/*.pem` if you want to avoid moving only certs—you already list explicit names above.
+1. **Volume name** — `docker volume ls | grep -i grafana`  
+2. **Grafana config** — `cert_file` / `cert_key` under `/var/lib/grafana/…` if that is the volume mount. PiHerder does not edit `grafana.ini`.  
+3. **Fingerprint sidecar** — may appear under home (`~/.piherder-cert-fp`); harmless.
 
 #### Deploy and check
 

@@ -125,20 +125,33 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
         "group": "Docker",
         "title": "Grafana TLS → Docker named volume",
         "label": "Grafana TLS",
-        "remote_dir": "/var/lib/docker/volumes/grafana_grafana_data/_data",
+        "remote_dir": "~",
         "layout": "pair",
         "fullchain": "fullchain.pem",
         "privkey": "privkey.pem",
         "combined": "snakeoil.pem",
         "pfx": "Certificate.pfx",
         "mode": "600",
-        "owner": "root",
-        "group": "root",
-        "write_mode": "stage_sudo",
-        "post": "cd /home/piherder/docker/grafana && docker compose restart",
+        "owner": "",
+        "group": "",
+        "write_mode": "direct",
+        # Official grafana/grafana image runs as UID 472. root:root mode 600 → crash loop
+        # "permission denied" on /var/lib/grafana/*.pem. Prefer docker volume copy + chown 472.
+        "post": (
+            "docker run --rm "
+            "-v grafana_grafana_data:/data "
+            "-v /home/piherder:/src:ro "
+            "alpine:3.20 "
+            "sh -c 'cp /src/fullchain.pem /src/privkey.pem /data/ && "
+            "chown 472:0 /data/fullchain.pem /data/privkey.pem && "
+            "chmod 644 /data/fullchain.pem && chmod 600 /data/privkey.pem' && "
+            "cd /home/bjorn/docker/grafana && docker compose restart grafana"
+        ),
         "help": (
-            "Stage+sudo install into the Grafana data volume, then compose restart. "
-            "Uses write mode stage_sudo — see generated sudoers on the map form."
+            "Writes PEMs to the SSH user’s home, then a one-shot container copies them into "
+            "the Grafana named volume as UID 472 (Grafana process user). "
+            "Do NOT install as root:root mode 600 — Grafana cannot read those files. "
+            "Adjust volume name, home path, and compose dir for your host. Needs docker group."
         ),
         "docs_anchor": "cookbook-grafana-tls-into-a-docker-named-volume",
     },
