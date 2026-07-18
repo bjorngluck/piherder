@@ -1,8 +1,8 @@
 # Feature plan — Host lifecycle & operator console (H2.75)
 
-**Status:** Planned (post-RC) — design agreed 2026-07-17  
-**Horizon:** H2.75 · target **v0.6.x** (or staged after **v1.0.0**); **out of v0.5.0 RC freeze**  
-**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § [Horizon 2.75](ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · Wiki [Docker](../wiki/docker/overview.md) · [Add server](../wiki/day-to-day/add-server.md)
+**Status:** Design agreed 2026-07-17 · **v0.6.0 RC2** pulls P2 (must) + optional P1  
+**Horizon:** H2.75 · ship slices via [PLAN_v0.6.0.md](PLAN_v0.6.0.md); P3–P5 post-0.6  
+**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § [Horizon 2.75](ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · Wiki [Docker](../wiki/docker/overview.md) · [Add server](../wiki/day-to-day/add-server.md)
 
 ## Goal
 
@@ -22,9 +22,9 @@ Deepen **day-to-day host operations** and **first-time host bring-up** without c
 
 | # | Decision |
 |---|----------|
-| 1 | **Out of v0.5.0 RC** — implement after RC tag (or after 1.0 if RC→1.0 is minimal) |
-| 2 | Ship order = **risk/value:** Docker bulk → wizard → stats/commands → bootstrap/DNS → web SSH last |
-| 3 | **Not required for minimal 1.0.0** unless we deliberately pull item 1 into 1.0 as polish |
+| 1 | **v0.6.0 RC2** — P2 wizard is **must-have**; P1 Docker bulk is **nice-to-have**; see [PLAN_v0.6.0.md](PLAN_v0.6.0.md) |
+| 2 | Ship order = **risk/value:** Docker bulk → wizard → stats/commands → bootstrap/DNS → web SSH last (0.6 may ship wizard before bulk if UX priority wins) |
+| 3 | **Not required for minimal 1.0.0** unless we deliberately pull P1 into 1.0 as polish |
 | 4 | Web SSH: private key **never** sent to the browser; decrypt only in server memory for the PTY session |
 | 5 | Web SSH: **operator/admin** only; prefer **step-up 2FA**; env kill switch `PIHERDER_SSH_CONSOLE=false` (default off until GA) |
 | 6 | “Run command” is **allowlist / template** only — not a free shell (free shell = console item 5) |
@@ -39,10 +39,10 @@ Deepen **day-to-day host operations** and **first-time host bring-up** without c
 
 | Phase | Name | Target | Status |
 |-------|------|--------|--------|
-| **P1** | Docker project bulk control | 0.6.x first slice | Planned |
-| **P2** | Add-host wizard | After P1 | Planned |
-| **P3** | Host stats + healthcheck + allowlisted commands | After P2 | Planned |
-| **P4** | Bootstrap scripts + hostname + DNS handoff | Parallel P2–P3 | Planned |
+| **P1** | Docker project bulk control | 0.6.0 nice-to-have | Planned |
+| **P2** | Add-host wizard | **0.6.0 must** | Planned |
+| **P3** | Host stats + healthcheck + allowlisted commands | post-0.6 | Planned |
+| **P4** | Bootstrap scripts + hostname + DNS handoff | 0.6 stretch / post-0.6 | Planned |
 | **P5** | Web SSH console | Last; separate ship bar | Planned / under consideration |
 
 ---

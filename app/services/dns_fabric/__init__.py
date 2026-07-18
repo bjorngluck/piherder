@@ -56,6 +56,12 @@ from .core import (  # noqa: F401
     servers_with_dns_name,
     cleanup_dns_for_server,
 )
+from .kuma_coverage import (  # noqa: F401
+    build_kuma_coverage_audit,
+    attach_coverage_to_fabric_services,
+    suggest_monitors_for_service,
+    enrich_gaps_with_bind_hints,
+)
 
 __all__ = [n for n in dir(_core) if not n.startswith("__")]
 

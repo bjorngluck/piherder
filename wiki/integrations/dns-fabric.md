@@ -8,7 +8,7 @@ It is **not** a Kubernetes-style service mesh. It is a homelab **map** of DNS + 
 
 **UI label:** **Catalog → Network** (URL slug remains `/dns` for compatibility).
 
-**Pages:** [Network hub](#map-pages) · [Hosts map](#map-pages) · [Path map](#map-pages)
+**Pages:** Network hub · Hosts map · Path map · **Kuma coverage** (`/dns/coverage`)
 
 ## Why it exists
 
@@ -115,7 +115,8 @@ Internet (☁) ── WAN ── Router ── LAN ── home hosts (RFC1918 / 
 - **Copy path** copies the callout route string.
 - **Clear focus** / tap the same node again to clear.
 - Maps: **pinch** / scroll-wheel zoom up to **500%** (SVG **viewBox** — stays sharp), **drag** to pan, **+/− / 1:1**, **Full screen** (Esc or **Exit full** to leave), double-click reset. Hover preview is mouse/stylus only; finger tap locks focus without navigating.
-- Status dots: **green** = last Pi-hole sync ok · **amber** partial · **red** error · small amber ring = managed cert linked · Kuma **up/down** on Router / Public IP when bound.
+- Status dots: **green** = last Pi-hole sync ok · **amber** partial · **red** error · small amber ring = managed cert linked · Kuma **up/down** on Router / Public IP when bound.  
+- Path cards also show **Kuma coverage** (see below).
 - Deep links: `/dns/physical?focus=<service_id|#map>` and `/dns/logical?focus=…#map` (also from each path card / dashboard / Docker **Path map** pills). Deep links **auto-open** the SVG on mobile.
 - On **narrow screens**, maps default to the **list** (racks / flows). Use **View full map** for the SVG; use **Hide map** on the graph toolbar to return to list-first density.
 - **Hamburger while fullscreen:** the slide-out menu is portaled to `body` and sits **above** map fullscreen. Opening **☰** fully exits fullscreen (label, listeners, and viewport sizes reset) so the drawer is never painted off-screen.
@@ -156,6 +157,57 @@ Audit actions include `dns_host_*`, `dns_service_cname_sync`, `dns_service_a_syn
 
 ---
 
+## Uptime Kuma coverage (v0.6+)
+
+**Catalog → Network → Kuma coverage** (`/dns/coverage`) is a **dedicated page** (not the whole hub — keeps maps + paths scannable).
+
+The hub shows a **teaser card** with path/dep gap counts. Full audit, binds, filters, and stack dependencies live on the coverage page.
+
+| Status | Meaning |
+|--------|---------|
+| **Covered** | Service-role binding matches FQDN / Docker project (or a clear host-scoped service monitor) |
+| **Partial** | Host has SSH reachability only, or a weak/label-only match |
+| **Gap (none)** | No useful Kuma binding on the backend host for this name |
+
+Path cards show a small **Kuma** / **Kuma·** / **no Kuma** chip.
+
+### Binding from the gaps table
+
+For each gap (operators only):
+
+1. **Poll** Kuma on the integration if the monitor list is empty.  
+2. Choose a **Suggested** (or other) HTTP monitor — ranked by FQDN / name / URL.  
+3. Click **Bind** — creates a service binding on the **backend host** with the path’s Docker project when known, then returns to Network coverage.  
+4. **Advanced…** opens the full Kuma “Add service binding” form with server / project pre-filled.
+
+This does **not** create monitors inside Kuma — only **links** an existing monitor to a fleet host/project. Create the HTTP check in Kuma first ([Uptime Kuma](uptime-kuma.md)).
+
+### Stack dependencies (Docker inventory)
+
+Below path coverage, **Stack dependencies** lists **compose containers** from host Docker inventory (not only published FQDNs):
+
+| Status | Meaning |
+|--------|---------|
+| **Bound** | Kuma service bind matches project (and container when set) |
+| **Suggest bind** | No bind — pick TCP/HTTP monitor; host ports shown when published |
+| **Muted / infra** | Postgres, Redis, MySQL, Mongo, … (name/image heuristics) **or** operator **Mute** |
+
+**Show infra** toggles whether DB/cache roles appear as suggestions (default **hidden** — they are not public path monitors; a TCP/Postgres check needs a port reachable from Kuma).
+
+**Path gap filters:** All · Hard gaps · Public/apps · Strict (drops host-identity partial noise).
+
+### Monitoring Postgres (example)
+
+1. Ensure Kuma can reach the DB (publish port carefully, or put Kuma on the same Docker network).  
+2. Create a **TCP** or **Postgres** monitor in Kuma (connection string stays in Kuma).  
+3. Network → coverage → **Show infra** if needed → **Bind** to `project` / `db` container.  
+4. Or keep DB muted and rely on app HTTPS + host SSH.
+
+!!! note "Availability"
+    Coverage audit + dependency suggest: **v0.6.0+**. Requires enabled Uptime Kuma + Docker inventory on hosts.
+
+---
+
 ## Data model (summary)
 
 | Setting / field | Storage | Notes |
@@ -171,8 +223,8 @@ Audit actions include `dns_host_*`, `dns_service_cname_sync`, `dns_service_a_syn
 
 Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma service binds, and stack deployments.
 
-**Code:** package `app/services/dns_fabric/` (`core`, `mesh_physical`, `mesh_logical`) · `app/routers/dns.py` · `app/static/js/fabric-mesh.js` · `app/static/css/fabric.css` · templates `dns_*.html`  
-**Tests:** `tests/test_dns_fabric.py`
+**Code:** package `app/services/dns_fabric/` (`core`, `mesh_physical`, `mesh_logical`, `kuma_coverage`) · `app/routers/dns.py` · `app/static/js/fabric-mesh.js` · `app/static/css/fabric.css` · templates `dns_*.html`  
+**Tests:** `tests/test_dns_fabric.py` · `tests/test_kuma_coverage.py`
 
 ---
 
@@ -183,4 +235,4 @@ Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma 
 - [Uptime Kuma](uptime-kuma.md)  
 - [Certificates](certificates.md)  
 - [v0.5.0 plan § F.1](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md)  
-- Roadmap H2.5: container dependency graph (DB, Redis, …) — [ROADMAP_ECOSYSTEM.md](https://github.com/bjorngluck/piherder/blob/main/docs/ROADMAP_ECOSYSTEM.md)
+- Roadmap H2.5 + runtime topology plan (expand stack, suggest/manual deps): [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [ROADMAP_ECOSYSTEM.md](https://github.com/bjorngluck/piherder/blob/main/docs/ROADMAP_ECOSYSTEM.md)

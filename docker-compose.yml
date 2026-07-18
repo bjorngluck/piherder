@@ -31,11 +31,17 @@ x-piherder-app-env: &piherder-app-env
   PIHERDER_SERVER_LOCK_TTL: ${PIHERDER_SERVER_LOCK_TTL:-7200}
   TZ: ${TZ:-Etc/UTC}
 
-# App image: multi-arch from Docker Hub (linux/amd64 + linux/arm64).
-# Override pin: PIHERDER_IMAGE=bjorngluck/piherder:0.5.0
-# Local rebuild from source: docker compose build (requires restoring `build: .`).
+# App image — **local build by default** (dev / RC testing on this host).
+#   docker compose build web celery-worker && docker compose up -d
+# Production Hub pull (no rebuild):
+#   PIHERDER_IMAGE=bjorngluck/piherder:0.5.0 docker compose up -d --no-build
+#   (or :latest after a published release)
+# Override tag name only: PIHERDER_IMAGE=piherder:dev docker compose build
 x-piherder-image: &piherder-image
-  image: ${PIHERDER_IMAGE:-bjorngluck/piherder:latest}
+  image: ${PIHERDER_IMAGE:-piherder:local}
+  build:
+    context: .
+    dockerfile: Dockerfile
 
 services:
   web:

@@ -1124,7 +1124,7 @@
    */
   window.PiHerderJobHold = (function () {
     var pollKey = 'job-hold';
-    var state = { serverId: null, jobId: null, closeMode: 'reload', reloadDelayMs: 1200 };
+    var state = { serverId: null, jobId: null, closeMode: 'reload', reloadDelayMs: 1200, redirectUrl: null };
 
     function els() {
       return {
@@ -1148,6 +1148,10 @@
 
     function finishClose() {
       hide();
+      if (state.redirectUrl) {
+        location.href = state.redirectUrl;
+        return;
+      }
       var mode = state.closeMode || 'reload';
       if (mode === 'reload') location.reload();
       else if (mode === 'servers') location.href = '/servers';
@@ -1165,6 +1169,7 @@
       state.jobId = opts.jobId || null;
       state.closeMode = opts.closeMode || window.PIHERDER_PROGRESS_CLOSE || 'reload';
       state.reloadDelayMs = opts.reloadDelayMs != null ? opts.reloadDelayMs : 1200;
+      state.redirectUrl = opts.redirectUrl || null;
       if (e.title) e.title.textContent = opts.title || 'Working…';
       if (e.status) e.status.textContent = opts.statusText || 'Starting…';
       if (e.log) e.log.textContent = opts.initialMessage || 'Please wait…\n';
@@ -1209,8 +1214,17 @@
           } else if (e.log && data.summary) {
             e.log.textContent += data.summary + '\n';
           }
+          if (data.redirect_url) {
+            state.redirectUrl = data.redirect_url;
+          }
           if (data.done || data.status === 'success' || data.status === 'failed' || data.status === 'cancelled') {
-            if (e.hint) e.hint.textContent = 'Refreshing…';
+            if (e.hint) {
+              e.hint.textContent = state.redirectUrl && data.status === 'success'
+                ? 'Opening deployment…'
+                : 'Refreshing…';
+            }
+            // On failure keep reload so banners/errors show; only redirect on success
+            if (data.status !== 'success') state.redirectUrl = null;
             setTimeout(finishClose, state.reloadDelayMs);
             return true;
           }

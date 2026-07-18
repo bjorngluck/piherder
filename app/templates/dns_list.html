@@ -12,21 +12,41 @@
 <div class="banner-error border rounded p-3 text-sm mb-4">{{ error }}</div>
 {% endif %}
 
-{# Map entry points #}
-<div class="grid gap-3 sm:grid-cols-2 mb-4">
-  <a href="/dns/physical#map" class="fabric-nav-card fabric-nav-card--physical dash-net-card">
+
+{# Coverage teaser — full audit lives on /dns/coverage #}
+{% set kc = view.kuma_coverage or {} %}
+{% set ksum = kc.summary or {} %}
+{% set dsum = (kc.dependencies or {}).summary or {} %}
+<div class="grid gap-3 sm:grid-cols-3 mb-5">
+  <a href="/dns/coverage" class="fabric-nav-card fabric-nav-card--coverage dash-net-card min-h-[5.5rem]">
+    <div class="fabric-nav-card-kicker">Audit</div>
+    <div class="fabric-nav-card-title">Kuma coverage</div>
+    <p class="fabric-nav-card-desc">
+      {% if kc.has_kuma %}
+        {{ ksum.covered or 0 }} paths covered
+        {% if ksum.gap_count %} · <span class="text-warning">{{ ksum.gap_count }} path gaps</span>{% endif %}
+        {% if ksum.dep_gaps %} · <span class="text-warning">{{ ksum.dep_gaps }} dep gaps</span>{% endif %}
+      {% else %}
+        Connect Uptime Kuma to audit monitors
+      {% endif %}
+    </p>
+    <span class="fabric-nav-card-cta">Open coverage →</span>
+  </a>
+  <a href="/dns/physical#map" class="fabric-nav-card fabric-nav-card--physical dash-net-card min-h-[5.5rem]">
     <div class="fabric-nav-card-kicker">Map</div>
     <div class="fabric-nav-card-title">Hosts map</div>
+    <p class="fabric-nav-card-desc">LAN topology · cloud hosts · router</p>
     <span class="fabric-nav-card-cta">Open topology →</span>
   </a>
-  <a href="/dns/logical#map" class="fabric-nav-card fabric-nav-card--logical dash-net-card">
+  <a href="/dns/logical#map" class="fabric-nav-card fabric-nav-card--logical dash-net-card min-h-[5.5rem]">
     <div class="fabric-nav-card-kicker">Map</div>
     <div class="fabric-nav-card-title">Path map</div>
+    <p class="fabric-nav-card-desc">Name → proxy → host → app</p>
     <span class="fabric-nav-card-cta">Open paths →</span>
   </a>
 </div>
 
-<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-5">
+<div class="fabric-stat-strip mb-5">
   <div class="card p-3">
     <div class="text-xs text-muted">Hosts named</div>
     <div class="text-2xl font-semibold">{{ view.stats.hosts_named }}<span class="text-sm text-muted font-normal"> / {{ view.stats.hosts_total }}</span></div>
@@ -41,7 +61,7 @@
   </div>
   <div class="card p-3">
     <div class="text-xs text-muted">Path mix</div>
-    <div class="text-xs mt-1 space-y-0.5 text-muted">
+    <div class="text-xs mt-1 space-y-0.5 text-muted leading-snug">
       {% set bp = view.stats.by_path or {} %}
       <div>identity {{ bp.host_identity or 0 }} · app {{ bp.app or 0 }}</div>
       <div>npm {{ (bp.npm_app or 0) + (bp.npm_host or 0) }}</div>
@@ -110,14 +130,16 @@
   <div class="fabric-path-grid">
     {% for s in view.services %}
     <article class="fabric-path-card fabric-path-card--{{ s.path_kind or 'host' }}"
+             id="path-{{ s.id }}"
              data-fabric-filter-item
              data-path-id="{{ s.id }}"
              data-path-chain="{{ s.path_chain or s.fqdn }}"
              data-path-kind="{{ s.path_kind or '' }}"
              data-via-npm="{{ 1 if s.via_proxy else 0 }}"
+             data-kuma-coverage="{{ s.kuma_coverage or 'n/a' }}"
              data-open-href="{{ s.backend_href or s.target_href or s.dep_href or '' }}"
              data-hosts="{{ s.backend_server_id or '' }}{% if s.target_server_id and s.target_server_id != s.backend_server_id %},{{ s.target_server_id }}{% endif %}"
-             data-filter-text="{{ s.fqdn }} {{ s.backend_name or '' }} {{ s.target_name or '' }} {{ s.docker_project or '' }} {{ s.docker_container or '' }} {{ s.label or '' }}"
+             data-filter-text="{{ s.fqdn }} {{ s.backend_name or '' }} {{ s.target_name or '' }} {{ s.docker_project or '' }} {{ s.docker_container or '' }} {{ s.label or '' }} kuma:{{ s.kuma_coverage or '' }}"
              data-fabric-focus-click>
       <header class="fabric-path-card-head">
         <div class="flex flex-wrap items-center gap-2">
@@ -135,6 +157,16 @@
           {% if s.certificate_id or s.cert_name %}
           <span class="fabric-status-dot fabric-status-dot--cert" title="Certificate{% if s.cert_name %}: {{ s.cert_name }}{% endif %}"></span>
           <span class="text-[10px] text-muted font-medium">TLS</span>
+          {% endif %}
+          {% if s.kuma_coverage == 'covered' %}
+          <span class="fabric-status-dot fabric-status-dot--ok" title="{{ s.kuma_coverage_reason or 'Kuma service monitor' }}"></span>
+          <span class="text-[10px] text-success font-medium" title="{{ s.kuma_coverage_reason or '' }}">Kuma</span>
+          {% elif s.kuma_coverage == 'partial' %}
+          <span class="fabric-status-dot fabric-status-dot--partial" title="{{ s.kuma_coverage_reason or 'Partial Kuma coverage' }}"></span>
+          <span class="text-[10px] text-warning font-medium" title="{{ s.kuma_coverage_reason or '' }}">Kuma·</span>
+          {% elif s.kuma_coverage == 'none' %}
+          <span class="fabric-status-dot fabric-status-dot--error" title="{{ s.kuma_coverage_reason or 'Not monitored in Kuma' }}"></span>
+          <span class="text-[10px] text-error font-medium" title="{{ s.kuma_coverage_reason or '' }}">no Kuma</span>
           {% endif %}
         </div>
         {% if can_mutate %}

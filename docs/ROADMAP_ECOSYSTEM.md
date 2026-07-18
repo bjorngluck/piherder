@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-17  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-17 (v0.6.0 RC2 plan opened)  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
@@ -27,14 +27,17 @@ Design principles stay the same as SPEC:
 | **v0.4.0** | Post-0.3 quality + **service templates** foundation (wizard, volumes/booleans, from-host, step-up secrets, wait modal, OOTB pack, desired state V1) | H2 + fixes | **Tagged** 2026-07-12 — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) |
 | **v0.4.x** | *(folded)* Former ops track — drift, NPM connector, git catalog, `.env` migrate | H1/H2 | **Absorbed into v0.5.0** (no separate planning phase) |
 | **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **Tagged** 2026-07-17 — [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
-| **v0.6.x / post-RC** | Host lifecycle depth (Docker bulk, onboarding wizard, optional host console) — **not** RC freeze scope | H2.75 | **Planned** — [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [§ H2.75](#horizon-275--host-lifecycle--operator-console-post-rc) |
+| **v0.6.0** | **RC2 polish** — add-host wizard, template deploy as Jobs, cert map UX, docs polish, light perf; optional Docker bulk | H2.75 slice + polish | **Active** — [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) |
+| **v0.6.x / later** | Remaining host lifecycle (stats/commands, bootstrap depth, web SSH) | H2.75 remainder | Planned after 0.6.0 — [§ H2.75](#horizon-275--host-lifecycle--operator-console-post-rc) |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
 **Decision (2026-07-12):** **Single development target `v0.5.0`** — former “v0.4.x ops” and “RC polish” are one cycle. Optional intermediate git tags only if something must ship early.
 
-**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC**~~ **tagged** → **post-RC host lifecycle (optional 0.6.x)** → **v1.0** refined production.
+**Decision (2026-07-17):** **Single development target `v0.6.0` (RC2)** — operator polish + selected H2.75 slices (wizard required; Docker bulk optional). See [PLAN_v0.6.0.md](PLAN_v0.6.0.md).
+
+**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ **tagged** → **v0.6.0 RC2** (active) → **v1.0** refined production.
 
 **Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.5.0` / `latest`).
 
@@ -229,15 +232,23 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 
 **Network maps / DNS fabric** (host A + service names, Pi-hole adopt, Hosts map + Path map, LAN/gateway/public IP, cloud hosts, optional Kuma on router/WAN, mobile list-first + fullscreen vs hamburger) lands in **v0.5.0**. Next topology depth:
 
+**Living design:** [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) — dual altitude (customer path vs runtime stack), expand-one-stack, suggest + **manual** dependency edges, Kuma HTTP/TCP/Docker mapping.
+
 | Item | Direction |
 |------|-----------|
 | **Service → container mapping** | First-class link from a published name / deployment to the **compose service + container** (beyond Kuma/NPM inference) |
-| **Container dependency graph** | Model runtime deps between containers (e.g. app → **Postgres**, **Redis**, queue workers) — discover from compose `depends_on` / labels + optional operator edges |
-| **Richer topology** | Enrich Hosts/Path maps with dep edges, more Kuma health, operator force LAN/cloud overrides |
+| **Container dependency graph** | Suggest from compose `depends_on` / inventory heuristics; **operator accept + manual edges** — see runtime topology plan |
+| **Expand stack on map** | High-level path map stays calm; **one stack at a time** expands containers + links (panel first, canvas later) |
+| **Published ports on maps** | Enrich Hosts/Path with host/container published ports from Docker inventory (no LAN scan required) — PLAN **H2** |
+| **Monitoring coverage audit** | Paths + inventory deps vs Kuma bindings; mute infra; dedicated `/dns/coverage` — **H3 largely done** in 0.6 |
+| **LAN discovery (nmap-class)** | Opt-in periodic scan of Network LAN CIDR — **H1** design spike; orthogonal to stack deps |
+| **Richer topology** | Focused dep edges, Kuma health decorations, force LAN/cloud overrides |
 | **External DNS providers** | Cloudflare (etc.) automation; until then external checklist remains |
 | **Service migrate / remove** | Move stack host↔host with DNS retarget; destructive remove with volume cleanup |
 
-**Design principle:** one **entity graph** (name, NPM, host, project, container, volume, dep) — views are projections, not separate data models.
+**Design principle:** one **entity graph** (name, NPM, host, project, container, volume, dep edge, monitor bind, discovered device) — views are projections, not separate data models.
+
+**v0.6.0 note:** H3 coverage shipped (hub teaser + `/dns/coverage`). Runtime expand/manual edges = post-RC polish track per [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) P1+. H1 nmap remains optional spike.
 
 ---
 
@@ -245,7 +256,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 
 **Captured:** 2026-07-17 (operator planning discussion).  
 **Feature plan:** [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) (phases P1–P5, UX sketches, acceptance criteria, security bar).  
-**Stance:** **Planned after v0.5.0 RC** — not RC freeze scope, not required for a minimal **1.0.0** unless we choose a small slice (e.g. P1 Docker bulk). Prefer shipping as **0.6.x** (or staged PRs after 1.0) once RC is stable.
+**Stance:** **v0.6.0 RC2** pulls **P2 wizard** (must) and optionally **P1 Docker bulk**. P3–P5 remain post-0.6 / not required for minimal **1.0.0**. Detail: [PLAN_v0.6.0.md](PLAN_v0.6.0.md).
 
 These ideas deepen **day-to-day host operations** and **first-time host bring-up**. They sit next to H2.5 (topology) but focus on **SSH lifecycle** rather than DNS/proxy graphs.
 

@@ -55,6 +55,8 @@ JOB_FEATURE_KEY = {
     "container_update_check": "docker",
     "docker_stack_check": "docker",
     "docker_stack_deploy": "docker",
+    "template_deploy": "docker",
+    "template_redeploy": "docker",
 }
 
 FEATURE_SCOPE_BY_KEY = {

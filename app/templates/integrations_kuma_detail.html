@@ -255,11 +255,18 @@
   <form method="post" action="/integrations/{{ integration.id }}/bindings" id="svc-bind-form"
         class="border border-border rounded p-3 flex flex-wrap gap-2 items-end bg-surface/40">
     <input type="hidden" name="role" value="service">
+    {% if request.query_params.get('next') %}
+    <input type="hidden" name="next" value="{{ request.query_params.get('next') }}">
+    {% endif %}
     <div class="min-w-[9rem]">
       <label class="text-[10px] text-muted">Server</label>
-      <select name="server_id" id="svc-server" class="input text-sm w-full" required>
+      <select name="server_id" id="svc-server" class="input text-sm w-full" required
+              data-prefill-server="{{ request.query_params.get('server_id') or '' }}">
         {% for s in servers %}
-        <option value="{{ s.id }}">{{ s.name }}</option>
+        <option value="{{ s.id }}"
+          {% if request.query_params.get('server_id') and request.query_params.get('server_id')|string == s.id|string %}selected{% endif %}>
+          {{ s.name }}
+        </option>
         {% endfor %}
       </select>
     </div>
@@ -364,6 +371,45 @@
     });
     serverEl.addEventListener('change', fillProjects);
     fillProjects();
+    // Prefill from Network coverage "Advanced…" deep link (?docker_project=&suggest=)
+    try {
+      var params = new URLSearchParams(window.location.search || '');
+      var prefProj = (params.get('docker_project') || '').trim();
+      var prefMon = (params.get('external_id') || params.get('suggest') || '').trim();
+      if (prefProj) {
+        var found = false;
+        for (var i = 0; i < projEl.options.length; i++) {
+          if (projEl.options[i].value === prefProj) {
+            projEl.selectedIndex = i;
+            found = true;
+            break;
+          }
+        }
+        if (!found && prefProj) {
+          var po = document.createElement('option');
+          po.value = prefProj;
+          po.textContent = 'Docker: ' + prefProj;
+          po.selected = true;
+          projEl.appendChild(po);
+        }
+        projEl.dispatchEvent(new Event('change'));
+      }
+      if (prefMon) {
+        var monSel = document.querySelector('#svc-bind-form select[name="external_id"]');
+        if (monSel) {
+          var q = prefMon.toLowerCase();
+          for (var j = 0; j < monSel.options.length; j++) {
+            var opt = monSel.options[j];
+            var t = (opt.textContent || '').toLowerCase();
+            var v = (opt.value || '').toLowerCase();
+            if (v === q || t.indexOf(q) !== -1) {
+              monSel.selectedIndex = j;
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {}
   })();
   </script>
   {% endif %}

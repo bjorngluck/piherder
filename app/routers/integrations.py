@@ -616,6 +616,7 @@ async def set_binding(
     display_name: str = Form(""),
     clear: Optional[str] = Form(None),
     binding_id: Optional[str] = Form(None),
+    next: str = Form(""),
 ):
     integration = reg.get_integration(session, integration_id)
     if not integration:
@@ -773,6 +774,42 @@ async def set_binding(
     )
     scope = "service" if role == reg.ROLE_SERVICE else "ssh"
     section = "kuma-services" if role == reg.ROLE_SERVICE else "kuma-ssh"
+
+    def _after_bind_redirect(*, msg: str = "", error: str = "", detail: str = ""):
+        """Honor safe relative next= (e.g. Network coverage) or fall back to integration."""
+        nxt = (next or "").strip()
+        if (
+            nxt.startswith("/")
+            and not nxt.startswith("//")
+            and "://" not in nxt
+            and "\n" not in nxt
+        ):
+            from urllib.parse import quote
+
+            sep = "&" if "?" in nxt else "?"
+            if msg:
+                nxt = f"{nxt}{sep}msg={quote(msg)}"
+                sep = "&"
+            if error:
+                nxt = f"{nxt}{sep}error={quote(error)}"
+                if detail:
+                    nxt = f"{nxt}&detail={quote(detail[:200])}"
+            return RedirectResponse(nxt, status_code=303)
+        if error:
+            return _redirect(
+                f"/integrations/{integration_id}",
+                fragment=section,
+                error=error,
+                detail=detail,
+                scope=scope,
+            )
+        return _redirect(
+            f"/integrations/{integration_id}",
+            fragment=section,
+            msg=msg or "binding_saved",
+            scope=scope,
+        )
+
     try:
         reg.set_binding(
             session,
@@ -798,29 +835,12 @@ async def set_binding(
                 f" project={docker_project} container={docker_container}"
             ),
         )
-        return _redirect(
-            f"/integrations/{integration_id}",
-            fragment=section,
-            msg="binding_saved",
-            scope=scope,
-        )
+        return _after_bind_redirect(msg="binding_saved")
     except ValueError as e:
-        return _redirect(
-            f"/integrations/{integration_id}",
-            fragment=section,
-            error="binding_failed",
-            detail=str(e)[:200],
-            scope=scope,
-        )
+        return _after_bind_redirect(error="binding_failed", detail=str(e)[:200])
     except Exception as e:
         logger.exception("integration binding failed")
-        return _redirect(
-            f"/integrations/{integration_id}",
-            fragment=section,
-            error="binding_failed",
-            detail=str(e)[:200],
-            scope=scope,
-        )
+        return _after_bind_redirect(error="binding_failed", detail=str(e)[:200])
 
 
 @router.post("/integrations/{integration_id}/suggest-bindings")

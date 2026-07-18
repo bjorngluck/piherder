@@ -59,6 +59,10 @@ DEFAULTS: Dict[str, Any] = {
     "network_gateway_kuma_external_id": "",
     "network_public_kuma_external_id": "",
     "network_kuma_integration_id": "",  # empty = first enabled Kuma
+    # Kuma coverage (Network hub): JSON list of extra mute substrings; mute keys; show infra deps
+    "kuma_coverage_mute_patterns": "",  # e.g. ["minio","vault"] or comma-separated
+    "kuma_coverage_mute_keys": "[]",  # JSON list of "server_id:project:container"
+    "kuma_coverage_show_infra": False,  # if true, postgres/redis etc. appear as dep gaps
 }
 
 

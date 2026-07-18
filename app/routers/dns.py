@@ -1,6 +1,7 @@
 """End-to-end DNS fabric UI and mutations."""
 from __future__ import annotations
 
+import json
 from typing import Optional
 from urllib.parse import quote
 
@@ -10,9 +11,9 @@ from sqlmodel import Session
 
 from ..database import get_session
 from ..models import Server, User
-from ..security.auth import get_admin_user, get_current_user, user_role
+from ..security.auth import get_admin_user, get_current_user, get_operator_user, user_role
 from ..services import dns_fabric as fabric
-from ..services.app_settings import load_settings
+from ..services.app_settings import load_settings, save_settings
 from ..templates import templates
 
 router = APIRouter()
@@ -51,7 +52,25 @@ def _dns_page_context(
     settings = load_settings()
     base = (settings.get("dns_base_domain") or "").strip()
     focus = (request.query_params.get("focus") or "").strip()
+    coverage_filter = (request.query_params.get("coverage_filter") or "all").strip().lower()
+    if coverage_filter not in ("all", "none", "public", "strict"):
+        coverage_filter = "all"
     kuma_opts = fabric.list_kuma_monitor_options(session) if page == "index" else []
+    # Path-gap filters only on the dedicated coverage page
+    kc = view.get("kuma_coverage") or {}
+    if page == "coverage" and kc.get("gaps") is not None:
+        try:
+            from ..services.dns_fabric.kuma_coverage import filter_path_gaps
+
+            kc = dict(kc)
+            kc["gaps_filtered"] = filter_path_gaps(
+                list(kc.get("gaps") or []), mode=coverage_filter
+            )
+            kc["coverage_filter"] = coverage_filter
+            view = dict(view)
+            view["kuma_coverage"] = kc
+        except Exception:
+            pass
     stats = view.get("stats") or {}
     catalog_pulse = {
         "health": "ok",
@@ -82,8 +101,18 @@ def _dns_page_context(
         "line2": [
             {"n": stats.get("hosts_total") or 0, "l": "hosts", "cls": ""},
             {"n": stats.get("hosts_named") or 0, "l": "dns", "cls": ""},
+            {
+                "n": stats.get("kuma_gaps") or 0,
+                "l": "path gaps",
+                "cls": "text-warning" if (stats.get("kuma_gaps") or 0) else "",
+            },
+            {
+                "n": stats.get("kuma_dep_gaps") or 0,
+                "l": "dep gaps",
+                "cls": "text-warning" if (stats.get("kuma_dep_gaps") or 0) else "",
+            },
         ],
-        "caption": "Network maps · hosts & paths",
+        "caption": "Network maps · hosts & paths · Kuma coverage",
     }
     return {
         "request": request,
@@ -113,9 +142,11 @@ def _dns_page_context(
         "network_kuma_monitors": kuma_opts,
         "msg": request.query_params.get("msg") or "",
         "error": request.query_params.get("error") or "",
+        "detail": request.query_params.get("detail") or "",
         "catalog_section": "dns",
         "dns_page": page,
         "focus_path_id": focus,
+        "coverage_filter": coverage_filter if page == "coverage" else "all",
     }
 
 
@@ -125,12 +156,74 @@ async def dns_list(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """DNS hub: polished per-service paths + adopt/manage. Full mesh on subpages."""
+    """DNS hub: maps teaser + service paths + adopt/settings. Coverage is /dns/coverage."""
     ctx = _dns_page_context(request, session, user, page="index")
     return templates.TemplateResponse(
         request=request,
         name="dns_list.html",
         context=ctx,
+    )
+
+
+@router.get("/dns/coverage", response_class=HTMLResponse)
+async def dns_coverage(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Kuma path + dependency coverage audit (split from hub to reduce clutter)."""
+    ctx = _dns_page_context(request, session, user, page="coverage")
+    ctx["title"] = "Kuma coverage"
+    return templates.TemplateResponse(
+        request=request,
+        name="dns_coverage.html",
+        context=ctx,
+    )
+
+
+@router.post("/dns/coverage/mute")
+async def coverage_mute_dependency(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    key: str = Form(...),
+    unmute: Optional[str] = Form(None),
+):
+    """Mute/unmute a docker dependency from coverage suggestions (server:project:container)."""
+    del session  # settings are session-free
+    key = (key or "").strip()
+    if not key or key.count(":") < 2 or len(key) > 200:
+        return _redirect("/dns", error="invalid mute key")
+    cfg = load_settings()
+    raw = cfg.get("kuma_coverage_mute_keys") or "[]"
+    try:
+        keys = json.loads(raw) if isinstance(raw, str) else list(raw or [])
+        if not isinstance(keys, list):
+            keys = []
+    except Exception:
+        keys = []
+    keys = [str(k) for k in keys if str(k).strip()]
+    if unmute in ("1", "on", "true", "yes"):
+        keys = [k for k in keys if k != key]
+        msg = "dep_unmuted"
+    else:
+        if key not in keys:
+            keys.append(key)
+        msg = "dep_muted"
+    save_settings({"kuma_coverage_mute_keys": json.dumps(keys)})
+    return _redirect("/dns/coverage#kuma-deps", msg=msg)
+
+
+@router.post("/dns/coverage/show-infra")
+async def coverage_toggle_show_infra(
+    user: User = Depends(get_operator_user),
+    show: Optional[str] = Form(None),
+):
+    """Toggle whether infra roles (postgres/redis/…) appear as dependency gaps."""
+    del user
+    on = show in ("1", "on", "true", "yes")
+    save_settings({"kuma_coverage_show_infra": on})
+    return _redirect(
+        "/dns/coverage#kuma-deps", msg="infra_shown" if on else "infra_hidden"
     )
 
 

@@ -163,8 +163,8 @@
   {% endif %}
 
   <form method="post" action="/templates/{{ definition.slug }}/confirm" class="flex flex-wrap gap-2"
-        data-wait-title="Deploying template"
-        data-wait-message="Writing files over SSH, locking .env, and running compose pull + up. This can take a minute…">
+        data-job-hold="Deploying template"
+        data-job-hold-close="reload">
     <input type="hidden" name="stash_json" value="{{ stash_json | e }}">
     <button type="submit" class="btn btn-accent px-6 py-2 min-h-11"
             {% if template_require_2fa and not user_has_2fa %}disabled title="2FA required"{% endif %}>
@@ -176,7 +176,7 @@
     Desired state will be stored as <strong>V1</strong> with secrets encrypted.
     Secrets are written to a host <code class="text-xs">.env</code> with mode <code class="text-xs">600</code>
     (home production). Source of truth stays encrypted in {{ ph_brand() }}.
-    A progress overlay appears while deploy runs (page updates when finished).
+    Deploy runs as a <strong>Job</strong> with a live log (same as stack Deploy). On success you are taken to the deployment page.
   </p>
   {% endif %}
 </div>
