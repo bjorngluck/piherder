@@ -47,10 +47,62 @@
 </div>
 
 {% if msg %}
-<div class="mb-3 p-3 banner-success border border-border rounded text-sm">{{ msg }}{% if detail %} — {{ detail }}{% endif %}</div>
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  {% if msg == 'uploaded' %}Certificate encrypted and stored in the vault. Next: add a service map.
+  {% elif msg == 'pulled' %}Certificate pulled from NPM into the vault. Next: add a service map.
+  {% elif msg == 'target_added' %}Service map saved. Next: Deploy to write files on the host.
+  {% elif msg == 'target_saved' %}Service map updated.
+  {% elif msg == 'target_deleted' %}Service map removed (host files left in place).
+  {% elif msg == 'deployed' %}Deploy finished. Confirm files on the host if this is a new map.
+  {% elif msg == 'deploy_skipped' %}Already in sync — same fingerprint was previously deployed (use force redeploy if you need a rewrite).
+  {% elif msg == 'renewed' %}Renewed and redistributed.
+  {% elif msg == 'replaced' %}PEM material replaced. Deploy maps to push the new cert.
+  {% elif msg == 'saved' %}Settings saved.
+  {% else %}{{ msg }}{% endif %}
+  {% if detail %} — {{ detail }}{% endif %}
+</div>
 {% endif %}
 {% if error %}
 <div class="mb-3 p-3 banner-error border border-border rounded text-sm">{{ error }}{% if detail %} — {{ detail }}{% endif %}</div>
+{% endif %}
+
+{# Guided next step after import / first map #}
+{% if can_mutate and setup_step == 'map' and not targets %}
+<div class="card p-4 mb-6 border border-accent/40 bg-surface">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <div class="text-xs font-semibold text-accent mb-1">Next · Step 2 of 3</div>
+      <h3 class="text-sm font-semibold text-text">Add your first service map</h3>
+      <p class="text-sm text-muted mt-1 max-w-2xl">
+        Choose a <strong>preset</strong> (NPM, Grafana volume, OctoPi/HAProxy, UniFi PFX…), pick the host,
+        adjust the directory, then save. Files are not written until you Deploy.
+      </p>
+    </div>
+    <a href="#map-form" class="btn btn-accent min-h-11">Scroll to map form</a>
+  </div>
+</div>
+{% elif can_mutate and setup_step == 'deploy' and targets %}
+<div class="card p-4 mb-6 border border-accent/40 bg-surface">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <div class="text-xs font-semibold text-accent mb-1">Next · Step 3 of 3</div>
+      <h3 class="text-sm font-semibold text-text">Deploy to the host</h3>
+      <p class="text-sm text-muted mt-1 max-w-2xl">
+        Deploy writes PEMs over SSH, sets permissions, and runs the map’s post-deploy command.
+        After success, verify the files on the host and that the app uses them.
+      </p>
+    </div>
+    <a href="#service-maps" class="btn btn-accent min-h-11">Go to maps</a>
+  </div>
+</div>
+{% elif setup_step == 'done' and targets %}
+<div class="card p-4 mb-6 border border-border">
+  <h3 class="text-sm font-semibold text-text mb-1">Setup complete for this cert</h3>
+  <p class="text-sm text-muted">
+    You can add more maps (same vault → multiple consumers) or return to the
+    <a href="/certificates" class="text-primary hover:underline">certificate list</a>.
+  </p>
+</div>
 {% endif %}
 
 {# Mental model #}
@@ -62,10 +114,8 @@
     <li><strong class="text-text">Deploy</strong> — {{ ph_brand() }} SSHs to the host, writes those exact files, applies permissions, runs your post-deploy command (e.g. container restart).</li>
   </ol>
   <p class="text-xs text-muted mt-3">
-    Example: map “NPM on edge” → <code class="text-[11px]">/opt/stacks/npm/data/custom_ssl</code>, layout <em>pair</em>,
-    files <code class="text-[11px]">fullchain.pem</code> + <code class="text-[11px]">privkey.pem</code>, owner <code class="text-[11px]">root:root</code> mode <code class="text-[11px]">600</code>,
-    post-deploy <code class="text-[11px]">docker compose -f /opt/stacks/npm/docker-compose.yml restart</code>.
-    Point the app at those paths (or the volume that mounts them).
+    Start from a <strong>preset</strong> below (NPM custom SSL, Grafana volume, OctoPi HAProxy, UniFi PFX).
+    New? Use the <a href="/certificates/setup" class="text-primary hover:underline">first-cert setup guide</a>.
   </p>
 </div>
 
@@ -136,19 +186,29 @@
             · <span class="font-mono break-all">{{ t.remote_dir }}</span>
           </div>
         </div>
-        <div class="text-xs">
-          {% if t.last_deploy_status == 'success' %}
+        <div class="text-xs flex flex-wrap gap-1.5 items-center justify-end">
+          {% if t.in_sync %}
+          <span class="status-pill status-success" title="Host has the same fingerprint as the vault">in sync</span>
+          {% elif t.stale_vs_vault %}
+          <span class="status-pill status-failed" title="Vault fingerprint changed since last deploy — redeploy">stale</span>
+          {% elif t.last_deploy_status == 'success' %}
           <span class="status-pill status-success">deployed</span>
           {% elif t.last_deploy_status == 'failed' %}
           <span class="status-pill status-failed" title="{{ t.last_deploy_message or '' }}">failed</span>
           {% else %}
           <span class="status-pill feature-off">never deployed</span>
           {% endif %}
-          {% if t.last_deployed_at %}<span class="text-muted ml-1">{{ t.last_deployed_at }}</span>{% endif %}
+          {% if t.last_deployed_at %}<span class="text-muted">{{ t.last_deployed_at }}</span>{% endif %}
         </div>
       </div>
 
       <div class="text-xs text-muted">{{ t.layout_help or t.layout }}</div>
+      {% if t.last_deploy_fingerprint_short %}
+      <div class="text-[11px] text-muted">
+        Last deploy fingerprint: <code class="text-[10px]">{{ t.last_deploy_fingerprint_short }}</code>
+        {% if t.in_sync %}· matches vault{% elif t.stale_vs_vault %}· vault has a newer cert{% endif %}
+      </div>
+      {% endif %}
 
       <ul class="text-xs font-mono space-y-0.5 bg-bg border border-border rounded p-2">
         {% for f in t.files %}
@@ -205,9 +265,14 @@
     {% endfor %}
   </div>
   {% else %}
-  <p class="text-sm text-muted mb-4">
-    No service maps yet. Add one below so {{ ph_brand() }} knows <em>where</em> and <em>how</em> to drop this cert.
-  </p>
+  <div class="mb-4 p-4 rounded-lg border border-dashed border-border bg-bg">
+    <p class="text-sm text-muted mb-2">
+      No service maps yet. Add one so {{ ph_brand() }} knows <em>where</em> and <em>how</em> to drop this cert.
+    </p>
+    {% if can_mutate %}
+    <a href="#map-form" class="btn btn-accent min-h-11">Add first map</a>
+    {% endif %}
+  </div>
   {% endif %}
 
   {% if can_mutate %}
@@ -230,20 +295,19 @@
           data-wait-title="{% if et %}Saving map{% else %}Adding map{% endif %}"
           data-wait-message="Updating database…">
 
-      {# Presets #}
+      {# Presets (from certificates.MAP_PRESETS) #}
       {% if not et %}
       <div>
         <label class="block text-xs text-muted mb-1">Preset</label>
         <select id="cert-map-preset" class="input w-full text-sm">
           <option value="">Choose a starting point…</option>
-          <option value="nginx_pair">Nginx / Caddy / NPM-style PEM pair</option>
-          <option value="docker_volume">Docker host path (bind-mounted certs dir)</option>
-          <option value="combined">Combined single PEM (key + chain)</option>
-          <option value="pfx">PEM pair + PFX (Windows / UniFi-style)</option>
-          <option value="custom">Custom (blank defaults)</option>
+          {% for p in map_presets or [] %}
+          <option value="{{ p.id }}">{% if p.group %}{{ p.group }} · {% endif %}{{ p.title }}</option>
+          {% endfor %}
         </select>
         <p class="text-[11px] text-muted mt-1" id="cert-map-preset-help">
-          Presets fill layout, filenames, and example paths — edit for your host.
+          Presets fill layout, filenames, example paths, and restart commands — edit for your host.
+          OctoPi / Grafana need matching sudoers (see operator cookbooks).
         </p>
       </div>
       {% endif %}
@@ -388,70 +452,11 @@
   <script>
   (function () {
     var layoutHelp = {{ (layout_help or {})|tojson }};
-    var PRESETS = {
-      nginx_pair: {
-        label: 'NPM / reverse proxy SSL',
-        remote_dir: '/opt/stacks/npm/certs',
-        layout: 'pair',
-        fullchain: 'fullchain.pem',
-        privkey: 'privkey.pem',
-        mode: '600',
-        owner: 'root',
-        group: 'root',
-        post: 'docker compose -f /opt/stacks/npm/docker-compose.yml restart',
-        help: 'Two PEM files — typical for Nginx Proxy Manager custom certs or Caddy file_server TLS.'
-      },
-      docker_volume: {
-        label: 'App Docker stack certs',
-        remote_dir: '/opt/stacks/myservice/certs',
-        layout: 'pair',
-        fullchain: 'fullchain.pem',
-        privkey: 'privkey.pem',
-        mode: '600',
-        owner: 'root',
-        group: 'root',
-        post: 'docker compose -f /opt/stacks/myservice/docker-compose.yml restart',
-        help: 'Host directory you bind-mount into the container (e.g. ./certs:/certs:ro).'
-      },
-      combined: {
-        label: 'Combined PEM consumer',
-        remote_dir: '~/certs',
-        layout: 'combined',
-        combined: 'snakeoil.pem',
-        mode: '600',
-        owner: '',
-        group: '',
-        post: '',
-        help: 'Single file: private key first, then full chain — used by some HAProxy / legacy apps.'
-      },
-      pfx: {
-        label: 'PFX consumer (UniFi / Windows)',
-        remote_dir: '~/certs',
-        layout: 'pair_and_pfx',
-        fullchain: 'fullchain.pem',
-        privkey: 'privkey.pem',
-        pfx: 'Certificate.pfx',
-        mode: '600',
-        owner: '',
-        group: '',
-        post: '',
-        help: 'Writes PEM pair, then runs openssl pkcs12 on the host to create .pfx.'
-      },
-      custom: {
-        label: '',
-        remote_dir: '~/certs',
-        layout: 'pair',
-        fullchain: 'fullchain.pem',
-        privkey: 'privkey.pem',
-        combined: 'snakeoil.pem',
-        pfx: 'Certificate.pfx',
-        mode: '600',
-        owner: '',
-        group: '',
-        post: '',
-        help: 'Fill every field for your service.'
-      }
-    };
+    var PRESET_LIST = {{ (map_presets or [])|tojson }};
+    var PRESETS = {};
+    (PRESET_LIST || []).forEach(function (p) {
+      if (p && p.id) PRESETS[p.id] = p;
+    });
 
     var form = document.querySelector('form.cert-map-form');
     if (!form) return;

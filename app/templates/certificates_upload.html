@@ -12,10 +12,11 @@
       Paste cleartext fullchain and private key PEMs. Material is encrypted at rest with
       <code class="text-xs">PIHERDER_MASTER_KEY</code> and never shown again in the UI.
       Use this when you do not use Nginx Proxy Manager.
+      {% if from_setup %}<span class="text-accent">Step 1 of setup</span> — after upload you will add a service map.{% endif %}
     </p>
   </div>
   <div class="flex flex-wrap gap-2">
-    <a href="/certificates" class="btn btn-secondary min-h-11">Cancel</a>
+    <a href="{% if from_setup %}/certificates/setup{% else %}/certificates{% endif %}" class="btn btn-secondary min-h-11">Cancel</a>
   </div>
 </div>
 

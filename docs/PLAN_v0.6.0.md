@@ -1,7 +1,7 @@
 # PiHerder v0.6.0 — RC2 development plan
 
 **Status:** **Active** (implementation target)  
-**Date opened:** 2026-07-17 · **Refreshed:** 2026-07-18 (workstream **H** closed for 0.6 — H2/H3 shipped; **nmap → v0.8.0**)  
+**Date opened:** 2026-07-17 · **Refreshed:** 2026-07-18 (H closed; F bulk Docker done; **D cert UX musts done**; next **B wizard**)  
 **Baseline:** `v0.5.0` (first RC — tagged 2026-07-17)  
 **Package target:** `0.6.0` (`pyproject.toml` · `app/version_info.py`)  
 **Related:** [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [SPEC.md](../SPEC.md)
@@ -118,14 +118,14 @@ Foundation is production-shaped; RC2 makes long ops and post-deploy feel like th
 
 Vault + maps shipped in 0.5; RC2 makes **setup and mapping** obvious.
 
-| Item | Notes | Priority |
-|------|--------|----------|
-| **Onboarding path for certs** | Guided first-cert flow: pull from NPM **or** upload → create first service map → deploy → confirm | **Must** |
-| **Map presets expansion** | Stronger presets (NPM, UniFi PFX, Docker bind, **OctoPi/HAProxy host**) + live path preview | **Must** |
-| **OctoPi / host TLS cookbook** | Staging under `piherder` home + sudoers + combined `snakeoil.pem` + `systemctl restart haproxy` — wiki done; UI preset still open | **Done** (docs) |
-| **Grafana volume TLS cookbook** | Pair → `~/fullchain.pem` + `~/privkey.pem` → sudo install into docker volume + compose restart — wiki done; UI preset still open | **Done** (docs) |
-| **Distribution visibility** | List/detail: clearer map status (last deploy, fingerprint skip, host name); empty-state “no maps” CTA | Should |
-| **Multi-map deploy as Job** | “Deploy all maps” / renew redistribute via Jobs + live log (long multi-host SSH) | Should |
+| Item | Notes | Priority | Status |
+|------|--------|----------|--------|
+| **Onboarding path for certs** | Guided first-cert flow: `/certificates/setup` + step banners (map → deploy) | **Must** | **Done** (2026-07-18) |
+| **Map presets expansion** | NPM, Caddy, Docker bind, **OctoPi/HAProxy**, **Grafana volume**, UniFi PFX + live path preview | **Must** | **Done** |
+| **OctoPi / host TLS cookbook** | Staging under `piherder` home + sudoers + combined `snakeoil.pem` + `systemctl restart haproxy` | **Must** | **Done** (docs + UI preset) |
+| **Grafana volume TLS cookbook** | Pair → home stage → sudo install into volume + compose restart | **Must** | **Done** (docs + UI preset) |
+| **Distribution visibility** | List hosts + deploy counts; map cards in-sync / stale fingerprint; empty CTAs | Should | **Done** |
+| **Multi-map deploy as Job** | “Deploy all maps” / renew redistribute via Jobs + live log (long multi-host SSH) | Should | Open |
 | **DNS fabric link** | Optional: from service DNS / path, deep-link “linked certificate” or “suggest map” when FQDN matches vault domains | Nice |
 | **Upload-source expiry** | Remind/notify on expiry for upload certs (no false NPM renew) | Nice |
 | Cross-link template → cert | After NPM template deploy, CTA “Pull certs / add maps” | Nice |
@@ -318,14 +318,14 @@ Full plan (archive + residual): **[FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLA
 2. Template deploy → Jobs (C)                   // done
 3. H3 coverage + H2 runtime topology            // done (stretch stream closed)
 4. Docker bulk lifecycle P1 (F)                 // done — stop/start/restart all as Jobs
-5. Cert map UX + first-cert guidance (D)        // next must
+5. Cert map UX + first-cert guidance (D)        // done — setup guide + presets + map status
 6. Add-host wizard (B)                          // next must (largest UI)
 7. Docs/screenshots continuous (A)
 8. Perf pass on list/inventory/fabric (E)
 9. Freeze: RELEASE + version + Hub + tag
 ```
 
-**Next focus for 0.6 ship-bar:** workstream **D** (cert setup / maps) then **B** (add-host wizard). Topology + Docker bulk (F) closed.
+**Next focus for 0.6 ship-bar:** workstream **B** (add-host wizard). Topology, Docker bulk (F), and cert UX (D) closed for musts.
 
 Parallelise A with remaining feature streams.
 

@@ -92,3 +92,76 @@ def test_files_for_layout_pair_and_pfx():
 def test_layout_help_covers_all_layouts():
     for lay in cert_svc.LAYOUTS:
         assert lay in cert_svc.LAYOUT_HELP
+
+
+def test_map_presets_include_must_have_ids():
+    """RC2 D: NPM, Docker bind, OctoPi, Grafana, UniFi presets exist."""
+    ids = {p["id"] for p in cert_svc.map_presets_for_ui()}
+    for need in (
+        "npm_pair",
+        "docker_bind",
+        "octopi_haproxy",
+        "grafana_volume",
+        "unifi_pfx",
+        "custom",
+    ):
+        assert need in ids
+    octo = cert_svc.get_map_preset("octopi_haproxy")
+    assert octo is not None
+    assert octo["layout"] == "combined"
+    assert "haproxy" in (octo.get("post") or "").lower()
+    graf = cert_svc.get_map_preset("grafana_volume")
+    assert graf is not None
+    assert graf["layout"] == "pair"
+    assert "grafana" in (graf.get("post") or "").lower()
+
+
+def test_map_preset_layouts_are_valid():
+    for p in cert_svc.map_presets_for_ui():
+        assert p["layout"] in cert_svc.LAYOUTS
+        files = cert_svc.files_for_layout(
+            p["layout"],
+            remote_dir=p.get("remote_dir") or "~/certs",
+            fullchain_filename=p.get("fullchain") or "fullchain.pem",
+            privkey_filename=p.get("privkey") or "privkey.pem",
+            combined_filename=p.get("combined") or "snakeoil.pem",
+            pfx_filename=p.get("pfx") or "Certificate.pfx",
+        )
+        assert files, f"preset {p['id']} produced no files"
+
+
+def test_public_target_dict_in_sync_flags():
+    from types import SimpleNamespace
+
+    target = SimpleNamespace(
+        id=1,
+        server_id=2,
+        label="NPM",
+        remote_dir="/opt/certs",
+        layout="pair",
+        enabled=True,
+        file_mode="600",
+        file_owner="root",
+        file_group="root",
+        fullchain_filename="fullchain.pem",
+        privkey_filename="privkey.pem",
+        combined_filename="snakeoil.pem",
+        pfx_filename="Certificate.pfx",
+        post_deploy_command="echo ok",
+        pfx_export_password_encrypted=None,
+        last_deployed_at=None,
+        last_deploy_status="success",
+        last_deploy_fingerprint="abc123deadbeef",
+        last_deploy_message="ok",
+    )
+    d = cert_svc.public_target_dict(
+        target, server_name="edge", cert_fingerprint="abc123deadbeef"
+    )
+    assert d["in_sync"] is True
+    assert d["stale_vs_vault"] is False
+    assert d["server_name"] == "edge"
+    d2 = cert_svc.public_target_dict(
+        target, server_name="edge", cert_fingerprint="otherfp"
+    )
+    assert d2["in_sync"] is False
+    assert d2["stale_vs_vault"] is True

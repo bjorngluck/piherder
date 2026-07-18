@@ -8,7 +8,8 @@
 <div class="ops-filters card mb-4">
   <div class="ops-filters-row">
     {% if can_mutate %}
-    <a href="/certificates/upload" class="btn btn-primary text-xs min-h-9 px-2.5">Upload PEM</a>
+    <a href="/certificates/setup" class="btn btn-primary text-xs min-h-9 px-2.5">First-cert setup</a>
+    <a href="/certificates/upload" class="btn btn-secondary text-xs min-h-9 px-2.5">Upload PEM</a>
     {% endif %}
     <a href="/integrations" class="btn btn-secondary text-xs min-h-9 px-2.5">Integrations</a>
     <span class="text-xs text-muted">Pull certs from NPM on an integration detail page</span>
@@ -16,34 +17,35 @@
 </div>
 
 {% if msg %}
-<div class="mb-3 p-3 banner-success border border-border rounded text-sm">{{ msg }}{% if detail %} — {{ detail }}{% endif %}</div>
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  {% if msg == 'deleted' %}Certificate deleted from the vault (host files left in place).
+  {% elif msg == 'uploaded' %}Certificate uploaded.
+  {% else %}{{ msg }}{% endif %}
+  {% if detail %} — {{ detail }}{% endif %}
+</div>
 {% endif %}
 {% if error %}
 <div class="mb-3 p-3 banner-error border border-border rounded text-sm">{{ error }}{% if detail %} — {{ detail }}{% endif %}</div>
 {% endif %}
 
 {% if not certificates %}
-<div class="card p-6 max-w-xl space-y-3">
-  <p class="text-sm text-muted">
-    No managed certificates yet. Two ways to get material in:
-  </p>
-  <ol class="list-decimal list-inside text-sm text-muted space-y-1.5">
-    <li>
-      Connect <strong>Nginx Proxy Manager</strong> under
-      <a href="/integrations" class="text-primary hover:underline">Integrations</a>,
-      open the instance, and <strong>Pull</strong> a cert into the vault.
-    </li>
-    <li>
-      <strong>Upload PEM</strong> — paste fullchain + private key (encrypted immediately; never shown again).
-    </li>
+<div class="card p-6 max-w-2xl space-y-4">
+  <div>
+    <h3 class="font-semibold text-text mb-1">No managed certificates yet</h3>
+    <p class="text-sm text-muted">
+      The vault holds encrypted PEMs and <strong>service maps</strong> that deploy them to fleet hosts.
+      This is separate from PiHerder’s own edge TLS (Caddy <code class="text-[11px]">certs/</code>).
+    </p>
+  </div>
+  <ol class="list-decimal list-inside text-sm text-muted space-y-2">
+    <li><strong class="text-text">Import</strong> — pull from NPM or upload fullchain + key</li>
+    <li><strong class="text-text">Map</strong> — host + path + layout (use a preset)</li>
+    <li><strong class="text-text">Deploy</strong> — write files over SSH and restart the consumer</li>
   </ol>
-  <p class="text-xs text-muted">
-    After import, open the cert → add a <strong>service map</strong> (host + path + layout) →
-    <strong>Deploy</strong> over SSH. {{ ph_brand() }} writes files; you point the app at those paths.
-  </p>
   <div class="flex flex-wrap gap-2 pt-1">
     {% if can_mutate %}
-    <a href="/certificates/upload" class="btn btn-accent min-h-11">Upload PEM</a>
+    <a href="/certificates/setup" class="btn btn-accent min-h-11">Start setup guide</a>
+    <a href="/certificates/upload" class="btn btn-primary min-h-11">Upload PEM</a>
     <a href="/integrations/new/npm" class="btn btn-secondary min-h-11">Add NPM</a>
     {% endif %}
     <a href="/integrations" class="btn btn-secondary min-h-11">Integrations</a>
@@ -73,16 +75,32 @@
         <span class="status-pill feature-off">
           {{ c.target_count }} map{{ 's' if c.target_count != 1 else '' }}
         </span>
+        {% if c.target_count and c.maps_deployed %}
+        <span class="status-pill status-success">{{ c.maps_deployed }} deployed</span>
+        {% endif %}
+        {% if c.maps_never %}
+        <span class="status-pill feature-off">{{ c.maps_never }} never deployed</span>
+        {% endif %}
+        {% if c.maps_failed %}
+        <span class="status-pill status-failed">{{ c.maps_failed }} failed</span>
+        {% endif %}
         {% if c.auto_renew %}<span class="text-muted">auto-renew</span>{% endif %}
         {% if c.target_count == 0 %}
         <span class="text-amber-500">no deploy targets</span>
         {% endif %}
       </div>
+      {% if c.map_hosts %}
+      <div class="text-[11px] text-muted mt-1.5 truncate max-w-xl" title="{{ c.map_hosts|join(', ') }}">
+        Hosts: {{ c.map_hosts|join(', ') }}
+      </div>
+      {% endif %}
     </div>
     <div class="flex flex-wrap gap-2">
       <a href="/certificates/{{ c.id }}" class="btn btn-secondary min-h-11">Open</a>
       {% if can_mutate and c.target_count == 0 %}
-      <a href="/certificates/{{ c.id }}#map-form" class="btn btn-accent min-h-11">Add map</a>
+      <a href="/certificates/{{ c.id }}?setup=map#map-form" class="btn btn-accent min-h-11">Add map</a>
+      {% elif can_mutate and c.maps_never %}
+      <a href="/certificates/{{ c.id }}?setup=deploy#service-maps" class="btn btn-accent min-h-11">Deploy maps</a>
       {% endif %}
     </div>
   </div>

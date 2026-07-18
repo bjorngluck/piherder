@@ -68,10 +68,25 @@ async def certificates_list(
     items = []
     expiring = 0
     expired = 0
+    servers = {
+        s.id: s.name
+        for s in session.exec(select(Server).order_by(Server.name)).all()
+    }
     for c in rows:
         d = cert_svc.public_cert_dict(c)
         targets = cert_svc.list_targets(session, c.id) if c.id else []
         d["target_count"] = len(targets)
+        d["map_hosts"] = sorted(
+            {
+                servers.get(t.server_id, f"#{t.server_id}")
+                for t in targets
+                if t.server_id
+            }
+        )
+        deployed_ok = sum(1 for t in targets if t.last_deploy_status == "success")
+        d["maps_deployed"] = deployed_ok
+        d["maps_never"] = sum(1 for t in targets if not t.last_deploy_status)
+        d["maps_failed"] = sum(1 for t in targets if t.last_deploy_status == "failed")
         if d.get("expired"):
             expired += 1
         elif d.get("expiring_soon"):
@@ -128,6 +143,43 @@ async def certificates_list(
     )
 
 
+@router.get("/certificates/setup", response_class=HTMLResponse)
+async def certificate_setup_guide(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """Guided first-cert flow: import → map → deploy."""
+    from ..models import Integration
+    from ..services.integrations import registry as reg
+
+    npm_count = 0
+    try:
+        npm_count = len(
+            list(
+                session.exec(
+                    select(Integration).where(Integration.type == reg.TYPE_NPM)
+                ).all()
+            )
+        )
+    except Exception:
+        npm_count = 0
+    server_count = len(list(session.exec(select(Server)).all()))
+    cert_count = len(cert_svc.list_certificates(session))
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="certificates_setup.html",
+        context={
+            "title": "Set up a certificate",
+            "user": user,
+            "can_mutate": _can_mutate(user),
+            "npm_count": npm_count,
+            "server_count": server_count,
+            "cert_count": cert_count,
+        },
+    )
+
+
 @router.get("/certificates/upload", response_class=HTMLResponse)
 async def certificate_upload_form(
     request: Request,
@@ -141,6 +193,7 @@ async def certificate_upload_form(
             "user": user,
             "error": request.query_params.get("error") or "",
             "detail": request.query_params.get("detail") or "",
+            "from_setup": request.query_params.get("from") == "setup",
         },
     )
 
@@ -168,7 +221,7 @@ async def certificate_upload(
             "cert_uploaded",
             details=f"cert={row.id} name={row.name}",
         )
-        return _redirect(f"/certificates/{row.id}", msg="uploaded")
+        return _redirect(f"/certificates/{row.id}", msg="uploaded", setup="map")
     except ValueError as e:
         return _redirect("/certificates/upload", error="invalid", detail=str(e)[:200])
     except Exception as e:
@@ -191,9 +244,13 @@ async def certificate_detail(
     targets = cert_svc.list_targets(session, cert_id)
     servers = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
     server_names = {s.id: s.name for s in servers}
+    cert_pub = cert_svc.public_cert_dict(cert)
+    fp = cert_pub.get("fingerprint_sha256")
     target_rows = [
         cert_svc.public_target_dict(
-            t, server_name=server_names.get(t.server_id, f"#{t.server_id}")
+            t,
+            server_name=server_names.get(t.server_id, f"#{t.server_id}"),
+            cert_fingerprint=fp,
         )
         for t in targets
     ]
@@ -206,18 +263,26 @@ async def certificate_detail(
             eid = None
         if eid:
             edit_target = next((r for r in target_rows if r["id"] == eid), None)
+    setup_step = (request.query_params.get("setup") or "").strip()
+    if not setup_step:
+        if not target_rows:
+            setup_step = "map"
+        elif any(not t.get("last_deploy_status") for t in target_rows):
+            setup_step = "deploy"
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="certificates_detail.html",
         context={
             "title": cert.name,
             "user": user,
-            "cert": cert_svc.public_cert_dict(cert),
+            "cert": cert_pub,
             "targets": target_rows,
             "servers": servers,
             "edit_target": edit_target,
             "layout_help": cert_svc.LAYOUT_HELP,
+            "map_presets": cert_svc.map_presets_for_ui(),
             "can_mutate": _can_mutate(user),
+            "setup_step": setup_step,
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or "",
             "detail": request.query_params.get("detail") or "",
@@ -323,7 +388,9 @@ async def certificate_add_target(
             server_id=server_id,
             details=f"cert={cert_id} target={t.id} label={t.label or ''}",
         )
-        return _redirect(f"/certificates/{cert_id}", msg="target_added")
+        return _redirect(
+            f"/certificates/{cert_id}", msg="target_added", setup="deploy"
+        )
     except ValueError as e:
         return _redirect(
             f"/certificates/{cert_id}", error="invalid", detail=str(e)[:200]
@@ -427,7 +494,12 @@ async def certificate_deploy(
             status="success" if ok else "failed",
         )
         if ok:
-            return _redirect(f"/certificates/{cert_id}", msg="deployed")
+            skipped = result.get("skipped")
+            return _redirect(
+                f"/certificates/{cert_id}",
+                msg="deploy_skipped" if skipped else "deployed",
+                setup="done",
+            )
         return _redirect(
             f"/certificates/{cert_id}",
             error="deploy_failed",
@@ -442,7 +514,7 @@ async def certificate_deploy(
         status="success" if result.get("ok") else "failed",
     )
     if result.get("ok"):
-        return _redirect(f"/certificates/{cert_id}", msg="deployed")
+        return _redirect(f"/certificates/{cert_id}", msg="deployed", setup="done")
     return _redirect(
         f"/certificates/{cert_id}",
         error="deploy_failed",
