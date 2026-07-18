@@ -421,14 +421,16 @@
         </p>
       </details>
 
-      {# Restart #}
+      {# Restart / multi-step install #}
       <div>
-        <label class="block text-xs text-muted mb-1">Post-deploy command (restart / reload)</label>
-        <input name="post_deploy_command" id="cert-map-post" class="input w-full font-mono text-sm"
-               value="{{ et.post_deploy_command if et else '' }}"
-               placeholder="docker compose -f /opt/stacks/npm/docker-compose.yml restart">
+        <label class="block text-xs text-muted mb-1" for="cert-map-post">Post-deploy command (restart / reload)</label>
+        <textarea name="post_deploy_command" id="cert-map-post" rows="4"
+                  class="input w-full font-mono text-sm leading-snug min-h-[6rem] resize-y"
+                  spellcheck="false"
+                  placeholder="docker compose -f /opt/stacks/npm/docker-compose.yml restart&#10;# or multi-step: sudo install … &amp;&amp; systemctl restart …">{{ et.post_deploy_command if et else '' }}</textarea>
         <p class="text-[11px] text-muted mt-1">
-          Runs over SSH after files are written. Failures mark the deploy failed. Leave empty if you reload manually.
+          Runs over SSH after files are written (one shell line or a longer chain with <code class="text-[10px]">&amp;&amp;</code>).
+          Failures mark the deploy failed. Leave empty if you reload manually. Resize the box as needed.
         </p>
       </div>
 
