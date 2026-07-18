@@ -156,6 +156,8 @@ Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
 **Docker project lifecycle (v0.6 track):** project ⋯ → **Stop all / Start all / Restart all** → confirm → Jobs `docker_stack_stop` / `_start` / `_restart` with live log (shared exclusive lane with stack deploy). Single-container actions stay on the service row.
 
+**Certificates (v0.6 track):** Catalog vault + service maps (presets, write mode direct / stage_sudo, Grafana UID 472). **Self-managed edge mapping** — Apply to this PiHerder writes `./certs` and reloads Caddy; while mapping is on, NPM renew re-applies; **Remove mapping** opts out without deleting host files. First-cert guide: `/certificates/setup`.
+
 ### Backups
 
 Per-server backup enable + cron on the server/backups UI. Enqueues **Celery** workers (web never runs rsync).

@@ -6,26 +6,26 @@
 
 **Secure fleet management for Raspberry Pi and Linux hosts** — backups, patching, Docker control, and service templates with secrets encrypted at rest.
 
-## Release Candidate 1 (RC1) {#rc1}
+## Release status {#rc1}
 
 !!! warning "Please read first"
-    This site documents **PiHerder’s first release candidate** (the **0.5.x** line on the road to **1.0.0**).
+    This site documents the **release-candidate line** on the road to **1.0.0**.
 
     | What to expect | Detail |
     |----------------|--------|
-    | **Product** | Core fleet workflows work; some surfaces may still be rough, incomplete, or not optimal on every host type |
-    | **Documentation** | Written for operators in plain language, but still a **working guide** — not the final polished 1.0 manual |
-    | **Screenshots** | **Light desktop** captures are in place for major operator surfaces; optional dark/mobile showcases where useful |
-    | **Production bar** | **v1.0.0** is the intended first refined production release (behaviour + docs) |
+    | **Tagged now** | **[v0.5.0](https://github.com/bjorngluck/piherder/releases/tag/v0.5.0)** (RC1) is the published image (`latest` until 0.6 tags) |
+    | **In development** | **v0.6.0 RC2** — [PLAN_v0.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.6.0.md) (template Jobs, cert UX, Docker bulk, topology; wizard still open) |
+    | **Documentation** | Operator-focused living wiki — not the final 1.0 freeze manual |
+    | **Screenshots** | Light desktop for major surfaces; refresh continues through 0.6 freeze |
+    | **Production bar** | **v1.0.0** is the intended first refined production release |
 
-    If something is unclear, missing, or wrong in practice, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues) or amend the wiki after you review a page with your own screenshots and notes.
+    If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
 
 | | |
 |---|---|
-| **Current line** | **[v0.5.0](https://github.com/bjorngluck/piherder/releases/tag/v0.5.0)** (first RC) — image [`bjorngluck/piherder:latest`](https://hub.docker.com/r/bjorngluck/piherder) |
-| **Release notes** | [RELEASE_v0.5.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.5.0.md) |
-| **Previous tag** | [v0.4.0](https://github.com/bjorngluck/piherder/releases/tag/v0.4.0) (templates foundation) |
-| **Ship plan (frozen)** | [PLAN_v0.5.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md) |
+| **Current tag** | **[v0.5.0](https://github.com/bjorngluck/piherder/releases/tag/v0.5.0)** (RC1) — image [`bjorngluck/piherder:latest`](https://hub.docker.com/r/bjorngluck/piherder) |
+| **Active ship plan** | [PLAN_v0.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.6.0.md) (RC2) |
+| **Release notes (0.5)** | [RELEASE_v0.5.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.5.0.md) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |

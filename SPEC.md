@@ -323,10 +323,10 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 **v0.6.0 RC2 ship plan:** [docs/PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md) · Design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · [ROADMAP H2.75](docs/ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc).
 
 Also in **v0.6.0** (polish, not only H2.75): template deploy as Jobs + live log; cert setup / service-map UX; docs polish; light performance.  
-**Shipped early on 0.6 track:** Kuma coverage audit (H3) + runtime topology stack panel/map expand/order (H2) — [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md).
+**Shipped on 0.6 track:** Kuma coverage (H3); runtime topology (H2); Docker bulk (P1); cert first-setup + presets + self-managed edge map + stage_sudo — [PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md).
 
 - [x] **P1** Docker project bulk Stop all / Start all / Restart all (Jobs + Audit + confirm) — *done 2026-07-18*
-- [ ] **P2** Wizard-driven add-host onboarding (orchestrate existing SSH / features / DNS steps) — **must for 0.6.0**
+- [ ] **P2** Wizard-driven add-host onboarding (orchestrate existing SSH / features / DNS steps) — **last 0.6 must (or defer 0.6.x)**
 - [ ] **P3** Richer host stats + healthchecks + **allowlisted** remote commands (no free shell) — *post-0.6*
 - [ ] **P4** Bootstrap scripts (piherder user/permissions) + hostname + Pi-hole A handoff; first-boot enrollment **token** (no open join) — *stretch / post-0.6*
 - [ ] **P5** Web SSH console — server-side key injection only; step-up 2FA; kill switch; optional / high bar — *out of 0.6*
