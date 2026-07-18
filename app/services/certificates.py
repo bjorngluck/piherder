@@ -569,6 +569,7 @@ def public_cert_dict(cert: ManagedCertificate) -> dict[str, Any]:
         "last_error": cert.last_error,
         "expiring_soon": days is not None and days <= (cert.renew_days_before or DEFAULT_RENEW_DAYS),
         "expired": days is not None and days < 0,
+        "edge_apply_enabled": bool(getattr(cert, "edge_apply_enabled", False)),
         "last_edge_deploy_at": getattr(cert, "last_edge_deploy_at", None),
         "last_edge_deploy_status": edge_status,
         "last_edge_deploy_fingerprint": edge_fp or None,
@@ -579,6 +580,10 @@ def public_cert_dict(cert: ManagedCertificate) -> dict[str, Any]:
         "edge_in_sync": edge_in_sync,
         "edge_stale": edge_stale,
         "edge_available": edge_certs_writable(),
+        # Visible "self map" if opted in or ever applied
+        "edge_mapped": bool(getattr(cert, "edge_apply_enabled", False))
+        or bool(edge_fp)
+        or edge_status in ("success", "failed"),
     }
 
 
@@ -1015,11 +1020,17 @@ def deploy_to_edge_caddy(
         and cert.last_edge_deploy_fingerprint == cert.fingerprint_sha256
         and cert.last_edge_deploy_status == "success"
     ):
+        if not getattr(cert, "edge_apply_enabled", False):
+            cert.edge_apply_enabled = True
+            cert.updated_at = datetime.utcnow()
+            session.add(cert)
+            session.commit()
         return {
             "ok": True,
             "skipped": True,
             "fingerprint": cert.fingerprint_sha256,
             "message": "Edge already has this fingerprint",
+            "edge_apply_enabled": True,
         }
 
     if not edge_certs_writable():
@@ -1087,6 +1098,8 @@ def deploy_to_edge_caddy(
     cert.last_edge_deploy_status = "success"
     cert.last_edge_deploy_fingerprint = cert.fingerprint_sha256
     cert.last_edge_deploy_message = "ok"
+    # Successful apply = self-managed edge mapping (renew re-apply until removed)
+    cert.edge_apply_enabled = True
     cert.updated_at = now
     session.add(cert)
     session.commit()
@@ -1095,6 +1108,7 @@ def deploy_to_edge_caddy(
         "fingerprint": cert.fingerprint_sha256,
         "paths": [full_path, key_path],
         "reloaded": True,
+        "edge_apply_enabled": True,
     }
 
 
@@ -1375,16 +1389,33 @@ def deploy_all_targets(
 
 
 def should_auto_apply_edge(cert: ManagedCertificate) -> bool:
-    """True when this cert was previously applied to this PiHerder instance.
+    """True when self-managed edge mapping is enabled for this cert.
 
-    Used after NPM renew so Caddy tracks the vault without a manual re-click.
-    Never auto-applies for certs that were only used for fleet maps.
+    Opt-in via successful Apply to this PiHerder; opt-out via Remove edge mapping.
     """
-    if getattr(cert, "last_edge_deploy_status", None) == "success":
-        return True
-    if (getattr(cert, "last_edge_deploy_fingerprint", None) or "").strip():
-        return True
-    return False
+    return bool(getattr(cert, "edge_apply_enabled", False))
+
+
+def set_edge_apply_enabled(
+    session: Session, certificate_id: int, enabled: bool
+) -> ManagedCertificate:
+    """Enable or disable Caddy edge mapping (renew re-apply). Does not delete PEMs on disk."""
+    cert = session.get(ManagedCertificate, certificate_id)
+    if not cert:
+        raise ValueError("certificate not found")
+    cert.edge_apply_enabled = bool(enabled)
+    if not enabled:
+        # Keep last_* for history, but mark mapping removed in message
+        cert.last_edge_deploy_message = (
+            (cert.last_edge_deploy_message or "")[:400]
+            + (" · " if cert.last_edge_deploy_message else "")
+            + "edge mapping disabled (no auto re-apply)"
+        )[:500]
+    cert.updated_at = datetime.utcnow()
+    session.add(cert)
+    session.commit()
+    session.refresh(cert)
+    return cert
 
 
 def redistribute_after_renew(

@@ -477,7 +477,9 @@ class ManagedCertificate(SQLModel, table=True):
     last_error: Optional[str] = None
     auto_renew: bool = True
     renew_days_before: int = 21
-    # Last apply to this PiHerder instance (Caddy edge) — not a fleet map
+    # This-instance Caddy edge mapping (not a fleet CertificateTarget)
+    # When True, NPM renew re-applies PEMs to ./certs + reloads Caddy.
+    edge_apply_enabled: bool = False
     last_edge_deploy_at: Optional[datetime] = None
     last_edge_deploy_status: Optional[str] = None
     last_edge_deploy_fingerprint: Optional[str] = None

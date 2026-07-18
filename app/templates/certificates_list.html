@@ -85,7 +85,10 @@
         <span class="status-pill status-failed">{{ c.maps_failed }} failed</span>
         {% endif %}
         {% if c.auto_renew %}<span class="text-muted">auto-renew</span>{% endif %}
-        {% if c.target_count == 0 %}
+        {% if c.edge_apply_enabled %}
+        <span class="status-pill status-running" title="Self-managed Caddy edge mapping">this PiHerder</span>
+        {% endif %}
+        {% if c.target_count == 0 and not c.edge_apply_enabled %}
         <span class="text-amber-500">no deploy targets</span>
         {% endif %}
       </div>
