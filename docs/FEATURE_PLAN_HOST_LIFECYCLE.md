@@ -1,6 +1,6 @@
 # Feature plan — Host lifecycle & operator console (H2.75)
 
-**Status:** Design agreed 2026-07-17 · **P1 Docker bulk shipped** (2026-07-18) · **v0.6.0** still pulls P2 wizard (must)  
+**Status:** Design agreed 2026-07-17 · **P1 Docker bulk shipped** (2026-07-18) · **P2 wizard** last 0.6 must (or defer 0.6.x — see [PLAN §7](PLAN_v0.6.0.md#7-pre-release-readiness-review-2026-07-18))  
 **Horizon:** H2.75 · ship slices via [PLAN_v0.6.0.md](PLAN_v0.6.0.md); P3–P5 post-0.6  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § [Horizon 2.75](ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · Wiki [Docker](../wiki/docker/overview.md) · [Add server](../wiki/day-to-day/add-server.md)
 

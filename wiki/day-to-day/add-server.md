@@ -124,7 +124,7 @@ From server detail **Host status** (⋯) or related chips, PiHerder can show a s
 
 ## Planned post-RC (onboarding)
 
-After **v0.5.0 RC**, a **wizard-driven add-host** path and richer **bootstrap scripts** (create `piherder` user before first connect, hostname, Pi-hole A handoff, optional first-boot enrollment with a token) are planned. Web SSH console is last and highest bar.
+**v0.6.0:** a **wizard-driven add-host** path is the remaining RC2 must (or may ship in 0.6.x — see [PLAN_v0.6.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.6.0.md)). Today the **advanced form + SSH access panel** remains fully supported. Richer bootstrap scripts and Web SSH are later / highest bar.
 
 See [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md) (phases P2 / P4 / P5). Until then, use the steps above.
 

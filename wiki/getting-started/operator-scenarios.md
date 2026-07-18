@@ -162,6 +162,7 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 |----------|-----|
 | Browse projects / containers / logs | [Docker overview](../docker/overview.md) |
 | Stop / Start / Restart **all** services in a project | [Docker overview — lifecycle](../docker/overview.md#project-lifecycle-stop--start--restart-all) |
+| First cert → map / Apply to this PiHerder | [Managed certificates](../integrations/certificates.md) · [Trusted HTTPS](https-tls.md) |
 | Fast open via inventory cache | [Inventory](../docker/inventory.md) |
 | Edit compose, validate, deploy version | [Compose edit](../docker/compose-edit.md) |
 | Stack Check updates vs Deploy | [Updates — Docker](../day-to-day/updates-and-patching.md#docker-check-updates-vs-deploy) |

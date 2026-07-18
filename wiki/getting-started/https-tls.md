@@ -4,7 +4,7 @@
 
 How to put a **trusted certificate** and a **stable public origin** in front of **PiHerder itself** (via bundled Caddy or an outer reverse proxy).
 
-This is **not** the fleet certificate vault (Catalog → Certificates), which deploys PEMs to other hosts over SSH — see [Managed certificates](../integrations/certificates.md) (includes OctoPi / HAProxy cookbook).
+This is **PiHerder’s own edge TLS**. The **fleet certificate vault** (Catalog → Certificates) is separate: it stores PEMs encrypted and deploys them to **other hosts** over SSH (and optionally to this Caddy edge via a **self-managed mapping**). See [Managed certificates](../integrations/certificates.md).
 
 ## Why it matters
 
