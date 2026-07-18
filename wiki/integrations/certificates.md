@@ -17,11 +17,15 @@ One Let’s Encrypt cert often feeds NPM, UniFi, reverse proxies, and app contai
 
 ## End-to-end: vault → host files
 
+Guided path: **Catalog → Certificates → First-cert setup** (`/certificates/setup`).
+
 1. **Get material in** — NPM pull or **Upload PEM**.  
-2. Open the cert detail → **Add service map** (host, directory, layout, mode, post-deploy).  
+2. Open the cert detail → **Add service map** — start from a **preset** (NPM, Docker bind, Grafana volume, OctoPi/HAProxy, UniFi PFX), then edit path/restart for your host.  
 3. **Deploy** that map (or all maps).  
 4. Confirm files on the host and that the app reloaded.  
 5. Enable auto-renew for NPM-sourced certs if desired.  
+
+Map cards show **in sync** when the last deploy fingerprint matches the vault (redeploy is a no-op unless you force), or **stale** after vault material changes.
 
 ---
 
@@ -49,7 +53,7 @@ PiHerder does **not** reconfigure the app’s TLS settings. Point the service at
 
 **Catalog → Certificates** (`/certificates`) — same Catalog tabs as Integrations / Templates / Network.
 
-List shows expiry chips, source (npm / upload), and **service map** count. Certs with **no maps** get an **Add map** shortcut.
+List shows expiry chips, source (npm / upload), map count, host names, and deploy status. Certs with **no maps** get an **Add map** shortcut; unmapped first certs can use **First-cert setup**.
 
 ## Sources
 
@@ -185,7 +189,7 @@ sudo install -o root -g root -m 644 /home/piherder/certs/snakeoil.pem /etc/ssl/s
 Same map, but Directory can still be staging under that user’s home (`/home/bjorn/certs`) and post-deploy uses the same `sudo install … && sudo systemctl restart haproxy` pattern. Full sudo means you may not need a separate `piherder-certs` drop-in — still prefer **not** relying on interactive password prompts (`sudo -n` must work for automation).
 
 !!! note "Refine later"
-    First-class UI presets (OctoPi / HAProxy, Grafana volume) and optional sudo-aware writes for system paths are candidates for v0.6 polish — these cookbooks are the supported operator path today.
+    **UI presets (v0.6):** map form includes **OctoPi / HAProxy**, **Grafana volume**, **NPM custom SSL**, **Docker bind**, and **UniFi PFX**. Paths and post-deploy commands are starting points — edit for your host and sudoers.
 
 ### Cookbook: Grafana TLS into a Docker named volume
 

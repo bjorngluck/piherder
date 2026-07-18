@@ -43,6 +43,208 @@ LAYOUT_HELP = {
     "pair_combined_pfx": "Pair + combined + PFX in the same directory",
 }
 
+# Service-map presets (source of truth for UI + tests). Paths are examples — edit per host.
+# Keys are stable IDs used in the map form select.
+MAP_PRESETS: dict[str, dict[str, Any]] = {
+    "npm_pair": {
+        "id": "npm_pair",
+        "group": "Reverse proxy",
+        "title": "Nginx Proxy Manager (custom SSL)",
+        "label": "NPM custom SSL",
+        "remote_dir": "/opt/stacks/npm/data/custom_ssl",
+        "layout": "pair",
+        "fullchain": "fullchain.pem",
+        "privkey": "privkey.pem",
+        "combined": "snakeoil.pem",
+        "pfx": "Certificate.pfx",
+        "mode": "600",
+        "owner": "root",
+        "group": "root",
+        "post": "docker compose -f /opt/stacks/npm/docker-compose.yml restart",
+        "help": (
+            "PEM pair for NPM custom certificates. Adjust path if your NPM data volume "
+            "lives elsewhere (often …/data/custom_ssl or a host bind under /opt/stacks/npm)."
+        ),
+        "docs_anchor": "service-maps",
+    },
+    "caddy_pair": {
+        "id": "caddy_pair",
+        "group": "Reverse proxy",
+        "title": "Caddy / generic Nginx PEM pair",
+        "label": "Reverse proxy TLS",
+        "remote_dir": "/opt/stacks/proxy/certs",
+        "layout": "pair",
+        "fullchain": "fullchain.pem",
+        "privkey": "privkey.pem",
+        "combined": "snakeoil.pem",
+        "pfx": "Certificate.pfx",
+        "mode": "600",
+        "owner": "root",
+        "group": "root",
+        "post": "docker compose -f /opt/stacks/proxy/docker-compose.yml restart",
+        "help": "Two PEM files — typical for Caddy file TLS or stock Nginx ssl_certificate paths.",
+        "docs_anchor": "service-maps",
+    },
+    "docker_bind": {
+        "id": "docker_bind",
+        "group": "Docker",
+        "title": "Docker bind-mount certs directory",
+        "label": "App stack certs",
+        "remote_dir": "/opt/stacks/myservice/certs",
+        "layout": "pair",
+        "fullchain": "fullchain.pem",
+        "privkey": "privkey.pem",
+        "combined": "snakeoil.pem",
+        "pfx": "Certificate.pfx",
+        "mode": "600",
+        "owner": "root",
+        "group": "root",
+        "post": "docker compose -f /opt/stacks/myservice/docker-compose.yml restart",
+        "help": (
+            "Host directory you bind-mount into the container (e.g. ./certs:/certs:ro). "
+            "Edit compose path and restart for your project."
+        ),
+        "docs_anchor": "service-maps",
+    },
+    "grafana_volume": {
+        "id": "grafana_volume",
+        "group": "Docker",
+        "title": "Grafana TLS → Docker named volume",
+        "label": "Grafana TLS",
+        "remote_dir": "~",
+        "layout": "pair",
+        "fullchain": "fullchain.pem",
+        "privkey": "privkey.pem",
+        "combined": "snakeoil.pem",
+        "pfx": "Certificate.pfx",
+        "mode": "600",
+        "owner": "",
+        "group": "",
+        "post": (
+            "sudo install -o root -g root -m 600 "
+            "/home/piherder/fullchain.pem /home/piherder/privkey.pem "
+            "/var/lib/docker/volumes/grafana_grafana_data/_data/ && "
+            "cd /home/piherder/docker/grafana && docker compose restart"
+        ),
+        "help": (
+            "Stages PEMs in the piherder home, then sudo-installs into the Grafana data volume "
+            "and restarts compose. Requires matching sudoers — see wiki Grafana cookbook."
+        ),
+        "docs_anchor": "cookbook-grafana-tls-into-a-docker-named-volume",
+    },
+    "octopi_haproxy": {
+        "id": "octopi_haproxy",
+        "group": "Host TLS",
+        "title": "OctoPi / HAProxy combined (snakeoil)",
+        "label": "OctoPi HAProxy",
+        "remote_dir": "~/certs",
+        "layout": "combined",
+        "fullchain": "fullchain.pem",
+        "privkey": "privkey.pem",
+        "combined": "snakeoil.pem",
+        "pfx": "Certificate.pfx",
+        "mode": "644",
+        "owner": "",
+        "group": "",
+        "post": (
+            "sudo install -o root -g root -m 644 "
+            "/home/piherder/certs/snakeoil.pem /etc/ssl/snakeoil.pem && "
+            "sudo systemctl restart haproxy"
+        ),
+        "help": (
+            "Combined PEM (key then chain) staged under piherder home, then installed to "
+            "/etc/ssl/snakeoil.pem + HAProxy restart. Needs NOPASSWD sudoers — see wiki OctoPi cookbook."
+        ),
+        "docs_anchor": "cookbook-octopi--haproxy-host-no-docker-least-priv-piherder",
+    },
+    "unifi_pfx": {
+        "id": "unifi_pfx",
+        "group": "PFX / Windows",
+        "title": "UniFi / Windows PFX",
+        "label": "UniFi controller PFX",
+        "remote_dir": "~/certs",
+        "layout": "pair_and_pfx",
+        "fullchain": "fullchain.pem",
+        "privkey": "privkey.pem",
+        "combined": "snakeoil.pem",
+        "pfx": "Certificate.pfx",
+        "mode": "600",
+        "owner": "",
+        "group": "",
+        "post": "",
+        "help": (
+            "Writes PEM pair, then builds PKCS#12 .pfx on the host via openssl. "
+            "Import Certificate.pfx into UniFi / Windows as needed."
+        ),
+        "docs_anchor": "service-maps",
+    },
+    "combined_generic": {
+        "id": "combined_generic",
+        "group": "Host TLS",
+        "title": "Combined single PEM (generic)",
+        "label": "Combined PEM",
+        "remote_dir": "~/certs",
+        "layout": "combined",
+        "fullchain": "fullchain.pem",
+        "privkey": "privkey.pem",
+        "combined": "snakeoil.pem",
+        "pfx": "Certificate.pfx",
+        "mode": "600",
+        "owner": "",
+        "group": "",
+        "post": "",
+        "help": "Single file: private key first, then full chain — HAProxy and some legacy apps.",
+        "docs_anchor": "service-maps",
+    },
+    "custom": {
+        "id": "custom",
+        "group": "Custom",
+        "title": "Custom (blank defaults)",
+        "label": "",
+        "remote_dir": "~/certs",
+        "layout": "pair",
+        "fullchain": "fullchain.pem",
+        "privkey": "privkey.pem",
+        "combined": "snakeoil.pem",
+        "pfx": "Certificate.pfx",
+        "mode": "600",
+        "owner": "",
+        "group": "",
+        "post": "",
+        "help": "Fill every field for your service.",
+        "docs_anchor": "service-maps",
+    },
+}
+
+
+def map_presets_for_ui() -> list[dict[str, Any]]:
+    """Ordered preset list for map form (grouped by ``group`` in UI)."""
+    order = [
+        "npm_pair",
+        "caddy_pair",
+        "docker_bind",
+        "grafana_volume",
+        "octopi_haproxy",
+        "unifi_pfx",
+        "combined_generic",
+        "custom",
+    ]
+    out: list[dict[str, Any]] = []
+    for key in order:
+        p = MAP_PRESETS.get(key)
+        if p:
+            out.append(dict(p))
+    # Any extra presets not in order (forward-compat)
+    for key, p in MAP_PRESETS.items():
+        if key not in order:
+            out.append(dict(p))
+    return out
+
+
+def get_map_preset(preset_id: str) -> dict[str, Any] | None:
+    p = MAP_PRESETS.get((preset_id or "").strip())
+    return dict(p) if p else None
+
 
 def files_for_layout(
     layout: str,
@@ -463,7 +665,10 @@ def update_target(
 
 
 def public_target_dict(
-    target: CertificateTarget, *, server_name: str = ""
+    target: CertificateTarget,
+    *,
+    server_name: str = "",
+    cert_fingerprint: str | None = None,
 ) -> dict[str, Any]:
     files = files_for_layout(
         target.layout or "pair",
@@ -472,6 +677,20 @@ def public_target_dict(
         privkey_filename=target.privkey_filename or "privkey.pem",
         combined_filename=target.combined_filename or "snakeoil.pem",
         pfx_filename=target.pfx_filename or "Certificate.pfx",
+    )
+    fp_deployed = (target.last_deploy_fingerprint or "").strip()
+    fp_cert = (cert_fingerprint or "").strip()
+    in_sync = bool(
+        fp_deployed
+        and fp_cert
+        and fp_deployed == fp_cert
+        and target.last_deploy_status == "success"
+    )
+    stale = bool(
+        fp_deployed
+        and fp_cert
+        and fp_deployed != fp_cert
+        and target.last_deploy_status == "success"
     )
     return {
         "id": target.id,
@@ -495,6 +714,10 @@ def public_target_dict(
         "last_deployed_at": target.last_deployed_at,
         "last_deploy_status": target.last_deploy_status,
         "last_deploy_message": target.last_deploy_message,
+        "last_deploy_fingerprint": fp_deployed or None,
+        "last_deploy_fingerprint_short": (fp_deployed[:12] + "…") if len(fp_deployed) > 12 else (fp_deployed or None),
+        "in_sync": in_sync,
+        "stale_vs_vault": stale,
     }
 
 

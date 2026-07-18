@@ -172,7 +172,7 @@ async def npm_pull_cert(
             "cert_pulled_npm",
             details=f"npm_id={cert_id} cert={row.id} name={row.name}",
         )
-        return _redirect(f"/certificates/{row.id}", msg="pulled")
+        return _redirect(f"/certificates/{row.id}", msg="pulled", setup="map")
     except Exception as e:
         logger.exception("npm pull cert")
         return _redirect(

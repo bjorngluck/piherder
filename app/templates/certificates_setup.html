@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% with catalog_section='certificates' %}
+{% include "partials/catalog_nav.html" %}
+{% endwith %}
+
+<div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+  <div>
+    <h2 class="text-lg font-semibold tracking-tight text-text">Set up a managed certificate</h2>
+    <p class="text-sm text-muted mt-1 max-w-2xl">
+      Three steps: put PEMs in the vault, map where they land on a host, then Deploy over SSH.
+      This is the <strong>fleet vault</strong> — not PiHerder’s own Caddy HTTPS
+      (operator docs: Trusted HTTPS vs managed certificates).
+    </p>
+  </div>
+  <a href="/certificates" class="btn btn-secondary min-h-11">All certificates</a>
+</div>
+
+{# Step progress #}
+<ol class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+  <li class="card p-4 border border-primary/30">
+    <div class="text-xs font-semibold text-primary mb-1">Step 1 · Vault</div>
+    <div class="text-sm font-medium text-text">Import certificate</div>
+    <p class="text-xs text-muted mt-1">Pull from Nginx Proxy Manager or upload PEM fullchain + key (encrypted immediately).</p>
+  </li>
+  <li class="card p-4">
+    <div class="text-xs font-semibold text-muted mb-1">Step 2 · Map</div>
+    <div class="text-sm font-medium text-text">Add a service map</div>
+    <p class="text-xs text-muted mt-1">Pick a preset (NPM, OctoPi, Grafana, UniFi…) then adjust host path and restart command.</p>
+  </li>
+  <li class="card p-4">
+    <div class="text-xs font-semibold text-muted mb-1">Step 3 · Deploy</div>
+    <div class="text-sm font-medium text-text">Write files to host</div>
+    <p class="text-xs text-muted mt-1">Deploy writes PEMs, sets mode/owner, runs your post-deploy command. Confirm files on the host.</p>
+  </li>
+</ol>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+  {# Path A: NPM #}
+  <div class="card p-5 space-y-3">
+    <h3 class="font-semibold text-sm">A · Pull from Nginx Proxy Manager</h3>
+    <p class="text-sm text-muted">
+      Best when NPM already has Let’s Encrypt (or other) certs. PiHerder stores a copy in the vault
+      and can renew via NPM later.
+    </p>
+    {% if npm_count %}
+    <p class="text-xs text-muted">
+      <span class="status-pill status-success">{{ npm_count }} NPM integration{{ 's' if npm_count != 1 else '' }}</span>
+      connected.
+    </p>
+    <div class="flex flex-wrap gap-2">
+      <a href="/integrations" class="btn btn-primary min-h-11">Open Integrations → Pull</a>
+    </div>
+    <p class="text-[11px] text-muted">
+      Open an NPM instance → Certificates tab → <strong>Pull</strong> into the vault. You land on the cert page for step 2.
+    </p>
+    {% else %}
+    <p class="text-xs text-amber-600">No NPM integration yet.</p>
+    <div class="flex flex-wrap gap-2">
+      {% if can_mutate %}
+      <a href="/integrations/new/npm" class="btn btn-primary min-h-11">Add NPM integration</a>
+      {% endif %}
+      <a href="/integrations" class="btn btn-secondary min-h-11">Integrations</a>
+    </div>
+    {% endif %}
+  </div>
+
+  {# Path B: Upload #}
+  <div class="card p-5 space-y-3">
+    <h3 class="font-semibold text-sm">B · Upload PEM</h3>
+    <p class="text-sm text-muted">
+      Paste fullchain + private key when you issue certs outside NPM (external LE, corporate CA, etc.).
+      Material is never shown again in the UI.
+    </p>
+    <div class="flex flex-wrap gap-2">
+      {% if can_mutate %}
+      <a href="/certificates/upload?from=setup" class="btn btn-accent min-h-11">Upload PEM</a>
+      {% else %}
+      <span class="text-xs text-muted">Operator role required to upload.</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card p-4 mb-6 text-sm space-y-2">
+  <h3 class="font-semibold text-sm">Before you map</h3>
+  <ul class="list-disc list-inside text-muted space-y-1 text-sm">
+    <li>
+      Fleet host exists with SSH working
+      {% if server_count %}
+      <span class="status-pill feature-off">{{ server_count }} server{{ 's' if server_count != 1 else '' }}</span>
+      {% else %}
+      <span class="text-amber-600">— no servers yet; add one first</span>
+      {% endif %}
+    </li>
+    <li>Know the <strong>host path</strong> the app mounts (bind-mount or volume install path)</li>
+    <li>Least-priv hosts may need a small sudoers drop-in for install/restart (OctoPi / Grafana cookbooks)</li>
+  </ul>
+  {% if not server_count and can_mutate %}
+  <a href="/servers/new" class="btn btn-secondary min-h-11 mt-2">Add server</a>
+  {% endif %}
+</div>
+
+{% if cert_count %}
+<div class="card p-4 flex flex-wrap items-center justify-between gap-3">
+  <p class="text-sm text-muted">
+    You already have <strong class="text-text">{{ cert_count }}</strong> cert{{ 's' if cert_count != 1 else '' }} in the vault.
+    Open one without maps and finish step 2–3.
+  </p>
+  <a href="/certificates" class="btn btn-secondary min-h-11">Go to vault</a>
+</div>
+{% endif %}
+
+<p class="text-xs text-muted mt-6">
+  Dual TLS note: <strong>Catalog → Certificates</strong> distributes PEMs to other hosts.
+  PiHerder’s own edge TLS is <code class="text-[11px]">certs/</code> + Caddy — separate surface.
+</p>
+{% endblock %}
