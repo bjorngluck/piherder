@@ -42,7 +42,7 @@ A one-shot SSH paste is not recoverable after host loss and not comparable for d
 7. Post-deploy **checklist** (manual DNS, first login, …).
 
 !!! note "Availability"
-    Template deploy / redeploy as Jobs with live log requires **v0.6.0+**. Earlier releases used a blocking wait modal only.
+    Template deploy / redeploy as Jobs with live log requires **v0.6.0+**. **Check drift** as a Job with live log is on the **v0.7.0** track (same JobHold pattern).
 
 ## Redeploy & ops (deployment page)
 
@@ -58,7 +58,7 @@ Open the **deployment** for that host+project (`/templates/deployments/{id}`):
 |--------|--------|-----|
 | **Volumes / storage** | Change named volume, project folder, or host path without re-wizard | Storage decisions change more often than the whole recipe |
 | **Save & redeploy** | New config version → write files → compose pull/up (**Job** + live log) | Apply edited desired state |
-| **Check drift** | Compare host compose/.env to desired state; updates drift badge + alert | Detect hand-edits on the host |
+| **Check drift** | Compare host compose/.env to desired state as a **Job** (live log / JobHold); updates drift badge | Detect hand-edits on the host |
 | **Import host .env** | Pull host secrets into PiHerder encrypted store | Capture changes made offline on the host |
 | **Apply last known config** | Re-write stored desired state after host wipe / DR | Rebuild without retyping secrets |
 | **Restore data** | Lists matching backup sources → use server **Backups** dry-run/apply | Config redeploy ≠ data restore |

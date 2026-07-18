@@ -1,0 +1,91 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "e2e/**"
+      - "migrations/**"
+      - "docker-compose.yml"
+      - "docker-compose.e2e.yml"
+      - "Dockerfile"
+      - "scripts/e2e-*.sh"
+      - "scripts/vendor_cdns.sh"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "requirements.lock.txt"
+      - "requirements.runtime.lock.txt"
+      - ".github/workflows/e2e.yml"
+  pull_request:
+    paths:
+      - "app/**"
+      - "e2e/**"
+      - "migrations/**"
+      - "docker-compose.yml"
+      - "docker-compose.e2e.yml"
+      - "Dockerfile"
+      - "scripts/e2e-*.sh"
+      - "scripts/vendor_cdns.sh"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "requirements.lock.txt"
+      - "requirements.runtime.lock.txt"
+      - ".github/workflows/e2e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start e2e stack (web + db + redis)
+        run: |
+          chmod +x scripts/e2e-up.sh scripts/e2e-down.sh
+          ./scripts/e2e-up.sh
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.lock.txt
+            pyproject.toml
+
+      - name: Install test runner (pytest-playwright)
+        run: |
+          python -m pip install --upgrade pip
+          pip install "pytest>=8" "pytest-playwright>=0.5.0" "playwright>=1.40"
+
+      - name: Install Chromium
+        run: playwright install chromium --with-deps
+
+      - name: Run E2E suite
+        env:
+          PIHERDER_E2E_BASE_URL: http://127.0.0.1:18000
+        run: pytest e2e -q --tb=short --browser chromium
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            test-results/
+            playwright-report/
+            e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Tear down e2e stack
+        if: always()
+        run: ./scripts/e2e-down.sh --volumes || true

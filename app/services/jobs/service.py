@@ -64,6 +64,7 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "docker_stack_restart",
         "template_deploy",
         "template_redeploy",
+        "template_drift_check",
     }
 )
 
@@ -258,6 +259,7 @@ JOB_TYPE_LABELS = {
     "docker_stack_restart": "Stack restart",
     "template_deploy": "Template deploy",
     "template_redeploy": "Template redeploy",
+    "template_drift_check": "Template drift check",
     "retention": "Retention",
     "diagnostics": "Diagnostics",
     "herder_backup": "PiHerder backup",
@@ -1064,6 +1066,16 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
             return f"{label}: ok" + (f" (V{ver})" if ver is not None else "")
         err = data.get("error") or status
         return f"{label}: failed — {err}"[:200]
+    if job_type == "template_drift_check" and isinstance(data, dict):
+        proj = data.get("project_name") or data.get("project") or "template"
+        st = data.get("drift_status") or data.get("status") or status
+        n = data.get("diff_count")
+        if st == "in_sync" or (data.get("success") and st != "drifted"):
+            return f"{proj}: in sync"
+        if st == "drifted":
+            return f"{proj}: drifted" + (f" ({n} file(s))" if n is not None else "")
+        err = data.get("error") or data.get("reason") or st
+        return f"{proj}: drift unknown — {err}"[:200]
     if job_type == "os_patch" and isinstance(data, dict):
         return (data.get("summary") or snippet or status)[:200]
     if job_type == "container_patch":
@@ -2602,6 +2614,196 @@ def enqueue_template_redeploy(
         if job:
             session.expunge(job)
         return job
+
+
+def enqueue_template_drift_check(
+    server_id: int,
+    *,
+    deployment_id: int,
+    user_id: int | None = None,
+    background_tasks: BackgroundTasks | None = None,
+) -> Job:
+    """Queue desired-state vs host drift compare as a Job (v0.7.0 stream C).
+
+    Read-only SSH — not a stack mutation lane. Exclusive with other
+    template_drift_check jobs on the same host.
+    """
+    dep_id = int(deployment_id)
+    with _get_fresh_session() as session:
+        server = session.get(Server, server_id)
+        if not server:
+            raise ValueError("server not found")
+        active = _active_job_of_type(session, server_id, "template_drift_check")
+        if active:
+            logger.info(
+                f"[Jobs] template_drift_check skip — job #{active.id} already active "
+                f"for server {server_id}"
+            )
+            session.expunge(active)
+            raise JobAlreadyActive(active)
+        job, audit = _create_queued_job_with_audit(
+            session,
+            server_id=server.id,
+            job_type="template_drift_check",
+            queue_message=f"Template drift check queued (deployment #{dep_id})…",
+            user_id=user_id,
+            audit_details=f"Job #{{job_id}} · template drift check deployment={dep_id}",
+            deployment_id=dep_id,
+        )
+        jid, aid, sid = job.id, audit.id, server.id
+    if background_tasks is not None:
+        background_tasks.add_task(_run_template_drift_check_job, jid, sid, aid, dep_id)
+    else:
+        _update_check_pool.submit(_execute_template_drift_check, jid, sid, aid, dep_id)
+    with _get_fresh_session() as session:
+        job = session.get(Job, jid)
+        if job:
+            session.expunge(job)
+        return job
+
+
+def _run_template_drift_check_job(
+    job_id: int, server_id: int, audit_id: int, deployment_id: int
+) -> None:
+    try:
+        _execute_template_drift_check(job_id, server_id, audit_id, deployment_id)
+    except Exception as e:
+        logger.exception("template drift check job %s", job_id)
+        try:
+            _finish(
+                audit_id,
+                job_id,
+                "failed",
+                json.dumps(
+                    {
+                        "success": False,
+                        "error": str(e)[:200],
+                        "deployment_id": deployment_id,
+                    }
+                ),
+                "",
+                "template_drift_check",
+            )
+        except Exception:
+            pass
+
+
+def _execute_template_drift_check(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    deployment_id: int,
+) -> None:
+    from ..service_templates import check_deployment_drift, get_deployment
+
+    server, hostname = _load_server_for_job(server_id)
+    dep_id = int(deployment_id)
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="checking",
+                log_line=f"Comparing host files to desired state (deployment #{dep_id})…",
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    if not server:
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps(
+                {
+                    "success": False,
+                    "error": "Server not found",
+                    "deployment_id": dep_id,
+                }
+            ),
+            hostname,
+            "template_drift_check",
+        )
+        return
+
+    try:
+        _flush_job_progress(
+            job_id,
+            "ssh",
+            "Reading compose/.env over SSH…",
+            default_current="checking",
+        )
+        with _get_fresh_session() as session:
+            srv = session.get(Server, server_id)
+            dep = get_deployment(session, dep_id)
+            if not srv:
+                raise ValueError("Server not found")
+            if not dep:
+                raise ValueError("Deployment not found")
+            if int(dep.server_id) != int(server_id):
+                raise ValueError("Deployment is not on this server")
+            result = check_deployment_drift(session, server=srv, deployment=dep)
+            proj = dep.project_name or ""
+            slug = dep.template_slug or ""
+
+        st = (result or {}).get("status") or "unknown"
+        diffs = (result or {}).get("diffs") or []
+        lines = [f"Drift status: {st}"]
+        if (result or {}).get("error"):
+            lines.append(f"Error: {result.get('error')}")
+        if (result or {}).get("reason"):
+            lines.append(f"Reason: {result.get('reason')}")
+        for d in diffs[:12]:
+            lines.append(f"  {d.get('file')}: {d.get('detail')}")
+        if len(diffs) > 12:
+            lines.append(f"  … +{len(diffs) - 12} more")
+        for ln in lines:
+            _flush_job_progress(
+                job_id,
+                "compare",
+                ln,
+                default_current="checking",
+            )
+
+        payload = {
+            "success": st != "unknown",
+            "status": st,
+            "drift_status": st,
+            "diff_count": len(diffs),
+            "diffs": diffs[:20],
+            "deployment_id": dep_id,
+            "project_name": proj,
+            "template_slug": slug,
+            "error": (result or {}).get("error"),
+            "reason": (result or {}).get("reason"),
+        }
+        finish_status = "success" if st in ("in_sync", "drifted") else "failed"
+        _finish(
+            audit_id,
+            job_id,
+            finish_status,
+            json.dumps(payload),
+            hostname,
+            "template_drift_check",
+        )
+    except Exception as e:
+        logger.exception("template drift check execute job=%s", job_id)
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps(
+                {
+                    "success": False,
+                    "error": str(e)[:200],
+                    "deployment_id": dep_id,
+                }
+            ),
+            hostname,
+            "template_drift_check",
+        )
 
 
 def _load_job_details(job_id: int) -> dict:

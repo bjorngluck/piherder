@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-18 (0.6 **code freeze**; **wizard + screenshots → v0.7.0**; nmap → v0.8.0)  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-18 (**v0.7.0 dev phase open** — wizard + screenshots; nmap → v0.8.0)  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
@@ -28,7 +28,7 @@ Design principles stay the same as SPEC:
 | **v0.4.x** | *(folded)* Former ops track — drift, NPM connector, git catalog, `.env` migrate | H1/H2 | **Absorbed into v0.5.0** (no separate planning phase) |
 | **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **Tagged** 2026-07-17 — [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
 | **v0.6.0** | **RC2 polish** — template Jobs, cert UX (edge map, presets), Docker bulk, topology+coverage; wizard **out** | H2.75 P1 + H2.5 stretch + polish | **Tagged** 2026-07-18 — [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) |
-| **v0.7.0** | **Add-host wizard** + **wiki screenshot pack** (stale + new 0.6 surfaces); residual host lifecycle as capacity | H2.75 P2 (+ polish) | Planned after 0.6.0 tag — [§ H2.75](#horizon-275--host-lifecycle--operator-console-post-rc) · [screenshots README](../wiki/assets/screenshots/README.md) |
+| **v0.7.0** | **Add-host wizard** + **wiki screenshot pack** + **Playwright E2E** (shell + wizard); residual Jobs polish as capacity | H2.75 P2 + quality | **Active** — [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [§ H2.75](#horizon-275--host-lifecycle--operator-console-post-rc) · [screenshots README](../wiki/assets/screenshots/README.md) |
 | **v0.7.x / later** | Host stats/commands, bootstrap depth, web SSH; topology residual (configurable columns) | H2.75 P3–P5 + H2.5 residual | Planned after 0.7.0 |
 | **v0.8.0** | **LAN discovery (nmap-class)** — opt-in LAN CIDR scan, link devices to servers/fabric | H2.5 H1 | Planned — design + product after 0.7 |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
@@ -43,7 +43,9 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-18 freeze):** **v0.6.0 product code frozen**. **Add-host wizard (H2.75 P2)** and **wiki screenshot refresh** deferred to **v0.7.0**. Onboarding for 0.6 remains form + SSH access panel.
 
-**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ **tagged** → ~~**v0.6.0 RC2**~~ **tagged** → **v0.7.0** wizard + screenshots → **v0.8.0 nmap** → **v1.0** refined production.
+**Decision (2026-07-18):** **Single development target `v0.7.0`** — add-host wizard + screenshot pack + **Playwright E2E** (hard tag gate; separate CI job on main/PR); residual polish only as capacity. See [PLAN_v0.7.0.md](PLAN_v0.7.0.md).
+
+**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ **tagged** → ~~**v0.6.0 RC2**~~ **tagged** → **v0.7.0** (active) → **v0.8.0 nmap** → **v1.0** refined production.
 
 **Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.6.0` / `0.6` / `latest`).
 
@@ -215,20 +217,22 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | Track | Direction |
 |-------|-----------|
 | **Unit / service coverage** | Grow beyond ~30% line coverage intentionally: critical paths first (crypto, RBAC, path policy, fabric pure functions, cert vault). **No** 100% target. Prefer meaningful service tests over chasing router %. |
-| **HTTP smoke (pytest TestClient)** | Optional thin layer for auth redirects + main page 200s — cheap middle ground before full browser tests. |
-| **UI walkthrough — Playwright** | See phases below. Separate job from unit `pytest` (slower; nightly or main-only at first). |
+| **HTTP smoke (pytest TestClient)** | **Should in v0.7.0** — thin layer for auth redirects + main page 200s; runs in unit job. |
+| **UI walkthrough — Playwright** | **Must in v0.7.0** — Phase A shell + Phase B wizard; `e2e/`; **separate CI job** on main + PR (path-filtered); Chromium only; hard tag gate. See phases below + [PLAN_v0.7.0.md](PLAN_v0.7.0.md) stream E. |
 | **Dependency hygiene** | **Done for RC path:** `uv.lock` + hashed `requirements*.lock.txt`; Dockerfile/CI install with `--require-hashes`. Ongoing: periodic `pip-audit` / Dependabot; intentional bumps via `scripts/refresh-lockfiles.sh`. |
 | **JWT stack** | **Done (pre-0.5.0 tag):** sessions use **PyJWT[crypto]** HS256 — `python-jose` / `ecdsa` removed. |
 | **Custom branding** | Operator logo + accent colours — **far horizon** (well after 1.0 production). Not near-term polish. Built-in light/dark only for now. |
 | **Custom password policy** | Admin-configurable policy (min length, required classes, optional specials) instead of fixed code defaults. First-time setup still creates the initial admin when none exist. Soft max remains ~72 characters (storage limit). |
 
-### Playwright phases (recommended)
+### Playwright phases
 
-| Phase | Scope | Goal |
-|-------|--------|------|
-| **A — Smoke** | Login → Dashboard, Servers, Catalog (Integrations / Certificates / Templates / Network maps), Jobs, Audit, Settings; one theme toggle; optional mobile viewport on Network map | “Shell still works” on every release candidate |
-| **B — Critical paths** | Template wizard first step; Pi-hole/NPM detail with fixtures; cert list/upload form; bulk-actions UI chrome | Catch HTMX/form regressions on money paths |
-| **C — Optional depth** | Screenshot baselines on 3–5 pages; a11y (`axe`) on main shells | Visual/a11y guardrails without full matrix |
+| Phase | Scope | Goal | 0.7 stance |
+|-------|--------|------|------------|
+| **A — Smoke** | Login → Dashboard, Servers, Catalog (Integrations / Certificates / Templates / Network maps), Jobs, Audit, Settings; one theme toggle | “Shell still works” on every PR/main | **Must** (tag gate) |
+| **B — Critical paths** | **v0.7 focus:** add-host wizard (primary CTA, identity/trust, save & exit, advanced form); later: template first step, cert list chrome, bulk bar | Catch HTMX/form regressions on money paths | **Must** (wizard slice); other B journeys expand post-0.7 |
+| **C — Optional depth** | Screenshot baselines on 3–5 pages; a11y (`axe`) on main shells | Visual/a11y guardrails without full matrix | **Out of 0.7 tag** |
+
+**0.7 defaults:** Chromium only · compose-based app under test · no live SSH in CI · failure traces as CI artifacts · wiki PNG pack remains **manual** (not Playwright visual baseline).
 
 Docs screenshots stay **light + desktop** by default; a couple of showcase shots for dark/mobile only.
 
@@ -264,7 +268,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 
 **Captured:** 2026-07-17 (operator planning discussion).  
 **Feature plan:** [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) (phases P1–P5, UX sketches, acceptance criteria, security bar).  
-**Stance:** **P1 Docker bulk** shipped in **v0.6.0** (project ⋯ stop/start/restart all as Jobs). **P2 wizard → v0.7.0** (locked freeze). P3–P5 remain post-0.7 / not required for minimal **1.0.0**. Detail: [PLAN_v0.6.0.md](PLAN_v0.6.0.md).
+**Stance:** **P1 Docker bulk** shipped in **v0.6.0** (project ⋯ stop/start/restart all as Jobs). **P2 wizard is the v0.7.0 must** ([PLAN_v0.7.0.md](PLAN_v0.7.0.md)). P3–P5 remain post-0.7 / not required for minimal **1.0.0**.
 
 These ideas deepen **day-to-day host operations** and **first-time host bring-up**. They sit next to H2.5 (topology) but focus on **SSH lifecycle** rather than DNS/proxy graphs.
 
@@ -465,7 +469,7 @@ flowchart TB
 | **Kubernetes / bare install** | **Under consideration only** — not promised in H0–H2 |
 | **Multi-worker** | Done — per-server Redis mutex + `CELERY_CONCURRENCY`; not a v0.2.0 ship blocker |
 | **Host dep / stack health** | Done (v0.2.x): host deps → Status tab → multi-worker |
-| **Host lifecycle H2.75** | Planned — [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md); Docker bulk (P1) first; web SSH (P5) last |
+| **Host lifecycle H2.75** | P1 done (0.6); **P2 wizard active in 0.7** — [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md); web SSH (P5) last |
 | **Web SSH console** | Server-side key only; step-up 2FA; kill switch; not a 1.0 requirement |
 | **First-boot join** | No anonymous host registration; enrollment token required if built |
 

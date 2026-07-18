@@ -1,6 +1,7 @@
 """Exclusive per-server job types: no second concurrent OS/container job."""
 from __future__ import annotations
 
+import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -121,7 +122,9 @@ def test_exclusive_types_do_not_include_backup():
     assert "os_patch" in job_service._EXCLUSIVE_JOB_TYPES
     assert "template_deploy" in job_service._EXCLUSIVE_JOB_TYPES
     assert "template_redeploy" in job_service._EXCLUSIVE_JOB_TYPES
+    assert "template_drift_check" in job_service._EXCLUSIVE_JOB_TYPES
     assert "template_deploy" in job_service._STACK_MUTATING_JOB_TYPES
+    assert "template_drift_check" not in job_service._STACK_MUTATING_JOB_TYPES
 
 
 def test_human_summary_template_deploy():
@@ -171,4 +174,38 @@ def test_enqueue_template_redeploy_raises_when_active():
                 5, deployment_id=9, user_id=1
             )
     assert ei.value.job.id == 44
+    pool.submit.assert_not_called()
+
+
+def test_human_summary_template_drift_check():
+    snip = json.dumps(
+        {
+            "project_name": "kuma",
+            "drift_status": "drifted",
+            "diff_count": 2,
+            "success": True,
+        }
+    )
+    s = job_service._human_job_summary("template_drift_check", "success", snip)
+    assert "kuma" in s
+    assert "drift" in s.lower()
+
+
+def test_enqueue_template_drift_check_raises_when_active():
+    active = _active_job("template_drift_check", 55, status="running")
+    mock_session = MagicMock()
+    mock_session.get.return_value = SimpleNamespace(id=5, name="pi")
+    mock_session.__enter__ = MagicMock(return_value=mock_session)
+    mock_session.__exit__ = MagicMock(return_value=False)
+
+    with (
+        patch.object(job_service, "_get_fresh_session", return_value=mock_session),
+        patch.object(job_service, "_active_job_of_type", return_value=active),
+        patch.object(job_service, "_update_check_pool") as pool,
+    ):
+        with pytest.raises(job_service.JobAlreadyActive) as ei:
+            job_service.enqueue_template_drift_check(
+                5, deployment_id=9, user_id=1
+            )
+    assert ei.value.job.id == 55
     pool.submit.assert_not_called()

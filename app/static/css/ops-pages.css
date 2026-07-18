@@ -866,3 +866,58 @@
   min-height: 2.25rem;
   font-size: 0.75rem;
 }
+
+/* ── Add-host wizard (v0.7) ───────────────────────────────────────── */
+.wizard-steps-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wizard-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  color: var(--color-muted);
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.wizard-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.65rem;
+  background: color-mix(in srgb, var(--color-border) 55%, transparent);
+  color: var(--color-muted);
+}
+.wizard-step--current {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+.wizard-step--current .wizard-step-num {
+  background: var(--color-accent);
+  color: #fff;
+}
+.wizard-step--done {
+  border-color: color-mix(in srgb, var(--color-success, #16a34a) 40%, var(--color-border));
+  color: var(--color-text);
+}
+.wizard-step--done .wizard-step-num {
+  background: color-mix(in srgb, var(--color-success, #16a34a) 85%, transparent);
+  color: #fff;
+}
+@media (max-width: 640px) {
+  .wizard-step-label { display: none; }
+  .wizard-step--current .wizard-step-label { display: inline; }
+}

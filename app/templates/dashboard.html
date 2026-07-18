@@ -256,7 +256,7 @@
   </div>
 
   {% if not fleet or fleet.server_count == 0 %}
-  <p class="text-sm text-muted">No servers yet. <a href="/servers/add" class="text-accent hover:underline">Add a server</a>.</p>
+  <p class="text-sm text-muted">No servers yet. <a href="/servers/new" class="text-accent hover:underline" data-testid="dash-add-server">Add a server</a>.</p>
   {% elif not fleet.attention_rows %}
   <p class="text-sm text-muted mb-0">All clear — no OS updates, image updates, or reboots pending. <a href="/servers" class="text-accent hover:underline">View all servers</a>.</p>
   {% else %}

@@ -45,6 +45,9 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | `os_patch` / `container_patch` | Manual or apply schedule | Web background |
 | `os_update_check` / `container_update_check` | Manual or check schedule | Web background |
 | `docker_stack_check` / `docker_stack_deploy` | Stack ⋯ Check updates / Deploy | Web background |
+| `docker_stack_stop` / `_start` / `_restart` | Project ⋯ Stop/Start/Restart all | Web background |
+| `template_deploy` / `template_redeploy` | Catalog template confirm / Save & redeploy | Web background |
+| `template_drift_check` | Deployment **Check drift** (live log) | Web background |
 | `retention` | Retention cleanup | As configured |
 | `herder_backup` | PiHerder self-backup | As configured |
 
@@ -56,6 +59,8 @@ These types do not stack on the same server while already **pending** or **runni
 
 - `os_patch`, `container_patch`  
 - `os_update_check`, `container_update_check`  
+- Stack lifecycle + template deploy/redeploy (shared **stack mutation** lane on the host)  
+- `template_drift_check` (one drift job at a time per host; not a stack write)  
 
 A second start reuses the existing job (UI follows it; REST **409** with `already_active` / existing `job`). Backups use a separate rule: per-host Redis mutex + Celery (see [Multi-worker](../operations/multi-worker.md)).
 

@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+{% if server %}<script>window.PIHERDER_SERVER_ID = {{ server.id }};</script>{% endif %}
 <div class="max-w-3xl mx-auto">
   <div class="flex flex-wrap gap-3 text-xs mb-2">
     <a href="/templates" class="text-accent hover:underline">← Templates</a>
@@ -66,8 +67,8 @@
     <h2 class="font-semibold text-sm mb-2">Ops actions</h2>
     <div class="flex flex-wrap gap-2">
       <form method="post" action="/templates/deployments/{{ dep.id }}/check-drift"
-            data-wait-title="Checking drift"
-            data-wait-message="Comparing host compose/.env to desired state…">
+            data-job-hold="Checking drift"
+            data-job-hold-close="reload">
         <button type="submit" class="btn btn-secondary min-h-11 text-sm">Check drift</button>
       </form>
       <form method="post" action="/templates/deployments/{{ dep.id }}/migrate-env"
@@ -84,7 +85,7 @@
       </form>
     </div>
     <p class="text-[11px] text-muted mt-2">
-      <strong>Check drift</strong> compares host files to {{ ph_brand() }}.
+      <strong>Check drift</strong> runs as a <strong>Job</strong> with live log (host compose/.env vs {{ ph_brand() }}).
       <strong>Import host .env</strong> migrates secrets into encrypted SoT.
       <strong>Apply last known config</strong> redeploys stored compose/.env (desired state).
     </p>

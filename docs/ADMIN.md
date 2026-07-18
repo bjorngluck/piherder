@@ -827,4 +827,4 @@ Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backu
 | Unit tests | `tests/test_rbac.py`, `test_api_tokens.py`, `test_app_settings.py`, `test_cors_policy.py`, `test_herder_backup.py`, … |
 | Herder self-backup | `app/services/herder_backup.py` |
 | Ecosystem roadmap | `docs/ROADMAP_ECOSYSTEM.md` |
-| Host lifecycle plan (H2.75) | `docs/FEATURE_PLAN_HOST_LIFECYCLE.md` — Docker bulk (**0.6**); wizard onboard (**0.7**); host stats/commands, bootstrap/DNS, web SSH later |
+| Host lifecycle plan (H2.75) | `docs/FEATURE_PLAN_HOST_LIFECYCLE.md` — Docker bulk (**0.6**); wizard onboard (**0.7 active** — `docs/PLAN_v0.7.0.md`); host stats/commands, bootstrap/DNS, web SSH later |

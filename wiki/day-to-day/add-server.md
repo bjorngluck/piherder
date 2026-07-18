@@ -21,37 +21,50 @@ Without a server record you have no place to store the encrypted SSH key, featur
 
 ---
 
-## End-to-end: first Pi (happy path)
+## End-to-end: first Pi (wizard — primary path)
 
-1. **Servers → Add server** — name people will recognise, hostname or IP, SSH port/user.  
-2. **Generate a keypair** (recommended) or upload a private key you already use.  
-3. Optionally store a **one-time SSH password** only to bootstrap key deploy.  
-4. Save → open the server → **SSH access**.  
-5. **Deploy key** → **Test connection** until login succeeds.  
-6. **Check dependencies** for features you plan to enable (rsync / docker / apt).  
-7. Optional: **Least-priv user** on Pi OS / Ubuntu so day-to-day is not root.  
-8. **Edit → Features** — enable Backups / OS patch / Docker only as needed.  
-9. Clear any stored SSH password once key-only works.  
-10. Confirm the host on the [Dashboard](dashboard-and-services.md).
+**Servers → + Add** opens the **guided wizard** (`/servers/new`). Prefer this for a new host.
+
+1. **Identity** — display name, hostname/IP, SSH user and port.  
+2. **Trust** — generate a keypair (recommended), or upload a key; optional **one-time password** only to bootstrap key deploy.  
+3. **Connect** — **Deploy key** → **Test connection** until login succeeds → **Clear stored password** when key-only works.  
+4. **Privilege** — optional least-priv user on Pi OS / Ubuntu; **skip automated least-priv on HAOS** (copy explains).  
+5. **Features** — enable Backups / OS patch / Docker only as needed.  
+6. **Schedules** — prefer **check-only** schedules first; deep edit stays on the server page.  
+7. **Network** — optional FQDN / Pi-hole A later on the host or Catalog.  
+8. **Done** — open the server, run a first backup or update check when ready.
+
+**Save & exit** at any step after Identity leaves a partial host on the fleet; open the server or resume via  
+`/servers/new?step=connect&server_id=…` (or the next incomplete step).
 
 **Done when:** Test connection succeeds; dependency chips match enabled features; password bootstrap is gone.
 
+!!! tip "Advanced form"
+    Prefer the wizard. For a one-shot form, use **Advanced form** on the wizard page (`/servers/new/advanced`) or legacy `/servers/add` — same create engine, no step chrome.
+
 ---
 
-## Steps (reference)
+## Wizard steps (reference)
 
-1. **Servers → Add server** (or equivalent CTA).  
-2. Enter **name**, **hostname/IP**, SSH port/user.  
-3. **Generate** a keypair (recommended) or upload a private key.  
-4. Optionally store a **one-time SSH password** only to bootstrap key deploy.  
-5. Save, open the server → **SSH access**.
+| Step | What you set | Notes |
+|------|----------------|-------|
+| Identity | Name, host, SSH user/port | Creates the server row |
+| Trust | Generate / upload key; optional password | Secrets encrypted with `PIHERDER_MASTER_KEY` |
+| Connect | Deploy key, test, clear password | Uses the same SSH services as the detail panel |
+| Privilege | Least-priv guidance | Automated least-priv on Debian/Pi OS only |
+| Features | Backups / OS / Docker toggles | Can change later on the server |
+| Schedules | Guidance for checks-only | Full cron UI on server **Edit** |
+| Network | Optional DNS / maps | Needs Pi-hole (or fabric) when you want A records |
+| Done | Summary + next job CTAs | Add another host or open Docker if enabled |
 
 <figure class="ph-figure" markdown>
   ![SSH access panel](../assets/screenshots/ssh-access.png)
-  <figcaption>SSH access: deploy key, test, rotate, least-priv, dependency chips.</figcaption>
+  <figcaption>SSH access on the server page: deploy key, test, rotate, least-priv, dependency chips (also linked from the wizard Connect step).</figcaption>
 </figure>
 
-## SSH access panel
+## SSH access panel (detail)
+
+The wizard Connect step covers deploy / test / clear password. The full **SSH access** panel on the server page also has rotate key, least-priv scripts, and dependency re-check.
 
 | Action | What it does | Why |
 |--------|----------------|-----|
@@ -61,10 +74,8 @@ Without a server record you have no place to store the encrypted SSH key, featur
 | **Rotate key** | New keypair, deploy, swap only after verify succeeds | Safe rotation if a key may have leaked |
 | **Least-priv user** | Optional `piherder` user + limited sudoers (Pi OS / Ubuntu) | Limits blast radius of the herder account |
 
-Dependency chips on the server page are **read-only** snapshots; re-check from **SSH access** (onboarding lives there).
-
 !!! tip "Clear stored passwords"
-    After key auth works, clear any stored SSH password so secrets stay keys-only (encrypted at rest with `PIHERDER_MASTER_KEY`).
+    After key auth works, clear any stored SSH password (wizard Connect or server edit) so secrets stay keys-only.
 
 ### Least-privilege user (Debian / Pi OS / Ubuntu)
 
@@ -91,7 +102,7 @@ After onboarding, the server page uses the shared **ops-hero** plus equal **dest
 
 ## Feature flags
 
-**Edit → Features** — enable only what you need:
+**Wizard Features** or **Edit → Features** — enable only what you need:
 
 | Flag | Unlocks | Why a flag |
 |------|---------|------------|
@@ -105,7 +116,7 @@ On the **Servers** list, bulk actions (check/upgrade OS, check/patch containers,
 
 ## Schedules
 
-**Edit → Schedules** — update **checks** (safe) and optional **apply** (real upgrades). See [Updates & patching](updates-and-patching.md).
+Prefer **check-only** schedules first. **Edit → Schedules** on the server for cron detail. See [Updates & patching](updates-and-patching.md).
 
 **Why start with checks only:** scheduled apply is powerful; quiet weekly checks build trust before you automate upgrades.
 
@@ -122,11 +133,9 @@ From server detail **Host status** (⋯) or related chips, PiHerder can show a s
   <figcaption>Server detail with status chips and feature cards.</figcaption>
 </figure>
 
-## Planned (onboarding)
+## Later onboarding depth
 
-**v0.7.0:** a **wizard-driven add-host** path (orchestrates the same SSH / features / DNS steps) — deferred from the 0.6 freeze; see [PLAN_v0.6.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.6.0.md). Until then, the **advanced form + SSH access panel** above is the supported path. Richer bootstrap scripts and Web SSH remain later / highest bar.
-
-See [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md) (phases P2 / P4 / P5).
+Richer bootstrap scripts, first-boot enrollment, and optional Web SSH remain later host-lifecycle phases — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md). Ship plan: [PLAN_v0.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.7.0.md).
 
 ## Related
 
