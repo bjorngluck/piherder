@@ -130,21 +130,13 @@ def test_map_preset_layouts_are_valid():
         assert files, f"preset {p['id']} produced no files"
 
 
-def test_should_auto_apply_edge_only_after_prior_apply():
+def test_should_auto_apply_edge_uses_enabled_flag():
     from types import SimpleNamespace
 
-    never = SimpleNamespace(
-        last_edge_deploy_status=None, last_edge_deploy_fingerprint=None
-    )
-    assert cert_svc.should_auto_apply_edge(never) is False
-    ok = SimpleNamespace(
-        last_edge_deploy_status="success", last_edge_deploy_fingerprint="abc"
-    )
-    assert cert_svc.should_auto_apply_edge(ok) is True
-    fp_only = SimpleNamespace(
-        last_edge_deploy_status="failed", last_edge_deploy_fingerprint="abc"
-    )
-    assert cert_svc.should_auto_apply_edge(fp_only) is True
+    off = SimpleNamespace(edge_apply_enabled=False)
+    assert cert_svc.should_auto_apply_edge(off) is False
+    on = SimpleNamespace(edge_apply_enabled=True)
+    assert cert_svc.should_auto_apply_edge(on) is True
 
 
 def test_write_modes_and_sudoers_stage():

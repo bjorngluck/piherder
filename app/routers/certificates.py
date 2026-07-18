@@ -76,6 +76,7 @@ async def certificates_list(
         d = cert_svc.public_cert_dict(c)
         targets = cert_svc.list_targets(session, c.id) if c.id else []
         d["target_count"] = len(targets)
+        d["edge_apply_enabled"] = bool(getattr(c, "edge_apply_enabled", False))
         d["map_hosts"] = sorted(
             {
                 servers.get(t.server_id, f"#{t.server_id}")
@@ -83,6 +84,8 @@ async def certificates_list(
                 if t.server_id
             }
         )
+        if d["edge_apply_enabled"]:
+            d["map_hosts"] = ["this PiHerder"] + d["map_hosts"]
         deployed_ok = sum(1 for t in targets if t.last_deploy_status == "success")
         d["maps_deployed"] = deployed_ok
         d["maps_never"] = sum(1 for t in targets if not t.last_deploy_status)
@@ -368,6 +371,12 @@ async def certificate_apply_edge(
         status="success" if ok else "failed",
     )
     if ok and result.get("skipped"):
+        # Skip still counts as mapped if already in sync — ensure enabled
+        if cert and not getattr(cert, "edge_apply_enabled", False):
+            try:
+                cert_svc.set_edge_apply_enabled(session, cert_id, True)
+            except Exception:
+                pass
         return _redirect(f"/certificates/{cert_id}", msg="edge_skipped")
     if ok:
         return _redirect(f"/certificates/{cert_id}", msg="edge_applied")
@@ -376,6 +385,44 @@ async def certificate_apply_edge(
         error="edge_failed",
         detail=(result.get("error") or "")[:200],
     )
+
+
+@router.post("/certificates/{cert_id}/edge-mapping")
+async def certificate_edge_mapping(
+    cert_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    action: str = Form(...),
+):
+    """Enable / disable self-managed Caddy edge mapping (renew re-apply).
+
+    disable — stop auto re-apply on renew (does not delete files under ./certs).
+    enable — mark mapping on (use Apply to write/reload).
+    """
+    cert = cert_svc.get_certificate(session, cert_id)
+    if not cert:
+        raise HTTPException(404)
+    act = (action or "").strip().lower()
+    if act not in ("enable", "disable"):
+        return _redirect(
+            f"/certificates/{cert_id}", error="invalid", detail="action must be enable or disable"
+        )
+    try:
+        cert_svc.set_edge_apply_enabled(session, cert_id, enabled=(act == "enable"))
+        _audit(
+            session,
+            user,
+            "cert_edge_mapping",
+            details=f"cert={cert_id} action={act}",
+        )
+        return _redirect(
+            f"/certificates/{cert_id}",
+            msg="edge_mapping_on" if act == "enable" else "edge_mapping_off",
+        )
+    except ValueError as e:
+        return _redirect(
+            f"/certificates/{cert_id}", error="invalid", detail=str(e)[:200]
+        )
 
 
 @router.post("/certificates/{cert_id}/targets")

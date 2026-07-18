@@ -69,8 +69,10 @@
   {% elif msg == 'target_deleted' %}Service map removed (host files left in place).
   {% elif msg == 'deployed' %}Deploy finished. Confirm files on the host if this is a new map.
   {% elif msg == 'deploy_skipped' %}Already in sync — same fingerprint was previously deployed (use force redeploy if you need a rewrite).
-  {% elif msg == 'edge_applied' %}Applied to this PiHerder instance — PEMs written under certs/ and Caddy reloaded.
-  {% elif msg == 'edge_skipped' %}This instance already has the same fingerprint (edge in sync).
+  {% elif msg == 'edge_applied' %}Self-managed edge mapping on — PEMs written under certs/ and Caddy reloaded. NPM renew will re-apply here.
+  {% elif msg == 'edge_skipped' %}Edge already in sync; self-managed mapping remains enabled for renew.
+  {% elif msg == 'edge_mapping_on' %}Self-managed edge mapping enabled (use Apply to write/reload Caddy).
+  {% elif msg == 'edge_mapping_off' %}Self-managed edge mapping removed — renew will not re-apply to Caddy. Files under certs/ were left in place.
   {% elif msg == 'renewed' %}Renewed and redistributed.
   {% elif msg == 'replaced' %}PEM material replaced. Deploy maps (and/or Apply to this PiHerder) to push the new cert.
   {% elif msg == 'saved' %}Settings saved.
@@ -121,64 +123,15 @@
 </div>
 {% endif %}
 
-{# This instance (Caddy edge) — not a fleet map #}
-<div class="card p-4 mb-6 border border-accent/30" id="edge-apply">
-  <div class="flex flex-wrap items-start justify-between gap-3">
-    <div class="min-w-0">
-      <h3 class="text-sm font-semibold text-text">This PiHerder instance (Caddy edge)</h3>
-      <p class="text-xs text-muted mt-1 max-w-2xl">
-        Optional: put this vault cert on <strong>PiHerder’s own</strong> HTTPS (compose <code class="text-[10px]">./certs</code> → Caddy).
-        No SSH, no service map, no sudoers. Fleet maps below are unchanged.
-        {% if cert.edge_in_sync or cert.last_edge_deploy_status == 'success' or cert.last_edge_deploy_fingerprint %}
-        <span class="text-text">After a successful apply, <strong>NPM auto-renew</strong> (and manual Renew) re-applies to Caddy automatically.</span>
-        {% else %}
-        Apply once to opt in: later NPM renewals will re-apply here as well as fleet maps.
-        {% endif %}
-      </p>
-      <div class="flex flex-wrap gap-2 mt-2 text-xs">
-        {% if cert.edge_in_sync %}
-        <span class="status-pill status-success">edge in sync</span>
-        {% elif cert.edge_stale %}
-        <span class="status-pill status-failed">edge stale — re-apply</span>
-        {% elif cert.last_edge_deploy_status == 'failed' %}
-        <span class="status-pill status-failed" title="{{ cert.last_edge_deploy_message or '' }}">edge apply failed</span>
-        {% elif cert.last_edge_deploy_status == 'success' %}
-        <span class="status-pill status-success">edge applied</span>
-        {% else %}
-        <span class="status-pill feature-off">never applied to edge</span>
-        {% endif %}
-        {% if cert.last_edge_deploy_at %}
-        <span class="text-muted">{{ cert.last_edge_deploy_at }}</span>
-        {% endif %}
-        {% if cert.last_edge_deploy_fingerprint_short %}
-        <span class="text-muted font-mono">{{ cert.last_edge_deploy_fingerprint_short }}</span>
-        {% endif %}
-      </div>
-      {% if cert.last_edge_deploy_status == 'failed' and cert.last_edge_deploy_message %}
-      <p class="text-xs text-amber-600 mt-2 break-words">{{ cert.last_edge_deploy_message }}</p>
-      {% endif %}
-      {% if edge_status and not edge_status.certs_writable %}
-      <p class="text-xs text-amber-600 mt-2">
-        Edge path <code class="text-[10px]">{{ edge_status.certs_dir }}</code> is not writable from web.
-        Stock compose mounts <code class="text-[10px]">./certs</code> — restart web after pull.
-      </p>
-      {% endif %}
-    </div>
-  </div>
-</div>
-
 {# Mental model #}
 <div class="card p-4 mb-6 border border-primary/20 bg-surface">
   <h3 class="text-sm font-semibold text-text mb-2">How certificates work here</h3>
   <ol class="text-sm text-muted space-y-1.5 list-decimal list-inside">
     <li><strong class="text-text">Vault</strong> — this page holds one TLS identity (fullchain + key), encrypted. Never shown again.</li>
-    <li><strong class="text-text">This instance (optional)</strong> — <em>Apply to this PiHerder</em> writes PEMs for Caddy in-stack.</li>
-    <li><strong class="text-text">Service maps (fleet)</strong> — each remote consumer is a map: host + path + write mode + restart.</li>
-    <li><strong class="text-text">Deploy map</strong> — SSH write (direct or stage+sudo install), then post-deploy command.</li>
+    <li><strong class="text-text">Self-managed edge map</strong> — optional mapping to <em>this</em> PiHerder’s Caddy (<code class="text-[10px]">./certs</code>); renew re-applies while enabled.</li>
+    <li><strong class="text-text">Fleet service maps</strong> — each remote consumer: host + path + write mode + restart.</li>
+    <li><strong class="text-text">Deploy</strong> — edge in-stack, or SSH write for fleet maps.</li>
   </ol>
-  <p class="text-xs text-muted mt-3">
-    Start from a <strong>preset</strong> below. Least-priv hosts: use write mode <strong>Stage + sudo install</strong> and the generated sudoers snippet.
-  </p>
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -221,20 +174,113 @@
   {% endif %}
 </div>
 
-{# Service maps #}
+{# Service maps (self-managed edge + fleet) #}
 <div class="card p-4 mb-6" id="service-maps">
   <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
     <div>
       <h3 class="font-semibold text-sm">Service maps</h3>
       <p class="text-xs text-muted mt-1 max-w-2xl">
-        One map per place this cert must land. Same vault can feed NPM, a Docker bind-mount, and a PFX consumer.
-        Deploy writes files — it does not delete old ones or reconfigure the app beyond your post-deploy command.
+        <strong>Self-managed edge</strong> = this PiHerder’s Caddy (in-stack).
+        <strong>Fleet maps</strong> = remote hosts over SSH. Same vault can feed both.
       </p>
     </div>
   </div>
 
+  {# Self-managed edge mapping (this instance) #}
+  <article class="border border-accent/40 rounded-lg p-3 sm:p-4 space-y-2 mb-4" id="edge-apply">
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div class="min-w-0">
+        <div class="font-medium text-sm">
+          This PiHerder (Caddy edge)
+          <span class="status-pill feature-off ml-1">self-managed</span>
+        </div>
+        <div class="text-xs text-muted mt-0.5">
+          Host: <em>this instance</em>
+          · <span class="font-mono">{{ edge_status.certs_dir if edge_status else '/certs' }}/fullchain.pem</span>
+          · <span class="font-mono">privkey.pem</span>
+        </div>
+      </div>
+      <div class="text-xs flex flex-wrap gap-1.5 items-center justify-end">
+        {% if cert.edge_apply_enabled %}
+        <span class="status-pill status-running" title="NPM renew re-applies here">mapping on</span>
+        {% else %}
+        <span class="status-pill feature-off">mapping off</span>
+        {% endif %}
+        {% if cert.edge_in_sync %}
+        <span class="status-pill status-success">in sync</span>
+        {% elif cert.edge_stale %}
+        <span class="status-pill status-failed">stale</span>
+        {% elif cert.last_edge_deploy_status == 'failed' %}
+        <span class="status-pill status-failed">failed</span>
+        {% elif cert.last_edge_deploy_status == 'success' %}
+        <span class="status-pill status-success">applied</span>
+        {% else %}
+        <span class="status-pill feature-off">never applied</span>
+        {% endif %}
+        {% if cert.last_edge_deploy_at %}<span class="text-muted">{{ cert.last_edge_deploy_at }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="text-xs text-muted">
+      In-stack write + Caddy reload (no SSH). While <strong>mapping on</strong>, scheduled/manual NPM renew re-applies here with fleet maps.
+    </div>
+    <ul class="text-xs font-mono space-y-0.5 bg-bg border border-border rounded p-2">
+      <li class="break-all"><span class="text-muted">fullchain:</span> {{ edge_status.certs_dir if edge_status else '/certs' }}/fullchain.pem</li>
+      <li class="break-all"><span class="text-muted">privkey:</span> {{ edge_status.certs_dir if edge_status else '/certs' }}/privkey.pem</li>
+    </ul>
+    {% if cert.last_edge_deploy_fingerprint_short %}
+    <div class="text-[11px] text-muted">
+      Last edge fingerprint: <code class="text-[10px]">{{ cert.last_edge_deploy_fingerprint_short }}</code>
+      {% if cert.edge_in_sync %}· matches vault{% elif cert.edge_stale %}· vault has a newer cert{% endif %}
+    </div>
+    {% endif %}
+    {% if cert.last_edge_deploy_status == 'failed' and cert.last_edge_deploy_message %}
+    <div class="text-xs text-amber-600 break-words">{{ cert.last_edge_deploy_message }}</div>
+    {% endif %}
+    {% if edge_status and not edge_status.certs_writable %}
+    <div class="text-xs text-amber-600">
+      Edge path not writable — stock compose mounts <code class="text-[10px]">./certs</code> on web.
+    </div>
+    {% endif %}
+    {% if can_mutate %}
+    <div class="flex flex-wrap gap-2 pt-1">
+      <form method="post" action="/certificates/{{ cert.id }}/apply-edge"
+            data-confirm="Write PEMs to this instance’s certs volume and reload Caddy? Enables self-managed mapping for renew."
+            data-confirm-title="Apply to this PiHerder"
+            data-confirm-label="Apply"
+            data-wait-title="Applying edge certificate"
+            data-wait-message="Writing PEMs and reloading Caddy…">
+        <input type="hidden" name="force" value="on">
+        <button class="btn btn-primary text-xs min-h-10" type="submit">Apply / re-apply</button>
+      </form>
+      {% if cert.edge_apply_enabled %}
+      <form method="post" action="/certificates/{{ cert.id }}/edge-mapping"
+            data-confirm="Remove self-managed edge mapping? Renew will no longer push this cert to Caddy. Files under certs/ are not deleted."
+            data-confirm-title="Remove edge mapping"
+            data-confirm-label="Remove mapping"
+            data-confirm-danger
+            data-wait-title="Updating mapping"
+            data-wait-message="Disabling edge auto re-apply…">
+        <input type="hidden" name="action" value="disable">
+        <button class="btn btn-secondary text-xs min-h-10" type="submit">Remove mapping</button>
+      </form>
+      {% elif cert.edge_mapped or cert.last_edge_deploy_fingerprint %}
+      <form method="post" action="/certificates/{{ cert.id }}/edge-mapping"
+            data-confirm="Enable self-managed edge mapping again? Renew will re-apply to Caddy after the next successful Apply (or when material already matches)."
+            data-confirm-title="Enable edge mapping"
+            data-confirm-label="Enable"
+            data-wait-title="Updating mapping"
+            data-wait-message="Enabling edge auto re-apply…">
+        <input type="hidden" name="action" value="enable">
+        <button class="btn btn-secondary text-xs min-h-10" type="submit">Enable mapping</button>
+      </form>
+      {% endif %}
+    </div>
+    {% endif %}
+  </article>
+
   {% if targets %}
   <div class="space-y-3 mb-6">
+    <div class="text-xs font-medium text-muted uppercase tracking-wide">Fleet maps (SSH)</div>
     {% for t in targets %}
     <article class="border border-border rounded-lg p-3 sm:p-4 space-y-2">
       <div class="flex flex-wrap items-start justify-between gap-2">
