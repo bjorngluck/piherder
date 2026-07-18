@@ -28,8 +28,8 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 
 **Done when:** Server detail shows green-enough SSH/deps for enabled features; no password left stored if key auth works.
 
-!!! note "Planned improvement"
-    A **wizard-driven** add-host path (and bootstrap scripts / optional web SSH) is planned post-RC — [Host lifecycle plan](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
+!!! note "Planned for v0.7.0"
+    A **wizard-driven** add-host path is scheduled for **v0.7.0** (deferred from 0.6 freeze). Bootstrap scripts / optional web SSH remain later — [Host lifecycle plan](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
 
 ---
 
@@ -75,7 +75,7 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 |------|--------|-----|
 | 1 | Host has **Docker** feature + working `docker` | Deploy target |
 | 2 | [Templates overview](../service-templates/overview.md) → OOTB pack | Versioned recipe, not a one-off paste |
-| 3 | [Deploy wizard](../service-templates/deploy.md) | Variables, host, preview, wait modal |
+| 3 | [Deploy wizard](../service-templates/deploy.md) | Variables, host, preview; deploy runs as Job + live log (0.6+) |
 | 4 | Post-deploy checklist | DNS, first login, bind integrations |
 | 5 | Optional: [Kuma integration](../integrations/uptime-kuma.md) | Status in fleet Services |
 | 6 | Later: Check drift / redeploy | Desired state stays authoritative |

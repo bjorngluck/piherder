@@ -20,7 +20,7 @@ All contributions are offered under the **[MIT License](LICENSE)**. By submittin
 ## Getting Started
 
 - Read the [README](README.md) and [SPEC.md](SPEC.md) for project goals and design principles.
-- Check [PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md) for current RC2 work and pre-release readiness (baseline [v0.5.0](docs/RELEASE_v0.5.0.md)).
+- Latest release: [v0.6.0](docs/RELEASE_v0.6.0.md) (RC2). Product next: **v0.7.0** wizard + screenshots — [PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md) (frozen).
 - Look for issues tagged `good first issue` or `help wanted`.
 
 ## Documentation

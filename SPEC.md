@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** **v0.5.0 live** (RC1) · **v0.6.0 RC2** is the active development target.  
-> **Last updated:** 2026-07-18 — Production path: ~~v0.4.0~~ done → ~~**v0.5.0 RC1**~~ **tagged** → **v0.6.0 RC2** ([PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md)) → residual → **v0.8.0** nmap → **v1.0**.
+> **Status:** **v0.6.0 live** (RC2) · next product: **v0.7.0** (wizard + screenshots).  
+> **Last updated:** 2026-07-18 — Production path: ~~v0.4.0~~ → ~~**v0.5.0 RC1**~~ → **v0.6.0 RC2** ([RELEASE_v0.6.0.md](docs/RELEASE_v0.6.0.md)) → **v0.7.0** wizard/screenshots → **v0.8.0** nmap → **v1.0**.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -309,7 +309,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 
 - [ ] Git template catalog pull
 - [x] NPM integration connector (proxy hosts RO, bindings, encrypted certs + PEM upload + deploy/renew)
-- [ ] Template deploy as Jobs + live log (stack path done; template wizard still wait-modal)
+- [x] Template deploy as Jobs + live log (v0.6 track; stack path earlier)
 
 **Deferred (post-0.5 / Horizon 3)**
 
@@ -322,19 +322,21 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 
 **v0.6.0 RC2 ship plan:** [docs/PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md) · Design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · [ROADMAP H2.75](docs/ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc).
 
-Also in **v0.6.0** (polish, not only H2.75): template deploy as Jobs + live log; cert setup / service-map UX; docs polish; light performance.  
-**Shipped on 0.6 track:** Kuma coverage (H3); runtime topology (H2); Docker bulk (P1); cert first-setup + presets + self-managed edge map + stage_sudo — [PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md).
+Also in **v0.6.0** (polish, not only H2.75): template deploy as Jobs + live log; cert setup / service-map UX; docs prose; light performance.  
+**Shipped on 0.6 track:** Kuma coverage (H3); runtime topology (H2); Docker bulk (P1); cert first-setup + presets + self-managed edge map + stage_sudo — [PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md).  
+**Deferred to v0.7.0:** add-host wizard (P2); wiki screenshot pack.
 
 - [x] **P1** Docker project bulk Stop all / Start all / Restart all (Jobs + Audit + confirm) — *done 2026-07-18*
-- [ ] **P2** Wizard-driven add-host onboarding (orchestrate existing SSH / features / DNS steps) — **last 0.6 must (or defer 0.6.x)**
-- [ ] **P3** Richer host stats + healthchecks + **allowlisted** remote commands (no free shell) — *post-0.6*
-- [ ] **P4** Bootstrap scripts (piherder user/permissions) + hostname + Pi-hole A handoff; first-boot enrollment **token** (no open join) — *stretch / post-0.6*
-- [ ] **P5** Web SSH console — server-side key injection only; step-up 2FA; kill switch; optional / high bar — *out of 0.6*
+- [ ] **P2** Wizard-driven add-host onboarding (orchestrate existing SSH / features / DNS steps) — **→ v0.7.0**
+- [ ] **P3** Richer host stats + healthchecks + **allowlisted** remote commands (no free shell) — *post-0.7*
+- [ ] **P4** Bootstrap scripts (piherder user/permissions) + hostname + Pi-hole A handoff; first-boot enrollment **token** (no open join) — *post-0.7*
+- [ ] **P5** Web SSH console — server-side key injection only; step-up 2FA; kill switch; optional / high bar — *later*
 
 ## Phase 7 — Ecosystem depth (post-v0.5 / Horizon 3)
 
 - [x] **Network maps / DNS fabric** (v0.5.0) — host `dns_name` A records; `ServiceDnsRecord` (CNAME or host-identity A); Catalog → **Network** hub + Hosts map `/dns/physical` (Internet→router→LAN→hosts, cloud hosts, Kuma on router/WAN) + Path map `/dns/logical`; Pi-hole adopt (duplicates = ok); node + path focus; viewBox zoom; mobile list-first + Hide map + Full screen (hamburger exits fullscreen); GET-safe topology; external checklist — [wiki](wiki/integrations/dns-fabric.md) · package `app/services/dns_fabric/`
 - [x] **Runtime topology / stack deps** (v0.6 track) — dual altitude: path maps + Stack panel + map expand; compose graph; `RuntimeEdge` suggest/accept/manual; container order → column L→R; Coverage + bound-container down alerts — [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md)
+- [x] **Cert RC2 UX** (v0.6 track) — first-cert setup; map presets; stage_sudo; self-managed Caddy edge mapping + renew re-apply; Grafana UID 472 cookbook
 - [ ] Configurable map columns / link-to-column layout (topology residual)
 - [ ] **LAN discovery (nmap-class)** — opt-in LAN CIDR scan — **v0.8.0**
 - [ ] Cloudflare DNS automation from template hints / fabric

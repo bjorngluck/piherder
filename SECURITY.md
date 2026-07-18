@@ -4,8 +4,9 @@
 
 | Version | Support |
 |---------|---------|
-| **v0.5.x** (tag `v0.5.0`+) | Latest tagged release line (first RC) |
-| **v0.4.x** | Prior line; prefer upgrade to v0.5.x |
+| **v0.6.x** (tag `v0.6.0`+) | Latest tagged release line (RC2) |
+| **v0.5.x** | Prior RC1 line; prefer upgrade to v0.6.x |
+| **v0.4.x** | Prior line; prefer upgrade to latest RC |
 | Older tags | Best-effort; prefer latest tag or `main` for fixes |
 
 Security fixes are applied on the default branch (`main`) and cherry-picked or released as patch tags when warranted. Prefer the latest release tag or `main` for fixes.

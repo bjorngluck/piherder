@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v0.5.0-green.svg)](docs/RELEASE_v0.5.0.md)
+[![Release](https://img.shields.io/badge/release-v0.6.0-green.svg)](docs/RELEASE_v0.6.0.md)
 [![Docker Hub](https://img.shields.io/badge/docker-bjorngluck%2Fpiherder-blue.svg)](https://hub.docker.com/r/bjorngluck/piherder)
 [![Docs](https://img.shields.io/badge/docs-wiki-red.svg)](https://piherder-docs.hacknow.info/)
 
@@ -55,7 +55,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - Post-RC host lifecycle (planned): [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md)
 - API reference: [docs/API.md](docs/API.md)
-- Release notes: [docs/RELEASE_v0.5.0.md](docs/RELEASE_v0.5.0.md)
+- Release notes: [docs/RELEASE_v0.6.0.md](docs/RELEASE_v0.6.0.md)
 
 ### Tech Stack
 

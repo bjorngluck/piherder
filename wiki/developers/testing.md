@@ -32,4 +32,4 @@ Docs site builds separately via [`.github/workflows/docs.yml`](https://github.co
 
 1. `pytest -q` green (local or CI)  
 2. Manual smoke: register, add server, backup, template deploy, metrics, API token  
-3. See release checklist in `docs/RELEASE_v*.md` / [PLAN_v0.5.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md)  
+3. See release checklist in `docs/RELEASE_v*.md` / [RELEASE_v0.6.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.6.0.md)  

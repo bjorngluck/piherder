@@ -1,7 +1,7 @@
 # Feature plan — Host lifecycle & operator console (H2.75)
 
-**Status:** Design agreed 2026-07-17 · **P1 Docker bulk shipped** (2026-07-18) · **P2 wizard** last 0.6 must (or defer 0.6.x — see [PLAN §7](PLAN_v0.6.0.md#7-pre-release-readiness-review-2026-07-18))  
-**Horizon:** H2.75 · ship slices via [PLAN_v0.6.0.md](PLAN_v0.6.0.md); P3–P5 post-0.6  
+**Status:** Design agreed 2026-07-17 · **P1 Docker bulk shipped** (2026-07-18) · **P2 wizard deferred to v0.7.0** (locked 2026-07-18 freeze — [PLAN §7](PLAN_v0.6.0.md#7-pre-release-readiness-review-2026-07-18))  
+**Horizon:** H2.75 · P1 via [PLAN_v0.6.0.md](PLAN_v0.6.0.md); **P2 → v0.7.0**; P3–P5 post-0.7  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § [Horizon 2.75](ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · Wiki [Docker](../wiki/docker/overview.md) · [Add server](../wiki/day-to-day/add-server.md)
 
 ## Goal
@@ -22,8 +22,8 @@ Deepen **day-to-day host operations** and **first-time host bring-up** without c
 
 | # | Decision |
 |---|----------|
-| 1 | **v0.6.0 RC2** — P2 wizard is **must-have**; P1 Docker bulk is **nice-to-have**; see [PLAN_v0.6.0.md](PLAN_v0.6.0.md) |
-| 2 | Ship order = **risk/value:** Docker bulk → wizard → stats/commands → bootstrap/DNS → web SSH last (0.6 may ship wizard before bulk if UX priority wins) |
+| 1 | **v0.6.0 RC2** — P1 Docker bulk **shipped**; **P2 wizard → v0.7.0** (freeze decision 2026-07-18); see [PLAN_v0.6.0.md](PLAN_v0.6.0.md) |
+| 2 | Ship order = **risk/value:** Docker bulk (0.6) → wizard (0.7) → stats/commands → bootstrap/DNS → web SSH last |
 | 3 | **Not required for minimal 1.0.0** unless we deliberately pull P1 into 1.0 as polish |
 | 4 | Web SSH: private key **never** sent to the browser; decrypt only in server memory for the PTY session |
 | 5 | Web SSH: **operator/admin** only; prefer **step-up 2FA**; env kill switch `PIHERDER_SSH_CONSOLE=false` (default off until GA) |
@@ -40,9 +40,9 @@ Deepen **day-to-day host operations** and **first-time host bring-up** without c
 | Phase | Name | Target | Status |
 |-------|------|--------|--------|
 | **P1** | Docker project bulk control | 0.6.0 nice-to-have | **Done** (2026-07-18) |
-| **P2** | Add-host wizard | **0.6.0 must** | Planned |
-| **P3** | Host stats + healthcheck + allowlisted commands | post-0.6 | Planned |
-| **P4** | Bootstrap scripts + hostname + DNS handoff | 0.6 stretch / post-0.6 | Planned |
+| **P2** | Add-host wizard | **v0.7.0** | **Deferred** (from 0.6 freeze) |
+| **P3** | Host stats + healthcheck + allowlisted commands | post-0.7 | Planned |
+| **P4** | Bootstrap scripts + hostname + DNS handoff | post-0.7 | Planned |
 | **P5** | Web SSH console | Last; separate ship bar | Planned / under consideration |
 
 ---

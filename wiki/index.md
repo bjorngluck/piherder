@@ -13,19 +13,20 @@
 
     | What to expect | Detail |
     |----------------|--------|
-    | **Tagged now** | **[v0.5.0](https://github.com/bjorngluck/piherder/releases/tag/v0.5.0)** (RC1) is the published image (`latest` until 0.6 tags) |
-    | **In development** | **v0.6.0 RC2** — [PLAN_v0.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.6.0.md) (template Jobs, cert UX, Docker bulk, topology; wizard still open) |
+    | **Tagged now** | **[v0.6.0](https://github.com/bjorngluck/piherder/releases/tag/v0.6.0)** (RC2) — image `bjorngluck/piherder:0.6.0` / `latest` |
+    | **Shipped in RC2** | Template Jobs, cert vault UX (edge map, presets), Docker bulk lifecycle, runtime topology + Kuma coverage — [RELEASE_v0.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.6.0.md) |
+    | **Next (v0.7.0)** | Add-host wizard + wiki screenshot pack |
     | **Documentation** | Operator-focused living wiki — not the final 1.0 freeze manual |
-    | **Screenshots** | Light desktop for major surfaces; refresh continues through 0.6 freeze |
+    | **Screenshots** | Light desktop for major surfaces; full refresh scheduled for **v0.7.0** |
     | **Production bar** | **v1.0.0** is the intended first refined production release |
 
     If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
 
 | | |
 |---|---|
-| **Current tag** | **[v0.5.0](https://github.com/bjorngluck/piherder/releases/tag/v0.5.0)** (RC1) — image [`bjorngluck/piherder:latest`](https://hub.docker.com/r/bjorngluck/piherder) |
-| **Active ship plan** | [PLAN_v0.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.6.0.md) (RC2) |
-| **Release notes (0.5)** | [RELEASE_v0.5.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.5.0.md) |
+| **Current tag** | **[v0.6.0](https://github.com/bjorngluck/piherder/releases/tag/v0.6.0)** (RC2) — image [`bjorngluck/piherder:latest`](https://hub.docker.com/r/bjorngluck/piherder) |
+| **Release notes** | [RELEASE_v0.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.6.0.md) · prior [v0.5.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.5.0.md) |
+| **Ship plan** | [PLAN_v0.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.6.0.md) (released) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |
