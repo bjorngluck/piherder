@@ -161,7 +161,7 @@ Ship **only if** B–D are green and schedule allows. Prefer one clean slice ove
 
 | Item | Horizon | Recommendation for 0.6.0 |
 |------|---------|---------------------------|
-| **Docker project bulk** start/stop/restart | H2.75 P1 | **Include if capacity** — highest weekly ops value; same Jobs/Audit pattern as B07 |
+| **Docker project bulk** start/stop/restart | H2.75 P1 | **Done** (2026-07-18) — project ⋯ Stop/Start/Restart all as Jobs |
 | Bootstrap scripts (P4 A) | H2.75 | Stretch with wizard |
 | Host stats / allowlisted commands (P3) | H2.75 | **Defer** to post-0.6 or 0.7 |
 | Web SSH (P5) | H2.75 | **Out of 0.6** |
@@ -283,7 +283,7 @@ Full plan (archive + residual): **[FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLA
 
 ### Nice-to-have in the same tag
 
-- Docker project bulk stop/start/restart (F / P1)  
+- ~~Docker project bulk stop/start/restart (F / P1)~~ **Done**  
 - Multi-map cert deploy as Job  
 - Bootstrap script download from wizard  
 - HTTP smoke or Playwright Phase A  
@@ -317,15 +317,15 @@ Full plan (archive + residual): **[FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLA
 1. PLAN + ROADMAP/SPEC production path          // done
 2. Template deploy → Jobs (C)                   // done
 3. H3 coverage + H2 runtime topology            // done (stretch stream closed)
-4. Cert map UX + first-cert guidance (D)        // next must
-5. Add-host wizard (B)                          // next must (largest UI)
-6. Docs/screenshots continuous (A)
-7. Perf pass on list/inventory/fabric (E)
-8. Optional: Docker bulk P1 (F)
+4. Docker bulk lifecycle P1 (F)                 // done — stop/start/restart all as Jobs
+5. Cert map UX + first-cert guidance (D)        // next must
+6. Add-host wizard (B)                          // next must (largest UI)
+7. Docs/screenshots continuous (A)
+8. Perf pass on list/inventory/fabric (E)
 9. Freeze: RELEASE + version + Hub + tag
 ```
 
-**Next focus for 0.6 ship-bar:** workstream **D** (cert setup / maps) then **B** (add-host wizard). Topology / coverage stream is closed.
+**Next focus for 0.6 ship-bar:** workstream **D** (cert setup / maps) then **B** (add-host wizard). Topology + Docker bulk (F) closed.
 
 Parallelise A with remaining feature streams.
 

@@ -261,7 +261,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 
 **Captured:** 2026-07-17 (operator planning discussion).  
 **Feature plan:** [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) (phases P1–P5, UX sketches, acceptance criteria, security bar).  
-**Stance:** **v0.6.0 RC2** pulls **P2 wizard** (must) and optionally **P1 Docker bulk**. P3–P5 remain post-0.6 / not required for minimal **1.0.0**. Detail: [PLAN_v0.6.0.md](PLAN_v0.6.0.md).
+**Stance:** **v0.6.0 RC2** pulls **P2 wizard** (must). **P1 Docker bulk** shipped 2026-07-18 (project ⋯ stop/start/restart all as Jobs). P3–P5 remain post-0.6 / not required for minimal **1.0.0**. Detail: [PLAN_v0.6.0.md](PLAN_v0.6.0.md).
 
 These ideas deepen **day-to-day host operations** and **first-time host bring-up**. They sit next to H2.5 (topology) but focus on **SSH lifecycle** rather than DNS/proxy graphs.
 

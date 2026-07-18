@@ -40,7 +40,8 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | Browse projects / containers | From inventory snapshot ([Inventory](inventory.md)) |
 | Runtime stack / Path map | Project **Stack** / **Path map** pills → Network stack panel + map expand ([Network maps](../integrations/dns-fabric.md#runtime-stack-detail-altitude)) |
 | Logs | Per container / service (live stream on full log page) |
-| Container start / stop / restart | Row actions on the stack |
+| **Stop / Start / Restart all** | Project ⋯ menu → confirm → **Job** with live log (`docker_stack_stop` / `_start` / `_restart`) |
+| Container start / stop / restart | Row ⋯ on a single service (immediate; not a full-stack job) |
 | Quick edit / Full editor | ⋯ menu — modal vs multi-file page — [Compose edit](compose-edit.md) |
 | Multi-file compose edit | compose + override + `.env` + Dockerfile |
 | Version history | Snapshots; rollback |
@@ -50,10 +51,19 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | New project wizard | Create a stack on the host |
 | Template-managed stacks | Badge + gated full editor — [Templates](../service-templates/overview.md) |
 
-!!! note "Planned post-RC (not in 0.5.0 freeze)"
-    **Project lifecycle bulk:** Stop all / Start all / Restart all services for a compose project (confirm → Job → Audit). Later: wizard onboarding, richer host stats/allowlisted commands, bootstrap scripts, optional web SSH.
+### Project lifecycle (stop / start / restart all)
 
-    Design: [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md) (H2.75).
+From a compose project **⋯** menu:
+
+1. Choose **Stop all services…**, **Start all services…**, or **Restart all services…**  
+2. Confirm — host + project name; **Stop** uses danger styling.  
+3. A **Job** runs `docker compose stop|start|restart` over SSH with a live log (same JobHold pattern as Deploy).  
+4. Success refreshes inventory; **Jobs** / **Audit** record `docker_stack_stop` / `_start` / `_restart`.  
+
+Only **one** stack mutation runs at a time per host (shared lane with Deploy and template deploy/redeploy). Operator+ only. Single-container start/stop/restart stay on the **service row** ⋯ menu.
+
+!!! note "Still planned (H2.75 remainder)"
+    Add-host wizard, richer host stats / allowlisted commands, bootstrap scripts, optional web SSH — see [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
 
 ## Template vs free-form stacks
 

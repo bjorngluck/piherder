@@ -219,28 +219,85 @@ async def redeploy(
 
 @router.post("/{server_id}/docker/compose/{action}")
 async def compose_project_action(
+    request: Request,
     server_id: int,
     action: str,
+    background_tasks: BackgroundTasks,
     project_path: str = Form(...),
     service: str = Form(""),
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
 ):
+    """Compose project action: stop/start/restart/down.
+
+    Whole-project stop/start/restart run as Jobs with live log (H2.75 P1).
+    Single-service stop/start/restart and ``down`` stay synchronous.
+    """
+    from ..services import jobs as job_service
+    from ..security.auth import role_at_least, ROLE_OPERATOR
+    from urllib.parse import quote
+    import os
 
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
 
-    svc = service or None
-    res = docker_svc.compose_action(server, project_path, action, service=svc)
+    act = (action or "").strip().lower()
+    path = (project_path or "").strip()
+    svc = (service or "").strip() or None
+
+    # Bulk lifecycle → Job + JobHold (exclusive with other stack mutations)
+    if act in ("stop", "start", "restart") and not svc:
+        if not role_at_least(user, ROLE_OPERATOR):
+            raise HTTPException(403, "Operator or admin role required")
+        already_active = False
+        try:
+            job = job_service.enqueue_docker_stack_lifecycle(
+                server.id,
+                path,
+                act,
+                user_id=user.id if user else None,
+                background_tasks=background_tasks,
+            )
+        except job_service.JobAlreadyActive as e:
+            job = e.job
+            already_active = True
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        if not job:
+            raise HTTPException(500, f"Could not queue stack {act}")
+
+        proj_name = os.path.basename(path.rstrip("/")) or path
+        job_type = f"docker_stack_{act}"
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse(
+                {
+                    "job_id": job.id,
+                    "status": job.status,
+                    "job_type": job_type,
+                    "project": proj_name,
+                    "action": act,
+                    "already_active": already_active,
+                },
+                status_code=409 if already_active else 200,
+            )
+        return RedirectResponse(
+            f"/servers/{server_id}/docker?lifecycle={act}"
+            f"&project={quote(str(proj_name), safe='')}"
+            f"&job_id={job.id}",
+            status_code=303,
+        )
+
+    # Single-service lifecycle or compose down (undeploy)
+    res = docker_svc.compose_action(server, path, act, service=svc)
     try:
-        details = f"Project {project_path}"
+        details = f"Project {path}"
         if svc:
             details += f" service={svc}"
         audit = make_audit_log(
             user_id=user.id if user else None,
             server_id=server_id,
-            action=f"docker_compose_{action}",
+            action=f"docker_compose_{act}",
             status="success" if res.get("success") else "failed",
             details=details,
             output_snippet=str(res)[:500],
@@ -251,7 +308,12 @@ async def compose_project_action(
         session.commit()
     except Exception:
         pass
-    return RedirectResponse(f"/servers/{server_id}/docker", status_code=303)
+    try:
+        if res.get("success"):
+            _invalidate_inventory(session, server)
+    except Exception:
+        pass
+    return RedirectResponse(f"/servers/{server_id}/docker?nocache=1", status_code=303)
 
 
 @router.get("/{server_id}/docker/logs/{container}")

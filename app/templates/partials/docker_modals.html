@@ -177,6 +177,24 @@
   </div>
 </div>
 
+<!-- Lifecycle modal: stop / start / restart all services in a project -->
+<div id="lifecycle-confirm-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-md mx-4 ph-modal-brand">
+    <div class="ph-detail-kicker">Docker · lifecycle</div>
+    <h3 class="ph-detail-title mb-1" id="lifecycle-confirm-title">Restart all services?</h3>
+    <p class="text-sm text-muted mb-3">
+      Run <code class="text-accent" id="lifecycle-confirm-cmd">docker compose restart</code> for
+      <strong id="lifecycle-project-name" class="font-mono text-accent"></strong>
+      on this host. All services in the compose project are affected.
+    </p>
+    <div class="flex flex-wrap gap-2 justify-end">
+      <button type="button" onclick="hideLifecycleConfirm()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+      <button type="button" id="lifecycle-confirm-btn" class="btn btn-accent min-h-11 text-sm">Confirm</button>
+    </div>
+    <div class="text-xs text-muted mt-3" id="lifecycle-confirm-hint">Runs as a Job with live log. Only one stack mutation at a time per host.</div>
+  </div>
+</div>
+
 <!-- Logs modal (inline viewer, stays on Docker Management screen) -->
 <div id="logs-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div id="logs-modal-content" class="card rounded-xl p-3 sm:p-4 w-full max-w-5xl mx-4 h-[70vh] max-h-[85vh] flex flex-col overflow-hidden">
@@ -567,6 +585,60 @@ setTimeout(function() {
 
 // Deploy confirmation helpers (popup modal like build / undeploy)
 let pendingDeployForm = null;
+let pendingLifecycleForm = null;
+let pendingLifecycleAction = '';
+
+function showLifecycleConfirm(form, projectName, action) {
+  pendingLifecycleForm = form;
+  pendingLifecycleAction = action || 'restart';
+  const modal = document.getElementById('lifecycle-confirm-modal');
+  const nameEl = document.getElementById('lifecycle-project-name');
+  const titleEl = document.getElementById('lifecycle-confirm-title');
+  const cmdEl = document.getElementById('lifecycle-confirm-cmd');
+  const btn = document.getElementById('lifecycle-confirm-btn');
+  const act = (action || 'restart').toLowerCase();
+  const labels = {
+    stop: { title: 'Stop all services?', btn: 'Stop all', danger: true },
+    start: { title: 'Start all services?', btn: 'Start all', danger: false },
+    restart: { title: 'Restart all services?', btn: 'Restart all', danger: false },
+  };
+  const L = labels[act] || labels.restart;
+  if (nameEl) nameEl.textContent = projectName || 'project';
+  if (titleEl) titleEl.textContent = L.title;
+  if (cmdEl) cmdEl.textContent = 'docker compose ' + act;
+  if (btn) {
+    btn.textContent = L.btn;
+    btn.className = 'btn min-h-11 text-sm ' + (L.danger ? 'btn-danger' : 'btn-accent');
+  }
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+}
+
+function hideLifecycleConfirm() {
+  const modal = document.getElementById('lifecycle-confirm-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
+  pendingLifecycleForm = null;
+  pendingLifecycleAction = '';
+}
+
+(function bindLifecycleConfirm() {
+  const btn = document.getElementById('lifecycle-confirm-btn');
+  if (!btn || btn.dataset.bound) return;
+  btn.dataset.bound = '1';
+  btn.addEventListener('click', function() {
+    if (!pendingLifecycleForm) return;
+    const form = pendingLifecycleForm;
+    form.dataset.confirmed = '1';
+    hideLifecycleConfirm();
+    if (typeof form.requestSubmit === 'function') form.requestSubmit();
+    else form.submit();
+  });
+})();
 
 function showDeployConfirm(form, projectName) {
   pendingDeployForm = form;
@@ -926,9 +998,9 @@ document.addEventListener('click', function(e) {
   handleProjectAction(projName, services, serverId, projectPath, action, form);
 }, true);
 
-// === Loading / waiting feedback for Check Updates, Deploy, Undeploy ===
-// Check + Deploy run as Jobs with live log (B07 / PiHerderJobHold).
-// Other compose actions keep the blocking progress overlay.
+// === Loading / waiting feedback for Check Updates, Deploy, Lifecycle, Undeploy ===
+// Check + Deploy + whole-project stop/start/restart → Jobs + JobHold.
+// Undeploy keeps the blocking progress overlay.
 (function setupLongActionFeedback() {
   function showActionProgress(actionName, projectName) {
     // Remove any existing
@@ -951,6 +1023,14 @@ document.addEventListener('click', function(e) {
     document.body.appendChild(overlay);
   }
 
+  function lifecycleAction(form) {
+    const a = form.getAttribute('action') || '';
+    if (a.includes('/compose/stop')) return 'stop';
+    if (a.includes('/compose/start')) return 'start';
+    if (a.includes('/compose/restart')) return 'restart';
+    return null;
+  }
+
   function labelForForm(form) {
     const a = form.getAttribute('action') || '';
     if (a.includes('/check-updates')) return 'Checking...';
@@ -964,7 +1044,12 @@ document.addEventListener('click', function(e) {
 
   function isJobHoldAction(form) {
     const a = form.getAttribute('action') || '';
-    return a.includes('/check-updates') || a.includes('/redeploy');
+    if (a.includes('/check-updates') || a.includes('/redeploy')) return true;
+    // Whole-project lifecycle (no service field / empty service)
+    const life = lifecycleAction(form);
+    if (!life) return false;
+    const svc = form.querySelector('input[name="service"]');
+    return !svc || !(svc.value || '').trim();
   }
 
   // One delegated submit handler (works after HTMX stack refresh)
@@ -1000,9 +1085,15 @@ document.addEventListener('click', function(e) {
       showDeployConfirm(form, projName);
       return;
     }
+    const life = lifecycleAction(form);
+    if (life && isJobHoldAction(form) && !form.dataset.confirmed) {
+      e.preventDefault();
+      showLifecycleConfirm(form, projName, life);
+      return;
+    }
     if (form.dataset.confirmed) delete form.dataset.confirmed;
 
-    // B07: Check updates + Deploy → Job queue + live log modal
+    // B07 / H2.75: Check, Deploy, lifecycle → Job queue + live log modal
     if (isJobHoldAction(form) && window.PiHerderJobHold) {
       e.preventDefault();
       if (btn) {
@@ -1010,9 +1101,10 @@ document.addEventListener('click', function(e) {
         btn.dataset.originalText = btn.textContent;
         btn.textContent = actionLabel;
       }
-      var holdTitle = actionLabel.includes('Check')
-        ? ('Check updates: ' + projName)
-        : ('Deploy: ' + projName);
+      var holdTitle;
+      if (actionLabel.includes('Check')) holdTitle = 'Check updates: ' + projName;
+      else if (life) holdTitle = (life.charAt(0).toUpperCase() + life.slice(1)) + ' all: ' + projName;
+      else holdTitle = 'Deploy: ' + projName;
       window.PiHerderJobHold.run({
         url: form.action,
         form: form,

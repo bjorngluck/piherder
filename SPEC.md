@@ -325,7 +325,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 Also in **v0.6.0** (polish, not only H2.75): template deploy as Jobs + live log; cert setup / service-map UX; docs polish; light performance.  
 **Shipped early on 0.6 track:** Kuma coverage audit (H3) + runtime topology stack panel/map expand/order (H2) — [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md).
 
-- [ ] **P1** Docker project bulk Stop all / Start all / Restart all (Jobs + Audit + confirm) — *nice-to-have in 0.6.0*
+- [x] **P1** Docker project bulk Stop all / Start all / Restart all (Jobs + Audit + confirm) — *done 2026-07-18*
 - [ ] **P2** Wizard-driven add-host onboarding (orchestrate existing SSH / features / DNS steps) — **must for 0.6.0**
 - [ ] **P3** Richer host stats + healthchecks + **allowlisted** remote commands (no free shell) — *post-0.6*
 - [ ] **P4** Bootstrap scripts (piherder user/permissions) + hostname + Pi-hole A handoff; first-boot enrollment **token** (no open join) — *stretch / post-0.6*

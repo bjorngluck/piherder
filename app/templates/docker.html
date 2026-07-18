@@ -182,6 +182,16 @@
       {% endif %}
     </div>
   {% endif %}
+  {% set _life = request.query_params.get('lifecycle') %}
+  {% if _life %}
+    <div class="mb-3 p-2 text-xs rounded border border-border banner-success">
+      <strong>{{ _life|capitalize }} all services</strong> queued for
+      <span class="font-mono">{{ request.query_params.get('project') or 'stack' }}</span>
+      {% if request.query_params.get('job_id') %}(job #{{ request.query_params.get('job_id') }}){% endif %}.
+      Follow under <a href="/jobs" class="text-primary underline">Jobs</a>
+      / Audit → <code>docker_stack_{{ _life }}</code>.
+    </div>
+  {% endif %}
   {% if server.container_updates_count and server.container_updates_count > 0 %}
     <div class="mb-3 p-2 text-xs rounded border border-border banner-warning">
       <strong>{{ server.container_updates_count }}</strong> stack(s) with pending <em>registry</em> image updates from last check.
@@ -221,7 +231,7 @@
   {% include "docker_stack.html" %}
 
   <div class="mt-6 text-xs text-muted">
-    Compose ⋯: deploy, logs, build, edit. Container ⋯: start / stop / restart / logs.
+    Compose ⋯: deploy, start/stop/restart all, logs, build, edit. Container ⋯: start / stop / restart / logs.
     Tap a service row for image, ports, mounts, and size.
   </div>
 </div>
@@ -296,10 +306,13 @@ function hideCleanupModal() {
   modal.classList.add('hidden');
 }
 
-/* Keep ⋯ short — no scroll. Lifecycle (start/stop/restart) stays on stack detail. */
+/* Project ⋯ — lifecycle = whole stack (Jobs); single-container lifecycle is on row ⋯ */
 const MORE_ACTIONS = [
   { key: 'template-config', label: 'Template settings…', accent: true },
   { key: 'deploy', label: 'Deploy', accent: true },
+  { key: 'restart', label: 'Restart all services…', accent: true },
+  { key: 'start', label: 'Start all services…' },
+  { key: 'stop', label: 'Stop all services…', danger: true },
   { key: 'logs', label: 'Logs' },
   { key: 'edit', label: 'Quick edit' },
   { key: 'full-edit', label: 'Full editor…' },
