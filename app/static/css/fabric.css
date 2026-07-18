@@ -427,16 +427,20 @@ a.fabric-hop:hover {
   white-space: nowrap;
 }
 
-/* Nav cards to full mesh pages */
+/* Nav cards to full mesh / coverage pages */
 .fabric-nav-card {
-  display: block;
-  padding: 1.15rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 7.25rem;
+  padding: 1rem 1.1rem;
   border-radius: 14px;
   border: 1px solid var(--color-border);
   text-decoration: none;
   color: var(--color-text);
   background: var(--color-surface);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 .fabric-nav-card:hover {
   border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
@@ -453,6 +457,11 @@ a.fabric-hop:hover {
     color-mix(in srgb, var(--color-warning, #d97706) 10%, var(--color-surface)) 0%,
     var(--color-surface) 55%);
 }
+.fabric-nav-card--coverage {
+  background: linear-gradient(135deg,
+    color-mix(in srgb, var(--color-success, #16a34a) 10%, var(--color-surface)) 0%,
+    var(--color-surface) 55%);
+}
 .fabric-nav-card-kicker {
   font-size: 0.65rem;
   font-weight: 700;
@@ -460,22 +469,66 @@ a.fabric-hop:hover {
   letter-spacing: 0.06em;
   color: var(--color-muted);
   margin-bottom: 0.25rem;
+  flex-shrink: 0;
 }
 .fabric-nav-card-title {
-  font-size: 1.15rem;
+  font-size: 1.05rem;
   font-weight: 650;
   letter-spacing: -0.02em;
+  line-height: 1.25;
+  flex-shrink: 0;
 }
 .fabric-nav-card-desc {
-  margin: 0.4rem 0 0.75rem;
-  font-size: 0.8rem;
+  margin: 0.35rem 0 0.5rem;
+  font-size: 0.75rem;
   color: var(--color-muted);
-  line-height: 1.4;
+  line-height: 1.35;
+  flex: 1 1 auto;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .fabric-nav-card-cta {
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--color-accent);
+  margin-top: auto;
+  flex-shrink: 0;
+}
+@media (max-width: 639px) {
+  .fabric-nav-card {
+    min-height: 6.25rem;
+    padding: 0.9rem 1rem;
+  }
+  .fabric-nav-card-title {
+    font-size: 1rem;
+  }
+  .fabric-nav-card-desc {
+    -webkit-line-clamp: 2;
+    font-size: 0.72rem;
+  }
+}
+/* Stat strip on Network hub — equal height, no overflow on phone */
+.fabric-stat-strip {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 1024px) {
+  .fabric-stat-strip {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.fabric-stat-strip .card {
+  min-height: 4.5rem;
+  min-width: 0;
+  overflow: hidden;
+}
+.fabric-stat-strip .text-2xl {
+  font-size: 1.35rem;
+  line-height: 1.2;
+  word-break: break-word;
 }
 
 .fabric-path-grid {

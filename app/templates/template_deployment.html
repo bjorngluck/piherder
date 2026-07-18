@@ -244,8 +244,8 @@
     {% endif %}
 
     <form method="post" action="/templates/deployments/{{ dep.id }}/redeploy" class="space-y-3"
-          data-wait-title="Redeploying"
-          data-wait-message="Saving desired state, writing files over SSH, and running compose. Please wait…">
+          data-job-hold="Redeploying template"
+          data-job-hold-close="reload">
       <h3 class="text-xs font-medium text-muted">Non-secret variables</h3>
       {% for k, v in public.items() %}
       <div>

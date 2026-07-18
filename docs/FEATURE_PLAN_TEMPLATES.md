@@ -1,8 +1,8 @@
 # Feature plan — Service templates (v0.4.0 Phase 1)
 
-**Status:** **Shipped in v0.4.0** (foundation). Ops depth + polish + RC → **v0.5.0** (single target).  
-**Horizon:** H2 / v0.4.0 foundation · v0.5.0 RC  
-**Related:** [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) Phase 6
+**Status:** **Shipped in v0.4.0** (foundation). Ops depth + polish + RC → **v0.5.0**. RC2 UX → **v0.6.0** (deploy as Jobs).  
+**Horizon:** H2 / v0.4.0 foundation · v0.5.0 RC · v0.6.0 RC2 polish  
+**Related:** [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) Phase 6
 
 ## Goal
 
@@ -145,7 +145,7 @@ Defaults use **named** volumes; deploy can switch to project folder or host path
 
 ## UX feedback (sync ops)
 
-Long template operations use shared **`PiHerderWaitModal`** (`data-wait-title` / `data-wait-message` on forms): preview, confirm deploy, redeploy, from-host pull. Spinner + message until navigation completes. **Per-stack** Docker Check updates / Deploy use Jobs + live log (**B07**). Live job logs for *template* deploy remain a future nice-to-have.
+Long template operations historically used **`PiHerderWaitModal`**. **Per-stack** Docker Check updates / Deploy use Jobs + live log (**B07**). **v0.6.0:** template **deploy** / **redeploy** → Jobs (`template_deploy` / `template_redeploy`) + JobHold live log; secrets in job details are Fernet-encrypted and cleared on finish; exclusive with other stack mutations on the host. Preview / from-host / drift / env migrate may still use wait modal. See [PLAN_v0.6.0.md](PLAN_v0.6.0.md) workstream C.
 
 ## Out of v0.4.0 / follow-ons (→ v0.5.0)
 

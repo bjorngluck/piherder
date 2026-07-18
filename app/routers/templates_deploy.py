@@ -7,8 +7,8 @@ from datetime import datetime
 from typing import Optional
 from urllib.parse import urlencode
 
-from fastapi import Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import BackgroundTasks, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlmodel import Session
 
 from .. import templates as templates_mod
@@ -206,9 +206,13 @@ async def deployment_detail(
 async def deployment_redeploy(
     request: Request,
     deployment_id: int,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
+    """Redeploy desired state as a Job with live log (v0.6.0)."""
+    from ..services import jobs as job_service
+
     form = await request.form()
     # Changing secrets requires step-up unlock; deploy policy also applies
     has_secret_fields = any(str(k).startswith("sec_") for k in form.keys())
@@ -217,6 +221,8 @@ async def deployment_redeploy(
             _check_secrets_unlocked(request, user)
         _check_template_2fa(user)
     except HTTPException as e:
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse({"detail": e.detail}, status_code=e.status_code)
         return _redirect(f"/templates/deployments/{deployment_id}", error=e.detail)
 
     dep = get_deployment(session, deployment_id)
@@ -245,56 +251,71 @@ async def deployment_redeploy(
             if val and val != "********":
                 updated_secrets[sk[4:]] = val
 
+    already_active = False
     try:
-        result = redeploy_desired_state(
-            session,
-            server=server,
-            deployment=dep,
+        job = job_service.enqueue_template_redeploy(
+            server.id,
+            deployment_id=deployment_id,
             updated_public=updated_public or None,
             updated_secrets=updated_secrets or None,
             deploy_now=True,
+            user_id=user.id if user else None,
+            background_tasks=background_tasks,
         )
-    except TemplateError as e:
-        _audit(
-            session,
-            user,
-            "template.redeploy",
-            server_id=server.id,
-            details=f"deployment={deployment_id} error={e}",
-            status="failed",
-        )
+    except job_service.JobAlreadyActive as e:
+        job = e.job
+        already_active = True
+    except ValueError as e:
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse({"detail": str(e)}, status_code=400)
         return _redirect(f"/templates/deployments/{deployment_id}", error=str(e)[:200])
     except Exception as e:
+        logger.exception("template redeploy enqueue")
         _audit(
             session,
             user,
             "template.redeploy",
             server_id=server.id,
-            details=f"deployment={deployment_id} error={e}",
+            details=f"deployment={deployment_id} enqueue_error={e}",
             status="failed",
         )
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse({"detail": str(e)[:200]}, status_code=500)
         return _redirect(
             f"/templates/deployments/{deployment_id}",
             error=f"Redeploy failed: {str(e)[:180]}",
         )
 
-    _audit(
-        session,
-        user,
-        "template.redeploy",
-        server_id=server.id,
-        details=f"deployment={deployment_id} config_v={result.get('config_version')}",
-    )
-    rd = result.get("redeploy") or {}
-    ok_host = rd.get("success") if isinstance(rd, dict) else True
-    msg = f"Redeployed as V{result.get('config_version')}"
-    if ok_host is False:
-        msg += " — compose up reported failure (see Audit / Docker)"
-    if server:
-        msg += f". Open Docker · {dep.project_name}."
+    if not job:
+        raise HTTPException(500, "Could not queue template redeploy")
+
+    if not already_active:
+        _audit(
+            session,
+            user,
+            "template.redeploy",
+            server_id=server.id,
+            details=f"deployment={deployment_id} job={job.id} queued",
+            status="success",
+        )
+
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "job_type": "template_redeploy",
+                "server_id": server.id,
+                "deployment_id": deployment_id,
+                "already_active": already_active,
+                "poll_url": f"/jobs/{job.id}",
+            },
+            status_code=409 if already_active else 200,
+        )
+
     return _redirect(
-        f"/templates/deployments/{result['deployment_id']}",
-        msg=msg[:240],
+        f"/templates/deployments/{deployment_id}",
+        msg=f"Redeploy queued as job #{job.id}",
     )
 
 
@@ -590,75 +611,102 @@ async def template_preview(
 async def template_confirm_deploy(
     request: Request,
     slug: str,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     stash_json: str = Form(...),
 ):
+    """Confirm deploy as a Job with live log (v0.6.0)."""
+    from ..services import jobs as job_service
+
     try:
         _check_template_2fa(user)
     except HTTPException as e:
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse({"detail": e.detail}, status_code=e.status_code)
         return _redirect(f"/templates/{slug}/deploy", error=e.detail)
 
     try:
         stash = json.loads(stash_json)
     except Exception:
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse(
+                {"detail": "Invalid deploy state; start again"}, status_code=400
+            )
         return _redirect(f"/templates/{slug}/deploy", error="Invalid deploy state; start again")
 
     values = stash.get("values") or {}
+    if not isinstance(values, dict):
+        values = {}
     server_id = int(stash.get("server_id") or 0)
     deploy_now = bool(stash.get("deploy_now", True))
     server = session.get(Server, server_id)
     if not server:
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse({"detail": "Server not found"}, status_code=404)
         return _redirect(f"/templates/{slug}/deploy", error="Server not found")
 
+    already_active = False
     try:
-        result = apply_template_to_host(
-            session,
-            server=server,
+        job = job_service.enqueue_template_deploy(
+            server.id,
             template_slug=slug,
             values=values,
             deploy_now=deploy_now,
-            auto_generate=False,
+            user_id=user.id if user else None,
+            background_tasks=background_tasks,
         )
-    except TemplateError as e:
-        _audit(
-            session,
-            user,
-            "template.deploy",
-            server_id=server_id,
-            details=f"slug={slug} error={e}",
-            status="failed",
-        )
+    except job_service.JobAlreadyActive as e:
+        job = e.job
+        already_active = True
+    except ValueError as e:
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse({"detail": str(e)}, status_code=400)
         return _redirect(f"/templates/{slug}/deploy", error=str(e)[:200])
     except Exception as e:
-        logger.exception("template deploy")
+        logger.exception("template deploy enqueue")
         _audit(
             session,
             user,
             "template.deploy",
             server_id=server_id,
-            details=f"slug={slug} error={e}",
+            details=f"slug={slug} enqueue_error={e}",
             status="failed",
         )
+        if request.headers.get("X-PiHerder-Async") == "1":
+            return JSONResponse({"detail": str(e)[:200]}, status_code=500)
         return _redirect(f"/templates/{slug}/deploy", error=str(e)[:200])
 
-    secret_keys = ",".join(result.get("secret_keys") or [])
-    _audit(
-        session,
-        user,
-        "template.deploy",
-        server_id=server_id,
-        details=(
-            f"slug={slug} project={result.get('project_name')} "
-            f"config_v={result.get('config_version')} secrets=[{secret_keys}]"
-        ),
-        status="success",
-    )
+    if not job:
+        raise HTTPException(500, "Could not queue template deploy")
 
-    dep_id = result.get("deployment_id")
+    if not already_active:
+        _audit(
+            session,
+            user,
+            "template.deploy",
+            server_id=server_id,
+            details=f"slug={slug} job={job.id} queued deploy_now={deploy_now}",
+            status="success",
+        )
+
+    if request.headers.get("X-PiHerder-Async") == "1":
+        return JSONResponse(
+            {
+                "job_id": job.id,
+                "status": job.status,
+                "job_type": "template_deploy",
+                "server_id": server_id,
+                "template_slug": slug,
+                "already_active": already_active,
+                "poll_url": f"/jobs/{job.id}",
+            },
+            status_code=409 if already_active else 200,
+        )
+
     return _redirect(
-        f"/templates/deployments/{dep_id}",
-        msg=f"Deployed {result.get('project_name')} as V{result.get('config_version')}",
+        f"/templates/{slug}/deploy",
+        msg=f"Deploy queued as job #{job.id} — watch Jobs for progress",
     )
 
 

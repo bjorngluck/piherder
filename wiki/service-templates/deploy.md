@@ -21,10 +21,10 @@ A one-shot SSH paste is not recoverable after host loss and not comparable for d
 2. Fill variables (generate passwords if offered; choose volume mode).  
 3. Pick a **Docker-enabled** host with a correct Docker base dir.  
 4. **Preview** rendered files (secrets masked) — sanity-check ports and names.  
-5. **Confirm** — wait modal while write + lock `.env` + compose pull/up.  
-6. Read the **checklist** (DNS, first admin password in the app, firewall).  
-7. Open **Docker** on that host to confirm the project is up.  
-8. Open the **deployment** page bookmark for later redeploy / drift.
+5. **Confirm** — runs as a **Job** with live log (write + lock `.env` + compose pull/up).  
+6. On success, open the **deployment** page (or Jobs / Audit).  
+7. Read the **checklist** (DNS, first admin password in the app, firewall).  
+8. Open **Docker** on that host to confirm the project is up.
 
 ---
 
@@ -34,12 +34,15 @@ A one-shot SSH paste is not recoverable after host loss and not comparable for d
 2. Fill **variables** (incl. volume mode for storage vars; generate secrets if offered).  
 3. Pick a **Docker-enabled** host (inventory counts shown).  
 4. **Preview** rendered files (secrets masked).  
-5. **Confirm deploy** — blocking **wait modal** while PiHerder:  
+5. **Confirm deploy** — queues a **Template deploy** job (live log in the hold modal):  
    - writes files over SSH  
    - locks host `.env` (`chmod 600`)  
    - runs `compose pull` + `up -d`  
-6. Desired state **Vn** stored encrypted in PiHerder.  
+6. Desired state **Vn** stored encrypted in PiHerder; success navigates to the deployment page.  
 7. Post-deploy **checklist** (manual DNS, first login, …).
+
+!!! note "Availability"
+    Template deploy / redeploy as Jobs with live log requires **v0.6.0+**. Earlier releases used a blocking wait modal only.
 
 ## Redeploy & ops (deployment page)
 
@@ -54,7 +57,7 @@ Open the **deployment** for that host+project (`/templates/deployments/{id}`):
 | Action | Effect | Why |
 |--------|--------|-----|
 | **Volumes / storage** | Change named volume, project folder, or host path without re-wizard | Storage decisions change more often than the whole recipe |
-| **Save & redeploy** | New config version → write files → compose pull/up (wait modal) | Apply edited desired state |
+| **Save & redeploy** | New config version → write files → compose pull/up (**Job** + live log) | Apply edited desired state |
 | **Check drift** | Compare host compose/.env to desired state; updates drift badge + alert | Detect hand-edits on the host |
 | **Import host .env** | Pull host secrets into PiHerder encrypted store | Capture changes made offline on the host |
 | **Apply last known config** | Re-write stored desired state after host wipe / DR | Rebuild without retyping secrets |

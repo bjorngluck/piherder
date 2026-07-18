@@ -59,6 +59,17 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "container_update_check",
         "docker_stack_check",
         "docker_stack_deploy",
+        "template_deploy",
+        "template_redeploy",
+    }
+)
+
+# Host-level stack mutations share a single exclusive lane (compose write/up)
+_STACK_MUTATING_JOB_TYPES = frozenset(
+    {
+        "docker_stack_deploy",
+        "template_deploy",
+        "template_redeploy",
     }
 )
 
@@ -230,6 +241,8 @@ JOB_TYPE_LABELS = {
     "container_update_check": "Image check",
     "docker_stack_check": "Stack check",
     "docker_stack_deploy": "Stack deploy",
+    "template_deploy": "Template deploy",
+    "template_redeploy": "Template redeploy",
     "retention": "Retention",
     "diagnostics": "Diagnostics",
     "herder_backup": "PiHerder backup",
@@ -378,6 +391,8 @@ def job_public_dict(job: Job, *, detail: bool = False) -> dict:
         "cancellable": job.status in ("pending", "running"),
         "os_steps": details.get("os_steps"),
         "error": details.get("error"),
+        "redirect_url": details.get("redirect_url"),
+        "deployment_id": details.get("deployment_id"),
     }
     if detail:
         # Full log for JobHold / jobs modal (alias log_lines for poll UIs)
@@ -1004,6 +1019,15 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
             return f"{proj}: deploy ok"
         err = data.get("error") or status
         return f"{proj}: deploy failed — {err}"[:200]
+    if job_type in ("template_deploy", "template_redeploy") and isinstance(data, dict):
+        proj = data.get("project_name") or data.get("project") or "template"
+        slug = data.get("template_slug") or ""
+        label = f"{slug}/{proj}" if slug else proj
+        if data.get("success") or status == "success":
+            ver = data.get("config_version")
+            return f"{label}: ok" + (f" (V{ver})" if ver is not None else "")
+        err = data.get("error") or status
+        return f"{label}: failed — {err}"[:200]
     if job_type == "os_patch" and isinstance(data, dict):
         return (data.get("summary") or snippet or status)[:200]
     if job_type == "container_patch":
@@ -1068,15 +1092,29 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
             if not already_done:
                 job.status = status
                 job.finished_at = datetime.utcnow()
-                _merge_job_details(
-                    job,
-                    current=None if status in ("success", "failed", "cancelled") else status,
-                    status=status,
-                    summary=summary,
-                    result_snippet=(snippet or "")[:1500],
-                    log_line=f"[{status}] {summary}",
-                    done=True,
-                )
+                merge_kw: dict = {
+                    "current": None if status in ("success", "failed", "cancelled") else status,
+                    "status": status,
+                    "summary": summary,
+                    "result_snippet": (snippet or "")[:1500],
+                    "log_line": f"[{status}] {summary}",
+                    "done": True,
+                }
+                # Surface navigation targets from JSON snippets (template deploy, etc.)
+                try:
+                    snip_data = (
+                        json.loads(snippet)
+                        if snippet and str(snippet).strip().startswith(("{", "["))
+                        else None
+                    )
+                except Exception:
+                    snip_data = None
+                if isinstance(snip_data, dict):
+                    if snip_data.get("redirect_url"):
+                        merge_kw["redirect_url"] = str(snip_data["redirect_url"])[:400]
+                    if snip_data.get("deployment_id") is not None:
+                        merge_kw["deployment_id"] = snip_data.get("deployment_id")
+                _merge_job_details(job, **merge_kw)
                 s.add(job)
         s.commit()
 
@@ -1938,7 +1976,7 @@ def enqueue_docker_stack_deploy(
             raise ValueError("server not found")
         active = _active_docker_stack_job(session, server_id, "docker_stack_deploy", path)
         if not active:
-            active = _active_job_of_type(session, server_id, "docker_stack_deploy")
+            active = _active_stack_mutating_job(session, server_id)
         if active:
             logger.info(
                 f"[Jobs] docker_stack_deploy skip — job #{active.id} already active "
@@ -2231,4 +2269,470 @@ async def _run_docker_stack_deploy_job(
 ):
     await run_in_threadpool(
         _execute_docker_stack_deploy, job_id, server_id, audit_id, project_path, pull
+    )
+
+
+def _active_stack_mutating_job(session: Session, server_id: int) -> Job | None:
+    """Any pending/running stack write/up job on this host."""
+    for jt in _STACK_MUTATING_JOB_TYPES:
+        active = _active_job_of_type(session, server_id, jt)
+        if active:
+            return active
+    return None
+
+
+def enqueue_template_deploy(
+    server_id: int,
+    *,
+    template_slug: str,
+    values: dict,
+    deploy_now: bool = True,
+    user_id: int | None = None,
+    background_tasks: BackgroundTasks | None = None,
+) -> Job:
+    """Queue template apply (SSH write + optional compose up) as a Job (v0.6.0).
+
+    Variable values (including secrets) are Fernet-encrypted in Job.details and
+    cleared when the job finishes. Raises JobAlreadyActive if a stack mutation
+    is already pending/running on this host.
+    """
+    from ...security.encryption import encrypt_str
+
+    slug = (template_slug or "").strip()
+    if not slug:
+        raise ValueError("template_slug required")
+    if not isinstance(values, dict):
+        raise ValueError("values must be a dict")
+    values_encrypted = encrypt_str(json.dumps(values))
+    with _get_fresh_session() as session:
+        server = session.get(Server, server_id)
+        if not server:
+            raise ValueError("server not found")
+        active = _active_stack_mutating_job(session, server_id)
+        if active:
+            logger.info(
+                f"[Jobs] template_deploy skip — job #{active.id} ({active.job_type}) "
+                f"already active for server {server_id}"
+            )
+            session.expunge(active)
+            raise JobAlreadyActive(active)
+        job, audit = _create_queued_job_with_audit(
+            session,
+            server_id=server.id,
+            job_type="template_deploy",
+            queue_message=f"Template deploy queued ({slug})…",
+            user_id=user_id,
+            audit_details=f"Job #{{job_id}} · template deploy {slug}",
+            template_slug=slug,
+            deploy_now=bool(deploy_now),
+            values_encrypted=values_encrypted,
+        )
+        jid, aid, sid = job.id, audit.id, server.id
+        do_deploy = bool(deploy_now)
+    if background_tasks is not None:
+        background_tasks.add_task(
+            _run_template_deploy_job, jid, sid, aid, slug, do_deploy
+        )
+    else:
+        _update_check_pool.submit(
+            _execute_template_deploy, jid, sid, aid, slug, do_deploy
+        )
+    with _get_fresh_session() as session:
+        job = session.get(Job, jid)
+        if job:
+            session.expunge(job)
+        return job
+
+
+def enqueue_template_redeploy(
+    server_id: int,
+    *,
+    deployment_id: int,
+    updated_public: dict | None = None,
+    updated_secrets: dict | None = None,
+    deploy_now: bool = True,
+    user_id: int | None = None,
+    background_tasks: BackgroundTasks | None = None,
+) -> Job:
+    """Queue template redeploy from desired state as a Job (v0.6.0)."""
+    from ...security.encryption import encrypt_str
+
+    dep_id = int(deployment_id)
+    pub = {k: str(v) for k, v in (updated_public or {}).items()}
+    secs = {
+        k: str(v)
+        for k, v in (updated_secrets or {}).items()
+        if v is not None and str(v) != ""
+    }
+    secrets_encrypted = encrypt_str(json.dumps(secs)) if secs else None
+    with _get_fresh_session() as session:
+        server = session.get(Server, server_id)
+        if not server:
+            raise ValueError("server not found")
+        active = _active_stack_mutating_job(session, server_id)
+        if active:
+            logger.info(
+                f"[Jobs] template_redeploy skip — job #{active.id} ({active.job_type}) "
+                f"already active for server {server_id}"
+            )
+            session.expunge(active)
+            raise JobAlreadyActive(active)
+        job, audit = _create_queued_job_with_audit(
+            session,
+            server_id=server.id,
+            job_type="template_redeploy",
+            queue_message=f"Template redeploy queued (deployment #{dep_id})…",
+            user_id=user_id,
+            audit_details=f"Job #{{job_id}} · template redeploy deployment={dep_id}",
+            deployment_id=dep_id,
+            deploy_now=bool(deploy_now),
+            updated_public=pub,
+            secrets_encrypted=secrets_encrypted,
+        )
+        jid, aid, sid = job.id, audit.id, server.id
+        do_deploy = bool(deploy_now)
+    if background_tasks is not None:
+        background_tasks.add_task(
+            _run_template_redeploy_job, jid, sid, aid, dep_id, do_deploy
+        )
+    else:
+        _update_check_pool.submit(
+            _execute_template_redeploy, jid, sid, aid, dep_id, do_deploy
+        )
+    with _get_fresh_session() as session:
+        job = session.get(Job, jid)
+        if job:
+            session.expunge(job)
+        return job
+
+
+def _load_job_details(job_id: int) -> dict:
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if not job or not job.details:
+            return {}
+        try:
+            data = json.loads(job.details)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+
+
+def _clear_job_secret_blobs(job_id: int) -> None:
+    """Remove encrypted variable/secret payloads from Job.details after finish."""
+    try:
+        with _get_fresh_session() as s:
+            job = s.get(Job, job_id)
+            if not job:
+                return
+            try:
+                data = json.loads(job.details or "{}")
+                if not isinstance(data, dict):
+                    return
+            except Exception:
+                return
+            changed = False
+            for key in ("values_encrypted", "secrets_encrypted"):
+                if key in data:
+                    data.pop(key, None)
+                    changed = True
+            if changed:
+                job.details = json.dumps(data)
+                s.add(job)
+                s.commit()
+    except Exception as e:
+        logger.debug(f"clear job secret blobs: {e}")
+
+
+def _execute_template_deploy(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    template_slug: str,
+    deploy_now: bool = True,
+) -> None:
+    from ...security.encryption import decrypt_str
+    from ..service_templates import TemplateError, apply_template_to_host
+
+    server, hostname = _load_server_for_job(server_id)
+    slug = (template_slug or "").strip()
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="deploying",
+                log_line=f"Applying template {slug}…",
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, "template_deploy")
+        _clear_job_secret_blobs(job_id)
+        return
+
+    details = _load_job_details(job_id)
+    values: dict = {}
+    try:
+        blob = details.get("values_encrypted") or ""
+        if blob:
+            values = json.loads(decrypt_str(str(blob)))
+            if not isinstance(values, dict):
+                values = {}
+    except Exception as e:
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps(
+                {
+                    "success": False,
+                    "error": f"Could not load deploy values: {e}",
+                    "template_slug": slug,
+                }
+            ),
+            hostname,
+            "template_deploy",
+        )
+        _clear_job_secret_blobs(job_id)
+        return
+
+    try:
+        _flush_job_progress(
+            job_id,
+            "writing",
+            "Rendering files and writing over SSH…",
+            default_current="deploying",
+        )
+        with _get_fresh_session() as session:
+            srv = session.get(Server, server_id)
+            if not srv:
+                raise TemplateError("Server not found")
+            result = apply_template_to_host(
+                session,
+                server=srv,
+                template_slug=slug,
+                values=values,
+                deploy_now=deploy_now,
+                auto_generate=False,
+            )
+        dep_id = result.get("deployment_id")
+        project = result.get("project_name") or slug
+        _flush_job_progress(
+            job_id,
+            "done",
+            f"Stored desired state V{result.get('config_version')} for {project}",
+            default_current="deploying",
+        )
+        rd = result.get("redeploy") or {}
+        ok_host = True
+        if deploy_now and isinstance(rd, dict) and rd.get("success") is False:
+            ok_host = False
+        payload = {
+            "success": ok_host,
+            "template_slug": slug,
+            "project_name": project,
+            "deployment_id": dep_id,
+            "config_version": result.get("config_version"),
+            "project_path": result.get("project_path"),
+            "secret_keys": result.get("secret_keys") or [],
+            "redeploy": {
+                "success": (rd.get("success") if isinstance(rd, dict) else None),
+                "error": (rd.get("error") if isinstance(rd, dict) else None),
+            }
+            if isinstance(rd, dict)
+            else None,
+            "redirect_url": f"/templates/deployments/{dep_id}" if dep_id else None,
+            "error": (rd.get("error") if isinstance(rd, dict) and not ok_host else None),
+        }
+        status = "success" if ok_host else "failed"
+        _finish(audit_id, job_id, status, json.dumps(payload), hostname, "template_deploy")
+    except TemplateError as e:
+        logger.info("template_deploy TemplateError: %s", e)
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps(
+                {"success": False, "error": str(e)[:400], "template_slug": slug}
+            ),
+            hostname,
+            "template_deploy",
+        )
+    except Exception as e:
+        logger.exception("template_deploy failed")
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps(
+                {"success": False, "error": str(e)[:400], "template_slug": slug}
+            ),
+            hostname,
+            "template_deploy",
+        )
+    finally:
+        _clear_job_secret_blobs(job_id)
+
+
+def _execute_template_redeploy(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    deployment_id: int,
+    deploy_now: bool = True,
+) -> None:
+    from ...security.encryption import decrypt_str
+    from ..service_templates import TemplateError, get_deployment, redeploy_desired_state
+
+    server, hostname = _load_server_for_job(server_id)
+    dep_id = int(deployment_id)
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current="redeploying",
+                log_line=f"Redeploying deployment #{dep_id}…",
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    if not server:
+        _finish(
+            audit_id, job_id, "failed", "Server not found", hostname, "template_redeploy"
+        )
+        _clear_job_secret_blobs(job_id)
+        return
+
+    details = _load_job_details(job_id)
+    updated_public = (
+        details.get("updated_public")
+        if isinstance(details.get("updated_public"), dict)
+        else {}
+    )
+    updated_secrets: dict = {}
+    try:
+        blob = details.get("secrets_encrypted")
+        if blob:
+            updated_secrets = json.loads(decrypt_str(str(blob)))
+            if not isinstance(updated_secrets, dict):
+                updated_secrets = {}
+    except Exception as e:
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps(
+                {
+                    "success": False,
+                    "error": f"Could not load secret updates: {e}",
+                    "deployment_id": dep_id,
+                }
+            ),
+            hostname,
+            "template_redeploy",
+        )
+        _clear_job_secret_blobs(job_id)
+        return
+
+    try:
+        _flush_job_progress(
+            job_id,
+            "writing",
+            "Updating desired state and writing over SSH…",
+            default_current="redeploying",
+        )
+        with _get_fresh_session() as session:
+            srv = session.get(Server, server_id)
+            dep = get_deployment(session, dep_id)
+            if not srv or not dep:
+                raise TemplateError("Server or deployment not found")
+            if dep.server_id != server_id:
+                raise TemplateError("Deployment does not belong to this server")
+            result = redeploy_desired_state(
+                session,
+                server=srv,
+                deployment=dep,
+                updated_public=updated_public or None,
+                updated_secrets=updated_secrets or None,
+                deploy_now=deploy_now,
+            )
+        project = result.get("project_name") or f"deployment-{dep_id}"
+        rd = result.get("redeploy") or {}
+        ok_host = True
+        if deploy_now and isinstance(rd, dict) and rd.get("success") is False:
+            ok_host = False
+        out_dep = result.get("deployment_id") or dep_id
+        payload = {
+            "success": ok_host,
+            "deployment_id": out_dep,
+            "project_name": project,
+            "config_version": result.get("config_version"),
+            "redirect_url": f"/templates/deployments/{out_dep}",
+            "error": (rd.get("error") if isinstance(rd, dict) and not ok_host else None),
+        }
+        status = "success" if ok_host else "failed"
+        _finish(
+            audit_id, job_id, status, json.dumps(payload), hostname, "template_redeploy"
+        )
+    except TemplateError as e:
+        logger.info("template_redeploy TemplateError: %s", e)
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps(
+                {"success": False, "error": str(e)[:400], "deployment_id": dep_id}
+            ),
+            hostname,
+            "template_redeploy",
+        )
+    except Exception as e:
+        logger.exception("template_redeploy failed")
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps(
+                {"success": False, "error": str(e)[:400], "deployment_id": dep_id}
+            ),
+            hostname,
+            "template_redeploy",
+        )
+    finally:
+        _clear_job_secret_blobs(job_id)
+
+
+async def _run_template_deploy_job(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    template_slug: str,
+    deploy_now: bool = True,
+):
+    await run_in_threadpool(
+        _execute_template_deploy, job_id, server_id, audit_id, template_slug, deploy_now
+    )
+
+
+async def _run_template_redeploy_job(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    deployment_id: int,
+    deploy_now: bool = True,
+):
+    await run_in_threadpool(
+        _execute_template_redeploy,
+        job_id,
+        server_id,
+        audit_id,
+        deployment_id,
+        deploy_now,
     )

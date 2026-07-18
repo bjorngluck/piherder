@@ -2258,6 +2258,28 @@ def build_fabric_view(
             }
         )
 
+    # H3 — Uptime Kuma coverage badges on path cards
+    try:
+        from .kuma_coverage import (
+            attach_coverage_to_fabric_services,
+            build_kuma_coverage_audit,
+        )
+
+        kuma_coverage = build_kuma_coverage_audit(session)
+        # bind hints already attached inside build_kuma_coverage_audit
+        attach_coverage_to_fabric_services(services, kuma_coverage)
+    except Exception:
+        kuma_coverage = {
+            "has_kuma": False,
+            "summary": {},
+            "gaps": [],
+            "services": [],
+            "hosts": [],
+            "by_service_id": {},
+        }
+        for s in services:
+            s.setdefault("kuma_coverage", "n/a")
+
     external_checklist = []
     for s in services:
         if s.get("external_dns_status") in ("checklist", "pending", ""):
@@ -2316,6 +2338,7 @@ def build_fabric_view(
         "unnamed_hosts": unnamed,
         "services": services,
         "external_checklist": external_checklist,
+        "kuma_coverage": kuma_coverage,
         "network": network_cfg,
         "mesh": mesh,
         "physical": physical,
@@ -2349,6 +2372,12 @@ def build_fabric_view(
             "via_proxy": sum(1 for s in services if s.get("via_proxy")),
             "checklist": len(external_checklist),
             "by_path": path_kind_counts,
+            "kuma_covered": (kuma_coverage.get("summary") or {}).get("covered") or 0,
+            "kuma_partial": (kuma_coverage.get("summary") or {}).get("partial") or 0,
+            "kuma_none": (kuma_coverage.get("summary") or {}).get("none") or 0,
+            "kuma_gaps": (kuma_coverage.get("summary") or {}).get("gap_count") or 0,
+            "kuma_dep_gaps": (kuma_coverage.get("summary") or {}).get("dep_gaps") or 0,
+            "kuma_dep_muted": (kuma_coverage.get("summary") or {}).get("dep_muted") or 0,
         },
     }
 
