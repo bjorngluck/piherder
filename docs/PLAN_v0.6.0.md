@@ -191,7 +191,7 @@ During RC1 operator use, small fixes land here without opening new horizons:
 | # | Idea | Intent | Fit for 0.6.0 |
 |---|------|--------|----------------|
 | **H1** | **LAN discovery (nmap-class)** | Periodic scan of LAN CIDR: IPs, MACs, open ports; link to servers / fabric; enrich Network maps | **Design spike only** — high packaging/policy risk |
-| **H2** | **Map enrichment from Docker** | Ports, suggest deps, expand-one-stack — full design in [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) | **Plan drafted**; P1 stack panel next stretch |
+| **H2** | **Map enrichment from Docker** | Ports, suggest deps, expand-one-stack — [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) | **Done** (P0–P5 + stack order) — later: configurable columns |
 | **H3** | **Coverage audit (Kuma)** | Paths + inventory deps vs Kuma; mute infra; bind/suggest | **Done** — `/dns/coverage` + hub teaser; path chips |
 
 #### H1 — Network scan (nmap / equivalent)
@@ -207,14 +207,14 @@ During RC1 operator use, small fixes land here without opening new horizons:
 
 #### H2 — Runtime topology (ports, deps, expand stack)
 
-Full plan: **[FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md)**.
+Full plan: **[FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md)** · operator wiki: [Network maps — Runtime stack](../wiki/integrations/dns-fabric.md#runtime-stack-detail-altitude).
 
 | Aspect | Direction |
 |--------|-----------|
 | **Value** | High-level: customer service + host; detail: expand **one** stack → containers, suggested/manual edges, Kuma binds |
-| **Sources** | Inventory, compose `depends_on`, template deploy files, heuristics; operator confirm |
-| **UI** | Hub calm; Coverage page for audit; later stack panel / path-map blow-up |
-| **0.6** | Design locked for refine; optional P1 stack panel if capacity after polish musts |
+| **Sources** | Inventory, compose `depends_on`, heuristics; operator confirm (`RuntimeEdge`) |
+| **UI** | Stack panel + map expand (sideways fan); operator container order drives column L→R; Coverage for audit |
+| **0.6** | **Shipped** (panel, edges, expand, order, inventory-down alerts for bound containers). **Later:** user-configurable columns / link-to-column |
 
 #### H3 — Monitoring coverage audit (Uptime Kuma)
 
@@ -226,7 +226,7 @@ Full plan: **[FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md
 | **Scope** | Bind existing monitors only — no auto-create in Kuma |
 | **0.6** | **Shipped** (incl. dep inventory + filters + split page) |
 
-**H* progress:** **H3 done** · **H2 design plan written** (implement P1+) · H1 spike later.
+**H* progress:** **H3 done** · **H2 done** (P0–P5 + stack order; later configurable columns) · H1 spike later.
 
 **Non-goals:** replace Kuma continuous monitoring; internet-wide scan; auto-add untrusted hosts from scan; require nmap for core fleet ops.
 

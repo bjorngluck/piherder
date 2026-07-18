@@ -55,6 +55,7 @@
   <div class="docker-stack-list">
     {% for proj in projects %}
     <div class="docker-stack-block {{ 'has-pending-update' if proj.has_pending_update else '' }}"
+         id="docker-proj-{{ proj.name | e }}"
          data-proj-name="{{ proj.name | e }}"
          data-project-path="{{ proj.path | e }}"
          data-stack-filter-unit
@@ -94,11 +95,25 @@
             </a>
             {% endfor %}
             {% set proj_map = (fabric_by_project or {}).get((proj.name or '')|lower) %}
+            {% if proj_map and proj_map.stack_url %}
+            <a href="{{ proj_map.stack_url }}"
+               class="status-pill text-xs no-underline status-success"
+               title="Runtime stack (containers, links, Kuma){% if proj_map.fqdn %} · {{ proj_map.fqdn }}{% endif %}">
+              Stack
+            </a>
+            {% endif %}
             {% if proj_map and proj_map.path_map_url %}
             <a href="{{ proj_map.path_map_url }}"
                class="status-pill text-xs no-underline feature-off"
                title="Open on path map{% if proj_map.fqdn %}: {{ proj_map.fqdn }}{% endif %}{% if proj_map.count and proj_map.count > 1 %} (+{{ proj_map.count - 1 }} more){% endif %}">
-              Map{% if proj_map.count and proj_map.count > 1 %} · {{ proj_map.count }}{% endif %}
+              Path map{% if proj_map.count and proj_map.count > 1 %} · {{ proj_map.count }}{% endif %}
+            </a>
+            {% endif %}
+            {% if proj_map and proj_map.hosts_map_url %}
+            <a href="{{ proj_map.hosts_map_url }}"
+               class="status-pill text-xs no-underline feature-off"
+               title="Open on hosts map">
+              Hosts map
             </a>
             {% endif %}
           </div>

@@ -117,6 +117,11 @@
           <span class="fabric-flow-host">{{ f.url }}</span>
           <button type="button" class="btn btn-ghost text-[10px] min-h-8 px-1.5 ml-auto"
                   data-fabric-copy-path data-copy-text="{{ f.path_chain or f.url }}">Copy</button>
+          <button type="button" class="btn btn-secondary text-[10px] min-h-8 px-1.5"
+                  data-fabric-stack-open
+                  data-stack-url="/dns/stack-panel?service_id={{ f.id }}"
+                  title="Containers / ports / Kuma"
+                  onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){PiHerderStackPanel.open(this.getAttribute('data-stack-url'));}return false;">Stack</button>
         </div>
         <div class="fabric-flow-edge" title="{{ f.link_detail or f.link_label }}">
           <span class="fabric-flow-edge-line"></span>
@@ -176,6 +181,10 @@
       <span class="fabric-legend-item">
         <span class="fabric-legend-sample fabric-legend-sample--host-box" aria-hidden="true"></span>
         destination
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--stack-box" aria-hidden="true"></span>
+        stack expand
       </span>
       <span class="fabric-legend-sep" aria-hidden="true"></span>
       <span class="fabric-legend-item">
@@ -285,12 +294,19 @@
     </div>
     <p class="text-[11px] text-muted mt-2 px-1">
       Pinch / scroll to zoom · drag to pan · double-click 1:1 · hover or tap a path to focus
+      · focus expands <strong class="text-text">runtime stack</strong> as edge → app → deps
       · amber edges via NPM · green = synced · amber cert = TLS linked
     </p>
     <div class="fabric-callout-row mt-2 px-1">
       <p class="fabric-callout text-xs font-mono is-empty"
          data-fabric-callout
-         data-fabric-callout-empty="Hover or tap a path to highlight. Use Open host to navigate."></p>
+         data-fabric-callout-empty="Hover or tap a path to highlight. Then Stack for containers, or Open host."></p>
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-9 px-2 hidden"
+              data-fabric-stack-open
+              data-fabric-stack-from-focus
+              title="Containers, ports, Kuma for the focused path"
+              onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){var u=this.getAttribute('data-stack-url');if(u)PiHerderStackPanel.open(u);}return false;">Stack</button>
       <button type="button"
               class="btn btn-secondary text-xs min-h-9 px-2 hidden"
               data-fabric-copy-callout>Copy path</button>
@@ -305,5 +321,7 @@
   </div>
 </div>
 
-<script src="/static/js/fabric-mesh.js?v=20260716-orient" defer></script>
+{% include "partials/dns_stack_drawer.html" %}
+<script src="/static/js/fabric-mesh.js?v=20260718-order6" defer></script>
+<script src="/static/js/fabric-stack-expand.js?v=20260718-order6" defer></script>
 {% endblock %}

@@ -236,19 +236,21 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 
 | Item | Direction |
 |------|-----------|
-| **Service → container mapping** | First-class link from a published name / deployment to the **compose service + container** (beyond Kuma/NPM inference) |
-| **Container dependency graph** | Suggest from compose `depends_on` / inventory heuristics; **operator accept + manual edges** — see runtime topology plan |
-| **Expand stack on map** | High-level path map stays calm; **one stack at a time** expands containers + links (panel first, canvas later) |
-| **Published ports on maps** | Enrich Hosts/Path with host/container published ports from Docker inventory (no LAN scan required) — PLAN **H2** |
-| **Monitoring coverage audit** | Paths + inventory deps vs Kuma bindings; mute infra; dedicated `/dns/coverage` — **H3 largely done** in 0.6 |
+| **Service → container mapping** | **Done (H2):** Stack panel + map expand from path/project; Docker inventory + compose graph |
+| **Container dependency graph** | **Done (H2):** suggest/accept/dismiss + manual `RuntimeEdge`; compose `depends_on` + heuristics |
+| **Expand stack on map** | **Done (H2):** sideways fan (edge/app/queue/data); stack order drives column L→R; panel owns deep-links (no map chips) |
+| **Stack container order** | **Done:** long-press/drag reorder; `stack_container_order_json`; e.g. celery last → queue column rightmost |
+| **Published ports on maps** | Ports in stack expand/detail; broader Hosts/Path port chips may still grow |
+| **Monitoring coverage audit** | **Done (H3):** `/dns/coverage` + hub teaser; optional inventory-down alerts for Kuma-bound containers |
+| **Configurable columns / link-to-column** | **Later** — operator-defined map columns and explicit edge placement (see runtime topology § 12b) |
 | **LAN discovery (nmap-class)** | Opt-in periodic scan of Network LAN CIDR — **H1** design spike; orthogonal to stack deps |
-| **Richer topology** | Focused dep edges, Kuma health decorations, force LAN/cloud overrides |
+| **Richer topology** | Focused dep edges polish, force LAN/cloud overrides |
 | **External DNS providers** | Cloudflare (etc.) automation; until then external checklist remains |
 | **Service migrate / remove** | Move stack host↔host with DNS retarget; destructive remove with volume cleanup |
 
 **Design principle:** one **entity graph** (name, NPM, host, project, container, volume, dep edge, monitor bind, discovered device) — views are projections, not separate data models.
 
-**v0.6.0 note:** H3 coverage shipped (hub teaser + `/dns/coverage`). Runtime expand/manual edges = post-RC polish track per [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) P1+. H1 nmap remains optional spike.
+**v0.6 track:** H3 coverage + H2 runtime topology (panel, edges, expand, order) shipped per [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md). H1 nmap remains optional spike.
 
 ---
 

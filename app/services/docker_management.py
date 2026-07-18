@@ -1450,21 +1450,27 @@ def _list_compose_uncached(
                                 versions.append(f"{svc}:{ver}" if ver else svc)
                 except Exception:
                     pass
-            # detect build services + dockerfile path from compose (using cat over same session)
+            # detect build services + dockerfile path + dependency graph from compose
             build_services = []
             has_build = False
             dockerfile_path = None
             services = []  # ensure always defined (prevents UnboundLocalError/NameError on partial failures)
+            compose_graph = None
             try:
-                cat_cmd = f"cat {path} 2>/dev/null | head -100"
-                _, cat_out, _ = run_command(client, cat_cmd, timeout=10)
+                # Head enough lines for depends_on (was 100 — too short for large stacks)
+                cat_cmd = f"cat {shlex.quote(path)} 2>/dev/null | head -800"
+                _, cat_out, _ = run_command(client, cat_cmd, timeout=12)
                 comp = yaml.safe_load(cat_out) or {}
+                if not isinstance(comp, dict):
+                    comp = {}
                 svcs = comp.get("services") or {}
+                if not isinstance(svcs, dict):
+                    svcs = {}
                 for nm, cfg in svcs.items():
                     if isinstance(cfg, dict) and cfg.get("build"):
                         build_services.append(nm)
                 has_build = len(build_services) > 0
-                services = list(svcs.keys()) if isinstance(svcs, dict) else []
+                services = list(svcs.keys())
 
                 if has_build and build_services:
                     first = build_services[0]
@@ -1486,10 +1492,20 @@ def _list_compose_uncached(
                 # and users can create/edit even if no build: section references it.
                 if not dockerfile_path:
                     dockerfile_path = f"{proj_dir}/Dockerfile"
+
+                # P1b — store depends_on / networks in inventory for stack panel
+                try:
+                    from .compose_graph import extract_compose_graph
+
+                    compose_graph = extract_compose_graph(
+                        comp, raw_text=cat_out or ""
+                    )
+                except Exception:
+                    compose_graph = None
             except Exception:
                 pass
 
-            projects.append({
+            row = {
                 "name": proj_name,
                 "path": proj_dir,
                 "compose_file": path,
@@ -1497,8 +1513,11 @@ def _list_compose_uncached(
                 "services": services,
                 "build_services": build_services,
                 "has_build": has_build,
-                "dockerfile_path": dockerfile_path
-            })
+                "dockerfile_path": dockerfile_path,
+            }
+            if compose_graph:
+                row["compose_graph"] = compose_graph
+            projects.append(row)
         return projects
     finally:
         try:

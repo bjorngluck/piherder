@@ -185,7 +185,7 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | Connect Kuma + bind services | [Uptime Kuma](../integrations/uptime-kuma.md) |
 | Grafana deep links + preferred names | [Grafana](../integrations/grafana.md) |
 | Multi Pi-hole, DNS fan-out, gravity | [Pi-hole](../integrations/pihole.md) |
-| Host A records, service paths, Hosts/Path maps | [Network maps](../integrations/dns-fabric.md) |
+| Host A records, service paths, Hosts/Path maps, runtime stack expand + container order | [Network maps](../integrations/dns-fabric.md) |
 | Switch light/dark; ops-hero layout | [Appearance](appearance.md) |
 | NPM proxy hosts (read-only) + pull cert | [NPM](../integrations/npm.md) |
 | Cert vault, maps, deploy, renew | [Certificates](../integrations/certificates.md) |

@@ -1,6 +1,6 @@
 # Feature plan — Runtime topology & stack dependencies (H2.5 depth)
 
-**Status:** **Active design** — open questions locked 2026-07-18 (operator answers)  
+**Status:** **P0–P5 shipped** (2026-07-18) — dual altitude live; residual polish + later roadmap below  
 **Horizon:** H2.5 · builds on Network maps (v0.5) + Kuma coverage (v0.6 H3)  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § H2.5 · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) § H · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · Wiki [Network maps](../wiki/integrations/dns-fabric.md) · Coverage `/dns/coverage`
 
@@ -13,7 +13,7 @@ Give operators two clear altitudes of truth without one endless screen:
 | Altitude | Question | Primary surface |
 |----------|----------|-----------------|
 | **Service path (high level)** | What **customer-facing** names exist, and **where** do they land? | Catalog → Network hub · Path map · Hosts map |
-| **Runtime stack (detail)** | What **containers** make that service work, how they **connect**, and what is **monitored**? | **Side panel first** (P1); optional path-map blow-up later; Coverage for monitor gaps |
+| **Runtime stack (detail)** | What **containers** make that service work, how they **connect**, and what is **monitored**? | **Stack panel** (P1) + **map expand** (P4) · Coverage for monitor gaps |
 
 **Suggest links** from deployments + Docker inventory whenever possible; **operator confirms** edges and monitor binds. Manual dependency mapping is first-class when inference is incomplete.
 
@@ -256,15 +256,18 @@ TCP/DB monitors require published ports, shared Docker network with Kuma, or hos
 | Phase | Name | Outcome | Target |
 |-------|------|---------|--------|
 | **P0** | IA split | Hub lean; Coverage page; path chips | **Done** (0.6) |
-| **P1** | **Side panel** stack expand | Path/project → container list + ports + mute/bind; one stack at a time | 0.6.x / 0.7 |
-| **P1b** | Inventory enrich in DB | Compose `depends_on` + service metadata; schedule + on-demand + post-deploy/compose triggers | with or just after P1 |
-| **P2** | Suggest edges | From enriched inventory + heuristics; accept/dismiss; **include cross-host candidates** (NPM edge, shared services) | 0.7 |
-| **P3** | Manual edges | Persist `RuntimeEdge` (cross-host capable); show in side panel | 0.7 |
-| **P4** | Map expand | Path map: one-stack blow-up with confirmed edges | 0.7–0.8 |
-| **P5** | Monitor depth | TCP/Docker bind polish; **optional alert** when monitored/unmuted container down | parallel |
+| **P1** | **Side panel** stack expand | Path/project → container list + ports + mute/bind; one stack at a time | **Done** (0.6.x) |
+| **P1b** | Inventory enrich in DB | Compose `depends_on` + service metadata; schedule + on-demand + post-deploy/compose triggers | **Done** (inventory v2 + panel edges; accept/dismiss = P2) |
+| **P2** | Suggest edges | From enriched inventory + heuristics; accept/dismiss; **include cross-host candidates** (NPM edge, shared services) | **Done** (panel accept/dismiss; fabric NPM candidate) |
+| **P3** | Manual edges | Persist `RuntimeEdge` (cross-host capable); show in side panel | **Done** (same-project manual form; cross-host via accept + API) |
+| **P4** | Map expand | Path/hosts map: sideways fan; role colors; confirmed + soft adjacent columns | **Done** |
+| **P4.5** | **Detailed stack view** | Panel detail expand; map node click → detail | **Done** |
+| **P4b** | **Stack container order** | Operator long-press/drag reorder; persists; drives **column left→right** on map | **Done** |
+| **P5** | Monitor depth | TCP bind in panel; **optional alert** when Kuma-bound container down in inventory | **Done** |
 | **P6** | Richer discovery | nmap H1 remains separate; shared-service catalog polish | later |
+| **Later** | **Configurable columns & links** | Operator-defined map columns, pin roles to columns, explicit edge→column layout (beyond order-driven L→R) | Roadmap |
 
-**0.6 ship bar:** does **not** require P1–P4. P0 + coverage/deps audit is enough for RC2 polish track; **P1 side panel** is the next high-value slice.
+**0.6 track:** P0–P5 + P4b shipped in working tree (operator-locked UX).
 
 ---
 
@@ -277,16 +280,25 @@ TCP/DB monitors require published ports, shared Docker network with Kuma, or hos
                  (optional expand)
 ```
 
-### Expanded stack (focused)
+### Expanded stack (focused) — locked UX
+
+**Map expand (sideways fan, no deep-link chips):**
 
 ```text
-              ┌ caddy ─┐
-  name → NPM →│        ├→ web ─┬→ redis
-              └ host   ┘      └→ db
-                         celery ─┘
+  path focus ──►  [ edge: caddy ] → [ app: web ] → [ data: db, redis ] → [ queue: celery ]
 ```
 
-Only **one** expanded stack at a time (accordion). Collapse returns to path-only.
+- Columns are **role groups**: `edge` · `app` · `queue` · `data` (data = db + redis + tooling together — **not** a separate cache column).  
+- Default L→R when **no** custom order: `edge → app → queue → data`.  
+- With **custom stack order**, column order follows **min order_index** per column (e.g. celery last in panel → **queue rightmost** so soft lines stay left→right).  
+- Soft structure lines connect **adjacent columns only**; confirmed `RuntimeEdge` always drawn.  
+- Click container → Stack panel detail. Nav deep-links live in the **panel**, not as map chips.
+
+**Panel reorder:**
+
+- Desktop: drag **⋮⋮** handle. Mobile: long-press row, then drag.  
+- Persist: app setting `stack_container_order_json` (`server_id:project` → ordered names).  
+- Audit: `fabric.stack_order`.
 
 ### Mobile
 
@@ -338,26 +350,41 @@ An operator can:
 
 ---
 
-## 12. Explicit non-goals
+## 12. Explicit non-goals (now)
 
 - Replacing Uptime Kuma / Grafana  
 - Full APM / distributed tracing  
 - Auto mesh of entire LAN  
 - Guaranteed complete dependency graphs without operator input  
 - Kubernetes topology  
+- Map deep-link chips (Server/Service/Docker) on expand — **panel owns nav**  
+
+## 12b. Later roadmap (not in this ship)
+
+| Item | Intent |
+|------|--------|
+| **User-configurable columns** | Operator names/pins columns beyond fixed role groups (edge/app/queue/data) |
+| **Link-to-column rules** | Explicit soft/confirmed edge placement between named columns (not only adjacent L→R) |
+| **Per-stack layout profiles** | Save alternate fan layouts per project |
+| **P6 discovery** | Shared-service catalog polish; LAN scan remains H1 orthogonal |
 
 ---
 
-## 13. References in codebase (today)
+## 13. References in codebase (shipped)
 
 | Area | Path |
 |------|------|
-| Fabric views / paths | `app/services/dns_fabric/` |
-| Kuma coverage + dep inventory audit | `app/services/dns_fabric/kuma_coverage.py` |
-| Coverage UI | `app/templates/dns_coverage.html` · route `/dns/coverage` |
-| Network hub | `app/templates/dns_list.html` |
-| Docker inventory | `app/services/docker_inventory.py` |
-| Kuma binds | `IntegrationBinding` · `app/services/integrations/` |
+| Fabric views / paths | `app/services/dns_fabric/` (`core`, mesh, coverage) |
+| Stack panel payload | `app/services/dns_fabric/stack_panel.py` |
+| Map expand payload | `app/services/dns_fabric/stack_expand.py` · `GET /dns/stack-expand.json` |
+| Panel + map JS | `app/static/js/fabric-stack-panel.js` · `fabric-stack-expand.js` · `fabric-mesh.js` |
+| Container order | `app/services/stack_order.py` · `POST /dns/stack-order` · setting `stack_container_order_json` |
+| Compose graph / edges | `app/services/compose_graph.py` · `runtime_edges.py` · migration `021_runtime_edge` |
+| Stack monitor alerts | `app/services/stack_monitor.py` · setting `stack_inventory_down_alerts` |
+| Kuma coverage | `app/services/dns_fabric/kuma_coverage.py` · `/dns/coverage` |
+| Docker inventory | `app/services/docker_inventory.py` (compose graph v2) |
+| Herder backup | includes `RuntimeEdge` |
+| Tests | `tests/test_stack_*.py` · `test_compose_graph.py` · `test_runtime_edges.py` |
 
 ---
 
@@ -367,5 +394,11 @@ An operator can:
 |------|------|
 | 2026-07-18 | Initial plan: dual altitude, expand-one-stack, suggest + manual deps, Kuma mapping, P0–P6 |
 | 2026-07-18 | Locked: side panel first; cross-host edges v1; DB inventory enrich + schedule/on-demand/post-deploy; optional alert only for monitored/unmuted container down |
+| 2026-07-18 | P1 side panel shipped; P1b compose graph in inventory L1 + suggested edges in panel (display); force refresh from panel |
+| 2026-07-18 | P2/P3: `RuntimeEdge` + accept/dismiss/manual/delete; herder backup; panel UI |
+| 2026-07-18 | P4: path map focus expands runtime stack (containers + confirmed edges) via `/dns/stack-expand.json` |
+| 2026-07-18 | P4 polish: LTR edge/app/queue/data columns, role colors + type chips; hosts map; soft structure; P4.5 detail |
+| 2026-07-18 | **P4.5** expandable container detail; map node click → detail; **P5** inventory down alerts for Kuma-bound containers |
+| 2026-07-18 | **P4b** stack container order (long-press/drag); map column L→R from order; **data** keeps db+redis; no expand link chips; later: configurable columns / link-to-column |
 
-**End of plan** — P1 side panel + P1b inventory enrich can proceed with decisions 1–13 locked; refine A–D defaults only if needed.
+**End of plan** — residual polish: cross-host manual picker polish, P6 discovery, configurable columns (later).

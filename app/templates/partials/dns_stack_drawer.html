@@ -1,0 +1,28 @@
+{# Runtime stack modal — matches job-hold / confirm modal theme tokens #}
+<div id="fabric-stack-drawer"
+     class="fabric-stack-drawer"
+     hidden
+     aria-hidden="true"
+     style="display:none">
+  <div class="fabric-stack-backdrop" data-fabric-stack-close tabindex="-1" aria-hidden="true"></div>
+  <div class="fabric-stack-sheet modal-content card ph-detail-modal"
+       role="dialog"
+       aria-modal="true"
+       aria-labelledby="fabric-stack-title"
+       onclick="event.stopPropagation()">
+    <div class="fabric-stack-sheet-bar ph-detail-modal-head">
+      <div class="min-w-0">
+        <div class="ph-detail-kicker">Network · runtime</div>
+        <h3 id="fabric-stack-title" class="ph-detail-title">Stack</h3>
+      </div>
+      <button type="button"
+              class="btn btn-secondary min-h-11 text-xs px-3"
+              data-fabric-stack-close
+              aria-label="Close">Close</button>
+    </div>
+    <div id="fabric-stack-panel-body" class="fabric-stack-sheet-body">
+      <p class="text-sm text-muted mb-0">Tap <strong class="text-text">Stack</strong> on a service path.</p>
+    </div>
+  </div>
+</div>
+<script src="/static/js/fabric-stack-panel.js?v=20260718-order6"></script>

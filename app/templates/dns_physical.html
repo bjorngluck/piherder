@@ -398,13 +398,19 @@
       {{ svg.app_count or 0 }} apps
       {% endif %}
       · pinch / scroll to zoom · drag to pan · double-click 1:1
-      · tap any host, Router, LAN, Internet, or app path to focus
+      · tap an <strong class="text-text">app path</strong> to expand runtime stack (edge → app → deps)
       · solid = LAN · dashed = WAN / NPM · green = synced · amber cert = TLS linked
     </p>
     <div class="fabric-callout-row mt-2 px-1">
       <p class="fabric-callout text-xs font-mono is-empty"
          data-fabric-callout
-         data-fabric-callout-empty="Tap a host, Router, LAN, Internet, or app path. Use Open host / Open in Kuma to navigate."></p>
+         data-fabric-callout-empty="Tap a host or app path. Stack shows containers when a service path is focused."></p>
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-9 px-2 hidden"
+              data-fabric-stack-open
+              data-fabric-stack-from-focus
+              title="Containers, ports, Kuma for the focused path"
+              onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){var u=this.getAttribute('data-stack-url');if(u)PiHerderStackPanel.open(u);}return false;">Stack</button>
       <button type="button"
               class="btn btn-secondary text-xs min-h-9 px-2 hidden"
               data-fabric-copy-callout>Copy path</button>
@@ -420,5 +426,7 @@
   </div>
 </div>
 
-<script src="/static/js/fabric-mesh.js?v=20260716-orient" defer></script>
+{% include "partials/dns_stack_drawer.html" %}
+<script src="/static/js/fabric-mesh.js?v=20260718-order6" defer></script>
+<script src="/static/js/fabric-stack-expand.js?v=20260718-order6" defer></script>
 {% endblock %}

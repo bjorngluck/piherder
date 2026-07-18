@@ -2133,6 +2133,8 @@ def fabric_index_for_server(session: Session, server_id: int) -> dict[str, Any]:
                 "hosts_map_url": hosts_map_url(path_id=rid)
                 if rid is not None
                 else hosts_map_url(server_id=sid),
+                # Stack modal deep-link (Network hub re-opens panel)
+                "stack_url": f"/dns?stack={rid}" if rid is not None else "/dns",
             }
         else:
             entry["count"] = int(entry.get("count") or 1) + 1
