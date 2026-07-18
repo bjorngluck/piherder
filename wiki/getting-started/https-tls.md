@@ -27,6 +27,18 @@ PIHERDER_PUBLIC_URL=https://piherder.example.com:8443
 
 ## Volume-mounted certificates (recommended)
 
+### Preferred: from Catalog vault (no SSH)
+
+If the cert is already in **Catalog → Certificates** (NPM pull or Upload PEM):
+
+1. Open the cert detail.  
+2. Click **Apply to this PiHerder**.  
+3. PiHerder writes `certs/fullchain.pem` + `certs/privkey.pem` and reloads Caddy in-stack.  
+
+This is **not** a fleet service map — it only updates this instance’s edge. Fleet maps still deploy to other hosts over SSH.
+
+### Manual place + restart
+
 1. Place PEMs in `certs/` (gitignored):
 
    | File | Role |
@@ -50,7 +62,7 @@ PIHERDER_PUBLIC_URL=https://piherder.example.com:8443
 
 5. Browser should show a **trusted** lock for `PIHERDER_PUBLIC_URL`.
 
-Also see the repo [`certs/README.md`](https://github.com/bjorngluck/piherder/blob/main/certs/README.md).
+Also see the repo [`certs/README.md`](https://github.com/bjorngluck/piherder/blob/main/certs/README.md) and [Managed certificates](../integrations/certificates.md).
 
 ## Outer reverse proxy (NPM, etc.)
 

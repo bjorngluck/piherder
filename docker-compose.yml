@@ -52,11 +52,18 @@ services:
       - "8000:8000"
     environment:
       <<: *piherder-app-env
+      # Edge cert apply (this instance → Caddy); defaults match mounts below
+      EDGE_CERTS_DIR: ${EDGE_CERTS_DIR:-/certs}
+      CADDY_ADMIN_URL: ${CADDY_ADMIN_URL:-http://caddy:2019}
+      CADDYFILE_PATH: ${CADDYFILE_PATH:-/caddy/Caddyfile}
     volumes:
       # Host path for rsync backup destinations (override if you use another dir)
       - ${PIHERDER_BACKUP_HOST_PATH:-./backups}:/backups
       - ./piherder_backups:/herder_backups
       - ./piherder_data:/data
+      # Edge TLS: vault → write PEMs here; Caddy reads same host dir (no SSH/sudo)
+      - ./certs:/certs
+      - ./Caddyfile:/caddy/Caddyfile:ro
     depends_on:
       - db
       - redis

@@ -130,6 +130,69 @@ def test_map_preset_layouts_are_valid():
         assert files, f"preset {p['id']} produced no files"
 
 
+def test_write_modes_and_sudoers_stage():
+    snip = cert_svc.sudoers_snippet_for_map(
+        remote_dir="/etc/ssl",
+        layout="combined",
+        write_mode="stage_sudo",
+        combined_filename="snakeoil.pem",
+        file_mode="644",
+        file_owner="root",
+        file_group="root",
+        post_deploy_command="sudo systemctl restart haproxy",
+        ssh_user="piherder",
+    )
+    assert "NOPASSWD" in snip
+    assert "/usr/bin/install" in snip
+    assert "snakeoil.pem" in snip
+    assert "haproxy" in snip
+    direct = cert_svc.sudoers_snippet_for_map(
+        remote_dir="~/certs",
+        layout="pair",
+        write_mode="direct",
+    )
+    assert "no sudo" in direct.lower() or "direct" in direct.lower()
+
+
+def test_deploy_to_edge_caddy_writes_and_reloads(tmp_path):
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock, patch
+
+    certs = tmp_path / "certs"
+    certs.mkdir()
+
+    full, key = _make_self_signed_pem("edge.example.com", days=40)
+    cert = SimpleNamespace(
+        id=1,
+        fingerprint_sha256="fp-edge-test",
+        last_edge_deploy_fingerprint=None,
+        last_edge_deploy_status=None,
+        last_edge_deploy_at=None,
+        last_edge_deploy_message=None,
+        updated_at=None,
+        fullchain_encrypted="x",
+        privkey_encrypted="y",
+    )
+    session = MagicMock()
+    session.get.return_value = cert
+
+    with (
+        patch.object(cert_svc, "edge_certs_dir", return_value=str(certs)),
+        patch.object(cert_svc, "edge_certs_writable", return_value=True),
+        patch.object(cert_svc, "decrypt_pems", return_value=(full, key)),
+        patch.object(
+            cert_svc, "reload_edge_caddy", return_value={"ok": True, "status": 200}
+        ),
+    ):
+        r = cert_svc.deploy_to_edge_caddy(session, 1, force=True)
+
+    assert r.get("ok") is True, r
+    assert (certs / "fullchain.pem").is_file()
+    assert (certs / "privkey.pem").is_file()
+    assert cert.last_edge_deploy_status == "success"
+    assert cert.last_edge_deploy_fingerprint == "fp-edge-test"
+
+
 def test_public_target_dict_in_sync_flags():
     from types import SimpleNamespace
 

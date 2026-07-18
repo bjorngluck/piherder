@@ -20,12 +20,22 @@ One Let’s Encrypt cert often feeds NPM, UniFi, reverse proxies, and app contai
 Guided path: **Catalog → Certificates → First-cert setup** (`/certificates/setup`).
 
 1. **Get material in** — NPM pull or **Upload PEM**.  
-2. Open the cert detail → **Add service map** — start from a **preset** (NPM, Docker bind, Grafana volume, OctoPi/HAProxy, UniFi PFX), then edit path/restart for your host.  
-3. **Deploy** that map (or all maps).  
-4. Confirm files on the host and that the app reloaded.  
-5. Enable auto-renew for NPM-sourced certs if desired.  
+2. **Optional — this PiHerder instance:** **Apply to this PiHerder** writes PEMs into compose `./certs` and reloads Caddy (no SSH, no map).  
+3. **Fleet:** open the cert → **Add service map** — preset + **write mode** (direct SFTP or **stage + sudo install** for least-priv).  
+4. **Deploy** that map (or all maps).  
+5. Confirm files on the host and that the app reloaded.  
+6. Enable auto-renew for NPM-sourced certs if desired.  
 
 Map cards show **in sync** when the last deploy fingerprint matches the vault (redeploy is a no-op unless you force), or **stale** after vault material changes.
+
+### Write modes (fleet maps)
+
+| Mode | When | How |
+|------|------|-----|
+| **Direct SFTP** | SSH user owns the target directory (e.g. under `~/`) | Write PEMs in place; optional chown |
+| **Stage + sudo install** | Root-owned paths (`/etc/ssl`, Docker volume data dirs) | SFTP into `~/.piherder/cert-stage/<map-id>/`, then `sudo install` for mkdir/mode/owner |
+
+The map form shows a **suggested sudoers** drop-in for stage_sudo (install only). Post-deploy restarts may need `systemctl` lines or membership in group `docker` — not free-form root shell.
 
 ---
 

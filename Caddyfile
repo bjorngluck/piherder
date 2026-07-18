@@ -6,7 +6,9 @@
 # Local dev without certs: use Caddyfile.dev (see docs/ADMIN.md)
 
 {
-	admin off
+	# Admin on all interfaces inside the compose network only (port NOT published to host).
+	# web uses this to reload TLS after "Apply to this PiHerder" without docker.sock.
+	admin 0.0.0.0:2019
 	# Non-standard host ports; do not auto-redirect HTTP→HTTPS on 443
 	auto_https off
 }

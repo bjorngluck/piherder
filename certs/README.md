@@ -1,6 +1,6 @@
 # TLS certificates for Caddy
 
-PiHerder’s Caddy service expects **trusted** certificate files here (mounted read-only at `/certs` in the container).
+PiHerder’s Caddy service expects **trusted** certificate files here (mounted at `/certs` in the containers).
 
 ## Required files
 
@@ -10,6 +10,33 @@ PiHerder’s Caddy service expects **trusted** certificate files here (mounted r
 | `privkey.pem` | Private key (PEM) |
 
 Do **not** commit these files. `*.pem` is gitignored.
+
+## Ways to place certs
+
+### A — Catalog → Certificates → Apply to this PiHerder (preferred)
+
+1. Pull from NPM or **Upload PEM** into the vault.  
+2. Open the cert → **Apply to this PiHerder**.  
+3. Web writes `fullchain.pem` + `privkey.pem` here and reloads Caddy via the compose-network admin API (no SSH, no sudo).  
+
+Stock `docker-compose.yml` mounts `./certs` on **web** (RW) and **caddy** (RO), and enables Caddy admin on `caddy:2019` (not published to the host).
+
+Ensure the host directory is writable by the container user (usually host UID matching the image user, or group-writable):
+
+```bash
+# example: allow write for the compose user
+chmod 775 certs   # or chown to the UID that runs the web container
+```
+
+### B — Manual copy
+
+Copy PEMs from wherever you issue certs, then:
+
+```bash
+chmod 600 certs/privkey.pem
+chmod 644 certs/fullchain.pem
+docker compose up -d caddy
+```
 
 ## Hostname
 
@@ -21,32 +48,6 @@ PIHERDER_PUBLIC_URL=https://piherder.example.com:8443
 ```
 
 Compose maps host **8443 → container 443**. Include `:8443` in `PIHERDER_PUBLIC_URL` unless something else terminates HTTPS on 443 for you.
-
-## Obtaining certs
-
-Copy from wherever you already issue certs for the hostname (e.g. another reverse proxy, ACME on a machine with ports 80/443, DNS challenge, commercial CA).
-
-Example layout after copy:
-
-```text
-certs/
-  fullchain.pem
-  privkey.pem
-  README.md
-```
-
-Permissions (recommended on the host):
-
-```bash
-chmod 600 certs/privkey.pem
-chmod 644 certs/fullchain.pem
-```
-
-Then restart Caddy:
-
-```bash
-docker compose up -d caddy
-```
 
 ## Local development without certs
 

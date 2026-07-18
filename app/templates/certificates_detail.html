@@ -32,6 +32,20 @@
       <button class="btn btn-secondary min-h-11" type="submit">Renew (NPM)</button>
     </form>
     {% endif %}
+    {% if can_mutate %}
+    <form method="post" action="/certificates/{{ cert.id }}/apply-edge"
+          data-confirm="Write fullchain.pem + privkey.pem into this PiHerder instance’s certs volume and reload Caddy? No SSH. Does not change fleet service maps."
+          data-confirm-title="Apply to this PiHerder (Caddy)"
+          data-confirm-label="Apply to Caddy"
+          data-wait-title="Applying edge certificate"
+          data-wait-message="Writing PEMs and reloading Caddy…">
+      <input type="hidden" name="force" value="on">
+      <button class="btn btn-accent min-h-11" type="submit"
+              title="{% if not cert.edge_available %}Requires ./certs mount on web (stock compose){% else %}This instance only — not a fleet map{% endif %}">
+        Apply to this PiHerder
+      </button>
+    </form>
+    {% endif %}
     {% if can_mutate and targets %}
     <form method="post" action="/certificates/{{ cert.id }}/deploy"
           data-confirm="Deploy this certificate to every service map over SSH (write files, set perms, run restarts)?"
@@ -55,8 +69,10 @@
   {% elif msg == 'target_deleted' %}Service map removed (host files left in place).
   {% elif msg == 'deployed' %}Deploy finished. Confirm files on the host if this is a new map.
   {% elif msg == 'deploy_skipped' %}Already in sync — same fingerprint was previously deployed (use force redeploy if you need a rewrite).
+  {% elif msg == 'edge_applied' %}Applied to this PiHerder instance — PEMs written under certs/ and Caddy reloaded.
+  {% elif msg == 'edge_skipped' %}This instance already has the same fingerprint (edge in sync).
   {% elif msg == 'renewed' %}Renewed and redistributed.
-  {% elif msg == 'replaced' %}PEM material replaced. Deploy maps to push the new cert.
+  {% elif msg == 'replaced' %}PEM material replaced. Deploy maps (and/or Apply to this PiHerder) to push the new cert.
   {% elif msg == 'saved' %}Settings saved.
   {% else %}{{ msg }}{% endif %}
   {% if detail %} — {{ detail }}{% endif %}
@@ -105,17 +121,58 @@
 </div>
 {% endif %}
 
+{# This instance (Caddy edge) — not a fleet map #}
+<div class="card p-4 mb-6 border border-accent/30" id="edge-apply">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div class="min-w-0">
+      <h3 class="text-sm font-semibold text-text">This PiHerder instance (Caddy edge)</h3>
+      <p class="text-xs text-muted mt-1 max-w-2xl">
+        Optional: put this vault cert on <strong>PiHerder’s own</strong> HTTPS (compose <code class="text-[10px]">./certs</code> → Caddy).
+        No SSH, no service map, no sudoers. Fleet maps below are unchanged.
+      </p>
+      <div class="flex flex-wrap gap-2 mt-2 text-xs">
+        {% if cert.edge_in_sync %}
+        <span class="status-pill status-success">edge in sync</span>
+        {% elif cert.edge_stale %}
+        <span class="status-pill status-failed">edge stale — re-apply</span>
+        {% elif cert.last_edge_deploy_status == 'failed' %}
+        <span class="status-pill status-failed" title="{{ cert.last_edge_deploy_message or '' }}">edge apply failed</span>
+        {% elif cert.last_edge_deploy_status == 'success' %}
+        <span class="status-pill status-success">edge applied</span>
+        {% else %}
+        <span class="status-pill feature-off">never applied to edge</span>
+        {% endif %}
+        {% if cert.last_edge_deploy_at %}
+        <span class="text-muted">{{ cert.last_edge_deploy_at }}</span>
+        {% endif %}
+        {% if cert.last_edge_deploy_fingerprint_short %}
+        <span class="text-muted font-mono">{{ cert.last_edge_deploy_fingerprint_short }}</span>
+        {% endif %}
+      </div>
+      {% if cert.last_edge_deploy_status == 'failed' and cert.last_edge_deploy_message %}
+      <p class="text-xs text-amber-600 mt-2 break-words">{{ cert.last_edge_deploy_message }}</p>
+      {% endif %}
+      {% if edge_status and not edge_status.certs_writable %}
+      <p class="text-xs text-amber-600 mt-2">
+        Edge path <code class="text-[10px]">{{ edge_status.certs_dir }}</code> is not writable from web.
+        Stock compose mounts <code class="text-[10px]">./certs</code> — restart web after pull.
+      </p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
 {# Mental model #}
 <div class="card p-4 mb-6 border border-primary/20 bg-surface">
   <h3 class="text-sm font-semibold text-text mb-2">How certificates work here</h3>
   <ol class="text-sm text-muted space-y-1.5 list-decimal list-inside">
     <li><strong class="text-text">Vault</strong> — this page holds one TLS identity (fullchain + key), encrypted. Never shown again.</li>
-    <li><strong class="text-text">Service maps</strong> — each consumer (NPM volume, UniFi, mail, …) is a map: host + directory + filenames + owner/mode + optional restart.</li>
-    <li><strong class="text-text">Deploy</strong> — {{ ph_brand() }} SSHs to the host, writes those exact files, applies permissions, runs your post-deploy command (e.g. container restart).</li>
+    <li><strong class="text-text">This instance (optional)</strong> — <em>Apply to this PiHerder</em> writes PEMs for Caddy in-stack.</li>
+    <li><strong class="text-text">Service maps (fleet)</strong> — each remote consumer is a map: host + path + write mode + restart.</li>
+    <li><strong class="text-text">Deploy map</strong> — SSH write (direct or stage+sudo install), then post-deploy command.</li>
   </ol>
   <p class="text-xs text-muted mt-3">
-    Start from a <strong>preset</strong> below (NPM custom SSL, Grafana volume, OctoPi HAProxy, UniFi PFX).
-    New? Use the <a href="/certificates/setup" class="text-primary hover:underline">first-cert setup guide</a>.
+    Start from a <strong>preset</strong> below. Least-priv hosts: use write mode <strong>Stage + sudo install</strong> and the generated sudoers snippet.
   </p>
 </div>
 
@@ -202,12 +259,20 @@
         </div>
       </div>
 
-      <div class="text-xs text-muted">{{ t.layout_help or t.layout }}</div>
+      <div class="text-xs text-muted">{{ t.layout_help or t.layout }}
+        · write <code class="text-[10px]">{{ t.write_mode or 'direct' }}</code>
+      </div>
       {% if t.last_deploy_fingerprint_short %}
       <div class="text-[11px] text-muted">
         Last deploy fingerprint: <code class="text-[10px]">{{ t.last_deploy_fingerprint_short }}</code>
         {% if t.in_sync %}· matches vault{% elif t.stale_vs_vault %}· vault has a newer cert{% endif %}
       </div>
+      {% endif %}
+      {% if t.write_mode == 'stage_sudo' and t.sudoers_snippet %}
+      <details class="text-xs mt-1">
+        <summary class="cursor-pointer text-muted">Suggested sudoers (least-priv)</summary>
+        <pre class="mt-1 p-2 bg-bg border border-border rounded overflow-x-auto text-[10px] font-mono whitespace-pre-wrap">{{ t.sudoers_snippet }}</pre>
+      </details>
       {% endif %}
 
       <ul class="text-xs font-mono space-y-0.5 bg-bg border border-border rounded p-2">
@@ -362,6 +427,32 @@
             {{ layout_help.get('pair', '') if layout_help else '' }}
           </p>
         </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs text-muted mb-1">Write mode (permissions)</label>
+          <select name="write_mode" id="cert-map-write-mode" class="input w-full text-sm">
+            <option value="direct" {% if not et or (et.write_mode or 'direct') == 'direct' %}selected{% endif %}>
+              Direct SFTP — write into target dir as the SSH user
+            </option>
+            <option value="stage_sudo" {% if et and et.write_mode == 'stage_sudo' %}selected{% endif %}>
+              Stage in home + sudo install — least-priv (chmod/chown/mv as root)
+            </option>
+          </select>
+          <p class="text-[11px] text-muted mt-1" id="cert-map-write-help">
+            {% if et and et.write_mode == 'stage_sudo' %}
+            {{ write_mode_help.get('stage_sudo', '') if write_mode_help else '' }}
+            {% else %}
+            {{ write_mode_help.get('direct', '') if write_mode_help else '' }}
+            {% endif %}
+          </p>
+          <details class="mt-2 border border-border rounded p-2" id="cert-map-sudoers-box">
+            <summary class="text-xs font-medium cursor-pointer">Suggested sudoers for this map</summary>
+            <p class="text-[11px] text-muted mt-1">
+              For least-priv <code class="text-[10px]">piherder</code>: install only (mkdir/mode/owner).
+              Post-deploy restarts may need extra lines or docker group membership.
+            </p>
+            <pre id="cert-map-sudoers" class="mt-2 p-2 bg-bg border border-border rounded overflow-x-auto text-[10px] font-mono whitespace-pre-wrap"># Choose write mode Stage + sudo install, set path/filenames — snippet updates live.</pre>
+          </details>
+        </div>
       </div>
 
       {# Filenames #}
@@ -454,6 +545,7 @@
   <script>
   (function () {
     var layoutHelp = {{ (layout_help or {})|tojson }};
+    var writeModeHelp = {{ (write_mode_help or {})|tojson }};
     var PRESET_LIST = {{ (map_presets or [])|tojson }};
     var PRESETS = {};
     (PRESET_LIST || []).forEach(function (p) {
@@ -464,6 +556,9 @@
     if (!form) return;
     var dirEl = form.querySelector('#cert-map-dir');
     var layoutEl = form.querySelector('#cert-map-layout');
+    var writeEl = form.querySelector('#cert-map-write-mode');
+    var writeHelpEl = form.querySelector('#cert-map-write-help');
+    var sudoEl = form.querySelector('#cert-map-sudoers');
     var fullEl = form.querySelector('#cert-map-fullchain');
     var keyEl = form.querySelector('#cert-map-privkey');
     var combEl = form.querySelector('#cert-map-combined');
@@ -505,6 +600,55 @@
       });
     }
 
+    function buildSudoers() {
+      var wm = writeEl ? writeEl.value : 'direct';
+      var post = (postEl && postEl.value) || '';
+      if (wm !== 'stage_sudo' && !post.trim()) {
+        return '# Write mode is “direct” — no sudo if the SSH user owns the target path.\n'
+          + '# Switch to “Stage in home + sudo install” for root-owned destinations.';
+      }
+      var final = ((dirEl && dirEl.value) || '~/certs').replace(/\/+$/, '') || '/path/to/certs';
+      var owner = (form.querySelector('input[name="file_owner"]') || {}).value || 'root';
+      var group = (form.querySelector('input[name="file_group"]') || {}).value || 'root';
+      var mode = (form.querySelector('input[name="file_mode"]') || {}).value || '600';
+      owner = (owner || 'root').trim() || 'root';
+      group = (group || 'root').trim() || 'root';
+      mode = (mode || '600').trim() || '600';
+      var layout = layoutEl ? layoutEl.value : 'pair';
+      var names = [];
+      if (['pair', 'pair_and_combined', 'pair_and_pfx', 'pair_combined_pfx'].indexOf(layout) >= 0) {
+        names.push((fullEl && fullEl.value) || 'fullchain.pem');
+        names.push((keyEl && keyEl.value) || 'privkey.pem');
+      }
+      if (['combined', 'pair_and_combined', 'pair_combined_pfx'].indexOf(layout) >= 0) {
+        names.push((combEl && combEl.value) || 'snakeoil.pem');
+      }
+      if (['pair_and_pfx', 'pair_combined_pfx'].indexOf(layout) >= 0) {
+        names.push((pfxEl && pfxEl.value) || 'Certificate.pfx');
+      }
+      var lines = [
+        '# PiHerder cert deploy — least-priv (piherder)',
+        '# Install under /etc/sudoers.d/piherder-certs (visudo -c -f …)',
+        '# Stage dir: ~/.piherder/cert-stage/<map-id>/',
+        'piherder ALL=(root) NOPASSWD: /usr/bin/install -d -o ' + owner + ' -g ' + group + ' -m 755 ' + final
+      ];
+      names.forEach(function (n) {
+        if (!n) return;
+        lines.push(
+          'piherder ALL=(root) NOPASSWD: /usr/bin/install -o ' + owner + ' -g ' + group
+          + ' -m ' + mode + ' /home/piherder/.piherder/cert-stage/*/' + n + ' ' + final + '/' + n
+        );
+      });
+      if (post.indexOf('systemctl restart haproxy') >= 0) {
+        lines.push('piherder ALL=(root) NOPASSWD: /bin/systemctl restart haproxy, /usr/bin/systemctl restart haproxy');
+      } else if (post.indexOf('docker compose') >= 0 || post.indexOf('docker-compose') >= 0) {
+        lines.push('# docker compose restart: prefer group docker for piherder (not sudo)');
+      } else if (post.trim()) {
+        lines.push('# Review post-deploy manually: ' + post.trim().slice(0, 120));
+      }
+      return lines.join('\n') + '\n';
+    }
+
     function refreshPreview() {
       var layout = layoutEl ? layoutEl.value : 'pair';
       var files = filesFor(layout, dirEl && dirEl.value, {
@@ -513,11 +657,15 @@
         combined: combEl && combEl.value,
         pfx: pfxEl && pfxEl.value
       });
+      var wm = writeEl ? writeEl.value : 'direct';
       if (preview) {
         if (!files.length) {
           preview.innerHTML = '<li>No files for this layout</li>';
         } else {
-          preview.innerHTML = files.map(function (f) {
+          var prefix = wm === 'stage_sudo'
+            ? '<li class="text-muted mb-1">Stage under ~/.piherder/cert-stage/… then sudo install →</li>'
+            : '';
+          preview.innerHTML = prefix + files.map(function (f) {
             return '<li class="break-all"><span class="text-muted">' + f.kind + ':</span> ' + f.path + '</li>';
           }).join('');
         }
@@ -525,6 +673,10 @@
       if (layoutHelpEl && layoutHelp) {
         layoutHelpEl.textContent = layoutHelp[layout] || '';
       }
+      if (writeHelpEl && writeModeHelp) {
+        writeHelpEl.textContent = writeModeHelp[wm] || writeModeHelp.direct || '';
+      }
+      if (sudoEl) sudoEl.textContent = buildSudoers();
       toggleFilenameFields(layout);
     }
 
@@ -536,6 +688,7 @@
         if (labelIn && p.label) labelIn.value = p.label;
         if (dirEl) dirEl.value = p.remote_dir || '~/certs';
         if (layoutEl) layoutEl.value = p.layout || 'pair';
+        if (writeEl) writeEl.value = p.write_mode || 'direct';
         if (fullEl && p.fullchain) fullEl.value = p.fullchain;
         if (keyEl && p.privkey) keyEl.value = p.privkey;
         if (combEl && p.combined) combEl.value = p.combined;
@@ -553,11 +706,8 @@
     }
 
     ['input', 'change'].forEach(function (ev) {
-      form.addEventListener(ev, function (e) {
-        if (e.target && (e.target === dirEl || e.target === layoutEl ||
-            e.target === fullEl || e.target === keyEl || e.target === combEl || e.target === pfxEl)) {
-          refreshPreview();
-        }
+      form.addEventListener(ev, function () {
+        refreshPreview();
       });
     });
     refreshPreview();

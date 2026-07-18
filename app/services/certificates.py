@@ -34,6 +34,20 @@ LAYOUTS = frozenset(
     {"pair", "combined", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx"}
 )
 
+# Fleet map write strategies
+WRITE_MODES = frozenset({"direct", "stage_sudo"})
+WRITE_MODE_HELP = {
+    "direct": (
+        "Write PEMs with SFTP straight into the target directory as the SSH user. "
+        "Use when that user owns the path (e.g. under ~/ or a dedicated certs dir)."
+    ),
+    "stage_sudo": (
+        "Write into a private stage dir under the SSH user’s home, then "
+        "`sudo install` (mkdir/chmod/chown/mv) into the final path. "
+        "Use with least-priv accounts that may not write /etc or root-owned Docker paths."
+    ),
+}
+
 # Human descriptions for UI
 LAYOUT_HELP = {
     "pair": "Two files: fullchain + private key (Nginx, Caddy, most Docker apps)",
@@ -111,24 +125,20 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
         "group": "Docker",
         "title": "Grafana TLS → Docker named volume",
         "label": "Grafana TLS",
-        "remote_dir": "~",
+        "remote_dir": "/var/lib/docker/volumes/grafana_grafana_data/_data",
         "layout": "pair",
         "fullchain": "fullchain.pem",
         "privkey": "privkey.pem",
         "combined": "snakeoil.pem",
         "pfx": "Certificate.pfx",
         "mode": "600",
-        "owner": "",
-        "group": "",
-        "post": (
-            "sudo install -o root -g root -m 600 "
-            "/home/piherder/fullchain.pem /home/piherder/privkey.pem "
-            "/var/lib/docker/volumes/grafana_grafana_data/_data/ && "
-            "cd /home/piherder/docker/grafana && docker compose restart"
-        ),
+        "owner": "root",
+        "group": "root",
+        "write_mode": "stage_sudo",
+        "post": "cd /home/piherder/docker/grafana && docker compose restart",
         "help": (
-            "Stages PEMs in the piherder home, then sudo-installs into the Grafana data volume "
-            "and restarts compose. Requires matching sudoers — see wiki Grafana cookbook."
+            "Stage+sudo install into the Grafana data volume, then compose restart. "
+            "Uses write mode stage_sudo — see generated sudoers on the map form."
         ),
         "docs_anchor": "cookbook-grafana-tls-into-a-docker-named-volume",
     },
@@ -137,23 +147,20 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
         "group": "Host TLS",
         "title": "OctoPi / HAProxy combined (snakeoil)",
         "label": "OctoPi HAProxy",
-        "remote_dir": "~/certs",
+        "remote_dir": "/etc/ssl",
         "layout": "combined",
         "fullchain": "fullchain.pem",
         "privkey": "privkey.pem",
         "combined": "snakeoil.pem",
         "pfx": "Certificate.pfx",
         "mode": "644",
-        "owner": "",
-        "group": "",
-        "post": (
-            "sudo install -o root -g root -m 644 "
-            "/home/piherder/certs/snakeoil.pem /etc/ssl/snakeoil.pem && "
-            "sudo systemctl restart haproxy"
-        ),
+        "owner": "root",
+        "group": "root",
+        "write_mode": "stage_sudo",
+        "post": "sudo systemctl restart haproxy",
         "help": (
-            "Combined PEM (key then chain) staged under piherder home, then installed to "
-            "/etc/ssl/snakeoil.pem + HAProxy restart. Needs NOPASSWD sudoers — see wiki OctoPi cookbook."
+            "Stage+sudo install snakeoil.pem into /etc/ssl, then restart HAProxy. "
+            "Least-priv friendly — sudoers only needs install + systemctl (shown on map form)."
         ),
         "docs_anchor": "cookbook-octopi--haproxy-host-no-docker-least-priv-piherder",
     },
@@ -514,6 +521,21 @@ def public_cert_dict(cert: ManagedCertificate) -> dict[str, Any]:
         except Exception:
             domains = []
     days = days_until_expiry(cert.not_after)
+    edge_fp = (getattr(cert, "last_edge_deploy_fingerprint", None) or "").strip()
+    vault_fp = (cert.fingerprint_sha256 or "").strip()
+    edge_status = getattr(cert, "last_edge_deploy_status", None)
+    edge_in_sync = bool(
+        edge_fp
+        and vault_fp
+        and edge_fp == vault_fp
+        and edge_status == "success"
+    )
+    edge_stale = bool(
+        edge_fp
+        and vault_fp
+        and edge_fp != vault_fp
+        and edge_status == "success"
+    )
     return {
         "id": cert.id,
         "name": cert.name,
@@ -534,6 +556,50 @@ def public_cert_dict(cert: ManagedCertificate) -> dict[str, Any]:
         "last_error": cert.last_error,
         "expiring_soon": days is not None and days <= (cert.renew_days_before or DEFAULT_RENEW_DAYS),
         "expired": days is not None and days < 0,
+        "last_edge_deploy_at": getattr(cert, "last_edge_deploy_at", None),
+        "last_edge_deploy_status": edge_status,
+        "last_edge_deploy_fingerprint": edge_fp or None,
+        "last_edge_deploy_fingerprint_short": (
+            (edge_fp[:12] + "…") if len(edge_fp) > 12 else (edge_fp or None)
+        ),
+        "last_edge_deploy_message": getattr(cert, "last_edge_deploy_message", None),
+        "edge_in_sync": edge_in_sync,
+        "edge_stale": edge_stale,
+        "edge_available": edge_certs_writable(),
+    }
+
+
+def edge_certs_dir() -> str:
+    from ..config import settings
+
+    return (settings.EDGE_CERTS_DIR or "/certs").rstrip("/") or "/certs"
+
+
+def edge_certs_writable() -> bool:
+    """True when compose mounted EDGE_CERTS_DIR and it is writable by web."""
+    import os
+
+    path = edge_certs_dir()
+    try:
+        return os.path.isdir(path) and os.access(path, os.W_OK)
+    except Exception:
+        return False
+
+
+def edge_caddy_status() -> dict[str, Any]:
+    """Lightweight readiness for the self-apply UI."""
+    import os
+
+    from ..config import settings
+
+    certs = edge_certs_dir()
+    caddyfile = settings.CADDYFILE_PATH or "/caddy/Caddyfile"
+    return {
+        "certs_dir": certs,
+        "certs_writable": edge_certs_writable(),
+        "caddyfile_path": caddyfile,
+        "caddyfile_readable": os.path.isfile(caddyfile) and os.access(caddyfile, os.R_OK),
+        "admin_url": (settings.CADDY_ADMIN_URL or "http://caddy:2019").rstrip("/"),
     }
 
 
@@ -547,6 +613,11 @@ def list_targets(session: Session, certificate_id: int) -> list[CertificateTarge
     )
 
 
+def _normalize_write_mode(write_mode: str | None) -> str:
+    wm = (write_mode or "direct").strip().lower()
+    return wm if wm in WRITE_MODES else "direct"
+
+
 def create_target(
     session: Session,
     *,
@@ -555,6 +626,7 @@ def create_target(
     label: str = "",
     remote_dir: str = "~/certs",
     layout: str = "pair",
+    write_mode: str = "direct",
     fullchain_filename: str = "fullchain.pem",
     privkey_filename: str = "privkey.pem",
     combined_filename: str = "snakeoil.pem",
@@ -580,6 +652,7 @@ def create_target(
         label=(label or "").strip()[:200] or None,
         remote_dir=(remote_dir or "~/certs").strip() or "~/certs",
         layout=lay,
+        write_mode=_normalize_write_mode(write_mode),
         fullchain_filename=(fullchain_filename or "fullchain.pem").strip(),
         privkey_filename=(privkey_filename or "privkey.pem").strip(),
         combined_filename=(combined_filename or "snakeoil.pem").strip(),
@@ -609,6 +682,7 @@ def update_target(
     label: str | None = None,
     remote_dir: str | None = None,
     layout: str | None = None,
+    write_mode: str | None = None,
     fullchain_filename: str | None = None,
     privkey_filename: str | None = None,
     combined_filename: str | None = None,
@@ -635,6 +709,8 @@ def update_target(
     if layout is not None:
         lay = (layout or "pair").strip()
         row.layout = lay if lay in LAYOUTS else "pair"
+    if write_mode is not None:
+        row.write_mode = _normalize_write_mode(write_mode)
     if fullchain_filename is not None:
         row.fullchain_filename = (fullchain_filename or "fullchain.pem").strip()
     if privkey_filename is not None:
@@ -700,6 +776,23 @@ def public_target_dict(
         "remote_dir": target.remote_dir,
         "layout": target.layout,
         "layout_help": LAYOUT_HELP.get(target.layout or "pair", ""),
+        "write_mode": getattr(target, "write_mode", None) or "direct",
+        "write_mode_help": WRITE_MODE_HELP.get(
+            getattr(target, "write_mode", None) or "direct", WRITE_MODE_HELP["direct"]
+        ),
+        "sudoers_snippet": sudoers_snippet_for_map(
+            remote_dir=target.remote_dir or "~/certs",
+            layout=target.layout or "pair",
+            write_mode=getattr(target, "write_mode", None) or "direct",
+            fullchain_filename=target.fullchain_filename or "fullchain.pem",
+            privkey_filename=target.privkey_filename or "privkey.pem",
+            combined_filename=target.combined_filename or "snakeoil.pem",
+            pfx_filename=target.pfx_filename or "Certificate.pfx",
+            file_mode=target.file_mode or "600",
+            file_owner=target.file_owner or "root",
+            file_group=target.file_group or "root",
+            post_deploy_command=target.post_deploy_command or "",
+        ),
         "enabled": target.enabled,
         "file_mode": target.file_mode,
         "file_owner": target.file_owner or "",
@@ -719,6 +812,71 @@ def public_target_dict(
         "in_sync": in_sync,
         "stale_vs_vault": stale,
     }
+
+
+def sudoers_snippet_for_map(
+    *,
+    remote_dir: str,
+    layout: str,
+    write_mode: str,
+    fullchain_filename: str = "fullchain.pem",
+    privkey_filename: str = "privkey.pem",
+    combined_filename: str = "snakeoil.pem",
+    pfx_filename: str = "Certificate.pfx",
+    file_mode: str = "600",
+    file_owner: str = "root",
+    file_group: str = "root",
+    post_deploy_command: str = "",
+    ssh_user: str = "piherder",
+) -> str:
+    """Suggested NOPASSWD drop-in for least-priv fleet maps (stage_sudo + restarts)."""
+    wm = _normalize_write_mode(write_mode)
+    if wm != "stage_sudo" and not (post_deploy_command or "").strip():
+        return (
+            "# Write mode is “direct” — no sudo needed if the SSH user owns the target path.\n"
+            "# Switch to “Stage in home + sudo install” for root-owned destinations."
+        )
+    final = (remote_dir or "~/certs").rstrip("/") or "/path/to/certs"
+    # Keep ~ literal for operator-facing docs when path is under home
+    owner = (file_owner or "root").strip() or "root"
+    group = (file_group or "root").strip() or "root"
+    mode = (file_mode or "600").strip() or "600"
+    names: list[str] = []
+    lay = layout or "pair"
+    if lay in ("pair", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx"):
+        names.extend([fullchain_filename or "fullchain.pem", privkey_filename or "privkey.pem"])
+    if lay in ("combined", "pair_and_combined", "pair_combined_pfx"):
+        names.append(combined_filename or "snakeoil.pem")
+    if lay in ("pair_and_pfx", "pair_combined_pfx"):
+        names.append(pfx_filename or "Certificate.pfx")
+    names = [n for n in names if n]
+    lines = [
+        f"# PiHerder cert deploy — least-priv ({ssh_user})",
+        f"# Install under /etc/sudoers.d/piherder-certs (visudo -c -f …)",
+        f"# Stage dir: ~{ssh_user}/.piherder/cert-stage/<map-id>/",
+        f"{ssh_user} ALL=(root) NOPASSWD: /usr/bin/install -d -o {owner} -g {group} -m 755 {final}",
+    ]
+    for n in names:
+        lines.append(
+            f"{ssh_user} ALL=(root) NOPASSWD: /usr/bin/install -o {owner} -g {group} "
+            f"-m {mode} /home/{ssh_user}/.piherder/cert-stage/*/{n} {final}/{n}"
+        )
+    post = (post_deploy_command or "").strip()
+    if post:
+        lines.append("# Also allow post-deploy (adjust to match your exact command):")
+        if "systemctl restart haproxy" in post:
+            lines.append(
+                f"{ssh_user} ALL=(root) NOPASSWD: /bin/systemctl restart haproxy, "
+                f"/usr/bin/systemctl restart haproxy"
+            )
+        elif "docker compose" in post or "docker-compose" in post:
+            lines.append(
+                f"# docker compose restart usually needs docker group, not sudo — "
+                f"prefer adding {ssh_user} to group docker"
+            )
+        else:
+            lines.append(f"# Review post-deploy manually: {post[:120]}")
+    return "\n".join(lines) + "\n"
 
 
 def delete_target(session: Session, target_id: int) -> bool:
@@ -744,6 +902,187 @@ def delete_certificate(session: Session, cert_id: int) -> bool:
 def build_combined_pem(privkey: str, fullchain: str) -> str:
     """Order: private key then fullchain (matches operator snakeoil.pem pattern)."""
     return (privkey or "").rstrip() + "\n" + (fullchain or "").rstrip() + "\n"
+
+
+def _layout_file_payloads(
+    layout: str,
+    full: str,
+    key: str,
+    target: CertificateTarget,
+) -> list[tuple[str, str]]:
+    """Return (filename, content) pairs for a layout."""
+    files: list[tuple[str, str]] = []
+    lay = layout or "pair"
+    if lay in ("pair", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx"):
+        files.append((target.fullchain_filename or "fullchain.pem", full))
+        files.append((target.privkey_filename or "privkey.pem", key))
+    if lay in ("combined", "pair_and_combined", "pair_combined_pfx"):
+        files.append(
+            (
+                target.combined_filename or "snakeoil.pem",
+                build_combined_pem(key, full),
+            )
+        )
+    return files
+
+
+def reload_edge_caddy() -> dict[str, Any]:
+    """POST current Caddyfile to Caddy admin /load (compose-network only)."""
+    import urllib.error
+    import urllib.request
+
+    from ..config import settings
+
+    admin = (settings.CADDY_ADMIN_URL or "http://caddy:2019").rstrip("/")
+    caddyfile_path = settings.CADDYFILE_PATH or "/caddy/Caddyfile"
+    try:
+        with open(caddyfile_path, "rb") as f:
+            body = f.read()
+    except OSError as e:
+        return {
+            "ok": False,
+            "error": f"Cannot read Caddyfile at {caddyfile_path}: {e}",
+        }
+    if not body.strip():
+        return {"ok": False, "error": "Caddyfile is empty"}
+    url = f"{admin}/load"
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={"Content-Type": "text/caddyfile"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            code = getattr(resp, "status", 200) or 200
+            if 200 <= int(code) < 300:
+                return {"ok": True, "status": int(code)}
+            return {"ok": False, "error": f"Caddy /load HTTP {code}"}
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            detail = e.read().decode("utf-8", errors="replace")[:300]
+        except Exception:
+            pass
+        return {
+            "ok": False,
+            "error": f"Caddy /load HTTP {e.code}: {detail or e.reason}",
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "error": (
+                f"Cannot reach Caddy admin at {admin}: {e}. "
+                "Stock compose enables admin on caddy:2019 (not published to host)."
+            ),
+        }
+
+
+def deploy_to_edge_caddy(
+    session: Session,
+    certificate_id: int,
+    *,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Write vault PEMs into this instance's certs volume and reload Caddy.
+
+    No SSH, no sudoers, no extra operator config when using stock docker-compose
+    (./certs mounted on web + caddy; Caddy admin on the compose network).
+    """
+    import os
+
+    cert = session.get(ManagedCertificate, certificate_id)
+    if not cert:
+        return {"ok": False, "error": "certificate not found"}
+
+    if (
+        not force
+        and cert.last_edge_deploy_fingerprint
+        and cert.fingerprint_sha256
+        and cert.last_edge_deploy_fingerprint == cert.fingerprint_sha256
+        and cert.last_edge_deploy_status == "success"
+    ):
+        return {
+            "ok": True,
+            "skipped": True,
+            "fingerprint": cert.fingerprint_sha256,
+            "message": "Edge already has this fingerprint",
+        }
+
+    if not edge_certs_writable():
+        return {
+            "ok": False,
+            "error": (
+                f"Edge certs directory {edge_certs_dir()!r} is missing or not writable. "
+                "Stock compose mounts ./certs on the web service — rebuild/restart web."
+            ),
+        }
+
+    full, key = decrypt_pems(cert)
+    if not full or not key:
+        return {"ok": False, "error": "certificate PEMs missing"}
+
+    certs_dir = edge_certs_dir()
+    full_path = os.path.join(certs_dir, "fullchain.pem")
+    key_path = os.path.join(certs_dir, "privkey.pem")
+    try:
+        # Atomic-ish replace
+        for path, content, mode in (
+            (full_path, full.rstrip() + "\n", 0o644),
+            (key_path, key.rstrip() + "\n", 0o600),
+        ):
+            tmp = path + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(content)
+            os.chmod(tmp, mode)
+            os.replace(tmp, path)
+        fp_side = os.path.join(certs_dir, ".piherder-cert-fp")
+        with open(fp_side, "w", encoding="utf-8") as f:
+            f.write((cert.fingerprint_sha256 or "") + "\n")
+        try:
+            os.chmod(fp_side, 0o644)
+        except Exception:
+            pass
+    except OSError as e:
+        msg = f"Write to {certs_dir} failed: {e}"
+        cert.last_edge_deploy_status = "failed"
+        cert.last_edge_deploy_message = msg[:500]
+        cert.updated_at = datetime.utcnow()
+        session.add(cert)
+        session.commit()
+        return {"ok": False, "error": msg}
+
+    reload = reload_edge_caddy()
+    now = datetime.utcnow()
+    if not reload.get("ok"):
+        msg = f"Files written but Caddy reload failed: {reload.get('error')}"
+        cert.last_edge_deploy_at = now
+        cert.last_edge_deploy_status = "failed"
+        cert.last_edge_deploy_fingerprint = cert.fingerprint_sha256
+        cert.last_edge_deploy_message = msg[:500]
+        cert.updated_at = now
+        session.add(cert)
+        session.commit()
+        return {
+            "ok": False,
+            "error": msg,
+            "wrote": True,
+            "paths": [full_path, key_path],
+        }
+
+    cert.last_edge_deploy_at = now
+    cert.last_edge_deploy_status = "success"
+    cert.last_edge_deploy_fingerprint = cert.fingerprint_sha256
+    cert.last_edge_deploy_message = "ok"
+    cert.updated_at = now
+    session.add(cert)
+    session.commit()
+    return {
+        "ok": True,
+        "fingerprint": cert.fingerprint_sha256,
+        "paths": [full_path, key_path],
+        "reloaded": True,
+    }
 
 
 def deploy_target(
@@ -786,107 +1125,181 @@ def deploy_target(
     if not full or not key:
         return {"ok": False, "error": "certificate PEMs missing"}
 
+    write_mode = _normalize_write_mode(getattr(target, "write_mode", None))
+    layout = target.layout or "pair"
     client = None
     try:
         client = ssh_svc.get_ssh_client(server)
-        remote_dir = (target.remote_dir or "~/certs").strip()
-        # Expand ~ as remote user home
         st, home, _ = ssh_svc.run_command(client, "printf %s \"$HOME\"", timeout=15)
         home = (home or "").strip() or "."
+        remote_dir = (target.remote_dir or "~/certs").strip()
         if remote_dir.startswith("~/"):
             remote_dir = home + remote_dir[1:]
         elif remote_dir == "~":
             remote_dir = home
 
-        log(f"mkdir -p {remote_dir}")
-        st, out, err = ssh_svc.run_command(
-            client, f"mkdir -p {shlex.quote(remote_dir)}", timeout=30
-        )
-        if st != 0:
-            raise RuntimeError(f"mkdir failed: {err or out}")
-
-        sftp = client.open_sftp()
+        mode = (target.file_mode or "600").strip() or "600"
         try:
-            files: list[tuple[str, str]] = []
-            layout = target.layout or "pair"
-            if layout in ("pair", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx"):
-                files.append((target.fullchain_filename, full))
-                files.append((target.privkey_filename, key))
-            if layout in ("combined", "pair_and_combined", "pair_combined_pfx"):
-                files.append(
-                    (target.combined_filename, build_combined_pem(key, full))
-                )
-
-            mode = target.file_mode or "600"
-            try:
-                mode_int = int(mode, 8) if mode else 0o600
-            except ValueError:
-                mode_int = 0o600
-
-            for fname, content in files:
-                path = f"{remote_dir.rstrip('/')}/{fname}"
-                log(f"write {path}")
-                with sftp.file(path, "w") as f:
-                    f.write(content)
-                try:
-                    sftp.chmod(path, mode_int)
-                except Exception:
-                    ssh_svc.run_command(
-                        client,
-                        f"chmod {shlex.quote(mode)} {shlex.quote(path)}",
-                        timeout=15,
-                    )
-
-            # fingerprint sidecar
-            fp_path = f"{remote_dir.rstrip('/')}/.piherder-cert-fp"
-            with sftp.file(fp_path, "w") as f:
-                f.write((cert.fingerprint_sha256 or "") + "\n")
-        finally:
-            sftp.close()
-
-        # owner
+            mode_int = int(mode, 8)
+        except ValueError:
+            mode_int = 0o600
+            mode = "600"
         owner = (target.file_owner or "").strip()
         group = (target.file_group or "").strip()
-        if owner:
-            chown = f"{owner}:{group}" if group else owner
-            names = [target.fullchain_filename, target.privkey_filename]
-            if layout in ("combined", "pair_and_combined", "pair_combined_pfx"):
-                names.append(target.combined_filename)
-            for fname in names:
-                path = f"{remote_dir.rstrip('/')}/{fname}"
-                ssh_svc.run_command(
-                    client,
-                    f"sudo chown {shlex.quote(chown)} {shlex.quote(path)} 2>/dev/null || "
-                    f"chown {shlex.quote(chown)} {shlex.quote(path)}",
-                    timeout=20,
+        payloads = _layout_file_payloads(layout, full, key, target)
+
+        if write_mode == "stage_sudo":
+            stage_dir = f"{home.rstrip('/')}/.piherder/cert-stage/{target_id}"
+            log(f"stage_sudo: stage={stage_dir} → final={remote_dir}")
+            st, out, err = ssh_svc.run_command(
+                client, f"mkdir -p {shlex.quote(stage_dir)}", timeout=30
+            )
+            if st != 0:
+                raise RuntimeError(f"stage mkdir failed: {err or out}")
+
+            sftp = client.open_sftp()
+            try:
+                for fname, content in payloads:
+                    path = f"{stage_dir.rstrip('/')}/{fname}"
+                    log(f"stage write {path}")
+                    with sftp.file(path, "w") as f:
+                        f.write(content)
+                    try:
+                        sftp.chmod(path, 0o600)
+                    except Exception:
+                        pass
+            finally:
+                sftp.close()
+
+            # Final dir + install each file (mkdir/chmod/chown as root)
+            chown_user = owner or "root"
+            chown_group = group or "root"
+            st, out, err = ssh_svc.run_command(
+                client,
+                f"sudo install -d -o {shlex.quote(chown_user)} "
+                f"-g {shlex.quote(chown_group)} -m 755 {shlex.quote(remote_dir)}",
+                timeout=30,
+            )
+            if st != 0:
+                raise RuntimeError(
+                    f"sudo install -d failed (need sudoers for install): {err or out}"
                 )
 
-        # PFX via remote openssl
-        if layout in ("pair_and_pfx", "pair_combined_pfx"):
-            pfx_pw = ""
-            if target.pfx_export_password_encrypted:
-                pfx_pw = decrypt_str(target.pfx_export_password_encrypted)
-            full_p = f"{remote_dir.rstrip('/')}/{target.fullchain_filename}"
-            key_p = f"{remote_dir.rstrip('/')}/{target.privkey_filename}"
-            pfx_p = f"{remote_dir.rstrip('/')}/{target.pfx_filename}"
-            passout = f"pass:{pfx_pw}"
-            cmd = (
-                f"openssl pkcs12 -export -in {shlex.quote(full_p)} "
-                f"-inkey {shlex.quote(key_p)} -out {shlex.quote(pfx_p)} "
-                f"-keypbe aes-256-cbc -certpbe aes-256-cbc "
-                f"-passout {shlex.quote(passout)}"
+            for fname, _content in payloads:
+                src = f"{stage_dir.rstrip('/')}/{fname}"
+                dst = f"{remote_dir.rstrip('/')}/{fname}"
+                log(f"sudo install {src} → {dst}")
+                st, out, err = ssh_svc.run_command(
+                    client,
+                    f"sudo install -o {shlex.quote(chown_user)} "
+                    f"-g {shlex.quote(chown_group)} -m {shlex.quote(mode)} "
+                    f"{shlex.quote(src)} {shlex.quote(dst)}",
+                    timeout=30,
+                )
+                if st != 0:
+                    raise RuntimeError(
+                        f"sudo install {fname} failed (sudoers?): {err or out}"
+                    )
+
+            # PFX from staged PEMs then install
+            if layout in ("pair_and_pfx", "pair_combined_pfx"):
+                pfx_pw = ""
+                if target.pfx_export_password_encrypted:
+                    pfx_pw = decrypt_str(target.pfx_export_password_encrypted)
+                full_p = f"{stage_dir.rstrip('/')}/{target.fullchain_filename}"
+                key_p = f"{stage_dir.rstrip('/')}/{target.privkey_filename}"
+                pfx_stage = f"{stage_dir.rstrip('/')}/{target.pfx_filename}"
+                passout = f"pass:{pfx_pw}"
+                cmd = (
+                    f"openssl pkcs12 -export -in {shlex.quote(full_p)} "
+                    f"-inkey {shlex.quote(key_p)} -out {shlex.quote(pfx_stage)} "
+                    f"-keypbe aes-256-cbc -certpbe aes-256-cbc "
+                    f"-passout {shlex.quote(passout)}"
+                )
+                log("openssl pkcs12 export (stage)")
+                st, out, err = ssh_svc.run_command(client, cmd, timeout=60)
+                if st != 0:
+                    raise RuntimeError(f"pfx export failed: {err or out}")
+                pfx_dst = f"{remote_dir.rstrip('/')}/{target.pfx_filename}"
+                st, out, err = ssh_svc.run_command(
+                    client,
+                    f"sudo install -o {shlex.quote(chown_user)} "
+                    f"-g {shlex.quote(chown_group)} -m {shlex.quote(mode)} "
+                    f"{shlex.quote(pfx_stage)} {shlex.quote(pfx_dst)}",
+                    timeout=30,
+                )
+                if st != 0:
+                    raise RuntimeError(f"sudo install pfx failed: {err or out}")
+        else:
+            # direct SFTP into remote_dir
+            log(f"direct write → {remote_dir}")
+            st, out, err = ssh_svc.run_command(
+                client, f"mkdir -p {shlex.quote(remote_dir)}", timeout=30
             )
-            log("openssl pkcs12 export")
-            st, out, err = ssh_svc.run_command(client, cmd, timeout=60)
             if st != 0:
-                raise RuntimeError(f"pfx export failed: {err or out}")
+                raise RuntimeError(
+                    f"mkdir failed: {err or out}. "
+                    "For root-owned paths use write mode “Stage + sudo install”."
+                )
+
+            sftp = client.open_sftp()
+            try:
+                for fname, content in payloads:
+                    path = f"{remote_dir.rstrip('/')}/{fname}"
+                    log(f"write {path}")
+                    with sftp.file(path, "w") as f:
+                        f.write(content)
+                    try:
+                        sftp.chmod(path, mode_int)
+                    except Exception:
+                        ssh_svc.run_command(
+                            client,
+                            f"chmod {shlex.quote(mode)} {shlex.quote(path)}",
+                            timeout=15,
+                        )
+
+                fp_path = f"{remote_dir.rstrip('/')}/.piherder-cert-fp"
+                with sftp.file(fp_path, "w") as f:
+                    f.write((cert.fingerprint_sha256 or "") + "\n")
+            finally:
+                sftp.close()
+
             if owner:
                 chown = f"{owner}:{group}" if group else owner
-                ssh_svc.run_command(
-                    client,
-                    f"sudo chown {shlex.quote(chown)} {shlex.quote(pfx_p)} 2>/dev/null || true",
-                    timeout=15,
+                for fname, _ in payloads:
+                    path = f"{remote_dir.rstrip('/')}/{fname}"
+                    ssh_svc.run_command(
+                        client,
+                        f"sudo chown {shlex.quote(chown)} {shlex.quote(path)} 2>/dev/null || "
+                        f"chown {shlex.quote(chown)} {shlex.quote(path)}",
+                        timeout=20,
+                    )
+
+            if layout in ("pair_and_pfx", "pair_combined_pfx"):
+                pfx_pw = ""
+                if target.pfx_export_password_encrypted:
+                    pfx_pw = decrypt_str(target.pfx_export_password_encrypted)
+                full_p = f"{remote_dir.rstrip('/')}/{target.fullchain_filename}"
+                key_p = f"{remote_dir.rstrip('/')}/{target.privkey_filename}"
+                pfx_p = f"{remote_dir.rstrip('/')}/{target.pfx_filename}"
+                passout = f"pass:{pfx_pw}"
+                cmd = (
+                    f"openssl pkcs12 -export -in {shlex.quote(full_p)} "
+                    f"-inkey {shlex.quote(key_p)} -out {shlex.quote(pfx_p)} "
+                    f"-keypbe aes-256-cbc -certpbe aes-256-cbc "
+                    f"-passout {shlex.quote(passout)}"
                 )
+                log("openssl pkcs12 export")
+                st, out, err = ssh_svc.run_command(client, cmd, timeout=60)
+                if st != 0:
+                    raise RuntimeError(f"pfx export failed: {err or out}")
+                if owner:
+                    chown = f"{owner}:{group}" if group else owner
+                    ssh_svc.run_command(
+                        client,
+                        f"sudo chown {shlex.quote(chown)} {shlex.quote(pfx_p)} 2>/dev/null || true",
+                        timeout=15,
+                    )
 
         if target.post_deploy_command:
             log("post_deploy_command")
@@ -900,7 +1313,7 @@ def deploy_target(
         target.last_deployed_at = now
         target.last_deploy_status = "success"
         target.last_deploy_fingerprint = cert.fingerprint_sha256
-        target.last_deploy_message = "ok"
+        target.last_deploy_message = f"ok ({write_mode})"
         target.updated_at = now
         session.add(target)
         session.commit()
@@ -910,6 +1323,7 @@ def deploy_target(
             "fingerprint": cert.fingerprint_sha256,
             "server_id": server.id,
             "remote_dir": remote_dir,
+            "write_mode": write_mode,
         }
     except Exception as e:
         logger.exception("cert deploy failed")

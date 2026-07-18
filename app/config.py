@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     HERDER_BACKUP_ROOT: str = "/herder_backups"
     HERDER_BACKUP_SCHEDULE: Optional[str] = None  # cron e.g. "0 3 * * *"
 
+    # Edge TLS (this PiHerder instance → Caddy). Defaults match docker-compose mounts.
+    # No extra operator config when using the stock compose stack.
+    EDGE_CERTS_DIR: str = "/certs"
+    CADDY_ADMIN_URL: str = "http://caddy:2019"
+    CADDYFILE_PATH: str = "/caddy/Caddyfile"
+
     # Link to co-located Pi-hole admin/settings (common alongside PiHerder)
     PIHOLE_URL: Optional[str] = "http://pi.hole/admin/"
 
