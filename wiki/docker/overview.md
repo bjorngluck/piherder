@@ -63,7 +63,7 @@ From a compose project **⋯** menu:
 Only **one** stack mutation runs at a time per host (shared lane with Deploy and template deploy/redeploy). Operator+ only. Single-container start/stop/restart stay on the **service row** ⋯ menu.
 
 !!! note "Still planned (H2.75 remainder)"
-    Add-host wizard, richer host stats / allowlisted commands, bootstrap scripts, optional web SSH — see [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
+    **v0.7.0:** add-host wizard. Later: richer host stats / allowlisted commands, bootstrap scripts, optional web SSH — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
 
 ## Template vs free-form stacks
 

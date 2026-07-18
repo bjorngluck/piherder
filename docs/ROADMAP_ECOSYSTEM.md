@@ -1,7 +1,7 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-18 (H2 topology closed for 0.6; **nmap → v0.8.0**)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-18 (0.6 **code freeze**; **wizard + screenshots → v0.7.0**; nmap → v0.8.0)  
 **Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
@@ -27,22 +27,25 @@ Design principles stay the same as SPEC:
 | **v0.4.0** | Post-0.3 quality + **service templates** foundation (wizard, volumes/booleans, from-host, step-up secrets, wait modal, OOTB pack, desired state V1) | H2 + fixes | **Tagged** 2026-07-12 — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) |
 | **v0.4.x** | *(folded)* Former ops track — drift, NPM connector, git catalog, `.env` migrate | H1/H2 | **Absorbed into v0.5.0** (no separate planning phase) |
 | **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **Tagged** 2026-07-17 — [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
-| **v0.6.0** | **RC2 polish** — template Jobs, cert UX (edge map, presets), Docker bulk, topology+coverage; **wizard still open** or defer 0.6.x | H2.75 slice + H2.5 stretch + polish | **Pre-release** — [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · readiness §7 |
-| **v0.6.x / v0.7** | Remaining host lifecycle (stats/commands, bootstrap depth, web SSH); topology residual (configurable columns) | H2.75 remainder + H2.5 residual | Planned after 0.6.0 — [§ H2.75](#horizon-275--host-lifecycle--operator-console-post-rc) |
-| **v0.8.0** | **LAN discovery (nmap-class)** — opt-in LAN CIDR scan, link devices to servers/fabric | H2.5 H1 | Planned — design + product after 0.6/0.7 |
+| **v0.6.0** | **RC2 polish** — template Jobs, cert UX (edge map, presets), Docker bulk, topology+coverage; wizard **out** | H2.75 P1 + H2.5 stretch + polish | **Tagged** 2026-07-18 — [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) |
+| **v0.7.0** | **Add-host wizard** + **wiki screenshot pack** (stale + new 0.6 surfaces); residual host lifecycle as capacity | H2.75 P2 (+ polish) | Planned after 0.6.0 tag — [§ H2.75](#horizon-275--host-lifecycle--operator-console-post-rc) · [screenshots README](../wiki/assets/screenshots/README.md) |
+| **v0.7.x / later** | Host stats/commands, bootstrap depth, web SSH; topology residual (configurable columns) | H2.75 P3–P5 + H2.5 residual | Planned after 0.7.0 |
+| **v0.8.0** | **LAN discovery (nmap-class)** — opt-in LAN CIDR scan, link devices to servers/fabric | H2.5 H1 | Planned — design + product after 0.7 |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
 **Decision (2026-07-12):** **Single development target `v0.5.0`** — former “v0.4.x ops” and “RC polish” are one cycle. Optional intermediate git tags only if something must ship early.
 
-**Decision (2026-07-17):** **Single development target `v0.6.0` (RC2)** — operator polish + selected H2.75 slices (wizard required; Docker bulk optional). See [PLAN_v0.6.0.md](PLAN_v0.6.0.md).
+**Decision (2026-07-17):** **Single development target `v0.6.0` (RC2)** — operator polish + selected H2.75 slices. See [PLAN_v0.6.0.md](PLAN_v0.6.0.md).
 
 **Decision (2026-07-18):** Runtime topology stream (**H2**) + Kuma coverage (**H3**) **closed for 0.6**. **LAN discovery / nmap (H1)** scheduled for **v0.8.0** (not 0.6). Topology residual (configurable columns / link-to-column) is post-0.6 polish.
 
-**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ **tagged** → **v0.6.0 RC2** (active) → residual 0.6.x/0.7 → **v0.8.0 nmap** → **v1.0** refined production.
+**Decision (2026-07-18 freeze):** **v0.6.0 product code frozen**. **Add-host wizard (H2.75 P2)** and **wiki screenshot refresh** deferred to **v0.7.0**. Onboarding for 0.6 remains form + SSH access panel.
 
-**Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.5.0` / `latest`).
+**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ **tagged** → ~~**v0.6.0 RC2**~~ **tagged** → **v0.7.0** wizard + screenshots → **v0.8.0 nmap** → **v1.0** refined production.
+
+**Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.6.0` / `0.6` / `latest`).
 
 ---
 
@@ -196,7 +199,7 @@ Versioned **templates**: compose/install recipe + variables + post-deploy checkl
 - ~~NPM connector~~ **done**  
 - ~~Stack Docker Deploy/Check as Jobs + live log (B07)~~ **done**  
 - B08 logos in self-backup · B09 push on auto-resolve — **done**  
-- Template wizard as Jobs + live log (still wait-modal)  
+- Template deploy as Jobs + live log (**done** in 0.6; preview/from-host may still use wait modal)  
 - Contribute path remains Issues/PR for builtin inclusion  
 
 **Secrets stance (home production):** templates use **locked-down host `.env` (`chmod 600`)** + PiHerder encrypted source of truth; restarts do not call PiHerder. Advanced options (Swarm secrets, vault, sealed host blob) stay **post-0.5 / Horizon 3** exploration — not the default path.
@@ -261,7 +264,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 
 **Captured:** 2026-07-17 (operator planning discussion).  
 **Feature plan:** [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) (phases P1–P5, UX sketches, acceptance criteria, security bar).  
-**Stance:** **v0.6.0 RC2** pulls **P2 wizard** (must). **P1 Docker bulk** shipped 2026-07-18 (project ⋯ stop/start/restart all as Jobs). P3–P5 remain post-0.6 / not required for minimal **1.0.0**. Detail: [PLAN_v0.6.0.md](PLAN_v0.6.0.md).
+**Stance:** **P1 Docker bulk** shipped in **v0.6.0** (project ⋯ stop/start/restart all as Jobs). **P2 wizard → v0.7.0** (locked freeze). P3–P5 remain post-0.7 / not required for minimal **1.0.0**. Detail: [PLAN_v0.6.0.md](PLAN_v0.6.0.md).
 
 These ideas deepen **day-to-day host operations** and **first-time host bring-up**. They sit next to H2.5 (topology) but focus on **SSH lifecycle** rather than DNS/proxy graphs.
 

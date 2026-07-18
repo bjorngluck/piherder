@@ -122,11 +122,11 @@ From server detail **Host status** (⋯) or related chips, PiHerder can show a s
   <figcaption>Server detail with status chips and feature cards.</figcaption>
 </figure>
 
-## Planned post-RC (onboarding)
+## Planned (onboarding)
 
-**v0.6.0:** a **wizard-driven add-host** path is the remaining RC2 must (or may ship in 0.6.x — see [PLAN_v0.6.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.6.0.md)). Today the **advanced form + SSH access panel** remains fully supported. Richer bootstrap scripts and Web SSH are later / highest bar.
+**v0.7.0:** a **wizard-driven add-host** path (orchestrates the same SSH / features / DNS steps) — deferred from the 0.6 freeze; see [PLAN_v0.6.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.6.0.md). Until then, the **advanced form + SSH access panel** above is the supported path. Richer bootstrap scripts and Web SSH remain later / highest bar.
 
-See [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md) (phases P2 / P4 / P5). Until then, use the steps above.
+See [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md) (phases P2 / P4 / P5).
 
 ## Related
 

@@ -9,7 +9,7 @@ from app.models import User, Server
 
 
 def test_backup_format_version():
-    assert hb.BACKUP_FORMAT_VERSION == "2"
+    assert hb.BACKUP_FORMAT_VERSION == "3"
 
 
 def test_model_to_dict_excludes_relationships():
@@ -106,11 +106,12 @@ def test_build_payload_keys(monkeypatch):
     )
 
     payload = hb._build_backup_payload(include_audit=False, config_only=True)
-    assert payload["manifest"]["version"] == "2"
+    assert payload["manifest"]["version"] == "3"
     assert "jobs" not in payload
     assert "jobs" in payload["manifest"]["excludes"]
     assert "integrations" in payload["manifest"]["includes"]
     assert "integration_bindings" in payload["manifest"]["includes"]
+    assert "runtime_edges" in payload["manifest"]["includes"]
     for key in (
         "servers",
         "users",
@@ -123,6 +124,12 @@ def test_build_payload_keys(monkeypatch):
         "notifications",
         "integrations",
         "integration_bindings",
+        "managed_certificates",
+        "certificate_targets",
+        "service_templates",
+        "stack_deployments",
+        "service_dns_records",
+        "runtime_edges",
         "herder_config",
     ):
         assert key in payload
