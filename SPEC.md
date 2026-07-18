@@ -4,7 +4,7 @@
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
 > **Status:** **v0.5.0 live** (RC1) · **v0.6.0 RC2** is the active development target.  
-> **Last updated:** 2026-07-17 — Production path: ~~v0.4.0~~ done → ~~**v0.5.0 RC1**~~ **tagged** → **v0.6.0 RC2** ([PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md)) → **v1.0**.
+> **Last updated:** 2026-07-18 — Production path: ~~v0.4.0~~ done → ~~**v0.5.0 RC1**~~ **tagged** → **v0.6.0 RC2** ([PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md)) → residual → **v0.8.0** nmap → **v1.0**.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -322,7 +322,8 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 
 **v0.6.0 RC2 ship plan:** [docs/PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md) · Design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · [ROADMAP H2.75](docs/ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc).
 
-Also in **v0.6.0** (polish, not only H2.75): template deploy as Jobs + live log; cert setup / service-map UX; docs polish; light performance.
+Also in **v0.6.0** (polish, not only H2.75): template deploy as Jobs + live log; cert setup / service-map UX; docs polish; light performance.  
+**Shipped early on 0.6 track:** Kuma coverage audit (H3) + runtime topology stack panel/map expand/order (H2) — [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md).
 
 - [ ] **P1** Docker project bulk Stop all / Start all / Restart all (Jobs + Audit + confirm) — *nice-to-have in 0.6.0*
 - [ ] **P2** Wizard-driven add-host onboarding (orchestrate existing SSH / features / DNS steps) — **must for 0.6.0**
@@ -333,8 +334,10 @@ Also in **v0.6.0** (polish, not only H2.75): template deploy as Jobs + live log;
 ## Phase 7 — Ecosystem depth (post-v0.5 / Horizon 3)
 
 - [x] **Network maps / DNS fabric** (v0.5.0) — host `dns_name` A records; `ServiceDnsRecord` (CNAME or host-identity A); Catalog → **Network** hub + Hosts map `/dns/physical` (Internet→router→LAN→hosts, cloud hosts, Kuma on router/WAN) + Path map `/dns/logical`; Pi-hole adopt (duplicates = ok); node + path focus; viewBox zoom; mobile list-first + Hide map + Full screen (hamburger exits fullscreen); GET-safe topology; external checklist — [wiki](wiki/integrations/dns-fabric.md) · package `app/services/dns_fabric/`
+- [x] **Runtime topology / stack deps** (v0.6 track) — dual altitude: path maps + Stack panel + map expand; compose graph; `RuntimeEdge` suggest/accept/manual; container order → column L→R; Coverage + bound-container down alerts — [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md)
+- [ ] Configurable map columns / link-to-column layout (topology residual)
+- [ ] **LAN discovery (nmap-class)** — opt-in LAN CIDR scan — **v0.8.0**
 - [ ] Cloudflare DNS automation from template hints / fabric
-- [ ] Service → container first-class map + **container dependency graph** (DB, Redis, …) — ROADMAP H2.5
 - [ ] Pi-hole / NPM write paths beyond local DNS (proxy host CRUD, lists, etc.)
 - [ ] Service migrate host→host; destructive service remove
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)

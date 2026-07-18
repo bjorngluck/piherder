@@ -1,10 +1,10 @@
 # PiHerder v0.6.0 — RC2 development plan
 
 **Status:** **Active** (implementation target)  
-**Date opened:** 2026-07-17 · **Refreshed:** 2026-07-17 (workstream **H** discovery / visualisation under consideration)  
+**Date opened:** 2026-07-17 · **Refreshed:** 2026-07-18 (workstream **H** closed for 0.6 — H2/H3 shipped; **nmap → v0.8.0**)  
 **Baseline:** `v0.5.0` (first RC — tagged 2026-07-17)  
 **Package target:** `0.6.0` (`pyproject.toml` · `app/version_info.py`)  
-**Related:** [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [SPEC.md](../SPEC.md)
+**Related:** [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [SPEC.md](../SPEC.md)
 
 ### Decision (locked)
 
@@ -183,18 +183,52 @@ During RC1 operator use, small fixes land here without opening new horizons:
 
 ---
 
-### H — Discovery & visualisation (**under consideration** for 0.6.0)
+### H — Discovery & visualisation (**stream closed for 0.6**)
 
-**Captured:** 2026-07-17.  
-**Stance:** On the RC2 radar — **not** must-have ship-bar. Closer to [ROADMAP H2.5](ROADMAP_ECOSYSTEM.md#horizon-25--service-fabric--topology-post-05--pre-10) than pure polish. Prefer offline-first slices that reuse Docker inventory + Kuma before active scanners.
+**Captured:** 2026-07-17 · **Closed for 0.6 ship:** 2026-07-18.  
+**Stance:** Offline-first slices that reuse Docker inventory + Kuma shipped as RC2 stretch. Active LAN scan is **not** in 0.6 — parked for **v0.8.0**.
 
-| # | Idea | Intent | Fit for 0.6.0 |
-|---|------|--------|----------------|
-| **H1** | **LAN discovery (nmap-class)** | Periodic scan of LAN CIDR: IPs, MACs, open ports; link to servers / fabric; enrich Network maps | **Design spike only** — high packaging/policy risk |
-| **H2** | **Map enrichment from Docker** | Ports, suggest deps, expand-one-stack — [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) | **Done** (P0–P5 + stack order) — later: configurable columns |
+| # | Idea | Intent | Status |
+|---|------|--------|--------|
 | **H3** | **Coverage audit (Kuma)** | Paths + inventory deps vs Kuma; mute infra; bind/suggest | **Done** — `/dns/coverage` + hub teaser; path chips |
+| **H2** | **Runtime topology** | Ports, suggest/manual deps, expand-one-stack — [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) | **Done** (P0–P5 + stack order) |
+| **H1** | **LAN discovery (nmap-class)** | Periodic scan of LAN CIDR: IPs, MACs, open ports; link to servers / fabric | **Moved to v0.8.0** — not in 0.6 |
 
-#### H1 — Network scan (nmap / equivalent)
+#### H2 — Runtime topology (ports, deps, expand stack) — **shipped**
+
+Full plan (archive + residual): **[FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md)** · operator wiki: [Network maps — Runtime stack](../wiki/integrations/dns-fabric.md#runtime-stack-detail-altitude).
+
+| Shipped in 0.6 | Detail |
+|----------------|--------|
+| Stack side panel | Containers, ports, mute/bind, suggested + confirmed edges |
+| `RuntimeEdge` | Accept / dismiss / manual; herder backup |
+| Inventory enrich | Compose `depends_on` + graph in Docker inventory L1 |
+| Map expand | Sideways fan (edge · app · queue · data); soft adjacent columns |
+| Stack container order | Long-press/drag; drives column L→R (e.g. celery last → queue rightmost) |
+| Monitor depth | Optional inventory-down alert when Kuma-bound container is down |
+
+**Not done — later (not 0.6 ship-bar):**
+
+| Residual | When |
+|----------|------|
+| User-configurable map columns / pin roles | Later (topology § 12b) |
+| Link-to-column layout rules | Later |
+| Per-stack layout profiles | Later |
+| Cross-host manual picker polish | Later polish |
+| Broader Hosts/Path port chips | Later polish |
+| Shared-service catalog polish (P6) | Later / with discovery |
+
+#### H3 — Monitoring coverage audit (Uptime Kuma) — **shipped**
+
+| Aspect | Direction |
+|--------|-----------|
+| **Value** | “Is this watched?” before silent failure |
+| **Logic** | Fabric paths + Docker containers vs Kuma bindings; infra mute; TCP suggest |
+| **UI** | `/dns/coverage` + hub teaser card; path-card Kuma chips |
+| **Scope** | Bind existing monitors only — no auto-create in Kuma |
+| **0.6** | **Shipped** |
+
+#### H1 — Network scan (nmap / equivalent) — **v0.8.0**
 
 | Aspect | Direction |
 |--------|-----------|
@@ -203,32 +237,11 @@ During RC1 operator use, small fixes land here without opening new horizons:
 | **Scheduler** | **Opt-in, default off**; scope = Network **LAN CIDR** only; never WAN by default |
 | **Engine** | Prefer light TCP/ARP probes first; full `nmap` binary/sidecar later if needed (`NET_RAW` tax) |
 | **Risks** | Active scan policy; container capabilities; large-subnet load; no auto-mutate hosts |
-| **0.6** | Spike ADR (engine, privileges, `DiscoveredHost` model). Full product → post-0.6 / H2.5 |
+| **Release** | **v0.8.0** — design + product (orthogonal to stack deps). **No work in 0.6** |
 
-#### H2 — Runtime topology (ports, deps, expand stack)
+**H* summary:** H3 + H2 **done** · H1 **→ v0.8.0** · residual column/layout polish **later**.
 
-Full plan: **[FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md)** · operator wiki: [Network maps — Runtime stack](../wiki/integrations/dns-fabric.md#runtime-stack-detail-altitude).
-
-| Aspect | Direction |
-|--------|-----------|
-| **Value** | High-level: customer service + host; detail: expand **one** stack → containers, suggested/manual edges, Kuma binds |
-| **Sources** | Inventory, compose `depends_on`, heuristics; operator confirm (`RuntimeEdge`) |
-| **UI** | Stack panel + map expand (sideways fan); operator container order drives column L→R; Coverage for audit |
-| **0.6** | **Shipped** (panel, edges, expand, order, inventory-down alerts for bound containers). **Later:** user-configurable columns / link-to-column |
-
-#### H3 — Monitoring coverage audit (Uptime Kuma)
-
-| Aspect | Direction |
-|--------|-----------|
-| **Value** | “Is this watched?” before silent failure |
-| **Logic** | Fabric paths + Docker containers vs Kuma bindings; infra mute; TCP suggest |
-| **UI** | `/dns/coverage` + hub teaser card; path-card Kuma chips |
-| **Scope** | Bind existing monitors only — no auto-create in Kuma |
-| **0.6** | **Shipped** (incl. dep inventory + filters + split page) |
-
-**H* progress:** **H3 done** · **H2 done** (P0–P5 + stack order; later configurable columns) · H1 spike later.
-
-**Non-goals:** replace Kuma continuous monitoring; internet-wide scan; auto-add untrusted hosts from scan; require nmap for core fleet ops.
+**Non-goals (all releases):** replace Kuma continuous monitoring; internet-wide scan; auto-add untrusted hosts from scan; require nmap for core fleet ops.
 
 ---
 
@@ -242,8 +255,8 @@ Full plan: **[FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md
 | NPM proxy host **write** CRUD | Later |
 | Cloudflare DNS automation | H2.5+ |
 | Service migrate host→host / destructive wipe | H2.5 |
-| Full container dependency product + topology plugins | H2.5 — **partial** Docker ports/edges may enter as **H2** stretch |
-| **Full nmap product** | Under consideration (**H1**) — not freeze-blocking |
+| Full topology plugins / configurable columns | Later residual of H2 (see runtime topology § 12b) |
+| **LAN discovery / nmap product (H1)** | **v0.8.0** — not in 0.6 |
 | Large curated template pack expansion | H3 |
 | Kubernetes / bare install as supported | Under consideration only |
 | Multi-tenant orgs · optional AI · custom branding | Far horizon |
@@ -263,6 +276,11 @@ Full plan: **[FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md
 6. Version `0.6.0` + git tag + multi-arch Hub publish (`0.6.0` / `0.6` / `latest`)  
 7. Secret-path review unchanged (step-up 2FA, no cleartext audit, host `.env` 600)
 
+### Shipped early (stretch — not required for freeze, already on main)
+
+- **H3** Kuma coverage audit (`/dns/coverage`)  
+- **H2** Runtime topology (stack panel, edges, map expand, container order, bound-container down alerts)  
+
 ### Nice-to-have in the same tag
 
 - Docker project bulk stop/start/restart (F / P1)  
@@ -270,12 +288,12 @@ Full plan: **[FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md
 - Bootstrap script download from wizard  
 - HTTP smoke or Playwright Phase A  
 - Git catalog pull  
-- **H2** Docker ports + depends_on on Network map (if capacity)  
-- **H3** Kuma coverage audit badges (if H2 or alone)  
 
-### Under consideration only (not ship-bar)
+### Explicitly later releases
 
-- **H1** LAN discovery / nmap-class periodic scan — design spike OK; product prefer post-0.6  
+- **H1** LAN discovery / nmap-class scan → **v0.8.0**  
+- Configurable map columns / link-to-column → post-0.6 residual  
+
 
 ### QA smoke (operator)
 
@@ -296,17 +314,20 @@ Full plan: **[FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md
 ## 6. Suggested implementation order
 
 ```text
-1. PLAN_v0.6.0.md committed + ROADMAP/SPEC production path updated
-2. Template deploy → Jobs (C)          // unblocks long-op UX + perf
-3. Cert map UX + first-cert guidance (D)
-4. Add-host wizard (B)                 // largest UI; reuses SSH
-5. Docs/screenshots continuous (A)
-6. Perf pass on list/inventory/fabric (E)
-7. Optional: Docker bulk P1 (F)
-8. Freeze: RELEASE + version + Hub + tag
+1. PLAN + ROADMAP/SPEC production path          // done
+2. Template deploy → Jobs (C)                   // done
+3. H3 coverage + H2 runtime topology            // done (stretch stream closed)
+4. Cert map UX + first-cert guidance (D)        // next must
+5. Add-host wizard (B)                          // next must (largest UI)
+6. Docs/screenshots continuous (A)
+7. Perf pass on list/inventory/fabric (E)
+8. Optional: Docker bulk P1 (F)
+9. Freeze: RELEASE + version + Hub + tag
 ```
 
-Parallelise A with all feature streams. Prefer landing C early so job patterns are reused by D multi-deploy and F bulk.
+**Next focus for 0.6 ship-bar:** workstream **D** (cert setup / maps) then **B** (add-host wizard). Topology / coverage stream is closed.
+
+Parallelise A with remaining feature streams.
 
 ---
 
@@ -317,9 +338,10 @@ Parallelise A with all feature streams. Prefer landing C early so job patterns a
 | **This file** | Living ship plan |
 | [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md) | Written at freeze only |
 | [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) | Wizard / bulk design authority |
+| [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) | H2 stream closed for 0.6; residual later |
 | [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) | Schema locked; note Jobs deploy |
 | [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) | Cert model; RC2 is UX not redesign |
-| [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) | Release track: 0.5 → **0.6 RC2** → 1.0 |
+| [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) | Release track: 0.5 → **0.6 RC2** → … → **0.8 nmap** → 1.0 |
 | [SPEC.md](../SPEC.md) | Phase 6.5 checkboxes |
 | `wiki/` | Operator truth |
 
@@ -349,7 +371,7 @@ That is the RC2 bar — polished intuition on a trusted RC1 foundation — not a
 | Optional small H2.75 slice | Wizard (required) + maybe Docker bulk |
 | Not required for 1.0 | Web SSH, stats console, enrollment phone-home |
 
-**After 0.6.0:** residual host lifecycle (P3–P5), quality platform (Playwright depth), then **v1.0** freeze.
+**After 0.6.0:** residual host lifecycle (P3–P5), quality platform (Playwright depth), topology residual (configurable columns), **v0.8.0 LAN discovery (nmap)**, then **v1.0** freeze.
 
 ---
 

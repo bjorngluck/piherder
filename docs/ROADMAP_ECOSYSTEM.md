@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-17 (v0.6.0 RC2 plan opened)  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-18 (H2 topology closed for 0.6; **nmap → v0.8.0**)  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
@@ -27,8 +27,9 @@ Design principles stay the same as SPEC:
 | **v0.4.0** | Post-0.3 quality + **service templates** foundation (wizard, volumes/booleans, from-host, step-up secrets, wait modal, OOTB pack, desired state V1) | H2 + fixes | **Tagged** 2026-07-12 — [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md) · [PLAN_v0.4.0.md](PLAN_v0.4.0.md) · [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md) |
 | **v0.4.x** | *(folded)* Former ops track — drift, NPM connector, git catalog, `.env` migrate | H1/H2 | **Absorbed into v0.5.0** (no separate planning phase) |
 | **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **Tagged** 2026-07-17 — [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
-| **v0.6.0** | **RC2 polish** — add-host wizard, template deploy as Jobs, cert map UX, docs polish, light perf; optional Docker bulk | H2.75 slice + polish | **Active** — [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) |
-| **v0.6.x / later** | Remaining host lifecycle (stats/commands, bootstrap depth, web SSH) | H2.75 remainder | Planned after 0.6.0 — [§ H2.75](#horizon-275--host-lifecycle--operator-console-post-rc) |
+| **v0.6.0** | **RC2 polish** — add-host wizard, template deploy as Jobs, cert map UX, docs polish, light perf; optional Docker bulk; **H2 topology + H3 coverage already on main** | H2.75 slice + H2.5 stretch + polish | **Active** — [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) |
+| **v0.6.x / v0.7** | Remaining host lifecycle (stats/commands, bootstrap depth, web SSH); topology residual (configurable columns) | H2.75 remainder + H2.5 residual | Planned after 0.6.0 — [§ H2.75](#horizon-275--host-lifecycle--operator-console-post-rc) |
+| **v0.8.0** | **LAN discovery (nmap-class)** — opt-in LAN CIDR scan, link devices to servers/fabric | H2.5 H1 | Planned — design + product after 0.6/0.7 |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
@@ -37,7 +38,9 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-17):** **Single development target `v0.6.0` (RC2)** — operator polish + selected H2.75 slices (wizard required; Docker bulk optional). See [PLAN_v0.6.0.md](PLAN_v0.6.0.md).
 
-**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ **tagged** → **v0.6.0 RC2** (active) → **v1.0** refined production.
+**Decision (2026-07-18):** Runtime topology stream (**H2**) + Kuma coverage (**H3**) **closed for 0.6**. **LAN discovery / nmap (H1)** scheduled for **v0.8.0** (not 0.6). Topology residual (configurable columns / link-to-column) is post-0.6 polish.
+
+**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ **tagged** → **v0.6.0 RC2** (active) → residual 0.6.x/0.7 → **v0.8.0 nmap** → **v1.0** refined production.
 
 **Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.5.0` / `latest`).
 
@@ -242,15 +245,15 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 | **Stack container order** | **Done:** long-press/drag reorder; `stack_container_order_json`; e.g. celery last → queue column rightmost |
 | **Published ports on maps** | Ports in stack expand/detail; broader Hosts/Path port chips may still grow |
 | **Monitoring coverage audit** | **Done (H3):** `/dns/coverage` + hub teaser; optional inventory-down alerts for Kuma-bound containers |
-| **Configurable columns / link-to-column** | **Later** — operator-defined map columns and explicit edge placement (see runtime topology § 12b) |
-| **LAN discovery (nmap-class)** | Opt-in periodic scan of Network LAN CIDR — **H1** design spike; orthogonal to stack deps |
+| **Configurable columns / link-to-column** | **Later** (post-0.6 residual) — operator-defined map columns and explicit edge placement (runtime topology § 12b) |
+| **LAN discovery (nmap-class)** | Opt-in periodic scan of Network LAN CIDR — **v0.8.0**; orthogonal to stack deps |
 | **Richer topology** | Focused dep edges polish, force LAN/cloud overrides |
 | **External DNS providers** | Cloudflare (etc.) automation; until then external checklist remains |
 | **Service migrate / remove** | Move stack host↔host with DNS retarget; destructive remove with volume cleanup |
 
 **Design principle:** one **entity graph** (name, NPM, host, project, container, volume, dep edge, monitor bind, discovered device) — views are projections, not separate data models.
 
-**v0.6 track:** H3 coverage + H2 runtime topology (panel, edges, expand, order) shipped per [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md). H1 nmap remains optional spike.
+**v0.6 track (closed):** H3 coverage + H2 runtime topology (panel, edges, expand, order) shipped — [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md). Residual column/layout polish later. **H1 nmap → v0.8.0.**
 
 ---
 
