@@ -477,6 +477,11 @@ class ManagedCertificate(SQLModel, table=True):
     last_error: Optional[str] = None
     auto_renew: bool = True
     renew_days_before: int = 21
+    # Last apply to this PiHerder instance (Caddy edge) — not a fleet map
+    last_edge_deploy_at: Optional[datetime] = None
+    last_edge_deploy_status: Optional[str] = None
+    last_edge_deploy_fingerprint: Optional[str] = None
+    last_edge_deploy_message: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -497,6 +502,8 @@ class CertificateTarget(SQLModel, table=True):
     label: Optional[str] = Field(default=None, max_length=200)
     remote_dir: str = Field(default="~/certs")
     layout: str = Field(default="pair")  # pair | combined | pair_and_combined | pair_and_pfx
+    # direct = SFTP into remote_dir; stage_sudo = SFTP to home stage + sudo install
+    write_mode: str = Field(default="direct", max_length=32)
     fullchain_filename: str = Field(default="fullchain.pem")
     privkey_filename: str = Field(default="privkey.pem")
     combined_filename: str = Field(default="snakeoil.pem")

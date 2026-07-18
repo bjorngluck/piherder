@@ -280,7 +280,9 @@ async def certificate_detail(
             "servers": servers,
             "edit_target": edit_target,
             "layout_help": cert_svc.LAYOUT_HELP,
+            "write_mode_help": cert_svc.WRITE_MODE_HELP,
             "map_presets": cert_svc.map_presets_for_ui(),
+            "edge_status": cert_svc.edge_caddy_status(),
             "can_mutate": _can_mutate(user),
             "setup_step": setup_step,
             "msg": request.query_params.get("msg") or "",
@@ -344,6 +346,38 @@ async def certificate_replace_pem(
         )
 
 
+@router.post("/certificates/{cert_id}/apply-edge")
+async def certificate_apply_edge(
+    cert_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    force: Optional[str] = Form("on"),
+):
+    """Apply vault PEMs to this PiHerder instance (Caddy ./certs) and reload."""
+    cert = cert_svc.get_certificate(session, cert_id)
+    if not cert:
+        raise HTTPException(404)
+    # UI re-apply always forces rewrite + Caddy reload (skip only via API callers)
+    result = cert_svc.deploy_to_edge_caddy(session, cert_id, force=True)
+    ok = bool(result.get("ok"))
+    _audit(
+        session,
+        user,
+        "cert_edge_apply",
+        details=f"cert={cert_id} ok={ok} skipped={result.get('skipped')}",
+        status="success" if ok else "failed",
+    )
+    if ok and result.get("skipped"):
+        return _redirect(f"/certificates/{cert_id}", msg="edge_skipped")
+    if ok:
+        return _redirect(f"/certificates/{cert_id}", msg="edge_applied")
+    return _redirect(
+        f"/certificates/{cert_id}",
+        error="edge_failed",
+        detail=(result.get("error") or "")[:200],
+    )
+
+
 @router.post("/certificates/{cert_id}/targets")
 async def certificate_add_target(
     cert_id: int,
@@ -353,6 +387,7 @@ async def certificate_add_target(
     label: str = Form(""),
     remote_dir: str = Form("~/certs"),
     layout: str = Form("pair"),
+    write_mode: str = Form("direct"),
     fullchain_filename: str = Form("fullchain.pem"),
     privkey_filename: str = Form("privkey.pem"),
     combined_filename: str = Form("snakeoil.pem"),
@@ -371,6 +406,7 @@ async def certificate_add_target(
             label=label,
             remote_dir=remote_dir,
             layout=layout,
+            write_mode=write_mode,
             fullchain_filename=fullchain_filename,
             privkey_filename=privkey_filename,
             combined_filename=combined_filename,
@@ -407,6 +443,7 @@ async def certificate_edit_target(
     label: str = Form(""),
     remote_dir: str = Form("~/certs"),
     layout: str = Form("pair"),
+    write_mode: str = Form("direct"),
     fullchain_filename: str = Form("fullchain.pem"),
     privkey_filename: str = Form("privkey.pem"),
     combined_filename: str = Form("snakeoil.pem"),
@@ -431,6 +468,7 @@ async def certificate_edit_target(
             label=label,
             remote_dir=remote_dir,
             layout=layout,
+            write_mode=write_mode,
             fullchain_filename=fullchain_filename,
             privkey_filename=privkey_filename,
             combined_filename=combined_filename,
