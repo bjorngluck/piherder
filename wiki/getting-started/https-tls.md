@@ -37,6 +37,8 @@ If the cert is already in **Catalog → Certificates** (NPM pull or Upload PEM):
 
 This is **not** a fleet service map — it only updates this instance’s edge. Fleet maps still deploy to other hosts over SSH.
 
+**Renewal:** after you have applied once successfully, scheduled **NPM auto-renew** (and manual **Renew**) redistributes to fleet maps **and** re-applies to this Caddy edge. Certs never applied here are left alone.
+
 ### Manual place + restart
 
 1. Place PEMs in `certs/` (gitignored):

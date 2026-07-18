@@ -20,7 +20,7 @@ One Let’s Encrypt cert often feeds NPM, UniFi, reverse proxies, and app contai
 Guided path: **Catalog → Certificates → First-cert setup** (`/certificates/setup`).
 
 1. **Get material in** — NPM pull or **Upload PEM**.  
-2. **Optional — this PiHerder instance:** **Apply to this PiHerder** writes PEMs into compose `./certs` and reloads Caddy (no SSH, no map).  
+2. **Optional — this PiHerder instance:** **Apply to this PiHerder** writes PEMs into compose `./certs` and reloads Caddy (no SSH, no map). After one successful apply, **NPM auto-renew / Renew** re-applies here automatically (same pass as fleet map redistribute).  
 3. **Fleet:** open the cert → **Add service map** — preset + **write mode** (direct SFTP or **stage + sudo install** for least-priv).  
 4. **Deploy** that map (or all maps).  
 5. Confirm files on the host and that the app reloaded.  
