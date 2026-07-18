@@ -1,6 +1,6 @@
 # Feature plan — Runtime topology & stack dependencies (H2.5 depth)
 
-**Status:** **P0–P5 shipped** (2026-07-18) — dual altitude live; residual polish + later roadmap below  
+**Status:** **Stream closed for v0.6** (2026-07-18) — P0–P5 + P4b **shipped**; residual → later / **v0.8**  
 **Horizon:** H2.5 · builds on Network maps (v0.5) + Kuma coverage (v0.6 H3)  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § H2.5 · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) § H · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · Wiki [Network maps](../wiki/integrations/dns-fabric.md) · Coverage `/dns/coverage`
 
@@ -264,10 +264,24 @@ TCP/DB monitors require published ports, shared Docker network with Kuma, or hos
 | **P4.5** | **Detailed stack view** | Panel detail expand; map node click → detail | **Done** |
 | **P4b** | **Stack container order** | Operator long-press/drag reorder; persists; drives **column left→right** on map | **Done** |
 | **P5** | Monitor depth | TCP bind in panel; **optional alert** when Kuma-bound container down in inventory | **Done** |
-| **P6** | Richer discovery | nmap H1 remains separate; shared-service catalog polish | later |
-| **Later** | **Configurable columns & links** | Operator-defined map columns, pin roles to columns, explicit edge→column layout (beyond order-driven L→R) | Roadmap |
+| **P6** | Shared-service catalog polish | Catalog of shared DB/redis/services for better cross-host suggest | **Later** (not 0.6) |
+| **Later** | **Configurable columns & links** | Operator-defined map columns, pin roles to columns, explicit edge→column layout (beyond order-driven L→R) | **Later** (not 0.6) |
+| **—** | **LAN discovery (nmap)** | Orthogonal device discovery — not stack deps | **v0.8.0** (PLAN H1) |
 
-**0.6 track:** P0–P5 + P4b shipped in working tree (operator-locked UX).
+### Shipped vs not done (stream close-out)
+
+| Shipped (0.6) | Not done — add later |
+|---------------|----------------------|
+| P0 IA split + Coverage page | User-configurable map columns |
+| P1 side panel stack expand | Link-to-column layout rules |
+| P1b compose graph in inventory | Per-stack layout profiles |
+| P2 suggest edges accept/dismiss | Cross-host manual picker polish (API works; UI still same-project-first) |
+| P3 manual `RuntimeEdge` + backup | Broader Hosts/Path published-port chips |
+| P4/P4.5 map expand + detail | P6 shared-service catalog polish |
+| P4b container order → column L→R | LAN nmap discovery → **v0.8.0** |
+| P5 Kuma-bound container down alerts | |
+
+**0.6 track:** operator-locked dual-altitude UX is **done**. Do not reopen for freeze unless regressions.
 
 ---
 
@@ -333,7 +347,7 @@ TCP/DB monitors require published ports, shared Docker network with Kuma, or hos
 | A | Herder backup includes `RuntimeEdge`? | **Yes** |
 | B | Debounce window for post-deploy enrich | **30–60s** |
 | C | Cross-host auto-suggest confidence threshold | High only for fabric NPM edge→backend; low for “shared DB” heuristics |
-| D | Relation to LAN scan (H1) | **Orthogonal** (devices vs stacks) |
+| D | Relation to LAN scan (H1) | **Orthogonal** (devices vs stacks) — product target **v0.8.0** |
 
 ---
 
@@ -359,14 +373,16 @@ An operator can:
 - Kubernetes topology  
 - Map deep-link chips (Server/Service/Docker) on expand — **panel owns nav**  
 
-## 12b. Later roadmap (not in this ship)
+## 12b. Later roadmap (not in 0.6; add when capacity)
 
-| Item | Intent |
-|------|--------|
-| **User-configurable columns** | Operator names/pins columns beyond fixed role groups (edge/app/queue/data) |
-| **Link-to-column rules** | Explicit soft/confirmed edge placement between named columns (not only adjacent L→R) |
-| **Per-stack layout profiles** | Save alternate fan layouts per project |
-| **P6 discovery** | Shared-service catalog polish; LAN scan remains H1 orthogonal |
+| Item | Intent | Target |
+|------|--------|--------|
+| **User-configurable columns** | Operator names/pins columns beyond fixed role groups (edge/app/queue/data) | Later residual |
+| **Link-to-column rules** | Explicit soft/confirmed edge placement between named columns (not only adjacent L→R) | Later residual |
+| **Per-stack layout profiles** | Save alternate fan layouts per project | Later residual |
+| **Cross-host manual picker polish** | First-class dual-host container picker in panel (backend already multi-host) | Later polish |
+| **P6 shared-service catalog** | Named shared DB/redis services for better suggest confidence | Later |
+| **LAN discovery (nmap-class)** | Opt-in LAN CIDR scan — devices, not stack graph | **v0.8.0** |
 
 ---
 
@@ -400,5 +416,6 @@ An operator can:
 | 2026-07-18 | P4 polish: LTR edge/app/queue/data columns, role colors + type chips; hosts map; soft structure; P4.5 detail |
 | 2026-07-18 | **P4.5** expandable container detail; map node click → detail; **P5** inventory down alerts for Kuma-bound containers |
 | 2026-07-18 | **P4b** stack container order (long-press/drag); map column L→R from order; **data** keeps db+redis; no expand link chips; later: configurable columns / link-to-column |
+| 2026-07-18 | **Stream closed for v0.6** — P0–P5+P4b done; residual column/layout/P6 later; **nmap → v0.8.0** |
 
-**End of plan** — residual polish: cross-host manual picker polish, P6 discovery, configurable columns (later).
+**End of plan** — core dual-altitude product shipped. Residual only: configurable columns, link-to-column, layout profiles, cross-host picker polish, P6 catalog; LAN scan is **v0.8.0**.
