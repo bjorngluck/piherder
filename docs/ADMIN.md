@@ -154,7 +154,7 @@ Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
 `POST /servers/bulk` with `action` + comma-separated `server_ids` (session auth). Ineligible hosts are skipped. Exclusive-job rules still apply per host.
 
-**Planned (post-RC):** per **compose project** Stop all / Start all / Restart all on the host Docker page — [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) phase P1 (not in v0.5.0 freeze).
+**Docker project lifecycle (v0.6 track):** project ⋯ → **Stop all / Start all / Restart all** → confirm → Jobs `docker_stack_stop` / `_start` / `_restart` with live log (shared exclusive lane with stack deploy). Single-container actions stay on the service row.
 
 ### Backups
 

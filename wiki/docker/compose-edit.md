@@ -55,8 +55,9 @@ On the host, Compose still auto-loads override + `.env` in the project directory
 |--------|--------|
 | **Check updates** | Pull / image compare — no `up -d`. Runs as a **Job** (`docker_stack_check`) with live log. |
 | **Deploy** | Pull + `up -d`. Runs as a **Job** (`docker_stack_deploy`) with live log; pending-update badge cleared on success. |
+| **Stop / Start / Restart all** | `docker compose stop\|start\|restart` for the whole project. Jobs `docker_stack_stop` / `_start` / `_restart` with confirm + live log. |
 
-Both actions open the job holding modal (same pattern as OS/container patch). Follow progress under **Jobs** or **Audit** if you leave the page. Only one stack check and one stack deploy run at a time per host.
+Check, Deploy, and whole-project lifecycle open the job holding modal (same pattern as OS/container patch). Follow progress under **Jobs** or **Audit** if you leave the page. Stack **mutations** (deploy, stop, start, restart, template apply) share one exclusive lane per host; stack **check** is exclusive with other checks.
 
 ## New project wizard
 

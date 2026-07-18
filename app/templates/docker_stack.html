@@ -150,38 +150,18 @@
                   data-server-id="{{ server.id }}"
                   data-project-path="{{ proj.path }}"
                   data-action="logs">Logs</button>
-          <form method="post" action="/servers/{{ server.id }}/docker/compose/start" data-sec="start">
+          {# Whole-project lifecycle → Jobs + confirm (H2.75 P1). No service picker. #}
+          <form method="post" action="/servers/{{ server.id }}/docker/compose/start" data-sec="start" data-lifecycle="1">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <input type="hidden" name="service" value="">
-            <button type="submit"
-                    data-sec-btn="start"
-                    data-proj="{{ proj.name }}"
-                    data-services='{{ proj.services | tojson }}'
-                    data-server-id="{{ server.id }}"
-                    data-project-path="{{ proj.path }}"
-                    data-action="start">Start</button>
+            <button type="submit" data-sec-btn="start">Start all services…</button>
           </form>
-          <form method="post" action="/servers/{{ server.id }}/docker/compose/stop" data-sec="stop">
+          <form method="post" action="/servers/{{ server.id }}/docker/compose/stop" data-sec="stop" data-lifecycle="1">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <input type="hidden" name="service" value="">
-            <button type="submit"
-                    data-sec-btn="stop"
-                    data-proj="{{ proj.name }}"
-                    data-services='{{ proj.services | tojson }}'
-                    data-server-id="{{ server.id }}"
-                    data-project-path="{{ proj.path }}"
-                    data-action="stop">Stop</button>
+            <button type="submit" data-sec-btn="stop">Stop all services…</button>
           </form>
-          <form method="post" action="/servers/{{ server.id }}/docker/compose/restart" data-sec="restart">
+          <form method="post" action="/servers/{{ server.id }}/docker/compose/restart" data-sec="restart" data-lifecycle="1">
             <input type="hidden" name="project_path" value="{{ proj.path }}">
-            <input type="hidden" name="service" value="">
-            <button type="submit"
-                    data-sec-btn="restart"
-                    data-proj="{{ proj.name }}"
-                    data-services='{{ proj.services | tojson }}'
-                    data-server-id="{{ server.id }}"
-                    data-project-path="{{ proj.path }}"
-                    data-action="restart">Restart</button>
+            <button type="submit" data-sec-btn="restart">Restart all services…</button>
           </form>
           <form method="post" action="/servers/{{ server.id }}/docker/check-updates" data-sec="check-updates">
             <input type="hidden" name="project_path" value="{{ proj.path }}">

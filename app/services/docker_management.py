@@ -418,23 +418,50 @@ def redeploy_project(server: Server, project_path: str, pull: bool = True) -> Di
 
 
 def compose_action(server: Server, project_path: str, action: str, service: str = None) -> Dict:
-    """stop, start, restart, down (undeploy) for a whole compose project or specific service."""
+    """stop, start, restart, down (undeploy) for a whole compose project or specific service.
+
+    Whole-project stop/start/restart are also driven by Jobs
+    (``docker_stack_stop`` / ``_start`` / ``_restart``) for live logs.
+    """
     valid = ("stop", "start", "restart", "down")
-    if action not in valid:
-        return {"success": False, "error": "bad action"}
+    act = (action or "").strip().lower()
+    if act not in valid:
+        return {"success": False, "error": "bad action", "action": act, "output": ""}
+
+    path = (project_path or "").strip()
+    if not path:
+        return {
+            "success": False,
+            "error": "empty project_path",
+            "action": act,
+            "output": "",
+        }
+
+    qpath = shlex.quote(path)
+    cmd = f"cd {qpath} && docker compose {act}"
+    svc = (service or "").strip() or None
+    if svc:
+        cmd += f" {shlex.quote(svc)}"
+    cmd += " 2>&1"
 
     client = get_ssh_client(server)
-    cmd = f"cd {project_path} && docker compose {action}"
-    if service:
-        cmd += f" {service}"
-    status, out, err = run_command(client, cmd, timeout=120)
-    client.close()
-
-    return {
-        "success": status == 0,
-        "action": action,
-        "service": service,
-    }
+    try:
+        status, out, err = run_command(client, cmd, timeout=180)
+        output = ((out or "") + (err or "")).strip()
+        return {
+            "success": status == 0,
+            "action": act,
+            "service": svc,
+            "project_path": path,
+            "status": status,
+            "output": output[-2000:] if output else "",
+            "error": None if status == 0 else (output[:300] or f"compose {act} failed (rc={status})"),
+        }
+    finally:
+        try:
+            client.close()
+        except Exception:
+            pass
 
 
 def build_compose_services(server: Server, project_path: str, services: List[str] = None, no_cache: bool = False) -> Dict:

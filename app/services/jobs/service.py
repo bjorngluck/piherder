@@ -59,6 +59,9 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
         "container_update_check",
         "docker_stack_check",
         "docker_stack_deploy",
+        "docker_stack_stop",
+        "docker_stack_start",
+        "docker_stack_restart",
         "template_deploy",
         "template_redeploy",
     }
@@ -68,9 +71,18 @@ _EXCLUSIVE_JOB_TYPES = frozenset(
 _STACK_MUTATING_JOB_TYPES = frozenset(
     {
         "docker_stack_deploy",
+        "docker_stack_stop",
+        "docker_stack_start",
+        "docker_stack_restart",
         "template_deploy",
         "template_redeploy",
     }
+)
+
+# Whole-project lifecycle: compose stop / start / restart (no pull/up)
+_STACK_LIFECYCLE_ACTIONS = frozenset({"stop", "start", "restart"})
+_STACK_LIFECYCLE_JOB_TYPES = frozenset(
+    {f"docker_stack_{a}" for a in _STACK_LIFECYCLE_ACTIONS}
 )
 
 
@@ -241,6 +253,9 @@ JOB_TYPE_LABELS = {
     "container_update_check": "Image check",
     "docker_stack_check": "Stack check",
     "docker_stack_deploy": "Stack deploy",
+    "docker_stack_stop": "Stack stop",
+    "docker_stack_start": "Stack start",
+    "docker_stack_restart": "Stack restart",
     "template_deploy": "Template deploy",
     "template_redeploy": "Template redeploy",
     "retention": "Retention",
@@ -692,6 +707,9 @@ def create_job_and_run(
             "container_update_check": "Container update check queued…",
             "docker_stack_check": "Stack update check queued…",
             "docker_stack_deploy": "Stack deploy queued…",
+            "docker_stack_stop": "Stack stop queued…",
+            "docker_stack_start": "Stack start queued…",
+            "docker_stack_restart": "Stack restart queued…",
         }
         job.details = _initial_job_details(
             labels.get(job_type, f"{job_type} queued…"),
@@ -788,6 +806,17 @@ def create_job_and_run(
         project_path = (source_filter or "").strip()
         background_tasks.add_task(
             _run_docker_stack_deploy_job, job.id, server.id, audit.id, project_path, True
+        )
+    elif job_type in _STACK_LIFECYCLE_JOB_TYPES:
+        project_path = (source_filter or "").strip()
+        action = job_type.replace("docker_stack_", "", 1)
+        background_tasks.add_task(
+            _run_docker_stack_lifecycle_job,
+            job.id,
+            server.id,
+            audit.id,
+            project_path,
+            action,
         )
     elif job_type == "retention":
         background_tasks.add_task(_run_retention_job, job.id, server.id, audit.id)
@@ -1019,6 +1048,13 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
             return f"{proj}: deploy ok"
         err = data.get("error") or status
         return f"{proj}: deploy failed — {err}"[:200]
+    if job_type in _STACK_LIFECYCLE_JOB_TYPES and isinstance(data, dict):
+        proj = data.get("project") or data.get("project_path") or "stack"
+        act = data.get("action") or job_type.replace("docker_stack_", "", 1)
+        if data.get("success") or status == "success":
+            return f"{proj}: {act} ok"
+        err = data.get("error") or status
+        return f"{proj}: {act} failed — {err}"[:200]
     if job_type in ("template_deploy", "template_redeploy") and isinstance(data, dict):
         proj = data.get("project_name") or data.get("project") or "template"
         slug = data.get("template_slug") or ""
@@ -2269,6 +2305,168 @@ async def _run_docker_stack_deploy_job(
 ):
     await run_in_threadpool(
         _execute_docker_stack_deploy, job_id, server_id, audit_id, project_path, pull
+    )
+
+
+def enqueue_docker_stack_lifecycle(
+    server_id: int,
+    project_path: str,
+    action: str,
+    *,
+    user_id: int | None = None,
+    background_tasks: BackgroundTasks | None = None,
+) -> Job:
+    """Queue compose stop / start / restart for a whole project (H2.75 P1).
+
+    Raises JobAlreadyActive if another stack mutation is pending/running on this host.
+    """
+    act = (action or "").strip().lower()
+    if act not in _STACK_LIFECYCLE_ACTIONS:
+        raise ValueError(f"invalid lifecycle action: {action!r}")
+    path = (project_path or "").strip()
+    if not path:
+        raise ValueError("project_path required")
+    job_type = f"docker_stack_{act}"
+    with _get_fresh_session() as session:
+        server = session.get(Server, server_id)
+        if not server:
+            raise ValueError("server not found")
+        active = _active_docker_stack_job(session, server_id, job_type, path)
+        if not active:
+            active = _active_stack_mutating_job(session, server_id)
+        if active:
+            logger.info(
+                f"[Jobs] {job_type} skip — job #{active.id} already active "
+                f"for server {server_id}"
+            )
+            session.expunge(active)
+            raise JobAlreadyActive(active)
+        proj = _project_basename(path)
+        job, audit = _create_queued_job_with_audit(
+            session,
+            server_id=server.id,
+            job_type=job_type,
+            queue_message=f"Stack {act} queued for {proj}…",
+            user_id=user_id,
+            audit_details=f"Job #{{job_id}} · {act} all services · {proj}",
+            project_path=path,
+            project=proj,
+            action=act,
+        )
+        jid, aid, sid = job.id, audit.id, server.id
+    if background_tasks is not None:
+        background_tasks.add_task(
+            _run_docker_stack_lifecycle_job, jid, sid, aid, path, act
+        )
+    else:
+        _update_check_pool.submit(
+            _execute_docker_stack_lifecycle, jid, sid, aid, path, act
+        )
+    with _get_fresh_session() as session:
+        job = session.get(Job, jid)
+        if job:
+            session.expunge(job)
+        return job
+
+
+def _execute_docker_stack_lifecycle(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    project_path: str,
+    action: str,
+) -> None:
+    from .. import docker_management as docker_svc
+    from .. import docker_inventory as inventory_svc
+
+    act = (action or "").strip().lower()
+    job_type = f"docker_stack_{act}"
+    server, hostname = _load_server_for_job(server_id)
+    path = (project_path or "").strip()
+    proj = _project_basename(path)
+    with _get_fresh_session() as session:
+        job = session.get(Job, job_id)
+        if job:
+            job.status = "running"
+            job.started_at = datetime.utcnow()
+            _merge_job_details(
+                job,
+                current=act,
+                log_line=f"docker compose {act} for {proj}…",
+                done=False,
+            )
+            session.add(job)
+            session.commit()
+    if not server:
+        _finish(audit_id, job_id, "failed", "Server not found", hostname, job_type)
+        return
+    try:
+        _flush_job_progress(
+            job_id,
+            act,
+            f"Running docker compose {act} in {path}…",
+            default_current=act,
+        )
+        result = docker_svc.compose_action(server, path, act, service=None) or {}
+        _append_output_log_lines(job_id, act, result.get("output") or "")
+        ok = bool(result.get("success"))
+        if ok:
+            try:
+                with _get_fresh_session() as s:
+                    srv = s.get(Server, server_id)
+                    if srv:
+                        inventory_svc.invalidate_after_mutation(s, srv, None)
+            except Exception as inv_e:
+                logger.debug("inventory invalidate after stack %s: %s", act, inv_e)
+        payload = {
+            "project": proj,
+            "project_path": path,
+            "action": act,
+            "success": ok,
+            "error": result.get("error"),
+            "output": (result.get("output") or "")[:1500],
+        }
+        status = "success" if ok else "failed"
+        _flush_job_progress(
+            job_id,
+            "done" if ok else "error",
+            f"{act} {'ok' if ok else 'failed'}",
+            default_current=act,
+        )
+        _finish(audit_id, job_id, status, json.dumps(payload), hostname, job_type)
+    except Exception as e:
+        logger.exception("docker_stack_%s failed", act)
+        _finish(
+            audit_id,
+            job_id,
+            "failed",
+            json.dumps(
+                {
+                    "project": proj,
+                    "project_path": path,
+                    "action": act,
+                    "error": str(e),
+                }
+            ),
+            hostname,
+            job_type,
+        )
+
+
+async def _run_docker_stack_lifecycle_job(
+    job_id: int,
+    server_id: int,
+    audit_id: int,
+    project_path: str,
+    action: str,
+):
+    await run_in_threadpool(
+        _execute_docker_stack_lifecycle,
+        job_id,
+        server_id,
+        audit_id,
+        project_path,
+        action,
     )
 
 

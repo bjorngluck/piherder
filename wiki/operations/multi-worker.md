@@ -48,6 +48,7 @@ OS patch, container patch, and OS/container **update checks** run on the **web**
 | `backup` | Celery | Many hosts in parallel; **one backup per host** (Redis mutex) |
 | `os_patch` / `container_patch` | Web process | **One active job of that type per host** (DB exclusive) |
 | `os_update_check` / `container_update_check` | Web process | **One active check of that type per host** |
-| `docker_stack_check` / `docker_stack_deploy` | Web process | **One active stack job of that type per host** |
+| `docker_stack_check` | Web process | **One active stack check per host** |
+| `docker_stack_deploy` / `docker_stack_stop` / `_start` / `_restart` / template deploy | Web process | **One active stack mutation per host** (shared lane) |
 
 Raising `CELERY_CONCURRENCY` or adding Celery nodes does **not** cause a single container patch to run twice. Double-triggers from the UI or bulk queue attach to the existing job instead (HTTP **409** on the API).

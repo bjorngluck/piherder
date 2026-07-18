@@ -1,6 +1,6 @@
 # Feature plan — Host lifecycle & operator console (H2.75)
 
-**Status:** Design agreed 2026-07-17 · **v0.6.0 RC2** pulls P2 (must) + optional P1  
+**Status:** Design agreed 2026-07-17 · **P1 Docker bulk shipped** (2026-07-18) · **v0.6.0** still pulls P2 wizard (must)  
 **Horizon:** H2.75 · ship slices via [PLAN_v0.6.0.md](PLAN_v0.6.0.md); P3–P5 post-0.6  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § [Horizon 2.75](ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · Wiki [Docker](../wiki/docker/overview.md) · [Add server](../wiki/day-to-day/add-server.md)
 
@@ -39,7 +39,7 @@ Deepen **day-to-day host operations** and **first-time host bring-up** without c
 
 | Phase | Name | Target | Status |
 |-------|------|--------|--------|
-| **P1** | Docker project bulk control | 0.6.0 nice-to-have | Planned |
+| **P1** | Docker project bulk control | 0.6.0 nice-to-have | **Done** (2026-07-18) |
 | **P2** | Add-host wizard | **0.6.0 must** | Planned |
 | **P3** | Host stats + healthcheck + allowlisted commands | post-0.6 | Planned |
 | **P4** | Bootstrap scripts + hostname + DNS handoff | 0.6 stretch / post-0.6 | Planned |
@@ -103,13 +103,15 @@ Confirm modal
 
 ### Acceptance criteria (P1)
 
-- [ ] Project ⋯ offers Stop all / Start all / Restart all when Docker feature on  
-- [ ] Confirm lists project name + host; destructive-sounding actions use accent/danger styling for stop  
-- [ ] Runs as Job with live log; success/fail updates Jobs + Audit  
-- [ ] Second concurrent stack mutation on same host reuses or 409s (no double compose)  
-- [ ] Viewer cannot invoke  
-- [ ] Wiki [Docker overview](../wiki/docker/overview.md) + [operator scenarios](../wiki/getting-started/operator-scenarios.md) updated  
-- [ ] pytest: route RBAC + job enqueue mock; optional SSH integration test if pattern exists  
+- [x] Project ⋯ offers Stop all / Start all / Restart all when Docker feature on  
+- [x] Confirm lists project name; **Stop** uses danger styling  
+- [x] Runs as Job with live log; success/fail updates Jobs + Audit (`docker_stack_stop` / `_start` / `_restart`)  
+- [x] Second concurrent stack mutation on same host → `JobAlreadyActive` / HTTP 409 attach  
+- [x] Viewer cannot invoke (operator+ on bulk lifecycle path)  
+- [x] Wiki [Docker overview](../wiki/docker/overview.md) + compose-edit updated  
+- [x] pytest: `tests/test_docker_stack_lifecycle.py` (compose_action + enqueue exclusive + execute)  
+
+**Shipped paths:** `enqueue_docker_stack_lifecycle` · `POST /servers/{id}/docker/compose/{stop|start|restart}` (empty service) · project ⋯ menu + lifecycle confirm + JobHold.
 
 ### File map (expected)
 
