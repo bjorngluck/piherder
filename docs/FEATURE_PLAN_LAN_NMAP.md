@@ -1,10 +1,20 @@
 # Feature plan — LAN discovery (nmap)
 
-**Status:** **Draft skeleton** (opened 2026-07-19 with v0.8.0 RC3)  
+**Status:** **Approved** (2026-07-19) — implementation in progress  
 **Ship target:** **v0.8.0** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) stream **N**  
-**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) (H1 pointer) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) (promote / onboard) · [ADMIN.md](ADMIN.md) · [SPEC.md](../SPEC.md)
+**Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ADMIN.md](ADMIN.md) · [SPEC.md](../SPEC.md)
 
 This document owns **product + technical design** for LAN discovery. The cycle plan owns ship bar and sequencing only.
+
+### Locked packaging (2026-07-19)
+
+| Decision | Value |
+|----------|--------|
+| Runtime | **Separate worker container** `celery-worker-nmap` (compose profile `nmap`, opt-in) |
+| Image | **Dedicated image target** (Dockerfile multi-target / `Dockerfile.nmap`) — same app code; main web/celery stay nmap-free |
+| Vuln / Vulners data | **Host volume mount** for downloaded artefacts; supports **full Vulners-style scans** when pack present |
+| Default ship | No nmap worker, **no** vuln DB blobs in images |
+| Queue | Celery queue `nmap`, concurrency **1** default |
 
 ---
 
@@ -14,154 +24,309 @@ Operators manage a known fleet in PiHerder but do not see the broader LAN withou
 
 ---
 
-## 2. Product principles (locked leans — 2026-07-19)
+## 2. Product principles (locked)
 
 | Principle | Decision |
 |-----------|----------|
 | Opt-in only | No silent full-net scans; operator configures CIDR(s) and triggers (manual + optional schedule) |
 | **Auto-create discovery records** | Scan results **persist as first-class discovered devices** — not a transient job log only |
-| **Nmap network view** | Dedicated UI to see the discovered network (map/graph or equivalent), not only a flat table |
-| **Manual onboarding where appropriate** | Discovery ≠ managed server. Promote / link / wizard / existing server flows stay **operator-driven** |
-| Audit + safety | Preview / confirm where destructive or wide-blast; rate limits; no automatic privilege escalation |
+| **Nmap network view** | Dedicated UI (map/graph or subnet layout), not only a flat table |
+| **Manual onboarding where appropriate** | Discovery ≠ managed server. Promote / link / wizard stay **operator-driven** |
+| Audit + safety | Preview / confirm where wide-blast; rate limits; no automatic privilege escalation |
 | Orthogonal to stack topology | Device discovery is not `RuntimeEdge` / compose deps — may later *display* near fabric |
+| Web never scans | HTTP only enqueues; **Celery nmap worker** runs nmap |
+| Vuln pack opt-in | **Vulners** / NSE data on **mapped volume**; never baked into default image |
 
-### Explicit non-goals (0.8 unless reopened)
+### Explicit non-goals (0.8)
 
 - Replacing Uptime Kuma or inventing a full NMS  
 - Wireless site survey / RF tooling  
 - Agent install from discovery alone  
 - Silent auto-enroll as full managed **Server** rows with SSH/backups enabled  
-- Live nmap of real networks in GitHub Actions (fixtures / mock XML only)
+- DoS/flood or brute-force NSE as product actions  
+- Live nmap of real networks in GitHub Actions (fixtures / mock XML only)  
+- Shipping full vuln DB in any default image layer  
+- Full Zenmap / Scanopy embed  
 
 ---
 
 ## 3. Mental model
 
 ```text
-  CIDR(s) ──► Discover job ──► Auto-create/update DiscoveryDevice
-                                      │
-                                      ▼
-                              Network view + list
-                                      │
-                    ┌─────────────────┼─────────────────┐
-                    ▼                 ▼                 ▼
-                 Ignore          Link existing     Promote / wizard
-                 (dismiss)       Server row        → managed Server
-                                                    (manual, audited)
+  CIDR(s) + schedules ──► Job (web enqueue) ──► Redis broker
+                                                    │
+                                                    ▼
+                                          celery-worker-nmap (-Q nmap)
+                                                    │
+                              ┌─────────────────────┼─────────────────────┐
+                              ▼                     ▼                     ▼
+                     nmap -oX parse          vuln volume            progress keys
+                              │              (Vulners pack)           (Redis)
+                              ▼
+                    Auto-create/update NmapDevice + ports + scripts
+                              │
+                              ▼
+                      Network view + device list
+                              │
+            ┌─────────────────┼─────────────────┐
+            ▼                 ▼                 ▼
+         Ignore          Link existing     Promote / wizard
+         (dismiss)       Server row        → managed Server
+                                            (manual, audited)
 ```
 
-| Entity (working names — TBD) | Meaning |
-|------------------------------|---------|
-| **Scan target / LAN profile** | Named CIDR(s), schedule, last run, policy |
-| **Discovery device** | Auto-created host/device from scan (IP, hostname, ports snapshot, state) |
-| **Link** | Optional FK / relation to an existing PiHerder `Server` (or fabric node later) |
-| **Promote** | Operator starts manual onboard (wizard / add-server) prefilled from discovery — does not silently enable SSH jobs |
+| Entity | Meaning |
+|--------|---------|
+| **Integration type `nmap`** | Catalog entry: enablement, CIDRs, excludes, vuln flags |
+| **Scan schedule** | Named intensity + cron/interval + scope (multiple allowed) |
+| **Scan run** | One execution; linked to `Job`; summary + artifact path |
+| **Discovery device** | Auto-created host (IP, hostname, MAC, ports, state) |
+| **Link** | Optional FK to existing PiHerder `Server` |
+| **Promote** | Operator starts wizard / add-server prefilled — no silent SSH enable |
 
 ---
 
-## 4. UX sketch (indicative)
+## 4. Nmap capability map
 
-| Surface | Intent |
-|---------|--------|
-| Settings / Network → Discovery | Enable opt-in, edit CIDR(s), schedule, last job status, security copy |
-| **Network view** | Primary spatial or structured view of discovered devices vs known servers |
-| Device detail | Ports snapshot, history, link/promote/dismiss actions |
-| Jobs | Discover runs as normal audited jobs with progress/log |
-| Servers / wizard | Prefill from discovery when promoting; advanced form still available |
+Source themes: [Recorded Future — top Nmap commands](https://www.recordedfuture.com/threat-intelligence-101/tools-and-techniques/nmap-commands).
 
-Capture policy for screenshots: same as wiki pack (light theme, desktop default) once UI exists.
+| # | Capability | Typical flags | Product use |
+|---|------------|---------------|-------------|
+| 1 | Single host | `nmap <ip>` | On-demand device scan |
+| 2 | Host discovery | `-sn` on CIDR | **Discovery** schedule |
+| 3 | Full / large port range | `-p-` | **Detailed** + per-IP deep |
+| 4 | Specific ports | `-p 80,443` | Presets |
+| 5 | CIDR / ranges | `192.168.1.0/24` | LAN profiles (primary) |
+| 6 | Top ports | `--top-ports N` | **Inventory** schedule |
+| 7 | Target list | `-iL` | Worker-built target files |
+| 8 | Structured out | **`-oX`** | Parse → DB |
+| 9 | Skip reverse DNS | `-n` | Fast LAN option |
+| 10 | Aggressive | `-A -T4` | **Detailed** (expensive) |
+| 11 | Service/version | `-sV` | Inventory / detailed / deep |
+| 12 | TCP / UDP | `-sS`/`-sT`, `-sU` | TCP default; UDP opt-in |
+| 13 | Vuln + **Vulners** | `--script vuln` / vulners + **volume DB** | Deep / on-demand if pack ready |
+| 14–16 | Flood / brute / malware external | — | **Out** |
 
----
+### Intensity ladder
 
-## 5. Runtime / packaging — **open (decide here)**
-
-| Option | Pros | Cons |
-|--------|------|------|
-| **A. nmap in main/worker image** | Simple compose; one binary path | Larger image; CAP/net requirements on worker |
-| **B. Separate nmap container** | Isolate privileges & deps; smaller app image | Extra service; IPC/result handoff design |
-| **C. Hybrid** | Worker orchestrates; sidecar executes scan | More moving parts |
-
-**Current lean:** **maybe B (separate container)** — not locked. Flesh:
-
-- [ ] Compose service shape and capabilities (`NET_RAW` / `NET_ADMIN` needs?)  
-- [ ] How job worker invokes scan and ingests results (volume, HTTP, CLI exec?)  
-- [ ] Offline / air-gap: image still ships or documents external nmap  
-- [ ] Document blast radius in ADMIN / wiki  
-
-Do **not** block data model + UI design on this decision, but lock before freeze.
-
----
-
-## 6. Data & lifecycle (to flesh)
-
-| Topic | Default lean | Notes |
-|-------|--------------|-------|
-| Port inventory retention | Bounded TTL + **latest snapshot** | Avoid unbounded history |
-| Re-scan upsert | Update existing device by key (IP? MAC? hostname?) | Key strategy TBD |
-| Stale devices | Mark unseen after N scans; optional purge | Operator policy? |
-| Auto-create | **Yes** for discovery entities | Schema + states: `new` / `linked` / `ignored` / … |
-| Auto-create **Server** | **No** | Manual promote/onboard only |
-| Multi-CIDR | Supported | Overlap handling TBD |
-| IPv6 | Decide 0.8 vs later | Prefer explicit out if hard |
+| Profile | Intent | Default cadence | Typical shape |
+|---------|--------|-----------------|---------------|
+| **Discovery** | Who is alive | Every few hours / daily | `-sn` (+ light ports if ping blocked) |
+| **Inventory** | Ports + services | Daily | `--top-ports 100` + `-sV` |
+| **Detailed** | Broad map + OS/service | Weekly | large/`-p-` + `-sV` (+ `-O` if caps) |
+| **Deep (on-demand)** | Single-IP full audit | Manual only | Full ports + `-sV` + optional Vulners if pack on |
 
 ---
 
-## 7. Security & ops
+## 5. Architecture
 
-- Opt-in language in UI + ADMIN: scanning is active recon on **your** LAN.  
-- Audit: who ran discover, which CIDRs, result counts, promote/link/dismiss.  
-- No automatic elevation of credentials; discovery never stores SSH secrets.  
-- Rate limits / concurrent scan caps so schedules cannot flood the network.  
-- CI never needs a real network — parse fixtures only.
+### 5.1 Hard rules
+
+| Rule | Why |
+|------|-----|
+| **Web never runs nmap** | Same as backup/patch |
+| **Celery executes scans** | Job + progress + cancel |
+| **Results in PostgreSQL** | Devices, ports, runs, vulns |
+| **Redis for runtime** | Broker, locks, progress, optional view cache |
+| **Separate nmap worker** | Privileges + binary + vuln volume isolated |
+
+### 5.2 Deploy shape (**locked**)
+
+```text
+  web (default image) ──enqueue──► Redis ──► celery-worker-nmap (profile nmap)
+                                                   │
+                                                   ├── volume: vuln artefacts (Vulners)
+                                                   ├── DATA_ROOT: scan XML artefacts
+                                                   ▼
+                                              PostgreSQL
+```
+
+**Compose lean:**
+
+```yaml
+# illustrative
+celery-worker-nmap:
+  profiles: ["nmap"]
+  image: ${PIHERDER_NMAP_IMAGE:-piherder:nmap-local}
+  # build: Dockerfile target `nmap` or Dockerfile.nmap
+  command: celery -A app.celery_app.celery worker -Q nmap --concurrency=1 ...
+  volumes:
+    - ${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}:/var/lib/piherder/nmap-vuln
+    - ./piherder_data:/data
+```
+
+- Default `docker compose up` does **not** start nmap worker.  
+- UI shows **scanner offline** without worker heartbeat.  
+- Vuln volume empty until operator (or “Update vulnerability database” job) downloads pack.  
+- Deep Vulners gated on: flag **and** pack presence.
+
+**Image:** one repo, dedicated target with `nmap` installed; **do not** bake Vulners JSON/CVE DBs into layers.
+
+### 5.3 Job flow
+
+1. Operator or APScheduler enqueues.  
+2. Create `Job` (`nmap_discover` / `nmap_inventory` / `nmap_detailed` / `nmap_host_deep` / `nmap_vuln_db_update`).  
+3. `apply_async(..., queue="nmap")`.  
+4. Task: Redis lock → progress → nmap → parse XML → upsert DB → finish.  
+5. UI: Jobs page / HTMX (existing patterns).  
+6. Cancel: revoke + kill nmap child when safe.
+
+### 5.4 Redis keys (illustrative)
+
+| Key | Role |
+|-----|------|
+| `piherder:nmap:lock:cidr:{hash}` | Overlapping LAN sweeps |
+| `piherder:nmap:lock:host:{ip}` | Per-IP deep serialize |
+| `piherder:nmap:progress:{job_id}` | Phase / percent |
+| `piherder:nmap:worker:heartbeat` | Scanner online chip |
+| `piherder:nmap:view:snapshot` | Optional short-TTL view JSON |
 
 ---
 
-## 8. Acceptance (aligned with PLAN_v0.8.0)
+## 6. UX surfaces
 
-- [ ] Configure LAN CIDR(s); run discover job (manual; schedule optional)  
-- [ ] Results **auto-create** discovery records  
-- [ ] **Network view** + list (address / hostname / open ports bounded)  
-- [ ] Manual promote/link or dismiss; audit trail  
-- [ ] Chosen deploy model documented (image vs separate container)  
+| Surface | Content |
+|---------|---------|
+| Integrations → **LAN Discovery** | Enable, worker status, vuln pack status, CIDRs |
+| Schedules | Multiple named schedules (intensity + cron/interval) |
+| Devices | Auto-created hosts; filter new/linked/ignored/stale |
+| **Network view** | Subnet/graph; discovered vs linked servers |
+| Device detail | Ports, services, vulns, link/promote/dismiss, deep scan |
+| Runs / Jobs | History + progress |
+| Later | Server chips, fabric dots, wizard prefill, transition notifications |
+
+Capture policy: light theme, desktop default ([screenshots README](../wiki/assets/screenshots/README.md)).
+
+---
+
+## 7. Scheduling
+
+**Multiple schedules** supported; all **off by default**.
+
+| Example | Intensity | Cadence | Target |
+|---------|-----------|---------|--------|
+| `lan-discovery` | Discovery | 6h / daily | All CIDRs |
+| `lan-inventory` | Inventory | Daily | CIDR / live hosts |
+| `lan-detailed` | Detailed | Weekly | CIDR / known devices |
+| Deep vuln | Deep | **Manual only** | Single IP |
+
+**On-demand:** scan network now; scan this device (full ports / services / optional vuln); rescan selection.
+
+Guardrails: max concurrent LAN-wide = 1; skip if previous running; audit schedule changes; targets must be inside configured CIDR allowlist.
+
+---
+
+## 8. Data model (draft)
+
+| Entity | Purpose |
+|--------|---------|
+| `Integration` type `nmap` | Enablement + `config_json` (CIDRs, excludes, flags) |
+| `NmapScanSchedule` | name, intensity, cron/interval, enabled, scope |
+| `NmapScanRun` | job_id, schedule_id?, intensity, targets, summary, artifact path |
+| `NmapDevice` | auto-created; IP/hostname/MAC; state; linked `server_id` |
+| Ports / services | Latest snapshot (bounded) |
+| `NmapScriptResult` | NSE / Vulners output, optional CVE ids |
+| Artifacts | XML under `DATA_ROOT/nmap/…` + retention |
+
+**Identity:** MAC when present; else IP + merge UI for DHCP churn.  
+**Retention:** latest ports per device + last N run summaries; raw XML TTL configurable.
+
+---
+
+## 9. Network view
+
+| External tool | Fit |
+|---------------|-----|
+| Zenmap Topology | Inspiration only (not embeddable) |
+| Scanopy | Reference; do not vendor |
+| Netdisco | Different domain (SNMP) |
+
+**0.8 MVP:** in-house subnet/group or simple graph from Postgres (optional Redis snapshot). Node types: discovered, linked server, ignored. Click → device detail.
+
+---
+
+## 10. Security & ops
+
+- Opt-in copy: active recon on **your** LAN only.  
+- No flood/brute product actions.  
+- Vuln pack off by default; volume-mounted; “Update vuln DB” job on nmap worker.  
+- Document `NET_RAW` / `NET_ADMIN` for SYN/OS; fallback connect-scan.  
+- Refuse targets outside configured scopes.  
+- RBAC: operator+ mutate; viewer read.  
+- Audit: configure, scan, promote, dismiss, vuln-DB update.  
+- CI: fixtures only — no live scan, no Vulners download.
+
+---
+
+## 11. Testing bar (this feature)
+
+Aim for **high unit + E2E coverage** of nmap surfaces (stronger than global ~50% bar for *this* package).
+
+| Layer | Scope |
+|-------|--------|
+| Unit | XML parse, upsert/identity, allowlist, intensity → argv, vuln-pack gate, locks |
+| Job | Enqueue, mocked subprocess success, cancel, lock skip |
+| HTTP | AuthZ, enqueue, list filters |
+| E2E | Devices + network view shells; viewer cannot start scan; stub worker OK |
+| Out of CI | Real interface scan, real Vulners pull |
+
+---
+
+## 12. Implementation phases
+
+| Phase | Deliverable | Status |
+|-------|-------------|--------|
+| **N0** | This plan approved + docs committed | **Done** (this rev) |
+| **N1** | Models + migrations + parse/upsert + fixtures | Next |
+| **N2** | nmap image target + compose profile + vuln volume + queue/tasks | |
+| **N3** | Integration UI: setup, devices, runs, on-demand | |
+| **N4** | Multiple schedules + APScheduler sync | |
+| **N5** | Network view MVP | |
+| **N6** | Per-IP deep + vuln-pack gate + Vulners volume update job | |
+| **N7** | Promote/link/dismiss + audit + wiki/ADMIN + screenshots | |
+| **N8** | Soft embed into existing views (capacity) | |
+| **N9** | Coverage gate + E2E green | |
+
+MVP ship slice: **N1–N5**; N6 strongly desired in 0.8.
+
+---
+
+## 13. Acceptance
+
+- [ ] Configure LAN CIDR(s); run discover/inventory/detailed jobs  
+- [ ] Multiple schedules (e.g. discovery daily, detailed weekly)  
+- [ ] On-demand network + per-IP deep  
+- [ ] Auto-created devices in DB + list + **network view**  
+- [ ] Manual promote/link/dismiss; audit  
+- [ ] Separate nmap worker via compose profile; default compose without it  
+- [ ] Vuln volume mapped; Vulners full scan when pack present + enabled  
 - [ ] Wiki + ADMIN security notes  
-- [ ] Unit tests: parse, upsert/auto-create, link helpers — no live scan in CI  
-- [ ] Screenshots for network view + discovery (stream A)
+- [ ] High unit + E2E coverage; no live scan in CI  
+- [ ] Screenshots for network view + discovery  
 
 ---
 
-## 9. Implementation phases (draft)
+## 14. Open questions
 
-| Phase | Scope | Depends |
-|-------|--------|---------|
-| **N0** | This plan fleshed — model, UX, deploy decision | — |
-| **N1** | Models + migrations + parse/upsert helpers + fixtures | N0 |
-| **N2** | Discover job + engine integration (per deploy choice) | N1 + packaging lean |
-| **N3** | List + device detail + link/dismiss + audit | N1 |
-| **N4** | **Network view** | N3 |
-| **N5** | Promote → wizard / server prefill | N3 + lifecycle |
-| **N6** | Docs + screenshots + optional schedule | N2–N5 |
-
----
-
-## 10. Open questions (resolve in this doc)
-
-| # | Question | Lean |
-|---|----------|------|
-| 1 | Separate nmap container vs in-image? | Maybe separate — **decide before N2** |
-| 2 | Stable device identity (IP / MAC / both)? | TBD |
-| 3 | Network view: map vs grouped subnets vs fabric overlay? | TBD |
-| 4 | Prefill wizard fields from discovery — which? | Hostname, IP, notes; no secrets |
-| 5 | Relationship to DNS fabric “device dots”? | Later / soft |
-| 6 | Schedule default off? | **Yes** — opt-in schedule |
+| # | Topic | Status | Lean |
+|---|-------|--------|------|
+| 1 | Integration type `nmap` | Open | Yes — catalog consistency |
+| 2 | Exact Dockerfile layout | Open | Multi-target or `Dockerfile.nmap` |
+| 3 | SYN vs connect default | Open | SYN if caps; else connect |
+| 4 | IPv6 in 0.8 | Open | Out unless cheap |
+| 5 | Device identity | Open | MAC > IP + merge UI |
+| 6 | Vulners fetch tooling | Open | Volume + update job; exact upstream in N2 |
+| 7 | Deep vuln must for tag? | Open | **Should**; discovery+inventory+detailed+view **must** |
 
 ---
 
-## 11. Changelog
+## 15. Changelog
 
 | Date | Note |
 |------|------|
-| 2026-07-19 | Skeleton opened with v0.8.0 kickoff: auto-create discovery + network view + manual onboard; coverage bar lives in PLAN; deploy model open |
+| 2026-07-19 | Skeleton opened with v0.8.0 kickoff |
+| 2026-07-19 | **Approved:** separate worker, vuln volume for Vulners, intensity ladder, multi-schedule, network view, high test bar |
 
 ---
 
-**End of skeleton** — expand sections 5–7 and lock open questions before heavy implementation.
+**End of plan** — living until freeze; ship narrative in `RELEASE_v0.8.0.md` at tag.
