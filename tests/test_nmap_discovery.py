@@ -222,6 +222,59 @@ def test_upsert_hosts_from_parse_creates_and_updates():
     assert any(d.ip_address == "192.168.1.10" for d in store.values())
 
 
+def test_parse_nmap_config_and_cidrs_textarea():
+    from app.services.nmap import config as nmap_cfg
+
+    assert nmap_cfg.parse_cidrs_textarea("192.168.1.0/24\n# comment\n10.0.0.0/8") == [
+        "192.168.1.0/24",
+        "10.0.0.0/8",
+    ]
+    raw = nmap_cfg.dump_nmap_config(
+        cidrs=["192.168.1.0/24"],
+        excludes=["192.168.1.1/32"],
+        skip_dns=True,
+        vuln_enabled=True,
+    )
+    import json
+
+    data = json.loads(raw)
+    assert data["cidrs"] == ["192.168.1.0/24"]
+    assert data["vuln_enabled"] is True
+
+
+def test_network_view_groups_by_subnet():
+    from app.services.nmap import config as nmap_cfg
+
+    class FakeDev:
+        def __init__(self, ip, state="new"):
+            self.id = hash(ip) % 10000
+            self.ip_address = ip
+            self.hostname = None
+            self.mac_address = None
+            self.state = state
+            self.linked_server_id = None
+            self.os_summary = None
+            self.ports_json = '[{"port":22,"protocol":"tcp","state":"open"}]'
+
+    integ = SimpleNamespace(id=1, config_json='{"cidrs":["192.168.1.0/24"]}')
+    session = MagicMock()
+    with patch.object(
+        nmap_cfg,
+        "list_devices",
+        return_value=[
+            FakeDev("192.168.1.10"),
+            FakeDev("192.168.1.20"),
+            FakeDev("10.0.0.5"),
+            FakeDev("192.168.1.99", state="ignored"),
+        ],
+    ):
+        payload = nmap_cfg.network_view_payload(session, integ)
+    assert payload["device_count"] == 3
+    subnets = {g["subnet"] for g in payload["groups"]}
+    assert "192.168.1.0/24" in subnets
+    assert "10.0.0.0/24" in subnets
+
+
 def test_upsert_skips_ignored():
     host = np.ParsedHost(
         ip_address="192.168.1.50",

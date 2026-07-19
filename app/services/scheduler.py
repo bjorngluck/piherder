@@ -474,13 +474,24 @@ def sync_integrations_poll_schedule(scheduler, HAS_SCHEDULER):
             trigger=IntervalTrigger(seconds=INTEGRATIONS_POLL_INTERVAL_SEC),
             id=INTEGRATIONS_POLL_JOB_ID,
             replace_existing=True,
-            name="Integrations poll (Kuma/Grafana/Pi-hole/NPM)",
+            name="Integrations poll (Kuma/Grafana/Pi-hole/NPM/nmap)",
         )
         logger.info(
             f"[SCHEDULER] Integrations poll every {INTEGRATIONS_POLL_INTERVAL_SEC}s"
         )
     except Exception as e:
         logger.warning(f"[SCHEDULER] Integrations poll schedule failed: {e}")
+
+
+def sync_nmap_schedules(scheduler, HAS_SCHEDULER):
+    """Register opt-in LAN discovery scan schedules (multiple per integration)."""
+    try:
+        from .nmap.schedules import sync_nmap_schedules as _sync
+
+        return _sync(scheduler, HAS_SCHEDULER)
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] nmap schedules sync failed: {e}")
+        return 0
 
 
 CERT_RENEW_JOB_ID = "cert_renew_check"

@@ -169,12 +169,16 @@ def run_nmap_scan(
     )
 
     try:
+        from .config import parse_nmap_config
+
+        cfg = parse_nmap_config(integration)
         argv = build_nmap_argv(
             run.intensity,
             ok_targets,
             output_xml=str(out_path),
-            use_syn=use_syn,
-            vuln_scripts=want_vuln,
+            skip_dns=bool(cfg.get("skip_dns", True)),
+            use_syn=use_syn or bool(cfg.get("use_syn")),
+            vuln_scripts=want_vuln and bool(cfg.get("vuln_enabled")),
         )
         logger.info("nmap argv: %s", " ".join(argv))
         proc = subprocess.run(

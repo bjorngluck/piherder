@@ -770,6 +770,44 @@ def delete_integration(session: Session, integration: Integration) -> None:
     )
     for b in binds:
         session.delete(b)
+    if integration.type == TYPE_NMAP:
+        from ...models import (
+            NmapDevice,
+            NmapScanRun,
+            NmapScanSchedule,
+            NmapScriptResult,
+        )
+
+        devices = list(
+            session.exec(
+                select(NmapDevice).where(NmapDevice.integration_id == integration.id)
+            ).all()
+        )
+        for d in devices:
+            scripts = list(
+                session.exec(
+                    select(NmapScriptResult).where(NmapScriptResult.device_id == d.id)
+                ).all()
+            )
+            for s in scripts:
+                session.delete(s)
+            session.delete(d)
+        runs = list(
+            session.exec(
+                select(NmapScanRun).where(NmapScanRun.integration_id == integration.id)
+            ).all()
+        )
+        for r in runs:
+            session.delete(r)
+        schedules = list(
+            session.exec(
+                select(NmapScanSchedule).where(
+                    NmapScanSchedule.integration_id == integration.id
+                )
+            ).all()
+        )
+        for sch in schedules:
+            session.delete(sch)
     session.delete(integration)
     session.commit()
 

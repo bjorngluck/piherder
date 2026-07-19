@@ -68,6 +68,8 @@ async def integrations_list(
                 else False,
                 "proxy_host_count": st.get("proxy_host_count"),
                 "certificate_count": st.get("certificate_count"),
+                "device_count": st.get("device_count"),
+                "worker_online": st.get("worker_online"),
             }
         )
     # Multi Pi-hole fleet summary
@@ -165,6 +167,7 @@ from . import integrations_kuma as _kuma  # noqa: F401
 from . import integrations_grafana as _grafana  # noqa: F401
 from . import integrations_pihole as _pihole  # noqa: F401
 from . import integrations_npm as _npm  # noqa: F401
+from . import integrations_nmap as _nmap  # noqa: F401
 
 
 @router.get("/integrations/{integration_id}", response_class=HTMLResponse)
@@ -186,6 +189,9 @@ async def integration_detail(
     if integration.type == reg.TYPE_NPM:
         from .integrations_npm import render_npm_detail
         return await render_npm_detail(request, session, user, integration)
+    if integration.type == reg.TYPE_NMAP:
+        from .integrations_nmap import render_nmap_detail
+        return await render_nmap_detail(request, session, user, integration)
     if integration.type == reg.TYPE_UPTIME_KUMA:
         from .integrations_kuma import render_kuma_detail
         return await render_kuma_detail(request, session, user, integration)
@@ -273,6 +279,32 @@ async def integration_edit_form(
                 "detail": request.query_params.get("detail") or "",
             },
         )
+    if integration.type == reg.TYPE_NMAP:
+        from ..services.nmap import config as nmap_cfg
+
+        cfg = nmap_cfg.parse_nmap_config(integration)
+        return templates_mod.templates.TemplateResponse(
+            request=request,
+            name="integrations_nmap_form.html",
+            context={
+                "title": f"Edit {integration.name}",
+                "user": user,
+                "mode": "edit",
+                "integration": integration,
+                "form": {
+                    "name": integration.name,
+                    "cidrs": "\n".join(cfg.get("cidrs") or []),
+                    "excludes": "\n".join(cfg.get("excludes") or []),
+                    "skip_dns": cfg.get("skip_dns", True),
+                    "use_syn": cfg.get("use_syn", False),
+                    "vuln_enabled": cfg.get("vuln_enabled", False),
+                    "notes": cfg.get("notes") or "",
+                    "enabled": integration.enabled,
+                },
+                "error": request.query_params.get("error") or "",
+                "detail": request.query_params.get("detail") or "",
+            },
+        )
     if integration.type != reg.TYPE_UPTIME_KUMA:
         raise HTTPException(404)
     return templates_mod.templates.TemplateResponse(
@@ -305,7 +337,7 @@ async def integration_edit(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     name: str = Form(...),
-    base_url: str = Form(...),
+    base_url: str = Form(""),
     api_key: str = Form(""),
     poll_interval_sec: int = Form(reg.DEFAULT_POLL_INTERVAL_SEC),
     tls_verify: Optional[str] = Form(None),
@@ -320,10 +352,43 @@ async def integration_edit(
     clear_token: Optional[str] = Form(None),
     is_primary: Optional[str] = Form(None),
     identity: str = Form(""),
+    cidrs: str = Form(""),
+    excludes: str = Form(""),
+    skip_dns: Optional[str] = Form(None),
+    use_syn: Optional[str] = Form(None),
+    vuln_enabled: Optional[str] = Form(None),
+    notes: str = Form(""),
 ):
     integration = reg.get_integration(session, integration_id)
     if not integration:
         raise HTTPException(404)
+    if integration.type == reg.TYPE_NMAP:
+        from ..services.nmap import config as nmap_cfg
+
+        try:
+            nmap_cfg.update_nmap(
+                session,
+                integration,
+                name=name,
+                cidrs=nmap_cfg.parse_cidrs_textarea(cidrs),
+                excludes=nmap_cfg.parse_cidrs_textarea(excludes),
+                skip_dns=skip_dns in ("on", "1", "true"),
+                use_syn=use_syn in ("on", "1", "true"),
+                vuln_enabled=vuln_enabled in ("on", "1", "true"),
+                notes=notes,
+                enabled=enabled in ("on", "1", "true") if enabled is not None else True,
+            )
+            nmap_cfg.refresh_status(session, integration)
+            _audit(
+                session, user, "integration_updated", details=f"id={integration_id} nmap"
+            )
+            return _redirect(f"/integrations/{integration_id}", msg="saved")
+        except ValueError as e:
+            return _redirect(
+                f"/integrations/{integration_id}/edit",
+                error="invalid",
+                detail=str(e)[:200],
+            )
     if integration.type == reg.TYPE_PIHOLE:
         try:
             reg.update_pihole(
@@ -474,6 +539,14 @@ async def integration_test(
                 msg="test_ok",
                 detail=f"{n} proxy hosts · {c} certs",
             )
+        if integration.type == reg.TYPE_NMAP:
+            n_cidrs = len(getattr(result, "cidrs", None) or [])
+            online = "worker online" if getattr(result, "worker_online", False) else "worker offline"
+            return _redirect(
+                f"/integrations/{integration_id}",
+                msg="test_ok",
+                detail=f"{online} · {n_cidrs} CIDR(s)",
+            )
         return _redirect(
             f"/integrations/{integration_id}",
             msg="test_ok",
@@ -517,6 +590,12 @@ async def integration_poll(
                 f"/integrations/{integration_id}",
                 msg="polled",
                 detail=f"{summary.get('proxy_host_count', 0)} hosts",
+            )
+        if integration.type == reg.TYPE_NMAP:
+            return _redirect(
+                f"/integrations/{integration_id}",
+                msg="polled",
+                detail=f"{summary.get('device_count', 0)} devices",
             )
         return _redirect(
             f"/integrations/{integration_id}",
