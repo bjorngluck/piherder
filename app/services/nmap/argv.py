@@ -38,6 +38,8 @@ def build_nmap_argv(
     top_ports: int = 100,
     timing: int | None = 4,
     port_list: str | None = None,
+    port_mode: str | None = None,
+    exclude_hosts: Sequence[str] | None = None,
     extra_args: Sequence[str] | None = None,
 ) -> list[str]:
     """Build argv list starting with ``nmap``.
@@ -47,9 +49,13 @@ def build_nmap_argv(
     ``scan._script_args_for_preset`` (appended by the runner).
 
     *timing*: nmap ``-T3``..``-T5`` or None to omit.
-    *port_list*: curated ``-p`` list (digits/commas/hyphens); overrides ``-p-``
-    / top-ports for inventory/detailed/deep when set.
+    *port_mode*: ``top`` | ``all`` | ``list`` (see options.PORT_MODES).
+    *port_list*: curated ``-p`` list when mode is list (or legacy override).
+    *exclude_hosts*: IPs/CIDRs passed as nmap ``--exclude``.
     """
+    from .allowlist import nmap_exclude_args
+    from .options import PORT_MODE_ALL, PORT_MODE_LIST, PORT_MODE_TOP, normalize_port_mode
+
     intensity = (intensity or INTENSITY_DISCOVERY).strip().lower()
     if intensity not in INTENSITIES:
         intensity = INTENSITY_DISCOVERY
@@ -60,6 +66,18 @@ def build_nmap_argv(
 
     scan_flag = "-sS" if use_syn else "-sT"
     ports_override = (port_list or "").strip() or None
+    mode = normalize_port_mode(port_mode, port_list=ports_override)
+    # Legacy: explicit port_list without mode → list
+    if ports_override and not port_mode:
+        mode = PORT_MODE_LIST
+    # detailed/deep historically default to all ports (-p-); only use top when
+    # the operator explicitly picks port_mode=top
+    if (
+        intensity in (INTENSITY_DETAILED, INTENSITY_DEEP)
+        and not port_mode
+        and not ports_override
+    ):
+        mode = PORT_MODE_ALL
 
     if intensity == INTENSITY_DISCOVERY:
         # Host discovery only. On the same L2 (host-network worker) nmap uses ARP
@@ -67,22 +85,33 @@ def build_nmap_argv(
         argv.extend(["-sn", "-PR"])
     elif intensity == INTENSITY_INVENTORY:
         argv.extend([scan_flag, "-sV"])
-        if ports_override:
+        if mode == PORT_MODE_LIST and ports_override:
             argv.extend(["-p", ports_override])
+        elif mode == PORT_MODE_ALL:
+            argv.append("-p-")
         else:
             argv.extend(
                 ["--top-ports", str(max(1, min(1000, int(top_ports or 100))))]
             )
     elif intensity == INTENSITY_DETAILED:
         argv.extend([scan_flag, "-sV"])
-        if ports_override:
+        if mode == PORT_MODE_LIST and ports_override:
             argv.extend(["-p", ports_override])
+        elif mode == PORT_MODE_TOP:
+            argv.extend(
+                ["--top-ports", str(max(1, min(1000, int(top_ports or 100))))]
+            )
         else:
+            # default detailed = all ports
             argv.append("-p-")
     elif intensity == INTENSITY_DEEP:
         argv.extend([scan_flag, "-sV"])
-        if ports_override:
+        if mode == PORT_MODE_LIST and ports_override:
             argv.extend(["-p", ports_override])
+        elif mode == PORT_MODE_TOP:
+            argv.extend(
+                ["--top-ports", str(max(1, min(1000, int(top_ports or 100))))]
+            )
         else:
             argv.append("-p-")
         if vuln_scripts:
@@ -101,6 +130,9 @@ def build_nmap_argv(
     if include_udp and intensity != INTENSITY_DISCOVERY:
         # UDP is expensive — only when explicitly requested
         argv.append("-sU")
+
+    # Host excludes (do not reject whole CIDR targets — nmap skips these hosts)
+    argv.extend(nmap_exclude_args(exclude_hosts))
 
     if extra_args:
         for a in extra_args:

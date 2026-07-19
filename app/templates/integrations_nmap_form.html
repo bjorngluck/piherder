@@ -45,9 +45,36 @@
       <p class="text-[11px] text-muted mt-1">One per line or comma-separated. Scans outside these scopes are refused.</p>
     </div>
     <div>
-      <label class="block text-sm font-medium text-text mb-1" for="excludes">Exclude (optional)</label>
+      <label class="block text-sm font-medium text-text mb-1" for="excludes">Always exclude</label>
       <textarea id="excludes" name="excludes" rows="2" class="input w-full font-mono text-sm"
-                placeholder="192.168.1.1/32">{{ form.excludes }}</textarea>
+                placeholder="192.168.1.1&#10;192.168.1.254/32">{{ form.excludes }}</textarea>
+      <p class="text-[11px] text-muted mt-1">
+        IPs/CIDRs skipped on <strong>every</strong> intensity (discovery included). Passed to nmap as
+        <code class="text-[10px]">--exclude</code> so the rest of the subnet still scans.
+      </p>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="excludes_port_scans">
+        Exclude from port / vuln scans
+      </label>
+      <textarea id="excludes_port_scans" name="excludes_port_scans" rows="2"
+                class="input w-full font-mono text-sm"
+                placeholder="192.168.1.10">{{ form.excludes_port_scans or '' }}</textarea>
+      <p class="text-[11px] text-muted mt-1">
+        Skipped for <strong>inventory</strong>, <strong>detailed</strong>, and <strong>deep</strong>.
+        <strong>Discovery still allowed</strong> (host can appear on the map without port/vuln probing).
+      </p>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="excludes_deep">
+        Exclude from deep only
+      </label>
+      <textarea id="excludes_deep" name="excludes_deep" rows="2"
+                class="input w-full font-mono text-sm"
+                placeholder="192.168.1.50">{{ form.excludes_deep or '' }}</textarea>
+      <p class="text-[11px] text-muted mt-1">
+        Only skipped on <strong>deep</strong> (vuln-capable) scans. Inventory can still map ports.
+      </p>
     </div>
     <label class="flex items-start gap-2 text-sm">
       <input type="checkbox" name="skip_dns" value="on" class="mt-1" {% if form.skip_dns %}checked{% endif %}>

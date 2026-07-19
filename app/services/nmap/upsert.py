@@ -102,6 +102,8 @@ def upsert_hosts_from_parse(
 
         ports_json = _ports_payload(host)
         open_n = len(open_ports(host))
+        # Discovery (-sn) and empty port results must not wipe a prior inventory/deep snapshot
+        has_port_data = bool(host.ports)
 
         if existing is None:
             dev = NmapDevice(
@@ -112,7 +114,7 @@ def upsert_hosts_from_parse(
                 mac_address=mac,
                 state="new",
                 os_summary=host.os_summary,
-                ports_json=ports_json,
+                ports_json=ports_json if has_port_data else None,
                 last_seen_at=now,
                 first_seen_at=now,
                 last_run_id=run_id,
@@ -134,7 +136,8 @@ def upsert_hosts_from_parse(
                 existing.identity_key = key
             if host.os_summary:
                 existing.os_summary = host.os_summary
-            existing.ports_json = ports_json
+            if has_port_data:
+                existing.ports_json = ports_json
             existing.last_seen_at = now
             existing.last_run_id = run_id
             existing.updated_at = now

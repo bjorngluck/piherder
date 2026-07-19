@@ -87,10 +87,12 @@
           {% endfor %}
         </select>
       </div>
-      <div class="flex-1 min-w-[12rem]">
-        <label class="block text-xs text-muted mb-1" for="targets">Targets (blank = all CIDRs)</label>
+      <div class="flex-1 min-w-[14rem]">
+        <label class="block text-xs text-muted mb-1" for="targets">Targets (prefilled from LAN CIDRs)</label>
         <input id="targets" name="targets" type="text" class="input w-full font-mono text-sm"
+               value="{{ default_targets or (cfg.cidrs|join(', ') if cfg and cfg.cidrs else '') }}"
                placeholder="192.168.1.0/24" data-testid="nmap-targets">
+        <p class="text-[10px] text-muted mt-0.5">Edit to narrow; blank on submit still falls back to all configured CIDRs.</p>
       </div>
       <div>
         <label class="block text-xs text-muted mb-1" for="timing">
@@ -104,14 +106,35 @@
           <option value="5">T5 — insane (fastest, more noise/misses)</option>
         </select>
       </div>
-      <div>
-        <label class="block text-xs text-muted mb-1" for="top_ports">Top ports</label>
-        <input id="top_ports" name="top_ports" type="number" min="1" max="1000"
-               value="{{ default_top_ports or 100 }}" class="input min-h-11 w-24 font-mono text-sm"
-               data-testid="nmap-top-ports" title="Inventory intensity">
-      </div>
     </div>
     <div class="flex flex-wrap gap-3 items-end border border-border rounded-lg p-3 bg-surface/40" id="nmap-scan-curated">
+      <div>
+        <label class="block text-xs text-muted mb-1" for="port_mode">Port scope</label>
+        <select id="port_mode" name="port_mode" class="input min-h-11" data-testid="nmap-port-mode"
+                title="Inventory: top N or all ports. Detailed/deep default to all unless you pick top or list.">
+          {% for m in port_modes or ['top','all','list'] %}
+          <option value="{{ m }}" {% if m == 'top' %}selected{% endif %}>
+            {{ (port_mode_labels or {}).get(m, m) }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="text-[10px] text-muted mt-0.5">
+          <strong>Top</strong> = common ports (N). <strong>All</strong> = full 1–65535 (<code class="text-[10px]">-p-</code>).
+          Detailed/deep already use all unless you change this.
+        </p>
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="top_ports">Top N</label>
+        <input id="top_ports" name="top_ports" type="number" min="1" max="1000"
+               value="{{ default_top_ports or 100 }}" class="input min-h-11 w-24 font-mono text-sm"
+               data-testid="nmap-top-ports" title="Used when Port scope = Top ports">
+      </div>
+      <div class="min-w-[10rem] flex-1">
+        <label class="block text-xs text-muted mb-1" for="port_list">Custom ports</label>
+        <input id="port_list" name="port_list" type="text" class="input w-full font-mono text-sm min-h-11"
+               placeholder="22,80,443 or 1-1024" data-testid="nmap-port-list"
+               title="Used when Port scope = Custom list">
+      </div>
       <div class="min-w-[12rem] flex-1">
         <label class="block text-xs text-muted mb-1" for="script_preset">Deep script preset</label>
         <select id="script_preset" name="script_preset" class="input w-full min-h-11"
@@ -125,29 +148,34 @@
         </select>
         <p class="text-[10px] text-muted mt-1">Deep only. Prefer <strong>CPE</strong> or <strong>offline</strong> over full (noisy).</p>
       </div>
-      <div class="min-w-[10rem] flex-1">
-        <label class="block text-xs text-muted mb-1" for="port_list">Ports (optional)</label>
-        <input id="port_list" name="port_list" type="text" class="input w-full font-mono text-sm min-h-11"
-               placeholder="22,80,443 or 1-1024" data-testid="nmap-port-list"
-               title="Curated -p list; blank = profile default">
-      </div>
       <label class="flex items-center gap-2 text-xs text-muted min-h-11">
         <input type="checkbox" name="include_udp" value="on" data-testid="nmap-include-udp">
         Include UDP (-sU)
       </label>
     </div>
+    {% if cfg.excludes or cfg.excludes_port_scans or cfg.excludes_deep %}
+    <p class="text-[11px] text-muted border border-border rounded-lg p-2 bg-surface/30">
+      <strong class="text-text">Configured excludes</strong>
+      {% if cfg.excludes %}· always: <span class="font-mono">{{ cfg.excludes|join(', ') }}</span>{% endif %}
+      {% if cfg.excludes_port_scans %}· port/vuln: <span class="font-mono">{{ cfg.excludes_port_scans|join(', ') }}</span>{% endif %}
+      {% if cfg.excludes_deep %}· deep-only: <span class="font-mono">{{ cfg.excludes_deep|join(', ') }}</span>{% endif %}
+      · <a href="/integrations/{{ integration.id }}/edit" class="text-accent hover:underline">Edit</a>
+    </p>
+    {% endif %}
     <div class="flex flex-wrap gap-2 items-center">
       <button type="submit" class="btn btn-primary min-h-11" data-testid="nmap-queue-scan"
               {% if not worker_online %}title="Worker offline — job will wait on queue"{% endif %}>
         Queue scan
       </button>
       <a href="/jobs?active_only=1" class="btn btn-secondary min-h-11 text-sm">Jobs / live log</a>
+      <a href="/integrations/{{ integration.id }}/edit" class="btn btn-secondary min-h-11 text-sm">CIDRs &amp; excludes</a>
     </div>
     <p class="text-[11px] text-muted">
       Curated options only (no free-form flags). Progress on Jobs.
       <strong class="text-text">Timing (nmap -T)</strong>:
       <strong>T3</strong> slower/safer · <strong>T4</strong> default for lab LANs ·
       <strong>T5</strong> fastest but may miss or overload slow devices.
+      Excludes use nmap <code class="text-[10px]">--exclude</code> (subnet scan continues).
     </p>
   </form>
 </div>
@@ -543,9 +571,17 @@
 {% if not network or not network.groups %}
 <div class="card p-5 text-sm text-muted">No devices to map yet. Run discovery first.</div>
 {% else %}
-<p class="text-xs text-muted mb-3">
-  Hosts grouped by /24 (IPv4). Click a card to open host detail — inventory scans fill port chips.
-</p>
+<div class="card p-3 mb-3 text-xs text-muted space-y-1" data-testid="nmap-ports-source-note">
+  <p class="text-text font-medium text-sm">Open ports on this map</p>
+  <p>
+    {{ network.ports_note or 'Open ports are the latest snapshot per host (inventory / detailed / deep). Not a merge of every historical scan.' }}
+  </p>
+  <p>
+    <strong class="text-text">Discovery</strong> finds hosts only.
+    Run <strong>inventory</strong> (top N or all ports) or <strong>detailed/deep</strong> to fill chips.
+    Discovery re-runs no longer wipe a prior port snapshot.
+  </p>
+</div>
 <div class="space-y-4" id="nmap-map">
   {% for g in network.groups %}
   <section class="nmap-subnet card" data-subnet="{{ g.subnet }}">
@@ -553,7 +589,7 @@
       <div>
         <span class="font-mono text-sm font-semibold text-text">{{ g.subnet }}</span>
         <span class="text-xs text-muted ml-2">{{ g.count }} host{% if g.count != 1 %}s{% endif %}
-          {% if g.open_ports %} · {{ g.open_ports }} open ports{% endif %}
+          {% if g.open_ports %} · {{ g.open_ports }} open ports (latest snapshot){% endif %}
         </span>
       </div>
     </header>
@@ -562,7 +598,7 @@
       <a href="?tab=devices&device={{ n.id }}"
          class="nmap-host-card nmap-host-card--{{ n.state }}"
          data-search="{{ (n.ip ~ ' ' ~ (n.hostname or '') ~ ' ' ~ (n.mac or '') ~ ' ' ~ n.state)|lower }}"
-         title="{{ n.hostname or n.ip }} · {{ n.mac or 'no MAC' }}">
+         title="{{ n.hostname or n.ip }} · {{ n.mac or 'no MAC' }}{% if n.last_run_intensity %} · last run {{ n.last_run_intensity }}{% endif %}">
         <div class="nmap-host-card-top">
           <span class="nmap-host-ip font-mono">{{ n.ip }}</span>
           <span class="nmap-state nmap-state--{{ n.state }}">{{ n.state }}</span>
@@ -573,13 +609,16 @@
         <div class="nmap-port-chips">
           {% if n.services %}
             {% for s in n.services[:5] %}
-            <span class="nmap-port-chip" title="{{ s.product }} {{ s.version }}">{{ s.port }}{% if s.service %}/{{ s.service }}{% endif %}</span>
+            <span class="nmap-port-chip" title="{{ s.product }} {{ s.version }} · latest snapshot">{{ s.port }}{% if s.service %}/{{ s.service }}{% endif %}</span>
             {% endfor %}
             {% if n.ports_open > 5 %}<span class="nmap-port-chip nmap-port-chip--more">+{{ n.ports_open - 5 }}</span>{% endif %}
           {% else %}
-            <span class="text-[10px] text-muted">{% if n.ports_open %}{{ n.ports_open }} open{% else %}no ports yet{% endif %}</span>
+            <span class="text-[10px] text-muted">no ports yet · run inventory</span>
           {% endif %}
         </div>
+        {% if n.last_run_intensity %}
+        <div class="text-[10px] text-muted mt-1">last: {{ n.last_run_intensity }}</div>
+        {% endif %}
       </a>
       {% endfor %}
     </div>
