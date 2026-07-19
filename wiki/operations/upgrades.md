@@ -9,7 +9,7 @@ How to move a running compose install to a newer **git tag or `main`**, pull the
 Upgrades change code *and* schema. A self-backup + unchanged master key is the difference between a smooth pull and an unrecoverable encrypted store.
 
 !!! warning "RC line"
-    Prefer **tagged releases** (`v0.6.0`); treat `main` as moving. See [Home](../index.md#rc1).
+    Prefer **tagged releases** (`v0.7.0`); treat `main` as moving. See [Home](../index.md#rc1).
 
 ```bash
 # Config DR first
@@ -17,11 +17,11 @@ Upgrades change code *and* schema. A self-backup + unchanged master key is the d
 # Also snapshot Postgres volume if you can
 
 git fetch --tags
-git checkout v0.6.0   # or main
+git checkout v0.7.0   # or main
 docker compose pull
 docker compose up -d
 # Alembic runs on web startup
-# optional pin: PIHERDER_IMAGE=bjorngluck/piherder:0.6.0 docker compose up -d
+# optional pin: PIHERDER_IMAGE=bjorngluck/piherder:0.7.0 docker compose up -d
 ```
 
 ## Checklist

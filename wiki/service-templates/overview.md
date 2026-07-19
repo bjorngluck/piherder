@@ -15,7 +15,7 @@ Copy-pasting `docker-compose.yml` across Pis drifts immediately. Templates give 
 - Encrypted secret storage in PiHerder + locked-down host `.env`  
 - Desired state, redeploy, and drift detection after deploy  
 
-**Status:** Foundation **v0.4.0**; ops polish **v0.5.0**; deploy/redeploy as Jobs **v0.6.0** — [RELEASE](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.6.0.md).
+**Status:** Foundation **v0.4.0**; ops polish **v0.5.0**; deploy/redeploy as Jobs **v0.6.0**; drift check as Job **v0.7.0** — [RELEASE_v0.7.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md).
 
 <figure class="ph-figure" markdown>
   ![Templates catalog](../assets/screenshots/templates-catalog.png)

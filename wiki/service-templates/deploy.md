@@ -42,7 +42,7 @@ A one-shot SSH paste is not recoverable after host loss and not comparable for d
 7. Post-deploy **checklist** (manual DNS, first login, …).
 
 !!! note "Availability"
-    Template deploy / redeploy as Jobs with live log requires **v0.6.0+**. **Check drift** as a Job with live log is on the **v0.7.0** track (same JobHold pattern).
+    Template deploy / redeploy as Jobs with live log requires **v0.6.0+**. **Check drift** as a Job with live log requires **v0.7.0+** (same JobHold pattern) — [RELEASE_v0.7.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md).
 
 ## Redeploy & ops (deployment page)
 
