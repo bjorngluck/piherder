@@ -162,12 +162,13 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 |----------|-----|
 | Browse projects / containers / logs | [Docker overview](../docker/overview.md) |
 | Stop / Start / Restart **all** services in a project | [Docker overview — lifecycle](../docker/overview.md#project-lifecycle-stop--start--restart-all) |
+| Split services across compose files (same folder) | [Compose sets](../docker/overview.md#compose-sets-same-folder-one-project-card) · [Compose edit](../docker/compose-edit.md#compose-sets-vs-override) |
+| Runtime stack view groups on the map | [Network — view groups](../integrations/dns-fabric.md#visual-service-stacks--view-groups) |
 | First cert → map / Apply to this PiHerder | [Managed certificates](../integrations/certificates.md) · [Trusted HTTPS](https-tls.md) |
 | Fast open via inventory cache | [Inventory](../docker/inventory.md) |
 | Edit compose, validate, deploy version | [Compose edit](../docker/compose-edit.md) |
 | Stack Check updates vs Deploy | [Updates — Docker](../day-to-day/updates-and-patching.md#docker-check-updates-vs-deploy) |
 | Prune dangling images / exited containers | [Docker overview](../docker/overview.md) |
-| **Planned:** Stop/Start/Restart **all** services in a project | Post-RC — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md) P1 |
 
 ## Service templates
 

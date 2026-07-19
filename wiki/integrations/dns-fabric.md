@@ -128,20 +128,41 @@ Internet (☁) ── WAN ── Router ── LAN ── home hosts (RFC1918 / 
 
 ### Runtime stack (detail altitude)
 
-Maps stay **customer-facing** by default. For **one** focused service (or host project), open the **Stack** panel and/or map **expand** to see containers, roles, Kuma binds, and runtime links.
+Maps stay **customer-facing** by default. For **one** focused service (or host project), open the **Stack** panel and/or map **expand** to see containers, categories, tags, Kuma binds, and runtime links.
 
 | Surface | What you get |
 |---------|----------------|
-| **Stack panel** | Modal/drawer: containers (role, running, Kuma), detail expand, suggested/confirmed edges, accept/dismiss/manual link, **Refresh** inventory, deep links to Server / Service / Docker / maps |
-| **Map expand** | On Path map or Hosts map focus: sideways fan to the right of the path — **not** a fleet-wide container mesh |
+| **Stack panel** | Modal/drawer: containers (category, tags, running, Kuma), **view group** pills, detail expand, suggested/confirmed edges, accept/dismiss/manual link, **Refresh** inventory, deep links to Server / Service / Docker / maps |
+| **Map expand** | On Path map or Hosts map focus: sideways fan to the right of the path — **not** a fleet-wide container mesh. With **All** view groups and 2+ groups populated, one fan per group. |
 
-#### Map expand layout (locked)
+Compose **project** identity is exact (case-insensitive) for annotation storage. Soft substring match (e.g. conflating unrelated project names) is not used.
+
+Summary chips: **depends_on** means inventory parsed compose `depends_on` (feeds suggested links). If suggestions exist, the chip jumps to **Suggested links** in the panel — it is not a separate page.
+
+#### Labels (category + tags)
+
+| Label | Rules |
+|-------|--------|
+| **Category** | One per container; drives **map columns**. Fixed list (edge, app, queue, cache, data, tooling, …). Default = heuristic from name/image; override in panel detail → **Save labels**. |
+| **Tags** | Multi chips from a fixed list (web, db, worker, proxy, test, …). Not free text. Add new entries via `POST /dns/vocab` (operator). |
+
+#### Visual service stacks and view groups {#visual-service-stacks--view-groups}
+
+Under **one compose project**, create **view groups** (e.g. **Main** vs a custom group) and **move** containers between them. Deploy / stop / start still act on the **whole compose project** (or a [compose set](../docker/overview.md#compose-sets-same-folder-one-project-card) on the Docker page) — view groups are **presentation only**.
+
+Panel pills: **All** · **Main** (unassigned) · (your groups). Compact segmented control styling. Map expand respects the same filter; **All** draws multiple fans when more than one group has members.
+
+**Main** = containers with no view-group assignment. Assigning every container to a named group leaves Main empty (expected).
+
+**vs Docker compose sets:** compose sets = files on disk under one folder. View groups = labels for how you look at containers on Network maps.
+
+#### Map expand layout
 
 ```text
-  focused path ──►  edge → app → queue → data
+  focused path ──►  edge → app → queue → cache → data → tooling  (enabled categories that have containers)
 ```
 
-- **data** is one column: **db + redis** (and similar tooling) together — not a separate cache column.  
+- Column order follows **category vocabulary** sort order (empty columns hidden).  
 - Role colors + type chips on boxes; confirmed dependency curves; soft structure lines between **adjacent** columns only.  
 - **No Server / Service / Docker chips on the map** — use the Stack panel for navigation.  
 - Click a container box → opens Stack panel focused on that container.
@@ -150,14 +171,12 @@ Maps stay **customer-facing** by default. For **one** focused service (or host p
 
 1. Open **Stack** for the service/project.  
 2. **Desktop:** drag the **⋮⋮** handle. **Mobile:** long-press a row, then drag.  
-3. Order is saved per host project (`stack_container_order_json`).  
+3. Order is saved in the DB (`containerannotation.sort_index`) and dual-written to `stack_container_order_json` for compatibility.  
 
-**Effect on the map:** with a custom order, **column left→right** follows that order (by earliest container in each role group). Example: put **celery last** in the panel → **queue column moves to the right** of **data**, so soft lines stay left→right instead of reversing through redis/db.
+**Effect on the map:** with a custom order, **column left→right** can follow that order (by earliest container in each category). Example: put **celery last** in the panel → **queue column moves right**.
 
-Default (no custom order): fixed `edge → app → queue → data`.
-
-!!! note "Later (roadmap)"
-    Operator-configurable columns and explicit link-to-column rules are **not** in this release. See [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md) § 12b.
+!!! note "Still later"
+    Per-project column profiles and explicit edge→column layout rules remain residual. See [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md) § 12b–12c.
 
 ### Light / dark theme
 
@@ -254,13 +273,16 @@ Below path coverage, **Stack dependencies** lists **compose containers** from ho
 | **Server** | `dns_name`, `dns_manage_a`, `dns_ip_override` | Host A |
 | **ServiceDnsRecord** | FQDN, `record_type` (`cname` \| `a`), servers, project, NPM, sync | Service path |
 | **RuntimeEdge** | Confirmed/manual/suggested stack dependency edges | Panel + map expand; herder backup |
-| `stack_container_order_json` | App settings | Operator container order per `server_id:project` |
+| **TopologyCategory / TopologyTag** | Fixed vocab for category + tags | Seeded; operator can add |
+| **VisualServiceStack** | Visual group under one compose project | Presentation only |
+| **ContainerAnnotation** (+ tags) | Category override, visual stack, order, tag set | Herder backup |
+| `stack_container_order_json` | App settings | Dual-write fallback for order |
 | `stack_inventory_down_alerts` | App settings | Optional alert when Kuma-bound container is down in inventory |
 
 Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma service binds, Docker inventory (compose graph v2), and stack deployments.
 
-**Code:** `app/services/dns_fabric/` (`core`, mesh, `kuma_coverage`, `stack_panel`, `stack_expand`) · `stack_order.py` · `compose_graph.py` · `runtime_edges.py` · `stack_monitor.py` · `app/routers/dns.py` · `fabric-mesh.js` / `fabric-stack-*.js` · `fabric.css` · `dns_*.html`  
-**Tests:** `tests/test_dns_fabric.py` · `test_kuma_coverage.py` · `test_stack_*.py` · `test_compose_graph.py` · `test_runtime_edges.py`
+**Code:** `app/services/dns_fabric/` · `container_annotations.py` · `stack_order.py` · `compose_graph.py` · `runtime_edges.py` · `stack_monitor.py` · `app/routers/dns.py` · `fabric-mesh.js` / `fabric-stack-*.js` · `fabric.css` · `dns_*.html`  
+**Tests:** `tests/test_dns_fabric.py` · `test_kuma_coverage.py` · `test_stack_*.py` · `test_container_annotations.py` · `test_compose_graph.py` · `test_runtime_edges.py`
 
 ---
 

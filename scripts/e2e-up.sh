@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Start isolated web+db+redis for Playwright E2E (project piherder-e2e).
+# Start E2E compose set (docker-compose.e2e.yml) under project piherder.
+# Same folder / project as main — not a separate stack card.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -7,12 +8,11 @@ cd "$ROOT"
 PORT="${PIHERDER_E2E_HOST_PORT:-18000}"
 export PIHERDER_E2E_HOST_PORT="$PORT"
 
-echo "Starting piherder-e2e (web on host port ${PORT})…"
+echo "Starting e2e compose set (web on host port ${PORT}, project piherder)…"
 docker compose \
-  -f docker-compose.yml \
+  -p piherder \
   -f docker-compose.e2e.yml \
-  -p piherder-e2e \
-  up -d --build db redis web
+  up -d --build
 
 echo "Waiting for /health…"
 for i in $(seq 1 60); do
@@ -25,6 +25,6 @@ for i in $(seq 1 60); do
   sleep 2
 done
 
-echo "ERROR: web did not become healthy in time" >&2
-docker compose -p piherder-e2e -f docker-compose.yml -f docker-compose.e2e.yml logs --tail=80 web || true
+echo "ERROR: e2e-web did not become healthy in time" >&2
+docker compose -p piherder -f docker-compose.e2e.yml logs --tail=80 e2e-web || true
 exit 1

@@ -658,6 +658,8 @@ function applyDockerFilters() {
   const state = getDockerFilterState();
   const status = state.status || 'all';
   const q = (state.q || '').trim().toLowerCase();
+  // Per-project compose set filter (main / e2e / …) keyed by project name
+  const setByProj = state.composeSets || {};
 
   document.querySelectorAll('#docker-filter-bar [data-filter-status]').forEach(function(chip) {
     chip.classList.toggle('is-active', chip.getAttribute('data-filter-status') === status);
@@ -665,11 +667,23 @@ function applyDockerFilters() {
   const input = document.getElementById('docker-filter-q');
   if (input && input.value !== (state.q || '')) input.value = state.q || '';
 
+  document.querySelectorAll('[data-compose-set-filter]').forEach(function(bar) {
+    const proj = bar.getAttribute('data-proj') || '';
+    const want = setByProj[proj] || 'all';
+    bar.querySelectorAll('[data-compose-set]').forEach(function(pill) {
+      pill.classList.toggle('is-active', (pill.getAttribute('data-compose-set') || '') === want);
+    });
+  });
+
   let visible = 0;
   document.querySelectorAll('.docker-svc-row').forEach(function(row) {
     const st = row.getAttribute('data-svc-status') || '';
     const name = row.getAttribute('data-svc-name') || '';
     const hasUpdate = row.getAttribute('data-has-update') === '1';
+    const cset = row.getAttribute('data-compose-set') || 'main';
+    const block = row.closest('[data-stack-filter-unit]');
+    const projName = block ? (block.getAttribute('data-proj-name') || '') : '';
+    const wantSet = setByProj[projName] || 'all';
     let okStatus = true;
     if (status === 'updates') {
       okStatus = hasUpdate;
@@ -677,7 +691,8 @@ function applyDockerFilters() {
       okStatus = st === status;
     }
     const okName = !q || name.indexOf(q) !== -1;
-    const show = okStatus && okName;
+    const okSet = wantSet === 'all' || cset === wantSet;
+    const show = okStatus && okName && okSet;
     row.hidden = !show;
     row.classList.toggle('is-filtered-out', !show);
     if (show) visible += 1;
@@ -732,6 +747,19 @@ function initDockerFilters() {
       }, 120);
     });
   }
+  // Compose set pills live inside HTMX-swapped stack HTML — use document capture
+  document.addEventListener('click', function(e) {
+    const pill = e.target.closest('[data-compose-set-filter] [data-compose-set]');
+    if (!pill) return;
+    e.preventDefault();
+    const wrap = pill.closest('[data-compose-set-filter]');
+    const proj = (wrap && wrap.getAttribute('data-proj')) || '';
+    const key = pill.getAttribute('data-compose-set') || 'all';
+    const sets = Object.assign({}, getDockerFilterState().composeSets || {});
+    sets[proj] = key;
+    setDockerFilterState({ composeSets: sets });
+    applyDockerFilters();
+  });
   applyDockerFilters();
 }
 if (document.readyState === 'loading') {

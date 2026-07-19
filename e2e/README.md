@@ -46,7 +46,7 @@ Override with `PIHERDER_E2E_EMAIL` / `PIHERDER_E2E_PASSWORD`.
 
 - **Chromium only** for v0.7
 - **No live SSH** to fleet hosts
-- Isolated compose project `piherder-e2e` (port **18000**, separate volumes)
+- Compose set `docker-compose.e2e.yml` under project **`piherder`** (port **18000**, own volumes) — same folder, not a second stack card
 - Synthetic master key / secret — not for production
 - Unit tests stay under `tests/` and do not import Playwright
 

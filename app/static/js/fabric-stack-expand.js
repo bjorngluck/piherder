@@ -132,17 +132,36 @@
   }
 
   /**
-   * Sideways role columns. data+cache+tooling stay one "data" column (db+redis together).
-   * When the operator set a stack order, column left→right follows that order
-   * (min order_index in each column). Celery last in panel → queue column rightmost.
+   * Sideways category columns from vocab order (hide empty).
+   * Fallback: classic edge | app | queue | data(+cache+tooling).
+   * Custom stack order can still reorder columns by min order_index.
    */
-  function buildColumns(containers, hasCustomOrder) {
-    var buckets = { edge: [], app: [], queue: [], data: [], cache: [], tooling: [], other: [] };
+  function buildColumns(containers, hasCustomOrder, categoryColumns) {
+    var buckets = {};
+    var defaultOrder = ['edge', 'app', 'queue', 'cache', 'data', 'tooling', 'other'];
+    var colMeta = [];
+    if (categoryColumns && categoryColumns.length) {
+      categoryColumns.forEach(function (c, i) {
+        var k = (c.key || '').toLowerCase();
+        if (!k) return;
+        colMeta.push({ key: k, label: (c.label || k).toLowerCase(), defaultRank: i });
+        buckets[k] = [];
+      });
+    } else {
+      defaultOrder.forEach(function (k, i) {
+        colMeta.push({ key: k, label: k === 'data' ? 'db' : k, defaultRank: i });
+        buckets[k] = [];
+      });
+    }
+    if (!buckets.other) {
+      colMeta.push({ key: 'other', label: 'svc', defaultRank: 99 });
+      buckets.other = [];
+    }
+
     (containers || []).forEach(function (c) {
       var r = roleKey(c);
-      if (r === 'data' || r === 'cache' || r === 'tooling' || r === 'other') {
-        if (!buckets[r]) buckets.other.push(c);
-        else buckets[r].push(c);
+      if (!buckets[r]) {
+        buckets.other.push(c);
       } else {
         buckets[r].push(c);
       }
@@ -152,17 +171,16 @@
     });
 
     var candidates = [];
-    if (buckets.edge.length)
-      candidates.push({ key: 'edge', label: 'edge', items: buckets.edge, defaultRank: 0 });
-    if (buckets.app.length)
-      candidates.push({ key: 'app', label: 'app', items: buckets.app, defaultRank: 1 });
-    if (buckets.queue.length)
-      candidates.push({ key: 'queue', label: 'queue', items: buckets.queue, defaultRank: 2 });
-    var deps = buckets.data
-      .concat(buckets.cache, buckets.tooling, buckets.other)
-      .sort(byOrderThenName);
-    if (deps.length)
-      candidates.push({ key: 'deps', label: 'data', items: deps, defaultRank: 3 });
+    colMeta.forEach(function (meta) {
+      var items = buckets[meta.key] || [];
+      if (!items.length) return;
+      candidates.push({
+        key: meta.key,
+        label: meta.label || meta.key,
+        items: items,
+        defaultRank: meta.defaultRank,
+      });
+    });
 
     if (!candidates.length) {
       return [
@@ -189,56 +207,67 @@
     return candidates;
   }
 
-  function draw(svg, pathId, data) {
-    clearLayer(svg);
-    if (!data || !data.ok) return;
-    var anchor = anchorNode(svg, pathId);
-    if (!anchor) return;
+  function viewGroupKey(ct) {
+    var vid = ct && ct.visual_stack_id;
+    if (vid == null || vid === '' || vid === 'main') return 'main';
+    return String(vid);
+  }
 
-    var a = anchorGeom(anchor);
-    var hasCustomOrder = !!(
-      data.has_custom_order ||
-      (data.custom_order && data.custom_order.length)
-    );
-    var cols = buildColumns(data.containers || [], hasCustomOrder);
-    var edges = data.edges || [];
+  function partitionViewGroups(data) {
+    var multi = data.multi_view || [];
+    var containers = data.containers || [];
+    // Prefer server multi_view order when All and 2+ groups have members
+    if (multi && multi.length >= 2) {
+      return multi.map(function (m) {
+        var key = String(m.key);
+        return {
+          key: key,
+          name: m.name || key,
+          containers: containers.filter(function (c) {
+            return viewGroupKey(c) === key;
+          }),
+        };
+      }).filter(function (g) {
+        return g.containers.length;
+      });
+    }
+    // Single fan (filtered group, or everything still on Main)
+    return [
+      {
+        key: 'all',
+        name: (data.project || 'stack') + ' · runtime',
+        containers: containers,
+      },
+    ];
+  }
 
-    // Fan-out geometry — title + column headers (no deep-link chips)
-    var boxW = 118;
-    var boxH = 42;
-    var colGap = 72;
-    var rowGap = 16;
-    var rowH = boxH + rowGap;
-    var headerBand = 20; // edge / app / data labels
-    var titleBand = 18; // "project · runtime"
-    var zonePadTop = titleBand + headerBand + 12;
-    var zonePadBot = 16;
-    var startX = a.right + 72;
-
+  function measureFan(cols, boxW, colGap, rowH, rowGap, zonePadTop, zonePadBot) {
     var maxItems = 1;
     cols.forEach(function (c) {
       maxItems = Math.max(maxItems, c.items.length);
     });
     var nodesH = maxItems * rowH - rowGap;
-    var midY = a.y;
-    var nodesTop = midY - nodesH / 2;
-    var zoneTop = nodesTop - zonePadTop;
-    if (zoneTop < a.top - 28) {
-      var shift = a.top - 28 - zoneTop;
-      midY += shift;
-      nodesTop += shift;
-      zoneTop += shift;
-    }
-
-    var pos = {};
-    var g = el('g', {
-      id: layerId,
-      class: 'fabric-stack-expand-layer',
-      'data-path-id': String(pathId),
-    });
-
-    var zoneW = cols.length * boxW + (cols.length - 1) * colGap + 32;
+    var zoneW = Math.max(1, cols.length) * boxW + Math.max(0, cols.length - 1) * colGap + 32;
     var zoneH = zonePadTop + nodesH + zonePadBot;
+    return { maxItems: maxItems, nodesH: nodesH, zoneW: zoneW, zoneH: zoneH };
+  }
+
+  function drawFan(g, pathId, opts) {
+    var cols = opts.cols;
+    var edges = opts.edges || [];
+    var startX = opts.startX;
+    var midY = opts.midY;
+    var zoneTop = opts.zoneTop;
+    var zoneW = opts.zoneW;
+    var zoneH = opts.zoneH;
+    var titleText = opts.titleText;
+    var boxW = opts.boxW;
+    var boxH = opts.boxH;
+    var colGap = opts.colGap;
+    var rowH = opts.rowH;
+    var pos = opts.pos;
+    var zoneClass = opts.zoneClass || '';
+
     g.appendChild(
       el('rect', {
         x: startX - 16,
@@ -246,27 +275,11 @@
         width: zoneW,
         height: zoneH,
         rx: 14,
-        class: 'fabric-mesh-stack-zone',
+        class: 'fabric-mesh-stack-zone' + (zoneClass ? ' ' + zoneClass : ''),
         fill: 'var(--color-surface)',
         'fill-opacity': '0.55',
         stroke: 'var(--color-border)',
         'stroke-opacity': '0.75',
-      })
-    );
-
-    g.appendChild(
-      el('line', {
-        x1: a.right + 2,
-        y1: a.y,
-        x2: startX - 16,
-        y2: midY,
-        class: 'fabric-mesh-edge fabric-mesh-edge--stack-lead',
-        'data-path-id': String(pathId),
-        stroke: '#64748b',
-        'stroke-width': '2',
-        'stroke-dasharray': '5 3',
-        'stroke-opacity': '0.9',
-        fill: 'none',
       })
     );
 
@@ -279,14 +292,13 @@
       'font-size': '11',
       'font-weight': '600',
     });
-    title.textContent = (data.project || 'stack') + ' · runtime';
+    title.textContent = titleText;
     g.appendChild(title);
 
-    // Nodes
     cols.forEach(function (col, ci) {
       var cx = startX + ci * (boxW + colGap) + boxW / 2;
       var items = col.items;
-      var colH = items.length * rowH - rowGap;
+      var colH = items.length * rowH - (opts.rowGap || 16);
       var y0 = midY - colH / 2;
 
       var hdr = el('text', {
@@ -305,8 +317,16 @@
       items.forEach(function (ct, i) {
         var id = String(ct.id || ct.name || i);
         var y = y0 + i * rowH + boxH / 2;
-        pos[id] = { x: cx, y: y, col: ci };
-        if (ct.name) pos[String(ct.name)] = pos[id];
+        // Namespace pos by fan so multi-view same service names don't collide
+        var posKey = opts.posPrefix ? opts.posPrefix + '::' + id : id;
+        pos[posKey] = { x: cx, y: y, col: ci, fan: opts.posPrefix || '' };
+        if (!opts.posPrefix) {
+          pos[id] = pos[posKey];
+          if (ct.name) pos[String(ct.name)] = pos[id];
+        } else {
+          // Within-fan lookup for edges
+          pos[opts.posPrefix + '::' + id] = pos[posKey];
+        }
 
         var rk = roleKey(ct);
         var colors = ROLE_COLORS[rk] || ROLE_COLORS.other;
@@ -314,6 +334,7 @@
         if (rlab === 'data') rlab = 'db';
 
         var tip = [ct.name || id, rlab];
+        if (ct.visual_stack_name) tip.push('view ' + ct.visual_stack_name);
         if (ct.ports_label) tip.push('ports ' + ct.ports_label);
         if (ct.kuma_state) tip.push('kuma ' + ct.kuma_state);
         if (ct.image) tip.push(ct.image);
@@ -332,7 +353,6 @@
         tEl.textContent = tip.join(' · ') + ' · click for detail';
         ng.appendChild(tEl);
 
-        // Main box — inline colors so focus CSS cannot wash them out
         ng.appendChild(
           el('rect', {
             x: cx - boxW / 2,
@@ -346,7 +366,6 @@
             'stroke-width': '1.75',
           })
         );
-        // Type chip
         ng.appendChild(
           el('rect', {
             x: cx - boxW / 2 + 5,
@@ -370,7 +389,6 @@
         typeT.textContent = String(rlab).slice(0, 5).toUpperCase();
         ng.appendChild(typeT);
 
-        // Run dot
         ng.appendChild(
           el('circle', {
             cx: cx + boxW / 2 - 10,
@@ -393,8 +411,6 @@
         nameT.textContent = String(ct.name || id).slice(0, 13);
         ng.appendChild(nameT);
 
-        // Optional ports under name for app/edge only if space — skip to avoid clutter
-
         g.appendChild(ng);
       });
     });
@@ -408,11 +424,16 @@
     }
 
     var drawn = {};
+    function resolvePos(name) {
+      if (opts.posPrefix) {
+        return pos[opts.posPrefix + '::' + name] || pos[name];
+      }
+      return pos[name];
+    }
     function drawLink(frm, to, solid, source) {
-      var A = pos[String(frm)];
-      var B = pos[String(to)];
+      var A = resolvePos(String(frm));
+      var B = resolvePos(String(to));
       if (!A || !B) return;
-      var key = frm + '=>' + to + (solid ? 's' : 'd');
       if (drawn[frm + '=>' + to] || drawn[to + '=>' + frm]) return;
       drawn[frm + '=>' + to] = true;
 
@@ -426,7 +447,6 @@
       var d =
         'M ' + x1 + ' ' + y1 + ' C ' + mx + ' ' + y1 + ', ' + mx + ' ' + y2 + ', ' + x2 + ' ' + y2;
 
-      // Confirmed: strong solid; soft structure: clearer dashed (still secondary)
       var stroke = solid
         ? source === 'manual'
           ? '#d97706'
@@ -462,17 +482,131 @@
         });
       });
     }
-    // Soft structure follows visual left→right column order (not fixed role pairs),
-    // so when queue is last the lines don't reverse across the data column.
     for (var ci = 0; ci < cols.length - 1; ci++) {
       soft(idsOf(cols[ci]), idsOf(cols[ci + 1]));
     }
 
+    // Edges only within this fan's containers
+    var fanIds = {};
+    cols.forEach(function (col) {
+      idsOf(col).forEach(function (id) {
+        fanIds[id] = true;
+      });
+    });
     edges.forEach(function (e) {
-      drawLink(String(e.from), String(e.to), true, e.source || 'accepted');
+      var f = String(e.from);
+      var t = String(e.to);
+      if (fanIds[f] && fanIds[t]) {
+        drawLink(f, t, true, e.source || 'accepted');
+      }
+    });
+  }
+
+  function draw(svg, pathId, data) {
+    clearLayer(svg);
+    if (!data || !data.ok) return;
+    var anchor = anchorNode(svg, pathId);
+    if (!anchor) return;
+
+    var a = anchorGeom(anchor);
+    var hasCustomOrder = !!(
+      data.has_custom_order ||
+      (data.custom_order && data.custom_order.length)
+    );
+    var edges = data.edges || [];
+    var groups = partitionViewGroups(data);
+
+    var boxW = 118;
+    var boxH = 42;
+    var colGap = 72;
+    var rowGap = 16;
+    var rowH = boxH + rowGap;
+    var headerBand = 20;
+    var titleBand = 18;
+    var zonePadTop = titleBand + headerBand + 12;
+    var zonePadBot = 16;
+    var startX = a.right + 72;
+    var fanGap = 28;
+
+    var measured = groups.map(function (grp) {
+      var cols = buildColumns(
+        grp.containers,
+        hasCustomOrder,
+        data.category_columns || null
+      );
+      var m = measureFan(cols, boxW, colGap, rowH, rowGap, zonePadTop, zonePadBot);
+      return { grp: grp, cols: cols, m: m };
     });
 
-    // Click → Stack detail
+    var totalH = 0;
+    measured.forEach(function (x, i) {
+      totalH += x.m.zoneH;
+      if (i) totalH += fanGap;
+    });
+    var maxZoneW = 120;
+    measured.forEach(function (x) {
+      maxZoneW = Math.max(maxZoneW, x.m.zoneW);
+    });
+
+    var stackTop = a.y - totalH / 2;
+    if (stackTop < a.top - 28) {
+      stackTop = a.top - 28;
+    }
+
+    var pos = {};
+    var g = el('g', {
+      id: layerId,
+      class: 'fabric-stack-expand-layer',
+      'data-path-id': String(pathId),
+    });
+
+    // Lead line to first fan mid
+    var firstMidY = stackTop + measured[0].m.zoneH / 2;
+    g.appendChild(
+      el('line', {
+        x1: a.right + 2,
+        y1: a.y,
+        x2: startX - 16,
+        y2: firstMidY,
+        class: 'fabric-mesh-edge fabric-mesh-edge--stack-lead',
+        'data-path-id': String(pathId),
+        stroke: '#64748b',
+        'stroke-width': '2',
+        'stroke-dasharray': '5 3',
+        'stroke-opacity': '0.9',
+        fill: 'none',
+      })
+    );
+
+    var yCursor = stackTop;
+    measured.forEach(function (x, gi) {
+      var zoneTop = yCursor;
+      var midY = zoneTop + zonePadTop + x.m.nodesH / 2;
+      var titleText =
+        groups.length > 1
+          ? (data.project || 'stack') + ' · ' + (x.grp.name || 'view')
+          : x.grp.name || (data.project || 'stack') + ' · runtime';
+      drawFan(g, pathId, {
+        cols: x.cols,
+        edges: edges,
+        startX: startX,
+        midY: midY,
+        zoneTop: zoneTop,
+        zoneW: x.m.zoneW,
+        zoneH: x.m.zoneH,
+        titleText: titleText,
+        boxW: boxW,
+        boxH: boxH,
+        colGap: colGap,
+        rowH: rowH,
+        rowGap: rowGap,
+        pos: pos,
+        posPrefix: groups.length > 1 ? x.grp.key : '',
+        zoneClass: groups.length > 1 ? 'fabric-mesh-stack-zone--view' : '',
+      });
+      yCursor += x.m.zoneH + fanGap;
+    });
+
     g.querySelectorAll('.fabric-mesh-stack-node').forEach(function (ng) {
       ng.addEventListener('click', function (ev) {
         ev.preventDefault();
@@ -490,13 +624,17 @@
 
     svg.appendChild(g);
 
-    var lastX = startX + zoneW;
-    var minY = zoneTop - 8;
-    var maxY = zoneTop + zoneH + 12;
+    var lastX = startX + maxZoneW;
+    var minY = stackTop - 8;
+    var maxY = yCursor - fanGap + 12;
     ensureViewBox(svg, lastX + 20, maxY, minY);
   }
 
-  function loadAndDraw(root, pathId) {
+  function cacheKey(pathId, visualStack) {
+    return String(pathId) + '::' + (visualStack == null || visualStack === '' ? 'all' : String(visualStack));
+  }
+
+  function loadAndDraw(root, pathId, visualStack) {
     var svg = svgRoot(root);
     if (!svg || pathId == null || pathId === '' || String(pathId).indexOf('n:') === 0) {
       if (svg) {
@@ -511,6 +649,14 @@
       restoreViewBox(svg);
       return;
     }
+    var vs =
+      visualStack != null && visualStack !== ''
+        ? String(visualStack)
+        : root._fabricVisualStack != null
+          ? String(root._fabricVisualStack)
+          : 'all';
+    root._fabricVisualStack = vs;
+    var ck = cacheKey(id, vs);
 
     function apply(data) {
       if (!data || !data.ok) {
@@ -521,12 +667,17 @@
       draw(svg, id, data);
     }
 
-    if (cache[id]) {
-      apply(cache[id]);
+    if (cache[ck]) {
+      apply(cache[ck]);
       return;
     }
 
-    fetch('/dns/stack-expand.json?service_id=' + encodeURIComponent(id), {
+    var url =
+      '/dns/stack-expand.json?service_id=' +
+      encodeURIComponent(id) +
+      '&visual_stack=' +
+      encodeURIComponent(vs);
+    fetch(url, {
       credentials: 'same-origin',
       headers: { Accept: 'application/json' },
     })
@@ -534,7 +685,7 @@
         return r.json();
       })
       .then(function (data) {
-        if (data && data.ok) cache[id] = data;
+        if (data && data.ok) cache[ck] = data;
         if (root._fabricFocusId != null && String(root._fabricFocusId) === id) {
           apply(data);
         }
@@ -542,8 +693,8 @@
       .catch(function () {});
   }
 
-  function onFocus(root, pathId) {
-    loadAndDraw(root, pathId);
+  function onFocus(root, pathId, visualStack) {
+    loadAndDraw(root, pathId, visualStack);
   }
 
   function onClear(root) {
@@ -575,18 +726,24 @@
   }
 
   window.PiHerderStackExpand = {
-    show: function (pathId) {
+    show: function (pathId, visualStack) {
       var root =
         document.querySelector('[data-fabric-root].is-focusing') ||
         document.querySelector('[data-fabric-root]');
-      if (root) onFocus(root, pathId);
+      if (root) onFocus(root, pathId, visualStack);
     },
     clear: function () {
       onClear(document.querySelector('[data-fabric-root]'));
     },
     invalidate: function (pathId) {
-      if (pathId != null) delete cache[String(pathId)];
-      else cache = {};
+      if (pathId == null) {
+        cache = {};
+        return;
+      }
+      var prefix = String(pathId) + '::';
+      Object.keys(cache).forEach(function (k) {
+        if (k === String(pathId) || k.indexOf(prefix) === 0) delete cache[k];
+      });
     },
   };
 })();

@@ -167,10 +167,15 @@ async def redeploy(
     background_tasks: BackgroundTasks,
     project_path: str = Form(...),
     pull: str = Form("true"),
+    compose_file: str = Form(""),
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
-    """Deploy/redeploy a compose project as a Job with live log (B07)."""
+    """Deploy/redeploy a compose project as a Job with live log (B07).
+
+    Optional ``compose_file`` basename scopes deploy to a compose set
+    (``docker compose -f …``) still under the same project directory.
+    """
     from ..services import jobs as job_service
     from urllib.parse import quote
     import os
@@ -182,12 +187,15 @@ async def redeploy(
     do_pull = (pull or "true").strip().lower() in ("1", "true", "yes", "on")
     proj_name = os.path.basename((project_path or "").rstrip("/")) or project_path
     path = (project_path or "").strip()
+    set_file = (compose_file or "").strip().split("/")[-1]
+    compose_files = [set_file] if set_file else None
     already_active = False
     try:
         job = job_service.enqueue_docker_stack_deploy(
             server.id,
             path,
             pull=do_pull,
+            compose_files=compose_files,
             user_id=user.id if user else None,
             background_tasks=background_tasks,
         )

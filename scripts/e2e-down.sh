@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Stop and remove the isolated E2E compose project (volumes kept by default).
-# Pass --volumes to wipe e2e DB/data (fresh seed on next up).
+# Stop E2E compose set services (project piherder). Main stack left running.
+# Pass --volumes to wipe e2e DB/data volumes.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -12,7 +12,6 @@ if [[ "${1:-}" == "--volumes" || "${1:-}" == "-v" ]]; then
 fi
 
 docker compose \
-  -f docker-compose.yml \
+  -p piherder \
   -f docker-compose.e2e.yml \
-  -p piherder-e2e \
   down "${EXTRA[@]}"

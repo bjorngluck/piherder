@@ -585,3 +585,74 @@ class RuntimeEdge(SQLModel, table=True):
     created_by_user_id: Optional[int] = Field(
         default=None, foreign_key="user.id", index=True
     )
+
+
+class TopologyCategory(SQLModel, table=True):
+    """Fixed vocabulary for container categories (map columns / role chips).
+
+    Operator can add/disable/reorder; assignment is pick-from-list only (not free text).
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    key: str = Field(unique=True, index=True, max_length=64)
+    label: str = Field(max_length=80)
+    sort_order: int = Field(default=0, index=True)
+    enabled: bool = Field(default=True, index=True)
+    is_system: bool = Field(default=False)  # seed rows: cannot delete
+    color_token: Optional[str] = Field(default=None, max_length=32)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class TopologyTag(SQLModel, table=True):
+    """Fixed vocabulary for multi-select container tags (chips). Not free text."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    key: str = Field(unique=True, index=True, max_length=64)
+    label: str = Field(max_length=80)
+    sort_order: int = Field(default=0, index=True)
+    enabled: bool = Field(default=True, index=True)
+    is_system: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class VisualServiceStack(SQLModel, table=True):
+    """Operator visual group under one compose project (not a deploy boundary).
+
+    Deploy/stop/start still target the whole compose project. Visual stacks only
+    change panel/map presentation (e.g. main app vs e2e helpers in same project).
+    """
+    id: Optional[int] = Field(default=None, primary_key=True)
+    server_id: int = Field(foreign_key="server.id", index=True)
+    compose_project: str = Field(max_length=200, index=True)
+    name: str = Field(max_length=120)
+    slug: str = Field(max_length=80, index=True)
+    is_default: bool = Field(default=False, index=True)
+    sort_order: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ContainerAnnotation(SQLModel, table=True):
+    """Per-container topology annotation (category, visual stack, order)."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    server_id: int = Field(foreign_key="server.id", index=True)
+    compose_project: str = Field(max_length=200, index=True)
+    # Prefer compose_service name; same identity as stack order / RuntimeEdge
+    container_key: str = Field(max_length=200, index=True)
+    # Null = use heuristic category (guess_container_role)
+    category_key: Optional[str] = Field(default=None, max_length=64, index=True)
+    # Null = implicit default visual stack ("Main")
+    visual_stack_id: Optional[int] = Field(
+        default=None, foreign_key="visualservicestack.id", index=True
+    )
+    sort_index: Optional[int] = Field(default=None)
+    notes: Optional[str] = Field(default=None, max_length=500)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ContainerAnnotationTag(SQLModel, table=True):
+    """M2M: container annotation → topology tag keys."""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    annotation_id: int = Field(foreign_key="containerannotation.id", index=True)
+    tag_key: str = Field(max_length=64, index=True)

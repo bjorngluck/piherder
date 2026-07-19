@@ -43,7 +43,8 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | **Stop / Start / Restart all** | Project ⋯ menu → confirm → **Job** with live log (`docker_stack_stop` / `_start` / `_restart`) |
 | Container start / stop / restart | Row ⋯ on a single service (immediate; not a full-stack job) |
 | Quick edit / Full editor | ⋯ menu — modal vs multi-file page — [Compose edit](compose-edit.md) |
-| Multi-file compose edit | compose + override + `.env` + Dockerfile |
+| Multi-file compose edit | primary compose + override + `.env` + Dockerfile + **compose sets** |
+| **Compose sets** | Extra `docker-compose.<name>.yml` in the **same** project folder — see below |
 | Version history | Snapshots; rollback |
 | Build / redeploy | Wait for job / progress UI |
 | Check updates vs Deploy | Pull-only vs pull+up as **Jobs** — [Updates](../day-to-day/updates-and-patching.md) |
@@ -51,7 +52,23 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | New project wizard | Create a stack on the host |
 | Template-managed stacks | Badge + gated full editor — [Templates](../service-templates/overview.md) |
 
-### Project lifecycle (stop / start / restart all)
+### Compose sets (same folder, one project card) {#compose-sets-same-folder-one-project-card}
+
+One **directory** under the Docker base dir is still **one** project in the Docker list. You may keep more than one compose file there:
+
+| File | Role |
+|------|------|
+| `docker-compose.yml` / `compose.yml` | **Primary** (main set) |
+| `docker-compose.override.yml` | Compose auto-merge — multi-file editor, not a separate set |
+| `docker-compose.<name>.yml` | **Compose set** (e.g. `docker-compose.e2e.yml` → set **e2e**) |
+
+**UI:** under the project header, pills **All · main · e2e · …** filter which services are listed. This is **not** a second stack card.
+
+**Deploy:** project ⋯ → **Deploy** runs the whole project (default Compose resolution). **Deploy \<set\> set** runs `docker compose -f <that-file> up -d` still under the **same** project name / directory.
+
+**vs fabric view groups:** compose sets are **files on disk / deploy slices**. Network **view groups** (Main / custom) are **presentation only** on the stack panel and map — [Network maps](../integrations/dns-fabric.md#visual-service-stacks--view-groups).
+
+### Project lifecycle (stop, start, restart all) {#project-lifecycle-stop--start--restart-all}
 
 From a compose project **⋯** menu:
 

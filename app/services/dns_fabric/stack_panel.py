@@ -129,31 +129,41 @@ def guess_container_role(
 def _find_project(
     inv: dict[str, Any] | None, project: str
 ) -> dict[str, Any] | None:
+    """Exact project name match only (case-insensitive).
+
+    Soft/substring matching conflated e.g. ``piherder`` with ``piherder-e2e``
+    and polluted stack expand. Deploy identity stays the compose project name.
+    """
     if not inv or not project:
         return None
     want = project.strip().lower()
+    if not want:
+        return None
     for p in inv.get("projects") or []:
         if not isinstance(p, dict):
             continue
         name = (p.get("name") or "").strip()
         if name.lower() == want:
             return p
-    # Soft match: substring either way
-    for p in inv.get("projects") or []:
-        if not isinstance(p, dict):
-            continue
-        name = (p.get("name") or "").strip()
-        nl = name.lower()
-        if want in nl or nl in want:
-            return p
     return None
 
 
 def _list_projects_on_server(inv: dict[str, Any] | None) -> list[str]:
+    """Compose projects for empty-state picker only.
+
+    Skips label-only stubs (e.g. ephemeral ``-p`` test projects) — those stay
+    on the Docker page. Fabric UI is about view groups inside a linked project.
+    """
     out: list[str] = []
     for p in (inv or {}).get("projects") or []:
-        if isinstance(p, dict) and (p.get("name") or "").strip():
-            out.append(str(p["name"]).strip())
+        if not isinstance(p, dict):
+            continue
+        name = (p.get("name") or "").strip()
+        if not name:
+            continue
+        if p.get("label_only"):
+            continue
+        out.append(name)
     return out
 
 
@@ -270,8 +280,16 @@ def build_stack_panel(
     service_id: int | None = None,
     server_id: int | None = None,
     project: str | None = None,
+    visual_stack_id: int | str | None = "all",
 ) -> dict[str, Any]:
-    """Build side-panel payload for one stack (DB inventory only)."""
+    """Build side-panel payload for one stack (DB inventory only).
+
+    visual_stack_id: ``\"all\"`` (default) = whole compose project;
+    ``\"main\"`` / ``None`` = Main only (unassigned); int = that visual stack.
+    """
+    # Normalize so UI never confuses Main (filter) with missing/default All
+    if visual_stack_id is None or visual_stack_id == 0 or visual_stack_id == "":
+        visual_stack_id = "main"
     resolved = resolve_stack_target(
         session,
         service_id=service_id,
@@ -325,8 +343,13 @@ def build_stack_panel(
     project_found = project_row is not None
 
     if project_row:
+        proj_l = (proj or "").strip().lower()
         for c in project_row.get("containers") or []:
             if not isinstance(c, dict) or c.get("placeholder"):
+                continue
+            # Defense: never show another compose project's containers (shared workdir)
+            c_proj = (c.get("compose_project") or "").strip()
+            if c_proj and proj_l and c_proj.lower() != proj_l:
                 continue
             cname = (c.get("name") or c.get("compose_service") or "").strip()
             if not cname:
@@ -380,9 +403,14 @@ def build_stack_panel(
             bind_action = f"/integrations/{integ_id}/bindings" if integ_id else ""
 
             bind_sum = cov._binding_summary(bound) if bound else None
-            # P4.5 detail fields
+            # Prefer live container networks; fall back to compose graph network names
             networks: list[str] = []
-            if isinstance(project_row.get("compose_graph"), dict):
+            raw_nets = c.get("networks")
+            if isinstance(raw_nets, list):
+                networks = [str(n).strip() for n in raw_nets if str(n).strip()][:12]
+            elif isinstance(raw_nets, str) and raw_nets.strip():
+                networks = [n.strip() for n in raw_nets.replace(",", " ").split() if n.strip()][:12]
+            if not networks and isinstance(project_row.get("compose_graph"), dict):
                 networks = list(
                     (project_row.get("compose_graph") or {}).get("networks") or []
                 )[:12]
@@ -396,6 +424,8 @@ def build_stack_panel(
                 {
                     "name": cname,
                     "compose_service": csvc or cname,
+                    "container_name": cname,
+                    "compose_project": (c.get("compose_project") or proj or "")[:200],
                     "image": image,
                     "version": (c.get("version") or "")[:40],
                     "running": bool(c.get("running")),
@@ -431,12 +461,53 @@ def build_stack_panel(
                     "compose_path": (project_row.get("path") or "")[:240],
                     "docker_href": docker_deep,
                     "id_short": (c.get("id") or "")[:12],
+                    "tags": [],
+                    "category_key": None,
+                    "visual_stack_id": None,
                 }
             )
 
-    # Default: edge → app → queue → cache → data → tooling
-    # Override: operator custom order (drag in Stack panel) → used on map too
-    role_order = {
+    # Merge DB annotations (category override, tags, view groups, order).
+    # Scoped strictly to this compose project — never share keys with
+    # piherder-e2e when viewing piherder (service names like "web" collide).
+    visual_stacks: list[dict] = []
+    categories_vocab: list[dict] = []
+    tags_vocab: list[dict] = []
+    # Always a concrete token for the panel: all | main | <int id>
+    active_visual: str | int = (
+        "all"
+        if visual_stack_id == "all"
+        else (
+            "main"
+            if visual_stack_id in (None, "main", 0, "0", "")
+            else visual_stack_id
+        )
+    )
+    if proj and server.id is not None:
+        try:
+            from .. import container_annotations as ann_svc
+
+            ann_project = ann_svc.normalize_project(proj)
+            containers = ann_svc.apply_annotations_to_containers(
+                session,
+                containers,
+                server_id=int(server.id),
+                project=ann_project,
+                visual_stack_id=visual_stack_id,
+                guess_role=guess_container_role,
+            )
+            visual_stacks = ann_svc.list_visual_stacks(
+                session, server_id=int(server.id), project=ann_project
+            )
+            categories_vocab = ann_svc.list_categories(session, enabled_only=True)
+            tags_vocab = ann_svc.list_tags(session, enabled_only=True)
+        except Exception:
+            pass
+
+    # Category-driven sort (vocab order) unless custom order applies
+    role_rank = {
+        c.get("key"): i for i, c in enumerate(categories_vocab)
+    } if categories_vocab else {
         "edge": 0,
         "app": 1,
         "queue": 2,
@@ -446,7 +517,7 @@ def build_stack_panel(
     }
     containers.sort(
         key=lambda x: (
-            role_order.get(x.get("role") or "app", 9),
+            role_rank.get(x.get("role") or "app", 9),
             0 if x.get("running") else 1,
             (x.get("compose_service") or x.get("name") or "").lower(),
         )
@@ -455,8 +526,14 @@ def build_stack_panel(
     if proj and server.id is not None:
         try:
             from ..stack_order import apply_order, get_order
+            from .. import container_annotations as ann_svc
 
-            custom_order = get_order(int(server.id), proj)
+            # Prefer DB annotation order; fall back to settings JSON
+            custom_order = ann_svc.order_from_annotations(
+                session, server_id=int(server.id), project=proj
+            )
+            if not custom_order:
+                custom_order = get_order(int(server.id), proj)
             if custom_order:
                 containers = apply_order(containers, custom_order)
         except Exception:
@@ -625,6 +702,10 @@ def build_stack_panel(
         "focus_container": None,  # set by route from query
         "custom_order": custom_order,
         "has_custom_order": bool(custom_order),
+        "visual_stacks": visual_stacks,
+        "active_visual_stack": active_visual,
+        "categories": categories_vocab,
+        "tags_vocab": tags_vocab,
         "suggested_edges": suggested_edges,
         "confirmed_edges": confirmed_edges,
         "dismissed_edge_count": dismissed_edge_count,
@@ -673,25 +754,38 @@ def build_stack_panel(
         "coverage_href": "/dns/coverage",
         "next_url": next_url,
         "panel_path": panel_path,
-        "refresh_query": _refresh_query(
+        "base_query": _stack_query(
             service_id=resolved.get("service_id"),
             server_id=server.id,
             project=proj,
         ),
+        "refresh_query": _stack_query(
+            service_id=resolved.get("service_id"),
+            server_id=server.id,
+            project=proj,
+            visual_stack_id=active_visual,
+        ),
     }
 
 
-def _refresh_query(
+def _stack_query(
     *,
     service_id: Optional[int],
     server_id: int,
     project: Optional[str],
+    visual_stack_id: int | str | None = "all",
 ) -> str:
-    if service_id:
-        return f"service_id={int(service_id)}"
-    q = f"server_id={int(server_id)}"
-    if project:
-        from urllib.parse import quote
+    from urllib.parse import quote
 
-        q += f"&project={quote(project)}"
+    if service_id:
+        q = f"service_id={int(service_id)}"
+    else:
+        q = f"server_id={int(server_id)}"
+        if project:
+            q += f"&project={quote(project)}"
+    # Omit for default All so tab links can append their own visual_stack=
+    if visual_stack_id in (None, "main", 0, "0"):
+        q += "&visual_stack=main"
+    elif visual_stack_id not in ("all", ""):
+        q += f"&visual_stack={quote(str(visual_stack_id))}"
     return q

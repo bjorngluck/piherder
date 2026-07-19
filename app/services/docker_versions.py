@@ -161,9 +161,42 @@ def parse_version_files(dv: Optional[DockerVersion]) -> dict:
 
 
 def get_project_live_files(server: Server, project_path: str, filenames: Optional[List[str]] = None) -> dict:
-    """Read current files from host (compose, override, .env, Dockerfile, …). Short-lived SSH."""
+    """Read current files from host (compose, override, .env, Dockerfile, …). Short-lived SSH.
+
+    Also discovers extra compose set files (``docker-compose.<name>.yml``) in the
+    project directory so the multi-file editor can open them as tabs.
+    """
     if not filenames:
         filenames = list(DEFAULT_PROJECT_FILES)
+        # Discover sibling compose files (sets) without hard-coding names
+        try:
+            import shlex
+
+            client0 = get_ssh_client(server)
+            try:
+                q = (project_path or "").rstrip("/")
+                st, out, _ = run_command(
+                    client0,
+                    f"ls -1 {shlex.quote(q)} 2>/dev/null | head -60",
+                    timeout=10,
+                )
+                if st == 0 and out:
+                    from . import compose_sets as csets
+
+                    for ln in out.splitlines():
+                        base = (ln or "").strip()
+                        if not base:
+                            continue
+                        kind = csets.classify_compose_filename(base)
+                        if kind in ("primary", "override", "set") and base not in filenames:
+                            filenames.append(base)
+            finally:
+                try:
+                    client0.close()
+                except Exception:
+                    pass
+        except Exception:
+            pass
     client = get_ssh_client(server)
     sftp = client.open_sftp()
     files = {}

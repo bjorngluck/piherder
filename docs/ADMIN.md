@@ -382,7 +382,9 @@ If `METRICS_TOKEN` is empty, treat `/metrics` like `/health` — private network
 
 ### Multi-file Docker projects
 
-On a server’s **Docker → Edit compose**, PiHerder loads compose, override, `.env`, and Dockerfile when present. Tabs edit each file; **Save & Deploy** writes the full set and redeploys. Version history stores multi-file snapshots (merge-on-save so one file no longer wipes the others). Compose on the host still auto-loads override + `.env` in the project directory.
+On a server’s **Docker → Edit compose**, PiHerder loads primary compose, override, **compose sets** (`docker-compose.<name>.yml`), `.env`, and Dockerfile when present. Tabs edit each file; **Save & Deploy** writes the full set and redeploys. Version history stores multi-file snapshots (merge-on-save so one file no longer wipes the others). Compose on the host still auto-loads override + `.env` in the project directory.
+
+**Compose sets:** extra compose files in the **same** project directory appear as under-project pills on the Docker page (All / main / set names). They do **not** create a second project card. Optional **Deploy \<set\> set** runs `docker compose -f <file> up -d` under the same project path. See wiki [Docker overview — Compose sets](../wiki/docker/overview.md#compose-sets-same-folder-one-project-card).
 
 ### Docker inventory cache
 
@@ -390,10 +392,11 @@ On a server’s **Docker → Edit compose**, PiHerder loads compose, override, `
 |-----------|--------|
 | Storage | Per-server DB snapshot (`docker_inventory_json`, `docker_inventory_at`, `docker_inventory_status`) |
 | Open Docker page | Renders **last snapshot** immediately (no blocking full SSH list) |
-| Refresh | Background L1 collect (containers + compose discovery, **without** expensive mount `du` on list path) |
+| Refresh | Background L1 collect (containers + compose discovery + compose sets, **without** expensive mount `du` on list path) |
 | Triggers | Stale on open (server detail + Docker), after Docker mutations, fleet job ~every **10 minutes** (hosts with Docker feature on), **Force refresh** button |
 | Stale UI | Banner “Inventory as of …” / “Refreshing…”; last good list kept while refresh runs |
 | Feature gate | Inventory refresh only for servers with **Docker / containers** enabled (`container_patch_enabled`) |
+| Compose sets | Sibling `docker-compose.<name>.yml` files stored on each project; containers tagged with set key for UI filter |
 
 Mount path full resolve + `du` run on **container expand** (detail row open):
 `GET /servers/{id}/docker/container/mounts?name=…` → full Source→Destination paths and per-path host disk usage. Inventory list stays fast; expand restores the previous “full paths + sizes” UX.

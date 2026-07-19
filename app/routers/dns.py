@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import quote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
@@ -232,11 +232,24 @@ async def dns_stack_panel(
         or ""
     ).strip() or None
 
+    # visual_stack: all | main | <id>  (never use bare None — template treats none as All)
+    raw_vs = (request.query_params.get("visual_stack") or "all").strip().lower()
+    if raw_vs in ("all", "*", ""):
+        vs_filter: int | str = "all"
+    elif raw_vs in ("main", "0", "none"):
+        vs_filter = "main"
+    else:
+        try:
+            vs_filter = int(raw_vs)
+        except ValueError:
+            vs_filter = "all"
+
     panel = build_stack_panel(
         session,
         service_id=sid,
         server_id=srv,
         project=proj,
+        visual_stack_id=vs_filter,
     )
     if panel.get("ok") and focus_container:
         panel["focus_container"] = focus_container
@@ -297,10 +310,14 @@ async def stack_save_order(
 ):
     """Save operator container order for stack panel + map expand.
 
+    Persists to container_annotation.sort_index (DB) and dual-writes settings JSON
+    for one-release compatibility.
+
     Returns JSON when Accept includes application/json (stack panel AJAX);
     otherwise redirects for form POSTs.
     """
     from ..services import stack_order as so_svc
+    from ..services import container_annotations as ann_svc
 
     want_json = "application/json" in (request.headers.get("accept") or "").lower()
 
@@ -319,7 +336,19 @@ async def stack_save_order(
             names = []
     except Exception:
         names = [x.strip() for x in (order or "").split(",") if x.strip()]
-    saved = so_svc.set_order(int(server_id), proj, [str(n) for n in names])
+    name_list = [str(n) for n in names]
+    try:
+        saved = ann_svc.set_order_via_annotations(
+            session, server_id=int(server_id), project=proj, names=name_list
+        )
+    except Exception:
+        saved = so_svc.set_order(int(server_id), proj, name_list)
+    else:
+        # Dual-write settings fallback
+        try:
+            so_svc.set_order(int(server_id), proj, saved)
+        except Exception:
+            pass
     try:
         session.add(
             make_audit_log(
@@ -353,19 +382,278 @@ async def stack_expand_json(
     service_id: Optional[int] = None,
     server_id: Optional[int] = None,
     project: Optional[str] = None,
+    visual_stack: Optional[str] = None,
 ):
     """JSON payload for path-map stack blow-up (P4) — one stack's containers + confirmed edges."""
     del user
     from ..services.dns_fabric.stack_expand import build_stack_expand_payload
+
+    vs: int | str = "all"
+    if visual_stack is not None and str(visual_stack).strip() != "":
+        raw = str(visual_stack).strip().lower()
+        if raw in ("all", "*"):
+            vs = "all"
+        elif raw in ("main", "0", "none"):
+            vs = "main"
+        else:
+            try:
+                vs = int(raw)
+            except ValueError:
+                vs = "all"
 
     payload = build_stack_expand_payload(
         session,
         service_id=service_id,
         server_id=server_id,
         project=project,
+        visual_stack_id=vs,
     )
     status = 200 if payload.get("ok") else 404
     return JSONResponse(payload, status_code=status)
+
+
+@router.post("/dns/container-annotation")
+async def container_annotation_save(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    server_id: int = Form(...),
+    project: str = Form(...),
+    container_key: str = Form(...),
+    category_key: str = Form(""),
+    visual_stack_id: str = Form(""),
+    clear_category: str = Form(""),
+    clear_visual_stack: str = Form(""),
+    service_id: str = Form(""),
+    next: str = Form(""),
+):
+    """Set category / tags / visual stack for one container (fixed vocab only).
+
+    Tags: multi-checkbox ``name=tags`` and/or a single ``tags`` JSON/comma field.
+    """
+    from ..services import container_annotations as ann_svc
+
+    want_json = "application/json" in (request.headers.get("accept") or "").lower()
+    proj = (project or "").strip()
+    ckey = (container_key or "").strip()
+    if not proj or not ckey:
+        if want_json:
+            return JSONResponse(
+                {"ok": False, "error": "need project and container"}, status_code=400
+            )
+        return _redirect(
+            _stack_next(next, service_id=service_id), error="annotate_need_fields"
+        )
+
+    # Multi-checkbox name=tags → getlist; optional single JSON/comma string
+    form = await request.form()
+    multi = [str(x).strip() for x in form.getlist("tags") if str(x).strip()]
+    tag_list: list[str] = list(multi)
+    # If a single "tags" field was posted as JSON/CSV (API clients), merge
+    if not tag_list:
+        raw_one = form.get("tags")
+        if raw_one is not None and str(raw_one).strip():
+            raw_tags = str(raw_one).strip()
+            try:
+                parsed = json.loads(raw_tags)
+                if isinstance(parsed, list):
+                    tag_list = [str(x).strip() for x in parsed if str(x).strip()]
+                else:
+                    tag_list = [x.strip() for x in raw_tags.split(",") if x.strip()]
+            except Exception:
+                tag_list = [x.strip() for x in raw_tags.split(",") if x.strip()]
+
+    vs_arg: Any = ...
+    clear_vs = (clear_visual_stack or "").strip() in ("1", "true", "yes")
+    clear_cat = (clear_category or "").strip() in ("1", "true", "yes")
+    raw_vs = (visual_stack_id or "").strip().lower()
+    if clear_vs or raw_vs in ("main", "0", "none", ""):
+        if clear_vs or raw_vs in ("main", "0", "none"):
+            clear_vs = True
+            vs_arg = None
+        else:
+            vs_arg = ...
+    else:
+        try:
+            vs_arg = int(raw_vs)
+            clear_vs = False
+        except ValueError:
+            vs_arg = ...
+
+    cat_arg: Any = ...
+    if clear_cat:
+        cat_arg = None
+    elif (category_key or "").strip():
+        cat_arg = (category_key or "").strip().lower()
+
+    try:
+        result = ann_svc.set_annotation(
+            session,
+            server_id=int(server_id),
+            project=proj,
+            container_key=ckey,
+            category_key=cat_arg if not clear_cat else None,
+            clear_category=clear_cat,
+            tags=tag_list,
+            visual_stack_id=vs_arg if not clear_vs else None,
+            clear_visual_stack=clear_vs,
+        )
+        session.add(
+            make_audit_log(
+                action="fabric.container_annotate",
+                status="success",
+                user_id=user.id,
+                server_id=int(server_id),
+                details=f"{proj}/{ckey} cat={result.get('category_key')} tags={result.get('tags')}",
+            )
+        )
+        session.commit()
+    except ValueError as e:
+        if want_json:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+        return _redirect(_stack_next(next, service_id=service_id), error=str(e)[:200])
+    except Exception as e:
+        if want_json:
+            return JSONResponse({"ok": False, "error": str(e)[:200]}, status_code=500)
+        return _redirect(
+            _stack_next(next, service_id=service_id), error="annotate_failed"
+        )
+
+    if want_json:
+        return JSONResponse({"ok": True, "annotation": result})
+    return _redirect(_stack_next(next, service_id=service_id), msg="annotate_saved")
+
+
+@router.post("/dns/visual-stacks")
+async def visual_stack_create(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    server_id: int = Form(...),
+    project: str = Form(...),
+    name: str = Form(...),
+    service_id: str = Form(""),
+    next: str = Form(""),
+):
+    """Create a visual service stack under one compose project."""
+    from ..services import container_annotations as ann_svc
+
+    want_json = "application/json" in (request.headers.get("accept") or "").lower()
+    try:
+        row = ann_svc.create_visual_stack(
+            session,
+            server_id=int(server_id),
+            project=(project or "").strip(),
+            name=(name or "").strip(),
+        )
+        session.add(
+            make_audit_log(
+                action="fabric.visual_stack_create",
+                status="success",
+                user_id=user.id,
+                server_id=int(server_id),
+                details=f"{project}: {row.name} ({row.slug})",
+            )
+        )
+        session.commit()
+    except ValueError as e:
+        if want_json:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+        return _redirect(_stack_next(next, service_id=service_id), error=str(e)[:200])
+
+    if want_json:
+        return JSONResponse(
+            {
+                "ok": True,
+                "stack": {
+                    "id": row.id,
+                    "name": row.name,
+                    "slug": row.slug,
+                    "is_default": row.is_default,
+                },
+            }
+        )
+    return _redirect(_stack_next(next, service_id=service_id), msg="visual_stack_created")
+
+
+@router.post("/dns/visual-stacks/{stack_id}/delete")
+async def visual_stack_delete(
+    stack_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    service_id: str = Form(""),
+    next: str = Form(""),
+    server_id: int = Form(0),
+):
+    from ..services import container_annotations as ann_svc
+
+    want_json = "application/json" in (request.headers.get("accept") or "").lower()
+    try:
+        ann_svc.delete_visual_stack(session, stack_id=int(stack_id))
+        session.add(
+            make_audit_log(
+                action="fabric.visual_stack_delete",
+                status="success",
+                user_id=user.id,
+                server_id=int(server_id) if server_id else None,
+                details=f"stack_id={stack_id}",
+            )
+        )
+        session.commit()
+    except ValueError as e:
+        if want_json:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+        return _redirect(_stack_next(next, service_id=service_id), error=str(e)[:200])
+    if want_json:
+        return JSONResponse({"ok": True})
+    return _redirect(_stack_next(next, service_id=service_id), msg="visual_stack_deleted")
+
+
+@router.post("/dns/vocab")
+async def topology_vocab_add(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    kind: str = Form(...),  # category | tag
+    key: str = Form(...),
+    label: str = Form(""),
+    next: str = Form("/dns"),
+):
+    """Add a category or tag to the fixed vocabulary lists."""
+    from ..services import container_annotations as ann_svc
+
+    want_json = "application/json" in (request.headers.get("accept") or "").lower()
+    k = (kind or "").strip().lower()
+    try:
+        if k == "category":
+            row = ann_svc.add_category(
+                session, key=key, label=label or key
+            )
+            detail = f"category:{row.key}"
+        elif k == "tag":
+            row = ann_svc.add_tag(session, key=key, label=label or key)
+            detail = f"tag:{row.key}"
+        else:
+            raise ValueError("kind must be category or tag")
+        session.add(
+            make_audit_log(
+                action="fabric.vocab_add",
+                status="success",
+                user_id=user.id,
+                details=detail,
+            )
+        )
+        session.commit()
+    except ValueError as e:
+        if want_json:
+            return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+        return _redirect(next or "/dns", error=str(e)[:200])
+    if want_json:
+        return JSONResponse(
+            {"ok": True, "kind": k, "key": row.key, "label": row.label}
+        )
+    return _redirect(next or "/dns", msg="vocab_added")
 
 
 @router.post("/dns/stack-edges/accept")

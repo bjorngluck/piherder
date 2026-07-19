@@ -265,21 +265,22 @@ TCP/DB monitors require published ports, shared Docker network with Kuma, or hos
 | **P4b** | **Stack container order** | Operator long-press/drag reorder; persists; drives **column left→right** on map | **Done** |
 | **P5** | Monitor depth | TCP bind in panel; **optional alert** when Kuma-bound container down in inventory | **Done** |
 | **P6** | Shared-service catalog polish | Catalog of shared DB/redis/services for better cross-host suggest | **Later** (not 0.6) |
-| **Later** | **Configurable columns & links** | Operator-defined map columns, pin roles to columns, explicit edge→column layout (beyond order-driven L→R) | **Later** (not 0.6) |
+| **Later** | **Configurable columns & links** | Operator-defined map columns, pin roles to columns, explicit edge→column layout (beyond order-driven L→R) | **Partial (0.7):** categories/tags/visual stacks + vocab-driven columns — see § 12c |
 | **—** | **LAN discovery (nmap)** | Orthogonal device discovery — not stack deps | **v0.8.0** (PLAN H1) |
 
 ### Shipped vs not done (stream close-out)
 
 | Shipped (0.6) | Not done — add later |
 |---------------|----------------------|
-| P0 IA split + Coverage page | User-configurable map columns |
-| P1 side panel stack expand | Link-to-column layout rules |
-| P1b compose graph in inventory | Per-stack layout profiles |
-| P2 suggest edges accept/dismiss | Cross-host manual picker polish (API works; UI still same-project-first) |
-| P3 manual `RuntimeEdge` + backup | Broader Hosts/Path published-port chips |
-| P4/P4.5 map expand + detail | P6 shared-service catalog polish |
-| P4b container order → column L→R | LAN nmap discovery → **v0.8.0** |
+| P0 IA split + Coverage page | Link-to-column layout rules / per-project column profiles |
+| P1 side panel stack expand | Cross-host manual picker polish (API works; UI still same-project-first) |
+| P1b compose graph in inventory | Broader Hosts/Path published-port chips |
+| P2 suggest edges accept/dismiss | P6 shared-service catalog polish |
+| P3 manual `RuntimeEdge` + backup | LAN nmap discovery → **v0.8.0** |
+| P4/P4.5 map expand + detail | Docker management full visual parity (stretch) |
+| P4b container order → column L→R | |
 | P5 Kuma-bound container down alerts | |
+| **0.7 T0–T4 annotations** (exact project, category, tags, visual stacks, vocab columns) | |
 
 **0.6 track:** operator-locked dual-altitude UX is **done**. Do not reopen for freeze unless regressions.
 
@@ -386,6 +387,25 @@ An operator can:
 
 ---
 
+## 12c. Topology annotations (0.7 capacity)
+
+Operator presentation layer on top of compose projects — **does not** change deploy/stop boundaries.
+
+| Concept | Rules |
+|---------|--------|
+| **Category** | One per container; drives map columns; fixed vocab (seed: edge/app/queue/cache/data/tooling); heuristic default; operator override |
+| **Tags** | Multi chips from fixed vocab (web/db/worker/…); not free text; operator can add vocab entries |
+| **Visual service stack** | Group containers under **one compose project** for panel/map filter; create/move; deploy still whole project |
+| **Exact project match** | No soft substring match (`piherder` ≠ `piherder-e2e`) |
+| **DB** | `topologycategory`, `topologytag`, `visualservicestack`, `containerannotation`, `containerannotationtag` · herder backup included |
+| **Order** | `containerannotation.sort_index` primary; settings JSON dual-write for one release |
+
+Still later: per-project column profiles, explicit edge→column layout, Docker UI full parity (T6).
+
+**Related (Docker, not fabric):** **compose sets** — multiple compose files under one project folder with under-project pills and optional `-f` deploy. Orthogonal to view groups. See [PLAN_v0.7.0.md](PLAN_v0.7.0.md) stream C · wiki Docker overview.
+
+---
+
 ## 13. References in codebase (shipped)
 
 | Area | Path |
@@ -394,13 +414,15 @@ An operator can:
 | Stack panel payload | `app/services/dns_fabric/stack_panel.py` |
 | Map expand payload | `app/services/dns_fabric/stack_expand.py` · `GET /dns/stack-expand.json` |
 | Panel + map JS | `app/static/js/fabric-stack-panel.js` · `fabric-stack-expand.js` · `fabric-mesh.js` |
-| Container order | `app/services/stack_order.py` · `POST /dns/stack-order` · setting `stack_container_order_json` |
+| Container order | `app/services/stack_order.py` · `POST /dns/stack-order` · annotation `sort_index` + settings dual-write |
+| Annotations | `app/services/container_annotations.py` · migration `024_topology_annotations` |
+| Compose sets (Docker) | `app/services/compose_sets.py` · inventory + Docker UI pills |
 | Compose graph / edges | `app/services/compose_graph.py` · `runtime_edges.py` · migration `021_runtime_edge` |
 | Stack monitor alerts | `app/services/stack_monitor.py` · setting `stack_inventory_down_alerts` |
 | Kuma coverage | `app/services/dns_fabric/kuma_coverage.py` · `/dns/coverage` |
-| Docker inventory | `app/services/docker_inventory.py` (compose graph v2) |
-| Herder backup | includes `RuntimeEdge` |
-| Tests | `tests/test_stack_*.py` · `test_compose_graph.py` · `test_runtime_edges.py` |
+| Docker inventory | `app/services/docker_inventory.py` (compose graph v2 + compose_sets) |
+| Herder backup | includes `RuntimeEdge` + topology annotation tables |
+| Tests | `tests/test_stack_*.py` · `test_container_annotations.py` · `test_compose_sets.py` · `test_compose_graph.py` · `test_runtime_edges.py` |
 
 ---
 
@@ -417,5 +439,7 @@ An operator can:
 | 2026-07-18 | **P4.5** expandable container detail; map node click → detail; **P5** inventory down alerts for Kuma-bound containers |
 | 2026-07-18 | **P4b** stack container order (long-press/drag); map column L→R from order; **data** keeps db+redis; no expand link chips; later: configurable columns / link-to-column |
 | 2026-07-18 | **Stream closed for v0.6** — P0–P5+P4b done; residual column/layout/P6 later; **nmap → v0.8.0** |
+| 2026-07-19 | **0.7 annotations:** exact project match; category/tags/visual stacks (DB); map columns from category vocab; stack panel editor |
+| 2026-07-19 | View groups UX polish (Main token, pill chrome); multi-fan map on All; **compose sets** shipped on Docker page (orthogonal) |
 
-**End of plan** — core dual-altitude product shipped. Residual only: configurable columns, link-to-column, layout profiles, cross-host picker polish, P6 catalog; LAN scan is **v0.8.0**.
+**End of plan** — dual-altitude product + 0.7 annotations + Docker compose sets. Residual: link-to-column profiles, cross-host picker polish, P6 catalog; LAN scan is **v0.8.0**.

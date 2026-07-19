@@ -86,9 +86,10 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 | PWA + Web Push (Android + iOS Home Screen) | ✅ | Manifest/SW; VAPID auto; Account prefs; iOS decision — [feature plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md) |
 | Pi-hole admin link | ✅ | Configurable `PIHOLE_URL` |
 | Offline-ready frontend | ✅ | Vendored Tailwind, HTMX, Alpine |
-| Docker Compose project browser | ✅ | List, redeploy, build, logs; multi-file editor |
-| Docker inventory cache | ✅ | DB snapshot + background L1 refresh; Force refresh for full re-collect |
-| Compose file editing + versioning | ✅ | Drafts, deploy, rollback; multi-file merge-on-save |
+| Docker Compose project browser | ✅ | List, redeploy, build, logs; multi-file editor; **compose sets** (sub-views under one project) |
+| Docker inventory cache | ✅ | DB snapshot + background L1 refresh; Force refresh for full re-collect; compose set discovery |
+| Compose file editing + versioning | ✅ | Drafts, deploy, rollback; multi-file merge-on-save; set files as tabs |
+| Runtime topology annotations | ✅ | Category/tags/view groups on stack panel + map expand (presentation only) |
 | New Docker project wizard | ✅ | |
 | User auth (register / login) | ✅ | Single-user v1 |
 
@@ -337,7 +338,8 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [x] **Network maps / DNS fabric** (v0.5.0) — host `dns_name` A records; `ServiceDnsRecord` (CNAME or host-identity A); Catalog → **Network** hub + Hosts map `/dns/physical` (Internet→router→LAN→hosts, cloud hosts, Kuma on router/WAN) + Path map `/dns/logical`; Pi-hole adopt (duplicates = ok); node + path focus; viewBox zoom; mobile list-first + Hide map + Full screen (hamburger exits fullscreen); GET-safe topology; external checklist — [wiki](wiki/integrations/dns-fabric.md) · package `app/services/dns_fabric/`
 - [x] **Runtime topology / stack deps** (v0.6 track) — dual altitude: path maps + Stack panel + map expand; compose graph; `RuntimeEdge` suggest/accept/manual; container order → column L→R; Coverage + bound-container down alerts — [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md)
 - [x] **Cert RC2 UX** (v0.6 track) — first-cert setup; map presets; stage_sudo; self-managed Caddy edge mapping + renew re-apply; Grafana UID 472 cookbook
-- [ ] Configurable map columns / link-to-column layout (topology residual)
+- [x] **Topology annotations** (0.7) — fixed category/tags vocab, visual service stacks within compose project, exact project match, map columns from category vocab ([FEATURE_PLAN_RUNTIME_TOPOLOGY.md](docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md) § 12c)
+- [ ] Per-project column profiles / explicit link-to-column layout (topology residual)
 - [ ] **LAN discovery (nmap-class)** — opt-in LAN CIDR scan — **v0.8.0**
 - [ ] Cloudflare DNS automation from template hints / fabric
 - [ ] Pi-hole / NPM write paths beyond local DNS (proxy host CRUD, lists, etc.)

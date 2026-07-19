@@ -16,6 +16,7 @@ Walking every project with full mount `du` over SSH on each navigation makes the
 | Triggers | Stale on open, after mutations, fleet job ~every **10 minutes**, **Force refresh** |
 | Stale UI | Banner “Inventory as of …” / “Refreshing…”; last good list kept |
 | Feature gate | Only servers with Docker feature on |
+| Compose sets | Inventory lists extra `docker-compose.<name>.yml` under each project (services + set key per container) for Docker UI pills |
 
 ### Container expand
 

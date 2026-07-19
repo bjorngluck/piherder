@@ -175,6 +175,8 @@ def _slim_container(c: Dict[str, Any]) -> Dict[str, Any]:
         "compose_project",
         "compose_service",
         "compose_workdir",
+        "compose_set",
+        "networks",
         "placeholder",
         "has_pending_update",
     )
@@ -197,6 +199,24 @@ def _slim_project(p: Dict[str, Any]) -> Dict[str, Any]:
         "container_count": p.get("container_count") or 0,
         "containers": [_slim_container(c) for c in (p.get("containers") or [])],
     }
+    # Compose sets (extra docker-compose.<name>.yml under same folder)
+    raw_sets = p.get("compose_sets")
+    if isinstance(raw_sets, list) and raw_sets:
+        slim_sets = []
+        for s in raw_sets[:20]:
+            if not isinstance(s, dict):
+                continue
+            slim_sets.append(
+                {
+                    "key": s.get("key"),
+                    "label": s.get("label") or s.get("key"),
+                    "filename": s.get("filename"),
+                    "is_primary": bool(s.get("is_primary")),
+                    "services": list(s.get("services") or [])[:80],
+                }
+            )
+        if slim_sets:
+            row["compose_sets"] = slim_sets
     # P1b — compose dependency graph (depends_on, networks, sha)
     cg = p.get("compose_graph")
     if isinstance(cg, dict) and cg:

@@ -118,6 +118,28 @@
             {% endif %}
           </div>
           <div class="docker-proj-path text-muted" title="{{ proj.path | e }}">{{ proj.path }}</div>
+          {% if proj.compose_sets and proj.compose_sets|length > 1 %}
+          <div class="docker-compose-sets fabric-stack-pills mt-1.5"
+               role="tablist"
+               aria-label="Compose files in this project"
+               data-compose-set-filter
+               data-proj="{{ proj.name | e }}">
+            <button type="button"
+                    class="fabric-stack-pill is-active"
+                    data-compose-set="all"
+                    title="All services in this project">All</button>
+            {% for s in proj.compose_sets %}
+            <button type="button"
+                    class="fabric-stack-pill"
+                    data-compose-set="{{ s.key | e }}"
+                    data-compose-file="{{ (s.filename or '') | e }}"
+                    title="{{ s.filename or s.label }} · {{ (s.services or [])|length }} service(s)">{{ s.label or s.key }}</button>
+            {% endfor %}
+          </div>
+          <p class="text-[10px] text-muted mt-1 mb-0 leading-snug">
+            Compose sets — same folder / project · not a separate stack
+          </p>
+          {% endif %}
         </div>
         <div class="docker-proj-tools">
           <button type="button"
@@ -143,6 +165,19 @@
             <input type="hidden" name="pull" value="true">
             <button type="submit" data-sec-btn="deploy">Deploy</button>
           </form>
+          {% if proj.compose_sets and proj.compose_sets|length > 1 %}
+          {% for s in proj.compose_sets if not s.is_primary and s.filename %}
+          <form method="post" action="/servers/{{ server.id }}/docker/redeploy" data-sec="deploy-set-{{ s.key }}">
+            <input type="hidden" name="project_path" value="{{ proj.path }}">
+            <input type="hidden" name="pull" value="true">
+            <input type="hidden" name="compose_file" value="{{ s.filename }}">
+            <button type="submit" data-sec-btn="deploy-set-{{ s.key }}"
+                    title="docker compose -f {{ s.filename }} up -d (same project)">
+              Deploy {{ s.label or s.key }} set
+            </button>
+          </form>
+          {% endfor %}
+          {% endif %}
           <button type="button"
                   data-sec-btn="logs"
                   data-proj="{{ proj.name }}"
@@ -209,6 +244,7 @@
              data-container-ref="{{ cref | e }}"
              data-svc-status="{{ filt }}"
              data-svc-name="{{ (c.compose_service or c.name or '') | e | lower }}"
+             data-compose-set="{{ (c.compose_set or 'main') | e }}"
              data-has-update="{{ '1' if c.has_pending_update else '0' }}"
              data-running="{{ '1' if c.running else '0' }}"
              data-mounts-ready="{{ '1' if c.mounts_detail else '0' }}">
