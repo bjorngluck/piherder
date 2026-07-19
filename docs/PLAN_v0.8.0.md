@@ -14,7 +14,7 @@
 | Theme | **RC3 quality + LAN discovery** — overall polish, deeper tests (**~50% unit coverage**), full docs/screenshots, **nmap** as the headline feature |
 | Planning frame | Four pillars in parallel: **polish · E2E/coverage · docs+screenshots · nmap**; cut polish before cutting nmap or docs bar |
 | Coverage bar | **~50%** unit line coverage (tag should-meet; force growth without 100% chase) |
-| Nmap product leans | Auto-create **discovery** records · **network view** · **manual** promote/onboard; runtime packaging TBD in feature plan |
+| Nmap product leans | Auto-create **discovery** · **network view** · **manual** promote · **separate worker** + **vuln volume** (Vulners) — see feature plan |
 | Production path | ~~v0.5.0 RC1~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ **tagged** → **v0.8.0 RC3** (this cycle) → **v1.0** |
 | Docs strategy | Full wiki/prose review + **screenshot pack** (deferred from 0.7) + nmap UX docs; `RELEASE_v0.8.0.md` at tag |
 | **Out of 0.8 by default** | Web SSH (P5), full ACME-in-herder, K8s, large template pack |
@@ -130,27 +130,26 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 
 **Solution:** Opt-in scan of a configured **Network LAN CIDR**, **auto-create** discovered device records, present an **nmap network view**, and use **manual onboarding** (wizard / server create) where a device should become a managed PiHerder host. Orthogonal to stack dependency edges.
 
-| Aspect | Lean (2026-07-19) |
-|--------|-------------------|
-| Trigger | Manual + optional schedule; **opt-in** only |
-| Engine | nmap-class (or equivalent) — **deployment TBD** (in-app job vs **separate container** vs hybrid); never silent full-net scans |
-| Safety | Preview / confirm / audit; rate limits; no automatic privilege escalation |
-| Persistence | **Auto-create** discovery records for found hosts/devices (not “list and forget”) |
-| Onboarding | Discovered item ≠ managed server until operator **manually** promotes / links via wizard or existing flows where appropriate |
-| UI | **Nmap network view** + device list; link / promote / ignore; fabric may show device dots later |
-| Out | Replacing Kuma; agent install; wireless site survey; silent auto-enroll as full managed servers |
+| Aspect | Lean (**locked** 2026-07-19) |
+|--------|------------------------------|
+| Trigger | Manual + **multiple schedules** (discovery / inventory / detailed); **opt-in** only |
+| Engine | **Separate** `celery-worker-nmap` (compose profile `nmap`); web never scans; queue `nmap` |
+| Vuln / Vulners | **Mapped volume** for downloads; full Vulners when pack present; **not** in image layers |
+| Safety | Preview / confirm / audit; rate limits; CIDR allowlist; no automatic privilege escalation |
+| Persistence | **Auto-create** discovery records for found hosts/devices |
+| Onboarding | Discovered item ≠ managed server until operator **manually** promotes / links |
+| UI | Integrations → LAN Discovery · **network view** · device list · Jobs |
+| Out | Replacing Kuma; agent install; wireless survey; silent auto-enroll; flood/brute NSE |
 
-**Acceptance (indicative — detail in nmap feature plan):**
+**Acceptance (detail in feature plan):**
 
-- [ ] Operator can configure LAN CIDR(s) and run a **discover** job  
-- [ ] Discovered devices **auto-created** as first-class discovery records  
-- [ ] **Network view** + list with address / hostname / open ports (bounded)  
-- [ ] Manual promote/link or dismiss; audit trail; no silent full server onboarding  
-- [ ] Wiki + ADMIN security notes (opt-in, blast radius, container/deployment model)  
-- [ ] Unit tests for parse / auto-create / link helpers; no live scan required in CI  
-- [ ] Screenshot(s) for network view + discovery UI (stream A)  
+- [ ] Configure LAN CIDR(s); discover / inventory / detailed + on-demand / per-IP deep  
+- [ ] Multiple schedules; auto-created devices; network view  
+- [ ] Manual promote/link/dismiss; audit  
+- [ ] Compose profile worker + vuln volume; default install without them  
+- [ ] Wiki + ADMIN; high unit/E2E (fixtures only in CI); screenshots  
 
-**Design detail:** dedicated **[FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)** (flesh out early in cycle) · background H1 notes in [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
+**Design detail:** **[FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)** (approved) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
 
 ---
 
@@ -242,7 +241,7 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 | 2 | Auto-create from scan | **Locked direction** | **Yes** — auto-create **discovery records**; flesh schema/lifecycle in nmap plan |
 | 3 | Network view | **Locked direction** | Dedicated **nmap network view** (not only a flat list) |
 | 4 | Managed-server onboarding | **Locked direction** | **Manual** where appropriate (wizard / promote / link) — discovery ≠ full fleet member |
-| 5 | nmap runtime (image vs separate container vs agent) | **Open** | **Maybe separate container** — decide in [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md); do not block product UX design |
+| 5 | nmap runtime | **Locked** | **Separate** `celery-worker-nmap` + dedicated image target + **vuln volume** (Vulners) — [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) |
 | 6 | Persist full port inventory forever? | Open | **Bounded TTL** + latest snapshot (default lean) |
 | 7 | Pull P3 into must? | Open | **No** unless operator pain is acute |
 
@@ -285,7 +284,8 @@ Before tagging **0.8.0**, a maintainer can:
 | Date | Note |
 |------|------|
 | 2026-07-19 | Plan created at 0.7 freeze: RC3 = polish + E2E/coverage + full docs/screenshots + **nmap** feature |
-| 2026-07-19 | Cycle kickoff: coverage bar **~50%**; nmap **auto-create** discovery records + **network view** + manual onboard; deploy (separate container?) deferred to [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) |
+| 2026-07-19 | Cycle kickoff: coverage bar **~50%**; nmap **auto-create** discovery records + **network view** + manual onboard |
+| 2026-07-19 | **Nmap design approved:** separate worker, vuln volume (Vulners), multi-schedule, intensity ladder — [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) |
 
 ---
 
