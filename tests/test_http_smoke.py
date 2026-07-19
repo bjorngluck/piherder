@@ -84,10 +84,12 @@ def test_login_page_200(smoke_client):
 def test_favicon_and_static_present(smoke_client):
     client, _ = smoke_client
     assert client.get("/favicon.ico").status_code == 200
-    # Vendored alpine (any 200 proves static mount)
-    r = client.get("/static/alpine.min.js")
+    # Use a file that is committed (alpine/htmx/tailwind are gitignored vendored CDNs)
+    r = client.get("/static/css/themes.css")
     assert r.status_code == 200
     assert len(r.content) > 100
+    r2 = client.get("/static/sw.js")
+    assert r2.status_code == 200
 
 
 @pytest.mark.parametrize(
