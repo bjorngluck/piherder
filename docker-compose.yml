@@ -29,6 +29,7 @@ x-piherder-app-env: &piherder-app-env
   METRICS_BACKUP_STALE_HOURS: ${METRICS_BACKUP_STALE_HOURS:-36}
   CORS_ORIGINS: ${CORS_ORIGINS:-}
   PIHERDER_SERVER_LOCK_TTL: ${PIHERDER_SERVER_LOCK_TTL:-7200}
+  PIHERDER_NMAP_VULN_ROOT: ${PIHERDER_NMAP_VULN_ROOT:-/var/lib/piherder/nmap-vuln}
   TZ: ${TZ:-Etc/UTC}
 
 # App image — **local build by default** (dev / RC testing on this host).
@@ -122,6 +123,45 @@ services:
       timeout: 15s
       retries: 5
       start_period: 60s
+
+  # LAN discovery (nmap) — opt-in profile. Default `docker compose up` does not start this.
+  #   docker build -f Dockerfile.nmap -t piherder:nmap-local .
+  #   docker compose --profile nmap up -d celery-worker-nmap
+  # Vulners / CVE artefacts live on the host volume (not in the image):
+  #   ./piherder_nmap_vuln → /var/lib/piherder/nmap-vuln
+  celery-worker-nmap:
+    profiles: ["nmap"]
+    image: ${PIHERDER_NMAP_IMAGE:-piherder:nmap-local}
+    build:
+      context: .
+      dockerfile: Dockerfile.nmap
+    container_name: piherder-celery-nmap
+    command: >
+      celery -A app.celery_app.celery worker
+      --loglevel=info
+      -Q nmap
+      --concurrency=1
+      -n nmap@%h
+    restart: unless-stopped
+    environment:
+      <<: *piherder-app-env
+      PIHERDER_NMAP_VULN_ROOT: /var/lib/piherder/nmap-vuln
+    volumes:
+      - ./piherder_data:/data
+      - ${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}:/var/lib/piherder/nmap-vuln
+    depends_on:
+      - db
+      - redis
+    # SYN scans / OS detect may need extra caps on some hosts; connect-scan works without.
+    # cap_add:
+    #   - NET_RAW
+    #   - NET_ADMIN
+    healthcheck:
+      test: ["CMD", "python", "-c", "import shutil,sys; sys.exit(0 if shutil.which('nmap') else 1)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   caddy:
     image: caddy:2

@@ -276,9 +276,9 @@ Aim for **high unit + E2E coverage** of nmap surfaces (stronger than global ~50%
 
 | Phase | Deliverable | Status |
 |-------|-------------|--------|
-| **N0** | This plan approved + docs committed | **Done** (this rev) |
-| **N1** | Models + migrations + parse/upsert + fixtures | Next |
-| **N2** | nmap image target + compose profile + vuln volume + queue/tasks | |
+| **N0** | This plan approved + docs committed | **Done** |
+| **N1** | Models + migrations + parse/upsert + fixtures | **Done** (foundation) |
+| **N2** | nmap image target + compose profile + vuln volume + queue/tasks | **Done** (foundation) |
 | **N3** | Integration UI: setup, devices, runs, on-demand | |
 | **N4** | Multiple schedules + APScheduler sync | |
 | **N5** | Network view MVP | |

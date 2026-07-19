@@ -81,4 +81,7 @@ app/static/alpine.min.js
 
 # App data (avatars)
 piherder_data/
+
+# Nmap Vulners / vuln pack volume (downloaded artefacts — not in image)
+piherder_nmap_vuln/
 certs/.piherder-cert-fp

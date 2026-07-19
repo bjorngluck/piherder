@@ -21,6 +21,7 @@ TYPE_UPTIME_KUMA = "uptime_kuma"
 TYPE_GRAFANA = "grafana"
 TYPE_PIHOLE = "pihole"
 TYPE_NPM = "npm"
+TYPE_NMAP = "nmap"  # LAN discovery — see FEATURE_PLAN_LAN_NMAP.md
 ROLE_SSH = "ssh_reachability"
 ROLE_SERVICE = "service"  # HTTP(s) / app / cert monitoring (Kuma)
 ROLE_DASHBOARD = "dashboard"  # Grafana dashboard deep link per server
