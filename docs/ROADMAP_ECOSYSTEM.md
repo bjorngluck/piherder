@@ -257,7 +257,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 | **Published ports on maps** | Ports in stack expand/detail; broader Hosts/Path port chips may still grow |
 | **Monitoring coverage audit** | **Done (H3):** `/dns/coverage` + hub teaser; optional inventory-down alerts for Kuma-bound containers |
 | **Configurable columns / link-to-column** | **Later** (post-0.6 residual) — operator-defined map columns and explicit edge placement (runtime topology § 12b) |
-| **LAN discovery (nmap-class)** | **In progress / product largely on main** — separate worker, auto-create devices, network view, multi-schedule **edit**, vuln pack — **v0.8.0 RC3** ([FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md)); orthogonal to stack deps |
+| **LAN discovery (nmap-class)** | **Product largely complete on main** — worker, devices, network view, multi-schedule **edit**, vuln pack, **script presets**, fleet soft embed, unit/E2E shells — **v0.8.0 RC3** remaining: screenshots ([FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md)); orthogonal to stack deps |
 | **Richer topology** | Focused dep edges polish, force LAN/cloud overrides |
 | **External DNS providers** | Cloudflare (etc.) automation; until then external checklist remains |
 | **Service migrate / remove** | Move stack host↔host with DNS retarget; destructive remove with volume cleanup |

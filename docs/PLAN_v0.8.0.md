@@ -292,11 +292,12 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 5. Schedule edit + deep/vuln ops polish                    // DONE
 6. Wiki / ADMIN for nmap + cleanup                         // DONE (wiki); screenshots open
 7. HTTP smoke + unit depth (nmap/cleanup/ops)              // DONE (~41% cov; floor 30%)
-8. Coverage growth toward ~50% + E2E B6 / shell journeys   // Q — NEXT
-9. Screenshot pack (wizard + nmap + residual 0.6/0.7)      // A
-10. Capacity polish (P / P3)                               // optional
-11. Full prose review pass                                 // A
-12. Freeze: tests · ~50% cov · screenshots · RELEASE · Hub
+8. N8 soft embed + N9 shells + presets/classify            // DONE
+9. Coverage growth toward ~50% + E2E depth                 // Q — NEXT
+10. Screenshot pack (wizard + nmap + residual 0.6/0.7)     // A — NEXT
+11. Capacity polish (P / P3)                               // optional
+12. Full prose review pass                                 // A
+13. Freeze: tests · ~50% cov · screenshots · RELEASE · Hub
 ```
 
 ---
@@ -360,6 +361,7 @@ Before tagging **0.8.0**, a maintainer can:
 | 2026-07-19 | **N1–N6 + R1 shipped:** LAN UI/schedules/edit, vuln pack Jobs, host-network worker; stale_data_cleanup; wiki LAN Discovery + Settings cleanup |
 | 2026-07-19 | **Next focus:** stream **Q** (~50% coverage, HTTP smoke, E2E growth) + stream **A** screenshot pack; optional P polish / N8 embed |
 | 2026-07-19 | **Q smoke slice:** `test_http_smoke` (auth 401 + logged-in shells); nmap schedule CRUD / argv / nmap-run purge; ops_pulse + update_check_config; CI cov report + fail-under 30 |
+| 2026-07-19 | **Nmap N8–N9 + polish:** soft embed (fleet/host), deep script presets, curated timing/ports/UDP, script classify UI, unit + `e2e/test_nmap_lan.py`; remaining for N: **screenshots** (A) |
 
 ---
 
