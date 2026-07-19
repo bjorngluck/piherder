@@ -10,15 +10,64 @@ from sqlmodel import Session, select
 
 from ...models import Integration, NmapScanSchedule
 from .config import parse_nmap_config
+from .paths import vuln_pack_status
 from .scan import enqueue_nmap_scan
 
 logger = logging.getLogger(__name__)
 
-INTENSITIES_SCHEDULE = ("discovery", "inventory", "detailed")
+# deep allowed when operator opts into scheduled vuln/full scans
+INTENSITIES_SCHEDULE = ("discovery", "inventory", "detailed", "deep")
 
 
 def schedule_aps_id(schedule_id: int) -> str:
     return f"nmap_scan_{int(schedule_id)}"
+
+
+def parse_schedule_options(row: NmapScanSchedule | dict | None) -> dict[str, Any]:
+    """Return normalized schedule options (vuln / SYN)."""
+    data: dict[str, Any] = {}
+    if row is None:
+        pass
+    elif isinstance(row, dict):
+        raw = row.get("options_json", row)
+        if isinstance(raw, str) and raw.strip():
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict):
+                    data = parsed
+            except Exception:
+                data = {}
+        elif isinstance(raw, dict):
+            data = raw
+    else:
+        raw = getattr(row, "options_json", None)
+        if isinstance(raw, str) and raw.strip():
+            try:
+                parsed = json.loads(raw)
+                if isinstance(parsed, dict):
+                    data = parsed
+            except Exception:
+                data = {}
+    use_syn = data.get("use_syn", None)
+    if use_syn is not None:
+        use_syn = bool(use_syn)
+    return {
+        "vuln_scripts": bool(data.get("vuln_scripts")),
+        "use_syn": use_syn,  # None = inherit integration setting
+    }
+
+
+def dump_schedule_options(
+    *,
+    vuln_scripts: bool = False,
+    use_syn: bool | None = None,
+) -> str:
+    payload: dict[str, Any] = {
+        "vuln_scripts": bool(vuln_scripts),
+    }
+    if use_syn is not None:
+        payload["use_syn"] = bool(use_syn)
+    return json.dumps(payload, separators=(",", ":"))
 
 
 def create_schedule(
@@ -32,6 +81,8 @@ def create_schedule(
     enabled: bool = False,
     scope_all: bool = True,
     cidrs: list[str] | None = None,
+    vuln_scripts: bool = False,
+    use_syn: bool | None = None,
 ) -> NmapScanSchedule:
     intensity = (intensity or "discovery").strip().lower()
     if intensity not in INTENSITIES_SCHEDULE:
@@ -42,6 +93,9 @@ def create_schedule(
         parts = cron.strip().split()
         if len(parts) != 5:
             raise ValueError("cron must have 5 fields")
+    # Vuln scripts only make sense on deep (or detailed with scripts — we gate to deep)
+    if intensity != "deep":
+        vuln_scripts = False
     scope: dict[str, Any] = {"all_configured": True} if scope_all else {"cidrs": cidrs or []}
     now = datetime.utcnow()
     row = NmapScanSchedule(
@@ -52,6 +106,9 @@ def create_schedule(
         interval_hours=int(interval_hours) if interval_hours else None,
         enabled=bool(enabled),
         scope_json=json.dumps(scope, separators=(",", ":")),
+        options_json=dump_schedule_options(
+            vuln_scripts=vuln_scripts, use_syn=use_syn
+        ),
         created_at=now,
         updated_at=now,
     )
@@ -72,6 +129,9 @@ def update_schedule(
     enabled: bool | None = None,
     clear_cron: bool = False,
     clear_interval: bool = False,
+    vuln_scripts: bool | None = None,
+    use_syn: bool | None = None,
+    clear_use_syn: bool = False,
 ) -> NmapScanSchedule:
     if name is not None:
         row.name = name.strip() or row.name
@@ -83,7 +143,7 @@ def update_schedule(
     if clear_cron:
         row.cron = None
     elif cron is not None:
-        c = cron.strip()
+        c = (cron or "").strip()
         if c:
             if len(c.split()) != 5:
                 raise ValueError("cron must have 5 fields")
@@ -93,9 +153,28 @@ def update_schedule(
     if clear_interval:
         row.interval_hours = None
     elif interval_hours is not None:
-        row.interval_hours = int(interval_hours) if interval_hours else None
+        try:
+            ih = int(interval_hours) if interval_hours else None
+        except (TypeError, ValueError):
+            ih = None
+        row.interval_hours = ih if ih and ih > 0 else None
     if enabled is not None:
         row.enabled = bool(enabled)
+
+    opts = parse_schedule_options(row)
+    if vuln_scripts is not None:
+        opts["vuln_scripts"] = bool(vuln_scripts)
+    if clear_use_syn:
+        opts["use_syn"] = None
+    elif use_syn is not None:
+        opts["use_syn"] = bool(use_syn)
+    if row.intensity != "deep":
+        opts["vuln_scripts"] = False
+    row.options_json = dump_schedule_options(
+        vuln_scripts=bool(opts.get("vuln_scripts")),
+        use_syn=opts.get("use_syn"),
+    )
+
     if not row.cron and not row.interval_hours:
         raise ValueError("schedule needs cron or interval_hours")
     row.updated_at = datetime.utcnow()
@@ -103,6 +182,19 @@ def update_schedule(
     session.commit()
     session.refresh(row)
     return row
+
+
+def parse_use_syn_form(raw: str | None) -> tuple[bool | None, bool]:
+    """Return (use_syn value, clear_use_syn).
+
+    Empty string → inherit (clear stored override).
+    """
+    syn_raw = (raw or "").strip().lower()
+    if syn_raw in ("on", "1", "true", "syn"):
+        return True, False
+    if syn_raw in ("off", "0", "false", "connect", "st"):
+        return False, False
+    return None, True
 
 
 def delete_schedule(session: Session, row: NmapScanSchedule) -> None:
@@ -123,6 +215,7 @@ def fire_schedule(schedule_id: int) -> None:
             if not integ or not integ.enabled or integ.type != "nmap":
                 return
             cfg = parse_nmap_config(integ)
+            opts = parse_schedule_options(row)
             targets: list[str] = []
             if row.scope_json:
                 try:
@@ -138,6 +231,25 @@ def fire_schedule(schedule_id: int) -> None:
             if not targets:
                 logger.info("[SCHEDULER] nmap schedule %s skipped — no targets", schedule_id)
                 return
+
+            want_vuln = bool(opts.get("vuln_scripts")) and row.intensity == "deep"
+            if want_vuln:
+                pack = vuln_pack_status()
+                if not cfg.get("vuln_enabled"):
+                    logger.info(
+                        "[SCHEDULER] nmap schedule %s: vuln_scripts on but "
+                        "integration vuln_enabled is off — scanning without scripts",
+                        schedule_id,
+                    )
+                    want_vuln = False
+                elif not pack.get("ready"):
+                    logger.info(
+                        "[SCHEDULER] nmap schedule %s: vuln pack not ready — "
+                        "scanning without scripts",
+                        schedule_id,
+                    )
+                    want_vuln = False
+
             job, run = enqueue_nmap_scan(
                 db,
                 integration_id=integ.id,
@@ -145,7 +257,8 @@ def fire_schedule(schedule_id: int) -> None:
                 targets=targets,
                 schedule_id=row.id,
                 user_id=None,
-                vuln_scripts=False,
+                vuln_scripts=want_vuln,
+                use_syn=opts.get("use_syn"),  # None = integration default
             )
             row.last_run_at = datetime.utcnow()
             row.last_job_id = job.id
@@ -153,10 +266,13 @@ def fire_schedule(schedule_id: int) -> None:
             db.add(row)
             db.commit()
             logger.info(
-                "[SCHEDULER] nmap schedule %s enqueued job #%s run #%s",
+                "[SCHEDULER] nmap schedule %s enqueued job #%s run #%s "
+                "intensity=%s vuln=%s",
                 schedule_id,
                 job.id,
                 run.id,
+                row.intensity,
+                want_vuln,
             )
     except Exception as e:
         logger.warning("[SCHEDULER] nmap schedule %s failed: %s", schedule_id, e)
@@ -168,7 +284,6 @@ def sync_nmap_schedules(scheduler, has_scheduler: bool) -> int:
         return 0
     from ...database import engine
 
-    # remove all existing nmap_scan_* jobs first
     try:
         for job in list(scheduler.get_jobs()):
             jid = str(getattr(job, "id", "") or "")

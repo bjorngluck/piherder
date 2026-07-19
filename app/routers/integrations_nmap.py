@@ -11,7 +11,14 @@ from sqlmodel import Session, select
 
 from .. import templates as templates_mod
 from ..database import get_session
-from ..models import Integration, NmapDevice, NmapScanSchedule, Server, User
+from ..models import (
+    Integration,
+    NmapDevice,
+    NmapScanSchedule,
+    NmapScriptResult,
+    Server,
+    User,
+)
 from ..security.auth import get_current_user, get_operator_user
 from ..services.integrations import registry as reg
 from ..services.nmap import config as nmap_cfg
@@ -20,6 +27,7 @@ from ..services.nmap.argv import INTENSITIES, INTENSITY_DEEP, INTENSITY_DISCOVER
 from ..services.nmap.paths import vuln_pack_status
 from ..services.nmap.runtime import worker_online
 from ..services.nmap.scan import enqueue_nmap_scan
+from ..services.nmap.vuln_update import enqueue_vuln_db_update
 from .integrations_common import router, _audit, _redirect, _can_mutate
 
 logger = logging.getLogger(__name__)
@@ -58,14 +66,15 @@ async def render_nmap_detail(request, session, user, integration: Integration):
     state_filter = (request.query_params.get("state") or "").strip() or None
     if tab == "devices" and state_filter:
         devices = [d for d in devices if d.state == state_filter]
-    device_rows = []
-    for d in devices:
-        device_rows.append(
-            {
-                "row": d,
-                "open_ports": nmap_cfg._count_open_ports(d.ports_json),
-            }
-        )
+    device_rows = [nmap_cfg.device_list_item(d) for d in devices]
+    # Lightweight stats for devices/network chrome
+    device_stats = {
+        "total": len(device_rows),
+        "new": sum(1 for i in device_rows if i["row"].state == "new"),
+        "linked": sum(1 for i in device_rows if i["row"].state == "linked"),
+        "ignored": sum(1 for i in device_rows if i["row"].state == "ignored"),
+        "open_ports": sum(i["open_ports"] for i in device_rows),
+    }
     runs = nmap_cfg.list_runs(session, integration.id) if tab in ("runs", "overview") else []
     schedules = (
         nmap_cfg.list_schedules(session, integration.id)
@@ -82,17 +91,52 @@ async def render_nmap_detail(request, session, user, integration: Integration):
     device_id = request.query_params.get("device")
     device = None
     device_ports = []
+    device_scripts: list[NmapScriptResult] = []
     if device_id:
         try:
             did = int(device_id)
             device = session.get(NmapDevice, did)
-            if device and device.integration_id == integration.id and device.ports_json:
-                try:
-                    device_ports = json.loads(device.ports_json)
-                except Exception:
-                    device_ports = []
+            if device and device.integration_id == integration.id:
+                if device.ports_json:
+                    try:
+                        device_ports = json.loads(device.ports_json)
+                        if not isinstance(device_ports, list):
+                            device_ports = []
+                    except Exception:
+                        device_ports = []
+                # open ports first, then closed/filtered
+                def _port_key(p):
+                    st = str((p or {}).get("state") or "").lower()
+                    rank = 0 if st == "open" else 1
+                    return (rank, int((p or {}).get("port") or 0))
+
+                device_ports = sorted(device_ports, key=_port_key)
+                device_scripts = list(
+                    session.exec(
+                        select(NmapScriptResult)
+                        .where(NmapScriptResult.device_id == device.id)
+                        .order_by(NmapScriptResult.id.desc())
+                        .limit(30)
+                    ).all()
+                )
+            else:
+                device = None
         except ValueError:
             device = None
+
+    # Schedule edit form (?tab=schedules&schedule=ID)
+    edit_schedule = None
+    edit_schedule_opts: dict = {}
+    sid_raw = (request.query_params.get("schedule") or "").strip()
+    if tab == "schedules" and sid_raw:
+        try:
+            sid = int(sid_raw)
+            es = session.get(NmapScanSchedule, sid)
+            if es and es.integration_id == integration.id:
+                edit_schedule = es
+                edit_schedule_opts = nmap_sched.parse_schedule_options(es)
+        except ValueError:
+            edit_schedule = None
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -109,15 +153,24 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             "vuln_pack": pack,
             "devices": devices,
             "device_rows": device_rows,
+            "device_stats": device_stats,
             "state_filter": state_filter or "",
             "runs": runs,
             "schedules": schedules,
+            "edit_schedule": edit_schedule,
+            "edit_schedule_opts": edit_schedule_opts,
             "network": network,
             "servers": servers,
             "device": device,
             "device_ports": device_ports,
+            "device_scripts": device_scripts,
             "intensities": INTENSITIES,
             "schedule_intensities": nmap_sched.INTENSITIES_SCHEDULE,
+            "schedule_options": {
+                s.id: nmap_sched.parse_schedule_options(s) for s in schedules
+            }
+            if schedules
+            else {},
             "can_mutate": _can_mutate(user),
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or "",
@@ -147,7 +200,7 @@ async def nmap_new_form(
                 "name": "LAN Discovery",
                 "cidrs": "192.168.1.0/24",
                 "excludes": "",
-                "skip_dns": True,
+                "skip_dns": False,
                 "use_syn": False,
                 "vuln_enabled": False,
                 "notes": "",
@@ -166,7 +219,7 @@ async def nmap_create(
     name: str = Form("LAN Discovery"),
     cidrs: str = Form(...),
     excludes: str = Form(""),
-    skip_dns: Optional[str] = Form("on"),
+    skip_dns: Optional[str] = Form(None),
     use_syn: Optional[str] = Form(None),
     vuln_enabled: Optional[str] = Form(None),
     notes: str = Form(""),
@@ -233,18 +286,48 @@ async def nmap_scan_now(
             "nmap_scan_queued",
             details=f"job={job.id} run={run.id} intensity={intensity}",
         )
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="runs",
-            msg="scan_queued",
-            detail=f"job #{job.id}",
-        )
+        # Jobs page shows live log_tail (same pattern as OS updates)
+        return _redirect("/jobs", job_type=job.job_type, active_only="1")
     except Exception as e:
         logger.exception("nmap scan enqueue failed")
         return _redirect(
             f"/integrations/{integration_id}",
             tab="overview",
             error="scan_failed",
+            detail=str(e)[:200],
+        )
+
+
+@router.post("/integrations/{integration_id}/nmap/vuln-db-update")
+async def nmap_vuln_db_update(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    include_vulscan: Optional[str] = Form(None),
+    include_exploitdb: Optional[str] = Form(None),
+):
+    """Queue vulnerability pack download on the nmap worker (progress on Jobs)."""
+    _require_nmap(session, integration_id)
+    try:
+        job = enqueue_vuln_db_update(
+            session,
+            user_id=user.id,
+            include_vulscan=include_vulscan in ("on", "1", "true"),
+            include_exploitdb=include_exploitdb in ("on", "1", "true"),
+        )
+        _audit(
+            session,
+            user,
+            "nmap_vuln_db_update_queued",
+            details=f"job={job.id}",
+        )
+        return _redirect("/jobs", job_type="nmap_vuln_db_update", active_only="1")
+    except Exception as e:
+        logger.exception("vuln db update enqueue failed")
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab="overview",
+            error="vuln_update_failed",
             detail=str(e)[:200],
         )
 
@@ -278,13 +361,7 @@ async def nmap_device_deep_scan(
             "nmap_host_deep_queued",
             details=f"device={device_id} ip={device.ip_address} job={job.id}",
         )
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="devices",
-            device=str(device_id),
-            msg="scan_queued",
-            detail=f"deep job #{job.id}",
-        )
+        return _redirect("/jobs", job_type="nmap_host_deep", active_only="1")
     except Exception as e:
         return _redirect(
             f"/integrations/{integration_id}",
@@ -399,28 +476,37 @@ async def nmap_schedule_create(
     cron: str = Form(""),
     interval_hours: Optional[str] = Form(""),
     enabled: Optional[str] = Form(None),
+    vuln_scripts: Optional[str] = Form(None),
+    use_syn: Optional[str] = Form(""),
 ):
-    _require_nmap(session, integration_id)
+    integration = _require_nmap(session, integration_id)
     try:
         ih = int(interval_hours) if (interval_hours or "").strip() else None
     except ValueError:
         ih = None
+    use_syn_opt, _ = nmap_sched.parse_use_syn_form(use_syn)
     try:
         row = nmap_sched.create_schedule(
             session,
-            integration_id=integration_id,
+            integration_id=integration.id,
             name=name,
             intensity=intensity,
             cron=(cron or "").strip() or None,
             interval_hours=ih,
             enabled=enabled in ("on", "1", "true"),
+            vuln_scripts=vuln_scripts in ("on", "1", "true"),
+            use_syn=use_syn_opt,
         )
         _resync_schedules()
+        opts = nmap_sched.parse_schedule_options(row)
         _audit(
             session,
             user,
             "nmap_schedule_created",
-            details=f"id={row.id} intensity={row.intensity}",
+            details=(
+                f"id={row.id} intensity={row.intensity} "
+                f"vuln={opts.get('vuln_scripts')} use_syn={opts.get('use_syn')}"
+            ),
         )
         return _redirect(
             f"/integrations/{integration_id}", tab="schedules", msg="schedule_saved"
@@ -429,6 +515,75 @@ async def nmap_schedule_create(
         return _redirect(
             f"/integrations/{integration_id}",
             tab="schedules",
+            error="invalid",
+            detail=str(e)[:200],
+        )
+
+
+@router.post("/integrations/{integration_id}/nmap/schedules/{schedule_id}/edit")
+async def nmap_schedule_edit(
+    integration_id: int,
+    schedule_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    name: str = Form(...),
+    intensity: str = Form("discovery"),
+    cron: str = Form(""),
+    interval_hours: Optional[str] = Form(""),
+    enabled: Optional[str] = Form(None),
+    vuln_scripts: Optional[str] = Form(None),
+    use_syn: Optional[str] = Form(""),
+):
+    """Update an existing nmap scan schedule (name, cadence, vuln options)."""
+    _require_nmap(session, integration_id)
+    row = session.get(NmapScanSchedule, schedule_id)
+    if not row or row.integration_id != integration_id:
+        raise HTTPException(404, "Schedule not found")
+    try:
+        ih_raw = (interval_hours or "").strip()
+        ih = int(ih_raw) if ih_raw else None
+    except ValueError:
+        ih = None
+    use_syn_opt, clear_syn = nmap_sched.parse_use_syn_form(use_syn)
+    cron_s = (cron or "").strip()
+    try:
+        # When one of cron/interval is set, clear the other so edits stick.
+        nmap_sched.update_schedule(
+            session,
+            row,
+            name=name,
+            intensity=intensity,
+            cron=cron_s if cron_s else None,
+            clear_cron=not cron_s,
+            interval_hours=ih if ih else None,
+            clear_interval=not ih,
+            enabled=enabled in ("on", "1", "true"),
+            vuln_scripts=vuln_scripts in ("on", "1", "true"),
+            use_syn=use_syn_opt if not clear_syn else None,
+            clear_use_syn=clear_syn,
+        )
+        _resync_schedules()
+        opts = nmap_sched.parse_schedule_options(row)
+        _audit(
+            session,
+            user,
+            "nmap_schedule_updated",
+            details=(
+                f"id={schedule_id} intensity={row.intensity} "
+                f"vuln={opts.get('vuln_scripts')} use_syn={opts.get('use_syn')}"
+            ),
+        )
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab="schedules",
+            msg="schedule_saved",
+            detail=f"updated #{schedule_id}",
+        )
+    except ValueError as e:
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab="schedules",
+            schedule=str(schedule_id),
             error="invalid",
             detail=str(e)[:200],
         )
@@ -488,8 +643,20 @@ async def nmap_schedule_run_now(
     row = session.get(NmapScanSchedule, schedule_id)
     if not row or row.integration_id != integration_id:
         raise HTTPException(404)
-    nmap_sched.fire_schedule(schedule_id)
+    # Run-now should fire even if schedule is currently disabled
+    was_enabled = row.enabled
+    if not was_enabled:
+        row.enabled = True
+        session.add(row)
+        session.commit()
+    try:
+        nmap_sched.fire_schedule(schedule_id)
+    finally:
+        if not was_enabled:
+            row2 = session.get(NmapScanSchedule, schedule_id)
+            if row2:
+                row2.enabled = False
+                session.add(row2)
+                session.commit()
     _audit(session, user, "nmap_schedule_run", details=f"id={schedule_id}")
-    return _redirect(
-        f"/integrations/{integration_id}", tab="runs", msg="scan_queued"
-    )
+    return _redirect("/jobs", active_only="1")

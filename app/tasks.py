@@ -43,11 +43,12 @@ def nmap_scan(
     run_id: int,
     job_id: int | None = None,
     vuln_scripts: bool = False,
-    use_syn: bool = False,
+    use_syn: bool | None = None,
 ):
     """LAN discovery scan — must run on celery-worker-nmap (-Q nmap).
 
     Web never invokes nmap; this task shells out and upserts devices.
+    *use_syn* None = inherit integration Prefer SYN setting.
     """
     from app.services.nmap.scan import run_nmap_scan
     from app.services.nmap.runtime import touch_worker_heartbeat
@@ -74,6 +75,84 @@ def nmap_scan(
         logger.exception("nmap_scan task failed run_id=%s", run_id)
         if job_id:
             _update_job_status(job_id, "failed", {"error": str(e)[:500]})
+        return {"status": "error", "message": str(e)[:500]}
+    finally:
+        db.close()
+
+
+@celery.task(name="app.tasks.stale_data_cleanup", bind=True, max_retries=1)
+def stale_data_cleanup(self, job_id: int | None = None, dry_run: bool = False):
+    """Purge old Jobs / Audit / nmap runs per Settings (stream R)."""
+    from app.services.stale_data_cleanup import run_stale_data_cleanup
+
+    db = Session(engine)
+    try:
+        if job_id:
+            job = db.get(Job, job_id)
+            if job and job.status == "cancelled":
+                return {"status": "cancelled", "job_id": job_id}
+            if job:
+                job.celery_task_id = self.request.id
+                db.add(job)
+                db.commit()
+        return run_stale_data_cleanup(db, job_id=job_id, dry_run=bool(dry_run))
+    except Exception as e:
+        logger.exception("stale_data_cleanup failed")
+        if job_id:
+            _update_job_status(
+                job_id,
+                "failed",
+                {"error": str(e)[:500], "current": "failed"},
+            )
+        return {"status": "error", "message": str(e)[:500]}
+    finally:
+        db.close()
+
+
+@celery.task(
+    name="app.tasks.nmap_vuln_db_update",
+    bind=True,
+    max_retries=1,
+    default_retry_delay=60,
+)
+def nmap_vuln_db_update(
+    self,
+    job_id: int | None = None,
+    include_vulscan: bool = True,
+    include_exploitdb: bool = True,
+):
+    """Download/refresh Vulners + vulscan + optional Exploit-DB index.
+
+    Must run on celery-worker-nmap (-Q nmap). Web only enqueues.
+    """
+    from app.services.nmap.vuln_update import run_vuln_db_update
+    from app.services.nmap.runtime import touch_worker_heartbeat
+
+    touch_worker_heartbeat(worker_id=str(self.request.hostname or "nmap"))
+    db = Session(engine)
+    try:
+        if job_id:
+            job = db.get(Job, job_id)
+            if job and job.status == "cancelled":
+                return {"status": "cancelled", "job_id": job_id}
+            if job:
+                job.celery_task_id = self.request.id
+                db.add(job)
+                db.commit()
+        return run_vuln_db_update(
+            db,
+            job_id=job_id,
+            include_vulscan=bool(include_vulscan),
+            include_exploitdb=bool(include_exploitdb),
+        )
+    except Exception as e:
+        logger.exception("nmap_vuln_db_update failed")
+        if job_id:
+            _update_job_status(
+                job_id,
+                "failed",
+                {"error": str(e)[:500], "current": "failed", "log_lines": [str(e)[:200]]},
+            )
         return {"status": "error", "message": str(e)[:500]}
     finally:
         db.close()

@@ -70,8 +70,9 @@
   </div>
 </div>
 
+<div class="grid lg:grid-cols-2 gap-4 mb-4 max-w-4xl">
 {% if can_mutate %}
-<div class="card p-5 mb-4 max-w-2xl">
+<div class="card p-5">
   <h3 class="text-sm font-semibold mb-3">Scan now</h3>
   <form method="post" action="/integrations/{{ integration.id }}/nmap/scan" class="space-y-3"
         data-wait-title="Queueing scan"
@@ -95,14 +96,100 @@
       <input type="checkbox" name="vuln_scripts" value="on" {% if not cfg.vuln_enabled or not vuln_pack.ready %}disabled{% endif %}>
       Vuln scripts (deep only; needs pack + setting)
     </label>
-    <button type="submit" class="btn btn-primary min-h-11" {% if not worker_online %}title="Worker offline — job will wait on queue"{% endif %}>
-      Queue scan
-    </button>
+    <div class="flex flex-wrap gap-2 items-center">
+      <button type="submit" class="btn btn-primary min-h-11" {% if not worker_online %}title="Worker offline — job will wait on queue"{% endif %}>
+        Queue scan
+      </button>
+      <a href="/jobs?active_only=1" class="btn btn-secondary min-h-11 text-sm">Jobs / live log</a>
+    </div>
+    <p class="text-[11px] text-muted">Progress streams into the Jobs page (same log panel as OS updates).</p>
   </form>
 </div>
 {% endif %}
 
-<div class="card p-4 text-xs text-muted max-w-2xl space-y-1">
+<div class="card p-5">
+  <h3 class="text-sm font-semibold mb-2">Vulnerability database</h3>
+  <p class="text-xs text-muted mb-3">
+    Host volume <code class="text-[10px]">./piherder_nmap_vuln</code> (not in the image).
+    <strong class="text-text">nmap-vulners</strong> scripts call vulners.com during deep scans;
+    <strong class="text-text">vulscan</strong> is the offline ~40&nbsp;MB CSV pack.
+  </p>
+  <dl class="text-xs space-y-1.5 mb-3">
+    <div class="flex gap-2"><dt class="text-muted w-24 shrink-0">Status</dt>
+      <dd>
+        {% if vuln_pack.completeness == 'full' %}<span class="status-pill status-success">full</span>
+        {% elif vuln_pack.ready %}<span class="status-pill status-running">{{ vuln_pack.completeness or 'ready' }}</span>
+        {% else %}<span class="status-pill feature-off">empty</span>{% endif %}
+        <span class="text-muted ml-1">{{ vuln_pack.completeness_label or '' }}</span>
+      </dd></div>
+    <div class="flex gap-2"><dt class="text-muted w-24 shrink-0">Size</dt>
+      <dd class="font-mono">{{ vuln_pack.total_human or '—' }}
+        {% if vuln_pack.file_count %}<span class="text-muted">({{ vuln_pack.file_count }} files)</span>{% endif %}
+      </dd></div>
+    <div class="flex gap-2"><dt class="text-muted w-24 shrink-0">Vulners</dt>
+      <dd>
+        {% if vuln_pack.nmap_vulners and vuln_pack.nmap_vulners.present %}
+          {{ vuln_pack.nmap_vulners.nse_count }} scripts · {{ vuln_pack.nmap_vulners.human }}
+          <span class="text-muted">(online API at scan time)</span>
+        {% else %}—{% endif %}
+      </dd></div>
+    <div class="flex gap-2"><dt class="text-muted w-24 shrink-0">Vulscan</dt>
+      <dd>
+        {% if vuln_pack.vulscan %}
+          tables {{ vuln_pack.vulscan.tables_ok }}/{{ vuln_pack.vulscan.tables_expected }}
+          · {{ vuln_pack.vulscan.human }}
+          · script {% if vuln_pack.vulscan.script_present %}yes{% else %}<span class="text-danger">missing</span>{% endif %}
+        {% else %}—{% endif %}
+      </dd></div>
+    <div class="flex gap-2"><dt class="text-muted w-24 shrink-0">Exploit-DB</dt>
+      <dd>
+        {% if vuln_pack.exploitdb and vuln_pack.exploitdb.present %}
+          {{ vuln_pack.exploitdb.entries or 0 }} entries · {{ vuln_pack.exploitdb.human }}
+          <span class="text-muted">(index only)</span>
+        {% else %}
+          <span class="text-muted">not downloaded</span>
+        {% endif %}
+      </dd></div>
+    <div class="flex gap-2"><dt class="text-muted w-24 shrink-0">Updated</dt>
+      <dd class="font-mono">{{ vuln_pack.updated_at or '—' }}</dd></div>
+    <div class="flex gap-2"><dt class="text-muted w-24 shrink-0">Path</dt>
+      <dd class="font-mono text-[10px] break-all">{{ vuln_pack.root }}</dd></div>
+  </dl>
+  {% if vuln_pack.vulscan and vuln_pack.vulscan.tables %}
+  <details class="text-[11px] mb-3">
+    <summary class="cursor-pointer text-muted">Table sizes</summary>
+    <ul class="mt-1 font-mono space-y-0.5 pl-1">
+      {% for t in vuln_pack.vulscan.tables %}
+      <li>{{ t.name }} · {{ t.human }}</li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  {% if can_mutate %}
+  <form method="post" action="/integrations/{{ integration.id }}/nmap/vuln-db-update" class="space-y-2"
+        data-wait-title="Queueing vuln DB update"
+        data-wait-message="Download runs on the nmap worker…">
+    <label class="flex items-center gap-2 text-xs text-muted">
+      <input type="checkbox" name="include_vulscan" value="on" checked>
+      Include full vulscan (script + offline CVE tables, ~40&nbsp;MB)
+    </label>
+    <label class="flex items-center gap-2 text-xs text-muted">
+      <input type="checkbox" name="include_exploitdb" value="on" checked>
+      Include official Exploit-DB index (~10&nbsp;MB CSV; refreshes vulscan/exploitdb.csv)
+    </label>
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary min-h-11 text-sm"
+              {% if not worker_online %}title="Worker offline — job will wait on queue"{% endif %}>
+        Update vulnerability DB
+      </button>
+      <a href="/jobs?job_type=nmap_vuln_db_update" class="btn btn-secondary min-h-11 text-sm">History</a>
+    </div>
+  </form>
+  {% endif %}
+</div>
+</div>
+
+<div class="card p-4 text-xs text-muted max-w-4xl space-y-1">
   <p><strong class="text-text">Security:</strong> Scanning is active recon. Only configure networks you own and operate.</p>
   <p>Discovered devices are <strong class="text-text">not</strong> managed servers until you link or promote them manually.</p>
   <p>Flood / brute NSE scripts are not available as product actions.</p>
@@ -110,174 +197,400 @@
 {% endif %}
 
 {% if tab == 'devices' %}
-<div class="flex flex-wrap gap-2 mb-3 text-xs">
-  <a href="?tab=devices" class="btn btn-secondary text-xs min-h-9 {% if not state_filter %}is-active{% endif %}">All</a>
-  {% for st in ['new','known','linked','ignored','stale'] %}
-  <a href="?tab=devices&state={{ st }}" class="btn btn-secondary text-xs min-h-9 {% if state_filter == st %}is-active{% endif %}">{{ st }}</a>
-  {% endfor %}
+{# WebMap-inspired: stats · filter · host list | detail pane #}
+<div class="nmap-stats mb-3" aria-label="Device stats">
+  <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.total if device_stats else device_rows|length }}</span><span class="nmap-stat-l">hosts</span></div>
+  <div class="nmap-stat"><span class="nmap-stat-n text-accent">{{ device_stats.new if device_stats else 0 }}</span><span class="nmap-stat-l">new</span></div>
+  <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.linked if device_stats else 0 }}</span><span class="nmap-stat-l">linked</span></div>
+  <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.open_ports if device_stats else 0 }}</span><span class="nmap-stat-l">open ports</span></div>
+  <div class="nmap-stat nmap-stat--grow">
+    <a href="?tab=network" class="btn btn-secondary text-xs min-h-9">Network map</a>
+  </div>
 </div>
+
+<div class="flex flex-wrap items-center gap-2 mb-3">
+  <div class="nmap-filters" role="group" aria-label="Filter by state">
+    <a href="?tab=devices" class="nmap-filter {% if not state_filter %}is-active{% endif %}">All</a>
+    {% for st in ['new','known','linked','ignored','stale'] %}
+    <a href="?tab=devices&state={{ st }}" class="nmap-filter {% if state_filter == st %}is-active{% endif %}">{{ st }}</a>
+    {% endfor %}
+  </div>
+  <div class="flex-1 min-w-[10rem]">
+    <input type="search" id="nmap-host-search" class="input w-full text-sm min-h-9" placeholder="Filter IP, hostname, MAC…"
+           autocomplete="off" aria-label="Filter hosts">
+  </div>
+</div>
+
 {% if not device_rows %}
 <div class="card p-5 text-sm text-muted">No devices yet. Run a discovery scan from Overview.</div>
 {% else %}
-<div class="card overflow-x-auto">
-  <table class="w-full text-sm">
-    <thead>
-      <tr class="text-left text-xs text-muted border-b border-border">
-        <th class="p-2">IP</th>
-        <th class="p-2">Hostname</th>
-        <th class="p-2">MAC</th>
-        <th class="p-2">State</th>
-        <th class="p-2">Open</th>
-        <th class="p-2">Seen</th>
-        <th class="p-2"></th>
-      </tr>
-    </thead>
-    <tbody>
+<div class="nmap-devices-layout {% if device %}has-detail{% endif %}">
+  <div class="nmap-host-list card overflow-hidden">
+    <div class="nmap-host-list-head">
+      <span>Host</span>
+      <span class="hidden sm:inline">Services</span>
+      <span>State</span>
+    </div>
+    <div class="nmap-host-list-body" id="nmap-host-list">
       {% for item in device_rows %}
       {% set d = item.row %}
-      <tr class="border-b border-border/60 hover:bg-surface/50">
-        <td class="p-2 font-mono text-xs">{{ d.ip_address }}</td>
-        <td class="p-2">{{ d.hostname or '—' }}</td>
-        <td class="p-2 font-mono text-[10px]">{{ d.mac_address or '—' }}</td>
-        <td class="p-2"><span class="status-pill feature-off">{{ d.state }}</span></td>
-        <td class="p-2 text-xs">{{ item.open_ports }}</td>
-        <td class="p-2 text-xs text-muted">{{ d.last_seen_at or '—' }}</td>
-        <td class="p-2">
-          <a href="?tab=devices&device={{ d.id }}" class="btn btn-secondary text-xs min-h-8 px-2">Open</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
-{% endif %}
-
-{% if device %}
-<div class="card p-5 mt-4 max-w-2xl">
-  <h3 class="text-sm font-semibold mb-2">{{ device.hostname or device.ip_address }}</h3>
-  <div class="text-xs text-muted font-mono mb-3">{{ device.ip_address }}
-    {% if device.mac_address %} · {{ device.mac_address }}{% endif %}
-    · {{ device.state }}
-  </div>
-  {% if device.os_summary %}<p class="text-xs mb-2">OS: {{ device.os_summary }}</p>{% endif %}
-  {% if device_ports %}
-  <div class="mb-3 max-h-48 overflow-y-auto">
-    <table class="w-full text-xs">
-      <thead><tr class="text-muted"><th class="text-left p-1">Port</th><th class="text-left p-1">State</th><th class="text-left p-1">Service</th></tr></thead>
-      <tbody>
-      {% for p in device_ports %}
-        <tr><td class="p-1 font-mono">{{ p.port }}/{{ p.protocol }}</td>
-            <td class="p-1">{{ p.state }}</td>
-            <td class="p-1">{{ p.service }} {{ p.product }} {{ p.version }}</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% endif %}
-  {% if can_mutate %}
-  <div class="flex flex-wrap gap-2">
-    <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/scan">
-      <label class="inline-flex items-center gap-1 text-xs mr-2">
-        <input type="checkbox" name="vuln_scripts" value="on" {% if not cfg.vuln_enabled or not vuln_pack.ready %}disabled{% endif %}>
-        vuln
-      </label>
-      <button type="submit" class="btn btn-primary text-xs min-h-9">Deep scan</button>
-    </form>
-    {% if device.state != 'ignored' %}
-    <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/ignore">
-      <button type="submit" class="btn btn-secondary text-xs min-h-9">Ignore</button>
-    </form>
-    {% else %}
-    <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unignore">
-      <button type="submit" class="btn btn-secondary text-xs min-h-9">Unignore</button>
-    </form>
-    {% endif %}
-    {% if device.state == 'linked' %}
-    <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unlink">
-      <button type="submit" class="btn btn-secondary text-xs min-h-9">Unlink server</button>
-    </form>
-    {% else %}
-    <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/link" class="flex flex-wrap gap-2 items-center">
-      <select name="server_id" class="input text-xs min-h-9" required>
-        <option value="">Link to server…</option>
-        {% for s in servers %}
-        <option value="{{ s.id }}">{{ s.name }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="btn btn-secondary text-xs min-h-9">Link</button>
-    </form>
-    {% endif %}
-    <a href="/servers/new"
-       class="btn btn-secondary text-xs min-h-9"
-       title="Add host via wizard — use IP {{ device.ip_address }}">Promote (wizard)</a>
-  </div>
-  {% endif %}
-</div>
-{% endif %}
-{% endif %}
-
-{% if tab == 'network' %}
-{% if not network or not network.groups %}
-<div class="card p-5 text-sm text-muted">No devices to map yet. Run discovery first.</div>
-{% else %}
-<p class="text-xs text-muted mb-3">{{ network.device_count }} device(s) grouped by subnet (network view MVP).</p>
-<div class="space-y-4">
-  {% for g in network.groups %}
-  <div class="card p-4">
-    <div class="text-xs font-mono text-muted mb-2">{{ g.subnet }} · {{ g.count }} host(s)</div>
-    <div class="flex flex-wrap gap-2">
-      {% for n in g.nodes %}
-      <a href="?tab=devices&device={{ n.id }}"
-         class="nmap-node border border-border rounded-lg px-3 py-2 text-xs min-w-[7rem]
-                {% if n.state == 'linked' %}ring-1 ring-accent{% elif n.state == 'new' %}bg-accent/10{% endif %}"
-         title="{{ n.hostname or n.ip }} · {{ n.state }} · {{ n.ports_open }} open">
-        <div class="font-mono font-medium">{{ n.ip }}</div>
-        <div class="text-muted truncate max-w-[9rem]">{{ n.hostname or '—' }}</div>
-        <div class="text-[10px] text-muted mt-0.5">{{ n.state }}{% if n.ports_open %} · {{ n.ports_open }} open{% endif %}</div>
+      <a href="?tab=devices{% if state_filter %}&state={{ state_filter }}{% endif %}&device={{ d.id }}"
+         class="nmap-host-row {% if device and device.id == d.id %}is-active{% endif %}"
+         data-search="{{ (d.ip_address ~ ' ' ~ (d.hostname or '') ~ ' ' ~ (d.mac_address or '') ~ ' ' ~ d.state)|lower }}">
+        <div class="min-w-0">
+          <div class="font-mono text-sm font-medium text-text">{{ d.ip_address }}</div>
+          <div class="text-xs text-muted truncate">{{ d.hostname or '—' }}
+            {% if d.mac_address %}<span class="text-[10px] font-mono opacity-80"> · {{ d.mac_address }}</span>{% endif %}
+          </div>
+        </div>
+        <div class="nmap-port-chips hidden sm:flex">
+          {% if item.service_labels %}
+            {% for lab in item.service_labels[:4] %}
+            <span class="nmap-port-chip">{{ lab }}</span>
+            {% endfor %}
+            {% if item.open_ports > 4 %}<span class="nmap-port-chip nmap-port-chip--more">+{{ item.open_ports - 4 }}</span>{% endif %}
+          {% else %}
+            <span class="text-[10px] text-muted">{{ item.open_ports or 0 }} open</span>
+          {% endif %}
+        </div>
+        <div>
+          <span class="nmap-state nmap-state--{{ d.state }}">{{ d.state }}</span>
+        </div>
       </a>
       {% endfor %}
     </div>
   </div>
+
+  <div class="nmap-detail-pane" id="device-detail">
+    {% if device %}
+    <div class="card p-4 sm:p-5 h-full">
+      <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+        <div class="min-w-0">
+          <div class="text-[10px] uppercase tracking-wider text-muted font-semibold">Host detail</div>
+          <h3 class="text-xl font-semibold tracking-tight text-text truncate mt-0.5">
+            {{ device.hostname or device.ip_address }}
+          </h3>
+          {% if device.hostname %}
+          <div class="font-mono text-sm text-muted">{{ device.ip_address }}</div>
+          {% endif %}
+        </div>
+        <div class="flex flex-wrap gap-1.5">
+          <span class="nmap-state nmap-state--{{ device.state }}">{{ device.state }}</span>
+          <a href="?tab=devices{% if state_filter %}&state={{ state_filter }}{% endif %}"
+             class="btn btn-secondary text-xs min-h-8 px-2">✕</a>
+        </div>
+      </div>
+
+      <div class="nmap-kv-grid mb-4">
+        <div class="nmap-kv"><span class="nmap-kv-k">Hostname</span><span class="nmap-kv-v">{{ device.hostname or '—' }}</span></div>
+        <div class="nmap-kv"><span class="nmap-kv-k">IP</span><span class="nmap-kv-v font-mono">{{ device.ip_address }}</span></div>
+        <div class="nmap-kv"><span class="nmap-kv-k">MAC</span><span class="nmap-kv-v font-mono">{{ device.mac_address or '—' }}</span></div>
+        <div class="nmap-kv"><span class="nmap-kv-k">OS</span><span class="nmap-kv-v">{{ device.os_summary or '—' }}</span></div>
+        <div class="nmap-kv"><span class="nmap-kv-k">First seen</span><span class="nmap-kv-v text-muted">{{ device.first_seen_at|app_tz if device.first_seen_at else '—' }}</span></div>
+        <div class="nmap-kv"><span class="nmap-kv-k">Last seen</span><span class="nmap-kv-v text-muted">{{ device.last_seen_at|app_tz if device.last_seen_at else '—' }}</span></div>
+      </div>
+
+      <h4 class="nmap-section-title">Open ports / services</h4>
+      {% if device_ports %}
+      <div class="nmap-ports-table mb-4">
+        <table>
+          <thead>
+            <tr><th>Port</th><th>State</th><th>Service</th><th>Product</th></tr>
+          </thead>
+          <tbody>
+          {% for p in device_ports %}
+            {% if p.state == 'open' or loop.index <= 50 %}
+            <tr class="{% if p.state == 'open' %}is-open{% endif %}">
+              <td class="font-mono">{{ p.port }}/{{ p.protocol or 'tcp' }}</td>
+              <td>{{ p.state }}</td>
+              <td>{{ p.service or '—' }}</td>
+              <td class="text-muted">{{ p.product or '' }} {{ p.version or '' }}</td>
+            </tr>
+            {% endif %}
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-xs text-muted mb-4">No port data yet — run <strong>inventory</strong> or <strong>deep</strong> scan.</p>
+      {% endif %}
+
+      {% if device_scripts %}
+      <h4 class="nmap-section-title">Script / vuln findings</h4>
+      <div class="space-y-2 max-h-44 overflow-y-auto mb-4">
+        {% for sc in device_scripts[:12] %}
+        <details class="nmap-script-card">
+          <summary>
+            <span class="font-mono">{{ sc.script_id }}</span>
+            {% if sc.cve_ids_json %}<span class="status-pill status-failed text-[10px] ml-1">CVE</span>{% endif %}
+          </summary>
+          <pre>{{ (sc.output or '')[:2500] }}</pre>
+        </details>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if can_mutate %}
+      <h4 class="nmap-section-title">Actions</h4>
+      <div class="flex flex-wrap gap-2 items-center">
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/scan"
+              class="flex flex-wrap items-center gap-2">
+          <label class="inline-flex items-center gap-1 text-xs">
+            <input type="checkbox" name="vuln_scripts" value="on" {% if not cfg.vuln_enabled or not vuln_pack.ready %}disabled{% endif %}>
+            vuln
+          </label>
+          <button type="submit" class="btn btn-primary text-xs min-h-9">Deep scan</button>
+        </form>
+        {% if device.state != 'ignored' %}
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/ignore">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9">Ignore</button>
+        </form>
+        {% else %}
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unignore">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9">Unignore</button>
+        </form>
+        {% endif %}
+        {% if device.state == 'linked' %}
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unlink">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9">Unlink</button>
+        </form>
+        {% else %}
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/link" class="flex flex-wrap gap-2 items-center">
+          <select name="server_id" class="input text-xs min-h-9" required>
+            <option value="">Link server…</option>
+            {% for s in servers %}
+            <option value="{{ s.id }}">{{ s.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-secondary text-xs min-h-9">Link</button>
+        </form>
+        {% endif %}
+        <a href="/servers/new" class="btn btn-secondary text-xs min-h-9"
+           title="Add host via wizard — use IP {{ device.ip_address }}">Promote</a>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <div class="card p-8 text-center text-sm text-muted h-full flex flex-col items-center justify-center gap-2">
+      <div class="text-2xl opacity-40" aria-hidden="true">◎</div>
+      <p class="font-medium text-text">Select a host</p>
+      <p class="text-xs max-w-xs">Click a row for hostname, MAC, open ports, and promote/link actions — same flow as WebMap-style host inspect.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+<script>
+(function () {
+  var input = document.getElementById('nmap-host-search');
+  var list = document.getElementById('nmap-host-list');
+  if (!input || !list) return;
+  input.addEventListener('input', function () {
+    var q = (input.value || '').trim().toLowerCase();
+    list.querySelectorAll('.nmap-host-row').forEach(function (row) {
+      var hay = row.getAttribute('data-search') || '';
+      row.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endif %}
+
+{% if tab == 'network' %}
+<div class="nmap-stats mb-3" aria-label="Network stats">
+  <div class="nmap-stat"><span class="nmap-stat-n">{{ network.device_count if network else 0 }}</span><span class="nmap-stat-l">on map</span></div>
+  <div class="nmap-stat"><span class="nmap-stat-n">{{ network.groups|length if network and network.groups else 0 }}</span><span class="nmap-stat-l">subnets</span></div>
+  <div class="nmap-stat"><span class="nmap-stat-n">{{ network.open_ports_total if network else 0 }}</span><span class="nmap-stat-l">open ports</span></div>
+  {% if network and network.by_state %}
+  <div class="nmap-stat"><span class="nmap-stat-n text-accent">{{ network.by_state.get('new', 0) }}</span><span class="nmap-stat-l">new</span></div>
+  <div class="nmap-stat"><span class="nmap-stat-n">{{ network.by_state.get('linked', 0) }}</span><span class="nmap-stat-l">linked</span></div>
+  {% endif %}
+  <div class="nmap-stat nmap-stat--grow">
+    <input type="search" id="nmap-map-search" class="input text-sm min-h-9 w-full max-w-xs" placeholder="Filter map…" autocomplete="off">
+  </div>
+</div>
+
+{% if not network or not network.groups %}
+<div class="card p-5 text-sm text-muted">No devices to map yet. Run discovery first.</div>
+{% else %}
+<p class="text-xs text-muted mb-3">
+  Hosts grouped by /24 (IPv4). Click a card to open host detail — inventory scans fill port chips.
+</p>
+<div class="space-y-4" id="nmap-map">
+  {% for g in network.groups %}
+  <section class="nmap-subnet card" data-subnet="{{ g.subnet }}">
+    <header class="nmap-subnet-head">
+      <div>
+        <span class="font-mono text-sm font-semibold text-text">{{ g.subnet }}</span>
+        <span class="text-xs text-muted ml-2">{{ g.count }} host{% if g.count != 1 %}s{% endif %}
+          {% if g.open_ports %} · {{ g.open_ports }} open ports{% endif %}
+        </span>
+      </div>
+    </header>
+    <div class="nmap-host-grid">
+      {% for n in g.nodes %}
+      <a href="?tab=devices&device={{ n.id }}"
+         class="nmap-host-card nmap-host-card--{{ n.state }}"
+         data-search="{{ (n.ip ~ ' ' ~ (n.hostname or '') ~ ' ' ~ (n.mac or '') ~ ' ' ~ n.state)|lower }}"
+         title="{{ n.hostname or n.ip }} · {{ n.mac or 'no MAC' }}">
+        <div class="nmap-host-card-top">
+          <span class="nmap-host-ip font-mono">{{ n.ip }}</span>
+          <span class="nmap-state nmap-state--{{ n.state }}">{{ n.state }}</span>
+        </div>
+        <div class="nmap-host-name truncate">{{ n.hostname or '—' }}</div>
+        <div class="nmap-host-mac font-mono">{{ n.mac or 'MAC —' }}</div>
+        {% if n.os %}<div class="nmap-host-os truncate" title="{{ n.os }}">{{ n.os }}</div>{% endif %}
+        <div class="nmap-port-chips">
+          {% if n.services %}
+            {% for s in n.services[:5] %}
+            <span class="nmap-port-chip" title="{{ s.product }} {{ s.version }}">{{ s.port }}{% if s.service %}/{{ s.service }}{% endif %}</span>
+            {% endfor %}
+            {% if n.ports_open > 5 %}<span class="nmap-port-chip nmap-port-chip--more">+{{ n.ports_open - 5 }}</span>{% endif %}
+          {% else %}
+            <span class="text-[10px] text-muted">{% if n.ports_open %}{{ n.ports_open }} open{% else %}no ports yet{% endif %}</span>
+          {% endif %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
   {% endfor %}
 </div>
+<script>
+(function () {
+  var input = document.getElementById('nmap-map-search');
+  var map = document.getElementById('nmap-map');
+  if (!input || !map) return;
+  input.addEventListener('input', function () {
+    var q = (input.value || '').trim().toLowerCase();
+    map.querySelectorAll('.nmap-subnet').forEach(function (sec) {
+      var any = false;
+      sec.querySelectorAll('.nmap-host-card').forEach(function (card) {
+        var hay = card.getAttribute('data-search') || '';
+        var show = !q || hay.indexOf(q) !== -1;
+        card.style.display = show ? '' : 'none';
+        if (show) any = true;
+      });
+      sec.style.display = any ? '' : 'none';
+    });
+  });
+})();
+</script>
 {% endif %}
 {% endif %}
 
 {% if tab == 'schedules' %}
+{% set es = edit_schedule %}
+{% set es_opts = edit_schedule_opts or {} %}
 {% if can_mutate %}
-<div class="card p-5 mb-4 max-w-2xl">
-  <h3 class="text-sm font-semibold mb-3">Add schedule</h3>
-  <form method="post" action="/integrations/{{ integration.id }}/nmap/schedules" class="space-y-3">
+<div class="card p-5 mb-4 max-w-2xl" id="nmap-schedule-form-card">
+  <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+    <h3 class="text-sm font-semibold">
+      {% if es %}Edit schedule <span class="text-muted font-mono text-xs">#{{ es.id }}</span>
+      {% else %}Add schedule{% endif %}
+    </h3>
+    {% if es %}
+    <a href="?tab=schedules" class="btn btn-secondary text-xs min-h-8 px-2">New schedule</a>
+    {% endif %}
+  </div>
+  <form method="post"
+        action="{% if es %}/integrations/{{ integration.id }}/nmap/schedules/{{ es.id }}/edit{% else %}/integrations/{{ integration.id }}/nmap/schedules{% endif %}"
+        class="space-y-3"
+        id="nmap-schedule-form">
     <div class="grid sm:grid-cols-2 gap-3">
       <div>
         <label class="block text-xs text-muted mb-1" for="sch_name">Name</label>
-        <input id="sch_name" name="name" class="input w-full" required placeholder="lan-discovery">
+        <input id="sch_name" name="name" class="input w-full" required placeholder="lan-discovery"
+               value="{{ es.name if es else '' }}">
       </div>
       <div>
         <label class="block text-xs text-muted mb-1" for="sch_intensity">Intensity</label>
         <select id="sch_intensity" name="intensity" class="input w-full">
           {% for i in schedule_intensities %}
-          <option value="{{ i }}">{{ i }}</option>
+          <option value="{{ i }}" {% if es and es.intensity == i %}selected{% elif not es and i == 'discovery' %}selected{% endif %}>{{ i }}</option>
           {% endfor %}
         </select>
       </div>
       <div>
         <label class="block text-xs text-muted mb-1" for="sch_cron">Cron (5 fields)</label>
-        <input id="sch_cron" name="cron" class="input w-full font-mono text-sm" placeholder="0 3 * * *">
+        <input id="sch_cron" name="cron" class="input w-full font-mono text-sm" placeholder="0 3 * * *"
+               value="{{ es.cron if es and es.cron else '' }}">
       </div>
       <div>
         <label class="block text-xs text-muted mb-1" for="sch_interval">Or interval hours</label>
-        <input id="sch_interval" name="interval_hours" type="number" min="1" class="input w-full" placeholder="6">
+        <input id="sch_interval" name="interval_hours" type="number" min="1" class="input w-full" placeholder="6"
+               value="{{ es.interval_hours if es and es.interval_hours else '' }}">
+      </div>
+      <div class="sm:col-span-2">
+        <label class="block text-xs text-muted mb-1" for="sch_use_syn">TCP scan type</label>
+        <select id="sch_use_syn" name="use_syn" class="input w-full">
+          <option value="" {% if not es or es_opts.use_syn is none %}selected{% endif %}>Inherit integration (Prefer SYN setting)</option>
+          <option value="on" {% if es and es_opts.use_syn is sameas true %}selected{% endif %}>Force SYN (-sS, needs root worker)</option>
+          <option value="off" {% if es and es_opts.use_syn is sameas false %}selected{% endif %}>Force connect (-sT)</option>
+        </select>
       </div>
     </div>
+
+    <div id="sch-vuln-options" class="border border-border rounded-lg p-3 space-y-2 bg-surface/40">
+      <div class="text-xs font-semibold text-text">Vulnerability scan options</div>
+      <p class="text-[11px] text-muted">
+        Applied when intensity is <code class="text-[10px]">deep</code>.
+        Requires integration “Allow Vulners” and a ready vuln pack.
+      </p>
+      <label class="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="vuln_scripts" value="on" class="mt-1"
+               id="sch_vuln_scripts"
+               data-blocked="{% if not cfg.vuln_enabled or not vuln_pack.ready %}1{% else %}0{% endif %}"
+               {% if es and es_opts.vuln_scripts %}checked{% endif %}
+               {% if not cfg.vuln_enabled or not vuln_pack.ready %}disabled{% endif %}>
+        <span>
+          Run vuln scripts (vulners / vulscan / stock <code class="text-[10px]">vuln</code>)
+          {% if not cfg.vuln_enabled %}
+          <span class="block text-[11px] text-muted">Enable “Allow Vulners” on the integration first.</span>
+          {% elif not vuln_pack.ready %}
+          <span class="block text-[11px] text-muted">Vuln pack empty — update the vulnerability DB first.</span>
+          {% endif %}
+        </span>
+      </label>
+    </div>
+
     <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" name="enabled" value="on">
-      Enable immediately
+      <input type="checkbox" name="enabled" value="on"
+             {% if es and es.enabled %}checked{% endif %}>
+      {% if es %}Enabled{% else %}Enable immediately{% endif %}
     </label>
-    <button type="submit" class="btn btn-primary min-h-11">Add schedule</button>
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary min-h-11">
+        {% if es %}Save changes{% else %}Add schedule{% endif %}
+      </button>
+      {% if es %}
+      <a href="?tab=schedules" class="btn btn-secondary min-h-11">Cancel</a>
+      {% endif %}
+    </div>
   </form>
-  <p class="text-[11px] text-muted mt-2">Deep/vuln scans stay on-demand only. All schedules default off until enabled.</p>
+  <p class="text-[11px] text-muted mt-2">
+    Schedules default off until enabled. Deep + vuln is heavier than discovery — prefer weekly cadence for LAN-wide deep.
+  </p>
 </div>
+<script>
+(function () {
+  var sel = document.getElementById('sch_intensity');
+  var box = document.getElementById('sch-vuln-options');
+  var chk = document.getElementById('sch_vuln_scripts');
+  if (!sel || !box) return;
+  function sync() {
+    var deep = (sel.value || '') === 'deep';
+    var blocked = chk && chk.getAttribute('data-blocked') === '1';
+    box.style.opacity = deep ? '1' : '0.55';
+    if (chk) {
+      chk.disabled = !deep || blocked;
+      if (!deep) chk.checked = false;
+    }
+  }
+  sel.addEventListener('change', sync);
+  sync();
+})();
+</script>
 {% endif %}
 
 {% if not schedules %}
@@ -289,6 +602,7 @@
       <tr class="text-left text-xs text-muted border-b border-border">
         <th class="p-2">Name</th>
         <th class="p-2">Intensity</th>
+        <th class="p-2">Options</th>
         <th class="p-2">When</th>
         <th class="p-2">Enabled</th>
         <th class="p-2">Last</th>
@@ -297,17 +611,26 @@
     </thead>
     <tbody>
       {% for s in schedules %}
-      <tr class="border-b border-border/60">
+      {% set opts = (schedule_options or {}).get(s.id) or {} %}
+      <tr class="border-b border-border/60 {% if es and es.id == s.id %}bg-accent/5{% endif %}">
         <td class="p-2">{{ s.name }}</td>
         <td class="p-2"><span class="status-pill feature-off">{{ s.intensity }}</span></td>
+        <td class="p-2 text-[11px] text-muted">
+          {% if opts.vuln_scripts %}<span class="status-pill status-running">vuln</span>{% endif %}
+          {% if opts.use_syn is sameas true %}<span class="status-pill feature-off">SYN</span>
+          {% elif opts.use_syn is sameas false %}<span class="status-pill feature-off">-sT</span>
+          {% else %}<span class="opacity-70">scan: inherit</span>{% endif %}
+          {% if not opts.vuln_scripts and opts.use_syn is none %}<span class="opacity-50">—</span>{% endif %}
+        </td>
         <td class="p-2 font-mono text-xs">
           {% if s.cron %}{{ s.cron }}{% elif s.interval_hours %}every {{ s.interval_hours }}h{% else %}—{% endif %}
         </td>
         <td class="p-2">{% if s.enabled %}yes{% else %}no{% endif %}</td>
-        <td class="p-2 text-xs text-muted">{{ s.last_run_at or '—' }}</td>
+        <td class="p-2 text-xs text-muted">{{ s.last_run_at|app_tz if s.last_run_at else '—' }}</td>
         <td class="p-2">
           {% if can_mutate %}
           <div class="flex flex-wrap gap-1">
+            <a href="?tab=schedules&schedule={{ s.id }}" class="btn btn-secondary text-xs min-h-8 px-2">Edit</a>
             <form method="post" action="/integrations/{{ integration.id }}/nmap/schedules/{{ s.id }}/run">
               <button class="btn btn-secondary text-xs min-h-8 px-2" type="submit">Run</button>
             </form>
@@ -359,7 +682,7 @@
         <td class="p-2 text-xs">{{ r.hosts_up }}/{{ r.hosts_total }}</td>
         <td class="p-2 text-xs">{{ r.ports_open }}</td>
         <td class="p-2 text-xs">
-          {% if r.job_id %}<a href="/jobs" class="text-accent hover:underline">#{{ r.job_id }}</a>{% else %}—{% endif %}
+          {% if r.job_id %}<a href="/jobs?job_type=nmap_{{ r.intensity if r.intensity != 'deep' else 'host_deep' }}" class="text-accent hover:underline" title="Open Jobs (live log while running)">#{{ r.job_id }}</a>{% else %}—{% endif %}
         </td>
         <td class="p-2 text-xs text-muted">{{ r.finished_at or r.started_at or '—' }}</td>
       </tr>

@@ -15,7 +15,7 @@
     |----------------|--------|
     | **Tagged now** | **[v0.7.0](https://github.com/bjorngluck/piherder/releases/tag/v0.7.0)** — image `bjorngluck/piherder:0.7.0` / `latest` |
     | **Shipped in v0.7.0** | Add-host wizard, Playwright E2E, topology annotations + compose sets, drift Job — [RELEASE_v0.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md) |
-    | **Next (v0.8.0 RC3)** | Overall polish · E2E/coverage · full docs + **screenshots** · **nmap** — [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) |
+    | **Next (v0.8.0 RC3)** | Overall polish · E2E/coverage · full docs + **screenshots** · **LAN Discovery (nmap)** in progress — [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) · [LAN Discovery wiki](integrations/lan-discovery.md) |
     | **Documentation** | Operator-focused living wiki — not the final 1.0 freeze manual |
     | **Screenshots** | Light desktop for major surfaces; **full capture pack is a v0.8.0 must** |
     | **Production bar** | **v1.0.0** is the intended first refined production release |

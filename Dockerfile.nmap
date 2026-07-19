@@ -29,11 +29,12 @@ RUN pip install --no-deps -e .
 
 # nmap worker does not need Tailwind/CDN assets; skip vendor step for smaller/faster builds.
 
-RUN useradd --create-home --shell /bin/bash piherder && \
-    mkdir -p /data /var/lib/piherder/nmap-vuln && \
-    chown -R piherder:piherder /app /data /var/lib/piherder
+RUN mkdir -p /data /var/lib/piherder/nmap-vuln
 
-USER piherder
+# Run as root: stock nmap requires euid 0 for SYN (-sS), UDP, and OS detect.
+# This image is opt-in (compose profile ``nmap``) and only consumes queue ``nmap``.
+# Without root, PiHerder still works — scan code falls back to TCP connect (-sT).
+USER root
 
 # Default: Celery consumer for the nmap queue only (concurrency 1 — scans are heavy).
 CMD ["celery", "-A", "app.celery_app.celery", "worker", \

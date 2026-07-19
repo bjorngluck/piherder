@@ -167,6 +167,7 @@ nav:
       - Grafana: integrations/grafana.md
       - Pi-hole: integrations/pihole.md
       - Network maps: integrations/dns-fabric.md
+      - LAN Discovery (nmap): integrations/lan-discovery.md
       - Nginx Proxy Manager: integrations/npm.md
       - Certificates: integrations/certificates.md
   - Account & security:

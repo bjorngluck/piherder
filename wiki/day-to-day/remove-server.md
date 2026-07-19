@@ -38,9 +38,13 @@ Server detail → **Edit** → **Remove** tab → **Remove server…**
 | Server row + stored SSH credentials removed from DB | No SSH / remote changes by default |
 | Schedules unregistered; active jobs cancelled | Docker stacks, volumes, media untouched |
 | Compose drafts in PiHerder deleted | Host `piherder` user / sudoers / keys left as-is |
-| Jobs / audit / notifications unlinked (history kept) | Backup archives on the backup volume kept |
+| DNS fabric cleanup for the host | Backup archives on the backup volume kept |
+| Jobs / audit / notifications **`server_id` nulled** (history **kept**, unlinked) | Automatic wipe of old Jobs/Audit by age (that is opt-in [Stale data cleanup](../operations/settings.md#stale-data-cleanup)) |
 
 Confirm by typing the **exact server name**.
+
+!!! tip "History vs growth"
+    Removing a host does **not** delete past Jobs or Audit rows — they stay for accountability with no server link. Use Settings **Stale data cleanup** if long-lived labs need a 30-day (or custom) purge.
 
 ## Optional host cleanup
 

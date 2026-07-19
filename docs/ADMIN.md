@@ -202,9 +202,34 @@ Archives are format **v2** compressed `.tar.gz` under the herder backups volume 
 | Server row + stored SSH credentials removed from PiHerder DB | No SSH / remote changes |
 | Schedules unregistered; active jobs cancelled | Docker stacks, volumes, media untouched |
 | Compose drafts in PiHerder deleted | Host `piherder` user / sudoers / keys left as-is |
-| Jobs, audit, notifications unlinked (history kept) | Backup archives under the backup volume kept |
+| DNS fabric cleanup for host | Backup archives under the backup volume kept |
+| Jobs, audit, notifications **`server_id` nulled** (history **kept**) | Age-based DB purge (that is opt-in **Stale data cleanup** below) |
 
 Confirm by typing the **exact server name**.
+
+### Stale data cleanup (Jobs / Audit / nmap runs)
+
+**Where:** Settings → **General** → **Stale data cleanup** (admin).
+
+| Item | Lean |
+|------|------|
+| Master enable + cron | **Off** until enabled |
+| Jobs / Audit | Independently enabled; default **30** days each when on |
+| nmap runs + XML under `DATA_ROOT/nmap/` | Separate toggle; default **off** |
+| Job type | `stale_data_cleanup` (scheduled or **Run now**) |
+| Safety | Never deletes **pending/running** jobs; distinct from per-server backup `retention` |
+
+### LAN Discovery (nmap)
+
+Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integrations/lan-discovery.md) and [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md).
+
+| Item | Detail |
+|------|--------|
+| Worker | Compose profile `nmap` · image `Dockerfile.nmap` · queue `nmap` · concurrency 1 · host network |
+| Default install | No nmap worker; no vuln DB in image layers |
+| Vuln pack | Host volume `./piherder_nmap_vuln` (web ro, worker rw); update job on nmap queue |
+| Schedules | Multiple; create **and edit**; all off by default |
+| Discovery ≠ Server | Link / promote / dismiss are operator-driven |
 
 ### Optional host cleanup (piherder user)
 
@@ -240,7 +265,10 @@ A row in the job queue for long-running work:
 | `backup` | Manual or backup cron → Celery |
 | `os_patch` / `container_patch` | Manual or apply schedule → thread pool / UI background task |
 | `os_update_check` / `container_update_check` | Manual or check schedule |
-| `retention` | Retention cleanup |
+| `retention` | Per-server backup file retention |
+| `stale_data_cleanup` | Opt-in Jobs / Audit / nmap-run purge (Settings → General) |
+| `nmap_discover` / `nmap_inventory` / `nmap_detailed` / `nmap_host_deep` | LAN Discovery scans → **celery-worker-nmap** (`-Q nmap`) |
+| `nmap_vuln_db_update` | Vuln pack download on nmap worker |
 | `herder_backup` | PiHerder self-backup |
 
 Statuses: `pending` → `running` → `success` / `failed`.

@@ -921,3 +921,328 @@
   .wizard-step-label { display: none; }
   .wizard-step--current .wizard-step-label { display: inline; }
 }
+
+/* -------------------------------------------------------------------------- */
+/* LAN Discovery (nmap) — WebMap-inspired host list / network map            */
+/* -------------------------------------------------------------------------- */
+.nmap-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: stretch;
+}
+.nmap-stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 4.5rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+.nmap-stat--grow {
+  flex: 1 1 10rem;
+  border: none;
+  background: transparent;
+  padding: 0;
+  justify-content: center;
+}
+.nmap-stat-n {
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+.nmap-stat-l {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  font-weight: 600;
+}
+.nmap-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.nmap-filter {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  text-decoration: none;
+}
+.nmap-filter:hover { color: var(--color-text); border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border)); }
+.nmap-filter.is-active {
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  font-weight: 600;
+}
+.nmap-devices-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+@media (min-width: 960px) {
+  .nmap-devices-layout.has-detail {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  }
+  .nmap-devices-layout:not(.has-detail) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.85fr);
+  }
+}
+.nmap-host-list-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) auto;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  font-weight: 700;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg) 60%, var(--color-surface));
+}
+@media (max-width: 639px) {
+  .nmap-host-list-head { grid-template-columns: minmax(0, 1fr) auto; }
+  .nmap-host-list-head span:nth-child(2) { display: none; }
+}
+.nmap-host-list-body {
+  max-height: min(70vh, 40rem);
+  overflow-y: auto;
+}
+.nmap-host-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.12s ease;
+}
+@media (max-width: 639px) {
+  .nmap-host-row { grid-template-columns: minmax(0, 1fr) auto; }
+}
+.nmap-host-row:hover { background: color-mix(in srgb, var(--color-accent) 6%, transparent); }
+.nmap-host-row.is-active {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+.nmap-port-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  align-items: center;
+}
+.nmap-port-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 28%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-surface));
+  color: var(--color-text);
+  white-space: nowrap;
+}
+.nmap-port-chip--more {
+  border-style: dashed;
+  color: var(--color-muted);
+  background: transparent;
+}
+.nmap-state {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 650;
+  text-transform: lowercase;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-muted);
+}
+.nmap-state--new {
+  color: var(--color-text);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+}
+.nmap-state--linked {
+  color: var(--color-success, #15803d);
+  border-color: color-mix(in srgb, var(--color-success, #15803d) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-success, #15803d) 10%, var(--color-surface));
+}
+.nmap-state--ignored,
+.nmap-state--stale {
+  opacity: 0.75;
+}
+.nmap-kv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 0.75rem;
+}
+@media (max-width: 480px) {
+  .nmap-kv-grid { grid-template-columns: 1fr; }
+}
+.nmap-kv {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  padding: 0.4rem 0.5rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-bg) 55%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent);
+}
+.nmap-kv-k {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  font-weight: 700;
+}
+.nmap-kv-v {
+  font-size: 0.8rem;
+  color: var(--color-text);
+  word-break: break-word;
+}
+.nmap-section-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--color-muted);
+  margin: 0 0 0.4rem;
+}
+.nmap-ports-table {
+  max-height: 14rem;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+.nmap-ports-table table {
+  width: 100%;
+  font-size: 0.75rem;
+  border-collapse: collapse;
+}
+.nmap-ports-table th {
+  position: sticky;
+  top: 0;
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  background: var(--color-surface);
+  color: var(--color-muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--color-border);
+}
+.nmap-ports-table td {
+  padding: 0.3rem 0.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+}
+.nmap-ports-table tr.is-open td {
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+}
+.nmap-script-card {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.75rem;
+  background: var(--color-surface);
+}
+.nmap-script-card summary { cursor: pointer; }
+.nmap-script-card pre {
+  margin: 0.4rem 0 0;
+  white-space: pre-wrap;
+  font-size: 0.62rem;
+  color: var(--color-muted);
+  max-height: 8rem;
+  overflow: auto;
+}
+/* Network map */
+.nmap-subnet-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--color-border);
+  background:
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--color-accent) 8%, transparent),
+      transparent 40%);
+}
+.nmap-host-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: 0.55rem;
+  padding: 0.75rem;
+}
+.nmap-host-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  text-decoration: none;
+  color: inherit;
+  min-height: 6.5rem;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.12s ease;
+}
+.nmap-host-card:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--color-accent) 12%, transparent);
+  transform: translateY(-1px);
+}
+.nmap-host-card--new {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 7%, var(--color-surface));
+}
+.nmap-host-card--linked {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-success, #15803d) 35%, transparent);
+}
+.nmap-host-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+.nmap-host-ip {
+  font-size: 0.8rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.nmap-host-name {
+  font-size: 0.72rem;
+  color: var(--color-text);
+  font-weight: 500;
+}
+.nmap-host-mac {
+  font-size: 0.6rem;
+  color: var(--color-muted);
+}
+.nmap-host-os {
+  font-size: 0.6rem;
+  color: var(--color-muted);
+  opacity: 0.9;
+}
+.nmap-host-card .nmap-port-chips {
+  margin-top: auto;
+  padding-top: 0.25rem;
+}

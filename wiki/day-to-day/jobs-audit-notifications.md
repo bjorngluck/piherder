@@ -48,7 +48,10 @@ Long SSH work must not block the browser (jobs). Homelab and multi-operator setu
 | `docker_stack_stop` / `_start` / `_restart` | Project ⋯ Stop/Start/Restart all | Web background |
 | `template_deploy` / `template_redeploy` | Catalog template confirm / Save & redeploy | Web background |
 | `template_drift_check` | Deployment **Check drift** (live log) | Web background |
-| `retention` | Retention cleanup | As configured |
+| `retention` | Per-server backup file retention | As configured |
+| `stale_data_cleanup` | Opt-in Jobs / Audit / nmap-run purge | Scheduler or Settings → Run now |
+| `nmap_discover` / `nmap_inventory` / `nmap_detailed` / `nmap_host_deep` | LAN Discovery scans | **celery-worker-nmap** (`-Q nmap`) |
+| `nmap_vuln_db_update` | Download / refresh vuln pack | nmap worker |
 | `herder_backup` | PiHerder self-backup | As configured |
 
 Statuses: `pending` → `running` → `success` / `failed`.
@@ -78,7 +81,9 @@ A second start reuses the existing job (UI follows it; REST **409** with `alread
 
 ### Live progress
 
-JobHold / progress modals poll status and log lines for OS/container patch and similar work. If a job was already active, the modal notes that and tracks the existing `job_id`.
+JobHold / progress modals poll status and log lines for OS/container patch, **nmap** scans (including vuln DB update), and similar work. If a job was already active, the modal notes that and tracks the existing `job_id`. When a job **finishes**, the modal stays open with a done banner (no forced full-page reload) so you can read the log.
+
+**Stale data cleanup** is configured under [Settings → General](../operations/settings.md#stale-data-cleanup) — separate from per-server backup `retention` jobs.
 
 ### Bulk fleet queue
 

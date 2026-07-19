@@ -49,13 +49,20 @@
       <textarea id="excludes" name="excludes" rows="2" class="input w-full font-mono text-sm"
                 placeholder="192.168.1.1/32">{{ form.excludes }}</textarea>
     </div>
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" name="skip_dns" value="on" {% if form.skip_dns %}checked{% endif %}>
-      Skip reverse DNS (<code class="text-xs">-n</code>) for faster LAN sweeps
+    <label class="flex items-start gap-2 text-sm">
+      <input type="checkbox" name="skip_dns" value="on" class="mt-1" {% if form.skip_dns %}checked{% endif %}>
+      <span>
+        Skip reverse DNS (<code class="text-xs">-n</code>) for faster sweeps.
+        <strong class="text-text">Leave unchecked</strong> if you want hostnames from PTR records.
+      </span>
     </label>
-    <label class="flex items-center gap-2 text-sm">
-      <input type="checkbox" name="use_syn" value="on" {% if form.use_syn %}checked{% endif %}>
-      Prefer SYN scan when worker capabilities allow
+    <label class="flex items-start gap-2 text-sm">
+      <input type="checkbox" name="use_syn" value="on" class="mt-1" {% if form.use_syn %}checked{% endif %}>
+      <span>
+        Prefer SYN scan (<code class="text-xs">-sS</code>). Stock nmap needs a
+        <strong>root</strong> nmap worker for this; otherwise the worker automatically
+        falls back to TCP connect (<code class="text-xs">-sT</code>).
+      </span>
     </label>
     <label class="flex items-center gap-2 text-sm">
       <input type="checkbox" name="vuln_enabled" value="on" {% if form.vuln_enabled %}checked{% endif %}>
@@ -82,6 +89,10 @@
   <p class="font-medium text-text text-sm">Worker setup</p>
   <p><code class="text-[10px]">docker build -f Dockerfile.nmap -t piherder:nmap-local .</code></p>
   <p><code class="text-[10px]">docker compose --profile nmap up -d celery-worker-nmap</code></p>
-  <p>Vulners data: host dir <code class="text-[10px]">./piherder_nmap_vuln</code> (not in image).</p>
+  <p>Vulners data: host dir <code class="text-[10px]">./piherder_nmap_vuln</code> (not in image; web mounts it read-only for status).</p>
+  <p class="pt-1"><strong class="text-text">Hostname + MAC:</strong>
+    MAC needs the nmap worker on <strong>host network</strong> (same L2 / ARP). Hostname needs
+    reverse DNS (do not skip DNS) or names already in your resolver. Re-run discovery after
+    recreating the worker with host networking.</p>
 </div>
 {% endblock %}

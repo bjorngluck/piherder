@@ -55,6 +55,113 @@
       <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save security policy</button>
     </form>
   </div>
+
+  <div class="card p-5 mb-4">
+    <h2 class="font-semibold text-text mb-1">Stale data cleanup</h2>
+    <p class="text-xs text-muted mb-3">
+      Opt-in purge of old <strong class="text-text">Jobs</strong> and <strong class="text-text">Audit</strong>
+      history (and optional nmap scan runs). Runs as a fleet job
+      (<code class="text-[10px]">stale_data_cleanup</code>) — same log panel as other jobs.
+      Defaults: <strong>30 days</strong>. Never deletes pending/running jobs.
+      Distinct from per-server backup file retention.
+    </p>
+    {% set dc = data_cleanup or {} %}
+    <form method="post" action="/herder-backups/data-cleanup/config" class="space-y-3">
+      <label class="flex items-start gap-2 min-h-11 text-sm">
+        <input type="checkbox" name="data_cleanup_enabled" value="1" class="mt-1"
+               {% if dc.enabled %}checked{% endif %}>
+        <span>
+          <strong>Enable scheduled cleanup</strong>
+          <span class="block text-xs text-muted mt-0.5">APScheduler enqueues a cleanup job on the cron below.</span>
+        </span>
+      </label>
+      <div class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
+        <div>
+          <label class="block text-xs text-muted mb-1">Cron</label>
+          <input type="text" name="data_cleanup_cron" value="{{ dc.cron or '30 4 * * *' }}"
+                 class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11"
+                 placeholder="30 4 * * *">
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-3 border border-border rounded-lg p-3">
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="data_cleanup_jobs_enabled" value="1"
+                   {% if dc.jobs_enabled is not defined or dc.jobs_enabled %}checked{% endif %}>
+            <span class="font-medium">Jobs history</span>
+          </label>
+          <label class="block text-xs text-muted">Keep days</label>
+          <input type="number" name="data_cleanup_jobs_days" min="1" max="3650"
+                 value="{{ dc.jobs_days or 30 }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+        </div>
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="data_cleanup_audit_enabled" value="1"
+                   {% if dc.audit_enabled is not defined or dc.audit_enabled %}checked{% endif %}>
+            <span class="font-medium">Audit log</span>
+          </label>
+          <label class="block text-xs text-muted">Keep days</label>
+          <input type="number" name="data_cleanup_audit_days" min="1" max="3650"
+                 value="{{ dc.audit_days or 30 }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+        </div>
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="data_cleanup_nmap_enabled" value="1"
+                   {% if dc.nmap_enabled %}checked{% endif %}>
+            <span class="font-medium">Nmap runs / XML</span>
+          </label>
+          <label class="block text-xs text-muted">Keep days</label>
+          <input type="number" name="data_cleanup_nmap_days" min="1" max="3650"
+                 value="{{ dc.nmap_days or 30 }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-2">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save cleanup settings</button>
+      </div>
+    </form>
+
+    {% if data_cleanup_preview %}
+    <p class="text-xs text-muted mt-3">
+      With current settings, about
+      <strong class="text-text">{{ data_cleanup_preview.jobs }}</strong> jobs,
+      <strong class="text-text">{{ data_cleanup_preview.audit }}</strong> audit rows,
+      <strong class="text-text">{{ data_cleanup_preview.nmap_runs }}</strong> nmap runs
+      would be purged now.
+    </p>
+    {% endif %}
+    <p class="text-xs text-muted mt-2">
+      {% if data_cleanup_schedule_status == 'enabled' %}
+      <span class="text-accent">Schedule active{% if data_cleanup_next_run %} — next {{ data_cleanup_next_run }}{% endif %}.</span>
+      {% else %}
+      Schedule off — enable above or run manually.
+      {% endif %}
+    </p>
+
+    <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border">
+      <form method="post" action="/herder-backups/data-cleanup/run"
+            data-wait-title="Queueing dry-run"
+            data-wait-message="Creating cleanup job…">
+        <input type="hidden" name="dry_run" value="1">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Preview (dry-run job)</button>
+      </form>
+      <form method="post" action="/herder-backups/data-cleanup/run"
+            data-confirm="Permanently delete old Jobs / Audit / nmap rows per your settings?"
+            data-confirm-title="Run stale data cleanup"
+            data-confirm-label="Purge now"
+            data-confirm-danger
+            data-wait-title="Queueing cleanup"
+            data-wait-message="Creating cleanup job…">
+        <input type="hidden" name="dry_run" value="0">
+        <button type="submit" class="btn btn-accent min-h-11 text-sm">Run cleanup now</button>
+      </form>
+      <a href="/jobs?job_type=stale_data_cleanup" class="btn btn-secondary min-h-11 text-sm">Cleanup jobs</a>
+    </div>
+  </div>
   {% endif %}
 </div>
 

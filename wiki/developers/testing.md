@@ -14,7 +14,7 @@ pytest -q
 
 Unit tests live under `tests/` — no live SSH required for the main suite. Default `pytest` only collects `tests/` (not `e2e/`).
 
-Examples: `test_rbac.py`, `test_api_tokens.py`, `test_service_templates.py`, `test_backup_paths.py`, `test_herder_backup.py`, `test_job_exclusive.py` (no double OS/container jobs; stack job types), `test_request_ip_audit.py` (Caddy XFF + audit `client_ip`), `test_dns_fabric.py` (paths, Hosts/Path SVG, cloud/LAN classification, spine layout, GET-safe view, case-insensitive Docker fabric index), `test_jwt_tokens.py` (PyJWT HS256), `test_server_job_lock.py` (backup mutex), …
+Examples: `test_rbac.py`, `test_api_tokens.py`, `test_service_templates.py`, `test_backup_paths.py`, `test_herder_backup.py`, `test_job_exclusive.py` (no double OS/container jobs; stack job types), `test_request_ip_audit.py` (Caddy XFF + audit `client_ip`), `test_dns_fabric.py` (paths, Hosts/Path SVG, cloud/LAN classification, spine layout, GET-safe view, case-insensitive Docker fabric index), `test_jwt_tokens.py` (PyJWT HS256), `test_server_job_lock.py` (backup mutex), `test_nmap_discovery.py` (parse/upsert fixtures — **no live LAN scan in CI**), …
 
 ```bash
 # Network maps only

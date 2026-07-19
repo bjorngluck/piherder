@@ -32,6 +32,23 @@ Deepen **day-to-day host operations** and **first-time host bring-up** without c
 | 8 | Static IP remains **script + docs**; PiHerder does not become DHCP/server networking UI |
 | 9 | All privileged actions: **preview → confirm → audit** (+ Job when long-running) |
 | 10 | Reuse existing patterns: server bulk (`POST /servers/bulk`), stack jobs (`docker_stack_*`), least-priv scripts, Pi-hole A fan-out |
+| 11 | **Data lifecycle (stream R):** fleet **server delete** keeps unlinked Jobs/Audit by default (history); product-owned children cascade with preview. Time-based Jobs/Audit purge is **opt-in** (default 30 days when enabled) — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) § R · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) H0.5 2b/2c |
+
+### Server delete — current behavior (baseline for R2)
+
+Implemented in `delete_server_from_fleet` (do **not** re-invent without reading code):
+
+| Action | Behavior |
+|--------|----------|
+| Active jobs | Best-effort **cancel** |
+| Schedules | Unregister APScheduler for host |
+| Compose drafts | **Deleted** (PiHerder-only history) |
+| DNS fabric | Cleanup rows for host |
+| Jobs / Audit / Notifications | **`server_id` set null** — rows remain, unlinked |
+| Remote host / backup files | **Untouched** |
+| Fleet audit | `server_deleted` event with snapshot |
+
+Gaps for later: cascade matrix for integrations, nmap links, annotations; optional “purge history for this host”. **Global Jobs/Audit growth:** Settings → Stale data cleanup (stream **R1**, shipped).
 
 ---
 

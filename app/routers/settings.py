@@ -32,9 +32,12 @@ from ..services.markdown_lite import load_repo_markdown, markdown_to_html
 from ..services.scheduler import (
     HERDER_SCHEDULE_JOB_ID,
     STACK_HEALTH_INTERVAL_MIN,
+    STALE_DATA_CLEANUP_JOB_ID,
     sync_all_server_cron_jobs,
     sync_herder_backup_schedule,
+    sync_stale_data_cleanup_schedule,
 )
+from ..services import stale_data_cleanup as sdc
 
 router = APIRouter(tags=["settings"])
 
@@ -168,14 +171,29 @@ async def settings_page(
         tab = "backup"
     if qp.get("update_checks_saved"):
         tab = "fleet"
-    if qp.get("security_saved"):
+    if qp.get("security_saved") or qp.get("data_cleanup_saved") or qp.get("data_cleanup_queued"):
         tab = "general"
     if qp.get("stack_checked"):
         tab = "status" if is_admin else tab
 
     stack_report = None
+    data_cleanup = sdc.cleanup_config(cfg)
+    data_cleanup_preview = None
+    data_cleanup_schedule_status = "disabled"
+    data_cleanup_next_run = None
     if is_admin:
         stack_report = stack_svc.load_last_report()
+        try:
+            data_cleanup_preview = sdc.preview_cleanup(session, data_cleanup)
+        except Exception:
+            data_cleanup_preview = None
+        if has_sched and scheduler and data_cleanup.get("enabled"):
+            cjob = scheduler.get_job(STALE_DATA_CLEANUP_JOB_ID)
+            if cjob:
+                data_cleanup_schedule_status = "enabled"
+                nr = getattr(cjob, "next_run_time", None)
+                if nr:
+                    data_cleanup_next_run = app_cfg.format_datetime_in_app_tz(nr)
 
     # Compact hero pulse (tab-aware primary + dual lines)
     n_backups = len(backups or [])
@@ -368,6 +386,10 @@ async def settings_page(
             "stack_health_interval_min": STACK_HEALTH_INTERVAL_MIN,
             "settings_pulse": settings_pulse,
             "settings_hero_by_tab": settings_hero_by_tab,
+            "data_cleanup": data_cleanup,
+            "data_cleanup_preview": data_cleanup_preview,
+            "data_cleanup_schedule_status": data_cleanup_schedule_status,
+            "data_cleanup_next_run": data_cleanup_next_run,
         },
     )
 
@@ -849,6 +871,85 @@ async def save_security_policy(
         )
     return RedirectResponse(
         _settings_url("general", security_saved="1"), status_code=303
+    )
+
+
+@router.post("/herder-backups/data-cleanup/config")
+async def save_data_cleanup_config(
+    data_cleanup_enabled: Optional[str] = Form(None),
+    data_cleanup_cron: str = Form("30 4 * * *"),
+    data_cleanup_jobs_enabled: Optional[str] = Form(None),
+    data_cleanup_jobs_days: int = Form(30),
+    data_cleanup_audit_enabled: Optional[str] = Form(None),
+    data_cleanup_audit_days: int = Form(30),
+    data_cleanup_nmap_enabled: Optional[str] = Form(None),
+    data_cleanup_nmap_days: int = Form(30),
+    user: User = Depends(get_admin_user),
+):
+    enabled = _form_on(data_cleanup_enabled)
+    cron = (data_cleanup_cron or "").strip() or "30 4 * * *"
+    if enabled:
+        try:
+            app_cfg.validate_cron_expression(cron)
+        except ValueError as e:
+            return RedirectResponse(
+                _settings_url("general", error=str(e)[:120]), status_code=303
+            )
+    try:
+        app_cfg.save_settings(
+            {
+                "data_cleanup_enabled": enabled,
+                "data_cleanup_cron": cron,
+                "data_cleanup_jobs_enabled": _form_on(data_cleanup_jobs_enabled),
+                "data_cleanup_jobs_days": sdc._clamp_days(data_cleanup_jobs_days),
+                "data_cleanup_audit_enabled": _form_on(data_cleanup_audit_enabled),
+                "data_cleanup_audit_days": sdc._clamp_days(data_cleanup_audit_days),
+                "data_cleanup_nmap_enabled": _form_on(data_cleanup_nmap_enabled),
+                "data_cleanup_nmap_days": sdc._clamp_days(data_cleanup_nmap_days),
+            }
+        )
+        sched, has = _scheduler()
+        sync_stale_data_cleanup_schedule(sched, has)
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", error=str(e)[:120]), status_code=303
+        )
+    return RedirectResponse(
+        _settings_url("general", data_cleanup_saved="1"), status_code=303
+    )
+
+
+@router.post("/herder-backups/data-cleanup/run")
+async def run_data_cleanup_now(
+    dry_run: Optional[str] = Form("0"),
+    user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
+):
+    """Queue stale_data_cleanup Job (live or dry-run)."""
+    is_dry = dry_run in ("1", "on", "true", "yes")
+    try:
+        job = sdc.enqueue_stale_data_cleanup(
+            session, user_id=user.id, dry_run=is_dry
+        )
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                server_id=None,
+                action="stale_data_cleanup_queued",
+                status="success",
+                details=f"job={job.id} dry_run={is_dry}",
+                started_at=datetime.utcnow(),
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", error=str(e)[:160]), status_code=303
+        )
+    return RedirectResponse(
+        f"/jobs?job_type=stale_data_cleanup&active_only=1",
+        status_code=303,
     )
 
 

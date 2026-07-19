@@ -264,6 +264,12 @@ JOB_TYPE_LABELS = {
     "diagnostics": "Diagnostics",
     "herder_backup": "PiHerder backup",
     "pihole_action": "Pi-hole action",
+    "stale_data_cleanup": "Stale data cleanup",
+    "nmap_discovery": "Nmap discovery",
+    "nmap_inventory": "Nmap inventory",
+    "nmap_detailed": "Nmap detailed",
+    "nmap_host_deep": "Nmap deep scan",
+    "nmap_vuln_db_update": "Nmap vuln DB update",
 }
 
 

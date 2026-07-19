@@ -9,15 +9,20 @@ flowchart TB
         FastAPI --> DB[(PostgreSQL)]
         FastAPI --> Scheduler["APScheduler"]
         FastAPI --> Celery["Celery worker(s)"]
+        FastAPI --> CeleryNmap["celery-worker-nmap (profile nmap)"]
     end
 
     Scheduler -->|backup cron| Celery
+    Scheduler -->|nmap schedules / stale cleanup| Celery
     Scheduler -->|patch/check cron| FastAPI
     Celery -->|reads/writes| DB
     Celery -->|SSH + rsync| PiFleet["Remote fleet"]
+    CeleryNmap -->|nmap -oX / vuln pack| LAN["Configured LAN CIDR(s)"]
+    CeleryNmap -->|reads/writes| DB
     FastAPI -->|SSH · apt · docker| PiFleet
     FastAPI -->|DB reads for UI| DB
     FastAPI -.->|Job.details progress| Celery
+    FastAPI -.->|enqueue -Q nmap| CeleryNmap
 ```
 
 ## Job execution paths
@@ -27,6 +32,8 @@ flowchart TB
 | Backups | Celery | Parallel across hosts; one backup per host (Redis mutex) |
 | OS/container patch & update checks | Web (`BackgroundTasks` / thread pools) | One active job of that type per host |
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
+| LAN nmap scans / vuln pack update | **celery-worker-nmap** (`-Q nmap`, concurrency 1) | Opt-in compose profile; host network |
+| Stale Jobs/Audit/nmap-run purge | Celery (default queue) | Opt-in Settings schedule |
 
 ## Key modules (pointers)
 
@@ -42,7 +49,9 @@ flowchart TB
 | Docker inventory | `app/services/docker_inventory.py` |
 | Templates | `app/services/service_templates/` |
 | Integrations (domain) | `app/services/integrations/` |
-| Integrations (HTTP) | `integrations.py` + `integrations_common` / `_kuma` / `_grafana` / `_pihole` / `_npm` |
+| Integrations (HTTP) | `integrations.py` + `integrations_common` / `_kuma` / `_grafana` / `_pihole` / `_npm` / `_nmap` |
+| LAN nmap (scan/parse/schedules/vuln) | `app/services/nmap/` · router `integrations_nmap.py` · image `Dockerfile.nmap` |
+| Stale data cleanup | `app/services/stale_data_cleanup.py` · Settings General |
 | Templates (HTTP) | `templates_common` + `templates_svc` (catalog) + `templates_deploy` |
 | Auth (HTTP) | `auth.py` + `auth_users.py` (admin users) |
 | Network maps | `app/services/dns_fabric/` (`core`, `mesh_physical`, `mesh_logical`) · `app/routers/dns.py` |

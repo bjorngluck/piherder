@@ -131,6 +131,23 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 
 ---
 
+### Journey H — LAN discovery (opt-in nmap) {#journey-h}
+
+**Goal:** See unknown devices on your home CIDR without auto-enrolling them as managed servers.
+
+| Step | Action | Why |
+|------|--------|-----|
+| 1 | Build + start **nmap** worker (`--profile nmap`) | Web never runs nmap |
+| 2 | [LAN Discovery](../integrations/lan-discovery.md) integration + CIDR(s) | Scope allowlist |
+| 3 | Manual **Discovery** / **Inventory** once | Trust before schedules |
+| 4 | Devices / Network view · link or promote | Discovery ≠ fleet member |
+| 5 | Optional schedules (create + **Edit**) | Cadence you control |
+| 6 | Optional vuln pack update + deep scan | Pack volume opt-in |
+
+**Done when:** Devices appear in the network view; at least one link/promote path is understood; schedules stay off until you want them.
+
+---
+
 ## First week (quick links)
 
 | Scenario | Doc |
@@ -169,6 +186,14 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | Edit compose, validate, deploy version | [Compose edit](../docker/compose-edit.md) |
 | Stack Check updates vs Deploy | [Updates — Docker](../day-to-day/updates-and-patching.md#docker-check-updates-vs-deploy) |
 | Prune dangling images / exited containers | [Docker overview](../docker/overview.md) |
+
+## Integrations & discovery
+
+| Scenario | Doc |
+|----------|-----|
+| Opt-in LAN nmap (worker, devices, schedules) | [LAN Discovery](../integrations/lan-discovery.md) · Journey H |
+| Network maps (DNS / topology) | [Network maps](../integrations/dns-fabric.md) |
+| Stale Jobs / Audit / nmap-run purge | [Settings — cleanup](../operations/settings.md#stale-data-cleanup) |
 
 ## Service templates
 
