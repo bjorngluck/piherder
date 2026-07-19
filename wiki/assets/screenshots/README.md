@@ -13,10 +13,10 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages now use real PNGs. 
 | Release | Screenshot bar |
 |---------|----------------|
 | **v0.6.0** (released) | **Prose only** — no PNG gate. Existing captures stay until refreshed. |
-| **v0.7.0** (product-closed → packaging) | **Full capture pack** — last product-ish tag gate — [PLAN_v0.7.0.md](../../../docs/PLAN_v0.7.0.md) |
-| **v0.8.0 RC3** (planned) | Refresh if nmap / residual UI ships — [PLAN_v0.8.0.md](../../../docs/PLAN_v0.8.0.md) |
+| **v0.7.0** (tagged) | Prose for wizard + compose sets; **PNG pack deferred** to 0.8 |
+| **v0.8.0 RC3** (active) | **Full capture pack** + prose audit + nmap UI shots — [PLAN_v0.8.0.md](../../../docs/PLAN_v0.8.0.md) |
 
-Track status below; wizard UI is stable enough to capture. Prefer one docs PR near the **0.7.0** tag.
+Track status below; capture during the **0.8** cycle (wizard UI is frozen enough).
 
 ## Default convention (keep simple)
 

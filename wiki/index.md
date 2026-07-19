@@ -13,20 +13,20 @@
 
     | What to expect | Detail |
     |----------------|--------|
-    | **Tagged now** | **[v0.6.0](https://github.com/bjorngluck/piherder/releases/tag/v0.6.0)** (RC2) — image `bjorngluck/piherder:0.6.0` / `latest` |
-    | **Shipped in RC2** | Template Jobs, cert vault UX (edge map, presets), Docker bulk lifecycle, runtime topology + Kuma coverage — [RELEASE_v0.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.6.0.md) |
-    | **Next (v0.7.0)** | On **main**: add-host wizard + Playwright E2E; screenshot pack still open — [PLAN_v0.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.7.0.md) |
+    | **Tagged now** | **[v0.7.0](https://github.com/bjorngluck/piherder/releases/tag/v0.7.0)** — image `bjorngluck/piherder:0.7.0` / `latest` |
+    | **Shipped in v0.7.0** | Add-host wizard, Playwright E2E, topology annotations + compose sets, drift Job — [RELEASE_v0.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md) |
+    | **Next (v0.8.0 RC3)** | Overall polish · E2E/coverage · full docs + **screenshots** · **nmap** — [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) |
     | **Documentation** | Operator-focused living wiki — not the final 1.0 freeze manual |
-    | **Screenshots** | Light desktop for major surfaces; full capture pack remains a **v0.7.0** tag must |
+    | **Screenshots** | Light desktop for major surfaces; **full capture pack is a v0.8.0 must** |
     | **Production bar** | **v1.0.0** is the intended first refined production release |
 
     If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
 
 | | |
 |---|---|
-| **Current tag** | **[v0.6.0](https://github.com/bjorngluck/piherder/releases/tag/v0.6.0)** (RC2) — image [`bjorngluck/piherder:latest`](https://hub.docker.com/r/bjorngluck/piherder) |
-| **Release notes** | [RELEASE_v0.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.6.0.md) · prior [v0.5.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.5.0.md) |
-| **Ship plan** | **[PLAN_v0.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.7.0.md)** (active) · prior [PLAN_v0.6.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.6.0.md) |
+| **Current tag** | **[v0.7.0](https://github.com/bjorngluck/piherder/releases/tag/v0.7.0)** — image [`bjorngluck/piherder:latest`](https://hub.docker.com/r/bjorngluck/piherder) |
+| **Release notes** | [RELEASE_v0.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md) · prior [v0.6.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.6.0.md) |
+| **Ship plan** | **[PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md)** (active RC3) · prior [PLAN_v0.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.7.0.md) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |

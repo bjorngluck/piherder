@@ -34,7 +34,7 @@ x-piherder-app-env: &piherder-app-env
 # App image — **local build by default** (dev / RC testing on this host).
 #   docker compose build web celery-worker && docker compose up -d
 # Production Hub pull (no rebuild):
-#   PIHERDER_IMAGE=bjorngluck/piherder:0.6.0 docker compose up -d --no-build
+#   PIHERDER_IMAGE=bjorngluck/piherder:0.7.0 docker compose up -d --no-build
 #   (or :latest after a published release)
 # Override tag name only: PIHERDER_IMAGE=piherder:dev docker compose build
 x-piherder-image: &piherder-image

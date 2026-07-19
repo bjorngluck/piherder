@@ -1,10 +1,10 @@
 # PiHerder v0.7.0 — development plan
 
-**Status:** **Product-closed → packaging** (opened 2026-07-18 · product streams closed 2026-07-19)  
-**Date opened:** 2026-07-18 · **Refreshed:** 2026-07-19 (product review — residual polish → **[v0.8.0 RC3](PLAN_v0.8.0.md)**)  
+**Status:** **Feature-locked · tagged `v0.7.0`** (2026-07-19)  
+**Date opened:** 2026-07-18 · **Frozen:** 2026-07-19  
 **Baseline:** `v0.6.0` (RC2 — tagged 2026-07-18)  
-**Package version during cycle:** still `0.6.0` on tree until freeze packaging → **`0.7.0` at tag**  
-**Related:** [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · [wiki screenshots README](../wiki/assets/screenshots/README.md)
+**Package version:** **`0.7.0`** · release notes [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md)  
+**Related:** [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md)
 
 ### Decision (locked)
 
@@ -13,11 +13,11 @@
 | Git tag target | **`v0.7.0`** |
 | Theme | **Onboarding clarity** — guided add-host + docs that show the real UI + **automated E2E** |
 | Planning frame | Single target; **must** ship wizard + screenshot pack + **Playwright E2E (Phase A + wizard B)**; polish only as capacity |
-| Production path | ~~v0.5.0 RC1~~ → ~~**v0.6.0 RC2**~~ **tagged** → **v0.7.0** (this cycle) → **[v0.8.0 RC3](PLAN_v0.8.0.md)** → **v1.0** |
-| Docs strategy | Living wiki + screenshot pack in same cycle as wizard; `RELEASE_v0.7.0.md` at tag |
-| **E2E ship gate** | **Hard tag gate** — Playwright suite red **blocks** `v0.7.0` |
-| **E2E CI** | **Separate job** on **main + PR** (path-filtered); fail the check if red |
-| **Residual polish** | Open stream-C items **cut from 0.7** → **[PLAN_v0.8.0.md](PLAN_v0.8.0.md)** (RC3) |
+| Production path | ~~v0.5.0 RC1~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ **tagged** → **[v0.8.0 RC3](PLAN_v0.8.0.md)** → **v1.0** |
+| Docs strategy | Living wiki shipped; **screenshot pack deferred to 0.8** (full docs review cycle) |
+| **E2E ship gate** | Playwright Phase A + wizard B **shipped** (local green; CI workflow on main/PR) |
+| **Feature lock** | **2026-07-19** — no further product work on 0.7; next development is **v0.8.0 RC3** |
+| **Deferred to RC3** | Screenshot pack · polish residual · E2E/coverage growth · nmap — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) |
 
 ### Decision (carry-forward from 0.6 freeze)
 
@@ -67,11 +67,11 @@ This is **not** a second large product wave. High-risk surfaces (web SSH, first-
 
 | Stream | Must for 0.7? | Status |
 |--------|---------------|--------|
-| **B** Add-host wizard (H2.75 P2) | **Must** | **Done** (product) — 8-step wizard, connect/deploy/test/clear-password, advanced form, wiki primary; PNG capture only remains in A |
-| **A** Wiki screenshot pack + wizard docs | **Must** | **Prose done** · **PNG pack open** (tag gate — inventory ready) |
-| **E** E2E platform (Playwright A + wizard B) | **Must** | **Done** (product) — Phase A + B1–B5 local green (11 tests); private-key DOM assert in B2; CI workflow on main/PR |
-| **C** Residual Jobs / polish | Nice / capacity | **Capacity closed** — done items ship in 0.7; **open items → v0.8.0 RC3** |
-| **D** Packaging (unit + E2E green, RELEASE, Hub) | Must at tag | **Open** — freeze week only |
+| **B** Add-host wizard (H2.75 P2) | **Must** | **Done** — ships in `v0.7.0` |
+| **A** Wiki screenshot pack + wizard docs | Prose must / PNG → 0.8 | **Prose done** · **PNG pack → v0.8.0 RC3** (freeze decision 2026-07-19) |
+| **E** E2E platform (Playwright A + wizard B) | **Must** | **Done** — Phase A + B1–B5 (11 tests); CI workflow |
+| **C** Residual Jobs / polish | Nice / capacity | Done items ship; open residual → **v0.8.0 RC3** |
+| **D** Packaging (RELEASE, version, Hub) | Must at tag | **Done** at freeze |
 
 **Testing pyramid**
 
@@ -137,7 +137,7 @@ Servers list CTA: “Add server” → wizard
 - [x] Done step offers sensible CTAs (open server / SSH / Docker when on)  
 - [x] operator+ only (`get_operator_user` on wizard routes)  
 - [x] Wiki [Add a server](../wiki/day-to-day/add-server.md) primary path becomes the wizard  
-- [ ] Screenshots: `add-server-wizard.png` (+ optional done shot) — **stream A / tag gate**  
+- [ ] Screenshots: `add-server-wizard.png` (+ optional done shot) — **deferred to v0.8.0 RC3**  
 - [x] Unit pytest for step helpers (`tests/test_server_wizard.py`)  
 - [x] **E2E B1–B5** primary CTA, identity→trust, save & exit, clear-password, advanced  
 - [x] Stable **`data-testid`** hooks on wizard steps + Continue / Back / Save & exit  
@@ -163,14 +163,14 @@ Prose for 0.6 surfaces is largely current. PNGs are the gap.
 
 | Item | Notes | Priority | Status |
 |------|--------|----------|--------|
-| Refresh **stale** high-priority shots | dashboard, server-list/detail, jobs, templates-deploy, certificates-list, dns-logical, … | Must | **Open** — inventory in [screenshots README](../wiki/assets/screenshots/README.md) |
-| **New 0.6 surfaces** | cert setup/detail/edge; docker project lifecycle; jobs live log; coverage; stack panel | Must | **Open** — listed as “new / missing” in screenshots README |
-| **Wizard shots** | `add-server-wizard.png` (+ done) | Must (with B) | **Open** — UI frozen enough to capture |
+| Refresh **stale** high-priority shots | Full capture cycle | Was must | **→ v0.8.0 RC3** |
+| **New 0.6/0.7 surfaces** | cert/docker/jobs/wizard PNGs | Was must | **→ v0.8.0 RC3** |
+| **Wizard shots** | `add-server-wizard.png` (+ done) | Was must | **→ v0.8.0 RC3** |
 | Wizard primary path in wiki | [add-server.md](../wiki/day-to-day/add-server.md) rewrite; advanced form secondary | Must | **Done** |
-| Operator scenarios Journey A | Align with wizard if present | Should | Prose updated; re-check at screenshot land |
-| Topology / compose-sets prose | Docker overview, fabric, testing, e2e README | Must (with C) | **Done** (2026-07-19) |
-| `RELEASE_v0.7.0.md` | Written at tag | Must | End (stream D) |
-| ADMIN / SPEC / ROADMAP sync | This plan + freeze | Must | Ongoing through tag |
+| Operator scenarios Journey A | Align with wizard | Should | Prose updated |
+| Topology / compose-sets prose | Docker overview, fabric, testing, e2e README | Must (with C) | **Done** |
+| `RELEASE_v0.7.0.md` | Written at tag | Must | **Done** |
+| ADMIN / SPEC / ROADMAP sync | Freeze | Must | **Done** at tag |
 
 **Capture policy (unchanged):** light theme · desktop default · no full light×dark×mobile matrix. See screenshots README.
 
@@ -365,14 +365,14 @@ Pulled from 0.6 “open / post-0.6” notes. **None of these are tag gates.** Ca
 | 1 | Add-host wizard primary path (B acceptance criteria) | **Done** (product) |
 | 2 | Advanced form still available | **Done** |
 | 3 | Wiki: wizard primary + advanced secondary | **Done** |
-| 4 | Screenshot pack: high-priority refresh + new 0.6 surfaces + wizard | **Open** — last product-ish tag gate |
-| 5 | Unit pytest green | Reconfirm at freeze |
+| 4 | Screenshot pack | **Deferred → v0.8.0 RC3** (freeze decision) |
+| 5 | Unit pytest green | **OK** at freeze |
 | 6 | **E2E scaffold + compose/CI harness** (E-a) | **Done** |
-| 7 | **E2E Phase A shell smoke** (E-b) | **Done** local (A1–A6); reconfirm CI at freeze |
-| 8 | **E2E Phase B wizard journeys B1–B5** (E-c) | **Done** local; reconfirm CI at freeze |
+| 7 | **E2E Phase A shell smoke** (E-b) | **Done** (local A1–A6) |
+| 8 | **E2E Phase B wizard journeys B1–B5** (E-c) | **Done** (local) |
 | 9 | **E2E failure artifacts** (trace/screenshot) on CI fail (E-d) | **Done** |
-| 10 | Version `0.7.0` + git tag + multi-arch Hub | **Open** (stream D) |
-| 11 | `RELEASE_v0.7.0.md` | **Open** (stream D) |
+| 10 | Version `0.7.0` + git tag + multi-arch Hub | **Done** at freeze |
+| 11 | `RELEASE_v0.7.0.md` | **Done** |
 | 12 | Secret-path review unchanged (no key material to browser) | **Done** (E2E B2 asserts) |
 
 ### Should (not hard tag gates)
@@ -497,8 +497,9 @@ Before tagging **0.7.0**, a maintainer (or CI) can:
 | 2026-07-18 | Connect in-wizard (deploy/test/clear-password); wiki wizard primary; E2E B2–B4 (**11 e2e**) |
 | 2026-07-18 | Stream C: template **drift check as Job** + JobHold (exclusive per host) |
 | 2026-07-19 | Stream C: **topology annotations (T0–T4)** + **compose sets** (Docker pills, set deploy, e2e file under project) |
-| 2026-07-19 | **Product review:** B + E product-closed; C capacity closed; open C residual + nmap → **[PLAN_v0.8.0.md](PLAN_v0.8.0.md) RC3**; remaining 0.7 = screenshots (A) + packaging (D) |
+| 2026-07-19 | **Product review:** B + E product-closed; C capacity closed; open residual + nmap → **[PLAN_v0.8.0.md](PLAN_v0.8.0.md) RC3** |
+| 2026-07-19 | **Feature lock + tag `v0.7.0`** — screenshot pack deferred to RC3 (full docs review); packaging + Hub + RELEASE landed |
 
 ---
 
-**End of plan** — product streams closed; freeze narrative moves into `RELEASE_v0.7.0.md` at tag.
+**End of plan** — frozen at tag; narrative in [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md). Active development: [PLAN_v0.8.0.md](PLAN_v0.8.0.md).

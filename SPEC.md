@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** **v0.6.0 live** (RC2) · **v0.7.0 product-closed** (packaging + screenshots) — [PLAN_v0.7.0.md](docs/PLAN_v0.7.0.md) · next **v0.8.0 RC3** — [PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md).  
-> **Last updated:** 2026-07-19 — Production path: ~~v0.4.0~~ → ~~**v0.5.0 RC1**~~ → ~~**v0.6.0 RC2**~~ ([RELEASE_v0.6.0.md](docs/RELEASE_v0.6.0.md)) → **v0.7.0** (packaging) → **v0.8.0 RC3** (nmap + residual) → **v1.0**.
+> **Status:** **v0.7.0 live** — [RELEASE_v0.7.0.md](docs/RELEASE_v0.7.0.md) · active cycle **v0.8.0 RC3** — [PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md).  
+> **Last updated:** 2026-07-19 — Production path: ~~v0.5.0 RC1~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ **tagged** → **v0.8.0 RC3** (polish · E2E/coverage · docs+screenshots · nmap) → **v1.0**.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -324,11 +324,11 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 **v0.7.0 ship plan:** [docs/PLAN_v0.7.0.md](docs/PLAN_v0.7.0.md) · **v0.8.0 RC3:** [docs/PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md) · Design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · Prior: [PLAN_v0.6.0.md](docs/PLAN_v0.6.0.md) · [ROADMAP H2.75](docs/ROADMAP_ECOSYSTEM.md#horizon-275--host-lifecycle--operator-console-post-rc).
 
 **Shipped on 0.6 track:** Kuma coverage (H3); runtime topology (H2); Docker bulk (P1); template deploy Jobs; cert first-setup + presets + self-managed edge map + stage_sudo.  
-**v0.7.0 product-done:** add-host wizard (P2); **Playwright E2E** Phase A + Phase B wizard; topology annotations + compose sets; drift-check Job. **Still open for 0.7 tag:** wiki screenshot pack + packaging. Residual polish cut → RC3.
+**v0.7.0 tagged:** add-host wizard (P2); **Playwright E2E** Phase A + Phase B wizard; topology annotations + compose sets; drift-check Job. Screenshot pack + polish + E2E/coverage growth + nmap → **v0.8.0 RC3**.
 
 - [x] **P1** Docker project bulk Stop all / Start all / Restart all (Jobs + Audit + confirm) — *done 2026-07-18*
-- [x] **P2** Wizard-driven add-host onboarding (orchestrate existing SSH / features / DNS steps) — *product done 2026-07-19* (screenshots at 0.7 tag)
-- [x] **E2E** Playwright Phase A (shell) + Phase B (wizard journeys) — *product done 2026-07-19* (CI reconfirm at freeze)
+- [x] **P2** Wizard-driven add-host onboarding (orchestrate existing SSH / features / DNS steps) — *v0.7.0*
+- [x] **E2E** Playwright Phase A (shell) + Phase B (wizard journeys) — *v0.7.0*
 - [ ] **P3** Richer host stats + healthchecks + **allowlisted** remote commands (no free shell) — *v0.8.0 RC3 capacity*
 - [ ] **P4** Bootstrap scripts (piherder user/permissions) + hostname + Pi-hole A handoff; first-boot enrollment **token** (no open join) — *post-0.8*
 - [ ] **P5** Web SSH console — server-side key injection only; step-up 2FA; kill switch; optional / high bar — *later*
