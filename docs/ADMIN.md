@@ -229,6 +229,8 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 | Default install | No nmap worker; no vuln DB in image layers |
 | Vuln pack | Host volume `./piherder_nmap_vuln` (web ro, worker rw); update job on nmap queue |
 | Schedules | Multiple; create **and edit**; all off by default |
+| Curated options | Timing (`-T3`–`T5`), top-ports, UDP, port list, deep **script presets** (none/cpe/offline/full) — no free-form flags |
+| Soft embed | Linked device → server list LAN chip + server detail card |
 | Discovery ≠ Server | Link / promote / dismiss are operator-driven |
 
 ### Optional host cleanup (piherder user)

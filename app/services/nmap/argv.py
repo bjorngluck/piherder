@@ -36,12 +36,19 @@ def build_nmap_argv(
     include_udp: bool = False,
     vuln_scripts: bool = False,
     top_ports: int = 100,
+    timing: int | None = 4,
+    port_list: str | None = None,
     extra_args: Sequence[str] | None = None,
 ) -> list[str]:
     """Build argv list starting with ``nmap``.
 
-    *vuln_scripts* only adds stock ``vuln`` / vulners script names — caller must
-    gate on pack presence and operator flag.
+    *vuln_scripts* adds a simple ``vuln,vulners`` script set for unit tests /
+    fallback. Production deep scans prefer pack-aware script args from
+    ``scan._script_args_for_preset`` (appended by the runner).
+
+    *timing*: nmap ``-T3``..``-T5`` or None to omit.
+    *port_list*: curated ``-p`` list (digits/commas/hyphens); overrides ``-p-``
+    / top-ports for inventory/detailed/deep when set.
     """
     intensity = (intensity or INTENSITY_DISCOVERY).strip().lower()
     if intensity not in INTENSITIES:
@@ -52,20 +59,44 @@ def build_nmap_argv(
         argv.append("-n")
 
     scan_flag = "-sS" if use_syn else "-sT"
+    ports_override = (port_list or "").strip() or None
 
     if intensity == INTENSITY_DISCOVERY:
         # Host discovery only. On the same L2 (host-network worker) nmap uses ARP
         # and records MAC addresses; reverse DNS fills hostnames unless -n (skip_dns).
         argv.extend(["-sn", "-PR"])
     elif intensity == INTENSITY_INVENTORY:
-        argv.extend([scan_flag, "-sV", f"--top-ports", str(max(1, min(1000, int(top_ports))))])
+        argv.extend([scan_flag, "-sV"])
+        if ports_override:
+            argv.extend(["-p", ports_override])
+        else:
+            argv.extend(
+                ["--top-ports", str(max(1, min(1000, int(top_ports or 100))))]
+            )
     elif intensity == INTENSITY_DETAILED:
-        argv.extend([scan_flag, "-sV", "-p-", "-T4"])
+        argv.extend([scan_flag, "-sV"])
+        if ports_override:
+            argv.extend(["-p", ports_override])
+        else:
+            argv.append("-p-")
     elif intensity == INTENSITY_DEEP:
-        argv.extend([scan_flag, "-sV", "-p-", "-T4"])
+        argv.extend([scan_flag, "-sV"])
+        if ports_override:
+            argv.extend(["-p", ports_override])
+        else:
+            argv.append("-p-")
         if vuln_scripts:
-            # Stock vuln category; vulners NSE uses data from mounted volume when present
+            # Fallback only — runner usually injects pack-aware --script
             argv.extend(["--script", "vuln,vulners"])
+
+    # Timing: not useful on pure -sn discovery
+    if intensity != INTENSITY_DISCOVERY and timing is not None:
+        try:
+            t = int(timing)
+            if 3 <= t <= 5:
+                argv.append(f"-T{t}")
+        except (TypeError, ValueError):
+            pass
 
     if include_udp and intensity != INTENSITY_DISCOVERY:
         # UDP is expensive — only when explicitly requested

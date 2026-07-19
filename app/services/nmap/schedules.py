@@ -24,7 +24,9 @@ def schedule_aps_id(schedule_id: int) -> str:
 
 
 def parse_schedule_options(row: NmapScanSchedule | dict | None) -> dict[str, Any]:
-    """Return normalized schedule options (vuln / SYN)."""
+    """Return normalized schedule options (script preset, timing, SYN, …)."""
+    from .options import parse_scan_options
+
     data: dict[str, Any] = {}
     if row is None:
         pass
@@ -48,24 +50,41 @@ def parse_schedule_options(row: NmapScanSchedule | dict | None) -> dict[str, Any
                     data = parsed
             except Exception:
                 data = {}
+    opts = parse_scan_options(data)
+    # use_syn None = inherit integration (parse_scan_options may coerce)
     use_syn = data.get("use_syn", None)
     if use_syn is not None:
         use_syn = bool(use_syn)
-    return {
-        "vuln_scripts": bool(data.get("vuln_scripts")),
-        "use_syn": use_syn,  # None = inherit integration setting
-    }
+    opts["use_syn"] = use_syn
+    return opts
 
 
 def dump_schedule_options(
     *,
     vuln_scripts: bool = False,
     use_syn: bool | None = None,
+    script_preset: str | None = None,
+    timing: int | None = 4,
+    top_ports: int = 100,
+    include_udp: bool = False,
+    port_list: str | None = None,
 ) -> str:
-    payload: dict[str, Any] = {
-        "vuln_scripts": bool(vuln_scripts),
-    }
-    if use_syn is not None:
+    from .options import dump_scan_options, form_scan_options
+
+    opts = form_scan_options(
+        script_preset=script_preset,
+        vuln_scripts=vuln_scripts,
+        timing=timing,
+        top_ports=top_ports,
+        include_udp=include_udp,
+        port_list=port_list,
+        use_syn=use_syn,
+    )
+    payload = dump_scan_options(opts)
+    # Preserve explicit inherit (omit use_syn) when None
+    if use_syn is None:
+        payload.pop("use_syn", None)
+    elif use_syn is not None:
         payload["use_syn"] = bool(use_syn)
     return json.dumps(payload, separators=(",", ":"))
 
@@ -83,6 +102,11 @@ def create_schedule(
     cidrs: list[str] | None = None,
     vuln_scripts: bool = False,
     use_syn: bool | None = None,
+    script_preset: str | None = None,
+    timing: int | None = 4,
+    top_ports: int = 100,
+    include_udp: bool = False,
+    port_list: str | None = None,
 ) -> NmapScanSchedule:
     intensity = (intensity or "discovery").strip().lower()
     if intensity not in INTENSITIES_SCHEDULE:
@@ -93,9 +117,10 @@ def create_schedule(
         parts = cron.strip().split()
         if len(parts) != 5:
             raise ValueError("cron must have 5 fields")
-    # Vuln scripts only make sense on deep (or detailed with scripts — we gate to deep)
+    # Vuln scripts only make sense on deep
     if intensity != "deep":
         vuln_scripts = False
+        script_preset = "none"
     scope: dict[str, Any] = {"all_configured": True} if scope_all else {"cidrs": cidrs or []}
     now = datetime.utcnow()
     row = NmapScanSchedule(
@@ -107,7 +132,13 @@ def create_schedule(
         enabled=bool(enabled),
         scope_json=json.dumps(scope, separators=(",", ":")),
         options_json=dump_schedule_options(
-            vuln_scripts=vuln_scripts, use_syn=use_syn
+            vuln_scripts=vuln_scripts,
+            use_syn=use_syn,
+            script_preset=script_preset,
+            timing=timing,
+            top_ports=top_ports,
+            include_udp=include_udp,
+            port_list=port_list,
         ),
         created_at=now,
         updated_at=now,
@@ -132,6 +163,12 @@ def update_schedule(
     vuln_scripts: bool | None = None,
     use_syn: bool | None = None,
     clear_use_syn: bool = False,
+    script_preset: str | None = None,
+    timing: int | None = None,
+    top_ports: int | None = None,
+    include_udp: bool | None = None,
+    port_list: str | None = None,
+    clear_port_list: bool = False,
 ) -> NmapScanSchedule:
     if name is not None:
         row.name = name.strip() or row.name
@@ -162,17 +199,39 @@ def update_schedule(
         row.enabled = bool(enabled)
 
     opts = parse_schedule_options(row)
-    if vuln_scripts is not None:
+    if script_preset is not None:
+        opts["script_preset"] = script_preset
+        from .options import preset_wants_scripts
+
+        opts["vuln_scripts"] = preset_wants_scripts(script_preset)
+    elif vuln_scripts is not None:
         opts["vuln_scripts"] = bool(vuln_scripts)
+        opts["script_preset"] = "full" if vuln_scripts else "none"
     if clear_use_syn:
         opts["use_syn"] = None
     elif use_syn is not None:
         opts["use_syn"] = bool(use_syn)
+    if timing is not None:
+        opts["timing"] = timing
+    if top_ports is not None:
+        opts["top_ports"] = top_ports
+    if include_udp is not None:
+        opts["include_udp"] = bool(include_udp)
+    if clear_port_list:
+        opts["port_list"] = None
+    elif port_list is not None:
+        opts["port_list"] = port_list
     if row.intensity != "deep":
         opts["vuln_scripts"] = False
+        opts["script_preset"] = "none"
     row.options_json = dump_schedule_options(
         vuln_scripts=bool(opts.get("vuln_scripts")),
         use_syn=opts.get("use_syn"),
+        script_preset=opts.get("script_preset"),
+        timing=opts.get("timing"),
+        top_ports=int(opts.get("top_ports") or 100),
+        include_udp=bool(opts.get("include_udp")),
+        port_list=opts.get("port_list"),
     )
 
     if not row.cron and not row.interval_hours:
@@ -233,6 +292,7 @@ def fire_schedule(schedule_id: int) -> None:
                 return
 
             want_vuln = bool(opts.get("vuln_scripts")) and row.intensity == "deep"
+            preset = opts.get("script_preset") or ("full" if want_vuln else "none")
             if want_vuln:
                 pack = vuln_pack_status()
                 if not cfg.get("vuln_enabled"):
@@ -242,13 +302,15 @@ def fire_schedule(schedule_id: int) -> None:
                         schedule_id,
                     )
                     want_vuln = False
-                elif not pack.get("ready"):
+                    preset = "none"
+                elif not pack.get("ready") and preset not in ("cpe",):
                     logger.info(
                         "[SCHEDULER] nmap schedule %s: vuln pack not ready — "
                         "scanning without scripts",
                         schedule_id,
                     )
                     want_vuln = False
+                    preset = "none"
 
             job, run = enqueue_nmap_scan(
                 db,
@@ -259,6 +321,11 @@ def fire_schedule(schedule_id: int) -> None:
                 user_id=None,
                 vuln_scripts=want_vuln,
                 use_syn=opts.get("use_syn"),  # None = integration default
+                script_preset=preset if want_vuln else "none",
+                timing=opts.get("timing"),
+                top_ports=opts.get("top_ports"),
+                include_udp=bool(opts.get("include_udp")),
+                port_list=opts.get("port_list"),
             )
             row.last_run_at = datetime.utcnow()
             row.last_job_id = job.id

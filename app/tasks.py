@@ -44,11 +44,17 @@ def nmap_scan(
     job_id: int | None = None,
     vuln_scripts: bool = False,
     use_syn: bool | None = None,
+    script_preset: str | None = None,
+    timing: int | None = None,
+    top_ports: int | None = None,
+    include_udp: bool = False,
+    port_list: str | None = None,
 ):
     """LAN discovery scan — must run on celery-worker-nmap (-Q nmap).
 
     Web never invokes nmap; this task shells out and upserts devices.
     *use_syn* None = inherit integration Prefer SYN setting.
+    Curated options: script_preset, timing, top_ports, include_udp, port_list.
     """
     from app.services.nmap.scan import run_nmap_scan
     from app.services.nmap.runtime import touch_worker_heartbeat
@@ -70,6 +76,11 @@ def nmap_scan(
             job_id=job_id,
             use_syn=use_syn,
             vuln_scripts=vuln_scripts,
+            script_preset=script_preset,
+            timing=timing,
+            top_ports=top_ports,
+            include_udp=include_udp,
+            port_list=port_list,
         )
     except Exception as e:
         logger.exception("nmap_scan task failed run_id=%s", run_id)

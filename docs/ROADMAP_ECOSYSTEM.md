@@ -1,7 +1,7 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-19 (**v0.7.0 tagged** · active **v0.8.0 RC3** — LAN nmap **N0–N6 product landed** · remaining: coverage/E2E · screenshot pack · polish)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-19 (**v0.7.0 tagged** · active **v0.8.0 RC3** — LAN nmap **N0–N9 product shells + soft embed landed** · remaining: screenshot pack · ~50% coverage · polish)  
 **Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 

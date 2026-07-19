@@ -85,10 +85,11 @@ Add these files under `wiki/assets/screenshots/` and wire Markdown when capturin
 
 | File (proposed) | UI surface | Why | Priority |
 |-----------------|------------|-----|----------|
-| `nmap-overview.png` | LAN Discovery Overview (worker + vuln pack) | Opt-in headline feature | **High** |
-| `nmap-devices.png` | Devices list (hostname/MAC/ports) | Auto-create records | **High** |
+| `nmap-overview.png` | LAN Discovery Overview (worker + vuln pack + curated scan form) | Opt-in headline feature | **High** |
+| `nmap-devices.png` | Devices list (hostname/MAC/ports) + script classify pills | Auto-create + findings UX | **High** |
 | `nmap-network.png` | Network view (subnet groups) | Distinct from DNS fabric | **High** |
-| `nmap-schedules.png` | Schedules list + Edit form | Multi-schedule + options | **Medium** |
+| `nmap-schedules.png` | Schedules list + Edit form (presets/timing) | Multi-schedule + options | **Medium** |
+| `nmap-server-embed.png` | Server detail LAN discovery card | N8 soft embed | **Medium** |
 | `settings-stale-cleanup.png` | Settings → Stale data cleanup | Stream R operator control | **Medium** |
 | `add-server-wizard.png` | Wizard primary path | Deferred from 0.7 | **High** |
 | `add-server-wizard.png` | Multi-step add-host wizard (`/servers/new`) | **Feature on main** — capture for tag | **High** |
