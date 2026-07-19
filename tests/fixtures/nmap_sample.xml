@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<nmaprun scanner="nmap" args="nmap -oX - 192.168.1.10" start="1721400000" version="7.94">
+  <host starttime="1721400001" endtime="1721400010">
+    <status state="up" reason="echo-reply"/>
+    <address addr="192.168.1.10" addrtype="ipv4"/>
+    <address addr="AA:BB:CC:DD:EE:FF" addrtype="mac" vendor="Test"/>
+    <hostnames>
+      <hostname name="pi-lab.local" type="PTR"/>
+    </hostnames>
+    <ports>
+      <port protocol="tcp" portid="22">
+        <state state="open" reason="syn-ack"/>
+        <service name="ssh" product="OpenSSH" version="9.2" method="probed" conf="10"/>
+      </port>
+      <port protocol="tcp" portid="80">
+        <state state="open" reason="syn-ack"/>
+        <service name="http" product="nginx" version="1.24" method="probed" conf="10"/>
+        <script id="http-vuln-cve2014-3704" output="VULNERABLE: CVE-2014-3704 Drupal"/>
+      </port>
+      <port protocol="tcp" portid="443">
+        <state state="closed" reason="reset"/>
+      </port>
+    </ports>
+    <os>
+      <osmatch name="Linux 6.1" accuracy="95"/>
+    </os>
+    <hostscript>
+      <script id="vulners" output="cpe:/a:openbsd:openssh:9.2: CVE-2023-38408"/>
+    </hostscript>
+  </host>
+  <host>
+    <status state="down" reason="no-response"/>
+    <address addr="192.168.1.11" addrtype="ipv4"/>
+  </host>
+</nmaprun>

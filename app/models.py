@@ -656,3 +656,94 @@ class ContainerAnnotationTag(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     annotation_id: int = Field(foreign_key="containerannotation.id", index=True)
     tag_key: str = Field(max_length=64, index=True)
+
+
+# ---------------------------------------------------------------------------
+# LAN discovery (nmap) — see docs/FEATURE_PLAN_LAN_NMAP.md
+# ---------------------------------------------------------------------------
+
+
+class NmapScanSchedule(SQLModel, table=True):
+    """Named recurring scan (multiple allowed; all off by default)."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    integration_id: int = Field(foreign_key="integration.id", index=True)
+    name: str = Field(max_length=120)
+    # discovery | inventory | detailed
+    intensity: str = Field(default="discovery", max_length=32, index=True)
+    # 5-field cron; empty/None = disabled interval-only or off
+    cron: Optional[str] = Field(default=None, max_length=64)
+    # Optional interval hours (alternative to cron); 0/None = use cron only
+    interval_hours: Optional[int] = Field(default=None)
+    enabled: bool = False
+    # JSON: {"cidrs": ["192.168.1.0/24"]} or {"all_configured": true}
+    scope_json: Optional[str] = None
+    last_run_at: Optional[datetime] = None
+    last_job_id: Optional[int] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class NmapScanRun(SQLModel, table=True):
+    """One scan execution (linked to Job when enqueued)."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    integration_id: int = Field(foreign_key="integration.id", index=True)
+    job_id: Optional[int] = Field(default=None, foreign_key="job.id", index=True)
+    schedule_id: Optional[int] = Field(
+        default=None, foreign_key="nmapscanschedule.id", index=True
+    )
+    intensity: str = Field(default="discovery", max_length=32, index=True)
+    # JSON list of targets (CIDRs / IPs)
+    targets_json: Optional[str] = None
+    status: str = Field(default="pending", max_length=32, index=True)
+    hosts_up: int = 0
+    hosts_total: int = 0
+    ports_open: int = 0
+    summary_json: Optional[str] = None
+    artifact_path: Optional[str] = None  # relative under DATA_ROOT
+    error: Optional[str] = None
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class NmapDevice(SQLModel, table=True):
+    """Auto-created discovered host (not a managed Server until linked/promoted)."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    integration_id: int = Field(foreign_key="integration.id", index=True)
+    # Stable identity key: mac:AA:BB… or ip:192.168.1.10
+    identity_key: str = Field(max_length=128, index=True)
+    ip_address: str = Field(max_length=64, index=True)
+    hostname: Optional[str] = Field(default=None, max_length=255)
+    mac_address: Optional[str] = Field(default=None, max_length=32, index=True)
+    # new | known | linked | ignored | stale
+    state: str = Field(default="new", max_length=32, index=True)
+    linked_server_id: Optional[int] = Field(
+        default=None, foreign_key="server.id", index=True
+    )
+    os_summary: Optional[str] = Field(default=None, max_length=255)
+    # Latest ports/services snapshot JSON (bounded)
+    ports_json: Optional[str] = None
+    last_seen_at: Optional[datetime] = None
+    first_seen_at: datetime = Field(default_factory=datetime.utcnow)
+    last_run_id: Optional[int] = Field(
+        default=None, foreign_key="nmapscanrun.id", index=True
+    )
+    notes: Optional[str] = Field(default=None, max_length=500)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class NmapScriptResult(SQLModel, table=True):
+    """NSE / Vulners script output for a device (latest or per-run)."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    device_id: int = Field(foreign_key="nmapdevice.id", index=True)
+    run_id: Optional[int] = Field(default=None, foreign_key="nmapscanrun.id", index=True)
+    script_id: str = Field(max_length=128, index=True)
+    output: Optional[str] = None
+    # JSON list of CVE ids when parsed
+    cve_ids_json: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)

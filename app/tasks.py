@@ -37,6 +37,48 @@ _LOCK_WAIT_COUNTDOWN_SEC = 20
 _LOCK_MAX_RETRIES = 180
 
 
+@celery.task(name="app.tasks.nmap_scan", bind=True, max_retries=3, default_retry_delay=30)
+def nmap_scan(
+    self,
+    run_id: int,
+    job_id: int | None = None,
+    vuln_scripts: bool = False,
+    use_syn: bool = False,
+):
+    """LAN discovery scan — must run on celery-worker-nmap (-Q nmap).
+
+    Web never invokes nmap; this task shells out and upserts devices.
+    """
+    from app.services.nmap.scan import run_nmap_scan
+    from app.services.nmap.runtime import touch_worker_heartbeat
+
+    touch_worker_heartbeat(worker_id=str(self.request.hostname or "nmap"))
+    db = Session(engine)
+    try:
+        if job_id:
+            job = db.get(Job, job_id)
+            if job and job.status == "cancelled":
+                return {"status": "cancelled", "job_id": job_id, "run_id": run_id}
+            if job:
+                job.celery_task_id = self.request.id
+                db.add(job)
+                db.commit()
+        return run_nmap_scan(
+            db,
+            run_id=run_id,
+            job_id=job_id,
+            use_syn=use_syn,
+            vuln_scripts=vuln_scripts,
+        )
+    except Exception as e:
+        logger.exception("nmap_scan task failed run_id=%s", run_id)
+        if job_id:
+            _update_job_status(job_id, "failed", {"error": str(e)[:500]})
+        return {"status": "error", "message": str(e)[:500]}
+    finally:
+        db.close()
+
+
 @celery.task(bind=True, max_retries=_LOCK_MAX_RETRIES, default_retry_delay=30)
 def backup_server(self, server_id: int, job_id: int | None = None, audit_id: int | None = None, source_filter: str | None = None):
     """

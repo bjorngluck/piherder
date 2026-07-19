@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     PIHERDER_UPDATE_CHECK: bool = True
     PIHERDER_UPDATE_CHECK_TTL_HOURS: int = 12
 
+    # LAN discovery (nmap worker) — vuln artefacts volume; empty pack = no Vulners
+    PIHERDER_NMAP_VULN_ROOT: str = "/var/lib/piherder/nmap-vuln"
+    PIHERDER_NMAP_TIMEOUT_SEC: int = 7200
+
     class Config:
         env_file = ".env"
         extra = "ignore"
