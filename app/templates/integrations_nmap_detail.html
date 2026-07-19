@@ -308,12 +308,22 @@
     <div class="nmap-host-list-body" id="nmap-host-list">
       {% for item in device_rows %}
       {% set d = item.row %}
+      {% set prof = item.profile or {} %}
+      {% set dlab = item.label or d.display_name or d.hostname or d.ip_address %}
       <a href="?tab=devices{% if state_filter %}&state={{ state_filter }}{% endif %}&device={{ d.id }}"
          class="nmap-host-row {% if device and device.id == d.id %}is-active{% endif %}"
-         data-search="{{ (d.ip_address ~ ' ' ~ (d.hostname or '') ~ ' ' ~ (d.mac_address or '') ~ ' ' ~ d.state)|lower }}">
+         data-search="{{ (d.ip_address ~ ' ' ~ (d.display_name or '') ~ ' ' ~ (d.hostname or '') ~ ' ' ~ (d.mac_address or '') ~ ' ' ~ (d.mac_vendor or '') ~ ' ' ~ d.state ~ ' ' ~ (prof.kind or '') ~ ' ' ~ (prof.label or ''))|lower }}">
         <div class="min-w-0">
-          <div class="font-mono text-sm font-medium text-text">{{ d.ip_address }}</div>
-          <div class="text-xs text-muted truncate">{{ d.hostname or '—' }}
+          <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+            <span class="text-sm font-medium text-text truncate" title="{{ dlab }}">{{ dlab }}</span>
+            {% if prof.kind and prof.kind != 'unknown' %}
+            <span class="nmap-kind nmap-kind--{{ prof.kind }}"
+                  title="{{ prof.label }} · {{ prof.confidence }}{% if prof.reasons %} — {{ prof.reasons|join('; ') }}{% endif %}">{{ prof.short or prof.label }}</span>
+            {% endif %}
+          </div>
+          <div class="text-xs text-muted truncate">
+            <span class="font-mono">{{ d.ip_address }}</span>
+            {% if d.display_name and d.hostname and d.hostname != d.display_name %} · {{ d.hostname }}{% endif %}
             {% if d.mac_address %}<span class="text-[10px] font-mono opacity-80"> · {{ d.mac_address }}</span>{% endif %}
           </div>
         </div>
@@ -342,27 +352,78 @@
         <div class="min-w-0">
           <div class="text-[10px] uppercase tracking-wider text-muted font-semibold">Host detail</div>
           <h3 class="text-xl font-semibold tracking-tight text-text truncate mt-0.5">
-            {{ device.hostname or device.ip_address }}
+            {{ device.display_name or device.hostname or device.ip_address }}
           </h3>
-          {% if device.hostname %}
-          <div class="font-mono text-sm text-muted">{{ device.ip_address }}</div>
-          {% endif %}
+          <div class="font-mono text-sm text-muted">{{ device.ip_address }}
+            {% if device.hostname and device.hostname != device.display_name %}
+            · {{ device.hostname }}
+            {% endif %}
+          </div>
         </div>
         <div class="flex flex-wrap gap-1.5">
+          {% if device_profile and device_profile.kind != 'unknown' %}
+          <span class="nmap-kind nmap-kind--{{ device_profile.kind }}"
+                title="{{ device_profile.confidence }} confidence"
+                data-testid="nmap-device-kind">{{ device_profile.label }}</span>
+          {% endif %}
           <span class="nmap-state nmap-state--{{ device.state }}">{{ device.state }}</span>
           <a href="?tab=devices{% if state_filter %}&state={{ state_filter }}{% endif %}"
              class="btn btn-secondary text-xs min-h-8 px-2">✕</a>
         </div>
       </div>
 
+      {% if device_profile %}
+      <div class="nmap-profile-card mb-4" data-testid="nmap-device-profile">
+        <div class="flex flex-wrap items-center gap-2 mb-1">
+          <span class="text-[10px] uppercase tracking-wider text-muted font-semibold">Looks like</span>
+          <span class="nmap-kind nmap-kind--{{ device_profile.kind }}">{{ device_profile.label }}</span>
+          <span class="nmap-conf nmap-conf--{{ device_profile.confidence }}">{{ device_profile.confidence }}</span>
+        </div>
+        {% if device_profile.vendor %}
+        <div class="text-xs text-muted mb-1">MAC vendor: <span class="text-text">{{ device_profile.vendor }}</span></div>
+        {% elif device.mac_vendor %}
+        <div class="text-xs text-muted mb-1">MAC vendor: <span class="text-text">{{ device.mac_vendor }}</span></div>
+        {% endif %}
+        {% if device_profile.reasons %}
+        <ul class="nmap-profile-reasons">
+          {% for r in device_profile.reasons %}
+          <li>{{ r }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        <p class="text-[10px] text-muted mt-1.5 m-0">Heuristic only — not used for promote/link.</p>
+      </div>
+      {% endif %}
+
       <div class="nmap-kv-grid mb-4">
-        <div class="nmap-kv"><span class="nmap-kv-k">Hostname</span><span class="nmap-kv-v">{{ device.hostname or '—' }}</span></div>
+        <div class="nmap-kv"><span class="nmap-kv-k">Name</span><span class="nmap-kv-v">{{ device.display_name or '—' }}</span></div>
+        <div class="nmap-kv"><span class="nmap-kv-k">Hostname (scan)</span><span class="nmap-kv-v">{{ device.hostname or '—' }}</span></div>
         <div class="nmap-kv"><span class="nmap-kv-k">IP</span><span class="nmap-kv-v font-mono">{{ device.ip_address }}</span></div>
         <div class="nmap-kv"><span class="nmap-kv-k">MAC</span><span class="nmap-kv-v font-mono">{{ device.mac_address or '—' }}</span></div>
+        <div class="nmap-kv"><span class="nmap-kv-k">MAC vendor</span><span class="nmap-kv-v">{{ device.mac_vendor or '—' }}</span></div>
         <div class="nmap-kv"><span class="nmap-kv-k">OS</span><span class="nmap-kv-v">{{ device.os_summary or '—' }}</span></div>
         <div class="nmap-kv"><span class="nmap-kv-k">First seen</span><span class="nmap-kv-v text-muted">{{ device.first_seen_at|app_tz if device.first_seen_at else '—' }}</span></div>
         <div class="nmap-kv"><span class="nmap-kv-k">Last seen</span><span class="nmap-kv-v text-muted">{{ device.last_seen_at|app_tz if device.last_seen_at else '—' }}</span></div>
       </div>
+
+      {% if can_mutate %}
+      <form method="post"
+            action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/name"
+            class="flex flex-wrap items-end gap-2 mb-4 p-3 rounded-lg border border-border bg-surface/40"
+            data-testid="nmap-device-name-form">
+        <div class="flex-1 min-w-[10rem]">
+          <label class="block text-[10px] text-muted mb-0.5" for="dev-display-name">
+            Map name <span class="opacity-80">(shown instead of IP on Hosts map)</span>
+          </label>
+          <input id="dev-display-name" name="display_name" class="input w-full text-sm min-h-9"
+                 maxlength="128" placeholder="e.g. cctv1, living-room-tv, printer"
+                 value="{{ device.display_name or '' }}"
+                 data-testid="nmap-device-display-name"
+                 autocomplete="off">
+        </div>
+        <button type="submit" class="btn btn-primary text-xs min-h-9">Save name</button>
+      </form>
+      {% endif %}
 
       <h4 class="nmap-section-title">Open ports / services</h4>
       {% if device_ports %}
@@ -556,15 +617,27 @@
 
 {% if tab == 'network' %}
 <div class="nmap-stats mb-3" aria-label="Network stats">
-  <div class="nmap-stat"><span class="nmap-stat-n">{{ network.device_count if network else 0 }}</span><span class="nmap-stat-l">on map</span></div>
-  <div class="nmap-stat"><span class="nmap-stat-n">{{ network.groups|length if network and network.groups else 0 }}</span><span class="nmap-stat-l">subnets</span></div>
+  <div class="nmap-stat">
+    <span class="nmap-stat-n" data-nmap-map-count>{{ network.device_count if network else 0 }}</span>
+    <span class="nmap-stat-l">on map</span>
+  </div>
+  <div class="nmap-stat">
+    <span class="nmap-stat-n" data-nmap-map-subnets>{{ network.groups|length if network and network.groups else 0 }}</span>
+    <span class="nmap-stat-l">subnets</span>
+  </div>
   <div class="nmap-stat"><span class="nmap-stat-n">{{ network.open_ports_total if network else 0 }}</span><span class="nmap-stat-l">open ports</span></div>
   {% if network and network.by_state %}
   <div class="nmap-stat"><span class="nmap-stat-n text-accent">{{ network.by_state.get('new', 0) }}</span><span class="nmap-stat-l">new</span></div>
   <div class="nmap-stat"><span class="nmap-stat-n">{{ network.by_state.get('linked', 0) }}</span><span class="nmap-stat-l">linked</span></div>
   {% endif %}
-  <div class="nmap-stat nmap-stat--grow">
-    <input type="search" id="nmap-map-search" class="input text-sm min-h-9 w-full max-w-xs" placeholder="Filter map…" autocomplete="off">
+  <div class="nmap-stat nmap-stat--grow nmap-map-controls">
+    <label class="nmap-map-toggle" title="Unlinked hosts (new / known / stale). Linked hosts stay visible when off.">
+      <input type="checkbox" id="nmap-map-show-discovered" checked
+             data-testid="nmap-map-show-discovered">
+      <span>Show discovered</span>
+    </label>
+    <input type="search" id="nmap-map-search" class="input text-sm min-h-9 w-full max-w-xs"
+           placeholder="Filter map…" autocomplete="off" aria-label="Filter map">
   </div>
 </div>
 
@@ -581,30 +654,45 @@
     Run <strong>inventory</strong> (top N or all ports) or <strong>detailed/deep</strong> to fill chips.
     Discovery re-runs no longer wipe a prior port snapshot.
   </p>
+  <p>
+    <strong class="text-text">Show discovered</strong> toggles unlinked hosts (new / known / stale).
+    Linked fleet devices stay on the map when the box is unchecked.
+  </p>
 </div>
-<div class="space-y-4" id="nmap-map">
+<div class="space-y-4" id="nmap-map"
+     data-total-devices="{{ network.device_count }}"
+     data-total-subnets="{{ network.groups|length }}">
   {% for g in network.groups %}
   <section class="nmap-subnet card" data-subnet="{{ g.subnet }}">
     <header class="nmap-subnet-head">
       <div>
         <span class="font-mono text-sm font-semibold text-text">{{ g.subnet }}</span>
-        <span class="text-xs text-muted ml-2">{{ g.count }} host{% if g.count != 1 %}s{% endif %}
+        <span class="text-xs text-muted ml-2">
+          <span data-nmap-subnet-count>{{ g.count }}</span> host{% if g.count != 1 %}s{% endif %}
           {% if g.open_ports %} · {{ g.open_ports }} open ports (latest snapshot){% endif %}
         </span>
       </div>
     </header>
     <div class="nmap-host-grid">
       {% for n in g.nodes %}
+      {% set is_discovered = n.state != 'linked' %}
       <a href="?tab=devices&device={{ n.id }}"
          class="nmap-host-card nmap-host-card--{{ n.state }}"
-         data-search="{{ (n.ip ~ ' ' ~ (n.hostname or '') ~ ' ' ~ (n.mac or '') ~ ' ' ~ n.state)|lower }}"
-         title="{{ n.hostname or n.ip }} · {{ n.mac or 'no MAC' }}{% if n.last_run_intensity %} · last run {{ n.last_run_intensity }}{% endif %}">
+         data-state="{{ n.state }}"
+         data-discovered="{{ '1' if is_discovered else '0' }}"
+         data-search="{{ (n.ip ~ ' ' ~ (n.label or '') ~ ' ' ~ (n.display_name or '') ~ ' ' ~ (n.hostname or '') ~ ' ' ~ (n.mac or '') ~ ' ' ~ (n.mac_vendor or '') ~ ' ' ~ n.state ~ ' ' ~ (n.kind or '') ~ ' ' ~ (n.kind_label or ''))|lower }}"
+         title="{{ n.label or n.hostname or n.ip }} · {{ n.mac or 'no MAC' }}{% if n.kind_label %} · {{ n.kind_label }}{% endif %}{% if n.last_run_intensity %} · last run {{ n.last_run_intensity }}{% endif %}">
         <div class="nmap-host-card-top">
           <span class="nmap-host-ip font-mono">{{ n.ip }}</span>
-          <span class="nmap-state nmap-state--{{ n.state }}">{{ n.state }}</span>
+          <span class="flex flex-wrap gap-1 justify-end">
+            {% if n.kind and n.kind != 'unknown' %}
+            <span class="nmap-kind nmap-kind--{{ n.kind }}" title="{{ n.kind_label }} ({{ n.kind_confidence }})">{{ n.kind_short or n.kind_label }}</span>
+            {% endif %}
+            <span class="nmap-state nmap-state--{{ n.state }}">{{ n.state }}</span>
+          </span>
         </div>
-        <div class="nmap-host-name truncate">{{ n.hostname or '—' }}</div>
-        <div class="nmap-host-mac font-mono">{{ n.mac or 'MAC —' }}</div>
+        <div class="nmap-host-name truncate">{% if n.display_name %}<strong class="text-text">{{ n.display_name }}</strong>{% else %}{{ n.hostname or '—' }}{% endif %}</div>
+        <div class="nmap-host-mac font-mono">{{ n.mac or 'MAC —' }}{% if n.mac_vendor %} · {{ n.mac_vendor[:28] }}{% endif %}</div>
         {% if n.os %}<div class="nmap-host-os truncate" title="{{ n.os }}">{{ n.os }}</div>{% endif %}
         <div class="nmap-port-chips">
           {% if n.services %}
@@ -625,24 +713,70 @@
   </section>
   {% endfor %}
 </div>
+<p class="text-sm text-muted hidden mt-3" id="nmap-map-empty-filter" data-testid="nmap-map-empty-filter">
+  Nothing matches this filter. Enable <strong class="text-text">Show discovered</strong> or clear the search.
+</p>
 <script>
 (function () {
   var input = document.getElementById('nmap-map-search');
   var map = document.getElementById('nmap-map');
-  if (!input || !map) return;
-  input.addEventListener('input', function () {
-    var q = (input.value || '').trim().toLowerCase();
+  var showDisc = document.getElementById('nmap-map-show-discovered');
+  var emptyEl = document.getElementById('nmap-map-empty-filter');
+  var countEl = document.querySelector('[data-nmap-map-count]');
+  var subnetEl = document.querySelector('[data-nmap-map-subnets]');
+  if (!map) return;
+
+  var STORAGE_KEY = 'piherder.nmap.map.showDiscovered';
+  try {
+    var stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === '0' && showDisc) showDisc.checked = false;
+    if (stored === '1' && showDisc) showDisc.checked = true;
+  } catch (e) { /* ignore */ }
+
+  function applyFilter() {
+    var q = input ? (input.value || '').trim().toLowerCase() : '';
+    var allowDiscovered = !showDisc || showDisc.checked;
+    var visibleHosts = 0;
+    var visibleSubnets = 0;
     map.querySelectorAll('.nmap-subnet').forEach(function (sec) {
       var any = false;
+      var nVisible = 0;
       sec.querySelectorAll('.nmap-host-card').forEach(function (card) {
         var hay = card.getAttribute('data-search') || '';
-        var show = !q || hay.indexOf(q) !== -1;
+        var isDisc = card.getAttribute('data-discovered') === '1';
+        var matchSearch = !q || hay.indexOf(q) !== -1;
+        var matchState = allowDiscovered || !isDisc;
+        var show = matchSearch && matchState;
         card.style.display = show ? '' : 'none';
-        if (show) any = true;
+        if (show) {
+          any = true;
+          nVisible += 1;
+          visibleHosts += 1;
+        }
       });
       sec.style.display = any ? '' : 'none';
+      if (any) visibleSubnets += 1;
+      var c = sec.querySelector('[data-nmap-subnet-count]');
+      if (c) c.textContent = String(nVisible);
     });
-  });
+    if (countEl) countEl.textContent = String(visibleHosts);
+    if (subnetEl) subnetEl.textContent = String(visibleSubnets);
+    if (emptyEl) {
+      if (visibleHosts === 0) emptyEl.classList.remove('hidden');
+      else emptyEl.classList.add('hidden');
+    }
+  }
+
+  if (input) input.addEventListener('input', applyFilter);
+  if (showDisc) {
+    showDisc.addEventListener('change', function () {
+      try {
+        localStorage.setItem(STORAGE_KEY, showDisc.checked ? '1' : '0');
+      } catch (e) { /* ignore */ }
+      applyFilter();
+    });
+  }
+  applyFilter();
 })();
 </script>
 {% endif %}

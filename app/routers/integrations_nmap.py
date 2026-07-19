@@ -147,6 +147,11 @@ async def render_nmap_detail(request, session, user, integration: Integration):
         if device_scripts_classified
         else None
     )
+    device_profile = None
+    if device is not None:
+        from ..services.nmap.device_classify import profile_dict_from_device
+
+        device_profile = profile_dict_from_device(device)
     # Annotate ports with finding/error counts for row highlight + anchors
     if device_ports and device_scripts_classified:
         device_ports = ports_with_findings(device_ports, device_scripts_classified)
@@ -195,6 +200,7 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             "device_scripts": device_scripts,
             "device_scripts_classified": device_scripts_classified,
             "device_script_counts": device_script_counts,
+            "device_profile": device_profile,
             "intensities": INTENSITIES,
             "schedule_intensities": nmap_sched.INTENSITIES_SCHEDULE,
             "script_presets": SCRIPT_PRESETS,
@@ -452,6 +458,34 @@ async def nmap_device_deep_scan(
             error="scan_failed",
             detail=str(e)[:200],
         )
+
+
+@router.post("/integrations/{integration_id}/nmap/device/{device_id}/name")
+async def nmap_device_set_name(
+    integration_id: int,
+    device_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    display_name: str = Form(""),
+):
+    """Set operator-friendly name (e.g. cctv1) used on Hosts map chips."""
+    integration = _require_nmap(session, integration_id)
+    device = session.get(NmapDevice, device_id)
+    if not device or device.integration_id != integration.id:
+        raise HTTPException(404, "Device not found")
+    nmap_cfg.set_device_display_name(session, device, display_name)
+    _audit(
+        session,
+        user,
+        "nmap_device_named",
+        details=f"device={device_id} name={(device.display_name or '')[:64]!r}",
+    )
+    return _redirect(
+        f"/integrations/{integration_id}",
+        tab="devices",
+        device=str(device_id),
+        msg="device_named",
+    )
 
 
 @router.post("/integrations/{integration_id}/nmap/device/{device_id}/ignore")

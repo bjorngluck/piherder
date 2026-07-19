@@ -133,18 +133,20 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 
 ### Journey H — LAN discovery (opt-in nmap) {#journey-h}
 
-**Goal:** See unknown devices on your home CIDR without auto-enrolling them as managed servers.
+**Goal:** See the **whole LAN** (fleet + everything else) without auto-enrolling 50 devices as managed servers.
 
 | Step | Action | Why |
 |------|--------|-----|
 | 1 | Build + start **nmap** worker (`--profile nmap`) | Web never runs nmap |
 | 2 | [LAN Discovery](../integrations/lan-discovery.md) integration + CIDR(s) | Scope allowlist |
-| 3 | Manual **Discovery** / **Inventory** once | Trust before schedules |
-| 4 | Devices / Network view · link or promote | Discovery ≠ fleet member |
-| 5 | Optional schedules (create + **Edit**) | Cadence you control |
-| 6 | Optional vuln pack update + deep scan | Pack volume opt-in |
+| 3 | Manual **Discovery**, then **Inventory** (ports) | Trust before schedules; ports feed kind + chips |
+| 4 | Devices → set **map names** (e.g. `cctv1`) | Labels on Hosts map chips |
+| 5 | **Catalog → Network → Hosts map** — toggle **Discovered** in map toolbar | End-to-end view; **no** per-device link required |
+| 6 | Link / promote only what you will manage | Discovery ≠ fleet member |
+| 7 | Optional schedules (create + **Edit**) | Cadence you control |
+| 8 | Optional vuln pack update + deep scan | Pack volume opt-in |
 
-**Done when:** Devices appear in the network view; at least one link/promote path is understood; schedules stay off until you want them.
+**Done when:** Hosts map shows fleet + discovered chips; named devices read clearly; you know how to link/promote; schedules stay off until you want them.
 
 ---
 

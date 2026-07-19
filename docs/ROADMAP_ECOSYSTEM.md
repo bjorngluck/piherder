@@ -1,7 +1,7 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-19 (**v0.7.0 tagged** · active **v0.8.0 RC3** — LAN nmap **N0–N9 product shells + soft embed landed** · remaining: screenshot pack · ~50% coverage · polish)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-20 (**v0.7.0 tagged** · active **v0.8.0 RC3** — LAN nmap **product largely complete** (Hosts map overlay, map names, kind heuristics, soft embed) · remaining: screenshot pack · ~50% coverage · polish)  
 **Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
@@ -257,7 +257,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 | **Published ports on maps** | Ports in stack expand/detail; broader Hosts/Path port chips may still grow |
 | **Monitoring coverage audit** | **Done (H3):** `/dns/coverage` + hub teaser; optional inventory-down alerts for Kuma-bound containers |
 | **Configurable columns / link-to-column** | **Later** (post-0.6 residual) — operator-defined map columns and explicit edge placement (runtime topology § 12b) |
-| **LAN discovery (nmap-class)** | **Product largely complete on main** — worker, devices, network view, multi-schedule **edit**, vuln pack, **script presets**, fleet soft embed, unit/E2E shells — **v0.8.0 RC3** remaining: screenshots ([FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md)); orthogonal to stack deps |
+| **LAN discovery (nmap-class)** | **Product largely complete on main** — worker, devices, network view, multi-schedule **edit**, vuln pack, **script presets**, kind heuristics, **map names**, **Hosts map overlay** (unlinked chips), fleet soft embed, unit/E2E shells — **v0.8.0 RC3** remaining: screenshots ([FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md)); orthogonal to stack deps |
 | **Richer topology** | Focused dep edges polish, force LAN/cloud overrides |
 | **External DNS providers** | Cloudflare (etc.) automation; until then external checklist remains |
 | **Service migrate / remove** | Move stack host↔host with DNS retarget; destructive remove with volume cleanup |

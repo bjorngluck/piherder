@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from typing import Any, Optional
 
@@ -222,6 +223,107 @@ def list_devices(
     return rows[: max(1, min(2000, limit))]
 
 
+def device_display_name(device: Any, *, prefer_ip_fallback: bool = True) -> str:
+    """Label for lists/maps: operator display_name → nmap hostname → IP."""
+    for key in ("display_name", "hostname"):
+        val = (getattr(device, key, None) or "").strip()
+        if val:
+            return val[:128]
+    ip = (getattr(device, "ip_address", None) or "").strip()
+    if prefer_ip_fallback and ip:
+        return ip
+    return ""
+
+
+def set_device_display_name(
+    session: Session, device: NmapDevice, name: str | None
+) -> NmapDevice:
+    """Set or clear operator-friendly name (does not change nmap hostname)."""
+    raw = (name or "").strip()
+    # Collapse internal whitespace; keep letters, digits, common host tokens
+    if raw:
+        raw = re.sub(r"\s+", " ", raw)[:128]
+    device.display_name = raw or None
+    device.updated_at = datetime.utcnow()
+    session.add(device)
+    session.commit()
+    session.refresh(device)
+    return device
+
+
+def discovery_hosts_for_fabric(
+    session: Session,
+    *,
+    fleet_ips: set[str] | None = None,
+    fleet_server_ids: set[int] | None = None,
+    limit: int = 500,
+) -> list[dict[str, Any]]:
+    """Unlinked nmap devices shaped as Hosts-map host nodes (no manual link required).
+
+    Skips ignored devices, devices already linked to a fleet server, and IPs that
+    already appear as managed fleet hosts (dedupe). Used for the end-to-end LAN view.
+    """
+    from .device_classify import profile_dict_from_device
+
+    fleet_ips = {str(ip).strip() for ip in (fleet_ips or set()) if ip}
+    fleet_server_ids = {int(s) for s in (fleet_server_ids or set()) if s is not None}
+
+    rows = list(
+        session.exec(
+            select(NmapDevice)
+            .where(NmapDevice.state != "ignored")
+            .order_by(NmapDevice.ip_address)
+            .limit(max(1, min(2000, limit)))
+        ).all()
+    )
+    out: list[dict[str, Any]] = []
+    seen_ip: set[str] = set()
+    for d in rows:
+        ip = (d.ip_address or "").strip()
+        if not ip:
+            continue
+        if ip in fleet_ips or ip in seen_ip:
+            continue
+        if d.linked_server_id is not None and int(d.linked_server_id) in fleet_server_ids:
+            # Already represented by the managed Server card on the map
+            continue
+        if d.linked_server_id is not None:
+            # Linked to a server not in current fleet list — still skip to avoid doubles
+            continue
+        seen_ip.add(ip)
+        profile = profile_dict_from_device(d)
+        label = device_display_name(d, prefer_ip_fallback=False)
+        if not label:
+            # Prefer short kind over raw IP only when no operator/nmap name
+            if profile.get("kind") and profile.get("kind") != "unknown":
+                label = str(profile.get("label") or "")[:64]
+            else:
+                label = ip
+        out.append(
+            {
+                "server_id": None,
+                "discovery_id": d.id,
+                "integration_id": d.integration_id,
+                "is_discovered": True,
+                "name": label[:64],
+                "display_name": (getattr(d, "display_name", None) or "").strip() or "",
+                "dns_name": (d.hostname or "").strip() or None,
+                "ip": ip,
+                "mac": d.mac_address or "",
+                "mac_vendor": getattr(d, "mac_vendor", None) or "",
+                "state": d.state,
+                "device_kind": profile.get("kind") or "unknown",
+                "device_kind_label": profile.get("label") or "",
+                "device_kind_short": profile.get("short") or "?",
+                "href": (
+                    f"/integrations/{d.integration_id}?tab=devices&device={d.id}"
+                ),
+                "open_label": "Open discovery",
+            }
+        )
+    return out
+
+
 def list_runs(
     session: Session, integration_id: int, *, limit: int = 30
 ) -> list[NmapScanRun]:
@@ -275,11 +377,18 @@ def network_view_payload(
             run = session.get(NmapScanRun, last_run_id)
             if run:
                 last_intensity = run.intensity
+        from .device_classify import profile_dict_from_device
+
+        profile = profile_dict_from_device(d)
+        disp = device_display_name(d)
         node = {
             "id": d.id,
             "ip": d.ip_address,
             "hostname": d.hostname or "",
+            "display_name": (getattr(d, "display_name", None) or "").strip() or "",
+            "label": disp,
             "mac": d.mac_address or "",
+            "mac_vendor": getattr(d, "mac_vendor", None) or "",
             "state": d.state,
             "linked_server_id": d.linked_server_id,
             "os": d.os_summary or "",
@@ -294,6 +403,11 @@ def network_view_payload(
                 if getattr(d, "last_seen_at", None)
                 else None
             ),
+            "kind": profile.get("kind") or "unknown",
+            "kind_label": profile.get("label") or "",
+            "kind_short": profile.get("short") or "?",
+            "kind_confidence": profile.get("confidence") or "low",
+            "profile": profile,
         }
         groups.setdefault(net, []).append(node)
     for g in groups.values():
@@ -322,7 +436,10 @@ def network_view_payload(
 
 def device_list_item(device: NmapDevice) -> dict[str, Any]:
     """Row payload for devices table / host list (WebMap-style)."""
+    from .device_classify import profile_dict_from_device
+
     services = _open_ports_summary(device.ports_json, limit=6)
+    profile = profile_dict_from_device(device)
     return {
         "row": device,
         "open_ports": _count_open_ports(device.ports_json),
@@ -330,6 +447,11 @@ def device_list_item(device: NmapDevice) -> dict[str, Any]:
         "service_labels": [
             f"{s['port']}/{s.get('service') or '?'}" for s in services[:5]
         ],
+        "profile": profile,
+        "kind": profile.get("kind") or "unknown",
+        "kind_label": profile.get("label") or "",
+        "display_name": (getattr(device, "display_name", None) or "").strip() or "",
+        "label": device_display_name(device),
     }
 
 
@@ -481,15 +603,19 @@ def discovery_embed_for_server(
             .limit(40)
         ).all()
     )
+    from .device_classify import profile_dict_from_device
+
     classified = classify_scripts(scripts)
     counts = script_summary_counts(classified)
     services = _open_ports_summary(primary.ports_json, limit=6)
+    profile = profile_dict_from_device(primary)
     return {
         "device": primary,
         "devices": devices,
         "open_ports": _count_open_ports(primary.ports_json),
         "services": services,
         "script_counts": counts,
+        "profile": profile,
         "href": f"/integrations/{primary.integration_id}?tab=devices&device={primary.id}",
         "network_href": f"/integrations/{primary.integration_id}?tab=network",
     }

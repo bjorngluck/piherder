@@ -2323,12 +2323,41 @@ def build_fabric_view(
     )
 
     # Topology payloads are opt-in (hub needs services only).
+    # Hosts map merges fleet servers + unlinked LAN discovery (no per-device link).
+    hosts_for_physical = list(hosts)
+    discovered_hosts: list[dict[str, Any]] = []
+    if include_physical:
+        try:
+            from ..nmap import config as nmap_cfg
+
+            fleet_ips = {str(h.get("ip") or "").strip() for h in hosts if h.get("ip")}
+            fleet_ids = {
+                int(h["server_id"])
+                for h in hosts
+                if h.get("server_id") is not None
+            }
+            discovered_hosts = nmap_cfg.discovery_hosts_for_fabric(
+                session,
+                fleet_ips=fleet_ips,
+                fleet_server_ids=fleet_ids,
+            )
+            hosts_for_physical = hosts + discovered_hosts
+        except Exception:
+            discovered_hosts = []
+            hosts_for_physical = list(hosts)
+
     mesh = _mesh_logical()._build_path_mesh(services) if include_mesh else {}
     physical = (
-        _build_physical_view(hosts, services, network=network_cfg)
+        _build_physical_view(
+            hosts_for_physical, services, network=network_cfg
+        )
         if include_physical
         else {}
     )
+    if physical and discovered_hosts is not None:
+        physical = dict(physical)
+        physical["discovered_count"] = len(discovered_hosts)
+        physical["fleet_count"] = len(hosts)
     logical = _build_logical_view(services) if include_logical else {}
 
     named_hosts = [h for h in hosts if h.get("dns_name")]
@@ -2336,6 +2365,7 @@ def build_fabric_view(
 
     return {
         "hosts": hosts,
+        "discovered_hosts": discovered_hosts,
         "named_hosts": named_hosts,
         "unnamed_hosts": unnamed,
         "services": services,
@@ -2591,13 +2621,32 @@ def _build_physical_view(
     *,
     network: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Physical topology: every host as a rack unit + apps that land on it."""
+    """Physical topology: every host as a rack unit + apps that land on it.
+
+    Includes fleet servers and optional unlinked LAN discovery devices
+    (``is_discovered``) for an end-to-end map without per-device linking.
+    """
     net = network or {}
     lan_subnet = (net.get("lan_subnet") or "").strip()
     by_id: dict[int, dict[str, Any]] = {}
+    discovered_racks: list[dict[str, Any]] = []
     for h in hosts:
         sid = h.get("server_id")
         if sid is None:
+            if h.get("is_discovered") or h.get("discovery_id") is not None:
+                is_cloud = _host_is_cloud(h.get("ip"), lan_subnet)
+                discovered_racks.append(
+                    {
+                        **h,
+                        "apps": [],
+                        "is_npm_edge": False,
+                        "ingress_count": 0,
+                        "app_count": 0,
+                        "on_lan": not is_cloud,
+                        "is_cloud": is_cloud,
+                        "is_discovered": True,
+                    }
+                )
             continue
         is_cloud = _host_is_cloud(h.get("ip"), lan_subnet)
         by_id[int(sid)] = {
@@ -2608,6 +2657,7 @@ def _build_physical_view(
             "app_count": 0,
             "on_lan": not is_cloud,
             "is_cloud": is_cloud,
+            "is_discovered": False,
         }
 
     for s in services:
@@ -2637,16 +2687,24 @@ def _build_physical_view(
         by_id[int(bid)]["apps"].append(app)
         by_id[int(bid)]["app_count"] += 1
 
-    racks = sorted(
+    fleet_racks = sorted(
         by_id.values(),
         key=lambda r: (-r["app_count"], -int(r["is_npm_edge"]), (r.get("name") or "")),
     )
+    discovered_racks = sorted(
+        discovered_racks,
+        key=lambda r: (r.get("ip") or "", r.get("name") or ""),
+    )
+    racks = fleet_racks + discovered_racks
+    svg = _mesh_physical()._build_physical_mesh_svg(hosts, services, network=net)
     return {
         "racks": racks,
         "npm_edges": [r for r in racks if r.get("is_npm_edge")],
         "empty_hosts": [r for r in racks if not r.get("apps") and r.get("dns_name")],
         "network": net,
-        "svg": _mesh_physical()._build_physical_mesh_svg(hosts, services, network=net),
+        "svg": svg,
+        "fleet_count": len(fleet_racks),
+        "discovered_count": len(discovered_racks),
     }
 
 

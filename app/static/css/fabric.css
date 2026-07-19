@@ -669,6 +669,53 @@ a.fabric-hop:hover {
   fill: color-mix(in srgb, var(--color-warning, #d97706) 12%, var(--color-surface));
   stroke: color-mix(in srgb, var(--color-warning, #d97706) 55%, var(--color-border));
 }
+/* LAN discovery devices (unlinked) — compact chips, dashed border */
+.fabric-mesh-node--host.is-discovered rect {
+  fill: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  stroke: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  stroke-dasharray: 3 2.5;
+  stroke-width: 1.25;
+}
+.fabric-mesh-node--host.is-discovered .fabric-mesh-label-sm {
+  font-size: 0.58rem;
+  font-weight: 650;
+}
+.fabric-mesh-node--host.is-discovered .fabric-mesh-sub {
+  font-size: 0.5rem;
+  opacity: 0.85;
+}
+.fabric-legend-sample--host-discovered {
+  width: 1rem;
+  height: 0.65rem;
+  border-radius: 3px;
+  border: 1.5px dashed color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  display: inline-block;
+  vertical-align: middle;
+}
+.fabric-rack--discovered {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+}
+.fabric-badge--discovered {
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface));
+  border: 1px solid color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  color: var(--color-text);
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  text-transform: lowercase;
+}
+.fabric-badge--kind {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: 0.6rem;
+  font-weight: 650;
+  padding: 0.05rem 0.35rem;
+  border-radius: 6px;
+}
 .fabric-mesh-node--app rect {
   fill: color-mix(in srgb, var(--color-primary, #e60012) 6%, var(--color-surface));
   stroke: color-mix(in srgb, var(--color-primary, #e60012) 30%, var(--color-border));
@@ -1206,6 +1253,34 @@ a:has(> .fabric-mesh-node.ph-focus-dim) {
   align-items: center;
   gap: 0.25rem;
   flex-wrap: wrap;
+}
+.fabric-map-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  cursor: pointer;
+  user-select: none;
+  min-height: 2.25rem;
+  padding: 0 0.35rem;
+  white-space: nowrap;
+}
+.fabric-map-toggle:hover { color: var(--color-text); }
+.fabric-map-toggle input {
+  width: 0.95rem;
+  height: 0.95rem;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+.fabric-map-toggle-sep {
+  width: 1px;
+  align-self: stretch;
+  min-height: 1.25rem;
+  margin: 0 0.15rem;
+  background: var(--color-border);
+  opacity: 0.85;
 }
 /* Light-mode safe: explicit surface + text (never dark-on-dark / ghost-on-ghost) */
 .fabric-mesh-zoom-bar .btn {

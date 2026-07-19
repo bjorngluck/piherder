@@ -1,6 +1,6 @@
 # Feature plan — LAN discovery (nmap)
 
-**Status:** **Approved** (2026-07-19) — **N0–N6 product done**; N7 wiki + link/promote; **N8 soft embed** + **N9 tests/E2E shells** + curated options/presets landed; screenshots still open (stream A)
+**Status:** **Approved** (2026-07-19) — **N0–N9 product largely done** on main: worker, devices, network tab, schedules, presets, soft embed, **device kind heuristics**, **map display names**, **Hosts map overlay** (unlinked discoveries, outer chips, toolbar toggle); screenshots still open (stream A)
 **Ship target:** **v0.8.0** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) stream **N**  
 **Operator wiki:** [wiki/integrations/lan-discovery.md](../wiki/integrations/lan-discovery.md)  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ADMIN.md](ADMIN.md) · [SPEC.md](../SPEC.md)

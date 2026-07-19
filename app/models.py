@@ -719,7 +719,11 @@ class NmapDevice(SQLModel, table=True):
     identity_key: str = Field(max_length=128, index=True)
     ip_address: str = Field(max_length=64, index=True)
     hostname: Optional[str] = Field(default=None, max_length=255)
+    # Operator-set friendly name (e.g. cctv1) — survives re-scans; used on maps
+    display_name: Optional[str] = Field(default=None, max_length=128)
     mac_address: Optional[str] = Field(default=None, max_length=32, index=True)
+    # From nmap address@vendor (OUI org name when known)
+    mac_vendor: Optional[str] = Field(default=None, max_length=128)
     # new | known | linked | ignored | stale
     state: str = Field(default="new", max_length=32, index=True)
     linked_server_id: Optional[int] = Field(

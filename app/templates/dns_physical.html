@@ -19,8 +19,9 @@
       </div>
       <h1 class="text-2xl font-semibold tracking-tight">Hosts map</h1>
       <p class="text-sm text-muted mt-1 max-w-2xl">
-        <strong class="text-text">Internet</strong> → router → <strong class="text-text">LAN</strong> → home hosts;
-        public/cloud hosts (e.g. Nomad) attach to Internet.
+        <strong class="text-text">Internet</strong> → router → <strong class="text-text">LAN</strong> →
+        fleet hosts <strong class="text-text">and</strong> LAN discovery (no link required);
+        public/cloud hosts attach to Internet.
         Solid LAN edges · dashed WAN / NPM · configure under
         <a href="/dns" class="text-accent hover:underline">Network map settings</a>.
       </p>
@@ -81,8 +82,9 @@
     </div>
     <div class="fabric-rack-grid">
       {% for rack in phys.racks %}
-      {% if rack.dns_name or rack.apps %}
-      <article class="fabric-rack {% if rack.is_npm_edge %}fabric-rack--edge{% endif %}"
+      {% if rack.dns_name or rack.apps or rack.is_discovered or rack.ip %}
+      <article class="fabric-rack {% if rack.is_npm_edge %}fabric-rack--edge{% endif %} {% if rack.is_discovered %}fabric-rack--discovered{% endif %}"
+               data-discovered="{{ '1' if rack.is_discovered else '0' }}"
                {% if rack.apps %}
                data-path-ids="{% for app in rack.apps %}{{ app.path_id or app.record_id }}{% if not loop.last %},{% endif %}{% endfor %}"
                {% endif %}>
@@ -90,13 +92,20 @@
           <div class="flex items-start justify-between gap-2">
             <div>
               <a href="{{ rack.href }}" class="fabric-rack-title">{{ rack.name }}</a>
+              {% if rack.is_discovered %}
+              <span class="fabric-badge fabric-badge--discovered">discovered</span>
+              {% if rack.device_kind_label and rack.device_kind != 'unknown' %}
+              <span class="fabric-badge fabric-badge--kind">{{ rack.device_kind_short or rack.device_kind_label }}</span>
+              {% endif %}
+              {% endif %}
               {% if rack.is_npm_edge %}<span class="fabric-badge fabric-badge--npm">NPM edge</span>{% endif %}
             </div>
-            <span class="fabric-rack-count">{{ rack.app_count }}</span>
+            <span class="fabric-rack-count">{% if rack.is_discovered %}·{% else %}{{ rack.app_count }}{% endif %}</span>
           </div>
           <div class="fabric-rack-meta font-mono">
             {% if rack.dns_name %}<span>{{ rack.dns_name }}</span>{% endif %}
             {% if rack.ip %}<span>{{ rack.ip }}</span>{% endif %}
+            {% if rack.mac_vendor %}<span class="opacity-80">{{ rack.mac_vendor[:24] }}</span>{% endif %}
           </div>
         </header>
         {% if rack.apps %}
@@ -143,7 +152,14 @@
               class="btn btn-secondary text-xs min-h-9 px-2.5 md:hidden"
               data-fabric-close-graph
               title="Hide map and return to list">Hide map</button>
-      <div class="fabric-mesh-zoom-bar ml-auto" role="group" aria-label="Zoom map">
+      <div class="fabric-mesh-zoom-bar ml-auto" role="group" aria-label="Map controls">
+        <label class="fabric-map-toggle"
+               title="Show unlinked LAN discovery devices (small chips). Fleet + mapped apps stay full-size.">
+          <input type="checkbox" id="hosts-map-show-discovered" checked
+                 data-testid="hosts-map-show-discovered">
+          <span>Discovered{% if phys.discovered_count is defined and phys.discovered_count %} ({{ phys.discovered_count }}){% elif svg.discovered_count is defined and svg.discovered_count %} ({{ svg.discovered_count }}){% endif %}</span>
+        </label>
+        <span class="fabric-map-toggle-sep" aria-hidden="true"></span>
         <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-out title="Zoom out" aria-label="Zoom out">−</button>
         <span class="fabric-mesh-zoom-label font-mono text-center" data-fabric-zoom-label>100%</span>
         <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-in title="Zoom in" aria-label="Zoom in">+</button>
@@ -172,7 +188,11 @@
       </span>
       <span class="fabric-legend-item">
         <span class="fabric-legend-sample fabric-legend-sample--host-box" aria-hidden="true"></span>
-        host
+        fleet host
+      </span>
+      <span class="fabric-legend-item">
+        <span class="fabric-legend-sample fabric-legend-sample--host-discovered" aria-hidden="true"></span>
+        discovered
       </span>
       <span class="fabric-legend-item">
         <span class="fabric-legend-sample fabric-legend-sample--host-npm" aria-hidden="true"></span>
@@ -336,21 +356,34 @@
                 <text x="{{ n.x }}" y="{{ n.y + 10 }}" text-anchor="middle" class="fabric-mesh-sub fabric-mesh-lan-subnet">{{ (n.subnet or n.sub or '')[:32] }}</text>
               </g>
               {% elif n.kind == 'host' %}
-              <a href="{{ n.href or '#' }}" data-open-href="{{ n.href or '' }}">
-                <g class="fabric-mesh-node fabric-mesh-node--host {% if n.npm_edge %}is-edge{% endif %} {% if n.is_cloud %}is-cloud{% endif %}"
+              {% set hhw = n.hw if n.hw is defined and n.hw else 62 %}
+              {% set hhh = n.hh if n.hh is defined and n.hh else 30 %}
+              <a href="{{ n.href or '#' }}" data-open-href="{{ n.href or '' }}"
+                 {% if n.is_discovered %}data-discovered-host="1"{% endif %}>
+                <g class="fabric-mesh-node fabric-mesh-node--host {% if n.npm_edge %}is-edge{% endif %} {% if n.is_cloud %}is-cloud{% endif %} {% if n.is_discovered %}is-discovered{% endif %}"
                    data-node-id="{{ n.node_id or ('host-' ~ n.server_id) }}"
+                   data-discovered="{{ '1' if n.is_discovered else '0' }}"
                    data-open-href="{{ n.href or '' }}"
                    data-open-label="{{ n.open_label or 'Open host' }}"
                    {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
                    {% if n.path_ids %}data-path-ids="{% for pid in n.path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}
                    {% if n.npm_path_ids %}data-npm-path-ids="{% for pid in n.npm_path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}>
-                  <rect x="{{ n.x - 62 }}" y="{{ n.y - 30 }}" width="124" height="60" rx="12"/>
+                  <rect x="{{ n.x - hhw }}" y="{{ n.y - hhh }}" width="{{ hhw * 2 }}" height="{{ hhh * 2 }}"
+                        rx="{% if n.is_discovered %}6{% else %}12{% endif %}"/>
+                  {% if n.is_discovered %}
+                  {# Compact chip: name + kind/IP #}
+                  <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label[:11] }}</text>
+                  <text x="{{ n.x }}" y="{{ n.y + 11 }}" text-anchor="middle" class="fabric-mesh-sub">
+                    {% if n.device_kind_short and n.device_kind != 'unknown' %}{{ n.device_kind_short[:8] }}{% else %}{{ (n.ip or n.sub or '')[:11] }}{% endif %}
+                  </text>
+                  {% else %}
                   <text x="{{ n.x }}" y="{{ n.y - 6 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label[:16] }}</text>
                   <text x="{{ n.x }}" y="{{ n.y + 12 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or n.ip or '')[:20] }}</text>
                   {% if n.npm_edge %}
                   <text x="{{ n.x }}" y="{{ n.y + 24 }}" text-anchor="middle" class="fabric-mesh-tag">NPM</text>
                   {% elif n.is_cloud %}
                   <text x="{{ n.x }}" y="{{ n.y + 24 }}" text-anchor="middle" class="fabric-mesh-tag">cloud</text>
+                  {% endif %}
                   {% endif %}
                 </g>
               </a>
@@ -390,8 +423,13 @@
           </svg>
       </div>
     </div>
-    <p class="text-[11px] text-muted mt-2 px-1">
-      {{ svg.host_count or 0 }} hosts ·
+    <p class="text-[11px] text-muted mt-2 px-1" data-hosts-map-stats>
+      <span data-hosts-map-host-count>{{ svg.host_count or 0 }}</span> hosts
+      {% if svg.fleet_count is defined or svg.discovered_count is defined %}
+      (<span data-hosts-map-fleet-count>{{ svg.fleet_count or 0 }}</span> fleet
+      {% if svg.discovered_count %}· <span data-hosts-map-disc-count>{{ svg.discovered_count }}</span> discovered{% endif %})
+      {% endif %}
+      ·
       {% if svg.app_total is defined and svg.overflow_count %}
       {{ svg.app_total }} apps ({{ svg.app_count }} on map{% if svg.overflow_count %}, +{{ svg.overflow_count }} on rack cards{% endif %})
       {% else %}
@@ -399,7 +437,7 @@
       {% endif %}
       · pinch / scroll to zoom · drag to pan · double-click 1:1
       · tap an <strong class="text-text">app path</strong> to expand runtime stack (edge → app → deps)
-      · solid = LAN · dashed = WAN / NPM · green = synced · amber cert = TLS linked
+      · solid = LAN · dashed = WAN / NPM · dashed-border = discovered · green = synced
     </p>
     <div class="fabric-callout-row mt-2 px-1">
       <p class="fabric-callout text-xs font-mono is-empty"
@@ -429,4 +467,39 @@
 {% include "partials/dns_stack_drawer.html" %}
 <script src="/static/js/fabric-mesh.js?v=20260718-order6" defer></script>
 <script src="/static/js/fabric-stack-expand.js?v=20260719-viewgroups2" defer></script>
+<script>
+(function () {
+  var STORAGE_KEY = 'piherder.hostsmap.showDiscovered';
+  var cb = document.getElementById('hosts-map-show-discovered');
+  if (!cb) return;
+  try {
+    var stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === '0') cb.checked = false;
+    if (stored === '1') cb.checked = true;
+  } catch (e) { /* ignore */ }
+
+  function apply() {
+    var show = cb.checked;
+    // SVG host nodes + wrapper <a>
+    document.querySelectorAll('[data-discovered-host="1"], .fabric-mesh-node--host.is-discovered').forEach(function (el) {
+      var wrap = el.closest('a') || el;
+      wrap.style.display = show ? '' : 'none';
+    });
+    // Edges into discovered hosts
+    document.querySelectorAll('.fabric-mesh-edge[data-from-node^="host-d-"], .fabric-mesh-edge[data-to-node^="host-d-"]').forEach(function (el) {
+      el.style.display = show ? '' : 'none';
+    });
+    // Rack cards
+    document.querySelectorAll('.fabric-rack[data-discovered="1"]').forEach(function (el) {
+      el.style.display = show ? '' : 'none';
+    });
+  }
+
+  cb.addEventListener('change', function () {
+    try { localStorage.setItem(STORAGE_KEY, cb.checked ? '1' : '0'); } catch (e) { /* ignore */ }
+    apply();
+  });
+  apply();
+})();
+</script>
 {% endblock %}

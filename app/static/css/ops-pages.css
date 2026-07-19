@@ -948,6 +948,34 @@
   padding: 0;
   justify-content: center;
 }
+.nmap-map-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  justify-content: flex-end;
+}
+.nmap-map-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  min-height: 2.25rem;
+  padding: 0 0.15rem;
+}
+.nmap-map-toggle input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+.nmap-map-toggle:hover {
+  color: var(--color-text);
+}
 .nmap-stat-n {
   font-size: 1.15rem;
   font-weight: 650;
@@ -1076,6 +1104,90 @@
   background: var(--color-surface);
   color: var(--color-muted);
 }
+/* Device kind badges (heuristic profile) */
+.nmap-kind {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.08rem 0.4rem;
+  border-radius: 6px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 90%, var(--color-accent));
+  color: var(--color-text);
+  white-space: nowrap;
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nmap-kind--raspberry_pi {
+  border-color: color-mix(in srgb, #c51a4a 45%, var(--color-border));
+  background: color-mix(in srgb, #c51a4a 12%, var(--color-surface));
+}
+.nmap-kind--printer {
+  border-color: color-mix(in srgb, #7c3aed 45%, var(--color-border));
+  background: color-mix(in srgb, #7c3aed 12%, var(--color-surface));
+}
+.nmap-kind--nas {
+  border-color: color-mix(in srgb, #0d9488 45%, var(--color-border));
+  background: color-mix(in srgb, #0d9488 12%, var(--color-surface));
+}
+.nmap-kind--router,
+.nmap-kind--access_point,
+.nmap-kind--network {
+  border-color: color-mix(in srgb, #2563eb 45%, var(--color-border));
+  background: color-mix(in srgb, #2563eb 12%, var(--color-surface));
+}
+.nmap-kind--camera {
+  border-color: color-mix(in srgb, #ea580c 45%, var(--color-border));
+  background: color-mix(in srgb, #ea580c 12%, var(--color-surface));
+}
+.nmap-kind--iot {
+  border-color: color-mix(in srgb, #ca8a04 45%, var(--color-border));
+  background: color-mix(in srgb, #ca8a04 12%, var(--color-surface));
+}
+.nmap-kind--phone {
+  border-color: color-mix(in srgb, #db2777 45%, var(--color-border));
+  background: color-mix(in srgb, #db2777 12%, var(--color-surface));
+}
+.nmap-kind--tv,
+.nmap-kind--media {
+  border-color: color-mix(in srgb, #4f46e5 45%, var(--color-border));
+  background: color-mix(in srgb, #4f46e5 12%, var(--color-surface));
+}
+.nmap-kind--windows {
+  border-color: color-mix(in srgb, #0284c7 45%, var(--color-border));
+  background: color-mix(in srgb, #0284c7 12%, var(--color-surface));
+}
+.nmap-kind--server {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+.nmap-conf {
+  font-size: 0.6rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+.nmap-conf--high { color: var(--color-success, #15803d); }
+.nmap-conf--medium { color: var(--color-warning, #b45309); }
+.nmap-conf--low { color: var(--color-muted); }
+.nmap-profile-card {
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 90%, var(--color-accent));
+  background: color-mix(in srgb, var(--color-bg) 50%, var(--color-surface));
+}
+.nmap-profile-reasons {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  line-height: 1.35;
+}
+.nmap-profile-reasons li { margin: 0.1rem 0; }
 .nmap-state--new {
   color: var(--color-text);
   border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));

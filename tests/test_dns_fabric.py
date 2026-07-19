@@ -398,6 +398,111 @@ def test_summarize_results():
     assert fabric._summarize_results([{"ok": False}])[0] == "error"
 
 
+def test_physical_mesh_includes_discovered_hosts():
+    """Unlinked nmap devices appear on Hosts map without linking to Server."""
+    hosts = [
+        {
+            "server_id": 1,
+            "name": "Fleet Pi",
+            "dns_name": "pi.example",
+            "ip": "10.0.0.1",
+            "href": "/servers/1",
+        },
+        {
+            "server_id": None,
+            "discovery_id": 99,
+            "is_discovered": True,
+            "name": "Printer",
+            "dns_name": None,
+            "ip": "10.0.0.50",
+            "device_kind": "printer",
+            "device_kind_label": "Printer",
+            "device_kind_short": "Print",
+            "href": "/integrations/1?tab=devices&device=99",
+        },
+    ]
+    svg = fabric._build_physical_mesh_svg(
+        hosts, [], network={"lan_subnet": "10.0.0.0/24", "gateway_ip": "10.0.0.1"}
+    )
+    host_nodes = [n for n in svg["nodes"] if n["kind"] == "host"]
+    assert len(host_nodes) == 2
+    disc = next(n for n in host_nodes if n.get("is_discovered"))
+    fleet = next(n for n in host_nodes if not n.get("is_discovered"))
+    assert disc.get("discovery_id") == 99
+    assert disc.get("node_id") == "host-d-99"
+    assert disc.get("device_kind") == "printer"
+    # Compact discovered chip vs full fleet card
+    assert disc.get("hw", 99) < fleet.get("hw", 0)
+    assert disc.get("hh", 99) < fleet.get("hh", 0)
+    # Discovered sits further from LAN centre than fleet (outer ring)
+    lan = next(n for n in svg["nodes"] if n["kind"] == "lan")
+    import math
+
+    def _dist(n):
+        return math.hypot(n["x"] - lan["x"], n["y"] - lan["y"])
+
+    assert _dist(disc) > _dist(fleet)
+    assert svg.get("discovered_count") == 1
+    assert svg.get("fleet_count") == 1
+    phys = fabric._build_physical_view(
+        hosts, [], network={"lan_subnet": "10.0.0.0/24"}
+    )
+    assert phys["discovered_count"] == 1
+    assert any(r.get("is_discovered") for r in phys["racks"])
+
+
+def test_physical_mesh_fleet_ring_not_inflated_by_discovery():
+    """Many discovered devices must not shrink fleet/app layout into a corner."""
+    fleet = [
+        {
+            "server_id": 1,
+            "name": "RPI",
+            "dns_name": "rpi.example",
+            "ip": "10.0.0.10",
+            "href": "/servers/1",
+        }
+    ]
+    services = [
+        {
+            "id": 1,
+            "fqdn": "app.example",
+            "backend_server_id": 1,
+            "target_server_id": 1,
+            "via_proxy": False,
+            "path_kind": "app",
+            "path_chain": "app.example → RPI",
+            "dep_href": None,
+            "backend_href": "/servers/1",
+        }
+    ]
+    net = {"lan_subnet": "10.0.0.0/24", "gateway_ip": "10.0.0.1"}
+    svg_fleet_only = fabric._build_physical_mesh_svg(fleet, services, network=net)
+    disc = [
+        {
+            "server_id": None,
+            "discovery_id": i,
+            "is_discovered": True,
+            "name": f"d{i}",
+            "ip": f"10.0.0.{50 + i}",
+            "href": f"/integrations/1?tab=devices&device={i}",
+        }
+        for i in range(1, 25)
+    ]
+    svg_both = fabric._build_physical_mesh_svg(fleet + disc, services, network=net)
+    h_only = next(n for n in svg_fleet_only["nodes"] if n["kind"] == "host")
+    h_both = next(
+        n for n in svg_both["nodes"] if n["kind"] == "host" and not n.get("is_discovered")
+    )
+    # Fleet host position (and full card size) unchanged by discovery density
+    assert abs(h_only["x"] - h_both["x"]) < 1.5
+    assert abs(h_only["y"] - h_both["y"]) < 1.5
+    assert h_both.get("hw") == h_only.get("hw") or h_both.get("hw", 62) >= 60
+    app_only = next(n for n in svg_fleet_only["nodes"] if n["kind"] == "app")
+    app_both = next(n for n in svg_both["nodes"] if n["kind"] == "app")
+    assert abs(app_only["x"] - app_both["x"]) < 2.0
+    assert abs(app_only["y"] - app_both["y"]) < 2.0
+
+
 def test_physical_mesh_svg_path_ids():
     hosts = [
         {

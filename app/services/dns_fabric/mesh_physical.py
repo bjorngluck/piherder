@@ -42,7 +42,15 @@ def _build_physical_mesh_svg(
     gateway_kuma = net.get("gateway_kuma") if isinstance(net.get("gateway_kuma"), dict) else None
     public_kuma = net.get("public_kuma") if isinstance(net.get("public_kuma"), dict) else None
 
-    named = [h for h in hosts if h.get("dns_name") or h.get("server_id")]
+    # Fleet (server_id), discovered nmap devices (discovery_id), or named hosts
+    named = [
+        h
+        for h in hosts
+        if h.get("dns_name")
+        or h.get("server_id") is not None
+        or h.get("discovery_id") is not None
+        or h.get("ip")
+    ]
     if not named and not (lan_subnet or gateway_ip or public_ip):
         return {"width": 800, "height": 400, "nodes": [], "edges": [], "labels": []}
 
@@ -54,6 +62,23 @@ def _build_physical_mesh_svg(
         else:
             lan_hosts.append(h)
 
+    # Split fleet vs discovery so fleet ring / apps stay roomy (pre-discovery layout).
+    fleet_lan = [
+        h
+        for h in lan_hosts
+        if not h.get("is_discovered") and h.get("server_id") is not None
+    ]
+    disc_lan = [
+        h
+        for h in lan_hosts
+        if h.get("is_discovered") or h.get("discovery_id") is not None
+    ]
+    # Orphan LAN hosts without server_id and not marked discovered → treat as fleet-like
+    for h in lan_hosts:
+        if h in fleet_lan or h in disc_lan:
+            continue
+        fleet_lan.append(h)
+
     # Always show full Internet → gateway → LAN spine when we have any hosts
     # (or any explicit network settings). Previously only partial settings left
     # hosts floating with no edges.
@@ -64,29 +89,34 @@ def _build_physical_mesh_svg(
     show_lan = show_spine and (bool(lan_hosts) or bool(lan_subnet))
     show_internet = show_spine
 
-    n_lan_h = len(lan_hosts)
+    # Fleet count drives zone geometry (mapped apps must not squash into a corner).
+    n_fleet = len(fleet_lan)
+    n_disc = len(disc_lan)
+    n_lan_h = n_fleet  # ring sizing uses fleet only
     n_cloud = len(cloud_hosts)
 
-    # --- Geometry: LAN zone holds servers; apps sit outside; spine more open ---
-    # Host card half-size (matches SVG rect 124×60)
+    # --- Geometry: LAN zone holds fleet servers; apps outside; disc further out ---
+    # Fleet host card half-size (matches SVG rect 124×60)
     host_hw, host_hh = 62.0, 30.0
+    # Discovered: compact chips (SVG rect ~76×34)
+    disc_hw, disc_hh = 38.0, 17.0
     # Inner LAN badge (circle: "LAN" + subnet) — room for CIDR text
     badge_r = 54.0
 
-    # Host ring radius (hosts live *inside* the zone, around the badge)
-    if n_lan_h <= 1:
+    # Host ring radius — fleet only (same formulas as pre-discovery)
+    if n_fleet <= 1:
         ring_rx, ring_ry = 145.0, 115.0
-    elif n_lan_h <= 4:
-        ring_rx = 155.0 + n_lan_h * 16.0
-        ring_ry = 115.0 + n_lan_h * 12.0
+    elif n_fleet <= 4:
+        ring_rx = 155.0 + n_fleet * 16.0
+        ring_ry = 115.0 + n_fleet * 12.0
     else:
-        ring_rx = min(340.0, 140.0 + n_lan_h * 22.0)
-        ring_ry = min(250.0, 105.0 + n_lan_h * 16.0)
+        ring_rx = min(340.0, 140.0 + n_fleet * 22.0)
+        ring_ry = min(250.0, 105.0 + n_fleet * 16.0)
     # Keep ring outside the centre badge so cards don't cover "LAN"
     ring_rx = max(ring_rx, badge_r + host_hw + 40.0)
     ring_ry = max(ring_ry, badge_r + host_hh + 32.0)
 
-    # Zone ellipse — large enough that host cards sit fully inside
+    # Zone ellipse — large enough that fleet host cards sit fully inside
     zone_rx = ring_rx + host_hw + 36.0
     zone_ry = ring_ry + host_hh + 32.0
 
@@ -94,7 +124,21 @@ def _build_physical_mesh_svg(
     app_clearance = 150.0
     app_step = 152.0  # ~ card width + gap
     apps_per_ring = 5
-    outer_need = zone_rx + app_clearance + 220.0
+
+    # Discovered multi-ring *outside* the zone (and outside typical app fan start)
+    # so fleet + mapped apps keep their prior spacing.
+    disc_per_ring = 18
+    disc_ring_gap = disc_hw * 2.0 + 28.0
+    disc_base_rx = zone_rx + app_clearance * 0.55 + disc_hw + 36.0
+    disc_base_ry = zone_ry + app_clearance * 0.55 + disc_hh + 28.0
+    n_disc_rings = max(1, (n_disc + disc_per_ring - 1) // disc_per_ring) if n_disc else 0
+    disc_outer_rx = disc_base_rx + max(0, n_disc_rings - 1) * disc_ring_gap + disc_hw
+    disc_outer_ry = disc_base_ry + max(0, n_disc_rings - 1) * disc_ring_gap + disc_hh
+
+    outer_need = max(
+        zone_rx + app_clearance + 220.0,
+        disc_outer_rx + 40.0 if n_disc else 0.0,
+    )
 
     # Internet vector-cloud half-size (layout + edge attach; no ellipse drawn)
     inet_rx, inet_ry = 82.0, 52.0
@@ -122,7 +166,7 @@ def _build_physical_mesh_svg(
     # zone top = router centre (bridges WAN ↔ LAN)
     lan_cy = gw_y + zone_ry
 
-    height = int(lan_cy + zone_ry + app_clearance + 280)
+    height = int(lan_cy + max(zone_ry + app_clearance + 280, disc_outer_ry + 120))
     if n_cloud:
         height = max(height, int(inet_y + host_hh + 80 + ((n_cloud + 1) // 2) * 70))
 
@@ -210,6 +254,7 @@ def _build_physical_mesh_svg(
     shape_gw = ("rect", gw_hw, gw_hh)
     shape_lan = ("ellipse", badge_r, badge_r)
     shape_host = ("rect", host_hw, host_hh)
+    shape_disc = ("rect", disc_hw, disc_hh)
     app_hw, app_hh = 70.0, 22.0
     more_hw, more_hh = 48.0, 18.0
     shape_app = ("rect", app_hw, app_hh)
@@ -305,7 +350,10 @@ def _build_physical_mesh_svg(
                 "zone_ry": round(zone_ry, 1),
                 "href": None,
                 "node_id": "lan",
-                "path_chain": f"LAN · {lan_label_sub} · {n_lan_h} host(s)",
+                "path_chain": (
+                    f"LAN · {lan_label_sub} · {n_fleet} fleet"
+                    + (f" · {n_disc} discovered" if n_disc else "")
+                ),
                 "open_label": "",
             }
         )
@@ -329,72 +377,144 @@ def _build_physical_mesh_svg(
             )
 
     host_nodes: list[dict[str, Any]] = []
-    host_pos: dict[int, tuple[float, float]] = {}
+    # int server_id for fleet; ("d", discovery_id) for nmap-only devices
+    host_pos: dict[Any, tuple[float, float]] = {}
 
-    def _place_host(h: dict[str, Any], x: float, y: float, *, is_cloud: bool) -> None:
-        sid = int(h["server_id"])
-        host_pos[sid] = (x, y)
-        is_edge = any(
-            s.get("via_proxy") and s.get("target_server_id") == sid for s in services
+    def _layout_key(h: dict[str, Any]) -> Any:
+        if h.get("server_id") is not None:
+            return int(h["server_id"])
+        if h.get("discovery_id") is not None:
+            return ("d", int(h["discovery_id"]))
+        return ("ip", str(h.get("ip") or id(h)))
+
+    def _place_host(
+        h: dict[str, Any],
+        x: float,
+        y: float,
+        *,
+        is_cloud: bool,
+        hw: float | None = None,
+        hh: float | None = None,
+    ) -> None:
+        key = _layout_key(h)
+        host_pos[key] = (x, y)
+        sid = int(h["server_id"]) if h.get("server_id") is not None else None
+        is_discovered = bool(h.get("is_discovered")) or (
+            sid is None and h.get("discovery_id") is not None
         )
-        apps_here = sum(1 for s in services if s.get("backend_server_id") == sid)
+        box_hw = float(hw if hw is not None else (disc_hw if is_discovered else host_hw))
+        box_hh = float(hh if hh is not None else (disc_hh if is_discovered else host_hh))
+        shape_this = ("rect", box_hw, box_hh)
+        is_edge = bool(
+            sid is not None
+            and any(
+                s.get("via_proxy") and s.get("target_server_id") == sid for s in services
+            )
+        )
+        apps_here = (
+            sum(1 for s in services if s.get("backend_server_id") == sid)
+            if sid is not None
+            else 0
+        )
         # Backend services (land edges from app → this host).
-        path_ids = [
-            s.get("id")
-            for s in services
-            if s.get("id") is not None and s.get("backend_server_id") == sid
-        ]
+        path_ids = (
+            [
+                s.get("id")
+                for s in services
+                if s.get("id") is not None and s.get("backend_server_id") == sid
+            ]
+            if sid is not None
+            else []
+        )
         # Services that only use this host as NPM edge (dashed app → this host).
-        npm_path_ids = [
-            s.get("id")
-            for s in services
-            if s.get("id") is not None
-            and s.get("via_proxy")
-            and s.get("target_server_id") == sid
-            and s.get("backend_server_id") != sid
-        ]
-        name = h.get("name") or f"#{sid}"
+        npm_path_ids = (
+            [
+                s.get("id")
+                for s in services
+                if s.get("id") is not None
+                and s.get("via_proxy")
+                and s.get("target_server_id") == sid
+                and s.get("backend_server_id") != sid
+            ]
+            if sid is not None
+            else []
+        )
+        name = h.get("name") or (f"#{sid}" if sid is not None else (h.get("ip") or "?"))
         ip = h.get("ip") or ""
         dns = h.get("dns_name") or ""
-        role = "cloud · Internet" if is_cloud else "LAN host"
-        if is_edge:
-            role = "NPM edge · " + role
+        if is_discovered:
+            role = "discovered · LAN"
+            if h.get("device_kind_label"):
+                role = f"{h.get('device_kind_label')} · discovered"
+        else:
+            role = "cloud · Internet" if is_cloud else "LAN host"
+            if is_edge:
+                role = "NPM edge · " + role
         chain_parts = [name]
         if ip:
             chain_parts.append(ip)
-        if dns:
+        if dns and dns != name:
             chain_parts.append(dns)
+        if h.get("mac_vendor"):
+            chain_parts.append(str(h.get("mac_vendor"))[:40])
         chain_parts.append(role)
         if apps_here:
             chain_parts.append(f"{apps_here} mapped app(s)")
+        if isinstance(key, tuple) and key[0] == "d":
+            node_id = f"host-d-{key[1]}"
+            node_html_id = f"hd{key[1]}"
+        elif sid is not None:
+            node_id = f"host-{sid}"
+            node_html_id = f"h{sid}"
+        else:
+            node_id = f"host-{key}"
+            node_html_id = f"hx{abs(hash(key)) % 100000}"
+        # Compact label for small discovered chips — operator name first
+        if is_discovered:
+            raw_label = (name or ip or "?").strip()
+            # Prefer fitting the full friendly name; truncate only if needed
+            label_show = raw_label[:12] if len(raw_label) > 12 else raw_label
+            sub_show = (ip if raw_label != ip else "")[:14]
+        else:
+            label_show = name
+            sub_show = dns or ip or ""
         host_nodes.append(
             {
-                "id": f"h{sid}",
+                "id": node_html_id,
                 "kind": "host",
-                "label": name,
-                "sub": dns or ip or "",
+                "label": label_show,
+                "sub": sub_show,
                 "ip": ip,
                 "x": round(x, 1),
                 "y": round(y, 1),
+                "hw": box_hw,
+                "hh": box_hh,
                 "href": h.get("href"),
                 "npm_edge": is_edge,
                 "is_cloud": is_cloud,
+                "is_discovered": is_discovered,
+                "device_kind": h.get("device_kind") or "",
+                "device_kind_label": h.get("device_kind_label") or "",
+                "device_kind_short": h.get("device_kind_short") or "",
+                "mac_vendor": h.get("mac_vendor") or "",
                 "app_count": apps_here,
                 "server_id": sid,
+                "discovery_id": h.get("discovery_id"),
                 "path_ids": path_ids,
                 "npm_path_ids": npm_path_ids,
-                "node_id": f"host-{sid}",
+                "node_id": node_id,
                 "path_chain": " · ".join(chain_parts),
-                "open_label": "Open host",
+                "open_label": h.get("open_label")
+                or ("Open discovery" if is_discovered else "Open host"),
             }
         )
-        host_nid = f"host-{sid}"
+        host_nid = node_id
         # LAN hosts → LAN badge; cloud → Internet ellipse
         if is_cloud:
             if show_internet:
                 edges.append(
                     _link(
-                        x, y, shape_host,
+                        x, y, shape_this,
                         inet_x, inet_y, shape_inet,
                         kind="wan", dashed=True,
                         from_node=host_nid, to_node="internet",
@@ -403,34 +523,51 @@ def _build_physical_mesh_svg(
         elif show_lan:
             edges.append(
                 _link(
-                    x, y, shape_host,
+                    x, y, shape_this,
                     lan_cx, lan_cy, shape_lan,
-                    kind="lan", dashed=False,
+                    kind="lan", dashed=bool(is_discovered),
                     from_node=host_nid, to_node="lan",
                 )
             )
         elif show_gateway:
             edges.append(
                 _link(
-                    x, y, shape_host,
+                    x, y, shape_this,
                     gw_x, gw_y, shape_gw,
-                    kind="lan", dashed=False,
+                    kind="lan", dashed=bool(is_discovered),
                     from_node=host_nid, to_node="gateway",
                 )
             )
 
-    # LAN hosts on ring *inside* the zone (wide top gap: Router sits on zone rim)
+    # Fleet LAN hosts on ring *inside* the zone (wide top gap: Router on zone rim)
     top_gap = math.radians(85)
-    for i, h in enumerate(lan_hosts):
-        if n_lan_h == 1:
+    for i, h in enumerate(fleet_lan):
+        if n_fleet == 1:
             angle = math.pi / 2  # bottom of ring
+        elif n_fleet == 0:
+            continue
         else:
             span = 2 * math.pi - top_gap
-            t = (i + 0.5) / n_lan_h
+            t = (i + 0.5) / n_fleet
             angle = -math.pi / 2 + top_gap / 2 + span * t
         x = lan_cx + ring_rx * math.cos(angle)
         y = lan_cy + ring_ry * math.sin(angle)
-        _place_host(h, x, y, is_cloud=False)
+        _place_host(h, x, y, is_cloud=False, hw=host_hw, hh=host_hh)
+
+    # Discovered devices: multi-ring outside zone, compact chips, full-circle spread
+    for i, h in enumerate(disc_lan):
+        ring_i = i // disc_per_ring
+        idx = i % disc_per_ring
+        n_on = min(disc_per_ring, n_disc - ring_i * disc_per_ring)
+        # Slight phase offset per ring so chips don't stack radially
+        phase = ring_i * (math.pi / disc_per_ring)
+        t = (idx + 0.5) / max(n_on, 1)
+        angle = -math.pi / 2 + phase + 2 * math.pi * t
+        rx = disc_base_rx + ring_i * disc_ring_gap
+        ry = disc_base_ry + ring_i * disc_ring_gap
+        x = lan_cx + rx * math.cos(angle)
+        y = lan_cy + ry * math.sin(angle)
+        _place_host(h, x, y, is_cloud=False, hw=disc_hw, hh=disc_hh)
 
     # Cloud / VPS hosts: clear of Internet ellipse (side attachment)
     for i, h in enumerate(cloud_hosts):
@@ -438,7 +575,7 @@ def _build_physical_mesh_svg(
         row = i // 2
         x = inet_x + side * (inet_rx + host_hw + 56.0 + row * 28.0)
         y = inet_y + row * 68.0
-        _place_host(h, x, y, is_cloud=True)
+        _place_host(h, x, y, is_cloud=True, hw=host_hw, hh=host_hh)
 
     # Apps outside the LAN zone (or outside cloud host) — multi-ring fan, all cards
     app_nodes: list[dict[str, Any]] = []
@@ -557,12 +694,16 @@ def _build_physical_mesh_svg(
             )
 
     drawn_apps = sum(1 for n in app_nodes if n.get("kind") == "app")
+    discovered_count = sum(1 for n in host_nodes if n.get("is_discovered"))
+    fleet_count = len(host_nodes) - discovered_count
     return {
         "width": int(width),
         "height": int(height),
         "nodes": infra_nodes + host_nodes + app_nodes,
         "edges": edges,
         "host_count": len(host_nodes),
+        "fleet_count": fleet_count,
+        "discovered_count": discovered_count,
         "app_count": drawn_apps,
         "app_total": drawn_apps + overflow_total,
         "overflow_count": overflow_total,
