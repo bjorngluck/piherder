@@ -83,10 +83,16 @@ def create_user_as_admin(
     modal.locator('input[name="password"]').fill(password)
     modal.locator('select[name="role"]').select_option(role)
     modal.locator("#create-user-submit").click()
-    # Credentials modal or success banner
-    expect(
-        page.locator("#new-user-creds-modal, .banner-success")
-    ).to_be_visible(timeout=15_000)
+    # Credentials modal (password shown once) — dismiss before further UI
+    creds = page.locator("#new-user-creds-modal")
+    expect(creds).to_be_visible(timeout=15_000)
+    done = page.locator("#creds-done-btn")
+    if done.count():
+        done.click()
+        expect(creds).to_be_hidden(timeout=10_000)
+    else:
+        # Fallback: navigate away if Done handler missing
+        page.goto(f"{base_url}/", wait_until="domcontentloaded")
 
 
 def logout(page: Page, base_url: str) -> None:
