@@ -58,9 +58,12 @@ jobs:
 
       - name: Run unit tests
         env:
-          # conftest also sets these if missing; explicit for clarity
-          PIHERDER_MASTER_KEY: ""
+          # Must be a *valid* Fernet key. Empty string used to break --cov import order
+          # (Settings cached with KEY="" before conftest could regenerate).
+          # Unit-test only — not a production secret.
+          PIHERDER_MASTER_KEY: "vf4uXbk1CDlP49homyiHbTOaGu1Z6yXgsLe0NlE8L6Y="
           DATABASE_URL: "postgresql://piherder:piherder@localhost:5432/piherder"
+          SECRET_KEY: "ci-unit-test-secret-key-not-for-production-use"
         run: |
           pytest -q --tb=short \
             --cov=app \
