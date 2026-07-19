@@ -29,7 +29,7 @@ Design principles stay the same as SPEC:
 | **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **Tagged** 2026-07-17 — [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
 | **v0.6.0** | **RC2 polish** — template Jobs, cert UX (edge map, presets), Docker bulk, topology+coverage; wizard **out** | H2.75 P1 + H2.5 stretch + polish | **Tagged** 2026-07-18 — [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) |
 | **v0.7.0** | **Add-host wizard** + **Playwright E2E** + topology annotations + **compose sets** + drift Job | H2.75 P2 + quality | **Tagged** 2026-07-19 — [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) |
-| **v0.8.0** | **RC3** — overall polish · extend E2E + coverage · **full docs review + screenshots** · **LAN nmap** | Quality + H2.5 H1 | **Active** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [screenshots README](../wiki/assets/screenshots/README.md) |
+| **v0.8.0** | **RC3** — overall polish · extend E2E + **~50% coverage** · **full docs review + screenshots** · **LAN nmap** (auto-create + network view) | Quality + H2.5 H1 | **Active** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [screenshots README](../wiki/assets/screenshots/README.md) |
 | **v0.8.x / later** | Host stats/commands, bootstrap depth, web SSH; topology column profiles | H2.75 P3–P5 + residual | After RC3 as capacity |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
