@@ -80,7 +80,7 @@ From a compose project **⋯** menu:
 Only **one** stack mutation runs at a time per host (shared lane with Deploy and template deploy/redeploy). Operator+ only. Single-container start/stop/restart stay on the **service row** ⋯ menu.
 
 !!! note "Host lifecycle (H2.75)"
-    **Add-host wizard** is on **main** for **v0.7.0** — [Add a server](../day-to-day/add-server.md) · [PLAN_v0.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.7.0.md). Later: richer host stats / allowlisted commands, bootstrap scripts, optional web SSH — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
+    **Add-host wizard** is on **main** for **v0.7.0** — [Add a server](../day-to-day/add-server.md) · [PLAN_v0.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.7.0.md). Next RC3: LAN discovery + residual polish — [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md). Later: host stats / allowlisted commands, bootstrap scripts, optional web SSH — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
 
 ## Template vs free-form stacks
 
