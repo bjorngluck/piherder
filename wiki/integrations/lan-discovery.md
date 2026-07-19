@@ -2,9 +2,13 @@
 
 ## What this is
 
-**LAN Discovery** is an **opt-in** Catalog integration that scans your configured **CIDR(s)** with **nmap**, auto-creates **discovered device** records, and shows a **network view**. Devices are **not** managed fleet servers until you **link** or **promote** them.
+**LAN Discovery** is an **opt-in** Catalog integration that scans your configured **CIDR(s)** with **nmap**, auto-creates **discovered device** records, and feeds an **end-to-end Hosts map** of the whole LAN — **without** linking every device to a managed Server.
+
+Devices are **not** managed fleet servers until you **link** or **promote** them. Naming, kind badges, and Hosts map chips are for orientation; promote only when you want SSH/backups/Docker management.
 
 **Where:** Catalog → **Integrations** → add / open **LAN Discovery** (`/integrations/{id}?tab=…`).
+
+**Hosts map (whole network):** Catalog → **Network** → **Hosts map** (`/dns/physical`) — fleet servers **and** unlinked discoveries together. See [Network maps](dns-fabric.md#lan-discovery-on-hosts-map).
 
 ## Why it exists
 
@@ -35,9 +39,13 @@ Without the worker, Overview shows **scanner offline**. Without the vuln pack, d
 2. Catalog → Integrations → **Add** → **LAN Discovery** → set **CIDR(s)** (e.g. `192.168.1.0/24`) and optional excludes.  
 3. Optional: enable **vuln scripts** on the integration when you want deep scans to use NSE vuln packs.  
 4. **Overview** → download / update **vulnerability database** if you plan deep vuln scans (Jobs page shows progress).  
-5. Run **Discovery** (or Inventory / Detailed) from the UI.  
-6. Open **Devices** and **Network** tabs; link or promote hosts you care about.  
-7. Optional: **Schedules** → create discovery daily / inventory weekly — leave **disabled** until you trust the first manual runs; use **Edit** to change options later.
+5. Run **Discovery** (who is up), then **Inventory** (ports — top N or **all ports**) so chips and kind heuristics have data.  
+6. **Devices** — set **map names** (e.g. `cctv1`) for hosts you recognize; ignore noise.  
+7. Open **Catalog → Network → Hosts map** — fleet + discovered together (**no per-device link required**). Toggle **Discovered** in the **map toolbar**.  
+8. Link or promote only hosts you want to **manage**.  
+9. Optional: **Schedules** — discovery daily / inventory weekly; leave **disabled** until manual runs look good.
+
+Journey: [Operator scenarios — Journey H](../getting-started/operator-scenarios.md#journey-h).
 
 ---
 
@@ -46,10 +54,17 @@ Without the worker, Overview shows **scanner offline**. Without the vuln pack, d
 | Tab | Purpose |
 |-----|---------|
 | **Overview** | Worker status, CIDRs, vuln pack status, quick scan actions, pack update |
-| **Devices** | Auto-created hosts (IP, hostname, MAC, ports); filter / link / ignore / promote |
-| **Network** | Subnet-oriented view of discovered vs linked devices |
+| **Devices** | Hosts list + detail: **map name**, kind badge, ports, findings; filter / link / ignore / promote |
+| **Network** | Subnet-grouped discovery cards (LAN Discovery’s own map); filter + **Show discovered** |
 | **Schedules** | Multiple named schedules (intensity + cron/interval + options) — create **and edit** |
 | **Runs** | Scan run history (linked to Jobs) |
+
+There are **two** maps:
+
+| Map | URL | What it shows |
+|-----|-----|----------------|
+| **LAN Discovery → Network** | `/integrations/{id}?tab=network` | Discovery-only subnet cards (all scanned devices) |
+| **Catalog → Network → Hosts map** | `/dns/physical` | **End-to-end**: Internet → router → LAN → **fleet + unlinked discoveries** + app paths |
 
 ---
 
@@ -58,7 +73,7 @@ Without the worker, Overview shows **scanner offline**. Without the vuln pack, d
 | Profile | Intent | Typical use |
 |---------|--------|-------------|
 | **Discovery** | Who is alive | Frequent light sweeps (`-sn`-class) |
-| **Inventory** | Ports + services | Daily top-ports + version detect |
+| **Inventory** | Ports + services | Daily top-ports or all-ports + version detect |
 | **Detailed** | Broader map | Weekly wider ports / OS-ish depth |
 | **Deep** | Single-host full audit | Manual or scheduled; optional **script preset** + SYN |
 
@@ -102,13 +117,81 @@ Device detail **classifies** script rows: **finding** · **clear** · **script e
 
 Excludes are passed as nmap `--exclude` so a single IP does not block scanning the rest of the CIDR.
 
-### Network tab — open ports
+---
 
-Port chips show the **latest snapshot per host** (from the last inventory/detailed/deep that recorded ports), **not** a merge of all historical scans. Discovery no longer clears a prior port snapshot.
+## Device names (map labels)
+
+Each discovered host can have an operator **map name** (e.g. `cctv1`, `living-room-tv`).
+
+| | |
+|--|--|
+| **Set** | Devices → open host → **Map name** → **Save name** |
+| **Survives** | Re-scans (nmap **hostname** may still update separately) |
+| **Shown on** | Hosts map chips, Devices list, LAN Discovery Network cards |
+| **Priority** | **display name** → scan hostname → IP |
+
+Clear the field and save to fall back to hostname/IP. No need to link a Server just to label a chip.
+
+---
+
+## Device type (looks like)
+
+PiHerder **guesses** a device kind from:
+
+| Signal | Source |
+|--------|--------|
+| **MAC vendor** | nmap `address@vendor` when MAC is seen (same L2 / host-network worker) |
+| **OUI prefix** | Small curated table (Pi, Espressif, printers, Ubiquiti, …) — not full IEEE |
+| **Open ports / services** | e.g. 9100+631 → printer; 5000/5001 → NAS; 554 → camera; 445+3389 → Windows |
+| **Hostname / OS** | e.g. `pi-*`, `DiskStation`, “Windows …” |
+
+Shown as a **kind badge** on Devices list, device detail (**Looks like** + reasons + confidence), Network cards, Hosts map chips, and linked server soft-embed. **Advisory only** — never auto-links or promotes.
+
+Run **inventory** (or detailed/deep) so ports feed the classifier; discovery alone often only yields MAC vendor when available.
+
+---
+
+## LAN Discovery Network tab
+
+- Hosts grouped by **/24** (or IPv6 /64), with search filter.
+- **Show discovered** (default on): include unlinked hosts (`new` / `known` / `stale`). Uncheck to keep only **linked** devices on this tab’s map. Preference is stored in the browser.
+- Port chips show the **latest snapshot per host** (from the last inventory/detailed/deep that recorded ports), **not** a merge of all historical scans. Discovery re-runs no longer wipe a prior port snapshot.
+- Card titles use **map name** when set.
+
+---
+
+## Hosts map (Catalog → Network)
+
+Unlinked discoveries appear **automatically** on the end-to-end Hosts map:
+
+| Behaviour | Detail |
+|-----------|--------|
+| **No link required** | Do not link 50 devices just to “see” them |
+| **Layout** | Fleet hosts + mapped apps keep the **full-size** inner ring (pre-discovery geometry). Discovered devices sit on **outer multi-rings** as **small chips** |
+| **Discovered toggle** | Map toolbar (next to zoom / full screen), default **on** |
+| **Dedup** | Same IP as a fleet server, or already **linked** → shown as the fleet card only |
+| **Ignored** | Stay off the map |
+| **Label** | Map name → hostname → IP |
+| **Tap chip** | Opens LAN Discovery device detail |
+
+Full layout notes: [Network maps — LAN discovery](dns-fabric.md#lan-discovery-on-hosts-map).
+
+---
+
+## Devices & onboarding
+
+| Action | Meaning |
+|--------|---------|
+| **Map name** | Friendly label for maps/lists (not a Server) |
+| **Ignore / dismiss** | Hide from active discovery focus |
+| **Link** | Attach discovered device to an **existing** Server row (soft embed) |
+| **Promote** | Start **add-host wizard** / prefilled path — still **manual**; no silent SSH enable |
+
+Discovery ≠ fleet membership. Hostnames and MACs depend on scan privileges and host-network worker mode.
 
 ### Soft embed (fleet)
 
-Linked discovery devices appear on **Servers** list (LAN chip) and **server detail** (ports + script summary + links back to Devices / Network view).
+Linked discovery devices appear on **Servers** list (LAN chip) and **server detail** (ports, kind, script summary + links back to Devices / Network view).
 
 ---
 
@@ -120,18 +203,6 @@ Linked discovery devices appear on **Servers** list (LAN chip) and **server deta
 - **Create** and **Edit** (list → Edit → same form prefilled → Save).  
 - Options stored per schedule (`options_json`): script preset, timing, top-ports, UDP, port list, SYN vs inherit.  
 - Changes resync APScheduler; audit records configure/scan actions.
-
----
-
-## Devices & onboarding
-
-| Action | Meaning |
-|--------|---------|
-| **Ignore / dismiss** | Hide from “new” focus without deleting history carelessly |
-| **Link** | Attach discovered device to an **existing** Server row |
-| **Promote** | Start **add-host wizard** / prefilled path — still **manual**; no silent SSH enable |
-
-Discovery ≠ fleet membership. Hostnames and MACs depend on scan privileges and host-network worker mode.
 
 ---
 
@@ -161,7 +232,7 @@ Web only **enqueues**. Cancel and progress follow the fleet Jobs UI (finished jo
 
 - RBAC: **operator+** mutate; **viewer** read.  
 - Targets outside configured CIDRs are refused.  
-- SYN / raw scans need appropriate privileges in the nmap container (stock image runs as root with caps for reliable LAN + inventory root). Connect-scan (`-sT`) is the fallback.  
+- SYN / raw scans need appropriate privileges in the nmap container (stock image runs as root with caps for reliable LAN + inventory). Connect-scan (`-sT`) is the fallback.  
 - Default install: **no** nmap worker, **no** vuln DB in image layers.  
 - CI never live-scans real networks (fixtures / mock XML only).
 
@@ -169,6 +240,7 @@ Web only **enqueues**. Cancel and progress follow the fleet Jobs UI (finished jo
 
 ## Related
 
+- [Network maps (Hosts map + discovery overlay)](dns-fabric.md)  
 - [Integrations overview](overview.md)  
 - [Add a server](../day-to-day/add-server.md) — promote path  
 - [Jobs, audit & notifications](../day-to-day/jobs-audit-notifications.md)  

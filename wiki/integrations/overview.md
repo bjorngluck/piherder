@@ -48,7 +48,7 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 | [Uptime Kuma](uptime-kuma.md) | Status, TLS days, deep links, fleet Services | Want up/down and TLS in PiHerder |
 | [Grafana](grafana.md) | Dashboard inventory, deep links, preferred names | Want one-click metrics from server/Docker |
 | [Pi-hole](pihole.md) | v6 multi-instance stats, local DNS/CNAME fan-out | Manage LAN DNS from the herder |
-| [LAN Discovery (nmap)](lan-discovery.md) | Opt-in CIDR scans, devices, network view, schedules | Want to see what else is on the LAN |
+| [LAN Discovery (nmap)](lan-discovery.md) | Opt-in CIDR scans, devices, map names/kinds, Hosts map overlay, schedules | Want an end-to-end LAN view without linking every host |
 | [Nginx Proxy Manager](npm.md) | Proxy hosts (read-only) + certificate pull | Inventory edge hosts and cert material |
 | [Certificates](certificates.md) | Encrypted store, PEM upload, deploy maps, NPM renew | Push TLS files to many consumers |
 | [Network maps](dns-fabric.md) | Host A + service paths; Hosts/Path maps; **runtime stack** expand + order | Visualise name → host → app → containers |

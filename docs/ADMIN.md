@@ -229,7 +229,11 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 | Default install | No nmap worker; no vuln DB in image layers |
 | Vuln pack | Host volume `./piherder_nmap_vuln` (web ro, worker rw); update job on nmap queue |
 | Schedules | Multiple; create **and edit**; all off by default |
-| Curated options | Timing (`-T3`–`T5`), top-ports, UDP, port list, deep **script presets** (none/cpe/offline/full) — no free-form flags |
+| Curated options | Timing (`-T3`–`T5`), port scope (top / all / list), UDP, deep **script presets** (none/cpe/offline/full) — no free-form flags |
+| Excludes | Always / port-scans / deep-only lists → nmap `--exclude` |
+| Kind heuristics | MAC vendor + curated OUI + ports/hostname → advisory badges (`device_classify`) |
+| Map names | `NmapDevice.display_name` — operator label for Hosts map chips (survives re-scan) |
+| Hosts map overlay | Unlinked devices on `/dns/physical` (outer chips; toolbar **Discovered** toggle); no link required to appear |
 | Soft embed | Linked device → server list LAN chip + server detail card |
 | Discovery ≠ Server | Link / promote / dismiss are operator-driven |
 

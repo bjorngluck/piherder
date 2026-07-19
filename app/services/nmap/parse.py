@@ -38,6 +38,8 @@ class ParsedHost:
     ip_address: str
     hostname: Optional[str] = None
     mac_address: Optional[str] = None
+    # nmap address@vendor when MAC present (e.g. "Raspberry Pi Foundation")
+    mac_vendor: Optional[str] = None
     status: str = "up"  # up | down | unknown
     os_summary: Optional[str] = None
     ports: list[ParsedPort] = field(default_factory=list)
@@ -96,6 +98,7 @@ def _parse_host(host_el: ET.Element) -> Optional[ParsedHost]:
 
     ip = ""
     mac = None
+    mac_vendor = None
     for addr in host_el.findall("address"):
         addrtype = (addr.get("addrtype") or "").lower()
         val = (addr.get("addr") or "").strip()
@@ -105,6 +108,9 @@ def _parse_host(host_el: ET.Element) -> Optional[ParsedHost]:
             ip = val
         elif addrtype == "mac":
             mac = val.upper()
+            vend = (addr.get("vendor") or "").strip()
+            if vend:
+                mac_vendor = vend[:128]
 
     if not ip:
         return None
@@ -208,6 +214,7 @@ def _parse_host(host_el: ET.Element) -> Optional[ParsedHost]:
         ip_address=ip,
         hostname=hostname,
         mac_address=mac,
+        mac_vendor=mac_vendor,
         status=status,
         os_summary=os_summary,
         ports=ports,

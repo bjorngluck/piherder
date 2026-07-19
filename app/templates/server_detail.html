@@ -195,6 +195,15 @@ document.addEventListener('DOMContentLoaded', function() {
       <dd class="font-mono">{{ ndev.hostname or '—' }}</dd></div>
     <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">MAC</dt>
       <dd class="font-mono">{{ ndev.mac_address or '—' }}</dd></div>
+    {% if ndev.mac_vendor %}
+    <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Vendor</dt>
+      <dd>{{ ndev.mac_vendor }}</dd></div>
+    {% endif %}
+    {% if nd.profile and nd.profile.kind and nd.profile.kind != 'unknown' %}
+    <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Looks like</dt>
+      <dd><span class="nmap-kind nmap-kind--{{ nd.profile.kind }}" title="{{ nd.profile.reasons|join('; ') if nd.profile.reasons else '' }}">{{ nd.profile.label }}</span>
+        <span class="text-muted"> · {{ nd.profile.confidence }}</span></dd></div>
+    {% endif %}
     <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Open ports</dt>
       <dd>{{ nd.open_ports }}</dd></div>
     {% if nd.script_counts and nd.script_counts.total %}

@@ -77,6 +77,7 @@ def upsert_hosts_from_parse(
             continue
 
         mac = _norm_mac(host.mac_address)
+        mac_vendor = (getattr(host, "mac_vendor", None) or "").strip()[:128] or None
         key = device_identity_key(mac=mac, ip=ip)
 
         existing = session.exec(
@@ -112,6 +113,7 @@ def upsert_hosts_from_parse(
                 ip_address=ip,
                 hostname=host.hostname,
                 mac_address=mac,
+                mac_vendor=mac_vendor,
                 state="new",
                 os_summary=host.os_summary,
                 ports_json=ports_json if has_port_data else None,
@@ -134,6 +136,8 @@ def upsert_hosts_from_parse(
             if mac:
                 existing.mac_address = mac
                 existing.identity_key = key
+            if mac_vendor:
+                existing.mac_vendor = mac_vendor
             if host.os_summary:
                 existing.os_summary = host.os_summary
             if has_port_data:

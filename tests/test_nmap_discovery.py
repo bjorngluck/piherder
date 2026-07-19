@@ -25,6 +25,7 @@ def test_parse_nmap_xml_hosts_ports_scripts():
     assert up_host.status == "up"
     assert up_host.hostname == "pi-lab.local"
     assert up_host.mac_address == "AA:BB:CC:DD:EE:FF"
+    assert up_host.mac_vendor == "Test"
     assert up_host.os_summary and "Linux" in up_host.os_summary
     open_ports = np.open_ports(up_host)
     assert {p.port for p in open_ports} == {22, 80}

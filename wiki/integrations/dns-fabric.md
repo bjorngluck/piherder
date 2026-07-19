@@ -87,14 +87,18 @@ On the **Network hub** (`/dns`), configure home topology used by the Hosts map:
 ### Hosts map layout
 
 ```text
-Internet (☁) ── WAN ── Router ── LAN ── home hosts (RFC1918 / in subnet)
-     │
+Internet (☁) ── WAN ── Router ── LAN ── fleet hosts (full cards, inner ring)
+     │                      │
+     │                      └── outer rings: discovered devices (small chips)
      └── WAN ── cloud hosts (public IP / outside subnet, e.g. Nomad VPS)
+
+Mapped apps fan outside the LAN zone from fleet hosts (same geometry as before discovery).
 ```
 
 - **Spine always drawn** when fleet hosts exist (even if LAN/gateway settings are empty).
 - Without a LAN CIDR: **RFC1918 / CGNAT** addresses stay on LAN; other addresses are **cloud**.
-- LAN hosts sit on a ring with a **clear top gap** so nothing covers the Router → LAN link.
+- **Fleet** hosts sit on the inner ring with a **clear top gap** so nothing covers the Router → LAN link.
+- **Discovered** (nmap) devices sit on **outer multi-rings** as compact chips — they do **not** squeeze fleet cards or app satellites.
 - Cloud hosts sit beside the Internet cloud (not on the LAN ring).
 
 ---
@@ -104,8 +108,25 @@ Internet (☁) ── WAN ── Router ── LAN ── home hosts (RFC1918 / 
 | Page | URL | Shows |
 |------|-----|--------|
 | **Network hub** | `/dns` | Path cards · filters · network settings · adopt/import · host A table · external checklist |
-| **Hosts map** | `/dns/physical` | Rack cards (mobile-first) + fleet SVG (Internet → Router → LAN → hosts + apps) |
+| **Hosts map** | `/dns/physical` | Rack cards + SVG: Internet → Router → LAN → **fleet** (full cards) + **discovered** (outer chips) + apps; **Discovered** toggle in map toolbar |
 | **Path map** | `/dns/logical` | Flow list (mobile-first) + SVG (URL → NPM hub → destination) |
+
+### LAN discovery on Hosts map {#lan-discovery-on-hosts-map}
+
+After **[LAN Discovery](lan-discovery.md)** has scanned, **unlinked** devices appear on the Hosts map **automatically**. You do **not** need to link each device to a Server for it to show — that is the whole-LAN end-to-end view.
+
+| Topic | Behaviour |
+|-------|-----------|
+| **Toggle** | **Discovered** checkbox in the **map toolbar** (zoom / full screen row), default **on**; stored in the browser |
+| **Layout** | Fleet + mapped apps keep pre-discovery spacing; discoveries use **small chips** on outer rings |
+| **Labels** | Operator **map name** (e.g. `cctv1`) → scan hostname → IP — set name under LAN Discovery → Devices |
+| **Kind** | Heuristic badge on chips when known (printer, Pi, camera, …) — advisory only |
+| **Dedup** | Same IP as a fleet server, or already **linked** → fleet card only |
+| **Ignored** | Stay off the map |
+| **Tap** | Opens LAN Discovery device detail (ports, name, kind, link/promote) |
+| **Requires** | nmap integration + devices from a scan |
+
+LAN Discovery’s own **Network** tab remains a discovery-only subnet browser; the Hosts map is the combined topology.
 
 ### Focus, zoom & mobile
 
@@ -288,6 +309,7 @@ Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma 
 
 ## Related
 
+- [LAN Discovery (nmap)](lan-discovery.md) — whole-LAN devices, map names, Hosts map overlay  
 - [Pi-hole](pihole.md)  
 - [NPM](npm.md)  
 - [Uptime Kuma](uptime-kuma.md)  
