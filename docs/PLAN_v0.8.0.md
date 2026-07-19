@@ -4,15 +4,17 @@
 **Date opened:** 2026-07-19  
 **Baseline:** `v0.7.0` (tagged)  
 **Package version during cycle:** prefer `0.8.0.dev0` after first product commit · **tag:** `0.8.0`  
-**Related:** [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · [wiki screenshots README](../wiki/assets/screenshots/README.md)
+**Related:** [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · [wiki screenshots README](../wiki/assets/screenshots/README.md)
 
 ### Decision (locked)
 
 | Choice | Value |
 |--------|--------|
 | Git tag target | **`v0.8.0`** |
-| Theme | **RC3 quality + LAN discovery** — overall polish, deeper tests, full docs/screenshots, **nmap** as the headline feature |
+| Theme | **RC3 quality + LAN discovery** — overall polish, deeper tests (**~50% unit coverage**), full docs/screenshots, **nmap** as the headline feature |
 | Planning frame | Four pillars in parallel: **polish · E2E/coverage · docs+screenshots · nmap**; cut polish before cutting nmap or docs bar |
+| Coverage bar | **~50%** unit line coverage (tag should-meet; force growth without 100% chase) |
+| Nmap product leans | Auto-create **discovery** records · **network view** · **manual** promote/onboard; runtime packaging TBD in feature plan |
 | Production path | ~~v0.5.0 RC1~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ **tagged** → **v0.8.0 RC3** (this cycle) → **v1.0** |
 | Docs strategy | Full wiki/prose review + **screenshot pack** (deferred from 0.7) + nmap UX docs; `RELEASE_v0.8.0.md` at tag |
 | **Out of 0.8 by default** | Web SSH (P5), full ACME-in-herder, K8s, large template pack |
@@ -98,9 +100,11 @@ Build on the 0.7 Playwright platform and unit suite.
 | **E2E B6** | Viewer cannot add server (403 / redirect) | Should |
 | **E2E deeper B** | Template list shell, certs list, Docker page chrome, Jobs filters | Should |
 | **HTTP TestClient smoke** | Auth redirects + main page 200s in unit job | **Must** (cheap) |
-| **Unit coverage growth** | Critical paths: crypto, RBAC, path policy, fabric pure functions, compose sets, annotations, cert vault | **Must** (meaningful, not 100%) |
+| **Unit coverage growth** | **~50% line coverage** target (pytest-cov or equivalent); prioritize critical paths: crypto, RBAC, path policy, fabric pure functions, compose sets, annotations, cert vault, nmap parse/link helpers | **Must** (~50%, not 100%) |
 | **Playwright Phase C slice** | Optional visual/a11y on 3–5 shells | Nice |
 | Flake hygiene | Stable testids; no arbitrary sleeps; CI artifacts already wired | Must keep |
+
+**Coverage bar (locked):** **~50%** overall unit coverage is the RC3 target — good enough to force meaningful growth without chasing 100%. Measure from the unit job; new nmap code should not tank the average (helpers + fixtures first).
 
 **Out of CI:** live SSH, live nmap of real networks (use fixtures/mocks).
 
@@ -124,26 +128,29 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 
 **Problem:** Operators know services on **managed** hosts, but not the broader LAN without external tools.
 
-**Solution:** Opt-in scan of a configured **Network LAN CIDR**, store/discover devices, optional link to PiHerder servers / fabric nodes. Orthogonal to stack dependency edges.
+**Solution:** Opt-in scan of a configured **Network LAN CIDR**, **auto-create** discovered device records, present an **nmap network view**, and use **manual onboarding** (wizard / server create) where a device should become a managed PiHerder host. Orthogonal to stack dependency edges.
 
-| Aspect | Lean |
-|--------|------|
+| Aspect | Lean (2026-07-19) |
+|--------|-------------------|
 | Trigger | Manual + optional schedule; **opt-in** only |
-| Engine | nmap-class (or equivalent) in job/worker — never silent full-net scans |
+| Engine | nmap-class (or equivalent) — **deployment TBD** (in-app job vs **separate container** vs hybrid); never silent full-net scans |
 | Safety | Preview / confirm / audit; rate limits; no automatic privilege escalation |
-| UI | Discovery list + “link to server” / ignore; fabric may show device dots later |
-| Out | Replacing Kuma; agent install; wireless site survey; auto-create server rows |
+| Persistence | **Auto-create** discovery records for found hosts/devices (not “list and forget”) |
+| Onboarding | Discovered item ≠ managed server until operator **manually** promotes / links via wizard or existing flows where appropriate |
+| UI | **Nmap network view** + device list; link / promote / ignore; fabric may show device dots later |
+| Out | Replacing Kuma; agent install; wireless site survey; silent auto-enroll as full managed servers |
 
-**Acceptance (indicative — refine early in cycle):**
+**Acceptance (indicative — detail in nmap feature plan):**
 
 - [ ] Operator can configure LAN CIDR(s) and run a **discover** job  
-- [ ] Results list with address / hostname / open ports (bounded)  
-- [ ] Link or dismiss a device; audit trail  
-- [ ] Wiki + ADMIN security notes (opt-in, blast radius)  
-- [ ] Unit tests for parse / link helpers; no live scan required in CI  
-- [ ] Screenshot(s) for discovery UI (stream A)  
+- [ ] Discovered devices **auto-created** as first-class discovery records  
+- [ ] **Network view** + list with address / hostname / open ports (bounded)  
+- [ ] Manual promote/link or dismiss; audit trail; no silent full server onboarding  
+- [ ] Wiki + ADMIN security notes (opt-in, blast radius, container/deployment model)  
+- [ ] Unit tests for parse / auto-create / link helpers; no live scan required in CI  
+- [ ] Screenshot(s) for network view + discovery UI (stream A)  
 
-**Design detail:** [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) H1 · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
+**Design detail:** dedicated **[FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)** (flesh out early in cycle) · background H1 notes in [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
 
 ---
 
@@ -192,7 +199,7 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 |---|------|--------|
 | 1 | LAN discovery product slice (N) | Open |
 | 2 | Full docs review + screenshot pack (A) | Open |
-| 3 | HTTP smoke + meaningful unit coverage growth (Q) | Open |
+| 3 | HTTP smoke + unit coverage **~50%** bar (Q) | Open |
 | 4 | E2E suite green (0.7 base + extensions) | Open |
 | 5 | Version `0.8.0` + tag + Hub | Open |
 | 6 | `RELEASE_v0.8.0.md` | Open |
@@ -212,29 +219,32 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 ## 6. Implementation order (indicative)
 
 ```text
-1. PLAN_v0.8.0 open (this file) + nmap design lock     // docs
-2. HTTP smoke + unit coverage pass                       // Q early
-3. Screenshot inventory kickoff (stale + missing)        // A parallel
-4. Discovery model + job + parser fixtures               // N
-5. Discovery UI + link/dismiss + audit                   // N
-6. Wiki / ADMIN security + nmap screenshots              // A + N
-7. E2E extensions (B6, shell journeys)                   // Q
-8. Capacity polish (P / P3)                              // optional
-9. Full prose review pass                                // A
-10. Freeze: tests · screenshots · RELEASE · version · Hub
+1. PLAN_v0.8.0 open + FEATURE_PLAN_LAN_NMAP skeleton     // docs
+2. Flesh nmap feature plan (deploy model, auto-create, UI) // N design
+3. HTTP smoke + unit coverage toward ~50%                  // Q early
+4. Screenshot inventory kickoff (stale + missing)          // A parallel
+5. Discovery model + auto-create + job + parser fixtures   // N
+6. Network view + promote/link/dismiss + audit             // N
+7. Wiki / ADMIN security + nmap screenshots                // A + N
+8. E2E extensions (B6, shell journeys)                     // Q
+9. Capacity polish (P / P3)                                // optional
+10. Full prose review pass                                 // A
+11. Freeze: tests · ~50% cov · screenshots · RELEASE · Hub
 ```
 
 ---
 
-## 7. Open questions (resolve early)
+## 7. Decisions locked vs open (nmap + quality)
 
-| # | Question | Default lean |
-|---|----------|--------------|
-| 1 | nmap binary in image vs sidecar vs remote agent? | **Job on herder host** first; document image deps |
-| 2 | Persist full port inventory forever? | **Bounded TTL** + latest snapshot |
-| 3 | Auto-create server rows from discovery? | **No** — link/dismiss only |
-| 4 | How hard is the coverage bar? | **Critical paths first** — no 100% target |
-| 5 | Pull P3 into must? | **No** unless operator pain is acute |
+| # | Topic | Status | Lean |
+|---|-------|--------|------|
+| 1 | Unit coverage bar | **Locked** | **~50%** overall (critical paths first; not 100%) |
+| 2 | Auto-create from scan | **Locked direction** | **Yes** — auto-create **discovery records**; flesh schema/lifecycle in nmap plan |
+| 3 | Network view | **Locked direction** | Dedicated **nmap network view** (not only a flat list) |
+| 4 | Managed-server onboarding | **Locked direction** | **Manual** where appropriate (wizard / promote / link) — discovery ≠ full fleet member |
+| 5 | nmap runtime (image vs separate container vs agent) | **Open** | **Maybe separate container** — decide in [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md); do not block product UX design |
+| 6 | Persist full port inventory forever? | Open | **Bounded TTL** + latest snapshot (default lean) |
+| 7 | Pull P3 into must? | Open | **No** unless operator pain is acute |
 
 ---
 
@@ -243,9 +253,10 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 | Doc | Role |
 |-----|------|
 | **This file** | Living ship plan for RC3 |
+| [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) | **Nmap product design** (flesh out early) |
 | [PLAN_v0.7.0.md](PLAN_v0.7.0.md) / [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) | Prior cycle |
-| [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) | H1 nmap · topology residual |
-| [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) | P3–P5 design |
+| [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) | Topology residual · original H1 nmap pointer |
+| [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) | P3–P5 design · promote/onboard overlap |
 | [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) | Multi-horizon |
 | [wiki screenshots README](../wiki/assets/screenshots/README.md) | Capture inventory |
 | `RELEASE_v0.8.0.md` | Written at tag only |
@@ -256,16 +267,16 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 
 After upgrading to **0.8.0**, an operator can:
 
-1. **Opt in** to LAN CIDR discovery and link/dismiss devices with audit.  
-2. Read the **wiki** with **current screenshots** for onboarding, certs, Docker, Jobs, topology, and discovery.  
-3. Rely on **broader automated tests** catching shell and critical-path regressions.  
+1. **Opt in** to LAN CIDR discovery; see **auto-created** discovery records in an **nmap network view**; **manually** promote/link or dismiss with audit.  
+2. Read the **wiki** with **current screenshots** for onboarding, certs, Docker, Jobs, topology, and discovery/network view.  
+3. Rely on **broader automated tests** (~**50%** unit coverage + E2E growth) catching shell and critical-path regressions.  
 4. Still use 0.7 wizard / compose sets / annotations unchanged (plus polish that made the cut).
 
 Before tagging **0.8.0**, a maintainer can:
 
-1. Run unit + e2e green without live lab nmap in CI.  
+1. Run unit + e2e green without live lab nmap in CI; unit coverage meets **~50%**.  
 2. Pass `mkdocs build --strict` with the screenshot pack.  
-3. Read RELEASE notes that list intentional outs (web SSH, ACME-in-herder, …).
+3. Read RELEASE notes that list intentional outs (web SSH, ACME-in-herder, …) and the chosen nmap deploy model.
 
 ---
 
@@ -274,6 +285,7 @@ Before tagging **0.8.0**, a maintainer can:
 | Date | Note |
 |------|------|
 | 2026-07-19 | Plan created at 0.7 freeze: RC3 = polish + E2E/coverage + full docs/screenshots + **nmap** feature |
+| 2026-07-19 | Cycle kickoff: coverage bar **~50%**; nmap **auto-create** discovery records + **network view** + manual onboard; deploy (separate container?) deferred to [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) |
 
 ---
 

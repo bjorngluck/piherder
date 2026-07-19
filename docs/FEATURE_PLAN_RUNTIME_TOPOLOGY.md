@@ -266,7 +266,7 @@ TCP/DB monitors require published ports, shared Docker network with Kuma, or hos
 | **P5** | Monitor depth | TCP bind in panel; **optional alert** when Kuma-bound container down in inventory | **Done** |
 | **P6** | Shared-service catalog polish | Catalog of shared DB/redis/services for better cross-host suggest | **Later** (not 0.6) |
 | **Later** | **Configurable columns & links** | Operator-defined map columns, pin roles to columns, explicit edge→column layout (beyond order-driven L→R) | **Partial (0.7):** categories/tags/visual stacks + vocab-driven columns — see § 12c |
-| **—** | **LAN discovery (nmap)** | Orthogonal device discovery — not stack deps | **v0.8.0 RC3** ([PLAN_v0.8.0.md](PLAN_v0.8.0.md) H1) |
+| **—** | **LAN discovery (nmap)** | Orthogonal device discovery — not stack deps | **v0.8.0 RC3** — [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) |
 
 ### Shipped vs not done (stream close-out)
 
