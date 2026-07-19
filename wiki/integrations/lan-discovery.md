@@ -73,7 +73,15 @@ Without the worker, Overview shows **scanner offline**. Without the vuln pack, d
 | **offline** | Pack **vulscan** only | Offline tables; needs pack |
 | **full** | Stock `vuln` category + vulscan + helpers | Noisy; many clear/error rows expected |
 
-Device detail **classifies** script rows: **finding** · **clear** · **script error** · **info**. Errors mean the probe failed (often irrelevant apps), not “unknown vulnerability”. Version/CPE matches still need human verification.
+Device detail **classifies** script rows: **finding** · **clear** · **script error** · **info**. Each finding shows the **port/service** it ran on (or was inferred for from CPE/product). Ports with issues are **highlighted** in the port table. Errors mean the probe failed (often irrelevant apps), not “unknown vulnerability”. Version/CPE matches still need human verification.
+
+### Timing (nmap `-T`)
+
+| Value | Meaning | When |
+|-------|---------|------|
+| **T3** | Normal — slower, quieter | Fragile IoT, WAN edges |
+| **T4** | Aggressive — default | Typical home/lab LAN |
+| **T5** | Insane — fastest | Speed over thoroughness; may miss or stress hosts |
 
 ### Soft embed (fleet)
 

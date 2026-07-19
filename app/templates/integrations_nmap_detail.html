@@ -93,11 +93,15 @@
                placeholder="192.168.1.0/24" data-testid="nmap-targets">
       </div>
       <div>
-        <label class="block text-xs text-muted mb-1" for="timing">Timing</label>
-        <select id="timing" name="timing" class="input min-h-11" data-testid="nmap-timing">
-          <option value="3">-T3 normal</option>
-          <option value="4" selected>-T4 aggressive</option>
-          <option value="5">-T5 insane</option>
+        <label class="block text-xs text-muted mb-1" for="timing">
+          Timing
+          <span class="font-normal opacity-80" title="nmap -T template: how fast/aggressive the scan is">(?)</span>
+        </label>
+        <select id="timing" name="timing" class="input min-h-11" data-testid="nmap-timing"
+                title="nmap -T timing template">
+          <option value="3">T3 — normal (slower, quieter)</option>
+          <option value="4" selected>T4 — aggressive (default, good LAN default)</option>
+          <option value="5">T5 — insane (fastest, more noise/misses)</option>
         </select>
       </div>
       <div>
@@ -139,7 +143,12 @@
       </button>
       <a href="/jobs?active_only=1" class="btn btn-secondary min-h-11 text-sm">Jobs / live log</a>
     </div>
-    <p class="text-[11px] text-muted">Curated options only (no free-form flags). Progress on Jobs.</p>
+    <p class="text-[11px] text-muted">
+      Curated options only (no free-form flags). Progress on Jobs.
+      <strong class="text-text">Timing (nmap -T)</strong>:
+      <strong>T3</strong> slower/safer · <strong>T4</strong> default for lab LANs ·
+      <strong>T5</strong> fastest but may miss or overload slow devices.
+    </p>
   </form>
 </div>
 {% endif %}
@@ -332,16 +341,31 @@
       <div class="nmap-ports-table mb-4">
         <table>
           <thead>
-            <tr><th>Port</th><th>State</th><th>Service</th><th>Product</th></tr>
+            <tr><th>Port</th><th>State</th><th>Service</th><th>Product</th><th>Issues</th></tr>
           </thead>
           <tbody>
           {% for p in device_ports %}
             {% if p.state == 'open' or loop.index <= 50 %}
-            <tr class="{% if p.state == 'open' %}is-open{% endif %}">
-              <td class="font-mono">{{ p.port }}/{{ p.protocol or 'tcp' }}</td>
+            <tr id="{{ p.anchor or ('port-' ~ p.port ~ '-' ~ (p.protocol or 'tcp')) }}"
+                class="{% if p.has_problem %}is-problem{% elif p.state == 'open' %}is-open{% endif %}"
+                data-testid="nmap-port-row">
+              <td class="font-mono">
+                <a href="#findings" class="text-accent hover:underline no-underline"
+                   title="Jump to findings">{{ p.port }}/{{ p.protocol or 'tcp' }}</a>
+              </td>
               <td>{{ p.state }}</td>
               <td>{{ p.service or '—' }}</td>
               <td class="text-muted">{{ p.product or '' }} {{ p.version or '' }}</td>
+              <td>
+                {% if p.finding_count %}
+                <a href="#findings" class="status-pill status-failed text-[10px] no-underline"
+                   title="{{ p.finding_count }} finding(s) on this port">{{ p.finding_count }} finding</a>
+                {% elif p.error_count %}
+                <span class="status-pill status-running text-[10px]">{{ p.error_count }} error</span>
+                {% else %}
+                <span class="text-[10px] text-muted">—</span>
+                {% endif %}
+              </td>
             </tr>
             {% endif %}
           {% endfor %}
@@ -353,7 +377,7 @@
       {% endif %}
 
       {% if device_scripts_classified %}
-      <h4 class="nmap-section-title">Script / vuln findings</h4>
+      <h4 class="nmap-section-title" id="findings">Script / vuln findings</h4>
       {% if device_script_counts %}
       <div class="flex flex-wrap gap-1.5 mb-2 text-[11px]" data-testid="nmap-script-summary">
         {% if device_script_counts.finding %}
@@ -370,14 +394,26 @@
         {% endif %}
       </div>
       <p class="text-[10px] text-muted mb-2">
-        Findings include version/CPE matches and noisy NSE checks — verify before acting.
-        Script errors mean the probe failed (often irrelevant apps), not “unknown vuln”.
+        Each finding shows the <strong>port / service</strong> it applies to (or host-level).
+        Version/CPE matches need human verification. Script errors are probe failures, not “unknown vulns”.
       </p>
       {% endif %}
-      <div class="space-y-2 max-h-52 overflow-y-auto mb-4" data-testid="nmap-script-list">
-        {% for sc in device_scripts_classified[:20] %}
-        <details class="nmap-script-card nmap-script-{{ sc.kind }}">
+      <div class="space-y-2 max-h-64 overflow-y-auto mb-4" data-testid="nmap-script-list">
+        {% for sc in device_scripts_classified[:30] %}
+        <details class="nmap-script-card nmap-script-{{ sc.kind }}"
+                 id="script-{{ sc.id or loop.index }}"
+                 {% if sc.kind == 'finding' %}open{% endif %}>
           <summary class="flex flex-wrap items-center gap-1.5">
+            {% if sc.port is not none %}
+            <a href="#{{ sc.port_anchor }}"
+               class="nmap-port-link font-mono text-[11px] no-underline"
+               title="{% if sc.port_inferred %}Inferred from service/CPE{% else %}Script ran on this port{% endif %}">
+              {{ sc.port }}/{{ sc.protocol or 'tcp' }}{% if sc.service %} · {{ sc.service }}{% endif %}
+              {% if sc.port_inferred %}<span class="opacity-60">≈</span>{% endif %}
+            </a>
+            {% else %}
+            <span class="nmap-port-link nmap-port-link--host font-mono text-[11px]" title="Host-level script">host</span>
+            {% endif %}
             <span class="font-mono">{{ sc.script_id }}</span>
             {% if sc.kind == 'finding' %}
             <span class="status-pill status-failed text-[10px]">{{ sc.label }}</span>
@@ -388,11 +424,18 @@
             {% else %}
             <span class="status-pill feature-off text-[10px]">{{ sc.label }}</span>
             {% endif %}
+            {% if sc.product or sc.version %}
+            <span class="text-[10px] text-muted">{{ sc.product }} {{ sc.version }}</span>
+            {% endif %}
             {% if sc.cve_ids %}
             <span class="text-[10px] text-muted font-mono">{{ sc.cve_ids[:3]|join(', ') }}{% if sc.cve_ids|length > 3 %}…{% endif %}</span>
             {% endif %}
           </summary>
-          <p class="text-[11px] text-muted mt-1">{{ sc.summary }}</p>
+          <p class="text-[11px] text-muted mt-1">
+            <strong class="text-text">Target:</strong> {{ sc.target or sc.port_label }}
+            {% if sc.port_inferred %}<span class="text-muted">(inferred)</span>{% endif %}
+            · {{ sc.summary }}
+          </p>
           <pre>{{ sc.output or '' }}</pre>
         </details>
         {% endfor %}
@@ -403,18 +446,29 @@
       <h4 class="nmap-section-title">Actions</h4>
       <div class="flex flex-wrap gap-2 items-center">
         <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/scan"
-              class="flex flex-wrap items-center gap-2" data-testid="nmap-device-deep-form">
-          <select name="script_preset" class="input text-xs min-h-9" title="Script preset"
-                  {% if not cfg.vuln_enabled %}disabled{% endif %}>
-            {% for p in script_presets or ['none','cpe','offline','full'] %}
-            <option value="{{ p }}" {% if p == 'cpe' %}selected{% endif %}>{{ p }}</option>
-            {% endfor %}
-          </select>
-          <select name="timing" class="input text-xs min-h-9" title="Timing">
-            <option value="3">T3</option>
-            <option value="4" selected>T4</option>
-            <option value="5">T5</option>
-          </select>
+              class="flex flex-wrap items-end gap-2" data-testid="nmap-device-deep-form">
+          <div>
+            <label class="block text-[10px] text-muted mb-0.5" for="dev-script-preset">Script preset</label>
+            <select id="dev-script-preset" name="script_preset" class="input text-xs min-h-9"
+                    title="Which vulnerability NSE set to run"
+                    {% if not cfg.vuln_enabled %}disabled{% endif %}>
+              {% for p in script_presets or ['none','cpe','offline','full'] %}
+              <option value="{{ p }}" {% if p == 'cpe' %}selected{% endif %}>
+                {{ (script_preset_labels or {}).get(p, p) }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] text-muted mb-0.5" for="dev-timing"
+                   title="nmap -T: how aggressive the scanner is">Timing</label>
+            <select id="dev-timing" name="timing" class="input text-xs min-h-9"
+                    title="nmap timing template (-T)">
+              <option value="3">T3 — normal (polite, slower)</option>
+              <option value="4" selected>T4 — aggressive (default)</option>
+              <option value="5">T5 — insane (fastest, noisier)</option>
+            </select>
+          </div>
           <button type="submit" class="btn btn-primary text-xs min-h-9">Deep scan</button>
         </form>
         {% if device.state != 'ignored' %}
@@ -606,13 +660,19 @@
         </select>
       </div>
       <div>
-        <label class="block text-xs text-muted mb-1" for="sch_timing">Timing</label>
-        <select id="sch_timing" name="timing" class="input w-full">
+        <label class="block text-xs text-muted mb-1" for="sch_timing">
+          Timing (nmap -T)
+        </label>
+        <select id="sch_timing" name="timing" class="input w-full"
+                title="How aggressive nmap is: T3 quieter, T4 default, T5 fastest">
           {% set et = es_opts.timing if es and es_opts.timing is not none else 4 %}
-          <option value="3" {% if et == 3 %}selected{% endif %}>-T3</option>
-          <option value="4" {% if et == 4 %}selected{% endif %}>-T4</option>
-          <option value="5" {% if et == 5 %}selected{% endif %}>-T5</option>
+          <option value="3" {% if et == 3 %}selected{% endif %}>T3 — normal (slower)</option>
+          <option value="4" {% if et == 4 %}selected{% endif %}>T4 — aggressive (default)</option>
+          <option value="5" {% if et == 5 %}selected{% endif %}>T5 — insane (fastest)</option>
         </select>
+        <p class="text-[10px] text-muted mt-1">
+          Controls scan speed vs reliability. Prefer T3 on fragile IoT; T4 for typical LAN; T5 only when you need speed.
+        </p>
       </div>
       <div>
         <label class="block text-xs text-muted mb-1" for="sch_top_ports">Top ports (inventory)</label>
