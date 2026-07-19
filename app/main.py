@@ -120,6 +120,7 @@ async def lifespan(app: FastAPI):
                 sync_integrations_poll_schedule,
                 sync_cert_renew_schedule,
                 sync_template_drift_schedule,
+                sync_nmap_schedules,
             )
             sync_all_server_cron_jobs(scheduler, HAS_SCHEDULER)
             sync_herder_backup_schedule(scheduler, HAS_SCHEDULER)
@@ -128,6 +129,7 @@ async def lifespan(app: FastAPI):
             sync_integrations_poll_schedule(scheduler, HAS_SCHEDULER)
             sync_cert_renew_schedule(scheduler, HAS_SCHEDULER)
             sync_template_drift_schedule(scheduler, HAS_SCHEDULER)
+            sync_nmap_schedules(scheduler, HAS_SCHEDULER)
         except Exception as e:
             print(f"Scheduler init skipped: {e}")
 

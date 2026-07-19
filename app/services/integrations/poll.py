@@ -110,8 +110,26 @@ def _poll_unlocked(db: Session, integration_id: int, *, notify: bool) -> dict[st
         return _poll_pihole(db, integration, notify=notify)
     if integration.type == reg.TYPE_NPM:
         return _poll_npm(db, integration, notify=notify)
+    if integration.type == reg.TYPE_NMAP:
+        return _poll_nmap(db, integration, notify=notify)
 
     return {"ok": False, "error": f"unsupported type {integration.type}"}
+
+
+def _poll_nmap(db: Session, integration: Integration, *, notify: bool) -> dict[str, Any]:
+    """Refresh LAN Discovery status cache (worker + devices + vuln pack)."""
+    del notify  # no transition notifications yet
+    from ..nmap import config as nmap_cfg
+
+    payload = nmap_cfg.refresh_status(db, integration)
+    return {
+        "ok": bool(payload.get("ok")),
+        "device_count": payload.get("device_count") or 0,
+        "worker_online": payload.get("worker_online"),
+        "error": None if payload.get("ok") else (
+            "nmap worker offline" if not payload.get("worker_online") else "check CIDRs"
+        ),
+    }
 
 
 def _poll_kuma(db: Session, integration: Integration, *, notify: bool) -> dict[str, Any]:
@@ -482,6 +500,27 @@ def test_connection(integration: Integration) -> Any:
             identity,
             password,
             tls_verify=reg.tls_verify(integration),
+        )
+    if integration.type == reg.TYPE_NMAP:
+        from types import SimpleNamespace
+
+        from ..nmap import config as nmap_cfg
+        from ..nmap.runtime import worker_online
+
+        cfg = nmap_cfg.parse_nmap_config(integration)
+        online = worker_online()
+        ok = bool(online.get("online")) and bool(cfg.get("cidrs"))
+        err = None
+        if not cfg.get("cidrs"):
+            err = "no CIDRs configured"
+        elif not online.get("online"):
+            err = "nmap worker offline (start compose profile nmap)"
+        return SimpleNamespace(
+            ok=ok,
+            error=err,
+            monitors=[],
+            worker_online=bool(online.get("online")),
+            cidrs=cfg.get("cidrs") or [],
         )
     return kuma.fetch_metrics(
         integration.base_url,

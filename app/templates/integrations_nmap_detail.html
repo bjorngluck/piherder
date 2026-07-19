@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% with catalog_section='integrations' %}
+{% include "partials/catalog_nav.html" %}
+{% endwith %}
+
+<div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+  <div>
+    <h2 class="text-lg font-semibold tracking-tight text-text">{{ integration.name }}</h2>
+    <div class="text-xs text-muted mt-0.5">LAN discovery · nmap worker · opt-in scans only</div>
+    <div class="flex flex-wrap gap-2 mt-2 text-xs">
+      <span class="status-pill status-running">nmap</span>
+      {% if not integration.enabled %}<span class="status-pill feature-off">disabled</span>
+      {% elif worker_online %}<span class="status-pill status-success">worker online</span>
+      {% else %}<span class="status-pill status-failed">worker offline</span>{% endif %}
+      {% if vuln_pack.ready %}<span class="status-pill status-success">vuln pack ready</span>
+      {% else %}<span class="status-pill feature-off">vuln pack empty</span>{% endif %}
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    {% if can_mutate %}
+    <form method="post" action="/integrations/{{ integration.id }}/poll">
+      <button class="btn btn-secondary min-h-11" type="submit">Refresh status</button>
+    </form>
+    <a href="/integrations/{{ integration.id }}/edit" class="btn btn-secondary min-h-11">Edit</a>
+    {% endif %}
+    <a href="/integrations" class="btn btn-secondary min-h-11">All integrations</a>
+  </div>
+</div>
+
+{% if msg %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  {{ msg }}{% if detail %} — {{ detail }}{% endif %}
+</div>
+{% endif %}
+{% if error %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  {{ error }}{% if detail %} — {{ detail }}{% endif %}
+</div>
+{% endif %}
+
+<div class="flex flex-wrap gap-1 mb-5 border-b border-border pb-2" role="tablist" aria-label="LAN Discovery sections">
+  {% for t, label in [('overview','Overview'),('devices','Devices'),('network','Network'),('schedules','Schedules'),('runs','Runs')] %}
+  <a href="?tab={{ t }}" role="tab"
+     class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == t else '' }}"
+     aria-selected="{{ 'true' if tab == t else 'false' }}">{{ label }}</a>
+  {% endfor %}
+</div>
+
+{% if tab == 'overview' %}
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+  <div class="card p-4">
+    <div class="text-xs text-muted">Devices</div>
+    <div class="text-2xl font-semibold mt-1">{{ status.device_count or devices|length }}</div>
+  </div>
+  <div class="card p-4">
+    <div class="text-xs text-muted">CIDRs</div>
+    <div class="text-sm font-mono mt-1">{{ (cfg.cidrs or [])|join(', ') or '—' }}</div>
+  </div>
+  <div class="card p-4">
+    <div class="text-xs text-muted">Worker</div>
+    <div class="text-sm mt-1">{% if worker_online %}Online{% else %}Offline — start profile <code class="text-xs">nmap</code>{% endif %}</div>
+  </div>
+  <div class="card p-4">
+    <div class="text-xs text-muted">Last run</div>
+    <div class="text-sm mt-1">{{ status.last_run_status or '—' }}
+      {% if status.last_run_at %}<span class="text-muted text-xs block">{{ status.last_run_at }}</span>{% endif %}
+    </div>
+  </div>
+</div>
+
+{% if can_mutate %}
+<div class="card p-5 mb-4 max-w-2xl">
+  <h3 class="text-sm font-semibold mb-3">Scan now</h3>
+  <form method="post" action="/integrations/{{ integration.id }}/nmap/scan" class="space-y-3"
+        data-wait-title="Queueing scan"
+        data-wait-message="Creating job for nmap worker…">
+    <div class="flex flex-wrap gap-3 items-end">
+      <div>
+        <label class="block text-xs text-muted mb-1" for="intensity">Intensity</label>
+        <select id="intensity" name="intensity" class="input min-h-11">
+          {% for i in intensities %}
+          <option value="{{ i }}" {% if i == 'discovery' %}selected{% endif %}>{{ i }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex-1 min-w-[12rem]">
+        <label class="block text-xs text-muted mb-1" for="targets">Targets (blank = all CIDRs)</label>
+        <input id="targets" name="targets" type="text" class="input w-full font-mono text-sm"
+               placeholder="192.168.1.0/24">
+      </div>
+    </div>
+    <label class="flex items-center gap-2 text-xs text-muted">
+      <input type="checkbox" name="vuln_scripts" value="on" {% if not cfg.vuln_enabled or not vuln_pack.ready %}disabled{% endif %}>
+      Vuln scripts (deep only; needs pack + setting)
+    </label>
+    <button type="submit" class="btn btn-primary min-h-11" {% if not worker_online %}title="Worker offline — job will wait on queue"{% endif %}>
+      Queue scan
+    </button>
+  </form>
+</div>
+{% endif %}
+
+<div class="card p-4 text-xs text-muted max-w-2xl space-y-1">
+  <p><strong class="text-text">Security:</strong> Scanning is active recon. Only configure networks you own and operate.</p>
+  <p>Discovered devices are <strong class="text-text">not</strong> managed servers until you link or promote them manually.</p>
+  <p>Flood / brute NSE scripts are not available as product actions.</p>
+</div>
+{% endif %}
+
+{% if tab == 'devices' %}
+<div class="flex flex-wrap gap-2 mb-3 text-xs">
+  <a href="?tab=devices" class="btn btn-secondary text-xs min-h-9 {% if not state_filter %}is-active{% endif %}">All</a>
+  {% for st in ['new','known','linked','ignored','stale'] %}
+  <a href="?tab=devices&state={{ st }}" class="btn btn-secondary text-xs min-h-9 {% if state_filter == st %}is-active{% endif %}">{{ st }}</a>
+  {% endfor %}
+</div>
+{% if not device_rows %}
+<div class="card p-5 text-sm text-muted">No devices yet. Run a discovery scan from Overview.</div>
+{% else %}
+<div class="card overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-left text-xs text-muted border-b border-border">
+        <th class="p-2">IP</th>
+        <th class="p-2">Hostname</th>
+        <th class="p-2">MAC</th>
+        <th class="p-2">State</th>
+        <th class="p-2">Open</th>
+        <th class="p-2">Seen</th>
+        <th class="p-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in device_rows %}
+      {% set d = item.row %}
+      <tr class="border-b border-border/60 hover:bg-surface/50">
+        <td class="p-2 font-mono text-xs">{{ d.ip_address }}</td>
+        <td class="p-2">{{ d.hostname or '—' }}</td>
+        <td class="p-2 font-mono text-[10px]">{{ d.mac_address or '—' }}</td>
+        <td class="p-2"><span class="status-pill feature-off">{{ d.state }}</span></td>
+        <td class="p-2 text-xs">{{ item.open_ports }}</td>
+        <td class="p-2 text-xs text-muted">{{ d.last_seen_at or '—' }}</td>
+        <td class="p-2">
+          <a href="?tab=devices&device={{ d.id }}" class="btn btn-secondary text-xs min-h-8 px-2">Open</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if device %}
+<div class="card p-5 mt-4 max-w-2xl">
+  <h3 class="text-sm font-semibold mb-2">{{ device.hostname or device.ip_address }}</h3>
+  <div class="text-xs text-muted font-mono mb-3">{{ device.ip_address }}
+    {% if device.mac_address %} · {{ device.mac_address }}{% endif %}
+    · {{ device.state }}
+  </div>
+  {% if device.os_summary %}<p class="text-xs mb-2">OS: {{ device.os_summary }}</p>{% endif %}
+  {% if device_ports %}
+  <div class="mb-3 max-h-48 overflow-y-auto">
+    <table class="w-full text-xs">
+      <thead><tr class="text-muted"><th class="text-left p-1">Port</th><th class="text-left p-1">State</th><th class="text-left p-1">Service</th></tr></thead>
+      <tbody>
+      {% for p in device_ports %}
+        <tr><td class="p-1 font-mono">{{ p.port }}/{{ p.protocol }}</td>
+            <td class="p-1">{{ p.state }}</td>
+            <td class="p-1">{{ p.service }} {{ p.product }} {{ p.version }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% if can_mutate %}
+  <div class="flex flex-wrap gap-2">
+    <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/scan">
+      <label class="inline-flex items-center gap-1 text-xs mr-2">
+        <input type="checkbox" name="vuln_scripts" value="on" {% if not cfg.vuln_enabled or not vuln_pack.ready %}disabled{% endif %}>
+        vuln
+      </label>
+      <button type="submit" class="btn btn-primary text-xs min-h-9">Deep scan</button>
+    </form>
+    {% if device.state != 'ignored' %}
+    <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/ignore">
+      <button type="submit" class="btn btn-secondary text-xs min-h-9">Ignore</button>
+    </form>
+    {% else %}
+    <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unignore">
+      <button type="submit" class="btn btn-secondary text-xs min-h-9">Unignore</button>
+    </form>
+    {% endif %}
+    {% if device.state == 'linked' %}
+    <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unlink">
+      <button type="submit" class="btn btn-secondary text-xs min-h-9">Unlink server</button>
+    </form>
+    {% else %}
+    <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/link" class="flex flex-wrap gap-2 items-center">
+      <select name="server_id" class="input text-xs min-h-9" required>
+        <option value="">Link to server…</option>
+        {% for s in servers %}
+        <option value="{{ s.id }}">{{ s.name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-secondary text-xs min-h-9">Link</button>
+    </form>
+    {% endif %}
+    <a href="/servers/new"
+       class="btn btn-secondary text-xs min-h-9"
+       title="Add host via wizard — use IP {{ device.ip_address }}">Promote (wizard)</a>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if tab == 'network' %}
+{% if not network or not network.groups %}
+<div class="card p-5 text-sm text-muted">No devices to map yet. Run discovery first.</div>
+{% else %}
+<p class="text-xs text-muted mb-3">{{ network.device_count }} device(s) grouped by subnet (network view MVP).</p>
+<div class="space-y-4">
+  {% for g in network.groups %}
+  <div class="card p-4">
+    <div class="text-xs font-mono text-muted mb-2">{{ g.subnet }} · {{ g.count }} host(s)</div>
+    <div class="flex flex-wrap gap-2">
+      {% for n in g.nodes %}
+      <a href="?tab=devices&device={{ n.id }}"
+         class="nmap-node border border-border rounded-lg px-3 py-2 text-xs min-w-[7rem]
+                {% if n.state == 'linked' %}ring-1 ring-accent{% elif n.state == 'new' %}bg-accent/10{% endif %}"
+         title="{{ n.hostname or n.ip }} · {{ n.state }} · {{ n.ports_open }} open">
+        <div class="font-mono font-medium">{{ n.ip }}</div>
+        <div class="text-muted truncate max-w-[9rem]">{{ n.hostname or '—' }}</div>
+        <div class="text-[10px] text-muted mt-0.5">{{ n.state }}{% if n.ports_open %} · {{ n.ports_open }} open{% endif %}</div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
+{% if tab == 'schedules' %}
+{% if can_mutate %}
+<div class="card p-5 mb-4 max-w-2xl">
+  <h3 class="text-sm font-semibold mb-3">Add schedule</h3>
+  <form method="post" action="/integrations/{{ integration.id }}/nmap/schedules" class="space-y-3">
+    <div class="grid sm:grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs text-muted mb-1" for="sch_name">Name</label>
+        <input id="sch_name" name="name" class="input w-full" required placeholder="lan-discovery">
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="sch_intensity">Intensity</label>
+        <select id="sch_intensity" name="intensity" class="input w-full">
+          {% for i in schedule_intensities %}
+          <option value="{{ i }}">{{ i }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="sch_cron">Cron (5 fields)</label>
+        <input id="sch_cron" name="cron" class="input w-full font-mono text-sm" placeholder="0 3 * * *">
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="sch_interval">Or interval hours</label>
+        <input id="sch_interval" name="interval_hours" type="number" min="1" class="input w-full" placeholder="6">
+      </div>
+    </div>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="enabled" value="on">
+      Enable immediately
+    </label>
+    <button type="submit" class="btn btn-primary min-h-11">Add schedule</button>
+  </form>
+  <p class="text-[11px] text-muted mt-2">Deep/vuln scans stay on-demand only. All schedules default off until enabled.</p>
+</div>
+{% endif %}
+
+{% if not schedules %}
+<div class="card p-5 text-sm text-muted">No schedules configured.</div>
+{% else %}
+<div class="card overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-left text-xs text-muted border-b border-border">
+        <th class="p-2">Name</th>
+        <th class="p-2">Intensity</th>
+        <th class="p-2">When</th>
+        <th class="p-2">Enabled</th>
+        <th class="p-2">Last</th>
+        <th class="p-2"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in schedules %}
+      <tr class="border-b border-border/60">
+        <td class="p-2">{{ s.name }}</td>
+        <td class="p-2"><span class="status-pill feature-off">{{ s.intensity }}</span></td>
+        <td class="p-2 font-mono text-xs">
+          {% if s.cron %}{{ s.cron }}{% elif s.interval_hours %}every {{ s.interval_hours }}h{% else %}—{% endif %}
+        </td>
+        <td class="p-2">{% if s.enabled %}yes{% else %}no{% endif %}</td>
+        <td class="p-2 text-xs text-muted">{{ s.last_run_at or '—' }}</td>
+        <td class="p-2">
+          {% if can_mutate %}
+          <div class="flex flex-wrap gap-1">
+            <form method="post" action="/integrations/{{ integration.id }}/nmap/schedules/{{ s.id }}/run">
+              <button class="btn btn-secondary text-xs min-h-8 px-2" type="submit">Run</button>
+            </form>
+            <form method="post" action="/integrations/{{ integration.id }}/nmap/schedules/{{ s.id }}/toggle">
+              <button class="btn btn-secondary text-xs min-h-8 px-2" type="submit">{% if s.enabled %}Disable{% else %}Enable{% endif %}</button>
+            </form>
+            <form method="post" action="/integrations/{{ integration.id }}/nmap/schedules/{{ s.id }}/delete"
+                  onsubmit="return confirm('Delete schedule?');">
+              <button class="btn btn-secondary text-xs min-h-8 px-2" type="submit">Delete</button>
+            </form>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endif %}
+
+{% if tab == 'runs' %}
+{% if not runs %}
+<div class="card p-5 text-sm text-muted">No scan runs yet.</div>
+{% else %}
+<div class="card overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-left text-xs text-muted border-b border-border">
+        <th class="p-2">ID</th>
+        <th class="p-2">Intensity</th>
+        <th class="p-2">Status</th>
+        <th class="p-2">Hosts</th>
+        <th class="p-2">Ports</th>
+        <th class="p-2">Job</th>
+        <th class="p-2">Finished</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in runs %}
+      <tr class="border-b border-border/60">
+        <td class="p-2 font-mono text-xs">#{{ r.id }}</td>
+        <td class="p-2">{{ r.intensity }}</td>
+        <td class="p-2">
+          <span class="status-pill {% if r.status == 'success' %}status-success{% elif r.status == 'failed' %}status-failed{% else %}feature-off{% endif %}">
+            {{ r.status }}
+          </span>
+        </td>
+        <td class="p-2 text-xs">{{ r.hosts_up }}/{{ r.hosts_total }}</td>
+        <td class="p-2 text-xs">{{ r.ports_open }}</td>
+        <td class="p-2 text-xs">
+          {% if r.job_id %}<a href="/jobs" class="text-accent hover:underline">#{{ r.job_id }}</a>{% else %}—{% endif %}
+        </td>
+        <td class="p-2 text-xs text-muted">{{ r.finished_at or r.started_at or '—' }}</td>
+      </tr>
+      {% if r.error %}
+      <tr><td colspan="7" class="p-2 text-xs text-red-600">{{ r.error }}</td></tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endif %}
+
+{% endblock %}

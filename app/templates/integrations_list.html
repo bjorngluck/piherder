@@ -13,6 +13,7 @@
     <a href="/integrations/new/grafana" class="btn btn-secondary text-xs min-h-9 px-2.5">+ Grafana</a>
     <a href="/integrations/new/pihole" class="btn btn-secondary text-xs min-h-9 px-2.5">+ Pi-hole</a>
     <a href="/integrations/new/npm" class="btn btn-secondary text-xs min-h-9 px-2.5">+ NPM</a>
+    <a href="/integrations/new/nmap" class="btn btn-secondary text-xs min-h-9 px-2.5">+ LAN Discovery</a>
   </div>
 </div>
 {% endif %}
@@ -30,7 +31,7 @@
 <div class="card p-6 max-w-xl">
   <p class="text-sm text-muted mb-3">
     No integrations yet. Connect <strong>Uptime Kuma</strong>, <strong>Grafana</strong>,
-    <strong>Pi-hole</strong>, or <strong>Nginx Proxy Manager</strong>.
+    <strong>Pi-hole</strong>, <strong>Nginx Proxy Manager</strong>, or <strong>LAN Discovery</strong>.
   </p>
   {% if can_mutate %}
   <div class="flex flex-wrap gap-2">
@@ -38,6 +39,7 @@
     <a href="/integrations/new/grafana" class="btn btn-secondary min-h-11">Add Grafana</a>
     <a href="/integrations/new/pihole" class="btn btn-secondary min-h-11">Add Pi-hole</a>
     <a href="/integrations/new/npm" class="btn btn-secondary min-h-11">Add NPM</a>
+    <a href="/integrations/new/nmap" class="btn btn-secondary min-h-11">Add LAN Discovery</a>
   </div>
   {% else %}
   <p class="text-xs text-muted">Operator or admin role required to add integrations.</p>
@@ -69,12 +71,16 @@
       </a>
       <div class="integ-card-url font-mono">{{ i.base_url }}</div>
       <div class="integ-card-meta">
-        <span class="status-pill {% if i.type in ['uptime_kuma', 'grafana', 'pihole', 'npm'] %}status-running{% else %}feature-off{% endif %}">
-          {{ i.type }}
+        <span class="status-pill {% if i.type in ['uptime_kuma', 'grafana', 'pihole', 'npm', 'nmap'] %}status-running{% else %}feature-off{% endif %}">
+          {% if i.type == 'nmap' %}lan discovery{% else %}{{ i.type }}{% endif %}
         </span>
         {% if i.is_primary %}<span class="status-pill status-success">primary</span>{% endif %}
         {% if not i.enabled %}
         <span class="status-pill feature-off">disabled</span>
+        {% elif i.type == 'nmap' and i.worker_online %}
+        <span class="status-pill status-success">worker online</span>
+        {% elif i.type == 'nmap' %}
+        <span class="status-pill feature-off">worker offline</span>
         {% elif i.ok == true %}
         <span class="status-pill status-success">connected</span>
         {% elif i.ok == false or i.last_error %}
@@ -91,6 +97,8 @@
         <span class="text-muted text-xs">{{ "{:,}".format(i.queries or 0) }} queries · {{ i.percent_blocked or 0 }}% blocked</span>
         {% elif i.type == 'npm' and i.proxy_host_count is not none %}
         <span class="text-muted text-xs">{{ i.proxy_host_count }} hosts · {{ i.certificate_count or 0 }} certs</span>
+        {% elif i.type == 'nmap' and i.device_count is not none %}
+        <span class="text-muted text-xs">{{ i.device_count }} devices</span>
         {% elif i.monitor_count is not none %}
         <span class="text-muted text-xs">{{ i.monitor_count }} monitors</span>
         {% endif %}

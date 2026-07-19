@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% with catalog_section='integrations' %}
+{% include "partials/catalog_nav.html" %}
+{% endwith %}
+
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">
+      {% if mode == 'edit' %}Edit LAN Discovery{% else %}Add LAN Discovery{% endif %}
+    </h1>
+    <p class="text-sm text-muted mt-1">
+      Opt-in LAN scanning via a separate <strong>nmap worker</strong>.
+      {{ ph_brand() }} web never runs nmap — scans enqueue to Celery queue <code class="text-xs">nmap</code>.
+      Only scan networks you own.
+    </p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% if integration %}/integrations/{{ integration.id }}{% else %}/integrations{% endif %}"
+       class="btn btn-secondary min-h-11">Cancel</a>
+  </div>
+</div>
+
+{% if error %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  {% if error == 'invalid' %}Invalid input{% elif error == 'save_failed' %}Save failed{% else %}Error{% endif %}
+  {% if detail %}— {{ detail }}{% endif %}
+</div>
+{% endif %}
+
+<div class="card p-5 max-w-xl">
+  <form method="post"
+        action="{% if mode == 'edit' %}/integrations/{{ integration.id }}/edit{% else %}/integrations/new/nmap{% endif %}"
+        class="space-y-4">
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="name">Display name</label>
+      <input id="name" name="name" type="text" required class="input w-full"
+             value="{{ form.name }}">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="cidrs">LAN CIDR(s)</label>
+      <textarea id="cidrs" name="cidrs" required rows="3" class="input w-full font-mono text-sm"
+                placeholder="192.168.1.0/24">{{ form.cidrs }}</textarea>
+      <p class="text-[11px] text-muted mt-1">One per line or comma-separated. Scans outside these scopes are refused.</p>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="excludes">Exclude (optional)</label>
+      <textarea id="excludes" name="excludes" rows="2" class="input w-full font-mono text-sm"
+                placeholder="192.168.1.1/32">{{ form.excludes }}</textarea>
+    </div>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="skip_dns" value="on" {% if form.skip_dns %}checked{% endif %}>
+      Skip reverse DNS (<code class="text-xs">-n</code>) for faster LAN sweeps
+    </label>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="use_syn" value="on" {% if form.use_syn %}checked{% endif %}>
+      Prefer SYN scan when worker capabilities allow
+    </label>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="vuln_enabled" value="on" {% if form.vuln_enabled %}checked{% endif %}>
+      Allow Vulners / vuln scripts on deep scans (requires vuln volume pack)
+    </label>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="notes">Notes</label>
+      <input id="notes" name="notes" type="text" class="input w-full" value="{{ form.notes or '' }}">
+    </div>
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="enabled" value="on" {% if form.enabled %}checked{% endif %}>
+      Enabled
+    </label>
+    <div class="flex flex-wrap gap-2 pt-2">
+      <button type="submit" class="btn btn-primary min-h-11">
+        {% if mode == 'edit' %}Save{% else %}Create{% endif %}
+      </button>
+      <a href="/integrations" class="btn btn-secondary min-h-11">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<div class="card p-4 max-w-xl mt-4 text-xs text-muted space-y-1">
+  <p class="font-medium text-text text-sm">Worker setup</p>
+  <p><code class="text-[10px]">docker build -f Dockerfile.nmap -t piherder:nmap-local .</code></p>
+  <p><code class="text-[10px]">docker compose --profile nmap up -d celery-worker-nmap</code></p>
+  <p>Vulners data: host dir <code class="text-[10px]">./piherder_nmap_vuln</code> (not in image).</p>
+</div>
+{% endblock %}
