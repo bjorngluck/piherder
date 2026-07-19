@@ -62,12 +62,38 @@ def test_validate_and_allowlist_cidrs():
     assert al.target_allowed("192.168.1.0/28", ["192.168.1.0/24"])
     assert not al.target_allowed("10.0.0.1", ["192.168.1.0/24"])
     assert not al.target_allowed("192.168.1.10", ["192.168.1.0/24"], excludes=["192.168.1.10/32"])
+    # Whole /24 stays allowed even if one host is excluded (nmap --exclude handles it)
+    assert al.target_allowed(
+        "192.168.1.0/24", ["192.168.1.0/24"], excludes=["192.168.1.1/32"]
+    )
     good, bad = al.filter_targets(
         ["192.168.1.10", "8.8.8.8"],
         ["192.168.1.0/24"],
     )
     assert good == ["192.168.1.10"]
     assert bad == ["8.8.8.8"]
+    assert al.nmap_exclude_args(["192.168.1.1", "10.0.0.5/32"]) == [
+        "--exclude",
+        "192.168.1.1,10.0.0.5",
+    ]
+    assert al.effective_excludes(
+        ["1.1.1.1"],
+        intensity="discovery",
+        excludes_port_scans=["2.2.2.2"],
+        excludes_deep=["3.3.3.3"],
+    ) == ["1.1.1.1"]
+    assert al.effective_excludes(
+        ["1.1.1.1"],
+        intensity="inventory",
+        excludes_port_scans=["2.2.2.2"],
+        excludes_deep=["3.3.3.3"],
+    ) == ["1.1.1.1", "2.2.2.2"]
+    assert al.effective_excludes(
+        ["1.1.1.1"],
+        intensity="deep",
+        excludes_port_scans=["2.2.2.2"],
+        excludes_deep=["3.3.3.3"],
+    ) == ["1.1.1.1", "2.2.2.2", "3.3.3.3"]
 
 
 def test_build_nmap_argv_profiles():
@@ -93,6 +119,24 @@ def test_build_nmap_argv_profiles():
     assert "-sV" in inv
     assert any(a.startswith("--top-ports") or a == "100" for a in inv)
     assert "-T4" in inv  # default timing
+
+    inv_all = av.build_nmap_argv(
+        "inventory",
+        ["10.0.0.1"],
+        output_xml="/tmp/o.xml",
+        port_mode="all",
+    )
+    assert "-p-" in inv_all
+    assert "--top-ports" not in inv_all
+
+    inv_ex = av.build_nmap_argv(
+        "inventory",
+        ["192.168.1.0/24"],
+        output_xml="/tmp/o.xml",
+        exclude_hosts=["192.168.1.1"],
+    )
+    assert "--exclude" in inv_ex
+    assert "192.168.1.1" in inv_ex
 
     deep = av.build_nmap_argv(
         "deep",

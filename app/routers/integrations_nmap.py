@@ -27,6 +27,8 @@ from ..services.nmap.argv import INTENSITIES, INTENSITY_DEEP, INTENSITY_DISCOVER
 from ..services.nmap.options import (
     DEFAULT_TIMING,
     DEFAULT_TOP_PORTS,
+    PORT_MODE_LABELS,
+    PORT_MODES,
     SCRIPT_PRESET_LABELS,
     SCRIPT_PRESETS,
     form_scan_options,
@@ -197,8 +199,11 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             "schedule_intensities": nmap_sched.INTENSITIES_SCHEDULE,
             "script_presets": SCRIPT_PRESETS,
             "script_preset_labels": SCRIPT_PRESET_LABELS,
+            "port_modes": PORT_MODES,
+            "port_mode_labels": PORT_MODE_LABELS,
             "default_timing": DEFAULT_TIMING,
             "default_top_ports": DEFAULT_TOP_PORTS,
+            "default_targets": ", ".join(cfg.get("cidrs") or []),
             "schedule_options": {
                 s.id: nmap_sched.parse_schedule_options(s) for s in schedules
             }
@@ -233,6 +238,8 @@ async def nmap_new_form(
                 "name": "LAN Discovery",
                 "cidrs": "192.168.1.0/24",
                 "excludes": "",
+                "excludes_port_scans": "",
+                "excludes_deep": "",
                 "skip_dns": False,
                 "use_syn": False,
                 "vuln_enabled": False,
@@ -252,6 +259,8 @@ async def nmap_create(
     name: str = Form("LAN Discovery"),
     cidrs: str = Form(...),
     excludes: str = Form(""),
+    excludes_port_scans: str = Form(""),
+    excludes_deep: str = Form(""),
     skip_dns: Optional[str] = Form(None),
     use_syn: Optional[str] = Form(None),
     vuln_enabled: Optional[str] = Form(None),
@@ -264,6 +273,8 @@ async def nmap_create(
             name=name,
             cidrs=nmap_cfg.parse_cidrs_textarea(cidrs),
             excludes=nmap_cfg.parse_cidrs_textarea(excludes),
+            excludes_port_scans=nmap_cfg.parse_cidrs_textarea(excludes_port_scans),
+            excludes_deep=nmap_cfg.parse_cidrs_textarea(excludes_deep),
             skip_dns=skip_dns in ("on", "1", "true"),
             use_syn=use_syn in ("on", "1", "true"),
             vuln_enabled=vuln_enabled in ("on", "1", "true"),
@@ -297,6 +308,7 @@ async def nmap_scan_now(
     top_ports: Optional[str] = Form(None),
     include_udp: Optional[str] = Form(None),
     port_list: Optional[str] = Form(None),
+    port_mode: Optional[str] = Form(None),
 ):
     integration = _require_nmap(session, integration_id)
     cfg = nmap_cfg.parse_nmap_config(integration)
@@ -317,6 +329,7 @@ async def nmap_scan_now(
         top_ports=top_ports,
         include_udp=include_udp in ("on", "1", "true"),
         port_list=port_list,
+        port_mode=port_mode,
     )
     try:
         job, run = enqueue_nmap_scan(

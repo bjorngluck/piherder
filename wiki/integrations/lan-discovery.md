@@ -83,6 +83,29 @@ Device detail **classifies** script rows: **finding** · **clear** · **script e
 | **T4** | Aggressive — default | Typical home/lab LAN |
 | **T5** | Insane — fastest | Speed over thoroughness; may miss or stress hosts |
 
+### Port scope (inventory / detailed / deep)
+
+| Mode | nmap shape | Notes |
+|------|------------|--------|
+| **Top ports** | `--top-ports N` (default 100) | Fast inventory of common services |
+| **All ports** | `-p-` | Full TCP 1–65535 — slower; use when top-N is not enough |
+| **Custom list** | `-p 22,80,443` or ranges | Curated only (digits, commas, hyphens) |
+
+**Detailed** and **deep** default to all ports unless you pick top or custom.
+
+### Targets & excludes
+
+- **Scan now** pre-fills **configured LAN CIDR(s)** so you do not re-type the subnet.
+- **Always exclude** — every intensity (including discovery).
+- **Exclude from port/vuln scans** — inventory / detailed / deep skip these hosts; **discovery still finds them**.
+- **Exclude from deep only** — inventory can still map ports; deep/vuln skips them.
+
+Excludes are passed as nmap `--exclude` so a single IP does not block scanning the rest of the CIDR.
+
+### Network tab — open ports
+
+Port chips show the **latest snapshot per host** (from the last inventory/detailed/deep that recorded ports), **not** a merge of all historical scans. Discovery no longer clears a prior port snapshot.
+
 ### Soft embed (fleet)
 
 Linked discovery devices appear on **Servers** list (LAN chip) and **server detail** (ports + script summary + links back to Devices / Network view).

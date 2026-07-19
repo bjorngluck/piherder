@@ -36,7 +36,29 @@ DEFAULT_TOP_PORTS = 100
 TOP_PORTS_MIN = 1
 TOP_PORTS_MAX = 1000
 
+# Inventory / detailed port selection
+PORT_MODE_TOP = "top"  # --top-ports N (inventory default)
+PORT_MODE_ALL = "all"  # -p- all TCP ports
+PORT_MODE_LIST = "list"  # explicit curated -p list
+PORT_MODES = (PORT_MODE_TOP, PORT_MODE_ALL, PORT_MODE_LIST)
+PORT_MODE_LABELS = {
+    PORT_MODE_TOP: "Top ports (N most common)",
+    PORT_MODE_ALL: "All ports (-p-)",
+    PORT_MODE_LIST: "Custom port list",
+}
+
 _PORT_LIST_RE = re.compile(r"^[0-9,\-\s]+$")
+
+
+def normalize_port_mode(raw: str | None, *, port_list: str | None = None) -> str:
+    s = (raw or "").strip().lower()
+    if s in PORT_MODES:
+        return s
+    if s in ("all ports", "full", "-p-", "p-"):
+        return PORT_MODE_ALL
+    if port_list:
+        return PORT_MODE_LIST
+    return PORT_MODE_TOP
 
 
 def normalize_script_preset(
@@ -131,6 +153,13 @@ def parse_scan_options(data: dict[str, Any] | None) -> dict[str, Any]:
     use_syn = data.get("use_syn", None)
     if use_syn is not None:
         use_syn = bool(use_syn)
+    port_list = normalize_port_list(
+        str(data.get("port_list") or data.get("ports") or "") or None
+    )
+    port_mode = normalize_port_mode(data.get("port_mode"), port_list=port_list)
+    # list mode without a valid list falls back to top
+    if port_mode == PORT_MODE_LIST and not port_list:
+        port_mode = PORT_MODE_TOP
     return {
         "script_preset": preset,
         "vuln_scripts": preset_wants_scripts(preset),  # back-compat flag
@@ -139,9 +168,8 @@ def parse_scan_options(data: dict[str, Any] | None) -> dict[str, Any]:
             data.get("top_ports"), default=DEFAULT_TOP_PORTS
         ),
         "include_udp": bool(data.get("include_udp")),
-        "port_list": normalize_port_list(
-            str(data.get("port_list") or data.get("ports") or "") or None
-        ),
+        "port_list": port_list,
+        "port_mode": port_mode,
         "use_syn": use_syn,
     }
 
@@ -154,6 +182,7 @@ def form_scan_options(
     top_ports: str | int | None = None,
     include_udp: bool = False,
     port_list: str | None = None,
+    port_mode: str | None = None,
     use_syn: bool | None = None,
 ) -> dict[str, Any]:
     """Build options from HTML form fields.
@@ -169,6 +198,7 @@ def form_scan_options(
         "top_ports": top_ports if top_ports is not None else DEFAULT_TOP_PORTS,
         "include_udp": include_udp,
         "port_list": port_list,
+        "port_mode": port_mode,
         "use_syn": use_syn,
     }
     if timing is not ...:
@@ -186,6 +216,7 @@ def dump_scan_options(opts: dict[str, Any]) -> dict[str, Any]:
         "vuln_scripts": bool(norm["vuln_scripts"]),
         "include_udp": bool(norm["include_udp"]),
         "top_ports": int(norm["top_ports"]),
+        "port_mode": norm.get("port_mode") or PORT_MODE_TOP,
     }
     if norm.get("timing") is not None:
         out["timing"] = int(norm["timing"])

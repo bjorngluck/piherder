@@ -16,17 +16,22 @@ from .runtime import worker_online
 BASE_URL_LOCAL = "local://nmap"
 
 
+def _cfg_cidr_list(cfg: dict[str, Any], key: str) -> list[str]:
+    raw = cfg.get(key) or []
+    if isinstance(raw, str):
+        raw = [c.strip() for c in raw.replace("\n", ",").split(",") if c.strip()]
+    return [str(c).strip() for c in raw if str(c).strip()]
+
+
 def parse_nmap_config(integration: Integration) -> dict[str, Any]:
     cfg = reg.parse_config(integration.config_json)
-    cidrs = cfg.get("cidrs") or []
-    if isinstance(cidrs, str):
-        cidrs = [c.strip() for c in cidrs.replace("\n", ",").split(",") if c.strip()]
-    excludes = cfg.get("excludes") or []
-    if isinstance(excludes, str):
-        excludes = [c.strip() for c in excludes.replace("\n", ",").split(",") if c.strip()]
     return {
-        "cidrs": [str(c).strip() for c in cidrs if str(c).strip()],
-        "excludes": [str(c).strip() for c in excludes if str(c).strip()],
+        "cidrs": _cfg_cidr_list(cfg, "cidrs"),
+        "excludes": _cfg_cidr_list(cfg, "excludes"),
+        # Exclude from inventory/detailed/deep only — discovery still allowed
+        "excludes_port_scans": _cfg_cidr_list(cfg, "excludes_port_scans"),
+        # Exclude from deep only
+        "excludes_deep": _cfg_cidr_list(cfg, "excludes_deep"),
         # Default False so reverse DNS hostnames appear in scans (was True = always -n).
         "skip_dns": bool(cfg.get("skip_dns", False)),
         "use_syn": bool(cfg.get("use_syn", False)),
@@ -39,6 +44,8 @@ def dump_nmap_config(
     *,
     cidrs: list[str],
     excludes: list[str] | None = None,
+    excludes_port_scans: list[str] | None = None,
+    excludes_deep: list[str] | None = None,
     skip_dns: bool = False,
     use_syn: bool = False,
     vuln_enabled: bool = False,
@@ -52,11 +59,19 @@ def dump_nmap_config(
         raise ValueError("; ".join(errs))
     ex_ok, ex_errs = validate_cidrs(excludes or [])
     if ex_errs:
-        raise ValueError("; ".join(ex_errs))
+        raise ValueError(f"always exclude: {'; '.join(ex_errs)}")
+    ex_port, ex_port_errs = validate_cidrs(excludes_port_scans or [])
+    if ex_port_errs:
+        raise ValueError(f"port-scan exclude: {'; '.join(ex_port_errs)}")
+    ex_deep, ex_deep_errs = validate_cidrs(excludes_deep or [])
+    if ex_deep_errs:
+        raise ValueError(f"deep exclude: {'; '.join(ex_deep_errs)}")
     return reg.dump_config(
         {
             "cidrs": ok,
             "excludes": ex_ok,
+            "excludes_port_scans": ex_port,
+            "excludes_deep": ex_deep,
             "skip_dns": bool(skip_dns),
             "use_syn": bool(use_syn),
             "vuln_enabled": bool(vuln_enabled),
@@ -71,6 +86,8 @@ def create_nmap(
     name: str = "LAN Discovery",
     cidrs: list[str],
     excludes: list[str] | None = None,
+    excludes_port_scans: list[str] | None = None,
+    excludes_deep: list[str] | None = None,
     skip_dns: bool = False,
     use_syn: bool = False,
     vuln_enabled: bool = False,
@@ -83,6 +100,8 @@ def create_nmap(
     cfg = dump_nmap_config(
         cidrs=cidrs,
         excludes=excludes,
+        excludes_port_scans=excludes_port_scans,
+        excludes_deep=excludes_deep,
         skip_dns=skip_dns,
         use_syn=use_syn,
         vuln_enabled=vuln_enabled,
@@ -112,6 +131,8 @@ def update_nmap(
     name: str,
     cidrs: list[str],
     excludes: list[str] | None = None,
+    excludes_port_scans: list[str] | None = None,
+    excludes_deep: list[str] | None = None,
     skip_dns: bool = False,
     use_syn: bool = False,
     vuln_enabled: bool = False,
@@ -126,6 +147,8 @@ def update_nmap(
     integration.config_json = dump_nmap_config(
         cidrs=cidrs,
         excludes=excludes,
+        excludes_port_scans=excludes_port_scans,
+        excludes_deep=excludes_deep,
         skip_dns=skip_dns,
         use_syn=use_syn,
         vuln_enabled=vuln_enabled,
@@ -246,6 +269,12 @@ def network_view_payload(
             net = "unknown"
         open_ports = _open_ports_summary(d.ports_json, limit=8)
         total_open += len(open_ports) if open_ports else _count_open_ports(d.ports_json)
+        last_intensity = None
+        last_run_id = getattr(d, "last_run_id", None)
+        if last_run_id:
+            run = session.get(NmapScanRun, last_run_id)
+            if run:
+                last_intensity = run.intensity
         node = {
             "id": d.id,
             "ip": d.ip_address,
@@ -256,6 +285,10 @@ def network_view_payload(
             "os": d.os_summary or "",
             "ports_open": _count_open_ports(d.ports_json),
             "services": open_ports,
+            # ports_json is always the latest snapshot that recorded ports
+            # (discovery does not clear a previous inventory/deep snapshot)
+            "ports_source": "latest_snapshot",
+            "last_run_intensity": last_intensity,
             "last_seen_at": (
                 d.last_seen_at.isoformat() + "Z"
                 if getattr(d, "last_seen_at", None)
@@ -279,6 +312,11 @@ def network_view_payload(
         "device_count": sum(len(v) for v in groups.values()),
         "by_state": by_state,
         "open_ports_total": total_open,
+        "ports_note": (
+            "Open ports are the latest snapshot per host (from inventory, detailed, "
+            "or deep). Discovery does not clear prior port data. This is not a merge "
+            "of every historical scan."
+        ),
     }
 
 

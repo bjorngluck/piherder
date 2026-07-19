@@ -14,7 +14,7 @@ from typing import Any, Optional, Sequence
 from sqlmodel import Session
 
 from ...models import Integration, Job, NmapScanRun
-from .allowlist import filter_targets, validate_cidrs
+from .allowlist import effective_excludes, filter_targets, validate_cidrs
 from .argv import INTENSITY_DEEP, build_nmap_argv
 from .job_progress import merge_job_details, stamp_line
 from .parse import parse_nmap_xml
@@ -31,18 +31,24 @@ from .upsert import upsert_hosts_from_parse
 logger = logging.getLogger(__name__)
 
 
-def _integration_cidrs(integration: Integration) -> tuple[list[str], list[str]]:
-    from ..integrations.registry import parse_config
+def _integration_cidrs(
+    integration: Integration,
+    *,
+    intensity: str = "discovery",
+) -> tuple[list[str], list[str]]:
+    """Return (allowed_cidrs, effective_excludes_for_intensity)."""
+    from .config import parse_nmap_config
 
-    cfg = parse_config(integration.config_json)
-    cidrs = cfg.get("cidrs") or cfg.get("lan_cidrs") or []
-    if isinstance(cidrs, str):
-        cidrs = [c.strip() for c in cidrs.split(",") if c.strip()]
-    excludes = cfg.get("excludes") or []
-    if isinstance(excludes, str):
-        excludes = [c.strip() for c in excludes.split(",") if c.strip()]
+    cfg = parse_nmap_config(integration)
+    cidrs = cfg.get("cidrs") or []
     ok, _ = validate_cidrs([str(c) for c in cidrs])
-    ex_ok, _ = validate_cidrs([str(c) for c in excludes])
+    ex = effective_excludes(
+        cfg.get("excludes") or [],
+        intensity=intensity,
+        excludes_port_scans=cfg.get("excludes_port_scans") or [],
+        excludes_deep=cfg.get("excludes_deep") or [],
+    )
+    ex_ok, _ = validate_cidrs([str(c) for c in ex])
     return ok, ex_ok
 
 
@@ -236,6 +242,7 @@ def run_nmap_scan(
     top_ports: int | None = None,
     include_udp: bool = False,
     port_list: str | None = None,
+    port_mode: str | None = None,
     scan_options: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Execute one NmapScanRun. Intended for celery-worker-nmap only.
@@ -272,6 +279,8 @@ def run_nmap_scan(
         opts_in["include_udp"] = True
     if port_list is not None:
         opts_in["port_list"] = port_list
+    if port_mode is not None:
+        opts_in["port_mode"] = port_mode
     if use_syn is not None:
         opts_in["use_syn"] = use_syn
     scan_opts = parse_scan_options(opts_in)
@@ -305,7 +314,9 @@ def run_nmap_scan(
         except Exception:
             targets = []
 
-    allowed, excludes = _integration_cidrs(integration)
+    allowed, excludes = _integration_cidrs(
+        integration, intensity=run.intensity or "discovery"
+    )
     if not allowed:
         run.status = "failed"
         run.error = "no configured LAN CIDRs"
@@ -440,6 +451,8 @@ def run_nmap_scan(
                 top_ports=int(scan_opts.get("top_ports") or 100),
                 timing=scan_opts.get("timing"),
                 port_list=scan_opts.get("port_list"),
+                port_mode=scan_opts.get("port_mode"),
+                exclude_hosts=excludes,
             )
             if want_vuln and bool(cfg.get("vuln_enabled")):
                 argv.extend(_script_args_for_preset(effective_preset))
@@ -671,6 +684,7 @@ def enqueue_nmap_scan(
     top_ports: int | None = None,
     include_udp: bool = False,
     port_list: str | None = None,
+    port_mode: str | None = None,
     scan_options: dict[str, Any] | None = None,
 ) -> tuple[Job, NmapScanRun]:
     """Create Job + NmapScanRun and dispatch to Celery queue ``nmap``.
@@ -694,6 +708,8 @@ def enqueue_nmap_scan(
         opts_in["include_udp"] = True
     if port_list is not None:
         opts_in["port_list"] = port_list
+    if port_mode is not None:
+        opts_in["port_mode"] = port_mode
     if use_syn is not None:
         opts_in["use_syn"] = use_syn
     elif "use_syn" not in opts_in:
@@ -717,6 +733,7 @@ def enqueue_nmap_scan(
                 "top_ports": opts.get("top_ports"),
                 "include_udp": bool(opts.get("include_udp")),
                 "port_list": opts.get("port_list"),
+                "port_mode": opts.get("port_mode"),
                 "schedule_id": schedule_id,
                 "log_lines": [
                     stamp_line(
@@ -724,6 +741,11 @@ def enqueue_nmap_scan(
                         + (
                             f" · preset={opts.get('script_preset')}"
                             if opts.get("vuln_scripts")
+                            else ""
+                        )
+                        + (
+                            f" · ports={opts.get('port_mode')}"
+                            if intensity != "discovery"
                             else ""
                         )
                     )
@@ -757,6 +779,7 @@ def enqueue_nmap_scan(
         "top_ports": opts.get("top_ports"),
         "include_udp": bool(opts.get("include_udp")),
         "port_list": opts.get("port_list"),
+        "port_mode": opts.get("port_mode"),
     }
     if opts.get("use_syn") is not None:
         task_kwargs["use_syn"] = opts["use_syn"]
