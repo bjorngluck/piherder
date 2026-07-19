@@ -157,15 +157,59 @@
   <div class="card p-5 sm:p-6 space-y-4" data-testid="wizard-panel-connect">
     <h2 class="font-semibold text-sm text-text">Connect</h2>
     <p class="text-sm text-muted">
-      Reach the host: deploy the public key (if needed), test login, then clear any one-time password.
+      Install the public key on the host (copy/paste or Deploy), test login, then clear any one-time password.
       Host: <span class="font-mono text-xs text-text">{{ srv.ssh_username }}@{{ srv.hostname }}:{{ srv.ssh_port }}</span>
     </p>
+
+    {# Public key first — primary path when password bootstrap is unavailable #}
+    {% if has_real_public_key and ssh_public_key %}
+    <div class="space-y-2 border border-border rounded p-3 bg-bg" data-testid="wizard-public-key-block">
+      <div class="font-medium text-sm text-text">Public key</div>
+      <p class="text-xs text-muted">
+        Copy this line into <code class="text-[10px]">~/.ssh/authorized_keys</code> on the host
+        (or use the install script below), then <strong class="text-text">Test connection</strong>.
+      </p>
+      <textarea id="wizard-pubkey" readonly
+                data-testid="wizard-public-key"
+                class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-24 resize-y"
+                onclick="this.select()">{{ ssh_public_key }}</textarea>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" class="btn btn-accent text-sm min-h-11"
+                data-testid="wizard-copy-public-key"
+                onclick="wizardCopyTextFrom('wizard-pubkey', this)">Copy public key</button>
+      </div>
+      {% if key_install_script %}
+      <div class="pt-2 border-t border-border mt-2 space-y-2">
+        <div class="font-medium text-sm text-text">Manual install script</div>
+        <p class="text-xs text-muted">Run once on the target host if automated Deploy is not possible.</p>
+        <textarea id="wizard-key-install-script" readonly
+                  data-testid="wizard-key-install-script"
+                  class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-28 resize-y">{{ key_install_script }}</textarea>
+        <button type="button" class="btn btn-secondary text-sm min-h-11"
+                data-testid="wizard-copy-install-script"
+                onclick="wizardCopyTextFrom('wizard-key-install-script', this)">Copy script</button>
+      </div>
+      {% endif %}
+    </div>
+    {% elif has_ssh_key %}
+    <div class="p-3 border border-border rounded bg-bg text-xs text-muted" data-testid="wizard-public-key-missing">
+      A private key is stored, but no copyable public key is available yet.
+      Prefer <strong class="text-text">Trust → Generate keypair</strong>, or open
+      <a href="/servers/{{ srv.id }}?show_ssh_key=1" class="text-accent hover:underline">SSH access</a>.
+    </div>
+    {% else %}
+    <div class="p-3 border border-border rounded bg-bg text-xs text-warning" data-testid="wizard-no-key">
+      No key material yet — go back to <strong>Trust</strong> and generate or upload a key.
+    </div>
+    {% endif %}
 
     <div class="space-y-3 border border-border rounded p-3 bg-bg">
       <form method="post" action="/servers/new/connect/deploy-key" class="space-y-2" data-testid="wizard-form-deploy-key">
         <input type="hidden" name="server_id" value="{{ srv.id }}">
-        <div class="font-medium text-sm text-text">Deploy key</div>
-        <p class="text-xs text-muted">Installs the public key into <code class="text-[10px]">authorized_keys</code> (uses stored password if set).</p>
+        <div class="font-medium text-sm text-text">Deploy key over SSH</div>
+        <p class="text-xs text-muted">
+          Optional if you already installed the key by hand. Uses a one-time password if the key is not accepted yet.
+        </p>
         <input type="password" name="ssh_password" autocomplete="off" placeholder="One-time password if key not working yet"
                class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
                data-testid="wizard-deploy-password">
@@ -217,6 +261,28 @@
       <a href="/servers/new/exit?server_id={{ srv.id }}" class="btn btn-secondary min-h-11" data-testid="wizard-save-exit">Save &amp; exit</a>
     </form>
   </div>
+  <script>
+  function wizardCopyTextFrom(id, btn) {
+    var ta = document.getElementById(id);
+    if (!ta || !ta.value) return;
+    var text = ta.value;
+    var original = btn.innerText;
+    btn.disabled = true;
+    var done = function (ok) {
+      btn.innerText = ok ? 'Copied!' : 'Select + Ctrl+C';
+      setTimeout(function () { btn.innerText = original; btn.disabled = false; }, 1400);
+    };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }).catch(function () {
+        ta.focus(); ta.select();
+        try { done(document.execCommand('copy')); } catch (e) { done(false); }
+      });
+      return;
+    }
+    ta.focus(); ta.select();
+    try { done(document.execCommand('copy')); } catch (e) { done(false); }
+  }
+  </script>
   {% endif %}
 
   {# ── 4 Privilege (stub + least-priv guidance) ───────────────── #}

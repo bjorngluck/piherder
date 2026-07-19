@@ -176,6 +176,16 @@ async def wizard_get(
 
     has_pw = bool(server and (server.ssh_password_encrypted or "").strip())
     has_key = bool(server and (server.ssh_private_key_encrypted or "").strip())
+    pub = (server.ssh_public_key or "").strip() if server else ""
+    has_real_pub = bool(server and ssh_onboarding.is_real_public_key(pub))
+    key_install_script = ""
+    if server and has_real_pub and pub:
+        try:
+            key_install_script = ssh_onboarding.build_key_install_script(
+                pub, username=server.ssh_username or ""
+            )
+        except Exception:
+            key_install_script = ""
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="add_server_wizard.html",
@@ -189,6 +199,9 @@ async def wizard_get(
                 "flash_detail": (detail or "").strip()[:200],
                 "has_ssh_password": has_pw,
                 "has_ssh_key": has_key,
+                "ssh_public_key": pub,
+                "has_real_public_key": has_real_pub,
+                "key_install_script": key_install_script,
             },
         ),
     )

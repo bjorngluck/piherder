@@ -27,7 +27,7 @@ Without a server record you have no place to store the encrypted SSH key, featur
 
 1. **Identity** — display name, hostname/IP, SSH user and port.  
 2. **Trust** — generate a keypair (recommended), or upload a key; optional **one-time password** only to bootstrap key deploy.  
-3. **Connect** — **Deploy key** → **Test connection** until login succeeds → **Clear stored password** when key-only works.  
+3. **Connect** — **view/copy the public key** (or install script) if you install by hand, or **Deploy key** with an optional one-time password → **Test connection** until login succeeds → **Clear stored password** when key-only works.  
 4. **Privilege** — optional least-priv user on Pi OS / Ubuntu; **skip automated least-priv on HAOS** (copy explains).  
 5. **Features** — enable Backups / OS patch / Docker only as needed.  
 6. **Schedules** — prefer **check-only** schedules first; deep edit stays on the server page.  

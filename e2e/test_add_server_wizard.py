@@ -55,7 +55,14 @@ def test_b2_identity_trust_and_connect_ui(admin_page, base_url):
     expect(page.locator('[data-testid="wizard-panel-connect"]')).to_be_visible()
     expect(page.locator('[data-testid="wizard-test-connection"]')).to_be_visible()
     expect(page.locator('[data-testid="wizard-deploy-key"]')).to_be_visible()
-    # Key material never appears as PEM in the page
+    # Public key visible for manual install; private key never in DOM
+    expect(page.locator('[data-testid="wizard-public-key-block"]')).to_be_visible()
+    pub = page.locator('[data-testid="wizard-public-key"]')
+    expect(pub).to_be_visible()
+    pub_val = pub.input_value()
+    assert pub_val.strip()
+    assert "ssh-" in pub_val or "ecdsa-" in pub_val or "sk-" in pub_val
+    expect(page.locator('[data-testid="wizard-copy-public-key"]')).to_be_visible()
     body = page.content()
     assert "BEGIN OPENSSH PRIVATE KEY" not in body
     assert "BEGIN RSA PRIVATE KEY" not in body
