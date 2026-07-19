@@ -2008,16 +2008,19 @@ def enqueue_docker_stack_deploy(
     project_path: str,
     *,
     pull: bool = True,
+    compose_files: list[str] | None = None,
     user_id: int | None = None,
     background_tasks: BackgroundTasks | None = None,
 ) -> Job:
     """Queue a per-project compose deploy (pull + up) as a Job (B07).
 
+    ``compose_files`` — optional basenames for set-scoped deploy (same project).
     Raises JobAlreadyActive if a stack deploy is already pending/running on this host.
     """
     path = (project_path or "").strip()
     if not path:
         raise ValueError("project_path required")
+    files = [str(f).strip() for f in (compose_files or []) if str(f).strip()]
     with _get_fresh_session() as session:
         server = session.get(Server, server_id)
         if not server:
@@ -2033,26 +2036,29 @@ def enqueue_docker_stack_deploy(
             session.expunge(active)
             raise JobAlreadyActive(active)
         proj = _project_basename(path)
+        set_note = f" · -f {','.join(files)}" if files else ""
         job, audit = _create_queued_job_with_audit(
             session,
             server_id=server.id,
             job_type="docker_stack_deploy",
-            queue_message=f"Stack deploy queued for {proj}…",
+            queue_message=f"Stack deploy queued for {proj}{set_note}…",
             user_id=user_id,
-            audit_details=f"Job #{{job_id}} · deploy {proj}",
+            audit_details=f"Job #{{job_id}} · deploy {proj}{set_note}",
             project_path=path,
             project=proj,
             pull=bool(pull),
+            compose_files=files,
         )
         jid, aid, sid = job.id, audit.id, server.id
         do_pull = bool(pull)
+        file_list = list(files)
     if background_tasks is not None:
         background_tasks.add_task(
-            _run_docker_stack_deploy_job, jid, sid, aid, path, do_pull
+            _run_docker_stack_deploy_job, jid, sid, aid, path, do_pull, file_list
         )
     else:
         _update_check_pool.submit(
-            _execute_docker_stack_deploy, jid, sid, aid, path, do_pull
+            _execute_docker_stack_deploy, jid, sid, aid, path, do_pull, file_list
         )
     with _get_fresh_session() as session:
         job = session.get(Job, jid)
@@ -2241,12 +2247,15 @@ def _execute_docker_stack_deploy(
     audit_id: int,
     project_path: str,
     pull: bool = True,
+    compose_files: list[str] | None = None,
 ) -> None:
     from .. import docker_management as docker_svc
 
     server, hostname = _load_server_for_job(server_id)
     path = (project_path or "").strip()
     proj = _project_basename(path)
+    files = [str(f).strip() for f in (compose_files or []) if str(f).strip()]
+    set_note = f" -f {','.join(files)}" if files else ""
     with _get_fresh_session() as session:
         job = session.get(Job, job_id)
         if job:
@@ -2255,7 +2264,7 @@ def _execute_docker_stack_deploy(
             _merge_job_details(
                 job,
                 current="deploying",
-                log_line=f"Deploying {proj} (pull={pull})…",
+                log_line=f"Deploying {proj}{set_note} (pull={pull})…",
                 done=False,
             )
             session.add(job)
@@ -2266,12 +2275,17 @@ def _execute_docker_stack_deploy(
     try:
         if pull:
             _flush_job_progress(
-                job_id, "pulling", "docker compose pull…", default_current="deploying"
+                job_id, "pulling", f"docker compose{set_note} pull…", default_current="deploying"
             )
         _flush_job_progress(
-            job_id, "up", "docker compose up -d…", default_current="deploying"
+            job_id, "up", f"docker compose{set_note} up -d…", default_current="deploying"
         )
-        result = docker_svc.redeploy_project(server, path, pull=pull) or {}
+        result = (
+            docker_svc.redeploy_project(
+                server, path, pull=pull, compose_files=files or None
+            )
+            or {}
+        )
         _append_output_log_lines(job_id, "deploying", result.get("output") or "")
         ok = bool(result.get("success"))
         with _get_fresh_session() as s:
@@ -2280,6 +2294,7 @@ def _execute_docker_stack_deploy(
             "project": proj,
             "project_path": path,
             "pull": pull,
+            "compose_files": files,
             "success": ok,
             "pull_status": result.get("pull_status"),
             "up_status": result.get("up_status"),
@@ -2314,9 +2329,16 @@ async def _run_docker_stack_deploy_job(
     audit_id: int,
     project_path: str,
     pull: bool = True,
+    compose_files: list[str] | None = None,
 ):
     await run_in_threadpool(
-        _execute_docker_stack_deploy, job_id, server_id, audit_id, project_path, pull
+        _execute_docker_stack_deploy,
+        job_id,
+        server_id,
+        audit_id,
+        project_path,
+        pull,
+        compose_files,
     )
 
 

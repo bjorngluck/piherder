@@ -23,10 +23,10 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 
 - SSH key management with encrypted private keys
 - Backups, OS patching, container patching with schedules
-- Docker Compose browser, multi-file editing, inventory cache
+- Docker Compose browser, multi-file editing, **compose sets** (multiple compose files under one project), inventory cache
 - Service templates (deploy wizard, variables, preview/confirm)
 - Integrations: Uptime Kuma, Grafana, Pi-hole (v6), Nginx Proxy Manager + cert management
-- Network Maps (DNS fabric, logical/physical topology, service paths)
+- Network Maps (DNS fabric, logical/physical topology, service paths, runtime stack view groups)
 - PWA + Web Push notifications
 - RBAC, 2FA, audit trail, self-backup with full DR
 - Token REST API for automation (n8n, Home Assistant, etc.)

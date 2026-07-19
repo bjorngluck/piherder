@@ -1,69 +1,81 @@
-# E2E stack override — isolated project, no Caddy/Celery, fixed synthetic secrets.
+# Compose set "e2e" — same project folder / compose project as main.
+# Not a second stack card in PiHerder Docker view.
 #
-# Local:
-#   ./scripts/e2e-up.sh
-#   pytest e2e -q
-#   ./scripts/e2e-down.sh
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d
+#   docker compose -f docker-compose.e2e.yml up -d   # set-only (still -p piherder)
 #
-# Use with an explicit project name so volumes never touch a dev stack:
-#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml -p piherder-e2e …
-
-name: piherder-e2e
+# Playwright still points at http://127.0.0.1:18000
 
 services:
-  web:
-    # No fixed container_name clash with a concurrent dev stack
-    container_name: piherder-e2e-web
-    # Host 18000 avoids clashing with a normal dev stack on 8000
-    ports: !override
-      - "${PIHERDER_E2E_HOST_PORT:-18000}:8000"
+  e2e-db:
+    image: postgres:16-alpine
+    container_name: piherder-e2e-db
     environment:
-      # Synthetic only — never use for production
+      - POSTGRES_USER=piherder
+      - POSTGRES_PASSWORD=piherder
+      - POSTGRES_DB=piherder
+    volumes:
+      - e2e_postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U piherder"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  e2e-redis:
+    image: redis:7-alpine
+    container_name: piherder-e2e-redis
+    restart: unless-stopped
+    volumes:
+      - e2e_redis_data:/data
+
+  e2e-web:
+    image: ${PIHERDER_IMAGE:-piherder:local}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: piherder-e2e-web
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
+    ports:
+      - "18000:8000"
+    environment:
       PIHERDER_MASTER_KEY: ${PIHERDER_E2E_MASTER_KEY:-IvJBhp2Ph5UNKZPyvIdwO5qanN854FobUZqh_frSb2U=}
       SECRET_KEY: ${PIHERDER_E2E_SECRET_KEY:-e2e-secret-key-not-for-production-use}
-      DATABASE_URL: postgresql://piherder:piherder@db:5432/piherder
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://piherder:piherder@e2e-db:5432/piherder
+      CELERY_BROKER_URL: redis://e2e-redis:6379/0
+      CELERY_RESULT_BACKEND: redis://e2e-redis:6379/0
+      REDIS_URL: redis://e2e-redis:6379/0
+      DATA_ROOT: /data
+      BACKUP_ROOT: /backups
+      HERDER_BACKUP_ROOT: /herder_backups
       ALLOW_OPEN_REGISTRATION: "false"
       PIHERDER_UPDATE_CHECK: "false"
       COOKIE_SECURE: "false"
-      # Avoid needing a real Caddy admin for page loads
       CADDY_ADMIN_URL: ""
-    volumes: !override
+      TZ: ${TZ:-Etc/UTC}
+    volumes:
       - e2e_backups:/backups
       - e2e_herder_backups:/herder_backups
       - e2e_data:/data
       - e2e_certs:/certs
+    depends_on:
+      e2e-db:
+        condition: service_healthy
+      e2e-redis:
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 30
       start_period: 45s
-
-  # E2E shell tests do not need workers or edge TLS
-  celery-worker:
-    container_name: piherder-e2e-celery
-    profiles: ["e2e-full"]
-  caddy:
-    container_name: piherder-e2e-caddy
-    profiles: ["e2e-full"]
-
-  db:
-    container_name: piherder-e2e-db
-    volumes: !override
-      - e2e_postgres:/var/lib/postgresql/data
-
-  redis:
-    container_name: piherder-e2e-redis
-    volumes: !override
-      - e2e_redis:/data
+    restart: unless-stopped
 
 volumes:
+  e2e_postgres_data:
+  e2e_redis_data:
   e2e_backups:
   e2e_herder_backups:
   e2e_data:
   e2e_certs:
-  e2e_postgres:
-  e2e_redis:

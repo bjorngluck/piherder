@@ -161,27 +161,34 @@
 
     function afterSaveOk() {
       flashSaved();
+      var sid = list.getAttribute('data-service-id');
+      var vs = list.getAttribute('data-visual-stack') || 'all';
       if (window.PiHerderStackExpand && window.PiHerderStackExpand.invalidate) {
-        var sid = list.getAttribute('data-service-id');
         window.PiHerderStackExpand.invalidate(sid || null);
         if (sid && window.PiHerderStackExpand.show) {
           try {
-            window.PiHerderStackExpand.show(sid);
+            window.PiHerderStackExpand.show(sid, vs);
           } catch (err) {}
         }
       }
       // Soft reload panel so "custom order on" + server order stick
-      var q = list.getAttribute('data-service-id');
-      var url = q
-        ? '/dns/stack-panel?service_id=' + encodeURIComponent(q)
-        : '/dns/stack-panel?server_id=' +
-          encodeURIComponent(list.getAttribute('data-server-id') || '') +
-          '&project=' +
-          encodeURIComponent(list.getAttribute('data-project') || '');
-      // slight delay so user sees badges settle before HTMX-style reload
+      var url = panelUrlFromList(list);
       setTimeout(function () {
         loadStack(url);
       }, 120);
+    }
+
+    function panelUrlFromList(el) {
+      var q = el.getAttribute('data-service-id');
+      var vs = el.getAttribute('data-visual-stack') || 'all';
+      var url = q
+        ? '/dns/stack-panel?service_id=' + encodeURIComponent(q)
+        : '/dns/stack-panel?server_id=' +
+          encodeURIComponent(el.getAttribute('data-server-id') || '') +
+          '&project=' +
+          encodeURIComponent(el.getAttribute('data-project') || '');
+      if (vs && vs !== 'all') url += '&visual_stack=' + encodeURIComponent(vs);
+      return url;
     }
 
     function buildOrderForm(order) {
@@ -452,6 +459,16 @@
           html ||
           '<p class="text-sm text-muted mb-0">Empty response.</p>';
         initSortable(body);
+        initAjaxForms(body);
+        syncMapFromPanel(body);
+        // Panel is injected via fetch, not HTMX swap — rebind hx-* if present
+        if (window.htmx && typeof window.htmx.process === 'function') {
+          try {
+            window.htmx.process(body);
+          } catch (err) {
+            /* ignore */
+          }
+        }
         lastOpenUrl = '';
         lastOpenAt = 0;
       })
@@ -487,6 +504,37 @@
       e.preventDefault();
       e.stopPropagation();
       closeDrawer();
+      return true;
+    }
+
+    // View-group switches inside the loaded panel (not HTMX-bound)
+    var body = bodyEl();
+    var panelNav = t.closest('[data-stack-url]');
+    if (
+      panelNav &&
+      body &&
+      body.contains(panelNav) &&
+      !panelNav.hasAttribute('data-fabric-stack-open')
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      var navUrl = (panelNav.getAttribute('data-stack-url') || '').trim();
+      if (navUrl) {
+        loadStack(navUrl);
+        // Map follows the same view-group filter (All = multi-fan when assigned)
+        try {
+          var u = new URL(navUrl, window.location.origin);
+          var sid =
+            u.searchParams.get('service_id') ||
+            (body.querySelector('[data-service-id]') &&
+              body.querySelector('[data-service-id]').getAttribute('data-service-id'));
+          var vs = u.searchParams.get('visual_stack') || 'all';
+          if (sid && window.PiHerderStackExpand) {
+            window.PiHerderStackExpand.invalidate(sid);
+            window.PiHerderStackExpand.show(sid, vs);
+          }
+        } catch (err) {}
+      }
       return true;
     }
 
@@ -543,6 +591,101 @@
     document.addEventListener('DOMContentLoaded', bootFromQuery);
   } else {
     bootFromQuery();
+  }
+
+  function syncMapFromPanel(root) {
+    try {
+      var list =
+        (root || bodyEl() || document).querySelector('[data-stack-sortable]') ||
+        (root || bodyEl() || document).querySelector('.fabric-stack-viewgroups');
+      if (!list) return;
+      var sid =
+        list.getAttribute('data-service-id') ||
+        (root &&
+          root.querySelector &&
+          root.querySelector('[data-service-id]') &&
+          root.querySelector('[data-service-id]').getAttribute('data-service-id'));
+      var vs =
+        list.getAttribute('data-visual-stack') ||
+        list.getAttribute('data-active-visual') ||
+        'all';
+      if (sid && window.PiHerderStackExpand) {
+        window.PiHerderStackExpand.invalidate(sid);
+        window.PiHerderStackExpand.show(sid, vs);
+      }
+    } catch (err) {}
+  }
+
+  function initAjaxForms(root) {
+    var scope = root || bodyEl() || document;
+    scope.querySelectorAll('form[data-stack-ajax-form="1"]').forEach(function (form) {
+      if (form.dataset.ajaxBound === '1') return;
+      form.dataset.ajaxBound = '1';
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var fd = new FormData(form);
+        var action = form.getAttribute('action') || '';
+        fetch(action, {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        })
+          .then(function (r) {
+            return r.json().then(function (data) {
+              if (!r.ok || (data && data.ok === false)) {
+                throw new Error((data && data.error) || 'Save failed');
+              }
+              return data;
+            });
+          })
+          .then(function () {
+            var list = scope.querySelector('[data-stack-sortable]') || form;
+            var sid =
+              (scope.querySelector('[data-service-id]') &&
+                scope.querySelector('[data-service-id]').getAttribute('data-service-id')) ||
+              '';
+            var vs =
+              (scope.querySelector('[data-visual-stack]') &&
+                scope.querySelector('[data-visual-stack]').getAttribute('data-visual-stack')) ||
+              (scope.querySelector('[data-active-visual]') &&
+                scope
+                  .querySelector('[data-active-visual]')
+                  .getAttribute('data-active-visual')) ||
+              'all';
+            var url;
+            if (sid) {
+              url =
+                '/dns/stack-panel?service_id=' +
+                encodeURIComponent(sid) +
+                (vs && vs !== 'all' ? '&visual_stack=' + encodeURIComponent(vs) : '');
+            } else {
+              var srv =
+                fd.get('server_id') ||
+                (list && list.getAttribute('data-server-id')) ||
+                '';
+              var proj =
+                fd.get('project') ||
+                (list && list.getAttribute('data-project')) ||
+                '';
+              url =
+                '/dns/stack-panel?server_id=' +
+                encodeURIComponent(srv) +
+                '&project=' +
+                encodeURIComponent(proj) +
+                (vs && vs !== 'all' ? '&visual_stack=' + encodeURIComponent(vs) : '');
+            }
+            if (sid && window.PiHerderStackExpand) {
+              window.PiHerderStackExpand.invalidate(sid);
+            }
+            loadStack(url);
+          })
+          .catch(function (err) {
+            alert(err && err.message ? err.message : 'Save failed');
+          });
+      });
+    });
   }
 
   window.PiHerderStackPanel = {

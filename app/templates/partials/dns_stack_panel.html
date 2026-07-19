@@ -15,7 +15,8 @@
       </h2>
       <p class="text-xs text-muted mt-0.5">
         {% if p.project %}
-        project <span class="font-mono text-text">{{ p.project }}</span>
+        <span class="font-mono text-accent">{{ p.project }}</span>
+        <span class="text-muted">· compose project</span>
         {% else %}
         <span class="text-warning">no Docker project linked</span>
         {% endif %}
@@ -100,11 +101,18 @@
     {% endif %}
     {% if p.summary.suggested_edges %}
     <span class="text-muted">·</span>
-    <span>{{ p.summary.suggested_edges }} link{{ 's' if p.summary.suggested_edges != 1 else '' }}</span>
+    <a href="#fabric-stack-suggested-links" class="fabric-stack-status-pill fabric-stack-status-pill--links"
+       title="Jump to suggested container links">{{ p.summary.suggested_edges }} suggested</a>
     {% endif %}
     {% if p.summary.has_compose_graph %}
     <span class="text-muted">·</span>
-    <span class="text-success" title="depends_on from compose in inventory">compose graph</span>
+    {% if p.summary.suggested_edges %}
+    <a href="#fabric-stack-suggested-links" class="fabric-stack-status-pill fabric-stack-status-pill--compose"
+       title="Inventory has docker-compose depends_on for this project — used to suggest links below">depends_on</a>
+    {% else %}
+    <span class="fabric-stack-status-pill fabric-stack-status-pill--compose"
+          title="Inventory has docker-compose depends_on for this project — used to suggest links when present">depends_on</span>
+    {% endif %}
     {% endif %}
     {% if p.inventory_status and p.inventory_status != 'ok' %}
     <span class="text-muted">·</span>
@@ -121,18 +129,14 @@
       This path has no Docker project. Map a project on the service, or open Docker on the host.
     </p>
     {% if p.projects_available %}
-    <p class="text-xs text-muted mt-2 mb-1">Projects on {{ p.server_name }}:</p>
-    <ul class="space-y-1">
+    <p class="text-xs text-muted mt-2 mb-1">Compose projects on {{ p.server_name }}:</p>
+    <div class="flex flex-wrap gap-1.5">
       {% for pname in p.projects_available %}
-      <li>
-        <button type="button"
-                class="btn btn-ghost text-xs min-h-9 px-2 font-mono"
-                hx-get="/dns/stack-panel?server_id={{ p.server_id }}&project={{ pname|urlencode }}"
-                hx-target="#fabric-stack-panel-body"
-                hx-swap="innerHTML">{{ pname }}</button>
-      </li>
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-10 px-3 font-mono"
+              data-stack-url="/dns/stack-panel?server_id={{ p.server_id }}&project={{ pname|urlencode }}">{{ pname }}</button>
       {% endfor %}
-    </ul>
+    </div>
     {% endif %}
   </div>
   {% elif not p.has_inventory %}
@@ -149,35 +153,90 @@
       Project <span class="font-mono">{{ p.project }}</span> not in last inventory.
     </p>
     {% if p.projects_available %}
-    <p class="text-xs text-muted mt-2 mb-1">Available:</p>
-    <ul class="space-y-1">
+    <p class="text-xs text-muted mt-2 mb-1">Available projects:</p>
+    <div class="flex flex-wrap gap-1.5">
       {% for pname in p.projects_available %}
-      <li>
-        <button type="button"
-                class="btn btn-ghost text-xs min-h-9 px-2 font-mono"
-                hx-get="/dns/stack-panel?{% if p.service_id %}service_id={{ p.service_id }}&{% endif %}server_id={{ p.server_id }}&project={{ pname|urlencode }}"
-                hx-target="#fabric-stack-panel-body"
-                hx-swap="innerHTML">{{ pname }}</button>
-      </li>
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-10 px-3 font-mono"
+              data-stack-url="/dns/stack-panel?server_id={{ p.server_id }}&project={{ pname|urlencode }}">{{ pname }}</button>
       {% endfor %}
-    </ul>
+    </div>
     {% endif %}
   </div>
-  {% elif not p.containers %}
-  <div class="fabric-stack-empty mt-3">
-    <p class="text-sm text-muted">No containers in this project snapshot.</p>
-  </div>
   {% else %}
+
   {% if p.compose_path or p.networks %}
   <div class="text-[10px] text-muted mb-2 leading-snug">
     {% if p.compose_path %}<span class="font-mono">{{ p.compose_path }}</span>{% endif %}
     {% if p.networks %} · nets {{ p.networks | join(', ') }}{% endif %}
   </div>
   {% endif %}
+
+  {# ── View groups: logical presentation *within* this compose project ── #}
+  {% if p.project %}
+  {% set _avs = p.active_visual_stack if p.active_visual_stack is not none else 'all' %}
+  {% set _all_active = (_avs == 'all') %}
+  {% set _main_active = (_avs == 'main') %}
+  {% set _base_q = p.base_query or p.refresh_query %}
+  <div class="mb-3 fabric-stack-viewgroups"
+       data-service-id="{{ p.service_id or '' }}"
+       data-active-visual="{{ _avs }}">
+    <div class="text-[10px] uppercase tracking-wide text-muted font-semibold mb-1.5">
+      View groups
+      <span class="font-normal normal-case text-muted">· display only</span>
+    </div>
+    <div class="fabric-stack-pills" role="tablist" aria-label="View groups in this stack">
+      <button type="button"
+              class="fabric-stack-pill {% if _all_active %}is-active{% endif %}"
+              title="Show every container; map draws one fan per view group that has members"
+              data-stack-url="/dns/stack-panel?{{ _base_q }}&visual_stack=all"
+              data-visual-stack="all">All</button>
+      {% for vs in p.visual_stacks or [] %}
+      {% set vs_q = 'main' if vs.id is none else vs.id %}
+      {% set is_active = (_main_active and vs.id is none) or ((not _all_active) and (not _main_active) and (_avs == vs.id or _avs|string == vs_q|string)) %}
+      <button type="button"
+              class="fabric-stack-pill {% if is_active %}is-active{% endif %}"
+              data-stack-url="/dns/stack-panel?{{ _base_q }}&visual_stack={{ vs_q }}"
+              data-visual-stack="{{ vs_q }}">{{ vs.name }}</button>
+      {% endfor %}
+    </div>
+    {% if can_mutate %}
+    <details class="fabric-stack-visual-create mt-2">
+      <summary class="text-[11px] text-accent cursor-pointer font-medium">+ New view group</summary>
+      <form method="post" action="/dns/visual-stacks" class="mt-1.5 flex flex-wrap gap-1.5 items-end"
+            data-stack-ajax-form="1">
+        <input type="hidden" name="server_id" value="{{ p.server_id }}">
+        <input type="hidden" name="project" value="{{ p.project }}">
+        <input type="hidden" name="service_id" value="{{ p.service_id or '' }}">
+        <input type="hidden" name="next" value="{{ p.next_url }}">
+        <input type="text" name="name" class="input text-xs min-h-9 flex-1 min-w-[8rem]"
+               placeholder="e.g. Core / Data plane / Helpers" required maxlength="120">
+        <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2">Create</button>
+      </form>
+      <p class="text-[10px] text-muted mt-1">
+        Does not change Docker deploys. Assign containers via <strong>View group</strong> on each row, then open the map — <strong>All</strong> shows each group as its own fan.
+      </p>
+    </details>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if not p.containers %}
+  <div class="fabric-stack-empty mt-3">
+    <p class="text-sm text-muted">
+      {% if p.active_visual_stack and p.active_visual_stack != 'all' %}
+      No containers in this view group{% if p.active_visual_stack == 'main' %} (Main = unassigned only){% endif %}.
+      Switch to <strong>All</strong> and assign containers, or leave them on Main.
+      {% else %}
+      No containers in this project snapshot.
+      {% endif %}
+    </p>
+  </div>
+  {% else %}
+
   {% if can_mutate %}
   <p class="text-[10px] text-muted mb-2 leading-snug">
-    <strong class="text-text">Drag ⋮⋮</strong> (desktop) or <strong class="text-text">long-press</strong> a row (mobile) to reorder.
-    Saved order sorts the panel and the map column left→right (e.g. celery last → queue column on the right). data keeps db+redis together.
+    <strong class="text-text">Drag ⋮⋮</strong> reorder · <strong class="text-text">category</strong> = map columns · <strong class="text-text">tags</strong> = chips · <strong class="text-text">view group</strong> = which fan on the map.
     {% if p.has_custom_order %}<span class="text-success"> · custom order on</span>{% endif %}
   </p>
   {% endif %}
@@ -186,6 +245,7 @@
       data-server-id="{{ p.server_id }}"
       data-project="{{ p.project }}"
       data-service-id="{{ p.service_id or '' }}"
+      data-visual-stack="{{ p.active_visual_stack if p.active_visual_stack is not none else 'all' }}"
       data-next="{{ p.next_url }}"
       data-can-reorder="{{ '1' if can_mutate else '0' }}">
     {% for c in p.containers %}
@@ -208,8 +268,16 @@
             <div class="flex flex-wrap items-center gap-1.5 min-w-0">
               <span class="fabric-stack-run {% if c.running %}is-up{% else %}is-down{% endif %}"
                     title="{% if c.running %}running{% else %}stopped{% endif %}"></span>
-              <span class="font-mono text-sm font-medium truncate">{{ ckey }}</span>
-              <span class="fabric-stack-role fabric-stack-role--{{ c.role }}">{{ c.role_label or c.role }}</span>
+              {# Primary: unique container name (piherder-web vs piherder-e2e-web) #}
+              <span class="font-mono text-sm font-medium truncate" title="container name">{{ c.container_name or ckey }}</span>
+              {% if ckey and c.container_name and c.container_name != ckey %}
+              <span class="text-[10px] font-mono text-muted" title="compose service">svc:{{ ckey }}</span>
+              {% endif %}
+              <span class="fabric-stack-role fabric-stack-role--{{ c.role }}" title="Category{% if c.category_is_override %} (set){% else %} (heuristic){% endif %}">{{ c.role_label or c.role }}</span>
+              <span class="fabric-stack-viewgroup" title="View group (display only)">{{ c.visual_stack_name or 'Main' }}</span>
+              {% for t in c.tags or [] %}
+              <span class="fabric-stack-tag">{{ t }}</span>
+              {% endfor %}
               {% if c.mon_status == 'covered' %}
               <span class="text-[10px] text-success font-medium" title="Kuma bound{% if c.kuma_state %}: {{ c.kuma_state }}{% endif %}">Kuma{% if c.kuma_state %} · {{ c.kuma_state }}{% endif %}</span>
               {% elif c.mon_status == 'muted' %}
@@ -222,17 +290,24 @@
               {% if not c.running %}<span class="text-[10px] text-warning font-medium">stopped</span>{% endif %}
             </div>
             <div class="text-[10px] font-mono text-muted mt-0.5">
-              {% if c.ports %}ports {{ c.ports | join(', ') }}{% else %}ports —{% endif %}
-              · {{ (c.image or '—')[:48] }}
+              <span class="text-text">{{ c.compose_project or p.project }}</span>
+              {% if c.networks %} · net {{ c.networks | join(', ') }}{% endif %}
+              · {% if c.ports_display and c.ports_display != '—' %}{{ c.ports_display[:50] }}{% elif c.ports %}ports {{ c.ports | join(', ') }}{% else %}no host ports{% endif %}
             </div>
           </div>
         </summary>
         <div class="fabric-stack-detail-body">
           <dl class="fabric-stack-dl">
-            <div><dt>Role</dt><dd>{{ c.role_label or c.role }}{% if c.is_infra %} · infra{% endif %}</dd></div>
+            <div><dt>Identity</dt><dd class="font-mono text-[11px] leading-relaxed">
+              <div>project <strong class="text-accent">{{ c.compose_project or p.project }}</strong></div>
+              <div>container <strong>{{ c.container_name or c.name or '—' }}</strong></div>
+              <div>service <strong>{{ ckey }}</strong> · view group <strong>{{ c.visual_stack_name or 'Main' }}</strong></div>
+            </dd></div>
+            <div><dt>Category</dt><dd>{{ c.role_label or c.role }}{% if c.category_is_override %} · set{% else %} · auto{% endif %}{% if c.is_infra %} · infra{% endif %}</dd></div>
+            <div><dt>Tags</dt><dd>{% if c.tags %}{{ c.tags | join(', ') }}{% else %}<span class="text-muted">—</span>{% endif %}</dd></div>
             <div><dt>State</dt><dd>{% if c.running %}<span class="text-success">running</span>{% else %}<span class="text-warning">stopped</span>{% endif %}{% if c.status %} · {{ c.status }}{% endif %}</dd></div>
             <div><dt>Image</dt><dd class="font-mono break-all">{{ c.image or '—' }}{% if c.version %} · {{ c.version }}{% endif %}</dd></div>
-            <div><dt>Ports</dt><dd class="font-mono">{% if c.ports %}{{ c.ports | join(', ') }}{% elif c.ports_display %}{{ c.ports_display }}{% else %}—{% endif %}</dd></div>
+            <div><dt>Ports</dt><dd class="font-mono text-[11px]">{% if c.ports_display and c.ports_display != '—' %}{{ c.ports_display }}{% elif c.ports %}{{ c.ports | join(', ') }}{% else %}<span class="text-muted">no host publish (internal {{ '5432/6379-style' if c.role in ('data','cache') else 'only' }})</span>{% endif %}</dd></div>
             <div><dt>Networks</dt><dd class="font-mono">{% if c.networks %}{{ c.networks | join(', ') }}{% else %}—{% endif %}</dd></div>
             <div><dt>Compose</dt><dd class="font-mono break-all text-[10px]">{{ c.compose_file or c.compose_path or '—' }}</dd></div>
             <div><dt>Kuma</dt><dd>
@@ -247,6 +322,56 @@
             </dd></div>
             {% if c.id_short %}<div><dt>ID</dt><dd class="font-mono">{{ c.id_short }}</dd></div>{% endif %}
           </dl>
+          {% if can_mutate and p.project %}
+          <form method="post" action="/dns/container-annotation"
+                class="fabric-stack-annotate mt-2 space-y-1.5 border-t border-border pt-2"
+                data-stack-ajax-form="1">
+            <input type="hidden" name="server_id" value="{{ p.server_id }}">
+            <input type="hidden" name="project" value="{{ p.project }}">
+            <input type="hidden" name="container_key" value="{{ ckey }}">
+            <input type="hidden" name="service_id" value="{{ p.service_id or '' }}">
+            <input type="hidden" name="next" value="{{ p.next_url }}">
+            <p class="text-[10px] text-muted leading-snug">
+              Labels for <strong class="font-mono text-text">{{ c.container_name or ckey }}</strong>
+              (service <span class="font-mono">{{ ckey }}</span>) — presentation only.
+            </p>
+            {# empty category + clear_category=1 → heuristic #}
+            <input type="hidden" name="clear_category" value="{% if c.category_key %}0{% else %}1{% endif %}">
+            <label class="block text-[10px] text-muted font-medium">Category
+              <select name="category_key" class="input text-xs min-h-9 w-full mt-0.5"
+                      onchange="var h=this.form.querySelector('[name=clear_category]'); if(h) h.value=this.value?'0':'1';">
+                <option value="" {% if not c.category_key %}selected{% endif %}>— auto (heuristic) —</option>
+                {% for cat in p.categories or [] %}
+                <option value="{{ cat.key }}" {% if c.category_key == cat.key %}selected{% endif %}>{{ cat.label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <fieldset class="text-[10px]">
+              <legend class="text-muted font-medium mb-0.5">Tags</legend>
+              <div class="flex flex-wrap gap-x-2 gap-y-1">
+                {% for t in p.tags_vocab or [] %}
+                <label class="inline-flex items-center gap-1 cursor-pointer">
+                  <input type="checkbox" name="tags" value="{{ t.key }}"
+                         {% if t.key in (c.tags or []) %}checked{% endif %}
+                         class="rounded border-border">
+                  <span>{{ t.label }}</span>
+                </label>
+                {% endfor %}
+              </div>
+            </fieldset>
+            <label class="block text-[10px] text-muted font-medium">View group
+              <select name="visual_stack_id" class="input text-xs min-h-9 w-full mt-0.5">
+                {% for vs in p.visual_stacks or [] %}
+                <option value="{% if vs.id is none %}main{% else %}{{ vs.id }}{% endif %}"
+                  {% if (c.visual_stack_id is none and vs.id is none) or (c.visual_stack_id == vs.id) %}selected{% endif %}>
+                  {{ vs.name }}
+                </option>
+                {% endfor %}
+              </select>
+            </label>
+            <button type="submit" class="btn btn-accent text-xs min-h-9 w-full">Save labels</button>
+          </form>
+          {% endif %}
           <div class="flex flex-wrap gap-1 mt-2">
             {% if c.docker_href %}
             <a href="{{ c.docker_href }}" class="btn btn-secondary text-[10px] min-h-8 px-2">Docker</a>
@@ -337,7 +462,7 @@
   {% endif %}
 
   {% if p.suggested_edges %}
-  <div class="fabric-stack-edges mt-4">
+  <div class="fabric-stack-edges mt-4" id="fabric-stack-suggested-links">
     <div class="text-[10px] uppercase tracking-wide text-muted font-semibold mb-1.5">
       Suggested links ({{ p.suggested_edges|length }})
     </div>
@@ -467,6 +592,7 @@
   <p class="text-[10px] text-muted mt-2 leading-snug">
     Monitoring stays in Kuma. Drawing confirmed links on the path map is P4.
   </p>
-  {% endif %}
+  {% endif %}{# containers present #}
+  {% endif %}{# project found with inventory #}
 </div>
 {% endif %}

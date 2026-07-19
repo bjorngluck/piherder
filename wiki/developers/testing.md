@@ -30,25 +30,30 @@ docker compose exec -T web python -m pytest tests/test_dns_fabric.py -q
 pip install "pytest-playwright>=0.5"
 playwright install chromium
 
-# Isolated stack (port 18000, separate volumes — does not use your dev DB)
+# Compose set docker-compose.e2e.yml under project piherder (port 18000, own volumes)
+# Same folder as main — not a separate Docker project card. Does not use the main app DB.
 ./scripts/e2e-up.sh
 export PIHERDER_E2E_BASE_URL=http://127.0.0.1:18000
 pytest e2e -q --browser chromium
-./scripts/e2e-down.sh
+./scripts/e2e-down.sh          # stop e2e set services; main stack left alone
+./scripts/e2e-down.sh --volumes  # also wipe e2e volumes
 ```
 
 - **Chromium only** for 0.7  
 - Seed admin: `e2e@piherder.test` / `E2eTestPass1` (auto-register on empty e2e DB)  
 - No live SSH to fleet hosts  
+- **Compose set:** services `e2e-web` / `e2e-db` / `e2e-redis` in `docker-compose.e2e.yml` ([Compose sets](../docker/overview.md#compose-sets-same-folder-one-project-card))  
 - **Phase A (landed):** login, primary nav, Catalog tabs, theme toggle, logout — `e2e/test_shell_login.py`, `e2e/test_shell_nav.py`  
 - **Phase B (landed):** open wizard, identity→trust, save & exit, clear-password, advanced form — `e2e/test_add_server_wizard.py`  
+
+Related unit coverage: `tests/test_compose_sets.py`, `tests/test_container_annotations.py`, `tests/test_nest_projects.py`.
 
 ## CI
 
 | Job | When | What |
 |-----|------|------|
 | Unit | push/PR (app, tests, migrations, locks) | [`.github/workflows/test.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/test.yml) — hashed lock + `pytest -q` |
-| **E2E** | push/PR (app, e2e, compose, Dockerfile, …) | [`.github/workflows/e2e.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/e2e.yml) — compose e2e stack + Playwright Chromium |
+| **E2E** | push/PR (app, e2e, compose, Dockerfile, …) | [`.github/workflows/e2e.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/e2e.yml) — e2e compose set + Playwright Chromium |
 | Docs | wiki / mkdocs changes | [`.github/workflows/docs.yml`](https://github.com/bjorngluck/piherder/blob/main/.github/workflows/docs.yml) |
 
 ## Before a release

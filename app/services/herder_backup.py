@@ -241,6 +241,36 @@ def _snapshot_runtime_edges() -> List[Dict[str, Any]]:
     return _snapshot_table(RuntimeEdge)
 
 
+def _snapshot_topology_categories() -> List[Dict[str, Any]]:
+    from ..models import TopologyCategory
+
+    return _snapshot_table(TopologyCategory)
+
+
+def _snapshot_topology_tags() -> List[Dict[str, Any]]:
+    from ..models import TopologyTag
+
+    return _snapshot_table(TopologyTag)
+
+
+def _snapshot_visual_service_stacks() -> List[Dict[str, Any]]:
+    from ..models import VisualServiceStack
+
+    return _snapshot_table(VisualServiceStack)
+
+
+def _snapshot_container_annotations() -> List[Dict[str, Any]]:
+    from ..models import ContainerAnnotation
+
+    return _snapshot_table(ContainerAnnotation)
+
+
+def _snapshot_container_annotation_tags() -> List[Dict[str, Any]]:
+    from ..models import ContainerAnnotationTag
+
+    return _snapshot_table(ContainerAnnotationTag)
+
+
 def _snapshot_audit(since_days: Optional[int] = None) -> List[Dict[str, Any]]:
     with Session(engine) as s:
         q = select(AuditLog).order_by(AuditLog.started_at.desc())
@@ -312,6 +342,11 @@ def _build_backup_payload(
             "stack_deployments",
             "service_dns_records",
             "runtime_edges",
+            "topology_categories",
+            "topology_tags",
+            "visual_service_stacks",
+            "container_annotations",
+            "container_annotation_tags",
             "herder_config",
             "avatars",
             "service_logos",
@@ -339,6 +374,11 @@ def _build_backup_payload(
         "stack_deployments": _snapshot_stack_deployments(),
         "service_dns_records": _snapshot_service_dns_records(),
         "runtime_edges": _snapshot_runtime_edges(),
+        "topology_categories": _snapshot_topology_categories(),
+        "topology_tags": _snapshot_topology_tags(),
+        "visual_service_stacks": _snapshot_visual_service_stacks(),
+        "container_annotations": _snapshot_container_annotations(),
+        "container_annotation_tags": _snapshot_container_annotation_tags(),
         "herder_config": load_settings(),
     }
     if include_audit:
@@ -870,6 +910,32 @@ def restore_herder_backup(
         result["restored_runtime_edges"] = _upsert_rows(
             s, RuntimeEdge, payload.get("runtime_edges") or []
         )
+        from ..models import (
+            TopologyCategory,
+            TopologyTag,
+            VisualServiceStack,
+            ContainerAnnotation,
+            ContainerAnnotationTag,
+        )
+
+        result["restored_topology_categories"] = _upsert_rows(
+            s, TopologyCategory, payload.get("topology_categories") or []
+        )
+        result["restored_topology_tags"] = _upsert_rows(
+            s, TopologyTag, payload.get("topology_tags") or []
+        )
+        s.flush()
+        result["restored_visual_service_stacks"] = _upsert_rows(
+            s, VisualServiceStack, payload.get("visual_service_stacks") or []
+        )
+        s.flush()
+        result["restored_container_annotations"] = _upsert_rows(
+            s, ContainerAnnotation, payload.get("container_annotations") or []
+        )
+        s.flush()
+        result["restored_container_annotation_tags"] = _upsert_rows(
+            s, ContainerAnnotationTag, payload.get("container_annotation_tags") or []
+        )
 
         result["restored_docker_versions"] = _upsert_rows(
             s, DockerVersion, payload.get("docker_versions") or []
@@ -940,6 +1006,11 @@ def _fix_postgres_sequences() -> None:
         "stackdeployment",
         "servicednsrecord",
         "runtimeedge",
+        "topologycategory",
+        "topologytag",
+        "visualservicestack",
+        "containerannotation",
+        "containerannotationtag",
         "integration",
         "integrationbinding",
     ]

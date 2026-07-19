@@ -190,7 +190,7 @@ Prose for 0.6 surfaces is largely current. PNGs are the gap.
 | Layout | `e2e/` at repo root (not mixed into pure unit `tests/`) |
 | Base URL | env `PIHERDER_E2E_BASE_URL` (default `http://127.0.0.1:8000`) |
 | Browser | **Chromium only** (0.7) |
-| App under test | Compose profile or `docker-compose.e2e.yml`: **web + db** (+ **redis** if boot needs it); hit web port (no Caddy/TLS) |
+| App under test | Compose set `docker-compose.e2e.yml` (services `e2e-web` / `e2e-db` / `e2e-redis`) under project **piherder**; port **18000**; no Caddy/TLS |
 | Celery | Not required for Phase A; only if a Phase B path queues a job |
 | Live SSH / real Pi | **Out of CI** |
 | Seed | Deterministic admin, **2FA off**, registration policy allowing seed; synthetic master key |
@@ -259,7 +259,7 @@ Screenshot visual baselines, a11y `axe`, multi-browser matrix, full template/cer
 | Area | Path |
 |------|------|
 | Suite | `e2e/` (`conftest.py`, `helpers.py`, `test_shell_login.py`, …) |
-| Compose harness | `docker-compose.e2e.yml` + `scripts/e2e-up.sh` / `e2e-down.sh` |
+| Compose harness | `docker-compose.e2e.yml` (compose set) + `scripts/e2e-up.sh` / `e2e-down.sh` (project `piherder`) |
 | Seed | First-boot register in `e2e/helpers.py` (`e2e@piherder.test`) |
 | CI | `.github/workflows/e2e.yml` |
 | Deps | `pyproject.toml` optional `[e2e]` · host `pip install pytest-playwright` |
@@ -274,12 +274,41 @@ Pulled from 0.6 “open / post-0.6” notes. **None of these are tag gates.** Pr
 | Item | Why | Priority | Status |
 |------|-----|----------|--------|
 | Template **drift check as Job** + live log | Consistency with deploy/redeploy | Nice | **Done** |
+| **Topology annotations** (T0–T4): exact project match; category override; fixed tags; visual service stacks; map columns from vocab | Stack view clutter (e.g. e2e); deferred columns residual | Nice | **Done** (core) |
+| **Compose sets** (multi compose file, one project folder) | Split services across `docker-compose.yml` + `docker-compose.*.yml` without a second stack card | Nice | **Done** (discover + Docker pills + set deploy + e2e file) |
 | Cert **multi-map / multi-host deploy as Job** | Long ops pattern | Nice | Open |
 | Template wizard copy / empty states | First-use clarity | Nice | Open |
+| Docker management chips cohesive with stack panel (T6) | Stretch UX | Stretch | Open |
 | List query / Docker inventory spam / fabric pulse | Light perf | Stretch | Open |
 | Git template catalog pull | Ops depth | Out unless trivial | Open |
 
 If a C item threatens freeze date, **cut C** — ship **B+A+E**.
+
+#### Compose sets (active) — same project, sub-views
+
+**Problem:** Operators want one directory / one Docker project card, but services split across extra compose files (e.g. main + e2e + build), not a second top-level stack.
+
+**Rules (locked):**
+
+| Concept | Behaviour |
+|---------|-----------|
+| **Project** | Still one folder + compose project name (directory) |
+| **Primary compose** | `docker-compose.yml` / `compose.yml` |
+| **Override** | Auto-merged by Compose (`*.override.yml`) — multi-file editor, not a “set” |
+| **Compose set** | Extra `docker-compose.<name>.yml` / `compose.<name>.yml` in the **same** directory |
+| **Docker view** | **Same project card**; pill sub-views All / main / each set (filter services) |
+| **Not a new stack** | Do not invent a second project from a second file in the same folder |
+| **Deploy** | Default = whole project; optional **Deploy this set** → `docker compose -f <file> …` still under same project name |
+| **Fabric view groups** | Orthogonal (operator presentation); sets are **file/deploy** slices |
+
+**Ship slice (this build):**
+
+- [x] Discover compose sets when listing a project (inventory)
+- [x] Docker page: under-project pills filter containers by set membership
+- [x] Live files / editor probes include extra compose set files
+- [x] Optional set-scoped deploy (`-f`) from project ⋯ when a set is selected
+- [x] Unit tests for filename classify + set membership
+- [x] Local piherder: e2e services live in `docker-compose.e2e.yml` (same project)
 
 ---
 
@@ -305,7 +334,7 @@ If a C item threatens freeze date, **cut C** — ship **B+A+E**.
 | **H2.75 P4** Bootstrap scripts depth + enrollment phone-home | Post-0.7; wizard may *link* existing least-priv, not full P4 |
 | **H2.75 P5** Web SSH console | High bar; later |
 | **LAN discovery / nmap** | **v0.8.0** |
-| Configurable topology columns | Residual H2.5 — later |
+| Configurable topology columns (full link-to-column) | Residual — **T0–T4 annotations landed** (category/tags/visual stacks); per-project column profiles later |
 | ACME inside PiHerder | Use NPM / external |
 | NPM proxy host write CRUD | Later |
 | Cloudflare DNS automation | H2.5+ |

@@ -26,9 +26,13 @@ Use project **⋯ → Full editor…** (direct navigation).
 From quick edit, **Open full editor →** should open the multi-file page; if a modal overlay is stuck, refresh the Docker page.  
 See [Opening the editor](../docker/compose-edit.md#opening-the-editor).
 
+## Compose set pills missing on Docker project
+
+Inventory must see `docker-compose.<name>.yml` next to the primary file in the same folder. **Force refresh**. Pills appear when there is more than one set (primary + at least one extra). See [Compose sets](../docker/overview.md#compose-sets-same-folder-one-project-card).
+
 ## From-host pull incomplete
 
-Odd multi-file layouts still hardening in v0.5.0.  
+Odd multi-file layouts still hardening.  
 Manually create template and paste compose if needed.
 
 ## Step-up 2FA for secrets fails

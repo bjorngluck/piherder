@@ -336,8 +336,18 @@ def write_compose_file(server: Server, project_path: str, content: str) -> tuple
             pass
 
 
-def redeploy_project(server: Server, project_path: str, pull: bool = True) -> Dict:
+def redeploy_project(
+    server: Server,
+    project_path: str,
+    pull: bool = True,
+    *,
+    compose_files: Optional[List[str]] = None,
+) -> Dict:
     """Redeploy a compose project: optional pull, then ``up -d``.
+
+    ``compose_files`` — optional basenames in the project dir for set-scoped
+    deploy (``docker compose -f a.yml -f b.yml …``). Same project name; not a
+    second stack. Empty / None = default Compose file resolution in the dir.
 
     Returns structured result so callers can audit failures (pull auth, path,
     recreate). Always runs ``up -d`` after a requested pull so containers pick
@@ -357,6 +367,19 @@ def redeploy_project(server: Server, project_path: str, pull: bool = True) -> Di
         }
 
     qpath = shlex.quote(path)
+    # Optional -f flags for compose sets (basename only, no path traversal)
+    f_flags = ""
+    safe_files: list[str] = []
+    for raw in compose_files or []:
+        base = (raw or "").strip().split("/")[-1]
+        if not base or base in (".", "..") or ".." in base:
+            continue
+        if not (base.endswith(".yml") or base.endswith(".yaml")):
+            continue
+        safe_files.append(base)
+    if safe_files:
+        f_flags = " ".join(f"-f {shlex.quote(f)}" for f in safe_files) + " "
+
     client = get_ssh_client(server)
     try:
         pull_status: Optional[int] = None
@@ -365,7 +388,7 @@ def redeploy_project(server: Server, project_path: str, pull: bool = True) -> Di
             # Registry pull only (does not recreate). Long timeout for large layers.
             pull_status, pout, perr = run_command(
                 client,
-                f"cd {qpath} && docker compose pull 2>&1",
+                f"cd {qpath} && docker compose {f_flags}pull 2>&1",
                 timeout=600,
             )
             pull_out = ((pout or "") + (perr or "")).strip()
@@ -375,7 +398,7 @@ def redeploy_project(server: Server, project_path: str, pull: bool = True) -> Di
         # bouncing services whose images did not change).
         up_status, uout, uerr = run_command(
             client,
-            f"cd {qpath} && docker compose up -d --remove-orphans 2>&1",
+            f"cd {qpath} && docker compose {f_flags}up -d --remove-orphans 2>&1",
             timeout=300,
         )
         up_out = ((uout or "") + (uerr or "")).strip()
@@ -1003,6 +1026,18 @@ def _list_containers_uncached(server: Server, enrich_mounts: bool = True) -> Lis
                 [p.strip() for p in ports_raw.split(",") if p.strip()] if ports_raw else []
             )
             full_id = (c.get("ID") or "")[:64]
+            # Networks: docker ps --format json may use Networks string or Networks map
+            nets_raw = c.get("Networks") or c.get("NetworkMode") or ""
+            if isinstance(nets_raw, dict):
+                networks = [str(k).strip() for k in nets_raw.keys() if str(k).strip()]
+            elif isinstance(nets_raw, list):
+                networks = [str(n).strip() for n in nets_raw if str(n).strip()]
+            else:
+                networks = [
+                    n.strip()
+                    for n in str(nets_raw).replace(",", " ").split()
+                    if n.strip() and n.strip() not in ("—", "-")
+                ]
             containers.append({
                 "id": full_id[:12],
                 "id_full": full_id,
@@ -1020,6 +1055,7 @@ def _list_containers_uncached(server: Server, enrich_mounts: bool = True) -> Lis
                 "mounts_list": mounts_list,
                 "size": c.get("Size") or "",
                 "local_volumes": c.get("LocalVolumes") or "",
+                "networks": networks[:12],
                 **labels,
             })
         except Exception:
@@ -1347,15 +1383,66 @@ def get_container_mounts_detail(server: Server, name_or_id: str) -> Dict:
             pass
 
 
+def ensure_label_projects(
+    projects: List[Dict], containers: List[Dict]
+) -> List[Dict]:
+    """Add stub projects for compose project labels not found as directories.
+
+    ``docker compose -p piherder-e2e`` often reuses the same directory as
+    ``piherder``; ``list_compose_projects`` only sees one folder name. Without
+    stubs, e2e containers become orphans and never appear in the stack panel.
+    """
+    out = [dict(p) for p in (projects or [])]
+    known = {
+        (p.get("name") or "").strip().lower()
+        for p in out
+        if (p.get("name") or "").strip()
+    }
+    # Preserve first-seen casing from labels
+    for c in containers or []:
+        if not isinstance(c, dict) or c.get("name") == "error":
+            continue
+        pn = (c.get("compose_project") or "").strip()
+        if not pn or pn.lower() in known:
+            continue
+        wd = (c.get("compose_workdir") or "").rstrip("/")
+        out.append(
+            {
+                "name": pn,
+                "path": wd or "",
+                "compose_file": "",
+                "versions": [],
+                "services": [],
+                "build_services": [],
+                "has_build": False,
+                "dockerfile_path": None,
+                "label_only": True,  # not a scanned compose directory
+            }
+        )
+        known.add(pn.lower())
+    return out
+
+
 def nest_containers_under_projects(projects: List[Dict], containers: List[Dict]):
     """
     Attach container rows under matching compose projects.
-    Match: compose_workdir == path, else compose_project == project name.
+
+    Priority:
+      1. ``com.docker.compose.project`` label equals project name (case-insensitive)
+      2. workdir == project path **only if** the container has no project label,
+         or the label matches this project
+
+    Same-directory multi-project deploys (e.g. ``piherder`` + ``piherder-e2e``
+    both using ``/home/.../piherder`` as working_dir) must not merge: matching
+    only by workdir previously put both stacks under the first project and made
+    service names like ``web`` collide in stack annotations.
+
     Returns (projects_with_containers, orphan_containers).
     """
+    projects = ensure_label_projects(projects, containers)
     assigned: set = set()
     by_workdir: dict = {}
-    by_project: dict = {}
+    by_project: dict = {}  # lower(project) -> [indices]
     for i, c in enumerate(containers):
         if c.get("name") == "error":
             continue
@@ -1364,24 +1451,35 @@ def nest_containers_under_projects(projects: List[Dict], containers: List[Dict])
             by_workdir.setdefault(wd, []).append(i)
         pn = (c.get("compose_project") or "").strip()
         if pn:
-            by_project.setdefault(pn, []).append(i)
+            by_project.setdefault(pn.lower(), []).append(i)
 
     enriched = []
     for proj in projects:
         row = dict(proj)
         path = (proj.get("path") or "").rstrip("/")
         name = (proj.get("name") or "").strip()
+        name_l = name.lower()
         idxs = []
         seen_i = set()
-        for i in by_workdir.get(path, []):
+
+        # 1) Prefer explicit compose project label (authoritative for multi-project)
+        for i in by_project.get(name_l, []):
             if i not in seen_i:
                 idxs.append(i)
                 seen_i.add(i)
-        if not idxs:
-            for i in by_project.get(name, []):
-                if i not in seen_i:
-                    idxs.append(i)
-                    seen_i.add(i)
+
+        # 2) Workdir match only for unlabeled containers, or label already matches
+        for i in by_workdir.get(path, []):
+            if i in seen_i:
+                continue
+            c = containers[i]
+            cproj = (c.get("compose_project") or "").strip()
+            if cproj and cproj.lower() != name_l:
+                # Different compose project, same directory — do not steal
+                continue
+            idxs.append(i)
+            seen_i.add(i)
+
         declared = list(proj.get("services") or [])
         present_services = set()
         attached = []
@@ -1416,6 +1514,15 @@ def nest_containers_under_projects(projects: List[Dict], containers: List[Dict])
                     "placeholder": True,
                 })
         attached.sort(key=lambda x: (0 if x.get("running") else 1, (x.get("compose_service") or x.get("name") or "").lower()))
+        # Tag containers with compose_set (main / e2e / …) for under-project views
+        try:
+            from . import compose_sets as csets
+
+            sets = row.get("compose_sets") or []
+            if sets:
+                csets.annotate_containers_with_sets(attached, sets)
+        except Exception:
+            pass
         row["containers"] = attached
         row["running_count"] = sum(1 for x in attached if x.get("running"))
         row["container_count"] = len([x for x in attached if not x.get("placeholder")])
@@ -1478,57 +1585,102 @@ def _list_compose_uncached(
                 except Exception:
                     pass
             # detect build services + dockerfile path + dependency graph from compose
+            # + compose sets (extra docker-compose.<name>.yml in same directory)
             build_services = []
             has_build = False
             dockerfile_path = None
             services = []  # ensure always defined (prevents UnboundLocalError/NameError on partial failures)
             compose_graph = None
+            compose_sets: list = []
+            services_by_file: dict = {}
             try:
-                # Head enough lines for depends_on (was 100 — too short for large stacks)
-                cat_cmd = f"cat {shlex.quote(path)} 2>/dev/null | head -800"
-                _, cat_out, _ = run_command(client, cat_cmd, timeout=12)
-                comp = yaml.safe_load(cat_out) or {}
-                if not isinstance(comp, dict):
-                    comp = {}
-                svcs = comp.get("services") or {}
-                if not isinstance(svcs, dict):
-                    svcs = {}
-                for nm, cfg in svcs.items():
-                    if isinstance(cfg, dict) and cfg.get("build"):
-                        build_services.append(nm)
-                has_build = len(build_services) > 0
-                services = list(svcs.keys())
+                from . import compose_sets as csets
 
-                if has_build and build_services:
-                    first = build_services[0]
-                    bcfg = svcs.get(first, {}) or {}
-                    if isinstance(bcfg, dict):
-                        b = bcfg.get("build") or {}
-                        if isinstance(b, dict):
-                            df = b.get("dockerfile", "Dockerfile")
-                            ctx = b.get("context", ".")
-                        else:
-                            df = "Dockerfile"
-                            ctx = str(b) if b else "."
-                    else:
-                        df = "Dockerfile"
-                        ctx = "."
-                    import os
-                    dockerfile_path = os.path.normpath(f"{proj_dir}/{ctx}/{df}").replace("\\", "/")
-                # Fallback: always expose a root Dockerfile candidate so the editor tab can appear
-                # and users can create/edit even if no build: section references it.
+                # Sibling compose files in this project directory (not nested projects)
+                ls_cmd = (
+                    f"ls -1 {shlex.quote(proj_dir)} 2>/dev/null | "
+                    f"grep -E '^(docker-)?compose[^/]*\\.(ya?ml)$' | head -40"
+                )
+                _, ls_out, _ = run_command(client, ls_cmd, timeout=10)
+                dir_files = [
+                    ln.strip() for ln in (ls_out or "").splitlines() if ln.strip()
+                ]
+                primary_base = path.rsplit("/", 1)[-1]
+                if primary_base and primary_base not in dir_files:
+                    dir_files.insert(0, primary_base)
+
+                for fname in dir_files:
+                    kind = csets.classify_compose_filename(fname)
+                    if kind not in ("primary", "set"):
+                        continue
+                    fpath = f"{proj_dir}/{fname}".replace("//", "/")
+                    cat_cmd = f"cat {shlex.quote(fpath)} 2>/dev/null | head -800"
+                    _, cat_out, _ = run_command(client, cat_cmd, timeout=12)
+                    try:
+                        comp = yaml.safe_load(cat_out) or {}
+                    except Exception:
+                        comp = {}
+                    if not isinstance(comp, dict):
+                        comp = {}
+                    svcs = comp.get("services") or {}
+                    if not isinstance(svcs, dict):
+                        svcs = {}
+                    services_by_file[fname] = list(svcs.keys())
+                    for nm, cfg in svcs.items():
+                        if isinstance(cfg, dict) and cfg.get("build"):
+                            if nm not in build_services:
+                                build_services.append(nm)
+                    # Primary file drives compose_graph + dockerfile path
+                    if kind == "primary" or fname == primary_base:
+                        services = list(svcs.keys())
+                        try:
+                            from .compose_graph import extract_compose_graph
+
+                            compose_graph = extract_compose_graph(
+                                comp, raw_text=cat_out or ""
+                            )
+                        except Exception:
+                            compose_graph = None
+                        if build_services:
+                            first = build_services[0]
+                            bcfg = svcs.get(first, {}) or {}
+                            if isinstance(bcfg, dict):
+                                b = bcfg.get("build") or {}
+                                if isinstance(b, dict):
+                                    df = b.get("dockerfile", "Dockerfile")
+                                    ctx = b.get("context", ".")
+                                else:
+                                    df = "Dockerfile"
+                                    ctx = str(b) if b else "."
+                            else:
+                                df = "Dockerfile"
+                                ctx = "."
+                            import os
+
+                            dockerfile_path = os.path.normpath(
+                                f"{proj_dir}/{ctx}/{df}"
+                            ).replace("\\", "/")
+
+                has_build = len(build_services) > 0
+                # Union of services across primary + sets (for placeholders)
+                all_svcs: list = []
+                seen_svc: set = set()
+                for fname in dir_files:
+                    for nm in services_by_file.get(fname) or []:
+                        if nm not in seen_svc:
+                            seen_svc.add(nm)
+                            all_svcs.append(nm)
+                if all_svcs:
+                    services = all_svcs
+
                 if not dockerfile_path:
                     dockerfile_path = f"{proj_dir}/Dockerfile"
 
-                # P1b — store depends_on / networks in inventory for stack panel
-                try:
-                    from .compose_graph import extract_compose_graph
-
-                    compose_graph = extract_compose_graph(
-                        comp, raw_text=cat_out or ""
-                    )
-                except Exception:
-                    compose_graph = None
+                compose_sets = csets.build_compose_sets(
+                    dir_files,
+                    services_by_file=services_by_file,
+                    primary_filename=primary_base,
+                )
             except Exception:
                 pass
 
@@ -1541,6 +1693,7 @@ def _list_compose_uncached(
                 "build_services": build_services,
                 "has_build": has_build,
                 "dockerfile_path": dockerfile_path,
+                "compose_sets": compose_sets,
             }
             if compose_graph:
                 row["compose_graph"] = compose_graph
