@@ -182,6 +182,8 @@ async def list_servers(
     else:
         logger.debug(f"[list_servers] Total render took {total:.2f}s")
 
+    from ..security.auth import ROLE_OPERATOR, role_at_least
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_list.html",
@@ -192,6 +194,8 @@ async def list_servers(
             "user": user,
             "filter": filt,
             "filter_counts": filter_counts,
+            # Wizard / bulk require operator+ (get_operator_user)
+            "can_add_server": role_at_least(user, ROLE_OPERATOR),
         },
     )
 

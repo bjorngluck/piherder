@@ -30,7 +30,9 @@
               title="Refresh list (no auto-reload)">
         ↻ Refresh
       </button>
+      {% if can_add_server %}
       <a href="/servers/new" class="btn btn-primary text-xs min-h-9 px-3" id="btn-add-server" data-testid="btn-add-server">+ Add</a>
+      {% endif %}
     </div>
   </div>
   <div class="ops-hero-viz">
@@ -244,7 +246,9 @@
   <p>No servers yet.</p>
   <p class="empty-state-hint">Add a host to start backups, patching, and Docker management.</p>
   <div class="empty-state-actions">
+    {% if can_add_server %}
     <a href="/servers/new" class="btn btn-primary min-h-11" data-testid="btn-add-server-empty">+ Add Server</a>
+    {% endif %}
   </div>
 </div>
 {% else %}

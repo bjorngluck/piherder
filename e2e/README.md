@@ -6,7 +6,7 @@ Browser end-to-end tests for the operator shell and (later) add-host wizard.
 |-------|--------|
 | **A1–A2** | Login form + admin login → Dashboard |
 | **A3–A6** | Primary nav, Catalog tabs, theme toggle, logout |
-| **B** | B1–B5 landed (open, identity→trust, save&exit, clear-password, advanced) |
+| **B** | B1–B5 landed (open, identity→trust, save&exit, clear-password, advanced); **B6** viewer cannot add server |
 
 ## Prerequisites
 

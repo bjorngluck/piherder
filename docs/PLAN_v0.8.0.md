@@ -143,7 +143,7 @@ Build on the 0.7 Playwright platform and unit suite.
 
 | Track | Target | Priority | Status |
 |-------|--------|----------|--------|
-| **E2E B6** | Viewer cannot add server (403 / redirect) | Should | Open |
+| **E2E B6** | Viewer cannot add server (403 / redirect) | Should | **Done** — `e2e/test_rbac_viewer.py` + hide Add CTA for viewers |
 | **E2E deeper B** | Template list shell, certs list, Docker page chrome, Jobs filters | Should | Open |
 | **HTTP TestClient smoke** | Auth gates + main page 200s in unit job (SQLite override, no lifespan) | **Must** (cheap) | **Done** — `tests/test_http_smoke.py` |
 | **Unit coverage growth** | **~50% line coverage** target; prioritize crypto, RBAC, path policy, fabric, compose sets, annotations, cert vault, nmap helpers | **Must** (~50%, not 100%) | **In progress** — **~42%** (was ~33%); CI floor 30%; more pure depth next |
