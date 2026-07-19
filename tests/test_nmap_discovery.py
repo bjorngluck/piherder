@@ -432,7 +432,7 @@ def test_stale_data_cleanup_preview_and_purge_jobs(tmp_path):
     """Old terminal jobs are purged; pending are kept."""
     from datetime import datetime, timedelta
     from sqlmodel import Session, SQLModel, create_engine, select
-    from app.models import Job, AuditLog
+    from app.models import Job, AuditLog, NmapScanRun
     from app.services import stale_data_cleanup as sdc
 
     engine = create_engine(
@@ -442,6 +442,8 @@ def test_stale_data_cleanup_preview_and_purge_jobs(tmp_path):
     SQLModel.metadata.create_all(engine)
     old = datetime.utcnow() - timedelta(days=40)
     recent = datetime.utcnow() - timedelta(days=2)
+    xml_old = tmp_path / "old-run.xml"
+    xml_old.write_text("<nmaprun/>", encoding="utf-8")
     with Session(engine) as s:
         s.add(
             Job(
@@ -468,21 +470,47 @@ def test_stale_data_cleanup_preview_and_purge_jobs(tmp_path):
         )
         s.add(AuditLog(action="x", status="success", started_at=old))
         s.add(AuditLog(action="y", status="success", started_at=recent))
+        s.add(
+            NmapScanRun(
+                integration_id=1,
+                intensity="discovery",
+                status="success",
+                created_at=old,
+                finished_at=old,
+                artifact_path=str(xml_old),
+            )
+        )
+        s.add(
+            NmapScanRun(
+                integration_id=1,
+                intensity="inventory",
+                status="success",
+                created_at=recent,
+                finished_at=recent,
+            )
+        )
         s.commit()
 
+        # Keys match AppSetting / cleanup_config() input shape
         conf = {
-            "enabled": True,
-            "cron": "30 4 * * *",
-            "jobs_enabled": True,
-            "jobs_days": 30,
-            "audit_enabled": True,
-            "audit_days": 30,
-            "nmap_enabled": False,
-            "nmap_days": 30,
+            "data_cleanup_enabled": True,
+            "data_cleanup_cron": "30 4 * * *",
+            "data_cleanup_jobs_enabled": True,
+            "data_cleanup_jobs_days": 30,
+            "data_cleanup_audit_enabled": True,
+            "data_cleanup_audit_days": 30,
+            "data_cleanup_nmap_enabled": False,
+            "data_cleanup_nmap_days": 30,
         }
         prev = sdc.preview_cleanup(s, conf)
         assert prev["jobs"] == 1
         assert prev["audit"] == 1
+        assert prev["nmap_runs"] == 0  # nmap toggle off
+
+        dry = sdc.run_stale_data_cleanup(s, job_id=None, dry_run=True, cfg=conf)
+        assert dry["dry_run"] is True
+        assert dry["deleted_jobs"] == 0
+
         res = sdc.run_stale_data_cleanup(s, job_id=None, dry_run=False, cfg=conf)
         assert res["deleted_jobs"] == 1
         assert res["deleted_audit"] == 1
@@ -491,6 +519,35 @@ def test_stale_data_cleanup_preview_and_purge_jobs(tmp_path):
         audits = list(s.exec(select(AuditLog)).all())
         # one recent audit remains (+ optional cleanup audit)
         assert any(a.action == "y" for a in audits)
+
+        conf_nmap = {
+            **conf,
+            "data_cleanup_nmap_enabled": True,
+            "data_cleanup_jobs_enabled": False,
+            "data_cleanup_audit_enabled": False,
+        }
+        prev_n = sdc.preview_cleanup(s, conf_nmap)
+        assert prev_n["nmap_runs"] == 1
+        res_n = sdc.run_stale_data_cleanup(s, job_id=None, dry_run=False, cfg=conf_nmap)
+        assert res_n["deleted_nmap_runs"] == 1
+        assert res_n["deleted_nmap_files"] == 1
+        assert not xml_old.is_file()
+        runs = list(s.exec(select(NmapScanRun)).all())
+        assert len(runs) == 1
+        assert runs[0].intensity == "inventory"
+
+    # cleanup_config clamps
+    conf_clamped = sdc.cleanup_config(
+        {
+            "data_cleanup_enabled": True,
+            "data_cleanup_jobs_days": 99999,
+            "data_cleanup_audit_days": 0,
+            "data_cleanup_nmap_enabled": True,
+        }
+    )
+    assert conf_clamped["jobs_days"] == sdc.MAX_DAYS
+    assert conf_clamped["audit_days"] == sdc.MIN_DAYS
+    assert conf_clamped["nmap_enabled"] is True
 
 
 def test_schedule_options_dump_parse_and_deep_gate():
@@ -512,6 +569,152 @@ def test_schedule_options_dump_parse_and_deep_gate():
     opts3 = sch.parse_schedule_options(SimpleNamespace(options_json=raw3))
     assert opts3["use_syn"] is None
     assert "deep" in sch.INTENSITIES_SCHEDULE
+
+    # malformed / empty options_json
+    assert sch.parse_schedule_options(SimpleNamespace(options_json="{not-json"))["vuln_scripts"] is False
+    assert sch.parse_schedule_options(None)["use_syn"] is None
+    assert sch.parse_schedule_options({"vuln_scripts": 1, "use_syn": 0})["use_syn"] is False
+
+    # form helper for schedule edit
+    assert sch.parse_use_syn_form("syn") == (True, False)
+    assert sch.parse_use_syn_form("connect") == (False, False)
+    assert sch.parse_use_syn_form("") == (None, True)
+    assert sch.parse_use_syn_form(None) == (None, True)
+    assert sch.schedule_aps_id(42) == "nmap_scan_42"
+
+
+def test_create_update_delete_schedule_sqlite(tmp_path):
+    """CRUD schedules on SQLite — covers edit path options_json."""
+    from datetime import datetime
+    from sqlmodel import Session, SQLModel, create_engine, select
+    from app.models import Integration, NmapScanSchedule
+    from app.services.nmap import schedules as sch
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'sched.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        integ = Integration(
+            type="nmap",
+            name="LAN",
+            base_url="local",
+            enabled=True,
+            config_json='{"cidrs":["192.168.1.0/24"]}',
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        s.add(integ)
+        s.commit()
+        s.refresh(integ)
+
+        row = sch.create_schedule(
+            s,
+            integration_id=integ.id,
+            name="nightly-discovery",
+            intensity="discovery",
+            cron="0 2 * * *",
+            enabled=False,
+            vuln_scripts=True,  # ignored unless deep
+            use_syn=True,
+        )
+        assert row.id
+        assert row.intensity == "discovery"
+        assert row.cron == "0 2 * * *"
+        opts = sch.parse_schedule_options(row)
+        assert opts["vuln_scripts"] is False  # gated off non-deep
+        assert opts["use_syn"] is True
+
+        with pytest.raises(ValueError, match="cron"):
+            sch.create_schedule(
+                s,
+                integration_id=integ.id,
+                name="bad",
+                intensity="inventory",
+                cron="not five",
+            )
+
+        with pytest.raises(ValueError, match="interval_hours|cron"):
+            sch.create_schedule(
+                s,
+                integration_id=integ.id,
+                name="empty",
+                intensity="inventory",
+            )
+
+        deep = sch.create_schedule(
+            s,
+            integration_id=integ.id,
+            name="deep-weekly",
+            intensity="deep",
+            interval_hours=168,
+            enabled=True,
+            vuln_scripts=True,
+            use_syn=None,
+        )
+        dopts = sch.parse_schedule_options(deep)
+        assert dopts["vuln_scripts"] is True
+        assert dopts["use_syn"] is None
+
+        updated = sch.update_schedule(
+            s,
+            deep,
+            name="deep-weekly-renamed",
+            intensity="deep",
+            cron="0 4 * * 0",
+            clear_interval=True,
+            vuln_scripts=False,
+            use_syn=False,
+            enabled=False,
+        )
+        assert updated.name == "deep-weekly-renamed"
+        assert updated.cron == "0 4 * * 0"
+        assert updated.interval_hours is None
+        assert updated.enabled is False
+        uopts = sch.parse_schedule_options(updated)
+        assert uopts["vuln_scripts"] is False
+        assert uopts["use_syn"] is False
+
+        # demote deep→inventory clears vuln
+        demoted = sch.update_schedule(s, updated, intensity="inventory", vuln_scripts=True)
+        assert sch.parse_schedule_options(demoted)["vuln_scripts"] is False
+
+        sid = demoted.id
+        sch.delete_schedule(s, demoted)
+        assert s.get(NmapScanSchedule, sid) is None
+        remaining = list(s.exec(select(NmapScanSchedule)).all())
+        assert len(remaining) == 1
+        assert remaining[0].name == "nightly-discovery"
+
+
+def test_build_nmap_argv_detailed_udp_and_connect():
+    detailed = av.build_nmap_argv(
+        "detailed", ["192.168.1.0/24"], output_xml="/tmp/d.xml", use_syn=False
+    )
+    assert "-sT" in detailed
+    assert "-p-" in detailed
+    assert "-sV" in detailed
+
+    with_udp = av.build_nmap_argv(
+        "inventory",
+        ["10.0.0.1"],
+        output_xml="/tmp/u.xml",
+        include_udp=True,
+        use_syn=False,
+    )
+    assert "-sU" in with_udp
+    # discovery never adds UDP
+    disc_udp = av.build_nmap_argv(
+        "discovery",
+        ["10.0.0.0/24"],
+        output_xml="/tmp/x.xml",
+        include_udp=True,
+    )
+    assert "-sU" not in disc_udp
+
+    unknown = av.build_nmap_argv("nope", ["1.2.3.4"], output_xml="/tmp/x.xml")
+    assert "-sn" in unknown  # falls back to discovery
 
 
 def test_network_view_groups_by_subnet():

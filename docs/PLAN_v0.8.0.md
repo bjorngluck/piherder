@@ -65,7 +65,7 @@ This is **not** web SSH, ACME-in-herder, or a second onboarding rewrite.
 | Stream | Must for 0.8? | Status |
 |--------|---------------|--------|
 | **P** Overall polish | Should / strong | Inventory below — mostly open |
-| **Q** E2E + test coverage | **Must** (grow bar) | 0.7 base green; 0.8 growth still open |
+| **Q** E2E + test coverage | **Must** (grow bar) | **In progress** — HTTP smoke + nmap/cleanup unit depth; cov floor 30% in CI; ~50% still open |
 | **A** Full docs review + screenshot pack | **Must** | Prose: LAN Discovery wiki + Settings cleanup landed; **PNG pack open** |
 | **N** LAN discovery (nmap-class) | **Must** (feature) | **N0–N6 done** · N7 wiki partial · N8–N9 open |
 | **R** Data retention / grooming / delete cascades | Should / capacity | **R1 done** (Jobs/Audit/nmap-run opt-in) · R2 docs partial · cascade UI later |
@@ -141,14 +141,15 @@ Operator feedback (2026-07-19): long-running labs fill **Jobs** / **Audit**; nma
 
 Build on the 0.7 Playwright platform and unit suite.
 
-| Track | Target | Priority |
-|-------|--------|----------|
-| **E2E B6** | Viewer cannot add server (403 / redirect) | Should |
-| **E2E deeper B** | Template list shell, certs list, Docker page chrome, Jobs filters | Should |
-| **HTTP TestClient smoke** | Auth redirects + main page 200s in unit job | **Must** (cheap) |
-| **Unit coverage growth** | **~50% line coverage** target (pytest-cov or equivalent); prioritize critical paths: crypto, RBAC, path policy, fabric pure functions, compose sets, annotations, cert vault, nmap parse/link helpers | **Must** (~50%, not 100%) |
-| **Playwright Phase C slice** | Optional visual/a11y on 3–5 shells | Nice |
-| Flake hygiene | Stable testids; no arbitrary sleeps; CI artifacts already wired | Must keep |
+| Track | Target | Priority | Status |
+|-------|--------|----------|--------|
+| **E2E B6** | Viewer cannot add server (403 / redirect) | Should | Open |
+| **E2E deeper B** | Template list shell, certs list, Docker page chrome, Jobs filters | Should | Open |
+| **HTTP TestClient smoke** | Auth gates + main page 200s in unit job (SQLite override, no lifespan) | **Must** (cheap) | **Done** — `tests/test_http_smoke.py` |
+| **Unit coverage growth** | **~50% line coverage** target; prioritize crypto, RBAC, path policy, fabric, compose sets, annotations, cert vault, nmap helpers | **Must** (~50%, not 100%) | **In progress** — baseline ~33% → grow; CI `--cov-fail-under=30` + XML artifact |
+| **Nmap / cleanup unit depth** | schedules CRUD, argv edges, stale nmap purge, ops_pulse, update-check stagger | Should | **Done** (slice) |
+| **Playwright Phase C slice** | Optional visual/a11y on 3–5 shells | Nice | Open |
+| Flake hygiene | Stable testids; no arbitrary sleeps; CI artifacts already wired | Must keep | Keep |
 
 **Coverage bar (locked):** **~50%** overall unit coverage is the RC3 target — good enough to force meaningful growth without chasing 100%. Measure from the unit job; new nmap code should not tank the average (helpers + fixtures first).
 
@@ -259,7 +260,7 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 |---|------|--------|
 | 1 | LAN discovery product slice (N) | **Mostly done** (N0–N6 + wiki); N9 + screenshots remain |
 | 2 | Full docs review + screenshot pack (A) | **Partial** (LAN/settings prose); PNG pack open |
-| 3 | HTTP smoke + unit coverage **~50%** bar (Q) | Open |
+| 3 | HTTP smoke + unit coverage **~50%** bar (Q) | Smoke **done**; ~50% still open (CI floor 30%) |
 | 4 | E2E suite green (0.7 base + extensions) | Open (0.7 base exists) |
 | 5 | Version `0.8.0` + tag + Hub | Open |
 | 6 | `RELEASE_v0.8.0.md` | Open |
@@ -285,8 +286,8 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 4. Stream R1 stale Jobs/Audit/nmap cleanup                 // DONE
 5. Schedule edit + deep/vuln ops polish                    // DONE
 6. Wiki / ADMIN for nmap + cleanup                         // DONE (wiki); screenshots open
-7. HTTP smoke + unit coverage toward ~50%                  // Q — NEXT
-8. E2E extensions (B6, shell journeys, nmap fixtures)      // Q
+7. HTTP smoke + unit depth (nmap/cleanup/ops)              // DONE (~41% cov; floor 30%)
+8. Coverage growth toward ~50% + E2E B6 / shell journeys   // Q — NEXT
 9. Screenshot pack (wizard + nmap + residual 0.6/0.7)      // A
 10. Capacity polish (P / P3)                               // optional
 11. Full prose review pass                                 // A
@@ -353,6 +354,7 @@ Before tagging **0.8.0**, a maintainer can:
 | 2026-07-19 | **Stream R** added: Jobs/Audit retention (opt-in, 30d default), nmap artifact TTL, entity-delete cascade matrix (document now / implement as capacity) |
 | 2026-07-19 | **N1–N6 + R1 shipped:** LAN UI/schedules/edit, vuln pack Jobs, host-network worker; stale_data_cleanup; wiki LAN Discovery + Settings cleanup |
 | 2026-07-19 | **Next focus:** stream **Q** (~50% coverage, HTTP smoke, E2E growth) + stream **A** screenshot pack; optional P polish / N8 embed |
+| 2026-07-19 | **Q smoke slice:** `test_http_smoke` (auth 401 + logged-in shells); nmap schedule CRUD / argv / nmap-run purge; ops_pulse + update_check_config; CI cov report + fail-under 30 |
 
 ---
 

@@ -42,6 +42,7 @@ dependencies = [
 dev = [
     "ruff",
     "pytest",
+    "pytest-cov",
     "httpx",
 ]
 e2e = [
