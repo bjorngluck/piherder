@@ -266,7 +266,7 @@ TCP/DB monitors require published ports, shared Docker network with Kuma, or hos
 | **P5** | Monitor depth | TCP bind in panel; **optional alert** when Kuma-bound container down in inventory | **Done** |
 | **P6** | Shared-service catalog polish | Catalog of shared DB/redis/services for better cross-host suggest | **Later** (not 0.6) |
 | **Later** | **Configurable columns & links** | Operator-defined map columns, pin roles to columns, explicit edge→column layout (beyond order-driven L→R) | **Partial (0.7):** categories/tags/visual stacks + vocab-driven columns — see § 12c |
-| **—** | **LAN discovery (nmap)** | Orthogonal device discovery — not stack deps | **v0.8.0** (PLAN H1) |
+| **—** | **LAN discovery (nmap)** | Orthogonal device discovery — not stack deps | **v0.8.0 RC3** ([PLAN_v0.8.0.md](PLAN_v0.8.0.md) H1) |
 
 ### Shipped vs not done (stream close-out)
 
@@ -276,7 +276,7 @@ TCP/DB monitors require published ports, shared Docker network with Kuma, or hos
 | P1 side panel stack expand | Cross-host manual picker polish (API works; UI still same-project-first) |
 | P1b compose graph in inventory | Broader Hosts/Path published-port chips |
 | P2 suggest edges accept/dismiss | P6 shared-service catalog polish |
-| P3 manual `RuntimeEdge` + backup | LAN nmap discovery → **v0.8.0** |
+| P3 manual `RuntimeEdge` + backup | LAN nmap discovery → **v0.8.0 RC3** |
 | P4/P4.5 map expand + detail | Docker management full visual parity (stretch) |
 | P4b container order → column L→R | |
 | P5 Kuma-bound container down alerts | |
@@ -348,7 +348,7 @@ TCP/DB monitors require published ports, shared Docker network with Kuma, or hos
 | A | Herder backup includes `RuntimeEdge`? | **Yes** |
 | B | Debounce window for post-deploy enrich | **30–60s** |
 | C | Cross-host auto-suggest confidence threshold | High only for fabric NPM edge→backend; low for “shared DB” heuristics |
-| D | Relation to LAN scan (H1) | **Orthogonal** (devices vs stacks) — product target **v0.8.0** |
+| D | Relation to LAN scan (H1) | **Orthogonal** (devices vs stacks) — product target **v0.8.0 RC3** |
 
 ---
 
@@ -383,7 +383,7 @@ An operator can:
 | **Per-stack layout profiles** | Save alternate fan layouts per project | Later residual |
 | **Cross-host manual picker polish** | First-class dual-host container picker in panel (backend already multi-host) | Later polish |
 | **P6 shared-service catalog** | Named shared DB/redis services for better suggest confidence | Later |
-| **LAN discovery (nmap-class)** | Opt-in LAN CIDR scan — devices, not stack graph | **v0.8.0** |
+| **LAN discovery (nmap-class)** | Opt-in LAN CIDR scan — devices, not stack graph | **v0.8.0 RC3** |
 
 ---
 
@@ -439,7 +439,8 @@ Still later: per-project column profiles, explicit edge→column layout, Docker 
 | 2026-07-18 | **P4.5** expandable container detail; map node click → detail; **P5** inventory down alerts for Kuma-bound containers |
 | 2026-07-18 | **P4b** stack container order (long-press/drag); map column L→R from order; **data** keeps db+redis; no expand link chips; later: configurable columns / link-to-column |
 | 2026-07-18 | **Stream closed for v0.6** — P0–P5+P4b done; residual column/layout/P6 later; **nmap → v0.8.0** |
+| 2026-07-19 | **v0.8.0 framed as RC3** — nmap must + 0.7 residual polish parked ([PLAN_v0.8.0.md](PLAN_v0.8.0.md)); T0–T4 + compose sets ship in 0.7 |
 | 2026-07-19 | **0.7 annotations:** exact project match; category/tags/visual stacks (DB); map columns from category vocab; stack panel editor |
 | 2026-07-19 | View groups UX polish (Main token, pill chrome); multi-fan map on All; **compose sets** shipped on Docker page (orthogonal) |
 
-**End of plan** — dual-altitude product + 0.7 annotations + Docker compose sets. Residual: link-to-column profiles, cross-host picker polish, P6 catalog; LAN scan is **v0.8.0**.
+**End of plan** — dual-altitude product + 0.7 annotations + Docker compose sets. Residual: link-to-column profiles, cross-host picker polish, P6 catalog; LAN scan + residual polish → **[v0.8.0 RC3](PLAN_v0.8.0.md)**.
