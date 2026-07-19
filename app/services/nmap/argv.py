@@ -54,8 +54,9 @@ def build_nmap_argv(
     scan_flag = "-sS" if use_syn else "-sT"
 
     if intensity == INTENSITY_DISCOVERY:
-        # Host discovery only
-        argv.extend(["-sn"])
+        # Host discovery only. On the same L2 (host-network worker) nmap uses ARP
+        # and records MAC addresses; reverse DNS fills hostnames unless -n (skip_dns).
+        argv.extend(["-sn", "-PR"])
     elif intensity == INTENSITY_INVENTORY:
         argv.extend([scan_flag, "-sV", f"--top-ports", str(max(1, min(1000, int(top_ports))))])
     elif intensity == INTENSITY_DETAILED:

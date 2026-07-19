@@ -678,6 +678,8 @@ class NmapScanSchedule(SQLModel, table=True):
     enabled: bool = False
     # JSON: {"cidrs": ["192.168.1.0/24"]} or {"all_configured": true}
     scope_json: Optional[str] = None
+    # JSON: {"vuln_scripts": bool, "use_syn": bool|null}
+    options_json: Optional[str] = None
     last_run_at: Optional[datetime] = None
     last_job_id: Optional[int] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)

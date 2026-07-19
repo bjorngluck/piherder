@@ -14,7 +14,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages now use real PNGs. 
 |---------|----------------|
 | **v0.6.0** (released) | **Prose only** — no PNG gate. Existing captures stay until refreshed. |
 | **v0.7.0** (tagged) | Prose for wizard + compose sets; **PNG pack deferred** to 0.8 |
-| **v0.8.0 RC3** (active) | **Full capture pack** + prose audit + nmap UI shots — [PLAN_v0.8.0.md](../../../docs/PLAN_v0.8.0.md) |
+| **v0.8.0 RC3** (active) | **Full capture pack** + prose audit + **LAN Discovery** UI shots — [PLAN_v0.8.0.md](../../../docs/PLAN_v0.8.0.md) · [lan-discovery.md](../../integrations/lan-discovery.md) |
 
 Track status below; capture during the **0.8** cycle (wizard UI is frozen enough).
 
@@ -78,6 +78,19 @@ Add these files under `wiki/assets/screenshots/` and wire Markdown when capturin
 | `jobs-live-log.png` | JobHold live log (template deploy or stack restart) | Jobs pattern operators rely on | **High** |
 | `dns-coverage.png` | `/dns/coverage` Kuma coverage | H3 shipped in 0.6 | **Medium** |
 | `dns-stack-panel.png` | Path map with stack expand / side panel | Runtime topology | **Medium** |
+
+---
+
+## v0.8.0 — LAN Discovery + residual (new)
+
+| File (proposed) | UI surface | Why | Priority |
+|-----------------|------------|-----|----------|
+| `nmap-overview.png` | LAN Discovery Overview (worker + vuln pack) | Opt-in headline feature | **High** |
+| `nmap-devices.png` | Devices list (hostname/MAC/ports) | Auto-create records | **High** |
+| `nmap-network.png` | Network view (subnet groups) | Distinct from DNS fabric | **High** |
+| `nmap-schedules.png` | Schedules list + Edit form | Multi-schedule + options | **Medium** |
+| `settings-stale-cleanup.png` | Settings → Stale data cleanup | Stream R operator control | **Medium** |
+| `add-server-wizard.png` | Wizard primary path | Deferred from 0.7 | **High** |
 | `add-server-wizard.png` | Multi-step add-host wizard (`/servers/new`) | **Feature on main** — capture for tag | **High** |
 | `add-server-wizard-done.png` | Wizard summary / done CTAs | Same | Medium |
 

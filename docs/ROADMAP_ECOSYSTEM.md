@@ -1,7 +1,7 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-19 (**v0.7.0 tagged** · active **v0.8.0 RC3** — polish · E2E/coverage · docs+screenshots · nmap)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-19 (**v0.7.0 tagged** · active **v0.8.0 RC3** — LAN nmap **N0–N6 product landed** · remaining: coverage/E2E · screenshot pack · polish)  
 **Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
@@ -29,7 +29,7 @@ Design principles stay the same as SPEC:
 | **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **Tagged** 2026-07-17 — [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
 | **v0.6.0** | **RC2 polish** — template Jobs, cert UX (edge map, presets), Docker bulk, topology+coverage; wizard **out** | H2.75 P1 + H2.5 stretch + polish | **Tagged** 2026-07-18 — [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) |
 | **v0.7.0** | **Add-host wizard** + **Playwright E2E** + topology annotations + **compose sets** + drift Job | H2.75 P2 + quality | **Tagged** 2026-07-19 — [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) |
-| **v0.8.0** | **RC3** — overall polish · extend E2E + **~50% coverage** · **full docs review + screenshots** · **LAN nmap** (auto-create + network view) | Quality + H2.5 H1 | **Active** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [screenshots README](../wiki/assets/screenshots/README.md) |
+| **v0.8.0** | **RC3** — overall polish · extend E2E + **~50% coverage** · **full docs review + screenshots** · **LAN nmap** (auto-create + network view; product largely on main) | Quality + H2.5 H1 | **Active** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md) · [screenshots README](../wiki/assets/screenshots/README.md) |
 | **v0.8.x / later** | Host stats/commands, bootstrap depth, web SSH; topology column profiles | H2.75 P3–P5 + residual | After RC3 as capacity |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
@@ -78,6 +78,8 @@ Ops hardening that sits **between** production install and product integrations.
 |---|------|--------|-------|
 | **1** | **Remote host dependency check** | **Done** (v0.2.x) | Read-only chips on server detail; re-check under **SSH access** (and auto after **Test connection** / key deploy / least-priv). Probes tools for **enabled** features (`rsync`, sudo/plain rsync, `docker`, `apt`). Hints only — no auto-install. |
 | **2** | **Settings → Status tab** | **Done** (v0.2.x) | Admin **Status** tab: web, PostgreSQL, Redis, Celery (nodes + pool slots), APScheduler, **mount free** (fast). Backup tree `du` / per-host folders **on demand** (View details). Manual + every 2 min poll; alerts on state change; `/metrics` from last check. |
+| **2b** | **DB retention / data grooming** | **Done** (RC3 stream **R1**, 2026-07-19) | Settings → **Stale data cleanup**: opt-in schedule + Run now · job `stale_data_cleanup` · Jobs + Audit (default 30d each when on) · optional nmap runs/XML. Never deletes pending/running. Distinct from per-server **backup file** retention. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md) § **R** · wiki [Settings](../wiki/operations/settings.md#stale-data-cleanup). |
+| **2c** | **Entity delete cascades** | **Partial today** · matrix later | **Server remove:** cancel jobs, drop compose drafts, DNS cleanup, **null** job/audit FKs (history kept) — documented. Product trees (integrations, nmap devices, cert maps, annotations) need explicit cascade + UI preview. Never silent remote wipe. |
 | **3** | **Multi-worker** | **Done** (v0.2.x) | Celery `CELERY_CONCURRENCY` (default **2** = pool slots in one node); Redis **per-server backup mutex**; parallel across hosts. Prefer raising concurrency over multiple nodes unless HA/scale-out. Shared `/backups`; cancel + lock TTL intact. |
 | **4** | **Deploy topologies** | Docs only | See [Deployment architecture](#deployment-architecture) — Compose supported; k8s / bare install **under consideration only**. |
 
@@ -255,7 +257,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 | **Published ports on maps** | Ports in stack expand/detail; broader Hosts/Path port chips may still grow |
 | **Monitoring coverage audit** | **Done (H3):** `/dns/coverage` + hub teaser; optional inventory-down alerts for Kuma-bound containers |
 | **Configurable columns / link-to-column** | **Later** (post-0.6 residual) — operator-defined map columns and explicit edge placement (runtime topology § 12b) |
-| **LAN discovery (nmap-class)** | Opt-in periodic scan of Network LAN CIDR — **v0.8.0 RC3** ([PLAN_v0.8.0.md](PLAN_v0.8.0.md)); orthogonal to stack deps |
+| **LAN discovery (nmap-class)** | **In progress / product largely on main** — separate worker, auto-create devices, network view, multi-schedule **edit**, vuln pack — **v0.8.0 RC3** ([FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md)); orthogonal to stack deps |
 | **Richer topology** | Focused dep edges polish, force LAN/cloud overrides |
 | **External DNS providers** | Cloudflare (etc.) automation; until then external checklist remains |
 | **Service migrate / remove** | Move stack host↔host with DNS retarget; destructive remove with volume cleanup |

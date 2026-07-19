@@ -154,6 +154,7 @@
   {% set sd = j.status %}
   <div class="audit-event ops-event status-{{ sd }} relative"
        role="listitem"
+       data-job-id="{{ j.id }}"
        title="Click for job details">
     <button type="button"
             class="text-left w-full"
@@ -263,7 +264,10 @@ function statusClass(sd) {
   return 'status-cancelled';
 }
 var _jobModalJob = null;
-function showJobDetailsModal(job) {
+var _jobPollTimer = null;
+var _jobPollId = null;
+function renderJobDetailsModal(job, opts) {
+  opts = opts || {};
   const modal = document.getElementById('job-details-modal');
   const pre = document.getElementById('job-details-content');
   const title = document.getElementById('job-detail-title');
@@ -281,6 +285,19 @@ function showJobDetailsModal(job) {
     }
     if (job.scheduled) parts.push('<span>scheduled</span>');
     if (job.summary) parts.push('<span style="flex-basis:100%"><strong>Summary</strong> ' + esc(job.summary) + '</span>');
+    if (job.current && !job.done) parts.push('<span><strong>Phase</strong> ' + esc(job.current) + '</span>');
+    if (job.done) {
+      var doneCls = job.status === 'success' ? 'banner-success' : (job.status === 'failed' ? 'banner-error' : 'banner-warning');
+      parts.push(
+        '<span style="flex-basis:100%" class="mt-1 p-2 rounded border border-border text-xs ' + doneCls + '">' +
+        (job.status === 'success' ? '✓ Finished successfully' :
+         job.status === 'failed' ? '✗ Finished with failure' :
+         'Finished · ' + esc(job.status)) +
+        (job.summary ? ' — ' + esc(job.summary) : '') +
+        ' · <button type="button" class="text-accent underline" onclick="window.location.reload()">Refresh list</button>' +
+        '</span>'
+      );
+    }
     meta.innerHTML = parts.join(' ');
   }
   if (cancelBtn) {
@@ -297,22 +314,68 @@ function showJobDetailsModal(job) {
   if (job.error) lines.push('Error: ' + job.error);
   if (job.os_steps && job.os_steps.length) lines.push('Steps: ' + job.os_steps.join(', '));
   if (job.current) lines.push('Current: ' + job.current);
-  if (job.log_tail && job.log_tail.length) {
-    lines.push('', '—— log tail ——', ...job.log_tail);
+  var logSrc = (job.log_lines && job.log_lines.length) ? job.log_lines
+             : (job.log_tail && job.log_tail.length) ? job.log_tail : [];
+  if (logSrc.length) {
+    lines.push('', '—— log ——', ...logSrc);
   }
   if (job.result_snippet) {
     lines.push('', '—— result ——', job.result_snippet);
   }
-  if (job.details_json && !(job.log_tail && job.log_tail.length)) {
+  if (job.details_json && !logSrc.length) {
     lines.push('', '—— details ——', job.details_json);
   }
+  var atBottom = pre.scrollHeight - pre.scrollTop - pre.clientHeight < 40;
   pre.textContent = lines.length ? lines.join('\n') : (job.summary || '—');
+  if (atBottom || opts.forceScroll) pre.scrollTop = pre.scrollHeight;
   modal.classList.remove('hidden');
+}
+function showJobDetailsModal(job) {
+  renderJobDetailsModal(job, { forceScroll: true });
+  // Live log poll while job is active (nmap / OS / backups)
+  if (_jobPollTimer) { clearInterval(_jobPollTimer); _jobPollTimer = null; }
+  _jobPollId = job && job.id ? job.id : null;
+  if (job && !job.done && job.id) {
+    _jobPollTimer = setInterval(function () { pollJobIntoModal(job.id); }, 2500);
+  }
+}
+async function pollJobIntoModal(jobId) {
+  if (!_jobModalJob || String(_jobModalJob.id) !== String(jobId)) return;
+  try {
+    var res = await fetch('/jobs/' + encodeURIComponent(jobId), {
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin'
+    });
+    if (!res.ok) return;
+    var data = await res.json();
+    if (!data || data.error) return;
+    var merged = Object.assign({}, _jobModalJob, data);
+    // Keep modal open on completion so the operator can read the final log.
+    renderJobDetailsModal(merged);
+    if (data.done) {
+      if (_jobPollTimer) { clearInterval(_jobPollTimer); _jobPollTimer = null; }
+      // Soft-mark the list row status without closing the detail panel.
+      try {
+        var row = document.querySelector('[data-job-id="' + jobId + '"]');
+        if (row) {
+          row.classList.remove('status-pending', 'status-running');
+          row.classList.add('status-' + (data.status || 'success'));
+          var pill = row.querySelector('.status-pill');
+          if (pill) {
+            pill.className = 'status-pill ' + statusClass(data.status);
+            pill.textContent = data.status || 'done';
+          }
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
 }
 function hideJobDetailsModal() {
   const modal = document.getElementById('job-details-modal');
   if (modal) modal.classList.add('hidden');
   _jobModalJob = null;
+  _jobPollId = null;
+  if (_jobPollTimer) { clearInterval(_jobPollTimer); _jobPollTimer = null; }
 }
 document.getElementById('job-details-modal')?.addEventListener('click', function (e) {
   if (e.target === this) hideJobDetailsModal();
@@ -377,6 +440,18 @@ document.addEventListener('click', function (e) {
   var label = btn.getAttribute('data-job-label') || ('Job #' + id);
   if (id) cancelJobById(id, label);
 }, true);
+
+// Soft auto-refresh when viewing active jobs (nmap scans, OS updates, …)
+(function () {
+  var params = new URLSearchParams(window.location.search || '');
+  var want = params.get('active_only') === '1' || {{ (p_act or 0) | int }};
+  if (!want) return;
+  setInterval(function () {
+    if (_jobModalJob) return; // modal has its own poll
+    if (document.hidden) return;
+    window.location.reload();
+  }, 8000);
+})();
 
 // Date range presets (7d / 30d / 90d / clear) — calendar math from app TZ "today"
 (function () {

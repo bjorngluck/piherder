@@ -1,6 +1,7 @@
 """LAN discovery (nmap) pure helpers — no live scan, no Redis required."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -64,9 +65,19 @@ def test_build_nmap_argv_profiles():
     d = av.build_nmap_argv("discovery", ["192.168.1.0/24"], output_xml="/tmp/o.xml")
     assert d[0] == "nmap"
     assert "-sn" in d
+    assert "-PR" in d  # ARP ping when on L2
     assert "-oX" in d
     assert "/tmp/o.xml" in d
     assert "192.168.1.0/24" in d
+    # skip_dns True adds -n (no reverse DNS hostnames)
+    d_n = av.build_nmap_argv(
+        "discovery", ["192.168.1.0/24"], output_xml="/tmp/o.xml", skip_dns=True
+    )
+    assert "-n" in d_n
+    d_dns = av.build_nmap_argv(
+        "discovery", ["192.168.1.0/24"], output_xml="/tmp/o.xml", skip_dns=False
+    )
+    assert "-n" not in d_dns
 
     inv = av.build_nmap_argv("inventory", ["10.0.0.1"], output_xml="/tmp/o.xml", use_syn=True)
     assert "-sS" in inv
@@ -98,6 +109,146 @@ def test_build_nmap_argv_requires_target():
         av.build_nmap_argv("discovery", [], output_xml="/tmp/o.xml")
 
 
+def test_vuln_update_writes_ready_marker(tmp_path, monkeypatch):
+    """Pack update with mocked downloads creates READY (no live network)."""
+    from app.services.nmap import vuln_update as vu
+    from app.services.nmap import paths as npaths
+
+    monkeypatch.setenv("PIHERDER_NMAP_VULN_ROOT", str(tmp_path))
+
+    def fake_vulners(root, log):
+        d = root / "nmap-vulners"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "vulners.nse").write_text("-- mock\n", encoding="utf-8")
+        log("[t] nmap-vulners mock")
+        return {"nmap_vulners": str(d), "nse_count": 1}
+
+    def fake_vulscan(root, log):
+        d = root / "vulscan"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "vulscan.nse").write_text("-- mock\n", encoding="utf-8")
+        for name in npaths.EXPECTED_VULSCAN_TABLES:
+            (d / name).write_text("1;mock\n", encoding="utf-8")
+        log("[t] vulscan mock")
+        return {
+            "vulscan_dir": str(d),
+            "vulscan_script": True,
+            "files_ok": list(npaths.EXPECTED_VULSCAN_TABLES),
+            "files_failed": [],
+        }
+
+    def fake_edb(root, log):
+        d = root / "exploitdb"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "files_exploits.csv").write_text(
+            "id,file,description\n1,e/1.txt,Test Exploit\n", encoding="utf-8"
+        )
+        (d / "READY").write_text('{"entries":1}\n', encoding="utf-8")
+        (root / "vulscan").mkdir(exist_ok=True)
+        (root / "vulscan" / "exploitdb.csv").write_text("1;Test Exploit\n", encoding="utf-8")
+        log("[t] exploitdb mock")
+        return {"exploitdb_entries": 1, "exploitdb_bytes": 40}
+
+    monkeypatch.setattr(vu, "download_nmap_vulners", fake_vulners)
+    monkeypatch.setattr(vu, "download_vulscan", fake_vulscan)
+    monkeypatch.setattr(vu, "download_exploitdb", fake_edb)
+    monkeypatch.setattr(vu, "try_acquire_lock", lambda *a, **k: True)
+    monkeypatch.setattr(vu, "release_lock", lambda *a, **k: None)
+    monkeypatch.setattr(vu, "touch_worker_heartbeat", lambda *a, **k: None)
+
+    class FakeSession:
+        def get(self, *a, **k):
+            return None
+
+    result = vu.run_vuln_db_update(
+        FakeSession(), job_id=None, include_vulscan=True, include_exploitdb=True
+    )
+    assert result["status"] == "success"
+    assert (tmp_path / "READY").is_file()
+    st = npaths.vuln_pack_status(tmp_path)
+    assert st["ready"] is True
+    assert st["exploitdb"]["present"] is True
+
+
+def test_convert_exploitdb_csv_to_vulscan():
+    from app.services.nmap.vuln_update import convert_exploitdb_csv_to_vulscan
+
+    raw = (
+        b"id,file,description,date_published\n"
+        b'42,exploits/linux/42.txt,"Foo; Bar XSS",2020-01-01\n'
+        b"99,exploits/php/99.txt,Simple Title,2021-01-01\n"
+    )
+    lines, n = convert_exploitdb_csv_to_vulscan(raw)
+    assert n == 2
+    assert lines[0].startswith("42;")
+    assert ";" not in lines[0].split(";", 1)[1]  # semicolons stripped from title
+    assert lines[1] == "99;Simple Title"
+
+
+def test_merge_job_details_appends_log_lines():
+    from app.services.nmap.job_progress import merge_job_details
+    from app.models import Job
+
+    calls = []
+
+    class FakeJob:
+        def __init__(self):
+            self.status = "pending"
+            self.started_at = None
+            self.finished_at = None
+            self.details = None
+
+    job = FakeJob()
+
+    class FakeSession:
+        def get(self, model, jid):
+            return job
+
+        def add(self, obj):
+            calls.append(obj)
+
+        def commit(self):
+            pass
+
+    merge_job_details(
+        FakeSession(),
+        1,
+        status="running",
+        current="scanning",
+        log_line="line1",
+    )
+    merge_job_details(
+        FakeSession(),
+        1,
+        status="running",
+        log_line="line2",
+    )
+    data = json.loads(job.details)
+    assert data["log_lines"] == ["line1", "line2"]
+    assert job.status == "running"
+    assert job.started_at is not None
+
+
+def test_resolve_use_syn_downgrades_without_privileges():
+    from app.services.nmap import privileges as priv
+
+    with patch.object(priv.os, "geteuid", return_value=1000):
+        use, note = priv.resolve_use_syn(True)
+        assert use is False
+        assert note and "root" in note.lower()
+        use2, note2 = priv.resolve_use_syn(False)
+        assert use2 is False
+        assert note2 is None
+    with patch.object(priv.os, "geteuid", return_value=0):
+        use3, note3 = priv.resolve_use_syn(True)
+        assert use3 is True
+        assert note3 is None
+    assert priv.is_root_required_error(
+        "You requested a scan type which requires root privileges.\nQUITTING!\n"
+    )
+    assert not priv.is_root_required_error("all hosts up")
+
+
 def test_device_identity_key_prefers_mac():
     assert up.device_identity_key(mac="aa:bb:cc:dd:ee:ff", ip="1.2.3.4") == "mac:AA:BB:CC:DD:EE:FF"
     assert up.device_identity_key(mac=None, ip="1.2.3.4") == "ip:1.2.3.4"
@@ -107,11 +258,20 @@ def test_vuln_pack_status_empty_and_ready(tmp_path):
     st = npaths.vuln_pack_status(tmp_path)
     assert st["ready"] is False
     assert st["exists"] is True
+    assert st["completeness"] == "empty"
+    # Marker alone is not "ready" — need vulners.nse or tables
     marker = tmp_path / "READY"
     marker.write_text("ok", encoding="utf-8")
+    st_marker = npaths.vuln_pack_status(tmp_path)
+    assert st_marker["marker"] is True
+    assert st_marker["ready"] is False
+    nv = tmp_path / "nmap-vulners"
+    nv.mkdir()
+    (nv / "vulners.nse").write_text("-- mock\n", encoding="utf-8")
     st2 = npaths.vuln_pack_status(tmp_path)
     assert st2["ready"] is True
-    assert st2["marker"] is True
+    assert st2["nmap_vulners"]["present"] is True
+    assert st2["completeness"] == "online_vulners"
 
 
 def test_upsert_hosts_from_parse_creates_and_updates():
@@ -240,6 +400,118 @@ def test_parse_nmap_config_and_cidrs_textarea():
     data = json.loads(raw)
     assert data["cidrs"] == ["192.168.1.0/24"]
     assert data["vuln_enabled"] is True
+
+
+def test_script_args_for_vuln_no_duplicate_vulners(tmp_path, monkeypatch):
+    """Pack vulners.nse must not be added when stock vuln category already has it."""
+    from app.services.nmap import scan as nscan
+
+    monkeypatch.setenv("PIHERDER_NMAP_VULN_ROOT", str(tmp_path))
+    nv = tmp_path / "nmap-vulners"
+    nv.mkdir()
+    (nv / "vulners.nse").write_text("-- pack copy\n", encoding="utf-8")
+    (nv / "http-vulners-regex.nse").write_text("-- regex\n", encoding="utf-8")
+    vs = tmp_path / "vulscan"
+    vs.mkdir()
+    (vs / "vulscan.nse").write_text("-- vulscan\n", encoding="utf-8")
+
+    args = nscan._script_args_for_vuln()
+    assert args[0] == "--script"
+    script_list = args[1]
+    assert "vuln" in script_list.split(",")
+    # stock name only — never absolute pack path to vulners.nse
+    assert "vulners.nse" not in script_list or "nmap-vulners/vulners" not in script_list
+    assert str(vs / "vulscan.nse") in script_list
+    assert "http-vulners-regex.nse" in script_list
+    assert nscan._nmap_script_engine_failed(
+        "NSE: failed to initialize the script engine:\nduplicate script ID: 'vulners'\nQUITTING!"
+    )
+
+
+def test_stale_data_cleanup_preview_and_purge_jobs(tmp_path):
+    """Old terminal jobs are purged; pending are kept."""
+    from datetime import datetime, timedelta
+    from sqlmodel import Session, SQLModel, create_engine, select
+    from app.models import Job, AuditLog
+    from app.services import stale_data_cleanup as sdc
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'cleanup.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    SQLModel.metadata.create_all(engine)
+    old = datetime.utcnow() - timedelta(days=40)
+    recent = datetime.utcnow() - timedelta(days=2)
+    with Session(engine) as s:
+        s.add(
+            Job(
+                job_type="backup",
+                status="success",
+                created_at=old,
+                finished_at=old,
+            )
+        )
+        s.add(
+            Job(
+                job_type="backup",
+                status="pending",
+                created_at=old,
+            )
+        )
+        s.add(
+            Job(
+                job_type="backup",
+                status="failed",
+                created_at=recent,
+                finished_at=recent,
+            )
+        )
+        s.add(AuditLog(action="x", status="success", started_at=old))
+        s.add(AuditLog(action="y", status="success", started_at=recent))
+        s.commit()
+
+        conf = {
+            "enabled": True,
+            "cron": "30 4 * * *",
+            "jobs_enabled": True,
+            "jobs_days": 30,
+            "audit_enabled": True,
+            "audit_days": 30,
+            "nmap_enabled": False,
+            "nmap_days": 30,
+        }
+        prev = sdc.preview_cleanup(s, conf)
+        assert prev["jobs"] == 1
+        assert prev["audit"] == 1
+        res = sdc.run_stale_data_cleanup(s, job_id=None, dry_run=False, cfg=conf)
+        assert res["deleted_jobs"] == 1
+        assert res["deleted_audit"] == 1
+        jobs = list(s.exec(select(Job)).all())
+        assert len(jobs) == 2  # pending + recent failed
+        audits = list(s.exec(select(AuditLog)).all())
+        # one recent audit remains (+ optional cleanup audit)
+        assert any(a.action == "y" for a in audits)
+
+
+def test_schedule_options_dump_parse_and_deep_gate():
+    from app.services.nmap import schedules as sch
+    from types import SimpleNamespace
+
+    raw = sch.dump_schedule_options(vuln_scripts=True, use_syn=True)
+    opts = sch.parse_schedule_options(SimpleNamespace(options_json=raw))
+    assert opts["vuln_scripts"] is True
+    assert opts["use_syn"] is True
+
+    raw2 = sch.dump_schedule_options(vuln_scripts=False, use_syn=False)
+    opts2 = sch.parse_schedule_options(SimpleNamespace(options_json=raw2))
+    assert opts2["vuln_scripts"] is False
+    assert opts2["use_syn"] is False
+
+    # inherit SYN when omitted
+    raw3 = sch.dump_schedule_options(vuln_scripts=True, use_syn=None)
+    opts3 = sch.parse_schedule_options(SimpleNamespace(options_json=raw3))
+    assert opts3["use_syn"] is None
+    assert "deep" in sch.INTENSITIES_SCHEDULE
 
 
 def test_network_view_groups_by_subnet():

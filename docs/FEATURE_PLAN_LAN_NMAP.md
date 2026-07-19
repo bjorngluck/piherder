@@ -1,7 +1,8 @@
 # Feature plan — LAN discovery (nmap)
 
-**Status:** **Approved** (2026-07-19) — implementation in progress  
+**Status:** **Approved** (2026-07-19) — **N0–N6 product largely done**; N7 docs partial → wiki landed; N8–N9 open  
 **Ship target:** **v0.8.0** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) stream **N**  
+**Operator wiki:** [wiki/integrations/lan-discovery.md](../wiki/integrations/lan-discovery.md)  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ADMIN.md](ADMIN.md) · [SPEC.md](../SPEC.md)
 
 This document owns **product + technical design** for LAN discovery. The cycle plan owns ship bar and sequencing only.
@@ -208,9 +209,11 @@ Capture policy: light theme, desktop default ([screenshots README](../wiki/asset
 | `lan-discovery` | Discovery | 6h / daily | All CIDRs |
 | `lan-inventory` | Inventory | Daily | CIDR / live hosts |
 | `lan-detailed` | Detailed | Weekly | CIDR / known devices |
-| Deep vuln | Deep | **Manual only** | Single IP |
+| Deep vuln | Deep | Manual **or** scheduled (opt-in) | CIDR / deep intensity |
 
 **On-demand:** scan network now; scan this device (full ports / services / optional vuln); rescan selection.
+
+**Edit path (shipped):** list → **Edit** → same form prefilled (`?schedule=ID`) → POST `…/schedules/{id}/edit`. Per-schedule options in `options_json` (e.g. `vuln_scripts` on deep, `use_syn` override vs inherit integration).
 
 Guardrails: max concurrent LAN-wide = 1; skip if previous running; audit schedule changes; targets must be inside configured CIDR allowlist.
 
@@ -229,7 +232,8 @@ Guardrails: max concurrent LAN-wide = 1; skip if previous running; audit schedul
 | Artifacts | XML under `DATA_ROOT/nmap/…` + retention |
 
 **Identity:** MAC when present; else IP + merge UI for DHCP churn.  
-**Retention:** latest ports per device + last N run summaries; raw XML TTL configurable.
+**Retention:** latest ports per device + last N run summaries; raw XML TTL configurable.  
+**Platform alignment:** Jobs/Audit DB purge and entity cascades live in RC3 stream **R** ([PLAN_v0.8.0.md](PLAN_v0.8.0.md) § R) — nmap run rows + `DATA_ROOT/nmap/runs/*.xml` should honor the same operator-visible retention settings (or a dedicated “nmap artifacts days” knob defaulting to 30).
 
 ---
 
@@ -277,32 +281,34 @@ Aim for **high unit + E2E coverage** of nmap surfaces (stronger than global ~50%
 | Phase | Deliverable | Status |
 |-------|-------------|--------|
 | **N0** | This plan approved + docs committed | **Done** |
-| **N1** | Models + migrations + parse/upsert + fixtures | **Done** (foundation) |
-| **N2** | nmap image target + compose profile + vuln volume + queue/tasks | **Done** (foundation) |
-| **N3** | Integration UI: setup, devices, runs, on-demand | **Done** (MVP) |
-| **N4** | Multiple schedules + APScheduler sync | **Done** (MVP) |
+| **N1** | Models + migrations + parse/upsert + fixtures | **Done** |
+| **N2** | nmap image + profile + host-network worker + vuln volume + queue | **Done** |
+| **N3** | Integration UI: setup, devices, runs, on-demand | **Done** |
+| **N4** | Multiple schedules + **create/edit** + APScheduler sync + options_json | **Done** |
 | **N5** | Network view MVP | **Done** (subnet groups) |
-| **N6** | Per-IP deep + vuln-pack gate + Vulners volume update job | |
-| **N7** | Promote/link/dismiss + audit + wiki/ADMIN + screenshots | |
-| **N8** | Soft embed into existing views (capacity) | |
-| **N9** | Coverage gate + E2E green | |
+| **N6** | Per-IP deep + vuln pack update job + Jobs progress; deep NSE (vuln+vulscan, no double vulners) | **Done** |
+| **N7** | Promote/link/dismiss + audit + **wiki/ADMIN** + screenshots | **Partial** — link/ignore/promote shell + operator wiki; **screenshots open** |
+| **N8** | Soft embed into existing views (capacity) | Open |
+| **N9** | Coverage gate + E2E green | Open |
 
-MVP ship slice: **N1–N5**; N6 strongly desired in 0.8.
+**Also shipped with N (ops hardening):** root nmap worker for reliable inventory; hostname/MAC via host net + DNS; schedule SYN/vuln options; web mounts vuln volume **:ro** for Overview pack status.
+
+MVP product slice: **N1–N6**; docs wiki **N7 partial**; screenshots + E2E = tag bar with stream **A/Q**.
 
 ---
 
 ## 13. Acceptance
 
-- [ ] Configure LAN CIDR(s); run discover/inventory/detailed jobs  
-- [ ] Multiple schedules (e.g. discovery daily, detailed weekly)  
-- [ ] On-demand network + per-IP deep  
-- [ ] Auto-created devices in DB + list + **network view**  
-- [ ] Manual promote/link/dismiss; audit  
-- [ ] Separate nmap worker via compose profile; default compose without it  
-- [ ] Vuln volume mapped; Vulners full scan when pack present + enabled  
-- [ ] Wiki + ADMIN security notes  
-- [ ] High unit + E2E coverage; no live scan in CI  
-- [ ] Screenshots for network view + discovery  
+- [x] Configure LAN CIDR(s); run discover/inventory/detailed jobs  
+- [x] Multiple schedules (create + **edit**; discovery daily, detailed weekly, optional deep)  
+- [x] On-demand network + per-IP deep  
+- [x] Auto-created devices in DB + list + **network view**  
+- [x] Manual promote/link/dismiss shell; audit on key actions  
+- [x] Separate nmap worker via compose profile; default compose without it  
+- [x] Vuln volume mapped; deep vuln scripts when pack present + enabled  
+- [x] Operator wiki ([lan-discovery.md](../wiki/integrations/lan-discovery.md)) + ADMIN notes  
+- [ ] High unit + E2E coverage (fixtures only); no live scan in CI — **N9**  
+- [ ] Screenshots for network view + discovery — stream **A**
 
 ---
 
@@ -310,13 +316,13 @@ MVP ship slice: **N1–N5**; N6 strongly desired in 0.8.
 
 | # | Topic | Status | Lean |
 |---|-------|--------|------|
-| 1 | Integration type `nmap` | Open | Yes — catalog consistency |
-| 2 | Exact Dockerfile layout | Open | Multi-target or `Dockerfile.nmap` |
-| 3 | SYN vs connect default | Open | SYN if caps; else connect |
+| 1 | Integration type `nmap` | **Done** | Catalog integration type |
+| 2 | Exact Dockerfile layout | **Done** | `Dockerfile.nmap` |
+| 3 | SYN vs connect default | **Locked lean** | Prefer SYN when privileged; connect fallback; per-schedule override |
 | 4 | IPv6 in 0.8 | Open | Out unless cheap |
-| 5 | Device identity | Open | MAC > IP + merge UI |
-| 6 | Vulners fetch tooling | Open | Volume + update job; exact upstream in N2 |
-| 7 | Deep vuln must for tag? | Open | **Should**; discovery+inventory+detailed+view **must** |
+| 5 | Device identity | Lean | MAC when present; else IP; merge UI later |
+| 6 | Vuln fetch tooling | **Done** | Volume + `nmap_vuln_db_update` (vulscan / exploit-db style pack) |
+| 7 | Deep vuln must for tag? | Lean | **Should**; discovery+inventory+detailed+view **must** |
 
 ---
 
@@ -326,6 +332,8 @@ MVP ship slice: **N1–N5**; N6 strongly desired in 0.8.
 |------|------|
 | 2026-07-19 | Skeleton opened with v0.8.0 kickoff |
 | 2026-07-19 | **Approved:** separate worker, vuln volume for Vulners, intensity ladder, multi-schedule, network view, high test bar |
+| 2026-07-19 | Retention note: nmap artifacts align with platform stream **R** (Jobs/Audit 30d opt-in; entity cascades) |
+| 2026-07-19 | **N1–N6 landed:** UI, schedules **edit**, network view, deep/vuln pack, host-network worker, Jobs progress; **N7** wiki; N8–N9 open |
 
 ---
 

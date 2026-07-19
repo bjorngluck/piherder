@@ -79,11 +79,19 @@ def _parse_host(host_el: ET.Element) -> Optional[ParsedHost]:
     hostname = None
     hostnames = host_el.find("hostnames")
     if hostnames is not None:
+        # Prefer user/PTR (DNS) names over empty placeholders
+        preferred: list[str] = []
+        others: list[str] = []
         for hn in hostnames.findall("hostname"):
             name = (hn.get("name") or "").strip()
-            if name:
-                hostname = name
-                break
+            if not name:
+                continue
+            htype = (hn.get("type") or "").lower()
+            if htype in ("user", "ptr", "dns"):
+                preferred.append(name)
+            else:
+                others.append(name)
+        hostname = (preferred or others or [None])[0]
 
     os_summary = None
     os_el = host_el.find("os")

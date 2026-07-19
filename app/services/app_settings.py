@@ -67,6 +67,15 @@ DEFAULTS: Dict[str, Any] = {
     "stack_inventory_down_alerts": True,
     # Operator stack container order: {"server_id:project": ["caddy","web","db",...]}
     "stack_container_order_json": "{}",
+    # Stream R — stale Jobs / Audit / nmap-run purge (opt-in schedule)
+    "data_cleanup_enabled": False,
+    "data_cleanup_cron": "30 4 * * *",
+    "data_cleanup_jobs_enabled": True,
+    "data_cleanup_jobs_days": 30,
+    "data_cleanup_audit_enabled": True,
+    "data_cleanup_audit_days": 30,
+    "data_cleanup_nmap_enabled": False,
+    "data_cleanup_nmap_days": 30,
 }
 
 

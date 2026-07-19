@@ -75,7 +75,18 @@ PIHERDER_IMAGE=bjorngluck/piherder:0.7.0 docker compose up -d
 
 Continue: [First login](first-login.md) — **register the first admin** (no default password user).
 
-### 6. Production security checklist
+### 6. (Optional) LAN Discovery nmap worker
+
+Default `docker compose up` does **not** start nmap. For opt-in discovery:
+
+```bash
+docker build -f Dockerfile.nmap -t piherder:nmap-local .
+docker compose --profile nmap up -d celery-worker-nmap
+```
+
+Ensure stock compose still publishes Postgres/Redis on **host loopback** (nmap worker uses host networking). Vuln pack dir defaults to `./piherder_nmap_vuln`. Operator guide: [LAN Discovery](../integrations/lan-discovery.md).
+
+### 7. Production security checklist
 
 | Item | Why |
 |------|-----|

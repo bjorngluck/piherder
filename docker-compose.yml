@@ -65,6 +65,9 @@ services:
       # Edge TLS: vault → write PEMs here; Caddy reads same host dir (no SSH/sudo)
       - ./certs:/certs
       - ./Caddyfile:/caddy/Caddyfile:ro
+      # LAN vuln pack (same host dir as celery-worker-nmap) so Overview can show pack status.
+      # Read-only — only the nmap worker writes downloads into this volume.
+      - ${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}:/var/lib/piherder/nmap-vuln:ro
     depends_on:
       - db
       - redis
@@ -84,6 +87,9 @@ services:
       - POSTGRES_DB=piherder
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    # Loopback only — for nmap worker in host-network mode
+    ports:
+      - "127.0.0.1:5432:5432"
     restart: unless-stopped
 
   redis:
@@ -92,6 +98,9 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
+    # Loopback only — for nmap worker in host-network mode
+    ports:
+      - "127.0.0.1:6379:6379"
 
   # Multi-worker: raise CELERY_CONCURRENCY (default 2) so backups run in parallel
   # across hosts. Per-server Redis mutex prevents two rsyncs to the same host.
@@ -129,6 +138,9 @@ services:
   #   docker compose --profile nmap up -d celery-worker-nmap
   # Vulners / CVE artefacts live on the host volume (not in the image):
   #   ./piherder_nmap_vuln → /var/lib/piherder/nmap-vuln
+  #
+  # **Host network** is required for MAC addresses (ARP/L2). Docker bridge only sees L3,
+  # so XML never gets addrtype=mac. Hostnames need reverse DNS (uncheck Skip DNS) and/or PTR.
   celery-worker-nmap:
     profiles: ["nmap"]
     image: ${PIHERDER_NMAP_IMAGE:-piherder:nmap-local}
@@ -136,6 +148,8 @@ services:
       context: .
       dockerfile: Dockerfile.nmap
     container_name: piherder-celery-nmap
+    # Same L2 as the Pi’s LAN interface → ARP MACs + better discovery
+    network_mode: host
     command: >
       celery -A app.celery_app.celery worker
       --loglevel=info
@@ -146,16 +160,21 @@ services:
     environment:
       <<: *piherder-app-env
       PIHERDER_NMAP_VULN_ROOT: /var/lib/piherder/nmap-vuln
+      # Host network: compose service DNS (redis/db) is unavailable — use loopback ports.
+      CELERY_BROKER_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://127.0.0.1:6379/0}
+      CELERY_RESULT_BACKEND: ${PIHERDER_NMAP_REDIS_URL:-redis://127.0.0.1:6379/0}
+      REDIS_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://127.0.0.1:6379/0}
+      DATABASE_URL: ${PIHERDER_NMAP_DATABASE_URL:-postgresql://piherder:piherder@127.0.0.1:5432/piherder}
     volumes:
       - ./piherder_data:/data
       - ${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}:/var/lib/piherder/nmap-vuln
     depends_on:
       - db
       - redis
-    # SYN scans / OS detect may need extra caps on some hosts; connect-scan works without.
-    # cap_add:
-    #   - NET_RAW
-    #   - NET_ADMIN
+    # Root + raw caps: SYN, ARP, OS detect
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
     healthcheck:
       test: ["CMD", "python", "-c", "import shutil,sys; sys.exit(0 if shutil.which('nmap') else 1)"]
       interval: 60s

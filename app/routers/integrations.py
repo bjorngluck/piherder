@@ -295,7 +295,7 @@ async def integration_edit_form(
                     "name": integration.name,
                     "cidrs": "\n".join(cfg.get("cidrs") or []),
                     "excludes": "\n".join(cfg.get("excludes") or []),
-                    "skip_dns": cfg.get("skip_dns", True),
+                    "skip_dns": cfg.get("skip_dns", False),
                     "use_syn": cfg.get("use_syn", False),
                     "vuln_enabled": cfg.get("vuln_enabled", False),
                     "notes": cfg.get("notes") or "",

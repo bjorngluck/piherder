@@ -27,7 +27,8 @@ def parse_nmap_config(integration: Integration) -> dict[str, Any]:
     return {
         "cidrs": [str(c).strip() for c in cidrs if str(c).strip()],
         "excludes": [str(c).strip() for c in excludes if str(c).strip()],
-        "skip_dns": bool(cfg.get("skip_dns", True)),
+        # Default False so reverse DNS hostnames appear in scans (was True = always -n).
+        "skip_dns": bool(cfg.get("skip_dns", False)),
         "use_syn": bool(cfg.get("use_syn", False)),
         "vuln_enabled": bool(cfg.get("vuln_enabled", False)),
         "notes": str(cfg.get("notes") or ""),
@@ -38,7 +39,7 @@ def dump_nmap_config(
     *,
     cidrs: list[str],
     excludes: list[str] | None = None,
-    skip_dns: bool = True,
+    skip_dns: bool = False,
     use_syn: bool = False,
     vuln_enabled: bool = False,
     notes: str = "",
@@ -70,7 +71,7 @@ def create_nmap(
     name: str = "LAN Discovery",
     cidrs: list[str],
     excludes: list[str] | None = None,
-    skip_dns: bool = True,
+    skip_dns: bool = False,
     use_syn: bool = False,
     vuln_enabled: bool = False,
     notes: str = "",
@@ -111,7 +112,7 @@ def update_nmap(
     name: str,
     cidrs: list[str],
     excludes: list[str] | None = None,
-    skip_dns: bool = True,
+    skip_dns: bool = False,
     use_syn: bool = False,
     vuln_enabled: bool = False,
     notes: str = "",
@@ -223,14 +224,16 @@ def list_schedules(session: Session, integration_id: int) -> list[NmapScanSchedu
 def network_view_payload(
     session: Session, integration: Integration
 ) -> dict[str, Any]:
-    """Build subnet-grouped nodes for network view MVP."""
+    """Build subnet-grouped nodes for network view (WebMap-style host cards)."""
     import ipaddress
 
     cfg = parse_nmap_config(integration)
     devices = list_devices(session, integration.id, limit=1000)
-    # Group by /24 for IPv4
     groups: dict[str, list[dict[str, Any]]] = {}
+    by_state: dict[str, int] = {}
+    total_open = 0
     for d in devices:
+        by_state[d.state] = by_state.get(d.state, 0) + 1
         if d.state == "ignored":
             continue
         try:
@@ -241,6 +244,8 @@ def network_view_payload(
                 net = str(ipaddress.ip_network(f"{ip}/64", strict=False))
         except ValueError:
             net = "unknown"
+        open_ports = _open_ports_summary(d.ports_json, limit=8)
+        total_open += len(open_ports) if open_ports else _count_open_ports(d.ports_json)
         node = {
             "id": d.id,
             "ip": d.ip_address,
@@ -250,18 +255,86 @@ def network_view_payload(
             "linked_server_id": d.linked_server_id,
             "os": d.os_summary or "",
             "ports_open": _count_open_ports(d.ports_json),
+            "services": open_ports,
+            "last_seen_at": (
+                d.last_seen_at.isoformat() + "Z"
+                if getattr(d, "last_seen_at", None)
+                else None
+            ),
         }
         groups.setdefault(net, []).append(node)
     for g in groups.values():
-        g.sort(key=lambda n: n["ip"])
+        g.sort(key=lambda n: _ip_sort_key(n["ip"]))
     return {
         "cidrs": cfg.get("cidrs") or [],
         "groups": [
-            {"subnet": k, "nodes": v, "count": len(v)}
+            {
+                "subnet": k,
+                "nodes": v,
+                "count": len(v),
+                "open_ports": sum(n.get("ports_open") or 0 for n in v),
+            }
             for k, v in sorted(groups.items(), key=lambda x: x[0])
         ],
         "device_count": sum(len(v) for v in groups.values()),
+        "by_state": by_state,
+        "open_ports_total": total_open,
     }
+
+
+def device_list_item(device: NmapDevice) -> dict[str, Any]:
+    """Row payload for devices table / host list (WebMap-style)."""
+    services = _open_ports_summary(device.ports_json, limit=6)
+    return {
+        "row": device,
+        "open_ports": _count_open_ports(device.ports_json),
+        "services": services,
+        "service_labels": [
+            f"{s['port']}/{s.get('service') or '?'}" for s in services[:5]
+        ],
+    }
+
+
+def _ip_sort_key(ip: str) -> tuple:
+    import ipaddress
+
+    try:
+        obj = ipaddress.ip_address(ip)
+        return (0, int(obj))
+    except ValueError:
+        return (1, ip)
+
+
+def _open_ports_summary(
+    ports_json: Optional[str], *, limit: int = 8
+) -> list[dict[str, Any]]:
+    if not ports_json:
+        return []
+    try:
+        ports = json.loads(ports_json)
+        if not isinstance(ports, list):
+            return []
+        open_p = [
+            p
+            for p in ports
+            if str((p or {}).get("state") or "").lower() == "open"
+        ]
+        open_p.sort(key=lambda p: int((p or {}).get("port") or 0))
+        out: list[dict[str, Any]] = []
+        for p in open_p[: max(1, min(30, limit))]:
+            out.append(
+                {
+                    "port": p.get("port"),
+                    "protocol": p.get("protocol") or "tcp",
+                    "service": p.get("service") or "",
+                    "product": p.get("product") or "",
+                    "version": p.get("version") or "",
+                    "state": p.get("state") or "open",
+                }
+            )
+        return out
+    except Exception:
+        return []
 
 
 def _count_open_ports(ports_json: Optional[str]) -> int:

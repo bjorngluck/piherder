@@ -20,6 +20,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 HERDER_SCHEDULE_JOB_ID = "herder_self_backup"
+STALE_DATA_CLEANUP_JOB_ID = "stale_data_cleanup"
 
 
 def _cron_trigger(cron: str, timezone=None):
@@ -614,6 +615,64 @@ def sync_herder_backup_schedule(scheduler, HAS_SCHEDULER):
         logger.info(f"[SCHEDULER] PiHerder self-backup scheduled: {cron} ({tz})")
     except Exception as e:
         logger.warning(f"[SCHEDULER] Could not register herder backup schedule: {e}")
+
+
+def sync_stale_data_cleanup_schedule(scheduler, HAS_SCHEDULER):
+    """Register or remove the global Jobs/Audit/nmap purge cron."""
+    if not HAS_SCHEDULER or not scheduler:
+        return
+    from . import app_settings as app_cfg
+    from . import stale_data_cleanup as sdc
+
+    try:
+        scheduler.remove_job(STALE_DATA_CLEANUP_JOB_ID)
+    except Exception:
+        pass
+
+    conf = sdc.cleanup_config()
+    if not conf.get("enabled"):
+        logger.info("[SCHEDULER] Stale data cleanup schedule disabled")
+        return
+    # Nothing selected to purge
+    if not (
+        conf.get("jobs_enabled")
+        or conf.get("audit_enabled")
+        or conf.get("nmap_enabled")
+    ):
+        logger.info("[SCHEDULER] Stale data cleanup enabled but no targets — skip")
+        return
+
+    cron = (conf.get("cron") or "").strip()
+    if not cron:
+        return
+    try:
+        app_cfg.validate_cron_expression(cron)
+        tz = app_cfg.get_app_timezone()
+        trigger = _cron_trigger(cron, timezone=tz)
+        scheduler.add_job(
+            func=schedule_stale_data_cleanup_job,
+            trigger=trigger,
+            id=STALE_DATA_CLEANUP_JOB_ID,
+            replace_existing=True,
+            name="Stale data cleanup",
+        )
+        logger.info(f"[SCHEDULER] Stale data cleanup scheduled: {cron} ({tz})")
+    except Exception as e:
+        logger.warning(f"[SCHEDULER] Could not register stale data cleanup: {e}")
+
+
+def schedule_stale_data_cleanup_job():
+    """APScheduler → enqueue fleet Job on default Celery queue."""
+    logger.info("[SCHEDULER] Enqueueing scheduled stale data cleanup")
+    from ..database import engine
+    from .stale_data_cleanup import enqueue_stale_data_cleanup
+
+    try:
+        with Session(engine) as s:
+            job = enqueue_stale_data_cleanup(s, user_id=None, dry_run=False)
+            logger.info("[SCHEDULER] Stale data cleanup job #%s queued", job.id)
+    except Exception as e:
+        logger.error("[SCHEDULER] Stale data cleanup enqueue failed: %s", e)
 
 
 def schedule_herder_backup_job():

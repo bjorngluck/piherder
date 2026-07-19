@@ -64,11 +64,12 @@ This is **not** web SSH, ACME-in-herder, or a second onboarding rewrite.
 
 | Stream | Must for 0.8? | Status |
 |--------|---------------|--------|
-| **P** Overall polish | Should / strong | Inventory below |
-| **Q** E2E + test coverage | **Must** (grow bar) | Extend from 0.7 foundation |
-| **A** Full docs review + screenshot pack | **Must** | Parked from 0.7 |
-| **N** LAN discovery (nmap-class) | **Must** (feature) | Planned |
-| **L** Host lifecycle P3 | Nice / capacity | Optional |
+| **P** Overall polish | Should / strong | Inventory below — mostly open |
+| **Q** E2E + test coverage | **Must** (grow bar) | 0.7 base green; 0.8 growth still open |
+| **A** Full docs review + screenshot pack | **Must** | Prose: LAN Discovery wiki + Settings cleanup landed; **PNG pack open** |
+| **N** LAN discovery (nmap-class) | **Must** (feature) | **N0–N6 done** · N7 wiki partial · N8–N9 open |
+| **R** Data retention / grooming / delete cascades | Should / capacity | **R1 done** (Jobs/Audit/nmap-run opt-in) · R2 docs partial · cascade UI later |
+| **L** Host lifecycle P3 | Nice / capacity | Optional / parked |
 | **D** Packaging | Must at tag | End of cycle |
 
 ---
@@ -88,6 +89,51 @@ Carry list from 0.7 stream C + operator friction. **None of these block nmap**, 
 | Misc UX consistency (wizard/docker/certs chrome) | Operator polish | Nice | Open |
 
 If freeze pressure returns, **ship N + A + Q growth**; cut low-value P items.
+
+---
+
+### R — Data retention, grooming, and referential cleanup
+
+Operator feedback (2026-07-19): long-running labs fill **Jobs** / **Audit**; nmap and fleet deletes need a clear story for what stays vs what is purged. Prefer **opt-in** schedules (same spirit as backup retention), defaults that match “keep a month of ops history.”
+
+#### R1 — Time-based retention (platform)
+
+| Item | Default lean | Notes |
+|------|----------------|-------|
+| **Jobs history purge** | **Off** until enabled · **30 days** when on | Settings (or Status/ops) toggle + `retention_days` (min floor e.g. 7). Scheduled job (APScheduler) + optional “Run now”. Never delete **pending/running**. Prefer delete finished rows older than N days; keep optional “keep last K per type” later. |
+| **Audit log purge** | **Off** until enabled · **30 days** when on | Same pattern as Jobs. **Separate** enable + days (ops may want audit longer than jobs). |
+| **Safety** | Preview count → confirm · audit the purge itself | Dry-run summary: “would delete X jobs / Y audit rows”. Admin-only. |
+| **nmap run XML artifacts** | Bound under `DATA_ROOT/nmap/…` | Align with [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) retention: drop old run XML + `NmapScanRun` summaries older than N (or keep last K runs per integration). |
+| **Backup file retention** | Already exists per-server (`retention_days` / retention job) | Do not conflate with Jobs/Audit DB purge. |
+
+**Ship shape (when pulled in):** `AppSetting` (or dedicated config keys) · `retention` / `jobs_purge` / `audit_purge` job types · wiki/ADMIN section · unit tests with frozen time.
+
+#### R2 — Entity delete & cascade (what happens today vs target)
+
+| Entity | **Today** (baseline) | **Target roadmap** |
+|--------|----------------------|---------------------|
+| **Server** (fleet remove) | Cancels active jobs; unregisters schedules; deletes compose **drafts**; DNS fabric cleanup; **nulls** `Job`/`Audit`/`Notification.server_id` (history kept, unlinked); **does not** SSH or wipe remote/backups | Document clearly in UI/wiki. Optional later: “also purge unlinked jobs/audit for this former host” checkbox. |
+| **Integration** (Kuma/Grafana/nmap…) | Type-specific | Explicit cascade matrix: bindings, nmap devices/runs/schedules, status JSON. Prefer “delete integration → delete discovery children” with confirm. |
+| **Nmap device** | Ignore/link/unlink | Dismiss/delete device → drop script results; unlink server only when intended. Stale auto-age. |
+| **Service template / deployment** | Existing rows | Document FKs; no orphan deploy jobs pointing at missing templates. |
+| **Certificate / map** | Edge apply state | On cert delete: clear maps, stage files policy, audit. |
+| **User** | RBAC | Reassign or null audit/user refs; never leave sole-admin trap (existing). |
+| **Docker annotation / topology edge** | Per host | Clean when server deleted or project gone (orphans). |
+
+**Principle:**  
+1) **History by default** for Jobs/Audit (unlink > hard-delete on entity remove).  
+2) **Opt-in time purge** for bulk DB growth (R1).  
+3) **Product-owned trees** (nmap devices, compose drafts, bindings) **cascade** on parent delete with preview.  
+4) **Never** silently delete remote host data (align with server delete “host left intact”).
+
+#### R3 — Priority / placement
+
+| Slice | Suggest | Priority for 0.8 |
+|-------|---------|------------------|
+| R1 Jobs + Audit 30d toggle | High operator value; small surface | **Done** (2026-07-19) — Settings → Stale data cleanup · job `stale_data_cleanup` |
+| R1 nmap artifact TTL | With nmap ship | **Done** (opt-in toggle; default off · 30d when on) |
+| R2 document current server-delete behavior | Cheap | **Done** (wiki remove-server + HOST_LIFECYCLE baseline + ADMIN) |
+| R2 full cascade matrix + UI preview | Design + care | **Post-0.8** / 0.9 unless bugs force it |
 
 ---
 
@@ -141,15 +187,30 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 | UI | Integrations → LAN Discovery · **network view** · device list · Jobs |
 | Out | Replacing Kuma; agent install; wireless survey; silent auto-enroll; flood/brute NSE |
 
+**Progress (2026-07-19):**
+
+| Slice | Status |
+|-------|--------|
+| Worker image + profile + host network + vuln volume | **Done** |
+| Models, parse/upsert, Jobs enqueue, intensities | **Done** |
+| UI: Overview / Devices / Network / Schedules / Runs | **Done** |
+| Schedules create **and edit** + options (vuln/SYN) | **Done** |
+| Deep scan + vuln DB update + Jobs log progress | **Done** |
+| Link / ignore / promote shell | **Done** |
+| Operator wiki + ADMIN notes | **Done** (wiki) |
+| Screenshots | **Open** (stream A) |
+| Unit/E2E depth (N9) | **Open** (stream Q) |
+| Soft embed other views (N8) | Capacity |
+
 **Acceptance (detail in feature plan):**
 
-- [ ] Configure LAN CIDR(s); discover / inventory / detailed + on-demand / per-IP deep  
-- [ ] Multiple schedules; auto-created devices; network view  
-- [ ] Manual promote/link/dismiss; audit  
-- [ ] Compose profile worker + vuln volume; default install without them  
-- [ ] Wiki + ADMIN; high unit/E2E (fixtures only in CI); screenshots  
+- [x] Configure LAN CIDR(s); discover / inventory / detailed + on-demand / per-IP deep  
+- [x] Multiple schedules (incl. edit); auto-created devices; network view  
+- [x] Manual promote/link/dismiss shell; audit  
+- [x] Compose profile worker + vuln volume; default install without them  
+- [x] Wiki (+ ADMIN); [ ] high unit/E2E (fixtures only in CI); [ ] screenshots  
 
-**Design detail:** **[FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)** (approved) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
+**Design detail:** **[FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)** (approved) · operator [lan-discovery.md](../wiki/integrations/lan-discovery.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
 
 ---
 
@@ -196,10 +257,10 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | LAN discovery product slice (N) | Open |
-| 2 | Full docs review + screenshot pack (A) | Open |
+| 1 | LAN discovery product slice (N) | **Mostly done** (N0–N6 + wiki); N9 + screenshots remain |
+| 2 | Full docs review + screenshot pack (A) | **Partial** (LAN/settings prose); PNG pack open |
 | 3 | HTTP smoke + unit coverage **~50%** bar (Q) | Open |
-| 4 | E2E suite green (0.7 base + extensions) | Open |
+| 4 | E2E suite green (0.7 base + extensions) | Open (0.7 base exists) |
 | 5 | Version `0.8.0` + tag + Hub | Open |
 | 6 | `RELEASE_v0.8.0.md` | Open |
 
@@ -218,17 +279,18 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 ## 6. Implementation order (indicative)
 
 ```text
-1. PLAN_v0.8.0 open + FEATURE_PLAN_LAN_NMAP skeleton     // docs
-2. Flesh nmap feature plan (deploy model, auto-create, UI) // N design
-3. HTTP smoke + unit coverage toward ~50%                  // Q early
-4. Screenshot inventory kickoff (stale + missing)          // A parallel
-5. Discovery model + auto-create + job + parser fixtures   // N
-6. Network view + promote/link/dismiss + audit             // N
-7. Wiki / ADMIN security + nmap screenshots                // A + N
-8. E2E extensions (B6, shell journeys)                     // Q
-9. Capacity polish (P / P3)                                // optional
-10. Full prose review pass                                 // A
-11. Freeze: tests · ~50% cov · screenshots · RELEASE · Hub
+1. PLAN_v0.8.0 open + FEATURE_PLAN_LAN_NMAP skeleton     // DONE
+2. Flesh nmap feature plan (deploy model, auto-create, UI) // DONE
+3. Discovery model + worker + UI + schedules + network     // DONE (N1–N6)
+4. Stream R1 stale Jobs/Audit/nmap cleanup                 // DONE
+5. Schedule edit + deep/vuln ops polish                    // DONE
+6. Wiki / ADMIN for nmap + cleanup                         // DONE (wiki); screenshots open
+7. HTTP smoke + unit coverage toward ~50%                  // Q — NEXT
+8. E2E extensions (B6, shell journeys, nmap fixtures)      // Q
+9. Screenshot pack (wizard + nmap + residual 0.6/0.7)      // A
+10. Capacity polish (P / P3)                               // optional
+11. Full prose review pass                                 // A
+12. Freeze: tests · ~50% cov · screenshots · RELEASE · Hub
 ```
 
 ---
@@ -244,6 +306,8 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 | 5 | nmap runtime | **Locked** | **Separate** `celery-worker-nmap` + dedicated image target + **vuln volume** (Vulners) — [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) |
 | 6 | Persist full port inventory forever? | Open | **Bounded TTL** + latest snapshot (default lean) |
 | 7 | Pull P3 into must? | Open | **No** unless operator pain is acute |
+| 8 | Jobs/Audit DB retention | **Locked direction** | **Opt-in** enable · default **30 days** each · independently configurable (stream **R**) |
+| 9 | Delete host → history | **Locked direction** | Keep unlinked Jobs/Audit by default; product trees cascade; remote host never wiped |
 
 ---
 
@@ -286,6 +350,9 @@ Before tagging **0.8.0**, a maintainer can:
 | 2026-07-19 | Plan created at 0.7 freeze: RC3 = polish + E2E/coverage + full docs/screenshots + **nmap** feature |
 | 2026-07-19 | Cycle kickoff: coverage bar **~50%**; nmap **auto-create** discovery records + **network view** + manual onboard |
 | 2026-07-19 | **Nmap design approved:** separate worker, vuln volume (Vulners), multi-schedule, intensity ladder — [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) |
+| 2026-07-19 | **Stream R** added: Jobs/Audit retention (opt-in, 30d default), nmap artifact TTL, entity-delete cascade matrix (document now / implement as capacity) |
+| 2026-07-19 | **N1–N6 + R1 shipped:** LAN UI/schedules/edit, vuln pack Jobs, host-network worker; stale_data_cleanup; wiki LAN Discovery + Settings cleanup |
+| 2026-07-19 | **Next focus:** stream **Q** (~50% coverage, HTTP smoke, E2E growth) + stream **A** screenshot pack; optional P polish / N8 embed |
 
 ---
 

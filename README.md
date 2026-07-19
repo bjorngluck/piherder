@@ -55,7 +55,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - Latest release: [docs/RELEASE_v0.7.0.md](docs/RELEASE_v0.7.0.md)
-- Active plan (**v0.8.0 RC3** polish · ~50% coverage · docs+screenshots · nmap): [docs/PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md) · [docs/FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md)
+- Active plan (**v0.8.0 RC3** polish · ~50% coverage · docs+screenshots · LAN nmap): [docs/PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md) · [docs/FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md)
 - Host lifecycle design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md)
 - API reference: [docs/API.md](docs/API.md)
 - Release notes: [docs/RELEASE_v0.7.0.md](docs/RELEASE_v0.7.0.md)
