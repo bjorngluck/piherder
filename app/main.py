@@ -232,15 +232,24 @@ async def onboarding_redirect_handler(request: Request, exc: OnboardingRedirect)
 
 
 # Static files (vendored JS for offline support + any other assets).
-# Always ensure the directory exists so /static/* never 404s.
-os.makedirs("app/static", exist_ok=True)
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+# Resolve from package dir — cwd-relative "app/static" breaks under pytest / some deploys.
+from pathlib import Path as _Path
+
+_STATIC_DIR = _Path(__file__).resolve().parent / "static"
+_STATIC_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
+
+
+def _static_file(name: str) -> _Path:
+    return _STATIC_DIR / name
+
 
 # Serve favicon.ico (generated from logo) so browser probes get a real icon (the <link> in base.html uses the PNG)
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     from fastapi.responses import FileResponse
-    return FileResponse("app/static/favicon.ico", media_type="image/x-icon")
+
+    return FileResponse(_static_file("favicon.ico"), media_type="image/x-icon")
 
 
 # Root-scoped service worker + manifest for PWA (scope must be /)
@@ -249,7 +258,7 @@ async def service_worker():
     from fastapi.responses import FileResponse
 
     return FileResponse(
-        "app/static/sw.js",
+        _static_file("sw.js"),
         media_type="application/javascript",
         headers={"Service-Worker-Allowed": "/", "Cache-Control": "no-cache"},
     )
@@ -260,7 +269,7 @@ async def web_manifest():
     from fastapi.responses import FileResponse
 
     return FileResponse(
-        "app/static/manifest.webmanifest",
+        _static_file("manifest.webmanifest"),
         media_type="application/manifest+json",
         headers={"Cache-Control": "no-cache"},
     )
