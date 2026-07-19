@@ -93,3 +93,102 @@ def test_delete_server_from_fleet_happy_path():
     session.commit.assert_called()
     # Audit row added
     assert session.add.called
+
+
+def test_delete_server_sqlite_nulls_history_and_drops_drafts(tmp_path):
+    """Full SQLite path: jobs/audit unlinked, compose drafts deleted, server gone."""
+    from datetime import datetime
+    from sqlmodel import Session, SQLModel, create_engine, select
+    from sqlalchemy.pool import StaticPool
+
+    from app.models import AuditLog, DockerVersion, Job, Notification, Server
+    from app.services.server_lifecycle import delete_server_from_fleet
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'life.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s:
+        srv = Server(
+            name="lab-pi",
+            hostname="10.0.0.9",
+            ssh_username="piherder",
+            created_at=datetime.utcnow(),
+        )
+        s.add(srv)
+        s.commit()
+        s.refresh(srv)
+        sid = srv.id
+        s.add(
+            Job(
+                server_id=sid,
+                job_type="backup",
+                status="success",
+                created_at=datetime.utcnow(),
+            )
+        )
+        s.add(
+            AuditLog(
+                server_id=sid,
+                action="backup_complete",
+                status="success",
+                started_at=datetime.utcnow(),
+            )
+        )
+        s.add(
+            Notification(
+                server_id=sid,
+                type="info",
+                severity="info",
+                title="t",
+                body="b",
+                fingerprint=f"fp-{sid}",
+                created_at=datetime.utcnow(),
+            )
+        )
+        s.add(
+            DockerVersion(
+                server_id=sid,
+                project_name="web",
+                version=1,
+                files="{}",
+                is_draft=True,
+                created_at=datetime.utcnow(),
+            )
+        )
+        s.commit()
+
+        with (
+            patch("app.services.server_lifecycle._cancel_active_jobs", return_value=0),
+            patch("app.services.server_lifecycle._unregister_schedules"),
+            patch(
+                "app.services.dns_fabric.cleanup_dns_for_server",
+                return_value=2,
+            ),
+        ):
+            snap = delete_server_from_fleet(
+                s, srv, confirm_name="lab-pi", user_id=1
+            )
+
+        assert snap["dns_records_removed"] == 2
+        assert s.get(Server, sid) is None
+        jobs = list(s.exec(select(Job)).all())
+        assert len(jobs) == 1
+        assert jobs[0].server_id is None
+        audits = list(s.exec(select(AuditLog)).all())
+        # original + server_deleted
+        assert any(a.action == "server_deleted" for a in audits)
+        assert any(a.action == "backup_complete" and a.server_id is None for a in audits)
+        assert list(s.exec(select(DockerVersion)).all()) == []
+        notes = list(s.exec(select(Notification)).all())
+        assert notes and notes[0].server_id is None
+
+
+def test_delete_missing_server_id():
+    with pytest.raises(ServerDeleteError) as ei:
+        delete_server_from_fleet(
+            MagicMock(), SimpleNamespace(id=None, name="x"), confirm_name="x"
+        )
+    assert ei.value.code == "not_found"

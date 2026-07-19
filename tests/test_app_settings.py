@@ -79,6 +79,28 @@ def test_validate_cron_ok():
     assert cfg.validate_cron_expression("0 3 * * *") == "0 3 * * *"
 
 
+def test_data_cleanup_defaults_and_save(_memory_settings):
+    loaded = cfg.load_settings()
+    assert loaded.get("data_cleanup_enabled") is False
+    assert loaded.get("data_cleanup_jobs_days") == 30
+    assert loaded.get("data_cleanup_nmap_enabled") is False
+    cfg.save_settings(
+        {
+            "data_cleanup_enabled": True,
+            "data_cleanup_jobs_days": 14,
+            "data_cleanup_audit_days": 60,
+            "data_cleanup_nmap_enabled": True,
+            "data_cleanup_nmap_days": 21,
+        }
+    )
+    again = cfg.load_settings()
+    assert again["data_cleanup_enabled"] is True
+    assert again["data_cleanup_jobs_days"] == 14
+    assert again["data_cleanup_audit_days"] == 60
+    assert again["data_cleanup_nmap_enabled"] is True
+    assert again["data_cleanup_nmap_days"] == 21
+
+
 def test_validate_cron_bad():
     with pytest.raises(ValueError, match="5 fields"):
         cfg.validate_cron_expression("not a cron")

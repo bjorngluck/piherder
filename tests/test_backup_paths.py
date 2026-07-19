@@ -64,3 +64,38 @@ def test_rules_roundtrip():
     parsed = parse_rules(raw)
     assert "/home" in parsed["allow"] or normalize_path("/home") in parsed["allow"]
     assert any("tmp" in d for d in parsed["deny"])
+
+
+def test_parse_rules_edge_shapes():
+    from app.services.backup_path_policy import effective_deny_list, _as_list
+
+    assert parse_rules(None) == {"allow": [], "deny": []}
+    assert parse_rules("") == {"allow": [], "deny": []}
+    assert parse_rules("{not-json") == {"allow": [], "deny": []}
+    assert parse_rules("[]") == {"allow": [], "deny": []}  # list JSON → empty rules
+    d = parse_rules({"allow": "/home\n/var", "deny": '["/tmp","/opt"]'})
+    assert normalize_path("/home") in d["allow"] or "/home" in d["allow"]
+    assert any("tmp" in x for x in d["deny"])
+    assert _as_list(None) == []
+    assert _as_list(12) == []
+    assert "etc" in " ".join(effective_deny_list(None)).lower() or any(
+        "etc" in x for x in effective_deny_list(None)
+    )
+
+
+def test_empty_and_null_path_rejected():
+    ok, reason = validate_backup_path("")
+    assert not ok
+    assert "empty" in reason.lower()
+    ok2, reason2 = validate_backup_path("/home/x\x00evil")
+    assert not ok2
+
+
+def test_filter_allowed_sources_string_items():
+    ok, bad = filter_allowed_sources(
+        ["/home/bjorn/docker", "/etc/shadow"],
+        {"allow": ["/home"], "deny": []},
+    )
+    assert len(ok) == 1
+    assert len(bad) == 1
+    assert bad[0].get("skipped") is True
