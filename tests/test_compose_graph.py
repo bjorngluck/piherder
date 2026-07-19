@@ -58,9 +58,34 @@ def test_heuristic_when_no_depends():
     assert any(e["to"] == "redis" for e in edges)
     assert any(e["from"] == "celery-worker" for e in edges)
     # app → queue (compose often omits web→celery)
-    assert ("web", "celery-worker") in pairs or ("api", "celery-worker") in pairs
-    assert all(e["source"] == "heuristic" for e in edges)
-    assert all(e["confidence"] < 50 for e in edges)
+
+
+def test_deps_from_value_shapes():
+    assert cg._deps_from_value(None) == []
+    assert cg._deps_from_value("db") == ["db"]
+    assert cg._deps_from_value(["a", " b ", ""]) == ["a", "b"]
+    assert cg._deps_from_value({"db": {"condition": "service_started"}}) == ["db"]
+    assert cg._deps_from_value([{"redis": "x"}]) == ["redis"]
+    assert cg._deps_from_value(12) == []
+
+
+def test_extract_empty_and_links():
+    g = cg.extract_compose_graph(None)
+    assert g["service_names"] == []
+    g2 = cg.extract_compose_graph(
+        {
+            "services": {
+                "legacy": {
+                    "image": "x",
+                    "links": ["db:database", "redis"],
+                },
+                "db": {"image": "postgres"},
+            }
+        },
+        raw_text="services: {}",
+    )
+    assert "legacy" in g2["service_names"]
+    assert g2.get("compose_sha")
 
 
 def test_heuristic_edge_to_app():

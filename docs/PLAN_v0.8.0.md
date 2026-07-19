@@ -146,8 +146,9 @@ Build on the 0.7 Playwright platform and unit suite.
 | **E2E B6** | Viewer cannot add server (403 / redirect) | Should | Open |
 | **E2E deeper B** | Template list shell, certs list, Docker page chrome, Jobs filters | Should | Open |
 | **HTTP TestClient smoke** | Auth gates + main page 200s in unit job (SQLite override, no lifespan) | **Must** (cheap) | **Done** — `tests/test_http_smoke.py` |
-| **Unit coverage growth** | **~50% line coverage** target; prioritize crypto, RBAC, path policy, fabric, compose sets, annotations, cert vault, nmap helpers | **Must** (~50%, not 100%) | **In progress** — baseline ~33% → grow; CI `--cov-fail-under=30` + XML artifact |
-| **Nmap / cleanup unit depth** | schedules CRUD, argv edges, stale nmap purge, ops_pulse, update-check stagger | Should | **Done** (slice) |
+| **Unit coverage growth** | **~50% line coverage** target; prioritize crypto, RBAC, path policy, fabric, compose sets, annotations, cert vault, nmap helpers | **Must** (~50%, not 100%) | **In progress** — **~42%** (was ~33%); CI floor 30%; more pure depth next |
+| **Nmap / cleanup unit depth** | schedules CRUD, argv edges, stale nmap purge, runtime/config, enqueue | Should | **Done** (strong) |
+| **Registry / fabric / cert pure** | credentials encrypt, grafana labels, host IP/tokens, upsert PEM | Should | **Done** (slice) |
 | **Playwright Phase C slice** | Optional visual/a11y on 3–5 shells | Nice | Open |
 | Flake hygiene | Stable testids; no arbitrary sleeps; CI artifacts already wired | Must keep | Keep |
 

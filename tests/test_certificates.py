@@ -237,3 +237,126 @@ def test_public_target_dict_in_sync_flags():
     )
     assert d2["in_sync"] is False
     assert d2["stale_vs_vault"] is True
+
+
+def test_files_for_layout_pair_combined_pfx():
+    files = cert_svc.files_for_layout(
+        "pair_combined_pfx",
+        remote_dir="/ssl",
+        combined_filename="all.pem",
+        pfx_filename="u.pfx",
+    )
+    kinds = [f["kind"] for f in files]
+    assert kinds == ["fullchain", "privkey", "combined", "pfx"]
+    assert files[2]["path"] == "/ssl/all.pem"
+
+
+def test_sudoers_docker_post_and_unknown():
+    docker = cert_svc.sudoers_snippet_for_map(
+        remote_dir="/etc/ssl",
+        layout="pair",
+        write_mode="stage_sudo",
+        post_deploy_command="docker compose -f /x restart",
+    )
+    assert "docker" in docker.lower()
+    other = cert_svc.sudoers_snippet_for_map(
+        remote_dir="/etc/ssl",
+        layout="pair",
+        write_mode="stage_sudo",
+        post_deploy_command="custom-reload-thing",
+    )
+    assert "Review post-deploy" in other or "custom-reload" in other
+
+
+def test_days_until_expiry_none_and_past():
+    assert cert_svc.days_until_expiry(None) is None
+    past = datetime.utcnow() - timedelta(days=5)
+    d = cert_svc.days_until_expiry(past)
+    assert d is not None and d <= 0
+
+
+def test_upsert_from_pems_sqlite(tmp_path):
+    from sqlmodel import Session, SQLModel, create_engine, select
+    from sqlalchemy.pool import StaticPool
+    from app.models import ManagedCertificate
+
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'certs.db'}",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    full, key = _make_self_signed_pem("vault.example.com", days=25)
+    with Session(engine) as s:
+        row = cert_svc.upsert_from_pems(
+            s,
+            name="vault",
+            fullchain_pem=full,
+            privkey_pem=key,
+            source="upload",
+        )
+        assert row.id
+        assert row.fingerprint_sha256
+        assert "vault.example.com" in (row.domains_json or "")
+        # decrypt roundtrip
+        f2, k2 = cert_svc.decrypt_pems(row)
+        assert "BEGIN CERTIFICATE" in f2
+        assert "PRIVATE" in k2.upper()
+        # update existing
+        row2 = cert_svc.upsert_from_pems(
+            s,
+            name="vault-renamed",
+            fullchain_pem=full,
+            privkey_pem=key,
+            source="upload",
+            existing=row,
+        )
+        assert row2.id == row.id
+        assert row2.name == "vault-renamed"
+        with pytest.raises(ValueError, match="fullchain"):
+            cert_svc.upsert_from_pems(
+                s, name="x", fullchain_pem="nope", privkey_pem=key
+            )
+        with pytest.raises(ValueError, match="privkey"):
+            cert_svc.upsert_from_pems(
+                s, name="x", fullchain_pem=full, privkey_pem="not-a-key"
+            )
+        assert cert_svc.delete_certificate(s, row.id) is True
+        assert cert_svc.delete_certificate(s, 99999) is False
+        assert list(s.exec(select(ManagedCertificate)).all()) == []
+
+
+def test_public_cert_dict_basic():
+    from types import SimpleNamespace
+
+    full, key = _make_self_signed_pem("pub.example.com", days=20)
+    cert = SimpleNamespace(
+        id=9,
+        name="pub",
+        domains_json='["pub.example.com"]',
+        not_before=datetime.utcnow() - timedelta(days=1),
+        not_after=datetime.utcnow() + timedelta(days=20),
+        fingerprint_sha256="abcdef0123456789",
+        source="upload",
+        source_integration_id=None,
+        external_id=None,
+        issuer="test",
+        serial="1",
+        auto_renew=False,
+        renew_days_before=21,
+        last_pulled_at=None,
+        last_renew_status=None,
+        last_error=None,
+        edge_apply_enabled=False,
+        last_edge_deploy_status=None,
+        last_edge_deploy_at=None,
+        last_edge_deploy_fingerprint=None,
+        last_edge_deploy_message=None,
+    )
+    d = cert_svc.public_cert_dict(cert)
+    assert d["id"] == 9
+    assert d["name"] == "pub"
+    assert "pub.example.com" in d["domains"]
+    assert d["fingerprint_sha256"] == "abcdef0123456789"
+    assert d["edge_apply_enabled"] is False
+    assert cert_svc.fingerprint_of_pems(full, key)
