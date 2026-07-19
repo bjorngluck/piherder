@@ -679,7 +679,7 @@ Set `METRICS_TOKEN` whenever `/metrics` is not on a fully private network. Serie
 
 ### Image publish (when ready)
 
-Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`0.6.0` / `0.6` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v0.6.0** — [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md).
+Multi-arch image on Docker Hub: **`bjorngluck/piherder`** (`0.7.0` / `0.7` / `latest`, linux/amd64 + linux/arm64). Official compose pulls the image — `docker compose up -d`. See [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md). Current git release: **v0.7.0** — [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md).
 
 **Supported deploy path:** Docker Compose (this repo). Platform reliability (host dependency checks, Settings → **Status**, multi-worker Celery) is live — see [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) § Horizon 0.5. Kubernetes and bare/local install are under consideration only, not supported install paths today.
 
@@ -830,4 +830,4 @@ Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backu
 | Unit tests | `tests/test_rbac.py`, `test_api_tokens.py`, `test_app_settings.py`, `test_cors_policy.py`, `test_herder_backup.py`, … |
 | Herder self-backup | `app/services/herder_backup.py` |
 | Ecosystem roadmap | `docs/ROADMAP_ECOSYSTEM.md` |
-| Host lifecycle plan (H2.75) | `docs/FEATURE_PLAN_HOST_LIFECYCLE.md` — Docker bulk (**0.6**); wizard onboard (**0.7 product-done** — `docs/PLAN_v0.7.0.md`); host stats/commands capacity in **0.8 RC3** (`docs/PLAN_v0.8.0.md`); bootstrap/DNS, web SSH later |
+| Host lifecycle plan (H2.75) | `docs/FEATURE_PLAN_HOST_LIFECYCLE.md` — Docker bulk (**0.6**); wizard onboard (**0.7** — `docs/RELEASE_v0.7.0.md`); host stats/commands capacity in **0.8 RC3** (`docs/PLAN_v0.8.0.md`); bootstrap/DNS, web SSH later |

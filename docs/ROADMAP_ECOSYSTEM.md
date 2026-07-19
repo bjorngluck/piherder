@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-19 (**v0.7.0 product-closed** — packaging/screenshots remain; residual + nmap → **v0.8.0 RC3**)  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-19 (**v0.7.0 tagged** · active **v0.8.0 RC3** — polish · E2E/coverage · docs+screenshots · nmap)  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
@@ -28,8 +28,8 @@ Design principles stay the same as SPEC:
 | **v0.4.x** | *(folded)* Former ops track — drift, NPM connector, git catalog, `.env` migrate | H1/H2 | **Absorbed into v0.5.0** (no separate planning phase) |
 | **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **Tagged** 2026-07-17 — [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
 | **v0.6.0** | **RC2 polish** — template Jobs, cert UX (edge map, presets), Docker bulk, topology+coverage; wizard **out** | H2.75 P1 + H2.5 stretch + polish | **Tagged** 2026-07-18 — [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) |
-| **v0.7.0** | **Add-host wizard** + **Playwright E2E** + topology annotations + **compose sets** + **wiki screenshot pack** (tag) | H2.75 P2 + quality | **Product-closed → packaging** — [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [screenshots README](../wiki/assets/screenshots/README.md) |
-| **v0.8.0** | **RC3** — **LAN discovery (nmap)** + residual polish cut from 0.7; optional P3/quality depth | H2.5 H1 + polish | **Planned** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) |
+| **v0.7.0** | **Add-host wizard** + **Playwright E2E** + topology annotations + **compose sets** + drift Job | H2.75 P2 + quality | **Tagged** 2026-07-19 — [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) |
+| **v0.8.0** | **RC3** — overall polish · extend E2E + coverage · **full docs review + screenshots** · **LAN nmap** | Quality + H2.5 H1 | **Active** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [screenshots README](../wiki/assets/screenshots/README.md) |
 | **v0.8.x / later** | Host stats/commands, bootstrap depth, web SSH; topology column profiles | H2.75 P3–P5 + residual | After RC3 as capacity |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
@@ -45,11 +45,11 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-18):** **Single development target `v0.7.0`** — add-host wizard + screenshot pack + **Playwright E2E** (hard tag gate; separate CI job on main/PR); residual polish only as capacity. See [PLAN_v0.7.0.md](PLAN_v0.7.0.md).
 
-**Decision (2026-07-19):** **v0.7.0 product streams closed** (wizard, E2E A+B, topology annotations, compose sets). Remaining for tag: screenshot pack + packaging. Open stream-C residual **cut → v0.8.0 RC3**. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md).
+**Decision (2026-07-19):** **v0.7.0 feature-locked and tagged**. Wizard, E2E A+B, annotations, compose sets, drift Job shipped. Screenshot pack deferred; residual polish + E2E/coverage growth + full docs review + **nmap** → **v0.8.0 RC3**. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md).
 
-**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ **tagged** → ~~**v0.6.0 RC2**~~ **tagged** → **v0.7.0** (product-closed → packaging) → **v0.8.0 RC3** (nmap + residual) → **v1.0** refined production.
+**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ **tagged** → **v0.8.0 RC3** (active) → **v1.0** refined production.
 
-**Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.6.0` / `0.6` / `latest`).
+**Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.7.0` / `0.7` / `latest`).
 
 ---
 

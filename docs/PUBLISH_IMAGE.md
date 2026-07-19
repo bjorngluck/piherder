@@ -1,6 +1,6 @@
 # Publishing a PiHerder image (Docker Hub / GHCR)
 
-**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64** published for **v0.6.0**.  
+**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64** published for **v0.7.0**.  
 **Related:** [ADMIN](https://piherder-docs.hacknow.info/operations/upgrades/) · [wiki publish page](https://piherder-docs.hacknow.info/developers/publish-image/) · live docs: https://piherder-docs.hacknow.info/
 
 Official compose pulls the published image:
@@ -8,7 +8,7 @@ Official compose pulls the published image:
 ```bash
 docker compose up -d
 # optional pin:
-# PIHERDER_IMAGE=bjorngluck/piherder:0.6.0 docker compose up -d
+# PIHERDER_IMAGE=bjorngluck/piherder:0.7.0 docker compose up -d
 ```
 
 **Dependency pins:** the image installs from committed `requirements.lock.txt` (`pip install --require-hashes`). Bump deps with `./scripts/refresh-lockfiles.sh` before a release build so Hub tags match the lockfile in the git tag.
@@ -60,10 +60,10 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u bjorngluck --password-stdin
 
 | Tag | Meaning |
 |-----|---------|
-| `0.6.0` | Immutable release (match git tag `v0.6.0`) |
-| `0.6` | Optional rolling minor |
+| `0.7.0` | Immutable release (match git tag `v0.7.0`) |
+| `0.7` | Optional rolling minor |
 | `latest` | Current stable RC/release |
-| `0.6.0-dev` / `main` | Optional CI/dev only — avoid as default for operators |
+| `0.7.0-dev` / `main` | Optional CI/dev only — avoid as default for operators |
 
 ---
 
@@ -74,7 +74,7 @@ Arm64 matters for Raspberry Pi hosts running the herder itself.
 ```bash
 # From repo root, after docker login
 export IMAGE=bjorngluck/piherder
-export VERSION=0.6.0   # match release
+export VERSION=0.7.0   # match release
 
 docker buildx create --use --name piherder-builder --driver docker-container 2>/dev/null || true
 docker buildx use piherder-builder
@@ -85,7 +85,7 @@ docker buildx inspect --bootstrap
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t "${IMAGE}:${VERSION}" \
-  -t "${IMAGE}:0.6" \
+  -t "${IMAGE}:0.7" \
   -t "${IMAGE}:latest" \
   --push \
   .
@@ -116,12 +116,12 @@ To develop against local source again, temporarily restore `build: .` or point `
 
 ## 5. Checklist before a release push
 
-- [x] Multi-arch `docker buildx` push to Docker Hub (`0.6.0` / `0.6` / `latest`)  
+- [x] Multi-arch `docker buildx` push to Docker Hub (`0.7.0` / `0.7` / `latest`)  
 - [x] Hardened `.dockerignore` (no backups/certs/local data/git)  
 - [x] `pyproject.toml` version matches image tag  
-- [x] `pytest -q` green (426 at v0.6.0 freeze)  
+- [x] `pytest -q` green (unit pack at v0.7.0 freeze; + e2e suite)  
 - [ ] Manual smoke: register, add server, backup, metrics, API token, template deploy  
-- [x] Git tag + [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
+- [x] Git tag + [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md)  
 - [ ] Hub repo description + docs/GitHub links  
 - [ ] Optional: GitHub Release + GHCR mirror  
 - [ ] [SECURITY.md](../SECURITY.md) still accurate  

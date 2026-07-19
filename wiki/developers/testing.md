@@ -61,4 +61,4 @@ Related unit coverage: `tests/test_compose_sets.py`, `tests/test_container_annot
 1. Unit `pytest -q` green  
 2. **E2E** `pytest e2e -q` green (CI or local)  
 3. Manual smoke: register, add server, backup, template deploy, metrics, API token  
-4. See release checklist in `docs/RELEASE_v*.md` / [RELEASE_v0.6.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.6.0.md)  
+4. See release checklist in `docs/RELEASE_v*.md` / [RELEASE_v0.7.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md)  

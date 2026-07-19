@@ -28,7 +28,7 @@ docker compose up -d
 
 - [ ] Self-backup successful (**admin** — Settings → PiHerder backup)  
 - [ ] `PIHERDER_MASTER_KEY` unchanged and backed up offline  
-- [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.6.0.md) for the version you jump to  
+- [ ] Read [RELEASE notes](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md) for the version you jump to  
 - [ ] `docker compose ps` healthy (image `bjorngluck/piherder:…`)  
 - [ ] Smoke: login, one server, optional template  
 - [ ] Hard-refresh browser once after UI/CSS deploys (query-busted stylesheets)  
