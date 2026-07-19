@@ -6,15 +6,23 @@
 # Inside compose (recommended)
 docker compose run --rm --no-deps web pytest -q
 
+# Working tree newer than the image — mount tests + app
+docker compose run --rm --no-deps \
+  -v "$PWD/tests:/app/tests" -v "$PWD/app:/app/app" \
+  web pytest -q
+
 # Host venv (locked — matches CI/image)
 pip install --require-hashes -r requirements.lock.txt
 pip install --no-deps -e .
 pytest -q
+# Coverage (RC3 target ~50%; CI floor 30% + XML artifact)
+pip install pytest-cov
+pytest -q --cov=app --cov-report=term-missing:skip-covered
 ```
 
 Unit tests live under `tests/` — no live SSH required for the main suite. Default `pytest` only collects `tests/` (not `e2e/`).
 
-Examples: `test_rbac.py`, `test_api_tokens.py`, `test_service_templates.py`, `test_backup_paths.py`, `test_herder_backup.py`, `test_job_exclusive.py` (no double OS/container jobs; stack job types), `test_request_ip_audit.py` (Caddy XFF + audit `client_ip`), `test_dns_fabric.py` (paths, Hosts/Path SVG, cloud/LAN classification, spine layout, GET-safe view, case-insensitive Docker fabric index), `test_jwt_tokens.py` (PyJWT HS256), `test_server_job_lock.py` (backup mutex), `test_nmap_discovery.py` (parse/upsert fixtures — **no live LAN scan in CI**), …
+Examples: `test_rbac.py`, `test_api_tokens.py`, `test_service_templates.py`, `test_backup_paths.py`, `test_herder_backup.py`, `test_job_exclusive.py` (no double OS/container jobs; stack job types), `test_request_ip_audit.py` (Caddy XFF + audit `client_ip`), `test_dns_fabric.py` (paths, Hosts/Path SVG, cloud/LAN classification, spine layout, GET-safe view, case-insensitive Docker fabric index), `test_jwt_tokens.py` (PyJWT HS256), `test_server_job_lock.py` (backup mutex), `test_nmap_discovery.py` (parse/upsert/schedules/cleanup — **no live LAN scan in CI**), `test_http_smoke.py` (TestClient auth gates + main shells on SQLite), …
 
 ```bash
 # Network maps only
