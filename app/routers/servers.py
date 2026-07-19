@@ -176,6 +176,18 @@ async def list_servers(
     except Exception as e:
         logger.debug("kuma chips skip: %s", e)
 
+    # LAN discovery chips (N8 soft embed)
+    try:
+        from ..services.nmap import config as nmap_cfg
+
+        chips = nmap_cfg.discovery_chips_by_server(
+            session, [int(d["id"]) for d in servers if d.get("id") is not None]
+        )
+        for d in servers:
+            d["nmap_discovery"] = chips.get(int(d["id"])) if d.get("id") is not None else None
+    except Exception as e:
+        logger.debug("nmap discovery chips skip: %s", e)
+
     total = time.time() - start
     if total > 0.3:
         logger.warning(f"[list_servers] Total render took {total:.2f}s for {len(servers)} server(s)")
@@ -814,6 +826,15 @@ async def server_detail(
     except Exception:
         fabric_rack = None
 
+    # LAN discovery soft embed (linked NmapDevice)
+    nmap_discovery = None
+    try:
+        from ..services.nmap import config as nmap_cfg
+
+        nmap_discovery = nmap_cfg.discovery_embed_for_server(session, server.id)
+    except Exception as e:
+        logger.debug("nmap discovery embed skip: %s", e)
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_detail.html",
@@ -823,6 +844,7 @@ async def server_detail(
             "dns_form": dns_form,
             "fabric_rack": fabric_rack,
             "hosts_map_url": hosts_map_url,
+            "nmap_discovery": nmap_discovery,
             "inventory_meta": inventory_meta,
             "os_phased_count": os_phased_count,
             "os_total_upgradable": os_total_upgradable,

@@ -1,6 +1,6 @@
 # Feature plan — LAN discovery (nmap)
 
-**Status:** **Approved** (2026-07-19) — **N0–N6 product largely done**; N7 docs partial → wiki landed; N8–N9 open  
+**Status:** **Approved** (2026-07-19) — **N0–N6 product done**; N7 wiki + link/promote; **N8 soft embed** + **N9 tests/E2E shells** + curated options/presets landed; screenshots still open (stream A)
 **Ship target:** **v0.8.0** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) stream **N**  
 **Operator wiki:** [wiki/integrations/lan-discovery.md](../wiki/integrations/lan-discovery.md)  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ADMIN.md](ADMIN.md) · [SPEC.md](../SPEC.md)
@@ -287,9 +287,9 @@ Aim for **high unit + E2E coverage** of nmap surfaces (stronger than global ~50%
 | **N4** | Multiple schedules + **create/edit** + APScheduler sync + options_json | **Done** |
 | **N5** | Network view MVP | **Done** (subnet groups) |
 | **N6** | Per-IP deep + vuln pack update job + Jobs progress; deep NSE (vuln+vulscan, no double vulners) | **Done** |
-| **N7** | Promote/link/dismiss + audit + **wiki/ADMIN** + screenshots | **Partial** — link/ignore/promote shell + operator wiki; **screenshots open** |
-| **N8** | Soft embed into existing views (capacity) | Open |
-| **N9** | Coverage gate + E2E green | Open |
+| **N7** | Promote/link/dismiss + audit + **wiki/ADMIN** + screenshots | **Partial** — link/ignore/promote + wiki; **screenshots open** (stream A) |
+| **N8** | Soft embed into existing views | **Done** — server list LAN chip + server detail discovery card |
+| **N9** | Coverage gate + E2E green | **Mostly done** — unit options/classify/embed + `e2e/test_nmap_lan.py` shells; no live scan in CI |
 
 **Also shipped with N (ops hardening):** root nmap worker for reliable inventory; hostname/MAC via host net + DNS; schedule SYN/vuln options; web mounts vuln volume **:ro** for Overview pack status.
 
@@ -307,7 +307,9 @@ MVP product slice: **N1–N6**; docs wiki **N7 partial**; screenshots + E2E = ta
 - [x] Separate nmap worker via compose profile; default compose without it  
 - [x] Vuln volume mapped; deep vuln scripts when pack present + enabled  
 - [x] Operator wiki ([lan-discovery.md](../wiki/integrations/lan-discovery.md)) + ADMIN notes  
-- [ ] High unit + E2E coverage (fixtures only); no live scan in CI — **N9**  
+- [x] High unit + E2E shells (fixtures only); no live scan in CI — **N9**  
+- [x] Soft embed: fleet list + host detail (N8)  
+- [x] Curated options + deep script presets + script result classification  
 - [ ] Screenshots for network view + discovery — stream **A**
 
 ---
@@ -334,6 +336,7 @@ MVP product slice: **N1–N6**; docs wiki **N7 partial**; screenshots + E2E = ta
 | 2026-07-19 | **Approved:** separate worker, vuln volume for Vulners, intensity ladder, multi-schedule, network view, high test bar |
 | 2026-07-19 | Retention note: nmap artifacts align with platform stream **R** (Jobs/Audit 30d opt-in; entity cascades) |
 | 2026-07-19 | **N1–N6 landed:** UI, schedules **edit**, network view, deep/vuln pack, host-network worker, Jobs progress; **N7** wiki; N8–N9 open |
+| 2026-07-19 | **N8–N9 + polish:** script presets (none/cpe/offline/full), curated timing/ports/UDP, script classify UI, server soft embed, unit + E2E shells |
 
 ---
 

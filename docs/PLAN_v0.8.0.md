@@ -67,7 +67,7 @@ This is **not** web SSH, ACME-in-herder, or a second onboarding rewrite.
 | **P** Overall polish | Should / strong | Inventory below — mostly open |
 | **Q** E2E + test coverage | **Must** (grow bar) | **In progress** — HTTP smoke + nmap/cleanup unit depth; cov floor 30% in CI; ~50% still open |
 | **A** Full docs review + screenshot pack | **Must** | Prose: LAN Discovery wiki + Settings cleanup landed; **PNG pack open** |
-| **N** LAN discovery (nmap-class) | **Must** (feature) | **N0–N6 done** · N7 wiki partial · N8–N9 open |
+| **N** LAN discovery (nmap-class) | **Must** (feature) | **N0–N6 + N8 + N9 shells done** · N7 screenshots open · curated presets |
 | **R** Data retention / grooming / delete cascades | Should / capacity | **R1 done** (Jobs/Audit/nmap-run opt-in) · R2 docs partial · cascade UI later |
 | **L** Host lifecycle P3 | Nice / capacity | Optional / parked |
 | **D** Packaging | Must at tag | End of cycle |
@@ -196,13 +196,14 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 | Worker image + profile + host network + vuln volume | **Done** |
 | Models, parse/upsert, Jobs enqueue, intensities | **Done** |
 | UI: Overview / Devices / Network / Schedules / Runs | **Done** |
-| Schedules create **and edit** + options (vuln/SYN) | **Done** |
+| Schedules create **and edit** + curated options (preset/timing/ports/UDP/SYN) | **Done** |
 | Deep scan + vuln DB update + Jobs log progress | **Done** |
+| Deep **script presets** (none/cpe/offline/full) + result classification | **Done** |
 | Link / ignore / promote shell | **Done** |
 | Operator wiki + ADMIN notes | **Done** (wiki) |
+| Soft embed fleet list + host detail (N8) | **Done** |
+| Unit + E2E shells (N9) | **Done** (fixtures only; `e2e/test_nmap_lan.py`) |
 | Screenshots | **Open** (stream A) |
-| Unit/E2E depth (N9) | **Open** (stream Q) |
-| Soft embed other views (N8) | Capacity |
 
 **Acceptance (detail in feature plan):**
 
@@ -210,7 +211,10 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 - [x] Multiple schedules (incl. edit); auto-created devices; network view  
 - [x] Manual promote/link/dismiss shell; audit  
 - [x] Compose profile worker + vuln volume; default install without them  
-- [x] Wiki (+ ADMIN); [ ] high unit/E2E (fixtures only in CI); [ ] screenshots  
+- [x] Curated options + script presets + classify findings (not free-form flags)  
+- [x] Soft embed (server list chip + server detail card)  
+- [x] Wiki (+ ADMIN); high unit/E2E shells (fixtures only in CI)  
+- [ ] Screenshots (stream A)
 
 **Design detail:** **[FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)** (approved) · operator [lan-discovery.md](../wiki/integrations/lan-discovery.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
 
@@ -259,7 +263,7 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | LAN discovery product slice (N) | **Mostly done** (N0–N6 + wiki); N9 + screenshots remain |
+| 1 | LAN discovery product slice (N) | **Mostly done** (N0–N9 shells + soft embed + presets); screenshots remain |
 | 2 | Full docs review + screenshot pack (A) | **Partial** (LAN/settings prose); PNG pack open |
 | 3 | HTTP smoke + unit coverage **~50%** bar (Q) | Smoke **done**; ~50% still open (CI floor 30%) |
 | 4 | E2E suite green (0.7 base + extensions) | Open (0.7 base exists) |

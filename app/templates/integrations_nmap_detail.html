@@ -76,11 +76,12 @@
   <h3 class="text-sm font-semibold mb-3">Scan now</h3>
   <form method="post" action="/integrations/{{ integration.id }}/nmap/scan" class="space-y-3"
         data-wait-title="Queueing scan"
-        data-wait-message="Creating job for nmap worker…">
+        data-wait-message="Creating job for nmap worker…"
+        data-testid="nmap-scan-now-form">
     <div class="flex flex-wrap gap-3 items-end">
       <div>
         <label class="block text-xs text-muted mb-1" for="intensity">Intensity</label>
-        <select id="intensity" name="intensity" class="input min-h-11">
+        <select id="intensity" name="intensity" class="input min-h-11" data-testid="nmap-intensity">
           {% for i in intensities %}
           <option value="{{ i }}" {% if i == 'discovery' %}selected{% endif %}>{{ i }}</option>
           {% endfor %}
@@ -89,20 +90,56 @@
       <div class="flex-1 min-w-[12rem]">
         <label class="block text-xs text-muted mb-1" for="targets">Targets (blank = all CIDRs)</label>
         <input id="targets" name="targets" type="text" class="input w-full font-mono text-sm"
-               placeholder="192.168.1.0/24">
+               placeholder="192.168.1.0/24" data-testid="nmap-targets">
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="timing">Timing</label>
+        <select id="timing" name="timing" class="input min-h-11" data-testid="nmap-timing">
+          <option value="3">-T3 normal</option>
+          <option value="4" selected>-T4 aggressive</option>
+          <option value="5">-T5 insane</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="top_ports">Top ports</label>
+        <input id="top_ports" name="top_ports" type="number" min="1" max="1000"
+               value="{{ default_top_ports or 100 }}" class="input min-h-11 w-24 font-mono text-sm"
+               data-testid="nmap-top-ports" title="Inventory intensity">
       </div>
     </div>
-    <label class="flex items-center gap-2 text-xs text-muted">
-      <input type="checkbox" name="vuln_scripts" value="on" {% if not cfg.vuln_enabled or not vuln_pack.ready %}disabled{% endif %}>
-      Vuln scripts (deep only; needs pack + setting)
-    </label>
+    <div class="flex flex-wrap gap-3 items-end border border-border rounded-lg p-3 bg-surface/40" id="nmap-scan-curated">
+      <div class="min-w-[12rem] flex-1">
+        <label class="block text-xs text-muted mb-1" for="script_preset">Deep script preset</label>
+        <select id="script_preset" name="script_preset" class="input w-full min-h-11"
+                data-testid="nmap-script-preset"
+                {% if not cfg.vuln_enabled %}disabled{% endif %}>
+          {% for p in script_presets or ['none','cpe','offline','full'] %}
+          <option value="{{ p }}" {% if p == 'none' %}selected{% endif %}>
+            {{ (script_preset_labels or {}).get(p, p) }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="text-[10px] text-muted mt-1">Deep only. Prefer <strong>CPE</strong> or <strong>offline</strong> over full (noisy).</p>
+      </div>
+      <div class="min-w-[10rem] flex-1">
+        <label class="block text-xs text-muted mb-1" for="port_list">Ports (optional)</label>
+        <input id="port_list" name="port_list" type="text" class="input w-full font-mono text-sm min-h-11"
+               placeholder="22,80,443 or 1-1024" data-testid="nmap-port-list"
+               title="Curated -p list; blank = profile default">
+      </div>
+      <label class="flex items-center gap-2 text-xs text-muted min-h-11">
+        <input type="checkbox" name="include_udp" value="on" data-testid="nmap-include-udp">
+        Include UDP (-sU)
+      </label>
+    </div>
     <div class="flex flex-wrap gap-2 items-center">
-      <button type="submit" class="btn btn-primary min-h-11" {% if not worker_online %}title="Worker offline — job will wait on queue"{% endif %}>
+      <button type="submit" class="btn btn-primary min-h-11" data-testid="nmap-queue-scan"
+              {% if not worker_online %}title="Worker offline — job will wait on queue"{% endif %}>
         Queue scan
       </button>
       <a href="/jobs?active_only=1" class="btn btn-secondary min-h-11 text-sm">Jobs / live log</a>
     </div>
-    <p class="text-[11px] text-muted">Progress streams into the Jobs page (same log panel as OS updates).</p>
+    <p class="text-[11px] text-muted">Curated options only (no free-form flags). Progress on Jobs.</p>
   </form>
 </div>
 {% endif %}
@@ -315,16 +352,48 @@
       <p class="text-xs text-muted mb-4">No port data yet — run <strong>inventory</strong> or <strong>deep</strong> scan.</p>
       {% endif %}
 
-      {% if device_scripts %}
+      {% if device_scripts_classified %}
       <h4 class="nmap-section-title">Script / vuln findings</h4>
-      <div class="space-y-2 max-h-44 overflow-y-auto mb-4">
-        {% for sc in device_scripts[:12] %}
-        <details class="nmap-script-card">
-          <summary>
+      {% if device_script_counts %}
+      <div class="flex flex-wrap gap-1.5 mb-2 text-[11px]" data-testid="nmap-script-summary">
+        {% if device_script_counts.finding %}
+        <span class="status-pill status-failed">{{ device_script_counts.finding }} finding</span>
+        {% endif %}
+        {% if device_script_counts.error %}
+        <span class="status-pill status-running">{{ device_script_counts.error }} script error</span>
+        {% endif %}
+        {% if device_script_counts.clear %}
+        <span class="status-pill status-success">{{ device_script_counts.clear }} clear</span>
+        {% endif %}
+        {% if device_script_counts.info %}
+        <span class="status-pill feature-off">{{ device_script_counts.info }} info</span>
+        {% endif %}
+      </div>
+      <p class="text-[10px] text-muted mb-2">
+        Findings include version/CPE matches and noisy NSE checks — verify before acting.
+        Script errors mean the probe failed (often irrelevant apps), not “unknown vuln”.
+      </p>
+      {% endif %}
+      <div class="space-y-2 max-h-52 overflow-y-auto mb-4" data-testid="nmap-script-list">
+        {% for sc in device_scripts_classified[:20] %}
+        <details class="nmap-script-card nmap-script-{{ sc.kind }}">
+          <summary class="flex flex-wrap items-center gap-1.5">
             <span class="font-mono">{{ sc.script_id }}</span>
-            {% if sc.cve_ids_json %}<span class="status-pill status-failed text-[10px] ml-1">CVE</span>{% endif %}
+            {% if sc.kind == 'finding' %}
+            <span class="status-pill status-failed text-[10px]">{{ sc.label }}</span>
+            {% elif sc.kind == 'error' %}
+            <span class="status-pill status-running text-[10px]">{{ sc.label }}</span>
+            {% elif sc.kind == 'clear' %}
+            <span class="status-pill status-success text-[10px]">{{ sc.label }}</span>
+            {% else %}
+            <span class="status-pill feature-off text-[10px]">{{ sc.label }}</span>
+            {% endif %}
+            {% if sc.cve_ids %}
+            <span class="text-[10px] text-muted font-mono">{{ sc.cve_ids[:3]|join(', ') }}{% if sc.cve_ids|length > 3 %}…{% endif %}</span>
+            {% endif %}
           </summary>
-          <pre>{{ (sc.output or '')[:2500] }}</pre>
+          <p class="text-[11px] text-muted mt-1">{{ sc.summary }}</p>
+          <pre>{{ sc.output or '' }}</pre>
         </details>
         {% endfor %}
       </div>
@@ -334,11 +403,18 @@
       <h4 class="nmap-section-title">Actions</h4>
       <div class="flex flex-wrap gap-2 items-center">
         <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/scan"
-              class="flex flex-wrap items-center gap-2">
-          <label class="inline-flex items-center gap-1 text-xs">
-            <input type="checkbox" name="vuln_scripts" value="on" {% if not cfg.vuln_enabled or not vuln_pack.ready %}disabled{% endif %}>
-            vuln
-          </label>
+              class="flex flex-wrap items-center gap-2" data-testid="nmap-device-deep-form">
+          <select name="script_preset" class="input text-xs min-h-9" title="Script preset"
+                  {% if not cfg.vuln_enabled %}disabled{% endif %}>
+            {% for p in script_presets or ['none','cpe','offline','full'] %}
+            <option value="{{ p }}" {% if p == 'cpe' %}selected{% endif %}>{{ p }}</option>
+            {% endfor %}
+          </select>
+          <select name="timing" class="input text-xs min-h-9" title="Timing">
+            <option value="3">T3</option>
+            <option value="4" selected>T4</option>
+            <option value="5">T5</option>
+          </select>
           <button type="submit" class="btn btn-primary text-xs min-h-9">Deep scan</button>
         </form>
         {% if device.state != 'ignored' %}
@@ -529,29 +605,56 @@
           <option value="off" {% if es and es_opts.use_syn is sameas false %}selected{% endif %}>Force connect (-sT)</option>
         </select>
       </div>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="sch_timing">Timing</label>
+        <select id="sch_timing" name="timing" class="input w-full">
+          {% set et = es_opts.timing if es and es_opts.timing is not none else 4 %}
+          <option value="3" {% if et == 3 %}selected{% endif %}>-T3</option>
+          <option value="4" {% if et == 4 %}selected{% endif %}>-T4</option>
+          <option value="5" {% if et == 5 %}selected{% endif %}>-T5</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="sch_top_ports">Top ports (inventory)</label>
+        <input id="sch_top_ports" name="top_ports" type="number" min="1" max="1000" class="input w-full font-mono"
+               value="{{ es_opts.top_ports if es and es_opts.top_ports else (default_top_ports or 100) }}">
+      </div>
+      <div class="sm:col-span-2">
+        <label class="block text-xs text-muted mb-1" for="sch_port_list">Ports (optional curated -p)</label>
+        <input id="sch_port_list" name="port_list" class="input w-full font-mono text-sm"
+               placeholder="22,80,443" value="{{ es_opts.port_list if es and es_opts.port_list else '' }}">
+      </div>
+      <label class="flex items-center gap-2 text-sm sm:col-span-2">
+        <input type="checkbox" name="include_udp" value="on"
+               {% if es and es_opts.include_udp %}checked{% endif %}>
+        Include UDP (-sU) — expensive
+      </label>
     </div>
 
     <div id="sch-vuln-options" class="border border-border rounded-lg p-3 space-y-2 bg-surface/40">
-      <div class="text-xs font-semibold text-text">Vulnerability scan options</div>
+      <div class="text-xs font-semibold text-text">Deep script preset</div>
       <p class="text-[11px] text-muted">
         Applied when intensity is <code class="text-[10px]">deep</code>.
-        Requires integration “Allow Vulners” and a ready vuln pack.
+        Requires integration “Allow Vulners”. Full/offline need a ready vuln pack; CPE uses stock vulners.
       </p>
-      <label class="flex items-start gap-2 text-sm">
-        <input type="checkbox" name="vuln_scripts" value="on" class="mt-1"
-               id="sch_vuln_scripts"
-               data-blocked="{% if not cfg.vuln_enabled or not vuln_pack.ready %}1{% else %}0{% endif %}"
-               {% if es and es_opts.vuln_scripts %}checked{% endif %}
-               {% if not cfg.vuln_enabled or not vuln_pack.ready %}disabled{% endif %}>
-        <span>
-          Run vuln scripts (vulners / vulscan / stock <code class="text-[10px]">vuln</code>)
-          {% if not cfg.vuln_enabled %}
-          <span class="block text-[11px] text-muted">Enable “Allow Vulners” on the integration first.</span>
-          {% elif not vuln_pack.ready %}
-          <span class="block text-[11px] text-muted">Vuln pack empty — update the vulnerability DB first.</span>
-          {% endif %}
-        </span>
-      </label>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="sch_script_preset">Preset</label>
+        <select id="sch_script_preset" name="script_preset" class="input w-full"
+                data-blocked="{% if not cfg.vuln_enabled %}1{% else %}0{% endif %}"
+                {% if not cfg.vuln_enabled %}disabled{% endif %}>
+          {% set ep = es_opts.script_preset if es and es_opts.script_preset else ('full' if es and es_opts.vuln_scripts else 'none') %}
+          {% for p in script_presets or ['none','cpe','offline','full'] %}
+          <option value="{{ p }}" {% if ep == p %}selected{% endif %}>
+            {{ (script_preset_labels or {}).get(p, p) }}
+          </option>
+          {% endfor %}
+        </select>
+        {% if not cfg.vuln_enabled %}
+        <p class="text-[11px] text-muted mt-1">Enable “Allow Vulners” on the integration first.</p>
+        {% elif not vuln_pack.ready %}
+        <p class="text-[11px] text-muted mt-1">Vuln pack empty — offline/full need Update vulnerability DB; CPE may still work.</p>
+        {% endif %}
+      </div>
     </div>
 
     <label class="flex items-center gap-2 text-sm">
@@ -576,15 +679,15 @@
 (function () {
   var sel = document.getElementById('sch_intensity');
   var box = document.getElementById('sch-vuln-options');
-  var chk = document.getElementById('sch_vuln_scripts');
+  var preset = document.getElementById('sch_script_preset');
   if (!sel || !box) return;
   function sync() {
     var deep = (sel.value || '') === 'deep';
-    var blocked = chk && chk.getAttribute('data-blocked') === '1';
+    var blocked = preset && preset.getAttribute('data-blocked') === '1';
     box.style.opacity = deep ? '1' : '0.55';
-    if (chk) {
-      chk.disabled = !deep || blocked;
-      if (!deep) chk.checked = false;
+    if (preset) {
+      preset.disabled = !deep || blocked;
+      if (!deep && !blocked) preset.value = 'none';
     }
   }
   sel.addEventListener('change', sync);
@@ -616,11 +719,14 @@
         <td class="p-2">{{ s.name }}</td>
         <td class="p-2"><span class="status-pill feature-off">{{ s.intensity }}</span></td>
         <td class="p-2 text-[11px] text-muted">
-          {% if opts.vuln_scripts %}<span class="status-pill status-running">vuln</span>{% endif %}
+          {% if opts.script_preset and opts.script_preset != 'none' %}
+          <span class="status-pill status-running">{{ opts.script_preset }}</span>
+          {% elif opts.vuln_scripts %}<span class="status-pill status-running">vuln</span>{% endif %}
+          {% if opts.timing %}<span class="font-mono text-[10px]">T{{ opts.timing }}</span>{% endif %}
+          {% if opts.include_udp %}<span class="status-pill feature-off">udp</span>{% endif %}
           {% if opts.use_syn is sameas true %}<span class="status-pill feature-off">SYN</span>
           {% elif opts.use_syn is sameas false %}<span class="status-pill feature-off">-sT</span>
           {% else %}<span class="opacity-70">scan: inherit</span>{% endif %}
-          {% if not opts.vuln_scripts and opts.use_syn is none %}<span class="opacity-50">—</span>{% endif %}
         </td>
         <td class="p-2 font-mono text-xs">
           {% if s.cron %}{{ s.cron }}{% elif s.interval_hours %}every {{ s.interval_hours }}h{% else %}—{% endif %}

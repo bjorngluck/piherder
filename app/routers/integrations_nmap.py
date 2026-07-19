@@ -24,9 +24,18 @@ from ..services.integrations import registry as reg
 from ..services.nmap import config as nmap_cfg
 from ..services.nmap import schedules as nmap_sched
 from ..services.nmap.argv import INTENSITIES, INTENSITY_DEEP, INTENSITY_DISCOVERY
+from ..services.nmap.options import (
+    DEFAULT_TIMING,
+    DEFAULT_TOP_PORTS,
+    SCRIPT_PRESET_LABELS,
+    SCRIPT_PRESETS,
+    form_scan_options,
+    normalize_script_preset,
+)
 from ..services.nmap.paths import vuln_pack_status
 from ..services.nmap.runtime import worker_online
 from ..services.nmap.scan import enqueue_nmap_scan
+from ..services.nmap.script_classify import classify_scripts, script_summary_counts
 from ..services.nmap.vuln_update import enqueue_vuln_db_update
 from .integrations_common import router, _audit, _redirect, _can_mutate
 
@@ -116,13 +125,22 @@ async def render_nmap_detail(request, session, user, integration: Integration):
                         select(NmapScriptResult)
                         .where(NmapScriptResult.device_id == device.id)
                         .order_by(NmapScriptResult.id.desc())
-                        .limit(30)
+                        .limit(40)
                     ).all()
                 )
             else:
                 device = None
         except ValueError:
             device = None
+
+    device_scripts_classified = (
+        classify_scripts(device_scripts) if device_scripts else []
+    )
+    device_script_counts = (
+        script_summary_counts(device_scripts_classified)
+        if device_scripts_classified
+        else None
+    )
 
     # Schedule edit form (?tab=schedules&schedule=ID)
     edit_schedule = None
@@ -164,8 +182,14 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             "device": device,
             "device_ports": device_ports,
             "device_scripts": device_scripts,
+            "device_scripts_classified": device_scripts_classified,
+            "device_script_counts": device_script_counts,
             "intensities": INTENSITIES,
             "schedule_intensities": nmap_sched.INTENSITIES_SCHEDULE,
+            "script_presets": SCRIPT_PRESETS,
+            "script_preset_labels": SCRIPT_PRESET_LABELS,
+            "default_timing": DEFAULT_TIMING,
+            "default_top_ports": DEFAULT_TOP_PORTS,
             "schedule_options": {
                 s.id: nmap_sched.parse_schedule_options(s) for s in schedules
             }
@@ -259,6 +283,11 @@ async def nmap_scan_now(
     intensity: str = Form(INTENSITY_DISCOVERY),
     targets: str = Form(""),
     vuln_scripts: Optional[str] = Form(None),
+    script_preset: Optional[str] = Form(None),
+    timing: Optional[str] = Form(None),
+    top_ports: Optional[str] = Form(None),
+    include_udp: Optional[str] = Form(None),
+    port_list: Optional[str] = Form(None),
 ):
     integration = _require_nmap(session, integration_id)
     cfg = nmap_cfg.parse_nmap_config(integration)
@@ -266,10 +295,19 @@ async def nmap_scan_now(
     if intensity not in INTENSITIES:
         intensity = INTENSITY_DISCOVERY
     target_list = nmap_cfg.parse_cidrs_textarea(targets) or list(cfg.get("cidrs") or [])
-    want_vuln = (
-        vuln_scripts in ("on", "1", "true")
-        and intensity == INTENSITY_DEEP
-        and bool(cfg.get("vuln_enabled"))
+    legacy_vuln = vuln_scripts in ("on", "1", "true")
+    preset = normalize_script_preset(
+        script_preset, vuln_scripts_fallback=legacy_vuln
+    )
+    if intensity != INTENSITY_DEEP or not bool(cfg.get("vuln_enabled")):
+        preset = "none"
+    opts = form_scan_options(
+        script_preset=preset,
+        vuln_scripts=preset != "none",
+        timing=timing,
+        top_ports=top_ports,
+        include_udp=include_udp in ("on", "1", "true"),
+        port_list=port_list,
     )
     try:
         job, run = enqueue_nmap_scan(
@@ -278,13 +316,16 @@ async def nmap_scan_now(
             intensity=intensity,
             targets=target_list,
             user_id=user.id,
-            vuln_scripts=want_vuln,
+            scan_options=opts,
         )
         _audit(
             session,
             user,
             "nmap_scan_queued",
-            details=f"job={job.id} run={run.id} intensity={intensity}",
+            details=(
+                f"job={job.id} run={run.id} intensity={intensity} "
+                f"preset={opts.get('script_preset')}"
+            ),
         )
         # Jobs page shows live log_tail (same pattern as OS updates)
         return _redirect("/jobs", job_type=job.job_type, active_only="1")
@@ -339,13 +380,29 @@ async def nmap_device_deep_scan(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     vuln_scripts: Optional[str] = Form(None),
+    script_preset: Optional[str] = Form(None),
+    timing: Optional[str] = Form(None),
+    include_udp: Optional[str] = Form(None),
+    port_list: Optional[str] = Form(None),
 ):
     integration = _require_nmap(session, integration_id)
     device = session.get(NmapDevice, device_id)
     if not device or device.integration_id != integration.id:
         raise HTTPException(404, "Device not found")
     cfg = nmap_cfg.parse_nmap_config(integration)
-    want_vuln = vuln_scripts in ("on", "1", "true") and bool(cfg.get("vuln_enabled"))
+    legacy_vuln = vuln_scripts in ("on", "1", "true")
+    preset = normalize_script_preset(
+        script_preset, vuln_scripts_fallback=legacy_vuln
+    )
+    if not bool(cfg.get("vuln_enabled")):
+        preset = "none"
+    opts = form_scan_options(
+        script_preset=preset,
+        vuln_scripts=preset != "none",
+        timing=timing,
+        include_udp=include_udp in ("on", "1", "true"),
+        port_list=port_list,
+    )
     try:
         job, run = enqueue_nmap_scan(
             session,
@@ -353,13 +410,16 @@ async def nmap_device_deep_scan(
             intensity=INTENSITY_DEEP,
             targets=[device.ip_address],
             user_id=user.id,
-            vuln_scripts=want_vuln,
+            scan_options=opts,
         )
         _audit(
             session,
             user,
             "nmap_host_deep_queued",
-            details=f"device={device_id} ip={device.ip_address} job={job.id}",
+            details=(
+                f"device={device_id} ip={device.ip_address} job={job.id} "
+                f"preset={opts.get('script_preset')}"
+            ),
         )
         return _redirect("/jobs", job_type="nmap_host_deep", active_only="1")
     except Exception as e:
@@ -477,7 +537,12 @@ async def nmap_schedule_create(
     interval_hours: Optional[str] = Form(""),
     enabled: Optional[str] = Form(None),
     vuln_scripts: Optional[str] = Form(None),
+    script_preset: Optional[str] = Form(None),
     use_syn: Optional[str] = Form(""),
+    timing: Optional[str] = Form(None),
+    top_ports: Optional[str] = Form(None),
+    include_udp: Optional[str] = Form(None),
+    port_list: Optional[str] = Form(None),
 ):
     integration = _require_nmap(session, integration_id)
     try:
@@ -485,6 +550,20 @@ async def nmap_schedule_create(
     except ValueError:
         ih = None
     use_syn_opt, _ = nmap_sched.parse_use_syn_form(use_syn)
+    legacy_vuln = vuln_scripts in ("on", "1", "true")
+    preset = normalize_script_preset(
+        script_preset, vuln_scripts_fallback=legacy_vuln
+    )
+    try:
+        t_raw = (timing or "").strip()
+        timing_i = int(t_raw) if t_raw else DEFAULT_TIMING
+    except ValueError:
+        timing_i = DEFAULT_TIMING
+    try:
+        tp_raw = (top_ports or "").strip()
+        top_ports_i = int(tp_raw) if tp_raw else DEFAULT_TOP_PORTS
+    except ValueError:
+        top_ports_i = DEFAULT_TOP_PORTS
     try:
         row = nmap_sched.create_schedule(
             session,
@@ -494,8 +573,13 @@ async def nmap_schedule_create(
             cron=(cron or "").strip() or None,
             interval_hours=ih,
             enabled=enabled in ("on", "1", "true"),
-            vuln_scripts=vuln_scripts in ("on", "1", "true"),
+            vuln_scripts=preset != "none",
+            script_preset=preset,
             use_syn=use_syn_opt,
+            timing=timing_i,
+            top_ports=top_ports_i,
+            include_udp=include_udp in ("on", "1", "true"),
+            port_list=(port_list or "").strip() or None,
         )
         _resync_schedules()
         opts = nmap_sched.parse_schedule_options(row)
@@ -505,7 +589,7 @@ async def nmap_schedule_create(
             "nmap_schedule_created",
             details=(
                 f"id={row.id} intensity={row.intensity} "
-                f"vuln={opts.get('vuln_scripts')} use_syn={opts.get('use_syn')}"
+                f"preset={opts.get('script_preset')} use_syn={opts.get('use_syn')}"
             ),
         )
         return _redirect(
@@ -532,9 +616,14 @@ async def nmap_schedule_edit(
     interval_hours: Optional[str] = Form(""),
     enabled: Optional[str] = Form(None),
     vuln_scripts: Optional[str] = Form(None),
+    script_preset: Optional[str] = Form(None),
     use_syn: Optional[str] = Form(""),
+    timing: Optional[str] = Form(None),
+    top_ports: Optional[str] = Form(None),
+    include_udp: Optional[str] = Form(None),
+    port_list: Optional[str] = Form(None),
 ):
-    """Update an existing nmap scan schedule (name, cadence, vuln options)."""
+    """Update an existing nmap scan schedule (name, cadence, curated options)."""
     _require_nmap(session, integration_id)
     row = session.get(NmapScanSchedule, schedule_id)
     if not row or row.integration_id != integration_id:
@@ -546,6 +635,20 @@ async def nmap_schedule_edit(
         ih = None
     use_syn_opt, clear_syn = nmap_sched.parse_use_syn_form(use_syn)
     cron_s = (cron or "").strip()
+    legacy_vuln = vuln_scripts in ("on", "1", "true")
+    preset = normalize_script_preset(
+        script_preset, vuln_scripts_fallback=legacy_vuln
+    )
+    try:
+        t_raw = (timing or "").strip()
+        timing_i = int(t_raw) if t_raw else DEFAULT_TIMING
+    except ValueError:
+        timing_i = DEFAULT_TIMING
+    try:
+        tp_raw = (top_ports or "").strip()
+        top_ports_i = int(tp_raw) if tp_raw else DEFAULT_TOP_PORTS
+    except ValueError:
+        top_ports_i = DEFAULT_TOP_PORTS
     try:
         # When one of cron/interval is set, clear the other so edits stick.
         nmap_sched.update_schedule(
@@ -558,9 +661,14 @@ async def nmap_schedule_edit(
             interval_hours=ih if ih else None,
             clear_interval=not ih,
             enabled=enabled in ("on", "1", "true"),
-            vuln_scripts=vuln_scripts in ("on", "1", "true"),
+            script_preset=preset,
             use_syn=use_syn_opt if not clear_syn else None,
             clear_use_syn=clear_syn,
+            timing=timing_i,
+            top_ports=top_ports_i,
+            include_udp=include_udp in ("on", "1", "true"),
+            port_list=(port_list or "").strip() or None,
+            clear_port_list=not (port_list or "").strip(),
         )
         _resync_schedules()
         opts = nmap_sched.parse_schedule_options(row)
@@ -570,7 +678,7 @@ async def nmap_schedule_edit(
             "nmap_schedule_updated",
             details=(
                 f"id={schedule_id} intensity={row.intensity} "
-                f"vuln={opts.get('vuln_scripts')} use_syn={opts.get('use_syn')}"
+                f"preset={opts.get('script_preset')} use_syn={opts.get('use_syn')}"
             ),
         )
         return _redirect(

@@ -227,6 +227,15 @@
           SSH {{ ks.state }}
         </a>
         {% endif %}
+
+        {% if s.get('nmap_discovery') %}
+        {% set nd = s.nmap_discovery %}
+        <a href="{{ nd.href }}" class="status-pill feature-off no-underline"
+           data-testid="nmap-lan-chip"
+           title="Linked LAN discovery device {{ nd.ip }}{% if nd.open_ports %} · {{ nd.open_ports }} open ports{% endif %}">
+          LAN{% if nd.open_ports %} · {{ nd.open_ports }}p{% endif %}
+        </a>
+        {% endif %}
       </div>
     </div>
 

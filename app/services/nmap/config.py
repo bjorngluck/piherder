@@ -405,3 +405,93 @@ def parse_cidrs_textarea(raw: str) -> list[str]:
         if s and not s.startswith("#"):
             lines.append(s)
     return lines
+
+
+# --- Soft embed helpers (N8): discovery devices linked to fleet servers ---
+
+
+def devices_for_server(
+    session: Session, server_id: int, *, limit: int = 5
+) -> list[NmapDevice]:
+    """Nmap devices linked to a managed Server."""
+    q = (
+        select(NmapDevice)
+        .where(NmapDevice.linked_server_id == server_id)
+        .order_by(NmapDevice.updated_at.desc())
+        .limit(max(1, min(20, limit)))
+    )
+    return list(session.exec(q).all())
+
+
+def discovery_embed_for_server(
+    session: Session, server_id: int
+) -> dict[str, Any] | None:
+    """Payload for server detail soft-embed card, or None if not linked."""
+    from .script_classify import classify_scripts, script_summary_counts
+    from ...models import NmapScriptResult
+
+    devices = devices_for_server(session, server_id, limit=3)
+    if not devices:
+        return None
+    # Prefer primary device (most recently updated)
+    primary = devices[0]
+    scripts = list(
+        session.exec(
+            select(NmapScriptResult)
+            .where(NmapScriptResult.device_id == primary.id)
+            .order_by(NmapScriptResult.id.desc())
+            .limit(40)
+        ).all()
+    )
+    classified = classify_scripts(scripts)
+    counts = script_summary_counts(classified)
+    services = _open_ports_summary(primary.ports_json, limit=6)
+    return {
+        "device": primary,
+        "devices": devices,
+        "open_ports": _count_open_ports(primary.ports_json),
+        "services": services,
+        "script_counts": counts,
+        "href": f"/integrations/{primary.integration_id}?tab=devices&device={primary.id}",
+        "network_href": f"/integrations/{primary.integration_id}?tab=network",
+    }
+
+
+def discovery_chips_by_server(
+    session: Session, server_ids: list[int]
+) -> dict[int, dict[str, Any]]:
+    """Map server_id → small chip payload for server list."""
+    if not server_ids:
+        return {}
+    # SQLModel/SQLAlchemy IN filter
+    rows = list(
+        session.exec(
+            select(NmapDevice).where(
+                NmapDevice.linked_server_id.in_(list(server_ids))  # type: ignore[attr-defined]
+            )
+        ).all()
+    )
+    by: dict[int, list[NmapDevice]] = {}
+    for d in rows:
+        if d.linked_server_id is None:
+            continue
+        by.setdefault(int(d.linked_server_id), []).append(d)
+    out: dict[int, dict[str, Any]] = {}
+    for sid, devs in by.items():
+        primary = sorted(
+            devs,
+            key=lambda x: x.updated_at or x.first_seen_at or datetime.utcnow(),
+            reverse=True,
+        )[0]
+        out[sid] = {
+            "device_id": primary.id,
+            "ip": primary.ip_address,
+            "hostname": primary.hostname or "",
+            "open_ports": _count_open_ports(primary.ports_json),
+            "state": primary.state,
+            "href": (
+                f"/integrations/{primary.integration_id}"
+                f"?tab=devices&device={primary.id}"
+            ),
+        }
+    return out

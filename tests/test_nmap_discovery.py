@@ -83,16 +83,19 @@ def test_build_nmap_argv_profiles():
     assert "-sS" in inv
     assert "-sV" in inv
     assert any(a.startswith("--top-ports") or a == "100" for a in inv)
+    assert "-T4" in inv  # default timing
 
     deep = av.build_nmap_argv(
         "deep",
         ["10.0.0.1"],
         output_xml="/tmp/o.xml",
         vuln_scripts=True,
+        timing=4,
     )
     assert "-p-" in deep
     assert "--script" in deep
     assert "vuln,vulners" in deep
+    assert "-T4" in deep
 
     # forbidden script fragments stripped from extras
     filtered = av.build_nmap_argv(

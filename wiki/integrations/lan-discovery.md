@@ -60,11 +60,24 @@ Without the worker, Overview shows **scanner offline**. Without the vuln pack, d
 | **Discovery** | Who is alive | Frequent light sweeps (`-sn`-class) |
 | **Inventory** | Ports + services | Daily top-ports + version detect |
 | **Detailed** | Broader map | Weekly wider ports / OS-ish depth |
-| **Deep** | Single-host full audit | Manual or scheduled; optional **vuln scripts** + SYN |
+| **Deep** | Single-host full audit | Manual or scheduled; optional **script preset** + SYN |
 
-**On-demand:** scan network now; scan **this device** (deep); optional vuln scripts when the integration allows and the pack is ready.
+**On-demand:** scan network now; scan **this device** (deep); curated options (timing, top-ports, UDP, port list, script preset) — **no free-form nmap flags**.
 
-Deep vuln NSE uses stock **`vuln`** + **vulscan** (and related helpers) against the mounted pack — not a double-loaded vulners script path.
+### Deep script presets
+
+| Preset | What runs | When to use |
+|--------|-----------|-------------|
+| **none** | No NSE vuln scripts | Inventory-like deep ports only |
+| **cpe** | Stock `vulners` (CPE/version, online API) | Quieter version triage |
+| **offline** | Pack **vulscan** only | Offline tables; needs pack |
+| **full** | Stock `vuln` category + vulscan + helpers | Noisy; many clear/error rows expected |
+
+Device detail **classifies** script rows: **finding** · **clear** · **script error** · **info**. Errors mean the probe failed (often irrelevant apps), not “unknown vulnerability”. Version/CPE matches still need human verification.
+
+### Soft embed (fleet)
+
+Linked discovery devices appear on **Servers** list (LAN chip) and **server detail** (ports + script summary + links back to Devices / Network view).
 
 ---
 
@@ -74,7 +87,7 @@ Deep vuln NSE uses stock **`vuln`** + **vulscan** (and related helpers) against 
 - Intensities: discovery · inventory · detailed · **deep** (deep may set **vuln scripts** and SYN override).  
 - Provide **cron** (5 fields, app timezone) **or** **interval hours**.  
 - **Create** and **Edit** (list → Edit → same form prefilled → Save).  
-- Options stored per schedule (`options_json`): e.g. vuln scripts on deep, SYN vs inherit integration default.  
+- Options stored per schedule (`options_json`): script preset, timing, top-ports, UDP, port list, SYN vs inherit.  
 - Changes resync APScheduler; audit records configure/scan actions.
 
 ---
