@@ -536,6 +536,16 @@ _auth_attempts: dict = {}
 
 def rate_limit_auth(key: str, max_attempts: int = 20, window_seconds: int = 300) -> bool:
     """Return True if allowed, False if rate limited."""
+    import os
+
+    # E2E / lab stacks do many logins in one suite (admin_page per test).
+    if (os.environ.get("PIHERDER_DISABLE_AUTH_RATE_LIMIT") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    ):
+        return True
     now = datetime.utcnow().timestamp()
     bucket = _auth_attempts.get(key, [])
     bucket = [t for t in bucket if now - t < window_seconds]

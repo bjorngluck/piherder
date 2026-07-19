@@ -51,14 +51,13 @@ def test_b6_viewer_cannot_add_server(page, base_url, e2e_credentials):
     expect(page.locator('[data-testid="btn-add-server-empty"]')).to_have_count(0)
 
     # 4) Direct wizard URL is forbidden (operator+ dependency)
-    resp = page.goto(f"{base_url}/servers/new", wait_until="domcontentloaded")
-    assert resp is not None
-    assert resp.status == 403, f"expected 403, got {resp.status} body={page.content()[:200]}"
-    # JSON detail from FastAPI HTTPException
-    body = page.content()
-    assert "operator" in body.lower() or "forbidden" in body.lower() or "403" in body
+    # Use APIRequestContext so status is reliable (browser may wrap 403 oddly)
+    api = page.context.request
+    # Copy cookies for authenticated request
+    r = api.get(f"{base_url}/servers/new")
+    assert r.status == 403, f"expected 403 for /servers/new, got {r.status} {r.text()[:200]}"
+    detail = (r.text() or "").lower()
+    assert "operator" in detail or "forbidden" in detail or "403" in detail
 
-    # 5) Advanced path also blocked
-    resp2 = page.goto(f"{base_url}/servers/new/advanced", wait_until="domcontentloaded")
-    assert resp2 is not None
-    assert resp2.status == 403
+    r2 = api.get(f"{base_url}/servers/new/advanced")
+    assert r2.status == 403, f"expected 403 for advanced, got {r2.status}"

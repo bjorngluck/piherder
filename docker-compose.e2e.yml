@@ -52,6 +52,8 @@ services:
       ALLOW_OPEN_REGISTRATION: "false"
       PIHERDER_UPDATE_CHECK: "false"
       COOKIE_SECURE: "false"
+      # Playwright suite logs in many times (per-test admin_page); avoid 20/5min lockout
+      PIHERDER_DISABLE_AUTH_RATE_LIMIT: "true"
       CADDY_ADMIN_URL: ""
       TZ: ${TZ:-Etc/UTC}
     volumes:
