@@ -1156,12 +1156,50 @@
 .nmap-ports-table tr.is-open td {
   background: color-mix(in srgb, var(--color-accent) 6%, transparent);
 }
+.nmap-ports-table tr.is-problem td {
+  background: color-mix(in srgb, var(--color-danger, #dc2626) 12%, transparent);
+}
+.nmap-ports-table tr.is-problem:target td,
+.nmap-ports-table tr:target td {
+  outline: 2px solid color-mix(in srgb, var(--color-danger, #dc2626) 55%, transparent);
+  outline-offset: -2px;
+}
+.nmap-port-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--color-danger, #dc2626) 35%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger, #dc2626) 10%, var(--color-surface));
+  color: var(--color-text);
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nmap-port-link:hover {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+}
+.nmap-port-link--host {
+  border-color: var(--color-border);
+  background: color-mix(in srgb, var(--color-muted) 12%, var(--color-surface));
+  color: var(--color-muted);
+}
 .nmap-script-card {
   border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 0.4rem 0.55rem;
   font-size: 0.75rem;
   background: var(--color-surface);
+}
+.nmap-script-card.nmap-script-finding {
+  border-color: color-mix(in srgb, var(--color-danger, #dc2626) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-danger, #dc2626) 6%, var(--color-surface));
+}
+.nmap-script-card.nmap-script-error {
+  border-color: color-mix(in srgb, var(--color-warning, #d97706) 40%, var(--color-border));
 }
 .nmap-script-card summary { cursor: pointer; }
 .nmap-script-card pre {

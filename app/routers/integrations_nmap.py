@@ -35,7 +35,11 @@ from ..services.nmap.options import (
 from ..services.nmap.paths import vuln_pack_status
 from ..services.nmap.runtime import worker_online
 from ..services.nmap.scan import enqueue_nmap_scan
-from ..services.nmap.script_classify import classify_scripts, script_summary_counts
+from ..services.nmap.script_classify import (
+    classify_scripts,
+    ports_with_findings,
+    script_summary_counts,
+)
 from ..services.nmap.vuln_update import enqueue_vuln_db_update
 from .integrations_common import router, _audit, _redirect, _can_mutate
 
@@ -134,13 +138,18 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             device = None
 
     device_scripts_classified = (
-        classify_scripts(device_scripts) if device_scripts else []
+        classify_scripts(device_scripts, ports=device_ports) if device_scripts else []
     )
     device_script_counts = (
         script_summary_counts(device_scripts_classified)
         if device_scripts_classified
         else None
     )
+    # Annotate ports with finding/error counts for row highlight + anchors
+    if device_ports and device_scripts_classified:
+        device_ports = ports_with_findings(device_ports, device_scripts_classified)
+    elif device_ports:
+        device_ports = ports_with_findings(device_ports, [])
 
     # Schedule edit form (?tab=schedules&schedule=ID)
     edit_schedule = None

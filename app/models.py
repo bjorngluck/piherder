@@ -748,4 +748,7 @@ class NmapScriptResult(SQLModel, table=True):
     output: Optional[str] = None
     # JSON list of CVE ids when parsed
     cve_ids_json: Optional[str] = None
+    # Port the script ran against (None = host-level / hostscript)
+    port: Optional[int] = Field(default=None, index=True)
+    protocol: Optional[str] = Field(default=None, max_length=16)
     created_at: datetime = Field(default_factory=datetime.utcnow)

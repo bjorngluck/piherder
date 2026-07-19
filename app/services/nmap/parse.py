@@ -25,6 +25,12 @@ class ParsedScript:
     script_id: str
     output: str
     cve_ids: list[str] = field(default_factory=list)
+    # Set when script is nested under a <port>; None for hostscript
+    port: Optional[int] = None
+    protocol: Optional[str] = None
+    service: str = ""
+    product: str = ""
+    version: str = ""
 
 
 @dataclass
@@ -57,6 +63,33 @@ def _cves_from_text(text: str) -> list[str]:
     return out
 
 
+def _script_from_el(
+    sc: ET.Element,
+    *,
+    port: Optional[int] = None,
+    protocol: Optional[str] = None,
+    service: str = "",
+    product: str = "",
+    version: str = "",
+) -> Optional[ParsedScript]:
+    sid = (sc.get("id") or "").strip()
+    if not sid:
+        return None
+    out = (sc.get("output") or "").strip()
+    if not out:
+        out = _text(sc)
+    return ParsedScript(
+        script_id=sid,
+        output=out,
+        cve_ids=_cves_from_text(out),
+        port=port,
+        protocol=(protocol or None),
+        service=service or "",
+        product=product or "",
+        version=version or "",
+    )
+
+
 def _parse_host(host_el: ET.Element) -> Optional[ParsedHost]:
     status_el = host_el.find("status")
     status = (status_el.get("state") if status_el is not None else None) or "unknown"
@@ -79,7 +112,6 @@ def _parse_host(host_el: ET.Element) -> Optional[ParsedHost]:
     hostname = None
     hostnames = host_el.find("hostnames")
     if hostnames is not None:
-        # Prefer user/PTR (DNS) names over empty placeholders
         preferred: list[str] = []
         others: list[str] = []
         for hn in hostnames.findall("hostname"):
@@ -101,6 +133,10 @@ def _parse_host(host_el: ET.Element) -> Optional[ParsedHost]:
             os_summary = (match.get("name") or "").strip() or None
 
     ports: list[ParsedPort] = []
+    scripts: list[ParsedScript] = []
+    # Allow same script id on multiple ports (e.g. http-* on 80 and 443)
+    seen_scripts: set[tuple[str, Optional[int], Optional[str]]] = set()
+
     ports_el = host_el.find("ports")
     if ports_el is not None:
         for p in ports_el.findall("port"):
@@ -125,40 +161,48 @@ def _parse_host(host_el: ET.Element) -> Optional[ParsedHost]:
                     version=version,
                 )
             )
-            # port-level scripts
             for sc in p.findall("script"):
-                sid = (sc.get("id") or "").strip()
-                out = (sc.get("output") or "").strip() or _text(sc)
-                if sid:
-                    # attach later via host scripts list for simplicity
-                    pass
-
-    scripts: list[ParsedScript] = []
-    # host-level scripts
-    hostscript = host_el.find("hostscript")
-    script_parents = [host_el]
-    if hostscript is not None:
-        script_parents.append(hostscript)
-    if ports_el is not None:
-        script_parents.append(ports_el)
-
-    seen_scripts: set[str] = set()
-    for parent in script_parents:
-        for sc in parent.findall(".//script"):
-            sid = (sc.get("id") or "").strip()
-            if not sid or sid in seen_scripts:
-                continue
-            seen_scripts.add(sid)
-            out = (sc.get("output") or "").strip()
-            if not out:
-                out = _text(sc)
-            scripts.append(
-                ParsedScript(
-                    script_id=sid,
-                    output=out,
-                    cve_ids=_cves_from_text(out),
+                parsed = _script_from_el(
+                    sc,
+                    port=port_id,
+                    protocol=proto,
+                    service=service,
+                    product=product,
+                    version=version,
                 )
-            )
+                if not parsed:
+                    continue
+                key = (parsed.script_id, port_id, proto)
+                if key in seen_scripts:
+                    continue
+                seen_scripts.add(key)
+                scripts.append(parsed)
+
+    # host-level scripts (hostscript + rare direct children)
+    hostscript = host_el.find("hostscript")
+    host_script_parents: list[ET.Element] = []
+    if hostscript is not None:
+        host_script_parents.append(hostscript)
+    # only direct hostscript-style; avoid re-walking ports (already done)
+    for sc in host_el.findall("script"):
+        parsed = _script_from_el(sc)
+        if not parsed:
+            continue
+        key = (parsed.script_id, None, None)
+        if key in seen_scripts:
+            continue
+        seen_scripts.add(key)
+        scripts.append(parsed)
+    for parent in host_script_parents:
+        for sc in parent.findall("script"):
+            parsed = _script_from_el(sc)
+            if not parsed:
+                continue
+            key = (parsed.script_id, None, None)
+            if key in seen_scripts:
+                continue
+            seen_scripts.add(key)
+            scripts.append(parsed)
 
     return ParsedHost(
         ip_address=ip,

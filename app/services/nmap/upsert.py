@@ -167,6 +167,16 @@ def upsert_hosts_from_parse(
                         script_id=sc.script_id[:128],
                         output=(sc.output or "")[:50000] or None,
                         cve_ids_json=json.dumps(sc.cve_ids) if sc.cve_ids else None,
+                        port=int(sc.port) if getattr(sc, "port", None) is not None else None,
+                        protocol=(
+                            (sc.protocol or "tcp")[:16]
+                            if getattr(sc, "port", None) is not None
+                            else (
+                                (sc.protocol or None)[:16]
+                                if getattr(sc, "protocol", None)
+                                else None
+                            )
+                        ),
                     )
                 )
                 scripts_written += 1

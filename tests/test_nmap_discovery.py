@@ -37,6 +37,15 @@ def test_parse_nmap_xml_hosts_ports_scripts():
     cves = {c for s in up_host.scripts for c in s.cve_ids}
     assert "CVE-2014-3704" in cves
     assert "CVE-2023-38408" in cves
+    # Port-level script retains port/service context
+    http_vuln = next(s for s in up_host.scripts if s.script_id == "http-vuln-cve2014-3704")
+    assert http_vuln.port == 80
+    assert http_vuln.protocol == "tcp"
+    assert http_vuln.service == "http"
+    assert http_vuln.product == "nginx"
+    # Host-level vulners has no port
+    host_vuln = next(s for s in up_host.scripts if s.script_id == "vulners")
+    assert host_vuln.port is None
 
 
 def test_parse_invalid_xml_raises():

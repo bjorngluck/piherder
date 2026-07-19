@@ -117,6 +117,9 @@ def test_classify_finding_clear_error_info():
         sc.classify_script_result(
             "http-slowloris-check",
             "VULNERABLE:\n  Slowloris DOS\n    State: LIKELY VULNERABLE",
+            port=80,
+            protocol="tcp",
+            service="http",
         )["kind"]
         == "finding"
     )
@@ -124,9 +127,16 @@ def test_classify_finding_clear_error_info():
         "vulners",
         "cpe:/a:openbsd:openssh:10.2p1:\nCVE-2026-60002 9.4",
         cve_ids_json='["CVE-2026-60002"]',
+        port=22,
+        protocol="tcp",
+        service="ssh",
+        product="OpenSSH",
     )
     assert c["kind"] == "finding"
     assert "CVE-2026-60002" in c["cve_ids"]
+    assert c["port"] == 22
+    assert "22/tcp" in c["port_label"]
+    assert c["port_anchor"] == "port-22-tcp"
     assert (
         sc.classify_script_result("fingerprint-strings", "GetRequest:\n  HTTP/1.0 403")[
             "kind"
@@ -134,33 +144,53 @@ def test_classify_finding_clear_error_info():
         == "info"
     )
 
+    ports = [
+        {"port": 22, "protocol": "tcp", "state": "open", "service": "ssh", "product": "OpenSSH"},
+        {"port": 80, "protocol": "tcp", "state": "open", "service": "http", "product": "nginx"},
+    ]
     rows = [
         SimpleNamespace(
             id=1,
             script_id="http-csrf",
             output="Couldn't find any",
             cve_ids_json=None,
+            port=80,
+            protocol="tcp",
         ),
         SimpleNamespace(
             id=2,
             script_id="http-passwd",
             output="ERROR: Script execution failed",
             cve_ids_json=None,
+            port=80,
+            protocol="tcp",
         ),
         SimpleNamespace(
             id=3,
             script_id="vulners",
-            output="CVE-2020-1",
+            output="cpe:/a:openbsd:openssh:9.2:\nCVE-2020-1",
             cve_ids_json='["CVE-2020-1"]',
+            port=None,
+            protocol=None,
         ),
     ]
-    classified = sc.classify_scripts(rows)
+    classified = sc.classify_scripts(rows, ports=ports)
     assert classified[0]["kind"] == "finding"
+    # Host-level vulners inferred onto SSH 22
+    assert classified[0]["port"] == 22
+    assert classified[0]["port_inferred"] is True
     counts = sc.script_summary_counts(classified)
     assert counts["finding"] == 1
     assert counts["error"] == 1
     assert counts["clear"] == 1
     assert counts["total"] == 3
+
+    annotated = sc.ports_with_findings(ports, classified)
+    p80 = next(p for p in annotated if p["port"] == 80)
+    p22 = next(p for p in annotated if p["port"] == 22)
+    assert p80["error_count"] == 1
+    assert p22["finding_count"] == 1
+    assert p22["has_problem"] is True
 
 
 def test_schedule_options_roundtrip_presets():
