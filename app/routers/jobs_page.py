@@ -230,59 +230,60 @@ async def jobs_page(
 @router.get("/jobs/{job_id}", response_class=JSONResponse)
 async def job_detail_api(
     job_id: int,
+    session=Depends(get_session),
     user: User = Depends(get_current_user),
 ):
     """JSON detail for jobs modal / API consumers / JobHold poll (no server)."""
-    with next(get_session()) as s:
-        job = s.get(Job, job_id)
-        if not job:
-            return JSONResponse({"error": "not found"}, status_code=404)
-        d = job_service.job_public_dict(job, detail=True)
-        if job.server_id:
-            srv = s.get(Server, job.server_id)
-            d["server_name"] = srv.name if srv else None
-        when = job.finished_at or job.started_at or job.created_at
-        d["when_display"] = format_datetime_in_app_tz(when) if when else "—"
-        # JobHold expects job_id + log_lines (same shape as /servers/{id}/jobs/{id})
-        d["job_id"] = job.id
-        if "log_lines" not in d:
-            d["log_lines"] = d.get("log_tail") or []
-        return d
+    # Use Depends(get_session) so TestClient overrides and request-scoped sessions work.
+    job = session.get(Job, job_id)
+    if not job:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    d = job_service.job_public_dict(job, detail=True)
+    if job.server_id:
+        srv = session.get(Server, job.server_id)
+        d["server_name"] = srv.name if srv else None
+    when = job.finished_at or job.started_at or job.created_at
+    d["when_display"] = format_datetime_in_app_tz(when) if when else "—"
+    # JobHold expects job_id + log_lines (same shape as /servers/{id}/jobs/{id})
+    d["job_id"] = job.id
+    if "log_lines" not in d:
+        d["log_lines"] = d.get("log_tail") or []
+    return d
 
 
 @router.post("/jobs/{job_id}/cancel")
 async def cancel_job(
     request: Request,
     job_id: int,
+    session=Depends(get_session),
     user: User = Depends(get_current_user),
 ):
     """Cancel a pending/running job (Jobs screen or fetch).
 
     Returns JSON for ``Accept: application/json`` / XHR, else redirect to /jobs.
     """
-    with next(get_session()) as s:
-        job = s.get(Job, job_id)
-        if not job:
-            wants_json = _wants_json(request)
-            if wants_json:
-                return JSONResponse({"error": "not found"}, status_code=404)
-            raise HTTPException(status_code=404, detail="Job not found")
-        try:
-            job = job_service.cancel_job(s, job, user_id=user.id)
-        except job_service.JobNotCancellable as e:
-            if _wants_json(request):
-                return JSONResponse(
-                    {"error": e.message, "job": job_service.job_public_dict(job)},
-                    status_code=409,
-                )
-            return RedirectResponse(
-                f"/jobs?error=cancel&msg={quote(e.message)}",
-                status_code=303,
+    job = session.get(Job, job_id)
+    if not job:
+        wants_json = _wants_json(request)
+        if wants_json:
+            return JSONResponse({"error": "not found"}, status_code=404)
+        raise HTTPException(status_code=404, detail="Job not found")
+    try:
+        job = job_service.cancel_job(session, job, user_id=user.id)
+    except job_service.JobNotCancellable as e:
+        if _wants_json(request):
+            return JSONResponse(
+                {"error": e.message, "job": job_service.job_public_dict(job)},
+                status_code=409,
             )
-        d = job_service.job_public_dict(job, detail=True)
-        if job.server_id:
-            srv = s.get(Server, job.server_id)
-            d["server_name"] = srv.name if srv else None
+        return RedirectResponse(
+            f"/jobs?error=cancel&msg={quote(e.message)}",
+            status_code=303,
+        )
+    d = job_service.job_public_dict(job, detail=True)
+    if job.server_id:
+        srv = session.get(Server, job.server_id)
+        d["server_name"] = srv.name if srv else None
 
     if _wants_json(request):
         return JSONResponse({"ok": True, "job": d})
