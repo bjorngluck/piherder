@@ -661,55 +661,106 @@
     ensureViewBox(svg, lastX + 20, maxY, minY);
   }
 
-  function cacheKey(pathId, visualStack) {
-    return String(pathId) + '::' + (visualStack == null || visualStack === '' ? 'all' : String(visualStack));
+  function cacheKey(pathId, visualStack, serverId, project) {
+    var vs = visualStack == null || visualStack === '' ? 'all' : String(visualStack);
+    if (pathId != null && pathId !== '' && String(pathId).indexOf('n:') !== 0) {
+      return 'p:' + String(pathId) + '::' + vs;
+    }
+    return (
+      's:' +
+      String(serverId || '') +
+      ':' +
+      String(project || '').toLowerCase() +
+      '::' +
+      vs
+    );
   }
 
-  function loadAndDraw(root, pathId, visualStack) {
+  /**
+   * @param {object} opts
+   *   pathId / serviceId — preferred (anchors to path node)
+   *   serverId + project — fallback when no service path
+   *   visualStack — all | main | <id>
+   *   force — always redraw (ignore cache + focus gate); used after reorder
+   */
+  function loadAndDraw(root, opts) {
+    opts = opts || {};
     var svg = svgRoot(root);
-    if (!svg || pathId == null || pathId === '' || String(pathId).indexOf('n:') === 0) {
-      if (svg) {
+    var force = !!opts.force;
+    var pathId =
+      opts.pathId != null
+        ? opts.pathId
+        : opts.serviceId != null
+          ? opts.serviceId
+          : opts.id;
+    var serverId = opts.serverId || opts.server_id || '';
+    var project = opts.project || '';
+    var vs =
+      opts.visualStack != null && opts.visualStack !== ''
+        ? String(opts.visualStack)
+        : root && root._fabricVisualStack != null
+          ? String(root._fabricVisualStack)
+          : 'all';
+
+    if (!svg) return;
+
+    var id = pathId != null && pathId !== '' ? String(pathId) : '';
+    var useService = id && id.indexOf('n:') !== 0 && /^\d+$/.test(id);
+    if (!useService && !(serverId && project)) {
+      if (force) {
         clearLayer(svg);
         restoreViewBox(svg);
       }
       return;
     }
-    var id = String(pathId);
-    if (!/^\d+$/.test(id)) {
-      clearLayer(svg);
-      restoreViewBox(svg);
-      return;
-    }
-    var vs =
-      visualStack != null && visualStack !== ''
-        ? String(visualStack)
-        : root._fabricVisualStack != null
-          ? String(root._fabricVisualStack)
-          : 'all';
-    root._fabricVisualStack = vs;
-    var ck = cacheKey(id, vs);
+    if (root) root._fabricVisualStack = vs;
+
+    var ck = cacheKey(useService ? id : '', vs, serverId, project);
+    // Anchor path for draw: prefer service id; host/project-only can't place fan
+    var drawId = useService ? id : null;
 
     function apply(data) {
       if (!data || !data.ok) {
-        clearLayer(svg);
-        restoreViewBox(svg);
+        if (force) {
+          clearLayer(svg);
+          restoreViewBox(svg);
+        }
         return;
       }
-      draw(svg, id, data);
+      // Prefer path from payload when we only had server/project
+      var anchorId =
+        drawId ||
+        (data.path_id != null ? String(data.path_id) : '') ||
+        '';
+      if (!anchorId || !/^\d+$/.test(anchorId)) {
+        // No path node to attach — still nothing to draw on map
+        return;
+      }
+      // Keep map focus in sync so later hovers don't wipe a forced refresh
+      if (root && force && (root._fabricFocusId == null || root._fabricFocusId === '')) {
+        root._fabricFocusId = anchorId;
+        root.classList.add('is-focusing');
+      }
+      draw(svg, anchorId, data);
     }
 
-    if (cache[ck]) {
+    if (!force && cache[ck]) {
       apply(cache[ck]);
       return;
     }
 
-    var url =
-      '/dns/stack-expand.json?service_id=' +
-      encodeURIComponent(id) +
-      '&visual_stack=' +
-      encodeURIComponent(vs) +
-      '&_=' +
-      String(Date.now());
+    var url = '/dns/stack-expand.json?visual_stack=' + encodeURIComponent(vs);
+    if (useService) {
+      url += '&service_id=' + encodeURIComponent(id);
+    } else {
+      url +=
+        '&server_id=' +
+        encodeURIComponent(serverId) +
+        '&project=' +
+        encodeURIComponent(project);
+    }
+    url += '&_=' + String(Date.now());
+
     fetch(url, {
       credentials: 'same-origin',
       cache: 'no-store',
@@ -720,7 +771,14 @@
       })
       .then(function (data) {
         if (data && data.ok) cache[ck] = data;
-        if (root._fabricFocusId != null && String(root._fabricFocusId) === id) {
+        // Force always paints. Otherwise only when this path is focused
+        // (or map already showing an expand layer for this path).
+        var focused =
+          root &&
+          root._fabricFocusId != null &&
+          String(root._fabricFocusId) === String(useService ? id : data && data.path_id);
+        var layerOpen = !!(svg && svg.querySelector('#' + layerId));
+        if (force || focused || layerOpen) {
           apply(data);
         }
       })
@@ -728,7 +786,11 @@
   }
 
   function onFocus(root, pathId, visualStack) {
-    loadAndDraw(root, pathId, visualStack);
+    loadAndDraw(root, {
+      pathId: pathId,
+      visualStack: visualStack,
+      force: false,
+    });
   }
 
   function onClear(root) {
@@ -760,23 +822,72 @@
   }
 
   window.PiHerderStackExpand = {
-    show: function (pathId, visualStack) {
+    show: function (pathId, visualStack, forceOrOpts) {
       var root =
         document.querySelector('[data-fabric-root].is-focusing') ||
         document.querySelector('[data-fabric-root]');
-      if (root) onFocus(root, pathId, visualStack);
+      if (!root) return;
+      var opts = {};
+      if (forceOrOpts && typeof forceOrOpts === 'object') {
+        opts = forceOrOpts;
+        opts.pathId = opts.pathId != null ? opts.pathId : pathId;
+        opts.visualStack =
+          opts.visualStack != null ? opts.visualStack : visualStack;
+      } else {
+        opts = {
+          pathId: pathId,
+          visualStack: visualStack,
+          force: !!forceOrOpts,
+        };
+      }
+      loadAndDraw(root, opts);
+    },
+    /** After stack reorder / label save — bust cache and repaint expand. */
+    refresh: function (opts) {
+      opts = opts || {};
+      var sid = opts.serviceId || opts.pathId || opts.service_id || '';
+      var serverId = opts.serverId || opts.server_id || '';
+      var project = opts.project || '';
+      if (sid) {
+        this.invalidate(sid);
+      } else {
+        this.invalidate(null);
+      }
+      var root =
+        document.querySelector('[data-fabric-root].is-focusing') ||
+        document.querySelector('[data-fabric-root]');
+      if (!root) return;
+      // Prefer currently focused path so Hosts/Path map fan updates in place
+      var focusId =
+        root._fabricFocusId != null && String(root._fabricFocusId).indexOf('n:') !== 0
+          ? String(root._fabricFocusId)
+          : '';
+      loadAndDraw(root, {
+        pathId: sid || focusId || null,
+        serverId: serverId,
+        project: project,
+        visualStack: opts.visualStack != null ? opts.visualStack : 'all',
+        force: true,
+      });
     },
     clear: function () {
       onClear(document.querySelector('[data-fabric-root]'));
     },
     invalidate: function (pathId) {
-      if (pathId == null) {
+      if (pathId == null || pathId === '') {
         cache = {};
         return;
       }
-      var prefix = String(pathId) + '::';
+      var prefixA = 'p:' + String(pathId) + '::';
+      var prefixB = String(pathId) + '::'; // legacy keys
       Object.keys(cache).forEach(function (k) {
-        if (k === String(pathId) || k.indexOf(prefix) === 0) delete cache[k];
+        if (
+          k === String(pathId) ||
+          k.indexOf(prefixA) === 0 ||
+          k.indexOf(prefixB) === 0
+        ) {
+          delete cache[k];
+        }
       });
     },
   };
