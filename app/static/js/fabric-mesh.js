@@ -1149,9 +1149,27 @@
     var onVv = null;
 
     function setLabel(on) {
-      btn.textContent = on ? 'Exit full' : 'Full screen';
+      var label = btn.querySelector('[data-fs-label]');
+      if (label) {
+        label.textContent = on ? 'Exit full screen' : 'Full screen';
+      } else if (!btn.querySelector('.fabric-map-ctrl-svg')) {
+        // Plain-text button only
+        btn.textContent = on ? 'Exit full' : 'Full screen';
+      }
       btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-      btn.title = on ? 'Exit full screen (Esc)' : 'Expand map to full screen';
+      btn.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+      btn.classList.toggle('is-active', !!on);
+      btn.title = on ? 'Exit full screen (Esc)' : 'Full screen';
+      // Expand ↔ compress corners
+      var svg = btn.querySelector('.fabric-map-ctrl-svg path');
+      if (svg) {
+        svg.setAttribute(
+          'd',
+          on
+            ? 'M9 9H4V4M15 9h5V4M9 15H4v5M15 15h5v5'
+            : 'M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5'
+        );
+      }
     }
 
     /** Pin height to visual viewport (fixes mobile browser chrome / only-widens bug). */
@@ -1368,13 +1386,16 @@
       svg.style.webkitTransform = '';
 
       var vbAttr = (svg.getAttribute('viewBox') || '0 0 960 640').trim().split(/[\s,]+/);
-      var base = {
+      // Designed canvas (full / Discovered-on). Never mutate — 1:1 with discovery on.
+      var fullBase = {
         x: parseFloat(vbAttr[0]) || 0,
         y: parseFloat(vbAttr[1]) || 0,
         w: parseFloat(vbAttr[2]) || 960,
         h: parseFloat(vbAttr[3]) || 640,
       };
-      var scale = 1; // 1 = 100%, 5 = 500%
+      // Active 100% frame — compact content bbox when Hosts discovery is off.
+      var base = { x: fullBase.x, y: fullBase.y, w: fullBase.w, h: fullBase.h };
+      var scale = 1; // 1 = 100% of active base, 5 = 500%
       var cx = base.x + base.w / 2; // view center in SVG units
       var cy = base.y + base.h / 2;
       var minScale = 0.35;
@@ -1400,6 +1421,48 @@
 
       function clamp(v, a, b) {
         return Math.max(a, Math.min(b, v));
+      }
+
+      function copyBase(b) {
+        return { x: b.x, y: b.y, w: b.w, h: b.h };
+      }
+
+      /** Hosts map only — missing checkbox ⇒ always full canvas (Path map). */
+      function hostsDiscoveryShown() {
+        var cb = document.getElementById('hosts-map-show-discovered');
+        if (!cb) return true;
+        return !!cb.checked;
+      }
+
+      /**
+       * Tight viewBox around painted content (display:none nodes excluded).
+       * Used as 100% / 1:1 when Discovered is off so the fleet fan fills the window.
+       */
+      function measureContentBase() {
+        try {
+          var bb = svg.getBBox();
+          if (!bb || !isFinite(bb.x) || !isFinite(bb.y) || !isFinite(bb.width) || !isFinite(bb.height)) {
+            return copyBase(fullBase);
+          }
+          if (bb.width < 40 || bb.height < 40) return copyBase(fullBase);
+          var pad = Math.max(28, Math.min(bb.width, bb.height) * 0.06);
+          return {
+            x: bb.x - pad,
+            y: bb.y - pad,
+            w: bb.width + pad * 2,
+            h: bb.height + pad * 2,
+          };
+        } catch (err) {
+          return copyBase(fullBase);
+        }
+      }
+
+      function syncBaseToLayout() {
+        if (hostsDiscoveryShown()) {
+          base = copyBase(fullBase);
+        } else {
+          base = measureContentBase();
+        }
       }
 
       function viewSize() {
@@ -1456,7 +1519,9 @@
         applyView();
       }
 
+      /** 1:1 / double-click — full canvas when discovered on; fit content when off. */
       function reset() {
+        syncBaseToLayout();
         scale = 1;
         cx = base.x + base.w / 2;
         cy = base.y + base.h / 2;
@@ -1622,9 +1687,37 @@
           e.stopPropagation();
           reset();
         });
+        // Clarify 1:1 = fit-to-window on Hosts (compact when discovery off)
+        if (document.getElementById('hosts-map-show-discovered')) {
+          btnReset.title = 'Fit map (1:1) — fills window; tight when discovered off';
+          btnReset.setAttribute('aria-label', 'Fit map to window');
+        }
       }
 
-      applyView();
+      // Initial view: fit compact fleet if discovery already off (localStorage)
+      reset();
+    });
+  }
+
+  /**
+   * Hosts map Discovered toggle reshapes the SVG — re-run 1:1 so compact fills
+   * the window and full network view restores the designed canvas.
+   */
+  function bindHostsDiscoveryZoom() {
+    var cb = document.getElementById('hosts-map-show-discovered');
+    if (!cb || cb.dataset.fabricZoomBound === '1') return;
+    cb.dataset.fabricZoomBound = '1';
+    cb.addEventListener('change', function () {
+      // Page layout script updates dual coords / display first (earlier listener).
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          _panZoomControllers.forEach(function (c) {
+            try {
+              if (typeof c.reset === 'function') c.reset();
+            } catch (err) { /* ignore */ }
+          });
+        });
+      });
     });
   }
 
@@ -1637,6 +1730,7 @@
       initCopy(root);
       initPanZoom(root);
     });
+    bindHostsDiscoveryZoom();
   }
 
   if (document.readyState === 'loading') {

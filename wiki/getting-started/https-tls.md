@@ -33,7 +33,7 @@ If the cert is already in **Catalog → Certificates** (NPM pull or Upload PEM):
 
 1. Open the cert detail.  
 2. Click **Apply to this PiHerder**.  
-3. PiHerder writes `certs/fullchain.pem` + `certs/privkey.pem` and reloads Caddy in-stack.  
+3. PiHerder writes `certs/fullchain.pem` + `certs/privkey.pem` and POSTs the Caddyfile to Caddy admin `/load` with **`Cache-Control: must-revalidate`** so volume-mounted PEMs are re-read (an unchanged Caddyfile alone is a no-op).  
 
 This is **not** a fleet service map — it only updates this instance’s edge. Fleet maps still deploy to other hosts over SSH.
 

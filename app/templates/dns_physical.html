@@ -19,9 +19,9 @@
       </div>
       <h1 class="text-2xl font-semibold tracking-tight">Hosts map</h1>
       <p class="text-sm text-muted mt-1 max-w-2xl">
-        <strong class="text-text">Internet</strong> → router → <strong class="text-text">LAN</strong> →
-        fleet hosts <strong class="text-text">and</strong> LAN discovery (no link required);
-        public/cloud hosts attach to Internet.
+        <strong class="text-text">Internet</strong> → router → <strong class="text-text">LAN fan</strong>
+        (fleet on a circle; <strong class="text-text">Discovered</strong> expands the zone to include network devices);
+        mapped apps fan outside · public/cloud hosts attach to Internet.
         Solid LAN edges · dashed WAN / NPM · configure under
         <a href="/dns" class="text-accent hover:underline">Network map settings</a>.
       </p>
@@ -147,28 +147,52 @@
   <div id="map"
        class="card p-3 mb-5 overflow-hidden w-full fabric-mesh-priority-graph"
        data-fabric-graph>
-    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+    {% set disc_n = phys.discovered_count if phys.discovered_count is defined else (svg.discovered_count if svg.discovered_count is defined else 0) %}
+    <div class="fabric-map-chrome fabric-map-chrome--oneline mb-2" data-testid="hosts-map-chrome">
       <button type="button"
-              class="btn btn-secondary text-xs min-h-9 px-2.5 md:hidden"
+              class="fabric-map-ctrl fabric-map-ctrl--icon-only fabric-map-ctrl--ghost md:hidden"
               data-fabric-close-graph
-              title="Hide map and return to list">Hide map</button>
-      <div class="fabric-mesh-zoom-bar ml-auto" role="group" aria-label="Map controls">
-        <label class="fabric-map-toggle"
-               title="Show unlinked LAN discovery devices (small chips). Fleet + mapped apps stay full-size.">
-          <input type="checkbox" id="hosts-map-show-discovered" checked
-                 data-testid="hosts-map-show-discovered">
-          <span>Discovered{% if phys.discovered_count is defined and phys.discovered_count %} ({{ phys.discovered_count }}){% elif svg.discovered_count is defined and svg.discovered_count %} ({{ svg.discovered_count }}){% endif %}</span>
-        </label>
-        <span class="fabric-map-toggle-sep" aria-hidden="true"></span>
-        <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-out title="Zoom out" aria-label="Zoom out">−</button>
-        <span class="fabric-mesh-zoom-label font-mono text-center" data-fabric-zoom-label>100%</span>
-        <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-in title="Zoom in" aria-label="Zoom in">+</button>
-        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2" data-fabric-zoom-reset title="Reset zoom">1:1</button>
+              title="Hide map — show host list"
+              aria-label="Hide map">
+        <svg class="fabric-map-ctrl-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h10"/>
+        </svg>
+      </button>
+      {# Icon toggle only — count lives in footer stats + tooltip (avoids toolbar scroll) #}
+      <label class="fabric-map-disc-toggle"
+             title="{% if disc_n %}Discovered devices ({{ disc_n }}) — expand LAN rings{% else %}Show discovered LAN devices{% endif %}. Off = compact fleet fan.">
+        <input type="checkbox" id="hosts-map-show-discovered" checked
+               data-testid="hosts-map-show-discovered"
+               aria-label="Show discovered devices{% if disc_n %} ({{ disc_n }}){% endif %}">
+        <span class="fabric-map-ctrl fabric-map-ctrl--icon-only fabric-map-disc-face" aria-hidden="true">
+          {# radar / scan arcs #}
+          <svg class="fabric-map-ctrl-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/>
+            <path d="M6.5 12a5.5 5.5 0 0 1 5.5-5.5"/>
+            <path d="M4 12a8 8 0 0 1 8-8"/>
+            <path d="M12 6.5a5.5 5.5 0 0 1 5.5 5.5"/>
+            <path d="M12 4a8 8 0 0 1 8 8"/>
+          </svg>
+        </span>
+      </label>
+      <div class="fabric-mesh-zoom-bar" role="group" aria-label="Zoom and full screen">
+        <div class="fabric-map-seg" role="group">
+          <button type="button" class="fabric-map-ctrl fabric-map-ctrl--icon" data-fabric-zoom-out title="Zoom out" aria-label="Zoom out">−</button>
+          <span class="fabric-mesh-zoom-label font-mono" data-fabric-zoom-label>100%</span>
+          <button type="button" class="fabric-map-ctrl fabric-map-ctrl--icon" data-fabric-zoom-in title="Zoom in" aria-label="Zoom in">+</button>
+        </div>
+        <button type="button" class="fabric-map-ctrl fabric-map-ctrl--tight" data-fabric-zoom-reset title="Fit map (1:1) — fills window; tight when discovered off" aria-label="Fit map to window">1:1</button>
         <button type="button"
-                class="btn btn-secondary text-xs min-h-9 px-2"
+                class="fabric-map-ctrl fabric-map-ctrl--icon-only fabric-map-ctrl--accent"
                 data-fabric-fullscreen
                 aria-pressed="false"
-                title="Expand map to full screen">Full screen</button>
+                title="Full screen"
+                aria-label="Full screen">
+          <svg class="fabric-map-ctrl-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/>
+          </svg>
+          <span class="sr-only" data-fs-label>Full screen</span>
+        </button>
       </div>
     </div>
     {# Map-only legend — node shapes + edge styles (not card borders) #}
@@ -192,7 +216,7 @@
       </span>
       <span class="fabric-legend-item">
         <span class="fabric-legend-sample fabric-legend-sample--host-discovered" aria-hidden="true"></span>
-        discovered
+        discovered (outer ring)
       </span>
       <span class="fabric-legend-item">
         <span class="fabric-legend-sample fabric-legend-sample--host-npm" aria-hidden="true"></span>
@@ -261,18 +285,24 @@
                          L48 82
                          C40 84 36 78 38 72 Z"/>
               </symbol>
-              {% for n in svg.nodes if n.kind == 'gateway' and n.split %}
-              <clipPath id="gw-clip-{{ n.node_id or 'gateway' }}">
-                <rect x="{{ n.x - 66 }}" y="{{ n.y - 38 }}" width="132" height="76" rx="10"/>
+              {# Local clip (relative to gateway centre) — survives dual compact/full translate #}
+              <clipPath id="gw-clip-gateway" clipPathUnits="userSpaceOnUse">
+                <rect x="-66" y="-38" width="132" height="76" rx="10"/>
               </clipPath>
-              {% endfor %}
             </defs>
 
-            {# LAN zones first (behind) so host↔LAN edges paint on top #}
+            {# LAN zone: compact (fleet fan) vs full (fleet + discovered).
+               Toggle #hosts-map-show-discovered swaps rx/ry via data attributes. #}
             {% for n in svg.nodes if n.kind == 'lan' and n.zone_rx and n.zone_ry %}
             <ellipse class="fabric-mesh-lan-zone"
-                     cx="{{ n.x }}" cy="{{ n.y }}"
+                     id="hosts-map-lan-zone"
+                     cx="{{ n.zone_cx if n.zone_cx is defined else n.x }}"
+                     cy="{{ n.zone_cy if n.zone_cy is defined else n.y }}"
                      rx="{{ n.zone_rx }}" ry="{{ n.zone_ry }}"
+                     data-rx-compact="{{ n.zone_rx_compact if n.zone_rx_compact is defined else n.zone_rx }}"
+                     data-ry-compact="{{ n.zone_ry_compact if n.zone_ry_compact is defined else n.zone_ry }}"
+                     data-rx-full="{{ n.zone_rx_full if n.zone_rx_full is defined else n.zone_rx }}"
+                     data-ry-full="{{ n.zone_ry_full if n.zone_ry_full is defined else n.zone_ry }}"
                      aria-hidden="true"/>
             {% endfor %}
 
@@ -284,6 +314,13 @@
                   {% elif e.path_id is defined and e.path_id is not none %}data-path-id="{{ e.path_id }}"{% endif %}
                   {% if e.from_node %}data-from-node="{{ e.from_node }}"{% endif %}
                   {% if e.to_node %}data-to-node="{{ e.to_node }}"{% endif %}
+                  {% if e.layout_dual %}
+                  data-layout-dual="1"
+                  data-x1-full="{{ e.x1_full }}" data-y1-full="{{ e.y1_full }}"
+                  data-x2-full="{{ e.x2_full }}" data-y2-full="{{ e.y2_full }}"
+                  data-x1-compact="{{ e.x1_compact }}" data-y1-compact="{{ e.y1_compact }}"
+                  data-x2-compact="{{ e.x2_compact }}" data-y2-compact="{{ e.y2_compact }}"
+                  {% endif %}
                   marker-end="{% if e.kind == 'npm' %}url(#m-npm){% else %}url(#m-land){% endif %}"/>
             {% endfor %}
 
@@ -292,6 +329,11 @@
               {% if n.href %}<a href="{{ n.href }}" target="_blank" rel="noopener" data-open-href="{{ n.href }}">{% endif %}
               <g class="fabric-mesh-node fabric-mesh-node--internet"
                  data-node-id="{{ n.node_id or 'internet' }}"
+                 data-layout-dual="1"
+                 data-x-full="{{ n.x_full if n.x_full is defined else n.x }}"
+                 data-y-full="{{ n.y_full if n.y_full is defined else n.y }}"
+                 data-x-compact="{{ n.x_compact if n.x_compact is defined else n.x }}"
+                 data-y-compact="{{ n.y_compact if n.y_compact is defined else n.y }}"
                  {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
                  {% if n.href %}data-open-href="{{ n.href }}"{% endif %}
                  {% if n.open_label %}data-open-label="{{ n.open_label }}"{% endif %}>
@@ -314,34 +356,37 @@
               {% if n.href %}</a>{% endif %}
               {% elif n.kind == 'gateway' %}
               {% if n.href %}<a href="{{ n.href }}" target="_blank" rel="noopener" data-open-href="{{ n.href }}">{% endif %}
+              {# Outer g moves for dual layout; inner g is centre-local so dual-tone colours stay #}
               <g class="fabric-mesh-node fabric-mesh-node--gateway is-split"
                  data-node-id="{{ n.node_id or 'gateway' }}"
+                 data-layout-dual="1"
+                 data-x-full="{{ n.x_full if n.x_full is defined else n.x }}"
+                 data-y-full="{{ n.y_full if n.y_full is defined else n.y }}"
+                 data-x-compact="{{ n.x_compact if n.x_compact is defined else n.x }}"
+                 data-y-compact="{{ n.y_compact if n.y_compact is defined else n.y }}"
                  {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
                  {% if n.href %}data-open-href="{{ n.href }}"{% endif %}
                  {% if n.open_label %}data-open-label="{{ n.open_label }}"{% endif %}>
-                {# Always dual-tone: top public WAN · bottom private gateway #}
                 {% set gw_top = (n.sub_top or n.public_ip or 'public IP —')|string %}
                 {% set gw_bot = (n.sub_bottom or n.lan_ip or n.ip or n.sub or 'gateway —')|string %}
-                <g clip-path="url(#gw-clip-{{ n.node_id or 'gateway' }})">
-                  <rect class="fabric-mesh-gw-wan"
-                        x="{{ n.x - 66 }}" y="{{ n.y - 38 }}" width="132" height="38"/>
-                  <rect class="fabric-mesh-gw-lan"
-                        x="{{ n.x - 66 }}" y="{{ n.y }}" width="132" height="38"/>
+                <g class="fabric-mesh-gw-body" transform="translate({{ n.x }}, {{ n.y }})">
+                  <g clip-path="url(#gw-clip-gateway)">
+                    <rect class="fabric-mesh-gw-wan" x="-66" y="-38" width="132" height="38"/>
+                    <rect class="fabric-mesh-gw-lan" x="-66" y="0" width="132" height="38"/>
+                  </g>
+                  <rect class="fabric-mesh-gw-outline"
+                        x="-66" y="-38" width="132" height="76" rx="10" fill="none"/>
+                  <line class="fabric-mesh-gw-divider" x1="-60" y1="0" x2="60" y2="0"/>
+                  <text x="0" y="-22" text-anchor="middle" class="fabric-mesh-gw-cap">WAN</text>
+                  <text x="0" y="-8" text-anchor="middle"
+                        class="fabric-mesh-gw-ip fabric-mesh-gw-ip--wan">{{ gw_top[:22] }}</text>
+                  <text x="0" y="14" text-anchor="middle" class="fabric-mesh-gw-cap">LAN gw</text>
+                  <text x="0" y="28" text-anchor="middle"
+                        class="fabric-mesh-gw-ip fabric-mesh-gw-ip--lan">{{ gw_bot[:22] }}</text>
+                  {% if n.kuma and n.kuma.state %}
+                  <circle class="fabric-mesh-status fabric-mesh-status--{{ n.kuma.state }}" cx="54" cy="-28" r="4"/>
+                  {% endif %}
                 </g>
-                <rect class="fabric-mesh-gw-outline"
-                      x="{{ n.x - 66 }}" y="{{ n.y - 38 }}" width="132" height="76" rx="10"
-                      fill="none"/>
-                <line class="fabric-mesh-gw-divider"
-                      x1="{{ n.x - 60 }}" y1="{{ n.y }}" x2="{{ n.x + 60 }}" y2="{{ n.y }}"/>
-                <text x="{{ n.x }}" y="{{ n.y - 22 }}" text-anchor="middle" class="fabric-mesh-gw-cap">WAN</text>
-                <text x="{{ n.x }}" y="{{ n.y - 8 }}" text-anchor="middle"
-                      class="fabric-mesh-gw-ip fabric-mesh-gw-ip--wan">{{ gw_top[:22] }}</text>
-                <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-gw-cap">LAN gw</text>
-                <text x="{{ n.x }}" y="{{ n.y + 28 }}" text-anchor="middle"
-                      class="fabric-mesh-gw-ip fabric-mesh-gw-ip--lan">{{ gw_bot[:22] }}</text>
-                {% if n.kuma and n.kuma.state %}
-                <circle class="fabric-mesh-status fabric-mesh-status--{{ n.kuma.state }}" cx="{{ n.x + 54 }}" cy="{{ n.y - 28 }}" r="4"/>
-                {% endif %}
               </g>
               {% if n.href %}</a>{% endif %}
               {% elif n.kind == 'lan' %}
@@ -365,6 +410,13 @@
                    data-discovered="{{ '1' if n.is_discovered else '0' }}"
                    data-open-href="{{ n.href or '' }}"
                    data-open-label="{{ n.open_label or 'Open host' }}"
+                   {% if n.is_cloud or n.layout_dual %}
+                   data-layout-dual="1"
+                   data-x-full="{{ n.x_full if n.x_full is defined else n.x }}"
+                   data-y-full="{{ n.y_full if n.y_full is defined else n.y }}"
+                   data-x-compact="{{ n.x_compact if n.x_compact is defined else n.x }}"
+                   data-y-compact="{{ n.y_compact if n.y_compact is defined else n.y }}"
+                   {% endif %}
                    {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
                    {% if n.path_ids %}data-path-ids="{% for pid in n.path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}
                    {% if n.npm_path_ids %}data-npm-path-ids="{% for pid in n.npm_path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}>
@@ -390,6 +442,11 @@
               {% elif n.kind == 'more' %}
               <a href="{{ n.href or '#' }}">
                 <g class="fabric-mesh-node fabric-mesh-node--more"
+                   data-layout-dual="1"
+                   data-x-full="{{ n.x_full if n.x_full is defined else n.x }}"
+                   data-y-full="{{ n.y_full if n.y_full is defined else n.y }}"
+                   data-x-compact="{{ n.x_compact if n.x_compact is defined else n.x }}"
+                   data-y-compact="{{ n.y_compact if n.y_compact is defined else n.y }}"
                    {% if n.path_ids %}data-path-ids="{% for pid in n.path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}
                    {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}>
                   <rect x="{{ n.x - 48 }}" y="{{ n.y - 18 }}" width="96" height="36" rx="18"/>
@@ -400,6 +457,11 @@
               {% else %}
               <a href="{{ n.href or '#' }}" data-open-href="{{ n.href or '' }}">
                 <g class="fabric-mesh-node fabric-mesh-node--app {% if n.via_npm %}is-npm{% endif %}"
+                   data-layout-dual="1"
+                   data-x-full="{{ n.x_full if n.x_full is defined else n.x }}"
+                   data-y-full="{{ n.y_full if n.y_full is defined else n.y }}"
+                   data-x-compact="{{ n.x_compact if n.x_compact is defined else n.x }}"
+                   data-y-compact="{{ n.y_compact if n.y_compact is defined else n.y }}"
                    data-open-href="{{ n.href or '' }}"
                    {% if n.path_id is defined and n.path_id is not none %}data-path-id="{{ n.path_id }}"{% endif %}
                    {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}>
@@ -465,7 +527,7 @@
 </div>
 
 {% include "partials/dns_stack_drawer.html" %}
-<script src="/static/js/fabric-mesh.js?v=20260718-order6" defer></script>
+<script src="/static/js/fabric-mesh.js?v=20260721-fit1to1" defer></script>
 <script src="/static/js/fabric-stack-expand.js?v=20260721-orderfix2" defer></script>
 <script>
 (function () {
@@ -479,7 +541,7 @@
   } catch (e) { /* ignore */ }
 
   function apply() {
-    var show = cb.checked;
+    var show = cb.checked; // true = full network view; false = compact host fan
     // SVG host nodes + wrapper <a>
     document.querySelectorAll('[data-discovered-host="1"], .fabric-mesh-node--host.is-discovered').forEach(function (el) {
       var wrap = el.closest('a') || el;
@@ -492,6 +554,46 @@
     // Rack cards
     document.querySelectorAll('.fabric-rack[data-discovered="1"]').forEach(function (el) {
       el.style.display = show ? '' : 'none';
+    });
+    // LAN circle: compact fleet fan vs expanded (includes discovery rings)
+    var zone = document.getElementById('hosts-map-lan-zone');
+    if (zone) {
+      var rxC = zone.getAttribute('data-rx-compact');
+      var ryC = zone.getAttribute('data-ry-compact');
+      var rxF = zone.getAttribute('data-rx-full');
+      var ryF = zone.getAttribute('data-ry-full');
+      if (rxC && ryC && rxF && ryF) {
+        zone.setAttribute('rx', show ? rxF : rxC);
+        zone.setAttribute('ry', show ? ryF : ryC);
+      }
+    }
+    // Move Internet / Router / cloud / apps: painted at full coords, translate to compact
+    document.querySelectorAll('[data-layout-dual="1"][data-x-full]').forEach(function (g) {
+      var xf = parseFloat(g.getAttribute('data-x-full'));
+      var yf = parseFloat(g.getAttribute('data-y-full'));
+      var xc = parseFloat(g.getAttribute('data-x-compact'));
+      var yc = parseFloat(g.getAttribute('data-y-compact'));
+      if (isNaN(xf) || isNaN(yf) || isNaN(xc) || isNaN(yc)) return;
+      var dx = show ? 0 : (xc - xf);
+      var dy = show ? 0 : (yc - yf);
+      if (Math.abs(dx) < 0.05 && Math.abs(dy) < 0.05) {
+        g.removeAttribute('transform');
+      } else {
+        g.setAttribute('transform', 'translate(' + dx + ',' + dy + ')');
+      }
+      // Gateway uses centre-local clipPath — no absolute clip reposition needed
+    });
+    // Edges with dual endpoints (Internet↔Router, Router↔LAN, apps, cloud)
+    document.querySelectorAll('.fabric-mesh-edge[data-layout-dual="1"]').forEach(function (ln) {
+      var suf = show ? 'full' : 'compact';
+      var x1 = ln.getAttribute('data-x1-' + suf);
+      var y1 = ln.getAttribute('data-y1-' + suf);
+      var x2 = ln.getAttribute('data-x2-' + suf);
+      var y2 = ln.getAttribute('data-y2-' + suf);
+      if (x1 != null) ln.setAttribute('x1', x1);
+      if (y1 != null) ln.setAttribute('y1', y1);
+      if (x2 != null) ln.setAttribute('x2', x2);
+      if (y2 != null) ln.setAttribute('y2', y2);
     });
   }
 

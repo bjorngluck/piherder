@@ -55,6 +55,37 @@ def _require_nmap(session: Session, integration_id: int) -> Integration:
     return row
 
 
+def _device_return_tab(raw: str | None) -> str:
+    """Stay on Network or Devices after device form posts (modal UX)."""
+    t = (raw or "").strip().lower()
+    if t in ("network", "devices"):
+        return t
+    return "devices"
+
+
+def _device_redirect(
+    integration_id: int,
+    device_id: int,
+    *,
+    return_tab: str | None = None,
+    close: bool = False,
+    **params,
+):
+    """Redirect after a device action.
+
+    *close=True* omits ``device=`` so the edit modal does not reopen (Save and close).
+    *focus* (optional in params) highlights the card after return.
+    """
+    tab = _device_return_tab(return_tab)
+    kw: dict = {"tab": tab, **params}
+    if close:
+        # Highlight the edited host without reopening the modal
+        kw.setdefault("focus", str(device_id))
+    else:
+        kw["device"] = str(device_id)
+    return _redirect(f"/integrations/{integration_id}", **kw)
+
+
 def _resync_schedules() -> None:
     try:
         from ..main import HAS_SCHEDULER, scheduler
@@ -147,11 +178,17 @@ async def render_nmap_detail(request, session, user, integration: Integration):
         if device_scripts_classified
         else None
     )
+    from ..services.nmap.device_classify import (
+        KIND_CHOICES,
+        MAP_ROLE_GATEWAY,
+        MAP_ROLE_LABELS,
+        profile_dict_from_device,
+    )
+
     device_profile = None
     if device is not None:
-        from ..services.nmap.device_classify import profile_dict_from_device
-
         device_profile = profile_dict_from_device(device)
+    kind_choices = list(KIND_CHOICES)
     # Annotate ports with finding/error counts for row highlight + anchors
     if device_ports and device_scripts_classified:
         device_ports = ports_with_findings(device_ports, device_scripts_classified)
@@ -201,6 +238,9 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             "device_scripts_classified": device_scripts_classified,
             "device_script_counts": device_script_counts,
             "device_profile": device_profile,
+            "kind_choices": kind_choices,
+            "map_role_labels": MAP_ROLE_LABELS,
+            "map_role_gateway": MAP_ROLE_GATEWAY,
             "intensities": INTENSITIES,
             "schedule_intensities": nmap_sched.INTENSITIES_SCHEDULE,
             "script_presets": SCRIPT_PRESETS,
@@ -412,6 +452,7 @@ async def nmap_device_deep_scan(
     timing: Optional[str] = Form(None),
     include_udp: Optional[str] = Form(None),
     port_list: Optional[str] = Form(None),
+    return_tab: str = Form(""),
 ):
     integration = _require_nmap(session, integration_id)
     device = session.get(NmapDevice, device_id)
@@ -451,10 +492,10 @@ async def nmap_device_deep_scan(
         )
         return _redirect("/jobs", job_type="nmap_host_deep", active_only="1")
     except Exception as e:
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="devices",
-            device=str(device_id),
+        return _device_redirect(
+            integration_id,
+            device_id,
+            return_tab=return_tab,
             error="scan_failed",
             detail=str(e)[:200],
         )
@@ -467,24 +508,43 @@ async def nmap_device_set_name(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     display_name: str = Form(""),
+    kind_override: str = Form(""),
+    map_role: str = Form(""),
+    return_tab: str = Form(""),
 ):
-    """Set operator-friendly name (e.g. cctv1) used on Hosts map chips."""
+    """Map identity: name, device type override, optional gateway role.
+
+    Accepts legacy name-only posts (kind/map_role empty → auto/none).
+    """
     integration = _require_nmap(session, integration_id)
     device = session.get(NmapDevice, device_id)
     if not device or device.integration_id != integration.id:
         raise HTTPException(404, "Device not found")
-    nmap_cfg.set_device_display_name(session, device, display_name)
+    nmap_cfg.set_device_map_identity(
+        session,
+        device,
+        display_name=display_name,
+        kind_override=kind_override,
+        map_role=map_role,
+        sync_network_gateway=True,
+    )
     _audit(
         session,
         user,
-        "nmap_device_named",
-        details=f"device={device_id} name={(device.display_name or '')[:64]!r}",
+        "nmap_device_mapped",
+        details=(
+            f"device={device_id} name={(device.display_name or '')[:64]!r} "
+            f"kind={(device.kind_override or 'auto')!r} "
+            f"role={(device.map_role or '')!r}"
+        ),
     )
-    return _redirect(
-        f"/integrations/{integration_id}",
-        tab="devices",
-        device=str(device_id),
-        msg="device_named",
+    # Save and close: drop modal, keep operator on the same tab + focus card
+    return _device_redirect(
+        integration_id,
+        device_id,
+        return_tab=return_tab,
+        close=True,
+        msg="device_mapped",
     )
 
 
@@ -494,6 +554,7 @@ async def nmap_device_ignore(
     device_id: int,
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
+    return_tab: str = Form(""),
 ):
     integration = _require_nmap(session, integration_id)
     device = session.get(NmapDevice, device_id)
@@ -501,8 +562,11 @@ async def nmap_device_ignore(
         raise HTTPException(404)
     nmap_cfg.set_device_state(session, device, "ignored")
     _audit(session, user, "nmap_device_ignored", details=f"device={device_id}")
-    return _redirect(
-        f"/integrations/{integration_id}", tab="devices", msg="device_ignored"
+    return _device_redirect(
+        integration_id,
+        device_id,
+        return_tab=return_tab,
+        msg="device_ignored",
     )
 
 
@@ -512,15 +576,74 @@ async def nmap_device_unignore(
     device_id: int,
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
+    return_tab: str = Form(""),
 ):
     integration = _require_nmap(session, integration_id)
     device = session.get(NmapDevice, device_id)
     if not device or device.integration_id != integration.id:
         raise HTTPException(404)
-    nmap_cfg.set_device_state(session, device, "known")
+    nmap_cfg.mark_device_known(session, device)
     _audit(session, user, "nmap_device_unignored", details=f"device={device_id}")
-    return _redirect(
-        f"/integrations/{integration_id}", tab="devices", msg="device_restored"
+    return _device_redirect(
+        integration_id,
+        device_id,
+        return_tab=return_tab,
+        msg="device_restored",
+    )
+
+
+@router.post("/integrations/{integration_id}/nmap/device/{device_id}/mark-known")
+async def nmap_device_mark_known(
+    integration_id: int,
+    device_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    return_tab: str = Form(""),
+):
+    """Mark as known / reviewed — clears the *new* inbox filter."""
+    integration = _require_nmap(session, integration_id)
+    device = session.get(NmapDevice, device_id)
+    if not device or device.integration_id != integration.id:
+        raise HTTPException(404, "Device not found")
+    nmap_cfg.mark_device_known(session, device)
+    _audit(session, user, "nmap_device_known", details=f"device={device_id}")
+    return _device_redirect(
+        integration_id,
+        device_id,
+        return_tab=return_tab,
+        msg="device_known",
+    )
+
+
+@router.post("/integrations/{integration_id}/nmap/device/{device_id}/mark-new")
+async def nmap_device_mark_new(
+    integration_id: int,
+    device_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    return_tab: str = Form(""),
+):
+    """Re-flag as new (revisit). Unlink first if linked."""
+    integration = _require_nmap(session, integration_id)
+    device = session.get(NmapDevice, device_id)
+    if not device or device.integration_id != integration.id:
+        raise HTTPException(404, "Device not found")
+    try:
+        nmap_cfg.mark_device_new(session, device)
+    except ValueError as e:
+        return _device_redirect(
+            integration_id,
+            device_id,
+            return_tab=return_tab,
+            error="mark_new_failed",
+            detail=str(e)[:200],
+        )
+    _audit(session, user, "nmap_device_mark_new", details=f"device={device_id}")
+    return _device_redirect(
+        integration_id,
+        device_id,
+        return_tab=return_tab,
+        msg="device_new",
     )
 
 
@@ -531,6 +654,7 @@ async def nmap_device_link(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     server_id: int = Form(...),
+    return_tab: str = Form(""),
 ):
     integration = _require_nmap(session, integration_id)
     device = session.get(NmapDevice, device_id)
@@ -538,10 +662,10 @@ async def nmap_device_link(
         raise HTTPException(404)
     server = session.get(Server, server_id)
     if not server:
-        return _redirect(
-            f"/integrations/{integration_id}",
-            tab="devices",
-            device=str(device_id),
+        return _device_redirect(
+            integration_id,
+            device_id,
+            return_tab=return_tab,
             error="invalid",
             detail="server not found",
         )
@@ -553,10 +677,10 @@ async def nmap_device_link(
         details=f"device={device_id} server={server_id}",
         server_id=server_id,
     )
-    return _redirect(
-        f"/integrations/{integration_id}",
-        tab="devices",
-        device=str(device_id),
+    return _device_redirect(
+        integration_id,
+        device_id,
+        return_tab=return_tab,
         msg="device_linked",
     )
 
@@ -567,6 +691,7 @@ async def nmap_device_unlink(
     device_id: int,
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
+    return_tab: str = Form(""),
 ):
     integration = _require_nmap(session, integration_id)
     device = session.get(NmapDevice, device_id)
@@ -574,10 +699,10 @@ async def nmap_device_unlink(
         raise HTTPException(404)
     nmap_cfg.unlink_device(session, device)
     _audit(session, user, "nmap_device_unlinked", details=f"device={device_id}")
-    return _redirect(
-        f"/integrations/{integration_id}",
-        tab="devices",
-        device=str(device_id),
+    return _device_redirect(
+        integration_id,
+        device_id,
+        return_tab=return_tab,
         msg="device_unlinked",
     )
 

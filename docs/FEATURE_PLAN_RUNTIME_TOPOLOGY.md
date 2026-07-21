@@ -266,7 +266,7 @@ TCP/DB monitors require published ports, shared Docker network with Kuma, or hos
 | **P5** | Monitor depth | TCP bind in panel; **optional alert** when Kuma-bound container down in inventory | **Done** |
 | **P6** | Shared-service catalog polish | Catalog of shared DB/redis/services for better cross-host suggest | **Later** (not 0.6) |
 | **Later** | **Configurable columns & links** | Operator-defined map columns, pin roles to columns, explicit edge→column layout (beyond order-driven L→R) | **Partial (0.7):** categories/tags/visual stacks + vocab-driven columns — see § 12c |
-| **—** | **LAN discovery (nmap)** | Orthogonal device discovery — not stack deps | **v0.8.0 RC3** — [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) |
+| **—** | **LAN discovery (nmap)** | Orthogonal device discovery — not stack deps | **v0.8.0 RC3 product done (N0–N10)**; screenshots open — [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) |
 
 ### Shipped vs not done (stream close-out)
 
@@ -383,7 +383,7 @@ An operator can:
 | **Per-stack layout profiles** | Save alternate fan layouts per project | Later residual |
 | **Cross-host manual picker polish** | First-class dual-host container picker in panel (backend already multi-host) | Later polish |
 | **P6 shared-service catalog** | Named shared DB/redis services for better suggest confidence | Later |
-| **LAN discovery (nmap-class)** | Opt-in LAN CIDR scan — devices, not stack graph | **v0.8.0 RC3** |
+| **LAN discovery (nmap-class)** | Opt-in LAN CIDR scan — devices, not stack graph | **v0.8.0 RC3 product done**; screenshots remain |
 
 ---
 

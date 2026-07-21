@@ -30,8 +30,15 @@
 </div>
 
 {% if msg %}
-<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
-  {{ msg }}{% if detail %} — {{ detail }}{% endif %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm" data-testid="nmap-flash-msg">
+  {% if msg == 'device_mapped' %}Saved — name, device type, and map role updated.
+  {% elif msg == 'device_known' %}Marked known (reviewed).
+  {% elif msg == 'device_new' %}Marked new (back in inbox).
+  {% elif msg == 'device_ignored' %}Device ignored.
+  {% elif msg == 'device_restored' %}Device restored to known.
+  {% elif msg == 'device_linked' %}Linked to server.
+  {% elif msg == 'device_unlinked' %}Unlinked → known.
+  {% else %}{{ msg }}{% endif %}{% if detail %} — {{ detail }}{% endif %}
 </div>
 {% endif %}
 {% if error %}
@@ -285,8 +292,9 @@
 <div class="flex flex-wrap items-center gap-2 mb-3">
   <div class="nmap-filters" role="group" aria-label="Filter by state">
     <a href="?tab=devices" class="nmap-filter {% if not state_filter %}is-active{% endif %}">All</a>
-    {% for st in ['new','known','linked','ignored','stale'] %}
-    <a href="?tab=devices&state={{ st }}" class="nmap-filter {% if state_filter == st %}is-active{% endif %}">{{ st }}</a>
+    {% for st, stlab in [('new','New'),('known','Known'),('linked','Linked'),('ignored','Ignored'),('stale','Stale')] %}
+    <a href="?tab=devices&state={{ st }}" class="nmap-filter {% if state_filter == st %}is-active{% endif %}"
+       title="{% if st == 'new' %}Unreviewed inbox{% elif st == 'known' %}Reviewed / acknowledged{% elif st == 'stale' %}Not seen recently{% else %}{{ stlab }}{% endif %}">{{ stlab }}</a>
     {% endfor %}
   </div>
   <div class="flex-1 min-w-[10rem]">
@@ -298,304 +306,53 @@
 {% if not device_rows %}
 <div class="card p-5 text-sm text-muted">No devices yet. Run a discovery scan from Overview.</div>
 {% else %}
-<div class="nmap-devices-layout {% if device %}has-detail{% endif %}">
-  <div class="nmap-host-list card overflow-hidden">
-    <div class="nmap-host-list-head">
-      <span>Host</span>
-      <span class="hidden sm:inline">Services</span>
-      <span>State</span>
-    </div>
-    <div class="nmap-host-list-body" id="nmap-host-list">
-      {% for item in device_rows %}
-      {% set d = item.row %}
-      {% set prof = item.profile or {} %}
-      {% set dlab = item.label or d.display_name or d.hostname or d.ip_address %}
-      <a href="?tab=devices{% if state_filter %}&state={{ state_filter }}{% endif %}&device={{ d.id }}"
-         class="nmap-host-row {% if device and device.id == d.id %}is-active{% endif %}"
-         data-search="{{ (d.ip_address ~ ' ' ~ (d.display_name or '') ~ ' ' ~ (d.hostname or '') ~ ' ' ~ (d.mac_address or '') ~ ' ' ~ (d.mac_vendor or '') ~ ' ' ~ d.state ~ ' ' ~ (prof.kind or '') ~ ' ' ~ (prof.label or ''))|lower }}">
-        <div class="min-w-0">
-          <div class="flex flex-wrap items-center gap-1.5 min-w-0">
-            <span class="text-sm font-medium text-text truncate" title="{{ dlab }}">{{ dlab }}</span>
-            {% if prof.kind and prof.kind != 'unknown' %}
-            <span class="nmap-kind nmap-kind--{{ prof.kind }}"
-                  title="{{ prof.label }} · {{ prof.confidence }}{% if prof.reasons %} — {{ prof.reasons|join('; ') }}{% endif %}">{{ prof.short or prof.label }}</span>
-            {% endif %}
-          </div>
-          <div class="text-xs text-muted truncate">
-            <span class="font-mono">{{ d.ip_address }}</span>
-            {% if d.display_name and d.hostname and d.hostname != d.display_name %} · {{ d.hostname }}{% endif %}
-            {% if d.mac_address %}<span class="text-[10px] font-mono opacity-80"> · {{ d.mac_address }}</span>{% endif %}
-          </div>
-        </div>
-        <div class="nmap-port-chips hidden sm:flex">
-          {% if item.service_labels %}
-            {% for lab in item.service_labels[:4] %}
-            <span class="nmap-port-chip">{{ lab }}</span>
-            {% endfor %}
-            {% if item.open_ports > 4 %}<span class="nmap-port-chip nmap-port-chip--more">+{{ item.open_ports - 4 }}</span>{% endif %}
-          {% else %}
-            <span class="text-[10px] text-muted">{{ item.open_ports or 0 }} open</span>
-          {% endif %}
-        </div>
-        <div>
-          <span class="nmap-state nmap-state--{{ d.state }}">{{ d.state }}</span>
-        </div>
-      </a>
-      {% endfor %}
-    </div>
+<p class="text-xs text-muted mb-2">Click a host to <strong class="text-text">edit in a modal</strong> (name, device type, gateway, state).</p>
+<div class="nmap-host-list card overflow-hidden">
+  <div class="nmap-host-list-head">
+    <span>Host</span>
+    <span class="hidden sm:inline">Services</span>
+    <span>State</span>
   </div>
-
-  <div class="nmap-detail-pane" id="device-detail">
-    {% if device %}
-    <div class="card p-4 sm:p-5 h-full">
-      <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
-        <div class="min-w-0">
-          <div class="text-[10px] uppercase tracking-wider text-muted font-semibold">Host detail</div>
-          <h3 class="text-xl font-semibold tracking-tight text-text truncate mt-0.5">
-            {{ device.display_name or device.hostname or device.ip_address }}
-          </h3>
-          <div class="font-mono text-sm text-muted">{{ device.ip_address }}
-            {% if device.hostname and device.hostname != device.display_name %}
-            · {{ device.hostname }}
-            {% endif %}
-          </div>
-        </div>
-        <div class="flex flex-wrap gap-1.5">
-          {% if device_profile and device_profile.kind != 'unknown' %}
-          <span class="nmap-kind nmap-kind--{{ device_profile.kind }}"
-                title="{{ device_profile.confidence }} confidence"
-                data-testid="nmap-device-kind">{{ device_profile.label }}</span>
+  <div class="nmap-host-list-body" id="nmap-host-list">
+    {% for item in device_rows %}
+    {% set d = item.row %}
+    {% set prof = item.profile or {} %}
+    {% set dlab = item.label or d.display_name or d.hostname or d.ip_address %}
+    <a href="?tab=devices{% if state_filter %}&state={{ state_filter }}{% endif %}&device={{ d.id }}"
+       class="nmap-host-row {% if device and device.id == d.id %}is-active{% endif %}"
+       data-search="{{ (d.ip_address ~ ' ' ~ (d.display_name or '') ~ ' ' ~ (d.hostname or '') ~ ' ' ~ (d.mac_address or '') ~ ' ' ~ (d.mac_vendor or '') ~ ' ' ~ d.state ~ ' ' ~ (d.map_role or '') ~ ' ' ~ (prof.kind or '') ~ ' ' ~ (prof.label or ''))|lower }}">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+          <span class="text-sm font-medium text-text truncate" title="{{ dlab }}">{{ dlab }}</span>
+          {% if prof.kind and prof.kind != 'unknown' %}
+          <span class="nmap-kind nmap-kind--{{ prof.kind }}"
+                title="{{ prof.label }} · {% if prof.overridden %}override{% else %}{{ prof.confidence }}{% endif %}">{{ prof.short or prof.label }}{% if prof.overridden %}*{% endif %}</span>
           {% endif %}
-          <span class="nmap-state nmap-state--{{ device.state }}">{{ device.state }}</span>
-          <a href="?tab=devices{% if state_filter %}&state={{ state_filter }}{% endif %}"
-             class="btn btn-secondary text-xs min-h-8 px-2">✕</a>
+          {% if d.map_role == map_role_gateway %}
+          <span class="status-pill status-running text-[9px] py-0">gw</span>
+          {% endif %}
+        </div>
+        <div class="text-xs text-muted truncate">
+          <span class="font-mono">{{ d.ip_address }}</span>
+          {% if d.display_name and d.hostname and d.hostname != d.display_name %} · {{ d.hostname }}{% endif %}
+          {% if d.mac_address %}<span class="text-[10px] font-mono opacity-80"> · {{ d.mac_address }}</span>{% endif %}
         </div>
       </div>
-
-      {% if device_profile %}
-      <div class="nmap-profile-card mb-4" data-testid="nmap-device-profile">
-        <div class="flex flex-wrap items-center gap-2 mb-1">
-          <span class="text-[10px] uppercase tracking-wider text-muted font-semibold">Looks like</span>
-          <span class="nmap-kind nmap-kind--{{ device_profile.kind }}">{{ device_profile.label }}</span>
-          <span class="nmap-conf nmap-conf--{{ device_profile.confidence }}">{{ device_profile.confidence }}</span>
-        </div>
-        {% if device_profile.vendor %}
-        <div class="text-xs text-muted mb-1">MAC vendor: <span class="text-text">{{ device_profile.vendor }}</span></div>
-        {% elif device.mac_vendor %}
-        <div class="text-xs text-muted mb-1">MAC vendor: <span class="text-text">{{ device.mac_vendor }}</span></div>
-        {% endif %}
-        {% if device_profile.reasons %}
-        <ul class="nmap-profile-reasons">
-          {% for r in device_profile.reasons %}
-          <li>{{ r }}</li>
+      <div class="nmap-port-chips hidden sm:flex">
+        {% if item.service_labels %}
+          {% for lab in item.service_labels[:4] %}
+          <span class="nmap-port-chip">{{ lab }}</span>
           {% endfor %}
-        </ul>
-        {% endif %}
-        <p class="text-[10px] text-muted mt-1.5 m-0">Heuristic only — not used for promote/link.</p>
-      </div>
-      {% endif %}
-
-      <div class="nmap-kv-grid mb-4">
-        <div class="nmap-kv"><span class="nmap-kv-k">Name</span><span class="nmap-kv-v">{{ device.display_name or '—' }}</span></div>
-        <div class="nmap-kv"><span class="nmap-kv-k">Hostname (scan)</span><span class="nmap-kv-v">{{ device.hostname or '—' }}</span></div>
-        <div class="nmap-kv"><span class="nmap-kv-k">IP</span><span class="nmap-kv-v font-mono">{{ device.ip_address }}</span></div>
-        <div class="nmap-kv"><span class="nmap-kv-k">MAC</span><span class="nmap-kv-v font-mono">{{ device.mac_address or '—' }}</span></div>
-        <div class="nmap-kv"><span class="nmap-kv-k">MAC vendor</span><span class="nmap-kv-v">{{ device.mac_vendor or '—' }}</span></div>
-        <div class="nmap-kv"><span class="nmap-kv-k">OS</span><span class="nmap-kv-v">{{ device.os_summary or '—' }}</span></div>
-        <div class="nmap-kv"><span class="nmap-kv-k">First seen</span><span class="nmap-kv-v text-muted">{{ device.first_seen_at|app_tz if device.first_seen_at else '—' }}</span></div>
-        <div class="nmap-kv"><span class="nmap-kv-k">Last seen</span><span class="nmap-kv-v text-muted">{{ device.last_seen_at|app_tz if device.last_seen_at else '—' }}</span></div>
-      </div>
-
-      {% if can_mutate %}
-      <form method="post"
-            action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/name"
-            class="flex flex-wrap items-end gap-2 mb-4 p-3 rounded-lg border border-border bg-surface/40"
-            data-testid="nmap-device-name-form">
-        <div class="flex-1 min-w-[10rem]">
-          <label class="block text-[10px] text-muted mb-0.5" for="dev-display-name">
-            Map name <span class="opacity-80">(shown instead of IP on Hosts map)</span>
-          </label>
-          <input id="dev-display-name" name="display_name" class="input w-full text-sm min-h-9"
-                 maxlength="128" placeholder="e.g. cctv1, living-room-tv, printer"
-                 value="{{ device.display_name or '' }}"
-                 data-testid="nmap-device-display-name"
-                 autocomplete="off">
-        </div>
-        <button type="submit" class="btn btn-primary text-xs min-h-9">Save name</button>
-      </form>
-      {% endif %}
-
-      <h4 class="nmap-section-title">Open ports / services</h4>
-      {% if device_ports %}
-      <div class="nmap-ports-table mb-4">
-        <table>
-          <thead>
-            <tr><th>Port</th><th>State</th><th>Service</th><th>Product</th><th>Issues</th></tr>
-          </thead>
-          <tbody>
-          {% for p in device_ports %}
-            {% if p.state == 'open' or loop.index <= 50 %}
-            <tr id="{{ p.anchor or ('port-' ~ p.port ~ '-' ~ (p.protocol or 'tcp')) }}"
-                class="{% if p.has_problem %}is-problem{% elif p.state == 'open' %}is-open{% endif %}"
-                data-testid="nmap-port-row">
-              <td class="font-mono">
-                <a href="#findings" class="text-accent hover:underline no-underline"
-                   title="Jump to findings">{{ p.port }}/{{ p.protocol or 'tcp' }}</a>
-              </td>
-              <td>{{ p.state }}</td>
-              <td>{{ p.service or '—' }}</td>
-              <td class="text-muted">{{ p.product or '' }} {{ p.version or '' }}</td>
-              <td>
-                {% if p.finding_count %}
-                <a href="#findings" class="status-pill status-failed text-[10px] no-underline"
-                   title="{{ p.finding_count }} finding(s) on this port">{{ p.finding_count }} finding</a>
-                {% elif p.error_count %}
-                <span class="status-pill status-running text-[10px]">{{ p.error_count }} error</span>
-                {% else %}
-                <span class="text-[10px] text-muted">—</span>
-                {% endif %}
-              </td>
-            </tr>
-            {% endif %}
-          {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% else %}
-      <p class="text-xs text-muted mb-4">No port data yet — run <strong>inventory</strong> or <strong>deep</strong> scan.</p>
-      {% endif %}
-
-      {% if device_scripts_classified %}
-      <h4 class="nmap-section-title" id="findings">Script / vuln findings</h4>
-      {% if device_script_counts %}
-      <div class="flex flex-wrap gap-1.5 mb-2 text-[11px]" data-testid="nmap-script-summary">
-        {% if device_script_counts.finding %}
-        <span class="status-pill status-failed">{{ device_script_counts.finding }} finding</span>
-        {% endif %}
-        {% if device_script_counts.error %}
-        <span class="status-pill status-running">{{ device_script_counts.error }} script error</span>
-        {% endif %}
-        {% if device_script_counts.clear %}
-        <span class="status-pill status-success">{{ device_script_counts.clear }} clear</span>
-        {% endif %}
-        {% if device_script_counts.info %}
-        <span class="status-pill feature-off">{{ device_script_counts.info }} info</span>
-        {% endif %}
-      </div>
-      <p class="text-[10px] text-muted mb-2">
-        Each finding shows the <strong>port / service</strong> it applies to (or host-level).
-        Version/CPE matches need human verification. Script errors are probe failures, not “unknown vulns”.
-      </p>
-      {% endif %}
-      <div class="space-y-2 max-h-64 overflow-y-auto mb-4" data-testid="nmap-script-list">
-        {% for sc in device_scripts_classified[:30] %}
-        <details class="nmap-script-card nmap-script-{{ sc.kind }}"
-                 id="script-{{ sc.id or loop.index }}"
-                 {% if sc.kind == 'finding' %}open{% endif %}>
-          <summary class="flex flex-wrap items-center gap-1.5">
-            {% if sc.port is not none %}
-            <a href="#{{ sc.port_anchor }}"
-               class="nmap-port-link font-mono text-[11px] no-underline"
-               title="{% if sc.port_inferred %}Inferred from service/CPE{% else %}Script ran on this port{% endif %}">
-              {{ sc.port }}/{{ sc.protocol or 'tcp' }}{% if sc.service %} · {{ sc.service }}{% endif %}
-              {% if sc.port_inferred %}<span class="opacity-60">≈</span>{% endif %}
-            </a>
-            {% else %}
-            <span class="nmap-port-link nmap-port-link--host font-mono text-[11px]" title="Host-level script">host</span>
-            {% endif %}
-            <span class="font-mono">{{ sc.script_id }}</span>
-            {% if sc.kind == 'finding' %}
-            <span class="status-pill status-failed text-[10px]">{{ sc.label }}</span>
-            {% elif sc.kind == 'error' %}
-            <span class="status-pill status-running text-[10px]">{{ sc.label }}</span>
-            {% elif sc.kind == 'clear' %}
-            <span class="status-pill status-success text-[10px]">{{ sc.label }}</span>
-            {% else %}
-            <span class="status-pill feature-off text-[10px]">{{ sc.label }}</span>
-            {% endif %}
-            {% if sc.product or sc.version %}
-            <span class="text-[10px] text-muted">{{ sc.product }} {{ sc.version }}</span>
-            {% endif %}
-            {% if sc.cve_ids %}
-            <span class="text-[10px] text-muted font-mono">{{ sc.cve_ids[:3]|join(', ') }}{% if sc.cve_ids|length > 3 %}…{% endif %}</span>
-            {% endif %}
-          </summary>
-          <p class="text-[11px] text-muted mt-1">
-            <strong class="text-text">Target:</strong> {{ sc.target or sc.port_label }}
-            {% if sc.port_inferred %}<span class="text-muted">(inferred)</span>{% endif %}
-            · {{ sc.summary }}
-          </p>
-          <pre>{{ sc.output or '' }}</pre>
-        </details>
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      {% if can_mutate %}
-      <h4 class="nmap-section-title">Actions</h4>
-      <div class="flex flex-wrap gap-2 items-center">
-        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/scan"
-              class="flex flex-wrap items-end gap-2" data-testid="nmap-device-deep-form">
-          <div>
-            <label class="block text-[10px] text-muted mb-0.5" for="dev-script-preset">Script preset</label>
-            <select id="dev-script-preset" name="script_preset" class="input text-xs min-h-9"
-                    title="Which vulnerability NSE set to run"
-                    {% if not cfg.vuln_enabled %}disabled{% endif %}>
-              {% for p in script_presets or ['none','cpe','offline','full'] %}
-              <option value="{{ p }}" {% if p == 'cpe' %}selected{% endif %}>
-                {{ (script_preset_labels or {}).get(p, p) }}
-              </option>
-              {% endfor %}
-            </select>
-          </div>
-          <div>
-            <label class="block text-[10px] text-muted mb-0.5" for="dev-timing"
-                   title="nmap -T: how aggressive the scanner is">Timing</label>
-            <select id="dev-timing" name="timing" class="input text-xs min-h-9"
-                    title="nmap timing template (-T)">
-              <option value="3">T3 — normal (polite, slower)</option>
-              <option value="4" selected>T4 — aggressive (default)</option>
-              <option value="5">T5 — insane (fastest, noisier)</option>
-            </select>
-          </div>
-          <button type="submit" class="btn btn-primary text-xs min-h-9">Deep scan</button>
-        </form>
-        {% if device.state != 'ignored' %}
-        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/ignore">
-          <button type="submit" class="btn btn-secondary text-xs min-h-9">Ignore</button>
-        </form>
+          {% if item.open_ports > 4 %}<span class="nmap-port-chip nmap-port-chip--more">+{{ item.open_ports - 4 }}</span>{% endif %}
         {% else %}
-        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unignore">
-          <button type="submit" class="btn btn-secondary text-xs min-h-9">Unignore</button>
-        </form>
+          <span class="text-[10px] text-muted">{{ item.open_ports or 0 }} open</span>
         {% endif %}
-        {% if device.state == 'linked' %}
-        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unlink">
-          <button type="submit" class="btn btn-secondary text-xs min-h-9">Unlink</button>
-        </form>
-        {% else %}
-        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/link" class="flex flex-wrap gap-2 items-center">
-          <select name="server_id" class="input text-xs min-h-9" required>
-            <option value="">Link server…</option>
-            {% for s in servers %}
-            <option value="{{ s.id }}">{{ s.name }}</option>
-            {% endfor %}
-          </select>
-          <button type="submit" class="btn btn-secondary text-xs min-h-9">Link</button>
-        </form>
-        {% endif %}
-        <a href="/servers/new" class="btn btn-secondary text-xs min-h-9"
-           title="Add host via wizard — use IP {{ device.ip_address }}">Promote</a>
       </div>
-      {% endif %}
-    </div>
-    {% else %}
-    <div class="card p-8 text-center text-sm text-muted h-full flex flex-col items-center justify-center gap-2">
-      <div class="text-2xl opacity-40" aria-hidden="true">◎</div>
-      <p class="font-medium text-text">Select a host</p>
-      <p class="text-xs max-w-xs">Click a row for hostname, MAC, open ports, and promote/link actions — same flow as WebMap-style host inspect.</p>
-    </div>
-    {% endif %}
+      <div>
+        <span class="nmap-state nmap-state--{{ d.state }}">{{ d.state }}</span>
+      </div>
+    </a>
+    {% endfor %}
   </div>
 </div>
 <script>
@@ -613,52 +370,75 @@
 })();
 </script>
 {% endif %}
+{% if device %}
+{% with return_tab='devices' %}
+{% include "partials/nmap_device_modal.html" %}
+{% endwith %}
+{% endif %}
 {% endif %}
 
 {% if tab == 'network' %}
-<div class="nmap-stats mb-3" aria-label="Network stats">
-  <div class="nmap-stat">
-    <span class="nmap-stat-n" data-nmap-map-count>{{ network.device_count if network else 0 }}</span>
-    <span class="nmap-stat-l">on map</span>
+<div class="nmap-network-toolbar mb-3" data-testid="nmap-network-toolbar">
+  <div class="nmap-stats" aria-label="Network stats">
+    <div class="nmap-stat">
+      <span class="nmap-stat-n" data-nmap-map-count>{{ network.device_count if network else 0 }}</span>
+      <span class="nmap-stat-l">on map</span>
+    </div>
+    <div class="nmap-stat">
+      <span class="nmap-stat-n" data-nmap-map-subnets>{{ network.groups|length if network and network.groups else 0 }}</span>
+      <span class="nmap-stat-l">subnets</span>
+    </div>
+    <div class="nmap-stat">
+      <span class="nmap-stat-n">{{ network.open_ports_total if network else 0 }}</span>
+      <span class="nmap-stat-l">open ports</span>
+    </div>
+    {% if network and network.by_state %}
+    <div class="nmap-stat">
+      <span class="nmap-stat-n text-accent">{{ network.by_state.get('new', 0) }}</span>
+      <span class="nmap-stat-l">new</span>
+    </div>
+    <div class="nmap-stat">
+      <span class="nmap-stat-n">{{ network.by_state.get('linked', 0) }}</span>
+      <span class="nmap-stat-l">linked</span>
+    </div>
+    {% endif %}
   </div>
-  <div class="nmap-stat">
-    <span class="nmap-stat-n" data-nmap-map-subnets>{{ network.groups|length if network and network.groups else 0 }}</span>
-    <span class="nmap-stat-l">subnets</span>
-  </div>
-  <div class="nmap-stat"><span class="nmap-stat-n">{{ network.open_ports_total if network else 0 }}</span><span class="nmap-stat-l">open ports</span></div>
-  {% if network and network.by_state %}
-  <div class="nmap-stat"><span class="nmap-stat-n text-accent">{{ network.by_state.get('new', 0) }}</span><span class="nmap-stat-l">new</span></div>
-  <div class="nmap-stat"><span class="nmap-stat-n">{{ network.by_state.get('linked', 0) }}</span><span class="nmap-stat-l">linked</span></div>
-  {% endif %}
-  <div class="nmap-stat nmap-stat--grow nmap-map-controls">
-    <label class="nmap-map-toggle" title="Unlinked hosts (new / known / stale). Linked hosts stay visible when off.">
+  <div class="nmap-map-toolbar" role="search" aria-label="Filter network map">
+    <label class="nmap-map-toggle" title="Unlinked hosts (new / known / stale). Linked stay when off.">
       <input type="checkbox" id="nmap-map-show-discovered" checked
              data-testid="nmap-map-show-discovered">
-      <span>Show discovered</span>
+      <span class="nmap-map-toggle-label">Show discovered</span>
     </label>
-    <input type="search" id="nmap-map-search" class="input text-sm min-h-9 w-full max-w-xs"
-           placeholder="Filter map…" autocomplete="off" aria-label="Filter map">
+    <div class="nmap-map-search-wrap">
+      <label class="sr-only" for="nmap-map-search">Filter map</label>
+      <input type="search" id="nmap-map-search" class="input nmap-map-search text-sm"
+             placeholder="Filter by name, IP, MAC, type…"
+             autocomplete="off" aria-label="Filter map"
+             data-testid="nmap-map-search">
+    </div>
   </div>
 </div>
 
 {% if not network or not network.groups %}
 <div class="card p-5 text-sm text-muted">No devices to map yet. Run discovery first.</div>
 {% else %}
-<div class="card p-3 mb-3 text-xs text-muted space-y-1" data-testid="nmap-ports-source-note">
-  <p class="text-text font-medium text-sm">Open ports on this map</p>
-  <p>
-    {{ network.ports_note or 'Open ports are the latest snapshot per host (inventory / detailed / deep). Not a merge of every historical scan.' }}
-  </p>
-  <p>
-    <strong class="text-text">Discovery</strong> finds hosts only.
-    Run <strong>inventory</strong> (top N or all ports) or <strong>detailed/deep</strong> to fill chips.
-    Discovery re-runs no longer wipe a prior port snapshot.
-  </p>
-  <p>
-    <strong class="text-text">Show discovered</strong> toggles unlinked hosts (new / known / stale).
-    Linked fleet devices stay on the map when the box is unchecked.
-  </p>
-</div>
+<details class="nmap-help-details card mb-3" data-testid="nmap-ports-source-note">
+  <summary class="nmap-help-summary text-sm font-medium text-text cursor-pointer select-none">
+    Map tips · open ports source
+  </summary>
+  <div class="nmap-help-body text-xs text-muted space-y-1 pt-2">
+    <p>
+      {{ network.ports_note or 'Open ports are the latest snapshot per host (inventory / detailed / deep). Not a merge of every historical scan.' }}
+    </p>
+    <p>
+      <strong class="text-text">Discovery</strong> finds hosts only.
+      Run <strong class="text-text">inventory</strong> or <strong class="text-text">detailed/deep</strong> to fill port chips.
+    </p>
+    <p>
+      Click a host to edit name / type / gateway. <strong class="text-text">Save and close</strong> returns here without jumping to the top.
+    </p>
+  </div>
+</details>
 <div class="space-y-4" id="nmap-map"
      data-total-devices="{{ network.device_count }}"
      data-total-subnets="{{ network.groups|length }}">
@@ -676,12 +456,15 @@
     <div class="nmap-host-grid">
       {% for n in g.nodes %}
       {% set is_discovered = n.state != 'linked' %}
-      <a href="?tab=devices&device={{ n.id }}"
-         class="nmap-host-card nmap-host-card--{{ n.state }}"
+      <a href="?tab=network&device={{ n.id }}"
+         id="nmap-net-dev-{{ n.id }}"
+         class="nmap-host-card nmap-host-card--{{ n.state }} {% if device and device.id == n.id %}is-active{% endif %}"
          data-state="{{ n.state }}"
+         data-device-id="{{ n.id }}"
          data-discovered="{{ '1' if is_discovered else '0' }}"
+         data-testid="nmap-network-host-card"
          data-search="{{ (n.ip ~ ' ' ~ (n.label or '') ~ ' ' ~ (n.display_name or '') ~ ' ' ~ (n.hostname or '') ~ ' ' ~ (n.mac or '') ~ ' ' ~ (n.mac_vendor or '') ~ ' ' ~ n.state ~ ' ' ~ (n.kind or '') ~ ' ' ~ (n.kind_label or ''))|lower }}"
-         title="{{ n.label or n.hostname or n.ip }} · {{ n.mac or 'no MAC' }}{% if n.kind_label %} · {{ n.kind_label }}{% endif %}{% if n.last_run_intensity %} · last run {{ n.last_run_intensity }}{% endif %}">
+         title="Edit: {{ n.label or n.hostname or n.ip }} · {{ n.mac or 'no MAC' }}{% if n.kind_label %} · {{ n.kind_label }}{% endif %}{% if n.kind_overridden %} (type override){% endif %}">
         <div class="nmap-host-card-top">
           <span class="nmap-host-ip font-mono">{{ n.ip }}</span>
           <span class="flex flex-wrap gap-1 justify-end">
@@ -724,11 +507,44 @@
   var emptyEl = document.getElementById('nmap-map-empty-filter');
   var countEl = document.querySelector('[data-nmap-map-count]');
   var subnetEl = document.querySelector('[data-nmap-map-subnets]');
-  if (!map) return;
+  var SCROLL_KEY = 'piherder.nmap.network.scrollY';
+  var FILTER_KEY = 'piherder.nmap.map.showDiscovered';
+  var modalOpen = !!document.getElementById('nmap-device-modal');
 
-  var STORAGE_KEY = 'piherder.nmap.map.showDiscovered';
+  function saveScroll() {
+    try {
+      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || window.pageYOffset || 0));
+    } catch (e) { /* ignore */ }
+  }
+
+  function restoreScroll() {
+    try {
+      var raw = sessionStorage.getItem(SCROLL_KEY);
+      if (raw == null || raw === '') return;
+      var y = parseInt(raw, 10);
+      if (isNaN(y) || y < 0) return;
+      // After paint / filter layout
+      requestAnimationFrame(function () {
+        window.scrollTo(0, y);
+        requestAnimationFrame(function () { window.scrollTo(0, y); });
+      });
+    } catch (e) { /* ignore */ }
+  }
+
+  // Remember position before opening a device modal
+  document.querySelectorAll('[data-testid="nmap-network-host-card"]').forEach(function (card) {
+    card.addEventListener('click', function () { saveScroll(); });
+  });
+  // Also when closing via Cancel / backdrop (full page nav keeps key)
+
+  if (!map) {
+    // Modal-only paint (map still in DOM when modal open)
+    if (!modalOpen) restoreScroll();
+    return;
+  }
+
   try {
-    var stored = localStorage.getItem(STORAGE_KEY);
+    var stored = localStorage.getItem(FILTER_KEY);
     if (stored === '0' && showDisc) showDisc.checked = false;
     if (stored === '1' && showDisc) showDisc.checked = true;
   } catch (e) { /* ignore */ }
@@ -771,14 +587,51 @@
   if (showDisc) {
     showDisc.addEventListener('change', function () {
       try {
-        localStorage.setItem(STORAGE_KEY, showDisc.checked ? '1' : '0');
+        localStorage.setItem(FILTER_KEY, showDisc.checked ? '1' : '0');
       } catch (e) { /* ignore */ }
       applyFilter();
     });
   }
   applyFilter();
+
+  // Restore scroll after filter layout when modal is closed (Save and close / Cancel)
+  if (!modalOpen) {
+    restoreScroll();
+    var params = new URLSearchParams(window.location.search || '');
+    var focusId = params.get('focus');
+    if (focusId) {
+      var el = document.getElementById('nmap-net-dev-' + focusId);
+      if (el) {
+        el.classList.add('is-focus-flash');
+        // Prefer stored scroll; only scrollIntoView if we have no saved Y
+        try {
+          if (sessionStorage.getItem(SCROLL_KEY) == null) {
+            el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          }
+        } catch (e2) {
+          el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        }
+        setTimeout(function () { el.classList.remove('is-focus-flash'); }, 2200);
+      }
+      // Drop focus= from URL without reload (cleaner, keeps history scroll)
+      try {
+        params.delete('focus');
+        var qs = params.toString();
+        var clean = window.location.pathname + (qs ? '?' + qs : '') + (window.location.hash || '');
+        window.history.replaceState({}, '', clean);
+      } catch (e3) { /* ignore */ }
+    }
+  } else {
+    // Modal open: keep page under fixed; still save current Y if missing
+    saveScroll();
+  }
 })();
 </script>
+{% endif %}
+{% if device %}
+{% with return_tab='network' %}
+{% include "partials/nmap_device_modal.html" %}
+{% endwith %}
 {% endif %}
 {% endif %}
 

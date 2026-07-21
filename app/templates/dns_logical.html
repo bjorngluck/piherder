@@ -150,21 +150,34 @@
   {% endif %}
 
   <div id="map" class="card p-3 mb-5 overflow-hidden fabric-mesh-priority-graph" data-fabric-graph>
-    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+    <div class="fabric-map-chrome fabric-map-chrome--oneline mb-2" data-testid="path-map-chrome">
       <button type="button"
-              class="btn btn-secondary text-xs min-h-9 px-2.5 md:hidden"
+              class="fabric-map-ctrl fabric-map-ctrl--icon-only fabric-map-ctrl--ghost md:hidden"
               data-fabric-close-graph
-              title="Hide map and return to list">Hide map</button>
-      <div class="fabric-mesh-zoom-bar ml-auto" role="group" aria-label="Zoom map">
-        <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-out title="Zoom out" aria-label="Zoom out">−</button>
-        <span class="fabric-mesh-zoom-label font-mono text-center" data-fabric-zoom-label>100%</span>
-        <button type="button" class="btn btn-secondary text-xs min-h-9 min-w-9 px-2" data-fabric-zoom-in title="Zoom in" aria-label="Zoom in">+</button>
-        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2" data-fabric-zoom-reset title="Reset zoom">1:1</button>
+              title="Hide map — show path list"
+              aria-label="Hide map">
+        <svg class="fabric-map-ctrl-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h10"/>
+        </svg>
+      </button>
+      <div class="fabric-mesh-zoom-bar" role="group" aria-label="Zoom and full screen">
+        <div class="fabric-map-seg" role="group">
+          <button type="button" class="fabric-map-ctrl fabric-map-ctrl--icon" data-fabric-zoom-out title="Zoom out" aria-label="Zoom out">−</button>
+          <span class="fabric-mesh-zoom-label font-mono" data-fabric-zoom-label>100%</span>
+          <button type="button" class="fabric-map-ctrl fabric-map-ctrl--icon" data-fabric-zoom-in title="Zoom in" aria-label="Zoom in">+</button>
+        </div>
+        <button type="button" class="fabric-map-ctrl fabric-map-ctrl--tight" data-fabric-zoom-reset title="Reset zoom" aria-label="Reset zoom">1:1</button>
         <button type="button"
-                class="btn btn-secondary text-xs min-h-9 px-2"
+                class="fabric-map-ctrl fabric-map-ctrl--icon-only fabric-map-ctrl--accent"
                 data-fabric-fullscreen
                 aria-pressed="false"
-                title="Expand map to full screen">Full screen</button>
+                title="Full screen"
+                aria-label="Full screen">
+          <svg class="fabric-map-ctrl-svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/>
+          </svg>
+          <span class="sr-only" data-fs-label>Full screen</span>
+        </button>
       </div>
     </div>
     {# Map-only legend for path graph #}
@@ -322,6 +335,6 @@
 </div>
 
 {% include "partials/dns_stack_drawer.html" %}
-<script src="/static/js/fabric-mesh.js?v=20260718-order6" defer></script>
+<script src="/static/js/fabric-mesh.js?v=20260721-fit1to1" defer></script>
 <script src="/static/js/fabric-stack-expand.js?v=20260721-orderfix2" defer></script>
 {% endblock %}

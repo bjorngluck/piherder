@@ -251,22 +251,192 @@ def set_device_display_name(
     return device
 
 
+def set_device_kind_override(
+    session: Session, device: NmapDevice, kind: str | None
+) -> NmapDevice:
+    """Set or clear operator device type (overrides busted heuristics)."""
+    from .device_classify import normalize_kind_override
+
+    device.kind_override = normalize_kind_override(kind)
+    device.updated_at = datetime.utcnow()
+    session.add(device)
+    session.commit()
+    session.refresh(device)
+    return device
+
+
+def set_device_map_role(
+    session: Session,
+    device: NmapDevice,
+    role: str | None,
+    *,
+    sync_network_gateway: bool = True,
+) -> NmapDevice:
+    """Set map role (e.g. gateway). At most one device is gateway.
+
+    When role is gateway and *sync_network_gateway*, also writes
+    ``network_gateway_ip`` so the Hosts map spine uses this IP.
+    """
+    from .device_classify import MAP_ROLE_GATEWAY, normalize_map_role
+
+    new_role = normalize_map_role(role)
+    if new_role == MAP_ROLE_GATEWAY:
+        # Clear other gateways for a single spine router
+        others = list(
+            session.exec(
+                select(NmapDevice).where(
+                    NmapDevice.map_role == MAP_ROLE_GATEWAY,
+                    NmapDevice.id != device.id,  # type: ignore[arg-type]
+                )
+            ).all()
+        )
+        for o in others:
+            o.map_role = None
+            o.updated_at = datetime.utcnow()
+            session.add(o)
+        device.map_role = MAP_ROLE_GATEWAY
+        if sync_network_gateway:
+            ip = (device.ip_address or "").strip()
+            if ip:
+                try:
+                    from ..app_settings import load_settings, save_settings
+
+                    cfg = load_settings()
+                    if (cfg.get("network_gateway_ip") or "").strip() != ip:
+                        cfg["network_gateway_ip"] = ip
+                        save_settings(cfg)
+                except Exception:
+                    pass
+    else:
+        device.map_role = None
+    device.updated_at = datetime.utcnow()
+    session.add(device)
+    session.commit()
+    session.refresh(device)
+    return device
+
+
+def set_device_map_identity(
+    session: Session,
+    device: NmapDevice,
+    *,
+    display_name: str | None = None,
+    kind_override: str | None = None,
+    map_role: str | None = None,
+    sync_network_gateway: bool = True,
+    mark_known: bool = True,
+) -> NmapDevice:
+    """Single form: map name + kind override + map role (gateway).
+
+    Saving map identity is treated as review: *new* / *stale* → *known*
+    when *mark_known* (default), so the inbox filter shrinks as you label devices.
+    """
+    from .device_classify import MAP_ROLE_GATEWAY, normalize_kind_override, normalize_map_role
+
+    raw = (display_name if display_name is not None else device.display_name) or ""
+    raw = (raw or "").strip()
+    if raw:
+        raw = re.sub(r"\s+", " ", raw)[:128]
+    device.display_name = raw or None
+    device.kind_override = normalize_kind_override(kind_override)
+
+    new_role = normalize_map_role(map_role)
+    if new_role == MAP_ROLE_GATEWAY:
+        others = list(
+            session.exec(
+                select(NmapDevice).where(
+                    NmapDevice.map_role == MAP_ROLE_GATEWAY,
+                    NmapDevice.id != device.id,  # type: ignore[arg-type]
+                )
+            ).all()
+        )
+        for o in others:
+            o.map_role = None
+            o.updated_at = datetime.utcnow()
+            session.add(o)
+        device.map_role = MAP_ROLE_GATEWAY
+        if sync_network_gateway:
+            ip = (device.ip_address or "").strip()
+            if ip:
+                try:
+                    from ..app_settings import load_settings, save_settings
+
+                    cfg = load_settings()
+                    if (cfg.get("network_gateway_ip") or "").strip() != ip:
+                        cfg["network_gateway_ip"] = ip
+                        save_settings(cfg)
+                except Exception:
+                    pass
+    else:
+        device.map_role = None
+
+    # Operator touched identity → reviewed (unless linked/ignored)
+    if mark_known and device.state in ("new", "stale"):
+        device.state = "known"
+
+    device.updated_at = datetime.utcnow()
+    session.add(device)
+    session.commit()
+    session.refresh(device)
+    return device
+
+
+# Human labels for device lifecycle states (UI / docs)
+DEVICE_STATE_LABELS: dict[str, str] = {
+    "new": "New",
+    "known": "Known (reviewed)",
+    "linked": "Linked",
+    "ignored": "Ignored",
+    "stale": "Stale",
+}
+DEVICE_STATES_OPERATOR = ("new", "known", "ignored")  # settable without link
+
+
+def gateway_map_info(session: Session) -> dict[str, Any]:
+    """Discovery device marked as map gateway (for Hosts map spine label)."""
+    from .device_classify import MAP_ROLE_GATEWAY
+
+    row = session.exec(
+        select(NmapDevice)
+        .where(
+            NmapDevice.map_role == MAP_ROLE_GATEWAY,
+            NmapDevice.state != "ignored",
+        )
+        .order_by(NmapDevice.id)
+        .limit(1)
+    ).first()
+    if not row:
+        return {}
+    label = device_display_name(row, prefer_ip_fallback=False)
+    return {
+        "device_id": row.id,
+        "integration_id": row.integration_id,
+        "ip": (row.ip_address or "").strip(),
+        "label": (label or "").strip() or "Router",
+        "display_name": (getattr(row, "display_name", None) or "").strip() or "",
+        "href": f"/integrations/{row.integration_id}?tab=devices&device={row.id}",
+    }
+
+
 def discovery_hosts_for_fabric(
     session: Session,
     *,
     fleet_ips: set[str] | None = None,
     fleet_server_ids: set[int] | None = None,
+    gateway_ip: str | None = None,
     limit: int = 500,
 ) -> list[dict[str, Any]]:
     """Unlinked nmap devices shaped as Hosts-map host nodes (no manual link required).
 
-    Skips ignored devices, devices already linked to a fleet server, and IPs that
-    already appear as managed fleet hosts (dedupe). Used for the end-to-end LAN view.
+    Skips ignored devices, devices already linked to a fleet server, IPs that
+    already appear as managed fleet hosts, map-role gateway, and the configured
+    network gateway IP (spine Router node). Used for the end-to-end LAN view.
     """
     from .device_classify import profile_dict_from_device
 
     fleet_ips = {str(ip).strip() for ip in (fleet_ips or set()) if ip}
     fleet_server_ids = {int(s) for s in (fleet_server_ids or set()) if s is not None}
+    gw = (gateway_ip or "").strip()
 
     rows = list(
         session.exec(
@@ -284,11 +454,18 @@ def discovery_hosts_for_fabric(
             continue
         if ip in fleet_ips or ip in seen_ip:
             continue
+        if gw and ip == gw:
+            # Represented by Hosts map Router spine, not a LAN discovery chip
+            continue
         if d.linked_server_id is not None and int(d.linked_server_id) in fleet_server_ids:
             # Already represented by the managed Server card on the map
             continue
         if d.linked_server_id is not None:
             # Linked to a server not in current fleet list — still skip to avoid doubles
+            continue
+        # Gateway role lives on the spine (Router node), not as a LAN chip
+        role = (getattr(d, "map_role", None) or "").strip().lower()
+        if role == "gateway":
             continue
         seen_ip.add(ip)
         profile = profile_dict_from_device(d)
@@ -312,9 +489,11 @@ def discovery_hosts_for_fabric(
                 "mac": d.mac_address or "",
                 "mac_vendor": getattr(d, "mac_vendor", None) or "",
                 "state": d.state,
+                "map_role": role or "",
                 "device_kind": profile.get("kind") or "unknown",
                 "device_kind_label": profile.get("label") or "",
                 "device_kind_short": profile.get("short") or "?",
+                "device_kind_overridden": bool(profile.get("overridden")),
                 "href": (
                     f"/integrations/{d.integration_id}?tab=devices&device={d.id}"
                 ),
@@ -407,6 +586,8 @@ def network_view_payload(
             "kind_label": profile.get("label") or "",
             "kind_short": profile.get("short") or "?",
             "kind_confidence": profile.get("confidence") or "low",
+            "kind_overridden": bool(profile.get("overridden")),
+            "map_role": (getattr(d, "map_role", None) or "").strip() or "",
             "profile": profile,
         }
         groups.setdefault(net, []).append(node)
@@ -450,6 +631,8 @@ def device_list_item(device: NmapDevice) -> dict[str, Any]:
         "profile": profile,
         "kind": profile.get("kind") or "unknown",
         "kind_label": profile.get("label") or "",
+        "kind_overridden": bool(profile.get("overridden")),
+        "map_role": (getattr(device, "map_role", None) or "").strip() or "",
         "display_name": (getattr(device, "display_name", None) or "").strip() or "",
         "label": device_display_name(device),
     }
@@ -516,6 +699,11 @@ def set_device_state(
     *,
     linked_server_id: int | None = None,
 ) -> NmapDevice:
+    """Lifecycle: new → known (reviewed) → linked | ignored; stale when not seen.
+
+    *known* means the operator has acknowledged the device (clears the *new*
+    inbox). Independent of map name / kind. Rescans leave *new* until marked.
+    """
     allowed = {"new", "known", "linked", "ignored", "stale"}
     if state not in allowed:
         raise ValueError(f"invalid state {state}")
@@ -524,16 +712,28 @@ def set_device_state(
         if not linked_server_id:
             raise ValueError("linked_server_id required for linked state")
         device.linked_server_id = linked_server_id
-    elif state == "ignored":
+    elif state in ("new", "stale", "ignored", "known"):
+        # Non-linked lifecycle states do not keep a Server FK
         device.linked_server_id = None
-    elif state in ("new", "stale"):
-        device.linked_server_id = None
-    # "known" keeps existing link if any
     device.updated_at = datetime.utcnow()
     session.add(device)
     session.commit()
     session.refresh(device)
     return device
+
+
+def mark_device_known(session: Session, device: NmapDevice) -> NmapDevice:
+    """Operator reviewed this discovery — leave the *new* inbox."""
+    if device.state == "linked":
+        return device  # keep linked; do not demote
+    return set_device_state(session, device, "known")
+
+
+def mark_device_new(session: Session, device: NmapDevice) -> NmapDevice:
+    """Re-flag as new (revisit inbox) without deleting history."""
+    if device.state == "linked":
+        raise ValueError("unlink before marking new")
+    return set_device_state(session, device, "new")
 
 
 def link_device(

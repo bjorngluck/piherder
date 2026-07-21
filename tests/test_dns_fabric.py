@@ -434,14 +434,28 @@ def test_physical_mesh_includes_discovered_hosts():
     # Compact discovered chip vs full fleet card
     assert disc.get("hw", 99) < fleet.get("hw", 0)
     assert disc.get("hh", 99) < fleet.get("hh", 0)
-    # Discovered sits further from LAN centre than fleet (outer ring)
+    # Discovered on outer fan ring; fleet inside compact zone
     lan = next(n for n in svg["nodes"] if n["kind"] == "lan")
     import math
+
+    zcx = float(lan.get("zone_cx") if lan.get("zone_cx") is not None else lan["x"])
+    zcy = float(lan.get("zone_cy") if lan.get("zone_cy") is not None else lan["y"])
+    zrx_c = float(lan.get("zone_rx_compact") or lan["zone_rx"])
+    zry_c = float(lan.get("zone_ry_compact") or lan["zone_ry"])
+    zrx_f = float(lan.get("zone_rx_full") or lan["zone_rx"])
+    zry_f = float(lan.get("zone_ry_full") or lan["zone_ry"])
 
     def _dist(n):
         return math.hypot(n["x"] - lan["x"], n["y"] - lan["y"])
 
+    def _inside(n, zrx, zry, pad: float = 0.98) -> bool:
+        return ((n["x"] - zcx) / zrx) ** 2 + ((n["y"] - zcy) / zry) ** 2 <= pad**2
+
     assert _dist(disc) > _dist(fleet)
+    assert _inside(fleet, zrx_c, zry_c)
+    assert not _inside(disc, zrx_c, zry_c, pad=1.0)  # outside compact
+    assert _inside(disc, zrx_f, zry_f)  # inside expanded
+    assert zrx_f >= zrx_c - 0.1 and zry_f >= zry_c - 0.1
     assert svg.get("discovered_count") == 1
     assert svg.get("fleet_count") == 1
     phys = fabric._build_physical_view(
@@ -451,8 +465,125 @@ def test_physical_mesh_includes_discovered_hosts():
     assert any(r.get("is_discovered") for r in phys["racks"])
 
 
+def test_physical_mesh_compact_spine_on_zone_rim():
+    """Router sits on the active LAN zone top rim (compact and full); apps condense."""
+    net = {
+        "lan_subnet": "10.0.0.0/24",
+        "gateway_ip": "10.0.0.1",
+        "public_ip": "198.51.100.9",
+    }
+    hosts = [
+        {
+            "server_id": 1,
+            "name": "RPI",
+            "dns_name": "rpi.example",
+            "ip": "10.0.0.10",
+            "href": "/servers/1",
+        },
+        {
+            "server_id": None,
+            "discovery_id": 1,
+            "is_discovered": True,
+            "name": "cam",
+            "ip": "10.0.0.50",
+            "href": "/i",
+        },
+    ]
+    services = [
+        {
+            "id": 1,
+            "fqdn": "app.example",
+            "backend_server_id": 1,
+            "target_server_id": 1,
+            "via_proxy": False,
+            "path_kind": "app",
+            "path_chain": "app → RPI",
+            "dep_href": None,
+            "backend_href": "/servers/1",
+        }
+    ]
+    svg = fabric._build_physical_mesh_svg(hosts, services, network=net)
+    lan = next(n for n in svg["nodes"] if n["kind"] == "lan")
+    gw = next(n for n in svg["nodes"] if n["kind"] == "gateway")
+    inet = next(n for n in svg["nodes"] if n["kind"] == "internet")
+    app = next(n for n in svg["nodes"] if n["kind"] == "app")
+    zcy = float(lan["zone_cy"])
+    # Full: router on full zone top rim
+    assert abs(float(gw["y_full"]) - (zcy - float(lan["zone_ry_full"]))) < 1.5
+    # Compact: router on compact zone top rim (closer to LAN centre)
+    assert abs(float(gw["y_compact"]) - (zcy - float(lan["zone_ry_compact"]))) < 1.5
+    assert float(gw["y_compact"]) > float(gw["y_full"])  # lower on page when compact
+    assert float(inet["y_compact"]) > float(inet["y_full"])
+    # Apps pull in for compact zone
+    import math
+
+    d_f = math.hypot(app["x_full"] - lan["x"], app["y_full"] - lan["y"])
+    d_c = math.hypot(app["x_compact"] - lan["x"], app["y_compact"] - lan["y"])
+    assert d_c < d_f - 5
+    # Dual edge data present for spine
+    spine = next(
+        e
+        for e in svg["edges"]
+        if e.get("from_node") == "gateway" and e.get("to_node") == "lan"
+    )
+    assert spine.get("layout_dual") is True
+    assert spine.get("y1_compact") != spine.get("y1_full")
+
+
+def test_physical_mesh_zone_compact_vs_full_for_discovery():
+    """Compact zone = fleet fan; full zone expands for discovered rings."""
+    net = {"lan_subnet": "10.0.0.0/24", "gateway_ip": "10.0.0.1"}
+    one = [
+        {
+            "server_id": 1,
+            "name": "Only",
+            "dns_name": "only.example",
+            "ip": "10.0.0.10",
+            "href": "/servers/1",
+        }
+    ]
+    disc = [
+        {
+            "server_id": None,
+            "discovery_id": i,
+            "is_discovered": True,
+            "name": f"d{i}",
+            "ip": f"10.0.0.{50 + i}",
+            "href": f"/integrations/1?tab=devices&device={i}",
+        }
+        for i in range(1, 12)
+    ]
+    svg = fabric._build_physical_mesh_svg(one + disc, [], network=net)
+    lan = next(n for n in svg["nodes"] if n["kind"] == "lan")
+    assert lan.get("zone_rx_compact") is not None
+    assert lan.get("zone_rx_full") is not None
+    assert float(lan["zone_rx_full"]) > float(lan["zone_rx_compact"]) + 20
+    assert float(lan["zone_ry_full"]) > float(lan["zone_ry_compact"]) + 10
+    # Default zone_rx is full (toggle starts expanded when discovery exists)
+    assert abs(float(lan["zone_rx"]) - float(lan["zone_rx_full"])) < 0.5
+
+    many = [
+        {
+            "server_id": i,
+            "name": f"H{i}",
+            "dns_name": f"h{i}.example",
+            "ip": f"10.0.0.{10 + i}",
+            "href": f"/servers/{i}",
+        }
+        for i in range(1, 8)
+    ]
+    svg_many = fabric._build_physical_mesh_svg(many, [], network=net)
+    lan_many = next(n for n in svg_many["nodes"] if n["kind"] == "lan")
+    svg_one = fabric._build_physical_mesh_svg(one, [], network=net)
+    lan_one = next(n for n in svg_one["nodes"] if n["kind"] == "lan")
+    # More fleet → larger compact fan zone
+    assert float(lan_many["zone_rx_compact"]) > float(lan_one["zone_rx_compact"]) + 20
+
+
 def test_physical_mesh_fleet_ring_not_inflated_by_discovery():
-    """Many discovered devices must not shrink fleet/app layout into a corner."""
+    """Discovery expands full zone but fleet fan radius (to badge) stays fixed."""
+    import math
+
     fleet = [
         {
             "server_id": 1,
@@ -489,18 +620,35 @@ def test_physical_mesh_fleet_ring_not_inflated_by_discovery():
         for i in range(1, 25)
     ]
     svg_both = fabric._build_physical_mesh_svg(fleet + disc, services, network=net)
+    lan_only = next(n for n in svg_fleet_only["nodes"] if n["kind"] == "lan")
+    lan_both = next(n for n in svg_both["nodes"] if n["kind"] == "lan")
     h_only = next(n for n in svg_fleet_only["nodes"] if n["kind"] == "host")
     h_both = next(
         n for n in svg_both["nodes"] if n["kind"] == "host" and not n.get("is_discovered")
     )
-    # Fleet host position (and full card size) unchanged by discovery density
-    assert abs(h_only["x"] - h_both["x"]) < 1.5
-    assert abs(h_only["y"] - h_both["y"]) < 1.5
+    # Fleet fan radius to LAN badge stays stable
+    d_only = math.hypot(h_only["x"] - lan_only["x"], h_only["y"] - lan_only["y"])
+    d_both = math.hypot(h_both["x"] - lan_both["x"], h_both["y"] - lan_both["y"])
+    assert abs(d_only - d_both) < 1.5
     assert h_both.get("hw") == h_only.get("hw") or h_both.get("hw", 62) >= 60
-    app_only = next(n for n in svg_fleet_only["nodes"] if n["kind"] == "app")
+    # Compact zone stable; full zone grows
+    assert abs(
+        float(lan_both["zone_rx_compact"]) - float(lan_only["zone_rx_compact"])
+    ) < 1.5
+    assert float(lan_both["zone_rx_full"]) > float(lan_both["zone_rx_compact"]) + 20
+
+    def _inside_full(lan, x, y, pad=0.98):
+        zcx = float(lan.get("zone_cx") if lan.get("zone_cx") is not None else lan["x"])
+        zcy = float(lan.get("zone_cy") if lan.get("zone_cy") is not None else lan["y"])
+        zrx = float(lan.get("zone_rx_full") or lan["zone_rx"])
+        zry = float(lan.get("zone_ry_full") or lan["zone_ry"])
+        return ((x - zcx) / zrx) ** 2 + ((y - zcy) / zry) ** 2 <= pad**2
+
+    for n in svg_both["nodes"]:
+        if n["kind"] == "host" and not n.get("is_cloud"):
+            assert _inside_full(lan_both, n["x"], n["y"]), n.get("label")
     app_both = next(n for n in svg_both["nodes"] if n["kind"] == "app")
-    assert abs(app_only["x"] - app_both["x"]) < 2.0
-    assert abs(app_only["y"] - app_both["y"]) < 2.0
+    assert not _inside_full(lan_both, app_both["x"], app_both["y"], pad=1.02)
 
 
 def test_physical_mesh_svg_path_ids():
@@ -919,13 +1067,15 @@ def test_physical_mesh_lan_hosts_inside_zone_apps_outside():
     lan = next(n for n in svg["nodes"] if n["kind"] == "lan")
     assert lan.get("zone_rx") and lan.get("zone_ry")
     assert lan.get("sub") == "192.168.86.0/24"
-    # Circular centre badge
+    # Circular centre badge (fan hub)
     assert lan.get("rx") == lan.get("ry")
-    zrx, zry = float(lan["zone_rx"]), float(lan["zone_ry"])
-    lcx, lcy = float(lan["x"]), float(lan["y"])
+    zrx = float(lan.get("zone_rx_full") or lan["zone_rx"])
+    zry = float(lan.get("zone_ry_full") or lan["zone_ry"])
+    zcx = float(lan.get("zone_cx") if lan.get("zone_cx") is not None else lan["x"])
+    zcy = float(lan.get("zone_cy") if lan.get("zone_cy") is not None else lan["y"])
 
     def _inside(x: float, y: float, pad: float = 0.92) -> bool:
-        return ((x - lcx) / zrx) ** 2 + ((y - lcy) / zry) ** 2 <= pad**2
+        return ((x - zcx) / zrx) ** 2 + ((y - zcy) / zry) ** 2 <= pad**2
 
     for h in svg["nodes"]:
         if h["kind"] != "host" or h.get("is_cloud"):
@@ -939,7 +1089,6 @@ def test_physical_mesh_lan_hosts_inside_zone_apps_outside():
         assert not _inside(float(a["x"]), float(a["y"]), pad=1.02), (
             f"app {a['label']} at ({a['x']},{a['y']}) should be outside LAN zone"
         )
-    # Router sits on the top rim of the LAN zone; Internet above, no public-IP card
     inet = next(n for n in svg["nodes"] if n["kind"] == "internet")
     gw = next(n for n in svg["nodes"] if n["kind"] == "gateway")
     assert not any(n.get("kind") == "public_ip" for n in svg["nodes"])
@@ -947,7 +1096,7 @@ def test_physical_mesh_lan_hosts_inside_zone_apps_outside():
     assert gw.get("split") is True
     assert gw.get("sub_top") == "198.51.100.9"
     assert gw.get("sub_bottom") == "192.168.86.1"
-    zone_top = lcy - zry
+    zone_top = zcy - zry
     assert abs(gw["y"] - zone_top) < 2.0  # on the rim
     assert inet["y"] < gw["y"]
     assert abs(inet["x"] - gw["x"]) < 1.0  # centred spine

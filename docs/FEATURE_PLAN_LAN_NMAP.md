@@ -1,8 +1,8 @@
 # Feature plan — LAN discovery (nmap)
 
-**Status:** **Approved** (2026-07-19) — **N0–N9 product largely done** on main: worker, devices, network tab, schedules, presets, soft embed, **device kind heuristics**, **map display names**, **Hosts map overlay** (unlinked discoveries, outer chips, toolbar toggle); screenshots still open (stream A)
+**Status:** **Approved** (2026-07-19) — **N0–N10 product complete** on main: worker, devices, network tab, schedules, presets, soft embed, **kind heuristics + override**, **map identity** (name / gateway role), **known/new lifecycle**, **MAC identity / DHCP**, **Hosts map dual layout** (radar toggle, compact 1:1 fit, one-line chrome), Network **centered edit modal**; **screenshots still open** (stream A)
 **Ship target:** **v0.8.0** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) stream **N**  
-**Operator wiki:** [wiki/integrations/lan-discovery.md](../wiki/integrations/lan-discovery.md)  
+**Operator wiki:** [wiki/integrations/lan-discovery.md](../wiki/integrations/lan-discovery.md) · [dns-fabric.md](../wiki/integrations/dns-fabric.md)  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ADMIN.md](ADMIN.md) · [SPEC.md](../SPEC.md)
 
 This document owns **product + technical design** for LAN discovery. The cycle plan owns ship bar and sequencing only.
@@ -190,13 +190,27 @@ celery-worker-nmap:
 |---------|---------|
 | Integrations → **LAN Discovery** | Enable, worker status, vuln pack status, CIDRs |
 | Schedules | Multiple named schedules (intensity + cron/interval) |
-| Devices | Auto-created hosts; filter new/linked/ignored/stale |
-| **Network view** | Subnet/graph; discovered vs linked servers |
-| Device detail | Ports, services, vulns, link/promote/dismiss, deep scan |
+| Devices | Auto-created hosts; filter new/known/linked/ignored/stale |
+| **Network view** | Subnet cards; **Show discovered**; click → **centered edit modal** |
+| Edit modal | Map name, kind override, gateway role, Mark known/new, ignore, link, promote, ports |
+| **Hosts map** (`/dns/physical`) | Fleet + unlinked discoveries; radar toggle; dual compact/full; **1:1** fit |
+| Device detail | Ports, services, vulns, link/promote/dismiss, deep scan (also via modal) |
 | Runs / Jobs | History + progress |
-| Later | Server chips, fabric dots, wizard prefill, transition notifications |
+| Soft embed | Server list LAN chip + server detail card |
+| Later / roadmap | Kind **icons/shapes** on map; per-service port labels |
 
 Capture policy: light theme, desktop default ([screenshots README](../wiki/assets/screenshots/README.md)).
+
+### 6.1 Map identity & lifecycle (shipped)
+
+| Concept | Behaviour |
+|---------|-----------|
+| **display_name** | Operator map label; priority over hostname/IP on chips |
+| **kind_override** | Sticky type when heuristics wrong; empty = Auto |
+| **map_role=gateway** | Router spine label + network gateway IP; not drawn as outer chip |
+| **new → known** | Mark known, or auto on Save map identity; rescans keep new until reviewed |
+| **MAC identity** | `mac:…` preferred; DHCP IP updates row in place |
+| **Hosts chrome** | Radar (disc on/off), −/%/+, **1:1** (full canvas vs compact fit), fullscreen |
 
 ---
 
@@ -226,14 +240,14 @@ Guardrails: max concurrent LAN-wide = 1; skip if previous running; audit schedul
 | `Integration` type `nmap` | Enablement + `config_json` (CIDRs, excludes, flags) |
 | `NmapScanSchedule` | name, intensity, cron/interval, enabled, scope |
 | `NmapScanRun` | job_id, schedule_id?, intensity, targets, summary, artifact path |
-| `NmapDevice` | auto-created; IP/hostname/MAC; state; linked `server_id` |
+| `NmapDevice` | auto-created; IP/hostname/MAC; state; linked `server_id`; `display_name`; `kind_override`; `map_role` |
 | Ports / services | Latest snapshot (bounded) |
 | `NmapScriptResult` | NSE / Vulners output, optional CVE ids |
 | Artifacts | XML under `DATA_ROOT/nmap/…` + retention |
 
-**Identity:** MAC when present; else IP + merge UI for DHCP churn.  
+**Identity (shipped):** MAC when present (`mac:…`); else IP (`ip:…`). Same MAC at new DHCP IP updates `ip_address` in place (name/kind/state kept). First MAC at an IP-only row upgrades identity.  
 **Retention:** latest ports per device + last N run summaries; raw XML TTL configurable.  
-**Platform alignment:** Jobs/Audit DB purge and entity cascades live in RC3 stream **R** ([PLAN_v0.8.0.md](PLAN_v0.8.0.md) § R) — nmap run rows + `DATA_ROOT/nmap/runs/*.xml` should honor the same operator-visible retention settings (or a dedicated “nmap artifacts days” knob defaulting to 30).
+**Platform alignment:** Jobs/Audit DB purge and entity cascades live in RC3 stream **R** ([PLAN_v0.8.0.md](PLAN_v0.8.0.md) § R) — nmap run rows + `DATA_ROOT/nmap/runs/*.xml` honor opt-in stale cleanup.
 
 ---
 
@@ -245,7 +259,7 @@ Guardrails: max concurrent LAN-wide = 1; skip if previous running; audit schedul
 | Scanopy | Reference; do not vendor |
 | Netdisco | Different domain (SNMP) |
 
-**0.8 MVP:** in-house subnet/group or simple graph from Postgres (optional Redis snapshot). Node types: discovered, linked server, ignored. Click → device detail.
+**0.8 MVP (shipped):** subnet-grouped Network cards + end-to-end Hosts map overlay (outer chips, dual compact/full layout). Node types: discovered, linked server, ignored, gateway spine. Click Network card → edit modal; Hosts chip → device detail.
 
 ---
 
@@ -287,9 +301,10 @@ Aim for **high unit + E2E coverage** of nmap surfaces (stronger than global ~50%
 | **N4** | Multiple schedules + **create/edit** + APScheduler sync + options_json | **Done** |
 | **N5** | Network view MVP | **Done** (subnet groups) |
 | **N6** | Per-IP deep + vuln pack update job + Jobs progress; deep NSE (vuln+vulscan, no double vulners) | **Done** |
-| **N7** | Promote/link/dismiss + audit + **wiki/ADMIN** + screenshots | **Partial** — link/ignore/promote + wiki; **screenshots open** (stream A) |
+| **N7** | Promote/link/dismiss + audit + **wiki/ADMIN** + screenshots | **Partial** — product + wiki/ADMIN done; **screenshots open** (stream A) |
 | **N8** | Soft embed into existing views | **Done** — server list LAN chip + server detail discovery card |
-| **N9** | Coverage gate + E2E green | **Mostly done** — unit options/classify/embed + `e2e/test_nmap_lan.py` shells; no live scan in CI |
+| **N9** | Coverage gate + E2E green | **Mostly done** — unit options/classify/embed/map-identity + `e2e/test_nmap_lan.py` shells; no live scan in CI |
+| **N10** | Map identity polish | **Done** — kind override, gateway role, known/new, MAC/DHCP, Hosts dual layout + chrome; icons/shapes + per-service labels **roadmap** |
 
 **Also shipped with N (ops hardening):** root nmap worker for reliable inventory; hostname/MAC via host net + DNS; schedule SYN/vuln options; web mounts vuln volume **:ro** for Overview pack status.
 
@@ -310,6 +325,9 @@ MVP product slice: **N1–N6**; docs wiki **N7 partial**; screenshots + E2E = ta
 - [x] High unit + E2E shells (fixtures only); no live scan in CI — **N9**  
 - [x] Soft embed: fleet list + host detail (N8)  
 - [x] Curated options + deep script presets + script result classification  
+- [x] Map identity: name, kind override, gateway role, known/new, MAC/DHCP  
+- [x] Hosts map dual layout + radar chrome + 1:1 compact fit  
+- [x] Network centered edit modal (save and close, scroll restore)  
 - [ ] Screenshots for network view + discovery — stream **A**
 
 ---
@@ -322,7 +340,7 @@ MVP product slice: **N1–N6**; docs wiki **N7 partial**; screenshots + E2E = ta
 | 2 | Exact Dockerfile layout | **Done** | `Dockerfile.nmap` |
 | 3 | SYN vs connect default | **Locked lean** | Prefer SYN when privileged; connect fallback; per-schedule override |
 | 4 | IPv6 in 0.8 | Open | Out unless cheap |
-| 5 | Device identity | Lean | MAC when present; else IP; merge UI later |
+| 5 | Device identity | **Done lean** | MAC when present; else IP; DHCP updates in place; no merge UI |
 | 6 | Vuln fetch tooling | **Done** | Volume + `nmap_vuln_db_update` (vulscan / exploit-db style pack) |
 | 7 | Deep vuln must for tag? | Lean | **Should**; discovery+inventory+detailed+view **must** |
 
@@ -332,6 +350,11 @@ MVP product slice: **N1–N6**; docs wiki **N7 partial**; screenshots + E2E = ta
 
 | Date | Note |
 |------|------|
+| 2026-07-21 | **Docs pass:** wiki (modal, Hosts chrome, 1:1 fit), ADMIN, PLAN/ROADMAP; N10 product complete bar |
+| 2026-07-21 | **Hosts map chrome:** radar disc toggle (count in footer), one-line tools, **1:1** fits compact when disc off; dual-layout gateway clip |
+| 2026-07-21 | **Network UX:** centered edit modal; Save and close + scroll restore; Mark known/new |
+| 2026-07-21 | **Mark known / Mark new** UI + auto-known on map-identity save; DHCP: MAC identity updates IP |
+| 2026-07-21 | **Map identity:** `kind_override` + `map_role=gateway` (router spine + network gateway IP); sticky type when heuristics bust; roadmap icons/shapes + service labels |
 | 2026-07-19 | Skeleton opened with v0.8.0 kickoff |
 | 2026-07-19 | **Approved:** separate worker, vuln volume for Vulners, intensity ladder, multi-schedule, network view, high test bar |
 | 2026-07-19 | Retention note: nmap artifacts align with platform stream **R** (Jobs/Audit 30d opt-in; entity cascades) |

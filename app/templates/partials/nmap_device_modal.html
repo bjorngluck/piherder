@@ -1,0 +1,305 @@
+{# Device edit modal — Network + Devices tabs.
+   Expects: device, device_profile, device_ports, device_scripts_classified,
+   device_script_counts, kind_choices, map_role_gateway, servers, cfg,
+   script_presets, script_preset_labels, can_mutate, integration,
+   return_tab (network|devices), state_filter, msg (optional)
+#}
+{% set rtab = return_tab or tab or 'devices' %}
+{% set close_href = '?tab=' ~ rtab ~ (('&state=' ~ state_filter) if state_filter and rtab == 'devices' else '') %}
+{# Centered floating modal — same shell as users / jobs / wait modals (not a bottom sheet). #}
+<div id="nmap-device-modal"
+     class="nmap-device-modal fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="nmap-device-modal-title"
+     data-testid="nmap-device-modal"
+     data-nmap-modal-close>
+  <div class="modal-content card p-0 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden nmap-device-modal-panel"
+       role="document"
+       onclick="event.stopPropagation()">
+    <header class="nmap-device-modal-head">
+      <div class="min-w-0 flex-1">
+        <div class="text-[10px] uppercase tracking-wider text-muted font-semibold">Edit device</div>
+        <h3 id="nmap-device-modal-title" class="text-lg font-semibold tracking-tight text-text truncate m-0">
+          {{ device.display_name or device.hostname or device.ip_address }}
+        </h3>
+        <div class="font-mono text-sm text-muted truncate">
+          {{ device.ip_address }}
+          {% if device.hostname and device.hostname != device.display_name %}
+          · {{ device.hostname }}
+          {% endif %}
+          {% if device.mac_address %} · {{ device.mac_address }}{% endif %}
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+        {% if device_profile %}
+        <span class="nmap-kind nmap-kind--{{ device_profile.kind }}"
+              data-testid="nmap-device-kind"
+              title="{% if device_profile.overridden %}Operator type{% else %}Heuristic{% endif %}">
+          {{ device_profile.label }}{% if device_profile.overridden %}*{% endif %}
+        </span>
+        {% endif %}
+        <span class="nmap-state nmap-state--{{ device.state }}">{{ device.state }}</span>
+        <a href="{{ close_href }}" class="btn btn-secondary text-xs min-h-9 px-3"
+           data-nmap-modal-close data-testid="nmap-device-modal-close"
+           title="Close">✕</a>
+      </div>
+    </header>
+
+    <div class="nmap-device-modal-body">
+      {% if device_profile and not device_profile.overridden and device_profile.kind != 'unknown' %}
+      <p class="nmap-device-modal-hint text-xs text-muted m-0 mb-3">
+        Auto type is <strong class="text-text">{{ device_profile.label }}</strong>
+        {% if device_profile.confidence %} ({{ device_profile.confidence }}){% endif %}.
+        Wrong? Set <strong class="text-text">Device type</strong> below — e.g. NAS → Router.
+      </p>
+      {% elif device_profile and device_profile.overridden %}
+      <p class="nmap-device-modal-hint text-xs text-muted m-0 mb-3">
+        Type locked by you
+        {% if device_profile.auto_kind and device_profile.auto_kind != device_profile.kind %}
+        · auto was <span class="text-text">{{ device_profile.auto_kind }}</span>
+        {% endif %}
+        · choose <strong class="text-text">Auto</strong> to clear.
+      </p>
+      {% endif %}
+
+      {% if can_mutate %}
+      {# —— Primary: identity (name + type + role) —— #}
+      <form method="post"
+            action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/name"
+            class="nmap-device-edit-form space-y-3"
+            data-testid="nmap-device-name-form">
+        <input type="hidden" name="return_tab" value="{{ rtab }}">
+        <div class="nmap-device-edit-grid">
+          <div class="nmap-device-edit-field nmap-device-edit-field--name">
+            <label class="block text-xs font-semibold text-text mb-1" for="dev-display-name">Map name</label>
+            <input id="dev-display-name" name="display_name" class="input w-full text-sm min-h-11"
+                   maxlength="128" placeholder="e.g. udm-pro, cctv1, living-room-tv"
+                   value="{{ device.display_name or '' }}"
+                   data-testid="nmap-device-display-name"
+                   autocomplete="off">
+          </div>
+          <div class="nmap-device-edit-field nmap-device-edit-field--kind">
+            <label class="block text-xs font-semibold text-text mb-1" for="dev-kind-override">
+              Device type
+              <span class="font-normal text-muted">(override)</span>
+            </label>
+            <select id="dev-kind-override" name="kind_override"
+                    class="input w-full text-sm min-h-11 font-medium"
+                    data-testid="nmap-device-kind-override"
+                    title="Override when discovery misclassifies (e.g. NAS → Router)">
+              <option value="">Auto — {{ device_profile.label if device_profile and not device_profile.overridden else 'heuristic' }}</option>
+              {% for kid, klabel in kind_choices %}
+              <option value="{{ kid }}"
+                {% if device.kind_override == kid %}selected{% endif %}>{{ klabel }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="nmap-device-edit-field nmap-device-edit-field--role">
+            <label class="block text-xs font-semibold text-text mb-1" for="dev-map-role">Map role</label>
+            <select id="dev-map-role" name="map_role" class="input w-full text-sm min-h-11"
+                    data-testid="nmap-device-map-role"
+                    title="Gateway = Hosts map Router spine">
+              <option value="">LAN device</option>
+              <option value="{{ map_role_gateway }}"
+                {% if device.map_role == map_role_gateway %}selected{% endif %}>
+                Gateway / router
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2 items-center pt-1">
+          <button type="submit" class="btn btn-primary min-h-11 px-5"
+                  data-testid="nmap-device-map-save"
+                  title="Save and return to the list (modal closes)">
+            Save and close
+          </button>
+          <a href="{{ close_href }}" class="btn btn-secondary min-h-11 px-4"
+             data-testid="nmap-device-cancel">Cancel</a>
+          <span class="text-[11px] text-muted">Survives rescans · returns to list</span>
+        </div>
+      </form>
+
+      {# —— Quick state —— #}
+      <div class="nmap-device-actions-row mt-4" data-testid="nmap-device-state-actions">
+        {% if device.state in ('new', 'stale') %}
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/mark-known"
+              data-testid="nmap-device-mark-known-form">
+          <input type="hidden" name="return_tab" value="{{ rtab }}">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9">Mark known</button>
+        </form>
+        {% elif device.state == 'known' %}
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/mark-new"
+              data-testid="nmap-device-mark-new-form">
+          <input type="hidden" name="return_tab" value="{{ rtab }}">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9">Mark new</button>
+        </form>
+        {% endif %}
+        {% if device.state != 'ignored' %}
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/ignore">
+          <input type="hidden" name="return_tab" value="{{ rtab }}">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9">Ignore</button>
+        </form>
+        {% else %}
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unignore">
+          <input type="hidden" name="return_tab" value="{{ rtab }}">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9">Unignore</button>
+        </form>
+        {% endif %}
+        {% if device.state == 'linked' %}
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unlink">
+          <input type="hidden" name="return_tab" value="{{ rtab }}">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9">Unlink</button>
+        </form>
+        {% else %}
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/link"
+              class="flex flex-wrap gap-1.5 items-center">
+          <input type="hidden" name="return_tab" value="{{ rtab }}">
+          <select name="server_id" class="input text-xs min-h-9" required>
+            <option value="">Link server…</option>
+            {% for s in servers %}
+            <option value="{{ s.id }}">{{ s.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-secondary text-xs min-h-9">Link</button>
+        </form>
+        {% endif %}
+        <a href="/servers/new" class="btn btn-secondary text-xs min-h-9"
+           title="Add host via wizard — use IP {{ device.ip_address }}">Promote</a>
+      </div>
+      {% else %}
+      <p class="text-sm text-muted">View only — operators can edit name, type, and role.</p>
+      {% endif %}
+
+      {# —— Ports (compact) —— #}
+      <details class="nmap-device-more mt-4" {% if device_ports %}open{% endif %}>
+        <summary class="nmap-section-title cursor-pointer select-none">
+          Open ports
+          {% if device_ports %}
+          <span class="text-muted font-normal text-xs ml-1">({{ device_ports|length }})</span>
+          {% endif %}
+        </summary>
+        {% if device_ports %}
+        <div class="nmap-ports-table mt-2 mb-2 max-h-40 overflow-y-auto">
+          <table>
+            <thead>
+              <tr><th>Port</th><th>State</th><th>Service</th><th>Product</th></tr>
+            </thead>
+            <tbody>
+            {% for p in device_ports %}
+              {% if p.state == 'open' or loop.index <= 40 %}
+              <tr class="{% if p.has_problem %}is-problem{% elif p.state == 'open' %}is-open{% endif %}">
+                <td class="font-mono">{{ p.port }}/{{ p.protocol or 'tcp' }}</td>
+                <td>{{ p.state }}</td>
+                <td>{{ p.service or '—' }}</td>
+                <td class="text-muted">{{ p.product or '' }} {{ p.version or '' }}</td>
+              </tr>
+              {% endif %}
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-xs text-muted mt-2">No port data — run inventory or deep scan.</p>
+        {% endif %}
+      </details>
+
+      {% if device_scripts_classified %}
+      <details class="nmap-device-more mt-2">
+        <summary class="nmap-section-title cursor-pointer select-none">
+          Findings
+          {% if device_script_counts and device_script_counts.finding %}
+          <span class="status-pill status-failed text-[10px] ml-1">{{ device_script_counts.finding }}</span>
+          {% endif %}
+        </summary>
+        <div class="space-y-2 max-h-40 overflow-y-auto mt-2" data-testid="nmap-script-list">
+          {% for sc in device_scripts_classified[:20] %}
+          <details class="nmap-script-card nmap-script-{{ sc.kind }}">
+            <summary class="flex flex-wrap items-center gap-1.5 text-xs">
+              <span class="font-mono">{{ sc.script_id }}</span>
+              {% if sc.port is not none %}
+              <span class="font-mono text-muted">{{ sc.port }}/{{ sc.protocol or 'tcp' }}</span>
+              {% endif %}
+              <span class="status-pill feature-off text-[10px]">{{ sc.label }}</span>
+            </summary>
+            <pre class="text-[10px] mt-1">{{ sc.output or '' }}</pre>
+          </details>
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
+
+      {% if can_mutate %}
+      <details class="nmap-device-more mt-2">
+        <summary class="nmap-section-title cursor-pointer select-none">Deep scan</summary>
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/scan"
+              class="flex flex-wrap items-end gap-2 mt-2" data-testid="nmap-device-deep-form">
+          <input type="hidden" name="return_tab" value="{{ rtab }}">
+          <div>
+            <label class="block text-[10px] text-muted mb-0.5" for="dev-script-preset">Script preset</label>
+            <select id="dev-script-preset" name="script_preset" class="input text-xs min-h-9"
+                    {% if not cfg.vuln_enabled %}disabled{% endif %}>
+              {% for p in script_presets or ['none','cpe','offline','full'] %}
+              <option value="{{ p }}" {% if p == 'cpe' %}selected{% endif %}>
+                {{ (script_preset_labels or {}).get(p, p) }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] text-muted mb-0.5" for="dev-timing">Timing</label>
+            <select id="dev-timing" name="timing" class="input text-xs min-h-9">
+              <option value="3">T3 — normal</option>
+              <option value="4" selected>T4 — aggressive</option>
+              <option value="5">T5 — insane</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary text-xs min-h-9">Queue deep scan</button>
+        </form>
+      </details>
+      {% endif %}
+
+      <p class="text-[10px] text-muted mt-3 mb-0">
+        Identity prefers <strong class="text-text">MAC</strong> (DHCP IP may change).
+        Type override and map name survive rescans.
+      </p>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('nmap-device-modal');
+  if (!modal) return;
+  var closeHref = {{ close_href|tojson }};
+  document.body.classList.add('nmap-modal-open');
+  // Ensure scroll position was captured before modal (network list restore)
+  try {
+    if (sessionStorage.getItem('piherder.nmap.network.scrollY') == null) {
+      sessionStorage.setItem(
+        'piherder.nmap.network.scrollY',
+        String(window.scrollY || window.pageYOffset || 0)
+      );
+    }
+  } catch (e) { /* ignore */ }
+  function close() {
+    document.body.classList.remove('nmap-modal-open');
+    window.location.href = closeHref;
+  }
+  // Backdrop (overlay itself) closes — panel stops propagation
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) close();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      close();
+    }
+  });
+  var kind = document.getElementById('dev-kind-override');
+  var name = document.getElementById('dev-display-name');
+  setTimeout(function () {
+    if (kind) kind.focus();
+    else if (name) name.focus();
+  }, 50);
+})();
+</script>

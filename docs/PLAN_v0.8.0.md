@@ -66,8 +66,8 @@ This is **not** web SSH, ACME-in-herder, or a second onboarding rewrite.
 |--------|---------------|--------|
 | **P** Overall polish | Should / strong | Inventory below — mostly open |
 | **Q** E2E + test coverage | **Must** (grow bar) | **In progress** — HTTP smoke + nmap/cleanup unit depth; cov floor 30% in CI; ~50% still open |
-| **A** Full docs review + screenshot pack | **Must** | Prose: LAN Discovery + Hosts map discovery overlay + names/kinds wiki updated (2026-07-20); **PNG pack open** |
-| **N** LAN discovery (nmap-class) | **Must** (feature) | **Product largely done** · Hosts map overlay · display names · kind heuristics · N9 shells · screenshots open |
+| **A** Full docs review + screenshot pack | **Must** | Prose: LAN Discovery modal + Hosts chrome + map identity wiki updated (2026-07-21); **PNG pack open** |
+| **N** LAN discovery (nmap-class) | **Must** (feature) | **Product complete (N0–N10)** · identity/lifecycle · dual Hosts layout · N9 shells · screenshots open |
 | **R** Data retention / grooming / delete cascades | Should / capacity | **R1 done** (Jobs/Audit/nmap-run opt-in) · R2 docs partial · cascade UI later |
 | **L** Host lifecycle P3 | Nice / capacity | Optional / parked |
 | **D** Packaging | Must at tag | End of cycle |
@@ -203,11 +203,15 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 | Port-level findings cross-link | **Done** |
 | Link / ignore / promote shell | **Done** |
 | **Device kind heuristics** (MAC vendor/OUI + ports + hostname) | **Done** |
+| **Kind override** + **map role gateway** | **Done** |
 | **Operator map names** (`display_name` → Hosts map chips) | **Done** |
-| **Hosts map overlay** — unlinked discoveries, outer chips, toolbar toggle | **Done** |
+| **Known / new** lifecycle + auto-known on map save | **Done** |
+| **MAC identity / DHCP IP update** | **Done** |
+| **Hosts map overlay** — dual compact/full, radar toggle, 1:1 compact fit | **Done** |
+| **Network edit modal** (centered; save and close; scroll restore) | **Done** |
 | Soft embed fleet list + host detail (N8) | **Done** |
 | Unit + E2E shells (N9) | **Done** (fixtures only; `e2e/test_nmap_lan.py`) |
-| Operator wiki + ADMIN notes | **Done** (refreshed 2026-07-20) |
+| Operator wiki + ADMIN notes | **Done** (refreshed 2026-07-21) |
 | Screenshots | **Open** (stream A) |
 
 **Acceptance (detail in feature plan):**
@@ -218,7 +222,8 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 - [x] Compose profile worker + vuln volume; default install without them  
 - [x] Curated options + script presets + classify findings (not free-form flags)  
 - [x] Soft embed (server list chip + server detail card)  
-- [x] End-to-end Hosts map without per-device link; map names; kind badges  
+- [x] End-to-end Hosts map without per-device link; map names; kind badges / override; gateway role  
+- [x] Known/new + MAC/DHCP identity; Network modal + Hosts chrome (1:1 fit)  
 - [x] Wiki (+ ADMIN); high unit/E2E shells (fixtures only in CI)  
 - [ ] Screenshots (stream A)
 
@@ -269,8 +274,8 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | LAN discovery product slice (N) | **Mostly done** (N0–N9 shells + soft embed + presets); screenshots remain |
-| 2 | Full docs review + screenshot pack (A) | **Partial** (LAN/settings prose); PNG pack open |
+| 1 | LAN discovery product slice (N) | **Done product** (N0–N10); screenshots remain (A) |
+| 2 | Full docs review + screenshot pack (A) | **Partial** (LAN/Hosts prose 2026-07-21); PNG pack open |
 | 3 | HTTP smoke + unit coverage **~50%** bar (Q) | Smoke **done**; ~50% still open (CI floor 30%) |
 | 4 | E2E suite green (0.7 base + extensions) | Open (0.7 base exists) |
 | 5 | Version `0.8.0` + tag + Hub | Open |
@@ -368,6 +373,7 @@ Before tagging **0.8.0**, a maintainer can:
 | 2026-07-19 | **Next focus:** stream **Q** (~50% coverage, HTTP smoke, E2E growth) + stream **A** screenshot pack; optional P polish / N8 embed |
 | 2026-07-19 | **Q smoke slice:** `test_http_smoke` (auth 401 + logged-in shells); nmap schedule CRUD / argv / nmap-run purge; ops_pulse + update_check_config; CI cov report + fail-under 30 |
 | 2026-07-19 | **Nmap N8–N9 + polish:** soft embed (fleet/host), deep script presets, curated timing/ports/UDP, script classify UI, unit + `e2e/test_nmap_lan.py`; remaining for N: **screenshots** (A) |
+| 2026-07-21 | **Nmap N10 complete:** kind override, gateway role, known/new, MAC/DHCP, Network modal, Hosts dual layout + radar chrome + 1:1 compact fit; wiki/ADMIN/plan docs pass; remaining for N: **screenshots** (A) |
 
 ---
 
