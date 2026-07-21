@@ -235,9 +235,9 @@
   {% else %}
 
   {% if can_mutate %}
-  <p class="text-[10px] text-muted mb-2 leading-snug">
-    <strong class="text-text">Drag ⋮⋮</strong> reorder · <strong class="text-text">category</strong> = map columns · <strong class="text-text">tags</strong> = chips · <strong class="text-text">view group</strong> = which fan on the map.
-    {% if p.has_custom_order %}<span class="text-success"> · custom order on</span>{% endif %}
+  <p class="text-[10px] text-muted mb-2 leading-snug" data-stack-order-help>
+    <strong class="text-text">Drag ⋮⋮</strong> reorder · map columns follow that order left→right (by category) · <strong class="text-text">view group</strong> = which fan on the map.
+    {% if p.has_custom_order %}<span class="text-success" data-stack-custom-order-flag> · custom order on</span>{% endif %}
   </p>
   {% endif %}
   <ul class="fabric-stack-list" role="list"

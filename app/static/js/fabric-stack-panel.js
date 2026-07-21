@@ -159,24 +159,48 @@
       }, 900);
     }
 
+    function markCustomOrderOn() {
+      // Avoid full panel reload (that was blanking nav links mid-fetch).
+      var help = list.closest('.fabric-stack-panel-inner');
+      if (!help) help = list.parentElement;
+      var note = help && help.querySelector
+        ? help.querySelector('[data-stack-order-help]')
+        : null;
+      if (note && !note.querySelector('[data-stack-custom-order-flag]')) {
+        var span = document.createElement('span');
+        span.setAttribute('data-stack-custom-order-flag', '1');
+        span.className = 'text-success';
+        span.textContent = ' · custom order on';
+        note.appendChild(span);
+      }
+    }
+
     function afterSaveOk() {
       flashSaved();
-      var sid = list.getAttribute('data-service-id');
-      // Map multi-fan (Main + e2e) lives under visual_stack=all — refresh that
-      // so reordering e2e updates the Hosts/Path map fan, not only the panel.
-      if (window.PiHerderStackExpand && window.PiHerderStackExpand.invalidate) {
-        window.PiHerderStackExpand.invalidate(sid || null);
-        if (sid && window.PiHerderStackExpand.show) {
-          try {
-            window.PiHerderStackExpand.show(sid, 'all');
-          } catch (err) {}
+      renumberBadges();
+      markCustomOrderOn();
+      lastOrder = collectOrderSnapshot();
+      // Force-repaint map expand (All = multi-fan Main + e2e). Do NOT reload
+      // the whole panel — that swapped body to "Loading…" and left Server /
+      // Hosts map links unresponsive when the soft-reload raced or failed.
+      try {
+        if (window.PiHerderStackExpand && window.PiHerderStackExpand.refresh) {
+          window.PiHerderStackExpand.refresh({
+            serviceId: list.getAttribute('data-service-id') || '',
+            serverId: list.getAttribute('data-server-id') || '',
+            project: list.getAttribute('data-project') || '',
+            visualStack: 'all',
+          });
+        } else if (window.PiHerderStackExpand) {
+          var sid = list.getAttribute('data-service-id') || '';
+          if (window.PiHerderStackExpand.invalidate) {
+            window.PiHerderStackExpand.invalidate(sid || null);
+          }
+          if (sid && window.PiHerderStackExpand.show) {
+            window.PiHerderStackExpand.show(sid, 'all', true);
+          }
         }
-      }
-      // Soft reload panel so "custom order on" + server order stick
-      var url = panelUrlFromList(list);
-      setTimeout(function () {
-        loadStack(url);
-      }, 120);
+      } catch (err) {}
     }
 
     function panelUrlFromList(el) {
@@ -480,6 +504,8 @@
           e && e.message ? e.message : 'Failed to load stack.',
           url
         );
+        lastOpenUrl = '';
+        lastOpenAt = 0;
       });
   }
 
@@ -612,9 +638,18 @@
         list.getAttribute('data-visual-stack') ||
         list.getAttribute('data-active-visual') ||
         'all';
-      if (sid && window.PiHerderStackExpand) {
+      // View-group switch: map follows filter. Use All so multi-fan stays
+      // available when panel is on All; force paint so order is not stale.
+      if (window.PiHerderStackExpand && window.PiHerderStackExpand.refresh) {
+        window.PiHerderStackExpand.refresh({
+          serviceId: sid || '',
+          serverId: list.getAttribute('data-server-id') || '',
+          project: list.getAttribute('data-project') || '',
+          visualStack: vs || 'all',
+        });
+      } else if (sid && window.PiHerderStackExpand) {
         window.PiHerderStackExpand.invalidate(sid);
-        window.PiHerderStackExpand.show(sid, vs);
+        window.PiHerderStackExpand.show(sid, vs, true);
       }
     } catch (err) {}
   }
