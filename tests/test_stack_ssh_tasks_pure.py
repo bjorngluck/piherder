@@ -95,15 +95,26 @@ def test_collect_stack_health_mocked():
     session.exec.return_value.all.return_value = []
     sh.apply_stack_health_notifications(session, report)
 
-    # save/load report roundtrip via tmp
-    with patch.object(sh, "Path") as P:
-        # fall through to real save if possible
-        pass
-    saved = sh.save_report(report)
-    assert saved
-    loaded = sh.load_last_report()
-    # may be None if DATA_ROOT not writable — either ok
-    assert loaded is None or isinstance(loaded, dict)
+    # save/load report roundtrip — mock app_settings so CI (no Postgres) stays pure
+    store: dict = {}
+
+    def _save(partial):
+        store.update(partial or {})
+        return dict(store)
+
+    def _load():
+        return dict(store)
+
+    with (
+        patch.object(sh.app_cfg, "save_settings", side_effect=_save),
+        patch.object(sh.app_cfg, "load_settings", side_effect=_load),
+    ):
+        saved = sh.save_report(report)
+        assert saved is report
+        assert store.get(sh.STACK_HEALTH_SETTINGS_KEY) == report
+        loaded = sh.load_last_report()
+        assert isinstance(loaded, dict)
+        assert loaded.get("overall") == "ok"
 
 
 def test_ssh_expand_paths_and_keypair(tmp_path):
