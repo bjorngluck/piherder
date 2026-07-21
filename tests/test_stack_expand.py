@@ -75,3 +75,79 @@ def test_expand_containers_and_confirmed_edges_only():
     assert out["edges"][0]["from"] == "web"
     assert out["edges"][0]["to"] == "db"
     assert out["summary"]["edge_count"] == 1
+
+
+def test_expand_renumbers_order_per_view_group():
+    """e2e fan must get 0..n ranks so Hosts map reflects e2e drag order."""
+    panel = {
+        "ok": True,
+        "service_id": 18,
+        "server_id": 5,
+        "server_name": "rpi",
+        "project": "piherder",
+        "fqdn": "app.lab",
+        "has_custom_order": True,
+        "custom_order": ["web", "db", "e2e-db", "e2e-web"],
+        "containers": [
+            {
+                "compose_service": "web",
+                "name": "web",
+                "role": "app",
+                "running": True,
+                "order_index": 0,
+                "custom_ordered": True,
+                "visual_stack_id": None,
+                "visual_stack_name": "Main",
+                "ports": [],
+            },
+            {
+                "compose_service": "db",
+                "name": "db",
+                "role": "data",
+                "running": True,
+                "order_index": 1,
+                "custom_ordered": True,
+                "visual_stack_id": None,
+                "visual_stack_name": "Main",
+                "ports": [],
+            },
+            {
+                "compose_service": "e2e-db",
+                "name": "e2e-db",
+                "role": "data",
+                "running": True,
+                "order_index": 2,
+                "custom_ordered": True,
+                "visual_stack_id": 9,
+                "visual_stack_name": "e2e",
+                "ports": [],
+            },
+            {
+                "compose_service": "e2e-web",
+                "name": "e2e-web",
+                "role": "app",
+                "running": True,
+                "order_index": 3,
+                "custom_ordered": True,
+                "visual_stack_id": 9,
+                "visual_stack_name": "e2e",
+                "ports": [],
+            },
+        ],
+        "confirmed_edges": [],
+        "visual_stacks": [
+            {"id": None, "name": "Main"},
+            {"id": 9, "name": "e2e"},
+        ],
+    }
+    with patch.object(se, "build_stack_panel", return_value=panel):
+        out = se.build_stack_expand_payload(session=object(), service_id=18)
+    assert out["ok"] is True
+    by = {c["id"]: c for c in out["containers"]}
+    # Each view group renumbered 0..n-1 independently
+    assert by["web"]["order_index"] == 0
+    assert by["db"]["order_index"] == 1
+    assert by["e2e-db"]["order_index"] == 0
+    assert by["e2e-web"]["order_index"] == 1
+    assert out["has_custom_order"] is True
+    assert len(out["multi_view"]) == 2

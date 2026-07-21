@@ -597,10 +597,11 @@ def set_order_via_annotations(
     ``merge=False`` (default, All view): replace project order — listed names
     get 0..n-1; other containers in this project lose sort_index.
 
-    ``merge=True`` (Main / named view-group reorder): only update listed names.
-    Other containers keep their sort_index so reordering Main does not wipe
-    e2e (or vice versa). Indices for the submitted list are reassigned as a
-    contiguous block that does not collide with untouched indices when possible.
+    ``merge=True`` (Main / named view-group reorder): splice the new relative
+    order of the submitted names into the existing project order *in place*
+    (first occurrence of any submitted name). Sibling view groups keep their
+    relative order and position — reordering e2e does not append e2e after
+    Main or wipe Main indices.
     """
     clean: list[str] = []
     seen: set[str] = set()
@@ -625,49 +626,60 @@ def set_order_via_annotations(
             continue
         by_key[r.container_key.lower()] = r
 
-    if merge and clean:
-        # Base index after any container not in this partial list
-        other_max = -1
-        for r in by_key.values():
-            if r.container_key.lower() in keep:
-                continue
-            if r.sort_index is not None:
-                try:
-                    other_max = max(other_max, int(r.sort_index))
-                except (TypeError, ValueError):
-                    pass
-        base = other_max + 1
-    else:
-        base = 0
+    existing = order_from_annotations(session, server_id=sid, project=proj)
 
-    for i, name in enumerate(clean):
-        idx = base + i
+    if merge and clean:
+        # In-place splice: keep untouched names, replace the touched block once
+        result: list[str] = []
+        emitted = False
+        for n in existing:
+            if n.lower() in keep:
+                if not emitted:
+                    result.extend(clean)
+                    emitted = True
+            else:
+                result.append(n)
+        if not emitted:
+            # First order for this subset — append after existing project order
+            result.extend(clean)
+        final_names = result
+    else:
+        final_names = list(clean)
+
+    final_keep = {n.lower() for n in final_names}
+    for i, name in enumerate(final_names):
         row = by_key.get(name.lower())
         if not row:
             row = ContainerAnnotation(
                 server_id=sid,
                 compose_project=proj,
                 container_key=name,
-                sort_index=idx,
+                sort_index=i,
                 created_at=now,
                 updated_at=now,
             )
             session.add(row)
             by_key[name.lower()] = row
         else:
-            row.sort_index = idx
+            row.sort_index = i
             row.compose_project = proj
             row.updated_at = now
             session.add(row)
 
     if not merge:
         for r in by_key.values():
-            if r.container_key.lower() not in keep and r.sort_index is not None:
+            if r.container_key.lower() not in final_keep and r.sort_index is not None:
                 r.sort_index = None
                 r.updated_at = now
                 session.add(r)
+    else:
+        # Merge must not leave stale indices on names removed from final_names
+        # (should not happen with splice) — only clear if they were in the
+        # submitted set but dropped as duplicates (already handled by clean).
+        pass
+
     session.commit()
-    return clean
+    return final_names if merge else clean
 
 
 def order_from_annotations(
