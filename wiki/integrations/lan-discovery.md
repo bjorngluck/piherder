@@ -23,10 +23,11 @@ PiHerder already manages hosts you onboarded. Discovery answers: *what else is o
 | **nmap worker** | Compose **profile `nmap`** — not started by default |
 | **nmap image** | Build: `docker build -f Dockerfile.nmap -t piherder:nmap-local .` |
 | **Start worker** | `docker compose --profile nmap up -d celery-worker-nmap` |
+| **Worker fence** | Compose sets `PIHERDER_NMAP_WORKER=0` on web/main celery and `=1` on the nmap worker. Tasks refuse when marker is 0 or `nmap` is missing. **Usually not in `.env`** — see [env reference](../operations/env-reference.md#lan-discovery-nmap--opt-in) · [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example) |
 | **Vuln pack volume** | Host dir `./piherder_nmap_vuln` (or `PIHERDER_NMAP_VULN_PATH`) mounted into web (ro) + nmap worker (rw) |
 | **Host networking** | Worker uses **host network** so ARP/MAC and LAN reachability work; Postgres/Redis must listen on host loopback (`127.0.0.1`) as in stock compose |
 
-Without the worker, Overview shows **scanner offline**. Without the vuln pack, deep **vuln scripts** stay gated.
+Without the worker, Overview shows **scanner offline**. Without the vuln pack, deep **vuln scripts** stay gated. Never add `-Q nmap` to the main celery-worker.
 
 !!! warning "Active recon"
     Scans are intentional reconnaissance on **your** networks only. Stay inside configured CIDRs. Do not point PiHerder at networks you do not own.
@@ -317,6 +318,8 @@ Web only **enqueues**. Cancel and progress follow the fleet Jobs UI (finished jo
 - Targets outside configured CIDRs are refused.  
 - SYN / raw scans need appropriate privileges in the nmap container (stock image runs as root with caps for reliable LAN + inventory). Connect-scan (`-sT`) is the fallback.  
 - Default install: **no** nmap worker, **no** vuln DB in image layers.  
+- **Worker fence:** `PIHERDER_NMAP_WORKER` is compose-owned (`0` web / `1` nmap worker); `worker_guard` refuses misrouted tasks.  
+- Detailed/deep whole-LAN **Scan now** asks for browser confirm (blast-radius).  
 - CI never live-scans real networks (fixtures / mock XML only).
 
 ---
@@ -324,6 +327,7 @@ Web only **enqueues**. Cancel and progress follow the fleet Jobs UI (finished jo
 ## Related
 
 - [Network maps (Hosts map + discovery overlay)](dns-fabric.md)  
+- [Environment reference — nmap](../operations/env-reference.md#lan-discovery-nmap--opt-in)  
 - [Integrations overview](overview.md)  
 - [Add a server](../day-to-day/add-server.md) — promote path  
 - [Jobs, audit & notifications](../day-to-day/jobs-audit-notifications.md)  

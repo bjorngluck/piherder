@@ -125,11 +125,11 @@ Source themes: [Recorded Future — top Nmap commands](https://www.recordedfutur
 
 | Rule | Why |
 |------|-----|
-| **Web never runs nmap** | Same as backup/patch |
-| **Celery executes scans** | Job + progress + cancel |
+| **Web never runs nmap** | Same as backup/patch; `PIHERDER_NMAP_WORKER=0` + no binary |
+| **Celery executes scans** | Only **queue `nmap`** on **celery-worker-nmap** |
 | **Results in PostgreSQL** | Devices, ports, runs, vulns |
 | **Redis for runtime** | Broker, locks, progress, optional view cache |
-| **Separate nmap worker** | Privileges + binary + vuln volume isolated |
+| **Separate nmap worker** | Privileges + binary + vuln volume + fence marker isolated |
 
 ### 5.2 Deploy shape (**locked**)
 
@@ -145,11 +145,14 @@ Source themes: [Recorded Future — top Nmap commands](https://www.recordedfutur
 **Compose lean:**
 
 ```yaml
-# illustrative
+# illustrative — see repo docker-compose.yml
+x-piherder-app-env:
+  PIHERDER_NMAP_WORKER: "0"   # web + main celery — tasks refuse to scan
 celery-worker-nmap:
   profiles: ["nmap"]
   image: ${PIHERDER_NMAP_IMAGE:-piherder:nmap-local}
-  # build: Dockerfile target `nmap` or Dockerfile.nmap
+  environment:
+    PIHERDER_NMAP_WORKER: "1"  # only allowed executor
   command: celery -A app.celery_app.celery worker -Q nmap --concurrency=1 ...
   volumes:
     - ${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}:/var/lib/piherder/nmap-vuln
@@ -157,11 +160,13 @@ celery-worker-nmap:
 ```
 
 - Default `docker compose up` does **not** start nmap worker.  
+- **`worker_guard`:** refuse scan/vuln tasks if `PIHERDER_NMAP_WORKER=0` or `nmap` binary missing (misrouted queue).  
+- Fence is compose/image-owned; documented in [`.env.example`](../.env.example) (usually **not** set in operator `.env`).  
 - UI shows **scanner offline** without worker heartbeat.  
 - Vuln volume empty until operator (or “Update vulnerability database” job) downloads pack.  
 - Deep Vulners gated on: flag **and** pack presence.
 
-**Image:** one repo, dedicated target with `nmap` installed; **do not** bake Vulners JSON/CVE DBs into layers.
+**Image:** one repo, dedicated `Dockerfile.nmap` with `nmap` + `PIHERDER_NMAP_WORKER=1`; **do not** bake Vulners JSON/CVE DBs into layers.
 
 ### 5.3 Job flow
 
@@ -350,6 +355,7 @@ MVP product slice: **N1–N6**; docs wiki **N7 partial**; screenshots + E2E = ta
 
 | Date | Note |
 |------|------|
+| 2026-07-21 | **Docs:** `.env.example` + wiki env-reference / install / architecture / lan-discovery / volumes document `PIHERDER_NMAP_WORKER` fence |
 | 2026-07-21 | **P0/P1 review follow-up:** worker_guard + compose fence; Show unlinked; Hosts return path; lifecycle close; promote prefill; stale 14d; config split (device_ops / fabric_projection); detailed/deep confirm; P2 on roadmap only |
 | 2026-07-21 | **Docs pass:** wiki (modal, Hosts chrome, 1:1 fit), ADMIN, PLAN/ROADMAP; N10 product complete bar |
 | 2026-07-21 | **Hosts map chrome:** radar disc toggle (count in footer), one-line tools, **1:1** fits compact when disc off; dual-layout gateway clip |

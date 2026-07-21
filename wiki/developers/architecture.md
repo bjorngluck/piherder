@@ -32,8 +32,10 @@ flowchart TB
 | Backups | Celery | Parallel across hosts; one backup per host (Redis mutex) |
 | OS/container patch & update checks | Web (`BackgroundTasks` / thread pools) | One active job of that type per host |
 | Bulk fleet actions | Web → same enqueue paths | Feature-flag skip + exclusive rules |
-| LAN nmap scans / vuln pack update | **celery-worker-nmap** (`-Q nmap`, concurrency 1) | Opt-in compose profile; host network |
+| LAN nmap scans / vuln pack update | **celery-worker-nmap** (`-Q nmap`, concurrency 1) | Opt-in profile; host network; `PIHERDER_NMAP_WORKER=1` only here |
 | Stale Jobs/Audit/nmap-run purge | Celery (default queue) | Opt-in Settings schedule |
+
+**Nmap privilege boundary:** web + main celery set `PIHERDER_NMAP_WORKER=0` in compose; tasks call `worker_guard` and refuse if marker is off or `nmap` is missing. Never put queue `nmap` on the main worker. See [env reference](../operations/env-reference.md#lan-discovery-nmap--opt-in) · [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example).
 
 ## Key modules (pointers)
 
@@ -50,7 +52,7 @@ flowchart TB
 | Templates | `app/services/service_templates/` |
 | Integrations (domain) | `app/services/integrations/` |
 | Integrations (HTTP) | `integrations.py` + `integrations_common` / `_kuma` / `_grafana` / `_pihole` / `_npm` / `_nmap` |
-| LAN nmap (scan/parse/schedules/vuln) | `app/services/nmap/` · router `integrations_nmap.py` · image `Dockerfile.nmap` |
+| LAN nmap (scan/parse/schedules/vuln) | `app/services/nmap/` (`worker_guard`, `scan`, `device_ops`, `fabric_projection`, …) · router `integrations_nmap.py` · image `Dockerfile.nmap` |
 | Stale data cleanup | `app/services/stale_data_cleanup.py` · Settings General |
 | Templates (HTTP) | `templates_common` + `templates_svc` (catalog) + `templates_deploy` |
 | Auth (HTTP) | `auth.py` + `auth_users.py` (admin users) |

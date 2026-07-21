@@ -37,6 +37,7 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `PIHERDER_BACKUP_HOST_PATH` | `./backups` | Host side of `/backups` mount |
+| `PIHERDER_NMAP_VULN_PATH` | `./piherder_nmap_vuln` | Host dir for LAN Discovery vuln pack (profile **nmap**) |
 
 Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`, `certs`.
 
@@ -50,6 +51,37 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 | `CELERY_CONCURRENCY` | `2` pool slots (compose → celery-worker) |
 | `PIHERDER_SERVER_LOCK_TTL` | `7200` backup mutex TTL |
 | `REDIS_URL` | Optional alias used in some deploy notes — broker/result URLs are authoritative |
+
+## LAN Discovery (nmap) — opt-in
+
+Default `docker compose up` does **not** start the nmap worker. See [LAN Discovery](../integrations/lan-discovery.md) · [install](../getting-started/install.md#6-optional-lan-discovery-nmap-worker).
+
+### Worker fence (compose-owned — usually not in `.env`)
+
+| Where | `PIHERDER_NMAP_WORKER` | Meaning |
+|-------|------------------------|---------|
+| **web** + main **celery-worker** | **`0`** (hard-coded in `docker-compose.yml` `x-piherder-app-env`) | Tasks refuse to run nmap (`worker_guard`) |
+| **celery-worker-nmap** | **`1`** (overrides anchor) | Only allowed scan / vuln-pack executor |
+| **`Dockerfile.nmap`** | **`1`** (`ENV`) | Image default for the nmap worker |
+
+You normally **do not** set `PIHERDER_NMAP_WORKER` in `.env` — compose owns it. Never add `-Q nmap` to the main celery-worker command.
+
+Task code also refuses when the **`nmap` binary is missing** (main image has no nmap).
+
+### Optional overrides (`.env` / shell)
+
+| Variable | Default idea | Purpose |
+|----------|--------------|---------|
+| `PIHERDER_NMAP_VULN_PATH` | `./piherder_nmap_vuln` | Host bind for vuln pack volume |
+| `PIHERDER_NMAP_VULN_ROOT` | `/var/lib/piherder/nmap-vuln` | In-container path (web **:ro**, nmap worker **rw**) |
+| `PIHERDER_NMAP_IMAGE` | `piherder:nmap-local` | Image tag for profile `nmap` |
+| `PIHERDER_NMAP_DATABASE_URL` | loopback Postgres | Host-network worker → `127.0.0.1:5432` |
+| `PIHERDER_NMAP_REDIS_URL` | loopback Redis | Host-network worker → `127.0.0.1:6379` |
+
+```bash
+docker build -f Dockerfile.nmap -t piherder:nmap-local .
+docker compose --profile nmap up -d celery-worker-nmap
+```
 
 ## Auth / sessions / cookies
 
@@ -85,3 +117,11 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 ## Inside-container paths (rarely change)
 
 `BACKUP_ROOT`, `HERDER_BACKUP_ROOT`, `DATA_ROOT`, `DEFAULT_DOCKER_BASE`, …
+
+## Related
+
+- [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example) — full commented catalog  
+- [Install — nmap worker](../getting-started/install.md#6-optional-lan-discovery-nmap-worker)  
+- [LAN Discovery](../integrations/lan-discovery.md)  
+- [Volumes](volumes.md)  
+- [ADMIN.md — production env](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md)

@@ -375,6 +375,7 @@ Before tagging **0.8.0**, a maintainer can:
 | 2026-07-19 | **Nmap N8–N9 + polish:** soft embed (fleet/host), deep script presets, curated timing/ports/UDP, script classify UI, unit + `e2e/test_nmap_lan.py`; remaining for N: **screenshots** (A) |
 | 2026-07-21 | **Nmap N10 complete:** kind override, gateway role, known/new, MAC/DHCP, Network modal, Hosts dual layout + radar chrome + 1:1 compact fit; wiki/ADMIN/plan docs pass; remaining for N: **screenshots** (A) |
 | 2026-07-21 | **Nmap P0/P1 review:** worker_guard + compose fence; Show unlinked; Hosts return; modal close parity; promote prefill; stale 14d; device_ops/fabric_projection split; deep/detailed confirm; P2 roadmap-only |
+| 2026-07-21 | **Nmap fence docs:** `.env.example` + wiki env-reference / install / architecture / lan-discovery / volumes + ADMIN deploy section |
 
 ---
 

@@ -30,4 +30,5 @@ When using profile **`nmap`**:
 
 - **Vuln pack** lives on the host path above — never baked into image layers.  
 - **Scan XML** lands under `piherder_data/nmap/runs/` (shared `DATA_ROOT`).  
-- Optional purge of old nmap runs: Settings → **Stale data cleanup** (nmap toggle off by default).
+- Optional purge of old nmap runs: Settings → **Stale data cleanup** (nmap toggle off by default).  
+- **Worker fence** is env/compose, not a volume: `PIHERDER_NMAP_WORKER` is `0` on web and `1` on `celery-worker-nmap` — [env reference](env-reference.md#lan-discovery-nmap--opt-in).

@@ -77,14 +77,23 @@ Continue: [First login](first-login.md) — **register the first admin** (no def
 
 ### 6. (Optional) LAN Discovery nmap worker
 
-Default `docker compose up` does **not** start nmap. For opt-in discovery:
+Default `docker compose up` does **not** start nmap. Web **never** runs scans: it only enqueues to queue `nmap`.
+
+**Worker fence (compose hard-codes — no `.env` required):**
+
+| Process | `PIHERDER_NMAP_WORKER` |
+|---------|------------------------|
+| web + main celery-worker | `0` — tasks refuse to scan |
+| `celery-worker-nmap` (+ `Dockerfile.nmap`) | `1` — only allowed executor |
+
+Documented in [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example) and [Environment reference](../operations/env-reference.md#lan-discovery-nmap--opt-in).
 
 ```bash
 docker build -f Dockerfile.nmap -t piherder:nmap-local .
 docker compose --profile nmap up -d celery-worker-nmap
 ```
 
-Ensure stock compose still publishes Postgres/Redis on **host loopback** (nmap worker uses host networking). Vuln pack dir defaults to `./piherder_nmap_vuln`. Operator guide: [LAN Discovery](../integrations/lan-discovery.md).
+Ensure stock compose still publishes Postgres/Redis on **host loopback** (nmap worker uses host networking). Vuln pack dir defaults to `./piherder_nmap_vuln` (`PIHERDER_NMAP_VULN_PATH`). Never add `-Q nmap` to the main celery-worker. Operator guide: [LAN Discovery](../integrations/lan-discovery.md).
 
 ### 7. Production security checklist
 
