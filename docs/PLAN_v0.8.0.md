@@ -279,7 +279,7 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 | 3 | HTTP smoke + unit coverage **~50%** bar (Q) | Smoke **done**; ~50% still open (CI floor 30%) |
 | 4 | E2E suite green (0.7 base + extensions) | Open (0.7 base exists) |
 | 5 | Version `0.8.0` + tag + Hub | Open |
-| 6 | `RELEASE_v0.8.0.md` | Open |
+| 6 | `RELEASE_v0.8.0.md` | **Draft** on main (2026-07-21) — finalize Date/version at tag |
 
 ### Should
 
@@ -376,6 +376,7 @@ Before tagging **0.8.0**, a maintainer can:
 | 2026-07-21 | **Nmap N10 complete:** kind override, gateway role, known/new, MAC/DHCP, Network modal, Hosts dual layout + radar chrome + 1:1 compact fit; wiki/ADMIN/plan docs pass; remaining for N: **screenshots** (A) |
 | 2026-07-21 | **Nmap P0/P1 review:** worker_guard + compose fence; Show unlinked; Hosts return; modal close parity; promote prefill; stale 14d; device_ops/fabric_projection split; deep/detailed confirm; P2 roadmap-only |
 | 2026-07-21 | **Nmap fence docs:** `.env.example` + wiki env-reference / install / architecture / lan-discovery / volumes + ADMIN deploy section |
+| 2026-07-21 | **RELEASE_v0.8.0.md draft** on main; unit coverage ~49% (RC3 Q); screenshot pack next (stream A) |
 
 ---
 
