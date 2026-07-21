@@ -48,6 +48,89 @@ def test_normalize_project_keeps_e2e_distinct():
     assert ann.normalize_project("piherder") != ann.normalize_project("piherder-e2e")
 
 
+def test_set_order_merge_preserves_other_view_group():
+    """Reordering Main must not clear sort_index on e2e view-group containers."""
+    from datetime import datetime
+
+    from app.models import ContainerAnnotation
+
+    now = datetime.utcnow()
+    rows = [
+        ContainerAnnotation(
+            server_id=1,
+            compose_project="piherder",
+            container_key="e2e-web",
+            sort_index=0,
+            created_at=now,
+            updated_at=now,
+        ),
+        ContainerAnnotation(
+            server_id=1,
+            compose_project="piherder",
+            container_key="e2e-db",
+            sort_index=1,
+            created_at=now,
+            updated_at=now,
+        ),
+        ContainerAnnotation(
+            server_id=1,
+            compose_project="piherder",
+            container_key="web",
+            sort_index=2,
+            created_at=now,
+            updated_at=now,
+        ),
+        ContainerAnnotation(
+            server_id=1,
+            compose_project="piherder",
+            container_key="db",
+            sort_index=3,
+            created_at=now,
+            updated_at=now,
+        ),
+    ]
+
+    class _Sess:
+        def exec(self, _q):
+            m = MagicMock()
+            m.all.return_value = list(rows)
+            return m
+
+        def add(self, obj):
+            if obj not in rows:
+                rows.append(obj)
+
+        def commit(self):
+            return None
+
+    # Main view: reorder only web/db
+    ann.set_order_via_annotations(
+        _Sess(),
+        server_id=1,
+        project="piherder",
+        names=["db", "web"],
+        merge=True,
+    )
+    by = {r.container_key: r.sort_index for r in rows}
+    assert by["e2e-web"] is not None
+    assert by["e2e-db"] is not None
+    assert by["db"] < by["web"]
+
+    # Full replace (All) clears names not submitted
+    ann.set_order_via_annotations(
+        _Sess(),
+        server_id=1,
+        project="piherder",
+        names=["db", "web"],
+        merge=False,
+    )
+    by2 = {r.container_key: r.sort_index for r in rows}
+    assert by2["e2e-web"] is None
+    assert by2["e2e-db"] is None
+    assert by2["db"] == 0
+    assert by2["web"] == 1
+
+
 def test_annotations_scoped_by_project_not_service_name():
     """web@piherder and web@piherder-e2e must not share labels."""
     containers_prod = [

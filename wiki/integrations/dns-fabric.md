@@ -130,12 +130,12 @@ LAN Discovery’s own **Network** tab remains a discovery-only subnet browser; t
 
 ### Focus, zoom & mobile
 
-- **Tap or hover** any **host** (including Nomad with no mapped services), **Router**, **LAN**, **Internet**, **Public IP**, or **app path** to highlight and show a callout.
+- **Hover** (mouse/stylus) any **host** (including Nomad with no mapped services), **Router**, **LAN**, **Internet**, **Public IP**, or **app path** to **preview** highlight.
+- **Click / tap** to **lock** focus — the path stays highlighted when the pointer leaves. Click the same node again or **Clear focus** to unlock.
 - Hosts **without** mapped services are still selectable (node focus). App satellites focus the service **path**.
 - **Open host** / **Open in Kuma** appears when the focused node has a link (same-tab for fleet hosts; new tab for external Kuma).
 - **Copy path** copies the callout route string.
-- **Clear focus** / tap the same node again to clear.
-- Maps: **pinch** / scroll-wheel zoom up to **500%** (SVG **viewBox** — stays sharp), **drag** to pan, **+/− / 1:1**, **Full screen** (Esc or **Exit full** to leave), double-click reset. Hover preview is mouse/stylus only; finger tap locks focus without navigating.
+- Maps: **pinch** / scroll-wheel zoom up to **500%** (SVG **viewBox** — stays sharp), **drag** to pan, **+/− / 1:1**, **Full screen** (Esc or **Exit full** to leave), double-click reset.
 - Status dots: **green** = last Pi-hole sync ok · **amber** partial · **red** error · small amber ring = managed cert linked · Kuma **up/down** on Router / Public IP when bound.  
 - Path cards also show **Kuma coverage** (see below).
 - Deep links: `/dns/physical?focus=<service_id|#map>` and `/dns/logical?focus=…#map` (also from each path card / dashboard / Docker **Path map** pills). Deep links **auto-open** the SVG on mobile.
@@ -190,9 +190,11 @@ Panel pills: **All** · **Main** (unassigned) · (your groups). Compact segmente
 
 #### Reorder containers (operators)
 
-1. Open **Stack** for the service/project.  
+1. Open **Stack** for the service/project (optionally filter to a **view group** first).  
 2. **Desktop:** drag the **⋮⋮** handle. **Mobile:** long-press a row, then drag.  
 3. Order is saved in the DB (`containerannotation.sort_index`) and dual-written to `stack_container_order_json` for compatibility.  
+
+**View groups keep independent order:** reordering while **Main** or a named group is selected only updates that list — it does **not** wipe the other group. Reordering under **All** replaces the full project order. Separate compose projects (`piherder` vs `piherder-e2e`) never share order keys.
 
 **Effect on the map:** with a custom order, **column left→right** can follow that order (by earliest container in each category). Example: put **celery last** in the panel → **queue column moves right**.
 

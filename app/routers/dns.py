@@ -307,11 +307,15 @@ async def stack_save_order(
     order: str = Form(...),  # JSON array of container names
     service_id: str = Form(""),
     next: str = Form(""),
+    visual_stack: str = Form("all"),
 ):
     """Save operator container order for stack panel + map expand.
 
     Persists to container_annotation.sort_index (DB) and dual-writes settings JSON
     for one-release compatibility.
+
+    When ``visual_stack`` is a filtered view (Main or a named group), order is
+    *merged* so reordering one view group does not clear the other.
 
     Returns JSON when Accept includes application/json (stack panel AJAX);
     otherwise redirects for form POSTs.
@@ -337,16 +341,25 @@ async def stack_save_order(
     except Exception:
         names = [x.strip() for x in (order or "").split(",") if x.strip()]
     name_list = [str(n) for n in names]
+    vs = (visual_stack or "all").strip().lower()
+    # All = full project list replace; Main / named group = partial merge
+    merge = vs not in ("all", "", "none")
     try:
         saved = ann_svc.set_order_via_annotations(
-            session, server_id=int(server_id), project=proj, names=name_list
+            session,
+            server_id=int(server_id),
+            project=proj,
+            names=name_list,
+            merge=merge,
         )
     except Exception:
-        saved = so_svc.set_order(int(server_id), proj, name_list)
+        saved = so_svc.set_order(int(server_id), proj, name_list, merge=merge)
     else:
         # Dual-write settings fallback
         try:
-            so_svc.set_order(int(server_id), proj, saved)
+            so_svc.set_order(int(server_id), proj, name_list, merge=merge)
+            # Report full project order after merge for UI badges
+            saved = so_svc.get_order(int(server_id), proj) or saved
         except Exception:
             pass
     try:
@@ -356,7 +369,11 @@ async def stack_save_order(
                 status="success",
                 user_id=user.id,
                 server_id=int(server_id),
-                details=f"{proj}: {', '.join(str(n) for n in saved)[:200]}",
+                details=(
+                    f"{proj}"
+                    + (f" [{vs}]" if merge else "")
+                    + f": {', '.join(str(n) for n in name_list)[:180]}"
+                ),
             )
         )
         session.commit()
@@ -369,6 +386,8 @@ async def stack_save_order(
                 "msg": "order_saved",
                 "server_id": int(server_id),
                 "project": proj,
+                "visual_stack": vs,
+                "merge": merge,
                 "order": saved,
             }
         )

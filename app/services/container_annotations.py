@@ -590,8 +590,18 @@ def set_order_via_annotations(
     server_id: int,
     project: str,
     names: list[str],
+    merge: bool = False,
 ) -> list[str]:
-    """Persist ordered container keys as annotation.sort_index (0..n-1)."""
+    """Persist ordered container keys as annotation.sort_index (0..n-1).
+
+    ``merge=False`` (default, All view): replace project order — listed names
+    get 0..n-1; other containers in this project lose sort_index.
+
+    ``merge=True`` (Main / named view-group reorder): only update listed names.
+    Other containers keep their sort_index so reordering Main does not wipe
+    e2e (or vice versa). Indices for the submitted list are reassigned as a
+    contiguous block that does not collide with untouched indices when possible.
+    """
     clean: list[str] = []
     seen: set[str] = set()
     for n in names or []:
@@ -615,30 +625,47 @@ def set_order_via_annotations(
             continue
         by_key[r.container_key.lower()] = r
 
+    if merge and clean:
+        # Base index after any container not in this partial list
+        other_max = -1
+        for r in by_key.values():
+            if r.container_key.lower() in keep:
+                continue
+            if r.sort_index is not None:
+                try:
+                    other_max = max(other_max, int(r.sort_index))
+                except (TypeError, ValueError):
+                    pass
+        base = other_max + 1
+    else:
+        base = 0
+
     for i, name in enumerate(clean):
+        idx = base + i
         row = by_key.get(name.lower())
         if not row:
             row = ContainerAnnotation(
                 server_id=sid,
                 compose_project=proj,
                 container_key=name,
-                sort_index=i,
+                sort_index=idx,
                 created_at=now,
                 updated_at=now,
             )
             session.add(row)
             by_key[name.lower()] = row
         else:
-            row.sort_index = i
+            row.sort_index = idx
             row.compose_project = proj
             row.updated_at = now
             session.add(row)
 
-    for r in by_key.values():
-        if r.container_key.lower() not in keep and r.sort_index is not None:
-            r.sort_index = None
-            r.updated_at = now
-            session.add(r)
+    if not merge:
+        for r in by_key.values():
+            if r.container_key.lower() not in keep and r.sort_index is not None:
+                r.sort_index = None
+                r.updated_at = now
+                session.add(r)
     session.commit()
     return clean
 
