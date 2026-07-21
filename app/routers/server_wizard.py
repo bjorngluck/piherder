@@ -151,10 +151,15 @@ async def wizard_get(
     msg: str = "",
     error: str = "",
     detail: str = "",
+    hostname: str = "",
+    name: str = "",
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
-    """Guided multi-step add-host wizard."""
+    """Guided multi-step add-host wizard.
+
+    Optional *hostname* / *name* query params prefill identity (e.g. LAN Discovery Promote).
+    """
     key = (step or "identity").strip().lower()
     if key not in STEP_KEYS:
         return RedirectResponse(wizard_path("identity"), status_code=303)
@@ -186,6 +191,8 @@ async def wizard_get(
             )
         except Exception:
             key_install_script = ""
+    prefill_host = (hostname or "").strip()[:255]
+    prefill_name = (name or "").strip()[:128]
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="add_server_wizard.html",
@@ -202,6 +209,8 @@ async def wizard_get(
                 "ssh_public_key": pub,
                 "has_real_public_key": has_real_pub,
                 "key_install_script": key_install_script,
+                "prefill_hostname": prefill_host,
+                "prefill_name": prefill_name,
             },
         ),
     )

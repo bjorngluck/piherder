@@ -257,7 +257,10 @@ def run_nmap_scan(
         parse_scan_options,
         preset_wants_scripts,
     )
+    from .worker_guard import ensure_nmap_worker_runtime
 
+    # Fail before any DB mutation if misrouted to the main web/celery image
+    ensure_nmap_worker_runtime()
     touch_worker_heartbeat()
     run = session.get(NmapScanRun, run_id)
     if not run:

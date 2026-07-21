@@ -412,6 +412,9 @@ def run_vuln_db_update(
     include_exploitdb: bool = True,
 ) -> dict[str, Any]:
     """Refresh vuln pack on the mounted volume. Intended for nmap worker only."""
+    from .worker_guard import ensure_nmap_worker_runtime
+
+    ensure_nmap_worker_runtime()
     touch_worker_heartbeat()
     root = vuln_root()
     holder = f"vuln-db:job:{job_id}"

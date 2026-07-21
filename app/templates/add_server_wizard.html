@@ -62,13 +62,18 @@
     <div>
       <label class="block text-sm text-muted mb-1" for="wiz-name">Name</label>
       <input id="wiz-name" name="name" required data-testid="wizard-input-name"
+             value="{{ prefill_name or '' }}"
              class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
     </div>
     <div>
       <label class="block text-sm text-muted mb-1" for="wiz-hostname">Hostname or IP</label>
       <input id="wiz-hostname" name="hostname" required placeholder="rpi5-2.example.com"
+             value="{{ prefill_hostname or '' }}"
              data-testid="wizard-input-hostname"
              class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono text-sm">
+      {% if prefill_hostname %}
+      <p class="text-[11px] text-muted mt-1">Prefill from LAN Discovery — edit before Continue.</p>
+      {% endif %}
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <div>

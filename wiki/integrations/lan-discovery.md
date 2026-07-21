@@ -55,7 +55,7 @@ Journey: [Operator scenarios — Journey H](../getting-started/operator-scenario
 |-----|---------|
 | **Overview** | Worker status, CIDRs, vuln pack status, quick scan actions, pack update |
 | **Devices** | Hosts list + detail: **map name**, kind badge, ports, findings; filter / link / ignore / promote |
-| **Network** | Subnet-grouped discovery cards (LAN Discovery’s own map); filter + **Show discovered** |
+| **Network** | Subnet-grouped discovery cards (LAN Discovery’s own map); filter + **Show unlinked** |
 | **Schedules** | Multiple named schedules (intensity + cron/interval + options) — create **and edit** |
 | **Runs** | Scan run history (linked to Jobs) |
 
@@ -183,11 +183,12 @@ Click a **Network** card or a **Devices** row to open a **centered floating moda
 | **Map role** | **LAN device** (default) or **Gateway / router** |
 | **Save and close** | Writes identity, marks **Known** if was New, closes modal, restores scroll, brief focus flash on the card |
 | **Cancel / ✕** | Close without save |
-| **Mark known** | New/Stale → Known (reviewed inbox) without changing name/type |
-| **Mark new** | Known → New (put back in inbox; not for Linked — unlink first) |
-| **Ignore / Unignore** | Hide from active focus + Hosts map / restore |
-| **Link / Unlink** | Soft-attach to an existing Server / detach |
-| **Promote** | Opens add-host wizard (use the device IP) — still manual |
+| **Mark known** | New/Stale → Known; **closes modal** (same as Save and close) |
+| **Mark new** | Known → New; closes modal (not for Linked — unlink first) |
+| **Ignore / Unignore** | Hide from maps / restore; closes modal |
+| **Link / Unlink** | Soft-attach to Server / detach; closes modal |
+| **Promote** | Add-host wizard **prefilled** with device IP (+ name when set) — still manual create |
+| **← Hosts map** | When opened from Hosts chip (`return=hosts`); Save/lifecycle can return to `/dns/physical` |
 | **Open ports / findings** | Expandable detail (latest port snapshot + classified scripts) |
 
 Operators can mutate; viewers see read-only identity. Preference for filters is per browser; scroll position is restored after save so long Network grids do not jump to the top.
@@ -198,7 +199,7 @@ Operators can mutate; viewers see read-only identity. Preference for filters is 
 
 - Hosts grouped by **/24** (or IPv6 /64), with search filter.
 - **Click a host card** → edit modal (above). Stays on Network.
-- **Show discovered** (default on): include unlinked hosts (`new` / `known` / `stale`). Uncheck to keep only **linked** devices on this tab’s map. Preference is stored in the browser.
+- **Show unlinked** (default on): include unlinked hosts (`new` / `known` / `stale`). Uncheck to keep only **linked** devices. Preference is browser-local (separate from Hosts map radar).
 - Toolbar shows counts (on map / subnets / open ports / new / linked) — filter does not force a Devices list scroll.
 - Port chips show the **latest snapshot per host** (from the last inventory/detailed/deep that recorded ports), **not** a merge of all historical scans. Discovery re-runs no longer wipe a prior port snapshot.
 - Card titles use **map name** when set.
@@ -247,7 +248,7 @@ Full layout notes: [Network maps — LAN discovery](dns-fabric.md#lan-discovery-
 | **Known** | Reviewed / acknowledged — still not a managed Server. Filter out of the New inbox. |
 | **Linked** | Soft-attached to an existing fleet **Server** |
 | **Ignored** | Hidden from active discovery focus and Hosts map |
-| **Stale** | Not seen recently (when marked); next resight → **Known** |
+| **Stale** | Not seen for **14 days** (auto on Devices/Network list); next resight → **Known** |
 
 | Action | Meaning |
 |--------|---------|
@@ -256,7 +257,7 @@ Full layout notes: [Network maps — LAN discovery](dns-fabric.md#lan-discovery-
 | **Map identity** | Name / type / gateway role (not a Server) |
 | **Ignore / dismiss** | Hide from active discovery focus |
 | **Link** | Attach discovered device to an **existing** Server row (soft embed) |
-| **Promote** | Start **add-host wizard** / prefilled path — still **manual**; no silent SSH enable |
+| **Promote** | Add-host wizard prefilled with IP (+ name) — still **manual**; no silent SSH enable |
 
 Discovery ≠ fleet membership. Hostnames and MACs depend on scan privileges and host-network worker mode.
 

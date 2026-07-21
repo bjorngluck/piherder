@@ -233,14 +233,17 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 | Excludes | Always / port-scans / deep-only lists → nmap `--exclude` |
 | Kind heuristics | MAC vendor + curated OUI + ports/hostname → advisory badges (`device_classify`) |
 | Kind override | `NmapDevice.kind_override` — sticky type when heuristics are wrong |
-| Map role | `map_role=gateway` → Hosts map Router spine + network gateway IP; device skipped as outer chip |
+| Map role | `map_role=gateway` → Hosts map Router spine + **`network_gateway_ip`** app setting; device skipped as outer chip |
+| Gateway sticky | Setting gateway role **writes** `network_gateway_ip` if different. **Clearing** the role does **not** clear that IP (spine stays until Network map settings or another gateway). Deliberate. |
 | Map names | `NmapDevice.display_name` — operator label for Hosts map chips (survives re-scan) |
-| Lifecycle | States new/known/linked/ignored/stale; **Mark known/new**; save map identity auto-knows New |
+| Lifecycle | States new/known/linked/ignored/stale; **Mark known/new** close modal; save map identity auto-knows New; **stale** after 14d without `last_seen` (list path) |
 | Identity | Prefer MAC key; DHCP IP updates in place; first-MAC upgrade |
-| Edit UX | Centered modal from Network cards or Devices (save and close, scroll restore) |
-| Hosts map overlay | Unlinked devices on `/dns/physical` (outer chips; radar toggle; dual compact/full layout; **1:1** fits compact when disc. off); no link required to appear |
+| Edit UX | Centered modal from Network / Devices / Hosts chip (`return=hosts` → back to map); lifecycle actions close modal |
+| Promote | Wizard prefill `?hostname=<ip>&name=` — still manual create |
+| Hosts map overlay | Unlinked devices on `/dns/physical` (outer chips; radar; dual layout; **1:1** compact fit); chip opens Network modal with return |
 | Soft embed | Linked device → server list LAN chip + server detail card |
 | Discovery ≠ Server | Link / promote / dismiss are operator-driven |
+| Worker fence | `PIHERDER_NMAP_WORKER=0` on web/main celery; `=1` on nmap image; tasks refuse without nmap binary or when marker is 0 (`worker_guard`) |
 | Migration | `030_nmap_kind_map_role` — `kind_override`, `map_role` |
 
 ### Optional host cleanup (piherder user)

@@ -1,6 +1,8 @@
 # Shared app env for web + celery (values from host `.env` / shell; see `.env.example`).
 x-piherder-app-env: &piherder-app-env
   PIHERDER_MASTER_KEY: ${PIHERDER_MASTER_KEY}
+  # Web + main celery never consume queue nmap (see celery-worker-nmap).
+  PIHERDER_NMAP_WORKER: "0"
   SECRET_KEY: ${SECRET_KEY:-dev-secret-change-in-prod}
   DATABASE_URL: ${DATABASE_URL:-postgresql://piherder:piherder@db:5432/piherder}
   CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
@@ -139,6 +141,10 @@ services:
   # Vulners / CVE artefacts live on the host volume (not in the image):
   #   ./piherder_nmap_vuln → /var/lib/piherder/nmap-vuln
   #
+  # Security boundary: root + host network + queue nmap only. Never add -Q nmap
+  # to the main celery-worker. Task code refuses when PIHERDER_NMAP_WORKER=0 or
+  # when the nmap binary is missing (worker_guard).
+  #
   # **Host network** is required for MAC addresses (ARP/L2). Docker bridge only sees L3,
   # so XML never gets addrtype=mac. Hostnames need reverse DNS (uncheck Skip DNS) and/or PTR.
   celery-worker-nmap:
@@ -159,6 +165,8 @@ services:
     restart: unless-stopped
     environment:
       <<: *piherder-app-env
+      # Override web default — this process is the only allowed nmap executor
+      PIHERDER_NMAP_WORKER: "1"
       PIHERDER_NMAP_VULN_ROOT: /var/lib/piherder/nmap-vuln
       # Host network: compose service DNS (redis/db) is unavailable — use loopback ports.
       CELERY_BROKER_URL: ${PIHERDER_NMAP_REDIS_URL:-redis://127.0.0.1:6379/0}
