@@ -462,13 +462,16 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 
 Full catalog with comments and defaults: **[`.env.example`](../.env.example)** (copy to `.env`). Compose injects those keys into **web** and **celery-worker** (Caddy only needs `PIHERDER_HOSTNAME`). Required: `PIHERDER_MASTER_KEY`, plus a strong `SECRET_KEY` in production.
 
+**LAN nmap fence (compose-owned):** `PIHERDER_NMAP_WORKER=0` on web/main celery, `=1` on `celery-worker-nmap` — usually **not** set in `.env`. Optional nmap path/image overrides (`PIHERDER_NMAP_VULN_PATH`, `PIHERDER_NMAP_IMAGE`, …) are in `.env.example`. Operator wiki: [env-reference — LAN Discovery](../wiki/operations/env-reference.md#lan-discovery-nmap--opt-in).
+
 ### Volumes (compose defaults)
 
 | Host path | Container | Purpose |
 |-----------|-----------|---------|
 | `${PIHERDER_BACKUP_HOST_PATH:-./backups}` | `/backups` | rsync destinations for server backups |
 | `./piherder_backups` | `/herder_backups` | PiHerder self-backup archives (chown to uid 1000 if permission errors) |
-| `./piherder_data` | `/data` | Avatars (operational Settings live in Postgres, not here) |
+| `./piherder_data` | `/data` | Avatars, nmap run XML under `nmap/runs/` (Settings live in Postgres) |
+| `${PIHERDER_NMAP_VULN_PATH:-./piherder_nmap_vuln}` | `/var/lib/piherder/nmap-vuln` | Opt-in vuln pack (web **:ro**, nmap worker **rw**; profile `nmap`) |
 | `./certs` | `/certs` (Caddy, ro) | `fullchain.pem` + `privkey.pem` |
 
 If you previously used `~/backup`, set in `.env`:

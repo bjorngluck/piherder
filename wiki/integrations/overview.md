@@ -54,7 +54,7 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 | [Network maps](dns-fabric.md) | Host A + service paths; Hosts/Path maps; **runtime stack** expand + order | Visualise name → host → app → containers |
 
 !!! note "LAN Discovery is opt-in"
-    The default compose stack does **not** start the nmap worker. Enable profile `nmap`, build `Dockerfile.nmap`, and configure CIDRs before scanning — [LAN Discovery](lan-discovery.md).
+    The default compose stack does **not** start the nmap worker. Enable profile `nmap`, build `Dockerfile.nmap`, and configure CIDRs before scanning. Compose fences web with `PIHERDER_NMAP_WORKER=0` (nmap worker `=1`) — [LAN Discovery](lan-discovery.md) · [env reference](../operations/env-reference.md#lan-discovery-nmap--opt-in).
 
 Credentials and cert PEMs are Fernet-encrypted and included in [self-backup](../operations/self-backup.md).
 

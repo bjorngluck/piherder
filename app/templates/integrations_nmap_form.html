@@ -117,6 +117,11 @@
   <p><code class="text-[10px]">docker build -f Dockerfile.nmap -t piherder:nmap-local .</code></p>
   <p><code class="text-[10px]">docker compose --profile nmap up -d celery-worker-nmap</code></p>
   <p>Vulners data: host dir <code class="text-[10px]">./piherder_nmap_vuln</code> (not in image; web mounts it read-only for status).</p>
+  <p class="pt-1"><strong class="text-text">Fence:</strong>
+    Compose sets <code class="text-[10px]">PIHERDER_NMAP_WORKER=0</code> on web and
+    <code class="text-[10px]">=1</code> on the nmap worker (usually not in
+    <code class="text-[10px]">.env</code>). Web never runs nmap — only enqueues queue
+    <code class="text-[10px]">nmap</code>.</p>
   <p class="pt-1"><strong class="text-text">Hostname + MAC:</strong>
     MAC needs the nmap worker on <strong>host network</strong> (same L2 / ARP). Hostname needs
     reverse DNS (do not skip DNS) or names already in your resolver. Re-run discovery after

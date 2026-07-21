@@ -75,6 +75,6 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 
 ## Related
 
-- [Environment reference](env-reference.md) — secrets that stay in `.env`  
+- [Environment reference](env-reference.md) — secrets that stay in `.env` (includes LAN nmap fence / volume keys)  
 - [Volumes](volumes.md)  
 - [Upgrades](upgrades.md)  

@@ -137,7 +137,7 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 
 | Step | Action | Why |
 |------|--------|-----|
-| 1 | Build + start **nmap** worker (`--profile nmap`) | Web never runs nmap |
+| 1 | Build + start **nmap** worker (`--profile nmap`); fence is compose-owned (`PIHERDER_NMAP_WORKER`) | Web never runs nmap |
 | 2 | [LAN Discovery](../integrations/lan-discovery.md) integration + CIDR(s) | Scope allowlist |
 | 3 | Manual **Discovery**, then **Inventory** (ports) | Trust before schedules; ports feed kind + chips |
 | 4 | **Network** → click host → edit modal: **map name**, **device type**, **gateway** if router, **Mark known** | Labels + kind + Router spine + inbox |
