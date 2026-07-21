@@ -32,8 +32,19 @@ def get_order(server_id: int, project: str) -> list[str]:
     return list(load_all_orders().get(order_key(server_id, project)) or [])
 
 
-def set_order(server_id: int, project: str, names: list[str]) -> list[str]:
-    """Persist ordered container/service names for this host project."""
+def set_order(
+    server_id: int,
+    project: str,
+    names: list[str],
+    *,
+    merge: bool = False,
+) -> list[str]:
+    """Persist ordered container/service names for this host project.
+
+    When ``merge=True``, update order for the listed names only and keep any
+    other saved names (view-group partial reorder). When ``merge=False``,
+    replace the full project order list.
+    """
     clean = []
     seen: set[str] = set()
     for n in names or []:
@@ -47,6 +58,15 @@ def set_order(server_id: int, project: str, names: list[str]) -> list[str]:
         clean.append(s)
     all_orders = load_all_orders()
     key = order_key(server_id, project)
+    if merge:
+        existing = list(all_orders.get(key) or [])
+        keep = {n.lower() for n in clean}
+        # New relative order for submitted names, then untouched names after
+        merged = list(clean)
+        for n in existing:
+            if n.lower() not in keep:
+                merged.append(n)
+        clean = merged
     if clean:
         all_orders[key] = clean
     else:

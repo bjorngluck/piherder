@@ -630,9 +630,12 @@
     var hoverId = null; // string focus id under fine pointer
     // Touch: pointer capture retargets events to the viewport — remember the target under the finger
     var touchDown = null; // { id, chain, pointerId, inMesh, focusClick }
+    // Mouse/pen: pan-zoom setPointerCapture retargets click to viewport — keep hit from pointerdown
+    var mouseDown = null; // { id, chain, pointerId, x, y, inMesh, focusClick }
     var lastLockAt = 0;
     // After a finger touch, browsers fire synthetic mouse events — ignore them for a bit
     var ignoreMouseUntil = 0;
+    var MOVE_LOCK_PX = 8;
 
     function chainOf(el) {
       return chainOfEl(el);
@@ -688,6 +691,17 @@
       if (hoverId === id && root._fabricFocusId === id) return;
       hoverId = id;
       focusPath(root, id, chain, false);
+    }
+
+    function viewportSuppressesClick(el) {
+      var vp =
+        (el && el.closest && el.closest('[data-fabric-viewport]')) ||
+        root.querySelector('[data-fabric-viewport]');
+      if (!vp) return false;
+      return (
+        vp.dataset.fabricSuppressClick === '1' ||
+        vp.dataset.fabricTouchMoved === '1'
+      );
     }
 
     // --- Hover preview (real mouse / stylus only) ---
@@ -749,14 +763,15 @@
           locked = null;
           hoverId = null;
           lastLockAt = 0;
+          mouseDown = null;
           clearFocus(root);
           return;
         }
 
-        var vp = e.target.closest('[data-fabric-viewport]');
-        if (vp && (vp.dataset.fabricSuppressClick === '1' || vp.dataset.fabricTouchMoved === '1')) {
+        if (viewportSuppressesClick(e.target)) {
           e.preventDefault();
           e.stopPropagation();
+          mouseDown = null;
           return;
         }
 
@@ -774,17 +789,32 @@
           return;
         }
 
-        var t = pathTargetFrom(e.target);
-        if (!t || !root.contains(t)) return;
-
-        var key = focusKeyFrom(t);
-        if (!key) return;
-
-        // SVG map: focus path/node, never navigate node links
+        // Mesh: pan-zoom setPointerCapture often retargets click to the viewport.
+        // Prefer the path/node recorded on pointerdown so selection sticks after mouseleave.
         if (isInMesh(e.target)) {
           e.preventDefault();
           e.stopPropagation();
-          lockPath(key.id, key.chain);
+          var meshKey = null;
+          if (mouseDown && mouseDown.inMesh && mouseDown.id) {
+            meshKey = { id: mouseDown.id, chain: mouseDown.chain };
+          } else {
+            var mt = pathTargetFrom(e.target);
+            if (mt && root.contains(mt)) meshKey = focusKeyFrom(mt);
+          }
+          mouseDown = null;
+          if (meshKey && meshKey.id) lockPath(meshKey.id, meshKey.chain);
+          return;
+        }
+
+        var t = pathTargetFrom(e.target);
+        if (!t || !root.contains(t)) {
+          mouseDown = null;
+          return;
+        }
+
+        var key = focusKeyFrom(t);
+        if (!key) {
+          mouseDown = null;
           return;
         }
 
@@ -798,46 +828,111 @@
             !nav.hasAttribute('data-node-id') &&
             !nav.hasAttribute('data-fabric-focus-click')
           ) {
+            mouseDown = null;
             return;
           }
           e.preventDefault();
+          mouseDown = null;
           lockPath(key.id, key.chain);
           return;
         }
 
         if (!e.target.closest('a[href]')) {
+          mouseDown = null;
           lockPath(key.id, key.chain);
+        } else {
+          mouseDown = null;
         }
       },
       true
     );
 
-    // Record path/node under finger before pan-zoom setPointerCapture retargets events
+    // Record path/node under pointer before pan-zoom setPointerCapture retargets events
     root.addEventListener(
       'pointerdown',
       function (e) {
-        if (e.pointerType !== 'touch') return;
-        markTouchActivity();
-        // Buttons/links on path cards must keep their own click (mobile)
-        if (isFabricChrome(e.target)) {
+        if (e.pointerType === 'touch') {
+          markTouchActivity();
+          // Buttons/links on path cards must keep their own click (mobile)
+          if (isFabricChrome(e.target)) {
+            touchDown = null;
+            return;
+          }
+          var tTouch = pathTargetFrom(e.target);
+          if (tTouch && root.contains(tTouch)) {
+            var keyTouch = focusKeyFrom(tTouch);
+            if (keyTouch) {
+              touchDown = {
+                id: keyTouch.id,
+                chain: keyTouch.chain,
+                pointerId: e.pointerId,
+                inMesh: isInMesh(e.target),
+                focusClick: tTouch.hasAttribute('data-fabric-focus-click'),
+              };
+              return;
+            }
+          }
           touchDown = null;
           return;
         }
-        var t = pathTargetFrom(e.target);
-        if (t && root.contains(t)) {
-          var key = focusKeyFrom(t);
-          if (key) {
-            touchDown = {
-              id: key.id,
-              chain: key.chain,
+
+        // Mouse / pen: same hit-recording for mesh (and list chips for consistency)
+        if (e.pointerType !== 'mouse' && e.pointerType !== 'pen' && e.pointerType !== '') {
+          return;
+        }
+        if (isFabricChrome(e.target)) {
+          mouseDown = null;
+          return;
+        }
+        var tMouse = pathTargetFrom(e.target);
+        if (tMouse && root.contains(tMouse)) {
+          var keyMouse = focusKeyFrom(tMouse);
+          if (keyMouse) {
+            mouseDown = {
+              id: keyMouse.id,
+              chain: keyMouse.chain,
               pointerId: e.pointerId,
+              x: e.clientX,
+              y: e.clientY,
               inMesh: isInMesh(e.target),
-              focusClick: t.hasAttribute('data-fabric-focus-click'),
+              focusClick: tMouse.hasAttribute('data-fabric-focus-click'),
             };
             return;
           }
         }
-        touchDown = null;
+        mouseDown = null;
+      },
+      true
+    );
+
+    // Mouse/pen: if click is lost after capture, still pin focus on a short press
+    root.addEventListener(
+      'pointerup',
+      function (e) {
+        if (e.pointerType === 'touch') return; // handled below
+        if (e.pointerType !== 'mouse' && e.pointerType !== 'pen' && e.pointerType !== '') {
+          return;
+        }
+        if (!mouseDown || mouseDown.pointerId !== e.pointerId) return;
+        // List/card chips already lock via the click handler (reliable without capture).
+        // Mesh needs this path when click retargets to the viewport.
+        if (!mouseDown.inMesh || !mouseDown.id) {
+          return;
+        }
+        if (viewportSuppressesClick(e.target)) {
+          mouseDown = null;
+          return;
+        }
+        var dx = Math.abs((e.clientX || 0) - (mouseDown.x || 0));
+        var dy = Math.abs((e.clientY || 0) - (mouseDown.y || 0));
+        if (dx > MOVE_LOCK_PX || dy > MOVE_LOCK_PX) {
+          mouseDown = null;
+          return;
+        }
+        // Lock now; click handler will see lastLockAt and not toggle off (700ms guard)
+        lockPath(mouseDown.id, mouseDown.chain);
+        // Keep mouseDown so the subsequent click can re-use the same id if needed
+        // (lockPath guard prevents unlock). Cleared in click handler.
       },
       true
     );

@@ -197,6 +197,8 @@
       fd.append('project', list.getAttribute('data-project') || '');
       fd.append('order', JSON.stringify(order));
       fd.append('service_id', list.getAttribute('data-service-id') || '');
+      // Main / named view-group → server merges so sibling groups keep their order
+      fd.append('visual_stack', list.getAttribute('data-visual-stack') || 'all');
       fd.append('next', list.getAttribute('data-next') || '/dns');
       return fd;
     }

@@ -47,3 +47,42 @@ def test_set_order_roundtrip():
 
 def test_order_key_normalizes_project_case():
     assert so.order_key(1, "PiHerder") == so.order_key(1, "piherder")
+
+
+def test_set_order_merge_keeps_other_names():
+    """Partial reorder (Main) must not drop e2e service names from settings."""
+    stored = {}
+
+    def _load():
+        return {"stack_container_order_json": stored.get("json", "{}")}
+
+    def _save(payload):
+        stored["json"] = payload.get("stack_container_order_json")
+
+    with patch.object(so, "load_settings", side_effect=_load), patch.object(
+        so, "save_settings", side_effect=_save
+    ):
+        so.set_order(5, "piherder", ["web", "db", "e2e-web", "e2e-db"])
+        so.set_order(5, "piherder", ["db", "web"], merge=True)
+        got = so.get_order(5, "piherder")
+    assert got[:2] == ["db", "web"]
+    assert "e2e-web" in got
+    assert "e2e-db" in got
+
+
+def test_set_order_replace_drops_missing():
+    stored = {}
+
+    def _load():
+        return {"stack_container_order_json": stored.get("json", "{}")}
+
+    def _save(payload):
+        stored["json"] = payload.get("stack_container_order_json")
+
+    with patch.object(so, "load_settings", side_effect=_load), patch.object(
+        so, "save_settings", side_effect=_save
+    ):
+        so.set_order(5, "piherder", ["web", "db", "e2e-web"])
+        so.set_order(5, "piherder", ["web", "db"], merge=False)
+        got = so.get_order(5, "piherder")
+    assert got == ["web", "db"]
