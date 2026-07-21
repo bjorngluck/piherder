@@ -177,6 +177,36 @@
       <a href="/jobs?active_only=1" class="btn btn-secondary min-h-11 text-sm">Jobs / live log</a>
       <a href="/integrations/{{ integration.id }}/edit" class="btn btn-secondary min-h-11 text-sm">CIDRs &amp; excludes</a>
     </div>
+    <p class="text-[11px] text-muted" id="nmap-scan-blast-hint" hidden>
+      <strong class="text-text">Detailed / deep</strong> on a whole LAN is heavy — confirm when prompted.
+    </p>
+    <script>
+    (function () {
+      var form = document.querySelector('[data-testid="nmap-scan-now-form"]');
+      if (!form) return;
+      var intensity = form.querySelector('[data-testid="nmap-intensity"]');
+      var targets = form.querySelector('[data-testid="nmap-targets"]');
+      var hint = document.getElementById('nmap-scan-blast-hint');
+      function syncHint() {
+        var i = (intensity && intensity.value) || '';
+        if (hint) hint.hidden = !(i === 'detailed' || i === 'deep');
+      }
+      if (intensity) intensity.addEventListener('change', syncHint);
+      syncHint();
+      form.addEventListener('submit', function (e) {
+        var i = (intensity && intensity.value) || '';
+        if (i !== 'detailed' && i !== 'deep') return;
+        var t = (targets && targets.value) || 'configured CIDRs';
+        var msg =
+          'Queue ' + i + ' scan of:\n\n' + t.trim() +
+          '\n\nThis can be slow and noisy on a full LAN. Continue?';
+        if (!window.confirm(msg)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      });
+    })();
+    </script>
     <p class="text-[11px] text-muted">
       Curated options only (no free-form flags). Progress on Jobs.
       <strong class="text-text">Timing (nmap -T)</strong>:
@@ -371,7 +401,7 @@
 </script>
 {% endif %}
 {% if device %}
-{% with return_tab='devices' %}
+{% with return_tab='devices', return_to=return_to or '' %}
 {% include "partials/nmap_device_modal.html" %}
 {% endwith %}
 {% endif %}
@@ -404,10 +434,11 @@
     {% endif %}
   </div>
   <div class="nmap-map-toolbar" role="search" aria-label="Filter network map">
-    <label class="nmap-map-toggle" title="Unlinked hosts (new / known / stale). Linked stay when off.">
+    <label class="nmap-map-toggle"
+           title="Show unlinked hosts (new / known / stale). Off = linked devices only. Separate from Hosts map radar.">
       <input type="checkbox" id="nmap-map-show-discovered" checked
              data-testid="nmap-map-show-discovered">
-      <span class="nmap-map-toggle-label">Show discovered</span>
+      <span class="nmap-map-toggle-label">Show unlinked</span>
     </label>
     <div class="nmap-map-search-wrap">
       <label class="sr-only" for="nmap-map-search">Filter map</label>
@@ -629,7 +660,7 @@
 </script>
 {% endif %}
 {% if device %}
-{% with return_tab='network' %}
+{% with return_tab='network', return_to=return_to or '' %}
 {% include "partials/nmap_device_modal.html" %}
 {% endwith %}
 {% endif %}

@@ -126,10 +126,10 @@ After **[LAN Discovery](lan-discovery.md)** has scanned, **unlinked** devices ap
 | **Gateway** | Device map role **Gateway / router** labels the Router spine and sets network gateway IP; that IP is not double-drawn as a LAN chip |
 | **Dedup** | Same IP as a fleet server, already **linked**, or map-role gateway / network gateway IP → not a second discovery chip |
 | **Ignored** | Stay off the map |
-| **Tap** | Opens LAN Discovery device detail (ports, name, kind, link/promote) |
+| **Tap** | Opens LAN Discovery **Network** edit modal with **← Hosts map** return after save/close |
 | **Requires** | nmap integration + devices from a scan |
 
-LAN Discovery’s own **Network** tab remains a discovery-only subnet browser; the Hosts map is the combined topology. Device naming / type / known / ignore: [LAN Discovery — edit modal](lan-discovery.md#edit-modal-network--devices).
+LAN Discovery’s own **Network** tab remains a discovery-only subnet browser (**Show unlinked** ≠ Hosts radar). Device naming / type / known / ignore: [LAN Discovery — edit modal](lan-discovery.md#edit-modal-network--devices).
 
 ### Map chrome (Hosts + Path)
 

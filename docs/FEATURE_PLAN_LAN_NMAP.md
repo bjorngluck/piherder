@@ -350,6 +350,7 @@ MVP product slice: **N1–N6**; docs wiki **N7 partial**; screenshots + E2E = ta
 
 | Date | Note |
 |------|------|
+| 2026-07-21 | **P0/P1 review follow-up:** worker_guard + compose fence; Show unlinked; Hosts return path; lifecycle close; promote prefill; stale 14d; config split (device_ops / fabric_projection); detailed/deep confirm; P2 on roadmap only |
 | 2026-07-21 | **Docs pass:** wiki (modal, Hosts chrome, 1:1 fit), ADMIN, PLAN/ROADMAP; N10 product complete bar |
 | 2026-07-21 | **Hosts map chrome:** radar disc toggle (count in footer), one-line tools, **1:1** fits compact when disc off; dual-layout gateway clip |
 | 2026-07-21 | **Network UX:** centered edit modal; Save and close + scroll restore; Mark known/new |

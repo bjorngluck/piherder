@@ -212,6 +212,11 @@ def test_vuln_update_writes_ready_marker(tmp_path, monkeypatch):
     monkeypatch.setattr(vu, "try_acquire_lock", lambda *a, **k: True)
     monkeypatch.setattr(vu, "release_lock", lambda *a, **k: None)
     monkeypatch.setattr(vu, "touch_worker_heartbeat", lambda *a, **k: None)
+    # Unit test runs without nmap worker image fence
+    monkeypatch.setattr(
+        "app.services.nmap.worker_guard.ensure_nmap_worker_runtime",
+        lambda: "/usr/bin/nmap",
+    )
 
     class FakeSession:
         def get(self, *a, **k):

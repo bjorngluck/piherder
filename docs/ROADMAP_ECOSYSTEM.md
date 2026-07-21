@@ -258,8 +258,10 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 | **Monitoring coverage audit** | **Done (H3):** `/dns/coverage` + hub teaser; optional inventory-down alerts for Kuma-bound containers |
 | **Configurable columns / link-to-column** | **Later** (post-0.6 residual) — operator-defined map columns and explicit edge placement (runtime topology § 12b) |
 | **LAN discovery (nmap-class)** | **Product complete (N0–N10)** — worker, devices, network modal, multi-schedule **edit**, vuln pack, **script presets**, kind heuristics + **override**, **map identity** (name + gateway role), **known/new** + MAC/DHCP, **Hosts map** dual compact/full + radar chrome + **1:1** compact fit, fleet soft embed, unit/E2E shells — **v0.8.0 RC3** remaining for stream N: **screenshots** ([FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md)); orthogonal to stack deps |
-| **Discovery map icons / shapes** | **Future** — Hosts map + Network cards use **icons or node shapes by device kind** (Pi, printer, camera, router, IoT…) instead of text badges only; keep compact chips readable on mobile |
-| **Discovery service / port labels** | **Future** — optional operator labels for individual open services (e.g. name a host’s admin UI port), not only host-level map name |
+| **Discovery map icons / shapes** | **Future (P2)** — Hosts map + Network cards use **icons or node shapes by device kind** (Pi, printer, camera, router, IoT…) instead of text badges only; keep compact chips readable on mobile |
+| **Discovery service / port labels** | **Future (P2)** — optional operator labels for individual open services (e.g. name a host’s admin UI port), not only host-level map name |
+| **Nmap dual-layout / modal HTTP tests** | **Future (P2)** — unit coverage for dual SVG attrs + HTTP redirect contracts for map identity / return_tab |
+| **Nmap worker heartbeat on boot** | **Future (P2)** — touch scanner-online heartbeat when worker process starts, not only mid-scan |
 | **Richer topology** | Focused dep edges polish, force LAN/cloud overrides |
 | **External DNS providers** | Cloudflare (etc.) automation; until then external checklist remains |
 | **Service migrate / remove** | Move stack host↔host with DNS retarget; destructive remove with volume cleanup |

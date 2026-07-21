@@ -290,6 +290,39 @@ def test_discovery_hosts_skip_gateway_role_and_ip():
     )
     assert len(out) == 1
     assert out[0]["ip"] == "10.0.0.50"
+    assert "return=hosts" in out[0]["href"]
+    assert "tab=network" in out[0]["href"]
+
+
+def test_apply_stale_device_states():
+    from datetime import datetime, timedelta
+    from unittest.mock import MagicMock
+
+    from app.services.nmap.device_ops import apply_stale_device_states
+
+    old = datetime.utcnow() - timedelta(days=20)
+    fresh = datetime.utcnow() - timedelta(days=1)
+    d_old = SimpleNamespace(
+        state="known", last_seen_at=old, updated_at=None, integration_id=1
+    )
+    d_fresh = SimpleNamespace(
+        state="new", last_seen_at=fresh, updated_at=None, integration_id=1
+    )
+    d_linked = SimpleNamespace(
+        state="linked", last_seen_at=old, updated_at=None, integration_id=1
+    )
+
+    class FakeResult:
+        def all(self):
+            # Query already filtered to new/known + cutoff — only d_old matches
+            return [d_old]
+
+    session = MagicMock()
+    session.exec = MagicMock(return_value=FakeResult())
+    n = apply_stale_device_states(session, days=14, integration_id=1)
+    assert n == 1
+    assert d_old.state == "stale"
+    session.commit.assert_called()
 
 
 def test_set_device_map_identity_kind_and_role():

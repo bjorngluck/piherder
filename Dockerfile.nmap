@@ -10,7 +10,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIHERDER_NMAP_VULN_ROOT=/var/lib/piherder/nmap-vuln
+    PIHERDER_NMAP_VULN_ROOT=/var/lib/piherder/nmap-vuln \
+    PIHERDER_NMAP_WORKER=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     nmap \

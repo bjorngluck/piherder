@@ -63,11 +63,20 @@ def _device_return_tab(raw: str | None) -> str:
     return "devices"
 
 
+def _device_return_to(raw: str | None) -> str:
+    """Optional cross-surface return: hosts → Catalog Hosts map."""
+    t = (raw or "").strip().lower()
+    if t in ("hosts", "hosts_map", "physical"):
+        return "hosts"
+    return ""
+
+
 def _device_redirect(
     integration_id: int,
     device_id: int,
     *,
     return_tab: str | None = None,
+    return_to: str | None = None,
     close: bool = False,
     **params,
 ):
@@ -75,16 +84,22 @@ def _device_redirect(
 
     *close=True* omits ``device=`` so the edit modal does not reopen (Save and close).
     *focus* (optional in params) highlights the card after return.
+    *return_to=hosts* after close → ``/dns/physical`` (Hosts map chip edit path).
     """
+    dest = _device_return_to(return_to)
+    if close and dest == "hosts":
+        # Preserve focus-style flash id for Hosts if needed later; land on map
+        return _redirect("/dns/physical", msg=params.get("msg") or "device_mapped")
     tab = _device_return_tab(return_tab)
     kw: dict = {"tab": tab, **params}
+    if dest:
+        kw["return"] = dest
     if close:
         # Highlight the edited host without reopening the modal
         kw.setdefault("focus", str(device_id))
     else:
         kw["device"] = str(device_id)
     return _redirect(f"/integrations/{integration_id}", **kw)
-
 
 def _resync_schedules() -> None:
     try:
@@ -189,6 +204,7 @@ async def render_nmap_detail(request, session, user, integration: Integration):
     if device is not None:
         device_profile = profile_dict_from_device(device)
     kind_choices = list(KIND_CHOICES)
+    return_to = _device_return_to(request.query_params.get("return"))
     # Annotate ports with finding/error counts for row highlight + anchors
     if device_ports and device_scripts_classified:
         device_ports = ports_with_findings(device_ports, device_scripts_classified)
@@ -239,6 +255,7 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             "device_script_counts": device_script_counts,
             "device_profile": device_profile,
             "kind_choices": kind_choices,
+            "return_to": return_to,
             "map_role_labels": MAP_ROLE_LABELS,
             "map_role_gateway": MAP_ROLE_GATEWAY,
             "intensities": INTENSITIES,
@@ -511,6 +528,7 @@ async def nmap_device_set_name(
     kind_override: str = Form(""),
     map_role: str = Form(""),
     return_tab: str = Form(""),
+    return_to: str = Form(""),
 ):
     """Map identity: name, device type override, optional gateway role.
 
@@ -538,11 +556,12 @@ async def nmap_device_set_name(
             f"role={(device.map_role or '')!r}"
         ),
     )
-    # Save and close: drop modal, keep operator on the same tab + focus card
+    # Save and close: drop modal (or return to Hosts map)
     return _device_redirect(
         integration_id,
         device_id,
         return_tab=return_tab,
+        return_to=return_to,
         close=True,
         msg="device_mapped",
     )
@@ -555,6 +574,7 @@ async def nmap_device_ignore(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     return_tab: str = Form(""),
+    return_to: str = Form(""),
 ):
     integration = _require_nmap(session, integration_id)
     device = session.get(NmapDevice, device_id)
@@ -566,6 +586,8 @@ async def nmap_device_ignore(
         integration_id,
         device_id,
         return_tab=return_tab,
+        return_to=return_to,
+        close=True,
         msg="device_ignored",
     )
 
@@ -577,6 +599,7 @@ async def nmap_device_unignore(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     return_tab: str = Form(""),
+    return_to: str = Form(""),
 ):
     integration = _require_nmap(session, integration_id)
     device = session.get(NmapDevice, device_id)
@@ -588,6 +611,8 @@ async def nmap_device_unignore(
         integration_id,
         device_id,
         return_tab=return_tab,
+        return_to=return_to,
+        close=True,
         msg="device_restored",
     )
 
@@ -599,6 +624,7 @@ async def nmap_device_mark_known(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     return_tab: str = Form(""),
+    return_to: str = Form(""),
 ):
     """Mark as known / reviewed — clears the *new* inbox filter."""
     integration = _require_nmap(session, integration_id)
@@ -611,6 +637,8 @@ async def nmap_device_mark_known(
         integration_id,
         device_id,
         return_tab=return_tab,
+        return_to=return_to,
+        close=True,
         msg="device_known",
     )
 
@@ -622,6 +650,7 @@ async def nmap_device_mark_new(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     return_tab: str = Form(""),
+    return_to: str = Form(""),
 ):
     """Re-flag as new (revisit). Unlink first if linked."""
     integration = _require_nmap(session, integration_id)
@@ -635,6 +664,7 @@ async def nmap_device_mark_new(
             integration_id,
             device_id,
             return_tab=return_tab,
+            return_to=return_to,
             error="mark_new_failed",
             detail=str(e)[:200],
         )
@@ -643,6 +673,8 @@ async def nmap_device_mark_new(
         integration_id,
         device_id,
         return_tab=return_tab,
+        return_to=return_to,
+        close=True,
         msg="device_new",
     )
 
@@ -655,6 +687,7 @@ async def nmap_device_link(
     user: User = Depends(get_operator_user),
     server_id: int = Form(...),
     return_tab: str = Form(""),
+    return_to: str = Form(""),
 ):
     integration = _require_nmap(session, integration_id)
     device = session.get(NmapDevice, device_id)
@@ -666,6 +699,7 @@ async def nmap_device_link(
             integration_id,
             device_id,
             return_tab=return_tab,
+            return_to=return_to,
             error="invalid",
             detail="server not found",
         )
@@ -681,6 +715,8 @@ async def nmap_device_link(
         integration_id,
         device_id,
         return_tab=return_tab,
+        return_to=return_to,
+        close=True,
         msg="device_linked",
     )
 
@@ -692,6 +728,7 @@ async def nmap_device_unlink(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     return_tab: str = Form(""),
+    return_to: str = Form(""),
 ):
     integration = _require_nmap(session, integration_id)
     device = session.get(NmapDevice, device_id)
@@ -703,6 +740,8 @@ async def nmap_device_unlink(
         integration_id,
         device_id,
         return_tab=return_tab,
+        return_to=return_to,
+        close=True,
         msg="device_unlinked",
     )
 
