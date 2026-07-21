@@ -62,12 +62,30 @@ Opt-in discovery of hosts on configured LAN CIDR(s). Discovery is **not** a mana
 
 ---
 
+## Known issues (ship with awareness)
+
+These are **accepted for v0.8.0** — not blockers for the RC3 tag. Expect follow-up in **v0.8.x / v0.9**.
+
+| # | Area | Issue | Direction |
+|---|------|--------|-----------|
+| **1** | **Server onboarding wizard** | Experience works end-to-end but still needs **clarifications and refinements** for a smoother first-run path (copy, step guidance, edge cases, resume/save flows). | Polish pass in a follow-up release — not a rewrite of the wizard. |
+| **2** | **Certificate management** | **Sudoers suggestions** can be incorrect for some layouts. Map UX still leans on **paired** fullchain/privkey; more **individual cert options** (not only pairs) and practical **app-specific templates** (e.g. Grafana-style) are **not practical** as shipped. | Revisit cert maps, sudoers snippets, and layout templates in the **next** cert-focused release. |
+| **3** | **UX consistency & polish** | Residual chrome inconsistencies across wizard, Docker, certs, Jobs, and fabric (empty states, chips, list/perf, multi-map deploy Jobs, etc.). | **Continue polishing in the next release** — stream P from [PLAN_v0.8.0.md](PLAN_v0.8.0.md) / residual operator friction. |
+
+Also note (ops, not product bugs):
+
+- **Wiki screenshot PNG pack** may lag product briefly until the freeze capture pass lands (stream A).
+- **Unit coverage** is ~**49%** pre-tag (RC3 target ~50%; CI floor 30%) — more depth welcome but not a ship-stopper.
+- **Nmap worker** is opt-in; after enabling profile `nmap`, recreate `celery-worker-nmap` so `PIHERDER_NMAP_WORKER=1` is live.
+
+---
+
 ## Intentionally not in v0.8.0
 
 | Horizon | Items |
 |---------|--------|
 | **Later / P2 nmap** | Hosts map icons/shapes by kind · per-service port labels · dual-layout HTTP contracts · worker heartbeat on boot only |
-| **Later** | Full entity delete cascade matrix + UI preview (R2) · host stats / allowlisted commands (P3) · bootstrap depth (P4) · **web SSH (P5)** · ACME-in-herder · NPM proxy write CRUD · Cloudflare DNS · K8s as supported install · large curated template pack |
+| **Later** | Full entity delete cascade matrix + UI preview (R2) · host stats / allowlisted commands (P3) · bootstrap depth (P4) · **web SSH (P5)** · ACME-in-herder · NPM proxy write CRUD · Cloudflare DNS · K8s as supported install · large curated template pack · cert layout/template overhaul (see Known issues §2) · deep wizard UX pass (see §1) |
 | **CI** | Live nmap of real networks (fixtures / mocks only) |
 
 ---
