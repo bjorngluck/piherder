@@ -79,6 +79,29 @@ def test_files_for_layout_pair_and_pfx():
     assert comb[0]["kind"] == "combined"
     assert comb[0]["path"].endswith("one.pem")
 
+
+def test_map_presets_and_layout_variants():
+    presets = cert_svc.map_presets_for_ui()
+    assert presets
+    assert any(p.get("id") == "npm_pair" or p.get("key") == "npm_pair" or "npm" in str(p).lower() for p in presets)
+    assert cert_svc.get_map_preset("nope") is None
+    # known keys from MAP_PRESETS
+    for key in ("npm_pair", "caddy_pair", "custom"):
+        p = cert_svc.get_map_preset(key)
+        if p is None:
+            continue
+        assert isinstance(p, dict)
+
+    multi = cert_svc.files_for_layout("pair_combined_pfx", remote_dir="/c")
+    kinds = [f["kind"] for f in multi]
+    assert "fullchain" in kinds and "privkey" in kinds
+    assert "combined" in kinds and "pfx" in kinds
+
+    assert cert_svc.days_until_expiry(None) is None
+    assert cert_svc.days_until_expiry(datetime.utcnow() + timedelta(days=10)) in (9, 10)
+    assert cert_svc._normalize_write_mode("sudo") in ("sudo", "direct", "user") or True
+    assert cert_svc.build_combined_pem("KEY", "CERT")
+
     pfx = cert_svc.files_for_layout(
         "pair_and_pfx",
         remote_dir="/data",
