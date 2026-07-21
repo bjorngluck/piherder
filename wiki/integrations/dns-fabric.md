@@ -87,19 +87,21 @@ On the **Network hub** (`/dns`), configure home topology used by the Hosts map:
 ### Hosts map layout
 
 ```text
-Internet (☁) ── WAN ── Router ── LAN ── fleet hosts (full cards, inner ring)
-     │                      │
-     │                      └── outer rings: discovered devices (small chips)
-     └── WAN ── cloud hosts (public IP / outside subnet, e.g. Nomad VPS)
+Internet (☁) ── WAN ── Router (on zone rim)
+                         │
+                    LAN badge (centre)
+                   /  |  |  \
+            fleet hosts on a **fan / circle**   ← compact zone
+         · · · discovered chips on outer rings · · ·  ← expands when “Network / discovered” is on
 
-Mapped apps fan outside the LAN zone from fleet hosts (same geometry as before discovery).
+Mapped apps fan **outside** the zone from fleet hosts.
 ```
 
 - **Spine always drawn** when fleet hosts exist (even if LAN/gateway settings are empty).
 - Without a LAN CIDR: **RFC1918 / CGNAT** addresses stay on LAN; other addresses are **cloud**.
-- **Fleet** hosts sit on the inner ring with a **clear top gap** so nothing covers the Router → LAN link.
-- **Discovered** (nmap) devices sit on **outer multi-rings** as compact chips — they do **not** squeeze fleet cards or app satellites.
-- Cloud hosts sit beside the Internet cloud (not on the LAN ring).
+- **Fleet fan** — managed hosts on a ring around the LAN badge (size scales with fleet count).
+- **Discovered (radar) toggle** — **off** = compact zone (fleet only); **on** = zone expands to outer rings of discovery chips. Internet / Router sit on the **active** zone rim; fleet fan positions stay fixed.
+- Cloud hosts sit beside the Internet cloud (not on the LAN fan).
 
 ---
 
@@ -108,7 +110,7 @@ Mapped apps fan outside the LAN zone from fleet hosts (same geometry as before d
 | Page | URL | Shows |
 |------|-----|--------|
 | **Network hub** | `/dns` | Path cards · filters · network settings · adopt/import · host A table · external checklist |
-| **Hosts map** | `/dns/physical` | Rack cards + SVG: Internet → Router → LAN → **fleet** (full cards) + **discovered** (outer chips) + apps; **Discovered** toggle in map toolbar |
+| **Hosts map** | `/dns/physical` | Rack cards + SVG: Internet → Router → **LAN fan** + apps; radar expands the circle for discovery |
 | **Path map** | `/dns/logical` | Flow list (mobile-first) + SVG (URL → NPM hub → destination) |
 
 ### LAN discovery on Hosts map {#lan-discovery-on-hosts-map}
@@ -117,16 +119,27 @@ After **[LAN Discovery](lan-discovery.md)** has scanned, **unlinked** devices ap
 
 | Topic | Behaviour |
 |-------|-----------|
-| **Toggle** | **Discovered** checkbox in the **map toolbar** (zoom / full screen row), default **on**; stored in the browser |
-| **Layout** | Fleet + mapped apps keep pre-discovery spacing; discoveries use **small chips** on outer rings |
-| **Labels** | Operator **map name** (e.g. `cctv1`) → scan hostname → IP — set name under LAN Discovery → Devices |
-| **Kind** | Heuristic badge on chips when known (printer, Pi, camera, …) — advisory only |
-| **Dedup** | Same IP as a fleet server, or already **linked** → fleet card only |
+| **Toggle** | **Radar** icon in the one-line map chrome (next to zoom / full screen), default **on**; browser `localStorage`. Count is in the **footer** + tooltip, not a toolbar badge |
+| **Layout** | Fleet on compact fan; toggle expands zone to outer discovery rings; apps / spine dual-layout with the zone |
+| **Labels** | Operator **map name** (e.g. `cctv1`) → scan hostname → IP — set in LAN Discovery **edit modal** (Network or Devices) |
+| **Kind** | Heuristic or **operator override** badge (printer, Pi, camera, …) — never auto-promotes |
+| **Gateway** | Device map role **Gateway / router** labels the Router spine and sets network gateway IP; that IP is not double-drawn as a LAN chip |
+| **Dedup** | Same IP as a fleet server, already **linked**, or map-role gateway / network gateway IP → not a second discovery chip |
 | **Ignored** | Stay off the map |
 | **Tap** | Opens LAN Discovery device detail (ports, name, kind, link/promote) |
 | **Requires** | nmap integration + devices from a scan |
 
-LAN Discovery’s own **Network** tab remains a discovery-only subnet browser; the Hosts map is the combined topology.
+LAN Discovery’s own **Network** tab remains a discovery-only subnet browser; the Hosts map is the combined topology. Device naming / type / known / ignore: [LAN Discovery — edit modal](lan-discovery.md#edit-modal-network--devices).
+
+### Map chrome (Hosts + Path)
+
+| Control | What it does |
+|---------|----------------|
+| **Hide map** (mobile) | Return to list-first layout |
+| **Discovered** (Hosts only, radar) | Outer discovery chips on/off + compact vs full LAN zone |
+| **− / % / +** | Zoom out · level · zoom in (SVG viewBox) |
+| **1:1** | Fit map to the window. Hosts + discovered **off**: fits the **compact** fleet (fills the pane). Discovered **on** / Path map: designed full canvas. Double-click map = same |
+| **Full screen** | Expand map; Esc or control again to leave |
 
 ### Focus, zoom & mobile
 
@@ -135,7 +148,7 @@ LAN Discovery’s own **Network** tab remains a discovery-only subnet browser; t
 - Hosts **without** mapped services are still selectable (node focus). App satellites focus the service **path**.
 - **Open host** / **Open in Kuma** appears when the focused node has a link (same-tab for fleet hosts; new tab for external Kuma).
 - **Copy path** copies the callout route string.
-- Maps: **pinch** / scroll-wheel zoom up to **500%** (SVG **viewBox** — stays sharp), **drag** to pan, **+/− / 1:1**, **Full screen** (Esc or **Exit full** to leave), double-click reset.
+- Maps: **pinch** / scroll-wheel zoom up to **500%** (SVG **viewBox** — stays sharp), **drag** to pan; see chrome table above.
 - Status dots: **green** = last Pi-hole sync ok · **amber** partial · **red** error · small amber ring = managed cert linked · Kuma **up/down** on Router / Public IP when bound.  
 - Path cards also show **Kuma coverage** (see below).
 - Deep links: `/dns/physical?focus=<service_id|#map>` and `/dns/logical?focus=…#map` (also from each path card / dashboard / Docker **Path map** pills). Deep links **auto-open** the SVG on mobile.
@@ -311,7 +324,7 @@ Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma 
 
 ## Related
 
-- [LAN Discovery (nmap)](lan-discovery.md) — whole-LAN devices, map names, Hosts map overlay  
+- [LAN Discovery (nmap)](lan-discovery.md) — whole-LAN devices, map identity (name / type / gateway), Hosts map overlay  
 - [Pi-hole](pihole.md)  
 - [NPM](npm.md)  
 - [Uptime Kuma](uptime-kuma.md)  

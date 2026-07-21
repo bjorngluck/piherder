@@ -948,33 +948,100 @@
   padding: 0;
   justify-content: center;
 }
-.nmap-map-controls {
+/* Network tab: stats row + separate aligned filter bar */
+.nmap-network-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+.nmap-map-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 0.75rem;
-  justify-content: flex-end;
+  gap: 0.65rem 1rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
 }
 .nmap-map-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.75rem;
-  color: var(--color-muted);
+  gap: 0.45rem;
+  font-size: 0.8125rem;
+  line-height: 1.25;
+  color: var(--color-text);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
-  min-height: 2.25rem;
-  padding: 0 0.15rem;
+  min-height: 2.5rem;
+  margin: 0;
+  flex: 0 0 auto;
+}
+.nmap-map-toggle-label {
+  display: inline-block;
+  padding-top: 0.05rem; /* optical align with checkbox */
 }
 .nmap-map-toggle input {
-  width: 1rem;
-  height: 1rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  flex-shrink: 0;
   accent-color: var(--color-accent);
   cursor: pointer;
 }
 .nmap-map-toggle:hover {
-  color: var(--color-text);
+  color: var(--color-accent);
+}
+.nmap-map-search-wrap {
+  flex: 1 1 14rem;
+  min-width: 11rem;
+  max-width: 22rem;
+  display: flex;
+  align-items: center;
+}
+.nmap-map-search {
+  width: 100%;
+  min-height: 2.5rem;
+  height: 2.5rem;
+  line-height: 1.25;
+  margin: 0;
+}
+.nmap-help-details {
+  padding: 0.65rem 0.85rem;
+}
+.nmap-help-summary {
+  list-style: none;
+}
+.nmap-help-summary::-webkit-details-marker { display: none; }
+.nmap-help-summary::before {
+  content: "▸ ";
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+.nmap-help-details[open] .nmap-help-summary::before {
+  content: "▾ ";
+}
+.nmap-host-card.is-focus-flash {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+  outline-offset: 2px;
+  animation: nmap-focus-pulse 1.8s ease-out 1;
+}
+@keyframes nmap-focus-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 40%, transparent); }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+/* sr-only if not already present via Tailwind */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 .nmap-stat-n {
   font-size: 1.15rem;
@@ -1188,6 +1255,81 @@
   line-height: 1.35;
 }
 .nmap-profile-reasons li { margin: 0.1rem 0; }
+
+/* Device edit modal — centered float (same shell as users / jobs modals) */
+body.nmap-modal-open {
+  overflow: hidden;
+}
+.nmap-device-modal {
+  /* layout classes also on the element; keep z-index above catalog chrome */
+  z-index: 55;
+  cursor: pointer; /* dimmed backdrop click closes */
+}
+.nmap-device-modal-panel {
+  cursor: default;
+  max-height: min(90vh, 48rem);
+}
+.nmap-device-modal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 1rem 1.15rem 0.85rem;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-surface) 94%, var(--color-accent));
+  flex-shrink: 0;
+}
+.nmap-device-modal-body {
+  padding: 1rem 1.15rem 1.25rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.nmap-device-edit-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+@media (min-width: 480px) {
+  .nmap-device-edit-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .nmap-device-edit-field--name {
+    grid-column: 1 / -1;
+  }
+}
+.nmap-device-edit-field--kind select {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-surface));
+}
+.nmap-device-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+}
+.nmap-device-more summary.nmap-section-title {
+  list-style: none;
+  margin-bottom: 0;
+}
+.nmap-device-more summary::-webkit-details-marker { display: none; }
+.nmap-device-more summary::before {
+  content: "▸ ";
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+.nmap-device-more[open] summary::before {
+  content: "▾ ";
+}
+.nmap-host-card.is-active {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 60%, transparent);
+  outline-offset: 1px;
+}
+
 .nmap-state--new {
   color: var(--color-text);
   border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));

@@ -23,13 +23,14 @@ def _build_physical_mesh_svg(
     *,
     network: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Full-fleet physical SVG: Internet → Router (zone rim) → LAN zone → hosts + apps.
+    """Full-fleet physical SVG: Internet → Router → LAN fan → apps.
 
     Always draws the WAN/LAN spine when any fleet host exists:
-      Internet (centred, no IP) ──(wan)── Router on LAN zone rim
-        Router card: top = public WAN IP, bottom = private gateway IP
-      LAN badge (subnet) · hosts *inside* zone · apps *outside*
-      Cloud hosts (e.g. Nomad) ──(wan)── side of Internet cloud
+      Internet (centred) ──(wan)── Router on LAN zone rim
+      LAN badge (centre) · fleet hosts on a **fan/ring** · apps outside
+      Discovered chips on **outer rings**; zone has two sizes:
+        - compact = fleet only (default when Discovered is off)
+        - expanded = includes discovery (Discovered toggle on)
 
     Dense hosts: at most PHYSICAL_MESH_MAX_APPS_PER_HOST satellites, then "+N more".
     """
@@ -62,7 +63,7 @@ def _build_physical_mesh_svg(
         else:
             lan_hosts.append(h)
 
-    # Split fleet vs discovery so fleet ring / apps stay roomy (pre-discovery layout).
+    # Split fleet vs discovery — fleet fan stays fixed; discovery sits on outer rings
     fleet_lan = [
         h
         for h in lan_hosts
@@ -73,15 +74,11 @@ def _build_physical_mesh_svg(
         for h in lan_hosts
         if h.get("is_discovered") or h.get("discovery_id") is not None
     ]
-    # Orphan LAN hosts without server_id and not marked discovered → treat as fleet-like
     for h in lan_hosts:
         if h in fleet_lan or h in disc_lan:
             continue
         fleet_lan.append(h)
 
-    # Always show full Internet → gateway → LAN spine when we have any hosts
-    # (or any explicit network settings). Previously only partial settings left
-    # hosts floating with no edges.
     show_spine = bool(named or lan_subnet or gateway_ip or public_ip)
     show_gateway = show_spine and (
         bool(gateway_ip) or bool(lan_hosts) or bool(lan_subnet)
@@ -89,86 +86,119 @@ def _build_physical_mesh_svg(
     show_lan = show_spine and (bool(lan_hosts) or bool(lan_subnet))
     show_internet = show_spine
 
-    # Fleet count drives zone geometry (mapped apps must not squash into a corner).
     n_fleet = len(fleet_lan)
     n_disc = len(disc_lan)
-    n_lan_h = n_fleet  # ring sizing uses fleet only
+    n_lan_h = n_fleet
     n_cloud = len(cloud_hosts)
 
-    # --- Geometry: LAN zone holds fleet servers; apps outside; disc further out ---
-    # Fleet host card half-size (matches SVG rect 124×60)
+    # --- Fan geometry: compact fleet ring · outer discovery · dual zone sizes ---
     host_hw, host_hh = 62.0, 30.0
-    # Discovered: compact chips (SVG rect ~76×34)
     disc_hw, disc_hh = 38.0, 17.0
-    # Inner LAN badge (circle: "LAN" + subnet) — room for CIDR text
     badge_r = 54.0
+    fleet_top_gap = math.radians(85)
+    fleet_span = 2.0 * math.pi - fleet_top_gap
 
-    # Host ring radius — fleet only (same formulas as pre-discovery)
-    if n_fleet <= 1:
-        ring_rx, ring_ry = 145.0, 115.0
+    # Fleet fan radius — scales with count (condensed for few hosts)
+    if n_fleet <= 0:
+        ring_rx = ring_ry = 0.0
+    elif n_fleet == 1:
+        ring_rx, ring_ry = 128.0, 102.0
+    elif n_fleet == 2:
+        ring_rx, ring_ry = 138.0, 108.0
     elif n_fleet <= 4:
-        ring_rx = 155.0 + n_fleet * 16.0
-        ring_ry = 115.0 + n_fleet * 12.0
+        ring_rx = 128.0 + n_fleet * 14.0
+        ring_ry = 100.0 + n_fleet * 10.0
     else:
-        ring_rx = min(340.0, 140.0 + n_fleet * 22.0)
-        ring_ry = min(250.0, 105.0 + n_fleet * 16.0)
-    # Keep ring outside the centre badge so cards don't cover "LAN"
-    ring_rx = max(ring_rx, badge_r + host_hw + 40.0)
-    ring_ry = max(ring_ry, badge_r + host_hh + 32.0)
+        min_arc = host_hw * 2.05
+        r_need = (n_fleet * min_arc) / max(fleet_span, 1e-6)
+        ring_rx = min(340.0, max(badge_r + host_hw + 28.0, r_need * 1.10))
+        ring_ry = min(250.0, max(badge_r + host_hh + 22.0, r_need * 0.86))
+    if n_fleet >= 1:
+        ring_rx = max(ring_rx, badge_r + host_hw + 28.0)
+        ring_ry = max(ring_ry, badge_r + host_hh + 22.0)
 
-    # Zone ellipse — large enough that fleet host cards sit fully inside
-    zone_rx = ring_rx + host_hw + 36.0
-    zone_ry = ring_ry + host_hh + 32.0
+    # Compact zone = fleet cards fully inside (hosts-only / Discovered off)
+    zone_rx_compact = (
+        (ring_rx + host_hw + 30.0) if n_fleet >= 1 else (badge_r + 48.0)
+    )
+    zone_ry_compact = (
+        (ring_ry + host_hh + 26.0) if n_fleet >= 1 else (badge_r + 40.0)
+    )
+    if n_fleet == 0 and n_disc == 0:
+        zone_rx_compact = badge_r + 48.0
+        zone_ry_compact = badge_r + 40.0
 
-    # Apps outside zone: wide step so mapping cards don't stack
-    app_clearance = 150.0
-    app_step = 152.0  # ~ card width + gap
-    apps_per_ring = 5
-
-    # Discovered multi-ring *outside* the zone (and outside typical app fan start)
-    # so fleet + mapped apps keep their prior spacing.
-    disc_per_ring = 18
-    disc_ring_gap = disc_hw * 2.0 + 28.0
-    disc_base_rx = zone_rx + app_clearance * 0.55 + disc_hw + 36.0
-    disc_base_ry = zone_ry + app_clearance * 0.55 + disc_hh + 28.0
+    # Discovered multi-ring *outside* compact zone, *inside* expanded zone
+    disc_per_ring = 16
+    disc_ring_gap = disc_hw * 2.0 + 22.0
+    if n_fleet >= 1:
+        disc_base_rx = zone_rx_compact + disc_hw + 18.0
+        disc_base_ry = zone_ry_compact + disc_hh + 14.0
+    else:
+        disc_base_rx = badge_r + disc_hw + 40.0
+        disc_base_ry = badge_r + disc_hh + 32.0
     n_disc_rings = max(1, (n_disc + disc_per_ring - 1) // disc_per_ring) if n_disc else 0
-    disc_outer_rx = disc_base_rx + max(0, n_disc_rings - 1) * disc_ring_gap + disc_hw
-    disc_outer_ry = disc_base_ry + max(0, n_disc_rings - 1) * disc_ring_gap + disc_hh
-
-    outer_need = max(
-        zone_rx + app_clearance + 220.0,
-        disc_outer_rx + 40.0 if n_disc else 0.0,
+    disc_outer_rx = (
+        disc_base_rx + max(0, n_disc_rings - 1) * disc_ring_gap if n_disc else 0.0
+    )
+    disc_outer_ry = (
+        disc_base_ry + max(0, n_disc_rings - 1) * disc_ring_gap if n_disc else 0.0
     )
 
-    # Internet vector-cloud half-size (layout + edge attach; no ellipse drawn)
+    # Expanded zone = includes discovery chips (Discovered on)
+    if n_disc:
+        zone_rx_full = max(zone_rx_compact, disc_outer_rx + disc_hw + 28.0)
+        zone_ry_full = max(zone_ry_compact, disc_outer_ry + disc_hh + 24.0)
+    else:
+        zone_rx_full = zone_rx_compact
+        zone_ry_full = zone_ry_compact
+
+    # Full zone for canvas / default paint; compact positions for Discovered-off
+    zone_rx, zone_ry = zone_rx_full, zone_ry_full
+
+    app_clearance_c = 120.0 if n_fleet <= 2 else 140.0
+    app_clearance_f = 150.0 if n_disc else app_clearance_c
+    app_step = 152.0
+    apps_per_ring = 5
+    outer_need = zone_rx_full + app_clearance_f + 200.0
+
     inet_rx, inet_ry = 82.0, 52.0
-    # Dual-tone router card half-size (matches template 132×76)
     gw_hw, gw_hh = 66.0, 38.0
+    gap_inet_gw = 58.0
 
     width = max(980, int(2 * outer_need + 100))
     if n_cloud:
-        # Extra horizontal room so cloud hosts sit clear of Internet
         width = max(
             width,
             int(2 * outer_need + 200),
             int(2 * (inet_rx + host_hw + 120 + ((n_cloud + 1) // 2) * 20)),
         )
 
-    # Geometry: Internet (centred) → gap → Router on LAN zone rim → zone + hosts
+    # Shared LAN centre (badge + fan hub). Router sits on the *active* zone rim:
+    # full → top of expanded ellipse; compact → top of fleet-only ellipse.
     lan_cx = width / 2.0
-    inet_x = lan_cx
-    gw_x = lan_cx
+    inet_x_f = inet_x_c = lan_cx
+    gw_x_f = gw_x_c = lan_cx
 
-    # Room above cloud for monitoring status
-    inet_y = 96.0
-    gap_inet_gw = 58.0  # space between Internet bottom and Router top
-    gw_y = inet_y + inet_ry + gap_inet_gw + gw_hh
-    # zone top = router centre (bridges WAN ↔ LAN)
-    lan_cy = gw_y + zone_ry
+    inet_y_f = 96.0
+    gw_y_f = inet_y_f + inet_ry + gap_inet_gw + gw_hh
+    lan_cy = gw_y_f + zone_ry_full
 
-    height = int(lan_cy + max(zone_ry + app_clearance + 280, disc_outer_ry + 120))
+    gw_y_c = lan_cy - zone_ry_compact  # router on compact LAN / Internet boundary
+    inet_y_c = gw_y_c - gap_inet_gw - gw_hh - inet_ry
+
+    # Default (full network view) spine aliases used by edge helpers below
+    inet_x, inet_y = inet_x_f, inet_y_f
+    gw_x, gw_y = gw_x_f, gw_y_f
+    zone_cx, zone_cy = lan_cx, lan_cy
+    badge_x, badge_y = lan_cx, lan_cy
+
+    height = int(lan_cy + zone_ry_full + app_clearance_f + 280)
     if n_cloud:
-        height = max(height, int(inet_y + host_hh + 80 + ((n_cloud + 1) // 2) * 70))
+        height = max(
+            height,
+            int(max(inet_y_f, inet_y_c) + host_hh + 80 + ((n_cloud + 1) // 2) * 70),
+        )
 
     def _ellipse_radius(ux: float, uy: float, rx: float, ry: float) -> float:
         """Distance from centre to ellipse boundary along unit vector (ux, uy)."""
@@ -219,18 +249,31 @@ def _build_physical_mesh_svg(
         path_ids: list | None = None,
         from_node: str | None = None,
         to_node: str | None = None,
+        # Optional compact-mode centres (same shapes); full is ax/ay/bx/by
+        compact: tuple[float, float, float, float] | None = None,
     ) -> dict[str, Any]:
-        """Edge between two node centres, clipped to each node's border."""
+        """Edge between two node centres, clipped to each node's border.
+
+        When ``compact`` is (ax_c, ay_c, bx_c, by_c), also store dual endpoints
+        so the Hosts map toggle can shrink Internet/Router/apps without reflow.
+        """
         a_kind, a_w, a_h = a_shape
         b_kind, b_w, b_h = b_shape
-        if a_kind == "ellipse":
-            x1, y1 = _ellipse_edge(ax, ay, a_w, a_h, bx, by)
-        else:
-            x1, y1 = _rect_edge(ax, ay, a_w, a_h, bx, by)
-        if b_kind == "ellipse":
-            x2, y2 = _ellipse_edge(bx, by, b_w, b_h, ax, ay)
-        else:
-            x2, y2 = _rect_edge(bx, by, b_w, b_h, ax, ay)
+
+        def _ends(
+            pax: float, pay: float, pbx: float, pby: float
+        ) -> tuple[float, float, float, float]:
+            if a_kind == "ellipse":
+                x1, y1 = _ellipse_edge(pax, pay, a_w, a_h, pbx, pby)
+            else:
+                x1, y1 = _rect_edge(pax, pay, a_w, a_h, pbx, pby)
+            if b_kind == "ellipse":
+                x2, y2 = _ellipse_edge(pbx, pby, b_w, b_h, pax, pay)
+            else:
+                x2, y2 = _rect_edge(pbx, pby, b_w, b_h, pax, pay)
+            return x1, y1, x2, y2
+
+        x1, y1, x2, y2 = _ends(ax, ay, bx, by)
         e: dict[str, Any] = {
             "x1": round(x1, 1),
             "y1": round(y1, 1),
@@ -238,7 +281,25 @@ def _build_physical_mesh_svg(
             "y2": round(y2, 1),
             "kind": kind,
             "dashed": dashed,
+            "x1_full": round(x1, 1),
+            "y1_full": round(y1, 1),
+            "x2_full": round(x2, 1),
+            "y2_full": round(y2, 1),
         }
+        if compact is not None:
+            cax, cay, cbx, cby = compact
+            cx1, cy1, cx2, cy2 = _ends(cax, cay, cbx, cby)
+            e["x1_compact"] = round(cx1, 1)
+            e["y1_compact"] = round(cy1, 1)
+            e["x2_compact"] = round(cx2, 1)
+            e["y2_compact"] = round(cy2, 1)
+            e["layout_dual"] = True
+        else:
+            e["x1_compact"] = e["x1_full"]
+            e["y1_compact"] = e["y1_full"]
+            e["x2_compact"] = e["x2_full"]
+            e["y2_compact"] = e["y2_full"]
+            e["layout_dual"] = False
         if path_id is not None:
             e["path_id"] = path_id
         if path_ids is not None:
@@ -248,6 +309,20 @@ def _build_physical_mesh_svg(
         if to_node:
             e["to_node"] = to_node
         return e
+
+    def _xy_dual(
+        x_f: float, y_f: float, x_c: float, y_c: float
+    ) -> dict[str, float]:
+        """Absolute full coords + dual pair for client toggle transforms."""
+        return {
+            "x": round(x_f, 1),
+            "y": round(y_f, 1),
+            "x_full": round(x_f, 1),
+            "y_full": round(y_f, 1),
+            "x_compact": round(x_c, 1),
+            "y_compact": round(y_c, 1),
+            "layout_dual": abs(x_f - x_c) > 0.05 or abs(y_f - y_c) > 0.05,
+        }
 
     # Shape half-sizes matching SVG template geometry
     shape_inet = ("ellipse", inet_rx, inet_ry)
@@ -276,9 +351,7 @@ def _build_physical_mesh_svg(
                 "id": "infra-internet",
                 "kind": "internet",
                 "label": "Internet",
-                "sub": "",  # keep label clean — no IP on the cloud
-                "x": round(inet_x, 1),
-                "y": round(inet_y, 1),
+                "sub": "",
                 "rx": inet_rx,
                 "ry": inet_ry,
                 "href": inet_href,
@@ -286,45 +359,59 @@ def _build_physical_mesh_svg(
                 "node_id": "internet",
                 "path_chain": inet_chain,
                 "open_label": "Open in Kuma" if inet_href else "",
+                **_xy_dual(inet_x_f, inet_y_f, inet_x_c, inet_y_c),
             }
         )
 
     if show_gateway:
-        gw_href = (gateway_kuma or {}).get("open_url") or None
+        gateway_label = (net.get("gateway_label") or "").strip()
+        gateway_disc_href = (net.get("gateway_href") or "").strip()
+        gw_href = (
+            (gateway_kuma or {}).get("open_url")
+            or gateway_disc_href
+            or None
+        )
         # Dual-tone bridge: top = public WAN IP, bottom = private LAN gateway IP
+        # Position: on LAN zone rim (full when network on, compact when off)
         pub_line = (public_ip or "").strip() or "public IP —"
         lan_line = (gateway_ip or "").strip() or "gateway —"
-        chain_bits = ["Router", f"WAN {pub_line}", f"LAN {lan_line}"]
+        router_label = gateway_label or "Router"
+        chain_bits = [router_label, f"WAN {pub_line}", f"LAN {lan_line}"]
         if gateway_kuma and gateway_kuma.get("state"):
             chain_bits.append(str(gateway_kuma.get("state")))
+        open_lbl = ""
+        if (gateway_kuma or {}).get("open_url"):
+            open_lbl = "Open in Kuma"
+        elif gateway_disc_href:
+            open_lbl = "Open discovery"
         infra_nodes.append(
             {
                 "id": "infra-gateway",
                 "kind": "gateway",
-                "label": "Router",
+                "label": router_label[:18] if len(router_label) > 18 else router_label,
                 "sub": lan_line[:28],
                 "public_ip": (public_ip or "").strip(),
                 "lan_ip": (gateway_ip or "").strip(),
                 "sub_top": pub_line[:24],
                 "sub_bottom": lan_line[:24],
                 "split": True,
-                "x": round(gw_x, 1),
-                "y": round(gw_y, 1),
                 "href": gw_href,
                 "kuma": gateway_kuma,
                 "ip": gateway_ip,
                 "node_id": "gateway",
                 "path_chain": " · ".join(chain_bits),
-                "open_label": "Open in Kuma" if gw_href else "",
+                "open_label": open_lbl,
+                **_xy_dual(gw_x_f, gw_y_f, gw_x_c, gw_y_c),
             }
         )
         if show_internet:
             edges.append(
                 _link(
-                    inet_x, inet_y, shape_inet,
-                    gw_x, gw_y, shape_gw,
+                    inet_x_f, inet_y_f, shape_inet,
+                    gw_x_f, gw_y_f, shape_gw,
                     kind="wan", dashed=True,
                     from_node="internet", to_node="gateway",
+                    compact=(inet_x_c, inet_y_c, gw_x_c, gw_y_c),
                 )
             )
 
@@ -334,7 +421,7 @@ def _build_physical_mesh_svg(
             if any(_is_private_ip(h.get("ip")) for h in lan_hosts)
             else "home LAN"
         )
-        # Centre badge = "LAN" + subnet; zone_* = outer box for hosts
+        # Centre badge fixed; zone ellipse compact/full for toggle
         infra_nodes.append(
             {
                 "id": "infra-lan",
@@ -342,12 +429,16 @@ def _build_physical_mesh_svg(
                 "label": "LAN",
                 "sub": lan_label_sub[:32],
                 "subnet": lan_label_sub[:32],
-                "x": round(lan_cx, 1),
-                "y": round(lan_cy, 1),
                 "rx": badge_r,
                 "ry": badge_r,
-                "zone_rx": round(zone_rx, 1),
-                "zone_ry": round(zone_ry, 1),
+                "zone_cx": round(zone_cx, 1),
+                "zone_cy": round(zone_cy, 1),
+                "zone_rx": round(zone_rx_full, 1),
+                "zone_ry": round(zone_ry_full, 1),
+                "zone_rx_compact": round(zone_rx_compact, 1),
+                "zone_ry_compact": round(zone_ry_compact, 1),
+                "zone_rx_full": round(zone_rx_full, 1),
+                "zone_ry_full": round(zone_ry_full, 1),
                 "href": None,
                 "node_id": "lan",
                 "path_chain": (
@@ -355,24 +446,27 @@ def _build_physical_mesh_svg(
                     + (f" · {n_disc} discovered" if n_disc else "")
                 ),
                 "open_label": "",
+                **_xy_dual(lan_cx, lan_cy, lan_cx, lan_cy),
             }
         )
         if show_gateway:
             edges.append(
                 _link(
-                    gw_x, gw_y, shape_gw,
+                    gw_x_f, gw_y_f, shape_gw,
                     lan_cx, lan_cy, shape_lan,
                     kind="lan", dashed=False,
                     from_node="gateway", to_node="lan",
+                    compact=(gw_x_c, gw_y_c, lan_cx, lan_cy),
                 )
             )
         elif show_internet:
             edges.append(
                 _link(
-                    inet_x, inet_y, shape_inet,
+                    inet_x_f, inet_y_f, shape_inet,
                     lan_cx, lan_cy, shape_lan,
                     kind="wan", dashed=True,
                     from_node="internet", to_node="lan",
+                    compact=(inet_x_c, inet_y_c, lan_cx, lan_cy),
                 )
             )
 
@@ -395,8 +489,12 @@ def _build_physical_mesh_svg(
         is_cloud: bool,
         hw: float | None = None,
         hh: float | None = None,
+        x_compact: float | None = None,
+        y_compact: float | None = None,
     ) -> None:
         key = _layout_key(h)
+        xc = float(x if x_compact is None else x_compact)
+        yc = float(y if y_compact is None else y_compact)
         host_pos[key] = (x, y)
         sid = int(h["server_id"]) if h.get("server_id") is not None else None
         is_discovered = bool(h.get("is_discovered")) or (
@@ -485,8 +583,6 @@ def _build_physical_mesh_svg(
                 "label": label_show,
                 "sub": sub_show,
                 "ip": ip,
-                "x": round(x, 1),
-                "y": round(y, 1),
                 "hw": box_hw,
                 "hh": box_hh,
                 "href": h.get("href"),
@@ -506,18 +602,20 @@ def _build_physical_mesh_svg(
                 "path_chain": " · ".join(chain_parts),
                 "open_label": h.get("open_label")
                 or ("Open discovery" if is_discovered else "Open host"),
+                **_xy_dual(x, y, xc, yc),
             }
         )
         host_nid = node_id
-        # LAN hosts → LAN badge; cloud → Internet ellipse
+        # LAN hosts → LAN badge; cloud → Internet ellipse (dual for spine)
         if is_cloud:
             if show_internet:
                 edges.append(
                     _link(
                         x, y, shape_this,
-                        inet_x, inet_y, shape_inet,
+                        inet_x_f, inet_y_f, shape_inet,
                         kind="wan", dashed=True,
                         from_node=host_nid, to_node="internet",
+                        compact=(xc, yc, inet_x_c, inet_y_c),
                     )
                 )
         elif show_lan:
@@ -533,33 +631,31 @@ def _build_physical_mesh_svg(
             edges.append(
                 _link(
                     x, y, shape_this,
-                    gw_x, gw_y, shape_gw,
+                    gw_x_f, gw_y_f, shape_gw,
                     kind="lan", dashed=bool(is_discovered),
                     from_node=host_nid, to_node="gateway",
+                    compact=(x, y, gw_x_c, gw_y_c),
                 )
             )
 
-    # Fleet LAN hosts on ring *inside* the zone (wide top gap: Router on zone rim)
-    top_gap = math.radians(85)
+    # Fleet on fan/ring inside compact zone (wide top gap for Router → LAN)
     for i, h in enumerate(fleet_lan):
         if n_fleet == 1:
-            angle = math.pi / 2  # bottom of ring
+            angle = math.pi / 2  # bottom of fan
         elif n_fleet == 0:
             continue
         else:
-            span = 2 * math.pi - top_gap
             t = (i + 0.5) / n_fleet
-            angle = -math.pi / 2 + top_gap / 2 + span * t
+            angle = -math.pi / 2 + fleet_top_gap / 2 + fleet_span * t
         x = lan_cx + ring_rx * math.cos(angle)
         y = lan_cy + ring_ry * math.sin(angle)
         _place_host(h, x, y, is_cloud=False, hw=host_hw, hh=host_hh)
 
-    # Discovered devices: multi-ring outside zone, compact chips, full-circle spread
+    # Discovered: multi-ring outside compact zone (inside expanded); full-circle fan
     for i, h in enumerate(disc_lan):
         ring_i = i // disc_per_ring
         idx = i % disc_per_ring
         n_on = min(disc_per_ring, n_disc - ring_i * disc_per_ring)
-        # Slight phase offset per ring so chips don't stack radially
         phase = ring_i * (math.pi / disc_per_ring)
         t = (idx + 0.5) / max(n_on, 1)
         angle = -math.pi / 2 + phase + 2 * math.pi * t
@@ -569,15 +665,22 @@ def _build_physical_mesh_svg(
         y = lan_cy + ry * math.sin(angle)
         _place_host(h, x, y, is_cloud=False, hw=disc_hw, hh=disc_hh)
 
-    # Cloud / VPS hosts: clear of Internet ellipse (side attachment)
+    # Cloud / VPS hosts: side of Internet — move with compact/full Internet Y
     for i, h in enumerate(cloud_hosts):
-        side = -1 if (i % 2 == 0) else 1  # alternate L/R, first on left
+        side = -1 if (i % 2 == 0) else 1
         row = i // 2
-        x = inet_x + side * (inet_rx + host_hw + 56.0 + row * 28.0)
-        y = inet_y + row * 68.0
-        _place_host(h, x, y, is_cloud=True, hw=host_hw, hh=host_hh)
+        ox = side * (inet_rx + host_hw + 56.0 + row * 28.0)
+        oy = row * 68.0
+        x_f = inet_x_f + ox
+        y_f = inet_y_f + oy
+        x_c = inet_x_c + ox
+        y_c = inet_y_c + oy
+        _place_host(
+            h, x_f, y_f, is_cloud=True, hw=host_hw, hh=host_hh,
+            x_compact=x_c, y_compact=y_c,
+        )
 
-    # Apps outside the LAN zone (or outside cloud host) — multi-ring fan, all cards
+    # Apps fan outside compact zone (hosts-only) and full zone (network view)
     app_nodes: list[dict[str, Any]] = []
     overflow_total = 0
     by_backend: dict[int, list[dict[str, Any]]] = {}
@@ -587,15 +690,19 @@ def _build_physical_mesh_svg(
             continue
         by_backend.setdefault(int(bid), []).append(s)
 
-    max_shown = PHYSICAL_MESH_MAX_APPS_PER_HOST
-    for bid, apps in by_backend.items():
-        hx, hy = host_pos.get(bid, (lan_cx, lan_cy))
-        host_rec = next((n for n in host_nodes if n.get("server_id") == bid), None)
-        is_cloud_host = bool(host_rec and host_rec.get("is_cloud"))
-        host_nid = f"host-{bid}"
-
+    def _app_fan_basis(
+        hx: float,
+        hy: float,
+        *,
+        is_cloud_host: bool,
+        zrx: float,
+        zry: float,
+        clearance: float,
+        inet_y_ref: float,
+    ) -> tuple[float, float, float, float, float]:
+        """Return ux, uy, base_out, px0, py0 for app fan."""
         if is_cloud_host:
-            dx, dy = hx - inet_x, hy - (inet_y + 10)
+            dx, dy = hx - inet_x_f, hy - (inet_y_ref + 10)
             dist = math.hypot(dx, dy) or 1.0
             ux, uy = dx / dist, dy / dist
             base_out = 130.0
@@ -603,22 +710,45 @@ def _build_physical_mesh_svg(
             dx, dy = hx - lan_cx, hy - lan_cy
             dist = math.hypot(dx, dy) or 1.0
             ux, uy = dx / dist, dy / dist
-            r_zone = _ellipse_radius(ux, uy, zone_rx, zone_ry)
-            base_out = max(app_clearance, (r_zone - dist) + app_clearance)
+            r_zone = _ellipse_radius(ux, uy, zrx, zry)
+            base_out = max(clearance, (r_zone - dist) + clearance)
+        return ux, uy, base_out, -uy, ux
+
+    max_shown = PHYSICAL_MESH_MAX_APPS_PER_HOST
+    for bid, apps in by_backend.items():
+        hx, hy = host_pos.get(bid, (lan_cx, lan_cy))
+        host_rec = next((n for n in host_nodes if n.get("server_id") == bid), None)
+        is_cloud_host = bool(host_rec and host_rec.get("is_cloud"))
+        host_nid = f"host-{bid}"
+        # Cloud host centre also moves in compact mode
+        hx_c = float(host_rec["x_compact"]) if host_rec and host_rec.get("x_compact") is not None else hx
+        hy_c = float(host_rec["y_compact"]) if host_rec and host_rec.get("y_compact") is not None else hy
+
+        ux_f, uy_f, base_f, px0_f, py0_f = _app_fan_basis(
+            hx, hy, is_cloud_host=is_cloud_host,
+            zrx=zone_rx_full, zry=zone_ry_full, clearance=app_clearance_f,
+            inet_y_ref=inet_y_f,
+        )
+        ux_c, uy_c, base_c, px0_c, py0_c = _app_fan_basis(
+            hx_c, hy_c, is_cloud_host=is_cloud_host,
+            zrx=zone_rx_compact, zry=zone_ry_compact, clearance=app_clearance_c,
+            inet_y_ref=inet_y_c,
+        )
 
         shown = apps[:max_shown]
         hidden = apps[max_shown:]
         n_shown = len(shown)
-        px0, py0 = -uy, ux  # perpendicular for fan
         for j, s in enumerate(shown):
             ring = j // apps_per_ring
             idx = j % apps_per_ring
             n_on_ring = min(apps_per_ring, n_shown - ring * apps_per_ring)
-            # Centre fan on outward axis; space by full card width
             spread = (idx - (n_on_ring - 1) / 2.0) * app_step
-            r_out = base_out + ring * (app_hh * 2.0 + 36.0)
-            ax = hx + ux * r_out + px0 * spread
-            ay = hy + uy * r_out + py0 * spread
+            r_out_f = base_f + ring * (app_hh * 2.0 + 36.0)
+            r_out_c = base_c + ring * (app_hh * 2.0 + 36.0)
+            ax_f = hx + ux_f * r_out_f + px0_f * spread
+            ay_f = hy + uy_f * r_out_f + py0_f * spread
+            ax_c = hx_c + ux_c * r_out_c + px0_c * spread
+            ay_c = hy_c + uy_c * r_out_c + py0_c * spread
             path_id = s.get("id")
             app_nodes.append(
                 {
@@ -631,8 +761,6 @@ def _build_physical_mesh_svg(
                         or s.get("path_kind")
                         or ""
                     )[:22],
-                    "x": round(ax, 1),
-                    "y": round(ay, 1),
                     "href": s.get("dep_href") or s.get("backend_href"),
                     "path_kind": s.get("path_kind"),
                     "via_npm": s.get("via_proxy"),
@@ -640,34 +768,45 @@ def _build_physical_mesh_svg(
                     "path_chain": s.get("path_chain") or s.get("fqdn"),
                     "sync_status": s.get("last_sync_status") or "",
                     "has_cert": bool(s.get("certificate_id") or s.get("cert_name")),
+                    **_xy_dual(ax_f, ay_f, ax_c, ay_c),
                 }
             )
             edges.append(
                 _link(
-                    ax, ay, shape_app,
+                    ax_f, ay_f, shape_app,
                     hx, hy, shape_host,
                     kind="land", dashed=False, path_id=path_id,
                     from_node=None, to_node=host_nid,
+                    compact=(ax_c, ay_c, hx_c, hy_c),
                 )
             )
             tid = s.get("target_server_id")
             if s.get("via_proxy") and tid and int(tid) in host_pos and int(tid) != bid:
                 tx, ty = host_pos[int(tid)]
+                t_rec = next(
+                    (n for n in host_nodes if n.get("server_id") == int(tid)), None
+                )
+                tx_c = float(t_rec["x_compact"]) if t_rec else tx
+                ty_c = float(t_rec["y_compact"]) if t_rec else ty
                 edges.append(
                     _link(
-                        ax, ay, shape_app,
+                        ax_f, ay_f, shape_app,
                         tx, ty, shape_host,
                         kind="npm", dashed=True, path_id=path_id,
                         from_node=None, to_node=f"host-{int(tid)}",
+                        compact=(ax_c, ay_c, tx_c, ty_c),
                     )
                 )
 
         if hidden:
             overflow_total += len(hidden)
             ring = (n_shown // apps_per_ring) + 1
-            r_out = base_out + ring * (app_hh * 2.0 + 36.0)
-            mx = hx + ux * r_out
-            my = hy + uy * r_out
+            r_out_f = base_f + ring * (app_hh * 2.0 + 36.0)
+            r_out_c = base_c + ring * (app_hh * 2.0 + 36.0)
+            mx_f = hx + ux_f * r_out_f
+            my_f = hy + uy_f * r_out_f
+            mx_c = hx_c + ux_c * r_out_c
+            my_c = hy_c + uy_c * r_out_c
             hidden_ids = [s.get("id") for s in hidden if s.get("id") is not None]
             app_nodes.append(
                 {
@@ -675,21 +814,21 @@ def _build_physical_mesh_svg(
                     "kind": "more",
                     "label": f"+{len(hidden)} more",
                     "sub": "see rack card",
-                    "x": round(mx, 1),
-                    "y": round(my, 1),
                     "href": f"/servers/{bid}",
                     "path_ids": hidden_ids,
                     "path_chain": f"+{len(hidden)} more apps on host (rack list)",
+                    **_xy_dual(mx_f, my_f, mx_c, my_c),
                 }
             )
             edges.append(
                 _link(
-                    mx, my, shape_more,
+                    mx_f, my_f, shape_more,
                     hx, hy, shape_host,
                     kind="land",
                     dashed=True,
                     path_ids=hidden_ids,
                     to_node=host_nid,
+                    compact=(mx_c, my_c, hx_c, hy_c),
                 )
             )
 

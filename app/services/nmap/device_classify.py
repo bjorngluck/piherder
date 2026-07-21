@@ -42,6 +42,37 @@ KIND_LABELS: dict[str, str] = {
     KIND_NETWORK: "Network gear",
 }
 
+# Operator may pick any of these as kind_override (same ids as heuristics).
+VALID_KINDS: frozenset[str] = frozenset(KIND_LABELS.keys())
+
+# Ordered for UI select (auto first is handled separately).
+KIND_CHOICES: list[tuple[str, str]] = [
+    (k, KIND_LABELS[k])
+    for k in (
+        KIND_RASPBERRY_PI,
+        KIND_SERVER,
+        KIND_WINDOWS,
+        KIND_NAS,
+        KIND_PRINTER,
+        KIND_ROUTER,
+        KIND_AP,
+        KIND_PHONE,
+        KIND_TV,
+        KIND_CAMERA,
+        KIND_IOT,
+        KIND_MEDIA,
+        KIND_NETWORK,
+        KIND_UNKNOWN,
+    )
+]
+
+# Map spine / fabric roles (not device kinds).
+MAP_ROLE_GATEWAY = "gateway"
+MAP_ROLE_LABELS: dict[str, str] = {
+    MAP_ROLE_GATEWAY: "Gateway / router (Hosts map spine)",
+}
+VALID_MAP_ROLES: frozenset[str] = frozenset(MAP_ROLE_LABELS.keys())
+
 # Short labels for dense UI (map cards)
 KIND_SHORT: dict[str, str] = {
     KIND_UNKNOWN: "?",
@@ -74,6 +105,9 @@ class DeviceProfile:
     confidence: str = CONF_LOW
     reasons: list[str] = field(default_factory=list)
     score: int = 0
+    # When operator overrode kind: auto_* is the heuristic; overridden=True.
+    auto_kind: str = KIND_UNKNOWN
+    overridden: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)
@@ -461,18 +495,85 @@ def classify_device(
         confidence=conf,
         reasons=why or [f"score {best_score}"],
         score=best_score,
+        auto_kind=best_kind,
+        overridden=False,
     )
 
 
+def normalize_kind_override(raw: Optional[str]) -> Optional[str]:
+    """Return a valid kind id or None (auto). Empty / 'auto' → None."""
+    val = (raw or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if not val or val in ("auto", "none", "default"):
+        return None
+    # Accept a few friendly aliases
+    aliases = {
+        "pi": KIND_RASPBERRY_PI,
+        "raspberry": KIND_RASPBERRY_PI,
+        "rpi": KIND_RASPBERRY_PI,
+        "gateway": KIND_ROUTER,
+        "ap": KIND_AP,
+        "wifi": KIND_AP,
+        "pc": KIND_WINDOWS,
+        "host": KIND_SERVER,
+    }
+    if val in aliases:
+        return aliases[val]
+    if val in VALID_KINDS:
+        return val
+    return None
+
+
+def normalize_map_role(raw: Optional[str]) -> Optional[str]:
+    """Return a valid map_role or None."""
+    val = (raw or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if not val or val in ("auto", "none", "default", "host", ""):
+        return None
+    if val in ("router", "gw", "lan_gateway"):
+        return MAP_ROLE_GATEWAY
+    if val in VALID_MAP_ROLES:
+        return val
+    return None
+
+
+def apply_kind_override(
+    profile: DeviceProfile, kind_override: Optional[str]
+) -> DeviceProfile:
+    """If operator set kind_override, replace effective kind; keep auto_*."""
+    override = normalize_kind_override(kind_override)
+    auto_kind = profile.kind
+    profile.auto_kind = auto_kind
+    if not override:
+        profile.overridden = False
+        return profile
+    profile.kind = override
+    profile.label = KIND_LABELS.get(override, override)
+    profile.short = KIND_SHORT.get(override, "?")
+    profile.confidence = CONF_HIGH
+    profile.overridden = True
+    auto_label = KIND_LABELS.get(auto_kind, auto_kind)
+    if override == auto_kind:
+        profile.reasons = [
+            f"operator locked type: {profile.label}",
+            *[r for r in profile.reasons if not str(r).startswith("operator")][:4],
+        ]
+    else:
+        profile.reasons = [
+            f"operator override (auto was {auto_label})",
+            *[r for r in profile.reasons][:4],
+        ]
+    return profile
+
+
 def profile_from_device(device: Any) -> DeviceProfile:
-    """Classify an NmapDevice-like object."""
-    return classify_device(
+    """Classify an NmapDevice-like object (honours kind_override)."""
+    profile = classify_device(
         mac=getattr(device, "mac_address", None),
         mac_vendor=getattr(device, "mac_vendor", None),
         hostname=getattr(device, "hostname", None),
         os_summary=getattr(device, "os_summary", None),
         ports_json=getattr(device, "ports_json", None),
     )
+    return apply_kind_override(profile, getattr(device, "kind_override", None))
 
 
 def profile_dict_from_device(device: Any) -> dict[str, Any]:

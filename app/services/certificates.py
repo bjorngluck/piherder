@@ -945,7 +945,13 @@ def _layout_file_payloads(
 
 
 def reload_edge_caddy() -> dict[str, Any]:
-    """POST current Caddyfile to Caddy admin /load (compose-network only)."""
+    """POST current Caddyfile to Caddy admin /load (compose-network only).
+
+    Always force a full apply: Caddy skips identical configs by default
+    (\"config is unchanged\"), which would leave previously loaded PEM material
+    in memory even after we overwrite /certs/fullchain.pem + privkey.pem.
+    Cache-Control: must-revalidate forces re-read of file-based TLS certs.
+    """
     import urllib.error
     import urllib.request
 
@@ -968,7 +974,12 @@ def reload_edge_caddy() -> dict[str, Any]:
         url,
         data=body,
         method="POST",
-        headers={"Content-Type": "text/caddyfile"},
+        headers={
+            "Content-Type": "text/caddyfile",
+            # Critical: without this, /load no-ops when Caddyfile text is unchanged
+            # and never reloads volume-mounted PEMs after edge apply / renew.
+            "Cache-Control": "must-revalidate",
+        },
     )
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:

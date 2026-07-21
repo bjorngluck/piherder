@@ -202,6 +202,52 @@ def test_deploy_to_edge_caddy_writes_and_reloads(tmp_path):
     assert cert.last_edge_deploy_fingerprint == "fp-edge-test"
 
 
+def test_reload_edge_caddy_forces_must_revalidate(tmp_path, monkeypatch):
+    """Caddy skips identical configs unless Cache-Control: must-revalidate.
+
+    Without that header, edge apply writes PEMs but live TLS keeps the old cert.
+    """
+    from unittest.mock import MagicMock, patch
+
+    caddyfile = tmp_path / "Caddyfile"
+    caddyfile.write_text("{$PIHERDER_HOSTNAME}:443 {\n\ttls /certs/fullchain.pem /certs/privkey.pem\n}\n")
+
+    class _FakeResp:
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    captured: dict = {}
+
+    def fake_urlopen(req, timeout=30):
+        captured["url"] = req.full_url
+        captured["headers"] = {k.lower(): v for k, v in req.header_items()}
+        captured["method"] = req.get_method()
+        captured["body"] = req.data
+        return _FakeResp()
+
+    monkeypatch.setattr(
+        "app.config.settings.CADDY_ADMIN_URL", "http://caddy:2019", raising=False
+    )
+    monkeypatch.setattr(
+        "app.config.settings.CADDYFILE_PATH", str(caddyfile), raising=False
+    )
+
+    with patch("urllib.request.urlopen", side_effect=fake_urlopen):
+        r = cert_svc.reload_edge_caddy()
+
+    assert r.get("ok") is True, r
+    assert captured["url"] == "http://caddy:2019/load"
+    assert captured["method"] == "POST"
+    assert captured["headers"].get("content-type") == "text/caddyfile"
+    assert captured["headers"].get("cache-control") == "must-revalidate"
+    assert b"tls /certs/fullchain.pem" in (captured["body"] or b"")
+
+
 def test_public_target_dict_in_sync_flags():
     from types import SimpleNamespace
 

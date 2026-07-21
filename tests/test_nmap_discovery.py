@@ -862,3 +862,126 @@ def test_upsert_skips_ignored():
     )
     assert summary["skipped"] == 1
     assert summary["created"] == 0
+
+
+def test_upsert_dhcp_ip_change_keeps_mac_identity():
+    """Same MAC at a new IP updates the row; map name / known state stay."""
+    existing = SimpleNamespace(
+        id=9,
+        integration_id=1,
+        identity_key="mac:AA:BB:CC:DD:EE:01",
+        ip_address="192.168.1.40",
+        hostname="cam.local",
+        display_name="cctv1",
+        mac_address="AA:BB:CC:DD:EE:01",
+        mac_vendor="CamCo",
+        state="known",
+        os_summary=None,
+        ports_json=None,
+        last_seen_at=None,
+        last_run_id=None,
+        updated_at=None,
+        kind_override=None,
+        map_role=None,
+    )
+    store = {existing.identity_key: existing}
+    by_mac = {"AA:BB:CC:DD:EE:01": existing}
+
+    class Sess:
+        def exec(self, stmt):
+            class R:
+                def first(self):
+                    # Prefer identity_key hit, then mac match
+                    if existing.identity_key in store:
+                        return store[existing.identity_key]
+                    return by_mac.get("AA:BB:CC:DD:EE:01")
+
+                def all(self):
+                    return []
+
+            return R()
+
+        def add(self, obj):
+            if hasattr(obj, "identity_key"):
+                store[obj.identity_key] = obj
+
+        def flush(self):
+            pass
+
+        def commit(self):
+            pass
+
+        def delete(self, obj):
+            pass
+
+    host = np.ParsedHost(
+        ip_address="192.168.1.99",  # DHCP moved
+        hostname="cam.local",
+        mac_address="AA:BB:CC:DD:EE:01",
+        mac_vendor="CamCo",
+        status="up",
+        ports=[],
+        scripts=[],
+    )
+    summary = up.upsert_hosts_from_parse(
+        Sess(),
+        integration_id=1,
+        hosts=[host],
+        run_id=2,
+    )
+    assert summary["updated"] == 1
+    assert summary["created"] == 0
+    assert existing.ip_address == "192.168.1.99"
+    assert existing.identity_key == "mac:AA:BB:CC:DD:EE:01"
+    assert existing.state == "known"
+    assert existing.display_name == "cctv1"
+
+
+def test_upsert_keeps_new_until_reviewed():
+    existing = SimpleNamespace(
+        id=2,
+        integration_id=1,
+        identity_key="ip:10.0.0.5",
+        ip_address="10.0.0.5",
+        hostname=None,
+        mac_address=None,
+        mac_vendor=None,
+        state="new",
+        os_summary=None,
+        ports_json=None,
+        last_seen_at=None,
+        last_run_id=None,
+        updated_at=None,
+    )
+
+    class Sess:
+        def exec(self, stmt):
+            class R:
+                def first(self):
+                    return existing
+
+                def all(self):
+                    return []
+
+            return R()
+
+        def add(self, obj):
+            pass
+
+        def flush(self):
+            pass
+
+        def commit(self):
+            pass
+
+        def delete(self, obj):
+            pass
+
+    host = np.ParsedHost(
+        ip_address="10.0.0.5",
+        status="up",
+        ports=[],
+        scripts=[],
+    )
+    up.upsert_hosts_from_parse(Sess(), integration_id=1, hosts=[host], run_id=3)
+    assert existing.state == "new"

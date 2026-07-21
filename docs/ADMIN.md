@@ -232,10 +232,16 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 | Curated options | Timing (`-T3`–`T5`), port scope (top / all / list), UDP, deep **script presets** (none/cpe/offline/full) — no free-form flags |
 | Excludes | Always / port-scans / deep-only lists → nmap `--exclude` |
 | Kind heuristics | MAC vendor + curated OUI + ports/hostname → advisory badges (`device_classify`) |
+| Kind override | `NmapDevice.kind_override` — sticky type when heuristics are wrong |
+| Map role | `map_role=gateway` → Hosts map Router spine + network gateway IP; device skipped as outer chip |
 | Map names | `NmapDevice.display_name` — operator label for Hosts map chips (survives re-scan) |
-| Hosts map overlay | Unlinked devices on `/dns/physical` (outer chips; toolbar **Discovered** toggle); no link required to appear |
+| Lifecycle | States new/known/linked/ignored/stale; **Mark known/new**; save map identity auto-knows New |
+| Identity | Prefer MAC key; DHCP IP updates in place; first-MAC upgrade |
+| Edit UX | Centered modal from Network cards or Devices (save and close, scroll restore) |
+| Hosts map overlay | Unlinked devices on `/dns/physical` (outer chips; radar toggle; dual compact/full layout; **1:1** fits compact when disc. off); no link required to appear |
 | Soft embed | Linked device → server list LAN chip + server detail card |
 | Discovery ≠ Server | Link / promote / dismiss are operator-driven |
+| Migration | `030_nmap_kind_map_role` — `kind_override`, `map_role` |
 
 ### Optional host cleanup (piherder user)
 

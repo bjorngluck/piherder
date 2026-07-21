@@ -140,13 +140,13 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | 1 | Build + start **nmap** worker (`--profile nmap`) | Web never runs nmap |
 | 2 | [LAN Discovery](../integrations/lan-discovery.md) integration + CIDR(s) | Scope allowlist |
 | 3 | Manual **Discovery**, then **Inventory** (ports) | Trust before schedules; ports feed kind + chips |
-| 4 | Devices → set **map names** (e.g. `cctv1`) | Labels on Hosts map chips |
-| 5 | **Catalog → Network → Hosts map** — toggle **Discovered** in map toolbar | End-to-end view; **no** per-device link required |
+| 4 | **Network** → click host → edit modal: **map name**, **device type**, **gateway** if router, **Mark known** | Labels + kind + Router spine + inbox |
+| 5 | **Catalog → Network → Hosts map** — radar **Discovered**, **1:1** fit (tight when disc. off) | End-to-end view; **no** per-device link required |
 | 6 | Link / promote only what you will manage | Discovery ≠ fleet member |
 | 7 | Optional schedules (create + **Edit**) | Cadence you control |
 | 8 | Optional vuln pack update + deep scan | Pack volume opt-in |
 
-**Done when:** Hosts map shows fleet + discovered chips; named devices read clearly; you know how to link/promote; schedules stay off until you want them.
+**Done when:** Hosts map shows fleet + discovered chips; named devices read clearly; known/type/gateway are set where needed; you know how to link/promote; schedules stay off until you want them.
 
 ---
 

@@ -40,8 +40,8 @@ Without the worker, Overview shows **scanner offline**. Without the vuln pack, d
 3. Optional: enable **vuln scripts** on the integration when you want deep scans to use NSE vuln packs.  
 4. **Overview** → download / update **vulnerability database** if you plan deep vuln scans (Jobs page shows progress).  
 5. Run **Discovery** (who is up), then **Inventory** (ports — top N or **all ports**) so chips and kind heuristics have data.  
-6. **Devices** — set **map names** (e.g. `cctv1`) for hosts you recognize; ignore noise.  
-7. Open **Catalog → Network → Hosts map** — fleet + discovered together (**no per-device link required**). Toggle **Discovered** in the **map toolbar**.  
+6. **Network** (or Devices) — click a host → **edit modal**: **map name**, fix **device type**, mark **gateway** if the row is your router, **Mark known** for reviewed noise.  
+7. Open **Catalog → Network → Hosts map** — fleet + discovered together (**no per-device link required**). Use the **radar** toggle for outer chips; **1:1** fits the window (tight when discovered is off).  
 8. Link or promote only hosts you want to **manage**.  
 9. Optional: **Schedules** — discovery daily / inventory weekly; leave **disabled** until manual runs look good.
 
@@ -119,22 +119,39 @@ Excludes are passed as nmap `--exclude` so a single IP does not block scanning t
 
 ---
 
-## Device names (map labels)
+## Map identity (name, type, gateway)
 
-Each discovered host can have an operator **map name** (e.g. `cctv1`, `living-room-tv`).
+Any discovered device (Pi, printer, IoT, router, TV…) can be labelled for the Hosts map — **not only** fleet-manageable hosts. You do **not** need to promote a Server just to name a chip.
+
+| Field | Purpose |
+|-------|---------|
+| **Map name** | Chip / spine label (e.g. `cctv1`, `udm-pro`) |
+| **Device type** | Override busted heuristics (e.g. auto **Printer** → **Raspberry Pi**) |
+| **Map role** | Default LAN device, or **Gateway / router** for the Hosts map spine |
 
 | | |
 |--|--|
-| **Set** | Devices → open host → **Map name** → **Save name** |
-| **Survives** | Re-scans (nmap **hostname** may still update separately) |
-| **Shown on** | Hosts map chips, Devices list, LAN Discovery Network cards |
-| **Priority** | **display name** → scan hostname → IP |
+| **Set** | **Network** or **Devices** → click host → **centered edit modal** → name / type / role → **Save and close** |
+| **Survives** | Re-scans (nmap **hostname** may still update separately; override stays) |
+| **Shown on** | Hosts map chips, Devices list, Network cards; gateway → **Router** spine |
+| **Name priority** | **display name** → scan hostname → IP |
+| **Save side-effect** | Saving map identity also **marks New → Known** (reviewed) |
 
-Clear the field and save to fall back to hostname/IP. No need to link a Server just to label a chip.
+Clear the name field and save to fall back to hostname/IP. Kind **Auto** returns to the heuristic.
+
+### Gateway / router role
+
+Mark the device that is your LAN gateway (router IP). That:
+
+1. Sets **Network map → gateway IP** to this device’s IP (if different).  
+2. Labels the Hosts map **Router** spine node with the map name (or hostname).  
+3. **Hides** that IP as a separate LAN discovery chip (avoids double-draw on the rim).
+
+Only one device is gateway at a time. You can still set gateway IP manually under Catalog → Network map settings.
 
 ---
 
-## Device type (looks like)
+## Device type (looks like + override)
 
 PiHerder **guesses** a device kind from:
 
@@ -145,16 +162,44 @@ PiHerder **guesses** a device kind from:
 | **Open ports / services** | e.g. 9100+631 → printer; 5000/5001 → NAS; 554 → camera; 445+3389 → Windows |
 | **Hostname / OS** | e.g. `pi-*`, `DiskStation`, “Windows …” |
 
-Shown as a **kind badge** on Devices list, device detail (**Looks like** + reasons + confidence), Network cards, Hosts map chips, and linked server soft-embed. **Advisory only** — never auto-links or promotes.
+Shown as a **kind badge** on Devices list, edit modal, Network cards, Hosts map chips, and linked server soft-embed. Heuristic is **advisory only** — never auto-links or promotes.
+
+When discovery is wrong (e.g. OUI says printer but the box is a Pi), set **Device type** in the edit modal. Override is sticky across rescans; the auto guess is still shown as “auto was …”. An asterisk on the kind badge means **operator override**.
 
 Run **inventory** (or detailed/deep) so ports feed the classifier; discovery alone often only yields MAC vendor when available.
+
+**Roadmap:** icons / shapes on Hosts map by device kind; optional named labels for individual open services (ports) beyond host-level map name.
+
+---
+
+## Edit modal (Network + Devices)
+
+Click a **Network** card or a **Devices** row to open a **centered floating modal** (same shell as jobs / wait modals — not a bottom sheet). Stays on the tab you came from; no full-page jump.
+
+| Control | What it does |
+|---------|----------------|
+| **Map name** | Label for Hosts map chip / list title |
+| **Device type** | Sticky kind override, or **Auto** to clear |
+| **Map role** | **LAN device** (default) or **Gateway / router** |
+| **Save and close** | Writes identity, marks **Known** if was New, closes modal, restores scroll, brief focus flash on the card |
+| **Cancel / ✕** | Close without save |
+| **Mark known** | New/Stale → Known (reviewed inbox) without changing name/type |
+| **Mark new** | Known → New (put back in inbox; not for Linked — unlink first) |
+| **Ignore / Unignore** | Hide from active focus + Hosts map / restore |
+| **Link / Unlink** | Soft-attach to an existing Server / detach |
+| **Promote** | Opens add-host wizard (use the device IP) — still manual |
+| **Open ports / findings** | Expandable detail (latest port snapshot + classified scripts) |
+
+Operators can mutate; viewers see read-only identity. Preference for filters is per browser; scroll position is restored after save so long Network grids do not jump to the top.
 
 ---
 
 ## LAN Discovery Network tab
 
 - Hosts grouped by **/24** (or IPv6 /64), with search filter.
+- **Click a host card** → edit modal (above). Stays on Network.
 - **Show discovered** (default on): include unlinked hosts (`new` / `known` / `stale`). Uncheck to keep only **linked** devices on this tab’s map. Preference is stored in the browser.
+- Toolbar shows counts (on map / subnets / open ports / new / linked) — filter does not force a Devices list scroll.
 - Port chips show the **latest snapshot per host** (from the last inventory/detailed/deep that recorded ports), **not** a merge of all historical scans. Discovery re-runs no longer wipe a prior port snapshot.
 - Card titles use **map name** when set.
 
@@ -167,12 +212,26 @@ Unlinked discoveries appear **automatically** on the end-to-end Hosts map:
 | Behaviour | Detail |
 |-----------|--------|
 | **No link required** | Do not link 50 devices just to “see” them |
-| **Layout** | Fleet hosts + mapped apps keep the **full-size** inner ring (pre-discovery geometry). Discovered devices sit on **outer multi-rings** as **small chips** |
-| **Discovered toggle** | Map toolbar (next to zoom / full screen), default **on** |
-| **Dedup** | Same IP as a fleet server, or already **linked** → shown as the fleet card only |
+| **Layout** | Fleet hosts keep the **inner fan**. Discovered devices sit on **outer multi-rings** as **small chips** when the radar is on |
+| **Dual layout** | Discovered **off** = compact zone (fleet fan, router on compact rim). **On** = expanded zone + outer chips; Internet / Router / apps shift with the zone |
+| **Dedup** | Same IP as a fleet server, already **linked**, or map-role gateway → fleet / spine only |
 | **Ignored** | Stay off the map |
 | **Label** | Map name → hostname → IP |
 | **Tap chip** | Opens LAN Discovery device detail |
+
+### Hosts map toolbar (what each control does)
+
+One-line chrome at the top of the map (no horizontal scroll on typical phones):
+
+| Control | Action |
+|---------|--------|
+| **Hide map** (list icon, mobile) | Leave SVG → host list first |
+| **Discovered** (radar icon) | **On** (accent) = show outer discovery chips + expanded LAN zone. **Off** (muted) = compact fleet-only fan. Count lives in the **footer** + tooltip, not a “Disc. 45” badge. Preference: `localStorage` |
+| **− / % / +** | Zoom out · current zoom · zoom in (SVG viewBox, stays sharp) |
+| **1:1** | **Fit map to window.** With discovered **on** = designed full canvas. With discovered **off** = tight fit around the compact fleet so content fills the map pane (not a tiny cluster in empty space). Double-click the map does the same |
+| **Full screen** (corners icon) | Expand map; Esc / icon again to exit. Hamburger exits fullscreen so the drawer is usable |
+
+Also: pinch / scroll-wheel zoom, drag to pan. Footer shows fleet · discovered counts and map legend (solid LAN, dashed WAN/NPM, dashed-border chips = discovered).
 
 Full layout notes: [Network maps — LAN discovery](dns-fabric.md#lan-discovery-on-hosts-map).
 
@@ -180,14 +239,37 @@ Full layout notes: [Network maps — LAN discovery](dns-fabric.md#lan-discovery-
 
 ## Devices & onboarding
 
+### Lifecycle states
+
+| State | Meaning |
+|-------|---------|
+| **New** | Unreviewed inbox — first seen (or re-flagged). Rescans **keep** New until you act. |
+| **Known** | Reviewed / acknowledged — still not a managed Server. Filter out of the New inbox. |
+| **Linked** | Soft-attached to an existing fleet **Server** |
+| **Ignored** | Hidden from active discovery focus and Hosts map |
+| **Stale** | Not seen recently (when marked); next resight → **Known** |
+
 | Action | Meaning |
 |--------|---------|
-| **Map name** | Friendly label for maps/lists (not a Server) |
+| **Mark known** | Reviewed — leave the New filter (also auto when you **Save and close** map identity) |
+| **Mark new** | Put back in the inbox (not for linked devices — unlink first) |
+| **Map identity** | Name / type / gateway role (not a Server) |
 | **Ignore / dismiss** | Hide from active discovery focus |
 | **Link** | Attach discovered device to an **existing** Server row (soft embed) |
 | **Promote** | Start **add-host wizard** / prefilled path — still **manual**; no silent SSH enable |
 
 Discovery ≠ fleet membership. Hostnames and MACs depend on scan privileges and host-network worker mode.
+
+### Identity & DHCP
+
+| Rule | Detail |
+|------|--------|
+| **Stable key** | Prefer **MAC** (`mac:AA:BB:…`); if no MAC yet, fall back to **IP** (`ip:…`) |
+| **IP churn** | Same MAC at a new DHCP address **updates** `ip_address` on the same row — map name, kind override, notes, and state stay |
+| **First MAC** | When a previously IP-only row is later seen with a MAC at that IP, it is upgraded to MAC identity |
+| **No MAC ever** | Pure IP identity can fork if the host moves IP before a MAC is learned — host-network worker helps MACs appear |
+
+Ignore/link/map name survive IP updates when identity is MAC-based.
 
 ### Soft embed (fleet)
 

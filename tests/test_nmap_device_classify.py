@@ -181,6 +181,8 @@ def test_discovery_hosts_for_fabric_uses_display_name():
             self.ip_address = "10.0.0.50"
             self.hostname = None
             self.display_name = "cctv1"
+            self.kind_override = None
+            self.map_role = None
             self.mac_address = None
             self.mac_vendor = None
             self.state = "new"
@@ -198,6 +200,156 @@ def test_discovery_hosts_for_fabric_uses_display_name():
     assert len(out) == 1
     assert out[0]["name"] == "cctv1"
     assert out[0]["display_name"] == "cctv1"
+
+
+def test_kind_override_printer_to_pi():
+    """Operator can fix busted classification (printer OUI → Raspberry Pi)."""
+    auto = dc.classify_device(
+        mac="00:80:77:AA:BB:CC",
+        mac_vendor="Brother Industries, LTD",
+        ports_json=json.dumps(
+            [
+                {"port": 9100, "protocol": "tcp", "state": "open", "service": "jetdirect"},
+            ]
+        ),
+    )
+    assert auto.kind == dc.KIND_PRINTER
+
+    overridden = dc.apply_kind_override(auto, "raspberry_pi")
+    assert overridden.kind == dc.KIND_RASPBERRY_PI
+    assert overridden.overridden is True
+    assert overridden.auto_kind == dc.KIND_PRINTER
+    assert overridden.confidence == dc.CONF_HIGH
+    assert any("override" in r.lower() for r in overridden.reasons)
+
+    dev = SimpleNamespace(
+        mac_address="00:80:77:AA:BB:CC",
+        mac_vendor="Brother Industries, LTD",
+        hostname=None,
+        os_summary=None,
+        ports_json=json.dumps(
+            [{"port": 9100, "protocol": "tcp", "state": "open", "service": "jetdirect"}]
+        ),
+        kind_override="raspberry_pi",
+    )
+    p = dc.profile_from_device(dev)
+    assert p.kind == dc.KIND_RASPBERRY_PI
+    assert p.overridden is True
+
+
+def test_normalize_kind_and_map_role():
+    assert dc.normalize_kind_override("") is None
+    assert dc.normalize_kind_override("auto") is None
+    assert dc.normalize_kind_override("pi") == dc.KIND_RASPBERRY_PI
+    assert dc.normalize_kind_override("printer") == dc.KIND_PRINTER
+    assert dc.normalize_kind_override("not-a-kind") is None
+    assert dc.normalize_map_role("") is None
+    assert dc.normalize_map_role("router") == dc.MAP_ROLE_GATEWAY
+    assert dc.normalize_map_role("gateway") == dc.MAP_ROLE_GATEWAY
+    assert dc.normalize_map_role("host") is None
+
+
+def test_discovery_hosts_skip_gateway_role_and_ip():
+    from unittest.mock import MagicMock
+
+    from app.services.nmap import config as nmap_cfg
+
+    class Dev:
+        def __init__(self, ip, role=None, name=None):
+            self.id = hash(ip) % 10000
+            self.integration_id = 1
+            self.ip_address = ip
+            self.hostname = None
+            self.display_name = name
+            self.kind_override = None
+            self.map_role = role
+            self.mac_address = None
+            self.mac_vendor = None
+            self.state = "new"
+            self.linked_server_id = None
+            self.os_summary = None
+            self.ports_json = None
+
+    rows = [
+        Dev("10.0.0.1", role="gateway", name="udm"),
+        Dev("10.0.0.50", name="cctv1"),
+        Dev("10.0.0.1"),  # same gw ip without role — still skipped via gateway_ip
+    ]
+
+    class FakeResult:
+        def all(self):
+            return rows
+
+    session = MagicMock()
+    session.exec = lambda q: FakeResult()
+    out = nmap_cfg.discovery_hosts_for_fabric(
+        session,
+        fleet_ips=set(),
+        fleet_server_ids=set(),
+        gateway_ip="10.0.0.1",
+    )
+    assert len(out) == 1
+    assert out[0]["ip"] == "10.0.0.50"
+
+
+def test_set_device_map_identity_kind_and_role():
+    from unittest.mock import MagicMock, patch
+
+    from app.services.nmap import config as nmap_cfg
+
+    dev = SimpleNamespace(
+        id=3,
+        ip_address="192.168.1.1",
+        display_name=None,
+        kind_override=None,
+        map_role=None,
+        state="new",
+        updated_at=None,
+    )
+    session = MagicMock()
+    session.exec = MagicMock(return_value=MagicMock(all=lambda: []))
+    with patch.object(nmap_cfg, "save_settings", create=True):
+        # save_settings is imported inside; mock app_settings
+        with patch("app.services.app_settings.load_settings", return_value={"network_gateway_ip": ""}):
+            with patch("app.services.app_settings.save_settings") as save:
+                out = nmap_cfg.set_device_map_identity(
+                    session,
+                    dev,
+                    display_name="udm-pro",
+                    kind_override="router",
+                    map_role="gateway",
+                    sync_network_gateway=True,
+                )
+                assert out.display_name == "udm-pro"
+                assert out.kind_override == dc.KIND_ROUTER
+                assert out.map_role == dc.MAP_ROLE_GATEWAY
+                assert out.state == "known"  # map save reviews new → known
+                save.assert_called()
+                assert save.call_args[0][0]["network_gateway_ip"] == "192.168.1.1"
+
+
+def test_mark_device_known_and_new():
+    from unittest.mock import MagicMock
+
+    from app.services.nmap import config as nmap_cfg
+
+    session = MagicMock()
+    dev = SimpleNamespace(
+        state="new",
+        linked_server_id=None,
+        updated_at=None,
+    )
+    out = nmap_cfg.mark_device_known(session, dev)
+    assert out.state == "known"
+    out2 = nmap_cfg.mark_device_new(session, out)
+    assert out2.state == "new"
+    linked = SimpleNamespace(state="linked", linked_server_id=5, updated_at=None)
+    assert nmap_cfg.mark_device_known(session, linked).state == "linked"
+    try:
+        nmap_cfg.mark_device_new(session, linked)
+        assert False, "expected ValueError"
+    except ValueError:
+        pass
 
 
 def test_discovery_hosts_for_fabric_dedupes_fleet():

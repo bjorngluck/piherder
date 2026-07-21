@@ -87,19 +87,32 @@ def upsert_hosts_from_parse(
             )
         ).first()
 
-        # Also try IP match if MAC key is new but IP known (DHCP churn helper)
+        # --- Identity resolution (DHCP-friendly) ---
+        # Prefer stable MAC identity. IP alone is a fallback when no MAC yet.
         if existing is None and mac:
-            by_ip = session.exec(
+            # Same MAC under any key (e.g. upgraded from ip:… → mac:…)
+            by_mac = session.exec(
                 select(NmapDevice).where(
                     NmapDevice.integration_id == integration_id,
-                    NmapDevice.ip_address == ip,
-                    NmapDevice.state != "ignored",
+                    NmapDevice.mac_address == mac,
                 )
             ).first()
-            if by_ip is not None and not by_ip.mac_address:
-                existing = by_ip
+            if by_mac is not None:
+                existing = by_mac
                 existing.identity_key = key
-                existing.mac_address = mac
+            else:
+                # First time we learn MAC for a row that was IP-only at this address
+                by_ip = session.exec(
+                    select(NmapDevice).where(
+                        NmapDevice.integration_id == integration_id,
+                        NmapDevice.ip_address == ip,
+                        NmapDevice.state != "ignored",
+                    )
+                ).first()
+                if by_ip is not None and not by_ip.mac_address:
+                    existing = by_ip
+                    existing.identity_key = key
+                    existing.mac_address = mac
 
         ports_json = _ports_payload(host)
         open_n = len(open_ports(host))
@@ -130,6 +143,7 @@ def upsert_hosts_from_parse(
             if existing.state == "ignored":
                 skipped += 1
                 continue
+            # DHCP: same MAC (or merged row) may appear on a new IP — always refresh
             existing.ip_address = ip
             if host.hostname:
                 existing.hostname = host.hostname
@@ -145,11 +159,12 @@ def upsert_hosts_from_parse(
             existing.last_seen_at = now
             existing.last_run_id = run_id
             existing.updated_at = now
+            # Operator-reviewed / linked stay put; new stays new until marked known
             if existing.state == "stale":
                 existing.state = "known"
             elif existing.state == "new":
-                pass
-            elif existing.state not in ("linked", "ignored"):
+                pass  # stays new until Mark known / map identity / link
+            elif existing.state not in ("linked", "ignored", "known"):
                 existing.state = "known"
             session.add(existing)
             updated += 1

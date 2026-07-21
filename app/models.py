@@ -721,6 +721,10 @@ class NmapDevice(SQLModel, table=True):
     hostname: Optional[str] = Field(default=None, max_length=255)
     # Operator-set friendly name (e.g. cctv1) — survives re-scans; used on maps
     display_name: Optional[str] = Field(default=None, max_length=128)
+    # Operator device type when heuristic is wrong (e.g. printer → raspberry_pi)
+    kind_override: Optional[str] = Field(default=None, max_length=32)
+    # Map spine role: gateway (router) — optional; not a managed Server
+    map_role: Optional[str] = Field(default=None, max_length=32, index=True)
     mac_address: Optional[str] = Field(default=None, max_length=32, index=True)
     # From nmap address@vendor (OUI org name when known)
     mac_vendor: Optional[str] = Field(default=None, max_length=128)

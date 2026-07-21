@@ -17,7 +17,7 @@ Do **not** commit these files. `*.pem` is gitignored.
 
 1. Pull from NPM or **Upload PEM** into the vault.  
 2. Open the cert → **Apply to this PiHerder**.  
-3. Web writes `fullchain.pem` + `privkey.pem` here and reloads Caddy via the compose-network admin API (no SSH, no sudo).  
+3. Web writes `fullchain.pem` + `privkey.pem` here and POSTs the Caddyfile to Caddy admin `/load` with `Cache-Control: must-revalidate` so file-based TLS is re-read (no SSH, no sudo). Without that force header Caddy treats an unchanged Caddyfile as a no-op and keeps the previous cert in memory.
 
 Stock `docker-compose.yml` mounts `./certs` on **web** (RW) and **caddy** (RO), and enables Caddy admin on `caddy:2019` (not published to the host).
 

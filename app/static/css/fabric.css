@@ -793,13 +793,15 @@ a.fabric-hop:hover {
 .fabric-mesh-status--unknown {
   fill: var(--color-muted, #888);
 }
-/* LAN outer zone (hosts live inside) + centre badge (subnet) */
+/* LAN outer zone (hosts live inside) + centre badge (subnet).
+   rx/ry swap compact↔full when Network/discovered toggle changes. */
 .fabric-mesh-lan-zone {
   fill: color-mix(in srgb, var(--color-primary, #e60012) 5%, var(--color-bg)) !important;
   stroke: color-mix(in srgb, var(--color-primary, #e60012) 40%, var(--color-border));
   stroke-width: 1.75;
   stroke-dasharray: 7 5;
   pointer-events: none;
+  transition: rx 0.25s ease, ry 0.25s ease;
 }
 .fabric-mesh-lan-badge,
 .fabric-mesh-node--lan circle.fabric-mesh-lan-badge {
@@ -1248,13 +1250,240 @@ a:has(> .fabric-mesh-node.ph-focus-dim) {
 .fabric-mesh-viewport.is-panning {
   cursor: grabbing;
 }
+/* ------------------------------------------------------------------ */
+/* Map chrome — Hosts map + Path map (shared toolbar shell)           */
+/* ------------------------------------------------------------------ */
+.fabric-map-chrome {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem 0.5rem;
+  padding: 0.35rem 0.45rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 90%, var(--color-accent));
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-surface) 88%, var(--color-accent)) 0%,
+      var(--color-surface) 100%
+    );
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+/* Single horizontal row — compact enough to avoid h-scroll on phone widths */
+.fabric-map-chrome--oneline {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  gap: 0.35rem;
+  padding: 0.28rem 0.35rem;
+}
+.fabric-map-chrome--oneline .fabric-mesh-zoom-bar {
+  margin-left: auto;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  gap: 0.28rem;
+}
+.fabric-map-chrome--oneline .fabric-map-disc-toggle {
+  flex-shrink: 0;
+}
+.fabric-map-chrome-left {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.15rem;
+}
+.fabric-map-chrome-tools {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem 0.5rem;
+  margin-left: auto;
+}
+.fabric-map-chrome-divider {
+  width: 1px;
+  height: 1.35rem;
+  background: var(--color-border);
+  opacity: 0.9;
+  flex-shrink: 0;
+}
+
+/* Discovered — icon toggle (same footprint as full-screen). Count in tooltip / footer. */
+.fabric-map-disc-toggle {
+  display: inline-flex;
+  margin: 0;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+.fabric-map-disc-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+.fabric-map-disc-toggle .fabric-map-disc-face {
+  /* reuses .fabric-map-ctrl sizing */
+  pointer-events: none;
+}
+.fabric-map-disc-toggle:hover .fabric-map-disc-face {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-bg) 70%, var(--color-surface));
+}
+.fabric-map-disc-toggle:focus-within .fabric-map-disc-face {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  outline-offset: 1px;
+}
+/* On = accent (discovered shown); Off = muted */
+.fabric-map-disc-toggle input:checked + .fabric-map-disc-face {
+  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
+  color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+.fabric-map-disc-toggle input:not(:checked) + .fabric-map-disc-face {
+  color: var(--color-muted);
+  opacity: 0.85;
+}
+/* Legacy pill switch (unused on hosts map; keep minimal) */
+.fabric-map-switch {
+  display: none;
+}
+
+/* Zoom / fullscreen control cluster */
 .fabric-mesh-zoom-bar {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
   flex-wrap: wrap;
 }
+.fabric-map-seg {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg) 40%, var(--color-surface));
+  overflow: hidden;
+}
+.fabric-map-seg .fabric-map-ctrl {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  min-width: 2.15rem;
+}
+.fabric-map-seg .fabric-map-ctrl + .fabric-map-ctrl,
+.fabric-map-seg .fabric-mesh-zoom-label + .fabric-map-ctrl {
+  border-left: 1px solid var(--color-border) !important;
+}
+.fabric-map-seg .fabric-mesh-zoom-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  max-width: 2.75rem;
+  padding: 0 0.2rem;
+  border-left: 1px solid var(--color-border);
+  border-right: 1px solid var(--color-border);
+  background: transparent;
+  font-size: 0.65rem;
+  font-weight: 650;
+  color: var(--color-text);
+  opacity: 0.9;
+  user-select: none;
+}
+
+.fabric-map-ctrl {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-height: 2.15rem;
+  min-width: 2.15rem;
+  padding: 0 0.65rem;
+  margin: 0;
+  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  filter: none !important;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--color-text) 4%, transparent);
+}
+.fabric-map-ctrl:hover {
+  background: color-mix(in srgb, var(--color-bg) 70%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 35%, var(--color-border));
+  color: var(--color-text);
+}
+.fabric-map-ctrl:active {
+  transform: translateY(0.5px);
+}
+.fabric-map-ctrl:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  outline-offset: 1px;
+}
+.fabric-map-ctrl--icon {
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0 0.15rem;
+  min-width: 2.15rem;
+}
+.fabric-map-ctrl--icon-only {
+  width: 2.15rem;
+  min-width: 2.15rem;
+  padding: 0;
+}
+.fabric-map-ctrl--tight {
+  min-width: 2.35rem;
+  padding: 0 0.4rem;
+}
+.fabric-map-ctrl--ghost {
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-muted);
+}
+.fabric-map-ctrl--ghost:hover {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-bg) 60%, transparent);
+}
+.fabric-map-ctrl--accent {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  color: var(--color-text);
+}
+.fabric-map-ctrl--accent:hover {
+  background: color-mix(in srgb, var(--color-accent) 16%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+}
+.fabric-map-ctrl--accent[aria-pressed="true"],
+.fabric-map-ctrl.is-active {
+  border-color: var(--color-accent) !important;
+  color: var(--color-accent) !important;
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface)) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+.fabric-map-ctrl-svg {
+  flex-shrink: 0;
+  opacity: 0.92;
+  display: block;
+}
+
+/* Legacy class hooks (still used by JS label + fullscreen selectors) */
+.fabric-mesh-zoom-label {
+  font-size: 0.7rem;
+  min-width: 2.75rem;
+  color: var(--color-text);
+  text-align: center;
+}
 .fabric-map-toggle {
+  /* back-compat if any leftover markup */
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -1263,59 +1492,57 @@ a:has(> .fabric-mesh-node.ph-focus-dim) {
   color: var(--color-muted);
   cursor: pointer;
   user-select: none;
-  min-height: 2.25rem;
-  padding: 0 0.35rem;
-  white-space: nowrap;
 }
-.fabric-map-toggle:hover { color: var(--color-text); }
-.fabric-map-toggle input {
-  width: 0.95rem;
-  height: 0.95rem;
-  accent-color: var(--color-accent);
-  cursor: pointer;
-}
-.fabric-map-toggle-sep {
-  width: 1px;
-  align-self: stretch;
-  min-height: 1.25rem;
-  margin: 0 0.15rem;
-  background: var(--color-border);
-  opacity: 0.85;
-}
-/* Light-mode safe: explicit surface + text (never dark-on-dark / ghost-on-ghost) */
-.fabric-mesh-zoom-bar .btn {
-  background-color: var(--color-surface) !important;
-  color: var(--color-text) !important;
-  border: 1px solid var(--color-border) !important;
-  filter: none !important;
-}
-.fabric-mesh-zoom-bar .btn:hover {
-  background-color: var(--color-bg) !important;
-  color: var(--color-text) !important;
-  filter: none !important;
-}
-.fabric-mesh-zoom-label {
-  font-size: 0.7rem;
-  min-width: 2.75rem;
-  color: var(--color-text);
-  opacity: 0.85;
-}
-/* Clear-focus / hide-map / full-screen controls on map pages */
+.fabric-map-toggle-sep { display: none; }
+
+/* Clear-focus / open-graph (list chrome) — keep readable in light + dark */
 [data-fabric-clear-focus],
-[data-fabric-close-graph],
-[data-fabric-open-graph],
-[data-fabric-fullscreen] {
+[data-fabric-open-graph] {
   background-color: var(--color-surface) !important;
   color: var(--color-text) !important;
   border: 1px solid var(--color-border) !important;
   filter: none !important;
 }
 [data-fabric-clear-focus]:hover,
-[data-fabric-close-graph]:hover,
-[data-fabric-open-graph]:hover,
-[data-fabric-fullscreen]:hover {
+[data-fabric-open-graph]:hover {
   background-color: var(--color-bg) !important;
   color: var(--color-text) !important;
+}
+
+@media (max-width: 520px) {
+  .fabric-map-chrome {
+    padding: 0.3rem 0.35rem;
+  }
+  .fabric-map-switch {
+    padding: 0.15rem 0.4rem 0.15rem 0.3rem;
+  }
+  .fabric-map-switch-text {
+    font-size: 0.65rem;
+  }
+  .fabric-map-seg .fabric-mesh-zoom-label {
+    min-width: 2.5rem;
+    font-size: 0.65rem;
+  }
+}
+
+/* Ensure dual-tone router fills stay opaque under layout transforms */
+.fabric-mesh-node--gateway.is-split .fabric-mesh-gw-body {
+  pointer-events: auto;
+}
+.fabric-mesh-node--gateway.is-split .fabric-mesh-gw-wan,
+.fabric-mesh-node--gateway.is-split .fabric-mesh-gw-lan {
+  opacity: 1 !important;
+}
+.fabric-map-chrome .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* Map full-screen: fill viewport width *and* height (mobile uses dvh + JS height) */
@@ -1365,8 +1592,13 @@ body.fabric-map-fullscreen {
 }
 [data-fabric-graph].is-map-fullscreen > .flex,
 [data-fabric-graph].is-map-fullscreen > .fabric-mesh-zoom-bar,
+[data-fabric-graph].is-map-fullscreen > .fabric-map-chrome,
 [data-fabric-graph].is-map-fullscreen > div:first-child {
   flex: 0 0 auto;
+}
+[data-fabric-graph].is-map-fullscreen .fabric-map-chrome {
+  margin-bottom: 0.4rem;
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-accent));
 }
 [data-fabric-graph].is-map-fullscreen > p,
 [data-fabric-graph].is-map-fullscreen > .fabric-callout-row {
@@ -1400,6 +1632,7 @@ body.fabric-map-fullscreen {
 [data-fabric-fullscreen][aria-pressed="true"] {
   border-color: var(--color-accent) !important;
   color: var(--color-accent) !important;
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-surface)) !important;
 }
 
 /* Sync / cert status indicators */

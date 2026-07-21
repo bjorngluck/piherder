@@ -2321,6 +2321,8 @@ def build_fabric_view(
         external_id=network_cfg["public_kuma_external_id"],
         integration_id=network_cfg["kuma_integration_id"],
     )
+    network_cfg["gateway_label"] = ""
+    network_cfg["gateway_href"] = ""
 
     # Topology payloads are opt-in (hub needs services only).
     # Hosts map merges fleet servers + unlinked LAN discovery (no per-device link).
@@ -2336,10 +2338,20 @@ def build_fabric_view(
                 for h in hosts
                 if h.get("server_id") is not None
             }
+            # Discovery map role "gateway" → spine label + optional gateway IP fill
+            gw_info = nmap_cfg.gateway_map_info(session)
+            if gw_info:
+                if gw_info.get("label"):
+                    network_cfg["gateway_label"] = str(gw_info["label"])[:48]
+                if gw_info.get("href"):
+                    network_cfg["gateway_href"] = str(gw_info["href"])
+                if not network_cfg["gateway_ip"] and gw_info.get("ip"):
+                    network_cfg["gateway_ip"] = str(gw_info["ip"]).strip()
             discovered_hosts = nmap_cfg.discovery_hosts_for_fabric(
                 session,
                 fleet_ips=fleet_ips,
                 fleet_server_ids=fleet_ids,
+                gateway_ip=network_cfg.get("gateway_ip") or "",
             )
             hosts_for_physical = hosts + discovered_hosts
         except Exception:
