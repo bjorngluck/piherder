@@ -137,10 +137,17 @@ def test_api_v1_requires_bearer(smoke_client):
         "/certificates",
         "/templates",
         "/dns",
+        "/dns/physical",
+        "/dns/logical",
+        "/dns/coverage",
+        "/dns/candidates",
         "/services",
         "/about",
         "/servers/new",
         "/auth/account",
+        "/catalog",
+        "/integrations/new/nmap",
+        "/templates",
     ],
 )
 def test_main_shells_200_when_logged_in(smoke_client, path):
@@ -148,8 +155,9 @@ def test_main_shells_200_when_logged_in(smoke_client, path):
     with Session(engine) as session:
         user = _make_user(session)
         uid = user.id
-    r = client.get(path, cookies=_auth_cookie(uid))
-    assert r.status_code == 200, f"{path} → {r.status_code}: {r.text[:200]}"
+    # Do not follow redirects: /catalog 303s to /integrations
+    r = client.get(path, cookies=_auth_cookie(uid), follow_redirects=False)
+    assert r.status_code in (200, 303), f"{path} → {r.status_code}: {r.text[:200]}"
 
 
 def test_settings_general_admin_200(smoke_client):
