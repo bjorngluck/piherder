@@ -536,8 +536,34 @@ def build_stack_panel(
                 custom_order = get_order(int(server.id), proj)
             if custom_order:
                 containers = apply_order(containers, custom_order)
+                # Display ranks = panel list order (0..n-1). Map expand uses
+                # order_index for column/item order — must match the panel.
+                for i, c in enumerate(containers):
+                    c["order_index"] = i
+                    c["custom_ordered"] = True
         except Exception:
             custom_order = []
+
+    # If annotations set sort_index on a subset but apply_order did not run,
+    # still expose stable order_index for the map from those values.
+    if not custom_order and any(c.get("custom_ordered") for c in containers):
+        containers.sort(
+            key=lambda x: (
+                0 if x.get("order_index") is not None else 1,
+                x.get("order_index") if x.get("order_index") is not None else 9999,
+                (x.get("compose_service") or x.get("name") or "").lower(),
+            )
+        )
+        for i, c in enumerate(containers):
+            if c.get("custom_ordered") or c.get("order_index") is not None:
+                c["order_index"] = i
+                c["custom_ordered"] = True
+        custom_order = [
+            (c.get("compose_service") or c.get("name") or "")
+            for c in containers
+            if c.get("custom_ordered")
+        ]
+        custom_order = [n for n in custom_order if n]
 
     running_n = sum(1 for c in containers if c.get("running"))
     covered_n = sum(1 for c in containers if c.get("mon_status") == "covered")

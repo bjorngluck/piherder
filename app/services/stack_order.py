@@ -61,11 +61,18 @@ def set_order(
     if merge:
         existing = list(all_orders.get(key) or [])
         keep = {n.lower() for n in clean}
-        # New relative order for submitted names, then untouched names after
-        merged = list(clean)
+        # In-place splice (same as annotation merge) — do not move block to front
+        merged: list[str] = []
+        emitted = False
         for n in existing:
-            if n.lower() not in keep:
+            if n.lower() in keep:
+                if not emitted:
+                    merged.extend(clean)
+                    emitted = True
+            else:
                 merged.append(n)
+        if not emitted:
+            merged.extend(clean)
         clean = merged
     if clean:
         all_orders[key] = clean

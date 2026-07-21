@@ -59,7 +59,7 @@ def test_set_order_merge_preserves_other_view_group():
         ContainerAnnotation(
             server_id=1,
             compose_project="piherder",
-            container_key="e2e-web",
+            container_key="web",
             sort_index=0,
             created_at=now,
             updated_at=now,
@@ -67,7 +67,7 @@ def test_set_order_merge_preserves_other_view_group():
         ContainerAnnotation(
             server_id=1,
             compose_project="piherder",
-            container_key="e2e-db",
+            container_key="db",
             sort_index=1,
             created_at=now,
             updated_at=now,
@@ -75,7 +75,7 @@ def test_set_order_merge_preserves_other_view_group():
         ContainerAnnotation(
             server_id=1,
             compose_project="piherder",
-            container_key="web",
+            container_key="e2e-web",
             sort_index=2,
             created_at=now,
             updated_at=now,
@@ -83,7 +83,7 @@ def test_set_order_merge_preserves_other_view_group():
         ContainerAnnotation(
             server_id=1,
             compose_project="piherder",
-            container_key="db",
+            container_key="e2e-db",
             sort_index=3,
             created_at=now,
             updated_at=now,
@@ -103,7 +103,7 @@ def test_set_order_merge_preserves_other_view_group():
         def commit(self):
             return None
 
-    # Main view: reorder only web/db
+    # Main view: reorder only web/db in place
     ann.set_order_via_annotations(
         _Sess(),
         server_id=1,
@@ -115,6 +115,21 @@ def test_set_order_merge_preserves_other_view_group():
     assert by["e2e-web"] is not None
     assert by["e2e-db"] is not None
     assert by["db"] < by["web"]
+    # e2e block still after Main, relative order intact
+    assert by["e2e-web"] < by["e2e-db"]
+
+    # Reorder e2e only — Main stays put
+    ann.set_order_via_annotations(
+        _Sess(),
+        server_id=1,
+        project="piherder",
+        names=["e2e-db", "e2e-web"],
+        merge=True,
+    )
+    by_e = {r.container_key: r.sort_index for r in rows}
+    assert by_e["e2e-db"] < by_e["e2e-web"]
+    assert by_e["db"] < by_e["web"]
+    assert by_e["db"] < by_e["e2e-db"]
 
     # Full replace (All) clears names not submitted
     ann.set_order_via_annotations(

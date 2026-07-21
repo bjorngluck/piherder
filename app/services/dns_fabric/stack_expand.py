@@ -35,10 +35,17 @@ def build_stack_expand_payload(
         }
 
     containers = []
-    for c in panel.get("containers") or []:
+    for i, c in enumerate(panel.get("containers") or []):
         role = c.get("role") or "app"
         ports = c.get("ports") or []
         vs_id = c.get("visual_stack_id")
+        # Prefer explicit order_index from panel; fall back to list position so
+        # map fans always match stack panel order after drag-reorder.
+        oi = c.get("order_index")
+        if oi is None and (
+            panel.get("has_custom_order") or c.get("custom_ordered")
+        ):
+            oi = i
         containers.append(
             {
                 "id": c.get("compose_service") or c.get("name"),
@@ -52,12 +59,16 @@ def build_stack_expand_payload(
                 "image": (c.get("image") or "")[:80],
                 "kuma_state": c.get("kuma_state") or "",
                 "status": c.get("status") or "",
-                "order_index": c.get("order_index"),
+                "order_index": oi,
+                "custom_ordered": bool(c.get("custom_ordered") or oi is not None),
                 "tags": list(c.get("tags") or []),
                 "visual_stack_id": vs_id,
                 "visual_stack_name": (c.get("visual_stack_name") or "Main")[:80],
             }
         )
+    # Renumber order_index within each view group so multi-fan Hosts map
+    # columns/items sort correctly for e2e independently of Main ranks.
+    _renumber_order_by_view_group(containers)
     # Map columns follow category vocab order (hide empty later client-side)
     category_columns = [
         {"key": c.get("key"), "label": (c.get("label") or c.get("key") or "").lower()}
@@ -108,7 +119,11 @@ def build_stack_expand_payload(
         "hosts_map_href": panel.get("hosts_map_href") or "",
         "containers": containers,
         "edges": edges,
-        "has_custom_order": bool(panel.get("has_custom_order")),
+        "has_custom_order": bool(
+            panel.get("has_custom_order")
+            or any(c.get("custom_ordered") for c in containers)
+            or any(c.get("order_index") is not None for c in containers)
+        ),
         "custom_order": list(panel.get("custom_order") or []),
         "category_columns": category_columns,
         "visual_stacks": panel.get("visual_stacks") or [],
@@ -122,6 +137,46 @@ def build_stack_expand_payload(
             "running": sum(1 for c in containers if c.get("running")),
         },
     }
+
+
+def _view_group_key(ct: dict[str, Any]) -> str:
+    vid = ct.get("visual_stack_id")
+    if vid is None or vid == "" or str(vid).lower() in ("main", "none"):
+        return "main"
+    return str(vid)
+
+
+def _renumber_order_by_view_group(containers: list[dict[str, Any]]) -> None:
+    """Assign 0..n-1 order_index within each view group (Main / e2e / …).
+
+    Hosts map multi-fan layout sorts each fan independently. Global ranks from
+    a project-wide order list can leave an e2e fan looking unordered when Main
+    occupies 0..k and e2e only reorders relative ranks among higher indices —
+    renumbering per group makes drag order match the fan every time.
+    """
+    if not containers:
+        return
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for c in containers:
+        groups.setdefault(_view_group_key(c), []).append(c)
+    any_custom = any(
+        c.get("custom_ordered") or c.get("order_index") is not None for c in containers
+    )
+    if not any_custom:
+        return
+    for members in groups.values():
+        members.sort(
+            key=lambda x: (
+                0 if x.get("order_index") is not None else 1,
+                int(x["order_index"])
+                if x.get("order_index") is not None
+                else 9999,
+                str(x.get("name") or x.get("id") or "").lower(),
+            )
+        )
+        for i, c in enumerate(members):
+            c["order_index"] = i
+            c["custom_ordered"] = True
 
 
 def _multi_view_meta(

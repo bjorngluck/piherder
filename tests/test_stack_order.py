@@ -63,11 +63,28 @@ def test_set_order_merge_keeps_other_names():
         so, "save_settings", side_effect=_save
     ):
         so.set_order(5, "piherder", ["web", "db", "e2e-web", "e2e-db"])
+        # In-place splice of Main names at first Main position
         so.set_order(5, "piherder", ["db", "web"], merge=True)
         got = so.get_order(5, "piherder")
-    assert got[:2] == ["db", "web"]
-    assert "e2e-web" in got
-    assert "e2e-db" in got
+    assert got == ["db", "web", "e2e-web", "e2e-db"]
+
+
+def test_set_order_merge_reorders_e2e_in_place():
+    stored = {}
+
+    def _load():
+        return {"stack_container_order_json": stored.get("json", "{}")}
+
+    def _save(payload):
+        stored["json"] = payload.get("stack_container_order_json")
+
+    with patch.object(so, "load_settings", side_effect=_load), patch.object(
+        so, "save_settings", side_effect=_save
+    ):
+        so.set_order(5, "piherder", ["web", "db", "e2e-web", "e2e-db"])
+        so.set_order(5, "piherder", ["e2e-db", "e2e-web"], merge=True)
+        got = so.get_order(5, "piherder")
+    assert got == ["web", "db", "e2e-db", "e2e-web"]
 
 
 def test_set_order_replace_drops_missing():

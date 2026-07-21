@@ -355,11 +355,10 @@ async def stack_save_order(
     except Exception:
         saved = so_svc.set_order(int(server_id), proj, name_list, merge=merge)
     else:
-        # Dual-write settings fallback
+        # Dual-write settings fallback — persist the full post-merge order list
+        # (annotation merge returns the complete project order after in-place splice)
         try:
-            so_svc.set_order(int(server_id), proj, name_list, merge=merge)
-            # Report full project order after merge for UI badges
-            saved = so_svc.get_order(int(server_id), proj) or saved
+            so_svc.set_order(int(server_id), proj, list(saved or name_list), merge=False)
         except Exception:
             pass
     try:

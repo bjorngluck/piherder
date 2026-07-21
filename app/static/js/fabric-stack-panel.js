@@ -162,12 +162,13 @@
     function afterSaveOk() {
       flashSaved();
       var sid = list.getAttribute('data-service-id');
-      var vs = list.getAttribute('data-visual-stack') || 'all';
+      // Map multi-fan (Main + e2e) lives under visual_stack=all — refresh that
+      // so reordering e2e updates the Hosts/Path map fan, not only the panel.
       if (window.PiHerderStackExpand && window.PiHerderStackExpand.invalidate) {
         window.PiHerderStackExpand.invalidate(sid || null);
         if (sid && window.PiHerderStackExpand.show) {
           try {
-            window.PiHerderStackExpand.show(sid, vs);
+            window.PiHerderStackExpand.show(sid, 'all');
           } catch (err) {}
         }
       }

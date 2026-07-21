@@ -213,6 +213,26 @@
     return String(vid);
   }
 
+  function groupHasCustomOrder(containers) {
+    var list = containers || [];
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i];
+      if (c && (c.custom_ordered || c.order_index != null)) return true;
+    }
+    return false;
+  }
+
+  /** Stable 0..n-1 ranks within one view-group fan (matches panel drag order). */
+  function renumberGroupOrder(containers) {
+    var list = (containers || []).slice();
+    list.sort(byOrderThenName);
+    list.forEach(function (c, i) {
+      c.order_index = i;
+      c.custom_ordered = true;
+    });
+    return list;
+  }
+
   function partitionViewGroups(data) {
     var multi = data.multi_view || [];
     var containers = data.containers || [];
@@ -220,23 +240,31 @@
     if (multi && multi.length >= 2) {
       return multi.map(function (m) {
         var key = String(m.key);
+        var members = containers.filter(function (c) {
+          return viewGroupKey(c) === key;
+        });
+        if (groupHasCustomOrder(members)) {
+          members = renumberGroupOrder(members);
+        }
         return {
           key: key,
           name: m.name || key,
-          containers: containers.filter(function (c) {
-            return viewGroupKey(c) === key;
-          }),
+          containers: members,
         };
       }).filter(function (g) {
         return g.containers.length;
       });
     }
     // Single fan (filtered group, or everything still on Main)
+    var single = containers.slice();
+    if (groupHasCustomOrder(single)) {
+      single = renumberGroupOrder(single);
+    }
     return [
       {
         key: 'all',
         name: (data.project || 'stack') + ' · runtime',
-        containers: containers,
+        containers: single,
       },
     ];
   }
@@ -509,9 +537,10 @@
     if (!anchor) return;
 
     var a = anchorGeom(anchor);
-    var hasCustomOrder = !!(
+    var globalCustom = !!(
       data.has_custom_order ||
-      (data.custom_order && data.custom_order.length)
+      (data.custom_order && data.custom_order.length) ||
+      groupHasCustomOrder(data.containers || [])
     );
     var edges = data.edges || [];
     var groups = partitionViewGroups(data);
@@ -529,9 +558,11 @@
     var fanGap = 28;
 
     var measured = groups.map(function (grp) {
+      // Per-fan: e2e custom order must drive columns even if Main has none
+      var fanCustom = globalCustom || groupHasCustomOrder(grp.containers);
       var cols = buildColumns(
         grp.containers,
-        hasCustomOrder,
+        fanCustom,
         data.category_columns || null
       );
       var m = measureFan(cols, boxW, colGap, rowH, rowGap, zonePadTop, zonePadBot);
@@ -676,10 +707,13 @@
       '/dns/stack-expand.json?service_id=' +
       encodeURIComponent(id) +
       '&visual_stack=' +
-      encodeURIComponent(vs);
+      encodeURIComponent(vs) +
+      '&_=' +
+      String(Date.now());
     fetch(url, {
       credentials: 'same-origin',
-      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+      headers: { Accept: 'application/json', 'Cache-Control': 'no-cache' },
     })
       .then(function (r) {
         return r.json();
