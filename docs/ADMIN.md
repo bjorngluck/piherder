@@ -243,7 +243,7 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 | Hosts map overlay | Unlinked devices on `/dns/physical` (outer chips; radar; dual layout; **1:1** compact fit); chip opens Network modal with return |
 | Soft embed | Linked device → server list LAN chip + server detail card |
 | Discovery ≠ Server | Link / promote / dismiss are operator-driven |
-| Worker fence | `PIHERDER_NMAP_WORKER=0` on web/main celery; `=1` on nmap image; tasks refuse without nmap binary or when marker is 0 (`worker_guard`) |
+| Worker fence | Compose hard-codes `PIHERDER_NMAP_WORKER=0` (web/main celery) and `=1` (`celery-worker-nmap` + `Dockerfile.nmap`); tasks refuse without nmap binary or when marker is 0 (`worker_guard`). Documented in [`.env.example`](../.env.example) (usually **not** set in `.env` — compose owns it). |
 | Migration | `030_nmap_kind_map_role` — `kind_override`, `map_role` |
 
 ### Optional host cleanup (piherder user)
