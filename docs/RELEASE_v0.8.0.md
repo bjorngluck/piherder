@@ -70,7 +70,7 @@ These are **accepted for v0.8.0** — not blockers for the RC3 tag. Expect follo
 |---|------|--------|-----------|
 | **1** | **Server onboarding wizard** | Experience works end-to-end but still needs **clarifications and refinements** for a smoother first-run path (copy, step guidance, edge cases, resume/save flows). | Polish pass in a follow-up release — not a rewrite of the wizard. |
 | **2** | **Certificate management** | **Sudoers suggestions** can be incorrect for some layouts. Map UX still leans on **paired** fullchain/privkey; more **individual cert options** (not only pairs) and practical **app-specific templates** (e.g. Grafana-style) are **not practical** as shipped. | Revisit cert maps, sudoers snippets, and layout templates in the **next** cert-focused release. |
-| **3** | **UX consistency & polish** | Residual chrome inconsistencies across wizard, Docker, certs, Jobs, and fabric (empty states, chips, list/perf, multi-map deploy Jobs, etc.). | **Continue polishing in the next release** — stream P from [PLAN_v0.8.0.md](PLAN_v0.8.0.md) / residual operator friction. |
+| **3** | **UX consistency & polish** | Residual chrome inconsistencies across wizard, Docker, certs, Jobs, fabric, discovery filters, Catalog Network density, Kuma coverage tables, etc. | **v0.9.0 operator UX wave** — [PLAN_v0.9.0.md](PLAN_v0.9.0.md). Pre-tag micro-pass: fleet list footer removed; nmap Runs ID column dropped; Network “Path mix” → By path type. |
 
 Also note (ops, not product bugs):
 

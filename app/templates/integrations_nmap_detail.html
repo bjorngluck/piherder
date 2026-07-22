@@ -879,42 +879,43 @@
 {% if not runs %}
 <div class="card p-5 text-sm text-muted">No scan runs yet.</div>
 {% else %}
-<div class="card overflow-x-auto">
-  <table class="w-full text-sm">
+{# Horizontal scroll confined to this card so mobile main never pan-scrolls the whole page #}
+<div class="card overflow-hidden" data-testid="nmap-runs-table">
+  <div class="overflow-x-auto overscroll-x-contain">
+  <table class="w-full text-sm min-w-[28rem]">
     <thead>
       <tr class="text-left text-xs text-muted border-b border-border">
-        <th class="p-2">ID</th>
-        <th class="p-2">Intensity</th>
-        <th class="p-2">Status</th>
-        <th class="p-2">Hosts</th>
-        <th class="p-2">Ports</th>
-        <th class="p-2">Job</th>
-        <th class="p-2">Finished</th>
+        <th class="p-2 whitespace-nowrap">Intensity</th>
+        <th class="p-2 whitespace-nowrap">Status</th>
+        <th class="p-2 whitespace-nowrap">Hosts</th>
+        <th class="p-2 whitespace-nowrap hidden sm:table-cell">Ports</th>
+        <th class="p-2 whitespace-nowrap">Job</th>
+        <th class="p-2 whitespace-nowrap">Finished</th>
       </tr>
     </thead>
     <tbody>
       {% for r in runs %}
       <tr class="border-b border-border/60">
-        <td class="p-2 font-mono text-xs">#{{ r.id }}</td>
-        <td class="p-2">{{ r.intensity }}</td>
-        <td class="p-2">
+        <td class="p-2 whitespace-nowrap">{{ r.intensity }}</td>
+        <td class="p-2 whitespace-nowrap">
           <span class="status-pill {% if r.status == 'success' %}status-success{% elif r.status == 'failed' %}status-failed{% else %}feature-off{% endif %}">
             {{ r.status }}
           </span>
         </td>
-        <td class="p-2 text-xs">{{ r.hosts_up }}/{{ r.hosts_total }}</td>
-        <td class="p-2 text-xs">{{ r.ports_open }}</td>
-        <td class="p-2 text-xs">
-          {% if r.job_id %}<a href="/jobs?job_type=nmap_{{ r.intensity if r.intensity != 'deep' else 'host_deep' }}" class="text-accent hover:underline" title="Open Jobs (live log while running)">#{{ r.job_id }}</a>{% else %}—{% endif %}
+        <td class="p-2 text-xs whitespace-nowrap">{{ r.hosts_up }}/{{ r.hosts_total }}</td>
+        <td class="p-2 text-xs whitespace-nowrap hidden sm:table-cell">{{ r.ports_open }}</td>
+        <td class="p-2 text-xs whitespace-nowrap">
+          {% if r.job_id %}<a href="/jobs?job_type=nmap_{{ r.intensity if r.intensity != 'deep' else 'host_deep' }}" class="text-accent hover:underline" title="Open Jobs (live log while running)">Job #{{ r.job_id }}</a>{% else %}—{% endif %}
         </td>
-        <td class="p-2 text-xs text-muted">{{ r.finished_at or r.started_at or '—' }}</td>
+        <td class="p-2 text-xs text-muted whitespace-nowrap">{{ r.finished_at or r.started_at or '—' }}</td>
       </tr>
       {% if r.error %}
-      <tr><td colspan="7" class="p-2 text-xs text-red-600">{{ r.error }}</td></tr>
+      <tr><td colspan="6" class="p-2 text-xs text-red-600">{{ r.error }}</td></tr>
       {% endif %}
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>
 {% endif %}
 {% endif %}
