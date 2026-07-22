@@ -94,8 +94,8 @@ Goal for **1.0.0**: operators can install, run day-to-day fleet ops, and upgrade
 
 ### Pre-1.0 (0.5.x RC1) remains
 
-- **v0.7.0** shipped — [`RELEASE_v0.7.0.md`](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md). Active cycle: **v0.8.0 RC3** (polish · E2E/coverage · docs+screenshots · nmap) — [`PLAN_v0.8.0.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md).  
-- Treat 0.5.x docs as the **draft of 1.0** operator docs; refresh screenshots and checklists as you stabilize.  
+- **v0.8.0** shipped — [`RELEASE_v0.8.0.md`](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md). Next cycle: **v0.9.0** operator UX — [`PLAN_v0.9.0.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md).  
+- Treat the living wiki as the **draft of 1.0** operator docs; refresh screenshots and checklists as you stabilize.  
 - Home page carries a permanent **RC1 awareness** callout until **1.0.0**: product and docs may be uneven; 1.0 is the refined production bar.  
 - Page pattern for operator docs (preferred):
 

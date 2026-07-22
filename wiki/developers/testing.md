@@ -31,7 +31,7 @@ docker compose exec -T web python -m pytest tests/test_dns_fabric.py -q
 
 ## Browser E2E (Playwright)
 
-**v0.7.0 must** — shell smoke + wizard journeys (hard tag gate). Suite lives in `e2e/`; details in [e2e/README.md](https://github.com/bjorngluck/piherder/blob/main/e2e/README.md) and [PLAN_v0.7.0 stream E](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.7.0.md).
+**Playwright E2E** — shell smoke + wizard journeys + B6 viewer RBAC (and nmap shells with fixtures). Suite lives in `e2e/`; details in [e2e/README.md](https://github.com/bjorngluck/piherder/blob/main/e2e/README.md).
 
 ```bash
 # One-time on the host
@@ -69,4 +69,4 @@ Related unit coverage: `tests/test_compose_sets.py`, `tests/test_container_annot
 1. Unit `pytest -q` green  
 2. **E2E** `pytest e2e -q` green (CI or local)  
 3. Manual smoke: register, add server, backup, template deploy, metrics, API token  
-4. See release checklist in `docs/RELEASE_v*.md` / [RELEASE_v0.7.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md)  
+4. See release checklist in `docs/RELEASE_v*.md` / [RELEASE_v0.8.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md)  

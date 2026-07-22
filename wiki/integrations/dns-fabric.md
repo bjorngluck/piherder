@@ -42,6 +42,21 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
   <figcaption>Optional mobile showcase — Hosts map list-first layout.</figcaption>
 </figure>
 
+<figure class="ph-figure" markdown>
+  ![Network hub](../assets/screenshots/dns-hub.png)
+  <figcaption>Catalog → Network hub — path cards, By path type stats, host DNS and map settings.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Kuma coverage](../assets/screenshots/dns-coverage.png)
+  <figcaption>Kuma coverage — path monitors vs fleet topology.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Stack panel](../assets/screenshots/dns-stack-panel.png)
+  <figcaption>Path map with stack expand / side panel (runtime topology).</figcaption>
+</figure>
+
 ---
 
 ## Mental model — entities & relationships

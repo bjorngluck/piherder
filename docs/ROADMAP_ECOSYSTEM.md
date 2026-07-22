@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-22 (**v0.8.0 RC3** freeze — LAN nmap product complete; screenshot pack → tag; **v0.9.0** planned operator UX polish — [PLAN_v0.9.0.md](PLAN_v0.9.0.md))  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-22 (**v0.8.0 RC3 tagged** — LAN Discovery · screenshots · quality; **v0.9.0** next operator UX — [PLAN_v0.9.0.md](PLAN_v0.9.0.md))  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
@@ -29,8 +29,8 @@ Design principles stay the same as SPEC:
 | **v0.5.0** | **First RC** — ops depth + template polish + restore + DNS fabric + Pi-hole/NPM/certs + production wikis + multi-arch + freeze bar | RC | **Tagged** 2026-07-17 — [RELEASE_v0.5.0.md](RELEASE_v0.5.0.md) · [PLAN_v0.5.0.md](PLAN_v0.5.0.md) |
 | **v0.6.0** | **RC2 polish** — template Jobs, cert UX (edge map, presets), Docker bulk, topology+coverage; wizard **out** | H2.75 P1 + H2.5 stretch + polish | **Tagged** 2026-07-18 — [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) |
 | **v0.7.0** | **Add-host wizard** + **Playwright E2E** + topology annotations + **compose sets** + drift Job | H2.75 P2 + quality | **Tagged** 2026-07-19 — [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) |
-| **v0.8.0** | **RC3** — overall polish · extend E2E + **~50% coverage** · **full docs review + screenshots** · **LAN nmap** (auto-create + network view; product largely on main) | Quality + H2.5 H1 | **Active freeze** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md) · [screenshots README](../wiki/assets/screenshots/README.md) · micro-pass B1/E4/E8 for tag screenshots |
-| **v0.9.0** | **Operator UX polish** — discovery chrome · Catalog Network hub modals · Kuma coverage mobile · server detail LAN placement | Quality | **Planned** (after 0.8 tag) — [PLAN_v0.9.0.md](PLAN_v0.9.0.md) |
+| **v0.8.0** | **RC3** — overall polish · extend E2E + **~50% coverage** · **full docs review + screenshots** · **LAN nmap** (auto-create + network view) · brand refresh | Quality + H2.5 H1 | **Tagged** 2026-07-22 — [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md) |
+| **v0.9.0** | **Operator UX polish** — discovery chrome · Catalog Network hub modals · Kuma coverage mobile · server detail LAN placement | Quality | **Active** (opens with 0.8 tag) — [PLAN_v0.9.0.md](PLAN_v0.9.0.md) |
 | **v0.8.x / later** | Host stats/commands, bootstrap depth, web SSH; topology column profiles | H2.75 P3–P5 + residual | After RC3 as capacity |
 | **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
 
@@ -48,11 +48,13 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-19):** **v0.7.0 feature-locked and tagged**. Wizard, E2E A+B, annotations, compose sets, drift Job shipped. Screenshot pack deferred; residual polish + E2E/coverage growth + full docs review + **nmap** → **v0.8.0 RC3**. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md).
 
-**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ **tagged** → **v0.8.0 RC3** (freeze) → **v0.9.0** UX polish → **v1.0** refined production.
+**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ → ~~**v0.8.0 RC3**~~ **tagged** → **v0.9.0** UX polish → **v1.0** refined production.
 
 **Decision (2026-07-22):** Post-0.8 operator UX triage — micro-pass **B1/E4/E8** on main for 0.8 screenshots; remaining discovery/Network/coverage polish → **v0.9.0** ([PLAN_v0.9.0.md](PLAN_v0.9.0.md)). Cross-cutting human-readable schedules, selectable hero stats, and full templates catalog redesign stay **post-1.0 discovery** (see Quality & platform § below).
 
-**Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.7.0` / `0.7` / `latest`).
+**Decision (2026-07-22):** **v0.8.0 feature-locked and tagged**. LAN Discovery, screenshot pack, stale cleanup, coverage bar, brand refresh shipped. Next development is **v0.9.0** operator UX. See [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md).
+
+**Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.8.0` / `0.8` / `latest`).
 
 ---
 

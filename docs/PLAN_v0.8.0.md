@@ -1,10 +1,10 @@
 # PiHerder v0.8.0 — RC3 development plan
 
-**Status:** **Active** (opens with `v0.7.0` tag — 2026-07-19)  
-**Date opened:** 2026-07-19  
+**Status:** **Feature-locked · tagged `v0.8.0`** (2026-07-22)  
+**Date opened:** 2026-07-19 · **Tagged:** 2026-07-22  
 **Baseline:** `v0.7.0` (tagged)  
-**Package version during cycle:** prefer `0.8.0.dev0` after first product commit · **tag:** `0.8.0`  
-**Related:** [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · [wiki screenshots README](../wiki/assets/screenshots/README.md)
+**Package version:** **`0.8.0`** · release notes [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md)  
+**Related:** [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md) · [wiki screenshots README](../wiki/assets/screenshots/README.md)
 
 ### Decision (locked)
 
@@ -66,8 +66,8 @@ This is **not** web SSH, ACME-in-herder, or a second onboarding rewrite.
 |--------|---------------|--------|
 | **P** Overall polish | Should / strong | Inventory below — mostly open |
 | **Q** E2E + test coverage | **Must** (grow bar) | **In progress** — HTTP smoke + nmap/cleanup unit depth; cov floor 30% in CI; ~50% still open |
-| **A** Full docs review + screenshot pack | **Must** | Prose: LAN Discovery modal + Hosts chrome + map identity wiki updated (2026-07-21); **PNG pack open** |
-| **N** LAN discovery (nmap-class) | **Must** (feature) | **Product complete (N0–N10)** · identity/lifecycle · dual Hosts layout · N9 shells · screenshots open |
+| **A** Full docs review + screenshot pack | **Must** | **Done** at tag — prose + PNG pack wired (2026-07-22) |
+| **N** LAN discovery (nmap-class) | **Must** (feature) | **Done** (N0–N10 + screenshots) · identity/lifecycle · dual Hosts layout · N9 shells |
 | **R** Data retention / grooming / delete cascades | Should / capacity | **R1 done** (Jobs/Audit/nmap-run opt-in) · R2 docs partial · cascade UI later |
 | **L** Host lifecycle P3 | Nice / capacity | Optional / parked |
 | **D** Packaging | Must at tag | End of cycle |
@@ -212,7 +212,7 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 | Soft embed fleet list + host detail (N8) | **Done** |
 | Unit + E2E shells (N9) | **Done** (fixtures only; `e2e/test_nmap_lan.py`) |
 | Operator wiki + ADMIN notes | **Done** (refreshed 2026-07-21) |
-| Screenshots | **Open** (stream A) |
+| Screenshots | **Done** (stream A) |
 
 **Acceptance (detail in feature plan):**
 
@@ -225,7 +225,7 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 - [x] End-to-end Hosts map without per-device link; map names; kind badges / override; gateway role  
 - [x] Known/new + MAC/DHCP identity; Network modal + Hosts chrome (1:1 fit)  
 - [x] Wiki (+ ADMIN); high unit/E2E shells (fixtures only in CI)  
-- [ ] Screenshots (stream A)
+- [x] Screenshots (stream A)
 
 **Design detail:** **[FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)** (approved) · operator [lan-discovery.md](../wiki/integrations/lan-discovery.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
 
@@ -274,12 +274,12 @@ Deferred from 0.7 so product could ship; **hard tag gate for 0.8**.
 
 | # | Item | Status |
 |---|------|--------|
-| 1 | LAN discovery product slice (N) | **Done product** (N0–N10); screenshots remain (A) |
-| 2 | Full docs review + screenshot pack (A) | **Partial** (LAN/Hosts prose 2026-07-21); PNG pack open |
-| 3 | HTTP smoke + unit coverage **~50%** bar (Q) | Smoke **done**; ~50% still open (CI floor 30%) |
-| 4 | E2E suite green (0.7 base + extensions) | Open (0.7 base exists) |
-| 5 | Version `0.8.0` + tag + Hub | Open |
-| 6 | `RELEASE_v0.8.0.md` | **Draft** on main (2026-07-21) — finalize Date/version at tag |
+| 1 | LAN discovery product slice (N) | **Done** (N0–N10 + screenshots) |
+| 2 | Full docs review + screenshot pack (A) | **Done** (2026-07-22) |
+| 3 | HTTP smoke + unit coverage **~50%** bar (Q) | Smoke **done**; ~**49–50%** at freeze (CI floor 30%) |
+| 4 | E2E suite green (0.7 base + extensions) | **Done** (0.7 base + B6 / nmap shells) |
+| 5 | Version `0.8.0` + tag + Hub | **Done** at tag |
+| 6 | `RELEASE_v0.8.0.md` | **Finalized** 2026-07-22 |
 
 ### Should
 
@@ -378,7 +378,8 @@ Before tagging **0.8.0**, a maintainer can:
 | 2026-07-21 | **Nmap fence docs:** `.env.example` + wiki env-reference / install / architecture / lan-discovery / volumes + ADMIN deploy section |
 | 2026-07-21 | **RELEASE_v0.8.0.md draft** on main; unit coverage ~49% (RC3 Q); screenshot pack next (stream A) |
 | 2026-07-22 | Pre-tag UX micro-pass **B1/E4/E8**; post-0.8 polish tracked in [PLAN_v0.9.0.md](PLAN_v0.9.0.md) |
+| 2026-07-22 | **Tagged `v0.8.0`:** screenshot pack + wiki wire-up; version `0.8.0`; RELEASE finalized; Hub multi-arch `0.8.0` / `0.8` / `latest` |
 
 ---
 
-**End of plan** — living document until freeze; freeze narrative moves into `RELEASE_v0.8.0.md` at tag.
+**End of plan** — feature-locked at tag; narrative in [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md).

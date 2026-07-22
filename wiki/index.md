@@ -13,21 +13,21 @@
 
     | What to expect | Detail |
     |----------------|--------|
-    | **Tagged now** | **[v0.7.0](https://github.com/bjorngluck/piherder/releases/tag/v0.7.0)** — image `bjorngluck/piherder:0.7.0` / `latest` |
-    | **Shipped in v0.7.0** | Add-host wizard, Playwright E2E, topology annotations + compose sets, drift Job — [RELEASE_v0.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md) |
-    | **Next tag (v0.8.0 RC3)** | **LAN Discovery (nmap)** product complete on main · freeze + **screenshot pack** · [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) · draft [RELEASE_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md) · [LAN Discovery](integrations/lan-discovery.md) |
-    | **After 0.8 (v0.9.0)** | Operator UX polish (discovery chrome, Network hub, coverage mobile) — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) |
+    | **Tagged now** | **[v0.8.0](https://github.com/bjorngluck/piherder/releases/tag/v0.8.0)** — image `bjorngluck/piherder:0.8.0` / `0.8` / `latest` |
+    | **Shipped in v0.8.0 (RC3)** | **LAN Discovery (nmap)**, stale data cleanup, screenshot pack, ~50% unit coverage, brand refresh — [RELEASE_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md) · [LAN Discovery](integrations/lan-discovery.md) |
+    | **Also in this line** | Add-host wizard (v0.7), Playwright E2E, topology + compose sets, certs/Docker polish |
+    | **Next (v0.9.0)** | Operator UX polish (discovery chrome, Network hub, coverage mobile) — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) |
     | **Documentation** | Operator-focused living wiki — not the final 1.0 freeze manual |
-    | **Screenshots** | Light desktop for major surfaces; **full capture pack is a v0.8.0 must** — see [Contributing docs](developers/contributing-docs.md) (capture workflow) |
+    | **Screenshots** | Light desktop pack for major surfaces (including nmap + wizard) — [Contributing docs](developers/contributing-docs.md) |
     | **Production bar** | **v1.0.0** is the intended first refined production release |
 
     If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
 
 | | |
 |---|---|
-| **Current tag** | **[v0.7.0](https://github.com/bjorngluck/piherder/releases/tag/v0.7.0)** — image [`bjorngluck/piherder:latest`](https://hub.docker.com/r/bjorngluck/piherder) |
-| **Release notes** | [RELEASE_v0.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md) · draft [v0.8.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md) · prior [v0.6.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.6.0.md) |
-| **Ship plan** | **[PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md)** (RC3 freeze) · next [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) |
+| **Current tag** | **[v0.8.0](https://github.com/bjorngluck/piherder/releases/tag/v0.8.0)** — image [`bjorngluck/piherder:latest`](https://hub.docker.com/r/bjorngluck/piherder) |
+| **Release notes** | [RELEASE_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md) · prior [v0.7.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md) · [v0.6.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.6.0.md) |
+| **Ship plan** | **[PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md)** (next) · prior [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) (RC3 tagged) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |
