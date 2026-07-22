@@ -3,10 +3,10 @@
  * CSS/JS must be network-first. Cache-first on themes.css previously hid
  * theme updates until the SW cache was manually cleared.
  */
-const CACHE = "piherder-shell-v4";
+const CACHE = "piherder-shell-v5";
 const SHELL = [
-  "/static/favicon.png",
-  "/static/icons/icon-192.png",
+  "/static/favicon.png?v=20260722b",
+  "/static/icons/icon-192.png?v=20260722b",
   "/static/manifest.webmanifest",
 ];
 
@@ -112,8 +112,8 @@ self.addEventListener("push", (event) => {
     tag: data.tag || "piherder",
     renotify: true,
     data: { url: path },
-    icon: "/static/icons/icon-192.png",
-    badge: "/static/icons/icon-192.png",
+    icon: "/static/icons/icon-192.png?v=20260722b",
+    badge: "/static/icons/icon-192.png?v=20260722b",
   };
   event.waitUntil(self.registration.showNotification(data.title || "PiHerder", opts));
 });
