@@ -144,7 +144,7 @@ Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
 ### Bulk actions (Servers list)
 
-**Where:** `/servers` — checkboxes + **Select all visible**.
+**Where:** `/servers` — checkboxes + **Select all visible**. Toolbar appears when something is selected. Row **⋯** menus: open, backup, patch, Docker, settings (feature-gated). List status is **DB-backed** (last update checks / soft embeds) — no live SSH at render.
 
 | Action | Feature flag required on host |
 |--------|--------------------------------|

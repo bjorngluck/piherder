@@ -14,7 +14,7 @@
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) — multi-arch `linux/amd64` + `linux/arm64`  
 **Tags (at publish):** `0.8.0` · `0.8` · `latest`
 
-> **Draft note:** Product + wiki prose for LAN Discovery are on `main`. **Wiki screenshot PNG pack** and Hub multi-arch publish remain freeze gates. Package version is still `0.8.0.dev0` until tag day. Update this file’s Date / Status / Package version when tagging.
+> **Draft note:** Product + wiki prose for LAN Discovery are on `main` (including pre-tag chrome micro-pass: fleet list footer removed, Runs without ID column, Network **By path type** stats). **Wiki screenshot PNG pack** and Hub multi-arch publish remain freeze gates — see [screenshots README](../wiki/assets/screenshots/README.md). Package version is still `0.8.0.dev0` until tag day. Update this file’s Date / Status / Package version when tagging. Residual operator UX → [PLAN_v0.9.0.md](PLAN_v0.9.0.md).
 
 ---
 

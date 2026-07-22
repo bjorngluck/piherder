@@ -144,7 +144,8 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | 5 | **Catalog → Network → Hosts map** — radar **Discovered**, **1:1** fit (tight when disc. off) | End-to-end view; **no** per-device link required |
 | 6 | Link / promote only what you will manage | Discovery ≠ fleet member |
 | 7 | Optional schedules (create + **Edit**) | Cadence you control |
-| 8 | Optional vuln pack update + deep scan | Pack volume opt-in |
+| 8 | Optional **Runs** tab | History by intensity + **Job** link (no run ID column) |
+| 9 | Optional vuln pack update + deep scan | Pack volume opt-in |
 
 **Done when:** Hosts map shows fleet + discovered chips; named devices read clearly; known/type/gateway are set where needed; you know how to link/promote; schedules stay off until you want them.
 

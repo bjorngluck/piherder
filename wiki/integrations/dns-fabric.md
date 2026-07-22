@@ -62,12 +62,32 @@ name  →  [NPM]  →  host  →  [service/project]  →  [container]
 
 ### Path kinds
 
-| Kind | Meaning |
-|------|---------|
-| **host_identity** | Name **is** the host A record (e.g. `3dprint.example.com`) — **no CNAME** |
-| **app** | CNAME → host → Docker project/container (e.g. Grafana) |
-| **npm_host** | CNAME → NPM edge → host |
-| **npm_app** | CNAME → NPM → host → project/container (e.g. qBittorrent) |
+| Kind | UI label (hub stats) | Meaning |
+|------|----------------------|---------|
+| **host_identity** | **Host** | Name **is** the host A record (e.g. `3dprint.example.com`) — **no CNAME** |
+| **app** | **App** | CNAME → host → Docker project/container (e.g. Grafana) |
+| **npm_host** / **npm_app** | **NPM** | CNAME → NPM edge → host (and optional project/container) |
+
+On the Network hub stat strip, **By path type** shows counts for Host / App / NPM (how published names reach a host). Hover the card for a short definition. Service path filters still use the finer path-kind chips (All / Via NPM / Direct / Host identity).
+
+---
+
+## Network hub layout
+
+The hub (`/dns`) is intentionally dense in **v0.8** — path cards, host A table, external DNS checklist, network map settings, and Pi-hole adopt live on one page for operators who already know the fabric.
+
+| Block | What it is |
+|-------|------------|
+| **Nav cards** | Jump to Kuma coverage, Hosts map, Path map |
+| **Stat strip** | Hosts named · Mapped names · Via NPM · **By path type** (Host / App / NPM) |
+| **Service paths** | Searchable path cards (name → layers → Stack / maps) |
+| **Host DNS** | Fleet A records (server FQDN / manage A) |
+| **External DNS** | Checklist for Cloudflare/etc. (not automated) |
+| **Network map settings** | LAN CIDR, gateway, public IP, optional Kuma binds |
+| **Adopt existing DNS** | Import / candidates from Pi-hole |
+
+!!! note "UX polish (v0.9)"
+    Host DNS, External DNS, Network map settings, and Adopt will move toward **modals / drawers** so the hub stays path-first — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md). Behaviour of each section stays the same.
 
 ---
 
@@ -109,7 +129,7 @@ Mapped apps fan **outside** the zone from fleet hosts.
 
 | Page | URL | Shows |
 |------|-----|--------|
-| **Network hub** | `/dns` | Path cards · filters · network settings · adopt/import · host A table · external checklist |
+| **Network hub** | `/dns` | Path cards · **By path type** stats · filters · network settings · adopt/import · host A table · external checklist |
 | **Hosts map** | `/dns/physical` | Rack cards + SVG: Internet → Router → **LAN fan** + apps; radar expands the circle for discovery |
 | **Path map** | `/dns/logical` | Flow list (mobile-first) + SVG (URL → NPM hub → destination) |
 

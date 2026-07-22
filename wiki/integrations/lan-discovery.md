@@ -58,7 +58,7 @@ Journey: [Operator scenarios — Journey H](../getting-started/operator-scenario
 | **Devices** | Hosts list + detail: **map name**, kind badge, ports, findings; filter / link / ignore / promote |
 | **Network** | Subnet-grouped discovery cards (LAN Discovery’s own map); filter + **Show unlinked** |
 | **Schedules** | Multiple named schedules (intensity + cron/interval + options) — create **and edit** |
-| **Runs** | Scan run history (linked to Jobs) |
+| **Runs** | Scan run history: **intensity**, status, hosts, ports, **Job** link, finished time (no run ID column) |
 
 There are **two** maps:
 
@@ -173,7 +173,7 @@ Run **inventory** (or detailed/deep) so ports feed the classifier; discovery alo
 
 ---
 
-## Edit modal (Network + Devices)
+## Edit modal (Network + Devices) {#edit-modal-network--devices}
 
 Click a **Network** card or a **Devices** row to open a **centered floating modal** (same shell as jobs / wait modals — not a bottom sheet). Stays on the tab you came from; no full-page jump.
 
@@ -288,6 +288,26 @@ Linked discovery devices appear on **Servers** list (LAN chip) and **server deta
 - Options stored per schedule (`options_json`): script preset, timing, top-ports, UDP, port list, SYN vs inherit.  
 - Changes resync APScheduler; audit records configure/scan actions.
 
+!!! note "UX polish (v0.9)"
+    Filter chrome on Devices/Network, Overview density (Scan now / vuln in modals), and Schedules list-first + ⋯ / modal form are tracked for **v0.9.0** — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md). Product behaviour above stays the same for 0.8.
+
+---
+
+## Runs
+
+History of completed/failed scan jobs for this integration.
+
+| Column | Notes |
+|--------|--------|
+| **Intensity** | discovery · inventory · detailed · deep |
+| **Status** | success / failed / … |
+| **Hosts** | up / total from that run |
+| **Ports** | open count (hidden on very narrow viewports) |
+| **Job** | Link into fleet [Jobs](../day-to-day/jobs-audit-notifications.md) (live log while running) |
+| **Finished** | Finished (or started) timestamp |
+
+There is **no run ID column** — use the **Job** link for correlation. On mobile, the table scrolls **inside** its card (not the whole page). Optional Settings → [Stale data cleanup](../operations/settings.md#stale-data-cleanup) can purge old run rows + XML.
+
 ---
 
 ## Vulnerability pack
@@ -333,4 +353,4 @@ Web only **enqueues**. Cancel and progress follow the fleet Jobs UI (finished jo
 - [Jobs, audit & notifications](../day-to-day/jobs-audit-notifications.md)  
 - [Settings — Stale data cleanup](../operations/settings.md#stale-data-cleanup) — optional purge of old nmap runs  
 - [Volumes](../operations/volumes.md)  
-- Design: [FEATURE_PLAN_LAN_NMAP.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_LAN_NMAP.md) · ship plan [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md)
+- Design: [FEATURE_PLAN_LAN_NMAP.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_LAN_NMAP.md) · ship plan [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) · follow-up UX [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md)
