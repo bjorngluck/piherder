@@ -53,6 +53,11 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 
 **Run now** enqueues Job type `stale_data_cleanup` (preview counts in the card). Admin-only. Removing a **server** still **keeps** unlinked Jobs/Audit by default — time purge is the bulk growth control ([Remove a server](../day-to-day/remove-server.md)).
 
+<figure class="ph-figure" markdown>
+  ![Stale data cleanup](../assets/screenshots/settings-stale-cleanup.png)
+  <figcaption>Settings → General → Stale data cleanup — opt-in Jobs / Audit / nmap retention.</figcaption>
+</figure>
+
 ## Common tasks
 
 | Goal | Path |

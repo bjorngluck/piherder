@@ -14,10 +14,10 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages now use real PNGs. 
 |---------|----------------|
 | **v0.6.0** (released) | **Prose only** — no PNG gate. Existing captures stay until refreshed. |
 | **v0.7.0** (tagged) | Prose for wizard + compose sets; **PNG pack deferred** to 0.8 |
-| **v0.8.0 RC3** (freeze) | **Full capture pack** + prose audit + **LAN Discovery** UI shots — [PLAN_v0.8.0.md](../../../docs/PLAN_v0.8.0.md) · draft [RELEASE_v0.8.0.md](../../../docs/RELEASE_v0.8.0.md) · [lan-discovery.md](../../integrations/lan-discovery.md) |
+| **v0.8.0 RC3** (tagged) | **Full capture pack landed** + prose audit + **LAN Discovery** UI shots — [RELEASE_v0.8.0.md](../../../docs/RELEASE_v0.8.0.md) · [lan-discovery.md](../../integrations/lan-discovery.md) |
 | **v0.9.0** (planned) | Re-capture only if chrome changes (discovery filters, Network hub modals, coverage mobile) — [PLAN_v0.9.0.md](../../../docs/PLAN_v0.9.0.md) |
 
-Track status below; capture for the **0.8 tag** (product frozen; micro-pass chrome already on main).
+**v0.8.0 pack is complete** (2026-07-22). Inventory below remains the canonical file list for future recaptures.
 
 ## Default convention (keep simple)
 
@@ -67,35 +67,28 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 
 ---
 
-## v0.7.0 capture list — **new / missing** (0.6 product, no PNG yet)
+## v0.7 / v0.8 surfaces — **landed** (wired in wiki)
 
-Add these files under `wiki/assets/screenshots/` and wire Markdown when capturing.
+| File | UI surface | Status |
+|------|------------|--------|
+| `certificates-setup.png` | `/certificates/setup` first-cert guide | **Landed** |
+| `certificates-detail.png` | Cert detail: maps, presets, path preview, sync status | **Landed** |
+| `certificates-edge-map.png` | Self-managed edge card | **Landed** |
+| `docker-project-lifecycle.png` | Project ⋯ Stop/Start/Restart all + confirm | **Landed** |
+| `dns-coverage.png` | `/dns/coverage` Kuma coverage | **Landed** |
+| `dns-stack-panel.png` | Path map with stack expand / side panel | **Landed** |
+| `dns-hub.png` | Catalog → Network hub (`/dns`) | **Landed** |
+| `nmap-overview.png` | LAN Discovery Overview | **Landed** |
+| `nmap-devices.png` | Devices list | **Landed** |
+| `nmap-network.png` | Network view | **Landed** |
+| `nmap-schedules.png` | Schedules | **Landed** |
+| `nmap-runs.png` | Runs table (no ID column) | **Landed** |
+| `nmap-server-embed.png` | Server detail LAN card | **Landed** |
+| `settings-stale-cleanup.png` | Settings → Stale data cleanup | **Landed** |
+| `add-server-wizard.png` | Multi-step add-host wizard | **Landed** |
+| `add-server-wizard-done.png` | Wizard done CTAs | **Landed** |
 
-| File (proposed) | UI surface | Why | Priority |
-|-----------------|------------|-----|----------|
-| `certificates-setup.png` | `/certificates/setup` first-cert guide | New 0.6 happy path | **High** |
-| `certificates-detail.png` | Cert detail: maps, presets, path preview, sync status | Core vault UX | **High** |
-| `certificates-edge-map.png` | Self-managed edge card (Apply / mapping on / Remove) | Dual TLS + renew story | **High** |
-| `docker-project-lifecycle.png` | Project ⋯ Stop/Start/Restart all + confirm | Bulk lifecycle Jobs | **High** |
-| `jobs-live-log.png` | JobHold live log (template deploy or stack restart) | Jobs pattern operators rely on | **High** |
-| `dns-coverage.png` | `/dns/coverage` Kuma coverage | H3 shipped in 0.6 | **Medium** |
-| `dns-stack-panel.png` | Path map with stack expand / side panel | Runtime topology | **Medium** |
-
----
-
-## v0.8.0 — LAN Discovery + residual (new)
-
-| File (proposed) | UI surface | Why | Priority | Capture notes |
-|-----------------|------------|-----|----------|---------------|
-| `nmap-overview.png` | LAN Discovery Overview (worker + vuln pack + curated scan form) | Opt-in headline feature | **High** | Worker online if profile enabled |
-| `nmap-devices.png` | Devices list (hostname/MAC/ports) + kind/state filters | Auto-create + findings UX | **High** | Prefer a few named + linked rows |
-| `nmap-network.png` | Network view (subnet groups) + Show unlinked | Distinct from DNS fabric | **High** | Edit modal optional second shot |
-| `nmap-schedules.png` | Schedules list + Edit form (presets/timing) | Multi-schedule + options | **Medium** | At least one schedule row |
-| `nmap-runs.png` | Runs table (intensity, status, job link — **no ID column**) | History surface | **Low** | Optional; scroll confined to card |
-| `nmap-server-embed.png` | Server detail LAN discovery card | N8 soft embed | **Medium** | Linked device with ports |
-| `settings-stale-cleanup.png` | Settings → Stale data cleanup | Stream R operator control | **Medium** | |
-| `add-server-wizard.png` | Multi-step add-host wizard (`/servers/new`) | Deferred from 0.7 | **High** | Primary path |
-| `add-server-wizard-done.png` | Wizard summary / done CTAs | Same | Medium | |
+Optional residual (not a tag gate): `jobs-live-log.png` for JobHold live log if a future recapture wants a dedicated shot.
 
 ### Pre-tag chrome already on main (do not document old UI)
 

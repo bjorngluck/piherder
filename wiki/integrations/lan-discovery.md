@@ -10,6 +10,11 @@ Devices are **not** managed fleet servers until you **link** or **promote** them
 
 **Hosts map (whole network):** Catalog → **Network** → **Hosts map** (`/dns/physical`) — fleet servers **and** unlinked discoveries together. See [Network maps](dns-fabric.md#lan-discovery-on-hosts-map).
 
+<figure class="ph-figure" markdown>
+  ![LAN Discovery Overview](../assets/screenshots/nmap-overview.png)
+  <figcaption>LAN Discovery Overview — worker status, CIDRs, vuln pack, curated scan actions.</figcaption>
+</figure>
+
 ## Why it exists
 
 PiHerder already manages hosts you onboarded. Discovery answers: *what else is on my LAN, and which of those do I want to manage?* Scans never run silently: you configure CIDRs and start work manually or via **schedules you enable**.
@@ -59,6 +64,26 @@ Journey: [Operator scenarios — Journey H](../getting-started/operator-scenario
 | **Network** | Subnet-grouped discovery cards (LAN Discovery’s own map); filter + **Show unlinked** |
 | **Schedules** | Multiple named schedules (intensity + cron/interval + options) — create **and edit** |
 | **Runs** | Scan run history: **intensity**, status, hosts, ports, **Job** link, finished time (no run ID column) |
+
+<figure class="ph-figure" markdown>
+  ![LAN Discovery Devices](../assets/screenshots/nmap-devices.png)
+  <figcaption>Devices list — hostname/MAC/ports with kind and lifecycle filters.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![LAN Discovery Network](../assets/screenshots/nmap-network.png)
+  <figcaption>Network tab — subnet-grouped discovery cards (Show unlinked).</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![LAN Discovery Schedules](../assets/screenshots/nmap-schedules.png)
+  <figcaption>Schedules — multiple named runs with create/edit options.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![LAN Discovery Runs](../assets/screenshots/nmap-runs.png)
+  <figcaption>Runs history — intensity, status, hosts, ports, Job link (no run ID column).</figcaption>
+</figure>
 
 There are **two** maps:
 
@@ -290,6 +315,11 @@ Linked discovery devices appear on **Servers** list (LAN chip) and **server deta
 
 !!! note "UX polish (v0.9)"
     Filter chrome on Devices/Network, Overview density (Scan now / vuln in modals), and Schedules list-first + ⋯ / modal form are tracked for **v0.9.0** — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md). Product behaviour above stays the same for 0.8.
+
+<figure class="ph-figure" markdown>
+  ![Server detail LAN embed](../assets/screenshots/nmap-server-embed.png)
+  <figcaption>Server detail soft embed — linked discovery device with ports (when nmap is enabled).</figcaption>
+</figure>
 
 ---
 

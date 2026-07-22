@@ -1,13 +1,13 @@
 # PiHerder v0.9.0 — operator UX polish
 
-**Status:** Planned (post–v0.8.0)  
+**Status:** **Active** (opens with `v0.8.0` tag — 2026-07-22)  
 **Date:** 2026-07-22  
 **Git tag target:** `v0.9.0`  
 **Theme:** Operator surfaces — discovery chrome, Catalog Network hub, Kuma coverage mobile  
 **Baseline:** `v0.8.0` (RC3 — LAN nmap + quality)  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md)
 
-> Open implementation only after **v0.8.0 is tagged**. Micro-pass items landed on main for 0.8 screenshots are listed under §0.
+> Baseline **v0.8.0 is tagged**. Micro-pass items that landed on main for 0.8 screenshots are listed under §0.
 
 ---
 

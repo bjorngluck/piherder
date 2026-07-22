@@ -20,7 +20,7 @@ All contributions are offered under the **[MIT License](LICENSE)**. By submittin
 ## Getting Started
 
 - Read the [README](README.md) and [SPEC.md](SPEC.md) for project goals and design principles.
-- Latest release: [v0.7.0](docs/RELEASE_v0.7.0.md). Active plan: **v0.8.0 RC3** (polish · E2E/coverage · docs+screenshots · nmap) — [PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md).
+- Latest release: [v0.8.0](docs/RELEASE_v0.8.0.md). Next plan: **v0.9.0** operator UX — [PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md).
 - Look for issues tagged `good first issue` or `help wanted`.
 
 ## Documentation
@@ -58,7 +58,7 @@ Feature requests are welcome and will be considered against the roadmap.
 2. Prefer small, focused PRs.
 3. Include a clear description of what and why; link related issues.
 4. Update tests and **documentation** where relevant (wiki + RELEASE notes for user-visible change).
-5. Run unit `pytest` locally or via CI. **v0.7.0** Playwright E2E: `./scripts/e2e-up.sh` then `pytest e2e -q` — see [e2e/README.md](e2e/README.md) and [PLAN_v0.7.0.md](docs/PLAN_v0.7.0.md) stream E. For wiki edits run `mkdocs build --strict` when you can.
+5. Run unit `pytest` locally or via CI. Playwright E2E: `./scripts/e2e-up.sh` then `pytest e2e -q` — see [e2e/README.md](e2e/README.md). For wiki edits run `mkdocs build --strict` when you can.
 6. Be responsive to review comments.
 
 ### Dependencies

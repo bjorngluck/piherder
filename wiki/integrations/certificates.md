@@ -13,6 +13,11 @@ One Let’s Encrypt cert often feeds NPM, UniFi, reverse proxies, and app contai
   <figcaption>Catalog → Certificates: vault list with expiry and deploy entry points.</figcaption>
 </figure>
 
+<figure class="ph-figure" markdown>
+  ![First-cert setup](../assets/screenshots/certificates-setup.png)
+  <figcaption>First-cert setup guide — vault → edge map → fleet maps.</figcaption>
+</figure>
+
 ---
 
 ## End-to-end: vault → host files
@@ -27,6 +32,16 @@ Guided path: **Catalog → Certificates → First-cert setup** (`/certificates/s
 6. Enable auto-renew for NPM-sourced certs if desired.  
 
 Map cards show **in sync** when the last deploy fingerprint matches the vault (redeploy is a no-op unless you force), or **stale** after vault material changes.
+
+<figure class="ph-figure" markdown>
+  ![Certificate detail](../assets/screenshots/certificates-detail.png)
+  <figcaption>Certificate detail — service maps, presets, path preview, sync status.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Self-managed edge map](../assets/screenshots/certificates-edge-map.png)
+  <figcaption>Self-managed edge mapping for this PiHerder instance (Caddy `./certs`).</figcaption>
+</figure>
 
 ### Write modes (fleet maps)
 

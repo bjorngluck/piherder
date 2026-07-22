@@ -79,8 +79,13 @@ From a compose project **⋯** menu:
 
 Only **one** stack mutation runs at a time per host (shared lane with Deploy and template deploy/redeploy). Operator+ only. Single-container start/stop/restart stay on the **service row** ⋯ menu.
 
+<figure class="ph-figure" markdown>
+  ![Docker project lifecycle](../assets/screenshots/docker-project-lifecycle.png)
+  <figcaption>Project ⋯ Stop / Start / Restart all — confirm then Job with live log.</figcaption>
+</figure>
+
 !!! note "Host lifecycle (H2.75)"
-    **Add-host wizard** shipped in **v0.7.0** — [Add a server](../day-to-day/add-server.md). **v0.8.0** freezes LAN Discovery (nmap) + docs/screenshots — [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) · [LAN Discovery](../integrations/lan-discovery.md). **v0.9.0** operator UX polish — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md). Later: host stats / allowlisted commands, bootstrap scripts, optional web SSH — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
+    **Add-host wizard** shipped in **v0.7.0** — [Add a server](../day-to-day/add-server.md). **LAN Discovery (nmap)** shipped in **v0.8.0** — [LAN Discovery](../integrations/lan-discovery.md) · [RELEASE_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md). **v0.9.0** operator UX polish — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md). Later: host stats / allowlisted commands, bootstrap scripts, optional web SSH — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
 
 ## Template vs free-form stacks
 

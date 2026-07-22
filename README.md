@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v0.7.0-green.svg)](docs/RELEASE_v0.7.0.md)
+[![Release](https://img.shields.io/badge/release-v0.8.0-green.svg)](docs/RELEASE_v0.8.0.md)
 [![Docker Hub](https://img.shields.io/badge/docker-bjorngluck%2Fpiherder-blue.svg)](https://hub.docker.com/r/bjorngluck/piherder)
 [![Docs](https://img.shields.io/badge/docs-wiki-red.svg)](https://piherder-docs.hacknow.info/)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%231EAEDB?logo=githubsponsors&logoColor=fff&style=flat)](https://github.com/sponsors/bjorngluck)
@@ -55,12 +55,11 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Full docs & wiki: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
-- Latest release: [docs/RELEASE_v0.7.0.md](docs/RELEASE_v0.7.0.md) · draft [docs/RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md)
-- Active plan (**v0.8.0 RC3** freeze — LAN nmap · docs+screenshots): [docs/PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md) · [docs/FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md)
+- Latest release: [docs/RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md) (RC3 — LAN Discovery · screenshots · quality)
+- Prior: [docs/RELEASE_v0.7.0.md](docs/RELEASE_v0.7.0.md) · plan [docs/PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md) · [docs/FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md)
 - Next (**v0.9.0** operator UX): [docs/PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md)
 - Host lifecycle design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md)
 - API reference: [docs/API.md](docs/API.md)
-- Release notes: [docs/RELEASE_v0.7.0.md](docs/RELEASE_v0.7.0.md)
 
 ### Tech Stack
 

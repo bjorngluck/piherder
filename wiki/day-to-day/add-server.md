@@ -25,6 +25,11 @@ Without a server record you have no place to store the encrypted SSH key, featur
 
 **Servers → + Add** opens the **guided wizard** (`/servers/new`). Prefer this for a new host.
 
+<figure class="ph-figure" markdown>
+  ![Add server wizard](../assets/screenshots/add-server-wizard.png)
+  <figcaption>Add-host wizard — multi-step onboarding (Identity through Done).</figcaption>
+</figure>
+
 1. **Identity** — display name, hostname/IP, SSH user and port.  
 2. **Trust** — generate a keypair (recommended), or upload a key; optional **one-time password** only to bootstrap key deploy.  
 3. **Connect** — **view/copy the public key** (or install script) if you install by hand, or **Deploy key** with an optional one-time password → **Test connection** until login succeeds → **Clear stored password** when key-only works.  
@@ -56,6 +61,11 @@ Without a server record you have no place to store the encrypted SSH key, featur
 | Schedules | Guidance for checks-only | Full cron UI on server **Edit** |
 | Network | Optional DNS / maps | Needs Pi-hole (or fabric) when you want A records |
 | Done | Summary + next job CTAs | Add another host or open Docker if enabled |
+
+<figure class="ph-figure" markdown>
+  ![Wizard done](../assets/screenshots/add-server-wizard-done.png)
+  <figcaption>Wizard Done step — summary and next CTAs.</figcaption>
+</figure>
 
 <figure class="ph-figure" markdown>
   ![SSH access panel](../assets/screenshots/ssh-access.png)
@@ -135,7 +145,7 @@ From server detail **Host status** (⋯) or related chips, PiHerder can show a s
 
 ## Later onboarding depth
 
-Richer bootstrap scripts, first-boot enrollment, and optional Web SSH remain later host-lifecycle phases — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md). Ship plan: [PLAN_v0.7.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.7.0.md).
+Richer bootstrap scripts, first-boot enrollment, and optional Web SSH remain later host-lifecycle phases — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md). Current release: [RELEASE_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md).
 
 ## Related
 
