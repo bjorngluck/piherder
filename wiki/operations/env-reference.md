@@ -52,7 +52,7 @@ Other mounts fixed in `docker-compose.yml`: `piherder_backups`, `piherder_data`,
 | `PIHERDER_SERVER_LOCK_TTL` | `7200` backup mutex TTL |
 | `REDIS_URL` | Optional alias used in some deploy notes — broker/result URLs are authoritative |
 
-## LAN Discovery (nmap) — opt-in
+## LAN Discovery (nmap) — opt-in {#lan-discovery-nmap--opt-in}
 
 Default `docker compose up` does **not** start the nmap worker. See [LAN Discovery](../integrations/lan-discovery.md) · [install](../getting-started/install.md#6-optional-lan-discovery-nmap-worker).
 

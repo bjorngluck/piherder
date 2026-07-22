@@ -14,7 +14,7 @@ Each section shares:
 | **Integrations** | `/integrations` (default) | Connect Kuma, Grafana, Pi-hole, NPM, **LAN Discovery** | Vendor adapters + optional nmap |
 | **Certificates** | `/certificates` | TLS vault + service maps + SSH deploy | PEMs are sensitive and multi-consumer |
 | **Templates** | `/templates` | Service template catalog & deploy | Stack recipes, not product logins |
-| **Network** | `/dns` | Host DNS, service paths, Hosts/Path maps | Topology view of names and edges |
+| **Network** | `/dns` | Host DNS, service paths (**By path type** stats), Hosts/Path maps | Topology view of names and edges |
 
 ## Why Catalog exists
 

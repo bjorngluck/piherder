@@ -101,7 +101,7 @@ Successful Deploy clears pending stack badges and resolves `container_updates` w
 On **Servers** (`/servers`):
 
 1. Tick one or more host checkboxes (or **Select all visible**).  
-2. Use the bulk bar:
+2. Use the bulk bar (appears when something is selected):
 
 | Action | Requires feature on host |
 |--------|---------------------------|
@@ -110,6 +110,8 @@ On **Servers** (`/servers`):
 | **Check containers** | Docker / containers enabled |
 | **Patch containers** | Docker / containers enabled |
 | **Backup** | Backups enabled |
+
+Per-host **⋯** menu: open host, backups, OS/container patch, Docker, settings (feature-gated). Status pills (OS packages, images, reboot, backup, optional Kuma/LAN chips) come from the **last stored check results** — the list does **not** open live SSH on every paint.
 
 Hosts without the matching feature flag are **skipped** (not failed). Confirm dialog shows which hosts will run. Progress is on **Jobs**; a banner summarises started / skipped / failed.
 

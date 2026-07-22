@@ -16,7 +16,7 @@ Without a server record you have no place to store the encrypted SSH key, featur
 
 <figure class="ph-figure" markdown>
   ![Servers list](../assets/screenshots/server-list.png)
-  <figcaption>Servers list with bulk action bar for checks, upgrades, and backups.</figcaption>
+  <figcaption>Servers list — filter chips, status from last checks, bulk bar when selected, ⋯ per host.</figcaption>
 </figure>
 
 ---

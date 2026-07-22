@@ -340,7 +340,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [x] **Cert RC2 UX** (v0.6 track) — first-cert setup; map presets; stage_sudo; self-managed Caddy edge mapping + renew re-apply; Grafana UID 472 cookbook
 - [x] **Topology annotations** (0.7) — fixed category/tags vocab, visual service stacks within compose project, exact project match, map columns from category vocab ([FEATURE_PLAN_RUNTIME_TOPOLOGY.md](docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md) § 12c)
 - [ ] Per-project column profiles / explicit link-to-column layout (topology residual)
-- [x] **LAN discovery (nmap-class)** — opt-in LAN CIDR scan, network view, Hosts overlay, map identity — **v0.8.0 RC3 product done**; screenshots open ([PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md))
+- [x] **LAN discovery (nmap-class)** — opt-in LAN CIDR scan, network view, Hosts overlay, map identity — **v0.8.0 RC3 product done**; screenshots open ([PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md)); operator chrome polish continues in [PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md)
 - [ ] Cloudflare DNS automation from template hints / fabric
 - [ ] Pi-hole / NPM write paths beyond local DNS (proxy host CRUD, lists, etc.)
 - [ ] Service migrate host→host; destructive service remove

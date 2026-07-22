@@ -26,6 +26,7 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 - Docker Compose browser, multi-file editing, **compose sets** (multiple compose files under one project), inventory cache
 - Service templates (deploy wizard, variables, preview/confirm)
 - Integrations: Uptime Kuma, Grafana, Pi-hole (v6), Nginx Proxy Manager + cert management
+- **LAN Discovery** (opt-in nmap worker, devices, schedules, Hosts map overlay)
 - Network Maps (DNS fabric, logical/physical topology, service paths, runtime stack view groups)
 - PWA + Web Push notifications
 - RBAC, 2FA, audit trail, self-backup with full DR
@@ -54,8 +55,9 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Full docs & wiki: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
-- Latest release: [docs/RELEASE_v0.7.0.md](docs/RELEASE_v0.7.0.md)
-- Active plan (**v0.8.0 RC3** polish · ~50% coverage · docs+screenshots · LAN nmap): [docs/PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md) · [docs/FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md)
+- Latest release: [docs/RELEASE_v0.7.0.md](docs/RELEASE_v0.7.0.md) · draft [docs/RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md)
+- Active plan (**v0.8.0 RC3** freeze — LAN nmap · docs+screenshots): [docs/PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md) · [docs/FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md)
+- Next (**v0.9.0** operator UX): [docs/PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md)
 - Host lifecycle design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md)
 - API reference: [docs/API.md](docs/API.md)
 - Release notes: [docs/RELEASE_v0.7.0.md](docs/RELEASE_v0.7.0.md)

@@ -1,6 +1,6 @@
 # Feature plan — LAN discovery (nmap)
 
-**Status:** **Approved** (2026-07-19) — **N0–N10 product complete** on main: worker, devices, network tab, schedules, presets, soft embed, **kind heuristics + override**, **map identity** (name / gateway role), **known/new lifecycle**, **MAC identity / DHCP**, **Hosts map dual layout** (radar toggle, compact 1:1 fit, one-line chrome), Network **centered edit modal**; **screenshots still open** (stream A)
+**Status:** **Approved** (2026-07-19) — **N0–N10 product complete** on main: worker, devices, network tab, schedules, presets, soft embed, **kind heuristics + override**, **map identity** (name / gateway role), **known/new lifecycle**, **MAC identity / DHCP**, **Hosts map dual layout** (radar toggle, compact 1:1 fit, one-line chrome), Network **centered edit modal**; pre-tag chrome: Runs **no ID column**; residual filter/Overview/Schedules UX → [PLAN_v0.9.0.md](PLAN_v0.9.0.md); **screenshots still open** (stream A)
 **Ship target:** **v0.8.0** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) stream **N**  
 **Operator wiki:** [wiki/integrations/lan-discovery.md](../wiki/integrations/lan-discovery.md) · [dns-fabric.md](../wiki/integrations/dns-fabric.md)  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ADMIN.md](ADMIN.md) · [SPEC.md](../SPEC.md)

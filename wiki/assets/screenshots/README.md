@@ -14,9 +14,10 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages now use real PNGs. 
 |---------|----------------|
 | **v0.6.0** (released) | **Prose only** — no PNG gate. Existing captures stay until refreshed. |
 | **v0.7.0** (tagged) | Prose for wizard + compose sets; **PNG pack deferred** to 0.8 |
-| **v0.8.0 RC3** (active) | **Full capture pack** + prose audit + **LAN Discovery** UI shots — [PLAN_v0.8.0.md](../../../docs/PLAN_v0.8.0.md) · [lan-discovery.md](../../integrations/lan-discovery.md) |
+| **v0.8.0 RC3** (freeze) | **Full capture pack** + prose audit + **LAN Discovery** UI shots — [PLAN_v0.8.0.md](../../../docs/PLAN_v0.8.0.md) · draft [RELEASE_v0.8.0.md](../../../docs/RELEASE_v0.8.0.md) · [lan-discovery.md](../../integrations/lan-discovery.md) |
+| **v0.9.0** (planned) | Re-capture only if chrome changes (discovery filters, Network hub modals, coverage mobile) — [PLAN_v0.9.0.md](../../../docs/PLAN_v0.9.0.md) |
 
-Track status below; capture during the **0.8** cycle (wizard UI is frozen enough).
+Track status below; capture for the **0.8 tag** (product frozen; micro-pass chrome already on main).
 
 ## Default convention (keep simple)
 
@@ -39,11 +40,11 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 
 ## Inventory — existing (may be stale after 0.6 UI)
 
-| File | Page / topic | Priority | v0.7.0 action |
-|------|----------------|----------|----------------|
+| File | Page / topic | Priority | v0.8.0 capture notes |
+|------|----------------|----------|----------------------|
 | `dashboard.png` | Home | High | **Refresh** if cards/layout changed |
-| `server-list.png` | Servers + bulk bar | High | **Refresh** if bulk chrome changed |
-| `server-detail.png` | Dest cards, host status | High | **Refresh** (ops-hero / cards) |
+| `server-list.png` | Servers + bulk bar + ⋯ | High | **Refresh** — no footer help text; status from last checks; bulk when selected |
+| `server-detail.png` | Dest cards, host status, optional LAN chip/card | High | **Refresh** (ops-hero / soft embed if showing LAN) |
 | `ssh-access.png` | SSH access expanded | Medium | Keep / refresh if panel copy changed |
 | `backups-page.png` | Sources + path policy | High | Spot-check |
 | `jobs-page.png` | Jobs filters | Medium | **Refresh** — new job types (template deploy, stack lifecycle) |
@@ -55,8 +56,9 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 | `integrations-pihole.png` | Pi-hole | Medium | Spot-check |
 | `integrations-npm.png` | NPM | Medium | Spot-check |
 | `certificates-list.png` | Catalog → Certificates | High | **Refresh** — setup CTA / map status chips |
-| `dns-physical.png` | Network Hosts map | High | Spot-check |
+| `dns-physical.png` | Network Hosts map | High | Spot-check (radar / dual layout if discovery on) |
 | `dns-logical.png` | Network Path map | Medium | **Refresh** — stack expand / topology |
+| `dns-hub.png` *(new or crop)* | Catalog → Network hub (`/dns`) | Medium | Optional: show **By path type** stats + service paths (not “Path mix”) |
 | `services-fleet.png` | `/services` grid | Medium | Spot-check |
 | `settings-status.png` | Settings → Status | Medium | Spot-check |
 | `account-push.png` | PWA / push | Medium | Spot-check |
@@ -83,23 +85,32 @@ Add these files under `wiki/assets/screenshots/` and wire Markdown when capturin
 
 ## v0.8.0 — LAN Discovery + residual (new)
 
-| File (proposed) | UI surface | Why | Priority |
-|-----------------|------------|-----|----------|
-| `nmap-overview.png` | LAN Discovery Overview (worker + vuln pack + curated scan form) | Opt-in headline feature | **High** |
-| `nmap-devices.png` | Devices list (hostname/MAC/ports) + script classify pills | Auto-create + findings UX | **High** |
-| `nmap-network.png` | Network view (subnet groups) | Distinct from DNS fabric | **High** |
-| `nmap-schedules.png` | Schedules list + Edit form (presets/timing) | Multi-schedule + options | **Medium** |
-| `nmap-server-embed.png` | Server detail LAN discovery card | N8 soft embed | **Medium** |
-| `settings-stale-cleanup.png` | Settings → Stale data cleanup | Stream R operator control | **Medium** |
-| `add-server-wizard.png` | Wizard primary path | Deferred from 0.7 | **High** |
-| `add-server-wizard.png` | Multi-step add-host wizard (`/servers/new`) | **Feature on main** — capture for tag | **High** |
-| `add-server-wizard-done.png` | Wizard summary / done CTAs | Same | Medium |
+| File (proposed) | UI surface | Why | Priority | Capture notes |
+|-----------------|------------|-----|----------|---------------|
+| `nmap-overview.png` | LAN Discovery Overview (worker + vuln pack + curated scan form) | Opt-in headline feature | **High** | Worker online if profile enabled |
+| `nmap-devices.png` | Devices list (hostname/MAC/ports) + kind/state filters | Auto-create + findings UX | **High** | Prefer a few named + linked rows |
+| `nmap-network.png` | Network view (subnet groups) + Show unlinked | Distinct from DNS fabric | **High** | Edit modal optional second shot |
+| `nmap-schedules.png` | Schedules list + Edit form (presets/timing) | Multi-schedule + options | **Medium** | At least one schedule row |
+| `nmap-runs.png` | Runs table (intensity, status, job link — **no ID column**) | History surface | **Low** | Optional; scroll confined to card |
+| `nmap-server-embed.png` | Server detail LAN discovery card | N8 soft embed | **Medium** | Linked device with ports |
+| `settings-stale-cleanup.png` | Settings → Stale data cleanup | Stream R operator control | **Medium** | |
+| `add-server-wizard.png` | Multi-step add-host wizard (`/servers/new`) | Deferred from 0.7 | **High** | Primary path |
+| `add-server-wizard-done.png` | Wizard summary / done CTAs | Same | Medium | |
+
+### Pre-tag chrome already on main (do not document old UI)
+
+| Surface | Expected in PNGs |
+|---------|------------------|
+| **Servers list** | **No** footer line about “Status from last update checks / checkboxes / ⋯” |
+| **Catalog → Network hub** | Stat **By path type** (Host / App / NPM) — not “Path mix” |
+| **LAN Discovery → Runs** | Columns: intensity, status, hosts, ports, job, finished — **no run `#id`** |
 
 Wiki pages to update when PNGs land:
 
+- [lan-discovery](../../integrations/lan-discovery.md) · [dns-fabric](../../integrations/dns-fabric.md)  
 - [certificates](../../integrations/certificates.md) · [https-tls](../../getting-started/https-tls.md)  
 - [Docker overview](../../docker/overview.md) · [jobs-audit](../../day-to-day/jobs-audit-notifications.md)  
-- [dns-fabric](../../integrations/dns-fabric.md) · [add-server](../../day-to-day/add-server.md) (wizard primary path)
+- [add-server](../../day-to-day/add-server.md) (wizard + fleet list)
 
 ---
 
