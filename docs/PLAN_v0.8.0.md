@@ -377,6 +377,7 @@ Before tagging **0.8.0**, a maintainer can:
 | 2026-07-21 | **Nmap P0/P1 review:** worker_guard + compose fence; Show unlinked; Hosts return; modal close parity; promote prefill; stale 14d; device_ops/fabric_projection split; deep/detailed confirm; P2 roadmap-only |
 | 2026-07-21 | **Nmap fence docs:** `.env.example` + wiki env-reference / install / architecture / lan-discovery / volumes + ADMIN deploy section |
 | 2026-07-21 | **RELEASE_v0.8.0.md draft** on main; unit coverage ~49% (RC3 Q); screenshot pack next (stream A) |
+| 2026-07-22 | Pre-tag UX micro-pass **B1/E4/E8**; post-0.8 polish tracked in [PLAN_v0.9.0.md](PLAN_v0.9.0.md) |
 
 ---
 
