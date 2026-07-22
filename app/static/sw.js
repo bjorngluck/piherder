@@ -3,7 +3,7 @@
  * CSS/JS must be network-first. Cache-first on themes.css previously hid
  * theme updates until the SW cache was manually cleared.
  */
-const CACHE = "piherder-shell-v3";
+const CACHE = "piherder-shell-v4";
 const SHELL = [
   "/static/favicon.png",
   "/static/icons/icon-192.png",

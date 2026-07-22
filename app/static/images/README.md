@@ -1,26 +1,38 @@
 # PiHerder brand images
 
-## App mark (nav / login)
+**Source master:** `source/PiHerder_Logo_T.png` (full-colour herder raspberry).
 
-**Source:** `light-logo.png` (black ink / dark lines).
+Regenerate all app/wiki sizes:
+
+```bash
+python3 scripts/generate_brand_assets.py
+```
+
+## App mark (nav / login / PWA)
 
 | File | Theme | Notes |
 |------|--------|--------|
-| `piherder-mark.png` (+ `-64` / `-128`) | **Light** | Black body + black circuits |
-| `piherder-mark-dark.png` (+ `-64` / `-128`) | **Dark** | Same art, black ink recolored to light — **no white box** |
+| `piherder-mark.png` (+ `-64` / `-128`) | **Light** | Full-colour mark on transparent square |
+| `piherder-mark-dark.png` (+ `-64` / `-128`) | **Dark** | Near-black body + circuit ink recolored light; red/green/brown kept |
 
 UI swaps `src` via `img.ph-theme-logo` + `data-logo-light` / `data-logo-dark`.
 
-## Wordmark (About / README / wiki)
+## About / README / wiki hero
 
 | File | Theme | Notes |
 |------|--------|--------|
-| `piherder-about.png` | Light | Transparent wordmark (no plate) — soft blend on hero |
-| `piherder-about-dark.png` | Dark | Black ink → light (same as menu mark treatment) |
-| `piherder-logo.png` | Light | Alias of about light (README / wiki) |
-| `piherder-logo-dark.png` | Dark | Alias of about dark |
-| `piherder-wordmark*.png` | — | Older lockups / wide variants |
+| `piherder-about.png` / `piherder-logo.png` | Light | Same mark (square) for About + README |
+| `piherder-about-dark.png` / `piherder-logo-dark.png` | Dark | Dark-theme ink treatment |
 
-About page: `img.ph-theme-logo` swaps about / about-dark.
+Legacy `piherder-wordmark*.png` may remain for historical refs; primary UI uses **mark** assets above.
 
-Wiki: same names under `wiki/assets/`.
+## Favicon & PWA
+
+| File | Role |
+|------|------|
+| `../favicon.png` / `../favicon.ico` | Browser tab (face-cropped for small sizes) |
+| `../icons/icon-192.png`, `icon-512.png` | PWA `any` purpose |
+| `../icons/icon-maskable-*.png` | PWA maskable (padded on dark plate) |
+| `../icons/apple-touch-icon.png` | iOS home screen |
+
+Wiki copies live under `wiki/assets/` (including `favicon.png` for MkDocs).
