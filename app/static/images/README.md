@@ -30,9 +30,9 @@ Legacy `piherder-wordmark*.png` may remain for historical refs; primary UI uses 
 
 | File | Role |
 |------|------|
-| `../favicon.png` / `../favicon.ico` | Browser tab (face-cropped for small sizes) |
-| `../icons/icon-192.png`, `icon-512.png` | PWA `any` purpose |
-| `../icons/icon-maskable-*.png` | PWA maskable (padded on dark plate) |
-| `../icons/apple-touch-icon.png` | iOS home screen |
+| `../favicon.png` / `../favicon.ico` | Browser tab (face-cropped; **light plate** `#f8f9fa` — not transparent/black) |
+| `../icons/icon-192.png`, `icon-512.png` | PWA `any` purpose (same light plate) |
+| `../icons/icon-maskable-*.png` | PWA maskable (safe-zone padding on light plate) |
+| `../icons/apple-touch-icon.png` | iOS home screen (light plate) |
 
 Wiki copies live under `wiki/assets/` (including `favicon.png` for MkDocs).

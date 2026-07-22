@@ -24,6 +24,8 @@ SRC_DIR = IMG / "source"
 
 DARK_INK = (236, 238, 242)
 DARK_INK_DIM = (200, 204, 212)
+# Favicon / PWA plate — light canvas (transparent looked black in browser tabs)
+ICON_BG = (248, 249, 250, 255)  # #f8f9fa
 
 
 def load_cropped(path: Path, pad_frac: float = 0.04) -> Image.Image:
@@ -39,8 +41,13 @@ def load_cropped(path: Path, pad_frac: float = 0.04) -> Image.Image:
     return canvas
 
 
-def to_square(im: Image.Image, size: int, margin_frac: float = 0.08) -> Image.Image:
-    canvas = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+def to_square(
+    im: Image.Image,
+    size: int,
+    margin_frac: float = 0.08,
+    bg: tuple[int, int, int, int] | None = None,
+) -> Image.Image:
+    canvas = Image.new("RGBA", (size, size), bg if bg is not None else (0, 0, 0, 0))
     max_inner = int(size * (1 - 2 * margin_frac))
     w, h = im.size
     scale = min(max_inner / w, max_inner / h)
@@ -94,7 +101,7 @@ def save(im: Image.Image, path: Path) -> None:
 def maskable(
     im_square: Image.Image,
     size: int,
-    bg=(14, 16, 20, 255),
+    bg: tuple[int, int, int, int] = ICON_BG,
     content_frac: float = 0.72,
 ) -> Image.Image:
     canvas = Image.new("RGBA", (size, size), bg)
@@ -159,19 +166,17 @@ def main() -> None:
         save(im, path)
 
     face = face_crop(light)
-    fav32 = to_square(face, 32, 0.03)
-    fav48 = to_square(face, 48, 0.03)
+    # Light plate so tab favicons are not a black blob (logo body is black ink)
+    fav32 = to_square(face, 32, 0.06, bg=ICON_BG)
+    fav48 = to_square(face, 48, 0.06, bg=ICON_BG)
     save(fav32, STATIC / "favicon.png")
     favicon_ico(fav48, STATIC / "favicon.ico")
 
-    save(to_square(light, 192, 0.08), ICONS / "icon-192.png")
-    save(to_square(light, 512, 0.06), ICONS / "icon-512.png")
+    save(to_square(light, 192, 0.1, bg=ICON_BG), ICONS / "icon-192.png")
+    save(to_square(light, 512, 0.08, bg=ICON_BG), ICONS / "icon-512.png")
     save(maskable(mark_l, 192), ICONS / "icon-maskable-192.png")
     save(maskable(mark_l, 512), ICONS / "icon-maskable-512.png")
-    save(
-        maskable(mark_l, 180, bg=(248, 249, 250, 255), content_frac=0.82),
-        ICONS / "apple-touch-icon.png",
-    )
+    save(maskable(mark_l, 180, content_frac=0.82), ICONS / "apple-touch-icon.png")
 
     for name in (
         "piherder-mark.png",
