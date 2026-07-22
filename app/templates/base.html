@@ -148,10 +148,10 @@
       <!-- Brand (left) — all sizing/spacing via CSS vars -->
       <div class="header-brand">
         <a href="{% if user %}/{% else %}/auth/login{% endif %}" class="header-brand-link">
-          {# light-logo: black ink. Dark theme uses recolored mark (white ink), no plate. #}
-          <img src="/static/images/piherder-mark-128.png"
-               data-logo-light="/static/images/piherder-mark-128.png"
-               data-logo-dark="/static/images/piherder-mark-dark-128.png"
+          {# Full-colour mark (light) / light-ink body+circuits (dark). ?v= busts browser cache after brand refresh. #}
+          <img src="/static/images/piherder-mark-128.png?v=20260722b"
+               data-logo-light="/static/images/piherder-mark-128.png?v=20260722b"
+               data-logo-dark="/static/images/piherder-mark-dark-128.png?v=20260722b"
                alt="PiHerder" class="header-logo ph-theme-logo" width="32" height="32">
           <div class="header-brand-text-wrap">
             <span class="header-brand-text">{{ ph_brand() }}</span>
@@ -286,9 +286,9 @@
   <div id="mobile-menu-panel" class="mobile-menu-panel hidden" role="dialog" aria-modal="true" aria-label="Main menu">
     <div class="mobile-menu-header">
       <div class="mobile-menu-header-brand">
-        <img src="/static/images/piherder-mark-128.png"
-             data-logo-light="/static/images/piherder-mark-128.png"
-             data-logo-dark="/static/images/piherder-mark-dark-128.png"
+        <img src="/static/images/piherder-mark-128.png?v=20260722b"
+             data-logo-light="/static/images/piherder-mark-128.png?v=20260722b"
+             data-logo-dark="/static/images/piherder-mark-dark-128.png?v=20260722b"
              alt="" class="mobile-menu-header-logo header-logo ph-theme-logo" width="28" height="28">
         <span class="mobile-menu-header-title">{{ ph_brand() }}</span>
       </div>
