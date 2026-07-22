@@ -46,8 +46,9 @@ The product mark and About wordmark use **theme-aware PNGs** (no operator custom
 
 | Asset | Light UI | Dark UI |
 |-------|----------|---------|
-| Header / login mark | Black-ink mascot (`piherder-mark*.png`) | Same art, ink recolored light (`piherder-mark-dark*.png`) |
-| About / docs hero | Transparent wordmark (`piherder-about.png`) | Light-ink wordmark (`piherder-about-dark.png`) |
+| Header / login mark | Full-colour herder mark (`piherder-mark*.png`) | Black body/circuits recolored light (`piherder-mark-dark*.png`); red/green/brown kept |
+| About / docs hero | Same mark (`piherder-about.png`) | Dark-theme ink treatment (`piherder-about-dark.png`) |
+| Favicon / PWA | `favicon.png` + `icons/icon-*.png` from the same master | — |
 
 Toggle theme swaps the image `src` in the browser. Asset inventory: [`app/static/images/README.md`](https://github.com/bjorngluck/piherder/blob/main/app/static/images/README.md) (mirrored under `wiki/assets/` for this site).
 
