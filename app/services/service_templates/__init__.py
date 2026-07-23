@@ -20,10 +20,12 @@ from .catalog import (
     ensure_builtin_templates_in_db,
     get_template_definition,
     get_template_row,
+    is_ootb_source,
     list_catalog,
     import_template_from_dir,
     import_template_from_zip_bytes,
     save_template_definition,
+    source_badge,
 )
 from .editor import (
     apply_harden_env_to_form,
@@ -75,6 +77,8 @@ __all__ = [
     "get_template_definition",
     "get_template_row",
     "list_catalog",
+    "is_ootb_source",
+    "source_badge",
     "import_template_from_dir",
     "import_template_from_zip_bytes",
     "save_template_definition",

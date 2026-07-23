@@ -194,6 +194,84 @@ _BOOLISH = frozenset(
 )
 _SECTION_KEY_RE = re.compile(r"^([ \t]*)([A-Za-z0-9_-]+)\s*:\s*(.*)$")
 
+# Relative project files that should ship with the template (not become volume vars)
+_CONFIG_FILE_EXTS = frozenset(
+    {
+        "yml",
+        "yaml",
+        "json",
+        "toml",
+        "conf",
+        "cfg",
+        "ini",
+        "txt",
+        "properties",
+        "xml",
+        "env",
+        "js",
+        "ts",
+        "lua",
+        "hcl",
+    }
+)
+
+# FQDN-ish tokens in config bodies (e.g. rpi5-2.hacknow.info)
+_HOST_FQDN_RE = re.compile(
+    r"\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}\b"
+)
+_URL_WITH_HOST_RE = re.compile(
+    r"(https?://)([a-zA-Z0-9](?:[a-zA-Z0-9.-]{0,251}[a-zA-Z0-9])?)(:\d+)?(/[^\s\"']*)?"
+)
+
+
+def looks_like_config_file(path: str) -> bool:
+    """True when a relative bind source looks like a file (has known extension)."""
+    p = (path or "").strip().lstrip("./")
+    if not p or p in (".", "..") or ".." in p.split("/"):
+        return False
+    base = p.rsplit("/", 1)[-1]
+    if "." not in base or base.startswith("."):
+        # allow .env.something already handled elsewhere
+        if base.startswith(".env"):
+            return True
+        return False
+    ext = base.rsplit(".", 1)[-1].lower()
+    return ext in _CONFIG_FILE_EXTS
+
+
+def discover_relative_config_files(compose: str) -> List[str]:
+    """Relative bind-mount sources in compose that look like project config files.
+
+    Example: ``./promtail-config.yaml:/etc/promtail/config.yml`` →
+    ``promtail-config.yaml``. Single-level and one-subdir paths only (SFTP write limit).
+    """
+    found: List[str] = []
+    seen: Set[str] = set()
+    for line in (compose or "").splitlines():
+        m = _SHORT_MOUNT_RE.match(line)
+        if not m:
+            continue
+        source = (m.group(2) or "").strip()
+        mode, norm_src = classify_volume_source(source)
+        if mode != "bind_relative":
+            continue
+        # Prefer original relative form without ./ for storage
+        rel = (source or "").strip()
+        if rel.startswith("./"):
+            rel = rel[2:]
+        rel = rel.lstrip("/")
+        if not looks_like_config_file(rel) and not looks_like_config_file(norm_src):
+            continue
+        # write_project_files allows at most one subdirectory
+        parts = [p for p in rel.split("/") if p]
+        if not parts or len(parts) > 2 or any(p in (".", "..") for p in parts):
+            continue
+        key = "/".join(parts)
+        if key not in seen:
+            seen.add(key)
+            found.append(key)
+    return found
+
 
 def _unique_var_name(base: str, used: Set[str]) -> str:
     name = re.sub(r"[^A-Za-z0-9_]+", "_", (base or "VAR").upper()).strip("_")
@@ -325,6 +403,21 @@ def parameterize_compose_volumes_and_ports(
                     messages.append(f"Skipped volume with '..' path: {source}")
                     out.append(line)
                     continue
+                # Keep project config files as ./file:target (shipped with template)
+                if mode == "bind_relative" and (
+                    looks_like_config_file(source) or looks_like_config_file(norm_src)
+                ):
+                    rel = (source or "").strip()
+                    if rel.startswith("./"):
+                        rel = rel[2:]
+                    # Normalize to ./rel so deploy writes next to compose
+                    opt = f":{_opts}" if _opts else ""
+                    out.append(f"{indent}- ./{rel.lstrip('./')}:{target}{opt}")
+                    messages.append(
+                        f"Config file mount kept: ./{rel.lstrip('./')} → {target} "
+                        "(file content stored in template)"
+                    )
+                    continue
                 mount_key = f"{mode}|{norm_src}|{target}"
                 if mount_key not in volume_vars:
                     base = _volume_var_base(norm_src, target, mode)
@@ -439,9 +532,14 @@ def suggest_variables_from_content(
     *,
     project_name_default: str = "my-app",
     extra_vars: Optional[List[Dict[str, Any]]] = None,
+    extra_texts: Optional[List[str]] = None,
 ) -> List[Dict[str, Any]]:
-    """Build variable dicts from placeholders, .env keys, volumes/ports, and inline env."""
-    placeholders = scan_placeholders(compose, env_content)
+    """Build variable dicts from placeholders, .env keys, volumes/ports, and inline env.
+
+    ``extra_texts`` (e.g. sidecar config files) contribute **placeholders only** —
+    they are not scanned for inline env KEY: value pairs (avoids false positives).
+    """
+    placeholders = scan_placeholders(compose, env_content, *(extra_texts or []))
     env_map = parse_env_file(env_content)
     # If env has real values (not placeholders), use as defaults
     defaults: Dict[str, str] = {}
@@ -537,40 +635,254 @@ def suggest_variables_from_content(
     return vars_out
 
 
+def _short_host_label(hostname: str, server_name: str = "") -> str:
+    """Prefer first DNS label of hostname; fall back to host-like server name."""
+    host = (hostname or "").strip().lower()
+    if host:
+        # strip brackets / port
+        host = host.split("%")[0].split("/")[0]
+        if host.startswith("["):
+            host = host.strip("[]")
+        else:
+            host = host.split(":")[0]
+        label = host.split(".")[0].strip()
+        if label and re.match(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", label):
+            return label
+    name = (server_name or "").strip().lower()
+    name = re.sub(r"[^a-z0-9-]+", "-", name).strip("-")
+    if name and re.match(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", name) and len(name) >= 2:
+        return name
+    return ""
+
+
+def parameterize_host_literals(
+    text: str,
+    *,
+    node_name: str = "",
+    host_fqdn: str = "",
+    used_var_names: Optional[Set[str]] = None,
+) -> Tuple[str, List[Dict[str, Any]], List[str]]:
+    """Replace host-specific names in compose/config text with ``{{VAR}}`` placeholders.
+
+    - Fleet short name / node label → ``{{NODE_NAME}}``
+    - Fleet FQDN → ``{{HOST_FQDN}}`` when distinct from NODE_NAME
+    - Other same-domain FQDNs seen in URLs → dedicated string vars (e.g. LOKI_URL)
+
+    Returns (new_text, extra_variable_dicts, messages).
+    """
+    messages: List[str] = []
+    extra_vars: List[Dict[str, Any]] = []
+    used: Set[str] = set(used_var_names or set())
+    out = text or ""
+    if not out.strip():
+        return out, extra_vars, messages
+
+    node = (node_name or "").strip()
+    fqdn = (host_fqdn or "").strip().lower()
+    if fqdn and node and fqdn == node.lower():
+        fqdn = ""
+
+    # Longest literals first to avoid partial clobber
+    replacements: List[Tuple[str, str]] = []  # literal, var_name
+    if fqdn and fqdn in out.lower():
+        # case-sensitive replace using original casing from text where possible
+        replacements.append((fqdn, "HOST_FQDN"))
+    if node and len(node) >= 2:
+        replacements.append((node, "NODE_NAME"))
+
+    # Case-insensitive replace for known host tokens
+    for literal, vname in replacements:
+        if not literal:
+            continue
+        pattern = re.compile(re.escape(literal), re.I)
+        if not pattern.search(out):
+            continue
+        out = pattern.sub(f"{{{{{vname}}}}}", out)
+        if vname not in used:
+            used.add(vname)
+            default = fqdn if vname == "HOST_FQDN" else node
+            # Preserve a reasonable display default (prefer original server casing for node)
+            if vname == "NODE_NAME":
+                default = node_name or node
+            extra_vars.append(
+                {
+                    "name": vname,
+                    "label": (
+                        "Node / host label"
+                        if vname == "NODE_NAME"
+                        else "Host FQDN"
+                    ),
+                    "type": "string",
+                    "default": default,
+                    "required": True,
+                    "secret": False,
+                    "generate": False,
+                    "help": (
+                        "Identifies this host in logs/metrics labels (e.g. promtail host:)."
+                        if vname == "NODE_NAME"
+                        else "Full hostname for this fleet member."
+                    ),
+                }
+            )
+            messages.append(f"Host literal → {{{{{vname}}}}} (was {literal})")
+
+    # URLs whose host is not this node — promote whole URL to a variable
+    url_defaults: Dict[str, str] = {}  # var -> default url
+    for m in list(_URL_WITH_HOST_RE.finditer(out)):
+        full = m.group(0)
+        host = (m.group(2) or "").lower()
+        if not host:
+            continue
+        # Skip if already parameterized
+        if "{{" in full:
+            continue
+        short = host.split(".")[0]
+        # Same machine references already handled via NODE_NAME / HOST_FQDN
+        if node and (host == node.lower() or short == node.lower()):
+            continue
+        if fqdn and host == fqdn:
+            continue
+        # Build var name from service-ish path or host
+        path = m.group(4) or ""
+        base_hint = "REMOTE_URL"
+        if "loki" in full.lower():
+            base_hint = "LOKI_URL"
+        elif "prometheus" in full.lower() or "prom" in short:
+            base_hint = "PROMETHEUS_URL"
+        elif "grafana" in full.lower():
+            base_hint = "GRAFANA_URL"
+        else:
+            base_hint = _unique_var_name(
+                re.sub(r"[^A-Za-z0-9]+", "_", short).upper() + "_URL", set()
+            ).replace("__", "_")
+            if not base_hint.endswith("_URL"):
+                base_hint = base_hint + "_URL" if not base_hint.endswith("URL") else base_hint
+        vname = base_hint if base_hint not in used else _unique_var_name(base_hint, used)
+        if full in url_defaults.values():
+            # reuse existing var with same default
+            for existing_v, d in url_defaults.items():
+                if d == full:
+                    vname = existing_v
+                    break
+        else:
+            if vname not in used:
+                used.add(vname)
+            url_defaults[vname] = full
+            extra_vars.append(
+                {
+                    "name": vname,
+                    "label": vname.replace("_", " ").title(),
+                    "type": "url",
+                    "default": full,
+                    "required": True,
+                    "secret": False,
+                    "generate": False,
+                    "help": f"Remote endpoint (was host {host})",
+                }
+            )
+            messages.append(f"Remote URL → {{{{{vname}}}}} ({host})")
+        out = out.replace(full, f"{{{{{vname}}}}}")
+
+    return out, extra_vars, messages
+
+
+def parameterize_texts_for_host(
+    files: Dict[str, str],
+    *,
+    node_name: str = "",
+    host_fqdn: str = "",
+) -> Tuple[Dict[str, str], List[Dict[str, Any]], List[str]]:
+    """Apply host literal parameterization across multiple project files."""
+    used: Set[str] = set()
+    all_vars: List[Dict[str, Any]] = []
+    messages: List[str] = []
+    out: Dict[str, str] = {}
+    # Process longest files first so shared URL vars stay consistent
+    for path in sorted(files.keys(), key=lambda p: -len(files.get(p) or "")):
+        body = files.get(path) or ""
+        new_body, extra, msgs = parameterize_host_literals(
+            body,
+            node_name=node_name,
+            host_fqdn=host_fqdn,
+            used_var_names=used,
+        )
+        out[path] = new_body
+        for ev in extra:
+            name = str(ev.get("name") or "")
+            if name and name not in used:
+                used.add(name)
+                all_vars.append(ev)
+            elif name:
+                # already have var — keep first definition
+                pass
+            else:
+                all_vars.append(ev)
+            if name:
+                used.add(name)
+        for msg in msgs:
+            messages.append(f"{path}: {msg}" if path else msg)
+    return out, all_vars, messages
+
+
 def build_variables_for_host_project(
     compose: str,
     env_content: str,
     *,
     project_name_default: str = "my-app",
     parameterize: bool = True,
-) -> Tuple[str, List[Dict[str, Any]], List[str]]:
-    """Full from-host path: parameterize volumes/ports, then suggest all variables.
+    extra_file_texts: Optional[Dict[str, str]] = None,
+    node_name: str = "",
+    host_fqdn: str = "",
+) -> Tuple[str, List[Dict[str, Any]], List[str], Dict[str, str]]:
+    """Full from-host path: parameterize volumes/ports/host names, then suggest variables.
 
-    Returns (compose, variables, messages).
+    Returns (compose, variables, messages, extra_files_parameterized).
     """
     messages: List[str] = []
     new_compose = compose or ""
     extra: List[Dict[str, Any]] = []
+    extra_files = dict(extra_file_texts or {})
+
     if parameterize:
         new_compose, extra, msgs = parameterize_compose_volumes_and_ports(
             new_compose, project_name=project_name_default
         )
         messages.extend(msgs)
+
+    # Host-specific literals across compose + sidecar configs (promtail, etc.)
+    if node_name or host_fqdn:
+        bundle = {"docker-compose.yml": new_compose, **extra_files}
+        if env_content:
+            bundle[".env"] = env_content
+        parameterized, host_vars, host_msgs = parameterize_texts_for_host(
+            bundle, node_name=node_name, host_fqdn=host_fqdn
+        )
+        new_compose = parameterized.get("docker-compose.yml", new_compose)
+        if ".env" in parameterized and env_content is not None:
+            env_content = parameterized.get(".env", env_content)
+        for path in list(extra_files.keys()):
+            if path in parameterized:
+                extra_files[path] = parameterized[path]
+        extra = list(extra) + list(host_vars)
+        messages.extend(host_msgs)
+
+    # Sidecar configs: placeholders only (not YAML key:value as env vars)
     variables = suggest_variables_from_content(
         new_compose,
         env_content,
         project_name_default=project_name_default,
         extra_vars=extra,
+        extra_texts=list(extra_files.values()) if extra_files else None,
     )
     vol_n = sum(1 for v in variables if v.get("type") == "volume")
     port_n = sum(1 for v in variables if v.get("type") == "port")
     bool_n = sum(1 for v in variables if v.get("type") == "boolean")
-    if vol_n or port_n or bool_n:
+    if vol_n or port_n or bool_n or extra_files:
         messages.append(
             f"Variables ready: {vol_n} volume(s), {port_n} port(s), {bool_n} boolean(s), "
-            f"{len(variables)} total."
+            f"{len(extra_files)} extra file(s), {len(variables)} total."
         )
-    return new_compose, variables, messages
+    return new_compose, variables, messages, extra_files
 
 
 def rewrite_compose_for_docker_secrets(

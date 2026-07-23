@@ -209,6 +209,7 @@ def _editor_from_form(form) -> dict:
         "version": str(form.get("version") or "1.0.0").strip() or "1.0.0",
         "compose_content": str(form.get("compose_content") or ""),
         "env_content": str(form.get("env_content") or ""),
+        "extra_files_json": str(form.get("extra_files_json") or "[]"),
         "variables_json": str(form.get("variables_json") or "[]"),
         "checklist_json": str(form.get("checklist_json") or "[]"),
         "use_docker_secrets": use_ds,

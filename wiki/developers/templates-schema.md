@@ -37,6 +37,8 @@ files:
   - path: docker-compose.yml
   - path: .env
     from: .env.sample
+  # Optional sidecars (editor “Additional files” / from-host relative mounts)
+  - path: promtail-config.yaml
 
 checklist:
   - title: DNS (manual)
@@ -47,15 +49,34 @@ checklist:
 ### Substitution
 
 - Placeholders: `{{VAR_NAME}}` only (case-sensitive).  
+- Applied to **all** stored file bodies (compose, `.env`, additional files).  
 - No arbitrary Jinja/code in untrusted imports.  
 - Secrets → encrypted in PiHerder; written to host `.env` mode `600`.
+
+### Additional files (v0.9)
+
+| Topic | Behaviour |
+|-------|-----------|
+| Storage | Paths in definition `files` + `file_contents` (same as compose) |
+| From host | Relative bind mounts that look like files (`.yml`, `.yaml`, `.json`, …) are imported; directory binds stay volume vars |
+| Host literals | Short host name → `NODE_NAME`; FQDN → `HOST_FQDN`; other remote URLs → dedicated vars (e.g. `LOKI_URL`) |
+| Deploy | All rendered files written next to the project on the host |
+
+### Catalog source badges (v0.9)
+
+| Badge | `source` | Notes |
+|-------|----------|--------|
+| **OOTB** | `builtin` / `starter` | Disk seed; refresh while still builtin |
+| **Yours** | `user` | After Save / from-host — never disk-overwritten |
+| **Imported** / **Git** | `import` / `git` | Operator-owned variants |
 
 ### Code
 
 | Area | Path |
 |------|------|
 | Schema / catalog | `app/services/service_templates/` |
+| From host / harden | `from_host.py`, `harden.py` (`discover_relative_config_files`, `parameterize_host_literals`) |
 | Router | `app/routers/templates_svc.py` |
 | Disk starters | `service_templates/` |
 | Migration | `migrations/versions/…016_service_templates.py` |
-| Tests | `tests/test_service_templates.py` |
+| Tests | `tests/test_service_templates.py`, `tests/test_template_source_badge.py`, `tests/test_from_host_extra_files.py` |

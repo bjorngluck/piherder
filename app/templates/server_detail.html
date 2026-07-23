@@ -54,9 +54,10 @@
       <div class="ops-pulse-stat"><span class="ops-pulse-n {% if _reb %}text-danger{% endif %}">{{ 'yes' if _reb else 'no' }}</span><span class="ops-pulse-l">reboot</span></div>
     </div>
     <div class="flex flex-wrap gap-1 justify-center mt-0.5">
+      {% if is_haos %}<span class="host-hero-chip is-ok" title="Home Assistant OS — updates via ha CLI">HAOS</span>{% endif %}
       {% if server.backup_enabled %}<span class="host-hero-chip is-ok">backup</span>{% endif %}
-      {% if server.container_patch_enabled %}<span class="host-hero-chip is-ok">docker</span>{% endif %}
-      {% if server.os_patch_enabled %}<span class="host-hero-chip is-ok">os patch</span>{% endif %}
+      {% if server.container_patch_enabled and not is_haos %}<span class="host-hero-chip is-ok">docker</span>{% endif %}
+      {% if server.os_patch_enabled %}<span class="host-hero-chip is-ok">{% if is_haos %}HA updates{% else %}os patch{% endif %}</span>{% endif %}
       {% if host_deps and host_deps.overall == 'ok' %}<span class="host-hero-chip is-ok">deps</span>
       {% elif host_deps %}<span class="host-hero-chip is-warn">deps</span>{% endif %}
     </div>
@@ -148,19 +149,33 @@ document.addEventListener('DOMContentLoaded', function() {
   {% endif %}
   {% endif %}
   {% if server.os_patch_enabled %}
-  <span class="feature-chip feature-on">OS patch on</span>
+  <span class="feature-chip feature-on">{% if is_haos %}HA updates on{% else %}OS patch on{% endif %}</span>
   {% if server.os_updates_count is not none and server.os_updates_count > 0 %}
-  <span class="feature-chip status-pill status-failed" title="Installable with a normal apt upgrade">{{ server.os_updates_count }} OS ready</span>
+  <span class="feature-chip status-pill status-failed" title="{% if is_haos %}HA components with update available (core / OS / supervisor){% else %}Installable with a normal apt upgrade{% endif %}">{{ server.os_updates_count }} {% if is_haos %}HA{% else %}OS{% endif %} ready</span>
   {% endif %}
-  {% if os_phased_count %}
+  {% if os_phased_count and not is_haos %}
   <span class="feature-chip text-muted" title="Listed by apt but deferred (Ubuntu phased rollout) — not installable yet">{{ os_phased_count }} phased</span>
   {% endif %}
   {% endif %}
-  {% if server.container_patch_enabled %}
+  {% if is_haos and ha_facts and ha_facts.components %}
+  {% set _hc = ha_facts.components %}
+  {% if _hc.core and _hc.core.version %}
+  <span class="feature-chip font-mono text-xs" title="Home Assistant Core">core {{ _hc.core.version }}{% if _hc.core.update_available %} → {{ _hc.core.version_latest }}{% endif %}</span>
+  {% endif %}
+  {% if _hc.os and _hc.os.version %}
+  <span class="feature-chip font-mono text-xs" title="Home Assistant OS">os {{ _hc.os.version }}{% if _hc.os.update_available %} → {{ _hc.os.version_latest }}{% endif %}</span>
+  {% endif %}
+  {% if _hc.supervisor and _hc.supervisor.version %}
+  <span class="feature-chip font-mono text-xs" title="Supervisor">sup {{ _hc.supervisor.version }}{% if _hc.supervisor.update_available %} → {{ _hc.supervisor.version_latest }}{% endif %}</span>
+  {% endif %}
+  {% endif %}
+  {% if server.container_patch_enabled and not is_haos %}
   <span class="feature-chip feature-on">Docker on</span>
   {% if server.container_updates_count is not none and server.container_updates_count > 0 %}
   <span class="feature-chip status-pill status-failed">{{ server.container_updates_count }} image update(s)</span>
   {% endif %}
+  {% elif is_haos and server.container_patch_enabled %}
+  <span class="feature-chip feature-off" title="Compose fleet management is not used on HAOS">Docker N/A on HAOS</span>
   {% endif %}
   {% if server.reboot_pending or (diagnostics and diagnostics.reboot_pending) %}
   <span class="feature-chip status-pill status-failed">reboot pending</span>
@@ -621,10 +636,10 @@ document.addEventListener('DOMContentLoaded', function() {
     {% endif %}
     {% endif %}
     {% if server.os_patch_enabled %}
-    items.push({ label: 'Check OS updates', key: 'check-os' });
-    items.push({ label: 'OS patch…', key: 'os-patch' });
+    items.push({ label: '{% if is_haos %}Check HA updates{% else %}Check OS updates{% endif %}', key: 'check-os' });
+    items.push({ label: '{% if is_haos %}HA update…{% else %}OS patch…{% endif %}', key: 'os-patch' });
     {% endif %}
-    {% if server.container_patch_enabled %}
+    {% if server.container_patch_enabled and not is_haos %}
     items.push({ label: 'Check container updates', key: 'check-containers' });
     items.push({ label: 'Container patch now', key: 'container-patch' });
     {% endif %}

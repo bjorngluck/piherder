@@ -21,10 +21,11 @@ A one-shot SSH paste is not recoverable after host loss and not comparable for d
 2. Fill variables (generate passwords if offered; choose volume mode).  
 3. Pick a **Docker-enabled** host with a correct Docker base dir.  
 4. **Preview** rendered files (secrets masked) — sanity-check ports and names.  
-5. **Confirm** — runs as a **Job** with live log (write + lock `.env` + compose pull/up).  
-6. On success, open the **deployment** page (or Jobs / Audit).  
-7. Read the **checklist** (DNS, first admin password in the app, firewall).  
-8. Open **Docker** on that host to confirm the project is up.
+5. Fill any **host-specific** variables (`NODE_NAME`, remote URLs) if the template came from host or has additional config files.  
+6. **Confirm** — runs as a **Job** with live log (write compose + **additional files** + lock `.env` + compose pull/up).  
+7. On success, open the **deployment** page (or Jobs / Audit).  
+8. Read the **checklist** (DNS, first admin password in the app, firewall).  
+9. Open **Docker** on that host to confirm the project is up.
 
 ---
 
@@ -35,9 +36,9 @@ A one-shot SSH paste is not recoverable after host loss and not comparable for d
 3. Pick a **Docker-enabled** host (inventory counts shown).  
 4. **Preview** rendered files (secrets masked).  
 5. **Confirm deploy** — queues a **Template deploy** job (live log in the hold modal):  
-   - writes files over SSH  
+   - writes rendered files over SSH (`docker-compose.yml`, `.env`, and any **additional files**)  
    - locks host `.env` (`chmod 600`)  
-   - runs `compose pull` + `up -d`  
+   - runs `compose pull` + `up -d`
 6. Desired state **Vn** stored encrypted in PiHerder; success navigates to the deployment page.  
 7. Post-deploy **checklist** (manual DNS, first login, …).
 

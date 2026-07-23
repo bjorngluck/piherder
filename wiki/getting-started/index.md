@@ -30,7 +30,8 @@ You do **not** need Catalog integrations, templates, or Web Push on day one. Tho
 | 5 | [Appearance](appearance.md) | Light/dark (optional comfort) |
 | 6 | [Operator scenarios](operator-scenarios.md) | Map goals → docs for everything after install |
 
-Then: [Add a server](../day-to-day/add-server.md) → [Dashboard](../day-to-day/dashboard-and-services.md).
+Then: [Add a server](../day-to-day/add-server.md) (guided wizard) → [Dashboard](../day-to-day/dashboard-and-services.md).  
+HAOS appliance: [HAOS hosts](../day-to-day/haos-hosts.md). Templates / from-host: [Service templates](../service-templates/overview.md).
 
 ## Supported install path
 
@@ -51,14 +52,17 @@ Then: [Add a server](../day-to-day/add-server.md) → [Dashboard](../day-to-day/
 
 ## First successful week (end-to-end sketch)
 
-A realistic RC1 onboarding path:
+A realistic RC onboarding path:
 
 1. **Install + first admin** — this section.  
-2. **Add one non-critical Pi** — [Add a server](../day-to-day/add-server.md) (key deploy, enable only the features you need).  
+2. **Add one non-critical Pi** — [Add a server](../day-to-day/add-server.md) wizard (Identity → Trust → Connect: install key → test → clear password → Features).  
 3. **Run one manual backup** — [Backups](../day-to-day/backups.md) (confirm Celery + rsync path before schedules).  
-4. **Run one OS update check** — [Updates](../day-to-day/updates-and-patching.md) (check before any apply schedule).  
+4. **Run one OS update check** — [Updates](../day-to-day/updates-and-patching.md) (check before any apply schedule; HAOS uses `ha` CLI).  
 5. **Open Jobs + Audit** — [Jobs, audit & notifications](../day-to-day/jobs-audit-notifications.md) so you trust the trail.  
-6. **Optional:** Kuma / templates / network — only after the host path feels solid.
+6. **Optional:** Kuma / [templates](../service-templates/overview.md) / network / HAOS — only after the host path feels solid.
+
+!!! note "v0.9 validation"
+    Operator **testing** and **screenshot recapture** for 0.9 chrome (wizard, HAOS, templates catalog) are in progress — prose may be ahead of PNGs.
 
 Detailed “I want to…” tables and longer journeys: [Operator scenarios](operator-scenarios.md).
 

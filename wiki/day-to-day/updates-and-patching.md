@@ -6,10 +6,13 @@ PiHerder’s update system has two layers:
 
 | Layer | Meaning |
 |-------|---------|
-| **Check** | Safe detection — count packages or compare images; **no** upgrade |
-| **Apply** | Real change — apt upgrade / compose pull + up |
+| **Check** | Safe detection — count packages / HA components / compare images; **no** upgrade |
+| **Apply** | Real change — apt upgrade, **`ha … update` on HAOS**, or compose pull + up |
 
 You can run either **manually** or on a **schedule**. Silent auto-upgrade is **never** the default.
+
+!!! tip "HAOS hosts"
+    On **Home Assistant OS**, “OS patch” is labelled **HA updates** and uses the **`ha` CLI** (Core / OS / Supervisor), not apt. See [HAOS hosts](haos-hosts.md).
 
 ## Why it exists
 
@@ -19,8 +22,8 @@ Keeping a fleet patched without a shared process leads to “I forgot that Pi fo
 
 | Feature | Edit → Features | Why gated |
 |---------|-----------------|-----------|
-| OS packages | OS patch | Non-apt hosts should not offer apt actions |
-| Container images | Docker / containers | No Docker → no image checks |
+| OS packages / HA updates | OS patch | Debian: apt. **HAOS:** `ha` CLI (same flag; UI says HA updates) |
+| Container images | Docker / containers | No Docker → no image checks; **leave off on HAOS** |
 
 ---
 
@@ -45,6 +48,7 @@ Configured under **Edit → Schedules**.
 | Schedule | Does | Does **not** |
 |----------|------|----------------|
 | **OS packages (apt)** | Count ready packages, phased count, reboot-pending | Run upgrade |
+| **HA updates** (`os_type=haos`) | Count Core / OS / Supervisor with `update_available` | Run `ha … update` |
 | **Container images** | Pull/compare image IDs per compose project | `compose up -d` |
 
 Results feed the dashboard, badges, and notifications.
@@ -66,10 +70,9 @@ Scheduled work is audited as **system / scheduler**.
 
 ### Manual apply
 
-- Server list / detail: update / **upgrade XOR full-upgrade** / autoremove.  
-- Live progress modal streams apt output.  
-- Ubuntu **phased** packages counted separately (listed vs installable).  
-- Container patch: `compose pull` + conditional `up -d` with live logs.
+- **Debian/Ubuntu:** update / **upgrade XOR full-upgrade** / autoremove; live apt log; Ubuntu **phased** packages counted separately.  
+- **HAOS:** refresh versions + apply available components (**supervisor → core → OS**); live CLI log; no apt / no full-upgrade.  
+- Container patch: `compose pull` + conditional `up -d` with live logs (not for HAOS fleet).
 
 ### One active job per host (no double-run)
 

@@ -25,6 +25,49 @@ from .schema import (
 
 logger = logging.getLogger(__name__)
 
+# Sources that ship with PiHerder (disk seed / release refresh).
+_OOTB_SOURCES = frozenset({"builtin", "starter"})
+
+
+def source_badge(source: Optional[str]) -> Dict[str, str]:
+    """Map catalog ``source`` to a short UI badge (E11 partial).
+
+    Returns keys: kind (``ootb`` | ``user``), label, title, cls (status-pill class).
+    """
+    s = (source or "user").strip().lower()
+    if s in _OOTB_SOURCES:
+        return {
+            "kind": "ootb",
+            "label": "OOTB",
+            "title": "Included with PiHerder — refreshed from disk while still marked builtin",
+            "cls": "status-running",
+        }
+    if s == "git":
+        return {
+            "kind": "user",
+            "label": "Git",
+            "title": "Synced from a git catalog (operator-owned)",
+            "cls": "status-running",
+        }
+    if s == "import":
+        return {
+            "kind": "user",
+            "label": "Imported",
+            "title": "Imported zip — editable; not overwritten by disk starters",
+            "cls": "feature-off",
+        }
+    # user, custom, unknown → operator-owned
+    return {
+        "kind": "user",
+        "label": "Yours",
+        "title": "Operator-owned — never overwritten by built-in pack refresh",
+        "cls": "feature-off",
+    }
+
+
+def is_ootb_source(source: Optional[str]) -> bool:
+    return (source or "").strip().lower() in _OOTB_SOURCES
+
 
 def builtin_templates_root() -> Path:
     """Repo-shipped templates (next to app package)."""
@@ -146,6 +189,7 @@ def list_catalog(session: Session, *, include_disabled: bool = False) -> List[Di
                 secret_count = len(d.secret_var_names())
         except Exception:
             pass
+        badge = source_badge(r.source)
         items.append(
             {
                 "id": r.id,
@@ -155,12 +199,24 @@ def list_catalog(session: Session, *, include_disabled: bool = False) -> List[Di
                 "category": r.category or "other",
                 "version": r.version or "",
                 "source": r.source,
+                "source_kind": badge["kind"],
+                "source_label": badge["label"],
+                "source_title": badge["title"],
+                "source_cls": badge["cls"],
                 "enabled": r.enabled,
                 "checksum": r.checksum or "",
                 "var_count": var_count,
                 "secret_count": secret_count,
             }
         )
+    # OOTB first, then operator-owned; keep category/name as secondary keys
+    items.sort(
+        key=lambda t: (
+            0 if t.get("source_kind") == "ootb" else 1,
+            (t.get("category") or "").lower(),
+            (t.get("name") or "").lower(),
+        )
+    )
     return items
 
 

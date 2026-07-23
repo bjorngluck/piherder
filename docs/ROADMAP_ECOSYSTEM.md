@@ -227,7 +227,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 
 | Track | Direction |
 |-------|-----------|
-| **Unit / service coverage** | **v0.8 freeze ~49–50%**; **v0.9.0 freeze target ≥55%** line (`app`). CI fail-under stepped (35 → 45–50) — not equal to freeze target overnight. Critical paths first; **no** 100% target; prefer service tests over router %. See [PLAN_v0.9.0.md](PLAN_v0.9.0.md) stream Q. |
+| **Unit / service coverage** | **v0.8 freeze ~49–50%**; **v0.9.0 freeze ≥55%** line (`app`) — **~57.4% reached**. CI fail-under **55** (stepped 35 → 45 → 50 → 55). Critical paths first; **no** 100% target; prefer service tests over router %. Deeper packs for **v1.0**. See [PLAN_v0.9.0.md](PLAN_v0.9.0.md) stream Q. |
 | **HTTP smoke (pytest TestClient)** | **Done (0.8)** — auth redirects + main shells + seeded surfaces; extend when routes land. |
 | **UI walkthrough — Playwright** | **Must since v0.7.0** — shell + wizard + B6 + nmap shells. **v0.9 rule:** any UX/code touched in the release gets **basic** E2E coverage (no live SSH/nmap/HA in CI). |
 | **Dependency hygiene** | **Done for RC path:** `uv.lock` + hashed `requirements*.lock.txt`; Dockerfile/CI install with `--require-hashes`. Ongoing: periodic `pip-audit` / Dependabot; intentional bumps via `scripts/refresh-lockfiles.sh`. |
@@ -236,7 +236,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Custom password policy** | Admin-configurable policy (min length, required classes, optional specials) instead of fixed code defaults. First-time setup still creates the initial admin when none exist. Soft max remains ~72 characters (storage limit). |
 | **Human-readable schedules (E6)** | **Discovery needed (post-1.0 platform)** — shared interval/cron formatter + “Advanced (cron)” across server OS/backup, nmap, herder backup, data cleanup. Not committed for v0.9. |
 | **Selectable hero stats (E9)** | **Discovery needed (post-1.0)** — user-selectable pulse metrics on ops heroes; preference model + metric registry. Non-committed roadmap only. |
-| **Templates catalog redesign (E11)** | **Discovery needed (H3 / post-1.0)** — clear OOTB vs user, table/filter layout, extra config files (e.g. CA Advisor). Light OOTB badges may ship in 0.9 stretch; full redesign separate. See [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md). |
+| **Templates catalog redesign (E11)** | **Discovery needed (H3 / post-1.0)** — table/filter layout, extra config files (e.g. CA Advisor). **0.9 stretch done:** OOTB / Yours badges + section groups. Full redesign separate. See [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md). |
 
 ### Playwright phases
 
@@ -395,7 +395,7 @@ Reuse existing SSH access actions; the wizard is **orchestration + progress**, n
 
 | Area | Direction |
 |------|-----------|
-| Home Assistant | **Discovery in 0.9** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md): path 1 mark/SSH fingerprint; path 1 REST lean **v1.0**; path 2 custom component / add-on **≥1.0**; MQTT later. HA already consumes PiHerder via API tokens ([API.md](API.md)). |
+| Home Assistant | **0.9 path 1 done (HAOS/S2 over SSH)** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md): auto-mark, System Info, OS check/apply via `ha` CLI; deps SSH add-on + rsync. **Later:** container HA, REST/LLAT, path 2 component, add-ons. API tokens already work ([API.md](API.md)). |
 | Plugin hooks | Prefer REST + n8n over arbitrary code on the herder host |
 | Ansible / cloud-init | Inventory export + first-boot snippets for new Pis — **overlaps H2.75 bootstrap D/E**; keep imaging depth here |
 | **Advanced secrets** | Explore beyond locked `.env`: Swarm/file permissions hardening, sealed host store for offline recreate, optional vault — never require PiHerder for normal container restart |

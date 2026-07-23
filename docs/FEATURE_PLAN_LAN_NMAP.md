@@ -1,6 +1,6 @@
 # Feature plan — LAN discovery (nmap)
 
-**Status:** **Approved** (2026-07-19) — **N0–N10 product complete** on main: worker, devices, network tab, schedules, presets, soft embed, **kind heuristics + override**, **map identity** (name / gateway role), **known/new lifecycle**, **MAC identity / DHCP**, **Hosts map dual layout** (radar toggle, compact 1:1 fit, one-line chrome), Network **centered edit modal**; pre-tag chrome: Runs **no ID column**; residual filter/Overview/Schedules UX → [PLAN_v0.9.0.md](PLAN_v0.9.0.md); **screenshots still open** (stream A)
+**Status:** **Approved** (2026-07-19) — **N0–N10 product complete** on main: worker, devices, schedules, presets, soft embed, **kind heuristics + override**, **map identity** (name / gateway role), **known/new lifecycle**, **MAC identity / DHCP**, **Hosts map dual layout** (radar toggle, compact 1:1 fit, one-line chrome), **centered edit modal**. **v0.9 chrome:** Devices **List | Map** (merged former Network tab); server LAN chip `return=server:{id}`; Overview shortcuts trimmed; Schedules/Runs mobile cards — [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · operator wiki [lan-discovery.md](../wiki/integrations/lan-discovery.md). Screenshots may lag chrome.
 **Ship target:** **v0.8.0** — [PLAN_v0.8.0.md](PLAN_v0.8.0.md) stream **N**  
 **Operator wiki:** [wiki/integrations/lan-discovery.md](../wiki/integrations/lan-discovery.md) · [dns-fabric.md](../wiki/integrations/dns-fabric.md)  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) · [ADMIN.md](ADMIN.md) · [SPEC.md](../SPEC.md)
@@ -195,8 +195,8 @@ celery-worker-nmap:
 |---------|---------|
 | Integrations → **LAN Discovery** | Enable, worker status, vuln pack status, CIDRs |
 | Schedules | Multiple named schedules (intensity + cron/interval) |
-| Devices | Auto-created hosts; filter new/known/linked/ignored/stale |
-| **Network view** | Subnet cards; **Show discovered**; click → **centered edit modal** |
+| Devices | Auto-created hosts; **List | Map** views; filter new/known/linked/ignored/offline |
+| **Map view** (under Devices) | Subnet cards; **Show unlinked**; click → **centered edit modal** (legacy `?tab=network`) |
 | Edit modal | Map name, kind override, gateway role, Mark known/new, ignore, link, promote, ports |
 | **Hosts map** (`/dns/physical`) | Fleet + unlinked discoveries; radar toggle; dual compact/full; **1:1** fit |
 | Device detail | Ports, services, vulns, link/promote/dismiss, deep scan (also via modal) |
@@ -264,7 +264,7 @@ Guardrails: max concurrent LAN-wide = 1; skip if previous running; audit schedul
 | Scanopy | Reference; do not vendor |
 | Netdisco | Different domain (SNMP) |
 
-**0.8 MVP (shipped):** subnet-grouped Network cards + end-to-end Hosts map overlay (outer chips, dual compact/full layout). Node types: discovered, linked server, ignored, gateway spine. Click Network card → edit modal; Hosts chip → device detail.
+**0.8 MVP (shipped) + 0.9 chrome:** subnet-grouped **Devices → Map** cards + end-to-end Hosts map overlay (outer chips, dual compact/full layout). Node types: discovered, linked server, ignored, gateway spine. Click Map card or List row → edit modal; Hosts chip → device detail (`return=hosts`); server LAN chip → same modal (`return=server:{id}`).
 
 ---
 

@@ -5,6 +5,8 @@
 
 This API is for **automation** (n8n, Home Assistant, scripts). Browser UI uses session cookies and is separate.
 
+Home Assistant can consume these endpoints with a bearer token today. Managing an **HAOS host from PiHerder** (SSH / `ha` CLI) is separate path-1 product work — see [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) and wiki [HAOS hosts](../wiki/day-to-day/haos-hosts.md).
+
 ---
 
 ## Ownership model

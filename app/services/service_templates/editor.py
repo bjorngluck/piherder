@@ -91,6 +91,49 @@ def parse_checklist_json(raw: str) -> List[ChecklistItem]:
     return items
 
 
+def parse_extra_files_json(raw: str) -> List[Dict[str, str]]:
+    """Parse additional template files from editor JSON.
+
+    Expected: ``[{"path": "promtail-config.yaml", "content": "..."}, ...]``
+    """
+    text = (raw or "").strip()
+    if not text:
+        return []
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as e:
+        raise TemplateError(f"Extra files JSON invalid: {e}") from e
+    if not isinstance(data, list):
+        raise TemplateError("Extra files must be a JSON array")
+    out: List[Dict[str, str]] = []
+    seen: set = set()
+    for i, raw_f in enumerate(data):
+        if not isinstance(raw_f, dict):
+            raise TemplateError(f"Extra file #{i + 1} must be an object")
+        path = str(raw_f.get("path") or "").strip().lstrip("./")
+        if not path:
+            continue
+        # Single-level or one subdir only (matches SFTP write limits)
+        parts = [p for p in path.split("/") if p]
+        if not parts or len(parts) > 2 or any(p in (".", "..") for p in parts):
+            raise TemplateError(
+                f"Extra file path {path!r} must be a simple name or one-subdir path "
+                "(no '..')"
+            )
+        if path in ("docker-compose.yml", "compose.yml", "compose.yaml", ".env", ".env.sample"):
+            raise TemplateError(
+                f"Extra file path {path!r} is reserved — use the compose/.env fields"
+            )
+        if path in seen:
+            raise TemplateError(f"Duplicate extra file path: {path}")
+        seen.add(path)
+        content = raw_f.get("content")
+        if content is None:
+            content = raw_f.get("body") or ""
+        out.append({"path": path, "content": str(content)})
+    return out
+
+
 def build_definition_from_editor(
     *,
     slug: str,
@@ -100,6 +143,7 @@ def build_definition_from_editor(
     version: str = "1.0.0",
     compose_content: str,
     env_content: str = "",
+    extra_files_json: str = "[]",
     variables_json: str = "[]",
     checklist_json: str = "[]",
     source: str = "user",
@@ -118,6 +162,7 @@ def build_definition_from_editor(
 
     variables = parse_variables_json(variables_json)
     checklist = parse_checklist_json(checklist_json)
+    extra_files = parse_extra_files_json(extra_files_json)
 
     files: List[TemplateFileSpec] = [TemplateFileSpec(path="docker-compose.yml")]
     file_contents: Dict[str, str] = {"docker-compose.yml": compose + ("\n" if not compose.endswith("\n") else "")}
@@ -126,6 +171,14 @@ def build_definition_from_editor(
     if env:
         files.append(TemplateFileSpec(path=".env", from_path=".env.sample"))
         file_contents[".env"] = env + ("\n" if not env.endswith("\n") else "")
+
+    for ef in extra_files:
+        path = ef["path"]
+        body = ef["content"]
+        if not body.endswith("\n") and body:
+            body = body + "\n"
+        files.append(TemplateFileSpec(path=path))
+        file_contents[path] = body
 
     options: Dict[str, Any] = {
         "use_docker_secrets": bool(use_docker_secrets),
@@ -251,6 +304,20 @@ def definition_to_editor_form(
     variables = redact_secret_variable_dicts(
         [v.to_dict() for v in definition.variables], reveal=reveal_secrets
     )
+    reserved = {
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "compose.yml",
+        "compose.yaml",
+        ".env",
+        ".env.sample",
+        ".env.example",
+    }
+    extra = []
+    for path in sorted(definition.file_contents.keys()):
+        if path in reserved or path.startswith("__"):
+            continue
+        extra.append({"path": path, "content": definition.file_contents.get(path) or ""})
     form = {
         "slug": definition.slug,
         "name": definition.name,
@@ -259,6 +326,7 @@ def definition_to_editor_form(
         "version": definition.version or "1.0.0",
         "compose_content": compose,
         "env_content": redact_env_plaintext_secrets(env, reveal=reveal_secrets),
+        "extra_files_json": json.dumps(extra, indent=2, ensure_ascii=False),
         "variables_json": json.dumps(variables, indent=2, ensure_ascii=False),
         "checklist_json": json.dumps(
             [{"title": c.title, "body": c.body} for c in definition.checklist],
@@ -287,6 +355,7 @@ def blank_editor_form() -> Dict[str, Any]:
             "    restart: unless-stopped\n"
         ),
         "env_content": "",
+        "extra_files_json": "[]",
         "variables_json": json.dumps(
             [
                 {
@@ -410,18 +479,35 @@ def apply_docker_secrets_to_form(form: Dict[str, Any]) -> Tuple[Dict[str, Any], 
 def apply_scan_vars_to_form(
     form: Dict[str, Any], *, reveal_secrets: bool = False
 ) -> Tuple[Dict[str, Any], List[str]]:
-    """Scan compose/.env and parameterize hard-coded volumes + host ports."""
+    """Scan compose/.env/extra files and parameterize hard-coded volumes + host ports."""
     from .harden import build_variables_for_host_project, looks_like_secret_name as _looks
 
     form = dict(form)
     project_default = form.get("slug") or form.get("name") or "my-app"
-    new_compose, suggested, param_msgs = build_variables_for_host_project(
+    extra_map: Dict[str, str] = {}
+    try:
+        raw_extra = json.loads(form.get("extra_files_json") or "[]")
+        if isinstance(raw_extra, list):
+            for ef in raw_extra:
+                if isinstance(ef, dict) and ef.get("path"):
+                    extra_map[str(ef["path"])] = str(ef.get("content") or "")
+    except Exception:
+        extra_map = {}
+    new_compose, suggested, param_msgs, new_extra = build_variables_for_host_project(
         form.get("compose_content") or "",
         form.get("env_content") or "",
         project_name_default=str(project_default),
         parameterize=True,
+        extra_file_texts=extra_map,
     )
     form["compose_content"] = new_compose
+    if new_extra or extra_map:
+        form["extra_files_json"] = json.dumps(
+            [{"path": p, "content": new_extra.get(p, extra_map.get(p, ""))}
+             for p in sorted(set(extra_map) | set(new_extra))],
+            indent=2,
+            ensure_ascii=False,
+        )
     try:
         existing = json.loads(form.get("variables_json") or "[]")
         if not isinstance(existing, list):

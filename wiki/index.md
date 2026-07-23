@@ -16,9 +16,9 @@
     | **Tagged now** | **[v0.8.0](https://github.com/bjorngluck/piherder/releases/tag/v0.8.0)** — image `bjorngluck/piherder:0.8.0` / `0.8` / `latest` |
     | **Shipped in v0.8.0 (RC3)** | **LAN Discovery (nmap)**, stale data cleanup, screenshot pack, ~50% unit coverage, brand refresh — [RELEASE_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md) · [LAN Discovery](integrations/lan-discovery.md) |
     | **Also in this line** | Add-host wizard (v0.7), Playwright E2E, topology + compose sets, certs/Docker polish |
-    | **Next (v0.9.0)** | Operator UX polish (discovery chrome, Network hub, coverage mobile) — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) |
-    | **Documentation** | Operator-focused living wiki — not the final 1.0 freeze manual |
-    | **Screenshots** | Light desktop pack for major surfaces (including nmap + wizard) — [Contributing docs](developers/contributing-docs.md) |
+    | **In progress (v0.9.0)** | **Last pre-production** — UX + quality bar (~57% unit, CI fail-under 55, E2E) · **HAOS path 1** · **wizard micro-copy** · **template OOTB/Yours badges** · **from-host extra config files** — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) · [HAOS hosts](day-to-day/haos-hosts.md) · [Add a server](day-to-day/add-server.md) · [Templates](service-templates/overview.md) |
+    | **Operator validation** | **Screenshots recapture** and **hands-on testing** are in progress on the fleet (not a tag yet) — see [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) |
+    | **Documentation** | Operator-focused living wiki — prose tracks main; PNGs lag until recapture lands |
     | **Production bar** | **v1.0.0** is the intended first refined production release |
 
     If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
@@ -27,7 +27,7 @@
 |---|---|
 | **Current tag** | **[v0.8.0](https://github.com/bjorngluck/piherder/releases/tag/v0.8.0)** — image [`bjorngluck/piherder:latest`](https://hub.docker.com/r/bjorngluck/piherder) |
 | **Release notes** | [RELEASE_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md) · prior [v0.7.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md) · [v0.6.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.6.0.md) |
-| **Ship plan** | **[PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md)** (next) · prior [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) (RC3 tagged) |
+| **Ship plan** | **[PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md)** (active · last pre-production) · prior [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) (RC3 tagged) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |
@@ -122,10 +122,10 @@ flowchart LR
 
 | Capability | What it does for you | Why it matters |
 |------------|----------------------|----------------|
-| **Fleet ops** | rsync backups, apt OS patch, Docker projects, bulk actions | One UI instead of N SSH sessions |
+| **Fleet ops** | rsync backups, apt OS patch (or **`ha` CLI** on HAOS), Docker projects, bulk actions | One UI instead of N SSH sessions |
 | **Safety** | Encrypted keys/certs, audit (+ client IP), RBAC, optional 2FA + push | You can prove *who did what* and limit blast radius |
-| **Templates** | Versioned stacks, desired state, drift, step-up secrets | Repeatable deploy without copying compose by hand |
-| **Catalog (optional)** | Kuma, Grafana, Pi-hole, NPM, certificates, network maps | Homelab topology and status in one place |
+| **Templates** | Versioned stacks, OOTB vs **Yours** badges, from-host (+ sidecar configs), desired state, drift, step-up secrets | Repeatable deploy without copying compose by hand |
+| **Catalog (optional)** | Kuma, Grafana, Pi-hole, NPM, certificates, network maps, LAN discovery | Homelab topology and status in one place |
 
 ---
 
@@ -146,7 +146,7 @@ Use this table when you already know the area; use [Operator scenarios](getting-
 | [Developers](developers/index.md) | Code, tests, docs/screenshot workflow |
 
 !!! tip "Reviewing docs with screenshots"
-    Captures use the live UI. If a figure is stale after a UI change, replace the PNG under `wiki/assets/screenshots/` and amend the page. Capture conventions: [Contributing docs](developers/contributing-docs.md#screenshots-best-practice).
+    Captures use the live UI. **v0.9 recapture + operator testing are underway** (HAOS, wizard, templates catalog, discovery chrome). Until new PNGs land, some figures still show **v0.8** chrome while the prose describes **current** behaviour. Replace files under `wiki/assets/screenshots/` when ready — [checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) · [Contributing docs](developers/contributing-docs.md).
 
 Maintainer roadmaps stay in the **repo** under [`docs/`](https://github.com/bjorngluck/piherder/tree/main/docs) — not in this user-facing tree.
 
@@ -164,7 +164,7 @@ Maintainer roadmaps stay in the **repo** under [`docs/`](https://github.com/bjor
   <figcaption>Optional dark showcase of the same home surface.</figcaption>
 </figure>
 
-Default: **light + desktop**. Optional dark/mobile showcases only. Capture inventory: [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).
+Default: **light + desktop**. Optional dark/mobile showcases only. Capture inventory + **v0.9 recapture list** (operator-side): [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).
 
 ---
 

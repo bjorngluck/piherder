@@ -6,11 +6,15 @@
   <div class="flex flex-wrap items-start justify-between gap-3 mt-2">
     <div>
       <h1 class="text-2xl font-semibold">{{ definition.name }}</h1>
-      <p class="text-sm text-muted mt-1">
+      <p class="text-sm text-muted mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1">
+        <span class="status-pill {{ source_cls or 'feature-off' }}"
+              title="{{ source_title or '' }}"
+              data-testid="template-source-badge">{{ source_label or 'Yours' }}</span>
         <span class="uppercase tracking-wide">{{ definition.category }}</span>
-        · <code class="text-xs">{{ slug }}</code>
-        · v{{ definition.version }}
-        · {{ source }}
+        <span aria-hidden="true">·</span>
+        <code class="text-xs">{{ slug }}</code>
+        <span aria-hidden="true">·</span>
+        <span>v{{ definition.version }}</span>
       </p>
     </div>
     {% if can_mutate %}

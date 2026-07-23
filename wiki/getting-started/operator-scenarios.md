@@ -4,8 +4,8 @@ Quick map from **what you want to do** → the right wiki page, plus **end-to-en
 
 Use this after [Install](install.md) and [First login](first-login.md).
 
-!!! note "RC1 documentation"
-    Journeys describe the **intended** operator path. If a step feels unfinished in the UI, note it while reviewing with screenshots — [Home RC1 notice](../index.md#rc1).
+!!! note "RC / v0.9 documentation"
+    Journeys describe the **intended** operator path on the living main line. **Screenshots and hands-on testing** for v0.9 are in progress on the fleet — prose may be ahead of PNGs. Track gaps with [Home RC notice](../index.md#rc1) and the [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).
 
 ---
 
@@ -22,8 +22,8 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | 1 | [Install](install.md) + secrets | Stack + encryption key for fleet secrets |
 | 2 | [First login](first-login.md) | First account becomes admin; registration locks |
 | 3 | Optional [HTTPS](https-tls.md) | Trust for browsers and later push |
-| 4 | [Add a server](../day-to-day/add-server.md) | **Wizard** — identity → trust → deploy key → test → clear password |
-| 5 | Wizard **Features** (or Edit → Features) | Enable only backups / OS / Docker you need |
+| 4 | [Add a server](../day-to-day/add-server.md) | **Wizard** — Identity → Trust → Connect (**install key → test → clear password**) |
+| 5 | Wizard **Features** (or Edit → Features) | Enable only backups / OS updates (or HA updates) / Docker you need |
 | 6 | Open [Dashboard](../day-to-day/dashboard-and-services.md) | Confirm the host appears; no mystery tiles yet |
 
 **Done when:** Server detail shows green-enough SSH/deps for enabled features; no password left stored if key auth works.
@@ -67,6 +67,25 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 
 ---
 
+### Journey C2 — HAOS appliance under PiHerder {#journey-c2}
+
+**Goal:** Home Assistant OS is a managed host: keyed SSH, HA update check, System info, optional backup.
+
+| Step | Action | Why |
+|------|--------|-----|
+| 1 | Enable **Terminal & SSH** on HAOS; install **rsync** if you want backups | Path prerequisites |
+| 2 | [Add a server](../day-to-day/add-server.md) as `root` (or add-on user) + deploy key | Fleet record |
+| 3 | Host profile **HAOS** (or auto-mark after check) | Backend uses `ha` CLI |
+| 4 | Enable **HA updates** (+ Backups if needed); leave Docker off | Capability envelope |
+| 5 | **System info** + **Check HA updates** | Versions + component counts |
+| 6 | Optional: manual **HA update…** in a maintenance window | Same confirm/audit bar as OS patch |
+
+Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
+
+**Done when:** HAOS chip + real Core/OS/Supervisor versions; check job green.
+
+---
+
 ### Journey D — Deploy a known stack from a template {#journey-d}
 
 **Goal:** Uptime Kuma (or NPM / Pi-hole / Grafana) runs from Catalog → Templates.
@@ -74,13 +93,29 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | Step | Action | Why |
 |------|--------|-----|
 | 1 | Host has **Docker** feature + working `docker` | Deploy target |
-| 2 | [Templates overview](../service-templates/overview.md) → OOTB pack | Versioned recipe, not a one-off paste |
+| 2 | [Templates overview](../service-templates/overview.md) → **OOTB** badge pack | Versioned recipe, not a one-off paste |
 | 3 | [Deploy wizard](../service-templates/deploy.md) | Variables, host, preview; deploy runs as Job + live log (0.6+) |
 | 4 | Post-deploy checklist | DNS, first login, bind integrations |
 | 5 | Optional: [Kuma integration](../integrations/uptime-kuma.md) | Status in fleet Services |
 | 6 | Later: Check drift / redeploy | Desired state stays authoritative |
 
 **Done when:** Deployment page exists; Docker shows the project; secrets only via step-up if required.
+
+---
+
+### Journey D2 — Capture an existing stack (from host) {#journey-d2}
+
+**Goal:** Turn a running compose project (e.g. `grafana-monitoring` with `promtail-config.yaml`) into a **Yours** template you can redeploy elsewhere.
+
+| Step | Action | Why |
+|------|--------|-----|
+| 1 | Host **Docker** inventory shows the project | Source of truth on the Pi |
+| 2 | [From host](../service-templates/from-host.md) — pick server + project | Pull over SSH |
+| 3 | Review editor: compose, **Additional files**, variables (`NODE_NAME`, ports, volumes, remote URLs) | Config sidecars + host labels parameterised |
+| 4 | **Save** → badge **Yours** | Never overwritten by OOTB pack refresh |
+| 5 | [Deploy](../service-templates/deploy.md) to another host with a different `NODE_NAME` | Same recipe, correct labels/endpoints |
+
+**Done when:** Template lists under **Your templates**; deploy writes compose + sidecar files; labels match the target host.
 
 ---
 
@@ -140,8 +175,9 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | 1 | Build + start **nmap** worker (`--profile nmap`); fence is compose-owned (`PIHERDER_NMAP_WORKER`) | Web never runs nmap |
 | 2 | [LAN Discovery](../integrations/lan-discovery.md) integration + CIDR(s) | Scope allowlist |
 | 3 | Manual **Discovery**, then **Inventory** (ports) | Trust before schedules; ports feed kind + chips |
-| 4 | **Network** → click host → edit modal: **map name**, **device type**, **gateway** if router, **Mark known** | Labels + kind + Router spine + inbox |
-| 5 | **Catalog → Network → Hosts map** — radar **Discovered**, **1:1** fit (tight when disc. off) | End-to-end view; **no** per-device link required |
+| 4 | **Devices** → **List** or **Map** → click host → edit modal: **map name**, **device type**, **gateway** if router, **Mark known** | Labels + kind + Router spine + inbox |
+| 5 | **Catalog → Network → Hosts map** — radar **Discovered**, **1:1** fit (tight when disc. off); click path again to clear focus | End-to-end view; **no** per-device link required |
+| 5b | Optional: open **server detail** LAN chip → edit device → Save/close returns to **that server** | Soft-embed without getting stuck on Integrations |
 | 6 | Link / promote only what you will manage | Discovery ≠ fleet member |
 | 7 | Optional schedules (create + **Edit**) | Cadence you control |
 | 8 | Optional **Runs** tab | History by intensity + **Job** link (no run ID column) |
@@ -160,7 +196,8 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | Trusted HTTPS for PWA/push | [HTTPS & TLS](https-tls.md) |
 | Light / dark theme | [Appearance](appearance.md) |
 | About PiHerder / GitHub / new version notice | Avatar menu → **About** (`/about`) |
-| Add a Pi, deploy SSH key, features | [Add a server](../day-to-day/add-server.md) |
+| Add a Pi, deploy SSH key, features (wizard) | [Add a server](../day-to-day/add-server.md) · Journey A |
+| HAOS appliance (SSH + HA updates) | [HAOS hosts](../day-to-day/haos-hosts.md) · Journey C2 |
 | Dashboard tiles & fleet services | [Dashboard & Services](../day-to-day/dashboard-and-services.md) |
 
 ## Backups & patching
@@ -202,10 +239,11 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 
 | Scenario | Doc |
 |----------|-----|
-| Deploy OOTB NPM / Kuma / Pi-hole / Grafana | [Deploy](../service-templates/deploy.md) |
+| Catalog badges OOTB vs Yours | [Templates overview](../service-templates/overview.md) |
+| Deploy OOTB NPM / Kuma / Pi-hole / Grafana | [Deploy](../service-templates/deploy.md) · Journey D |
 | Redeploy, volumes, wait modal | [Deploy — Redeploy](../service-templates/deploy.md#redeploy-ops-deployment-page) |
 | Check drift / import host `.env` / apply last known config | [Deploy — ops](../service-templates/deploy.md#redeploy-ops-deployment-page) |
-| Pull existing stack into a template | [From host](../service-templates/from-host.md) |
+| Pull existing stack + sidecar configs (promtail, etc.) | [From host](../service-templates/from-host.md) · Journey D2 |
 | View secrets (step-up 2FA) | [Secrets](../service-templates/secrets.md) |
 
 ## Catalog: integrations & network

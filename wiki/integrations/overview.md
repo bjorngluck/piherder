@@ -13,7 +13,7 @@ Each section shares:
 |-----|------|---------|---------------------|
 | **Integrations** | `/integrations` (default) | Connect Kuma, Grafana, Pi-hole, NPM, **LAN Discovery** | Vendor adapters + optional nmap |
 | **Certificates** | `/certificates` | TLS vault + service maps + SSH deploy | PEMs are sensitive and multi-consumer |
-| **Templates** | `/templates` | Service template catalog & deploy | Stack recipes, not product logins |
+| **Templates** | `/templates` | Service template catalog & deploy (**OOTB** / **Yours** badges) | Stack recipes, not product logins |
 | **Network** | `/dns` | Host DNS, service paths (**By path type** stats), Hosts/Path maps | Topology view of names and edges |
 
 ## Why Catalog exists
@@ -26,6 +26,9 @@ Core fleet ops (SSH, backups, patch, Docker) work **without** any Catalog entry.
 - Repeatable stack deploy (Templates)  
 
 PiHerder stays the **fleet truth**; external tools enrich via adapters and deep links rather than embedding every vendor feature.
+
+!!! tip "Home Assistant OS as a fleet host"
+    Managing **HAOS** (SSH, System info, Core/OS/Supervisor updates) is **day-to-day fleet** work, not a Catalog adapter — [HAOS hosts](../day-to-day/haos-hosts.md). HA can still **call PiHerder** with [API tokens](../operations/api-tokens.md).
 
 ---
 

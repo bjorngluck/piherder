@@ -109,29 +109,32 @@ Optional 2FA (when not forced): Account → enable TOTP, backup codes, optional 
 
 Configured per server under **Edit → Schedules** (General / Features / Schedules tabs). Cron uses **5 fields**: `minute hour day month day_of_week` (APScheduler). Check schedules use the app timezone from Settings; same for apply schedules.
 
-**Feature flags** (Edit → Features) hard-hide dest cards and ⋯ actions on the server screen when off (Backups, OS patch, Docker/containers).
+**Feature flags** (Edit → Features) hard-hide dest cards and ⋯ actions on the server screen when off (Backups, OS patch / HA updates, Docker/containers).
 
-**Docker inventory:** compose/container lists are stored as a DB snapshot (`docker_inventory_*` columns) and refreshed in the background (open server/Docker, after mutations, and a fleet job every ~10 minutes for hosts with Docker enabled). The Docker page renders the last snapshot immediately; use **Force refresh** for a full re-collect.
+**Docker inventory:** compose/container lists are stored as a DB snapshot (`docker_inventory_*` columns) and refreshed in the background (open server/Docker, after mutations, and a fleet job every ~10 minutes for hosts with Docker enabled). The Docker page renders the last snapshot immediately; use **Force refresh** for a full re-collect. **HAOS** hosts do not use compose fleet management (leave Docker feature off).
 
 ### Update checks (safe — detect only)
 
 | Schedule | Does | Does not |
 |----------|------|----------|
 | **OS packages (apt)** | Count ready packages, phased count, reboot-pending | Run upgrade |
+| **HAOS** (`os_type=haos`) | Count Core / OS / Supervisor with update available via `ha` CLI | Run `ha … update` |
 | **Container images** | Pull/compare image IDs per compose project | `compose up -d` |
 
-Enable checkbox + cron (default suggestion often midnight). Results feed the dashboard, badges, and notifications.
+Enable checkbox + cron (default suggestion often midnight). Results feed the dashboard, badges, and notifications. Auto-mark may set `os_type=haos` when the SSH fingerprint / `ha` CLI succeeds.
 
 ### Patch apply (opt-in — **runs real upgrades**)
 
-Off by default. Requires the matching **feature flag** on the server (OS patch / Docker–containers under **Edit → Features**).
+Off by default. Requires the matching **feature flag** on the server (OS patch / Docker–containers under **Edit → Features**). On HAOS the same flag is labelled **HA updates** in the UI.
 
 | Option | Behaviour |
 |--------|-----------|
 | Enable scheduled apply | Registers APScheduler job |
 | Only when last check found updates | Skips if last check count is `0` (unknown/`null` still allows run) |
-| OS: full-upgrade | Uses `full-upgrade` instead of `upgrade` (with update + autoremove) |
+| OS: full-upgrade | **Debian:** uses `full-upgrade` instead of `upgrade` (with update + autoremove). **HAOS:** ignored — apply uses `ha supervisor\|core\|os update` in that order |
 | Cron | e.g. weekly Sunday `30 3 * * 0` |
+
+Operator wiki: [HAOS hosts](../wiki/day-to-day/haos-hosts.md) · plan [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md).
 
 Also skipped when:
 
@@ -238,7 +241,8 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 | Map names | `NmapDevice.display_name` — operator label for Hosts map chips (survives re-scan) |
 | Lifecycle | States new/known/linked/ignored/stale; **Mark known/new** close modal; save map identity auto-knows New; **stale** after 14d without `last_seen` (list path) |
 | Identity | Prefer MAC key; DHCP IP updates in place; first-MAC upgrade |
-| Edit UX | Centered modal from Network / Devices / Hosts chip (`return=hosts` → back to map); lifecycle actions close modal |
+| Edit UX | Centered modal from Devices List/Map, Hosts chip (`return=hosts` → map), or server LAN chip (`return=server:{id}` → fleet host); lifecycle actions close modal |
+| Devices UI | Single **Devices** tab with **List \| Map** (legacy `?tab=network` → map) |
 | Promote | Wizard prefill `?hostname=<ip>&name=` — still manual create |
 | Hosts map overlay | Unlinked devices on `/dns/physical` (outer chips; radar; dual layout; **1:1** compact fit); chip opens Network modal with return |
 | Soft embed | Linked device → server list LAN chip + server detail card |
@@ -758,7 +762,7 @@ Full env list: [`.env.example`](../.env.example).
 
 **Where:** Server detail shows a **read-only** snapshot. Re-check under **SSH access → Check dependencies** (also runs after successful **Test connection**, key deploy, and least-priv provision).
 
-Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`, `apt`). Stores a snapshot on the server row. Does not install packages on the remote host — failures include short install/privilege hints.
+Probes tools needed for **enabled** features only (`rsync` / sudo path, `docker`, `apt` on Debian, or **`ha` CLI** on HAOS). Stores a snapshot on the server row. Does not install packages on the remote host — failures include short install/privilege hints.
 
 ### Stack Status
 

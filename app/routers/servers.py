@@ -766,14 +766,19 @@ async def server_detail(
 
     os_phased_count = 0
     os_total_upgradable = None
+    os_update_backend = "apt"
+    ha_facts = None
     if server.os_updates_summary:
         try:
             _om = json.loads(server.os_updates_summary)
             if isinstance(_om, dict):
                 os_phased_count = int(_om.get("phased_count") or 0)
                 os_total_upgradable = _om.get("total_upgradable")
+                os_update_backend = (_om.get("backend") or "apt") or "apt"
+                ha_facts = _om.get("ha") if isinstance(_om.get("ha"), dict) else None
         except Exception:
             pass
+    is_haos = "haos" in (server.os_type or "").lower() or os_update_backend == "ha_cli"
 
     # Prefetch docker inventory in background (non-blocking) when Docker feature is on
     inventory_meta = {}
@@ -851,6 +856,9 @@ async def server_detail(
             "inventory_meta": inventory_meta,
             "os_phased_count": os_phased_count,
             "os_total_upgradable": os_total_upgradable,
+            "os_update_backend": os_update_backend,
+            "is_haos": is_haos,
+            "ha_facts": ha_facts,
             "backup_profiles": backup_profiles,
             "overall_last_backup": overall_last_backup,
             "last_backup_status": last_backup_status,
@@ -1107,6 +1115,7 @@ async def update_server(
     ssh_password: str = Form(""),
     clear_password: Optional[str] = Form(None),
     docker_base_dir: str = Form("~/docker"),
+    os_type: Optional[str] = Form(None),
     # Optional — only General form sends these. Features form must NOT send
     # empty dns_* fields (that used to wipe DNS identity on every feature save).
     include_dns: Optional[str] = Form(None),
@@ -1132,6 +1141,22 @@ async def update_server(
     new_docker_base = (docker_base_dir or "~/docker").strip() or "~/docker"
     touch_dns = include_dns in ("1", "on", "true", "yes")
     new_ip = (ip_address or "").strip() or None
+    allowed_os = {
+        "debian",
+        "ubuntu",
+        "raspbian",
+        "raspberrypi",
+        "linux",
+        "haos",
+        "alpine",
+        "fedora",
+        "arch",
+    }
+    new_os_type = None
+    if os_type is not None and str(os_type).strip():
+        cand = str(os_type).strip().lower()
+        if cand in allowed_os:
+            new_os_type = cand
     if server.name != new_name:
         changed.append("name")
     if server.hostname != new_host:
@@ -1144,6 +1169,8 @@ async def update_server(
         changed.append("docker_base_dir")
     if touch_dns and (server.ip_address or None) != new_ip:
         changed.append("ip_address")
+    if new_os_type is not None and (server.os_type or "").lower() != new_os_type:
+        changed.append("os_type")
     if server.backup_enabled != backup_enabled:
         changed.append("backup_enabled")
     if server.container_patch_enabled != container_patch_enabled:
@@ -1156,6 +1183,8 @@ async def update_server(
     server.ssh_username = new_user
     server.ssh_port = ssh_port
     server.docker_base_dir = new_docker_base
+    if new_os_type is not None:
+        server.os_type = new_os_type
     if touch_dns:
         server.ip_address = new_ip
 

@@ -42,13 +42,33 @@
           <p class="text-[10px] text-muted mt-1">Must match the remote user {{ ph_brand() }} connects as (e.g. <code>piherder</code> after least-priv).</p>
         </div>
         <div>
+          <label class="block text-xs text-muted mb-1">Host profile (OS type)</label>
+          {% set _ost = (server.os_type or 'debian')|lower %}
+          <select name="os_type" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+            <option value="debian" {% if _ost in ('debian', 'linux', '') %}selected{% endif %}>Debian / generic Linux</option>
+            <option value="ubuntu" {% if _ost == 'ubuntu' %}selected{% endif %}>Ubuntu</option>
+            <option value="raspbian" {% if _ost in ('raspbian', 'raspberrypi') %}selected{% endif %}>Raspberry Pi OS</option>
+            <option value="haos" {% if _ost == 'haos' %}selected{% endif %}>Home Assistant OS (HAOS)</option>
+          </select>
+          <p class="text-[10px] text-muted mt-1">
+            <strong>HAOS</strong>: SSH add-on + rsync; updates via <code class="text-[10px]">ha</code> CLI; auto-detected on OS check when possible.
+            Docker compose fleet management is not used on HAOS.
+          </p>
+        </div>
+        <div>
           <label class="block text-xs text-muted mb-1">Docker base dir (compose stacks)</label>
           <input name="docker_base_dir" value="{{ server.docker_base_dir or '~/docker' }}" autocomplete="off"
-                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11" placeholder="/home/bjorn/docker">
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11" placeholder="/home/bjorn/docker"
+                 {% if is_haos %}disabled{% endif %}>
           <p class="text-[10px] text-muted mt-1">
+            {% if is_haos %}
+            Not used on HAOS (Supervisor manages containers).
+            {% else %}
             Prefer an <strong>absolute</strong> path when SSH user is least-priv (e.g. <code>/home/bjorn/docker</code>).
             <code>~/docker</code> expands to that SSH user’s home — wrong after switching to <code>piherder</code>.
+            {% endif %}
           </p>
+          {% if is_haos %}<input type="hidden" name="docker_base_dir" value="{{ server.docker_base_dir or '~/docker' }}">{% endif %}
         </div>
 
         {% set df = dns_form if dns_form is defined else {} %}
@@ -143,15 +163,27 @@
           <label class="flex items-start gap-3 border border-border rounded p-3 min-h-11">
             <input type="checkbox" name="os_patch_enabled" class="mt-1" {% if server.os_patch_enabled %}checked{% endif %}>
             <span>
-              <span class="text-sm font-medium">OS patch</span>
-              <span class="block text-xs text-muted">apt update checks, OS apply schedules, OS patch ⋯ actions</span>
+              <span class="text-sm font-medium">{% if is_haos %}HA updates{% else %}OS patch{% endif %}</span>
+              <span class="block text-xs text-muted">
+                {% if is_haos %}
+                Check/apply via <code class="text-[10px]">ha</code> CLI (core / OS / supervisor); schedules &amp; ⋯ actions
+                {% else %}
+                apt update checks, OS apply schedules, OS patch ⋯ actions
+                {% endif %}
+              </span>
             </span>
           </label>
-          <label class="flex items-start gap-3 border border-border rounded p-3 min-h-11">
-            <input type="checkbox" name="container_patch_enabled" class="mt-1" {% if server.container_patch_enabled %}checked{% endif %}>
+          <label class="flex items-start gap-3 border border-border rounded p-3 min-h-11 {% if is_haos %}opacity-70{% endif %}">
+            <input type="checkbox" name="container_patch_enabled" class="mt-1" {% if server.container_patch_enabled %}checked{% endif %} {% if is_haos %}disabled{% endif %}>
             <span>
               <span class="text-sm font-medium">Docker / containers</span>
-              <span class="block text-xs text-muted">Compose browser, inventory cache, image checks &amp; optional scheduled apply</span>
+              <span class="block text-xs text-muted">
+                {% if is_haos %}
+                Not used on HAOS — Supervisor owns containers (leave off)
+                {% else %}
+                Compose browser, inventory cache, image checks &amp; optional scheduled apply
+                {% endif %}
+              </span>
             </span>
           </label>
         </div>
@@ -176,7 +208,7 @@
       <div class="space-y-4">
         {% if server.os_patch_enabled %}
         <div class="border border-border rounded p-3 space-y-2">
-          <div class="font-medium text-sm">OS packages (apt) — check</div>
+          <div class="font-medium text-sm">{% if is_haos %}HA updates (ha CLI) — check{% else %}OS packages (apt) — check{% endif %}</div>
           <p class="text-xs text-muted mb-0">
             {% if server.last_os_check_at %}Last {{ server.last_os_check_at | app_tz }} ·
             {% else %}Never checked · {% endif %}
@@ -197,7 +229,7 @@
         </div>
 
         <div class="border border-border border-warning/40 rounded p-3 space-y-2">
-          <div class="font-medium text-sm">OS apply (apt) <span class="text-warning text-xs font-normal">runs upgrades</span></div>
+          <div class="font-medium text-sm">{% if is_haos %}HA apply (ha CLI){% else %}OS apply (apt){% endif %} <span class="text-warning text-xs font-normal">runs upgrades</span></div>
           <form method="post" action="/servers/{{ server.id }}/schedule/os-apply" class="space-y-2">
             <label class="flex items-center gap-2 text-sm min-h-11">
               <input type="checkbox" name="os_apply_enabled" value="1" {% if server.os_apply_enabled %}checked{% endif %}>
@@ -208,10 +240,14 @@
                      {% if server.os_apply_only_if_updates or not server.os_apply_enabled %}checked{% endif %}>
               Only when last check found updates
             </label>
+            {% if not is_haos %}
             <label class="flex items-center gap-2 text-sm min-h-11">
               <input type="checkbox" name="os_apply_use_full_upgrade" value="1" {% if _use_full %}checked{% endif %}>
               Use <code class="text-[10px]">full-upgrade</code>
             </label>
+            {% else %}
+            <p class="text-[10px] text-muted mb-0">Applies available supervisor → core → OS updates (no apt full-upgrade).</p>
+            {% endif %}
             <input type="text" name="os_apply_schedule" value="{{ server.os_apply_schedule or '30 3 * * 0' }}"
                    placeholder="30 3 * * 0"
                    class="w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">

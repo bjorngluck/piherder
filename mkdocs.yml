@@ -148,6 +148,7 @@ nav:
   - Day to day:
       - Dashboard & Services: day-to-day/dashboard-and-services.md
       - Add a server: day-to-day/add-server.md
+      - HAOS hosts: day-to-day/haos-hosts.md
       - Backups & restore: day-to-day/backups.md
       - Updates & patching: day-to-day/updates-and-patching.md
       - Jobs, audit & notifications: day-to-day/jobs-audit-notifications.md
