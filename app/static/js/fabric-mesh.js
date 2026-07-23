@@ -635,7 +635,6 @@
     var lastLockAt = 0;
     // After a finger touch, browsers fire synthetic mouse events — ignore them for a bit
     var ignoreMouseUntil = 0;
-    var MOVE_LOCK_PX = 8;
 
     function chainOf(el) {
       return chainOfEl(el);
@@ -905,37 +904,10 @@
       true
     );
 
-    // Mouse/pen: if click is lost after capture, still pin focus on a short press
-    root.addEventListener(
-      'pointerup',
-      function (e) {
-        if (e.pointerType === 'touch') return; // handled below
-        if (e.pointerType !== 'mouse' && e.pointerType !== 'pen' && e.pointerType !== '') {
-          return;
-        }
-        if (!mouseDown || mouseDown.pointerId !== e.pointerId) return;
-        // List/card chips already lock via the click handler (reliable without capture).
-        // Mesh needs this path when click retargets to the viewport.
-        if (!mouseDown.inMesh || !mouseDown.id) {
-          return;
-        }
-        if (viewportSuppressesClick(e.target)) {
-          mouseDown = null;
-          return;
-        }
-        var dx = Math.abs((e.clientX || 0) - (mouseDown.x || 0));
-        var dy = Math.abs((e.clientY || 0) - (mouseDown.y || 0));
-        if (dx > MOVE_LOCK_PX || dy > MOVE_LOCK_PX) {
-          mouseDown = null;
-          return;
-        }
-        // Lock now; click handler will see lastLockAt and not toggle off (700ms guard)
-        lockPath(mouseDown.id, mouseDown.chain);
-        // Keep mouseDown so the subsequent click can re-use the same id if needed
-        // (lockPath guard prevents unlock). Cleared in click handler.
-      },
-      true
-    );
+    // Mouse/pen mesh lock runs only on click (below). We used to lock on pointerup
+    // then again on click — the 700ms guard blocked unlock on the first cycle but
+    // on a second click pointerup unlocked and click re-locked (never released).
+    // Click handler already recovers the path via mouseDown after pan-zoom capture.
 
     // Touch: lock focus on short tap. Ghost mouse/click cannot unlock for ~1s.
     root.addEventListener(
@@ -1716,6 +1688,17 @@
               if (typeof c.reset === 'function') c.reset();
             } catch (err) { /* ignore */ }
           });
+          // Re-anchor runtime stack fan to compact/full service positions
+          if (window.PiHerderStackExpand && typeof window.PiHerderStackExpand.refresh === 'function') {
+            document.querySelectorAll('[data-fabric-root]').forEach(function (root) {
+              var fid = root._fabricFocusId;
+              if (fid == null || fid === '') return;
+              if (String(fid).indexOf('n:') === 0) return; // host node focus — no path fan
+              try {
+                window.PiHerderStackExpand.refresh({ pathId: String(fid), force: true });
+              } catch (err) { /* ignore */ }
+            });
+          }
         });
       });
     });
