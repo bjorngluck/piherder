@@ -87,7 +87,7 @@ North star: residual chrome from RELEASE_v0.8.0 known issue **#3**. Concrete che
 
 | ID | Item | Target |
 |----|------|--------|
-| **Q1** | Unit coverage freeze | **≥ 55%** line (`--cov=app`) — **~54.3%** suite (baseline 49%; certs deep → certificates.py **~93%**) |
+| **Q1** | Unit coverage freeze | **≥ 55%** line (`--cov=app`) — **✅ ~56.1%** suite (baseline 49%; scheduler/audit/backup + certs packs) |
 | **Q2** | CI fail-under | **Raised 35 → 45 → 50** (freeze target 55% still not fail-under) |
 | **Q3** | Critical-path depth | Prefer pure services: nmap residual, integrations registry/adapters, fabric/coverage, auth/RBAC edges, helpers for UX we touch |
 | **Q4** | E2E on touched UX | Each stream D/N/K/HA UI change: ≥1 Playwright test (tab, modal, filter, list chrome) |
