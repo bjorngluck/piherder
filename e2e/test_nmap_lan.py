@@ -62,6 +62,25 @@ def test_n9_lan_discovery_add_form_and_tabs(admin_page, base_url):
             page.wait_for_load_state("domcontentloaded")
             expect(page).to_have_url(re.compile(rf"tab={tab_q}"))
 
+    # B2: Devices + Network share filter-bar chrome
+    devices_tab = page.locator('a[href*="tab=devices"]').first
+    if devices_tab.count():
+        devices_tab.click()
+        page.wait_for_load_state("domcontentloaded")
+        expect(page.locator('[data-testid="nmap-devices-filter-bar"]')).to_be_visible()
+        expect(page.locator('[data-testid="nmap-devices-search"]')).to_be_visible()
+        # State chips live inside the bar
+        bar = page.locator('[data-testid="nmap-devices-filter-bar"]')
+        expect(bar.get_by_role("link", name=re.compile(r"^All$", re.I))).to_be_visible()
+
+    network_tab = page.locator('a[href*="tab=network"]').first
+    if network_tab.count():
+        network_tab.click()
+        page.wait_for_load_state("domcontentloaded")
+        expect(page.locator('[data-testid="nmap-network-filter-bar"]')).to_be_visible()
+        expect(page.locator('[data-testid="nmap-map-search"]')).to_be_visible()
+        expect(page.locator('[data-testid="nmap-map-show-discovered"]')).to_be_visible()
+
     # Scan-now curated controls (overview)
     overview = page.locator('a[href*="tab=overview"]')
     if overview.count():

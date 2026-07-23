@@ -181,7 +181,8 @@ DEVICE_STATE_LABELS: dict[str, str] = {
     "known": "Known (reviewed)",
     "linked": "Linked",
     "ignored": "Ignored",
-    "stale": "Stale",
+    # UI: "Offline" — state id remains *stale* (not seen since threshold; never auto-deleted)
+    "stale": "Offline",
 }
 DEVICE_STATES_OPERATOR = ("new", "known", "ignored")  # settable without link
 

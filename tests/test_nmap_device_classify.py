@@ -325,6 +325,15 @@ def test_apply_stale_device_states():
     session.commit.assert_called()
 
 
+def test_device_state_labels_offline_not_delete():
+    """E2: stale is flagged offline in UI; state id stays *stale* (no auto-delete)."""
+    from app.services.nmap.device_ops import DEVICE_STATE_LABELS
+
+    assert DEVICE_STATE_LABELS["stale"] == "Offline"
+    assert "stale" in DEVICE_STATE_LABELS
+    assert set(DEVICE_STATE_LABELS) >= {"new", "known", "linked", "ignored", "stale"}
+
+
 def test_set_device_map_identity_kind_and_role():
     from unittest.mock import MagicMock, patch
 

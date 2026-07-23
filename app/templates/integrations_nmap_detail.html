@@ -308,33 +308,37 @@
 {% endif %}
 
 {% if tab == 'devices' %}
-{# WebMap-inspired: stats · filter · host list | detail pane #}
-<div class="nmap-stats mb-3" aria-label="Device stats">
-  <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.total if device_stats else device_rows|length }}</span><span class="nmap-stat-l">hosts</span></div>
-  <div class="nmap-stat"><span class="nmap-stat-n text-accent">{{ device_stats.new if device_stats else 0 }}</span><span class="nmap-stat-l">new</span></div>
-  <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.linked if device_stats else 0 }}</span><span class="nmap-stat-l">linked</span></div>
-  <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.open_ports if device_stats else 0 }}</span><span class="nmap-stat-l">open ports</span></div>
-  <div class="nmap-stat nmap-stat--grow">
-    <a href="?tab=network" class="btn btn-secondary text-xs min-h-9">Network map</a>
+{# WebMap-inspired: stats · shared filter bar · host list #}
+<div class="nmap-devices-toolbar mb-3" data-testid="nmap-devices-toolbar">
+  <div class="nmap-stats" aria-label="Device stats">
+    <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.total if device_stats else device_rows|length }}</span><span class="nmap-stat-l">hosts</span></div>
+    <div class="nmap-stat"><span class="nmap-stat-n text-accent">{{ device_stats.new if device_stats else 0 }}</span><span class="nmap-stat-l">new</span></div>
+    <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.linked if device_stats else 0 }}</span><span class="nmap-stat-l">linked</span></div>
+    <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.open_ports if device_stats else 0 }}</span><span class="nmap-stat-l">open ports</span></div>
+    <div class="nmap-stat nmap-stat--grow">
+      <a href="?tab=network" class="btn btn-secondary text-xs min-h-9">Network map</a>
+    </div>
   </div>
-</div>
-
-<div class="flex flex-wrap items-center gap-2 mb-3">
-  <div class="nmap-filters" role="group" aria-label="Filter by state">
-    <a href="?tab=devices" class="nmap-filter {% if not state_filter %}is-active{% endif %}">All</a>
-    {% for st, stlab in [('new','New'),('known','Known'),('linked','Linked'),('ignored','Ignored'),('stale','Stale')] %}
-    <a href="?tab=devices&state={{ st }}" class="nmap-filter {% if state_filter == st %}is-active{% endif %}"
-       title="{% if st == 'new' %}Unreviewed inbox{% elif st == 'known' %}Reviewed / acknowledged{% elif st == 'stale' %}Not seen recently{% else %}{{ stlab }}{% endif %}">{{ stlab }}</a>
-    {% endfor %}
-  </div>
-  <div class="flex-1 min-w-[10rem]">
-    <input type="search" id="nmap-host-search" class="input w-full text-sm min-h-9" placeholder="Filter IP, hostname, MAC…"
-           autocomplete="off" aria-label="Filter hosts">
+  <div class="nmap-filter-bar" role="search" aria-label="Filter devices" data-testid="nmap-devices-filter-bar">
+    <div class="nmap-filters" role="group" aria-label="Filter by state">
+      <a href="?tab=devices" class="nmap-filter {% if not state_filter %}is-active{% endif %}">All</a>
+      {% for st, stlab in [('new','New'),('known','Known'),('linked','Linked'),('ignored','Ignored'),('stale','Offline')] %}
+      <a href="?tab=devices&state={{ st }}" class="nmap-filter {% if state_filter == st %}is-active{% endif %}"
+         title="{% if st == 'new' %}Unreviewed inbox{% elif st == 'known' %}Reviewed / acknowledged{% elif st == 'stale' %}Not seen recently (flagged offline — not auto-removed){% else %}{{ stlab }}{% endif %}">{{ stlab }}</a>
+      {% endfor %}
+    </div>
+    <div class="nmap-filter-search-wrap">
+      <label class="sr-only" for="nmap-host-search">Filter hosts</label>
+      <input type="search" id="nmap-host-search" class="input nmap-filter-search text-sm"
+             placeholder="Filter by name, IP, MAC, type…"
+             autocomplete="off" aria-label="Filter hosts"
+             data-testid="nmap-devices-search">
+    </div>
   </div>
 </div>
 
 {% if not device_rows %}
-<div class="card p-5 text-sm text-muted">No devices yet. Run a discovery scan from Overview.</div>
+<div class="card p-5 text-sm text-muted" data-testid="nmap-devices-empty">No devices yet. Run a discovery scan from Overview.</div>
 {% else %}
 <p class="text-xs text-muted mb-2">Click a host to <strong class="text-text">edit in a modal</strong> (name, device type, gateway, state).</p>
 <div class="nmap-host-list card overflow-hidden">
@@ -349,8 +353,8 @@
     {% set prof = item.profile or {} %}
     {% set dlab = item.label or d.display_name or d.hostname or d.ip_address %}
     <a href="?tab=devices{% if state_filter %}&state={{ state_filter }}{% endif %}&device={{ d.id }}"
-       class="nmap-host-row {% if device and device.id == d.id %}is-active{% endif %}"
-       data-search="{{ (d.ip_address ~ ' ' ~ (d.display_name or '') ~ ' ' ~ (d.hostname or '') ~ ' ' ~ (d.mac_address or '') ~ ' ' ~ (d.mac_vendor or '') ~ ' ' ~ d.state ~ ' ' ~ (d.map_role or '') ~ ' ' ~ (prof.kind or '') ~ ' ' ~ (prof.label or ''))|lower }}">
+       class="nmap-host-row {% if d.state == 'stale' %}nmap-host-row--stale{% endif %} {% if device and device.id == d.id %}is-active{% endif %}"
+       data-search="{{ (d.ip_address ~ ' ' ~ (d.display_name or '') ~ ' ' ~ (d.hostname or '') ~ ' ' ~ (d.mac_address or '') ~ ' ' ~ (d.mac_vendor or '') ~ ' ' ~ d.state ~ ' offline ' ~ (d.map_role or '') ~ ' ' ~ (prof.kind or '') ~ ' ' ~ (prof.label or ''))|lower }}">
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-1.5 min-w-0">
           <span class="text-sm font-medium text-text truncate" title="{{ dlab }}">{{ dlab }}</span>
@@ -379,24 +383,39 @@
         {% endif %}
       </div>
       <div>
-        <span class="nmap-state nmap-state--{{ d.state }}">{{ d.state }}</span>
+        <span class="nmap-state nmap-state--{{ d.state }}"
+              title="{% if d.state == 'stale' %}Not seen recently — flagged offline; never auto-deleted{% else %}{{ d.state }}{% endif %}">
+          {% if d.state == 'stale' %}offline{% else %}{{ d.state }}{% endif %}
+        </span>
       </div>
     </a>
     {% endfor %}
   </div>
 </div>
+<p class="text-sm text-muted hidden nmap-filter-empty" id="nmap-devices-empty-filter" data-testid="nmap-devices-empty-filter">
+  Nothing matches this filter. Clear the search or pick another state chip.
+</p>
 <script>
 (function () {
   var input = document.getElementById('nmap-host-search');
   var list = document.getElementById('nmap-host-list');
+  var emptyEl = document.getElementById('nmap-devices-empty-filter');
   if (!input || !list) return;
-  input.addEventListener('input', function () {
+  function applyFilter() {
     var q = (input.value || '').trim().toLowerCase();
+    var visible = 0;
     list.querySelectorAll('.nmap-host-row').forEach(function (row) {
       var hay = row.getAttribute('data-search') || '';
-      row.style.display = (!q || hay.indexOf(q) !== -1) ? '' : 'none';
+      var show = !q || hay.indexOf(q) !== -1;
+      row.style.display = show ? '' : 'none';
+      if (show) visible += 1;
     });
-  });
+    if (emptyEl) {
+      if (visible === 0) emptyEl.classList.remove('hidden');
+      else emptyEl.classList.add('hidden');
+    }
+  }
+  input.addEventListener('input', applyFilter);
 })();
 </script>
 {% endif %}
@@ -433,16 +452,17 @@
     </div>
     {% endif %}
   </div>
-  <div class="nmap-map-toolbar" role="search" aria-label="Filter network map">
+  <div class="nmap-filter-bar nmap-map-toolbar" role="search" aria-label="Filter network map"
+       data-testid="nmap-network-filter-bar">
     <label class="nmap-map-toggle"
            title="Show unlinked hosts (new / known / stale). Off = linked devices only. Separate from Hosts map radar.">
       <input type="checkbox" id="nmap-map-show-discovered" checked
              data-testid="nmap-map-show-discovered">
       <span class="nmap-map-toggle-label">Show unlinked</span>
     </label>
-    <div class="nmap-map-search-wrap">
+    <div class="nmap-filter-search-wrap nmap-map-search-wrap">
       <label class="sr-only" for="nmap-map-search">Filter map</label>
-      <input type="search" id="nmap-map-search" class="input nmap-map-search text-sm"
+      <input type="search" id="nmap-map-search" class="input nmap-filter-search nmap-map-search text-sm"
              placeholder="Filter by name, IP, MAC, type…"
              autocomplete="off" aria-label="Filter map"
              data-testid="nmap-map-search">
@@ -502,7 +522,10 @@
             {% if n.kind and n.kind != 'unknown' %}
             <span class="nmap-kind nmap-kind--{{ n.kind }}" title="{{ n.kind_label }} ({{ n.kind_confidence }})">{{ n.kind_short or n.kind_label }}</span>
             {% endif %}
-            <span class="nmap-state nmap-state--{{ n.state }}">{{ n.state }}</span>
+            <span class="nmap-state nmap-state--{{ n.state }}"
+                  title="{% if n.state == 'stale' %}Not seen recently — flagged offline; never auto-deleted{% else %}{{ n.state }}{% endif %}">
+              {% if n.state == 'stale' %}offline{% else %}{{ n.state }}{% endif %}
+            </span>
           </span>
         </div>
         <div class="nmap-host-name truncate">{% if n.display_name %}<strong class="text-text">{{ n.display_name }}</strong>{% else %}{{ n.hostname or '—' }}{% endif %}</div>
@@ -527,8 +550,8 @@
   </section>
   {% endfor %}
 </div>
-<p class="text-sm text-muted hidden mt-3" id="nmap-map-empty-filter" data-testid="nmap-map-empty-filter">
-  Nothing matches this filter. Enable <strong class="text-text">Show discovered</strong> or clear the search.
+<p class="text-sm text-muted hidden nmap-filter-empty" id="nmap-map-empty-filter" data-testid="nmap-map-empty-filter">
+  Nothing matches this filter. Enable <strong class="text-text">Show unlinked</strong> or clear the search.
 </p>
 <script>
 (function () {

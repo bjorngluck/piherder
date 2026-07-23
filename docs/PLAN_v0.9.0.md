@@ -40,9 +40,9 @@ Raise the **operator bar** and **confidence bar** for production:
 
 | ID | Item | Effort | Notes |
 |----|------|--------|-------|
-| **B2** | Devices + Network filter boxes consistent | M | Shared search + chips + empty state; match box chrome across both tabs |
-| **E1** | Server detail: LAN discovery less dominant | S–M | Move/collapse discovery into server-info / secondary strip; dest cards stay primary |
-| **E2** | Offline / unmatched devices | M | **Flag + colour after stale threshold**; no silent hard-delete; ignore stays manual |
+| **B2** | Devices + Network filter boxes consistent | M | **Done** — shared `nmap-filter-bar` chrome, search sizing, empty states, E2E |
+| **E1** | Server detail: LAN discovery less dominant | S–M | **Done** — collapsed strip after dest cards; richer chip (IP · ports) |
+| **E2** | Offline / unmatched devices | M | **Done** — stale UI = Offline flag + warning colour; never auto-delete; ignore stays manual |
 | **E3** | Overview cleanup | M | Scan now + vuln pack update → **modals**; page keeps status chips |
 | **E5** | Schedules UX | M–L | **Schedules tab list-first**; actions → ⋯ menu (Docker pattern); add/edit → **modal**. Network tab stays map-first |
 
@@ -182,5 +182,7 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 |------|------|
 | 2026-07-22 | Plan opened from post-0.8 UX triage; B1/E4/E8 micro-pass for 0.8 tag |
 | 2026-07-23 | **Locked as last pre-production:** UX consistency + unit **55%+** + E2E-on-touch + HA discovery stream; [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) |
+| 2026-07-23 | **B2** + **E1** landed: shared discovery filter bar; server-detail LAN strip collapsed after dest cards |
+| 2026-07-23 | **E2** offline flag: state pill/card/row colour; filter chip Offline; label Offline |
 
 **End of plan** — living document; freeze into RELEASE notes at tag.
