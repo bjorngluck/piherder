@@ -23,7 +23,11 @@ logger = logging.getLogger(__name__)
 
 
 def list_restore_candidates(server: Server) -> List[Dict[str, Any]]:
-    """List backup destinations that have local data and can be restored."""
+    """List backup destinations that have local data and can be restored.
+
+    Avoids recursive ``du`` on the Backups page (was multi-second on large trees).
+    Top-level entry count is enough to know a dest has content.
+    """
     profiles = backup_profiles.get_backup_profiles(server, skip_fs=False)
     out: List[Dict[str, Any]] = []
     for p in profiles:
@@ -33,21 +37,10 @@ def list_restore_candidates(server: Server) -> List[Dict[str, Any]]:
         file_count_hint = 0
         if exists:
             try:
-                # cheap: top-level only + size estimate via du if available
+                # cheap: top-level only (no recursive du — page-load latency)
                 file_count_hint = sum(1 for _ in dest.iterdir())
             except Exception:
                 file_count_hint = 0
-            try:
-                r = subprocess.run(
-                    ["du", "-sb", str(dest)],
-                    capture_output=True,
-                    text=True,
-                    timeout=15,
-                )
-                if r.returncode == 0 and r.stdout.strip():
-                    size = int(r.stdout.strip().split()[0])
-            except Exception:
-                size = 0
         out.append({
             "source": p.get("source"),
             "dest_name": p.get("dest_name"),

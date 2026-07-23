@@ -810,8 +810,11 @@ async def server_detail(
         from ..services.app_settings import load_settings as load_app_settings
 
         base = (load_app_settings().get("dns_base_domain") or "").strip()
+        # probe_pihole=False: live Pi-hole login on every page view was 5–10s+
+        # when DNS fields were incomplete. Suggest from local fields only; Edit
+        # / Host DNS flows can probe when the operator is editing DNS.
         dns_form = fabric.host_dns_form_defaults(
-            session, server, base_domain=base, probe_pihole=True
+            session, server, base_domain=base, probe_pihole=False
         )
     except Exception:
         pass

@@ -1259,6 +1259,32 @@ input[type="checkbox"], input[type="radio"] {
 .feature-chip.feature-off {
   opacity: 0.7;
 }
+/* Clickable chips (e.g. server LAN discovery) — distinct from inert status pills */
+.feature-chip.feature-link {
+  color: var(--color-accent);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-bg));
+  cursor: pointer;
+  font-weight: 500;
+  text-decoration: none;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.feature-chip.feature-link:hover {
+  border-color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-bg));
+  text-decoration: none;
+}
+.feature-chip-link-label {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+}
+.feature-chip-link-cta {
+  font-weight: 700;
+  opacity: 0.85;
+  margin-left: 0.1rem;
+}
 
 .dest-cards {
   display: grid;

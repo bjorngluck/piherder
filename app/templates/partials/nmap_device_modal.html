@@ -2,11 +2,18 @@
    Expects: device, device_profile, device_ports, device_scripts_classified,
    device_script_counts, kind_choices, map_role_gateway, servers, cfg,
    script_presets, script_preset_labels, can_mutate, integration,
-   return_tab (network|devices), return_to (hosts|''), state_filter, msg (optional)
+   return_tab (devices|network), return_to (hosts|server:ID|''), state_filter, msg (optional)
 #}
 {% set rtab = return_tab or tab or 'devices' %}
+{% if rtab == 'network' %}{% set rtab = 'devices' %}{% set rview = 'map' %}{% else %}{% set rview = devices_view if devices_view is defined else 'list' %}{% endif %}
 {% set rto = return_to or '' %}
-{% set close_href = '?tab=' ~ rtab ~ (('&state=' ~ state_filter) if state_filter and rtab == 'devices' else '') ~ (('&return=' ~ rto) if rto else '') %}
+{% if rto.startswith('server:') %}
+  {% set close_href = '/servers/' ~ rto.split(':')[1] %}
+{% elif rto == 'hosts' %}
+  {% set close_href = '/dns/physical' %}
+{% else %}
+  {% set close_href = '?tab=' ~ rtab ~ (('&view=map') if rview == 'map' else '') ~ (('&state=' ~ state_filter) if state_filter and rview != 'map' else '') ~ (('&return=' ~ rto) if rto else '') %}
+{% endif %}
 {% set promote_name = device.display_name or device.hostname or '' %}
 {# Centered floating modal — same shell as users / jobs / wait modals (not a bottom sheet). #}
 <div id="nmap-device-modal"
@@ -21,7 +28,10 @@
        onclick="event.stopPropagation()">
     <header class="nmap-device-modal-head">
       <div class="min-w-0 flex-1">
-        {% if rto == 'hosts' %}
+        {% if rto.startswith('server:') %}
+        <a href="{{ close_href }}" class="text-[10px] text-accent hover:underline font-semibold"
+           data-testid="nmap-back-server">← Back to server</a>
+        {% elif rto == 'hosts' %}
         <a href="/dns/physical" class="text-[10px] text-accent hover:underline font-semibold"
            data-testid="nmap-back-hosts-map">← Hosts map</a>
         {% else %}
@@ -52,7 +62,7 @@
         </span>
         <a href="{{ close_href }}" class="btn btn-secondary text-xs min-h-9 px-3"
            data-nmap-modal-close data-testid="nmap-device-modal-close"
-           title="Close">✕</a>
+           title="{% if rto.startswith('server:') %}Back to server{% elif rto == 'hosts' %}Back to Hosts map{% else %}Close{% endif %}">✕</a>
       </div>
     </header>
 
@@ -127,7 +137,12 @@
           </button>
           <a href="{{ close_href }}" class="btn btn-secondary min-h-11 px-4"
              data-testid="nmap-device-cancel">Cancel</a>
-          <span class="text-[11px] text-muted">Survives rescans · returns to list</span>
+          <span class="text-[11px] text-muted">
+            Survives rescans ·
+            {% if rto.startswith('server:') %}returns to server
+            {% elif rto == 'hosts' %}returns to Hosts map
+            {% else %}returns to list{% endif %}
+          </span>
         </div>
       </form>
 

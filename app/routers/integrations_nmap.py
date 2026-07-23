@@ -56,18 +56,30 @@ def _require_nmap(session: Session, integration_id: int) -> Integration:
 
 
 def _device_return_tab(raw: str | None) -> str:
-    """Stay on Network or Devices after device form posts (modal UX)."""
+    """Stay on Devices after device form posts (modal UX).
+
+    Legacy ``network`` tab maps to Devices (map view applied in redirect).
+    """
     t = (raw or "").strip().lower()
     if t in ("network", "devices"):
-        return t
+        return t  # caller remaps network → devices + view=map
     return "devices"
 
 
 def _device_return_to(raw: str | None) -> str:
-    """Optional cross-surface return: hosts → Catalog Hosts map."""
+    """Optional cross-surface return: hosts map, or server:{id} fleet host."""
     t = (raw or "").strip().lower()
     if t in ("hosts", "hosts_map", "physical"):
         return "hosts"
+    # server:42 or server_42 → server:42
+    if t.startswith("server:"):
+        sid = t.split(":", 1)[1].strip()
+        if sid.isdigit():
+            return f"server:{sid}"
+    if t.startswith("server_"):
+        sid = t.split("_", 1)[1].strip()
+        if sid.isdigit():
+            return f"server:{sid}"
     return ""
 
 
@@ -85,12 +97,26 @@ def _device_redirect(
     *close=True* omits ``device=`` so the edit modal does not reopen (Save and close).
     *focus* (optional in params) highlights the card after return.
     *return_to=hosts* after close → ``/dns/physical`` (Hosts map chip edit path).
+    *return_to=server:{id}* after close → fleet server detail.
     """
     dest = _device_return_to(return_to)
     if close and dest == "hosts":
         # Preserve focus-style flash id for Hosts if needed later; land on map
         return _redirect("/dns/physical", msg=params.get("msg") or "device_mapped")
+    if close and dest.startswith("server:"):
+        try:
+            sid = int(dest.split(":", 1)[1])
+            return _redirect(
+                f"/servers/{sid}",
+                msg=params.get("msg") or "device_mapped",
+            )
+        except (TypeError, ValueError):
+            pass
     tab = _device_return_tab(return_tab)
+    # Network tab merged into Devices (view=map)
+    if tab == "network":
+        tab = "devices"
+        params.setdefault("view", "map")
     kw: dict = {"tab": tab, **params}
     if dest:
         kw["return"] = dest
@@ -113,19 +139,26 @@ def _resync_schedules() -> None:
 
 async def render_nmap_detail(request, session, user, integration: Integration):
     tab = (request.query_params.get("tab") or "overview").strip().lower()
-    if tab not in ("overview", "devices", "network", "schedules", "runs"):
+    # Network map is a view under Devices (legacy ?tab=network still works)
+    devices_view = (request.query_params.get("view") or "list").strip().lower()
+    if tab == "network":
+        tab = "devices"
+        devices_view = "map"
+    if tab not in ("overview", "devices", "schedules", "runs"):
         tab = "overview"
+    if devices_view not in ("list", "map"):
+        devices_view = "list"
     cfg = nmap_cfg.parse_nmap_config(integration)
     status = reg.parse_last_status(integration)
     online = worker_online()
     pack = vuln_pack_status()
     devices = nmap_cfg.list_devices(session, integration.id) if tab in (
         "devices",
-        "network",
         "overview",
     ) else []
     state_filter = (request.query_params.get("state") or "").strip() or None
-    if tab == "devices" and state_filter:
+    # State filter applies to list view only (map shows full LAN groups)
+    if tab == "devices" and devices_view == "list" and state_filter:
         devices = [d for d in devices if d.state == state_filter]
     device_rows = [nmap_cfg.device_list_item(d) for d in devices]
     # Lightweight stats for devices/network chrome
@@ -143,7 +176,9 @@ async def render_nmap_detail(request, session, user, integration: Integration):
         else []
     )
     network = (
-        nmap_cfg.network_view_payload(session, integration) if tab == "network" else None
+        nmap_cfg.network_view_payload(session, integration)
+        if tab == "devices" and devices_view == "map"
+        else None
     )
     servers = list(
         session.exec(select(Server).order_by(Server.sort_order, Server.name)).all()
@@ -238,6 +273,7 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             "cfg": cfg,
             "status": status,
             "tab": tab,
+            "devices_view": devices_view,
             "worker_online": bool(online.get("online")),
             "worker": online,
             "vuln_pack": pack,

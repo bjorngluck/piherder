@@ -412,9 +412,13 @@ def discovery_embed_for_server(
         "profile": profile,
         "href": (
             f"/integrations/{primary.integration_id}"
-            f"?tab=devices&device={primary.id}"
+            f"?tab=devices&device={primary.id}&return=server:{server_id}"
         ),
-        "network_href": f"/integrations/{primary.integration_id}?tab=network",
+        "network_href": (
+            f"/integrations/{primary.integration_id}"
+            f"?tab=devices&view=map&return=server:{server_id}"
+        ),
+        "server_id": int(server_id),
     }
 
 

@@ -170,9 +170,14 @@ document.addEventListener('DOMContentLoaded', function() {
   {% endif %}
   {% if nmap_discovery %}
   {% set _ndchip = nmap_discovery %}
-  <a href="{{ _ndchip.href }}" class="feature-chip feature-on no-underline" data-testid="nmap-discovery-chip"
-     title="Linked LAN discovery device — expand strip below destination cards">
-    LAN · {{ _ndchip.device.ip_address }}{% if _ndchip.open_ports %} · {{ _ndchip.open_ports }} ports{% endif %}
+  <a href="{{ _ndchip.href }}"
+     class="feature-chip feature-link no-underline"
+     data-testid="nmap-discovery-chip"
+     title="Open linked LAN discovery device (edit name, type, ports)">
+    <span class="feature-chip-link-label">LAN</span>
+    <span class="font-mono">{{ _ndchip.device.ip_address }}</span>
+    {% if _ndchip.open_ports %}<span class="opacity-80">· {{ _ndchip.open_ports }} ports</span>{% endif %}
+    <span class="feature-chip-link-cta" aria-hidden="true">→</span>
   </a>
   {% endif %}
 </div>
@@ -208,6 +213,12 @@ document.addEventListener('DOMContentLoaded', function() {
     {% if flash_detail %}— {{ flash_detail }}{% endif %}.
   {% elif flash_msg == 'dns_saved' %}<strong>Host DNS name saved</strong> (manage A is off — not pushed to Pi-hole).
     Tick <em>Manage A on Pi-holes</em> to create the record, and set an IP address.
+  {% elif flash_msg == 'device_mapped' %}<strong>LAN discovery device updated</strong> — map name / type / role saved.
+  {% elif flash_msg == 'device_known' %}<strong>LAN device marked known.</strong>
+  {% elif flash_msg == 'device_ignored' %}<strong>LAN device ignored.</strong>
+  {% elif flash_msg == 'device_restored' %}<strong>LAN device restored.</strong>
+  {% elif flash_msg == 'device_linked' %}<strong>LAN device linked.</strong>
+  {% elif flash_msg == 'device_unlinked' %}<strong>LAN device unlinked.</strong>
   {% else %}{{ flash_msg }}{% endif %}
 </div>
 {% endif %}
@@ -415,8 +426,8 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="nmap-discovery-strip-body border-t border-border pt-3 mt-2">
     <p class="text-xs text-muted mb-2">Linked discovered device — ports and NSE from nmap (not managed fleet state).</p>
     <div class="flex flex-wrap gap-2 mb-2">
-      <a href="{{ nd.href }}" class="btn btn-secondary text-xs min-h-9">Device</a>
-      <a href="{{ nd.network_href }}" class="btn btn-secondary text-xs min-h-9">Network view</a>
+      <a href="{{ nd.href }}" class="btn btn-secondary text-xs min-h-9">Edit device →</a>
+      <a href="{{ nd.network_href }}" class="btn btn-secondary text-xs min-h-9">Map view</a>
     </div>
     <dl class="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-xs mb-2">
       <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Hostname</dt>
