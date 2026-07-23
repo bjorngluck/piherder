@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-22 (**v0.8.0 RC3 tagged** — LAN Discovery · screenshots · quality; **v0.9.0** next operator UX — [PLAN_v0.9.0.md](PLAN_v0.9.0.md))  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-23 (**v0.9.0** locked as **last pre-production** — UX consistency · unit **55%+** · E2E-on-touch · HA discovery — [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md))  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
@@ -30,9 +30,9 @@ Design principles stay the same as SPEC:
 | **v0.6.0** | **RC2 polish** — template Jobs, cert UX (edge map, presets), Docker bulk, topology+coverage; wizard **out** | H2.75 P1 + H2.5 stretch + polish | **Tagged** 2026-07-18 — [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) |
 | **v0.7.0** | **Add-host wizard** + **Playwright E2E** + topology annotations + **compose sets** + drift Job | H2.75 P2 + quality | **Tagged** 2026-07-19 — [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) |
 | **v0.8.0** | **RC3** — overall polish · extend E2E + **~50% coverage** · **full docs review + screenshots** · **LAN nmap** (auto-create + network view) · brand refresh | Quality + H2.5 H1 | **Tagged** 2026-07-22 — [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md) |
-| **v0.9.0** | **Operator UX polish** — discovery chrome · Catalog Network hub modals · Kuma coverage mobile · server detail LAN placement | Quality | **Active** (opens with 0.8 tag) — [PLAN_v0.9.0.md](PLAN_v0.9.0.md) |
+| **v0.9.0** | **Last pre-production** — UX/UI consistency · unit **55%+** · E2E on touched surfaces · **HA discovery** (mark/SSH; REST later) | Quality + H3 discovery | **Active** — [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) |
 | **v0.8.x / later** | Host stats/commands, bootstrap depth, web SSH; topology column profiles | H2.75 P3–P5 + residual | After RC3 as capacity |
-| **v1.0** | Stable template schema + REST + docs + community process | H0–H2 freeze | Planned |
+| **v1.0** | First production — stable template schema + REST + docs + community process; HA path-1 REST candidate | H0–H2 freeze | Planned |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -48,11 +48,13 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-19):** **v0.7.0 feature-locked and tagged**. Wizard, E2E A+B, annotations, compose sets, drift Job shipped. Screenshot pack deferred; residual polish + E2E/coverage growth + full docs review + **nmap** → **v0.8.0 RC3**. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md).
 
-**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ → ~~**v0.8.0 RC3**~~ **tagged** → **v0.9.0** UX polish → **v1.0** refined production.
+**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ → ~~**v0.8.0 RC3**~~ **tagged** → **v0.9.0 last pre-production** → **v1.0** first production.
 
 **Decision (2026-07-22):** Post-0.8 operator UX triage — micro-pass **B1/E4/E8** on main for 0.8 screenshots; remaining discovery/Network/coverage polish → **v0.9.0** ([PLAN_v0.9.0.md](PLAN_v0.9.0.md)). Cross-cutting human-readable schedules, selectable hero stats, and full templates catalog redesign stay **post-1.0 discovery** (see Quality & platform § below).
 
-**Decision (2026-07-22):** **v0.8.0 feature-locked and tagged**. LAN Discovery, screenshot pack, stale cleanup, coverage bar, brand refresh shipped. Next development is **v0.9.0** operator UX. See [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md).
+**Decision (2026-07-22):** **v0.8.0 feature-locked and tagged**. LAN Discovery, screenshot pack, stale cleanup, coverage bar, brand refresh shipped. Next development is **v0.9.0**. See [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md).
+
+**Decision (2026-07-23):** **v0.9.0 locked as last pre-production** — UX/UI consistency (streams D/N/K/U), unit freeze **≥55%** with stepped CI fail-under, E2E basic coverage for every surface touched, and **Home Assistant discovery** ([FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md): path 1 mark/SSH in 0.9 capacity; path 1 REST lean **v1.0**; path 2 HAOS component **≥1.0**).
 
 **Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.8.0` / `0.8` / `latest`).
 
@@ -225,9 +227,9 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 
 | Track | Direction |
 |-------|-----------|
-| **Unit / service coverage** | Grow beyond ~30% line coverage intentionally: critical paths first (crypto, RBAC, path policy, fabric pure functions, cert vault). **No** 100% target. Prefer meaningful service tests over chasing router %. |
-| **HTTP smoke (pytest TestClient)** | **Should** — thin layer for auth redirects + main page 200s; runs in unit job. Target if not free in 0.7 freeze: **v0.8.0 RC3**. |
-| **UI walkthrough — Playwright** | **Must for v0.7.0** — Phase A shell + Phase B wizard **product-done** (`e2e/`); **separate CI job** on main + PR; Chromium only; hard tag gate. Depth (B6, Phase C) → [PLAN_v0.8.0.md](PLAN_v0.8.0.md). |
+| **Unit / service coverage** | **v0.8 freeze ~49–50%**; **v0.9.0 freeze target ≥55%** line (`app`). CI fail-under stepped (35 → 45–50) — not equal to freeze target overnight. Critical paths first; **no** 100% target; prefer service tests over router %. See [PLAN_v0.9.0.md](PLAN_v0.9.0.md) stream Q. |
+| **HTTP smoke (pytest TestClient)** | **Done (0.8)** — auth redirects + main shells + seeded surfaces; extend when routes land. |
+| **UI walkthrough — Playwright** | **Must since v0.7.0** — shell + wizard + B6 + nmap shells. **v0.9 rule:** any UX/code touched in the release gets **basic** E2E coverage (no live SSH/nmap/HA in CI). |
 | **Dependency hygiene** | **Done for RC path:** `uv.lock` + hashed `requirements*.lock.txt`; Dockerfile/CI install with `--require-hashes`. Ongoing: periodic `pip-audit` / Dependabot; intentional bumps via `scripts/refresh-lockfiles.sh`. |
 | **JWT stack** | **Done (pre-0.5.0 tag):** sessions use **PyJWT[crypto]** HS256 — `python-jose` / `ecdsa` removed. |
 | **Custom branding** | Operator logo + accent colours — **far horizon** (well after 1.0 production). Not near-term polish. Built-in light/dark only for now. |
@@ -393,7 +395,7 @@ Reuse existing SSH access actions; the wizard is **orchestration + progress**, n
 
 | Area | Direction |
 |------|-----------|
-| Home Assistant | Token REST first → optional custom component (sensors + safe actions); MQTT later |
+| Home Assistant | **Discovery in 0.9** — [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md): path 1 mark/SSH fingerprint; path 1 REST lean **v1.0**; path 2 custom component / add-on **≥1.0**; MQTT later. HA already consumes PiHerder via API tokens ([API.md](API.md)). |
 | Plugin hooks | Prefer REST + n8n over arbitrary code on the herder host |
 | Ansible / cloud-init | Inventory export + first-boot snippets for new Pis — **overlaps H2.75 bootstrap D/E**; keep imaging depth here |
 | **Advanced secrets** | Explore beyond locked `.env`: Swarm/file permissions hardening, sealed host store for offline recreate, optional vault — never require PiHerder for normal container restart |

@@ -7,7 +7,7 @@
 **Theme:** RC3 quality + **LAN discovery (nmap)** — opt-in scans, network view, Hosts map overlay, retention, coverage growth, docs/screenshots, brand refresh
 
 **Plans:** [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md)  
-**Next:** [PLAN_v0.9.0.md](PLAN_v0.9.0.md) (operator UX polish)  
+**Next:** [PLAN_v0.9.0.md](PLAN_v0.9.0.md) (last pre-production — UX · quality · HA discovery) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md)  
 **Prior:** [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md)  
 **Roadmap:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md)  
 **Docs:** https://piherder-docs.hacknow.info/
