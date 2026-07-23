@@ -46,7 +46,10 @@
           {{ device_profile.label }}{% if device_profile.overridden %}*{% endif %}
         </span>
         {% endif %}
-        <span class="nmap-state nmap-state--{{ device.state }}">{{ device.state }}</span>
+        <span class="nmap-state nmap-state--{{ device.state }}"
+              title="{% if device.state == 'stale' %}Not seen recently — flagged offline; never auto-deleted{% else %}{{ device.state }}{% endif %}">
+          {% if device.state == 'stale' %}offline{% else %}{{ device.state }}{% endif %}
+        </span>
         <a href="{{ close_href }}" class="btn btn-secondary text-xs min-h-9 px-3"
            data-nmap-modal-close data-testid="nmap-device-modal-close"
            title="Close">✕</a>

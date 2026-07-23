@@ -948,12 +948,15 @@
   padding: 0;
   justify-content: center;
 }
-/* Network tab: stats row + separate aligned filter bar */
-.nmap-network-toolbar {
+/* Devices + Network: shared filter chrome (B2) */
+.nmap-network-toolbar,
+.nmap-devices-toolbar {
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
 }
+/* Bordered filter bar — same box on Devices and Network */
+.nmap-filter-bar,
 .nmap-map-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -993,6 +996,7 @@
 .nmap-map-toggle:hover {
   color: var(--color-accent);
 }
+.nmap-filter-search-wrap,
 .nmap-map-search-wrap {
   flex: 1 1 14rem;
   min-width: 11rem;
@@ -1000,12 +1004,40 @@
   display: flex;
   align-items: center;
 }
+.nmap-filter-search,
 .nmap-map-search {
   width: 100%;
   min-height: 2.5rem;
   height: 2.5rem;
   line-height: 1.25;
   margin: 0;
+}
+/* Empty state after client-side filter hides all rows/cards */
+.nmap-filter-empty {
+  margin-top: 0.75rem;
+}
+/* Server detail: collapsed LAN discovery strip (E1) */
+.nmap-discovery-strip {
+  padding: 0.65rem 0.85rem;
+}
+.nmap-discovery-strip-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  min-height: 2.25rem;
+}
+.nmap-discovery-strip-summary::-webkit-details-marker { display: none; }
+.nmap-discovery-strip-summary::before {
+  content: "▸ ";
+  color: var(--color-muted);
+  font-size: 0.75rem;
+}
+.nmap-discovery-strip[open] .nmap-discovery-strip-summary::before {
+  content: "▾ ";
+}
+.nmap-discovery-strip-body {
+  padding-bottom: 0.25rem;
 }
 .nmap-help-details {
   padding: 0.65rem 0.85rem;
@@ -1061,16 +1093,19 @@
 .nmap-filters {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.25rem;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 .nmap-filter {
   display: inline-flex;
   align-items: center;
-  min-height: 2.25rem;
-  padding: 0 0.65rem;
+  min-height: 2.5rem;
+  padding: 0 0.7rem;
   border-radius: 999px;
   border: 1px solid var(--color-border);
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-bg) 40%, var(--color-surface));
   font-size: 0.75rem;
   color: var(--color-muted);
   text-decoration: none;
@@ -1081,6 +1116,13 @@
   border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
   background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
   font-weight: 600;
+}
+/* Chips sit inside bordered bar — quieter inactive chips */
+.nmap-filter-bar .nmap-filter {
+  background: transparent;
+}
+.nmap-filter-bar .nmap-filter.is-active {
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
 }
 .nmap-devices-layout {
   display: grid;
@@ -1340,9 +1382,19 @@ body.nmap-modal-open {
   border-color: color-mix(in srgb, var(--color-success, #15803d) 40%, var(--color-border));
   background: color-mix(in srgb, var(--color-success, #15803d) 10%, var(--color-surface));
 }
-.nmap-state--ignored,
-.nmap-state--stale {
+.nmap-state--ignored {
   opacity: 0.75;
+}
+/* E2: offline/stale is a flag, not muted like ignored */
+.nmap-state--stale {
+  color: var(--color-warning, #b45309);
+  border-color: color-mix(in srgb, var(--color-warning, #b45309) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning, #b45309) 12%, var(--color-surface));
+  opacity: 1;
+}
+.nmap-state--stale::before {
+  content: "⚠ ";
+  font-size: 0.7em;
 }
 .nmap-kv-grid {
   display: grid;
@@ -1508,6 +1560,17 @@ body.nmap-modal-open {
 }
 .nmap-host-card--linked {
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-success, #15803d) 35%, transparent);
+}
+.nmap-host-card--stale {
+  border-color: color-mix(in srgb, var(--color-warning, #b45309) 50%, var(--color-border));
+  background: color-mix(in srgb, var(--color-warning, #b45309) 8%, var(--color-surface));
+  opacity: 0.92;
+}
+.nmap-host-row--stale {
+  background: color-mix(in srgb, var(--color-warning, #b45309) 6%, transparent);
+}
+.nmap-host-row--stale:hover {
+  background: color-mix(in srgb, var(--color-warning, #b45309) 10%, transparent);
 }
 .nmap-host-card-top {
   display: flex;
