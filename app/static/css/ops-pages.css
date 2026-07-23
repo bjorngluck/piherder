@@ -1016,6 +1016,82 @@
 .nmap-filter-empty {
   margin-top: 0.75rem;
 }
+/* Schedules tab: ⋯ row menu (E5) */
+.nmap-sched-menu {
+  position: relative;
+  display: inline-block;
+}
+.nmap-sched-menu-btn {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  padding: 0 0.45rem;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+.nmap-sched-menu-btn::-webkit-details-marker { display: none; }
+.nmap-sched-menu-btn:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+}
+.nmap-sched-menu[open] .nmap-sched-menu-btn {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+.nmap-sched-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.25rem);
+  z-index: 40;
+  min-width: 9.5rem;
+  padding: 0.3rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+.nmap-sched-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.55rem;
+  min-height: 2.1rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.8rem;
+  line-height: 1.25;
+  cursor: pointer;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+.nmap-sched-menu-item:hover {
+  background: var(--color-bg);
+  text-decoration: none;
+}
+.nmap-sched-menu-item.is-accent {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+.nmap-sched-menu-item.is-danger {
+  color: var(--color-danger, #dc2626);
+}
+.nmap-sched-menu form {
+  margin: 0;
+}
 /* Server detail: collapsed LAN discovery strip (E1) */
 .nmap-discovery-strip {
   padding: 0.65rem 0.85rem;

@@ -44,7 +44,7 @@ Raise the **operator bar** and **confidence bar** for production:
 | **E1** | Server detail: LAN discovery less dominant | S–M | **Done** — collapsed strip after dest cards; richer chip (IP · ports) |
 | **E2** | Offline / unmatched devices | M | **Done** — stale UI = Offline flag + warning colour; never auto-delete; ignore stays manual |
 | **E3** | Overview cleanup | M | **Done** — Scan now + vuln pack update → modals; page keeps stats + vuln strip |
-| **E5** | Schedules UX | M–L | **Schedules tab list-first**; actions → ⋯ menu (Docker pattern); add/edit → **modal**. Network tab stays map-first |
+| **E5** | Schedules UX | M–L | **Done** — list-first; ⋯ menu (Run/Enable/Delete/Edit); add/edit modal (`?new=1` / `?schedule=`) |
 
 **Product locks (from triage):**
 
@@ -185,5 +185,6 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-23 | **B2** + **E1** landed: shared discovery filter bar; server-detail LAN strip collapsed after dest cards |
 | 2026-07-23 | **E2** offline flag: state pill/card/row colour; filter chip Offline; label Offline |
 | 2026-07-23 | **E3** Overview: Scan now + vuln pack → modals; status chips/strip remain on page |
+| 2026-07-23 | **E5** Schedules list-first + ⋯ menu + add/edit modal |
 
 **End of plan** — living document; freeze into RELEASE notes at tag.
