@@ -192,5 +192,6 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-23 | **Q** `dns_fabric/core.py` deep pack (`test_dns_fabric_core_coverage.py`) — core ~**76%** (was ~42%) |
 | 2026-07-23 | **Q** poll/certs/registry pack — poll ~**92%**, registry ~**78%**, certs ~**51%**; suite ~**54%**; CI fail-under **50** |
 | 2026-07-23 | **Q** certificates deep pack (`test_certificates_deep.py`) — edge Caddy, fleet deploy SSH, NPM renew/scheduler; certificates.py ~**93%**; suite ~**54.3%** |
+| 2026-07-23 | **Q** scheduler sync + audit_format branches + backup status helpers — suite **~56.1%** (**≥ 55%** freeze bar); scheduler ~**90%**, audit_format ~**97%**, backup pure ~**53%** |
 
 **End of plan** — living document; freeze into RELEASE notes at tag.
