@@ -32,8 +32,10 @@ Inventory must see `docker-compose.<name>.yml` next to the primary file in the s
 
 ## From-host pull incomplete
 
-Odd multi-file layouts still hardening.  
-Manually create template and paste compose if needed.
+- Odd multi-file layouts: primary compose is imported; **override** files are noted in messages but not merged into the template body.  
+- **Sidecar configs** (`./promtail-config.yaml:…` etc.) should appear under **Additional files** after pull (v0.9+). If missing, confirm the path is a **file** bind (not a directory) and exists next to compose on the host.  
+- Host labels not variableised: short hostname comes from the **fleet server** hostname/name — set those correctly before pull, or edit variables by hand.  
+- Fallback: create template manually and paste compose + config files into **Additional files**.
 
 ## Step-up 2FA for secrets fails
 

@@ -463,12 +463,22 @@ def rotate_keypair(
 # ---------------------------------------------------------------------------
 
 DEBIAN_FAMILY_IDS = frozenset({"debian", "ubuntu", "raspbian", "linuxmint", "pop"})
-HAOS_GUIDANCE = """# Home Assistant OS / specialised systems
-# Automated least-priv user + sudoers is not supported.
-# Typical HAOS pattern:
-#   - SSH as root (or the add-on user)
-#   - Install PiHerder public key (Deploy key / install script above)
-#   - Use plain rsync (no sudo) — PiHerder already probes this path
+HAOS_GUIDANCE = """# Home Assistant OS (HAOS) — PiHerder host setup
+# Automated least-priv user + sudoers is not supported on HAOS.
+#
+# Required dependencies:
+#   1. Terminal & SSH add-on enabled (Settings → Add-ons)
+#      - SSH as root (or the add-on user) with key auth
+#      - Install PiHerder public key (Deploy key / install script above)
+#   2. rsync package installed on the host (backups use plain rsync, no sudo)
+#      - Exact install steps: see wiki when published; package must be on PATH
+#
+# What PiHerder does on HAOS:
+#   - Detects HAOS via os-release + `ha` CLI; auto-marks the server
+#   - OS update check/apply via: ha supervisor|core|os info/update
+#   - Backups via plain rsync when the package is present
+#   - Does NOT manage Docker Compose fleet or apt packages on HAOS
+#
 # If you need a non-root user, create it with your platform's tools and
 # re-point the server SSH username in PiHerder Edit.
 """

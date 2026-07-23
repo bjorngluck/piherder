@@ -118,8 +118,45 @@ def pull_project_as_editor_form(
         messages.append(
             "Additional compose files found: "
             + ", ".join(extra_compose)
-            + " — only the primary file is imported into the template body."
+            + " — only the primary file is imported into the template body "
+            "(sidecar configs from relative mounts are included separately)."
         )
+
+    # Sidecar config files bind-mounted from the project dir (e.g. promtail-config.yaml)
+    from .harden import (
+        _short_host_label,
+        build_variables_for_host_project,
+        discover_relative_config_files,
+        looks_like_secret_name,
+    )
+    from .editor import redact_env_plaintext_secrets
+
+    config_names = discover_relative_config_files(compose)
+    extra_files: Dict[str, str] = {}
+    if config_names:
+        missing = [n for n in config_names if n not in files]
+        if missing:
+            try:
+                more = get_project_live_files(server, path, filenames=missing)
+                files.update(more or {})
+            except Exception as e:
+                messages.append(
+                    f"Could not read some config files from host ({', '.join(missing)}): {e}"
+                )
+        for name in config_names:
+            body = files.get(name)
+            if body is None:
+                messages.append(
+                    f"Referenced config file {name!r} not found under {path} — mount kept, content missing."
+                )
+                continue
+            extra_files[name] = body
+        if extra_files:
+            messages.append(
+                "Included additional project file(s): "
+                + ", ".join(sorted(extra_files.keys()))
+                + " (from relative bind mounts in compose)."
+            )
 
     extracted_defaults: Dict[str, str] = {}
     if auto_harden_env:
@@ -127,18 +164,24 @@ def pull_project_as_editor_form(
         messages.extend(msgs)
 
     slug = project_to_slug(project_name)
-    # Volumes, host ports, booleans, env keys → deploy variables; rewrite compose mounts/ports
-    from .harden import (
-        build_variables_for_host_project,
-        looks_like_secret_name,
+    node = _short_host_label(
+        getattr(server, "hostname", "") or "",
+        getattr(server, "name", "") or "",
     )
-    from .editor import redact_env_plaintext_secrets
+    host_fqdn = (getattr(server, "hostname", "") or "").strip()
+    # Only treat hostname as FQDN when it has a dot
+    if "." not in host_fqdn:
+        host_fqdn = ""
 
-    compose, variables, param_msgs = build_variables_for_host_project(
+    # Volumes, host ports, booleans, env keys, host names → deploy variables
+    compose, variables, param_msgs, extra_files = build_variables_for_host_project(
         compose,
         env,
         project_name_default=project_name,
         parameterize=True,
+        extra_file_texts=extra_files,
+        node_name=node,
+        host_fqdn=host_fqdn,
     )
     messages.extend(param_msgs)
 
@@ -166,6 +209,12 @@ def pull_project_as_editor_form(
 
     import json
 
+    extra_files_json = json.dumps(
+        [{"path": p, "content": extra_files[p]} for p in sorted(extra_files.keys())],
+        indent=2,
+        ensure_ascii=False,
+    )
+
     form = {
         "slug": slug,
         "name": project_name.replace("-", " ").replace("_", " ").title(),
@@ -174,6 +223,7 @@ def pull_project_as_editor_form(
         "version": "1.0.0",
         "compose_content": compose,
         "env_content": redact_env_plaintext_secrets(env, reveal=False),
+        "extra_files_json": extra_files_json,
         "variables_json": json.dumps(variables, indent=2, ensure_ascii=False),
         "checklist_json": json.dumps(
             [
@@ -182,11 +232,11 @@ def pull_project_as_editor_form(
                     "body": "Create A/AAAA records for this service pointing at the host IP.",
                 },
                 {
-                    "title": "Review secrets & storage",
+                    "title": "Review secrets, host labels & storage",
                     "body": (
                         "Enter secret values at deploy (encrypted in PiHerder). "
-                        "Confirm volume mode (named / project folder / host path) and ports. "
-                        "Host .env is written mode 600."
+                        "Confirm NODE_NAME / remote URLs, volume modes, and ports. "
+                        "Host .env is written mode 600; extra config files are rendered next to compose."
                     ),
                 },
             ],

@@ -112,7 +112,8 @@ options:
 1. Pick host + compose project  
 2. Optional harden: secrets → `.env` placeholders  
 3. Parameterize short-form **volumes** + **host ports**; infer **boolean** env flags  
-4. Open editor with full variable set → Save as `user` template  
+4. **Additional files** (v0.9): relative bind mounts that look like config files (e.g. `./promtail-config.yaml:/etc/promtail/config.yml`) are pulled into the template and written on deploy; host labels / remote URLs become variables (`NODE_NAME`, `LOKI_URL`, …)  
+5. Open editor with full variable set + additional files → Save as `user` template  
 
 ## Security
 

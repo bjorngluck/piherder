@@ -35,6 +35,7 @@
     {% endif %}
     <input type="hidden" name="variables_json" :value="variablesJson">
     <input type="hidden" name="checklist_json" :value="checklistJson">
+    <input type="hidden" name="extra_files_json" :value="extraFilesJson">
     <input type="hidden" name="editor_action" :value="editorAction">
 
     <div class="card p-4 space-y-3">
@@ -95,6 +96,38 @@
       <textarea name="env_content" rows="6" x-model="env"
                 class="w-full font-mono text-xs bg-surface border border-border p-2 rounded max-w-full min-w-0"></textarea>
       <input type="hidden" name="use_docker_secrets" value="0">
+    </div>
+
+    <div class="card p-4 space-y-3 overflow-hidden min-w-0" data-testid="template-extra-files">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="font-semibold text-sm">Additional files</h2>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-3" @click="addExtraFile()">+ Add file</button>
+      </div>
+      <p class="text-xs text-muted">
+        Sidecar configs written next to compose on deploy (e.g.
+        <code class="text-[10px]">promtail-config.yaml</code> bind-mounted from
+        <code class="text-[10px]">./promtail-config.yaml:…</code>).
+        Use <code class="text-[10px]">{{"{{NODE_NAME}}"}}</code> and other variables — filled at deploy.
+        From host captures these automatically when compose references them.
+      </p>
+      <template x-if="!extraFiles.length">
+        <p class="text-xs text-muted">No additional files. Compose-only templates are fine.</p>
+      </template>
+      <template x-for="(f, i) in extraFiles" :key="'ef'+i">
+        <div class="border border-border rounded p-3 space-y-2">
+          <div class="flex flex-wrap gap-2 items-end">
+            <div class="flex-1 min-w-[10rem]">
+              <label class="text-[10px] text-muted">Path (relative to project)</label>
+              <input x-model="f.path" placeholder="promtail-config.yaml"
+                     class="w-full bg-surface border border-border p-1.5 rounded text-xs font-mono">
+            </div>
+            <button type="button" class="text-xs text-red-600 min-h-9 px-2" @click="extraFiles.splice(i,1)">Remove</button>
+          </div>
+          <textarea x-model="f.content" rows="8"
+                    class="w-full font-mono text-xs bg-surface border border-border p-2 rounded max-w-full min-w-0"
+                    placeholder="# config body with {{ '{{VAR}}' }} placeholders"></textarea>
+        </div>
+      </template>
     </div>
 
     <div class="card p-4 space-y-3">
@@ -279,6 +312,12 @@
 function templateEditor() {
   const initialVars = {{ form.variables_json | safe }};
   const initialChecks = {{ form.checklist_json | safe }};
+  let initialExtra = [];
+  try {
+    initialExtra = {{ (form.extra_files_json or '[]') | safe }};
+  } catch (e) {
+    initialExtra = [];
+  }
   return {
     slug: {{ form.slug | tojson }},
     name: {{ form.name | tojson }},
@@ -290,9 +329,13 @@ function templateEditor() {
     useDockerSecrets: {{ 'true' if form.use_docker_secrets else 'false' }},
     variables: Array.isArray(initialVars) ? initialVars : [],
     checklist: Array.isArray(initialChecks) ? initialChecks : [],
+    extraFiles: Array.isArray(initialExtra) ? initialExtra.map(function (f) {
+      return { path: f.path || '', content: f.content != null ? String(f.content) : '' };
+    }) : [],
     editorAction: 'save',
     variablesJson: '[]',
     checklistJson: '[]',
+    extraFilesJson: '[]',
     init() {
       if (!this.variables.length) {
         this.variables = [{
@@ -303,6 +346,7 @@ function templateEditor() {
       this.syncJson();
       this.$watch('variables', () => this.syncJson(), { deep: true });
       this.$watch('checklist', () => this.syncJson(), { deep: true });
+      this.$watch('extraFiles', () => this.syncJson(), { deep: true });
     },
     syncJson() {
       this.variablesJson = JSON.stringify(this.variables.map(v => {
@@ -331,6 +375,10 @@ function templateEditor() {
         title: c.title || '',
         body: c.body || ''
       })), null, 2);
+      this.extraFilesJson = JSON.stringify(this.extraFiles.map(f => ({
+        path: (f.path || '').trim(),
+        content: f.content != null ? String(f.content) : ''
+      })).filter(f => f.path), null, 2);
     },
     addVar() {
       this.variables.push({
@@ -342,6 +390,9 @@ function templateEditor() {
     },
     addCheck() {
       this.checklist.push({ title: '', body: '' });
+    },
+    addExtraFile() {
+      this.extraFiles.push({ path: '', content: '' });
     }
   };
 }

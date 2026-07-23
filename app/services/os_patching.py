@@ -330,17 +330,79 @@ def _stream_ssh_command(client, hostname: str, step_name: str, cmd: str, timeout
 
 
 def run_os_patch(server: Server, selected_steps: list[str] = None) -> dict:
-    """Run selected patch steps over SSH. Defaults to update, upgrade, autoremove.
+    """Run selected patch steps over SSH.
 
-    Step commands (Debian/Ubuntu) — plain apt (same as earlier working runs):
-      1. sudo apt update
-      2. either sudo apt upgrade -y  OR  sudo apt full-upgrade -y
-      3. sudo apt autoremove -y
+    - **HAOS**: ``ha supervisor|core|os update`` (see ``haos.run_haos_update``)
+    - **Debian/Ubuntu**: apt update → upgrade|full-upgrade → autoremove
     """
+    from . import haos as haos_svc
+
     selected_steps = normalize_os_patch_steps(selected_steps)
     hostname = server.hostname
 
+    if hostname not in _os_patch_progress:
+        _init_progress(hostname)
+    p = _os_patch_progress[hostname]
+    p["done"] = False
+    p["finished_ok"] = None
+    seed = (p.get("log_lines") or [])[-5:]
+    p["log_lines"] = seed
+    p["last_activity"] = time.time()
+
+    # HAOS path (marked or will be detected inside apply)
+    if haos_svc.is_haos_server(server):
+        _append_os_log(hostname, "[os] HAOS host — using ha CLI (not apt)")
+        res = haos_svc.run_haos_update(
+            server,
+            selected_steps=selected_steps,
+            hostname=hostname,
+            stream_log=_append_os_log,
+            stream_cmd=_stream_ssh_command,
+        )
+        res["summary"] = res.get("summary") or summarize_os_patch_result(res)
+        ok = os_patch_succeeded(res)
+        p = _ensure_progress(hostname)
+        p["current"] = "rechecking"
+        p["finished_ok"] = ok
+        p["done"] = False
+        _append_os_log(hostname, f"[os] HA update steps finished: {res['summary']}")
+        _append_os_log(hostname, "[os] rechecking update counts…")
+        return res
+
     client = get_ssh_client(server)
+    # Opportunistic HAOS detect when still marked debian/linux
+    try:
+        identity = haos_svc.probe_haos_identity(client)
+        if identity.get("is_haos"):
+            try:
+                client.close()
+            except Exception:
+                pass
+            _append_os_log(
+                hostname,
+                "[os] Detected HAOS via SSH — switching to ha CLI updates",
+            )
+            res = haos_svc.run_haos_update(
+                server,
+                selected_steps=selected_steps,
+                hostname=hostname,
+                stream_log=_append_os_log,
+                stream_cmd=_stream_ssh_command,
+            )
+            res["summary"] = res.get("summary") or summarize_os_patch_result(res)
+            res["auto_mark_haos"] = True
+            res["detected_os_type"] = "haos"
+            ok = os_patch_succeeded(res)
+            p = _ensure_progress(hostname)
+            p["current"] = "rechecking"
+            p["finished_ok"] = ok
+            p["done"] = False
+            _append_os_log(hostname, f"[os] HA update steps finished: {res['summary']}")
+            _append_os_log(hostname, "[os] rechecking update counts…")
+            return res
+    except Exception as e:
+        _append_os_log(hostname, f"[os] HAOS probe skipped: {e}")
+
     # Full paths; plain `apt` (not apt-get) — matches sudoers + earlier successful jobs
     step_cmds = {
         "update": f"{_APT_ENV}sudo /usr/bin/apt update",
@@ -351,15 +413,6 @@ def run_os_patch(server: Server, selected_steps: list[str] = None) -> dict:
     steps = [(name, cmd) for name, cmd in step_cmds.items() if name in selected_steps]
 
     results = []
-    if hostname not in _os_patch_progress:
-        _init_progress(hostname)
-    p = _os_patch_progress[hostname]
-    p["done"] = False
-    p["finished_ok"] = None
-    seed = (p.get("log_lines") or [])[-5:]
-    p["log_lines"] = seed
-    p["last_activity"] = time.time()
-
     for name, cmd in steps:
         p["current"] = name
         _append_os_log(hostname, f"[{name}] $ {cmd.strip()}")
@@ -398,6 +451,7 @@ def run_os_patch(server: Server, selected_steps: list[str] = None) -> dict:
 
     res = {
         "server": hostname,
+        "backend": "apt",
         "steps": list(selected_steps),
         "results": results,
         "needs_reboot": needs_reboot,
@@ -410,7 +464,6 @@ def run_os_patch(server: Server, selected_steps: list[str] = None) -> dict:
         res["summary"] += " · some packages deferred (Ubuntu phasing)"
     ok = os_patch_succeeded(res)
     # Do NOT mark done yet — job runner still rechecks update counts.
-    # Leave current=None so UI knows apt steps finished but keep done=False.
     p = _ensure_progress(hostname)
     p["current"] = "rechecking"
     p["finished_ok"] = ok
@@ -468,31 +521,37 @@ def _parse_sim_upgrade_inst(sim_out: str) -> list[str]:
 
 
 def check_os_updates(server: Server) -> dict:
-    """Check-only: apt update + upgradable list + simulated upgrade + reboot flag.
+    """Check-only OS updates.
+
+    - **HAOS** (``os_type=haos`` or SSH fingerprint): ``ha core|os|supervisor info``
+    - **Debian family**: apt update + upgradable list + simulated upgrade + reboot flag
 
     Ubuntu *phased* updates appear in `apt list --upgradable` but are deferred by a
     normal `apt upgrade` / `apt full-upgrade` ("Not upgrading yet due to phasing").
     Those must not drive alerts as if they were actionable.
 
-    - updates_count / actionable_count: packages a normal upgrade would install
-    - phased_count: listed upgradable minus actionable (best-effort)
-    - total_upgradable: apt list --upgradable count
+    - updates_count / actionable_count: packages (or HA components) installable now
+    - phased_count: listed upgradable minus actionable (apt only)
+    - total_upgradable: apt list count or HA component count
     """
+    from . import haos as haos_svc
+
     os_type = (server.os_type or "debian").lower()
-    if os_type not in ("debian", "ubuntu", "raspbian", "raspberrypi", "linux", ""):
-        if os_type in ("alpine", "fedora", "rhel", "centos", "arch", "haos"):
-            return {
-                "server": server.hostname,
-                "supported": False,
-                "updates_count": None,
-                "actionable_count": None,
-                "phased_count": None,
-                "total_upgradable": None,
-                "reboot_pending": False,
-                "packages_sample": [],
-                "phased_sample": [],
-                "error": f"OS type '{server.os_type}' not supported for apt check",
-            }
+
+    # Known non-apt OSes (except HAOS, which has its own path)
+    if os_type in ("alpine", "fedora", "rhel", "centos", "arch"):
+        return {
+            "server": server.hostname,
+            "supported": False,
+            "updates_count": None,
+            "actionable_count": None,
+            "phased_count": None,
+            "total_upgradable": None,
+            "reboot_pending": False,
+            "packages_sample": [],
+            "phased_sample": [],
+            "error": f"OS type '{server.os_type}' not supported for OS update check",
+        }
 
     client = get_ssh_client(server)
     error = None
@@ -505,6 +564,35 @@ def check_os_updates(server: Server) -> dict:
     reboot_pending = False
 
     try:
+        # Prefer HA CLI path when already marked or fingerprint says HAOS
+        use_haos = haos_svc.is_haos_server(server)
+        identity = None
+        if not use_haos:
+            try:
+                identity = haos_svc.probe_haos_identity(client)
+                use_haos = bool(identity.get("is_haos"))
+            except Exception:
+                identity = None
+
+        if use_haos:
+            # Reuse open client (we still own close in finally)
+            return haos_svc.check_haos_updates(server, client=client)
+
+        if os_type not in ("debian", "ubuntu", "raspbian", "raspberrypi", "linux", "", "haos"):
+            error = f"OS type '{server.os_type}' not supported for apt check"
+            return {
+                "server": server.hostname,
+                "supported": False,
+                "updates_count": None,
+                "actionable_count": None,
+                "phased_count": None,
+                "total_upgradable": None,
+                "reboot_pending": False,
+                "packages_sample": [],
+                "phased_sample": [],
+                "error": error,
+            }
+
         status, out, err = run_command(
             client,
             "sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq 2>&1 || sudo apt update 2>&1",
@@ -535,10 +623,8 @@ def check_os_updates(server: Server) -> dict:
 
         # If simulation produced nothing but list is non-empty, still treat list-only
         # as total; actionable may be 0 due to phasing (correct) or sim failure.
-        # Detect sim failure: no "Inst" and no "Conf" and no "upgraded" hints, empty output
         sim_empty = not (sim_out or "").strip()
         if sim_empty and total_upgradable > 0:
-            # Fall back: treat all as actionable so we don't hide real updates
             actionable = list(all_upgradable)
             phased = []
             if not error:
@@ -546,7 +632,6 @@ def check_os_updates(server: Server) -> dict:
 
         actionable_count = len(actionable)
         phased_count = len(phased)
-        # Alerts / attention use actionable only
         updates_count = actionable_count
         packages_sample = actionable[:15]
         phased_sample = phased[:15]
@@ -568,7 +653,7 @@ def check_os_updates(server: Server) -> dict:
     return {
         "server": server.hostname,
         "supported": True,
-        # Primary metric for badges/alerts: installable now (not phased-only)
+        "backend": "apt",
         "updates_count": updates_count,
         "actionable_count": actionable_count,
         "phased_count": phased_count,

@@ -1,8 +1,16 @@
 # PiHerder wiki (source)
 
-Markdown sources for the **MkDocs Material** documentation site (**v0.8.0** living docs toward **1.0.0**).
+Markdown sources for the **MkDocs Material** documentation site.
+
+| Line | Status |
+|------|--------|
+| **v0.8.0** | Tagged — baseline screenshot pack |
+| **v0.9.0** | Living docs on main — last pre-production (HAOS path 1, UX polish, wizard micro-copy, template OOTB/Yours + from-host extra files, quality bar) |
+| **1.0.0** | Intended first refined production freeze |
 
 Operator pages prefer: **What this is** → **Why** → **End-to-end** → reference detail. See [contributing-docs](developers/contributing-docs.md).
+
+**Screenshots & testing (operator):** hands-on testing and screenshot recapture for 0.9 are done on the fleet by the operator. Prose in this tree tracks product behaviour; PNGs under `assets/screenshots/` may lag until files are replaced. Checklist: [assets/screenshots/README.md](assets/screenshots/README.md) (not published as a site page — excluded in `mkdocs.yml`).
 
 ## Preview locally
 
@@ -27,10 +35,10 @@ mkdocs build --strict
 | Path | Content |
 |------|---------|
 | `getting-started/` | Install, TLS, first login, appearance, scenarios |
-| `day-to-day/` | Dashboard, Services, servers, backups, updates, jobs |
+| `day-to-day/` | Dashboard, Services, servers, **HAOS hosts**, backups, updates, jobs |
 | `docker/` | Host Docker browser, inventory, compose edit |
 | `service-templates/` | Deploy / from-host / secrets *(not named `templates/` — MkDocs reserves that)* |
-| `integrations/` | Kuma, Grafana, Pi-hole, NPM, certificates, Network maps |
+| `integrations/` | Kuma, Grafana, Pi-hole, NPM, certificates, Network maps, LAN discovery |
 | `account-security/` | RBAC, users, 2FA, PWA |
 | `operations/` | Settings, env, DR, API, metrics, multi-worker |
 | `troubleshooting/` | Common failures |

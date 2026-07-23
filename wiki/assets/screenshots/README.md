@@ -15,9 +15,9 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages now use real PNGs. 
 | **v0.6.0** (released) | **Prose only** — no PNG gate. Existing captures stay until refreshed. |
 | **v0.7.0** (tagged) | Prose for wizard + compose sets; **PNG pack deferred** to 0.8 |
 | **v0.8.0 RC3** (tagged) | **Full capture pack landed** + prose audit + **LAN Discovery** UI shots — [RELEASE_v0.8.0.md](../../../docs/RELEASE_v0.8.0.md) · [lan-discovery.md](../../integrations/lan-discovery.md) |
-| **v0.9.0** (planned) | Re-capture only if chrome changes (discovery filters, Network hub modals, coverage mobile) — [PLAN_v0.9.0.md](../../../docs/PLAN_v0.9.0.md) |
+| **v0.9.0** (in progress) | Re-capture **0.9 chrome** + **HAOS** + **wizard** + **templates catalog** — [PLAN_v0.9.0.md](../../../docs/PLAN_v0.9.0.md) · [HAOS hosts](../../day-to-day/haos-hosts.md) |
 
-**v0.8.0 pack is complete** (2026-07-22). Inventory below remains the canonical file list for future recaptures.
+**v0.8.0 pack is complete** (2026-07-22). **v0.9** recaptures + **operator testing** are **in progress** (not a tag gate until freeze) — checklist below. Prose in the wiki already describes current UI.
 
 ## Default convention (keep simple)
 
@@ -44,8 +44,11 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 |------|----------------|----------|----------------------|
 | `dashboard.png` | Home | High | **Refresh** if cards/layout changed |
 | `server-list.png` | Servers + bulk bar + ⋯ | High | **Refresh** — no footer help text; status from last checks; bulk when selected |
-| `server-detail.png` | Dest cards, host status, optional LAN chip/card | High | **Refresh** (ops-hero / soft embed if showing LAN) |
-| `ssh-access.png` | SSH access expanded | Medium | Keep / refresh if panel copy changed |
+| `server-detail.png` | Dest cards, host status, optional LAN chip/card | High | **Refresh** (0.9 ops-hero / LAN chip; ideally one **Debian** host) |
+| `server-detail-haos.png` *(new)* | HAOS host: **HAOS** chip, HA updates, version chips | High | **Capture for 0.9** — wiki [haos-hosts](../../day-to-day/haos-hosts.md) |
+| `system-info-haos.png` *(new)* | System info modal: Core/OS/Supervisor + HA disk | High | **Capture for 0.9** — after **Refresh** on HAOS server |
+| `ha-update-modal.png` *(optional)* | HA update apply modal (not apt steps) | Medium | Optional |
+| `ssh-access.png` | SSH access expanded | Medium | **Refresh** if showing HAOS guidance / deps (`ha`, rsync) |
 | `backups-page.png` | Sources + path policy | High | Spot-check |
 | `jobs-page.png` | Jobs filters | Medium | **Refresh** — new job types (template deploy, stack lifecycle) |
 | `templates-catalog.png` | Catalog → Templates | High | Spot-check |
@@ -97,13 +100,30 @@ Optional residual (not a tag gate): `jobs-live-log.png` for JobHold live log if 
 | **Servers list** | **No** footer line about “Status from last update checks / checkboxes / ⋯” |
 | **Catalog → Network hub** | Stat **By path type** (Host / App / NPM) — not “Path mix” |
 | **LAN Discovery → Runs** | Columns: intensity, status, hosts, ports, job, finished — **no run `#id`** |
+| **LAN Devices** | **List \| Map** (merged former Network tab) |
+| **HAOS server detail** | HAOS chip; “HA updates” not bare apt-only wording; no Docker fleet emphasis |
+| **System info (HAOS)** | Home Assistant Core / OS / Supervisor cards; disk from `ha host` |
 
-Wiki pages to update when PNGs land:
+### v0.9 screenshot recapture checklist (operator — in progress)
 
-- [lan-discovery](../../integrations/lan-discovery.md) · [dns-fabric](../../integrations/dns-fabric.md)  
-- [certificates](../../integrations/certificates.md) · [https-tls](../../getting-started/https-tls.md)  
-- [Docker overview](../../docker/overview.md) · [jobs-audit](../../day-to-day/jobs-audit-notifications.md)  
-- [add-server](../../day-to-day/add-server.md) (wizard + fleet list)
+**Owner:** operator fleet testing (not CI). Replace PNGs under this directory; wiki captions already mention when a figure may lag.
+
+| Priority | File / shot | Why | Suggested page |
+|----------|-------------|-----|----------------|
+| **P0** | `server-detail-haos.png` | HAOS chip, HA updates, no Docker fleet emphasis | [haos-hosts](../../day-to-day/haos-hosts.md) |
+| **P0** | `system-info-haos.png` | Core / OS / Supervisor + disk | [haos-hosts](../../day-to-day/haos-hosts.md) |
+| **P1** | `server-detail.png` | 0.9 ops-hero / LAN chip (Debian host) | [add-server](../../day-to-day/add-server.md) |
+| **P1** | `nmap-devices.png` | List \| Map merge | [lan-discovery](../../integrations/lan-discovery.md) |
+| **P1** | `nmap-overview.png` / `nmap-runs.png` / `nmap-schedules.png` | Overview modals, Runs/Schedules chrome | [lan-discovery](../../integrations/lan-discovery.md) |
+| **P2** | `dns-hub.png` / `dns-coverage.png` | Network hub settings strip; coverage cards | [dns-fabric](../../integrations/dns-fabric.md) |
+| **P2** | `ssh-access.png` | HAOS guidance / `ha` + rsync deps | [add-server](../../day-to-day/add-server.md) |
+| **P2** | `server-list.png` | Attention badges after HA check | day-to-day servers |
+| **P2** | `templates-catalog.png` | **OOTB** / **Yours** badges + section groups | [templates overview](../../service-templates/overview.md) |
+| **P2** | `add-server-wizard.png` / `add-server-wizard-done.png` | Connect order, Features help, Done CTAs | [add-server](../../day-to-day/add-server.md) |
+| Optional | `ha-update-modal.png` | Apply dialog story | [updates](../../day-to-day/updates-and-patching.md) |
+| Optional | `templates-from-host.png` *(new)* | Editor with Additional files + `NODE_NAME` | [from-host](../../service-templates/from-host.md) |
+
+**Pre-capture checklist (operator testing):** rebuild web image so UI matches main; use light desktop; redact private hostnames if needed; run `mkdocs build --strict` after dropping PNGs.
 
 ---
 

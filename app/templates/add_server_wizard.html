@@ -3,6 +3,7 @@
 {% block content %}
 {% set step = wizard_step or 'identity' %}
 {% set srv = server %}
+{% set is_haos = srv and (('haos' in (srv.os_type or '')|lower) or (srv.os_type or '')|lower == 'hassos') %}
 
 <div class="max-w-2xl mx-auto" data-testid="add-server-wizard" data-wizard-step="{{ step }}">
   <div class="mb-4">
@@ -12,6 +13,9 @@
       Guided setup · step {{ wizard_step_index }} of {{ wizard_step_total }}
       <span class="text-muted">·</span>
       <a href="/servers/new/advanced" class="text-accent hover:underline" data-testid="wizard-advanced-link">Advanced form</a>
+    </p>
+    <p class="text-xs text-muted mt-1">
+      Progress is saved on the host after Identity. Use <strong class="text-text">Save &amp; exit</strong> anytime after Trust — resume from the server page or reopen this wizard with the same host.
     </p>
   </div>
 
@@ -34,15 +38,23 @@
   {% endif %}
   {% if flash_error %}
   <div class="mb-4 p-3 banner-error border border-border rounded text-sm" role="alert" data-testid="wizard-flash-error">
-    {% if flash_error == 'ssh_fail' %}SSH test failed{% elif flash_error == 'key_deploy_fail' %}Key deploy failed{% else %}{{ flash_error }}{% endif %}{% if flash_detail %}: {{ flash_detail }}{% endif %}
+    {% if flash_error == 'ssh_fail' %}
+    <strong>SSH test failed</strong>{% if flash_detail %}: {{ flash_detail }}{% endif %}
+    <span class="block text-xs mt-1 opacity-90">Check hostname, port, username, and that the public key (or password) is accepted on the host.</span>
+    {% elif flash_error == 'key_deploy_fail' %}
+    <strong>Key deploy failed</strong>{% if flash_detail %}: {{ flash_detail }}{% endif %}
+    <span class="block text-xs mt-1 opacity-90">Install the public key by hand (copy or install script), then Test connection. Password bootstrap needs a working password login first.</span>
+    {% else %}{{ flash_error }}{% if flash_detail %}: {{ flash_detail }}{% endif %}{% endif %}
   </div>
   {% endif %}
   {% if flash_msg %}
   <div class="mb-4 p-3 banner-success border border-border rounded text-sm" role="status" data-testid="wizard-flash-ok">
     {% if flash_msg == 'ssh_ok' %}
-    <strong>SSH OK</strong> — key (or password) login works. Clear any bootstrap password when ready.
+    <strong>SSH OK</strong> — key (or password) login works.
+    <span class="block text-xs mt-1 opacity-90">If you still have a bootstrap password stored, clear it when you are ready so day-to-day is keys-only.</span>
     {% elif flash_msg == 'key_deployed' %}
-    <strong>Key deployed</strong> and verified. Prefer keys-only — clear stored password below if still set.
+    <strong>Key deployed</strong> and verified.
+    <span class="block text-xs mt-1 opacity-90">Prefer keys-only — clear the stored password below if it is still set.</span>
     {% elif flash_msg == 'password_cleared' %}
     <strong>Password cleared</strong> — this host is keys-only in PiHerder.
     {% elif flash_msg == 'password_already_clear' %}
@@ -58,21 +70,27 @@
   <form method="post" action="/servers/new/identity" class="card p-5 sm:p-6 space-y-4"
         data-testid="wizard-form-identity">
     <h2 class="font-semibold text-sm text-text">Identity</h2>
-    <p class="text-xs text-muted -mt-2">Name people will recognise, and how PiHerder reaches the host over SSH.</p>
+    <p class="text-xs text-muted -mt-2">
+      Creates a fleet entry for this host. SSH credentials come next — you can finish those later if needed.
+    </p>
     <div>
       <label class="block text-sm text-muted mb-1" for="wiz-name">Name</label>
       <input id="wiz-name" name="name" required data-testid="wizard-input-name"
              value="{{ prefill_name or '' }}"
+             placeholder="e.g. living-room-pi"
              class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+      <p class="text-[11px] text-muted mt-1">Display name in the Servers list — any label operators will recognise.</p>
     </div>
     <div>
       <label class="block text-sm text-muted mb-1" for="wiz-hostname">Hostname or IP</label>
-      <input id="wiz-hostname" name="hostname" required placeholder="rpi5-2.example.com"
+      <input id="wiz-hostname" name="hostname" required placeholder="rpi5-2.example.com or 192.168.1.40"
              value="{{ prefill_hostname or '' }}"
              data-testid="wizard-input-hostname"
              class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono text-sm">
       {% if prefill_hostname %}
-      <p class="text-[11px] text-muted mt-1">Prefill from LAN Discovery — edit before Continue.</p>
+      <p class="text-[11px] text-muted mt-1">Prefill from LAN Discovery — confirm before Continue (DNS name preferred if stable).</p>
+      {% else %}
+      <p class="text-[11px] text-muted mt-1">Must resolve from the PiHerder container (LAN IP or FQDN).</p>
       {% endif %}
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -80,11 +98,13 @@
         <label class="block text-sm text-muted mb-1" for="wiz-user">SSH username</label>
         <input id="wiz-user" name="ssh_username" value="bjorn"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono text-sm">
+        <p class="text-[11px] text-muted mt-1">Account PiHerder will log in as (HAOS SSH add-on user is fine).</p>
       </div>
       <div>
         <label class="block text-sm text-muted mb-1" for="wiz-port">Port</label>
         <input id="wiz-port" name="ssh_port" type="number" value="22"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+        <p class="text-[11px] text-muted mt-1">Usually 22. Match the SSH add-on port on HAOS if different.</p>
       </div>
     </div>
     <div class="flex flex-wrap gap-2 pt-2">
@@ -101,19 +121,34 @@
     <input type="hidden" name="server_id" value="{{ srv.id }}">
     <h2 class="font-semibold text-sm text-text">Trust</h2>
     <p class="text-xs text-muted -mt-2">
-      Keys are encrypted with the master key immediately.
-      <span class="font-mono text-[11px]">{{ srv.name }} · {{ srv.hostname }}</span>
+      Store how PiHerder authenticates.
+      Private keys and passwords are encrypted with the master key immediately — the private key is never shown again after save.
+      <span class="font-mono text-[11px] block mt-1">{{ srv.name }} · {{ srv.hostname }}</span>
     </p>
     <div class="pt-1">
       <div class="font-medium mb-2 text-sm">Auth method <span class="text-muted font-normal">(keys recommended)</span></div>
-      <label class="flex items-center gap-2 text-sm min-h-11">
-        <input type="radio" name="key_mode" value="generate" checked onchange="toggleWizardAuth()"> Generate new keypair (recommended)
+      <label class="flex items-start gap-2 text-sm min-h-11 py-1">
+        <input type="radio" name="key_mode" value="generate" checked onchange="toggleWizardAuth()" class="mt-1">
+        <span>
+          <span class="font-medium">Generate new keypair</span>
+          <span class="text-muted"> (recommended)</span>
+          <span class="block text-xs text-muted mt-0.5">PiHerder creates a dedicated key for this host. Install the public half on Connect.</span>
+        </span>
       </label>
-      <label class="flex items-center gap-2 text-sm min-h-11">
-        <input type="radio" name="key_mode" value="upload" onchange="toggleWizardAuth()"> Upload private key
+      <label class="flex items-start gap-2 text-sm min-h-11 py-1">
+        <input type="radio" name="key_mode" value="upload" onchange="toggleWizardAuth()" class="mt-1">
+        <span>
+          <span class="font-medium">Upload private key</span>
+          <span class="block text-xs text-muted mt-0.5">Use an existing OpenSSH private key already trusted on the host.</span>
+        </span>
       </label>
-      <label class="flex items-center gap-2 text-sm min-h-11 text-warning">
-        <input type="radio" name="key_mode" value="password" onchange="toggleWizardAuth()"> Use password only (discouraged)
+      <label class="flex items-start gap-2 text-sm min-h-11 py-1 text-warning">
+        <input type="radio" name="key_mode" value="password" onchange="toggleWizardAuth()" class="mt-1">
+        <span>
+          <span class="font-medium">Password only</span>
+          <span class="font-normal"> (discouraged)</span>
+          <span class="block text-xs mt-0.5 opacity-90">Works for some jobs; backups need a private key for rsync. Prefer generate + deploy.</span>
+        </span>
       </label>
     </div>
     <div id="wiz-upload-key" class="hidden">
@@ -127,7 +162,7 @@
              class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
              placeholder="SSH password (encrypted at rest)">
       <p class="text-xs text-muted mt-1" id="wiz-pw-hint">
-        Store a one-time password only to bootstrap key deploy. Clear it after key auth works.
+        Store a one-time password only to bootstrap key deploy. Clear it on Connect after key auth works.
       </p>
     </div>
     <div class="flex flex-wrap gap-2 pt-2">
@@ -150,7 +185,7 @@
       if (hint) hint.textContent = 'Password-only works for some jobs; backups need a private key for rsync. Prefer generate + deploy.';
     } else {
       if (label) label.innerHTML = 'Optional password <span class="text-muted font-normal">(for Deploy key)</span>';
-      if (hint) hint.textContent = 'Store a one-time password only to bootstrap key deploy. Clear it after key auth works.';
+      if (hint) hint.textContent = 'Store a one-time password only to bootstrap key deploy. Clear it on Connect after key auth works.';
     }
   }
   document.addEventListener('DOMContentLoaded', toggleWizardAuth);
@@ -162,17 +197,23 @@
   <div class="card p-5 sm:p-6 space-y-4" data-testid="wizard-panel-connect">
     <h2 class="font-semibold text-sm text-text">Connect</h2>
     <p class="text-sm text-muted">
-      Install the public key on the host (copy/paste or Deploy), test login, then clear any one-time password.
+      Get a working SSH login, then prefer keys-only.
       Host: <span class="font-mono text-xs text-text">{{ srv.ssh_username }}@{{ srv.hostname }}:{{ srv.ssh_port }}</span>
     </p>
+    <ol class="text-xs text-muted list-decimal pl-4 space-y-1 border border-border rounded p-3 bg-bg">
+      <li><strong class="text-text">Install the public key</strong> on the host (copy line, install script, or Deploy key).</li>
+      <li><strong class="text-text">Test connection</strong> until it succeeds.</li>
+      <li><strong class="text-text">Clear</strong> any one-time password still stored in PiHerder.</li>
+    </ol>
 
     {# Public key first — primary path when password bootstrap is unavailable #}
     {% if has_real_public_key and ssh_public_key %}
     <div class="space-y-2 border border-border rounded p-3 bg-bg" data-testid="wizard-public-key-block">
-      <div class="font-medium text-sm text-text">Public key</div>
+      <div class="font-medium text-sm text-text">1 · Public key</div>
       <p class="text-xs text-muted">
-        Copy this line into <code class="text-[10px]">~/.ssh/authorized_keys</code> on the host
-        (or use the install script below), then <strong class="text-text">Test connection</strong>.
+        Append this single line to <code class="text-[10px]">~/.ssh/authorized_keys</code> for
+        <span class="font-mono text-[10px]">{{ srv.ssh_username }}</span>
+        (or run the install script), then use <strong class="text-text">Test connection</strong>.
       </p>
       <textarea id="wizard-pubkey" readonly
                 data-testid="wizard-public-key"
@@ -186,7 +227,7 @@
       {% if key_install_script %}
       <div class="pt-2 border-t border-border mt-2 space-y-2">
         <div class="font-medium text-sm text-text">Manual install script</div>
-        <p class="text-xs text-muted">Run once on the target host if automated Deploy is not possible.</p>
+        <p class="text-xs text-muted">Run once on the target host if automated Deploy is not possible (console, HAOS terminal, etc.).</p>
         <textarea id="wizard-key-install-script" readonly
                   data-testid="wizard-key-install-script"
                   class="w-full font-mono text-xs code-surface border border-border p-3 rounded h-28 resize-y">{{ key_install_script }}</textarea>
@@ -200,11 +241,13 @@
     <div class="p-3 border border-border rounded bg-bg text-xs text-muted" data-testid="wizard-public-key-missing">
       A private key is stored, but no copyable public key is available yet.
       Prefer <strong class="text-text">Trust → Generate keypair</strong>, or open
-      <a href="/servers/{{ srv.id }}?show_ssh_key=1" class="text-accent hover:underline">SSH access</a>.
+      <a href="/servers/{{ srv.id }}?show_ssh_key=1" class="text-accent hover:underline">SSH access</a>
+      on the server page.
     </div>
     {% else %}
     <div class="p-3 border border-border rounded bg-bg text-xs text-warning" data-testid="wizard-no-key">
-      No key material yet — go back to <strong>Trust</strong> and generate or upload a key.
+      No key material yet — go back to <strong>Trust</strong> and generate or upload a key
+      (password-only can still use Test connection if a password was saved).
     </div>
     {% endif %}
 
@@ -213,7 +256,7 @@
         <input type="hidden" name="server_id" value="{{ srv.id }}">
         <div class="font-medium text-sm text-text">Deploy key over SSH</div>
         <p class="text-xs text-muted">
-          Optional if you already installed the key by hand. Uses a one-time password if the key is not accepted yet.
+          Optional if you already installed the key by hand. Logs in with key or a one-time password, then appends the public key.
         </p>
         <input type="password" name="ssh_password" autocomplete="off" placeholder="One-time password if key not working yet"
                class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
@@ -228,8 +271,10 @@
 
       <form method="post" action="/servers/new/connect/test" class="pt-2 border-t border-border" data-testid="wizard-form-test">
         <input type="hidden" name="server_id" value="{{ srv.id }}">
-        <div class="font-medium text-sm text-text mb-1">Test connection</div>
-        <p class="text-xs text-muted mb-2">Verifies key (or password) login and refreshes dependency chips on success.</p>
+        <div class="font-medium text-sm text-text mb-1">2 · Test connection</div>
+        <p class="text-xs text-muted mb-2">
+          Verifies key (or password) login and refreshes dependency chips (Docker, rsync, OS facts, HAOS when present).
+        </p>
         <button type="submit" class="btn btn-secondary min-h-11 text-sm" data-testid="wizard-test-connection">Test connection</button>
       </form>
 
@@ -237,7 +282,7 @@
       <form method="post" action="/servers/new/connect/clear-password"
             class="pt-2 border-t border-border" data-testid="wizard-form-clear-password">
         <input type="hidden" name="server_id" value="{{ srv.id }}">
-        <div class="font-medium text-sm text-warning mb-1">Stored bootstrap password</div>
+        <div class="font-medium text-sm text-warning mb-1">3 · Stored bootstrap password</div>
         <p class="text-xs text-muted mb-2">
           A one-time password is still encrypted at rest. After key-only login works, clear it so day-to-day is keys-only.
         </p>
@@ -295,9 +340,14 @@
   <div class="card p-5 sm:p-6 space-y-4" data-testid="wizard-panel-privilege">
     <h2 class="font-semibold text-sm text-text">Privilege</h2>
     <p class="text-sm text-muted">
-      On Raspberry Pi OS / Debian / Ubuntu you can create a dedicated <code class="text-xs">piherder</code> user
-      with limited sudoers from the SSH access panel. <strong class="text-text">HAOS and specialised OS</strong>
-      skip automated least-priv — leave the connect user as-is.
+      Optional. On Raspberry Pi OS / Debian / Ubuntu you can create a dedicated
+      <code class="text-xs">piherder</code> user with limited sudoers from the SSH access panel —
+      useful if you currently log in as a full admin.
+    </p>
+    <p class="text-xs text-muted border border-border rounded p-3 bg-bg">
+      <strong class="text-text">HAOS and specialised OS:</strong> skip automated least-priv.
+      Keep the SSH add-on (or appliance) user you already use for Connect — there is no separate
+      <code class="text-[10px]">piherder</code> bootstrap on those hosts.
     </p>
     <a href="/servers/{{ srv.id }}?show_ssh_key=1" class="btn btn-secondary min-h-11 text-sm">Open least-priv on server</a>
     <form method="post" action="/servers/new/continue" class="flex flex-wrap gap-2 pt-2 border-t border-border">
@@ -318,18 +368,48 @@
         data-testid="wizard-form-features">
     <input type="hidden" name="server_id" value="{{ srv.id }}">
     <h2 class="font-semibold text-sm text-text">Features</h2>
-    <p class="text-xs text-muted -mt-2">Enable only what this host should manage. You can change these later.</p>
-    <label class="flex items-center gap-2 text-sm min-h-11">
-      <input type="checkbox" name="backup_enabled" value="on" {% if srv.backup_enabled %}checked{% endif %}>
-      Backups
+    <p class="text-xs text-muted -mt-2">
+      Enable only what this host should manage. You can change these later on the server page.
+      {% if is_haos %}
+      <span class="block mt-1 text-text">This host looks like <strong>HAOS</strong> — prefer OS updates via the HA path; leave Docker off unless you know you need it.</span>
+      {% endif %}
+    </p>
+    <label class="flex items-start gap-2 text-sm min-h-11 py-1">
+      <input type="checkbox" name="backup_enabled" value="on" class="mt-1"
+             {% if srv.backup_enabled %}checked{% endif %}>
+      <span>
+        <span class="font-medium">Backups</span>
+        <span class="block text-xs text-muted mt-0.5">Scheduled rsync/restic over SSH. Needs a working key and <code class="text-[10px]">rsync</code> on the host (including the HAOS SSH add-on if used).</span>
+      </span>
     </label>
-    <label class="flex items-center gap-2 text-sm min-h-11">
-      <input type="checkbox" name="os_patch_enabled" value="on" {% if srv.os_patch_enabled %}checked{% endif %}>
-      OS patching
+    <label class="flex items-start gap-2 text-sm min-h-11 py-1">
+      <input type="checkbox" name="os_patch_enabled" value="on" class="mt-1"
+             {% if srv.os_patch_enabled %}checked{% endif %}>
+      <span>
+        <span class="font-medium">OS updates</span>
+        <span class="block text-xs text-muted mt-0.5">
+          {% if is_haos %}
+          On HAOS: check/apply Core, Supervisor, and OS via the <code class="text-[10px]">ha</code> CLI (not apt).
+          {% else %}
+          apt/dnf package checks and optional apply on Linux. On HAOS appliances this uses the <code class="text-[10px]">ha</code> CLI instead.
+          {% endif %}
+        </span>
+      </span>
     </label>
-    <label class="flex items-center gap-2 text-sm min-h-11">
-      <input type="checkbox" name="container_patch_enabled" value="on" {% if srv.container_patch_enabled %}checked{% endif %}>
-      Docker / containers
+    <label class="flex items-start gap-2 text-sm min-h-11 py-1">
+      <input type="checkbox" name="container_patch_enabled" value="on" class="mt-1"
+             {% if srv.container_patch_enabled %}checked{% endif %}>
+      <span>
+        <span class="font-medium">Docker / containers</span>
+        <span class="block text-xs text-muted mt-0.5">
+          Compose stacks, image checks, and template deploys.
+          {% if is_haos %}
+          Usually leave off on pure HAOS — add-ons are not managed as Docker fleet stacks here.
+          {% else %}
+          Skip on pure HAOS appliances (add-ons are not managed as Docker fleet stacks).
+          {% endif %}
+        </span>
+      </span>
     </label>
     <div class="flex flex-wrap gap-2 pt-2">
       {% if wizard_prev %}
@@ -346,8 +426,12 @@
   <div class="card p-5 sm:p-6 space-y-4" data-testid="wizard-panel-schedules">
     <h2 class="font-semibold text-sm text-text">Schedules</h2>
     <p class="text-sm text-muted">
-      Default stance: enable <strong class="text-text">check-only</strong> schedules when you are ready
-      (they refresh package/image counts and do not apply upgrades). Full schedule editing stays on the server page.
+      Defaults stay off until you are ready. Prefer <strong class="text-text">check-only</strong> schedules first —
+      they refresh package, image, or HA update counts without applying upgrades.
+    </p>
+    <p class="text-xs text-muted border border-border rounded p-3 bg-bg">
+      Full schedule editing (interval/cron, apply jobs) lives on the server page after you finish the wizard.
+      You can skip this step and configure later.
     </p>
     <a href="/servers/{{ srv.id }}?edit=1" class="btn btn-secondary min-h-11 text-sm">Open server schedules</a>
     <form method="post" action="/servers/new/continue" class="flex flex-wrap gap-2 pt-2 border-t border-border">
@@ -367,8 +451,11 @@
   <div class="card p-5 sm:p-6 space-y-4" data-testid="wizard-panel-network">
     <h2 class="font-semibold text-sm text-text">Network</h2>
     <p class="text-sm text-muted">
-      Optional FQDN and Pi-hole A records are managed on the server detail / Network maps.
-      You can add a Pi-hole integration later under Catalog.
+      Optional. Set FQDN and Pi-hole A records from the server detail page or Catalog → Network.
+      A Pi-hole integration can be added later under Catalog if you do not have one yet.
+    </p>
+    <p class="text-xs text-muted border border-border rounded p-3 bg-bg">
+      You can skip this step entirely — nothing here blocks SSH, backups, or updates.
     </p>
     <a href="/servers/{{ srv.id }}" class="btn btn-secondary min-h-11 text-sm">Open host DNS fields</a>
     <form method="post" action="/servers/new/continue" class="flex flex-wrap gap-2 pt-2 border-t border-border">
@@ -390,12 +477,25 @@
     <p class="text-sm text-muted">
       <span class="font-mono text-xs">{{ srv.hostname }}:{{ srv.ssh_port }}</span>
       as <span class="font-mono text-xs">{{ srv.ssh_username }}</span>
+      {% if is_haos %}<span class="status-pill status-running ml-1">HAOS</span>{% endif %}
     </p>
-    <p class="text-sm text-muted">Suggested next jobs:</p>
+    <p class="text-sm text-muted">Suggested next steps:</p>
+    <ul class="text-xs text-muted list-disc pl-4 space-y-1">
+      <li>Confirm SSH (Test connection on the server page) if you have not already.</li>
+      {% if is_haos %}
+      <li>Review System Info (Core / OS / Supervisor) and enable OS updates when ready.</li>
+      <li>Install <code class="text-[10px]">rsync</code> in the SSH add-on if you plan backups.</li>
+      {% else %}
+      <li>Enable check-only schedules when you want package/image counts without auto-apply.</li>
+      {% if srv.container_patch_enabled %}
+      <li>Open Docker or deploy a service template from Catalog.</li>
+      {% endif %}
+      {% endif %}
+    </ul>
     <div class="flex flex-wrap gap-2">
       <a href="/servers/{{ srv.id }}" class="btn btn-accent min-h-11" data-testid="wizard-done-open">Open server</a>
       <a href="/servers/{{ srv.id }}?show_ssh_key=1" class="btn btn-secondary min-h-11">SSH access</a>
-      {% if srv.container_patch_enabled %}
+      {% if srv.container_patch_enabled and not is_haos %}
       <a href="/servers/{{ srv.id }}/docker" class="btn btn-secondary min-h-11">Docker</a>
       {% endif %}
       <a href="/servers/new" class="btn btn-secondary min-h-11">Add another</a>

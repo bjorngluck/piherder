@@ -1014,7 +1014,7 @@
 
 {% if tab == 'runs' %}
 {% if not runs %}
-<div class="card p-5 text-sm text-muted">No scan runs yet.</div>
+<div class="card p-5 text-sm text-muted" data-testid="nmap-runs-empty">No scan runs yet.</div>
 {% else %}
 {# Mobile cards — no horizontal page scroll #}
 <div class="space-y-2 sm:hidden" data-testid="nmap-runs-cards">

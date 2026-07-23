@@ -372,7 +372,7 @@ volumes:
     assert any(v["type"] == "volume" for v in extra)
     assert any(v["type"] == "port" for v in extra)
 
-    new_c2, variables, msgs2 = build_variables_for_host_project(
+    new_c2, variables, msgs2, _extra_files = build_variables_for_host_project(
         compose, env, project_name_default="grafana"
     )
     by = {v["name"]: v for v in variables}

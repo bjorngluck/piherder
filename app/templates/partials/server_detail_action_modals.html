@@ -59,10 +59,32 @@
 <div id="os-patch-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
   <div class="modal-content card p-6 w-full max-w-md">
     <div class="flex justify-between mb-3">
-      <h3 class="font-semibold">Run OS Patch</h3>
+      <h3 class="font-semibold">{% if is_haos %}Update Home Assistant{% else %}Run OS Patch{% endif %}</h3>
       <button onclick="hideOsPatchModal()" class="text-muted">✕</button>
     </div>
     <form method="post" action="/servers/{{ server.id }}/run/os_patch" id="os-patch-form">
+      {% if is_haos %}
+      <p class="text-sm text-muted mb-3">
+        Uses the <code class="text-xs">ha</code> CLI over SSH (not apt). Apply order:
+        <strong>supervisor → core → OS</strong> for components that report an update.
+      </p>
+      <div class="mb-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="steps" value="update" checked>
+          Refresh versions (<code class="text-[10px]">ha core|os|supervisor info</code>)
+        </label>
+      </div>
+      <div class="mb-2">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="steps" value="upgrade" checked>
+          Apply available updates (<code class="text-[10px]">ha … update</code>)
+        </label>
+      </div>
+      <p class="text-[10px] text-muted mb-3">
+        Requires Terminal &amp; SSH add-on and <code class="text-[10px]">ha</code> on PATH.
+        OS updates may reboot the appliance. Live logs stream in the progress modal.
+      </p>
+      {% else %}
       <div class="mb-2">
         <label class="flex items-center gap-2 text-sm">
           <input type="checkbox" name="steps" value="update" checked> Look for OS updates (sudo apt update)
@@ -86,6 +108,7 @@
         </label>
       </div>
       <p class="text-[10px] text-muted mb-3">Runs: apt update → upgrade <em>or</em> full-upgrade → autoremove. Noninteractive keeps local configs. Live logs stream in the progress modal.</p>
+      {% endif %}
       <div class="flex gap-2">
         <button type="submit" class="px-4 py-1 btn btn-secondary rounded text-sm">Run Selected Steps</button>
         <button type="button" onclick="hideOsPatchModal()" class="px-4 py-1 btn btn-secondary rounded text-sm ml-auto">Cancel</button>
@@ -563,30 +586,79 @@ async function loadSystemInfoIntoModal(useCache = true) {
     }
 
     let html = '';
+    const isHaos = data.profile === 'haos' || (data.ha && data.ha.components);
+    const ha = data.ha || {};
+    const comps = ha.components || {};
+    const host = ha.host || {};
 
     html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 text-sm">
       <div class="bg-surface border border-border p-3 rounded">
-        <div class="text-xs text-muted mb-1">System</div>
-        <div><span class="text-muted">OS:</span> ${data.os_version || 'n/a'}</div>
-        <div><span class="text-muted">Kernel:</span> ${data.kernel || 'n/a'}</div>
+        <div class="text-xs text-muted mb-1">System${isHaos ? ' · HAOS' : ''}</div>
+        <div><span class="text-muted">OS:</span> ${esc(data.os_version || 'n/a')}</div>
+        <div><span class="text-muted">Kernel:</span> ${esc(data.kernel || 'n/a')}</div>
+        ${host.chassis ? `<div><span class="text-muted">Chassis:</span> ${esc(host.chassis)}</div>` : ''}
+        ${host.virtualization ? `<div><span class="text-muted">Virt:</span> ${esc(host.virtualization)}</div>` : ''}
         ${data.reboot_pending ? '<div class="mt-1 text-warning text-xs">⚠️ Reboot pending</div>' : ''}
       </div>`;
 
     const srvSummary = data.summary || {};
     const summary = srvSummary.root ? srvSummary : computeUsableSummary(data.drives || []);
+    const haDisk = data.ha_disk || null;
     html += `<div class="bg-surface border border-border p-3 rounded">
-      <div class="text-xs text-muted mb-1">Usable Space (root focused)</div>`;
+      <div class="text-xs text-muted mb-1">Usable Space${haDisk ? ' · HA host' : ' (root focused)'}</div>`;
     const r = summary.root || srvSummary.root;
     if (r) {
       html += `<div class="font-mono text-sm">
-        / &nbsp; ${r.used || '?'} / ${r.size || '?'} &nbsp; (${r.pcent || ''})
-        <span class="text-accent ml-2">free: ${r.avail || '?'}</span>
+        / &nbsp; ${esc(r.used || '?')} / ${esc(r.size || '?')} &nbsp; (${esc(r.pcent || '')})
+        <span class="text-accent ml-2">free: ${esc(r.avail || '?')}</span>
+      </div>`;
+    } else if (haDisk) {
+      html += `<div class="font-mono text-sm">
+        ${esc(haDisk.used || '?')} / ${esc(haDisk.size || '?')} &nbsp; (${esc(haDisk.pcent || '')})
+        <span class="text-accent ml-2">free: ${esc(haDisk.avail || '?')}</span>
       </div>`;
     } else {
       html += `<div class="text-xs text-muted">Root (/) not detected in df output.</div>`;
     }
-    html += `<div class="text-[10px] mt-1 text-muted">Main volumes shown below (filtered). Other partitions hidden for clarity.</div>`;
+    if (haDisk && haDisk.disk_life_time != null && haDisk.disk_life_time !== '') {
+      html += `<div class="text-[10px] mt-1 text-muted">Disk life used: ${esc(String(haDisk.disk_life_time))}%</div>`;
+    }
+    html += `<div class="text-[10px] mt-1 text-muted">${haDisk ? 'From ha host info (Supervisor). ' : ''}Main volumes below (filtered).</div>`;
     html += `</div></div>`;
+
+    if (isHaos) {
+      html += `<div class="bg-surface border border-border p-3 rounded mb-4 text-sm">
+        <div class="text-xs text-muted mb-2">Home Assistant</div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-xs">`;
+      const rows = [
+        ['Core', comps.core],
+        ['OS', comps.os],
+        ['Supervisor', comps.supervisor],
+      ];
+      for (const [label, c] of rows) {
+        if (!c) {
+          html += `<div class="border border-border rounded p-2">
+            <div class="text-muted text-[10px] mb-0.5">${label}</div>
+            <div class="text-muted">—</div>
+          </div>`;
+          continue;
+        }
+        const upd = c.update_available;
+        html += `<div class="border border-border rounded p-2 ${upd ? 'border-warning/50' : ''}">
+          <div class="text-muted text-[10px] mb-0.5">${label}${upd ? ' · update' : ''}</div>
+          <div>${esc(c.version || '?')}${upd && c.version_latest ? ` <span class="text-warning">→ ${esc(c.version_latest)}</span>` : ''}</div>
+        </div>`;
+      }
+      html += `</div>`;
+      if (comps.core && comps.core.machine) {
+        html += `<div class="text-[10px] text-muted mt-2">Machine: <span class="font-mono">${esc(comps.core.machine)}</span>
+          ${comps.core.channel ? ` · channel ${esc(comps.core.channel)}` : ''}</div>`;
+      }
+      if (ha.error) {
+        html += `<div class="text-[10px] text-warning mt-2">HA probe: ${esc(ha.error)}</div>`;
+      }
+      html += `</div>`;
+    }
 
     html += `<div>
       <div class="text-xs text-muted mb-1">Drives / Mounts (filtered)</div>
@@ -596,8 +668,8 @@ async function loadSystemInfoIntoModal(useCache = true) {
       for (const d of mains) {
         const isRoot = d.target === '/';
         html += `<div class="flex justify-between py-0.5 ${isRoot ? 'text-accent font-semibold' : ''} border-b border-border last:border-0">
-          <span class="truncate pr-2">${d.target} (${d.filesystem})</span>
-          <span>${d.used} / ${d.size} (${d.pcent})</span>
+          <span class="truncate pr-2">${esc(d.target)} (${esc(d.filesystem)})</span>
+          <span>${esc(d.used)} / ${esc(d.size)} (${esc(d.pcent)})</span>
         </div>`;
       }
     } else {
@@ -613,6 +685,15 @@ async function loadSystemInfoIntoModal(useCache = true) {
 
 function refreshSystemInfo() {
   loadSystemInfoIntoModal(false);
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function computeUsableSummary(drives) {
@@ -805,6 +886,7 @@ function computeUsableSummary(drives) {
 
     <div class="mt-4 text-[10px] text-muted">
       Summary focuses on root (/) and main user volumes. Noise partitions (tmpfs, /run, /dev, boot etc.) are filtered.
+      {% if is_haos %}On HAOS, Core/OS/Supervisor versions and disk free come from the <code class="text-[10px]">ha</code> CLI when available.{% endif %}
     </div>
   </div>
 </div>

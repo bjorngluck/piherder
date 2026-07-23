@@ -7,6 +7,8 @@ Browser end-to-end tests for the operator shell and (later) add-host wizard.
 | **A1–A2** | Login form + admin login → Dashboard |
 | **A3–A6** | Primary nav, Catalog tabs, theme toggle, logout |
 | **B** | B1–B5 landed (open, identity→trust, save&exit, clear-password, advanced); **B6** viewer cannot add server |
+| **N9 / v0.9** | LAN Discovery shells: Overview modals, Devices **List\|Map**, Schedules modal, Runs empty/cards, viewer 403 |
+| **E7 / E10** | Catalog Network hub modals (+ Host DNS stacked list); Kuma coverage card shell |
 
 ## Prerequisites
 

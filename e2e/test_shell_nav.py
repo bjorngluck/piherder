@@ -56,6 +56,20 @@ def test_a4_catalog_tabs(admin_page, base_url):
         expect(page.locator("h1.ops-hero-title")).to_have_text(heading)
 
 
+def test_e11_templates_ootb_badges(admin_page, base_url):
+    """E11 partial: Templates catalog shows OOTB badges (and groups when both kinds exist)."""
+    page = admin_page
+    page.goto(f"{base_url}/templates", wait_until="domcontentloaded")
+    expect(page.locator("h1.ops-hero-title")).to_have_text("Templates")
+    catalog = page.locator('[data-testid="templates-catalog"]')
+    expect(catalog).to_be_visible()
+    # Starter pack ships with the app — at least one OOTB badge
+    ootb = page.locator('[data-testid="template-source-badge"]', has_text="OOTB")
+    expect(ootb.first).to_be_visible()
+    cards = page.locator('[data-testid="template-card"][data-source-kind="ootb"]')
+    expect(cards.first).to_be_visible()
+
+
 def test_e7_network_hub_settings_modals(admin_page, base_url):
     """E7: Catalog Network hub keeps paths; Host/External/Network open modals."""
     page = admin_page
@@ -64,10 +78,11 @@ def test_e7_network_hub_settings_modals(admin_page, base_url):
     expect(page.locator('[data-testid="dns-hub-settings"]')).to_be_visible()
     expect(page.locator("#service-paths")).to_be_visible()
 
-    # Host DNS modal open/close
+    # Host DNS modal open/close — stacked host list (not wide table)
     expect(page.locator('[data-testid="dns-modal-host"]')).to_be_hidden()
     page.locator('[data-testid="dns-open-host"]').click()
     expect(page.locator('[data-testid="dns-modal-host"]')).to_be_visible()
+    expect(page.locator('[data-testid="dns-host-list"]')).to_be_visible()
     page.locator('#dns-modal-host button:has-text("Close")').click()
     expect(page.locator('[data-testid="dns-modal-host"]')).to_be_hidden()
 
@@ -90,13 +105,26 @@ def test_e7_network_hub_settings_modals(admin_page, base_url):
 
 
 def test_e10_kuma_coverage_shell(admin_page, base_url):
-    """E10: coverage page loads card layout shell (no horizontal table scroll required)."""
+    """E10: coverage page loads; with Kuma — card filters; without — empty connect CTA."""
     page = admin_page
     page.goto(f"{base_url}/dns/coverage", wait_until="domcontentloaded")
     expect(page.locator("#kuma-coverage")).to_be_visible()
     expect(page.locator("body")).to_contain_text(re.compile(r"Kuma coverage|Uptime Kuma", re.I))
-    # Card lists may be empty (no gaps) — filters + stats still present
-    expect(page.get_by_role("link", name=re.compile(r"Hard gaps|All", re.I)).first).to_be_visible()
+    # No Kuma: connect CTA. With Kuma: path gap filters + optional card lists.
+    no_kuma = page.get_by_text(re.compile(r"No enabled Uptime Kuma", re.I))
+    if no_kuma.count() and no_kuma.first.is_visible():
+        expect(page.get_by_role("link", name=re.compile(r"Connect Uptime Kuma", re.I))).to_be_visible()
+    else:
+        expect(
+            page.get_by_role("link", name=re.compile(r"Hard gaps|All", re.I)).first
+        ).to_be_visible()
+        path_cards = page.locator('[data-testid="coverage-path-cards"]')
+        if path_cards.count():
+            expect(path_cards).to_be_visible()
+            expect(page.locator('[data-testid="coverage-path-card"]').first).to_be_visible()
+        dep_cards = page.locator('[data-testid="coverage-dep-cards"]')
+        if dep_cards.count():
+            expect(dep_cards).to_be_visible()
 
 
 def test_a5_theme_toggle(admin_page):

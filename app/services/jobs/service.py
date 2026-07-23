@@ -1028,11 +1028,17 @@ def _human_job_summary(job_type: str, status: str, snippet: str) -> str:
         ready = data.get("actionable_count", data.get("updates_count"))
         phased = data.get("phased_count") or 0
         total = data.get("total_upgradable")
-        parts = [f"{ready} ready to install"]
-        if phased:
-            parts.append(f"{phased} phased")
-        if total is not None and total != ready:
-            parts.append(f"{total} listed")
+        if (data.get("backend") or "") == "ha_cli":
+            parts = [f"{ready} HA component(s) ready"]
+            sample = data.get("packages_sample") or []
+            if sample:
+                parts.append(", ".join(str(s) for s in sample[:3]))
+        else:
+            parts = [f"{ready} ready to install"]
+            if phased:
+                parts.append(f"{phased} phased")
+            if total is not None and total != ready:
+                parts.append(f"{total} listed")
         if data.get("reboot_pending"):
             parts.append("reboot pending")
         if data.get("error"):
@@ -1340,6 +1346,19 @@ async def _run_os_patch_job(job_id: int, server_id: int, audit_id: int, os_steps
     try:
         res = await run_in_threadpool(os_patching.run_os_patch, server, selected_steps=os_steps)
         status = "success" if os_patching.os_patch_succeeded(res) else "failed"
+        if isinstance(res, dict) and (
+            res.get("auto_mark_haos") or (res.get("detected_os_type") or "").lower() == "haos"
+            or (res.get("backend") or "") == "ha_cli"
+        ):
+            try:
+                with _get_fresh_session() as s:
+                    srv = s.get(Server, server_id)
+                    if srv and (srv.os_type or "").lower() != "haos":
+                        srv.os_type = "haos"
+                        s.add(srv)
+                        s.commit()
+            except Exception as e:
+                logger.debug(f"haos auto-mark after patch: {e}")
         post_check: dict | None = None
         # Refresh cached OS update count BEFORE marking progress done so UI reload sees new badges
         if status == "success":
@@ -1602,6 +1621,20 @@ def _execute_os_patch_sync(
     try:
         res = os_patching.run_os_patch(server, selected_steps=os_steps)
         status = "success" if os_patching.os_patch_succeeded(res) else "failed"
+        if isinstance(res, dict) and (
+            res.get("auto_mark_haos")
+            or (res.get("detected_os_type") or "").lower() == "haos"
+            or (res.get("backend") or "") == "ha_cli"
+        ):
+            try:
+                with _get_fresh_session() as s:
+                    srv = s.get(Server, server_id)
+                    if srv and (srv.os_type or "").lower() != "haos":
+                        srv.os_type = "haos"
+                        s.add(srv)
+                        s.commit()
+            except Exception as e:
+                logger.debug(f"haos auto-mark after scheduled patch: {e}")
         post_check: dict | None = None
         if status == "success":
             try:
@@ -1843,14 +1876,24 @@ def _apply_os_check_result(session: Session, server_id: int, res: dict) -> None:
     server.reboot_pending = bool(res.get("reboot_pending"))
     sample = res.get("packages_sample") or []
     phased_sample = res.get("phased_sample") or []
-    server.os_updates_summary = json.dumps({
+    # Auto-mark HAOS when SSH fingerprint / ha CLI path detected
+    if res.get("auto_mark_haos") or (res.get("detected_os_type") or "").lower() == "haos":
+        if (server.os_type or "").lower() != "haos":
+            server.os_type = "haos"
+    summary_payload = {
         "packages_sample": sample[:15],
         "phased_sample": phased_sample[:15],
         "actionable_count": res.get("actionable_count", res.get("updates_count")),
         "phased_count": res.get("phased_count") or 0,
         "total_upgradable": res.get("total_upgradable"),
         "error": res.get("error"),
-    })
+        "backend": res.get("backend") or "apt",
+    }
+    if res.get("ha"):
+        summary_payload["ha"] = res.get("ha")
+    if res.get("identity"):
+        summary_payload["identity"] = res.get("identity")
+    server.os_updates_summary = json.dumps(summary_payload)
     session.add(server)
     session.commit()
     try:

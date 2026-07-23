@@ -44,6 +44,7 @@ from ..services.service_templates import (
     preview_template,
     public_vars_excluding_volume_meta,
     save_template_definition,
+    source_badge,
     volume_fields_for_ui,
 )
 from ..services.service_templates.editor import (
@@ -121,13 +122,13 @@ async def templates_list(
         "line1": [
             {"n": len(items), "l": "total", "cls": "text-accent"},
             {
-                "n": by_src.get("user", 0) + by_src.get("custom", 0),
-                "l": "custom",
+                "n": by_src.get("user", 0) + by_src.get("custom", 0) + by_src.get("import", 0),
+                "l": "yours",
                 "cls": "",
             },
             {
                 "n": by_src.get("starter", 0) + by_src.get("builtin", 0),
-                "l": "starter",
+                "l": "ootb",
                 "cls": "",
             },
             {"n": vars_n, "l": "settings", "cls": ""},
@@ -568,6 +569,8 @@ async def template_detail(
     public_def = definition.to_public_dict()
     # Never embed cleartext secret defaults in template context (page source / JSON)
     public_def["variables"] = variables
+    raw_source = (row.source if row else definition.source) or "user"
+    badge = source_badge(raw_source)
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="template_detail.html",
@@ -578,7 +581,11 @@ async def template_detail(
             "variables": variables,
             "checklist": [{"title": c.title, "body": c.body} for c in definition.checklist],
             "files": list(definition.file_contents.keys()),
-            "source": row.source if row else definition.source,
+            "source": raw_source,
+            "source_kind": badge["kind"],
+            "source_label": badge["label"],
+            "source_title": badge["title"],
+            "source_cls": badge["cls"],
             "can_mutate": role_at_least(user, ROLE_OPERATOR),
             "slug": slug,
             "has_secret_vars": has_secret_vars,

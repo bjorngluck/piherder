@@ -41,9 +41,10 @@ Full journey: [Operator scenarios — Journey B](../getting-started/operator-sce
 
 1. Server **Edit → Features** → enable **Backups**.  
 2. Open the server’s **Backups** page (ops-hero + source cards — same width as other host pages).  
-3. Add **source paths** on the remote host (configure form lists current sources; empty only when none are set).  
-4. Optional: destination override, retention, cron schedule.  
-5. **Path allow/deny** — default deny of OS roots; optional prefixes.
+3. Use header **Configure** for schedule, destination paths, and sources (there is no second “Full configure” under sources).  
+4. Add **source paths** on the remote host (configure form lists current sources; empty only when none are set).  
+5. Optional: destination override, retention, cron schedule.  
+6. **Path allow/deny** — default deny of OS roots; optional prefixes.
 
 <figure class="ph-figure" markdown>
   ![Backups page](../assets/screenshots/backups-page.png)

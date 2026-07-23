@@ -19,12 +19,24 @@ logger = logging.getLogger(__name__)
 
 HINTS = {
     "rsync": "Install rsync on the host, e.g. `sudo apt-get install -y rsync`.",
+    "rsync_haos": (
+        "Install the rsync package on HAOS (Settings → System → Repairs / packages, "
+        "or via the SSH add-on). PiHerder backups use plain rsync as root."
+    ),
     "rsync_sudo": (
         "Passwordless sudo for rsync is missing. Use SSH access → Least-priv user "
         "(backup privileges), or connect as root / HAOS with plain rsync."
     ),
     "docker": "Install Docker and ensure the SSH user can run `docker` (often via the docker group).",
+    "docker_haos": (
+        "HAOS manages containers via Supervisor — PiHerder Docker compose fleet "
+        "management is not used on HAOS hosts. Disable Docker feature or use a Debian/Pi host."
+    ),
     "apt": "OS patching needs apt (`apt-get`). Install or enable the OS package manager.",
+    "ha_cli": (
+        "Enable the Terminal & SSH add-on on Home Assistant OS and ensure `ha` is on PATH "
+        "for the SSH user PiHerder uses (often root)."
+    ),
     "ssh": "Fix SSH key/password under SSH access, then re-check.",
 }
 
@@ -157,6 +169,17 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
         }
 
     assert client is not None
+    is_haos = "haos" in (getattr(server, "os_type", None) or "").lower()
+    if not is_haos:
+        # Light fingerprint so first deps check on HAOS can switch hints before os_type is set
+        try:
+            from . import haos as haos_svc
+
+            identity = haos_svc.probe_haos_identity(client)
+            is_haos = bool(identity.get("is_haos"))
+        except Exception:
+            pass
+
     try:
         # --- rsync ---
         if backup_on:
@@ -175,6 +198,7 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
                     rsync_bin = out.strip().splitlines()[0]
                     break
             if not rsync_bin:
+                rsync_hint = HINTS["rsync_haos"] if is_haos else HINTS["rsync"]
                 checks.append(
                     _check(
                         "rsync",
@@ -182,7 +206,7 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
                         "fail",
                         required=True,
                         message="rsync not found on PATH",
-                        hint=HINTS["rsync"],
+                        hint=rsync_hint,
                     )
                 )
                 checks.append(
@@ -192,7 +216,7 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
                         "fail",
                         required=True,
                         message="skipped (no rsync)",
-                        hint=HINTS["rsync"],
+                        hint=rsync_hint,
                     )
                 )
             else:
@@ -301,51 +325,61 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
 
         # --- docker ---
         if docker_on:
-            ok, out = _cmd_ok(
-                client,
-                "command -v docker && docker version --format '{{.Server.Version}}' 2>/dev/null || docker info >/dev/null 2>&1",
-                timeout=20,
-            )
-            if ok:
-                ver = (out or "").strip().splitlines()
-                msg = ver[0] if ver else "docker ok"
-                # Prefer a short version line
-                if len(ver) > 1 and not ver[-1].startswith("/"):
-                    msg = ver[-1][:80]
+            if is_haos:
                 checks.append(
                     _check(
                         "docker",
                         "Docker CLI",
-                        "ok",
-                        required=True,
-                        message=msg[:120],
+                        "warn",
+                        required=False,
+                        message="HAOS: compose fleet mgmt not used (Supervisor owns containers)",
+                        hint=HINTS["docker_haos"],
                     )
                 )
             else:
-                # docker binary present but not usable?
-                has_bin, path_out = _cmd_ok(client, "command -v docker", timeout=8)
-                if has_bin:
+                ok, out = _cmd_ok(
+                    client,
+                    "command -v docker && docker version --format '{{.Server.Version}}' 2>/dev/null || docker info >/dev/null 2>&1",
+                    timeout=20,
+                )
+                if ok:
+                    ver = (out or "").strip().splitlines()
+                    msg = ver[0] if ver else "docker ok"
+                    if len(ver) > 1 and not ver[-1].startswith("/"):
+                        msg = ver[-1][:80]
                     checks.append(
                         _check(
                             "docker",
                             "Docker CLI",
-                            "fail",
+                            "ok",
                             required=True,
-                            message="docker present but not usable (permission or daemon?)",
-                            hint=HINTS["docker"],
+                            message=msg[:120],
                         )
                     )
                 else:
-                    checks.append(
-                        _check(
-                            "docker",
-                            "Docker CLI",
-                            "fail",
-                            required=True,
-                            message="docker not found",
-                            hint=HINTS["docker"],
+                    has_bin, path_out = _cmd_ok(client, "command -v docker", timeout=8)
+                    if has_bin:
+                        checks.append(
+                            _check(
+                                "docker",
+                                "Docker CLI",
+                                "fail",
+                                required=True,
+                                message="docker present but not usable (permission or daemon?)",
+                                hint=HINTS["docker"],
+                            )
                         )
-                    )
+                    else:
+                        checks.append(
+                            _check(
+                                "docker",
+                                "Docker CLI",
+                                "fail",
+                                required=True,
+                                message="docker not found",
+                                hint=HINTS["docker"],
+                            )
+                        )
         else:
             checks.append(
                 _check(
@@ -357,34 +391,71 @@ def run_host_deps_check(server: Server) -> dict[str, Any]:
                 )
             )
 
-        # --- apt ---
+        # --- apt (Debian) or ha CLI (HAOS) ---
         if os_on:
-            ok, out = _cmd_ok(
-                client,
-                "command -v apt-get || command -v apt",
-                timeout=10,
-            )
-            if ok and out.strip():
+            if is_haos:
+                ok, out = _cmd_ok(
+                    client,
+                    "command -v ha 2>/dev/null || which ha 2>/dev/null",
+                    timeout=10,
+                )
+                if ok and (out or "").strip():
+                    checks.append(
+                        _check(
+                            "ha_cli",
+                            "HA CLI (ha)",
+                            "ok",
+                            required=True,
+                            message=(out or "").strip().splitlines()[0][:120],
+                        )
+                    )
+                else:
+                    checks.append(
+                        _check(
+                            "ha_cli",
+                            "HA CLI (ha)",
+                            "fail",
+                            required=True,
+                            message="ha not found on PATH",
+                            hint=HINTS["ha_cli"],
+                        )
+                    )
                 checks.append(
                     _check(
                         "apt",
                         "apt package manager",
-                        "ok",
-                        required=True,
-                        message=out.strip().splitlines()[0],
+                        "skip",
+                        required=False,
+                        message="HAOS uses ha CLI for updates (not apt)",
                     )
                 )
             else:
-                checks.append(
-                    _check(
-                        "apt",
-                        "apt package manager",
-                        "fail",
-                        required=True,
-                        message="apt-get / apt not found",
-                        hint=HINTS["apt"],
-                    )
+                ok, out = _cmd_ok(
+                    client,
+                    "command -v apt-get || command -v apt",
+                    timeout=10,
                 )
+                if ok and out.strip():
+                    checks.append(
+                        _check(
+                            "apt",
+                            "apt package manager",
+                            "ok",
+                            required=True,
+                            message=out.strip().splitlines()[0],
+                        )
+                    )
+                else:
+                    checks.append(
+                        _check(
+                            "apt",
+                            "apt package manager",
+                            "fail",
+                            required=True,
+                            message="apt-get / apt not found",
+                            hint=HINTS["apt"],
+                        )
+                    )
         else:
             checks.append(
                 _check(

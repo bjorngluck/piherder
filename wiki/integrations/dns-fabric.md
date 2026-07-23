@@ -89,20 +89,21 @@ On the Network hub stat strip, **By path type** shows counts for Host / App / NP
 
 ## Network hub layout
 
-The hub (`/dns`) is intentionally dense in **v0.8** — path cards, host A table, external DNS checklist, network map settings, and Pi-hole adopt live on one page for operators who already know the fabric.
+The hub (`/dns`) is **path-first** (v0.9): nav + stats + **DNS & network settings** strip, then the long service-path list. Host A table, external checklist, map settings, and Pi-hole adopt open in **modals** (not buried below a long path list).
 
 | Block | What it is |
 |-------|------------|
 | **Nav cards** | Jump to Kuma coverage, Hosts map, Path map |
 | **Stat strip** | Hosts named · Mapped names · Via NPM · **By path type** (Host / App / NPM) |
+| **DNS & network settings** | Buttons → **Host DNS**, **External DNS**, **Network map**, **Adopt** modals (placed **above** paths so they are obvious) |
 | **Service paths** | Searchable path cards (name → layers → Stack / maps) |
-| **Host DNS** | Fleet A records (server FQDN / manage A) |
-| **External DNS** | Checklist for Cloudflare/etc. (not automated) |
-| **Network map settings** | LAN CIDR, gateway, public IP, optional Kuma binds |
-| **Adopt existing DNS** | Import / candidates from Pi-hole |
 
-!!! note "UX polish (v0.9)"
-    Host DNS, External DNS, Network map settings, and Adopt will move toward **modals / drawers** so the hub stays path-first — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md). Behaviour of each section stays the same.
+| Modal | Content |
+|-------|---------|
+| **Host DNS** | Fleet A records (stacked rows on mobile — no wide horizontal table) |
+| **External DNS** | Checklist for Cloudflare/etc. (not automated) |
+| **Network map** | LAN CIDR, gateway, public IP, optional Kuma binds |
+| **Adopt** | Import / candidates from Pi-hole |
 
 ---
 
@@ -156,15 +157,16 @@ After **[LAN Discovery](lan-discovery.md)** has scanned, **unlinked** devices ap
 |-------|-----------|
 | **Toggle** | **Radar** icon in the one-line map chrome (next to zoom / full screen), default **on**; browser `localStorage`. Count is in the **footer** + tooltip, not a toolbar badge |
 | **Layout** | Fleet on compact fan; toggle expands zone to outer discovery rings; apps / spine dual-layout with the zone |
-| **Labels** | Operator **map name** (e.g. `cctv1`) → scan hostname → IP — set in LAN Discovery **edit modal** (Network or Devices) |
+| **Labels** | Operator **map name** (e.g. `cctv1`) → scan hostname → IP — set in LAN Discovery **edit modal** (Devices List or Map) |
 | **Kind** | Heuristic or **operator override** badge (printer, Pi, camera, …) — never auto-promotes |
 | **Gateway** | Device map role **Gateway / router** labels the Router spine and sets network gateway IP; that IP is not double-drawn as a LAN chip |
 | **Dedup** | Same IP as a fleet server, already **linked**, or map-role gateway / network gateway IP → not a second discovery chip |
 | **Ignored** | Stay off the map |
-| **Tap** | Opens LAN Discovery **Network** edit modal with **← Hosts map** return after save/close |
+| **Tap** | Opens LAN Discovery edit modal with **← Hosts map** return after save/close |
 | **Requires** | nmap integration + devices from a scan |
+| **Stack expand** | Tap an **app path** to expand runtime containers/deps; fan anchors to the **visible** service chip (including when Discovered radar is **off** / compact layout) |
 
-LAN Discovery’s own **Network** tab remains a discovery-only subnet browser (**Show unlinked** ≠ Hosts radar). Device naming / type / known / ignore: [LAN Discovery — edit modal](lan-discovery.md#edit-modal-network--devices).
+LAN Discovery’s **Devices → Map** view remains a discovery-only subnet browser (**Show unlinked** ≠ Hosts radar). Device naming / type / known / ignore: [LAN Discovery — edit modal](lan-discovery.md#edit-modal-network--devices).
 
 ### Map chrome (Hosts + Path)
 
@@ -179,12 +181,13 @@ LAN Discovery’s own **Network** tab remains a discovery-only subnet browser (*
 ### Focus, zoom & mobile
 
 - **Hover** (mouse/stylus) any **host** (including Nomad with no mapped services), **Router**, **LAN**, **Internet**, **Public IP**, or **app path** to **preview** highlight.
-- **Click / tap** to **lock** focus — the path stays highlighted when the pointer leaves. Click the same node again or **Clear focus** to unlock.
+- **Click / tap** to **lock** focus — the path stays highlighted when the pointer leaves.
+- **Click the same node again** (desktop and mobile) or **Clear focus** to unlock — second click must not re-lock.
 - Hosts **without** mapped services are still selectable (node focus). App satellites focus the service **path**.
 - **Open host** / **Open in Kuma** appears when the focused node has a link (same-tab for fleet hosts; new tab for external Kuma).
 - **Copy path** copies the callout route string.
 - Maps: **pinch** / scroll-wheel zoom up to **500%** (SVG **viewBox** — stays sharp), **drag** to pan; see chrome table above.
-- Status dots: **green** = last Pi-hole sync ok · **amber** partial · **red** error · small amber ring = managed cert linked · Kuma **up/down** on Router / Public IP when bound.  
+- Status dots: **green** = last Pi-hole sync ok · **amber** partial · **red** error · small amber ring = managed cert linked · Kuma **up/down** on Router / Public IP when bound.
 - Path cards also show **Kuma coverage** (see below).
 - Deep links: `/dns/physical?focus=<service_id|#map>` and `/dns/logical?focus=…#map` (also from each path card / dashboard / Docker **Path map** pills). Deep links **auto-open** the SVG on mobile.
 - On **narrow screens**, maps default to the **list** (racks / flows). Use **View full map** for the SVG; use **Hide map** on the graph toolbar to return to list-first density.

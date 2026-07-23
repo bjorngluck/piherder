@@ -15,14 +15,20 @@ docker compose run --rm --no-deps \
 pip install --require-hashes -r requirements.lock.txt
 pip install --no-deps -e .
 pytest -q
-# Coverage (RC3 target ~50%; CI floor 30% + XML artifact)
+# Coverage (v0.9 freeze ~56% suite; CI fail-under 55 + XML artifact)
 pip install pytest-cov
-pytest -q --cov=app --cov-report=term-missing:skip-covered
+pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=55
 ```
 
 Unit tests live under `tests/` — no live SSH required for the main suite. Default `pytest` only collects `tests/` (not `e2e/`).
 
-Examples: `test_rbac.py`, `test_api_tokens.py`, `test_service_templates.py`, `test_backup_paths.py`, `test_herder_backup.py`, `test_job_exclusive.py` (no double OS/container jobs; stack job types), `test_request_ip_audit.py` (Caddy XFF + audit `client_ip`), `test_dns_fabric.py` (paths, Hosts/Path SVG, cloud/LAN classification, spine layout, **discovered outer chips without inflating fleet ring**, GET-safe view), `test_jwt_tokens.py` (PyJWT HS256), `test_server_job_lock.py` (backup mutex), `test_nmap_discovery.py` (parse/upsert/schedules/cleanup — **no live LAN scan in CI**), `test_nmap_device_classify.py` (kind heuristics, display names, fabric host payloads, stale/identity), `test_nmap_worker_guard.py` (`PIHERDER_NMAP_WORKER` / missing binary fence), `test_nmap_options_classify.py` (presets/port mode), `test_http_smoke.py` (TestClient auth gates + main shells on SQLite), …
+| Bar | Value (v0.9 train) |
+|-----|--------------------|
+| **Suite freeze target** | **≥ 55%** line on `app` — **~57.4%** reached |
+| **CI fail-under** | **55** (stepped 35 → 45 → 50 → 55; matches freeze bar) |
+| **v1.0** | Further depth planned — no 100% target |
+
+Examples: `test_rbac.py`, `test_api_tokens.py`, `test_service_templates.py`, **`test_template_source_badge.py`** (OOTB/Yours badges), **`test_from_host_extra_files.py`** (promtail-style sidecars + `NODE_NAME` / remote URL vars), `test_backup_paths.py`, `test_herder_backup.py`, `test_job_exclusive.py` (no double OS/container jobs; stack job types), `test_request_ip_audit.py` (Caddy XFF + audit `client_ip`), `test_dns_fabric.py` / `test_dns_fabric_core_coverage.py` (paths, Hosts/Path SVG, dual layout, spine), `test_certificates_deep.py` (edge Caddy, SSH deploy mocks, NPM renew), `test_scheduler_sync_coverage.py` (APScheduler MagicMock), `test_audit_format_branches.py`, `test_backup_status_helpers.py`, `test_jwt_tokens.py`, `test_server_job_lock.py`, `test_nmap_discovery.py` (**no live LAN scan in CI**), `test_nmap_device_classify.py`, `test_nmap_worker_guard.py`, `test_nmap_options_classify.py`, **`test_haos.py`** (HA CLI JSON envelope, disk facts, check/apply mocks — **no live HAOS in CI**), `test_server_wizard.py`, `test_http_smoke.py`, …
 
 ```bash
 # Network maps only
@@ -53,8 +59,12 @@ pytest e2e -q --browser chromium
 - **Compose set:** services `e2e-web` / `e2e-db` / `e2e-redis` in `docker-compose.e2e.yml` ([Compose sets](../docker/overview.md#compose-sets-same-folder-one-project-card))  
 - **Phase A (landed):** login, primary nav, Catalog tabs, theme toggle, logout — `e2e/test_shell_login.py`, `e2e/test_shell_nav.py`  
 - **Phase B (landed):** open wizard, identity→trust, save & exit, clear-password, advanced form — `e2e/test_add_server_wizard.py`  
+- **v0.9 chrome (landed):** Devices List\|Map, Network hub modals, coverage cards, Schedules/Runs mobile, **`test_e11_templates_ootb_badges`** (Templates OOTB badge), nmap shells — see `e2e/`  
 
-Related unit coverage: `tests/test_compose_sets.py`, `tests/test_container_annotations.py`, `tests/test_nest_projects.py`.
+Related unit coverage: `tests/test_compose_sets.py`, `tests/test_container_annotations.py`, `tests/test_nest_projects.py`, `tests/test_haos.py`.
+
+!!! note "Operator testing (v0.9)"
+    CI covers unit + Playwright on fixtures. **Live fleet validation** (real SSH, HAOS, from-host of `grafana-monitoring`, screenshot recapture) is done by the operator outside CI — not a substitute for green unit/E2E.
 
 ## CI
 
@@ -66,7 +76,8 @@ Related unit coverage: `tests/test_compose_sets.py`, `tests/test_container_annot
 
 ## Before a release
 
-1. Unit `pytest -q` green  
-2. **E2E** `pytest e2e -q` green (CI or local)  
-3. Manual smoke: register, add server, backup, template deploy, metrics, API token  
-4. See release checklist in `docs/RELEASE_v*.md` / [RELEASE_v0.8.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md)  
+1. Unit `pytest -q` green (incl. HAOS + template badge/from-host packs)  
+2. **E2E** `pytest e2e -q` green (CI or local; rebuild e2e image if app templates changed)  
+3. Manual / operator smoke (live fleet): add-server wizard path, HAOS System info + check, from-host with additional files, template deploy, backup, metrics, API token  
+4. Screenshots: replace PNGs on the [v0.9 recapture checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) (operator-owned; not in CI)  
+5. See release checklist in `docs/RELEASE_v*.md` / active plan [PLAN_v0.9.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) · last tag [RELEASE_v0.8.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md)

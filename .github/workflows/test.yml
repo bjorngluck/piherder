@@ -69,7 +69,7 @@ jobs:
             --cov=app \
             --cov-report=term-missing:skip-covered \
             --cov-report=xml \
-            --cov-fail-under=50
+            --cov-fail-under=55
 
       - name: Upload coverage XML
         if: always()

@@ -22,7 +22,7 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 ### Key Features
 
 - SSH key management with encrypted private keys
-- Backups, OS patching, container patching with schedules
+- Backups, OS patching (apt), **HAOS** hosts via SSH + `ha` CLI check/apply, container patching with schedules
 - Docker Compose browser, multi-file editing, **compose sets** (multiple compose files under one project), inventory cache
 - Service templates (deploy wizard, variables, preview/confirm)
 - Integrations: Uptime Kuma, Grafana, Pi-hole (v6), Nginx Proxy Manager + cert management
@@ -57,7 +57,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - Latest release: [docs/RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md) (RC3 — LAN Discovery · screenshots · quality)
 - Prior: [docs/RELEASE_v0.7.0.md](docs/RELEASE_v0.7.0.md) · plan [docs/PLAN_v0.8.0.md](docs/PLAN_v0.8.0.md) · [docs/FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md)
-- Next (**v0.9.0** operator UX): [docs/PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md)
+- Active (**v0.9.0** last pre-production — UX · quality · **HAOS path 1**): [docs/PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md) · [docs/FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md) · wiki [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - Host lifecycle design: [docs/FEATURE_PLAN_HOST_LIFECYCLE.md](docs/FEATURE_PLAN_HOST_LIFECYCLE.md)
 - API reference: [docs/API.md](docs/API.md)
 

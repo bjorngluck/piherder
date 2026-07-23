@@ -46,7 +46,7 @@ Without the worker, Overview shows **scanner offline**. Without the vuln pack, d
 3. Optional: enable **vuln scripts** on the integration when you want deep scans to use NSE vuln packs.  
 4. **Overview** → download / update **vulnerability database** if you plan deep vuln scans (Jobs page shows progress).  
 5. Run **Discovery** (who is up), then **Inventory** (ports — top N or **all ports**) so chips and kind heuristics have data.  
-6. **Network** (or Devices) — click a host → **edit modal**: **map name**, fix **device type**, mark **gateway** if the row is your router, **Mark known** for reviewed noise.  
+6. **Devices** tab — **List** or **Map** view — click a host → **edit modal**: **map name**, fix **device type**, mark **gateway** if the row is your router, **Mark known** for reviewed noise.  
 7. Open **Catalog → Network → Hosts map** — fleet + discovered together (**no per-device link required**). Use the **radar** toggle for outer chips; **1:1** fits the window (tight when discovered is off).  
 8. Link or promote only hosts you want to **manage**.  
 9. Optional: **Schedules** — discovery daily / inventory weekly; leave **disabled** until manual runs look good.
@@ -59,11 +59,15 @@ Journey: [Operator scenarios — Journey H](../getting-started/operator-scenario
 
 | Tab | Purpose |
 |-----|---------|
-| **Overview** | Worker status, CIDRs, vuln pack status, quick scan actions, pack update |
-| **Devices** | Hosts list + detail: **map name**, kind badge, ports, findings; filter / link / ignore / promote |
-| **Network** | Subnet-grouped discovery cards (LAN Discovery’s own map); filter + **Show unlinked** |
-| **Schedules** | Multiple named schedules (intensity + cron/interval + options) — create **and edit** |
-| **Runs** | Scan run history: **intensity**, status, hosts, ports, **Job** link, finished time (no run ID column) |
+| **Overview** | Worker status, CIDRs, vuln pack strip; **Scan now** / **Update vuln pack** modals; **Settings** link |
+| **Devices** | **List** and **Map** views (toggle): host list + filters, or subnet-grouped discovery cards; edit modal |
+| **Schedules** | Multiple named schedules — list-first; **card actions** on mobile; add/edit modal |
+| **Runs** | Scan history — **cards** on mobile, table on desktop; intensity, status, hosts, ports, Job link (no run ID) |
+
+!!! tip "List + Map in one place (v0.9)"
+    Devices and the old **Network** tab are **one Devices tab** with a **List | Map** toggle.
+    Bookmarks to `?tab=network` still open **Map** view.  
+    Overview no longer duplicates tab shortcuts (Devices / Network / Jobs buttons removed).
 
 <figure class="ph-figure" markdown>
   ![LAN Discovery Devices](../assets/screenshots/nmap-devices.png)
@@ -72,12 +76,12 @@ Journey: [Operator scenarios — Journey H](../getting-started/operator-scenario
 
 <figure class="ph-figure" markdown>
   ![LAN Discovery Network](../assets/screenshots/nmap-network.png)
-  <figcaption>Network tab — subnet-grouped discovery cards (Show unlinked).</figcaption>
+  <figcaption>Devices → Map view — subnet-grouped discovery cards (Show unlinked).</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
   ![LAN Discovery Schedules](../assets/screenshots/nmap-schedules.png)
-  <figcaption>Schedules — multiple named runs with create/edit options.</figcaption>
+  <figcaption>Schedules — list-first with create/edit modal.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
@@ -89,7 +93,7 @@ There are **two** maps:
 
 | Map | URL | What it shows |
 |-----|-----|----------------|
-| **LAN Discovery → Network** | `/integrations/{id}?tab=network` | Discovery-only subnet cards (all scanned devices) |
+| **LAN Discovery → Devices → Map** | `/integrations/{id}?tab=devices&view=map` (legacy `?tab=network`) | Discovery-only subnet cards (scanned devices) |
 | **Catalog → Network → Hosts map** | `/dns/physical` | **End-to-end**: Internet → router → LAN → **fleet + unlinked discoveries** + app paths |
 
 ---
@@ -157,9 +161,9 @@ Any discovered device (Pi, printer, IoT, router, TV…) can be labelled for the 
 
 | | |
 |--|--|
-| **Set** | **Network** or **Devices** → click host → **centered edit modal** → name / type / role → **Save and close** |
+| **Set** | **Devices** (List or Map) → click host → **centered edit modal** → name / type / role → **Save and close** |
 | **Survives** | Re-scans (nmap **hostname** may still update separately; override stays) |
-| **Shown on** | Hosts map chips, Devices list, Network cards; gateway → **Router** spine |
+| **Shown on** | Hosts map chips, Devices list, Map cards; gateway → **Router** spine |
 | **Name priority** | **display name** → scan hostname → IP |
 | **Save side-effect** | Saving map identity also **marks New → Known** (reviewed) |
 
@@ -188,7 +192,7 @@ PiHerder **guesses** a device kind from:
 | **Open ports / services** | e.g. 9100+631 → printer; 5000/5001 → NAS; 554 → camera; 445+3389 → Windows |
 | **Hostname / OS** | e.g. `pi-*`, `DiskStation`, “Windows …” |
 
-Shown as a **kind badge** on Devices list, edit modal, Network cards, Hosts map chips, and linked server soft-embed. Heuristic is **advisory only** — never auto-links or promotes.
+Shown as a **kind badge** on Devices list, edit modal, Map cards, Hosts map chips, and linked server soft-embed. Heuristic is **advisory only** — never auto-links or promotes.
 
 When discovery is wrong (e.g. OUI says printer but the box is a Pi), set **Device type** in the edit modal. Override is sticky across rescans; the auto guess is still shown as “auto was …”. An asterisk on the kind badge means **operator override**.
 
@@ -198,37 +202,53 @@ Run **inventory** (or detailed/deep) so ports feed the classifier; discovery alo
 
 ---
 
-## Edit modal (Network + Devices) {#edit-modal-network--devices}
+## Edit modal (Devices List + Map) {#edit-modal-network--devices}
 
-Click a **Network** card or a **Devices** row to open a **centered floating modal** (same shell as jobs / wait modals — not a bottom sheet). Stays on the tab you came from; no full-page jump.
+Click a **Map** card or a **List** row to open a **centered floating modal** (same shell as jobs / wait modals — not a bottom sheet). Stays on Devices (same view); no full-page jump.
 
 | Control | What it does |
 |---------|----------------|
 | **Map name** | Label for Hosts map chip / list title |
 | **Device type** | Sticky kind override, or **Auto** to clear |
 | **Map role** | **LAN device** (default) or **Gateway / router** |
-| **Save and close** | Writes identity, marks **Known** if was New, closes modal, restores scroll, brief focus flash on the card |
-| **Cancel / ✕** | Close without save |
-| **Mark known** | New/Stale → Known; **closes modal** (same as Save and close) |
+| **Save and close** | Writes identity, marks **Known** if was New, closes modal (return path below) |
+| **Cancel / ✕** | Close without save — follows the same return path |
+| **Mark known** | New/Stale → Known; **closes modal** |
 | **Mark new** | Known → New; closes modal (not for Linked — unlink first) |
 | **Ignore / Unignore** | Hide from maps / restore; closes modal |
 | **Link / Unlink** | Soft-attach to Server / detach; closes modal |
 | **Promote** | Add-host wizard **prefilled** with device IP (+ name when set) — still manual create |
+| **← Back to server** | When opened from a **fleet server** LAN chip (`return=server:{id}`) — Save/close returns to that host |
 | **← Hosts map** | When opened from Hosts chip (`return=hosts`); Save/lifecycle can return to `/dns/physical` |
 | **Open ports / findings** | Expandable detail (latest port snapshot + classified scripts) |
 
-Operators can mutate; viewers see read-only identity. Preference for filters is per browser; scroll position is restored after save so long Network grids do not jump to the top.
+### Where you land after close
+
+| Opened from | `return` query | After Save / Cancel / ✕ |
+|-------------|----------------|-------------------------|
+| Devices List or Map | *(none)* | Same Devices view (list or map), focus flash when applicable |
+| Hosts map chip | `hosts` | Catalog → Hosts map |
+| **Server detail LAN chip / strip** | `server:{id}` | **That fleet host** (`/servers/{id}`) — not Integrations |
+
+Operators can mutate; viewers see read-only identity. Map view restores scroll after save so long subnet grids do not jump to the top.
 
 ---
 
-## LAN Discovery Network tab
+## Devices → Map view {#devices-map-view}
 
 - Hosts grouped by **/24** (or IPv6 /64), with search filter.
-- **Click a host card** → edit modal (above). Stays on Network.
+- **List | Map** toggle on the Devices toolbar (shared stats strip).
+- **Click a host card** → edit modal (above). Stays on Map view.
 - **Show unlinked** (default on): include unlinked hosts (`new` / `known` / `stale`). Uncheck to keep only **linked** devices. Preference is browser-local (separate from Hosts map radar).
-- Toolbar shows counts (on map / subnets / open ports / new / linked) — filter does not force a Devices list scroll.
-- Port chips show the **latest snapshot per host** (from the last inventory/detailed/deep that recorded ports), **not** a merge of all historical scans. Discovery re-runs no longer wipe a prior port snapshot.
+- Toolbar shows counts (on map / subnets / open ports / new / linked).
+- Port chips show the **latest snapshot per host** (from the last inventory/detailed/deep that recorded ports), **not** a merge of all historical scans.
 - Card titles use **map name** when set.
+
+### Devices → List view
+
+- Shared filter bar: All / New / Known / Linked / Ignored / **Offline** (stale) + search.
+- Click a row → same edit modal.
+- Empty states when filters hide every host.
 
 ---
 
@@ -244,7 +264,11 @@ Unlinked discoveries appear **automatically** on the end-to-end Hosts map:
 | **Dedup** | Same IP as a fleet server, already **linked**, or map-role gateway → fleet / spine only |
 | **Ignored** | Stay off the map |
 | **Label** | Map name → hostname → IP |
-| **Tap chip** | Opens LAN Discovery device detail |
+| **Tap chip** | Opens LAN Discovery device edit modal (`return=hosts`) |
+
+### Fleet server LAN chip
+
+On **server detail**, a linked discovery device shows as a **link-style LAN pill** (accent border + arrow — not an inert status chip). Opening it loads the edit modal with **← Back to server**; Save / Cancel / ✕ return to that host.
 
 ### Hosts map toolbar (what each control does)
 

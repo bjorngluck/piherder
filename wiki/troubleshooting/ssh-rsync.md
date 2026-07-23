@@ -21,6 +21,7 @@ Fixes when PiHerder **cannot log into a host**, key deploy fails, or enabled fea
 
 - Non-root: need `sudo -n rsync` (passwordless) for protected paths.  
 - Root/HAOS: plain rsync path auto-detected.  
+- **HAOS:** install the **rsync** package on the appliance; enable **Terminal & SSH** and deploy the PiHerder key. Host deps probe **`ha` CLI** (not apt) when HA updates is on — [HAOS hosts](../day-to-day/haos-hosts.md). 
 - Path policy may **deny** the source — check allow/deny on Backups page.
 
 ## Docker commands fail after least-priv
