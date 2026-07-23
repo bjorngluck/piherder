@@ -43,7 +43,7 @@ Raise the **operator bar** and **confidence bar** for production:
 | **B2** | Devices + Network filter boxes consistent | M | **Done** — shared `nmap-filter-bar` chrome, search sizing, empty states, E2E |
 | **E1** | Server detail: LAN discovery less dominant | S–M | **Done** — collapsed strip after dest cards; richer chip (IP · ports) |
 | **E2** | Offline / unmatched devices | M | **Done** — stale UI = Offline flag + warning colour; never auto-delete; ignore stays manual |
-| **E3** | Overview cleanup | M | Scan now + vuln pack update → **modals**; page keeps status chips |
+| **E3** | Overview cleanup | M | **Done** — Scan now + vuln pack update → modals; page keeps stats + vuln strip |
 | **E5** | Schedules UX | M–L | **Schedules tab list-first**; actions → ⋯ menu (Docker pattern); add/edit → **modal**. Network tab stays map-first |
 
 **Product locks (from triage):**
@@ -184,5 +184,6 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-23 | **Locked as last pre-production:** UX consistency + unit **55%+** + E2E-on-touch + HA discovery stream; [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) |
 | 2026-07-23 | **B2** + **E1** landed: shared discovery filter bar; server-detail LAN strip collapsed after dest cards |
 | 2026-07-23 | **E2** offline flag: state pill/card/row colour; filter chip Offline; label Offline |
+| 2026-07-23 | **E3** Overview: Scan now + vuln pack → modals; status chips/strip remain on page |
 
 **End of plan** — living document; freeze into RELEASE notes at tag.
