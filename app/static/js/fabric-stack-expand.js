@@ -68,16 +68,53 @@
     return null;
   }
 
+  /**
+   * Hosts map paints nodes at full coords and applies translate() for compact
+   * (Discovered off). Rect attributes stay full — use dual data-* centres so
+   * runtime stack deps attach to the visible service chip.
+   */
+  function hostsCompactLayout() {
+    var cb = document.getElementById('hosts-map-show-discovered');
+    return !!(cb && !cb.checked);
+  }
+
   function anchorGeom(nodeG) {
     var rect = nodeG && nodeG.querySelector('rect');
+    var w = 140;
+    var h = 44;
     if (rect) {
+      w = parseFloat(rect.getAttribute('width') || '140') || 140;
+      h = parseFloat(rect.getAttribute('height') || '44') || 44;
+    }
+    var cx = NaN;
+    var cy = NaN;
+    if (nodeG && hostsCompactLayout() && nodeG.getAttribute('data-layout-dual') === '1') {
+      cx = parseFloat(nodeG.getAttribute('data-x-compact'));
+      cy = parseFloat(nodeG.getAttribute('data-y-compact'));
+    }
+    if (isNaN(cx) || isNaN(cy)) {
+      if (nodeG && nodeG.getAttribute('data-x-full') != null) {
+        cx = parseFloat(nodeG.getAttribute('data-x-full'));
+        cy = parseFloat(nodeG.getAttribute('data-y-full'));
+      }
+    }
+    if ((isNaN(cx) || isNaN(cy)) && rect) {
       var x = parseFloat(rect.getAttribute('x') || '0');
       var y = parseFloat(rect.getAttribute('y') || '0');
-      var w = parseFloat(rect.getAttribute('width') || '0');
-      var h = parseFloat(rect.getAttribute('height') || '0');
-      return { x: x + w / 2, y: y + h / 2, right: x + w, left: x, top: y, bottom: y + h };
+      cx = x + w / 2;
+      cy = y + h / 2;
     }
-    return { x: 820, y: 100, right: 910, left: 730, top: 80, bottom: 120 };
+    if (isNaN(cx) || isNaN(cy)) {
+      return { x: 820, y: 100, right: 910, left: 730, top: 80, bottom: 120 };
+    }
+    return {
+      x: cx,
+      y: cy,
+      right: cx + w / 2,
+      left: cx - w / 2,
+      top: cy - h / 2,
+      bottom: cy + h / 2,
+    };
   }
 
   function clearLayer(svg) {
