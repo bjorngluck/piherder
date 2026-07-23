@@ -81,17 +81,34 @@ def test_n9_lan_discovery_add_form_and_tabs(admin_page, base_url):
         expect(page.locator('[data-testid="nmap-map-search"]')).to_be_visible()
         expect(page.locator('[data-testid="nmap-map-show-discovered"]')).to_be_visible()
 
-    # Scan-now curated controls (overview)
+    # E3: Overview keeps status chips; Scan now / vuln pack open modals
     overview = page.locator('a[href*="tab=overview"]')
     if overview.count():
         overview.first.click()
         page.wait_for_load_state("domcontentloaded")
-    form = page.locator('[data-testid="nmap-scan-now-form"]')
-    if form.count():
+    expect(page.locator('[data-testid="nmap-overview-stats"]')).to_be_visible()
+    expect(page.locator('[data-testid="nmap-vuln-status-strip"]')).to_be_visible()
+    open_scan = page.locator('[data-testid="nmap-open-scan-modal"]')
+    if open_scan.count():
+        expect(open_scan).to_be_visible()
+        # Form is in a hidden modal until opened
+        expect(page.locator('[data-testid="nmap-scan-modal"]')).to_be_hidden()
+        open_scan.click()
+        expect(page.locator('[data-testid="nmap-scan-modal"]')).to_be_visible()
+        form = page.locator('[data-testid="nmap-scan-now-form"]')
         expect(form).to_be_visible()
         expect(page.locator('[data-testid="nmap-script-preset"]')).to_be_visible()
         expect(page.locator('[data-testid="nmap-timing"]')).to_be_visible()
         expect(page.locator('[data-testid="nmap-queue-scan"]')).to_be_visible()
+        page.locator('[data-testid="nmap-scan-modal-close"]').click()
+        expect(page.locator('[data-testid="nmap-scan-modal"]')).to_be_hidden()
+    open_vuln = page.locator('[data-testid="nmap-open-vuln-modal"]')
+    if open_vuln.count():
+        open_vuln.click()
+        expect(page.locator('[data-testid="nmap-vuln-modal"]')).to_be_visible()
+        expect(page.locator('[data-testid="nmap-vuln-update-form"]')).to_be_visible()
+        page.locator('[data-testid="nmap-vuln-modal-close"]').click()
+        expect(page.locator('[data-testid="nmap-vuln-modal"]')).to_be_hidden()
 
 
 def test_n9_viewer_cannot_create_nmap(page, base_url, e2e_credentials):
