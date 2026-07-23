@@ -187,5 +187,6 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-23 | **E3** Overview: Scan now + vuln pack → modals; status chips/strip remain on page |
 | 2026-07-23 | **E5** Schedules list-first + ⋯ menu + add/edit modal |
 | 2026-07-23 | **E7** Catalog Network hub: Host/External/Network/Adopt modals |
+| 2026-07-23 | **E10** Kuma coverage path/dep gaps → card rows (mobile-friendly) |
 
 **End of plan** — living document; freeze into RELEASE notes at tag.
