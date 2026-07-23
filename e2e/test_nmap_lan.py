@@ -110,6 +110,25 @@ def test_n9_lan_discovery_add_form_and_tabs(admin_page, base_url):
         page.locator('[data-testid="nmap-vuln-modal-close"]').click()
         expect(page.locator('[data-testid="nmap-vuln-modal"]')).to_be_hidden()
 
+    # E5: Schedules list-first + add modal
+    schedules_tab = page.locator('a[href*="tab=schedules"]').first
+    if schedules_tab.count():
+        schedules_tab.click()
+        page.wait_for_load_state("domcontentloaded")
+        expect(page.locator('[data-testid="nmap-schedules-toolbar"]')).to_be_visible()
+        add_btn = page.locator('[data-testid="nmap-schedule-add"]')
+        if add_btn.count():
+            expect(page.locator('[data-testid="nmap-schedule-modal"]')).to_be_hidden()
+            add_btn.click()
+            page.wait_for_load_state("domcontentloaded")
+            expect(page).to_have_url(re.compile(r"new=1"))
+            expect(page.locator('[data-testid="nmap-schedule-modal"]')).to_be_visible()
+            expect(page.locator('[data-testid="nmap-schedule-form"]')).to_be_visible()
+            expect(page.locator('[data-testid="nmap-schedule-name"]')).to_be_visible()
+            page.locator('[data-testid="nmap-schedule-modal-close"]').click()
+            page.wait_for_load_state("domcontentloaded")
+            expect(page.locator('[data-testid="nmap-schedule-modal"]')).to_be_hidden()
+
 
 def test_n9_viewer_cannot_create_nmap(page, base_url, e2e_credentials):
     """Viewer GET create path is 403 (operator+ only)."""

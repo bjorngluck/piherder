@@ -211,9 +211,10 @@ async def render_nmap_detail(request, session, user, integration: Integration):
     elif device_ports:
         device_ports = ports_with_findings(device_ports, [])
 
-    # Schedule edit form (?tab=schedules&schedule=ID)
+    # Schedule edit form (?tab=schedules&schedule=ID) or add modal (?tab=schedules&new=1)
     edit_schedule = None
     edit_schedule_opts: dict = {}
+    schedule_new = False
     sid_raw = (request.query_params.get("schedule") or "").strip()
     if tab == "schedules" and sid_raw:
         try:
@@ -224,6 +225,8 @@ async def render_nmap_detail(request, session, user, integration: Integration):
                 edit_schedule_opts = nmap_sched.parse_schedule_options(es)
         except ValueError:
             edit_schedule = None
+    if tab == "schedules" and not edit_schedule:
+        schedule_new = (request.query_params.get("new") or "").strip() == "1"
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -246,6 +249,7 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             "schedules": schedules,
             "edit_schedule": edit_schedule,
             "edit_schedule_opts": edit_schedule_opts,
+            "schedule_new": schedule_new,
             "network": network,
             "servers": servers,
             "device": device,
