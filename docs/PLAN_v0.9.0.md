@@ -87,8 +87,8 @@ North star: residual chrome from RELEASE_v0.8.0 known issue **#3**. Concrete che
 
 | ID | Item | Target |
 |----|------|--------|
-| **Q1** | Unit coverage freeze | **≥ 55%** line (`--cov=app`) |
-| **Q2** | CI fail-under | Raise from **35** toward **45–50** once suite is stable at 55% — **do not** set fail-under equal to freeze target overnight |
+| **Q1** | Unit coverage freeze | **≥ 55%** line (`--cov=app`) — **in progress ~50%** (baseline 49%; v0.9 pure pack landed) |
+| **Q2** | CI fail-under | **Raised 35 → 45** (step toward freeze; freeze target remains 55%, not fail-under) |
 | **Q3** | Critical-path depth | Prefer pure services: nmap residual, integrations registry/adapters, fabric/coverage, auth/RBAC edges, helpers for UX we touch |
 | **Q4** | E2E on touched UX | Each stream D/N/K/HA UI change: ≥1 Playwright test (tab, modal, filter, list chrome) |
 | **Q5** | HTTP smoke | Extend `test_http_smoke` / seeded surfaces for any new routes |
@@ -188,5 +188,6 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-23 | **E5** Schedules list-first + ⋯ menu + add/edit modal |
 | 2026-07-23 | **E7** Catalog Network hub: Host/External/Network/Adopt modals |
 | 2026-07-23 | **E10** Kuma coverage path/dep gaps → card rows (mobile-friendly) |
+| 2026-07-23 | **Q** unit coverage: `test_coverage_v09_pure.py` (schedules, edges, annotations, certs, registry, fabric IP…); CI fail-under **45**; suite ~**50%** |
 
 **End of plan** — living document; freeze into RELEASE notes at tag.
