@@ -56,6 +56,49 @@ def test_a4_catalog_tabs(admin_page, base_url):
         expect(page.locator("h1.ops-hero-title")).to_have_text(heading)
 
 
+def test_e7_network_hub_settings_modals(admin_page, base_url):
+    """E7: Catalog Network hub keeps paths; Host/External/Network open modals."""
+    page = admin_page
+    page.goto(f"{base_url}/dns", wait_until="domcontentloaded")
+    expect(page.locator("h1.ops-hero-title")).to_have_text("Network")
+    expect(page.locator('[data-testid="dns-hub-settings"]')).to_be_visible()
+    expect(page.locator("#service-paths")).to_be_visible()
+
+    # Host DNS modal open/close
+    expect(page.locator('[data-testid="dns-modal-host"]')).to_be_hidden()
+    page.locator('[data-testid="dns-open-host"]').click()
+    expect(page.locator('[data-testid="dns-modal-host"]')).to_be_visible()
+    page.locator('#dns-modal-host button:has-text("Close")').click()
+    expect(page.locator('[data-testid="dns-modal-host"]')).to_be_hidden()
+
+    # External + Network map entry points
+    page.locator('[data-testid="dns-open-external"]').click()
+    expect(page.locator('[data-testid="dns-modal-external"]')).to_be_visible()
+    page.locator('#dns-modal-external button:has-text("Close")').click()
+
+    page.locator('[data-testid="dns-open-network"]').click()
+    expect(page.locator('[data-testid="dns-modal-network"]')).to_be_visible()
+    page.locator('#dns-modal-network button:has-text("Close")').click()
+    expect(page.locator('[data-testid="dns-modal-network"]')).to_be_hidden()
+
+    adopt = page.locator('[data-testid="dns-open-adopt"]')
+    if adopt.count():
+        adopt.click()
+        expect(page.locator('[data-testid="dns-modal-adopt"]')).to_be_visible()
+        page.locator('#dns-modal-adopt button:has-text("Close")').click()
+        expect(page.locator('[data-testid="dns-modal-adopt"]')).to_be_hidden()
+
+
+def test_e10_kuma_coverage_shell(admin_page, base_url):
+    """E10: coverage page loads card layout shell (no horizontal table scroll required)."""
+    page = admin_page
+    page.goto(f"{base_url}/dns/coverage", wait_until="domcontentloaded")
+    expect(page.locator("#kuma-coverage")).to_be_visible()
+    expect(page.locator("body")).to_contain_text(re.compile(r"Kuma coverage|Uptime Kuma", re.I))
+    # Card lists may be empty (no gaps) — filters + stats still present
+    expect(page.get_by_role("link", name=re.compile(r"Hard gaps|All", re.I)).first).to_be_visible()
+
+
 def test_a5_theme_toggle(admin_page):
     """A5: Toggle theme once — document data-theme flips, no crash."""
     page = admin_page

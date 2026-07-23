@@ -55,7 +55,7 @@ Raise the **operator bar** and **confidence bar** for production:
 
 | ID | Item | Effort | Notes |
 |----|------|--------|-------|
-| **E7** | Network hub too busy | M–L | Host DNS · External DNS · Network map · Adopt → **modals/drawers**; hub = nav + service paths + entry cards; mobile-friendly |
+| **E7** | Network hub too busy | M–L | **Done** — Host/External/Network/Adopt → modals; hub = nav cards + stats + paths + settings strip |
 
 E8 already done in micro-pass; residual polish only if needed after E7.
 
@@ -63,7 +63,7 @@ E8 already done in micro-pass; residual polish only if needed after E7.
 
 | ID | Item | Effort | Notes |
 |----|------|--------|-------|
-| **E10** | Coverage tables not mobile-friendly | M | `dns_coverage.html`: card rows on narrow viewports; simplify bind row; keep audit logic |
+| **E10** | Coverage tables not mobile-friendly | M | **Done** — path + dep gaps as card rows; stacked bind forms; keep audit logic |
 
 ### Stream U — Cross-cutting UX consistency
 
@@ -186,5 +186,6 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-23 | **E2** offline flag: state pill/card/row colour; filter chip Offline; label Offline |
 | 2026-07-23 | **E3** Overview: Scan now + vuln pack → modals; status chips/strip remain on page |
 | 2026-07-23 | **E5** Schedules list-first + ⋯ menu + add/edit modal |
+| 2026-07-23 | **E7** Catalog Network hub: Host/External/Network/Adopt modals |
 
 **End of plan** — living document; freeze into RELEASE notes at tag.

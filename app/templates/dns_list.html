@@ -246,202 +246,298 @@
   {% endif %}
 </div>
 
-<div class="grid gap-5 lg:grid-cols-2 mb-5">
-  <div class="card p-4">
-    <h2 class="font-semibold text-sm mb-2">Host DNS (A records)</h2>
-    <p class="text-xs text-muted mb-3">
-      Set under each server <strong>Edit → General</strong>. Apps CNAME here (or use host identity when name = host).
-    </p>
-    <div class="table-scroll">
-      <table class="w-full text-sm">
-        <thead>
-          <tr class="text-left text-xs text-muted border-b border-border">
-            <th class="py-2 pr-2">Server</th>
-            <th class="py-2 pr-2">DNS name</th>
-            <th class="py-2 pr-2">IP</th>
-            <th class="py-2">Manage</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for h in view.hosts %}
-          <tr class="border-b border-border/60">
-            <td class="py-2 pr-2">
-              <a href="{{ h.href }}" class="text-accent hover:underline font-medium">{{ h.name }}</a>
-            </td>
-            <td class="py-2 pr-2 font-mono text-xs">{{ h.dns_name or '—' }}</td>
-            <td class="py-2 pr-2 font-mono text-xs">{{ h.ip or '—' }}</td>
-            <td class="py-2 text-xs">
-              {% if h.dns_manage_a %}<span class="text-success">Pi-hole A</span>{% else %}<span class="text-muted">off</span>{% endif %}
-            </td>
-          </tr>
-          {% else %}
-          <tr><td colspan="4" class="py-3 text-muted text-xs">No servers in fleet.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+{# E7: secondary settings in modals — hub stays nav + stats + service paths #}
+{% set _ext_n = (view.external_checklist|length) if view.external_checklist else 0 %}
+<div class="card p-3 mb-5" data-testid="dns-hub-settings">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+    <div>
+      <h2 class="font-semibold text-sm text-text m-0">DNS &amp; network settings</h2>
+      <p class="text-xs text-muted mb-0">Host A records, external checklist, LAN map, and Pi-hole adopt — open in a modal.</p>
     </div>
   </div>
-
-  <div class="card p-4">
-    <h2 class="font-semibold text-sm mb-2">External DNS checklist</h2>
-    <p class="text-xs text-muted mb-3">
-      Public providers (Cloudflare, etc.) are not automated yet.
-    </p>
-    {% if view.external_checklist %}
-    <ul class="space-y-2 text-sm">
-      {% for c in view.external_checklist %}
-      <li class="border border-border rounded p-2 font-mono text-xs">
-        <span class="text-muted">{{ c.type }}</span>
-        <strong class="text-text">{{ c.name }}</strong>
-        → {{ c.target }}
-        {% if c.note %}<span class="text-muted block mt-0.5 font-sans">{{ c.note }}</span>{% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    {% else %}
-    <p class="text-xs text-muted">No pending external checklist items.</p>
-    {% endif %}
+  <div class="flex flex-wrap gap-2">
+    <button type="button" class="btn btn-secondary text-sm min-h-11"
+            data-testid="dns-open-host"
+            onclick="openDnsHubModal('dns-modal-host')">
+      Host DNS
+      <span class="text-muted font-normal text-xs ml-1">{{ view.stats.hosts_named }}/{{ view.stats.hosts_total }}</span>
+    </button>
+    <button type="button" class="btn btn-secondary text-sm min-h-11"
+            data-testid="dns-open-external"
+            onclick="openDnsHubModal('dns-modal-external')">
+      External DNS
+      <span class="text-muted font-normal text-xs ml-1">{% if _ext_n %}{{ _ext_n }} item{{ 's' if _ext_n != 1 else '' }}{% else %}clear{% endif %}</span>
+    </button>
+    <button type="button" class="btn btn-secondary text-sm min-h-11"
+            data-testid="dns-open-network"
+            onclick="openDnsHubModal('dns-modal-network')">
+      Network map
+      <span class="text-muted font-normal text-xs ml-1 font-mono">{{ network_lan_subnet or 'LAN unset' }}</span>
+    </button>
     {% if can_mutate %}
-    <form method="post" action="/dns/base-domain" class="mt-4 pt-3 border-t border-border flex flex-wrap gap-2 items-end">
-      <div class="flex-1 min-w-[12rem]">
-        <label class="text-xs text-muted block mb-1">Base domain (name suggestions)</label>
-        <input name="domain" value="{{ dns_base_domain }}" placeholder="example.com"
-               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
-      </div>
-      <button type="submit" class="btn btn-secondary text-sm min-h-11">Save</button>
-    </form>
+    <button type="button" class="btn btn-secondary text-sm min-h-11"
+            data-testid="dns-open-adopt"
+            onclick="openDnsHubModal('dns-modal-adopt')">
+      Adopt from Pi-hole
+    </button>
     {% endif %}
   </div>
 </div>
 
-<div class="card p-4 mb-5">
-  <h2 class="font-semibold text-sm mb-1">Network map (LAN &amp; internet)</h2>
-  <p class="text-xs text-muted mb-3">
-    Used on the <a href="/dns/physical#map" class="text-accent hover:underline">Hosts map</a>:
-    <strong class="text-text">Internet</strong> → <strong class="text-text">Router</strong> →
-    <strong class="text-text">LAN</strong> → home hosts.
-    Hosts with a <strong>public IP</strong> (or outside the LAN CIDR) are
-    <strong>cloud</strong> and attach to Internet (e.g. Nomad VPS).
-    Without a CIDR, private (RFC1918) IPs stay on LAN; public IPs go to cloud.
-  </p>
-  {% if can_mutate %}
-  <form method="post" action="/dns/network" class="space-y-3">
-    <div class="grid gap-3 sm:grid-cols-3">
+{# ── Host DNS modal ── #}
+<div id="dns-modal-host" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
+     role="dialog" aria-modal="true" aria-labelledby="dns-modal-host-title"
+     data-testid="dns-modal-host"
+     onclick="if(event.target===this)closeDnsHubModal('dns-modal-host')">
+  <div class="modal-content card p-0 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+       role="document" onclick="event.stopPropagation()">
+    <header class="flex items-start justify-between gap-2 p-4 border-b border-border">
       <div>
-        <label class="text-xs text-muted block mb-1">LAN subnet (CIDR)</label>
-        <input name="lan_subnet" value="{{ network_lan_subnet }}" placeholder="192.168.86.0/24"
-               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+        <h3 id="dns-modal-host-title" class="text-base font-semibold text-text m-0">Host DNS (A records)</h3>
+        <p class="text-xs text-muted mb-0">Set under each server <strong class="text-text">Edit → General</strong>.</p>
       </div>
-      <div>
-        <label class="text-xs text-muted block mb-1">Gateway / router IP</label>
-        <input name="gateway_ip" value="{{ network_gateway_ip }}" placeholder="192.168.86.1"
-               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
-      </div>
-      <div>
-        <label class="text-xs text-muted block mb-1">Public (WAN) IP</label>
-        <input name="public_ip" value="{{ network_public_ip }}" placeholder="x.x.x.x"
-               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
-      </div>
-    </div>
-    <div class="grid gap-3 sm:grid-cols-2">
-      <div>
-        <label class="text-xs text-muted block mb-1">Router Uptime Kuma monitor</label>
-        <select name="gateway_kuma_external_id"
-                class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
-          <option value="">— none —</option>
-          {% for m in network_kuma_monitors or [] %}
-          <option value="{{ m.external_id }}"
-                  {% if m.external_id == network_gateway_kuma_external_id or m.name == network_gateway_kuma_external_id %}selected{% endif %}>
-            {{ m.label }}
-          </option>
-          {% endfor %}
-        </select>
-        <p class="text-[11px] text-muted mt-1">Shown on the Router node (status + open in Kuma).</p>
-      </div>
-      <div>
-        <label class="text-xs text-muted block mb-1">Public IP / WAN Kuma monitor</label>
-        <select name="public_kuma_external_id"
-                class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
-          <option value="">— none —</option>
-          {% for m in network_kuma_monitors or [] %}
-          <option value="{{ m.external_id }}"
-                  {% if m.external_id == network_public_kuma_external_id or m.name == network_public_kuma_external_id %}selected{% endif %}>
-            {{ m.label }}
-          </option>
-          {% endfor %}
-        </select>
-        <p class="text-[11px] text-muted mt-1">Optional ping/HTTP check for your WAN address.</p>
+      <button type="button" class="btn btn-secondary text-xs min-h-9" onclick="closeDnsHubModal('dns-modal-host')">Close</button>
+    </header>
+    <div class="p-4 overflow-y-auto">
+      <div class="table-scroll">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-muted border-b border-border">
+              <th class="py-2 pr-2">Server</th>
+              <th class="py-2 pr-2">DNS name</th>
+              <th class="py-2 pr-2">IP</th>
+              <th class="py-2">Manage</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in view.hosts %}
+            <tr class="border-b border-border/60">
+              <td class="py-2 pr-2">
+                <a href="{{ h.href }}" class="text-accent hover:underline font-medium">{{ h.name }}</a>
+              </td>
+              <td class="py-2 pr-2 font-mono text-xs">{{ h.dns_name or '—' }}</td>
+              <td class="py-2 pr-2 font-mono text-xs">{{ h.ip or '—' }}</td>
+              <td class="py-2 text-xs">
+                {% if h.dns_manage_a %}<span class="text-success">Pi-hole A</span>{% else %}<span class="text-muted">off</span>{% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="py-3 text-muted text-xs">No servers in fleet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
-    {% if network_kuma_monitors %}
-    <input type="hidden" name="kuma_integration_id" value="{{ network_kuma_integration_id }}">
-    {% else %}
-    <p class="text-[11px] text-muted">
-      No Kuma monitors cached yet —
-      <a href="/integrations" class="text-accent hover:underline">connect Uptime Kuma</a> and poll,
-      then pick monitors here for the router / public IP.
-    </p>
-    {% endif %}
-    <label class="flex items-start gap-2 min-h-11 text-sm">
-      <input type="checkbox" name="stack_inventory_down_alerts" value="1" class="mt-1"
-             {% if stack_inventory_down_alerts is not defined or stack_inventory_down_alerts %}checked{% endif %}>
-      <span>
-        <strong class="text-text">Alert when a Kuma-bound container is stopped</strong>
-        <span class="block text-[11px] text-muted">
-          After Docker inventory refresh: only containers with a service bind (not muted-unbound infra).
-          Uses Notifications · default on.
-        </span>
-      </span>
-    </label>
-    <div class="flex flex-wrap gap-2 items-center">
-      <button type="submit" class="btn btn-secondary text-sm min-h-11">Save network map</button>
-      <button type="submit" formaction="/dns/network/lookup-public-ip" formmethod="post"
-              class="btn btn-secondary text-sm min-h-11"
-              data-wait-title="Looking up public IP"
-              data-wait-message="Calling public IP service from this host…">
-        Lookup public IP now
-      </button>
-      {% if network_public_ip_checked_at %}
-      <span class="text-[11px] text-muted">Last lookup: {{ network_public_ip_checked_at }}</span>
+  </div>
+</div>
+
+{# ── External DNS modal ── #}
+<div id="dns-modal-external" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
+     role="dialog" aria-modal="true" aria-labelledby="dns-modal-external-title"
+     data-testid="dns-modal-external"
+     onclick="if(event.target===this)closeDnsHubModal('dns-modal-external')">
+  <div class="modal-content card p-0 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
+       role="document" onclick="event.stopPropagation()">
+    <header class="flex items-start justify-between gap-2 p-4 border-b border-border">
+      <div>
+        <h3 id="dns-modal-external-title" class="text-base font-semibold text-text m-0">External DNS checklist</h3>
+        <p class="text-xs text-muted mb-0">Public providers (Cloudflare, etc.) are not automated yet.</p>
+      </div>
+      <button type="button" class="btn btn-secondary text-xs min-h-9" onclick="closeDnsHubModal('dns-modal-external')">Close</button>
+    </header>
+    <div class="p-4 overflow-y-auto space-y-3">
+      {% if view.external_checklist %}
+      <ul class="space-y-2 text-sm">
+        {% for c in view.external_checklist %}
+        <li class="border border-border rounded p-2 font-mono text-xs">
+          <span class="text-muted">{{ c.type }}</span>
+          <strong class="text-text">{{ c.name }}</strong>
+          → {{ c.target }}
+          {% if c.note %}<span class="text-muted block mt-0.5 font-sans">{{ c.note }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="text-xs text-muted">No pending external checklist items.</p>
+      {% endif %}
+      {% if can_mutate %}
+      <form method="post" action="/dns/base-domain" class="pt-3 border-t border-border flex flex-wrap gap-2 items-end">
+        <div class="flex-1 min-w-[12rem]">
+          <label class="text-xs text-muted block mb-1">Base domain (name suggestions)</label>
+          <input name="domain" value="{{ dns_base_domain }}" placeholder="example.com"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+        </div>
+        <button type="submit" class="btn btn-secondary text-sm min-h-11">Save</button>
+      </form>
       {% endif %}
     </div>
-  </form>
-  {% else %}
-  <p class="text-sm font-mono">
-    LAN {{ network_lan_subnet or '—' }} · gateway {{ network_gateway_ip or '—' }} · public {{ network_public_ip or '—' }}
-  </p>
-  {% endif %}
+  </div>
+</div>
+
+{# ── Network map settings modal ── #}
+<div id="dns-modal-network" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
+     role="dialog" aria-modal="true" aria-labelledby="dns-modal-network-title"
+     data-testid="dns-modal-network"
+     onclick="if(event.target===this)closeDnsHubModal('dns-modal-network')">
+  <div class="modal-content card p-0 w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden"
+       role="document" onclick="event.stopPropagation()">
+    <header class="flex items-start justify-between gap-2 p-4 border-b border-border">
+      <div>
+        <h3 id="dns-modal-network-title" class="text-base font-semibold text-text m-0">Network map (LAN &amp; internet)</h3>
+        <p class="text-xs text-muted mb-0">
+          Used on the <a href="/dns/physical#map" class="text-accent hover:underline">Hosts map</a>:
+          Internet → Router → LAN → home hosts.
+        </p>
+      </div>
+      <button type="button" class="btn btn-secondary text-xs min-h-9" onclick="closeDnsHubModal('dns-modal-network')">Close</button>
+    </header>
+    <div class="p-4 overflow-y-auto">
+      {% if can_mutate %}
+      <form method="post" action="/dns/network" class="space-y-3">
+        <div class="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label class="text-xs text-muted block mb-1">LAN subnet (CIDR)</label>
+            <input name="lan_subnet" value="{{ network_lan_subnet }}" placeholder="192.168.86.0/24"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </div>
+          <div>
+            <label class="text-xs text-muted block mb-1">Gateway / router IP</label>
+            <input name="gateway_ip" value="{{ network_gateway_ip }}" placeholder="192.168.86.1"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </div>
+          <div>
+            <label class="text-xs text-muted block mb-1">Public (WAN) IP</label>
+            <input name="public_ip" value="{{ network_public_ip }}" placeholder="x.x.x.x"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+          </div>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label class="text-xs text-muted block mb-1">Router Uptime Kuma monitor</label>
+            <select name="gateway_kuma_external_id"
+                    class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+              <option value="">— none —</option>
+              {% for m in network_kuma_monitors or [] %}
+              <option value="{{ m.external_id }}"
+                      {% if m.external_id == network_gateway_kuma_external_id or m.name == network_gateway_kuma_external_id %}selected{% endif %}>
+                {{ m.label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-muted block mb-1">Public IP / WAN Kuma monitor</label>
+            <select name="public_kuma_external_id"
+                    class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+              <option value="">— none —</option>
+              {% for m in network_kuma_monitors or [] %}
+              <option value="{{ m.external_id }}"
+                      {% if m.external_id == network_public_kuma_external_id or m.name == network_public_kuma_external_id %}selected{% endif %}>
+                {{ m.label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        {% if network_kuma_monitors %}
+        <input type="hidden" name="kuma_integration_id" value="{{ network_kuma_integration_id }}">
+        {% else %}
+        <p class="text-[11px] text-muted">
+          No Kuma monitors cached yet —
+          <a href="/integrations" class="text-accent hover:underline">connect Uptime Kuma</a> and poll.
+        </p>
+        {% endif %}
+        <label class="flex items-start gap-2 min-h-11 text-sm">
+          <input type="checkbox" name="stack_inventory_down_alerts" value="1" class="mt-1"
+                 {% if stack_inventory_down_alerts is not defined or stack_inventory_down_alerts %}checked{% endif %}>
+          <span>
+            <strong class="text-text">Alert when a Kuma-bound container is stopped</strong>
+            <span class="block text-[11px] text-muted">After Docker inventory refresh. Notifications · default on.</span>
+          </span>
+        </label>
+        <div class="flex flex-wrap gap-2 items-center">
+          <button type="submit" class="btn btn-primary text-sm min-h-11">Save network map</button>
+          <button type="submit" formaction="/dns/network/lookup-public-ip" formmethod="post"
+                  class="btn btn-secondary text-sm min-h-11"
+                  data-wait-title="Looking up public IP"
+                  data-wait-message="Calling public IP service from this host…">
+            Lookup public IP now
+          </button>
+          {% if network_public_ip_checked_at %}
+          <span class="text-[11px] text-muted">Last lookup: {{ network_public_ip_checked_at }}</span>
+          {% endif %}
+        </div>
+      </form>
+      {% else %}
+      <p class="text-sm font-mono">
+        LAN {{ network_lan_subnet or '—' }} · gateway {{ network_gateway_ip or '—' }} · public {{ network_public_ip or '—' }}
+      </p>
+      {% endif %}
+    </div>
+  </div>
 </div>
 
 {% if can_mutate %}
-<div class="card p-4 mb-5" id="dns-adopt-card">
-  <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
-    <div>
-      <h2 class="font-semibold text-sm">Adopt existing DNS</h2>
-      <p class="text-xs text-muted mt-0.5">
-        Pi-hole CNAMEs already live — import maps them (duplicates = success).
-        Host identity = app name is the host A record (no CNAME).
-        Candidates load after the page paints so a slow Pi-hole does not block the hub.
-      </p>
+{# ── Adopt Pi-hole modal ── #}
+<div id="dns-modal-adopt" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
+     role="dialog" aria-modal="true" aria-labelledby="dns-modal-adopt-title"
+     data-testid="dns-modal-adopt"
+     onclick="if(event.target===this)closeDnsHubModal('dns-modal-adopt')">
+  <div class="modal-content card p-0 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+       role="document" onclick="event.stopPropagation()">
+    <header class="flex items-start justify-between gap-2 p-4 border-b border-border">
+      <div>
+        <h3 id="dns-modal-adopt-title" class="text-base font-semibold text-text m-0">Adopt existing DNS</h3>
+        <p class="text-xs text-muted mb-0">
+          Import Pi-hole CNAMEs that match fleet hosts/NPM (duplicates = success).
+        </p>
+      </div>
+      <button type="button" class="btn btn-secondary text-xs min-h-9" onclick="closeDnsHubModal('dns-modal-adopt')">Close</button>
+    </header>
+    <div class="p-4 overflow-y-auto space-y-3">
+      <div class="flex flex-wrap justify-end">
+        <form method="post" action="/dns/import-pihole"
+              data-confirm="Adopt all unmapped Pi-hole CNAMEs that match fleet hosts/NPM?"
+              data-confirm-label="Import all">
+          <button type="submit" class="btn btn-accent text-sm min-h-11">Import all from Pi-hole</button>
+        </form>
+      </div>
+      <div id="dns-candidates"
+           hx-get="/dns/candidates"
+           hx-trigger="load"
+           hx-swap="innerHTML"
+           hx-target="this">
+        <p class="text-xs text-muted flex items-center gap-2 min-h-11">
+          <span class="inline-block w-3.5 h-3.5 border-2 border-border border-t-accent rounded-full animate-spin" aria-hidden="true"></span>
+          Loading Pi-hole candidates…
+        </p>
+      </div>
     </div>
-    <form method="post" action="/dns/import-pihole"
-          data-confirm="Adopt all unmapped Pi-hole CNAMEs that match fleet hosts/NPM?"
-          data-confirm-label="Import all">
-      <button type="submit" class="btn btn-accent text-sm min-h-11">Import all from Pi-hole</button>
-    </form>
-  </div>
-  <div id="dns-candidates"
-       hx-get="/dns/candidates"
-       hx-trigger="load"
-       hx-swap="innerHTML"
-       hx-target="this">
-    <p class="text-xs text-muted flex items-center gap-2 min-h-11">
-      <span class="inline-block w-3.5 h-3.5 border-2 border-border border-t-accent rounded-full animate-spin" aria-hidden="true"></span>
-      Loading Pi-hole candidates…
-    </p>
   </div>
 </div>
 {% endif %}
+
+<script>
+function openDnsHubModal(id) {
+  var m = document.getElementById(id);
+  if (!m) return;
+  m.classList.remove('hidden');
+  m.classList.add('flex');
+}
+function closeDnsHubModal(id) {
+  var m = document.getElementById(id);
+  if (!m) return;
+  m.classList.add('hidden');
+  m.classList.remove('flex');
+}
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  ['dns-modal-host', 'dns-modal-external', 'dns-modal-network', 'dns-modal-adopt'].forEach(function (id) {
+    var m = document.getElementById(id);
+    if (m && !m.classList.contains('hidden')) closeDnsHubModal(id);
+  });
+});
+</script>
 
 {% include "partials/dns_stack_drawer.html" %}
 <script src="/static/js/fabric-mesh.js?v=20260721-fit1to1" defer></script>
