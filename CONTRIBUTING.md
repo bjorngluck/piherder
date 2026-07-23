@@ -20,7 +20,7 @@ All contributions are offered under the **[MIT License](LICENSE)**. By submittin
 ## Getting Started
 
 - Read the [README](README.md) and [SPEC.md](SPEC.md) for project goals and design principles.
-- Latest release: [v0.8.0](docs/RELEASE_v0.8.0.md). Next plan: **v0.9.0** operator UX — [PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md).
+- Latest release: [v0.8.0](docs/RELEASE_v0.8.0.md). Next plan: **v0.9.0** last pre-production (UX · quality · HA discovery) — [PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md).
 - Look for issues tagged `good first issue` or `help wanted`.
 
 ## Documentation
