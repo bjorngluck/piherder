@@ -440,7 +440,7 @@
           {% if d.mac_address %}<span class="text-[10px] font-mono opacity-80"> · {{ d.mac_address }}</span>{% endif %}
         </div>
       </div>
-      <div class="nmap-port-chips hidden sm:flex">
+      <div class="nmap-port-chips ph-only-sm-up ph-flex">
         {% if item.service_labels %}
           {% for lab in item.service_labels[:4] %}
           <span class="nmap-port-chip">{{ lab }}</span>
@@ -742,8 +742,9 @@
   {% endif %}
 </div>
 {% else %}
-{# Mobile: stacked cards with full-width actions (no horizontal scroll / cramped ⋯) #}
-<div class="space-y-2 sm:hidden" data-testid="nmap-schedules-cards">
+{# Mobile: stacked cards with full-width actions (no horizontal scroll / cramped ⋯).
+   Use ph-only-* not ``hidden sm:block`` — base .hidden is display:none !important. #}
+<div class="space-y-2 ph-only-below-sm" data-testid="nmap-schedules-cards">
   {% for s in schedules %}
   {% set opts = (schedule_options or {}).get(s.id) or {} %}
   <article class="card p-3 {% if es and es.id == s.id %}ring-1 ring-accent/40{% endif %}" data-testid="nmap-schedule-row">
@@ -779,7 +780,7 @@
   {% endfor %}
 </div>
 {# Desktop: compact table #}
-<div class="card overflow-hidden hidden sm:block" data-testid="nmap-schedules-list">
+<div class="card overflow-hidden ph-only-sm-up" data-testid="nmap-schedules-list">
   <table class="w-full text-sm">
     <thead>
       <tr class="text-left text-xs text-muted border-b border-border">
@@ -1016,8 +1017,9 @@
 {% if not runs %}
 <div class="card p-5 text-sm text-muted" data-testid="nmap-runs-empty">No scan runs yet.</div>
 {% else %}
-{# Mobile cards — no horizontal page scroll #}
-<div class="space-y-2 sm:hidden" data-testid="nmap-runs-cards">
+{# Mobile cards — no horizontal page scroll.
+   Use ph-only-* not ``hidden sm:block`` — base .hidden is display:none !important. #}
+<div class="space-y-2 ph-only-below-sm" data-testid="nmap-runs-cards">
   {% for r in runs %}
   <article class="card p-3">
     <div class="flex flex-wrap items-center gap-2 mb-1">
@@ -1039,7 +1041,7 @@
   {% endfor %}
 </div>
 {# Desktop table #}
-<div class="card overflow-hidden hidden sm:block" data-testid="nmap-runs-table">
+<div class="card overflow-hidden ph-only-sm-up" data-testid="nmap-runs-table">
   <table class="w-full text-sm">
     <thead>
       <tr class="text-left text-xs text-muted border-b border-border">

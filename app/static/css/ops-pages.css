@@ -1023,6 +1023,33 @@
   color: var(--color-accent);
   font-weight: 600;
 }
+/*
+ * Responsive show/hide for nmap Schedules/Runs (and similar).
+ * Do NOT use Tailwind ``hidden sm:block`` / ``hidden sm:flex`` together —
+ * base.html defines ``.hidden { display: none !important }`` which always
+ * wins over ``sm:block`` (desktop table stays invisible; mobile cards OK).
+ */
+.ph-only-below-sm {
+  display: block;
+}
+.ph-only-sm-up {
+  display: none !important;
+}
+.ph-only-sm-up.ph-flex {
+  display: none !important;
+}
+@media (min-width: 640px) {
+  .ph-only-below-sm {
+    display: none !important;
+  }
+  .ph-only-sm-up {
+    display: block !important;
+  }
+  .ph-only-sm-up.ph-flex {
+    display: flex !important;
+  }
+}
+
 /* Schedules tab: ⋯ row menu (E5) — keep panel on-screen */
 .nmap-sched-menu {
   position: relative;
