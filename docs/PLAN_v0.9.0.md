@@ -189,5 +189,6 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-23 | **E7** Catalog Network hub: Host/External/Network/Adopt modals |
 | 2026-07-23 | **E10** Kuma coverage path/dep gaps → card rows (mobile-friendly) |
 | 2026-07-23 | **Q** unit coverage: `test_coverage_v09_pure.py` (schedules, edges, annotations, certs, registry, fabric IP…); CI fail-under **45**; suite ~**50%** |
+| 2026-07-23 | **Q** `dns_fabric/core.py` deep pack (`test_dns_fabric_core_coverage.py`) — core ~**76%** (was ~42%) |
 
 **End of plan** — living document; freeze into RELEASE notes at tag.
