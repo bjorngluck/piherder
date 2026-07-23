@@ -70,6 +70,44 @@
   </div>
 </div>
 
+{# DNS & network settings — above long path list so operators see them without scrolling #}
+{% set _ext_n = (view.external_checklist|length) if view.external_checklist else 0 %}
+<div class="card p-3 mb-5" data-testid="dns-hub-settings">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+    <div>
+      <h2 class="font-semibold text-sm text-text m-0">DNS &amp; network settings</h2>
+      <p class="text-xs text-muted mb-0">Host A records, external checklist, LAN map, and Pi-hole adopt — open in a modal.</p>
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <button type="button" class="btn btn-secondary text-sm min-h-11"
+            data-testid="dns-open-host"
+            onclick="openDnsHubModal('dns-modal-host')">
+      Host DNS
+      <span class="text-muted font-normal text-xs ml-1">{{ view.stats.hosts_named }}/{{ view.stats.hosts_total }}</span>
+    </button>
+    <button type="button" class="btn btn-secondary text-sm min-h-11"
+            data-testid="dns-open-external"
+            onclick="openDnsHubModal('dns-modal-external')">
+      External DNS
+      <span class="text-muted font-normal text-xs ml-1">{% if _ext_n %}{{ _ext_n }} item{{ 's' if _ext_n != 1 else '' }}{% else %}clear{% endif %}</span>
+    </button>
+    <button type="button" class="btn btn-secondary text-sm min-h-11"
+            data-testid="dns-open-network"
+            onclick="openDnsHubModal('dns-modal-network')">
+      Network map
+      <span class="text-muted font-normal text-xs ml-1 font-mono">{{ network_lan_subnet or 'LAN unset' }}</span>
+    </button>
+    {% if can_mutate %}
+    <button type="button" class="btn btn-secondary text-sm min-h-11"
+            data-testid="dns-open-adopt"
+            onclick="openDnsHubModal('dns-modal-adopt')">
+      Adopt from Pi-hole
+    </button>
+    {% endif %}
+  </div>
+</div>
+
 {# ── Per-service paths (this page) ── #}
 <div class="card p-4 mb-5 fabric-topology" id="service-paths" data-fabric-root>
   <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
@@ -246,44 +284,6 @@
   {% endif %}
 </div>
 
-{# E7: secondary settings in modals — hub stays nav + stats + service paths #}
-{% set _ext_n = (view.external_checklist|length) if view.external_checklist else 0 %}
-<div class="card p-3 mb-5" data-testid="dns-hub-settings">
-  <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-    <div>
-      <h2 class="font-semibold text-sm text-text m-0">DNS &amp; network settings</h2>
-      <p class="text-xs text-muted mb-0">Host A records, external checklist, LAN map, and Pi-hole adopt — open in a modal.</p>
-    </div>
-  </div>
-  <div class="flex flex-wrap gap-2">
-    <button type="button" class="btn btn-secondary text-sm min-h-11"
-            data-testid="dns-open-host"
-            onclick="openDnsHubModal('dns-modal-host')">
-      Host DNS
-      <span class="text-muted font-normal text-xs ml-1">{{ view.stats.hosts_named }}/{{ view.stats.hosts_total }}</span>
-    </button>
-    <button type="button" class="btn btn-secondary text-sm min-h-11"
-            data-testid="dns-open-external"
-            onclick="openDnsHubModal('dns-modal-external')">
-      External DNS
-      <span class="text-muted font-normal text-xs ml-1">{% if _ext_n %}{{ _ext_n }} item{{ 's' if _ext_n != 1 else '' }}{% else %}clear{% endif %}</span>
-    </button>
-    <button type="button" class="btn btn-secondary text-sm min-h-11"
-            data-testid="dns-open-network"
-            onclick="openDnsHubModal('dns-modal-network')">
-      Network map
-      <span class="text-muted font-normal text-xs ml-1 font-mono">{{ network_lan_subnet or 'LAN unset' }}</span>
-    </button>
-    {% if can_mutate %}
-    <button type="button" class="btn btn-secondary text-sm min-h-11"
-            data-testid="dns-open-adopt"
-            onclick="openDnsHubModal('dns-modal-adopt')">
-      Adopt from Pi-hole
-    </button>
-    {% endif %}
-  </div>
-</div>
-
 {# ── Host DNS modal ── #}
 <div id="dns-modal-host" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
      role="dialog" aria-modal="true" aria-labelledby="dns-modal-host-title"
@@ -299,33 +299,20 @@
       <button type="button" class="btn btn-secondary text-xs min-h-9" onclick="closeDnsHubModal('dns-modal-host')">Close</button>
     </header>
     <div class="p-4 overflow-y-auto">
-      <div class="table-scroll">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-left text-xs text-muted border-b border-border">
-              <th class="py-2 pr-2">Server</th>
-              <th class="py-2 pr-2">DNS name</th>
-              <th class="py-2 pr-2">IP</th>
-              <th class="py-2">Manage</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for h in view.hosts %}
-            <tr class="border-b border-border/60">
-              <td class="py-2 pr-2">
-                <a href="{{ h.href }}" class="text-accent hover:underline font-medium">{{ h.name }}</a>
-              </td>
-              <td class="py-2 pr-2 font-mono text-xs">{{ h.dns_name or '—' }}</td>
-              <td class="py-2 pr-2 font-mono text-xs">{{ h.ip or '—' }}</td>
-              <td class="py-2 text-xs">
-                {% if h.dns_manage_a %}<span class="text-success">Pi-hole A</span>{% else %}<span class="text-muted">off</span>{% endif %}
-              </td>
-            </tr>
-            {% else %}
-            <tr><td colspan="4" class="py-3 text-muted text-xs">No servers in fleet.</td></tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      {# Stacked rows — no min-width table scroll on mobile #}
+      <div class="space-y-2" data-testid="dns-host-list">
+        {% for h in view.hosts %}
+        <div class="rounded-lg border border-border/70 p-2.5 flex flex-col gap-1 sm:grid sm:grid-cols-[1.2fr_1.4fr_1fr_auto] sm:items-center sm:gap-2">
+          <a href="{{ h.href }}" class="text-accent hover:underline font-medium text-sm">{{ h.name }}</a>
+          <span class="font-mono text-xs text-muted break-all">{{ h.dns_name or '—' }}</span>
+          <span class="font-mono text-xs text-muted">{{ h.ip or '—' }}</span>
+          <span class="text-xs">
+            {% if h.dns_manage_a %}<span class="text-success">Pi-hole A</span>{% else %}<span class="text-muted">off</span>{% endif %}
+          </span>
+        </div>
+        {% else %}
+        <p class="text-muted text-xs py-2 mb-0">No servers in fleet.</p>
+        {% endfor %}
       </div>
     </div>
   </div>
