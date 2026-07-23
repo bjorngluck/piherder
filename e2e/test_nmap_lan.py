@@ -196,7 +196,7 @@ def test_e4b_runs_and_schedules_mobile_cards(admin_page, base_url):
         and page.locator('[data-testid="nmap-schedules-empty"]').is_visible()
     ):
         expect(page.locator('[data-testid="nmap-schedules-cards"]')).to_be_visible()
-        # Desktop table hidden via sm:block
+        # Desktop table uses ph-only-sm-up (not hidden sm:block — base .hidden is !important)
         expect(page.locator('[data-testid="nmap-schedules-list"]')).to_be_hidden()
 
     page.locator('a[href*="tab=runs"]').first.click()
