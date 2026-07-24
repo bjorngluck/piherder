@@ -68,7 +68,7 @@ The **Desired files** card lists what PiHerder will write on redeploy / apply (c
 | **Accept host as desired** | Copy **live** host project files into this deployment’s desired state; bump config **Vn**; clear drift | Keep intentional host-only edits (e.g. cadvisor `8081` for a port conflict) without overwriting the host |
 | **Import host .env** | Pull host secrets into PiHerder encrypted store | Capture secret changes made offline on the host |
 | **Apply last known config** | Re-write stored desired state to the host and run compose | Rebuild after wipe / DR — **undoes** host-only edits |
-| **Open host file editor** | Multi-file host editor (compose, `.env`, discovered sidecars) | Emergency / advanced host YAML; prefer Accept host afterward if you keep the change |
+| **host file editor** (text link) | Multi-file host editor (compose, `.env`, discovered sidecars) | Emergency host YAML; prefer Accept host afterward if you keep the change |
 | **Restore data** | Lists matching backup sources → use server **Backups** dry-run/apply | Config redeploy ≠ data restore |
 
 !!! tip "Intentional host edit (example: different published port)"
