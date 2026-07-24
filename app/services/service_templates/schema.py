@@ -734,6 +734,75 @@ def redact_files_for_ui(
     return out
 
 
+def classify_template_file_path(path: str) -> str:
+    """UI kind for a stored project file path."""
+    p = (path or "").replace("\\", "/").strip()
+    base = p.split("/")[-1].lower()
+    if p.startswith("secrets/") or "/secrets/" in p:
+        return "secret"
+    if base == ".env" or base.endswith(".env") or base == ".env.example":
+        return "env"
+    if base in (
+        "docker-compose.yml",
+        "docker-compose.yaml",
+        "compose.yml",
+        "compose.yaml",
+    ) or "compose" in base and base.endswith((".yml", ".yaml")):
+        return "compose"
+    if base == "dockerfile" or base.startswith("dockerfile."):
+        return "dockerfile"
+    if base.endswith((".yml", ".yaml", ".toml", ".json", ".conf", ".cfg", ".ini")):
+        return "config"
+    return "file"
+
+
+def _file_sort_key(path: str) -> Tuple[int, str]:
+    kind = classify_template_file_path(path)
+    order = {
+        "compose": 0,
+        "env": 1,
+        "config": 2,
+        "dockerfile": 3,
+        "file": 4,
+        "secret": 5,
+    }.get(kind, 9)
+    return (order, path.lower())
+
+
+def file_details_for_ui(
+    files: Dict[str, str],
+    *,
+    open_first: bool = True,
+) -> List[Dict[str, Any]]:
+    """Structured list for deployment/template file browsers (path, kind, body, meta)."""
+    rows: List[Dict[str, Any]] = []
+    items = sorted((files or {}).items(), key=lambda kv: _file_sort_key(str(kv[0])))
+    for i, (path, body) in enumerate(items):
+        text = body if isinstance(body, str) else ("" if body is None else str(body))
+        kind = classify_template_file_path(str(path))
+        lines = 0 if not text else text.count("\n") + (0 if text.endswith("\n") else 1)
+        rows.append(
+            {
+                "path": str(path),
+                "kind": kind,
+                "kind_label": {
+                    "compose": "Compose",
+                    "env": "Env",
+                    "config": "Config",
+                    "dockerfile": "Dockerfile",
+                    "secret": "Secret",
+                    "file": "File",
+                }.get(kind, "File"),
+                "lines": lines,
+                "bytes": len(text.encode("utf-8")),
+                "body": text,
+                "empty": not bool(text.strip()),
+                "open": bool(open_first and i == 0),
+            }
+        )
+    return rows
+
+
 def files_for_db_storage(
     files: Dict[str, str],
     secrets_map: Dict[str, str],
@@ -753,8 +822,8 @@ def files_for_db_storage(
     for k in secrets_map or {}:
         # Keep key present for redeploy merge; value only in secrets_encrypted
         env[str(k)] = ""
-    if env:
-        out[".env"] = format_env_file(env, as_placeholders=False)
+    # Always persist .env (empty allowed) so deploy/drift expect the file on host
+    out[".env"] = format_env_file(env, as_placeholders=False) if env else ""
     return out
 
 

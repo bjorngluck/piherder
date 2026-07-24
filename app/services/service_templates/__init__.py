@@ -39,6 +39,7 @@ from .editor import (
 )
 from .from_host import list_host_projects_for_picker, pull_project_as_editor_form
 from .deploy import (
+    adopt_host_files_as_desired,
     annotate_projects_with_deployments,
     apply_last_known_config,
     apply_template_to_host,
@@ -92,6 +93,7 @@ __all__ = [
     "redact_secret_variable_dicts",
     "list_host_projects_for_picker",
     "pull_project_as_editor_form",
+    "adopt_host_files_as_desired",
     "annotate_projects_with_deployments",
     "apply_last_known_config",
     "apply_template_to_host",

@@ -24,6 +24,7 @@ from ..security.auth import (
 from ..services import app_settings as app_cfg
 from ..services.service_templates import (
     TemplateError,
+    adopt_host_files_as_desired,
     apply_last_known_config,
     apply_template_to_host,
     get_deployment,
@@ -41,7 +42,7 @@ from ..services.service_templates import (
 )
 from ..services.service_templates.deploy import decrypt_deployment_secrets
 from ..services.service_templates.editor import redact_secret_variable_dicts
-from ..services.service_templates.schema import redact_files_for_ui
+from ..services.service_templates.schema import file_details_for_ui, redact_files_for_ui
 from .templates_common import (
     router,
     _audit,
@@ -118,6 +119,7 @@ async def deployment_detail(
         from ..services.service_templates.deploy import merge_secrets_into_env_files
 
         masked_files = merge_secrets_into_env_files(masked_files, full_secrets)
+    file_details = file_details_for_ui(masked_files)
 
     checklist = []
     definition = None
@@ -184,6 +186,7 @@ async def deployment_detail(
             "secrets_map": secrets_map if secrets_visible else {},
             "secrets_visible": secrets_visible,
             "files_masked": masked_files,
+            "file_details": file_details,
             "checklist": checklist,
             "backup_matches": backup_matches,
             "msg": msg,
@@ -395,6 +398,55 @@ async def deployment_check_drift(
     return _redirect(
         f"/templates/deployments/{deployment_id}",
         msg=f"Drift check queued as job #{job.id}",
+    )
+
+
+@router.post("/templates/deployments/{deployment_id}/adopt-host")
+async def deployment_adopt_host(
+    request: Request,
+    deployment_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Accept live host files as desired state (clears intentional drift, e.g. port change)."""
+    dep = get_deployment(session, deployment_id)
+    if not dep:
+        raise HTTPException(404)
+    from ..models import Server
+
+    server = session.get(Server, dep.server_id)
+    if not server:
+        raise HTTPException(404, "Server missing")
+    try:
+        result = adopt_host_files_as_desired(session, server=server, deployment=dep)
+    except TemplateError as e:
+        return _redirect(f"/templates/deployments/{deployment_id}", error=str(e)[:200])
+    except Exception as e:
+        logger.exception("adopt host files dep=%s", deployment_id)
+        return _redirect(
+            f"/templates/deployments/{deployment_id}",
+            error=f"Adopt failed: {str(e)[:180]}",
+        )
+
+    files = result.get("files") or []
+    _audit(
+        session,
+        user,
+        "template.adopt_host",
+        server_id=server.id,
+        details=(
+            f"deployment={deployment_id} project={dep.project_name} "
+            f"config_v={result.get('config_version')} files={','.join(files[:12])}"
+        ),
+        status="success",
+    )
+    return _redirect(
+        f"/templates/deployments/{deployment_id}",
+        msg=(
+            f"Host files adopted as desired state (config V{result.get('config_version')}). "
+            f"Drift cleared. Files: {', '.join(files[:8])}"
+            + ("…" if len(files) > 8 else "")
+        ),
     )
 
 

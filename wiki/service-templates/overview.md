@@ -14,8 +14,9 @@ Copy-pasting `docker-compose.yml` across Pis drifts immediately. Templates give 
 - Parameterised ports, passwords, and volume modes  
 - Encrypted secret storage in PiHerder + locked-down host `.env`  
 - Desired state, redeploy, and drift detection after deploy  
+- **Desired files** browser, always-write `.env`, and **Accept host as desired** for intentional host-only edits  
 
-**Status:** Foundation **v0.4.0**; ops polish **v0.5.0**; deploy/redeploy as Jobs **v0.6.0**; drift check as Job **v0.7.0**; **v0.9** catalog **OOTB / Yours** badges + groups, from-host **additional files** and host vars — [PLAN_v0.9.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md).
+**Status:** Foundation **v0.4.0**; ops polish **v0.5.0**; deploy/redeploy as Jobs **v0.6.0**; drift check as Job **v0.7.0**; **v0.9** catalog **OOTB / Yours** badges + groups, from-host **additional files** and host vars, desired-file UX + adopt host — [PLAN_v0.9.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md).
 
 <figure class="ph-figure" markdown>
   ![Templates catalog](../assets/screenshots/templates-catalog.png)
@@ -34,7 +35,7 @@ Copy-pasting `docker-compose.yml` across Pis drifts immediately. Templates give 
 3. [Deploy](deploy.md) through variables → host → preview → wait modal.  
 4. Complete the post-deploy checklist (DNS, first login).  
 5. Optional: connect the matching [integration](../integrations/overview.md).  
-6. Later: open the **deployment** page for redeploy, drift, or import host `.env`.
+6. Later: open the **deployment** page for redeploy, drift, **Accept host as desired**, import host `.env`, or the host file editor.
 
 Full journey: [Operator scenarios — Journey D](../getting-started/operator-scenarios.md#journey-d).
 

@@ -133,15 +133,45 @@
     {% endif %}
   </div>
 
-  <div class="card p-4 mt-4">
-    <h2 class="font-semibold text-sm mb-2">Files in package</h2>
-    <ul class="text-sm font-mono list-disc list-inside">
-      {% for f in files %}
-      <li>{{ f }}</li>
-      {% else %}
-      <li class="text-muted">—</li>
+  <div class="card p-4 mt-4" id="template-files" data-testid="template-files">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <div>
+        <h2 class="font-semibold text-sm m-0">Files in package</h2>
+        <p class="text-xs text-muted mb-0 mt-1">
+          Compose, .env, and additional configs (e.g. promtail) stored with this template.
+        </p>
+      </div>
+      {% if can_mutate %}
+      <a href="/templates/{{ slug }}/edit#template-extra-files"
+         class="text-xs text-accent hover:underline">Edit files</a>
+      {% endif %}
+    </div>
+    {% if file_details %}
+    <ul class="space-y-2 mt-2">
+      {% for f in file_details %}
+      <li class="border border-border rounded-lg overflow-hidden">
+        <details {% if f.open %}open{% endif %}>
+          <summary class="flex flex-wrap items-center gap-2 px-3 py-2.5 cursor-pointer list-none select-none min-h-11">
+            <span class="status-pill feature-off shrink-0">{{ f.kind_label }}</span>
+            <span class="font-mono text-sm font-medium break-all">{{ f.path }}</span>
+            <span class="text-[11px] text-muted ml-auto shrink-0 tabular-nums">
+              {% if f.empty %}empty{% else %}{{ f.lines }} line{% if f.lines != 1 %}s{% endif %}{% endif %}
+            </span>
+          </summary>
+          <div class="border-t border-border">
+            {% if f.empty %}
+            <p class="text-xs text-muted p-3 mb-0">Empty file.</p>
+            {% else %}
+            <pre class="text-[11px] font-mono code-surface p-3 m-0 overflow-x-auto max-h-72 overflow-y-auto whitespace-pre-wrap break-all">{{ f.body }}</pre>
+            {% endif %}
+          </div>
+        </details>
+      </li>
       {% endfor %}
     </ul>
+    {% else %}
+    <p class="text-sm text-muted mb-0">No files listed.</p>
+    {% endif %}
   </div>
 
   {% if checklist %}

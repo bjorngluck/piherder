@@ -91,8 +91,8 @@ Only **one** stack mutation runs at a time per host (shared lane with Deploy and
 
 | Kind | Edit path | Why |
 |------|-----------|-----|
-| **Template-managed** | Desired state / redeploy on deployment page; compose editor gated | Template is source of truth |
-| **Free-form** | Full compose multi-file editor | Bring-your-own stacks |
+| **Template-managed** | Desired state / redeploy / **Accept host as desired** on deployment page; host file editor gated | Template desired state is source of truth |
+| **Free-form** | Full compose multi-file editor (compose, `.env`, sidecars, sets) | Bring-your-own stacks |
 
 ## Related
 

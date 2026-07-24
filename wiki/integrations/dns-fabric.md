@@ -89,21 +89,22 @@ On the Network hub stat strip, **By path type** shows counts for Host / App / NP
 
 ## Network hub layout
 
-The hub (`/dns`) is **path-first** (v0.9): nav + stats + **DNS & network settings** strip, then the long service-path list. Host A table, external checklist, map settings, and Pi-hole adopt open in **modals** (not buried below a long path list).
+The hub (`/dns`) is **path-first** (v0.9): destination **cards** + DNS/settings **cards**, then the long service-path list. Host A / external records share one **DNS records** modal (filter **All** by default). Map settings and Pi-hole adopt open in their own modals.
 
 | Block | What it is |
 |-------|------------|
-| **Nav cards** | Jump to Kuma coverage, Hosts map, Path map |
-| **Stat strip** | Hosts named · Mapped names · Via NPM · **By path type** (Host / App / NPM) |
-| **DNS & network settings** | Buttons → **Host DNS**, **External DNS**, **Network map**, **Adopt** modals (placed **above** paths so they are obvious) |
+| **Destination cards** | Jump to Kuma coverage, Hosts map, Path map (same compact card language as the rest of Catalog) |
+| **DNS & settings cards** | **DNS records** (Host A + External, one modal), **Map settings**, **Adopt** |
 | **Service paths** | Searchable path cards (name → layers → Stack / maps) |
 
 | Modal | Content |
 |-------|---------|
-| **Host DNS** | Fleet A records (stacked rows on mobile — no wide horizontal table) |
-| **External DNS** | Checklist for Cloudflare/etc. (not automated) |
-| **Network map** | LAN CIDR, gateway, public IP, optional Kuma binds |
+| **DNS records** | Unified list with filters: **All** (default) · **Host A** · **External** |
+| **Map settings** | LAN CIDR, gateway, public IP, optional Kuma binds (formerly “Network map” / “LAN map”) |
 | **Adopt** | Import / candidates from Pi-hole |
+
+!!! note "Runtime stack reorder"
+    On Hosts / Path maps, expand a stack and drag the **⋮⋮** handle to reorder containers (pointer drag — works inside `<details>`).
 
 ---
 

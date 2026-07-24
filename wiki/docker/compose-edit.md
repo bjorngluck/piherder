@@ -41,10 +41,13 @@ On **Docker → Full editor**, PiHerder loads when present:
 - `docker-compose.yml` (or compose.yaml) — **primary**  
 - override file (`docker-compose.override.yml`, …)  
 - **Compose set** files: `docker-compose.<name>.yml` / `compose.<name>.yml` (discovered in the project directory)  
-- `.env`  
+- `.env` (created empty on template deploy when the stack has no env keys yet)  
+- **Config / sidecar files** next to compose (e.g. `promtail-config.yaml`) when discovered as host file mounts or present on disk  
 - `Dockerfile`  
 
-Tabs edit each file (file badges in the chrome); **Save & Deploy** writes the full set and redeploys. Version history stores multi-file snapshots (merge-on-save so one file no longer wipes the others).
+For **template-managed** projects, tabs also fill any **desired-state** files that are not yet on the host (so you can create a missing sidecar from the editor).
+
+Tabs edit each file (file badges in the chrome — compose / env / config); **Save & Deploy** writes the full set and redeploys. Version history stores multi-file snapshots (merge-on-save so one file no longer wipes the others).
 
 **Word wrap:** toggle wrap in the editor. Line numbers stay aligned with wrapped lines (gutter heights remeasured after the overlay is forced to the editor size).
 
@@ -76,4 +79,13 @@ Creates a project directory under the Docker base dir and optional initial compo
 
 ## Template stacks
 
-If a project is **template-managed**, prefer the [deployment / redeploy](../service-templates/deploy.md) flow. Full compose edit is intentionally gated so desired state stays authoritative. The ⋯ menu labels advanced raw edit clearly.
+If a project is **template-managed**, prefer the [deployment page](../service-templates/deploy.md) for variables, secrets, redeploy, and drift.
+
+| Path | When |
+|------|------|
+| **Template settings…** (⋯ or gate modal) | Variables / secrets / **Save & redeploy** |
+| **Quick edit** / **Full editor…** | Raw host files — gate modal warns first; menu labels are plain (**Quick edit**, **Full editor…**, **Edit files**) |
+| Deployment **Open host file editor** | Same multi-file host editor, linked from the deployment page |
+| **Accept host as desired** | After an intentional host edit you want to keep — clears drift without rewriting the host |
+
+Saving in the host editor writes the host only; it does **not** update template desired state unless you **Accept host as desired** (or redeploy from the template package).

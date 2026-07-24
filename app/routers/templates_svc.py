@@ -571,6 +571,21 @@ async def template_detail(
     public_def["variables"] = variables
     raw_source = (row.source if row else definition.source) or "user"
     badge = source_badge(raw_source)
+    from ..services.service_templates.schema import file_details_for_ui, redact_files_for_ui
+
+    # Mask any secret-like content in template package files for viewers
+    secret_defaults = {
+        v.name: (v.default or "")
+        for v in definition.variables
+        if v.secret and (v.default or "")
+    }
+    file_bodies = redact_files_for_ui(
+        dict(definition.file_contents or {}),
+        secret_values=secret_defaults if not reveal else None,
+        secret_keys=[v.name for v in definition.variables if v.secret],
+        reveal=bool(reveal),
+    )
+    file_details = file_details_for_ui(file_bodies)
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="template_detail.html",
@@ -581,6 +596,7 @@ async def template_detail(
             "variables": variables,
             "checklist": [{"title": c.title, "body": c.body} for c in definition.checklist],
             "files": list(definition.file_contents.keys()),
+            "file_details": file_details,
             "source": raw_source,
             "source_kind": badge["kind"],
             "source_label": badge["label"],

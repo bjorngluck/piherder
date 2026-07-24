@@ -31,12 +31,19 @@
     After host wipe: <strong>Apply last known config</strong>, then restore data from Backups if needed.
   </p>
   {% if server %}
-  <div class="banner-warning border rounded p-3 text-sm mt-3 max-w-2xl">
-    <strong>Compose files are template-driven.</strong>
-    Prefer this page for settings changes. Raw compose edit is available as
-    <a href="/servers/{{ server.id }}/docker/compose/{{ dep.project_name | urlencode }}/edit"
-       class="text-accent underline">advanced compose editor</a>
-    (may cause drift until the next template redeploy).
+  <div class="banner-warning border rounded p-3 text-sm mt-3 max-w-2xl space-y-2">
+    <p class="mb-0">
+      <strong>Compose files are template-driven.</strong>
+      Prefer this page for settings changes. Intentional host-only edits (e.g. a different
+      published port) should be followed by <strong>Accept host as desired</strong> so drift clears.
+    </p>
+    <p class="mb-0">
+      <a href="/servers/{{ server.id }}/docker/compose/{{ dep.project_name | urlencode }}/edit"
+         class="btn btn-secondary min-h-11 text-sm inline-flex items-center no-underline"
+         data-nav-loading="Opening host file editor…"
+         data-testid="host-compose-editor-link">Open host file editor</a>
+      <span class="text-xs text-muted ml-2">compose · .env · sidecars on {{ server.name }}</span>
+    </p>
   </div>
   {% endif %}
 
@@ -71,6 +78,14 @@
             data-job-hold-close="reload">
         <button type="submit" class="btn btn-secondary min-h-11 text-sm">Check drift</button>
       </form>
+      <form method="post" action="/templates/deployments/{{ dep.id }}/adopt-host"
+            data-wait-title="Accepting host files"
+            data-wait-message="Reading host compose/.env/sidecars into desired state…"
+            onsubmit="return confirm('Accept live host files as desired state for this deployment? Config version will bump; drift will clear. Other hosts are not changed.');">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm"
+                title="Copy host compose/.env/sidecars into PiHerder desired state (for intentional host-only edits)"
+                data-testid="adopt-host-btn">Accept host as desired</button>
+      </form>
       <form method="post" action="/templates/deployments/{{ dep.id }}/migrate-env"
             data-wait-title="Importing .env"
             data-wait-message="Reading host .env into {{ ph_brand() }} encrypted store…">
@@ -81,16 +96,79 @@
             data-wait-title="Applying config"
             data-wait-message="Writing last known desired state and running compose…">
         <button type="submit" class="btn btn-accent min-h-11 text-sm"
-                title="Re-write stored files after host wipe">Apply last known config</button>
+                title="Re-write stored files after host wipe (overwrites intentional host edits)">Apply last known config</button>
       </form>
     </div>
     <p class="text-[11px] text-muted mt-2">
-      <strong>Check drift</strong> runs as a <strong>Job</strong> with live log (host compose/.env vs {{ ph_brand() }}).
-      <strong>Import host .env</strong> migrates secrets into encrypted SoT.
-      <strong>Apply last known config</strong> redeploys stored compose/.env (desired state).
+      <strong>Check drift</strong> — host vs desired (Job + live log).
+      <strong>Accept host as desired</strong> — keep intentional host edits (e.g. port 8081), clear drift for this host only.
+      <strong>Import host .env</strong> — secrets into encrypted SoT.
+      <strong>Apply last known</strong> — rewrite host from PiHerder (undoes host-only edits).
     </p>
   </div>
   {% endif %}
+
+  {# Desired files — compose, .env, promtail-style sidecars #}
+  <div class="card p-4 mt-4" id="desired-files" data-testid="deployment-files">
+    <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
+      <div>
+        <h2 class="font-semibold text-sm m-0">Desired files</h2>
+        <p class="text-xs text-muted mb-0 mt-1">
+          What {{ ph_brand() }} will write on redeploy / apply (config V{{ dep.config_version }}).
+          Includes compose, <code class="text-[10px]">.env</code>, and additional files (e.g. promtail).
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2 text-xs">
+        {% if dep.template_slug and can_mutate %}
+        <a href="/templates/{{ dep.template_slug }}/edit#template-extra-files"
+           class="text-accent hover:underline">Edit template files</a>
+        {% elif dep.template_slug %}
+        <a href="/templates/{{ dep.template_slug }}" class="text-accent hover:underline">Template catalog</a>
+        {% endif %}
+        {% if server %}
+        <a href="/servers/{{ server.id }}/docker/compose/{{ dep.project_name | urlencode }}/edit"
+           class="text-accent hover:underline"
+           data-nav-loading="Opening host file editor…"
+           data-testid="host-compose-editor-link-files"
+           title="Edit compose / .env / sidecars on the host">Host file editor</a>
+        {% endif %}
+      </div>
+    </div>
+    {% if file_details %}
+    <ul class="space-y-2 mt-3" data-testid="deployment-file-list">
+      {% for f in file_details %}
+      <li class="border border-border rounded-lg overflow-hidden" data-testid="deployment-file-{{ f.path }}">
+        <details class="group" {% if f.open %}open{% endif %}>
+          <summary class="flex flex-wrap items-center gap-2 px-3 py-2.5 cursor-pointer list-none select-none bg-surface hover:bg-bg/60 min-h-11">
+            <span class="status-pill feature-off shrink-0">{{ f.kind_label }}</span>
+            <span class="font-mono text-sm font-medium text-text min-w-0 break-all">{{ f.path }}</span>
+            <span class="text-[11px] text-muted ml-auto shrink-0 tabular-nums">
+              {% if f.empty %}empty{% else %}{{ f.lines }} line{% if f.lines != 1 %}s{% endif %} · {{ f.bytes }} B{% endif %}
+            </span>
+          </summary>
+          <div class="border-t border-border">
+            {% if f.empty %}
+            <p class="text-xs text-muted p-3 mb-0">No content stored for this path.</p>
+            {% else %}
+            <pre class="text-[11px] font-mono code-surface p-3 m-0 overflow-x-auto max-h-80 overflow-y-auto whitespace-pre-wrap break-all leading-relaxed">{{ f.body }}</pre>
+            {% endif %}
+          </div>
+        </details>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="text-[11px] text-muted mt-3 mb-0">
+      To change a sidecar (e.g. <code class="text-[10px]">promtail-config.yaml</code>): edit it on the
+      <strong>template</strong> (Additional files), save, then <strong>Save &amp; redeploy</strong> or
+      <strong>Apply last known config</strong> on each host.
+      {% if not secrets_visible and dep.secrets_encrypted %}
+      Secret values in <code class="text-[10px]">.env</code> stay masked until <strong>View secrets</strong>.
+      {% endif %}
+    </p>
+    {% else %}
+    <p class="text-sm text-muted mt-2 mb-0">No files stored on this deployment yet.</p>
+    {% endif %}
+  </div>
 
   {% if backup_matches %}
   <div class="card p-4 mt-4">
@@ -335,17 +413,15 @@
       {% endif %}
       {% endif %}
 
-      <h3 class="text-xs font-medium text-muted mt-3">Rendered files (preview)</h3>
-      {% for path, body in files_masked.items() %}
-      <div class="mb-2">
-        <div class="text-xs font-medium mb-1">{{ path }}</div>
-        <pre class="text-[11px] font-mono bg-surface border border-border p-2 rounded overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap break-all">{{ body }}</pre>
-      </div>
-      {% endfor %}
+      <p class="text-xs text-muted mt-3 mb-0">
+        File bodies are listed under
+        <a href="#desired-files" class="text-accent hover:underline">Desired files</a>
+        (compose, .env, additional configs).
+      </p>
 
       {% if can_mutate %}
       <button type="submit" class="btn btn-accent min-h-11 px-4 mt-2">Save &amp; redeploy</button>
-      <p class="text-[11px] text-muted">Creates config V{{ dep.config_version + 1 }} and writes locked-down <code class="text-xs">.env</code> on the host.
+      <p class="text-[11px] text-muted">Creates config V{{ dep.config_version + 1 }} and writes all desired files (compose, .env, sidecars) on the host.
         {% if not secrets_visible and dep.secrets_encrypted %}
         Existing host secrets are kept unless you unlock and change them.
         {% endif %}

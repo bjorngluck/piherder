@@ -97,7 +97,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 3 | [Deploy wizard](../service-templates/deploy.md) | Variables, host, preview; deploy runs as Job + live log (0.6+) |
 | 4 | Post-deploy checklist | DNS, first login, bind integrations |
 | 5 | Optional: [Kuma integration](../integrations/uptime-kuma.md) | Status in fleet Services |
-| 6 | Later: Check drift / redeploy | Desired state stays authoritative |
+| 6 | Later: Check drift / redeploy / Accept host as desired | Desired state stays authoritative; intentional host edits get adopted |
 
 **Done when:** Deployment page exists; Docker shows the project; secrets only via step-up if required.
 
@@ -242,7 +242,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | Catalog badges OOTB vs Yours | [Templates overview](../service-templates/overview.md) |
 | Deploy OOTB NPM / Kuma / Pi-hole / Grafana | [Deploy](../service-templates/deploy.md) · Journey D |
 | Redeploy, volumes, wait modal | [Deploy — Redeploy](../service-templates/deploy.md#redeploy-ops-deployment-page) |
-| Check drift / import host `.env` / apply last known config | [Deploy — ops](../service-templates/deploy.md#redeploy-ops-deployment-page) |
+| Check drift / Accept host as desired / import host `.env` / apply last known | [Deploy — ops](../service-templates/deploy.md#redeploy-ops-deployment-page) |
 | Pull existing stack + sidecar configs (promtail, etc.) | [From host](../service-templates/from-host.md) · Journey D2 |
 | View secrets (step-up 2FA) | [Secrets](../service-templates/secrets.md) |
 

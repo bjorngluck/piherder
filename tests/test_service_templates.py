@@ -9,6 +9,10 @@ import pytest
 from app.security.encryption import encrypt_str, decrypt_str
 from app.services.service_templates.schema import (
     TemplateError,
+    classify_template_file_path,
+    definition_from_storage_json,
+    definition_to_storage_json,
+    file_details_for_ui,
     generate_secret,
     load_template_dir,
     mask_secrets_in_files,
@@ -17,8 +21,6 @@ from app.services.service_templates.schema import (
     render_template_files,
     split_secrets,
     validate_project_name,
-    definition_to_storage_json,
-    definition_from_storage_json,
 )
 
 
@@ -40,6 +42,83 @@ def test_builtin_pack_loads():
         assert d.file_contents
         assert d.checksum()
     assert set(slugs) >= {"npm", "uptime-kuma", "pihole", "grafana"}
+
+
+def test_merge_secrets_always_includes_env_file():
+    from app.services.service_templates.deploy import (
+        ensure_env_file,
+        merge_secrets_into_env_files,
+    )
+
+    out = merge_secrets_into_env_files({"docker-compose.yml": "x: 1\n"}, {})
+    assert ".env" in out
+    assert out[".env"] == ""
+    out2 = merge_secrets_into_env_files(
+        {"docker-compose.yml": "x: 1\n"}, {"TOKEN": "abc"}
+    )
+    assert "TOKEN=abc" in out2[".env"]
+    assert ensure_env_file({})[".env"] == ""
+
+
+def test_diff_env_desired_vs_host_no_file_and_empty():
+    from app.services.service_templates.deploy import diff_env_desired_vs_host
+
+    # Empty / placeholder-only desired .env + no host file → in sync
+    assert (
+        diff_env_desired_vs_host("FOO=\n# comment\n", None, host_has_file=False)
+        is None
+    )
+    assert diff_env_desired_vs_host("", None, host_has_file=False) is None
+    # Empty desired + empty host file → in sync
+    assert diff_env_desired_vs_host("", "", host_has_file=True) is None
+
+    # Real desired keys + no host file → clear missing-file detail
+    d = diff_env_desired_vs_host(
+        "NODE_NAME=rpi5-1\nLOKI_URL=http://x\n",
+        None,
+        host_has_file=False,
+    )
+    assert d is not None
+    assert d["file"] == ".env"
+    assert "no .env file on host" in d["detail"]
+    assert "NODE_NAME" in d["detail"]
+
+    # Host has file with matching keys
+    assert (
+        diff_env_desired_vs_host(
+            "A=1\n",
+            "A=1\nB=extra\n",
+            host_has_file=True,
+        )
+        is None
+    )
+    # Host file missing a key
+    d2 = diff_env_desired_vs_host("A=1\nB=2\n", "A=1\n", host_has_file=True)
+    assert d2 is not None
+    assert "missing" in d2["detail"]
+
+
+def test_file_details_for_ui_orders_and_classifies():
+    assert classify_template_file_path("promtail-config.yaml") == "config"
+    assert classify_template_file_path("docker-compose.yml") == "compose"
+    assert classify_template_file_path(".env") == "env"
+    rows = file_details_for_ui(
+        {
+            "promtail-config.yaml": "server:\n  http: 9080\n",
+            "docker-compose.yml": "services:\n  x: {}\n",
+            ".env": "A=1\n",
+        }
+    )
+    assert [r["path"] for r in rows] == [
+        "docker-compose.yml",
+        ".env",
+        "promtail-config.yaml",
+    ]
+    assert rows[0]["open"] is True
+    assert rows[1]["open"] is False
+    assert rows[2]["kind"] == "config"
+    assert rows[2]["kind_label"] == "Config"
+    assert rows[2]["lines"] >= 2
 
 
 def test_render_uptime_kuma():
@@ -534,6 +613,73 @@ def test_redact_files_for_ui_masks_env_and_secrets_dir():
     assert "supersecret99" not in (stored.get(".env") or "")
     assert "supersecret99" not in (stored.get("docker-compose.yml") or "")
     assert "MYSQL_PASSWORD=" in (stored.get(".env") or "")
+
+
+def test_adopt_host_files_as_desired_updates_compose_and_clears_drift(monkeypatch):
+    """Intentional host edit (e.g. cadvisor 8081) can be accepted as desired state."""
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    from app.services.service_templates import deploy as deploy_mod
+
+    live = {
+        "docker-compose.yml": "services:\n  cadvisor:\n    ports:\n      - '8081:8080'\n",
+        ".env": "TOKEN=host-secret\nNODE_NAME=rpi5-3\n",
+        "promtail-config.yaml": "server:\n  http_listen_port: 9080\n",
+    }
+    monkeypatch.setattr(
+        deploy_mod,
+        "_project_path_for",
+        lambda server, name: f"/home/x/docker/{name}",
+    )
+    monkeypatch.setattr(
+        "app.services.docker_versions.get_project_live_files",
+        lambda server, path: live,
+    )
+
+    dep = SimpleNamespace(
+        id=6,
+        project_name="grafana-monitoring",
+        template_slug="grafana-monitoring",
+        config_version=4,
+        files_json=json.dumps(
+            {
+                "docker-compose.yml": "services:\n  cadvisor:\n    ports:\n      - '8080:8080'\n",
+                ".env": "TOKEN=\n",
+            }
+        ),
+        secrets_encrypted=encrypt_str(json.dumps({"TOKEN": "old"})),
+        variables_json=json.dumps({"NODE_NAME": "rpi5-3"}),
+        drift_status="drifted",
+        updated_at=None,
+    )
+    session = MagicMock()
+    server = SimpleNamespace(id=5, name="RPI5-3")
+
+    # get_template_definition may fail — fine; secrets still from encrypted store
+    monkeypatch.setattr(
+        deploy_mod,
+        "get_template_definition",
+        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no tmpl")),
+    )
+
+    result = deploy_mod.adopt_host_files_as_desired(
+        session, server=server, deployment=dep
+    )
+    assert result["ok"] is True
+    assert result["config_version"] == 5
+    assert dep.config_version == 5
+    assert dep.drift_status == "in_sync"
+    stored = json.loads(dep.files_json)
+    assert "8081:8080" in stored["docker-compose.yml"]
+    assert "promtail-config.yaml" in stored
+    # Secret value not stored cleartext in files_json
+    assert "host-secret" not in (stored.get(".env") or "")
+    assert "TOKEN=" in (stored.get(".env") or "")
+    secrets = json.loads(decrypt_str(dep.secrets_encrypted))
+    assert secrets.get("TOKEN") == "host-secret"
+    session.add.assert_called()
+    session.commit.assert_called()
 
 
 def test_annotate_projects_with_template_deployments():
