@@ -61,7 +61,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 | `certificates-list.png` | Catalog → Certificates | High | **Refresh** — setup CTA / map status chips |
 | `dns-physical.png` | Network Hosts map | High | Spot-check (radar / dual layout if discovery on) |
 | `dns-logical.png` | Network Path map | Medium | **Refresh** — stack expand / topology |
-| `dns-hub.png` *(new or crop)* | Catalog → Network hub (`/dns`) | Medium | Optional: show **By path type** stats + service paths (not “Path mix”) |
+| `dns-hub.png` *(new or crop)* | Catalog → Network hub (`/dns`) | Medium | Destination cards + DNS/settings cards + service paths; recapture after 2026-07-24 hub polish |
 | `services-fleet.png` | `/services` grid | Medium | Spot-check |
 | `settings-status.png` | Settings → Status | Medium | Spot-check |
 | `account-push.png` | PWA / push | Medium | Spot-check |

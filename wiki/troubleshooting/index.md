@@ -19,7 +19,8 @@ RC line still has rough edges. Most failures cluster around SSH path, Celery/bac
 | From-host missing config sidecar / host labels | [From host](../service-templates/from-host.md) · [Templates troubleshooting](templates-docker.md#from-host-pull-incomplete) |
 | Reboot hangs / UI stuck after reboot | [Updates — Reboot](../day-to-day/updates-and-patching.md#reboot) |
 | Same patch job appears twice | [Jobs — Exclusive jobs](../day-to-day/jobs-audit-notifications.md#exclusive-jobs-one-per-type-per-host) · [Multi-worker](../operations/multi-worker.md) |
-| Full editor link does nothing | [Compose edit](../docker/compose-edit.md#opening-the-editor) — use ⋯ **Full editor…** |
+| Full editor link does nothing | [Compose edit](../docker/compose-edit.md#opening-the-editor) — use ⋯ **Full editor…** or deployment **Open host file editor** |
+| Drift after intentional host edit (keep change) | [Deploy — Accept host as desired](../service-templates/deploy.md#redeploy-ops-deployment-page) |
 | Fleet Services empty | [Dashboard & Services](../day-to-day/dashboard-and-services.md) — bind Kuma monitors |
 | Network map hosts not linked / cloud wrong | [Network maps](../integrations/dns-fabric.md) — set LAN/gateway/public IP; hard-refresh after rebuild |
 | Hosts map focus won’t clear on second click | Hard-refresh for latest `fabric-mesh.js`; click same node again or **Clear focus** |
@@ -30,7 +31,7 @@ RC line still has rough edges. Most failures cluster around SSH path, Celery/bac
 | Dashboard NPM hosts ≠ NPM proxy count | Dashboard uses poll `proxy_host_count`; poll NPM integration if stale |
 | Cert deploy / renew failed | [Certificates](../integrations/certificates.md) · Jobs + Audit |
 | `sudo: I'm sorry piherder…` / post-deploy denied | [Cert sudo denied](../integrations/certificates.md#cert-sudo-denied) — add NOPASSWD; match post-deploy exactly |
-| Drift after host edit | [Deploy — Check drift](../service-templates/deploy.md#redeploy-ops-deployment-page) |
+| Drift after host edit (detect / revert) | [Deploy — Check drift / Apply last known](../service-templates/deploy.md#redeploy-ops-deployment-page) |
 | Stack unhealthy after upgrade | [Status](../operations/status.md) · [Upgrades](../operations/upgrades.md) |
 | Cannot open Settings tabs / herder restore | [Roles](../account-security/roles.md) — control plane is **admin only** |
 | First boot asks to register / no default password | Expected — [First login](../getting-started/first-login.md) |

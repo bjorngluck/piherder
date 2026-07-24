@@ -267,6 +267,7 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 - [x] Import own template; contribute via Issues/PR (docs)
 - [x] Manual DNS checklist in post-deploy steps
 - [x] Host secrets model: locked-down `.env` (`chmod 600`); PiHerder encrypted SoT (home production)
+- [x] v0.9 ops: desired-files UI; always-write empty `.env`; host editor sidecars; **Accept host as desired**
 
 ### Phase 6 → v0.5.0 (ops + polish + first RC)
 

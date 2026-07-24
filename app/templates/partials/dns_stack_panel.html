@@ -254,10 +254,11 @@
     <li class="fabric-stack-item fabric-stack-item--{{ c.role }} {% if not c.running %}is-stopped{% endif %}"
         id="stack-ct-{{ ckey | replace('/', '-') }}"
         data-stack-container="{{ ckey }}"
-        draggable="{{ 'true' if can_mutate else 'false' }}">
+        draggable="false">
       {% if can_mutate %}
-      <span class="fabric-stack-drag-handle" title="Drag to reorder" aria-label="Drag to reorder {{ ckey }}"
-            data-stack-drag-handle draggable="true">⋮⋮</span>
+      <button type="button" class="fabric-stack-drag-handle" title="Drag to reorder"
+              aria-label="Drag to reorder {{ ckey }}"
+              data-stack-drag-handle draggable="false">⋮⋮</button>
       <span class="fabric-stack-order-badge" data-stack-order-badge title="Map order">{{ loop.index }}</span>
       {% elif p.has_custom_order %}
       <span class="fabric-stack-order-badge" data-stack-order-badge title="Map order">{{ loop.index }}</span>

@@ -37,17 +37,33 @@ logger = logging.getLogger(__name__)
 def merge_secrets_into_env_files(
     files: Dict[str, str], secrets_map: Dict[str, str]
 ) -> Dict[str, str]:
-    """Ensure .env holds secret keys for Compose; drop ./secrets/* host files."""
+    """Ensure .env holds secret keys for Compose; drop ./secrets/* host files.
+
+    Always includes a ``.env`` key (possibly empty) so deploy creates the file on
+    the host even when the stack does not use environment variables yet.
+    """
     from .harden import parse_env_file, format_env_file
 
     out = {k: v for k, v in (files or {}).items() if not str(k).startswith("secrets/")}
-    if not secrets_map:
-        return out
     env_map = parse_env_file(out.get(".env") or "")
-    for sk, sv in secrets_map.items():
+    for sk, sv in (secrets_map or {}).items():
         if sv is not None and str(sv) != "":
             env_map[sk] = str(sv)
-    out[".env"] = format_env_file(env_map, as_placeholders=False)
+    # Always write .env on deploy (empty file is fine — avoids drift / missing file)
+    if env_map:
+        out[".env"] = format_env_file(env_map, as_placeholders=False)
+    else:
+        out[".env"] = out.get(".env") if out.get(".env") is not None else ""
+        if out[".env"] is None:
+            out[".env"] = ""
+    return out
+
+
+def ensure_env_file(files: Dict[str, str]) -> Dict[str, str]:
+    """Guarantee a ``.env`` entry exists for host write (empty string allowed)."""
+    out = dict(files or {})
+    if ".env" not in out or out[".env"] is None:
+        out[".env"] = ""
     return out
 
 
@@ -298,8 +314,8 @@ def apply_template_to_host(
     public, secrets_map = split_secrets(definition, merged)
     checklist = render_checklist(definition, merged)
 
-    # Home-production model: secrets encrypted in PiHerder; host uses locked-down .env.
-    files = merge_secrets_into_env_files(files, secrets_map)
+    # Home-production model: secrets encrypted in PiHerder; host always gets .env (maybe empty).
+    files = ensure_env_file(merge_secrets_into_env_files(files, secrets_map))
 
     base = docker_base_expanded(server)
     project_path = f"{base}/{project}".replace("//", "/")
@@ -419,7 +435,7 @@ def redeploy_desired_state(
                     env_lines.append(line)
             files[".env"] = "\n".join(env_lines) + ("\n" if env_lines else "")
 
-    files = merge_secrets_into_env_files(files, secrets_map)
+    files = ensure_env_file(merge_secrets_into_env_files(files, secrets_map))
 
     base = docker_base_expanded(server)
     project_path = f"{base}/{deployment.project_name}".replace("//", "/")
@@ -529,6 +545,63 @@ def _project_path_for(server: Server, project_name: str) -> str:
     return f"{base}/{project_name}".replace("//", "/")
 
 
+def diff_env_desired_vs_host(
+    want_body: str,
+    host_body: Optional[str],
+    *,
+    host_has_file: bool,
+) -> Optional[Dict[str, str]]:
+    """Compare desired .env to host. Returns a diff row or None if in sync.
+
+    Empty desired values (placeholder keys with no secrets filled) do not force a
+    host .env. Host may have extra keys without counting as drift.
+    """
+    from .harden import parse_env_file
+
+    want_map = parse_env_file(want_body or "")
+    # Only enforce keys that have a non-empty desired value (after secret merge)
+    meaningful = {
+        k: str(v)
+        for k, v in want_map.items()
+        if str(v or "").strip() != ""
+    }
+    have_map = parse_env_file(host_body or "") if host_has_file else {}
+
+    if not meaningful:
+        # Desired has nothing real to write — no .env on host is fine
+        return None
+
+    if not host_has_file:
+        sample = ", ".join(list(meaningful.keys())[:6])
+        return {
+            "file": ".env",
+            "detail": (
+                f"no .env file on host "
+                f"({len(meaningful)} key(s) expected: {sample})"
+            ),
+        }
+
+    missing = [k for k in meaningful if k not in have_map]
+    changed = [
+        k
+        for k in meaningful
+        if k in have_map and str(meaningful[k]) != str(have_map[k])
+    ]
+    if not missing and not changed:
+        return None
+    return {
+        "file": ".env",
+        "detail": (
+            f"keys missing={len(missing)} changed={len(changed)}"
+            + (
+                f" ({', '.join((missing + changed)[:6])})"
+                if (missing or changed)
+                else ""
+            )
+        ),
+    }
+
+
 def check_deployment_drift(
     session: Session,
     *,
@@ -582,28 +655,15 @@ def check_deployment_drift(
         if key.startswith("secrets/"):
             continue
         want = desired_full.get(key) or ""
-        # .env: compare keys that exist in desired (host may have extra)
+        # .env: only keys with real values; missing host file called out clearly
         if key == ".env":
-            from .harden import parse_env_file
-
-            want_map = parse_env_file(want)
-            have_map = parse_env_file(live.get(".env") or "")
-            missing = [k for k in want_map if k not in have_map]
-            changed = [
-                k
-                for k in want_map
-                if k in have_map and str(want_map[k]) != str(have_map[k])
-            ]
-            if missing or changed:
-                diffs.append(
-                    {
-                        "file": ".env",
-                        "detail": (
-                            f"keys missing={len(missing)} changed={len(changed)}"
-                            + (f" ({', '.join((missing + changed)[:6])})" if (missing or changed) else "")
-                        ),
-                    }
-                )
+            env_diff = diff_env_desired_vs_host(
+                want,
+                live.get(".env"),
+                host_has_file=".env" in live,
+            )
+            if env_diff:
+                diffs.append(env_diff)
             continue
         have = live.get(key)
         if have is None:
@@ -689,6 +749,80 @@ def check_all_deployments_drift(session: Session) -> Dict[str, Any]:
             logger.warning("drift sweep dep=%s: %s", dep.id, e)
             results["errors"] += 1
     return results
+
+
+def adopt_host_files_as_desired(
+    session: Session,
+    *,
+    server: Server,
+    deployment: StackDeployment,
+) -> Dict[str, Any]:
+    """Copy live host project files into this deployment's desired state.
+
+    Use after an intentional host-only change (e.g. cadvisor port 8081) so drift
+    clears without overwriting the host. Secrets stay in secrets_encrypted;
+    compose / sidecars / .env structure are taken from the host.
+    """
+    from ..docker_versions import get_project_live_files
+    from .harden import parse_env_file
+
+    path = _project_path_for(server, deployment.project_name)
+    try:
+        live = get_project_live_files(server, path) or {}
+    except Exception as e:
+        raise TemplateError(f"Could not read host files at {path}: {e}") from e
+    if not live:
+        raise TemplateError(
+            f"No project files on host at {path} — nothing to adopt"
+        )
+
+    secrets_map = decrypt_deployment_secrets(deployment)
+    # Refresh known secret values from host .env when present
+    host_env = parse_env_file(live.get(".env") or "")
+    secret_name_set = set(secrets_map.keys())
+    try:
+        if deployment.template_slug:
+            definition = get_template_definition(session, slug=deployment.template_slug)
+            for v in definition.variables:
+                if v.secret or v.type == "password":
+                    secret_name_set.add(v.name)
+    except Exception:
+        pass
+    for k in list(secret_name_set):
+        if k in host_env and str(host_env[k]).strip() != "":
+            secrets_map[k] = str(host_env[k])
+
+    # Also treat common secret-looking keys present on host as secrets
+    for k, val in host_env.items():
+        if k in secrets_map:
+            continue
+        if k.endswith(("_PASSWORD", "_SECRET", "_TOKEN", "_KEY")) and str(val).strip():
+            secrets_map[k] = str(val)
+
+    storage_files = files_for_db_storage(dict(live), secrets_map or {})
+    # Preserve any desired-only sidecar not on host? No — adopt means host is SoT.
+    next_ver = int(deployment.config_version or 0) + 1
+    deployment.config_version = next_ver
+    deployment.files_json = json.dumps(storage_files, ensure_ascii=False)
+    deployment.secrets_encrypted = (
+        encrypt_str(json.dumps(secrets_map, ensure_ascii=False)) if secrets_map else deployment.secrets_encrypted
+    )
+    deployment.drift_status = "in_sync"
+    deployment.updated_at = datetime.utcnow()
+    session.add(deployment)
+    session.commit()
+    session.refresh(deployment)
+
+    return {
+        "ok": True,
+        "deployment_id": deployment.id,
+        "config_version": next_ver,
+        "files": sorted(storage_files.keys()),
+        "project_path": path,
+        "secrets_refreshed": sorted(
+            k for k in secrets_map if k in host_env and str(host_env.get(k) or "").strip()
+        ),
+    }
 
 
 def migrate_host_env_into_deployment(

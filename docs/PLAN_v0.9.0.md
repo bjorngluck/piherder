@@ -211,5 +211,7 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-23 | **HA System Info** fixed/live-verified (JSON `data` unwrap, host disk usage); **stream HA closed for 0.9** — deeper integration later |
 | 2026-07-23 | Docs/wiki sweep: ADMIN, README, API; wiki **HAOS hosts** + nav; scenarios C2; screenshots recapture list; no push |
 | 2026-07-23 | Wiki full pass: wizard step table, templates OOTB/from-host, Journey D2, screenshots **operator testing in progress**, testing.md; no push |
+| 2026-07-24 | **Desktop UX:** Network hub destination + settings **cards** (not fat buttons/chips); unified DNS records modal (All default + Host A / External filter); stack panel pointer-drag reorder; Schedules/Runs / nmap lists unclipped (`ph-only-*` vs `.hidden !important`) |
+| 2026-07-24 | **Templates / Docker:** desired-files browser on deployment + template detail; always write empty `.env` on deploy; clearer env drift; host full editor discovers sidecars (promtail) + seeds missing desired files; menu labels **Quick edit** / **Full editor…** (no “advanced”); **Accept host as desired** to clear intentional host-only drift (e.g. port remaps); host file editor button on deployment page |
 
 **End of plan** — living document; freeze into RELEASE notes at tag.

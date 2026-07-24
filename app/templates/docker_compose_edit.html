@@ -371,17 +371,21 @@
       {% for fname in file_names %}
       {% set is_env = fname == '.env' or fname.startswith('.env.') or fname.startswith('.env_') %}
       {% set is_df = fname == 'Dockerfile' or fname.startswith('Dockerfile.') %}
+      {% set is_compose = fname in ('docker-compose.yml','docker-compose.yaml','compose.yml','compose.yaml')
+          or fname.startswith('docker-compose.') or (fname.startswith('compose.') and (fname.endswith('.yml') or fname.endswith('.yaml'))) %}
+      {% set is_config = not is_env and not is_df and not is_compose %}
       <button type="button"
               class="file-tab px-2.5 py-1.5 rounded-lg text-xs border font-mono min-h-9 {% if fname == active_file %}btn-accent border-accent{% else %}btn-secondary border-border{% endif %}"
               data-file="{{ fname | e }}"
               title="{{ fname }}">
         {% if is_env %}<span class="ph-file-badge ph-file-badge--env mr-0.5">env</span>
         {% elif is_df %}<span class="ph-file-badge ph-file-badge--dockerfile mr-0.5">df</span>
+        {% elif is_config %}<span class="ph-file-badge ph-file-badge--config mr-0.5">cfg</span>
         {% else %}<span class="ph-file-badge ph-file-badge--compose mr-0.5">yml</span>{% endif %}
         {{ fname }}
       </button>
       {% endfor %}
-      <span class="text-[10px] text-muted ml-1">Save writes all listed files</span>
+      <span class="text-[10px] text-muted ml-1">Save writes all listed files (compose, .env, sidecars)</span>
     </div>
     <p id="env-banner" class="mb-2 text-xs banner-warning border border-border rounded p-2 {% if not active_file.startswith('.env') %}hidden{% endif %}">
       <strong>.env</strong> —

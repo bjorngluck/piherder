@@ -322,12 +322,7 @@ const MORE_ACTIONS = [
 ];
 
 function moreActionLabel(item, real) {
-  if (item.key === 'edit' && real && real.getAttribute('data-template-managed') === '1') {
-    return 'Quick edit (advanced)…';
-  }
-  if (item.key === 'full-edit' && real && real.getAttribute('data-template-managed') === '1') {
-    return 'Full editor (advanced)…';
-  }
+  // Same labels for free-form and template stacks (template settings is a separate row)
   return item.label;
 }
 

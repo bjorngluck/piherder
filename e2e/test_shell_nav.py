@@ -78,18 +78,30 @@ def test_e7_network_hub_settings_modals(admin_page, base_url):
     expect(page.locator('[data-testid="dns-hub-settings"]')).to_be_visible()
     expect(page.locator("#service-paths")).to_be_visible()
 
-    # Host DNS modal open/close — stacked host list (not wide table)
-    expect(page.locator('[data-testid="dns-modal-host"]')).to_be_hidden()
-    page.locator('[data-testid="dns-open-host"]').click()
-    expect(page.locator('[data-testid="dns-modal-host"]')).to_be_visible()
+    # Single DNS records button → modal defaults to All, filters selectable
+    expect(page.locator('[data-testid="dns-modal-records"]')).to_be_hidden()
+    page.locator('[data-testid="dns-open-records"]').click()
+    modal = page.locator('[data-testid="dns-modal-records"]')
+    expect(modal).to_be_visible()
+    expect(modal).to_have_attribute("data-dns-filter", "all")
+    expect(page.locator('[data-testid="dns-filter-all"]')).to_have_class(
+        re.compile(r"is-active")
+    )
     expect(page.locator('[data-testid="dns-host-list"]')).to_be_visible()
-    page.locator('#dns-modal-host button:has-text("Close")').click()
-    expect(page.locator('[data-testid="dns-modal-host"]')).to_be_hidden()
-
-    # External + Network map entry points
-    page.locator('[data-testid="dns-open-external"]').click()
-    expect(page.locator('[data-testid="dns-modal-external"]')).to_be_visible()
-    page.locator('#dns-modal-external button:has-text("Close")').click()
+    # Switch filter → Host A
+    page.locator('[data-testid="dns-filter-host"]').click()
+    expect(modal).to_have_attribute("data-dns-filter", "host")
+    expect(page.locator('[data-testid="dns-filter-host"]')).to_have_class(
+        re.compile(r"is-active")
+    )
+    # Switch filter → External
+    page.locator('[data-testid="dns-filter-external"]').click()
+    expect(modal).to_have_attribute("data-dns-filter", "external")
+    # Back to All
+    page.locator('[data-testid="dns-filter-all"]').click()
+    expect(modal).to_have_attribute("data-dns-filter", "all")
+    page.locator('#dns-modal-records button:has-text("Close")').click()
+    expect(modal).to_be_hidden()
 
     page.locator('[data-testid="dns-open-network"]').click()
     expect(page.locator('[data-testid="dns-modal-network"]')).to_be_visible()

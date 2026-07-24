@@ -742,27 +742,33 @@
   {% endif %}
 </div>
 {% else %}
-{# Mobile: stacked cards with full-width actions (no horizontal scroll / cramped ⋯).
-   Use ph-only-* not ``hidden sm:block`` — base .hidden is display:none !important. #}
-<div class="space-y-2 ph-only-below-sm" data-testid="nmap-schedules-cards">
+{# One list for mobile + desktop: full actions always visible (no ⋯ clipped by overflow). #}
+<div class="nmap-sched-list" data-testid="nmap-schedules-list">
+  {# Keep cards testid for e2e that still look for mobile shell #}
+  <div class="nmap-sched-list-inner" data-testid="nmap-schedules-cards">
   {% for s in schedules %}
   {% set opts = (schedule_options or {}).get(s.id) or {} %}
-  <article class="card p-3 {% if es and es.id == s.id %}ring-1 ring-accent/40{% endif %}" data-testid="nmap-schedule-row">
-    <div class="flex flex-wrap items-start justify-between gap-2 mb-2">
-      <div class="min-w-0">
-        <div class="font-medium text-text truncate">{{ s.name }}</div>
-        <div class="flex flex-wrap gap-1 mt-1 items-center">
-          <span class="status-pill feature-off">{{ s.intensity }}</span>
-          {% if s.enabled %}<span class="status-pill status-success">on</span>
-          {% else %}<span class="status-pill feature-off">off</span>{% endif %}
-          <span class="font-mono text-[11px] text-muted">
-            {% if s.cron %}{{ s.cron }}{% elif s.interval_hours %}every {{ s.interval_hours }}h{% else %}—{% endif %}
-          </span>
-        </div>
+  <article class="nmap-sched-card {% if es and es.id == s.id %}is-active{% endif %}"
+           data-testid="nmap-schedule-row">
+    <div class="nmap-sched-card-main min-w-0">
+      <div class="nmap-sched-card-title">{{ s.name }}</div>
+      <div class="nmap-sched-card-meta">
+        <span class="status-pill feature-off">{{ s.intensity }}</span>
+        {% if s.enabled %}<span class="status-pill status-success">on</span>
+        {% else %}<span class="status-pill feature-off">off</span>{% endif %}
+        <span class="font-mono text-[11px] text-muted">
+          {% if s.cron %}{{ s.cron }}{% elif s.interval_hours %}every {{ s.interval_hours }}h{% else %}—{% endif %}
+        </span>
+        {% if opts.script_preset and opts.script_preset != 'none' %}
+        <span class="status-pill status-running">{{ opts.script_preset }}</span>
+        {% elif opts.vuln_scripts %}<span class="status-pill status-running">vuln</span>{% endif %}
+        {% if opts.timing %}<span class="font-mono text-[10px] text-muted">T{{ opts.timing }}</span>{% endif %}
+        {% if opts.include_udp %}<span class="status-pill feature-off">udp</span>{% endif %}
+        <span class="text-[11px] text-muted">Last {{ s.last_run_at|app_tz if s.last_run_at else '—' }}</span>
       </div>
     </div>
     {% if can_mutate %}
-    <div class="flex flex-wrap gap-1.5 pt-1 border-t border-border/60">
+    <div class="nmap-sched-card-actions" data-testid="nmap-schedule-actions">
       <a href="?tab=schedules&amp;schedule={{ s.id }}" class="btn btn-secondary text-xs min-h-9 px-2.5">Edit</a>
       <form method="post" action="/integrations/{{ integration.id }}/nmap/schedules/{{ s.id }}/run" class="inline">
         <button class="btn btn-secondary text-xs min-h-9 px-2.5" type="submit">Run</button>
@@ -778,69 +784,7 @@
     {% endif %}
   </article>
   {% endfor %}
-</div>
-{# Desktop: compact table #}
-<div class="card overflow-hidden ph-only-sm-up" data-testid="nmap-schedules-list">
-  <table class="w-full text-sm">
-    <thead>
-      <tr class="text-left text-xs text-muted border-b border-border">
-        <th class="p-2">Name</th>
-        <th class="p-2">Intensity</th>
-        <th class="p-2">Options</th>
-        <th class="p-2">When</th>
-        <th class="p-2">Enabled</th>
-        <th class="p-2">Last</th>
-        <th class="p-2 w-28">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for s in schedules %}
-      {% set opts = (schedule_options or {}).get(s.id) or {} %}
-      <tr class="border-b border-border/60 {% if es and es.id == s.id %}bg-accent/5{% endif %}"
-          data-testid="nmap-schedule-row">
-        <td class="p-2 font-medium text-text">{{ s.name }}</td>
-        <td class="p-2"><span class="status-pill feature-off">{{ s.intensity }}</span></td>
-        <td class="p-2 text-[11px] text-muted">
-          {% if opts.script_preset and opts.script_preset != 'none' %}
-          <span class="status-pill status-running">{{ opts.script_preset }}</span>
-          {% elif opts.vuln_scripts %}<span class="status-pill status-running">vuln</span>{% endif %}
-          {% if opts.timing %}<span class="font-mono text-[10px]">T{{ opts.timing }}</span>{% endif %}
-          {% if opts.include_udp %}<span class="status-pill feature-off">udp</span>{% endif %}
-        </td>
-        <td class="p-2 font-mono text-xs">
-          {% if s.cron %}{{ s.cron }}{% elif s.interval_hours %}every {{ s.interval_hours }}h{% else %}—{% endif %}
-        </td>
-        <td class="p-2">
-          {% if s.enabled %}<span class="status-pill status-success">on</span>
-          {% else %}<span class="status-pill feature-off">off</span>{% endif %}
-        </td>
-        <td class="p-2 text-xs text-muted">{{ s.last_run_at|app_tz if s.last_run_at else '—' }}</td>
-        <td class="p-2">
-          {% if can_mutate %}
-          <div class="flex flex-wrap gap-1 justify-end">
-            <a href="?tab=schedules&amp;schedule={{ s.id }}" class="btn btn-secondary text-xs min-h-8 px-2">Edit</a>
-            <form method="post" action="/integrations/{{ integration.id }}/nmap/schedules/{{ s.id }}/run" class="inline">
-              <button class="btn btn-secondary text-xs min-h-8 px-2" type="submit">Run</button>
-            </form>
-            <details class="nmap-sched-menu" data-testid="nmap-schedule-menu">
-              <summary class="nmap-sched-menu-btn" aria-label="More for {{ s.name }}">⋯</summary>
-              <div class="nmap-sched-menu-panel" role="menu">
-                <form method="post" action="/integrations/{{ integration.id }}/nmap/schedules/{{ s.id }}/toggle">
-                  <button class="nmap-sched-menu-item" type="submit" role="menuitem">{% if s.enabled %}Disable{% else %}Enable{% endif %}</button>
-                </form>
-                <form method="post" action="/integrations/{{ integration.id }}/nmap/schedules/{{ s.id }}/delete"
-                      onsubmit="return confirm('Delete schedule {{ s.name }}?');">
-                  <button class="nmap-sched-menu-item is-danger" type="submit" role="menuitem">Delete</button>
-                </form>
-              </div>
-            </details>
-          </div>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  </div>
 </div>
 {% endif %}
 
@@ -992,15 +936,6 @@
     sel.addEventListener('change', sync);
     sync();
   }
-  // One open ⋯ menu at a time
-  document.querySelectorAll('.nmap-sched-menu').forEach(function (d) {
-    d.addEventListener('toggle', function () {
-      if (!d.open) return;
-      document.querySelectorAll('.nmap-sched-menu[open]').forEach(function (o) {
-        if (o !== d) o.open = false;
-      });
-    });
-  });
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     var m = document.getElementById('nmap-schedule-modal');
@@ -1017,64 +952,29 @@
 {% if not runs %}
 <div class="card p-5 text-sm text-muted" data-testid="nmap-runs-empty">No scan runs yet.</div>
 {% else %}
-{# Mobile cards — no horizontal page scroll.
-   Use ph-only-* not ``hidden sm:block`` — base .hidden is display:none !important. #}
-<div class="space-y-2 ph-only-below-sm" data-testid="nmap-runs-cards">
+{# Unified run list (mobile + desktop) — dense rows, no dual markup / clipped tables #}
+<div class="nmap-run-list" data-testid="nmap-runs-table">
+  <div class="nmap-run-list-inner" data-testid="nmap-runs-cards">
   {% for r in runs %}
-  <article class="card p-3">
-    <div class="flex flex-wrap items-center gap-2 mb-1">
-      <span class="font-medium text-text">{{ r.intensity }}</span>
+  <article class="nmap-run-card">
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span class="font-medium text-text text-sm">{{ r.intensity }}</span>
       <span class="status-pill {% if r.status == 'success' %}status-success{% elif r.status == 'failed' %}status-failed{% else %}feature-off{% endif %}">
         {{ r.status }}
       </span>
-    </div>
-    <div class="text-xs text-muted flex flex-wrap gap-x-3 gap-y-0.5">
-      <span>Hosts {{ r.hosts_up }}/{{ r.hosts_total }}</span>
-      <span>Ports {{ r.ports_open }}</span>
+      <span class="text-xs text-muted">Hosts {{ r.hosts_up }}/{{ r.hosts_total }}</span>
+      <span class="text-xs text-muted">Ports {{ r.ports_open }}</span>
       {% if r.job_id %}
-      <a href="/jobs?job_type=nmap_{{ r.intensity if r.intensity != 'deep' else 'host_deep' }}" class="text-accent hover:underline">Job #{{ r.job_id }}</a>
+      <a href="/jobs?job_type=nmap_{{ r.intensity if r.intensity != 'deep' else 'host_deep' }}"
+         class="text-xs text-accent hover:underline"
+         title="Open Jobs (live log while running)">Job #{{ r.job_id }}</a>
       {% endif %}
-      <span>{{ r.finished_at or r.started_at or '—' }}</span>
+      <span class="text-xs text-muted ml-auto">{{ r.finished_at or r.started_at or '—' }}</span>
     </div>
     {% if r.error %}<p class="text-xs text-red-600 mt-1 mb-0">{{ r.error }}</p>{% endif %}
   </article>
   {% endfor %}
-</div>
-{# Desktop table #}
-<div class="card overflow-hidden ph-only-sm-up" data-testid="nmap-runs-table">
-  <table class="w-full text-sm">
-    <thead>
-      <tr class="text-left text-xs text-muted border-b border-border">
-        <th class="p-2">Intensity</th>
-        <th class="p-2">Status</th>
-        <th class="p-2">Hosts</th>
-        <th class="p-2">Ports</th>
-        <th class="p-2">Job</th>
-        <th class="p-2">Finished</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in runs %}
-      <tr class="border-b border-border/60">
-        <td class="p-2">{{ r.intensity }}</td>
-        <td class="p-2">
-          <span class="status-pill {% if r.status == 'success' %}status-success{% elif r.status == 'failed' %}status-failed{% else %}feature-off{% endif %}">
-            {{ r.status }}
-          </span>
-        </td>
-        <td class="p-2 text-xs">{{ r.hosts_up }}/{{ r.hosts_total }}</td>
-        <td class="p-2 text-xs">{{ r.ports_open }}</td>
-        <td class="p-2 text-xs">
-          {% if r.job_id %}<a href="/jobs?job_type=nmap_{{ r.intensity if r.intensity != 'deep' else 'host_deep' }}" class="text-accent hover:underline" title="Open Jobs (live log while running)">Job #{{ r.job_id }}</a>{% else %}—{% endif %}
-        </td>
-        <td class="p-2 text-xs text-muted">{{ r.finished_at or r.started_at or '—' }}</td>
-      </tr>
-      {% if r.error %}
-      <tr><td colspan="6" class="p-2 text-xs text-red-600">{{ r.error }}</td></tr>
-      {% endif %}
-      {% endfor %}
-    </tbody>
-  </table>
+  </div>
 </div>
 {% endif %}
 {% endif %}

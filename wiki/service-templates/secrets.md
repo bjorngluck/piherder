@@ -18,8 +18,8 @@ Home-production stance (locked decision):
 |-------|-----------|-----|
 | **PiHerder** | Source of truth; secrets Fernet-encrypted; edit / audit / redeploy here | One place to recover from |
 | **UI reveal** | Cleartext only after **View secrets** with **step-up TOTP** (even if you already 2FA’d at login). Unlock cookie ~10 minutes; **Hide secrets** clears it | Login 2FA ≠ “always show secrets” |
-| **Host project** | Locked-down **`.env`** (`chmod 600`) for Compose `${VAR}`; offline restarts work **without** PiHerder | Host must boot alone |
-| **Docker page** | Template-managed stacks show a **Template** badge; full compose editor gated | Desired state stays authoritative |
+| **Host project** | Always a **`.env`** on deploy (empty allowed); `chmod 600` when secrets exist; offline restarts work **without** PiHerder | Host must boot alone; drift expects the file |
+| **Docker page** | Template-managed stacks show a **Template** badge; raw host edit is gated (prefer deployment page); **Accept host as desired** keeps intentional host edits in SoT | Desired state stays authoritative |
 | **Not default** | Compose `./secrets/` files, Swarm secrets, vault inject — future / advanced | Keep the RC path simple |
 
 !!! danger "Master key"

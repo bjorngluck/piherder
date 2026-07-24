@@ -76,6 +76,7 @@
     var longPressTimer = null;
     var longPressReady = false;
     var touchActive = false;
+    var pointerActive = false; // mouse/pen drag from ⋮⋮ handle
     var pointerId = null;
     var startY = 0;
     var startX = 0;
@@ -298,57 +299,70 @@
       }
     }
 
-    // Desktop HTML5: drag from ⋮⋮ handle only
-    list.addEventListener('dragstart', function (e) {
-      // Avoid fighting touch long-press on hybrid devices
-      if (touchActive) {
-        e.preventDefault();
-        return;
-      }
-      var handle = e.target.closest('[data-stack-drag-handle]');
-      var li = e.target.closest('li[data-stack-container]');
-      if (!li || !list.contains(li) || !handle) {
-        e.preventDefault();
-        return;
-      }
-      dragEl = li;
-      longPressReady = true;
-      orderDirty = false;
-      li.classList.add('is-dragging');
-      list.classList.add('is-reordering');
-      try {
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', li.getAttribute('data-stack-container') || '');
-        e.dataTransfer.setDragImage(li, 24, 20);
-      } catch (err) {}
-    });
-
-    list.addEventListener('dragover', function (e) {
-      if (!dragEl || touchActive) return;
-      e.preventDefault();
-      try {
-        e.dataTransfer.dropEffect = 'move';
-      } catch (err) {}
-      moveDragToClientY(e.clientY);
-    });
-
-    list.addEventListener('dragend', function () {
-      if (touchActive) return;
+    function endPointerDrag(shouldSave) {
+      if (!pointerActive && !dragEl) return;
+      var dirty = orderDirty;
       if (dragEl) {
         dragEl.classList.remove('is-dragging');
         clearDragOver();
       }
       dragEl = null;
+      pointerActive = false;
       longPressReady = false;
       list.classList.remove('is-reordering');
-      if (orderDirty) saveOrder();
+      document.removeEventListener('pointermove', onDocPointerMove);
+      document.removeEventListener('pointerup', onDocPointerUp);
+      document.removeEventListener('pointercancel', onDocPointerUp);
+      suppressClickUntil = Date.now() + 350;
+      if (shouldSave && dirty) saveOrder();
+      else renumberBadges();
+    }
+
+    function onDocPointerMove(e) {
+      if (!pointerActive || !dragEl) return;
+      e.preventDefault();
+      moveDragToClientY(e.clientY);
+    }
+
+    function onDocPointerUp(e) {
+      if (!pointerActive) return;
+      e.preventDefault();
+      endPointerDrag(true);
+    }
+
+    // Desktop / pen: press ⋮⋮ and drag by Y (HTML5 DnD is flaky inside <details>)
+    list.addEventListener('pointerdown', function (e) {
+      if (e.pointerType === 'touch') return; // touch uses long-press path below
+      if (e.button != null && e.button !== 0) return;
+      if (touchActive) return;
+      var handle = e.target.closest('[data-stack-drag-handle]');
+      if (!handle || !list.contains(handle)) return;
+      var li = handle.closest('li[data-stack-container]');
+      if (!li || !list.contains(li)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      pointerActive = true;
+      longPressReady = true;
+      orderDirty = false;
+      dragEl = li;
+      startY = e.clientY;
+      startX = e.clientX;
+      li.classList.add('is-dragging');
+      list.classList.add('is-reordering');
+      try {
+        if (handle.setPointerCapture) handle.setPointerCapture(e.pointerId);
+      } catch (err) {}
+      document.addEventListener('pointermove', onDocPointerMove, { passive: false });
+      document.addEventListener('pointerup', onDocPointerUp, { passive: false });
+      document.addEventListener('pointercancel', onDocPointerUp, { passive: false });
     });
 
-    list.addEventListener('drop', function (e) {
+    // Kill native HTML5 drag so it never fights pointer reorder
+    list.addEventListener('dragstart', function (e) {
       e.preventDefault();
     });
 
-    // Block summary toggle immediately after a long-press gesture
+    // Block summary toggle immediately after a drag / long-press gesture
     list.addEventListener(
       'click',
       function (e) {
@@ -360,12 +374,14 @@
       true
     );
 
-    // Touch: long-press row (or handle), then drag by Y
+    // Touch: long-press row (or ⋮⋮ handle), then drag by Y
     list.addEventListener(
       'touchstart',
       function (e) {
-        // Don't start reorder from pure links/buttons inside expanded detail
-        if (e.target.closest('a, button, input, select, textarea')) return;
+        if (pointerActive) return;
+        // Allow drag handle (button); block other controls inside expanded detail
+        var onHandle = e.target.closest('[data-stack-drag-handle]');
+        if (!onHandle && e.target.closest('a, button, input, select, textarea')) return;
         var li = e.target.closest('li[data-stack-container]');
         if (!li || !list.contains(li)) return;
         var t = e.changedTouches[0];
@@ -377,10 +393,10 @@
         longPressReady = false;
         orderDirty = false;
         if (longPressTimer) clearTimeout(longPressTimer);
-        longPressTimer = setTimeout(function () {
+
+        function armTouchDrag() {
           longPressReady = true;
           dragEl = li;
-          // Disable native HTML5 drag while touch-reordering
           items().forEach(function (row) {
             row.setAttribute('draggable', 'false');
           });
@@ -391,7 +407,14 @@
               navigator.vibrate(12);
             } catch (err) {}
           }
-        }, 320);
+        }
+
+        // Handle: arm immediately; elsewhere long-press so scroll still works
+        if (onHandle) {
+          armTouchDrag();
+        } else {
+          longPressTimer = setTimeout(armTouchDrag, 320);
+        }
       },
       { passive: true }
     );
@@ -444,9 +467,8 @@
       }
       var shouldSave = e.type === 'touchend';
       endTouchDrag(shouldSave);
-      // Restore HTML5 drag for desktop after touch sequence
       items().forEach(function (row) {
-        row.setAttribute('draggable', 'true');
+        row.setAttribute('draggable', 'false');
       });
     }
 

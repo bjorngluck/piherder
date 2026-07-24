@@ -429,7 +429,7 @@ If `METRICS_TOKEN` is empty, treat `/metrics` like `/health` — private network
 
 ### Multi-file Docker projects
 
-On a server’s **Docker → Edit compose**, PiHerder loads primary compose, override, **compose sets** (`docker-compose.<name>.yml`), `.env`, and Dockerfile when present. Tabs edit each file; **Save & Deploy** writes the full set and redeploys. Version history stores multi-file snapshots (merge-on-save so one file no longer wipes the others). Compose on the host still auto-loads override + `.env` in the project directory.
+On a server’s **Docker → Full editor…** (or **Edit files**), PiHerder loads primary compose, override, **compose sets** (`docker-compose.<name>.yml`), `.env`, **config/sidecar** files discovered next to compose (e.g. promtail YAML from file binds), and Dockerfile when present. Template desired-state sidecars fill missing host tabs. Tabs edit each file; **Save & Deploy** writes the full set and redeploys. Version history stores multi-file snapshots (merge-on-save so one file no longer wipes the others). Compose on the host still auto-loads override + `.env` in the project directory.
 
 **Compose sets:** extra compose files in the **same** project directory appear as under-project pills on the Docker page (All / main / set names). They do **not** create a second project card. Optional **Deploy \<set\> set** runs `docker compose -f <file> up -d` under the same project path. See wiki [Docker overview — Compose sets](../wiki/docker/overview.md#compose-sets-same-folder-one-project-card).
 
@@ -549,8 +549,8 @@ Volume and boolean vars are **never** treated as secrets (no step-up 2FA).
 |-------|-----------|
 | **PiHerder** | Source of truth; secrets Fernet-encrypted; edit/audit/redeploy here |
 | **UI reveal** | Cleartext only after **2FA enabled** → **View secrets** → enter TOTP (**step-up**, even if you already used 2FA at login). Unlock cookie ~10 minutes; **Hide secrets** clears it |
-| **Host project** | Locked-down **`.env`** (`chmod 600`) for Compose `${VAR}`; offline restarts work **without** PiHerder |
-| **Docker page** | Template-managed stacks show a **Template** badge; full compose editor is gated (use deployment page for template-owned desired state) |
+| **Host project** | Always write **`.env`** on deploy (empty allowed); `chmod 600` when secrets exist; offline restarts work **without** PiHerder |
+| **Docker page** | Template-managed stacks show a **Template** badge; host file editor is gated (prefer deployment page). Intentional host-only edits: **Accept host as desired** on the deployment page |
 | **Not default** | Compose `./secrets/` files, Swarm secrets, vault inject — **roadmap** (advanced) |
 
 #### From host
@@ -565,9 +565,20 @@ Volume and boolean vars are **never** treated as secrets (no step-up 2FA).
 
 1. **Details** or **Deploy…** → fill variables (incl. volume mode) → pick Docker-enabled host  
 2. **Preview** → **Confirm deploy**  
-3. Blocking **wait modal** while PiHerder writes files over SSH, locks `.env`, and runs `compose pull` + `up -d` (page updates when finished)  
+3. **Job** + live log while PiHerder writes files over SSH (compose, **additional files**, always `.env`), locks `.env`, and runs `compose pull` + `up -d`  
 4. Desired state **Vn** stored encrypted in PiHerder  
-5. **Redeploy** from the deployment page (same wait modal)  
+5. **Redeploy** from the deployment page (Job + live log)  
+
+#### Deployment ops (per host+project)
+
+| Action | Effect |
+|--------|--------|
+| **Check drift** | Job: host files vs desired (compose, `.env`, sidecars) |
+| **Accept host as desired** | Copy live host files into desired state; bump Vn; clear drift (this host only) |
+| **Import host .env** | Secrets → encrypted SoT |
+| **Apply last known config** | Write desired → host + compose (DR / undo host-only edits) |
+| **Open host file editor** | Multi-file host YAML (may cause drift until Accept or redeploy) |
+| **Desired files** | Browse stored compose / `.env` / sidecars on the deployment page |
 
 #### Import zip
 

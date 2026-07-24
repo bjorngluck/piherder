@@ -13,145 +13,119 @@
 {% endif %}
 
 
-{# Coverage teaser — full audit lives on /dns/coverage #}
+{# Destinations · stats · configure — one density language for the hub #}
 {% set kc = view.kuma_coverage or {} %}
 {% set ksum = kc.summary or {} %}
 {% set dsum = (kc.dependencies or {}).summary or {} %}
-<div class="grid gap-3 sm:grid-cols-3 mb-5">
-  <a href="/dns/coverage" class="fabric-nav-card fabric-nav-card--coverage dash-net-card min-h-[5.5rem]">
-    <div class="fabric-nav-card-kicker">Audit</div>
-    <div class="fabric-nav-card-title">Kuma coverage</div>
-    <p class="fabric-nav-card-desc">
-      {% if kc.has_kuma %}
-        {{ ksum.covered or 0 }} paths covered
-        {% if ksum.gap_count %} · <span class="text-warning">{{ ksum.gap_count }} path gaps</span>{% endif %}
-        {% if ksum.dep_gaps %} · <span class="text-warning">{{ ksum.dep_gaps }} dep gaps</span>{% endif %}
-      {% else %}
-        Connect Uptime Kuma to audit monitors
-      {% endif %}
-    </p>
-    <span class="fabric-nav-card-cta">Open coverage →</span>
-  </a>
-  <a href="/dns/physical#map" class="fabric-nav-card fabric-nav-card--physical dash-net-card min-h-[5.5rem]">
-    <div class="fabric-nav-card-kicker">Map</div>
-    <div class="fabric-nav-card-title">Hosts map</div>
-    <p class="fabric-nav-card-desc">LAN topology · cloud hosts · router</p>
-    <span class="fabric-nav-card-cta">Open topology →</span>
-  </a>
-  <a href="/dns/logical#map" class="fabric-nav-card fabric-nav-card--logical dash-net-card min-h-[5.5rem]">
-    <div class="fabric-nav-card-kicker">Map</div>
-    <div class="fabric-nav-card-title">Path map</div>
-    <p class="fabric-nav-card-desc">Name → proxy → host → app</p>
-    <span class="fabric-nav-card-cta">Open paths →</span>
-  </a>
-</div>
-
-<div class="fabric-stat-strip mb-5">
-  <div class="card p-3">
-    <div class="text-xs text-muted">Hosts named</div>
-    <div class="text-2xl font-semibold">{{ view.stats.hosts_named }}<span class="text-sm text-muted font-normal"> / {{ view.stats.hosts_total }}</span></div>
-  </div>
-  <div class="card p-3">
-    <div class="text-xs text-muted">Mapped names</div>
-    <div class="text-2xl font-semibold">{{ view.stats.services }}</div>
-  </div>
-  <div class="card p-3">
-    <div class="text-xs text-muted">Via NPM</div>
-    <div class="text-2xl font-semibold">{{ view.stats.via_proxy }}</div>
-  </div>
-  {% set bp = view.stats.by_path or {} %}
-  <div class="card p-3" title="How published names reach a host: identity (host A), app (direct service), or via NPM">
-    <div class="text-xs text-muted">By path type</div>
-    <div class="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-sm font-semibold tabular-nums">
-      <span><span class="text-muted font-normal text-xs">Host</span> {{ bp.host_identity or 0 }}</span>
-      <span><span class="text-muted font-normal text-xs">App</span> {{ bp.app or 0 }}</span>
-      <span><span class="text-muted font-normal text-xs">NPM</span> {{ (bp.npm_app or 0) + (bp.npm_host or 0) }}</span>
-    </div>
-  </div>
-</div>
-
-{# DNS & network settings — above long path list so operators see them without scrolling #}
 {% set _ext_n = (view.external_checklist|length) if view.external_checklist else 0 %}
-<div class="card p-3 mb-5" data-testid="dns-hub-settings">
-  <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-    <div>
-      <h2 class="font-semibold text-sm text-text m-0">DNS &amp; network settings</h2>
-      <p class="text-xs text-muted mb-0">Host A records, external checklist, LAN map, and Pi-hole adopt — open in a modal.</p>
-    </div>
+
+<div class="fabric-hub mb-4 space-y-2">
+  {# Destinations — same card family #}
+  <div class="fabric-hub-dest grid gap-2 sm:grid-cols-3">
+    <a href="/dns/coverage" class="fabric-nav-card fabric-nav-card--coverage fabric-nav-card--compact">
+      <div class="fabric-nav-card-kicker">Audit</div>
+      <div class="fabric-nav-card-title">Kuma coverage</div>
+      <p class="fabric-nav-card-desc">
+        {% if kc.has_kuma %}
+          {{ ksum.covered or 0 }} covered{% if ksum.gap_count %} · <span class="text-warning">{{ ksum.gap_count }} gaps</span>{% endif %}
+        {% else %}
+          Connect Uptime Kuma
+        {% endif %}
+      </p>
+      <span class="fabric-nav-card-cta">Open →</span>
+    </a>
+    <a href="/dns/physical#map" class="fabric-nav-card fabric-nav-card--physical fabric-nav-card--compact">
+      <div class="fabric-nav-card-kicker">Map</div>
+      <div class="fabric-nav-card-title">Hosts map</div>
+      <p class="fabric-nav-card-desc">LAN · cloud · router</p>
+      <span class="fabric-nav-card-cta">Open →</span>
+    </a>
+    <a href="/dns/logical#map" class="fabric-nav-card fabric-nav-card--logical fabric-nav-card--compact">
+      <div class="fabric-nav-card-kicker">Map</div>
+      <div class="fabric-nav-card-title">Path map</div>
+      <p class="fabric-nav-card-desc">Name → proxy → host → app</p>
+      <span class="fabric-nav-card-cta">Open →</span>
+    </a>
   </div>
-  <div class="flex flex-wrap gap-2">
-    <button type="button" class="btn btn-secondary text-sm min-h-11"
-            data-testid="dns-open-host"
-            onclick="openDnsHubModal('dns-modal-host')">
-      Host DNS
-      <span class="text-muted font-normal text-xs ml-1">{{ view.stats.hosts_named }}/{{ view.stats.hosts_total }}</span>
+
+  {# Settings — same card language as destinations above; clearly clickable #}
+  <div class="fabric-hub-dest grid gap-2 sm:grid-cols-3" data-testid="dns-hub-settings">
+    <button type="button"
+            class="fabric-nav-card fabric-nav-card--compact fabric-nav-card--action text-left"
+            data-testid="dns-open-records"
+            onclick="openDnsRecordsModal()">
+      <div class="fabric-nav-card-kicker">Settings</div>
+      <div class="fabric-nav-card-title">DNS records</div>
+      <p class="fabric-nav-card-desc">
+        Host A · external checklist
+        {% if _ext_n %} · {{ _ext_n }} pending{% endif %}
+      </p>
+      <span class="fabric-nav-card-cta">Open →</span>
     </button>
-    <button type="button" class="btn btn-secondary text-sm min-h-11"
-            data-testid="dns-open-external"
-            onclick="openDnsHubModal('dns-modal-external')">
-      External DNS
-      <span class="text-muted font-normal text-xs ml-1">{% if _ext_n %}{{ _ext_n }} item{{ 's' if _ext_n != 1 else '' }}{% else %}clear{% endif %}</span>
-    </button>
-    <button type="button" class="btn btn-secondary text-sm min-h-11"
+    <button type="button"
+            class="fabric-nav-card fabric-nav-card--compact fabric-nav-card--action text-left"
             data-testid="dns-open-network"
             onclick="openDnsHubModal('dns-modal-network')">
-      Network map
-      <span class="text-muted font-normal text-xs ml-1 font-mono">{{ network_lan_subnet or 'LAN unset' }}</span>
+      <div class="fabric-nav-card-kicker">Settings</div>
+      <div class="fabric-nav-card-title">Map settings</div>
+      <p class="fabric-nav-card-desc font-mono">
+        {{ network_lan_subnet or 'Subnet not set' }}
+      </p>
+      <span class="fabric-nav-card-cta">Configure →</span>
     </button>
     {% if can_mutate %}
-    <button type="button" class="btn btn-secondary text-sm min-h-11"
+    <button type="button"
+            class="fabric-nav-card fabric-nav-card--compact fabric-nav-card--action text-left"
             data-testid="dns-open-adopt"
             onclick="openDnsHubModal('dns-modal-adopt')">
-      Adopt from Pi-hole
+      <div class="fabric-nav-card-kicker">Settings</div>
+      <div class="fabric-nav-card-title">Adopt from Pi-hole</div>
+      <p class="fabric-nav-card-desc">Import matching CNAMEs</p>
+      <span class="fabric-nav-card-cta">Import →</span>
     </button>
     {% endif %}
   </div>
 </div>
 
 {# ── Per-service paths (this page) ── #}
-<div class="card p-4 mb-5 fabric-topology" id="service-paths" data-fabric-root>
-  <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
-    <div>
-      <h2 class="font-semibold text-lg tracking-tight">Service paths</h2>
-      <p class="text-xs text-muted mt-1 max-w-2xl">
-        One card per published name. Optional layers:
-        <strong class="text-text">name</strong> →
-        <strong class="text-text">NPM</strong> →
-        <strong class="text-text">host</strong> →
-        <strong class="text-text">service</strong> →
-        <strong class="text-text">container</strong>.
-        Tap <strong class="text-text">Stack</strong> for containers / ports / Kuma.
-        Maps: focus a path, then <strong class="text-text">Stack</strong> under the map.
+<div class="card fabric-section fabric-topology mb-5" id="service-paths" data-fabric-root>
+  <header class="fabric-section-head">
+    <div class="min-w-0">
+      <div class="ph-detail-kicker">Paths</div>
+      <h2 class="fabric-section-title">Service paths</h2>
+      <p class="fabric-section-sub">
+        name → NPM → host → service → container ·
+        <strong class="text-text">Stack</strong> for runtime · maps focus then Stack
       </p>
     </div>
-    <div class="flex flex-wrap gap-2 text-[11px] items-center">
+    <div class="fabric-section-meta">
       {% for pk in view.path_kinds or [] %}
       <span class="fabric-legend-pill">{{ pk.title }}</span>
       {% endfor %}
       <button type="button" class="btn btn-secondary text-xs min-h-9 px-2 hidden" data-fabric-clear-focus>Clear focus</button>
     </div>
-  </div>
+  </header>
 
   {% if view.services %}
-  <div class="mb-4" data-fabric-filters>
-    <div class="flex flex-wrap gap-2 items-end">
-      <div class="flex-1 min-w-[10rem]">
-        <label class="text-[10px] text-muted block mb-0.5">Search</label>
+  <div class="fabric-section-filters" data-fabric-filters>
+    <div class="fabric-filter-row">
+      <div class="fabric-filter-field fabric-filter-field--grow">
+        <label class="fabric-filter-label">Search</label>
         <input type="search" data-fabric-filter-q placeholder="FQDN, host, project…"
-               class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+               class="fabric-filter-control">
       </div>
-      <div class="min-w-[8rem]">
-        <label class="text-[10px] text-muted block mb-0.5">Path type</label>
-        <select data-fabric-filter-mode class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+      <div class="fabric-filter-field">
+        <label class="fabric-filter-label">Path type</label>
+        <select data-fabric-filter-mode class="fabric-filter-control">
           <option value="all">All</option>
           <option value="npm">Via NPM</option>
           <option value="direct">Direct</option>
           <option value="identity">Host identity</option>
         </select>
       </div>
-      <div class="min-w-[8rem]">
-        <label class="text-[10px] text-muted block mb-0.5">Host</label>
-        <select data-fabric-filter-host class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+      <div class="fabric-filter-field">
+        <label class="fabric-filter-label">Host</label>
+        <select data-fabric-filter-host class="fabric-filter-control">
           <option value="">Any host</option>
           {% for h in view.hosts %}
           {% if h.server_id %}
@@ -160,7 +134,7 @@
           {% endfor %}
         </select>
       </div>
-      <div class="text-xs text-muted pb-2">
+      <div class="fabric-filter-count text-xs text-muted">
         <span data-fabric-filter-count>{{ view.services|length }}</span> shown
       </div>
     </div>
@@ -284,71 +258,89 @@
   {% endif %}
 </div>
 
-{# ── Host DNS modal ── #}
-<div id="dns-modal-host" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
-     role="dialog" aria-modal="true" aria-labelledby="dns-modal-host-title"
-     data-testid="dns-modal-host"
-     onclick="if(event.target===this)closeDnsHubModal('dns-modal-host')">
-  <div class="modal-content card p-0 w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden"
+{# ── DNS records modal (Host A + External checklist, filterable) ── #}
+<div id="dns-modal-records" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
+     role="dialog" aria-modal="true" aria-labelledby="dns-modal-records-title"
+     data-testid="dns-modal-records"
+     data-dns-filter="all"
+     onclick="if(event.target===this)closeDnsHubModal('dns-modal-records')">
+  <div class="modal-content card p-0 w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
        role="document" onclick="event.stopPropagation()">
-    <header class="flex items-start justify-between gap-2 p-4 border-b border-border">
-      <div>
-        <h3 id="dns-modal-host-title" class="text-base font-semibold text-text m-0">Host DNS (A records)</h3>
-        <p class="text-xs text-muted mb-0">Set under each server <strong class="text-text">Edit → General</strong>.</p>
+    <header class="flex items-start justify-between gap-2 p-3 sm:p-4 border-b border-border">
+      <div class="min-w-0">
+        <h3 id="dns-modal-records-title" class="text-base font-semibold text-text m-0">DNS records</h3>
+        <p class="text-xs text-muted mb-0">
+          Host A (fleet) and external checklist (public providers). Filter below.
+        </p>
       </div>
-      <button type="button" class="btn btn-secondary text-xs min-h-9" onclick="closeDnsHubModal('dns-modal-host')">Close</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 shrink-0"
+              onclick="closeDnsHubModal('dns-modal-records')">Close</button>
     </header>
-    <div class="p-4 overflow-y-auto">
-      {# Stacked rows — no min-width table scroll on mobile #}
-      <div class="space-y-2" data-testid="dns-host-list">
+    <div class="px-3 sm:px-4 pt-3 pb-2 border-b border-border/70 flex flex-wrap gap-1.5 items-center"
+         data-testid="dns-records-filters" role="tablist" aria-label="DNS record type">
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 dns-rec-filter is-active"
+              data-dns-rec-filter="all" role="tab" aria-selected="true"
+              data-testid="dns-filter-all">All</button>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 dns-rec-filter"
+              data-dns-rec-filter="host" role="tab" aria-selected="false"
+              data-testid="dns-filter-host">
+        Host A
+        <span class="text-muted font-normal ml-1">{{ view.stats.hosts_named }}/{{ view.stats.hosts_total }}</span>
+      </button>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 dns-rec-filter"
+              data-dns-rec-filter="external" role="tab" aria-selected="false"
+              data-testid="dns-filter-external">
+        External
+        <span class="text-muted font-normal ml-1">{{ _ext_n }}</span>
+      </button>
+    </div>
+    <div class="p-3 sm:p-4 overflow-y-auto flex-1 min-h-0">
+      {# Dense shared row layout — works on mobile without horizontal scroll #}
+      <div class="dns-rec-list" data-testid="dns-host-list">
         {% for h in view.hosts %}
-        <div class="rounded-lg border border-border/70 p-2.5 flex flex-col gap-1 sm:grid sm:grid-cols-[1.2fr_1.4fr_1fr_auto] sm:items-center sm:gap-2">
-          <a href="{{ h.href }}" class="text-accent hover:underline font-medium text-sm">{{ h.name }}</a>
-          <span class="font-mono text-xs text-muted break-all">{{ h.dns_name or '—' }}</span>
-          <span class="font-mono text-xs text-muted">{{ h.ip or '—' }}</span>
-          <span class="text-xs">
-            {% if h.dns_manage_a %}<span class="text-success">Pi-hole A</span>{% else %}<span class="text-muted">off</span>{% endif %}
+        <div class="dns-rec-row" data-dns-kind="host">
+          <span class="dns-rec-type" title="Host A record">A</span>
+          <div class="dns-rec-main min-w-0">
+            <a href="{{ h.href }}" class="text-accent hover:underline font-medium text-sm truncate block">{{ h.name }}</a>
+            <div class="dns-rec-meta font-mono text-[11px] text-muted">
+              <span class="break-all">{{ h.dns_name or '—' }}</span>
+              <span class="dns-rec-sep">·</span>
+              <span>{{ h.ip or '—' }}</span>
+            </div>
+          </div>
+          <span class="dns-rec-status text-xs shrink-0">
+            {% if h.dns_manage_a %}<span class="text-success">Pi-hole A</span>{% else %}<span class="text-muted">manual</span>{% endif %}
           </span>
         </div>
         {% else %}
-        <p class="text-muted text-xs py-2 mb-0">No servers in fleet.</p>
+        <p class="text-muted text-xs py-2 mb-0" data-dns-kind="host">No servers in fleet.</p>
         {% endfor %}
-      </div>
-    </div>
-  </div>
-</div>
 
-{# ── External DNS modal ── #}
-<div id="dns-modal-external" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
-     role="dialog" aria-modal="true" aria-labelledby="dns-modal-external-title"
-     data-testid="dns-modal-external"
-     onclick="if(event.target===this)closeDnsHubModal('dns-modal-external')">
-  <div class="modal-content card p-0 w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden"
-       role="document" onclick="event.stopPropagation()">
-    <header class="flex items-start justify-between gap-2 p-4 border-b border-border">
-      <div>
-        <h3 id="dns-modal-external-title" class="text-base font-semibold text-text m-0">External DNS checklist</h3>
-        <p class="text-xs text-muted mb-0">Public providers (Cloudflare, etc.) are not automated yet.</p>
-      </div>
-      <button type="button" class="btn btn-secondary text-xs min-h-9" onclick="closeDnsHubModal('dns-modal-external')">Close</button>
-    </header>
-    <div class="p-4 overflow-y-auto space-y-3">
-      {% if view.external_checklist %}
-      <ul class="space-y-2 text-sm">
+        {% if view.external_checklist %}
         {% for c in view.external_checklist %}
-        <li class="border border-border rounded p-2 font-mono text-xs">
-          <span class="text-muted">{{ c.type }}</span>
-          <strong class="text-text">{{ c.name }}</strong>
-          → {{ c.target }}
-          {% if c.note %}<span class="text-muted block mt-0.5 font-sans">{{ c.note }}</span>{% endif %}
-        </li>
+        <div class="dns-rec-row" data-dns-kind="external" data-testid="dns-external-row">
+          <span class="dns-rec-type dns-rec-type--ext" title="External checklist">{{ c.type or 'EXT' }}</span>
+          <div class="dns-rec-main min-w-0">
+            <div class="font-mono text-sm text-text break-all">
+              <strong class="font-semibold">{{ c.name }}</strong>
+              <span class="text-muted font-normal"> → {{ c.target }}</span>
+            </div>
+            {% if c.note %}<p class="text-[11px] text-muted mt-0.5 mb-0 font-sans">{{ c.note }}</p>{% endif %}
+          </div>
+          <span class="dns-rec-status text-xs text-muted shrink-0">checklist</span>
+        </div>
         {% endfor %}
-      </ul>
-      {% else %}
-      <p class="text-xs text-muted">No pending external checklist items.</p>
-      {% endif %}
+        {% else %}
+        <p class="text-muted text-xs py-2 mb-0 dns-rec-empty-ext" data-dns-kind="external">
+          No pending external checklist items.
+        </p>
+        {% endif %}
+      </div>
+
       {% if can_mutate %}
-      <form method="post" action="/dns/base-domain" class="pt-3 border-t border-border flex flex-wrap gap-2 items-end">
+      <form method="post" action="/dns/base-domain"
+            class="mt-3 pt-3 border-t border-border flex flex-wrap gap-2 items-end"
+            data-dns-kind="external">
         <div class="flex-1 min-w-[12rem]">
           <label class="text-xs text-muted block mb-1">Base domain (name suggestions)</label>
           <input name="domain" value="{{ dns_base_domain }}" placeholder="example.com"
@@ -357,6 +349,12 @@
         <button type="submit" class="btn btn-secondary text-sm min-h-11">Save</button>
       </form>
       {% endif %}
+      <p class="text-[11px] text-muted mt-3 mb-0" data-dns-kind="host">
+        Host A names are set under each server <strong class="text-text">Edit → General</strong>.
+      </p>
+      <p class="text-[11px] text-muted mt-1 mb-0" data-dns-kind="external">
+        Public providers (Cloudflare, etc.) are not automated yet — this is an operator checklist.
+      </p>
     </div>
   </div>
 </div>
@@ -517,9 +515,38 @@ function closeDnsHubModal(id) {
   m.classList.add('hidden');
   m.classList.remove('flex');
 }
+/** Filter via data-dns-filter on modal (CSS hides rows). Always safe default: all. */
+function setDnsRecordsFilter(kind) {
+  var modal = document.getElementById('dns-modal-records');
+  if (!modal) return;
+  var k = kind === 'host' || kind === 'external' ? kind : 'all';
+  modal.setAttribute('data-dns-filter', k);
+  modal.querySelectorAll('[data-dns-rec-filter]').forEach(function (btn) {
+    var active = (btn.getAttribute('data-dns-rec-filter') || '') === k;
+    btn.classList.toggle('is-active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+}
+function openDnsRecordsModal(kind) {
+  openDnsHubModal('dns-modal-records');
+  // Default All unless an explicit filter is passed
+  setDnsRecordsFilter(kind === 'host' || kind === 'external' ? kind : 'all');
+}
+// Filter chips: stopPropagation so modal backdrop/handlers never swallow the click
+document.addEventListener('click', function (e) {
+  var t = e.target;
+  if (!t || !t.closest) return;
+  var btn = t.closest('[data-dns-rec-filter]');
+  if (!btn) return;
+  var modal = document.getElementById('dns-modal-records');
+  if (!modal || !modal.contains(btn)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  setDnsRecordsFilter(btn.getAttribute('data-dns-rec-filter'));
+}, true);
 document.addEventListener('keydown', function (e) {
   if (e.key !== 'Escape') return;
-  ['dns-modal-host', 'dns-modal-external', 'dns-modal-network', 'dns-modal-adopt'].forEach(function (id) {
+  ['dns-modal-records', 'dns-modal-network', 'dns-modal-adopt'].forEach(function (id) {
     var m = document.getElementById(id);
     if (m && !m.classList.contains('hidden')) closeDnsHubModal(id);
   });

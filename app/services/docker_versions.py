@@ -94,25 +94,54 @@ def primary_compose_key(files: dict) -> Optional[str]:
     return None
 
 
+_SIDECAR_EXTS = frozenset(
+    {"yml", "yaml", "json", "toml", "conf", "cfg", "ini", "properties", "txt"}
+)
+
+
+def _looks_like_sidecar_basename(base: str) -> bool:
+    """Config sidecars next to compose (promtail-config.yaml, etc.). Avoid package imports."""
+    b = (base or "").strip()
+    if not b or b in (".", ".."):
+        return False
+    if b.startswith(".env"):
+        return False
+    if "." not in b:
+        return False
+    ext = b.rsplit(".", 1)[-1].lower()
+    return ext in _SIDECAR_EXTS
+
+
 def file_role(name: str) -> str:
-    n = (name or "").lower()
-    if n in {b.lower() for b in COMPOSE_BASENAMES} or (
-        n.endswith((".yml", ".yaml")) and "override" not in n and n != ".env"
-    ):
-        if "override" in n:
-            return "override"
-        return "compose"
-    if n in {b.lower() for b in OVERRIDE_BASENAMES} or "override" in n:
+    n = (name or "").lower().replace("\\", "/")
+    base = n.rsplit("/", 1)[-1]
+    if base in {b.lower() for b in OVERRIDE_BASENAMES} or "override" in base:
         return "override"
-    if n == "dockerfile" or n.endswith("/dockerfile") or n.startswith("dockerfile."):
+    if base in {b.lower() for b in COMPOSE_BASENAMES}:
+        return "compose"
+    # Compose set files: docker-compose.e2e.yml / compose.foo.yaml
+    if base.endswith((".yml", ".yaml")) and (
+        base.startswith("docker-compose.") or base.startswith("compose.")
+    ):
+        return "compose"
+    if base == "dockerfile" or base.startswith("dockerfile."):
         return "dockerfile"
-    if n == ".env" or n.startswith(".env"):
+    if base == ".env" or base.startswith(".env"):
         return "env"
+    if _looks_like_sidecar_basename(base):
+        return "config"
     return "other"
 
 
 def sort_project_filenames(names: list[str]) -> list[str]:
-    order = {"compose": 0, "override": 1, "env": 2, "dockerfile": 3, "other": 4}
+    order = {
+        "compose": 0,
+        "override": 1,
+        "env": 2,
+        "config": 3,
+        "dockerfile": 4,
+        "other": 5,
+    }
 
     def key(n: str):
         return (order.get(file_role(n), 9), n.lower())
@@ -160,53 +189,109 @@ def parse_version_files(dv: Optional[DockerVersion]) -> dict:
         return {}
 
 
-def get_project_live_files(server: Server, project_path: str, filenames: Optional[List[str]] = None) -> dict:
-    """Read current files from host (compose, override, .env, Dockerfile, …). Short-lived SSH.
+def _discover_project_filenames(server: Server, project_path: str) -> List[str]:
+    """List compose + env + Dockerfile + sidecar config basenames under project dir."""
+    names = list(DEFAULT_PROJECT_FILES)
+    seen = set(names)
+    try:
+        import re
+        import shlex
 
-    Also discovers extra compose set files (``docker-compose.<name>.yml``) in the
-    project directory so the multi-file editor can open them as tabs.
-    """
-    if not filenames:
-        filenames = list(DEFAULT_PROJECT_FILES)
-        # Discover sibling compose files (sets) without hard-coding names
+        from . import compose_sets as csets
+
+        # Inline mount parse — avoid importing service_templates (circular package init)
+        mount_re = re.compile(
+            r"""^([ \t]*)-\s*["']?([^:"'\s][^:"']*?):(/[^:"'\s][^:"']*)(?::([^"'\s]+))?["']?\s*$"""
+        )
+
+        client0 = get_ssh_client(server)
         try:
-            import shlex
-
-            client0 = get_ssh_client(server)
-            try:
-                q = (project_path or "").rstrip("/")
-                st, out, _ = run_command(
-                    client0,
-                    f"ls -1 {shlex.quote(q)} 2>/dev/null | head -60",
-                    timeout=10,
-                )
-                if st == 0 and out:
-                    from . import compose_sets as csets
-
-                    for ln in out.splitlines():
-                        base = (ln or "").strip()
-                        if not base:
-                            continue
-                        kind = csets.classify_compose_filename(base)
-                        if kind in ("primary", "override", "set") and base not in filenames:
-                            filenames.append(base)
-            finally:
+            q = (project_path or "").rstrip("/")
+            st, out, _ = run_command(
+                client0,
+                f"ls -1 {shlex.quote(q)} 2>/dev/null | head -80",
+                timeout=10,
+            )
+            if st == 0 and out:
+                for ln in out.splitlines():
+                    base = (ln or "").strip()
+                    if not base or base in (".", ".."):
+                        continue
+                    kind = csets.classify_compose_filename(base)
+                    if kind in ("primary", "override", "set") and base not in seen:
+                        names.append(base)
+                        seen.add(base)
+                    elif _looks_like_sidecar_basename(base) and base not in seen:
+                        names.append(base)
+                        seen.add(base)
+            # Bind-mounted config paths from primary compose (e.g. ./promtail-config.yaml:…)
+            compose_candidates = [
+                n
+                for n in names
+                if csets.classify_compose_filename(n) in ("primary", "set")
+                or n in COMPOSE_BASENAMES
+            ]
+            for cname in compose_candidates[:4]:
                 try:
-                    client0.close()
+                    st2, body, _ = run_command(
+                        client0,
+                        f"cat {shlex.quote(q + '/' + cname)} 2>/dev/null | head -c 200000",
+                        timeout=12,
+                    )
+                    if st2 != 0 or not body:
+                        continue
+                    for line in body.splitlines():
+                        m = mount_re.match(line)
+                        if not m:
+                            continue
+                        source = (m.group(2) or "").strip()
+                        rel = source[2:] if source.startswith("./") else source
+                        rel = rel.lstrip("/")
+                        parts = [p for p in rel.split("/") if p]
+                        if not parts or len(parts) > 2 or any(p in (".", "..") for p in parts):
+                            continue
+                        key = "/".join(parts)
+                        if _looks_like_sidecar_basename(parts[-1]) and key not in seen:
+                            names.append(key)
+                            seen.add(key)
                 except Exception:
                     pass
-        except Exception:
-            pass
+        finally:
+            try:
+                client0.close()
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return names
+
+
+def get_project_live_files(server: Server, project_path: str, filenames: Optional[List[str]] = None) -> dict:
+    """Read current files from host (compose, override, .env, Dockerfile, sidecars).
+
+    Discovers compose sets and config sidecars (e.g. ``promtail-config.yaml``) so the
+    multi-file editor can open them as tabs.
+    """
+    if not filenames:
+        filenames = _discover_project_filenames(server, project_path)
     client = get_ssh_client(server)
     sftp = client.open_sftp()
     files = {}
+    max_bytes = 512 * 1024
     try:
         for fname in filenames:
             fpath = f"{project_path}/{fname}".replace("//", "/")
             try:
                 with sftp.open(fpath, "rb") as f:
-                    raw = f.read()
-                    files[fname] = raw.decode("utf-8", errors="replace") if isinstance(raw, (bytes, bytearray)) else str(raw)
+                    raw = f.read(max_bytes + 1)
+                    if isinstance(raw, (bytes, bytearray)) and len(raw) > max_bytes:
+                        # Skip huge files (not a normal compose/config sidecar)
+                        continue
+                    files[fname] = (
+                        raw.decode("utf-8", errors="replace")
+                        if isinstance(raw, (bytes, bytearray))
+                        else str(raw)
+                    )
             except (IOError, FileNotFoundError):
                 pass
         return files

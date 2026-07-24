@@ -592,6 +592,17 @@
   color: var(--color-warning, #d97706);
   background: color-mix(in srgb, var(--color-warning, #d97706) 10%, var(--color-surface));
 }
+.ph-file-badge--config {
+  border-color: color-mix(in srgb, #7c3aed 45%, var(--color-border));
+  color: #7c3aed;
+  background: color-mix(in srgb, #7c3aed 10%, var(--color-surface));
+}
+html.dark .ph-file-badge--config,
+.dark .ph-file-badge--config {
+  color: #c4b5fd;
+  border-color: color-mix(in srgb, #a78bfa 50%, var(--color-border));
+  background: color-mix(in srgb, #a78bfa 12%, var(--color-surface));
+}
 .ph-file-tabs .btn.is-active,
 .ph-file-tabs .btn.btn-accent {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent);
@@ -1050,87 +1061,85 @@
   }
 }
 
-/* Schedules tab: ⋯ row menu (E5) — keep panel on-screen */
-.nmap-sched-menu {
-  position: relative;
-  display: inline-block;
+/* Schedules tab: dense unified cards (mobile + desktop, all actions visible) */
+.nmap-sched-list {
+  display: block;
 }
-.nmap-sched-menu-btn {
-  list-style: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.25rem;
-  min-height: 2.25rem;
-  padding: 0 0.45rem;
-  border-radius: 8px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface);
-  color: var(--color-text);
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1;
-  user-select: none;
+.nmap-sched-list-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
-.nmap-sched-menu-btn::-webkit-details-marker { display: none; }
-.nmap-sched-menu-btn:hover {
-  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
-}
-.nmap-sched-menu[open] .nmap-sched-menu-btn {
-  border-color: color-mix(in srgb, var(--color-accent) 55%, var(--color-border));
-  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
-}
-.nmap-sched-menu-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 0.25rem);
-  z-index: 40;
-  min-width: 9.5rem;
-  max-width: min(16rem, calc(100vw - 1.5rem));
-  padding: 0.3rem;
+.nmap-sched-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 0.55rem 0.7rem;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   background: var(--color-surface);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+.nmap-sched-card.is-active {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+.nmap-sched-card-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-text);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nmap-sched-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.4rem;
+  margin-top: 0.2rem;
+}
+.nmap-sched-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+.nmap-sched-card-actions form {
+  margin: 0;
+}
+/* Desktop: meta + actions on one denser row when space allows */
+@media (min-width: 768px) {
+  .nmap-sched-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
+    padding: 0.5rem 0.75rem;
+  }
+  .nmap-sched-card-main {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .nmap-sched-card-actions {
+    flex: 0 0 auto;
+    padding-top: 0;
+    border-top: none;
+    justify-content: flex-end;
+  }
+}
+/* Runs: same density language as schedules */
+.nmap-run-list-inner {
   display: flex;
   flex-direction: column;
-  gap: 0.05rem;
+  gap: 0.4rem;
 }
-/* Prefer opening upward when near bottom of viewport (JS sets data-place) */
-.nmap-sched-menu[data-place="up"] .nmap-sched-menu-panel {
-  top: auto;
-  bottom: calc(100% + 0.25rem);
-}
-.nmap-sched-menu-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 0.4rem 0.55rem;
-  min-height: 2.1rem;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-text);
-  font-size: 0.8rem;
-  line-height: 1.25;
-  cursor: pointer;
-  text-decoration: none;
-  box-sizing: border-box;
-}
-.nmap-sched-menu-item:hover {
-  background: var(--color-bg);
-  text-decoration: none;
-}
-.nmap-sched-menu-item.is-accent {
-  color: var(--color-accent);
-  font-weight: 600;
-}
-.nmap-sched-menu-item.is-danger {
-  color: var(--color-danger, #dc2626);
-}
-.nmap-sched-menu form {
-  margin: 0;
+.nmap-run-card {
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
 }
 /* Server detail: collapsed LAN discovery strip (E1) */
 .nmap-discovery-strip {
