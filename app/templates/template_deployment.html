@@ -31,19 +31,15 @@
     After host wipe: <strong>Apply last known config</strong>, then restore data from Backups if needed.
   </p>
   {% if server %}
-  <div class="banner-warning border rounded p-3 text-sm mt-3 max-w-2xl space-y-2">
-    <p class="mb-0">
-      <strong>Compose files are template-driven.</strong>
-      Prefer this page for settings changes. Intentional host-only edits (e.g. a different
-      published port) should be followed by <strong>Accept host as desired</strong> so drift clears.
-    </p>
-    <p class="mb-0">
-      <a href="/servers/{{ server.id }}/docker/compose/{{ dep.project_name | urlencode }}/edit"
-         class="btn btn-secondary min-h-11 text-sm inline-flex items-center no-underline"
-         data-nav-loading="Opening host file editor…"
-         data-testid="host-compose-editor-link">Open host file editor</a>
-      <span class="text-xs text-muted ml-2">compose · .env · sidecars on {{ server.name }}</span>
-    </p>
+  <div class="banner-warning border rounded p-3 text-sm mt-3 max-w-2xl">
+    <strong>Compose files are template-driven.</strong>
+    Prefer this page for settings changes. Intentional host-only edits should be followed by
+    <strong>Accept host as desired</strong> so drift clears. Raw host files:
+    <a href="/servers/{{ server.id }}/docker/compose/{{ dep.project_name | urlencode }}/edit"
+       class="text-accent underline"
+       data-nav-loading="Opening host file editor…"
+       data-testid="host-compose-editor-link">host file editor</a>
+    (compose · .env · sidecars on {{ server.name }}).
   </div>
   {% endif %}
 
