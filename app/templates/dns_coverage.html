@@ -99,11 +99,12 @@
   {% if path_gaps %}
   <h3 class="text-sm font-medium mb-1">Published names — needs attention</h3>
   <p class="text-[11px] text-muted mb-2 max-w-3xl">
-    Pick a suggested monitor and <strong class="text-text">Bind</strong>.
-    Full monitor list only appears when there is no suggestion — poll Kuma if empty.
+    One-click bind to the best match. Use <strong class="text-text">Pick…</strong> for the full Kuma form — no giant dropdowns on this page.
   </p>
   <div class="coverage-card-list" data-testid="coverage-path-cards">
     {% for g in path_gaps %}
+    {% set tops = (g.suggestions or [])[:4] %}
+    {% set top = tops[0] if tops else none %}
     <article class="coverage-card"
              id="coverage-{{ g.service_id }}"
              data-testid="coverage-path-card">
@@ -111,7 +112,7 @@
         <div class="min-w-0 flex-1">
           <div class="coverage-card-title">{{ g.label }}</div>
           <div class="coverage-card-meta">
-            <span class="font-mono break-all">{{ g.fqdn }}</span>
+            <span class="font-mono">{{ g.fqdn }}</span>
             {% if g.backend_name %}<span>{{ g.backend_name }}</span>{% endif %}
             {% if g.docker_project %}<span class="font-mono">{{ g.docker_project }}</span>{% endif %}
             <a href="/dns/logical?focus={{ g.service_id }}#map" class="text-accent hover:underline">Path</a>
@@ -128,49 +129,56 @@
         {% endif %}
       </div>
       {% if can_mutate and g.bind_action and g.backend_server_id %}
-      <form method="post" action="{{ g.bind_action }}" class="coverage-bind-row">
-        <input type="hidden" name="role" value="service">
-        <input type="hidden" name="server_id" value="{{ g.backend_server_id }}">
-        <input type="hidden" name="docker_project" value="{{ g.docker_project or '' }}">
-        <input type="hidden" name="docker_container" value="">
-        <input type="hidden" name="next" value="/dns/coverage#kuma-coverage">
-        <select name="external_id" class="coverage-select" required aria-label="Monitor for {{ g.label }}">
-          {% if g.suggestions %}
-          {% for m in g.suggestions %}
-          <option value="{{ m.external_id }}"
-            {% if m.external_id == g.suggested_external_id %}selected{% endif %}>
-            {{ m.label }}
-          </option>
-          {% endfor %}
-          {% if kc.all_service_monitors and (kc.all_service_monitors|length) <= 40 %}
-          <optgroup label="Other monitors">
-            {% for m in kc.all_service_monitors %}
-            <option value="{{ m.external_id }}">{{ m.label }}</option>
+      <div class="coverage-bind">
+        {% if top %}
+        <form method="post" action="{{ g.bind_action }}" class="coverage-bind-main">
+          <input type="hidden" name="role" value="service">
+          <input type="hidden" name="server_id" value="{{ g.backend_server_id }}">
+          <input type="hidden" name="docker_project" value="{{ g.docker_project or '' }}">
+          <input type="hidden" name="docker_container" value="">
+          <input type="hidden" name="next" value="/dns/coverage#kuma-coverage">
+          <input type="hidden" name="external_id" value="{{ top.external_id }}">
+          <span class="coverage-bind-label" title="{{ top.label }}">
+            <span class="coverage-bind-k">Match</span>
+            <span class="coverage-bind-v">{{ top.label }}</span>
+          </span>
+          <button type="submit" class="btn btn-accent text-xs min-h-9 px-3 shrink-0">Bind</button>
+        </form>
+        {% if tops|length > 1 %}
+        <details class="coverage-alt">
+          <summary>Other matches ({{ tops|length - 1 }})</summary>
+          <ul class="coverage-alt-list">
+            {% for m in tops[1:] %}
+            <li>
+              <form method="post" action="{{ g.bind_action }}" class="coverage-alt-form">
+                <input type="hidden" name="role" value="service">
+                <input type="hidden" name="server_id" value="{{ g.backend_server_id }}">
+                <input type="hidden" name="docker_project" value="{{ g.docker_project or '' }}">
+                <input type="hidden" name="docker_container" value="">
+                <input type="hidden" name="next" value="/dns/coverage#kuma-coverage">
+                <input type="hidden" name="external_id" value="{{ m.external_id }}">
+                <span class="coverage-alt-name" title="{{ m.label }}">{{ m.label }}</span>
+                <button type="submit" class="btn btn-secondary text-xs min-h-8 px-2">Bind</button>
+              </form>
+            </li>
             {% endfor %}
-          </optgroup>
-          {% endif %}
-          {% elif kc.all_service_monitors %}
-          <option value="">— select monitor —</option>
-          {% for m in kc.all_service_monitors %}
-          <option value="{{ m.external_id }}">{{ m.label }}</option>
-          {% endfor %}
-          {% else %}
-          <option value="">— no monitors (poll Kuma) —</option>
-          {% endif %}
-        </select>
-        <button type="submit" class="btn btn-accent text-xs min-h-9 px-2.5 shrink-0">Bind</button>
-        {% if g.bind_advanced_href %}
-        <a href="{{ g.bind_advanced_href }}" class="text-[11px] text-muted hover:text-accent shrink-0 underline"
-           title="Full Kuma binding form">More…</a>
+          </ul>
+        </details>
         {% endif %}
-      </form>
-      {% if not g.suggestions and not kc.all_service_monitors %}
-      <p class="text-[10px] text-muted mt-1 mb-0">
-        No monitors —
-        <a href="{{ g.kuma_href }}" class="text-accent hover:underline">open Kuma</a>
-        and <strong>Poll now</strong>.
-      </p>
-      {% endif %}
+        {% if g.bind_advanced_href %}
+        <a href="{{ g.bind_advanced_href }}" class="coverage-pick-other">Pick other monitor…</a>
+        {% endif %}
+        {% else %}
+        <p class="coverage-no-match">
+          No auto-match.
+          {% if g.bind_advanced_href %}
+          <a href="{{ g.bind_advanced_href }}" class="text-accent hover:underline">Pick a monitor…</a>
+          {% elif g.kuma_href %}
+          <a href="{{ g.kuma_href }}" class="text-accent hover:underline">Open Kuma</a> and Poll first.
+          {% endif %}
+        </p>
+        {% endif %}
+      </div>
       {% else %}
       <a href="{{ g.bind_advanced_href or g.kuma_href }}" class="text-accent hover:underline text-xs">Open Integrations</a>
       {% endif %}
@@ -224,35 +232,41 @@
             </div>
           </div>
           {% if can_mutate and d.bind_action and d.server_id %}
-          <form method="post" action="{{ d.bind_action }}" class="coverage-bind-row">
-            <input type="hidden" name="role" value="service">
-            <input type="hidden" name="server_id" value="{{ d.server_id }}">
-            <input type="hidden" name="docker_project" value="{{ d.project }}">
-            <input type="hidden" name="docker_container" value="{{ d.compose_service or d.container }}">
-            <input type="hidden" name="next" value="/dns/coverage#kuma-deps">
-            <select name="external_id" class="coverage-select" required aria-label="Monitor">
-              {% if d.tcp_suggestions %}
-              {% for m in d.tcp_suggestions %}
-              <option value="{{ m.external_id }}"
-                {% if m.external_id == d.suggested_external_id %}selected{% endif %}>
-                {{ m.label }}
-              </option>
-              {% endfor %}
-              {% elif kc.all_service_monitors %}
-              <option value="">— select —</option>
-              {% for m in kc.all_service_monitors[:60] %}
-              <option value="{{ m.external_id }}">{{ m.label }}</option>
-              {% endfor %}
-              {% else %}
-              <option value="">— no monitors —</option>
+          {% set dtops = (d.tcp_suggestions or [])[:3] %}
+          {% set dtop = dtops[0] if dtops else none %}
+          <div class="coverage-bind">
+            {% if dtop %}
+            <form method="post" action="{{ d.bind_action }}" class="coverage-bind-main">
+              <input type="hidden" name="role" value="service">
+              <input type="hidden" name="server_id" value="{{ d.server_id }}">
+              <input type="hidden" name="docker_project" value="{{ d.project }}">
+              <input type="hidden" name="docker_container" value="{{ d.compose_service or d.container }}">
+              <input type="hidden" name="next" value="/dns/coverage#kuma-deps">
+              <input type="hidden" name="external_id" value="{{ dtop.external_id }}">
+              <span class="coverage-bind-label" title="{{ dtop.label }}">
+                <span class="coverage-bind-k">Match</span>
+                <span class="coverage-bind-v">{{ dtop.label }}</span>
+              </span>
+              <button type="submit" class="btn btn-accent text-xs min-h-9 px-3 shrink-0">Bind</button>
+            </form>
+            {% else %}
+            <p class="coverage-no-match">
+              No TCP match.
+              {% if d.bind_advanced_href %}
+              <a href="{{ d.bind_advanced_href }}" class="text-accent hover:underline">Pick…</a>
               {% endif %}
-            </select>
-            <button type="submit" class="btn btn-accent text-xs min-h-9 px-2.5 shrink-0">Bind</button>
-          </form>
-          <form method="post" action="/dns/coverage/mute" class="inline shrink-0">
-            <input type="hidden" name="key" value="{{ d.key }}">
-            <button type="submit" class="text-[11px] text-muted hover:text-text underline">Mute</button>
-          </form>
+            </p>
+            {% endif %}
+            <div class="coverage-bind-actions">
+              {% if d.bind_advanced_href %}
+              <a href="{{ d.bind_advanced_href }}" class="coverage-pick-other">Pick other…</a>
+              {% endif %}
+              <form method="post" action="/dns/coverage/mute" class="inline">
+                <input type="hidden" name="key" value="{{ d.key }}">
+                <button type="submit" class="text-[11px] text-muted hover:text-text underline">Mute</button>
+              </form>
+            </div>
+          </div>
           {% endif %}
         </article>
         {% endfor %}
