@@ -277,48 +277,34 @@
       {% if api_meta %}
       <div class="mb-4">
         <h3 class="text-sm font-semibold mb-2">Scopes</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="text-left text-xs text-muted border-b border-border">
-                <th class="py-2 pr-3">Scope</th>
-                <th class="py-2">Description</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for name, desc in api_meta.scopes.items() %}
-              <tr class="border-b border-border/60">
-                <td class="py-1.5 pr-3 font-mono text-xs">{{ name }}</td>
-                <td class="py-1.5 text-sm">{{ desc }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="ph-dense-list">
+          {% for name, desc in api_meta.scopes.items() %}
+          <article class="ph-dense-row">
+            <div class="ph-dense-row-main min-w-0">
+              <div class="ph-dense-row-title ph-dense-mono">{{ name }}</div>
+              <div class="ph-dense-row-meta"><span>{{ desc }}</span></div>
+            </div>
+          </article>
+          {% endfor %}
         </div>
       </div>
       <div class="mb-4">
         <h3 class="text-sm font-semibold mb-2">Endpoints</h3>
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead>
-              <tr class="text-left text-xs text-muted border-b border-border">
-                <th class="py-2 pr-3">Method</th>
-                <th class="py-2 pr-3">Path</th>
-                <th class="py-2 pr-3">Scope</th>
-                <th class="py-2">Summary</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for e in api_meta.endpoints %}
-              <tr class="border-b border-border/60">
-                <td class="py-1.5 pr-3 font-mono text-xs font-semibold">{{ e.method }}</td>
-                <td class="py-1.5 pr-3 font-mono text-xs">{{ e.path }}</td>
-                <td class="py-1.5 pr-3 text-xs">{{ e.scope }}</td>
-                <td class="py-1.5 text-sm">{{ e.summary }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="ph-dense-list">
+          {% for e in api_meta.endpoints %}
+          <article class="ph-dense-row">
+            <div class="ph-dense-row-main min-w-0">
+              <div class="ph-dense-row-title">
+                <span class="ph-dense-mono font-semibold">{{ e.method }}</span>
+                <span class="ph-dense-mono font-normal text-sm ml-1">{{ e.path }}</span>
+              </div>
+              <div class="ph-dense-row-meta">
+                <span class="status-pill feature-off">{{ e.scope }}</span>
+                <span>{{ e.summary }}</span>
+              </div>
+            </div>
+          </article>
+          {% endfor %}
         </div>
       </div>
       {% if api_meta.ip_restriction %}

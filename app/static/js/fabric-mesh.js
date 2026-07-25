@@ -1091,16 +1091,27 @@
       );
     }
 
-    // Map links from dashboard / server / docker land on the SVG panel
-    if (preferMapOnLoad()) {
+    // One chrome model: open when deep-linked, or by default on wide viewports
+    var openByDefault = preferMapOnLoad();
+    if (!openByDefault) {
+      try {
+        openByDefault = window.matchMedia('(min-width: 768px)').matches;
+      } catch (errMedia) {
+        openByDefault = true;
+      }
+    }
+    if (openByDefault) {
       open();
-      requestAnimationFrame(function () {
-        scrollMapIntoView(graph);
-        // Second tick: layout after mobile display:block
+      if (preferMapOnLoad()) {
         requestAnimationFrame(function () {
           scrollMapIntoView(graph);
+          requestAnimationFrame(function () {
+            scrollMapIntoView(graph);
+          });
         });
-      });
+      }
+    } else {
+      close();
     }
   }
 

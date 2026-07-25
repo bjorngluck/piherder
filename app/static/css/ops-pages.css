@@ -1034,33 +1034,6 @@ html.dark .ph-file-badge--config,
   color: var(--color-accent);
   font-weight: 600;
 }
-/*
- * Responsive show/hide for nmap Schedules/Runs (and similar).
- * Do NOT use Tailwind ``hidden sm:block`` / ``hidden sm:flex`` together —
- * base.html defines ``.hidden { display: none !important }`` which always
- * wins over ``sm:block`` (desktop table stays invisible; mobile cards OK).
- */
-.ph-only-below-sm {
-  display: block;
-}
-.ph-only-sm-up {
-  display: none !important;
-}
-.ph-only-sm-up.ph-flex {
-  display: none !important;
-}
-@media (min-width: 640px) {
-  .ph-only-below-sm {
-    display: none !important;
-  }
-  .ph-only-sm-up {
-    display: block !important;
-  }
-  .ph-only-sm-up.ph-flex {
-    display: flex !important;
-  }
-}
-
 /* Schedules tab: dense unified cards (mobile + desktop, all actions visible) */
 .nmap-sched-list {
   display: block;
@@ -1725,4 +1698,79 @@ body.nmap-modal-open {
 .nmap-host-card .nmap-port-chips {
   margin-top: auto;
   padding-top: 0.25rem;
+}
+
+/* ── Unified dense ops lists (one markup; replaces wide tables) ─── */
+.ph-dense-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.ph-dense-list--scroll {
+  max-height: 36rem;
+  overflow-y: auto;
+}
+.ph-dense-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.45rem 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+.ph-dense-row-main {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+.ph-dense-row-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text);
+  line-height: 1.25;
+  word-break: break-word;
+}
+.ph-dense-row-title a {
+  color: var(--color-accent, #2563eb);
+  text-decoration: none;
+}
+.ph-dense-row-title a:hover {
+  text-decoration: underline;
+}
+.ph-dense-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.5rem;
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--color-muted);
+  line-height: 1.35;
+}
+.ph-dense-row-meta .font-mono,
+.ph-dense-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+}
+.ph-dense-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.ph-dense-row-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  width: 100%;
+  margin-top: 0.35rem;
+}
+.ph-dense-empty {
+  padding: 0.85rem 0.5rem;
+  font-size: 0.875rem;
+  color: var(--color-muted);
 }

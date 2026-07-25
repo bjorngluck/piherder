@@ -180,10 +180,14 @@ def move_secrets_to_env(
     return new_compose, new_env, extracted, messages
 
 
-# Short-form volume: source:target or source:target:mode
-_SHORT_MOUNT_RE = re.compile(
-    r"""^([ \t]*)-\s*["']?([^:"'\s][^:"']*?):(/[^:"'\s][^:"']*)(?::([^"'\s]+))?["']?\s*$"""
+from ..compose_project_files import (
+    CONFIG_FILE_EXTS as _CONFIG_FILE_EXTS,
+    SHORT_MOUNT_RE as _SHORT_MOUNT_RE,
+    classify_volume_source,
+    discover_relative_config_files,
+    looks_like_config_file,
 )
+
 # Host:container port (optional /proto, optional quotes)
 _PORT_MAP_RE = re.compile(
     r"""^([ \t]*)-\s*["']?(\d{1,5}):(\d{1,5})(?:/(tcp|udp))?["']?\s*$""",
@@ -194,27 +198,6 @@ _BOOLISH = frozenset(
 )
 _SECTION_KEY_RE = re.compile(r"^([ \t]*)([A-Za-z0-9_-]+)\s*:\s*(.*)$")
 
-# Relative project files that should ship with the template (not become volume vars)
-_CONFIG_FILE_EXTS = frozenset(
-    {
-        "yml",
-        "yaml",
-        "json",
-        "toml",
-        "conf",
-        "cfg",
-        "ini",
-        "txt",
-        "properties",
-        "xml",
-        "env",
-        "js",
-        "ts",
-        "lua",
-        "hcl",
-    }
-)
-
 # FQDN-ish tokens in config bodies (e.g. rpi5-2.hacknow.info)
 _HOST_FQDN_RE = re.compile(
     r"\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}\b"
@@ -222,55 +205,6 @@ _HOST_FQDN_RE = re.compile(
 _URL_WITH_HOST_RE = re.compile(
     r"(https?://)([a-zA-Z0-9](?:[a-zA-Z0-9.-]{0,251}[a-zA-Z0-9])?)(:\d+)?(/[^\s\"']*)?"
 )
-
-
-def looks_like_config_file(path: str) -> bool:
-    """True when a relative bind source looks like a file (has known extension)."""
-    p = (path or "").strip().lstrip("./")
-    if not p or p in (".", "..") or ".." in p.split("/"):
-        return False
-    base = p.rsplit("/", 1)[-1]
-    if "." not in base or base.startswith("."):
-        # allow .env.something already handled elsewhere
-        if base.startswith(".env"):
-            return True
-        return False
-    ext = base.rsplit(".", 1)[-1].lower()
-    return ext in _CONFIG_FILE_EXTS
-
-
-def discover_relative_config_files(compose: str) -> List[str]:
-    """Relative bind-mount sources in compose that look like project config files.
-
-    Example: ``./promtail-config.yaml:/etc/promtail/config.yml`` →
-    ``promtail-config.yaml``. Single-level and one-subdir paths only (SFTP write limit).
-    """
-    found: List[str] = []
-    seen: Set[str] = set()
-    for line in (compose or "").splitlines():
-        m = _SHORT_MOUNT_RE.match(line)
-        if not m:
-            continue
-        source = (m.group(2) or "").strip()
-        mode, norm_src = classify_volume_source(source)
-        if mode != "bind_relative":
-            continue
-        # Prefer original relative form without ./ for storage
-        rel = (source or "").strip()
-        if rel.startswith("./"):
-            rel = rel[2:]
-        rel = rel.lstrip("/")
-        if not looks_like_config_file(rel) and not looks_like_config_file(norm_src):
-            continue
-        # write_project_files allows at most one subdirectory
-        parts = [p for p in rel.split("/") if p]
-        if not parts or len(parts) > 2 or any(p in (".", "..") for p in parts):
-            continue
-        key = "/".join(parts)
-        if key not in seen:
-            seen.add(key)
-            found.append(key)
-    return found
 
 
 def _unique_var_name(base: str, used: Set[str]) -> str:
@@ -288,26 +222,6 @@ def _unique_var_name(base: str, used: Set[str]) -> str:
         n += 1
     used.add(candidate)
     return candidate
-
-
-def classify_volume_source(source: str) -> Tuple[str, str]:
-    """Return (mode, normalized_source) for a compose volume left-hand side."""
-    src = (source or "").strip()
-    if not src:
-        return "named", src
-    if src.startswith("/") and not src.startswith("//"):
-        return "bind_absolute", src
-    if src.startswith("./") or src.startswith("../"):
-        # relative bind (reject .. later at validate; keep as relative-ish)
-        cleaned = src
-        if cleaned.startswith("./"):
-            cleaned = cleaned[2:]
-        return "bind_relative", cleaned or src
-    # bare relative path used as bind in many compose files (./ optional)
-    if "/" in src or src in (".", ".."):
-        return "bind_relative", src.lstrip("./")
-    # named volume
-    return "named", src
 
 
 def _volume_var_base(source: str, target: str, mode: str) -> str:

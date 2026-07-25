@@ -44,10 +44,10 @@ Raise the **operator bar** and **confidence bar** for production:
 | **E1** | Server detail: LAN discovery less dominant | S–M | **Done** — collapsed strip after dest cards; richer chip (IP · ports) |
 | **E2** | Offline / unmatched devices | M | **Done** — stale UI = Offline flag + warning colour; never auto-delete; ignore stays manual |
 | **E3** | Overview cleanup | M | **Done** — Scan now + vuln pack update → modals; page keeps stats + vuln strip; **no** Devices/Network/Jobs shortcut buttons (tabs only) |
-| **E5** | Schedules UX | M–L | **Done** — list-first; mobile **card actions**; desktop Edit/Run + ⋯ for Enable/Delete; add/edit modal (`?new=1` / `?schedule=`) |
+| **E5** | Schedules UX | M–L | **Done** — list-first dense rows; full actions always visible; add/edit modal (`?new=1` / `?schedule=`) |
 | **E3b** | Devices + Network merge | M | **Done** — single **Devices** tab with **List \| Map** view toggle; `?tab=network` → map view |
 | **E1b** | LAN chip → server return | S | **Done** — link-style LAN pill; device modal `return=server:{id}` closes back to fleet host |
-| **E4b** | Runs / Schedules mobile | S | **Done** — card layouts on narrow screens (no min-width table scroll) |
+| **E4b** | Runs / Schedules mobile | S | **Done** — **one** dense list at all widths (no dual table/cards markup; single `data-testid`) |
 
 **Product locks (from triage):**
 
@@ -74,8 +74,9 @@ When we touch a surface, apply shared patterns (not a full redesign):
 
 - Secondary actions → **modal/drawer** (Docker / nmap Network edit pattern).  
 - Filter/search chrome: one padding + chip + empty-state pattern.  
-- Dense lists: **⋯ overflow** for row actions where we already use that pattern.  
-- Mobile: tables → cards where decided (E10) and for new dense tables we touch.  
+- **One DOM model per list** — dense rows (`ph-dense-*` / nmap sched cards); reflow with CSS; **no** dual mobile-table + desktop-table markup.  
+- Dense lists: full row actions when they fit; **⋯ overflow** only where already established.  
+- Maps: list + graph share **one** open/closed chrome (not breakpoint-specific dual UIs).  
 - Wizard micro-copy / edge cases only if capacity (RELEASE_v0.8.0 known issue §1) — **not** a rewrite. **Done** — step guidance, Connect order (install → test → clear), Features HAOS/rsync hints, resume/Save & exit note; no flow rewrite.
 
 North star: residual chrome from RELEASE_v0.8.0 known issue **#3**. Concrete checklist: B2, E1–E5, E7, E10.
@@ -94,7 +95,7 @@ North star: residual chrome from RELEASE_v0.8.0 known issue **#3**. Concrete che
 | **Q1** | Unit coverage freeze | **≥ 55%** line (`--cov=app`) — **✅ ~57.4%** suite (baseline 49%; scheduler/audit/backup + certs packs) |
 | **Q2** | CI fail-under | **✅ Raised 35 → 45 → 50 → 55** (matches freeze bar) |
 | **Q3** | Critical-path depth | Prefer pure services: nmap residual, integrations registry/adapters, fabric/coverage, auth/RBAC edges, helpers for UX we touch |
-| **Q4** | E2E on touched UX | **✅** D/N/K chrome: List\|Map Devices, Overview modals, Schedules modal + mobile cards, Runs mobile, Network hub modals + host stacked list, coverage cards |
+| **Q4** | E2E on touched UX | **✅** D/N/K chrome: List\|Map Devices, Overview modals, Schedules/Runs unified lists, Network hub modals + host stacked list, coverage cards |
 | **Q5** | HTTP smoke | Extend `test_http_smoke` / seeded surfaces for any new routes |
 
 **E2E policy (0.9):**
@@ -213,5 +214,8 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-23 | Wiki full pass: wizard step table, templates OOTB/from-host, Journey D2, screenshots **operator testing in progress**, testing.md; no push |
 | 2026-07-24 | **Desktop UX:** Network hub destination + settings **cards** (not fat buttons/chips); unified DNS records modal (All default + Host A / External filter); stack panel pointer-drag reorder; Schedules/Runs / nmap lists unclipped (`ph-only-*` vs `.hidden !important`) |
 | 2026-07-24 | **Templates / Docker:** desired-files browser on deployment + template detail; always write empty `.env` on deploy; clearer env drift; host full editor discovers sidecars (promtail) + seeds missing desired files; menu labels **Quick edit** / **Full editor…** (no “advanced”); **Accept host as desired** to clear intentional host-only drift (e.g. port remaps); host file editor button on deployment page |
+| 2026-07-25 | **Structure (review follow-up):** shared `compose_project_files` + `host_sync`; compose editor load in `compose_editor` (router thin); CSS split — `dns-hub.css`, `fabric-stack.css`, `ph-only-*` → `ops.css` (concern boundaries; no history rewrite) |
+| 2026-07-25 | **UI unify (no dual mobile/desktop markup):** dense `ph-dense-*` lists for containers, Grafana/Kuma/Pi-hole, deployments, API catalog, backup usage; nmap schedules/runs single testids; maps one open/closed chrome + desktop default open; stack reorder one Pointer Events path |
+| 2026-07-25 | **Docs/wiki** aligned to structure + UI unify; commit on main |
 
 **End of plan** — living document; freeze into RELEASE notes at tag.

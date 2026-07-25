@@ -18,29 +18,21 @@
   </div>
 
   {% if deployments %}
-  <div class="card overflow-hidden">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-xs text-muted border-b border-border">
-          <th class="p-3 text-left">Project</th>
-          <th class="p-3 text-left">Template</th>
-          <th class="p-3 text-left">Version</th>
-          <th class="p-3 text-left">Drift</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for d in deployments %}
-        <tr class="border-b border-border">
-          <td class="p-3">
-            <a href="/templates/deployments/{{ d.id }}" class="text-accent hover:underline font-medium">{{ d.project_name }}</a>
-          </td>
-          <td class="p-3 text-xs">{{ d.template_slug or '—' }}</td>
-          <td class="p-3 text-xs">V{{ d.config_version }}</td>
-          <td class="p-3 text-xs">{{ d.drift_status }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="ph-dense-list" data-testid="server-deployments-list">
+    {% for d in deployments %}
+    <article class="ph-dense-row">
+      <div class="ph-dense-row-main min-w-0">
+        <div class="ph-dense-row-title">
+          <a href="/templates/deployments/{{ d.id }}">{{ d.project_name }}</a>
+        </div>
+        <div class="ph-dense-row-meta">
+          <span>{{ d.template_slug or '—' }}</span>
+          <span class="ph-dense-mono">V{{ d.config_version }}</span>
+          <span class="status-pill feature-off">{{ d.drift_status }}</span>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
   </div>
   {% else %}
   <div class="card p-6 text-sm text-muted">

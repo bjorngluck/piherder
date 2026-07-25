@@ -38,8 +38,11 @@ from .editor import (
     redact_secret_variable_dicts,
 )
 from .from_host import list_host_projects_for_picker, pull_project_as_editor_form
-from .deploy import (
+from .host_sync import (
     adopt_host_files_as_desired,
+    migrate_host_env_into_deployment,
+)
+from .deploy import (
     annotate_projects_with_deployments,
     apply_last_known_config,
     apply_template_to_host,
@@ -51,7 +54,6 @@ from .deploy import (
     host_picker_rows,
     list_deployments_for_server,
     matching_backup_sources_for_deployment,
-    migrate_host_env_into_deployment,
     preview_template,
     public_vars_excluding_volume_meta,
     redeploy_desired_state,

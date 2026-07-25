@@ -71,17 +71,7 @@
         </p>
         <div id="backup-usage-result" class="hidden mt-2">
           <p class="text-xs text-text mb-2" id="backup-usage-total"></p>
-          <div class="overflow-x-auto">
-            <table class="w-full text-[11px] text-muted">
-              <thead>
-                <tr class="text-left border-b border-border">
-                  <th class="py-1 pr-2 font-medium text-text">Under backups</th>
-                  <th class="py-1 font-medium text-text text-right">Size</th>
-                </tr>
-              </thead>
-              <tbody id="backup-usage-tbody"></tbody>
-            </table>
-          </div>
+          <div class="ph-dense-list" id="backup-usage-list"></div>
         </div>
       </div>
     </div>
@@ -108,7 +98,7 @@
   var summary = document.getElementById('backup-usage-summary');
   var result = document.getElementById('backup-usage-result');
   var totalEl = document.getElementById('backup-usage-total');
-  var tbody = document.getElementById('backup-usage-tbody');
+  var listEl = document.getElementById('backup-usage-list');
   var loading = false;
 
   function esc(s) {
@@ -164,19 +154,23 @@
           totalEl.innerHTML = 'Total under backups: <strong>' +
             esc(data.tree_human || (data.tree_bytes + ' B')) + '</strong>';
         }
-        if (tbody) {
-          tbody.innerHTML = '';
+        if (listEl) {
+          listEl.innerHTML = '';
           var rows = data.children || [];
           if (!rows.length) {
-            tbody.innerHTML = '<tr><td class="py-1 text-muted" colspan="2">No top-level folders found.</td></tr>';
+            listEl.innerHTML = '<div class="ph-dense-empty">No top-level folders found.</div>';
           } else {
             rows.forEach(function (row) {
-              var tr = document.createElement('tr');
-              tr.className = 'border-b border-border/50';
-              tr.innerHTML =
-                '<td class="py-1 pr-2 font-mono break-all">' + esc(row.name) + '</td>' +
-                '<td class="py-1 text-right whitespace-nowrap">' + esc(row.human || row.bytes) + '</td>';
-              tbody.appendChild(tr);
+              var art = document.createElement('article');
+              art.className = 'ph-dense-row';
+              art.innerHTML =
+                '<div class="ph-dense-row-main min-w-0">' +
+                  '<div class="ph-dense-row-title ph-dense-mono break-all">' + esc(row.name) + '</div>' +
+                '</div>' +
+                '<div class="ph-dense-row-actions text-xs text-muted whitespace-nowrap">' +
+                  esc(row.human || row.bytes) +
+                '</div>';
+              listEl.appendChild(art);
             });
           }
         }

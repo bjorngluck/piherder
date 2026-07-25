@@ -132,55 +132,41 @@
     <div class="font-mono text-[11px]"><span class="text-muted">logs:</span> {{ query_template_logs or '—' }}</div>
   </div>
   {% if inventory_rows %}
-  <div class="overflow-x-auto max-h-[36rem] overflow-y-auto">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-left text-xs text-muted border-b border-border">
-          <th class="py-2 pr-3">Grafana title</th>
-          <th class="py-2 pr-3 min-w-[14rem]">Preferred name ({{ ph_brand() }})</th>
-          <th class="py-2 pr-3">UID</th>
-          <th class="py-2 pr-3">Folder</th>
-          <th class="py-2 pr-3">Binds</th>
-          <th class="py-2">Open</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for d in inventory_rows %}
-        <tr class="border-b border-border/50 align-top">
-          <td class="py-2 pr-3 font-medium">{{ d.title }}</td>
-          <td class="py-2 pr-3">
-            {% if can_mutate and d.uid %}
-            <form method="post" action="/integrations/{{ integration.id }}/preferred-name"
-                  class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-              <input type="hidden" name="uid" value="{{ d.uid }}">
-              <input type="text" name="display_name" class="input text-sm w-full min-w-[10rem]"
-                     value="{{ d.preferred_name or '' }}"
-                     placeholder="{{ d.title if d.title and not d.title.startswith('(') else 'Leave blank = Grafana title' }}"
-                     autocomplete="off">
-              <button type="submit" class="btn btn-primary text-xs min-h-10 shrink-0 px-3">Save</button>
-            </form>
-            {% elif d.preferred_name %}
-            <span class="text-sm text-text">{{ d.preferred_name }}</span>
-            {% else %}
-            <span class="text-xs text-muted">—</span>
-            {% endif %}
-          </td>
-          <td class="py-2 pr-3 font-mono text-xs">{{ d.uid or '—' }}</td>
-          <td class="py-2 pr-3 text-muted text-xs">{{ d.folder_title or '—' }}</td>
-          <td class="py-2 pr-3 text-xs text-muted">{{ d.binding_count }}</td>
-          <td class="py-2">
-            {% if d.uid and open_url %}
-            {% set path = d.url or ('/d/' ~ d.uid) %}
-            <a href="{{ open_url }}{{ path if path.startswith('/') else '/' ~ path }}"
-               target="_blank" rel="noopener" class="text-accent text-xs hover:underline">Open →</a>
-            {% else %}
-            <span class="text-xs text-muted">—</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="ph-dense-list ph-dense-list--scroll" data-testid="grafana-inventory-list">
+    {% for d in inventory_rows %}
+    <article class="ph-dense-row">
+      <div class="ph-dense-row-main min-w-0">
+        <div class="ph-dense-row-title">{{ d.title }}</div>
+        <div class="ph-dense-row-meta">
+          <span class="ph-dense-mono">{{ d.uid or '—' }}</span>
+          {% if d.folder_title %}<span>{{ d.folder_title }}</span>{% endif %}
+          <span>{{ d.binding_count }} bind{{ 's' if d.binding_count != 1 else '' }}</span>
+          {% if d.preferred_name and not can_mutate %}
+          <span class="text-text">Preferred: {{ d.preferred_name }}</span>
+          {% endif %}
+        </div>
+        {% if can_mutate and d.uid %}
+        <form method="post" action="/integrations/{{ integration.id }}/preferred-name"
+              class="ph-dense-row-form">
+          <input type="hidden" name="uid" value="{{ d.uid }}">
+          <input type="text" name="display_name" class="input text-sm flex-1 min-w-[10rem]"
+                 value="{{ d.preferred_name or '' }}"
+                 placeholder="{{ d.title if d.title and not d.title.startswith('(') else 'Preferred name (blank = Grafana title)' }}"
+                 autocomplete="off"
+                 aria-label="Preferred name for {{ d.title }}">
+          <button type="submit" class="btn btn-primary text-xs min-h-10 shrink-0 px-3">Save</button>
+        </form>
+        {% endif %}
+      </div>
+      <div class="ph-dense-row-actions">
+        {% if d.uid and open_url %}
+        {% set path = d.url or ('/d/' ~ d.uid) %}
+        <a href="{{ open_url }}{{ path if path.startswith('/') else '/' ~ path }}"
+           target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-9 px-2.5">Open →</a>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
   </div>
   <p class="text-[11px] text-muted mt-3 mb-0">
     Blank + <strong>Save</strong> clears the preferred name for that UID (chips follow the Grafana title again).

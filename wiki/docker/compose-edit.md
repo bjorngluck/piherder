@@ -85,7 +85,11 @@ If a project is **template-managed**, prefer the [deployment page](../service-te
 |------|------|
 | **Template settings…** (⋯ or gate modal) | Variables / secrets / **Save & redeploy** |
 | **Quick edit** / **Full editor…** | Raw host files — gate modal warns first; menu labels are plain (**Quick edit**, **Full editor…**, **Edit files**) |
-| Deployment **Open host file editor** | Same multi-file host editor, linked from the deployment page |
+| Deployment **host file editor** (text link) | Same multi-file host editor, linked from the deployment page |
 | **Accept host as desired** | After an intentional host edit you want to keep — clears drift without rewriting the host |
 
 Saving in the host editor writes the host only; it does **not** update template desired state unless you **Accept host as desired** (or redeploy from the template package).
+
+### Editor load path (implementers)
+
+Workspace resolution lives in `app/services/compose_editor.py` (inventory → fallback path under docker base → live files → template desired sidecars → drafts). Pure file-kind / sidecar helpers: `app/services/compose_project_files.py`. Host adopt/migrate desired state: `app/services/service_templates/host_sync.py`.

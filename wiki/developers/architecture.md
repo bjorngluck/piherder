@@ -49,7 +49,10 @@ flowchart TB
 | Scheduler | `app/services/scheduler.py` |
 | Backup | `app/services/backup.py` (+ progress, profiles) |
 | Docker inventory | `app/services/docker_inventory.py` |
-| Templates | `app/services/service_templates/` |
+| Templates (domain) | `app/services/service_templates/` — `deploy`, `host_sync` (adopt/migrate), `harden`, `schema`, `from_host`, … |
+| Compose project files (pure) | `app/services/compose_project_files.py` — file kinds, sidecar discovery, desired→live merge (no SSH) |
+| Compose editor workspace | `app/services/compose_editor.py` — inventory/fallback path, live files, template sidecars, drafts |
+| Docker versions / live files | `app/services/docker_versions.py` — SFTP multi-file I/O + discovery via `compose_project_files` |
 | Integrations (domain) | `app/services/integrations/` |
 | Integrations (HTTP) | `integrations.py` + `integrations_common` / `_kuma` / `_grafana` / `_pihole` / `_npm` / `_nmap` |
 | LAN nmap (scan/parse/schedules/vuln) | `app/services/nmap/` (`worker_guard`, `scan`, `device_ops`, `fabric_projection`, …) · router `integrations_nmap.py` · image `Dockerfile.nmap` |
@@ -64,9 +67,9 @@ flowchart TB
 | Metrics | `app/services/metrics.py` |
 | Bulk server actions | `app/routers/servers.py` (`POST /servers/bulk`) |
 | Server SSH / patch sub-routers | `server_ssh.py`, `server_patch.py`, `server_common.py` (mounted under `/servers`) |
-| Docker UI | `server_docker.py` + `server_docker_compose.py` (editor/versions) |
-| Theme / map / ops CSS | `themes.css`, `fabric.css`, `ops.css`, `ops-auth.css`, `ops-pages.css` |
-| Map client | `app/static/js/fabric-mesh.js` (`PiHerderFabric.refreshLayout` on orient) |
+| Docker UI | `server_docker.py` + `server_docker_compose.py` (thin; editor load in `compose_editor`) |
+| Theme / map / ops CSS | `themes.css`, `fabric.css` (mesh), `fabric-stack.css`, `dns-hub.css`, `ops.css`, `ops-auth.css`, `ops-pages.css` (`ph-dense-*` lists) |
+| Map / stack client | `fabric-mesh.js` (map open/closed + pan/zoom) · `fabric-stack-panel.js` (stack drawer + one pointer reorder path) |
 | App timezone display | `app/services/app_settings.describe_timezone` · Settings General card |
 | Large templates | Prefer `partials/` — e.g. `server_detail_*_modals`, `docker_modals`, `settings_{tab}` |
 
@@ -76,6 +79,8 @@ flowchart TB
 - Vendored Tailwind / HTMX / Alpine (no runtime CDN)  
 - Progressive enhancement vanilla JS for Network maps, job hold, push, compose editor  
 - Shared ops-hero grid contract (`ops.css`): full main content width; desktop title left · viz right (≥768px); mobile viz under title  
+- **One list markup per surface** — dense rows (`ph-dense-*`, nmap sched cards) reflow with CSS; avoid dual mobile-table + desktop-table DOM  
+- Shell nav: single `nav_items` / `secondary_items` source → desktop bar + mobile drawer (chrome only)  
 - Mobile orientation reflow in `base.html`; service rows stack actions on narrow viewports  
 - Auth pages (login/register + force-password / 2FA) use shared `auth-stage` chrome  
 - Empty DB → first register is admin; no default password user; then registration closes  

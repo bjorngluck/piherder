@@ -45,10 +45,7 @@ def test_builtin_pack_loads():
 
 
 def test_merge_secrets_always_includes_env_file():
-    from app.services.service_templates.deploy import (
-        ensure_env_file,
-        merge_secrets_into_env_files,
-    )
+    from app.services.service_templates.deploy import merge_secrets_into_env_files
 
     out = merge_secrets_into_env_files({"docker-compose.yml": "x: 1\n"}, {})
     assert ".env" in out
@@ -57,7 +54,8 @@ def test_merge_secrets_always_includes_env_file():
         {"docker-compose.yml": "x: 1\n"}, {"TOKEN": "abc"}
     )
     assert "TOKEN=abc" in out2[".env"]
-    assert ensure_env_file({})[".env"] == ""
+    out3 = merge_secrets_into_env_files({}, {})
+    assert out3[".env"] == ""
 
 
 def test_diff_env_desired_vs_host_no_file_and_empty():
@@ -621,6 +619,7 @@ def test_adopt_host_files_as_desired_updates_compose_and_clears_drift(monkeypatc
     from unittest.mock import MagicMock
 
     from app.services.service_templates import deploy as deploy_mod
+    from app.services.service_templates import host_sync as host_sync_mod
 
     live = {
         "docker-compose.yml": "services:\n  cadvisor:\n    ports:\n      - '8081:8080'\n",
@@ -628,12 +627,13 @@ def test_adopt_host_files_as_desired_updates_compose_and_clears_drift(monkeypatc
         "promtail-config.yaml": "server:\n  http_listen_port: 9080\n",
     }
     monkeypatch.setattr(
-        deploy_mod,
-        "_project_path_for",
+        host_sync_mod,
+        "project_path_for",
         lambda server, name: f"/home/x/docker/{name}",
     )
     monkeypatch.setattr(
-        "app.services.docker_versions.get_project_live_files",
+        host_sync_mod,
+        "get_project_live_files",
         lambda server, path: live,
     )
 
@@ -658,7 +658,7 @@ def test_adopt_host_files_as_desired_updates_compose_and_clears_drift(monkeypatc
 
     # get_template_definition may fail — fine; secrets still from encrypted store
     monkeypatch.setattr(
-        deploy_mod,
+        host_sync_mod,
         "get_template_definition",
         lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no tmpl")),
     )

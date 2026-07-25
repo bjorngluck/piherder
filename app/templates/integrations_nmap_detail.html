@@ -718,11 +718,11 @@
 {% if tab == 'schedules' %}
 {% set es = edit_schedule %}
 {% set es_opts = edit_schedule_opts or {} %}
-{# E5: list-first · card actions on mobile · table on desktop #}
+{# One dense list for all viewports (edit in modal). #}
 <div class="flex flex-wrap items-center justify-between gap-2 mb-3" data-testid="nmap-schedules-toolbar">
   <div>
     <h3 class="text-sm font-semibold text-text m-0">Schedules</h3>
-    <p class="text-xs text-muted mb-0">Cadence for discovery / inventory / detailed / deep — list first, edit in a modal.</p>
+    <p class="text-xs text-muted mb-0">Cadence for discovery / inventory / detailed / deep — edit in a modal.</p>
   </div>
   {% if can_mutate %}
   <button type="button" class="btn btn-primary min-h-11 text-sm"
@@ -742,10 +742,8 @@
   {% endif %}
 </div>
 {% else %}
-{# One list for mobile + desktop: full actions always visible (no ⋯ clipped by overflow). #}
 <div class="nmap-sched-list" data-testid="nmap-schedules-list">
-  {# Keep cards testid for e2e that still look for mobile shell #}
-  <div class="nmap-sched-list-inner" data-testid="nmap-schedules-cards">
+  <div class="nmap-sched-list-inner">
   {% for s in schedules %}
   {% set opts = (schedule_options or {}).get(s.id) or {} %}
   <article class="nmap-sched-card {% if es and es.id == s.id %}is-active{% endif %}"
@@ -952,9 +950,8 @@
 {% if not runs %}
 <div class="card p-5 text-sm text-muted" data-testid="nmap-runs-empty">No scan runs yet.</div>
 {% else %}
-{# Unified run list (mobile + desktop) — dense rows, no dual markup / clipped tables #}
-<div class="nmap-run-list" data-testid="nmap-runs-table">
-  <div class="nmap-run-list-inner" data-testid="nmap-runs-cards">
+<div class="nmap-run-list" data-testid="nmap-runs-list">
+  <div class="nmap-run-list-inner">
   {% for r in runs %}
   <article class="nmap-run-card">
     <div class="flex flex-wrap items-center gap-x-2 gap-y-1">

@@ -31,16 +31,16 @@
     </div>
   </div>
 
-  {# Mobile: list first #}
+  {# Host list first; map graph same chrome open/closed on all widths #}
   {% if phys.racks %}
   <div class="fabric-mesh-priority-list w-full mb-4">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
       <p class="text-xs text-muted m-0">Hosts as racks — tap an app to highlight its path.</p>
       <button type="button"
-              class="btn btn-secondary text-sm min-h-11 md:hidden"
+              class="btn btn-secondary text-sm min-h-11"
               data-fabric-open-graph
               aria-expanded="false">
-        View full map
+        Show map
       </button>
     </div>
     {# Card-only legend — mirrors rack headers + app chip left borders + dots #}
@@ -143,14 +143,14 @@
   </div>
   {% endif %}
 
-  {# Graph: desktop always; mobile after toggle #}
+  {# Graph: .is-open on all widths (JS opens by default on desktop / deep links) #}
   <div id="map"
        class="card p-3 mb-5 overflow-hidden w-full fabric-mesh-priority-graph"
        data-fabric-graph>
     {% set disc_n = phys.discovered_count if phys.discovered_count is defined else (svg.discovered_count if svg.discovered_count is defined else 0) %}
     <div class="fabric-map-chrome fabric-map-chrome--oneline mb-2" data-testid="hosts-map-chrome">
       <button type="button"
-              class="fabric-map-ctrl fabric-map-ctrl--icon-only fabric-map-ctrl--ghost md:hidden"
+              class="fabric-map-ctrl fabric-map-ctrl--icon-only fabric-map-ctrl--ghost"
               data-fabric-close-graph
               title="Hide map — show host list"
               aria-label="Hide map">
@@ -527,7 +527,7 @@
 </div>
 
 {% include "partials/dns_stack_drawer.html" %}
-<script src="/static/js/fabric-mesh.js?v=20260723-focus-toggle" defer></script>
+<script src="/static/js/fabric-mesh.js?v=20260725-map-chrome" defer></script>
 <script src="/static/js/fabric-stack-expand.js?v=20260723-compact-anchor" defer></script>
 <script>
 (function () {

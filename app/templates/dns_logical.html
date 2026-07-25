@@ -55,16 +55,16 @@
   </div>
   {% endif %}
 
-  {# Mobile: flow list first #}
+  {# Path list first; map graph same open/closed chrome on all widths #}
   {% if logi.flows %}
   <div class="fabric-mesh-priority-list mb-5">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
       <p class="text-xs text-muted m-0">One row per URL — tap to focus the route.</p>
       <button type="button"
-              class="btn btn-secondary text-sm min-h-11 md:hidden"
+              class="btn btn-secondary text-sm min-h-11"
               data-fabric-open-graph
               aria-expanded="false">
-        View full map
+        Show map
       </button>
     </div>
     {# Flow-list legend — row tint + status dots only #}
@@ -152,7 +152,7 @@
   <div id="map" class="card p-3 mb-5 overflow-hidden fabric-mesh-priority-graph" data-fabric-graph>
     <div class="fabric-map-chrome fabric-map-chrome--oneline mb-2" data-testid="path-map-chrome">
       <button type="button"
-              class="fabric-map-ctrl fabric-map-ctrl--icon-only fabric-map-ctrl--ghost md:hidden"
+              class="fabric-map-ctrl fabric-map-ctrl--icon-only fabric-map-ctrl--ghost"
               data-fabric-close-graph
               title="Hide map — show path list"
               aria-label="Hide map">
@@ -335,6 +335,6 @@
 </div>
 
 {% include "partials/dns_stack_drawer.html" %}
-<script src="/static/js/fabric-mesh.js?v=20260723-focus-toggle" defer></script>
+<script src="/static/js/fabric-mesh.js?v=20260725-map-chrome" defer></script>
 <script src="/static/js/fabric-stack-expand.js?v=20260723-compact-anchor" defer></script>
 {% endblock %}

@@ -421,47 +421,30 @@
   {% if not monitors %}
   <p class="text-sm text-muted">Empty — poll Kuma to load monitors from <code class="text-xs">/metrics</code>.</p>
   {% else %}
-  <div class="overflow-x-auto">
-    <table class="w-full text-sm text-left">
-      <thead class="text-xs text-muted border-b border-border">
-        <tr>
-          <th class="py-2 pr-3">Name</th>
-          <th class="py-2 pr-3">Type</th>
-          <th class="py-2 pr-3">Target</th>
-          <th class="py-2 pr-3">Status</th>
-          <th class="py-2 pr-3">TLS</th>
-          <th class="py-2 pr-3">Dash #</th>
-          <th class="py-2">ms</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for m in monitors %}
-        <tr class="border-b border-border/60">
-          <td class="py-1.5 pr-3">{{ m.name }}</td>
-          <td class="py-1.5 pr-3 font-mono text-xs">{{ m.type or '—' }}</td>
-          <td class="py-1.5 pr-3 font-mono text-xs">{{ m.target or '—' }}</td>
-          <td class="py-1.5 pr-3">
-            <span class="status-pill text-xs
-              {% if m.status == 'up' %}status-success
-              {% elif m.status == 'down' %}status-failed
-              {% elif m.status == 'pending' or m.status == 'maintenance' %}status-running
-              {% else %}feature-off{% endif %}">{{ m.status }}</span>
-          </td>
-          <td class="py-1.5 pr-3 text-xs">
-            {% if m.cert_is_valid is sameas true and m.cert_days_remaining is not none %}
-            <span class="text-success">{{ m.cert_days_remaining|int }}d</span>
-            {% elif m.cert_is_valid is sameas false %}
-            <span class="text-danger">invalid</span>
-            {% else %}—{% endif %}
-          </td>
-          <td class="py-1.5 pr-3 font-mono text-xs">{{ m.dashboard_id or '—' }}</td>
-          <td class="py-1.5 text-xs text-muted">
-            {% if m.response_time_ms is not none %}{{ m.response_time_ms|int }}{% else %}—{% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="ph-dense-list" data-testid="kuma-monitors-list">
+    {% for m in monitors %}
+    <article class="ph-dense-row">
+      <div class="ph-dense-row-main min-w-0">
+        <div class="ph-dense-row-title">{{ m.name }}</div>
+        <div class="ph-dense-row-meta">
+          <span class="status-pill text-xs
+            {% if m.status == 'up' %}status-success
+            {% elif m.status == 'down' %}status-failed
+            {% elif m.status == 'pending' or m.status == 'maintenance' %}status-running
+            {% else %}feature-off{% endif %}">{{ m.status }}</span>
+          {% if m.type %}<span class="ph-dense-mono">{{ m.type }}</span>{% endif %}
+          {% if m.target %}<span class="ph-dense-mono break-all">{{ m.target }}</span>{% endif %}
+          {% if m.cert_is_valid is sameas true and m.cert_days_remaining is not none %}
+          <span class="text-success">TLS {{ m.cert_days_remaining|int }}d</span>
+          {% elif m.cert_is_valid is sameas false %}
+          <span class="text-danger">TLS invalid</span>
+          {% endif %}
+          {% if m.dashboard_id %}<span class="ph-dense-mono">#{{ m.dashboard_id }}</span>{% endif %}
+          {% if m.response_time_ms is not none %}<span>{{ m.response_time_ms|int }} ms</span>{% endif %}
+        </div>
+      </div>
+    </article>
+    {% endfor %}
   </div>
   {% endif %}
 </div>

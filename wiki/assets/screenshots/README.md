@@ -85,7 +85,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 | `nmap-devices.png` | Devices list | **Landed** |
 | `nmap-network.png` | Network view | **Landed** |
 | `nmap-schedules.png` | Schedules | **Landed** |
-| `nmap-runs.png` | Runs table (no ID column) | **Landed** |
+| `nmap-runs.png` | Runs dense list (no ID column) | **Landed** |
 | `nmap-server-embed.png` | Server detail LAN card | **Landed** |
 | `settings-stale-cleanup.png` | Settings → Stale data cleanup | **Landed** |
 | `add-server-wizard.png` | Multi-step add-host wizard | **Landed** |
@@ -99,8 +99,10 @@ Optional residual (not a tag gate): `jobs-live-log.png` for JobHold live log if 
 |---------|------------------|
 | **Servers list** | **No** footer line about “Status from last update checks / checkboxes / ⋯” |
 | **Catalog → Network hub** | Stat **By path type** (Host / App / NPM) — not “Path mix” |
-| **LAN Discovery → Runs** | Columns: intensity, status, hosts, ports, job, finished — **no run `#id`** |
+| **LAN Discovery → Runs / Schedules** | Dense list (not dual table/cards); intensity, status, hosts, ports, job — **no run `#id`** |
 | **LAN Devices** | **List \| Map** (merged former Network tab) |
+| **Hosts / Path maps** | List + **Show map** / **Hide map** (same chrome all widths) |
+| **Docker containers** | Dense rows (not wide horizontal-scroll table) |
 | **HAOS server detail** | HAOS chip; “HA updates” not bare apt-only wording; no Docker fleet emphasis |
 | **System info (HAOS)** | Home Assistant Core / OS / Supervisor cards; disk from `ha host` |
 
@@ -114,8 +116,8 @@ Optional residual (not a tag gate): `jobs-live-log.png` for JobHold live log if 
 | **P0** | `system-info-haos.png` | Core / OS / Supervisor + disk | [haos-hosts](../../day-to-day/haos-hosts.md) |
 | **P1** | `server-detail.png` | 0.9 ops-hero / LAN chip (Debian host) | [add-server](../../day-to-day/add-server.md) |
 | **P1** | `nmap-devices.png` | List \| Map merge | [lan-discovery](../../integrations/lan-discovery.md) |
-| **P1** | `nmap-overview.png` / `nmap-runs.png` / `nmap-schedules.png` | Overview modals, Runs/Schedules chrome | [lan-discovery](../../integrations/lan-discovery.md) |
-| **P2** | `dns-hub.png` / `dns-coverage.png` | Network hub settings strip; coverage cards | [dns-fabric](../../integrations/dns-fabric.md) |
+| **P1** | `nmap-overview.png` / `nmap-runs.png` / `nmap-schedules.png` | Overview modals, Runs/Schedules dense lists | [lan-discovery](../../integrations/lan-discovery.md) |
+| **P2** | `dns-hub.png` / `dns-coverage.png` / `dns-physical.png` | Network hub cards; coverage cards; map Show/Hide chrome | [dns-fabric](../../integrations/dns-fabric.md) |
 | **P2** | `ssh-access.png` | HAOS guidance / `ha` + rsync deps | [add-server](../../day-to-day/add-server.md) |
 | **P2** | `server-list.png` | Attention badges after HA check | day-to-day servers |
 | **P2** | `templates-catalog.png` | **OOTB** / **Yours** badges + section groups | [templates overview](../../service-templates/overview.md) |

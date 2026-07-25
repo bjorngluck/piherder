@@ -162,12 +162,11 @@ def test_e3b_devices_list_map_views(admin_page, base_url):
     expect(page.locator('[data-testid="nmap-map-search"]')).to_be_visible()
 
 
-def test_e4b_runs_and_schedules_mobile_cards(admin_page, base_url):
-    """E4b: Runs + Schedules expose mobile card shells (visible under narrow viewport)."""
+def test_e4b_runs_and_schedules_unified_list(admin_page, base_url):
+    """E4b: Schedules + Runs use one dense list shell (same at desktop and narrow)."""
     page = admin_page
     _open_nmap_detail(page, base_url)
 
-    # Unified list shells present on desktop (may be empty)
     page.locator('a[href*="tab=schedules"]').first.click()
     page.wait_for_load_state("domcontentloaded")
     empty_sched = page.locator('[data-testid="nmap-schedules-empty"]')
@@ -175,7 +174,6 @@ def test_e4b_runs_and_schedules_mobile_cards(admin_page, base_url):
         expect(empty_sched).to_be_visible()
     else:
         expect(page.locator('[data-testid="nmap-schedules-list"]')).to_be_visible()
-        expect(page.locator('[data-testid="nmap-schedules-cards"]')).to_be_visible()
 
     page.locator('a[href*="tab=runs"]').first.click()
     page.wait_for_load_state("domcontentloaded")
@@ -183,10 +181,9 @@ def test_e4b_runs_and_schedules_mobile_cards(admin_page, base_url):
     if empty_runs.count() and empty_runs.is_visible():
         expect(empty_runs).to_be_visible()
     else:
-        expect(page.locator('[data-testid="nmap-runs-table"]')).to_be_visible()
-        expect(page.locator('[data-testid="nmap-runs-cards"]')).to_be_visible()
+        expect(page.locator('[data-testid="nmap-runs-list"]')).to_be_visible()
 
-    # Narrow viewport: same unified list (no dual table/cards swap)
+    # Narrow viewport: same list shell (not a second markup path)
     page.set_viewport_size({"width": 390, "height": 844})
     page.locator('a[href*="tab=schedules"]').first.click()
     page.wait_for_load_state("domcontentloaded")
@@ -195,17 +192,14 @@ def test_e4b_runs_and_schedules_mobile_cards(admin_page, base_url):
         and page.locator('[data-testid="nmap-schedules-empty"]').is_visible()
     ):
         expect(page.locator('[data-testid="nmap-schedules-list"]')).to_be_visible()
-        expect(page.locator('[data-testid="nmap-schedules-cards"]')).to_be_visible()
 
     page.locator('a[href*="tab=runs"]').first.click()
     page.wait_for_load_state("domcontentloaded")
     if empty_runs.count() and page.locator('[data-testid="nmap-runs-empty"]').is_visible():
         expect(page.locator('[data-testid="nmap-runs-empty"]')).to_be_visible()
     else:
-        expect(page.locator('[data-testid="nmap-runs-cards"]')).to_be_visible()
-        expect(page.locator('[data-testid="nmap-runs-table"]')).to_be_visible()
+        expect(page.locator('[data-testid="nmap-runs-list"]')).to_be_visible()
 
-    # Restore desktop for later tests in same worker (fixture is function-scoped page)
     page.set_viewport_size({"width": 1440, "height": 900})
 
 def test_n9_viewer_cannot_create_nmap(page, base_url, e2e_credentials):

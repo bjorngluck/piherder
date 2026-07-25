@@ -25,7 +25,7 @@ When backups stay pending or the UI feels dead, you need a single place that ans
 | Celery | Nodes + **pool slots** (`CELERY_CONCURRENCY`) |
 | APScheduler | Running + jobs registered |
 | Disk (fast) | Mount free on `/backups`, `/data`, `/herder_backups` |
-| Disk (lazy) | Full tree `du` + host folders — **View details** only |
+| Disk (lazy) | Full tree `du` + host folders as a **dense list** — **View details** only |
 
 - Manual **Check now** + ~2 minute scheduled poll.  
 - Notifications on **state transition** only (no spam).  
