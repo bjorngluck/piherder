@@ -201,7 +201,7 @@ celery-worker-nmap:
 | **Hosts map** (`/dns/physical`) | Fleet + unlinked discoveries; radar toggle; dual compact/full; **1:1** fit |
 | Device detail | Ports, services, vulns, link/promote/dismiss, deep scan (also via modal) |
 | Runs / Jobs | History + progress |
-| Soft embed | Server list LAN chip + server detail card |
+| Soft embed | Server list LAN chip + server detail **LAN discovery** card (beside Network path) |
 | Later / roadmap | Kind **icons/shapes** on map; per-service port labels |
 
 Capture policy: light theme, desktop default ([screenshots README](../wiki/assets/screenshots/README.md)).
@@ -307,7 +307,7 @@ Aim for **high unit + E2E coverage** of nmap surfaces (stronger than global ~50%
 | **N5** | Network view MVP | **Done** (subnet groups) |
 | **N6** | Per-IP deep + vuln pack update job + Jobs progress; deep NSE (vuln+vulscan, no double vulners) | **Done** |
 | **N7** | Promote/link/dismiss + audit + **wiki/ADMIN** + screenshots | **Partial** — product + wiki/ADMIN done; **screenshots open** (stream A) |
-| **N8** | Soft embed into existing views | **Done** — server list LAN chip + server detail discovery card |
+| **N8** | Soft embed into existing views | **Done** — server list LAN chip + server detail LAN card beside Network path |
 | **N9** | Coverage gate + E2E green | **Mostly done** — unit options/classify/embed/map-identity + `e2e/test_nmap_lan.py` shells; no live scan in CI |
 | **N10** | Map identity polish | **Done** — kind override, gateway role, known/new, MAC/DHCP, Hosts dual layout + chrome; icons/shapes + per-service labels **roadmap** |
 

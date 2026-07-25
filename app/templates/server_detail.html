@@ -424,64 +424,68 @@ document.addEventListener('DOMContentLoaded', function() {
   </div>
 </div>
 
-{# E1: LAN discovery is secondary — collapsed strip after primary dest cards #}
-{% if nmap_discovery %}
-{% set nd = nmap_discovery %}
-{% set ndev = nd.device %}
-<details class="card nmap-discovery-strip mb-4 max-w-3xl" data-testid="nmap-discovery-card">
-  <summary class="nmap-discovery-strip-summary cursor-pointer select-none list-none">
-    <span class="text-sm font-medium text-text">LAN discovery</span>
-    <span class="text-xs text-muted font-mono">{{ ndev.ip_address }}</span>
-    {% if nd.open_ports %}<span class="text-xs text-muted">· {{ nd.open_ports }} open</span>{% endif %}
-    {% if nd.profile and nd.profile.kind and nd.profile.kind != 'unknown' %}
-    <span class="nmap-kind nmap-kind--{{ nd.profile.kind }}">{{ nd.profile.short or nd.profile.label }}</span>
-    {% endif %}
-    <span class="text-xs text-accent ml-auto shrink-0">Details</span>
-  </summary>
-  <div class="nmap-discovery-strip-body border-t border-border pt-3 mt-2">
-    <p class="text-xs text-muted mb-2">Linked discovered device — ports and NSE from nmap (not managed fleet state).</p>
-    <div class="flex flex-wrap gap-2 mb-2">
-      <a href="{{ nd.href }}" class="btn btn-secondary text-xs min-h-9">Edit device →</a>
-      <a href="{{ nd.network_href }}" class="btn btn-secondary text-xs min-h-9">Map view</a>
-    </div>
-    <dl class="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-xs mb-2">
-      <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Hostname</dt>
-        <dd class="font-mono">{{ ndev.hostname or '—' }}</dd></div>
-      <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">MAC</dt>
-        <dd class="font-mono">{{ ndev.mac_address or '—' }}</dd></div>
-      {% if ndev.mac_vendor %}
-      <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Vendor</dt>
-        <dd>{{ ndev.mac_vendor }}</dd></div>
-      {% endif %}
-      {% if nd.profile and nd.profile.kind and nd.profile.kind != 'unknown' %}
-      <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Looks like</dt>
-        <dd><span class="nmap-kind nmap-kind--{{ nd.profile.kind }}" title="{{ nd.profile.reasons|join('; ') if nd.profile.reasons else '' }}">{{ nd.profile.label }}</span>
-          <span class="text-muted"> · {{ nd.profile.confidence }}</span></dd></div>
-      {% endif %}
-      {% if nd.script_counts and nd.script_counts.total %}
-      <div class="flex gap-2 sm:col-span-2"><dt class="text-muted w-20 shrink-0">Scripts</dt>
-        <dd class="flex flex-wrap gap-1">
-          {% if nd.script_counts.finding %}<span class="status-pill status-failed text-[10px]">{{ nd.script_counts.finding }} finding</span>{% endif %}
-          {% if nd.script_counts.error %}<span class="status-pill status-running text-[10px]">{{ nd.script_counts.error }} error</span>{% endif %}
-          {% if nd.script_counts.clear %}<span class="status-pill status-success text-[10px]">{{ nd.script_counts.clear }} clear</span>{% endif %}
-          {% if nd.script_counts.info %}<span class="status-pill feature-off text-[10px]">{{ nd.script_counts.info }} info</span>{% endif %}
-        </dd></div>
-      {% endif %}
-    </dl>
-    {% if nd.services %}
-    <div class="flex flex-wrap gap-1">
-      {% for s in nd.services %}
-      <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-surface border border-border">
-        {{ s.port }}/{{ s.service or '?' }}
-      </span>
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
-</details>
-{% endif %}
+{# Network path + LAN discovery side by side (when both present) #}
+{% if (fabric_rack is defined and fabric_rack) or nmap_discovery %}
+<div class="server-net-row mb-6" data-testid="server-net-row">
+  {% include "partials/fabric_host_rack.html" %}
 
-{% include "partials/fabric_host_rack.html" %}
+  {% if nmap_discovery %}
+  {% set nd = nmap_discovery %}
+  {% set ndev = nd.device %}
+  <details class="card nmap-discovery-strip p-4 sm:p-5 h-full" data-testid="nmap-discovery-card">
+    <summary class="nmap-discovery-strip-summary cursor-pointer select-none list-none">
+      <span class="text-sm font-semibold text-text">LAN discovery</span>
+      <span class="text-xs text-muted font-mono">{{ ndev.ip_address }}</span>
+      {% if nd.open_ports %}<span class="text-xs text-muted">· {{ nd.open_ports }} open</span>{% endif %}
+      {% if nd.profile and nd.profile.kind and nd.profile.kind != 'unknown' %}
+      <span class="nmap-kind nmap-kind--{{ nd.profile.kind }}">{{ nd.profile.short or nd.profile.label }}</span>
+      {% endif %}
+      <span class="text-xs text-accent ml-auto shrink-0">Details</span>
+    </summary>
+    <div class="nmap-discovery-strip-body border-t border-border pt-3 mt-2">
+      <p class="text-xs text-muted mb-2">Linked discovered device — ports and NSE from nmap (not managed fleet state).</p>
+      <div class="flex flex-wrap gap-2 mb-2">
+        <a href="{{ nd.href }}" class="btn btn-secondary text-xs min-h-9 no-underline">Edit device →</a>
+        <a href="{{ nd.network_href }}" class="btn btn-secondary text-xs min-h-9 no-underline">Map view</a>
+      </div>
+      <dl class="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-xs mb-2">
+        <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Hostname</dt>
+          <dd class="font-mono">{{ ndev.hostname or '—' }}</dd></div>
+        <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">MAC</dt>
+          <dd class="font-mono">{{ ndev.mac_address or '—' }}</dd></div>
+        {% if ndev.mac_vendor %}
+        <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Vendor</dt>
+          <dd>{{ ndev.mac_vendor }}</dd></div>
+        {% endif %}
+        {% if nd.profile and nd.profile.kind and nd.profile.kind != 'unknown' %}
+        <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Looks like</dt>
+          <dd><span class="nmap-kind nmap-kind--{{ nd.profile.kind }}" title="{{ nd.profile.reasons|join('; ') if nd.profile.reasons else '' }}">{{ nd.profile.label }}</span>
+            <span class="text-muted"> · {{ nd.profile.confidence }}</span></dd></div>
+        {% endif %}
+        {% if nd.script_counts and nd.script_counts.total %}
+        <div class="flex gap-2 sm:col-span-2"><dt class="text-muted w-20 shrink-0">Scripts</dt>
+          <dd class="flex flex-wrap gap-1">
+            {% if nd.script_counts.finding %}<span class="status-pill status-failed text-[10px]">{{ nd.script_counts.finding }} finding</span>{% endif %}
+            {% if nd.script_counts.error %}<span class="status-pill status-running text-[10px]">{{ nd.script_counts.error }} error</span>{% endif %}
+            {% if nd.script_counts.clear %}<span class="status-pill status-success text-[10px]">{{ nd.script_counts.clear }} clear</span>{% endif %}
+            {% if nd.script_counts.info %}<span class="status-pill feature-off text-[10px]">{{ nd.script_counts.info }} info</span>{% endif %}
+          </dd></div>
+        {% endif %}
+      </dl>
+      {% if nd.services %}
+      <div class="flex flex-wrap gap-1">
+        {% for s in nd.services %}
+        <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-surface border border-border">
+          {{ s.port }}/{{ s.service or '?' }}
+        </span>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </details>
+  {% endif %}
+</div>
+{% endif %}
 
 {# Job queue + recent history — card feed (no horizontal scroll) #}
 <div class="card p-4 sm:p-5 mb-6" id="server-jobs-panel">

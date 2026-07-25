@@ -266,9 +266,15 @@ Unlinked discoveries appear **automatically** on the end-to-end Hosts map:
 | **Label** | Map name → hostname → IP |
 | **Tap chip** | Opens LAN Discovery device edit modal (`return=hosts`) |
 
-### Fleet server LAN chip
+### Fleet server LAN chip + Network path row
 
-On **server detail**, a linked discovery device shows as a **link-style LAN pill** (accent border + arrow — not an inert status chip). Opening it loads the edit modal with **← Back to server**; Save / Cancel / ✕ return to that host.
+On **server detail**:
+
+| Surface | What you see |
+|---------|----------------|
+| **Hero LAN pill** | Link-style chip (accent border + arrow — not an inert status chip). Opens the device edit modal with **← Back to server**; Save / Cancel / ✕ return to that host |
+| **LAN discovery card** | Sits **beside Network path** (two-column on desktop, stacked on phone). Collapsed summary (IP · open ports · kind); expand **Details** for MAC/vendor, scripts, port chips, **Edit device** / **Map view** |
+| **Network path** | Mapped FQDNs on this host; **Open on hosts map** and **Path map** are matching secondary buttons (not a bare text link) |
 
 ### Hosts map toolbar (what each control does)
 
@@ -322,9 +328,17 @@ Discovery ≠ fleet membership. Hostnames and MACs depend on scan privileges and
 
 Ignore/link/map name survive IP updates when identity is MAC-based.
 
-### Soft embed (fleet)
+### Soft embed (fleet) {#soft-embed-fleet}
 
-Linked discovery devices appear on **Servers** list (LAN chip) and **server detail** (ports, kind, script summary + links back to Devices / Network view).
+Linked discovery devices appear on:
+
+- **Servers** list — LAN chip  
+- **Server detail** — hero LAN pill + **LAN discovery** card next to **Network path** (ports, kind, script summary; **Edit device** / **Map view** back into LAN Discovery)
+
+<figure class="ph-figure" markdown>
+  ![Server LAN embed](../assets/screenshots/nmap-server-embed.png)
+  <figcaption>Server detail LAN discovery embed (recapture after Network path side-by-side layout as needed).</figcaption>
+</figure>
 
 ---
 
@@ -338,12 +352,7 @@ Linked discovery devices appear on **Servers** list (LAN chip) and **server deta
 - Changes resync APScheduler; audit records configure/scan actions.
 
 !!! note "UX polish (v0.9)"
-    Filter chrome on Devices/Network, Overview density (Scan now / vuln in modals), and Schedules list-first + ⋯ / modal form are tracked for **v0.9.0** — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md). Product behaviour above stays the same for 0.8.
-
-<figure class="ph-figure" markdown>
-  ![Server detail LAN embed](../assets/screenshots/nmap-server-embed.png)
-  <figcaption>Server detail soft embed — linked discovery device with ports (when nmap is enabled).</figcaption>
-</figure>
+    Filter chrome on Devices/Network, Overview density (Scan now / vuln in modals), Schedules dense lists, and server-detail **Network path + LAN discovery** side-by-side are on **v0.9.0** — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md). Product behaviour above stays the same for 0.8.
 
 ---
 

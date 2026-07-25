@@ -1114,10 +1114,7 @@ html.dark .ph-file-badge--config,
   border-radius: 10px;
   background: var(--color-surface);
 }
-/* Server detail: collapsed LAN discovery strip (E1) */
-.nmap-discovery-strip {
-  padding: 0.65rem 0.85rem;
-}
+/* Server detail: LAN discovery card (peers with Network path) */
 .nmap-discovery-strip-summary {
   display: flex;
   flex-wrap: wrap;

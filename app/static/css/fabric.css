@@ -182,13 +182,29 @@ a.fabric-app-url:hover { color: var(--color-accent); }
   align-items: center;
   gap: 0.15rem;
 }
+/* Server detail: Network path + LAN discovery side-by-side */
+.server-net-row {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+@media (min-width: 768px) {
+  .server-net-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Solo card (no LAN or no fabric) still readable, not full-bleed on wide screens */
+  .server-net-row > :only-child {
+    max-width: 36rem;
+  }
+}
 /* Server detail: single-host network panel (reuse rack chips) */
 .fabric-host-panel .fabric-rack {
-  max-width: 36rem;
+  max-width: none;
 }
 .fabric-host-panel .fabric-rack-apps {
   max-height: min(18rem, 40vh);
 }
+
 .fabric-link-via {
   color: var(--color-warning, #d97706);
   font-weight: 500;

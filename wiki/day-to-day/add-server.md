@@ -125,6 +125,15 @@ If stacks live under another user’s home (e.g. `/home/bjorn/docker`):
 
 After onboarding, the server page uses the shared **ops-hero** plus equal **destination cards** (desktop grid): **Backups**, **Docker**, **Services**, optional **Grafana** / **SSH (Uptime Kuma)**, and **Host status** (⋯ actions). Host dependency chips stay above as a snapshot; full SSH onboarding stays under **SSH access**. Child pages (Backups, Docker, Services) reuse the same hero width and card rhythm.
 
+Below the dest cards, a **two-column row** (stacked on narrow screens) holds:
+
+| Card | Purpose |
+|------|---------|
+| **Network path** | Mapped app names that land on this host; **Open on hosts map** and **Path map** (matched secondary buttons) jump into Catalog → Network maps |
+| **LAN discovery** | When linked — collapsed details for the soft-embedded nmap device (IP, ports, kind, edit / map view) |
+
+Screenshots (`server-detail.png`, `nmap-server-embed.png`) may lag until the next capture pass.
+
 ## Feature flags
 
 **Wizard Features** or **Edit → Features** — enable only what you need:
@@ -153,11 +162,11 @@ After key deploy / least-priv / test, PiHerder stores a dependency snapshot. Fai
 
 From server detail **Host status** (⋯) or related chips, PiHerder can show a short **system info** snapshot over SSH (OS/kernel, reboot-pending, disk free — cached briefly). This is read-only diagnostics, not continuous monitoring (use Kuma for uptime).
 
-If the host is **linked** to a LAN Discovery device, a **LAN** link-style pill appears with the discovery IP (and open-port count when known). Open it to edit map name / type / role; **Save or Cancel returns to this server** (not the Integrations shell). Details: [LAN Discovery — edit modal](../integrations/lan-discovery.md#edit-modal-network--devices).
+If the host is **linked** to a LAN Discovery device, a **LAN** link-style pill appears in the hero with the discovery IP (and open-port count when known). Open it to edit map name / type / role; **Save or Cancel returns to this server** (not the Integrations shell). The fuller **LAN discovery** card sits beside **Network path** (expand **Details** for ports / scripts). Details: [LAN Discovery — soft embed](../integrations/lan-discovery.md#soft-embed-fleet).
 
 <figure class="ph-figure" markdown>
   ![Server detail](../assets/screenshots/server-detail.png)
-  <figcaption>Server detail with status chips and feature cards.</figcaption>
+  <figcaption>Server detail — dest cards, Network path + LAN discovery row, jobs (recapture for 0.9 chrome as needed).</figcaption>
 </figure>
 
 ## Later onboarding depth

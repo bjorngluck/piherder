@@ -177,7 +177,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 3 | Manual **Discovery**, then **Inventory** (ports) | Trust before schedules; ports feed kind + chips |
 | 4 | **Devices** → **List** or **Map** → click host → edit modal: **map name**, **device type**, **gateway** if router, **Mark known** | Labels + kind + Router spine + inbox |
 | 5 | **Catalog → Network → Hosts map** — radar **Discovered**, **1:1** fit (tight when disc. off); click path again to clear focus | End-to-end view; **no** per-device link required |
-| 5b | Optional: open **server detail** LAN chip → edit device → Save/close returns to **that server** | Soft-embed without getting stuck on Integrations |
+| 5b | Optional: **server detail** — hero **LAN** pill or **LAN discovery** card (beside Network path) → edit device → Save/close returns to **that server** | Soft-embed without getting stuck on Integrations |
 | 6 | Link / promote only what you will manage | Discovery ≠ fleet member |
 | 7 | Optional schedules (create + **Edit**) | Cadence you control |
 | 8 | Optional **Runs** tab | History by intensity + **Job** link (no run ID column) |
