@@ -735,38 +735,18 @@ def redact_files_for_ui(
 
 
 def classify_template_file_path(path: str) -> str:
-    """UI kind for a stored project file path."""
-    p = (path or "").replace("\\", "/").strip()
-    base = p.split("/")[-1].lower()
-    if p.startswith("secrets/") or "/secrets/" in p:
-        return "secret"
-    if base == ".env" or base.endswith(".env") or base == ".env.example":
-        return "env"
-    if base in (
-        "docker-compose.yml",
-        "docker-compose.yaml",
-        "compose.yml",
-        "compose.yaml",
-    ) or "compose" in base and base.endswith((".yml", ".yaml")):
-        return "compose"
-    if base == "dockerfile" or base.startswith("dockerfile."):
-        return "dockerfile"
-    if base.endswith((".yml", ".yaml", ".toml", ".json", ".conf", ".cfg", ".ini")):
-        return "config"
-    return "file"
+    """UI kind for a stored project file path (canonical classifier)."""
+    from ..compose_project_files import ui_file_kind
+
+    return ui_file_kind(path)
 
 
 def _file_sort_key(path: str) -> Tuple[int, str]:
-    kind = classify_template_file_path(path)
-    order = {
-        "compose": 0,
-        "env": 1,
-        "config": 2,
-        "dockerfile": 3,
-        "file": 4,
-        "secret": 5,
-    }.get(kind, 9)
-    return (order, path.lower())
+    from ..compose_project_files import FILE_ROLE_ORDER, project_file_role
+
+    role = project_file_role(path)
+    # UI lists treat override as compose priority; file alias shares other slot
+    return (FILE_ROLE_ORDER.get(role, 9), path.lower())
 
 
 def file_details_for_ui(
@@ -775,6 +755,8 @@ def file_details_for_ui(
     open_first: bool = True,
 ) -> List[Dict[str, Any]]:
     """Structured list for deployment/template file browsers (path, kind, body, meta)."""
+    from ..compose_project_files import FILE_ROLE_LABELS
+
     rows: List[Dict[str, Any]] = []
     items = sorted((files or {}).items(), key=lambda kv: _file_sort_key(str(kv[0])))
     for i, (path, body) in enumerate(items):
@@ -785,14 +767,7 @@ def file_details_for_ui(
             {
                 "path": str(path),
                 "kind": kind,
-                "kind_label": {
-                    "compose": "Compose",
-                    "env": "Env",
-                    "config": "Config",
-                    "dockerfile": "Dockerfile",
-                    "secret": "Secret",
-                    "file": "File",
-                }.get(kind, "File"),
+                "kind_label": FILE_ROLE_LABELS.get(kind, "File"),
                 "lines": lines,
                 "bytes": len(text.encode("utf-8")),
                 "body": text,

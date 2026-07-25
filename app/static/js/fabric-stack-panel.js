@@ -73,13 +73,7 @@
     list.dataset.sortableInit = '1';
 
     var dragEl = null;
-    var longPressTimer = null;
-    var longPressReady = false;
-    var touchActive = false;
-    var pointerActive = false; // mouse/pen drag from ⋮⋮ handle
-    var pointerId = null;
-    var startY = 0;
-    var startX = 0;
+    var pointerActive = false; // drag from ⋮⋮ handle (mouse / pen / touch — one path)
     var orderDirty = false;
     var suppressClickUntil = 0;
     var saving = false;
@@ -271,34 +265,6 @@
         });
     }
 
-    function endTouchDrag(shouldSave) {
-      if (longPressTimer) {
-        clearTimeout(longPressTimer);
-        longPressTimer = null;
-      }
-      var wasReady = longPressReady;
-      var dirty = orderDirty;
-      if (dragEl) {
-        dragEl.classList.remove('is-dragging');
-        clearDragOver();
-      }
-      dragEl = null;
-      longPressReady = false;
-      pointerId = null;
-      touchActive = false;
-      list.classList.remove('is-reordering');
-      if (wasReady) {
-        // swallow the synthetic click that would open <details>
-        suppressClickUntil = Date.now() + 450;
-      }
-      if (shouldSave && wasReady && dirty) {
-        saveOrder();
-      } else if (shouldSave && wasReady) {
-        // Long-press engaged but no move — still nothing to save
-        renumberBadges();
-      }
-    }
-
     function endPointerDrag(shouldSave) {
       if (!pointerActive && !dragEl) return;
       var dirty = orderDirty;
@@ -308,7 +274,6 @@
       }
       dragEl = null;
       pointerActive = false;
-      longPressReady = false;
       list.classList.remove('is-reordering');
       document.removeEventListener('pointermove', onDocPointerMove);
       document.removeEventListener('pointerup', onDocPointerUp);
@@ -330,11 +295,9 @@
       endPointerDrag(true);
     }
 
-    // Desktop / pen: press ⋮⋮ and drag by Y (HTML5 DnD is flaky inside <details>)
+    // One path for mouse / pen / touch: drag only from ⋮⋮ (handle has touch-action: none)
     list.addEventListener('pointerdown', function (e) {
-      if (e.pointerType === 'touch') return; // touch uses long-press path below
       if (e.button != null && e.button !== 0) return;
-      if (touchActive) return;
       var handle = e.target.closest('[data-stack-drag-handle]');
       if (!handle || !list.contains(handle)) return;
       var li = handle.closest('li[data-stack-container]');
@@ -342,13 +305,13 @@
       e.preventDefault();
       e.stopPropagation();
       pointerActive = true;
-      longPressReady = true;
       orderDirty = false;
       dragEl = li;
-      startY = e.clientY;
-      startX = e.clientX;
       li.classList.add('is-dragging');
       list.classList.add('is-reordering');
+      items().forEach(function (row) {
+        row.setAttribute('draggable', 'false');
+      });
       try {
         if (handle.setPointerCapture) handle.setPointerCapture(e.pointerId);
       } catch (err) {}
@@ -362,7 +325,7 @@
       e.preventDefault();
     });
 
-    // Block summary toggle immediately after a drag / long-press gesture
+    // Block summary toggle immediately after a drag gesture
     list.addEventListener(
       'click',
       function (e) {
@@ -373,107 +336,6 @@
       },
       true
     );
-
-    // Touch: long-press row (or ⋮⋮ handle), then drag by Y
-    list.addEventListener(
-      'touchstart',
-      function (e) {
-        if (pointerActive) return;
-        // Allow drag handle (button); block other controls inside expanded detail
-        var onHandle = e.target.closest('[data-stack-drag-handle]');
-        if (!onHandle && e.target.closest('a, button, input, select, textarea')) return;
-        var li = e.target.closest('li[data-stack-container]');
-        if (!li || !list.contains(li)) return;
-        var t = e.changedTouches[0];
-        if (!t) return;
-        touchActive = true;
-        pointerId = t.identifier;
-        startY = t.clientY;
-        startX = t.clientX;
-        longPressReady = false;
-        orderDirty = false;
-        if (longPressTimer) clearTimeout(longPressTimer);
-
-        function armTouchDrag() {
-          longPressReady = true;
-          dragEl = li;
-          items().forEach(function (row) {
-            row.setAttribute('draggable', 'false');
-          });
-          li.classList.add('is-dragging');
-          list.classList.add('is-reordering');
-          if (navigator.vibrate) {
-            try {
-              navigator.vibrate(12);
-            } catch (err) {}
-          }
-        }
-
-        // Handle: arm immediately; elsewhere long-press so scroll still works
-        if (onHandle) {
-          armTouchDrag();
-        } else {
-          longPressTimer = setTimeout(armTouchDrag, 320);
-        }
-      },
-      { passive: true }
-    );
-
-    list.addEventListener(
-      'touchmove',
-      function (e) {
-        var t = null;
-        for (var i = 0; i < e.changedTouches.length; i++) {
-          if (e.changedTouches[i].identifier === pointerId) {
-            t = e.changedTouches[i];
-            break;
-          }
-        }
-        if (!t && e.touches.length) t = e.touches[0];
-        if (!t) return;
-
-        if (!longPressReady || !dragEl) {
-          // Cancel pending long-press if the finger clearly scrolled
-          if (longPressTimer) {
-            if (
-              Math.abs(t.clientY - startY) > 12 ||
-              Math.abs(t.clientX - startX) > 12
-            ) {
-              clearTimeout(longPressTimer);
-              longPressTimer = null;
-              touchActive = false;
-            }
-          }
-          return;
-        }
-        // Once armed, own the gesture — no page/drawer scroll
-        e.preventDefault();
-        moveDragToClientY(t.clientY);
-      },
-      { passive: false }
-    );
-
-    function onTouchEnd(e) {
-      // Only end our gesture
-      if (pointerId != null && e.changedTouches) {
-        var ours = false;
-        for (var i = 0; i < e.changedTouches.length; i++) {
-          if (e.changedTouches[i].identifier === pointerId) {
-            ours = true;
-            break;
-          }
-        }
-        if (!ours && longPressReady) return;
-      }
-      var shouldSave = e.type === 'touchend';
-      endTouchDrag(shouldSave);
-      items().forEach(function (row) {
-        row.setAttribute('draggable', 'false');
-      });
-    }
-
-    list.addEventListener('touchend', onTouchEnd);
-    list.addEventListener('touchcancel', onTouchEnd);
   }
 
   function loadStack(url) {

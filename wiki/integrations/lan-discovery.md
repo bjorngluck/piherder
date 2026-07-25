@@ -61,8 +61,8 @@ Journey: [Operator scenarios — Journey H](../getting-started/operator-scenario
 |-----|---------|
 | **Overview** | Worker status, CIDRs, vuln pack strip; **Scan now** / **Update vuln pack** modals; **Settings** link |
 | **Devices** | **List** and **Map** views (toggle): host list + filters, or subnet-grouped discovery cards; edit modal |
-| **Schedules** | Multiple named schedules — list-first; **card actions** on mobile; add/edit modal |
-| **Runs** | Scan history — **cards** on mobile, table on desktop; intensity, status, hosts, ports, Job link (no run ID) |
+| **Schedules** | Multiple named schedules — **one dense list** (full actions on every width); add/edit modal |
+| **Runs** | Scan history — **one dense list** (intensity, status, hosts, ports, Job link; no run ID) |
 
 !!! tip "List + Map in one place (v0.9)"
     Devices and the old **Network** tab are **one Devices tab** with a **List | Map** toggle.
@@ -81,12 +81,12 @@ Journey: [Operator scenarios — Journey H](../getting-started/operator-scenario
 
 <figure class="ph-figure" markdown>
   ![LAN Discovery Schedules](../assets/screenshots/nmap-schedules.png)
-  <figcaption>Schedules — list-first with create/edit modal.</figcaption>
+  <figcaption>Schedules — dense list with create/edit modal (same UI on phone and desktop).</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
   ![LAN Discovery Runs](../assets/screenshots/nmap-runs.png)
-  <figcaption>Runs history — intensity, status, hosts, ports, Job link (no run ID column).</figcaption>
+  <figcaption>Runs history — dense list (intensity, status, hosts, ports, Job link).</figcaption>
 </figure>
 
 There are **two** maps:

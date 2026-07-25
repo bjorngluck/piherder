@@ -56,7 +56,7 @@ Open the **deployment** for that host+project (`/templates/deployments/{id}`):
 
 ### Desired files
 
-The **Desired files** card lists what PiHerder will write on redeploy / apply (compose, `.env`, sidecars). Expand a path to preview the stored body (secrets masked until step-up unlock). Edit package sources under **Edit template files**; edit live host files via **Open host file editor**.
+The **Desired files** card lists what PiHerder will write on redeploy / apply (compose, `.env`, sidecars). Expand a path to preview the stored body (secrets masked until step-up unlock). Edit package sources under **Edit template files**; edit live host files via the **host file editor** text link.
 
 ### Ops actions
 
@@ -72,7 +72,7 @@ The **Desired files** card lists what PiHerder will write on redeploy / apply (c
 | **Restore data** | Lists matching backup sources → use server **Backups** dry-run/apply | Config redeploy ≠ data restore |
 
 !!! tip "Intentional host edit (example: different published port)"
-    1. Edit on the host (SSH or **Open host file editor**).  
+    1. Edit on the host (SSH or the **host file editor** link).  
     2. On the deployment page, **Accept host as desired** — config version bumps; drift clears for **this** host only.  
     3. Do **not** use **Apply last known** if you want to keep the host edit — that rewrites the host from PiHerder.
 

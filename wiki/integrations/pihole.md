@@ -20,7 +20,7 @@ LAN DNS is the glue between friendly names and hosts. Managing A/CNAME records o
 1. Connect Pi-hole (v6 API password) under Catalog → Integrations.  
 2. Mark **Primary** on the instance that should own truth first.  
 3. Server **Edit → General**: set FQDN + IP; enable **Manage A on all Pi-holes**.  
-4. Confirm the A appears on each Pi-hole admin (or via Network hub table).  
+4. Confirm the A appears on each Pi-hole admin (or via Catalog → Network → **DNS records**).  
 5. Open **Catalog → Network** to adopt existing names and see Hosts/Path maps.  
 
 ---
@@ -45,7 +45,7 @@ LAN DNS is the glue between friendly names and hosts. Managing A/CNAME records o
 | Stats tiles | Total queries, blocked, %, domains on lists, active clients | Health of DNS path |
 | Multi summary | Integrations list sums queries/blocked across instances | Multi-hole labs |
 | Deep links | Open admin, Gravity, System settings | Escape hatch to full UI |
-| Local DNS / CNAME | Listed from the open instance; **add/remove applies to all enabled Pi-holes** (primary first) | Keep holes in sync |
+| Local DNS / CNAME | Dense list on the integration (per instance); **add/remove applies to all enabled Pi-holes** (primary first) | Keep holes in sync |
 | Update Gravity | Long-running; audited | Controlled list refresh |
 | Restart DNS / Flush network | Audited; optional “all instances” | Ops actions without SSH |
 

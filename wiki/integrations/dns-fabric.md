@@ -39,7 +39,7 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 
 <figure class="ph-figure" markdown>
   ![Network Hosts map mobile](../assets/screenshots/dns-physical-mobile.png)
-  <figcaption>Optional mobile showcase — Hosts map list-first layout.</figcaption>
+  <figcaption>Hosts map on a phone — host list first; **Show map** / **Hide map** use the same chrome as desktop (graph defaults open on wide screens).</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
@@ -104,7 +104,8 @@ The hub (`/dns`) is **path-first** (v0.9): destination **cards** + DNS/settings 
 | **Adopt** | Import / candidates from Pi-hole |
 
 !!! note "Runtime stack reorder"
-    On Hosts / Path maps, expand a stack and drag the **⋮⋮** handle to reorder containers (pointer drag — works inside `<details>`).
+    On Hosts / Path maps, open the stack panel and drag the **⋮⋮** handle to reorder containers.
+    One **Pointer Events** path (mouse, pen, and touch) — handle has `touch-action: none` so the list can still scroll elsewhere.
 
 ---
 
@@ -146,9 +147,9 @@ Mapped apps fan **outside** the zone from fleet hosts.
 
 | Page | URL | Shows |
 |------|-----|--------|
-| **Network hub** | `/dns` | Path cards · **By path type** stats · filters · network settings · adopt/import · host A table · external checklist |
-| **Hosts map** | `/dns/physical` | Rack cards + SVG: Internet → Router → **LAN fan** + apps; radar expands the circle for discovery |
-| **Path map** | `/dns/logical` | Flow list (mobile-first) + SVG (URL → NPM hub → destination) |
+| **Network hub** | `/dns` | Path cards · **By path type** stats · filters · DNS/settings cards · adopt · unified DNS records modal |
+| **Hosts map** | `/dns/physical` | Host **list** + optional SVG (Internet → Router → **LAN fan** + apps); **Show map** / **Hide map** same on all widths; graph defaults open on desktop |
+| **Path map** | `/dns/logical` | Path **list** + optional SVG (URL → NPM hub → destination); same open/closed map chrome |
 
 ### LAN discovery on Hosts map {#lan-discovery-on-hosts-map}
 
@@ -171,9 +172,12 @@ LAN Discovery’s **Devices → Map** view remains a discovery-only subnet brows
 
 ### Map chrome (Hosts + Path)
 
+List and graph share **one** open/closed model (`.is-open`) — not separate mobile-only vs desktop-always UIs.
+
 | Control | What it does |
 |---------|----------------|
-| **Hide map** (mobile) | Return to list-first layout |
+| **Show map** | Open the SVG panel (always available; hidden while the map is already open) |
+| **Hide map** | Close the SVG panel; list stays (defaults closed on narrow screens; open on desktop / deep links) |
 | **Discovered** (Hosts only, radar) | Outer discovery chips on/off + compact vs full LAN zone |
 | **− / % / +** | Zoom out · level · zoom in (SVG viewBox) |
 | **1:1** | Fit map to the window. Hosts + discovered **off**: fits the **compact** fleet (fills the pane). Discovered **on** / Path map: designed full canvas. Double-click map = same |

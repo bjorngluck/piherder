@@ -190,78 +190,29 @@ async def edit_compose(
         _invalidate_inventory(session, server)
     except Exception:
         pass
-    projects = []
+
+    from ..services.compose_editor import (
+        ComposeEditorNotFound,
+        load_compose_editor_workspace,
+    )
+
     try:
-        projects = docker_svc.list_compose_projects(server)
-    except Exception as e:
-        logger.warning("list_compose_projects failed server=%s: %s", server_id, e)
-    proj = next((p for p in projects if p["name"] == project), None)
+        ws = load_compose_editor_workspace(
+            session,
+            server,
+            project,
+            load_draft_id=request.query_params.get("load_draft"),
+        )
+    except ComposeEditorNotFound as e:
+        raise HTTPException(404, e.message) from e
 
-    template_dep = None
-    try:
-        from ..services.service_templates.deploy import get_deployment_for_project
-
-        template_dep = get_deployment_for_project(session, server_id, project)
-    except Exception:
-        template_dep = None
-
-    # Fallback path when inventory list misses the folder but deployment / base dir know it
-    if not proj:
-        try:
-            from ..services.ssh import docker_base_expanded
-
-            base = docker_base_expanded(server)
-            fallback_path = f"{base}/{project}".replace("//", "/")
-            live_try = docker_svc.get_project_live_files(server, fallback_path) or {}
-            if live_try or template_dep is not None:
-                proj = {"name": project, "path": fallback_path}
-            else:
-                raise HTTPException(
-                    404,
-                    f"Compose project {project!r} not found under {base}",
-                )
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.warning("compose edit fallback path failed project=%s: %s", project, e)
-            raise HTTPException(404, f"Compose project {project!r} not found") from e
-
-    live_files = docker_svc.get_project_live_files(server, proj["path"]) or {}
-    project_files = dict(live_files)
-    live_compose_key = docker_svc.primary_compose_key(live_files)
-    live_compose = live_files.get(live_compose_key, "") if live_compose_key else ""
-
-    # Template desired-state sidecars (promtail etc.) — fill tabs missing on host
-    if template_dep is not None:
-        try:
-            desired = json.loads(template_dep.files_json or "{}") or {}
-            for path, body in desired.items():
-                p = str(path or "")
-                if not p or p.startswith("secrets/") or p.startswith("__"):
-                    continue
-                if p not in project_files:
-                    project_files[p] = body if isinstance(body, str) else ("" if body is None else str(body))
-        except Exception:
-            pass
-
-    all_drafts = docker_svc.get_versions(server.id, project, limit=10)
-    # Show versions that have any project file (multi-file snapshots)
-    drafts = list(all_drafts)
-
-    load_draft_id = request.query_params.get("load_draft")
-    editing_version_id = None
-    if load_draft_id:
-        try:
-            dv = next((d for d in drafts if str(d.id) == load_draft_id), None)
-            if dv:
-                f = docker_svc.parse_version_files(dv)
-                # Prefer draft snapshot entirely when loading a version
-                if f:
-                    project_files = docker_svc.merge_project_files(project_files, f)
-                if dv.is_draft:
-                    editing_version_id = dv.id
-        except Exception:
-            pass
+    proj = ws.proj
+    live_files = ws.live_files
+    project_files = ws.project_files
+    drafts = ws.drafts
+    editing_version_id = ws.editing_version_id
+    live_compose_key = ws.live_compose_key
+    live_compose = ws.live_compose
 
     # Never ship cleartext .env / secrets/* without step-up unlock
     project_files, secrets_revealed, _extra = _ui_redact_files(

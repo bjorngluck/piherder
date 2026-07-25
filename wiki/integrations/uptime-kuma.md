@@ -26,6 +26,8 @@ You can **deploy** Kuma via [Templates](../service-templates/overview.md), then 
 5. Open `/services` and filter **Down** / **TLS issue**.  
 6. Optional: enable Web Push for **Integration monitor down**.
 
+**Monitor inventory** on the integration detail page is a **dense list** (name, status, type, target, TLS days, latency) — one layout on phone and desktop.
+
 ---
 
 ## Connect

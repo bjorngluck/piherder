@@ -28,6 +28,14 @@ from sqlmodel import Session, select
 from ..models import Server, DockerVersion
 from ..database import engine
 from ..services.ssh import get_ssh_client, run_command
+from .compose_project_files import (
+    COMPOSE_BASENAMES,
+    FILE_ROLE_ORDER,
+    OVERRIDE_BASENAMES,
+    discover_relative_config_files,
+    looks_like_config_file,
+    project_file_role,
+)
 
 # Reserved key inside DockerVersion.files JSON — never written to the host.
 META_KEY = "__piherder__"
@@ -46,20 +54,6 @@ DEFAULT_PROJECT_FILES = [
     ".env",
     ".env.example",
 ]
-
-COMPOSE_BASENAMES = (
-    "docker-compose.yml",
-    "docker-compose.yaml",
-    "compose.yml",
-    "compose.yaml",
-)
-
-OVERRIDE_BASENAMES = (
-    "docker-compose.override.yml",
-    "docker-compose.override.yaml",
-    "compose.override.yml",
-    "compose.override.yaml",
-)
 
 
 def is_meta_key(name: str) -> bool:
@@ -94,57 +88,14 @@ def primary_compose_key(files: dict) -> Optional[str]:
     return None
 
 
-_SIDECAR_EXTS = frozenset(
-    {"yml", "yaml", "json", "toml", "conf", "cfg", "ini", "properties", "txt"}
-)
-
-
-def _looks_like_sidecar_basename(base: str) -> bool:
-    """Config sidecars next to compose (promtail-config.yaml, etc.). Avoid package imports."""
-    b = (base or "").strip()
-    if not b or b in (".", ".."):
-        return False
-    if b.startswith(".env"):
-        return False
-    if "." not in b:
-        return False
-    ext = b.rsplit(".", 1)[-1].lower()
-    return ext in _SIDECAR_EXTS
-
-
 def file_role(name: str) -> str:
-    n = (name or "").lower().replace("\\", "/")
-    base = n.rsplit("/", 1)[-1]
-    if base in {b.lower() for b in OVERRIDE_BASENAMES} or "override" in base:
-        return "override"
-    if base in {b.lower() for b in COMPOSE_BASENAMES}:
-        return "compose"
-    # Compose set files: docker-compose.e2e.yml / compose.foo.yaml
-    if base.endswith((".yml", ".yaml")) and (
-        base.startswith("docker-compose.") or base.startswith("compose.")
-    ):
-        return "compose"
-    if base == "dockerfile" or base.startswith("dockerfile."):
-        return "dockerfile"
-    if base == ".env" or base.startswith(".env"):
-        return "env"
-    if _looks_like_sidecar_basename(base):
-        return "config"
-    return "other"
+    """Canonical project file kind (compose, override, env, config, dockerfile, other/secret)."""
+    return project_file_role(name)
 
 
 def sort_project_filenames(names: list[str]) -> list[str]:
-    order = {
-        "compose": 0,
-        "override": 1,
-        "env": 2,
-        "config": 3,
-        "dockerfile": 4,
-        "other": 5,
-    }
-
     def key(n: str):
-        return (order.get(file_role(n), 9), n.lower())
+        return (FILE_ROLE_ORDER.get(file_role(n), 9), n.lower())
 
     return sorted([n for n in names if not is_meta_key(n)], key=key)
 
@@ -194,15 +145,9 @@ def _discover_project_filenames(server: Server, project_path: str) -> List[str]:
     names = list(DEFAULT_PROJECT_FILES)
     seen = set(names)
     try:
-        import re
         import shlex
 
         from . import compose_sets as csets
-
-        # Inline mount parse — avoid importing service_templates (circular package init)
-        mount_re = re.compile(
-            r"""^([ \t]*)-\s*["']?([^:"'\s][^:"']*?):(/[^:"'\s][^:"']*)(?::([^"'\s]+))?["']?\s*$"""
-        )
 
         client0 = get_ssh_client(server)
         try:
@@ -221,10 +166,14 @@ def _discover_project_filenames(server: Server, project_path: str) -> List[str]:
                     if kind in ("primary", "override", "set") and base not in seen:
                         names.append(base)
                         seen.add(base)
-                    elif _looks_like_sidecar_basename(base) and base not in seen:
+                    elif (
+                        looks_like_config_file(base)
+                        and not base.startswith(".env")
+                        and base not in seen
+                    ):
                         names.append(base)
                         seen.add(base)
-            # Bind-mounted config paths from primary compose (e.g. ./promtail-config.yaml:…)
+            # Bind-mounted config paths from primary compose (canonical parser)
             compose_candidates = [
                 n
                 for n in names
@@ -240,18 +189,8 @@ def _discover_project_filenames(server: Server, project_path: str) -> List[str]:
                     )
                     if st2 != 0 or not body:
                         continue
-                    for line in body.splitlines():
-                        m = mount_re.match(line)
-                        if not m:
-                            continue
-                        source = (m.group(2) or "").strip()
-                        rel = source[2:] if source.startswith("./") else source
-                        rel = rel.lstrip("/")
-                        parts = [p for p in rel.split("/") if p]
-                        if not parts or len(parts) > 2 or any(p in (".", "..") for p in parts):
-                            continue
-                        key = "/".join(parts)
-                        if _looks_like_sidecar_basename(parts[-1]) and key not in seen:
+                    for key in discover_relative_config_files(body):
+                        if key not in seen:
                             names.append(key)
                             seen.add(key)
                 except Exception:

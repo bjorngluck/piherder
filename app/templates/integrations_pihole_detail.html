@@ -130,38 +130,31 @@
     <button type="submit" class="btn btn-primary min-h-11">Add to all instances</button>
   </form>
   {% endif %}
-  <div class="table-scroll">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-xs text-muted border-b border-border">
-          <th class="py-2 text-left">IP</th>
-          <th class="text-left">Domain</th>
-          <th class="text-right">Remove</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for h in hosts %}
-        <tr class="border-b border-border/60 align-middle">
-          <td class="py-2 font-mono text-xs">{{ h.ip }}</td>
-          <td class="font-mono text-xs">{{ h.domain }}</td>
-          <td class="text-right py-2">
-            {% if can_mutate %}
-            <button type="button"
-                    class="btn btn-secondary text-xs min-h-11 px-3 text-error ph-dns-remove"
-                    data-kind="host"
-                    data-ip="{{ h.ip }}"
-                    data-domain="{{ h.domain }}"
-                    data-label="{{ h.domain }} ({{ h.ip }})">
-              Remove
-            </button>
-            {% endif %}
-          </td>
-        </tr>
-      {% else %}
-        <tr><td colspan="3" class="py-4 text-muted text-sm">No local DNS entries (or could not load).</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <div class="ph-dense-list" data-testid="pihole-hosts-list">
+    {% for h in hosts %}
+    <article class="ph-dense-row">
+      <div class="ph-dense-row-main min-w-0">
+        <div class="ph-dense-row-title ph-dense-mono">{{ h.domain }}</div>
+        <div class="ph-dense-row-meta">
+          <span class="ph-dense-mono">{{ h.ip }}</span>
+        </div>
+      </div>
+      {% if can_mutate %}
+      <div class="ph-dense-row-actions">
+        <button type="button"
+                class="btn btn-secondary text-xs min-h-11 px-3 text-error ph-dns-remove"
+                data-kind="host"
+                data-ip="{{ h.ip }}"
+                data-domain="{{ h.domain }}"
+                data-label="{{ h.domain }} ({{ h.ip }})">
+          Remove
+        </button>
+      </div>
+      {% endif %}
+    </article>
+    {% else %}
+    <div class="ph-dense-empty">No local DNS entries (or could not load).</div>
+    {% endfor %}
   </div>
 </div>
 
@@ -196,38 +189,32 @@
     <button type="submit" class="btn btn-primary min-h-11">Add to all instances</button>
   </form>
   {% endif %}
-  <div class="table-scroll">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-xs text-muted border-b border-border">
-          <th class="py-2 text-left">Domain</th>
-          <th class="text-left">Target</th>
-          <th class="text-right">Remove</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for c in cnames %}
-        <tr class="border-b border-border/60 align-middle">
-          <td class="py-2 font-mono text-xs">{{ c.domain }}</td>
-          <td class="font-mono text-xs">{{ c.target }}</td>
-          <td class="text-right py-2">
-            {% if can_mutate %}
-            <button type="button"
-                    class="btn btn-secondary text-xs min-h-11 px-3 text-error ph-dns-remove"
-                    data-kind="cname"
-                    data-domain="{{ c.domain }}"
-                    data-target="{{ c.target }}"
-                    data-label="{{ c.domain }} → {{ c.target }}">
-              Remove
-            </button>
-            {% endif %}
-          </td>
-        </tr>
-      {% else %}
-        <tr><td colspan="3" class="py-4 text-muted text-sm">No CNAME records (or could not load).</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <div class="ph-dense-list" data-testid="pihole-cname-list">
+    {% for c in cnames %}
+    <article class="ph-dense-row">
+      <div class="ph-dense-row-main min-w-0">
+        <div class="ph-dense-row-title ph-dense-mono">{{ c.domain }}</div>
+        <div class="ph-dense-row-meta">
+          <span>→</span>
+          <span class="ph-dense-mono break-all">{{ c.target }}</span>
+        </div>
+      </div>
+      {% if can_mutate %}
+      <div class="ph-dense-row-actions">
+        <button type="button"
+                class="btn btn-secondary text-xs min-h-11 px-3 text-error ph-dns-remove"
+                data-kind="cname"
+                data-domain="{{ c.domain }}"
+                data-target="{{ c.target }}"
+                data-label="{{ c.domain }} → {{ c.target }}">
+          Remove
+        </button>
+      </div>
+      {% endif %}
+    </article>
+    {% else %}
+    <div class="ph-dense-empty">No CNAME records (or could not load).</div>
+    {% endfor %}
   </div>
 </div>
 

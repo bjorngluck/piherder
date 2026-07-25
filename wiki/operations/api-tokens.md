@@ -9,6 +9,7 @@ Long-lived **Bearer tokens** for automating PiHerder from n8n, Home Assistant, o
 Operators want “backup host X every night from HA” without storing a human password. Tokens are scoped, rotatable, revocable, and audited — admin only.
 
 **Where:** Settings → **API management** (`/herder-backups?tab=api`) — **admin only**.  
+**Catalog tab:** scopes and endpoints render as a **dense list** (not a wide table).  
 **Interactive OpenAPI:** on your instance at `/docs` (tag `api-v1`).  
 **Long reference:** [docs/API.md](https://github.com/bjorngluck/piherder/blob/main/docs/API.md) in the repo.
 

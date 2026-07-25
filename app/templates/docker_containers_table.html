@@ -1,39 +1,24 @@
-<div class="overflow-x-auto" id="containers-table">
-  <table class="w-full text-sm">
-    <thead class="text-left text-muted border-b border-border table-header">
-      <tr>
-        <th class="py-2 pr-3">Name</th>
-        <th class="py-2 pr-3">Image / Version</th>
-        <th class="py-2 pr-3">Status</th>
-        <th class="py-2 pr-3">Status Time</th>
-        <th class="py-2 pr-3">Created</th>
-        <th class="py-2 pr-3">Command</th>
-        <th class="py-2">Exposed Ports</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-border">
-      {% for c in containers %}
-      <tr class="{{ 'bg-accent-subtle' if c.running else '' }}">
-        <td class="py-2 pr-3 font-mono text-xs">{{ c.name }}</td>
-        <td class="py-2 pr-3 text-xs">
-          <div>{{ c.image }}</div>
-          {% if c.version %}<div class="text-accent text-[10px]">v{{ c.version }}</div>{% endif %}
-        </td>
-        <td class="py-2 pr-3">
-          {% if c.running %}
-            <span class="inline-block px-2 py-0.5 text-xs rounded status-success">Running</span>
-          {% else %}
-            <span class="inline-block px-2 py-0.5 text-xs rounded bg-surface text-muted">Stopped</span>
-          {% endif %}
-        </td>
-        <td class="py-2 pr-3 text-xs text-muted whitespace-normal break-words">{{ c.status or '—' }}</td>
-        <td class="py-2 pr-3 text-xs font-mono text-muted">{{ c.created or '—' }}</td>
-        <td class="py-2 pr-3 text-xs font-mono text-muted whitespace-normal break-words">{{ c.command or '—' }}</td>
-        <td class="py-2 pr-3 text-xs font-mono text-muted">{{ c.ports_display }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="7" class="py-4 text-muted text-sm">No containers found.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
+<div class="ph-dense-list" id="containers-table" data-testid="containers-list">
+  {% for c in containers %}
+  <article class="ph-dense-row {{ 'bg-accent-subtle' if c.running else '' }}">
+    <div class="ph-dense-row-main min-w-0">
+      <div class="ph-dense-row-title font-mono text-sm">{{ c.name }}</div>
+      <div class="ph-dense-row-meta">
+        {% if c.running %}
+        <span class="status-pill status-success">Running</span>
+        {% else %}
+        <span class="status-pill feature-off">Stopped</span>
+        {% endif %}
+        <span class="ph-dense-mono break-all">{{ c.image }}</span>
+        {% if c.version %}<span class="text-accent">v{{ c.version }}</span>{% endif %}
+        {% if c.status %}<span title="Status time">{{ c.status }}</span>{% endif %}
+        {% if c.created %}<span class="ph-dense-mono" title="Created">{{ c.created }}</span>{% endif %}
+        {% if c.ports_display %}<span class="ph-dense-mono" title="Ports">{{ c.ports_display }}</span>{% endif %}
+        {% if c.command %}<span class="ph-dense-mono break-all" title="Command">{{ c.command }}</span>{% endif %}
+      </div>
+    </div>
+  </article>
+  {% else %}
+  <div class="ph-dense-empty">No containers found.</div>
+  {% endfor %}
 </div>

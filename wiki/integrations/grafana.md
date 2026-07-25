@@ -21,7 +21,7 @@ PiHerder does **not** have to deploy Grafana (you may still use the Grafana temp
 
 1. Create a Grafana **service account** Viewer token.  
 2. Connect integration (URL + token) → **Poll** for inventory.  
-3. On **Inventory**, set preferred chip names if titles are noisy.  
+3. On **Inventory**, set preferred chip names if titles are noisy (dense list — one card per dashboard).  
 4. **Bind** a dashboard as Host metrics (or Containers / Host logs).  
 5. Open the server detail Grafana card → chip opens the filtered dashboard.  
 6. For container-scoped binds, confirm the Docker page chip appears.
@@ -54,7 +54,7 @@ PiHerder does **not** have to deploy Grafana (you may still use the Grafana temp
 
 Chip labels can differ from Grafana’s dashboard title:
 
-- **Preferred name** — set on the **Inventory** tab (one field per dashboard UID). Stored on the Grafana integration (`config_json.display_names[uid]`).  
+- **Preferred name** — set on the **Inventory** tab dense list (one field per dashboard UID). Stored on the Grafana integration (`config_json.display_names[uid]`).  
   - Applies to **all existing** host binds of that UID and **any new** binds later.  
   - Survives **Poll** (Grafana title kept as reference).  
   - Blank + **Save** clears the preferred name → chips follow the Grafana title again.  

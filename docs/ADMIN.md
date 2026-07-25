@@ -429,7 +429,7 @@ If `METRICS_TOKEN` is empty, treat `/metrics` like `/health` — private network
 
 ### Multi-file Docker projects
 
-On a server’s **Docker → Full editor…** (or **Edit files**), PiHerder loads primary compose, override, **compose sets** (`docker-compose.<name>.yml`), `.env`, **config/sidecar** files discovered next to compose (e.g. promtail YAML from file binds), and Dockerfile when present. Template desired-state sidecars fill missing host tabs. Tabs edit each file; **Save & Deploy** writes the full set and redeploys. Version history stores multi-file snapshots (merge-on-save so one file no longer wipes the others). Compose on the host still auto-loads override + `.env` in the project directory.
+On a server’s **Docker → Full editor…** (or **Edit files**), PiHerder loads primary compose, override, **compose sets** (`docker-compose.<name>.yml`), `.env`, **config/sidecar** files discovered next to compose (e.g. promtail YAML from file binds), and Dockerfile when present. Template desired-state sidecars fill missing host tabs. Tabs edit each file; **Save & Deploy** writes the full set and redeploys. Version history stores multi-file snapshots (merge-on-save so one file no longer wipes the others). Compose on the host still auto-loads override + `.env` in the project directory. Implementers: workspace load is `app/services/compose_editor.py`; pure file-kind helpers in `compose_project_files.py`; host adopt/migrate in `service_templates/host_sync.py`.
 
 **Compose sets:** extra compose files in the **same** project directory appear as under-project pills on the Docker page (All / main / set names). They do **not** create a second project card. Optional **Deploy \<set\> set** runs `docker compose -f <file> up -d` under the same project path. See wiki [Docker overview — Compose sets](../wiki/docker/overview.md#compose-sets-same-folder-one-project-card).
 
@@ -577,7 +577,7 @@ Volume and boolean vars are **never** treated as secrets (no step-up 2FA).
 | **Accept host as desired** | Copy live host files into desired state; bump Vn; clear drift (this host only) |
 | **Import host .env** | Secrets → encrypted SoT |
 | **Apply last known config** | Write desired → host + compose (DR / undo host-only edits) |
-| **Open host file editor** | Multi-file host YAML (may cause drift until Accept or redeploy) |
+| **host file editor** (text link) | Multi-file host YAML (may cause drift until Accept or redeploy) |
 | **Desired files** | Browse stored compose / `.env` / sidecars on the deployment page |
 
 #### Import zip

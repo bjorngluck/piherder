@@ -146,7 +146,7 @@ Defaults use **named** volumes; deploy can switch to project folder or host path
 
 ## UX feedback (sync ops)
 
-Long template operations historically used **`PiHerderWaitModal`**. **Per-stack** Docker Check updates / Deploy use Jobs + live log (**B07**). **v0.6.0:** template **deploy** / **redeploy** → Jobs (`template_deploy` / `template_redeploy`) + JobHold live log; secrets in job details are Fernet-encrypted and cleared on finish; exclusive with other stack mutations on the host. **v0.7.0:** drift check as Job. **v0.9:** desired-files browser; always-write empty `.env`; **Accept host as desired** (intentional host-only drift); host full editor discovers config sidecars. Preview / from-host / env migrate / adopt may still use wait modal. See [PLAN_v0.6.0.md](PLAN_v0.6.0.md) workstream C · [PLAN_v0.9.0.md](PLAN_v0.9.0.md).
+Long template operations historically used **`PiHerderWaitModal`**. **Per-stack** Docker Check updates / Deploy use Jobs + live log (**B07**). **v0.6.0:** template **deploy** / **redeploy** → Jobs (`template_deploy` / `template_redeploy`) + JobHold live log; secrets in job details are Fernet-encrypted and cleared on finish; exclusive with other stack mutations on the host. **v0.7.0:** drift check as Job. **v0.9:** desired-files browser; always-write empty `.env`; **Accept host as desired** (intentional host-only drift); host full editor discovers config sidecars; structure: `host_sync` + `compose_editor` + `compose_project_files`. Preview / from-host / env migrate / adopt may still use wait modal. See [PLAN_v0.6.0.md](PLAN_v0.6.0.md) workstream C · [PLAN_v0.9.0.md](PLAN_v0.9.0.md).
 
 ## Out of v0.4.0 / follow-ons (→ v0.5.0)
 

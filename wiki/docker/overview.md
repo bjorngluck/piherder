@@ -37,7 +37,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 
 | Action | Notes |
 |--------|--------|
-| Browse projects / containers | From inventory snapshot ([Inventory](inventory.md)) |
+| Browse projects / containers | From inventory snapshot ([Inventory](inventory.md)); containers as **dense rows** (not a wide table) |
 | Runtime stack / Path map | Project **Stack** / **Path map** pills → Network stack panel + map expand ([Network maps](../integrations/dns-fabric.md#runtime-stack-detail-altitude)) |
 | Logs | Per container / service (live stream on full log page) |
 | **Stop / Start / Restart all** | Project ⋯ menu → confirm → **Job** with live log (`docker_stack_stop` / `_start` / `_restart`) |
