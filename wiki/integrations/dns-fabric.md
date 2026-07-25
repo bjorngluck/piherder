@@ -304,11 +304,11 @@ Path cards show a small **Kuma** / **Kuma·** / **no Kuma** chip.
 
 ### Binding from the gaps table
 
-For each gap (operators only):
+Coverage is a **dense table** (not a wall of large cards). For each gap (operators only):
 
 1. **Poll** Kuma on the integration if the monitor list is empty.  
-2. Choose a **Suggested** (or other) HTTP monitor — ranked by FQDN / name / URL.  
-3. Click **Bind** — creates a service binding on the **backend host** with the path’s Docker project when known, then returns to Network coverage.  
+2. Choose a **Suggested** monitor from the constrained select (short labels; ranked by FQDN / name / URL).  
+3. Click green **Bind** — form posts, creates a service binding on the **backend host** with the path’s Docker project when known, then reloads coverage with a success banner.  
 4. **Advanced…** opens the full Kuma “Add service binding” form with server / project pre-filled.
 
 This does **not** create monitors inside Kuma — only **links** an existing monitor to a fleet host/project. Create the HTTP check in Kuma first ([Uptime Kuma](uptime-kuma.md)).

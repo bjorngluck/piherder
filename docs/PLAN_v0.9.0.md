@@ -41,7 +41,7 @@ Raise the **operator bar** and **confidence bar** for production:
 | ID | Item | Effort | Notes |
 |----|------|--------|-------|
 | **B2** | Devices + Network filter boxes consistent | M | **Done** — shared `nmap-filter-bar` chrome, search sizing, empty states, E2E |
-| **E1** | Server detail: LAN discovery less dominant | S–M | **Done** — collapsed strip after dest cards; richer chip (IP · ports) |
+| **E1** | Server detail: LAN discovery less dominant | S–M | **Done** — **Network path** + **LAN discovery** side-by-side cards (collapsed LAN details); Path map = button; richer chip (IP · ports) |
 | **E2** | Offline / unmatched devices | M | **Done** — stale UI = Offline flag + warning colour; never auto-delete; ignore stays manual |
 | **E3** | Overview cleanup | M | **Done** — Scan now + vuln pack update → modals; page keeps stats + vuln strip; **no** Devices/Network/Jobs shortcut buttons (tabs only) |
 | **E5** | Schedules UX | M–L | **Done** — list-first dense rows; full actions always visible; add/edit modal (`?new=1` / `?schedule=`) |
@@ -217,5 +217,7 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-25 | **Structure (review follow-up):** shared `compose_project_files` + `host_sync`; compose editor load in `compose_editor` (router thin); CSS split — `dns-hub.css`, `fabric-stack.css`, `ph-only-*` → `ops.css` (concern boundaries; no history rewrite) |
 | 2026-07-25 | **UI unify (no dual mobile/desktop markup):** dense `ph-dense-*` lists for containers, Grafana/Kuma/Pi-hole, deployments, API catalog, backup usage; nmap schedules/runs single testids; maps one open/closed chrome + desktop default open; stack reorder one Pointer Events path |
 | 2026-07-25 | **Docs/wiki** aligned to structure + UI unify; commit on main |
+| 2026-07-25 | **Server detail:** Network path + LAN discovery **side-by-side**; Path map secondary **button** (parity with Open on hosts map); coverage Bind submit/`next=` fix earlier same day |
+| 2026-07-25 | Docs/wiki for server net row; operator full QA + screenshot recapture next |
 
 **End of plan** — living document; freeze into RELEASE notes at tag.

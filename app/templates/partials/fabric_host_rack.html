@@ -1,17 +1,17 @@
 {# Single-host network rack (server detail). Expects `fabric_rack` dict from fabric_rack_for_server. #}
 {% if fabric_rack is defined and fabric_rack %}
-<section class="fabric-host-panel mb-6" aria-label="Network names on this host">
-  <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+<section class="fabric-host-panel card p-4 sm:p-5 h-full" aria-label="Network path on this host">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
     <div>
-      <h2 class="text-sm font-semibold text-text m-0">Network</h2>
+      <h2 class="text-sm font-semibold text-text m-0">Network path</h2>
       <p class="text-xs text-muted m-0 mt-0.5">
         Mapped names that land on this host
         {% if fabric_rack.is_npm_edge %}· also an <span class="text-warning">NPM edge</span>{% endif %}
       </p>
     </div>
     <div class="flex flex-wrap gap-2 items-center">
-      <a href="{{ fabric_rack.hosts_map_url }}" class="btn btn-secondary text-xs min-h-9 px-2">Open on hosts map</a>
-      <a href="/dns/logical#map" class="text-xs text-accent hover:underline">Path map</a>
+      <a href="{{ fabric_rack.hosts_map_url }}" class="btn btn-secondary text-xs min-h-9 px-2.5 no-underline">Open on hosts map</a>
+      <a href="{{ fabric_rack.path_map_url or '/dns/logical#map' }}" class="btn btn-secondary text-xs min-h-9 px-2.5 no-underline">Path map</a>
     </div>
   </div>
 

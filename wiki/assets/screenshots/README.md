@@ -44,7 +44,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 |------|----------------|----------|----------------------|
 | `dashboard.png` | Home | High | **Refresh** if cards/layout changed |
 | `server-list.png` | Servers + bulk bar + ⋯ | High | **Refresh** — no footer help text; status from last checks; bulk when selected |
-| `server-detail.png` | Dest cards, host status, optional LAN chip/card | High | **Refresh** (0.9 ops-hero / LAN chip; ideally one **Debian** host) |
+| `server-detail.png` | Dest cards, host status, **Network path + LAN discovery** row | High | **Refresh** (0.9 ops-hero; side-by-side Network path / LAN; ideally one **Debian** host) |
 | `server-detail-haos.png` *(new)* | HAOS host: **HAOS** chip, HA updates, version chips | High | **Capture for 0.9** — wiki [haos-hosts](../../day-to-day/haos-hosts.md) |
 | `system-info-haos.png` *(new)* | System info modal: Core/OS/Supervisor + HA disk | High | **Capture for 0.9** — after **Refresh** on HAOS server |
 | `ha-update-modal.png` *(optional)* | HA update apply modal (not apt steps) | Medium | Optional |
@@ -86,7 +86,7 @@ Do **not** capture every page in light×dark×mobile. See [Appearance](../../get
 | `nmap-network.png` | Network view | **Landed** |
 | `nmap-schedules.png` | Schedules | **Landed** |
 | `nmap-runs.png` | Runs dense list (no ID column) | **Landed** |
-| `nmap-server-embed.png` | Server detail LAN card | **Landed** |
+| `nmap-server-embed.png` | Server detail LAN card (beside Network path) | **Landed** — **re-capture** for side-by-side row |
 | `settings-stale-cleanup.png` | Settings → Stale data cleanup | **Landed** |
 | `add-server-wizard.png` | Multi-step add-host wizard | **Landed** |
 | `add-server-wizard-done.png` | Wizard done CTAs | **Landed** |
@@ -105,6 +105,8 @@ Optional residual (not a tag gate): `jobs-live-log.png` for JobHold live log if 
 | **Docker containers** | Dense rows (not wide horizontal-scroll table) |
 | **HAOS server detail** | HAOS chip; “HA updates” not bare apt-only wording; no Docker fleet emphasis |
 | **System info (HAOS)** | Home Assistant Core / OS / Supervisor cards; disk from `ha host` |
+| **Server Network / LAN row** | **Network path** card + **LAN discovery** card side-by-side; **Open on hosts map** and **Path map** both secondary buttons |
+| **Kuma coverage** | Dense **table** with constrained suggestion selects + inline **Bind** (not mega-selects / growing cards) |
 
 ### v0.9 screenshot recapture checklist (operator — in progress)
 
@@ -114,10 +116,11 @@ Optional residual (not a tag gate): `jobs-live-log.png` for JobHold live log if 
 |----------|-------------|-----|----------------|
 | **P0** | `server-detail-haos.png` | HAOS chip, HA updates, no Docker fleet emphasis | [haos-hosts](../../day-to-day/haos-hosts.md) |
 | **P0** | `system-info-haos.png` | Core / OS / Supervisor + disk | [haos-hosts](../../day-to-day/haos-hosts.md) |
-| **P1** | `server-detail.png` | 0.9 ops-hero / LAN chip (Debian host) | [add-server](../../day-to-day/add-server.md) |
+| **P1** | `server-detail.png` | 0.9 ops-hero; Network path + LAN discovery side-by-side (Debian host) | [add-server](../../day-to-day/add-server.md) |
+| **P1** | `nmap-server-embed.png` | LAN card next to Network path | [lan-discovery](../../integrations/lan-discovery.md) |
 | **P1** | `nmap-devices.png` | List \| Map merge | [lan-discovery](../../integrations/lan-discovery.md) |
 | **P1** | `nmap-overview.png` / `nmap-runs.png` / `nmap-schedules.png` | Overview modals, Runs/Schedules dense lists | [lan-discovery](../../integrations/lan-discovery.md) |
-| **P2** | `dns-hub.png` / `dns-coverage.png` / `dns-physical.png` | Network hub cards; coverage cards; map Show/Hide chrome | [dns-fabric](../../integrations/dns-fabric.md) |
+| **P2** | `dns-hub.png` / `dns-coverage.png` / `dns-physical.png` | Network hub cards; coverage **dense table** + Bind; map Show/Hide chrome | [dns-fabric](../../integrations/dns-fabric.md) |
 | **P2** | `ssh-access.png` | HAOS guidance / `ha` + rsync deps | [add-server](../../day-to-day/add-server.md) |
 | **P2** | `server-list.png` | Attention badges after HA check | day-to-day servers |
 | **P2** | `templates-catalog.png` | **OOTB** / **Yours** badges + section groups | [templates overview](../../service-templates/overview.md) |
