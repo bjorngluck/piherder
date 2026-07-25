@@ -25,10 +25,11 @@ __pycache__/
 *.egg-info/
 *.log
 
-# Docs build output and sources (not needed at runtime)
+# Docs build output and sources (not needed at runtime — except API.md for Settings UI)
 site/
 wiki/
-docs/
+docs/*
+!docs/API.md
 mkdocs.yml
 requirements-docs.txt
 

@@ -213,6 +213,7 @@ async def edit_compose(
     editing_version_id = ws.editing_version_id
     live_compose_key = ws.live_compose_key
     live_compose = ws.live_compose
+    template_dep = ws.template_dep
 
     # Never ship cleartext .env / secrets/* without step-up unlock
     project_files, secrets_revealed, _extra = _ui_redact_files(

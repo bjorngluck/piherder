@@ -1833,12 +1833,18 @@ body.fabric-map-fullscreen {
 /*
  * Map graph: one chrome model on all widths — open/closed via .is-open only.
  * List (priority-list) always in the DOM; graph defaults open on desktop via JS.
+ * Fullscreen must stay display:flex (not block) or the SVG area collapses.
  */
 .fabric-mesh-priority-graph:not(.is-open) {
   display: none !important;
 }
-.fabric-mesh-priority-graph.is-open {
+.fabric-mesh-priority-graph.is-open:not(.is-map-fullscreen) {
   display: block !important;
+}
+.fabric-mesh-priority-graph.is-open.is-map-fullscreen,
+[data-fabric-graph].is-map-fullscreen {
+  display: flex !important;
+  flex-direction: column !important;
 }
 /* Hide open control while map is visible; hide close while map is closed */
 .fabric-mesh-priority-graph.is-open ~ * [data-fabric-open-graph],
