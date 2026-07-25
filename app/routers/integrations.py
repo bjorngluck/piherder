@@ -861,7 +861,11 @@ async def set_binding(
     section = "kuma-services" if role == reg.ROLE_SERVICE else "kuma-ssh"
 
     def _after_bind_redirect(*, msg: str = "", error: str = "", detail: str = ""):
-        """Honor safe relative next= (e.g. Network coverage) or fall back to integration."""
+        """Honor safe relative next= (e.g. Network coverage) or fall back to integration.
+
+        Query params must come *before* any ``#fragment`` or the browser treats
+        them as part of the hash and the success banner never appears.
+        """
         nxt = (next or "").strip()
         if (
             nxt.startswith("/")
@@ -871,15 +875,20 @@ async def set_binding(
         ):
             from urllib.parse import quote
 
+            frag = ""
+            if "#" in nxt:
+                nxt, frag_raw = nxt.split("#", 1)
+                frag = "#" + frag_raw
+            # If next already includes msg=… keep it; else append
             sep = "&" if "?" in nxt else "?"
-            if msg:
+            if msg and "msg=" not in nxt:
                 nxt = f"{nxt}{sep}msg={quote(msg)}"
                 sep = "&"
             if error:
                 nxt = f"{nxt}{sep}error={quote(error)}"
                 if detail:
                     nxt = f"{nxt}&detail={quote(detail[:200])}"
-            return RedirectResponse(nxt, status_code=303)
+            return RedirectResponse(nxt + frag, status_code=303)
         if error:
             return _redirect(
                 f"/integrations/{integration_id}",

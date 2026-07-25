@@ -81,8 +81,7 @@
         <col class="coverage-col-svc">
         <col class="coverage-col-st">
         <col class="coverage-col-host">
-        <col class="coverage-col-mon">
-        <col class="coverage-col-act">
+        <col class="coverage-col-bind">
       </colgroup>
       <thead>
         <tr>
@@ -90,7 +89,6 @@
           <th>Status</th>
           <th>Host</th>
           <th>Monitor</th>
-          <th></th>
         </tr>
       </thead>
       <tbody>
@@ -112,14 +110,14 @@
             <div class="coverage-cell-sub" title="{{ g.backend_name or '' }}">{{ g.backend_name or '—' }}</div>
             {% if g.docker_project %}<div class="coverage-cell-sub font-mono" title="{{ g.docker_project }}">{{ g.docker_project }}</div>{% endif %}
           </td>
-          <td>
+          <td colspan="2" class="coverage-td-bind">
             {% if can_mutate and g.bind_action and g.backend_server_id and opts %}
-            <form method="post" action="{{ g.bind_action }}" id="cov-form-{{ g.service_id }}" class="coverage-inline-form">
+            <form method="post" action="{{ g.bind_action }}" class="coverage-inline-form">
               <input type="hidden" name="role" value="service">
               <input type="hidden" name="server_id" value="{{ g.backend_server_id }}">
               <input type="hidden" name="docker_project" value="{{ g.docker_project or '' }}">
               <input type="hidden" name="docker_container" value="">
-              <input type="hidden" name="next" value="/dns/coverage#kuma-coverage">
+              <input type="hidden" name="next" value="/dns/coverage?msg=binding_saved">
               <select name="external_id" class="coverage-select" required aria-label="Monitor for {{ g.label }}">
                 {% for m in opts %}
                 <option value="{{ m.external_id }}"
@@ -129,18 +127,14 @@
                 </option>
                 {% endfor %}
               </select>
+              <button type="submit" class="btn btn-accent text-xs min-h-8 px-2 shrink-0">Bind</button>
             </form>
             {% elif can_mutate and g.bind_action and g.backend_server_id %}
             <span class="text-[11px] text-muted">No match — poll Kuma</span>
-            {% else %}
-            <span class="text-[11px] text-muted">—</span>
-            {% endif %}
-          </td>
-          <td class="coverage-td-act">
-            {% if can_mutate and g.bind_action and g.backend_server_id and opts %}
-            <button type="submit" form="cov-form-{{ g.service_id }}" class="btn btn-accent text-xs min-h-8 px-2">Bind</button>
             {% elif g.bind_advanced_href %}
             <a href="{{ g.bind_advanced_href }}" class="text-[11px] text-accent hover:underline">Bind…</a>
+            {% else %}
+            <span class="text-[11px] text-muted">—</span>
             {% endif %}
           </td>
         </tr>
@@ -180,15 +174,13 @@
         <colgroup>
           <col class="coverage-col-svc">
           <col class="coverage-col-host">
-          <col class="coverage-col-mon">
-          <col class="coverage-col-act">
+          <col class="coverage-col-bind">
         </colgroup>
         <thead>
           <tr>
             <th>Container</th>
             <th>Host / project</th>
             <th>Monitor</th>
-            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -203,14 +195,14 @@
               <div class="coverage-cell-sub">{{ d.server_name }}</div>
               <div class="coverage-cell-sub font-mono" title="{{ d.project }}">{{ d.project }}</div>
             </td>
-            <td>
+            <td colspan="2" class="coverage-td-bind">
               {% if can_mutate and d.bind_action and d.server_id and opts %}
-              <form method="post" action="{{ d.bind_action }}" id="dep-form-{{ loop.index }}" class="coverage-inline-form">
+              <form method="post" action="{{ d.bind_action }}" class="coverage-inline-form">
                 <input type="hidden" name="role" value="service">
                 <input type="hidden" name="server_id" value="{{ d.server_id }}">
                 <input type="hidden" name="docker_project" value="{{ d.project }}">
                 <input type="hidden" name="docker_container" value="{{ d.compose_service or d.container }}">
-                <input type="hidden" name="next" value="/dns/coverage#kuma-deps">
+                <input type="hidden" name="next" value="/dns/coverage?msg=binding_saved#kuma-deps">
                 <select name="external_id" class="coverage-select" required aria-label="Monitor">
                   {% for m in opts %}
                   <option value="{{ m.external_id }}"
@@ -220,17 +212,13 @@
                   </option>
                   {% endfor %}
                 </select>
+                <button type="submit" class="btn btn-accent text-xs min-h-8 px-2 shrink-0">Bind</button>
               </form>
               {% else %}
               <span class="text-[11px] text-muted">—</span>
               {% endif %}
-            </td>
-            <td class="coverage-td-act">
-              {% if can_mutate and d.bind_action and d.server_id and opts %}
-              <button type="submit" form="dep-form-{{ loop.index }}" class="btn btn-accent text-xs min-h-8 px-2">Bind</button>
-              {% endif %}
               {% if can_mutate %}
-              <form method="post" action="/dns/coverage/mute" class="inline">
+              <form method="post" action="/dns/coverage/mute" class="coverage-mute-form">
                 <input type="hidden" name="key" value="{{ d.key }}">
                 <button type="submit" class="text-[10px] text-muted hover:underline">Mute</button>
               </form>
