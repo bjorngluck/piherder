@@ -130,7 +130,7 @@ Below the dest cards, a **two-column row** (stacked on narrow screens) holds:
 | Card | Purpose |
 |------|---------|
 | **Network path** | Mapped app names that land on this host; **Open on hosts map** and **Path map** (matched secondary buttons) jump into Catalog → Network maps |
-| **LAN discovery** | When linked — collapsed details for the soft-embedded nmap device (IP, ports, kind, edit / map view) |
+| **LAN discovery** | When linked — always-visible soft-embed card (IP, ports, kind; **Edit device** / **Map view**) matching Network path’s outer + inner card layout |
 
 Screenshots (`server-detail.png`, `nmap-server-embed.png`) may lag until the next capture pass.
 

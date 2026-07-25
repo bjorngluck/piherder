@@ -273,7 +273,7 @@ On **server detail**:
 | Surface | What you see |
 |---------|----------------|
 | **Hero LAN pill** | Link-style chip (accent border + arrow — not an inert status chip). Opens the device edit modal with **← Back to server**; Save / Cancel / ✕ return to that host |
-| **LAN discovery card** | Sits **beside Network path** (two-column on desktop, stacked on phone). Collapsed summary (IP · open ports · kind); expand **Details** for MAC/vendor, scripts, port chips, **Edit device** / **Map view** |
+| **LAN discovery card** | Sits **beside Network path** (two-column on desktop, stacked on phone). Always open — header actions **Edit device** / **Map view**; inner rack shows IP, hostname/MAC, scripts, port chips |
 | **Network path** | Mapped FQDNs on this host; **Open on hosts map** and **Path map** are matching secondary buttons (not a bare text link) |
 
 ### Hosts map toolbar (what each control does)
@@ -333,7 +333,7 @@ Ignore/link/map name survive IP updates when identity is MAC-based.
 Linked discovery devices appear on:
 
 - **Servers** list — LAN chip  
-- **Server detail** — hero LAN pill + **LAN discovery** card next to **Network path** (ports, kind, script summary; **Edit device** / **Map view** back into LAN Discovery)
+- **Server detail** — hero LAN pill + always-open **LAN discovery** card next to **Network path** (inner rack: IP, ports, kind, scripts; header **Edit device** / **Map view**)
 
 <figure class="ph-figure" markdown>
   ![Server LAN embed](../assets/screenshots/nmap-server-embed.png)

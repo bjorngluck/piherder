@@ -1114,25 +1114,9 @@ html.dark .ph-file-badge--config,
   border-radius: 10px;
   background: var(--color-surface);
 }
-/* Server detail: LAN discovery card (peers with Network path) */
-.nmap-discovery-strip-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 0.65rem;
-  min-height: 2.25rem;
-}
-.nmap-discovery-strip-summary::-webkit-details-marker { display: none; }
-.nmap-discovery-strip-summary::before {
-  content: "▸ ";
-  color: var(--color-muted);
-  font-size: 0.75rem;
-}
-.nmap-discovery-strip[open] .nmap-discovery-strip-summary::before {
-  content: "▾ ";
-}
-.nmap-discovery-strip-body {
-  padding-bottom: 0.25rem;
+/* Server detail: LAN discovery inner rack body (same outer shell as Network path) */
+.nmap-discovery-inner-body {
+  padding: 0.65rem 0.85rem 0.75rem;
 }
 .nmap-help-details {
   padding: 0.65rem 0.85rem;

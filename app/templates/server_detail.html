@@ -432,57 +432,74 @@ document.addEventListener('DOMContentLoaded', function() {
   {% if nmap_discovery %}
   {% set nd = nmap_discovery %}
   {% set ndev = nd.device %}
-  <details class="card nmap-discovery-strip p-4 sm:p-5 h-full" data-testid="nmap-discovery-card">
-    <summary class="nmap-discovery-strip-summary cursor-pointer select-none list-none">
-      <span class="text-sm font-semibold text-text">LAN discovery</span>
-      <span class="text-xs text-muted font-mono">{{ ndev.ip_address }}</span>
-      {% if nd.open_ports %}<span class="text-xs text-muted">· {{ nd.open_ports }} open</span>{% endif %}
-      {% if nd.profile and nd.profile.kind and nd.profile.kind != 'unknown' %}
-      <span class="nmap-kind nmap-kind--{{ nd.profile.kind }}">{{ nd.profile.short or nd.profile.label }}</span>
-      {% endif %}
-      <span class="text-xs text-accent ml-auto shrink-0">Details</span>
-    </summary>
-    <div class="nmap-discovery-strip-body border-t border-border pt-3 mt-2">
-      <p class="text-xs text-muted mb-2">Linked discovered device — ports and NSE from nmap (not managed fleet state).</p>
-      <div class="flex flex-wrap gap-2 mb-2">
-        <a href="{{ nd.href }}" class="btn btn-secondary text-xs min-h-9 no-underline">Edit device →</a>
-        <a href="{{ nd.network_href }}" class="btn btn-secondary text-xs min-h-9 no-underline">Map view</a>
+  {# Mirror fabric_host_rack.html: title + short subtitle | buttons, then fabric-rack #}
+  <section class="fabric-host-panel card p-4 sm:p-5 h-full" data-testid="nmap-discovery-card" aria-label="LAN discovery on this host">
+    <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+      <div>
+        <h2 class="text-sm font-semibold text-text m-0">LAN discovery</h2>
+        <p class="text-xs text-muted m-0 mt-0.5">
+          Discovered device linked to this host
+        </p>
       </div>
-      <dl class="grid sm:grid-cols-2 gap-x-4 gap-y-1 text-xs mb-2">
-        <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Hostname</dt>
-          <dd class="font-mono">{{ ndev.hostname or '—' }}</dd></div>
-        <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">MAC</dt>
-          <dd class="font-mono">{{ ndev.mac_address or '—' }}</dd></div>
-        {% if ndev.mac_vendor %}
-        <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Vendor</dt>
-          <dd>{{ ndev.mac_vendor }}</dd></div>
-        {% endif %}
-        {% if nd.profile and nd.profile.kind and nd.profile.kind != 'unknown' %}
-        <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Looks like</dt>
-          <dd><span class="nmap-kind nmap-kind--{{ nd.profile.kind }}" title="{{ nd.profile.reasons|join('; ') if nd.profile.reasons else '' }}">{{ nd.profile.label }}</span>
-            <span class="text-muted"> · {{ nd.profile.confidence }}</span></dd></div>
-        {% endif %}
-        {% if nd.script_counts and nd.script_counts.total %}
-        <div class="flex gap-2 sm:col-span-2"><dt class="text-muted w-20 shrink-0">Scripts</dt>
-          <dd class="flex flex-wrap gap-1">
-            {% if nd.script_counts.finding %}<span class="status-pill status-failed text-[10px]">{{ nd.script_counts.finding }} finding</span>{% endif %}
-            {% if nd.script_counts.error %}<span class="status-pill status-running text-[10px]">{{ nd.script_counts.error }} error</span>{% endif %}
-            {% if nd.script_counts.clear %}<span class="status-pill status-success text-[10px]">{{ nd.script_counts.clear }} clear</span>{% endif %}
-            {% if nd.script_counts.info %}<span class="status-pill feature-off text-[10px]">{{ nd.script_counts.info }} info</span>{% endif %}
-          </dd></div>
-        {% endif %}
-      </dl>
-      {% if nd.services %}
-      <div class="flex flex-wrap gap-1">
-        {% for s in nd.services %}
-        <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-surface border border-border">
-          {{ s.port }}/{{ s.service or '?' }}
-        </span>
-        {% endfor %}
+      <div class="flex flex-wrap gap-2 items-center">
+        <a href="{{ nd.href }}" class="btn btn-secondary text-xs min-h-9 px-2.5 no-underline">Edit device</a>
+        <a href="{{ nd.network_href }}" class="btn btn-secondary text-xs min-h-9 px-2.5 no-underline">Map view</a>
       </div>
-      {% endif %}
     </div>
-  </details>
+
+    <article class="fabric-rack">
+      <header class="fabric-rack-head">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <span class="fabric-rack-title font-mono">{{ ndev.ip_address }}</span>
+            {% if nd.profile and nd.profile.kind and nd.profile.kind != 'unknown' %}
+            <span class="nmap-kind nmap-kind--{{ nd.profile.kind }}">{{ nd.profile.short or nd.profile.label }}</span>
+            {% endif %}
+          </div>
+          <span class="fabric-rack-count">{% if nd.open_ports %}{{ nd.open_ports }} open{% else %}0 open{% endif %}</span>
+        </div>
+        <div class="fabric-rack-meta font-mono">
+          {% if ndev.hostname %}<span>{{ ndev.hostname }}</span>{% endif %}
+          {% if ndev.mac_address %}<span>{{ ndev.mac_address }}</span>{% endif %}
+        </div>
+      </header>
+      <div class="nmap-discovery-inner-body">
+        <dl class="grid sm:grid-cols-2 gap-x-4 gap-y-1.5 text-xs mb-0">
+          <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Hostname</dt>
+            <dd class="font-mono m-0">{{ ndev.hostname or '—' }}</dd></div>
+          <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">MAC</dt>
+            <dd class="font-mono m-0">{{ ndev.mac_address or '—' }}</dd></div>
+          {% if ndev.mac_vendor %}
+          <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Vendor</dt>
+            <dd class="m-0">{{ ndev.mac_vendor }}</dd></div>
+          {% endif %}
+          {% if nd.profile and nd.profile.kind and nd.profile.kind != 'unknown' %}
+          <div class="flex gap-2"><dt class="text-muted w-20 shrink-0">Looks like</dt>
+            <dd class="m-0"><span class="nmap-kind nmap-kind--{{ nd.profile.kind }}" title="{{ nd.profile.reasons|join('; ') if nd.profile.reasons else '' }}">{{ nd.profile.label }}</span>
+              <span class="text-muted"> · {{ nd.profile.confidence }}</span></dd></div>
+          {% endif %}
+          {% if nd.script_counts and nd.script_counts.total %}
+          <div class="flex gap-2 sm:col-span-2"><dt class="text-muted w-20 shrink-0">Scripts</dt>
+            <dd class="flex flex-wrap gap-1 m-0">
+              {% if nd.script_counts.finding %}<span class="status-pill status-failed text-[10px]">{{ nd.script_counts.finding }} finding</span>{% endif %}
+              {% if nd.script_counts.error %}<span class="status-pill status-running text-[10px]">{{ nd.script_counts.error }} error</span>{% endif %}
+              {% if nd.script_counts.clear %}<span class="status-pill status-success text-[10px]">{{ nd.script_counts.clear }} clear</span>{% endif %}
+              {% if nd.script_counts.info %}<span class="status-pill feature-off text-[10px]">{{ nd.script_counts.info }} info</span>{% endif %}
+            </dd></div>
+          {% endif %}
+        </dl>
+        {% if nd.services %}
+        <div class="flex flex-wrap gap-1 mt-2.5 pt-2.5 border-t border-border">
+          {% for s in nd.services %}
+          <span class="font-mono text-[10px] px-1.5 py-0.5 rounded bg-surface border border-border">
+            {{ s.port }}/{{ s.service or '?' }}
+          </span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </article>
+  </section>
   {% endif %}
 </div>
 {% endif %}
