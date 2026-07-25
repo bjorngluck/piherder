@@ -21,187 +21,145 @@
 
 {% set kc = view.kuma_coverage or {} %}
 {% set ksum = kc.summary or {} %}
-<div class="card p-4 mb-5" id="kuma-coverage">
-  <div class="flex flex-wrap items-start justify-between gap-3 mb-3">
-    <div>
-      <h2 class="font-semibold text-lg tracking-tight">Uptime Kuma coverage</h2>
-      <p class="text-xs text-muted mt-1 max-w-2xl">
-        Read-only audit: is each mapped service watched in Kuma?
-        <strong class="text-text">Covered</strong> = matching service monitor,
-        <strong class="text-text">partial</strong> = SSH only or weak match,
-        <strong class="text-text">gap</strong> = nothing useful bound.
-        Does not create monitors — bind from Integrations or server Services.
+<div class="card p-3 sm:p-4 mb-5" id="kuma-coverage">
+  <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+    <div class="min-w-0">
+      <h2 class="font-semibold text-lg tracking-tight m-0">Uptime Kuma coverage</h2>
+      <p class="text-xs text-muted mt-1 mb-0 max-w-2xl">
+        Bind gaps here inline. Monitor lists show <strong class="text-text">suggestions only</strong> (short labels).
       </p>
     </div>
     {% if kc.has_kuma %}
-    <a href="/integrations" class="btn btn-secondary text-xs min-h-11 px-3">Open Integrations</a>
+    <a href="/integrations" class="btn btn-secondary text-xs min-h-9 px-2.5">Integrations</a>
     {% else %}
-    <a href="/integrations" class="btn btn-accent text-xs min-h-11 px-3">Connect Uptime Kuma</a>
+    <a href="/integrations" class="btn btn-accent text-xs min-h-9 px-2.5">Connect Kuma</a>
     {% endif %}
   </div>
+
   {% if not kc.has_kuma %}
-  <p class="text-sm text-muted">
-    No enabled Uptime Kuma integration. Coverage badges stay inactive until Kuma is connected.
-  </p>
+  <p class="text-sm text-muted mb-0">No enabled Uptime Kuma integration yet.</p>
   {% else %}
-  <div class="grid gap-3 sm:grid-cols-4 mb-4">
-    <div class="rounded border border-border p-3 bg-bg">
-      <div class="text-[10px] text-muted uppercase tracking-wide">Covered</div>
-      <div class="text-xl font-semibold text-success">{{ ksum.covered or 0 }}</div>
-    </div>
-    <div class="rounded border border-border p-3 bg-bg">
-      <div class="text-[10px] text-muted uppercase tracking-wide">Partial</div>
-      <div class="text-xl font-semibold text-warning">{{ ksum.partial or 0 }}</div>
-    </div>
-    <div class="rounded border border-border p-3 bg-bg">
-      <div class="text-[10px] text-muted uppercase tracking-wide">Gaps</div>
-      <div class="text-xl font-semibold {% if ksum.none %}text-error{% endif %}">{{ ksum.none or 0 }}</div>
-    </div>
-    <div class="rounded border border-border p-3 bg-bg">
-      <div class="text-[10px] text-muted uppercase tracking-wide">Hosts SSH</div>
-      <div class="text-xl font-semibold">{{ ksum.hosts_ssh_covered or 0 }}<span class="text-sm text-muted font-normal"> / {{ ksum.hosts_total or 0 }}</span></div>
-    </div>
+
+  <div class="coverage-stats mb-3">
+    <div class="coverage-stat"><span class="coverage-stat-n text-success">{{ ksum.covered or 0 }}</span><span class="coverage-stat-l">covered</span></div>
+    <div class="coverage-stat"><span class="coverage-stat-n text-warning">{{ ksum.partial or 0 }}</span><span class="coverage-stat-l">partial</span></div>
+    <div class="coverage-stat"><span class="coverage-stat-n {% if ksum.none %}text-error{% endif %}">{{ ksum.none or 0 }}</span><span class="coverage-stat-l">gaps</span></div>
+    <div class="coverage-stat"><span class="coverage-stat-n">{{ ksum.hosts_ssh_covered or 0 }}/{{ ksum.hosts_total or 0 }}</span><span class="coverage-stat-l">SSH</span></div>
   </div>
+
   {% if msg == 'binding_saved' %}
-  <div class="mb-3 p-3 banner-success border border-border rounded text-sm">
-    Kuma binding saved — coverage will update on this page (refresh if a chip still looks stale).
-  </div>
+  <div class="mb-2 p-2 banner-success border border-border rounded text-xs">Kuma binding saved.</div>
   {% elif msg == 'dep_muted' %}
-  <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Dependency muted for coverage suggestions.</div>
+  <div class="mb-2 p-2 banner-success border border-border rounded text-xs">Dependency muted.</div>
   {% elif msg == 'dep_unmuted' %}
-  <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Dependency unmuted.</div>
+  <div class="mb-2 p-2 banner-success border border-border rounded text-xs">Dependency unmuted.</div>
   {% elif msg == 'infra_shown' %}
-  <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Infra roles (postgres/redis/…) shown as dependency gaps.</div>
+  <div class="mb-2 p-2 banner-success border border-border rounded text-xs">Infra roles shown.</div>
   {% elif msg == 'infra_hidden' %}
-  <div class="mb-3 p-3 banner-success border border-border rounded text-sm">Infra roles hidden from dependency gaps (default).</div>
+  <div class="mb-2 p-2 banner-success border border-border rounded text-xs">Infra roles hidden.</div>
   {% elif error == 'binding_failed' %}
-  <div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  <div class="mb-2 p-2 banner-error border border-border rounded text-xs">
     Binding failed{% if detail %} — {{ detail }}{% endif %}
   </div>
   {% endif %}
 
-  {# Path gap filters — compact chip bar #}
   {% set path_gaps = kc.gaps_filtered|default(kc.gaps, true) %}
   {% set cf = kc.coverage_filter|default(coverage_filter or 'all', true) %}
-  <div class="coverage-filter-bar mb-3" role="group" aria-label="Path gap filter">
-    <span class="text-[11px] text-muted shrink-0">Path gaps</span>
-    <a href="/dns/coverage?coverage_filter=all#kuma-coverage"
-       class="coverage-filter-chip {% if cf == 'all' %}is-active{% endif %}">All</a>
-    <a href="/dns/coverage?coverage_filter=none#kuma-coverage"
-       class="coverage-filter-chip {% if cf == 'none' %}is-active{% endif %}">Hard</a>
-    <a href="/dns/coverage?coverage_filter=public#kuma-coverage"
-       class="coverage-filter-chip {% if cf == 'public' %}is-active{% endif %}">Public</a>
-    <a href="/dns/coverage?coverage_filter=strict#kuma-coverage"
-       class="coverage-filter-chip {% if cf == 'strict' %}is-active{% endif %}">Strict</a>
-    <span class="text-[11px] text-muted">· {% if path_gaps %}{{ path_gaps|length }}{% else %}0{% endif %}</span>
+  <div class="coverage-filter-bar mb-2" role="group" aria-label="Path gap filter">
+    <span class="text-[11px] text-muted">Filter</span>
+    <a href="/dns/coverage?coverage_filter=all#kuma-coverage" class="coverage-filter-chip {% if cf == 'all' %}is-active{% endif %}">All</a>
+    <a href="/dns/coverage?coverage_filter=none#kuma-coverage" class="coverage-filter-chip {% if cf == 'none' %}is-active{% endif %}">Hard</a>
+    <a href="/dns/coverage?coverage_filter=public#kuma-coverage" class="coverage-filter-chip {% if cf == 'public' %}is-active{% endif %}">Public</a>
+    <a href="/dns/coverage?coverage_filter=strict#kuma-coverage" class="coverage-filter-chip {% if cf == 'strict' %}is-active{% endif %}">Strict</a>
+    <span class="text-[11px] text-muted">{{ path_gaps|length if path_gaps else 0 }}</span>
   </div>
 
   {% if path_gaps %}
-  <h3 class="text-sm font-medium mb-1">Published names — needs attention</h3>
-  <p class="text-[11px] text-muted mb-2 max-w-3xl">
-    One-click bind to the best match. Use <strong class="text-text">Pick…</strong> for the full Kuma form — no giant dropdowns on this page.
-  </p>
-  <div class="coverage-card-list" data-testid="coverage-path-cards">
-    {% for g in path_gaps %}
-    {% set tops = (g.suggestions or [])[:4] %}
-    {% set top = tops[0] if tops else none %}
-    <article class="coverage-card"
-             id="coverage-{{ g.service_id }}"
-             data-testid="coverage-path-card">
-      <div class="coverage-card-top">
-        <div class="min-w-0 flex-1">
-          <div class="coverage-card-title">{{ g.label }}</div>
-          <div class="coverage-card-meta">
-            <span class="font-mono">{{ g.fqdn }}</span>
-            {% if g.backend_name %}<span>{{ g.backend_name }}</span>{% endif %}
-            {% if g.docker_project %}<span class="font-mono">{{ g.docker_project }}</span>{% endif %}
-            <a href="/dns/logical?focus={{ g.service_id }}#map" class="text-accent hover:underline">Path</a>
-            {% if g.backend_server_id %}
-            <a href="/servers/{{ g.backend_server_id }}/services" class="text-accent hover:underline">Services</a>
+  <div class="coverage-table-wrap" data-testid="coverage-path-cards">
+    <table class="coverage-table" data-testid="coverage-path-table">
+      <colgroup>
+        <col class="coverage-col-svc">
+        <col class="coverage-col-st">
+        <col class="coverage-col-host">
+        <col class="coverage-col-mon">
+        <col class="coverage-col-act">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Status</th>
+          <th>Host</th>
+          <th>Monitor</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for g in path_gaps %}
+        {% set opts = (g.suggestions or [])[:6] %}
+        <tr id="coverage-{{ g.service_id }}">
+          <td>
+            <div class="coverage-cell-title" title="{{ g.label }}">{{ g.label }}</div>
+            <div class="coverage-cell-sub font-mono" title="{{ g.fqdn }}">{{ g.fqdn }}</div>
+          </td>
+          <td>
+            {% if g.coverage == 'none' %}
+            <span class="coverage-badge coverage-badge--gap">gap</span>
+            {% else %}
+            <span class="coverage-badge coverage-badge--partial">partial</span>
             {% endif %}
-          </div>
-          {% if g.reason %}<p class="coverage-card-reason">{{ g.reason }}</p>{% endif %}
-        </div>
-        {% if g.coverage == 'none' %}
-        <span class="coverage-badge coverage-badge--gap">gap</span>
-        {% else %}
-        <span class="coverage-badge coverage-badge--partial">partial</span>
-        {% endif %}
-      </div>
-      {% if can_mutate and g.bind_action and g.backend_server_id %}
-      <div class="coverage-bind">
-        {% if top %}
-        <form method="post" action="{{ g.bind_action }}" class="coverage-bind-main">
-          <input type="hidden" name="role" value="service">
-          <input type="hidden" name="server_id" value="{{ g.backend_server_id }}">
-          <input type="hidden" name="docker_project" value="{{ g.docker_project or '' }}">
-          <input type="hidden" name="docker_container" value="">
-          <input type="hidden" name="next" value="/dns/coverage#kuma-coverage">
-          <input type="hidden" name="external_id" value="{{ top.external_id }}">
-          <span class="coverage-bind-label" title="{{ top.label }}">
-            <span class="coverage-bind-k">Match</span>
-            <span class="coverage-bind-v">{{ top.label }}</span>
-          </span>
-          <button type="submit" class="btn btn-accent text-xs min-h-9 px-3 shrink-0">Bind</button>
-        </form>
-        {% if tops|length > 1 %}
-        <details class="coverage-alt">
-          <summary>Other matches ({{ tops|length - 1 }})</summary>
-          <ul class="coverage-alt-list">
-            {% for m in tops[1:] %}
-            <li>
-              <form method="post" action="{{ g.bind_action }}" class="coverage-alt-form">
-                <input type="hidden" name="role" value="service">
-                <input type="hidden" name="server_id" value="{{ g.backend_server_id }}">
-                <input type="hidden" name="docker_project" value="{{ g.docker_project or '' }}">
-                <input type="hidden" name="docker_container" value="">
-                <input type="hidden" name="next" value="/dns/coverage#kuma-coverage">
-                <input type="hidden" name="external_id" value="{{ m.external_id }}">
-                <span class="coverage-alt-name" title="{{ m.label }}">{{ m.label }}</span>
-                <button type="submit" class="btn btn-secondary text-xs min-h-8 px-2">Bind</button>
-              </form>
-            </li>
-            {% endfor %}
-          </ul>
-        </details>
-        {% endif %}
-        {% if g.bind_advanced_href %}
-        <a href="{{ g.bind_advanced_href }}" class="coverage-pick-other">Pick other monitor…</a>
-        {% endif %}
-        {% else %}
-        <p class="coverage-no-match">
-          No auto-match.
-          {% if g.bind_advanced_href %}
-          <a href="{{ g.bind_advanced_href }}" class="text-accent hover:underline">Pick a monitor…</a>
-          {% elif g.kuma_href %}
-          <a href="{{ g.kuma_href }}" class="text-accent hover:underline">Open Kuma</a> and Poll first.
-          {% endif %}
-        </p>
-        {% endif %}
-      </div>
-      {% else %}
-      <a href="{{ g.bind_advanced_href or g.kuma_href }}" class="text-accent hover:underline text-xs">Open Integrations</a>
-      {% endif %}
-    </article>
-    {% endfor %}
+          </td>
+          <td>
+            <div class="coverage-cell-sub" title="{{ g.backend_name or '' }}">{{ g.backend_name or '—' }}</div>
+            {% if g.docker_project %}<div class="coverage-cell-sub font-mono" title="{{ g.docker_project }}">{{ g.docker_project }}</div>{% endif %}
+          </td>
+          <td>
+            {% if can_mutate and g.bind_action and g.backend_server_id and opts %}
+            <form method="post" action="{{ g.bind_action }}" id="cov-form-{{ g.service_id }}" class="coverage-inline-form">
+              <input type="hidden" name="role" value="service">
+              <input type="hidden" name="server_id" value="{{ g.backend_server_id }}">
+              <input type="hidden" name="docker_project" value="{{ g.docker_project or '' }}">
+              <input type="hidden" name="docker_container" value="">
+              <input type="hidden" name="next" value="/dns/coverage#kuma-coverage">
+              <select name="external_id" class="coverage-select" required aria-label="Monitor for {{ g.label }}">
+                {% for m in opts %}
+                <option value="{{ m.external_id }}"
+                  {% if m.external_id == g.suggested_external_id %}selected{% endif %}
+                  title="{{ m.label }}">
+                  {{ m.label[:42] }}{% if m.label|length > 42 %}…{% endif %}
+                </option>
+                {% endfor %}
+              </select>
+            </form>
+            {% elif can_mutate and g.bind_action and g.backend_server_id %}
+            <span class="text-[11px] text-muted">No match — poll Kuma</span>
+            {% else %}
+            <span class="text-[11px] text-muted">—</span>
+            {% endif %}
+          </td>
+          <td class="coverage-td-act">
+            {% if can_mutate and g.bind_action and g.backend_server_id and opts %}
+            <button type="submit" form="cov-form-{{ g.service_id }}" class="btn btn-accent text-xs min-h-8 px-2">Bind</button>
+            {% elif g.bind_advanced_href %}
+            <a href="{{ g.bind_advanced_href }}" class="text-[11px] text-accent hover:underline">Bind…</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
   {% else %}
-  <p class="text-sm text-success">No path gaps for this filter. Nice.</p>
+  <p class="text-sm text-success mb-0">No path gaps for this filter.</p>
   {% endif %}
 
-  {# ── Docker dependencies — collapsed by default (less scroll) ── #}
+  {# Stack dependencies #}
   {% set deps = kc.dependencies or {} %}
   {% set dsum = deps.summary or {} %}
-  <details class="coverage-deps mt-5 pt-3 border-t border-border" id="kuma-deps">
-    <summary class="coverage-deps-summary">
-      <span class="font-semibold text-sm text-text">Stack dependencies</span>
-      <span class="text-[11px] text-muted">
-        {{ dsum.none or 0 }} suggest · {{ dsum.covered or 0 }} bound · {{ dsum.muted or 0 }} muted
-      </span>
-    </summary>
-    <div class="coverage-deps-body">
-      <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted mb-2">
-        <span>Containers from Docker inventory. Postgres/Redis muted by default.</span>
+  <div class="mt-5 pt-3 border-t border-border" id="kuma-deps">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+      <h3 class="text-sm font-semibold m-0">Stack dependencies</h3>
+      <div class="flex flex-wrap items-center gap-2 text-[11px] text-muted">
+        <span>{{ dsum.none or 0 }} open · {{ dsum.covered or 0 }} bound · {{ dsum.muted or 0 }} muted</span>
         {% if can_mutate %}
         <form method="post" action="/dns/coverage/show-infra" class="inline">
           {% if deps.show_infra %}
@@ -214,90 +172,99 @@
         </form>
         {% endif %}
       </div>
-      {% if deps.gaps %}
-      <div class="coverage-card-list" data-testid="coverage-dep-cards">
-        {% for d in deps.gaps %}
-        <article class="coverage-card" data-testid="coverage-dep-card">
-          <div class="coverage-card-top">
-            <div class="min-w-0 flex-1">
-              <div class="coverage-card-title font-mono text-xs">{{ d.compose_service or d.container }}</div>
-              <div class="coverage-card-meta">
-                <span>{{ d.server_name }}</span>
-                <span class="font-mono">{{ d.project }}</span>
-                {% if d.ports %}<span class="font-mono">{{ d.ports | join(', ') }}</span>{% endif %}
-                <a href="{{ d.docker_href }}" class="text-accent hover:underline">Docker</a>
-                {% if not d.running %}<span class="text-warning">stopped</span>{% endif %}
-              </div>
-              {% if d.reason %}<p class="coverage-card-reason">{{ d.reason }}</p>{% endif %}
-            </div>
-          </div>
-          {% if can_mutate and d.bind_action and d.server_id %}
-          {% set dtops = (d.tcp_suggestions or [])[:3] %}
-          {% set dtop = dtops[0] if dtops else none %}
-          <div class="coverage-bind">
-            {% if dtop %}
-            <form method="post" action="{{ d.bind_action }}" class="coverage-bind-main">
-              <input type="hidden" name="role" value="service">
-              <input type="hidden" name="server_id" value="{{ d.server_id }}">
-              <input type="hidden" name="docker_project" value="{{ d.project }}">
-              <input type="hidden" name="docker_container" value="{{ d.compose_service or d.container }}">
-              <input type="hidden" name="next" value="/dns/coverage#kuma-deps">
-              <input type="hidden" name="external_id" value="{{ dtop.external_id }}">
-              <span class="coverage-bind-label" title="{{ dtop.label }}">
-                <span class="coverage-bind-k">Match</span>
-                <span class="coverage-bind-v">{{ dtop.label }}</span>
-              </span>
-              <button type="submit" class="btn btn-accent text-xs min-h-9 px-3 shrink-0">Bind</button>
-            </form>
-            {% else %}
-            <p class="coverage-no-match">
-              No TCP match.
-              {% if d.bind_advanced_href %}
-              <a href="{{ d.bind_advanced_href }}" class="text-accent hover:underline">Pick…</a>
+    </div>
+
+    {% if deps.gaps %}
+    <div class="coverage-table-wrap" data-testid="coverage-dep-cards">
+      <table class="coverage-table" data-testid="coverage-dep-table">
+        <colgroup>
+          <col class="coverage-col-svc">
+          <col class="coverage-col-host">
+          <col class="coverage-col-mon">
+          <col class="coverage-col-act">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Container</th>
+            <th>Host / project</th>
+            <th>Monitor</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in deps.gaps %}
+          {% set opts = (d.tcp_suggestions or [])[:5] %}
+          <tr data-testid="coverage-dep-card">
+            <td>
+              <div class="coverage-cell-title font-mono" title="{{ d.compose_service or d.container }}">{{ d.compose_service or d.container }}</div>
+              {% if not d.running %}<span class="text-[10px] text-warning">stopped</span>{% endif %}
+            </td>
+            <td>
+              <div class="coverage-cell-sub">{{ d.server_name }}</div>
+              <div class="coverage-cell-sub font-mono" title="{{ d.project }}">{{ d.project }}</div>
+            </td>
+            <td>
+              {% if can_mutate and d.bind_action and d.server_id and opts %}
+              <form method="post" action="{{ d.bind_action }}" id="dep-form-{{ loop.index }}" class="coverage-inline-form">
+                <input type="hidden" name="role" value="service">
+                <input type="hidden" name="server_id" value="{{ d.server_id }}">
+                <input type="hidden" name="docker_project" value="{{ d.project }}">
+                <input type="hidden" name="docker_container" value="{{ d.compose_service or d.container }}">
+                <input type="hidden" name="next" value="/dns/coverage#kuma-deps">
+                <select name="external_id" class="coverage-select" required aria-label="Monitor">
+                  {% for m in opts %}
+                  <option value="{{ m.external_id }}"
+                    {% if m.external_id == d.suggested_external_id %}selected{% endif %}
+                    title="{{ m.label }}">
+                    {{ m.label[:42] }}{% if m.label|length > 42 %}…{% endif %}
+                  </option>
+                  {% endfor %}
+                </select>
+              </form>
+              {% else %}
+              <span class="text-[11px] text-muted">—</span>
               {% endif %}
-            </p>
-            {% endif %}
-            <div class="coverage-bind-actions">
-              {% if d.bind_advanced_href %}
-              <a href="{{ d.bind_advanced_href }}" class="coverage-pick-other">Pick other…</a>
+            </td>
+            <td class="coverage-td-act">
+              {% if can_mutate and d.bind_action and d.server_id and opts %}
+              <button type="submit" form="dep-form-{{ loop.index }}" class="btn btn-accent text-xs min-h-8 px-2">Bind</button>
               {% endif %}
+              {% if can_mutate %}
               <form method="post" action="/dns/coverage/mute" class="inline">
                 <input type="hidden" name="key" value="{{ d.key }}">
-                <button type="submit" class="text-[11px] text-muted hover:text-text underline">Mute</button>
+                <button type="submit" class="text-[10px] text-muted hover:underline">Mute</button>
               </form>
-            </div>
-          </div>
-          {% endif %}
-        </article>
-        {% endfor %}
-      </div>
-      {% else %}
-      <p class="text-xs text-muted mb-0">
-        No unmonitored app containers to suggest
-        {% if not deps.show_infra %}(infra muted){% endif %}.
-      </p>
-      {% endif %}
-      {% if deps.muted and can_mutate %}
-      <details class="mt-2 text-xs">
-        <summary class="cursor-pointer text-muted">Muted / infra ({{ deps.muted|length }})</summary>
-        <ul class="mt-2 space-y-1 max-h-36 overflow-y-auto">
-          {% for d in deps.muted[:40] %}
-          <li class="flex flex-wrap gap-2 items-center">
-            <span class="font-mono text-[11px]">{{ d.server_name }}/{{ d.project }}/{{ d.compose_service or d.container }}</span>
-            <form method="post" action="/dns/coverage/mute" class="inline">
-              <input type="hidden" name="key" value="{{ d.key }}">
-              <input type="hidden" name="unmute" value="1">
-              <button type="submit" class="text-accent hover:underline">Unmute</button>
-            </form>
-          </li>
+              {% endif %}
+            </td>
+          </tr>
           {% endfor %}
-        </ul>
-      </details>
-      {% endif %}
+        </tbody>
+      </table>
     </div>
-  </details>
+    {% else %}
+    <p class="text-xs text-muted mb-0">
+      No open dependency gaps{% if not deps.show_infra %} (infra muted){% endif %}.
+    </p>
+    {% endif %}
+
+    {% if deps.muted and can_mutate %}
+    <details class="mt-2 text-xs">
+      <summary class="cursor-pointer text-muted">Muted / infra ({{ deps.muted|length }})</summary>
+      <ul class="mt-2 space-y-1 max-h-36 overflow-y-auto pl-0 list-none">
+        {% for d in deps.muted[:40] %}
+        <li class="flex flex-wrap gap-2 items-center">
+          <span class="font-mono text-[11px]">{{ d.server_name }}/{{ d.project }}/{{ d.compose_service or d.container }}</span>
+          <form method="post" action="/dns/coverage/mute" class="inline">
+            <input type="hidden" name="key" value="{{ d.key }}">
+            <input type="hidden" name="unmute" value="1">
+            <button type="submit" class="text-accent hover:underline">Unmute</button>
+          </form>
+        </li>
+        {% endfor %}
+      </ul>
+    </details>
+    {% endif %}
+  </div>
   {% endif %}
 </div>
-
-
 {% endblock %}
