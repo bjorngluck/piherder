@@ -1787,9 +1787,10 @@ body.nmap-modal-open {
 .coverage-table tbody tr:last-child td {
   border-bottom: none;
 }
-.coverage-col-svc { width: 28%; }
-.coverage-col-st { width: 12%; }
+.coverage-col-svc { width: 26%; }
+.coverage-col-st { width: 10%; }
 .coverage-col-host { width: 18%; }
+.coverage-col-bind { width: 46%; }
 .coverage-col-mon { width: 30%; }
 .coverage-col-act { width: 12%; }
 .coverage-cell-title {
@@ -1831,12 +1832,18 @@ body.nmap-modal-open {
 .coverage-inline-form {
   margin: 0;
   max-width: 100%;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
 }
 /* Fixed narrow select — never expands to full page width */
 .coverage-select {
   display: block;
   box-sizing: border-box;
-  width: 100%;
+  flex: 1 1 auto;
+  width: auto;
   max-width: 14rem;
   min-width: 0;
   height: 2rem;
@@ -1848,23 +1855,23 @@ body.nmap-modal-open {
   border-radius: 6px;
   background: var(--color-bg);
   color: var(--color-text);
-  /* Clip long selected text in closed control */
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
 }
-.coverage-td-act {
-  white-space: nowrap;
+.coverage-td-bind {
+  min-width: 0;
 }
-.coverage-td-act .btn {
-  vertical-align: middle;
+.coverage-mute-form {
+  display: inline;
+  margin-left: 0.35rem;
 }
 @media (max-width: 639px) {
   .coverage-table {
     min-width: 28rem;
   }
   .coverage-select {
-    max-width: 11rem;
+    max-width: 10rem;
   }
 }
 
