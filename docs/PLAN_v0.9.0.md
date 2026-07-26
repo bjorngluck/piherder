@@ -219,5 +219,33 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-25 | **Docs/wiki** aligned to structure + UI unify; commit on main |
 | 2026-07-25 | **Server detail:** Network path + LAN discovery **side-by-side**; Path map secondary **button** (parity with Open on hosts map); coverage Bind submit/`next=` fix earlier same day |
 | 2026-07-25 | Docs/wiki for server net row; operator full QA + screenshot recapture next |
+| 2026-07-26 | Operator QA triage: bugs **A–E** fixed on this train (see §8). Enhancements / known issues logged for **v1.0** / backlog — [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) |
+
+---
+
+## 8. Operator QA — bugs fixed on 0.9 train (2026-07-26)
+
+| ID | Bug | Fix |
+|----|-----|-----|
+| **A** | LAN Discovery **Scan now**: browser `confirm()` popup; Cancel still left “Queueing scan” wait | In-app confirm modal; wait overlay only after accepted queue (no wait on Cancel) |
+| **B** | Unauthenticated pages showed **version** in footer | Version string only when signed in |
+| **C** | Path map **NPM** hub: focus only first path | Hub `data-node-id` + multi-path focus for hub node |
+| **D** | Docker stack **Logs → All services**: “no such service” | Project-level `docker compose logs` via `__all__` sentinel |
+| **E** | **Generate new backup codes** with password only | Modal: password + TOTP/backup code required server-side |
+
+## 9. Known issues (carry to v1.0 — do not block 0.9 tag)
+
+Documented for operators; planned in [PLAN_v1.0.0.md](PLAN_v1.0.0.md):
+
+| ID | Issue | Target |
+|----|--------|--------|
+| **O** | Docker → linked tool → browser Back shows stuck SSH “Collecting…” modal | v1.0 |
+| **R** | Hosts/Path maps desktop: second click should clear focus (mobile OK) | v1.0 |
+| **T** | `ph_brand()` inside solid red/accent buttons (Herder invisible; spacing) | v1.0 |
+| **U** | NPM Certificates mobile: need stackable rows not wide scroll only | v1.0 |
+| **V** | Kuma coverage mobile: columns bleed | v1.0 |
+| **W** | Monitor **Mute** chrome parity with Unmute | v1.0 |
+| **X** | Network DNS Records labels / link-through unclear | v1.0 |
+| **P** | Cert distribute sudoers + wizard-driven setup | v1.0 discovery · likely **v1.1** full |
 
 **End of plan** — living document; freeze into RELEASE notes at tag.

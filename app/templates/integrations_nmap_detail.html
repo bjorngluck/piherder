@@ -135,9 +135,8 @@
               onclick="document.getElementById('nmap-scan-modal').classList.add('hidden');document.getElementById('nmap-scan-modal').classList.remove('flex')">Close</button>
     </header>
     <div class="p-4 overflow-y-auto">
+      {# Wait modal is shown only after optional heavy-scan confirm (not on Cancel). #}
       <form method="post" action="/integrations/{{ integration.id }}/nmap/scan" class="space-y-3"
-            data-wait-title="Queueing scan"
-            data-wait-message="Creating job for nmap worker…"
             data-testid="nmap-scan-now-form">
         <div class="flex flex-wrap gap-3 items-end">
           <div>
@@ -230,6 +229,21 @@
   </div>
 </div>
 
+{# Heavy scan confirm (in-app modal — not browser window.confirm) #}
+<div id="nmap-scan-confirm-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-[55] p-3"
+     role="dialog" aria-modal="true" aria-labelledby="nmap-scan-confirm-title"
+     data-testid="nmap-scan-confirm-modal"
+     onclick="if(event.target===this){this.classList.add('hidden');this.classList.remove('flex')}">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-md" role="document" onclick="event.stopPropagation()">
+    <h3 id="nmap-scan-confirm-title" class="text-base font-semibold text-text m-0 mb-2">Confirm heavy scan</h3>
+    <p id="nmap-scan-confirm-msg" class="text-sm text-muted mb-4 whitespace-pre-line"></p>
+    <div class="flex flex-wrap gap-2 justify-end">
+      <button type="button" class="btn btn-secondary min-h-11 text-sm" data-testid="nmap-scan-confirm-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary min-h-11 text-sm" data-testid="nmap-scan-confirm-ok">Queue scan</button>
+    </div>
+  </div>
+</div>
+
 {# Vuln pack update modal #}
 <div id="nmap-vuln-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
      role="dialog" aria-modal="true" aria-labelledby="nmap-vuln-modal-title"
@@ -306,26 +320,84 @@
   var intensity = form.querySelector('[data-testid="nmap-intensity"]');
   var targets = form.querySelector('[data-testid="nmap-targets"]');
   var hint = document.getElementById('nmap-scan-blast-hint');
+  var confirmModal = document.getElementById('nmap-scan-confirm-modal');
+  var confirmMsg = document.getElementById('nmap-scan-confirm-msg');
+  var confirmOk = document.querySelector('[data-testid="nmap-scan-confirm-ok"]');
+  var confirmCancel = document.querySelector('[data-testid="nmap-scan-confirm-cancel"]');
+
   function syncHint() {
     var i = (intensity && intensity.value) || '';
     if (hint) hint.hidden = !(i === 'detailed' || i === 'deep');
   }
   if (intensity) intensity.addEventListener('change', syncHint);
   syncHint();
-  form.addEventListener('submit', function (e) {
-    var i = (intensity && intensity.value) || '';
-    if (i !== 'detailed' && i !== 'deep') return;
-    var t = (targets && targets.value) || 'configured CIDRs';
-    var msg =
-      'Queue ' + i + ' scan of:\n\n' + t.trim() +
-      '\n\nThis can be slow and noisy on a full LAN. Continue?';
-    if (!window.confirm(msg)) {
-      e.preventDefault();
-      e.stopPropagation();
+
+  function hideConfirm() {
+    if (!confirmModal) return;
+    confirmModal.classList.add('hidden');
+    confirmModal.classList.remove('flex');
+  }
+
+  function showConfirm(msg) {
+    if (!confirmModal) return;
+    if (confirmMsg) confirmMsg.textContent = msg;
+    confirmModal.classList.remove('hidden');
+    confirmModal.classList.add('flex');
+  }
+
+  function proceedQueue() {
+    // Show wait only when the POST is actually going out (never after Cancel).
+    if (window.PiHerderWaitModal) {
+      window.PiHerderWaitModal.show('Queueing scan', 'Creating job for nmap worker…');
     }
+    try {
+      form.querySelectorAll('button, input[type="submit"]').forEach(function (btn) {
+        btn.disabled = true;
+      });
+    } catch (_) {}
+    form.dataset.scanConfirmed = '1';
+    // Native submit skips re-entrancy into this listener.
+    HTMLFormElement.prototype.submit.call(form);
+  }
+
+  form.addEventListener('submit', function (e) {
+    if (form.dataset.scanConfirmed === '1') {
+      form.dataset.scanConfirmed = '';
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    var i = (intensity && intensity.value) || '';
+    if (i !== 'detailed' && i !== 'deep') {
+      proceedQueue();
+      return;
+    }
+    var t = ((targets && targets.value) || '').trim() || 'configured CIDRs';
+    var msg =
+      'Queue ' + i + ' scan of:\n\n' + t +
+      '\n\nThis can be slow and noisy on a full LAN. Continue?';
+    showConfirm(msg);
   });
+
+  if (confirmOk) {
+    confirmOk.addEventListener('click', function () {
+      hideConfirm();
+      proceedQueue();
+    });
+  }
+  if (confirmCancel) {
+    confirmCancel.addEventListener('click', function () {
+      hideConfirm();
+      // Explicitly no wait / no queue — leave Scan now modal as-is.
+    });
+  }
+
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
+    if (confirmModal && !confirmModal.classList.contains('hidden')) {
+      hideConfirm();
+      return;
+    }
     ['nmap-scan-modal', 'nmap-vuln-modal'].forEach(function (id) {
       var m = document.getElementById(id);
       if (m && !m.classList.contains('hidden')) {

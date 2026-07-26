@@ -59,4 +59,13 @@ Ship first-class **Pi-hole (v6)** and **Nginx Proxy Manager** integrations, plus
 | Migration | `017_pihole_npm_certs` (+ host DNS / service DNS migrations as landed) |
 | Tests | `tests/test_integrations_pihole.py`, `test_integrations_npm.py`, `test_certificates.py`, `test_dns_fabric.py` |
 
+## Follow-ups (2026-07-26 operator triage)
+
+| ID | Item | Stance |
+|----|------|--------|
+| **P** | Cert distribution sudoers script incorrect; setup needs wizard-driven flow | **v1.0** discovery + start · **full fix likely v1.1** — [PLAN_v1.0.0.md](PLAN_v1.0.0.md) |
+| **U** | NPM Certificates mobile: stackable cards, not wide scroll-only table | **v1.0** |
+| **T** | Brand mark inside red/accent buttons (e.g. pull into PiHerder) | **v1.0** — avoid brand colours on solid buttons |
+| **X** | Network DNS Records: Host A vs Pi-hole A vs CNAME checklist meaning | **v1.0** refine labels + deep links |
+
 **End of Feature Plan**

@@ -362,7 +362,7 @@
   </main>
 
   <footer class="text-center text-xs text-muted py-8 border-t border-border mt-12">
-    {{ ph_brand() }}{% if app_version %} <span class="font-mono">{{ app_version }}</span>{% endif %}
+    {{ ph_brand() }}{% if user and app_version %} <span class="font-mono">{{ app_version }}</span>{% endif %}
     · Secure fleet management for Raspberry Pi clusters
     {% if user %} · <a href="/about" class="text-accent hover:underline">About</a>{% endif %}
     <br>

@@ -157,3 +157,12 @@ Long template operations historically used **`PiHerderWaitModal`**. **Per-stack*
 | **Later** | Advanced secret stores · DNS automation · expanded pack |
 
 See [PLAN_v0.5.0.md](PLAN_v0.5.0.md), [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md), and [RELEASE_v0.4.0.md](RELEASE_v0.4.0.md).
+
+## Follow-ups (2026-07-26 operator triage)
+
+| ID | Item | Stance |
+|----|------|--------|
+| **L** | Quick editor for `.env` / sidecars | **Lean no** — full editor only; note in UI that other files are full-editor |
+| **M** | Fleet-wide “which hosts have this template” overview | **Post-1.0** |
+| **Q** | Onboard: full git clone/pull; more files than compose + Dockerfile | **Post-1.0** |
+| **O** | Browser Back after Docker → template link leaves SSH wait modal stuck | **v1.0** known issue — [PLAN_v1.0.0.md](PLAN_v1.0.0.md) |

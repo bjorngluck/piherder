@@ -131,8 +131,9 @@
     </div>
 
     <div class="text-xs text-muted mt-2">
-      Quick edit is a plain textarea. Full editor: syntax colours, wrap, history, multi-file
-      <span class="ph-file-badge ph-file-badge--env">.env</span>.
+      Quick edit covers compose (and Dockerfile when present) only.
+      <span class="ph-file-badge ph-file-badge--env">.env</span> and other sidecars are available in the
+      <strong class="text-text">full editor</strong> — not here.
     </div>
   </div>
 </div>
@@ -775,11 +776,19 @@ let currentLogsContainer = null;
 let currentLogsProjectPath = null;
 let logsIsFullscreen = false;
 
+function _logsDisplayName(container) {
+  const c = (container == null ? '' : String(container)).trim();
+  if (!c || c === '__all__' || c === '*' || c.toLowerCase() === 'all') return 'All services';
+  return c;
+}
+
 function showLogsModal(container, serverId, projectPath) {
-  currentLogsContainer = container;
+  // Empty / __all__ = project-level compose logs (all services)
+  const raw = container == null ? '' : String(container);
+  currentLogsContainer = raw;
   currentLogsProjectPath = projectPath || null;
   const nameEl = document.getElementById('logs-container-name');
-  if (nameEl) nameEl.textContent = container;
+  if (nameEl) nameEl.textContent = _logsDisplayName(raw);
 
   if (currentLogsES) {
     currentLogsES.close();
@@ -831,8 +840,17 @@ function setLogsModalSize(full) {
 function loadLogsForModal(lines, serverIdParam, projectPath) {
   const serverId = serverIdParam || CURRENT_SERVER_ID;
   const container = currentLogsContainer;
-  if (!container || !serverId) return;
+  // Allow empty / __all__ when project_path is set (all services)
+  const isAll = !container || container === '__all__' || container === '*' ||
+    String(container).toLowerCase() === 'all';
+  if (!serverId) return;
+  if (!isAll && !container) return;
   const path = projectPath !== undefined ? projectPath : currentLogsProjectPath;
+  if (isAll && !path) {
+    const pre0 = document.getElementById('logs-content');
+    if (pre0) pre0.textContent = 'All services requires a compose project path.';
+    return;
+  }
 
   // Keep dropdown in sync
   const sel = document.getElementById('logs-lines-select');
@@ -849,8 +867,9 @@ function loadLogsForModal(lines, serverIdParam, projectPath) {
   const pre = document.getElementById('logs-content');
   pre.textContent = 'Loading...';
 
-  let fetchUrl = `/servers/${serverId}/docker/logs/${encodeURIComponent(container)}?lines=${lines}&format=json`;
-  let streamUrl = `/servers/${serverId}/docker/logs/${encodeURIComponent(container)}/stream?lines=0`;
+  const logTarget = isAll ? '__all__' : container;
+  let fetchUrl = `/servers/${serverId}/docker/logs/${encodeURIComponent(logTarget)}?lines=${lines}&format=json`;
+  let streamUrl = `/servers/${serverId}/docker/logs/${encodeURIComponent(logTarget)}/stream?lines=0`;
   if (path) {
     const encPath = encodeURIComponent(path);
     fetchUrl += `&project_path=${encPath}`;
@@ -919,7 +938,8 @@ function handleProjectAction(projName, services, serverId, projectPath, action, 
   _pendingActionForm = form;
   _pendingActionCallback = function(selected) {
     if (action === 'logs') {
-      const target = selected || projName;
+      // '' = All services → project-level compose logs (not a fake service named after the project)
+      const target = (selected === '' || selected == null) ? '__all__' : selected;
       showLogsModal(target, serverId, projectPath);
     } else if (_pendingActionForm) {
       const svcInput = _pendingActionForm.querySelector('input[name="service"]');
