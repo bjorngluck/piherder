@@ -117,18 +117,21 @@ def test_e7_network_hub_settings_modals(admin_page, base_url):
 
 
 def test_e10_kuma_coverage_shell(admin_page, base_url):
-    """E10: coverage page loads; with Kuma — card filters; without — empty connect CTA."""
+    """E10: coverage page loads; empty = Connect Kuma CTA; with Kuma = filters/table."""
     page = admin_page
     page.goto(f"{base_url}/dns/coverage", wait_until="domcontentloaded")
     expect(page.locator("#kuma-coverage")).to_be_visible()
     expect(page.locator("body")).to_contain_text(re.compile(r"Kuma coverage|Uptime Kuma", re.I))
-    # No Kuma: connect CTA. With Kuma: path gap filters + optional card lists.
+    # No Kuma: connect CTA (button label is "Connect Kuma" on coverage; hub may say full name).
     no_kuma = page.get_by_text(re.compile(r"No enabled Uptime Kuma", re.I))
     if no_kuma.count() and no_kuma.first.is_visible():
-        expect(page.get_by_role("link", name=re.compile(r"Connect Uptime Kuma", re.I))).to_be_visible()
-    else:
         expect(
-            page.get_by_role("link", name=re.compile(r"Hard gaps|All", re.I)).first
+            page.get_by_role("link", name=re.compile(r"Connect(?: Uptime)? Kuma", re.I))
+        ).to_be_visible()
+    else:
+        # Dense table + filter chrome (cards optional legacy)
+        expect(
+            page.get_by_role("link", name=re.compile(r"Hard gaps|All|Public", re.I)).first
         ).to_be_visible()
         path_cards = page.locator('[data-testid="coverage-path-cards"]')
         if path_cards.count():
@@ -137,6 +140,9 @@ def test_e10_kuma_coverage_shell(admin_page, base_url):
         dep_cards = page.locator('[data-testid="coverage-dep-cards"]')
         if dep_cards.count():
             expect(dep_cards).to_be_visible()
+        table = page.locator('[data-testid="coverage-path-table"], table.coverage-table, #kuma-coverage table')
+        if table.count():
+            expect(table.first).to_be_visible()
 
 
 def test_a5_theme_toggle(admin_page):
