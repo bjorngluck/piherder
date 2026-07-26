@@ -1,8 +1,8 @@
 # PiHerder v0.9.0 — last pre-production
 
-**Status:** **Active** (locked 2026-07-23)  
-**Date:** 2026-07-23  
-**Git tag target:** `v0.9.0`  
+**Status:** **Tagged** (`v0.9.0` — 2026-07-26)  
+**Date:** 2026-07-23 (locked) / 2026-07-26 (tag)  
+**Git tag:** `v0.9.0`  
 **Theme:** Operator UX/UI consistency · quality bar (unit **55%+**, E2E on touched surfaces) · **HAOS path 1 (SSH / `ha` CLI)**  
 **Baseline:** `v0.8.0` (RC3 — LAN nmap + quality)  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md)
@@ -154,7 +154,7 @@ Detail: **[FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md)** (pa
 | 3 | Stream K: E10 |
 | 4 | Stream Q: unit **≥ 55%** (**~57.4%**); CI fail-under **55**; E2E for touched UX **done** |
 | 5 | Stream HA: **Done** — S2 HAOS path 1 (mark, CLI stats/System Info, check/apply, deps); further HA deferred |
-| 6 | `RELEASE_v0.9.0.md` + tag + Hub |
+| 6 | `RELEASE_v0.9.0.md` + tag + Hub | **Done** |
 
 Stretch: **E11 partial** + **wizard micro-copy** — **Done**.
 
@@ -222,6 +222,7 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-26 | Operator QA triage: bugs **A–E** fixed on this train (see §8). Enhancements / known issues logged for **v1.0** / backlog — [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) |
 | 2026-07-26 | Path map NPM hub also lights **connector lines** (hub focus mode). |
 | 2026-07-26 | Wiki prose + **screenshot full-QA checklist** updated for operator recapture pass (`wiki/assets/screenshots/README.md`). |
+| 2026-07-26 | **Tagged `v0.9.0`** — RELEASE notes, screenshot pack, Hub multi-arch `0.9.0` / `0.9` / `latest`. Next: [PLAN_v1.0.0.md](PLAN_v1.0.0.md). |
 
 ---
 

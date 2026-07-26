@@ -20,7 +20,7 @@ One command brings up the whole control plane with migrations, workers for backu
 ```bash
 git clone https://github.com/bjorngluck/piherder.git
 cd piherder
-git checkout v0.8.0   # or stay on main
+git checkout v0.9.0   # or stay on main
 cp .env.example .env
 ```
 
@@ -62,7 +62,7 @@ Compose pulls multi-arch **`bjorngluck/piherder:latest`** from Docker Hub (`linu
 To pin a release tag:
 
 ```bash
-PIHERDER_IMAGE=bjorngluck/piherder:0.8.0 docker compose up -d
+PIHERDER_IMAGE=bjorngluck/piherder:0.9.0 docker compose up -d
 ```
 
 ### 5. Open the UI

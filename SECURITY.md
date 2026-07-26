@@ -4,8 +4,9 @@
 
 | Version | Support |
 |---------|---------|
-| **v0.8.x** (tag `v0.8.0`+) | Latest tagged release line (RC3) |
-| **v0.7.x** | Prior line; prefer upgrade to v0.8.x |
+| **v0.9.x** (tag `v0.9.0`+) | Latest tagged release line (last pre-production) |
+| **v0.8.x** | Prior RC3 line; prefer upgrade to v0.9.x |
+| **v0.7.x** | Prior line; prefer upgrade to latest |
 | **v0.6.x** | Prior RC2 line; prefer upgrade to latest |
 | **v0.5.x** | Prior RC1 line; prefer upgrade to latest |
 | Older tags | Best-effort; prefer latest tag or `main` for fixes |
