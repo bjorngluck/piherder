@@ -146,7 +146,7 @@ To develop against local source, restore `build: .` for `web` / `celery-worker` 
 
 ```bash
 git fetch --tags
-git checkout v0.8.0    # or main
+git checkout v0.9.0    # or main
 docker compose pull
 docker compose up -d
 ```
