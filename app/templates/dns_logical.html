@@ -255,9 +255,13 @@
                   class="fabric-mesh-edge fabric-mesh-edge--{{ e.kind }}"
                   {% if e.dashed %}stroke-dasharray="6 4"{% endif %}
                   {% if e.path_id is defined and e.path_id is not none %}data-path-id="{{ e.path_id }}"{% endif %}
+                  {% if e.from_node %}data-from-node="{{ e.from_node }}"{% endif %}
+                  {% if e.to_node %}data-to-node="{{ e.to_node }}"{% endif %}
                   marker-end="{% if e.kind in ('to_npm','from_npm') %}url(#ml-npm){% else %}url(#ml-arr){% endif %}"/>
             {% if e.label %}
-            <text x="{{ e.mx }}" y="{{ e.my }}" text-anchor="middle" class="fabric-mesh-edge-label">{{ e.label }}</text>
+            <text x="{{ e.mx }}" y="{{ e.my }}" text-anchor="middle"
+                  class="fabric-mesh-edge-label"
+                  {% if e.path_id is defined and e.path_id is not none %}data-path-id="{{ e.path_id }}" data-edge-label="1"{% endif %}>{{ e.label }}</text>
             {% endif %}
             {% endfor %}
 

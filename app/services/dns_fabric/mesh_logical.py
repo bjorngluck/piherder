@@ -97,6 +97,8 @@ def _build_logical_mesh_svg(flows: list[dict[str, Any]]) -> dict[str, Any]:
                     "dashed": False,
                     "label": "",
                     "path_id": path_id,
+                    "from_node": uid,
+                    "to_node": "hub-npm",
                 }
             )
             edges.append(
@@ -109,6 +111,8 @@ def _build_logical_mesh_svg(flows: list[dict[str, Any]]) -> dict[str, Any]:
                     "dashed": True,
                     "label": f.get("npm_edge") or "proxy",
                     "path_id": path_id,
+                    "from_node": "hub-npm",
+                    "to_node": did,
                 }
             )
         else:
@@ -122,6 +126,8 @@ def _build_logical_mesh_svg(flows: list[dict[str, Any]]) -> dict[str, Any]:
                     "dashed": False,
                     "label": "direct" if f.get("path_kind") not in ("host_identity", "host_app") else "A",
                     "path_id": path_id,
+                    "from_node": uid,
+                    "to_node": did,
                 }
             )
 
