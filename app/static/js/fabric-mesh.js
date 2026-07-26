@@ -77,7 +77,13 @@
     var hostNid = active.hostNid || '';
     var mode = active.mode || 'path';
 
-    if (el.classList && el.classList.contains('fabric-mesh-edge')) {
+    // Edge labels share path-id; treat like edges for focus colour
+    var isEdge =
+      el.classList &&
+      (el.classList.contains('fabric-mesh-edge') ||
+        el.getAttribute('data-edge-label') === '1');
+
+    if (isEdge) {
       var edgePaths = pathIdsFromEl(el);
       var fn = (el.getAttribute('data-from-node') || '').trim();
       var tn = (el.getAttribute('data-to-node') || '').trim();
@@ -86,6 +92,21 @@
         el.classList.contains('fabric-mesh-edge--npm') ||
         el.classList.contains('fabric-mesh-edge--to_npm') ||
         el.classList.contains('fabric-mesh-edge--from_npm');
+
+      // Path-map NPM hub: any connector for paths through the hub, or
+      // topology edge that touches the hub node (from/to).
+      if (mode === 'hub' && hostNid) {
+        for (var hi = 0; hi < edgePaths.length; hi++) {
+          if (paths[String(edgePaths[hi])]) return true;
+        }
+        if (fn === hostNid || tn === hostNid) return true;
+        if (isNpm && edgePaths.length) {
+          for (var hj = 0; hj < edgePaths.length; hj++) {
+            if (paths[String(edgePaths[hj])]) return true;
+          }
+        }
+        return false;
+      }
 
       if (mode === 'host' && hostNid) {
         // Pure topology (host ↔ LAN / Internet) — no path id
@@ -134,6 +155,7 @@
       }
       return false;
     }
+    // hub + path: any path-id membership
     for (var m = 0; m < pids.length; m++) {
       if (paths[String(pids[m])]) return true;
     }
@@ -185,9 +207,9 @@
             (nodeEl.getAttribute('data-node-kind') || '') === 'hub'));
 
       if (isHub) {
-        // Path map NPM hub: light *all* paths that route through the proxy,
-        // not host-mode land/npm edge filters (logical edges use to_npm/from_npm).
-        mode = 'path';
+        // Path map NPM hub: light *all* proxied paths + connector lines
+        // (to_npm / from_npm). Dedicated mode so edges always match.
+        mode = 'hub';
         if (nodeEl) {
           pathIdsFromEl(nodeEl).forEach(function (p) {
             paths[String(p)] = true;
@@ -196,18 +218,27 @@
             paths[String(p)] = true;
           });
         }
+        // Harvest path ids from npm connectors (in case hub attrs lag)
+        root.querySelectorAll(
+          '.fabric-mesh-edge--to_npm, .fabric-mesh-edge--from_npm, .fabric-mesh-edge--npm'
+        ).forEach(function (edge) {
+          pathIdsFromEl(edge).forEach(function (p) {
+            paths[String(p)] = true;
+          });
+        });
+        // Mark URL/dest endpoints on those connectors so node chips stay lit
         root.querySelectorAll('.fabric-mesh-edge').forEach(function (edge) {
           var eps = pathIdsFromEl(edge);
           var hit = false;
-          for (var hi = 0; hi < eps.length; hi++) {
-            if (paths[String(eps[hi])]) {
-              hit = true;
-              break;
-            }
+          var fn = (edge.getAttribute('data-from-node') || '').trim();
+          var tn = (edge.getAttribute('data-to-node') || '').trim();
+          if (fn === hostNid || tn === hostNid) hit = true;
+          for (var hi = 0; !hit && hi < eps.length; hi++) {
+            if (paths[String(eps[hi])]) hit = true;
           }
           if (!hit) return;
-          markNode(edge.getAttribute('data-from-node'));
-          markNode(edge.getAttribute('data-to-node'));
+          markNode(fn);
+          markNode(tn);
         });
         // URL/dest cards match via data-path-id ∈ paths (no node-id required)
       } else {
@@ -278,7 +309,7 @@
   function focusableIn(root) {
     return root.querySelectorAll(
       '[data-path-id], [data-path-ids], [data-node-id], [data-from-node], [data-to-node], ' +
-      '.fabric-mesh-edge, .fabric-mesh-node, ' +
+      '[data-edge-label], .fabric-mesh-edge, .fabric-mesh-edge-label, .fabric-mesh-node, ' +
       '.fabric-path-card, .fabric-flow, .fabric-rack, .fabric-app-chip'
     );
   }

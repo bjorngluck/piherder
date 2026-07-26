@@ -1296,8 +1296,20 @@ button.fabric-nav-card--action:focus-visible {
 .fabric-mesh-edge--npm.ph-focus-active,
 .fabric-mesh-edge--to_npm.ph-focus-active,
 .fabric-mesh-edge--from_npm.ph-focus-active {
-  stroke-width: 3;
-  opacity: 0.95 !important;
+  stroke-width: 3.25;
+  opacity: 1 !important;
+  stroke: var(--color-warning, #d97706);
+}
+/* Proxy / path labels on active connectors */
+.is-focusing .fabric-mesh-edge-label.ph-focus-active,
+.is-focusing .fabric-mesh-edge-label[data-edge-label].ph-focus-active {
+  fill: var(--color-warning, #d97706);
+  opacity: 1 !important;
+  font-weight: 600;
+}
+.is-focusing .fabric-mesh-edge-label.ph-focus-dim,
+.is-focusing .fabric-mesh-edge-label:not(.ph-focus-active) {
+  opacity: 0.12;
 }
 /* Dimmed edges almost gone — stops “line in front of card” when boxes fade */
 .is-focusing .fabric-mesh-edge.ph-focus-dim,
