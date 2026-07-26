@@ -62,7 +62,7 @@ A realistic RC onboarding path:
 6. **Optional:** Kuma / [templates](../service-templates/overview.md) / network / HAOS — only after the host path feels solid.
 
 !!! note "v0.9 validation"
-    Operator **testing** and **screenshot recapture** for 0.9 chrome (wizard, HAOS, templates catalog) are in progress — prose may be ahead of PNGs.
+    Operator **full QA** and **screenshot review** for 0.9 are in progress — wiki prose tracks main; replace PNGs as you review each figure ([checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md)).
 
 Detailed “I want to…” tables and longer journeys: [Operator scenarios](operator-scenarios.md).
 

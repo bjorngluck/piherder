@@ -5,12 +5,12 @@ Markdown sources for the **MkDocs Material** documentation site.
 | Line | Status |
 |------|--------|
 | **v0.8.0** | Tagged — baseline screenshot pack |
-| **v0.9.0** | Living docs on main — last pre-production (HAOS path 1, UX polish, wizard micro-copy, template OOTB/Yours + from-host extra files, quality bar) |
-| **1.0.0** | Intended first refined production freeze |
+| **v0.9.0** | Living docs on main — last pre-production; **full operator QA + screenshot review** in progress |
+| **1.0.0** | First production plan — [PLAN_v1.0.0.md](../docs/PLAN_v1.0.0.md) |
 
 Operator pages prefer: **What this is** → **Why** → **End-to-end** → reference detail. See [contributing-docs](developers/contributing-docs.md).
 
-**Screenshots & testing (operator):** hands-on testing and screenshot recapture for 0.9 are done on the fleet by the operator. Prose in this tree tracks product behaviour; PNGs under `assets/screenshots/` may lag until files are replaced. Checklist: [assets/screenshots/README.md](assets/screenshots/README.md) (not published as a site page — excluded in `mkdocs.yml`).
+**Screenshots & testing (operator):** full QA is operator-owned. **Prose tracks main**; replace PNGs under `assets/screenshots/` as you review each figure. Checklist + expected chrome + capture order: [assets/screenshots/README.md](assets/screenshots/README.md) (not published as a site page — excluded in `mkdocs.yml`).
 
 ## Preview locally
 

@@ -59,7 +59,7 @@ Journey: [Operator scenarios — Journey H](../getting-started/operator-scenario
 
 | Tab | Purpose |
 |-----|---------|
-| **Overview** | Worker status, CIDRs, vuln pack strip; **Scan now** / **Update vuln pack** modals; **Settings** link |
+| **Overview** | Worker status, CIDRs, vuln pack strip; **Scan now** / **Update vuln pack** open **in-app modals**; **Settings** link |
 | **Devices** | **List** and **Map** views (toggle): host list + filters, or subnet-grouped discovery cards; edit modal |
 | **Schedules** | Multiple named schedules — **one dense list** (full actions on every width); add/edit modal |
 | **Runs** | Scan history — **one dense list** (intensity, status, hosts, ports, Job link; no run ID) |
@@ -107,7 +107,11 @@ There are **two** maps:
 | **Detailed** | Broader map | Weekly wider ports / OS-ish depth |
 | **Deep** | Single-host full audit | Manual or scheduled; optional **script preset** + SYN |
 
-**On-demand:** scan network now; scan **this device** (deep); curated options (timing, top-ports, UDP, port list, script preset) — **no free-form nmap flags**.
+**On-demand:** Overview → **Scan now** opens a modal (intensity, targets, timing, port scope, UDP, script preset) — **no free-form nmap flags**. **Queue scan** enqueues a Job on the nmap worker.
+
+**Heavy scan confirm:** for **detailed** or **deep** intensity, PiHerder shows an **in-app confirm** (not a browser popup). **Cancel** leaves the Scan now modal as-is — no “Queueing scan” wait overlay and no job. Only **Queue scan** on the confirm dialog starts the wait + POST.
+
+Scan **this device** (deep) still uses the device edit path / curated deep actions where offered.
 
 ### Deep script presets
 
@@ -246,7 +250,8 @@ Operators can mutate; viewers see read-only identity. Map view restores scroll a
 
 ### Devices → List view
 
-- Shared filter bar: All / New / Known / Linked / Ignored / **Offline** (stale) + search.
+- Shared filter bar: All / New / Known / Linked / Ignored / **Offline** + search.
+- **Offline** = not seen recently (stale flag + warning colour). Devices are **never auto-deleted**; use **Ignore** or filter to hide noise.
 - Click a row → same edit modal.
 - Empty states when filters hide every host.
 
@@ -273,8 +278,8 @@ On **server detail**:
 | Surface | What you see |
 |---------|----------------|
 | **Hero LAN pill** | Link-style chip (accent border + arrow — not an inert status chip). Opens the device edit modal with **← Back to server**; Save / Cancel / ✕ return to that host |
-| **LAN discovery card** | Sits **beside Network path** (two-column on desktop, stacked on phone). Always open — header actions **Edit device** / **Map view**; inner rack shows IP, hostname/MAC, scripts, port chips |
-| **Network path** | Mapped FQDNs on this host; **Open on hosts map** and **Path map** are matching secondary buttons (not a bare text link) |
+| **LAN discovery card** | Sits **beside Network path** (two-column on desktop, stacked on phone). **Always open** (same outer card + inner fabric-rack chrome as Network path) — header **Edit device** / **Map view**; body shows linked device, IP · ports chip, scripts |
+| **Network path** | Mapped FQDNs on this host; **Open on hosts map** and **Path map** are matching secondary buttons |
 
 ### Hosts map toolbar (what each control does)
 
@@ -337,7 +342,7 @@ Linked discovery devices appear on:
 
 <figure class="ph-figure" markdown>
   ![Server LAN embed](../assets/screenshots/nmap-server-embed.png)
-  <figcaption>Server detail LAN discovery embed (recapture after Network path side-by-side layout as needed).</figcaption>
+  <figcaption>Server detail — LAN discovery card beside Network path (always open; Edit device / Map view).</figcaption>
 </figure>
 
 ---
@@ -352,7 +357,7 @@ Linked discovery devices appear on:
 - Changes resync APScheduler; audit records configure/scan actions.
 
 !!! note "UX polish (v0.9)"
-    Filter chrome on Devices/Network, Overview density (Scan now / vuln in modals), Schedules dense lists, and server-detail **Network path + LAN discovery** side-by-side are on **v0.9.0** — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md). Product behaviour above stays the same for 0.8.
+    List\|Map Devices, Overview modals, Schedules/Runs dense lists, Offline flag, server-detail **Network path + LAN discovery** side-by-side, and in-app heavy-scan confirm are on the **v0.9** train — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md). Discovery last-seen / purge / hide refinements are backlog (**v1.1** default) — [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md).
 
 ---
 
@@ -369,7 +374,7 @@ History of completed/failed scan jobs for this integration.
 | **Job** | Link into fleet [Jobs](../day-to-day/jobs-audit-notifications.md) (live log while running) |
 | **Finished** | Finished (or started) timestamp |
 
-There is **no run ID column** — use the **Job** link for correlation. On mobile, the table scrolls **inside** its card (not the whole page). Optional Settings → [Stale data cleanup](../operations/settings.md#stale-data-cleanup) can purge old run rows + XML.
+There is **no run ID column** — use the **Job** link for correlation. One dense list at all widths (not a separate mobile table markup). Optional Settings → [Stale data cleanup](../operations/settings.md#stale-data-cleanup) can purge old run rows + XML.
 
 ---
 
@@ -402,7 +407,7 @@ Web only **enqueues**. Cancel and progress follow the fleet Jobs UI (finished jo
 - SYN / raw scans need appropriate privileges in the nmap container (stock image runs as root with caps for reliable LAN + inventory). Connect-scan (`-sT`) is the fallback.  
 - Default install: **no** nmap worker, **no** vuln DB in image layers.  
 - **Worker fence:** `PIHERDER_NMAP_WORKER` is compose-owned (`0` web / `1` nmap worker); `worker_guard` refuses misrouted tasks.  
-- Detailed/deep whole-LAN **Scan now** asks for browser confirm (blast-radius).  
+- Detailed/deep whole-LAN **Scan now** asks for an **in-app** confirm (blast-radius); Cancel does not queue a job.  
 - CI never live-scans real networks (fixtures / mock XML only).
 
 ---
@@ -416,4 +421,4 @@ Web only **enqueues**. Cancel and progress follow the fleet Jobs UI (finished jo
 - [Jobs, audit & notifications](../day-to-day/jobs-audit-notifications.md)  
 - [Settings — Stale data cleanup](../operations/settings.md#stale-data-cleanup) — optional purge of old nmap runs  
 - [Volumes](../operations/volumes.md)  
-- Design: [FEATURE_PLAN_LAN_NMAP.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_LAN_NMAP.md) · ship plan [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) · follow-up UX [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md)
+- Design: [FEATURE_PLAN_LAN_NMAP.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_LAN_NMAP.md) · [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) · [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) · [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md)

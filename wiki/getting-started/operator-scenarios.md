@@ -5,7 +5,7 @@ Quick map from **what you want to do** → the right wiki page, plus **end-to-en
 Use this after [Install](install.md) and [First login](first-login.md).
 
 !!! note "RC / v0.9 documentation"
-    Journeys describe the **intended** operator path on the living main line. **Screenshots and hands-on testing** for v0.9 are in progress on the fleet — prose may be ahead of PNGs. Track gaps with [Home RC notice](../index.md#rc1) and the [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).
+    Journeys describe the **current** operator path on main. **Full QA and screenshot review** are in progress — prose is source of truth until PNGs are replaced. Track figures with the [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) · [Home RC notice](../index.md#rc1).
 
 ---
 
@@ -174,14 +174,15 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 |------|--------|-----|
 | 1 | Build + start **nmap** worker (`--profile nmap`); fence is compose-owned (`PIHERDER_NMAP_WORKER`) | Web never runs nmap |
 | 2 | [LAN Discovery](../integrations/lan-discovery.md) integration + CIDR(s) | Scope allowlist |
-| 3 | Manual **Discovery**, then **Inventory** (ports) | Trust before schedules; ports feed kind + chips |
-| 4 | **Devices** → **List** or **Map** → click host → edit modal: **map name**, **device type**, **gateway** if router, **Mark known** | Labels + kind + Router spine + inbox |
-| 5 | **Catalog → Network → Hosts map** — radar **Discovered**, **1:1** fit (tight when disc. off); click path again to clear focus | End-to-end view; **no** per-device link required |
-| 5b | Optional: **server detail** — hero **LAN** pill or **LAN discovery** card (beside Network path) → edit device → Save/close returns to **that server** | Soft-embed without getting stuck on Integrations |
-| 6 | Link / promote only what you will manage | Discovery ≠ fleet member |
-| 7 | Optional schedules (create + **Edit**) | Cadence you control |
-| 8 | Optional **Runs** tab | History by intensity + **Job** link (no run ID column) |
-| 9 | Optional vuln pack update + deep scan | Pack volume opt-in |
+| 3 | Overview → **Scan now** modal → Discovery, then Inventory (ports); detailed/deep needs **in-app** confirm | Trust before schedules; Cancel does not queue |
+| 4 | **Devices** → **List** or **Map** → edit modal: **map name**, **device type**, **gateway** if router, **Mark known** | Labels + kind + Router spine + inbox |
+| 5 | **Catalog → Network → Hosts map** — radar **Discovered**, **1:1** fit; clear focus when done | End-to-end view; **no** per-device link required |
+| 5b | Optional: **server detail** — always-open **LAN discovery** card beside **Network path** → Edit device → Save/close returns to **that server** | Soft-embed without Integrations detour |
+| 6 | Optional: **Path map** — select **NPM** hub to light all proxied paths + connectors | Access picture for via-proxy names |
+| 7 | Link / promote only what you will manage | Discovery ≠ fleet member |
+| 8 | Optional schedules (create + **Edit**) | Cadence you control |
+| 9 | Optional **Runs** tab | History by intensity + **Job** link (no run ID column) |
+| 10 | Optional vuln pack update + deep scan | Pack volume opt-in |
 
 **Done when:** Hosts map shows fleet + discovered chips; named devices read clearly; known/type/gateway are set where needed; you know how to link/promote; schedules stay off until you want them.
 

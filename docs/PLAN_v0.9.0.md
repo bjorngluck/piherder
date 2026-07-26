@@ -220,6 +220,8 @@ Capture in [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) / feature plans:
 | 2026-07-25 | **Server detail:** Network path + LAN discovery **side-by-side**; Path map secondary **button** (parity with Open on hosts map); coverage Bind submit/`next=` fix earlier same day |
 | 2026-07-25 | Docs/wiki for server net row; operator full QA + screenshot recapture next |
 | 2026-07-26 | Operator QA triage: bugs **A–E** fixed on this train (see §8). Enhancements / known issues logged for **v1.0** / backlog — [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) |
+| 2026-07-26 | Path map NPM hub also lights **connector lines** (hub focus mode). |
+| 2026-07-26 | Wiki prose + **screenshot full-QA checklist** updated for operator recapture pass (`wiki/assets/screenshots/README.md`). |
 
 ---
 
