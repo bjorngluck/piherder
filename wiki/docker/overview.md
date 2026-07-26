@@ -39,10 +39,10 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 |--------|--------|
 | Browse projects / containers | From inventory snapshot ([Inventory](inventory.md)); containers as **dense rows** (not a wide table) |
 | Runtime stack / Path map | Project **Stack** / **Path map** pills → Network stack panel + map expand ([Network maps](../integrations/dns-fabric.md#runtime-stack-detail-altitude)) |
-| Logs | Per container / service (live stream on full log page) |
+| Logs | Per container / service (modal or full page). Multi-service projects: pick a service **or All services** (project-level `docker compose logs`) |
 | **Stop / Start / Restart all** | Project ⋯ menu → confirm → **Job** with live log (`docker_stack_stop` / `_start` / `_restart`) |
 | Container start / stop / restart | Row ⋯ on a single service (immediate; not a full-stack job) |
-| Quick edit / Full editor | ⋯ menu — modal vs multi-file page — [Compose edit](compose-edit.md) |
+| Quick edit / Full editor | ⋯ menu — quick modal is compose (± Dockerfile) only; **`.env` and sidecars** are full editor — [Compose edit](compose-edit.md) |
 | Multi-file compose edit | primary compose + override + `.env` + Dockerfile + **compose sets** |
 | **Compose sets** | Extra `docker-compose.<name>.yml` in the **same** project folder — see below |
 | Version history | Snapshots; rollback |

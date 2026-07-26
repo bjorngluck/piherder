@@ -34,7 +34,7 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 
 <figure class="ph-figure" markdown>
   ![Network Path map](../assets/screenshots/dns-logical.png)
-  <figcaption>Path map — name → proxy → host → service flow.</figcaption>
+  <figcaption>Path map — URL → NPM hub → destination. Selecting the **NPM** hub highlights all proxied paths and their connector lines.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
@@ -49,7 +49,7 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 
 <figure class="ph-figure" markdown>
   ![Kuma coverage](../assets/screenshots/dns-coverage.png)
-  <figcaption>Kuma coverage — path monitors vs fleet topology.</figcaption>
+  <figcaption>Kuma coverage — dense gap table with constrained suggestions and Bind (not large card forms).</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
@@ -149,7 +149,7 @@ Mapped apps fan **outside** the zone from fleet hosts.
 |------|-----|--------|
 | **Network hub** | `/dns` | Path cards · **By path type** stats · filters · DNS/settings cards · adopt · unified DNS records modal |
 | **Hosts map** | `/dns/physical` | Host **list** + optional SVG (Internet → Router → **LAN fan** + apps); **Show map** / **Hide map** same on all widths; graph defaults open on desktop |
-| **Path map** | `/dns/logical` | Path **list** + optional SVG (URL → NPM hub → destination); same open/closed map chrome |
+| **Path map** | `/dns/logical` | Path **list** + optional SVG (URL → **NPM hub** → destination); same open/closed map chrome; hub multi-path focus |
 
 ### LAN discovery on Hosts map {#lan-discovery-on-hosts-map}
 
@@ -185,9 +185,10 @@ List and graph share **one** open/closed model (`.is-open`) — not separate mob
 
 ### Focus, zoom & mobile
 
-- **Hover** (mouse/stylus) any **host** (including Nomad with no mapped services), **Router**, **LAN**, **Internet**, **Public IP**, or **app path** to **preview** highlight.
+- **Hover** (mouse/stylus) any **host** (including hosts with no mapped services), **Router**, **LAN**, **Internet**, **Public IP**, **NPM hub**, or **app path** to **preview** highlight.
 - **Click / tap** to **lock** focus — the path stays highlighted when the pointer leaves.
-- **Click the same node again** (desktop and mobile) or **Clear focus** to unlock — second click must not re-lock.
+- **Path map — NPM hub:** selecting the centre **NPM** node focuses **all** via-proxy paths at once (URL + destination nodes **and** the amber **connector lines** into/out of the hub), not only the first path.
+- **Click the same node again** or **Clear focus** to unlock (intended on desktop and mobile; residual second-click quirks tracked for **v1.0** if still seen).
 - Hosts **without** mapped services are still selectable (node focus). App satellites focus the service **path**.
 - **Open host** / **Open in Kuma** appears when the focused node has a link (same-tab for fleet hosts; new tab for external Kuma).
 - **Copy path** copies the callout route string.
@@ -308,10 +309,13 @@ Coverage is a **dense table** (not a wall of large cards). For each gap (operato
 
 1. **Poll** Kuma on the integration if the monitor list is empty.  
 2. Choose a **Suggested** monitor from the constrained select (short labels; ranked by FQDN / name / URL).  
-3. Click green **Bind** — form posts, creates a service binding on the **backend host** with the path’s Docker project when known, then reloads coverage with a success banner.  
+3. Click green **Bind** — the button is **inside** the form (posts correctly); creates a service binding on the **backend host** with the path’s Docker project when known, then reloads coverage (`next=` honoured when set).  
 4. **Advanced…** opens the full Kuma “Add service binding” form with server / project pre-filled.
 
 This does **not** create monitors inside Kuma — only **links** an existing monitor to a fleet host/project. Create the HTTP check in Kuma first ([Uptime Kuma](uptime-kuma.md)).
+
+!!! note "Mobile coverage"
+    Path/dep gap tables should stack as cards on narrow screens. Residual column bleed on some viewports is a **v1.0** polish item — [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md).
 
 ### Stack dependencies (Docker inventory)
 

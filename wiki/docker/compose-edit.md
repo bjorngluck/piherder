@@ -26,13 +26,13 @@ From a project’s **⋯** menu on the Docker page:
 
 | Action | What you get |
 |--------|----------------|
-| **Quick edit** | In-page modal (textarea) for compose and optional Dockerfile tab |
-| **Full editor…** | Dedicated multi-file page: syntax highlighting, versions/drafts, validate YAML |
+| **Quick edit** | In-page modal (textarea) for **compose** and optional **Dockerfile** tab only |
+| **Full editor…** | Dedicated multi-file page: compose, override, **`.env`**, sidecars, sets, history, validate YAML |
 
-From **Quick edit**, use **Open full editor →** (or the Dockerfile equivalent when that tab is active) to leave the modal for the full page.
+From **Quick edit**, use **Open full editor →** (or the Dockerfile equivalent when that tab is active) to leave the modal for the full page. Quick edit footer notes that **`.env` and other sidecars are full-editor only** (not planned for the quick modal).
 
 !!! tip "Desktop"
-    Prefer **Full editor…** from the ⋯ menu when you need history, drafts, or multi-file tabs. Quick edit is best for small one-off edits.
+    Prefer **Full editor…** from the ⋯ menu when you need history, drafts, `.env`, or multi-file tabs. Quick edit is best for small compose-only tweaks.
 
 ## Multi-file projects
 

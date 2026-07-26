@@ -24,7 +24,13 @@ Password-only access to a fleet control plane is risky on shared or exposed URLs
 
 **Account** (`/auth/account`) — profile, password, avatar, enable TOTP, save **backup codes**, optional **trusted device** (30 days, revocable), and push preferences.
 
-**Regenerate backup codes** requires **current password** and a **live 2FA code** (authenticator or unused backup code) in a confirm modal. Password alone is not enough.
+**Regenerate backup codes** (Account → Two-factor):
+
+1. Click **Generate new codes…**  
+2. Confirm modal: **current password** + **authenticator code** (or one unused backup code).  
+3. On success, new codes are shown once; old unused codes are invalidated; trusted devices are revoked.
+
+Password alone is **not** enough — this is a deliberate step-up so a stolen session password cannot mint recovery codes.
 
 ## Force 2FA for all
 

@@ -20,11 +20,11 @@ Copy-pasting `docker-compose.yml` across Pis drifts immediately. Templates give 
 
 <figure class="ph-figure" markdown>
   ![Templates catalog](../assets/screenshots/templates-catalog.png)
-  <figcaption>Catalog → Templates. Expect **OOTB** vs **Yours** badges (and section headers when both kinds exist). PNG recapture in progress if the figure still shows plain `builtin`/`user` text.</figcaption>
+  <figcaption>Catalog → Templates — **OOTB** vs **Yours** badges (and section headers when both kinds exist).</figcaption>
 </figure>
 
 !!! note "Screenshots"
-    `templates-catalog.png` is on the **v0.9 operator recapture list**. Prose below matches current UI.
+    `templates-catalog.png` is on the **full QA review list** — [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md). Prose below matches current UI.
 
 ---
 

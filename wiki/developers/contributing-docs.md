@@ -69,7 +69,7 @@ Goal for **1.0.0**: operators can install, run day-to-day fleet ops, and upgrade
    - `mkdocs build --strict` green  
    - Home / install / first-login / roles / env-reference accurate for the tagged version  
    - Operator scenarios index covers every first-class nav area  
-   - Screenshots: refresh light-desktop PNGs when the UI changes on critical paths (install, servers, docker, templates, network, About)
+   - Screenshots: full inventory under [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) (repo only — excluded from the published site) — light desktop defaults; operator full QA replaces every figure as needed
 
 2. **Single release note template** (`docs/RELEASE_v1.0.0.md` and later):  
    - Highlights  

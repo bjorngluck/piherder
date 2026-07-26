@@ -27,11 +27,11 @@ Without a server record you have no place to store the encrypted SSH key, featur
 
 <figure class="ph-figure" markdown>
   ![Add server wizard](../assets/screenshots/add-server-wizard.png)
-  <figcaption>Add-host wizard — multi-step onboarding (Identity through Done). v0.9 micro-copy: Connect is install key → test → clear password; Features explain HAOS / rsync. Recapture in progress if figure looks older.</figcaption>
+  <figcaption>Add-host wizard — multi-step onboarding (Identity through Done). Connect: install key → test → clear password; Features explain HAOS / rsync.</figcaption>
 </figure>
 
 !!! note "Screenshots"
-    Wizard and Done PNGs are on the **v0.9 recapture list** (operator testing). Until replaced, captions describe current UI; the image may still match an earlier pack — [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).
+    Wizard and Done PNGs are on the **full QA review list**. Replace if the figure lags chrome — [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).
 
 1. **Identity** — display name, hostname/IP, SSH user and port (creates the fleet row).  
 2. **Trust** — generate a keypair (recommended), upload a key, or password-only (discouraged); optional **one-time password** only to bootstrap key deploy. Private material is encrypted at rest and never re-shown.  
@@ -132,7 +132,7 @@ Below the dest cards, a **two-column row** (stacked on narrow screens) holds:
 | **Network path** | Mapped app names that land on this host; **Open on hosts map** and **Path map** (matched secondary buttons) jump into Catalog → Network maps |
 | **LAN discovery** | When linked — always-visible soft-embed card (IP, ports, kind; **Edit device** / **Map view**) matching Network path’s outer + inner card layout |
 
-Screenshots (`server-detail.png`, `nmap-server-embed.png`) may lag until the next capture pass.
+Screenshots (`server-detail.png`, `nmap-server-embed.png`) are on the **full QA recapture list** — [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).
 
 ## Feature flags
 
@@ -162,16 +162,16 @@ After key deploy / least-priv / test, PiHerder stores a dependency snapshot. Fai
 
 From server detail **Host status** (⋯) or related chips, PiHerder can show a short **system info** snapshot over SSH (OS/kernel, reboot-pending, disk free — cached briefly). This is read-only diagnostics, not continuous monitoring (use Kuma for uptime).
 
-If the host is **linked** to a LAN Discovery device, a **LAN** link-style pill appears in the hero with the discovery IP (and open-port count when known). Open it to edit map name / type / role; **Save or Cancel returns to this server** (not the Integrations shell). The fuller **LAN discovery** card sits beside **Network path** (expand **Details** for ports / scripts). Details: [LAN Discovery — soft embed](../integrations/lan-discovery.md#soft-embed-fleet).
+If the host is **linked** to a LAN Discovery device, a **LAN** link-style pill appears in the hero with the discovery IP (and open-port count when known). Open it to edit map name / type / role; **Save or Cancel returns to this server** (not the Integrations shell). The fuller **LAN discovery** card sits **always open** beside **Network path** (IP · ports, scripts, **Edit device** / **Map view**). Details: [LAN Discovery — soft embed](../integrations/lan-discovery.md#soft-embed-fleet).
 
 <figure class="ph-figure" markdown>
   ![Server detail](../assets/screenshots/server-detail.png)
-  <figcaption>Server detail — dest cards, Network path + LAN discovery row, jobs (recapture for 0.9 chrome as needed).</figcaption>
+  <figcaption>Server detail — dest cards, Network path + LAN discovery side-by-side, jobs.</figcaption>
 </figure>
 
 ## Later onboarding depth
 
-Richer bootstrap scripts, first-boot enrollment, and optional Web SSH remain later host-lifecycle phases — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md). Tagged baseline: [RELEASE_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md); active train: [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md).
+Richer bootstrap scripts, first-boot enrollment, and optional Web SSH remain later host-lifecycle phases — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md). Tagged baseline: [RELEASE_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md); active train: [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) · first production plan [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md).
 
 ## Related
 

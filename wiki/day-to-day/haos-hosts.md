@@ -48,11 +48,11 @@ Exact package install steps for rsync may vary by HAOS version — enable the SS
 **Done when:** hero shows **HAOS** chip; System info shows real versions; check job succeeds; deps overall is ok for enabled features.
 
 !!! note "Screenshots & testing"
-    **P0 recapture (operator in progress):** `server-detail-haos.png`, `system-info-haos.png` — [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md). Until those land, the generic server-detail shot below is illustrative only. Live fleet testing of System info / HA check-apply is operator-owned (not in CI).
+    **Full QA P0:** replace `server-detail-haos.png` and `system-info-haos.png` when reviewing HAOS — [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md). The generic server-detail shot below is illustrative only until HAOS-specific PNGs land. Live HA check/apply is operator-owned (not in CI).
 
 <figure class="ph-figure" markdown>
   ![Server detail (fleet host)](../assets/screenshots/server-detail.png)
-  <figcaption>Server detail (generic pack) — on HAOS expect HAOS chip, HA updates chrome, System info with Core/OS/Supervisor + disk.</figcaption>
+  <figcaption>Server detail (generic pack) — on HAOS expect **HAOS** chip, HA updates chrome, System info with Core/OS/Supervisor + disk.</figcaption>
 </figure>
 
 ---

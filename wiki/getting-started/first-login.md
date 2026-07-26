@@ -45,9 +45,10 @@ If you set `ALLOW_OPEN_REGISTRATION=true`, later self-registered accounts become
 | Step | Where |
 |------|--------|
 | Set display name / avatar | **Account** (full-width ops-hero + profile / security cards) |
-| Optional 2FA | **Account** → TOTP — or [force 2FA for all](../account-security/two-factor.md) |
+| Optional 2FA | **Account** → TOTP + backup codes — or [force 2FA for all](../account-security/two-factor.md). Regenerating backup codes needs password **and** a live 2FA code. |
 | Push notifications | **Account** → Push (after [HTTPS / PWA](../account-security/pwa-push.md)) |
 | Timezone | **Settings → General** |
+| Version / About | Footer shows version only when signed in; **About** under avatar menu |
 | Create operators/viewers | **Users** (admin) — after first admin, no public self-register |
 | Add first server | [Add a server](../day-to-day/add-server.md) |
 
