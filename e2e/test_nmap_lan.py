@@ -12,30 +12,45 @@ pytestmark = pytest.mark.e2e
 
 
 def _open_nmap_detail(page, base_url: str) -> None:
-    """Catalog → existing LAN Discovery, or create form / new path."""
+    """Open LAN Discovery detail — create once if missing.
+
+    Empty Catalog often has “Add LAN Discovery” → `/integrations/new/nmap`. That must
+    **not** be treated as an existing integration (old helper clicked it and returned
+    without submitting, so CI never reached the tablist).
+    """
     desktop_nav(page, "Catalog")
     expect(page).to_have_url(re.compile(r".*/integrations"))
 
-    link = page.locator('a[href*="/integrations/"]').filter(
+    # Existing detail only: /integrations/<digits>… with LAN/nmap/Discovery label
+    detail = page.locator('a[href*="/integrations/"]').filter(
         has_text=re.compile(r"LAN|nmap|Discovery", re.I)
     )
-    if link.count() > 0:
-        link.first.click()
-        page.wait_for_load_state("domcontentloaded")
+    for i in range(detail.count()):
+        href = detail.nth(i).get_attribute("href") or ""
+        if re.search(r"/integrations/\d+(?:$|[?#/])", href):
+            detail.nth(i).click()
+            page.wait_for_url(re.compile(r"/integrations/\d+"), timeout=15_000)
+            page.wait_for_load_state("domcontentloaded")
+            return
+
+    # Create (or server redirects to existing when one already exists)
+    page.goto(f"{base_url}/integrations/new/nmap", wait_until="domcontentloaded")
+    if re.search(r"/integrations/\d+", page.url or ""):
         return
 
-    page.goto(f"{base_url}/integrations/new/nmap", wait_until="domcontentloaded")
-    if page.locator("form").filter(
-        has=page.locator('textarea[name="cidrs"], input[name="cidrs"]')
-    ).count():
-        cidrs = page.locator('textarea[name="cidrs"], input[name="cidrs"]').first
-        if cidrs.count():
-            cidrs.fill("192.168.86.0/24")
-        name = page.locator('input[name="name"]')
-        if name.count():
-            name.fill("LAN Discovery E2E")
-        page.get_by_role("button", name=re.compile(r"Save|Create|Add", re.I)).first.click()
-        page.wait_for_load_state("domcontentloaded")
+    form = page.locator('form[action*="/integrations/new/nmap"]')
+    if form.count() == 0:
+        form = page.locator("form").filter(
+            has=page.locator('textarea[name="cidrs"]')
+        )
+    expect(form.first).to_be_visible(timeout=10_000)
+    form.locator('textarea[name="cidrs"]').fill("192.168.86.0/24")
+    name = form.locator('input[name="name"]')
+    if name.count():
+        name.fill("LAN Discovery E2E")
+    form.get_by_role("button", name=re.compile(r"^Create$", re.I)).click()
+    page.wait_for_url(re.compile(r"/integrations/\d+"), timeout=30_000)
+    page.wait_for_load_state("domcontentloaded")
 
 
 def test_n9_lan_discovery_add_form_and_tabs(admin_page, base_url):
