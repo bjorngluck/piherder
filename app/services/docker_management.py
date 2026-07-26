@@ -509,18 +509,39 @@ def build_compose_services(server: Server, project_path: str, services: List[str
         client.close()
 
 
+def _is_all_services_log_target(name: str | None) -> bool:
+    """Sentinel from UI: project-level compose logs (all services)."""
+    n = (name or "").strip().lower()
+    return n in ("", "__all__", "*", "all", "all-services", "all_services")
+
+
 def get_logs(server: Server, container_or_service: str, lines: int = 100, follow: bool = False, project_path: str = None) -> str:
     """Get recent logs. For streaming use follow=False and poll from frontend.
-    If project_path provided, uses docker compose logs for the service."""
+    If project_path provided, uses docker compose logs for the service.
+    Empty / ``__all__`` with project_path → all services in the compose project."""
+    import shlex
+
     client = get_ssh_client(server)
+    path_q = shlex.quote(project_path) if project_path else ""
     if project_path:
-        cmd = f"cd {project_path} && docker compose logs --tail {lines} {container_or_service} 2>&1"
-        if follow:
-            cmd = f"cd {project_path} && docker compose logs -f --tail {lines} {container_or_service} 2>&1 | head -{lines}"
+        if _is_all_services_log_target(container_or_service):
+            base = f"cd {path_q} && docker compose logs --tail {int(lines)}"
+            cmd = f"{base} 2>&1"
+            if follow:
+                cmd = f"cd {path_q} && docker compose logs -f --tail {int(lines)} 2>&1 | head -{int(lines)}"
+        else:
+            svc_q = shlex.quote(str(container_or_service).strip())
+            cmd = f"cd {path_q} && docker compose logs --tail {int(lines)} {svc_q} 2>&1"
+            if follow:
+                cmd = (
+                    f"cd {path_q} && docker compose logs -f --tail {int(lines)} {svc_q} "
+                    f"2>&1 | head -{int(lines)}"
+                )
     else:
-        cmd = f"docker logs --tail {lines} {container_or_service} 2>&1"
+        name_q = shlex.quote(str(container_or_service or "").strip())
+        cmd = f"docker logs --tail {int(lines)} {name_q} 2>&1"
         if follow:
-            cmd = f"docker logs -f --tail {lines} {container_or_service} 2>&1 | head -{lines}"
+            cmd = f"docker logs -f --tail {int(lines)} {name_q} 2>&1 | head -{int(lines)}"
 
     status, out, err = run_command(client, cmd, timeout=30)
     client.close()
@@ -755,13 +776,22 @@ def annotate_update_flags(
 def stream_logs(server: Server, container: str, lines: int = 50, project_path: str = None):
     """Generator for streaming logs using SSE.
     Yields lines from `docker logs -f` (or compose logs -f) for live tail.
+    Empty / ``__all__`` with project_path → all services in the compose project.
     """
+    import shlex
+
     client = get_ssh_client(server)
     try:
         if project_path:
-            cmd = f"cd {project_path} && docker compose logs -f --tail {lines} {container} 2>&1"
+            path_q = shlex.quote(project_path)
+            if _is_all_services_log_target(container):
+                cmd = f"cd {path_q} && docker compose logs -f --tail {int(lines)} 2>&1"
+            else:
+                svc_q = shlex.quote(str(container or "").strip())
+                cmd = f"cd {path_q} && docker compose logs -f --tail {int(lines)} {svc_q} 2>&1"
         else:
-            cmd = f"docker logs -f --tail {lines} {container} 2>&1"
+            name_q = shlex.quote(str(container or "").strip())
+            cmd = f"docker logs -f --tail {int(lines)} {name_q} 2>&1"
         stdin, stdout, stderr = client.exec_command(
             cmd,
             timeout=None

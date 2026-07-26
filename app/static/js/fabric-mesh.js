@@ -82,7 +82,10 @@
       var fn = (el.getAttribute('data-from-node') || '').trim();
       var tn = (el.getAttribute('data-to-node') || '').trim();
       var isLand = el.classList.contains('fabric-mesh-edge--land');
-      var isNpm = el.classList.contains('fabric-mesh-edge--npm');
+      var isNpm =
+        el.classList.contains('fabric-mesh-edge--npm') ||
+        el.classList.contains('fabric-mesh-edge--to_npm') ||
+        el.classList.contains('fabric-mesh-edge--from_npm');
 
       if (mode === 'host' && hostNid) {
         // Pure topology (host ↔ LAN / Internet) — no path id
@@ -170,44 +173,83 @@
     var primary = String(focusId);
 
     if (isNodeFocusId(primary)) {
-      mode = 'host';
       hostNid = primary.slice(2);
       markNode(hostNid);
 
-      // Topo one-hop only (edges without service path ids)
-      root.querySelectorAll('.fabric-mesh-edge').forEach(function (edge) {
-        var eps = pathIdsFromEl(edge);
-        if (eps.length) return;
-        var fn = (edge.getAttribute('data-from-node') || '').trim();
-        var tn = (edge.getAttribute('data-to-node') || '').trim();
-        if (fn === hostNid || tn === hostNid) {
-          markNode(fn);
-          markNode(tn);
-        }
-      });
-
       var nodeEl = root.querySelector('[data-node-id="' + hostNid.replace(/"/g, '') + '"]');
-      if (nodeEl) {
-        pathIdsFromEl(nodeEl).forEach(function (p) {
-          backendPaths[String(p)] = true;
+      var isHub =
+        hostNid === 'hub-npm' ||
+        (nodeEl &&
+          nodeEl.classList &&
+          (nodeEl.classList.contains('fabric-mesh-node--hub') ||
+            (nodeEl.getAttribute('data-node-kind') || '') === 'hub'));
+
+      if (isHub) {
+        // Path map NPM hub: light *all* paths that route through the proxy,
+        // not host-mode land/npm edge filters (logical edges use to_npm/from_npm).
+        mode = 'path';
+        if (nodeEl) {
+          pathIdsFromEl(nodeEl).forEach(function (p) {
+            paths[String(p)] = true;
+          });
+          npmPathIdsFromEl(nodeEl).forEach(function (p) {
+            paths[String(p)] = true;
+          });
+        }
+        root.querySelectorAll('.fabric-mesh-edge').forEach(function (edge) {
+          var eps = pathIdsFromEl(edge);
+          var hit = false;
+          for (var hi = 0; hi < eps.length; hi++) {
+            if (paths[String(eps[hi])]) {
+              hit = true;
+              break;
+            }
+          }
+          if (!hit) return;
+          markNode(edge.getAttribute('data-from-node'));
+          markNode(edge.getAttribute('data-to-node'));
         });
-        npmPathIdsFromEl(nodeEl).forEach(function (p) {
-          npmPaths[String(p)] = true;
+        // URL/dest cards match via data-path-id ∈ paths (no node-id required)
+      } else {
+        mode = 'host';
+
+        // Topo one-hop only (edges without service path ids)
+        root.querySelectorAll('.fabric-mesh-edge').forEach(function (edge) {
+          var eps = pathIdsFromEl(edge);
+          if (eps.length) return;
+          var fn = (edge.getAttribute('data-from-node') || '').trim();
+          var tn = (edge.getAttribute('data-to-node') || '').trim();
+          if (fn === hostNid || tn === hostNid) {
+            markNode(fn);
+            markNode(tn);
+          }
         });
+
+        if (nodeEl) {
+          pathIdsFromEl(nodeEl).forEach(function (p) {
+            backendPaths[String(p)] = true;
+          });
+          npmPathIdsFromEl(nodeEl).forEach(function (p) {
+            npmPaths[String(p)] = true;
+          });
+        }
+        // Also discover from edges (in case attributes lag)
+        root.querySelectorAll('.fabric-mesh-edge').forEach(function (edge) {
+          var tn = (edge.getAttribute('data-to-node') || '').trim();
+          var fn = (edge.getAttribute('data-from-node') || '').trim();
+          if (tn !== hostNid && fn !== hostNid) return;
+          var isLand = edge.classList.contains('fabric-mesh-edge--land');
+          var isNpm =
+            edge.classList.contains('fabric-mesh-edge--npm') ||
+            edge.classList.contains('fabric-mesh-edge--to_npm') ||
+            edge.classList.contains('fabric-mesh-edge--from_npm');
+          pathIdsFromEl(edge).forEach(function (p) {
+            if (isLand) backendPaths[String(p)] = true;
+            if (isNpm) npmPaths[String(p)] = true;
+          });
+        });
+        // Do not mark other hosts for these services
       }
-      // Also discover from edges (in case attributes lag)
-      root.querySelectorAll('.fabric-mesh-edge').forEach(function (edge) {
-        var tn = (edge.getAttribute('data-to-node') || '').trim();
-        var fn = (edge.getAttribute('data-from-node') || '').trim();
-        if (tn !== hostNid && fn !== hostNid) return;
-        var isLand = edge.classList.contains('fabric-mesh-edge--land');
-        var isNpm = edge.classList.contains('fabric-mesh-edge--npm');
-        pathIdsFromEl(edge).forEach(function (p) {
-          if (isLand) backendPaths[String(p)] = true;
-          if (isNpm) npmPaths[String(p)] = true;
-        });
-      });
-      // Do not mark other hosts for these services
     } else {
       mode = 'path';
       paths[primary] = true;

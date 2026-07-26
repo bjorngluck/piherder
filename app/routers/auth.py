@@ -713,13 +713,25 @@ async def two_factor_disable(
 @router.post("/account/2fa/backup-codes")
 async def regenerate_backup_codes(
     current_password: str = Form(...),
+    code: str = Form(""),
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    """Regenerate backup codes — requires current password + live 2FA (TOTP or unused backup)."""
     if not user.totp_enabled:
         return RedirectResponse("/auth/account?error=2fa_off", status_code=303)
     if not verify_password(current_password, user.hashed_password):
         return RedirectResponse("/auth/account?error=bad_password", status_code=303)
+    # Step-up 2FA: password alone must not be enough to mint new recovery codes.
+    secret = None
+    if user.totp_secret_encrypted:
+        try:
+            secret = decrypt_totp_secret(user.totp_secret_encrypted)
+        except Exception:
+            secret = None
+    code_ok = bool(secret and code and verify_totp_code(secret, code))
+    if not code_ok and not (code and consume_backup_code(session, user.id, code)):
+        return RedirectResponse("/auth/account?error=2fa_bad_code", status_code=303)
     codes = generate_backup_codes()
     replace_backup_codes(session, user.id, codes)
     revoke_all_trusted_devices(session, user.id)

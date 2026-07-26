@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-23 (**v0.9.0** locked as **last pre-production** — UX consistency · unit **55%+** · E2E-on-touch · HA discovery — [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md))  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-26 (**v0.9.0** last pre-production in flight · **v1.0** first production plan opened — [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md))  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
@@ -32,7 +32,9 @@ Design principles stay the same as SPEC:
 | **v0.8.0** | **RC3** — overall polish · extend E2E + **~50% coverage** · **full docs review + screenshots** · **LAN nmap** (auto-create + network view) · brand refresh | Quality + H2.5 H1 | **Tagged** 2026-07-22 — [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md) |
 | **v0.9.0** | **Last pre-production** — UX/UI consistency · unit **55%+** · E2E on touched surfaces · **HA discovery** (mark/SSH; REST later) | Quality + H3 discovery | **Active** — [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) |
 | **v0.8.x / later** | Host stats/commands, bootstrap depth, web SSH; topology column profiles | H2.75 P3–P5 + residual | After RC3 as capacity |
-| **v1.0** | First production — stable template schema + REST + docs + community process; HA path-1 REST candidate | H0–H2 freeze | Planned |
+| **v1.0** | **First production** — security harden · known-issue burn-down · auth entry · DNS/cert polish start · stable templates + REST + docs | H0–H2 freeze + prod bar | **Planned** — [PLAN_v1.0.0.md](PLAN_v1.0.0.md) |
+| **v1.1** | Cert distribution wizard + sudoers; discovery last-seen / purge; residual prod polish | Post-1.0 | Planned (capacity) |
+| **Post-1.0** | SSO/OIDC · email · password reset · favourites · insights · API/OpenAPI depth · templates fleet overview | H3+ | Backlog / discovery |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -48,13 +50,15 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-19):** **v0.7.0 feature-locked and tagged**. Wizard, E2E A+B, annotations, compose sets, drift Job shipped. Screenshot pack deferred; residual polish + E2E/coverage growth + full docs review + **nmap** → **v0.8.0 RC3**. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md).
 
-**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ → ~~**v0.8.0 RC3**~~ **tagged** → **v0.9.0 last pre-production** → **v1.0** first production.
+**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ → ~~**v0.8.0 RC3**~~ **tagged** → **v0.9.0 last pre-production** → **v1.0 first production** ([PLAN_v1.0.0.md](PLAN_v1.0.0.md)) → **v1.1** residual · **post-1.0** discovery.
 
 **Decision (2026-07-22):** Post-0.8 operator UX triage — micro-pass **B1/E4/E8** on main for 0.8 screenshots; remaining discovery/Network/coverage polish → **v0.9.0** ([PLAN_v0.9.0.md](PLAN_v0.9.0.md)). Cross-cutting human-readable schedules, selectable hero stats, and full templates catalog redesign stay **post-1.0 discovery** (see Quality & platform § below).
 
 **Decision (2026-07-22):** **v0.8.0 feature-locked and tagged**. LAN Discovery, screenshot pack, stale cleanup, coverage bar, brand refresh shipped. Next development is **v0.9.0**. See [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md).
 
 **Decision (2026-07-23):** **v0.9.0 locked as last pre-production** — UX/UI consistency (streams D/N/K/U), unit freeze **≥55%** with stepped CI fail-under, E2E basic coverage for every surface touched, and **Home Assistant discovery** ([FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md): path 1 mark/SSH in 0.9 capacity; path 1 REST lean **v1.0**; path 2 HAOS component **≥1.0**).
+
+**Decision (2026-07-26):** Operator QA triage (letters A–AB). **Bugs A–E fixed on 0.9 train** (nmap confirm modal, hide version when anonymous, Path map NPM multi-path focus, Docker logs All services, backup-codes step-up 2FA). **v1.0** plan opened for production hardening + known issues O/R/T/U/V/W/X + auth redirect F + security AA; cert wizard **P** discovery in 1.0 / full **v1.1**. Post-1.0 backlog: G password reset, H email, J favourites, K cross-host jump, L quick-editor scope note, M template fleet overview, N insights, Q git onboard, S discovery hygiene, Y API polish, Z SSO/OIDC, AB trusted-device detail. See [PLAN_v1.0.0.md](PLAN_v1.0.0.md).
 
 **Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.8.0` / `0.8` / `latest`).
 
@@ -237,6 +241,18 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Human-readable schedules (E6)** | **Discovery needed (post-1.0 platform)** — shared interval/cron formatter + “Advanced (cron)” across server OS/backup, nmap, herder backup, data cleanup. Not committed for v0.9. |
 | **Selectable hero stats (E9)** | **Discovery needed (post-1.0)** — user-selectable pulse metrics on ops heroes; preference model + metric registry. Non-committed roadmap only. |
 | **Templates catalog redesign (E11)** | **Discovery needed (H3 / post-1.0)** — table/filter layout, extra config files (e.g. CA Advisor). **0.9 stretch done:** OOTB / Yours badges + section groups. Full redesign separate. See [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md). |
+| **Password reset (G)** | **Backlog (not 1.0):** (1) user self-reset (2) admin-triggered one-time password / clear 2FA. Needs email or out-of-band story. |
+| **Email / channels (H)** | **Under consideration post go-live** — SMTP, richer notifications, password-reset mail. |
+| **Favourites / shortcuts (J)** | **Post-1.0** — pin e.g. Backups on a host into a shortcut menu. |
+| **Cross-host feature jump (K)** | **Post-1.0** — while on Docker (etc.) on host A, jump to same feature on host B. |
+| **Quick editor scope (L)** | **Lean no** for `.env`/sidecars in quick editor; full editor only — document in UI. Open discussion only. |
+| **Template fleet deployment overview (M)** | **Post-1.0** — which hosts/services have a given template (beyond stack-level badge). |
+| **Insights / custom dashboards (N)** | **Discovery + first thin slice post v1.0** — reporting / custom dashboarding. |
+| **Git-rich service onboard (Q)** | **Post-1.0** — full git clone/pull; more files than compose + Dockerfile. |
+| **Discovery hygiene (S)** | Last seen, offline indicator, purge/hide old devices — **consider 1.0**, default **v1.1**. |
+| **API management (Y)** | **Post-1.0** — OpenAPI docs polish, bearer test UX; align with non-OIDC model. |
+| **SSO / OIDC (Z)** | **Discovery post-1.0** — social or BYO IdP (Authentik, Okta, Auth0); optional groups → roles. |
+| **Trusted device detail (AB)** | **Post-1.0** — device type, last IP, rename. |
 
 ### Playwright phases
 

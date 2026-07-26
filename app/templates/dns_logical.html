@@ -263,7 +263,10 @@
 
             {% for n in svg.nodes %}
               {% if n.kind == 'hub' %}
+              {# data-node-id required so focus is n:hub-npm (all paths), not path_ids[0] only #}
               <g class="fabric-mesh-node fabric-mesh-node--hub"
+                 data-node-id="{{ n.id or 'hub-npm' }}"
+                 data-path-chain="NPM · all proxied paths"
                  {% if n.path_ids %}data-path-ids="{% for pid in n.path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}>
                 {# Single circle — bare <circle> defaults to black fill in light mode #}
                 <circle cx="{{ n.x }}" cy="{{ n.y }}" r="42"/>

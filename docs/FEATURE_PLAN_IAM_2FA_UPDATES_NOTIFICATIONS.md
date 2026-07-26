@@ -438,6 +438,18 @@ Unique partial index idea: one **open** row per `fingerprint` (or upsert by fing
 | `herder_backup_failed` | self-backup schedule fail | `/herder-backups` |
 | Later | disk full, host offline, 2FA events | … |
 
+### Follow-ups (2026-07-26 operator triage)
+
+| Item | Stance |
+|------|--------|
+| Regenerate backup codes requires password **+** TOTP/backup code (modal) | **Done** (0.9 train) |
+| Hide app version when not signed in | **Done** (0.9 train) |
+| Unauthenticated `/` → login | **v1.0** ([PLAN_v1.0.0.md](PLAN_v1.0.0.md) F) |
+| User self-reset / admin OTP reset / clear 2FA | **Backlog** (G) — not 1.0 |
+| Email / SMTP notification channels | **Backlog** (H) post go-live |
+| SSO / OIDC + optional group→role map | **Discovery post-1.0** (Z) |
+| Trusted device type / last IP / rename | **Post-1.0** (AB) |
+
 Keep a single service:
 
 ```python

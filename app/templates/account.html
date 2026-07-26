@@ -241,12 +241,65 @@
     {% if user.totp_enabled %}
     <div class="text-sm text-accent">2FA is <strong>enabled</strong>. {{ backup_remaining }} backup code(s) remaining.</div>
 
-    <form method="post" action="/auth/account/2fa/backup-codes" class="space-y-2 border-t border-border pt-3">
+    <div class="space-y-2 border-t border-border pt-3">
       <div class="text-sm font-medium">Regenerate backup codes</div>
-      <input name="current_password" type="password" required placeholder="Current password"
-             class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
-      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Generate new codes</button>
-    </form>
+      <p class="text-xs text-muted">Invalidates existing codes. Requires password and a current authenticator (or unused backup) code.</p>
+      <button type="button" onclick="showBackupCodesModal()" class="btn btn-secondary min-h-11 text-sm"
+              data-testid="open-backup-codes-modal">Generate new codes…</button>
+    </div>
+
+    {# Step-up: password + 2FA before minting new recovery codes #}
+    <div id="backup-codes-modal"
+         class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-4"
+         role="dialog" aria-modal="true" aria-labelledby="backup-codes-modal-title"
+         data-testid="backup-codes-modal"
+         onclick="if(event.target===this)hideBackupCodesModal()">
+      <div class="modal-content card p-5 sm:p-6 w-full max-w-md" role="document" onclick="event.stopPropagation()">
+        <div class="flex items-start justify-between gap-2 mb-3">
+          <h3 id="backup-codes-modal-title" class="text-base font-semibold text-text m-0">Confirm regenerate backup codes</h3>
+          <button type="button" onclick="hideBackupCodesModal()" class="text-muted hover:text-text text-xl leading-none" aria-label="Close">×</button>
+        </div>
+        <p class="text-sm text-muted mb-4">This replaces all unused backup codes. Confirm with your password and 2FA.</p>
+        <form method="post" action="/auth/account/2fa/backup-codes" class="space-y-3" data-testid="backup-codes-form">
+          <div>
+            <label class="block text-xs text-muted mb-1" for="backup-codes-password">Current password</label>
+            <input id="backup-codes-password" name="current_password" type="password" required
+                   autocomplete="current-password"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1" for="backup-codes-totp">Authenticator or backup code</label>
+            <input id="backup-codes-totp" name="code" type="text" required
+                   placeholder="6-digit or XXXX-XXXX"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono"
+                   autocomplete="one-time-code" inputmode="text">
+          </div>
+          <div class="flex flex-wrap gap-2 justify-end pt-1">
+            <button type="button" onclick="hideBackupCodesModal()" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+            <button type="submit" class="btn btn-primary min-h-11 text-sm" data-testid="backup-codes-confirm">Generate new codes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <script>
+    function showBackupCodesModal() {
+      var m = document.getElementById('backup-codes-modal');
+      if (!m) return;
+      m.classList.remove('hidden');
+      m.classList.add('flex');
+      var pw = document.getElementById('backup-codes-password');
+      if (pw) try { pw.focus(); } catch (_) {}
+    }
+    function hideBackupCodesModal() {
+      var m = document.getElementById('backup-codes-modal');
+      if (!m) return;
+      m.classList.add('hidden');
+      m.classList.remove('flex');
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') hideBackupCodesModal();
+    });
+    </script>
 
     <form method="post" action="/auth/account/2fa/disable" class="space-y-2 border-t border-border pt-3">
       <div class="text-sm font-medium">Disable 2FA</div>
