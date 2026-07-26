@@ -14,7 +14,7 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 |---------|----------------|
 | **v0.6.0–v0.7.0** | Historical — PNG pack deferred / prose-first |
 | **v0.8.0 RC3** (tagged) | Full pack landed — [RELEASE_v0.8.0.md](../../../docs/RELEASE_v0.8.0.md) |
-| **v0.9.0** (pre-tag, **full QA in progress**) | Operator recaptures **every** figure below as needed — prose already tracks main — [PLAN_v0.9.0.md](../../../docs/PLAN_v0.9.0.md) · [PLAN_v1.0.0.md](../../../docs/PLAN_v1.0.0.md) |
+| **v0.9.0** (tagged) | Operator recapture pack for 0.9 chrome — [RELEASE_v0.9.0.md](../../../docs/RELEASE_v0.9.0.md) · [PLAN_v1.0.0.md](../../../docs/PLAN_v1.0.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 

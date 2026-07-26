@@ -80,4 +80,4 @@ Related unit coverage: `tests/test_compose_sets.py`, `tests/test_container_annot
 2. **E2E** `pytest e2e -q` green (CI or local; rebuild e2e image if app templates changed)  
 3. Manual / operator smoke (live fleet): add-server wizard path, HAOS System info + check, from-host with additional files, template deploy, backup, metrics, API token  
 4. Screenshots: full QA review — replace PNGs per the [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) (operator-owned; not in CI)  
-5. See release checklist in `docs/RELEASE_v*.md` / active plan [PLAN_v0.9.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) · last tag [RELEASE_v0.8.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md)
+5. See release checklist in `docs/RELEASE_v*.md` / next plan [PLAN_v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md) · last tag [RELEASE_v0.9.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md)
