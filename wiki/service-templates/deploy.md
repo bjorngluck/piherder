@@ -42,8 +42,7 @@ A one-shot SSH paste is not recoverable after host loss and not comparable for d
 6. Desired state **Vn** stored encrypted in PiHerder; success navigates to the deployment page.  
 7. Post-deploy **checklist** (manual DNS, first login, …).
 
-!!! note "Availability"
-    Template deploy / redeploy / **Check drift** run as Jobs with live log. **Accept host as desired**, desired-file browser, and always-write empty `.env` are production operator UX.
+Template deploy / redeploy / **Check drift** run as Jobs with live log. Use **Accept host as desired**, the desired-file browser, and always-write empty `.env` when intentional host edits should become the source of truth.
 
 ## Redeploy & ops (deployment page)
 

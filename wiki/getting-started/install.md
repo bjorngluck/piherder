@@ -9,7 +9,7 @@ The **supported** way to run PiHerder: Docker Compose stack (`web`, `db`, `redis
 One command brings up the whole control plane with migrations, workers for backups, and optional TLS termination. Other topologies (Kubernetes, bare metal) are **not** documented as supported.
 
 !!! tip "Production install"
-    Prefer a **tagged** image (`1.0.0` / `1.0` / `latest` after Hub publish). See [Home — release status](../index.md#release-status) · [RELEASE_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md).
+    Prefer a **tagged** image (`1.0.0` / `1.0` / `latest`). Release notes: [RELEASE_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md).
 
 ---
 
@@ -20,7 +20,7 @@ One command brings up the whole control plane with migrations, workers for backu
 ```bash
 git clone https://github.com/bjorngluck/piherder.git
 cd piherder
-git checkout v1.0.0   # or main after tag; rebuild from main during pre-tag QA
+git checkout v1.0.0
 cp .env.example .env
 ```
 

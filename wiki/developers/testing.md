@@ -69,12 +69,11 @@ pytest e2e -q --browser chromium
 - **Compose set:** services `e2e-web` / `e2e-db` / `e2e-redis` in `docker-compose.e2e.yml` ([Compose sets](../docker/overview.md#compose-sets-same-folder-one-project-card))  
 - **Phase A (landed):** login, primary nav, Catalog tabs, theme toggle, logout — `e2e/test_shell_login.py`, `e2e/test_shell_nav.py`  
 - **Phase B (landed):** open wizard, identity→trust, save & exit, clear-password, advanced form — `e2e/test_add_server_wizard.py`  
-- **v0.9 chrome (landed):** Devices List\|Map, Network hub modals, coverage cards, Schedules/Runs mobile, **`test_e11_templates_ootb_badges`** (Templates OOTB badge), nmap shells — see `e2e/`  
+- Devices List\|Map, Network hub modals, coverage cards, Schedules/Runs, template OOTB badges, nmap shells — see `e2e/`  
 
 Related unit coverage: `tests/test_compose_sets.py`, `tests/test_container_annotations.py`, `tests/test_nest_projects.py`, `tests/test_haos.py`.
 
-!!! note "Operator testing"
-    CI covers unit + Playwright on fixtures. **Live fleet validation** (real SSH, HAOS, auth redirects, Docker Back/bfcache, DNS records modal filters) is done by the operator outside CI — not a substitute for green unit/E2E.
+CI covers unit + Playwright on fixtures. Live fleet validation (real SSH, HAOS, Docker, DNS) is outside CI.
 
 ## CI
 
@@ -86,8 +85,7 @@ Related unit coverage: `tests/test_compose_sets.py`, `tests/test_container_annot
 
 ## Before a release
 
-1. Unit `pytest -q` green (incl. HAOS + template badge/from-host packs)  
+1. Unit `pytest -q` green  
 2. **E2E** `pytest e2e -q` green (CI or local; rebuild e2e image if app templates changed)  
-3. Manual / operator smoke (live fleet): add-server wizard path, HAOS System info + check, from-host with additional files, template deploy, backup, metrics, API token  
-4. Screenshots: full QA review — replace PNGs per the [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) (operator-owned; not in CI)  
-5. See release checklist in [RELEASE_v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) · plan [PLAN_v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md)
+3. Manual smoke on a live fleet: add-server wizard, HAOS check, from-host, template deploy, backup, metrics, API token  
+4. Release notes: [RELEASE_v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md)

@@ -54,9 +54,7 @@ Journey: [Operator scenarios — Journey G](../getting-started/operator-scenario
 - Missing or unknown role → treated as **viewer** (fail-closed).  
 - **SSE / long streams** (Docker logs, build output, backup/OS progress) require a valid session — unauthenticated stream URLs return **401**. Docker **build** stream requires **operator+** (not viewer).
 
-### Production hardening (v1.0.0)
-
-On the road to **v1.0.0**, PiHerder maintains an **authorization matrix** (route × role × API scopes) and automated smoke tests (`tests/test_authz_matrix_v10.py`, `tests/test_rbac.py`). Plan: [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md) (phase **AC**).
+### Authorization matrix
 
 | Surface | Viewer | Operator | Admin |
 |---------|--------|----------|-------|

@@ -143,4 +143,4 @@ Raw SQL is possible but error-prone (bcrypt must match the app). Prefer the CLI 
 - Recover without host/Docker (or a working admin session / future email reset)  
 - Use this CLI without a running stack and `DATABASE_URL` pointing at the real database  
 
-Email self-service reset remains **post-1.0** (roadmap).
+Email self-service password reset is not available yet.

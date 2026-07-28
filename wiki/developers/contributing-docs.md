@@ -50,64 +50,17 @@ Repo-level contributor rules: [CONTRIBUTING.md](https://github.com/bjorngluck/pi
 
 ---
 
-## Toward official **v1.0.0** (docs + process)
+## Doc conventions
 
-Goal for **1.0.0**: operators can install, run day-to-day fleet ops, and upgrade with **one clear story** — not a maze of versioned sites.
+| Practice | Expectation |
+|----------|-------------|
+| Single living wiki on `main` | Documents the **1.x** production line |
+| RELEASE notes per tag | Required for every `v1.x.y` |
+| Feature PRs | Update wiki when UX/API changes |
+| Operator page pattern | **What this is** → **Why** → **End-to-end** → reference |
+| No process notes on operator pages | No freeze lists, screenshot QA callouts, or PLAN residual spam |
 
-### Keep (confirmed)
-
-| Practice | At 1.0 |
-|----------|--------|
-| Single living wiki on `main` | **Yes** — documents the **1.x** line |
-| RELEASE notes per tag | **Yes** — required for every `v1.x.y` |
-| Feature PR updates wiki when UX/API changes | **Yes** |
-| In-app About + GitHub release check | **Yes** — points at tags / release notes |
-
-### Solidify before or at the 1.0 tag
-
-1. **Freeze bar for docs** (same PR/release checklist as code):  
-   - `mkdocs build --strict` green  
-   - Home / install / first-login / roles / env-reference accurate for the tagged version  
-   - Operator scenarios index covers every first-class nav area  
-   - Screenshots: full inventory under [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) (repo only — excluded from the published site) — light desktop defaults; operator full QA replaces every figure as needed
-
-2. **Single release note template** (`docs/RELEASE_v1.0.0.md` and later):  
-   - Highlights  
-   - Upgrade from 0.5.x (migrations, env keys, breaking UI)  
-   - Docs / wiki changes of note  
-   - Known limitations  
-
-3. **Version framing on the home page**  
-   - **Current line:** v1.0.x  
-   - **Previous major** (if any): link RELEASE or a short “0.x archive” note — not a full second wiki  
-
-4. **Support policy (write down at 1.0)**  
-   - Document which tags get security fixes (e.g. latest 1.0.x only, or N-1).  
-   - If only **latest 1.x** is supported, **do not** maintain multi-version MkDocs.  
-
-5. **Optional later: multi-version wiki**  
-   Only if you support **two majors in parallel** (e.g. 1.x + 2.x) with real install/API divergence.  
-   Then use a version selector (e.g. [mike](https://github.com/jimporter/mike) + Material) with:  
-   - `latest` / `1.x` → living docs  
-   - `0.x` or `1.0` frozen snapshot **once** at EOL of that line  
-   Not per minor release.
-
-### Production line (v1.0.x)
-
-- **v1.0.0** first production — [`RELEASE_v1.0.0.md`](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) · [`PLAN_v1.0.0.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md). Prior: [`RELEASE_v0.9.0.md`](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md).  
-- Treat the living wiki as **operator docs for the production line**.  
-- **Screenshots** follow the [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md); refresh when UI freezes for a release.  
-- Page pattern for operator docs (preferred):
-
-  | Block | Purpose |
-  |-------|---------|
-  | **What this is** | Plain-language definition |
-  | **Why it exists** | Problem / value |
-  | **End-to-end** | Numbered happy path |
-  | How / reference | Tables, options, edge cases |
-  | Screenshot | Light desktop PNG on major pages; refresh when UI freezes for 1.0 |
-
-- Operator review workflow: walk [Operator scenarios](../getting-started/operator-scenarios.md) journeys, capture screenshots, amend thin “why” notes in the same PR when possible.
+Before tag: `mkdocs build --strict` green; install / first-login / roles / env-reference accurate for the version.
 
 ---
 
@@ -134,8 +87,6 @@ Goal for **1.0.0**: operators can install, run day-to-day fleet ops, and upgrade
 ## Screenshots (best practice)
 
 **Use a local clone of the repo, save PNGs under `wiki/assets/screenshots/`, update Markdown, preview with `mkdocs serve`, then commit and push.**
-
-That is the supported path for RC documentation with images.
 
 ### Why local + git
 
