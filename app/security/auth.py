@@ -84,6 +84,32 @@ def cookie_auth_kwargs(*, max_age: int) -> dict:
     }
 
 
+def cookie_delete_kwargs() -> dict:
+    """Match set_cookie path/SameSite/Secure so browsers actually drop the cookie."""
+    return {
+        "path": "/",
+        "samesite": "lax",
+        "secure": cookie_secure(),
+    }
+
+
+# Trusted-device cookies must survive logout (skip 2FA on next login).
+# Per-user names so two accounts on one browser do not overwrite each other.
+TRUSTED_COOKIE_LEGACY = "trusted_device"
+
+
+def trusted_cookie_name(user_id: int) -> str:
+    return f"trusted_device_{int(user_id)}"
+
+
+def read_trusted_device_token(cookies: dict, user_id: int) -> Optional[str]:
+    """Prefer per-user cookie; fall back to legacy single-cookie name."""
+    raw = (cookies or {}).get(trusted_cookie_name(user_id))
+    if raw:
+        return raw
+    return (cookies or {}).get(TRUSTED_COOKIE_LEGACY) or None
+
+
 def verify_password(plain: str, hashed: str) -> bool:
     # Truncate input to 72 bytes to be consistent with hashing (prevents library errors on long passwords).
     if isinstance(plain, str):
@@ -575,6 +601,46 @@ def find_valid_trusted_device(session: Session, user_id: int, raw_token: str) ->
     session.add(dev)
     session.commit()
     return dev
+
+
+def ensure_trusted_device(
+    session: Session,
+    user_id: int,
+    raw_token: Optional[str],
+    *,
+    label: Optional[str] = None,
+    user_agent: Optional[str] = None,
+    ip: Optional[str] = None,
+    days: Optional[int] = None,
+) -> Tuple[str, TrustedDevice, bool]:
+    """Return (raw_token, device, created_new).
+
+    If *raw_token* still validates for this user, refresh last_used (and leave
+    the same token) so re-checking “Trust this device” does not duplicate rows.
+    """
+    if raw_token:
+        existing = find_valid_trusted_device(session, user_id, raw_token)
+        if existing:
+            days_n = days if days is not None else settings.TRUSTED_DEVICE_DAYS
+            existing.expires_at = datetime.utcnow() + timedelta(days=days_n)
+            existing.last_used_at = datetime.utcnow()
+            if user_agent:
+                existing.user_agent = (user_agent or "")[:300] or existing.user_agent
+            if ip:
+                existing.ip = ip
+            session.add(existing)
+            session.commit()
+            session.refresh(existing)
+            return raw_token, existing, False
+    raw, dev = create_trusted_device(
+        session,
+        user_id,
+        label=label,
+        user_agent=user_agent,
+        ip=ip,
+        days=days,
+    )
+    return raw, dev, True
 
 
 def revoke_trusted_device(session: Session, user_id: int, device_id: int) -> bool:

@@ -29,7 +29,7 @@ from ..security.auth import (
     generate_backup_codes,
     replace_backup_codes,
     consume_backup_code,
-    create_trusted_device,
+    ensure_trusted_device,
     find_valid_trusted_device,
     revoke_trusted_device,
     revoke_all_trusted_devices,
@@ -40,8 +40,11 @@ from ..security.auth import (
     count_active_admins,
     post_login_path,
     force_2fa_required,
-    cookie_secure,
     cookie_auth_kwargs,
+    cookie_delete_kwargs,
+    trusted_cookie_name,
+    read_trusted_device_token,
+    TRUSTED_COOKIE_LEGACY,
     LOGIN_RATE_MAX,
     LOGIN_RATE_WINDOW,
     TWOFA_RATE_MAX,
@@ -59,8 +62,24 @@ from .. import templates as templates_mod
 
 router = APIRouter()
 
-TRUSTED_COOKIE = "trusted_device"
 PENDING_COOKIE = "pending_2fa"
+
+
+def _set_trusted_device_cookie(response: Response, user_id: int, raw: str) -> None:
+    """Persist 2FA skip token for this user only (survives logout)."""
+    max_age = 60 * 60 * 24 * int(settings.TRUSTED_DEVICE_DAYS or 30)
+    response.set_cookie(
+        trusted_cookie_name(user_id),
+        raw,
+        **cookie_auth_kwargs(max_age=max_age),
+    )
+    # Drop legacy single-name cookie so it cannot fight multi-account browsers
+    response.delete_cookie(TRUSTED_COOKIE_LEGACY, **cookie_delete_kwargs())
+
+
+def _clear_trusted_device_cookie(response: Response, user_id: int) -> None:
+    response.delete_cookie(trusted_cookie_name(user_id), **cookie_delete_kwargs())
+    response.delete_cookie(TRUSTED_COOKIE_LEGACY, **cookie_delete_kwargs())
 
 
 def _client_ip(request: Request) -> Optional[str]:
@@ -151,13 +170,15 @@ async def login(
         and user.totp_secret_encrypted
         and not getattr(user, "must_change_password", False)
     ):
-        raw_trusted = request.cookies.get(TRUSTED_COOKIE)
+        raw_trusted = read_trusted_device_token(request.cookies, user.id)
         if raw_trusted and find_valid_trusted_device(session, user.id, raw_trusted):
             _touch_last_login(session, user)
             _audit(session, user.id, "user_login", "Login (trusted device, 2FA skipped)")
             token = create_user_access_token(user)
             response = RedirectResponse(url=post_login_path(user), status_code=303)
             _set_auth_cookie(response, token)
+            # Refresh browser cookie lifetime (and migrate legacy → per-user name)
+            _set_trusted_device_cookie(response, user.id, raw_trusted)
             return response
 
         pending = create_pending_2fa_token(user.id)
@@ -247,23 +268,18 @@ async def two_factor_submit(
     token = create_user_access_token(user)
     response = RedirectResponse(url=post_login_path(user), status_code=303)
     _set_auth_cookie(response, token)
-    response.delete_cookie(PENDING_COOKIE)
+    response.delete_cookie(PENDING_COOKIE, **cookie_delete_kwargs())
 
     if trust_device in ("1", "on", "true"):
-        raw, _dev = create_trusted_device(
+        raw, _dev, _created = ensure_trusted_device(
             session,
             user.id,
+            read_trusted_device_token(request.cookies, user.id),
             label="Browser",
             user_agent=request.headers.get("user-agent"),
             ip=ip,
         )
-        response.set_cookie(
-            TRUSTED_COOKIE,
-            raw,
-            **cookie_auth_kwargs(
-                max_age=60 * 60 * 24 * int(settings.TRUSTED_DEVICE_DAYS or 30)
-            ),
-        )
+        _set_trusted_device_cookie(response, user.id, raw)
     return response
 
 
@@ -382,11 +398,15 @@ async def register(
 
 @router.get("/logout")
 async def logout():
-    """Clear auth cookie and return to login. (GET is acceptable for logout in this app.)"""
+    """Clear session cookies and return to login.
+
+    Does **not** clear trusted-device cookies — those are meant to skip 2FA on
+    the next password login for this browser (until expiry or revoke).
+    """
     response = RedirectResponse("/auth/login", status_code=303)
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie(PENDING_COOKIE, path="/")
-    response.delete_cookie(TRUSTED_COOKIE, path="/")
+    dk = cookie_delete_kwargs()
+    response.delete_cookie("access_token", **dk)
+    response.delete_cookie(PENDING_COOKIE, **dk)
     return response
 
 
@@ -604,6 +624,7 @@ async def change_password(
     # Re-issue cookie so *this* browser stays signed in; other sessions die
     response = RedirectResponse("/auth/account?msg=password_changed", status_code=303)
     _set_auth_cookie(response, create_user_access_token(user))
+    _clear_trusted_device_cookie(response, user.id)
     return response
 
 
@@ -641,11 +662,27 @@ async def delete_avatar(
 
 
 @router.get("/me/avatar")
-async def my_avatar(user: User = Depends(get_current_user)):
+async def my_avatar(
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
     path = avatar_svc.absolute_avatar_path(user.avatar_path)
     if not path:
+        # Stale DB path (file missing) — clear so UI falls back to letter avatar
+        if user.avatar_path:
+            user.avatar_path = None
+            user.updated_at = datetime.utcnow()
+            session.add(user)
+            session.commit()
         raise HTTPException(404)
-    return FileResponse(path, media_type=avatar_svc.content_type_for_path(path))
+    return FileResponse(
+        path,
+        media_type=avatar_svc.content_type_for_path(path),
+        headers={
+            # Per-user URL + query bust should be enough; never share across sessions
+            "Cache-Control": "private, no-cache, must-revalidate",
+        },
+    )
 
 
 # --- 2FA management ---
@@ -739,7 +776,9 @@ async def two_factor_disable(
     session.commit()
     revoke_all_trusted_devices(session, user.id)
     _audit(session, user.id, "user_2fa_disabled", "TOTP 2FA disabled")
-    return RedirectResponse("/auth/account?msg=2fa_disabled", status_code=303)
+    response = RedirectResponse("/auth/account?msg=2fa_disabled", status_code=303)
+    _clear_trusted_device_cookie(response, user.id)
+    return response
 
 
 @router.post("/account/2fa/backup-codes")
@@ -768,10 +807,12 @@ async def regenerate_backup_codes(
     replace_backup_codes(session, user.id, codes)
     revoke_all_trusted_devices(session, user.id)
     _audit(session, user.id, "user_2fa_backup_regenerated", "Backup codes regenerated")
-    return RedirectResponse(
+    response = RedirectResponse(
         f"/auth/account?msg=backup_codes&backup_codes={','.join(codes)}",
         status_code=303,
     )
+    _clear_trusted_device_cookie(response, user.id)
+    return response
 
 
 @router.post("/account/trusted-devices/{device_id}/revoke")
@@ -782,6 +823,8 @@ async def revoke_device(
 ):
     if revoke_trusted_device(session, user.id, device_id):
         _audit(session, user.id, "user_trusted_device_revoked", f"Device #{device_id}")
+    # Do not clear this browser's cookie: only the revoked row dies. If it was
+    # this browser, the cookie becomes inert on next login (lookup fails).
     return RedirectResponse("/auth/account?msg=device_revoked", status_code=303)
 
 
@@ -792,7 +835,9 @@ async def revoke_all_devices(
 ):
     n = revoke_all_trusted_devices(session, user.id)
     _audit(session, user.id, "user_trusted_device_revoked", f"Revoked all ({n})")
-    return RedirectResponse("/auth/account?msg=devices_revoked", status_code=303)
+    response = RedirectResponse("/auth/account?msg=devices_revoked", status_code=303)
+    _clear_trusted_device_cookie(response, user.id)
+    return response
 
 
 
@@ -851,6 +896,7 @@ async def force_password_submit(
     # Re-issue cookie with current session_version (admin recovery may have bumped it)
     response = RedirectResponse(post_login_path(user), status_code=303)
     _set_auth_cookie(response, create_user_access_token(user))
+    _clear_trusted_device_cookie(response, user.id)
     return response
 
 

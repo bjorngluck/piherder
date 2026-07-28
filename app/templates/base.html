@@ -252,8 +252,8 @@
         <div class="desktop-avatar">
           <details id="user-account" class="user-menu">
             <summary class="avatar-trigger">
-              {% if user.avatar_path %}
-              <img src="/auth/me/avatar" alt="" class="avatar-circle avatar-img" title="{{ user.email }}">
+              {% if user_has_avatar(user) %}
+              <img src="{{ avatar_img_url(user) }}" alt="" class="avatar-circle avatar-img" title="{{ user.email }}">
               {% else %}
               <div class="avatar-circle" title="{{ user.email }}">
                 {{ (user.display_name or user.email)[0].upper() }}

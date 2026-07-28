@@ -6,7 +6,7 @@ A **symptom → page** map when something fails. Start here, then open Jobs, Aud
 
 ## Why this section
 
-RC line still has rough edges. Most failures cluster around SSH path, Celery/backups, push TLS, or template/Docker paths — the linked pages list concrete checks.
+Most failures cluster around SSH path, Celery/backups, push TLS, or template/Docker paths — the linked pages list concrete checks.
 
 | Symptom | Page |
 |---------|------|

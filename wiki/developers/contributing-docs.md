@@ -92,12 +92,11 @@ Goal for **1.0.0**: operators can install, run day-to-day fleet ops, and upgrade
    - `0.x` or `1.0` frozen snapshot **once** at EOL of that line  
    Not per minor release.
 
-### Pre-1.0 (RC line) remains
+### Production line (v1.0.x)
 
 - **v1.0.0** first production — [`RELEASE_v1.0.0.md`](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) · [`PLAN_v1.0.0.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md). Prior: [`RELEASE_v0.9.0.md`](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md).  
-- Treat the living wiki as the **draft of 1.0** operator docs.  
-- **Screenshots** track the tagged 0.9 pack; refresh for 1.0 from the [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).  
-- Home page carries a permanent **RC awareness** callout until **1.0.0**: product and docs may be uneven; 1.0 is the refined production bar.  
+- Treat the living wiki as **operator docs for the production line**.  
+- **Screenshots** follow the [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md); refresh when UI freezes for a release.  
 - Page pattern for operator docs (preferred):
 
   | Block | Purpose |

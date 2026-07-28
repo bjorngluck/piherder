@@ -34,6 +34,11 @@ def ph_brand(extra_class: str = "") -> Markup:
 
 templates.env.globals["ph_brand"] = ph_brand
 
+from .services import avatars as _avatar_svc
+
+templates.env.globals["user_has_avatar"] = _avatar_svc.user_has_avatar
+templates.env.globals["avatar_img_url"] = _avatar_svc.avatar_img_url
+
 
 def _app_tz_filter(dt, fmt="%Y-%m-%d %H:%M"):
     """Render UTC-stored times in the Settings timezone (datetime or ISO string)."""

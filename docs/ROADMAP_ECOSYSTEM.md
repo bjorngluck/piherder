@@ -32,7 +32,7 @@ Design principles stay the same as SPEC:
 | **v0.8.0** | **RC3** — overall polish · extend E2E + **~50% coverage** · **full docs review + screenshots** · **LAN nmap** (auto-create + network view) · brand refresh | Quality + H2.5 H1 | **Tagged** 2026-07-22 — [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md) |
 | **v0.9.0** | **Last pre-production** — UX/UI consistency · unit **55%+** · E2E on touched surfaces · **HAOS path 1** (SSH / `ha` CLI) | Quality + H3 discovery | **Tagged** 2026-07-26 — [RELEASE_v0.9.0.md](RELEASE_v0.9.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) |
 | **v0.8.x / later** | Host stats/commands, bootstrap depth, web SSH; topology column profiles | H2.75 P3–P5 + residual | After RC3 as capacity |
-| **v1.0.0** | **First production** — security · authz · validation · credential recovery · known-issue burn-down · docs | Production bar | **Production-ready** — [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) |
+| **v1.0.0** | **First production** — security · authz · validation · credential recovery · known-issue burn-down · docs | Production bar | **Tagged** 2026-07-28 — [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · Hub `1.0.0` / `1.0` / `latest` |
 | **v1.1** | Cert distribution wizard + sudoers; discovery last-seen / purge; residual prod polish | Post-1.0 | Planned (capacity) |
 | **Post-1.0** | SSO/OIDC · email · password reset · favourites · insights · API/OpenAPI depth · templates fleet overview | H3+ | Backlog / discovery |
 

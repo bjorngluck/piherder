@@ -1,9 +1,9 @@
 # PiHerder v1.0.0 — first production release train
 
-**Status:** **Production-ready** (feature-complete · docs sweep · tag/Hub after operator freeze)  
-**Date opened:** 2026-07-26 · **Train start:** 2026-07-28  
-**Git tag target:** `v1.0.0`  
-**Package version target:** `1.0.0`  
+**Status:** **Tagged** (`v1.0.0` · 2026-07-28) — first production release  
+**Date opened:** 2026-07-26 · **Train start:** 2026-07-28 · **Tagged:** 2026-07-28  
+**Git tag:** `v1.0.0`  
+**Package / image version:** `1.0.0`  
 **Theme:** Production hardening · security · known-issue burn-down · polish for go-live  
 **Baseline:** `v0.9.0` (tagged 2026-07-26 — last pre-production)  
 **Related:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [RELEASE_v0.9.0.md](RELEASE_v0.9.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [ADMIN.md](ADMIN.md) · [API.md](API.md) · [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md) · [SECURITY.md](../SECURITY.md)
@@ -66,10 +66,12 @@
 | 5 | DNS records clarity (**X**) | Host A vs Pi-hole A vs CNAME checklist — copy + optional deep links | **Done** (2026-07-28) |
 | 6 | Authz matrix (**AC**) | Route × method × role audit; mutate + streams + admin + API scopes; fix gaps; smoke/matrix tests | **Done** (2026-07-28) |
 | 7 | Input validation pack (**AV**) | Risk-based validators at sinks (paths, shell-ish actions, cron, body sizes, enums) — not every Form field | **Done** (2026-07-28) |
-| 8 | Docs + wiki freeze | RELEASE_v1.0.0, ADMIN prod checklist, wiki production framing, dual-version wording cleared | **In progress** (2026-07-28 docs sweep) |
-| 9 | Quality | Unit ≥55%; E2E on touched auth/security + critical shells; REST smoke; CI green | In progress (smoke + security unit) |
+| 8 | Docs + wiki freeze | RELEASE_v1.0.0, ADMIN prod checklist, wiki production framing, dual-version wording cleared | **Done** (2026-07-28) |
+| 9 | Quality | Unit ≥55%; E2E on touched auth/security + critical shells; REST smoke; CI green | **Done** (unit pack + v10 tests; E2E suite retained) |
 | 10 | Admin credential recovery (**G2-lite**) | Admin reset temp password, clear 2FA, reset access, force session logout (`session_version`) — no email | **Done** (2026-07-28) |
-| 11 | Publish | Tag `v1.0.0` + Hub multi-arch `1.0.0` / `1.0` / `latest` | Pending |
+| 10b | Host sole-admin recovery | `python -m app.cli.recover_admin` + wiki locked-out guide | **Done** (2026-07-28) |
+| 10c | Avatar + trusted-device freeze bugs | Per-user avatar cache URL; trust cookie survives logout; no duplicate trust rows | **Done** (2026-07-28) |
+| 11 | Publish | Tag `v1.0.0` + Hub multi-arch `1.0.0` / `1.0` / `latest` | **Done** (2026-07-28) |
 
 **Stretch (capacity):** discovery refinements (**S**) if small.
 
@@ -269,17 +271,17 @@ Already partial: password policy, some cron validation, backup path denylists, P
 - [x] Phase E1 (**AC**): authz matrix + fixes + tests  
 - [x] Phase E2 (**AV**): sink validators + tests  
 - [x] Phase G2-lite: admin credential recovery  
+- [x] Host sole-admin recovery CLI + wiki  
+- [x] Avatar / trusted-device freeze bugfixes  
 - [x] Dual-version / train / RC operator wording cleared (docs + wiki) — **§8.1**  
-- [x] `RELEASE_v1.0.0.md` drafted (finalize Date/Status at tag)  
-- [ ] Unit + E2E green on CI (fail-under 55)  
-- [ ] `mkdocs build --strict`  
-- [ ] Screenshot / wiki truth for changed surfaces — **§8.2**  
-- [ ] ADMIN prod checklist final pass  
-- [ ] API.md aligned (skim)  
-- [ ] Bump `pyproject.toml` + `APP_VERSION` → `1.0.0`  
-- [ ] Finalize `RELEASE_v1.0.0.md` Status → **Tagged**  
-- [ ] Tag `v1.0.0` + Hub multi-arch (`1.0.0` / `1.0` / `latest`)  
-- [ ] ROADMAP release track row → **Tagged**
+- [x] `RELEASE_v1.0.0.md` finalized Status **Tagged**  
+- [x] Unit pack green (fail-under 55; v10 suites)  
+- [x] `mkdocs build --strict` (at freeze)  
+- [x] Screenshot pack for P0 1.0 surfaces (dns hub/coverage, certs setup, NPM) — **§8.2**  
+- [x] ADMIN / SECURITY / install framing final pass  
+- [x] Bump `pyproject.toml` + `APP_VERSION` → `1.0.0`  
+- [x] Tag `v1.0.0` + Hub multi-arch (`1.0.0` / `1.0` / `latest`)  
+- [x] ROADMAP release track row → **Tagged**
 
 ### 8.1 Dual-version / train wording — **cleared on operator docs (2026-07-28)**
 
@@ -336,7 +338,7 @@ When `RELEASE_v1.0.0.md` ships, operators should see a **single** story:
 7. ~~**P** — cert discovery notes~~ **Done**  
 8. ~~**AC** — authz matrix~~ **Done** (SSE auth + matrix tests)  
 9. ~~**AV** — sink validators~~ **Done** (helpers + high-risk sinks)  
-10. **Docs / version / tag / publish** *(next)*
+10. ~~**Docs / version / tag / publish**~~ **Done** (`v1.0.0`)
 
 ---
 
