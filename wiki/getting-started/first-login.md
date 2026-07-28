@@ -39,6 +39,10 @@ Enforced on register, password change, and admin-created users:
 
 Admin-created accounts must set a personal password on first login (`/auth/force-password`), then optional force-2FA if enabled. Temporary passwords appear **once** on create — see [Users](../account-security/users.md).
 
+### Locked out after first admin?
+
+There is no default password and no email reset in 1.0. If you forget the sole admin password (or lose 2FA), use host Docker recovery — [Locked out / sole admin](../troubleshooting/locked-out.md) — or create a second admin while you still can.
+
 If you set `ALLOW_OPEN_REGISTRATION=true`, later self-registered accounts become **operator** (not admin). Prefer leaving open registration **off** and creating viewers/operators under Users.
 
 ## After login checklist

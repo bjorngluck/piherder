@@ -69,6 +69,12 @@ When someone loses a password, authenticator, or you need to kick sessions, open
 
 Audit keys: `admin_password_reset`, `admin_2fa_cleared`, `admin_access_reset`, `admin_sessions_revoked`.
 
+### Sole admin locked out (no UI session)
+
+If **no** admin can sign in, use host Docker recovery instead of this page:
+
+→ **[Locked out / sole admin recovery](../troubleshooting/locked-out.md)** (`./scripts/recover-admin.sh` or `python -m app.cli.recover_admin`)
+
 **Not in 1.0:** email “forgot password” self-service, SMTP invite mail — see roadmap (v1.1+).
 
 ## Open registration

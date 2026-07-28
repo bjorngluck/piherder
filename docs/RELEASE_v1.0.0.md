@@ -24,7 +24,8 @@
 - **Auth entry** — unauthenticated `/` → login (no empty dashboard tease)  
 - **Authorization (AC)** — session required on Docker log SSE + build SSE (build = operator+); RBAC matrix tests  
 - **Input validation (AV)** — shared sink validators (paths, hostnames, SSH users, cron, docker actions, cert maps)  
-- **Admin credential recovery** — reset temporary password, clear 2FA, full access reset, force sign-out all sessions (`session_version` JWT invalidation). No email required  
+- **Admin credential recovery** — UI **Users → Recover…** (temp password, clear 2FA, full access reset, force sign-out via `session_version`). No email required  
+- **Host lockout recovery** — sole-admin path: `python -m app.cli.recover_admin` / `./scripts/recover-admin.sh` (Docker exec); wiki [Locked out](../wiki/troubleshooting/locked-out.md)  
 - **Known-issue burn-down** — Docker bfcache wait modal, map second-click unlock, brand-in-buttons, Kuma coverage mobile cards, mute/unmute chrome, NPM certs mobile dense list, DNS records clarity  
 
 ### From 0.9 (still first-class)
@@ -49,6 +50,7 @@ Full checklist: [ADMIN.md — production](ADMIN.md) · wiki [Upgrades](../wiki/o
 
 - [ ] Login / logout; 2FA path if enabled  
 - [ ] Users: create user, **Recover…** → reset password / clear 2FA / sign out sessions / reset access  
+- [ ] Host recovery (optional): `./scripts/recover-admin.sh list` then `reset-access --email … --generate --yes` on a test admin  
 - [ ] Viewer cannot mutate fleet; admin-only Users  
 - [ ] Docker logs stream requires session; build stream operator+  
 - [ ] DNS hub records legend + coverage mobile stack  

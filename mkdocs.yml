@@ -188,6 +188,7 @@ nav:
       - API tokens: operations/api-tokens.md
   - Troubleshooting:
       - Overview: troubleshooting/index.md
+      - Locked out / sole admin: troubleshooting/locked-out.md
       - SSH, rsync & dependencies: troubleshooting/ssh-rsync.md
       - Backups stuck or failing: troubleshooting/backups.md
       - Push / PWA: troubleshooting/push.md
