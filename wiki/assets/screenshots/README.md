@@ -14,9 +14,26 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 |---------|----------------|
 | **v0.6.0–v0.7.0** | Historical — PNG pack deferred / prose-first |
 | **v0.8.0 RC3** (tagged) | Full pack landed — [RELEASE_v0.8.0.md](../../../docs/RELEASE_v0.8.0.md) |
-| **v0.9.0** (tagged) | Operator recapture pack for 0.9 chrome — [RELEASE_v0.9.0.md](../../../docs/RELEASE_v0.9.0.md) · [PLAN_v1.0.0.md](../../../docs/PLAN_v1.0.0.md) |
+| **v0.9.0** (tagged) | Operator recapture pack for 0.9 chrome — [RELEASE_v0.9.0.md](../../../docs/RELEASE_v0.9.0.md) |
+| **v1.0.0** (train → tag) | Recapture **changed** surfaces before tag — list in [PLAN_v1.0.0.md §8.2](../../../docs/PLAN_v1.0.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
+
+!!! note "Until v1.0.0 is tagged"
+    Wiki/home may still say **latest tag v0.9.0** while `main` is the **v1.0 production train**. That dual messaging is **temporary** — remove at freeze ([PLAN §8.1](../../../docs/PLAN_v1.0.0.md)). Prefer capturing 1.0 screenshots from a **rebuilt** image matching freeze `main`, not the old Hub `0.9.0` layer alone.
+
+### v1.0 priority recapture (from PLAN §8.2)
+
+| Priority | Files | 1.0 chrome to show |
+|----------|-------|---------------------|
+| **P0** | `dns-hub.png` | DNS records card; Host A / **CNAME** / External filters + legend |
+| **P0** | `dns-coverage.png` | Dense table desktop; optional mobile cards; Mute/Unmute chips |
+| **P0** | `certificates-setup.png` | Known-edges / distribute discovery card |
+| **P0** | `integrations-npm.png` | Certs as dense cards; plain “Pull into PiHerder” |
+| **P0** | `account-2fa.png` | 2FA section, step-up backup codes modal, trusted-device copy |
+| **P1** | `dns-logical.png`, `dns-physical.png` | Focus / clear-focus still correct |
+| **P1** | `dashboard.png` | Signed-in fleet only (no anonymous empty dashboard) |
+| **P2** | Remainder | Only if caption/PNG disagree |
 
 ---
 

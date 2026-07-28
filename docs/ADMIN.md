@@ -474,9 +474,12 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
-| **Image pin** | Prefer `bjorngluck/piherder:0.9.0` until **v1.0.0** is tagged |
+| **Image pin** | Prefer `bjorngluck/piherder:0.9.0` until **v1.0.0** is tagged (then pin **`1.0.0`**) |
 
 Active ship plan: [PLAN_v1.0.0.md](PLAN_v1.0.0.md). Security model: [SECURITY.md](../SECURITY.md).
+
+!!! note "At v1.0.0 freeze"
+    Clear interim “train / dual version” docs (wiki home, banner, upgrades, README badges, this pin line) per [PLAN §8.1](PLAN_v1.0.0.md). Recapture priority screenshots per [PLAN §8.2](PLAN_v1.0.0.md) / [wiki screenshots README](../wiki/assets/screenshots/README.md).
 
 ### Environment variables
 
