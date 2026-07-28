@@ -277,7 +277,7 @@ Already partial: password policy, some cron validation, backup path denylists, P
 - [x] `RELEASE_v1.0.0.md` finalized Status **Tagged**  
 - [x] Unit pack green (fail-under 55; v10 suites)  
 - [x] `mkdocs build --strict` (at freeze)  
-- [x] Screenshot pack for P0 1.0 surfaces (dns hub/coverage, certs setup, NPM) — **§8.2**  
+- [x] Screenshot pack complete for 1.0 (operator-confirmed; P0 surfaces + full wiki pack) — **§8.2**  
 - [x] ADMIN / SECURITY / install framing final pass  
 - [x] Bump `pyproject.toml` + `APP_VERSION` → `1.0.0`  
 - [x] Tag `v1.0.0` + Hub multi-arch (`1.0.0` / `1.0` / `latest`)  

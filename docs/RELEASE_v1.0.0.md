@@ -95,7 +95,6 @@ Guide: [Install](https://piherder-docs.hacknow.info/getting-started/install/).
 | Discovery last-seen / purge polish | v1.1 |
 | SSO / OIDC, multi-tenant ACLs | Post-1.0 |
 | Coverage fail-under 60% | Not a 1.0 gate (hold ≥55%) |
-| Optional wiki screenshots (account 2FA / users recovery chrome) | Recapture as capacity |
 
 ---
 
