@@ -16,7 +16,7 @@ Copy-pasting `docker-compose.yml` across Pis drifts immediately. Templates give 
 - Desired state, redeploy, and drift detection after deploy  
 - **Desired files** browser, always-write `.env`, and **Accept host as desired** for intentional host-only edits  
 
-**Status:** Foundation **v0.4.0**; ops polish **v0.5.0**; deploy/redeploy as Jobs **v0.6.0**; drift check as Job **v0.7.0**; **v0.9** catalog **OOTB / Yours** badges + groups, from-host **additional files** and host vars, desired-file UX + adopt host — [PLAN_v0.9.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md).
+**Status:** **Production** — catalog **OOTB / Yours** badges + groups, from-host **additional files** and host vars, desired-file UX + adopt host, deploy/redeploy/drift as Jobs. See [RELEASE_v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md).
 
 <figure class="ph-figure" markdown>
   ![Templates catalog](../assets/screenshots/templates-catalog.png)

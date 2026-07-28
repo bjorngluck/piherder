@@ -88,7 +88,7 @@ Only **one** stack mutation runs at a time per host (shared lane with Deploy and
 </figure>
 
 !!! note "Host lifecycle (H2.75)"
-    **Add-host wizard** shipped in **v0.7.0** — [Add a server](../day-to-day/add-server.md). **LAN Discovery (nmap)** shipped in **v0.8.0** — [LAN Discovery](../integrations/lan-discovery.md). **v0.9.0** last pre-production (UX · HAOS · quality) — [RELEASE_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md). Later: host stats / allowlisted commands, bootstrap scripts, optional web SSH — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
+    **Add-host wizard**, **LAN Discovery**, HAOS path 1, and Docker bulk actions are **production**. Later: host stats / allowlisted commands, bootstrap scripts, optional web SSH — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · [RELEASE_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md).
 
 ## Template vs free-form stacks
 

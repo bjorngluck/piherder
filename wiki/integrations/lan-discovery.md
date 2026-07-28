@@ -356,8 +356,8 @@ Linked discovery devices appear on:
 - Options stored per schedule (`options_json`): script preset, timing, top-ports, UDP, port list, SYN vs inherit.  
 - Changes resync APScheduler; audit records configure/scan actions.
 
-!!! note "UX polish (v0.9)"
-    List\|Map Devices, Overview modals, Schedules/Runs dense lists, Offline flag, server-detail **Network path + LAN discovery** side-by-side, and in-app heavy-scan confirm are on the **v0.9** train — [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md). Discovery last-seen / purge / hide refinements are backlog (**v1.1** default) — [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md).
+!!! tip "Production UX"
+    List\|Map Devices, Overview modals, Schedules/Runs dense lists, Offline flag, server-detail **Network path + LAN discovery** side-by-side, and in-app heavy-scan confirm are **production**. Discovery last-seen / purge / hide refinements remain **v1.1** — [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md).
 
 ---
 

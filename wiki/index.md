@@ -6,29 +6,25 @@
 
 **Secure fleet management for Raspberry Pi and Linux hosts** — backups, patching, Docker control, and service templates with secrets encrypted at rest.
 
-## Release status {#rc1}
+## Release status {#release-status}
 
-!!! warning "Please read first"
-    This site documents the **product as of `main`**, with the **latest published tag** called out below.
+!!! success "First production release — v1.0.0"
+    This site documents the **production product**.
 
     | What to expect | Detail |
     |----------------|--------|
-    | **Tagged now** | **[v0.9.0](https://github.com/bjorngluck/piherder/releases/tag/v0.9.0)** — image `bjorngluck/piherder:0.9.0` / `0.9` / `latest` (last pre-production) |
-    | **Active train on `main`** | **v1.0.0 first production** — security harden · known-issue burn-down · authz matrix · sink validation · docs freeze next — [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md) |
-    | **Shipped in v0.9.0** | Operator UX consistency · unit ≥55% · E2E · **HAOS path 1** · LAN/Network/templates polish — [RELEASE_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md) · [HAOS hosts](day-to-day/haos-hosts.md) · [LAN Discovery](integrations/lan-discovery.md) |
-    | **Also in this line** | LAN Discovery (v0.8), add-host wizard (v0.7), Playwright E2E, topology + compose sets, certs/Docker polish |
-    | **Documentation** | Operator-focused living wiki — tracks **main** (v1.0 train) and the latest tag |
-
-    !!! note "Temporary dual version (remove at v1.0.0 tag)"
-        Until **v1.0.0** is tagged, home/banner/install may reference **both** “latest tag **0.9.0**” and “**v1.0 train** on main”. That dual story is intentional for the freeze window and **must be removed** at tag — version pins, train badges, and screenshot recapture list: [PLAN_v1.0.0.md §8.1–8.2](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md).
+    | **Production line** | **[v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md)** — first production (security · authz · validation · credential recovery · operator polish) |
+    | **Image** | `bjorngluck/piherder:1.0.0` · `1.0` · `latest` (at Hub publish); rebuild from `main` until then |
+    | **Prior tag** | [v0.9.0](https://github.com/bjorngluck/piherder/releases/tag/v0.9.0) — last pre-production baseline |
+    | **Documentation** | Operator-focused living wiki for **v1.0.x** |
 
     If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
 
 | | |
 |---|---|
-| **Current tag** | **[v0.9.0](https://github.com/bjorngluck/piherder/releases/tag/v0.9.0)** — image [`bjorngluck/piherder:latest`](https://hub.docker.com/r/bjorngluck/piherder) |
-| **Release notes** | [RELEASE_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md) · prior [v0.8.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md) · [v0.7.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md) |
-| **Ship plan** | **[PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md)** (**active** · first production) · prior [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) |
+| **Current release** | **[v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md)** — first production |
+| **Release notes** | [RELEASE_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) · prior [v0.9.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md) · [v0.8.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md) |
+| **Ship plan** | [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |
@@ -136,7 +132,7 @@ Use this table when you already know the area; use [Operator scenarios](getting-
 
 | Section | What you’ll learn |
 |---------|-------------------|
-| [Getting started](getting-started/index.md) | Install, first admin, HTTPS, appearance, RC context |
+| [Getting started](getting-started/index.md) | Install, first admin, HTTPS, appearance |
 | [Day to day](day-to-day/dashboard-and-services.md) | Dashboard, servers, backups, updates, jobs, remove host |
 | [Docker](docker/overview.md) | Host containers, inventory cache, compose edit |
 | [Templates](service-templates/overview.md) | Catalog templates: deploy, from-host, secrets, drift |
@@ -147,7 +143,7 @@ Use this table when you already know the area; use [Operator scenarios](getting-
 | [Developers](developers/index.md) | Code, tests, docs/screenshot workflow |
 
 !!! tip "Reviewing docs with screenshots"
-    **Full QA:** review every figure under `wiki/assets/screenshots/` against the live UI and replace PNGs as needed. Prose on this site already describes **current** main behaviour (including Network path + LAN side-by-side, Scan now modals, Path map NPM focus, coverage Bind, 2FA backup-code step-up). Checklist + capture order: [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) · [Contributing docs](developers/contributing-docs.md).
+    **Full QA:** review every figure under `wiki/assets/screenshots/` against the live UI and replace PNGs as needed. Prose on this site describes **v1.0 production** behaviour (including Network path + LAN side-by-side, Scan now modals, Path map NPM focus, coverage Bind, 2FA backup-code step-up). Checklist + capture order: [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) · [Contributing docs](developers/contributing-docs.md).
 
 Maintainer roadmaps stay in the **repo** under [`docs/`](https://github.com/bjorngluck/piherder/tree/main/docs) — not in this user-facing tree.
 

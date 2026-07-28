@@ -4,8 +4,8 @@ Quick map from **what you want to do** → the right wiki page, plus **end-to-en
 
 Use this after [Install](install.md) and [First login](first-login.md).
 
-!!! note "RC / v0.9 documentation"
-    Journeys describe the **current** operator path on main. **Full QA and screenshot review** are in progress — prose is source of truth until PNGs are replaced. Track figures with the [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) · [Home RC notice](../index.md#rc1).
+!!! tip "Production documentation"
+    Journeys describe the **v1.0 production** operator path. Track figures with the [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) · [Home — release status](../index.md#release-status).
 
 ---
 

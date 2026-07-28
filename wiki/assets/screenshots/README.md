@@ -19,8 +19,8 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
-!!! note "Until v1.0.0 is tagged"
-    Wiki/home may still say **latest tag v0.9.0** while `main` is the **v1.0 production train**. That dual messaging is **temporary** — remove at freeze ([PLAN §8.1](../../../docs/PLAN_v1.0.0.md)). Prefer capturing 1.0 screenshots from a **rebuilt** image matching freeze `main`, not the old Hub `0.9.0` layer alone.
+!!! tip "v1.0 screenshots"
+    Capture from a **rebuilt** image matching production `main` / `v1.0.0` — not an old Hub `0.9.0` layer alone. Checklist: [PLAN §8.2](../../../docs/PLAN_v1.0.0.md).
 
 ### v1.0 priority recapture (from PLAN §8.2)
 
@@ -180,7 +180,7 @@ Use this order so related chrome is consistent across pages.
 9. **Ops** — Jobs, Backups, Settings status + stale cleanup  
 10. **Account** — push; optional 2FA backup-codes modal  
 
-Known product residuals for **v1.0** (not screenshot blockers unless you want “before” shots): brand-in-red-buttons, mute chrome, coverage mobile bleed, Docker back-button wait modal, cert distribute wizard — [PLAN_v1.0.0.md](../../../docs/PLAN_v1.0.0.md) · [PLAN_v0.9.0 §9](../../../docs/PLAN_v0.9.0.md).
+Residuals for **post-1.0** (not screenshot blockers): full cert distribute wizard, email password reset — [PLAN_v1.0.0.md](../../../docs/PLAN_v1.0.0.md) · [RELEASE_v1.0.0.md](../../../docs/RELEASE_v1.0.0.md).
 
 ---
 

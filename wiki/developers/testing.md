@@ -15,7 +15,7 @@ docker compose run --rm --no-deps \
 pip install --require-hashes -r requirements.lock.txt
 pip install --no-deps -e .
 pytest -q
-# Coverage (hold ≥55% from v0.9; CI fail-under 55 + XML artifact)
+# Coverage (hold ≥55% for v1.0; CI fail-under 55 + XML artifact)
 pip install pytest-cov
 pytest -q --cov=app --cov-report=term-missing:skip-covered --cov-fail-under=55
 ```
@@ -24,9 +24,9 @@ Unit tests live under `tests/` — no live SSH required for the main suite. Defa
 
 | Bar | Value |
 |-----|--------|
-| **Suite freeze target** | **≥ 55%** line on `app` (held from v0.9; ~57% baseline) |
+| **Suite freeze target** | **≥ 55%** line on `app` (~57% baseline; no 60% gate for 1.0) |
 | **CI fail-under** | **55** |
-| **v1.0 train** | Authz matrix + input validation packs added; no 100% target |
+| **v1.0 production** | Authz matrix + input validation + credential recovery tests; no 100% target |
 
 ### v1.0 production-hardening packs
 
@@ -90,4 +90,4 @@ Related unit coverage: `tests/test_compose_sets.py`, `tests/test_container_annot
 2. **E2E** `pytest e2e -q` green (CI or local; rebuild e2e image if app templates changed)  
 3. Manual / operator smoke (live fleet): add-server wizard path, HAOS System info + check, from-host with additional files, template deploy, backup, metrics, API token  
 4. Screenshots: full QA review — replace PNGs per the [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) (operator-owned; not in CI)  
-5. See release checklist in `docs/RELEASE_v*.md` / next plan [PLAN_v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md) · last tag [RELEASE_v0.9.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md)
+5. See release checklist in [RELEASE_v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) · plan [PLAN_v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md)

@@ -171,7 +171,7 @@ If the host is **linked** to a LAN Discovery device, a **LAN** link-style pill a
 
 ## Later onboarding depth
 
-Richer bootstrap scripts, first-boot enrollment, and optional Web SSH remain later host-lifecycle phases — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md). Latest tag: [RELEASE_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md) · next [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md).
+Richer bootstrap scripts, first-boot enrollment, and optional Web SSH remain post-1.0 host-lifecycle work — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md). Current release: [RELEASE_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md).
 
 ## Related
 

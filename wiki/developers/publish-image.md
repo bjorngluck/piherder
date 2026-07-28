@@ -1,6 +1,6 @@
 # Publish image
 
-Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (**v0.9.0+**, `linux/amd64` + `linux/arm64`). Full maintainer checklist: [`docs/PUBLISH_IMAGE.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PUBLISH_IMAGE.md).
+Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (**v1.0.0** production, `linux/amd64` + `linux/arm64`). Full maintainer checklist: [`docs/PUBLISH_IMAGE.md`](https://github.com/bjorngluck/piherder/blob/main/docs/PUBLISH_IMAGE.md).
 
 ## One-time Hub setup
 
@@ -13,7 +13,8 @@ Multi-arch images on **Docker Hub**: [bjorngluck/piherder](https://hub.docker.co
 
 | Tag | Meaning |
 |-----|---------|
-| `0.9.0` | Immutable release |
+| `1.0.0` | Immutable release |
+| `1.0` | Rolling minor |
 | `0.9` | Latest patch in line (optional) |
 | `latest` | Current stable |
 
@@ -23,7 +24,7 @@ Images: `bjorngluck/piherder` (optional later: `ghcr.io/bjorngluck/piherder`).
 
 ```bash
 export IMAGE=bjorngluck/piherder
-export VERSION=0.9.0
+export VERSION=1.0.0
 
 docker buildx create --use --name piherder-builder --driver docker-container 2>/dev/null || true
 docker buildx build \
@@ -42,5 +43,5 @@ Official compose already pulls the published image:
 ```bash
 docker compose up -d
 # pin:
-# PIHERDER_IMAGE=bjorngluck/piherder:0.9.0 docker compose up -d
+# PIHERDER_IMAGE=bjorngluck/piherder:1.0.0 docker compose up -d
 ```

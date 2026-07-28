@@ -6,10 +6,10 @@ The **supported** way to run PiHerder: Docker Compose stack (`web`, `db`, `redis
 
 ## Why Compose
 
-One command brings up the whole control plane with migrations, workers for backups, and optional TLS termination. Other topologies are not documented as supported in RC1.
+One command brings up the whole control plane with migrations, workers for backups, and optional TLS termination. Other topologies (Kubernetes, bare metal) are **not** documented as supported.
 
-!!! warning "RC1"
-    Prefer a lab host first. See [Home — RC1](../index.md#rc1).
+!!! tip "Production install"
+    Prefer a **tagged** image (`1.0.0` / `1.0` / `latest` after Hub publish). See [Home — release status](../index.md#release-status) · [RELEASE_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md).
 
 ---
 
@@ -20,7 +20,7 @@ One command brings up the whole control plane with migrations, workers for backu
 ```bash
 git clone https://github.com/bjorngluck/piherder.git
 cd piherder
-git checkout v0.9.0   # or stay on main
+git checkout v1.0.0   # or main after tag; rebuild from main during pre-tag QA
 cp .env.example .env
 ```
 
@@ -62,7 +62,7 @@ Compose pulls multi-arch **`bjorngluck/piherder:latest`** from Docker Hub (`linu
 To pin a release tag:
 
 ```bash
-PIHERDER_IMAGE=bjorngluck/piherder:0.9.0 docker compose up -d
+PIHERDER_IMAGE=bjorngluck/piherder:1.0.0 docker compose up -d
 ```
 
 ### 5. Open the UI
@@ -146,7 +146,7 @@ To develop against local source, restore `build: .` for `web` / `celery-worker` 
 
 ```bash
 git fetch --tags
-git checkout v0.9.0    # or main
+git checkout v1.0.0    # or later 1.0.x
 docker compose pull
 docker compose up -d
 ```

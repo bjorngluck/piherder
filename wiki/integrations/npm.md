@@ -39,7 +39,7 @@ NPM is often the edge of a homelab. Operators need to see which hostnames are pr
 - Create/edit/delete of proxy hosts stays in the NPM UI for this release  
 - Proxy host **binding** UI is card-based (mobile-friendly selects; host service or Docker cascade)
 
-**Why read-only proxy edit:** RC1 focuses on inventory + certs; full proxy CRUD stays in NPM to avoid half-baked edge configs.
+**Why read-only proxy edit:** production focuses on inventory + certs; full proxy CRUD stays in NPM to avoid half-baked edge configs.
 
 ## Certificates
 

@@ -59,6 +59,10 @@
         Invalid email or password.
         {% endif %}
       </div>
+    {% elif request.query_params.get('msg') == 'sessions_revoked' %}
+      <div class="mb-4 p-3 banner-success border border-border text-sm rounded" role="status">
+        All your sessions were signed out. Sign in again to continue.
+      </div>
     {% endif %}
 
     <form method="post" action="/auth/login" class="space-y-4">

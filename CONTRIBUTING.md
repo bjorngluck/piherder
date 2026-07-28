@@ -20,7 +20,7 @@ All contributions are offered under the **[MIT License](LICENSE)**. By submittin
 ## Getting Started
 
 - Read the [README](README.md) and [SPEC.md](SPEC.md) for project goals and design principles.
-- Latest release: [v0.9.0](docs/RELEASE_v0.9.0.md). Next plan: **v1.0.0** first production — [PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md). Prior train: [PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](docs/FEATURE_PLAN_HOME_ASSISTANT.md).
+- Current production: **[v1.0.0](docs/RELEASE_v1.0.0.md)** first production release — plan [PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md). Prior: [RELEASE_v0.9.0.md](docs/RELEASE_v0.9.0.md).
 - Look for issues tagged `good first issue` or `help wanted`.
 
 ## Documentation
