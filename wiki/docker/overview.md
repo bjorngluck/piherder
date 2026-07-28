@@ -39,15 +39,18 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 |--------|--------|
 | Browse projects / containers | From inventory snapshot ([Inventory](inventory.md)); containers as **dense rows** (not a wide table) |
 | Runtime stack / Path map | Project **Stack** / **Path map** pills → Network stack panel + map expand ([Network maps](../integrations/dns-fabric.md#runtime-stack-detail-altitude)) |
-| Logs | Per container / service (modal or full page). Multi-service projects: pick a service **or All services** (project-level `docker compose logs`) |
-| **Stop / Start / Restart all** | Project ⋯ menu → confirm → **Job** with live log (`docker_stack_stop` / `_start` / `_restart`) |
-| Container start / stop / restart | Row ⋯ on a single service (immediate; not a full-stack job) |
+| Logs | Per container / service (modal or full page). Multi-service projects: pick a service **or All services** (project-level `docker compose logs`). Live SSE requires a **signed-in** session |
+| **Stop / Start / Restart all** | Project ⋯ menu → confirm → **Job** with live log (`docker_stack_stop` / `_start` / `_restart`) — **operator+** |
+| Container start / stop / restart | Row ⋯ on a single service (immediate; not a full-stack job) — **operator+**; actions allowlisted (`start`/`stop`/`restart`) |
 | Quick edit / Full editor | ⋯ menu — quick modal is compose (± Dockerfile) only; **`.env` and sidecars** are full editor — [Compose edit](compose-edit.md) |
 | Multi-file compose edit | primary compose + override + `.env` + Dockerfile + **compose sets** |
 | **Compose sets** | Extra `docker-compose.<name>.yml` in the **same** project folder — see below |
 | Version history | Snapshots; rollback |
-| Build / redeploy | Wait for job / progress UI |
+| Build / redeploy | Build progress page streams over SSE (**operator+** session required); redeploy as Jobs |
 | Check updates vs Deploy | Pull-only vs pull+up as **Jobs** — [Updates](../day-to-day/updates-and-patching.md) |
+
+!!! note "Browser Back on Docker"
+    Leaving Docker for another tool (template deployment, full editor) and pressing **Back** must not leave a stuck “Collecting information from host via SSH” overlay. The page clears the wait chrome when the stack is already loaded (bfcache-safe).
 | Cleanup unused | List dangling images / exited containers (escaped HTML); optional prune |
 | New project wizard | Create a stack on the host |
 | Template-managed stacks | Badge + gated full editor — [Templates](../service-templates/overview.md) |

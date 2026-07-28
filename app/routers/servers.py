@@ -1130,15 +1130,36 @@ async def update_server(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+    from ..services.input_validation import (
+        ValidationError,
+        clamp_str,
+        safe_hostname,
+        safe_path,
+        safe_ssh_user,
+    )
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404, "Server not found")
 
+    try:
+        new_name = clamp_str(name, max_len=120, field="name", allow_empty=False)
+        new_host = safe_hostname(hostname, field="hostname")
+        new_user = safe_ssh_user(ssh_username, field="ssh_username")
+        new_docker_base = safe_path(
+            docker_base_dir or "~/docker",
+            field="docker_base_dir",
+            allow_empty=False,
+        ) or "~/docker"
+    except ValidationError as e:
+        from urllib.parse import quote
+
+        return RedirectResponse(
+            f"/servers/{server_id}?error=invalid&detail={quote(str(e)[:180])}",
+            status_code=303,
+        )
+
     changed: list[str] = []
-    new_name = name.strip()
-    new_host = hostname.strip()
-    new_user = ssh_username.strip()
-    new_docker_base = (docker_base_dir or "~/docker").strip() or "~/docker"
     touch_dns = include_dns in ("1", "on", "true", "yes")
     new_ip = (ip_address or "").strip() or None
     allowed_os = {

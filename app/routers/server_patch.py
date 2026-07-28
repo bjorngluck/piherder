@@ -257,16 +257,17 @@ async def get_server_job_status(
 
 
 def validate_cron(cron: str | None) -> str | None:
-    if not cron:
-        return None
-    cron = cron.strip() or None
+    """Validate schedule cron (v1.0 AV3 — shared shape + optional pycron)."""
+    from ..services.input_validation import ValidationError, safe_cron
+
+    try:
+        cron = safe_cron(cron, field="schedule", allow_empty=True)
+    except ValidationError as e:
+        raise HTTPException(400, detail=str(e)) from e
     if not cron:
         return None
     if pycron:
         try:
-            parts = cron.split()
-            if len(parts) != 5:
-                raise ValueError("not 5 fields")
             pycron.is_now(cron, datetime.now())
         except Exception:
             raise HTTPException(400, "Invalid cron expression. Example: '0 6 * * *'")

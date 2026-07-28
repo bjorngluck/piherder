@@ -17,7 +17,7 @@ Compose injects matching keys into **web** and **celery-worker**. Caddy mainly n
 | Variable | Purpose |
 |----------|---------|
 | `PIHERDER_MASTER_KEY` | Fernet key — SSH keys, integration tokens, template secrets, VAPID private |
-| `SECRET_KEY` | Session / JWT signing — long random in production (not the compose default) |
+| `SECRET_KEY` | Session / JWT signing — long random in production (not the compose default). Web **warns at startup** if the value looks weak/default |
 
 Generate master key:
 
@@ -92,6 +92,7 @@ docker compose --profile nmap up -d celery-worker-nmap
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Session JWT lifetime (default 10080 = 7 days) |
 | `ALGORITHM` | JWT algorithm (default `HS256`) |
 | `TRUSTED_DEVICE_DAYS` | 2FA “trust this device” cookie age (default 30) |
+| `PIHERDER_DISABLE_AUTH_RATE_LIMIT` | Set `1`/`true` only for **E2E/lab** — disables login/2FA/register rate limits (never in production) |
 | `AVATAR_MAX_BYTES` | Max avatar upload size (default 2 MiB) |
 
 ## Metrics / CORS / webhooks

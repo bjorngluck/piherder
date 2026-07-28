@@ -87,6 +87,10 @@ def test_viewer_write_allowlist():
     assert not _viewer_write_allowed("/servers/1/run/os_patch")
     assert not _viewer_write_allowed("/auth/users")
     assert not _viewer_write_allowed("/jobs")
+    # v1.0 AC matrix: DNS / docker / streams are not self-service write
+    assert not _viewer_write_allowed("/dns/services")
+    assert not _viewer_write_allowed("/servers/1/docker/container/restart")
+    assert not _viewer_write_allowed("/servers/1/update")
 
 
 def test_admin_only_paths():

@@ -9,7 +9,7 @@ How to move a running compose install to a newer **git tag or `main`**, pull the
 Upgrades change code *and* schema. A self-backup + unchanged master key is the difference between a smooth pull and an unrecoverable encrypted store.
 
 !!! warning "RC line"
-    Prefer **tagged releases** (`v0.9.0`); treat `main` as moving. See [Home](../index.md#rc1).
+    Prefer **tagged releases** (`v0.9.0` until **v1.0.0** is tagged). `main` is the **v1.0 production train** (hardening) — treat as moving. See [Home](../index.md#rc1) · [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md).
 
 ```bash
 # Config DR first

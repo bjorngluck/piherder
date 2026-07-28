@@ -13,16 +13,16 @@ Password-only access to a fleet control plane is risky on shared or exposed URLs
 ## End-to-end: protect the instance
 
 1. As a user: **Account** → enable TOTP → store **backup codes** offline.  
-2. Optional trusted device (30 days) if you accept that trade-off.  
+2. Optional **trusted device** (default **30 days**, from `TRUSTED_DEVICE_DAYS`) if you accept that trade-off — only on machines you control.  
 3. As admin: **Settings → Security policy → Force 2FA for all**.  
-4. Users without TOTP hit `/auth/force-2fa` after password login (password change-on-first still first if required).  
+4. Users without TOTP hit `/auth/force-2fa` after password login (password change-on-first still first if required), then **Set up 2FA on Account** (jumps to the Account 2FA section).  
 5. For templates, enable **Require 2FA for template deploy & secrets** if operators should not deploy without TOTP.
 
 ---
 
 ## Optional per-user 2FA
 
-**Account** (`/auth/account`) — profile, password, avatar, enable TOTP, save **backup codes**, optional **trusted device** (30 days, revocable), and push preferences.
+**Account** (`/auth/account#account-2fa`) — profile, password, avatar, enable TOTP, save **backup codes**, **trusted devices** (revocable), and push preferences.
 
 **Regenerate backup codes** (Account → Two-factor):
 
@@ -31,6 +31,27 @@ Password-only access to a fleet control plane is risky on shared or exposed URLs
 3. On success, new codes are shown once; old unused codes are invalidated; trusted devices are revoked.
 
 Password alone is **not** enough — this is a deliberate step-up so a stolen session password cannot mint recovery codes.
+
+### Trusted devices
+
+On the 2FA login screen you may **trust this device** for N days (Settings / env default **30**). While trusted, that browser skips the TOTP prompt.
+
+| Risk | Mitigation |
+|------|------------|
+| Stolen laptop with a trusted cookie | Revoke under **Account → Trusted devices**; password change revokes **all** |
+| Shared kiosk | Never enable trust |
+
+Cookies are **HttpOnly**, **SameSite=Lax**, `path=/`, and **Secure** when `PIHERDER_PUBLIC_URL` is `https://…` (or `COOKIE_SECURE=true`).
+
+### Login rate limits
+
+Rough production defaults (in-process; disabled when `PIHERDER_DISABLE_AUTH_RATE_LIMIT` is on for E2E):
+
+| Surface | Limit (approx.) |
+|---------|-----------------|
+| Password login | 10 attempts / 5 minutes / IP |
+| 2FA code | 12 attempts / 5 minutes / IP |
+| Registration | 8 attempts / 10 minutes / IP |
 
 ## Force 2FA for all
 

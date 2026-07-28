@@ -33,9 +33,13 @@
       </div>
       <label class="flex items-center gap-2 text-sm text-muted">
         <input type="checkbox" name="trust_device" value="1">
-        Trust this device for 30 days
+        Trust this device for {{ trusted_device_days|default(30) }} days
       </label>
-      <p class="text-xs text-muted">Trusted devices skip 2FA until expiry. Only use on personal devices you control.</p>
+      <p class="text-xs text-muted">
+        Trusted devices skip the 2FA prompt until they expire or you revoke them under
+        Account → Trusted devices. Only enable on personal devices you control —
+        a stolen laptop with a trusted cookie can sign in without your authenticator.
+      </p>
       <button type="submit" class="w-full mt-2 btn btn-accent font-medium min-h-11">
         Verify
       </button>

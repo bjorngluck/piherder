@@ -1844,15 +1844,93 @@ body.nmap-modal-open {
   min-width: 0;
 }
 .coverage-mute-form {
-  display: inline;
+  display: inline-flex;
+  align-items: center;
   margin-left: 0.35rem;
+  margin-top: 0;
 }
+/* v1.0 (W): Mute/Unmute control parity */
+.coverage-mute-btn,
+.coverage-unmute-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.75rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+  color: var(--color-accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  text-decoration: none;
+}
+.coverage-mute-btn:hover,
+.coverage-unmute-btn:hover {
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-accent) 65%, var(--color-border));
+}
+/* v1.0 (V): stacked cards on narrow viewports — no dual-width bleed */
 @media (max-width: 639px) {
+  .coverage-table-wrap {
+    overflow-x: visible;
+    border: none;
+    background: transparent;
+  }
   .coverage-table {
-    min-width: 28rem;
+    min-width: 0;
+    width: 100%;
+    display: block;
+  }
+  .coverage-table colgroup,
+  .coverage-table thead {
+    display: none;
+  }
+  .coverage-table tbody {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+  .coverage-table tbody tr {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-surface);
+  }
+  .coverage-table tbody tr td {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    border: none;
+    white-space: normal;
+  }
+  .coverage-table tbody tr td.coverage-td-bind {
+    padding-top: 0.15rem;
+  }
+  .coverage-cell-title,
+  .coverage-cell-sub {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+  }
+  .coverage-inline-form {
+    flex-wrap: wrap;
+    width: 100%;
   }
   .coverage-select {
-    max-width: 10rem;
+    max-width: 100%;
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .coverage-mute-form {
+    margin-left: 0;
+    margin-top: 0.25rem;
   }
 }
 

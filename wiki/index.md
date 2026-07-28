@@ -9,15 +9,15 @@
 ## Release status {#rc1}
 
 !!! warning "Please read first"
-    This site documents the **release-candidate line** on the road to **1.0.0**.
+    This site documents the **product as of `main`**, with the **latest published tag** called out below.
 
     | What to expect | Detail |
     |----------------|--------|
-    | **Tagged now** | **[v0.9.0](https://github.com/bjorngluck/piherder/releases/tag/v0.9.0)** — image `bjorngluck/piherder:0.9.0` / `0.9` / `latest` |
-    | **Shipped in v0.9.0** | **Last pre-production** — operator UX consistency · unit ≥55% · E2E · **HAOS path 1** · LAN/Network/templates polish · screenshot pack — [RELEASE_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md) · [HAOS hosts](day-to-day/haos-hosts.md) · [LAN Discovery](integrations/lan-discovery.md) · [Templates](service-templates/overview.md) |
+    | **Tagged now** | **[v0.9.0](https://github.com/bjorngluck/piherder/releases/tag/v0.9.0)** — image `bjorngluck/piherder:0.9.0` / `0.9` / `latest` (last pre-production) |
+    | **Active train on `main`** | **v1.0.0 first production** — security harden · known-issue burn-down · authz matrix · sink validation · docs freeze next — [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md) |
+    | **Shipped in v0.9.0** | Operator UX consistency · unit ≥55% · E2E · **HAOS path 1** · LAN/Network/templates polish — [RELEASE_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md) · [HAOS hosts](day-to-day/haos-hosts.md) · [LAN Discovery](integrations/lan-discovery.md) |
     | **Also in this line** | LAN Discovery (v0.8), add-host wizard (v0.7), Playwright E2E, topology + compose sets, certs/Docker polish |
-    | **Documentation** | Operator-focused living wiki — tracks the **v0.9.0** tag and main |
-    | **Next** | **v1.0.0** first production — security harden + known-issue burn-down — [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md) |
+    | **Documentation** | Operator-focused living wiki — tracks **main** (v1.0 train) and the latest tag |
 
     If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
 
@@ -25,7 +25,7 @@
 |---|---|
 | **Current tag** | **[v0.9.0](https://github.com/bjorngluck/piherder/releases/tag/v0.9.0)** — image [`bjorngluck/piherder:latest`](https://hub.docker.com/r/bjorngluck/piherder) |
 | **Release notes** | [RELEASE_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md) · prior [v0.8.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md) · [v0.7.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.7.0.md) |
-| **Ship plan** | **[PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md)** (next · first production) · prior [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) · [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) |
+| **Ship plan** | **[PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md)** (**active** · first production) · prior [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |

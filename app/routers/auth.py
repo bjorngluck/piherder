@@ -41,6 +41,13 @@ from ..security.auth import (
     post_login_path,
     force_2fa_required,
     cookie_secure,
+    cookie_auth_kwargs,
+    LOGIN_RATE_MAX,
+    LOGIN_RATE_WINDOW,
+    TWOFA_RATE_MAX,
+    TWOFA_RATE_WINDOW,
+    REGISTER_RATE_MAX,
+    REGISTER_RATE_WINDOW,
     ROLE_ADMIN,
     ROLE_OPERATOR,
     ROLE_VIEWER,
@@ -86,10 +93,7 @@ def _set_auth_cookie(response: RedirectResponse, token: str):
     response.set_cookie(
         "access_token",
         token,
-        httponly=True,
-        max_age=60 * 60 * 24 * 7,
-        samesite="lax",
-        secure=cookie_secure(),
+        **cookie_auth_kwargs(max_age=60 * 60 * 24 * 7),
     )
 
 
@@ -120,7 +124,9 @@ async def login(
     session: Session = Depends(get_session)
 ):
     ip = _client_ip(request) or "unknown"
-    if not rate_limit_auth(f"login:{ip}"):
+    if not rate_limit_auth(
+        f"login:{ip}", max_attempts=LOGIN_RATE_MAX, window_seconds=LOGIN_RATE_WINDOW
+    ):
         return RedirectResponse("/auth/login?error=rate", status_code=303)
 
     user = authenticate_user(session, email, password)
@@ -159,10 +165,7 @@ async def login(
         response.set_cookie(
             PENDING_COOKIE,
             pending,
-            httponly=True,
-            max_age=60 * 10,
-            samesite="lax",
-            secure=cookie_secure(),
+            **cookie_auth_kwargs(max_age=60 * 10),
         )
         return response
 
@@ -182,7 +185,11 @@ async def two_factor_page(request: Request):
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="two_factor.html",
-        context={"title": "Two-factor authentication", "error": request.query_params.get("error")}
+        context={
+            "title": "Two-factor authentication",
+            "error": request.query_params.get("error"),
+            "trusted_device_days": settings.TRUSTED_DEVICE_DAYS,
+        },
     )
 
 
@@ -194,7 +201,9 @@ async def two_factor_submit(
     session: Session = Depends(get_session),
 ):
     ip = _client_ip(request) or "unknown"
-    if not rate_limit_auth(f"2fa:{ip}", max_attempts=30):
+    if not rate_limit_auth(
+        f"2fa:{ip}", max_attempts=TWOFA_RATE_MAX, window_seconds=TWOFA_RATE_WINDOW
+    ):
         return RedirectResponse("/auth/2fa?error=rate", status_code=303)
 
     pending = request.cookies.get(PENDING_COOKIE)
@@ -251,10 +260,9 @@ async def two_factor_submit(
         response.set_cookie(
             TRUSTED_COOKIE,
             raw,
-            httponly=True,
-            max_age=60 * 60 * 24 * settings.TRUSTED_DEVICE_DAYS,
-            samesite="lax",
-            secure=cookie_secure(),
+            **cookie_auth_kwargs(
+                max_age=60 * 60 * 24 * int(settings.TRUSTED_DEVICE_DAYS or 30)
+            ),
         )
     return response
 
@@ -294,9 +302,25 @@ async def register(
     password: str = Form(...),
     session: Session = Depends(get_session)
 ):
-    if not _registration_allowed(session):
-        from ..services import password_policy as pwpol
+    from ..services import password_policy as pwpol
 
+    ip = _client_ip(request) or "unknown"
+    if not rate_limit_auth(
+        f"register:{ip}",
+        max_attempts=REGISTER_RATE_MAX,
+        window_seconds=REGISTER_RATE_WINDOW,
+    ):
+        return templates_mod.templates.TemplateResponse(
+            request=request,
+            name="register.html",
+            context={
+                "title": "Register",
+                "error": "Too many registration attempts. Wait a few minutes and try again.",
+                "password_policy_text": pwpol.policy_rules_text(),
+            },
+        )
+
+    if not _registration_allowed(session):
         return templates_mod.templates.TemplateResponse(
             request=request,
             name="register.html",
@@ -310,8 +334,6 @@ async def register(
                 "password_policy_text": pwpol.policy_rules_text(),
             },
         )
-
-    from ..services import password_policy as pwpol
 
     existing = session.exec(select(User).where(User.email == email)).first()
     if existing:
@@ -362,8 +384,9 @@ async def register(
 async def logout():
     """Clear auth cookie and return to login. (GET is acceptable for logout in this app.)"""
     response = RedirectResponse("/auth/login", status_code=303)
-    response.delete_cookie("access_token")
-    response.delete_cookie(PENDING_COOKIE)
+    response.delete_cookie("access_token", path="/")
+    response.delete_cookie(PENDING_COOKIE, path="/")
+    response.delete_cookie(TRUSTED_COOKIE, path="/")
     return response
 
 
@@ -635,12 +658,9 @@ async def two_factor_start(
     response.set_cookie(
         "totp_setup_secret",
         secret,
-        httponly=True,
-        max_age=600,
-        samesite="lax",
-        secure=cookie_secure(),
+        **cookie_auth_kwargs(max_age=600),
     )
-    response.delete_cookie("totp_setup_qr")  # legacy oversized cookie
+    response.delete_cookie("totp_setup_qr", path="/")  # legacy oversized cookie
     return response
 
 

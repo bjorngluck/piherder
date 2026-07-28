@@ -1419,6 +1419,9 @@
       e.root.classList.remove('flex');
       e.root.setAttribute('aria-busy', 'false');
     }
+    // v1.0 (O): never trap Back/bfcache behind a stuck wait modal
+    window.addEventListener('pageshow', function () { hide(); });
+    document.addEventListener('DOMContentLoaded', function () { hide(); });
     return { show: show, hide: hide };
   })();
 

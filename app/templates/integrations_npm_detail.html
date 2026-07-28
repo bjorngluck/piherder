@@ -292,45 +292,41 @@
     <a href="/certificates" class="text-primary hover:underline">Certificates</a>.
     You can also <a href="/certificates/upload" class="text-primary hover:underline">upload PEM files</a> without NPM.
   </p>
-  <div class="table-scroll">
-    <table class="w-full text-sm">
-      <thead>
-        <tr class="text-xs text-muted border-b border-border">
-          <th class="py-2 text-left">ID</th>
-          <th class="text-left">Name</th>
-          <th class="text-left">Domains</th>
-          <th class="text-left">Provider</th>
-          <th class="text-right"></th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for c in certificates %}
-        <tr class="border-b border-border/60">
-          <td class="py-2 font-mono text-xs">{{ c.id }}</td>
-          <td>{{ c.nice_name or '—' }}</td>
-          <td class="text-xs">{{ c.domain_names|join(', ') if c.domain_names else '—' }}</td>
-          <td class="text-xs">{{ c.provider or '—' }}</td>
-          <td class="text-right">
-            {% if can_mutate %}
-            <form method="post" action="/integrations/{{ integration.id }}/npm/pull-cert" class="inline"
-                  data-confirm="Download certificate #{{ c.id }} from NPM and store fullchain + private key encrypted in PiHerder?"
-                  data-confirm-title="Pull certificate"
-                  data-confirm-label="Pull &amp; store"
-                  data-wait-title="Pulling certificate"
-                  data-wait-message="Downloading zip and encrypting PEMs…">
-              <input type="hidden" name="cert_id" value="{{ c.id }}">
-              <input type="hidden" name="name" value="{{ c.nice_name or '' }}">
-              <input type="hidden" name="auto_renew" value="on">
-              <button type="submit" class="btn btn-primary text-xs min-h-9">Pull into {{ ph_brand() }}</button>
-            </form>
-            {% endif %}
-          </td>
-        </tr>
-      {% else %}
-        <tr><td colspan="5" class="py-4 text-muted">No certificates listed.</td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  {# v1.0 (U): dense stacked cards — no wide scroll-only table on mobile #}
+  <div class="ph-dense-list" data-testid="npm-cert-list">
+    {% for c in certificates %}
+    <div class="ph-dense-row" data-testid="npm-cert-row">
+      <div class="ph-dense-row-main min-w-0">
+        <div class="ph-dense-row-title">
+          {{ c.nice_name or 'Certificate' }}
+          <span class="font-mono text-xs text-muted font-normal">#{{ c.id }}</span>
+        </div>
+        <div class="ph-dense-row-meta">
+          <span class="ph-dense-mono truncate max-w-full" title="{{ c.domain_names|join(', ') if c.domain_names else '' }}">
+            {{ c.domain_names|join(', ') if c.domain_names else '—' }}
+          </span>
+          {% if c.provider %}<span>{{ c.provider }}</span>{% endif %}
+        </div>
+      </div>
+      {% if can_mutate %}
+      <div class="ph-dense-row-actions">
+        <form method="post" action="/integrations/{{ integration.id }}/npm/pull-cert"
+              data-confirm="Download certificate #{{ c.id }} from NPM and store fullchain + private key encrypted in PiHerder?"
+              data-confirm-title="Pull certificate"
+              data-confirm-label="Pull &amp; store"
+              data-wait-title="Pulling certificate"
+              data-wait-message="Downloading zip and encrypting PEMs…">
+          <input type="hidden" name="cert_id" value="{{ c.id }}">
+          <input type="hidden" name="name" value="{{ c.nice_name or '' }}">
+          <input type="hidden" name="auto_renew" value="on">
+          <button type="submit" class="btn btn-primary text-xs min-h-9">Pull into PiHerder</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="ph-dense-empty mb-0">No certificates listed.</p>
+    {% endfor %}
   </div>
 </div>
 {% if managed_certs %}

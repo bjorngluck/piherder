@@ -847,7 +847,14 @@ def sudoers_snippet_for_map(
     post_deploy_command: str = "",
     ssh_user: str = "piherder",
 ) -> str:
-    """Suggested NOPASSWD drop-in for least-priv fleet maps (stage_sudo + restarts)."""
+    """Suggested NOPASSWD drop-in for least-priv fleet maps (stage_sudo + restarts).
+
+    Known edges (v1.0 discovery → full wizard likely v1.1):
+    - Assumes home is /home/{ssh_user} (HAOS/custom home needs hand-edit).
+    - Stage path wildcards must match map id dir used by deploy.
+    - Post-deploy systemctl/docker lines are best-effort; verify with `sudo -n …`.
+    - free-form post-deploy is never fully expressible in a single drop-in.
+    """
     wm = _normalize_write_mode(write_mode)
     if wm != "stage_sudo" and not (post_deploy_command or "").strip():
         return (
@@ -855,10 +862,17 @@ def sudoers_snippet_for_map(
             "# Switch to “Stage in home + sudo install” for root-owned destinations."
         )
     final = (remote_dir or "~/certs").rstrip("/") or "/path/to/certs"
+    # Expand ~ for sudoers (must be absolute paths for visudo / sudo matching)
+    if final.startswith("~/"):
+        final = f"/home/{ssh_user}/{final[2:]}"
+    elif final == "~":
+        final = f"/home/{ssh_user}"
     # Keep ~ literal for operator-facing docs when path is under home
     owner = (file_owner or "root").strip() or "root"
     group = (file_group or "root").strip() or "root"
     mode = (file_mode or "600").strip() or "600"
+    user = (ssh_user or "piherder").strip() or "piherder"
+    stage_glob = f"/home/{user}/.piherder/cert-stage/*"
     names: list[str] = []
     lay = layout or "pair"
     if lay in ("pair", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx"):
@@ -869,15 +883,17 @@ def sudoers_snippet_for_map(
         names.append(pfx_filename or "Certificate.pfx")
     names = [n for n in names if n]
     lines = [
-        f"# PiHerder cert deploy — least-priv ({ssh_user})",
-        f"# Install under /etc/sudoers.d/piherder-certs (visudo -c -f …)",
-        f"# Stage dir: ~{ssh_user}/.piherder/cert-stage/<map-id>/",
-        f"{ssh_user} ALL=(root) NOPASSWD: /usr/bin/install -d -o {owner} -g {group} -m 755 {final}",
+        f"# PiHerder cert deploy — least-priv ({user})",
+        f"# Install: sudo tee /etc/sudoers.d/piherder-certs && chmod 440 … && visudo -cf …",
+        f"# Runtime stage: /home/{user}/.piherder/cert-stage/<map-id>/  (must match SSH home)",
+        f"# If home is not /home/{user}, edit stage paths before install.",
+        f"{user} ALL=(root) NOPASSWD: /usr/bin/install -d -o {owner} -g {group} -m 755 {final}",
     ]
     for n in names:
+        # Match deploy: sudo install -o -g -m src dst (exact flags)
         lines.append(
-            f"{ssh_user} ALL=(root) NOPASSWD: /usr/bin/install -o {owner} -g {group} "
-            f"-m {mode} /home/{ssh_user}/.piherder/cert-stage/*/{n} {final}/{n}"
+            f"{user} ALL=(root) NOPASSWD: /usr/bin/install -o {owner} -g {group} "
+            f"-m {mode} {stage_glob}/{n} {final}/{n}"
         )
     post = (post_deploy_command or "").strip()
     if post:

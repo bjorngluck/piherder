@@ -52,6 +52,20 @@ Map cards show **in sync** when the last deploy fingerprint matches the vault (r
 
 The map form shows a **suggested sudoers** drop-in for stage_sudo (install only). Post-deploy restarts may need `systemctl` lines or membership in group `docker` — not free-form root shell.
 
+### Known edges (cert distribute) {#cert-distribute-edges}
+
+Documented on **First-cert setup** and here so operators are not surprised. A full guided “fix sudoers + wizard” remains a later release ([PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md) item **P** / v1.1).
+
+| Edge | Detail |
+|------|--------|
+| **Home path** | Suggested sudoers assumes home is `/home/<ssh-user>` and stage is `~/.piherder/cert-stage/<map-id>/`. Custom homes need hand-edited paths before `visudo -cf`. |
+| **Exact sudo match** | After installing the drop-in, `sudo -n install …` must not prompt. Deploy fails with “sudoers?” when the line does not match the real command. |
+| **Post-deploy** | `systemctl` / `docker compose` need their own allow lines or group membership — the snippet only best-effort hints (e.g. HAProxy). |
+| **Write mode** | Prefer **Stage + sudo install** for root-owned destinations; **direct** only when the SSH user owns the target directory. |
+| **`~/` expansion** | Snippet expands `~/…` remote dirs to absolute `/home/<user>/…` for sudoers matching. |
+
+NPM **Certificates** tab lists certs as **dense stacked cards** (mobile-friendly), with **Pull into PiHerder** as plain button text (brand mark is not used inside solid primary buttons).
+
 ---
 
 ## Mental model

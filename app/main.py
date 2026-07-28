@@ -154,6 +154,19 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.debug("Update check schedule skipped: %s", e)
 
+    # v1.0 (AA): warn when SECRET_KEY looks like a stock/dev default
+    try:
+        from .security.auth import is_weak_secret_key
+        from .config import settings as _sec_settings
+
+        if is_weak_secret_key(getattr(_sec_settings, "SECRET_KEY", None)):
+            logger.warning(
+                "SECRET_KEY looks weak or default — set a long random value in .env "
+                "before production (session JWT signing key)."
+            )
+    except Exception as e:
+        logger.debug("Secret key check skipped: %s", e)
+
     yield
 
     if HAS_SCHEDULER and scheduler and scheduler.running:
@@ -210,7 +223,38 @@ class ClientIpMiddleware(BaseHTTPMiddleware):
             reset_request_client_ip(token)
 
 
+class SameOriginPostMiddleware(BaseHTTPMiddleware):
+    """v1.0 (AA): reject cross-origin browser POSTs that carry session cookies.
+
+    Complements SameSite=Lax. Skips Bearer API, safe methods, and requests with
+    no Origin/Referer (TestClient, curl). When Origin/Referer is present and
+    host-mismatched → 403.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        method = (request.method or "GET").upper()
+        if method in ("POST", "PUT", "PATCH", "DELETE"):
+            auth = (request.headers.get("authorization") or "").strip().lower()
+            path = request.url.path or ""
+            # Automation tokens and public health/metrics are not cookie CSRF targets
+            if auth.startswith("bearer ") or path.startswith("/api/v1"):
+                return await call_next(request)
+            if path in ("/health", "/metrics") or path.startswith("/static"):
+                return await call_next(request)
+            from .security.auth import same_origin_request
+
+            if not same_origin_request(request):
+                from fastapi.responses import JSONResponse
+
+                return JSONResponse(
+                    status_code=403,
+                    content={"detail": "Cross-origin request blocked"},
+                )
+        return await call_next(request)
+
+
 app.add_middleware(ClientIpMiddleware)
+app.add_middleware(SameOriginPostMiddleware)
 
 # Optional CORS (opt-in allowlist). Default off — UI is same-origin; n8n/HA are server-side.
 # CORS is not an auth layer: /api/v1 still requires Bearer + scopes + IP allowlist.
@@ -306,6 +350,10 @@ HERDER_SCHEDULE_JOB_ID = sched.HERDER_SCHEDULE_JOB_ID
 
 @app.get("/", response_class=HTMLResponse)
 async def root(request: Request, user: User = Depends(get_optional_current_user)):
+    # v1.0 (F): unauthenticated visitors get login, not an empty public dashboard.
+    if user is None:
+        return RedirectResponse(url="/auth/login", status_code=303)
+
     # Lightweight fleet dashboard from DB (no SSH, no full fabric SVG).
     servers = []
     fleet = None

@@ -84,9 +84,9 @@
       </form>
       <form method="post" action="/templates/deployments/{{ dep.id }}/migrate-env"
             data-wait-title="Importing .env"
-            data-wait-message="Reading host .env into {{ ph_brand() }} encrypted store…">
+            data-wait-message="Reading host .env into PiHerder encrypted store…">
         <button type="submit" class="btn btn-secondary min-h-11 text-sm"
-                title="Pull host .env secrets into {{ ph_brand() }}">Import host .env</button>
+                title="Pull host .env secrets into PiHerder">Import host .env</button>
       </form>
       <form method="post" action="/templates/deployments/{{ dep.id }}/apply-config"
             data-wait-title="Applying config"
