@@ -68,7 +68,8 @@
 | 7 | Input validation pack (**AV**) | Risk-based validators at sinks (paths, shell-ish actions, cron, body sizes, enums) — not every Form field | **Done** (2026-07-28) |
 | 8 | Docs + wiki freeze | RELEASE_v1.0.0, ADMIN prod checklist, screenshot pack current, API.md aligned | Pending |
 | 9 | Quality | Unit ≥55%; E2E on touched auth/security + critical shells; REST smoke; CI green | In progress (smoke + security unit) |
-| 10 | Publish | Tag `v1.0.0` + Hub multi-arch `1.0.0` / `1.0` / `latest` | Pending |
+| 10 | Admin credential recovery (**G2-lite**) | Admin reset temp password, clear 2FA, reset access, force session logout (`session_version`) — no email | **Done** (2026-07-28) |
+| 11 | Publish | Tag `v1.0.0` + Hub multi-arch `1.0.0` / `1.0` / `latest` | Pending |
 
 **Stretch (capacity):** discovery refinements (**S**) if small.
 
@@ -212,7 +213,9 @@ Centralized model already in place — AC **audits and hardens**, it does not re
 
 Already partial: password policy, some cron validation, backup path denylists, PEM handling, model `max_length`. AV **concentrates** shared helpers on remaining dangerous sinks.
 
-**Not v1.0 (backlog):** user self-password-reset (**G1**), admin OTP reset (**G2**), email/SMTP (**H**), SSO/OIDC (**Z**), full Form→Pydantic migration, multi-tenant RBAC.
+**Not v1.0 (backlog):** user self-password-reset (**G1**), email/SMTP (**H**), SSO/OIDC (**Z**), full Form→Pydantic migration, multi-tenant RBAC.
+
+**In 1.0 (G2-lite):** admin OOB credential recovery on Users — temp password + must change, clear 2FA, full reset access, `session_version` force-logout. No SMTP.
 
 ---
 
@@ -220,8 +223,9 @@ Already partial: password policy, some cron validation, backup path denylists, P
 
 | ID | Item | Destination |
 |----|------|-------------|
-| **G** | Forgot / reset password | Backlog: (1) user self-reset (2) admin-triggered OTP reset, clear 2FA — needs email or OOB story |
-| **H** | Email integration, notification channels, password-reset mail | Post go-live |
+| **G1** | User self-service forgot / reset password | **v1.1+** (needs email story) |
+| **G2-mail** | Admin reset via email OTP / invite mail | **v1.1+** with **H** |
+| **H** | Email integration, notification channels, password-reset mail | Post go-live / **v1.1–v1.2** |
 | **I** | Broader “after go-live” parking lot | ROADMAP |
 | **J** | Favourites / shortcuts | Post-1.0 |
 | **K** | Cross-host same-feature jump | Post-1.0 |
@@ -318,6 +322,7 @@ Full inventory: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/R
 | **P0** | `certificates-setup.png` | Known-edges / cert distribute discovery card |
 | **P0** | `integrations-npm.png` (certs tab if visible) | Dense cert rows; “Pull into PiHerder” plain text |
 | **P0** | `account-2fa.png` | `#account-2fa`, backup-codes modal, trusted-device copy |
+| **P0** | `users-admin.png` (or recapture users) | Recovery actions: Reset password / Clear 2FA / Reset access / Sign out sessions |
 | **P1** | `dns-logical.png` / `dns-physical.png` | Second-click unlock still true; connector focus |
 | **P1** | `docker-logs-modal.png` / build progress if captured | Auth still required for SSE (no product change visible — recapture only if UI drifted) |
 | **P1** | `dashboard.png` (+ optional dark) | Logged-in only path; no anonymous dashboard story |
@@ -376,6 +381,7 @@ When `RELEASE_v1.0.0.md` ships, operators should see a **single** story:
 | 2026-07-28 | **Decision:** production hardening continues with **AC** (authorization matrix) + **AV** (risk-based input validation) **in 1.0** before freeze. Explicitly out: full Form→Pydantic, multi-tenant ACLs. Phase E added; docs freeze renumbered to Phase F. |
 | 2026-07-28 | **AC + AV implemented.** Critical: docker log SSE + build SSE required auth (build = operator+). Shared `input_validation` + wired server update, cert maps, docker actions/prune, cron. Tests: `test_authz_matrix_v10`, `test_input_validation_v10`. Remaining: docs freeze / tag. |
 | 2026-07-28 | **§8.1–8.3 freeze notes:** dual-version / train wording to **remove at tag**; screenshot recapture list for 1.0 surfaces; single production story after RELEASE. |
+| 2026-07-28 | **G2-lite** in 1.0: admin reset password, clear 2FA, reset access, sign-out sessions (`User.session_version` in JWT). Email self-reset (**G1**) + SMTP (**H**) remain **v1.1+**. Tests: `test_admin_credential_recovery_v10`. |
 
 ---
 

@@ -8,10 +8,13 @@ import pytest
 from jwt.exceptions import InvalidTokenError
 
 from app.config import settings
+from types import SimpleNamespace
+
 from app.security.auth import (
     create_access_token,
     create_pending_2fa_token,
     create_secrets_unlock_token,
+    create_user_access_token,
     decode_token_payload,
 )
 
@@ -24,6 +27,14 @@ def test_access_token_roundtrip():
     assert payload is not None
     assert payload["sub"] == "42"
     assert "exp" in payload
+
+
+def test_user_access_token_includes_session_version():
+    token = create_user_access_token(SimpleNamespace(id=11, session_version=2))
+    payload = decode_token_payload(token)
+    assert payload is not None
+    assert payload["sub"] == "11"
+    assert payload["sv"] == 2
 
 
 def test_pending_2fa_claim():

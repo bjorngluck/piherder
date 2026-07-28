@@ -76,6 +76,20 @@ Admin-configurable min length / character classes is **post-RC** (roadmap).
 - Delete requires explicit confirm; you cannot delete yourself.
 - Unknown / empty role → treated as **viewer** (fail-closed).
 
+### Credential recovery (no email required)
+
+Per-user actions on **Users** (production lockout recovery):
+
+| Action | What it does |
+|--------|----------------|
+| **Reset password** | Temporary password (shown once) + `must_change_password`; revokes all sessions + trusted devices. Leaves 2FA intact. |
+| **Clear 2FA** | Wipes TOTP + backup codes; revokes sessions + trusted devices. Password unchanged. Force-2FA policy then re-prompts setup. |
+| **Reset access** | Full recovery: temp password + clear 2FA + kill sessions. Cannot target yourself. |
+| **Sign out sessions** | Invalidates all browser JWTs (`session_version` bump) + trusted devices only. |
+
+Audit actions: `admin_password_reset`, `admin_2fa_cleared`, `admin_access_reset`, `admin_sessions_revoked`.  
+Email self-service reset remains **post-1.0**. Wiki: [Users](../wiki/account-security/users.md#credential-recovery-admin).
+
 ### Open registration (no default admin)
 
 There is **no** built-in `admin@example.com` user. An empty database leaves Register open for the **first** account (role **admin**). After that:

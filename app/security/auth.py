@@ -112,6 +112,24 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return token
 
 
+def user_session_version(user: User) -> int:
+    """Integer embedded in session JWTs; bump to force logout everywhere."""
+    try:
+        return int(getattr(user, "session_version", 0) or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def create_user_access_token(
+    user: User, expires_delta: Optional[timedelta] = None
+) -> str:
+    """Full session cookie JWT bound to the user's current session_version."""
+    return create_access_token(
+        {"sub": str(user.id), "sv": user_session_version(user)},
+        expires_delta=expires_delta,
+    )
+
+
 def create_pending_2fa_token(user_id: int) -> str:
     """Short-lived token after password OK, before TOTP. Does not grant full access."""
     return create_access_token(
@@ -322,6 +340,14 @@ def get_current_user(
 
     user = session.get(User, int(user_id))
     if user is None or not user.is_active:
+        raise credentials_exception
+
+    # Session invalidation: admin recovery / password change bumps session_version
+    try:
+        token_sv = int(payload.get("sv", 0) or 0)
+    except (TypeError, ValueError):
+        token_sv = 0
+    if token_sv != user_session_version(user):
         raise credentials_exception
 
     path = request.url.path or ""

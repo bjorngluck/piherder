@@ -64,6 +64,14 @@
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">User created.</div>
 {% elif msg == 'user_deleted' %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">User deleted.</div>
+{% elif msg == 'password_reset' and not new_user_credentials %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">Temporary password set; sessions revoked.</div>
+{% elif msg == 'access_reset' and not new_user_credentials %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">Access reset (password + 2FA + sessions).</div>
+{% elif msg == '2fa_cleared' %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">2FA cleared; sessions and trusted devices revoked. User must re-enrol if policy requires it.</div>
+{% elif msg == 'sessions_revoked' %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">All sessions signed out for that user.</div>
 {% endif %}
 {% if error == 'last_admin' %}
 <div class="banner-error border border-border rounded p-3 text-sm mb-4">
@@ -71,8 +79,16 @@
 </div>
 {% elif error == 'delete_self' %}
 <div class="banner-error border border-border rounded p-3 text-sm mb-4">You cannot delete your own account.</div>
+{% elif error == 'reset_self' %}
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">
+  Full access reset cannot target your own account. Use <strong>Reset password</strong> / <strong>Clear 2FA</strong>, or ask another admin.
+</div>
 {% elif error == 'delete_confirm' %}
 <div class="banner-error border border-border rounded p-3 text-sm mb-4">Check “Confirm delete” before removing a user.</div>
+{% elif error == 'clear_2fa_confirm' %}
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">Confirm clear 2FA before continuing.</div>
+{% elif error == 'reset_access_confirm' %}
+<div class="banner-error border border-border rounded p-3 text-sm mb-4">Confirm full access reset before continuing.</div>
 {% elif error == 'bad_role' %}
 <div class="banner-error border border-border rounded p-3 text-sm mb-4">Invalid role.</div>
 {% elif error == 'email_taken' %}
@@ -130,8 +146,41 @@
     {% if is_sole %}
     <p class="text-[10px] text-muted mt-2 mb-0">Create or promote another admin before demoting this account.</p>
     {% endif %}
-    <div class="user-card-actions">
+    <div class="user-card-actions flex flex-wrap gap-1.5">
       <a href="/audit?user_id={{ u.id }}" class="btn btn-secondary text-xs min-h-9 px-2.5">Audit</a>
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-9 px-2.5"
+              data-reset-password
+              data-user-id="{{ u.id }}"
+              data-user-email="{{ u.email | e }}"
+              data-user-label="{{ (u.display_name or u.email) | e }}">
+        Reset password
+      </button>
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-9 px-2.5"
+              data-clear-2fa
+              data-user-id="{{ u.id }}"
+              data-user-email="{{ u.email | e }}"
+              data-user-label="{{ (u.display_name or u.email) | e }}"
+              {% if not u.totp_enabled and not u.totp_secret_encrypted %}title="2FA already off — still revokes sessions/devices"{% endif %}>
+        Clear 2FA
+      </button>
+      <form method="post" action="/auth/users/{{ u.id }}/sign-out-sessions" class="inline">
+        <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5"
+                title="Invalidate all browser sessions and trusted devices">
+          Sign out sessions
+        </button>
+      </form>
+      {% if u.id != user.id %}
+      <button type="button"
+              class="btn btn-accent text-xs min-h-9 px-2.5"
+              data-reset-access
+              data-user-id="{{ u.id }}"
+              data-user-email="{{ u.email | e }}"
+              data-user-label="{{ (u.display_name or u.email) | e }}">
+        Reset access
+      </button>
+      {% endif %}
       {% if u.id != user.id and not is_sole %}
       <button type="button"
               class="btn btn-danger text-xs min-h-9 px-2.5"
@@ -204,13 +253,20 @@
   </div>
 </div>
 
-{# Credentials confirmation modal (shown once after create) #}
+{# Credentials confirmation modal (shown once after create / password reset) #}
 {% if new_user_credentials %}
+{% set cred_kind = new_user_credentials.kind or 'create' %}
 <div id="new-user-creds-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3" aria-modal="true" role="dialog">
   <div class="modal-content card p-5 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto border-accent">
-    <h2 class="font-semibold text-text mb-1">User created — copy credentials now</h2>
+    <h2 class="font-semibold text-text mb-1">
+      {% if cred_kind == 'reset_access' %}Access reset — copy credentials now
+      {% elif cred_kind == 'reset' %}Password reset — copy credentials now
+      {% else %}User created — copy credentials now{% endif %}
+    </h2>
     <p class="text-xs text-muted mb-3">
-      This password is shown <strong>once</strong>. Copy the invite below and share it securely.
+      This temporary password is shown <strong>once</strong>. The user must change it on login.
+      {% if cred_kind == 'reset_access' %}2FA was cleared; they re-enrol if policy requires it.{% endif %}
+      All prior sessions for this user were signed out.
     </p>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm mb-3">
       <div><span class="text-muted text-xs">Login URL</span><div class="font-mono break-all">{{ new_user_credentials.login_url }}</div></div>
@@ -230,6 +286,99 @@
   </div>
 </div>
 {% endif %}
+
+{# Reset password modal #}
+<div id="reset-password-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3" aria-modal="true" role="dialog">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-semibold text-lg text-text">Reset password</h3>
+      <button type="button" class="text-muted hover:text-text" id="reset-password-close" aria-label="Close">✕</button>
+    </div>
+    <p class="text-sm text-muted mb-2">
+      Set a temporary password for <strong id="reset-password-label" class="text-text"></strong>
+      (<span id="reset-password-email" class="font-mono text-xs"></span>).
+    </p>
+    <p class="text-xs text-muted mb-3">
+      {{ password_policy_text or 'Strong password required.' }}
+      They must change it on next login. All sessions and trusted devices are revoked.
+    </p>
+    <form method="post" id="reset-password-form" action="#" class="space-y-3">
+      <div>
+        <label class="block text-xs text-muted mb-1" for="reset-user-password">Temporary password</label>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input name="password" id="reset-user-password" type="text" required
+                 minlength="{{ password_min_length or 10 }}" autocomplete="new-password"
+                 class="w-full flex-1 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
+          <button type="button" id="reset-gen-password-btn" class="btn btn-secondary min-h-11 w-full sm:w-auto flex-shrink-0">
+            Generate
+          </button>
+        </div>
+      </div>
+      <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
+        <button type="button" class="btn btn-secondary min-h-11 w-full sm:w-auto" id="reset-password-cancel">Cancel</button>
+        <button type="submit" class="btn btn-accent min-h-11 w-full sm:w-auto">Set temporary password</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# Clear 2FA confirm modal #}
+<div id="clear-2fa-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" aria-modal="true" role="dialog">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-md mx-3">
+    <h3 class="font-semibold text-lg text-text mb-2">Clear 2FA?</h3>
+    <p class="text-sm text-muted mb-1">
+      Remove authenticator + backup codes for
+      <strong id="clear-2fa-label" class="text-text"></strong>
+      (<span id="clear-2fa-email" class="font-mono text-xs"></span>).
+    </p>
+    <p class="text-xs text-muted mb-4">
+      Sessions and trusted devices are revoked. Password is unchanged.
+      If force-2FA is on, they must set up 2FA again after login.
+    </p>
+    <form method="post" id="clear-2fa-form" action="#" class="flex flex-col sm:flex-row gap-2 sm:justify-end">
+      <input type="hidden" name="confirm" value="1">
+      <button type="button" class="btn btn-secondary min-h-11 w-full sm:w-auto order-2 sm:order-1" id="clear-2fa-cancel">Cancel</button>
+      <button type="submit" class="btn btn-accent min-h-11 w-full sm:w-auto order-1 sm:order-2">Clear 2FA</button>
+    </form>
+  </div>
+</div>
+
+{# Full access reset modal #}
+<div id="reset-access-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3" aria-modal="true" role="dialog">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="font-semibold text-lg text-text">Reset access (full recovery)</h3>
+      <button type="button" class="text-muted hover:text-text" id="reset-access-close" aria-label="Close">✕</button>
+    </div>
+    <p class="text-sm text-muted mb-2">
+      Recover lockout for <strong id="reset-access-label" class="text-text"></strong>
+      (<span id="reset-access-email" class="font-mono text-xs"></span>).
+    </p>
+    <ul class="text-xs text-muted list-disc pl-4 mb-3 space-y-1">
+      <li>New temporary password (must change on login)</li>
+      <li>2FA + backup codes cleared</li>
+      <li>All sessions and trusted devices signed out</li>
+    </ul>
+    <form method="post" id="reset-access-form" action="#" class="space-y-3">
+      <input type="hidden" name="confirm" value="1">
+      <div>
+        <label class="block text-xs text-muted mb-1" for="reset-access-password">Temporary password</label>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input name="password" id="reset-access-password" type="text" required
+                 minlength="{{ password_min_length or 10 }}" autocomplete="new-password"
+                 class="w-full flex-1 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 font-mono">
+          <button type="button" id="reset-access-gen-btn" class="btn btn-secondary min-h-11 w-full sm:w-auto flex-shrink-0">
+            Generate
+          </button>
+        </div>
+      </div>
+      <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
+        <button type="button" class="btn btn-secondary min-h-11 w-full sm:w-auto" id="reset-access-cancel">Cancel</button>
+        <button type="submit" class="btn btn-accent min-h-11 w-full sm:w-auto">Reset access</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 {# Delete user confirm modal #}
 <div id="delete-user-modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50" aria-modal="true" role="dialog">
@@ -415,38 +564,162 @@
   })();
   {% endif %}
 
+  function showModal(el) {
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.add('flex');
+  }
+  function hideModal(el) {
+    if (!el) return;
+    el.classList.add('hidden');
+    el.classList.remove('flex');
+  }
+
+  // Reset password modal
+  var resetPwModal = document.getElementById('reset-password-modal');
+  var resetPwForm = document.getElementById('reset-password-form');
+  var resetPwInput = document.getElementById('reset-user-password');
+  var resetPwGen = document.getElementById('reset-gen-password-btn');
+  function openResetPassword(id, email, label) {
+    if (!resetPwForm || !resetPwModal) return;
+    resetPwForm.action = '/auth/users/' + encodeURIComponent(id) + '/reset-password';
+    var lab = document.getElementById('reset-password-label');
+    var em = document.getElementById('reset-password-email');
+    if (lab) lab.textContent = label || email || 'user';
+    if (em) em.textContent = email || '';
+    if (resetPwInput) {
+      resetPwInput.value = generatePassword(16);
+      resetPwInput.type = 'text';
+    }
+    showModal(resetPwModal);
+  }
+  function closeResetPassword() { hideModal(resetPwModal); }
+  document.querySelectorAll('[data-reset-password]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openResetPassword(btn.getAttribute('data-user-id'), btn.getAttribute('data-user-email'), btn.getAttribute('data-user-label'));
+    });
+  });
+  if (resetPwGen && resetPwInput) {
+    resetPwGen.addEventListener('click', function () {
+      resetPwInput.value = generatePassword(16);
+      resetPwInput.focus();
+      resetPwInput.select();
+    });
+  }
+  var resetPwClose = document.getElementById('reset-password-close');
+  var resetPwCancel = document.getElementById('reset-password-cancel');
+  if (resetPwClose) resetPwClose.addEventListener('click', closeResetPassword);
+  if (resetPwCancel) resetPwCancel.addEventListener('click', closeResetPassword);
+  if (resetPwModal) {
+    resetPwModal.addEventListener('click', function (e) {
+      if (e.target === resetPwModal) closeResetPassword();
+    });
+  }
+
+  // Clear 2FA modal
+  var clear2faModal = document.getElementById('clear-2fa-modal');
+  var clear2faForm = document.getElementById('clear-2fa-form');
+  function openClear2fa(id, email, label) {
+    if (!clear2faForm || !clear2faModal) return;
+    clear2faForm.action = '/auth/users/' + encodeURIComponent(id) + '/clear-2fa';
+    var lab = document.getElementById('clear-2fa-label');
+    var em = document.getElementById('clear-2fa-email');
+    if (lab) lab.textContent = label || email || 'user';
+    if (em) em.textContent = email || '';
+    showModal(clear2faModal);
+  }
+  function closeClear2fa() { hideModal(clear2faModal); }
+  document.querySelectorAll('[data-clear-2fa]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openClear2fa(btn.getAttribute('data-user-id'), btn.getAttribute('data-user-email'), btn.getAttribute('data-user-label'));
+    });
+  });
+  var clear2faCancel = document.getElementById('clear-2fa-cancel');
+  if (clear2faCancel) clear2faCancel.addEventListener('click', closeClear2fa);
+  if (clear2faModal) {
+    clear2faModal.addEventListener('click', function (e) {
+      if (e.target === clear2faModal) closeClear2fa();
+    });
+  }
+
+  // Full access reset modal
+  var resetAccessModal = document.getElementById('reset-access-modal');
+  var resetAccessForm = document.getElementById('reset-access-form');
+  var resetAccessInput = document.getElementById('reset-access-password');
+  var resetAccessGen = document.getElementById('reset-access-gen-btn');
+  function openResetAccess(id, email, label) {
+    if (!resetAccessForm || !resetAccessModal) return;
+    resetAccessForm.action = '/auth/users/' + encodeURIComponent(id) + '/reset-access';
+    var lab = document.getElementById('reset-access-label');
+    var em = document.getElementById('reset-access-email');
+    if (lab) lab.textContent = label || email || 'user';
+    if (em) em.textContent = email || '';
+    if (resetAccessInput) {
+      resetAccessInput.value = generatePassword(16);
+      resetAccessInput.type = 'text';
+    }
+    showModal(resetAccessModal);
+  }
+  function closeResetAccess() { hideModal(resetAccessModal); }
+  document.querySelectorAll('[data-reset-access]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openResetAccess(btn.getAttribute('data-user-id'), btn.getAttribute('data-user-email'), btn.getAttribute('data-user-label'));
+    });
+  });
+  if (resetAccessGen && resetAccessInput) {
+    resetAccessGen.addEventListener('click', function () {
+      resetAccessInput.value = generatePassword(16);
+      resetAccessInput.focus();
+      resetAccessInput.select();
+    });
+  }
+  var resetAccessClose = document.getElementById('reset-access-close');
+  var resetAccessCancel = document.getElementById('reset-access-cancel');
+  if (resetAccessClose) resetAccessClose.addEventListener('click', closeResetAccess);
+  if (resetAccessCancel) resetAccessCancel.addEventListener('click', closeResetAccess);
+  if (resetAccessModal) {
+    resetAccessModal.addEventListener('click', function (e) {
+      if (e.target === resetAccessModal) closeResetAccess();
+    });
+  }
+
   // Delete user modal
-  var modal = document.getElementById('delete-user-modal');
-  var form = document.getElementById('delete-user-form');
-  var labelEl = document.getElementById('delete-user-label');
-  var emailEl = document.getElementById('delete-user-email');
-  var cancelBtn = document.getElementById('delete-user-cancel');
-  if (!modal || !form) return;
+  var delModal = document.getElementById('delete-user-modal');
+  var delForm = document.getElementById('delete-user-form');
+  var delLabelEl = document.getElementById('delete-user-label');
+  var delEmailEl = document.getElementById('delete-user-email');
+  var delCancelBtn = document.getElementById('delete-user-cancel');
 
   function openDelete(id, email, label) {
-    form.action = '/auth/users/' + encodeURIComponent(id) + '/delete';
-    if (labelEl) labelEl.textContent = label || email || 'user';
-    if (emailEl) emailEl.textContent = email || '';
-    modal.classList.remove('hidden');
+    if (!delForm || !delModal) return;
+    delForm.action = '/auth/users/' + encodeURIComponent(id) + '/delete';
+    if (delLabelEl) delLabelEl.textContent = label || email || 'user';
+    if (delEmailEl) delEmailEl.textContent = email || '';
+    showModal(delModal);
   }
   function closeDelete() {
-    modal.classList.add('hidden');
-    form.action = '#';
+    hideModal(delModal);
+    if (delForm) delForm.action = '#';
   }
   document.querySelectorAll('[data-delete-user]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       openDelete(btn.getAttribute('data-user-id'), btn.getAttribute('data-user-email'), btn.getAttribute('data-user-label'));
     });
   });
-  if (cancelBtn) cancelBtn.addEventListener('click', closeDelete);
-  modal.addEventListener('click', function (e) {
-    if (e.target === modal) closeDelete();
-  });
+  if (delCancelBtn) delCancelBtn.addEventListener('click', closeDelete);
+  if (delModal) {
+    delModal.addEventListener('click', function (e) {
+      if (e.target === delModal) closeDelete();
+    });
+  }
+
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') {
-      if (createModal && !createModal.classList.contains('hidden')) hideCreate();
-      else if (modal && !modal.classList.contains('hidden')) closeDelete();
-    }
+    if (e.key !== 'Escape') return;
+    if (createModal && !createModal.classList.contains('hidden')) hideCreate();
+    else if (resetPwModal && !resetPwModal.classList.contains('hidden')) closeResetPassword();
+    else if (clear2faModal && !clear2faModal.classList.contains('hidden')) closeClear2fa();
+    else if (resetAccessModal && !resetAccessModal.classList.contains('hidden')) closeResetAccess();
+    else if (delModal && !delModal.classList.contains('hidden')) closeDelete();
   });
 })();
 </script>
