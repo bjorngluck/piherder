@@ -297,7 +297,9 @@ Historical RELEASE / PLAN files for 0.x **stay as-is** (archive). Do not rewrite
 
 ### 8.2 Screenshots to recapture for v1.0 (operator)
 
-Full inventory: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md). For **1.0**, prioritize surfaces that **changed on this train** or that still show 0.9-era chrome:
+**Status (2026-07-28):** Operator confirmed **all screenshots in place** for the `v1.0.0` freeze (wiki `assets/screenshots/` pack).  
+
+Full inventory: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md). For **1.0**, priority surfaces that **changed on this train** (reference list — complete):
 
 | Priority | File(s) | Why (1.0 chrome) |
 |----------|---------|------------------|
