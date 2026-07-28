@@ -53,7 +53,7 @@ checklist:
 - No arbitrary Jinja/code in untrusted imports.  
 - Secrets → encrypted in PiHerder; written to host `.env` mode `600`.
 
-### Additional files (v0.9)
+### Additional files
 
 | Topic | Behaviour |
 |-------|-----------|
@@ -62,7 +62,7 @@ checklist:
 | Host literals | Short host name → `NODE_NAME`; FQDN → `HOST_FQDN`; other remote URLs → dedicated vars (e.g. `LOKI_URL`) |
 | Deploy | All rendered files written next to the project on the host |
 
-### Catalog source badges (v0.9)
+### Catalog source badges
 
 | Badge | `source` | Notes |
 |-------|----------|--------|

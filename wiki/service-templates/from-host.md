@@ -8,8 +8,7 @@
 
 Most fleets already have stacks that pre-date PiHerder. Re-typing compose by hand loses real ports, mounts, env, and **sidecar configs** (Promtail, agent YAML, etc.). From host is the on-ramp: capture what works, parameterise host-specific names, then redeploy or standardise later.
 
-!!! tip "From-host extras"
-    Relative config mounts and host-name variables (`NODE_NAME`, remote URLs) are **production**. After deploy, view/edit sidecars under **Desired files** or the host full editor; keep intentional host-only compose edits with **Accept host as desired** — [Deploy](deploy.md).
+Relative config mounts and host-name variables (`NODE_NAME`, remote URLs) are included when present. After deploy, view/edit sidecars under **Desired files** or the host full editor; keep intentional host-only compose edits with **Accept host as desired** — [Deploy](deploy.md).
 
 ---
 

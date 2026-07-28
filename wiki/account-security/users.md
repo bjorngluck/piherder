@@ -39,7 +39,7 @@ The page uses the shared **ops-hero** (role / 2FA coverage pulse). Each user car
 - Upper + lower + digit  
 - At most **72 Latin letters/digits** (emoji/symbols count as more)  
 
-Configurable admin policy (custom min length / classes) is **post-RC** — see roadmap.
+Configurable admin policy (custom min length / character classes) is not available yet.
 
 ## Roles and delete
 
@@ -75,7 +75,7 @@ If **no** admin can sign in, use host Docker recovery instead of this page:
 
 → **[Locked out / sole admin recovery](../troubleshooting/locked-out.md)** (`./scripts/recover-admin.sh` or `python -m app.cli.recover_admin`)
 
-**Not in 1.0:** email “forgot password” self-service, SMTP invite mail — see roadmap (v1.1+).
+Email “forgot password” self-service and SMTP invite mail are not available yet.
 
 ## Open registration
 

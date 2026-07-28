@@ -16,15 +16,10 @@ Copy-pasting `docker-compose.yml` across Pis drifts immediately. Templates give 
 - Desired state, redeploy, and drift detection after deploy  
 - **Desired files** browser, always-write `.env`, and **Accept host as desired** for intentional host-only edits  
 
-**Status:** **Production** — catalog **OOTB / Yours** badges + groups, from-host **additional files** and host vars, desired-file UX + adopt host, deploy/redeploy/drift as Jobs. See [RELEASE_v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md).
-
 <figure class="ph-figure" markdown>
   ![Templates catalog](../assets/screenshots/templates-catalog.png)
   <figcaption>Catalog → Templates — **OOTB** vs **Yours** badges (and section headers when both kinds exist).</figcaption>
 </figure>
-
-!!! note "Screenshots"
-    `templates-catalog.png` is on the **full QA review list** — [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md). Prose below matches current UI.
 
 ---
 

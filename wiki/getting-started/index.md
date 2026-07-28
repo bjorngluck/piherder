@@ -2,12 +2,6 @@
 
 This section takes you from **zero** to a **running PiHerder** with a first admin account and a clear idea of what to do next.
 
-!!! success "First production — v1.0.0"
-    You are installing the **production** line (**v1.0.x**).
-
-    - Full context: [Home — release status](../index.md#release-status) · [RELEASE_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md).  
-    - Supported topology: **Docker Compose** only (see below).
-
 ## What you are setting up
 
 | Piece | Role |
@@ -59,9 +53,6 @@ A realistic production onboarding path:
 4. **Run one OS update check** — [Updates](../day-to-day/updates-and-patching.md) (check before any apply schedule; HAOS uses `ha` CLI).  
 5. **Open Jobs + Audit** — [Jobs, audit & notifications](../day-to-day/jobs-audit-notifications.md) so you trust the trail.  
 6. **Optional:** Kuma / [templates](../service-templates/overview.md) / network / HAOS — only after the host path feels solid.
-
-!!! tip "Screenshots"
-    Replace PNGs when the live UI drifts from figures ([checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md)).
 
 Detailed “I want to…” tables and longer journeys: [Operator scenarios](operator-scenarios.md).
 

@@ -87,9 +87,6 @@ Only **one** stack mutation runs at a time per host (shared lane with Deploy and
   <figcaption>Project ⋯ Stop / Start / Restart all — confirm then Job with live log.</figcaption>
 </figure>
 
-!!! note "Host lifecycle (H2.75)"
-    **Add-host wizard**, **LAN Discovery**, HAOS path 1, and Docker bulk actions are **production**. Later: host stats / allowlisted commands, bootstrap scripts, optional web SSH — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md) · [RELEASE_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md).
-
 ## Template vs free-form stacks
 
 | Kind | Edit path | Why |

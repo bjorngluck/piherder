@@ -30,9 +30,6 @@ Without a server record you have no place to store the encrypted SSH key, featur
   <figcaption>Add-host wizard — multi-step onboarding (Identity through Done). Connect: install key → test → clear password; Features explain HAOS / rsync.</figcaption>
 </figure>
 
-!!! note "Screenshots"
-    Wizard and Done PNGs are on the **full QA review list**. Replace if the figure lags chrome — [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).
-
 1. **Identity** — display name, hostname/IP, SSH user and port (creates the fleet row).  
 2. **Trust** — generate a keypair (recommended), upload a key, or password-only (discouraged); optional **one-time password** only to bootstrap key deploy. Private material is encrypted at rest and never re-shown.  
 3. **Connect** — ordered path: **install public key** (copy / install script / Deploy) → **Test connection** → **Clear stored password** when key-only works.  
@@ -132,8 +129,6 @@ Below the dest cards, a **two-column row** (stacked on narrow screens) holds:
 | **Network path** | Mapped app names that land on this host; **Open on hosts map** and **Path map** (matched secondary buttons) jump into Catalog → Network maps |
 | **LAN discovery** | When linked — always-visible soft-embed card (IP, ports, kind; **Edit device** / **Map view**) matching Network path’s outer + inner card layout |
 
-Screenshots (`server-detail.png`, `nmap-server-embed.png`) are on the **full QA recapture list** — [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).
-
 ## Feature flags
 
 **Wizard Features** or **Edit → Features** — enable only what you need:
@@ -168,10 +163,6 @@ If the host is **linked** to a LAN Discovery device, a **LAN** link-style pill a
   ![Server detail](../assets/screenshots/server-detail.png)
   <figcaption>Server detail — dest cards, Network path + LAN discovery side-by-side, jobs.</figcaption>
 </figure>
-
-## Later onboarding depth
-
-Richer bootstrap scripts, first-boot enrollment, and optional Web SSH remain post-1.0 host-lifecycle work — [FEATURE_PLAN_HOST_LIFECYCLE.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md). Current release: [RELEASE_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md).
 
 ## Related
 

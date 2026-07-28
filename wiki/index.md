@@ -8,26 +8,16 @@
 
 ## Release status {#release-status}
 
-!!! success "First production release — v1.0.0"
-    This site documents the **production product**.
-
-    | What to expect | Detail |
-    |----------------|--------|
-    | **Production line** | **[v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md)** — first production (security · authz · validation · credential recovery · operator polish) |
-    | **Image** | `bjorngluck/piherder:1.0.0` · `1.0` · `latest` (multi-arch amd64 + arm64) |
-    | **Prior tag** | [v0.9.0](https://github.com/bjorngluck/piherder/releases/tag/v0.9.0) — last pre-production baseline |
-    | **Documentation** | Operator-focused living wiki for **v1.0.x** |
-
-    If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
-
 | | |
 |---|---|
 | **Current release** | **[v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md)** — first production |
-| **Release notes** | [RELEASE_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) · prior [v0.9.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md) · [v0.8.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.8.0.md) |
-| **Ship plan** | [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md) |
+| **Image** | `bjorngluck/piherder:1.0.0` · `1.0` · `latest` (multi-arch amd64 + arm64) |
+| **Release notes** | [RELEASE_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) · prior [v0.9.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v0.9.0.md) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |
+
+If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
 
 ---
 
@@ -140,12 +130,7 @@ Use this table when you already know the area; use [Operator scenarios](getting-
 | [Account & security](account-security/roles.md) | RBAC, users, 2FA, PWA |
 | [Operations](operations/settings.md) | Settings, env, DR, metrics, API |
 | [Troubleshooting](troubleshooting/index.md) | Common failures and where to look |
-| [Developers](developers/index.md) | Code, tests, docs/screenshot workflow |
-
-!!! tip "Reviewing docs with screenshots"
-    **Full QA:** review every figure under `wiki/assets/screenshots/` against the live UI and replace PNGs as needed. Prose on this site describes **v1.0 production** behaviour (including Network path + LAN side-by-side, Scan now modals, Path map NPM focus, coverage Bind, 2FA backup-code step-up). Checklist + capture order: [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) · [Contributing docs](developers/contributing-docs.md).
-
-Maintainer roadmaps stay in the **repo** under [`docs/`](https://github.com/bjorngluck/piherder/tree/main/docs) — not in this user-facing tree.
+| [Developers](developers/index.md) | Code, tests, contributing |
 
 ---
 
@@ -153,15 +138,13 @@ Maintainer roadmaps stay in the **repo** under [`docs/`](https://github.com/bjor
 
 <figure class="ph-figure" markdown>
   ![Dashboard](assets/screenshots/dashboard.png)
-  <figcaption>Dashboard — fleet summary and attention table (light desktop).</figcaption>
+  <figcaption>Dashboard — fleet summary and attention table.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
   ![Dashboard dark](assets/screenshots/dashboard-dark.png)
-  <figcaption>Optional dark showcase of the same home surface.</figcaption>
+  <figcaption>Same surface in dark theme.</figcaption>
 </figure>
-
-Default: **light + desktop**. Optional dark/mobile showcases only. Full inventory + QA capture order: [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md).
 
 ---
 

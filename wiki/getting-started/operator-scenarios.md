@@ -4,9 +4,6 @@ Quick map from **what you want to do** → the right wiki page, plus **end-to-en
 
 Use this after [Install](install.md) and [First login](first-login.md).
 
-!!! tip "Production documentation"
-    Journeys describe the **v1.0 production** operator path. Track figures with the [screenshots checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) · [Home — release status](../index.md#release-status).
-
 ---
 
 ## End-to-end journeys
@@ -27,9 +24,6 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 | 6 | Open [Dashboard](../day-to-day/dashboard-and-services.md) | Confirm the host appears; no mystery tiles yet |
 
 **Done when:** Server detail shows green-enough SSH/deps for enabled features; no password left stored if key auth works.
-
-!!! note "Later host lifecycle"
-    Bootstrap scripts / optional web SSH remain later — [Host lifecycle plan](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md).
 
 ---
 

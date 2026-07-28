@@ -94,5 +94,4 @@ Per-host view: **Server → Services** (`/servers/{id}/services`) — same card 
 - [Updates & patching](updates-and-patching.md) — what “attention” means  
 - [Jobs, audit & notifications](jobs-audit-notifications.md)  
 - [Uptime Kuma](../integrations/uptime-kuma.md)  
-- [Network maps](../integrations/dns-fabric.md)  
-- Post-RC host ops (planned): [FEATURE_PLAN_HOST_LIFECYCLE](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOST_LIFECYCLE.md)
+- [Network maps](../integrations/dns-fabric.md)

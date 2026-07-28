@@ -4,7 +4,7 @@
 
 PiHerder can manage a **Home Assistant OS** appliance as a normal fleet **Server** over **SSH** (Terminal & SSH add-on). Updates, system facts, and backups use the **`ha` CLI** and plain **rsync** — not apt and not Docker Compose fleet management.
 
-**Production support (path 1):** PiHerder → HAOS via SSH + `ha` CLI. Deeper REST integration, container-only HA, and an HA→PiHerder custom component remain **later** — see [FEATURE_PLAN_HOME_ASSISTANT.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOME_ASSISTANT.md). HA can already call PiHerder with [API tokens](../operations/api-tokens.md).
+**Supported path:** PiHerder → HAOS via SSH + `ha` CLI. HA can also call PiHerder with [API tokens](../operations/api-tokens.md).
 
 ## Why it exists
 
@@ -14,7 +14,7 @@ Many labs run HAOS next to Debian/Pi hosts. Operators want one dashboard for “
 
 - Full **HAOS** (or Supervised-like) machine with **SSH add-on** enabled  
 - You manage that Pi/VM as a **Server** in PiHerder  
-- **Not** for “Home Assistant is only a Docker container on another host” in 0.9 (mark the Docker host as Debian; optional later)
+- **Not** for “Home Assistant is only a Docker container on another host” (mark that host as Debian/Linux and use Docker features there)
 
 ---
 
@@ -47,12 +47,9 @@ Exact package install steps for rsync may vary by HAOS version — enable the SS
 
 **Done when:** hero shows **HAOS** chip; System info shows real versions; check job succeeds; deps overall is ok for enabled features.
 
-!!! note "Screenshots & testing"
-    **Full QA P0:** replace `server-detail-haos.png` and `system-info-haos.png` when reviewing HAOS — [screenshots README](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md). The generic server-detail shot below is illustrative only until HAOS-specific PNGs land. Live HA check/apply is operator-owned (not in CI).
-
 <figure class="ph-figure" markdown>
   ![Server detail (fleet host)](../assets/screenshots/server-detail.png)
-  <figcaption>Server detail (generic pack) — on HAOS expect **HAOS** chip, HA updates chrome, System info with Core/OS/Supervisor + disk.</figcaption>
+  <figcaption>Server detail — on HAOS expect **HAOS** chip, HA updates chrome, System info with Core/OS/Supervisor + disk.</figcaption>
 </figure>
 
 ---
@@ -102,5 +99,4 @@ Schedules reuse the same check/apply machinery as Debian hosts; the backend bran
 | Check vs apply | [Updates & patching](updates-and-patching.md) |
 | Backups | [Backups](backups.md) |
 | SSH / rsync issues | [SSH, rsync & dependencies](../troubleshooting/ssh-rsync.md) |
-| Architecture plan | [FEATURE_PLAN_HOME_ASSISTANT.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOME_ASSISTANT.md) |
 | API from HA | [API tokens](../operations/api-tokens.md) · [API.md](https://github.com/bjorngluck/piherder/blob/main/docs/API.md) |

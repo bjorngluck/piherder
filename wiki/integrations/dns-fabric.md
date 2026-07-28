@@ -89,7 +89,7 @@ On the Network hub stat strip, **By path type** shows counts for Host / App / NP
 
 ## Network hub layout
 
-The hub (`/dns`) is **path-first** (v0.9+): destination **cards** + DNS/settings **cards**, then the long service-path list. Host A / service CNAME / external records share one **DNS records** modal (filter **All** by default). Map settings and Pi-hole adopt open in their own modals.
+The hub (`/dns`) is **path-first**: destination **cards** + DNS/settings **cards**, then the long service-path list. Host A / service CNAME / external records share one **DNS records** modal (filter **All** by default). Map settings and Pi-hole adopt open in their own modals.
 
 | Block | What it is |
 |-------|------------|
@@ -200,7 +200,7 @@ List and graph share **one** open/closed model (`.is-open`) — not separate mob
 - **Hover** (mouse/stylus) any **host** (including hosts with no mapped services), **Router**, **LAN**, **Internet**, **Public IP**, **NPM hub**, or **app path** to **preview** highlight.
 - **Click / tap** to **lock** focus — the path stays highlighted when the pointer leaves.
 - **Path map — NPM hub:** selecting the centre **NPM** node focuses **all** via-proxy paths at once (URL + destination nodes **and** the amber **connector lines** into/out of the hub), not only the first path.
-- **Click the same node again** or **Clear focus** to unlock (intended on desktop and mobile; residual second-click quirks tracked for **v1.0** if still seen).
+- **Click the same node again** or **Clear focus** to unlock (desktop and mobile).
 - Hosts **without** mapped services are still selectable (node focus). App satellites focus the service **path**.
 - **Open host** / **Open in Kuma** appears when the focused node has a link (same-tab for fleet hosts; new tab for external Kuma).
 - **Copy path** copies the callout route string.
@@ -267,9 +267,6 @@ Panel pills: **All** · **Main** (unassigned) · (your groups). Compact segmente
 
 **Effect on the map:** with a custom order, **column left→right** can follow that order (by earliest container in each category). Example: put **celery last** in the panel → **queue column moves right**.
 
-!!! note "Still later"
-    Per-project column profiles and explicit edge→column layout rules remain residual. See [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md) § 12b–12c.
-
 ### Light / dark theme
 
 Infrastructure nodes (Internet cloud, Router, LAN, NPM hub) use theme-aware fills (no default black SVG fill). Zoom chrome stays readable in light mode.
@@ -326,8 +323,7 @@ Coverage is a **dense table** (not a wall of large cards). For each gap (operato
 
 This does **not** create monitors inside Kuma — only **links** an existing monitor to a fleet host/project. Create the HTTP check in Kuma first ([Uptime Kuma](uptime-kuma.md)).
 
-!!! note "Mobile coverage"
-    Path/dep gap tables should stack as cards on narrow screens. Residual column bleed on some viewports is a **v1.0** polish item — [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md).
+Path/dep gap tables stack as cards on narrow screens.
 
 ### Stack dependencies (Docker inventory)
 
@@ -376,9 +372,6 @@ Below path coverage, **Stack dependencies** lists **compose containers** from ho
 
 Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma service binds, Docker inventory (compose graph v2), and stack deployments.
 
-**Code:** `app/services/dns_fabric/` · `container_annotations.py` · `stack_order.py` · `compose_graph.py` · `runtime_edges.py` · `stack_monitor.py` · `app/routers/dns.py` · `fabric-mesh.js` / `fabric-stack-*.js` · `fabric.css` · `dns_*.html`  
-**Tests:** `tests/test_dns_fabric.py` · `test_kuma_coverage.py` · `test_stack_*.py` · `test_container_annotations.py` · `test_compose_graph.py` · `test_runtime_edges.py`
-
 ---
 
 ## Related
@@ -387,6 +380,4 @@ Resolution also uses Pi-hole inventory, NPM poll cache + proxy_host binds, Kuma 
 - [Pi-hole](pihole.md)  
 - [NPM](npm.md)  
 - [Uptime Kuma](uptime-kuma.md)  
-- [Certificates](certificates.md)  
-- [v0.5.0 plan § F.1](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.5.0.md)  
-- Roadmap H2.5 + runtime topology plan (expand stack, suggest/manual deps): [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [ROADMAP_ECOSYSTEM.md](https://github.com/bjorngluck/piherder/blob/main/docs/ROADMAP_ECOSYSTEM.md)
+- [Certificates](certificates.md)

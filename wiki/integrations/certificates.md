@@ -54,7 +54,7 @@ The map form shows a **suggested sudoers** drop-in for stage_sudo (install only)
 
 ### Known edges (cert distribute) {#cert-distribute-edges}
 
-Documented on **First-cert setup** and here so operators are not surprised. A full guided “fix sudoers + wizard” remains a later release ([PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md) item **P** / v1.1).
+Documented on **First-cert setup** and here so operators are not surprised. There is no guided “fix sudoers” wizard — use the suggested snippet and verify with `sudo -n`.
 
 | Edge | Detail |
 |------|--------|

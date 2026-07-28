@@ -2,15 +2,10 @@
 
 Markdown sources for the **MkDocs Material** documentation site.
 
-| Line | Status |
-|------|--------|
-| **v1.0.0** | **Tagged** first production — [RELEASE_v1.0.0.md](../docs/RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](../docs/PLAN_v1.0.0.md) |
-| **v0.9.0** | Prior (last pre-production) — [RELEASE_v0.9.0.md](../docs/RELEASE_v0.9.0.md) |
-| **v0.8.0** | Historical — LAN Discovery + baseline screenshot pack |
+**Live site:** [https://piherder-docs.hacknow.info/](https://piherder-docs.hacknow.info/)  
+**Release notes:** [docs/RELEASE_v1.0.0.md](../docs/RELEASE_v1.0.0.md)
 
 Operator pages prefer: **What this is** → **Why** → **End-to-end** → reference detail. See [contributing-docs](developers/contributing-docs.md).
-
-**Screenshots & testing (operator):** full QA is operator-owned. **Prose tracks main**; replace PNGs under `assets/screenshots/` as you review each figure. Checklist + expected chrome + capture order: [assets/screenshots/README.md](assets/screenshots/README.md) (not published as a site page — excluded in `mkdocs.yml`).
 
 ## Preview locally
 
@@ -35,7 +30,7 @@ mkdocs build --strict
 | Path | Content |
 |------|---------|
 | `getting-started/` | Install, TLS, first login, appearance, scenarios |
-| `day-to-day/` | Dashboard, Services, servers, **HAOS hosts**, backups, updates, jobs |
+| `day-to-day/` | Dashboard, Services, servers, HAOS hosts, backups, updates, jobs |
 | `docker/` | Host Docker browser, inventory, compose edit |
 | `service-templates/` | Deploy / from-host / secrets *(not named `templates/` — MkDocs reserves that)* |
 | `integrations/` | Kuma, Grafana, Pi-hole, NPM, certificates, Network maps, LAN discovery |
@@ -43,21 +38,6 @@ mkdocs build --strict
 | `operations/` | Settings, env, DR, API, metrics, multi-worker |
 | `troubleshooting/` | Common failures |
 | `developers/` | Setup, architecture, schema, testing, publish |
-| `assets/` | Brand marks (light/dark) + screenshots — see also `app/static/images/README.md` |
+| `assets/` | Brand marks + screenshots |
 
-Config: [`mkdocs.yml`](../mkdocs.yml) at repo root.  
-**Live site:** [https://piherder-docs.hacknow.info/](https://piherder-docs.hacknow.info/)
-
-**Publish:** [`.github/workflows/docs.yml`](../.github/workflows/docs.yml) builds with `mkdocs build --strict` and deploys via **GitHub Actions → Pages**.
-
-One-time repo setting (required for deploy):  
-**Settings → Pages → Build and deployment → Source: GitHub Actions**  
-(not “Deploy from a branch” / `gh-pages`).
-
-**Validate while editing** (same as CI build job):
-
-```bash
-mkdocs build --strict
-```
-
-How to contribute: [developers/contributing-docs.md](developers/contributing-docs.md).
+Config: [`mkdocs.yml`](../mkdocs.yml) at repo root.

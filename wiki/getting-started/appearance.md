@@ -111,22 +111,10 @@ If a tab still looks unchanged after a theme fix:
 - Self-backup / restore  
 - API tokens or REST behaviour  
 
-## Documentation screenshots
-
-The **public wiki** uses **light theme + desktop** captures by default (print-friendly, consistent).
-
-| Kind | When |
-|------|------|
-| **Default** | One light desktop PNG per feature page |
-| **Optional showcase** | One dark desktop and/or one mobile shot only where layout differs (e.g. Network maps, PWA) |
-| **Not required** | Full matrix of light×dark×mobile for every page |
-
 <figure class="ph-figure" markdown>
   ![Dashboard dark theme](../assets/screenshots/dashboard-dark.png)
-  <figcaption>Optional dark desktop showcase (dashboard).</figcaption>
+  <figcaption>Dashboard in dark theme.</figcaption>
 </figure>
-
-Capture conventions: [`wiki/assets/screenshots/README.md`](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md) · edit flow: [Contributing docs](../developers/contributing-docs.md#screenshots-best-practice).
 
 ## Related
 

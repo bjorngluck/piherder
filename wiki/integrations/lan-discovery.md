@@ -64,10 +64,9 @@ Journey: [Operator scenarios — Journey H](../getting-started/operator-scenario
 | **Schedules** | Multiple named schedules — **one dense list** (full actions on every width); add/edit modal |
 | **Runs** | Scan history — **one dense list** (intensity, status, hosts, ports, Job link; no run ID) |
 
-!!! tip "List + Map in one place (v0.9)"
-    Devices and the old **Network** tab are **one Devices tab** with a **List | Map** toggle.
-    Bookmarks to `?tab=network` still open **Map** view.  
-    Overview no longer duplicates tab shortcuts (Devices / Network / Jobs buttons removed).
+!!! tip "List + Map in one place"
+    Devices and the map share one **Devices** tab with a **List | Map** toggle.
+    Bookmarks to `?tab=network` still open **Map** view.
 
 <figure class="ph-figure" markdown>
   ![LAN Discovery Devices](../assets/screenshots/nmap-devices.png)
@@ -356,9 +355,6 @@ Linked discovery devices appear on:
 - Options stored per schedule (`options_json`): script preset, timing, top-ports, UDP, port list, SYN vs inherit.  
 - Changes resync APScheduler; audit records configure/scan actions.
 
-!!! tip "Production UX"
-    List\|Map Devices, Overview modals, Schedules/Runs dense lists, Offline flag, server-detail **Network path + LAN discovery** side-by-side, and in-app heavy-scan confirm are **production**. Discovery last-seen / purge / hide refinements remain **v1.1** — [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md).
-
 ---
 
 ## Runs
@@ -420,5 +416,4 @@ Web only **enqueues**. Cancel and progress follow the fleet Jobs UI (finished jo
 - [Add a server](../day-to-day/add-server.md) — promote path  
 - [Jobs, audit & notifications](../day-to-day/jobs-audit-notifications.md)  
 - [Settings — Stale data cleanup](../operations/settings.md#stale-data-cleanup) — optional purge of old nmap runs  
-- [Volumes](../operations/volumes.md)  
-- Design: [FEATURE_PLAN_LAN_NMAP.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_LAN_NMAP.md) · [PLAN_v0.8.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.8.0.md) · [PLAN_v0.9.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v0.9.0.md) · [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md)
+- [Volumes](../operations/volumes.md)
