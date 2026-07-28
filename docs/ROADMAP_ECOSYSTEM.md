@@ -247,8 +247,8 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Human-readable schedules (E6)** | **Discovery needed (post-1.0 platform)** — shared interval/cron formatter + “Advanced (cron)” across server OS/backup, nmap, herder backup, data cleanup. Not committed for v0.9. |
 | **Selectable hero stats (E9)** | **Discovery needed (post-1.0)** — user-selectable pulse metrics on ops heroes; preference model + metric registry. Non-committed roadmap only. |
 | **Templates catalog redesign (E11)** | **Discovery needed (H3 / post-1.0)** — table/filter layout, extra config files (e.g. CA Advisor). **0.9 stretch done:** OOTB / Yours badges + section groups. Full redesign separate. See [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md). |
-| **Password reset (G)** | **Backlog (not 1.0):** (1) user self-reset (2) admin-triggered one-time password / clear 2FA. Needs email or out-of-band story. |
-| **Email / channels (H)** | **Under consideration post go-live** — SMTP, richer notifications, password-reset mail. |
+| **Password reset (G)** | **G2-lite in 1.0:** admin OOB reset password / clear 2FA / reset access / force session logout (Users UI; no email). **G1** user self-reset + **G2-mail** invite/OTP mail → **v1.1+** with **H**. |
+| **Email / channels (H)** | **v1.1–v1.2 consideration** — SMTP, richer notifications, password-reset mail. |
 | **Favourites / shortcuts (J)** | **Post-1.0** — pin e.g. Backups on a host into a shortcut menu. |
 | **Cross-host feature jump (K)** | **Post-1.0** — while on Docker (etc.) on host A, jump to same feature on host B. |
 | **Quick editor scope (L)** | **Lean no** for `.env`/sidecars in quick editor; full editor only — document in UI. Open discussion only. |

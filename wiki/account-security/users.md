@@ -56,6 +56,21 @@ Configurable admin policy (custom min length / classes) is **post-RC** — see r
 
 Delete fails closed if related rows cannot be detached (should not happen on a healthy DB).
 
+## Credential recovery (admin)
+
+When someone loses a password, authenticator, or you need to kick sessions, use the per-user actions on **Users** (no email/SMTP required):
+
+| Action | Effect |
+|--------|--------|
+| **Reset password** | Sets a **temporary** password (shown once). User must change it on next login (`must_change_password`). Revokes **all sessions** + trusted devices. **Does not** clear 2FA. |
+| **Clear 2FA** | Removes TOTP secret, backup codes; revokes sessions + trusted devices. Password unchanged. If [force 2FA](two-factor.md) is on, they re-enrol after login. |
+| **Reset access** | Full lockout recovery: temp password **+** clear 2FA **+** kill sessions. Shown once. **Cannot target yourself** (use Reset password / Clear 2FA, or another admin). |
+| **Sign out sessions** | Bumps `session_version` so all browser JWTs stop working; revokes trusted devices. Password and 2FA unchanged. |
+
+Audit keys: `admin_password_reset`, `admin_2fa_cleared`, `admin_access_reset`, `admin_sessions_revoked`.
+
+**Not in 1.0:** email “forgot password” self-service, SMTP invite mail — see roadmap (v1.1+).
+
 ## Open registration
 
 Only the **first** account self-registers (becomes **admin**). After that, login points people to

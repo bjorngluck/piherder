@@ -1,5 +1,7 @@
-"""Admin user lifecycle helpers (create/delete side-effects)."""
+"""Admin user lifecycle helpers (create/delete/credential recovery)."""
 from __future__ import annotations
+
+from datetime import datetime
 
 from sqlmodel import Session, select
 
@@ -13,7 +15,69 @@ from ..models import (
     TrustedDevice,
     User,
 )
+from ..security.auth import get_password_hash, revoke_all_trusted_devices, user_session_version
 from .avatars import delete_avatar_files
+
+
+def bump_session_version(session: Session, user: User) -> int:
+    """Invalidate all interactive session JWTs for this user. Returns new version."""
+    new_v = user_session_version(user) + 1
+    user.session_version = new_v
+    user.updated_at = datetime.utcnow()
+    session.add(user)
+    return new_v
+
+
+def clear_user_2fa(session: Session, user: User) -> None:
+    """Wipe TOTP secret, disable 2FA, delete backup codes (trusted devices separate)."""
+    user.totp_enabled = False
+    user.totp_secret_encrypted = None
+    user.totp_confirmed_at = None
+    user.updated_at = datetime.utcnow()
+    session.add(user)
+    uid = int(user.id)
+    for row in session.exec(select(TotpBackupCode).where(TotpBackupCode.user_id == uid)).all():
+        session.delete(row)
+
+
+def set_temporary_password(session: Session, user: User, password: str) -> None:
+    """Set hashed password and force change on next full login."""
+    user.hashed_password = get_password_hash(password)
+    user.must_change_password = True
+    user.updated_at = datetime.utcnow()
+    session.add(user)
+
+
+def admin_reset_password(
+    session: Session,
+    user: User,
+    password: str,
+    *,
+    clear_2fa: bool = False,
+) -> None:
+    """Admin recovery: temp password, force change, kill sessions (+ optional clear 2FA)."""
+    set_temporary_password(session, user, password)
+    if clear_2fa:
+        clear_user_2fa(session, user)
+    revoke_all_trusted_devices(session, int(user.id))
+    bump_session_version(session, user)
+    session.flush()
+
+
+def admin_clear_2fa_only(session: Session, user: User) -> None:
+    """Admin clears 2FA + trusted devices + sessions (password unchanged)."""
+    clear_user_2fa(session, user)
+    revoke_all_trusted_devices(session, int(user.id))
+    bump_session_version(session, user)
+    session.flush()
+
+
+def admin_sign_out_sessions(session: Session, user: User) -> int:
+    """Force-logout all browsers for user (JWT session_version bump)."""
+    revoke_all_trusted_devices(session, int(user.id))
+    v = bump_session_version(session, user)
+    session.flush()
+    return v
 
 
 def detach_and_delete_user(session: Session, target: User) -> str:

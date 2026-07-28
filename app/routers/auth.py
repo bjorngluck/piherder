@@ -11,7 +11,7 @@ from ..services.audit_write import make_audit_log
 from ..services.request_ip import client_ip_from_request
 from ..security.auth import (
     authenticate_user,
-    create_access_token,
+    create_user_access_token,
     create_pending_2fa_token,
     get_password_hash,
     get_current_user,
@@ -155,7 +155,7 @@ async def login(
         if raw_trusted and find_valid_trusted_device(session, user.id, raw_trusted):
             _touch_last_login(session, user)
             _audit(session, user.id, "user_login", "Login (trusted device, 2FA skipped)")
-            token = create_access_token({"sub": str(user.id)})
+            token = create_user_access_token(user)
             response = RedirectResponse(url=post_login_path(user), status_code=303)
             _set_auth_cookie(response, token)
             return response
@@ -171,7 +171,7 @@ async def login(
 
     _touch_last_login(session, user)
     _audit(session, user.id, "user_login", "Login")
-    token = create_access_token({"sub": str(user.id)})
+    token = create_user_access_token(user)
     response = RedirectResponse(url=post_login_path(user), status_code=303)
     _set_auth_cookie(response, token)
     return response
@@ -244,7 +244,7 @@ async def two_factor_submit(
 
     _touch_last_login(session, user)
     _audit(session, user.id, "user_login", "Login (2FA verified)")
-    token = create_access_token({"sub": str(user.id)})
+    token = create_user_access_token(user)
     response = RedirectResponse(url=post_login_path(user), status_code=303)
     _set_auth_cookie(response, token)
     response.delete_cookie(PENDING_COOKIE)
@@ -585,14 +585,26 @@ async def change_password(
     if not ok:
         return RedirectResponse("/auth/account?error=password_policy", status_code=303)
 
+    from ..services.user_admin import bump_session_version
+
     user.hashed_password = get_password_hash(new_password)
     user.must_change_password = False
     user.updated_at = datetime.utcnow()
     session.add(user)
-    session.commit()
     revoke_all_trusted_devices(session, user.id)
-    _audit(session, user.id, "user_password_changed", "Password changed; trusted devices revoked")
-    return RedirectResponse("/auth/account?msg=password_changed", status_code=303)
+    bump_session_version(session, user)
+    session.commit()
+    session.refresh(user)
+    _audit(
+        session,
+        user.id,
+        "user_password_changed",
+        "Password changed; sessions + trusted devices revoked",
+    )
+    # Re-issue cookie so *this* browser stays signed in; other sessions die
+    response = RedirectResponse("/auth/account?msg=password_changed", status_code=303)
+    _set_auth_cookie(response, create_user_access_token(user))
+    return response
 
 
 @router.post("/account/avatar")
@@ -836,8 +848,10 @@ async def force_password_submit(
     session.commit()
     revoke_all_trusted_devices(session, user.id)
     _audit(session, user.id, "user_password_changed", "First-login password set")
-    # Re-issue path for force 2FA if needed
-    return RedirectResponse(post_login_path(user), status_code=303)
+    # Re-issue cookie with current session_version (admin recovery may have bumped it)
+    response = RedirectResponse(post_login_path(user), status_code=303)
+    _set_auth_cookie(response, create_user_access_token(user))
+    return response
 
 
 @router.get("/force-2fa", response_class=HTMLResponse)

@@ -29,6 +29,9 @@ class User(SQLModel, table=True):
     # Admin-created users must set their own password before using the app
     must_change_password: bool = False
 
+    # Bumped to invalidate all session JWTs (admin recovery / password change)
+    session_version: int = Field(default=0)
+
     audit_logs: List["AuditLog"] = Relationship(back_populates="user")
     totp_backup_codes: List["TotpBackupCode"] = Relationship(back_populates="user")
     trusted_devices: List["TrustedDevice"] = Relationship(back_populates="user")
