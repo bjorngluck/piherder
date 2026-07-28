@@ -15,12 +15,12 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v0.6.0–v0.7.0** | Historical — PNG pack deferred / prose-first |
 | **v0.8.0 RC3** (tagged) | Full pack landed — [RELEASE_v0.8.0.md](../../../docs/RELEASE_v0.8.0.md) |
 | **v0.9.0** (tagged) | Operator recapture pack for 0.9 chrome — [RELEASE_v0.9.0.md](../../../docs/RELEASE_v0.9.0.md) |
-| **v1.0.0** (train → tag) | Recapture **changed** surfaces before tag — list in [PLAN_v1.0.0.md §8.2](../../../docs/PLAN_v1.0.0.md) |
+| **v1.0.0** (tagged) | P0 recapture (dns hub/coverage, certs setup, NPM) — [PLAN_v1.0.0.md §8.2](../../../docs/PLAN_v1.0.0.md) · [RELEASE_v1.0.0.md](../../../docs/RELEASE_v1.0.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
-!!! tip "v1.0 screenshots"
-    Capture from a **rebuilt** image matching production `main` / `v1.0.0` — not an old Hub `0.9.0` layer alone. Checklist: [PLAN §8.2](../../../docs/PLAN_v1.0.0.md).
+!!! tip "Production screenshots"
+    Capture from image/tag **`v1.0.0`** / `bjorngluck/piherder:1.0.0` (or rebuilt `main` matching that tag).
 
 ### v1.0 priority recapture (from PLAN §8.2)
 

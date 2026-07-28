@@ -14,7 +14,7 @@
     | What to expect | Detail |
     |----------------|--------|
     | **Production line** | **[v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md)** — first production (security · authz · validation · credential recovery · operator polish) |
-    | **Image** | `bjorngluck/piherder:1.0.0` · `1.0` · `latest` (at Hub publish); rebuild from `main` until then |
+    | **Image** | `bjorngluck/piherder:1.0.0` · `1.0` · `latest` (multi-arch amd64 + arm64) |
     | **Prior tag** | [v0.9.0](https://github.com/bjorngluck/piherder/releases/tag/v0.9.0) — last pre-production baseline |
     | **Documentation** | Operator-focused living wiki for **v1.0.x** |
 

@@ -7,8 +7,8 @@
   <div class="ops-hero-main">
     <div class="ops-hero-kicker">Access</div>
     <div class="account-hero-identity">
-      {% if user.avatar_path %}
-      <img src="/auth/me/avatar" alt="" class="account-hero-avatar" width="48" height="48">
+      {% if user_has_avatar(user) %}
+      <img src="{{ avatar_img_url(user) }}" alt="" class="account-hero-avatar" width="48" height="48">
       {% else %}
       <div class="account-hero-avatar account-hero-avatar--letter" aria-hidden="true">
         {{ (user.display_name or user.email)[0].upper() }}
@@ -153,8 +153,8 @@
   <div class="card p-5 sm:p-6 space-y-3 account-card">
     <h2 class="font-semibold text-text">Profile picture</h2>
     <div class="flex items-center gap-4">
-      {% if user.avatar_path %}
-      <img src="/auth/me/avatar" alt="" class="w-16 h-16 rounded-full object-cover border border-border">
+      {% if user_has_avatar(user) %}
+      <img src="{{ avatar_img_url(user) }}" alt="" class="w-16 h-16 rounded-full object-cover border border-border">
       {% else %}
       <div class="w-16 h-16 rounded-full bg-surface border border-border flex items-center justify-center text-2xl">
         {{ (user.display_name or user.email)[0].upper() }}
@@ -166,7 +166,7 @@
       <input type="file" name="file" accept="image/jpeg,image/png,image/webp" required class="text-sm">
       <button type="submit" class="btn btn-secondary min-h-11 text-sm">Upload</button>
     </form>
-    {% if user.avatar_path %}
+    {% if user_has_avatar(user) or user.avatar_path %}
     <form method="post" action="/auth/account/avatar/delete">
       <button type="submit" class="btn btn-danger min-h-11 text-sm">Remove avatar</button>
     </form>
@@ -507,8 +507,9 @@
     <h2 class="font-semibold text-text">Trusted devices</h2>
     <p class="text-xs text-muted">
       Devices can skip the 2FA prompt for up to <strong class="text-text">{{ trusted_device_days }} days</strong>.
+      Trust survives <strong class="text-text">Sign out</strong> on this browser (password still required).
       Only trust personal machines you control. A stolen device with a valid cookie can sign in without your authenticator until you revoke it.
-      Changing your password revokes all trusted devices.
+      Changing your password or <strong class="text-text">Revoke all</strong> clears trust.
     </p>
     {% if devices %}
     <ul class="space-y-2 text-sm">

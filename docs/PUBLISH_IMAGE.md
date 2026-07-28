@@ -87,7 +87,7 @@ docker buildx inspect --bootstrap
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t "${IMAGE}:${VERSION}" \
-  -t "${IMAGE}:0.9" \
+  -t "${IMAGE}:1.0" \
   -t "${IMAGE}:latest" \
   --push \
   .
@@ -118,14 +118,14 @@ To develop against local source again, temporarily restore `build: .` or point `
 
 ## 5. Checklist before a release push
 
-- [x] Multi-arch `docker buildx` push to Docker Hub (`0.9.0` / `0.9` / `latest`)  
+- [x] Multi-arch `docker buildx` push to Docker Hub (`1.0.0` / `1.0` / `latest`)  
 - [x] Hardened `.dockerignore` (no backups/certs/local data/git)  
 - [x] `pyproject.toml` version matches image tag  
-- [x] `pytest -q` green (unit pack at v0.9.0 freeze; + e2e suite)  
-- [ ] Manual smoke: register, add server, backup, metrics, API token, template deploy  
-- [x] Git tag + [RELEASE_v0.9.0.md](RELEASE_v0.9.0.md)  
-- [ ] Hub repo description + docs/GitHub links  
-- [ ] Optional: GitHub Release + GHCR mirror  
+- [x] `pytest` unit pack green (fail-under 55; v1.0 suites)  
+- [x] Manual smoke: auth recovery, trusted device, avatar, fleet surfaces (operator freeze)  
+- [x] Git tag + [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md)  
+- [x] Hub public repo + docs/GitHub links  
+- [ ] Optional: GitHub Release UI notes + GHCR mirror  
 - [x] [SECURITY.md](../SECURITY.md) still accurate  
 
 ---
@@ -156,8 +156,8 @@ Add when account + token exist and first manual push has worked once.
 
 ## v1.0.0 publish checklist (maintainer)
 
-- [ ] `APP_VERSION` / `pyproject.toml` = `1.0.0`
-- [ ] [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) finalized (Date, Status **Tagged**)
-- [ ] Unit + E2E green; `mkdocs build --strict`
-- [ ] Multi-arch push: `1.0.0` / `1.0` / `latest`
-- [ ] Git tag `v1.0.0` + GitHub release
+- [x] `APP_VERSION` / `pyproject.toml` = `1.0.0`
+- [x] [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) finalized (Date, Status **Tagged**)
+- [x] Unit pack green; `mkdocs build --strict`
+- [x] Multi-arch push: `1.0.0` / `1.0` / `latest`
+- [x] Git tag `v1.0.0` (optional GitHub Release notes in UI)

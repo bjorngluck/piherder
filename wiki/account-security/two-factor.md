@@ -34,11 +34,15 @@ Password alone is **not** enough — this is a deliberate step-up so a stolen se
 
 ### Trusted devices
 
-On the 2FA login screen you may **trust this device** for N days (Settings / env default **30**). While trusted, that browser skips the TOTP prompt.
+On the 2FA login screen you may **trust this device** for N days (Settings / env default **30**). While trusted, that browser skips the TOTP prompt after password login.
+
+- **Sign out does not clear trust** — you still need the password, but not the authenticator, until the cookie expires or you revoke it.  
+- Cookie is **per account** (`trusted_device_{user_id}`) so two logins on one browser do not overwrite each other.  
+- Checking “Trust this device” again on an already-trusted browser **refreshes** the same entry instead of adding a duplicate.
 
 | Risk | Mitigation |
 |------|------------|
-| Stolen laptop with a trusted cookie | Revoke under **Account → Trusted devices**; password change revokes **all** |
+| Stolen laptop with a trusted cookie | Revoke under **Account → Trusted devices**; password change / **Revoke all** clears trust |
 | Shared kiosk | Never enable trust |
 
 Cookies are **HttpOnly**, **SameSite=Lax**, `path=/`, and **Secure** when `PIHERDER_PUBLIC_URL` is `https://…` (or `COOKIE_SECURE=true`).

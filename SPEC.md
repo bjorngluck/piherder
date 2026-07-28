@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** **v0.8.0 live** — [RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md) · next **v0.9.0** operator UX — [PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md).  
-> **Last updated:** 2026-07-22 — Production path: ~~v0.5.0 RC1~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ → ~~**v0.8.0 RC3**~~ **tagged** → **v0.9.0** → **v1.0**.
+> **Status:** **v1.0.0 production** — [RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md).  
+> **Last updated:** 2026-07-28 — Production path: ~~RC line~~ → ~~**v0.9.0** last pre-prod~~ → **v1.0.0 tagged** → **v1.1** residual.
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 

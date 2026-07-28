@@ -4,10 +4,9 @@ Markdown sources for the **MkDocs Material** documentation site.
 
 | Line | Status |
 |------|--------|
-| **v0.8.0** | Tagged — LAN Discovery + baseline screenshot pack |
-| **v1.0.0** | **First production** — security · authz · credential recovery · docs — [RELEASE_v1.0.0.md](../docs/RELEASE_v1.0.0.md) |
+| **v1.0.0** | **Tagged** first production — [RELEASE_v1.0.0.md](../docs/RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](../docs/PLAN_v1.0.0.md) |
 | **v0.9.0** | Prior (last pre-production) — [RELEASE_v0.9.0.md](../docs/RELEASE_v0.9.0.md) |
-| **1.0.0** | First production plan — [PLAN_v1.0.0.md](../docs/PLAN_v1.0.0.md) |
+| **v0.8.0** | Historical — LAN Discovery + baseline screenshot pack |
 
 Operator pages prefer: **What this is** → **Why** → **End-to-end** → reference detail. See [contributing-docs](developers/contributing-docs.md).
 
