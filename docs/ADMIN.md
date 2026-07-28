@@ -90,6 +90,18 @@ Per-user actions on **Users** (production lockout recovery):
 Audit actions: `admin_password_reset`, `admin_2fa_cleared`, `admin_access_reset`, `admin_sessions_revoked`.  
 Email self-service reset remains **post-1.0**. Wiki: [Users](../wiki/account-security/users.md#credential-recovery-admin).
 
+### Sole-admin / host lockout recovery
+
+When **no** admin session works, operators with Docker access run the host CLI inside `web`:
+
+```bash
+./scripts/recover-admin.sh list
+./scripts/recover-admin.sh reset-access --email you@example.com --generate --yes
+# equivalent: docker compose exec -T web python -m app.cli.recover_admin …
+```
+
+Same effects as UI recovery (temp password, clear 2FA, session_version, optional delete-user to re-open first Register). Full operator guide: [wiki/troubleshooting/locked-out.md](../wiki/troubleshooting/locked-out.md).
+
 ### Open registration (no default admin)
 
 There is **no** built-in `admin@example.com` user. An empty database leaves Register open for the **first** account (role **admin**). After that:
