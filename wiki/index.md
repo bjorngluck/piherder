@@ -19,6 +19,9 @@
     | **Also in this line** | LAN Discovery (v0.8), add-host wizard (v0.7), Playwright E2E, topology + compose sets, certs/Docker polish |
     | **Documentation** | Operator-focused living wiki — tracks **main** (v1.0 train) and the latest tag |
 
+    !!! note "Temporary dual version (remove at v1.0.0 tag)"
+        Until **v1.0.0** is tagged, home/banner/install may reference **both** “latest tag **0.9.0**” and “**v1.0 train** on main”. That dual story is intentional for the freeze window and **must be removed** at tag — version pins, train badges, and screenshot recapture list: [PLAN_v1.0.0.md §8.1–8.2](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md).
+
     If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
 
 | | |

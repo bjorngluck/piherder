@@ -266,14 +266,75 @@ Already partial: password policy, some cron validation, backup path denylists, P
 - [x] Phase E2 (**AV**): sink validators + tests  
 - [ ] Unit + E2E green on CI (fail-under 55)  
 - [ ] `mkdocs build --strict`  
-- [ ] Screenshot / wiki truth for changed surfaces  
+- [ ] Screenshot / wiki truth for changed surfaces — **§8.2**  
 - [ ] ADMIN prod checklist reviewed  
 - [ ] API.md aligned  
 - [ ] Bump `pyproject.toml` + `APP_VERSION` → `1.0.0`  
 - [ ] Finalize `RELEASE_v1.0.0.md` (Date, Status, package version; AC/AV notes)  
 - [ ] Tag `v1.0.0` + Hub multi-arch (`1.0.0` / `1.0` / `latest`)  
-- [ ] README badge + wiki install pin → v1.0.0  
+- [ ] Version pins + **remove temporary train wording** — **§8.1**  
 - [ ] ROADMAP release track row → **Tagged**
+
+### 8.1 Temporary dual-version / train wording — **remove at v1.0.0 tag**
+
+Until freeze, docs intentionally say **two things at once**:
+
+| Now (pre-tag) | At v1.0.0 freeze |
+|---------------|------------------|
+| Latest **published** tag = **v0.9.0** | Latest tag = **v1.0.0** |
+| **Active train** = v1.0 on `main` | No “train / next” language for 1.0 |
+| Image pin / Hub examples = `0.9.0` / `0.9` | `1.0.0` / `1.0` / `latest` |
+| Package `APP_VERSION` = `0.9.0` | `1.0.0` |
+
+**Expect these interim phrases to be removed or rewritten at tag** (do not leave dual messaging in production docs):
+
+| Location | Interim wording to clear |
+|----------|---------------------------|
+| `wiki/index.md` release banner | “Tagged now v0.9.0” + “Active train on main” → single **v1.0.0 production** status |
+| `wiki/overrides/main.html` | “latest tag v0.9.0 · v1.0 train active on main” → **v1.0.0** + RELEASE link |
+| `wiki/operations/upgrades.md` | “prefer v0.9.0 until v1.0.0 is tagged” · checkout `v0.9.0` → **v1.0.0** |
+| `wiki/developers/publish-image.md` | Version table / `export VERSION=0.9.0` → **1.0.0** |
+| `wiki/getting-started/install.md` | Any image pin / badge still on 0.9 → **1.0.0** |
+| `README.md` | Badge `release-v0.9.0` + train badge → **v1.0.0** only (drop train badge or point at RELEASE) |
+| `SECURITY.md` supported versions | “main / v1.0 train” + “v0.9 last pre-prod” → **v1.0.x** current · v0.9 prior |
+| `docs/ADMIN.md` prod checklist | “Prefer …0.9.0 until v1.0.0 is tagged” → pin **1.0.0** |
+| `docs/PUBLISH_IMAGE.md` | Tag examples `0.9.0` / `0.9` → **1.0.0** / **1.0** |
+| `docs/ROADMAP_ECOSYSTEM.md` | v1.0 row **Active** → **Tagged**; production path strikethroughs |
+| `CONTRIBUTING.md` | “Latest release v0.9.0 · Next v1.0” → latest **v1.0.0** |
+| `docker-compose.yml` comments | Example `PIHERDER_IMAGE=…:0.9.0` → **1.0.0** |
+| `pyproject.toml` + `app/version_info.py` | `0.9.0` → **`1.0.0`** |
+| This plan (`PLAN_v1.0.0.md`) | Status **Active** → **Tagged**; freeze checklist all checked |
+
+Historical RELEASE / PLAN files for 0.x **stay as-is** (archive). Do not rewrite past tags.
+
+### 8.2 Screenshots to recapture for v1.0 (operator)
+
+Full inventory: [wiki/assets/screenshots/README.md](../wiki/assets/screenshots/README.md). For **1.0**, prioritize surfaces that **changed on this train** or that still show 0.9-era chrome:
+
+| Priority | File(s) | Why (1.0 chrome) |
+|----------|---------|------------------|
+| **P0** | `dns-hub.png` | DNS records card copy + Host A / CNAME / External modal |
+| **P0** | `dns-coverage.png` (+ optional `*-mobile`) | Stacked mobile cards; Mute/Unmute chip parity |
+| **P0** | `certificates-setup.png` | Known-edges / cert distribute discovery card |
+| **P0** | `integrations-npm.png` (certs tab if visible) | Dense cert rows; “Pull into PiHerder” plain text |
+| **P0** | `account-2fa.png` | `#account-2fa`, backup-codes modal, trusted-device copy |
+| **P1** | `dns-logical.png` / `dns-physical.png` | Second-click unlock still true; connector focus |
+| **P1** | `docker-logs-modal.png` / build progress if captured | Auth still required for SSE (no product change visible — recapture only if UI drifted) |
+| **P1** | `dashboard.png` (+ optional dark) | Logged-in only path; no anonymous dashboard story |
+| **P2** | Rest of pack | Only if prose claims differ from PNG; no full matrix required |
+
+**Pre-capture:** rebuild/restart **web** so image matches freeze commit (compose does not bind-mount `app/`). Light theme · desktop default · redact secrets.
+
+**After PNGs:** update captions if needed · `mkdocs build --strict` · commit binaries with freeze PR.
+
+### 8.3 Production note (operator-facing truth at freeze)
+
+When `RELEASE_v1.0.0.md` ships, operators should see a **single** story:
+
+1. Tag **`v1.0.0`** · image **`bjorngluck/piherder:1.0.0`** (also `1.0`, `latest`).  
+2. Upgrade from **0.9.0** = self-backup → pull/tag → `docker compose up -d` (same master key).  
+3. Wiki home / banner / install pin all say **1.0.0** — no “pre-production” or “train on main”.  
+4. Residual known issues (if any) listed once in RELEASE, not as dual version tables.
 
 ---
 
