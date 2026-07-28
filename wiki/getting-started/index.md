@@ -2,12 +2,11 @@
 
 This section takes you from **zero** to a **running PiHerder** with a first admin account and a clear idea of what to do next.
 
-!!! warning "Release Candidate 1 (RC1)"
-    You are installing / learning the **first release candidate** line (**0.5.x → 1.0.0**).
+!!! success "First production — v1.0.0"
+    You are installing the **production** line (**v1.0.x**).
 
-    - Features and docs may still be uneven; treat this as a working path, not a finished production manual.  
-    - **v1.0.0** is the intended first refined production release.  
-    - Full context: [Home — RC1 notice](../index.md#rc1).
+    - Full context: [Home — release status](../index.md#release-status) · [RELEASE_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md).  
+    - Supported topology: **Docker Compose** only (see below).
 
 ## What you are setting up
 
@@ -52,7 +51,7 @@ HAOS appliance: [HAOS hosts](../day-to-day/haos-hosts.md). Templates / from-host
 
 ## First successful week (end-to-end sketch)
 
-A realistic RC onboarding path:
+A realistic production onboarding path:
 
 1. **Install + first admin** — this section.  
 2. **Add one non-critical Pi** — [Add a server](../day-to-day/add-server.md) wizard (Identity → Trust → Connect: install key → test → clear password → Features).  
@@ -61,8 +60,8 @@ A realistic RC onboarding path:
 5. **Open Jobs + Audit** — [Jobs, audit & notifications](../day-to-day/jobs-audit-notifications.md) so you trust the trail.  
 6. **Optional:** Kuma / [templates](../service-templates/overview.md) / network / HAOS — only after the host path feels solid.
 
-!!! note "v0.9 validation"
-    Operator **full QA** and **screenshot review** for 0.9 are in progress — wiki prose tracks main; replace PNGs as you review each figure ([checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md)).
+!!! tip "Screenshots"
+    Replace PNGs when the live UI drifts from figures ([checklist](https://github.com/bjorngluck/piherder/blob/main/wiki/assets/screenshots/README.md)).
 
 Detailed “I want to…” tables and longer journeys: [Operator scenarios](operator-scenarios.md).
 

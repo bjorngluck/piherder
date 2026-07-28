@@ -4,15 +4,12 @@
 
 | Version | Support |
 |---------|---------|
-| **`main` / v1.0 train** | Active production hardening toward **v1.0.0** ([PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md)) |
-| **v0.9.x** (tag `v0.9.0`+) | Latest **tagged** release line (last pre-production) |
-| **v0.8.x** | Prior RC3 line; prefer upgrade to v0.9.x+ |
-| **v0.7.x** | Prior line; prefer upgrade to latest |
-| **v0.6.x** | Prior RC2 line; prefer upgrade to latest |
-| **v0.5.x** | Prior RC1 line; prefer upgrade to latest |
-| Older tags | Best-effort; prefer latest tag or `main` for fixes |
+| **v1.0.x** | **Current production** line ([RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md)) |
+| **`main`** | Development tip; security fixes land here first |
+| **v0.9.x** | Prior line (last pre-production); prefer upgrade to **v1.0.x** |
+| **v0.8.x and older** | Best-effort; prefer upgrade to latest production |
 
-Security fixes are applied on the default branch (`main`) and cherry-picked or released as patch tags when warranted. Prefer the latest release tag or `main` for fixes.
+Security fixes are applied on the default branch (`main`) and released as **v1.0.x** (or later) patch tags when warranted. Prefer the latest **1.0.x** tag for production.
 
 ## Reporting a vulnerability
 

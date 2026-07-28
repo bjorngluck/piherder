@@ -1,6 +1,6 @@
 # PiHerder v1.0.0 — first production release train
 
-**Status:** **Active** (train opened 2026-07-26 · **official** 2026-07-28 after `v0.9.0` tag)  
+**Status:** **Production-ready** (feature-complete · docs sweep · tag/Hub after operator freeze)  
 **Date opened:** 2026-07-26 · **Train start:** 2026-07-28  
 **Git tag target:** `v1.0.0`  
 **Package version target:** `1.0.0`  
@@ -66,7 +66,7 @@
 | 5 | DNS records clarity (**X**) | Host A vs Pi-hole A vs CNAME checklist — copy + optional deep links | **Done** (2026-07-28) |
 | 6 | Authz matrix (**AC**) | Route × method × role audit; mutate + streams + admin + API scopes; fix gaps; smoke/matrix tests | **Done** (2026-07-28) |
 | 7 | Input validation pack (**AV**) | Risk-based validators at sinks (paths, shell-ish actions, cron, body sizes, enums) — not every Form field | **Done** (2026-07-28) |
-| 8 | Docs + wiki freeze | RELEASE_v1.0.0, ADMIN prod checklist, screenshot pack current, API.md aligned | Pending |
+| 8 | Docs + wiki freeze | RELEASE_v1.0.0, ADMIN prod checklist, wiki production framing, dual-version wording cleared | **In progress** (2026-07-28 docs sweep) |
 | 9 | Quality | Unit ≥55%; E2E on touched auth/security + critical shells; REST smoke; CI green | In progress (smoke + security unit) |
 | 10 | Admin credential recovery (**G2-lite**) | Admin reset temp password, clear 2FA, reset access, force session logout (`session_version`) — no email | **Done** (2026-07-28) |
 | 11 | Publish | Tag `v1.0.0` + Hub multi-arch `1.0.0` / `1.0` / `latest` | Pending |
@@ -268,46 +268,28 @@ Already partial: password policy, some cron validation, backup path denylists, P
 - [x] Phase D (P): discovery notes landed; no half-built wizard  
 - [x] Phase E1 (**AC**): authz matrix + fixes + tests  
 - [x] Phase E2 (**AV**): sink validators + tests  
+- [x] Phase G2-lite: admin credential recovery  
+- [x] Dual-version / train / RC operator wording cleared (docs + wiki) — **§8.1**  
+- [x] `RELEASE_v1.0.0.md` drafted (finalize Date/Status at tag)  
 - [ ] Unit + E2E green on CI (fail-under 55)  
 - [ ] `mkdocs build --strict`  
 - [ ] Screenshot / wiki truth for changed surfaces — **§8.2**  
-- [ ] ADMIN prod checklist reviewed  
-- [ ] API.md aligned  
+- [ ] ADMIN prod checklist final pass  
+- [ ] API.md aligned (skim)  
 - [ ] Bump `pyproject.toml` + `APP_VERSION` → `1.0.0`  
-- [ ] Finalize `RELEASE_v1.0.0.md` (Date, Status, package version; AC/AV notes)  
+- [ ] Finalize `RELEASE_v1.0.0.md` Status → **Tagged**  
 - [ ] Tag `v1.0.0` + Hub multi-arch (`1.0.0` / `1.0` / `latest`)  
-- [ ] Version pins + **remove temporary train wording** — **§8.1**  
 - [ ] ROADMAP release track row → **Tagged**
 
-### 8.1 Temporary dual-version / train wording — **remove at v1.0.0 tag**
+### 8.1 Dual-version / train wording — **cleared on operator docs (2026-07-28)**
 
-Until freeze, docs intentionally say **two things at once**:
+Operator-facing docs now describe **v1.0.0 first production**. Remaining at **git tag / Hub publish** only:
 
-| Now (pre-tag) | At v1.0.0 freeze |
-|---------------|------------------|
-| Latest **published** tag = **v0.9.0** | Latest tag = **v1.0.0** |
-| **Active train** = v1.0 on `main` | No “train / next” language for 1.0 |
-| Image pin / Hub examples = `0.9.0` / `0.9` | `1.0.0` / `1.0` / `latest` |
-| Package `APP_VERSION` = `0.9.0` | `1.0.0` |
-
-**Expect these interim phrases to be removed or rewritten at tag** (do not leave dual messaging in production docs):
-
-| Location | Interim wording to clear |
-|----------|---------------------------|
-| `wiki/index.md` release banner | “Tagged now v0.9.0” + “Active train on main” → single **v1.0.0 production** status |
-| `wiki/overrides/main.html` | “latest tag v0.9.0 · v1.0 train active on main” → **v1.0.0** + RELEASE link |
-| `wiki/operations/upgrades.md` | “prefer v0.9.0 until v1.0.0 is tagged” · checkout `v0.9.0` → **v1.0.0** |
-| `wiki/developers/publish-image.md` | Version table / `export VERSION=0.9.0` → **1.0.0** |
-| `wiki/getting-started/install.md` | Any image pin / badge still on 0.9 → **1.0.0** |
-| `README.md` | Badge `release-v0.9.0` + train badge → **v1.0.0** only (drop train badge or point at RELEASE) |
-| `SECURITY.md` supported versions | “main / v1.0 train” + “v0.9 last pre-prod” → **v1.0.x** current · v0.9 prior |
-| `docs/ADMIN.md` prod checklist | “Prefer …0.9.0 until v1.0.0 is tagged” → pin **1.0.0** |
-| `docs/PUBLISH_IMAGE.md` | Tag examples `0.9.0` / `0.9` → **1.0.0** / **1.0** |
-| `docs/ROADMAP_ECOSYSTEM.md` | v1.0 row **Active** → **Tagged**; production path strikethroughs |
-| `CONTRIBUTING.md` | “Latest release v0.9.0 · Next v1.0” → latest **v1.0.0** |
-| `docker-compose.yml` comments | Example `PIHERDER_IMAGE=…:0.9.0` → **1.0.0** |
-| `pyproject.toml` + `app/version_info.py` | `0.9.0` → **`1.0.0`** |
-| This plan (`PLAN_v1.0.0.md`) | Status **Active** → **Tagged**; freeze checklist all checked |
+| Still at tag time | Done in docs sweep |
+|-------------------|--------------------|
+| Package `APP_VERSION` / `pyproject.toml` → `1.0.0` | Wiki home, banner, install, upgrades, README, SECURITY, CONTRIBUTING, ADMIN pin |
+| GitHub release + Hub `1.0.0` / `1.0` / `latest` | `RELEASE_v1.0.0.md` drafted; ROADMAP production path updated |
+| PLAN Status → **Tagged** | Dual “train / 0.9 + main” messaging removed from operator surfaces |
 
 Historical RELEASE / PLAN files for 0.x **stay as-is** (archive). Do not rewrite past tags.
 
@@ -382,6 +364,7 @@ When `RELEASE_v1.0.0.md` ships, operators should see a **single** story:
 | 2026-07-28 | **AC + AV implemented.** Critical: docker log SSE + build SSE required auth (build = operator+). Shared `input_validation` + wired server update, cert maps, docker actions/prune, cron. Tests: `test_authz_matrix_v10`, `test_input_validation_v10`. Remaining: docs freeze / tag. |
 | 2026-07-28 | **§8.1–8.3 freeze notes:** dual-version / train wording to **remove at tag**; screenshot recapture list for 1.0 surfaces; single production story after RELEASE. |
 | 2026-07-28 | **G2-lite** in 1.0: admin reset password, clear 2FA, reset access, sign-out sessions (`User.session_version` in JWT). Email self-reset (**G1**) + SMTP (**H**) remain **v1.1+**. Tests: `test_admin_credential_recovery_v10`. |
+| 2026-07-28 | **Docs/wiki production sweep:** login sessions-revoked flash; Users **Recover…** menu; `RELEASE_v1.0.0.md`; dual-version / RC / train wording → **v1.0.0 first production** on home, banner, install, upgrades, README, SECURITY, CONTRIBUTING, ADMIN pin. Remaining freeze: screenshots, version bump, tag/Hub. |
 
 ---
 

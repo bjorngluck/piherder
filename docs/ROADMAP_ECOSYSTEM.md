@@ -1,7 +1,7 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-28 (**v0.9.0** tagged last pre-production · **v1.0.0** first production train **active** — [RELEASE_v0.9.0.md](RELEASE_v0.9.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md))  
+**Date:** 2026-07-12 · **Refreshed:** 2026-07-28 (**v1.0.0** first production — [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md); prior [RELEASE_v0.9.0.md](RELEASE_v0.9.0.md))  
 **Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [RELEASE_v0.9.0.md](RELEASE_v0.9.0.md) · [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md) · [PLAN_v0.7.0.md](PLAN_v0.7.0.md) · [PLAN_v0.6.0.md](PLAN_v0.6.0.md) · [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [RELEASE_v0.6.0.md](RELEASE_v0.6.0.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
@@ -32,7 +32,7 @@ Design principles stay the same as SPEC:
 | **v0.8.0** | **RC3** — overall polish · extend E2E + **~50% coverage** · **full docs review + screenshots** · **LAN nmap** (auto-create + network view) · brand refresh | Quality + H2.5 H1 | **Tagged** 2026-07-22 — [RELEASE_v0.8.0.md](RELEASE_v0.8.0.md) · [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md) |
 | **v0.9.0** | **Last pre-production** — UX/UI consistency · unit **55%+** · E2E on touched surfaces · **HAOS path 1** (SSH / `ha` CLI) | Quality + H3 discovery | **Tagged** 2026-07-26 — [RELEASE_v0.9.0.md](RELEASE_v0.9.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) |
 | **v0.8.x / later** | Host stats/commands, bootstrap depth, web SSH; topology column profiles | H2.75 P3–P5 + residual | After RC3 as capacity |
-| **v1.0.0** | **First production** — security harden · known-issue burn-down · authz matrix (**AC**) · sink validation (**AV**) · auth entry · DNS/cert polish · stable templates + REST + docs | H0–H2 freeze + prod bar | **Active** — [PLAN_v1.0.0.md](PLAN_v1.0.0.md) |
+| **v1.0.0** | **First production** — security · authz · validation · credential recovery · known-issue burn-down · docs | Production bar | **Production-ready** — [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) |
 | **v1.1** | Cert distribution wizard + sudoers; discovery last-seen / purge; residual prod polish | Post-1.0 | Planned (capacity) |
 | **Post-1.0** | SSO/OIDC · email · password reset · favourites · insights · API/OpenAPI depth · templates fleet overview | H3+ | Backlog / discovery |
 
@@ -50,7 +50,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-19):** **v0.7.0 feature-locked and tagged**. Wizard, E2E A+B, annotations, compose sets, drift Job shipped. Screenshot pack deferred; residual polish + E2E/coverage growth + full docs review + **nmap** → **v0.8.0 RC3**. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md).
 
-**Production path:** ~~v0.4.0 templates~~ **done** → ~~**v0.5.0 RC1**~~ → ~~**v0.6.0 RC2**~~ → ~~**v0.7.0**~~ → ~~**v0.8.0 RC3**~~ → ~~**v0.9.0 last pre-production**~~ **tagged** → **v1.0.0 first production** ([PLAN_v1.0.0.md](PLAN_v1.0.0.md)) → **v1.1** residual · **post-1.0** discovery.
+**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0 first production** ([RELEASE_v1.0.0.md](RELEASE_v1.0.0.md)) → **v1.1** residual · **post-1.0** discovery.
 
 **Decision (2026-07-22):** Post-0.8 operator UX triage — micro-pass **B1/E4/E8** on main for 0.8 screenshots; remaining discovery/Network/coverage polish → **v0.9.0** ([PLAN_v0.9.0.md](PLAN_v0.9.0.md)). Cross-cutting human-readable schedules, selectable hero stats, and full templates catalog redesign stay **post-1.0 discovery** (see Quality & platform § below).
 
@@ -66,7 +66,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-28):** **v1.0 production hardening continues with AC + AV** before tag — **AC** authorization matrix (route × role × API scopes, fix gaps, tests); **AV** risk-based input validation at dangerous sinks (paths, actions, cron, sizes). Explicitly **not** 1.0: full Form→Pydantic rewrite, multi-tenant/per-host ACLs, SSO. See [PLAN_v1.0.0.md](PLAN_v1.0.0.md) Phase E.
 
-**Note:** Multi-arch image **published** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (`0.9.0` / `0.9` / `latest`).
+**Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.0.0` / `1.0` / `latest` (at publish).
 
 ---
 

@@ -796,6 +796,14 @@ html.dark .ph-file-badge--config,
   min-height: 2.75rem;
 }
 .ph-collapse-card > summary::-webkit-details-marker { display: none; }
+/* Users admin — Recover… menu */
+.user-recovery-menu > summary {
+  list-style: none;
+}
+.user-recovery-menu > summary::-webkit-details-marker { display: none; }
+.user-recovery-panel {
+  background: var(--color-surface, var(--color-card, #111));
+}
 .ph-collapse-card > summary::after {
   content: "▸";
   font-size: 0.7rem;

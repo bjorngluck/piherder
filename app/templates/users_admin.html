@@ -148,39 +148,46 @@
     {% endif %}
     <div class="user-card-actions flex flex-wrap gap-1.5">
       <a href="/audit?user_id={{ u.id }}" class="btn btn-secondary text-xs min-h-9 px-2.5">Audit</a>
-      <button type="button"
-              class="btn btn-secondary text-xs min-h-9 px-2.5"
-              data-reset-password
-              data-user-id="{{ u.id }}"
-              data-user-email="{{ u.email | e }}"
-              data-user-label="{{ (u.display_name or u.email) | e }}">
-        Reset password
-      </button>
-      <button type="button"
-              class="btn btn-secondary text-xs min-h-9 px-2.5"
-              data-clear-2fa
-              data-user-id="{{ u.id }}"
-              data-user-email="{{ u.email | e }}"
-              data-user-label="{{ (u.display_name or u.email) | e }}"
-              {% if not u.totp_enabled and not u.totp_secret_encrypted %}title="2FA already off — still revokes sessions/devices"{% endif %}>
-        Clear 2FA
-      </button>
-      <form method="post" action="/auth/users/{{ u.id }}/sign-out-sessions" class="inline">
-        <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5"
-                title="Invalidate all browser sessions and trusted devices">
-          Sign out sessions
-        </button>
-      </form>
-      {% if u.id != user.id %}
-      <button type="button"
-              class="btn btn-accent text-xs min-h-9 px-2.5"
-              data-reset-access
-              data-user-id="{{ u.id }}"
-              data-user-email="{{ u.email | e }}"
-              data-user-label="{{ (u.display_name or u.email) | e }}">
-        Reset access
-      </button>
-      {% endif %}
+      <details class="user-recovery-menu relative">
+        <summary class="btn btn-secondary text-xs min-h-9 px-2.5 cursor-pointer list-none">
+          Recover…
+        </summary>
+        <div class="user-recovery-panel absolute z-20 mt-1 left-0 sm:left-auto sm:right-0 min-w-[12rem] card p-2 shadow-lg border border-border flex flex-col gap-1">
+          <button type="button"
+                  class="btn btn-secondary text-xs min-h-9 px-2.5 w-full justify-start"
+                  data-reset-password
+                  data-user-id="{{ u.id }}"
+                  data-user-email="{{ u.email | e }}"
+                  data-user-label="{{ (u.display_name or u.email) | e }}">
+            Reset password
+          </button>
+          <button type="button"
+                  class="btn btn-secondary text-xs min-h-9 px-2.5 w-full justify-start"
+                  data-clear-2fa
+                  data-user-id="{{ u.id }}"
+                  data-user-email="{{ u.email | e }}"
+                  data-user-label="{{ (u.display_name or u.email) | e }}"
+                  {% if not u.totp_enabled and not u.totp_secret_encrypted %}title="2FA already off — still revokes sessions/devices"{% endif %}>
+            Clear 2FA
+          </button>
+          <form method="post" action="/auth/users/{{ u.id }}/sign-out-sessions" class="w-full">
+            <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5 w-full justify-start"
+                    title="Invalidate all browser sessions and trusted devices">
+              Sign out sessions
+            </button>
+          </form>
+          {% if u.id != user.id %}
+          <button type="button"
+                  class="btn btn-accent text-xs min-h-9 px-2.5 w-full justify-start"
+                  data-reset-access
+                  data-user-id="{{ u.id }}"
+                  data-user-email="{{ u.email | e }}"
+                  data-user-label="{{ (u.display_name or u.email) | e }}">
+            Reset access
+          </button>
+          {% endif %}
+        </div>
+      </details>
       {% if u.id != user.id and not is_sole %}
       <button type="button"
               class="btn btn-danger text-xs min-h-9 px-2.5"

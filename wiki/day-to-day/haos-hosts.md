@@ -4,7 +4,7 @@
 
 PiHerder can manage a **Home Assistant OS** appliance as a normal fleet **Server** over **SSH** (Terminal & SSH add-on). Updates, system facts, and backups use the **`ha` CLI** and plain **rsync** — not apt and not Docker Compose fleet management.
 
-This is **path 1** for v0.9: PiHerder → HAOS via SSH. Deeper REST integration, container-only HA, and an HA→PiHerder custom component are **later** — see [FEATURE_PLAN_HOME_ASSISTANT.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOME_ASSISTANT.md). HA can already call PiHerder today with [API tokens](../operations/api-tokens.md).
+**Production support (path 1):** PiHerder → HAOS via SSH + `ha` CLI. Deeper REST integration, container-only HA, and an HA→PiHerder custom component remain **later** — see [FEATURE_PLAN_HOME_ASSISTANT.md](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_HOME_ASSISTANT.md). HA can already call PiHerder with [API tokens](../operations/api-tokens.md).
 
 ## Why it exists
 
