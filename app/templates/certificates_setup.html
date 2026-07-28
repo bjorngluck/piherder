@@ -102,6 +102,42 @@
   {% endif %}
 </div>
 
+{# v1.0 (P): discovery notes — full cert-distribute wizard remains v1.1 #}
+<div class="card p-4 mb-6 text-sm space-y-2 border border-warning/30" data-testid="cert-distribute-notes">
+  <h3 class="font-semibold text-sm text-text">Known edges (cert distribute)</h3>
+  <p class="text-xs text-muted mb-0">
+    Service maps already deploy PEMs over SSH. These edges are documented so operators are not surprised;
+    a guided “fix sudoers + wizard” flow is planned for a later release.
+  </p>
+  <ul class="list-disc list-inside text-muted space-y-1.5 text-sm">
+    <li>
+      <strong class="text-text">Suggested sudoers</strong> on the map form assumes home
+      <code class="text-[11px]">/home/&lt;ssh-user&gt;</code> and stage
+      <code class="text-[11px]">~/.piherder/cert-stage/&lt;map-id&gt;/</code>.
+      Custom homes (or root) need hand-edited paths before <code class="text-[11px]">visudo -cf</code>.
+    </li>
+    <li>
+      <strong class="text-text">Verify non-interactive sudo</strong> after installing the drop-in:
+      <code class="text-[11px]">sudo -u &lt;user&gt; -H bash -lc 'sudo -n install -d …'</code>
+      must not prompt. Deploy fails with “sudoers?” when the line does not match exactly.
+    </li>
+    <li>
+      <strong class="text-text">Post-deploy</strong> restarts (<code class="text-[11px]">systemctl</code>,
+      <code class="text-[11px]">docker compose</code>) need their own allow lines or group membership —
+      the snippet only best-effort hints for common cases (e.g. HAProxy).
+    </li>
+    <li>
+      <strong class="text-text">Write mode</strong>: prefer <em>Stage in home + sudo install</em> for
+      root-owned destinations; <em>direct</em> only when the SSH user owns the target directory.
+    </li>
+  </ul>
+  <p class="text-xs text-muted mb-0">
+    Operator cookbooks:
+    <a href="https://piherder-docs.hacknow.info/integrations/certificates/" class="text-accent hover:underline">Managed certificates</a>
+    (OctoPi / HAProxy, NPM, Grafana presets).
+  </p>
+</div>
+
 {% if cert_count %}
 <div class="card p-4 flex flex-wrap items-center justify-between gap-3">
   <p class="text-sm text-muted">

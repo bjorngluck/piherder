@@ -52,18 +52,48 @@
       setTimeout(hide, 2200);
     }
   });
+  function stackContentReady() {
+    if (document.querySelector('.docker-stack-list, .docker-orphans')) return true;
+    var stack = document.getElementById('docker-stack');
+    if (!stack) return false;
+    // Non-empty HTMX body already painted (bfcache or full SSR)
+    var html = (stack.innerHTML || '').trim();
+    return html.length > 40 && !stack.querySelector('[hx-get][hx-trigger*="load"]');
+  }
+
   // Safety: never block forever
   setTimeout(function() {
-    if (overlay.style.display !== 'none' && !document.querySelector('.docker-stack-list, .docker-orphans')) {
+    if (overlay.style.display !== 'none' && !stackContentReady()) {
       // still empty after long wait — leave a message but free the UI
       const sub = document.getElementById('docker-loading-sub');
       if (sub) sub.textContent = 'Still waiting on host… you can use the page or Refresh.';
       hide();
+    } else if (overlay.style.display !== 'none' && stackContentReady()) {
+      hide();
     }
   }, 45000);
 
+  // v1.0 (O): browser Back / bfcache must not re-show SSH wait on a fully loaded page
   window.addEventListener('pageshow', function(event) {
-    if (event.persisted) show();
+    if (window.PiHerderWaitModal) window.PiHerderWaitModal.hide();
+    if (window.PiHerderNavLoading) window.PiHerderNavLoading.hide();
+    if (stackContentReady()) {
+      hide();
+      return;
+    }
+    // Restored empty shell — show overlay; HTMX load trigger may need a nudge
+    if (event.persisted) {
+      show();
+      try {
+        var el = document.getElementById('docker-stack');
+        if (el && window.htmx) {
+          var trigger = el.querySelector('[hx-get]') || el;
+          if (trigger.getAttribute && trigger.getAttribute('hx-get')) {
+            window.htmx.trigger(trigger, 'load');
+          }
+        }
+      } catch (_) {}
+    }
   });
 })();
 </script>

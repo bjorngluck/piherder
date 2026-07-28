@@ -462,6 +462,22 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 
 ## 7. Production deployment
 
+### Production checklist (v1.0 train)
+
+| Item | Action |
+|------|--------|
+| **Master key** | Unique `PIHERDER_MASTER_KEY` offline + in `.env` — never compose defaults |
+| **SECRET_KEY** | Long random JWT signing key — web warns if value looks like a stock default |
+| **TLS / public URL** | `PIHERDER_PUBLIC_URL=https://…` so session cookies get **Secure** (or `COOKIE_SECURE=true`) |
+| **2FA** | Enable for admins; consider **Force 2FA** in Settings; revoke trusted devices if a device is lost |
+| **Metrics** | Set `METRICS_TOKEN` if `/metrics` is not private-network-only |
+| **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
+| **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
+| **Self-backup** | Schedule + offline copy of archives before upgrades |
+| **Image pin** | Prefer `bjorngluck/piherder:0.9.0` until **v1.0.0** is tagged |
+
+Active ship plan: [PLAN_v1.0.0.md](PLAN_v1.0.0.md). Security model: [SECURITY.md](../SECURITY.md).
+
 ### Environment variables
 
 Full catalog with comments and defaults: **[`.env.example`](../.env.example)** (copy to `.env`). Compose injects those keys into **web** and **celery-worker** (Caddy only needs `PIHERDER_HOSTNAME`). Required: `PIHERDER_MASTER_KEY`, plus a strong `SECRET_KEY` in production.
@@ -489,7 +505,8 @@ PIHERDER_BACKUP_HOST_PATH=/home/you/backup
 1. Set `PIHERDER_HOSTNAME` and `PIHERDER_PUBLIC_URL` (include port if not 443).  
 2. Place PEMs in `certs/` (see `certs/README.md`).  
 3. Prefer Caddy ports **8888/8443** or terminate TLS at Nginx Proxy Manager and reverse-proxy to `web:8000`.  
-4. PWA + Web Push need **trusted** HTTPS (not `Caddyfile.dev` self-signed for phones).
+4. PWA + Web Push need **trusted** HTTPS (not `Caddyfile.dev` self-signed for phones).  
+5. With `PIHERDER_PUBLIC_URL` starting with `https://`, auth cookies are set **Secure** automatically (`COOKIE_SECURE` can force on/off).
 
 ### Upgrades
 

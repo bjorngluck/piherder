@@ -57,7 +57,7 @@
       <div class="fabric-nav-card-kicker">Settings</div>
       <div class="fabric-nav-card-title">DNS records</div>
       <p class="fabric-nav-card-desc">
-        Host A · external checklist
+        Host A · service CNAME · external
         {% if _ext_n %} · {{ _ext_n }} pending{% endif %}
       </p>
       <span class="fabric-nav-card-cta">Open →</span>
@@ -258,7 +258,8 @@
   {% endif %}
 </div>
 
-{# ── DNS records modal (Host A + External checklist, filterable) ── #}
+{# ── DNS records modal (Host A + service CNAME + External checklist) ── #}
+{% set _svc_n = view.services|length if view.services else 0 %}
 <div id="dns-modal-records" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-50 p-3"
      role="dialog" aria-modal="true" aria-labelledby="dns-modal-records-title"
      data-testid="dns-modal-records"
@@ -270,56 +271,139 @@
       <div class="min-w-0">
         <h3 id="dns-modal-records-title" class="text-base font-semibold text-text m-0">DNS records</h3>
         <p class="text-xs text-muted mb-0">
-          Host A (fleet) and external checklist (public providers). Filter below.
+          Three different record types — filter to focus. Deep-link to edit or open a path.
         </p>
       </div>
       <button type="button" class="btn btn-secondary text-xs min-h-9 shrink-0"
               onclick="closeDnsHubModal('dns-modal-records')">Close</button>
     </header>
-    <div class="px-3 sm:px-4 pt-3 pb-2 border-b border-border/70 flex flex-wrap gap-1.5 items-center"
-         data-testid="dns-records-filters" role="tablist" aria-label="DNS record type">
-      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 dns-rec-filter is-active"
-              data-dns-rec-filter="all" role="tab" aria-selected="true"
-              data-testid="dns-filter-all">All</button>
-      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 dns-rec-filter"
-              data-dns-rec-filter="host" role="tab" aria-selected="false"
-              data-testid="dns-filter-host">
-        Host A
-        <span class="text-muted font-normal ml-1">{{ view.stats.hosts_named }}/{{ view.stats.hosts_total }}</span>
-      </button>
-      <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 dns-rec-filter"
-              data-dns-rec-filter="external" role="tab" aria-selected="false"
-              data-testid="dns-filter-external">
-        External
-        <span class="text-muted font-normal ml-1">{{ _ext_n }}</span>
-      </button>
+    <div class="px-3 sm:px-4 pt-3 pb-2 border-b border-border/70 space-y-2">
+      {# v1.0 (X): operator legend for Host A vs Pi-hole A vs CNAME #}
+      <div class="dns-rec-legend text-[11px] text-muted leading-snug" data-testid="dns-records-legend">
+        <div class="grid gap-1.5 sm:grid-cols-3">
+          <div>
+            <strong class="text-text">Host A</strong> — fleet host FQDN → LAN IP.
+            <span class="text-success">Pi-hole A</span> means PiHerder pushes that A to your Pi-holes;
+            <span class="text-muted">manual</span> means you maintain DNS yourself.
+          </div>
+          <div>
+            <strong class="text-text">Service CNAME</strong> — app name (e.g. <span class="font-mono">grafana…</span>)
+            → host or NPM. Managed in Service paths; Sync pushes CNAMEs to Pi-hole when linked.
+          </div>
+          <div>
+            <strong class="text-text">External</strong> — public DNS (Cloudflare, registrar, …).
+            Checklist only — not automated in this release.
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-1.5 items-center"
+           data-testid="dns-records-filters" role="tablist" aria-label="DNS record type">
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 dns-rec-filter is-active"
+                data-dns-rec-filter="all" role="tab" aria-selected="true"
+                data-testid="dns-filter-all">All</button>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 dns-rec-filter"
+                data-dns-rec-filter="host" role="tab" aria-selected="false"
+                data-testid="dns-filter-host">
+          Host A
+          <span class="text-muted font-normal ml-1">{{ view.stats.hosts_named }}/{{ view.stats.hosts_total }}</span>
+        </button>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 dns-rec-filter"
+                data-dns-rec-filter="cname" role="tab" aria-selected="false"
+                data-testid="dns-filter-cname">
+          CNAME
+          <span class="text-muted font-normal ml-1">{{ _svc_n }}</span>
+        </button>
+        <button type="button" class="btn btn-secondary text-xs min-h-9 px-2.5 dns-rec-filter"
+                data-dns-rec-filter="external" role="tab" aria-selected="false"
+                data-testid="dns-filter-external">
+          External
+          <span class="text-muted font-normal ml-1">{{ _ext_n }}</span>
+        </button>
+      </div>
     </div>
     <div class="p-3 sm:p-4 overflow-y-auto flex-1 min-h-0">
       {# Dense shared row layout — works on mobile without horizontal scroll #}
       <div class="dns-rec-list" data-testid="dns-host-list">
         {% for h in view.hosts %}
         <div class="dns-rec-row" data-dns-kind="host">
-          <span class="dns-rec-type" title="Host A record">A</span>
+          <span class="dns-rec-type" title="Host A — fleet FQDN to LAN IP">A</span>
           <div class="dns-rec-main min-w-0">
-            <a href="{{ h.href }}" class="text-accent hover:underline font-medium text-sm truncate block">{{ h.name }}</a>
+            <a href="{{ h.href }}" class="text-accent hover:underline font-medium text-sm truncate block"
+               title="Open server — Edit → General for DNS name / Manage A">{{ h.name }}</a>
             <div class="dns-rec-meta font-mono text-[11px] text-muted">
-              <span class="break-all">{{ h.dns_name or '—' }}</span>
+              <span class="break-all">{{ h.dns_name or '— no FQDN yet' }}</span>
               <span class="dns-rec-sep">·</span>
               <span>{{ h.ip or '—' }}</span>
             </div>
+            <div class="dns-rec-actions text-[11px] mt-0.5">
+              <a href="{{ h.href }}" class="text-accent hover:underline">Edit host DNS →</a>
+              {% if h.dns_manage_a %}
+              <span class="dns-rec-sep text-muted">·</span>
+              <a href="/integrations" class="text-accent hover:underline">Pi-hole integrations</a>
+              {% endif %}
+            </div>
           </div>
           <span class="dns-rec-status text-xs shrink-0">
-            {% if h.dns_manage_a %}<span class="text-success">Pi-hole A</span>{% else %}<span class="text-muted">manual</span>{% endif %}
+            {% if h.dns_manage_a %}
+            <span class="text-success" title="PiHerder creates/updates this A record on all Pi-hole instances">Pi-hole A</span>
+            {% elif h.dns_name %}
+            <span class="text-muted" title="FQDN stored in PiHerder; you maintain the A record outside">manual</span>
+            {% else %}
+            <span class="text-warning" title="Set DNS name under server Edit → General">unset</span>
+            {% endif %}
           </span>
         </div>
         {% else %}
         <p class="text-muted text-xs py-2 mb-0" data-dns-kind="host">No servers in fleet.</p>
         {% endfor %}
 
+        {% if view.services %}
+        {% for s in view.services %}
+        <div class="dns-rec-row" data-dns-kind="cname" data-testid="dns-cname-row">
+          <span class="dns-rec-type dns-rec-type--cname" title="Service CNAME / path mapping">CNAME</span>
+          <div class="dns-rec-main min-w-0">
+            <a href="#path-{{ s.id }}" class="font-mono text-sm text-accent hover:underline break-all"
+               onclick="closeDnsHubModal('dns-modal-records'); setTimeout(function(){ var el=document.getElementById('path-{{ s.id }}'); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); }, 50); return true;">
+              {{ s.fqdn }}
+            </a>
+            <div class="dns-rec-meta text-[11px] text-muted">
+              <span>{{ s.path_title or s.path_kind or 'path' }}</span>
+              <span class="dns-rec-sep">·</span>
+              <span>{{ s.backend_name or s.target_name or '—' }}</span>
+              {% if s.via_proxy %}<span class="dns-rec-sep">·</span><span>via NPM</span>{% endif %}
+            </div>
+            <div class="dns-rec-actions text-[11px] mt-0.5">
+              <a href="#path-{{ s.id }}" class="text-accent hover:underline"
+                 onclick="closeDnsHubModal('dns-modal-records'); setTimeout(function(){ var el=document.getElementById('path-{{ s.id }}'); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); }, 50); return true;">Open path card →</a>
+              <span class="dns-rec-sep text-muted">·</span>
+              <a href="/dns/logical?focus={{ s.id }}#map" class="text-accent hover:underline">Path map</a>
+              {% if s.backend_href %}
+              <span class="dns-rec-sep text-muted">·</span>
+              <a href="{{ s.backend_href }}" class="text-accent hover:underline">Host</a>
+              {% endif %}
+            </div>
+          </div>
+          <span class="dns-rec-status text-xs shrink-0">
+            {% if s.managed_on_pihole %}
+            <span class="text-success" title="Pi-hole CNAME managed by PiHerder">Pi-hole</span>
+            {% else %}
+            <span class="text-muted" title="Mapping in PiHerder; may not be pushed to Pi-hole yet">mapped</span>
+            {% endif %}
+          </span>
+        </div>
+        {% endfor %}
+        {% else %}
+        <p class="text-muted text-xs py-2 mb-0" data-dns-kind="cname">
+          No service path mappings yet.
+          <button type="button" class="text-accent underline" onclick="closeDnsHubModal('dns-modal-records'); openDnsHubModal('dns-modal-adopt');">Adopt from Pi-hole</button>
+          or map a path on this page.
+        </p>
+        {% endif %}
+
         {% if view.external_checklist %}
         {% for c in view.external_checklist %}
         <div class="dns-rec-row" data-dns-kind="external" data-testid="dns-external-row">
-          <span class="dns-rec-type dns-rec-type--ext" title="External checklist">{{ c.type or 'EXT' }}</span>
+          <span class="dns-rec-type dns-rec-type--ext" title="External public DNS checklist">{{ c.type or 'EXT' }}</span>
           <div class="dns-rec-main min-w-0">
             <div class="font-mono text-sm text-text break-all">
               <strong class="font-semibold">{{ c.name }}</strong>
@@ -327,7 +411,7 @@
             </div>
             {% if c.note %}<p class="text-[11px] text-muted mt-0.5 mb-0 font-sans">{{ c.note }}</p>{% endif %}
           </div>
-          <span class="dns-rec-status text-xs text-muted shrink-0">checklist</span>
+          <span class="dns-rec-status text-xs text-muted shrink-0" title="Operator checklist — create this at your public DNS provider">checklist</span>
         </div>
         {% endfor %}
         {% else %}
@@ -350,10 +434,16 @@
       </form>
       {% endif %}
       <p class="text-[11px] text-muted mt-3 mb-0" data-dns-kind="host">
-        Host A names are set under each server <strong class="text-text">Edit → General</strong>.
+        <strong class="text-text">Host A:</strong> set under each server <strong class="text-text">Edit → General</strong>
+        (DNS name, IP, <em>Manage A on all Pi-holes</em>).
+      </p>
+      <p class="text-[11px] text-muted mt-1 mb-0" data-dns-kind="cname">
+        <strong class="text-text">Service CNAME:</strong> create/import under Service paths or
+        <strong class="text-text">Adopt from Pi-hole</strong>. Sync on a path card pushes to Pi-hole when linked.
       </p>
       <p class="text-[11px] text-muted mt-1 mb-0" data-dns-kind="external">
-        Public providers (Cloudflare, etc.) are not automated yet — this is an operator checklist.
+        <strong class="text-text">External:</strong> public providers (Cloudflare, etc.) are not automated —
+        use this as an operator checklist only.
       </p>
     </div>
   </div>
@@ -519,7 +609,7 @@ function closeDnsHubModal(id) {
 function setDnsRecordsFilter(kind) {
   var modal = document.getElementById('dns-modal-records');
   if (!modal) return;
-  var k = kind === 'host' || kind === 'external' ? kind : 'all';
+  var k = (kind === 'host' || kind === 'cname' || kind === 'external') ? kind : 'all';
   modal.setAttribute('data-dns-filter', k);
   modal.querySelectorAll('[data-dns-rec-filter]').forEach(function (btn) {
     var active = (btn.getAttribute('data-dns-rec-filter') || '') === k;
@@ -530,7 +620,9 @@ function setDnsRecordsFilter(kind) {
 function openDnsRecordsModal(kind) {
   openDnsHubModal('dns-modal-records');
   // Default All unless an explicit filter is passed
-  setDnsRecordsFilter(kind === 'host' || kind === 'external' ? kind : 'all');
+  setDnsRecordsFilter(
+    (kind === 'host' || kind === 'cname' || kind === 'external') ? kind : 'all'
+  );
 }
 // Filter chips: stopPropagation so modal backdrop/handlers never swallow the click
 document.addEventListener('click', function (e) {

@@ -16,18 +16,21 @@
     </div>
 
     <p class="text-sm text-muted mb-4">
-      An administrator requires every account to enable app-based 2FA (TOTP) before using {{ ph_brand() }}.
+      An administrator requires every account to enable app-based 2FA (TOTP) before using
+      the fleet. You can open Account to finish setup; all other pages stay locked until 2FA is on.
     </p>
-    <ol class="text-sm text-muted list-decimal pl-5 space-y-1 mb-6">
-      <li>Open Account security settings</li>
-      <li>Enable 2FA and scan the QR code with your authenticator app</li>
-      <li>Save your backup codes</li>
-      <li>Return to the dashboard</li>
+    <ol class="text-sm text-muted list-decimal pl-5 space-y-1.5 mb-6">
+      <li>Open <strong class="text-text">Account</strong> (button below)</li>
+      <li>Under <strong class="text-text">Two-factor authentication</strong>, start setup and scan the QR with your authenticator app</li>
+      <li>Confirm with a code, then <strong class="text-text">save your backup codes</strong> offline</li>
+      <li>Return to the dashboard — fleet access unlocks automatically</li>
     </ol>
-    <a href="/auth/account?msg=2fa_setup" class="btn btn-accent w-full min-h-11 inline-flex items-center justify-center">
-      Set up 2FA now
+    <a href="/auth/account?msg=2fa_setup#account-2fa"
+       class="btn btn-accent w-full min-h-11 inline-flex items-center justify-center">
+      Set up 2FA on Account
     </a>
-    <p class="mt-4 text-center text-xs text-muted">
+    <p class="mt-3 text-center text-xs text-muted">
+      Prefer a different account?
       <a href="/auth/logout" class="text-accent hover:underline">Sign out</a>
     </p>
   </div>

@@ -16,6 +16,7 @@ There is **no default user** (`admin@example.com` is not created). An empty data
 self-registration open for the **first account only**.
 
 1. Open the app URL from [Install](install.md).  
+   Unauthenticated `/` redirects to **Sign in** (no empty public dashboard).  
 2. On first start, choose **Create account** / Register with a strong email + password.  
 3. You are the first user → role **admin**.  
 4. Self-registration then **closes** automatically.
@@ -48,7 +49,7 @@ If you set `ALLOW_OPEN_REGISTRATION=true`, later self-registered accounts become
 | Optional 2FA | **Account** → TOTP + backup codes — or [force 2FA for all](../account-security/two-factor.md). Regenerating backup codes needs password **and** a live 2FA code. |
 | Push notifications | **Account** → Push (after [HTTPS / PWA](../account-security/pwa-push.md)) |
 | Timezone | **Settings → General** |
-| Version / About | Footer shows version only when signed in; **About** under avatar menu |
+| Version / About | Footer shows version only when signed in; **About** under avatar menu (anonymous chrome never shows the version string) |
 | Create operators/viewers | **Users** (admin) — after first admin, no public self-register |
 | Add first server | [Add a server](../day-to-day/add-server.md) |
 

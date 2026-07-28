@@ -35,6 +35,55 @@ def cookie_secure() -> bool:
     return url.startswith("https://")
 
 
+# Production rate limits (auth surfaces). Override with PIHERDER_DISABLE_AUTH_RATE_LIMIT for E2E.
+LOGIN_RATE_MAX = 10  # failed/success attempts per window per IP
+LOGIN_RATE_WINDOW = 300
+TWOFA_RATE_MAX = 12
+TWOFA_RATE_WINDOW = 300
+REGISTER_RATE_MAX = 8
+REGISTER_RATE_WINDOW = 600
+
+
+def is_weak_secret_key(key: str | None = None) -> bool:
+    """True when SECRET_KEY looks like a stock/dev default (must change in production)."""
+    raw = (key if key is not None else getattr(settings, "SECRET_KEY", "") or "").strip()
+    if not raw:
+        return True
+    if len(raw) < 24:
+        return True
+    lowered = raw.lower()
+    # Phrase markers only — avoid flagging long random keys that merely contain
+    # the substring "secret" (e.g. operator-chosen phrases).
+    weak_markers = (
+        "dev-secret",
+        "change-me",
+        "changeme",
+        "change_in_prod",
+        "change-in-prod",
+        "please-change",
+        "replace-me",
+        "piherder-dev",
+        "your-secret-here",
+    )
+    if any(m in lowered for m in weak_markers):
+        return True
+    # Exact trivial values (even if somehow long-padded)
+    if lowered in ("secret", "password", "admin", "piherder", "example"):
+        return True
+    return False
+
+
+def cookie_auth_kwargs(*, max_age: int) -> dict:
+    """Shared flags for session cookies (HttpOnly, SameSite=Lax, Secure when HTTPS)."""
+    return {
+        "httponly": True,
+        "max_age": max_age,
+        "samesite": "lax",
+        "secure": cookie_secure(),
+        "path": "/",
+    }
+
+
 def verify_password(plain: str, hashed: str) -> bool:
     # Truncate input to 72 bytes to be consistent with hashing (prevents library errors on long passwords).
     if isinstance(plain, str):
@@ -554,4 +603,45 @@ def rate_limit_auth(key: str, max_attempts: int = 20, window_seconds: int = 300)
         return False
     bucket.append(now)
     _auth_attempts[key] = bucket
+    return True
+
+
+def same_origin_request(request: Request) -> bool:
+    """Best-effort same-origin check for cookie-session browser POSTs.
+
+    When Origin (or Referer) is present and does not match the request host,
+    return False. Missing headers are allowed (non-browser clients, TestClient,
+    some same-site navigations). Bearer API callers skip this check at the
+    middleware layer.
+    """
+    host = (request.headers.get("host") or "").split(",")[0].strip().lower()
+    if not host:
+        return True
+
+    def _host_from_url(raw: str) -> str:
+        s = (raw or "").strip()
+        if not s:
+            return ""
+        try:
+            # Avoid urllib dependency churn — parse lightly
+            if "://" in s:
+                s = s.split("://", 1)[1]
+            s = s.split("/", 1)[0]
+            s = s.split("?", 1)[0]
+            return s.lower()
+        except Exception:
+            return ""
+
+    origin = (request.headers.get("origin") or "").strip()
+    if origin and origin.lower() not in ("null",):
+        oh = _host_from_url(origin)
+        if oh and oh != host:
+            return False
+        return True
+
+    referer = (request.headers.get("referer") or "").strip()
+    if referer:
+        rh = _host_from_url(referer)
+        if rh and rh != host:
+            return False
     return True

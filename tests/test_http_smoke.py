@@ -188,8 +188,21 @@ def test_viewer_cannot_post_fleet_mutate(smoke_client):
         assert "read-only" in (r.json() or {}).get("detail", "").lower() or True
 
 
-def test_dependency_override_optional_user_anonymous_dashboard(smoke_client):
-    """Root uses optional user; anonymous still 200 (public-ish dashboard chrome)."""
+def test_anonymous_root_redirects_to_login(smoke_client):
+    """v1.0 (F): unauthenticated / goes to login, not empty dashboard."""
     client, _ = smoke_client
-    r = client.get("/")
+    r = client.get("/", follow_redirects=False)
+    assert r.status_code in (302, 303)
+    loc = r.headers.get("location") or ""
+    assert "/auth/login" in loc
+
+
+def test_authenticated_root_dashboard(smoke_client):
+    """Signed-in users still get the fleet dashboard at /."""
+    client, engine = smoke_client
+    with Session(engine) as session:
+        user = _make_user(session)
+        uid = user.id
+    r = client.get("/", cookies=_auth_cookie(uid))
     assert r.status_code == 200
+    assert "dashboard" in r.text.lower() or "server" in r.text.lower() or "fleet" in r.text.lower()

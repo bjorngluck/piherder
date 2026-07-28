@@ -4,8 +4,9 @@
 
 | Version | Support |
 |---------|---------|
-| **v0.9.x** (tag `v0.9.0`+) | Latest tagged release line (last pre-production) |
-| **v0.8.x** | Prior RC3 line; prefer upgrade to v0.9.x |
+| **`main` / v1.0 train** | Active production hardening toward **v1.0.0** ([PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md)) |
+| **v0.9.x** (tag `v0.9.0`+) | Latest **tagged** release line (last pre-production) |
+| **v0.8.x** | Prior RC3 line; prefer upgrade to v0.9.x+ |
 | **v0.7.x** | Prior line; prefer upgrade to latest |
 | **v0.6.x** | Prior RC2 line; prefer upgrade to latest |
 | **v0.5.x** | Prior RC1 line; prefer upgrade to latest |
@@ -40,10 +41,14 @@ We aim to acknowledge reports within a few days and will work with you on a fix 
 | User passwords | bcrypt + password policy (min 10, upper/lower/digit; soft max ~72 characters) |
 | 2FA secrets | Fernet-encrypted TOTP; hashed backup codes |
 | API tokens (`ph_…`) | Stored as hashes only; shown once at create/rotate; scopes + optional IP allowlist |
-| Sessions | JWT cookie (HS256 via **PyJWT** + cryptography) |
+| Sessions | JWT cookie (HS256 via **PyJWT** + cryptography); **HttpOnly**, **SameSite=Lax**, `path=/`, **Secure** when public URL is HTTPS |
+| Cross-origin browser POSTs | Same-origin middleware (Origin/Referer host match when present); Bearer `/api/v1` skipped |
+| Auth rate limits | Login / 2FA / register limited per IP (disabled only via `PIHERDER_DISABLE_AUTH_RATE_LIMIT` for E2E) |
+| Streams (SSE) | Docker logs/build, backup/OS progress require session; build stream is **operator+** |
+| Input hygiene | Risk-based validators on paths, hostnames, SSH users, cron, action allowlists (`app/services/input_validation.py`) |
 | Transport | HTTPS via Caddy + operator-supplied PEMs recommended for production |
 
-Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md).
+Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki roles](wiki/account-security/roles.md) · [PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md).
 
 ## Dependencies & supply chain
 
@@ -62,10 +67,10 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md).
 
 ## Operational recommendations
 
-- Use a unique strong `PIHERDER_MASTER_KEY` and `SECRET_KEY` (see [`.env.example`](.env.example) for the full env catalog).  
+- Use a unique strong `PIHERDER_MASTER_KEY` and `SECRET_KEY` (see [`.env.example`](.env.example) for the full env catalog). Web logs a **warning** if `SECRET_KEY` looks like a stock/dev default.  
 - Prefer SSH key auth; clear any stored SSH passwords after deploy.  
-- Enable 2FA for admin accounts; consider **Force 2FA** in Settings.  
-- Put PiHerder behind trusted TLS; restrict network access where possible.  
+- Enable 2FA for admin accounts; consider **Force 2FA** in Settings. Treat **trusted devices** as full session risk until revoked.  
+- Put PiHerder behind trusted TLS; restrict network access where possible. Set `PIHERDER_PUBLIC_URL=https://…` so session cookies get the **Secure** flag (or force `COOKIE_SECURE=true`).  
 - Set `METRICS_TOKEN` if `/metrics` is reachable beyond a private scrape network.  
 - Treat API tokens like passwords; revoke compromised tokens immediately.  
 - Leave `CORS_ORIGINS` empty unless a browser on another origin must call `/api/v1`; never use `*`. CORS is not a substitute for Bearer + scopes + IP allowlists.  

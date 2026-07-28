@@ -48,10 +48,27 @@ Journey: [Operator scenarios — Journey G](../getting-started/operator-scenario
 ## Enforcement
 
 - Logged-in roles can **GET** most pages (read browsing).  
-- Mutating methods checked in auth middleware.  
+- Mutating methods checked in auth middleware (viewer fleet writes blocked unless on the self-service allowlist).  
 - User admin routes always require **admin**.  
 - Instance Settings mutations and herder DR require **admin** (route deps + path prefixes).  
-- Missing or unknown role → treated as **viewer** (fail-closed).
+- Missing or unknown role → treated as **viewer** (fail-closed).  
+- **SSE / long streams** (Docker logs, build output, backup/OS progress) require a valid session — unauthenticated stream URLs return **401**. Docker **build** stream requires **operator+** (not viewer).
+
+### Production hardening (v1.0 train)
+
+On the road to **v1.0.0**, PiHerder maintains an **authorization matrix** (route × role × API scopes) and automated smoke tests (`tests/test_authz_matrix_v10.py`, `tests/test_rbac.py`). Plan: [PLAN_v1.0.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.0.0.md) (phase **AC**).
+
+| Surface | Viewer | Operator | Admin |
+|---------|--------|----------|-------|
+| Fleet UI read | Yes | Yes | Yes |
+| Fleet mutate (backup, Docker, DNS maps, certs, …) | **403** | Yes | Yes |
+| Docker log SSE | Yes (if signed in) | Yes | Yes |
+| Docker **build** SSE | **403** | Yes | Yes |
+| Users / API tokens / herder restore | No | No | Yes |
+| Account self-service | Yes | Yes | Yes |
+| REST `/api/v1` | Bearer token + scopes (not browser roles) | | |
+
+Anonymous visitors hitting `/` are redirected to **login** (no empty public dashboard).
 
 ## Sole admin protection
 

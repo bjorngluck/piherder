@@ -220,7 +220,7 @@
               {% if can_mutate %}
               <form method="post" action="/dns/coverage/mute" class="coverage-mute-form">
                 <input type="hidden" name="key" value="{{ d.key }}">
-                <button type="submit" class="text-[10px] text-muted hover:underline">Mute</button>
+                <button type="submit" class="coverage-mute-btn" aria-label="Mute dependency">Mute</button>
               </form>
               {% endif %}
             </td>
@@ -242,10 +242,10 @@
         {% for d in deps.muted[:40] %}
         <li class="flex flex-wrap gap-2 items-center">
           <span class="font-mono text-[11px]">{{ d.server_name }}/{{ d.project }}/{{ d.compose_service or d.container }}</span>
-          <form method="post" action="/dns/coverage/mute" class="inline">
+          <form method="post" action="/dns/coverage/mute" class="inline coverage-mute-form">
             <input type="hidden" name="key" value="{{ d.key }}">
             <input type="hidden" name="unmute" value="1">
-            <button type="submit" class="text-accent hover:underline">Unmute</button>
+            <button type="submit" class="coverage-unmute-btn" aria-label="Unmute dependency">Unmute</button>
           </form>
         </li>
         {% endfor %}

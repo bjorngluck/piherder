@@ -24,7 +24,11 @@
 }
 /* Filter: CSS-driven so chips always work (no stuck host-only JS state) */
 #dns-modal-records[data-dns-filter="host"] [data-dns-kind="external"],
-#dns-modal-records[data-dns-filter="external"] [data-dns-kind="host"] {
+#dns-modal-records[data-dns-filter="host"] [data-dns-kind="cname"],
+#dns-modal-records[data-dns-filter="cname"] [data-dns-kind="host"],
+#dns-modal-records[data-dns-filter="cname"] [data-dns-kind="external"],
+#dns-modal-records[data-dns-filter="external"] [data-dns-kind="host"],
+#dns-modal-records[data-dns-filter="external"] [data-dns-kind="cname"] {
   display: none !important;
 }
 .dns-rec-type {
@@ -49,6 +53,23 @@
   color: var(--color-warning, #d97706);
   background: color-mix(in srgb, var(--color-warning, #d97706) 12%, var(--color-surface));
   border-color: color-mix(in srgb, var(--color-warning, #d97706) 35%, var(--color-border));
+}
+.dns-rec-type--cname {
+  color: var(--color-success, #16a34a);
+  background: color-mix(in srgb, var(--color-success, #16a34a) 12%, var(--color-surface));
+  border-color: color-mix(in srgb, var(--color-success, #16a34a) 35%, var(--color-border));
+}
+.dns-rec-legend {
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, transparent);
+  background: color-mix(in srgb, var(--color-bg) 55%, var(--color-surface));
+}
+.dns-rec-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.35rem;
+  align-items: center;
 }
 .dns-rec-meta {
   display: flex;

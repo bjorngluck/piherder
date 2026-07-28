@@ -734,13 +734,19 @@
       }
       var id = String(pathId);
       if (locked === id) {
-        // Second intentional tap clears — but ignore double-fire within 700ms
-        // (ghost click after touch would otherwise unlock immediately)
-        if (!opts.forceToggle && Date.now() - lastLockAt < 700) {
+        // Second intentional tap/click clears focus.
+        // Touch: ignore double-fire within 700ms (ghost click after touch).
+        // Mouse: short 180ms only — desktop second click must release (v1.0 R).
+        var debounceMs = opts.debounceMs;
+        if (debounceMs == null) {
+          debounceMs = opts.fromTouch ? 700 : 180;
+        }
+        if (!opts.forceToggle && Date.now() - lastLockAt < debounceMs) {
           return;
         }
         locked = null;
         hoverId = null;
+        lastLockAt = Date.now(); // suppress double-fire re-lock
         clearFocus(root);
         return;
       }
@@ -874,7 +880,10 @@
             if (mt && root.contains(mt)) meshKey = focusKeyFrom(mt);
           }
           mouseDown = null;
-          if (meshKey && meshKey.id) lockPath(meshKey.id, meshKey.chain);
+          // Mouse/pen intentional click: force toggle so second click always releases (R)
+          if (meshKey && meshKey.id) {
+            lockPath(meshKey.id, meshKey.chain, { forceToggle: true, debounceMs: 0 });
+          }
           return;
         }
 
@@ -905,13 +914,13 @@
           }
           e.preventDefault();
           mouseDown = null;
-          lockPath(key.id, key.chain);
+          lockPath(key.id, key.chain, { forceToggle: true, debounceMs: 0 });
           return;
         }
 
         if (!e.target.closest('a[href]')) {
           mouseDown = null;
-          lockPath(key.id, key.chain);
+          lockPath(key.id, key.chain, { forceToggle: true, debounceMs: 0 });
         } else {
           mouseDown = null;
         }
@@ -1040,10 +1049,11 @@
           // Intentional second tap — clear
           locked = null;
           hoverId = null;
+          lastLockAt = Date.now();
           clearFocus(root);
           return;
         }
-        lockPath(id, chain);
+        lockPath(id, chain, { fromTouch: true });
       },
       true
     );

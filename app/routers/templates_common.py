@@ -173,17 +173,13 @@ def _client_ip(request: Request) -> Optional[str]:
 
 
 def _set_secrets_unlock_cookie(response: RedirectResponse, user: User) -> None:
-    from ..security.auth import cookie_secure
+    from ..security.auth import cookie_auth_kwargs
 
     token = create_secrets_unlock_token(user.id)
     response.set_cookie(
         SECRETS_UNLOCK_COOKIE,
         token,
-        httponly=True,
-        max_age=SECRETS_UNLOCK_MINUTES * 60,
-        samesite="lax",
-        path="/",
-        secure=cookie_secure(),
+        **cookie_auth_kwargs(max_age=SECRETS_UNLOCK_MINUTES * 60),
     )
 
 

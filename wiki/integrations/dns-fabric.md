@@ -49,7 +49,7 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 
 <figure class="ph-figure" markdown>
   ![Kuma coverage](../assets/screenshots/dns-coverage.png)
-  <figcaption>Kuma coverage — dense gap table with constrained suggestions and Bind (not large card forms).</figcaption>
+  <figcaption>Kuma coverage — dense bind table on desktop; stacked cards on narrow viewports. Mute/Unmute use matching accent controls.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
@@ -89,19 +89,31 @@ On the Network hub stat strip, **By path type** shows counts for Host / App / NP
 
 ## Network hub layout
 
-The hub (`/dns`) is **path-first** (v0.9): destination **cards** + DNS/settings **cards**, then the long service-path list. Host A / external records share one **DNS records** modal (filter **All** by default). Map settings and Pi-hole adopt open in their own modals.
+The hub (`/dns`) is **path-first** (v0.9+): destination **cards** + DNS/settings **cards**, then the long service-path list. Host A / service CNAME / external records share one **DNS records** modal (filter **All** by default). Map settings and Pi-hole adopt open in their own modals.
 
 | Block | What it is |
 |-------|------------|
 | **Destination cards** | Jump to Kuma coverage, Hosts map, Path map (same compact card language as the rest of Catalog) |
-| **DNS & settings cards** | **DNS records** (Host A + External, one modal), **Map settings**, **Adopt** |
+| **DNS & settings cards** | **DNS records** (Host A · CNAME · External), **Map settings**, **Adopt** |
 | **Service paths** | Searchable path cards (name → layers → Stack / maps) |
 
 | Modal | Content |
 |-------|---------|
-| **DNS records** | Unified list with filters: **All** (default) · **Host A** · **External** |
+| **DNS records** | Unified list with filters: **All** (default) · **Host A** · **CNAME** · **External** — see [record types](#dns-records-types) |
 | **Map settings** | LAN CIDR, gateway, public IP, optional Kuma binds (formerly “Network map” / “LAN map”) |
 | **Adopt** | Import / candidates from Pi-hole |
+
+### DNS records — three different things {#dns-records-types}
+
+The **DNS records** modal opens from the hub settings card. It is easy to confuse three kinds of “DNS”:
+
+| Filter | What it means | Where you edit it |
+|--------|----------------|-------------------|
+| **Host A** | Fleet host **FQDN → LAN IP**. Badge **Pi-hole A** = PiHerder pushes that A to all Pi-holes; **manual** = you maintain the A outside; **unset** = no FQDN yet | Server **Edit → General** (deep link **Edit host DNS →** on each row) |
+| **CNAME** | **Service path** names (`grafana.example.com` → host or NPM). **Pi-hole** badge when PiHerder manages the CNAME; **mapped** when the path exists in PiHerder only | Path card on this hub, **Sync**, or **Adopt from Pi-hole**; deep links to path card / Path map / host |
+| **External** | Public DNS (Cloudflare, registrar, …) — **checklist only**, not automated | Operator checklist + base domain field for name suggestions |
+
+Maps (Hosts / Path) still support **second click to clear focus** on desktop (same as mobile toggle).
 
 !!! note "Runtime stack reorder"
     On Hosts / Path maps, open the stack panel and drag the **⋮⋮** handle to reorder containers.

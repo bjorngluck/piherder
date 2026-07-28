@@ -19,7 +19,7 @@ from ..services import docker_management as docker_svc
 from ..services import docker_inventory as inventory_svc
 from ..services import env_file_ui
 from .. import templates as templates_mod
-from ..security.auth import get_current_user, secrets_unlock_active
+from ..security.auth import get_current_user, get_operator_user, secrets_unlock_active
 from ..models import User
 
 router = APIRouter()
@@ -121,9 +121,22 @@ async def docker_container_action(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
-    action = (action or "").strip().lower()
-    if action not in ("start", "stop", "restart"):
-        raise HTTPException(400, "Invalid container action")
+    from ..services.input_validation import (
+        DOCKER_CONTAINER_ACTIONS,
+        ValidationError,
+        allowlist,
+        clamp_str,
+    )
+
+    try:
+        action = allowlist(
+            (action or "").strip().lower(),
+            DOCKER_CONTAINER_ACTIONS,
+            field="action",
+        )
+        name = clamp_str(name, max_len=200, field="container", allow_empty=False)
+    except ValidationError as e:
+        raise HTTPException(400, detail=str(e)) from e
 
     server = session.get(Server, server_id)
     if not server:
@@ -568,8 +581,16 @@ async def check_updates(
 
 
 @router.get("/{server_id}/docker/logs/{container}/stream")
-async def stream_container_logs(server_id: int, container: str, lines: int = 30, project_path: str = None, session: Session = Depends(get_session)):
-
+async def stream_container_logs(
+    server_id: int,
+    container: str,
+    lines: int = 30,
+    project_path: str = None,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    """SSE log stream — must require session (v1.0 AC2). Viewers may read if they can open Docker UI."""
+    _ = user
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -641,8 +662,13 @@ async def build_stream(
     services: str = "",
     no_cache: str = "false",
     session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
 ):
-    """SSE endpoint that runs docker compose build on the host and streams output."""
+    """SSE endpoint that runs docker compose build on the host and streams output.
+
+    v1.0 AC2: requires operator+ — unauthenticated build-via-SSE was a critical gap.
+    """
+    _ = user
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
@@ -709,6 +735,18 @@ async def prune_unused_route(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user)
 ):
+    from ..services.input_validation import PRUNE_TYPES, ValidationError, allowlist
+
+    try:
+        prune_type = allowlist(
+            (prune_type or "both").strip().lower(),
+            PRUNE_TYPES,
+            field="prune_type",
+            default="both",
+        )
+    except ValidationError as e:
+        raise HTTPException(400, detail=str(e)) from e
+
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)

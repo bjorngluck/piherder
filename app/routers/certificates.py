@@ -445,7 +445,28 @@ async def certificate_add_target(
     pfx_export_password: str = Form(""),
     post_deploy_command: str = Form(""),
 ):
+    from ..services.input_validation import (
+        CERT_LAYOUTS,
+        CERT_WRITE_MODES,
+        ValidationError,
+        allowlist,
+        clamp_str,
+        safe_path,
+    )
+
     try:
+        remote_dir = safe_path(remote_dir or "~/certs", field="remote_dir", allow_empty=False)
+        layout = allowlist((layout or "pair").strip(), CERT_LAYOUTS, field="layout", default="pair")
+        write_mode = allowlist(
+            (write_mode or "direct").strip(),
+            CERT_WRITE_MODES,
+            field="write_mode",
+            default="direct",
+        )
+        label = clamp_str(label, max_len=200, field="label")
+        post_deploy_command = clamp_str(
+            post_deploy_command, max_len=500, field="post_deploy_command"
+        )
         t = cert_svc.create_target(
             session,
             certificate_id=cert_id,
@@ -474,7 +495,7 @@ async def certificate_add_target(
         return _redirect(
             f"/certificates/{cert_id}", msg="target_added", setup="deploy"
         )
-    except ValueError as e:
+    except (ValueError, ValidationError) as e:
         return _redirect(
             f"/certificates/{cert_id}", error="invalid", detail=str(e)[:200]
         )
@@ -502,11 +523,31 @@ async def certificate_edit_target(
     post_deploy_command: str = Form(""),
 ):
     from ..models import CertificateTarget
+    from ..services.input_validation import (
+        CERT_LAYOUTS,
+        CERT_WRITE_MODES,
+        ValidationError,
+        allowlist,
+        clamp_str,
+        safe_path,
+    )
 
     row = session.get(CertificateTarget, target_id)
     if not row or row.certificate_id != cert_id:
         raise HTTPException(404)
     try:
+        remote_dir = safe_path(remote_dir or "~/certs", field="remote_dir", allow_empty=False)
+        layout = allowlist((layout or "pair").strip(), CERT_LAYOUTS, field="layout", default="pair")
+        write_mode = allowlist(
+            (write_mode or "direct").strip(),
+            CERT_WRITE_MODES,
+            field="write_mode",
+            default="direct",
+        )
+        label = clamp_str(label, max_len=200, field="label")
+        post_deploy_command = clamp_str(
+            post_deploy_command, max_len=500, field="post_deploy_command"
+        )
         # Empty password field = keep existing encrypted password
         t = cert_svc.update_target(
             session,
@@ -534,7 +575,7 @@ async def certificate_edit_target(
             details=f"cert={cert_id} target={t.id}",
         )
         return _redirect(f"/certificates/{cert_id}", msg="target_saved")
-    except ValueError as e:
+    except (ValueError, ValidationError) as e:
         return _redirect(
             f"/certificates/{cert_id}",
             error="invalid",

@@ -234,7 +234,7 @@
   </script>
 
   <!-- 2FA -->
-  <div class="card p-5 sm:p-6 space-y-4 account-card">
+  <div class="card p-5 sm:p-6 space-y-4 account-card" id="account-2fa">
     <h2 class="font-semibold text-text">Two-factor authentication (app)</h2>
     <p class="text-sm text-muted">Optional TOTP (Google Authenticator, Aegis, 1Password, etc.). Backup codes unlock you if you lose the app.</p>
 
@@ -505,7 +505,11 @@
   {% if user.totp_enabled %}
   <div class="card p-5 sm:p-6 space-y-3 account-card">
     <h2 class="font-semibold text-text">Trusted devices</h2>
-    <p class="text-xs text-muted">Devices can skip 2FA for up to {{ trusted_device_days }} days. Stolen laptop risk: revoke if unsure. Password change revokes all.</p>
+    <p class="text-xs text-muted">
+      Devices can skip the 2FA prompt for up to <strong class="text-text">{{ trusted_device_days }} days</strong>.
+      Only trust personal machines you control. A stolen device with a valid cookie can sign in without your authenticator until you revoke it.
+      Changing your password revokes all trusted devices.
+    </p>
     {% if devices %}
     <ul class="space-y-2 text-sm">
       {% for d in devices %}
