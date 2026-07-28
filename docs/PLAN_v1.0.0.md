@@ -375,6 +375,7 @@ When `RELEASE_v1.0.0.md` ships, operators should see a **single** story:
 | 2026-07-28 | Second slice: **AA**, **X**, **P** discovery landed. Remaining: docs freeze / tag / publish. |
 | 2026-07-28 | **Decision:** production hardening continues with **AC** (authorization matrix) + **AV** (risk-based input validation) **in 1.0** before freeze. Explicitly out: full Form→Pydantic, multi-tenant ACLs. Phase E added; docs freeze renumbered to Phase F. |
 | 2026-07-28 | **AC + AV implemented.** Critical: docker log SSE + build SSE required auth (build = operator+). Shared `input_validation` + wired server update, cert maps, docker actions/prune, cron. Tests: `test_authz_matrix_v10`, `test_input_validation_v10`. Remaining: docs freeze / tag. |
+| 2026-07-28 | **§8.1–8.3 freeze notes:** dual-version / train wording to **remove at tag**; screenshot recapture list for 1.0 surfaces; single production story after RELEASE. |
 
 ---
 
