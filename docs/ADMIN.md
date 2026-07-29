@@ -784,6 +784,20 @@ Also available without relying on hover tooltips:
 Placeholders: `{hostname}`, `{hostname_short}`, `{name}`, `{name_lower}`, `{ip}` / `{ip_address}`, `{server_id}`, `{host}`, `{container}`, `{docker_container}`, `{project}`, `{docker_project}`, `{compose_service}`.  
 Grafana variables need the **`var-`** prefix (`var-job=…`, not bare `job=…`).
 
+### Generic links (HA / Frigate / n8n / custom)
+
+Thin **bookmark + reachability** entries (**Catalog → Integrations → + Link**). Not full product adapters.
+
+| Field | Notes |
+|-------|--------|
+| Product preset | Home Assistant · Frigate · n8n · custom (sets default name + health path) |
+| Base URL | Must be reachable from web/workers for Test/Poll |
+| Health path | GET probe; 2xx/3xx and 401/403 = reachable |
+| Bearer (optional) | Encrypted; only for authenticated probes |
+| Host binding | `role=service` chips on server / fleet Services |
+
+Wiki: [Generic links](../wiki/integrations/generic-links.md). Automate PiHerder from n8n/HA with [API tokens](API.md), not this adapter.
+
 ### Prometheus / Grafana scrape
 
 ```yaml

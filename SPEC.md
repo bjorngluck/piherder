@@ -234,7 +234,7 @@ Read-mostly integrations: registry, status, deep links, **server / Docker / host
 ### Still open (Phase 5 remainder)
 
 - [x] Multi Pi-hole (v6) + NPM connector + managed certificates (v0.5.0 workstream F)
-- [ ] HA / Frigate / n8n generic URL entries
+- [x] HA / Frigate / n8n generic URL entries (v1.1 Int-gen — bookmark + probe + Services chips)
 
 ---
 

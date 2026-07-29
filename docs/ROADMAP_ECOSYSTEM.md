@@ -72,7 +72,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-29):** **ACME-in-herder (P-acme)** is a **desired** direction, **under consideration from v1.3+** — not v1.1. Do not replace NPM; deepen pull/renew when NPM is present. Challenge model open: human-assisted DNS/HTTP tokens vs automated DNS APIs vs hybrid. Prefer Certbot/lego *patterns* over forking NPM. Detail: [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6.1.
 
-**Decision (2026-07-29 mid-train):** On `v1.1.0-dev`, elevation streams largely **landed**: **A** cert deploy-target wizard + verify · **B** discovery S1–S4 · **C** PP+AB · **D** human schedules + ★ pins + host jump · **G** ports + cross-host edges · **I** partial (**Y** API try/ReDoc; **Int-gen** open). Residual: A1.6/A1.7 polish, Int-gen, freeze. See [PLAN_v1.1.0.md](PLAN_v1.1.0.md).
+**Decision (2026-07-29 mid-train):** On `v1.1.0-dev`, elevation streams **landed**: **A** cert deploy-target wizard + verify · **B** discovery S1–S4 · **C** PP+AB · **D** human schedules + ★ pins + host jump · **G** ports + cross-host edges · **I** **Y** API try/ReDoc + **Int-gen** generic links. Residual: A1.6/A1.7 polish, freeze. See [PLAN_v1.1.0.md](PLAN_v1.1.0.md).
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.0.0` / `1.0` / `latest` (until 1.1 publish).
 
@@ -171,7 +171,7 @@ Read-mostly integrations: config + status + deep links + **server / host / Docke
 | **Uptime Kuma** — API key + `/metrics`; SSH + host service + Docker bindings; TLS; deep links; notifications; Services pages; logos | **Shipped** |
 | **Grafana** — service account token; health; inventory; kinds (metrics/containers/logs); query templates; server + Docker deep links | **Shipped** (v0.3.0) |
 | Multi Pi-hole (v6) + NPM + managed certs | **Shipped** (v0.5.0 track) — [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) |
-| HA / Frigate / n8n generic URL | Open |
+| HA / Frigate / n8n generic URL | **Shipped** (v1.1 — bookmark + probe + Services chips; not deep adapters) |
 
 **Uptime Kuma (shipped detail):**
 
