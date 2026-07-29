@@ -85,3 +85,9 @@ piherder_data/
 # Nmap Vulners / vuln pack volume (downloaded artefacts — not in image)
 piherder_nmap_vuln/
 certs/.piherder-cert-fp
+
+# ACME helper (scripts/obtain-acme-cert.sh) — never commit keys or Certbot state
+acme-out/
+.acme-certbot-config/
+.acme-certbot-work/
+.acme-certbot-logs/
