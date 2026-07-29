@@ -48,6 +48,51 @@ WRITE_MODE_HELP = {
     ),
 }
 
+
+# --- Path helpers (sudoers snippet + deploy must share the same expansion) ---
+
+
+def default_home_for_user(ssh_user: str) -> str:
+    """Best-effort home when live `$HOME` is unknown (UI preview / offline snippet)."""
+    user = (ssh_user or "piherder").strip() or "piherder"
+    if user == "root":
+        return "/root"
+    return f"/home/{user}"
+
+
+def resolve_ssh_home(*, ssh_user: str = "piherder", home_dir: str | None = None) -> str:
+    """Absolute home for stage paths. Prefer live home_dir from SSH when provided."""
+    home = (home_dir or "").strip().rstrip("/")
+    if home and home != ".":
+        return home
+    return default_home_for_user(ssh_user).rstrip("/")
+
+
+def expand_remote_dir(remote_dir: str, home: str) -> str:
+    """Expand leading ``~`` against *home* (same rules as deploy over SSH)."""
+    home = (home or "").rstrip("/") or "."
+    rd = (remote_dir or "~/certs").strip() or "~/certs"
+    if rd.startswith("~/"):
+        return f"{home}/{rd[2:]}".rstrip("/") or home
+    if rd == "~":
+        return home
+    return rd.rstrip("/") or rd
+
+
+def cert_stage_base(home: str) -> str:
+    """``{home}/.piherder/cert-stage`` — parent of per-map stage dirs."""
+    home = (home or "").rstrip("/") or "."
+    return f"{home}/.piherder/cert-stage"
+
+
+def cert_stage_dir(home: str, target_id: int | str) -> str:
+    return f"{cert_stage_base(home)}/{target_id}"
+
+
+def cert_stage_glob(home: str) -> str:
+    """Sudoers path glob for install source files (any map id under stage base)."""
+    return f"{cert_stage_base(home)}/*"
+
 # Human descriptions for UI
 LAYOUT_HELP = {
     "pair": "Two files: fullchain + private key (Nginx, Caddy, most Docker apps)",
@@ -763,6 +808,8 @@ def public_target_dict(
     *,
     server_name: str = "",
     cert_fingerprint: str | None = None,
+    ssh_user: str = "piherder",
+    home_dir: str | None = None,
 ) -> dict[str, Any]:
     files = files_for_layout(
         target.layout or "pair",
@@ -810,6 +857,8 @@ def public_target_dict(
             file_owner=target.file_owner or "root",
             file_group=target.file_group or "root",
             post_deploy_command=target.post_deploy_command or "",
+            ssh_user=ssh_user or "piherder",
+            home_dir=home_dir,
         ),
         "enabled": target.enabled,
         "file_mode": target.file_mode,
@@ -846,14 +895,18 @@ def sudoers_snippet_for_map(
     file_group: str = "root",
     post_deploy_command: str = "",
     ssh_user: str = "piherder",
+    home_dir: str | None = None,
 ) -> str:
     """Suggested NOPASSWD drop-in for least-priv fleet maps (stage_sudo + restarts).
 
-    Known edges (v1.0 discovery → full wizard likely v1.1):
-    - Assumes home is /home/{ssh_user} (HAOS/custom home needs hand-edit).
-    - Stage path wildcards must match map id dir used by deploy.
-    - Post-deploy systemctl/docker lines are best-effort; verify with `sudo -n …`.
-    - free-form post-deploy is never fully expressible in a single drop-in.
+    Paths use the same helpers as deploy: expand ``~`` against *home_dir* (or
+    default home for *ssh_user*). Stage glob is ``{home}/.piherder/cert-stage/*``.
+
+    Known edges:
+    - Pass live ``home_dir`` from SSH ``$HOME`` when known; offline UI falls back
+      to ``/home/<user>`` or ``/root``.
+    - Post-deploy systemctl/docker lines are best-effort; verify with ``sudo -n …``.
+    - Free-form post-deploy is never fully expressible in a single drop-in.
     """
     wm = _normalize_write_mode(write_mode)
     if wm != "stage_sudo" and not (post_deploy_command or "").strip():
@@ -861,18 +914,14 @@ def sudoers_snippet_for_map(
             "# Write mode is “direct” — no sudo needed if the SSH user owns the target path.\n"
             "# Switch to “Stage in home + sudo install” for root-owned destinations."
         )
-    final = (remote_dir or "~/certs").rstrip("/") or "/path/to/certs"
-    # Expand ~ for sudoers (must be absolute paths for visudo / sudo matching)
-    if final.startswith("~/"):
-        final = f"/home/{ssh_user}/{final[2:]}"
-    elif final == "~":
-        final = f"/home/{ssh_user}"
-    # Keep ~ literal for operator-facing docs when path is under home
+    user = (ssh_user or "piherder").strip() or "piherder"
+    home = resolve_ssh_home(ssh_user=user, home_dir=home_dir)
+    final = expand_remote_dir(remote_dir or "~/certs", home)
     owner = (file_owner or "root").strip() or "root"
     group = (file_group or "root").strip() or "root"
     mode = (file_mode or "600").strip() or "600"
-    user = (ssh_user or "piherder").strip() or "piherder"
-    stage_glob = f"/home/{user}/.piherder/cert-stage/*"
+    stage_glob = cert_stage_glob(home)
+    stage_base = cert_stage_base(home)
     names: list[str] = []
     lay = layout or "pair"
     if lay in ("pair", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx"):
@@ -882,13 +931,19 @@ def sudoers_snippet_for_map(
     if lay in ("pair_and_pfx", "pair_combined_pfx"):
         names.append(pfx_filename or "Certificate.pfx")
     names = [n for n in names if n]
+    guessed = home_dir is None or not str(home_dir).strip()
     lines = [
         f"# PiHerder cert deploy — least-priv ({user})",
         f"# Install: sudo tee /etc/sudoers.d/piherder-certs && chmod 440 … && visudo -cf …",
-        f"# Runtime stage: /home/{user}/.piherder/cert-stage/<map-id>/  (must match SSH home)",
-        f"# If home is not /home/{user}, edit stage paths before install.",
-        f"{user} ALL=(root) NOPASSWD: /usr/bin/install -d -o {owner} -g {group} -m 755 {final}",
+        f"# Runtime stage: {stage_base}/<map-id>/  (must match SSH $HOME)",
     ]
+    if guessed:
+        lines.append(
+            f"# Home guessed as {home} — if SSH $HOME differs, re-generate with the real home."
+        )
+    lines.append(
+        f"{user} ALL=(root) NOPASSWD: /usr/bin/install -d -o {owner} -g {group} -m 755 {final}"
+    )
     for n in names:
         # Match deploy: sudo install -o -g -m src dst (exact flags)
         lines.append(
@@ -900,13 +955,13 @@ def sudoers_snippet_for_map(
         lines.append("# Also allow post-deploy (adjust to match your exact command):")
         if "systemctl restart haproxy" in post:
             lines.append(
-                f"{ssh_user} ALL=(root) NOPASSWD: /bin/systemctl restart haproxy, "
+                f"{user} ALL=(root) NOPASSWD: /bin/systemctl restart haproxy, "
                 f"/usr/bin/systemctl restart haproxy"
             )
         elif "docker compose" in post or "docker-compose" in post:
             lines.append(
                 f"# docker compose restart usually needs docker group, not sudo — "
-                f"prefer adding {ssh_user} to group docker"
+                f"prefer adding {user} to group docker"
             )
         else:
             lines.append(f"# Review post-deploy manually: {post[:120]}")
@@ -1184,13 +1239,10 @@ def deploy_target(
     client = None
     try:
         client = ssh_svc.get_ssh_client(server)
-        st, home, _ = ssh_svc.run_command(client, "printf %s \"$HOME\"", timeout=15)
-        home = (home or "").strip() or "."
-        remote_dir = (target.remote_dir or "~/certs").strip()
-        if remote_dir.startswith("~/"):
-            remote_dir = home + remote_dir[1:]
-        elif remote_dir == "~":
-            remote_dir = home
+        st, home_raw, _ = ssh_svc.run_command(client, "printf %s \"$HOME\"", timeout=15)
+        ssh_user = (getattr(server, "ssh_username", None) or "piherder").strip() or "piherder"
+        home = resolve_ssh_home(ssh_user=ssh_user, home_dir=(home_raw or "").strip() or None)
+        remote_dir = expand_remote_dir(target.remote_dir or "~/certs", home)
 
         mode = (target.file_mode or "600").strip() or "600"
         try:
@@ -1203,7 +1255,7 @@ def deploy_target(
         payloads = _layout_file_payloads(layout, full, key, target)
 
         if write_mode == "stage_sudo":
-            stage_dir = f"{home.rstrip('/')}/.piherder/cert-stage/{target_id}"
+            stage_dir = cert_stage_dir(home, target_id)
             log(f"stage_sudo: stage={stage_dir} → final={remote_dir}")
             st, out, err = ssh_svc.run_command(
                 client, f"mkdir -p {shlex.quote(stage_dir)}", timeout=30
@@ -1236,7 +1288,9 @@ def deploy_target(
             )
             if st != 0:
                 raise RuntimeError(
-                    f"sudo install -d failed (need sudoers for install): {err or out}"
+                    "sudo install -d failed — check sudoers allows "
+                    f"`install -d … {remote_dir}` for user {ssh_user} "
+                    f"(NOPASSWD, exact path). Detail: {err or out}"
                 )
 
             for fname, _content in payloads:
@@ -1252,7 +1306,9 @@ def deploy_target(
                 )
                 if st != 0:
                     raise RuntimeError(
-                        f"sudo install {fname} failed (sudoers?): {err or out}"
+                        f"sudo install {fname} failed — check sudoers allows "
+                        f"`install … {src} {dst}` for user {ssh_user} "
+                        f"(NOPASSWD; stage path must match $HOME). Detail: {err or out}"
                     )
 
             # PFX from staged PEMs then install

@@ -59,7 +59,7 @@ main @ v1.0.0 (+ v1.0.x patches)
 
 | # | Stream | Item | Tier | Status |
 |---|--------|------|------|--------|
-| 1–3 | A | **P** wizard · **P-sudo** · **P-fb** errors | Must | Planned |
+| 1–3 | A | **P** wizard · **P-sudo** · **P-fb** errors | Must | **In progress** (A1.1 path helpers + sudoers/deploy alignment landed) |
 | 4–7 | B | **S1–S4** last-seen · hide · purge · filters | Must | Planned |
 | 8–9 | C | **PP** password policy · **AB** trusted-device detail | Should | Planned |
 | 10–12 | D | **E6** schedules · **J** favourites · **K** cross-host jump | Should | Planned |
@@ -254,13 +254,13 @@ Patches for security/data issues still ship as **v1.0.x** / **v1.1.x** regardles
 
 | Step | Work | Done when |
 |------|------|-----------|
-| **A1.0** | Reproduce mismatch cases | Fixture list: default home, custom home, `~/` dir, layouts |
-| **A1.1** | Shared path helpers; snippet + deploy aligned | Unit tests green |
-| **A1.2** | UI uses server truth | No drifting client-only path math |
+| **A1.0** | Reproduce mismatch cases | **Done** — custom home / root / `~/` fixtures in unit tests |
+| **A1.1** | Shared path helpers; snippet + deploy aligned | **Done** — `resolve_ssh_home`, `expand_remote_dir`, `cert_stage_*`; deploy + `sudoers_snippet_for_map` share them; tests green |
+| **A1.2** | UI uses server truth | Map form JS still hardcodes `piherder` / `/home/piherder` — next |
 | **A1.3** | Guided setup on `/certificates/setup` | Server → mode → paths → sudoers → create map |
-| **A1.4** | Deploy error copy | Names failing class (install -d, install file, sudo password) |
+| **A1.4** | Deploy error copy | **Partial** — install -d / install file messages improved; more polish OK |
 | **A1.5** | Wiki + retire/shrink warning card | Docs match UI |
-| **A1.6** | Tests + E2E chrome | No live deploy in CI |
+| **A1.6** | Tests + E2E chrome | Unit pack expanded; E2E setup chrome later |
 
 ### A1 out of scope
 
