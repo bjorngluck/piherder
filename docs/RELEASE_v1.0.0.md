@@ -90,11 +90,12 @@ Guide: [Install](https://piherder-docs.hacknow.info/getting-started/install/).
 
 | Item | Destination |
 |------|-------------|
-| Email / self-service password reset | v1.1+ |
-| Full cert distribute wizard | v1.1 |
-| Discovery last-seen / purge polish | v1.1 |
-| SSO / OIDC, multi-tenant ACLs | Post-1.0 |
+| Full cert distribute wizard + discovery hygiene + operator elevation | **v1.1** — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) (streams A–D, G, I) |
+| Email / self-service password reset | **v1.2** path (needs email) |
+| SSO / OIDC, multi-tenant ACLs | **v1.3** path |
 | Coverage fail-under 60% | Not a 1.0 gate (hold ≥55%) |
+
+Active train: branch **`v1.1.0-dev`** · [PLAN_v1.1.0.md](PLAN_v1.1.0.md).
 
 ---
 

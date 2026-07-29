@@ -20,7 +20,7 @@ All contributions are offered under the **[MIT License](LICENSE)**. By submittin
 ## Getting Started
 
 - Read the [README](README.md) and [SPEC.md](SPEC.md) for project goals and design principles.
-- Current production: **[v1.0.0](docs/RELEASE_v1.0.0.md)** first production release — plan [PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md). Prior: [RELEASE_v0.9.0.md](docs/RELEASE_v0.9.0.md).
+- Current production: **[v1.0.0](docs/RELEASE_v1.0.0.md)**. Active train: **[v1.1.0 elevate production](docs/PLAN_v1.1.0.md)** on `v1.1.0-dev`. Prior: [PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md).
 - Look for issues tagged `good first issue` or `help wanted`.
 
 ## Documentation
