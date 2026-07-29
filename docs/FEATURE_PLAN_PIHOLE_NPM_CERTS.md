@@ -63,7 +63,7 @@ Ship first-class **Pi-hole (v6)** and **Nginx Proxy Manager** integrations, plus
 
 | ID | Item | Stance |
 |----|------|--------|
-| **P** | Cert distribution sudoers script incorrect; setup needs wizard-driven flow | **v1.0** discovery + start · **full fix likely v1.1** — [PLAN_v1.0.0.md](PLAN_v1.0.0.md) |
+| **P** | Cert distribution sudoers script incorrect; setup needs wizard-driven flow | **v1.0** discovery done · **full wizard v1.1 Phase A1** — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §10 |
 | **U** | NPM Certificates mobile: stackable cards, not wide scroll-only table | **v1.0** |
 | **T** | Brand mark inside red/accent buttons (e.g. pull into PiHerder) | **v1.0** — avoid brand colours on solid buttons |
 | **X** | Network DNS Records: Host A vs Pi-hole A vs CNAME checklist meaning | **v1.0** refine labels + deep links |

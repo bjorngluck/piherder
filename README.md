@@ -56,8 +56,9 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - **Current production:** [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) (first production — security · authz · credential recovery)
+- **Next train:** [docs/PLAN_v1.1.0.md](docs/PLAN_v1.1.0.md) on branch `v1.1.0-dev` (elevate production: certs · discovery · identity · UX · maps · API)
 - Prior: [docs/RELEASE_v0.9.0.md](docs/RELEASE_v0.9.0.md) · [docs/RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
-- Plan: [docs/PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md)
+- Plan (1.0 archive): [docs/PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md)
 - API reference: [docs/API.md](docs/API.md)
 
 ### Tech Stack
