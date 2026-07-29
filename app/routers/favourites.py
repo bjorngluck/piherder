@@ -20,20 +20,18 @@ def _safe_next(raw: str | None, fallback: str = "/") -> str:
     return fallback
 
 
-def _redirect_after_pin(dest: str, *, msg: str = "favourite_toggled") -> RedirectResponse:
-    """303 redirect preserving #fragments (maps need #map to open the SVG)."""
+def _redirect_after_pin(dest: str) -> RedirectResponse:
+    """303 redirect after pin toggle. No flash msg — star state is the feedback.
+
+    Preserves #fragments (maps need #map to open the SVG).
+    """
     dest = (dest or "/").strip() or "/"
     # Prefer allowlisted map hrefs if someone POSTed bare /dns/physical
     if dest in ("/dns/physical", "/dns/physical/"):
         dest = "/dns/physical#map"
     elif dest in ("/dns/logical", "/dns/logical/"):
         dest = "/dns/logical#map"
-    if "#" in dest:
-        path, frag = dest.split("#", 1)
-        sep = "&" if "?" in path else "?"
-        return RedirectResponse(f"{path}{sep}msg={msg}#{frag}", status_code=303)
-    sep = "&" if "?" in dest else "?"
-    return RedirectResponse(f"{dest}{sep}msg={msg}", status_code=303)
+    return RedirectResponse(dest, status_code=303)
 
 
 @router.get("/account/favourites.json")

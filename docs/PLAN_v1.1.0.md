@@ -64,7 +64,7 @@ main @ v1.0.0 (+ v1.0.x patches)
 | 8–9 | C | **PP** password policy · **AB** trusted-device detail | Should | **Landed** (PP fixed policy; **AB** type · last IP · rename) |
 | 10–12 | D | **E6** schedules · **J** favourites · **K** cross-host jump | Should | **Landed** (E6 `cron_human` · **J** ★ pins · **K** host jump) |
 | 13–14 | G | **Ports** · **Topo-xhost** | Should | **Landed** (port chips `host→container` · cross-host manual edge picker) |
-| 15–16 | I | **Y** OpenAPI/test UX · **Int-gen** generic URLs | Should | **Partial** (**Y** bearer Try a token + ReDoc; **Int-gen** still open) |
+| 15–16 | I | **Y** OpenAPI/test UX · **Int-gen** generic URLs | Should | **Landed** (**Y** bearer Try a token + ReDoc; **Int-gen** HA/Frigate/n8n/custom links) |
 | 17 | — | Docs freeze + tag + Hub | Must | Planned (mid-train docs pass 2026-07-29) |
 
 **Success:** all Must + solid elevation from each of C, D, G, I (prefer full Should). Discover promoted or deferred in RELEASE.
@@ -143,7 +143,7 @@ main @ v1.0.0 (+ v1.0.x patches)
 | ID | Behaviour |
 |----|-----------|
 | **E6** | Shared `app/services/cron_human.py` — Jinja filter `cron_human` + `CRON_PRESETS` on backup / OS / container / nmap / self-backup / stale cleanup forms; plain English next to raw cron |
-| **J** | Per-user **pins** (`UserFavourite`, migrations **033** / **034**). Kinds: `server_feature` · `app_page` · `integration`. Header **★** menu (grouped Host / App / Integrations, 2-col pills). Pin stars next to feature titles, Network hub map cards, fabric map chrome, integration detail names. Cap **24**. Map app pages **must** deep-link `/dns/physical#map` and `/dns/logical#map` so the SVG opens (list-first pages otherwise). Pin POST redirect keeps `#fragment` after `?msg=` |
+| **J** | Per-user **pins** (`UserFavourite`, migrations **033** / **034**). Kinds: `server_feature` · `app_page` · `integration`. Header **★** menu (grouped Host / App / Integrations, 2-col pills). Pin stars next to feature titles, Network hub map cards, fabric map chrome, integration detail names. Cap **24**. Map app pages **must** deep-link `/dns/physical#map` and `/dns/logical#map` so the SVG opens (list-first pages otherwise). Pin POST redirect preserves `#fragment`; **no** flash `msg` (star state is the feedback) |
 | **K** | **Jump host** (`host_switcher`) on Overview / Docker / Backups / Services: host name → overview; ▾ → same feature on other fleet hosts. Jump list filtered by feature flags (`container_patch_enabled` for Docker, `backup_enabled` for Backups). Feature tabs via `host_feature_nav` |
 
 **Code:** `app/services/nav_shortcuts.py` · `app/routers/favourites.py` · partials `pin_button` / `host_switcher` / `host_feature_nav` · `GET /account/favourites.json`
@@ -170,6 +170,15 @@ main @ v1.0.0 (+ v1.0.x patches)
 | Should | **Y**, **Int-gen** | OpenAPI/bearer test · generic URL entries |
 | Discover | **Int-multi**, **N-thin** | Multi-instance · fleet health card |
 | → v1.2+ | **N**, deep adapters | Full insights · full Frigate/n8n product |
+
+#### I1 — implementation notes (landed)
+
+| ID | Behaviour |
+|----|-----------|
+| **Y** | Settings → API **Try a token** + OpenAPI / ReDoc deep links |
+| **Int-gen** | Integration type `generic_url` — presets **Home Assistant** · **Frigate** · **n8n** · **custom**. Base URL + optional health path + optional bearer for probe; Test/Poll = HTTP GET (2xx/3xx/401/403 = reachable). Bind to host/Docker as `role=service` chips on Services. **Not** a deep vendor adapter — wiki [generic-links](../wiki/integrations/generic-links.md). |
+
+**Code:** `app/services/integrations/generic_url.py` · `integrations_generic` router · form/detail templates · `tests/test_integrations_generic.py`
 
 ---
 
@@ -304,7 +313,7 @@ PiHerder is fleet management **and** operator education. Novices often need “h
 - [x] A Must (P, P-sudo, P-fb, wizard, verify) — residual A1.6/A1.7 polish  
 - [x] B Must (S1–S4)  
 - [x] C / D / G Should (PP+AB, E6+J+K, Ports+Topo-xhost)  
-- [ ] I Should full (**Y** done · **Int-gen** open) or explicit defer in RELEASE  
+- [x] I Should full (**Y** + **Int-gen** landed)  
 - [ ] Discover promoted or → v1.2/v1.3  
 - [ ] Cert known-edges card updated for deploy-target wizard  
 - [ ] `RELEASE_v1.1.0.md` · wiki · screenshots as needed  
@@ -479,8 +488,7 @@ ACME-in-herder · NPM proxy write · **auto** install of sudoers over SSH (copy 
 ### Immediate next (implementation order)
 
 1. **A1.6 / A1.7** residual — wiki/setup polish + Playwright chrome as capacity.  
-2. **I — Int-gen** generic URL entries (if capacity).  
-3. Operator QA on A/B + freeze checklist; Discover pull-ins only if Must stays closed.
+2. Operator QA on A/B/I + freeze checklist; Discover pull-ins only if Must stays closed.
 
 ---
 
@@ -507,6 +515,7 @@ ACME-in-herder · NPM proxy write · **auto** install of sudoers over SSH (copy 
 | 2026-07-29 | **G1 Ports + Topo-xhost landed:** stack panel published-port chips; manual edge cross-host picker. |
 | 2026-07-29 | **I Y partial:** Settings → API **Try a token** + OpenAPI/ReDoc deep links; **Int-gen** still open. |
 | 2026-07-29 | Mid-train **docs/wiki/ADMIN/ROADMAP** pass for A–D–G–I landed work. |
+| 2026-07-29 | **I Int-gen landed:** `generic_url` links (HA / Frigate / n8n / custom) + probe + Services bindings; wiki generic-links. Pin redirect no longer flashes raw `favourite_toggled`. |
 
 ---
 

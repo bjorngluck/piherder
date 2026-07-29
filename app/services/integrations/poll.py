@@ -112,8 +112,88 @@ def _poll_unlocked(db: Session, integration_id: int, *, notify: bool) -> dict[st
         return _poll_npm(db, integration, notify=notify)
     if integration.type == reg.TYPE_NMAP:
         return _poll_nmap(db, integration, notify=notify)
+    if integration.type == reg.TYPE_GENERIC_URL:
+        return _poll_generic_url(db, integration, notify=notify)
 
     return {"ok": False, "error": f"unsupported type {integration.type}"}
+
+
+def _poll_generic_url(
+    db: Session, integration: Integration, *, notify: bool
+) -> dict[str, Any]:
+    """Reachability probe + refresh role=service binding open-state for this entry."""
+    from . import generic_url as gen
+
+    del notify  # no transition notifications for generic bookmarks
+    token = reg.decrypt_api_key(integration)
+    result = gen.probe(
+        integration.base_url,
+        health_path=reg.generic_health_path(integration),
+        tls_verify=reg.tls_verify(integration),
+        bearer_token=token,
+        product=reg.generic_product(integration),
+    )
+    now = datetime.utcnow()
+    status_payload = result.to_status_json()
+    status_payload["polled_at"] = now.isoformat() + "Z"
+
+    integration.last_status_json = json.dumps(status_payload)
+    integration.last_polled_at = now
+    # Soft auth messages stay ok=true with error text; only hard failures set last_error
+    if result.ok:
+        integration.last_error = None
+    else:
+        integration.last_error = (result.error or "unreachable")[:500]
+    integration.updated_at = now
+    db.add(integration)
+
+    state = "up" if result.ok else "down"
+    msg = result.error or (
+        f"HTTP {result.status_code}" if result.status_code else "reachable"
+    )
+    bindings = list(
+        db.exec(
+            select(IntegrationBinding).where(
+                IntegrationBinding.integration_id == integration.id,
+                IntegrationBinding.role == reg.ROLE_SERVICE,
+            )
+        ).all()
+    )
+    updated = 0
+    for b in bindings:
+        meta = reg.parse_binding_meta(b)
+        # Ensure open URL is stored for logo discovery / chips
+        if not (meta.get("url") or "").startswith("http"):
+            open_u = reg.binding_open_url(integration, b)
+            if open_u:
+                meta["url"] = open_u
+        meta["product"] = result.product
+        b.last_state = state
+        b.last_message = msg[:500]
+        b.last_checked_at = now
+        b.external_meta_json = json.dumps(meta)
+        b.updated_at = now
+        db.add(b)
+        updated += 1
+
+    db.commit()
+
+    try:
+        for b in bindings:
+            if not b.logo_path:
+                reg.maybe_discover_logo(db, b)
+    except Exception:
+        pass
+
+    return {
+        "ok": result.ok,
+        "error": result.error,
+        "status_code": result.status_code,
+        "product": result.product,
+        "bindings_updated": updated,
+        "integration_id": integration.id,
+        "monitor_count": 1 if result.ok else 0,
+    }
 
 
 def _poll_nmap(db: Session, integration: Integration, *, notify: bool) -> dict[str, Any]:
@@ -464,6 +544,7 @@ def poll_all_enabled(*, notify: bool = True) -> list[dict[str, Any]]:
                             reg.TYPE_GRAFANA,
                             reg.TYPE_PIHOLE,
                             reg.TYPE_NPM,
+                            reg.TYPE_GENERIC_URL,
                         ]
                     ),
                 )
@@ -521,6 +602,16 @@ def test_connection(integration: Integration) -> Any:
             monitors=[],
             worker_online=bool(online.get("online")),
             cidrs=cfg.get("cidrs") or [],
+        )
+    if integration.type == reg.TYPE_GENERIC_URL:
+        from . import generic_url as gen
+
+        return gen.probe(
+            integration.base_url,
+            health_path=reg.generic_health_path(integration),
+            tls_verify=reg.tls_verify(integration),
+            bearer_token=reg.decrypt_api_key(integration),
+            product=reg.generic_product(integration),
         )
     return kuma.fetch_metrics(
         integration.base_url,

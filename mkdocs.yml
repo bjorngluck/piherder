@@ -171,6 +171,7 @@ nav:
       - Network maps: integrations/dns-fabric.md
       - LAN Discovery (nmap): integrations/lan-discovery.md
       - Nginx Proxy Manager: integrations/npm.md
+      - Generic links (HA / Frigate / n8n): integrations/generic-links.md
       - Certificates: integrations/certificates.md
       - Obtain a cert (ACME): integrations/certificates-obtain-acme.md
   - Account & security:
