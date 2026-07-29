@@ -36,7 +36,7 @@ Design principles stay the same as SPEC:
 | **v1.0.x** | Production patches (security / critical) on `main` while 1.1 is in flight | Patch | As needed — see [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §10 |
 | **v1.1.0** | **Elevate production** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Active** on `v1.1.0-dev` — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) |
 | **v1.2** | Identity mail/reset · network automation · insights entry · templates depth · HA polish · host lifecycle start | Next minor path | Planned — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 |
-| **v1.3** | SSO/OIDC · web SSH · HA REST/path2 · ACME · full insights · branding · k8s/bare | Later path | Planned — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 |
+| **v1.3** | SSO/OIDC · web SSH · HA REST/path2 · **ACME-in-herder (under consideration)** · full insights · branding · k8s/bare | Later path | Planned — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 · §6.1 |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -69,6 +69,8 @@ Design principles stay the same as SPEC:
 **Decision (2026-07-28):** **v1.0 production hardening continues with AC + AV** before tag — **AC** authorization matrix (route × role × API scopes, fix gaps, tests); **AV** risk-based input validation at dangerous sinks (paths, actions, cron, sizes). Explicitly **not** 1.0: full Form→Pydantic rewrite, multi-tenant/per-host ACLs, SSO. See [PLAN_v1.0.0.md](PLAN_v1.0.0.md) Phase E.
 
 **Decision (2026-07-29):** **v1.1.0 train opened** on **`v1.1.0-dev`**. **Elevate production** on streams **A** certs · **B** discovery · **C** identity · **D** operator UX · **G** topology/maps · **I** integrations/API. Mode: focus · polish · discover · pull-in · defer. Enhanced themes → **v1.2 / v1.3 paths**. `main` stays patchable for **v1.0.x**. See [PLAN_v1.1.0.md](PLAN_v1.1.0.md).
+
+**Decision (2026-07-29):** **ACME-in-herder (P-acme)** is a **desired** direction, **under consideration from v1.3+** — not v1.1. Do not replace NPM; deepen pull/renew when NPM is present. Challenge model open: human-assisted DNS/HTTP tokens vs automated DNS APIs vs hybrid. Prefer Certbot/lego *patterns* over forking NPM. Detail: [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6.1.
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.0.0` / `1.0` / `latest` (until 1.1 publish).
 
