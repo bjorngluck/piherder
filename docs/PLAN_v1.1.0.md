@@ -236,9 +236,9 @@ Patches for security/data issues still ship as **v1.0.x** / **v1.1.x** regardles
 
 | Area | Location | Notes |
 |------|----------|--------|
-| Sudoers generator | `app/services/certificates.py` → `sudoers_snippet_for_map` | Hardcodes `/home/{user}`; deploy uses real `$HOME` |
-| Deploy stage | same file `stage_sudo` | `{home}/.piherder/cert-stage/{map-id}/` |
-| Live snippet UI | `certificates_detail.html` JS | Can drift from server |
+| Sudoers generator | `app/services/certificates.py` → `sudoers_snippet_for_map` | **A1.1 done** — uses shared home/stage helpers |
+| Deploy stage | same file `stage_sudo` | Shared `cert_stage_dir` / `expand_remote_dir` |
+| Live snippet UI | `certificates_detail.html` JS | **Still drifts** — next A1.2 |
 | Setup page | `certificates_setup.html` | Warning card “later release” — retire when A1 ships |
 | Errors | deploy `RuntimeError` | `"sudoers?"` → actionable copy |
 | Tests | `tests/test_certificates*.py` | Extend path + snippet ↔ deploy |
