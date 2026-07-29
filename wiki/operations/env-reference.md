@@ -102,7 +102,7 @@ docker compose --profile nmap up -d celery-worker-nmap
 | `METRICS_TOKEN` | Bearer for `GET /metrics` — **set in production** (empty = open scrape on app port) |
 | `METRICS_BACKUP_STALE_HOURS` | Stale backup gauge (default 36) |
 | `CORS_ORIGINS` | Exact browser origins for `/api/v1` (empty = off) |
-| `WEBHOOK_URL` / `WEBHOOK_NUMBER` | Legacy webhook → e.g. Signal via n8n |
+| `WEBHOOK_URL` / `WEBHOOK_NUMBER` | Fallback outbound webhook (e.g. Signal via n8n) when Settings → Alerts has no URL — [Alerts](alerts-email-webhooks.md) |
 | `WEBHOOK_RECIPIENTS` | Optional JSON list of recipients for some webhook paths |
 | `VAPID_*` | Optional pin; auto-gen is default |
 | `PIHOLE_URL` | Dashboard quick-link (legacy single URL; multi Pi-hole lives under Catalog) |

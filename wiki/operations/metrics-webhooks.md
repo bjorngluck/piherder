@@ -34,6 +34,10 @@ If `METRICS_TOKEN` is empty, treat `/metrics` like private-network only.
 
 ## Webhooks → Signal (or similar)
 
+**Preferred (v1.1+):** configure under **Settings → Alerts** — URL, secret, event filters, test ping. See [Alerts (email & webhooks)](alerts-email-webhooks.md).
+
+**Env fallback** (when Settings URL empty):
+
 ```bash
 WEBHOOK_URL=https://your-n8n-or-bridge/...
 WEBHOOK_NUMBER=+1...

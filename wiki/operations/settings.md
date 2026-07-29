@@ -74,6 +74,8 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 | Trim old Jobs / Audit | Settings → **General** → Stale data cleanup |
 | Times show SAST / local | Settings → **General** → timezone |
 | n8n / HA automation | Settings → **API** · [API](api-tokens.md) |
+| Webhook / SMTP alerts | Settings → **Alerts** · [Alerts](alerts-email-webhooks.md) |
+| Forgot password on login | Settings → **Alerts** (SMTP + toggle) · [Alerts](alerts-email-webhooks.md) |
 
 ## Not under Settings
 

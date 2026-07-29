@@ -128,7 +128,9 @@ Timezone, security policy, fleet defaults, PiHerder self-backup **run/restore/do
 
 Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, and self-backup schedule — restored with DB dumps and PiHerder self-backup (not a separate volume JSON file).
 
-Optional 2FA (when not forced): Account → enable TOTP, backup codes, optional trusted device. Trusted-device rows show **type** (from UA), **last IP**, and **friendly rename**.
+Optional 2FA (when not forced): Account → enable TOTP, backup codes, optional trusted device. Trusted-device rows show **type** (from UA), **last IP**, and **friendly rename** via **✎ Edit** (inline form; not always visible).
+
+**Email password recovery (v1.1 G1-lite):** when SMTP is enabled under **Settings → Alerts**, login shows **Forgot password?** — one-hour hashed token email; rate-limited; no open reset without SMTP. Admins can still OOB-reset from **Users**.
 
 ### Pins / favourites & host jump (v1.1)
 
@@ -563,9 +565,11 @@ docker compose run --rm --no-deps web pytest -q   # optional smoke
 
 Back up `./piherder_backups` and the Postgres volume before major upgrades. Use **Settings → self-backup** for config + encrypted keys.
 
-### Webhooks → Signal (or similar)
+### Alerts: webhooks & SMTP (v1.1)
 
-Env-style webhooks (legacy script parity):
+**Preferred:** **Settings → Alerts** (`/herder-backups?tab=alerts`, admin) — webhook URL + event filters (notifications / jobs / backups), optional secret; SMTP host/port/security + encrypted password, test email, optional alert recipients, **Forgot password** toggle. Wiki: [Alerts (email & webhooks)](../wiki/operations/alerts-email-webhooks.md).
+
+**Env fallback** (compose operators; used when Settings webhook URL empty):
 
 ```bash
 WEBHOOK_URL=https://your-n8n-or-bridge/...
@@ -573,7 +577,11 @@ WEBHOOK_NUMBER=+1...
 # WEBHOOK_RECIPIENTS=["+1..."]
 ```
 
-Typical pattern: PiHerder → n8n webhook → Signal CLI. In-app notifications and optional Web Push remain available without webhooks.
+Typical pattern: PiHerder → n8n webhook → Signal CLI. In-app notifications and optional Web Push remain available without webhooks or SMTP.
+
+### Generic links (v1.1 Int-gen)
+
+**Catalog → Integrations → + Link** — bookmark Home Assistant / Frigate / n8n / custom URLs with optional reachability probe and host Services chips. Not a deep vendor API. Wiki: [Generic links](../wiki/integrations/generic-links.md).
 
 ### Service templates (v0.4.0)
 
