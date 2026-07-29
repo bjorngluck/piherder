@@ -178,12 +178,65 @@ def test_write_modes_and_sudoers_stage():
     assert "/usr/bin/install" in snip
     assert "snakeoil.pem" in snip
     assert "haproxy" in snip
+    assert "/home/piherder/.piherder/cert-stage/*" in snip
     direct = cert_svc.sudoers_snippet_for_map(
         remote_dir="~/certs",
         layout="pair",
         write_mode="direct",
     )
     assert "no sudo" in direct.lower() or "direct" in direct.lower()
+
+
+def test_path_helpers_expand_and_stage():
+    assert cert_svc.default_home_for_user("piherder") == "/home/piherder"
+    assert cert_svc.default_home_for_user("root") == "/root"
+    assert cert_svc.resolve_ssh_home(ssh_user="ops", home_dir="/var/home/ops") == "/var/home/ops"
+    assert cert_svc.resolve_ssh_home(ssh_user="ops", home_dir=None) == "/home/ops"
+    assert cert_svc.expand_remote_dir("~/certs", "/home/ops") == "/home/ops/certs"
+    assert cert_svc.expand_remote_dir("~", "/home/ops") == "/home/ops"
+    assert cert_svc.expand_remote_dir("/etc/ssl", "/home/ops") == "/etc/ssl"
+    assert cert_svc.cert_stage_dir("/var/home/ops", 42) == "/var/home/ops/.piherder/cert-stage/42"
+    assert cert_svc.cert_stage_glob("/var/home/ops") == "/var/home/ops/.piherder/cert-stage/*"
+
+
+def test_sudoers_snippet_matches_deploy_paths_custom_home():
+    """Snippet install lines must use the same home/stage/final as deploy helpers."""
+    home = "/var/home/fleet"
+    user = "fleet"
+    final = cert_svc.expand_remote_dir("~/app-certs", home)
+    stage_glob = cert_svc.cert_stage_glob(home)
+    snip = cert_svc.sudoers_snippet_for_map(
+        remote_dir="~/app-certs",
+        layout="pair",
+        write_mode="stage_sudo",
+        fullchain_filename="fullchain.pem",
+        privkey_filename="privkey.pem",
+        file_mode="600",
+        file_owner="root",
+        file_group="root",
+        ssh_user=user,
+        home_dir=home,
+    )
+    assert final == "/var/home/fleet/app-certs"
+    assert f"{stage_glob}/fullchain.pem {final}/fullchain.pem" in snip
+    assert f"{stage_glob}/privkey.pem {final}/privkey.pem" in snip
+    assert f"install -d -o root -g root -m 755 {final}" in snip
+    assert stage_glob in snip
+    # Default /home/<user> must not appear as the stage base when custom home is set
+    assert " /home/fleet/.piherder/" not in f" {snip}"
+    assert "Home guessed" not in snip  # live home provided
+
+
+def test_sudoers_snippet_root_user_home():
+    snip = cert_svc.sudoers_snippet_for_map(
+        remote_dir="~/certs",
+        layout="pair",
+        write_mode="stage_sudo",
+        ssh_user="root",
+        home_dir=None,
+    )
+    assert "/root/.piherder/cert-stage/*" in snip
+    assert "/root/certs" in snip
 
 
 def test_deploy_to_edge_caddy_writes_and_reloads(tmp_path):
