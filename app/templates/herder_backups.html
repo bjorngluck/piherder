@@ -18,6 +18,7 @@
     <h1 class="ops-hero-title" id="settings-hero-title">
       {% if hero_now and hero_now.title is defined %}{{ hero_now.title }}
       {% elif tab == 'api' %}API management
+      {% elif tab == 'alerts' %}Alerts & delivery
       {% elif tab == 'backup' %}{{ ph_brand() }} backup
       {% elif tab == 'status' %}Stack status
       {% elif tab == 'fleet' %}Fleet defaults
@@ -143,6 +144,21 @@
 {% if request.query_params.get('security_saved') %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">Security policy saved.</div>
 {% endif %}
+{% if request.query_params.get('webhook_saved') %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">Webhook settings saved.</div>
+{% endif %}
+{% if request.query_params.get('webhook_test') %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">Webhook test posted successfully.</div>
+{% endif %}
+{% if request.query_params.get('smtp_saved') %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">SMTP settings saved.</div>
+{% endif %}
+{% if request.query_params.get('smtp_test') %}
+<div class="banner-success border border-border rounded p-3 text-sm mb-4">Test email sent.</div>
+{% endif %}
+{% if request.query_params.get('alerts_error') %}
+<div class="mb-4 p-3 banner-error border border-border rounded text-sm">Alerts: {{ request.query_params.get('alerts_error') }}</div>
+{% endif %}
 {% if request.query_params.get('stack_checked') %}
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm">
   Stack health checked{% if request.query_params.get('overall') %} — overall <code class="font-mono">{{ request.query_params.get('overall') }}</code>{% endif %}.
@@ -209,6 +225,9 @@
   <button type="button" role="tab" data-settings-tab="backup"
           class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'backup' else '' }}"
           aria-selected="{{ 'true' if tab == 'backup' else 'false' }}">{{ ph_brand() }} backup</button>
+  <button type="button" role="tab" data-settings-tab="alerts"
+          class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'alerts' else '' }}"
+          aria-selected="{{ 'true' if tab == 'alerts' else 'false' }}">Alerts</button>
   <button type="button" role="tab" data-settings-tab="status"
           class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'status' else '' }}"
           aria-selected="{{ 'true' if tab == 'status' else 'false' }}">Status</button>
@@ -226,6 +245,7 @@
 {# ═══════════════ GENERAL ═══════════════ #}
 {% include "partials/settings_general.html" %}
 {% include "partials/settings_fleet.html" %}
+{% include "partials/settings_alerts.html" %}
 {% include "partials/settings_status.html" %}
 {% include "partials/settings_backup.html" %}
 {% include "partials/settings_api.html" %}

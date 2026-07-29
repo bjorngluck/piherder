@@ -41,7 +41,7 @@ from ..services import stale_data_cleanup as sdc
 
 router = APIRouter(tags=["settings"])
 
-_TABS = frozenset({"general", "fleet", "backup", "status", "api"})
+_TABS = frozenset({"general", "fleet", "backup", "status", "api", "alerts"})
 
 
 def _form_on(value: Optional[str]) -> bool:
@@ -157,7 +157,7 @@ async def settings_page(
     if tab == "status" and not is_admin:
         tab = "general"
     # Instance DR + fleet/security policy writes are admin-only
-    if tab in ("backup", "fleet") and not is_admin:
+    if tab in ("backup", "fleet", "alerts") and not is_admin:
         tab = "general"
     qp = request.query_params
     if (
@@ -176,6 +176,14 @@ async def settings_page(
         tab = "general"
     if qp.get("stack_checked"):
         tab = "status" if is_admin else tab
+    if (
+        qp.get("webhook_saved")
+        or qp.get("webhook_test")
+        or qp.get("smtp_saved")
+        or qp.get("smtp_test")
+        or qp.get("alerts_error")
+    ):
+        tab = "alerts" if is_admin else tab
 
     stack_report = None
     data_cleanup = sdc.cleanup_config(cfg)
@@ -245,6 +253,15 @@ async def settings_page(
             "primary_label": "checks on",
             "primary_cls": "",
             "caption": f"{tz_iana} · fleet update checks",
+        },
+        "alerts": {
+            "title": "Alerts",
+            "sub": "Outbound webhook and SMTP for notifications and password recovery.",
+            "viz": "orb",
+            "primary": int(bool(cfg.get("webhook_enabled") or cfg.get("smtp_enabled"))),
+            "primary_label": "channels",
+            "primary_cls": "",
+            "caption": "Webhook · SMTP · recovery",
         },
         "backup": {
             "title": "PiHerder backup",
@@ -362,6 +379,8 @@ async def settings_page(
         "tok_all": tok_all,
     }
 
+    from ..services import alert_channels as alert_ch
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="herder_backups.html",
@@ -379,6 +398,8 @@ async def settings_page(
             "api_token_counts": api_token_counts,
             "is_admin": is_admin,
             "settings_tab": tab,
+            "webhook_cfg": alert_ch.webhook_config(),
+            "smtp_cfg": alert_ch.smtp_config(),
             "api_docs_html": api_docs_html,
             "api_meta": api_meta,
             "new_api_token_secret": qp.get("token_secret"),
@@ -918,6 +939,178 @@ async def save_security_policy(
     return RedirectResponse(
         _settings_url("general", security_saved="1"), status_code=303
     )
+
+
+@router.post("/herder-backups/alerts/webhook")
+async def save_alerts_webhook(
+    webhook_enabled: Optional[str] = Form(None),
+    webhook_url: str = Form(""),
+    webhook_number: str = Form(""),
+    webhook_recipients: str = Form(""),
+    webhook_secret: str = Form(""),
+    webhook_min_severity: str = Form("warning"),
+    webhook_events_notifications: Optional[str] = Form(None),
+    webhook_events_jobs: Optional[str] = Form(None),
+    webhook_events_backup: Optional[str] = Form(None),
+    user: User = Depends(get_admin_user),
+):
+    del user
+    from ..services import alert_channels as alert_ch
+
+    try:
+        url = alert_ch.validate_webhook_url(webhook_url)
+        partial: dict = {
+            "webhook_enabled": _form_on(webhook_enabled),
+            "webhook_url": url,
+            "webhook_number": (webhook_number or "").strip()[:80],
+            "webhook_recipients": (webhook_recipients or "").strip()[:500],
+            "webhook_min_severity": (webhook_min_severity or "warning").lower()
+            if (webhook_min_severity or "").lower() in ("info", "warning", "critical")
+            else "warning",
+            "webhook_events_notifications": _form_on(webhook_events_notifications),
+            "webhook_events_jobs": _form_on(webhook_events_jobs),
+            "webhook_events_backup": _form_on(webhook_events_backup),
+        }
+        if (webhook_secret or "").strip():
+            partial["webhook_secret"] = webhook_secret.strip()[:200]
+        app_cfg.save_settings(partial)
+    except ValueError as e:
+        return RedirectResponse(
+            _settings_url("alerts", alerts_error=str(e)[:120]), status_code=303
+        )
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("alerts", alerts_error=str(e)[:120]), status_code=303
+        )
+    return RedirectResponse(_settings_url("alerts", webhook_saved="1"), status_code=303)
+
+
+@router.post("/herder-backups/alerts/webhook/test")
+async def test_alerts_webhook(
+    webhook_enabled: Optional[str] = Form(None),
+    webhook_url: str = Form(""),
+    webhook_number: str = Form(""),
+    webhook_recipients: str = Form(""),
+    webhook_secret: str = Form(""),
+    webhook_min_severity: str = Form("warning"),
+    webhook_events_notifications: Optional[str] = Form(None),
+    webhook_events_jobs: Optional[str] = Form(None),
+    webhook_events_backup: Optional[str] = Form(None),
+    user: User = Depends(get_admin_user),
+):
+    """Save form first (so test uses current fields), then POST a test payload."""
+    del webhook_events_notifications, webhook_events_jobs, webhook_events_backup
+    from ..services import alert_channels as alert_ch
+
+    try:
+        url = alert_ch.validate_webhook_url(webhook_url)
+        partial: dict = {
+            "webhook_enabled": True if url else _form_on(webhook_enabled),
+            "webhook_url": url,
+            "webhook_number": (webhook_number or "").strip()[:80],
+            "webhook_recipients": (webhook_recipients or "").strip()[:500],
+            "webhook_min_severity": (webhook_min_severity or "warning").lower()
+            if (webhook_min_severity or "").lower() in ("info", "warning", "critical")
+            else "warning",
+        }
+        if (webhook_secret or "").strip():
+            partial["webhook_secret"] = webhook_secret.strip()[:200]
+        if url:
+            partial["webhook_enabled"] = True
+        app_cfg.save_settings(partial)
+        result = alert_ch.send_webhook(
+            "PiHerder webhook test",
+            event="test",
+            severity="info",
+            extra={"source": "settings_test", "admin": getattr(user, "email", "")},
+        )
+        if not result.get("ok"):
+            return RedirectResponse(
+                _settings_url(
+                    "alerts",
+                    alerts_error=(result.get("error") or "test failed")[:120],
+                ),
+                status_code=303,
+            )
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("alerts", alerts_error=str(e)[:120]), status_code=303
+        )
+    return RedirectResponse(_settings_url("alerts", webhook_test="1"), status_code=303)
+
+
+@router.post("/herder-backups/alerts/smtp")
+async def save_alerts_smtp(
+    smtp_enabled: Optional[str] = Form(None),
+    smtp_host: str = Form(""),
+    smtp_port: int = Form(587),
+    smtp_security: str = Form("starttls"),
+    smtp_username: str = Form(""),
+    smtp_password: str = Form(""),
+    clear_smtp_password: Optional[str] = Form(None),
+    smtp_from_email: str = Form(""),
+    smtp_from_name: str = Form("PiHerder"),
+    smtp_alert_to: str = Form(""),
+    smtp_alert_enabled: Optional[str] = Form(None),
+    smtp_alert_min_severity: str = Form("warning"),
+    smtp_password_reset_enabled: Optional[str] = Form(None),
+    user: User = Depends(get_admin_user),
+):
+    del user
+    from ..services import alert_channels as alert_ch
+
+    try:
+        sec = (smtp_security or "starttls").lower()
+        if sec not in ("none", "starttls", "ssl"):
+            sec = "starttls"
+        sev = (smtp_alert_min_severity or "warning").lower()
+        if sev not in ("info", "warning", "critical"):
+            sev = "warning"
+        port = max(1, min(65535, int(smtp_port or 587)))
+        app_cfg.save_settings(
+            {
+                "smtp_enabled": _form_on(smtp_enabled),
+                "smtp_host": (smtp_host or "").strip()[:200],
+                "smtp_port": port,
+                "smtp_security": sec,
+                "smtp_username": (smtp_username or "").strip()[:200],
+                "smtp_from_email": (smtp_from_email or "").strip()[:200],
+                "smtp_from_name": (smtp_from_name or "PiHerder").strip()[:80] or "PiHerder",
+                "smtp_alert_to": (smtp_alert_to or "").strip()[:500],
+                "smtp_alert_enabled": _form_on(smtp_alert_enabled),
+                "smtp_alert_min_severity": sev,
+                "smtp_password_reset_enabled": _form_on(smtp_password_reset_enabled),
+            }
+        )
+        if _form_on(clear_smtp_password):
+            alert_ch.clear_smtp_password()
+        elif (smtp_password or "").strip():
+            alert_ch.set_smtp_password(smtp_password)
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("alerts", alerts_error=str(e)[:120]), status_code=303
+        )
+    return RedirectResponse(_settings_url("alerts", smtp_saved="1"), status_code=303)
+
+
+@router.post("/herder-backups/alerts/smtp/test")
+async def test_alerts_smtp(
+    to: str = Form(...),
+    user: User = Depends(get_admin_user),
+):
+    del user
+    from ..services import alert_channels as alert_ch
+
+    result = alert_ch.send_test_email((to or "").strip())
+    if not result.get("ok"):
+        return RedirectResponse(
+            _settings_url(
+                "alerts",
+                alerts_error=(result.get("error") or "send failed")[:120],
+            ),
+            status_code=303,
+        )
+    return RedirectResponse(_settings_url("alerts", smtp_test="1"), status_code=303)
 
 
 @router.post("/herder-backups/data-cleanup/config")

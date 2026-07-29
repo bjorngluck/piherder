@@ -106,15 +106,11 @@ def _build_rsync_ssh_cmd(key_path: str) -> str:
 
 def _send_webhook(message: str):
     """Send notification using same shape as the original backup scripts."""
-    if not settings.WEBHOOK_URL:
-        return
     try:
-        payload = {
-            "message": message,
-            "number": settings.WEBHOOK_NUMBER or "",
-            "recipients": json.loads(settings.WEBHOOK_RECIPIENTS or "[]"),
-        }
-        httpx.post(settings.WEBHOOK_URL, json=payload, timeout=10)
+        from .alert_channels import send_webhook
+
+        sev = "critical" if "fail" in (message or "").lower() else "info"
+        send_webhook(message, event="backup", severity=sev)
     except Exception:
         pass  # never break the backup on notification failure
 

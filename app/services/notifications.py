@@ -74,9 +74,11 @@ def upsert_notification(
     session.commit()
     session.refresh(n)
 
-    # Bridge to legacy webhook for warning+
-    if severity in ("warning", "critical"):
-        _maybe_webhook(f"[{severity}] {title}" + (f": {body}" if body else ""))
+    # Bridge to webhook / email for warning+ (Wh-lite + H-lite)
+    if severity in ("warning", "critical", "info"):
+        msg = f"[{severity}] {title}" + (f": {body}" if body else "")
+        _maybe_webhook(msg, severity=severity, link_url=link_url)
+        _maybe_email(severity=severity, title=title, body=body, link_url=link_url)
 
     # Optional Web Push (only on *new* open rows — not fingerprint refreshes)
     _maybe_push(session, n)
@@ -178,19 +180,40 @@ def mark_read(session: Session, notification_id: int) -> bool:
     return True
 
 
-def _maybe_webhook(message: str) -> None:
-    if not settings.WEBHOOK_URL:
-        return
+def _maybe_webhook(
+    message: str,
+    *,
+    severity: str = "warning",
+    link_url: Optional[str] = None,
+) -> None:
     try:
-        import httpx
-        payload = {
-            "message": message,
-            "number": settings.WEBHOOK_NUMBER or "",
-            "recipients": json.loads(settings.WEBHOOK_RECIPIENTS or "[]"),
-        }
-        httpx.post(settings.WEBHOOK_URL, json=payload, timeout=8)
+        from . import alert_channels as ch
+
+        ch.send_webhook(
+            message,
+            event="notification",
+            severity=severity,
+            extra={"link_url": link_url or ""},
+        )
     except Exception as e:
-        logger.debug(f"Notification webhook failed: {e}")
+        logger.debug("Notification webhook failed: %s", e)
+
+
+def _maybe_email(
+    *,
+    severity: str,
+    title: str,
+    body: Optional[str] = None,
+    link_url: Optional[str] = None,
+) -> None:
+    try:
+        from . import alert_channels as ch
+
+        ch.maybe_email_notification(
+            severity=severity, title=title, body=body, link_url=link_url
+        )
+    except Exception as e:
+        logger.debug("Notification email failed: %s", e)
 
 
 def _maybe_push(session: Session, notification: Notification) -> None:
