@@ -128,6 +128,9 @@ async def server_backups(
     except Exception as e:
         logger.debug(f"restore candidates: {e}")
 
+    from ..services.nav_shortcuts import host_feature_context
+
+    _nav = host_feature_context(session, int(user.id) if user else None, server, "backups")
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_backups.html",
@@ -147,6 +150,7 @@ async def server_backups(
             "active_backup_jobs": active_backup_jobs,
             "path_rules": path_rules,
             "default_deny_paths": list(DEFAULT_DENY_PREFIXES),
+            **_nav,
             "restore_candidates": restore_candidates,
             "restore_result": None,
         }

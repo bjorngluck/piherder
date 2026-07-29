@@ -58,3 +58,22 @@ def _redirect(path: str, *, fragment: str | None = None, **params) -> RedirectRe
 
 def _can_mutate(user: User) -> bool:
     return role_at_least(user, ROLE_OPERATOR)
+
+
+def _pin_context_for_integration(session: Session, user: User, integration) -> dict:
+    """Favourites pin fields for integration detail pages."""
+    try:
+        from ..services.nav_shortcuts import integration_pin_context
+
+        return integration_pin_context(
+            session, int(user.id) if user and user.id else None, integration
+        )
+    except Exception:
+        return {
+            "pin_kind": "integration",
+            "pin_integration_id": getattr(integration, "id", None),
+            "pin_label": getattr(integration, "name", None) or "Integration",
+            "pin_href": f"/integrations/{getattr(integration, 'id', '')}",
+            "is_favourite": False,
+            "favourite_id": None,
+        }

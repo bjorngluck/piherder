@@ -125,7 +125,7 @@ async def certificates_list(
                 "cls": "",
             },
         ],
-        "caption": "Vault health · consumer maps",
+        "caption": "Vault health · deploy targets",
     }
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -246,17 +246,22 @@ async def certificate_detail(
         raise HTTPException(404)
     targets = cert_svc.list_targets(session, cert_id)
     servers = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
+    server_by_id = {s.id: s for s in servers}
     server_names = {s.id: s.name for s in servers}
     cert_pub = cert_svc.public_cert_dict(cert)
     fp = cert_pub.get("fingerprint_sha256")
-    target_rows = [
-        cert_svc.public_target_dict(
-            t,
-            server_name=server_names.get(t.server_id, f"#{t.server_id}"),
-            cert_fingerprint=fp,
+    target_rows = []
+    for t in targets:
+        srv = server_by_id.get(t.server_id)
+        ssh_user = (getattr(srv, "ssh_username", None) or "piherder") if srv else "piherder"
+        target_rows.append(
+            cert_svc.public_target_dict(
+                t,
+                server_name=server_names.get(t.server_id, f"#{t.server_id}"),
+                cert_fingerprint=fp,
+                ssh_user=ssh_user,
+            )
         )
-        for t in targets
-    ]
     edit_id = request.query_params.get("edit_target")
     edit_target = None
     if edit_id:
@@ -272,6 +277,47 @@ async def certificate_detail(
             setup_step = "map"
         elif any(not t.get("last_deploy_status") for t in target_rows):
             setup_step = "deploy"
+    open_wizard = request.query_params.get("wizard") in ("1", "add", "true") or bool(
+        edit_target
+    )
+    servers_meta = [
+        {
+            "id": s.id,
+            "name": s.name,
+            "ssh_username": (s.ssh_username or "piherder").strip() or "piherder",
+        }
+        for s in servers
+    ]
+    # Group service-level deploy targets under host (visual only — deploy is per service)
+    targets_by_host: list[dict] = []
+    by_server: dict[int, list] = {}
+    for row in target_rows:
+        by_server.setdefault(int(row["server_id"]), []).append(row)
+    # Stable host order: server list order, then any orphan server_ids
+    seen: set[int] = set()
+    for s in servers:
+        if s.id in by_server:
+            targets_by_host.append(
+                {
+                    "server_id": s.id,
+                    "server_name": s.name,
+                    "ssh_username": (s.ssh_username or "piherder").strip() or "piherder",
+                    "targets": by_server[s.id],
+                    "count": len(by_server[s.id]),
+                }
+            )
+            seen.add(s.id)
+    for sid, rows in by_server.items():
+        if sid not in seen:
+            targets_by_host.append(
+                {
+                    "server_id": sid,
+                    "server_name": rows[0].get("server_name") or f"#{sid}",
+                    "ssh_username": rows[0].get("ssh_user") or "piherder",
+                    "targets": rows,
+                    "count": len(rows),
+                }
+            )
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="certificates_detail.html",
@@ -280,9 +326,13 @@ async def certificate_detail(
             "user": user,
             "cert": cert_pub,
             "targets": target_rows,
+            "targets_by_host": targets_by_host,
             "servers": servers,
+            "servers_meta": servers_meta,
             "edit_target": edit_target,
-            "layout_help": cert_svc.LAYOUT_HELP,
+            "open_wizard": open_wizard,
+            "layout_help": cert_svc.layout_help_for_ui(),
+            "layout_help_all": cert_svc.LAYOUT_HELP,
             "write_mode_help": cert_svc.WRITE_MODE_HELP,
             "map_presets": cert_svc.map_presets_for_ui(),
             "edge_status": cert_svc.edge_caddy_status(),
@@ -425,6 +475,32 @@ async def certificate_edge_mapping(
         )
 
 
+def _resolve_post_deploy(
+    *,
+    restart_kind: str,
+    compose_file: str,
+    compose_action: str,
+    systemctl_unit: str,
+    post_deploy_command: str,
+) -> str:
+    """Prefer structured restart recipe; fall back to free-form command."""
+    kind = (restart_kind or "").strip().lower()
+    if kind and kind != "custom":
+        return cert_svc.build_post_deploy_command(
+            kind,
+            compose_file=compose_file,
+            compose_action=compose_action,
+            systemctl_unit=systemctl_unit,
+            custom=post_deploy_command,
+        )
+    if kind == "custom":
+        return cert_svc.build_post_deploy_command(
+            "custom", custom=post_deploy_command
+        )
+    # Legacy: only free-form field submitted
+    return (post_deploy_command or "").strip()
+
+
 @router.post("/certificates/{cert_id}/targets")
 async def certificate_add_target(
     cert_id: int,
@@ -444,6 +520,11 @@ async def certificate_add_target(
     file_group: str = Form(""),
     pfx_export_password: str = Form(""),
     post_deploy_command: str = Form(""),
+    restart_kind: str = Form(""),
+    compose_file: str = Form(""),
+    compose_action: str = Form("restart"),
+    systemctl_unit: str = Form(""),
+    verify_url: str = Form(""),
 ):
     from ..services.input_validation import (
         CERT_LAYOUTS,
@@ -464,9 +545,15 @@ async def certificate_add_target(
             default="direct",
         )
         label = clamp_str(label, max_len=200, field="label")
-        post_deploy_command = clamp_str(
-            post_deploy_command, max_len=500, field="post_deploy_command"
+        verify_url = clamp_str(verify_url, max_len=500, field="verify_url")
+        cmd = _resolve_post_deploy(
+            restart_kind=restart_kind,
+            compose_file=compose_file,
+            compose_action=compose_action,
+            systemctl_unit=systemctl_unit,
+            post_deploy_command=post_deploy_command,
         )
+        cmd = clamp_str(cmd, max_len=500, field="post_deploy_command")
         t = cert_svc.create_target(
             session,
             certificate_id=cert_id,
@@ -483,7 +570,8 @@ async def certificate_add_target(
             file_owner=file_owner,
             file_group=file_group,
             pfx_export_password=pfx_export_password,
-            post_deploy_command=post_deploy_command,
+            post_deploy_command=cmd,
+            verify_url=verify_url,
         )
         _audit(
             session,
@@ -521,6 +609,11 @@ async def certificate_edit_target(
     file_group: str = Form(""),
     pfx_export_password: str = Form(""),
     post_deploy_command: str = Form(""),
+    restart_kind: str = Form(""),
+    compose_file: str = Form(""),
+    compose_action: str = Form("restart"),
+    systemctl_unit: str = Form(""),
+    verify_url: str = Form(""),
 ):
     from ..models import CertificateTarget
     from ..services.input_validation import (
@@ -545,9 +638,15 @@ async def certificate_edit_target(
             default="direct",
         )
         label = clamp_str(label, max_len=200, field="label")
-        post_deploy_command = clamp_str(
-            post_deploy_command, max_len=500, field="post_deploy_command"
+        verify_url = clamp_str(verify_url, max_len=500, field="verify_url")
+        cmd = _resolve_post_deploy(
+            restart_kind=restart_kind,
+            compose_file=compose_file,
+            compose_action=compose_action,
+            systemctl_unit=systemctl_unit,
+            post_deploy_command=post_deploy_command,
         )
+        cmd = clamp_str(cmd, max_len=500, field="post_deploy_command")
         # Empty password field = keep existing encrypted password
         t = cert_svc.update_target(
             session,
@@ -565,7 +664,8 @@ async def certificate_edit_target(
             file_owner=file_owner,
             file_group=file_group,
             pfx_export_password=pfx_export_password if pfx_export_password else None,
-            post_deploy_command=post_deploy_command,
+            post_deploy_command=cmd,
+            verify_url=verify_url,
         )
         _audit(
             session,
@@ -591,9 +691,209 @@ async def certificate_delete_target(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
+    try:
+        from ..services import notifications as notif_svc
+
+        notif_svc.resolve_cert_target_alerts(session, int(target_id))
+    except Exception:
+        pass
     cert_svc.delete_target(session, target_id)
     _audit(session, user, "cert_target_deleted", details=f"target={target_id}")
     return _redirect(f"/certificates/{cert_id}", msg="target_deleted")
+
+
+@router.post("/certificates/{cert_id}/targets/{target_id}/verify")
+async def certificate_verify_target(
+    cert_id: int,
+    target_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Re-check host fingerprint without redeploying material."""
+    from ..models import CertificateTarget
+
+    row = session.get(CertificateTarget, target_id)
+    if not row or row.certificate_id != cert_id:
+        raise HTTPException(404)
+    cert = cert_svc.get_certificate(session, cert_id)
+    if not cert:
+        raise HTTPException(404)
+    server = session.get(Server, row.server_id)
+    if not server:
+        return _redirect(
+            f"/certificates/{cert_id}", error="verify_failed", detail="Server missing"
+        )
+    client = None
+    try:
+        from ..services import ssh as ssh_svc
+
+        client = ssh_svc.get_ssh_client(server)
+        st, home_raw, _ = ssh_svc.run_command(client, "printf %s \"$HOME\"", timeout=15)
+        ssh_user = (getattr(server, "ssh_username", None) or "piherder").strip() or "piherder"
+        home = cert_svc.resolve_ssh_home(
+            ssh_user=ssh_user, home_dir=(home_raw or "").strip() or None
+        )
+        remote_dir = cert_svc.expand_remote_dir(row.remote_dir or "~/certs", home)
+        result = cert_svc.verify_deploy_target(
+            client,
+            row,
+            remote_dir=remote_dir,
+            expected_fingerprint=cert.fingerprint_sha256 or "",
+        )
+        now = datetime.utcnow()
+        row.last_verify_status = result.get("status") or (
+            "success" if result.get("ok") else "failed"
+        )
+        row.last_verify_message = (result.get("message") or "")[:500]
+        row.last_verify_at = now
+        row.updated_at = now
+        session.add(row)
+        session.commit()
+        # Raise/resolve verify alerts (deploy status unchanged)
+        cert_svc._apply_cert_target_alerts(
+            session,
+            target=row,
+            cert=cert,
+            server=server,
+            deploy_ok=True,
+            verify=result,
+        )
+        _audit(
+            session,
+            user,
+            "cert_verify",
+            server_id=server.id,
+            details=f"target={target_id} status={row.last_verify_status}",
+            status="success" if result.get("ok") else "failed",
+        )
+        if result.get("ok"):
+            return _redirect(f"/certificates/{cert_id}", msg="verified")
+        if (result.get("status") or "") == "partial":
+            return _redirect(
+                f"/certificates/{cert_id}",
+                error="verify_partial",
+                detail=(result.get("message") or "")[:200],
+            )
+        return _redirect(
+            f"/certificates/{cert_id}",
+            error="verify_failed",
+            detail=(result.get("message") or "")[:200],
+        )
+    except Exception as e:
+        logger.exception("cert verify")
+        return _redirect(
+            f"/certificates/{cert_id}", error="verify_failed", detail=str(e)[:200]
+        )
+    finally:
+        if client:
+            try:
+                client.close()
+            except Exception:
+                pass
+
+
+@router.post("/certificates/{cert_id}/targets/simulate")
+async def certificate_simulate_target_form(
+    cert_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    server_id: int = Form(...),
+    remote_dir: str = Form("~/certs"),
+    layout: str = Form("pair"),
+    write_mode: str = Form("direct"),
+    fullchain_filename: str = Form("fullchain.pem"),
+    privkey_filename: str = Form("privkey.pem"),
+    combined_filename: str = Form("snakeoil.pem"),
+    pfx_filename: str = Form("Certificate.pfx"),
+    file_mode: str = Form("600"),
+    file_owner: str = Form("root"),
+    file_group: str = Form("root"),
+    restart_kind: str = Form(""),
+    compose_file: str = Form(""),
+    compose_action: str = Form("restart"),
+    systemctl_unit: str = Form(""),
+    post_deploy_command: str = Form(""),
+):
+    """Wizard: probe sudo/write access for draft target fields (no DB write)."""
+    server = session.get(Server, server_id)
+    if not server:
+        return _redirect(
+            f"/certificates/{cert_id}",
+            error="sim_failed",
+            detail="Server not found",
+            wizard="1",
+        )
+    cmd = _resolve_post_deploy(
+        restart_kind=restart_kind,
+        compose_file=compose_file,
+        compose_action=compose_action,
+        systemctl_unit=systemctl_unit,
+        post_deploy_command=post_deploy_command,
+    )
+    client = None
+    try:
+        from ..services import ssh as ssh_svc
+
+        client = ssh_svc.get_ssh_client(server)
+        st, home_raw, _ = ssh_svc.run_command(client, "printf %s \"$HOME\"", timeout=15)
+        ssh_user = (getattr(server, "ssh_username", None) or "piherder").strip() or "piherder"
+        result = cert_svc.simulate_sudoers_access(
+            client,
+            remote_dir=remote_dir,
+            layout=layout,
+            write_mode=write_mode,
+            fullchain_filename=fullchain_filename,
+            privkey_filename=privkey_filename,
+            combined_filename=combined_filename,
+            pfx_filename=pfx_filename,
+            file_mode=file_mode,
+            file_owner=file_owner or "root",
+            file_group=file_group or "root",
+            post_deploy_command=cmd,
+            ssh_user=ssh_user,
+            home_dir=(home_raw or "").strip() or None,
+        )
+        _audit(
+            session,
+            user,
+            "cert_sudo_simulate",
+            server_id=server_id,
+            details=f"cert={cert_id} ok={result.get('ok')} mode={write_mode}",
+            status="success" if result.get("ok") else "failed",
+        )
+        failed = [c for c in (result.get("checks") or []) if not c.get("ok")]
+        detail = result.get("message") or ""
+        if failed:
+            detail = "; ".join(
+                f"{c['name']}: {c.get('detail') or 'fail'}" for c in failed[:4]
+            )[:200]
+        if result.get("ok"):
+            return _redirect(
+                f"/certificates/{cert_id}",
+                msg="sim_ok",
+                detail=detail[:200],
+                wizard="1",
+            )
+        return _redirect(
+            f"/certificates/{cert_id}",
+            error="sim_failed",
+            detail=detail[:200],
+            wizard="1",
+        )
+    except Exception as e:
+        logger.exception("cert simulate")
+        return _redirect(
+            f"/certificates/{cert_id}",
+            error="sim_failed",
+            detail=str(e)[:200],
+            wizard="1",
+        )
+    finally:
+        if client:
+            try:
+                client.close()
+            except Exception:
+                pass
 
 
 @router.post("/certificates/{cert_id}/deploy")

@@ -12,6 +12,7 @@ from sqlmodel import Session, select
 from ...models import IntegrationBinding, Server, ServiceDnsRecord
 from .. import docker_inventory as inv_svc
 from . import kuma_coverage as cov
+from .ports import enrich_container_ports
 
 
 # Role heuristics for display only (not stored in P1).
@@ -274,6 +275,49 @@ def resolve_stack_target(
     }
 
 
+def _fleet_link_targets(
+    session: Session, *, current_server_id: int, limit_hosts: int = 40
+) -> list[dict[str, Any]]:
+    """Lightweight fleet inventory for cross-host manual edge picker."""
+    rows = list(
+        session.exec(select(Server).order_by(Server.sort_order, Server.name)).all()
+    )
+    out: list[dict[str, Any]] = []
+    for s in rows[: max(1, min(80, limit_hosts))]:
+        if s.id is None:
+            continue
+        inv = inv_svc.parse_inventory(s) or {}
+        projects_out: list[dict[str, Any]] = []
+        for pr in inv.get("projects") or []:
+            if not isinstance(pr, dict):
+                continue
+            pname = (pr.get("name") or pr.get("project") or "").strip()
+            if not pname:
+                continue
+            conts: list[str] = []
+            for c in pr.get("containers") or []:
+                if not isinstance(c, dict) or c.get("placeholder"):
+                    continue
+                key = (c.get("compose_service") or c.get("name") or "").strip()
+                if key and key not in conts:
+                    conts.append(key[:120])
+            projects_out.append(
+                {
+                    "name": pname[:200],
+                    "containers": conts[:40],
+                }
+            )
+        out.append(
+            {
+                "id": int(s.id),
+                "name": s.name or f"#{s.id}",
+                "is_current": int(s.id) == int(current_server_id),
+                "projects": projects_out[:30],
+            }
+        )
+    return out
+
+
 def build_stack_panel(
     session: Session,
     *,
@@ -420,52 +464,52 @@ def build_stack_panel(
                 from urllib.parse import quote as _q
 
                 docker_deep += f"?project={_q(proj)}#docker-proj-{_q(proj, safe='')}"
-            containers.append(
-                {
-                    "name": cname,
-                    "compose_service": csvc or cname,
-                    "container_name": cname,
-                    "compose_project": (c.get("compose_project") or proj or "")[:200],
-                    "image": image,
-                    "version": (c.get("version") or "")[:40],
-                    "running": bool(c.get("running")),
-                    "status": (c.get("status") or c.get("state") or "")[:120],
-                    "ports": ports,
-                    "ports_display": (c.get("ports_display") or "")[:120],
-                    "role": role,
-                    "role_label": {
-                        "edge": "edge",
-                        "app": "app",
-                        "queue": "queue",
-                        "data": "db",
-                        "cache": "cache",
-                        "tooling": "tool",
-                    }.get(role, role),
-                    "is_infra": is_infra,
-                    "mon_status": mon_status,
-                    "mute_key": mute_key,
-                    "explicitly_muted": explicitly_muted,
-                    "binding": bind_sum,
-                    "kuma_state": (bind_sum or {}).get("state") or "",
-                    "kuma_label": (bind_sum or {}).get("label") or "",
-                    "kuma_href": (bind_sum or {}).get("href") or "",
-                    "tcp_suggestions": tcp_suggestions,
-                    "suggested_external_id": (
-                        tcp_suggestions[0]["external_id"] if tcp_suggestions else ""
-                    ),
-                    "bind_action": bind_action,
-                    "bind_integration_id": integ_id,
-                    "has_pending_update": bool(c.get("has_pending_update")),
-                    "networks": networks,
-                    "compose_file": (project_row.get("compose_file") or "")[:240],
-                    "compose_path": (project_row.get("path") or "")[:240],
-                    "docker_href": docker_deep,
-                    "id_short": (c.get("id") or "")[:12],
-                    "tags": [],
-                    "category_key": None,
-                    "visual_stack_id": None,
-                }
-            )
+            crow = {
+                "name": cname,
+                "compose_service": csvc or cname,
+                "container_name": cname,
+                "compose_project": (c.get("compose_project") or proj or "")[:200],
+                "image": image,
+                "version": (c.get("version") or "")[:40],
+                "running": bool(c.get("running")),
+                "status": (c.get("status") or c.get("state") or "")[:120],
+                "ports": ports,
+                "ports_display": (c.get("ports_display") or "")[:120],
+                "role": role,
+                "role_label": {
+                    "edge": "edge",
+                    "app": "app",
+                    "queue": "queue",
+                    "data": "db",
+                    "cache": "cache",
+                    "tooling": "tool",
+                }.get(role, role),
+                "is_infra": is_infra,
+                "mon_status": mon_status,
+                "mute_key": mute_key,
+                "explicitly_muted": explicitly_muted,
+                "binding": bind_sum,
+                "kuma_state": (bind_sum or {}).get("state") or "",
+                "kuma_label": (bind_sum or {}).get("label") or "",
+                "kuma_href": (bind_sum or {}).get("href") or "",
+                "tcp_suggestions": tcp_suggestions,
+                "suggested_external_id": (
+                    tcp_suggestions[0]["external_id"] if tcp_suggestions else ""
+                ),
+                "bind_action": bind_action,
+                "bind_integration_id": integ_id,
+                "has_pending_update": bool(c.get("has_pending_update")),
+                "networks": networks,
+                "compose_file": (project_row.get("compose_file") or "")[:240],
+                "compose_path": (project_row.get("path") or "")[:240],
+                "docker_href": docker_deep,
+                "id_short": (c.get("id") or "")[:12],
+                "tags": [],
+                "category_key": None,
+                "visual_stack_id": None,
+            }
+            enrich_container_ports(crow)
+            containers.append(crow)
 
     # Merge DB annotations (category override, tags, view groups, order).
     # Scoped strictly to this compose project — never share keys with
@@ -741,6 +785,10 @@ def build_stack_panel(
             for c in containers
             if (c.get("compose_service") or c.get("name"))
         ],
+        # Cross-host picker (Topo-xhost): other hosts' projects/containers
+        "fleet_link_targets": _fleet_link_targets(
+            session, current_server_id=int(server.id) if server.id else 0
+        ),
         "summary": {
             "total": len(containers),
             "running": running_n,

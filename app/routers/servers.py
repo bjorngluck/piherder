@@ -843,6 +843,9 @@ async def server_detail(
     except Exception as e:
         logger.debug("nmap discovery embed skip: %s", e)
 
+    from ..services.nav_shortcuts import host_feature_context
+
+    _nav = host_feature_context(session, int(user.id) if user else None, server, "overview")
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_detail.html",
@@ -892,6 +895,7 @@ async def server_detail(
             "kuma_host_services": _kuma_host_services_for_server(session, server.id),
             "kuma_docker_service_count": _kuma_docker_service_count(session, server.id),
             "grafana_dashboards": _grafana_dashboards_for_server(session, server.id),
+            **_nav,
         }
     )
 

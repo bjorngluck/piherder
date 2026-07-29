@@ -249,8 +249,13 @@ Operators can mutate; viewers see read-only identity. Map view restores scroll a
 
 ### Devices → List view
 
-- Shared filter bar: All / New / Known / Linked / Ignored / **Offline** + search.
-- **Offline** = not seen recently (stale flag + warning colour). Devices are **never auto-deleted**; use **Ignore** or filter to hide noise.
+- Shared filter bar: All / New / Known / Linked / **Hidden** / **Offline** + counts + search (search also matches last-seen / hidden tokens).
+- Each row shows **Last seen** (relative; absolute in title) and state.
+- **Offline** = not seen recently (stale after ~14 days without `last_seen`; warning colour). Devices are **never auto-deleted**.
+- **Hide** (modal) = ignore — off Devices map and Hosts overlay; still in DB under **Hidden** (Unhide restores).
+- **Purge device** (modal) permanently removes the row + findings; a later scan may re-discover it as **new**. Unlink first if linked.
+- On the **Offline** filter, operators can **Purge N offline…** (bulk, confirm).
+- Pin the integration with **★** next to the LAN Discovery name for the header pin menu.
 - Click a row → same edit modal.
 - Empty states when filters hide every host.
 

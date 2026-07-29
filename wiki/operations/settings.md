@@ -34,7 +34,11 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
 | **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)) |
 | **Status** | Stack health: web, DB, Redis, Celery, scheduler, disk ([Status](status.md)) — admin |
-| **API** | Create / rotate / revoke instance Bearer tokens, docs, catalog ([API tokens](api-tokens.md)) — admin |
+| **API** | Create / rotate / revoke instance Bearer tokens; **Try a token** smoke checks; OpenAPI `/docs` + ReDoc ([API tokens](api-tokens.md)) — admin |
+
+### Schedules (human-readable)
+
+Cron fields across Settings (cleanup, fleet defaults, PiHerder backup) and host feature schedules show a short English line under the expression (e.g. “Daily at 04:30”) plus common presets where a select is offered. The stored value remains standard 5-field cron in the app timezone.
 
 ### General tab — timezone card
 
@@ -46,7 +50,7 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 
 | Setting | Default lean |
 |---------|----------------|
-| Master enable + cron | **Off** · cron e.g. `30 4 * * *` (app timezone) |
+| Master enable + cron | **Off** · cron e.g. `30 4 * * *` (app timezone). UI shows a **plain-English** summary next to the expression (shared schedule helper used fleet-wide) |
 | Jobs purge | On when cleanup enabled · **30 days** · never deletes pending/running |
 | Audit purge | On when cleanup enabled · **30 days** (can differ from jobs) |
 | nmap runs / artifacts | **Off** until enabled · **30 days** when on |

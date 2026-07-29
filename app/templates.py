@@ -48,6 +48,21 @@ def _app_tz_filter(dt, fmt="%Y-%m-%d %H:%M"):
 templates.env.filters["app_tz"] = _app_tz_filter
 templates.env.filters["utc_iso"] = utc_isoformat
 
+from .services.cron_human import (  # noqa: E402
+    CRON_PRESETS,
+    describe_cron,
+    describe_interval_hours,
+    schedule_summary,
+)
+
+templates.env.filters["cron_human"] = lambda expr, tz=None: describe_cron(
+    expr, tz_hint=tz
+)
+templates.env.filters["interval_human"] = describe_interval_hours
+templates.env.globals["describe_cron"] = describe_cron
+templates.env.globals["schedule_summary"] = schedule_summary
+templates.env.globals["cron_presets"] = CRON_PRESETS
+
 
 def _fromjson_filter(value):
     if not value:

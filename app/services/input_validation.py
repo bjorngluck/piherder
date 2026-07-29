@@ -207,6 +207,8 @@ CERT_LAYOUTS = frozenset(
     {
         "pair",
         "combined",
+        "pfx",
+        # Legacy compound layouts (deploy still works; new UI does not offer them)
         "pair_and_combined",
         "pair_and_pfx",
         "pair_combined_pfx",

@@ -474,10 +474,44 @@ a.fabric-hop:hover {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.07);
   transform: translateY(-1px);
 }
+/* Hosts / Path map hub cards: full-card open link + pin star on title */
+.fabric-nav-card--with-pin {
+  position: relative;
+  padding: 0;
+  overflow: visible;
+}
+.fabric-nav-card--with-pin:hover {
+  transform: translateY(-1px);
+}
+.fabric-nav-card-main-link {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: inherit;
+  padding: 0.65rem 0.8rem;
+  padding-right: 2.25rem;
+  text-decoration: none;
+  color: inherit;
+  box-sizing: border-box;
+}
+.fabric-nav-card-pin {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.3rem;
+  z-index: 2;
+}
+.fabric-nav-card-pin .host-pin-star-btn {
+  width: 1.85rem;
+  height: 1.85rem;
+  font-size: 1.05rem;
+}
 .fabric-nav-card--compact {
   min-height: 0;
   padding: 0.65rem 0.8rem;
   border-radius: 10px;
+}
+.fabric-nav-card--with-pin.fabric-nav-card--compact {
+  padding: 0;
 }
 .fabric-nav-card--compact .fabric-nav-card-title {
   font-size: 0.95rem;
@@ -1462,6 +1496,34 @@ a:has(> .fabric-mesh-node.ph-focus-dim) {
 }
 .fabric-map-chrome--oneline .fabric-map-disc-toggle {
   flex-shrink: 0;
+}
+/* Pin star in map toolbar (Hosts / Path map) */
+.fabric-map-pin {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.fabric-map-pin .host-pin-star {
+  display: inline-flex;
+}
+.fabric-map-pin .host-pin-star-btn {
+  width: 2rem;
+  height: 2rem;
+  min-height: 2rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, var(--color-accent));
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-bg));
+  color: var(--color-muted);
+  font-size: 0.95rem;
+}
+.fabric-map-pin .host-pin-star-btn:hover {
+  color: var(--color-primary, #c8102e);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+.fabric-map-pin .host-pin-star-btn.is-pinned {
+  color: var(--color-primary, #c8102e);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
 }
 .fabric-map-chrome-left {
   display: flex;

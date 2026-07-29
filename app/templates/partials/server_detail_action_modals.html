@@ -780,7 +780,11 @@ function computeUsableSummary(drives) {
           </div>
 
           <input type="text" name="backup_schedule" id="cron-input" value="{{ server.backup_schedule or '' }}" placeholder="0 2 * * *" class="w-full bg-surface border border-border px-2 py-1 rounded font-mono text-xs">
+          {% if server.backup_schedule %}
+          <p class="text-[9px] text-muted mt-0.5">{{ server.backup_schedule | cron_human(get_app_timezone()) }} · <code class="font-mono">{{ server.backup_schedule }}</code></p>
+          {% else %}
           <p class="text-[9px] text-muted mt-0.5">Presets build the cron. Use Custom for complex repeats.</p>
+          {% endif %}
         </div>
       </div>
 

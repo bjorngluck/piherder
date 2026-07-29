@@ -5,6 +5,7 @@
 {% include "partials/catalog_nav.html" %}
 {% endwith %}
 
+{# ── Top bar ─────────────────────────────────────────────────────────── #}
 <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
   <div>
     <h2 class="text-lg font-semibold tracking-tight text-text">{{ cert.name }}</h2>
@@ -19,11 +20,11 @@
       {% endif %}
     </div>
   </div>
-  <div class="flex flex-wrap gap-2">
+  <div class="flex flex-wrap items-center gap-2">
     <a href="/certificates" class="btn btn-secondary min-h-11">All certificates</a>
     {% if can_mutate and cert.source == 'npm' %}
     <form method="post" action="/certificates/{{ cert.id }}/renew"
-          data-confirm="Request renew via NPM, poll for a new certificate, then redistribute to all service maps? This can take several minutes."
+          data-confirm="Request renew via NPM, poll for a new certificate, then redistribute to all deploy targets? This can take several minutes."
           data-confirm-title="Renew certificate"
           data-confirm-label="Renew"
           data-confirm-danger
@@ -34,47 +35,68 @@
     {% endif %}
     {% if can_mutate %}
     <form method="post" action="/certificates/{{ cert.id }}/apply-edge"
-          data-confirm="Write fullchain.pem + privkey.pem into this PiHerder instance’s certs volume and reload Caddy? No SSH. Does not change fleet service maps."
+          data-confirm="Write fullchain.pem + privkey.pem into this PiHerder instance’s certs volume and reload Caddy? No SSH. Does not change fleet deploy targets."
           data-confirm-title="Apply to this PiHerder (Caddy)"
           data-confirm-label="Apply to Caddy"
           data-wait-title="Applying edge certificate"
           data-wait-message="Writing PEMs and reloading Caddy…">
       <input type="hidden" name="force" value="on">
       <button class="btn btn-accent min-h-11" type="submit"
-              title="{% if not cert.edge_available %}Requires ./certs mount on web (stock compose){% else %}This instance only — not a fleet map{% endif %}">
+              title="{% if not cert.edge_available %}Requires ./certs mount on web (stock compose){% else %}This instance only — not a fleet target{% endif %}">
         Apply to this PiHerder
       </button>
     </form>
     {% endif %}
     {% if can_mutate and targets %}
     <form method="post" action="/certificates/{{ cert.id }}/deploy"
-          data-confirm="Deploy this certificate to every service map over SSH (write files, set perms, run restarts)?"
-          data-confirm-title="Deploy all service maps"
+          data-confirm="Deploy this certificate to every deploy target over SSH (write files, set perms, run restarts)?"
+          data-confirm-title="Deploy all targets"
           data-confirm-label="Deploy all"
           data-wait-title="Deploying certificate"
           data-wait-message="Writing files to hosts via SSH…">
       <input type="hidden" name="force" value="on">
-      <button class="btn btn-primary min-h-11" type="submit">Deploy all maps</button>
+      <button class="btn btn-primary min-h-11" type="submit">Deploy all</button>
     </form>
+    {% endif %}
+    {% if can_mutate %}
+    <div class="relative" id="cert-actions-menu">
+      <button type="button" id="cert-actions-btn" class="btn btn-secondary min-h-11" aria-haspopup="true" aria-expanded="false">
+        More ▾
+      </button>
+      <div id="cert-actions-dropdown"
+           class="hidden absolute right-0 mt-1 z-40 min-w-[12rem] card border border-border shadow-lg py-1">
+        <button type="button" id="btn-open-replace-pem"
+                class="w-full text-left px-3 py-2 text-sm hover:bg-surface min-h-10">
+          Replace PEM…
+        </button>
+        <a href="#vault-settings" class="block px-3 py-2 text-sm hover:bg-surface min-h-10">Vault settings</a>
+        <button type="button" id="btn-open-delete-cert"
+                class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-surface min-h-10">
+          Delete certificate…
+        </button>
+      </div>
+    </div>
     {% endif %}
   </div>
 </div>
 
 {% if msg %}
 <div class="mb-3 p-3 banner-success border border-border rounded text-sm">
-  {% if msg == 'uploaded' %}Certificate encrypted and stored in the vault. Next: add a service map.
-  {% elif msg == 'pulled' %}Certificate pulled from NPM into the vault. Next: add a service map.
-  {% elif msg == 'target_added' %}Service map saved. Next: Deploy to write files on the host.
-  {% elif msg == 'target_saved' %}Service map updated.
-  {% elif msg == 'target_deleted' %}Service map removed (host files left in place).
-  {% elif msg == 'deployed' %}Deploy finished. Confirm files on the host if this is a new map.
+  {% if msg == 'uploaded' %}Certificate encrypted and stored in the vault. Next: add a deploy target.
+  {% elif msg == 'pulled' %}Certificate pulled from NPM into the vault. Next: add a deploy target.
+  {% elif msg == 'target_added' %}Service deploy target saved. Next: Deploy to write files on the host.
+  {% elif msg == 'target_saved' %}Service deploy target updated.
+  {% elif msg == 'target_deleted' %}Service deploy target removed (host files left in place).
+  {% elif msg == 'deployed' %}Deploy finished. Host fingerprint was checked after write (see target status).
   {% elif msg == 'deploy_skipped' %}Already in sync — same fingerprint was previously deployed (use force redeploy if you need a rewrite).
+  {% elif msg == 'verified' %}Host fingerprint (and TLS port probe when set) matches the vault for that service target.
+  {% elif msg == 'sim_ok' %}Privilege simulate passed.
   {% elif msg == 'edge_applied' %}Self-managed edge mapping on — PEMs written under certs/ and Caddy reloaded. NPM renew will re-apply here.
   {% elif msg == 'edge_skipped' %}Edge already in sync; self-managed mapping remains enabled for renew.
   {% elif msg == 'edge_mapping_on' %}Self-managed edge mapping enabled (use Apply to write/reload Caddy).
   {% elif msg == 'edge_mapping_off' %}Self-managed edge mapping removed — renew will not re-apply to Caddy. Files under certs/ were left in place.
   {% elif msg == 'renewed' %}Renewed and redistributed.
-  {% elif msg == 'replaced' %}PEM material replaced. Deploy maps (and/or Apply to this PiHerder) to push the new cert.
+  {% elif msg == 'replaced' %}PEM material replaced. Deploy targets (and/or Apply to this PiHerder) to push the new cert.
   {% elif msg == 'saved' %}Settings saved.
   {% else %}{{ msg }}{% endif %}
   {% if detail %} — {{ detail }}{% endif %}
@@ -84,19 +106,19 @@
 <div class="mb-3 p-3 banner-error border border-border rounded text-sm">{{ error }}{% if detail %} — {{ detail }}{% endif %}</div>
 {% endif %}
 
-{# Guided next step after import / first map #}
+{# Guided next step #}
 {% if can_mutate and setup_step == 'map' and not targets %}
 <div class="card p-4 mb-6 border border-accent/40 bg-surface">
   <div class="flex flex-wrap items-start justify-between gap-3">
     <div>
       <div class="text-xs font-semibold text-accent mb-1">Next · Step 2 of 3</div>
-      <h3 class="text-sm font-semibold text-text">Add your first service map</h3>
+      <h3 class="text-sm font-semibold text-text">Add your first service deploy target</h3>
       <p class="text-sm text-muted mt-1 max-w-2xl">
-        Choose a <strong>preset</strong> (NPM, Grafana volume, OctoPi/HAProxy, UniFi PFX…), pick the host,
-        adjust the directory, then save. Files are not written until you Deploy.
+        One target = one service on a host (not the whole stack). Choose type (PEM pair / combined / PFX),
+        final folder, permissions, and a simple restart recipe. Same host can have several services.
       </p>
     </div>
-    <a href="#map-form" class="btn btn-accent min-h-11">Scroll to map form</a>
+    <button type="button" class="btn btn-accent min-h-11" data-open-target-wizard>Add service target</button>
   </div>
 </div>
 {% elif can_mutate and setup_step == 'deploy' and targets %}
@@ -106,20 +128,12 @@
       <div class="text-xs font-semibold text-accent mb-1">Next · Step 3 of 3</div>
       <h3 class="text-sm font-semibold text-text">Deploy to the host</h3>
       <p class="text-sm text-muted mt-1 max-w-2xl">
-        Deploy writes PEMs over SSH, sets permissions, and runs the map’s post-deploy command.
-        After success, verify the files on the host and that the app uses them.
+        Deploy writes files over SSH, sets permissions, and runs the target’s restart command.
+        Open a target for details or use <strong>Deploy all</strong> above.
       </p>
     </div>
-    <a href="#service-maps" class="btn btn-accent min-h-11">Go to maps</a>
+    <a href="#deploy-targets" class="btn btn-accent min-h-11">Go to targets</a>
   </div>
-</div>
-{% elif setup_step == 'done' and targets %}
-<div class="card p-4 mb-6 border border-border">
-  <h3 class="text-sm font-semibold text-text mb-1">Setup complete for this cert</h3>
-  <p class="text-sm text-muted">
-    You can add more maps (same vault → multiple consumers) or return to the
-    <a href="/certificates" class="text-primary hover:underline">certificate list</a>.
-  </p>
 </div>
 {% endif %}
 
@@ -128,9 +142,9 @@
   <h3 class="text-sm font-semibold text-text mb-2">How certificates work here</h3>
   <ol class="text-sm text-muted space-y-1.5 list-decimal list-inside">
     <li><strong class="text-text">Vault</strong> — this page holds one TLS identity (fullchain + key), encrypted. Never shown again.</li>
-    <li><strong class="text-text">Self-managed edge map</strong> — optional mapping to <em>this</em> PiHerder’s Caddy (<code class="text-[10px]">./certs</code>); renew re-applies while enabled.</li>
-    <li><strong class="text-text">Fleet service maps</strong> — each remote consumer: host + path + write mode + restart.</li>
-    <li><strong class="text-text">Deploy</strong> — edge in-stack, or SSH write for fleet maps.</li>
+    <li><strong class="text-text">This PiHerder</strong> — optional Caddy edge on this instance (<code class="text-[10px]">./certs</code>).</li>
+    <li><strong class="text-text">Deploy targets</strong> — one per <em>service</em> (not the whole stack): type + path + restart. Grouped under host for scanning.</li>
+    <li><strong class="text-text">Deploy</strong> — edge in-stack, or SSH write per service target.</li>
   </ol>
 </div>
 
@@ -149,7 +163,7 @@
   </div>
 
   {% if can_mutate %}
-  <div class="card p-4">
+  <div class="card p-4" id="vault-settings">
     <h3 class="font-semibold text-sm mb-3">Vault settings</h3>
     <form method="post" action="/certificates/{{ cert.id }}/settings" class="space-y-3"
           data-wait-title="Saving"
@@ -174,35 +188,41 @@
   {% endif %}
 </div>
 
-{# Service maps (self-managed edge + fleet) #}
-<div class="card p-4 mb-6" id="service-maps">
+{# Deploy targets (edge + fleet) #}
+<div class="card p-4 mb-6" id="deploy-targets">
   <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
     <div>
-      <h3 class="font-semibold text-sm">Service maps</h3>
+      <h3 class="font-semibold text-sm">Deploy targets</h3>
       <p class="text-xs text-muted mt-1 max-w-2xl">
-        <strong>Self-managed edge</strong> = this PiHerder’s Caddy (in-stack).
-        <strong>Fleet maps</strong> = remote hosts over SSH. Same vault can feed both.
+        Each target is a <strong>service</strong> placement (NPM, Grafana, HAProxy, …) — not a whole stack.
+        Listed under the <strong>host</strong> so you can see 1–N deploys per machine. One cert type per target.
       </p>
     </div>
+    {% if can_mutate %}
+    <button type="button" class="btn btn-primary min-h-11 text-sm" data-open-target-wizard>
+      Add service target
+    </button>
+    {% endif %}
   </div>
 
-  {# Self-managed edge mapping (this instance) #}
-  <article class="border border-accent/40 rounded-lg p-3 sm:p-4 space-y-2 mb-4" id="edge-apply">
-    <div class="flex flex-wrap items-start justify-between gap-2">
+  {# Edge row (compact) #}
+  <button type="button"
+          class="w-full text-left border border-accent/40 rounded-lg p-3 sm:p-4 mb-3 hover:bg-surface transition-colors"
+          id="edge-apply"
+          data-open-edge-detail>
+    <div class="flex flex-wrap items-center justify-between gap-2">
       <div class="min-w-0">
         <div class="font-medium text-sm">
           This PiHerder (Caddy edge)
           <span class="status-pill feature-off ml-1">self-managed</span>
         </div>
-        <div class="text-xs text-muted mt-0.5">
-          Host: <em>this instance</em>
-          · <span class="font-mono">{{ edge_status.certs_dir if edge_status else '/certs' }}/fullchain.pem</span>
-          · <span class="font-mono">privkey.pem</span>
+        <div class="text-xs text-muted mt-0.5 font-mono break-all">
+          {{ edge_status.certs_dir if edge_status else '/certs' }}/fullchain.pem · privkey.pem
         </div>
       </div>
-      <div class="text-xs flex flex-wrap gap-1.5 items-center justify-end">
+      <div class="text-xs flex flex-wrap gap-1.5 items-center">
         {% if cert.edge_apply_enabled %}
-        <span class="status-pill status-running" title="NPM renew re-applies here">mapping on</span>
+        <span class="status-pill status-running">mapping on</span>
         {% else %}
         <span class="status-pill feature-off">mapping off</span>
         {% endif %}
@@ -217,204 +237,310 @@
         {% else %}
         <span class="status-pill feature-off">never applied</span>
         {% endif %}
-        {% if cert.last_edge_deploy_at %}<span class="text-muted">{{ cert.last_edge_deploy_at }}</span>{% endif %}
+        <span class="text-muted">Details →</span>
       </div>
     </div>
-    <div class="text-xs text-muted">
-      In-stack write + Caddy reload (no SSH). While <strong>mapping on</strong>, scheduled/manual NPM renew re-applies here with fleet maps.
+  </button>
+
+  {% if targets_by_host %}
+  <div class="text-xs font-medium text-muted uppercase tracking-wide mb-2">Fleet services (by host)</div>
+  <div class="space-y-3">
+    {% for host in targets_by_host %}
+    <section class="border border-border rounded-lg overflow-hidden" aria-label="Host {{ host.server_name }}">
+      <header class="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-4 py-2.5 bg-surface border-b border-border">
+        <div class="min-w-0">
+          <div class="font-medium text-sm text-text">
+            <a href="/servers/{{ host.server_id }}" class="text-primary hover:underline" onclick="event.stopPropagation()">{{ host.server_name }}</a>
+          </div>
+          <div class="text-[11px] text-muted mt-0.5">
+            SSH <code class="text-[10px]">{{ host.ssh_username }}</code>
+            · {{ host.count }} service deploy{{ 's' if host.count != 1 else '' }}
+          </div>
+        </div>
+      </header>
+      <div class="divide-y divide-border">
+        {% for t in host.targets %}
+        <button type="button"
+                class="w-full text-left p-3 sm:px-4 hover:bg-bg/80 transition-colors target-row"
+                data-open-target-detail="{{ t.id }}">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="min-w-0 pl-0 sm:pl-1">
+              <div class="font-medium text-sm">
+                {% if t.label %}{{ t.label }}{% else %}Service #{{ t.id }}{% endif %}
+              </div>
+              <div class="text-xs text-muted mt-0.5">
+                <span class="font-mono">{{ t.layout }}</span>
+                · <span class="font-mono break-all">{{ t.remote_dir }}</span>
+              </div>
+            </div>
+            <div class="text-xs flex flex-wrap gap-1.5 items-center">
+              {% if t.in_sync %}
+              <span class="status-pill status-success">in sync</span>
+              {% elif t.stale_vs_vault %}
+              <span class="status-pill status-failed">stale</span>
+              {% elif t.last_deploy_status == 'success' %}
+              <span class="status-pill status-success">deployed</span>
+              {% elif t.last_deploy_status == 'failed' %}
+              <span class="status-pill status-failed">failed</span>
+              {% else %}
+              <span class="status-pill feature-off">never deployed</span>
+              {% endif %}
+              {% if t.verified %}
+              <span class="status-pill status-success" title="{{ t.last_verify_message or '' }}">verified</span>
+              {% elif t.last_verify_status == 'partial' %}
+              <span class="status-pill status-failed" title="{{ t.last_verify_message or '' }}">verify partial</span>
+              {% elif t.last_verify_status == 'failed' %}
+              <span class="status-pill status-failed" title="{{ t.last_verify_message or '' }}">verify failed</span>
+              {% endif %}
+              {% if t.last_deployed_at %}<span class="text-muted hidden sm:inline">{{ t.last_deployed_at }}</span>{% endif %}
+              <span class="text-muted">Details →</span>
+            </div>
+          </div>
+        </button>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="mb-2 p-4 rounded-lg border border-dashed border-border bg-bg">
+    <p class="text-sm text-muted mb-2">
+      No service deploy targets yet. Add one per service that should receive this cert
+      (a host can have several — e.g. NPM + Grafana on the same machine).
+    </p>
+    {% if can_mutate %}
+    <button type="button" class="btn btn-accent min-h-11" data-open-target-wizard>Add first service target</button>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{# ════════ Edge detail modal ════════ #}
+<div id="edge-detail-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-[60] p-3" role="dialog" aria-modal="true">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div class="flex justify-between items-start gap-2 mb-3">
+      <h3 class="font-semibold text-text">This PiHerder (Caddy edge)</h3>
+      <button type="button" class="text-muted text-lg leading-none" data-close-edge-detail aria-label="Close">✕</button>
     </div>
-    <ul class="text-xs font-mono space-y-0.5 bg-bg border border-border rounded p-2">
+    <p class="text-sm text-muted mb-3">
+      In-stack write + Caddy reload (no SSH). While mapping is on, NPM renew re-applies here.
+    </p>
+    <ul class="text-xs font-mono space-y-0.5 bg-bg border border-border rounded p-2 mb-3">
       <li class="break-all"><span class="text-muted">fullchain:</span> {{ edge_status.certs_dir if edge_status else '/certs' }}/fullchain.pem</li>
       <li class="break-all"><span class="text-muted">privkey:</span> {{ edge_status.certs_dir if edge_status else '/certs' }}/privkey.pem</li>
     </ul>
     {% if cert.last_edge_deploy_fingerprint_short %}
-    <div class="text-[11px] text-muted">
+    <div class="text-[11px] text-muted mb-2">
       Last edge fingerprint: <code class="text-[10px]">{{ cert.last_edge_deploy_fingerprint_short }}</code>
-      {% if cert.edge_in_sync %}· matches vault{% elif cert.edge_stale %}· vault has a newer cert{% endif %}
     </div>
     {% endif %}
     {% if cert.last_edge_deploy_status == 'failed' and cert.last_edge_deploy_message %}
-    <div class="text-xs text-amber-600 break-words">{{ cert.last_edge_deploy_message }}</div>
+    <div class="text-xs text-amber-600 break-words mb-2">{{ cert.last_edge_deploy_message }}</div>
     {% endif %}
     {% if edge_status and not edge_status.certs_writable %}
-    <div class="text-xs text-amber-600">
+    <div class="text-xs text-amber-600 mb-2">
       Edge path not writable — stock compose mounts <code class="text-[10px]">./certs</code> on web.
     </div>
     {% endif %}
     {% if can_mutate %}
-    <div class="flex flex-wrap gap-2 pt-1">
+    <div class="flex flex-wrap gap-2 pt-2">
       <form method="post" action="/certificates/{{ cert.id }}/apply-edge"
-            data-confirm="Write PEMs to this instance’s certs volume and reload Caddy? Enables self-managed mapping for renew."
+            data-confirm="Write PEMs to this instance’s certs volume and reload Caddy?"
             data-confirm-title="Apply to this PiHerder"
             data-confirm-label="Apply"
             data-wait-title="Applying edge certificate"
             data-wait-message="Writing PEMs and reloading Caddy…">
         <input type="hidden" name="force" value="on">
-        <button class="btn btn-primary text-xs min-h-10" type="submit">Apply / re-apply</button>
+        <button class="btn btn-primary min-h-11" type="submit">Apply / re-apply</button>
       </form>
       {% if cert.edge_apply_enabled %}
       <form method="post" action="/certificates/{{ cert.id }}/edge-mapping"
-            data-confirm="Remove self-managed edge mapping? Renew will no longer push this cert to Caddy. Files under certs/ are not deleted."
+            data-confirm="Remove self-managed edge mapping? Renew will no longer push this cert to Caddy."
             data-confirm-title="Remove edge mapping"
             data-confirm-label="Remove mapping"
             data-confirm-danger
             data-wait-title="Updating mapping"
             data-wait-message="Disabling edge auto re-apply…">
         <input type="hidden" name="action" value="disable">
-        <button class="btn btn-secondary text-xs min-h-10" type="submit">Remove mapping</button>
+        <button class="btn btn-secondary min-h-11" type="submit">Remove mapping</button>
       </form>
       {% elif cert.edge_mapped or cert.last_edge_deploy_fingerprint %}
       <form method="post" action="/certificates/{{ cert.id }}/edge-mapping"
-            data-confirm="Enable self-managed edge mapping again? Renew will re-apply to Caddy after the next successful Apply (or when material already matches)."
+            data-confirm="Enable self-managed edge mapping again?"
             data-confirm-title="Enable edge mapping"
             data-confirm-label="Enable"
             data-wait-title="Updating mapping"
             data-wait-message="Enabling edge auto re-apply…">
         <input type="hidden" name="action" value="enable">
-        <button class="btn btn-secondary text-xs min-h-10" type="submit">Enable mapping</button>
+        <button class="btn btn-secondary min-h-11" type="submit">Enable mapping</button>
       </form>
       {% endif %}
     </div>
     {% endif %}
-  </article>
+  </div>
+</div>
 
-  {% if targets %}
-  <div class="space-y-3 mb-6">
-    <div class="text-xs font-medium text-muted uppercase tracking-wide">Fleet maps (SSH)</div>
-    {% for t in targets %}
-    <article class="border border-border rounded-lg p-3 sm:p-4 space-y-2">
-      <div class="flex flex-wrap items-start justify-between gap-2">
-        <div class="min-w-0">
-          <div class="font-medium text-sm">
-            {% if t.label %}{{ t.label }}{% else %}Map #{{ t.id }}{% endif %}
-          </div>
-          <div class="text-xs text-muted mt-0.5">
-            Host:
-            <a href="/servers/{{ t.server_id }}" class="text-primary hover:underline">{{ t.server_name }}</a>
-            · <span class="font-mono break-all">{{ t.remote_dir }}</span>
-          </div>
-        </div>
-        <div class="text-xs flex flex-wrap gap-1.5 items-center justify-end">
-          {% if t.in_sync %}
-          <span class="status-pill status-success" title="Host has the same fingerprint as the vault">in sync</span>
-          {% elif t.stale_vs_vault %}
-          <span class="status-pill status-failed" title="Vault fingerprint changed since last deploy — redeploy">stale</span>
-          {% elif t.last_deploy_status == 'success' %}
-          <span class="status-pill status-success">deployed</span>
-          {% elif t.last_deploy_status == 'failed' %}
-          <span class="status-pill status-failed" title="{{ t.last_deploy_message or '' }}">failed</span>
-          {% else %}
-          <span class="status-pill feature-off">never deployed</span>
-          {% endif %}
-          {% if t.last_deployed_at %}<span class="text-muted">{{ t.last_deployed_at }}</span>{% endif %}
-        </div>
+{# ════════ Target detail modal (one per target, JS shows the right panel) ════════ #}
+{% for t in targets %}
+<div id="target-detail-{{ t.id }}"
+     class="hidden fixed inset-0 bg-black/70 items-center justify-center z-[60] p-3 target-detail-modal"
+     role="dialog" aria-modal="true" data-target-id="{{ t.id }}">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+    <div class="flex justify-between items-start gap-2 mb-3">
+      <div>
+        <h3 class="font-semibold text-text">{% if t.label %}{{ t.label }}{% else %}Target #{{ t.id }}{% endif %}</h3>
+        <p class="text-xs text-muted mt-0.5">
+          <a href="/servers/{{ t.server_id }}" class="text-primary hover:underline">{{ t.server_name }}</a>
+          · SSH user <code class="text-[10px]">{{ t.ssh_user or 'piherder' }}</code>
+        </p>
       </div>
+      <button type="button" class="text-muted text-lg leading-none" data-close-target-detail aria-label="Close">✕</button>
+    </div>
 
-      <div class="text-xs text-muted">{{ t.layout_help or t.layout }}
-        · write <code class="text-[10px]">{{ t.write_mode or 'direct' }}</code>
-      </div>
-      {% if t.last_deploy_fingerprint_short %}
-      <div class="text-[11px] text-muted">
-        Last deploy fingerprint: <code class="text-[10px]">{{ t.last_deploy_fingerprint_short }}</code>
-        {% if t.in_sync %}· matches vault{% elif t.stale_vs_vault %}· vault has a newer cert{% endif %}
-      </div>
+    <div class="text-xs flex flex-wrap gap-1.5 mb-3">
+      {% if t.in_sync %}
+      <span class="status-pill status-success">in sync</span>
+      {% elif t.stale_vs_vault %}
+      <span class="status-pill status-failed">stale</span>
+      {% elif t.last_deploy_status == 'success' %}
+      <span class="status-pill status-success">deployed</span>
+      {% elif t.last_deploy_status == 'failed' %}
+      <span class="status-pill status-failed">failed</span>
+      {% else %}
+      <span class="status-pill feature-off">never deployed</span>
       {% endif %}
-      {% if t.write_mode == 'stage_sudo' and t.sudoers_snippet %}
-      <details class="text-xs mt-1">
-        <summary class="cursor-pointer text-muted">Suggested sudoers (least-priv)</summary>
-        <pre class="mt-1 p-2 bg-bg border border-border rounded overflow-x-auto text-[10px] font-mono whitespace-pre-wrap">{{ t.sudoers_snippet }}</pre>
-      </details>
-      {% endif %}
+      <span class="status-pill feature-off">{{ t.layout }}</span>
+      <span class="status-pill feature-off">{{ t.write_mode or 'direct' }}</span>
+    </div>
 
+    <div class="text-sm space-y-2 mb-3">
+      <div><span class="text-muted text-xs">Destination folder</span><div class="font-mono text-xs break-all">{{ t.remote_dir }}</div></div>
+      <div><span class="text-muted text-xs">Type</span><div class="text-xs">{{ t.layout_help or t.layout }}</div></div>
       <ul class="text-xs font-mono space-y-0.5 bg-bg border border-border rounded p-2">
         {% for f in t.files %}
         <li class="break-all"><span class="text-muted">{{ f.kind }}:</span> {{ f.path }}</li>
         {% endfor %}
       </ul>
-
-      <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
-        <span>mode <code class="text-[11px]">{{ t.file_mode or '600' }}</code></span>
-        {% if t.file_owner or t.file_group %}
-        <span>owner <code class="text-[11px]">{{ t.file_owner or '—' }}{% if t.file_group %}:{{ t.file_group }}{% endif %}</code></span>
-        {% else %}
-        <span>owner unchanged</span>
-        {% endif %}
+      <div class="text-xs text-muted">
+        mode <code class="text-[11px]">{{ t.file_mode or '600' }}</code>
+        · owner <code class="text-[11px]">{{ t.file_owner or '—' }}{% if t.file_group %}:{{ t.file_group }}{% endif %}</code>
       </div>
       {% if t.post_deploy_command %}
       <div class="text-xs">
-        <span class="text-muted">After write:</span>
+        <span class="text-muted">Restart:</span>
         <code class="text-[11px] break-all">{{ t.post_deploy_command }}</code>
       </div>
       {% else %}
-      <div class="text-xs text-muted">No post-deploy restart — app will keep old cert until you restart it yourself.</div>
+      <div class="text-xs text-muted">No post-deploy restart</div>
+      {% endif %}
+      {% if t.verify_url %}
+      <div class="text-xs">
+        <span class="text-muted">TLS port probe:</span>
+        <code class="text-[11px] break-all">{{ t.verify_url }}</code>
+      </div>
+      {% endif %}
+      {% if t.last_deploy_fingerprint_short %}
+      <div class="text-[11px] text-muted">
+        Last deploy: <code class="text-[10px]">{{ t.last_deploy_fingerprint_short }}</code>
+        {% if t.last_deployed_at %}· {{ t.last_deployed_at }}{% endif %}
+      </div>
       {% endif %}
       {% if t.last_deploy_status == 'failed' and t.last_deploy_message %}
       <div class="text-xs text-amber-600 break-words">{{ t.last_deploy_message }}</div>
       {% endif %}
-
-      {% if can_mutate %}
-      <div class="flex flex-wrap gap-2 pt-1">
-        <form method="post" action="/certificates/{{ cert.id }}/deploy"
-              data-confirm="Deploy to “{{ t.label or t.server_name }}” ({{ t.remote_dir }}) now?"
-              data-confirm-title="Deploy service map"
-              data-confirm-label="Deploy"
-              data-wait-title="Deploying certificate"
-              data-wait-message="Writing PEMs to {{ t.server_name }} via SSH…">
-          <input type="hidden" name="target_id" value="{{ t.id }}">
-          <input type="hidden" name="force" value="on">
-          <button class="btn btn-primary text-xs min-h-10" type="submit">Deploy</button>
-        </form>
-        <a href="/certificates/{{ cert.id }}?edit_target={{ t.id }}#map-form"
-           class="btn btn-secondary text-xs min-h-10">Edit map</a>
-        <form method="post" action="/certificates/{{ cert.id }}/targets/{{ t.id }}/delete"
-              data-confirm="Remove service map “{{ t.label or t.server_name }}”? Files already on the host are not deleted."
-              data-confirm-title="Remove service map"
-              data-confirm-label="Remove"
-              data-confirm-danger
-              data-wait-title="Removing map"
-              data-wait-message="Updating database…">
-          <button class="btn btn-secondary text-xs min-h-10" type="submit">Remove</button>
-        </form>
+      {% if t.last_verify_status %}
+      <div class="text-xs {% if t.verified %}text-muted{% else %}text-amber-600{% endif %} break-words">
+        Verify: {{ t.last_verify_status }}{% if t.last_verify_message %} — {{ t.last_verify_message }}{% endif %}
+        {% if t.last_verify_at %}<span class="text-muted"> · {{ t.last_verify_at }}</span>{% endif %}
       </div>
       {% endif %}
-    </article>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div class="mb-4 p-4 rounded-lg border border-dashed border-border bg-bg">
-    <p class="text-sm text-muted mb-2">
-      No service maps yet. Add one so {{ ph_brand() }} knows <em>where</em> and <em>how</em> to drop this cert.
-    </p>
+    </div>
+
+    {% if t.write_mode == 'stage_sudo' and t.sudoers_snippet %}
+    <details class="text-xs mb-3 border border-border rounded p-2">
+      <summary class="cursor-pointer text-muted font-medium">Suggested sudoers (least-priv)</summary>
+      <pre class="mt-2 p-2 bg-bg border border-border rounded overflow-x-auto text-[10px] font-mono whitespace-pre-wrap">{{ t.sudoers_snippet }}</pre>
+      <p class="text-[11px] text-muted mt-2">
+        Cleanup when removing this target: delete the matching drop-in under
+        <code class="text-[10px]">/etc/sudoers.d/</code> if nothing else uses it.
+      </p>
+    </details>
+    {% endif %}
+
     {% if can_mutate %}
-    <a href="#map-form" class="btn btn-accent min-h-11">Add first map</a>
+    <div class="flex flex-wrap gap-2 pt-1 border-t border-border">
+      <form method="post" action="/certificates/{{ cert.id }}/deploy"
+            data-confirm="Deploy to “{{ t.label or t.server_name }}” ({{ t.remote_dir }}) now?"
+            data-confirm-title="Deploy service target"
+            data-confirm-label="Deploy"
+            data-wait-title="Deploying certificate"
+            data-wait-message="Writing files to {{ t.server_name }} via SSH…">
+        <input type="hidden" name="target_id" value="{{ t.id }}">
+        <input type="hidden" name="force" value="on">
+        <button class="btn btn-primary min-h-11" type="submit">Deploy</button>
+      </form>
+      <form method="post" action="/certificates/{{ cert.id }}/targets/{{ t.id }}/verify"
+            data-wait-title="Verifying certificate"
+            data-wait-message="Reading host fingerprint via SSH…">
+        <button class="btn btn-secondary min-h-11" type="submit">Verify</button>
+      </form>
+      <button type="button" class="btn btn-secondary min-h-11"
+              data-edit-target="{{ t.id }}">Edit</button>
+      <form method="post" action="/certificates/{{ cert.id }}/targets/{{ t.id }}/delete"
+            data-confirm="Remove service deploy target “{{ t.label or t.server_name }}”? Files already on the host are not deleted. Remove unused sudoers drop-ins manually."
+            data-confirm-title="Remove service target"
+            data-confirm-label="Remove"
+            data-confirm-danger
+            data-wait-title="Removing target"
+            data-wait-message="Updating database…">
+        <button class="btn btn-secondary min-h-11 text-red-600" type="submit">Remove</button>
+      </form>
+    </div>
     {% endif %}
   </div>
-  {% endif %}
+</div>
+{% endfor %}
 
-  {% if can_mutate %}
-  {% set et = edit_target %}
-  <div id="map-form" class="border-t border-border pt-4">
-    <h4 class="text-sm font-semibold mb-1">
-      {% if et %}Edit service map{% else %}Add service map{% endif %}
-    </h4>
-    <p class="text-xs text-muted mb-3">
-      Start with a <strong>preset</strong> for common layouts, then adjust path and restart for your stack.
-      {% if et %}<a href="/certificates/{{ cert.id }}#map-form" class="text-primary hover:underline">Cancel edit</a>{% endif %}
-    </p>
+{# ════════ Deploy target wizard modal ════════ #}
+{% if can_mutate %}
+{% set et = edit_target %}
+<div id="target-wizard-modal"
+     class="{% if open_wizard %}flex{% else %}hidden{% endif %} fixed inset-0 bg-black/70 items-center justify-center z-[60] p-3"
+     role="dialog" aria-modal="true" aria-labelledby="target-wizard-title">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-xl max-h-[92vh] overflow-y-auto">
+    <div class="flex justify-between items-start gap-2 mb-2">
+      <div>
+        <h3 id="target-wizard-title" class="font-semibold text-text">
+          {% if et %}Edit service target{% else %}Add service target{% endif %}
+        </h3>
+        <p class="text-xs text-muted mt-0.5">Per service on a host · one cert type · final destination (not staging)</p>
+      </div>
+      <button type="button" class="text-muted text-lg leading-none" data-close-target-wizard aria-label="Close">✕</button>
+    </div>
+
+    {# Step indicator #}
+    <ol class="flex flex-wrap gap-1 mb-4 text-[10px] font-medium" id="wizard-steps">
+      <li class="px-2 py-1 rounded bg-primary/15 text-primary" data-step-ind="1">1 Name</li>
+      <li class="px-2 py-1 rounded bg-bg text-muted" data-step-ind="2">2 Host</li>
+      <li class="px-2 py-1 rounded bg-bg text-muted" data-step-ind="3">3 Type</li>
+      <li class="px-2 py-1 rounded bg-bg text-muted" data-step-ind="4">4 Path</li>
+      <li class="px-2 py-1 rounded bg-bg text-muted" data-step-ind="5">5 Restart</li>
+      <li class="px-2 py-1 rounded bg-bg text-muted" data-step-ind="6">6 Privileges</li>
+    </ol>
 
     <form method="post"
+          id="target-wizard-form"
           action="{% if et %}/certificates/{{ cert.id }}/targets/{{ et.id }}/edit{% else %}/certificates/{{ cert.id }}/targets{% endif %}"
           class="cert-map-form space-y-4"
-          data-confirm="{% if et %}Save changes to this service map?{% else %}Add this service map? Files are not written until you Deploy.{% endif %}"
-          data-confirm-title="{% if et %}Save service map{% else %}Add service map{% endif %}"
-          data-confirm-label="{% if et %}Save{% else %}Add map{% endif %}"
-          data-wait-title="{% if et %}Saving map{% else %}Adding map{% endif %}"
+          data-confirm="{% if et %}Save changes to this service deploy target?{% else %}Add this service deploy target? Files are not written until you Deploy.{% endif %}"
+          data-confirm-title="{% if et %}Save service target{% else %}Add service target{% endif %}"
+          data-confirm-label="{% if et %}Save{% else %}Add target{% endif %}"
+          data-wait-title="{% if et %}Saving target{% else %}Adding target{% endif %}"
           data-wait-message="Updating database…">
 
-      {# Presets (from certificates.MAP_PRESETS) #}
       {% if not et %}
-      <div>
-        <label class="block text-xs text-muted mb-1">Preset</label>
+      <div class="wizard-panel" data-wizard-step="1">
+        <label class="block text-xs text-muted mb-1">Preset (optional starting point)</label>
         <select id="cert-map-preset" class="input w-full text-sm">
           <option value="">Choose a starting point…</option>
           {% for p in map_presets or [] %}
@@ -422,94 +548,80 @@
           {% endfor %}
         </select>
         <p class="text-[11px] text-muted mt-1" id="cert-map-preset-help">
-          Presets fill layout, filenames, example paths, and restart commands — edit for your host.
-          OctoPi / Grafana need matching sudoers (see operator cookbooks).
+          Presets fill path, type, and restart — edit for your host.
         </p>
       </div>
       {% endif %}
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div class="md:col-span-2">
-          <label class="block text-xs text-muted mb-1">What is this for? (label)</label>
-          <input name="label" class="input w-full" maxlength="200"
-                 value="{{ et.label if et else '' }}"
-                 placeholder="e.g. NPM custom SSL, UniFi controller, HA reverse proxy">
-        </div>
-        <div>
-          <label class="block text-xs text-muted mb-1">Host ({{ ph_brand() }} server)</label>
-          <select name="server_id" class="input w-full" required>
-            {% for s in servers %}
-            <option value="{{ s.id }}"
-              {% if et and et.server_id == s.id %}selected{% elif not et and loop.first %}selected{% endif %}>
-              {{ s.name }}
-            </option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs text-muted mb-1">Directory on host</label>
-          <input name="remote_dir" id="cert-map-dir" class="input w-full font-mono text-sm"
-                 value="{{ et.remote_dir if et else '~/certs' }}"
-                 placeholder="/opt/stacks/npm/certs or ~/certs" required>
-          <p class="text-[11px] text-muted mt-1">
-            Absolute path or <code class="text-[10px]">~/…</code>. Use the host path that your container volume mounts.
-          </p>
-        </div>
-        <div class="md:col-span-2">
-          <label class="block text-xs text-muted mb-1">File layout</label>
-          <select name="layout" id="cert-map-layout" class="input w-full text-sm">
-            <option value="pair" {% if not et or et.layout == 'pair' %}selected{% endif %}>
-              pair — fullchain + privkey (most common)
-            </option>
-            <option value="combined" {% if et and et.layout == 'combined' %}selected{% endif %}>
-              combined only — one PEM (key then chain)
-            </option>
-            <option value="pair_and_combined" {% if et and et.layout == 'pair_and_combined' %}selected{% endif %}>
-              pair + combined
-            </option>
-            <option value="pair_and_pfx" {% if et and et.layout == 'pair_and_pfx' %}selected{% endif %}>
-              pair + PFX
-            </option>
-            <option value="pair_combined_pfx" {% if et and et.layout == 'pair_combined_pfx' %}selected{% endif %}>
-              pair + combined + PFX
-            </option>
-          </select>
-          <p class="text-[11px] text-muted mt-1" id="cert-map-layout-help">
-            {{ layout_help.get('pair', '') if layout_help else '' }}
-          </p>
-        </div>
-        <div class="md:col-span-2">
-          <label class="block text-xs text-muted mb-1">Write mode (permissions)</label>
-          <select name="write_mode" id="cert-map-write-mode" class="input w-full text-sm">
-            <option value="direct" {% if not et or (et.write_mode or 'direct') == 'direct' %}selected{% endif %}>
-              Direct SFTP — write into target dir as the SSH user
-            </option>
-            <option value="stage_sudo" {% if et and et.write_mode == 'stage_sudo' %}selected{% endif %}>
-              Stage in home + sudo install — least-priv (chmod/chown/mv as root)
-            </option>
-          </select>
-          <p class="text-[11px] text-muted mt-1" id="cert-map-write-help">
-            {% if et and et.write_mode == 'stage_sudo' %}
-            {{ write_mode_help.get('stage_sudo', '') if write_mode_help else '' }}
-            {% else %}
-            {{ write_mode_help.get('direct', '') if write_mode_help else '' }}
-            {% endif %}
-          </p>
-          <details class="mt-2 border border-border rounded p-2" id="cert-map-sudoers-box">
-            <summary class="text-xs font-medium cursor-pointer">Suggested sudoers for this map</summary>
-            <p class="text-[11px] text-muted mt-1">
-              For least-priv <code class="text-[10px]">piherder</code>: install only (mkdir/mode/owner).
-              Post-deploy restarts may need extra lines or docker group membership.
-            </p>
-            <pre id="cert-map-sudoers" class="mt-2 p-2 bg-bg border border-border rounded overflow-x-auto text-[10px] font-mono whitespace-pre-wrap"># Choose write mode Stage + sudo install, set path/filenames — snippet updates live.</pre>
-          </details>
-        </div>
+      {# Step 1: Name #}
+      <div class="wizard-panel" data-wizard-step="1">
+        <label class="block text-xs text-muted mb-1">Service name</label>
+        <input name="label" id="wiz-label" class="input w-full" maxlength="200"
+               value="{{ et.label if et else '' }}"
+               placeholder="e.g. NPM custom SSL, Grafana, HAProxy">
+        <p class="text-[11px] text-muted mt-1">
+          The service that will use this cert on the host (not the stack name unless they are the same).
+        </p>
       </div>
 
-      {# Filenames #}
-      <details class="border border-border rounded p-3" id="cert-map-filenames" open>
-        <summary class="text-sm font-medium cursor-pointer">Filenames the service expects</summary>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+      {# Step 2: Server #}
+      <div class="wizard-panel {% if not et %}hidden{% endif %}" data-wizard-step="2">
+        <label class="block text-xs text-muted mb-1">Server</label>
+        <select name="server_id" id="wiz-server" class="input w-full" required>
+          {% for s in servers %}
+          <option value="{{ s.id }}"
+            data-ssh-user="{{ s.ssh_username or 'piherder' }}"
+            {% if et and et.server_id == s.id %}selected{% elif not et and loop.first %}selected{% endif %}>
+            {{ s.name }} ({{ s.ssh_username or 'piherder' }})
+          </option>
+          {% endfor %}
+        </select>
+        <p class="text-[11px] text-muted mt-1">
+          SSH user is used for sudoers and stage paths.
+          {% if not servers %}<span class="text-amber-600">No servers — add a fleet host first.</span>{% endif %}
+        </p>
+      </div>
+
+      {# Step 3: Cert type #}
+      <div class="wizard-panel {% if not et %}hidden{% endif %}" data-wizard-step="3">
+        <label class="block text-xs text-muted mb-1">Cert type (one per target)</label>
+        <select name="layout" id="cert-map-layout" class="input w-full text-sm">
+          {% set cur_layout = et.layout if et else 'pair' %}
+          <option value="pair" {% if cur_layout == 'pair' %}selected{% endif %}>
+            PEM pair — fullchain + private key
+          </option>
+          <option value="combined" {% if cur_layout == 'combined' %}selected{% endif %}>
+            Combined PEM — single file (key then chain)
+          </option>
+          <option value="pfx" {% if cur_layout == 'pfx' %}selected{% endif %}>
+            PFX (PKCS#12) — single .pfx file
+          </option>
+          {# Legacy compound layouts only when editing existing #}
+          {% if et and cur_layout not in ('pair', 'combined', 'pfx') %}
+          <option value="{{ cur_layout }}" selected>Legacy: {{ cur_layout }}</option>
+          {% endif %}
+        </select>
+        <p class="text-[11px] text-muted mt-1" id="cert-map-layout-help">
+          {{ layout_help.get(cur_layout if cur_layout in ('pair','combined','pfx') else 'pair', '') if layout_help else '' }}
+        </p>
+        <p class="text-[11px] text-muted mt-1">
+          <a href="/docs/integrations/certificates/" class="text-primary hover:underline" target="_blank" rel="noopener">
+            Wiki: certificate types &amp; deploy targets
+          </a>
+        </p>
+      </div>
+
+      {# Step 4: Path + filenames + perms #}
+      <div class="wizard-panel {% if not et %}hidden{% endif %}" data-wizard-step="4">
+        <label class="block text-xs text-muted mb-1">Destination folder (final path on host)</label>
+        <input name="remote_dir" id="cert-map-dir" class="input w-full font-mono text-sm"
+               value="{{ et.remote_dir if et else '~/certs' }}"
+               placeholder="/opt/stacks/npm/certs or ~/certs" required>
+        <p class="text-[11px] text-muted mt-1">
+          Where the app reads certs — not the stage area. Absolute or <code class="text-[10px]">~/…</code>.
+        </p>
+
+        <div class="mt-3 space-y-2" id="cert-map-filenames">
           <div data-file-field="fullchain">
             <label class="block text-xs text-muted mb-1">Fullchain filename</label>
             <input name="fullchain_filename" id="cert-map-fullchain" class="input w-full font-mono text-sm"
@@ -530,273 +642,716 @@
             <input name="pfx_filename" id="cert-map-pfx" class="input w-full font-mono text-sm"
                    value="{{ et.pfx_filename if et else 'Certificate.pfx' }}">
           </div>
-          <div data-file-field="pfx" class="sm:col-span-2">
+          <div data-file-field="pfx">
             <label class="block text-xs text-muted mb-1">PFX export password {% if et and et.has_pfx_password %}(leave blank to keep){% else %}(optional){% endif %}</label>
             <input name="pfx_export_password" type="password" class="input w-full font-mono text-sm"
                    autocomplete="new-password" placeholder="{% if et and et.has_pfx_password %}•••• stored{% else %}empty = no password{% endif %}">
           </div>
         </div>
-      </details>
 
-      {# Permissions #}
-      <details class="border border-border rounded p-3" open>
-        <summary class="text-sm font-medium cursor-pointer">Permissions</summary>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
           <div>
-            <label class="block text-xs text-muted mb-1">Mode (octal)</label>
-            <input name="file_mode" class="input w-full font-mono text-sm"
+            <label class="block text-xs text-muted mb-1">Mode (chmod)</label>
+            <input name="file_mode" id="wiz-mode" class="input w-full font-mono text-sm"
                    value="{{ et.file_mode if et else '600' }}">
           </div>
           <div>
-            <label class="block text-xs text-muted mb-1">Owner user</label>
-            <input name="file_owner" class="input w-full"
+            <label class="block text-xs text-muted mb-1">Owner (chown)</label>
+            <input name="file_owner" id="wiz-owner" class="input w-full"
                    value="{{ et.file_owner if et else '' }}" placeholder="root (optional)">
           </div>
           <div>
-            <label class="block text-xs text-muted mb-1">Owner group</label>
-            <input name="file_group" class="input w-full"
+            <label class="block text-xs text-muted mb-1">Group</label>
+            <input name="file_group" id="wiz-group" class="input w-full"
                    value="{{ et.file_group if et else '' }}" placeholder="root (optional)">
           </div>
         </div>
-        <p class="text-[11px] text-muted mt-2">
-          Mode is applied with chmod. Owner uses <code class="text-[10px]">chown</code> (sudo if needed). Leave owner empty to keep the SSH user.
-        </p>
-      </details>
-
-      {# Restart / multi-step install #}
-      <div>
-        <label class="block text-xs text-muted mb-1" for="cert-map-post">Post-deploy command (restart / reload)</label>
-        <textarea name="post_deploy_command" id="cert-map-post" rows="4"
-                  class="input w-full font-mono text-sm leading-snug min-h-[6rem] resize-y"
-                  spellcheck="false"
-                  placeholder="docker compose -f /opt/stacks/npm/docker-compose.yml restart&#10;# or multi-step: sudo install … &amp;&amp; systemctl restart …">{{ et.post_deploy_command if et else '' }}</textarea>
-        <p class="text-[11px] text-muted mt-1">
-          Runs over SSH after files are written (one shell line or a longer chain with <code class="text-[10px]">&amp;&amp;</code>).
-          Failures mark the deploy failed. Leave empty if you reload manually. Resize the box as needed.
-        </p>
       </div>
 
-      {# Live preview #}
-      <div class="border border-border rounded p-3 bg-bg">
-        <div class="text-xs font-medium mb-1">Preview — files that Deploy will write</div>
-        <ul id="cert-map-preview" class="text-xs font-mono space-y-0.5 text-muted"></ul>
+      {# Step 5: Restart #}
+      <div class="wizard-panel {% if not et %}hidden{% endif %}" data-wizard-step="5">
+        {% set rs = et.restart if et and et.restart else {'kind': 'none', 'compose_file': '', 'compose_action': 'restart', 'systemctl_unit': '', 'custom': ''} %}
+        <label class="block text-xs text-muted mb-1">Restart after deploy</label>
+        <select name="restart_kind" id="wiz-restart-kind" class="input w-full text-sm">
+          <option value="none" {% if rs.kind == 'none' %}selected{% endif %}>None — restart the service yourself</option>
+          <option value="compose" {% if rs.kind == 'compose' %}selected{% endif %}>Docker Compose</option>
+          <option value="systemctl" {% if rs.kind == 'systemctl' %}selected{% endif %}>systemd (systemctl restart)</option>
+          <option value="custom" {% if rs.kind == 'custom' %}selected{% endif %}>Custom command</option>
+        </select>
+
+        <div id="wiz-compose-fields" class="mt-3 space-y-2 {% if rs.kind != 'compose' %}hidden{% endif %}">
+          <div>
+            <label class="block text-xs text-muted mb-1">Compose file path on host</label>
+            <input name="compose_file" id="wiz-compose-file" class="input w-full font-mono text-sm"
+                   value="{{ rs.compose_file if rs.compose_file else '/opt/stacks/app/docker-compose.yml' }}"
+                   placeholder="/opt/stacks/app/docker-compose.yml">
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1">Action</label>
+            <select name="compose_action" id="wiz-compose-action" class="input w-full text-sm">
+              <option value="restart" {% if rs.compose_action != 'up -d' %}selected{% endif %}>docker compose … restart</option>
+              <option value="up -d" {% if rs.compose_action == 'up -d' %}selected{% endif %}>docker compose … up -d</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="wiz-systemctl-fields" class="mt-3 {% if rs.kind != 'systemctl' %}hidden{% endif %}">
+          <label class="block text-xs text-muted mb-1">Unit name</label>
+          <input name="systemctl_unit" id="wiz-systemctl-unit" class="input w-full font-mono text-sm"
+                 value="{{ rs.systemctl_unit if rs.systemctl_unit else 'haproxy' }}"
+                 placeholder="haproxy">
+        </div>
+
+        <div id="wiz-custom-fields" class="mt-3 {% if rs.kind != 'custom' %}hidden{% endif %}">
+          <label class="block text-xs text-muted mb-1">Custom command</label>
+          <textarea name="post_deploy_command" id="cert-map-post" rows="3"
+                    class="input w-full font-mono text-sm"
+                    spellcheck="false"
+                    placeholder="Exact shell command run over SSH">{{ rs.custom if rs.kind == 'custom' else (et.post_deploy_command if et and rs.kind == 'custom' else '') }}</textarea>
+        </div>
+
+        <div class="mt-3 p-2 bg-bg border border-border rounded text-xs font-mono break-all" id="wiz-cmd-preview">
+          <span class="text-muted">Will run:</span> <span id="wiz-cmd-text">(none)</span>
+        </div>
+
+        <div class="mt-4 border-t border-border pt-3">
+          <label class="block text-xs text-muted mb-1" for="wiz-verify-url">TLS port probe (optional)</label>
+          <input name="verify_url" id="wiz-verify-url" class="input w-full font-mono text-sm"
+                 value="{{ et.verify_url if et else '' }}"
+                 placeholder="host:8443 · https://app.example.com · postgres://db:5432">
+          <p class="text-[11px] text-muted mt-1">
+            Port-level check with <code class="text-[10px]">openssl s_client -connect host:port</code>
+            (not an HTTP GET). Works for web, databases, and any service that completes a TLS handshake.
+            Examples: <code class="text-[10px]">127.0.0.1:5432</code> (native TLS),
+            <code class="text-[10px]">postgres://db.local:5432</code> (STARTTLS),
+            <code class="text-[10px]">app:443?sni=app.example.com</code>.
+            Probe runs on the fleet host first, then PiHerder. Leave empty for host-file fingerprint only.
+          </p>
+        </div>
       </div>
 
-      <div class="flex flex-wrap gap-2">
-        <button type="submit" class="btn btn-primary min-h-11">
-          {% if et %}Save service map{% else %}Add service map{% endif %}
-        </button>
-        {% if et %}
-        <a href="/certificates/{{ cert.id }}#map-form" class="btn btn-secondary min-h-11">Cancel</a>
-        {% endif %}
+      {# Step 6: Privileges / sudoers #}
+      <div class="wizard-panel {% if not et %}hidden{% endif %}" data-wizard-step="6">
+        <label class="block text-xs text-muted mb-1">Write mode</label>
+        <select name="write_mode" id="cert-map-write-mode" class="input w-full text-sm">
+          <option value="direct" {% if not et or (et.write_mode or 'direct') == 'direct' %}selected{% endif %}>
+            Direct SFTP — SSH user can write the destination
+          </option>
+          <option value="stage_sudo" {% if et and et.write_mode == 'stage_sudo' %}selected{% endif %}>
+            Stage + sudo install — least-priv (root-owned destinations)
+          </option>
+        </select>
+        <p class="text-[11px] text-muted mt-1" id="cert-map-write-help">
+          {{ write_mode_help.get('direct', '') if write_mode_help else '' }}
+        </p>
+
+        <div class="mt-3 border border-border rounded p-2" id="cert-map-sudoers-box">
+          <div class="text-xs font-medium mb-1">Suggested sudoers</div>
+          <p class="text-[11px] text-muted mb-2">
+            Install with <code class="text-[10px]">visudo</code> as root (or use a full-privilege user and skip this).
+            Snippet uses the selected server’s SSH user and home — not a hard-coded path.
+          </p>
+          <pre id="cert-map-sudoers" class="p-2 bg-bg border border-border rounded overflow-x-auto text-[10px] font-mono whitespace-pre-wrap"># Set write mode and path — snippet updates live.</pre>
+        </div>
+
+        <div class="mt-3 border border-border rounded p-2 bg-bg">
+          <div class="text-xs font-medium mb-1">Preview — final files Deploy will write</div>
+          <ul id="cert-map-preview" class="text-xs font-mono space-y-0.5 text-muted"></ul>
+        </div>
+
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <button type="button" class="btn btn-secondary min-h-11 text-sm" id="wiz-simulate"
+                  data-sim-url="/certificates/{{ cert.id }}/targets/simulate">
+            Simulate privileges
+          </button>
+          <p class="text-[11px] text-muted max-w-sm">
+            SSH probe: can the selected user write (or <code class="text-[10px]">sudo -n install</code>) without saving the target yet.
+          </p>
+        </div>
+        <p id="wiz-sim-hint" class="text-[11px] text-muted mt-1 hidden"></p>
+      </div>
+
+      <div class="flex flex-wrap justify-between gap-2 pt-2 border-t border-border">
+        <button type="button" class="btn btn-secondary min-h-11" id="wiz-back" disabled>Back</button>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="btn btn-secondary min-h-11" data-close-target-wizard>Cancel</button>
+          <button type="button" class="btn btn-primary min-h-11" id="wiz-next">Next</button>
+          <button type="submit" class="btn btn-primary min-h-11 hidden" id="wiz-save">
+            {% if et %}Save service target{% else %}Add service target{% endif %}
+          </button>
+        </div>
       </div>
     </form>
   </div>
+</div>
 
-  <script>
-  (function () {
-    var layoutHelp = {{ (layout_help or {})|tojson }};
-    var writeModeHelp = {{ (write_mode_help or {})|tojson }};
-    var PRESET_LIST = {{ (map_presets or [])|tojson }};
-    var PRESETS = {};
-    (PRESET_LIST || []).forEach(function (p) {
-      if (p && p.id) PRESETS[p.id] = p;
+{# ════════ Replace PEM modal ════════ #}
+<div id="replace-pem-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-[60] p-3" role="dialog" aria-modal="true">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-lg">
+    <div class="flex justify-between items-start gap-2 mb-3">
+      <h3 class="font-semibold text-text">Replace PEM material</h3>
+      <button type="button" class="text-muted text-lg leading-none" data-close-replace-pem aria-label="Close">✕</button>
+    </div>
+    <p class="text-xs text-muted mb-3">
+      Paste a new fullchain + key (e.g. after manual renewal outside NPM). Then <strong>Deploy all</strong> or Apply to this PiHerder.
+    </p>
+    <form method="post" action="/certificates/{{ cert.id }}/replace-pem" class="space-y-3"
+          data-confirm="Replace encrypted fullchain and private key for this certificate? Previous material is overwritten."
+          data-confirm-title="Replace PEM material"
+          data-confirm-label="Replace"
+          data-confirm-danger
+          data-wait-title="Encrypting certificate"
+          data-wait-message="Validating PEMs and storing encrypted…">
+      <textarea name="fullchain_pem" required rows="5" class="input w-full font-mono text-xs" placeholder="Fullchain PEM"></textarea>
+      <textarea name="privkey_pem" required rows="4" class="input w-full font-mono text-xs" placeholder="Private key PEM"></textarea>
+      <div class="flex flex-wrap justify-end gap-2">
+        <button type="button" class="btn btn-secondary min-h-11" data-close-replace-pem>Cancel</button>
+        <button type="submit" class="btn btn-primary min-h-11">Replace encrypted material</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ════════ Delete certificate modal ════════ #}
+<div id="delete-cert-modal" class="hidden fixed inset-0 bg-black/70 items-center justify-center z-[60] p-3" role="dialog" aria-modal="true">
+  <div class="modal-content card p-5 sm:p-6 w-full max-w-md">
+    <div class="flex justify-between items-start gap-2 mb-3">
+      <h3 class="font-semibold text-text">Delete certificate?</h3>
+      <button type="button" class="text-muted text-lg leading-none" data-close-delete-cert aria-label="Close">✕</button>
+    </div>
+    <p class="text-sm text-muted mb-3">
+      Deletes vault material and all deploy targets. Host files are not removed automatically.
+    </p>
+    <form method="post" action="/certificates/{{ cert.id }}/delete"
+          data-confirm="Delete this certificate and all deploy targets? Host files are not removed automatically."
+          data-confirm-title="Delete certificate"
+          data-confirm-label="Delete"
+          data-confirm-danger
+          data-wait-title="Deleting certificate"
+          data-wait-message="Removing encrypted material…">
+      <div class="flex flex-wrap justify-end gap-2">
+        <button type="button" class="btn btn-secondary min-h-11" data-close-delete-cert>Cancel</button>
+        <button type="submit" class="btn btn-secondary text-red-600 min-h-11">Delete certificate</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function () {
+  var layoutHelp = {{ (layout_help or {})|tojson }};
+  var layoutHelpAll = {{ (layout_help_all or layout_help or {})|tojson }};
+  var writeModeHelp = {{ (write_mode_help or {})|tojson }};
+  var PRESET_LIST = {{ (map_presets or [])|tojson }};
+  var SERVERS = {{ (servers_meta or [])|tojson }};
+  var TARGETS = {{ (targets or [])|tojson }};
+  var PRESETS = {};
+  (PRESET_LIST || []).forEach(function (p) {
+    if (p && p.id) PRESETS[p.id] = p;
+  });
+  var SERVER_BY_ID = {};
+  (SERVERS || []).forEach(function (s) {
+    if (s && s.id != null) SERVER_BY_ID[String(s.id)] = s;
+  });
+  var TARGET_BY_ID = {};
+  (TARGETS || []).forEach(function (t) {
+    if (t && t.id != null) TARGET_BY_ID[String(t.id)] = t;
+  });
+
+  function showModal(el) {
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.add('flex');
+  }
+  function hideModal(el) {
+    if (!el) return;
+    el.classList.add('hidden');
+    el.classList.remove('flex');
+  }
+
+  /* ── More menu ── */
+  var menuBtn = document.getElementById('cert-actions-btn');
+  var menuDrop = document.getElementById('cert-actions-dropdown');
+  if (menuBtn && menuDrop) {
+    menuBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = !menuDrop.classList.contains('hidden');
+      menuDrop.classList.toggle('hidden', open);
+      menuBtn.setAttribute('aria-expanded', open ? 'false' : 'true');
     });
+    document.addEventListener('click', function () {
+      menuDrop.classList.add('hidden');
+      menuBtn.setAttribute('aria-expanded', 'false');
+    });
+  }
 
-    var form = document.querySelector('form.cert-map-form');
+  /* ── Replace PEM ── */
+  var replaceModal = document.getElementById('replace-pem-modal');
+  var openReplace = document.getElementById('btn-open-replace-pem');
+  if (openReplace) openReplace.addEventListener('click', function () {
+    if (menuDrop) menuDrop.classList.add('hidden');
+    showModal(replaceModal);
+  });
+  document.querySelectorAll('[data-close-replace-pem]').forEach(function (b) {
+    b.addEventListener('click', function () { hideModal(replaceModal); });
+  });
+  if (replaceModal) {
+    replaceModal.addEventListener('click', function (e) {
+      if (e.target === replaceModal) hideModal(replaceModal);
+    });
+  }
+
+  /* ── Delete cert ── */
+  var deleteModal = document.getElementById('delete-cert-modal');
+  var openDelete = document.getElementById('btn-open-delete-cert');
+  if (openDelete) openDelete.addEventListener('click', function () {
+    if (menuDrop) menuDrop.classList.add('hidden');
+    showModal(deleteModal);
+  });
+  document.querySelectorAll('[data-close-delete-cert]').forEach(function (b) {
+    b.addEventListener('click', function () { hideModal(deleteModal); });
+  });
+  if (deleteModal) {
+    deleteModal.addEventListener('click', function (e) {
+      if (e.target === deleteModal) hideModal(deleteModal);
+    });
+  }
+
+  /* ── Edge detail ── */
+  var edgeModal = document.getElementById('edge-detail-modal');
+  var openEdge = document.querySelector('[data-open-edge-detail]');
+  if (openEdge) openEdge.addEventListener('click', function () { showModal(edgeModal); });
+  document.querySelectorAll('[data-close-edge-detail]').forEach(function (b) {
+    b.addEventListener('click', function () { hideModal(edgeModal); });
+  });
+  if (edgeModal) {
+    edgeModal.addEventListener('click', function (e) {
+      if (e.target === edgeModal) hideModal(edgeModal);
+    });
+  }
+
+  /* ── Target detail ── */
+  function openTargetDetail(id) {
+    document.querySelectorAll('.target-detail-modal').forEach(function (m) {
+      hideModal(m);
+    });
+    var el = document.getElementById('target-detail-' + id);
+    showModal(el);
+  }
+  function closeAllTargetDetails() {
+    document.querySelectorAll('.target-detail-modal').forEach(hideModal);
+  }
+  document.querySelectorAll('[data-open-target-detail]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openTargetDetail(btn.getAttribute('data-open-target-detail'));
+    });
+  });
+  document.querySelectorAll('[data-close-target-detail]').forEach(function (b) {
+    b.addEventListener('click', closeAllTargetDetails);
+  });
+  document.querySelectorAll('.target-detail-modal').forEach(function (m) {
+    m.addEventListener('click', function (e) {
+      if (e.target === m) closeAllTargetDetails();
+    });
+  });
+
+  /* ── Wizard ── */
+  var wizardModal = document.getElementById('target-wizard-modal');
+  var form = document.getElementById('target-wizard-form');
+  var wizStep = 1;
+  var wizMax = 6;
+
+  function openWizard() {
+    wizStep = 1;
+    showWizardStep(1);
+    showModal(wizardModal);
+  }
+  function closeWizard() {
+    hideModal(wizardModal);
+  }
+  document.querySelectorAll('[data-open-target-wizard]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      closeAllTargetDetails();
+      // Ensure "add" (not edit) form action — full reload if page was opened for edit
+      var isEdit = form && /\/targets\/\d+\/edit$/.test(form.getAttribute('action') || '');
+      if (isEdit) {
+        window.location.href = '/certificates/{{ cert.id }}?wizard=1';
+        return;
+      }
+      openWizard();
+    });
+  });
+  document.querySelectorAll('[data-close-target-wizard]').forEach(function (b) {
+    b.addEventListener('click', closeWizard);
+  });
+  if (wizardModal) {
+    wizardModal.addEventListener('click', function (e) {
+      if (e.target === wizardModal) closeWizard();
+    });
+  }
+
+  // Edit from detail → navigate so server re-renders form with edit_target
+  document.querySelectorAll('[data-edit-target]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var id = b.getAttribute('data-edit-target');
+      window.location.href = '/certificates/{{ cert.id }}?edit_target=' + id + '&wizard=1';
+    });
+  });
+
+  function showWizardStep(n) {
+    wizStep = n;
     if (!form) return;
-    var dirEl = form.querySelector('#cert-map-dir');
-    var layoutEl = form.querySelector('#cert-map-layout');
-    var writeEl = form.querySelector('#cert-map-write-mode');
-    var writeHelpEl = form.querySelector('#cert-map-write-help');
-    var sudoEl = form.querySelector('#cert-map-sudoers');
-    var fullEl = form.querySelector('#cert-map-fullchain');
-    var keyEl = form.querySelector('#cert-map-privkey');
-    var combEl = form.querySelector('#cert-map-combined');
-    var pfxEl = form.querySelector('#cert-map-pfx');
-    var postEl = form.querySelector('#cert-map-post');
-    var preview = form.querySelector('#cert-map-preview');
-    var layoutHelpEl = form.querySelector('#cert-map-layout-help');
-    var presetEl = document.getElementById('cert-map-preset');
-    var presetHelp = document.getElementById('cert-map-preset-help');
+    form.querySelectorAll('.wizard-panel').forEach(function (p) {
+      var s = parseInt(p.getAttribute('data-wizard-step'), 10);
+      // Preset panel is step 1 only
+      p.classList.toggle('hidden', s !== n);
+    });
+    document.querySelectorAll('[data-step-ind]').forEach(function (el) {
+      var s = parseInt(el.getAttribute('data-step-ind'), 10);
+      if (s === n) {
+        el.className = 'px-2 py-1 rounded bg-primary/15 text-primary';
+      } else if (s < n) {
+        el.className = 'px-2 py-1 rounded bg-surface text-text';
+      } else {
+        el.className = 'px-2 py-1 rounded bg-bg text-muted';
+      }
+    });
+    var back = document.getElementById('wiz-back');
+    var next = document.getElementById('wiz-next');
+    var save = document.getElementById('wiz-save');
+    if (back) back.disabled = n <= 1;
+    if (next) next.classList.toggle('hidden', n >= wizMax);
+    if (save) save.classList.toggle('hidden', n < wizMax);
+    refreshPreview();
+  }
 
-    function filesFor(layout, dir, names) {
-      var base = (dir || '~/certs').replace(/\/+$/, '') || '~/certs';
-      var out = [];
-      var L = layout || 'pair';
-      if (['pair', 'pair_and_combined', 'pair_and_pfx', 'pair_combined_pfx'].indexOf(L) >= 0) {
-        out.push({ kind: 'fullchain', path: base + '/' + (names.fullchain || 'fullchain.pem') });
-        out.push({ kind: 'privkey', path: base + '/' + (names.privkey || 'privkey.pem') });
-      }
-      if (['combined', 'pair_and_combined', 'pair_combined_pfx'].indexOf(L) >= 0) {
-        out.push({ kind: 'combined', path: base + '/' + (names.combined || 'snakeoil.pem') });
-      }
-      if (['pair_and_pfx', 'pair_combined_pfx'].indexOf(L) >= 0) {
-        out.push({ kind: 'pfx', path: base + '/' + (names.pfx || 'Certificate.pfx') });
-      }
-      return out;
+  var backBtn = document.getElementById('wiz-back');
+  var nextBtn = document.getElementById('wiz-next');
+  if (backBtn) backBtn.addEventListener('click', function () {
+    if (wizStep > 1) showWizardStep(wizStep - 1);
+  });
+  if (nextBtn) nextBtn.addEventListener('click', function () {
+    if (wizStep < wizMax) showWizardStep(wizStep + 1);
+  });
+
+  if (!form) return;
+
+  var dirEl = form.querySelector('#cert-map-dir');
+  var layoutEl = form.querySelector('#cert-map-layout');
+  var writeEl = form.querySelector('#cert-map-write-mode');
+  var writeHelpEl = form.querySelector('#cert-map-write-help');
+  var sudoEl = form.querySelector('#cert-map-sudoers');
+  var fullEl = form.querySelector('#cert-map-fullchain');
+  var keyEl = form.querySelector('#cert-map-privkey');
+  var combEl = form.querySelector('#cert-map-combined');
+  var pfxEl = form.querySelector('#cert-map-pfx');
+  var postEl = form.querySelector('#cert-map-post');
+  var preview = form.querySelector('#cert-map-preview');
+  var layoutHelpEl = form.querySelector('#cert-map-layout-help');
+  var presetEl = document.getElementById('cert-map-preset');
+  var presetHelp = document.getElementById('cert-map-preset-help');
+  var serverEl = form.querySelector('#wiz-server');
+  var restartKindEl = form.querySelector('#wiz-restart-kind');
+  var composeFileEl = form.querySelector('#wiz-compose-file');
+  var composeActionEl = form.querySelector('#wiz-compose-action');
+  var systemctlUnitEl = form.querySelector('#wiz-systemctl-unit');
+  var cmdTextEl = document.getElementById('wiz-cmd-text');
+
+  function currentSshUser() {
+    if (!serverEl) return 'piherder';
+    var opt = serverEl.options[serverEl.selectedIndex];
+    if (opt && opt.getAttribute('data-ssh-user')) {
+      return (opt.getAttribute('data-ssh-user') || 'piherder').trim() || 'piherder';
     }
+    var meta = SERVER_BY_ID[String(serverEl.value)];
+    return (meta && meta.ssh_username) || 'piherder';
+  }
 
-    function toggleFilenameFields(layout) {
-      var L = layout || 'pair';
-      var showPair = ['pair', 'pair_and_combined', 'pair_and_pfx', 'pair_combined_pfx'].indexOf(L) >= 0;
-      var showComb = ['combined', 'pair_and_combined', 'pair_combined_pfx'].indexOf(L) >= 0;
-      var showPfx = ['pair_and_pfx', 'pair_combined_pfx'].indexOf(L) >= 0;
-      form.querySelectorAll('[data-file-field]').forEach(function (el) {
-        var k = el.getAttribute('data-file-field');
-        var show = (k === 'fullchain' || k === 'privkey') ? showPair
-          : (k === 'combined') ? showComb
-          : (k === 'pfx') ? showPfx : true;
-        el.classList.toggle('hidden', !show);
-      });
+  function defaultHome(user) {
+    user = (user || 'piherder').trim() || 'piherder';
+    if (user === 'root') return '/root';
+    return '/home/' + user;
+  }
+
+  function expandDir(dir, home) {
+    var rd = (dir || '~/certs').trim() || '~/certs';
+    home = (home || '').replace(/\/+$/, '') || '.';
+    if (rd.indexOf('~/') === 0) return home + '/' + rd.slice(2);
+    if (rd === '~') return home;
+    return rd.replace(/\/+$/, '') || rd;
+  }
+
+  function filesFor(layout, dir) {
+    var base = (dir || '~/certs').replace(/\/+$/, '') || '~/certs';
+    var out = [];
+    var L = layout || 'pair';
+    var pair = ['pair', 'pair_and_combined', 'pair_and_pfx', 'pair_combined_pfx'].indexOf(L) >= 0;
+    var comb = ['combined', 'pair_and_combined', 'pair_combined_pfx'].indexOf(L) >= 0;
+    var pfx = ['pfx', 'pair_and_pfx', 'pair_combined_pfx'].indexOf(L) >= 0;
+    if (pair) {
+      out.push({ kind: 'fullchain', path: base + '/' + ((fullEl && fullEl.value) || 'fullchain.pem') });
+      out.push({ kind: 'privkey', path: base + '/' + ((keyEl && keyEl.value) || 'privkey.pem') });
     }
-
-    function buildSudoers() {
-      var wm = writeEl ? writeEl.value : 'direct';
-      var post = (postEl && postEl.value) || '';
-      if (wm !== 'stage_sudo' && !post.trim()) {
-        return '# Write mode is “direct” — no sudo if the SSH user owns the target path.\n'
-          + '# Switch to “Stage in home + sudo install” for root-owned destinations.';
-      }
-      var final = ((dirEl && dirEl.value) || '~/certs').replace(/\/+$/, '') || '/path/to/certs';
-      var owner = (form.querySelector('input[name="file_owner"]') || {}).value || 'root';
-      var group = (form.querySelector('input[name="file_group"]') || {}).value || 'root';
-      var mode = (form.querySelector('input[name="file_mode"]') || {}).value || '600';
-      owner = (owner || 'root').trim() || 'root';
-      group = (group || 'root').trim() || 'root';
-      mode = (mode || '600').trim() || '600';
-      var layout = layoutEl ? layoutEl.value : 'pair';
-      var names = [];
-      if (['pair', 'pair_and_combined', 'pair_and_pfx', 'pair_combined_pfx'].indexOf(layout) >= 0) {
-        names.push((fullEl && fullEl.value) || 'fullchain.pem');
-        names.push((keyEl && keyEl.value) || 'privkey.pem');
-      }
-      if (['combined', 'pair_and_combined', 'pair_combined_pfx'].indexOf(layout) >= 0) {
-        names.push((combEl && combEl.value) || 'snakeoil.pem');
-      }
-      if (['pair_and_pfx', 'pair_combined_pfx'].indexOf(layout) >= 0) {
-        names.push((pfxEl && pfxEl.value) || 'Certificate.pfx');
-      }
-      var lines = [
-        '# PiHerder cert deploy — least-priv (piherder)',
-        '# Install under /etc/sudoers.d/piherder-certs (visudo -c -f …)',
-        '# Stage dir: ~/.piherder/cert-stage/<map-id>/',
-        'piherder ALL=(root) NOPASSWD: /usr/bin/install -d -o ' + owner + ' -g ' + group + ' -m 755 ' + final
-      ];
-      names.forEach(function (n) {
-        if (!n) return;
-        lines.push(
-          'piherder ALL=(root) NOPASSWD: /usr/bin/install -o ' + owner + ' -g ' + group
-          + ' -m ' + mode + ' /home/piherder/.piherder/cert-stage/*/' + n + ' ' + final + '/' + n
-        );
-      });
-      if (post.indexOf('systemctl restart haproxy') >= 0) {
-        lines.push('piherder ALL=(root) NOPASSWD: /bin/systemctl restart haproxy, /usr/bin/systemctl restart haproxy');
-      } else if (post.indexOf('docker compose') >= 0 || post.indexOf('docker-compose') >= 0) {
-        lines.push('# docker compose restart: prefer group docker for piherder (not sudo)');
-      } else if (post.trim()) {
-        lines.push('# Review post-deploy manually: ' + post.trim().slice(0, 120));
-      }
-      return lines.join('\n') + '\n';
+    if (comb) {
+      out.push({ kind: 'combined', path: base + '/' + ((combEl && combEl.value) || 'snakeoil.pem') });
     }
+    if (pfx) {
+      out.push({ kind: 'pfx', path: base + '/' + ((pfxEl && pfxEl.value) || 'Certificate.pfx') });
+    }
+    return out;
+  }
 
-    function refreshPreview() {
-      var layout = layoutEl ? layoutEl.value : 'pair';
-      var files = filesFor(layout, dirEl && dirEl.value, {
-        fullchain: fullEl && fullEl.value,
-        privkey: keyEl && keyEl.value,
-        combined: combEl && combEl.value,
-        pfx: pfxEl && pfxEl.value
-      });
-      var wm = writeEl ? writeEl.value : 'direct';
-      if (preview) {
-        if (!files.length) {
-          preview.innerHTML = '<li>No files for this layout</li>';
+  function toggleFilenameFields(layout) {
+    var L = layout || 'pair';
+    var showPair = ['pair', 'pair_and_combined', 'pair_and_pfx', 'pair_combined_pfx'].indexOf(L) >= 0;
+    var showComb = ['combined', 'pair_and_combined', 'pair_combined_pfx'].indexOf(L) >= 0;
+    var showPfx = ['pfx', 'pair_and_pfx', 'pair_combined_pfx'].indexOf(L) >= 0;
+    form.querySelectorAll('[data-file-field]').forEach(function (el) {
+      var k = el.getAttribute('data-file-field');
+      var show = (k === 'fullchain' || k === 'privkey') ? showPair
+        : (k === 'combined') ? showComb
+        : (k === 'pfx') ? showPfx : true;
+      el.classList.toggle('hidden', !show);
+    });
+  }
+
+  function buildCmdFromRecipe() {
+    var kind = restartKindEl ? restartKindEl.value : 'none';
+    if (kind === 'none') return '';
+    if (kind === 'compose') {
+      var path = (composeFileEl && composeFileEl.value) || 'docker-compose.yml';
+      var act = (composeActionEl && composeActionEl.value) || 'restart';
+      if (act === 'up -d') return 'docker compose -f ' + path + ' up -d';
+      return 'docker compose -f ' + path + ' restart';
+    }
+    if (kind === 'systemctl') {
+      var unit = (systemctlUnitEl && systemctlUnitEl.value) || '';
+      if (!unit) return '';
+      return 'sudo systemctl restart ' + unit;
+    }
+    if (kind === 'custom') {
+      return (postEl && postEl.value) || '';
+    }
+    return '';
+  }
+
+  function syncRestartUi() {
+    var kind = restartKindEl ? restartKindEl.value : 'none';
+    var c = document.getElementById('wiz-compose-fields');
+    var s = document.getElementById('wiz-systemctl-fields');
+    var u = document.getElementById('wiz-custom-fields');
+    if (c) c.classList.toggle('hidden', kind !== 'compose');
+    if (s) s.classList.toggle('hidden', kind !== 'systemctl');
+    if (u) u.classList.toggle('hidden', kind !== 'custom');
+    var cmd = buildCmdFromRecipe();
+    if (cmdTextEl) cmdTextEl.textContent = cmd || '(none)';
+    // Keep post_deploy_command field in sync for custom; server builds from recipe otherwise
+    if (kind !== 'custom' && postEl) {
+      // leave custom field alone when not custom
+    }
+  }
+
+  function buildSudoers() {
+    var user = currentSshUser();
+    var home = defaultHome(user);
+    var wm = writeEl ? writeEl.value : 'direct';
+    var post = buildCmdFromRecipe();
+    if (wm !== 'stage_sudo' && !post.trim()) {
+      return '# Write mode is “direct” — no sudo if the SSH user owns the target path.\n'
+        + '# Switch to “Stage + sudo install” for root-owned destinations.';
+    }
+    var final = expandDir((dirEl && dirEl.value) || '~/certs', home);
+    var owner = ((form.querySelector('input[name="file_owner"]') || {}).value || 'root').trim() || 'root';
+    var group = ((form.querySelector('input[name="file_group"]') || {}).value || 'root').trim() || 'root';
+    var mode = ((form.querySelector('input[name="file_mode"]') || {}).value || '600').trim() || '600';
+    var layout = layoutEl ? layoutEl.value : 'pair';
+    var names = [];
+    if (['pair', 'pair_and_combined', 'pair_and_pfx', 'pair_combined_pfx'].indexOf(layout) >= 0) {
+      names.push((fullEl && fullEl.value) || 'fullchain.pem');
+      names.push((keyEl && keyEl.value) || 'privkey.pem');
+    }
+    if (['combined', 'pair_and_combined', 'pair_combined_pfx'].indexOf(layout) >= 0) {
+      names.push((combEl && combEl.value) || 'snakeoil.pem');
+    }
+    if (['pfx', 'pair_and_pfx', 'pair_combined_pfx'].indexOf(layout) >= 0) {
+      names.push((pfxEl && pfxEl.value) || 'Certificate.pfx');
+    }
+    var stageGlob = home + '/.piherder/cert-stage/*';
+    var lines = [
+      '# PiHerder cert deploy — least-priv (' + user + ')',
+      '# Install: sudo tee /etc/sudoers.d/piherder-certs && chmod 440 … && visudo -cf …',
+      '# Stage: ' + home + '/.piherder/cert-stage/<target-id>/  (must match SSH $HOME)',
+      '# Home assumed ' + home + ' — re-check if SSH $HOME differs.',
+      user + ' ALL=(root) NOPASSWD: /usr/bin/install -d -o ' + owner + ' -g ' + group + ' -m 755 ' + final
+    ];
+    names.forEach(function (n) {
+      if (!n) return;
+      lines.push(
+        user + ' ALL=(root) NOPASSWD: /usr/bin/install -o ' + owner + ' -g ' + group
+        + ' -m ' + mode + ' ' + stageGlob + '/' + n + ' ' + final + '/' + n
+      );
+    });
+    if (post.indexOf('systemctl restart') >= 0) {
+      var unit = post.replace(/^.*systemctl\s+restart\s+/i, '').trim().split(/\s+/)[0];
+      if (unit) {
+        lines.push(user + ' ALL=(root) NOPASSWD: /bin/systemctl restart ' + unit + ', /usr/bin/systemctl restart ' + unit);
+      }
+    } else if (post.indexOf('docker compose') >= 0 || post.indexOf('docker-compose') >= 0) {
+      lines.push('# docker compose: prefer group docker for ' + user + ' (not sudo)');
+    } else if (post.trim()) {
+      lines.push('# Review post-deploy manually: ' + post.trim().slice(0, 120));
+    }
+    return lines.join('\n') + '\n';
+  }
+
+  function refreshPreview() {
+    var layout = layoutEl ? layoutEl.value : 'pair';
+    var files = filesFor(layout, dirEl && dirEl.value);
+    var wm = writeEl ? writeEl.value : 'direct';
+    var user = currentSshUser();
+    var home = defaultHome(user);
+    if (preview) {
+      if (!files.length) {
+        preview.innerHTML = '<li>No files for this type</li>';
+      } else {
+        var prefix = wm === 'stage_sudo'
+          ? '<li class="text-muted mb-1">Stage under ' + home + '/.piherder/cert-stage/… then sudo install →</li>'
+          : '';
+        preview.innerHTML = prefix + files.map(function (f) {
+          return '<li class="break-all"><span class="text-muted">' + f.kind + ':</span> ' + f.path + '</li>';
+        }).join('');
+      }
+    }
+    var help = (layoutHelp && layoutHelp[layout]) || (layoutHelpAll && layoutHelpAll[layout]) || '';
+    if (layoutHelpEl) layoutHelpEl.textContent = help;
+    if (writeHelpEl && writeModeHelp) {
+      writeHelpEl.textContent = writeModeHelp[wm] || writeModeHelp.direct || '';
+    }
+    if (sudoEl) sudoEl.textContent = buildSudoers();
+    toggleFilenameFields(layout);
+    syncRestartUi();
+  }
+
+  if (presetEl) {
+    presetEl.addEventListener('change', function () {
+      var p = PRESETS[presetEl.value];
+      if (!p) return;
+      var labelIn = form.querySelector('input[name="label"]');
+      if (labelIn && p.label) labelIn.value = p.label;
+      if (dirEl) dirEl.value = p.remote_dir || '~/certs';
+      if (layoutEl) {
+        // Map legacy presets to new single types when possible
+        var lay = p.layout || 'pair';
+        if (lay === 'pair_and_pfx') lay = 'pfx';
+        if (['pair', 'combined', 'pfx'].indexOf(lay) < 0 && layoutEl.querySelector('option[value="' + lay + '"]')) {
+          // keep if option exists
+        } else if (['pair', 'combined', 'pfx'].indexOf(lay) < 0) {
+          lay = 'pair';
+        }
+        layoutEl.value = lay;
+      }
+      if (writeEl) writeEl.value = p.write_mode || 'direct';
+      if (fullEl && p.fullchain) fullEl.value = p.fullchain;
+      if (keyEl && p.privkey) keyEl.value = p.privkey;
+      if (combEl && p.combined) combEl.value = p.combined;
+      if (pfxEl && p.pfx) pfxEl.value = p.pfx;
+      var modeIn = form.querySelector('input[name="file_mode"]');
+      var ownIn = form.querySelector('input[name="file_owner"]');
+      var grpIn = form.querySelector('input[name="file_group"]');
+      if (modeIn && p.mode != null) modeIn.value = p.mode;
+      if (ownIn && p.owner != null) ownIn.value = p.owner;
+      if (grpIn && p.group != null) grpIn.value = p.group;
+      // Restart from preset post command
+      if (p.post && restartKindEl) {
+        var post = p.post;
+        if (/docker\s+compose/i.test(post)) {
+          restartKindEl.value = 'compose';
+          var m = post.match(/-f\s+(\S+)/);
+          if (m && composeFileEl) composeFileEl.value = m[1];
+          if (composeActionEl) {
+            composeActionEl.value = /up\s+-d/i.test(post) ? 'up -d' : 'restart';
+          }
+        } else if (/systemctl\s+restart/i.test(post)) {
+          restartKindEl.value = 'systemctl';
+          var u = post.replace(/^.*systemctl\s+restart\s+/i, '').trim().split(/\s+/)[0];
+          if (systemctlUnitEl && u) systemctlUnitEl.value = u;
+        } else if (post.trim()) {
+          restartKindEl.value = 'custom';
+          if (postEl) postEl.value = post;
         } else {
-          var prefix = wm === 'stage_sudo'
-            ? '<li class="text-muted mb-1">Stage under ~/.piherder/cert-stage/… then sudo install →</li>'
-            : '';
-          preview.innerHTML = prefix + files.map(function (f) {
-            return '<li class="break-all"><span class="text-muted">' + f.kind + ':</span> ' + f.path + '</li>';
-          }).join('');
+          restartKindEl.value = 'none';
         }
       }
-      if (layoutHelpEl && layoutHelp) {
-        layoutHelpEl.textContent = layoutHelp[layout] || '';
-      }
-      if (writeHelpEl && writeModeHelp) {
-        writeHelpEl.textContent = writeModeHelp[wm] || writeModeHelp.direct || '';
-      }
-      if (sudoEl) sudoEl.textContent = buildSudoers();
-      toggleFilenameFields(layout);
-    }
-
-    if (presetEl) {
-      presetEl.addEventListener('change', function () {
-        var p = PRESETS[presetEl.value];
-        if (!p) return;
-        var labelIn = form.querySelector('input[name="label"]');
-        if (labelIn && p.label) labelIn.value = p.label;
-        if (dirEl) dirEl.value = p.remote_dir || '~/certs';
-        if (layoutEl) layoutEl.value = p.layout || 'pair';
-        if (writeEl) writeEl.value = p.write_mode || 'direct';
-        if (fullEl && p.fullchain) fullEl.value = p.fullchain;
-        if (keyEl && p.privkey) keyEl.value = p.privkey;
-        if (combEl && p.combined) combEl.value = p.combined;
-        if (pfxEl && p.pfx) pfxEl.value = p.pfx;
-        var modeIn = form.querySelector('input[name="file_mode"]');
-        var ownIn = form.querySelector('input[name="file_owner"]');
-        var grpIn = form.querySelector('input[name="file_group"]');
-        if (modeIn && p.mode != null) modeIn.value = p.mode;
-        if (ownIn && p.owner != null) ownIn.value = p.owner;
-        if (grpIn && p.group != null) grpIn.value = p.group;
-        if (postEl && p.post != null) postEl.value = p.post;
-        if (presetHelp) presetHelp.textContent = p.help || '';
-        refreshPreview();
-      });
-    }
-
-    ['input', 'change'].forEach(function (ev) {
-      form.addEventListener(ev, function () {
-        refreshPreview();
-      });
+      if (presetHelp) presetHelp.textContent = p.help || '';
+      refreshPreview();
     });
-    refreshPreview();
-  })();
-  </script>
+  }
+
+  if (restartKindEl) {
+    restartKindEl.addEventListener('change', syncRestartUi);
+  }
+
+  var simBtn = document.getElementById('wiz-simulate');
+  if (simBtn) {
+    simBtn.addEventListener('click', function () {
+      var url = simBtn.getAttribute('data-sim-url');
+      if (!url || !form) return;
+      // Ensure custom post_deploy is current; server builds from restart_kind for non-custom
+      var tmp = document.createElement('form');
+      tmp.method = 'POST';
+      tmp.action = url;
+      tmp.style.display = 'none';
+      var names = [
+        'server_id', 'remote_dir', 'layout', 'write_mode',
+        'fullchain_filename', 'privkey_filename', 'combined_filename', 'pfx_filename',
+        'file_mode', 'file_owner', 'file_group',
+        'restart_kind', 'compose_file', 'compose_action', 'systemctl_unit',
+        'post_deploy_command', 'verify_url'
+      ];
+      names.forEach(function (n) {
+        var el = form.elements.namedItem(n);
+        if (!el) return;
+        var v = el.value;
+        if (n === 'post_deploy_command' && restartKindEl && restartKindEl.value !== 'custom') {
+          v = buildCmdFromRecipe();
+        }
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = n;
+        inp.value = v || '';
+        tmp.appendChild(inp);
+      });
+      document.body.appendChild(tmp);
+      if (typeof window.piherderWait === 'function') {
+        try { window.piherderWait('Simulating privileges', 'SSH probes on the host…'); } catch (e) {}
+      }
+      tmp.submit();
+    });
+  }
+
+  ['input', 'change'].forEach(function (ev) {
+    form.addEventListener(ev, function () {
+      refreshPreview();
+    });
+  });
+
+  // When editing, open on step 1 but show all steps progressively; start at 1
+  {% if open_wizard and et %}
+  showWizardStep(1);
+  {% elif open_wizard %}
+  showWizardStep(1);
   {% endif %}
-</div>
+  refreshPreview();
 
-{% if can_mutate %}
-<div class="card p-4 mb-6">
-  <h3 class="font-semibold text-sm mb-2">Replace PEM material</h3>
-  <p class="text-xs text-muted mb-3">
-    Paste a new fullchain + key (e.g. after manual renewal outside NPM). Then <strong>Deploy all maps</strong> to push to hosts.
-  </p>
-  <form method="post" action="/certificates/{{ cert.id }}/replace-pem" class="space-y-3"
-        data-confirm="Replace encrypted fullchain and private key for this certificate? Previous material is overwritten."
-        data-confirm-title="Replace PEM material"
-        data-confirm-label="Replace"
-        data-confirm-danger
-        data-wait-title="Encrypting certificate"
-        data-wait-message="Validating PEMs and storing encrypted…">
-    <textarea name="fullchain_pem" required rows="5" class="input w-full font-mono text-xs" placeholder="Fullchain PEM"></textarea>
-    <textarea name="privkey_pem" required rows="4" class="input w-full font-mono text-xs" placeholder="Private key PEM"></textarea>
-    <button type="submit" class="btn btn-secondary min-h-11">Replace encrypted material</button>
-  </form>
-</div>
-
-<div class="card p-4 border border-failed/30 max-w-xl">
-  <h2 class="text-sm font-semibold text-text mb-2">Danger zone</h2>
-  <form method="post" action="/certificates/{{ cert.id }}/delete"
-        data-confirm="Delete this certificate and all service maps? Host files are not removed automatically."
-        data-confirm-title="Delete certificate"
-        data-confirm-label="Delete"
-        data-confirm-danger
-        data-wait-title="Deleting certificate"
-        data-wait-message="Removing encrypted material…">
-    <button type="submit" class="btn btn-secondary text-red-600 min-h-11">Delete certificate</button>
-  </form>
-</div>
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    hideModal(replaceModal);
+    hideModal(deleteModal);
+    hideModal(edgeModal);
+    closeAllTargetDetails();
+    closeWizard();
+  });
+})();
+</script>
 {% endif %}
 {% endblock %}

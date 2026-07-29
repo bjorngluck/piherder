@@ -190,6 +190,7 @@ List and graph share **one** open/closed model (`.is-open`) — not separate mob
 |---------|----------------|
 | **Show map** | Open the SVG panel (always available; hidden while the map is already open) |
 | **Hide map** | Close the SVG panel; list stays (defaults closed on narrow screens; open on desktop / deep links) |
+| **Pin ★** | Pin Hosts map or Path map to the header **★** menu (opens with `#map` so the graph appears) — [Pins & host jump](../day-to-day/navigation-pins.md) |
 | **Discovered** (Hosts only, radar) | Outer discovery chips on/off + compact vs full LAN zone |
 | **− / % / +** | Zoom out · level · zoom in (SVG viewBox) |
 | **1:1** | Fit map to the window. Hosts + discovered **off**: fits the **compact** fleet (fills the pane). Discovered **on** / Path map: designed full canvas. Double-click map = same |
@@ -207,7 +208,7 @@ List and graph share **one** open/closed model (`.is-open`) — not separate mob
 - Maps: **pinch** / scroll-wheel zoom up to **500%** (SVG **viewBox** — stays sharp), **drag** to pan; see chrome table above.
 - Status dots: **green** = last Pi-hole sync ok · **amber** partial · **red** error · small amber ring = managed cert linked · Kuma **up/down** on Router / Public IP when bound.
 - Path cards also show **Kuma coverage** (see below).
-- Deep links: `/dns/physical?focus=<service_id|#map>` and `/dns/logical?focus=…#map` (also from each path card / dashboard / Docker **Path map** pills). Deep links **auto-open** the SVG on mobile.
+- Deep links: `/dns/physical#map`, `/dns/logical#map`, and `/dns/physical?focus=…#map` (also from path cards / dashboard / Docker **Path map** pills / **★** pins). Fragment **`#map`** (or `map=1` / focus) **auto-opens** the SVG — bare `/dns/physical` stays list-first.
 - On **narrow screens**, maps default to the **list** (racks / flows). Use **View full map** for the SVG; use **Hide map** on the graph toolbar to return to list-first density.
 - **Hamburger while fullscreen:** the slide-out menu is portaled to `body` and sits **above** map fullscreen. Opening **☰** fully exits fullscreen (label, listeners, and viewport sizes reset) so the drawer is never painted off-screen.
 - **Portrait ↔ landscape:** maps call `PiHerderFabric.refreshLayout` (with the global viewport reflow) so SVG heights, zoom, and page width rescale without leaving the page. Path hop chips **wrap** within each card (no horizontal swipe per card).
@@ -222,8 +223,12 @@ Maps stay **customer-facing** by default. For **one** focused service (or host p
 
 | Surface | What you get |
 |---------|----------------|
-| **Stack panel** | Modal/drawer: containers (category, tags, running, Kuma), **view group** pills, detail expand, suggested/confirmed edges, accept/dismiss/manual link, **Refresh** inventory, deep links to Server / Service / Docker / maps |
+| **Stack panel** | Modal/drawer: containers (category, tags, running, Kuma, **published ports** as `host→container` chips), **view group** pills, detail expand, suggested/confirmed edges, accept/dismiss/**manual link** (including **cross-host** project/container), **Refresh** inventory, deep links to Server / Service / Docker / maps |
 | **Map expand** | On Path map or Hosts map focus: sideways fan to the right of the path — **not** a fleet-wide container mesh. With **All** view groups and 2+ groups populated, one fan per group. |
+
+**Ports:** inventory publish strings are parsed into structured chips (e.g. `8080→80/tcp`). Internal-only containers show a short “internal” summary rather than a fake host mapping.
+
+**Manual edges:** when accepting or adding a link, the picker can target containers on **another fleet host** (cross-host topology), not only the focused compose project.
 
 Compose **project** identity is exact (case-insensitive) for annotation storage. Soft substring match (e.g. conflating unrelated project names) is not used.
 

@@ -420,6 +420,9 @@ async def account_page(
     err = request.query_params.get("error")
     push_sent = request.query_params.get("push_sent")
     devices = list_trusted_devices(session, user.id)
+    from ..services.nav_shortcuts import trusted_device_public
+
+    device_rows = [trusted_device_public(d) for d in devices]
     backup_remaining = len(
         session.exec(
             select(TotpBackupCode).where(
@@ -534,6 +537,7 @@ async def account_page(
             "msg": msg,
             "error": err,
             "devices": devices,
+            "device_rows": device_rows,
             "backup_remaining": backup_remaining,
             "setup_qr_svg": setup_qr_svg,
             "setup_qr_uri": setup_qr_uri,
@@ -813,6 +817,27 @@ async def regenerate_backup_codes(
     )
     _clear_trusted_device_cookie(response, user.id)
     return response
+
+
+@router.post("/account/trusted-devices/{device_id}/rename")
+async def rename_trusted_device(
+    device_id: int,
+    label: str = Form(""),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """AB — operator-friendly name for a trusted device."""
+    from ..models import TrustedDevice
+
+    dev = session.get(TrustedDevice, device_id)
+    if not dev or dev.user_id != user.id:
+        return RedirectResponse("/auth/account?error=device_not_found", status_code=303)
+    name = (label or "").strip()[:80] or None
+    dev.label = name
+    session.add(dev)
+    session.commit()
+    _audit(session, user.id, "user_trusted_device_renamed", f"Device #{device_id}")
+    return RedirectResponse("/auth/account?msg=device_renamed", status_code=303)
 
 
 @router.post("/account/trusted-devices/{device_id}/revoke")

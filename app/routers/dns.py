@@ -118,6 +118,22 @@ def _dns_page_context(
         ],
         "caption": "Network maps · hosts & paths · Kuma coverage",
     }
+    pin_extra: dict = {}
+    pin_hosts_map: dict = {}
+    pin_path_map: dict = {}
+    try:
+        from ..services.nav_shortcuts import app_page_pin_context
+
+        uid = int(user.id) if user and user.id else None
+        pin_hosts_map = app_page_pin_context(session, uid, "hosts_map")
+        pin_path_map = app_page_pin_context(session, uid, "path_map")
+        # Active map page also exposes flat keys for title pin_button include
+        if page == "physical":
+            pin_extra = pin_hosts_map
+        elif page == "logical":
+            pin_extra = pin_path_map
+    except Exception:
+        pin_hosts_map, pin_path_map, pin_extra = {}, {}, {}
     return {
         "request": request,
         "user": user,
@@ -127,6 +143,9 @@ def _dns_page_context(
         "mesh": view.get("mesh") or {},
         "physical": view.get("physical") or {},
         "logical": view.get("logical") or {},
+        "pin_hosts_map": pin_hosts_map,
+        "pin_path_map": pin_path_map,
+        **pin_extra,
         "dns_base_domain": base,
         "network_lan_subnet": (settings.get("network_lan_subnet") or "").strip(),
         "network_gateway_ip": (settings.get("network_gateway_ip") or "").strip(),

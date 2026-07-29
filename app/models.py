@@ -61,6 +61,26 @@ class TrustedDevice(SQLModel, table=True):
     user: Optional[User] = Relationship(back_populates="trusted_devices")
 
 
+class UserFavourite(SQLModel, table=True):
+    """Operator pin (J favourites).
+
+    kind:
+      * server_feature — server_id + feature (overview|docker|backups|services)
+      * app_page — feature is allowlisted page key (hosts_map, path_map, …)
+      * integration — feature is integration id as string
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    kind: str = Field(default="server_feature", max_length=32, index=True)
+    server_id: Optional[int] = Field(default=None, foreign_key="server.id", index=True)
+    # host feature key | app page key | integration id (string)
+    feature: str = Field(max_length=64, index=True)
+    label: Optional[str] = Field(default=None, max_length=128)
+    sort_order: int = Field(default=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Server(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
@@ -494,11 +514,10 @@ class ManagedCertificate(SQLModel, table=True):
 
 
 class CertificateTarget(SQLModel, table=True):
-    """Where a managed certificate is deployed on a fleet host.
+    """Where a managed certificate is deployed on a fleet host (*deploy target*).
 
-    Think of this as a *service map*: one vaulted cert → host path + filenames +
-    permissions + optional restart command for a specific consumer (NPM volume,
-    Unifi, mail, etc.).
+    One vaulted cert → host path + one layout type + permissions + optional
+    restart for a consumer (NPM volume, UniFi PFX, HAProxy, etc.).
     """
     id: Optional[int] = Field(default=None, primary_key=True)
     certificate_id: int = Field(foreign_key="managedcertificate.id", index=True)
@@ -506,7 +525,8 @@ class CertificateTarget(SQLModel, table=True):
     # Human label: "NPM proxy", "Unifi controller", "HAOS reverse proxy"
     label: Optional[str] = Field(default=None, max_length=200)
     remote_dir: str = Field(default="~/certs")
-    layout: str = Field(default="pair")  # pair | combined | pair_and_combined | pair_and_pfx
+    # pair | combined | pfx (+ legacy compounds pair_and_*)
+    layout: str = Field(default="pair")
     # direct = SFTP into remote_dir; stage_sudo = SFTP to home stage + sudo install
     write_mode: str = Field(default="direct", max_length=32)
     fullchain_filename: str = Field(default="fullchain.pem")
@@ -518,11 +538,18 @@ class CertificateTarget(SQLModel, table=True):
     file_group: Optional[str] = None
     pfx_export_password_encrypted: Optional[str] = None
     post_deploy_command: Optional[str] = None
+    # Optional live TLS port check after deploy (host:port, https://…, postgres://…).
+    # openssl s_client — not HTTP GET. Column name historical (verify_url).
+    verify_url: Optional[str] = Field(default=None, max_length=500)
     enabled: bool = True
     last_deployed_at: Optional[datetime] = None
     last_deploy_status: Optional[str] = None
     last_deploy_fingerprint: Optional[str] = None
     last_deploy_message: Optional[str] = None
+    # Post-deploy validation (host file / openssl + optional TLS URL probe)
+    last_verify_status: Optional[str] = None  # success | failed | skipped | partial
+    last_verify_message: Optional[str] = None
+    last_verify_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

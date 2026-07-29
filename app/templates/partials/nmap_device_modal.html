@@ -57,8 +57,8 @@
         </span>
         {% endif %}
         <span class="nmap-state nmap-state--{{ device.state }}"
-              title="{% if device.state == 'stale' %}Not seen recently — flagged offline; never auto-deleted{% else %}{{ device.state }}{% endif %}">
-          {% if device.state == 'stale' %}offline{% else %}{{ device.state }}{% endif %}
+              title="{% if device.state == 'stale' %}Not seen recently — flagged offline; never auto-deleted{% elif device.state == 'ignored' %}Hidden from maps{% else %}{{ device.state }}{% endif %}">
+          {% if device.state == 'stale' %}offline{% elif device.state == 'ignored' %}hidden{% else %}{{ device.state }}{% endif %}
         </span>
         <a href="{{ close_href }}" class="btn btn-secondary text-xs min-h-9 px-3"
            data-nmap-modal-close data-testid="nmap-device-modal-close"
@@ -67,6 +67,19 @@
     </header>
 
     <div class="nmap-device-modal-body">
+      {% if device_last_seen %}
+      <p class="text-xs text-muted m-0 mb-3" data-testid="nmap-device-last-seen"
+         title="{{ device_last_seen.title }}">
+        <strong class="text-text">Last seen</strong>
+        · {{ device_last_seen.label }}
+        {% if device_last_seen.iso %}
+        <span class="text-[10px] opacity-80">({{ device_last_seen.iso }} UTC)</span>
+        {% endif %}
+        {% if device.state == 'stale' %}
+        <span class="text-warning"> · offline flag after {{ stale_after_days|default(14) }}d without a scan hit — not auto-deleted</span>
+        {% endif %}
+      </p>
+      {% endif %}
       {% if device_profile and not device_profile.overridden and device_profile.kind != 'unknown' %}
       <p class="nmap-device-modal-hint text-xs text-muted m-0 mb-3">
         Auto type is <strong class="text-text">{{ device_profile.label }}</strong>
@@ -165,22 +178,31 @@
         </form>
         {% endif %}
         {% if device.state != 'ignored' %}
-        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/ignore">
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/ignore"
+              data-testid="nmap-device-hide-form">
           <input type="hidden" name="return_tab" value="{{ rtab }}">
           <input type="hidden" name="return_to" value="{{ rto }}">
-          <button type="submit" class="btn btn-secondary text-xs min-h-9" title="Hide from maps — closes modal">Ignore</button>
+          <input type="hidden" name="return_view" value="{{ rview }}">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9"
+                  data-testid="nmap-device-hide"
+                  title="Hide from maps and Hosts overlay (kept in DB as ignored)">Hide</button>
         </form>
         {% else %}
-        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unignore">
+        <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unignore"
+              data-testid="nmap-device-unhide-form">
           <input type="hidden" name="return_tab" value="{{ rtab }}">
           <input type="hidden" name="return_to" value="{{ rto }}">
-          <button type="submit" class="btn btn-secondary text-xs min-h-9" title="Restore — closes modal">Unignore</button>
+          <input type="hidden" name="return_view" value="{{ rview }}">
+          <button type="submit" class="btn btn-secondary text-xs min-h-9"
+                  data-testid="nmap-device-unhide"
+                  title="Show again → known">Unhide</button>
         </form>
         {% endif %}
         {% if device.state == 'linked' %}
         <form method="post" action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/unlink">
           <input type="hidden" name="return_tab" value="{{ rtab }}">
           <input type="hidden" name="return_to" value="{{ rto }}">
+          <input type="hidden" name="return_view" value="{{ rview }}">
           <button type="submit" class="btn btn-secondary text-xs min-h-9" title="Detach from server — closes modal">Unlink</button>
         </form>
         {% else %}
@@ -188,6 +210,7 @@
               class="flex flex-wrap gap-1.5 items-center">
           <input type="hidden" name="return_tab" value="{{ rtab }}">
           <input type="hidden" name="return_to" value="{{ rto }}">
+          <input type="hidden" name="return_view" value="{{ rview }}">
           <select name="server_id" class="input text-xs min-h-9" required>
             <option value="">Link server…</option>
             {% for s in servers %}
@@ -202,6 +225,22 @@
            data-testid="nmap-device-promote"
            title="Add-host wizard prefilled with {{ device.ip_address }}">Promote</a>
       </div>
+
+      {% if device.state != 'linked' %}
+      <form method="post"
+            action="/integrations/{{ integration.id }}/nmap/device/{{ device.id }}/purge"
+            class="mt-3 pt-3 border-t border-border"
+            data-testid="nmap-device-purge-form"
+            onsubmit="return confirm('Permanently purge this device and its findings? A future scan may re-discover it as new. This cannot be undone.');">
+        <input type="hidden" name="return_tab" value="{{ rtab }}">
+        <input type="hidden" name="return_to" value="{{ rto }}">
+        <input type="hidden" name="return_view" value="{{ rview }}">
+        <button type="submit" class="btn btn-secondary text-xs min-h-9 text-danger"
+                data-testid="nmap-device-purge"
+                title="Permanent delete — never automatic">Purge device…</button>
+        <span class="text-[10px] text-muted ml-2">Removes row + findings · rescan may recreate</span>
+      </form>
+      {% endif %}
       {% else %}
       <p class="text-sm text-muted">View only — operators can edit name, type, and role.</p>
       {% endif %}

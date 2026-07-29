@@ -31,8 +31,8 @@
          fabric (network maps) · fabric-stack (runtime stack drawer)
          dns-hub (records modal) · ops (shell/filters) · ops-pages (feature pages)
        Query busts browser + older SW caches when tokens change. -->
-  <link rel="stylesheet" href="/static/css/themes.css?v=20260718-order6">
-  <link rel="stylesheet" href="/static/css/fabric.css?v=20260725-bugfix">
+  <link rel="stylesheet" href="/static/css/themes.css?v=20260729-fav9">
+  <link rel="stylesheet" href="/static/css/fabric.css?v=20260729-mappin2">
   <link rel="stylesheet" href="/static/css/fabric-stack.css?v=20260725-ui1">
   <link rel="stylesheet" href="/static/css/dns-hub.css?v=20260725-split">
   <link rel="stylesheet" href="/static/css/ops.css?v=20260725-split">
@@ -232,6 +232,23 @@
            Fully driven by CSS classes + variables. -->
       <div class="header-actions">
         {% if user %}
+        <!-- Favourites (J) — compact star menu, same shell as account dropdown -->
+        <div class="notif-bell-wrap fav-wrap" id="fav-wrap">
+          <details class="fav-menu user-menu" id="fav-menu" data-testid="fav-menu">
+            <summary class="notif-bell fav-menu-trigger" title="Pinned shortcuts" aria-label="Pinned shortcuts">
+              <span class="notif-bell-icon" aria-hidden="true">★</span>
+            </summary>
+            <div class="user-menu-panel dropdown-panel fav-menu-panel" id="fav-menu-panel" data-testid="fav-menu-panel">
+              <div class="fav-menu-head">Pinned</div>
+              <div id="fav-menu-empty" class="fav-menu-empty">
+                No pins yet.<br>
+                <span class="fav-menu-empty-hint">Use <strong>Pin</strong> on a host, map, or integration.</span>
+              </div>
+              <div id="fav-menu-list" class="fav-menu-list" hidden></div>
+            </div>
+          </details>
+        </div>
+
         <!-- Notification bell -->
         <div class="notif-bell-wrap" id="notif-bell-wrap">
           <a href="/notifications" class="notif-bell" id="notif-bell" title="Notifications" aria-label="Notifications">
@@ -309,6 +326,7 @@
         {% endif %}
         <a href="{{ item.href }}" class="mobile-menu-link {{ 'is-active' if is_active else '' }}">{{ item.label }}</a>
       {% endfor %}
+      {# Pins live only under header ★ — not in hamburger #}
       <div class="menu-divider"></div>
       {% for item in secondary_items %}
         {% if item.kind == 'action' %}
@@ -762,6 +780,104 @@
           applyAppViewportVars();
         }
       })();
+
+      // Favourites (J) — header ★ only (not hamburger); group hosts · App · Integrations
+      function refreshFavouritesMenu() {
+        var list = document.getElementById('fav-menu-list');
+        var empty = document.getElementById('fav-menu-empty');
+        if (!list) return;
+
+        function groupItems(items) {
+          var order = [];
+          var map = {};
+          var late = { app: null, integration: null };
+          (items || []).forEach(function (it) {
+            var g = it.group || (it.server_id != null ? 'host' : 'app');
+            var key = it.group_key || (g === 'host'
+              ? ('host:' + (it.server_id != null ? it.server_id : it.server_name))
+              : g);
+            if (!map[key]) {
+              var entry = {
+                key: key,
+                name: it.group_label || it.server_name || (g === 'app' ? 'App' : g === 'integration' ? 'Integrations' : 'Host'),
+                group: g,
+                items: []
+              };
+              map[key] = entry;
+              if (g === 'app' || g === 'integration') late[g] = key;
+              else order.push(key);
+            }
+            map[key].items.push(it);
+          });
+          if (late.app && order.indexOf(late.app) < 0) order.push(late.app);
+          if (late.integration && order.indexOf(late.integration) < 0) order.push(late.integration);
+          return order.map(function (k) { return map[k]; }).filter(Boolean);
+        }
+
+        function featureChip(label) {
+          var s = document.createElement('span');
+          s.className = 'fav-menu-feat-chip';
+          s.textContent = label || 'Open';
+          return s;
+        }
+
+        fetch('/account/favourites.json', { credentials: 'same-origin' })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (data) {
+            if (!data) return;
+            var items = data.items || [];
+            var groups = groupItems(items);
+            list.innerHTML = '';
+            if (!items.length) {
+              list.hidden = true;
+              if (empty) empty.hidden = false;
+              return;
+            }
+            if (empty) empty.hidden = true;
+            list.hidden = false;
+            groups.forEach(function (g) {
+              var section = document.createElement('div');
+              section.className = 'fav-menu-group' + (g.group === 'app' || g.group === 'integration' ? ' is-' + g.group : '');
+              var head = document.createElement('div');
+              head.className = 'fav-menu-group-name';
+              head.textContent = g.name;
+              section.appendChild(head);
+              var row = document.createElement('div');
+              row.className = 'fav-menu-group-feats';
+              g.items.forEach(function (it) {
+                var a = document.createElement('a');
+                a.href = it.href || '#';
+                a.className = 'fav-menu-feat-link';
+                var chipLabel = it.feature_label || it.feature || 'Open';
+                if (it.group === 'integration' && it.type_label && it.type_label !== chipLabel) {
+                  a.title = it.type_label + ' · ' + chipLabel;
+                } else {
+                  a.title = (g.name || '') + ' · ' + chipLabel;
+                }
+                a.appendChild(featureChip(chipLabel));
+                row.appendChild(a);
+              });
+              section.appendChild(row);
+              list.appendChild(section);
+            });
+          })
+          .catch(function () {});
+      }
+      // Close star menu when clicking outside (same as details UX)
+      (function () {
+        var menu = document.getElementById('fav-menu');
+        if (!menu) return;
+        document.addEventListener('click', function (e) {
+          if (!menu.open) return;
+          if (!menu.contains(e.target)) menu.open = false;
+        });
+        document.addEventListener('keydown', function (e) {
+          if (e.key === 'Escape' && menu.open) menu.open = false;
+        });
+      })();
+      if (document.getElementById('fav-menu')) {
+        refreshFavouritesMenu();
+      }
 
       // Notification badge poll
       function refreshNotifBadge() {

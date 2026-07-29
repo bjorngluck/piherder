@@ -30,9 +30,19 @@ DEFAULT_RENEW_DAYS = 21
 RENEW_POLL_INTERVAL_SEC = 180  # 3 minutes
 RENEW_POLL_ATTEMPTS = 5
 
+# All layouts deploy understands (includes legacy compounds)
 LAYOUTS = frozenset(
-    {"pair", "combined", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx"}
+    {
+        "pair",
+        "combined",
+        "pfx",
+        "pair_and_combined",
+        "pair_and_pfx",
+        "pair_combined_pfx",
+    }
 )
+# New deploy-target wizard offers only one type per target
+LAYOUTS_NEW_UI = frozenset({"pair", "combined", "pfx"})
 
 # Fleet map write strategies
 WRITE_MODES = frozenset({"direct", "stage_sudo"})
@@ -97,10 +107,118 @@ def cert_stage_glob(home: str) -> str:
 LAYOUT_HELP = {
     "pair": "Two files: fullchain + private key (Nginx, Caddy, most Docker apps)",
     "combined": "One file: private key then fullchain (some HAProxy / “snakeoil” apps)",
-    "pair_and_combined": "Both pair and combined PEM in the same directory",
-    "pair_and_pfx": "PEM pair plus PKCS#12 .pfx (Windows / UniFi-style consumers)",
-    "pair_combined_pfx": "Pair + combined + PFX in the same directory",
+    "pfx": "One PKCS#12 .pfx file (Windows / UniFi-style). Built on the host from vault PEMs via openssl.",
+    "pair_and_combined": "Legacy: both pair and combined PEM in the same directory",
+    "pair_and_pfx": "Legacy: PEM pair plus PKCS#12 .pfx",
+    "pair_combined_pfx": "Legacy: pair + combined + PFX in the same directory",
 }
+
+
+def layout_installs_pair(layout: str) -> bool:
+    lay = (layout or "pair").strip()
+    return lay in ("pair", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx")
+
+
+def layout_installs_combined(layout: str) -> bool:
+    lay = (layout or "pair").strip()
+    return lay in ("combined", "pair_and_combined", "pair_combined_pfx")
+
+
+def layout_installs_pfx(layout: str) -> bool:
+    lay = (layout or "pair").strip()
+    return lay in ("pfx", "pair_and_pfx", "pair_combined_pfx")
+
+
+def layout_needs_pem_for_pfx(layout: str) -> bool:
+    """True when deploy must stage PEMs so openssl can build a .pfx."""
+    return layout_installs_pfx(layout)
+
+
+def build_post_deploy_command(
+    kind: str,
+    *,
+    compose_file: str = "",
+    compose_action: str = "restart",
+    systemctl_unit: str = "",
+    custom: str = "",
+) -> str:
+    """Build the exact SSH command run after files are written."""
+    k = (kind or "none").strip().lower()
+    if k in ("", "none"):
+        return ""
+    if k == "compose":
+        path = (compose_file or "").strip() or "docker-compose.yml"
+        act = (compose_action or "restart").strip().lower().replace("_", " ")
+        if act in ("up -d", "up-d", "up"):
+            return f"docker compose -f {path} up -d"
+        return f"docker compose -f {path} restart"
+    if k in ("systemctl", "systemd"):
+        unit = (systemctl_unit or "").strip()
+        if not unit:
+            return ""
+        # Allow bare unit or full command paste
+        if unit.startswith("sudo ") or unit.startswith("systemctl "):
+            return unit
+        return f"sudo systemctl restart {unit}"
+    if k == "custom":
+        return (custom or "").strip()
+    return (custom or "").strip()
+
+
+def parse_restart_recipe(post_deploy_command: str) -> dict[str, str]:
+    """Best-effort reverse of build_post_deploy_command for edit forms."""
+    c = (post_deploy_command or "").strip()
+    empty = {
+        "kind": "none",
+        "compose_file": "",
+        "compose_action": "restart",
+        "systemctl_unit": "",
+        "custom": "",
+    }
+    if not c:
+        return empty
+    # docker compose -f PATH restart|up -d
+    import re
+
+    m = re.match(
+        r"^docker\s+compose\s+-f\s+(\S+)\s+(restart|up\s+-d|up-d)\s*$",
+        c,
+        re.I,
+    )
+    if m:
+        act = m.group(2).lower().replace("up-d", "up -d")
+        return {
+            "kind": "compose",
+            "compose_file": m.group(1),
+            "compose_action": "up -d" if "up" in act else "restart",
+            "systemctl_unit": "",
+            "custom": "",
+        }
+    m = re.match(
+        r"^(?:sudo\s+)?systemctl\s+restart\s+(\S+)\s*$",
+        c,
+        re.I,
+    )
+    if m:
+        return {
+            "kind": "systemctl",
+            "compose_file": "",
+            "compose_action": "restart",
+            "systemctl_unit": m.group(1),
+            "custom": "",
+        }
+    return {
+        "kind": "custom",
+        "compose_file": "",
+        "compose_action": "restart",
+        "systemctl_unit": "",
+        "custom": c,
+    }
+
+
+def layout_help_for_ui() -> dict[str, str]:
+    """Help text for the three types shown in the new wizard."""
+    return {k: LAYOUT_HELP[k] for k in ("pair", "combined", "pfx")}
 
 # Service-map presets (source of truth for UI + tests). Paths are examples — edit per host.
 # Keys are stable IDs used in the map form select.
@@ -228,7 +346,7 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
         "title": "UniFi / Windows PFX",
         "label": "UniFi controller PFX",
         "remote_dir": "~/certs",
-        "layout": "pair_and_pfx",
+        "layout": "pfx",
         "fullchain": "fullchain.pem",
         "privkey": "privkey.pem",
         "combined": "snakeoil.pem",
@@ -237,11 +355,12 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
         "owner": "",
         "group": "",
         "post": "",
+        "restart_kind": "none",
         "help": (
-            "Writes PEM pair, then builds PKCS#12 .pfx on the host via openssl. "
+            "Builds a single PKCS#12 .pfx on the host via openssl (PEMs stay out of the final dir). "
             "Import Certificate.pfx into UniFi / Windows as needed."
         ),
-        "docs_anchor": "service-maps",
+        "docs_anchor": "deploy-targets",
     },
     "combined_generic": {
         "id": "combined_generic",
@@ -320,11 +439,11 @@ def files_for_layout(
     combined_filename: str = "snakeoil.pem",
     pfx_filename: str = "Certificate.pfx",
 ) -> list[dict[str, str]]:
-    """Return planned remote paths for UI preview (no I/O)."""
+    """Return planned *final* remote paths for UI preview (no I/O)."""
     base = (remote_dir or "~/certs").rstrip("/") or "~/certs"
     lay = (layout or "pair").strip()
     out: list[dict[str, str]] = []
-    if lay in ("pair", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx"):
+    if layout_installs_pair(lay):
         out.append(
             {
                 "name": fullchain_filename or "fullchain.pem",
@@ -339,7 +458,7 @@ def files_for_layout(
                 "kind": "privkey",
             }
         )
-    if lay in ("combined", "pair_and_combined", "pair_combined_pfx"):
+    if layout_installs_combined(lay):
         out.append(
             {
                 "name": combined_filename or "snakeoil.pem",
@@ -347,7 +466,7 @@ def files_for_layout(
                 "kind": "combined",
             }
         )
-    if lay in ("pair_and_pfx", "pair_combined_pfx"):
+    if layout_installs_pfx(lay):
         out.append(
             {
                 "name": pfx_filename or "Certificate.pfx",
@@ -418,6 +537,20 @@ def parse_pem_metadata(fullchain_pem: str) -> dict[str, Any]:
         "fingerprint_sha256": fp,
         "cn": domains[0] if domains else "",
     }
+
+
+def normalize_fingerprint(value: str | None) -> str:
+    """Normalize SHA-256 fingerprints for comparison (strip colons/spaces, lower hex).
+
+    Accepts raw hex, colon-separated, or ``openssl … -fingerprint`` lines
+    (``SHA256 Fingerprint=AA:BB:…``).
+    """
+    if not value:
+        return ""
+    s = str(value).strip()
+    if "=" in s:
+        s = s.split("=", 1)[-1].strip()
+    return "".join(c for c in s.lower() if c in "0123456789abcdef")
 
 
 def fingerprint_of_pems(fullchain: str, privkey: str) -> str:
@@ -699,6 +832,7 @@ def create_target(
     file_group: str = "",
     pfx_export_password: str = "",
     post_deploy_command: str = "",
+    verify_url: str = "",
     enabled: bool = True,
 ) -> CertificateTarget:
     if not session.get(ManagedCertificate, certificate_id):
@@ -727,6 +861,7 @@ def create_target(
         if pfx_export_password
         else None,
         post_deploy_command=(post_deploy_command or "").strip() or None,
+        verify_url=_normalize_verify_url(verify_url),
         enabled=bool(enabled),
         created_at=now,
         updated_at=now,
@@ -735,6 +870,11 @@ def create_target(
     session.commit()
     session.refresh(row)
     return row
+
+
+def _normalize_verify_url(value: str | None) -> str | None:
+    v = (value or "").strip()[:500]
+    return v or None
 
 
 def update_target(
@@ -756,6 +896,7 @@ def update_target(
     pfx_export_password: str | None = None,
     clear_pfx_password: bool = False,
     post_deploy_command: str | None = None,
+    verify_url: str | None = None,
     enabled: bool | None = None,
 ) -> CertificateTarget:
     row = session.get(CertificateTarget, target_id)
@@ -794,6 +935,8 @@ def update_target(
         row.pfx_export_password_encrypted = encrypt_str(pfx_export_password)
     if post_deploy_command is not None:
         row.post_deploy_command = (post_deploy_command or "").strip() or None
+    if verify_url is not None:
+        row.verify_url = _normalize_verify_url(verify_url)
     if enabled is not None:
         row.enabled = bool(enabled)
     row.updated_at = datetime.utcnow()
@@ -801,6 +944,15 @@ def update_target(
     session.commit()
     session.refresh(row)
     return row
+
+
+def _dt_json(value: Any) -> str | None:
+    """Serialize datetimes for template |tojson / API-friendly dicts."""
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat(sep=" ", timespec="seconds")
+    return str(value)
 
 
 def public_target_dict(
@@ -869,13 +1021,21 @@ def public_target_dict(
         "combined_filename": target.combined_filename,
         "pfx_filename": target.pfx_filename,
         "post_deploy_command": target.post_deploy_command or "",
+        "restart": parse_restart_recipe(target.post_deploy_command or ""),
+        "verify_url": getattr(target, "verify_url", None) or "",
         "has_pfx_password": bool(target.pfx_export_password_encrypted),
         "files": files,
-        "last_deployed_at": target.last_deployed_at,
+        "ssh_user": ssh_user or "piherder",
+        # ISO strings so Jinja |tojson works (datetime is not JSON-serializable)
+        "last_deployed_at": _dt_json(target.last_deployed_at),
         "last_deploy_status": target.last_deploy_status,
         "last_deploy_message": target.last_deploy_message,
         "last_deploy_fingerprint": fp_deployed or None,
         "last_deploy_fingerprint_short": (fp_deployed[:12] + "…") if len(fp_deployed) > 12 else (fp_deployed or None),
+        "last_verify_status": getattr(target, "last_verify_status", None),
+        "last_verify_message": getattr(target, "last_verify_message", None),
+        "last_verify_at": _dt_json(getattr(target, "last_verify_at", None)),
+        "verified": (getattr(target, "last_verify_status", None) or "") == "success",
         "in_sync": in_sync,
         "stale_vs_vault": stale,
     }
@@ -924,11 +1084,11 @@ def sudoers_snippet_for_map(
     stage_base = cert_stage_base(home)
     names: list[str] = []
     lay = layout or "pair"
-    if lay in ("pair", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx"):
+    if layout_installs_pair(lay):
         names.extend([fullchain_filename or "fullchain.pem", privkey_filename or "privkey.pem"])
-    if lay in ("combined", "pair_and_combined", "pair_combined_pfx"):
+    if layout_installs_combined(lay):
         names.append(combined_filename or "snakeoil.pem")
-    if lay in ("pair_and_pfx", "pair_combined_pfx"):
+    if layout_installs_pfx(lay):
         names.append(pfx_filename or "Certificate.pfx")
     names = [n for n in names if n]
     guessed = home_dir is None or not str(home_dir).strip()
@@ -972,6 +1132,12 @@ def delete_target(session: Session, target_id: int) -> bool:
     row = session.get(CertificateTarget, target_id)
     if not row:
         return False
+    try:
+        from . import notifications as notif_svc
+
+        notif_svc.resolve_cert_target_alerts(session, int(target_id))
+    except Exception:
+        pass
     session.delete(row)
     session.commit()
     return True
@@ -982,6 +1148,13 @@ def delete_certificate(session: Session, cert_id: int) -> bool:
     if not row:
         return False
     for t in list_targets(session, cert_id):
+        try:
+            from . import notifications as notif_svc
+
+            if t.id is not None:
+                notif_svc.resolve_cert_target_alerts(session, int(t.id))
+        except Exception:
+            pass
         session.delete(t)
     session.delete(row)
     session.commit()
@@ -999,13 +1172,16 @@ def _layout_file_payloads(
     key: str,
     target: CertificateTarget,
 ) -> list[tuple[str, str]]:
-    """Return (filename, content) pairs for a layout."""
+    """Return (filename, content) pairs installed to the *final* destination.
+
+    Pure ``pfx`` has no PEM install payload — PEMs are staged only for openssl.
+    """
     files: list[tuple[str, str]] = []
     lay = layout or "pair"
-    if lay in ("pair", "pair_and_combined", "pair_and_pfx", "pair_combined_pfx"):
+    if layout_installs_pair(lay):
         files.append((target.fullchain_filename or "fullchain.pem", full))
         files.append((target.privkey_filename or "privkey.pem", key))
-    if lay in ("combined", "pair_and_combined", "pair_combined_pfx"):
+    if layout_installs_combined(lay):
         files.append(
             (
                 target.combined_filename or "snakeoil.pem",
@@ -1013,6 +1189,18 @@ def _layout_file_payloads(
             )
         )
     return files
+
+
+def _pfx_source_pems(
+    full: str,
+    key: str,
+    target: CertificateTarget,
+) -> list[tuple[str, str]]:
+    """PEM material written to stage/temp so openssl can export PKCS#12."""
+    return [
+        (target.fullchain_filename or "fullchain.pem", full),
+        (target.privkey_filename or "privkey.pem", key),
+    ]
 
 
 def reload_edge_caddy() -> dict[str, Any]:
@@ -1194,6 +1382,693 @@ def deploy_to_edge_caddy(
     }
 
 
+def _openssl_fp_cmd_for_pem(path: str) -> str:
+    """Shell: SHA256 fingerprint of first cert in a PEM file (hex, no colons)."""
+    p = shlex.quote(path)
+    # openssl fingerprint output → strip label + colons → lower hex
+    return (
+        f"openssl x509 -in {p} -noout -fingerprint -sha256 2>/dev/null "
+        f"| sed -e 's/^.*=//' -e 's/://g' | tr 'A-F' 'a-f'"
+    )
+
+
+def _openssl_fp_cmd_for_pfx(path: str, password: str = "") -> str:
+    p = shlex.quote(path)
+    passin = shlex.quote(f"pass:{password or ''}")
+    return (
+        f"openssl pkcs12 -in {p} -nokeys -clcerts -passin {passin} 2>/dev/null "
+        f"| openssl x509 -noout -fingerprint -sha256 2>/dev/null "
+        f"| sed -e 's/^.*=//' -e 's/://g' | tr 'A-F' 'a-f'"
+    )
+
+
+def verify_remote_cert_fingerprint(
+    client: Any,
+    target: CertificateTarget,
+    *,
+    remote_dir: str,
+    expected_fingerprint: str,
+) -> dict[str, Any]:
+    """Read installed material on the host and compare leaf fingerprint to vault.
+
+    Prefer openssl on the installed PEM/PFX; fall back to ``.piherder-cert-fp`` marker.
+    """
+    expected = normalize_fingerprint(expected_fingerprint)
+    if not expected:
+        return {
+            "ok": False,
+            "status": "skipped",
+            "message": "Vault has no fingerprint to compare",
+        }
+    base = (remote_dir or "").rstrip("/") or remote_dir
+    layout = target.layout or "pair"
+    cmds: list[tuple[str, str]] = []  # (label, shell)
+
+    if layout_installs_pair(layout):
+        cmds.append(
+            (
+                "fullchain",
+                _openssl_fp_cmd_for_pem(
+                    f"{base}/{target.fullchain_filename or 'fullchain.pem'}"
+                ),
+            )
+        )
+    if layout_installs_combined(layout):
+        cmds.append(
+            (
+                "combined",
+                _openssl_fp_cmd_for_pem(
+                    f"{base}/{target.combined_filename or 'snakeoil.pem'}"
+                ),
+            )
+        )
+    if layout_installs_pfx(layout) and not layout_installs_pair(layout):
+        # pure pfx (or pfx-only final)
+        pfx_pw = ""
+        if target.pfx_export_password_encrypted:
+            try:
+                pfx_pw = decrypt_str(target.pfx_export_password_encrypted)
+            except Exception:
+                pfx_pw = ""
+        cmds.append(
+            (
+                "pfx",
+                _openssl_fp_cmd_for_pfx(
+                    f"{base}/{target.pfx_filename or 'Certificate.pfx'}", pfx_pw
+                ),
+            )
+        )
+    elif layout_installs_pfx(layout) and layout_installs_pair(layout):
+        # legacy pair_and_pfx — prefer fullchain
+        pass
+
+    # Marker file always useful as secondary check
+    marker = f"{base}/.piherder-cert-fp"
+
+    got_fp = ""
+    source = ""
+    for label, cmd in cmds:
+        st, out, err = ssh_svc.run_command(client, cmd, timeout=30)
+        cand = normalize_fingerprint((out or "").strip().splitlines()[0] if out else "")
+        if st == 0 and cand:
+            got_fp = cand
+            source = label
+            break
+
+    if not got_fp:
+        st, out, err = ssh_svc.run_command(
+            client, f"cat {shlex.quote(marker)} 2>/dev/null", timeout=15
+        )
+        cand = normalize_fingerprint((out or "").strip().splitlines()[0] if out else "")
+        if st == 0 and cand:
+            got_fp = cand
+            source = "marker"
+
+    if not got_fp:
+        return {
+            "ok": False,
+            "status": "failed",
+            "message": "Could not read fingerprint from host (openssl or marker missing)",
+            "expected": expected,
+        }
+    if got_fp == expected:
+        return {
+            "ok": True,
+            "status": "success",
+            "message": f"Host {source} fingerprint matches vault",
+            "fingerprint": got_fp,
+            "source": source,
+        }
+    return {
+        "ok": False,
+        "status": "failed",
+        "message": (
+            f"Fingerprint mismatch via {source}: host={got_fp[:16]}… "
+            f"vault={expected[:16]}…"
+        ),
+        "fingerprint": got_fp,
+        "expected": expected,
+        "source": source,
+    }
+
+
+# openssl s_client -starttls <proto> values we accept
+_STARTTLS_PROTOS = frozenset(
+    {
+        "smtp",
+        "pop3",
+        "imap",
+        "ftp",
+        "xmpp",
+        "postgres",
+        "postgresql",  # alias → postgres
+        "mysql",
+        "lmtp",
+        "nntp",
+        "sieve",
+        "ldap",
+        "redis",
+    }
+)
+
+# scheme → (default_port, starttls_or_None for plain TLS)
+_SCHEME_TLS: dict[str, tuple[int, str | None]] = {
+    "https": (443, None),
+    "tls": (443, None),
+    "ssl": (443, None),
+    "ldaps": (636, None),  # LDAP over TLS
+    "postgres": (5432, "postgres"),
+    "postgresql": (5432, "postgres"),
+    "pgsql": (5432, "postgres"),
+    "mysql": (3306, "mysql"),
+    "mariadb": (3306, "mysql"),
+    "redis": (6379, "redis"),
+    "smtp": (25, "smtp"),
+    "smtps": (465, None),  # implicit TLS
+    "imap": (143, "imap"),
+    "imaps": (993, None),
+    "ldap": (389, "ldap"),
+}
+
+
+def parse_verify_endpoint(value: str | None) -> dict[str, Any] | None:
+    """Parse a TLS probe endpoint: host:port, URL, or DB-style scheme.
+
+    This is **port-level TLS** via ``openssl s_client``, not an HTTP GET.
+
+    Examples:
+      ``https://app.example.com/`` → :443 plain TLS + SNI
+      ``app.example.com:8443`` → plain TLS on 8443 (web, custom, native TLS DB, …)
+      ``127.0.0.1:5432`` → plain TLS on 5432 (DB that speaks TLS immediately)
+      ``postgres://db.local:5432`` → STARTTLS postgres (common for PostgreSQL)
+      ``mysql://db.local`` → STARTTLS mysql on 3306
+      ``tls://10.0.0.5:636`` → plain TLS (e.g. LDAPS-style)
+      ``host:5432?starttls=postgres`` → force STARTTLS
+      ``10.0.0.5:443?sni=app.example.com`` → connect IP, SNI hostname
+    """
+    from urllib.parse import parse_qs, unquote, urlparse
+
+    raw = (value or "").strip()
+    if not raw:
+        return None
+
+    starttls: str | None = None
+    servername_override: str | None = None
+    host = ""
+    port: int | None = None
+    scheme = ""
+
+    # Bare host:port or host:port?query (no scheme)
+    if "://" not in raw:
+        # Optional query on bare form: host:port?starttls=postgres&sni=…
+        path_part = raw
+        query = ""
+        if "?" in raw:
+            path_part, query = raw.split("?", 1)
+        qs = parse_qs(query, keep_blank_values=False) if query else {}
+        if "starttls" in qs and qs["starttls"]:
+            st = (qs["starttls"][0] or "").strip().lower()
+            if st in ("postgresql",):
+                st = "postgres"
+            if st in _STARTTLS_PROTOS:
+                starttls = "postgres" if st == "postgresql" else st
+        if "sni" in qs and qs["sni"]:
+            servername_override = (qs["sni"][0] or "").strip() or None
+
+        path_part = path_part.strip()
+        # IPv6 in brackets: [fe80::1]:5432
+        if path_part.startswith("["):
+            end = path_part.find("]")
+            if end > 0:
+                host = path_part[1:end]
+                rest = path_part[end + 1 :]
+                if rest.startswith(":") and rest[1:].isdigit():
+                    port = int(rest[1:])
+                else:
+                    port = 443
+            else:
+                return None
+        elif path_part.count(":") == 1:
+            host_part, port_s = path_part.rsplit(":", 1)
+            if port_s.isdigit() and host_part:
+                host = host_part.strip()
+                port = int(port_s)
+            else:
+                host = path_part
+                port = 443
+        else:
+            host = path_part
+            port = 443
+        if not host:
+            return None
+        sni = servername_override or host
+        return {
+            "host": host,
+            "port": int(port or 443),
+            "servername": sni,
+            "starttls": starttls,
+            "raw": raw,
+            "scheme": "tls",
+        }
+
+    parsed = urlparse(raw)
+    scheme = (parsed.scheme or "https").lower()
+    host = (parsed.hostname or "").strip()
+    if not host:
+        return None
+
+    # Query overrides
+    qs = parse_qs(parsed.query or "", keep_blank_values=False)
+    if "starttls" in qs and qs["starttls"]:
+        st = (qs["starttls"][0] or "").strip().lower()
+        if st in ("postgresql",):
+            st = "postgres"
+        if st in _STARTTLS_PROTOS:
+            starttls = "postgres" if st == "postgresql" else st
+    if "sni" in qs and qs["sni"]:
+        servername_override = (qs["sni"][0] or "").strip() or None
+
+    if scheme == "http":
+        # Not a TLS probe — still parse but callers may fail handshake
+        port = int(parsed.port or 80)
+    elif scheme in _SCHEME_TLS:
+        default_port, default_starttls = _SCHEME_TLS[scheme]
+        port = int(parsed.port or default_port)
+        if starttls is None:
+            starttls = default_starttls
+    else:
+        # Unknown scheme: treat as TLS with optional port, default 443
+        port = int(parsed.port or 443)
+
+    # Normalize starttls alias
+    if starttls == "postgresql":
+        starttls = "postgres"
+    if starttls and starttls not in _STARTTLS_PROTOS:
+        starttls = None
+    if starttls == "postgresql":  # pragma: no cover
+        starttls = "postgres"
+
+    sni = servername_override or host
+    # userinfo unused; path unused (we never HTTP GET)
+    _ = unquote(parsed.path or "")
+
+    return {
+        "host": host,
+        "port": int(port),
+        "servername": sni,
+        "starttls": starttls,
+        "raw": raw,
+        "scheme": scheme,
+    }
+
+
+def _s_client_fingerprint_shell(
+    host: str,
+    port: int,
+    servername: str,
+    *,
+    starttls: str | None = None,
+) -> str:
+    """openssl s_client against any TLS port → leaf SHA256 fingerprint (hex).
+
+    *starttls*: optional protocol for STARTTLS (postgres, mysql, smtp, …).
+    Plain TLS (HTTPS, native TLS on a DB port, LDAPS) leaves starttls empty.
+    """
+    h = shlex.quote(f"{host}:{int(port)}")
+    sni = shlex.quote(servername or host)
+    st = (starttls or "").strip().lower()
+    if st == "postgresql":
+        st = "postgres"
+    starttls_flag = ""
+    if st and st in _STARTTLS_PROTOS:
+        # openssl uses "postgres" not "postgresql"
+        proto = "postgres" if st == "postgresql" else st
+        starttls_flag = f"-starttls {shlex.quote(proto)} "
+    return (
+        f"echo | openssl s_client -connect {h} -servername {sni} "
+        f"{starttls_flag}"
+        f"-showcerts 2>/dev/null "
+        f"| openssl x509 -noout -fingerprint -sha256 2>/dev/null "
+        f"| sed -e 's/^.*=//' -e 's/://g' | tr 'A-F' 'a-f'"
+    )
+
+
+def verify_tls_endpoint_fingerprint(
+    *,
+    verify_url: str,
+    expected_fingerprint: str,
+    client: Any | None = None,
+    timeout: int = 25,
+) -> dict[str, Any]:
+    """Probe a live **TLS port** (web, DB, …) and compare leaf fingerprint to vault.
+
+    Uses ``openssl s_client -connect host:port`` (optional ``-starttls``).
+    This is not an HTTP request — any service that completes a TLS handshake works.
+
+    When *client* (SSH) is provided, the probe runs **on the fleet host** first
+    (LAN / localhost DB ports). Falls back to this process (public edges).
+    """
+    expected = normalize_fingerprint(expected_fingerprint)
+    if not expected:
+        return {
+            "ok": False,
+            "status": "skipped",
+            "message": "Vault has no fingerprint to compare",
+            "kind": "tls",
+        }
+    ep = parse_verify_endpoint(verify_url)
+    if not ep:
+        return {
+            "ok": False,
+            "status": "skipped",
+            "message": "No TLS probe endpoint configured",
+            "kind": "tls",
+        }
+    host = ep["host"]
+    port = int(ep["port"])
+    sni = ep.get("servername") or host
+    starttls = ep.get("starttls")
+    cmd = _s_client_fingerprint_shell(host, port, sni, starttls=starttls)
+    attempts: list[dict[str, Any]] = []
+
+    def _try(label: str, runner) -> dict[str, Any] | None:
+        try:
+            st, out, err = runner()
+        except Exception as e:
+            attempts.append({"via": label, "ok": False, "detail": str(e)[:160]})
+            return None
+        cand = normalize_fingerprint(
+            (out or "").strip().splitlines()[0] if out else ""
+        )
+        if st == 0 and cand:
+            attempts.append({"via": label, "ok": True, "fingerprint": cand})
+            st_note = f" starttls={starttls}" if starttls else ""
+            if cand == expected:
+                return {
+                    "ok": True,
+                    "status": "success",
+                    "message": (
+                        f"TLS port {host}:{port} (SNI {sni}{st_note}) via {label} "
+                        f"matches vault"
+                    ),
+                    "fingerprint": cand,
+                    "kind": "tls",
+                    "via": label,
+                    "endpoint": f"{host}:{port}",
+                    "servername": sni,
+                    "starttls": starttls,
+                    "attempts": attempts,
+                }
+            return {
+                "ok": False,
+                "status": "failed",
+                "message": (
+                    f"TLS port {host}:{port}{st_note} via {label}: fingerprint mismatch "
+                    f"presented={cand[:16]}… vault={expected[:16]}…"
+                ),
+                "fingerprint": cand,
+                "expected": expected,
+                "kind": "tls",
+                "via": label,
+                "endpoint": f"{host}:{port}",
+                "servername": sni,
+                "starttls": starttls,
+                "attempts": attempts,
+            }
+        attempts.append(
+            {
+                "via": label,
+                "ok": False,
+                "detail": ((err or out or "no certificate")[:160]),
+            }
+        )
+        return None
+
+    # 1) From fleet host (where service often listens)
+    if client is not None:
+        def _ssh():
+            return ssh_svc.run_command(client, cmd, timeout=timeout)
+
+        hit = _try("host-ssh", _ssh)
+        if hit is not None:
+            return hit
+
+    # 2) From PiHerder process (public / reachable endpoints)
+    import subprocess
+
+    def _local():
+        proc = subprocess.run(
+            ["bash", "-lc", cmd],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        return proc.returncode, proc.stdout or "", proc.stderr or ""
+
+    hit = _try("herder", _local)
+    if hit is not None:
+        return hit
+
+    detail = "; ".join(
+        f"{a['via']}: {a.get('detail') or 'fail'}" for a in attempts
+    )[:300]
+    st_note = f", starttls={starttls}" if starttls else ""
+    return {
+        "ok": False,
+        "status": "failed",
+        "message": (
+            f"TLS port probe failed for {host}:{port} (SNI {sni}{st_note}) — "
+            f"could not complete handshake / read leaf cert. {detail}"
+        ),
+        "kind": "tls",
+        "endpoint": f"{host}:{port}",
+        "servername": sni,
+        "starttls": starttls,
+        "attempts": attempts,
+    }
+
+
+def verify_deploy_target(
+    client: Any,
+    target: CertificateTarget,
+    *,
+    remote_dir: str,
+    expected_fingerprint: str,
+) -> dict[str, Any]:
+    """Host file fingerprint + optional TLS URL probe; combined status.
+
+    * **success** — host OK and TLS OK (or TLS not configured)
+    * **partial** — host OK but TLS failed (or the reverse, rare)
+    * **failed** — host check failed (and TLS not rescuing)
+    * **skipped** — nothing to compare
+    """
+    host_res = verify_remote_cert_fingerprint(
+        client,
+        target,
+        remote_dir=remote_dir,
+        expected_fingerprint=expected_fingerprint,
+    )
+    tls_url = (getattr(target, "verify_url", None) or "").strip()
+    tls_res: dict[str, Any] | None = None
+    if tls_url:
+        tls_res = verify_tls_endpoint_fingerprint(
+            verify_url=tls_url,
+            expected_fingerprint=expected_fingerprint,
+            client=client,
+        )
+
+    parts: list[str] = []
+    if host_res.get("message"):
+        parts.append(f"host: {host_res['message']}")
+    if tls_res and tls_res.get("message"):
+        parts.append(f"tls: {tls_res['message']}")
+
+    host_ok = bool(host_res.get("ok"))
+    host_skip = (host_res.get("status") or "") == "skipped"
+    if not tls_url:
+        return {
+            "ok": host_ok,
+            "status": host_res.get("status") or ("success" if host_ok else "failed"),
+            "message": host_res.get("message") or "",
+            "host": host_res,
+            "tls": None,
+        }
+
+    tls_ok = bool(tls_res and tls_res.get("ok"))
+    tls_skip = bool(tls_res and (tls_res.get("status") or "") == "skipped")
+
+    if host_ok and tls_ok:
+        status, ok = "success", True
+    elif host_ok and tls_skip:
+        status, ok = "success", True
+    elif host_skip and tls_ok:
+        status, ok = "success", True
+    elif host_ok and not tls_ok:
+        # Files on disk good but live service not presenting vault cert yet
+        status, ok = "partial", False
+    elif tls_ok and not host_ok:
+        status, ok = "partial", False
+    else:
+        status, ok = "failed", False
+
+    return {
+        "ok": ok,
+        "status": status,
+        "message": "; ".join(parts)[:500],
+        "host": host_res,
+        "tls": tls_res,
+    }
+
+
+def simulate_sudoers_access(
+    client: Any,
+    *,
+    remote_dir: str,
+    layout: str,
+    write_mode: str,
+    fullchain_filename: str = "fullchain.pem",
+    privkey_filename: str = "privkey.pem",
+    combined_filename: str = "snakeoil.pem",
+    pfx_filename: str = "Certificate.pfx",
+    file_mode: str = "600",
+    file_owner: str = "root",
+    file_group: str = "root",
+    post_deploy_command: str = "",
+    ssh_user: str = "piherder",
+    home_dir: str | None = None,
+) -> dict[str, Any]:
+    """Best-effort NOPASSWD checks matching stage_sudo install lines.
+
+    Does not permanently install certs. Creates a tiny probe under the stage area
+    and tests ``sudo -n install`` into a temp subdir of the final destination.
+    """
+    wm = _normalize_write_mode(write_mode)
+    checks: list[dict[str, Any]] = []
+    user = (ssh_user or "piherder").strip() or "piherder"
+    home = resolve_ssh_home(ssh_user=user, home_dir=home_dir)
+    final = expand_remote_dir(remote_dir or "~/certs", home)
+    owner = (file_owner or "root").strip() or "root"
+    group = (file_group or "root").strip() or "root"
+    mode = (file_mode or "600").strip() or "600"
+
+    def _check(name: str, cmd: str) -> None:
+        st, out, err = ssh_svc.run_command(client, cmd, timeout=30)
+        ok = st == 0
+        checks.append(
+            {
+                "name": name,
+                "ok": ok,
+                "detail": ((err or out or "")[:200] if not ok else "ok"),
+            }
+        )
+
+    # Can we sudo at all without password?
+    _check("sudo -n true", "sudo -n true")
+
+    if wm == "stage_sudo":
+        stage_base = cert_stage_base(home)
+        probe_stage = f"{stage_base}/_sim"
+        probe_final = f"{final.rstrip('/')}/.piherder-sim"
+        _check(
+            "mkdir stage",
+            f"mkdir -p {shlex.quote(probe_stage)}",
+        )
+        _check(
+            "sudo install -d final",
+            f"sudo -n /usr/bin/install -d -o {shlex.quote(owner)} "
+            f"-g {shlex.quote(group)} -m 755 {shlex.quote(final)}",
+        )
+        # Probe file install for each final filename of the layout
+        names: list[str] = []
+        if layout_installs_pair(layout):
+            names.extend(
+                [fullchain_filename or "fullchain.pem", privkey_filename or "privkey.pem"]
+            )
+        if layout_installs_combined(layout):
+            names.append(combined_filename or "snakeoil.pem")
+        if layout_installs_pfx(layout):
+            names.append(pfx_filename or "Certificate.pfx")
+        for n in names:
+            if not n:
+                continue
+            src = f"{probe_stage}/{n}"
+            dst = f"{probe_final}/{n}"
+            _check(
+                f"write probe {n}",
+                f"printf sim > {shlex.quote(src)}",
+            )
+            _check(
+                f"sudo install {n}",
+                f"sudo -n /usr/bin/install -d -o {shlex.quote(owner)} "
+                f"-g {shlex.quote(group)} -m 755 {shlex.quote(probe_final)} && "
+                f"sudo -n /usr/bin/install -o {shlex.quote(owner)} "
+                f"-g {shlex.quote(group)} -m {shlex.quote(mode)} "
+                f"{shlex.quote(src)} {shlex.quote(dst)}",
+            )
+        # Cleanup probe (best effort)
+        ssh_svc.run_command(
+            client,
+            f"rm -rf {shlex.quote(probe_stage)} {shlex.quote(probe_final)}",
+            timeout=20,
+        )
+    else:
+        _check(
+            "writable final (or mkdir)",
+            f"mkdir -p {shlex.quote(final)} && test -w {shlex.quote(final)}",
+        )
+
+    post = (post_deploy_command or "").strip()
+    if post and "systemctl restart" in post:
+        unit = post.split("systemctl restart", 1)[-1].strip().split()[0]
+        if unit:
+            # Non-destructive: list unit only
+            _check(
+                f"sudo systemctl (unit {unit})",
+                f"sudo -n /usr/bin/systemctl status {shlex.quote(unit)} >/dev/null 2>&1 "
+                f"|| sudo -n /bin/systemctl status {shlex.quote(unit)} >/dev/null 2>&1 "
+                f"|| sudo -n true",  # status may be non-zero if inactive; fall soft
+            )
+            # Real check: can we run restart non-interactively? too aggressive.
+            # Prefer: sudo -n -l | grep systemctl
+            st, out, _ = ssh_svc.run_command(
+                client, "sudo -n -l 2>/dev/null | head -c 4000", timeout=15
+            )
+            listed = out or ""
+            if "systemctl" in listed or "ALL" in listed:
+                checks.append(
+                    {
+                        "name": "sudoers mentions systemctl/ALL",
+                        "ok": True,
+                        "detail": "ok",
+                    }
+                )
+            else:
+                checks.append(
+                    {
+                        "name": "sudoers mentions systemctl/ALL",
+                        "ok": False,
+                        "detail": "No systemctl/ALL in `sudo -l` — restart may fail",
+                    }
+                )
+
+    failed = [c for c in checks if not c.get("ok")]
+    ok = not failed
+    return {
+        "ok": ok,
+        "status": "success" if ok else "failed",
+        "checks": checks,
+        "message": (
+            "All privilege probes passed"
+            if ok
+            else f"{len(failed)} check(s) failed — review sudoers / write mode"
+        ),
+        "ssh_user": user,
+        "home": home,
+        "final_dir": final,
+        "write_mode": wm,
+    }
+
+
 def deploy_target(
     session: Session,
     target_id: int,
@@ -1232,6 +2107,15 @@ def deploy_target(
 
     full, key = decrypt_pems(cert)
     if not full or not key:
+        _apply_cert_target_alerts(
+            session,
+            target=target,
+            cert=cert,
+            server=server,
+            deploy_ok=False,
+            deploy_error="certificate PEMs missing",
+            verify=None,
+        )
         return {"ok": False, "error": "certificate PEMs missing"}
 
     write_mode = _normalize_write_mode(getattr(target, "write_mode", None))
@@ -1311,14 +2195,29 @@ def deploy_target(
                         f"(NOPASSWD; stage path must match $HOME). Detail: {err or out}"
                     )
 
-            # PFX from staged PEMs then install
-            if layout in ("pair_and_pfx", "pair_combined_pfx"):
+            # PFX: stage PEMs if needed (pure pfx has no PEM install payload), export, install .pfx
+            if layout_installs_pfx(layout):
                 pfx_pw = ""
                 if target.pfx_export_password_encrypted:
                     pfx_pw = decrypt_str(target.pfx_export_password_encrypted)
-                full_p = f"{stage_dir.rstrip('/')}/{target.fullchain_filename}"
-                key_p = f"{stage_dir.rstrip('/')}/{target.privkey_filename}"
-                pfx_stage = f"{stage_dir.rstrip('/')}/{target.pfx_filename}"
+                # Ensure PEMs exist in stage for openssl (pure pfx only stages these)
+                if layout == "pfx":
+                    sftp = client.open_sftp()
+                    try:
+                        for fname, content in _pfx_source_pems(full, key, target):
+                            path = f"{stage_dir.rstrip('/')}/{fname}"
+                            log(f"stage write (pfx source) {path}")
+                            with sftp.file(path, "w") as f:
+                                f.write(content)
+                            try:
+                                sftp.chmod(path, 0o600)
+                            except Exception:
+                                pass
+                    finally:
+                        sftp.close()
+                full_p = f"{stage_dir.rstrip('/')}/{target.fullchain_filename or 'fullchain.pem'}"
+                key_p = f"{stage_dir.rstrip('/')}/{target.privkey_filename or 'privkey.pem'}"
+                pfx_stage = f"{stage_dir.rstrip('/')}/{target.pfx_filename or 'Certificate.pfx'}"
                 passout = f"pass:{pfx_pw}"
                 cmd = (
                     f"openssl pkcs12 -export -in {shlex.quote(full_p)} "
@@ -1330,7 +2229,7 @@ def deploy_target(
                 st, out, err = ssh_svc.run_command(client, cmd, timeout=60)
                 if st != 0:
                     raise RuntimeError(f"pfx export failed: {err or out}")
-                pfx_dst = f"{remote_dir.rstrip('/')}/{target.pfx_filename}"
+                pfx_dst = f"{remote_dir.rstrip('/')}/{target.pfx_filename or 'Certificate.pfx'}"
                 st, out, err = ssh_svc.run_command(
                     client,
                     f"sudo install -o {shlex.quote(chown_user)} "
@@ -1354,17 +2253,21 @@ def deploy_target(
 
             sftp = client.open_sftp()
             try:
-                for fname, content in payloads:
+                write_list = list(payloads)
+                if layout == "pfx":
+                    # PEMs are intermediate only; removed after pfx export
+                    write_list = list(_pfx_source_pems(full, key, target))
+                for fname, content in write_list:
                     path = f"{remote_dir.rstrip('/')}/{fname}"
                     log(f"write {path}")
                     with sftp.file(path, "w") as f:
                         f.write(content)
                     try:
-                        sftp.chmod(path, mode_int)
+                        sftp.chmod(path, mode_int if layout != "pfx" else 0o600)
                     except Exception:
                         ssh_svc.run_command(
                             client,
-                            f"chmod {shlex.quote(mode)} {shlex.quote(path)}",
+                            f"chmod {shlex.quote(mode if layout != 'pfx' else '600')} {shlex.quote(path)}",
                             timeout=15,
                         )
 
@@ -1374,7 +2277,7 @@ def deploy_target(
             finally:
                 sftp.close()
 
-            if owner:
+            if owner and layout != "pfx":
                 chown = f"{owner}:{group}" if group else owner
                 for fname, _ in payloads:
                     path = f"{remote_dir.rstrip('/')}/{fname}"
@@ -1385,13 +2288,13 @@ def deploy_target(
                         timeout=20,
                     )
 
-            if layout in ("pair_and_pfx", "pair_combined_pfx"):
+            if layout_installs_pfx(layout):
                 pfx_pw = ""
                 if target.pfx_export_password_encrypted:
                     pfx_pw = decrypt_str(target.pfx_export_password_encrypted)
-                full_p = f"{remote_dir.rstrip('/')}/{target.fullchain_filename}"
-                key_p = f"{remote_dir.rstrip('/')}/{target.privkey_filename}"
-                pfx_p = f"{remote_dir.rstrip('/')}/{target.pfx_filename}"
+                full_p = f"{remote_dir.rstrip('/')}/{target.fullchain_filename or 'fullchain.pem'}"
+                key_p = f"{remote_dir.rstrip('/')}/{target.privkey_filename or 'privkey.pem'}"
+                pfx_p = f"{remote_dir.rstrip('/')}/{target.pfx_filename or 'Certificate.pfx'}"
                 passout = f"pass:{pfx_pw}"
                 cmd = (
                     f"openssl pkcs12 -export -in {shlex.quote(full_p)} "
@@ -1403,6 +2306,18 @@ def deploy_target(
                 st, out, err = ssh_svc.run_command(client, cmd, timeout=60)
                 if st != 0:
                     raise RuntimeError(f"pfx export failed: {err or out}")
+                try:
+                    sftp = client.open_sftp()
+                    try:
+                        sftp.chmod(pfx_p, mode_int)
+                    finally:
+                        sftp.close()
+                except Exception:
+                    ssh_svc.run_command(
+                        client,
+                        f"chmod {shlex.quote(mode)} {shlex.quote(pfx_p)}",
+                        timeout=15,
+                    )
                 if owner:
                     chown = f"{owner}:{group}" if group else owner
                     ssh_svc.run_command(
@@ -1410,6 +2325,13 @@ def deploy_target(
                         f"sudo chown {shlex.quote(chown)} {shlex.quote(pfx_p)} 2>/dev/null || true",
                         timeout=15,
                     )
+                # Pure pfx: remove intermediate PEMs from final dir
+                if layout == "pfx":
+                    for fname, _ in _pfx_source_pems(full, key, target):
+                        path = f"{remote_dir.rstrip('/')}/{fname}"
+                        ssh_svc.run_command(
+                            client, f"rm -f {shlex.quote(path)}", timeout=15
+                        )
 
         if target.post_deploy_command:
             log("post_deploy_command")
@@ -1417,16 +2339,79 @@ def deploy_target(
                 client, target.post_deploy_command, timeout=180
             )
             if st != 0:
-                raise RuntimeError(f"post deploy failed: {err or out}")
+                cmd_preview = (target.post_deploy_command or "").strip()
+                if len(cmd_preview) > 120:
+                    cmd_preview = cmd_preview[:117] + "…"
+                raise RuntimeError(
+                    f"Restart / post-deploy command failed (exit {st}): "
+                    f"{(err or out or '').strip() or 'no output'}. "
+                    f"Command: {cmd_preview}. "
+                    "Fix the unit/compose path, or allow it in sudoers "
+                    "(Simulate privileges in the deploy-target wizard)."
+                )
 
+        # Marker fingerprint file (direct already wrote it; stage_sudo may need sudo)
+        if write_mode == "stage_sudo":
+            fp_marker = f"{remote_dir.rstrip('/')}/.piherder-cert-fp"
+            fp_stage = f"{cert_stage_dir(home, target_id)}/.piherder-cert-fp"
+            try:
+                sftp = client.open_sftp()
+                try:
+                    with sftp.file(fp_stage, "w") as f:
+                        f.write((cert.fingerprint_sha256 or "") + "\n")
+                finally:
+                    sftp.close()
+                chown_user = (target.file_owner or "root").strip() or "root"
+                chown_group = (target.file_group or "root").strip() or "root"
+                ssh_svc.run_command(
+                    client,
+                    f"sudo install -o {shlex.quote(chown_user)} "
+                    f"-g {shlex.quote(chown_group)} -m 644 "
+                    f"{shlex.quote(fp_stage)} {shlex.quote(fp_marker)}",
+                    timeout=20,
+                )
+            except Exception as mark_err:
+                log(f"marker write skipped: {mark_err}")
+
+        log("verify host fingerprint + optional TLS URL")
+        verify = verify_deploy_target(
+            client,
+            target,
+            remote_dir=remote_dir,
+            expected_fingerprint=cert.fingerprint_sha256 or "",
+        )
         now = datetime.utcnow()
         target.last_deployed_at = now
         target.last_deploy_status = "success"
         target.last_deploy_fingerprint = cert.fingerprint_sha256
-        target.last_deploy_message = f"ok ({write_mode})"
+        vstatus = verify.get("status") or ("success" if verify.get("ok") else "failed")
+        target.last_verify_status = vstatus
+        target.last_verify_message = (verify.get("message") or "")[:500]
+        target.last_verify_at = now
+        msg = f"ok ({write_mode})"
+        if vstatus == "success":
+            msg += "; verified"
+            if verify.get("tls") and verify["tls"].get("ok"):
+                msg += "+tls"
+        elif vstatus == "partial":
+            msg += f"; verify partial: {target.last_verify_message}"
+        elif vstatus == "failed":
+            msg += f"; verify failed: {target.last_verify_message}"
+        else:
+            msg += f"; verify {vstatus}"
+        target.last_deploy_message = msg[:500]
         target.updated_at = now
         session.add(target)
         session.commit()
+        # Alerts: deploy succeeded → close deploy-failed; verify drives verify alert
+        _apply_cert_target_alerts(
+            session,
+            target=target,
+            cert=cert,
+            server=server,
+            deploy_ok=True,
+            verify=verify,
+        )
         log("done")
         return {
             "ok": True,
@@ -1434,22 +2419,237 @@ def deploy_target(
             "server_id": server.id,
             "remote_dir": remote_dir,
             "write_mode": write_mode,
+            "verify": verify,
         }
     except Exception as e:
         logger.exception("cert deploy failed")
         now = datetime.utcnow()
+        wm = ""
+        try:
+            wm = _normalize_write_mode(getattr(target, "write_mode", None))
+        except Exception:
+            wm = (getattr(target, "write_mode", None) or "") or ""
+        ssh_u = (getattr(server, "ssh_username", None) or "piherder") if server else ""
+        rdir = (getattr(target, "remote_dir", None) or "") if target else ""
+        nice = humanize_deploy_error(
+            e, write_mode=wm, ssh_user=ssh_u, remote_dir=rdir
+        )[:500]
         target.last_deploy_status = "failed"
-        target.last_deploy_message = str(e)[:500]
+        target.last_deploy_message = nice
         target.updated_at = now
         session.add(target)
         session.commit()
-        return {"ok": False, "error": str(e)[:500]}
+        _apply_cert_target_alerts(
+            session,
+            target=target,
+            cert=cert,
+            server=server,
+            deploy_ok=False,
+            deploy_error=nice,
+            verify=None,
+        )
+        return {"ok": False, "error": nice}
     finally:
         if client:
             try:
                 client.close()
             except Exception:
                 pass
+
+
+def humanize_deploy_error(
+    err: Any,
+    *,
+    write_mode: str = "",
+    ssh_user: str = "",
+    remote_dir: str = "",
+) -> str:
+    """Turn raw SSH/sudo/openssl failures into operator-actionable copy (A1.4)."""
+    raw = str(err or "").strip() or "Deploy failed"
+    low = raw.lower()
+    user = (ssh_user or "piherder").strip() or "piherder"
+    dest = (remote_dir or "destination").strip() or "destination"
+    wm = (write_mode or "").strip()
+
+    def _join(main: str, hint: str) -> str:
+        main = main.rstrip()
+        if not hint:
+            return main[:500]
+        if hint.lower() in main.lower():
+            return main[:500]
+        return f"{main} — {hint}"[:500]
+
+    # SSH / auth
+    if any(
+        t in low
+        for t in (
+            "authentication failed",
+            "auth fail",
+            "permission denied (publickey",
+            "no existing session",
+            "unable to connect",
+            "connection refused",
+            "connection reset",
+            "timed out",
+            "timeout",
+            "name or service not known",
+            "no route to host",
+        )
+    ):
+        return _join(
+            raw,
+            f"Check SSH for {user}: host reachability, key/password, and that the "
+            "server is online in PiHerder.",
+        )
+
+    # Missing PEMs
+    if "pems missing" in low or "certificate pems missing" in low:
+        return _join(
+            raw,
+            "Re-upload fullchain + privkey (⋮ → Replace PEM) then deploy again.",
+        )
+
+    # Sudo / sudoers
+    if any(
+        t in low
+        for t in (
+            "a password is required",
+            "sudo: a password is required",
+            "not allowed to execute",
+            "is not in the sudoers",
+            "sudoers",
+            "sudo install",
+            "sorry, user",
+        )
+    ) or ("sudo" in low and ("fail" in low or "denied" in low or "error" in low)):
+        return _join(
+            raw,
+            f"Install the deploy-target sudoers drop-in for user {user} "
+            f"(exact stage + final paths), then use Simulate privileges. "
+            f"Destination: {dest}.",
+        )
+
+    # Write / mkdir / permission
+    if any(
+        t in low
+        for t in (
+            "permission denied",
+            "mkdir failed",
+            "read-only file system",
+            "operation not permitted",
+        )
+    ):
+        if wm == "direct" or "stage + sudo" in low or "stage_sudo" in low:
+            return _join(
+                raw,
+                f"SSH user {user} cannot write {dest}. Switch write mode to "
+                "Stage + sudo install, or fix directory ownership/permissions.",
+            )
+        return _join(
+            raw,
+            f"Cannot write under {dest} as {user}. Check path exists, ownership, "
+            "and write mode (direct vs stage+sudo).",
+        )
+
+    # OpenSSL / PFX
+    if "pfx" in low or "pkcs12" in low or "openssl" in low:
+        return _join(
+            raw,
+            "Need openssl on the host with pkcs12 support; check PFX password "
+            "and that source PEMs staged correctly.",
+        )
+
+    # Restart / post-deploy
+    if "post deploy" in low or "post-deploy" in low or "restart" in low:
+        return _join(
+            raw,
+            "Files may already be installed — fix the restart recipe "
+            "(compose path / systemd unit) or sudoers for that command, then re-deploy.",
+        )
+
+    # Stage path
+    if "stage mkdir" in low or ("stage" in low and "mkdir" in low):
+        return _join(
+            raw,
+            f"Cannot create the stage directory under {user}'s home. "
+            "Confirm SSH home and disk space.",
+        )
+
+    # Generic — keep detail, add short next step
+    if len(raw) < 80 and "fail" in low:
+        return _join(
+            raw,
+            "Open deploy-target detail for paths/sudoers; run Simulate privileges, "
+            "then retry Deploy.",
+        )
+    return raw[:500]
+
+
+def _apply_cert_target_alerts(
+    session: Session,
+    *,
+    target: CertificateTarget,
+    cert: ManagedCertificate | None,
+    server: Server | None,
+    deploy_ok: bool,
+    deploy_error: str = "",
+    verify: dict[str, Any] | None = None,
+) -> None:
+    """Raise/resolve Notifications for deploy failure and fingerprint/TLS failure.
+
+    Best-effort — never raise out of the deploy path.
+    """
+    try:
+        from . import notifications as notif_svc
+    except Exception:
+        return
+    try:
+        tid = int(target.id) if target.id is not None else 0
+        if not tid:
+            return
+        cert_id = int(cert.id) if cert and cert.id else int(target.certificate_id)
+        cert_name = (cert.name if cert else None) or f"Certificate #{cert_id}"
+        server_id = int(server.id) if server and server.id else int(target.server_id)
+        server_name = (server.name if server else None) or f"#{server_id}"
+        label = (target.label or "").strip() or f"target #{tid}"
+
+        if deploy_ok:
+            notif_svc.resolve_cert_deploy_failed(session, tid)
+        else:
+            notif_svc.notify_cert_deploy_failed(
+                session,
+                target_id=tid,
+                cert_id=cert_id,
+                cert_name=cert_name,
+                server_id=server_id,
+                server_name=server_name,
+                service_label=label,
+                message=deploy_error or "deploy failed",
+            )
+            # Deploy failed before/without a clean verify — still flag verify if stale
+            # but do not open verify-only noise; leave prior verify alert alone.
+            return
+
+        # Deploy succeeded: open or close verify alert from this run's result
+        if verify is None:
+            return
+        vstatus = (verify.get("status") or "").strip()
+        if verify.get("ok") or vstatus == "success" or vstatus == "skipped":
+            notif_svc.resolve_cert_verify_failed(session, tid)
+        elif vstatus in ("failed", "partial") or not verify.get("ok"):
+            notif_svc.notify_cert_verify_failed(
+                session,
+                target_id=tid,
+                cert_id=cert_id,
+                cert_name=cert_name,
+                server_id=server_id,
+                server_name=server_name,
+                service_label=label,
+                message=verify.get("message") or "verify failed",
+                status=vstatus or "failed",
+            )
+    except Exception as e:
+        logger.debug("cert target alerts skipped: %s", e)
 
 
 def deploy_all_targets(

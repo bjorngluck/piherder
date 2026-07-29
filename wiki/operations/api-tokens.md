@@ -10,7 +10,7 @@ Operators want “backup host X every night from HA” without storing a human p
 
 **Where:** Settings → **API management** (`/herder-backups?tab=api`) — **admin only**.  
 **Catalog tab:** scopes and endpoints render as a **dense list** (not a wide table).  
-**Interactive OpenAPI:** on your instance at `/docs` (tag `api-v1`).  
+**Interactive OpenAPI:** on your instance at **`/docs`** (Swagger — Authorize with `Bearer ph_…`) and **`/redoc`** (ReDoc). Settings → API also has a **Try a token** panel for a quick same-origin smoke check after create/rotate.  
 **Long reference:** [docs/API.md](https://github.com/bjorngluck/piherder/blob/main/docs/API.md) in the repo.
 
 ## Auth

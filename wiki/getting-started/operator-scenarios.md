@@ -25,6 +25,8 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 
 **Done when:** Server detail shows green-enough SSH/deps for enabled features; no password left stored if key auth works.
 
+**Optional polish:** pin the host Overview/Docker and Network **Hosts map** ([Pins & host jump](../day-to-day/navigation-pins.md)) so the ★ menu opens the map graph (`#map`).
+
 ---
 
 ### Journey B — Safe backup before you depend on it {#journey-b}

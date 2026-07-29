@@ -34,18 +34,51 @@
       </p>
       <span class="fabric-nav-card-cta">Open →</span>
     </a>
-    <a href="/dns/physical#map" class="fabric-nav-card fabric-nav-card--physical fabric-nav-card--compact">
-      <div class="fabric-nav-card-kicker">Map</div>
-      <div class="fabric-nav-card-title">Hosts map</div>
-      <p class="fabric-nav-card-desc">LAN · cloud · router</p>
-      <span class="fabric-nav-card-cta">Open →</span>
-    </a>
-    <a href="/dns/logical#map" class="fabric-nav-card fabric-nav-card--logical fabric-nav-card--compact">
-      <div class="fabric-nav-card-kicker">Map</div>
-      <div class="fabric-nav-card-title">Path map</div>
-      <p class="fabric-nav-card-desc">Name → proxy → host → app</p>
-      <span class="fabric-nav-card-cta">Open →</span>
-    </a>
+    {# Not a single <a> wrapper — pin form must sit next to the title without nested forms #}
+    <div class="fabric-nav-card fabric-nav-card--physical fabric-nav-card--compact fabric-nav-card--with-pin relative">
+      <a href="/dns/physical#map" class="fabric-nav-card-main-link" aria-label="Open Hosts map">
+        <div class="fabric-nav-card-kicker">Map</div>
+        <div class="fabric-nav-card-title feature-title-with-pin">
+          <span>Hosts map</span>
+        </div>
+        <p class="fabric-nav-card-desc">LAN · cloud · router</p>
+        <span class="fabric-nav-card-cta">Open →</span>
+      </a>
+      {% if pin_hosts_map %}
+      <div class="fabric-nav-card-pin" onclick="event.stopPropagation()">
+        {% with pin_kind=pin_hosts_map.pin_kind,
+                pin_page=pin_hosts_map.pin_page,
+                pin_label=pin_hosts_map.pin_label,
+                pin_href=pin_hosts_map.pin_href,
+                is_favourite=pin_hosts_map.is_favourite,
+                favourite_id=pin_hosts_map.favourite_id %}
+        {% include "partials/pin_button.html" %}
+        {% endwith %}
+      </div>
+      {% endif %}
+    </div>
+    <div class="fabric-nav-card fabric-nav-card--logical fabric-nav-card--compact fabric-nav-card--with-pin relative">
+      <a href="/dns/logical#map" class="fabric-nav-card-main-link" aria-label="Open Path map">
+        <div class="fabric-nav-card-kicker">Map</div>
+        <div class="fabric-nav-card-title feature-title-with-pin">
+          <span>Path map</span>
+        </div>
+        <p class="fabric-nav-card-desc">Name → proxy → host → app</p>
+        <span class="fabric-nav-card-cta">Open →</span>
+      </a>
+      {% if pin_path_map %}
+      <div class="fabric-nav-card-pin" onclick="event.stopPropagation()">
+        {% with pin_kind=pin_path_map.pin_kind,
+                pin_page=pin_path_map.pin_page,
+                pin_label=pin_path_map.pin_label,
+                pin_href=pin_path_map.pin_href,
+                is_favourite=pin_path_map.is_favourite,
+                favourite_id=pin_path_map.favourite_id %}
+        {% include "partials/pin_button.html" %}
+        {% endwith %}
+      </div>
+      {% endif %}
+    </div>
   </div>
 
   {# Settings — same card language as destinations above; clearly clickable #}

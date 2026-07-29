@@ -60,7 +60,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-23):** **v0.9.0 locked as last pre-production** — UX/UI consistency (streams D/N/K/U), unit freeze **≥55%** with stepped CI fail-under, E2E basic coverage for every surface touched, and **Home Assistant discovery** ([FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md): path 1 mark/SSH in 0.9 capacity; path 1 REST lean **v1.0**; path 2 HAOS component **≥1.0**).
 
-**Decision (2026-07-26):** Operator QA triage (letters A–AB). **Bugs A–E fixed on 0.9 train** (nmap confirm modal, hide version when anonymous, Path map NPM multi-path focus, Docker logs All services, backup-codes step-up 2FA). **v1.0** plan opened for production hardening + known issues O/R/T/U/V/W/X + auth redirect F + security AA; cert wizard **P** discovery in 1.0 / full **v1.1**. Post-1.0 backlog: G password reset, H email, J favourites, K cross-host jump, L quick-editor scope note, M template fleet overview, N insights, Q git onboard, S discovery hygiene, Y API polish, Z SSO/OIDC, AB trusted-device detail. See [PLAN_v1.0.0.md](PLAN_v1.0.0.md).
+**Decision (2026-07-26):** Operator QA triage (letters A–AB). **Bugs A–E fixed on 0.9 train** (nmap confirm modal, hide version when anonymous, Path map NPM multi-path focus, Docker logs All services, backup-codes step-up 2FA). **v1.0** plan opened for production hardening + known issues O/R/T/U/V/W/X + auth redirect F + security AA; cert wizard **P** discovery in 1.0 / full **v1.1**. Post-1.0 backlog (historical): G password reset, H email, J favourites, K cross-host jump, L quick-editor scope note, M template fleet overview, N insights, Q git onboard, S discovery hygiene, Y API polish, Z SSO/OIDC, AB trusted-device detail. See [PLAN_v1.0.0.md](PLAN_v1.0.0.md).
 
 **Decision (2026-07-26):** **v0.9.0 feature-locked and tagged** — last pre-production. HAOS path 1, dense UX, unit ≥55%, operator QA A–E. See [RELEASE_v0.9.0.md](RELEASE_v0.9.0.md).
 
@@ -71,6 +71,8 @@ Design principles stay the same as SPEC:
 **Decision (2026-07-29):** **v1.1.0 train opened** on **`v1.1.0-dev`**. **Elevate production** on streams **A** certs · **B** discovery · **C** identity · **D** operator UX · **G** topology/maps · **I** integrations/API. Mode: focus · polish · discover · pull-in · defer. Enhanced themes → **v1.2 / v1.3 paths**. `main` stays patchable for **v1.0.x**. See [PLAN_v1.1.0.md](PLAN_v1.1.0.md).
 
 **Decision (2026-07-29):** **ACME-in-herder (P-acme)** is a **desired** direction, **under consideration from v1.3+** — not v1.1. Do not replace NPM; deepen pull/renew when NPM is present. Challenge model open: human-assisted DNS/HTTP tokens vs automated DNS APIs vs hybrid. Prefer Certbot/lego *patterns* over forking NPM. Detail: [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6.1.
+
+**Decision (2026-07-29 mid-train):** On `v1.1.0-dev`, elevation streams largely **landed**: **A** cert deploy-target wizard + verify · **B** discovery S1–S4 · **C** PP+AB · **D** human schedules + ★ pins + host jump · **G** ports + cross-host edges · **I** partial (**Y** API try/ReDoc; **Int-gen** open). Residual: A1.6/A1.7 polish, Int-gen, freeze. See [PLAN_v1.1.0.md](PLAN_v1.1.0.md).
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.0.0` / `1.0` / `latest` (until 1.1 publish).
 
