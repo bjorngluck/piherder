@@ -291,6 +291,7 @@ ACME · NPM write · auto-SSH sudoers install · **P-job** (Cap/Should later)
 | 2026-07-29 | Branch `v1.1.0-dev` from `main` @ v1.0.0. Residual P+S plan opened. |
 | 2026-07-29 | Elevation streams **A, B, C, D, G, I** locked. Mode: focus · polish · discover · pull-in · defer. |
 | 2026-07-29 | Deferred framed as **v1.2 / v1.3 paths**. Phase **A1 certs** is first implementation slice. |
+| 2026-07-29 | **A1.0–A1.1 landed:** path helpers + sudoers/deploy alignment for custom home / root; unit tests; partial **P-fb** error copy. Next: **A1.2** map-form JS → server truth, then wizard (**A1.3**). |
 
 ---
 
