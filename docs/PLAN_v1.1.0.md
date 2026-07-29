@@ -84,7 +84,8 @@ main @ v1.0.0 (+ v1.0.x patches)
 | Must | **P-fb** | Deploy actionable errors |
 | Should | **P-job** | Multi-map deploy as Job |
 | Discover | — | Optional verify-sudoers probe |
-| → v1.2+ | **P-acme**, **P-npm-w** | ACME-in-herder · NPM write CRUD |
+| → v1.2+ | **P-npm-w** | NPM proxy host write CRUD (if ever) |
+| → **v1.3+** | **P-acme** | ACME-in-herder — **under consideration** (see §6.1); not v1.1 |
 
 ### B — LAN Discovery
 
@@ -185,11 +186,45 @@ Not abandoned — scheduled as paths. Items may move between 1.2 and 1.3 as the 
 | SSO / OIDC (**Z**) | BYO IdP · groups → roles |
 | Web SSH (**HL-P5**) | Full security bar |
 | HA REST / S1 / path 2 | Integration track |
-| ACME · NPM write | TLS product expansion |
+| **P-acme** ACME-in-herder | **Under consideration** — §6.1 (not committed) |
+| NPM write CRUD | Optional if still needed after ACME/NPM pull depth |
 | Full insights · branding | Horizon UX |
 | k8s / bare | Deploy topologies |
 
 Patches for security/data issues still ship as **v1.0.x** / **v1.1.x** regardless of path.
+
+### 6.1 ACME-in-herder (**P-acme**) — under consideration from **v1.3+**
+
+**Status:** Desired product direction; **not** v1.1 and not a v1.2 ship gate. Discovery / design may start whenever capacity allows; implementation target **v1.3 onwards**.
+
+**Why later:** v1.1 elevates **distribute** (wizard, sudoers, maps). Issuance is a separate trust and ops surface. Operators who already run NPM should keep using it as the multi-provider issuer (PiHerder continues **pull + renew-via-NPM + vault + deploy**).
+
+**Do not replace NPM.** ACME-in-herder is for fleets **without** NPM, air-gapped-ish labs that still want LE/public ACME, or dual-path flexibility. Prefer architecture *patterns* from NPM (Certbot + DNS plugin catalog, serial renewals) over importing NPM code — NPM is an orchestrator around **Certbot**, not a shared library.
+
+#### Challenge model (open design — pick at discovery)
+
+| Approach | Idea | Pros | Cons |
+|----------|------|------|------|
+| **A — Human-assisted** | Herder shows DNS TXT / HTTP token; operator pastes records (or confirms) then herder continues ACME | Simple; no DNS API secrets in herder; works with any DNS | Manual at issue/renew; renew friction |
+| **B — DNS automation** | Herder (or worker) writes challenge via DNS provider API / RFC2136 / Pi-hole where possible | Hands-off renew; wildcards | Credentials, provider matrix tax, blast radius |
+| **C — Hybrid (likely first ship)** | Issue: assisted or automated; renew: prefer automation when provider bound, else notify + assisted | Matches real labs | Two UX paths to document |
+| **D — Delegate** | No native ACME; only deepen NPM/external issuer integration | Lowest risk | No path when NPM absent |
+
+**Lean (2026-07-29):** treat **C** as default discovery hypothesis; **A** acceptable MVP if automation slips. Do **not** aim for NPM’s full ~80 DNS plugins on day one — thin set (e.g. Cloudflare, RFC2136, maybe Pi-hole/local) or human-assisted only.
+
+#### Product locks if it ships
+
+- Vault + service maps + stage+sudo remain the **distribution** story (same as today).  
+- ACME material lands as another **source** next to `npm` / `upload`.  
+- Serial renew jobs; clear audit; secrets encrypted at rest.  
+- Air-gap: ACME off / N/A when no public ACME path.  
+- Image size: prefer optional worker or lazy tools over baking every DNS plugin into the core image.
+
+#### Explicit non-goals until discovery closes
+
+- Replacing NPM SSL UI for proxy hosts.  
+- Full Certbot DNS catalog in core image.  
+- Auto-issue without operator email / ToS / rate-limit awareness.
 
 ---
 
@@ -292,6 +327,7 @@ ACME · NPM write · auto-SSH sudoers install · **P-job** (Cap/Should later)
 | 2026-07-29 | Elevation streams **A, B, C, D, G, I** locked. Mode: focus · polish · discover · pull-in · defer. |
 | 2026-07-29 | Deferred framed as **v1.2 / v1.3 paths**. Phase **A1 certs** is first implementation slice. |
 | 2026-07-29 | **A1.0–A1.1 landed:** path helpers + sudoers/deploy alignment for custom home / root; unit tests; partial **P-fb** error copy. Next: **A1.2** map-form JS → server truth, then wizard (**A1.3**). |
+| 2026-07-29 | **P-acme** ACME-in-herder: desired · **under consideration from v1.3+** (not this train). Challenge model open: DNS automation vs human-assisted vs hybrid; NPM stays preferred multi-provider issuer. §6.1. |
 
 ---
 
