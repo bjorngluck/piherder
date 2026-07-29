@@ -2,7 +2,7 @@
 
 ## What this is
 
-**Settings** is the admin control plane for the **instance**: timezone, security policy, fleet update-check defaults, **stale data cleanup**, PiHerder self-backup, stack Status, and API tokens.
+**Settings** is the admin control plane for the **instance**: timezone, security policy, fleet update-check defaults, **stale data cleanup**, **Alerts** (webhook + SMTP), PiHerder self-backup, stack Status, and API tokens.
 
 **Where:** top nav **Settings** → `/herder-backups` (tabs on one page; legacy path kept for bookmarks).
 
@@ -22,7 +22,8 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 2. **General** → enable **force 2FA** if everyone should enrol.  
 3. **PiHerder backup** → run once + schedule; store archive + master key offline.  
 4. **Status** → Check now until green.  
-5. Optional **API** tokens for n8n/HA only if needed.  
+5. Optional **Alerts** (webhook + SMTP) for outbound notifications and password recovery.  
+6. Optional **API** tokens for n8n/HA only if needed.  
 
 ---
 
@@ -31,6 +32,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 | Tab | Purpose |
 |-----|---------|
 | **General** | App timezone, security policy (force 2FA), and **Stale data cleanup** |
+| **Alerts** | Outbound **webhook** + **SMTP** (alert mail, test send, forgot-password) — [details](alerts-email-webhooks.md) |
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
 | **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)) |
 | **Status** | Stack health: web, DB, Redis, Celery, scheduler, disk ([Status](status.md)) — admin |

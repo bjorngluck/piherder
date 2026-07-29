@@ -125,14 +125,146 @@ def _registration_allowed(session: Session) -> bool:
 
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, session: Session = Depends(get_session)):
+    from ..services import alert_channels as alert_ch
+
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="login.html",
         context={
             "title": "Login",
             "registration_open": _registration_allowed(session),
+            "password_reset_available": alert_ch.password_reset_available(),
         },
     )
+
+
+def _public_base_url(request: Request) -> str:
+    """Best-effort public origin for reset links (proxy-aware)."""
+    xf_proto = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip()
+    xf_host = (request.headers.get("x-forwarded-host") or "").split(",")[0].strip()
+    host = xf_host or request.headers.get("host") or request.url.netloc
+    scheme = xf_proto or request.url.scheme or "https"
+    if not host:
+        return str(request.base_url).rstrip("/")
+    return f"{scheme}://{host}".rstrip("/")
+
+
+@router.get("/forgot-password", response_class=HTMLResponse)
+async def forgot_password_page(request: Request):
+    from ..services import alert_channels as alert_ch
+
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="forgot_password.html",
+        context={
+            "title": "Forgot password",
+            "available": alert_ch.password_reset_available(),
+            "msg": request.query_params.get("msg") or "",
+            "error": request.query_params.get("error") or "",
+        },
+    )
+
+
+@router.post("/forgot-password")
+async def forgot_password_submit(
+    request: Request,
+    email: str = Form(...),
+    session: Session = Depends(get_session),
+):
+    from ..services import alert_channels as alert_ch
+    from ..services import password_reset as pwreset
+
+    ip = _client_ip(request) or "unknown"
+    if not rate_limit_auth(
+        f"forgot:{ip}", max_attempts=5, window_seconds=LOGIN_RATE_WINDOW
+    ):
+        return RedirectResponse("/auth/forgot-password?error=rate", status_code=303)
+    if not alert_ch.password_reset_available():
+        return RedirectResponse(
+            "/auth/forgot-password?error=disabled", status_code=303
+        )
+    # Rate limit per email too (enumeration-resistant generic response)
+    rate_limit_auth(
+        f"forgot-email:{(email or '').strip().lower()[:120]}",
+        max_attempts=3,
+        window_seconds=LOGIN_RATE_WINDOW,
+    )
+    result = pwreset.request_reset_email(
+        session,
+        email,
+        base_url=_public_base_url(request),
+        request_ip=ip,
+    )
+    if not result.get("ok") and result.get("error") not in (None,):
+        # SMTP send failure — still generic on UI if user missing; only hard fail when disabled
+        if result.get("error") == "email recovery is not enabled":
+            return RedirectResponse(
+                "/auth/forgot-password?error=disabled", status_code=303
+            )
+    return RedirectResponse("/auth/forgot-password?msg=sent", status_code=303)
+
+
+@router.get("/reset-password", response_class=HTMLResponse)
+async def reset_password_page(request: Request, token: str = ""):
+    tok = (token or request.query_params.get("token") or "").strip()
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="reset_password.html",
+        context={
+            "title": "Reset password",
+            "token": tok,
+            "error": request.query_params.get("error") or "",
+        },
+    )
+
+
+@router.post("/reset-password")
+async def reset_password_submit(
+    request: Request,
+    token: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    session: Session = Depends(get_session),
+):
+    from ..services import password_policy as pwpol
+    from ..services import password_reset as pwreset
+    from ..services.user_admin import bump_session_version
+
+    ip = _client_ip(request) or "unknown"
+    if not rate_limit_auth(
+        f"reset:{ip}", max_attempts=10, window_seconds=LOGIN_RATE_WINDOW
+    ):
+        return RedirectResponse(
+            f"/auth/reset-password?token={token}&error=rate", status_code=303
+        )
+    if new_password != confirm_password:
+        return RedirectResponse(
+            f"/auth/reset-password?token={token}&error=mismatch", status_code=303
+        )
+    ok, _err = pwpol.validate_password(new_password or "")
+    if not ok:
+        return RedirectResponse(
+            f"/auth/reset-password?token={token}&error=policy", status_code=303
+        )
+    user = pwreset.consume_token(session, token)
+    if not user:
+        return RedirectResponse(
+            "/auth/reset-password?error=invalid", status_code=303
+        )
+    user.hashed_password = get_password_hash(new_password)
+    user.must_change_password = False
+    user.updated_at = datetime.utcnow()
+    session.add(user)
+    revoke_all_trusted_devices(session, user.id)
+    bump_session_version(session, user)
+    session.commit()
+    _audit(
+        session,
+        user.id,
+        "user_password_reset",
+        "Password reset via email token; sessions + trusted devices revoked",
+    )
+    return RedirectResponse("/auth/login?msg=password_reset", status_code=303)
 
 
 @router.post("/login")

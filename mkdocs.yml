@@ -188,6 +188,7 @@ nav:
       - Upgrades: operations/upgrades.md
       - Multi-worker Celery: operations/multi-worker.md
       - Metrics & webhooks: operations/metrics-webhooks.md
+      - Alerts (email & webhooks): operations/alerts-email-webhooks.md
       - API tokens: operations/api-tokens.md
   - Troubleshooting:
       - Overview: troubleshooting/index.md

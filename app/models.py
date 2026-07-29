@@ -61,6 +61,18 @@ class TrustedDevice(SQLModel, table=True):
     user: Optional[User] = Relationship(back_populates="trusted_devices")
 
 
+class PasswordResetToken(SQLModel, table=True):
+    """One-time email password reset (G1-lite). Token stored hashed only."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    token_hash: str = Field(index=True)
+    expires_at: datetime
+    used_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    request_ip: Optional[str] = None
+
+
 class UserFavourite(SQLModel, table=True):
     """Operator pin (J favourites).
 

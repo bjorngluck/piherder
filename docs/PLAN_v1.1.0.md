@@ -65,11 +65,16 @@ main @ v1.0.0 (+ v1.0.x patches)
 | 10–12 | D | **E6** schedules · **J** favourites · **K** cross-host jump | Should | **Landed** (E6 `cron_human` · **J** ★ pins · **K** host jump) |
 | 13–14 | G | **Ports** · **Topo-xhost** | Should | **Landed** (port chips `host→container` · cross-host manual edge picker) |
 | 15–16 | I | **Y** OpenAPI/test UX · **Int-gen** generic URLs | Should | **Landed** (**Y** bearer Try a token + ReDoc; **Int-gen** HA/Frigate/n8n/custom links) |
+| 18 | C | **AB-polish** trusted device edit UX | Cap | **Landed** — ✎ edit / inline rename |
+| 19 | N | **Wh-lite** webhook for alerts (UI + event filter) | Cap | **Landed** — Settings → Alerts; env `WEBHOOK_*` fallback |
+| 20 | C | **H-lite** SMTP + test send + optional alert mail | Cap | **Landed** — encrypted password; test email |
+| 21 | C | **G1-lite** email password recovery | Cap | **Landed** — when SMTP OK; hashed 1h tokens |
 | 17 | — | Docs freeze + tag + Hub | Must | Planned (mid-train docs pass 2026-07-29) |
 
 **Success:** all Must + solid elevation from each of C, D, G, I (prefer full Should). Discover promoted or deferred in RELEASE.
 
-**Capacity Should:** **P-job**, **S-hb**, **S-icon**.
+**Capacity (locked 2026-07-29):** **AB-polish** · **Wh-lite** · **H-lite** · **G1-lite**.  
+**Explicitly → v1.2:** WebAuthn / passkeys (not this train). Residual Cap: **P-job**, **S-hb**, **S-icon**.
 
 ---
 
@@ -117,10 +122,13 @@ main @ v1.0.0 (+ v1.0.x patches)
 | Tier | ID | Item |
 |------|-----|------|
 | Should | **PP**, **AB** | Password policy · trusted-device detail |
-| Discover | **H-lite** | SMTP + test send |
-| Discover | **H** / **H-ch** | Full mail + channels if H-lite easy |
-| → v1.2 | **G1**, **G2-mail** | Self-service / admin email reset |
-| → v1.3 | **Z**, WebAuthn, multi-tenant | SSO program |
+| Cap | **AB-polish** | Edit icon / inline rename for trusted devices (no always-visible form) |
+| Cap | **H-lite** | SMTP settings + test send + optional alert email |
+| Cap | **G1-lite** | Self-service email password reset when SMTP OK |
+| Cap | **Wh-lite** | Webhook alerts UI (with env fallback) — see § Cap channels |
+| Discover | **H** / **H-ch** | Full mail + multi-channel matrix if capacity after Cap |
+| → v1.2 | **G2-mail**, WebAuthn/passkeys | Admin mail reset polish · passkeys as 2FA |
+| → v1.3 | **Z**, multi-tenant | SSO program |
 
 #### C1 — implementation notes (landed)
 
@@ -128,6 +136,10 @@ main @ v1.0.0 (+ v1.0.x patches)
 |----|-----------|
 | **PP** | Existing fixed policy (≥10, upper/lower/digit, byte cap) — no further product work this train |
 | **AB** | Account → Trusted devices: **device type** (from UA), **last IP**, **friendly rename**, last used / expires, per-device revoke + revoke all |
+| **AB-polish** | Rename hidden until **✎ Edit**; Save / Cancel; Revoke stays one-click |
+| **H-lite** | Settings → **Alerts**: SMTP host/port/security/user/password (Fernet) / from / alert recipients; **Send test** |
+| **G1-lite** | Login → Forgot password when SMTP enabled; hashed token, expiry, rate limit; no open reset without SMTP |
+| **Wh-lite** | Settings → **Alerts**: webhook URL + optional number/recipients/secret; filters for notifications / jobs / backups; env `WEBHOOK_*` if UI empty |
 
 ### D — Operator UX
 
@@ -219,7 +231,8 @@ Not abandoned — scheduled as paths. Items may move between 1.2 and 1.3 as the 
 
 | Theme | Items |
 |-------|--------|
-| Identity completion | Full **H** · **G1** · **G2-mail** · channels |
+| Identity completion | Full **H** · **G2-mail** · multi-channel matrix · residual recovery |
+| **WebAuthn / passkeys** | Second-factor passkeys first (not passwordless day one); coexist with TOTP + backup codes |
 | Network | **DNS-ext** · residual cert multi-deploy · **Mig** design |
 | Insights | **N-thin** → first **N** slices |
 | Templates | **M** · **Git-cat** · git-rich start |
@@ -314,7 +327,9 @@ PiHerder is fleet management **and** operator education. Novices often need “h
 - [x] B Must (S1–S4)  
 - [x] C / D / G Should (PP+AB, E6+J+K, Ports+Topo-xhost)  
 - [x] I Should full (**Y** + **Int-gen** landed)  
-- [ ] Discover promoted or → v1.2/v1.3  
+- [x] Cap **AB-polish · Wh-lite · H-lite · G1-lite** landed  
+- [x] WebAuthn/passkeys deferred → v1.2  
+- [ ] Discover residual promoted or → v1.2/v1.3  
 - [ ] Cert known-edges card updated for deploy-target wizard  
 - [ ] `RELEASE_v1.1.0.md` · wiki · screenshots as needed  
 - [ ] Unit ≥55% · E2E touch · `mkdocs build --strict`  
@@ -516,6 +531,8 @@ ACME-in-herder · NPM proxy write · **auto** install of sudoers over SSH (copy 
 | 2026-07-29 | **I Y partial:** Settings → API **Try a token** + OpenAPI/ReDoc deep links; **Int-gen** still open. |
 | 2026-07-29 | Mid-train **docs/wiki/ADMIN/ROADMAP** pass for A–D–G–I landed work. |
 | 2026-07-29 | **I Int-gen landed:** `generic_url` links (HA / Frigate / n8n / custom) + probe + Services bindings; wiki generic-links. Pin redirect no longer flashes raw `favourite_toggled`. |
+| 2026-07-29 | **Cap locked for train:** AB-polish · Wh-lite · H-lite · G1-lite. **WebAuthn/passkeys → v1.2**. |
+| 2026-07-29 | **Cap landed:** AB-polish (edit icon); Settings **Alerts** (Wh-lite + H-lite); G1-lite forgot/reset password; migration `035` password reset tokens. |
 
 ---
 
