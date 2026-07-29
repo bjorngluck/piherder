@@ -271,13 +271,15 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 |----------|-----|
 | `.env` keys | [Env reference](../operations/env-reference.md) |
 | Volume mounts | [Volumes](../operations/volumes.md) |
-| Settings tabs (backup, security, status, timezone, API) | [Settings](../operations/settings.md) |
+| Settings tabs (backup, security, Alerts, status, timezone, API) | [Settings](../operations/settings.md) |
 | Stack Status healthy? | [Status](../operations/status.md) |
 | Herder self-backup / restore (**admin only**) | [Self-backup](../operations/self-backup.md) · [Roles](../account-security/roles.md) |
 | Upgrade compose / image | [Upgrades](../operations/upgrades.md) |
 | More backup parallelism | [Multi-worker](../operations/multi-worker.md) |
-| Prometheus / webhook | [Metrics](../operations/metrics-webhooks.md) |
+| Prometheus / env webhook fallback | [Metrics](../operations/metrics-webhooks.md) |
+| Webhook + SMTP alerts / forgot password | [Alerts](../operations/alerts-email-webhooks.md) |
 | Token REST for n8n/HA | [API tokens](../operations/api-tokens.md) |
+| Generic HA / Frigate / n8n links | [Generic links](../integrations/generic-links.md) |
 
 ## When things go wrong
 

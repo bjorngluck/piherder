@@ -502,8 +502,9 @@ ACME-in-herder · NPM proxy write · **auto** install of sudoers over SSH (copy 
 
 ### Immediate next (implementation order)
 
-1. **A1.6 / A1.7** residual — wiki/setup polish + Playwright chrome as capacity.  
-2. Operator QA on A/B/I + freeze checklist; Discover pull-ins only if Must stays closed.
+1. Operator QA on Cap (Alerts / forgot password / device edit) + A/B/I surfaces.  
+2. **A1.6 / A1.7** residual — wiki/setup polish + Playwright chrome as capacity.  
+3. Freeze checklist → `RELEASE_v1.1.0.md` · version · merge · tag · Hub.
 
 ---
 
@@ -533,6 +534,7 @@ ACME-in-herder · NPM proxy write · **auto** install of sudoers over SSH (copy 
 | 2026-07-29 | **I Int-gen landed:** `generic_url` links (HA / Frigate / n8n / custom) + probe + Services bindings; wiki generic-links. Pin redirect no longer flashes raw `favourite_toggled`. |
 | 2026-07-29 | **Cap locked for train:** AB-polish · Wh-lite · H-lite · G1-lite. **WebAuthn/passkeys → v1.2**. |
 | 2026-07-29 | **Cap landed:** AB-polish (edit icon); Settings **Alerts** (Wh-lite + H-lite); G1-lite forgot/reset password; migration `035` password reset tokens. |
+| 2026-07-29 | End-of-day **docs sync**: ROADMAP / ADMIN / wiki alerts cross-links; Cap + Int-gen reflected for next session (freeze path). |
 
 ---
 

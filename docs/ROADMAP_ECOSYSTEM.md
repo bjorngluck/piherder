@@ -72,7 +72,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-29):** **ACME-in-herder (P-acme)** is a **desired** direction, **under consideration from v1.3+** — not v1.1. Do not replace NPM; deepen pull/renew when NPM is present. Challenge model open: human-assisted DNS/HTTP tokens vs automated DNS APIs vs hybrid. Prefer Certbot/lego *patterns* over forking NPM. Detail: [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6.1.
 
-**Decision (2026-07-29 mid-train):** On `v1.1.0-dev`, elevation streams **landed**: **A** cert deploy-target wizard + verify · **B** discovery S1–S4 · **C** PP+AB · **D** human schedules + ★ pins + host jump · **G** ports + cross-host edges · **I** **Y** API try/ReDoc + **Int-gen** generic links. Residual: A1.6/A1.7 polish, freeze. See [PLAN_v1.1.0.md](PLAN_v1.1.0.md).
+**Decision (2026-07-29 mid-train):** On `v1.1.0-dev`, elevation streams **landed**: **A** cert deploy-target wizard + verify · **B** discovery S1–S4 · **C** PP+AB + Cap (**AB-polish**, **H-lite** SMTP, **G1-lite** email reset) · **D** human schedules + ★ pins + host jump · **G** ports + cross-host edges · **I** **Y** API try/ReDoc + **Int-gen** generic links · **Wh-lite** Settings Alerts webhook. Residual: A1.6/A1.7 polish, operator QA, freeze. **WebAuthn/passkeys → v1.2**. See [PLAN_v1.1.0.md](PLAN_v1.1.0.md).
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.0.0` / `1.0` / `latest` (until 1.1 publish).
 
@@ -252,21 +252,22 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **JWT stack** | **Done (pre-0.5.0 tag):** sessions use **PyJWT[crypto]** HS256 — `python-jose` / `ecdsa` removed. |
 | **Custom branding** | Operator logo + accent colours — **far horizon** (well after 1.0 production). Not near-term polish. Built-in light/dark only for now. |
 | **Custom password policy** | Admin-configurable policy (min length, required classes, optional specials) instead of fixed code defaults. First-time setup still creates the initial admin when none exist. Soft max remains ~72 characters (storage limit). |
-| **Human-readable schedules (E6)** | **Discovery needed (post-1.0 platform)** — shared interval/cron formatter + “Advanced (cron)” across server OS/backup, nmap, herder backup, data cleanup. Not committed for v0.9. |
+| **Human-readable schedules (E6)** | **Shipped v1.1** — shared `cron_human` + presets on schedule surfaces. |
 | **Selectable hero stats (E9)** | **Discovery needed (post-1.0)** — user-selectable pulse metrics on ops heroes; preference model + metric registry. Non-committed roadmap only. |
 | **Templates catalog redesign (E11)** | **Discovery needed (H3 / post-1.0)** — table/filter layout, extra config files (e.g. CA Advisor). **0.9 stretch done:** OOTB / Yours badges + section groups. Full redesign separate. See [FEATURE_PLAN_TEMPLATES.md](FEATURE_PLAN_TEMPLATES.md). |
-| **Password reset (G)** | **G2-lite in 1.0:** admin OOB reset password / clear 2FA / reset access / force session logout (Users UI; no email). **G1** user self-reset + **G2-mail** invite/OTP mail → **v1.1+** with **H**. |
-| **Email / channels (H)** | **v1.1–v1.2 consideration** — SMTP, richer notifications, password-reset mail. |
-| **Favourites / shortcuts (J)** | **Post-1.0** — pin e.g. Backups on a host into a shortcut menu. |
-| **Cross-host feature jump (K)** | **Post-1.0** — while on Docker (etc.) on host A, jump to same feature on host B. |
+| **Password reset (G)** | **G2-lite in 1.0:** admin OOB Users recovery. **G1-lite in v1.1:** email self-reset when SMTP configured (Settings → Alerts). **G2-mail** invite/OTP polish → **v1.2**. |
+| **Email / channels (H)** | **H-lite + Wh-lite in v1.1** — Settings → Alerts (SMTP test + alert mail; webhook UI + event filters; env `WEBHOOK_*` fallback). Full multi-channel matrix → **v1.2**. |
+| **WebAuthn / passkeys** | **→ v1.2** — second-factor passkeys first; coexist with TOTP + backup codes. Not v1.1. |
+| **Favourites / shortcuts (J)** | **Shipped v1.1** — header ★ pins (host / app / integration). |
+| **Cross-host feature jump (K)** | **Shipped v1.1** — Jump host on Overview / Docker / Backups / Services. |
 | **Quick editor scope (L)** | **Lean no** for `.env`/sidecars in quick editor; full editor only — document in UI. Open discussion only. |
 | **Template fleet deployment overview (M)** | **Post-1.0** — which hosts/services have a given template (beyond stack-level badge). |
 | **Insights / custom dashboards (N)** | **Discovery + first thin slice post v1.0** — reporting / custom dashboarding. |
 | **Git-rich service onboard (Q)** | **Post-1.0** — full git clone/pull; more files than compose + Dockerfile. |
-| **Discovery hygiene (S)** | Last seen, offline indicator, purge/hide old devices — **consider 1.0**, default **v1.1**. |
-| **API management (Y)** | **Post-1.0** — OpenAPI docs polish, bearer test UX; align with non-OIDC model. |
-| **SSO / OIDC (Z)** | **Discovery post-1.0** — social or BYO IdP (Authentik, Okta, Auth0); optional groups → roles. |
-| **Trusted device detail (AB)** | **Post-1.0** — device type, last IP, rename. |
+| **Discovery hygiene (S)** | **S1–S4 shipped v1.1** — last seen, hide, purge, filters. Residual S-hb / S-icon capacity. |
+| **API management (Y)** | **Shipped v1.1 (partial)** — Settings → API **Try a token** + OpenAPI / ReDoc deep links. |
+| **SSO / OIDC (Z)** | **→ v1.3 path** — social or BYO IdP; optional groups → roles. |
+| **Trusted device detail (AB)** | **Shipped v1.1** — type, last IP, rename; **AB-polish** ✎ edit control (not always-visible form). |
 
 ### Playwright phases
 
