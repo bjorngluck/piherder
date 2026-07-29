@@ -28,6 +28,7 @@ Viewers may still:
 - Complete first-login password change and force-2FA onboarding
 - Dismiss / interact with **notifications**
 - Manage own **Web Push** subscription and preferences (`/api/push`, Account)
+- Manage own **pins / favourites** (`/account/favourites/*`, header ★ menu)
 
 They cannot start jobs, change servers, open the Users page, or change Settings security policy.
 
@@ -127,13 +128,27 @@ Timezone, security policy, fleet defaults, PiHerder self-backup **run/restore/do
 
 Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, and self-backup schedule — restored with DB dumps and PiHerder self-backup (not a separate volume JSON file).
 
-Optional 2FA (when not forced): Account → enable TOTP, backup codes, optional trusted device.
+Optional 2FA (when not forced): Account → enable TOTP, backup codes, optional trusted device. Trusted-device rows show **type** (from UA), **last IP**, and **friendly rename**.
+
+### Pins / favourites & host jump (v1.1)
+
+Per-user navigation shortcuts (not fleet config):
+
+| Surface | Behaviour |
+|---------|-----------|
+| Header **★** | Menu of pins grouped Host / App / Integrations (`GET /account/favourites.json`) |
+| Pin star | Toggle host feature, app page (incl. Hosts/Path map with `#map`), or integration |
+| Host jump | Overview/Docker/Backups/Services: name → overview; ▾ → same feature other hosts (Docker/Backups filtered by feature flags) |
+
+Model `UserFavourite` (migrations **033**, **034**). Cap 24. Allowlisted kinds only — no free-form URLs. Wiki: [Pins & host jump](../wiki/day-to-day/navigation-pins.md).
 
 ---
 
 ## 4. Schedules
 
 Configured per server under **Edit → Schedules** (General / Features / Schedules tabs). Cron uses **5 fields**: `minute hour day month day_of_week` (APScheduler). Check schedules use the app timezone from Settings; same for apply schedules.
+
+**Human-readable schedules (v1.1):** UI shows plain English next to raw cron via shared `cron_human` (backup, OS/container, nmap, self-backup, stale cleanup). Common presets are available where selects exist.
 
 **Feature flags** (Edit → Features) hard-hide dest cards and ⋯ actions on the server screen when off (Backups, OS patch / HA updates, Docker/containers).
 
@@ -185,7 +200,7 @@ Scheduled apply/audit attribution shows as **system / scheduler** (no user id).
 
 **Docker project lifecycle (v0.6 track):** project ⋯ → **Stop all / Start all / Restart all** → confirm → Jobs `docker_stack_stop` / `_start` / `_restart` with live log (shared exclusive lane with stack deploy). Single-container actions stay on the service row.
 
-**Certificates (v0.6 track):** Catalog vault + service maps (presets, write mode direct / stage_sudo, Grafana UID 472). **Self-managed edge mapping** — Apply to this PiHerder writes `./certs` and reloads Caddy; while mapping is on, NPM renew re-applies; **Remove mapping** opts out without deleting host files. First-cert guide: `/certificates/setup`.
+**Certificates (v1.1 elevated):** Catalog vault + **deploy targets** (UI rename from service maps): wizard modal, one layout per new target (`pair` \| `combined` \| `pfx`), top Deploy / ⋮ Replace PEM, stage+sudo with server-truth paths, post-deploy **verify** (host fingerprint + optional TLS port probe), Simulate privileges. **Self-managed edge** — Apply to this PiHerder writes `./certs` and reloads Caddy; while mapping is on, NPM renew re-applies; **Remove mapping** opts out without deleting host files. Migrations **032** (`verify_*` on targets). First-cert guide: `/certificates/setup`. Wiki: [Managed certificates](../wiki/integrations/certificates.md).
 
 ### Backups
 
@@ -265,7 +280,7 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 | Map role | `map_role=gateway` → Hosts map Router spine + **`network_gateway_ip`** app setting; device skipped as outer chip |
 | Gateway sticky | Setting gateway role **writes** `network_gateway_ip` if different. **Clearing** the role does **not** clear that IP (spine stays until Network map settings or another gateway). Deliberate. |
 | Map names | `NmapDevice.display_name` — operator label for Hosts map chips (survives re-scan) |
-| Lifecycle | States new/known/linked/ignored/stale; **Mark known/new** close modal; save map identity auto-knows New; **stale** after 14d without `last_seen` (list path) |
+| Lifecycle | States new/known/linked/ignored/stale; **Mark known/new** close modal; save map identity auto-knows New; **stale** after 14d without `last_seen` (list path). **Last seen** on list + modal. **Hide** = ignored (off maps). **Purge** = permanent delete (manual only; bulk purge offline from Offline filter). |
 | Identity | Prefer MAC key; DHCP IP updates in place; first-MAC upgrade |
 | Edit UX | Centered modal from Devices List/Map, Hosts chip (`return=hosts` → map), or server LAN chip (`return=server:{id}` → fleet host); lifecycle actions close modal |
 | Devices UI | Single **Devices** tab with **List \| Map** (legacy `?tab=network` → map) |
@@ -653,7 +668,7 @@ Herder self-backup includes `service_templates` catalog rows and `stack_deployme
 
 ### Uptime Kuma integration
 
-Optional **integration hub** under top-nav **Catalog** (`/catalog` → **Integrations | Certificates | Templates | Network**, ops-hero + full-width tabs). You can **deploy** Kuma via Templates, then connect the integration for status/bindings. **Certificates** vault (Catalog → Certificates): NPM pull or PEM upload, service maps, SSH deploy — Docker not required; system paths (e.g. OctoPi `/etc/ssl/snakeoil.pem` + HAProxy) use staging under the SSH user home + `sudo install` post-deploy — see wiki [Managed certificates](../wiki/integrations/certificates.md#cookbook-octopi--haproxy-host-no-docker-least-priv-piherder). **Network maps** (Catalog → Network / Hosts map `/dns/physical` / Path map `/dns/logical`): host A records, service paths, Pi-hole adopt, LAN/gateway/public IP + optional Kuma on router/WAN; mobile list-first with **View full map** / **Hide map** / Full screen (hamburger exits fullscreen) — see wiki [Network maps](../wiki/integrations/dns-fabric.md).
+Optional **integration hub** under top-nav **Catalog** (`/catalog` → **Integrations | Certificates | Templates | Network**, ops-hero + full-width tabs). You can **deploy** Kuma via Templates, then connect the integration for status/bindings. **Certificates** vault (Catalog → Certificates): NPM pull or PEM upload, **deploy targets** + wizard, SSH deploy + verify — Docker not required; system paths (e.g. OctoPi `/etc/ssl/snakeoil.pem` + HAProxy) use staging under the SSH user home + `sudo install` post-deploy — see wiki [Managed certificates](../wiki/integrations/certificates.md#cookbook-octopi--haproxy-host-no-docker-least-priv-piherder). **Network maps** (Catalog → Network / Hosts map `/dns/physical#map` / Path map `/dns/logical#map`): host A records, service paths, Pi-hole adopt, LAN/gateway/public IP + optional Kuma on router/WAN; stack panel **published port** chips and cross-host manual edges; mobile list-first with **Show map** / **Hide map** / Full screen (hamburger exits fullscreen) — see wiki [Network maps](../wiki/integrations/dns-fabric.md).
 
 **Design / plan:** [FEATURE_PLAN_INTEGRATIONS.md](FEATURE_PLAN_INTEGRATIONS.md)
 

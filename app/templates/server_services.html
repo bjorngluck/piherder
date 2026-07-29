@@ -7,9 +7,22 @@
 
 <section class="ops-hero ops-hero--services is-{{ health }} mb-4">
   <div class="ops-hero-main">
-    <div class="ops-hero-kicker">
-      <a href="/servers/{{ server.id }}" class="text-accent hover:underline">{{ server.name }}</a>
-      · Services
+    <div class="ops-hero-kicker host-kicker-line">
+      <span class="host-switcher-cluster">
+        <a href="/servers/{{ server.id }}" class="host-switcher-name-link"
+           data-testid="host-overview-link" title="Full server overview">{{ server.name }}</a>
+        {% if can_host_jump|default(false) %}
+        <button type="button" class="host-switcher-caret-btn" data-host-switch-open
+                data-testid="host-switcher-open"
+                title="Services on another host"
+                aria-label="Switch host for Services">
+          <span aria-hidden="true">▾</span>
+        </button>
+        {% endif %}
+      </span>
+      <span class="host-kicker-sep">·</span>
+      <span>Services</span>
+      {% include "partials/host_feature_nav.html" %}
     </div>
     <h1 class="ops-hero-title">Services</h1>
     <p class="ops-hero-sub">
@@ -34,6 +47,7 @@
       <a href="{{ hosts_map_url or ('/dns/physical?focus=n:host-' ~ server.id ~ '#map') }}" class="btn btn-secondary min-h-11 text-sm">Hosts map</a>
       <a href="/servers/{{ server.id }}" class="btn btn-secondary min-h-11 text-sm">Server</a>
     </div>
+    {% include "partials/host_switcher.html" %}
   </div>
   <div class="ops-hero-viz">
     <div class="svc-hero-mesh" aria-hidden="true">

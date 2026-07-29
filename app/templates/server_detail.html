@@ -16,7 +16,18 @@
       <a href="/servers" class="text-accent hover:underline">Fleet</a>
       · Host
     </div>
-    <h1 class="ops-hero-title">{{ server.name }}</h1>
+    <h1 class="ops-hero-title host-kicker-line host-title-line">
+      {% if can_host_jump|default(false) %}
+      <button type="button" class="host-switcher-trigger is-title" data-host-switch-open
+              data-testid="host-switcher-open" title="Overview on another host">
+        <span class="host-switcher-name">{{ server.name }}</span>
+        <span class="host-switcher-caret" aria-hidden="true">▾</span>
+      </button>
+      {% else %}
+      <span>{{ server.name }}</span>
+      {% endif %}
+      {% include "partials/host_feature_nav.html" %}
+    </h1>
     <p class="ops-hero-sub">
       <span class="font-mono text-xs">{{ server.ssh_username }}@{{ server.hostname }}:{{ server.ssh_port }}</span>
       {% if server.dns_name %}
@@ -38,6 +49,7 @@
       <button type="button" onclick="showSshAccessModal()" class="btn btn-secondary min-h-11 text-sm" title="Deploy key, rotate, test connection">SSH access</button>
       <button type="button" onclick="showSystemInfoModal()" class="btn btn-secondary min-h-11 text-sm">System info</button>
     </div>
+    {% include "partials/host_switcher.html" %}
   </div>
   <div class="ops-hero-viz">
     <div class="ops-hero-orb {% if _health == 'hot' %}ops-hero-orb--hot{% elif _health == 'busy' %}{% else %}ops-hero-orb--ok{% endif %}" aria-hidden="true">

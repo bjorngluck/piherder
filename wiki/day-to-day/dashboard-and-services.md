@@ -48,8 +48,13 @@ The dashboard answers those from **last check jobs and caches** (not a full SSH 
 | **Needs attention** table | Only hosts that need work; Open / Docker shortcuts | Act without hunting |
 | **Network maps** panel | Constellation + named/mapped/NPM counts | Homelab topology entry |
 | **Quick links** | Servers, notifications, audit, Settings, Pi-hole, Certificates, Catalog | Frequent destinations |
+| **Hosts map / Path map** links | `/dns/physical#map` · `/dns/logical#map` | Open the SVG graph (not list-only) |
 
 Status comes from **last check jobs** (and related caches) — not continuous SSH on every open. The Network maps panel uses a **cheap pulse** (counts only), not a full SVG build.
+
+### Pins & host jump
+
+For multi-host fleets, pin frequent pages with the **★** next to feature titles / Network map cards, then open them from the header **★** menu. On a host feature page, use **Jump host** to stay on Docker/Backups/Services while switching machines. Full guide: [Pins & host jump](navigation-pins.md).
 
 | Pulse field | Source |
 |-------------|--------|

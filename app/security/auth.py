@@ -568,10 +568,13 @@ def create_trusted_device(
 ) -> Tuple[str, TrustedDevice]:
     raw = secrets.token_urlsafe(32)
     days = days if days is not None else settings.TRUSTED_DEVICE_DAYS
+    from ..services.nav_shortcuts import summarize_user_agent
+
+    auto_label = summarize_user_agent(user_agent)
     dev = TrustedDevice(
         user_id=user_id,
         token_hash=hash_device_token(raw),
-        label=label or "Trusted device",
+        label=(label or "").strip() or auto_label or "Trusted device",
         user_agent=(user_agent or "")[:300] or None,
         ip=ip,
         expires_at=datetime.utcnow() + timedelta(days=days),

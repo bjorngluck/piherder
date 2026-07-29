@@ -165,6 +165,7 @@ async def settings_page(
         or qp.get("token_revoked")
         or qp.get("token_updated")
         or qp.get("token_rotated")
+        or qp.get("test_ok") is not None
     ):
         tab = "api" if is_admin else tab
     if qp.get("backup_ok") or qp.get("restored") or qp.get("deleted"):
@@ -455,7 +456,6 @@ class ApiTokenTestBody(BaseModel):
 @router.post("/herder-backups/api-tokens/test")
 async def test_api_token(
     request: Request,
-    body: ApiTokenTestBody,
     session: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
@@ -463,15 +463,61 @@ async def test_api_token(
 
     Checks hash / revoked / expiry and whether *this browser’s* client IP would
     pass the token allowlist. Updates last_used_at on success.
+
+    Accepts JSON ``{\"token\":\"ph_…\"}`` or form field ``token`` (Settings UI).
+    Form posts redirect back to Settings → API with flash result.
     """
+    from fastapi.responses import RedirectResponse
+    from urllib.parse import urlencode
+
+    token_plain = ""
+    wants_html = False
+    ctype = (request.headers.get("content-type") or "").lower()
+    if "application/json" in ctype:
+        try:
+            data = await request.json()
+            token_plain = str((data or {}).get("token") or "")
+        except Exception:
+            token_plain = ""
+    else:
+        wants_html = True
+        form = await request.form()
+        token_plain = str(form.get("token") or "")
+
     peer = request.client.host if request.client else None
     client_ip = tok_svc.extract_client_ip(dict(request.headers), peer)
     result = tok_svc.diagnose_plaintext_token(
         session,
-        body.token,
+        token_plain,
         client_ip=client_ip,
         touch_last_used=True,
     )
+    if wants_html:
+        # Compact query flash for Settings UI (no secret echoed)
+        q: dict[str, str] = {
+            "tab": "api",
+            "api_panel": "tokens",
+            "test_ok": "1" if result.get("ok") else "0",
+        }
+        if result.get("ok"):
+            tok = result.get("token") or {}
+            q["test_name"] = str(
+                tok.get("name") or result.get("name") or result.get("token_name") or "token"
+            )[:80]
+            scopes = result.get("scopes") or []
+            if isinstance(scopes, list) and scopes:
+                q["test_scopes"] = ",".join(str(s) for s in scopes[:12])
+        else:
+            q["test_detail"] = str(
+                result.get("detail")
+                or result.get("error")
+                or result.get("message")
+                or "rejected"
+            )[:160]
+        return RedirectResponse(
+            f"/herder-backups?{urlencode(q)}",
+            status_code=303,
+        )
     status = 200 if result.get("ok") else 400
     if result.get("error") == "invalid_or_revoked":
         status = 401

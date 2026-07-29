@@ -13,9 +13,22 @@
 {% set _bhealth = 'busy' if backup_running else ('hot' if last_backup_status == 'failed' else 'ok') %}
 <section class="ops-hero ops-hero--backup is-{{ _bhealth }} mb-4">
   <div class="ops-hero-main">
-    <div class="ops-hero-kicker">
-      <a href="/servers/{{ server.id }}" class="text-accent hover:underline">{{ server.name }}</a>
-      · Backups
+    <div class="ops-hero-kicker host-kicker-line">
+      <span class="host-switcher-cluster">
+        <a href="/servers/{{ server.id }}" class="host-switcher-name-link"
+           data-testid="host-overview-link" title="Full server overview">{{ server.name }}</a>
+        {% if can_host_jump|default(false) %}
+        <button type="button" class="host-switcher-caret-btn" data-host-switch-open
+                data-testid="host-switcher-open"
+                title="Backups on another host (feature enabled only)"
+                aria-label="Switch host for Backups">
+          <span aria-hidden="true">▾</span>
+        </button>
+        {% endif %}
+      </span>
+      <span class="host-kicker-sep">·</span>
+      <span>Backups</span>
+      {% include "partials/host_feature_nav.html" %}
     </div>
     <h1 class="ops-hero-title">Backups</h1>
     <p class="ops-hero-sub">
@@ -43,6 +56,7 @@
       {% endif %}
       <a href="/servers/{{ server.id }}" class="btn btn-secondary min-h-11 text-sm">Server</a>
     </div>
+    {% include "partials/host_switcher.html" %}
   </div>
   <div class="ops-hero-viz">
     <div class="ops-hero-orb {% if _bhealth == 'hot' %}ops-hero-orb--hot{% elif _bhealth == 'busy' %}{% else %}ops-hero-orb--ok{% endif %}" aria-hidden="true">
@@ -53,7 +67,12 @@
     </div>
     <div class="ops-pulse-stats">
       <div class="ops-pulse-stat"><span class="ops-pulse-n">{{ server.retention_days or 7 }}</span><span class="ops-pulse-l">days keep</span></div>
-      <div class="ops-pulse-stat"><span class="ops-pulse-n text-xs" style="font-size:0.7rem">{{ (server.backup_schedule or '—')[:12] }}</span><span class="ops-pulse-l">cron</span></div>
+      <div class="ops-pulse-stat" title="{{ server.backup_schedule or '' }}">
+        <span class="ops-pulse-n text-xs" style="font-size:0.7rem">
+          {% if server.backup_schedule %}{{ server.backup_schedule | cron_human(get_app_timezone()) }}{% else %}—{% endif %}
+        </span>
+        <span class="ops-pulse-l">schedule</span>
+      </div>
     </div>
     <p class="ops-pulse-caption">rsync sources · path policy</p>
   </div>
@@ -313,9 +332,23 @@
             <input type="number" name="retention_days" value="{{ server.retention_days or 7 }}" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
           </div>
           <div>
-            <label class="text-xs text-muted block mb-1">Cron schedule</label>
-            <input type="text" name="backup_schedule" id="cron-input" value="{{ server.backup_schedule or '' }}" placeholder="0 2 * * *" class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11">
-            <p class="text-[10px] text-muted mt-1">e.g. <code>0 2 * * *</code> = 02:00 daily (app timezone)</p>
+            <label class="text-xs text-muted block mb-1">Schedule</label>
+            <select class="w-full bg-surface border border-border px-3 py-2 rounded text-xs min-h-11 mb-1"
+                    data-cron-preset-for="cron-input"
+                    aria-label="Schedule preset"
+                    onchange="var el=document.getElementById('cron-input'); if(this.value){el.value=this.value; el.dispatchEvent(new Event('input'));}">
+              <option value="">Custom / advanced cron…</option>
+              {% for val, lab in cron_presets %}
+              <option value="{{ val }}" {% if server.backup_schedule == val %}selected{% endif %}>{{ lab }}</option>
+              {% endfor %}
+            </select>
+            <input type="text" name="backup_schedule" id="cron-input" value="{{ server.backup_schedule or '' }}" placeholder="0 2 * * *" class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-xs min-h-11"
+                   title="5-field cron: minute hour day month weekday">
+            {% if server.backup_schedule %}
+            <p class="text-[10px] text-muted mt-1" data-testid="cron-human-backup">{{ server.backup_schedule | cron_human(get_app_timezone()) }} · <code class="font-mono">{{ server.backup_schedule }}</code></p>
+            {% else %}
+            <p class="text-[10px] text-muted mt-1">Pick a preset or enter 5-field cron (app timezone: {{ get_app_timezone() }}).</p>
+            {% endif %}
           </div>
         </div>
       </div>

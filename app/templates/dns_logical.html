@@ -17,7 +17,10 @@
         <span class="text-muted">·</span>
         <a href="/dns/physical{% if focus_id %}?focus={{ focus_id }}{% endif %}#map" class="text-accent hover:underline">Hosts map</a>
       </div>
-      <h1 class="text-2xl font-semibold tracking-tight">Path map</h1>
+      <h1 class="text-2xl font-semibold tracking-tight feature-title-with-pin">
+        <span>Path map</span>
+        {% include "partials/pin_button.html" %}
+      </h1>
       <p class="text-sm text-muted mt-1 max-w-2xl">
         Access picture: <strong class="text-text">name</strong> on the left,
         <strong class="text-text">NPM</strong> as the shared edge in the middle (when used),
@@ -160,6 +163,9 @@
           <path d="M4 6h16M4 12h16M4 18h10"/>
         </svg>
       </button>
+      <div class="fabric-map-pin" data-testid="path-map-toolbar-pin" title="Pin Path map">
+        {% include "partials/pin_button.html" %}
+      </div>
       <div class="fabric-mesh-zoom-bar" role="group" aria-label="Zoom and full screen">
         <div class="fabric-map-seg" role="group">
           <button type="button" class="fabric-map-ctrl fabric-map-ctrl--icon" data-fabric-zoom-out title="Zoom out" aria-label="Zoom out">−</button>

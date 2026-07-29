@@ -334,6 +334,92 @@ def test_device_state_labels_offline_not_delete():
     assert set(DEVICE_STATE_LABELS) >= {"new", "known", "linked", "ignored", "stale"}
 
 
+def test_format_last_seen_relative():
+    """S1: relative last-seen labels for list/modal."""
+    from datetime import datetime, timedelta
+
+    from app.services.nmap.device_ops import STALE_AFTER_DAYS, format_last_seen
+
+    now = datetime(2026, 7, 29, 12, 0, 0)
+    never = format_last_seen(None, now=now)
+    assert never["label"] == "Never"
+    assert never["iso"] is None
+
+    just = format_last_seen(now - timedelta(seconds=20), now=now)
+    assert just["label"] == "Just now"
+
+    mins = format_last_seen(now - timedelta(minutes=12), now=now)
+    assert mins["label"] == "12m ago"
+
+    hours = format_last_seen(now - timedelta(hours=3), now=now)
+    assert hours["label"] == "3h ago"
+
+    days = format_last_seen(now - timedelta(days=5), now=now)
+    assert days["label"] == "5d ago"
+    assert days["is_stale_age"] is False
+
+    old = format_last_seen(now - timedelta(days=STALE_AFTER_DAYS + 1), now=now)
+    assert old["is_stale_age"] is True
+    assert "d ago" in old["label"]
+    assert old["iso"]
+
+
+def test_device_stats_from_rows():
+    """S4: unfiltered chip counts include offline/hidden."""
+    from app.services.nmap.device_ops import device_stats_from_rows
+
+    rows = [
+        SimpleNamespace(state="new", ports_json=None),
+        SimpleNamespace(state="new", ports_json=None),
+        SimpleNamespace(state="known", ports_json=None),
+        SimpleNamespace(state="linked", ports_json=None),
+        SimpleNamespace(state="ignored", ports_json=None),
+        SimpleNamespace(state="stale", ports_json=None),
+        SimpleNamespace(state="stale", ports_json=None),
+    ]
+    s = device_stats_from_rows(rows)
+    assert s["total"] == 7
+    assert s["new"] == 2
+    assert s["known"] == 1
+    assert s["linked"] == 1
+    assert s["ignored"] == 1
+    assert s["stale"] == 2
+
+
+def test_purge_device_deletes_scripts_and_row():
+    """S3: operator purge removes device + script results; never automatic."""
+    from unittest.mock import MagicMock
+
+    from app.services.nmap.device_ops import purge_device, purge_devices
+
+    script_a = SimpleNamespace(id=1, device_id=9)
+    script_b = SimpleNamespace(id=2, device_id=9)
+    device = SimpleNamespace(id=9, ip_address="10.0.0.9", state="stale")
+
+    class FakeResult:
+        def all(self):
+            return [script_a, script_b]
+
+    session = MagicMock()
+    session.exec = MagicMock(return_value=FakeResult())
+    res = purge_device(session, device)
+    assert res["device_id"] == 9
+    assert res["ip"] == "10.0.0.9"
+    assert res["scripts_deleted"] == 2
+    assert session.delete.call_count == 3  # 2 scripts + device
+    session.commit.assert_called_once()
+
+    # Bulk offline
+    session2 = MagicMock()
+    session2.exec = MagicMock(return_value=FakeResult())
+    d1 = SimpleNamespace(id=1, ip_address="10.0.0.1")
+    d2 = SimpleNamespace(id=2, ip_address="10.0.0.2")
+    bulk = purge_devices(session2, [d1, d2])
+    assert bulk["purged"] == 2
+    assert bulk["scripts_deleted"] == 4
+    session2.commit.assert_called_once()
+
+
 def test_set_device_map_identity_kind_and_role():
     from unittest.mock import MagicMock, patch
 

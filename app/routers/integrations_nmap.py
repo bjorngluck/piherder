@@ -43,7 +43,13 @@ from ..services.nmap.script_classify import (
     script_summary_counts,
 )
 from ..services.nmap.vuln_update import enqueue_vuln_db_update
-from .integrations_common import router, _audit, _redirect, _can_mutate
+from .integrations_common import (
+    router,
+    _audit,
+    _redirect,
+    _can_mutate,
+    _pin_context_for_integration,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -158,23 +164,26 @@ async def render_nmap_detail(request, session, user, integration: Integration):
     status = reg.parse_last_status(integration)
     online = worker_online()
     pack = vuln_pack_status()
-    devices = nmap_cfg.list_devices(session, integration.id) if tab in (
+    all_devices = nmap_cfg.list_devices(session, integration.id) if tab in (
         "devices",
         "overview",
     ) else []
     state_filter = (request.query_params.get("state") or "").strip() or None
+    if state_filter and state_filter not in (
+        "new",
+        "known",
+        "linked",
+        "ignored",
+        "stale",
+    ):
+        state_filter = None
+    # Stats always from unfiltered set (S4 filter chips stay honest)
+    device_stats = nmap_cfg.device_stats_from_rows(all_devices)
     # State filter applies to list view only (map shows full LAN groups)
+    devices = all_devices
     if tab == "devices" and devices_view == "list" and state_filter:
-        devices = [d for d in devices if d.state == state_filter]
+        devices = [d for d in all_devices if d.state == state_filter]
     device_rows = [nmap_cfg.device_list_item(d) for d in devices]
-    # Lightweight stats for devices/network chrome
-    device_stats = {
-        "total": len(device_rows),
-        "new": sum(1 for i in device_rows if i["row"].state == "new"),
-        "linked": sum(1 for i in device_rows if i["row"].state == "linked"),
-        "ignored": sum(1 for i in device_rows if i["row"].state == "ignored"),
-        "open_ports": sum(i["open_ports"] for i in device_rows),
-    }
     runs = nmap_cfg.list_runs(session, integration.id) if tab in ("runs", "overview") else []
     schedules = (
         nmap_cfg.list_schedules(session, integration.id)
@@ -242,8 +251,12 @@ async def render_nmap_detail(request, session, user, integration: Integration):
     )
 
     device_profile = None
+    device_last_seen = None
     if device is not None:
         device_profile = profile_dict_from_device(device)
+        device_last_seen = nmap_cfg.format_last_seen(
+            getattr(device, "last_seen_at", None)
+        )
     kind_choices = list(KIND_CHOICES)
     return_to = _device_return_to(request.query_params.get("return"))
     # Annotate ports with finding/error counts for row highlight + anchors
@@ -300,6 +313,8 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             "device_scripts_classified": device_scripts_classified,
             "device_script_counts": device_script_counts,
             "device_profile": device_profile,
+            "device_last_seen": device_last_seen,
+            "stale_after_days": nmap_cfg.STALE_AFTER_DAYS,
             "kind_choices": kind_choices,
             "return_to": return_to,
             "map_role_labels": MAP_ROLE_LABELS,
@@ -322,6 +337,7 @@ async def render_nmap_detail(request, session, user, integration: Integration):
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or "",
             "detail": request.query_params.get("detail") or "",
+            **_pin_context_for_integration(session, user, integration),
         },
     )
 
@@ -670,6 +686,95 @@ async def nmap_device_unignore(
         return_view=return_view,
         close=True,
         msg="device_restored",
+    )
+
+
+@router.post("/integrations/{integration_id}/nmap/device/{device_id}/purge")
+async def nmap_device_purge(
+    integration_id: int,
+    device_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    return_tab: str = Form(""),
+    return_to: str = Form(""),
+    return_view: str = Form(""),
+):
+    """Permanently delete a discovery row (S3). Never automatic."""
+    integration = _require_nmap(session, integration_id)
+    device = session.get(NmapDevice, device_id)
+    if not device or device.integration_id != integration.id:
+        raise HTTPException(404, "Device not found")
+    if device.state == "linked":
+        return _device_redirect(
+            integration_id,
+            device_id,
+            return_tab=return_tab,
+            return_to=return_to,
+            return_view=return_view,
+            error="purge_failed",
+            detail="Unlink from the fleet server before purging",
+        )
+    res = nmap_cfg.purge_device(session, device)
+    _audit(
+        session,
+        user,
+        "nmap_device_purged",
+        details=(
+            f"device={device_id} ip={(res.get('ip') or '')[:64]} "
+            f"scripts={res.get('scripts_deleted', 0)}"
+        ),
+    )
+    # No focus — row is gone
+    tab = _device_return_tab(return_tab)
+    if tab == "network":
+        tab = "devices"
+        return _redirect(
+            f"/integrations/{integration_id}",
+            tab=tab,
+            view="map",
+            msg="device_purged",
+        )
+    rv = (return_view or "").strip().lower()
+    kw: dict = {"tab": "devices", "msg": "device_purged"}
+    if rv == "map":
+        kw["view"] = "map"
+    dest = _device_return_to(return_to)
+    if dest == "hosts":
+        return _redirect("/dns/physical", msg="device_purged")
+    if dest.startswith("server:"):
+        try:
+            sid = int(dest.split(":", 1)[1])
+            return _redirect(f"/servers/{sid}", msg="device_purged")
+        except (TypeError, ValueError):
+            pass
+    return _redirect(f"/integrations/{integration_id}", **kw)
+
+
+@router.post("/integrations/{integration_id}/nmap/devices/purge-offline")
+async def nmap_devices_purge_offline(
+    integration_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Bulk purge all *stale* (offline) devices for this integration (S3)."""
+    integration = _require_nmap(session, integration_id)
+    rows = [
+        d
+        for d in nmap_cfg.list_devices(session, integration.id, apply_stale=True)
+        if d.state == "stale"
+    ]
+    res = nmap_cfg.purge_devices(session, rows)
+    _audit(
+        session,
+        user,
+        "nmap_devices_purged_offline",
+        details=f"purged={res.get('purged', 0)} scripts={res.get('scripts_deleted', 0)}",
+    )
+    return _redirect(
+        f"/integrations/{integration_id}",
+        tab="devices",
+        msg="devices_purged_offline",
+        detail=f"{res.get('purged', 0)} offline host(s) removed",
     )
 
 

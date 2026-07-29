@@ -15,7 +15,7 @@ from ..models import Integration, Server, User
 from ..security.auth import get_current_user, get_operator_user
 from ..services.integrations import npm as npm_mod
 from ..services.integrations import registry as reg
-from .integrations_common import router, _audit, _redirect, _can_mutate
+from .integrations_common import router, _audit, _redirect, _can_mutate, _pin_context_for_integration
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,7 @@ async def render_npm_detail(request, session, user, integration: Integration):
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or "",
             "detail": request.query_params.get("detail") or "",
+            **_pin_context_for_integration(session, user, integration),
         },
     )
 

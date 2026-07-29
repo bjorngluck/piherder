@@ -45,7 +45,7 @@ main @ v1.0.0 (+ v1.0.x patches)
 
 ## 1. Goal
 
-1. **A — Certs:** guided distribute + correct sudoers + actionable deploy errors.  
+1. **A — Certs:** deploy-target wizard, one layout per target, top Deploy, post-deploy verify, sudoers correctness.  
 2. **B — Discovery:** last-seen, hide, purge, filters.  
 3. **C — Identity:** password policy + trusted-device detail; discover SMTP.  
 4. **D — Operator UX:** human-readable schedules, favourites, cross-host jump.  
@@ -59,13 +59,13 @@ main @ v1.0.0 (+ v1.0.x patches)
 
 | # | Stream | Item | Tier | Status |
 |---|--------|------|------|--------|
-| 1–3 | A | **P** wizard · **P-sudo** · **P-fb** errors | Must | **In progress** (A1.1 path helpers + sudoers/deploy alignment landed) |
-| 4–7 | B | **S1–S4** last-seen · hide · purge · filters | Must | Planned |
-| 8–9 | C | **PP** password policy · **AB** trusted-device detail | Should | Planned |
-| 10–12 | D | **E6** schedules · **J** favourites · **K** cross-host jump | Should | Planned |
-| 13–14 | G | **Ports** · **Topo-xhost** | Should | Planned |
-| 15–16 | I | **Y** OpenAPI/test UX · **Int-gen** generic URLs | Should | Planned |
-| 17 | — | Docs freeze + tag + Hub | Must | Planned |
+| 1–3 | A | **P** cert refinement (wizard · one-type targets · deploy/verify · sudo) | Must | **Landed** (A1.1–A1.5b + **A1.4**); residual **A1.6** wiki polish / **A1.7** E2E as capacity |
+| 4–7 | B | **S1–S4** last-seen · hide · purge · filters | Must | **Landed** (B1 hygiene; operator QA as needed) |
+| 8–9 | C | **PP** password policy · **AB** trusted-device detail | Should | **Landed** (PP fixed policy; **AB** type · last IP · rename) |
+| 10–12 | D | **E6** schedules · **J** favourites · **K** cross-host jump | Should | **Landed** (E6 `cron_human` · **J** ★ pins · **K** host jump) |
+| 13–14 | G | **Ports** · **Topo-xhost** | Should | **Landed** (port chips `host→container` · cross-host manual edge picker) |
+| 15–16 | I | **Y** OpenAPI/test UX · **Int-gen** generic URLs | Should | **Partial** (**Y** bearer Try a token + ReDoc; **Int-gen** still open) |
+| 17 | — | Docs freeze + tag + Hub | Must | Planned (mid-train docs pass 2026-07-29) |
 
 **Success:** all Must + solid elevation from each of C, D, G, I (prefer full Should). Discover promoted or deferred in RELEASE.
 
@@ -75,15 +75,20 @@ main @ v1.0.0 (+ v1.0.x patches)
 
 ## 3. Workstreams
 
-### A — Certificates & TLS
+### A — Certificates & TLS (**cert refinement** — elevated)
 
 | Tier | ID | Item |
 |------|-----|------|
-| Must | **P** | Guided setup / wizard |
-| Must | **P-sudo** | Sudoers generator correctness |
+| Must | **P** | Deploy-target wizard (modal): name · server · service · type · dest · perms · restart · sudoers · simulate · save |
+| Must | **P-rename** | UI rename **Service map → Deploy target**; compact list + detail modal |
+| Must | **P-layout** | One cert type per target (`pair` \| `combined` \| `pfx`); no new compound layouts |
+| Must | **P-sudo** | Sudoers generator correctness (aligned with deploy) |
 | Must | **P-fb** | Deploy actionable errors |
-| Should | **P-job** | Multi-map deploy as Job |
-| Discover | — | Optional verify-sudoers probe |
+| Must | **P-chrome** | Top **Deploy** actions; Replace PEM as menu + modal |
+| Must | **P-edge** | Clear path for valid TLS on this PiHerder (edge Apply) |
+| Should | **P-verify** | Post-deploy validation (host fingerprint + optional URL/TLS probe) |
+| Should | **P-job** | Multi-target deploy as Job |
+| Discover | **P-sim** | Simulate sudoers (promote into Must with wizard) |
 | → v1.2+ | **P-npm-w** | NPM proxy host write CRUD (if ever) |
 | → **v1.3+** | **P-acme** | ACME-in-herder — **under consideration** (see §6.1); not v1.1 |
 
@@ -98,6 +103,15 @@ main @ v1.0.0 (+ v1.0.x patches)
 
 **Locks:** stale = offline flag; never auto-delete.
 
+#### B1 hygiene (S1–S4) — implementation notes
+
+| ID | Behaviour |
+|----|-----------|
+| **S1** | Show **Last seen** (relative + absolute title) on Devices list and device modal; drives offline after `STALE_AFTER_DAYS` (14) |
+| **S2** | **Hide** / **Unhide** UI (state remains `ignored`); filter chip **Hidden**; off maps + Hosts overlay |
+| **S3** | **Purge device** (modal) + **Purge N offline** (when Offline filter active); deletes scripts + row; linked must unlink first; rescan may re-create as *new* |
+| **S4** | Filter chips with honest counts (unfiltered stats); offline stat on toolbar; search includes last-seen / hidden tokens |
+
 ### C — Identity
 
 | Tier | ID | Item |
@@ -108,6 +122,13 @@ main @ v1.0.0 (+ v1.0.x patches)
 | → v1.2 | **G1**, **G2-mail** | Self-service / admin email reset |
 | → v1.3 | **Z**, WebAuthn, multi-tenant | SSO program |
 
+#### C1 — implementation notes (landed)
+
+| ID | Behaviour |
+|----|-----------|
+| **PP** | Existing fixed policy (≥10, upper/lower/digit, byte cap) — no further product work this train |
+| **AB** | Account → Trusted devices: **device type** (from UA), **last IP**, **friendly rename**, last used / expires, per-device revoke + revoke all |
+
 ### D — Operator UX
 
 | Tier | ID | Item |
@@ -117,6 +138,16 @@ main @ v1.0.0 (+ v1.0.x patches)
 | Optional | **M** | Templates fleet overview |
 | → v1.3 | **Brand** | Custom logo / accents |
 
+#### D1 / D2 — implementation notes (landed)
+
+| ID | Behaviour |
+|----|-----------|
+| **E6** | Shared `app/services/cron_human.py` — Jinja filter `cron_human` + `CRON_PRESETS` on backup / OS / container / nmap / self-backup / stale cleanup forms; plain English next to raw cron |
+| **J** | Per-user **pins** (`UserFavourite`, migrations **033** / **034**). Kinds: `server_feature` · `app_page` · `integration`. Header **★** menu (grouped Host / App / Integrations, 2-col pills). Pin stars next to feature titles, Network hub map cards, fabric map chrome, integration detail names. Cap **24**. Map app pages **must** deep-link `/dns/physical#map` and `/dns/logical#map` so the SVG opens (list-first pages otherwise). Pin POST redirect keeps `#fragment` after `?msg=` |
+| **K** | **Jump host** (`host_switcher`) on Overview / Docker / Backups / Services: host name → overview; ▾ → same feature on other fleet hosts. Jump list filtered by feature flags (`container_patch_enabled` for Docker, `backup_enabled` for Backups). Feature tabs via `host_feature_nav` |
+
+**Code:** `app/services/nav_shortcuts.py` · `app/routers/favourites.py` · partials `pin_button` / `host_switcher` / `host_feature_nav` · `GET /account/favourites.json`
+
 ### G — Topology / maps / fabric
 
 | Tier | ID | Item |
@@ -124,6 +155,13 @@ main @ v1.0.0 (+ v1.0.x patches)
 | Should | **Ports**, **Topo-xhost** | Published ports · cross-host picker |
 | Discover | **Topo-col**, **P6**, **Topo-prof** | Columns · shared services · profiles |
 | → v1.2+ | **DNS-ext**, **Mig** | External DNS · host migrate |
+
+#### G1 — implementation notes (landed)
+
+| ID | Behaviour |
+|----|-----------|
+| **Ports** | `app/services/dns_fabric/ports.py` — parse published mappings; stack panel chips show **host→container** (or internal-only) |
+| **Topo-xhost** | Manual edge picker can target **other host / project / container** (cross-host topology edges) |
 
 ### I — Integrations & API
 
@@ -142,10 +180,10 @@ main @ v1.0.0 (+ v1.0.x patches)
 | **A0** | Plan lock (this document) |
 | **A1** | Certs **P / P-sudo / P-fb** ← **first implementation** |
 | **B1** | Discovery **S1–S4** (+ **S-hb**) |
-| **D1** | **E6** schedules |
-| **D2** | **J + K** navigation |
-| **C1** | **PP + AB** |
-| **G1** | **Ports + Topo-xhost** |
+| **D1** | **E6** schedules — shared `cron_human` + presets on backup / OS / container / nmap / self-backup / cleanup |
+| **D2** | **J + K** navigation — ★ header pins (`UserFavourite`); Jump host on overview/backups/docker/services |
+| **C1** | **PP + AB** — PP already fixed policy; AB trusted-device detail (type, IP, rename) |
+| **G1** | **Ports + Topo-xhost** — stack panel port chips (`host→container`); manual edge To host/project/container |
 | **I1** | **Y + Int-gen** |
 | **Cap** | Discover pull-ins by capacity |
 | **Freeze** | Docs · version · merge · tag · Hub |
@@ -263,11 +301,12 @@ PiHerder is fleet management **and** operator education. Novices often need “h
 
 ## 7. Freeze checklist
 
-- [ ] A Must (P, P-sudo, P-fb)  
-- [ ] B Must (S1–S4)  
-- [ ] C / D / G / I Should or explicit defer in RELEASE  
+- [x] A Must (P, P-sudo, P-fb, wizard, verify) — residual A1.6/A1.7 polish  
+- [x] B Must (S1–S4)  
+- [x] C / D / G Should (PP+AB, E6+J+K, Ports+Topo-xhost)  
+- [ ] I Should full (**Y** done · **Int-gen** open) or explicit defer in RELEASE  
 - [ ] Discover promoted or → v1.2/v1.3  
-- [ ] Cert known-edges card updated  
+- [ ] Cert known-edges card updated for deploy-target wizard  
 - [ ] `RELEASE_v1.1.0.md` · wiki · screenshots as needed  
 - [ ] Unit ≥55% · E2E touch · `mkdocs build --strict`  
 - [ ] Version `1.1.0` · merge · tag · Hub  
@@ -292,63 +331,156 @@ PiHerder is fleet management **and** operator education. Novices often need “h
 | Master key | Unchanged |
 | REST | Compatible scopes |
 | Upgrade 1.0 → 1.1 | Self-backup → pull → `compose up` |
-| Cert maps | Existing keep working; wizard preferred for new stage+sudo |
+| Deploy targets (was service maps) | Existing rows keep working; new wizard = one layout only; compounds legacy |
 
 ---
 
-## 10. Phase A1 — Certs (first implementation slice)
+## 10. Phase A1 — Cert refinement (elevated product design)
 
-**Goal:** Close residual **P** from 1.0 — stage+sudo maps without hand-debugging sudoers.
+**Goal:** Make vault → destination → deploy → verify a first-class, intuitive operator path — not a long form buried under service-map jargon.
 
-### Inventory
+**Product rename (UI):** **Service map** → **Deploy target**  
+(Code/table may stay `CertificateTarget` for migration safety; user-facing copy uses **Deploy target**.)
+
+### Operator outcomes (locked requirements)
+
+| # | Outcome |
+|---|---------|
+| 1 | **Valid TLS on this PiHerder** — edge destination polished (vault → Apply → Caddy); not confused with fleet deploys |
+| 2 | **Onboard a deploy target** with a dedicated guided wizard (modal preferred) |
+| 3 | **Deploy** is a primary top-of-page action (per target + deploy all), not a messy footer task |
+| 4 | **One layout / cert type per target** — `pair` **or** `combined` **or** `pfx` only (no compound `pair_and_*` for new targets) |
+| 5 | Wizard collects: name · server · optional service · cert type (+ wiki) · final remote folder · filenames · chmod/chown · simple restart · generates sudoers + install steps · **simulate** sudoers · save wires real deploy commands |
+| 6 | **Post-deploy validate** — prove new cert is live (OpenSSL / HTTPS probe vs vault fingerprint; optional verify URL) |
+| 7 | Target list is **compact**; click opens detail modal (Deploy · Edit · Remove · sudoers cleanup hint) |
+| 8 | **Replace PEM** is a menu action + modal, not a permanent page slab |
+
+### Mental model (keep, rename)
+
+```text
+Vault (one TLS identity, encrypted)
+  ├─ This PiHerder (Caddy edge)     ← Apply / self-managed
+  └─ Deploy targets (fleet, SSH)    ← one consumer each
+        layout = exactly one of: pair | combined | pfx
+        write  = direct | stage+sudo (derived / recommended, not a mystery)
+        after  = simple restart recipe → real post_deploy_command
+        verify = optional URL / host:port probe after deploy
+```
+
+### Naming
+
+| Old (UI) | New (UI) | Notes |
+|----------|----------|--------|
+| Service map | **Deploy target** | Matches model intent; avoids DNS “map” confusion |
+| Add service map | **Add deploy target** / **New destination** | Wizard entry |
+| Deploy all maps | **Deploy all** | Top bar primary |
+| Map form (inline) | **Target wizard** (modal) | Multi-step |
+
+### Cert types (one per target)
+
+| Type | Files | When |
+|------|-------|------|
+| **PEM pair** | fullchain + privkey | Nginx, Caddy, most Docker TLS mounts |
+| **Combined PEM** | single file (key then chain) | HAProxy / some “snakeoil” apps |
+| **PFX (PKCS#12)** | `.pfx` | Windows / UniFi-style |
+
+**Legacy:** existing rows with `pair_and_*` keep deploying until edited; new UI never offers compounds. Need both pair and PFX? → **two deploy targets**.
+
+### Wizard (modal) — step sketch
+
+1. **Name** — human label (“NPM custom SSL”, “Grafana volume TLS”).  
+2. **Server** — fleet host with working SSH.  
+3. **Service** (optional) — if a fleet service / stack is known, prefill path + restart; else freeform.  
+4. **Cert type** — pair / combined / pfx + short help + wiki link.  
+5. **Destination** — **final** remote folder (not staging). Staging is an implementation detail of stage+sudo.  
+6. **Filenames** — only fields for the selected type.  
+7. **Permissions** — chmod + chown (owner/group).  
+8. **Restart** — simple recipes only:
+   - `docker compose -f <file> restart` / `up -d` (compose path field)
+   - `sudo systemctl restart <unit>`
+   - None  
+   Wizard stores the exact command PiHerder will run.  
+9. **Privileges** — if destination is root-owned / not writable by SSH user → recommend **stage+sudo**; show generated **sudoers snippet** + copy steps (least-priv vs full user).  
+10. **Simulate** — remote check: can we `sudo -n` the install/restart lines? Fail with actionable copy.  
+11. **Save** — persist target; preview “what deploy will do”; offer **Deploy now**.
+
+### Certificate detail page layout
+
+| Zone | Content |
+|------|---------|
+| **Top bar** | Name · expiry pills · **Deploy all** · Apply to this PiHerder · ⋮ menu (Replace PEM, settings, delete) |
+| **Vault card** | Domains, fingerprint, renew settings (compact) |
+| **This PiHerder** | Compact edge row (status + Apply) |
+| **Deploy targets** | Minimal rows: label · server · type · last status · last deploy time — **click → detail modal** |
+| **Empty state** | CTA: **Add deploy target** opens wizard |
+
+**Target detail modal:** full paths, perms, restart, last deploy message, sudoers snippet (copy), **Deploy**, **Edit** (re-open wizard), **Remove**, cleanup note (“remove this sudoers drop-in if unused”).
+
+**Replace PEM:** ⋮ → modal (fullchain + key) → on success prompt Deploy all / Apply edge.
+
+### Post-deploy validation (**P-verify**)
+
+| Mode | How | Success |
+|------|-----|---------|
+| **Fingerprint on host** | SSH read installed file(s) / `openssl x509 -fingerprint` on remote PEM | Matches vault fingerprint |
+| **TLS probe** | Optional `verify_host` / URL (or linked HTTP monitor later) — `openssl s_client` or HTTPS GET leaf | Presented cert fingerprint matches vault (or SANs + not-after sanity) |
+| **Edge** | Read `./certs` + optional local Caddy/HTTPS probe | Same fingerprint |
+
+Store last verify status/message/time on target (and edge fields on cert). Deploy UX shows **Deployed · Verified** / **Deployed · verify failed**.
+
+**DB (additive):** e.g. `verify_url` / `verify_host` / `verify_port` / `last_verify_*` on `CertificateTarget` — only if needed beyond post-deploy host fingerprint check. Prefer host-file fingerprint first (works for DB TLS / non-HTTP consumers); URL probe is optional secondary.
+
+### Inventory (current → target)
 
 | Area | Location | Notes |
 |------|----------|--------|
-| Sudoers generator | `app/services/certificates.py` → `sudoers_snippet_for_map` | **A1.1 done** — uses shared home/stage helpers |
-| Deploy stage | same file `stage_sudo` | Shared `cert_stage_dir` / `expand_remote_dir` |
-| Live snippet UI | `certificates_detail.html` JS | **Still drifts** — next A1.2 |
-| Setup page | `certificates_setup.html` | Warning card “later release” — retire when A1 ships |
-| Errors | deploy `RuntimeError` | `"sudoers?"` → actionable copy |
-| Tests | `tests/test_certificates*.py` | Extend path + snippet ↔ deploy |
+| Sudoers / stage paths | `certificates.py` | **A1.1 done** |
+| Layouts | `LAYOUTS`, form | **Narrow new UI to 3 types**; keep deploy of legacy compounds |
+| Inline map form | `certificates_detail.html` | **Replace** with compact list + modal wizard |
+| Setup page | `certificates_setup.html` | Vault import path only; target wizard lives on cert detail |
+| Deploy buttons | detail top + per-card bottom | Elevate **Deploy** top + modal; remove footer clutter |
+| Replace PEM | detail slab | → menu + modal |
+| Verify | post-deploy + Verify action | Host openssl/marker fingerprint |
+| Tests | `test_certificates*.py` | Wizard fields, one-type layouts, verify helpers, sudo simulate |
 
-### Known edges (1.0)
-
-1. Snippet assumes `/home/<ssh-user>` — custom home / root need absolute paths.  
-2. Snippet must match deploy commands exactly (`sudo -n install …`).  
-3. Post-deploy restarts need own allow lines (document + hints).  
-4. Prefer stage+sudo for root-owned destinations.
-
-### Breakdown
+### Breakdown (revised)
 
 | Step | Work | Done when |
 |------|------|-----------|
-| **A1.0** | Reproduce mismatch cases | **Done** — custom home / root / `~/` fixtures in unit tests |
-| **A1.1** | Shared path helpers; snippet + deploy aligned | **Done** — `resolve_ssh_home`, `expand_remote_dir`, `cert_stage_*`; deploy + `sudoers_snippet_for_map` share them; tests green |
-| **A1.2** | UI uses server truth | Map form JS still hardcodes `piherder` / `/home/piherder` — next |
-| **A1.3** | Guided setup on `/certificates/setup` | Server → mode → paths → sudoers → create map |
-| **A1.4** | Deploy error copy | **Partial** — install -d / install file messages improved; more polish OK |
-| **A1.5** | Wiki + retire/shrink warning card | Docs match UI |
-| **A1.6** | Tests + E2E chrome | Unit pack expanded; E2E setup chrome later |
+| **A1.0** | Path mismatch repro | **Done** |
+| **A1.1** | Shared path helpers; snippet ↔ deploy | **Done** |
+| **A1.2** | Server-truth paths in any remaining preview JS | **Done** — wizard sudoers uses selected server SSH user + default home |
+| **A1.3a** | Rename UI → **Deploy target**; compact list | **Done** — list + detail modals |
+| **A1.3b** | **Target wizard modal** (steps above) | **Done** — including simulate (**A1.5b**) |
+| **A1.3c** | Restart recipes → real `post_deploy_command` | **Done** — compose / systemctl / custom |
+| **A1.3d** | Page chrome: top Deploy, ⋮ Replace PEM modal | **Done** |
+| **A1.4** | Deploy error copy polish | **Done** — `humanize_deploy_error` + richer post-deploy failures |
+| **A1.5** | Post-deploy **verify** (host fingerprint; optional URL) | **Done** — openssl/marker vs vault; Verify button; optional URL later |
+| **A1.5b** | Wizard **simulate** privileges | **Done** — SSH sudo/write probes |
+| **A1.6** | Wiki + setup page rewrite | **In progress** mid-train docs pass; cookbooks → deploy target / wizard / verify |
+| **A1.7** | Tests + E2E chrome | Unit pack expanded; Playwright wizard/modal shells as capacity |
 
 ### A1 out of scope
 
-ACME · NPM write · auto-SSH sudoers install · **P-job** (Cap/Should later)
+ACME-in-herder · NPM proxy write · **auto** install of sudoers over SSH (copy + operator still) · multi-target Celery job packaging (**P-job** Cap/Should) · full Kuma monitor linkage (optional later)
 
-### A1 design defaults
+### Design defaults
 
 | Question | Default |
 |----------|---------|
-| Wizard surface | Extend **`/certificates/setup`** + deep-link from maps |
-| Install sudoers over SSH | **No** in A1 — copy + operator `visudo` |
-| `home_dir` for snippet | Optional arg; from server SSH user facts when known |
+| Product name | **Deploy target** |
+| Wizard surface | Modal on cert detail (+ “Add” from empty state) |
+| Cert types (new) | `pair` \| `combined` \| `pfx` only |
+| Staging | Hidden when possible; shown only in sudoers explanation |
+| Sudoers install | Operator copies drop-in; **Simulate** proves it |
+| Verify | Always try host fingerprint after successful write; URL optional |
+| Edge TLS | First-class compact card, same cert page |
 
-### Immediate next (implementation)
+### Immediate next (implementation order)
 
-1. Unit-test expected sudoers lines vs deploy path expansion.  
-2. Fix `sudoers_snippet_for_map` (+ helpers) for real home.  
-3. Guided setup chrome.  
-4. Error strings.  
-5. Docs + E2E.
+1. **A1.6 / A1.7** residual — wiki/setup polish + Playwright chrome as capacity.  
+2. **I — Int-gen** generic URL entries (if capacity).  
+3. Operator QA on A/B + freeze checklist; Discover pull-ins only if Must stays closed.
 
 ---
 
@@ -362,6 +494,19 @@ ACME · NPM write · auto-SSH sudoers install · **P-job** (Cap/Should later)
 | 2026-07-29 | **A1.0–A1.1 landed:** path helpers + sudoers/deploy alignment for custom home / root; unit tests; partial **P-fb** error copy. Next: **A1.2** map-form JS → server truth, then wizard (**A1.3**). |
 | 2026-07-29 | **P-acme** ACME-in-herder: desired · **under consideration from v1.3+** (not this train). Challenge model open: DNS automation vs human-assisted vs hybrid; NPM stays preferred multi-provider issuer. §6.1. |
 | 2026-07-29 | **Education path:** wiki ACME/DNS cookbook + optional Certbot helper can ship **before** product ACME; prefer upstream links; novice path into vault+deploy. §6.1 Education path. |
+| 2026-07-29 | **Cert refinement elevated:** rename Service map → **Deploy target**; one layout per target; modal wizard; top Deploy; Replace PEM menu; post-deploy verify; compact list + detail modal. §10 rewritten. |
+| 2026-07-29 | **A1.2–A1.3 landed (UI):** pure `pfx` layout + restart recipes; cert detail compact list + detail modals + multi-step wizard; top Deploy / More (Replace PEM); server-truth sudoers preview; list/setup copy. **P-verify** still open. |
+| 2026-07-29 | Deploy targets are **per service** (not stack); cert detail **groups services under host** (1–N deploys per machine). |
+| 2026-07-29 | **P-verify** + **P-sim:** post-deploy host fingerprint verify (migration `032`); Verify action; wizard Simulate privileges over SSH. |
+| 2026-07-29 | **TLS port probe:** optional endpoint on service target — `openssl s_client` on any TLS port (web, DB native TLS, STARTTLS postgres/mysql/…); host then herder. |
+| 2026-07-29 | **Cert alerts:** open Notifications on deploy fail / verify fail-partial; auto-resolve on successful deploy + verify (and on target/cert delete). |
+| 2026-07-29 | **B1 S1–S4 landed:** last-seen, hide/unhide, purge + bulk offline purge, filter chips with honest counts. |
+| 2026-07-29 | **C1 AB landed:** trusted-device type, last IP, rename on Account. |
+| 2026-07-29 | **D1 E6 landed:** `cron_human` + presets across schedule surfaces. |
+| 2026-07-29 | **D2 J+K landed:** `UserFavourite` pins (★ menu, host/app/integration kinds; map pins open SVG via `#map`); cross-host jump with feature-flag filtering. Migrations **033** / **034**. |
+| 2026-07-29 | **G1 Ports + Topo-xhost landed:** stack panel published-port chips; manual edge cross-host picker. |
+| 2026-07-29 | **I Y partial:** Settings → API **Try a token** + OpenAPI/ReDoc deep links; **Int-gen** still open. |
+| 2026-07-29 | Mid-train **docs/wiki/ADMIN/ROADMAP** pass for A–D–G–I landed work. |
 
 ---
 

@@ -147,6 +147,7 @@ nav:
       - Operator scenarios: getting-started/operator-scenarios.md
   - Day to day:
       - Dashboard & Services: day-to-day/dashboard-and-services.md
+      - Pins & host jump: day-to-day/navigation-pins.md
       - Add a server: day-to-day/add-server.md
       - HAOS hosts: day-to-day/haos-hosts.md
       - Backups & restore: day-to-day/backups.md

@@ -15,10 +15,18 @@
         <span>Enable OS update checks (apt list — no upgrade)</span>
       </label>
       <div>
-        <label class="block text-xs text-muted mb-1">OS check cron (base)</label>
+        <label class="block text-xs text-muted mb-1">OS check schedule (base)</label>
+        <select class="w-full sm:w-56 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 mb-1"
+                aria-label="OS check preset"
+                onchange="var el=this.form.querySelector('[name=os_check_cron]'); if(this.value&&el){el.value=this.value;}">
+          <option value="">Custom / advanced cron…</option>
+          {% for val, lab in cron_presets %}
+          <option value="{{ val }}" {% if (cfg.os_check_cron or '0 0 * * *') == val %}selected{% endif %}>{{ lab }}</option>
+          {% endfor %}
+        </select>
         <input type="text" name="os_check_cron" value="{{ cfg.os_check_cron or '0 0 * * *' }}"
                placeholder="0 0 * * *" class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
-        <p class="text-[10px] text-muted mt-1"><code>0 0 * * *</code> = daily at 00:00 in {{ current_tz }}</p>
+        <p class="text-[10px] text-muted mt-1">{{ (cfg.os_check_cron or '0 0 * * *') | cron_human(current_tz) }} · {{ current_tz }}</p>
       </div>
 
       <label class="flex items-center gap-2 min-h-11 text-sm">
@@ -27,9 +35,18 @@
         <span>Enable container image checks (pull + compare — no <code>up -d</code>)</span>
       </label>
       <div>
-        <label class="block text-xs text-muted mb-1">Container check cron (base)</label>
+        <label class="block text-xs text-muted mb-1">Container check schedule (base)</label>
+        <select class="w-full sm:w-56 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 mb-1"
+                aria-label="Container check preset"
+                onchange="var el=this.form.querySelector('[name=container_check_cron]'); if(this.value&&el){el.value=this.value;}">
+          <option value="">Custom / advanced cron…</option>
+          {% for val, lab in cron_presets %}
+          <option value="{{ val }}" {% if (cfg.container_check_cron or '0 0 * * *') == val %}selected{% endif %}>{{ lab }}</option>
+          {% endfor %}
+        </select>
         <input type="text" name="container_check_cron" value="{{ cfg.container_check_cron or '0 0 * * *' }}"
                placeholder="0 0 * * *" class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+        <p class="text-[10px] text-muted mt-1">{{ (cfg.container_check_cron or '0 0 * * *') | cron_human(current_tz) }}</p>
       </div>
 
       <label class="flex items-center gap-2 min-h-11 text-sm">

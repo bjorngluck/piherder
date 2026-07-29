@@ -17,7 +17,10 @@
         <span class="text-muted">·</span>
         <a href="/dns/logical{% if focus_id %}?focus={{ focus_id }}{% endif %}#map" class="text-accent hover:underline">Path map</a>
       </div>
-      <h1 class="text-2xl font-semibold tracking-tight">Hosts map</h1>
+      <h1 class="text-2xl font-semibold tracking-tight feature-title-with-pin">
+        <span>Hosts map</span>
+        {% include "partials/pin_button.html" %}
+      </h1>
       <p class="text-sm text-muted mt-1 max-w-2xl">
         <strong class="text-text">Internet</strong> → router → <strong class="text-text">LAN fan</strong>
         (fleet on a circle; <strong class="text-text">Discovered</strong> expands the zone to include network devices);
@@ -158,6 +161,10 @@
           <path d="M4 6h16M4 12h16M4 18h10"/>
         </svg>
       </button>
+      {# Pin Hosts map to header ★ (same feature key as title / Network hub) #}
+      <div class="fabric-map-pin" data-testid="hosts-map-toolbar-pin" title="Pin Hosts map">
+        {% include "partials/pin_button.html" %}
+      </div>
       {# Icon toggle only — count lives in footer stats + tooltip (avoids toolbar scroll) #}
       <label class="fabric-map-disc-toggle"
              title="{% if disc_n %}Discovered devices ({{ disc_n }}) — expand LAN rings{% else %}Show discovered LAN devices{% endif %}. Off = compact fleet fan.">
