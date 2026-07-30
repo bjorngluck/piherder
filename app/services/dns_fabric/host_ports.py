@@ -459,11 +459,13 @@ def build_host_ports_expand_payload(
     *,
     server_id: int,
     show_noise: bool = False,
-    limit: int = 24,
+    limit: int = 40,
+    ports_per_service: int = 5,
 ) -> dict[str, Any]:
-    """JSON for on-map host port fan: host → ports → stack owners.
+    """JSON for on-map host fan: host → service/container → ports (max N).
 
-    Primary UX for map depth (not drawer-first).
+    Groups by compose project + container (or service name). Nmap-only ports
+    land in a single **Observed** group — no duplicate obs labels on each chip.
     """
     inv = build_host_port_inventory(
         session, server_id=int(server_id), show_noise=show_noise
@@ -471,88 +473,136 @@ def build_host_ports_expand_payload(
     if not inv.get("ok"):
         return inv
 
-    ports_raw = list(inv.get("ports") or [])[: max(1, min(40, limit))]
-    ports_out: list[dict[str, Any]] = []
-    stack_map: dict[str, dict[str, Any]] = {}
+    max_ports = max(1, min(60, limit))
+    max_show = max(1, min(8, ports_per_service))
+    ports_raw = list(inv.get("ports") or [])[:max_ports]
 
-    for p in ports_raw:
+    # Group key → service bucket
+    groups: dict[str, dict[str, Any]] = {}
+
+    def _port_chip(p: dict[str, Any]) -> dict[str, Any]:
         hp = int(p.get("host_port") or 0)
         proto = (p.get("proto") or "tcp").lower()
-        proj = (p.get("owner_project") or "").strip()
         role = (p.get("role") or PORT_ROLE_OTHER).lower()
-        port_row = {
+        return {
             "id": f"{hp}/{proto}",
             "host_port": hp,
             "proto": proto,
-            "label": f"{hp}/{proto}",
             "role": role,
             "role_label": p.get("role_label") or port_role_label(role),
             "role_sticky": bool(p.get("role_sticky")),
             "source": p.get("source") or "docker",
-            "owner_project": proj,
-            "owner_container": (p.get("owner_container") or p.get("owner_service") or "")[
-                :80
-            ],
-            "published": bool(p.get("published")),
-            "observed": bool(p.get("observed") or p.get("source") in ("nmap", "both")),
-            "display": p.get("display") or f"{hp}/{proto}",
+            "label": f"{hp}"
+            + (f" {p.get('role_label') or port_role_label(role)}" if role != PORT_ROLE_OTHER else ""),
         }
-        ports_out.append(port_row)
+
+    for p in ports_raw:
+        proj = (p.get("owner_project") or "").strip()
+        cont = (p.get("owner_container") or "").strip()
+        svc = (p.get("owner_service") or "").strip()
+        # Prefer compose service for display when it differs from container name
+        unit = svc or cont
         if proj:
-            sk = proj.lower()
-            if sk not in stack_map:
-                stack_map[sk] = {
-                    "id": proj,
-                    "name": proj,
-                    "port_ids": [],
-                    "roles": set(),
-                }
-            stack_map[sk]["port_ids"].append(port_row["id"])
-            stack_map[sk]["roles"].add(role)
+            gkey = f"svc:{proj.lower()}::{(unit or cont or '_').lower()}"
+            title = proj
+            subtitle = unit if unit and unit.lower() != proj.lower() else (cont or svc or "")
+            if subtitle and subtitle.lower() == title.lower():
+                subtitle = ""
+            kind = "service"
+        else:
+            gkey = "observed"
+            title = "Observed"
+            subtitle = "nmap only"
+            kind = "observed"
 
-    stacks: list[dict[str, Any]] = []
-    for s in sorted(stack_map.values(), key=lambda x: x["name"].lower()):
-        stacks.append(
+        if gkey not in groups:
+            groups[gkey] = {
+                "id": gkey,
+                "kind": kind,
+                "project": proj,
+                "container": cont,
+                "service": svc or cont,
+                "title": title,
+                "subtitle": subtitle,
+                "ports": [],
+                "sources": set(),
+            }
+        chip = _port_chip(p)
+        groups[gkey]["ports"].append(chip)
+        groups[gkey]["sources"].add(str(p.get("source") or "docker"))
+
+    services_out: list[dict[str, Any]] = []
+    # Owned services first (alpha), observed last
+    ordered = sorted(
+        groups.values(),
+        key=lambda g: (0 if g["kind"] == "service" else 1, g["title"].lower(), g["subtitle"].lower()),
+    )
+    for g in ordered:
+        ports_all = g["ports"]
+        shown = ports_all[:max_show]
+        extra = max(0, len(ports_all) - len(shown))
+        srcs = g["sources"]
+        if srcs == {"nmap"}:
+            source = "nmap"
+        elif "nmap" in srcs and ("docker" in srcs or "both" in srcs):
+            source = "both"
+        elif "both" in srcs:
+            source = "both"
+        else:
+            source = "docker"
+        # Display line under title: "pihole" or "web · pihole"
+        if g["kind"] == "observed":
+            label = "Observed"
+            detail = "not in Docker inventory"
+        else:
+            label = g["title"]
+            detail = g["subtitle"] or g["service"] or ""
+        services_out.append(
             {
-                "id": s["id"],
-                "name": s["name"],
-                "port_ids": s["port_ids"],
-                "port_count": len(s["port_ids"]),
-                "roles": sorted(s["roles"]),
+                "id": g["id"],
+                "kind": g["kind"],
+                "project": g["project"],
+                "container": g["container"],
+                "service": g["service"],
+                "label": label,
+                "detail": detail,
+                "source": source,
+                "ports": shown,
+                "port_count": len(ports_all),
+                "ports_extra": extra,
+                "port_ids": [c["id"] for c in ports_all],
             }
         )
 
-    # Edges for the canvas: host→port always; port→stack when owned
-    edges: list[dict[str, Any]] = []
-    for p in ports_out:
-        edges.append(
-            {
-                "from": "host",
-                "to": p["id"],
-                "kind": "host_port",
-            }
-        )
-        if p.get("owner_project"):
-            edges.append(
-                {
-                    "from": p["id"],
-                    "to": f"stack:{p['owner_project']}",
-                    "kind": "port_owner",
-                }
-            )
+    edges = [
+        {"from": "host", "to": s["id"], "kind": "host_service"} for s in services_out
+    ]
 
     return {
         "ok": True,
         "server_id": int(server_id),
         "server_name": inv.get("server_name") or "",
         "node_id": f"host-{int(server_id)}",
-        "ports": ports_out,
-        "stacks": stacks,
+        # service-first fan (preferred)
+        "services": services_out,
+        # keep flat lists for tests / debug (not drawn as separate columns)
+        "ports": [c for s in services_out for c in s["ports"]],
+        "stacks": [
+            {
+                "id": s["project"] or s["id"],
+                "name": s["label"],
+                "port_ids": s["port_ids"],
+                "port_count": s["port_count"],
+            }
+            for s in services_out
+            if s["kind"] == "service"
+        ],
         "edges": edges,
-        "total_count": inv.get("total_count") or len(ports_out),
-        "stack_count": len(stacks),
+        "total_count": inv.get("total_count") or sum(s["port_count"] for s in services_out),
+        "stack_count": sum(1 for s in services_out if s["kind"] == "service"),
         "summary_line": inv.get("summary_line") or "",
         "panel_url": f"/dns/host-ports-panel?server_id={int(server_id)}",
+        "ports_per_service": max_show,
     }
 
 
