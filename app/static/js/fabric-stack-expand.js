@@ -431,21 +431,20 @@
             'stroke-width': '1.75',
           })
         );
-        // Role chip — top band, clear of name (was bleeding into title)
         ng.appendChild(
           el('rect', {
-            x: cx - boxW / 2 + 6,
-            y: y - boxH / 2 + 6,
-            width: 36,
-            height: 14,
+            x: cx - boxW / 2 + 5,
+            y: y - boxH / 2 + 5,
+            width: 32,
+            height: 13,
             rx: 3,
             fill: colors.chip,
             stroke: 'none',
           })
         );
         var typeT = el('text', {
-          x: cx - boxW / 2 + 24,
-          y: y - boxH / 2 + 16,
+          x: cx - boxW / 2 + 21,
+          y: y - boxH / 2 + 14.5,
           'text-anchor': 'middle',
           'font-size': '7.5',
           'font-weight': '800',
@@ -457,38 +456,36 @@
 
         ng.appendChild(
           el('circle', {
-            cx: cx + boxW / 2 - 11,
-            cy: y - boxH / 2 + 13,
+            cx: cx + boxW / 2 - 10,
+            cy: y - boxH / 2 + 11,
             r: 3.5,
             fill: ct.running ? '#059669' : '#d97706',
             stroke: 'none',
           })
         );
 
-        // Name — middle band
         var nameT = el('text', {
-          x: cx,
-          y: y + 4,
+          x: cx + 4,
+          y: ct.ports_label ? y + 8 : y + 13,
           'text-anchor': 'middle',
-          'font-size': '11',
+          'font-size': '10.5',
           'font-weight': '650',
           fill: 'var(--color-text)',
           class: 'fabric-mesh-stack-label',
         });
-        nameT.textContent = String(ct.name || id).slice(0, 14);
+        nameT.textContent = String(ct.name || id).slice(0, 13);
         ng.appendChild(nameT);
-        // Ports — bottom band
         if (ct.ports_label) {
           var portsT = el('text', {
-            x: cx,
-            y: y + boxH / 2 - 8,
+            x: cx + 4,
+            y: y + 18,
             'text-anchor': 'middle',
-            'font-size': '8',
+            'font-size': '7.5',
             'font-weight': '600',
             fill: 'var(--color-muted)',
             'font-family': 'ui-monospace, Menlo, monospace',
           });
-          portsT.textContent = String(ct.ports_label).slice(0, 18);
+          portsT.textContent = String(ct.ports_label).slice(0, 16);
           ng.appendChild(portsT);
         }
 
@@ -598,11 +595,10 @@
     var edges = data.edges || [];
     var groups = partitionViewGroups(data);
 
-    // Taller cards so role chip + name + ports don't collide
-    var boxW = 124;
-    var boxH = 58;
+    var boxW = 118;
+    var boxH = 42;
     var colGap = 72;
-    var rowGap = 18;
+    var rowGap = 16;
     var rowH = boxH + rowGap;
     var headerBand = 20;
     var titleBand = 18;
