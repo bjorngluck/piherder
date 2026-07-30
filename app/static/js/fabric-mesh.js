@@ -365,6 +365,11 @@
       stackFocus.classList.add('hidden');
       stackFocus.removeAttribute('data-stack-url');
     }
+    var portsBtn = root.querySelector('[data-fabric-host-ports]');
+    if (portsBtn) {
+      portsBtn.classList.add('hidden');
+      portsBtn.removeAttribute('data-host-ports-url');
+    }
     var openLink = root.querySelector('[data-fabric-open-link]');
     if (openLink) {
       openLink.href = '#';
@@ -396,18 +401,70 @@
     }
   }
 
+  /** M4 — Ports panel when a fleet host node is focused. */
+  function setHostPortsButton(root, focusId) {
+    var portsBtn = root.querySelector('[data-fabric-host-ports]');
+    if (!portsBtn) return;
+    var fid = focusId != null ? String(focusId) : '';
+    var serverId = '';
+    var portsSummary = '';
+    if (fid && fid.indexOf('n:') === 0) {
+      var node = root.querySelector(
+        '[data-node-id="' + fid.slice(2).replace(/"/g, '') + '"]'
+      );
+      // also try full id without strip for host-1 style
+      if (!node) {
+        node = root.querySelector(
+          '[data-node-id="' + fid.replace(/"/g, '') + '"]'
+        );
+      }
+      // focus ids are "n:host-3" — node-id is host-3
+      if (!node && fid.indexOf('n:') === 0) {
+        var nid = fid.slice(2);
+        node = root.querySelector(
+          '[data-node-id="' + nid.replace(/"/g, '') + '"]'
+        );
+      }
+      if (node) {
+        serverId = (node.getAttribute('data-server-id') || '').trim();
+        portsSummary = (node.getAttribute('data-ports-summary') || '').trim();
+      }
+    }
+    if (serverId && /^\d+$/.test(serverId)) {
+      portsBtn.setAttribute(
+        'data-host-ports-url',
+        '/dns/host-ports-panel?server_id=' + encodeURIComponent(serverId)
+      );
+      portsBtn.classList.remove('hidden');
+      portsBtn._portsSummary = portsSummary;
+    } else {
+      portsBtn.classList.add('hidden');
+      portsBtn.removeAttribute('data-host-ports-url');
+      portsBtn._portsSummary = '';
+    }
+    return portsSummary;
+  }
+
   function setCallout(root, text, openHref, openLabel) {
     var callout = root.querySelector('[data-fabric-callout]');
     var copyCallout = root.querySelector('[data-fabric-copy-callout]');
     var openLink = root.querySelector('[data-fabric-open-link]');
+    var portsSummary = setHostPortsButton(root, root._fabricFocusId);
     if (callout) {
-      if (text) {
-        callout.textContent = text;
+      var display = text || '';
+      if (display && portsSummary && display.indexOf(portsSummary) < 0) {
+        display = display + ' · ' + portsSummary;
+      } else if (!display && portsSummary) {
+        display = portsSummary;
+      }
+      if (display) {
+        callout.textContent = display;
         callout.classList.remove('is-empty');
       } else {
         callout.textContent = callout.getAttribute('data-fabric-callout-empty') || '';
         callout.classList.add('is-empty');
       }
+      text = display;
     }
     if (copyCallout) {
       if (text) {
@@ -420,6 +477,7 @@
     }
     // Stack only when focus is a mapped service path (set in focusPath)
     setStackFocusButton(root, root._fabricFocusId);
+    setHostPortsButton(root, root._fabricFocusId);
     if (openLink) {
       if (!openLink.getAttribute('data-default-label')) {
         openLink.setAttribute('data-default-label', openLink.textContent || 'Open host');

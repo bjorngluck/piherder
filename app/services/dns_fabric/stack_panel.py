@@ -548,6 +548,17 @@ def build_stack_panel(
         except Exception:
             pass
 
+    # M4 — sticky port roles on published chips
+    if server.id is not None and containers:
+        try:
+            from .host_ports import enrich_with_server_annotations
+
+            enrich_with_server_annotations(
+                session, containers, server_id=int(server.id)
+            )
+        except Exception:
+            pass
+
     # Category-driven sort (vocab order) unless custom order applies
     role_rank = {
         c.get("key"): i for i, c in enumerate(categories_vocab)
@@ -799,6 +810,13 @@ def build_stack_panel(
             "confirmed_edges": len(confirmed_edges),
             "has_compose_graph": bool(compose_graph and compose_graph.get("depends_on")),
         },
+        # M4 host port inventory deep-link (same stack drawer HTMX target)
+        "host_ports_url": (
+            f"/dns/host-ports-panel?server_id={int(server.id)}"
+            + (f"&focus_project={proj}" if proj else "")
+            if server.id is not None
+            else ""
+        ),
         "has_kuma": has_kuma,
         "all_service_monitors": all_service_monitors[:80],
         "docker_href": (

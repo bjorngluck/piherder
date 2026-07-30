@@ -700,6 +700,38 @@ class ContainerAnnotationTag(SQLModel, table=True):
     tag_key: str = Field(max_length=64, index=True)
 
 
+class PortAnnotation(SQLModel, table=True):
+    """Sticky port role / note / ownership for host or discovered device (map M4).
+
+    At least one of server_id or nmap_device_id should be set. Unique per
+    (owner, host_port, proto). Derived docker/nmap ownership wins unless
+    owner_project is set by the operator.
+    """
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    server_id: Optional[int] = Field(default=None, foreign_key="server.id", index=True)
+    nmap_device_id: Optional[int] = Field(
+        default=None, foreign_key="nmapdevice.id", index=True
+    )
+    host_port: int = Field(index=True)
+    # tcp | udp
+    proto: str = Field(default="tcp", max_length=8, index=True)
+    # web | dns | db | cache | proxy | ssh | metrics | other (null = use heuristic)
+    role_key: Optional[str] = Field(default=None, max_length=32, index=True)
+    label: Optional[str] = Field(default=None, max_length=80)
+    note: Optional[str] = Field(default=None, max_length=500)
+    # Optional ownership override (compose project / service or container name)
+    owner_project: Optional[str] = Field(default=None, max_length=200)
+    owner_container: Optional[str] = Field(default=None, max_length=200)
+    # Operator-hide from default host port list (noise)
+    hide: bool = Field(default=False, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by_user_id: Optional[int] = Field(
+        default=None, foreign_key="user.id", index=True
+    )
+
+
 # ---------------------------------------------------------------------------
 # LAN discovery (nmap) — see docs/FEATURE_PLAN_LAN_NMAP.md
 # ---------------------------------------------------------------------------

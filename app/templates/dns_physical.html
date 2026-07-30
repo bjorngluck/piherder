@@ -432,6 +432,8 @@
                    data-node-kind="host"
                    data-icon-kind="{{ ik }}"
                    data-discovered="{{ '1' if n.is_discovered else '0' }}"
+                   {% if n.server_id %}data-server-id="{{ n.server_id }}"{% endif %}
+                   {% if n.ports_summary_line %}data-ports-summary="{{ n.ports_summary_line }}"{% elif n.ports_summary %}data-ports-summary="{{ n.ports_count or 0 }} ports · {{ n.ports_summary }}"{% endif %}
                    data-open-href="{{ n.href or '' }}"
                    data-open-label="{{ n.open_label or 'Open host' }}"
                    {% if n.is_cloud or n.layout_dual %}
@@ -552,6 +554,11 @@
               onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){var u=this.getAttribute('data-stack-url');if(u)PiHerderStackPanel.open(u);}return false;">Stack</button>
       <button type="button"
               class="btn btn-secondary text-xs min-h-9 px-2 hidden"
+              data-fabric-host-ports
+              title="Published + observed ports on this host"
+              onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){var u=this.getAttribute('data-host-ports-url');if(u)PiHerderStackPanel.open(u);}return false;">Ports</button>
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-9 px-2 hidden"
               data-fabric-copy-callout>Copy path</button>
       <a href="#"
          class="btn btn-primary text-xs min-h-9 px-2 hidden"
@@ -566,7 +573,7 @@
 </div>
 
 {% include "partials/dns_stack_drawer.html" %}
-<script src="/static/js/fabric-mesh.js?v=20260730-map-icons-pop" defer></script>
+<script src="/static/js/fabric-mesh.js?v=20260730-host-ports-m4" defer></script>
 <script src="/static/js/fabric-stack-expand.js?v=20260723-compact-anchor" defer></script>
 <script>
 (function () {

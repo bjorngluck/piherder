@@ -230,6 +230,8 @@ Maps stay **customer-facing** by default. For **one** focused service (or host p
 
 **Ports:** inventory publish strings are parsed into structured chips (e.g. `8080→80/tcp`). Chips also show a **role hint** when known (DNS, Web, Database, Cache, …) — e.g. Pi-hole **53 · DNS** and **443 · Web**. Internal-only containers show a short “internal” summary rather than a fake host mapping.
 
+**Host ports panel:** from a focused fleet host on the Hosts map (**Ports** control) or Stack → **Host ports**, open the host-wide inventory: **Docker published** ports with stack/container owners ∪ **nmap observed** ports (when a discovery device is linked). Operators can set a **sticky role** (overrides heuristic; ★ on chips). SSH is hidden under **noise** by default. Map focus callout shows a short port summary (counts + top chips).
+
 **Manual edges:** when accepting or adding a link, the picker can target containers on **another fleet host** (cross-host topology), not only the focused compose project.
 
 Compose **project** identity is exact (case-insensitive) for annotation storage. Soft substring match (e.g. conflating unrelated project names) is not used.

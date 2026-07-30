@@ -271,6 +271,12 @@ def _snapshot_container_annotation_tags() -> List[Dict[str, Any]]:
     return _snapshot_table(ContainerAnnotationTag)
 
 
+def _snapshot_port_annotations() -> List[Dict[str, Any]]:
+    from ..models import PortAnnotation
+
+    return _snapshot_table(PortAnnotation)
+
+
 def _snapshot_audit(since_days: Optional[int] = None) -> List[Dict[str, Any]]:
     with Session(engine) as s:
         q = select(AuditLog).order_by(AuditLog.started_at.desc())
@@ -379,6 +385,7 @@ def _build_backup_payload(
         "visual_service_stacks": _snapshot_visual_service_stacks(),
         "container_annotations": _snapshot_container_annotations(),
         "container_annotation_tags": _snapshot_container_annotation_tags(),
+        "port_annotations": _snapshot_port_annotations(),
         "herder_config": load_settings(),
     }
     if include_audit:
@@ -935,6 +942,11 @@ def restore_herder_backup(
         s.flush()
         result["restored_container_annotation_tags"] = _upsert_rows(
             s, ContainerAnnotationTag, payload.get("container_annotation_tags") or []
+        )
+        from ..models import PortAnnotation
+
+        result["restored_port_annotations"] = _upsert_rows(
+            s, PortAnnotation, payload.get("port_annotations") or []
         )
 
         result["restored_docker_versions"] = _upsert_rows(

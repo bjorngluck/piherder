@@ -1,0 +1,81 @@
+{# Host port inventory (M4) — HTMX into #fabric-stack-panel-body #}
+{% set p = panel %}
+{% if not p or not p.ok %}
+<div class="fabric-stack-empty">
+  <p class="text-sm text-muted">{{ (p.error if p else 'Could not load ports') or 'Could not load ports' }}</p>
+</div>
+{% else %}
+<div class="fabric-stack-panel-inner fabric-host-ports" data-host-ports-server="{{ p.server_id or '' }}">
+  <header class="fabric-stack-header">
+    <div class="min-w-0">
+      <div class="ph-detail-kicker">Host ports</div>
+      <h2 class="font-semibold text-base truncate text-text">
+        {{ p.server_name or p.device_name or 'Host' }}
+      </h2>
+      <p class="text-xs text-muted mt-0.5">
+        {{ p.summary_line }}
+        {% if p.inventory_status %}
+        · inventory <span class="font-mono">{{ p.inventory_status }}</span>
+        {% endif %}
+      </p>
+    </div>
+    <div class="shrink-0 flex flex-wrap gap-1.5 justify-end">
+      {% if p.server_id %}
+      <a href="/servers/{{ p.server_id }}/docker" class="btn btn-secondary text-xs min-h-9 px-3">Docker</a>
+      {% endif %}
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-9 px-3"
+              hx-get="/dns/host-ports-panel?{% if p.server_id %}server_id={{ p.server_id }}{% else %}nmap_device_id={{ p.nmap_device_id }}{% endif %}{% if p.focus_project %}&focus_project={{ p.focus_project }}{% endif %}&show_noise={% if p.show_noise %}0{% else %}1{% endif %}"
+              hx-target="#fabric-stack-panel-body"
+              hx-swap="innerHTML">
+        {% if p.show_noise %}Hide noise{% else %}Show noise{% endif %}
+      </button>
+    </div>
+  </header>
+
+  <p class="text-[11px] text-muted mb-2">
+    <strong class="text-text">Docker</strong> published ports show owner stack ·
+    <strong class="text-text">Observed</strong> = nmap open (no owner) ·
+    sticky <strong class="text-text">role</strong> overrides heuristics.
+  </p>
+
+  {% if not p.ports %}
+  <div class="fabric-stack-empty">
+    <p class="text-sm text-muted">No ports to show{% if not p.show_noise %} (noise hidden){% endif %}.</p>
+  </div>
+  {% else %}
+
+  {% if p.focus_project %}
+  {% set focus_ports = p.ports | selectattr('in_focus_stack') | list %}
+  {% set other_ports = p.ports | rejectattr('in_focus_stack') | list %}
+  {% if focus_ports %}
+  <h3 class="text-xs font-semibold text-text mt-2 mb-1">This stack · <span class="font-mono text-accent">{{ p.focus_project }}</span></h3>
+  <ul class="fabric-host-ports-list" data-testid="host-ports-focus">
+    {% for row in focus_ports %}
+    {% include "partials/dns_host_port_row.html" %}
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% if other_ports %}
+  <details class="fabric-host-ports-other mt-3" open>
+    <summary class="text-xs font-semibold text-muted cursor-pointer select-none">
+      Other on host · {{ other_ports|length }}
+    </summary>
+    <ul class="fabric-host-ports-list mt-1" data-testid="host-ports-other">
+      {% for row in other_ports %}
+      {% include "partials/dns_host_port_row.html" %}
+      {% endfor %}
+    </ul>
+  </details>
+  {% endif %}
+  {% else %}
+  <ul class="fabric-host-ports-list" data-testid="host-ports-all">
+    {% for row in p.ports %}
+    {% include "partials/dns_host_port_row.html" %}
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% endif %}
+</div>
+{% endif %}

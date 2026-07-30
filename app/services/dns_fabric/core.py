@@ -2358,6 +2358,25 @@ def build_fabric_view(
             discovered_hosts = []
             hosts_for_physical = list(hosts)
 
+        # M4 — attach port summary for map focus callout (fleet hosts only)
+        try:
+            from .host_ports import host_ports_summary_for_server
+
+            for h in hosts_for_physical:
+                sid = h.get("server_id")
+                if sid is None or h.get("is_discovered"):
+                    continue
+                try:
+                    sm = host_ports_summary_for_server(session, int(sid))
+                    h["ports_count"] = sm.get("ports_count") or 0
+                    h["ports_stack_count"] = sm.get("stack_count") or 0
+                    h["ports_summary"] = sm.get("ports_summary") or ""
+                    h["ports_summary_line"] = sm.get("summary_line") or ""
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
     mesh = _mesh_logical()._build_path_mesh(services) if include_mesh else {}
     physical = (
         _build_physical_view(
