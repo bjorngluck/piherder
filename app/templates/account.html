@@ -84,6 +84,7 @@
   {% elif msg == 'backup_codes' %}New backup codes generated. Save them now.
   {% elif msg == 'device_revoked' %}Trusted device revoked.
   {% elif msg == 'devices_revoked' %}All trusted devices revoked.
+  {% elif msg == 'device_renamed' %}Device name saved.
   {% elif msg == 'push_prefs_saved' %}Push notification preferences saved.
   {% elif msg == 'push_enabled' %}This device subscribed to push notifications.
   {% elif msg == 'push_disabled' %}Push unsubscribed on this device.
@@ -528,21 +529,24 @@
               · expires {{ d.expires_at | app_tz if d.expires_at else '—' }}
             </div>
             {% if d.user_agent %}
-            <div class="text-[10px] text-muted mt-1 break-all opacity-80" title="{{ d.user_agent }}">{{ d.user_agent[:120] }}{% if d.user_agent|length > 120 %}…{% endif %}</div>
+            <details class="mt-1 text-[10px] text-muted opacity-80">
+              <summary class="cursor-pointer select-none hover:text-text">Browser details</summary>
+              <div class="mt-1 break-all font-mono" title="{{ d.user_agent }}">{{ d.user_agent }}</div>
+            </details>
             {% endif %}
           </div>
           <div class="flex flex-wrap gap-1.5 items-center flex-shrink-0">
             <button type="button"
-                    class="btn btn-secondary text-xs min-h-9 px-2.5"
+                    class="btn btn-secondary text-xs min-h-11 min-w-11 px-2.5"
                     data-td-edit
                     data-testid="trusted-device-edit"
                     aria-expanded="false"
                     aria-controls="td-edit-{{ d.id }}"
                     title="Rename device">
-              <span aria-hidden="true">✎</span><span class="sr-only"> Edit name</span>
+              <span aria-hidden="true">✎</span><span class="hidden sm:inline ml-1">Rename</span><span class="sr-only sm:hidden"> Rename</span>
             </button>
             <form method="post" action="/auth/account/trusted-devices/{{ d.id }}/revoke" class="inline">
-              <button type="submit" class="btn btn-secondary text-xs min-h-9">Revoke</button>
+              <button type="submit" class="btn btn-secondary text-xs min-h-11">Revoke</button>
             </form>
           </div>
         </div>
@@ -551,12 +555,12 @@
               class="hidden mt-2 flex flex-wrap gap-2 items-center border-t border-border pt-2"
               data-td-edit-form>
           <label class="sr-only" for="td-label-{{ d.id }}">Friendly name</label>
-          <input id="td-label-{{ d.id }}" name="label" class="input text-xs min-h-9 flex-1 min-w-[10rem]"
+          <input id="td-label-{{ d.id }}" name="label" class="input text-sm min-h-11 flex-1 min-w-[10rem]"
                  maxlength="80" placeholder="Friendly name (e.g. Work laptop)"
                  value="{{ d.label or '' }}"
                  data-testid="trusted-device-rename">
-          <button type="submit" class="btn btn-primary text-xs min-h-9">Save</button>
-          <button type="button" class="btn btn-secondary text-xs min-h-9" data-td-cancel>Cancel</button>
+          <button type="submit" class="btn btn-primary text-xs min-h-11">Save</button>
+          <button type="button" class="btn btn-secondary text-xs min-h-11" data-td-cancel>Cancel</button>
         </form>
       </li>
       {% endfor %}

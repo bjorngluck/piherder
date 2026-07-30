@@ -982,7 +982,9 @@ async def save_alerts_webhook(
         return RedirectResponse(
             _settings_url("alerts", alerts_error=str(e)[:120]), status_code=303
         )
-    return RedirectResponse(_settings_url("alerts", webhook_saved="1"), status_code=303)
+    return RedirectResponse(
+        _settings_url("alerts", webhook_saved="1") + "#alerts-webhook", status_code=303
+    )
 
 
 @router.post("/herder-backups/alerts/webhook/test")
@@ -1036,7 +1038,9 @@ async def test_alerts_webhook(
         return RedirectResponse(
             _settings_url("alerts", alerts_error=str(e)[:120]), status_code=303
         )
-    return RedirectResponse(_settings_url("alerts", webhook_test="1"), status_code=303)
+    return RedirectResponse(
+        _settings_url("alerts", webhook_test="1") + "#alerts-webhook", status_code=303
+    )
 
 
 @router.post("/herder-backups/alerts/smtp")
@@ -1090,7 +1094,9 @@ async def save_alerts_smtp(
         return RedirectResponse(
             _settings_url("alerts", alerts_error=str(e)[:120]), status_code=303
         )
-    return RedirectResponse(_settings_url("alerts", smtp_saved="1"), status_code=303)
+    return RedirectResponse(
+        _settings_url("alerts", smtp_saved="1") + "#alerts-smtp", status_code=303
+    )
 
 
 @router.post("/herder-backups/alerts/smtp/test")
@@ -1110,7 +1116,9 @@ async def test_alerts_smtp(
             ),
             status_code=303,
         )
-    return RedirectResponse(_settings_url("alerts", smtp_test="1"), status_code=303)
+    return RedirectResponse(
+        _settings_url("alerts", smtp_test="1") + "#alerts-smtp", status_code=303
+    )
 
 
 @router.post("/herder-backups/data-cleanup/config")

@@ -9,14 +9,23 @@
   </div>
   {% else %}
 
-  <div class="card p-5 mb-4">
-    <h2 class="font-semibold text-text mb-1">Outbound webhook</h2>
+  <div class="card p-5 mb-4" id="alerts-webhook">
+    <div class="flex flex-wrap items-center gap-2 mb-2">
+      <h2 class="font-semibold text-text m-0">Outbound webhook</h2>
+      {% if wh.ui_enabled and wh.has_ui_url %}
+      <span class="status-pill status-success">Settings URL active</span>
+      {% elif wh.env_fallback %}
+      <span class="status-pill status-running" title="WEBHOOK_URL from environment">Env fallback</span>
+      {% else %}
+      <span class="status-pill feature-off">off</span>
+      {% endif %}
+    </div>
     <p class="text-xs text-muted mb-3">
       POST JSON to n8n, Signal bridge, Discord, etc. when alerts fire.
-      Payload includes <code class="text-[10px]">message</code>, <code class="text-[10px]">event</code>,
+      Fields: <code class="text-[10px]">message</code>, <code class="text-[10px]">event</code>,
       <code class="text-[10px]">severity</code>, optional <code class="text-[10px]">number</code>/<code class="text-[10px]">recipients</code>.
       {% if wh.env_fallback %}
-      <span class="block mt-1 text-accent">Env <code class="text-[10px]">WEBHOOK_URL</code> is active as fallback (Settings URL empty or disabled).</span>
+      <span class="block mt-1">Compose <code class="text-[10px]">WEBHOOK_URL</code> is in use because Settings has no URL (or is disabled). Saving a Settings URL + enable overrides env.</span>
       {% endif %}
     </p>
     <form method="post" action="/herder-backups/alerts/webhook" class="space-y-3">
@@ -82,8 +91,20 @@
     </form>
   </div>
 
-  <div class="card p-5 mb-4">
-    <h2 class="font-semibold text-text mb-1">Email (SMTP)</h2>
+  <div class="card p-5 mb-4" id="alerts-smtp">
+    <div class="flex flex-wrap items-center gap-2 mb-2">
+      <h2 class="font-semibold text-text m-0">Email (SMTP)</h2>
+      {% if sm.enabled and sm.host and sm.from_email %}
+      <span class="status-pill status-success">ready</span>
+      {% elif sm.enabled %}
+      <span class="status-pill status-failed" title="Need host and from email">incomplete</span>
+      {% else %}
+      <span class="status-pill feature-off">off</span>
+      {% endif %}
+      {% if sm.enabled and sm.host and sm.from_email and sm.password_reset_enabled %}
+      <span class="status-pill status-running">forgot password on</span>
+      {% endif %}
+    </div>
     <p class="text-xs text-muted mb-3">
       Optional outbound mail for alert digests and password recovery.
       Password is stored encrypted (same master key as SSH/integration secrets).

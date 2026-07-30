@@ -41,10 +41,13 @@ async def integrations_list(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
+    from ..services.integrations import generic_url as gen_url
+
     rows = reg.list_integrations(session)
     items = []
     for r in rows:
         st = reg.parse_last_status(r)
+        prod = reg.generic_product(r) if r.type == reg.TYPE_GENERIC_URL else ""
         items.append(
             {
                 "id": r.id,
@@ -70,6 +73,8 @@ async def integrations_list(
                 "certificate_count": st.get("certificate_count"),
                 "device_count": st.get("device_count"),
                 "worker_online": st.get("worker_online"),
+                "product": prod,
+                "product_label": gen_url.product_label(prod) if prod else "",
             }
         )
     # Multi Pi-hole fleet summary
