@@ -338,7 +338,8 @@ def _build_physical_mesh_svg(
     shape_lan = ("ellipse", badge_r, badge_r)
     shape_host = ("rect", host_hw, host_hh)
     shape_disc = ("rect", disc_hw, disc_hh)
-    app_hw, app_hh = 70.0, 22.0
+    # Match dns_physical app card (144×52 → half 72×26)
+    app_hw, app_hh = 72.0, 26.0
     more_hw, more_hh = 48.0, 18.0
     shape_app = ("rect", app_hw, app_hh)
     shape_more = ("rect", more_hw, more_hh)

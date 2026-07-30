@@ -1208,7 +1208,7 @@ def test_physical_mesh_edges_meet_node_borders():
     land = [e for e in svg["edges"] if e.get("kind") == "land" and e.get("path_id") == 1]
     assert land
     e = land[0]
-    app_hw, app_hh = 70.0, 22.0
+    app_hw, app_hh = 72.0, 26.0
     ends = [(e["x1"], e["y1"]), (e["x2"], e["y2"])]
 
     def near_app(x: float, y: float) -> bool:

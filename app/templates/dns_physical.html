@@ -505,21 +505,22 @@
                    {% if n.path_id is defined and n.path_id is not none %}data-path-id="{{ n.path_id }}"{% endif %}
                    {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}>
                   <g class="fabric-mesh-node-pop">
-                  <rect x="{{ n.x - 70 }}" y="{{ n.y - 22 }}" width="140" height="44" rx="10"/>
+                  {# Taller app card: icon left, FQDN + sub right — no icon-over-title #}
+                  <rect x="{{ n.x - 72 }}" y="{{ n.y - 26 }}" width="144" height="52" rx="10"/>
                   <use class="fabric-mesh-kind-icon fabric-mesh-kind-icon--app"
                        href="#ph-kind-app" xlink:href="#ph-kind-app"
-                       x="{{ n.x - 8 }}" y="{{ n.y - 18 }}" width="14" height="14" aria-hidden="true"/>
-                  <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label[:22] }}</text>
-                  <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:20] }}</text>
+                       x="{{ n.x - 64 }}" y="{{ n.y - 10 }}" width="16" height="16" aria-hidden="true"/>
+                  <text x="{{ n.x + 6 }}" y="{{ n.y - 4 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label[:20] }}</text>
+                  <text x="{{ n.x + 6 }}" y="{{ n.y + 12 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:18] }}</text>
                   {% if n.sync_status == 'ok' %}
-                  <circle class="fabric-mesh-status fabric-mesh-status--ok" cx="{{ n.x + 58 }}" cy="{{ n.y - 14 }}" r="4"/>
+                  <circle class="fabric-mesh-status fabric-mesh-status--ok" cx="{{ n.x + 60 }}" cy="{{ n.y - 16 }}" r="4"/>
                   {% elif n.sync_status == 'partial' %}
-                  <circle class="fabric-mesh-status fabric-mesh-status--partial" cx="{{ n.x + 58 }}" cy="{{ n.y - 14 }}" r="4"/>
+                  <circle class="fabric-mesh-status fabric-mesh-status--partial" cx="{{ n.x + 60 }}" cy="{{ n.y - 16 }}" r="4"/>
                   {% elif n.sync_status == 'error' or n.sync_status == 'failed' %}
-                  <circle class="fabric-mesh-status fabric-mesh-status--error" cx="{{ n.x + 58 }}" cy="{{ n.y - 14 }}" r="4"/>
+                  <circle class="fabric-mesh-status fabric-mesh-status--error" cx="{{ n.x + 60 }}" cy="{{ n.y - 16 }}" r="4"/>
                   {% endif %}
                   {% if n.has_cert %}
-                  <circle class="fabric-mesh-status fabric-mesh-status--cert" cx="{{ n.x + 46 }}" cy="{{ n.y - 14 }}" r="3.5"/>
+                  <circle class="fabric-mesh-status fabric-mesh-status--cert" cx="{{ n.x + 48 }}" cy="{{ n.y - 16 }}" r="3.5"/>
                   {% endif %}
                   </g>
                 </g>
@@ -578,8 +579,8 @@
 
 {% include "partials/dns_stack_drawer.html" %}
 <script src="/static/js/fabric-mesh.js?v=20260730-host-ports-onmap" defer></script>
-<script src="/static/js/fabric-stack-expand.js?v=20260730-taller-cards" defer></script>
-<script src="/static/js/fabric-host-ports-expand.js?v=20260730-svc-first" defer></script>
+<script src="/static/js/fabric-stack-expand.js?v=20260723-compact-anchor" defer></script>
+<script src="/static/js/fabric-host-ports-expand.js?v=20260730-card-layout" defer></script>
 <script>
 (function () {
   var STORAGE_KEY = 'piherder.hostsmap.showDiscovered';

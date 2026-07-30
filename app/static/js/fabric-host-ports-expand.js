@@ -110,22 +110,35 @@
     return null;
   }
 
-  function serviceCardHeight(svc) {
-    // title + optional detail + port lines (max 5) + extra chip + padding
-    var n = (svc.ports && svc.ports.length) || 0;
-    if (svc.ports_extra) n += 1;
-    var lines = Math.max(1, n);
-    return 36 + lines * 13 + (svc.detail ? 12 : 0);
+  /**
+   * Card geometry (content measured top-down, then height from content).
+   * pad 10 · header 28–40 · port rows 18 each · bottom 10
+   */
+  function serviceCardMetrics(svc) {
+    var ports = svc.ports || [];
+    var n = ports.length + (svc.ports_extra ? 1 : 0);
+    var header = 28; // title
+    if (svc.detail || svc.kind === 'observed') header += 12;
+    header += 6; // gap before ports
+    var portsH = Math.max(n, 0) * 18;
+    if (!n) portsH = 14; // "no ports"
+    var padTop = 10;
+    var padBot = 10;
+    return {
+      h: padTop + header + portsH + padBot,
+      padTop: padTop,
+      header: header,
+      portsH: portsH,
+      n: n,
+    };
   }
 
   function draw(svg, data) {
     clearLayer(svg);
     if (!data || !data.ok) return;
 
-    // Prefer service-first payload; fall back to empty
     var services = data.services || [];
     if (!services.length && (data.ports || []).length) {
-      // legacy flat ports → one observed bucket (shouldn't happen with new API)
       services = [
         {
           id: 'legacy',
@@ -151,7 +164,7 @@
         'data-server-id': String(data.server_id),
       });
       var te = el('text', {
-        x: a.right + 16,
+        x: a.right + 24,
         y: a.y + 4,
         class: 'fabric-host-ports-empty',
         fill: 'var(--color-muted)',
@@ -163,12 +176,16 @@
       return;
     }
 
-    var cardW = 148;
-    var rowGap = 12;
-    var colX = a.right + 58;
-    var heights = services.map(serviceCardHeight);
-    var totalH = heights.reduce(function (s, h) {
-      return s + h;
+    // Card fully to the RIGHT of host (was overlapping: colX - cardW/2 < a.right)
+    var cardW = 168;
+    var gapFromHost = 88; // clear air between host edge and card left
+    var cardLeft = a.right + gapFromHost;
+    var colX = cardLeft + cardW / 2;
+    var rowGap = 14;
+
+    var metrics = services.map(serviceCardMetrics);
+    var totalH = metrics.reduce(function (s, m) {
+      return s + m.h;
     }, 0) + Math.max(0, services.length - 1) * rowGap;
     var startY = a.y - totalH / 2;
 
@@ -178,39 +195,42 @@
       'data-server-id': String(data.server_id),
     });
 
-    var zonePad = 16;
-    var zoneTop = startY - zonePad - 12;
-    var zoneH = totalH + zonePad * 2 + 16;
+    // Zone wraps cards only (not under host)
+    var zonePadX = 14;
+    var zonePadY = 18;
+    var zoneTop = startY - zonePadY - 8;
+    var zoneH = totalH + zonePadY * 2 + 14;
     g.appendChild(
       el('rect', {
-        x: a.right + 12,
+        x: cardLeft - zonePadX,
         y: zoneTop,
-        width: cardW + 36,
+        width: cardW + zonePadX * 2,
         height: zoneH,
         rx: 12,
         class: 'fabric-host-ports-zone',
       })
     );
     var title = el('text', {
-      x: a.right + 24,
-      y: zoneTop + 14,
+      x: cardLeft,
+      y: zoneTop + 12,
       class: 'fabric-host-ports-title',
       fill: 'var(--color-muted)',
       'font-size': '9',
       'font-weight': '700',
     });
     title.textContent =
-      'SERVICE → PORTS · ' +
+      'SERVICES · ' +
       String(data.total_count || 0) +
-      (data.stack_count ? ' · ' + data.stack_count + ' services' : '');
+      ' ports' +
+      (data.stack_count ? ' · ' + data.stack_count + ' owners' : '');
     g.appendChild(title);
 
-    // Lead from host into column
+    // Lead host → column
     g.appendChild(
       el('line', {
         x1: a.right + 2,
         y1: a.y,
-        x2: colX - cardW / 2 - 10,
+        x2: cardLeft - 6,
         y2: a.y,
         class: 'fabric-mesh-edge fabric-host-ports-lead',
         stroke: 'var(--color-accent, #00a651)',
@@ -221,60 +241,51 @@
     );
 
     var yCursor = startY;
-    services.forEach(function (svc) {
-      var h = serviceCardHeight(svc);
+    services.forEach(function (svc, si) {
+      var m = metrics[si];
+      var h = m.h;
       var cy = yCursor + h / 2;
       var isObs = svc.kind === 'observed';
-      var stroke = isObs
-        ? '#64748b'
-        : 'var(--color-accent, #00a651)';
+      var stroke = isObs ? '#64748b' : 'var(--color-accent, #00a651)';
       var fill = isObs
         ? 'color-mix(in srgb, #64748b 8%, var(--color-surface))'
         : 'color-mix(in srgb, var(--color-accent, #00a651) 10%, var(--color-surface))';
 
-      // host → service
       g.appendChild(
         el('line', {
           x1: a.right + 4,
           y1: a.y,
-          x2: colX - cardW / 2,
+          x2: cardLeft,
           y2: cy,
           class: 'fabric-mesh-edge fabric-host-ports-edge',
           stroke: stroke,
           'stroke-width': '1.5',
-          'stroke-opacity': '0.8',
+          'stroke-opacity': '0.75',
           fill: 'none',
         })
       );
 
+      // One group: outer card + all content clipped to card coords
       var sg = el('g', {
         class:
-          'fabric-host-service-node' +
-          (isObs ? ' is-observed' : ' is-service'),
+          'fabric-host-service-node' + (isObs ? ' is-observed' : ' is-service'),
         'data-service-id': svc.id || '',
         'data-project': svc.project || '',
         style: 'cursor:pointer',
       });
       var tip = el('title');
-      var portNames = (svc.ports || [])
-        .map(function (p) {
-          return p.label || p.host_port;
-        })
-        .join(', ');
       tip.textContent =
         (svc.label || '') +
         (svc.detail ? ' / ' + svc.detail : '') +
         ' · ' +
         (svc.port_count || 0) +
-        ' port(s)' +
-        (portNames ? ': ' + portNames : '') +
-        (svc.ports_extra ? ' +' + svc.ports_extra : '') +
-        ' · click to edit';
+        ' port(s) · click to edit';
       sg.appendChild(tip);
 
+      // Outer service card
       sg.appendChild(
         el('rect', {
-          x: colX - cardW / 2,
+          x: cardLeft,
           y: yCursor,
           width: cardW,
           height: h,
@@ -286,90 +297,110 @@
         })
       );
 
-      // Service / project title
-      var titleY = yCursor + 16;
+      var padX = 10;
+      var contentX = cardLeft + padX;
+      var y = yCursor + m.padTop + 12;
+
+      // Project / service title
       var tn = el('text', {
-        x: colX - cardW / 2 + 10,
-        y: titleY,
+        x: contentX,
+        y: y,
         'text-anchor': 'start',
-        'font-size': '11',
+        'font-size': '11.5',
         'font-weight': '700',
         fill: 'var(--color-text)',
       });
-      tn.textContent = String(svc.label || 'service').slice(0, 16);
+      tn.textContent = String(svc.label || 'service').slice(0, 18);
       sg.appendChild(tn);
+      y += 13;
 
-      // Container / compose service under title (only when distinct)
-      var lineY = titleY + 12;
       if (svc.detail) {
         var det = el('text', {
-          x: colX - cardW / 2 + 10,
-          y: lineY,
+          x: contentX,
+          y: y,
           'text-anchor': 'start',
           'font-size': '9',
           'font-weight': '600',
           fill: 'var(--color-muted)',
           'font-family': 'ui-monospace, Menlo, monospace',
         });
-        det.textContent = String(svc.detail).slice(0, 18);
+        det.textContent = String(svc.detail).slice(0, 20);
         sg.appendChild(det);
-        lineY += 12;
+        y += 12;
       } else if (isObs) {
         var od = el('text', {
-          x: colX - cardW / 2 + 10,
-          y: lineY,
+          x: contentX,
+          y: y,
           'text-anchor': 'start',
           'font-size': '8.5',
           fill: 'var(--color-muted)',
         });
         od.textContent = 'nmap · no Docker owner';
         sg.appendChild(od);
-        lineY += 12;
+        y += 12;
       }
 
-      // Port lines (up to 5) — single clean list, no obs spam
+      y += 4; // gap before port chips inside card
+
+      // Port chips as mini-rects INSIDE the service card
       var ports = svc.ports || [];
+      var chipH = 15;
+      var chipGap = 3;
+      var chipMaxW = cardW - padX * 2;
       ports.forEach(function (p) {
         var rs = roleStyle(p.role);
+        var chipY = y - 10;
+        // background chip fully inside card
+        sg.appendChild(
+          el('rect', {
+            x: contentX,
+            y: chipY,
+            width: chipMaxW,
+            height: chipH,
+            rx: 4,
+            class: 'fabric-host-port-chip-bg',
+            fill: rs.fill,
+            stroke: rs.stroke,
+            'stroke-width': p.role_sticky ? '1.5' : '1',
+            'stroke-opacity': '0.85',
+          })
+        );
+        sg.appendChild(
+          el('rect', {
+            x: contentX + 3,
+            y: chipY + 3,
+            width: 3,
+            height: chipH - 6,
+            rx: 1,
+            fill: rs.stroke,
+            stroke: 'none',
+          })
+        );
         var pl = el('text', {
-          x: colX - cardW / 2 + 12,
-          y: lineY,
+          x: contentX + 12,
+          y: chipY + 11,
           'text-anchor': 'start',
-          'font-size': '10',
+          'font-size': '9.5',
           'font-weight': '650',
           fill: 'var(--color-text)',
           'font-family': 'ui-monospace, Menlo, monospace',
         });
         var roleBit =
           p.role && p.role !== 'other'
-            ? ' · ' + String(p.role_label || p.role)
+            ? '  ' + String(p.role_label || p.role)
             : '';
         pl.textContent =
           String(p.host_port) +
           (p.proto && p.proto !== 'tcp' ? '/' + p.proto : '') +
           roleBit +
           (p.role_sticky ? ' ★' : '');
-        // tint role via small mark
-        pl.setAttribute('data-role', p.role || 'other');
         sg.appendChild(pl);
-        // role color bar
-        sg.appendChild(
-          el('rect', {
-            x: colX - cardW / 2 + 4,
-            y: lineY - 8,
-            width: 3,
-            height: 10,
-            rx: 1,
-            fill: rs.stroke,
-            stroke: 'none',
-          })
-        );
-        lineY += 13;
+        y += chipH + chipGap;
       });
       if (svc.ports_extra) {
         var more = el('text', {
-          x: colX - cardW / 2 + 12,
-          y: lineY,
+          x: contentX + 4,
+          y: y,
           'text-anchor': 'start',
           'font-size': '9',
           'font-weight': '600',
@@ -377,6 +408,17 @@
         });
         more.textContent = '+' + svc.ports_extra + ' more';
         sg.appendChild(more);
+      }
+      if (!ports.length && !svc.ports_extra) {
+        var none = el('text', {
+          x: contentX + 4,
+          y: y,
+          'text-anchor': 'start',
+          'font-size': '9',
+          fill: 'var(--color-muted)',
+        });
+        none.textContent = 'no ports';
+        sg.appendChild(none);
       }
 
       sg.addEventListener('click', function (ev) {
