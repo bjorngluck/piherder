@@ -99,8 +99,8 @@ def _build_physical_mesh_svg(
     n_cloud = len(cloud_hosts)
 
     # --- Fan geometry: compact fleet ring · outer discovery · dual zone sizes ---
-    # Slightly taller than pre-icon era so glyph + 2–3 text lines fit
-    host_hw, host_hh = 62.0, 34.0
+    # Taller for glyph + IP + optional ports tag (and focus port strip sits below)
+    host_hw, host_hh = 62.0, 36.0
     disc_hw, disc_hh = 40.0, 20.0
     badge_r = 54.0
     fleet_top_gap = math.radians(85)

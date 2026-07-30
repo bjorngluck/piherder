@@ -470,6 +470,9 @@
                   <text x="{{ n.x }}" y="{{ n.y + hhh - 4 }}" text-anchor="middle" class="fabric-mesh-tag">NPM</text>
                   {% elif n.is_cloud %}
                   <text x="{{ n.x }}" y="{{ n.y + hhh - 4 }}" text-anchor="middle" class="fabric-mesh-tag">cloud</text>
+                  {% elif n.ports_count %}
+                  <text x="{{ n.x }}" y="{{ n.y + hhh - 4 }}" text-anchor="middle" class="fabric-mesh-tag fabric-mesh-tag--ports"
+                        title="Click host to expand ports on map">{{ n.ports_count }} ports · click</text>
                   {% endif %}
                   {% endif %}
                   </g>
@@ -539,24 +542,25 @@
       {{ svg.app_count or 0 }} apps
       {% endif %}
       · pinch / scroll to zoom · drag to pan · double-click 1:1
-      · tap an <strong class="text-text">app path</strong> to expand runtime stack (edge → app → deps)
+      · <strong class="text-text">Click a host</strong> → ports fan on the map (port → stack owner)
+      · <strong class="text-text">Click an app path</strong> → container fan + dependency edges
       · solid = LAN · dashed = WAN / NPM · dashed-border = discovered · green = synced
     </p>
     <div class="fabric-callout-row mt-2 px-1">
       <p class="fabric-callout text-xs font-mono is-empty"
          data-fabric-callout
-         data-fabric-callout-empty="Tap a host or app path. Stack shows containers when a service path is focused."></p>
+         data-fabric-callout-empty="Click a fleet host — ports and stack owners expand on the map. Click an app path for containers &amp; deps."></p>
       <button type="button"
               class="btn btn-secondary text-xs min-h-9 px-2 hidden"
               data-fabric-stack-open
               data-fabric-stack-from-focus
-              title="Containers, ports, Kuma for the focused path"
-              onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){var u=this.getAttribute('data-stack-url');if(u)PiHerderStackPanel.open(u);}return false;">Stack</button>
+              title="Containers, dependency links, Kuma for the focused service path"
+              onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){var u=this.getAttribute('data-stack-url');if(u)PiHerderStackPanel.open(u);}return false;">Stack detail</button>
       <button type="button"
               class="btn btn-secondary text-xs min-h-9 px-2 hidden"
               data-fabric-host-ports
-              title="Published + observed ports on this host"
-              onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){var u=this.getAttribute('data-host-ports-url');if(u)PiHerderStackPanel.open(u);}return false;">Ports</button>
+              title="Edit sticky roles / full port table"
+              onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){var u=this.getAttribute('data-host-ports-url');if(u)PiHerderStackPanel.open(u);}return false;">Edit ports</button>
       <button type="button"
               class="btn btn-secondary text-xs min-h-9 px-2 hidden"
               data-fabric-copy-callout>Copy path</button>
@@ -573,8 +577,9 @@
 </div>
 
 {% include "partials/dns_stack_drawer.html" %}
-<script src="/static/js/fabric-mesh.js?v=20260730-host-ports-m4" defer></script>
+<script src="/static/js/fabric-mesh.js?v=20260730-host-ports-onmap" defer></script>
 <script src="/static/js/fabric-stack-expand.js?v=20260723-compact-anchor" defer></script>
+<script src="/static/js/fabric-host-ports-expand.js?v=20260730-onmap" defer></script>
 <script>
 (function () {
   var STORAGE_KEY = 'piherder.hostsmap.showDiscovered';

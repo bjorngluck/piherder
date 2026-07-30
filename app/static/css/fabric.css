@@ -1104,6 +1104,45 @@ button.fabric-nav-card--action:focus-visible {
   filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.22));
 }
 
+/* Host port hint on unfocused cards */
+.fabric-mesh-tag--ports {
+  fill: var(--color-accent, #00a651) !important;
+  font-size: 8px !important;
+  font-weight: 700 !important;
+  opacity: 0.95;
+}
+.fabric-mesh-node--host.ph-focus-dim .fabric-mesh-tag--ports {
+  opacity: 0.2;
+}
+
+/* On-map host ports expand layer (primary depth UX) */
+.fabric-host-ports-expand-layer {
+  pointer-events: auto;
+}
+.fabric-host-ports-zone {
+  fill: color-mix(in srgb, var(--color-surface) 88%, var(--color-bg));
+  stroke: color-mix(in srgb, var(--color-accent, #00a651) 35%, var(--color-border));
+  stroke-width: 1.25;
+  stroke-dasharray: 4 3;
+  opacity: 0.95;
+}
+.fabric-host-ports-title {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.fabric-host-port-node rect {
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.12));
+}
+.fabric-host-port-node.is-sticky rect {
+  stroke-width: 2.5;
+}
+.fabric-host-stack-node rect {
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.1));
+}
+.is-focusing .fabric-host-ports-expand-layer .fabric-mesh-edge {
+  opacity: 0.9 !important;
+}
+
 /* M1 — canned kind glyphs on map cards */
 .fabric-mesh-kind-icon {
   color: var(--color-muted);

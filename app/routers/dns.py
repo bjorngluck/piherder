@@ -547,6 +547,30 @@ async def stack_save_order(
     return _redirect(_stack_next(next, service_id=service_id), msg="order_saved")
 
 
+@router.get("/dns/host-ports-expand.json")
+async def host_ports_expand_json(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    server_id: Optional[int] = None,
+    show_noise: Optional[str] = None,
+):
+    """JSON for Hosts map: lock a fleet host → on-canvas port→stack fan."""
+    del user
+    from ..services.dns_fabric import host_ports as hp_svc
+
+    sid = server_id
+    if sid is None:
+        return JSONResponse(
+            {"ok": False, "error": "need_server_id"}, status_code=400
+        )
+    noise = (show_noise or "").strip().lower() in ("1", "true", "yes", "on")
+    payload = hp_svc.build_host_ports_expand_payload(
+        session, server_id=int(sid), show_noise=noise
+    )
+    status = 200 if payload.get("ok") else 404
+    return JSONResponse(payload, status_code=status)
+
+
 @router.get("/dns/stack-expand.json")
 async def stack_expand_json(
     session: Session = Depends(get_session),
