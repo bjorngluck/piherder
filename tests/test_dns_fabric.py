@@ -1179,8 +1179,8 @@ def test_physical_mesh_edges_meet_node_borders():
     rpi = next(n for n in svg["nodes"] if n["label"] == "RPI")
     lan = next(n for n in svg["nodes"] if n["kind"] == "lan")
     app = next(n for n in svg["nodes"] if n["kind"] == "app")
-    # Must match mesh_physical host half-size (taller after kind icons)
-    host_hw, host_hh = 62.0, 34.0
+    # Must match mesh_physical host half-size (icons + ports tag)
+    host_hw, host_hh = 62.0, 36.0
     lan_edges = [e for e in svg["edges"] if e.get("kind") == "lan"]
     assert lan_edges
 

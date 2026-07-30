@@ -454,6 +454,108 @@ def host_ports_summary_for_server(
     }
 
 
+def build_host_ports_expand_payload(
+    session: Session,
+    *,
+    server_id: int,
+    show_noise: bool = False,
+    limit: int = 24,
+) -> dict[str, Any]:
+    """JSON for on-map host port fan: host → ports → stack owners.
+
+    Primary UX for map depth (not drawer-first).
+    """
+    inv = build_host_port_inventory(
+        session, server_id=int(server_id), show_noise=show_noise
+    )
+    if not inv.get("ok"):
+        return inv
+
+    ports_raw = list(inv.get("ports") or [])[: max(1, min(40, limit))]
+    ports_out: list[dict[str, Any]] = []
+    stack_map: dict[str, dict[str, Any]] = {}
+
+    for p in ports_raw:
+        hp = int(p.get("host_port") or 0)
+        proto = (p.get("proto") or "tcp").lower()
+        proj = (p.get("owner_project") or "").strip()
+        role = (p.get("role") or PORT_ROLE_OTHER).lower()
+        port_row = {
+            "id": f"{hp}/{proto}",
+            "host_port": hp,
+            "proto": proto,
+            "label": f"{hp}/{proto}",
+            "role": role,
+            "role_label": p.get("role_label") or port_role_label(role),
+            "role_sticky": bool(p.get("role_sticky")),
+            "source": p.get("source") or "docker",
+            "owner_project": proj,
+            "owner_container": (p.get("owner_container") or p.get("owner_service") or "")[
+                :80
+            ],
+            "published": bool(p.get("published")),
+            "observed": bool(p.get("observed") or p.get("source") in ("nmap", "both")),
+            "display": p.get("display") or f"{hp}/{proto}",
+        }
+        ports_out.append(port_row)
+        if proj:
+            sk = proj.lower()
+            if sk not in stack_map:
+                stack_map[sk] = {
+                    "id": proj,
+                    "name": proj,
+                    "port_ids": [],
+                    "roles": set(),
+                }
+            stack_map[sk]["port_ids"].append(port_row["id"])
+            stack_map[sk]["roles"].add(role)
+
+    stacks: list[dict[str, Any]] = []
+    for s in sorted(stack_map.values(), key=lambda x: x["name"].lower()):
+        stacks.append(
+            {
+                "id": s["id"],
+                "name": s["name"],
+                "port_ids": s["port_ids"],
+                "port_count": len(s["port_ids"]),
+                "roles": sorted(s["roles"]),
+            }
+        )
+
+    # Edges for the canvas: host→port always; port→stack when owned
+    edges: list[dict[str, Any]] = []
+    for p in ports_out:
+        edges.append(
+            {
+                "from": "host",
+                "to": p["id"],
+                "kind": "host_port",
+            }
+        )
+        if p.get("owner_project"):
+            edges.append(
+                {
+                    "from": p["id"],
+                    "to": f"stack:{p['owner_project']}",
+                    "kind": "port_owner",
+                }
+            )
+
+    return {
+        "ok": True,
+        "server_id": int(server_id),
+        "server_name": inv.get("server_name") or "",
+        "node_id": f"host-{int(server_id)}",
+        "ports": ports_out,
+        "stacks": stacks,
+        "edges": edges,
+        "total_count": inv.get("total_count") or len(ports_out),
+        "stack_count": len(stacks),
+        "summary_line": inv.get("summary_line") or "",
+        "panel_url": f"/dns/host-ports-panel?server_id={int(server_id)}",
+    }
+
+
 def upsert_port_annotation(
     session: Session,
     *,

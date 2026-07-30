@@ -145,6 +145,29 @@ def test_focus_project_splits_other_on_host():
     assert any(p["host_port"] == 5432 for p in other)
 
 
+def test_build_host_ports_expand_payload():
+    server = _server_with_inventory()
+    session = MagicMock()
+    session.get = MagicMock(return_value=server)
+    with patch(
+        "app.services.dns_fabric.host_ports.inv_svc.parse_inventory",
+        return_value=json.loads(server.docker_inventory_json),
+    ), patch(
+        "app.services.dns_fabric.host_ports._linked_nmap_device",
+        return_value=None,
+    ), patch(
+        "app.services.dns_fabric.host_ports.load_annotations_for_server",
+        return_value={},
+    ):
+        out = hp.build_host_ports_expand_payload(session, server_id=7)
+    assert out["ok"] is True
+    assert out["node_id"] == "host-7"
+    assert len(out["ports"]) >= 3
+    assert any(s["name"] == "pihole" for s in out["stacks"])
+    assert any(e["kind"] == "port_owner" for e in out["edges"])
+    assert out["panel_url"].startswith("/dns/host-ports-panel")
+
+
 def test_apply_sticky_to_parsed():
     parsed = [
         {

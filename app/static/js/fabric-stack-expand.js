@@ -466,7 +466,7 @@
 
         var nameT = el('text', {
           x: cx + 4,
-          y: y + 13,
+          y: ct.ports_label ? y + 8 : y + 13,
           'text-anchor': 'middle',
           'font-size': '10.5',
           'font-weight': '650',
@@ -475,6 +475,19 @@
         });
         nameT.textContent = String(ct.name || id).slice(0, 13);
         ng.appendChild(nameT);
+        if (ct.ports_label) {
+          var portsT = el('text', {
+            x: cx + 4,
+            y: y + 18,
+            'text-anchor': 'middle',
+            'font-size': '7.5',
+            'font-weight': '600',
+            fill: 'var(--color-muted)',
+            'font-family': 'ui-monospace, Menlo, monospace',
+          });
+          portsT.textContent = String(ct.ports_label).slice(0, 16);
+          ng.appendChild(portsT);
+        }
 
         g.appendChild(ng);
       });

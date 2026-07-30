@@ -382,6 +382,11 @@
         window.PiHerderStackExpand.clear();
       }
     } catch (err) { /* optional */ }
+    try {
+      if (window.PiHerderHostPortsExpand && typeof window.PiHerderHostPortsExpand.clear === 'function') {
+        window.PiHerderHostPortsExpand.clear(root);
+      }
+    } catch (errHp) { /* optional */ }
   }
 
   function setStackFocusButton(root, focusId) {
@@ -618,10 +623,36 @@
     var clearBtn = root.querySelector('[data-fabric-clear-focus]');
     if (clearBtn) clearBtn.classList.remove('hidden');
     raiseActiveToFront(root);
-    // P4 — path map stack expand (containers + confirmed edges)
+    // On-map expand only when focus is locked (click/tap) — not hover preview
+    var lockedExpand = root.classList.contains('is-focus-locked');
     try {
-      if (window.PiHerderStackExpand && typeof window.PiHerderStackExpand.show === 'function') {
-        window.PiHerderStackExpand.show(idStr);
+      if (!lockedExpand) {
+        if (window.PiHerderHostPortsExpand && window.PiHerderHostPortsExpand.clear) {
+          window.PiHerderHostPortsExpand.clear(root);
+        }
+        // keep existing path hover stack expand behaviour via StackExpand.show below only when locked
+        if (window.PiHerderStackExpand && window.PiHerderStackExpand.clear && isNodeFocusId(idStr)) {
+          window.PiHerderStackExpand.clear();
+        }
+        return;
+      }
+      if (isNodeFocusId(idStr)) {
+        if (window.PiHerderStackExpand && window.PiHerderStackExpand.clear) {
+          window.PiHerderStackExpand.clear();
+        }
+        if (
+          window.PiHerderHostPortsExpand &&
+          typeof window.PiHerderHostPortsExpand.showForFocus === 'function'
+        ) {
+          window.PiHerderHostPortsExpand.showForFocus(root, idStr);
+        }
+      } else {
+        if (window.PiHerderHostPortsExpand && window.PiHerderHostPortsExpand.clear) {
+          window.PiHerderHostPortsExpand.clear(root);
+        }
+        if (window.PiHerderStackExpand && typeof window.PiHerderStackExpand.show === 'function') {
+          window.PiHerderStackExpand.show(idStr);
+        }
       }
     } catch (err) { /* optional */ }
   }

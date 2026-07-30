@@ -230,7 +230,16 @@ Maps stay **customer-facing** by default. For **one** focused service (or host p
 
 **Ports:** inventory publish strings are parsed into structured chips (e.g. `8080→80/tcp`). Chips also show a **role hint** when known (DNS, Web, Database, Cache, …) — e.g. Pi-hole **53 · DNS** and **443 · Web**. Internal-only containers show a short “internal” summary rather than a fake host mapping.
 
-**Host ports panel:** from a focused fleet host on the Hosts map (**Ports** control) or Stack → **Host ports**, open the host-wide inventory: **Docker published** ports with stack/container owners ∪ **nmap observed** ports (when a discovery device is linked). Operators can set a **sticky role** (overrides heuristic; ★ on chips). SSH is hidden under **noise** by default. Map focus callout shows a short port summary (counts + top chips).
+**Ports & relationships on the map (click to expand):**
+
+| You want… | Click | What appears **on the map** |
+|-----------|-------|------------------------------|
+| **Host ports → who owns them** | A **fleet host** (badge: `N ports · click`) | Sideways fan: **port chips** (role + number) with lines into **stack owners** (compose projects). Click a port/stack → edit table (sticky roles). |
+| **Containers & dependency links** | An **app path** satellite (or Path map node) | **Stack fan** (edge/app/db columns) + dependency edges. **Stack detail** opens the full panel. |
+
+Nothing is fleet-wide spaghetti by default — depth expands **for the focused host or path**.
+
+**Edit ports table:** callout **Edit ports** (sticky roles, noise toggle) after host focus.
 
 **Manual edges:** when accepting or adding a link, the picker can target containers on **another fleet host** (cross-host topology), not only the focused compose project.
 
