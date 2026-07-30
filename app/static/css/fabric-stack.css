@@ -764,4 +764,35 @@ a.fabric-stack-status-pill:hover {
   color: var(--color-muted);
   background: transparent;
 }
+/* M3 lite — role hint on port chips */
+.fabric-port-role {
+  font-family: system-ui, sans-serif;
+  font-size: 0.58rem;
+  font-weight: 600;
+  opacity: 0.85;
+  margin-left: 0.15rem;
+  text-transform: lowercase;
+}
+.fabric-port-chip.is-role-dns {
+  border-color: color-mix(in srgb, #3b82f6 45%, var(--color-border));
+  background: color-mix(in srgb, #3b82f6 12%, var(--color-surface));
+}
+.fabric-port-chip.is-role-web {
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+}
+.fabric-port-chip.is-role-db {
+  border-color: color-mix(in srgb, #a855f7 45%, var(--color-border));
+  background: color-mix(in srgb, #a855f7 10%, var(--color-surface));
+}
+.fabric-port-chip.is-role-cache {
+  border-color: color-mix(in srgb, #f59e0b 45%, var(--color-border));
+  background: color-mix(in srgb, #f59e0b 10%, var(--color-surface));
+}
+.fabric-port-chip.is-role-proxy {
+  border-color: color-mix(in srgb, var(--color-warning, #d97706) 50%, var(--color-border));
+}
+.fabric-port-chip.is-role-ssh,
+.fabric-port-chip.is-role-metrics {
+  border-color: color-mix(in srgb, var(--color-muted) 50%, var(--color-border));
+}
 

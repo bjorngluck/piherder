@@ -1074,8 +1074,66 @@ button.fabric-nav-card--action:focus-visible {
 }
 .fabric-mesh-node.ph-focus-active > rect,
 .fabric-mesh-node.ph-focus-active > circle,
-.fabric-mesh-node.ph-focus-active > ellipse {
+.fabric-mesh-node.ph-focus-active > ellipse,
+.fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop > rect,
+.fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop > circle,
+.fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop > ellipse {
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.18));
+}
+
+/* M2 — locked focus pop-out on inner group (outer g keeps dual-layout translate) */
+.fabric-mesh-node-pop {
+  transform-box: fill-box;
+  transform-origin: center center;
+  transition: transform 0.14s ease;
+}
+[data-fabric-root].is-focus-locked .fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop {
+  transform: scale(1.18);
+}
+/* Stack expand chips (no inner pop group) */
+[data-fabric-root].is-focus-locked .fabric-mesh-stack-node.ph-focus-active {
+  transform-box: fill-box;
+  transform-origin: center center;
+  transform: scale(1.12);
+  transition: transform 0.14s ease;
+}
+/* Primary focused host/path: slightly stronger lift while locked */
+[data-fabric-root].is-focus-locked .fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop > rect,
+[data-fabric-root].is-focus-locked .fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop > circle,
+[data-fabric-root].is-focus-locked .fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop > ellipse {
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.22));
+}
+
+/* M1 — canned kind glyphs on map cards */
+.fabric-mesh-kind-icon {
+  color: var(--color-muted);
+  opacity: 0.92;
+  pointer-events: none;
+}
+.fabric-mesh-node.ph-focus-active .fabric-mesh-kind-icon {
+  color: var(--color-accent, #00a651);
+  opacity: 1;
+}
+.fabric-mesh-node.ph-focus-dim .fabric-mesh-kind-icon {
+  opacity: 0.35;
+}
+.ph-kind-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  color: var(--color-muted);
+  vertical-align: middle;
+}
+.ph-kind-icon--rack {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.1rem;
+}
+.ph-kind-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 .fabric-mesh-node--host.is-cloud rect {
   fill: color-mix(in srgb, var(--color-accent, #00a651) 8%, var(--color-surface));

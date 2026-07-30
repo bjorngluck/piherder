@@ -2638,6 +2638,8 @@ def _build_physical_view(
     Includes fleet servers and optional unlinked LAN discovery devices
     (``is_discovered``) for an end-to-end map without per-device linking.
     """
+    from app.services.device_icons import icon_id_for_kind
+
     net = network or {}
     lan_subnet = (net.get("lan_subnet") or "").strip()
     by_id: dict[int, dict[str, Any]] = {}
@@ -2657,6 +2659,9 @@ def _build_physical_view(
                         "on_lan": not is_cloud,
                         "is_cloud": is_cloud,
                         "is_discovered": True,
+                        "icon_kind": icon_id_for_kind(
+                            h.get("device_kind"), is_discovered=True
+                        ),
                     }
                 )
             continue
@@ -2670,6 +2675,9 @@ def _build_physical_view(
             "on_lan": not is_cloud,
             "is_cloud": is_cloud,
             "is_discovered": False,
+            "icon_kind": icon_id_for_kind(
+                h.get("device_kind"), is_discovered=False
+            ),
         }
 
     for s in services:

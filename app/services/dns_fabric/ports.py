@@ -1,8 +1,11 @@
-"""Published port parsing / display for topology stack panel (G Ports)."""
+"""Published port parsing / display for topology stack panel (G Ports).
+
+M3 lite: well-known port → role heuristics (dns/web/db/…) for chips and ownership.
+"""
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Optional
 
 
 # 0.0.0.0:8080->80/tcp  |  :::443->443/tcp  |  8080/tcp  |  127.0.0.1:5432->5432/tcp
@@ -12,6 +15,111 @@ _ARROW = re.compile(
     re.I,
 )
 _BARE = re.compile(r"(?P<port>\d{1,5})(?:/(?P<proto>tcp|udp))?", re.I)
+
+# Fixed role vocabulary (map interactivity R4 / M3)
+PORT_ROLE_WEB = "web"
+PORT_ROLE_DNS = "dns"
+PORT_ROLE_DB = "db"
+PORT_ROLE_CACHE = "cache"
+PORT_ROLE_PROXY = "proxy"
+PORT_ROLE_SSH = "ssh"
+PORT_ROLE_METRICS = "metrics"
+PORT_ROLE_OTHER = "other"
+
+PORT_ROLE_LABELS: dict[str, str] = {
+    PORT_ROLE_WEB: "Web",
+    PORT_ROLE_DNS: "DNS",
+    PORT_ROLE_DB: "Database",
+    PORT_ROLE_CACHE: "Cache",
+    PORT_ROLE_PROXY: "Proxy",
+    PORT_ROLE_SSH: "SSH",
+    PORT_ROLE_METRICS: "Metrics",
+    PORT_ROLE_OTHER: "Other",
+}
+
+# host or container port → role (checked first)
+_WELL_KNOWN_PORTS: dict[int, str] = {
+    22: PORT_ROLE_SSH,
+    53: PORT_ROLE_DNS,
+    80: PORT_ROLE_WEB,
+    443: PORT_ROLE_WEB,
+    8080: PORT_ROLE_WEB,
+    8443: PORT_ROLE_WEB,
+    3000: PORT_ROLE_WEB,
+    8000: PORT_ROLE_WEB,
+    8888: PORT_ROLE_WEB,
+    5432: PORT_ROLE_DB,
+    3306: PORT_ROLE_DB,
+    27017: PORT_ROLE_DB,
+    1433: PORT_ROLE_DB,
+    6379: PORT_ROLE_CACHE,
+    11211: PORT_ROLE_CACHE,
+    9200: PORT_ROLE_DB,  # elasticsearch-ish
+    5672: PORT_ROLE_OTHER,  # amqp
+    9090: PORT_ROLE_METRICS,
+    9100: PORT_ROLE_METRICS,
+    81: PORT_ROLE_PROXY,  # NPM admin often
+    2019: PORT_ROLE_PROXY,  # caddy admin
+}
+
+_NAME_ROLE_NEEDLES: list[tuple[str, tuple[str, ...]]] = [
+    (PORT_ROLE_DNS, ("pihole", "pi-hole", "unbound", "coredns", "bind9", "dnsmasq")),
+    (PORT_ROLE_DB, ("postgres", "mysql", "mariadb", "mongo", "redis-stack", "database", "pgvector")),
+    (PORT_ROLE_CACHE, ("redis", "memcached", "valkey", "keydb")),
+    (PORT_ROLE_PROXY, ("nginx", "caddy", "traefik", "npm", "proxy", "haproxy")),
+    (PORT_ROLE_METRICS, ("prometheus", "grafana", "node-exporter", "cadvisor")),
+    (PORT_ROLE_WEB, ("web", "frontend", "ui", "http", "httpd", "apache")),
+]
+
+
+def guess_port_role(
+    *,
+    host_port: str | int | None = None,
+    container_port: str | int | None = None,
+    proto: str | None = None,
+    service_name: str | None = None,
+    image: str | None = None,
+    container_name: str | None = None,
+) -> str:
+    """Heuristic port role for chips (suggest-only; no sticky storage in M3)."""
+    blob = " ".join(
+        filter(
+            None,
+            [
+                (service_name or "").lower(),
+                (container_name or "").lower(),
+                (image or "").lower().split("/")[-1].split(":")[0],
+            ],
+        )
+    )
+    # DNS over 53 even when image is pihole (multi-port: 53 dns, 443 web)
+    for raw in (host_port, container_port):
+        try:
+            p = int(str(raw).strip())
+        except (TypeError, ValueError):
+            continue
+        if p == 53 or (proto or "").lower() == "udp" and p == 53:
+            return PORT_ROLE_DNS
+        if p in _WELL_KNOWN_PORTS:
+            # Prefer name-based when well-known is generic web but name is dns product
+            if _WELL_KNOWN_PORTS[p] == PORT_ROLE_WEB and blob:
+                for role, needles in _NAME_ROLE_NEEDLES:
+                    if role == PORT_ROLE_DNS and any(n in blob for n in needles):
+                        # 80/443 on pihole → still web UI, not dns
+                        if p in (80, 443, 8080, 8443):
+                            return PORT_ROLE_WEB
+            return _WELL_KNOWN_PORTS[p]
+
+    for role, needles in _NAME_ROLE_NEEDLES:
+        for n in needles:
+            if n and n in blob:
+                return role
+    return PORT_ROLE_OTHER
+
+
+def port_role_label(role: Optional[str]) -> str:
+    r = (role or PORT_ROLE_OTHER).strip().lower()
+    return PORT_ROLE_LABELS.get(r, PORT_ROLE_LABELS[PORT_ROLE_OTHER])
 
 
 def parse_published_ports(
@@ -100,8 +208,32 @@ def format_ports_short(parsed: list[dict[str, Any]] | None, *, limit: int = 4) -
 
 
 def enrich_container_ports(c: dict[str, Any]) -> dict[str, Any]:
-    """Add ports_parsed + ports_short onto a container dict (in place + return)."""
+    """Add ports_parsed + ports_short (+ role heuristics) onto a container dict."""
     parsed = parse_published_ports(c.get("ports_display"), c.get("ports"))
+    svc = (
+        c.get("compose_service")
+        or c.get("service")
+        or c.get("name")
+        or ""
+    )
+    image = c.get("image") or ""
+    cname = c.get("container_name") or c.get("name") or ""
+    for p in parsed:
+        role = guess_port_role(
+            host_port=p.get("host"),
+            container_port=p.get("container"),
+            proto=p.get("proto"),
+            service_name=str(svc),
+            image=str(image),
+            container_name=str(cname),
+        )
+        p["role"] = role
+        p["role_label"] = port_role_label(role)
+        # Chip secondary text: "443 web" style when role is useful
+        if role and role != PORT_ROLE_OTHER:
+            p["label_with_role"] = f"{p['label']} · {p['role_label']}"
+        else:
+            p["label_with_role"] = p["label"]
     c["ports_parsed"] = parsed
     c["ports_short"] = format_ports_short(parsed)
     c["ports_host"] = [p["host"] for p in parsed if p.get("published")]

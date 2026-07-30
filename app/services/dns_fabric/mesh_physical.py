@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.device_icons import icon_id_for_kind
+
 from .core import (
     _host_is_cloud,
     _ip_in_lan,
@@ -15,6 +17,11 @@ from .core import (
 # Soft-cap only for extreme density; layout fans apps on multiple rings.
 # Prefer showing every mapping card on the mesh (overflow marker as last resort).
 PHYSICAL_MESH_MAX_APPS_PER_HOST = 48
+
+
+def _icon_kind_for_host(h: dict[str, Any], *, is_discovered: bool) -> str:
+    """Canned map icon id (device_kind or fleet default)."""
+    return icon_id_for_kind(h.get("device_kind"), is_discovered=is_discovered)
 
 
 def _build_physical_mesh_svg(
@@ -92,8 +99,9 @@ def _build_physical_mesh_svg(
     n_cloud = len(cloud_hosts)
 
     # --- Fan geometry: compact fleet ring · outer discovery · dual zone sizes ---
-    host_hw, host_hh = 62.0, 30.0
-    disc_hw, disc_hh = 38.0, 17.0
+    # Slightly taller than pre-icon era so glyph + 2–3 text lines fit
+    host_hw, host_hh = 62.0, 34.0
+    disc_hw, disc_hh = 40.0, 20.0
     badge_r = 54.0
     fleet_top_gap = math.radians(85)
     fleet_span = 2.0 * math.pi - fleet_top_gap
@@ -592,6 +600,7 @@ def _build_physical_mesh_svg(
                 "device_kind": h.get("device_kind") or "",
                 "device_kind_label": h.get("device_kind_label") or "",
                 "device_kind_short": h.get("device_kind_short") or "",
+                "icon_kind": _icon_kind_for_host(h, is_discovered=bool(is_discovered)),
                 "mac_vendor": h.get("mac_vendor") or "",
                 "app_count": apps_here,
                 "server_id": sid,

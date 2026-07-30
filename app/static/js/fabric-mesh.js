@@ -342,6 +342,7 @@
 
   function clearFocus(root) {
     root.classList.remove('is-focusing');
+    root.classList.remove('is-focus-locked');
     root._fabricFocusId = null;
     root._fabricActiveSet = null;
     focusableIn(root).forEach(function (el) {
@@ -724,11 +725,18 @@
       return e.pointerType === 'mouse' || e.pointerType === 'pen' || e.pointerType === '';
     }
 
+    function setFocusLocked(on) {
+      // M2: CSS pop-out only when tap/click locked (not hover preview)
+      if (on) root.classList.add('is-focus-locked');
+      else root.classList.remove('is-focus-locked');
+    }
+
     function lockPath(pathId, chain, opts) {
       opts = opts || {};
       if (pathId == null || pathId === '') {
         locked = null;
         hoverId = null;
+        setFocusLocked(false);
         clearFocus(root);
         return;
       }
@@ -747,12 +755,14 @@
         locked = null;
         hoverId = null;
         lastLockAt = Date.now(); // suppress double-fire re-lock
+        setFocusLocked(false);
         clearFocus(root);
         return;
       }
       locked = id;
       hoverId = id;
       lastLockAt = Date.now();
+      setFocusLocked(true);
       focusPath(root, id, chain, true);
     }
 
@@ -761,6 +771,7 @@
       if (pathId == null || pathId === '') {
         if (hoverId != null) {
           hoverId = null;
+          setFocusLocked(false);
           clearFocus(root);
         }
         return;
@@ -768,6 +779,7 @@
       var id = String(pathId);
       if (hoverId === id && root._fabricFocusId === id) return;
       hoverId = id;
+      setFocusLocked(false);
       focusPath(root, id, chain, false);
     }
 
@@ -1095,6 +1107,7 @@
     if (initial) {
       locked = String(initial);
       lastLockAt = Date.now();
+      setFocusLocked(true);
       focusPath(root, locked, null, true);
     }
   }

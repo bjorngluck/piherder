@@ -233,7 +233,7 @@ Not abandoned — scheduled as paths. Items may move between 1.2 and 1.3 as the 
 |-------|--------|
 | Identity completion | Full **H** · **G2-mail** · multi-channel matrix · residual recovery |
 | **WebAuthn / passkeys** | Second-factor passkeys first (not passwordless day one); coexist with TOTP + backup codes |
-| Network | **DNS-ext** · residual cert multi-deploy · **Mig** design |
+| Network / maps | **DNS-ext** · residual cert multi-deploy · **Mig** design · **map interactivity** M1–M5 (canned icons, focus pop-out, port ownership, custom pack) — [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md) |
 | Insights | **N-thin** → first **N** slices |
 | Templates | **M** · **Git-cat** · git-rich start |
 | HA | Add-on updates · component picker · wiki depth |
@@ -534,6 +534,8 @@ ACME-in-herder · NPM proxy write · **auto** install of sudoers over SSH (copy 
 | 2026-07-29 | **I Int-gen landed:** `generic_url` links (HA / Frigate / n8n / custom) + probe + Services bindings; wiki generic-links. Pin redirect no longer flashes raw `favourite_toggled`. |
 | 2026-07-29 | **Cap locked for train:** AB-polish · Wh-lite · H-lite · G1-lite. **WebAuthn/passkeys → v1.2**. |
 | 2026-07-29 | **Cap landed:** AB-polish (edit icon); Settings **Alerts** (Wh-lite + H-lite); G1-lite forgot/reset password; migration `035` password reset tokens. |
+| 2026-07-30 | **Map interactivity M0 locked** (icons · pop-out · ports · custom pack) → [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md). |
+| 2026-07-30 | **Map M1+M2+M3-lite landed** (capacity): canned kind icons, locked focus pop-out, port role heuristics on stack chips. M4/M5 remain v1.2. |
 | 2026-07-29 | End-of-day **docs sync**: ROADMAP / ADMIN / wiki alerts cross-links; Cap + Int-gen reflected for next session (freeze path). |
 
 ---

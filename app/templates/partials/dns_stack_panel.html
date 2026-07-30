@@ -297,8 +297,8 @@
             <div class="fabric-port-chips mt-0.5" data-testid="fabric-port-chips">
               {% if c.ports_parsed %}
                 {% for pp in c.ports_parsed[:4] %}
-                <span class="fabric-port-chip {% if pp.published %}is-pub{% else %}is-int{% endif %}"
-                      title="{% if pp.published %}Host {{ pp.host }} → container {{ pp.container }}/{{ pp.proto }}{% else %}Internal {{ pp.label }}{% endif %}">{{ pp.label }}</span>
+                <span class="fabric-port-chip {% if pp.published %}is-pub{% else %}is-int{% endif %}{% if pp.role and pp.role != 'other' %} is-role-{{ pp.role }}{% endif %}"
+                      title="{% if pp.published %}Host {{ pp.host }} → container {{ pp.container }}/{{ pp.proto }}{% else %}Internal {{ pp.label }}{% endif %}{% if pp.role_label %} · {{ pp.role_label }}{% endif %}">{{ pp.label }}{% if pp.role and pp.role != 'other' %} <span class="fabric-port-role">{{ pp.role_label }}</span>{% endif %}</span>
                 {% endfor %}
                 {% if c.ports_parsed|length > 4 %}
                 <span class="fabric-port-chip is-more">+{{ c.ports_parsed|length - 4 }}</span>
@@ -324,8 +324,8 @@
               {% if c.ports_parsed %}
               <div class="fabric-port-chips mb-1">
                 {% for pp in c.ports_parsed %}
-                <span class="fabric-port-chip {% if pp.published %}is-pub{% else %}is-int{% endif %}"
-                      title="{{ pp.bind if pp.bind else '*' }}">{{ pp.label }}</span>
+                <span class="fabric-port-chip {% if pp.published %}is-pub{% else %}is-int{% endif %}{% if pp.role and pp.role != 'other' %} is-role-{{ pp.role }}{% endif %}"
+                      title="{{ pp.bind if pp.bind else '*' }}{% if pp.role_label %} · {{ pp.role_label }}{% endif %}">{{ pp.label }}{% if pp.role and pp.role != 'other' %} <span class="fabric-port-role">{{ pp.role_label }}</span>{% endif %}</span>
                 {% endfor %}
               </div>
               <div class="text-[10px] text-muted font-mono break-all">{{ c.ports_display if c.ports_display and c.ports_display != '—' else '' }}</div>

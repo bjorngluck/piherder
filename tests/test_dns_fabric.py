@@ -431,6 +431,8 @@ def test_physical_mesh_includes_discovered_hosts():
     assert disc.get("discovery_id") == 99
     assert disc.get("node_id") == "host-d-99"
     assert disc.get("device_kind") == "printer"
+    assert disc.get("icon_kind") == "printer"
+    assert fleet.get("icon_kind") == "server"  # fleet default canned icon
     # Compact discovered chip vs full fleet card
     assert disc.get("hw", 99) < fleet.get("hw", 0)
     assert disc.get("hh", 99) < fleet.get("hh", 0)
