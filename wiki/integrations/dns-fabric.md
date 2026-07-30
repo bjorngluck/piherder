@@ -198,8 +198,8 @@ List and graph share **one** open/closed model (`.is-open`) — not separate mob
 
 ### Focus, zoom & mobile
 
-- **Hover** (mouse/stylus) any **host** (including hosts with no mapped services), **Router**, **LAN**, **Internet**, **Public IP**, **NPM hub**, or **app path** to **preview** highlight.
-- **Click / tap** to **lock** focus — the path stays highlighted when the pointer leaves.
+- **Hover** (mouse/stylus) any **host** (including hosts with no mapped services), **Router**, **LAN**, **Internet**, **Public IP**, **NPM hub**, or **app path** to **preview** highlight (stroke emphasis only).
+- **Click / tap** to **lock** focus — the primary node **pops out** (~1.18× scale) and the path stays highlighted when the pointer leaves.
 - **Path map — NPM hub:** selecting the centre **NPM** node focuses **all** via-proxy paths at once (URL + destination nodes **and** the amber **connector lines** into/out of the hub), not only the first path.
 - **Click the same node again** or **Clear focus** to unlock (desktop and mobile).
 - Hosts **without** mapped services are still selectable (node focus). App satellites focus the service **path**.
@@ -226,7 +226,9 @@ Maps stay **customer-facing** by default. For **one** focused service (or host p
 | **Stack panel** | Modal/drawer: containers (category, tags, running, Kuma, **published ports** as `host→container` chips), **view group** pills, detail expand, suggested/confirmed edges, accept/dismiss/**manual link** (including **cross-host** project/container), **Refresh** inventory, deep links to Server / Service / Docker / maps |
 | **Map expand** | On Path map or Hosts map focus: sideways fan to the right of the path — **not** a fleet-wide container mesh. With **All** view groups and 2+ groups populated, one fan per group. |
 
-**Ports:** inventory publish strings are parsed into structured chips (e.g. `8080→80/tcp`). Internal-only containers show a short “internal” summary rather than a fake host mapping.
+**Device icons:** Hosts map cards and rack titles show a **canned glyph** from discovery/device kind (Pi, NAS, printer, camera, …). Fleet hosts default to a server glyph; override the kind on the discovery device to change the icon.
+
+**Ports:** inventory publish strings are parsed into structured chips (e.g. `8080→80/tcp`). Chips also show a **role hint** when known (DNS, Web, Database, Cache, …) — e.g. Pi-hole **53 · DNS** and **443 · Web**. Internal-only containers show a short “internal” summary rather than a fake host mapping.
 
 **Manual edges:** when accepting or adding a link, the picker can target containers on **another fleet host** (cross-host topology), not only the focused compose project.
 

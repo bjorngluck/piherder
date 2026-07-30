@@ -264,7 +264,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Template fleet deployment overview (M)** | **Post-1.0** — which hosts/services have a given template (beyond stack-level badge). |
 | **Insights / custom dashboards (N)** | **Discovery + first thin slice post v1.0** — reporting / custom dashboarding. |
 | **Git-rich service onboard (Q)** | **Post-1.0** — full git clone/pull; more files than compose + Dockerfile. |
-| **Discovery hygiene (S)** | **S1–S4 shipped v1.1** — last seen, hide, purge, filters. Residual S-hb / S-icon capacity. |
+| **Discovery hygiene (S)** | **S1–S4 shipped v1.1** — last seen, hide, purge, filters. Residual **S-hb**; **S-icon** → map interactivity M1 ([FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md)). |
 | **API management (Y)** | **Shipped v1.1 (partial)** — Settings → API **Try a token** + OpenAPI / ReDoc deep links. |
 | **SSO / OIDC (Z)** | **→ v1.3 path** — social or BYO IdP; optional groups → roles. |
 | **Trusted device detail (AB)** | **Shipped v1.1** — type, last IP, rename; **AB-polish** ✎ edit control (not always-visible form). |
@@ -295,12 +295,13 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 | **Container dependency graph** | **Done (H2):** suggest/accept/dismiss + manual `RuntimeEdge`; compose `depends_on` + heuristics |
 | **Expand stack on map** | **Done (H2):** sideways fan (edge/app/queue/data); stack order drives column L→R; panel owns deep-links (no map chips) |
 | **Stack container order** | **Done:** long-press/drag reorder; `stack_container_order_json`; e.g. celery last → queue column rightmost |
-| **Published ports on maps** | Ports in stack expand/detail; broader Hosts/Path port chips may still grow |
+| **Published ports on maps** | Stack chips shipped (v1.1 G Ports). **Host ownership + roles** → [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md) M3–M4 (v1.2 path) |
 | **Monitoring coverage audit** | **Done (H3):** `/dns/coverage` + hub teaser; optional inventory-down alerts for Kuma-bound containers |
 | **Configurable columns / link-to-column** | **Later** (post-0.6 residual) — operator-defined map columns and explicit edge placement (runtime topology § 12b) |
 | **LAN discovery (nmap-class)** | **Product complete (N0–N10)** — worker, devices, network modal, multi-schedule **edit**, vuln pack, **script presets**, kind heuristics + **override**, **map identity** (name + gateway role), **known/new** + MAC/DHCP, **Hosts map** dual compact/full + radar chrome + **1:1** compact fit, fleet soft embed, unit/E2E shells — **v0.8.0 RC3** remaining for stream N: **screenshots** ([FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md)); orthogonal to stack deps |
-| **Discovery map icons / shapes** | **Future (P2)** — Hosts map + Network cards use **icons or node shapes by device kind** (Pi, printer, camera, router, IoT…) instead of text badges only; keep compact chips readable on mobile |
-| **Discovery service / port labels** | **Future (P2)** — optional operator labels for individual open services (e.g. name a host’s admin UI port), not only host-level map name |
+| **Discovery map icons / shapes** | **M1 landed (v1.1)** — canned glyphs by `device_kind`; custom pack later (M5) — [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md) |
+| **Map focus pop-out** | **M2 landed (v1.1)** — locked selection enlarges node (~1.18×); hover stroke-only — same feature plan |
+| **Discovery service / port labels** | **M3-lite landed (v1.1)** — stack port role heuristics (dns/web/db…); M4 sticky + host port panel → later — same feature plan |
 | **Nmap dual-layout / modal HTTP tests** | **Future (P2)** — unit coverage for dual SVG attrs + HTTP redirect contracts for map identity / return_tab |
 | **Nmap worker heartbeat on boot** | **Future (P2)** — touch scanner-online heartbeat when worker process starts, not only mid-scan |
 | **Richer topology** | Focused dep edges polish, force LAN/cloud overrides |

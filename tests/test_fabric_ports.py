@@ -4,7 +4,11 @@ from __future__ import annotations
 from app.services.dns_fabric.ports import (
     enrich_container_ports,
     format_ports_short,
+    guess_port_role,
     parse_published_ports,
+    PORT_ROLE_DB,
+    PORT_ROLE_DNS,
+    PORT_ROLE_WEB,
 )
 
 
@@ -37,6 +41,35 @@ def test_format_and_enrich():
     assert format_ports_short(c["ports_parsed"], limit=1).endswith("+1") or "8000" in format_ports_short(
         c["ports_parsed"], limit=1
     )
+    assert all("role" in p for p in c["ports_parsed"])
+
+
+def test_guess_port_role_pihole_style():
+    assert guess_port_role(host_port=53, container_port=53, proto="udp") == PORT_ROLE_DNS
+    assert (
+        guess_port_role(
+            host_port=443,
+            container_port=443,
+            service_name="pihole",
+            image="pihole/pihole:latest",
+        )
+        == PORT_ROLE_WEB
+    )
+    assert guess_port_role(host_port=5432, image="postgres:16") == PORT_ROLE_DB
+
+
+def test_enrich_adds_role_labels():
+    c = {
+        "name": "pihole",
+        "compose_service": "pihole",
+        "image": "pihole/pihole:latest",
+        "ports_display": "0.0.0.0:53->53/tcp, 0.0.0.0:443->443/tcp",
+    }
+    enrich_container_ports(c)
+    roles = {p["host"]: p["role"] for p in c["ports_parsed"]}
+    assert roles.get("53") == PORT_ROLE_DNS
+    assert roles.get("443") == PORT_ROLE_WEB
+    assert any(p.get("role_label") == "DNS" for p in c["ports_parsed"])
 
 
 def test_fleet_link_targets_shape():
