@@ -144,6 +144,7 @@
 {% if request.query_params.get('security_saved') %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">Security policy saved.</div>
 {% endif %}
+{% if tab == 'alerts' or request.query_params.get('tab') == 'alerts' %}
 {% if request.query_params.get('webhook_saved') %}
 <div class="banner-success border border-border rounded p-3 text-sm mb-4">Webhook settings saved.</div>
 {% endif %}
@@ -158,6 +159,7 @@
 {% endif %}
 {% if request.query_params.get('alerts_error') %}
 <div class="mb-4 p-3 banner-error border border-border rounded text-sm">Alerts: {{ request.query_params.get('alerts_error') }}</div>
+{% endif %}
 {% endif %}
 {% if request.query_params.get('stack_checked') %}
 <div class="mb-4 p-3 banner-success border border-border rounded text-sm">

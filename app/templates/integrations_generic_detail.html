@@ -133,7 +133,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>
         <label class="block text-xs font-medium text-muted mb-1" for="server_id">Server</label>
-        <select id="server_id" name="server_id" required class="input w-full text-sm">
+        <select id="server_id" name="server_id" required class="input w-full text-sm min-h-11">
           {% for s in servers %}
           <option value="{{ s.id }}">{{ s.name }}</option>
           {% endfor %}
@@ -141,28 +141,32 @@
       </div>
       <div>
         <label class="block text-xs font-medium text-muted mb-1" for="label">Chip label</label>
-        <input id="label" name="label" type="text" class="input w-full text-sm"
+        <input id="label" name="label" type="text" class="input w-full text-sm min-h-11"
                placeholder="{{ integration.name }}" value="{{ integration.name }}">
       </div>
     </div>
     <div>
       <label class="block text-xs font-medium text-muted mb-1" for="path">Path override (optional)</label>
-      <input id="path" name="path" type="text" class="input w-full font-mono text-sm"
+      <input id="path" name="path" type="text" class="input w-full font-mono text-sm min-h-11"
              placeholder="/ or full https://…">
       <p class="text-[11px] text-muted mt-0.5">Blank = base URL. Relative paths join the base; absolute https:// overrides.</p>
     </div>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <label class="block text-xs font-medium text-muted mb-1" for="docker_project">Docker project (optional)</label>
-        <input id="docker_project" name="docker_project" type="text" class="input w-full font-mono text-sm"
-               placeholder="compose project name">
+    <details class="border border-border rounded p-3">
+      <summary class="text-sm font-medium text-text cursor-pointer select-none">Docker scope (optional)</summary>
+      <p class="text-[11px] text-muted mt-1 mb-2">Leave empty for a host-level Services chip (HAOS, bare metal).</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-muted mb-1" for="docker_project">Compose project</label>
+          <input id="docker_project" name="docker_project" type="text" class="input w-full font-mono text-sm min-h-11"
+                 placeholder="project name">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-muted mb-1" for="docker_container">Container</label>
+          <input id="docker_container" name="docker_container" type="text" class="input w-full font-mono text-sm min-h-11"
+                 placeholder="service name">
+        </div>
       </div>
-      <div>
-        <label class="block text-xs font-medium text-muted mb-1" for="docker_container">Container (optional)</label>
-        <input id="docker_container" name="docker_container" type="text" class="input w-full font-mono text-sm"
-               placeholder="service name">
-      </div>
-    </div>
+    </details>
     <button type="submit" class="btn btn-primary min-h-11">Add binding</button>
   </form>
   {% elif can_mutate %}

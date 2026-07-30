@@ -75,7 +75,9 @@
       <div class="integ-card-url font-mono">{{ i.base_url }}</div>
       <div class="integ-card-meta">
         <span class="status-pill {% if i.type in ['uptime_kuma', 'grafana', 'pihole', 'npm', 'nmap', 'generic_url'] %}status-running{% else %}feature-off{% endif %}">
-          {% if i.type == 'nmap' %}lan discovery{% elif i.type == 'generic_url' %}link{% else %}{{ i.type }}{% endif %}
+          {% if i.type == 'nmap' %}lan discovery
+          {% elif i.type == 'generic_url' %}{{ i.product_label or 'link' }}
+          {% else %}{{ i.type }}{% endif %}
         </span>
         {% if i.is_primary %}<span class="status-pill status-success">primary</span>{% endif %}
         {% if not i.enabled %}
@@ -84,6 +86,10 @@
         <span class="status-pill status-success">worker online</span>
         {% elif i.type == 'nmap' %}
         <span class="status-pill feature-off">worker offline</span>
+        {% elif i.type == 'generic_url' and i.ok == true %}
+        <span class="status-pill status-success">reachable</span>
+        {% elif i.type == 'generic_url' and (i.ok == false or i.last_error) %}
+        <span class="status-pill status-failed" title="{{ i.last_error or '' }}">unreachable</span>
         {% elif i.ok == true %}
         <span class="status-pill status-success">connected</span>
         {% elif i.ok == false or i.last_error %}
@@ -111,7 +117,10 @@
       <a href="/integrations/{{ i.id }}" class="btn btn-secondary text-xs min-h-9 px-2.5">Open</a>
       {% if can_mutate %}
       <form method="post" action="/integrations/{{ i.id }}/poll" class="inline">
-        <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Poll</button>
+        <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5"
+                title="{% if i.type == 'generic_url' %}Probe health path{% else %}Poll now{% endif %}">
+          {% if i.type == 'generic_url' %}Probe{% else %}Poll{% endif %}
+        </button>
       </form>
       {% endif %}
     </div>

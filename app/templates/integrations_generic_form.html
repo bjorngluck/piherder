@@ -111,9 +111,11 @@
       </div>
     </div>
     {% if mode != 'edit' %}
-    <label class="flex items-center gap-2 text-xs text-muted">
-      <input type="checkbox" name="skip_test" value="on">
-      Save even if reachability test fails
+    <label class="flex items-start gap-2 text-xs text-muted">
+      <input type="checkbox" name="skip_test" value="on" class="mt-0.5">
+      <span>Save even if reachability test fails
+        <span class="block opacity-80">(use when the path needs auth from the herder network later)</span>
+      </span>
     </label>
     {% endif %}
     <div class="flex flex-wrap gap-2 pt-2">
