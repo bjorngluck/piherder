@@ -110,23 +110,49 @@
     return null;
   }
 
+  function serviceCardHeight(svc) {
+    // title + optional detail + port lines (max 5) + extra chip + padding
+    var n = (svc.ports && svc.ports.length) || 0;
+    if (svc.ports_extra) n += 1;
+    var lines = Math.max(1, n);
+    return 36 + lines * 13 + (svc.detail ? 12 : 0);
+  }
+
   function draw(svg, data) {
     clearLayer(svg);
     if (!data || !data.ok) return;
-    var ports = data.ports || [];
-    var stacks = data.stacks || [];
-    if (!ports.length) {
-      var hostEmpty = findHostNode(svg, data.server_id, data.node_id);
-      if (!hostEmpty) return;
-      var ge = hostGeom(hostEmpty);
+
+    // Prefer service-first payload; fall back to empty
+    var services = data.services || [];
+    if (!services.length && (data.ports || []).length) {
+      // legacy flat ports → one observed bucket (shouldn't happen with new API)
+      services = [
+        {
+          id: 'legacy',
+          kind: 'observed',
+          label: 'Ports',
+          detail: '',
+          ports: data.ports,
+          port_count: data.ports.length,
+          ports_extra: 0,
+          project: '',
+        },
+      ];
+    }
+
+    var hostNode = findHostNode(svg, data.server_id, data.node_id);
+    if (!hostNode) return;
+    var a = hostGeom(hostNode);
+
+    if (!services.length) {
       var gEmpty = el('g', {
         id: layerId,
         class: 'fabric-host-ports-expand-layer',
         'data-server-id': String(data.server_id),
       });
       var te = el('text', {
-        x: ge.right + 16,
-        y: ge.y + 4,
+        x: a.right + 16,
+        y: a.y + 4,
         class: 'fabric-host-ports-empty',
         fill: 'var(--color-muted)',
         'font-size': '11',
@@ -137,21 +163,13 @@
       return;
     }
 
-    var hostNode = findHostNode(svg, data.server_id, data.node_id);
-    if (!hostNode) return;
-    var a = hostGeom(hostNode);
-
-    var portW = 92;
-    var portH = 28;
-    var stackW = 100;
-    var stackH = 36;
-    var rowGap = 8;
-    var colGap = 48;
-    var portX = a.right + 56;
-    var stackX = portX + portW + colGap;
-
-    var nPorts = ports.length;
-    var totalH = nPorts * portH + Math.max(0, nPorts - 1) * rowGap;
+    var cardW = 148;
+    var rowGap = 12;
+    var colX = a.right + 58;
+    var heights = services.map(serviceCardHeight);
+    var totalH = heights.reduce(function (s, h) {
+      return s + h;
+    }, 0) + Math.max(0, services.length - 1) * rowGap;
     var startY = a.y - totalH / 2;
 
     var g = el('g', {
@@ -160,28 +178,21 @@
       'data-server-id': String(data.server_id),
     });
 
-    // Zone backdrop
-    var zonePad = 14;
-    var zoneW =
-      stackX +
-      stackW / 2 -
-      (a.right + 8) +
-      zonePad +
-      (stacks.length ? 0 : -(colGap + stackW / 2));
-    var zoneH = Math.max(totalH, stacks.length * (stackH + rowGap)) + zonePad * 2;
-    var zoneTop = Math.min(startY, a.y - zoneH / 2) - zonePad;
+    var zonePad = 16;
+    var zoneTop = startY - zonePad - 12;
+    var zoneH = totalH + zonePad * 2 + 16;
     g.appendChild(
       el('rect', {
-        x: a.right + 10,
+        x: a.right + 12,
         y: zoneTop,
-        width: Math.max(zoneW, portW + 40),
+        width: cardW + 36,
         height: zoneH,
         rx: 12,
         class: 'fabric-host-ports-zone',
       })
     );
     var title = el('text', {
-      x: a.right + 22,
+      x: a.right + 24,
       y: zoneTop + 14,
       class: 'fabric-host-ports-title',
       fill: 'var(--color-muted)',
@@ -189,17 +200,17 @@
       'font-weight': '700',
     });
     title.textContent =
-      'PORTS → OWNERS · ' +
-      String(data.total_count || ports.length) +
-      (data.stack_count ? ' · ' + data.stack_count + ' stacks' : '');
+      'SERVICE → PORTS · ' +
+      String(data.total_count || 0) +
+      (data.stack_count ? ' · ' + data.stack_count + ' services' : '');
     g.appendChild(title);
 
-    // Lead from host
+    // Lead from host into column
     g.appendChild(
       el('line', {
         x1: a.right + 2,
         y1: a.y,
-        x2: portX - portW / 2 - 8,
+        x2: colX - cardW / 2 - 10,
         y2: a.y,
         class: 'fabric-mesh-edge fabric-host-ports-lead',
         stroke: 'var(--color-accent, #00a651)',
@@ -209,208 +220,181 @@
       })
     );
 
-    var portPos = {};
-    ports.forEach(function (p, i) {
-      var cy = startY + i * (portH + rowGap) + portH / 2;
-      var pid = p.id || p.host_port + '/' + p.proto;
-      portPos[pid] = { x: portX, y: cy };
-      var rs = roleStyle(p.role);
+    var yCursor = startY;
+    services.forEach(function (svc) {
+      var h = serviceCardHeight(svc);
+      var cy = yCursor + h / 2;
+      var isObs = svc.kind === 'observed';
+      var stroke = isObs
+        ? '#64748b'
+        : 'var(--color-accent, #00a651)';
+      var fill = isObs
+        ? 'color-mix(in srgb, #64748b 8%, var(--color-surface))'
+        : 'color-mix(in srgb, var(--color-accent, #00a651) 10%, var(--color-surface))';
 
-      // host → port edge
+      // host → service
       g.appendChild(
         el('line', {
           x1: a.right + 4,
           y1: a.y,
-          x2: portX - portW / 2,
+          x2: colX - cardW / 2,
           y2: cy,
           class: 'fabric-mesh-edge fabric-host-ports-edge',
-          stroke: rs.stroke,
+          stroke: stroke,
           'stroke-width': '1.5',
-          'stroke-opacity': '0.75',
+          'stroke-opacity': '0.8',
           fill: 'none',
         })
       );
 
-      var ng = el('g', {
+      var sg = el('g', {
         class:
-          'fabric-host-port-node fabric-host-port-node--' +
-          (p.role || 'other') +
-          (p.role_sticky ? ' is-sticky' : ''),
-        'data-port-id': pid,
-        'data-server-id': String(data.server_id),
+          'fabric-host-service-node' +
+          (isObs ? ' is-observed' : ' is-service'),
+        'data-service-id': svc.id || '',
+        'data-project': svc.project || '',
         style: 'cursor:pointer',
       });
       var tip = el('title');
+      var portNames = (svc.ports || [])
+        .map(function (p) {
+          return p.label || p.host_port;
+        })
+        .join(', ');
       tip.textContent =
-        (p.display || p.label) +
+        (svc.label || '') +
+        (svc.detail ? ' / ' + svc.detail : '') +
         ' · ' +
-        (p.source || '') +
-        (p.owner_project ? ' → ' + p.owner_project : ' (unowned)') +
-        ' · click for host ports';
-      ng.appendChild(tip);
-      ng.appendChild(
+        (svc.port_count || 0) +
+        ' port(s)' +
+        (portNames ? ': ' + portNames : '') +
+        (svc.ports_extra ? ' +' + svc.ports_extra : '') +
+        ' · click to edit';
+      sg.appendChild(tip);
+
+      sg.appendChild(
         el('rect', {
-          x: portX - portW / 2,
-          y: cy - portH / 2,
-          width: portW,
-          height: portH,
-          rx: 8,
-          fill: rs.fill,
-          stroke: rs.stroke,
-          'stroke-width': p.role_sticky ? '2.25' : '1.6',
+          x: colX - cardW / 2,
+          y: yCursor,
+          width: cardW,
+          height: h,
+          rx: 10,
+          class: 'fabric-host-service-box',
+          fill: fill,
+          stroke: stroke,
+          'stroke-width': '1.75',
         })
       );
-      var roleT = el('text', {
-        x: portX - portW / 2 + 8,
-        y: cy + 1,
+
+      // Service / project title
+      var titleY = yCursor + 16;
+      var tn = el('text', {
+        x: colX - cardW / 2 + 10,
+        y: titleY,
         'text-anchor': 'start',
-        'dominant-baseline': 'middle',
-        'font-size': '8',
-        'font-weight': '800',
-        fill: rs.stroke,
-      });
-      roleT.textContent = String(p.role_label || p.role || '?')
-        .slice(0, 5)
-        .toUpperCase();
-      ng.appendChild(roleT);
-      var portT = el('text', {
-        x: portX + 10,
-        y: cy + 1,
-        'text-anchor': 'middle',
-        'dominant-baseline': 'middle',
         'font-size': '11',
         'font-weight': '700',
         fill: 'var(--color-text)',
-        'font-family': 'ui-monospace, Menlo, monospace',
       });
-      portT.textContent = String(p.host_port);
-      ng.appendChild(portT);
-      // source mark
-      if (p.source === 'nmap') {
-        var obs = el('text', {
-          x: portX + portW / 2 - 6,
-          y: cy - portH / 2 + 9,
-          'text-anchor': 'end',
-          'font-size': '7',
+      tn.textContent = String(svc.label || 'service').slice(0, 16);
+      sg.appendChild(tn);
+
+      // Container / compose service under title (only when distinct)
+      var lineY = titleY + 12;
+      if (svc.detail) {
+        var det = el('text', {
+          x: colX - cardW / 2 + 10,
+          y: lineY,
+          'text-anchor': 'start',
+          'font-size': '9',
+          'font-weight': '600',
+          fill: 'var(--color-muted)',
+          'font-family': 'ui-monospace, Menlo, monospace',
+        });
+        det.textContent = String(svc.detail).slice(0, 18);
+        sg.appendChild(det);
+        lineY += 12;
+      } else if (isObs) {
+        var od = el('text', {
+          x: colX - cardW / 2 + 10,
+          y: lineY,
+          'text-anchor': 'start',
+          'font-size': '8.5',
           fill: 'var(--color-muted)',
         });
-        obs.textContent = 'obs';
-        ng.appendChild(obs);
+        od.textContent = 'nmap · no Docker owner';
+        sg.appendChild(od);
+        lineY += 12;
       }
-      ng.addEventListener('click', function (ev) {
+
+      // Port lines (up to 5) — single clean list, no obs spam
+      var ports = svc.ports || [];
+      ports.forEach(function (p) {
+        var rs = roleStyle(p.role);
+        var pl = el('text', {
+          x: colX - cardW / 2 + 12,
+          y: lineY,
+          'text-anchor': 'start',
+          'font-size': '10',
+          'font-weight': '650',
+          fill: 'var(--color-text)',
+          'font-family': 'ui-monospace, Menlo, monospace',
+        });
+        var roleBit =
+          p.role && p.role !== 'other'
+            ? ' · ' + String(p.role_label || p.role)
+            : '';
+        pl.textContent =
+          String(p.host_port) +
+          (p.proto && p.proto !== 'tcp' ? '/' + p.proto : '') +
+          roleBit +
+          (p.role_sticky ? ' ★' : '');
+        // tint role via small mark
+        pl.setAttribute('data-role', p.role || 'other');
+        sg.appendChild(pl);
+        // role color bar
+        sg.appendChild(
+          el('rect', {
+            x: colX - cardW / 2 + 4,
+            y: lineY - 8,
+            width: 3,
+            height: 10,
+            rx: 1,
+            fill: rs.stroke,
+            stroke: 'none',
+          })
+        );
+        lineY += 13;
+      });
+      if (svc.ports_extra) {
+        var more = el('text', {
+          x: colX - cardW / 2 + 12,
+          y: lineY,
+          'text-anchor': 'start',
+          'font-size': '9',
+          'font-weight': '600',
+          fill: 'var(--color-muted)',
+        });
+        more.textContent = '+' + svc.ports_extra + ' more';
+        sg.appendChild(more);
+      }
+
+      sg.addEventListener('click', function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
         var url =
           data.panel_url ||
-          '/dns/host-ports-panel?server_id=' + encodeURIComponent(String(data.server_id));
+          '/dns/host-ports-panel?server_id=' +
+            encodeURIComponent(String(data.server_id));
+        if (svc.project) {
+          url += '&focus_project=' + encodeURIComponent(svc.project);
+        }
         if (window.PiHerderStackPanel && window.PiHerderStackPanel.open) {
           window.PiHerderStackPanel.open(url);
         }
       });
-      g.appendChild(ng);
-    });
-
-    // Stack owners column
-    var stackPos = {};
-    if (stacks.length) {
-      var sTotal = stacks.length * stackH + Math.max(0, stacks.length - 1) * rowGap;
-      var sStart = a.y - sTotal / 2;
-      stacks.forEach(function (s, i) {
-        var cy = sStart + i * (stackH + rowGap) + stackH / 2;
-        var sid = 'stack:' + s.name;
-        stackPos[sid] = { x: stackX, y: cy };
-        var sg = el('g', {
-          class: 'fabric-host-stack-node',
-          'data-stack': s.name,
-          style: 'cursor:pointer',
-        });
-        var st = el('title');
-        st.textContent =
-          s.name + ' · ' + (s.port_count || 0) + ' port(s) · click host ports';
-        sg.appendChild(st);
-        sg.appendChild(
-          el('rect', {
-            x: stackX - stackW / 2,
-            y: cy - stackH / 2,
-            width: stackW,
-            height: stackH,
-            rx: 9,
-            class: 'fabric-host-stack-box',
-            fill: 'color-mix(in srgb, var(--color-accent, #00a651) 10%, var(--color-surface))',
-            stroke: 'var(--color-accent, #00a651)',
-            'stroke-width': '1.75',
-          })
-        );
-        var sn = el('text', {
-          x: stackX,
-          y: cy - 2,
-          'text-anchor': 'middle',
-          'font-size': '10',
-          'font-weight': '700',
-          fill: 'var(--color-text)',
-        });
-        sn.textContent = String(s.name).slice(0, 12);
-        sg.appendChild(sn);
-        var sc = el('text', {
-          x: stackX,
-          y: cy + 11,
-          'text-anchor': 'middle',
-          'font-size': '8',
-          fill: 'var(--color-muted)',
-        });
-        sc.textContent = (s.port_count || 0) + ' ports';
-        sg.appendChild(sc);
-        sg.addEventListener('click', function (ev) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          var url =
-            (data.panel_url ||
-              '/dns/host-ports-panel?server_id=' +
-                encodeURIComponent(String(data.server_id))) +
-            '&focus_project=' +
-            encodeURIComponent(s.name);
-          if (window.PiHerderStackPanel && window.PiHerderStackPanel.open) {
-            window.PiHerderStackPanel.open(url);
-          }
-        });
-        g.appendChild(sg);
-
-        // port → stack edges
-        (s.port_ids || []).forEach(function (pid) {
-          var pp = portPos[pid];
-          if (!pp) return;
-          g.appendChild(
-            el('line', {
-              x1: pp.x + portW / 2,
-              y1: pp.y,
-              x2: stackX - stackW / 2,
-              y2: cy,
-              class: 'fabric-mesh-edge fabric-host-ports-owner-edge',
-              stroke: 'var(--color-accent, #00a651)',
-              'stroke-width': '1.75',
-              'stroke-opacity': '0.85',
-              fill: 'none',
-              'marker-end': '',
-            })
-          );
-        });
-      });
-    }
-
-    // Unowned ports: label on the right of port
-    ports.forEach(function (p) {
-      if (p.owner_project) return;
-      var pid = p.id || p.host_port + '/' + p.proto;
-      var pp = portPos[pid];
-      if (!pp) return;
-      var u = el('text', {
-        x: pp.x + portW / 2 + 8,
-        y: pp.y + 3,
-        'font-size': '8',
-        fill: 'var(--color-muted)',
-      });
-      u.textContent = p.source === 'nmap' ? 'observed only' : 'unowned';
-      g.appendChild(u);
+      g.appendChild(sg);
+      yCursor += h + rowGap;
     });
 
     svg.appendChild(g);

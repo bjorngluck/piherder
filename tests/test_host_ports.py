@@ -162,9 +162,15 @@ def test_build_host_ports_expand_payload():
         out = hp.build_host_ports_expand_payload(session, server_id=7)
     assert out["ok"] is True
     assert out["node_id"] == "host-7"
-    assert len(out["ports"]) >= 3
-    assert any(s["name"] == "pihole" for s in out["stacks"])
-    assert any(e["kind"] == "port_owner" for e in out["edges"])
+    # Service-first: pihole container owns 53 + 443
+    assert out["services"]
+    pi = next(s for s in out["services"] if s["project"] == "pihole")
+    assert pi["kind"] == "service"
+    assert pi["port_count"] >= 2
+    assert len(pi["ports"]) <= 5
+    ports = {p["host_port"] for p in pi["ports"]}
+    assert 53 in ports and 443 in ports
+    assert any(e["kind"] == "host_service" for e in out["edges"])
     assert out["panel_url"].startswith("/dns/host-ports-panel")
 
 

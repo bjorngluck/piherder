@@ -1130,14 +1130,15 @@ button.fabric-nav-card--action:focus-visible {
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
-.fabric-host-port-node rect {
-  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.12));
+.fabric-host-service-node .fabric-host-service-box {
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.12));
 }
-.fabric-host-port-node.is-sticky rect {
-  stroke-width: 2.5;
+.fabric-host-service-node.is-observed .fabric-host-service-box {
+  stroke-dasharray: 4 3;
 }
-.fabric-host-stack-node rect {
-  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.1));
+.fabric-mesh-stack-node .fabric-mesh-stack-box {
+  /* room for role chip + name + ports */
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.1));
 }
 .is-focusing .fabric-host-ports-expand-layer .fabric-mesh-edge {
   opacity: 0.9 !important;
