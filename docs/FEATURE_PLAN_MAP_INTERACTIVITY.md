@@ -1,6 +1,6 @@
 # Feature plan — Map interactivity (icons · pop-out · ports)
 
-**Status:** **M1 + M2 + M3-lite shipping on v1.1.0-dev** (2026-07-30) — M0 locked same day; M4 sticky annotations + M5 custom pack remain roadmap  
+**Status:** **M1–M4 shipping on v1.1.0-dev** (2026-07-30) — M5 custom pack remains roadmap  
 **Horizon:** Elevated into v1.1 train (capacity); residual polish with operator QA  
 **Related:** [FEATURE_PLAN_RUNTIME_TOPOLOGY.md](FEATURE_PLAN_RUNTIME_TOPOLOGY.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · wiki [Network maps](../wiki/integrations/dns-fabric.md) · residual **S-icon**
 
@@ -87,9 +87,9 @@ Host
 | **M0** | This plan + locked decisions | **Done** 2026-07-30 |
 | **M1** | Canned icons (**S-icon**) — sprite + Hosts map + racks | **Landed** 2026-07-30 |
 | **M2** | Focus pop-out (~1.18× locked; hover stroke-only) | **Landed** 2026-07-30 |
-| **M3** | Port ownership lite — role heuristics on stack chips | **Landed (lite)** 2026-07-30 — roles on chips; host-wide port panel later |
-| **M4** | Sticky roles / nmap∪docker / map focus port summary | v1.2 |
-| **M5** | Custom pack upload + backup | v1.2 late / v1.3 |
+| **M3** | Port ownership lite — role heuristics on stack chips | **Landed** 2026-07-30 |
+| **M4** | Sticky roles / nmap∪docker / map focus port summary / host panel | **Landed** 2026-07-30 (`PortAnnotation`, host ports panel, sticky role select) |
+| **M5** | Custom pack upload + backup | **Roadmap** (v1.2 late / v1.3) |
 
 ---
 
@@ -132,3 +132,4 @@ Host
 |------|------|
 | 2026-07-30 | M0 requirements drafted from operator themes; **open decisions approved** as locked defaults above |
 | 2026-07-30 | **M1+M2+M3-lite landed** on `v1.1.0-dev`: kind SVG sprite, Hosts/Path pop-out, stack port role chips |
+| 2026-07-30 | **M4 landed:** `PortAnnotation` migration 036, host ports panel (Docker∪nmap), sticky roles, map focus summary + Ports button; M5 remains roadmap |

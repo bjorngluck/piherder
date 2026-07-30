@@ -301,7 +301,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 | **LAN discovery (nmap-class)** | **Product complete (N0–N10)** — worker, devices, network modal, multi-schedule **edit**, vuln pack, **script presets**, kind heuristics + **override**, **map identity** (name + gateway role), **known/new** + MAC/DHCP, **Hosts map** dual compact/full + radar chrome + **1:1** compact fit, fleet soft embed, unit/E2E shells — **v0.8.0 RC3** remaining for stream N: **screenshots** ([FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md)); orthogonal to stack deps |
 | **Discovery map icons / shapes** | **M1 landed (v1.1)** — canned glyphs by `device_kind`; custom pack later (M5) — [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md) |
 | **Map focus pop-out** | **M2 landed (v1.1)** — locked selection enlarges node (~1.18×); hover stroke-only — same feature plan |
-| **Discovery service / port labels** | **M3-lite landed (v1.1)** — stack port role heuristics (dns/web/db…); M4 sticky + host port panel → later — same feature plan |
+| **Discovery service / port labels** | **M3+M4 landed (v1.1)** — stack roles + host ports panel (Docker∪nmap) + sticky `PortAnnotation` — [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md); M5 custom pack still roadmap |
 | **Nmap dual-layout / modal HTTP tests** | **Future (P2)** — unit coverage for dual SVG attrs + HTTP redirect contracts for map identity / return_tab |
 | **Nmap worker heartbeat on boot** | **Future (P2)** — touch scanner-online heartbeat when worker process starts, not only mid-scan |
 | **Richer topology** | Focused dep edges polish, force LAN/cloud overrides |

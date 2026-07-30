@@ -73,6 +73,16 @@
       <span class="fabric-stack-nav-v">focus</span>
     </a>
     {% endif %}
+    {% if p.host_ports_url %}
+    <button type="button"
+            class="fabric-stack-nav-link text-left"
+            data-fabric-stack-open
+            data-stack-url="{{ p.host_ports_url }}"
+            onclick="event.preventDefault();if(window.PiHerderStackPanel){PiHerderStackPanel.open(this.getAttribute('data-stack-url'));}return false;">
+      <span class="fabric-stack-nav-k">Host ports</span>
+      <span class="fabric-stack-nav-v">all · sticky</span>
+    </button>
+    {% endif %}
     {% if p.deployment_href %}
     <a href="{{ p.deployment_href }}" class="fabric-stack-nav-link">
       <span class="fabric-stack-nav-k">Deploy</span>
@@ -297,8 +307,8 @@
             <div class="fabric-port-chips mt-0.5" data-testid="fabric-port-chips">
               {% if c.ports_parsed %}
                 {% for pp in c.ports_parsed[:4] %}
-                <span class="fabric-port-chip {% if pp.published %}is-pub{% else %}is-int{% endif %}{% if pp.role and pp.role != 'other' %} is-role-{{ pp.role }}{% endif %}"
-                      title="{% if pp.published %}Host {{ pp.host }} → container {{ pp.container }}/{{ pp.proto }}{% else %}Internal {{ pp.label }}{% endif %}{% if pp.role_label %} · {{ pp.role_label }}{% endif %}">{{ pp.label }}{% if pp.role and pp.role != 'other' %} <span class="fabric-port-role">{{ pp.role_label }}</span>{% endif %}</span>
+                <span class="fabric-port-chip {% if pp.published %}is-pub{% else %}is-int{% endif %}{% if pp.role and pp.role != 'other' %} is-role-{{ pp.role }}{% endif %}{% if pp.role_sticky %} is-sticky{% endif %}"
+                      title="{% if pp.published %}Host {{ pp.host }} → container {{ pp.container }}/{{ pp.proto }}{% else %}Internal {{ pp.label }}{% endif %}{% if pp.role_label %} · {{ pp.role_label }}{% endif %}{% if pp.role_sticky %} · sticky{% endif %}">{{ pp.label }}{% if pp.role and pp.role != 'other' %} <span class="fabric-port-role">{{ pp.role_label }}{% if pp.role_sticky %}★{% endif %}</span>{% endif %}</span>
                 {% endfor %}
                 {% if c.ports_parsed|length > 4 %}
                 <span class="fabric-port-chip is-more">+{{ c.ports_parsed|length - 4 }}</span>

@@ -209,6 +209,141 @@ async def dns_coverage(
     )
 
 
+@router.get("/dns/host-ports-panel", response_class=HTMLResponse)
+async def dns_host_ports_panel(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    server_id: Optional[int] = None,
+    nmap_device_id: Optional[int] = None,
+    show_noise: Optional[str] = None,
+    focus_project: Optional[str] = None,
+):
+    """HTMX partial: host port inventory (Docker ∪ nmap + sticky roles)."""
+    from ..services.dns_fabric import host_ports as hp_svc
+
+    srv = server_id
+    if srv is None:
+        raw = (request.query_params.get("server_id") or "").strip()
+        if raw.isdigit():
+            srv = int(raw)
+    dev = nmap_device_id
+    if dev is None:
+        raw = (request.query_params.get("nmap_device_id") or "").strip()
+        if raw.isdigit():
+            dev = int(raw)
+    noise = (show_noise or request.query_params.get("show_noise") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    focus = (
+        focus_project
+        or request.query_params.get("focus_project")
+        or ""
+    ).strip() or None
+
+    panel = hp_svc.build_host_port_inventory(
+        session,
+        server_id=srv,
+        nmap_device_id=dev,
+        show_noise=noise,
+        focus_project=focus,
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/dns_host_ports_panel.html",
+        context={
+            "request": request,
+            "user": user,
+            "can_mutate": _can_mutate(user),
+            "panel": panel,
+        },
+    )
+
+
+@router.post("/dns/host-port-annotation", response_class=HTMLResponse)
+async def dns_host_port_annotation(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    server_id: int = Form(...),
+    host_port: int = Form(...),
+    proto: str = Form("tcp"),
+    role_key: str = Form(""),
+    focus_project: str = Form(""),
+    show_noise: str = Form("0"),
+    label: str = Form(""),
+    note: str = Form(""),
+):
+    """Save sticky port role; re-render host ports panel."""
+    from ..services.dns_fabric import host_ports as hp_svc
+
+    clear = not (role_key or "").strip()
+    try:
+        hp_svc.upsert_port_annotation(
+            session,
+            server_id=int(server_id),
+            host_port=int(host_port),
+            proto=proto or "tcp",
+            role_key=None if clear else role_key,
+            clear_role=clear,
+            label=label if label else None,
+            note=note if note else None,
+            user_id=getattr(user, "id", None),
+        )
+        try:
+            session.add(
+                make_audit_log(
+                    action="fabric.port_annotation",
+                    user_id=getattr(user, "id", None),
+                    server_id=int(server_id),
+                    details=(
+                        f"{host_port}/{proto or 'tcp'} "
+                        f"role={'auto' if clear else role_key}"
+                    )[:500],
+                )
+            )
+            session.commit()
+        except Exception:
+            pass
+    except ValueError as e:
+        panel = {
+            "ok": False,
+            "error": str(e) or "invalid_annotation",
+        }
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/dns_host_ports_panel.html",
+            context={
+                "request": request,
+                "user": user,
+                "can_mutate": True,
+                "panel": panel,
+            },
+            status_code=400,
+        )
+
+    noise = (show_noise or "").strip().lower() in ("1", "true", "yes", "on")
+    panel = hp_svc.build_host_port_inventory(
+        session,
+        server_id=int(server_id),
+        show_noise=noise,
+        focus_project=(focus_project or "").strip() or None,
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/dns_host_ports_panel.html",
+        context={
+            "request": request,
+            "user": user,
+            "can_mutate": True,
+            "panel": panel,
+        },
+    )
+
+
 @router.get("/dns/stack-panel", response_class=HTMLResponse)
 async def dns_stack_panel(
     request: Request,

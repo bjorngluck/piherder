@@ -795,4 +795,73 @@ a.fabric-stack-status-pill:hover {
 .fabric-port-chip.is-role-metrics {
   border-color: color-mix(in srgb, var(--color-muted) 50%, var(--color-border));
 }
+.fabric-port-chip.is-sticky {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+/* M4 — host port inventory list */
+.fabric-host-ports-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.fabric-host-port-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+.fabric-host-port-main {
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+.fabric-port-source {
+  font-size: 0.58rem;
+  font-family: system-ui, sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted);
+  padding: 0.05rem 0.3rem;
+  border-radius: 3px;
+  border: 1px dashed var(--color-border);
+}
+.fabric-port-source--docker {
+  border-color: color-mix(in srgb, var(--color-accent) 40%, var(--color-border));
+  color: var(--color-accent);
+}
+.fabric-port-source--both {
+  border-color: color-mix(in srgb, #3b82f6 45%, var(--color-border));
+  color: #3b82f6;
+}
+.fabric-port-source--nmap {
+  border-style: dashed;
+}
+.fabric-host-port-role-form {
+  flex: 0 0 auto;
+}
+.fabric-host-port-role-select {
+  font-size: 0.7rem;
+  min-height: 2rem;
+  padding: 0.15rem 0.35rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  max-width: 8.5rem;
+}
+.fabric-host-ports-other summary {
+  list-style: none;
+}
+.fabric-host-ports-other summary::-webkit-details-marker {
+  display: none;
+}
 

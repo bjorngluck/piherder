@@ -535,7 +535,8 @@ ACME-in-herder · NPM proxy write · **auto** install of sudoers over SSH (copy 
 | 2026-07-29 | **Cap locked for train:** AB-polish · Wh-lite · H-lite · G1-lite. **WebAuthn/passkeys → v1.2**. |
 | 2026-07-29 | **Cap landed:** AB-polish (edit icon); Settings **Alerts** (Wh-lite + H-lite); G1-lite forgot/reset password; migration `035` password reset tokens. |
 | 2026-07-30 | **Map interactivity M0 locked** (icons · pop-out · ports · custom pack) → [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md). |
-| 2026-07-30 | **Map M1+M2+M3-lite landed** (capacity): canned kind icons, locked focus pop-out, port role heuristics on stack chips. M4/M5 remain v1.2. |
+| 2026-07-30 | **Map M1+M2+M3-lite landed** (capacity): canned kind icons, locked focus pop-out, port role heuristics on stack chips. |
+| 2026-07-30 | **Map M4 landed:** host ports panel, sticky roles (`PortAnnotation` / migration 036), nmap∪docker inventory, map focus port summary. **M5 custom pack** remains roadmap. |
 | 2026-07-29 | End-of-day **docs sync**: ROADMAP / ADMIN / wiki alerts cross-links; Cap + Int-gen reflected for next session (freeze path). |
 
 ---
