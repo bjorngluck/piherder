@@ -537,6 +537,7 @@ ACME-in-herder · NPM proxy write · **auto** install of sudoers over SSH (copy 
 | 2026-07-30 | **Map interactivity M0 locked** (icons · pop-out · ports · custom pack) → [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md). |
 | 2026-07-30 | **Map M1+M2+M3-lite landed** (capacity): canned kind icons, locked focus pop-out, port role heuristics on stack chips. |
 | 2026-07-30 | **Map M4 landed:** host ports panel, sticky roles (`PortAnnotation` / migration 036), nmap∪docker inventory, map focus port summary. **M5 custom pack** remains roadmap. |
+| 2026-07-30 | **Map ports UX polish:** pop-out ~1.30×; progressive compact → ports-only → by-service; discovered devices; stack container ports; touch whole-callout. Docs/wiki synced. |
 | 2026-07-29 | End-of-day **docs sync**: ROADMAP / ADMIN / wiki alerts cross-links; Cap + Int-gen reflected for next session (freeze path). |
 
 ---

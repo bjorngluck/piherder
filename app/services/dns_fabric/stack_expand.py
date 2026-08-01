@@ -38,6 +38,66 @@ def build_stack_expand_payload(
     for i, c in enumerate(panel.get("containers") or []):
         role = c.get("role") or "app"
         ports = c.get("ports") or []
+        # Prefer enriched published chips (role · host_port) when available
+        ports_parsed = c.get("ports_parsed") or []
+        port_chips: list[dict[str, Any]] = []
+        if isinstance(ports_parsed, list):
+            for p in ports_parsed:
+                if not isinstance(p, dict):
+                    continue
+                if not p.get("published") and p.get("host") in (None, "", "0"):
+                    continue
+                try:
+                    hp = int(str(p.get("host") or 0))
+                except (TypeError, ValueError):
+                    continue
+                if hp <= 0:
+                    continue
+                role_k = (p.get("role") or "other").lower()
+                port_chips.append(
+                    {
+                        "host_port": hp,
+                        "proto": (p.get("proto") or "tcp").lower(),
+                        "role": role_k,
+                        "role_label": p.get("role_label") or role_k,
+                        "role_sticky": bool(p.get("role_sticky")),
+                        "label": p.get("label_with_role")
+                        or p.get("label")
+                        or str(hp),
+                    }
+                )
+        if not port_chips and ports:
+            # Fallback: raw inventory port strings
+            for raw in ports[:6]:
+                s = str(raw).strip()
+                if not s:
+                    continue
+                port_chips.append(
+                    {
+                        "host_port": 0,
+                        "proto": "tcp",
+                        "role": "other",
+                        "role_label": "other",
+                        "role_sticky": False,
+                        "label": s[:24],
+                    }
+                )
+        ports_label = ""
+        if port_chips:
+            bits = []
+            for ch in port_chips[:4]:
+                if ch.get("host_port"):
+                    bit = str(ch["host_port"])
+                    if ch.get("role") and ch["role"] != "other":
+                        bit += " " + str(ch.get("role_label") or ch["role"])
+                    bits.append(bit)
+                else:
+                    bits.append(str(ch.get("label") or "")[:12])
+            ports_label = ", ".join(bits)
+            if len(port_chips) > 4:
+                ports_label += f" +{len(port_chips) - 4}"
+        elif ports:
+            ports_label = ", ".join(str(p) for p in ports[:4])
         vs_id = c.get("visual_stack_id")
         # Prefer explicit order_index from panel; fall back to list position so
         # map fans always match stack panel order after drag-reorder.
@@ -55,7 +115,9 @@ def build_stack_expand_payload(
                 "running": bool(c.get("running")),
                 "mon_status": c.get("mon_status") or "",
                 "ports": ports,
-                "ports_label": ", ".join(str(p) for p in ports[:4]) if ports else "",
+                "port_chips": port_chips[:8],
+                "ports_label": ports_label,
+                "port_count": len(port_chips) or len(ports or []),
                 "image": (c.get("image") or "")[:80],
                 "kuma_state": c.get("kuma_state") or "",
                 "status": c.get("status") or "",

@@ -2358,16 +2358,23 @@ def build_fabric_view(
             discovered_hosts = []
             hosts_for_physical = list(hosts)
 
-        # M4 — attach port summary for map focus callout (fleet hosts only)
+        # M4 — attach port summary for map focus callout (fleet + discovered)
         try:
-            from .host_ports import host_ports_summary_for_server
+            from .host_ports import (
+                host_ports_summary_for_device,
+                host_ports_summary_for_server,
+            )
 
             for h in hosts_for_physical:
-                sid = h.get("server_id")
-                if sid is None or h.get("is_discovered"):
-                    continue
                 try:
-                    sm = host_ports_summary_for_server(session, int(sid))
+                    sid = h.get("server_id")
+                    did = h.get("discovery_id")
+                    if sid is not None and not h.get("is_discovered"):
+                        sm = host_ports_summary_for_server(session, int(sid))
+                    elif did is not None:
+                        sm = host_ports_summary_for_device(session, int(did))
+                    else:
+                        continue
                     h["ports_count"] = sm.get("ports_count") or 0
                     h["ports_stack_count"] = sm.get("stack_count") or 0
                     h["ports_summary"] = sm.get("ports_summary") or ""

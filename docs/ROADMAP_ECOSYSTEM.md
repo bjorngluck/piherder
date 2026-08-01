@@ -295,13 +295,13 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 | **Container dependency graph** | **Done (H2):** suggest/accept/dismiss + manual `RuntimeEdge`; compose `depends_on` + heuristics |
 | **Expand stack on map** | **Done (H2):** sideways fan (edge/app/queue/data); stack order drives column L→R; panel owns deep-links (no map chips) |
 | **Stack container order** | **Done:** long-press/drag reorder; `stack_container_order_json`; e.g. celery last → queue column rightmost |
-| **Published ports on maps** | Stack chips shipped (v1.1 G Ports). **Host ownership + roles** → [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md) M3–M4 (v1.2 path) |
+| **Published ports on maps** | **M3–M4 landed (v1.1)** — progressive host/device expand (compact → ports → by-service), stack container chips, sticky roles — [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md); M5 custom pack still roadmap |
 | **Monitoring coverage audit** | **Done (H3):** `/dns/coverage` + hub teaser; optional inventory-down alerts for Kuma-bound containers |
 | **Configurable columns / link-to-column** | **Later** (post-0.6 residual) — operator-defined map columns and explicit edge placement (runtime topology § 12b) |
 | **LAN discovery (nmap-class)** | **Product complete (N0–N10)** — worker, devices, network modal, multi-schedule **edit**, vuln pack, **script presets**, kind heuristics + **override**, **map identity** (name + gateway role), **known/new** + MAC/DHCP, **Hosts map** dual compact/full + radar chrome + **1:1** compact fit, fleet soft embed, unit/E2E shells — **v0.8.0 RC3** remaining for stream N: **screenshots** ([FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md) · wiki [lan-discovery](../wiki/integrations/lan-discovery.md)); orthogonal to stack deps |
 | **Discovery map icons / shapes** | **M1 landed (v1.1)** — canned glyphs by `device_kind`; custom pack later (M5) — [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md) |
-| **Map focus pop-out** | **M2 landed (v1.1)** — locked selection enlarges node (~1.18×); hover stroke-only — same feature plan |
-| **Discovery service / port labels** | **M3+M4 landed (v1.1)** — stack roles + host ports panel (Docker∪nmap) + sticky `PortAnnotation` — [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md); M5 custom pack still roadmap |
+| **Map focus pop-out** | **M2 landed (v1.1)** — locked selection enlarges node (~1.30×); hover stroke-only — same feature plan |
+| **Discovery service / port labels** | **M3+M4 landed (v1.1)** — stack roles + progressive map expand (fleet + discovered) + host ports panel + sticky `PortAnnotation` — [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md); M5 custom pack still roadmap |
 | **Nmap dual-layout / modal HTTP tests** | **Future (P2)** — unit coverage for dual SVG attrs + HTTP redirect contracts for map identity / return_tab |
 | **Nmap worker heartbeat on boot** | **Future (P2)** — touch scanner-online heartbeat when worker process starts, not only mid-scan |
 | **Richer topology** | Focused dep edges polish, force LAN/cloud overrides |

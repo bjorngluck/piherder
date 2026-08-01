@@ -552,20 +552,31 @@ async def host_ports_expand_json(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
     server_id: Optional[int] = None,
+    nmap_device_id: Optional[int] = None,
     show_noise: Optional[str] = None,
+    focus_project: Optional[str] = None,
+    focus_container: Optional[str] = None,
 ):
-    """JSON for Hosts map: lock a fleet host → on-canvas port→stack fan."""
+    """JSON for Hosts map: lock host/device → on-canvas port fan (compact or full)."""
     del user
     from ..services.dns_fabric import host_ports as hp_svc
 
     sid = server_id
-    if sid is None:
+    did = nmap_device_id
+    if sid is None and did is None:
         return JSONResponse(
-            {"ok": False, "error": "need_server_id"}, status_code=400
+            {"ok": False, "error": "need_server_or_device"}, status_code=400
         )
     noise = (show_noise or "").strip().lower() in ("1", "true", "yes", "on")
+    focus_proj = (focus_project or "").strip() or None
+    focus_ct = (focus_container or "").strip() or None
     payload = hp_svc.build_host_ports_expand_payload(
-        session, server_id=int(sid), show_noise=noise
+        session,
+        server_id=int(sid) if sid is not None else None,
+        nmap_device_id=int(did) if did is not None else None,
+        show_noise=noise,
+        focus_project=focus_proj,
+        focus_container=focus_ct,
     )
     status = 200 if payload.get("ok") else 404
     return JSONResponse(payload, status_code=status)

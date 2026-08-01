@@ -454,21 +454,57 @@ def host_ports_summary_for_server(
     }
 
 
+def host_ports_summary_for_device(
+    session: Session, nmap_device_id: int, *, show_noise: bool = False
+) -> dict[str, Any]:
+    """Lightweight map attrs for a discovered nmap device (cameras, etc.)."""
+    inv = build_host_port_inventory(
+        session, nmap_device_id=nmap_device_id, show_noise=show_noise
+    )
+    if not inv.get("ok"):
+        return {
+            "ports_count": 0,
+            "stack_count": 0,
+            "ports_summary": "",
+            "summary_line": "",
+        }
+    return {
+        "ports_count": inv["total_count"],
+        "stack_count": inv["stack_count"],
+        "ports_summary": inv["summary_short"],
+        "summary_line": inv["summary_line"],
+    }
+
+
 def build_host_ports_expand_payload(
     session: Session,
     *,
-    server_id: int,
+    server_id: int | None = None,
+    nmap_device_id: int | None = None,
     show_noise: bool = False,
     limit: int = 40,
     ports_per_service: int = 5,
+    focus_project: str | None = None,
+    focus_container: str | None = None,
 ) -> dict[str, Any]:
     """JSON for on-map host fan: host → service/container → ports (max N).
 
     Groups by compose project + container (or service name). Nmap-only ports
     land in a single **Observed** group — no duplicate obs labels on each chip.
+
+    Accepts fleet ``server_id`` and/or discovered ``nmap_device_id`` (cameras
+    and other LAN chips). Optional ``focus_project`` / ``focus_container``
+    narrow the fan to one stack unit (service/path or container click).
     """
+    if server_id is None and nmap_device_id is None:
+        return {"ok": False, "error": "need_server_or_device"}
+
     inv = build_host_port_inventory(
-        session, server_id=int(server_id), show_noise=show_noise
+        session,
+        server_id=int(server_id) if server_id is not None else None,
+        nmap_device_id=int(nmap_device_id) if nmap_device_id is not None else None,
+        show_noise=show_noise,
+        focus_project=focus_project,
     )
     if not inv.get("ok"):
         return inv
@@ -476,6 +512,26 @@ def build_host_ports_expand_payload(
     max_ports = max(1, min(60, limit))
     max_show = max(1, min(8, ports_per_service))
     ports_raw = list(inv.get("ports") or [])[:max_ports]
+
+    focus_proj = (focus_project or "").strip().lower()
+    focus_cont = (focus_container or "").strip().lower()
+    if focus_proj or focus_cont:
+        filtered: list[dict[str, Any]] = []
+        for p in ports_raw:
+            op = (p.get("owner_project") or "").strip().lower()
+            oc = (p.get("owner_container") or "").strip().lower()
+            osvc = (p.get("owner_service") or "").strip().lower()
+            if focus_cont:
+                if focus_cont in (oc, osvc) and (
+                    not focus_proj or not op or op == focus_proj
+                ):
+                    filtered.append(p)
+            elif focus_proj:
+                if op == focus_proj or p.get("in_focus_stack"):
+                    filtered.append(p)
+        # When focusing a stack, still include unowned nmap only if nothing matched
+        if filtered:
+            ports_raw = filtered
 
     # Group key → service bucket
     groups: dict[str, dict[str, Any]] = {}
@@ -493,7 +549,11 @@ def build_host_ports_expand_payload(
             "role_sticky": bool(p.get("role_sticky")),
             "source": p.get("source") or "docker",
             "label": f"{hp}"
-            + (f" {p.get('role_label') or port_role_label(role)}" if role != PORT_ROLE_OTHER else ""),
+            + (
+                f" {p.get('role_label') or port_role_label(role)}"
+                if role != PORT_ROLE_OTHER
+                else ""
+            ),
         }
 
     for p in ports_raw:
@@ -505,7 +565,9 @@ def build_host_ports_expand_payload(
         if proj:
             gkey = f"svc:{proj.lower()}::{(unit or cont or '_').lower()}"
             title = proj
-            subtitle = unit if unit and unit.lower() != proj.lower() else (cont or svc or "")
+            subtitle = (
+                unit if unit and unit.lower() != proj.lower() else (cont or svc or "")
+            )
             if subtitle and subtitle.lower() == title.lower():
                 subtitle = ""
             kind = "service"
@@ -535,7 +597,11 @@ def build_host_ports_expand_payload(
     # Owned services first (alpha), observed last
     ordered = sorted(
         groups.values(),
-        key=lambda g: (0 if g["kind"] == "service" else 1, g["title"].lower(), g["subtitle"].lower()),
+        key=lambda g: (
+            0 if g["kind"] == "service" else 1,
+            g["title"].lower(),
+            g["subtitle"].lower(),
+        ),
     )
     for g in ordered:
         ports_all = g["ports"]
@@ -578,15 +644,55 @@ def build_host_ports_expand_payload(
         {"from": "host", "to": s["id"], "kind": "host_service"} for s in services_out
     ]
 
+    sid = inv.get("server_id")
+    did = inv.get("nmap_device_id")
+    if sid is not None:
+        node_id = f"host-{int(sid)}"
+        panel_url = f"/dns/host-ports-panel?server_id={int(sid)}"
+    elif did is not None:
+        node_id = f"host-d-{int(did)}"
+        panel_url = f"/dns/host-ports-panel?nmap_device_id={int(did)}"
+    else:
+        node_id = ""
+        panel_url = "/dns/host-ports-panel"
+
+    if focus_proj and sid is not None:
+        panel_url += f"&focus_project={focus_project.strip()}"
+
+    # Flat port list for ports-only expand (all chips, not capped per service)
+    ports_flat: list[dict[str, Any]] = []
+    seen_flat: set[str] = set()
+    for p in ports_raw:
+        chip = _port_chip(p)
+        if chip["id"] in seen_flat:
+            continue
+        seen_flat.add(chip["id"])
+        # Owner hint for ports-only list (optional subtitle)
+        proj = (p.get("owner_project") or "").strip()
+        unit = (p.get("owner_service") or p.get("owner_container") or "").strip()
+        chip["owner"] = (
+            f"{proj}/{unit}" if proj and unit and unit.lower() != proj.lower() else (proj or unit or "")
+        )[:28]
+        ports_flat.append(chip)
+
+    # Compact callout: first few chips
+    compact_chips = ports_flat[:6]
+    compact_extra = max(0, len(ports_flat) - len(compact_chips))
+
     return {
         "ok": True,
-        "server_id": int(server_id),
+        "server_id": int(sid) if sid is not None else None,
+        "nmap_device_id": int(did) if did is not None else None,
         "server_name": inv.get("server_name") or "",
-        "node_id": f"host-{int(server_id)}",
-        # service-first fan (preferred)
+        "device_name": inv.get("device_name") or "",
+        "node_id": node_id,
+        "focus_project": (focus_project or "").strip(),
+        "focus_container": (focus_container or "").strip(),
+        # service-first fan (follow-on after ports-only)
         "services": services_out,
-        # keep flat lists for tests / debug (not drawn as separate columns)
-        "ports": [c for s in services_out for c in s["ports"]],
+        # flat lists: ports_flat = full list for ports-only view
+        "ports": ports_flat,
+        "ports_flat": ports_flat,
         "stacks": [
             {
                 "id": s["project"] or s["id"],
@@ -598,11 +704,18 @@ def build_host_ports_expand_payload(
             if s["kind"] == "service"
         ],
         "edges": edges,
-        "total_count": inv.get("total_count") or sum(s["port_count"] for s in services_out),
+        "total_count": inv.get("total_count")
+        or sum(s["port_count"] for s in services_out)
+        or len(ports_flat),
         "stack_count": sum(1 for s in services_out if s["kind"] == "service"),
         "summary_line": inv.get("summary_line") or "",
-        "panel_url": f"/dns/host-ports-panel?server_id={int(server_id)}",
+        "summary_short": inv.get("summary_short") or "",
+        "compact_chips": compact_chips,
+        "compact_extra": compact_extra,
+        "panel_url": panel_url,
         "ports_per_service": max_show,
+        # progressive: compact → ports (list) → full (service fan)
+        "default_view": "compact",
     }
 
 

@@ -199,7 +199,7 @@ List and graph share **one** open/closed model (`.is-open`) — not separate mob
 ### Focus, zoom & mobile
 
 - **Hover** (mouse/stylus) any **host** (including hosts with no mapped services), **Router**, **LAN**, **Internet**, **Public IP**, **NPM hub**, or **app path** to **preview** highlight (stroke emphasis only).
-- **Click / tap** to **lock** focus — the primary node **pops out** (~1.18× scale) and the path stays highlighted when the pointer leaves.
+- **Click / tap** to **lock** focus — the primary node **pops out** (~**1.30×** scale; stack chips ~1.23×) and the path stays highlighted when the pointer leaves. Hover stays stroke-only (no flicker).
 - **Path map — NPM hub:** selecting the centre **NPM** node focuses **all** via-proxy paths at once (URL + destination nodes **and** the amber **connector lines** into/out of the hub), not only the first path.
 - **Click the same node again** or **Clear focus** to unlock (desktop and mobile).
 - Hosts **without** mapped services are still selectable (node focus). App satellites focus the service **path**.
@@ -228,18 +228,51 @@ Maps stay **customer-facing** by default. For **one** focused service (or host p
 
 **Device icons:** Hosts map cards and rack titles show a **canned glyph** from discovery/device kind (Pi, NAS, printer, camera, …). Fleet hosts default to a server glyph; override the kind on the discovery device to change the icon.
 
-**Ports:** inventory publish strings are parsed into structured chips (e.g. `8080→80/tcp`). Chips also show a **role hint** when known (DNS, Web, Database, Cache, …) — e.g. Pi-hole **53 · DNS** and **443 · Web**. Internal-only containers show a short “internal” summary rather than a fake host mapping.
+**Ports:** inventory publish strings are parsed into structured chips (e.g. `8080→80/tcp`). Chips also show a **role hint** when known (DNS, Web, Database, Cache, …) — e.g. Pi-hole **53 · DNS** and **443 · Web**. Internal-only containers show a short “internal” summary rather than a fake host mapping. Sources: Docker published · nmap open · sticky operator **roles** (`PortAnnotation`).
 
-**Ports & relationships on the map (click to expand):**
+### Ports on the Hosts map (progressive expand)
+
+Depth is **on the canvas**, not a drawer-first flow. Lock a **fleet host** or **discovered device** (camera, printer, … — any nmap chip with open ports).
+
+```text
+  Lock host / cam
+       │
+       ▼
+  ┌ compact callout ┐     summary + a few chips
+  │  N ports · name  │     whole box is the hit target (mobile-friendly)
+  │  Tap for ports ▸ │
+  └────────┬────────┘
+           │ tap box
+           ▼
+  ┌ ports-only list ┐     full port rows on the map (role · owner hint)
+  │  Back            │     hairline footer chrome
+  │  [Edit] [Services]│    Services only when compose stacks own ports
+  └────────┬────────┘
+           │ Services
+           ▼
+  ┌ by-service fan  ┐     previous service-card fan (project → ports)
+  │  Ports (back)    │
+  └──────────────────┘
+```
+
+| Step | What you see | Touch / click |
+|------|----------------|---------------|
+| **1 · Compact** | Small callout to the right of the host: count, name, up to ~4 chips, **Tap for ports** | Tap **anywhere on the callout** (not a tiny button). Empty → opens edit table. |
+| **2 · Ports** | Ports-only panel: larger rows, port number + role, optional owner line | **Back** → compact. **Edit** → sticky-role table. **Services** → step 3 (when stacks exist). Discovered-only devices get **Edit** only. |
+| **3 · Services** | Service/stack fan (compose project cards with ports inside) | **Ports** → back to ports-only list. Click a service card → edit table focused on that project. |
+
+**Discovered devices:** same progressive flow using nmap open ports (no Docker owners → Observed / Edit). Chips can show a short `Np · click` port hint when scan data exists.
+
+**App path / containers:**
 
 | You want… | Click | What appears **on the map** |
 |-----------|-------|------------------------------|
-| **Host ports → who owns them** | A **fleet host** (badge: `N ports · click`) | Sideways fan: **port chips** (role + number) with lines into **stack owners** (compose projects). Click a port/stack → edit table (sticky roles). |
-| **Containers & dependency links** | An **app path** satellite (or Path map node) | **Stack fan** (edge/app/db columns) + dependency edges. **Stack detail** opens the full panel. |
+| **Containers & deps** | An **app path** satellite (or Path map node) | **Stack fan** (edge/app/db columns) + dependency edges; containers list **published ports** when inventory has them. |
+| **One container’s ports** | A stack container that publishes ports | Scoped **compact → ports** callout for that container / project. Containers without published ports still open **Stack detail**. |
 
-Nothing is fleet-wide spaghetti by default — depth expands **for the focused host or path**.
+Nothing is fleet-wide spaghetti by default — depth expands **for the focused host, device, or path**.
 
-**Edit ports table:** callout **Edit ports** (sticky roles, noise toggle) after host focus.
+**Edit ports table** (panel): sticky roles, hide/noise toggle (e.g. SSH), Docker∪nmap union. Open via callout **Edit**, toolbar **Edit ports**, or double-click/tap a port row. Fleet: `?server_id=`; discovered: `?nmap_device_id=`.
 
 **Manual edges:** when accepting or adding a link, the picker can target containers on **another fleet host** (cross-host topology), not only the focused compose project.
 
@@ -272,8 +305,9 @@ Panel pills: **All** · **Main** (unassigned) · (your groups). Compact segmente
 
 - Column order follows **category vocabulary** sort order (empty columns hidden).  
 - Role colors + type chips on boxes; confirmed dependency curves; soft structure lines between **adjacent** columns only.  
+- Published ports appear on container boxes when known (up to a few chips + “+N”).  
 - **No Server / Service / Docker chips on the map** — use the Stack panel for navigation.  
-- Click a container box → opens Stack panel focused on that container.
+- Click a container **with ports** → on-map ports callout for that unit; otherwise Stack panel focused on that container.
 
 #### Reorder containers (operators)
 

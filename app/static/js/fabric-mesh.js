@@ -406,12 +406,13 @@
     }
   }
 
-  /** M4 — Ports panel when a fleet host node is focused. */
+  /** M4 — Ports panel when a fleet host or discovered device is focused. */
   function setHostPortsButton(root, focusId) {
     var portsBtn = root.querySelector('[data-fabric-host-ports]');
     if (!portsBtn) return;
     var fid = focusId != null ? String(focusId) : '';
     var serverId = '';
+    var discoveryId = '';
     var portsSummary = '';
     if (fid && fid.indexOf('n:') === 0) {
       var node = root.querySelector(
@@ -432,6 +433,7 @@
       }
       if (node) {
         serverId = (node.getAttribute('data-server-id') || '').trim();
+        discoveryId = (node.getAttribute('data-discovery-id') || '').trim();
         portsSummary = (node.getAttribute('data-ports-summary') || '').trim();
       }
     }
@@ -439,6 +441,13 @@
       portsBtn.setAttribute(
         'data-host-ports-url',
         '/dns/host-ports-panel?server_id=' + encodeURIComponent(serverId)
+      );
+      portsBtn.classList.remove('hidden');
+      portsBtn._portsSummary = portsSummary;
+    } else if (discoveryId && /^\d+$/.test(discoveryId)) {
+      portsBtn.setAttribute(
+        'data-host-ports-url',
+        '/dns/host-ports-panel?nmap_device_id=' + encodeURIComponent(discoveryId)
       );
       portsBtn.classList.remove('hidden');
       portsBtn._portsSummary = portsSummary;

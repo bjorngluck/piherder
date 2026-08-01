@@ -1088,13 +1088,14 @@ button.fabric-nav-card--action:focus-visible {
   transition: transform 0.14s ease;
 }
 [data-fabric-root].is-focus-locked .fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop {
-  transform: scale(1.18);
+  /* ~10% larger than prior 1.18× */
+  transform: scale(1.30);
 }
 /* Stack expand chips (no inner pop group) */
 [data-fabric-root].is-focus-locked .fabric-mesh-stack-node.ph-focus-active {
   transform-box: fill-box;
   transform-origin: center center;
-  transform: scale(1.12);
+  transform: scale(1.23);
   transition: transform 0.14s ease;
 }
 /* Primary focused host/path: slightly stronger lift while locked */
@@ -1126,9 +1127,45 @@ button.fabric-nav-card--action:focus-visible {
   stroke-dasharray: 4 3;
   opacity: 0.95;
 }
+.fabric-host-ports-callout {
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.14));
+}
+.fabric-host-ports-ports-panel {
+  filter: drop-shadow(0 3px 12px rgba(0, 0, 0, 0.16));
+}
+.fabric-host-ports-expand-btn rect,
+.fabric-host-ports-collapse-btn rect,
+.fabric-host-ports-edit-btn rect,
+.fabric-host-ports-action rect {
+  transition: fill 0.12s ease, stroke 0.12s ease;
+}
+/* Footer chrome: keep secondary (Edit) visually lighter than Services */
+.fabric-host-ports-edit-btn text {
+  letter-spacing: 0.02em;
+}
+.fabric-host-ports-collapse-btn text {
+  letter-spacing: 0.01em;
+}
+/* Touch: whole compact callout is the target */
+.fabric-host-ports-expand-layer.is-compact {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.fabric-host-ports-expand-layer.is-ports,
+.fabric-host-ports-expand-layer.is-full {
+  touch-action: manipulation;
+}
+.fabric-host-port-row rect {
+  transition: stroke-width 0.1s ease;
+}
 .fabric-host-ports-title {
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+.fabric-host-ports-expand-layer.is-compact .fabric-host-ports-title,
+.fabric-host-ports-expand-layer.is-ports .fabric-host-ports-title {
+  text-transform: none;
+  letter-spacing: 0;
 }
 .fabric-host-service-node .fabric-host-service-box {
   filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.12));
