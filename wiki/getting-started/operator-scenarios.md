@@ -172,7 +172,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 2 | [LAN Discovery](../integrations/lan-discovery.md) integration + CIDR(s) | Scope allowlist |
 | 3 | Overview → **Scan now** modal → Discovery, then Inventory (ports); detailed/deep needs **in-app** confirm | Trust before schedules; Cancel does not queue |
 | 4 | **Devices** → **List** or **Map** → edit modal: **map name**, **device type**, **gateway** if router, **Mark known** | Labels + kind + Router spine + inbox |
-| 5 | **Catalog → Network → Hosts map** — radar **Discovered**, **1:1** fit; clear focus when done | End-to-end view; **no** per-device link required |
+| 5 | **Catalog → Network → Hosts map** — radar **Discovered**, **1:1** fit; lock a host or cam for **ports** (tap callout → list); clear focus when done | End-to-end view + progressive ports; **no** per-device link required for discovered chips |
 | 5b | Optional: **server detail** — always-open **LAN discovery** card beside **Network path** → Edit device → Save/close returns to **that server** | Soft-embed without Integrations detour |
 | 6 | Optional: **Path map** — select **NPM** hub to light all proxied paths + connectors | Access picture for via-proxy names |
 | 7 | Link / promote only what you will manage | Discovery ≠ fleet member |

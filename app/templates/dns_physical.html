@@ -433,6 +433,7 @@
                    data-icon-kind="{{ ik }}"
                    data-discovered="{{ '1' if n.is_discovered else '0' }}"
                    {% if n.server_id %}data-server-id="{{ n.server_id }}"{% endif %}
+                   {% if n.discovery_id %}data-discovery-id="{{ n.discovery_id }}"{% endif %}
                    {% if n.ports_summary_line %}data-ports-summary="{{ n.ports_summary_line }}"{% elif n.ports_summary %}data-ports-summary="{{ n.ports_count or 0 }} ports · {{ n.ports_summary }}"{% endif %}
                    data-open-href="{{ n.href or '' }}"
                    data-open-label="{{ n.open_label or 'Open host' }}"
@@ -458,11 +459,16 @@
                        width="{{ icon_sz }}" height="{{ icon_sz }}"
                        aria-hidden="true"/>
                   {% if n.is_discovered %}
-                  {# Compact chip: name + kind/IP #}
+                  {# Compact chip: name + kind/IP; ports hint when nmap found any #}
                   <text x="{{ n.x }}" y="{{ n.y + 6 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label[:11] }}</text>
+                  {% if n.ports_count %}
+                  <text x="{{ n.x }}" y="{{ n.y + hhh - 4 }}" text-anchor="middle" class="fabric-mesh-sub fabric-mesh-tag--ports"
+                        title="Click to show discovered ports">{{ n.ports_count }}p · click</text>
+                  {% else %}
                   <text x="{{ n.x }}" y="{{ n.y + hhh - 4 }}" text-anchor="middle" class="fabric-mesh-sub">
                     {% if n.device_kind_short and n.device_kind != 'unknown' %}{{ n.device_kind_short[:8] }}{% else %}{{ (n.ip or n.sub or '')[:11] }}{% endif %}
                   </text>
+                  {% endif %}
                   {% else %}
                   <text x="{{ n.x }}" y="{{ n.y + 4 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label[:16] }}</text>
                   <text x="{{ n.x }}" y="{{ n.y + 18 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or n.ip or '')[:20] }}</text>
@@ -472,7 +478,7 @@
                   <text x="{{ n.x }}" y="{{ n.y + hhh - 4 }}" text-anchor="middle" class="fabric-mesh-tag">cloud</text>
                   {% elif n.ports_count %}
                   <text x="{{ n.x }}" y="{{ n.y + hhh - 4 }}" text-anchor="middle" class="fabric-mesh-tag fabric-mesh-tag--ports"
-                        title="Click host to expand ports on map">{{ n.ports_count }} ports · click</text>
+                        title="Click host for a compact ports callout — expand for full fan">{{ n.ports_count }} ports · click</text>
                   {% endif %}
                   {% endif %}
                   </g>
@@ -543,14 +549,14 @@
       {{ svg.app_count or 0 }} apps
       {% endif %}
       · pinch / scroll to zoom · drag to pan · double-click 1:1
-      · <strong class="text-text">Click a host</strong> → ports fan on the map (port → stack owner)
-      · <strong class="text-text">Click an app path</strong> → container fan + dependency edges
+      · <strong class="text-text">Host / discovered</strong> → compact callout · tap → ports on map · then By service for stacks
+      · <strong class="text-text">App path</strong> → containers + ports · tap container for its ports
       · solid = LAN · dashed = WAN / NPM · dashed-border = discovered · green = synced
     </p>
     <div class="fabric-callout-row mt-2 px-1">
       <p class="fabric-callout text-xs font-mono is-empty"
          data-fabric-callout
-         data-fabric-callout-empty="Click a fleet host — ports and stack owners expand on the map. Click an app path for containers &amp; deps."></p>
+         data-fabric-callout-empty="Tap a host or camera — compact callout, then ports on map. By service is a follow-on. App paths show containers."></p>
       <button type="button"
               class="btn btn-secondary text-xs min-h-9 px-2 hidden"
               data-fabric-stack-open
@@ -578,9 +584,9 @@
 </div>
 
 {% include "partials/dns_stack_drawer.html" %}
-<script src="/static/js/fabric-mesh.js?v=20260730-host-ports-onmap" defer></script>
-<script src="/static/js/fabric-stack-expand.js?v=20260723-compact-anchor" defer></script>
-<script src="/static/js/fabric-host-ports-expand.js?v=20260730-card-layout" defer></script>
+<script src="/static/js/fabric-mesh.js?v=20260730-ports-callout" defer></script>
+<script src="/static/js/fabric-stack-expand.js?v=20260730-container-ports" defer></script>
+<script src="/static/js/fabric-host-ports-expand.js?v=20260730-ports-chrome" defer></script>
 <script>
 (function () {
   var STORAGE_KEY = 'piherder.hostsmap.showDiscovered';

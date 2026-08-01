@@ -306,12 +306,33 @@
     ];
   }
 
-  function measureFan(cols, boxW, colGap, rowH, rowGap, zonePadTop, zonePadBot) {
+  function itemBoxHeight(ct, baseH) {
+    var chips = (ct && ct.port_chips) || [];
+    var n = Math.min(chips.length, 3);
+    if (!n && ct && ct.ports_label) n = 1;
+    // Room for role chip + name + up to 3 port lines
+    return baseH + (n > 0 ? 6 + n * 11 : 0);
+  }
+
+  function columnStackHeight(items, baseH, rowGap) {
+    var list = items || [];
+    if (!list.length) return baseH;
+    var h = 0;
+    list.forEach(function (ct, i) {
+      h += itemBoxHeight(ct, baseH);
+      if (i < list.length - 1) h += rowGap;
+    });
+    return h;
+  }
+
+  function measureFan(cols, boxW, colGap, rowH, rowGap, zonePadTop, zonePadBot, baseBoxH) {
     var maxItems = 1;
+    var nodesH = rowH - rowGap;
+    var baseH = baseBoxH != null ? baseBoxH : 42;
     cols.forEach(function (c) {
       maxItems = Math.max(maxItems, c.items.length);
+      nodesH = Math.max(nodesH, columnStackHeight(c.items, baseH, rowGap));
     });
-    var nodesH = maxItems * rowH - rowGap;
     var zoneW = Math.max(1, cols.length) * boxW + Math.max(0, cols.length - 1) * colGap + 32;
     var zoneH = zonePadTop + nodesH + zonePadBot;
     return { maxItems: maxItems, nodesH: nodesH, zoneW: zoneW, zoneH: zoneH };
@@ -363,12 +384,12 @@
     cols.forEach(function (col, ci) {
       var cx = startX + ci * (boxW + colGap) + boxW / 2;
       var items = col.items;
-      var colH = items.length * rowH - (opts.rowGap || 16);
-      var y0 = midY - colH / 2;
+      var colH = columnStackHeight(items, boxH, opts.rowGap || 16);
+      var yCursor = midY - colH / 2;
 
       var hdr = el('text', {
         x: cx,
-        y: y0 - 10,
+        y: yCursor - 10,
         'text-anchor': 'middle',
         class: 'fabric-mesh-stack-col-label',
         fill: 'var(--color-muted)',
@@ -381,7 +402,12 @@
 
       items.forEach(function (ct, i) {
         var id = String(ct.id || ct.name || i);
-        var y = y0 + i * rowH + boxH / 2;
+        var chips = ct.port_chips || [];
+        var nChips = Math.min(chips.length, 3);
+        if (!nChips && ct.ports_label) nChips = 0; // label-only still uses itemBoxHeight
+        var thisH = itemBoxHeight(ct, boxH);
+        var y = yCursor + thisH / 2;
+        yCursor += thisH + (opts.rowGap || 16);
         // Namespace pos by fan so multi-view same service names don't collide
         var posKey = opts.posPrefix ? opts.posPrefix + '::' + id : id;
         pos[posKey] = { x: cx, y: y, col: ci, fan: opts.posPrefix || '' };
@@ -408,22 +434,28 @@
           class:
             'fabric-mesh-stack-node fabric-mesh-stack-node--' +
             rk +
-            (ct.running ? ' is-running' : ' is-stopped'),
+            (ct.running ? ' is-running' : ' is-stopped') +
+            (chips.length || ct.ports_label ? ' has-ports' : ''),
           'data-path-id': String(pathId),
           'data-stack-container': id,
           'data-stack-role': rlab,
+          'data-port-count': String(ct.port_count || chips.length || 0),
           style: 'cursor:pointer',
         });
         var tEl = el('title');
-        tEl.textContent = tip.join(' · ') + ' · click for detail';
+        tEl.textContent =
+          tip.join(' · ') +
+          (chips.length || ct.ports_label
+            ? ' · click for ports / detail'
+            : ' · click for detail');
         ng.appendChild(tEl);
 
         ng.appendChild(
           el('rect', {
             x: cx - boxW / 2,
-            y: y - boxH / 2,
+            y: y - thisH / 2,
             width: boxW,
-            height: boxH,
+            height: thisH,
             rx: 9,
             class: 'fabric-mesh-stack-box',
             fill: colors.fill,
@@ -434,7 +466,7 @@
         ng.appendChild(
           el('rect', {
             x: cx - boxW / 2 + 5,
-            y: y - boxH / 2 + 5,
+            y: y - thisH / 2 + 5,
             width: 32,
             height: 13,
             rx: 3,
@@ -444,7 +476,7 @@
         );
         var typeT = el('text', {
           x: cx - boxW / 2 + 21,
-          y: y - boxH / 2 + 14.5,
+          y: y - thisH / 2 + 14.5,
           'text-anchor': 'middle',
           'font-size': '7.5',
           'font-weight': '800',
@@ -457,7 +489,7 @@
         ng.appendChild(
           el('circle', {
             cx: cx + boxW / 2 - 10,
-            cy: y - boxH / 2 + 11,
+            cy: y - thisH / 2 + 11,
             r: 3.5,
             fill: ct.running ? '#059669' : '#d97706',
             stroke: 'none',
@@ -466,7 +498,7 @@
 
         var nameT = el('text', {
           x: cx + 4,
-          y: ct.ports_label ? y + 8 : y + 13,
+          y: chips.length || ct.ports_label ? y - thisH / 2 + 28 : y + 4,
           'text-anchor': 'middle',
           'font-size': '10.5',
           'font-weight': '650',
@@ -475,10 +507,49 @@
         });
         nameT.textContent = String(ct.name || id).slice(0, 13);
         ng.appendChild(nameT);
-        if (ct.ports_label) {
+
+        if (chips.length) {
+          var showN = Math.min(chips.length, 3);
+          var py = y - thisH / 2 + 40;
+          for (var pi = 0; pi < showN; pi++) {
+            var ch = chips[pi];
+            var chipLabel =
+              ch.host_port
+                ? String(ch.host_port) +
+                  (ch.role && ch.role !== 'other'
+                    ? ' ' + String(ch.role_label || ch.role).slice(0, 6)
+                    : '')
+                : String(ch.label || '').slice(0, 14);
+            var pt = el('text', {
+              x: cx,
+              y: py,
+              'text-anchor': 'middle',
+              'font-size': '7.5',
+              'font-weight': '600',
+              fill: 'var(--color-muted)',
+              'font-family': 'ui-monospace, Menlo, monospace',
+            });
+            pt.textContent = chipLabel;
+            ng.appendChild(pt);
+            py += 11;
+          }
+          if ((ct.port_count || chips.length) > showN) {
+            var moreT = el('text', {
+              x: cx,
+              y: py,
+              'text-anchor': 'middle',
+              'font-size': '7',
+              'font-weight': '600',
+              fill: 'var(--color-muted)',
+            });
+            moreT.textContent =
+              '+' + ((ct.port_count || chips.length) - showN) + ' ports';
+            ng.appendChild(moreT);
+          }
+        } else if (ct.ports_label) {
           var portsT = el('text', {
-            x: cx + 4,
-            y: y + 18,
+            x: cx,
+            y: y - thisH / 2 + 40,
             'text-anchor': 'middle',
             'font-size': '7.5',
             'font-weight': '600',
@@ -596,6 +667,7 @@
     var groups = partitionViewGroups(data);
 
     var boxW = 118;
+    // Base height; containers with ports grow so chips fit
     var boxH = 42;
     var colGap = 72;
     var rowGap = 16;
@@ -615,7 +687,16 @@
         fanCustom,
         data.category_columns || null
       );
-      var m = measureFan(cols, boxW, colGap, rowH, rowGap, zonePadTop, zonePadBot);
+      var m = measureFan(
+        cols,
+        boxW,
+        colGap,
+        rowH,
+        rowGap,
+        zonePadTop,
+        zonePadBot,
+        boxH
+      );
       return { grp: grp, cols: cols, m: m };
     });
 
@@ -693,6 +774,28 @@
         ev.preventDefault();
         ev.stopPropagation();
         var cid = ng.getAttribute('data-stack-container') || '';
+        var portCount = parseInt(ng.getAttribute('data-port-count') || '0', 10) || 0;
+        // Prefer on-map ports callout when this container publishes ports
+        if (
+          portCount > 0 &&
+          data.server_id &&
+          window.PiHerderHostPortsExpand &&
+          typeof window.PiHerderHostPortsExpand.showForService === 'function'
+        ) {
+          var root =
+            document.querySelector('[data-fabric-root].is-focusing') ||
+            document.querySelector('[data-fabric-root]');
+          if (root) {
+            window.PiHerderHostPortsExpand.showForService(root, {
+              serverId: data.server_id,
+              project: data.project || '',
+              container: cid,
+              resetView: true,
+              force: true,
+            });
+            return;
+          }
+        }
         var url =
           '/dns/stack-panel?service_id=' +
           encodeURIComponent(String(pathId)) +

@@ -172,6 +172,66 @@ def test_build_host_ports_expand_payload():
     assert 53 in ports and 443 in ports
     assert any(e["kind"] == "host_service" for e in out["edges"])
     assert out["panel_url"].startswith("/dns/host-ports-panel")
+    assert out["default_view"] == "compact"
+    assert out["compact_chips"]
+    assert out["ports_flat"]
+    assert len(out["ports_flat"]) >= 3
+    assert out["total_count"] >= 3
+
+
+def test_build_host_ports_expand_nmap_device():
+    device = SimpleNamespace(
+        id=42,
+        display_name="Front cam",
+        hostname="cam-front",
+        ip_address="10.0.0.50",
+        linked_server_id=None,
+        ports_json=json.dumps(
+            [
+                {"port": 80, "protocol": "tcp", "state": "open", "service": "http"},
+                {"port": 554, "protocol": "tcp", "state": "open", "service": "rtsp"},
+            ]
+        ),
+    )
+    session = MagicMock()
+    session.get = MagicMock(return_value=device)
+
+    with patch(
+        "app.services.dns_fabric.host_ports.load_annotations_for_device",
+        return_value={},
+    ):
+        out = hp.build_host_ports_expand_payload(session, nmap_device_id=42)
+    assert out["ok"] is True
+    assert out["nmap_device_id"] == 42
+    assert out["node_id"] == "host-d-42"
+    assert out["total_count"] >= 2
+    assert any(p["host_port"] == 554 for p in out["ports"])
+    assert "nmap_device_id=42" in out["panel_url"]
+
+
+def test_build_host_ports_expand_focus_project():
+    server = _server_with_inventory()
+    session = MagicMock()
+    session.get = MagicMock(return_value=server)
+    with patch(
+        "app.services.dns_fabric.host_ports.inv_svc.parse_inventory",
+        return_value=json.loads(server.docker_inventory_json),
+    ), patch(
+        "app.services.dns_fabric.host_ports._linked_nmap_device",
+        return_value=None,
+    ), patch(
+        "app.services.dns_fabric.host_ports.load_annotations_for_server",
+        return_value={},
+    ):
+        out = hp.build_host_ports_expand_payload(
+            session, server_id=7, focus_project="pihole"
+        )
+    assert out["ok"] is True
+    assert out["focus_project"] == "pihole"
+    # Only pihole project ports
+    ports = {p["host_port"] for p in out["ports"]}
+    assert 53 in ports and 443 in ports
+    assert 5432 not in ports
 
 
 def test_apply_sticky_to_parsed():

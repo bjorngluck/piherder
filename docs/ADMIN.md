@@ -287,7 +287,7 @@ Opt-in Catalog integration — see user wiki [LAN Discovery](../wiki/integration
 | Edit UX | Centered modal from Devices List/Map, Hosts chip (`return=hosts` → map), or server LAN chip (`return=server:{id}` → fleet host); lifecycle actions close modal |
 | Devices UI | Single **Devices** tab with **List \| Map** (legacy `?tab=network` → map) |
 | Promote | Wizard prefill `?hostname=<ip>&name=` — still manual create |
-| Hosts map overlay | Unlinked devices on `/dns/physical` (outer chips; radar; dual layout; **1:1** compact fit); chip opens Network modal with return |
+| Hosts map overlay | Unlinked devices on `/dns/physical` (outer chips; radar; dual layout; **1:1** compact fit); chip opens Network modal with return; lock chip for **nmap ports** progressive expand (compact → ports → Edit) same as fleet hosts |
 | Soft embed | Linked device → server list LAN chip + server detail card |
 | Discovery ≠ Server | Link / promote / dismiss are operator-driven |
 | Worker fence | Compose hard-codes `PIHERDER_NMAP_WORKER=0` (web/main celery) and `=1` (`celery-worker-nmap` + `Dockerfile.nmap`); tasks refuse without nmap binary or when marker is 0 (`worker_guard`). Documented in [`.env.example`](../.env.example) (usually **not** set in `.env` — compose owns it). |

@@ -199,9 +199,9 @@ Shown as a **kind badge** on Devices list, edit modal, Map cards, Hosts map chip
 
 When discovery is wrong (e.g. OUI says printer but the box is a Pi), set **Device type** in the edit modal. Override is sticky across rescans; the auto guess is still shown as “auto was …”. An asterisk on the kind badge means **operator override**.
 
-Run **inventory** (or detailed/deep) so ports feed the classifier; discovery alone often only yields MAC vendor when available.
+Run **inventory** (or detailed/deep) so ports feed the classifier **and** Hosts map port expand; discovery alone often only yields MAC vendor when available.
 
-**Roadmap:** icons / shapes on Hosts map by device kind; optional named labels for individual open services (ports) beyond host-level map name.
+**Shipped (v1.1 map interactivity):** canned **kind icons** on Hosts map chips; lock a device for **open ports** on the map (progressive callout). Sticky port **roles** via the edit table. Custom icon pack remains roadmap — [map interactivity plan](../../docs/FEATURE_PLAN_MAP_INTERACTIVITY.md).
 
 ---
 
@@ -298,6 +298,8 @@ One-line chrome at the top of the map (no horizontal scroll on typical phones):
 | **Full screen** (corners icon) | Expand map; Esc / icon again to exit. Hamburger exits fullscreen so the drawer is usable |
 
 Also: pinch / scroll-wheel zoom, drag to pan. Footer shows fleet · discovered counts and map legend (solid LAN, dashed WAN/NPM, dashed-border chips = discovered).
+
+**Ports on discovered chips:** after inventory (or deeper) scans, lock a discovered device on the Hosts map to open the same **progressive ports** flow as fleet hosts — compact callout → tap for ports-only list (nmap open ports) → **Edit** sticky roles when needed. No Server link required. Details: [Network maps — ports expand](dns-fabric.md#ports-on-the-hosts-map-progressive-expand).
 
 Full layout notes: [Network maps — LAN discovery](dns-fabric.md#lan-discovery-on-hosts-map).
 
