@@ -321,6 +321,14 @@ PiHerder is fleet management **and** operator education. Novices often need “h
 
 ---
 
+## 6.2 Known issues at freeze (carry to RELEASE)
+
+| ID | Issue | Destination |
+|----|--------|-------------|
+| **KI-rsync-vanished** | Rsync source files can vanish mid-run on busy trees (e.g. Frigate NVR recordings) → code 23/24; expected class of failure; no soft-success / retry in 1.1 | **v1.2+** — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) **B-retry** · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) |
+
+---
+
 ## 7. Freeze checklist
 
 - [x] A Must (P, P-sudo, P-fb, wizard, verify) — residual A1.6/A1.7 polish  
@@ -329,9 +337,10 @@ PiHerder is fleet management **and** operator education. Novices often need “h
 - [x] I Should full (**Y** + **Int-gen** landed)  
 - [x] Cap **AB-polish · Wh-lite · H-lite · G1-lite** landed  
 - [x] WebAuthn/passkeys deferred → v1.2  
+- [x] Known issue **KI-rsync-vanished** documented in RELEASE + wiki (not fixed in 1.1)  
 - [ ] Discover residual promoted or → v1.2/v1.3  
 - [ ] Cert known-edges card updated for deploy-target wizard  
-- [ ] `RELEASE_v1.1.0.md` · wiki · screenshots as needed  
+- [ ] `RELEASE_v1.1.0.md` highlights filled at tag · screenshots as needed  
 - [ ] Unit ≥55% · E2E touch · `mkdocs build --strict`  
 - [ ] Version `1.1.0` · merge · tag · Hub  
 - [ ] ROADMAP + SECURITY supported versions  
@@ -539,6 +548,7 @@ ACME-in-herder · NPM proxy write · **auto** install of sudoers over SSH (copy 
 | 2026-07-30 | **Map M4 landed:** host ports panel, sticky roles (`PortAnnotation` / migration 036), nmap∪docker inventory, map focus port summary. **M5 custom pack** remains roadmap. |
 | 2026-07-30 | **Map ports UX polish:** pop-out ~1.30×; progressive compact → ports-only → by-service; discovered devices; stack container ports; touch whole-callout. Docs/wiki synced. |
 | 2026-07-29 | End-of-day **docs sync**: ROADMAP / ADMIN / wiki alerts cross-links; Cap + Int-gen reflected for next session (freeze path). |
+| 2026-08-08 | **Known issue KI-rsync-vanished:** busy sources (Frigate/NVR-style) can fail rsync mid-run; document for 1.1 ship; retry/soft-success → v1.2+. |
 
 ---
 

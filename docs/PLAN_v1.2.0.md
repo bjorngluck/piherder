@@ -185,9 +185,16 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 | Security review | Explicit checklist for W + S + I before tag |
 | Docs | Wiki + ADMIN + SECURITY; mkdocs strict |
 
+### Stream B — Backup reliability (from v1.1 known issues)
+
+| Item | Stance |
+|------|--------|
+| **B-retry** | Retry (and optional soft-success policy) when rsync reports **vanished files** / partial transfer on busy sources (e.g. Frigate NVR recordings moved/deleted mid-run). Carried from **v1.1 KI-rsync-vanished** — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md). | Should (high operator value) |
+| **B-policy** | Explore: treat code **24** as non-fatal when remaining tree OK; path excludes for high-churn media; clearer UI copy for “busy source”. | Discover → promote with **B-retry** |
+
 ### Capacity residual (not release-defining)
 
-Map interactivity residuals, insights thin, templates git, HA polish, mail matrix — **pull only if streams I/S/W/D are green**. Prefer not to starve security streams.
+Map interactivity residuals, insights thin, templates git, HA polish, mail matrix — **pull only if streams I/S/W/D (and preferably B-retry) are green**. Prefer not to starve security streams.
 
 ---
 
