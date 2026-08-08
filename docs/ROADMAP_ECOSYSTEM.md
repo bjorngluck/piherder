@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-07-29 (**v1.1.0** train open on `v1.1.0-dev` — [PLAN_v1.1.0.md](PLAN_v1.1.0.md); production **v1.0.0** — [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md))  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [RELEASE_v0.9.0.md](RELEASE_v0.9.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-08-08 (**v1.2.0** train open on `v1.2.0-dev` — [PLAN_v1.2.0.md](PLAN_v1.2.0.md); production **v1.1.0** — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md))  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
@@ -33,9 +33,10 @@ Design principles stay the same as SPEC:
 | **v0.9.0** | **Last pre-production** — UX/UI consistency · unit **55%+** · E2E on touched surfaces · **HAOS path 1** (SSH / `ha` CLI) | Quality + H3 discovery | **Tagged** 2026-07-26 — [RELEASE_v0.9.0.md](RELEASE_v0.9.0.md) · [PLAN_v0.9.0.md](PLAN_v0.9.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) |
 | **v0.8.x / later** | Host stats/commands, bootstrap depth, web SSH; topology column profiles | H2.75 P3–P5 + residual | After RC3 as capacity |
 | **v1.0.0** | **First production** — security · authz · validation · credential recovery · known-issue burn-down · docs | Production bar | **Tagged** 2026-07-28 — [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · Hub `1.0.0` / `1.0` / `latest` |
-| **v1.0.x** | Production patches (security / critical) on `main` while 1.1 is in flight | Patch | As needed — see [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §10 |
-| **v1.1.0** | **Elevate production** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Freeze / tag** — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) |
-| **v1.2** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo site (+ residual identity/maps as capacity) | Next minor path | **Planned** — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) (supersedes thin §6 sketch in [PLAN_v1.1.0.md](PLAN_v1.1.0.md)) |
+| **v1.0.x** | Production patches (security / critical) | Patch | As needed |
+| **v1.1.0** | **Elevate production** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Tagged** 2026-08-08 — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · Hub `1.1.0` / `1.1` / `latest` |
+| **v1.1.x** | Production patches on `main` while 1.2 is in flight | Patch | As needed — port into `v1.2.0-dev` |
+| **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry | Post-1.1 minor | **Active** on `v1.2.0-dev` — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
 | **v1.3** | HA REST/path2 · **ACME-in-herder (under consideration)** · full insights · branding · k8s/bare · residual after 1.2 | Later path | Planned — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 · §6.1 · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
@@ -52,7 +53,7 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-19):** **v0.7.0 feature-locked and tagged**. Wizard, E2E A+B, annotations, compose sets, drift Job shipped. Screenshot pack deferred; residual polish + E2E/coverage growth + full docs review + **nmap** → **v0.8.0 RC3**. See [PLAN_v0.8.0.md](PLAN_v0.8.0.md) · [RELEASE_v0.7.0.md](RELEASE_v0.7.0.md).
 
-**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0 first production** ([RELEASE_v1.0.0.md](RELEASE_v1.0.0.md)) → **v1.1.0 residual train** on `v1.1.0-dev` ([PLAN_v1.1.0.md](PLAN_v1.1.0.md)) · **post-1.1** discovery.
+**Production path:** ~~RC line through v0.9.0~~ → **v1.0.0** → **v1.1.0 tagged** ([RELEASE_v1.1.0.md](RELEASE_v1.1.0.md)) → **v1.2.0 train** on `v1.2.0-dev` ([PLAN_v1.2.0.md](PLAN_v1.2.0.md)).
 
 **Decision (2026-07-22):** Post-0.8 operator UX triage — micro-pass **B1/E4/E8** on main for 0.8 screenshots; remaining discovery/Network/coverage polish → **v0.9.0** ([PLAN_v0.9.0.md](PLAN_v0.9.0.md)). Cross-cutting human-readable schedules, selectable hero stats, and full templates catalog redesign stay **post-1.0 discovery** (see Quality & platform § below).
 
@@ -74,9 +75,11 @@ Design principles stay the same as SPEC:
 
 **Decision (2026-07-29 mid-train):** On `v1.1.0-dev`, elevation streams **landed**: **A** cert deploy-target wizard + verify · **B** discovery S1–S4 · **C** PP+AB + Cap (**AB-polish**, **H-lite** SMTP, **G1-lite** email reset) · **D** human schedules + ★ pins + host jump · **G** ports + cross-host edges · **I** **Y** API try/ReDoc + **Int-gen** generic links · **Wh-lite** Settings Alerts webhook. Residual: A1.6/A1.7 polish, operator QA, freeze. **WebAuthn/passkeys → v1.2**. See [PLAN_v1.1.0.md](PLAN_v1.1.0.md).
 
-**Decision (2026-08):** **v1.2 re-scoped as big train** — WebAuthn + SSO/OIDC + webshell + **Cloudflare Access–gated demo** (VPS, `DEMO_MODE`, shared demo admin, no real onboard, API docs view-only). Not a live mirror of production. Detail: [PLAN_v1.2.0.md](PLAN_v1.2.0.md). Execute after **v1.1** freeze.
+**Decision (2026-08):** **v1.2 re-scoped as big train** — WebAuthn + SSO/OIDC + webshell + **Cloudflare Access–gated demo** (VPS, `DEMO_MODE`, shared demo admin, no real onboard, API docs view-only). Not a live mirror of production. Detail: [PLAN_v1.2.0.md](PLAN_v1.2.0.md).
 
-**Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.0.0` / `1.0` / `latest` (until 1.1 publish).
+**Decision (2026-08-08):** **v1.2.0 train opened** on **`v1.2.0-dev`**. Streams **I** WebAuthn · **S** SSO/OIDC · **W** webshell · **D** demo platform · **B-retry** · **Q** quality. `main` stays patchable for **v1.1.x**. Package version stays `1.1.0` until freeze. See [PLAN_v1.2.0.md](PLAN_v1.2.0.md).
+
+**Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.1.0` / `1.1` / `latest`.
 
 ---
 

@@ -8,7 +8,7 @@
 **Theme:** **Elevate production** — certs · discovery · identity · operator UX · topology/maps · integrations/API  
 
 **Plans:** [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · map [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md)  
-**Next train:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md) (WebAuthn · SSO · webshell · gated demo · backup retry)  
+**Next train:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md) — **Active** on `v1.2.0-dev` (WebAuthn · SSO · webshell · gated demo · backup retry)  
 **Prior:** [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md)  
 **Roadmap:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md)  
 **Docs:** https://piherder-docs.hacknow.info/
