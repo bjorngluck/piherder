@@ -333,6 +333,7 @@ Phase 4  Freeze
 ## 10. Out of scope (stay honest)
 
 - Multi-tenant SaaS / per-customer isolation  
+- **Fine-grained / per-host / per-feature roles (AC-fg)** — global viewer·operator·admin only in 1.2; **→ v1.3** ([ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md))  
 - SAML  
 - ACME-in-herder (still ≥1.3 consideration)  
 - Live anonymized mirror of production  

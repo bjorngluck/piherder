@@ -37,7 +37,7 @@ Design principles stay the same as SPEC:
 | **v1.1.0** | **Elevate production** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Tagged** 2026-08-08 — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · Hub `1.1.0` / `1.1` / `latest` |
 | **v1.1.x** | Production patches on `main` while 1.2 is in flight | Patch | As needed — port into `v1.2.0-dev` |
 | **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry | Post-1.1 minor | **Active** on `v1.2.0-dev` — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
-| **v1.3** | HA REST/path2 · **ACME-in-herder (under consideration)** · full insights · branding · k8s/bare · residual after 1.2 | Later path | Planned — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 · §6.1 · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
+| **v1.3** | **Fine-grained roles / feature ACLs** · HA REST/path2 · **ACME-in-herder (under consideration)** · full insights · branding · k8s/bare · residual after 1.2 | Later path | Planned — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 · §6.1 · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -78,6 +78,8 @@ Design principles stay the same as SPEC:
 **Decision (2026-08):** **v1.2 re-scoped as big train** — WebAuthn + SSO/OIDC + webshell + **Cloudflare Access–gated demo** (VPS, `DEMO_MODE`, shared demo admin, no real onboard, API docs view-only). Not a live mirror of production. Detail: [PLAN_v1.2.0.md](PLAN_v1.2.0.md).
 
 **Decision (2026-08-08):** **v1.2.0 train opened** on **`v1.2.0-dev`**. Streams **I** WebAuthn · **S** SSO/OIDC · **W** webshell · **D** demo platform · **B-retry** · **Q** quality. `main` stays patchable for **v1.1.x**. Package version stays `1.1.0` until freeze. See [PLAN_v1.2.0.md](PLAN_v1.2.0.md).
+
+**Decision (2026-08-08):** **Fine-grained roles / feature ACLs → v1.3 path** (not 1.2). Today RBAC is three global roles (`viewer` / `operator` / `admin`). Future work: per-host and/or per-feature access (e.g. backups only on selected hosts, Docker yes / webshell no, certs read-only). Complements SSO group→role mapping; does **not** require multi-tenant SaaS isolation. Explicitly out of v1.2 scope. See § Quality backlog · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 v1.3.
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.1.0` / `1.1` / `latest`.
 
@@ -272,6 +274,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Discovery hygiene (S)** | **S1–S4 shipped v1.1** — last seen, hide, purge, filters. Residual **S-hb**; **S-icon** → map interactivity M1 ([FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md)). |
 | **API management (Y)** | **Shipped v1.1 (partial)** — Settings → API **Try a token** + OpenAPI / ReDoc deep links. |
 | **SSO / OIDC (Z)** | **→ v1.2 Stream S** — BYO OIDC, groups → roles, link/unlink + optional password remove; [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md). |
+| **Fine-grained roles / feature ACLs (AC-fg)** | **→ v1.3 path** — beyond global viewer/operator/admin: per-**host** allowlists and/or per-**feature** gates (backups, Docker, patch, webshell, certs, templates, integrations, Settings slices). OIDC groups may map to custom roles later. **Not** multi-tenant SaaS orgs. Discovery + design at 1.3 train open. |
 | **Trusted device detail (AB)** | **Shipped v1.1** — type, last IP, rename; **AB-polish** ✎ edit control (not always-visible form). |
 
 ### Playwright phases

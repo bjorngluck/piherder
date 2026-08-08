@@ -243,8 +243,9 @@ Not abandoned — scheduled as paths. Items may move between 1.2 and 1.3 as the 
 
 | Theme | Items |
 |-------|--------|
-| SSO / OIDC (**Z**) | BYO IdP · groups → roles |
-| Web SSH (**HL-P5**) | Full security bar |
+| **Fine-grained roles / feature ACLs (AC-fg)** | Beyond global `viewer` / `operator` / `admin`: per-**host** access and/or per-**feature** gates (e.g. backups only, Docker yes / webshell no, certs, templates). UI + enforcement + optional OIDC group → custom role. **Not** multi-tenant SaaS. See [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) decision 2026-08-08. |
+| SSO / OIDC (**Z**) | **→ v1.2 Stream S** (in flight); residual polish only if any after 1.2 |
+| Web SSH (**HL-P5**) | **→ v1.2 Stream W** (in flight); residual after 1.2 if deferred |
 | HA REST / S1 / path 2 | Integration track |
 | **P-acme** ACME-in-herder | **Under consideration** — §6.1 (not committed) |
 | NPM write CRUD | Optional if still needed after ACME/NPM pull depth |
