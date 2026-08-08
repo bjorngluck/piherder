@@ -726,6 +726,23 @@
   }
 
   /**
+   * On-canvas overlays (host ports / stack expand). Live inside the SVG so
+   * isInMesh is true, but clicks must reach their own handlers — capture-phase
+   * mesh focus must not stopPropagation (desktop bug: compact "Tap for ports"
+   * never fired; touch worked via touchend only).
+   */
+  function isMapOverlayInteract(el) {
+    return !!(
+      el &&
+      el.closest &&
+      el.closest(
+        '.fabric-host-ports-expand-layer, #fabric-host-ports-expand-layer, ' +
+          '.fabric-stack-expand-layer, #fabric-stack-expand-layer'
+      )
+    );
+  }
+
+  /**
    * Card/list controls only — NOT map nodes.
    * Map nodes are wrapped in <a href="…">; treating those as chrome
    * broke all path/host focus (regression).
@@ -748,6 +765,8 @@
     // Buttons on path cards / flow rows: do not resolve to the card for focus
     // (pointerup preventDefault would kill the following click on mobile).
     if (isFabricChrome(el)) return null;
+    // Overlay UI is not a path/host focus target
+    if (isMapOverlayInteract(el)) return null;
     return el.closest('[data-path-id], [data-path-ids], [data-node-id]');
   }
 
@@ -944,6 +963,13 @@
           return;
         }
 
+        // Host ports / stack expand overlays — leave click for their handlers
+        // (desktop mouse; touch already uses touchend on the overlay).
+        if (isMapOverlayInteract(e.target)) {
+          mouseDown = null;
+          return;
+        }
+
         var clear = e.target.closest('[data-fabric-clear-focus]');
         if (clear) {
           e.preventDefault();
@@ -1071,7 +1097,7 @@
         if (e.pointerType !== 'mouse' && e.pointerType !== 'pen' && e.pointerType !== '') {
           return;
         }
-        if (isFabricChrome(e.target)) {
+        if (isFabricChrome(e.target) || isMapOverlayInteract(e.target)) {
           mouseDown = null;
           return;
         }
@@ -1735,6 +1761,12 @@
 
       viewport.addEventListener('pointerdown', function (e) {
         if (e.button !== 0 && e.pointerType === 'mouse') return;
+        // On-map ports / stack expand UI — do NOT setPointerCapture.
+        // Capture retargets click to the viewport so desktop mouse never
+        // reaches overlay handlers (touch still works via touchend).
+        if (isMapOverlayInteract(e.target)) {
+          return;
+        }
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         try {
           viewport.setPointerCapture(e.pointerId);

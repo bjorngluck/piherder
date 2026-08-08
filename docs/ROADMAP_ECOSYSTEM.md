@@ -35,8 +35,8 @@ Design principles stay the same as SPEC:
 | **v1.0.0** | **First production** — security · authz · validation · credential recovery · known-issue burn-down · docs | Production bar | **Tagged** 2026-07-28 — [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · Hub `1.0.0` / `1.0` / `latest` |
 | **v1.0.x** | Production patches (security / critical) on `main` while 1.1 is in flight | Patch | As needed — see [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §10 |
 | **v1.1.0** | **Elevate production** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Active** on `v1.1.0-dev` — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) |
-| **v1.2** | Identity mail/reset · network automation · insights entry · templates depth · HA polish · host lifecycle start | Next minor path | Planned — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 |
-| **v1.3** | SSO/OIDC · web SSH · HA REST/path2 · **ACME-in-herder (under consideration)** · full insights · branding · k8s/bare | Later path | Planned — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 · §6.1 |
+| **v1.2** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo site (+ residual identity/maps as capacity) | Next minor path | **Planned** — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) (supersedes thin §6 sketch in [PLAN_v1.1.0.md](PLAN_v1.1.0.md)) |
+| **v1.3** | HA REST/path2 · **ACME-in-herder (under consideration)** · full insights · branding · k8s/bare · residual after 1.2 | Later path | Planned — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 · §6.1 · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -73,6 +73,8 @@ Design principles stay the same as SPEC:
 **Decision (2026-07-29):** **ACME-in-herder (P-acme)** is a **desired** direction, **under consideration from v1.3+** — not v1.1. Do not replace NPM; deepen pull/renew when NPM is present. Challenge model open: human-assisted DNS/HTTP tokens vs automated DNS APIs vs hybrid. Prefer Certbot/lego *patterns* over forking NPM. Detail: [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6.1.
 
 **Decision (2026-07-29 mid-train):** On `v1.1.0-dev`, elevation streams **landed**: **A** cert deploy-target wizard + verify · **B** discovery S1–S4 · **C** PP+AB + Cap (**AB-polish**, **H-lite** SMTP, **G1-lite** email reset) · **D** human schedules + ★ pins + host jump · **G** ports + cross-host edges · **I** **Y** API try/ReDoc + **Int-gen** generic links · **Wh-lite** Settings Alerts webhook. Residual: A1.6/A1.7 polish, operator QA, freeze. **WebAuthn/passkeys → v1.2**. See [PLAN_v1.1.0.md](PLAN_v1.1.0.md).
+
+**Decision (2026-08):** **v1.2 re-scoped as big train** — WebAuthn + SSO/OIDC + webshell + **Cloudflare Access–gated demo** (VPS, `DEMO_MODE`, shared demo admin, no real onboard, API docs view-only). Not a live mirror of production. Detail: [PLAN_v1.2.0.md](PLAN_v1.2.0.md). Execute after **v1.1** freeze.
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.0.0` / `1.0` / `latest` (until 1.1 publish).
 

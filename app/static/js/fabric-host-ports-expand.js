@@ -146,7 +146,15 @@
     }
   }
 
-  /** Click + touch: fire once, stop map pan/focus steal. */
+  /**
+   * Activate once for mouse / touch / pen.
+   *
+   * Desktop: pan-zoom used to setPointerCapture on the viewport for every
+   * pointerdown, which retargets click away from this overlay. We therefore
+   * fire on pointerdown (mouse/pen) *before* that capture, and rely on mesh
+   * skipping capture when the hit is this overlay.
+   * Mobile: touchend (still reliable on the original target).
+   */
   function onActivate(node, fn) {
     if (!node || !fn) return;
     var last = 0;
@@ -157,10 +165,22 @@
         if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
       }
       var now = Date.now();
-      if (now - last < 350) return; // debounce click after touchend
+      // Debounce click after pointerdown / touchend
+      if (now - last < 450) return;
       last = now;
       fn(ev);
     }
+    // Mouse/pen: act on pointerdown (before viewport setPointerCapture)
+    node.addEventListener(
+      'pointerdown',
+      function (ev) {
+        if (ev.pointerType === 'touch') return;
+        if (ev.button != null && ev.button !== 0) return;
+        run(ev);
+      },
+      false
+    );
+    // Fallback if pointerdown was skipped
     node.addEventListener('click', run);
     node.addEventListener(
       'touchend',
