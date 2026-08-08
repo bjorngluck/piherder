@@ -55,6 +55,7 @@ from ..models import (
     DockerVersion,
     TotpBackupCode,
     TrustedDevice,
+    WebAuthnCredential,
     Notification,
     PushSubscription,
     PushPreference,
@@ -76,11 +77,12 @@ BACKUP_FORMAT_VERSION = "4"
 
 # Relationship / non-column keys to drop from model_dump
 _EXCLUDE_REL = {
-    User: {"audit_logs", "totp_backup_codes", "trusted_devices"},
+    User: {"audit_logs", "totp_backup_codes", "trusted_devices", "webauthn_credentials"},
     Server: {"audit_logs", "jobs", "docker_versions"},
     DockerVersion: {"server"},
     TotpBackupCode: {"user"},
     TrustedDevice: {"user"},
+    WebAuthnCredential: {"user"},
     AuditLog: {"user", "server"},
     ServiceTemplate: {"deployments"},
     StackDeployment: {"template"},
@@ -196,6 +198,10 @@ def _snapshot_totp_backup_codes() -> List[Dict[str, Any]]:
 
 def _snapshot_trusted_devices() -> List[Dict[str, Any]]:
     return _snapshot_table(TrustedDevice)
+
+
+def _snapshot_webauthn_credentials() -> List[Dict[str, Any]]:
+    return _snapshot_table(WebAuthnCredential)
 
 
 def _snapshot_push_vapid() -> List[Dict[str, Any]]:
@@ -374,6 +380,7 @@ def _build_backup_payload(
             "api_tokens",
             "totp_backup_codes",
             "trusted_devices",
+            "webauthn_credentials",
             "docker_versions",
             "push_vapid",
             "push_subscriptions",
@@ -417,6 +424,7 @@ def _build_backup_payload(
         "api_tokens": _snapshot_api_tokens(),
         "totp_backup_codes": _snapshot_totp_backup_codes(),
         "trusted_devices": _snapshot_trusted_devices(),
+        "webauthn_credentials": _snapshot_webauthn_credentials(),
         "docker_versions": _snapshot_docker_versions(),
         "push_vapid": _snapshot_push_vapid(),
         "push_subscriptions": _snapshot_push_subscriptions(),
@@ -850,6 +858,7 @@ def restore_herder_backup(
         "restored_docker_versions": 0,
         "restored_totp_codes": 0,
         "restored_trusted_devices": 0,
+        "restored_webauthn_credentials": 0,
         "restored_push_vapid": 0,
         "restored_push_subscriptions": 0,
         "restored_push_preferences": 0,
@@ -885,6 +894,9 @@ def restore_herder_backup(
         result["would_restore_docker_versions"] = len(payload.get("docker_versions") or [])
         result["would_restore_totp_codes"] = len(payload.get("totp_backup_codes") or [])
         result["would_restore_trusted_devices"] = len(payload.get("trusted_devices") or [])
+        result["would_restore_webauthn_credentials"] = len(
+            payload.get("webauthn_credentials") or []
+        )
         result["would_restore_push_vapid"] = len(payload.get("push_vapid") or [])
         result["would_restore_push_subscriptions"] = len(
             payload.get("push_subscriptions") or []
@@ -944,6 +956,9 @@ def restore_herder_backup(
         )
         result["restored_trusted_devices"] = _upsert_rows(
             s, TrustedDevice, payload.get("trusted_devices") or []
+        )
+        result["restored_webauthn_credentials"] = _upsert_rows(
+            s, WebAuthnCredential, payload.get("webauthn_credentials") or []
         )
         result["restored_api_tokens"] = _upsert_rows(
             s, ApiToken, payload.get("api_tokens") or []

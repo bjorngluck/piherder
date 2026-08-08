@@ -81,6 +81,9 @@
   {% elif msg == '2fa_setup' %}Scan the QR code and confirm with a code from your app.
   {% elif msg == '2fa_enabled' %}Two-factor authentication enabled. Save your backup codes below.
   {% elif msg == '2fa_disabled' %}Two-factor authentication disabled.
+  {% elif msg == 'passkey_added' %}Passkey registered. You can use it at login as a second factor.
+  {% elif msg == 'passkey_revoked' %}Passkey removed.
+  {% elif msg == 'passkey_renamed' %}Passkey name saved.
   {% elif msg == 'backup_codes' %}New backup codes generated. Save them now.
   {% elif msg == 'device_revoked' %}Trusted device revoked.
   {% elif msg == 'devices_revoked' %}All trusted devices revoked.
@@ -105,6 +108,8 @@
   {% elif error == '2fa_no_setup' %}Start 2FA setup first.
   {% elif error == '2fa_bad_code' %}Invalid authenticator or backup code.
   {% elif error == '2fa_off' %}Enable 2FA first.
+  {% elif error == 'passkey_not_found' %}Passkey not found.
+  {% elif error == 'passkey_failed' %}Passkey registration failed. Try again.
   {% elif error == 'push_vapid' %}Web Push is not available on the server.
   {% elif error == 'push_no_device' %}No device subscribed yet — use “Enable on this device” first.
   {% elif error == 'push_test_failed' %}Test push failed (subscription may be expired — try enable again).
@@ -234,13 +239,173 @@
   })();
   </script>
 
+  <!-- Passkeys (WebAuthn) -->
+  <div class="card p-5 sm:p-6 space-y-4 account-card" id="account-passkeys">
+    <h2 class="font-semibold text-text">Passkeys</h2>
+    <p class="text-sm text-muted">
+      Second factor after your password (Face ID, Touch ID, Windows Hello, or a security key).
+      Coexists with authenticator-app 2FA. Requires HTTPS (or localhost) matching
+      <code class="text-xs">{{ webauthn_rp_id or 'your hostname' }}</code>.
+    </p>
+    <div id="wa-reg-error" class="hidden p-3 banner-error border border-border text-sm rounded" role="alert"></div>
+    <div id="wa-reg-ok" class="hidden p-3 banner-success border border-border text-sm rounded" role="status"></div>
+
+    {% if passkeys %}
+    <ul class="space-y-2" data-testid="passkey-list">
+      {% for pk in passkeys %}
+      <li class="border border-border rounded p-3 space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="min-w-0">
+            <div class="text-sm font-medium text-text truncate">{{ pk.nickname or 'Passkey' }}</div>
+            <div class="text-[11px] text-muted">
+              Added {{ pk.created_at[:10] if pk.created_at else '—' }}
+              {% if pk.last_used_at %} · last used {{ pk.last_used_at[:10] }}{% endif %}
+            </div>
+          </div>
+        </div>
+        <form method="post" action="/auth/account/webauthn/{{ pk.id }}/rename" class="flex flex-wrap gap-2 items-end">
+          <div class="flex-1 min-w-[8rem]">
+            <label class="block text-[10px] text-muted mb-0.5">Name</label>
+            <input name="nickname" type="text" value="{{ pk.nickname or '' }}" maxlength="128"
+                   class="w-full bg-surface border border-border px-2 py-1.5 rounded text-sm min-h-9">
+          </div>
+          <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2">Rename</button>
+        </form>
+        <form method="post" action="/auth/account/webauthn/{{ pk.id }}/revoke" class="flex flex-wrap gap-2 items-end"
+              onsubmit="return confirm('Remove this passkey?');">
+          <div class="flex-1 min-w-[8rem]">
+            <label class="block text-[10px] text-muted mb-0.5">Password to revoke</label>
+            <input name="current_password" type="password" required autocomplete="current-password"
+                   class="w-full bg-surface border border-border px-2 py-1.5 rounded text-sm min-h-9">
+          </div>
+          <button type="submit" class="btn btn-danger text-xs min-h-9 px-2">Revoke</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="text-sm text-muted">No passkeys registered yet.</p>
+    {% endif %}
+
+    <div class="space-y-2 border-t border-border pt-3">
+      <label class="block text-xs text-muted" for="wa-nickname">Nickname (optional)</label>
+      <input id="wa-nickname" type="text" maxlength="128" placeholder="e.g. Laptop · YubiKey"
+             class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 text-sm">
+      <button type="button" id="wa-register-btn" class="btn btn-accent min-h-11 text-sm"
+              data-testid="passkey-register">
+        Add passkey
+      </button>
+      <p class="text-[11px] text-muted">
+        Your browser will prompt for biometrics or a security key. Passwordless-only login is not enabled yet — this is a second factor after password.
+      </p>
+    </div>
+  </div>
+  <script>
+  (function () {
+    const btn = document.getElementById('wa-register-btn');
+    const errEl = document.getElementById('wa-reg-error');
+    const okEl = document.getElementById('wa-reg-ok');
+    if (!btn) return;
+    if (!window.PublicKeyCredential) {
+      btn.disabled = true;
+      btn.textContent = 'Passkeys not supported in this browser';
+      return;
+    }
+    function showErr(msg) {
+      if (okEl) okEl.classList.add('hidden');
+      if (!errEl) return;
+      errEl.textContent = msg || 'Registration failed';
+      errEl.classList.remove('hidden');
+    }
+    function b64urlToBuf(b64url) {
+      const pad = '='.repeat((4 - (b64url.length % 4)) % 4);
+      const b64 = (b64url + pad).replace(/-/g, '+').replace(/_/g, '/');
+      const str = atob(b64);
+      const buf = new ArrayBuffer(str.length);
+      const view = new Uint8Array(buf);
+      for (let i = 0; i < str.length; i++) view[i] = str.charCodeAt(i);
+      return buf;
+    }
+    function bufToB64url(buf) {
+      const bytes = new Uint8Array(buf);
+      let str = '';
+      for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+      return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    function prepareCreateOptions(publicKey) {
+      const o = Object.assign({}, publicKey);
+      o.challenge = b64urlToBuf(publicKey.challenge);
+      o.user = Object.assign({}, publicKey.user, { id: b64urlToBuf(publicKey.user.id) });
+      if (publicKey.excludeCredentials) {
+        o.excludeCredentials = publicKey.excludeCredentials.map(function (c) {
+          return Object.assign({}, c, { id: b64urlToBuf(c.id) });
+        });
+      }
+      return o;
+    }
+    function credentialToJSON(cred) {
+      const r = cred.response;
+      const transports = (typeof r.getTransports === 'function') ? r.getTransports() : [];
+      return {
+        id: cred.id,
+        rawId: bufToB64url(cred.rawId),
+        type: cred.type,
+        clientExtensionResults: cred.clientExtensionResults || {},
+        authenticatorAttachment: cred.authenticatorAttachment || null,
+        response: {
+          clientDataJSON: bufToB64url(r.clientDataJSON),
+          attestationObject: bufToB64url(r.attestationObject),
+          transports: transports,
+        },
+      };
+    }
+    btn.addEventListener('click', async function () {
+      errEl && errEl.classList.add('hidden');
+      okEl && okEl.classList.add('hidden');
+      btn.disabled = true;
+      const prev = btn.textContent;
+      btn.textContent = 'Waiting for authenticator…';
+      try {
+        const optRes = await fetch('/auth/account/webauthn/register/options', {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' },
+          credentials: 'same-origin',
+        });
+        const optBody = await optRes.json();
+        if (!optBody.ok) throw new Error(optBody.error || 'Could not start registration');
+        const created = await navigator.credentials.create({
+          publicKey: prepareCreateOptions(optBody.publicKey),
+        });
+        if (!created) throw new Error('Registration cancelled');
+        const nickEl = document.getElementById('wa-nickname');
+        const verRes = await fetch('/auth/account/webauthn/register/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({
+            credential: credentialToJSON(created),
+            nickname: nickEl ? (nickEl.value || '') : '',
+          }),
+        });
+        const verBody = await verRes.json();
+        if (!verBody.ok) throw new Error(verBody.error || 'Could not save passkey');
+        window.location.href = verBody.redirect || '/auth/account?msg=passkey_added#account-passkeys';
+      } catch (e) {
+        showErr((e && e.message) ? e.message : 'Registration failed');
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    });
+  })();
+  </script>
+
   <!-- 2FA -->
   <div class="card p-5 sm:p-6 space-y-4 account-card" id="account-2fa">
     <h2 class="font-semibold text-text">Two-factor authentication (app)</h2>
-    <p class="text-sm text-muted">Optional TOTP (Google Authenticator, Aegis, 1Password, etc.). Backup codes unlock you if you lose the app.</p>
+    <p class="text-sm text-muted">Optional TOTP (Google Authenticator, Aegis, 1Password, etc.). Backup codes unlock you if you lose the app. Passkeys above also count as a second factor.</p>
 
     {% if user.totp_enabled %}
-    <div class="text-sm text-accent">2FA is <strong>enabled</strong>. {{ backup_remaining }} backup code(s) remaining.</div>
+    <div class="text-sm text-accent">App 2FA is <strong>enabled</strong>. {{ backup_remaining }} backup code(s) remaining.</div>
 
     <div class="space-y-2 border-t border-border pt-3">
       <div class="text-sm font-medium">Regenerate backup codes</div>

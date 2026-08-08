@@ -35,6 +35,7 @@ class User(SQLModel, table=True):
     audit_logs: List["AuditLog"] = Relationship(back_populates="user")
     totp_backup_codes: List["TotpBackupCode"] = Relationship(back_populates="user")
     trusted_devices: List["TrustedDevice"] = Relationship(back_populates="user")
+    webauthn_credentials: List["WebAuthnCredential"] = Relationship(back_populates="user")
 
 
 class TotpBackupCode(SQLModel, table=True):
@@ -59,6 +60,28 @@ class TrustedDevice(SQLModel, table=True):
     expires_at: datetime
 
     user: Optional[User] = Relationship(back_populates="trusted_devices")
+
+
+class WebAuthnCredential(SQLModel, table=True):
+    """Passkey / security-key credential (WebAuthn). Public key only — no private material."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    # base64url credential id (unique per RP)
+    credential_id: str = Field(unique=True, index=True, max_length=1024)
+    # base64url-encoded COSE public key
+    public_key: str = Field(max_length=4096)
+    sign_count: int = Field(default=0)
+    # JSON list of transport hints e.g. ["internal","usb"]
+    transports: Optional[str] = Field(default=None, max_length=256)
+    nickname: Optional[str] = Field(default=None, max_length=128)
+    aaguid: Optional[str] = Field(default=None, max_length=64)
+    backup_eligible: bool = False
+    backup_state: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_used_at: Optional[datetime] = None
+
+    user: Optional[User] = Relationship(back_populates="webauthn_credentials")
 
 
 class PasswordResetToken(SQLModel, table=True):

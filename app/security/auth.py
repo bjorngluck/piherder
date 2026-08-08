@@ -267,6 +267,7 @@ _FORCE_2FA_ALLOW = (
     "/favicon.ico",
     "/health",
 )
+# Note: /auth/account/* (incl. webauthn register) is covered by "/auth/account" prefix match
 
 
 class OnboardingRedirect(Exception):
@@ -278,7 +279,7 @@ class OnboardingRedirect(Exception):
 
 
 def force_2fa_required() -> bool:
-    """Global policy: every user must enable TOTP before using the app."""
+    """Global policy: every user must enable a second factor before using the app."""
     try:
         from ..services.app_settings import force_2fa_enabled
         return force_2fa_enabled()
@@ -286,16 +287,34 @@ def force_2fa_required() -> bool:
         return False
 
 
+def user_has_second_factor(session: Session, user: User) -> bool:
+    """True when TOTP is enabled and/or at least one WebAuthn passkey is enrolled."""
+    if getattr(user, "totp_enabled", False) and getattr(user, "totp_secret_encrypted", None):
+        return True
+    try:
+        from ..services.webauthn_svc import has_passkeys
+
+        if getattr(user, "id", None) is not None:
+            return has_passkeys(session, int(user.id))
+    except Exception:
+        pass
+    return False
+
+
 def _path_allowed(path: str, prefixes: tuple[str, ...]) -> bool:
     return any(path == p or path.startswith(p.rstrip("/") + "/") or path.startswith(p) for p in prefixes)
 
 
-def post_login_path(user: User) -> str:
+def post_login_path(user: User, session: Optional[Session] = None) -> str:
     """Where to send the browser after a successful login / 2FA."""
     if getattr(user, "must_change_password", False):
         return "/auth/force-password"
-    if force_2fa_required() and not getattr(user, "totp_enabled", False):
-        return "/auth/force-2fa"
+    if force_2fa_required():
+        if session is not None:
+            if not user_has_second_factor(session, user):
+                return "/auth/force-2fa"
+        elif not getattr(user, "totp_enabled", False):
+            return "/auth/force-2fa"
     return "/"
 
 
@@ -384,11 +403,11 @@ def get_current_user(
     ):
         raise OnboardingRedirect("/auth/force-password")
 
-    # Global force-2FA gate (after password is OK)
+    # Global force-2FA gate (after password is OK) — TOTP or passkey satisfies
     if (
         not getattr(user, "must_change_password", False)
         and force_2fa_required()
-        and not getattr(user, "totp_enabled", False)
+        and not user_has_second_factor(session, user)
         and not _path_allowed(path, _FORCE_2FA_ALLOW)
     ):
         raise OnboardingRedirect("/auth/force-2fa")
