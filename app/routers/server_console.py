@@ -311,8 +311,9 @@ async def mint_console_ticket(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
-    """Mint single-use ticket; 2FA required unless a valid per-host grant cookie exists.
+    """Mint single-use ticket; 2FA required unless a valid **fleet** grant cookie exists.
 
+    One step-up (passkey/TOTP) covers all hosts until the grant expires.
     Ticket is returned in JSON only — never put on the WebSocket URL (log/Referer leak).
     """
     blocked = _reject_cross_site(request)
