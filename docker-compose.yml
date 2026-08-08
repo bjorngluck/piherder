@@ -34,6 +34,8 @@ x-piherder-app-env: &piherder-app-env
   PIHERDER_NMAP_VULN_ROOT: ${PIHERDER_NMAP_VULN_ROOT:-/var/lib/piherder/nmap-vuln}
   # Web SSH console (v1.2) — default off; set true to enable operator+ browser terminal
   PIHERDER_SSH_CONSOLE: ${PIHERDER_SSH_CONSOLE:-false}
+  # true = re-prompt 2FA (TOTP/passkey) for every New shell (no multi-shell grant)
+  PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL: ${PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL:-false}
   # Content-Security-Policy (v1.2) — default on; Report-Only for staged tighten
   PIHERDER_CSP: ${PIHERDER_CSP:-true}
   PIHERDER_CSP_REPORT_ONLY: ${PIHERDER_CSP_REPORT_ONLY:-false}

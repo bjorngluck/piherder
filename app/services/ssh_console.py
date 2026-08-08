@@ -77,6 +77,11 @@ def grant_minutes() -> int:
     return max(2, int(getattr(settings, "PIHERDER_SSH_CONSOLE_GRANT_MIN", 10) or 10))
 
 
+def require_2fa_every_shell() -> bool:
+    """If true, never skip 2FA via grant cookie (each New shell re-prompts)."""
+    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL", False))
+
+
 def require_enabled() -> None:
     if not console_enabled():
         raise ConsoleDisabled(
@@ -121,6 +126,8 @@ def grant_valid(
     server_id: int,
     session_version: int,
 ) -> bool:
+    if require_2fa_every_shell():
+        return False
     if not raw:
         return False
     payload = decode_token_payload(raw)
@@ -136,6 +143,60 @@ def grant_valid(
     except (TypeError, ValueError):
         return False
     return True
+
+
+def _host_from_url(raw: str) -> str:
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    try:
+        if "://" in s:
+            s = s.split("://", 1)[1]
+        s = s.split("/", 1)[0]
+        s = s.split("?", 1)[0]
+        return s.lower()
+    except Exception:
+        return ""
+
+
+def same_site_browser_request(request) -> bool:
+    """
+    Console mint must come from the PiHerder UI (same host), not a cross-site form.
+
+    - Reject Sec-Fetch-Site: cross-site
+    - When Origin or Referer present, host must match request Host
+    - When both missing, reject (browsers send at least one for fetch/XHR from pages;
+      TestClient can set Origin explicitly)
+    """
+    site = (request.headers.get("sec-fetch-site") or "").strip().lower()
+    if site == "cross-site":
+        return False
+
+    host = (request.headers.get("host") or "").split(",")[0].strip().lower()
+    if not host:
+        return False
+
+    origin = (request.headers.get("origin") or "").strip()
+    if origin and origin.lower() not in ("null",):
+        oh = _host_from_url(origin)
+        return bool(oh) and oh == host
+
+    referer = (request.headers.get("referer") or "").strip()
+    if referer:
+        rh = _host_from_url(referer)
+        return bool(rh) and rh == host
+
+    # No Origin/Referer: block (prevents simple CSRF tools / curl without headers)
+    return False
+
+
+def websocket_origin_allowed(websocket) -> bool:
+    """WebSocket must present Origin matching Host (browser same-origin only)."""
+    host = (websocket.headers.get("host") or "").split(",")[0].strip().lower()
+    origin = (websocket.headers.get("origin") or "").strip()
+    if not host or not origin or origin.lower() == "null":
+        return False
+    return _host_from_url(origin) == host
 
 
 def consume_ticket(

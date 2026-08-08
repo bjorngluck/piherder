@@ -81,3 +81,62 @@ def test_audit_labels():
 
     assert "console" in af.action_label("ssh_console_open").lower()
     assert af.action_label("ssh_console_close")
+
+
+def test_same_site_browser_request():
+    from starlette.requests import Request
+
+    def req(headers: dict) -> Request:
+        scope = {
+            "type": "http",
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "https",
+            "path": "/servers/1/console/ticket",
+            "raw_path": b"/servers/1/console/ticket",
+            "query_string": b"",
+            "headers": [
+                (b"host", b"ph.example.com"),
+                *[(k.lower().encode(), v.encode()) for k, v in headers.items()],
+            ],
+            "client": ("1.2.3.4", 1234),
+            "server": ("ph.example.com", 443),
+        }
+        return Request(scope)
+
+    assert cons.same_site_browser_request(
+        req({"origin": "https://ph.example.com"})
+    )
+    assert cons.same_site_browser_request(
+        req({"referer": "https://ph.example.com/servers/1/console"})
+    )
+    assert not cons.same_site_browser_request(
+        req({"origin": "https://evil.example"})
+    )
+    assert not cons.same_site_browser_request(
+        req({"sec-fetch-site": "cross-site", "origin": "https://ph.example.com"})
+    )
+    assert not cons.same_site_browser_request(req({}))  # no Origin/Referer
+
+
+def test_grant_disabled_when_every_shell(monkeypatch):
+    monkeypatch.setattr(
+        cons.settings, "PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL", True
+    )
+    g = cons.mint_grant(user_id=1, server_id=2, session_version=0)
+    assert not cons.grant_valid(g, user_id=1, server_id=2, session_version=0)
+
+
+def test_websocket_origin_allowed():
+    class WS:
+        def __init__(self, headers):
+            self.headers = headers
+
+    assert cons.websocket_origin_allowed(
+        WS({"host": "ph.example.com", "origin": "https://ph.example.com"})
+    )
+    assert not cons.websocket_origin_allowed(
+        WS({"host": "ph.example.com", "origin": "https://evil.example"})
+    )
+    assert not cons.websocket_origin_allowed(WS({"host": "ph.example.com"}))

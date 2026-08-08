@@ -37,39 +37,51 @@
 <div class="card p-4 mb-3 border border-border bg-surface/50" data-testid="console-security-note">
   <p class="text-sm text-text font-medium mb-1">Security</p>
   <ul class="text-xs text-muted space-y-1 list-disc pl-4">
-    <li>Private key is decrypted only in PiHerder memory — <strong class="text-text">never</strong> sent to the browser.</li>
-    <li>Each shell needs a short-lived single-use ticket; logout or password change invalidates grants.</li>
-    <li>After 2FA, you may open more shells on <em>this host</em> for ~{{ grant_minutes }} min without re-entering a code.</li>
-    <li>Idle ~{{ (idle_sec / 60)|int }} min · max session ~{{ (max_session_sec / 60)|int }} min · up to <strong class="text-text">{{ max_shells }}</strong> concurrent shells for your account.</li>
-    <li>Treat XSS on this origin as shell access — prefer HTTPS; disconnect when done.</li>
+    <li><strong class="text-text">In-app only</strong> — tickets and WebSockets refuse cross-site Origin; cannot be embedded (CSP / frame-ancestors).</li>
+    <li>Private key stays in PiHerder memory — <strong class="text-text">never</strong> in the browser or on the WebSocket URL.</li>
+    <li>2FA step-up required: <strong class="text-text">TOTP, backup code, or passkey</strong>{% if require_2fa_every_shell %} (every shell){% endif %}.</li>
+    {% if not require_2fa_every_shell %}
+    <li>After step-up, more shells on <em>this host</em> for ~{{ grant_minutes }} min without re-prompt (use <strong class="text-text">Lock step-up</strong> to force re-auth).</li>
+    {% endif %}
+    <li>Idle ~{{ (idle_sec / 60)|int }} min · max session ~{{ (max_session_sec / 60)|int }} min · max <strong class="text-text">{{ max_shells }}</strong> shells.</li>
+    <li>XSS on this origin ≈ shell access — prefer HTTPS; disconnect when finished.</li>
   </ul>
 </div>
 
-{# Step-up gate (hidden once grant active and shells open) #}
+{# Step-up gate (hidden once grant active unless every-shell 2FA) #}
 <div class="card p-4 mb-3 space-y-3" id="console-gate" data-testid="console-gate"
-     {% if grant_active %}data-grant="1"{% endif %}>
+     {% if grant_active and not require_2fa_every_shell %}data-grant="1"{% endif %}>
   <p class="text-sm text-muted" id="console-gate-help">
-    {% if grant_active %}
+    {% if require_2fa_every_shell %}
+    Policy: <strong class="text-text">2FA every shell</strong>. Enter a code or use a passkey for each New shell.
+    {% elif grant_active %}
     Step-up is active for this host (~{{ grant_minutes }} min). You can open shells without re-entering 2FA until it expires.
     {% else %}
-    Enter authenticator or backup code once, then open one or more shells.
+    Complete 2FA once (authenticator, backup code, or passkey), then open one or more shells.
     {% endif %}
   </p>
-  <div class="flex flex-wrap gap-2 items-end" id="console-2fa-row" {% if grant_active %}style="display:none"{% endif %}>
+  <div class="flex flex-wrap gap-2 items-end" id="console-2fa-row"
+       {% if grant_active and not require_2fa_every_shell %}style="display:none"{% endif %}>
     <div class="flex-1 min-w-[12rem]">
       <label class="block text-xs text-muted mb-1" for="console-totp">Authenticator or backup code</label>
       <input id="console-totp" type="text" inputmode="numeric" autocomplete="one-time-code"
              class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono"
              data-testid="console-totp" placeholder="123456">
     </div>
+    {% if has_passkeys %}
+    <button type="button" id="console-passkey" class="btn btn-secondary min-h-11 text-sm"
+            data-testid="console-passkey">Use passkey</button>
+    {% endif %}
   </div>
   <div class="flex flex-wrap gap-2 items-center">
     <button type="button" id="console-new-shell" class="btn btn-accent min-h-11 text-sm"
             data-testid="console-new-shell">New shell</button>
+    {% if not require_2fa_every_shell %}
     <button type="button" id="console-revoke-grant" class="btn btn-secondary min-h-11 text-sm"
             data-testid="console-revoke-grant" title="Require 2FA again for the next shell">
       Lock step-up
     </button>
+    {% endif %}
     <span id="console-status" class="text-xs text-muted" role="status"></span>
   </div>
   <p id="console-error" class="hidden text-sm text-danger" role="alert"></p>
@@ -122,7 +134,8 @@
 (function () {
   var serverId = {{ server.id }};
   var maxShells = {{ max_shells|int }};
-  var grantActive = {{ 'true' if grant_active else 'false' }};
+  var grantActive = {{ 'true' if grant_active and not require_2fa_every_shell else 'false' }};
+  var requireEvery = {{ 'true' if require_2fa_every_shell else 'false' }};
   var tabsEl = document.getElementById('console-tabs');
   var panesEl = document.getElementById('console-panes');
   var tabEmpty = document.getElementById('console-tab-empty');
@@ -137,6 +150,7 @@
   var btnRest = document.getElementById('console-restore');
   var btnClose = document.getElementById('console-disconnect');
   var btnRevoke = document.getElementById('console-revoke-grant');
+  var btnPasskey = document.getElementById('console-passkey');
 
   if (!window.Terminal) {
     if (statusEl) statusEl.textContent = 'xterm.js failed to load (CDN).';
@@ -252,12 +266,53 @@
     return sh;
   }
 
+  function b64urlToBuf(b64url) {
+    var pad = '='.repeat((4 - (b64url.length % 4)) % 4);
+    var b64 = (b64url + pad).replace(/-/g, '+').replace(/_/g, '/');
+    var str = atob(b64);
+    var buf = new ArrayBuffer(str.length);
+    var view = new Uint8Array(buf);
+    for (var i = 0; i < str.length; i++) view[i] = str.charCodeAt(i);
+    return buf;
+  }
+  function bufToB64url(buf) {
+    var bytes = new Uint8Array(buf);
+    var s = '';
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function publicKeyCredentialToJSON(cred) {
+    if (!cred) return null;
+    var out = {
+      id: cred.id,
+      type: cred.type,
+      rawId: bufToB64url(cred.rawId),
+      response: {}
+    };
+    if (cred.response) {
+      if (cred.response.clientDataJSON)
+        out.response.clientDataJSON = bufToB64url(cred.response.clientDataJSON);
+      if (cred.response.authenticatorData)
+        out.response.authenticatorData = bufToB64url(cred.response.authenticatorData);
+      if (cred.response.signature)
+        out.response.signature = bufToB64url(cred.response.signature);
+      if (cred.response.userHandle)
+        out.response.userHandle = cred.response.userHandle
+          ? bufToB64url(cred.response.userHandle)
+          : null;
+    }
+    return out;
+  }
+
   async function mintTicket() {
     var body = new URLSearchParams();
     body.set('totp_code', (totpIn && totpIn.value) || '');
     var res = await fetch('/servers/' + serverId + '/console/ticket', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Requested-With': 'PiHerderConsole'
+      },
       body: body.toString(),
       credentials: 'same-origin'
     });
@@ -265,23 +320,112 @@
     if (!data.ok) {
       var map = {
         enroll_2fa: 'Enroll 2FA on Account first.',
-        '2fa_required': 'Enter authenticator or backup code.',
-        '2fa_bad_code': 'Invalid code.',
+        '2fa_required': 'Enter authenticator/backup code or use a passkey.',
+        '2fa_bad_code': 'Invalid code or passkey.',
         disabled: 'Console disabled.',
         no_ssh: 'No SSH credentials for this host.',
         limit: 'Shell limit reached. Close a shell or wait.',
         rate: 'Too many attempts. Wait and try again.',
+        cross_site: 'Blocked: console only works inside PiHerder (same origin).',
         denied: data.detail || 'Denied.'
       };
       throw new Error(map[data.error] || data.detail || ('Error: ' + (data.error || res.status)));
     }
-    if (data.grant_active) {
+    if (data.grant_active && !requireEvery) {
       grantActive = true;
       if (row2fa) row2fa.style.display = 'none';
       if (helpEl) helpEl.textContent = 'Step-up is active for this host. Open more shells without re-entering 2FA until the grant expires (~' + (data.grant_minutes || {{ grant_minutes }}) + ' min).';
       if (totpIn) totpIn.value = '';
     }
     return data;
+  }
+
+  async function stepUpPasskey() {
+    setErr('');
+    setStatus('Passkey…');
+    if (!window.PublicKeyCredential) {
+      setErr('Passkeys not supported in this browser.');
+      return;
+    }
+    try {
+      var optRes = await fetch('/servers/' + serverId + '/console/webauthn/options', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'PiHerderConsole' }
+      });
+      var optData = await optRes.json();
+      if (!optData.ok) throw new Error(optData.detail || 'Passkey options failed');
+      var opts = optData.options;
+      if (opts.publicKey) opts = opts.publicKey;
+      if (opts.challenge) opts.challenge = b64urlToBuf(opts.challenge);
+      if (opts.allowCredentials) {
+        opts.allowCredentials = opts.allowCredentials.map(function (c) {
+          return Object.assign({}, c, { id: b64urlToBuf(c.id) });
+        });
+      }
+      var cred = await navigator.credentials.get({ publicKey: opts });
+      var verRes = await fetch('/servers/' + serverId + '/console/webauthn/verify', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'PiHerderConsole'
+        },
+        body: JSON.stringify({ credential: publicKeyCredentialToJSON(cred) })
+      });
+      var ver = await verRes.json();
+      if (!ver.ok) throw new Error('Passkey verification failed');
+      if (ver.ticket && ver.ws_path) {
+        // every-shell policy: open immediately with returned ticket
+        setStatus('Passkey OK — opening shell…');
+        await openShellWithTicket(ver);
+        return;
+      }
+      if (ver.grant_active && !requireEvery) {
+        grantActive = true;
+        if (row2fa) row2fa.style.display = 'none';
+        if (helpEl) helpEl.textContent = 'Passkey step-up OK. You can open shells until the grant expires.';
+      }
+      setStatus('Passkey OK — click New shell.');
+    } catch (e) {
+      setErr(String(e.message || e));
+      setStatus('');
+    }
+  }
+
+  async function openShellWithTicket(data) {
+    if (shells.length >= maxShells) {
+      setErr('Maximum of ' + maxShells + ' shells for your account.');
+      return;
+    }
+    var label = 'Shell ' + nextN;
+    var sh = createShellUi(label);
+    activate(sh.id);
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var url = proto + '//' + location.host + data.ws_path;
+    var ws = new WebSocket(url);
+    ws.binaryType = 'arraybuffer';
+    sh.ws = ws;
+    ws.onopen = function () {
+      try { ws.send(JSON.stringify({ type: 'auth', ticket: data.ticket })); } catch (e) {}
+      sh.connected = true;
+      setStatus('Connected: ' + sh.label);
+      updateToolbar();
+      try {
+        if (sh.fit) sh.fit.fit();
+        ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
+      } catch (e) {}
+    };
+    ws.onmessage = function (ev) {
+      if (typeof ev.data === 'string') sh.term.write(ev.data);
+      else sh.term.write(new Uint8Array(ev.data));
+    };
+    ws.onclose = function () {
+      sh.connected = false;
+      sh.term.writeln('\r\n*** session closed ***');
+      setTimeout(function () { if (shells.indexOf(sh) >= 0) destroyShell(sh); }, 400);
+    };
+    updateToolbar();
   }
 
   async function openShell() {
@@ -297,47 +441,11 @@
     } catch (e) {
       setErr(String(e.message || e));
       setStatus('');
-      if (row2fa) row2fa.style.display = '';
+      if (row2fa && (requireEvery || !grantActive)) row2fa.style.display = '';
       return;
     }
-
-    var label = 'Shell ' + nextN;
-    var sh = createShellUi(label);
-    activate(sh.id);
     setStatus('Connecting…');
-
-    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    var url = proto + '//' + location.host + data.ws_path + '?ticket=' + encodeURIComponent(data.ticket);
-    var ws = new WebSocket(url);
-    ws.binaryType = 'arraybuffer';
-    sh.ws = ws;
-
-    ws.onopen = function () {
-      sh.connected = true;
-      setStatus('Connected: ' + sh.label + '. Minimize to keep it running while you open another.');
-      updateToolbar();
-      try {
-        if (sh.fit) sh.fit.fit();
-        ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
-      } catch (e) {}
-    };
-    ws.onmessage = function (ev) {
-      if (typeof ev.data === 'string') sh.term.write(ev.data);
-      else sh.term.write(new Uint8Array(ev.data));
-    };
-    ws.onclose = function () {
-      sh.connected = false;
-      sh.term.writeln('\r\n*** session closed ***');
-      setStatus(sh.label + ' closed.');
-      // remove after short delay if still in list
-      setTimeout(function () {
-        if (shells.indexOf(sh) >= 0) destroyShell(sh);
-      }, 400);
-    };
-    ws.onerror = function () {
-      setErr('WebSocket error on ' + sh.label);
-    };
-    updateToolbar();
+    await openShellWithTicket(data);
   }
 
   function minimizeActive() {
@@ -388,16 +496,18 @@
   if (btnMin) btnMin.addEventListener('click', minimizeActive);
   if (btnRest) btnRest.addEventListener('click', restoreMinimized);
   if (btnClose) btnClose.addEventListener('click', closeActive);
+  if (btnPasskey) btnPasskey.addEventListener('click', stepUpPasskey);
   if (btnRevoke) {
     btnRevoke.addEventListener('click', async function () {
       try {
         await fetch('/servers/' + serverId + '/console/grant/revoke', {
-          method: 'POST', credentials: 'same-origin'
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'X-Requested-With': 'PiHerderConsole' }
         });
       } catch (e) {}
       grantActive = false;
       if (row2fa) row2fa.style.display = '';
-      if (helpEl) helpEl.textContent = 'Step-up locked. Enter authenticator code for the next shell.';
+      if (helpEl) helpEl.textContent = 'Step-up locked. Enter authenticator code or passkey for the next shell.';
       setStatus('Step-up revoked for this browser.');
     });
   }

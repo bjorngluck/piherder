@@ -72,14 +72,17 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
 - Enable 2FA for admin accounts (TOTP and/or **passkeys**); consider **Force 2FA** in Settings. Treat **trusted devices** as full session risk until revoked. Passkeys need HTTPS + matching `PIHERDER_HOSTNAME` / `PIHERDER_PUBLIC_URL` (except localhost).  
 - If using **SSO / OIDC** (v1.2+): keep at least one **break-glass local admin password**; map IdP groups carefully (default role is **viewer**); treat PiHerder 2FA as defense-in-depth after the IdP (SSO does not skip enrolled 2FA). See [wiki SSO](wiki/account-security/sso-oidc.md) · [FEATURE_PLAN_SSO_OIDC.md](docs/FEATURE_PLAN_SSO_OIDC.md).  
 - **CSP (v1.2+):** leave `PIHERDER_CSP=true` in production. Use `PIHERDER_CSP_REPORT_ONLY=true` only while validating a tighter policy. Console assets (xterm) are vendored under `/static/vendor/xterm/` so they need no CDN allowlist.  
-- **Web SSH console** (v1.2+): default **off** (`PIHERDER_SSH_CONSOLE=false`). When enabled:
-  - **operator+ only** (viewer 403)
-  - **2FA step-up** before first shell on a host; short-lived **grant cookie** (~10 min, per host + `session_version`) so additional shells do not re-prompt TOTP until grant expires or **Lock step-up**
-  - Each PTY uses a **single-use ticket** bound to user, server, and session version (logout / password change invalidates)
-  - **Concurrent caps** (default 2 shells/user); idle + max session disconnects
-  - Host private key **never** sent to the browser (server-side Paramiko PTY only)
+- **Web SSH console** (v1.2+): default **off** (`PIHERDER_SSH_CONSOLE=false`). Designed as **in-app only** (not a public remote API):
+  - **operator+ only** (viewer 403); session cookie required (no Bearer `/api/v1` console)
+  - Ticket mint requires **same-site browser** Origin/Referer; rejects `Sec-Fetch-Site: cross-site` (CSRF / foreign form)
+  - WebSocket requires **Origin == Host**; first message carries ticket — **not** query string (avoids proxy logs / Referer leak)
+  - **2FA step-up**: TOTP, backup code, or **passkey**; optional `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL=true` for every New shell
+  - Default grant (~10 min, per host + `session_version`) allows extra shells without re-prompt; **Lock step-up** / logout clears grant
+  - Single-use tickets bound to session version; concurrent + idle + max session limits
+  - Host private key **never** in browser (Paramiko PTY in herder only); CSP `frame-ancestors 'none'` blocks embedding
   - Rate-limited ticket mint; audit `ssh_console_open` / `close` / `denied`
-  - Treat XSS on the herder origin as **shell-equivalent** risk — prefer trusted TLS; keep the flag off when not needed; disconnect when finished  
+  - Residual risk: XSS on the herder origin is still shell-equivalent — prefer HTTPS, keep flag off when unused  
+
 
 - Put PiHerder behind trusted TLS; restrict network access where possible. Set `PIHERDER_PUBLIC_URL=https://…` so session cookies get the **Secure** flag (or force `COOKIE_SECURE=true`) and OIDC redirect URIs match.  
 - Set `METRICS_TOKEN` if `/metrics` is reachable beyond a private scrape network.  

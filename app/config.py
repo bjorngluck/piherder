@@ -87,6 +87,8 @@ class Settings(BaseSettings):
     PIHERDER_SSH_CONSOLE_MAX_GLOBAL: int = 10
     # After 2FA, grant re-open of additional shells on the same host without re-TOTP
     PIHERDER_SSH_CONSOLE_GRANT_MIN: int = 10
+    # If true, every New shell requires fresh 2FA (TOTP/passkey); grant cookie ignored
+    PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL: bool = False
 
     # Content-Security-Policy (v1.2) — default on; Report-Only for staged rollouts
     PIHERDER_CSP: bool = True
