@@ -95,21 +95,7 @@
           border-radius: 0.6rem;
           overflow: hidden;
           box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6);
-          transition: height 0.15s ease, width 0.15s ease, border-radius 0.15s ease;
-        }
-        /* Maximize: true full viewport (desktop + mobile) */
-        .ph-console-popup.is-max {
-          padding: 0 !important;
-          align-items: stretch; justify-content: stretch;
-          background: #0b0f14;
-        }
-        .ph-console-popup.is-max .ph-console-popup-panel {
-          width: 100% !important;
-          height: 100% !important;
-          max-height: none !important;
-          min-height: 100% !important;
-          border-radius: 0 !important;
-          border: 0 !important;
+          box-sizing: border-box;
         }
         .ph-console-popup-bar {
           display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
@@ -122,12 +108,13 @@
         .ph-console-popup-frame {
           flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #0b0f14;
         }
-        body.ph-console-popup-open { overflow: hidden; }
+        body.ph-console-popup-open { overflow: hidden; overscroll-behavior: none; }
         /*
-          Mobile default: bottom sheet (~72% height) so Maximize is a real change.
-          Previously 100% height made Maximize a no-op.
+          Mobile: clearly short bottom sheet so Maximize is an obvious change.
+          Geometry is also set in JS (inline styles) because mobile browsers
+          often ignore %-height inside fixed flex parents.
         */
-        @media (max-width: 640px) {
+        @media (max-width: 900px) {
           .ph-console-popup {
             padding: 0;
             align-items: flex-end;
@@ -135,20 +122,10 @@
           }
           .ph-console-popup-panel {
             width: 100%;
-            height: 72vh;
-            height: 72dvh;
-            max-height: 72dvh;
+            height: 52dvh;
+            max-height: 52dvh;
             border-radius: 0.75rem 0.75rem 0 0;
             border-left: 0; border-right: 0; border-bottom: 0;
-          }
-          .ph-console-popup.is-max {
-            align-items: stretch;
-          }
-          .ph-console-popup.is-max .ph-console-popup-panel {
-            height: 100% !important;
-            max-height: none !important;
-            min-height: 100dvh !important;
-            border-radius: 0 !important;
           }
         }
       </style>
@@ -162,13 +139,74 @@
         var btnClose = document.getElementById('ph-console-popup-close');
         var url = '/servers/' + serverId + '/console?embed=1';
 
+        function viewportH() {
+          try {
+            if (window.visualViewport && window.visualViewport.height) {
+              return Math.floor(window.visualViewport.height);
+            }
+          } catch (e) {}
+          return Math.floor(window.innerHeight || document.documentElement.clientHeight || 600);
+        }
+        function isMobileLayout() {
+          try {
+            return window.matchMedia('(max-width: 900px), (pointer: coarse)').matches;
+          } catch (e) {
+            return (window.innerWidth || 0) < 900;
+          }
+        }
+        function applyPanelSize(maximized) {
+          if (!panel || !pop) return;
+          var h = viewportH();
+          if (maximized) {
+            pop.style.padding = '0';
+            pop.style.alignItems = 'stretch';
+            pop.style.justifyContent = 'stretch';
+            pop.style.background = '#0b0f14';
+            panel.style.width = '100%';
+            panel.style.maxWidth = 'none';
+            panel.style.height = h + 'px';
+            panel.style.maxHeight = h + 'px';
+            panel.style.minHeight = h + 'px';
+            panel.style.borderRadius = '0';
+            panel.style.border = '0';
+          } else {
+            pop.style.padding = '';
+            pop.style.alignItems = '';
+            pop.style.justifyContent = '';
+            pop.style.background = '';
+            panel.style.width = '';
+            panel.style.maxWidth = '';
+            panel.style.border = '';
+            panel.style.borderRadius = '';
+            if (isMobileLayout()) {
+              // Short bottom sheet (~half screen) so Maximize is obvious
+              var sheet = Math.max(280, Math.floor(h * 0.52));
+              panel.style.height = sheet + 'px';
+              panel.style.maxHeight = sheet + 'px';
+              panel.style.minHeight = '';
+              panel.style.width = '100%';
+              panel.style.borderRadius = '0.75rem 0.75rem 0 0';
+              pop.style.padding = '0';
+              pop.style.alignItems = 'flex-end';
+              pop.style.justifyContent = 'stretch';
+            } else {
+              panel.style.height = '';
+              panel.style.maxHeight = '';
+              panel.style.minHeight = '';
+            }
+          }
+        }
         function openPopup() {
           if (!pop || !frame) return;
           if (!frame.getAttribute('src')) frame.src = url;
           pop.classList.remove('hidden');
           pop.classList.add('is-open');
+          pop.classList.remove('is-max');
           document.body.classList.add('ph-console-popup-open');
+          applyPanelSize(false);
+          if (btnMax) btnMax.textContent = 'Maximize';
           try { frame.focus(); } catch (e) {}
+          setTimeout(refitFrame, 120);
         }
         function closePopup() {
           if (!pop) return;
@@ -179,6 +217,16 @@
           pop.classList.add('hidden');
           pop.classList.remove('is-open', 'is-max');
           document.body.classList.remove('ph-console-popup-open');
+          // clear inline geometry
+          if (panel) {
+            panel.style.cssText = '';
+          }
+          if (pop) {
+            pop.style.padding = '';
+            pop.style.alignItems = '';
+            pop.style.justifyContent = '';
+            pop.style.background = '';
+          }
           if (btnMax) btnMax.textContent = 'Maximize';
         }
         function refitFrame() {
@@ -193,13 +241,22 @@
         }
         function toggleMax() {
           if (!pop) return;
-          pop.classList.toggle('is-max');
-          var on = pop.classList.contains('is-max');
+          var on = !pop.classList.contains('is-max');
+          pop.classList.toggle('is-max', on);
+          applyPanelSize(on);
           if (btnMax) btnMax.textContent = on ? 'Restore' : 'Maximize';
-          // Double-refit after layout settles (mobile dvh / keyboard)
           setTimeout(refitFrame, 50);
           setTimeout(refitFrame, 200);
-          setTimeout(refitFrame, 400);
+          setTimeout(refitFrame, 450);
+        }
+        // Keep maximized height correct when mobile browser chrome shows/hides
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', function () {
+            if (pop && pop.classList.contains('is-open')) {
+              applyPanelSize(pop.classList.contains('is-max'));
+              setTimeout(refitFrame, 80);
+            }
+          });
         }
         window.openPiHerderConsolePopup = function (id) {
           if (id && Number(id) !== Number(serverId)) {
