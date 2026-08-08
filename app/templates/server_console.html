@@ -99,22 +99,19 @@
     height: 100%;
     margin: 0;
     overflow: hidden;
-    /* Avoid document scroll fighting the keyboard in embed iframes */
     overscroll-behavior: none;
   }
   .ch {
-    display: flex; flex-direction: column;
+    display: flex;
+    flex-direction: column;
     height: 100%;
     min-height: 0;
+    width: 100%;
     flex: 1 1 auto;
     background: #0b0f14;
     color: var(--color-text, #e6edf3);
     box-sizing: border-box;
-    /* JS sets pixel height from visualViewport when keyboard opens */
     position: relative;
-  }
-  .ch.is-kb-layout {
-    /* keyboard open: fill visual viewport only */
     overflow: hidden;
   }
   .ch-font { display: inline-flex; align-items: center; gap: 0.15rem; }
@@ -817,57 +814,101 @@
     setTimeout(refitActive, 80);
   });
 
-  // Mobile keyboard: shrink the console chrome to visualViewport so bottom keys stay on screen
-  // (works in every host iframe, not only the first tab that was focused)
+  // Mobile keyboard + fleet grant sync across host iframes
   var chRoot = document.getElementById('console-host-app');
+  var GRANT_LS = 'piherder.console.fleetGrantAt';
+
+  function isActiveHostFrame() {
+    try {
+      if (!window.frameElement) return true;
+      var st = window.getComputedStyle(window.frameElement);
+      if (st.visibility === 'hidden' || st.display === 'none') return false;
+      if (st.pointerEvents === 'none') return false;
+      var r = window.frameElement.getBoundingClientRect();
+      if (r.width < 40 || r.height < 40) return false;
+    } catch (e) {}
+    return true;
+  }
+
+  function clearForcedLayout(root) {
+    if (!root) return;
+    root.style.height = '100%';
+    root.style.maxHeight = '';
+    root.style.minHeight = '0';
+    root.style.transform = '';
+    root.classList.remove('is-kb-layout');
+    document.body.classList.remove('console-kb-open');
+  }
 
   function layoutForViewport() {
     var root = chRoot || document.getElementById('console-host-app');
     if (!root) return;
+    // Inactive host tabs must not rewrite layout (broke host 2 + host 1 after switch)
+    if (!isActiveHostFrame()) return;
+
     var vv = window.visualViewport;
-    var h;
-    var top = 0;
-    if (vv && typeof vv.height === 'number' && vv.height > 0) {
-      h = Math.floor(vv.height);
-      top = Math.floor(vv.offsetTop || 0);
-    } else {
-      h = Math.floor(window.innerHeight || document.documentElement.clientHeight || 0);
-    }
+    var winH = window.innerHeight || document.documentElement.clientHeight || 0;
+    var h = (vv && vv.height > 0) ? vv.height : winH;
+    var top = (vv && vv.offsetTop) ? vv.offsetTop : 0;
     if (h < 120) return;
-    var keyboardish = false;
-    try {
-      keyboardish = h < (window.innerHeight * 0.85);
-    } catch (e) {}
-    document.body.classList.toggle('console-kb-open', keyboardish);
-    root.classList.toggle('is-kb-layout', keyboardish);
-    // Pixel height + offset so toolbar sits above the soft keyboard in every iframe
+
+    var kb = !!(vv && winH > 0 && (h / winH) < 0.88);
+    if (!kb) {
+      clearForcedLayout(root);
+      setTimeout(refitActive, 20);
+      return;
+    }
+
+    h = Math.floor(h);
+    top = Math.floor(top);
+    root.classList.add('is-kb-layout');
+    document.body.classList.add('console-kb-open');
     root.style.height = h + 'px';
     root.style.maxHeight = h + 'px';
     root.style.minHeight = h + 'px';
-    if (top > 0) {
-      root.style.transform = 'translateY(' + top + 'px)';
-    } else {
-      root.style.transform = '';
-    }
-    // Also pin body so iframe content doesn't scroll under the keyboard
-    try {
-      document.documentElement.style.height = h + 'px';
-      document.documentElement.style.overflow = 'hidden';
-      document.body.style.height = h + 'px';
-      document.body.style.overflow = 'hidden';
-      document.body.style.margin = '0';
-    } catch (e2) {}
-    refitActive();
+    root.style.transform = top > 0 ? ('translateY(' + top + 'px)') : '';
+    setTimeout(refitActive, 20);
+    setTimeout(refitActive, 120);
   }
+
+  function markFleetGrant() {
+    if (requireEvery) return;
+    grantActive = true;
+    if (row2fa) row2fa.style.display = 'none';
+    try { localStorage.setItem(GRANT_LS, String(Date.now())); } catch (e) {}
+  }
+
+  function syncFleetGrantFromStorage() {
+    if (requireEvery) return;
+    try {
+      var t = localStorage.getItem(GRANT_LS);
+      if (!t) return;
+      var age = Date.now() - parseInt(t, 10);
+      if (isNaN(age) || age > 15 * 60 * 1000) return;
+      grantActive = true;
+      if (row2fa) row2fa.style.display = 'none';
+    } catch (e) {}
+  }
+
+  window.addEventListener('storage', function (ev) {
+    if (ev.key === GRANT_LS) syncFleetGrantFromStorage();
+  });
+  var grantPoll = setInterval(function () {
+    if (grantActive || requireEvery) {
+      try { clearInterval(grantPoll); } catch (e) {}
+      return;
+    }
+    syncFleetGrantFromStorage();
+  }, 1500);
 
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', layoutForViewport);
     window.visualViewport.addEventListener('scroll', layoutForViewport);
   }
   window.addEventListener('resize', layoutForViewport);
-  // Initial layout
-  setTimeout(layoutForViewport, 0);
-  setTimeout(layoutForViewport, 200);
+  syncFleetGrantFromStorage();
+  setTimeout(layoutForViewport, 50);
+  setTimeout(layoutForViewport, 250);
 
   function setErr(msg) {
     if (!errEl) return;
@@ -1121,8 +1162,7 @@
       throw new Error(map[data.error] || data.detail || ('Error: ' + (data.error || res.status)));
     }
     if (data.grant_active && !requireEvery) {
-      grantActive = true;
-      if (row2fa) row2fa.style.display = 'none';
+      markFleetGrant();
       if (helpEl) helpEl.textContent = 'Step-up active for all hosts (~' + (data.grant_minutes || {{ grant_minutes }}) + ' min).';
       if (totpIn) totpIn.value = '';
     }
@@ -1175,11 +1215,10 @@
         return;
       }
       if (ver.grant_active && !requireEvery) {
-        grantActive = true;
-        if (row2fa) row2fa.style.display = 'none';
+        markFleetGrant();
         if (helpEl) helpEl.textContent = 'Passkey OK — all hosts until grant expires.';
       }
-      setStatus('Passkey OK — click New shell.');
+      setStatus('Passkey OK — click + Shell (works on every host).');
     } catch (e) {
       var msg = String((e && e.message) || e || 'Passkey failed');
       if (/not allowed|NotAllowedError/i.test(msg)) {
@@ -1444,17 +1483,18 @@
     if (ev.origin !== window.location.origin) return;
     if (!ev.data || ev.data.type !== 'piherder-console') return;
     if (ev.data.action === 'refit' || ev.data.action === 'layout' || ev.data.action === 'activate') {
-      setTimeout(layoutForViewport, 20);
-      setTimeout(layoutForViewport, 120);
-      setTimeout(refitActive, 40);
-      setTimeout(refitActive, 180);
+      syncFleetGrantFromStorage();
+      setTimeout(layoutForViewport, 30);
+      setTimeout(layoutForViewport, 150);
+      setTimeout(refitActive, 50);
+      setTimeout(refitActive, 200);
     }
   });
-  // When this iframe becomes visible again (host tab switch), re-layout
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') {
-      setTimeout(layoutForViewport, 30);
-      setTimeout(refitActive, 80);
+      syncFleetGrantFromStorage();
+      setTimeout(layoutForViewport, 40);
+      setTimeout(refitActive, 100);
     }
   });
   if (btnRevoke) {
@@ -1466,6 +1506,7 @@
         });
       } catch (e) {}
       grantActive = false;
+      try { localStorage.removeItem(GRANT_LS); } catch (e2) {}
       if (row2fa) row2fa.style.display = '';
       if (helpEl) helpEl.textContent = 'Step-up locked. Prefer passkey, or enter authenticator TOTP for the next shell.';
       setStatus('Step-up revoked — re-authenticate before the next shell.');
