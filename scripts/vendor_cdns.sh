@@ -70,9 +70,22 @@ download "Alpine.js 3.13.5" \
   "https://unpkg.com/alpinejs@3.13.5/dist/cdn.min.js" \
   "$STATIC_DIR/alpine.min.js"
 
+# xterm.js (web SSH console — must stay same-origin for CSP)
+mkdir -p "$STATIC_DIR/vendor/xterm"
+download "xterm.js 5.5.0" \
+  "https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js" \
+  "$STATIC_DIR/vendor/xterm/xterm.min.js"
+download "xterm.css 5.5.0" \
+  "https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css" \
+  "$STATIC_DIR/vendor/xterm/xterm.min.css"
+download "xterm addon-fit 0.10.0" \
+  "https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js" \
+  "$STATIC_DIR/vendor/xterm/addon-fit.min.js"
+
 echo ""
 echo "==> Current vendored files:"
 ls -lh "$STATIC_DIR"/*.js 2>/dev/null || echo "  (none — will rely on fallback CSS)"
+ls -lh "$STATIC_DIR/vendor/xterm/" 2>/dev/null || true
 
 # Post-download validation (especially important for Tailwind Play)
 if [[ -f "$STATIC_DIR/tailwind.js" ]]; then

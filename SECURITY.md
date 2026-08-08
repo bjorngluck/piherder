@@ -42,6 +42,7 @@ We aim to acknowledge reports within a few days and will work with you on a fix 
 | API tokens (`ph_…`) | Stored as hashes only; shown once at create/rotate; scopes + optional IP allowlist |
 | Sessions | JWT cookie (HS256 via **PyJWT** + cryptography); **HttpOnly**, **SameSite=Lax**, `path=/`, **Secure** when public URL is HTTPS |
 | Cross-origin browser POSTs | Same-origin middleware (Origin/Referer host match when present); Bearer `/api/v1` skipped |
+| **Content-Security-Policy (v1.2+)** | Default **on** (`PIHERDER_CSP=true`): `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`, form-action self, connect-src self + ws/wss (console). Inline script/style + `unsafe-eval` still allowed for legacy templates + Tailwind Play — **no third-party script CDNs**. Report-Only: `PIHERDER_CSP_REPORT_ONLY=true`. Also: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`. |
 | Auth rate limits | Login / 2FA / register limited per IP (disabled only via `PIHERDER_DISABLE_AUTH_RATE_LIMIT` for E2E) |
 | Streams (SSE) | Docker logs/build, backup/OS progress require session; build stream is **operator+** |
 | Input hygiene | Risk-based validators on paths, hostnames, SSH users, cron, action allowlists (`app/services/input_validation.py`) |
@@ -70,6 +71,7 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
 - Prefer SSH key auth; clear any stored SSH passwords after deploy.  
 - Enable 2FA for admin accounts (TOTP and/or **passkeys**); consider **Force 2FA** in Settings. Treat **trusted devices** as full session risk until revoked. Passkeys need HTTPS + matching `PIHERDER_HOSTNAME` / `PIHERDER_PUBLIC_URL` (except localhost).  
 - If using **SSO / OIDC** (v1.2+): keep at least one **break-glass local admin password**; map IdP groups carefully (default role is **viewer**); treat PiHerder 2FA as defense-in-depth after the IdP (SSO does not skip enrolled 2FA). See [wiki SSO](wiki/account-security/sso-oidc.md) · [FEATURE_PLAN_SSO_OIDC.md](docs/FEATURE_PLAN_SSO_OIDC.md).  
+- **CSP (v1.2+):** leave `PIHERDER_CSP=true` in production. Use `PIHERDER_CSP_REPORT_ONLY=true` only while validating a tighter policy. Console assets (xterm) are vendored under `/static/vendor/xterm/` so they need no CDN allowlist.  
 - **Web SSH console** (v1.2+): default **off** (`PIHERDER_SSH_CONSOLE=false`). When enabled:
   - **operator+ only** (viewer 403)
   - **2FA step-up** before first shell on a host; short-lived **grant cookie** (~10 min, per host + `session_version`) so additional shells do not re-prompt TOTP until grant expires or **Lock step-up**

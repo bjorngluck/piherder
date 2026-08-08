@@ -1,0 +1,56 @@
+"""v1.2 Content-Security-Policy helpers."""
+from __future__ import annotations
+
+from app.security import headers as hdr
+
+
+def test_build_csp_core_directives(monkeypatch):
+    monkeypatch.setattr(hdr.settings, "PIHERDER_PUBLIC_URL", "https://ph.example.com:8443")
+    csp = hdr.build_csp()
+    assert "default-src 'self'" in csp
+    assert "object-src 'none'" in csp
+    assert "frame-ancestors 'none'" in csp
+    assert "script-src 'self'" in csp
+    assert "'unsafe-inline'" in csp  # legacy template scripts
+    assert "'unsafe-eval'" in csp  # Tailwind Play
+    assert "connect-src" in csp
+    assert "wss:" in csp or "wss://ph.example.com:8443" in csp
+    assert "upgrade-insecure-requests" in csp
+    # No third-party CDNs
+    assert "jsdelivr" not in csp
+    assert "cdn." not in csp
+
+
+def test_build_csp_http_lab_no_upgrade(monkeypatch):
+    monkeypatch.setattr(hdr.settings, "PIHERDER_PUBLIC_URL", "http://localhost:8000")
+    csp = hdr.build_csp()
+    assert "upgrade-insecure-requests" not in csp
+
+
+def test_security_headers_dict_enforcement(monkeypatch):
+    monkeypatch.setattr(hdr.settings, "PIHERDER_CSP", True)
+    monkeypatch.setattr(hdr.settings, "PIHERDER_CSP_REPORT_ONLY", False)
+    h = hdr.security_headers_dict()
+    assert "Content-Security-Policy" in h
+    assert "Content-Security-Policy-Report-Only" not in h
+    assert h["X-Frame-Options"] == "DENY"
+    assert h["X-Content-Type-Options"] == "nosniff"
+    assert "Referrer-Policy" in h
+    assert "Permissions-Policy" in h
+
+
+def test_security_headers_report_only(monkeypatch):
+    monkeypatch.setattr(hdr.settings, "PIHERDER_CSP", True)
+    monkeypatch.setattr(hdr.settings, "PIHERDER_CSP_REPORT_ONLY", True)
+    h = hdr.security_headers_dict()
+    assert "Content-Security-Policy-Report-Only" in h
+    assert "Content-Security-Policy" not in h
+
+
+def test_csp_can_disable(monkeypatch):
+    monkeypatch.setattr(hdr.settings, "PIHERDER_CSP", False)
+    h = hdr.security_headers_dict()
+    assert "Content-Security-Policy" not in h
+    assert "Content-Security-Policy-Report-Only" not in h
+    # Other headers remain
+    assert h["X-Frame-Options"] == "DENY"

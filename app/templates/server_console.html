@@ -98,9 +98,10 @@
   </div>
 </div>
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
-<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+{# Vendored under /static for CSP default-src 'self' (no third-party CDNs) #}
+<link rel="stylesheet" href="/static/vendor/xterm/xterm.min.css">
+<script src="/static/vendor/xterm/xterm.min.js"></script>
+<script src="/static/vendor/xterm/addon-fit.min.js"></script>
 <style>
   .console-tab {
     display: inline-flex; align-items: center; gap: 0.35rem;

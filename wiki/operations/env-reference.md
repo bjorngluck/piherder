@@ -30,7 +30,10 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 | Variable | Purpose |
 |----------|---------|
 | `PIHERDER_HOSTNAME` | Caddy site hostname; must match cert SANs; WebAuthn RP ID |
-| `PIHERDER_PUBLIC_URL` | Canonical origin (include `:8443` if mapped); HTTPS enables Secure cookies; **OIDC redirect** base `{PUBLIC_URL}/auth/oidc/callback` |
+| `PIHERDER_PUBLIC_URL` | Canonical origin (include `:8443` if mapped); HTTPS enables Secure cookies; **OIDC redirect** base `{PUBLIC_URL}/auth/oidc/callback`; CSP `upgrade-insecure-requests` when https |
+| `PIHERDER_CSP` | **true** (default) — send Content-Security-Policy (self-hosted scripts; no third-party CDNs) |
+| `PIHERDER_CSP_REPORT_ONLY` | **false** (default) — if true, send Report-Only CSP instead of enforcing |
+| `PIHERDER_SSH_CONSOLE` | **false** (default) — enable web SSH console (operator+ / 2FA) |
 
 ## Host paths
 
