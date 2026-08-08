@@ -126,6 +126,7 @@ def _registration_allowed(session: Session) -> bool:
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, session: Session = Depends(get_session)):
     from ..services import alert_channels as alert_ch
+    from ..services import oidc_svc as oidc
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -134,6 +135,9 @@ async def login_page(request: Request, session: Session = Depends(get_session)):
             "title": "Login",
             "registration_open": _registration_allowed(session),
             "password_reset_available": alert_ch.password_reset_available(),
+            "oidc_enabled": oidc.oidc_enabled(),
+            "oidc_display_name": oidc.oidc_display_name(),
+            "oidc_require_sso": oidc.oidc_require_sso(),
         },
     )
 
@@ -802,6 +806,10 @@ async def account_page(
     }
 
     from ..services import password_policy as pwpol
+    from ..services import oidc_svc as oidc
+
+    oidc_rows = [oidc.identity_public_dict(r) for r in oidc.list_identities(session, int(user.id))]
+    password_login_enabled = oidc.password_login_allowed(user)
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -836,6 +844,11 @@ async def account_page(
             "push_sent": push_sent,
             "account_pulse": account_pulse,
             "password_policy_text": pwpol.policy_rules_text(),
+            "oidc_enabled": oidc.oidc_enabled(),
+            "oidc_display_name": oidc.oidc_display_name(),
+            "oidc_identities": oidc_rows,
+            "password_login_enabled": password_login_enabled,
+            "has_2fa": has_2fa,
         },
     )
 

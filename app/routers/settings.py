@@ -48,6 +48,12 @@ def _form_on(value: Optional[str]) -> bool:
     return value in ("1", "on", "true")
 
 
+def _oidc_redirect_uri() -> str:
+    from ..services import oidc_svc as oidc
+
+    return oidc.public_redirect_uri()
+
+
 def _scopes_from_form(
     scope_read: Optional[str],
     scope_jobs: Optional[str],
@@ -412,6 +418,7 @@ async def settings_page(
             "data_cleanup_preview": data_cleanup_preview,
             "data_cleanup_schedule_status": data_cleanup_schedule_status,
             "data_cleanup_next_run": data_cleanup_next_run,
+            "oidc_redirect_uri": _oidc_redirect_uri(),
         },
     )
 
@@ -939,6 +946,95 @@ async def save_security_policy(
     return RedirectResponse(
         _settings_url("general", security_saved="1"), status_code=303
     )
+
+
+@router.post("/herder-backups/oidc")
+async def save_oidc_settings(
+    oidc_enabled: Optional[str] = Form(None),
+    oidc_display_name: str = Form("SSO"),
+    oidc_issuer: str = Form(""),
+    oidc_client_id: str = Form(""),
+    oidc_client_secret: str = Form(""),
+    oidc_scopes: str = Form("openid email profile"),
+    oidc_role_claim: str = Form("groups"),
+    oidc_role_map: str = Form("{}"),
+    oidc_default_role: str = Form("viewer"),
+    oidc_allowed_email_domains: str = Form(""),
+    oidc_sync_roles_on_login: Optional[str] = Form(None),
+    oidc_auto_link_by_email: Optional[str] = Form(None),
+    oidc_require_email_verified: Optional[str] = Form(None),
+    oidc_require_sso: Optional[str] = Form(None),
+    user: User = Depends(get_admin_user),
+):
+    del user
+    import json
+
+    from ..security.auth import normalize_role, VALID_ROLES
+    from ..services import oidc_svc as oidc
+
+    role_map_raw = (oidc_role_map or "{}").strip() or "{}"
+    try:
+        parsed = json.loads(role_map_raw)
+        if not isinstance(parsed, dict):
+            raise ValueError("role map must be a JSON object")
+        # normalize values
+        cleaned = {}
+        for k, v in parsed.items():
+            role = normalize_role(str(v))
+            if role not in VALID_ROLES:
+                raise ValueError(f"invalid role for {k}")
+            cleaned[str(k).strip()] = role
+        role_map_store = json.dumps(cleaned)
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", oidc_error=f"Role map: {e}"[:120]),
+            status_code=303,
+        )
+
+    default_role = normalize_role(oidc_default_role)
+    if default_role not in VALID_ROLES:
+        default_role = "viewer"
+
+    partial = {
+        "oidc_enabled": _form_on(oidc_enabled),
+        "oidc_display_name": (oidc_display_name or "SSO").strip()[:64] or "SSO",
+        "oidc_issuer": oidc.normalize_issuer(oidc_issuer)[:512],
+        "oidc_client_id": (oidc_client_id or "").strip()[:256],
+        "oidc_scopes": (oidc_scopes or "openid email profile").strip()[:256],
+        "oidc_role_claim": (oidc_role_claim or "groups").strip()[:128] or "groups",
+        "oidc_role_map": role_map_store,
+        "oidc_default_role": default_role,
+        "oidc_allowed_email_domains": (oidc_allowed_email_domains or "").strip()[:500],
+        "oidc_sync_roles_on_login": _form_on(oidc_sync_roles_on_login),
+        "oidc_auto_link_by_email": _form_on(oidc_auto_link_by_email),
+        "oidc_require_email_verified": _form_on(oidc_require_email_verified),
+        "oidc_require_sso": _form_on(oidc_require_sso),
+    }
+    secret = (oidc_client_secret or "").strip()
+    if secret:
+        try:
+            partial["oidc_client_secret_encrypted"] = oidc.set_client_secret_encrypted(secret)
+        except Exception as e:
+            return RedirectResponse(
+                _settings_url("general", oidc_error=f"Secret encrypt failed: {e}"[:120]),
+                status_code=303,
+            )
+    elif partial["oidc_enabled"] and not (
+        app_cfg.load_settings().get("oidc_client_secret_encrypted") or ""
+    ).strip():
+        return RedirectResponse(
+            _settings_url("general", oidc_error="Client secret is required when enabling SSO"),
+            status_code=303,
+        )
+
+    try:
+        app_cfg.save_settings(partial)
+        oidc.clear_discovery_cache()
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", oidc_error=str(e)[:120]), status_code=303
+        )
+    return RedirectResponse(_settings_url("general", oidc_saved="1"), status_code=303)
 
 
 @router.post("/herder-backups/alerts/webhook")

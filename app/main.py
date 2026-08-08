@@ -9,6 +9,7 @@ import os
 from .database import init_db, engine
 from .models import Server, User
 from .routers import auth as auth_router
+from .routers import auth_oidc as auth_oidc_router
 from .routers import servers as servers_router
 from .routers import audit as audit_router
 from .routers import notifications as notifications_router
@@ -324,6 +325,7 @@ from .routers import settings as settings_router
 from .services import scheduler as sched
 
 app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
+app.include_router(auth_oidc_router.router, prefix="/auth", tags=["auth-oidc"])
 app.include_router(servers_router.router, prefix="/servers", tags=["servers"])
 app.include_router(audit_router.router, prefix="", tags=["audit"])
 app.include_router(notifications_router.router, prefix="", tags=["notifications"])

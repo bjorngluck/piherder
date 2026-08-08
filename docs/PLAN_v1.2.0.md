@@ -172,20 +172,20 @@ Pull former **v1.3** items into **v1.2**. Keep residual 1.1 polish out of this p
 
 **Detail:** [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md)
 
-| Item | Stance |
-|------|--------|
-| **S1** OIDC authorization-code + PKCE; BYO IdP (Authentik, Keycloak, Authelia, Google Workspace, Entra) | Must |
-| **S2** Map IdP groups/claims → roles (`admin` / `operator` / `viewer`) | Must |
-| **S3** JIT user provision + disable orphan policy | Must |
-| **S4** Local password login **remain** (air-gap / break-glass); config to force SSO for non-break-glass | Must |
-| **S5** Settings UI: issuer, client id/secret (Fernet), scopes, role claim mapping | Must |
-| **S6** Audit: `sso_login` / `sso_link` / `sso_unlink` / failures | Must |
-| **S7** **Link both ways:** SSO login → local (email auto-link) **and** Account → SSO (explicit) | Must |
-| **S8** **Remove password** when ≥1 SSO link (SSO-only login) | Must |
-| **S9** **Unlink** SSO; if no password, **set password in same flow** before unlink completes | Must |
-| **S13** **2FA path-agnostic:** when 2FA is required (enrolled or Force 2FA), validate on SSO login and on link/unlink/remove-password — same gates as password | Must |
-| SAML | Defer |
-| Multi-tenant org isolation | Out of scope |
+| Item | Stance | Status |
+|------|--------|--------|
+| **S1** OIDC authorization-code + PKCE; BYO IdP (Authentik, Keycloak, Authelia, Google Workspace, Entra) | Must | **In progress** (2026-08-08) |
+| **S2** Map IdP groups/claims → roles (`admin` / `operator` / `viewer`) | Must | **In progress** |
+| **S3** JIT user provision + disable orphan policy | Must | **In progress** (soft orphan) |
+| **S4** Local password login **remain** (air-gap / break-glass); config to force SSO for non-break-glass | Must | **In progress** |
+| **S5** Settings UI: issuer, client id/secret (Fernet), scopes, role claim mapping | Must | **In progress** |
+| **S6** Audit: `sso_login` / `sso_link` / `sso_unlink` / failures | Must | **In progress** |
+| **S7** **Link both ways:** SSO login → local (email auto-link) **and** Account → SSO (explicit) | Must | **In progress** |
+| **S8** **Remove password** when ≥1 SSO link (SSO-only login) | Must | **In progress** |
+| **S9** **Unlink** SSO; if no password, **set password in same flow** before unlink completes | Must | **In progress** |
+| **S13** **2FA path-agnostic:** when 2FA is required (enrolled or Force 2FA), validate on SSO login and on link/unlink/remove-password — same gates as password | Must | **In progress** |
+| SAML | Defer | — |
+| Multi-tenant org isolation | Out of scope | — |
 
 ### Stream W — Webshell / web SSH (**was HL-P5 / v1.3**)
 

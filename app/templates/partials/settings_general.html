@@ -56,6 +56,107 @@
     </form>
   </div>
 
+  <div class="card p-5 mb-4" id="settings-sso" data-testid="settings-sso">
+    <h2 class="font-semibold text-text mb-1">SSO / OpenID Connect</h2>
+    <p class="text-xs text-muted mb-3">
+      BYO IdP (Authentik, Keycloak, Authelia, Google, Entra, …). Authorization code + PKCE.
+      Redirect URI (register at IdP):
+      <code class="font-mono text-[11px] break-all block mt-1">{{ oidc_redirect_uri or '' }}</code>
+    </p>
+    {% if request.query_params.get('oidc_saved') %}
+    <div class="banner-success border border-border rounded p-2 text-sm mb-3">SSO settings saved.</div>
+    {% endif %}
+    {% if request.query_params.get('oidc_error') %}
+    <div class="banner-error border border-border rounded p-2 text-sm mb-3">{{ request.query_params.get('oidc_error') }}</div>
+    {% endif %}
+    <form method="post" action="/herder-backups/oidc" class="space-y-3">
+      <label class="flex items-start gap-2 min-h-11 text-sm">
+        <input type="checkbox" name="oidc_enabled" value="1" class="mt-1"
+               {% if cfg.oidc_enabled %}checked{% endif %}>
+        <span><strong>Enable SSO</strong></span>
+      </label>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs text-muted mb-1">Display name (login button)</label>
+          <input name="oidc_display_name" value="{{ cfg.oidc_display_name or 'SSO' }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Issuer URL</label>
+          <input name="oidc_issuer" value="{{ cfg.oidc_issuer or '' }}"
+                 placeholder="https://auth.example.com/application/o/piherder"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Client ID</label>
+          <input name="oidc_client_id" value="{{ cfg.oidc_client_id or '' }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Client secret {% if cfg.oidc_client_secret_encrypted %}<span class="text-muted">(leave blank to keep)</span>{% endif %}</label>
+          <input name="oidc_client_secret" type="password" value="" autocomplete="new-password"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11"
+                 placeholder="{% if cfg.oidc_client_secret_encrypted %}••••••••{% else %}required{% endif %}">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Scopes</label>
+          <input name="oidc_scopes" value="{{ cfg.oidc_scopes or 'openid email profile' }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Role claim path</label>
+          <input name="oidc_role_claim" value="{{ cfg.oidc_role_claim or 'groups' }}"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11"
+                 placeholder="groups">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-xs text-muted mb-1">Role map (JSON: IdP group → admin|operator|viewer)</label>
+          <textarea name="oidc_role_map" rows="3"
+                    class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm"
+                    placeholder='{"piherder-admins":"admin","piherder-ops":"operator"}'>{{ cfg.oidc_role_map or '{}' }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Default role (no group match)</label>
+          <select name="oidc_default_role" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+            {% for r in ['viewer', 'operator', 'admin'] %}
+            <option value="{{ r }}" {% if (cfg.oidc_default_role or 'viewer') == r %}selected{% endif %}>{{ r }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1">Allowed email domains (optional, comma-separated)</label>
+          <input name="oidc_allowed_email_domains" value="{{ cfg.oidc_allowed_email_domains or '' }}"
+                 placeholder="example.com, lab.local"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+        </div>
+      </div>
+      <label class="flex items-start gap-2 min-h-11 text-sm">
+        <input type="checkbox" name="oidc_sync_roles_on_login" value="1" class="mt-1"
+               {% if cfg.oidc_sync_roles_on_login is not defined or cfg.oidc_sync_roles_on_login %}checked{% endif %}>
+        <span>Sync roles from IdP groups on every SSO login</span>
+      </label>
+      <label class="flex items-start gap-2 min-h-11 text-sm">
+        <input type="checkbox" name="oidc_auto_link_by_email" value="1" class="mt-1"
+               {% if cfg.oidc_auto_link_by_email is not defined or cfg.oidc_auto_link_by_email %}checked{% endif %}>
+        <span>Auto-link first SSO login to local user with matching verified email</span>
+      </label>
+      <label class="flex items-start gap-2 min-h-11 text-sm">
+        <input type="checkbox" name="oidc_require_email_verified" value="1" class="mt-1"
+               {% if cfg.oidc_require_email_verified is not defined or cfg.oidc_require_email_verified %}checked{% endif %}>
+        <span>Prefer verified email for auto-link / JIT</span>
+      </label>
+      <label class="flex items-start gap-2 min-h-11 text-sm">
+        <input type="checkbox" name="oidc_require_sso" value="1" class="mt-1"
+               {% if cfg.oidc_require_sso %}checked{% endif %}>
+        <span>
+          <strong>Require SSO on login page</strong>
+          <span class="block text-xs text-muted mt-0.5">Hides the password form (break-glass: disable this or use local recovery).</span>
+        </span>
+      </label>
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save SSO settings</button>
+    </form>
+  </div>
+
   <div class="card p-5 mb-4">
     <h2 class="font-semibold text-text mb-1">Stale data cleanup</h2>
     <p class="text-xs text-muted mb-3">

@@ -99,6 +99,21 @@ DEFAULTS: Dict[str, Any] = {
     "smtp_alert_enabled": False,
     "smtp_alert_min_severity": "warning",
     "smtp_password_reset_enabled": True,
+    # v1.2 Stream S — OIDC / SSO (client secret Fernet in oidc_client_secret_encrypted)
+    "oidc_enabled": False,
+    "oidc_issuer": "",
+    "oidc_client_id": "",
+    "oidc_client_secret_encrypted": "",
+    "oidc_scopes": "openid email profile",
+    "oidc_role_claim": "groups",
+    "oidc_role_map": "{}",  # JSON object group → admin|operator|viewer
+    "oidc_default_role": "viewer",
+    "oidc_sync_roles_on_login": True,
+    "oidc_require_sso": False,
+    "oidc_auto_link_by_email": True,
+    "oidc_require_email_verified": True,
+    "oidc_display_name": "SSO",
+    "oidc_allowed_email_domains": "",
 }
 
 
