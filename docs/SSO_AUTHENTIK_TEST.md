@@ -115,7 +115,7 @@ http://localhost:9000/application/o/piherder/
 | Client secret | *(from provider)* |
 | Scopes | `openid email profile` (add groups scope name if custom) |
 | Role claim path | `groups` |
-| Role map (JSON) | `{"piherder-admins":"admin","piherder-ops":"operator"}` |
+| Group → role map | **Add mapping…** → group `piherder-admins` → role **admin** → Add; same for `piherder-ops` → **operator** |
 | Default role | `viewer` |
 | Sync roles on login | ✓ |
 | Auto-link by email | ✓ |
