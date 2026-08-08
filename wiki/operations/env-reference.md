@@ -48,7 +48,7 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 | `PIHERDER_SSH_CONSOLE_MAX_GLOBAL` | **20** — concurrent shells instance-wide |
 | `PIHERDER_SSH_CONSOLE_SCROLLBACK` | **2000** — default browser terminal scrollback lines |
 | `PIHERDER_SSH_CONSOLE_HOLD_SEC` | **0** — after WebSocket drop, park PTY this many seconds (`0` = until idle/max only) |
-| `PIHERDER_SSH_CONSOLE_GRANT_MIN` | **10** — multi-shell grant after 2FA (minutes) |
+| `PIHERDER_SSH_CONSOLE_GRANT_MIN` | **10** — fleet-wide multi-host grant after 2FA (minutes); covers all hosts until expiry or Lock |
 | `PIHERDER_BACKUP_VANISHED_RETRIES` | **1** — extra rsync attempts on vanished files |
 | `PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC` | **5** — delay before vanished retry |
 | `PIHERDER_BACKUP_VANISHED_SOFT_OK` | **true** — treat final vanished exit as soft success |

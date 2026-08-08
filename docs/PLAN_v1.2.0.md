@@ -200,10 +200,10 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 |------|--------|--------|
 | **W1** Feature flag default **off** (`PIHERDER_SSH_CONSOLE`) | Must | **Landed** |
 | **W2** operator+ only; viewer 403 | Must | **Landed** |
-| **W3** Step-up 2FA before ticket; short grant for multi-shell on same host | Must | **Landed** (passkey preferred; backup codes off by default) |
+| **W3** Step-up 2FA before ticket; **fleet-wide** grant (all hosts) | Must | **Landed** (passkey preferred; backup codes off; grant re-prompt on expiry) |
 | **W4** Single-use open ticket; idle/max; concurrent caps | Must | **Landed** |
 | **W4a** Soft resume after WS drop (app switch) | Must | **Landed** (park PTY + resume token; `HOLD_SEC`) |
-| **W4b** Multi-shell UI + multi-host `/console` + popup | Should | **Landed** (popup chrome; host tabs; sticky Ctrl) |
+| **W4b** Multi-shell UI + multi-host `/console` + popup | Should | **Landed** (popup; host tabs keep WS; compact chrome; sticky Ctrl) |
 | **W5** Audit open/close + IP + duration | Must | **Landed** |
 | **W6** SECURITY.md + ADMIN + **CSP** / TLS bar | Must | **Landed** (same-origin iframe CSP; wiki env catalog) |
 | **W7** Demo: disabled **or** sandbox-only host | Must decide before demo GA | Pending (Stream D) |
