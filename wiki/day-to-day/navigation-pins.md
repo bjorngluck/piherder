@@ -28,6 +28,16 @@ With many Pis, operators bounce between “this host’s Docker”, “Hosts map
 
 **Done when:** ★ opens the map **graph** (SVG), not only the list; host pins land on the right feature page.
 
+<figure class="ph-figure" markdown>
+  ![Favourites menu](../assets/screenshots/account-favourites.png)
+  <figcaption>Header ★ menu — Host / App / Integrations groups (per-user pins).</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Host jump](../assets/screenshots/nav-host-jump.png)
+  <figcaption>Host jump — same feature on another fleet host.</figcaption>
+</figure>
+
 ---
 
 ## Pin kinds (allowlist)

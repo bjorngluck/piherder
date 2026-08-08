@@ -44,10 +44,15 @@ On the 2FA login screen you may **trust this device** for N days (Settings / env
 
 | Field | Source |
 |-------|--------|
-| **Display / friendly name** | Optional rename (e.g. “Work laptop”) — save per row |
+| **Display / friendly name** | Optional rename (e.g. “Work laptop”) — save per row (✎ Edit, not always-open form) |
 | **Device type** | Summarised from the browser user-agent |
 | **Last IP** | Last seen client IP for that trust cookie |
 | **Last used / expires** | App timezone timestamps |
+
+<figure class="ph-figure" markdown>
+  ![Account 2FA and trusted devices](../assets/screenshots/account-2fa.png)
+  <figcaption>Account — 2FA, backup codes, trusted devices (type, last IP, rename).</figcaption>
+</figure>
 | **Revoke** | One device or **Revoke all** |
 
 | Risk | Mitigation |

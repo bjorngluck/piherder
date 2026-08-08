@@ -116,9 +116,13 @@ def test_build_stack_panel_from_server_project():
     )
 
     def _exec(stmt):
-        # IntegrationBinding query — return list-like
+        # Return bindings for IntegrationBinding; fleet Server list for Topo-xhost picker
         m = MagicMock()
-        m.all.return_value = [bind_web]
+        text = str(stmt)
+        if "server" in text.lower() and "integration" not in text.lower():
+            m.all.return_value = [server]
+        else:
+            m.all.return_value = [bind_web]
         return m
 
     session.exec.side_effect = _exec

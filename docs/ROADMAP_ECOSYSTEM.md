@@ -34,7 +34,7 @@ Design principles stay the same as SPEC:
 | **v0.8.x / later** | Host stats/commands, bootstrap depth, web SSH; topology column profiles | H2.75 P3–P5 + residual | After RC3 as capacity |
 | **v1.0.0** | **First production** — security · authz · validation · credential recovery · known-issue burn-down · docs | Production bar | **Tagged** 2026-07-28 — [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · Hub `1.0.0` / `1.0` / `latest` |
 | **v1.0.x** | Production patches (security / critical) on `main` while 1.1 is in flight | Patch | As needed — see [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §10 |
-| **v1.1.0** | **Elevate production** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Active** on `v1.1.0-dev` — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) |
+| **v1.1.0** | **Elevate production** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Freeze / tag** — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) |
 | **v1.2** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo site (+ residual identity/maps as capacity) | Next minor path | **Planned** — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) (supersedes thin §6 sketch in [PLAN_v1.1.0.md](PLAN_v1.1.0.md)) |
 | **v1.3** | HA REST/path2 · **ACME-in-herder (under consideration)** · full insights · branding · k8s/bare · residual after 1.2 | Later path | Planned — [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 · §6.1 · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
 

@@ -16,12 +16,12 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v0.8.0 RC3** (tagged) | Full pack landed — [RELEASE_v0.8.0.md](../../../docs/RELEASE_v0.8.0.md) |
 | **v0.9.0** (tagged) | Operator recapture pack for 0.9 chrome — [RELEASE_v0.9.0.md](../../../docs/RELEASE_v0.9.0.md) |
 | **v1.0.0** (tagged) | Full pack in place (operator-confirmed) — [PLAN_v1.0.0.md §8.2](../../../docs/PLAN_v1.0.0.md) · [RELEASE_v1.0.0.md](../../../docs/RELEASE_v1.0.0.md) |
-| **v1.1.0** (freeze) | **Recapture priority pack below** — [RELEASE_v1.1.0.md](../../../docs/RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](../../../docs/PLAN_v1.1.0.md) |
+| **v1.1.0** | **Freeze pack landed** (operator recapture + new 1.1 shots) — [RELEASE_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.1.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
-!!! tip "Production / freeze screenshots (v1.1)"
-    Capture from a rebuild of **`v1.1.0-dev`** (or image/tag **`v1.1.0`** once tagged): `docker compose build web && docker compose up -d web`.  
+!!! tip "Production screenshots (v1.1)"
+    Capture from image/tag **`v1.1.0`** / rebuilt `v1.1.0-dev`: `docker compose build web && docker compose up -d web`.  
     App code is **not** bind-mounted in prod compose — stale containers = stale chrome in PNGs.
 
 ---
@@ -254,7 +254,7 @@ Use this order so related chrome is consistent across pages.
 9. **Ops** — Jobs, Backups (**cron_human**), Settings **Alerts** + **API** + status/stale  
 10. **Account** — 2FA + trusted devices; optional favourites  
 
-Next train (not 1.1 screenshot blockers): WebAuthn · SSO · webshell · demo mode — [PLAN_v1.2.0.md](../../../docs/PLAN_v1.2.0.md) · [RELEASE_v1.1.0.md](../../../docs/RELEASE_v1.1.0.md).
+Next train (not 1.1 screenshot blockers): WebAuthn · SSO · webshell · demo mode — [PLAN_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.2.0.md) · [RELEASE_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md).
 
 ---
 

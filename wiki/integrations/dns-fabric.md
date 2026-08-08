@@ -29,7 +29,12 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 
 <figure class="ph-figure" markdown>
   ![Network Hosts map](../assets/screenshots/dns-physical.png)
-  <figcaption>Hosts map — home ring vs cloud hosts (light desktop).</figcaption>
+  <figcaption>Hosts map — kind icons, home ring vs cloud hosts (light desktop).</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Host ports expand](../assets/screenshots/dns-host-ports-expand.png)
+  <figcaption>Hosts map — progressive host ports (compact → ports-only → by-service).</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
@@ -54,7 +59,7 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 
 <figure class="ph-figure" markdown>
   ![Stack panel](../assets/screenshots/dns-stack-panel.png)
-  <figcaption>Path map with stack expand / side panel (runtime topology).</figcaption>
+  <figcaption>Path map stack panel — host→container port chips and runtime topology.</figcaption>
 </figure>
 
 ---

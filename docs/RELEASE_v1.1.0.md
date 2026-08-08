@@ -1,9 +1,9 @@
 # PiHerder v1.1.0
 
-**Status:** **Draft** — refine at PR / freeze approval; not yet tagged  
-**Date (planned):** 2026-08 (end of QA on `v1.1.0-dev`)  
+**Status:** **Ready to tag** — freeze on `v1.1.0-dev` (QA + screenshot pack + version bump)  
+**Date:** 2026-08-08  
 **Git branch:** `v1.1.0-dev` → merge `main` → tag `v1.1.0`  
-**Package / image version (at tag):** `1.1.0`  
+**Package / image version:** `1.1.0`  
 **Baseline:** `v1.0.0` (first production — 2026-07-28)  
 **Theme:** **Elevate production** — certs · discovery · identity · operator UX · topology/maps · integrations/API  
 
@@ -162,8 +162,8 @@ Items that may remain imperfect at freeze without blocking the tag — promote i
 | Cert multi-target **as Job** (**P-job**) | Not a ship gate for 1.1 |
 | Discovery worker **heartbeat** (**S-hb**) | Residual |
 | Custom map icon pack (**M5**) | Roadmap |
-| Screenshot pack recapture for new 1.1 surfaces | As capacity before Hub publish |
-| Version bump in `pyproject.toml` / image | **At freeze only** → `1.1.0` |
+| Screenshot pack recapture for new 1.1 surfaces | **Done** for freeze (wiki assets + new 1.1 shots) |
+| Version bump in `pyproject.toml` / image | **Done** → `1.1.0` (Hub multi-arch at publish) |
 
 ---
 
@@ -257,7 +257,8 @@ Guide: [Install](https://piherder-docs.hacknow.info/getting-started/install/).
 ## Developer notes
 
 - Integration branch: **`v1.1.0-dev`**  
-- Package version: bump `pyproject.toml` + `app.version_info` → **1.1.0** at freeze only (still **1.0.0** on branch until then)  
+- Package version: `pyproject.toml` + `app.version_info` → **1.1.0**  
+
 - Publish: [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md)  
 - Map plan: [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md)  
 - Notable code areas: `certificates` · `nmap` device ops · `nav_shortcuts` / favourites · `dns_fabric` ports + mesh JS · `integrations/generic_url` · `backup` error detail · Cap alerts/SMTP/reset  
@@ -315,4 +316,4 @@ Copy into the merge PR and tick:
 
 ---
 
-*Draft for PR refinement. Promote Status to **Tagged** only when freeze checklist is complete.*
+*Promote Status to **Tagged** when git tag `v1.1.0` and Hub multi-arch publish complete.*
