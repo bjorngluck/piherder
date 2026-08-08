@@ -74,6 +74,18 @@ class Settings(BaseSettings):
     PIHERDER_NMAP_VULN_ROOT: str = "/var/lib/piherder/nmap-vuln"
     PIHERDER_NMAP_TIMEOUT_SEC: int = 7200
 
+    # Web SSH console (v1.2 Stream W) — default OFF until operators opt in
+    PIHERDER_SSH_CONSOLE: bool = False
+    # Ticket TTL to open the WebSocket (seconds)
+    PIHERDER_SSH_CONSOLE_TICKET_SEC: int = 60
+    # Idle disconnect (seconds without client→host data)
+    PIHERDER_SSH_CONSOLE_IDLE_SEC: int = 900
+    # Hard max session length (seconds)
+    PIHERDER_SSH_CONSOLE_MAX_SEC: int = 3600
+    # Concurrent open consoles per user / whole instance
+    PIHERDER_SSH_CONSOLE_MAX_PER_USER: int = 2
+    PIHERDER_SSH_CONSOLE_MAX_GLOBAL: int = 10
+
     class Config:
         env_file = ".env"
         extra = "ignore"

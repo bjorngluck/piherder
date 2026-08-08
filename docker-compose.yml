@@ -32,6 +32,8 @@ x-piherder-app-env: &piherder-app-env
   CORS_ORIGINS: ${CORS_ORIGINS:-}
   PIHERDER_SERVER_LOCK_TTL: ${PIHERDER_SERVER_LOCK_TTL:-7200}
   PIHERDER_NMAP_VULN_ROOT: ${PIHERDER_NMAP_VULN_ROOT:-/var/lib/piherder/nmap-vuln}
+  # Web SSH console (v1.2) — default off; set true to enable operator+ browser terminal
+  PIHERDER_SSH_CONSOLE: ${PIHERDER_SSH_CONSOLE:-false}
   TZ: ${TZ:-Etc/UTC}
 
 # App image — **local build by default** (dev / RC testing on this host).

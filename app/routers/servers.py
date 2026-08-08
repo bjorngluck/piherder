@@ -844,6 +844,8 @@ async def server_detail(
         logger.debug("nmap discovery embed skip: %s", e)
 
     from ..services.nav_shortcuts import host_feature_context
+    from ..security.auth import role_at_least, ROLE_OPERATOR
+    from ..services import ssh_console as cons_svc
 
     _nav = host_feature_context(session, int(user.id) if user else None, server, "overview")
     return templates_mod.templates.TemplateResponse(
@@ -852,6 +854,8 @@ async def server_detail(
         context={
             "title": server.name,
             "server": server_dict,
+            "console_enabled": cons_svc.console_enabled(),
+            "is_operator": role_at_least(user, ROLE_OPERATOR),
             "dns_form": dns_form,
             "fabric_rack": fabric_rack,
             "hosts_map_url": hosts_map_url,

@@ -174,16 +174,16 @@ Pull former **v1.3** items into **v1.2**. Keep residual 1.1 polish out of this p
 
 | Item | Stance | Status |
 |------|--------|--------|
-| **S1** OIDC authorization-code + PKCE; BYO IdP (Authentik, Keycloak, Authelia, Google Workspace, Entra) | Must | **In progress** (2026-08-08) |
-| **S2** Map IdP groups/claims → roles (`admin` / `operator` / `viewer`) | Must | **In progress** |
-| **S3** JIT user provision + disable orphan policy | Must | **In progress** (soft orphan) |
-| **S4** Local password login **remain** (air-gap / break-glass); config to force SSO for non-break-glass | Must | **In progress** |
-| **S5** Settings UI: issuer, client id/secret (Fernet), scopes, role claim mapping | Must | **In progress** |
-| **S6** Audit: `sso_login` / `sso_link` / `sso_unlink` / failures | Must | **In progress** |
-| **S7** **Link both ways:** SSO login → local (email auto-link) **and** Account → SSO (explicit) | Must | **In progress** |
-| **S8** **Remove password** when ≥1 SSO link (SSO-only login) | Must | **In progress** |
-| **S9** **Unlink** SSO; if no password, **set password in same flow** before unlink completes | Must | **In progress** |
-| **S13** **2FA path-agnostic:** when 2FA is required (enrolled or Force 2FA), validate on SSO login and on link/unlink/remove-password — same gates as password | Must | **In progress** |
+| **S1** OIDC authorization-code + PKCE; BYO IdP (Authentik, Keycloak, Authelia, Google Workspace, Entra) | Must | **Code complete** — operator live IdP QA pending |
+| **S2** Map IdP groups/claims → roles (`admin` / `operator` / `viewer`) | Must | **Code complete** (UI map modal) |
+| **S3** JIT user provision + disable orphan policy | Must | **Code complete** (soft orphan) |
+| **S4** Local password login **remain** (air-gap / break-glass); config to force SSO for non-break-glass | Must | **Code complete** |
+| **S5** Settings UI: issuer, client id/secret (Fernet), scopes, role claim mapping | Must | **Code complete** |
+| **S6** Audit: `sso_login` / `sso_link` / `sso_unlink` / failures | Must | **Code complete** |
+| **S7** **Link both ways:** SSO login → local (email auto-link) **and** Account → SSO (explicit) | Must | **Code complete** |
+| **S8** **Remove password** when ≥1 SSO link (SSO-only login) | Must | **Code complete** |
+| **S9** **Unlink** SSO; if no password, **set password in same flow** before unlink completes | Must | **Code complete** |
+| **S13** **2FA path-agnostic:** when 2FA is required (enrolled or Force 2FA), validate on SSO login and on link/unlink/remove-password — same gates as password | Must | **Code complete** |
 | SAML | Defer | — |
 | Multi-tenant org isolation | Out of scope | — |
 
@@ -196,16 +196,16 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
          (no PEM in browser)
 ```
 
-| Item | Stance |
-|------|--------|
-| **W1** Feature flag default **off** (`PIHERDER_SSH_CONSOLE`) | Must |
-| **W2** operator+ only; viewer 403 | Must |
-| **W3** Step-up 2FA (TOTP **or** passkey) before ticket mint | Must |
-| **W4** Short-lived single-use ticket; idle timeout; max concurrent | Must |
-| **W5** Audit open/close + IP + duration | Must |
-| **W6** SECURITY.md + ADMIN + CSP/TLS bar | Must |
-| **W7** Demo: disabled **or** sandbox-only host | Must decide before demo GA |
-| Session recording / dual-control root | Defer |
+| Item | Stance | Status |
+|------|--------|--------|
+| **W1** Feature flag default **off** (`PIHERDER_SSH_CONSOLE`) | Must | **In progress** (2026-08-08) |
+| **W2** operator+ only; viewer 403 | Must | **In progress** |
+| **W3** Step-up 2FA (TOTP / backup) before ticket mint | Must | **In progress** (passkey step-up UI later if needed) |
+| **W4** Short-lived single-use ticket; idle timeout; max concurrent | Must | **In progress** |
+| **W5** Audit open/close + IP + duration | Must | **In progress** |
+| **W6** SECURITY.md + ADMIN + CSP/TLS bar | Must | Pending docs polish |
+| **W7** Demo: disabled **or** sandbox-only host | Must decide before demo GA | Pending |
+| Session recording / dual-control root | Defer | — |
 
 ### Stream D — Demo platform (**new product work**)
 

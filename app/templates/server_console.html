@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block content %}
+<section class="mb-4">
+  <div class="flex flex-wrap items-center gap-3 justify-between">
+    <div>
+      <p class="text-xs text-muted mb-0.5">
+        <a href="/servers/{{ server.id }}" class="text-primary hover:underline">← {{ server.name }}</a>
+      </p>
+      <h1 class="text-xl font-semibold text-text">Web SSH console</h1>
+      <p class="text-sm text-muted font-mono">{{ server.ssh_username or '?' }}@{{ server.hostname or server.ip_address or 'host' }}:{{ server.ssh_port or 22 }}</p>
+    </div>
+  </div>
+</section>
+
+{% if not console_enabled %}
+<div class="card p-5 mb-4 banner-error border border-border" role="alert">
+  <strong>Console is disabled</strong> on this instance.
+  Set <code class="font-mono text-xs">PIHERDER_SSH_CONSOLE=true</code> in the environment and restart the web container.
+  Default is <strong>off</strong> for safety.
+</div>
+{% elif not has_ssh_cred %}
+<div class="card p-5 mb-4 banner-error border border-border" role="alert">
+  No SSH key or password stored for this host. Open <strong>SSH access</strong> on the server page to deploy a key first.
+</div>
+{% elif not has_2fa %}
+<div class="card p-5 mb-4 banner-error border border-border" role="alert">
+  Console requires PiHerder <strong>2FA</strong> (TOTP or passkey). Enroll under
+  <a href="/auth/account" class="text-primary hover:underline">Account</a>, then return here.
+</div>
+{% else %}
+
+<div class="card p-4 mb-3 space-y-3" id="console-gate" data-testid="console-gate">
+  <p class="text-sm text-muted">
+    Step-up 2FA is required before the private key is used on the server.
+    The key is <strong class="text-text">never</strong> sent to your browser.
+    Idle disconnect ~{{ (idle_sec / 60)|int }} min · max session ~{{ (max_session_sec / 60)|int }} min · ticket {{ ticket_ttl }}s.
+  </p>
+  <div class="flex flex-wrap gap-2 items-end">
+    <div class="flex-1 min-w-[12rem]">
+      <label class="block text-xs text-muted mb-1" for="console-totp">Authenticator or backup code</label>
+      <input id="console-totp" type="text" inputmode="numeric" autocomplete="one-time-code"
+             class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono"
+             data-testid="console-totp" placeholder="123456">
+    </div>
+    <button type="button" id="console-connect" class="btn btn-accent min-h-11 text-sm"
+            data-testid="console-connect">Connect</button>
+    <button type="button" id="console-disconnect" class="btn btn-danger min-h-11 text-sm hidden"
+            data-testid="console-disconnect">Disconnect</button>
+  </div>
+  <p id="console-status" class="text-xs text-muted" role="status"></p>
+  <p id="console-error" class="hidden text-sm text-danger" role="alert"></p>
+</div>
+
+<div class="card p-0 overflow-hidden border border-border" style="background:#0b0f14;">
+  <div id="terminal" class="w-full" style="height: min(70vh, 560px);" data-testid="console-terminal"></div>
+</div>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<script>
+(function () {
+  var serverId = {{ server.id }};
+  var termEl = document.getElementById('terminal');
+  var connectBtn = document.getElementById('console-connect');
+  var discBtn = document.getElementById('console-disconnect');
+  var totpIn = document.getElementById('console-totp');
+  var statusEl = document.getElementById('console-status');
+  var errEl = document.getElementById('console-error');
+  if (!termEl || !window.Terminal) {
+    if (statusEl) statusEl.textContent = 'xterm.js failed to load (CDN). Check network or vendor offline later.';
+    return;
+  }
+
+  var term = new Terminal({
+    cursorBlink: true,
+    fontSize: 14,
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    theme: { background: '#0b0f14', foreground: '#e6edf3' }
+  });
+  var fitAddon = (window.FitAddon && window.FitAddon.FitAddon)
+    ? new window.FitAddon.FitAddon()
+    : (window.FitAddon ? new window.FitAddon() : null);
+  if (fitAddon) term.loadAddon(fitAddon);
+  term.open(termEl);
+  if (fitAddon) try { fitAddon.fit(); } catch (e) {}
+
+  var ws = null;
+  var connected = false;
+
+  function setErr(msg) {
+    if (!errEl) return;
+    if (!msg) { errEl.classList.add('hidden'); errEl.textContent = ''; return; }
+    errEl.textContent = msg;
+    errEl.classList.remove('hidden');
+  }
+  function setStatus(msg) {
+    if (statusEl) statusEl.textContent = msg || '';
+  }
+
+  function sendResize() {
+    if (!ws || ws.readyState !== 1 || !fitAddon) return;
+    try {
+      fitAddon.fit();
+      ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+    } catch (e) {}
+  }
+
+  window.addEventListener('resize', function () {
+    if (connected) sendResize();
+    else if (fitAddon) try { fitAddon.fit(); } catch (e) {}
+  });
+
+  term.onData(function (data) {
+    if (ws && ws.readyState === 1) ws.send(data);
+  });
+
+  function disconnect() {
+    if (ws) {
+      try { ws.close(); } catch (e) {}
+      ws = null;
+    }
+    connected = false;
+    if (connectBtn) connectBtn.classList.remove('hidden');
+    if (discBtn) discBtn.classList.add('hidden');
+    setStatus('Disconnected.');
+  }
+
+  async function connect() {
+    setErr('');
+    setStatus('Verifying 2FA…');
+    var code = (totpIn && totpIn.value) || '';
+    try {
+      var body = new URLSearchParams();
+      body.set('totp_code', code);
+      var res = await fetch('/servers/' + serverId + '/console/ticket', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+        credentials: 'same-origin'
+      });
+      var data = await res.json();
+      if (!data.ok) {
+        var map = {
+          enroll_2fa: 'Enroll 2FA on Account first.',
+          '2fa_required': 'Enter authenticator or backup code.',
+          '2fa_bad_code': 'Invalid code.',
+          disabled: 'Console disabled on this instance.',
+          no_ssh: 'No SSH credentials for this host.',
+          limit: 'Console session limit reached. Try later.',
+          denied: data.detail || 'Denied.'
+        };
+        setErr(map[data.error] || data.detail || ('Error: ' + (data.error || res.status)));
+        setStatus('');
+        return;
+      }
+      setStatus('Opening terminal…');
+      var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      var url = proto + '//' + location.host + data.ws_path + '?ticket=' + encodeURIComponent(data.ticket);
+      ws = new WebSocket(url);
+      ws.binaryType = 'arraybuffer';
+      ws.onopen = function () {
+        connected = true;
+        if (connectBtn) connectBtn.classList.add('hidden');
+        if (discBtn) discBtn.classList.remove('hidden');
+        setStatus('Connected. Type to interact. Disconnect when finished.');
+        sendResize();
+      };
+      ws.onmessage = function (ev) {
+        if (typeof ev.data === 'string') {
+          term.write(ev.data);
+        } else {
+          term.write(new Uint8Array(ev.data));
+        }
+      };
+      ws.onclose = function () {
+        disconnect();
+        term.writeln('\r\n*** session closed ***');
+      };
+      ws.onerror = function () {
+        setErr('WebSocket error');
+        disconnect();
+      };
+    } catch (e) {
+      setErr(String(e));
+      setStatus('');
+    }
+  }
+
+  if (connectBtn) connectBtn.addEventListener('click', connect);
+  if (discBtn) discBtn.addEventListener('click', disconnect);
+  if (totpIn) {
+    totpIn.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); connect(); }
+    });
+  }
+})();
+</script>
+{% endif %}
+{% endblock %}

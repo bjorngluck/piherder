@@ -47,6 +47,10 @@
     <div class="ops-hero-actions">
       <button type="button" onclick="showEditServerModal()" class="btn btn-secondary min-h-11 text-sm">Edit</button>
       <button type="button" onclick="showSshAccessModal()" class="btn btn-secondary min-h-11 text-sm" title="Deploy key, rotate, test connection">SSH access</button>
+      {% if console_enabled and is_operator %}
+      <a href="/servers/{{ server.id }}/console" class="btn btn-secondary min-h-11 text-sm no-underline inline-flex items-center"
+         data-testid="open-console" title="Web SSH console (flag-enabled)">Console</a>
+      {% endif %}
       <button type="button" onclick="showSystemInfoModal()" class="btn btn-secondary min-h-11 text-sm">System info</button>
     </div>
     {% include "partials/host_switcher.html" %}
