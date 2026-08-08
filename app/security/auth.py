@@ -464,7 +464,12 @@ def get_optional_current_user(
 def authenticate_user(session: Session, email: str, password: str) -> Optional[User]:
     statement = select(User).where(User.email == email)
     user = session.exec(statement).first()
-    if not user or not verify_password(password, user.hashed_password):
+    if not user:
+        return None
+    # SSO-only accounts (password removed after OIDC link)
+    if not getattr(user, "password_login_enabled", True):
+        return None
+    if not verify_password(password, user.hashed_password):
         return None
     return user
 

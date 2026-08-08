@@ -84,6 +84,11 @@
   {% elif msg == 'passkey_added' %}Passkey registered. You can use it at login as a second factor.
   {% elif msg == 'passkey_revoked' %}Passkey removed.
   {% elif msg == 'passkey_renamed' %}Passkey name saved.
+  {% elif msg == 'sso_linked' %}SSO account linked.
+  {% elif msg == 'sso_unlinked' %}SSO account unlinked.
+  {% elif msg == 'password_removed' %}Password removed. Sign in with SSO only.
+  {% elif msg == 'password_set' %}Local password enabled again.
+  {% elif msg == 'password_already_removed' %}Password login was already disabled.
   {% elif msg == 'backup_codes' %}New backup codes generated. Save them now.
   {% elif msg == 'device_revoked' %}Trusted device revoked.
   {% elif msg == 'devices_revoked' %}All trusted devices revoked.
@@ -110,6 +115,14 @@
   {% elif error == '2fa_off' %}Enable 2FA first.
   {% elif error == 'passkey_not_found' %}Passkey not found.
   {% elif error == 'passkey_failed' %}Passkey registration failed. Try again.
+  {% elif error == 'sso_disabled' %}SSO is not enabled on this instance.
+  {% elif error == 'sso_config' %}SSO is misconfigured. Ask an administrator.
+  {% elif error == 'sso_2fa_link' %}Confirm with 2FA (or password) before linking SSO.
+  {% elif error == 'sso_required' %}Link an SSO account before removing your password.
+  {% elif error == 'sso_not_found' %}SSO link not found.
+  {% elif error == 'sso_link_conflict' %}That SSO identity is already linked to another account.
+  {% elif error == '2fa_required' %}Authenticator or backup code required.
+  {% elif error == 'use_change_password' %}Use Change password when a local password is already enabled.
   {% elif error == 'push_vapid' %}Web Push is not available on the server.
   {% elif error == 'push_no_device' %}No device subscribed yet — use “Enable on this device” first.
   {% elif error == 'push_test_failed' %}Test push failed (subscription may be expired — try enable again).
@@ -183,6 +196,7 @@
   <div class="card p-5 sm:p-6 space-y-3 account-card">
     <h2 class="font-semibold text-text">Password</h2>
     <p class="text-xs text-muted">{{ password_policy_text or 'At least 10 characters with upper, lower, and a digit. Use at most 72 Latin letters/digits.' }}</p>
+    {% if password_login_enabled %}
     <form method="post" action="/auth/account/password" class="space-y-3" id="account-password-form">
       <div>
         <label class="block text-sm text-muted mb-1">Current password</label>
@@ -205,8 +219,126 @@
       </div>
       <button type="submit" class="btn btn-accent min-h-11 text-sm">Change password</button>
     </form>
+    {% if oidc_enabled and oidc_identities %}
+    <form method="post" action="/auth/account/password/remove" class="space-y-2 border-t border-border pt-3 mt-2"
+          onsubmit="return confirm('Remove local password? You will sign in with SSO only until you set a password again.');">
+      <p class="text-xs text-muted">Optional: remove password and use SSO only (keep a break-glass password if you can).</p>
+      {% if has_2fa %}
+      <div>
+        <label class="block text-sm text-muted mb-1">Authenticator or backup code</label>
+        <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" required>
+      </div>
+      {% else %}
+      <div>
+        <label class="block text-sm text-muted mb-1">Current password</label>
+        <input name="current_password" type="password" required autocomplete="current-password"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+      </div>
+      {% endif %}
+      <button type="submit" class="btn btn-danger min-h-11 text-sm">Remove password</button>
+    </form>
+    {% endif %}
+    {% else %}
+    <p class="text-sm text-muted">Password login is off. You sign in with SSO. Set a password anytime for break-glass access.</p>
+    <form method="post" action="/auth/account/password/set" class="space-y-3" id="account-password-form">
+      <div>
+        <label class="block text-sm text-muted mb-1">New password</label>
+        <input name="new_password" id="account-new-password" type="password" required minlength="10" autocomplete="new-password"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+        <div class="pw-strength mt-2">
+          <div class="pw-strength-bar"><div class="pw-strength-fill" id="account-pw-fill"></div></div>
+          <div class="text-[10px] text-muted mt-1" id="account-pw-label">Strength</div>
+        </div>
+      </div>
+      <div>
+        <label class="block text-sm text-muted mb-1">Confirm new password</label>
+        <input name="confirm_password" type="password" required minlength="10" autocomplete="new-password"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+      </div>
+      {% if has_2fa %}
+      <div>
+        <label class="block text-sm text-muted mb-1">Authenticator or backup code</label>
+        <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" required>
+      </div>
+      {% endif %}
+      <button type="submit" class="btn btn-accent min-h-11 text-sm">Set password</button>
+    </form>
+    {% endif %}
     <p class="text-xs text-muted">Self-hosted recovery: change password while logged in, or use <strong class="text-text">Forgot password</strong> on the sign-in page when an admin has enabled SMTP under Settings → Alerts. Admins can also reset access from Users.</p>
   </div>
+
+  <!-- Connected accounts (SSO) -->
+  {% if oidc_enabled %}
+  <div class="card p-5 sm:p-6 space-y-4 account-card" id="account-sso" data-testid="account-sso">
+    <h2 class="font-semibold text-text">Connected accounts (SSO)</h2>
+    <p class="text-sm text-muted">
+      Link {{ oidc_display_name or 'SSO' }} to this account, or connect automatically the first time you sign in with the same verified email.
+      PiHerder 2FA (TOTP / passkeys) still applies after SSO when enrolled.
+    </p>
+    {% if oidc_identities %}
+    <ul class="space-y-3">
+      {% for idn in oidc_identities %}
+      <li class="border border-border rounded-lg p-3 space-y-2">
+        <div class="text-sm font-medium text-text">{{ idn.issuer_host or idn.issuer }}</div>
+        <div class="text-xs text-muted font-mono truncate">{{ idn.email_at_link or idn.subject }}</div>
+        <form method="post" action="/auth/oidc/unlink" class="space-y-2"
+              onsubmit="return confirm('Unlink this SSO identity?');">
+          <input type="hidden" name="identity_id" value="{{ idn.id }}">
+          {% if has_2fa %}
+          <div>
+            <label class="block text-xs text-muted mb-1">Authenticator or backup code</label>
+            <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" required>
+          </div>
+          {% elif password_login_enabled %}
+          <div>
+            <label class="block text-xs text-muted mb-1">Current password</label>
+            <input name="current_password" type="password" required autocomplete="current-password"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+          </div>
+          {% endif %}
+          {% if not password_login_enabled %}
+          <p class="text-xs text-warning">Set a local password below before unlink completes (same form).</p>
+          <div>
+            <label class="block text-xs text-muted mb-1">New password (required to unlink)</label>
+            <input name="new_password" type="password" required minlength="10" autocomplete="new-password"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1">Confirm new password</label>
+            <input name="confirm_password" type="password" required minlength="10" autocomplete="new-password"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+          </div>
+          {% endif %}
+          <button type="submit" class="btn btn-danger min-h-11 text-sm">Unlink</button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <form method="post" action="/auth/oidc/link" class="space-y-3">
+      {% if has_2fa %}
+      <div>
+        <label class="block text-sm text-muted mb-1">Authenticator or backup code</label>
+        <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" required>
+      </div>
+      {% elif password_login_enabled %}
+      <div>
+        <label class="block text-sm text-muted mb-1">Current password</label>
+        <input name="current_password" type="password" required autocomplete="current-password"
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+      </div>
+      {% endif %}
+      <button type="submit" class="btn btn-accent min-h-11 text-sm" data-testid="sso-link">
+        Link {{ oidc_display_name or 'SSO' }}
+      </button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
   <script>
   (function () {
     const input = document.getElementById('account-new-password');

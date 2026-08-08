@@ -53,8 +53,21 @@
 
     {% if request.query_params.get('error') %}
       <div class="mb-4 p-3 banner-error border border-border text-sm rounded" role="alert">
-        {% if request.query_params.get('error') == 'rate' %}
+        {% set err = request.query_params.get('error') %}
+        {% if err == 'rate' %}
         Too many attempts. Wait a few minutes and try again.
+        {% elif err == 'sso_denied' %}
+        SSO sign-in was cancelled or denied by the identity provider.
+        {% elif err == 'sso_config' %}
+        SSO is not configured correctly. Ask an administrator to check Settings → SSO.
+        {% elif err == 'sso_state' %}
+        SSO session expired. Try again.
+        {% elif err == 'sso_link_conflict' %}
+        That SSO identity is already linked to another account.
+        {% elif err == 'sso_email_conflict' %}
+        An account with that email already exists. Sign in with your password and link SSO from Account.
+        {% elif err == 'sso_inactive' %}
+        This account is disabled.
         {% else %}
         Invalid email or password.
         {% endif %}
@@ -69,6 +82,22 @@
       </div>
     {% endif %}
 
+    {% if oidc_enabled %}
+    <a href="/auth/oidc/login"
+       class="w-full mb-4 btn btn-accent font-medium min-h-11 inline-flex items-center justify-center text-center no-underline"
+       data-testid="sso-login">
+      Continue with {{ oidc_display_name or 'SSO' }}
+    </a>
+    {% if not oidc_require_sso %}
+    <div class="flex items-center gap-3 mb-4 text-xs text-muted" aria-hidden="true">
+      <span class="flex-1 border-t border-border"></span>
+      <span>or password</span>
+      <span class="flex-1 border-t border-border"></span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if not oidc_enabled or not oidc_require_sso %}
     <form method="post" action="/auth/login" class="space-y-4">
       <div>
         <label class="block text-sm mb-1 text-muted" for="login-email">Email</label>
@@ -81,7 +110,7 @@
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
       </div>
 
-      <button type="submit" class="w-full mt-2 btn btn-accent font-medium min-h-11">
+      <button type="submit" class="w-full mt-2 btn {% if oidc_enabled %}btn-secondary{% else %}btn-accent{% endif %} font-medium min-h-11">
         Log in
       </button>
     </form>
@@ -89,6 +118,11 @@
     {% if password_reset_available %}
     <p class="mt-3 text-center text-sm">
       <a href="/auth/forgot-password" class="text-primary hover:underline">Forgot password?</a>
+    </p>
+    {% endif %}
+    {% else %}
+    <p class="text-sm text-muted text-center">
+      This instance requires SSO. Break-glass local login can be re-enabled by an administrator.
     </p>
     {% endif %}
 

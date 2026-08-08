@@ -29,6 +29,9 @@ class User(SQLModel, table=True):
     # Admin-created users must set their own password before using the app
     must_change_password: bool = False
 
+    # False after optional password remove when SSO is linked (v1.2 Stream S)
+    password_login_enabled: bool = True
+
     # Bumped to invalidate all session JWTs (admin recovery / password change)
     session_version: int = Field(default=0)
 
@@ -36,6 +39,7 @@ class User(SQLModel, table=True):
     totp_backup_codes: List["TotpBackupCode"] = Relationship(back_populates="user")
     trusted_devices: List["TrustedDevice"] = Relationship(back_populates="user")
     webauthn_credentials: List["WebAuthnCredential"] = Relationship(back_populates="user")
+    oidc_identities: List["OidcIdentity"] = Relationship(back_populates="user")
 
 
 class TotpBackupCode(SQLModel, table=True):
@@ -82,6 +86,25 @@ class WebAuthnCredential(SQLModel, table=True):
     last_used_at: Optional[datetime] = None
 
     user: Optional[User] = Relationship(back_populates="webauthn_credentials")
+
+
+class OidcIdentity(SQLModel, table=True):
+    """Linked OpenID Connect identity (v1.2 Stream S). No tokens stored."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    # Normalized issuer URL (no trailing slash)
+    issuer: str = Field(index=True, max_length=512)
+    # OIDC `sub` claim
+    subject: str = Field(index=True, max_length=512)
+    email_at_link: Optional[str] = Field(default=None, max_length=320)
+    display_name_at_link: Optional[str] = Field(default=None, max_length=256)
+    # Last login claims snapshot (no tokens); optional JSON
+    claims_json: Optional[str] = Field(default=None)
+    linked_at: datetime = Field(default_factory=datetime.utcnow)
+    last_login_at: Optional[datetime] = None
+
+    user: Optional[User] = Relationship(back_populates="oidc_identities")
 
 
 class PasswordResetToken(SQLModel, table=True):

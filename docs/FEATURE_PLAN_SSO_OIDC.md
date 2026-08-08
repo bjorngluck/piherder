@@ -267,14 +267,12 @@ Settings (admin)
 | Login + Account templates | Buttons, cards, confirm modals |
 | Tests | Claim fixtures; link/unlink/password matrix |
 
-### Suggested library
+### Library choice (spike result)
 
-Spike order:
+**httpx + PyJWT (`PyJWKClient`)** for discovery, token exchange, and ID token JWKS validation.
 
-1. **authlib** (Starlette/FastAPI friendly)  
-2. Fallback: `oic` / manual + `PyJWT` only if authlib fights stack  
-
-Record spike result in this doc’s changelog.
+Rationale: already in the stack; full control over PKCE + state cookies; no extra heavy OIDC client.
+Authlib deferred unless we hit IdP edge cases that need a fuller client.
 
 ---
 
@@ -537,3 +535,4 @@ S-PR6  Force SSO + break-glass (S4) + docs + tests polish
 |------|------|
 | 2026-08-08 | Initial design: S1–S6 + **S7 link current account**, **S8 remove password**, **S9 unlink with password gate**; scenarios S-A–S-L. |
 | 2026-08-08 | **Link both ways** (SSO→local auto-link + Account→SSO). **S13 / S-M:** always run PiHerder 2FA when required — SSO login and sensitive identity actions; no SSO exemption. |
+| 2026-08-08 | **Implementation start:** `oidc_svc` + `OidcIdentity` + routes/UI/settings; library = httpx + PyJWT JWKS (not authlib). |
