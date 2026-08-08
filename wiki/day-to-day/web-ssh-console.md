@@ -32,8 +32,8 @@ Server detail → **Console** opens a **floating popup** over the page — the t
 | **+ Hosts** | Multi-host workspace at `/console` |
 | **+ Shell** | New PTY (passkey/TOTP step-up if needed) |
 | **A− / A+** | Font size **8–28** (remembered in this browser) |
-| **Ctrl** | Sticky Ctrl — next letter is Ctrl+letter; also shows **a–z** chips |
-| **^C ^D ^X ^S ^Z …** | Common control chords |
+| **Ctrl** | Sticky Ctrl — next keyboard letter is Ctrl+letter |
+| **^C ^S ^X ^Q ^D** | Common chords (other combos: sticky Ctrl + key) |
 | **Select** (mobile) | Drag to highlight many words, then **Copy** |
 | **Copy / Paste** | Clipboard helpers |
 | **App switch** | Shells **park on the server** until idle/max; return **auto-resumes** |

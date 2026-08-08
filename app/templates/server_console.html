@@ -54,19 +54,12 @@
   <div id="console-panes" class="ch-panes console-panes"></div>
   <div class="ch-keys" id="console-keys" aria-label="Control keys">
     <button type="button" id="console-ctrl-mod" class="ch-key ch-key-wide" data-key="ctrl-mod"
-            data-testid="console-ctrl-mod" title="Sticky Ctrl — next key is Ctrl+letter (or tap again to cancel)">Ctrl</button>
+            data-testid="console-ctrl-mod" title="Sticky Ctrl — next key is Ctrl+letter">Ctrl</button>
     <button type="button" class="ch-key" data-key="ctrl-c" title="Ctrl+C (interrupt)">^C</button>
-    <button type="button" class="ch-key" data-key="ctrl-d" title="Ctrl+D (EOF)">^D</button>
-    <button type="button" class="ch-key" data-key="ctrl-x" title="Ctrl+X">^X</button>
     <button type="button" class="ch-key" data-key="ctrl-s" title="Ctrl+S">^S</button>
-    <button type="button" class="ch-key" data-key="ctrl-z" title="Ctrl+Z">^Z</button>
-    <button type="button" class="ch-key" data-key="ctrl-l" title="Ctrl+L (clear)">^L</button>
-    <button type="button" class="ch-key" data-key="ctrl-a" title="Ctrl+A">^A</button>
-    <button type="button" class="ch-key" data-key="ctrl-e" title="Ctrl+E">^E</button>
-    <button type="button" class="ch-key" data-key="ctrl-w" title="Ctrl+W">^W</button>
-    <button type="button" class="ch-key" data-key="ctrl-r" title="Ctrl+R">^R</button>
-    <button type="button" class="ch-key" data-key="ctrl-u" title="Ctrl+U">^U</button>
-    <button type="button" class="ch-key" data-key="ctrl-k" title="Ctrl+K">^K</button>
+    <button type="button" class="ch-key" data-key="ctrl-x" title="Ctrl+X">^X</button>
+    <button type="button" class="ch-key" data-key="ctrl-q" title="Ctrl+Q">^Q</button>
+    <button type="button" class="ch-key" data-key="ctrl-d" title="Ctrl+D (EOF)">^D</button>
     <button type="button" class="ch-key" data-key="tab" title="Tab">Tab</button>
     <button type="button" class="ch-key" data-key="esc" title="Esc">Esc</button>
     <button type="button" class="ch-key" data-key="up" title="Up">↑</button>
@@ -80,9 +73,8 @@
     <button type="button" id="console-paste" class="ch-key ch-key-wide" data-testid="console-paste">Paste</button>
     <button type="button" id="console-disconnect" class="ch-key ch-key-danger" disabled data-testid="console-disconnect">✕</button>
   </div>
-  <div id="console-ctrl-letters" class="ch-ctrl-letters hidden" aria-label="Ctrl + letter">
-    {# Filled by JS: a–z when sticky Ctrl is on #}
-  </div>
+  {# No a–z chip grid — use sticky Ctrl + soft keyboard for other letters #}
+  <div id="console-ctrl-letters" class="ch-ctrl-letters hidden" aria-hidden="true"></div>
   {# Hidden legacy hooks kept for JS #}
   <button type="button" id="console-minimize" class="hidden" disabled aria-hidden="true"></button>
   <button type="button" id="console-restore" class="hidden" disabled aria-hidden="true"></button>
@@ -351,6 +343,23 @@
     if (btnCopy) btnCopy.disabled = !has;
   }
 
+  function setTerminalScrollLocked(term, locked) {
+    if (!term || !term.element) return;
+    var vp = term.element.querySelector('.xterm-viewport');
+    if (!vp) return;
+    if (locked) {
+      if (vp.dataset.phOverflow == null) {
+        vp.dataset.phOverflow = vp.style.overflowY || '';
+      }
+      vp.style.overflowY = 'hidden';
+      vp.style.touchAction = 'none';
+    } else {
+      vp.style.overflowY = vp.dataset.phOverflow || '';
+      vp.style.touchAction = '';
+      delete vp.dataset.phOverflow;
+    }
+  }
+
   function setSelectMode(on) {
     selectMode = !!on;
     dragSel = null;
@@ -360,7 +369,11 @@
     }
     if (selectHint) selectHint.classList.toggle('hidden', !selectMode);
     if (panesEl) panesEl.classList.toggle('is-select-mode', selectMode);
-    if (selectMode) setStatus('Drag to select, then Copy.');
+    // Lock scroll on every shell so top→bottom drag selects instead of scrolling
+    shells.forEach(function (s) {
+      setTerminalScrollLocked(s.term, selectMode);
+    });
+    if (selectMode) setStatus('Drag any direction to select, then Copy.');
     else setStatus('');
   }
 
@@ -374,8 +387,11 @@
     var rows = term.rows || 24;
     var cellW = rect.width / cols;
     var cellH = rect.height / rows;
-    var col = Math.floor((clientX - rect.left) / cellW);
-    var row = Math.floor((clientY - rect.top) / cellH);
+    // Clamp to screen edges so top→bottom drag past padding still hits last row
+    var x = Math.max(rect.left + 0.5, Math.min(rect.right - 0.5, clientX));
+    var y = Math.max(rect.top + 0.5, Math.min(rect.bottom - 0.5, clientY));
+    var col = Math.floor((x - rect.left) / cellW);
+    var row = Math.floor((y - rect.top) / cellH);
     col = Math.max(0, Math.min(cols - 1, col));
     row = Math.max(0, Math.min(rows - 1, row));
     var baseY = 0;
@@ -388,29 +404,45 @@
   }
 
   /**
-   * Apply a rectangular range in buffer coordinates.
+   * Apply selection in buffer coordinates.
+   * Always normalize start/end so top→bottom and bottom→top both work.
    * Same line → character range; multi-line → full lines (reliable on mobile).
    */
   function applyRangeSelection(term, a, b) {
     if (!term || !a || !b) return;
-    var y1 = a.bufY;
-    var y2 = b.bufY;
-    var c1 = a.col;
-    var c2 = b.col;
+    var start = a;
+    var end = b;
+    // Reading order: earlier buffer line first; same line → left column first
+    if (
+      a.bufY > b.bufY ||
+      (a.bufY === b.bufY && a.col > b.col)
+    ) {
+      start = b;
+      end = a;
+    }
     try {
-      if (y1 === y2) {
-        var start = Math.min(c1, c2);
-        var end = Math.max(c1, c2);
-        var len = Math.max(1, end - start + 1);
+      if (start.bufY === end.bufY) {
+        var len = Math.max(1, end.col - start.col + 1);
         if (typeof term.select === 'function') {
-          term.select(start, y1, len);
+          // row is buffer line index (not viewport-relative)
+          term.select(start.col, start.bufY, len);
         } else if (typeof term.selectLines === 'function') {
-          term.selectLines(y1, y1);
+          term.selectLines(start.bufY, start.bufY);
         }
       } else if (typeof term.selectLines === 'function') {
-        term.selectLines(Math.min(y1, y2), Math.max(y1, y2));
+        term.selectLines(start.bufY, end.bufY);
       }
-    } catch (e) {}
+    } catch (e) {
+      // Fallback: whole lines only
+      try {
+        if (typeof term.selectLines === 'function') {
+          term.selectLines(
+            Math.min(a.bufY, b.bufY),
+            Math.max(a.bufY, b.bufY)
+          );
+        }
+      } catch (e2) {}
+    }
     updateCopyBtn();
   }
 
@@ -543,6 +575,23 @@
     return { x: ev.clientX, y: ev.clientY };
   }
 
+  var _selectDocMove = null;
+  var _selectDocUp = null;
+
+  function clearSelectDocListeners() {
+    if (_selectDocMove) {
+      document.removeEventListener('touchmove', _selectDocMove, true);
+      document.removeEventListener('mousemove', _selectDocMove, true);
+      _selectDocMove = null;
+    }
+    if (_selectDocUp) {
+      document.removeEventListener('touchend', _selectDocUp, true);
+      document.removeEventListener('touchcancel', _selectDocUp, true);
+      document.removeEventListener('mouseup', _selectDocUp, true);
+      _selectDocUp = null;
+    }
+  }
+
   function onSelectPointerDown(ev) {
     if (!selectMode) return;
     var sh = activeShell();
@@ -552,53 +601,64 @@
     if (!cell) return;
     ev.preventDefault();
     ev.stopPropagation();
-    dragSel = { start: cell, end: cell };
+    // Anchor at finger-down (works for top→bottom and bottom→top)
+    dragSel = { start: cell, end: cell, term: sh.term };
     applyRangeSelection(sh.term, cell, cell);
+    // Track on document so drag continues if finger leaves the terminal
+    clearSelectDocListeners();
+    _selectDocMove = function (e) { onSelectPointerMove(e); };
+    _selectDocUp = function (e) { onSelectPointerUp(e); };
+    document.addEventListener('touchmove', _selectDocMove, { capture: true, passive: false });
+    document.addEventListener('mousemove', _selectDocMove, { capture: true });
+    document.addEventListener('touchend', _selectDocUp, { capture: true, passive: false });
+    document.addEventListener('touchcancel', _selectDocUp, { capture: true, passive: false });
+    document.addEventListener('mouseup', _selectDocUp, { capture: true });
   }
 
   function onSelectPointerMove(ev) {
     if (!selectMode || !dragSel || !dragSel.start) return;
-    var sh = activeShell();
-    if (!sh || !sh.term) return;
+    var term = dragSel.term || (activeShell() && activeShell().term);
+    if (!term) return;
     var pt = pointerFromEvent(ev);
-    var cell = cellAt(sh.term, pt.x, pt.y);
+    var cell = cellAt(term, pt.x, pt.y);
     if (!cell) return;
-    ev.preventDefault();
+    if (ev.cancelable) ev.preventDefault();
     dragSel.end = cell;
-    applyRangeSelection(sh.term, dragSel.start, cell);
+    applyRangeSelection(term, dragSel.start, cell);
   }
 
   function onSelectPointerUp(ev) {
-    if (!selectMode || !dragSel) return;
-    var sh = activeShell();
-    if (!sh || !sh.term) return;
-    if (ev && (ev.changedTouches || ev.type === 'mouseup' || ev.type === 'pointerup')) {
+    if (!selectMode || !dragSel) {
+      clearSelectDocListeners();
+      return;
+    }
+    var term = dragSel.term || (activeShell() && activeShell().term);
+    if (term && ev && (ev.changedTouches || ev.type === 'mouseup' || ev.type === 'pointerup' || ev.type === 'touchend' || ev.type === 'touchcancel')) {
       var pt = pointerFromEvent(ev);
-      var cell = cellAt(sh.term, pt.x, pt.y);
+      var cell = cellAt(term, pt.x, pt.y);
       if (cell) {
         dragSel.end = cell;
-        applyRangeSelection(sh.term, dragSel.start, cell);
+        applyRangeSelection(term, dragSel.start, cell);
       }
     }
+    clearSelectDocListeners();
     updateCopyBtn();
     var n = 0;
-    try { n = (sh.term.getSelection() || '').length; } catch (e) {}
+    try {
+      if (term) n = (term.getSelection() || '').length;
+    } catch (e) {}
+    if (!n && dragSel.start && dragSel.end && term) {
+      try { n = bufferRangeText(term, dragSel.start, dragSel.end).length; } catch (e2) {}
+    }
     if (n) setStatus(n + ' chars selected — tap Copy.');
   }
 
   function bindSelectHandlers(term) {
     if (!term || !term.element) return;
     var el = term.element;
-    // Capture phase so we beat xterm's single-word long-press handling
+    // Capture phase so we beat xterm scroll / long-press word select
     el.addEventListener('touchstart', onSelectPointerDown, { capture: true, passive: false });
-    el.addEventListener('touchmove', onSelectPointerMove, { capture: true, passive: false });
-    el.addEventListener('touchend', onSelectPointerUp, { capture: true, passive: false });
     el.addEventListener('mousedown', onSelectPointerDown, { capture: true });
-    el.addEventListener('mousemove', function (ev) {
-      if (!selectMode || !dragSel || !(ev.buttons & 1)) return;
-      onSelectPointerMove(ev);
-    }, { capture: true });
-    el.addEventListener('mouseup', onSelectPointerUp, { capture: true });
   }
 
   async function pasteFromClipboard() {
@@ -696,11 +756,9 @@
       btnCtrlMod.classList.toggle('is-on', stickyCtrl);
       btnCtrlMod.textContent = stickyCtrl ? 'Ctrl…' : 'Ctrl';
     }
-    if (ctrlLettersEl) {
-      ctrlLettersEl.classList.toggle('hidden', !stickyCtrl);
-    }
+    if (ctrlLettersEl) ctrlLettersEl.classList.add('hidden');
     if (stickyCtrl) {
-      setStatus('Ctrl on — tap a letter (^S, ^X, …) or type a key.');
+      setStatus('Ctrl on — type a letter (or use ^C ^S ^X ^Q).');
       try {
         var sh = activeShell();
         if (sh && sh.term) sh.term.focus();
@@ -727,22 +785,7 @@
     setStickyCtrl(false);
   }
 
-  // Build a–z chips for sticky Ctrl (mobile-friendly)
-  if (ctrlLettersEl) {
-    var i;
-    for (i = 0; i < 26; i++) {
-      (function (letter) {
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'ch-key';
-        b.textContent = letter;
-        b.title = 'Ctrl+' + letter.toUpperCase();
-        b.setAttribute('data-ctrl-letter', letter);
-        b.addEventListener('click', function () { sendCtrlLetter(letter); });
-        ctrlLettersEl.appendChild(b);
-      })(String.fromCharCode(97 + i));
-    }
-  }
+  // Sticky Ctrl uses soft keyboard / physical keys (no a–z chip wall)
 
   document.addEventListener('fullscreenchange', function () {
     if (!document.fullscreenElement) {
@@ -1316,11 +1359,10 @@
       window.location.href = '/console?host=' + serverId;
     });
   }
-  // Control-key strip — sticky Ctrl + common chords (mobile-friendly)
+  // Control-key strip — sticky Ctrl + few common chords
   var KEY_MAP = {
-    'ctrl-a': '\x01', 'ctrl-c': '\x03', 'ctrl-d': '\x04', 'ctrl-e': '\x05',
-    'ctrl-k': '\x0b', 'ctrl-l': '\x0c', 'ctrl-r': '\x12', 'ctrl-s': '\x13',
-    'ctrl-u': '\x15', 'ctrl-w': '\x17', 'ctrl-x': '\x18', 'ctrl-z': '\x1a',
+    'ctrl-c': '\x03', 'ctrl-d': '\x04', 'ctrl-q': '\x11',
+    'ctrl-s': '\x13', 'ctrl-x': '\x18',
     tab: '\t', esc: '\x1b',
     up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C'
   };
