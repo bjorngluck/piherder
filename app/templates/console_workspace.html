@@ -102,23 +102,25 @@
     background: #0b0f14;
   }
   /*
-    Keep inactive host iframes in the layout (hidden, not display:none) so
-    WebSocket sessions stay open when switching host tabs (esp. mobile Safari).
+    Inactive hosts stay in the layout with full size but inert.
+    Do NOT use visibility:hidden — mobile browsers freeze/kill WebSockets
+    in hidden iframes, so host 1 dies when you open host 2.
+    opacity:0 + pointer-events:none keeps the PTY alive.
   */
   .cw-frame {
     position: absolute; inset: 0; width: 100%; height: 100%;
     border: 0; background: #0b0f14;
-    visibility: hidden;
+    opacity: 0;
     pointer-events: none;
     z-index: 0;
+    /* Keep compositing layer but not interactive */
   }
   .cw-frame.is-active {
-    visibility: visible;
+    opacity: 1;
     pointer-events: auto;
-    z-index: 1;
+    z-index: 2;
   }
-  /* Active frame must fill the workspace so keyboard layout has a real height */
-  .cw-frames, .cw-frame.is-active {
+  .cw-frames, .cw-frame {
     min-height: 0;
   }
   .cw-empty {
@@ -273,18 +275,21 @@
       var on = h.id === activeId;
       h.elTab.classList.toggle('is-active', on);
       h.elFrame.classList.toggle('is-active', on);
+      // Explicit active flag for iframe JS (more reliable than getComputedStyle)
+      try {
+        h.elFrame.dataset.hostActive = on ? '1' : '0';
+      } catch (e) {}
     });
     setEmpty();
     layoutWorkspace();
     var cur = open.find(function (h) { return h.id === activeId; });
     if (cur) {
-      // Order: make frame visible first, then tell it to resume shells + refit
-      // (must not resume while visibility:hidden — that burns the resume token)
       try { cur.elFrame.focus(); } catch (e) {}
-      setTimeout(function () { nudgeFrame(cur.elFrame, 'activate'); }, 30);
-      setTimeout(function () { nudgeFrame(cur.elFrame, 'layout'); }, 120);
-      setTimeout(function () { nudgeFrame(cur.elFrame, 'refit'); }, 250);
-      setTimeout(function () { nudgeFrame(cur.elFrame, 'activate'); }, 450);
+      // Tell iframe it is the active host — resume/refit/focus shell
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'activate'); }, 40);
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'layout'); }, 140);
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'refit'); }, 280);
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'activate'); }, 500);
     }
   }
 
@@ -440,22 +445,13 @@
     }
   });
 
-  // Bootstrap: URL host wins, then restore saved tabs
+  // Bootstrap: only open the host from the URL (?host=).
+  // Do NOT auto-reopen every host from localStorage (that re-opened earlier hosts
+  // when the user only wanted a new one). localStorage still remembers tabs the
+  // user opens in this session via openHost/saveOpen.
   if (enabled) {
-    var saved = loadSavedIds();
-    var seen = {};
     if (initialId) {
       openHost(initialId, { activate: true });
-      seen[Number(initialId)] = true;
-    }
-    saved.forEach(function (id) {
-      if (seen[id]) return;
-      if (!hostMeta(id)) return;
-      openHost(id, { activate: !initialId && open.length === 0 });
-      seen[id] = true;
-    });
-    if (!open.length && initialId) {
-      // already handled
     }
   }
   setEmpty();

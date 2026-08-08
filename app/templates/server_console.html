@@ -874,9 +874,13 @@
   function isActiveHostFrame() {
     try {
       if (!window.frameElement) return true;
+      // Parent sets data-host-active=1 on the active host iframe
+      var flag = window.frameElement.getAttribute('data-host-active');
+      if (flag === '0') return false;
+      if (flag === '1') return true;
       var st = window.getComputedStyle(window.frameElement);
-      if (st.visibility === 'hidden' || st.display === 'none') return false;
-      if (st.pointerEvents === 'none') return false;
+      if (st.display === 'none') return false;
+      if (st.opacity === '0' || st.pointerEvents === 'none') return false;
       var r = window.frameElement.getBoundingClientRect();
       if (r.width < 40 || r.height < 40) return false;
     } catch (e) {}
@@ -1263,6 +1267,14 @@
         cross_site: 'Blocked: console only works inside PiHerder (same origin).',
         denied: data.detail || 'Denied.'
       };
+      // Grant cookie expired on server but UI still thought step-up was active
+      if (data.error === '2fa_required' || data.error === '2fa_bad_code' ||
+          data.error === 'passkey_required' || data.error === 'enroll_2fa') {
+        grantActive = false;
+        try { localStorage.removeItem(GRANT_LS); } catch (e0) {}
+        if (row2fa) row2fa.style.display = '';
+        setChromeCompact(false);
+      }
       throw new Error(map[data.error] || data.detail || ('Error: ' + (data.error || res.status)));
     }
     if (data.grant_active && !requireEvery) {
@@ -1423,16 +1435,15 @@
       // onclose follows
     };
 
-    // Keepalive only while this host iframe is the active tab
+    // Keepalive while WS is up (including background host tabs) so idle timer
+    // does not kill host 1 while you work on host 2.
     if (sh._pingTimer) {
       try { clearInterval(sh._pingTimer); } catch (e) {}
     }
     sh._pingTimer = setInterval(function () {
       if (!sh.ws || sh.ws.readyState !== 1) return;
-      if (!isActiveHostFrame()) return;
-      if (document.visibilityState && document.visibilityState !== 'visible') return;
       try { sh.ws.send(JSON.stringify({ type: 'ping' })); } catch (e) {}
-    }, 25000);
+    }, 20000);
 
     updateToolbar();
   }
@@ -1473,22 +1484,31 @@
   /** Called when parent multi-host workspace switches to this host tab. */
   function onHostTabActivate() {
     syncFleetGrantFromStorage();
-    // Ensure a shell pane is shown
+    // Ensure a shell pane is shown and marked active
     var live = shells.filter(function (s) { return !s.userClosed; });
     if (live.length) {
-      var cur = live.find(function (s) { return s.id === activeId; });
-      if (!cur || cur.minimized) {
+      var cur = live.find(function (s) { return s.id === activeId && !s.minimized; });
+      if (!cur) {
         var pick = live.find(function (s) { return !s.minimized; }) || live[0];
         if (pick) {
           pick.minimized = false;
           activate(pick.id);
         }
       } else {
+        // Force pane/tab active classes + resize even if already "selected"
         activate(cur.id);
       }
     }
-    // Resume parked PTYs now that we're visible
+    // Resume only if WS died while we were on another host
     resumeAllShells();
+    // If still connected (opacity keep-alive worked), just refit + focus
+    shells.forEach(function (sh) {
+      if (!sh.connected || !sh.ws || sh.ws.readyState !== 1) return;
+      try {
+        if (sh.fit) sh.fit.fit();
+        sh.ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
+      } catch (e) {}
+    });
     layoutForViewport();
     setTimeout(refitAll, 50);
     setTimeout(refitAll, 200);
@@ -1497,6 +1517,11 @@
       var sh = activeShell();
       if (sh && sh.term) {
         try { sh.term.focus(); } catch (e) {}
+      }
+      if (sh && sh.connected) {
+        setStatus('Active: ' + sh.label);
+      } else if (sh && sh.resumeId) {
+        setStatus('Resuming ' + sh.label + '…');
       }
     }, 400);
   }
@@ -1525,7 +1550,10 @@
     } catch (e) {
       setErr(String(e.message || e));
       setStatus('');
-      if (row2fa && (requireEvery || !grantActive)) row2fa.style.display = '';
+      // Always surface 2FA row when server demands step-up (grant may have expired)
+      if (!grantActive || requireEvery) {
+        if (row2fa) row2fa.style.display = '';
+      }
       return;
     }
     setStatus('Connecting…');

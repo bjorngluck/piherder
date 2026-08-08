@@ -45,9 +45,10 @@ Explicit close (shell **✕** or popup **✕**) still ends the session (`bye`). 
 ### Multiple hosts
 
 - Popup = **one host**.  
-- **+ Hosts** (or open `/console?host=<id>`) → **host tabs**; switch anytime.  
+- **+ Hosts** (or open `/console?host=<id>`) → **host tabs**; switch anytime (inactive tabs stay connected).  
+- **+ Host** only opens hosts you pick — it does not re-open old hosts automatically.  
 - Shell slots are **account-wide** (default **4** concurrent PTYs).  
-- One **fleet-wide** 2FA grant after passkey/TOTP covers **all hosts** until it expires (~10 min) or you tap **Lock**.
+- One **fleet-wide** 2FA grant after passkey/TOTP covers **all hosts** until it expires (~10 min) or you tap **Lock**. When the grant expires, passkey/TOTP appears again on the next **+ Shell**.
 
 ---
 
