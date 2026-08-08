@@ -37,14 +37,16 @@
 <div class="card p-4 mb-3 border border-border bg-surface/50" data-testid="console-security-note">
   <p class="text-sm text-text font-medium mb-1">Security</p>
   <ul class="text-xs text-muted space-y-1 list-disc pl-4">
-    <li><strong class="text-text">In-app only</strong> — tickets and WebSockets refuse cross-site Origin; cannot be embedded (CSP / frame-ancestors).</li>
-    <li>Private key stays in PiHerder memory — <strong class="text-text">never</strong> in the browser or on the WebSocket URL.</li>
-    <li>2FA step-up required: <strong class="text-text">TOTP, backup code, or passkey</strong>{% if require_2fa_every_shell %} (every shell){% endif %}.</li>
+    <li><strong class="text-text">In-app only</strong> — same-origin Origin; cannot be embedded (CSP).</li>
+    <li><strong class="text-text">No resume</strong> — each shell uses a single-use ticket; closing the tab ends the PTY forever.</li>
+    <li>Ticket bound to your <strong class="text-text">login session</strong>{% if bind_ip %}, <strong class="text-text">IP</strong>{% endif %}{% if bind_device %}, and <strong class="text-text">this browser</strong> (device cookie){% endif %} — re-checked about every {{ revalidate_sec }}s while open.</li>
+    <li>Logout, password change, or admin “sign out sessions” kills open shells within one revalidation interval.</li>
+    <li>Private key stays in PiHerder memory — never in the browser or on the WebSocket URL.</li>
+    <li>2FA step-up: <strong class="text-text">TOTP, backup code, or passkey</strong>{% if require_2fa_every_shell %} (every shell){% endif %}.</li>
     {% if not require_2fa_every_shell %}
-    <li>After step-up, more shells on <em>this host</em> for ~{{ grant_minutes }} min without re-prompt (use <strong class="text-text">Lock step-up</strong> to force re-auth).</li>
+    <li>After step-up, more shells on <em>this host</em> for ~{{ grant_minutes }} min without re-prompt (<strong class="text-text">Lock step-up</strong> forces re-auth).</li>
     {% endif %}
     <li>Idle ~{{ (idle_sec / 60)|int }} min · max session ~{{ (max_session_sec / 60)|int }} min · max <strong class="text-text">{{ max_shells }}</strong> shells.</li>
-    <li>XSS on this origin ≈ shell access — prefer HTTPS; disconnect when finished.</li>
   </ul>
 </div>
 

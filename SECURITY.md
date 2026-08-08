@@ -74,14 +74,15 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
 - **CSP (v1.2+):** leave `PIHERDER_CSP=true` in production. Use `PIHERDER_CSP_REPORT_ONLY=true` only while validating a tighter policy. Console assets (xterm) are vendored under `/static/vendor/xterm/` so they need no CDN allowlist.  
 - **Web SSH console** (v1.2+): default **off** (`PIHERDER_SSH_CONSOLE=false`). Designed as **in-app only** (not a public remote API):
   - **operator+ only** (viewer 403); session cookie required (no Bearer `/api/v1` console)
-  - Ticket mint requires **same-site browser** Origin/Referer; rejects `Sec-Fetch-Site: cross-site` (CSRF / foreign form)
-  - WebSocket requires **Origin == Host**; first message carries ticket — **not** query string (avoids proxy logs / Referer leak)
-  - **2FA step-up**: TOTP, backup code, or **passkey**; optional `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL=true` for every New shell
-  - Default grant (~10 min, per host + `session_version`) allows extra shells without re-prompt; **Lock step-up** / logout clears grant
-  - Single-use tickets bound to session version; concurrent + idle + max session limits
-  - Host private key **never** in browser (Paramiko PTY in herder only); CSP `frame-ancestors 'none'` blocks embedding
-  - Rate-limited ticket mint; audit `ssh_console_open` / `close` / `denied`
-  - Residual risk: XSS on the herder origin is still shell-equivalent — prefer HTTPS, keep flag off when unused  
+  - Ticket mint requires **same-site browser** Origin/Referer; rejects `Sec-Fetch-Site: cross-site`
+  - WebSocket requires **Origin == Host**; ticket in first WS message only (not query string)
+  - **No resume**: ticket is **single-use**; closed shells cannot reconnect with the same ticket
+  - Ticket bound to **login `session_version`**, **client IP** (default on), and **console device cookie** (default on)
+  - **Continuous revalidation** (~every 15s): session still valid, IP/device still match, user still operator+ — else PTY killed
+  - Logout / password change / admin “sign out sessions” invalidates open shells within one revalidation interval
+  - **2FA step-up**: TOTP, backup, or **passkey**; optional every-shell 2FA; short grant for multi-shell on same host
+  - Concurrent + idle + max session limits; PEM never in browser; CSP blocks embedding
+  - Residual risk: XSS on herder origin is still shell-equivalent; IP bind can break mobile networks (set `PIHERDER_SSH_CONSOLE_BIND_IP=false` only if needed)  
 
 
 - Put PiHerder behind trusted TLS; restrict network access where possible. Set `PIHERDER_PUBLIC_URL=https://…` so session cookies get the **Secure** flag (or force `COOKIE_SECURE=true`) and OIDC redirect URIs match.  

@@ -121,11 +121,15 @@ async def console_page(
         or getattr(server, "ssh_password_encrypted", None)
     )
     sv = user_session_version(user)
+    ip = client_ip_from_request(request) or ""
+    device_id = cons.ensure_device_id(request.cookies.get(cons.CONSOLE_DEVICE_COOKIE))
     grant_ok = cons.grant_valid(
         request.cookies.get(cons.CONSOLE_GRANT_COOKIE),
         user_id=int(user.id),
         server_id=int(server_id),
         session_version=sv,
+        client_ip=ip,
+        device_id=device_id,
     )
     remaining = cons.slots_remaining(int(user.id)) if enabled else 0
     has_passkeys = False
@@ -134,7 +138,7 @@ async def console_page(
     except Exception:
         has_passkeys = False
 
-    return templates_mod.templates.TemplateResponse(
+    response = templates_mod.templates.TemplateResponse(
         request=request,
         name="server_console.html",
         context={
@@ -148,6 +152,9 @@ async def console_page(
             "grant_active": grant_ok,
             "grant_minutes": cons.grant_minutes(),
             "require_2fa_every_shell": cons.require_2fa_every_shell(),
+            "bind_ip": cons.bind_ip_enabled(),
+            "bind_device": cons.bind_device_enabled(),
+            "revalidate_sec": cons.revalidate_sec(),
             "max_shells": cons.max_per_user(),
             "slots_remaining": remaining,
             "ticket_ttl": cons.ticket_ttl_sec(),
@@ -155,6 +162,14 @@ async def console_page(
             "max_session_sec": cons.max_session_sec(),
         },
     )
+    # Pin a console device id (HttpOnly) so tickets cannot be used from another browser
+    if cons.bind_device_enabled():
+        response.set_cookie(
+            cons.CONSOLE_DEVICE_COOKIE,
+            device_id,
+            **cookie_auth_kwargs(max_age=60 * 60 * 24 * 400),  # ~13 months
+        )
+    return response
 
 
 def _reject_cross_site(request: Request) -> Optional[JSONResponse]:
@@ -217,12 +232,15 @@ async def mint_console_ticket(
         )
 
     sv = user_session_version(user)
+    device_id = cons.ensure_device_id(request.cookies.get(cons.CONSOLE_DEVICE_COOKIE))
     grant_cookie = request.cookies.get(cons.CONSOLE_GRANT_COOKIE)
     has_grant = cons.grant_valid(
         grant_cookie,
         user_id=int(user.id),
         server_id=int(server_id),
         session_version=sv,
+        client_ip=ip,
+        device_id=device_id,
     )
     set_grant = False
 
@@ -247,6 +265,8 @@ async def mint_console_ticket(
             user_id=int(user.id),
             server_id=int(server_id),
             session_version=sv,
+            client_ip=ip,
+            device_id=device_id,
         )
     except cons.ConsoleDisabled as e:
         return JSONResponse({"ok": False, "error": "disabled", "detail": str(e)}, status_code=403)
@@ -264,13 +284,22 @@ async def mint_console_ticket(
         "require_2fa_every_shell": cons.require_2fa_every_shell(),
         "slots_remaining": max(0, cons.slots_remaining(int(user.id)) - 1),
         "max_shells": cons.max_per_user(),
+        "no_resume": True,
     }
     response = JSONResponse(body)
+    if cons.bind_device_enabled():
+        response.set_cookie(
+            cons.CONSOLE_DEVICE_COOKIE,
+            device_id,
+            **cookie_auth_kwargs(max_age=60 * 60 * 24 * 400),
+        )
     if set_grant:
         grant = cons.mint_grant(
             user_id=int(user.id),
             server_id=int(server_id),
             session_version=sv,
+            client_ip=ip,
+            device_id=device_id,
         )
         response.set_cookie(
             cons.CONSOLE_GRANT_COOKIE,
@@ -351,10 +380,13 @@ async def console_webauthn_verify(
         return JSONResponse({"ok": False, "error": "2fa_bad_code"}, status_code=403)
 
     sv = user_session_version(user)
+    ip = client_ip_from_request(request) or ""
+    device_id = cons.ensure_device_id(request.cookies.get(cons.CONSOLE_DEVICE_COOKIE))
     payload = {
         "ok": True,
         "grant_active": not cons.require_2fa_every_shell(),
         "grant_minutes": cons.grant_minutes(),
+        "no_resume": True,
     }
     # When every-shell 2FA is on, return a single-use ticket immediately after passkey
     if cons.require_2fa_every_shell():
@@ -365,6 +397,8 @@ async def console_webauthn_verify(
                 user_id=int(user.id),
                 server_id=int(server_id),
                 session_version=sv,
+                client_ip=ip,
+                device_id=device_id,
             )
             payload["ws_path"] = f"/servers/{server_id}/console/ws"
         except cons.ConsoleDenied as e:
@@ -373,11 +407,19 @@ async def console_webauthn_verify(
             )
     resp = JSONResponse(payload)
     resp.delete_cookie(wa_svc.CHALLENGE_COOKIE_AUTH, **cookie_delete_kwargs())
+    if cons.bind_device_enabled():
+        resp.set_cookie(
+            cons.CONSOLE_DEVICE_COOKIE,
+            device_id,
+            **cookie_auth_kwargs(max_age=60 * 60 * 24 * 400),
+        )
     if not cons.require_2fa_every_shell():
         grant = cons.mint_grant(
             user_id=int(user.id),
             server_id=int(server_id),
             session_version=sv,
+            client_ip=ip,
+            device_id=device_id,
         )
         resp.set_cookie(
             cons.CONSOLE_GRANT_COOKIE,
@@ -435,7 +477,9 @@ async def console_websocket(websocket: WebSocket, server_id: int):
     1. Origin must match Host (browser same-origin; no random WS clients)
     2. Session cookie + operator+
     3. First text message: ``{"type":"auth","ticket":"..."}`` (ticket never in URL)
-    4. Then binary/text PTY traffic; JSON resize control messages
+    4. Ticket bound to session_version + IP + device; **single-use (no resume)**
+    5. Continuous revalidation of session / IP / device while PTY is open
+    6. Then binary/text PTY traffic; JSON resize control messages
     """
     # Reject before accept when Origin is wrong (some clients never send Origin)
     if not cons.websocket_origin_allowed(websocket):
@@ -451,6 +495,9 @@ async def console_websocket(websocket: WebSocket, server_id: int):
     slot_held = False
     server_snap = None
     server_hostname = "?"
+    ticket_payload: dict = {}
+    expected_sv = 0
+    device_id = ""
 
     # --- auth handshake: wait for ticket in first message (not query string) ---
     ticket = ""
@@ -474,12 +521,22 @@ async def console_websocket(websocket: WebSocket, server_id: int):
     except Exception:
         ticket = ""
     if not ticket:
-        # Legacy fallback: query param (discouraged; will be removed)
-        ticket = websocket.query_params.get("ticket") or ""
-    if not ticket:
-        await websocket.send_text("\r\n*** Missing console ticket ***\r\n")
+        await websocket.send_text("\r\n*** Missing console ticket (no resume via URL) ***\r\n")
         await websocket.close(code=4403)
         return
+
+    def _ws_ip() -> str:
+        try:
+            xff = websocket.headers.get("x-forwarded-for") or websocket.headers.get(
+                "x-real-ip"
+            )
+            if xff:
+                return xff.split(",")[0].strip()
+            if websocket.client:
+                return websocket.client.host or ""
+        except Exception:
+            pass
+        return ""
 
     with Session(engine) as session:
         user = _user_from_cookie(websocket, session)
@@ -492,12 +549,19 @@ async def console_websocket(websocket: WebSocket, server_id: int):
             return
 
         sv = user_session_version(user)
+        expected_sv = sv
+        ip = _ws_ip()
+        device_id = cons.ensure_device_id(
+            websocket.cookies.get(cons.CONSOLE_DEVICE_COOKIE)
+        )
         try:
-            cons.consume_ticket(
+            ticket_payload = cons.consume_ticket(
                 ticket,
                 user_id=int(user.id),
                 server_id=int(server_id),
                 session_version=sv,
+                client_ip=ip,
+                device_id=device_id,
             )
             cons.try_acquire_slot(int(user.id))
             slot_held = True
@@ -506,22 +570,16 @@ async def console_websocket(websocket: WebSocket, server_id: int):
             await websocket.close(code=4403)
             return
 
-        try:
-            if websocket.client:
-                ip = websocket.client.host
-        except Exception:
-            ip = None
-        xff = websocket.headers.get("x-forwarded-for") or websocket.headers.get("x-real-ip")
-        if xff:
-            ip = xff.split(",")[0].strip()
-
         opened = datetime.utcnow()
         _audit(
             session,
             user_id=user.id,
             server_id=server_id,
             action="ssh_console_open",
-            details=f"ip={ip or '?'} user={user.email}",
+            details=(
+                f"ip={ip or '?'} user={user.email} "
+                f"bind_ip={cons.bind_ip_enabled()} bind_device={cons.bind_device_enabled()}"
+            ),
         )
         user_id = int(user.id)
         server_snap = SimpleNamespace(
@@ -549,17 +607,59 @@ async def console_websocket(websocket: WebSocket, server_id: int):
 
         await websocket.send_text(
             f"\r\n*** PiHerder console → {server_hostname} "
-            f"(idle {cons.idle_sec()}s / max {cons.max_session_sec()}s) ***\r\n"
+            f"(idle {cons.idle_sec()}s / max {cons.max_session_sec()}s · no resume) ***\r\n"
         )
 
         stop = asyncio.Event()
         last_activity = time.monotonic()
         started = time.monotonic()
+        last_revalidate = time.monotonic()
+
+        async def revalidate_bindings() -> bool:
+            """Return False if session/IP/device no longer valid (kill shell)."""
+            nonlocal last_revalidate
+            now = time.monotonic()
+            if now - last_revalidate < cons.revalidate_sec():
+                return True
+            last_revalidate = now
+            # Session cookie + session_version + role
+            with Session(engine) as session:
+                ok, reason = cons.session_still_valid(
+                    session, user_id=int(user_id), expected_sv=expected_sv
+                )
+                if not ok:
+                    await websocket.send_text(
+                        f"\r\n*** Session ended ({reason}) — reconnect from PiHerder ***\r\n"
+                    )
+                    return False
+            # Live cookie re-read for device id
+            cur_device = websocket.cookies.get(cons.CONSOLE_DEVICE_COOKIE) or device_id
+            cur_ip = _ws_ip()
+            ok, reason = cons.binding_still_valid(
+                ticket_payload, client_ip=cur_ip, device_id=cur_device
+            )
+            if not ok:
+                await websocket.send_text(
+                    f"\r\n*** Binding failed ({reason}) — shell closed ***\r\n"
+                )
+                return False
+            # Access token still present and same user
+            with Session(engine) as session:
+                u2 = _user_from_cookie(websocket, session)
+                if not u2 or int(u2.id) != int(user_id):
+                    await websocket.send_text(
+                        "\r\n*** Login session missing — shell closed ***\r\n"
+                    )
+                    return False
+            return True
 
         async def pump_ssh_out():
             nonlocal last_activity
             while not stop.is_set():
                 try:
+                    if not await revalidate_bindings():
+                        stop.set()
+                        break
                     if channel.recv_ready():
                         data = channel.recv(8192)
                         if not data:
@@ -605,6 +705,8 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                 try:
                     message = await asyncio.wait_for(websocket.receive(), timeout=1.0)
                 except asyncio.TimeoutError:
+                    if not await revalidate_bindings():
+                        stop.set()
                     continue
                 except WebSocketDisconnect:
                     stop.set()
