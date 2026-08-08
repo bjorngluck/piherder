@@ -59,13 +59,13 @@
         <div class="ph-console-popup-panel" id="ph-console-popup-panel">
           <div class="ph-console-popup-bar">
             <span class="ph-console-popup-title truncate">
-              <span class="text-muted text-xs font-normal uppercase tracking-wide mr-1">Console</span>
+              <span class="ph-console-popup-label text-muted text-xs font-normal uppercase tracking-wide mr-1">Console</span>
               {{ server.name }}
             </span>
             <div class="ph-console-popup-actions">
               <button type="button" id="ph-console-popup-max" class="btn btn-secondary text-xs min-h-9 px-2"
                       title="Fill the browser">Maximize</button>
-              <a href="/console?host={{ server.id }}" class="btn btn-secondary text-xs min-h-9 px-2 no-underline"
+              <a href="/console?host={{ server.id }}" class="btn btn-secondary text-xs min-h-9 px-2 no-underline ph-console-popup-extra"
                  title="Multi-host workspace">+ Hosts</a>
               <button type="button" id="ph-console-popup-close" class="btn btn-secondary text-xs min-h-9 px-2"
                       data-testid="console-popup-close">✕</button>
@@ -105,6 +105,25 @@
         }
         .ph-console-popup-title { font-size: 0.9rem; font-weight: 600; min-width: 0; }
         .ph-console-popup-actions { display: flex; flex-wrap: wrap; gap: 0.3rem; flex-shrink: 0; }
+        /* Maximized: thin chrome — more terminal pixels */
+        .ph-console-popup.is-max .ph-console-popup-bar {
+          padding: 0.2rem 0.4rem;
+          min-height: 0;
+        }
+        .ph-console-popup.is-max .ph-console-popup-title .ph-console-popup-label,
+        .ph-console-popup.is-max .ph-console-popup-extra {
+          display: none;
+        }
+        .ph-console-popup.is-max .ph-console-popup-title {
+          font-size: 0.75rem;
+          font-weight: 500;
+          opacity: 0.85;
+        }
+        .ph-console-popup.is-max .ph-console-popup-actions .btn {
+          min-height: 1.75rem;
+          padding: 0.15rem 0.45rem;
+          font-size: 0.7rem;
+        }
         .ph-console-popup-frame {
           flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #0b0f14;
         }
@@ -229,15 +248,22 @@
           }
           if (btnMax) btnMax.textContent = 'Maximize';
         }
-        function refitFrame() {
+        function postFrame(action, extra) {
           try {
             if (frame && frame.contentWindow) {
-              frame.contentWindow.postMessage(
-                { type: 'piherder-console', action: 'refit' },
-                window.location.origin
-              );
+              var msg = { type: 'piherder-console', action: action };
+              if (extra) {
+                var k;
+                for (k in extra) {
+                  if (Object.prototype.hasOwnProperty.call(extra, k)) msg[k] = extra[k];
+                }
+              }
+              frame.contentWindow.postMessage(msg, window.location.origin);
             }
           } catch (e) {}
+        }
+        function refitFrame() {
+          postFrame('refit');
         }
         function toggleMax() {
           if (!pop) return;
@@ -245,6 +271,8 @@
           pop.classList.toggle('is-max', on);
           applyPanelSize(on);
           if (btnMax) btnMax.textContent = on ? 'Restore' : 'Maximize';
+          // Tell embed to hide font/extra chrome when maximized
+          postFrame('compact', { on: on });
           setTimeout(refitFrame, 50);
           setTimeout(refitFrame, 200);
           setTimeout(refitFrame, 450);

@@ -12,7 +12,7 @@
 <div class="ch-banner banner-error">Enroll 2FA on <a href="/auth/account" class="text-primary">Account</a> first.</div>
 {% else %}
 
-{# One compact bar: 2FA (if needed) + open shell + tools #}
+{# Slim chrome: primary actions always; font/extra keys behind toggles #}
 <div class="ch-gate" id="console-gate" data-testid="console-gate"
      {% if grant_active and not require_2fa_every_shell %}data-grant="1"{% endif %}>
   <div class="ch-gate-row" id="console-2fa-row"
@@ -28,20 +28,30 @@
            {% if require_passkey and has_passkeys %}disabled{% endif %}>
     {% endif %}
   </div>
-  <div class="ch-gate-row">
+  <div class="ch-gate-row ch-gate-main">
     <button type="button" id="console-new-shell"
             class="btn btn-accent text-xs min-h-9 px-2" data-testid="console-new-shell">+ Shell</button>
     {% if not require_2fa_every_shell %}
-    <button type="button" id="console-revoke-grant" class="btn btn-secondary text-xs min-h-9 px-2"
+    <button type="button" id="console-revoke-grant" class="btn btn-secondary text-xs min-h-9 px-2 ch-hide-compact"
             data-testid="console-revoke-grant" title="Require 2FA again">Lock</button>
     {% endif %}
+    <button type="button" id="console-tools-toggle" class="btn btn-secondary text-xs min-h-9 px-2"
+            data-testid="console-tools-toggle" title="Font size and extras" aria-expanded="false">Aa</button>
+    <span id="console-status" class="ch-status" role="status"></span>
+    <span id="console-slot-info" class="ch-slots-inline ch-hide-compact"></span>
+  </div>
+  {# Font size / extras — hidden until Aa #}
+  <div class="ch-tools hidden" id="console-tools" data-testid="console-tools">
     <div class="ch-font" title="Font size">
       <button type="button" id="console-font-dec" class="btn btn-secondary text-xs min-h-9 px-2" data-testid="console-font-dec">A−</button>
       <span id="console-font-label" class="ch-font-label">14</span>
       <button type="button" id="console-font-inc" class="btn btn-secondary text-xs min-h-9 px-2" data-testid="console-font-inc">A+</button>
     </div>
-    <span id="console-status" class="ch-status" role="status"></span>
-    <span id="console-slot-info" class="ch-slots-inline"></span>
+    {% if not require_2fa_every_shell %}
+    <button type="button" class="btn btn-secondary text-xs min-h-9 px-2" id="console-revoke-grant-2"
+            title="Require 2FA again">Lock step-up</button>
+    {% endif %}
+    <span class="ch-slots-inline" id="console-slot-info-2"></span>
   </div>
   <p id="console-gate-help" class="hidden" aria-hidden="true"></p>
   <p id="console-error" class="hidden text-sm text-danger ch-err" role="alert"></p>
@@ -52,30 +62,35 @@
     <span class="ch-tab-empty" id="console-tab-empty">Tap <strong>+ Shell</strong></span>
   </div>
   <div id="console-panes" class="ch-panes console-panes"></div>
-  <div class="ch-keys" id="console-keys" aria-label="Control keys">
-    <button type="button" id="console-ctrl-mod" class="ch-key ch-key-wide" data-key="ctrl-mod"
-            data-testid="console-ctrl-mod" title="Sticky Ctrl — next key is Ctrl+letter">Ctrl</button>
-    <button type="button" class="ch-key" data-key="ctrl-c" title="Ctrl+C (interrupt)">^C</button>
-    <button type="button" class="ch-key" data-key="ctrl-s" title="Ctrl+S">^S</button>
-    <button type="button" class="ch-key" data-key="ctrl-x" title="Ctrl+X">^X</button>
-    <button type="button" class="ch-key" data-key="ctrl-q" title="Ctrl+Q">^Q</button>
-    <button type="button" class="ch-key" data-key="ctrl-d" title="Ctrl+D (EOF)">^D</button>
-    <button type="button" class="ch-key" data-key="tab" title="Tab">Tab</button>
-    <button type="button" class="ch-key" data-key="esc" title="Esc">Esc</button>
-    <button type="button" class="ch-key" data-key="up" title="Up">↑</button>
-    <button type="button" class="ch-key" data-key="down" title="Down">↓</button>
-    <button type="button" class="ch-key" data-key="left" title="Left">←</button>
-    <button type="button" class="ch-key" data-key="right" title="Right">→</button>
-    <button type="button" id="console-select-mode" class="ch-key ch-key-wide" data-testid="console-select-mode" title="Drag-select (mobile)">Select</button>
-    <button type="button" id="console-select-line" class="ch-key" data-testid="console-select-line" title="Select line">Line</button>
-    <button type="button" id="console-select-screen" class="ch-key" data-testid="console-select-screen" title="Select screen">Scr</button>
-    <button type="button" id="console-copy" class="ch-key ch-key-wide" disabled data-testid="console-copy">Copy</button>
-    <button type="button" id="console-paste" class="ch-key ch-key-wide" data-testid="console-paste">Paste</button>
-    <button type="button" id="console-disconnect" class="ch-key ch-key-danger" disabled data-testid="console-disconnect">✕</button>
+  {# Primary key strip (always) + optional extras #}
+  <div class="ch-keys-bar" id="console-keys-bar">
+    <div class="ch-keys ch-keys-primary" id="console-keys" aria-label="Control keys">
+      <button type="button" id="console-ctrl-mod" class="ch-key ch-key-wide" data-key="ctrl-mod"
+              data-testid="console-ctrl-mod" title="Sticky Ctrl">Ctrl</button>
+      <button type="button" class="ch-key" data-key="ctrl-c" title="Ctrl+C">^C</button>
+      <button type="button" class="ch-key" data-key="ctrl-s" title="Ctrl+S">^S</button>
+      <button type="button" class="ch-key" data-key="ctrl-x" title="Ctrl+X">^X</button>
+      <button type="button" class="ch-key" data-key="ctrl-q" title="Ctrl+Q">^Q</button>
+      <button type="button" id="console-select-mode" class="ch-key ch-key-wide" data-testid="console-select-mode" title="Select text">Sel</button>
+      <button type="button" id="console-copy" class="ch-key ch-key-wide" disabled data-testid="console-copy">Copy</button>
+      <button type="button" id="console-paste" class="ch-key ch-key-wide" data-testid="console-paste">Paste</button>
+      <button type="button" id="console-disconnect" class="ch-key ch-key-danger" disabled data-testid="console-disconnect">✕</button>
+      <button type="button" id="console-keys-more" class="ch-key ch-key-wide" data-testid="console-keys-more"
+              title="More keys" aria-expanded="false">···</button>
+    </div>
+    <div class="ch-keys ch-keys-extra hidden" id="console-keys-extra" aria-label="More keys">
+      <button type="button" class="ch-key" data-key="ctrl-d" title="Ctrl+D">^D</button>
+      <button type="button" class="ch-key" data-key="tab" title="Tab">Tab</button>
+      <button type="button" class="ch-key" data-key="esc" title="Esc">Esc</button>
+      <button type="button" class="ch-key" data-key="up" title="Up">↑</button>
+      <button type="button" class="ch-key" data-key="down" title="Down">↓</button>
+      <button type="button" class="ch-key" data-key="left" title="Left">←</button>
+      <button type="button" class="ch-key" data-key="right" title="Right">→</button>
+      <button type="button" id="console-select-line" class="ch-key" data-testid="console-select-line" title="Select line">Line</button>
+      <button type="button" id="console-select-screen" class="ch-key" data-testid="console-select-screen" title="Select screen">Scr</button>
+    </div>
   </div>
-  {# No a–z chip grid — use sticky Ctrl + soft keyboard for other letters #}
   <div id="console-ctrl-letters" class="ch-ctrl-letters hidden" aria-hidden="true"></div>
-  {# Hidden legacy hooks kept for JS #}
   <button type="button" id="console-minimize" class="hidden" disabled aria-hidden="true"></button>
   <button type="button" id="console-restore" class="hidden" disabled aria-hidden="true"></button>
   <button type="button" id="console-maximize" class="hidden" aria-hidden="true"></button>
@@ -118,18 +133,38 @@
   .ch-font-label { font-size: 0.7rem; font-family: ui-monospace, monospace; width: 1.4rem; text-align: center; color: var(--color-muted); }
   .ch-banner { margin: 0.5rem; padding: 0.75rem; border-radius: 0.4rem; }
   .ch-gate {
-    flex-shrink: 0; padding: 0.3rem 0.4rem;
+    flex-shrink: 0; padding: 0.25rem 0.35rem;
     border-bottom: 1px solid var(--color-border, #333);
     background: var(--color-surface, #12171e);
   }
   .ch-gate-row { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
+  .ch-gate-main { gap: 0.25rem; }
+  .ch-tools {
+    display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center;
+    padding: 0.25rem 0 0.1rem;
+    border-top: 1px dashed var(--color-border, #333);
+    margin-top: 0.25rem;
+  }
+  .ch-tools.hidden { display: none; }
   .ch-totp {
     width: 6.5rem; min-height: 2.25rem; padding: 0.25rem 0.4rem;
     border: 1px solid var(--color-border, #333); border-radius: 0.35rem;
     background: var(--color-bg, #0b0f14); color: inherit;
   }
-  .ch-status { font-size: 0.7rem; color: var(--color-muted); }
+  .ch-status { font-size: 0.7rem; color: var(--color-muted); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ch-err { margin: 0.25rem 0 0; }
+  /* Compact / maximized: minimal chrome, max terminal */
+  .ch.is-compact .ch-hide-compact { display: none !important; }
+  .ch.is-compact .ch-gate { padding: 0.15rem 0.3rem; }
+  .ch.is-compact .ch-shell-tabs { padding: 0.15rem 0.3rem; min-height: 0; }
+  .ch.is-compact .console-tab { min-height: 1.55rem; padding: 0.2rem 0.4rem; font-size: 0.68rem; }
+  .ch.is-compact .ch-keys { padding: 0.15rem 0.25rem; gap: 0.15rem; }
+  .ch.is-compact .ch-key { min-height: 1.65rem; min-width: 1.75rem; font-size: 0.65rem; }
+  .ch.is-compact .ch-tools { display: none !important; }
+  .ch.is-compact #console-tools-toggle.is-on + .ch-status { /* keep */ }
+  .ch.is-compact.ch-tools-open .ch-tools { display: flex !important; }
+  .ch.is-kb-layout .ch-tools { display: none !important; }
+  .ch.is-kb-layout .ch-keys-extra { display: none !important; }
   .ch-workspace {
     flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
     border: 0; border-radius: 0; overflow: hidden;
@@ -164,12 +199,20 @@
   .console-pane .xterm .xterm-selection div {
     background-color: rgba(56, 139, 253, 0.35) !important;
   }
+  .ch-keys-bar {
+    flex-shrink: 0;
+    border-top: 1px solid var(--color-border, #333);
+    background: var(--color-surface, #12171e);
+  }
   .ch-keys {
     display: flex; flex-wrap: wrap; gap: 0.2rem;
     padding: 0.25rem 0.35rem;
-    border-top: 1px solid var(--color-border, #333);
-    background: var(--color-surface, #12171e); flex-shrink: 0;
   }
+  .ch-keys-extra {
+    border-top: 1px solid var(--color-border, #333);
+    padding-top: 0.2rem;
+  }
+  .ch-keys-extra.hidden { display: none; }
   .ch-key {
     min-width: 2rem; min-height: 1.85rem; padding: 0.15rem 0.4rem;
     font-size: 0.7rem; font-family: ui-monospace, monospace;
@@ -253,6 +296,16 @@
   var fontLabel = document.getElementById('console-font-label');
   var scrollSel = document.getElementById('console-scrollback');
   var workspaceShell = document.getElementById('console-workspace-shell');
+  var chRootEl = document.getElementById('console-host-app');
+  var toolsPanel = document.getElementById('console-tools');
+  var btnToolsToggle = document.getElementById('console-tools-toggle');
+  var keysExtra = document.getElementById('console-keys-extra');
+  var btnKeysMore = document.getElementById('console-keys-more');
+  var slotInfo2 = document.getElementById('console-slot-info-2');
+  var btnRevoke2 = document.getElementById('console-revoke-grant-2');
+  var chromeCompact = false;
+  var toolsOpen = false;
+  var keysExtraOpen = false;
   var popupMode = {{ 'true' if popup_mode else 'false' }};
   var scrollbackDefault = {{ (scrollback_default|default(2000))|int }};
   var windowMaxFallback = false;
@@ -934,10 +987,61 @@
     if (btnNew) btnNew.disabled = shells.length >= maxShells;
     if (tabEmpty) tabEmpty.style.display = shells.length ? 'none' : '';
     if (slotInfo) {
-      var free = Math.max(0, maxShells - shells.length);
       slotInfo.textContent = shells.length + '/' + maxShells;
     }
+    if (slotInfo2) {
+      slotInfo2.textContent = 'Shells ' + shells.length + '/' + maxShells;
+    }
     updateCopyBtn();
+    // Auto-compact when a shell is connected and 2FA is done — more terminal
+    maybeAutoCompact();
+  }
+
+  function setChromeCompact(on) {
+    chromeCompact = !!on;
+    if (chRootEl) chRootEl.classList.toggle('is-compact', chromeCompact);
+    // Closing tools when entering compact keeps terminal tall
+    if (chromeCompact && !toolsOpen) {
+      if (toolsPanel) toolsPanel.classList.add('hidden');
+      if (btnToolsToggle) btnToolsToggle.setAttribute('aria-expanded', 'false');
+    }
+    setTimeout(refitActive, 40);
+  }
+
+  function maybeAutoCompact() {
+    // Compact when we have live shells (and no 2FA row) unless user forced tools open
+    var live = shells.some(function (s) { return s.connected; });
+    var need2fa = row2fa && row2fa.style.display !== 'none' && !grantActive;
+    if (live && !need2fa && !toolsOpen && !keysExtraOpen) {
+      setChromeCompact(true);
+    }
+  }
+
+  function setToolsOpen(on) {
+    toolsOpen = !!on;
+    if (toolsPanel) toolsPanel.classList.toggle('hidden', !toolsOpen);
+    if (btnToolsToggle) {
+      btnToolsToggle.classList.toggle('is-on', toolsOpen);
+      btnToolsToggle.setAttribute('aria-expanded', toolsOpen ? 'true' : 'false');
+    }
+    if (chRootEl) chRootEl.classList.toggle('ch-tools-open', toolsOpen);
+    // Opening tools temporarily leaves compact feel for font controls
+    if (toolsOpen) setChromeCompact(false);
+    else maybeAutoCompact();
+    setTimeout(refitActive, 40);
+  }
+
+  function setKeysExtraOpen(on) {
+    keysExtraOpen = !!on;
+    if (keysExtra) keysExtra.classList.toggle('hidden', !keysExtraOpen);
+    if (btnKeysMore) {
+      btnKeysMore.classList.toggle('is-on', keysExtraOpen);
+      btnKeysMore.setAttribute('aria-expanded', keysExtraOpen ? 'true' : 'false');
+      btnKeysMore.textContent = keysExtraOpen ? '···' : '···';
+    }
+    if (keysExtraOpen) setChromeCompact(false);
+    else maybeAutoCompact();
+    setTimeout(refitActive, 40);
   }
 
   function activate(id) {
@@ -1440,9 +1544,33 @@
   var mobileSelectNudge = false;
   if (btnFontInc) btnFontInc.addEventListener('click', function () { applyFontSize(fontSize + 1); });
   if (btnFontDec) btnFontDec.addEventListener('click', function () { applyFontSize(fontSize - 1); });
+  if (btnToolsToggle) {
+    btnToolsToggle.addEventListener('click', function () { setToolsOpen(!toolsOpen); });
+  }
+  if (btnKeysMore) {
+    btnKeysMore.addEventListener('click', function () { setKeysExtraOpen(!keysExtraOpen); });
+  }
+  if (btnRevoke2) {
+    btnRevoke2.addEventListener('click', function () {
+      if (btnRevoke) btnRevoke.click();
+    });
+  }
   if (scrollSel) {
     scrollSel.addEventListener('change', function () {
       applyScrollback(scrollSel.value);
+    });
+  }
+  // Extra keys live outside #console-keys — still handle clicks
+  if (keysExtra) {
+    keysExtra.addEventListener('click', function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest('[data-key]') : null;
+      if (!btn) return;
+      var name = btn.getAttribute('data-key') || '';
+      var seq = KEY_MAP[name];
+      if (seq != null) {
+        sendControl(seq);
+        if (stickyCtrl) setStickyCtrl(false);
+      }
     });
   }
   if (btnClosePopup) {
@@ -1488,6 +1616,12 @@
       setTimeout(layoutForViewport, 150);
       setTimeout(refitActive, 50);
       setTimeout(refitActive, 200);
+    }
+    if (ev.data.action === 'compact') {
+      // Parent popup maximized → slim chrome
+      setToolsOpen(false);
+      setKeysExtraOpen(false);
+      setChromeCompact(ev.data.on !== false);
     }
   });
   document.addEventListener('visibilitychange', function () {
