@@ -2,11 +2,11 @@
 
 ## What this is
 
-PiHerder stores TLS **fullchain + private key** encrypted (Fernet / `PIHERDER_MASTER_KEY`) and **deploys** them to fleet hosts over SSH via **service maps** (path, layout, permissions, optional restart command).
+PiHerder stores TLS **fullchain + private key** encrypted (Fernet / `PIHERDER_MASTER_KEY`) and **deploys** them to fleet hosts over SSH via **deploy targets** (path, layout, permissions, optional restart command, post-deploy verify).
 
 ## Why it exists
 
-One Let’s Encrypt cert often feeds NPM, UniFi, reverse proxies, and app containers. Copying PEMs by hand is error-prone and expires on different schedules. The vault is a single encrypted store; maps describe each consumer; renew/redeploy keeps them aligned.
+One Let’s Encrypt cert often feeds NPM, UniFi, reverse proxies, and app containers. Copying PEMs by hand is error-prone and expires on different schedules. The vault is a single encrypted store; **deploy targets** describe each consumer; renew/redeploy keeps them aligned.
 
 <figure class="ph-figure" markdown>
   ![Certificates list](../assets/screenshots/certificates-list.png)
@@ -15,7 +15,7 @@ One Let’s Encrypt cert often feeds NPM, UniFi, reverse proxies, and app contai
 
 <figure class="ph-figure" markdown>
   ![First-cert setup](../assets/screenshots/certificates-setup.png)
-  <figcaption>First-cert setup guide — vault → edge map → fleet maps.</figcaption>
+  <figcaption>First-cert setup guide — vault → edge → fleet deploy targets.</figcaption>
 </figure>
 
 ---
@@ -24,18 +24,23 @@ One Let’s Encrypt cert often feeds NPM, UniFi, reverse proxies, and app contai
 
 Guided path: **Catalog → Certificates → First-cert setup** (`/certificates/setup`).
 
-1. **Get material in** — NPM pull or **Upload PEM**.  
-2. **Optional — self-managed edge map:** **Apply to this PiHerder** creates a visible mapping for this instance’s Caddy (`./certs`, no SSH) and forces a Caddy admin reload so live TLS picks up the new PEMs. While **mapping on**, **NPM auto-renew / Renew** re-applies here with fleet maps. **Remove mapping** stops renew re-apply (files under `certs/` are left in place).  
-3. **Fleet:** open the cert → **Add service map** — preset + **write mode** (direct SFTP or **stage + sudo install** for least-priv).  
-4. **Deploy** that map (or all maps).  
-5. Confirm files on the host and that the app reloaded.  
-6. Enable auto-renew for NPM-sourced certs if desired.  
+1. **Get material in** — NPM pull, **Upload PEM**, or [obtain via ACME/Certbot](certificates-obtain-acme.md) then upload.  
+2. **Optional — this PiHerder (edge):** **Apply to this PiHerder** writes Caddy’s `./certs` (no SSH) and reloads Caddy. While mapping is on, NPM renew re-applies here with fleet deploys. **Remove mapping** stops renew re-apply (files under `certs/` stay).  
+3. **Fleet:** open the cert → **Add deploy target** — guided **wizard** (name · server · optional service · cert type · destination · filenames · perms · restart · sudoers · **Simulate** · save).  
+4. **Deploy** that target (or **Deploy all**) from the top bar or target modal.  
+5. **Verify** — post-deploy host fingerprint (and optional TLS port probe) marks the target verified or failed.  
+6. Confirm the app reloaded; enable auto-renew for NPM-sourced certs if desired.  
 
-Map cards show **in sync** when the last deploy fingerprint matches the vault (redeploy is a no-op unless you force), or **stale** after vault material changes.
+Targets show **in sync** when the last deploy fingerprint matches the vault (redeploy is a no-op unless you force), or **stale** after vault material changes. Failed deploy/verify can open **Notifications** (auto-resolve on success).
+
+<figure class="ph-figure" markdown>
+  ![Deploy-target wizard](../assets/screenshots/certificates-deploy-wizard.png)
+  <figcaption>Add deploy target wizard — layout, paths, sudoers, Simulate privileges.</figcaption>
+</figure>
 
 <figure class="ph-figure" markdown>
   ![Certificate detail](../assets/screenshots/certificates-detail.png)
-  <figcaption>Certificate detail — service maps, presets, path preview, sync status.</figcaption>
+  <figcaption>Certificate detail — deploy targets, edge card, top Deploy actions.</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
@@ -43,26 +48,27 @@ Map cards show **in sync** when the last deploy fingerprint matches the vault (r
   <figcaption>Self-managed edge mapping for this PiHerder instance (Caddy `./certs`).</figcaption>
 </figure>
 
-### Write modes (fleet maps)
+### Write modes (fleet targets)
 
 | Mode | When | How |
 |------|------|-----|
 | **Direct SFTP** | SSH user owns the target directory (e.g. under `~/`) | Write PEMs in place; optional chown |
-| **Stage + sudo install** | Root-owned paths (`/etc/ssl`, Docker volume data dirs) | SFTP into `~/.piherder/cert-stage/<map-id>/`, then `sudo install` for mkdir/mode/owner |
+| **Stage + sudo install** | Root-owned paths (`/etc/ssl`, Docker volume data dirs) | SFTP into `~/.piherder/cert-stage/<id>/`, then `sudo install` for mkdir/mode/owner |
 
-The map form shows a **suggested sudoers** drop-in for stage_sudo (install only). Post-deploy restarts may need `systemctl` lines or membership in group `docker` — not free-form root shell.
+The wizard shows a **suggested sudoers** drop-in for stage_sudo (install only) and can **Simulate** remote `sudo -n` / write probes. Post-deploy restarts may need `systemctl` lines or membership in group `docker` — not free-form root shell.
 
 ### Known edges (cert distribute) {#cert-distribute-edges}
 
-Documented on **First-cert setup** and here so operators are not surprised. There is no guided “fix sudoers” wizard — use the suggested snippet and verify with `sudo -n`.
+Documented on **First-cert setup** and here so operators are not surprised. Sudoers are still **operator-installed** (copy drop-in); the wizard helps generate and simulate them.
 
 | Edge | Detail |
 |------|--------|
-| **Home path** | Suggested sudoers assumes home is `/home/<ssh-user>` and stage is `~/.piherder/cert-stage/<map-id>/`. Custom homes need hand-edited paths before `visudo -cf`. |
-| **Exact sudo match** | After installing the drop-in, `sudo -n install …` must not prompt. Deploy fails with “sudoers?” when the line does not match the real command. |
-| **Post-deploy** | `systemctl` / `docker compose` need their own allow lines or group membership — the snippet only best-effort hints (e.g. HAProxy). |
+| **Home path** | Snippet uses the selected server’s SSH user and default home (`/home/<user>` or absolute paths). Custom homes need correct absolute paths before `visudo -cf`. |
+| **Exact sudo match** | After installing the drop-in, `sudo -n install …` must not prompt. Deploy errors are humanized (sudoers mismatch, permission, path). |
+| **Post-deploy** | `systemctl` / `docker compose` need their own allow lines or group membership — the snippet only best-effort hints. |
 | **Write mode** | Prefer **Stage + sudo install** for root-owned destinations; **direct** only when the SSH user owns the target directory. |
-| **`~/` expansion** | Snippet expands `~/…` remote dirs to absolute `/home/<user>/…` for sudoers matching. |
+| **`~/` expansion** | Snippet expands `~/…` remote dirs to absolute paths for sudoers matching. |
+| **One layout per new target** | New targets choose **pair**, **combined**, or **pfx** only. Legacy compound layouts still deploy until edited. |
 
 NPM **Certificates** tab lists certs as **dense stacked cards** (mobile-friendly), with **Pull into PiHerder** as plain button text (brand mark is not used inside solid primary buttons).
 
@@ -73,14 +79,16 @@ NPM **Certificates** tab lists certs as **dense stacked cards** (mobile-friendly
 | Piece | What it is |
 |-------|------------|
 | **Vault** | One certificate identity in PiHerder (domains, expiry, encrypted PEMs) |
-| **Service map** | One consumer of that cert: host + directory + layout/filenames + mode/owner + optional post-deploy command |
-| **Deploy** | SSH write files → chmod/chown → run restart command |
+| **This PiHerder (edge)** | Optional self-managed consumer on the herder host (Caddy `./certs`) |
+| **Deploy target** | One fleet consumer: host + directory + layout/filenames + mode/owner + restart + optional verify |
+| **Deploy** | SSH write files → chmod/chown → run restart → optional fingerprint / TLS probe |
+| **Verify** | Host openssl/marker fingerprint vs vault; optional TLS port probe |
 
 Typical flow:
 
 1. **Get material in** — NPM → Certificates → Pull, or **Upload PEM**
-2. **Map consumers** — on the cert detail page, add a **service map** per app (NPM volume, UniFi PFX path, Docker bind-mount, …)
-3. **Deploy** — per map or “Deploy all maps”; renew/auto-renew re-deploys maps after a successful NPM renew
+2. **Add deploy targets** — wizard per consumer (NPM volume, UniFi PFX path, Docker bind-mount, …)
+3. **Deploy** — per target or **Deploy all**; renew/auto-renew re-deploys after a successful NPM renew
 
 PiHerder does **not** reconfigure the app’s TLS settings. Point the service at the files you wrote (or the volume that mounts them).
 
@@ -92,38 +100,47 @@ PiHerder does **not** reconfigure the app’s TLS settings. Point the service at
 
 **Catalog → Certificates** (`/certificates`) — same Catalog tabs as Integrations / Templates / Network.
 
-List shows expiry chips, source (npm / upload), map count, host names, and deploy status. Certs with **no maps** get an **Add map** shortcut; unmapped first certs can use **First-cert setup**.
+List shows expiry chips, source (npm / upload), target count, host names, and deploy status. Certs with **no targets** get an **Add deploy target** shortcut; unmapped first certs can use **First-cert setup**.
 
 ## Sources
 
 1. **NPM pull** — Catalog → Integrations → NPM → Certificates → Pull  
-2. **PEM upload** — Catalog → Certificates → **Upload PEM** (cleartext paste; encrypted immediately; never shown again)
+2. **PEM upload** — Catalog → Certificates → **Upload PEM** (cleartext paste; encrypted immediately; never shown again)  
+3. **Obtain PEMs yourself (ACME)** — novice cookbook + optional Certbot helper: **[Obtain a certificate (ACME)](certificates-obtain-acme.md)**  
 
-## Service maps (deploy targets)
+PiHerder vaults and **deploys** material; it does not yet issue ACME certs in-app. Use NPM or Certbot (script or CLI), then upload or pull.
 
-Each map answers: *for this service, where and how should the cert land?*
+## Deploy targets
+
+Each target answers: *for this service, where and how should the cert land?*
+
+Targets are **per service** (not whole stack). The cert detail page groups targets **under each host** (1–N deploys per machine). List rows are compact — click opens a detail modal (Deploy · Edit · Remove · sudoers copy).
 
 | Field | Purpose |
 |-------|---------|
 | **Label** | Human name (“NPM custom SSL”, “UniFi”) |
 | **Host** | PiHerder server (SSH) |
-| **Directory** | Remote path (`~/certs` or absolute, e.g. `/opt/stacks/npm/certs`) |
-| **Layout** | Which files to write (see below) |
+| **Service** (optional) | Linked fleet service when known |
+| **Directory** | **Final** remote folder (`~/certs` or absolute) — staging is an implementation detail of stage+sudo |
+| **Layout / cert type** | Which files to write (see below) |
 | **Filenames** | Exact names the app expects |
 | **Mode / owner** | `chmod` + optional `chown` |
-| **Post-deploy** | Shell command after write (e.g. `docker compose … restart`) |
+| **Post-deploy** | Restart recipe → real shell command (compose / systemctl / custom) |
+| **Verify** | Optional TLS host/port probe after deploy; host fingerprint always attempted when possible |
 
-### Layouts
+### Layouts (new targets)
 
-| Layout | Files written |
-|--------|----------------|
-| **pair** | `fullchain.pem` + `privkey.pem` (defaults; rename as needed) |
-| **combined** | One PEM: private key then fullchain |
-| **pair_and_combined** | Both |
-| **pair_and_pfx** | Pair + PKCS#12 via host `openssl pkcs12` |
-| **pair_combined_pfx** | All three |
+| Layout | Files written | When |
+|--------|----------------|------|
+| **pair** | `fullchain.pem` + `privkey.pem` (defaults; rename as needed) | Nginx, Caddy, most Docker TLS mounts |
+| **combined** | One PEM: private key then fullchain | HAProxy / some “snakeoil” apps |
+| **pfx** | PKCS#12 via host `openssl pkcs12` | Windows / UniFi-style |
 
-Presets in the UI fill common patterns; always adjust path and restart for your stack.
+**Legacy** compound layouts (`pair_and_combined`, `pair_and_pfx`, …) still **deploy** until edited; the wizard no longer offers them for **new** targets. Need both pair and PFX? → two deploy targets.
+
+### Wizard (modal)
+
+On cert detail: **Add deploy target** opens a multi-step modal (name → server → type → destination → perms → restart → privileges / sudoers → **Simulate** → save). **Replace PEM** is under the page ⋮ menu (not a permanent page slab).
 
 ### How deploy writes files
 
@@ -192,7 +209,7 @@ sudo cp -a /etc/ssl/snakeoil.pem /etc/ssl/snakeoil.pem.backup
 | Key auth | **Test connection** succeeds |
 | Docker feature | Off is fine |
 
-#### 3. Service map (Catalog → Certificates → cert detail)
+#### 3. Deploy target (Catalog → Certificates → cert detail → Add deploy target)
 
 | Field | Value |
 |--------|--------|
@@ -213,7 +230,7 @@ sudo install -o root -g root -m 644 /home/piherder/certs/snakeoil.pem /etc/ssl/s
 
 #### 4. Deploy and check
 
-1. Save the map → **Deploy** (or **Deploy all maps**).  
+1. Save the target → **Deploy** (or **Deploy all**). Optionally **Verify**.  
 2. On the host:
 
    ```bash
@@ -225,10 +242,10 @@ sudo install -o root -g root -m 644 /home/piherder/certs/snakeoil.pem /etc/ssl/s
 
 #### Using a full-sudo user (`bjorn`) instead
 
-Same map, but Directory can still be staging under that user’s home (`/home/bjorn/certs`) and post-deploy uses the same `sudo install … && sudo systemctl restart haproxy` pattern. Full sudo means you may not need a separate `piherder-certs` drop-in — still prefer **not** relying on interactive password prompts (`sudo -n` must work for automation).
+Same target, but Directory can still be staging under that user’s home (`/home/bjorn/certs`) and post-deploy uses the same `sudo install … && sudo systemctl restart haproxy` pattern. Full sudo means you may not need a separate `piherder-certs` drop-in — still prefer **not** relying on interactive password prompts (`sudo -n` must work for automation).
 
-!!! note "Refine later"
-    **UI presets (v0.6):** map form includes **OctoPi / HAProxy**, **Grafana volume**, **NPM custom SSL**, **Docker bind**, and **UniFi PFX**. Paths and post-deploy commands are starting points — edit for your host and sudoers.
+!!! note "Wizard presets"
+    The **deploy target wizard** can prefill common patterns (compose restart, systemctl, stage+sudo). Paths and post-deploy commands are starting points — edit for your host and sudoers. Prefer **Simulate** before the first real deploy.
 
 ### Cookbook: Grafana TLS into a Docker named volume
 
@@ -260,7 +277,7 @@ docker run --rm -v grafana_grafana_data:/data alpine:3.20 \
 cd /home/bjorn/docker/grafana && docker compose restart grafana   # adjust path
 ```
 
-#### Service map (recommended — no sudo)
+#### Deploy target (recommended — no sudo)
 
 | Field | Value |
 |--------|--------|

@@ -29,7 +29,12 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 
 <figure class="ph-figure" markdown>
   ![Network Hosts map](../assets/screenshots/dns-physical.png)
-  <figcaption>Hosts map — home ring vs cloud hosts (light desktop).</figcaption>
+  <figcaption>Hosts map — kind icons, home ring vs cloud hosts (light desktop).</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Host ports expand](../assets/screenshots/dns-host-ports-expand.png)
+  <figcaption>Hosts map — progressive host ports (compact → ports-only → by-service).</figcaption>
 </figure>
 
 <figure class="ph-figure" markdown>
@@ -54,7 +59,7 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 
 <figure class="ph-figure" markdown>
   ![Stack panel](../assets/screenshots/dns-stack-panel.png)
-  <figcaption>Path map with stack expand / side panel (runtime topology).</figcaption>
+  <figcaption>Path map stack panel — host→container port chips and runtime topology.</figcaption>
 </figure>
 
 ---
@@ -190,6 +195,7 @@ List and graph share **one** open/closed model (`.is-open`) — not separate mob
 |---------|----------------|
 | **Show map** | Open the SVG panel (always available; hidden while the map is already open) |
 | **Hide map** | Close the SVG panel; list stays (defaults closed on narrow screens; open on desktop / deep links) |
+| **Pin ★** | Pin Hosts map or Path map to the header **★** menu (opens with `#map` so the graph appears) — [Pins & host jump](../day-to-day/navigation-pins.md) |
 | **Discovered** (Hosts only, radar) | Outer discovery chips on/off + compact vs full LAN zone |
 | **− / % / +** | Zoom out · level · zoom in (SVG viewBox) |
 | **1:1** | Fit map to the window. Hosts + discovered **off**: fits the **compact** fleet (fills the pane). Discovered **on** / Path map: designed full canvas. Double-click map = same |
@@ -197,8 +203,8 @@ List and graph share **one** open/closed model (`.is-open`) — not separate mob
 
 ### Focus, zoom & mobile
 
-- **Hover** (mouse/stylus) any **host** (including hosts with no mapped services), **Router**, **LAN**, **Internet**, **Public IP**, **NPM hub**, or **app path** to **preview** highlight.
-- **Click / tap** to **lock** focus — the path stays highlighted when the pointer leaves.
+- **Hover** (mouse/stylus) any **host** (including hosts with no mapped services), **Router**, **LAN**, **Internet**, **Public IP**, **NPM hub**, or **app path** to **preview** highlight (stroke emphasis only).
+- **Click / tap** to **lock** focus — the primary node **pops out** (~**1.30×** scale; stack chips ~1.23×) and the path stays highlighted when the pointer leaves. Hover stays stroke-only (no flicker).
 - **Path map — NPM hub:** selecting the centre **NPM** node focuses **all** via-proxy paths at once (URL + destination nodes **and** the amber **connector lines** into/out of the hub), not only the first path.
 - **Click the same node again** or **Clear focus** to unlock (desktop and mobile).
 - Hosts **without** mapped services are still selectable (node focus). App satellites focus the service **path**.
@@ -207,7 +213,7 @@ List and graph share **one** open/closed model (`.is-open`) — not separate mob
 - Maps: **pinch** / scroll-wheel zoom up to **500%** (SVG **viewBox** — stays sharp), **drag** to pan; see chrome table above.
 - Status dots: **green** = last Pi-hole sync ok · **amber** partial · **red** error · small amber ring = managed cert linked · Kuma **up/down** on Router / Public IP when bound.
 - Path cards also show **Kuma coverage** (see below).
-- Deep links: `/dns/physical?focus=<service_id|#map>` and `/dns/logical?focus=…#map` (also from each path card / dashboard / Docker **Path map** pills). Deep links **auto-open** the SVG on mobile.
+- Deep links: `/dns/physical#map`, `/dns/logical#map`, and `/dns/physical?focus=…#map` (also from path cards / dashboard / Docker **Path map** pills / **★** pins). Fragment **`#map`** (or `map=1` / focus) **auto-opens** the SVG — bare `/dns/physical` stays list-first.
 - On **narrow screens**, maps default to the **list** (racks / flows). Use **View full map** for the SVG; use **Hide map** on the graph toolbar to return to list-first density.
 - **Hamburger while fullscreen:** the slide-out menu is portaled to `body` and sits **above** map fullscreen. Opening **☰** fully exits fullscreen (label, listeners, and viewport sizes reset) so the drawer is never painted off-screen.
 - **Portrait ↔ landscape:** maps call `PiHerderFabric.refreshLayout` (with the global viewport reflow) so SVG heights, zoom, and page width rescale without leaving the page. Path hop chips **wrap** within each card (no horizontal swipe per card).
@@ -222,8 +228,58 @@ Maps stay **customer-facing** by default. For **one** focused service (or host p
 
 | Surface | What you get |
 |---------|----------------|
-| **Stack panel** | Modal/drawer: containers (category, tags, running, Kuma), **view group** pills, detail expand, suggested/confirmed edges, accept/dismiss/manual link, **Refresh** inventory, deep links to Server / Service / Docker / maps |
+| **Stack panel** | Modal/drawer: containers (category, tags, running, Kuma, **published ports** as `host→container` chips), **view group** pills, detail expand, suggested/confirmed edges, accept/dismiss/**manual link** (including **cross-host** project/container), **Refresh** inventory, deep links to Server / Service / Docker / maps |
 | **Map expand** | On Path map or Hosts map focus: sideways fan to the right of the path — **not** a fleet-wide container mesh. With **All** view groups and 2+ groups populated, one fan per group. |
+
+**Device icons:** Hosts map cards and rack titles show a **canned glyph** from discovery/device kind (Pi, NAS, printer, camera, …). Fleet hosts default to a server glyph; override the kind on the discovery device to change the icon.
+
+**Ports:** inventory publish strings are parsed into structured chips (e.g. `8080→80/tcp`). Chips also show a **role hint** when known (DNS, Web, Database, Cache, …) — e.g. Pi-hole **53 · DNS** and **443 · Web**. Internal-only containers show a short “internal” summary rather than a fake host mapping. Sources: Docker published · nmap open · sticky operator **roles** (`PortAnnotation`).
+
+### Ports on the Hosts map (progressive expand)
+
+Depth is **on the canvas**, not a drawer-first flow. Lock a **fleet host** or **discovered device** (camera, printer, … — any nmap chip with open ports).
+
+```text
+  Lock host / cam
+       │
+       ▼
+  ┌ compact callout ┐     summary + a few chips
+  │  N ports · name  │     whole box is the hit target (mobile-friendly)
+  │  Tap for ports ▸ │
+  └────────┬────────┘
+           │ tap box
+           ▼
+  ┌ ports-only list ┐     full port rows on the map (role · owner hint)
+  │  Back            │     hairline footer chrome
+  │  [Edit] [Services]│    Services only when compose stacks own ports
+  └────────┬────────┘
+           │ Services
+           ▼
+  ┌ by-service fan  ┐     previous service-card fan (project → ports)
+  │  Ports (back)    │
+  └──────────────────┘
+```
+
+| Step | What you see | Touch / click |
+|------|----------------|---------------|
+| **1 · Compact** | Small callout to the right of the host: count, name, up to ~4 chips, **Tap for ports** | Tap **anywhere on the callout** (not a tiny button). Empty → opens edit table. |
+| **2 · Ports** | Ports-only panel: larger rows, port number + role, optional owner line | **Back** → compact. **Edit** → sticky-role table. **Services** → step 3 (when stacks exist). Discovered-only devices get **Edit** only. |
+| **3 · Services** | Service/stack fan (compose project cards with ports inside) | **Ports** → back to ports-only list. Click a service card → edit table focused on that project. |
+
+**Discovered devices:** same progressive flow using nmap open ports (no Docker owners → Observed / Edit). Chips can show a short `Np · click` port hint when scan data exists.
+
+**App path / containers:**
+
+| You want… | Click | What appears **on the map** |
+|-----------|-------|------------------------------|
+| **Containers & deps** | An **app path** satellite (or Path map node) | **Stack fan** (edge/app/db columns) + dependency edges; containers list **published ports** when inventory has them. |
+| **One container’s ports** | A stack container that publishes ports | Scoped **compact → ports** callout for that container / project. Containers without published ports still open **Stack detail**. |
+
+Nothing is fleet-wide spaghetti by default — depth expands **for the focused host, device, or path**.
+
+**Edit ports table** (panel): sticky roles, hide/noise toggle (e.g. SSH), Docker∪nmap union. Open via callout **Edit**, toolbar **Edit ports**, or double-click/tap a port row. Fleet: `?server_id=`; discovered: `?nmap_device_id=`.
+
+**Manual edges:** when accepting or adding a link, the picker can target containers on **another fleet host** (cross-host topology), not only the focused compose project.
 
 Compose **project** identity is exact (case-insensitive) for annotation storage. Soft substring match (e.g. conflating unrelated project names) is not used.
 
@@ -254,8 +310,9 @@ Panel pills: **All** · **Main** (unassigned) · (your groups). Compact segmente
 
 - Column order follows **category vocabulary** sort order (empty columns hidden).  
 - Role colors + type chips on boxes; confirmed dependency curves; soft structure lines between **adjacent** columns only.  
+- Published ports appear on container boxes when known (up to a few chips + “+N”).  
 - **No Server / Service / Docker chips on the map** — use the Stack panel for navigation.  
-- Click a container box → opens Stack panel focused on that container.
+- Click a container **with ports** → on-map ports callout for that unit; otherwise Stack panel focused on that container.
 
 #### Reorder containers (operators)
 

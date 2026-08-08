@@ -1,20 +1,32 @@
 """
 Herder self-backup service.
 
-Backs up PiHerder's own configuration as a compressed tar.gz on a host-mapped directory:
+Backs up PiHerder's own configuration as a compressed tar.gz on a host-mapped directory
+(JSON row snapshots + selected DATA_ROOT files — **not** a raw ``pg_dump``).
+
+Included (durable control-plane):
 
 - Servers (encrypted SSH keys/passwords, schedules, inventory cache, feature flags)
 - Users (password hashes, roles, 2FA secrets — never plaintext passwords)
-- TOTP backup codes + trusted devices
+- TOTP backup codes + trusted devices + **user favourites (pins)**
+- API tokens (hash + scopes; plaintext never stored)
 - Docker compose version history (multi-file)
 - Web Push: VAPID keys, subscriptions, preferences
 - In-app notifications
+- Integrations + bindings, certs + deploy targets
+- Templates + stack deployments, DNS fabric, runtime edges, topology annotations
+- Port annotations (map sticky roles)
+- LAN discovery schedules, devices, script results (not raw scan run history)
 - Herder settings (timezone, force_2FA, self-backup schedule, fleet check defaults)
-- Avatar files under DATA_ROOT
-- Service logo files under DATA_ROOT/service_logos
+- Avatar files under DATA_ROOT + service logos
 - Optionally AuditLog (full mode)
 
-Not included: Job queue rows (ephemeral running/finished job state).
+Not included (by design):
+
+- Job queue rows (ephemeral)
+- Password-reset tokens (short-lived)
+- Nmap scan **run** history / XML artifacts under DATA_ROOT/nmap
+- Per-server rsync file trees (separate product)
 
 - "config only" (default) vs "full" (include audit trail).
 - Scheduled via APScheduler or manual trigger.
@@ -38,6 +50,8 @@ from ..models import (
     Server,
     AuditLog,
     User,
+    UserFavourite,
+    ApiToken,
     DockerVersion,
     TotpBackupCode,
     TrustedDevice,
@@ -49,13 +63,16 @@ from ..models import (
     IntegrationBinding,
     ServiceTemplate,
     StackDeployment,
+    NmapScanSchedule,
+    NmapDevice,
+    NmapScriptResult,
 )
 from .app_settings import load_settings
 
 logger = logging.getLogger(__name__)
 
 # Bump when payload shape gains tables (restore stays backward compatible)
-BACKUP_FORMAT_VERSION = "3"
+BACKUP_FORMAT_VERSION = "4"
 
 # Relationship / non-column keys to drop from model_dump
 _EXCLUDE_REL = {
@@ -271,6 +288,32 @@ def _snapshot_container_annotation_tags() -> List[Dict[str, Any]]:
     return _snapshot_table(ContainerAnnotationTag)
 
 
+def _snapshot_port_annotations() -> List[Dict[str, Any]]:
+    from ..models import PortAnnotation
+
+    return _snapshot_table(PortAnnotation)
+
+
+def _snapshot_user_favourites() -> List[Dict[str, Any]]:
+    return _snapshot_table(UserFavourite)
+
+
+def _snapshot_api_tokens() -> List[Dict[str, Any]]:
+    return _snapshot_table(ApiToken)
+
+
+def _snapshot_nmap_scan_schedules() -> List[Dict[str, Any]]:
+    return _snapshot_table(NmapScanSchedule)
+
+
+def _snapshot_nmap_devices() -> List[Dict[str, Any]]:
+    return _snapshot_table(NmapDevice)
+
+
+def _snapshot_nmap_script_results() -> List[Dict[str, Any]]:
+    return _snapshot_table(NmapScriptResult)
+
+
 def _snapshot_audit(since_days: Optional[int] = None) -> List[Dict[str, Any]]:
     with Session(engine) as s:
         q = select(AuditLog).order_by(AuditLog.started_at.desc())
@@ -327,6 +370,8 @@ def _build_backup_payload(
         "includes": [
             "servers",
             "users",
+            "user_favourites",
+            "api_tokens",
             "totp_backup_codes",
             "trusted_devices",
             "docker_versions",
@@ -347,18 +392,29 @@ def _build_backup_payload(
             "visual_service_stacks",
             "container_annotations",
             "container_annotation_tags",
+            "port_annotations",
+            "nmap_scan_schedules",
+            "nmap_devices",
+            "nmap_script_results",
             "herder_config",
             "avatars",
             "service_logos",
         ]
         + (["audit_logs"] if include_audit else []),
-        "excludes": ["jobs"],
+        "excludes": [
+            "jobs",
+            "password_reset_tokens",
+            "nmap_scan_runs",
+            "appsetting_raw",  # covered via herder_config JSON
+        ],
         "note": "Encrypted fields need the same PIHERDER_MASTER_KEY on restore.",
     }
     data: Dict[str, Any] = {
         "manifest": manifest,
         "servers": _snapshot_servers(),
         "users": _snapshot_users(),
+        "user_favourites": _snapshot_user_favourites(),
+        "api_tokens": _snapshot_api_tokens(),
         "totp_backup_codes": _snapshot_totp_backup_codes(),
         "trusted_devices": _snapshot_trusted_devices(),
         "docker_versions": _snapshot_docker_versions(),
@@ -379,6 +435,10 @@ def _build_backup_payload(
         "visual_service_stacks": _snapshot_visual_service_stacks(),
         "container_annotations": _snapshot_container_annotations(),
         "container_annotation_tags": _snapshot_container_annotation_tags(),
+        "port_annotations": _snapshot_port_annotations(),
+        "nmap_scan_schedules": _snapshot_nmap_scan_schedules(),
+        "nmap_devices": _snapshot_nmap_devices(),
+        "nmap_script_results": _snapshot_nmap_script_results(),
         "herder_config": load_settings(),
     }
     if include_audit:
@@ -768,14 +828,15 @@ def restore_herder_backup(
     archive_path: str, restore_audit: bool = False, dry_run: bool = False
 ) -> Dict[str, Any]:
     """
-    Careful restore from archive (format v1 or v2).
+    Careful restore from archive (format v1–v4).
 
-    - Users, servers, docker versions, 2FA codes, trusted devices, push, notifications
+    - Users, favourites, API tokens, servers, docker versions, 2FA, trusted devices
+    - Push, notifications, integrations, certs, templates, topology, nmap inventory
     - Encrypted fields travel as-is (master key must match)
     - Herder settings JSON merged into live config
     - Avatars + service logos extracted into DATA_ROOT
     - Audit optional append-only
-    - Jobs never restored
+    - Jobs / password-reset tokens / nmap scan runs never restored
     """
     p = Path(archive_path)
     if not p.exists():
@@ -784,6 +845,8 @@ def restore_herder_backup(
     result: Dict[str, Any] = {
         "restored_servers": 0,
         "restored_users": 0,
+        "restored_user_favourites": 0,
+        "restored_api_tokens": 0,
         "restored_docker_versions": 0,
         "restored_totp_codes": 0,
         "restored_trusted_devices": 0,
@@ -797,6 +860,9 @@ def restore_herder_backup(
         "restored_certificate_targets": 0,
         "restored_service_templates": 0,
         "restored_stack_deployments": 0,
+        "restored_nmap_scan_schedules": 0,
+        "restored_nmap_devices": 0,
+        "restored_nmap_script_results": 0,
         "restored_avatars": 0,
         "restored_herder_config": False,
         "restored_audit": 0,
@@ -846,6 +912,17 @@ def restore_herder_backup(
         result["would_restore_service_dns_records"] = len(
             payload.get("service_dns_records") or []
         )
+        result["would_restore_user_favourites"] = len(
+            payload.get("user_favourites") or []
+        )
+        result["would_restore_api_tokens"] = len(payload.get("api_tokens") or [])
+        result["would_restore_nmap_scan_schedules"] = len(
+            payload.get("nmap_scan_schedules") or []
+        )
+        result["would_restore_nmap_devices"] = len(payload.get("nmap_devices") or [])
+        result["would_restore_nmap_script_results"] = len(
+            payload.get("nmap_script_results") or []
+        )
         result["would_restore_herder_config"] = bool(payload.get("herder_config"))
         with tarfile.open(p, "r:gz") as tar:
             result["would_restore_avatars"] = sum(
@@ -858,7 +935,7 @@ def restore_herder_backup(
         return result
 
     with Session(engine) as s:
-        # Order: users → user children → servers → docker versions → push → notifications
+        # Order: users → user children → servers → integrations → nmap → …
         result["restored_users"] = _upsert_users(s, payload.get("users") or [])
         s.flush()
 
@@ -868,11 +945,18 @@ def restore_herder_backup(
         result["restored_trusted_devices"] = _upsert_rows(
             s, TrustedDevice, payload.get("trusted_devices") or []
         )
+        result["restored_api_tokens"] = _upsert_rows(
+            s, ApiToken, payload.get("api_tokens") or []
+        )
 
         result["restored_servers"] = _upsert_rows(
             s, Server, payload.get("servers") or []
         )
         s.flush()
+
+        result["restored_user_favourites"] = _upsert_rows(
+            s, UserFavourite, payload.get("user_favourites") or []
+        )
 
         result["restored_integrations"] = _upsert_rows(
             s, Integration, payload.get("integrations") or []
@@ -880,6 +964,17 @@ def restore_herder_backup(
         s.flush()
         result["restored_integration_bindings"] = _upsert_rows(
             s, IntegrationBinding, payload.get("integration_bindings") or []
+        )
+        result["restored_nmap_scan_schedules"] = _upsert_rows(
+            s, NmapScanSchedule, payload.get("nmap_scan_schedules") or []
+        )
+        s.flush()
+        result["restored_nmap_devices"] = _upsert_rows(
+            s, NmapDevice, payload.get("nmap_devices") or []
+        )
+        s.flush()
+        result["restored_nmap_script_results"] = _upsert_rows(
+            s, NmapScriptResult, payload.get("nmap_script_results") or []
         )
 
         from ..models import ManagedCertificate, CertificateTarget
@@ -935,6 +1030,11 @@ def restore_herder_backup(
         s.flush()
         result["restored_container_annotation_tags"] = _upsert_rows(
             s, ContainerAnnotationTag, payload.get("container_annotation_tags") or []
+        )
+        from ..models import PortAnnotation
+
+        result["restored_port_annotations"] = _upsert_rows(
+            s, PortAnnotation, payload.get("port_annotations") or []
         )
 
         result["restored_docker_versions"] = _upsert_rows(
@@ -993,6 +1093,8 @@ def _fix_postgres_sequences() -> None:
 
     tables = [
         "user",
+        "userfavourite",
+        "apitoken",
         "server",
         "dockerversion",
         "totpbackupcode",
@@ -1011,8 +1113,14 @@ def _fix_postgres_sequences() -> None:
         "visualservicestack",
         "containerannotation",
         "containerannotationtag",
+        "portannotation",
+        "managedcertificate",
+        "certificatetarget",
         "integration",
         "integrationbinding",
+        "nmapscanschedule",
+        "nmapdevice",
+        "nmapscriptresult",
     ]
     with engine.connect() as conn:
         for table in tables:

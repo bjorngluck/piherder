@@ -18,6 +18,17 @@ def test_rsync_error_detail_branches():
     assert "passwordless" in d("sudo: a password is required", "sudo -n rsync").lower()
     assert "boom" in d("boom line one\nboom line two", "rsync")
     assert d("", "rsync") == "rsync non-zero"
+    # Code 23: surface the real file error, not the generator summary line.
+    code23 = (
+        'rsync: [sender] readdir("/home/bjorn/docker/data-2"): Input/output error (5)\n'
+        "rsync error: some files/attrs were not transferred (see previous errors) "
+        "(code 23) at main.c(1874) [generator=3.2.7]\n"
+    )
+    detail23 = d(code23, "sudo -n rsync")
+    assert "data-2" in detail23
+    assert "Input/output error" in detail23 or "I/O" in detail23
+    assert "see previous errors" not in detail23
+    assert "disk" in detail23.lower() or "filesystem" in detail23.lower()
 
 
 def test_backup_source_ok_and_succeeded():

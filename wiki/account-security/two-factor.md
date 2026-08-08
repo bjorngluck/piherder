@@ -40,6 +40,21 @@ On the 2FA login screen you may **trust this device** for N days (Settings / env
 - Cookie is **per account** (`trusted_device_{user_id}`) so two logins on one browser do not overwrite each other.  
 - Checking “Trust this device” again on an already-trusted browser **refreshes** the same entry instead of adding a duplicate.
 
+**Account → Trusted devices** shows each row with:
+
+| Field | Source |
+|-------|--------|
+| **Display / friendly name** | Optional rename (e.g. “Work laptop”) — save per row (✎ Edit, not always-open form) |
+| **Device type** | Summarised from the browser user-agent |
+| **Last IP** | Last seen client IP for that trust cookie |
+| **Last used / expires** | App timezone timestamps |
+
+<figure class="ph-figure" markdown>
+  ![Account 2FA and trusted devices](../assets/screenshots/account-2fa.png)
+  <figcaption>Account — 2FA, backup codes, trusted devices (type, last IP, rename).</figcaption>
+</figure>
+| **Revoke** | One device or **Revoke all** |
+
 | Risk | Mitigation |
 |------|------------|
 | Stolen laptop with a trusted cookie | Revoke under **Account → Trusted devices**; password change / **Revoke all** clears trust |

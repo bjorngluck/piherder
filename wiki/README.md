@@ -3,7 +3,8 @@
 Markdown sources for the **MkDocs Material** documentation site.
 
 **Live site:** [https://piherder-docs.hacknow.info/](https://piherder-docs.hacknow.info/)  
-**Release notes:** [docs/RELEASE_v1.0.0.md](../docs/RELEASE_v1.0.0.md)
+**Release notes:** [docs/RELEASE_v1.1.0.md](../docs/RELEASE_v1.1.0.md) · prior [docs/RELEASE_v1.0.0.md](../docs/RELEASE_v1.0.0.md)  
+**Screenshots:** [assets/screenshots/README.md](assets/screenshots/README.md)
 
 Operator pages prefer: **What this is** → **Why** → **End-to-end** → reference detail. See [contributing-docs](developers/contributing-docs.md).
 
@@ -39,5 +40,6 @@ mkdocs build --strict
 | `troubleshooting/` | Common failures |
 | `developers/` | Setup, architecture, schema, testing, publish |
 | `assets/` | Brand marks + screenshots |
+| `assets/screenshots/README.md` | Capture conventions + **what to recapture per release** |
 
 Config: [`mkdocs.yml`](../mkdocs.yml) at repo root.

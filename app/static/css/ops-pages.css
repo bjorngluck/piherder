@@ -1211,6 +1211,27 @@ html.dark .ph-file-badge--config,
 .nmap-filter-bar .nmap-filter.is-active {
   background: color-mix(in srgb, var(--color-accent) 12%, var(--color-surface));
 }
+.nmap-filter-n {
+  margin-left: 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+.nmap-filter.is-active .nmap-filter-n {
+  opacity: 1;
+}
+.nmap-host-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.15rem;
+  min-width: 4.5rem;
+}
+.nmap-last-seen {
+  line-height: 1.2;
+  white-space: nowrap;
+}
 .nmap-devices-layout {
   display: grid;
   grid-template-columns: 1fr;

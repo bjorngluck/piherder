@@ -9,7 +9,7 @@ from app.models import User, Server
 
 
 def test_backup_format_version():
-    assert hb.BACKUP_FORMAT_VERSION == "3"
+    assert hb.BACKUP_FORMAT_VERSION == "4"
 
 
 def test_model_to_dict_excludes_relationships():
@@ -106,15 +106,22 @@ def test_build_payload_keys(monkeypatch):
     )
 
     payload = hb._build_backup_payload(include_audit=False, config_only=True)
-    assert payload["manifest"]["version"] == "3"
+    assert payload["manifest"]["version"] == "4"
     assert "jobs" not in payload
     assert "jobs" in payload["manifest"]["excludes"]
+    assert "password_reset_tokens" in payload["manifest"]["excludes"]
     assert "integrations" in payload["manifest"]["includes"]
     assert "integration_bindings" in payload["manifest"]["includes"]
     assert "runtime_edges" in payload["manifest"]["includes"]
+    assert "user_favourites" in payload["manifest"]["includes"]
+    assert "api_tokens" in payload["manifest"]["includes"]
+    assert "port_annotations" in payload["manifest"]["includes"]
+    assert "nmap_devices" in payload["manifest"]["includes"]
     for key in (
         "servers",
         "users",
+        "user_favourites",
+        "api_tokens",
         "totp_backup_codes",
         "trusted_devices",
         "docker_versions",
@@ -130,6 +137,10 @@ def test_build_payload_keys(monkeypatch):
         "stack_deployments",
         "service_dns_records",
         "runtime_edges",
+        "port_annotations",
+        "nmap_scan_schedules",
+        "nmap_devices",
+        "nmap_script_results",
         "herder_config",
     ):
         assert key in payload

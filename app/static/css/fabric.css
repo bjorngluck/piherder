@@ -474,10 +474,44 @@ a.fabric-hop:hover {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.07);
   transform: translateY(-1px);
 }
+/* Hosts / Path map hub cards: full-card open link + pin star on title */
+.fabric-nav-card--with-pin {
+  position: relative;
+  padding: 0;
+  overflow: visible;
+}
+.fabric-nav-card--with-pin:hover {
+  transform: translateY(-1px);
+}
+.fabric-nav-card-main-link {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: inherit;
+  padding: 0.65rem 0.8rem;
+  padding-right: 2.25rem;
+  text-decoration: none;
+  color: inherit;
+  box-sizing: border-box;
+}
+.fabric-nav-card-pin {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.3rem;
+  z-index: 2;
+}
+.fabric-nav-card-pin .host-pin-star-btn {
+  width: 1.85rem;
+  height: 1.85rem;
+  font-size: 1.05rem;
+}
 .fabric-nav-card--compact {
   min-height: 0;
   padding: 0.65rem 0.8rem;
   border-radius: 10px;
+}
+.fabric-nav-card--with-pin.fabric-nav-card--compact {
+  padding: 0;
 }
 .fabric-nav-card--compact .fabric-nav-card-title {
   font-size: 0.95rem;
@@ -1040,8 +1074,143 @@ button.fabric-nav-card--action:focus-visible {
 }
 .fabric-mesh-node.ph-focus-active > rect,
 .fabric-mesh-node.ph-focus-active > circle,
-.fabric-mesh-node.ph-focus-active > ellipse {
+.fabric-mesh-node.ph-focus-active > ellipse,
+.fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop > rect,
+.fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop > circle,
+.fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop > ellipse {
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.18));
+}
+
+/* M2 — locked focus pop-out on inner group (outer g keeps dual-layout translate) */
+.fabric-mesh-node-pop {
+  transform-box: fill-box;
+  transform-origin: center center;
+  transition: transform 0.14s ease;
+}
+[data-fabric-root].is-focus-locked .fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop {
+  /* ~10% larger than prior 1.18× */
+  transform: scale(1.30);
+}
+/* Stack expand chips (no inner pop group) */
+[data-fabric-root].is-focus-locked .fabric-mesh-stack-node.ph-focus-active {
+  transform-box: fill-box;
+  transform-origin: center center;
+  transform: scale(1.23);
+  transition: transform 0.14s ease;
+}
+/* Primary focused host/path: slightly stronger lift while locked */
+[data-fabric-root].is-focus-locked .fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop > rect,
+[data-fabric-root].is-focus-locked .fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop > circle,
+[data-fabric-root].is-focus-locked .fabric-mesh-node.ph-focus-active .fabric-mesh-node-pop > ellipse {
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.22));
+}
+
+/* Host port hint on unfocused cards */
+.fabric-mesh-tag--ports {
+  fill: var(--color-accent, #00a651) !important;
+  font-size: 8px !important;
+  font-weight: 700 !important;
+  opacity: 0.95;
+}
+.fabric-mesh-node--host.ph-focus-dim .fabric-mesh-tag--ports {
+  opacity: 0.2;
+}
+
+/* On-map host ports expand layer (primary depth UX) */
+.fabric-host-ports-expand-layer {
+  pointer-events: auto;
+}
+.fabric-host-ports-zone {
+  fill: color-mix(in srgb, var(--color-surface) 88%, var(--color-bg));
+  stroke: color-mix(in srgb, var(--color-accent, #00a651) 35%, var(--color-border));
+  stroke-width: 1.25;
+  stroke-dasharray: 4 3;
+  opacity: 0.95;
+}
+.fabric-host-ports-callout {
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.14));
+}
+.fabric-host-ports-ports-panel {
+  filter: drop-shadow(0 3px 12px rgba(0, 0, 0, 0.16));
+}
+.fabric-host-ports-expand-btn rect,
+.fabric-host-ports-collapse-btn rect,
+.fabric-host-ports-edit-btn rect,
+.fabric-host-ports-action rect {
+  transition: fill 0.12s ease, stroke 0.12s ease;
+}
+/* Footer chrome: keep secondary (Edit) visually lighter than Services */
+.fabric-host-ports-edit-btn text {
+  letter-spacing: 0.02em;
+}
+.fabric-host-ports-collapse-btn text {
+  letter-spacing: 0.01em;
+}
+/* Touch: whole compact callout is the target */
+.fabric-host-ports-expand-layer.is-compact {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.fabric-host-ports-expand-layer.is-ports,
+.fabric-host-ports-expand-layer.is-full {
+  touch-action: manipulation;
+}
+.fabric-host-port-row rect {
+  transition: stroke-width 0.1s ease;
+}
+.fabric-host-ports-title {
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.fabric-host-ports-expand-layer.is-compact .fabric-host-ports-title,
+.fabric-host-ports-expand-layer.is-ports .fabric-host-ports-title {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.fabric-host-service-node .fabric-host-service-box {
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.12));
+}
+.fabric-host-service-node.is-observed .fabric-host-service-box {
+  stroke-dasharray: 4 3;
+}
+.fabric-mesh-stack-node .fabric-mesh-stack-box {
+  /* room for role chip + name + ports */
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.1));
+}
+.is-focusing .fabric-host-ports-expand-layer .fabric-mesh-edge {
+  opacity: 0.9 !important;
+}
+
+/* M1 — canned kind glyphs on map cards */
+.fabric-mesh-kind-icon {
+  color: var(--color-muted);
+  opacity: 0.92;
+  pointer-events: none;
+}
+.fabric-mesh-node.ph-focus-active .fabric-mesh-kind-icon {
+  color: var(--color-accent, #00a651);
+  opacity: 1;
+}
+.fabric-mesh-node.ph-focus-dim .fabric-mesh-kind-icon {
+  opacity: 0.35;
+}
+.ph-kind-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  color: var(--color-muted);
+  vertical-align: middle;
+}
+.ph-kind-icon--rack {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.1rem;
+}
+.ph-kind-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 .fabric-mesh-node--host.is-cloud rect {
   fill: color-mix(in srgb, var(--color-accent, #00a651) 8%, var(--color-surface));
@@ -1462,6 +1631,34 @@ a:has(> .fabric-mesh-node.ph-focus-dim) {
 }
 .fabric-map-chrome--oneline .fabric-map-disc-toggle {
   flex-shrink: 0;
+}
+/* Pin star in map toolbar (Hosts / Path map) */
+.fabric-map-pin {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.fabric-map-pin .host-pin-star {
+  display: inline-flex;
+}
+.fabric-map-pin .host-pin-star-btn {
+  width: 2rem;
+  height: 2rem;
+  min-height: 2rem;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--color-border) 85%, var(--color-accent));
+  background: color-mix(in srgb, var(--color-surface) 92%, var(--color-bg));
+  color: var(--color-muted);
+  font-size: 0.95rem;
+}
+.fabric-map-pin .host-pin-star-btn:hover {
+  color: var(--color-primary, #c8102e);
+  border-color: color-mix(in srgb, var(--color-accent) 45%, var(--color-border));
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+.fabric-map-pin .host-pin-star-btn.is-pinned {
+  color: var(--color-primary, #c8102e);
+  border-color: color-mix(in srgb, var(--color-accent) 50%, var(--color-border));
 }
 .fabric-map-chrome-left {
   display: flex;

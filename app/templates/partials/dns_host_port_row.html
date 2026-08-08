@@ -1,0 +1,59 @@
+{# Single host port row — expects row + p (panel) + can_mutate #}
+<li class="fabric-host-port-row"
+    data-host-port="{{ row.host_port }}"
+    data-proto="{{ row.proto }}">
+  <div class="fabric-host-port-main">
+    <div class="fabric-port-chips">
+      <span class="fabric-port-chip {% if row.published %}is-pub{% else %}is-int{% endif %}{% if row.role and row.role != 'other' %} is-role-{{ row.role }}{% endif %}{% if row.role_sticky %} is-sticky{% endif %}"
+            title="{{ row.display }}">
+        {{ row.label }}
+        {% if row.role and row.role != 'other' %}
+        <span class="fabric-port-role">{{ row.role_label }}{% if row.role_sticky %}★{% endif %}</span>
+        {% endif %}
+      </span>
+      <span class="fabric-port-source fabric-port-source--{{ row.source }}" title="Source">
+        {% if row.source == 'both' %}docker+nmap
+        {% elif row.source == 'docker' %}docker
+        {% else %}observed{% endif %}
+      </span>
+    </div>
+    <div class="text-[10px] text-muted font-mono mt-0.5 leading-relaxed">
+      {% if row.owner_project %}
+      <span class="text-text">{{ row.owner_project }}</span>
+      {% if row.owner_container or row.owner_service %}
+      / {{ row.owner_service or row.owner_container }}
+      {% endif %}
+      {% if row.container %} · →{{ row.container }}{% endif %}
+      {% elif row.nmap_service %}
+      nmap: {{ row.nmap_service }}{% if row.nmap_product %} ({{ row.nmap_product[:24] }}){% endif %}
+      {% else %}
+      <span class="opacity-70">unowned</span>
+      {% endif %}
+      {% if row.sticky_label %} · “{{ row.sticky_label }}”{% endif %}
+      {% if row.note %} · {{ row.note[:60] }}{% endif %}
+    </div>
+  </div>
+  {% if can_mutate and p.server_id %}
+  <form class="fabric-host-port-role-form"
+        hx-post="/dns/host-port-annotation"
+        hx-target="#fabric-stack-panel-body"
+        hx-swap="innerHTML">
+    <input type="hidden" name="server_id" value="{{ p.server_id }}"/>
+    <input type="hidden" name="host_port" value="{{ row.host_port }}"/>
+    <input type="hidden" name="proto" value="{{ row.proto }}"/>
+    <input type="hidden" name="focus_project" value="{{ p.focus_project or '' }}"/>
+    <input type="hidden" name="show_noise" value="{{ '1' if p.show_noise else '0' }}"/>
+    <label class="sr-only" for="role-{{ row.host_port }}-{{ row.proto }}">Role</label>
+    <select id="role-{{ row.host_port }}-{{ row.proto }}"
+            name="role_key"
+            class="fabric-host-port-role-select"
+            title="{% if row.role_sticky %}Sticky role (auto clears sticky){% else %}Heuristic: {{ row.role_label }} — pick to stick{% endif %}"
+            onchange="this.form.requestSubmit()">
+      <option value="" {% if not row.role_sticky %}selected{% endif %}>auto{% if not row.role_sticky and row.role_label %} · {{ row.role_label }}{% endif %}</option>
+      {% for rc in p.role_choices %}
+      <option value="{{ rc.key }}" {% if row.role_sticky and row.role == rc.key %}selected{% endif %}>{{ rc.label }}</option>
+      {% endfor %}
+    </select>
+  </form>
+  {% endif %}
+</li>

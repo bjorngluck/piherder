@@ -73,6 +73,16 @@
       <span class="fabric-stack-nav-v">focus</span>
     </a>
     {% endif %}
+    {% if p.host_ports_url %}
+    <button type="button"
+            class="fabric-stack-nav-link text-left"
+            data-fabric-stack-open
+            data-stack-url="{{ p.host_ports_url }}"
+            onclick="event.preventDefault();if(window.PiHerderStackPanel){PiHerderStackPanel.open(this.getAttribute('data-stack-url'));}return false;">
+      <span class="fabric-stack-nav-k">Host ports</span>
+      <span class="fabric-stack-nav-v">all · sticky</span>
+    </button>
+    {% endif %}
     {% if p.deployment_href %}
     <a href="{{ p.deployment_href }}" class="fabric-stack-nav-link">
       <span class="fabric-stack-nav-k">Deploy</span>
@@ -293,7 +303,19 @@
             <div class="text-[10px] font-mono text-muted mt-0.5">
               <span class="text-text">{{ c.compose_project or p.project }}</span>
               {% if c.networks %} · net {{ c.networks | join(', ') }}{% endif %}
-              · {% if c.ports_display and c.ports_display != '—' %}{{ c.ports_display[:50] }}{% elif c.ports %}ports {{ c.ports | join(', ') }}{% else %}no host ports{% endif %}
+            </div>
+            <div class="fabric-port-chips mt-0.5" data-testid="fabric-port-chips">
+              {% if c.ports_parsed %}
+                {% for pp in c.ports_parsed[:4] %}
+                <span class="fabric-port-chip {% if pp.published %}is-pub{% else %}is-int{% endif %}{% if pp.role and pp.role != 'other' %} is-role-{{ pp.role }}{% endif %}{% if pp.role_sticky %} is-sticky{% endif %}"
+                      title="{% if pp.published %}Host {{ pp.host }} → container {{ pp.container }}/{{ pp.proto }}{% else %}Internal {{ pp.label }}{% endif %}{% if pp.role_label %} · {{ pp.role_label }}{% endif %}{% if pp.role_sticky %} · sticky{% endif %}">{{ pp.label }}{% if pp.role and pp.role != 'other' %} <span class="fabric-port-role">{{ pp.role_label }}{% if pp.role_sticky %}★{% endif %}</span>{% endif %}</span>
+                {% endfor %}
+                {% if c.ports_parsed|length > 4 %}
+                <span class="fabric-port-chip is-more">+{{ c.ports_parsed|length - 4 }}</span>
+                {% endif %}
+              {% else %}
+                <span class="fabric-port-chip is-none" title="No host-published ports">no host publish</span>
+              {% endif %}
             </div>
           </div>
         </summary>
@@ -308,7 +330,19 @@
             <div><dt>Tags</dt><dd>{% if c.tags %}{{ c.tags | join(', ') }}{% else %}<span class="text-muted">—</span>{% endif %}</dd></div>
             <div><dt>State</dt><dd>{% if c.running %}<span class="text-success">running</span>{% else %}<span class="text-warning">stopped</span>{% endif %}{% if c.status %} · {{ c.status }}{% endif %}</dd></div>
             <div><dt>Image</dt><dd class="font-mono break-all">{{ c.image or '—' }}{% if c.version %} · {{ c.version }}{% endif %}</dd></div>
-            <div><dt>Ports</dt><dd class="font-mono text-[11px]">{% if c.ports_display and c.ports_display != '—' %}{{ c.ports_display }}{% elif c.ports %}{{ c.ports | join(', ') }}{% else %}<span class="text-muted">no host publish (internal {{ '5432/6379-style' if c.role in ('data','cache') else 'only' }})</span>{% endif %}</dd></div>
+            <div><dt>Published ports</dt><dd class="text-[11px]">
+              {% if c.ports_parsed %}
+              <div class="fabric-port-chips mb-1">
+                {% for pp in c.ports_parsed %}
+                <span class="fabric-port-chip {% if pp.published %}is-pub{% else %}is-int{% endif %}{% if pp.role and pp.role != 'other' %} is-role-{{ pp.role }}{% endif %}"
+                      title="{{ pp.bind if pp.bind else '*' }}{% if pp.role_label %} · {{ pp.role_label }}{% endif %}">{{ pp.label }}{% if pp.role and pp.role != 'other' %} <span class="fabric-port-role">{{ pp.role_label }}</span>{% endif %}</span>
+                {% endfor %}
+              </div>
+              <div class="text-[10px] text-muted font-mono break-all">{{ c.ports_display if c.ports_display and c.ports_display != '—' else '' }}</div>
+              {% else %}
+              <span class="text-muted">no host publish (internal {{ '5432/6379-style' if c.role in ('data','cache') else 'only' }})</span>
+              {% endif %}
+            </dd></div>
             <div><dt>Networks</dt><dd class="font-mono">{% if c.networks %}{{ c.networks | join(', ') }}{% else %}—{% endif %}</dd></div>
             <div><dt>Compose</dt><dd class="font-mono break-all text-[10px]">{{ c.compose_file or c.compose_path or '—' }}</dd></div>
             <div><dt>Kuma</dt><dd>
@@ -525,45 +559,67 @@
   {% endif %}
 
   {% if can_mutate and p.project and p.server_id %}
-  <details class="fabric-stack-manual mt-4" open>
-    <summary class="text-[11px] font-semibold text-muted cursor-pointer">+ Manual link (e.g. web → celery)</summary>
+  <details class="fabric-stack-manual mt-4" open data-testid="fabric-manual-edge">
+    <summary class="text-[11px] font-semibold text-muted cursor-pointer">+ Manual link (same host or cross-host)</summary>
     <p class="text-[10px] text-muted mt-1.5 leading-snug">
-      Compose often omits app→worker links (PiHerder: <span class="font-mono">web</span> and
-      <span class="font-mono">celery-worker</span> both use redis, but nothing in compose joins them).
-      Add a <strong class="text-text">talks_to</strong> link here — it shows as confirmed on the map.
+      Compose often omits app→worker links. Add a <strong class="text-text">talks_to</strong> edge —
+      same stack, another project, or <strong class="text-text">another host</strong>.
     </p>
-    <form method="post" action="/dns/stack-edges/manual" class="mt-2 space-y-2">
+    <form method="post" action="/dns/stack-edges/manual" class="mt-2 space-y-2"
+          id="fabric-manual-edge-form" data-testid="fabric-manual-edge-form">
       <input type="hidden" name="from_server_id" value="{{ p.server_id }}">
       <input type="hidden" name="from_project" value="{{ p.project }}">
-      <input type="hidden" name="to_server_id" value="{{ p.server_id }}">
-      <input type="hidden" name="to_project" value="{{ p.project }}">
       <input type="hidden" name="next" value="{{ p.next_url }}">
       <input type="hidden" name="service_id" value="{{ p.service_id or '' }}">
-      <div class="grid grid-cols-2 gap-2">
+      <div>
+        <label class="text-[10px] text-muted block mb-0.5">From (this stack)</label>
+        <select name="from_container" class="input text-xs min-h-9 w-full" required data-testid="edge-from-container">
+          <option value="">— pick —</option>
+          {% for c in p.containers or [] %}
+          <option value="{{ c.compose_service or c.name }}"
+            {% if (c.compose_service or c.name) in ('web', 'api', 'app') %}selected{% endif %}>
+            {{ c.compose_service or c.name }} · {{ c.role }}
+            {% if c.ports_short %} · {{ c.ports_short }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
         <div>
-          <label class="text-[10px] text-muted block mb-0.5">From</label>
-          <select name="from_container" class="input text-xs min-h-9 w-full" required>
-            <option value="">— pick —</option>
-            {% for c in p.containers or [] %}
-            <option value="{{ c.compose_service or c.name }}"
-              {% if (c.compose_service or c.name) in ('web', 'api', 'app') %}selected{% endif %}>
-              {{ c.compose_service or c.name }} · {{ c.role }}
+          <label class="text-[10px] text-muted block mb-0.5">To host</label>
+          <select name="to_server_id" id="edge-to-server" class="input text-xs min-h-9 w-full"
+                  data-testid="edge-to-server" required>
+            {% for h in p.fleet_link_targets or [] %}
+            <option value="{{ h.id }}" {% if h.is_current %}selected{% endif %}
+                    data-projects='{{ h.projects | tojson }}'>
+              {{ h.name }}{% if h.is_current %} (this host){% endif %}
             </option>
             {% endfor %}
           </select>
         </div>
         <div>
-          <label class="text-[10px] text-muted block mb-0.5">To</label>
-          <select name="to_container" class="input text-xs min-h-9 w-full" required>
-            <option value="">— pick —</option>
-            {% for c in p.containers or [] %}
-            <option value="{{ c.compose_service or c.name }}"
-              {% if c.role == 'queue' %}selected{% endif %}>
-              {{ c.compose_service or c.name }} · {{ c.role }}
-            </option>
-            {% endfor %}
+          <label class="text-[10px] text-muted block mb-0.5">To project</label>
+          <select name="to_project" id="edge-to-project" class="input text-xs min-h-9 w-full"
+                  data-testid="edge-to-project" required>
+            <option value="{{ p.project }}" selected>{{ p.project }}</option>
           </select>
         </div>
+      </div>
+      <div>
+        <label class="text-[10px] text-muted block mb-0.5">To container / service</label>
+        <select name="to_container" id="edge-to-container" class="input text-xs min-h-9 w-full"
+                data-testid="edge-to-container" required>
+          <option value="">— pick —</option>
+          {% for c in p.containers or [] %}
+          <option value="{{ c.compose_service or c.name }}"
+            {% if c.role == 'queue' %}selected{% endif %}>
+            {{ c.compose_service or c.name }} · {{ c.role }}
+          </option>
+          {% endfor %}
+        </select>
+        <p class="text-[10px] text-muted mt-0.5" id="edge-xhost-hint" hidden>
+          Cross-host: pick a project that has a recent Docker inventory on the target host.
+        </p>
       </div>
       <div class="grid grid-cols-2 gap-2">
         <div>
@@ -583,6 +639,86 @@
       </div>
       <button type="submit" class="btn btn-accent text-xs min-h-9 px-3">Save link</button>
     </form>
+    <script type="application/json" id="edge-fleet-data">{{ (p.fleet_link_targets or []) | tojson }}</script>
+    <script>
+    (function () {
+      var form = document.getElementById('fabric-manual-edge-form');
+      if (!form || form.dataset.xhostBound) return;
+      form.dataset.xhostBound = '1';
+      var curSid = String({{ p.server_id|int }});
+      var curProj = {{ p.project|tojson }};
+      var localContainers = [
+        {% for c in p.containers or [] %}
+        {{ (c.compose_service or c.name)|tojson }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ];
+      var fleet = [];
+      try {
+        var el = document.getElementById('edge-fleet-data');
+        fleet = el ? JSON.parse(el.textContent || '[]') : [];
+      } catch (e) { fleet = []; }
+      var byId = {};
+      fleet.forEach(function (h) { byId[String(h.id)] = h; });
+
+      var selHost = document.getElementById('edge-to-server');
+      var selProj = document.getElementById('edge-to-project');
+      var selCont = document.getElementById('edge-to-container');
+      var hint = document.getElementById('edge-xhost-hint');
+
+      function fillContainers(list, prefer) {
+        selCont.innerHTML = '<option value="">— pick —</option>';
+        (list || []).forEach(function (name) {
+          var o = document.createElement('option');
+          o.value = name;
+          o.textContent = name;
+          if (prefer && name === prefer) o.selected = true;
+          selCont.appendChild(o);
+        });
+      }
+      function fillProjects(host) {
+        selProj.innerHTML = '';
+        var projects = (host && host.projects) || [];
+        if (!projects.length && String(host && host.id) === curSid) {
+          projects = [{ name: curProj, containers: localContainers }];
+        }
+        if (!projects.length) {
+          var o = document.createElement('option');
+          o.value = '';
+          o.textContent = '— no inventory —';
+          selProj.appendChild(o);
+          fillContainers([]);
+          return;
+        }
+        projects.forEach(function (pr, i) {
+          var o = document.createElement('option');
+          o.value = pr.name;
+          o.textContent = pr.name;
+          o.dataset.containers = JSON.stringify(pr.containers || []);
+          if (String(host.id) === curSid && pr.name === curProj) o.selected = true;
+          else if (i === 0 && String(host.id) !== curSid) o.selected = true;
+          selProj.appendChild(o);
+        });
+        onProjChange();
+      }
+      function onHostChange() {
+        var host = byId[String(selHost.value)];
+        if (hint) hint.hidden = !(host && !host.is_current);
+        fillProjects(host);
+      }
+      function onProjChange() {
+        var opt = selProj.options[selProj.selectedIndex];
+        var list = [];
+        try { list = JSON.parse((opt && opt.dataset.containers) || '[]'); } catch (e) {}
+        if (!list.length && String(selHost.value) === curSid && selProj.value === curProj) {
+          list = localContainers;
+        }
+        fillContainers(list);
+      }
+      selHost.addEventListener('change', onHostChange);
+      selProj.addEventListener('change', onProjChange);
+      onHostChange();
+    })();
+    </script>
   </details>
   {% endif %}
 

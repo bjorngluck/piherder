@@ -59,7 +59,11 @@ flowchart TB
 | Stale data cleanup | `app/services/stale_data_cleanup.py` · Settings General |
 | Templates (HTTP) | `templates_common` + `templates_svc` (catalog) + `templates_deploy` |
 | Auth (HTTP) | `auth.py` + `auth_users.py` (admin users) |
-| Network maps | `app/services/dns_fabric/` (`core`, `mesh_physical`, `mesh_logical`) · `app/routers/dns.py` |
+| Network maps | `app/services/dns_fabric/` (`core`, `mesh_physical`, `mesh_logical`, `ports`, `stack_panel`) · `app/routers/dns.py` |
+| Published port chips | `app/services/dns_fabric/ports.py` — host→container parse for stack panel |
+| Operator pins + host jump | `app/services/nav_shortcuts.py` · `app/routers/favourites.py` · model `UserFavourite` · partials `pin_button` / `host_switcher` / `host_feature_nav` |
+| Human-readable cron | `app/services/cron_human.py` — Jinja `cron_human` filter + `cron_presets` global |
+| Certificates / deploy targets | `app/services/certificates.py` · `app/routers/certificates.py` — vault, stage+sudo, verify, wizard |
 | Ops-hero pulse helpers | `app/services/ops_pulse.py` |
 | Push | `app/services/push.py` |
 | API tokens | `app/services/api_tokens.py`, `app/routers/api_v1.py` |
@@ -69,9 +73,9 @@ flowchart TB
 | Server SSH / patch sub-routers | `server_ssh.py`, `server_patch.py`, `server_common.py` (mounted under `/servers`) |
 | Docker UI | `server_docker.py` + `server_docker_compose.py` (thin; editor load in `compose_editor`) |
 | Theme / map / ops CSS | `themes.css`, `fabric.css` (mesh), `fabric-stack.css`, `dns-hub.css`, `ops.css`, `ops-auth.css`, `ops-pages.css` (`ph-dense-*` lists) |
-| Map / stack client | `fabric-mesh.js` (map open/closed + pan/zoom) · `fabric-stack-panel.js` (stack drawer + one pointer reorder path) |
+| Map / stack client | `fabric-mesh.js` (map open/closed + pan/zoom; `#map` / `preferMapOnLoad`) · `fabric-stack-panel.js` (stack drawer + one pointer reorder path) |
 | App timezone display | `app/services/app_settings.describe_timezone` · Settings General card |
-| Large templates | Prefer `partials/` — e.g. `server_detail_*_modals`, `docker_modals`, `settings_{tab}` |
+| Large templates | Prefer `partials/` — e.g. `server_detail_*_modals`, `docker_modals`, `settings_{tab}`, pin/host switcher partials |
 
 ## Frontend stack
 

@@ -1,0 +1,24 @@
+{# Compact star pin for host features — inline in kicker (no extra line, icon only).
+   Expects: server, host_feature, is_favourite, user
+#}
+{% if host_feature is defined and host_feature and server is defined and user is defined and user %}
+{% set sid = server.id if server.id is defined else host_server_id %}
+{% set sname = server.name if server.name is defined else (host_server_name or 'host') %}
+{% set flab = host_feature_label|default(host_feature) %}
+<form method="post" action="/account/favourites/toggle"
+      class="host-pin-star"
+      data-testid="host-favourite-form">
+  <input type="hidden" name="kind" value="server_feature">
+  <input type="hidden" name="server_id" value="{{ sid }}">
+  <input type="hidden" name="feature" value="{{ host_feature }}">
+  <input type="hidden" name="next" value="{{ host_feature_href|default(request.url.path if request is defined else '/') }}">
+  <button type="submit"
+          class="host-pin-star-btn {% if is_favourite %}is-pinned{% endif %}"
+          data-testid="host-favourite-toggle"
+          title="{% if is_favourite %}Unpin {{ sname }} · {{ flab }}{% else %}Pin {{ sname }} · {{ flab }}{% endif %}"
+          aria-label="{% if is_favourite %}Unpin{% else %}Pin{% endif %} {{ sname }} {{ flab }}"
+          aria-pressed="{{ 'true' if is_favourite else 'false' }}">
+    <span aria-hidden="true">{% if is_favourite %}★{% else %}☆{% endif %}</span>
+  </button>
+</form>
+{% endif %}

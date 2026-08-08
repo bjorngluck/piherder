@@ -1,0 +1,91 @@
+{# Cross-host jump (K): click host name → modal of peers with same feature enabled.
+   Expects: server, host_feature, fleet_servers (already filtered), can_host_jump
+#}
+{% if host_feature is defined and host_feature and server is defined
+      and can_host_jump|default(false)
+      and fleet_servers is defined and fleet_servers|length > 1 %}
+{% set sid = server.id if server.id is defined else host_server_id %}
+{% set sname = server.name if server.name is defined else (host_server_name or 'Host') %}
+{% set flab = host_feature_label|default(host_feature) %}
+{% set _suffix = '' %}
+{% if host_feature == 'backups' %}{% set _suffix = '/backups' %}
+{% elif host_feature == 'docker' %}{% set _suffix = '/docker' %}
+{% elif host_feature == 'services' %}{% set _suffix = '/services' %}
+{% endif %}
+
+<div id="host-switcher-modal"
+     class="host-switcher-modal hidden"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="host-switcher-title"
+     data-testid="host-switcher-modal"
+     hidden>
+  <div class="host-switcher-backdrop" data-host-switch-close tabindex="-1"></div>
+  <div class="host-switcher-sheet card">
+    <header class="host-switcher-head">
+      <div>
+        <div id="host-switcher-title" class="host-switcher-title">Switch host</div>
+        <p class="host-switcher-sub m-0">
+          Stay on <strong class="text-text">{{ flab }}</strong>
+          · only hosts with this feature
+        </p>
+      </div>
+      <button type="button" class="btn btn-secondary text-xs min-h-9 px-3"
+              data-host-switch-close data-testid="host-switcher-close" aria-label="Close">✕</button>
+    </header>
+    <ul class="host-switcher-list" data-testid="host-switcher-list">
+      {% for h in fleet_servers %}
+      {% if h.id == sid %}
+      <li>
+        <span class="host-switcher-item is-current" aria-current="true">
+          <span class="host-switcher-item-name">{{ h.name }}</span>
+          <span class="host-switcher-item-meta">this host</span>
+        </span>
+      </li>
+      {% else %}
+      <li>
+        <a class="host-switcher-item"
+           href="/servers/{{ h.id }}{{ _suffix }}"
+           data-testid="host-switcher-link">
+          <span class="host-switcher-item-name">{{ h.name }}</span>
+          <span class="host-switcher-item-meta">{{ flab }} →</span>
+        </a>
+      </li>
+      {% endif %}
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('host-switcher-modal');
+  if (!modal || modal.dataset.bound) return;
+  modal.dataset.bound = '1';
+  function open() {
+    modal.classList.remove('hidden');
+    modal.hidden = false;
+    document.body.classList.add('host-switcher-open');
+  }
+  function close() {
+    modal.classList.add('hidden');
+    modal.hidden = true;
+    document.body.classList.remove('host-switcher-open');
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (t && t.closest && t.closest('[data-host-switch-open]')) {
+      e.preventDefault();
+      open();
+      return;
+    }
+    if (t && t.closest && t.closest('[data-host-switch-close]')) {
+      e.preventDefault();
+      close();
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modal.hidden) close();
+  });
+})();
+</script>
+{% endif %}

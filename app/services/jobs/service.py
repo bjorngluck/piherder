@@ -651,16 +651,21 @@ def cleanup_stale_backup_jobs(session: Session, max_age_minutes: int = 120) -> i
 
 
 def _send_summary_webhook(server_hostname: str, job_type: str, status: str, summary: str):
-    if not settings.WEBHOOK_URL:
-        return
     try:
+        from ..alert_channels import send_webhook
+
         msg = f"PiHerder {job_type} on {server_hostname}: {status}\n{summary[:400]}"
-        payload = {
-            "message": msg,
-            "number": settings.WEBHOOK_NUMBER or "",
-            "recipients": json.loads(settings.WEBHOOK_RECIPIENTS or "[]"),
-        }
-        httpx.post(settings.WEBHOOK_URL, json=payload, timeout=8)
+        sev = "critical" if status in ("failed", "error") else "info"
+        send_webhook(
+            msg,
+            event="job",
+            severity=sev,
+            extra={
+                "job_type": job_type,
+                "status": status,
+                "server": server_hostname,
+            },
+        )
     except Exception:
         pass
 

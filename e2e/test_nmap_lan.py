@@ -149,7 +149,8 @@ def test_e3b_devices_list_map_views(admin_page, base_url):
     expect(page.locator('[data-testid="nmap-devices-filter-bar"]')).to_be_visible()
     expect(page.locator('[data-testid="nmap-devices-search"]')).to_be_visible()
     bar = page.locator('[data-testid="nmap-devices-filter-bar"]')
-    expect(bar.get_by_role("link", name=re.compile(r"^All$", re.I))).to_be_visible()
+    # Filter chips include honest counts (v1.1 S4): "All 0", "New 0", …
+    expect(bar.get_by_role("link", name=re.compile(r"^All(\s+\d+)?$", re.I))).to_be_visible()
 
     # Map view
     page.locator('[data-testid="nmap-view-map"]').click()

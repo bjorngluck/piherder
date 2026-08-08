@@ -2358,6 +2358,32 @@ def build_fabric_view(
             discovered_hosts = []
             hosts_for_physical = list(hosts)
 
+        # M4 — attach port summary for map focus callout (fleet + discovered)
+        try:
+            from .host_ports import (
+                host_ports_summary_for_device,
+                host_ports_summary_for_server,
+            )
+
+            for h in hosts_for_physical:
+                try:
+                    sid = h.get("server_id")
+                    did = h.get("discovery_id")
+                    if sid is not None and not h.get("is_discovered"):
+                        sm = host_ports_summary_for_server(session, int(sid))
+                    elif did is not None:
+                        sm = host_ports_summary_for_device(session, int(did))
+                    else:
+                        continue
+                    h["ports_count"] = sm.get("ports_count") or 0
+                    h["ports_stack_count"] = sm.get("stack_count") or 0
+                    h["ports_summary"] = sm.get("ports_summary") or ""
+                    h["ports_summary_line"] = sm.get("summary_line") or ""
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
     mesh = _mesh_logical()._build_path_mesh(services) if include_mesh else {}
     physical = (
         _build_physical_view(
@@ -2638,6 +2664,8 @@ def _build_physical_view(
     Includes fleet servers and optional unlinked LAN discovery devices
     (``is_discovered``) for an end-to-end map without per-device linking.
     """
+    from app.services.device_icons import icon_id_for_kind
+
     net = network or {}
     lan_subnet = (net.get("lan_subnet") or "").strip()
     by_id: dict[int, dict[str, Any]] = {}
@@ -2657,6 +2685,9 @@ def _build_physical_view(
                         "on_lan": not is_cloud,
                         "is_cloud": is_cloud,
                         "is_discovered": True,
+                        "icon_kind": icon_id_for_kind(
+                            h.get("device_kind"), is_discovered=True
+                        ),
                     }
                 )
             continue
@@ -2670,6 +2701,9 @@ def _build_physical_view(
             "on_lan": not is_cloud,
             "is_cloud": is_cloud,
             "is_discovered": False,
+            "icon_kind": icon_id_for_kind(
+                h.get("device_kind"), is_discovered=False
+            ),
         }
 
     for s in services:

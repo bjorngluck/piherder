@@ -11,8 +11,17 @@
       </label>
       <div class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
         <div>
-          <label class="block text-xs text-muted mb-1">Cron schedule</label>
+          <label class="block text-xs text-muted mb-1">Schedule</label>
+          <select class="w-full sm:w-56 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 mb-1"
+                  aria-label="Self-backup schedule preset"
+                  onchange="var el=this.form.querySelector('[name=schedule_cron]'); if(this.value&&el){el.value=this.value;}">
+            <option value="">Custom / advanced cron…</option>
+            {% for val, lab in cron_presets %}
+            <option value="{{ val }}" {% if (cfg.schedule_cron or '0 3 * * *') == val %}selected{% endif %}>{{ lab }}</option>
+            {% endfor %}
+          </select>
           <input type="text" name="schedule_cron" value="{{ cfg.schedule_cron or '0 3 * * *' }}" placeholder="0 3 * * *" class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+          <p class="text-[10px] text-muted mt-1">{{ (cfg.schedule_cron or '0 3 * * *') | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}</p>
         </div>
         <div>
           <label class="block text-xs text-muted mb-1">Scheduled runs</label>
@@ -29,7 +38,8 @@
       </div>
     </form>
     <p class="text-xs text-muted mt-3">
-      Cron: <code>minute hour day month weekday</code> (e.g. <code>0 3 * * *</code> = daily 03:00 in {{ current_tz }}).
+      Schedules use 5-field cron (<code>minute hour day month weekday</code>) in {{ current_tz }}.
+      Presets fill the field; advanced keeps raw cron.
       {% if schedule_status == 'enabled' %}
       <span class="text-accent">Schedule active{% if schedule_next_run %} — next {{ schedule_next_run }}{% endif %}.</span>
       {% else %}

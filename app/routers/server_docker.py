@@ -71,6 +71,9 @@ async def docker_page(
     build_status = request.query_params.get("build_status")
     inv_meta = inventory_svc.inventory_meta(server)
 
+    from ..services.nav_shortcuts import host_feature_context
+
+    _nav = host_feature_context(session, int(user.id) if user else None, server, "docker")
     resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="docker.html",
@@ -87,6 +90,7 @@ async def docker_page(
             "update_check": update_check,
             "update_status": update_status,
             "build_status": build_status,
+            **_nav,
         }
     )
     resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.device_icons import icon_id_for_kind
+
 from .core import (
     _host_is_cloud,
     _ip_in_lan,
@@ -15,6 +17,11 @@ from .core import (
 # Soft-cap only for extreme density; layout fans apps on multiple rings.
 # Prefer showing every mapping card on the mesh (overflow marker as last resort).
 PHYSICAL_MESH_MAX_APPS_PER_HOST = 48
+
+
+def _icon_kind_for_host(h: dict[str, Any], *, is_discovered: bool) -> str:
+    """Canned map icon id (device_kind or fleet default)."""
+    return icon_id_for_kind(h.get("device_kind"), is_discovered=is_discovered)
 
 
 def _build_physical_mesh_svg(
@@ -92,8 +99,9 @@ def _build_physical_mesh_svg(
     n_cloud = len(cloud_hosts)
 
     # --- Fan geometry: compact fleet ring · outer discovery · dual zone sizes ---
-    host_hw, host_hh = 62.0, 30.0
-    disc_hw, disc_hh = 38.0, 17.0
+    # Taller for glyph + IP + optional ports tag (and focus port strip sits below)
+    host_hw, host_hh = 62.0, 36.0
+    disc_hw, disc_hh = 40.0, 20.0
     badge_r = 54.0
     fleet_top_gap = math.radians(85)
     fleet_span = 2.0 * math.pi - fleet_top_gap
@@ -330,7 +338,8 @@ def _build_physical_mesh_svg(
     shape_lan = ("ellipse", badge_r, badge_r)
     shape_host = ("rect", host_hw, host_hh)
     shape_disc = ("rect", disc_hw, disc_hh)
-    app_hw, app_hh = 70.0, 22.0
+    # Match dns_physical app card (140×56 → half 70×28); icon stays centered on top
+    app_hw, app_hh = 70.0, 28.0
     more_hw, more_hh = 48.0, 18.0
     shape_app = ("rect", app_hw, app_hh)
     shape_more = ("rect", more_hw, more_hh)
@@ -592,7 +601,12 @@ def _build_physical_mesh_svg(
                 "device_kind": h.get("device_kind") or "",
                 "device_kind_label": h.get("device_kind_label") or "",
                 "device_kind_short": h.get("device_kind_short") or "",
+                "icon_kind": _icon_kind_for_host(h, is_discovered=bool(is_discovered)),
                 "mac_vendor": h.get("mac_vendor") or "",
+                "ports_count": int(h.get("ports_count") or 0),
+                "ports_stack_count": int(h.get("ports_stack_count") or 0),
+                "ports_summary": (h.get("ports_summary") or "")[:80],
+                "ports_summary_line": (h.get("ports_summary_line") or "")[:120],
                 "app_count": apps_here,
                 "server_id": sid,
                 "discovery_id": h.get("discovery_id"),

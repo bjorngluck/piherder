@@ -41,10 +41,13 @@ async def integrations_list(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
+    from ..services.integrations import generic_url as gen_url
+
     rows = reg.list_integrations(session)
     items = []
     for r in rows:
         st = reg.parse_last_status(r)
+        prod = reg.generic_product(r) if r.type == reg.TYPE_GENERIC_URL else ""
         items.append(
             {
                 "id": r.id,
@@ -70,6 +73,8 @@ async def integrations_list(
                 "certificate_count": st.get("certificate_count"),
                 "device_count": st.get("device_count"),
                 "worker_online": st.get("worker_online"),
+                "product": prod,
+                "product_label": gen_url.product_label(prod) if prod else "",
             }
         )
     # Multi Pi-hole fleet summary
@@ -118,6 +123,7 @@ async def integrations_list(
             ("grafana", "grafana"),
             ("pihole", "pihole"),
             ("npm", "npm"),
+            ("generic_url", "links"),
         )
         if by_type.get(t)
     ]
@@ -168,6 +174,7 @@ from . import integrations_grafana as _grafana  # noqa: F401
 from . import integrations_pihole as _pihole  # noqa: F401
 from . import integrations_npm as _npm  # noqa: F401
 from . import integrations_nmap as _nmap  # noqa: F401
+from . import integrations_generic as _generic  # noqa: F401
 
 
 @router.get("/integrations/{integration_id}", response_class=HTMLResponse)
@@ -195,6 +202,9 @@ async def integration_detail(
     if integration.type == reg.TYPE_UPTIME_KUMA:
         from .integrations_kuma import render_kuma_detail
         return await render_kuma_detail(request, session, user, integration)
+    if integration.type == reg.TYPE_GENERIC_URL:
+        from .integrations_generic import render_generic_detail
+        return await render_generic_detail(request, session, user, integration)
     raise HTTPException(400, "Unsupported integration type in UI yet")
 
 @router.get("/integrations/{integration_id}/edit", response_class=HTMLResponse)
@@ -307,6 +317,36 @@ async def integration_edit_form(
                 "detail": request.query_params.get("detail") or "",
             },
         )
+    if integration.type == reg.TYPE_GENERIC_URL:
+        from ..services.integrations import generic_url as gen
+
+        return templates_mod.templates.TemplateResponse(
+            request=request,
+            name="integrations_generic_form.html",
+            context={
+                "title": f"Edit {integration.name}",
+                "user": user,
+                "mode": "edit",
+                "integration": integration,
+                "products": [
+                    {"value": k, "label": v[0], "default_name": v[1], "health": v[2]}
+                    for k, v in gen.PRODUCTS.items()
+                ],
+                "form": {
+                    "name": integration.name,
+                    "base_url": integration.base_url,
+                    "product": reg.generic_product(integration),
+                    "health_path": reg.generic_health_path(integration),
+                    "notes": reg.generic_notes(integration),
+                    "poll_interval_sec": reg.poll_interval_sec(integration),
+                    "tls_verify": reg.tls_verify(integration),
+                    "enabled": integration.enabled,
+                },
+                "has_token": reg.has_credentials(integration),
+                "error": request.query_params.get("error") or "",
+                "detail": request.query_params.get("detail") or "",
+            },
+        )
     if integration.type != reg.TYPE_UPTIME_KUMA:
         raise HTTPException(404)
     return templates_mod.templates.TemplateResponse(
@@ -362,10 +402,36 @@ async def integration_edit(
     use_syn: Optional[str] = Form(None),
     vuln_enabled: Optional[str] = Form(None),
     notes: str = Form(""),
+    product: str = Form("custom"),
+    health_path: str = Form(""),
 ):
     integration = reg.get_integration(session, integration_id)
     if not integration:
         raise HTTPException(404)
+    if integration.type == reg.TYPE_GENERIC_URL:
+        try:
+            reg.update_generic_url(
+                session,
+                integration,
+                name=name,
+                base_url=base_url,
+                product=product,
+                health_path=health_path,
+                notes=notes,
+                api_key=api_key,
+                poll_interval_sec=poll_interval_sec,
+                tls_verify_flag=tls_verify in ("1", "on", "true"),
+                enabled=enabled in ("1", "on", "true"),
+                clear_token=clear_token in ("1", "on", "true"),
+            )
+            _audit(session, user, "integration_updated", details=f"generic_url id={integration_id}")
+            return _redirect(f"/integrations/{integration_id}", msg="saved")
+        except ValueError as e:
+            return _redirect(
+                f"/integrations/{integration_id}/edit",
+                error="invalid",
+                detail=str(e)[:200],
+            )
     if integration.type == reg.TYPE_NMAP:
         from ..services.nmap import config as nmap_cfg
 
@@ -553,10 +619,18 @@ async def integration_test(
                 msg="test_ok",
                 detail=f"{online} · {n_cidrs} CIDR(s)",
             )
+        if integration.type == reg.TYPE_GENERIC_URL:
+            code = getattr(result, "status_code", None)
+            detail = f"HTTP {code}" if code else "reachable"
+            return _redirect(
+                f"/integrations/{integration_id}",
+                msg="test_ok",
+                detail=detail,
+            )
         return _redirect(
             f"/integrations/{integration_id}",
             msg="test_ok",
-            detail=f"{len(result.monitors)} monitors",
+            detail=f"{len(getattr(result, 'monitors', None) or [])} monitors",
         )
     return _redirect(
         f"/integrations/{integration_id}",
@@ -602,6 +676,14 @@ async def integration_poll(
                 f"/integrations/{integration_id}",
                 msg="polled",
                 detail=f"{summary.get('device_count', 0)} devices",
+            )
+        if integration.type == reg.TYPE_GENERIC_URL:
+            code = summary.get("status_code")
+            detail = f"HTTP {code}" if code else "reachable"
+            return _redirect(
+                f"/integrations/{integration_id}",
+                msg="polled",
+                detail=detail,
             )
         return _redirect(
             f"/integrations/{integration_id}",

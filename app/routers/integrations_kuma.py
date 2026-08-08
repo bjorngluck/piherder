@@ -16,7 +16,7 @@ from ..security.auth import get_current_user, get_operator_user
 from ..services.integrations import poll as poll_svc
 from ..services.integrations import registry as reg
 from ..services.integrations import uptime_kuma as kuma
-from .integrations_common import router, _audit, _redirect, _can_mutate
+from .integrations_common import router, _audit, _redirect, _can_mutate, _pin_context_for_integration
 
 logger = logging.getLogger(__name__)
 
@@ -249,6 +249,7 @@ async def render_kuma_detail(request, session, user, integration: Integration):
             "msg": request.query_params.get("msg") or "",
             "error": request.query_params.get("error") or "",
             "detail": request.query_params.get("detail") or "",
+            **_pin_context_for_integration(session, user, integration),
         },
     )
 

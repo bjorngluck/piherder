@@ -118,6 +118,22 @@ def _dns_page_context(
         ],
         "caption": "Network maps · hosts & paths · Kuma coverage",
     }
+    pin_extra: dict = {}
+    pin_hosts_map: dict = {}
+    pin_path_map: dict = {}
+    try:
+        from ..services.nav_shortcuts import app_page_pin_context
+
+        uid = int(user.id) if user and user.id else None
+        pin_hosts_map = app_page_pin_context(session, uid, "hosts_map")
+        pin_path_map = app_page_pin_context(session, uid, "path_map")
+        # Active map page also exposes flat keys for title pin_button include
+        if page == "physical":
+            pin_extra = pin_hosts_map
+        elif page == "logical":
+            pin_extra = pin_path_map
+    except Exception:
+        pin_hosts_map, pin_path_map, pin_extra = {}, {}, {}
     return {
         "request": request,
         "user": user,
@@ -127,6 +143,9 @@ def _dns_page_context(
         "mesh": view.get("mesh") or {},
         "physical": view.get("physical") or {},
         "logical": view.get("logical") or {},
+        "pin_hosts_map": pin_hosts_map,
+        "pin_path_map": pin_path_map,
+        **pin_extra,
         "dns_base_domain": base,
         "network_lan_subnet": (settings.get("network_lan_subnet") or "").strip(),
         "network_gateway_ip": (settings.get("network_gateway_ip") or "").strip(),
@@ -187,6 +206,141 @@ async def dns_coverage(
         request=request,
         name="dns_coverage.html",
         context=ctx,
+    )
+
+
+@router.get("/dns/host-ports-panel", response_class=HTMLResponse)
+async def dns_host_ports_panel(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    server_id: Optional[int] = None,
+    nmap_device_id: Optional[int] = None,
+    show_noise: Optional[str] = None,
+    focus_project: Optional[str] = None,
+):
+    """HTMX partial: host port inventory (Docker ∪ nmap + sticky roles)."""
+    from ..services.dns_fabric import host_ports as hp_svc
+
+    srv = server_id
+    if srv is None:
+        raw = (request.query_params.get("server_id") or "").strip()
+        if raw.isdigit():
+            srv = int(raw)
+    dev = nmap_device_id
+    if dev is None:
+        raw = (request.query_params.get("nmap_device_id") or "").strip()
+        if raw.isdigit():
+            dev = int(raw)
+    noise = (show_noise or request.query_params.get("show_noise") or "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+    focus = (
+        focus_project
+        or request.query_params.get("focus_project")
+        or ""
+    ).strip() or None
+
+    panel = hp_svc.build_host_port_inventory(
+        session,
+        server_id=srv,
+        nmap_device_id=dev,
+        show_noise=noise,
+        focus_project=focus,
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/dns_host_ports_panel.html",
+        context={
+            "request": request,
+            "user": user,
+            "can_mutate": _can_mutate(user),
+            "panel": panel,
+        },
+    )
+
+
+@router.post("/dns/host-port-annotation", response_class=HTMLResponse)
+async def dns_host_port_annotation(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    server_id: int = Form(...),
+    host_port: int = Form(...),
+    proto: str = Form("tcp"),
+    role_key: str = Form(""),
+    focus_project: str = Form(""),
+    show_noise: str = Form("0"),
+    label: str = Form(""),
+    note: str = Form(""),
+):
+    """Save sticky port role; re-render host ports panel."""
+    from ..services.dns_fabric import host_ports as hp_svc
+
+    clear = not (role_key or "").strip()
+    try:
+        hp_svc.upsert_port_annotation(
+            session,
+            server_id=int(server_id),
+            host_port=int(host_port),
+            proto=proto or "tcp",
+            role_key=None if clear else role_key,
+            clear_role=clear,
+            label=label if label else None,
+            note=note if note else None,
+            user_id=getattr(user, "id", None),
+        )
+        try:
+            session.add(
+                make_audit_log(
+                    action="fabric.port_annotation",
+                    user_id=getattr(user, "id", None),
+                    server_id=int(server_id),
+                    details=(
+                        f"{host_port}/{proto or 'tcp'} "
+                        f"role={'auto' if clear else role_key}"
+                    )[:500],
+                )
+            )
+            session.commit()
+        except Exception:
+            pass
+    except ValueError as e:
+        panel = {
+            "ok": False,
+            "error": str(e) or "invalid_annotation",
+        }
+        return templates.TemplateResponse(
+            request=request,
+            name="partials/dns_host_ports_panel.html",
+            context={
+                "request": request,
+                "user": user,
+                "can_mutate": True,
+                "panel": panel,
+            },
+            status_code=400,
+        )
+
+    noise = (show_noise or "").strip().lower() in ("1", "true", "yes", "on")
+    panel = hp_svc.build_host_port_inventory(
+        session,
+        server_id=int(server_id),
+        show_noise=noise,
+        focus_project=(focus_project or "").strip() or None,
+    )
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/dns_host_ports_panel.html",
+        context={
+            "request": request,
+            "user": user,
+            "can_mutate": True,
+            "panel": panel,
+        },
     )
 
 
@@ -391,6 +545,41 @@ async def stack_save_order(
             }
         )
     return _redirect(_stack_next(next, service_id=service_id), msg="order_saved")
+
+
+@router.get("/dns/host-ports-expand.json")
+async def host_ports_expand_json(
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+    server_id: Optional[int] = None,
+    nmap_device_id: Optional[int] = None,
+    show_noise: Optional[str] = None,
+    focus_project: Optional[str] = None,
+    focus_container: Optional[str] = None,
+):
+    """JSON for Hosts map: lock host/device → on-canvas port fan (compact or full)."""
+    del user
+    from ..services.dns_fabric import host_ports as hp_svc
+
+    sid = server_id
+    did = nmap_device_id
+    if sid is None and did is None:
+        return JSONResponse(
+            {"ok": False, "error": "need_server_or_device"}, status_code=400
+        )
+    noise = (show_noise or "").strip().lower() in ("1", "true", "yes", "on")
+    focus_proj = (focus_project or "").strip() or None
+    focus_ct = (focus_container or "").strip() or None
+    payload = hp_svc.build_host_ports_expand_payload(
+        session,
+        server_id=int(sid) if sid is not None else None,
+        nmap_device_id=int(did) if did is not None else None,
+        show_noise=noise,
+        focus_project=focus_proj,
+        focus_container=focus_ct,
+    )
+    status = 200 if payload.get("ok") else 404
+    return JSONResponse(payload, status_code=status)
 
 
 @router.get("/dns/stack-expand.json")

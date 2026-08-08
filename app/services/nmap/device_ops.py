@@ -14,6 +14,58 @@ from ...models import NmapDevice, NmapScriptResult
 STALE_AFTER_DAYS = 14
 
 
+def format_last_seen(
+    last_seen_at: datetime | None,
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Human last-seen for list/modal (S1).
+
+    Returns ``label`` (relative), ``title`` (absolute UTC-ish), ``iso``,
+    and ``age_days`` for styling. Never auto-deletes; stale is a flag only.
+    """
+    if last_seen_at is None:
+        return {
+            "label": "Never",
+            "title": "Not seen in any completed scan yet",
+            "iso": None,
+            "age_days": None,
+            "is_stale_age": False,
+        }
+    ref = now or datetime.utcnow()
+    # Tolerate aware timestamps
+    ls = last_seen_at
+    if getattr(ls, "tzinfo", None) is not None:
+        ls = ls.replace(tzinfo=None)
+    if getattr(ref, "tzinfo", None) is not None:
+        ref = ref.replace(tzinfo=None)
+    delta = ref - ls
+    secs = max(0, int(delta.total_seconds()))
+    age_days = secs / 86400.0
+    if secs < 60:
+        label = "Just now"
+    elif secs < 3600:
+        m = secs // 60
+        label = f"{m}m ago"
+    elif secs < 86400:
+        h = secs // 3600
+        label = f"{h}h ago"
+    elif secs < 86400 * 14:
+        d = secs // 86400
+        label = f"{d}d ago"
+    else:
+        d = secs // 86400
+        label = f"{d}d ago"
+    iso = ls.isoformat(sep=" ", timespec="seconds")
+    return {
+        "label": label,
+        "title": f"Last seen {iso} UTC",
+        "iso": iso,
+        "age_days": round(age_days, 2),
+        "is_stale_age": age_days >= float(STALE_AFTER_DAYS),
+    }
+
+
 def device_display_name(device: Any, *, prefer_ip_fallback: bool = True) -> str:
     """Label for lists/maps: operator display_name → nmap hostname → IP."""
     for key in ("display_name", "hostname"):
@@ -180,7 +232,8 @@ DEVICE_STATE_LABELS: dict[str, str] = {
     "new": "New",
     "known": "Known (reviewed)",
     "linked": "Linked",
-    "ignored": "Ignored",
+    # UI: "Hidden" — state id remains *ignored* (off maps; still in DB)
+    "ignored": "Hidden",
     # UI: "Offline" — state id remains *stale* (not seen since threshold; never auto-deleted)
     "stale": "Offline",
 }
@@ -270,6 +323,7 @@ def device_list_item(device: NmapDevice) -> dict[str, Any]:
 
     services = _open_ports_summary(device.ports_json, limit=6)
     profile = profile_dict_from_device(device)
+    seen = format_last_seen(getattr(device, "last_seen_at", None))
     return {
         "row": device,
         "open_ports": _count_open_ports(device.ports_json),
@@ -284,7 +338,29 @@ def device_list_item(device: NmapDevice) -> dict[str, Any]:
         "map_role": (getattr(device, "map_role", None) or "").strip() or "",
         "display_name": (getattr(device, "display_name", None) or "").strip() or "",
         "label": device_display_name(device),
+        "last_seen": seen,
+        "last_seen_label": seen["label"],
+        "last_seen_title": seen["title"],
     }
+
+
+def device_stats_from_rows(devices: list[NmapDevice]) -> dict[str, int]:
+    """Unfiltered counts for toolbar / filter chips (S4)."""
+    by: dict[str, int] = {
+        "total": len(devices),
+        "new": 0,
+        "known": 0,
+        "linked": 0,
+        "ignored": 0,
+        "stale": 0,
+        "open_ports": 0,
+    }
+    for d in devices:
+        st = (d.state or "").strip() or "new"
+        if st in by:
+            by[st] = by.get(st, 0) + 1
+        by["open_ports"] += _count_open_ports(d.ports_json)
+    return by
 
 def set_device_state(
     session: Session,
@@ -350,6 +426,52 @@ def unlink_device(session: Session, device: NmapDevice) -> NmapDevice:
     session.commit()
     session.refresh(device)
     return device
+
+
+def _purge_device_rows(session: Session, device: NmapDevice) -> dict[str, Any]:
+    """Delete script results + device row (no commit)."""
+    device_id = int(device.id)  # type: ignore[arg-type]
+    ip = (device.ip_address or "").strip()
+    scripts = list(
+        session.exec(
+            select(NmapScriptResult).where(NmapScriptResult.device_id == device_id)
+        ).all()
+    )
+    for s in scripts:
+        session.delete(s)
+    session.delete(device)
+    return {
+        "device_id": device_id,
+        "ip": ip,
+        "scripts_deleted": len(scripts),
+    }
+
+
+def purge_device(session: Session, device: NmapDevice) -> dict[str, Any]:
+    """Permanently remove a discovery device and its script results (S3).
+
+    Operator-only. Devices are **never** auto-deleted; stale/offline is a flag.
+    Rescan may re-create the host as *new* if it is still on the LAN.
+    """
+    res = _purge_device_rows(session, device)
+    session.commit()
+    return res
+
+
+def purge_devices(
+    session: Session,
+    devices: list[NmapDevice],
+) -> dict[str, Any]:
+    """Bulk purge (e.g. all offline). Single commit."""
+    n = 0
+    scripts = 0
+    for d in list(devices):
+        res = _purge_device_rows(session, d)
+        n += 1
+        scripts += int(res.get("scripts_deleted") or 0)
+    if n:
+        session.commit()
+    return {"purged": n, "scripts_deleted": scripts}
 
 
 def parse_cidrs_textarea(raw: str) -> list[str]:
