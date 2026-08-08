@@ -127,6 +127,44 @@ def test_authentication_options_requires_creds(monkeypatch):
         wa.authentication_options_json(session, user)
 
 
+def test_authentication_options_with_string_transports(monkeypatch):
+    """Regression: stored transports are JSON strings; webauthn 3.x needs enums.
+
+    Without conversion, options_to_json raises:
+    AttributeError: 'str' object has no attribute 'value'
+    """
+    monkeypatch.setattr(wa.settings, "PIHERDER_HOSTNAME", "localhost")
+    monkeypatch.setattr(wa.settings, "PIHERDER_PUBLIC_URL", "http://localhost:8000")
+    user = SimpleNamespace(id=1, email="a@example.com", display_name="A")
+    cred_id = wa._b64url_encode(b"test-cred-id-bytes!!")
+    row = SimpleNamespace(
+        credential_id=cred_id,
+        transports='["internal", "hybrid", "usb"]',
+    )
+    session = MagicMock()
+    session.exec.return_value.all.return_value = [row]
+
+    options_json, chal_token = wa.authentication_options_json(session, user)
+    assert chal_token
+    assert "challenge" in options_json
+    assert "allowCredentials" in options_json
+    # transports serialized as string values in JSON
+    assert "internal" in options_json
+
+
+def test_authenticator_transports_helper():
+    enums = wa._authenticator_transports(["internal", "hybrid", "nope", "cable"])
+    assert enums is not None
+    vals = sorted(t.value for t in enums)
+    assert "internal" in vals
+    assert "hybrid" in vals
+    assert "nope" not in vals
+    # cable normalized to hybrid (deduped)
+    assert vals.count("hybrid") == 1
+    assert wa._authenticator_transports(None) is None
+    assert wa._authenticator_transports([]) is None
+
+
 def test_user_has_second_factor_security_helper():
     from app.security.auth import user_has_second_factor
 

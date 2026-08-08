@@ -183,6 +183,42 @@ def _transports_list(raw: Optional[str]) -> Optional[List[str]]:
     return None
 
 
+def _authenticator_transports(
+    raw: Optional[Sequence[Any]],
+) -> Optional[List[Any]]:
+    """Convert stored/string transports to AuthenticatorTransport enums.
+
+    webauthn 3.x ``options_to_json`` calls ``.value`` on each transport; plain
+    strings raise ``AttributeError: 'str' object has no attribute 'value'``.
+    """
+    if not raw:
+        return None
+    from webauthn.helpers.structs import AuthenticatorTransport
+
+    out: List[Any] = []
+    seen = set()
+    for t in raw:
+        if t is None:
+            continue
+        if isinstance(t, AuthenticatorTransport):
+            val = t.value
+        else:
+            val = t.value if hasattr(t, "value") else str(t)
+        val = str(val).strip().lower().replace("_", "-")
+        # Older stacks / getTransports may report cable for hybrid
+        if val == "cable":
+            val = "hybrid"
+        if not val or val in seen:
+            continue
+        try:
+            enum_t = AuthenticatorTransport(val)
+        except ValueError:
+            continue
+        seen.add(val)
+        out.append(enum_t)
+    return out or None
+
+
 def mint_challenge_token(*, kind: str, user_id: int, challenge_b64: str) -> str:
     """Short-lived JWT holding the ceremony challenge (no full session grant)."""
     return create_access_token(
@@ -253,7 +289,7 @@ def registration_options_json(session: Session, user: User) -> Tuple[str, str]:
         exclude_desc = [
             PublicKeyCredentialDescriptor(
                 id=e["id"],
-                transports=e.get("transports") or None,
+                transports=_authenticator_transports(e.get("transports")),
             )
             for e in exclude
         ]
@@ -383,7 +419,7 @@ def authentication_options_json(
             allow.append(
                 PublicKeyCredentialDescriptor(
                     id=_b64url_decode(c.credential_id),
-                    transports=_transports_list(c.transports) or None,
+                    transports=_authenticator_transports(_transports_list(c.transports)),
                 )
             )
         except Exception:

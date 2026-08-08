@@ -48,8 +48,184 @@
       <button type="button" onclick="showEditServerModal()" class="btn btn-secondary min-h-11 text-sm">Edit</button>
       <button type="button" onclick="showSshAccessModal()" class="btn btn-secondary min-h-11 text-sm" title="Deploy key, rotate, test connection">SSH access</button>
       {% if console_enabled and is_operator %}
-      <a href="/servers/{{ server.id }}/console" class="btn btn-secondary min-h-11 text-sm no-underline inline-flex items-center"
-         data-testid="open-console" title="Web SSH console (flag-enabled)">Console</a>
+      <button type="button"
+              class="btn btn-secondary min-h-11 text-sm inline-flex items-center"
+              data-testid="open-console"
+              title="Open SSH console popup"
+              onclick="openPiHerderConsolePopup({{ server.id }})">Console</button>
+      {# Floating terminal popup (the console itself — not a full-page essay). #}
+      <div id="ph-console-popup" class="ph-console-popup hidden" role="dialog" aria-modal="true"
+           aria-label="SSH console" data-testid="console-popup">
+        <div class="ph-console-popup-panel" id="ph-console-popup-panel">
+          <div class="ph-console-popup-bar">
+            <span class="ph-console-popup-title truncate">
+              <span class="text-muted text-xs font-normal uppercase tracking-wide mr-1">Console</span>
+              {{ server.name }}
+            </span>
+            <div class="ph-console-popup-actions">
+              <button type="button" id="ph-console-popup-max" class="btn btn-secondary text-xs min-h-9 px-2"
+                      title="Fill the browser">Maximize</button>
+              <a href="/console?host={{ server.id }}" class="btn btn-secondary text-xs min-h-9 px-2 no-underline"
+                 title="Multi-host workspace">+ Hosts</a>
+              <button type="button" id="ph-console-popup-close" class="btn btn-secondary text-xs min-h-9 px-2"
+                      data-testid="console-popup-close">✕</button>
+            </div>
+          </div>
+          <iframe id="ph-console-popup-frame" class="ph-console-popup-frame" title="SSH console"
+                  allow="publickey-credentials-get *" referrerpolicy="same-origin"></iframe>
+        </div>
+      </div>
+      <style>
+        .ph-console-popup {
+          position: fixed; inset: 0; z-index: 80;
+          background: rgba(0,0,0,0.55);
+          display: none;
+          align-items: center; justify-content: center;
+          padding: 0.75rem;
+          box-sizing: border-box;
+        }
+        .ph-console-popup.is-open { display: flex; }
+        .ph-console-popup-panel {
+          display: flex; flex-direction: column;
+          width: min(1100px, 100%);
+          height: min(88vh, 820px);
+          max-height: 100%;
+          background: #0b0f14;
+          border: 1px solid var(--color-border, #333);
+          border-radius: 0.6rem;
+          overflow: hidden;
+          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6);
+          transition: height 0.15s ease, width 0.15s ease, border-radius 0.15s ease;
+        }
+        /* Maximize: true full viewport (desktop + mobile) */
+        .ph-console-popup.is-max {
+          padding: 0 !important;
+          align-items: stretch; justify-content: stretch;
+          background: #0b0f14;
+        }
+        .ph-console-popup.is-max .ph-console-popup-panel {
+          width: 100% !important;
+          height: 100% !important;
+          max-height: none !important;
+          min-height: 100% !important;
+          border-radius: 0 !important;
+          border: 0 !important;
+        }
+        .ph-console-popup-bar {
+          display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+          flex-shrink: 0; padding: 0.4rem 0.55rem;
+          background: var(--color-surface, #12171e);
+          border-bottom: 1px solid var(--color-border, #333);
+        }
+        .ph-console-popup-title { font-size: 0.9rem; font-weight: 600; min-width: 0; }
+        .ph-console-popup-actions { display: flex; flex-wrap: wrap; gap: 0.3rem; flex-shrink: 0; }
+        .ph-console-popup-frame {
+          flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #0b0f14;
+        }
+        body.ph-console-popup-open { overflow: hidden; }
+        /*
+          Mobile default: bottom sheet (~72% height) so Maximize is a real change.
+          Previously 100% height made Maximize a no-op.
+        */
+        @media (max-width: 640px) {
+          .ph-console-popup {
+            padding: 0;
+            align-items: flex-end;
+            justify-content: stretch;
+          }
+          .ph-console-popup-panel {
+            width: 100%;
+            height: 72vh;
+            height: 72dvh;
+            max-height: 72dvh;
+            border-radius: 0.75rem 0.75rem 0 0;
+            border-left: 0; border-right: 0; border-bottom: 0;
+          }
+          .ph-console-popup.is-max {
+            align-items: stretch;
+          }
+          .ph-console-popup.is-max .ph-console-popup-panel {
+            height: 100% !important;
+            max-height: none !important;
+            min-height: 100dvh !important;
+            border-radius: 0 !important;
+          }
+        }
+      </style>
+      <script>
+      (function () {
+        var serverId = {{ server.id }};
+        var pop = document.getElementById('ph-console-popup');
+        var panel = document.getElementById('ph-console-popup-panel');
+        var frame = document.getElementById('ph-console-popup-frame');
+        var btnMax = document.getElementById('ph-console-popup-max');
+        var btnClose = document.getElementById('ph-console-popup-close');
+        var url = '/servers/' + serverId + '/console?embed=1';
+
+        function openPopup() {
+          if (!pop || !frame) return;
+          if (!frame.getAttribute('src')) frame.src = url;
+          pop.classList.remove('hidden');
+          pop.classList.add('is-open');
+          document.body.classList.add('ph-console-popup-open');
+          try { frame.focus(); } catch (e) {}
+        }
+        function closePopup() {
+          if (!pop) return;
+          if (frame) {
+            try { frame.src = 'about:blank'; } catch (e) {}
+            frame.removeAttribute('src');
+          }
+          pop.classList.add('hidden');
+          pop.classList.remove('is-open', 'is-max');
+          document.body.classList.remove('ph-console-popup-open');
+          if (btnMax) btnMax.textContent = 'Maximize';
+        }
+        function refitFrame() {
+          try {
+            if (frame && frame.contentWindow) {
+              frame.contentWindow.postMessage(
+                { type: 'piherder-console', action: 'refit' },
+                window.location.origin
+              );
+            }
+          } catch (e) {}
+        }
+        function toggleMax() {
+          if (!pop) return;
+          pop.classList.toggle('is-max');
+          var on = pop.classList.contains('is-max');
+          if (btnMax) btnMax.textContent = on ? 'Restore' : 'Maximize';
+          // Double-refit after layout settles (mobile dvh / keyboard)
+          setTimeout(refitFrame, 50);
+          setTimeout(refitFrame, 200);
+          setTimeout(refitFrame, 400);
+        }
+        window.openPiHerderConsolePopup = function (id) {
+          if (id && Number(id) !== Number(serverId)) {
+            window.location.href = '/console?host=' + id;
+            return;
+          }
+          openPopup();
+        };
+        if (btnClose) btnClose.addEventListener('click', closePopup);
+        if (btnMax) btnMax.addEventListener('click', toggleMax);
+        if (pop) {
+          pop.addEventListener('click', function (ev) {
+            if (ev.target === pop) closePopup();
+          });
+        }
+        document.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Escape' && pop && pop.classList.contains('is-open')) closePopup();
+        });
+        window.addEventListener('message', function (ev) {
+          if (ev.origin !== window.location.origin) return;
+          if (!ev.data || ev.data.type !== 'piherder-console') return;
+          if (ev.data.action === 'close') closePopup();
+          if (ev.data.action === 'expand') toggleMax();
+        });
+      })();
+      </script>
       {% endif %}
       <button type="button" onclick="showSystemInfoModal()" class="btn btn-secondary min-h-11 text-sm">System info</button>
     </div>

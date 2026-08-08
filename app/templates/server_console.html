@@ -1,149 +1,216 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="mb-4">
-  <div class="flex flex-wrap items-center gap-3 justify-between">
-    <div>
-      <p class="text-xs text-muted mb-0.5">
-        <a href="/servers/{{ server.id }}" class="text-primary hover:underline">← {{ server.name }}</a>
-      </p>
-      <h1 class="text-xl font-semibold text-text">Web SSH console</h1>
-      <p class="text-sm text-muted font-mono">{{ server.ssh_username or '?' }}@{{ server.hostname or server.ip_address or 'host' }}:{{ server.ssh_port or 22 }}</p>
-    </div>
-    <div class="text-xs text-muted max-w-sm text-right hidden sm:block">
-      Key stays on PiHerder · operator+ · 2FA step-up · max {{ max_shells }} shells
-    </div>
-  </div>
-</section>
+{# Bare terminal for popup iframe — no essays, no nav chrome. #}
+<div class="ch" id="console-host-app">
 
 {% if not console_enabled %}
-<div class="card p-5 mb-4 banner-error border border-border" role="alert">
-  <strong>Console is disabled</strong> on this instance.
-  Set <code class="font-mono text-xs">PIHERDER_SSH_CONSOLE=true</code> and restart web.
-  Default is <strong>off</strong> for safety.
-</div>
+<div class="ch-banner banner-error">Console disabled.</div>
 {% elif not has_ssh_cred %}
-<div class="card p-5 mb-4 banner-error border border-border" role="alert">
-  No SSH key or password stored for this host. Open <strong>SSH access</strong> on the server page first.
-</div>
+<div class="ch-banner banner-error">No SSH credentials on this host.</div>
 {% elif not has_2fa %}
-<div class="card p-5 mb-4 banner-error border border-border" role="alert">
-  Console requires PiHerder <strong>2FA</strong> — <strong>passkey preferred</strong>, or authenticator TOTP.
-  Enroll under <a href="/auth/account" class="text-primary hover:underline">Account</a>, then return here.
-  {% if not allow_backup_codes %}<span class="block mt-1 text-xs">Backup codes are not accepted for the console.</span>{% endif %}
-</div>
+<div class="ch-banner banner-error">Enroll 2FA on <a href="/auth/account" class="text-primary">Account</a> first.</div>
 {% else %}
 
-{# Security notice #}
-<div class="card p-4 mb-3 border border-border bg-surface/50" data-testid="console-security-note">
-  <p class="text-sm text-text font-medium mb-1">Security — session cannot be stolen or resumed</p>
-  <ul class="text-xs text-muted space-y-1 list-disc pl-4">
-    <li><strong class="text-text">In-app only</strong> · same-origin · no embed (CSP).</li>
-    <li><strong class="text-text">No resume</strong> — single-use ticket; close tab = PTY gone forever.</li>
-    <li>Bound to <strong class="text-text">login session</strong>{% if bind_ip %}, <strong class="text-text">IP</strong>{% endif %}{% if bind_device %}, <strong class="text-text">this browser</strong>{% endif %} — re-validated every ~{{ revalidate_sec }}s.</li>
-    <li>Logout / password change / admin session revoke kills open shells quickly.</li>
-    <li><strong class="text-text">2FA step-up</strong>: prefer <strong class="text-text">passkey (WebAuthn)</strong>; TOTP app OK{% if allow_backup_codes %}; backup codes allowed{% else %}; <strong class="text-text">backup codes not accepted</strong>{% endif %}{% if require_2fa_every_shell %}; every shell{% endif %}.</li>
-    {% if not require_2fa_every_shell %}
-    <li>Short grant (~{{ grant_minutes }} min) for extra shells on this host — use <strong class="text-text">Lock step-up</strong> anytime.</li>
-    {% endif %}
-    <li>PEM never leaves PiHerder · idle ~{{ (idle_sec / 60)|int }} min · max ~{{ (max_session_sec / 60)|int }} min · max {{ max_shells }} shells.</li>
-  </ul>
-</div>
-
-{# Step-up gate (hidden once grant active unless every-shell 2FA) #}
-<div class="card p-4 mb-3 space-y-3" id="console-gate" data-testid="console-gate"
+{# One compact bar: 2FA (if needed) + open shell + tools #}
+<div class="ch-gate" id="console-gate" data-testid="console-gate"
      {% if grant_active and not require_2fa_every_shell %}data-grant="1"{% endif %}>
-  <p class="text-sm text-muted" id="console-gate-help">
-    {% if require_2fa_every_shell %}
-    Policy: <strong class="text-text">2FA every shell</strong>. Prefer passkey; TOTP only if needed.
-    {% elif grant_active %}
-    Step-up is active for this host (~{{ grant_minutes }} min). Open shells without re-entering 2FA until it expires.
-    {% elif has_passkeys and prefer_passkey %}
-    <strong class="text-text">Recommended: Use passkey</strong>, then New shell. Authenticator TOTP is secondary.
-    {% else %}
-    Complete step-up with a passkey or authenticator code, then open shells.
-    {% if not allow_backup_codes %} Backup codes are not accepted here.{% endif %}
-    {% endif %}
-  </p>
-  <div class="flex flex-wrap gap-2 items-end" id="console-2fa-row"
+  <div class="ch-gate-row" id="console-2fa-row"
        {% if grant_active and not require_2fa_every_shell %}style="display:none"{% endif %}>
     {% if has_passkeys %}
     <button type="button" id="console-passkey"
-            class="btn {% if prefer_passkey %}btn-accent{% else %}btn-secondary{% endif %} min-h-11 text-sm"
-            data-testid="console-passkey">
-      {% if prefer_passkey %}Use passkey (recommended){% else %}Use passkey{% endif %}
-    </button>
+            class="btn {% if prefer_passkey %}btn-accent{% else %}btn-secondary{% endif %} text-xs min-h-9 px-2"
+            data-testid="console-passkey">Passkey</button>
     {% endif %}
     {% if not require_passkey or not has_passkeys %}
-    <div class="flex-1 min-w-[12rem]">
-      <label class="block text-xs text-muted mb-1" for="console-totp">Authenticator code (TOTP)</label>
-      <input id="console-totp" type="text" inputmode="numeric" autocomplete="one-time-code"
-             class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono"
-             data-testid="console-totp" placeholder="123456"
-             {% if require_passkey and has_passkeys %}disabled{% endif %}>
-      {% if not allow_backup_codes %}
-      <p class="text-[10px] text-muted mt-0.5">Backup codes are not accepted for the console.</p>
-      {% endif %}
-    </div>
+    <input id="console-totp" type="text" inputmode="numeric" autocomplete="one-time-code"
+           class="ch-totp font-mono" data-testid="console-totp" placeholder="TOTP"
+           {% if require_passkey and has_passkeys %}disabled{% endif %}>
     {% endif %}
   </div>
-  <div class="flex flex-wrap gap-2 items-center">
+  <div class="ch-gate-row">
     <button type="button" id="console-new-shell"
-            class="btn {% if has_passkeys and prefer_passkey %}btn-secondary{% else %}btn-accent{% endif %} min-h-11 text-sm"
-            data-testid="console-new-shell">New shell</button>
+            class="btn btn-accent text-xs min-h-9 px-2" data-testid="console-new-shell">+ Shell</button>
     {% if not require_2fa_every_shell %}
-    <button type="button" id="console-revoke-grant" class="btn btn-secondary min-h-11 text-sm"
-            data-testid="console-revoke-grant" title="Require 2FA again for the next shell">
-      Lock step-up
-    </button>
+    <button type="button" id="console-revoke-grant" class="btn btn-secondary text-xs min-h-9 px-2"
+            data-testid="console-revoke-grant" title="Require 2FA again">Lock</button>
     {% endif %}
-    <span id="console-status" class="text-xs text-muted" role="status"></span>
+    <div class="ch-font" title="Font size">
+      <button type="button" id="console-font-dec" class="btn btn-secondary text-xs min-h-9 px-2" data-testid="console-font-dec">A−</button>
+      <span id="console-font-label" class="ch-font-label">14</span>
+      <button type="button" id="console-font-inc" class="btn btn-secondary text-xs min-h-9 px-2" data-testid="console-font-inc">A+</button>
+    </div>
+    <span id="console-status" class="ch-status" role="status"></span>
+    <span id="console-slot-info" class="ch-slots-inline"></span>
   </div>
-  <p id="console-error" class="hidden text-sm text-danger" role="alert"></p>
+  <p id="console-gate-help" class="hidden" aria-hidden="true"></p>
+  <p id="console-error" class="hidden text-sm text-danger ch-err" role="alert"></p>
 </div>
 
-{# Shell tabs + terminal panes #}
-<div class="card p-0 overflow-hidden border border-border" data-testid="console-workspace">
-  <div class="flex flex-wrap items-center gap-1 px-2 py-1.5 border-b border-border bg-surface"
-       id="console-tabs" role="tablist" aria-label="Shell sessions">
-    <span class="text-[10px] text-muted uppercase tracking-wide px-2 py-1" id="console-tab-empty">
-      No shells yet — click <strong class="text-text">New shell</strong>
-    </span>
+<div id="console-workspace-shell" class="ch-workspace console-workspace-shell" data-testid="console-workspace">
+  <div class="ch-shell-tabs" id="console-tabs" role="tablist" aria-label="Shells">
+    <span class="ch-tab-empty" id="console-tab-empty">Tap <strong>+ Shell</strong></span>
   </div>
-  <div id="console-panes" class="relative" style="background:#0b0f14; min-height: min(70vh, 560px);">
-    {# panes injected by JS #}
+  <div id="console-panes" class="ch-panes console-panes"></div>
+  <div class="ch-keys" id="console-keys" aria-label="Control keys">
+    <button type="button" id="console-ctrl-mod" class="ch-key ch-key-wide" data-key="ctrl-mod"
+            data-testid="console-ctrl-mod" title="Sticky Ctrl — next key is Ctrl+letter (or tap again to cancel)">Ctrl</button>
+    <button type="button" class="ch-key" data-key="ctrl-c" title="Ctrl+C (interrupt)">^C</button>
+    <button type="button" class="ch-key" data-key="ctrl-d" title="Ctrl+D (EOF)">^D</button>
+    <button type="button" class="ch-key" data-key="ctrl-x" title="Ctrl+X">^X</button>
+    <button type="button" class="ch-key" data-key="ctrl-s" title="Ctrl+S">^S</button>
+    <button type="button" class="ch-key" data-key="ctrl-z" title="Ctrl+Z">^Z</button>
+    <button type="button" class="ch-key" data-key="ctrl-l" title="Ctrl+L (clear)">^L</button>
+    <button type="button" class="ch-key" data-key="ctrl-a" title="Ctrl+A">^A</button>
+    <button type="button" class="ch-key" data-key="ctrl-e" title="Ctrl+E">^E</button>
+    <button type="button" class="ch-key" data-key="ctrl-w" title="Ctrl+W">^W</button>
+    <button type="button" class="ch-key" data-key="ctrl-r" title="Ctrl+R">^R</button>
+    <button type="button" class="ch-key" data-key="ctrl-u" title="Ctrl+U">^U</button>
+    <button type="button" class="ch-key" data-key="ctrl-k" title="Ctrl+K">^K</button>
+    <button type="button" class="ch-key" data-key="tab" title="Tab">Tab</button>
+    <button type="button" class="ch-key" data-key="esc" title="Esc">Esc</button>
+    <button type="button" class="ch-key" data-key="up" title="Up">↑</button>
+    <button type="button" class="ch-key" data-key="down" title="Down">↓</button>
+    <button type="button" class="ch-key" data-key="left" title="Left">←</button>
+    <button type="button" class="ch-key" data-key="right" title="Right">→</button>
+    <button type="button" id="console-select-mode" class="ch-key ch-key-wide" data-testid="console-select-mode" title="Drag-select (mobile)">Select</button>
+    <button type="button" id="console-select-line" class="ch-key" data-testid="console-select-line" title="Select line">Line</button>
+    <button type="button" id="console-select-screen" class="ch-key" data-testid="console-select-screen" title="Select screen">Scr</button>
+    <button type="button" id="console-copy" class="ch-key ch-key-wide" disabled data-testid="console-copy">Copy</button>
+    <button type="button" id="console-paste" class="ch-key ch-key-wide" data-testid="console-paste">Paste</button>
+    <button type="button" id="console-disconnect" class="ch-key ch-key-danger" disabled data-testid="console-disconnect">✕</button>
   </div>
-  <div class="flex flex-wrap gap-2 px-3 py-2 border-t border-border bg-surface text-xs text-muted"
-       id="console-toolbar">
-    <button type="button" id="console-minimize" class="btn btn-secondary text-xs min-h-9 px-2" disabled
-            data-testid="console-minimize">Minimize active</button>
-    <button type="button" id="console-restore" class="btn btn-secondary text-xs min-h-9 px-2" disabled
-            data-testid="console-restore">Restore</button>
-    <button type="button" id="console-disconnect" class="btn btn-danger text-xs min-h-9 px-2" disabled
-            data-testid="console-disconnect">Close shell</button>
-    <span id="console-slot-info" class="ml-auto self-center">Slots free: {{ slots_remaining }} / {{ max_shells }}</span>
+  <div id="console-ctrl-letters" class="ch-ctrl-letters hidden" aria-label="Ctrl + letter">
+    {# Filled by JS: a–z when sticky Ctrl is on #}
   </div>
+  {# Hidden legacy hooks kept for JS #}
+  <button type="button" id="console-minimize" class="hidden" disabled aria-hidden="true"></button>
+  <button type="button" id="console-restore" class="hidden" disabled aria-hidden="true"></button>
+  <button type="button" id="console-maximize" class="hidden" aria-hidden="true"></button>
+  <button type="button" id="console-maximize-bar" class="hidden" aria-hidden="true"></button>
+  <button type="button" id="console-close-popup" class="hidden" aria-hidden="true"></button>
+  <select id="console-scrollback" class="hidden" aria-hidden="true">
+    <option value="2000" selected>2k</option>
+    <option value="5000">5k</option>
+    <option value="10000">10k</option>
+    <option value="20000">20k</option>
+  </select>
+  <div id="console-toolbar" class="hidden" aria-hidden="true"></div>
+  <p id="console-select-hint" class="ch-select-hint hidden" role="status">Drag to select, then Copy.</p>
 </div>
 
-{# Vendored under /static for CSP default-src 'self' (no third-party CDNs) #}
 <link rel="stylesheet" href="/static/vendor/xterm/xterm.min.css">
 <script src="/static/vendor/xterm/xterm.min.js"></script>
 <script src="/static/vendor/xterm/addon-fit.min.js"></script>
 <style>
-  .console-tab {
-    display: inline-flex; align-items: center; gap: 0.35rem;
-    padding: 0.35rem 0.65rem; border-radius: 0.375rem; font-size: 0.75rem;
-    border: 1px solid var(--color-border, #333); background: transparent; color: inherit;
-    min-height: 2rem; cursor: pointer;
+  .ch {
+    display: flex; flex-direction: column;
+    height: 100%; min-height: 0; flex: 1 1 auto;
+    background: #0b0f14; color: var(--color-text, #e6edf3);
   }
-  .console-tab.is-active { border-color: var(--color-accent, #22c55e); background: rgba(34,197,94,0.08); }
-  .console-tab.is-minimized { opacity: 0.65; }
-  .console-tab .dot { width: 0.4rem; height: 0.4rem; border-radius: 999px; background: #22c55e; }
+  .ch-font { display: inline-flex; align-items: center; gap: 0.15rem; }
+  .ch-font-label { font-size: 0.7rem; font-family: ui-monospace, monospace; width: 1.4rem; text-align: center; color: var(--color-muted); }
+  .ch-banner { margin: 0.5rem; padding: 0.75rem; border-radius: 0.4rem; }
+  .ch-gate {
+    flex-shrink: 0; padding: 0.3rem 0.4rem;
+    border-bottom: 1px solid var(--color-border, #333);
+    background: var(--color-surface, #12171e);
+  }
+  .ch-gate-row { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
+  .ch-totp {
+    width: 6.5rem; min-height: 2.25rem; padding: 0.25rem 0.4rem;
+    border: 1px solid var(--color-border, #333); border-radius: 0.35rem;
+    background: var(--color-bg, #0b0f14); color: inherit;
+  }
+  .ch-status { font-size: 0.7rem; color: var(--color-muted); }
+  .ch-err { margin: 0.25rem 0 0; }
+  .ch-workspace {
+    flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+    border: 0; border-radius: 0; overflow: hidden;
+  }
+  .ch-shell-tabs {
+    display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center;
+    padding: 0.3rem 0.4rem; border-bottom: 1px solid var(--color-border, #333);
+    background: var(--color-surface, #12171e); flex-shrink: 0;
+  }
+  .ch-tab-empty { font-size: 0.7rem; color: var(--color-muted); padding: 0.2rem 0.4rem; }
+  .console-tab {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    padding: 0.3rem 0.55rem; border-radius: 0.35rem; font-size: 0.72rem;
+    border: 1px solid var(--color-border, #333); background: transparent; color: inherit;
+    min-height: 1.85rem; cursor: pointer;
+  }
+  .console-tab.is-active { border-color: var(--color-accent, #22c55e); background: rgba(34,197,94,0.1); }
+  .console-tab.is-minimized { opacity: 0.6; }
+  .console-tab .dot { width: 0.35rem; height: 0.35rem; border-radius: 999px; background: #22c55e; }
   .console-tab.is-minimized .dot { background: #a3a3a3; }
-  .console-pane { display: none; height: min(70vh, 560px); padding: 0.25rem; }
+  .ch-panes {
+    position: relative; flex: 1 1 auto; min-height: 0;
+    background: #0b0f14;
+  }
+  .console-pane {
+    display: none; position: absolute; inset: 0; padding: 0.15rem;
+  }
   .console-pane.is-active { display: block; }
   .console-pane.is-minimized { display: none !important; }
-  .console-pane .xterm-host { height: 100%; width: 100%; }
+  .console-pane .xterm-host,
+  .console-pane .xterm { height: 100%; width: 100%; }
+  .console-pane .xterm .xterm-selection div {
+    background-color: rgba(56, 139, 253, 0.35) !important;
+  }
+  .ch-keys {
+    display: flex; flex-wrap: wrap; gap: 0.2rem;
+    padding: 0.25rem 0.35rem;
+    border-top: 1px solid var(--color-border, #333);
+    background: var(--color-surface, #12171e); flex-shrink: 0;
+  }
+  .ch-key {
+    min-width: 2rem; min-height: 1.85rem; padding: 0.15rem 0.4rem;
+    font-size: 0.7rem; font-family: ui-monospace, monospace;
+    border: 1px solid var(--color-border, #333); border-radius: 0.3rem;
+    background: transparent; color: inherit; cursor: pointer;
+  }
+  .ch-key:hover { border-color: var(--color-accent, #22c55e); }
+  .ch-key-wide { min-width: 2.6rem; }
+  .ch-key-danger { color: #f87171; }
+  .ch-key.is-on, #console-select-mode.is-on, #console-ctrl-mod.is-on {
+    border-color: var(--color-accent, #22c55e);
+    background: rgba(34, 197, 94, 0.15);
+  }
+  .ch-ctrl-letters {
+    display: flex; flex-wrap: wrap; gap: 0.2rem;
+    padding: 0.2rem 0.35rem 0.3rem;
+    border-top: 1px solid var(--color-border, #333);
+    background: var(--color-surface, #12171e); flex-shrink: 0;
+  }
+  .ch-ctrl-letters.hidden { display: none; }
+  .ch-ctrl-letters .ch-key { min-width: 1.65rem; text-transform: lowercase; }
+  .ch-slots-inline { font-size: 0.65rem; color: var(--color-muted); margin-left: auto; }
+  .ch-select-hint {
+    flex-shrink: 0; margin: 0; padding: 0.3rem 0.5rem;
+    font-size: 0.68rem; color: var(--color-muted);
+    border-top: 1px solid var(--color-border, #333);
+    background: rgba(34, 197, 94, 0.08);
+  }
+  .ch-select-hint.hidden { display: none; }
+  /* Select mode: drag selects text instead of scrolling / focusing textarea */
+  .ch-panes.is-select-mode {
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .ch-panes.is-select-mode .xterm,
+  .ch-panes.is-select-mode .xterm-screen,
+  .ch-panes.is-select-mode .xterm-viewport {
+    touch-action: none !important;
+  }
+  .console-workspace-shell:fullscreen,
+  .console-workspace-shell:-webkit-full-screen,
+  .console-workspace-shell.is-window-max {
+    position: fixed; inset: 0; z-index: 80; width: 100vw; height: 100vh;
+    background: #0b0f14; display: flex; flex-direction: column;
+  }
+  .console-workspace-shell:fullscreen .ch-panes,
+  .console-workspace-shell.is-window-max .ch-panes { flex: 1 1 auto; min-height: 0; }
 </style>
 <script>
 (function () {
@@ -166,15 +233,541 @@
   var btnClose = document.getElementById('console-disconnect');
   var btnRevoke = document.getElementById('console-revoke-grant');
   var btnPasskey = document.getElementById('console-passkey');
+  var btnMax = document.getElementById('console-maximize');
+  var btnMaxBar = document.getElementById('console-maximize-bar');
+  var btnClosePopup = document.getElementById('console-close-popup');
+  var btnCopy = document.getElementById('console-copy');
+  var btnPaste = document.getElementById('console-paste');
+  var btnSelectMode = document.getElementById('console-select-mode');
+  var btnSelectLine = document.getElementById('console-select-line');
+  var btnSelectScreen = document.getElementById('console-select-screen');
+  var selectHint = document.getElementById('console-select-hint');
+  var btnFontInc = document.getElementById('console-font-inc');
+  var btnFontDec = document.getElementById('console-font-dec');
+  var fontLabel = document.getElementById('console-font-label');
+  var scrollSel = document.getElementById('console-scrollback');
+  var workspaceShell = document.getElementById('console-workspace-shell');
+  var popupMode = {{ 'true' if popup_mode else 'false' }};
+  var scrollbackDefault = {{ (scrollback_default|default(2000))|int }};
+  var windowMaxFallback = false;
+  var inIframe = false;
+  try { inIframe = window.self !== window.top; } catch (e) { inIframe = true; }
+  // Mobile browsers only long-press one word on xterm canvas — Select mode fixes multi-word
+  var selectMode = false;
+  var dragSel = null; // { start: {col,row,bufY}, end: ... }
+
+  var LS_FONT = 'piherder.console.fontSize';
+  var LS_SCROLL = 'piherder.console.scrollback';
+  var fontSize = 14;
+  try {
+    var fsStored = parseInt(localStorage.getItem(LS_FONT) || '', 10);
+    if (fsStored >= 8 && fsStored <= 28) fontSize = fsStored;
+  } catch (e) {}
+  var scrollback = scrollbackDefault;
+  try {
+    var sbStored = parseInt(localStorage.getItem(LS_SCROLL) || '', 10);
+    if (sbStored >= 500 && sbStored <= 50000) scrollback = sbStored;
+  } catch (e) {}
+  if (scrollSel) {
+    var optExists = Array.prototype.some.call(scrollSel.options, function (o) {
+      return String(o.value) === String(scrollback);
+    });
+    if (!optExists) {
+      var o = document.createElement('option');
+      o.value = String(scrollback);
+      o.textContent = (scrollback >= 1000 ? (scrollback / 1000) + 'k' : String(scrollback));
+      scrollSel.appendChild(o);
+    }
+    scrollSel.value = String(scrollback);
+  }
+  if (fontLabel) fontLabel.textContent = String(fontSize);
+
+  function isMobileUi() {
+    try {
+      return window.matchMedia('(max-width: 640px), (pointer: coarse)').matches;
+    } catch (e) {
+      return (window.innerWidth || 0) < 640;
+    }
+  }
 
   if (!window.Terminal) {
-    if (statusEl) statusEl.textContent = 'xterm.js failed to load (CDN).';
+    if (statusEl) statusEl.textContent = 'xterm.js failed to load.';
     return;
   }
 
   var shells = []; // { id, label, term, fit, ws, tab, pane, minimized, connected }
   var activeId = null;
   var nextN = 1;
+
+  function refitActive() {
+    var sh = shells.find(function (s) { return s.id === activeId && !s.minimized; });
+    if (!sh || !sh.fit) return;
+    try {
+      sh.fit.fit();
+      if (sh.ws && sh.ws.readyState === 1) {
+        sh.ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
+      }
+    } catch (e) {}
+  }
+
+  function refitAll() {
+    shells.forEach(function (s) {
+      if (!s.fit || s.minimized) return;
+      try { s.fit.fit(); } catch (e) {}
+      if (s.id === activeId && s.ws && s.ws.readyState === 1) {
+        try {
+          s.ws.send(JSON.stringify({ type: 'resize', cols: s.term.cols, rows: s.term.rows }));
+        } catch (e2) {}
+      }
+    });
+  }
+
+  function applyFontSize(next) {
+    fontSize = Math.max(8, Math.min(28, next));
+    try { localStorage.setItem(LS_FONT, String(fontSize)); } catch (e) {}
+    if (fontLabel) fontLabel.textContent = String(fontSize);
+    shells.forEach(function (s) {
+      try { s.term.options.fontSize = fontSize; } catch (e) {}
+    });
+    setTimeout(refitAll, 30);
+  }
+
+  function applyScrollback(next) {
+    scrollback = Math.max(500, Math.min(50000, parseInt(next, 10) || scrollbackDefault));
+    try { localStorage.setItem(LS_SCROLL, String(scrollback)); } catch (e) {}
+    shells.forEach(function (s) {
+      try { s.term.options.scrollback = scrollback; } catch (e) {}
+    });
+    setStatus('Scrollback set to ' + scrollback + ' lines (new output uses the buffer).');
+  }
+
+  function activeShell() {
+    return shells.find(function (s) { return s.id === activeId; }) || null;
+  }
+
+  function updateCopyBtn() {
+    var sh = activeShell();
+    var has = !!(sh && sh.term && sh.term.hasSelection && sh.term.hasSelection());
+    if (btnCopy) btnCopy.disabled = !has;
+  }
+
+  function setSelectMode(on) {
+    selectMode = !!on;
+    dragSel = null;
+    if (btnSelectMode) {
+      btnSelectMode.classList.toggle('is-on', selectMode);
+      btnSelectMode.textContent = selectMode ? 'Sel…' : 'Select';
+    }
+    if (selectHint) selectHint.classList.toggle('hidden', !selectMode);
+    if (panesEl) panesEl.classList.toggle('is-select-mode', selectMode);
+    if (selectMode) setStatus('Drag to select, then Copy.');
+    else setStatus('');
+  }
+
+  /** Map client coords → terminal cell (viewport row + buffer Y). */
+  function cellAt(term, clientX, clientY) {
+    if (!term || !term.element) return null;
+    var screen = term.element.querySelector('.xterm-screen') || term.element;
+    var rect = screen.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return null;
+    var cols = term.cols || 80;
+    var rows = term.rows || 24;
+    var cellW = rect.width / cols;
+    var cellH = rect.height / rows;
+    var col = Math.floor((clientX - rect.left) / cellW);
+    var row = Math.floor((clientY - rect.top) / cellH);
+    col = Math.max(0, Math.min(cols - 1, col));
+    row = Math.max(0, Math.min(rows - 1, row));
+    var baseY = 0;
+    try {
+      baseY = term.buffer.active.viewportY | 0;
+    } catch (e) {
+      baseY = 0;
+    }
+    return { col: col, row: row, bufY: baseY + row };
+  }
+
+  /**
+   * Apply a rectangular range in buffer coordinates.
+   * Same line → character range; multi-line → full lines (reliable on mobile).
+   */
+  function applyRangeSelection(term, a, b) {
+    if (!term || !a || !b) return;
+    var y1 = a.bufY;
+    var y2 = b.bufY;
+    var c1 = a.col;
+    var c2 = b.col;
+    try {
+      if (y1 === y2) {
+        var start = Math.min(c1, c2);
+        var end = Math.max(c1, c2);
+        var len = Math.max(1, end - start + 1);
+        if (typeof term.select === 'function') {
+          term.select(start, y1, len);
+        } else if (typeof term.selectLines === 'function') {
+          term.selectLines(y1, y1);
+        }
+      } else if (typeof term.selectLines === 'function') {
+        term.selectLines(Math.min(y1, y2), Math.max(y1, y2));
+      }
+    } catch (e) {}
+    updateCopyBtn();
+  }
+
+  /** Extract text from buffer range (character-accurate multi-line). */
+  function bufferRangeText(term, a, b) {
+    if (!term || !a || !b) return '';
+    try {
+      var buf = term.buffer.active;
+      var yStart = a.bufY;
+      var yEnd = b.bufY;
+      var cStart = a.col;
+      var cEnd = b.col;
+      if (yStart > yEnd || (yStart === yEnd && cStart > cEnd)) {
+        var ty = yStart, tc = cStart;
+        yStart = yEnd; cStart = cEnd;
+        yEnd = ty; cEnd = tc;
+      }
+      var parts = [];
+      var y;
+      for (y = yStart; y <= yEnd; y++) {
+        var line = buf.getLine(y);
+        if (!line) {
+          parts.push('');
+          continue;
+        }
+        var from = (y === yStart) ? cStart : 0;
+        var to = (y === yEnd) ? (cEnd + 1) : term.cols;
+        parts.push(line.translateToString(true, from, to));
+      }
+      return parts.join('\n').replace(/[ \t]+$/gm, '');
+    } catch (e) {
+      return '';
+    }
+  }
+
+  async function copyText(text) {
+    text = text || '';
+    if (!text) {
+      setStatus('Nothing selected — use Select and drag, or Line / Screen.');
+      return;
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setStatus('Copied ' + text.length + ' characters.');
+    } catch (e) {
+      setErr('Copy failed — browser blocked clipboard access.');
+    }
+  }
+
+  async function copySelection() {
+    var sh = activeShell();
+    if (!sh || !sh.term) return;
+    var text = '';
+    // Prefer xterm selection (visual); fall back to last drag range text
+    try { text = sh.term.getSelection() || ''; } catch (e) {}
+    if (!text && dragSel && dragSel.start && dragSel.end) {
+      text = bufferRangeText(sh.term, dragSel.start, dragSel.end);
+    }
+    if (!text) {
+      setStatus(isMobileUi()
+        ? 'On mobile: tap Select, drag across words, then Copy.'
+        : 'Nothing selected — drag to highlight text first.');
+      return;
+    }
+    await copyText(text);
+  }
+
+  function selectCurrentLine() {
+    var sh = activeShell();
+    if (!sh || !sh.term) return;
+    var term = sh.term;
+    try {
+      var pos = term.getSelectionPosition && term.getSelectionPosition();
+      var y1, y2;
+      if (pos && pos.start && pos.end) {
+        y1 = Math.min(pos.start.y, pos.end.y);
+        y2 = Math.max(pos.start.y, pos.end.y);
+      } else {
+        // cursor line
+        var buf = term.buffer.active;
+        y1 = y2 = (buf.baseY + buf.cursorY) | 0;
+      }
+      if (typeof term.selectLines === 'function') {
+        term.selectLines(y1, y2);
+      }
+      updateCopyBtn();
+      setStatus('Line selected — tap Copy.');
+    } catch (e) {
+      setStatus('Could not select line.');
+    }
+  }
+
+  function selectScreen() {
+    var sh = activeShell();
+    if (!sh || !sh.term) return;
+    var term = sh.term;
+    try {
+      var base = term.buffer.active.viewportY | 0;
+      var end = base + Math.max(0, (term.rows | 0) - 1);
+      if (typeof term.selectLines === 'function') {
+        term.selectLines(base, end);
+      } else if (typeof term.selectAll === 'function') {
+        term.selectAll();
+      }
+      updateCopyBtn();
+      setStatus('Screen selected — tap Copy.');
+    } catch (e) {
+      setStatus('Could not select screen.');
+    }
+  }
+
+  function pointerFromEvent(ev) {
+    if (ev.touches && ev.touches.length) {
+      return { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
+    }
+    if (ev.changedTouches && ev.changedTouches.length) {
+      return { x: ev.changedTouches[0].clientX, y: ev.changedTouches[0].clientY };
+    }
+    return { x: ev.clientX, y: ev.clientY };
+  }
+
+  function onSelectPointerDown(ev) {
+    if (!selectMode) return;
+    var sh = activeShell();
+    if (!sh || !sh.term || sh.minimized) return;
+    var pt = pointerFromEvent(ev);
+    var cell = cellAt(sh.term, pt.x, pt.y);
+    if (!cell) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    dragSel = { start: cell, end: cell };
+    applyRangeSelection(sh.term, cell, cell);
+  }
+
+  function onSelectPointerMove(ev) {
+    if (!selectMode || !dragSel || !dragSel.start) return;
+    var sh = activeShell();
+    if (!sh || !sh.term) return;
+    var pt = pointerFromEvent(ev);
+    var cell = cellAt(sh.term, pt.x, pt.y);
+    if (!cell) return;
+    ev.preventDefault();
+    dragSel.end = cell;
+    applyRangeSelection(sh.term, dragSel.start, cell);
+  }
+
+  function onSelectPointerUp(ev) {
+    if (!selectMode || !dragSel) return;
+    var sh = activeShell();
+    if (!sh || !sh.term) return;
+    if (ev && (ev.changedTouches || ev.type === 'mouseup' || ev.type === 'pointerup')) {
+      var pt = pointerFromEvent(ev);
+      var cell = cellAt(sh.term, pt.x, pt.y);
+      if (cell) {
+        dragSel.end = cell;
+        applyRangeSelection(sh.term, dragSel.start, cell);
+      }
+    }
+    updateCopyBtn();
+    var n = 0;
+    try { n = (sh.term.getSelection() || '').length; } catch (e) {}
+    if (n) setStatus(n + ' chars selected — tap Copy.');
+  }
+
+  function bindSelectHandlers(term) {
+    if (!term || !term.element) return;
+    var el = term.element;
+    // Capture phase so we beat xterm's single-word long-press handling
+    el.addEventListener('touchstart', onSelectPointerDown, { capture: true, passive: false });
+    el.addEventListener('touchmove', onSelectPointerMove, { capture: true, passive: false });
+    el.addEventListener('touchend', onSelectPointerUp, { capture: true, passive: false });
+    el.addEventListener('mousedown', onSelectPointerDown, { capture: true });
+    el.addEventListener('mousemove', function (ev) {
+      if (!selectMode || !dragSel || !(ev.buttons & 1)) return;
+      onSelectPointerMove(ev);
+    }, { capture: true });
+    el.addEventListener('mouseup', onSelectPointerUp, { capture: true });
+  }
+
+  async function pasteFromClipboard() {
+    var sh = activeShell();
+    if (!sh || !sh.ws || sh.ws.readyState !== 1 || sh.minimized) {
+      setStatus('Connect a shell before pasting.');
+      return;
+    }
+    try {
+      var text = '';
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        text = await navigator.clipboard.readText();
+      } else {
+        text = window.prompt('Paste text to send to the shell:') || '';
+      }
+      if (!text) return;
+      sh.ws.send(text);
+      try { sh.term.focus(); } catch (e) {}
+    } catch (e) {
+      // Safari / insecure context: fall back to prompt
+      var t2 = window.prompt('Paste text to send to the shell:') || '';
+      if (t2 && sh.ws && sh.ws.readyState === 1) sh.ws.send(t2);
+    }
+  }
+
+  function isMaximized() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || windowMaxFallback);
+  }
+
+  function setMaxLabels() {
+    var on = isMaximized();
+    var label = on ? 'Restore size' : 'Maximize';
+    if (btnMax) btnMax.textContent = label;
+    if (btnMaxBar) btnMaxBar.textContent = label;
+  }
+
+  async function toggleMaximize() {
+    // Prefer CSS fill of the host panel (works in iframe + mobile). Fullscreen as bonus on desktop.
+    var el = workspaceShell || document.documentElement;
+    if (isMobileUi() || inIframe) {
+      windowMaxFallback = !windowMaxFallback;
+      if (el) el.classList.toggle('is-window-max', windowMaxFallback);
+      setMaxLabels();
+      setTimeout(refitActive, 80);
+      setTimeout(refitActive, 250);
+      return;
+    }
+    try {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        windowMaxFallback = false;
+        if (el) el.classList.remove('is-window-max');
+      } else {
+        var req = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (req) {
+          try {
+            await req.call(el);
+            windowMaxFallback = false;
+            if (el) el.classList.remove('is-window-max');
+          } catch (fsErr) {
+            windowMaxFallback = !windowMaxFallback;
+            if (el) el.classList.toggle('is-window-max', windowMaxFallback);
+          }
+        } else {
+          windowMaxFallback = !windowMaxFallback;
+          if (el) el.classList.toggle('is-window-max', windowMaxFallback);
+        }
+      }
+    } catch (e) {
+      windowMaxFallback = !windowMaxFallback;
+      if (el) el.classList.toggle('is-window-max', windowMaxFallback);
+    }
+    setMaxLabels();
+    setTimeout(refitActive, 80);
+    setTimeout(refitActive, 250);
+  }
+
+  var stickyCtrl = false;
+  var btnCtrlMod = document.getElementById('console-ctrl-mod');
+  var ctrlLettersEl = document.getElementById('console-ctrl-letters');
+
+  /** Ctrl+letter → ASCII control char (Ctrl+A=0x01 … Ctrl+Z=0x1a). */
+  function ctrlChord(letter) {
+    var ch = String(letter || '').toLowerCase();
+    if (ch.length !== 1) return null;
+    var code = ch.charCodeAt(0);
+    if (code < 97 || code > 122) return null; // a-z
+    return String.fromCharCode(code - 96);
+  }
+
+  function setStickyCtrl(on) {
+    stickyCtrl = !!on;
+    if (btnCtrlMod) {
+      btnCtrlMod.classList.toggle('is-on', stickyCtrl);
+      btnCtrlMod.textContent = stickyCtrl ? 'Ctrl…' : 'Ctrl';
+    }
+    if (ctrlLettersEl) {
+      ctrlLettersEl.classList.toggle('hidden', !stickyCtrl);
+    }
+    if (stickyCtrl) {
+      setStatus('Ctrl on — tap a letter (^S, ^X, …) or type a key.');
+      try {
+        var sh = activeShell();
+        if (sh && sh.term) sh.term.focus();
+      } catch (e) {}
+    } else {
+      setStatus('');
+    }
+  }
+
+  function sendControl(seq) {
+    var sh = activeShell();
+    if (!sh || !sh.ws || sh.ws.readyState !== 1 || sh.minimized) {
+      setStatus('Open a shell first.');
+      return;
+    }
+    try { sh.ws.send(seq); } catch (e) {}
+    try { sh.term.focus(); } catch (e2) {}
+  }
+
+  function sendCtrlLetter(letter) {
+    var seq = ctrlChord(letter);
+    if (!seq) return;
+    sendControl(seq);
+    setStickyCtrl(false);
+  }
+
+  // Build a–z chips for sticky Ctrl (mobile-friendly)
+  if (ctrlLettersEl) {
+    var i;
+    for (i = 0; i < 26; i++) {
+      (function (letter) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ch-key';
+        b.textContent = letter;
+        b.title = 'Ctrl+' + letter.toUpperCase();
+        b.setAttribute('data-ctrl-letter', letter);
+        b.addEventListener('click', function () { sendCtrlLetter(letter); });
+        ctrlLettersEl.appendChild(b);
+      })(String.fromCharCode(97 + i));
+    }
+  }
+
+  document.addEventListener('fullscreenchange', function () {
+    if (!document.fullscreenElement) {
+      windowMaxFallback = false;
+      if (workspaceShell) workspaceShell.classList.remove('is-window-max');
+    }
+    setMaxLabels();
+    setTimeout(refitActive, 80);
+  });
+  document.addEventListener('webkitfullscreenchange', function () {
+    setMaxLabels();
+    setTimeout(refitActive, 80);
+  });
+
+  // Mobile keyboard: visualViewport shrinks — refit and mark class for CSS
+  if (window.visualViewport) {
+    var lastH = window.visualViewport.height;
+    window.visualViewport.addEventListener('resize', function () {
+      var h = window.visualViewport.height;
+      var keyboardish = h < (window.innerHeight * 0.75);
+      document.body.classList.toggle('console-kb-open', keyboardish);
+      lastH = h;
+      refitActive();
+    });
+  }
 
   function setErr(msg) {
     if (!errEl) return;
@@ -196,12 +789,14 @@
     if (btnMin) btnMin.disabled = !sh || sh.minimized || !sh.connected;
     if (btnRest) btnRest.disabled = !anyMin;
     if (btnClose) btnClose.disabled = !sh;
+    if (btnPaste) btnPaste.disabled = !sh || !sh.connected || sh.minimized;
     if (btnNew) btnNew.disabled = shells.length >= maxShells;
     if (tabEmpty) tabEmpty.style.display = shells.length ? 'none' : '';
     if (slotInfo) {
       var free = Math.max(0, maxShells - shells.length);
-      slotInfo.textContent = 'Shells: ' + shells.length + ' / ' + maxShells + ' · free ' + free;
+      slotInfo.textContent = shells.length + '/' + maxShells;
     }
+    updateCopyBtn();
   }
 
   function activate(id) {
@@ -220,7 +815,24 @@
   }
 
   function destroyShell(sh) {
-    if (sh.ws) { try { sh.ws.close(); } catch (e) {} }
+    sh.userClosed = true;
+    if (sh._pingTimer) {
+      try { clearInterval(sh._pingTimer); } catch (e) {}
+      sh._pingTimer = null;
+    }
+    if (sh._resumeTimer) {
+      try { clearTimeout(sh._resumeTimer); } catch (e) {}
+      sh._resumeTimer = null;
+    }
+    if (sh.ws) {
+      try {
+        if (sh.ws.readyState === 1) {
+          sh.ws.send(JSON.stringify({ type: 'bye' }));
+        }
+      } catch (e) {}
+      try { sh.ws.close(); } catch (e) {}
+      sh.ws = null;
+    }
     try { sh.term.dispose(); } catch (e) {}
     if (sh.tab && sh.tab.parentNode) sh.tab.parentNode.removeChild(sh.tab);
     if (sh.pane && sh.pane.parentNode) sh.pane.parentNode.removeChild(sh.pane);
@@ -254,15 +866,24 @@
 
     var term = new Terminal({
       cursorBlink: true,
-      fontSize: 14,
+      fontSize: fontSize,
+      scrollback: scrollback,
+      rightClickSelectsWord: true,
+      allowProposedApi: true,
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-      theme: { background: '#0b0f14', foreground: '#e6edf3' }
+      theme: {
+        background: '#0b0f14',
+        foreground: '#e6edf3',
+        selectionBackground: 'rgba(56, 139, 253, 0.45)',
+        selectionInactiveBackground: 'rgba(56, 139, 253, 0.22)'
+      }
     });
     var FC = FitCtor();
     var fit = FC ? new FC() : null;
     if (fit) term.loadAddon(fit);
     term.open(host);
     if (fit) try { fit.fit(); } catch (e) {}
+    bindSelectHandlers(term);
 
     var sh = {
       id: id, label: label, term: term, fit: fit, ws: null,
@@ -273,9 +894,60 @@
       activate(id);
     });
     term.onData(function (data) {
+      // In select mode, don't send typed keys to the PTY (avoid accidents)
+      if (selectMode) return;
       // Only forward input for the active, non-minimized shell
       if (sh.id !== activeId || sh.minimized) return;
-      if (sh.ws && sh.ws.readyState === 1) sh.ws.send(data);
+      if (!sh.ws || sh.ws.readyState !== 1) return;
+      // Sticky Ctrl: next a–z / A–Z becomes a control chord
+      if (stickyCtrl && data && data.length === 1) {
+        var c = data.charCodeAt(0);
+        // a-z or A-Z
+        if ((c >= 65 && c <= 90) || (c >= 97 && c <= 122)) {
+          var seq = ctrlChord(data);
+          if (seq) {
+            try { sh.ws.send(seq); } catch (e) {}
+            setStickyCtrl(false);
+            return;
+          }
+        }
+        // Esc cancels sticky Ctrl
+        if (data === '\x1b') {
+          setStickyCtrl(false);
+          return;
+        }
+      }
+      try { sh.ws.send(data); } catch (e2) {}
+    });
+    // Enable Copy when the user highlights text (xterm canvas selection)
+    if (term.onSelectionChange) {
+      term.onSelectionChange(function () {
+        if (sh.id === activeId) updateCopyBtn();
+      });
+    }
+    // Ctrl/⌘+Shift+C copy; do not steal plain Ctrl+C (SIGINT)
+    term.attachCustomKeyEventHandler(function (ev) {
+      if (ev.type !== 'keydown') return true;
+      var key = ev.key || '';
+      var mod = ev.ctrlKey || ev.metaKey;
+      if (mod && ev.shiftKey && (key === 'C' || key === 'c')) {
+        if (term.hasSelection && term.hasSelection()) {
+          copySelection();
+          return false;
+        }
+      }
+      // macOS: ⌘+C copies when there is a selection
+      if (ev.metaKey && !ev.shiftKey && !ev.altKey && (key === 'c' || key === 'C')) {
+        if (term.hasSelection && term.hasSelection()) {
+          copySelection();
+          return false;
+        }
+      }
+      if (mod && ev.shiftKey && (key === 'V' || key === 'v')) {
+        pasteFromClipboard();
+        return false;
+      }
+      return true;
     });
     shells.push(sh);
     return sh;
@@ -370,9 +1042,12 @@
         credentials: 'same-origin',
         headers: { 'X-Requested-With': 'PiHerderConsole' }
       });
-      var optData = await optRes.json();
-      if (!optData.ok) throw new Error(optData.detail || 'Passkey options failed');
+      var optData = await optRes.json().catch(function () { return {}; });
+      if (!optRes.ok || !optData.ok) {
+        throw new Error(optData.detail || optData.error || ('Passkey options failed (' + optRes.status + ')'));
+      }
       var opts = optData.options;
+      if (!opts) throw new Error('Passkey options missing from server');
       if (opts.publicKey) opts = opts.publicKey;
       if (opts.challenge) opts.challenge = b64urlToBuf(opts.challenge);
       if (opts.allowCredentials) {
@@ -381,6 +1056,7 @@
         });
       }
       var cred = await navigator.credentials.get({ publicKey: opts });
+      if (!cred) throw new Error('Passkey cancelled');
       var verRes = await fetch('/servers/' + serverId + '/console/webauthn/verify', {
         method: 'POST',
         credentials: 'same-origin',
@@ -390,8 +1066,8 @@
         },
         body: JSON.stringify({ credential: publicKeyCredentialToJSON(cred) })
       });
-      var ver = await verRes.json();
-      if (!ver.ok) throw new Error('Passkey verification failed');
+      var ver = await verRes.json().catch(function () { return {}; });
+      if (!ver.ok) throw new Error(ver.detail || ver.error || 'Passkey verification failed');
       if (ver.ticket && ver.ws_path) {
         // every-shell policy: open immediately with returned ticket
         setStatus('Passkey OK — opening shell…');
@@ -405,9 +1081,125 @@
       }
       setStatus('Passkey OK — click New shell.');
     } catch (e) {
-      setErr(String(e.message || e));
+      var msg = String((e && e.message) || e || 'Passkey failed');
+      if (/not allowed|NotAllowedError/i.test(msg)) {
+        msg = 'Passkey cancelled or not allowed in this window.';
+      }
+      setErr(msg);
       setStatus('');
     }
+  }
+
+  function wsUrl(serverPath) {
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return proto + '//' + location.host + (serverPath || ('/servers/' + serverId + '/console/ws'));
+  }
+
+  function attachShellSocket(sh, authMsg, opts) {
+    opts = opts || {};
+    var url = wsUrl(opts.ws_path);
+    var ws = new WebSocket(url);
+    ws.binaryType = 'arraybuffer';
+    sh.ws = ws;
+    sh.userClosed = false;
+    sh.resumeId = sh.resumeId || null;
+    sh.reconnecting = false;
+
+    ws.onopen = function () {
+      try { ws.send(JSON.stringify(authMsg)); } catch (e) {}
+      sh.connected = true;
+      sh.reconnecting = false;
+      setStatus((opts.resuming ? 'Resumed: ' : 'Connected: ') + sh.label);
+      updateToolbar();
+      try {
+        if (sh.fit) sh.fit.fit();
+        ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
+      } catch (e) {}
+      if (isMobileUi() && !mobileSelectNudge) {
+        mobileSelectNudge = true;
+        setStatus('Mobile tip: tap Select, then drag to highlight more than one word.');
+      }
+    };
+
+    ws.onmessage = function (ev) {
+      if (typeof ev.data === 'string') {
+        var t = ev.data;
+        // Control plane from server (resume token / pong)
+        if (t.charAt(0) === '{' && t.indexOf('"ph_session"') >= 0) {
+          try {
+            var m = JSON.parse(t);
+            if (m && m.type === 'ph_session' && m.resume) {
+              sh.resumeId = m.resume;
+              return;
+            }
+          } catch (e) {}
+        }
+        sh.term.write(t);
+      } else {
+        sh.term.write(new Uint8Array(ev.data));
+      }
+    };
+
+    ws.onclose = function () {
+      sh.connected = false;
+      updateToolbar();
+      if (sh.userClosed) {
+        sh.term.writeln('\r\n*** session closed ***');
+        setTimeout(function () { if (shells.indexOf(sh) >= 0) destroyShell(sh); }, 300);
+        return;
+      }
+      // Unexpected drop (app switch / sleep): keep UI, try soft-resume
+      if (sh.resumeId) {
+        sh.term.writeln('\r\n*** connection paused — will resume when you return ***');
+        scheduleResume(sh, 400);
+      } else {
+        sh.term.writeln('\r\n*** session closed ***');
+        setTimeout(function () { if (shells.indexOf(sh) >= 0) destroyShell(sh); }, 400);
+      }
+    };
+
+    ws.onerror = function () {
+      // onclose follows
+    };
+
+    // Keepalive while tab is visible (helps proxies; hold covers background)
+    if (sh._pingTimer) {
+      try { clearInterval(sh._pingTimer); } catch (e) {}
+    }
+    sh._pingTimer = setInterval(function () {
+      if (!sh.ws || sh.ws.readyState !== 1) return;
+      if (document.visibilityState && document.visibilityState !== 'visible') return;
+      try { sh.ws.send(JSON.stringify({ type: 'ping' })); } catch (e) {}
+    }, 25000);
+
+    updateToolbar();
+  }
+
+  function scheduleResume(sh, delayMs) {
+    if (!sh || sh.userClosed || !sh.resumeId) return;
+    if (sh._resumeTimer) {
+      try { clearTimeout(sh._resumeTimer); } catch (e) {}
+    }
+    sh._resumeTimer = setTimeout(function () {
+      tryResumeShell(sh);
+    }, delayMs || 500);
+  }
+
+  function tryResumeShell(sh) {
+    if (!sh || sh.userClosed || !sh.resumeId) return;
+    if (sh.ws && (sh.ws.readyState === 0 || sh.ws.readyState === 1)) return;
+    if (sh.reconnecting) return;
+    sh.reconnecting = true;
+    setStatus('Resuming ' + sh.label + '…');
+    attachShellSocket(sh, { type: 'resume', resume: sh.resumeId }, { resuming: true });
+  }
+
+  function resumeAllShells() {
+    shells.forEach(function (sh) {
+      if (sh.userClosed) return;
+      if (sh.connected && sh.ws && sh.ws.readyState === 1) return;
+      if (sh.resumeId) scheduleResume(sh, 200);
+    });
   }
 
   async function openShellWithTicket(data) {
@@ -418,31 +1210,7 @@
     var label = 'Shell ' + nextN;
     var sh = createShellUi(label);
     activate(sh.id);
-    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    var url = proto + '//' + location.host + data.ws_path;
-    var ws = new WebSocket(url);
-    ws.binaryType = 'arraybuffer';
-    sh.ws = ws;
-    ws.onopen = function () {
-      try { ws.send(JSON.stringify({ type: 'auth', ticket: data.ticket })); } catch (e) {}
-      sh.connected = true;
-      setStatus('Connected: ' + sh.label);
-      updateToolbar();
-      try {
-        if (sh.fit) sh.fit.fit();
-        ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
-      } catch (e) {}
-    };
-    ws.onmessage = function (ev) {
-      if (typeof ev.data === 'string') sh.term.write(ev.data);
-      else sh.term.write(new Uint8Array(ev.data));
-    };
-    ws.onclose = function () {
-      sh.connected = false;
-      sh.term.writeln('\r\n*** session closed ***');
-      setTimeout(function () { if (shells.indexOf(sh) >= 0) destroyShell(sh); }, 400);
-    };
-    updateToolbar();
+    attachShellSocket(sh, { type: 'auth', ticket: data.ticket }, { ws_path: data.ws_path });
   }
 
   async function openShell() {
@@ -493,27 +1261,94 @@
   function closeActive() {
     var sh = shells.find(function (s) { return s.id === activeId; });
     if (!sh) return;
-    if (sh.ws) { try { sh.ws.close(); } catch (e) {} }
     destroyShell(sh);
     setStatus('Shell closed.');
   }
 
-  window.addEventListener('resize', function () {
-    var sh = shells.find(function (s) { return s.id === activeId && !s.minimized; });
-    if (!sh || !sh.fit) return;
-    try {
-      sh.fit.fit();
-      if (sh.ws && sh.ws.readyState === 1) {
-        sh.ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
-      }
-    } catch (e) {}
+  // App switch / tab sleep: resume shells when user returns
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') {
+      resumeAllShells();
+      setTimeout(refitActive, 100);
+    }
   });
+  window.addEventListener('pageshow', function () {
+    resumeAllShells();
+  });
+  window.addEventListener('focus', function () {
+    resumeAllShells();
+  });
+
+  window.addEventListener('resize', function () { refitActive(); });
 
   if (btnNew) btnNew.addEventListener('click', openShell);
   if (btnMin) btnMin.addEventListener('click', minimizeActive);
   if (btnRest) btnRest.addEventListener('click', restoreMinimized);
   if (btnClose) btnClose.addEventListener('click', closeActive);
   if (btnPasskey) btnPasskey.addEventListener('click', stepUpPasskey);
+  if (btnMax) btnMax.addEventListener('click', toggleMaximize);
+  if (btnMaxBar) btnMaxBar.addEventListener('click', toggleMaximize);
+  if (btnCopy) btnCopy.addEventListener('click', copySelection);
+  if (btnPaste) btnPaste.addEventListener('click', pasteFromClipboard);
+  if (btnSelectMode) {
+    btnSelectMode.addEventListener('click', function () {
+      setSelectMode(!selectMode);
+    });
+  }
+  if (btnSelectLine) btnSelectLine.addEventListener('click', selectCurrentLine);
+  if (btnSelectScreen) btnSelectScreen.addEventListener('click', selectScreen);
+  // On mobile, nudge once when a shell connects
+  var mobileSelectNudge = false;
+  if (btnFontInc) btnFontInc.addEventListener('click', function () { applyFontSize(fontSize + 1); });
+  if (btnFontDec) btnFontDec.addEventListener('click', function () { applyFontSize(fontSize - 1); });
+  if (scrollSel) {
+    scrollSel.addEventListener('change', function () {
+      applyScrollback(scrollSel.value);
+    });
+  }
+  if (btnClosePopup) {
+    btnClosePopup.addEventListener('click', function () {
+      // Hosts list is the multi-host workspace parent chrome; in iframe this is a no-op (use host tab ×)
+      if (inIframe) {
+        setStatus('Switch hosts with the host tabs above this panel.');
+        return;
+      }
+      window.location.href = '/console?host=' + serverId;
+    });
+  }
+  // Control-key strip — sticky Ctrl + common chords (mobile-friendly)
+  var KEY_MAP = {
+    'ctrl-a': '\x01', 'ctrl-c': '\x03', 'ctrl-d': '\x04', 'ctrl-e': '\x05',
+    'ctrl-k': '\x0b', 'ctrl-l': '\x0c', 'ctrl-r': '\x12', 'ctrl-s': '\x13',
+    'ctrl-u': '\x15', 'ctrl-w': '\x17', 'ctrl-x': '\x18', 'ctrl-z': '\x1a',
+    tab: '\t', esc: '\x1b',
+    up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C'
+  };
+  var keysBar = document.getElementById('console-keys');
+  if (keysBar) {
+    keysBar.addEventListener('click', function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest('[data-key]') : null;
+      if (!btn) return;
+      var name = btn.getAttribute('data-key') || '';
+      if (name === 'ctrl-mod') {
+        setStickyCtrl(!stickyCtrl);
+        return;
+      }
+      var seq = KEY_MAP[name];
+      if (seq != null) {
+        sendControl(seq);
+        if (stickyCtrl) setStickyCtrl(false);
+      }
+    });
+  }
+  window.addEventListener('message', function (ev) {
+    if (ev.origin !== window.location.origin) return;
+    if (!ev.data || ev.data.type !== 'piherder-console') return;
+    if (ev.data.action === 'refit') {
+      setTimeout(refitActive, 30);
+      setTimeout(refitActive, 120);
+    }
+  });
   if (btnRevoke) {
     btnRevoke.addEventListener('click', async function () {
       try {
@@ -533,6 +1368,7 @@
       if (ev.key === 'Enter') { ev.preventDefault(); openShell(); }
     });
   }
+  setMaxLabels();
   updateToolbar();
 })();
 </script>

@@ -8,7 +8,7 @@ Private keys stay server-side. Default kill switch: PIHERDER_SSH_CONSOLE=false.
   · WebSocket requires matching Origin and session cookie
   · Ticket sent in first WS message (not query string — no log/Referer leak)
   · 2FA step-up (TOTP, backup, or passkey) before grant/ticket
-  · CSP + frame-ancestors none (cannot embed console)
+  · CSP frame-ancestors 'self' (same-origin modal iframe only; no third-party embed)
   · Single-use tickets bound to session_version; concurrent + idle limits
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from .. import templates as templates_mod
 from ..database import get_session, engine
@@ -47,6 +47,8 @@ from ..services.request_ip import client_ip_from_request
 from ..services import ssh as ssh_service
 
 router = APIRouter()
+# Top-level multi-host workspace (mounted without /servers prefix in main.py)
+workspace_router = APIRouter()
 logger = logging.getLogger("piherder.console")
 
 
@@ -127,6 +129,73 @@ def _verify_console_2fa(
         # Pure digits that failed TOTP: still "bad code", not backup
     return False, "2fa_bad_code"
 
+@workspace_router.get("/console", response_class=HTMLResponse)
+async def console_workspace(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+    host: Optional[int] = None,
+):
+    """Multi-host Web SSH workspace — host tabs, each host keeps its shells alive.
+
+    Open from server detail: ``/console?host=<id>``. Use **+ Host** to add more.
+    Jump between hosts with the top host tabs (sessions stay open until you close the tab).
+    """
+    enabled = cons.console_enabled()
+    # Host list for the picker (name + whether SSH creds exist)
+    try:
+        rows = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
+    except Exception:
+        rows = list(session.exec(select(Server).order_by(Server.name)).all())
+    hosts = []
+    for s in rows:
+        has_key = bool(
+            getattr(s, "ssh_private_key_encrypted", None)
+            or getattr(s, "ssh_password_encrypted", None)
+        )
+        hosts.append(
+            {
+                "id": int(s.id),
+                "name": s.name,
+                "host": s.hostname or s.ip_address or "",
+                "has_ssh": has_key,
+            }
+        )
+    initial = None
+    if host is not None:
+        for h in hosts:
+            if h["id"] == int(host):
+                initial = h
+                break
+        if initial is None and session.get(Server, int(host)):
+            # Host exists but list filter miss — still allow
+            s = session.get(Server, int(host))
+            initial = {
+                "id": int(s.id),
+                "name": s.name,
+                "host": s.hostname or s.ip_address or "",
+                "has_ssh": bool(
+                    getattr(s, "ssh_private_key_encrypted", None)
+                    or getattr(s, "ssh_password_encrypted", None)
+                ),
+            }
+
+    return templates_mod.templates.TemplateResponse(
+        request=request,
+        name="console_workspace.html",
+        context={
+            "title": "Web SSH console",
+            "user": user,
+            "console_enabled": enabled,
+            "hosts_json": json.dumps(hosts),
+            "initial_host_id": int(initial["id"]) if initial else None,
+            "max_shells": cons.max_per_user(),
+            "popup_mode": True,
+            "console_app": True,
+        },
+    )
+
+
 @router.get("/{server_id}/console", response_class=HTMLResponse)
 async def console_page(
     request: Request,
@@ -134,7 +203,22 @@ async def console_page(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
-    """Console shell page (xterm multi-shell). Ticket minted via POST before WS connect."""
+    """Per-host console (xterm). Prefer /console?host= for multi-host UX.
+
+    ``?embed=1`` — compact fill layout for the multi-host workspace iframe.
+    Non-embed visits redirect to the multi-host workspace so users get host tabs.
+    """
+    q_embed = (request.query_params.get("embed") or "").strip().lower()
+    embed_mode = q_embed in ("1", "true", "yes", "embed")
+    q_popup = (request.query_params.get("popup") or "").strip().lower()
+    popup_q = q_popup in ("1", "true", "yes", "popup")
+    # Default: send operators to multi-host workspace (clearer UX)
+    if not embed_mode and not popup_q and (request.query_params.get("solo") or "") not in (
+        "1",
+        "true",
+    ):
+        return RedirectResponse(f"/console?host={int(server_id)}", status_code=303)
+
     server = session.get(Server, server_id)
     if not server:
         return RedirectResponse("/servers", status_code=303)
@@ -163,6 +247,8 @@ async def console_page(
     except Exception:
         has_passkeys = False
 
+    popup_mode = embed_mode or popup_q
+
     response = templates_mod.templates.TemplateResponse(
         request=request,
         name="server_console.html",
@@ -188,6 +274,10 @@ async def console_page(
             "ticket_ttl": cons.ticket_ttl_sec(),
             "idle_sec": cons.idle_sec(),
             "max_session_sec": cons.max_session_sec(),
+            "scrollback_default": cons.default_scrollback(),
+            "popup_mode": popup_mode,
+            "console_app": True,
+            "embed_mode": embed_mode,
         },
     )
     # Pin a console device id (HttpOnly) so tickets cannot be used from another browser
@@ -497,6 +587,28 @@ def _user_from_cookie(websocket: WebSocket, session: Session) -> Optional[User]:
     return user
 
 
+async def _console_hold_watch(resume_id: str) -> None:
+    """Keep draining SSH while browser is away; expire on idle/max/hold."""
+    try:
+        while True:
+            await asyncio.sleep(1.5)
+            held = cons.get_held(resume_id)
+            if not held:
+                return
+            if not cons.drain_held_channel(held):
+                cons.destroy_held(resume_id, reason="ssh_eof")
+                return
+            why = cons.held_should_expire(held)
+            if why:
+                cons.destroy_held(resume_id, reason=why)
+                return
+    except asyncio.CancelledError:
+        return
+    except Exception as e:
+        logger.debug("hold watch %s: %s", resume_id[:8], e)
+        cons.destroy_held(resume_id, reason="hold_error")
+
+
 @router.websocket("/{server_id}/console/ws")
 async def console_websocket(websocket: WebSocket, server_id: int):
     """
@@ -504,12 +616,10 @@ async def console_websocket(websocket: WebSocket, server_id: int):
 
     1. Origin must match Host (browser same-origin; no random WS clients)
     2. Session cookie + operator+
-    3. First text message: ``{"type":"auth","ticket":"..."}`` (ticket never in URL)
-    4. Ticket bound to session_version + IP + device; **single-use (no resume)**
-    5. Continuous revalidation of session / IP / device while PTY is open
-    6. Then binary/text PTY traffic; JSON resize control messages
+    3. First message: ``{"type":"auth","ticket":"..."}`` or ``{"type":"resume","resume":"..."}``
+    4. On unexpected WS drop, SSH PTY is **parked** until idle/max (soft resume)
+    5. Continuous revalidation while attached; JSON resize / bye / ping controls
     """
-    # Reject before accept when Origin is wrong (some clients never send Origin)
     if not cons.websocket_origin_allowed(websocket):
         await websocket.close(code=4403)
         return
@@ -526,32 +636,14 @@ async def console_websocket(websocket: WebSocket, server_id: int):
     ticket_payload: dict = {}
     expected_sv = 0
     device_id = ""
-
-    # --- auth handshake: wait for ticket in first message (not query string) ---
-    ticket = ""
-    try:
-        raw_msg = await asyncio.wait_for(websocket.receive(), timeout=15.0)
-    except (asyncio.TimeoutError, WebSocketDisconnect):
-        await websocket.close(code=4408)
-        return
-    if raw_msg.get("type") == "websocket.disconnect":
-        return
-    text = raw_msg.get("text")
-    if not text and raw_msg.get("bytes"):
-        try:
-            text = raw_msg["bytes"].decode("utf-8", errors="replace")
-        except Exception:
-            text = ""
-    try:
-        auth = json.loads(text or "")
-        if isinstance(auth, dict) and auth.get("type") == "auth":
-            ticket = str(auth.get("ticket") or "")
-    except Exception:
-        ticket = ""
-    if not ticket:
-        await websocket.send_text("\r\n*** Missing console ticket (no resume via URL) ***\r\n")
-        await websocket.close(code=4403)
-        return
+    client = None
+    channel = None
+    intentional_close = False
+    park_on_exit = False
+    resume_id = cons.mint_resume_id()
+    is_resume = False
+    started_mono = time.monotonic()
+    last_activity = time.monotonic()
 
     def _ws_ip() -> str:
         try:
@@ -566,91 +658,172 @@ async def console_websocket(websocket: WebSocket, server_id: int):
             pass
         return ""
 
-    with Session(engine) as session:
-        user = _user_from_cookie(websocket, session)
-        if not user:
-            await websocket.close(code=4401)
-            return
-        server = session.get(Server, server_id)
-        if not server:
-            await websocket.close(code=4404)
-            return
-
-        sv = user_session_version(user)
-        expected_sv = sv
-        ip = _ws_ip()
-        device_id = cons.ensure_device_id(
-            websocket.cookies.get(cons.CONSOLE_DEVICE_COOKIE)
-        )
-        try:
-            ticket_payload = cons.consume_ticket(
-                ticket,
-                user_id=int(user.id),
-                server_id=int(server_id),
-                session_version=sv,
-                client_ip=ip,
-                device_id=device_id,
-            )
-            cons.try_acquire_slot(int(user.id))
-            slot_held = True
-        except (cons.ConsoleDisabled, cons.ConsoleDenied) as e:
-            await websocket.send_text(f"\r\n*** {e} ***\r\n")
-            await websocket.close(code=4403)
-            return
-
-        opened = datetime.utcnow()
-        _audit(
-            session,
-            user_id=user.id,
-            server_id=server_id,
-            action="ssh_console_open",
-            details=(
-                f"ip={ip or '?'} user={user.email} "
-                f"bind_ip={cons.bind_ip_enabled()} bind_device={cons.bind_device_enabled()}"
-            ),
-        )
-        user_id = int(user.id)
-        server_snap = SimpleNamespace(
-            id=server.id,
-            name=server.name,
-            hostname=server.hostname,
-            ip_address=getattr(server, "ip_address", None),
-            ssh_port=server.ssh_port,
-            ssh_username=server.ssh_username,
-            ssh_private_key_encrypted=server.ssh_private_key_encrypted,
-            ssh_password_encrypted=server.ssh_password_encrypted,
-        )
-        server_hostname = (
-            server.hostname or getattr(server, "ip_address", None) or server.name
-        )
-
-    client = None
-    channel = None
+    # --- auth handshake ---
     try:
-        client = await asyncio.to_thread(ssh_service.get_ssh_client, server_snap)
-        channel = await asyncio.to_thread(
-            lambda: client.invoke_shell(term="xterm-256color", width=120, height=40)
-        )
-        channel.settimeout(0.0)
+        raw_msg = await asyncio.wait_for(websocket.receive(), timeout=15.0)
+    except (asyncio.TimeoutError, WebSocketDisconnect):
+        await websocket.close(code=4408)
+        return
+    if raw_msg.get("type") == "websocket.disconnect":
+        return
+    text = raw_msg.get("text")
+    if not text and raw_msg.get("bytes"):
+        try:
+            text = raw_msg["bytes"].decode("utf-8", errors="replace")
+        except Exception:
+            text = ""
+    auth: dict = {}
+    try:
+        parsed = json.loads(text or "")
+        if isinstance(parsed, dict):
+            auth = parsed
+    except Exception:
+        auth = {}
 
+    auth_type = str(auth.get("type") or "")
+    ticket = str(auth.get("ticket") or "") if auth_type == "auth" else ""
+    resume_tok = str(auth.get("resume") or "") if auth_type == "resume" else ""
+
+    if auth_type not in ("auth", "resume") or (auth_type == "auth" and not ticket) or (
+        auth_type == "resume" and not resume_tok
+    ):
         await websocket.send_text(
-            f"\r\n*** PiHerder console → {server_hostname} "
-            f"(idle {cons.idle_sec()}s / max {cons.max_session_sec()}s · no resume) ***\r\n"
+            "\r\n*** Missing console auth (ticket or resume) ***\r\n"
         )
+        await websocket.close(code=4403)
+        return
+
+    try:
+        with Session(engine) as session:
+            user = _user_from_cookie(websocket, session)
+            if not user:
+                await websocket.close(code=4401)
+                return
+            server = session.get(Server, server_id)
+            if not server:
+                await websocket.close(code=4404)
+                return
+
+            sv = user_session_version(user)
+            expected_sv = sv
+            ip = _ws_ip()
+            device_id = cons.ensure_device_id(
+                websocket.cookies.get(cons.CONSOLE_DEVICE_COOKIE)
+            )
+            user_id = int(user.id)
+            server_hostname = (
+                server.hostname or getattr(server, "ip_address", None) or server.name
+            )
+
+            if auth_type == "resume":
+                is_resume = True
+                try:
+                    held = cons.claim_resume(
+                        resume_tok,
+                        user_id=user_id,
+                        server_id=int(server_id),
+                        session_version=sv,
+                        device_id=device_id,
+                        client_ip=ip,
+                    )
+                except (cons.ConsoleDisabled, cons.ConsoleDenied) as e:
+                    await websocket.send_text(f"\r\n*** Resume failed: {e} ***\r\n")
+                    await websocket.close(code=4403)
+                    return
+                # Slot already held from original open
+                slot_held = True
+                client = held.client
+                channel = held.channel
+                ticket_payload = held.ticket_payload
+                started_mono = held.started_mono
+                last_activity = held.last_activity_mono
+                resume_id = held.resume_id
+                opened = datetime.utcnow()
+                # Replay buffered output while detached
+                buffered = held.take_out()
+                if buffered:
+                    try:
+                        await websocket.send_bytes(buffered)
+                    except Exception:
+                        try:
+                            await websocket.send_text(
+                                buffered.decode("utf-8", errors="replace")
+                            )
+                        except Exception:
+                            pass
+                await websocket.send_text(
+                    json.dumps({"type": "ph_session", "resume": resume_id, "resumed": True})
+                )
+                await websocket.send_text(
+                    f"\r\n*** Resumed console → {server_hostname} "
+                    f"(idle {cons.idle_sec()}s / max {cons.max_session_sec()}s) ***\r\n"
+                )
+            else:
+                try:
+                    ticket_payload = cons.consume_ticket(
+                        ticket,
+                        user_id=user_id,
+                        server_id=int(server_id),
+                        session_version=sv,
+                        client_ip=ip,
+                        device_id=device_id,
+                    )
+                    cons.try_acquire_slot(user_id)
+                    slot_held = True
+                except (cons.ConsoleDisabled, cons.ConsoleDenied) as e:
+                    await websocket.send_text(f"\r\n*** {e} ***\r\n")
+                    await websocket.close(code=4403)
+                    return
+
+                opened = datetime.utcnow()
+                _audit(
+                    session,
+                    user_id=user.id,
+                    server_id=server_id,
+                    action="ssh_console_open",
+                    details=(
+                        f"ip={ip or '?'} user={user.email} "
+                        f"bind_ip={cons.bind_ip_enabled()} bind_device={cons.bind_device_enabled()}"
+                    ),
+                )
+                server_snap = SimpleNamespace(
+                    id=server.id,
+                    name=server.name,
+                    hostname=server.hostname,
+                    ip_address=getattr(server, "ip_address", None),
+                    ssh_port=server.ssh_port,
+                    ssh_username=server.ssh_username,
+                    ssh_private_key_encrypted=server.ssh_private_key_encrypted,
+                    ssh_password_encrypted=server.ssh_password_encrypted,
+                )
+
+        if not is_resume:
+            client = await asyncio.to_thread(ssh_service.get_ssh_client, server_snap)
+            channel = await asyncio.to_thread(
+                lambda: client.invoke_shell(term="xterm-256color", width=120, height=40)
+            )
+            channel.settimeout(0.0)
+            started_mono = time.monotonic()
+            last_activity = started_mono
+            await websocket.send_text(
+                json.dumps({"type": "ph_session", "resume": resume_id, "resumed": False})
+            )
+            await websocket.send_text(
+                f"\r\n*** PiHerder console → {server_hostname} "
+                f"(idle {cons.idle_sec()}s / max {cons.max_session_sec()}s · "
+                f"survives app switch) ***\r\n"
+            )
 
         stop = asyncio.Event()
-        last_activity = time.monotonic()
-        started = time.monotonic()
         last_revalidate = time.monotonic()
+        park_on_exit = True  # default: park on WS drop unless bye/timeout/error
 
         async def revalidate_bindings() -> bool:
-            """Return False if session/IP/device no longer valid (kill shell)."""
             nonlocal last_revalidate
             now = time.monotonic()
             if now - last_revalidate < cons.revalidate_sec():
                 return True
             last_revalidate = now
-            # Session cookie + session_version + role
             with Session(engine) as session:
                 ok, reason = cons.session_still_valid(
                     session, user_id=int(user_id), expected_sv=expected_sv
@@ -660,18 +833,26 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                         f"\r\n*** Session ended ({reason}) — reconnect from PiHerder ***\r\n"
                     )
                     return False
-            # Live cookie re-read for device id
             cur_device = websocket.cookies.get(cons.CONSOLE_DEVICE_COOKIE) or device_id
             cur_ip = _ws_ip()
             ok, reason = cons.binding_still_valid(
                 ticket_payload, client_ip=cur_ip, device_id=cur_device
             )
             if not ok:
-                await websocket.send_text(
-                    f"\r\n*** Binding failed ({reason}) — shell closed ***\r\n"
-                )
-                return False
-            # Access token still present and same user
+                # IP change while attached: warn but do not kill if device still matches
+                # (mobile network handoff). Device change always kills.
+                if reason == "device_changed":
+                    await websocket.send_text(
+                        f"\r\n*** Binding failed ({reason}) — shell closed ***\r\n"
+                    )
+                    return False
+                if reason == "ip_changed" and not (
+                    cons.bind_device_enabled() and device_id and cur_device == device_id
+                ):
+                    await websocket.send_text(
+                        f"\r\n*** Binding failed ({reason}) — shell closed ***\r\n"
+                    )
+                    return False
             with Session(engine) as session:
                 u2 = _user_from_cookie(websocket, session)
                 if not u2 or int(u2.id) != int(user_id):
@@ -682,15 +863,19 @@ async def console_websocket(websocket: WebSocket, server_id: int):
             return True
 
         async def pump_ssh_out():
-            nonlocal last_activity
+            nonlocal last_activity, park_on_exit, intentional_close
             while not stop.is_set():
                 try:
                     if not await revalidate_bindings():
+                        # Auth lost — destroy, do not park for arbitrary reclaim
+                        park_on_exit = False
+                        intentional_close = True
                         stop.set()
                         break
                     if channel.recv_ready():
                         data = channel.recv(8192)
                         if not data:
+                            park_on_exit = False
                             stop.set()
                             break
                         last_activity = time.monotonic()
@@ -706,23 +891,27 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                             last_activity = time.monotonic()
                             await websocket.send_bytes(data)
                     elif channel.exit_status_ready():
+                        park_on_exit = False
                         stop.set()
                         break
                     else:
                         now = time.monotonic()
                         if now - last_activity > cons.idle_sec():
                             await websocket.send_text("\r\n*** Idle timeout ***\r\n")
+                            park_on_exit = False
                             stop.set()
                             break
-                        if now - started > cons.max_session_sec():
+                        if now - started_mono > cons.max_session_sec():
                             await websocket.send_text(
                                 "\r\n*** Session time limit ***\r\n"
                             )
+                            park_on_exit = False
                             stop.set()
                             break
                         await asyncio.sleep(0.02)
                 except Exception as e:
                     logger.debug("console pump out: %s", e)
+                    # WS likely dead — leave park_on_exit True so SSH is held
                     stop.set()
                     break
 
@@ -734,6 +923,7 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                     message = await asyncio.wait_for(websocket.receive(), timeout=1.0)
                 except asyncio.TimeoutError:
                     if not await revalidate_bindings():
+                        park_on_exit = False
                         stop.set()
                     continue
                 except WebSocketDisconnect:
@@ -749,21 +939,41 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                     last_activity = time.monotonic()
                     await asyncio.to_thread(channel.send, data)
                 elif "text" in message and message["text"] is not None:
-                    text = message["text"]
+                    text_in = message["text"]
                     last_activity = time.monotonic()
-                    if text.startswith("{") and '"type"' in text:
+                    if text_in.startswith("{") and '"type"' in text_in:
                         try:
-                            ctl = json.loads(text)
-                            if ctl.get("type") == "resize":
+                            ctl = json.loads(text_in)
+                            t = ctl.get("type")
+                            if t == "resize":
                                 cols = max(20, min(int(ctl.get("cols") or 80), 500))
                                 rows = max(5, min(int(ctl.get("rows") or 24), 200))
                                 await asyncio.to_thread(
                                     channel.resize_pty, width=cols, height=rows
                                 )
                                 continue
+                            if t == "ping":
+                                try:
+                                    await websocket.send_text(
+                                        json.dumps(
+                                            {
+                                                "type": "ph_session",
+                                                "resume": resume_id,
+                                                "pong": True,
+                                            }
+                                        )
+                                    )
+                                except Exception:
+                                    pass
+                                continue
+                            if t == "bye":
+                                intentional_close = True
+                                park_on_exit = False
+                                stop.set()
+                                break
                         except Exception:
                             pass
-                    await asyncio.to_thread(channel.send, text)
+                    await asyncio.to_thread(channel.send, text_in)
         finally:
             stop.set()
             out_task.cancel()
@@ -774,37 +984,94 @@ async def console_websocket(websocket: WebSocket, server_id: int):
 
     except Exception as e:
         logger.warning("console session failed server_id=%s: %s", server_id, e)
+        park_on_exit = False
         try:
             await websocket.send_text(f"\r\n*** Connection failed: {e} ***\r\n")
         except Exception:
             pass
     finally:
-        if channel is not None:
+        # Soft-resume: park SSH if browser dropped WS (app switch / sleep)
+        do_park = (
+            park_on_exit
+            and not intentional_close
+            and channel is not None
+            and client is not None
+            and user_id is not None
+            and not getattr(channel, "closed", False)
+        )
+        if do_park:
             try:
-                channel.close()
+                # channel.closed may not exist on all paramiko versions
+                if channel.exit_status_ready() and not channel.recv_ready():
+                    do_park = False
             except Exception:
                 pass
-        if client is not None:
-            try:
-                client.close()
-            except Exception:
-                pass
-        if slot_held and user_id is not None:
-            cons.release_slot(user_id)
+        if do_park:
+            held = cons.HeldConsole(
+                resume_id=resume_id,
+                user_id=int(user_id),
+                server_id=server_id_i,
+                session_version=int(expected_sv),
+                ticket_payload=dict(ticket_payload or {}),
+                device_id=device_id or "",
+                client=client,
+                channel=channel,
+                started_mono=started_mono,
+                last_activity_mono=last_activity,
+                held_at_mono=time.monotonic(),
+                server_hostname=server_hostname,
+            )
+            cons.park_console(held)
+            # Slot stays acquired; hold-watch drains output + enforces timeouts
+            asyncio.create_task(_console_hold_watch(resume_id))
+            client = None  # prevent close below
+            channel = None
+            slot_held = False  # don't release in finally
+            logger.info(
+                "console parked resume=%s user=%s server=%s",
+                resume_id[:10],
+                user_id,
+                server_id_i,
+            )
+        else:
+            if channel is not None:
+                try:
+                    channel.close()
+                except Exception:
+                    pass
+            if client is not None:
+                try:
+                    client.close()
+                except Exception:
+                    pass
+            if slot_held and user_id is not None:
+                cons.release_slot(user_id)
+            if user_id is not None and opened is not None and not is_resume:
+                try:
+                    with Session(engine) as session:
+                        dur = int((datetime.utcnow() - opened).total_seconds())
+                        _audit(
+                            session,
+                            user_id=user_id,
+                            server_id=server_id_i,
+                            action="ssh_console_close",
+                            details=f"duration_sec={dur} ip={ip or '?'}",
+                        )
+                except Exception:
+                    logger.exception("console close audit failed")
+            elif user_id is not None and intentional_close:
+                try:
+                    with Session(engine) as session:
+                        _audit(
+                            session,
+                            user_id=user_id,
+                            server_id=server_id_i,
+                            action="ssh_console_close",
+                            details=f"bye ip={ip or '?'}",
+                        )
+                except Exception:
+                    pass
         try:
             await websocket.close()
         except Exception:
             pass
-        if user_id is not None and opened is not None:
-            try:
-                with Session(engine) as session:
-                    dur = int((datetime.utcnow() - opened).total_seconds())
-                    _audit(
-                        session,
-                        user_id=user_id,
-                        server_id=server_id_i,
-                        action="ssh_console_close",
-                        details=f"duration_sec={dur} ip={ip or '?'}",
-                    )
-            except Exception:
-                logger.exception("console close audit failed")

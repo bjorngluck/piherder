@@ -9,7 +9,8 @@ def test_build_csp_core_directives(monkeypatch):
     csp = hdr.build_csp()
     assert "default-src 'self'" in csp
     assert "object-src 'none'" in csp
-    assert "frame-ancestors 'none'" in csp
+    assert "frame-ancestors 'self'" in csp
+    assert "frame-src 'self'" in csp
     assert "script-src 'self'" in csp
     assert "'unsafe-inline'" in csp  # legacy template scripts
     assert "'unsafe-eval'" in csp  # Tailwind Play
@@ -33,10 +34,11 @@ def test_security_headers_dict_enforcement(monkeypatch):
     h = hdr.security_headers_dict()
     assert "Content-Security-Policy" in h
     assert "Content-Security-Policy-Report-Only" not in h
-    assert h["X-Frame-Options"] == "DENY"
+    assert h["X-Frame-Options"] == "SAMEORIGIN"
     assert h["X-Content-Type-Options"] == "nosniff"
     assert "Referrer-Policy" in h
     assert "Permissions-Policy" in h
+    assert "publickey-credentials-get=(self)" in h["Permissions-Policy"]
 
 
 def test_security_headers_report_only(monkeypatch):
@@ -53,4 +55,4 @@ def test_csp_can_disable(monkeypatch):
     assert "Content-Security-Policy" not in h
     assert "Content-Security-Policy-Report-Only" not in h
     # Other headers remain
-    assert h["X-Frame-Options"] == "DENY"
+    assert h["X-Frame-Options"] == "SAMEORIGIN"

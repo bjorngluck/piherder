@@ -1,0 +1,381 @@
+{% extends "base.html" %}
+
+{% block content %}
+{# Multi-host Web SSH workspace — host tabs keep each host's shells alive in iframes. #}
+<div id="cw" class="cw" data-testid="console-workspace-app">
+  <header class="cw-bar">
+    <div class="cw-brand">
+      <a href="/servers" class="cw-back" title="Back to servers">← Servers</a>
+      <strong class="cw-title">Console</strong>
+      <span class="cw-meta text-muted">multi-host</span>
+    </div>
+    <div class="cw-actions">
+      <button type="button" id="cw-maximize" class="btn btn-secondary text-xs min-h-9 px-2"
+              data-testid="cw-maximize" title="Fill the browser window">Maximize</button>
+      <a href="/servers" class="btn btn-secondary text-xs min-h-9 px-2 no-underline">Exit</a>
+    </div>
+  </header>
+
+  <div class="cw-host-row" role="tablist" aria-label="Hosts">
+    <div id="cw-host-tabs" class="cw-host-tabs"></div>
+    <button type="button" id="cw-add-host" class="cw-add-host btn btn-accent text-xs min-h-9 px-2"
+            data-testid="cw-add-host" title="Open another host in a new tab">+ Host</button>
+  </div>
+
+  <div id="cw-frames" class="cw-frames">
+    <div id="cw-empty" class="cw-empty">
+      {% if not console_enabled %}
+      <p class="text-danger"><strong>Console is disabled.</strong> Set <code>PIHERDER_SSH_CONSOLE=true</code> and restart web.</p>
+      {% else %}
+      <p class="text-text font-medium mb-2">No host open yet</p>
+      <p class="text-sm text-muted mb-3">Click <strong class="text-text">+ Host</strong> or open Console from a server page.</p>
+      <button type="button" class="btn btn-accent min-h-11" id="cw-empty-add">+ Host</button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# Host picker modal #}
+<div id="cw-picker" class="cw-picker hidden" role="dialog" aria-modal="true" aria-label="Choose host">
+  <div class="cw-picker-panel card">
+    <div class="flex items-center justify-between gap-2 mb-3">
+      <h2 class="text-base font-semibold text-text m-0">Open host</h2>
+      <button type="button" id="cw-picker-close" class="btn btn-secondary text-xs min-h-9 px-2">Close</button>
+    </div>
+    <input type="search" id="cw-picker-q" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 mb-3"
+           placeholder="Filter hosts…" autocomplete="off" data-testid="cw-picker-q">
+    <ul id="cw-picker-list" class="cw-picker-list"></ul>
+    <p class="text-[11px] text-muted mt-2 mb-0">Max {{ max_shells }} shells across all hosts.</p>
+  </div>
+</div>
+
+<style>
+  .cw {
+    display: flex; flex-direction: column;
+    height: 100%; min-height: 0; flex: 1 1 auto;
+    background: var(--color-bg, #0b0f14);
+  }
+  .cw-bar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 0.5rem; padding: 0.45rem 0.65rem;
+    border-bottom: 1px solid var(--color-border, #333);
+    background: var(--color-surface, #12171e);
+    flex-shrink: 0;
+  }
+  .cw-brand { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 0.75rem; min-width: 0; }
+  .cw-back { color: var(--color-primary, #60a5fa); text-decoration: none; font-size: 0.8rem; }
+  .cw-back:hover { text-decoration: underline; }
+  .cw-title { font-size: 0.95rem; color: var(--color-text, #e6edf3); }
+  .cw-meta { font-size: 0.7rem; }
+  .cw-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .cw-host-row {
+    display: flex; align-items: center; gap: 0.35rem;
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--color-border, #333);
+    background: var(--color-surface, #12171e);
+    flex-shrink: 0; overflow-x: auto;
+  }
+  .cw-host-tabs { display: flex; flex-wrap: nowrap; gap: 0.3rem; flex: 1 1 auto; min-width: 0; }
+  .cw-host-tab {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.4rem 0.55rem; border-radius: 0.4rem; font-size: 0.8rem;
+    border: 1px solid var(--color-border, #333); background: transparent;
+    color: inherit; cursor: pointer; white-space: nowrap; min-height: 2.1rem;
+  }
+  .cw-host-tab.is-active {
+    border-color: var(--color-accent, #22c55e);
+    background: rgba(34, 197, 94, 0.1);
+  }
+  .cw-host-tab .x {
+    opacity: 0.55; border: 0; background: transparent; color: inherit;
+    cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.15rem;
+  }
+  .cw-host-tab .x:hover { opacity: 1; color: #f87171; }
+  .cw-add-host { flex-shrink: 0; }
+  .cw-frames {
+    position: relative; flex: 1 1 auto; min-height: 0;
+    background: #0b0f14;
+  }
+  /*
+    Keep inactive host iframes in the layout (hidden, not display:none) so
+    WebSocket sessions stay open when switching host tabs (esp. mobile Safari).
+  */
+  .cw-frame {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    border: 0; background: #0b0f14;
+    visibility: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .cw-frame.is-active {
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 1;
+  }
+  .cw-empty {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 1.5rem; text-align: center;
+  }
+  .cw-empty.is-hidden { display: none; }
+  .cw.is-max {
+    position: fixed; inset: 0; z-index: 90;
+    width: 100vw; height: 100vh; height: 100dvh;
+  }
+  .cw-picker {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.72);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
+  }
+  .cw-picker.hidden { display: none; }
+  .cw-picker-panel {
+    width: 100%; max-width: 28rem; max-height: min(80vh, 560px);
+    overflow: auto; padding: 1rem 1.1rem;
+  }
+  .cw-picker-list { list-style: none; margin: 0; padding: 0; }
+  .cw-picker-list li { margin: 0; }
+  .cw-picker-list button {
+    width: 100%; text-align: left; padding: 0.65rem 0.75rem;
+    border: 1px solid var(--color-border, #333); border-radius: 0.4rem;
+    background: transparent; color: inherit; cursor: pointer; margin-bottom: 0.35rem;
+    min-height: 2.75rem;
+  }
+  .cw-picker-list button:hover { border-color: var(--color-accent, #22c55e); }
+  .cw-picker-list button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .cw-picker-list .sub { display: block; font-size: 0.7rem; color: var(--color-muted, #9ca3af); font-family: ui-monospace, monospace; }
+  @media (max-width: 640px) {
+    .cw-meta { display: none; }
+  }
+</style>
+
+<script>
+(function () {
+  var HOSTS = {{ hosts_json|safe }};
+  var initialId = {{ initial_host_id if initial_host_id is not none else 'null' }};
+  var enabled = {{ 'true' if console_enabled else 'false' }};
+  var LS_KEY = 'piherder.console.openHosts';
+
+  var root = document.getElementById('cw');
+  var tabsEl = document.getElementById('cw-host-tabs');
+  var framesEl = document.getElementById('cw-frames');
+  var emptyEl = document.getElementById('cw-empty');
+  var picker = document.getElementById('cw-picker');
+  var pickerList = document.getElementById('cw-picker-list');
+  var pickerQ = document.getElementById('cw-picker-q');
+  var btnAdd = document.getElementById('cw-add-host');
+  var btnEmptyAdd = document.getElementById('cw-empty-add');
+  var btnMax = document.getElementById('cw-maximize');
+  var btnPickerClose = document.getElementById('cw-picker-close');
+
+  // open host tabs: { id, name, elTab, elFrame }
+  var open = [];
+  var activeId = null;
+
+  function hostMeta(id) {
+    id = Number(id);
+    for (var i = 0; i < HOSTS.length; i++) {
+      if (Number(HOSTS[i].id) === id) return HOSTS[i];
+    }
+    return null;
+  }
+
+  function saveOpen() {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(open.map(function (h) { return h.id; })));
+    } catch (e) {}
+  }
+
+  function loadSavedIds() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+      if (!Array.isArray(raw)) return [];
+      return raw.map(Number).filter(function (n) { return n > 0; });
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function setEmpty() {
+    if (!emptyEl) return;
+    emptyEl.classList.toggle('is-hidden', open.length > 0);
+  }
+
+  function activate(id) {
+    activeId = id == null ? null : Number(id);
+    open.forEach(function (h) {
+      var on = h.id === activeId;
+      h.elTab.classList.toggle('is-active', on);
+      h.elFrame.classList.toggle('is-active', on);
+    });
+    setEmpty();
+    // nudge inner terminal to refit
+    var cur = open.find(function (h) { return h.id === activeId; });
+    if (cur && cur.elFrame.contentWindow) {
+      try {
+        cur.elFrame.contentWindow.postMessage(
+          { type: 'piherder-console', action: 'refit' },
+          window.location.origin
+        );
+      } catch (e) {}
+    }
+  }
+
+  function closeHost(id) {
+    id = Number(id);
+    var idx = open.findIndex(function (h) { return h.id === id; });
+    if (idx < 0) return;
+    var h = open[idx];
+    // unload iframe → ends PTYs for that host
+    try { h.elFrame.src = 'about:blank'; } catch (e) {}
+    if (h.elTab.parentNode) h.elTab.parentNode.removeChild(h.elTab);
+    if (h.elFrame.parentNode) h.elFrame.parentNode.removeChild(h.elFrame);
+    open.splice(idx, 1);
+    saveOpen();
+    if (activeId === id) {
+      var next = open[idx] || open[idx - 1] || open[0] || null;
+      activate(next ? next.id : null);
+    } else {
+      setEmpty();
+    }
+  }
+
+  function openHost(id, opts) {
+    opts = opts || {};
+    if (!enabled) return;
+    id = Number(id);
+    if (!id) return;
+    var existing = open.find(function (h) { return h.id === id; });
+    if (existing) {
+      activate(id);
+      return;
+    }
+    var meta = hostMeta(id) || { id: id, name: 'Host ' + id, host: '', has_ssh: true };
+    var tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'cw-host-tab';
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('data-host-id', String(id));
+    tab.innerHTML = '<span class="lab"></span><span class="x" title="Close host" aria-label="Close">×</span>';
+    tab.querySelector('.lab').textContent = meta.name;
+
+    var frame = document.createElement('iframe');
+    frame.className = 'cw-frame';
+    frame.title = 'Console · ' + meta.name;
+    frame.setAttribute('allow', 'publickey-credentials-get *');
+    frame.setAttribute('referrerpolicy', 'same-origin');
+    frame.src = '/servers/' + id + '/console?embed=1';
+
+    tab.addEventListener('click', function (ev) {
+      if (ev.target && ev.target.classList && ev.target.classList.contains('x')) {
+        ev.stopPropagation();
+        if (confirm('Close console for ' + meta.name + '? Open shells on this host will end.')) {
+          closeHost(id);
+        }
+        return;
+      }
+      activate(id);
+    });
+
+    tabsEl.appendChild(tab);
+    framesEl.appendChild(frame);
+    open.push({ id: id, name: meta.name, elTab: tab, elFrame: frame });
+    saveOpen();
+    if (opts.activate !== false) activate(id);
+  }
+
+  function showPicker() {
+    if (!picker || !enabled) return;
+    renderPicker('');
+    picker.classList.remove('hidden');
+    if (pickerQ) { pickerQ.value = ''; pickerQ.focus(); }
+  }
+  function hidePicker() {
+    if (picker) picker.classList.add('hidden');
+  }
+
+  function renderPicker(q) {
+    if (!pickerList) return;
+    q = (q || '').toLowerCase().trim();
+    pickerList.innerHTML = '';
+    var openIds = {};
+    open.forEach(function (h) { openIds[h.id] = true; });
+    var n = 0;
+    HOSTS.forEach(function (h) {
+      var hay = (h.name + ' ' + (h.host || '')).toLowerCase();
+      if (q && hay.indexOf(q) < 0) return;
+      n++;
+      var li = document.createElement('li');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      var already = !!openIds[h.id];
+      var noSsh = !h.has_ssh;
+      btn.disabled = noSsh;
+      btn.innerHTML = '<span class="lab"></span><span class="sub"></span>';
+      btn.querySelector('.lab').textContent =
+        h.name + (already ? ' (open)' : '') + (noSsh ? ' — no SSH key' : '');
+      btn.querySelector('.sub').textContent = h.host || '';
+      btn.addEventListener('click', function () {
+        openHost(h.id);
+        hidePicker();
+      });
+      li.appendChild(btn);
+      pickerList.appendChild(li);
+    });
+    if (!n) {
+      var empty = document.createElement('li');
+      empty.innerHTML = '<p class="text-sm text-muted">No matching hosts.</p>';
+      pickerList.appendChild(empty);
+    }
+  }
+
+  function toggleMax() {
+    if (!root) return;
+    root.classList.toggle('is-max');
+    var on = root.classList.contains('is-max');
+    if (btnMax) btnMax.textContent = on ? 'Restore' : 'Maximize';
+    // refit active iframe terminal
+    setTimeout(function () {
+      if (activeId != null) activate(activeId);
+    }, 80);
+  }
+
+  if (btnAdd) btnAdd.addEventListener('click', showPicker);
+  if (btnEmptyAdd) btnEmptyAdd.addEventListener('click', showPicker);
+  if (btnPickerClose) btnPickerClose.addEventListener('click', hidePicker);
+  if (btnMax) btnMax.addEventListener('click', toggleMax);
+  if (picker) {
+    picker.addEventListener('click', function (ev) {
+      if (ev.target === picker) hidePicker();
+    });
+  }
+  if (pickerQ) {
+    pickerQ.addEventListener('input', function () { renderPicker(pickerQ.value); });
+  }
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && picker && !picker.classList.contains('hidden')) {
+      hidePicker();
+    }
+  });
+
+  // Bootstrap: URL host wins, then restore saved tabs
+  if (enabled) {
+    var saved = loadSavedIds();
+    var seen = {};
+    if (initialId) {
+      openHost(initialId, { activate: true });
+      seen[Number(initialId)] = true;
+    }
+    saved.forEach(function (id) {
+      if (seen[id]) return;
+      if (!hostMeta(id)) return;
+      openHost(id, { activate: !initialId && open.length === 0 });
+      seen[id] = true;
+    });
+    if (!open.length && initialId) {
+      // already handled
+    }
+  }
+  setEmpty();
+})();
+</script>
+{% endblock %}

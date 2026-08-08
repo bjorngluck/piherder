@@ -146,7 +146,39 @@
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
-<body class="bg-bg{% if not user %} is-auth-chrome{% endif %}">
+<body class="bg-bg{% if not user %} is-auth-chrome{% endif %}{% if popup_mode %} is-console-popup{% endif %}{% if console_app %} is-console-app{% endif %}">
+  {# Console workspace / embed: hide fleet chrome; full-viewport terminal app. #}
+  <style>
+    body.is-console-popup .nav-header,
+    body.is-console-popup #mobile-menu-backdrop,
+    body.is-console-popup #mobile-menu-panel,
+    body.is-console-popup #ph-update-banner,
+    body.is-console-popup #pwa-install-banner,
+    body.is-console-popup > footer { display: none !important; }
+    body.is-console-popup main {
+      max-width: none !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0.65rem 0.75rem 0.75rem !important;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    body.is-console-popup { overflow-x: hidden; }
+    /* Full-bleed console app (multi-host workspace + host iframe) */
+    html:has(body.is-console-app), body.is-console-app {
+      height: 100%;
+      overflow: hidden;
+    }
+    body.is-console-app main {
+      padding: 0 !important;
+      height: 100vh;
+      height: 100dvh;
+      min-height: 0 !important;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+  </style>
   <nav class="nav-header">
     <div class="nav-header-inner">
       <!-- Brand (left) — all sizing/spacing via CSS vars -->

@@ -64,11 +64,14 @@ def build_csp() -> str:
             seen.add(c)
             connect_parts.append(c)
 
+    # frame-ancestors / frame-src 'self': allow same-origin console modal iframe
+    # (third-party embedding still blocked). Previously 'none' which forced
+    # window.open popups that browsers often block.
     directives = [
         "default-src 'self'",
         "base-uri 'self'",
         "object-src 'none'",
-        "frame-ancestors 'none'",
+        "frame-ancestors 'self'",
         "form-action 'self'",
         "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
         "style-src 'self' 'unsafe-inline'",
@@ -78,7 +81,7 @@ def build_csp() -> str:
         "worker-src 'self'",
         "manifest-src 'self'",
         "media-src 'self'",
-        "frame-src 'none'",
+        "frame-src 'self'",
     ]
     # Only upgrade on HTTPS public URL (avoid breaking plain http labs)
     if origin and origin.startswith("https://"):
@@ -91,10 +94,15 @@ def security_headers_dict() -> dict[str, str]:
     """All security headers applied to HTML/app responses."""
     headers = {
         "X-Content-Type-Options": "nosniff",
-        "X-Frame-Options": "DENY",
+        # SAMEORIGIN: same-origin console modal iframe; blocks third-party framing
+        "X-Frame-Options": "SAMEORIGIN",
         "Referrer-Policy": "strict-origin-when-cross-origin",
-        # Camera/mic unused; geolocation off; payment off
-        "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+        # Camera/mic unused; geolocation off; payment off.
+        # publickey-credentials-get=(self) so passkeys work in same-origin console iframe.
+        "Permissions-Policy": (
+            "camera=(), microphone=(), geolocation=(), payment=(), "
+            "publickey-credentials-get=(self)"
+        ),
         "Cross-Origin-Opener-Policy": "same-origin",
     }
     if csp_enabled():
