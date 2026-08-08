@@ -89,10 +89,15 @@ class Settings(BaseSettings):
     PIHERDER_SSH_CONSOLE_GRANT_MIN: int = 10
     # If true, every New shell requires fresh 2FA (TOTP/passkey); grant cookie ignored
     PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL: bool = False
+    # Console step-up: backup codes off by default (prefer passkey / TOTP app)
+    PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES: bool = False
+    PIHERDER_SSH_CONSOLE_PREFER_PASSKEY: bool = True
+    # If true and user has passkeys enrolled, only passkey opens the console (no TOTP)
+    PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY: bool = False
     # Bind console tickets to client IP / console device cookie; re-check while open
     PIHERDER_SSH_CONSOLE_BIND_IP: bool = True
     PIHERDER_SSH_CONSOLE_BIND_DEVICE: bool = True
-    PIHERDER_SSH_CONSOLE_REVALIDATE_SEC: int = 15
+    PIHERDER_SSH_CONSOLE_REVALIDATE_SEC: int = 10
 
     # Content-Security-Policy (v1.2) — default on; Report-Only for staged rollouts
     PIHERDER_CSP: bool = True

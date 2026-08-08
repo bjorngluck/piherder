@@ -78,9 +78,24 @@ def _verify_console_2fa(
     *,
     totp_code: str,
 ) -> tuple[bool, str]:
-    """Console always requires enrolled 2FA + valid code (W3) when grant missing."""
+    """
+    Console step-up when grant missing.
+
+    Preferred: WebAuthn (separate routes). Here: TOTP app code only by default.
+    Backup codes are **rejected** unless PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES=true
+    (they are offline recovery secrets, not a strong shell step-up).
+    """
     if not wa_svc.user_has_2fa(session, user):
         return False, "enroll_2fa"
+
+    has_pk = False
+    try:
+        has_pk = wa_svc.has_passkeys(session, int(user.id))
+    except Exception:
+        has_pk = False
+    if cons.require_passkey_if_enrolled() and has_pk:
+        return False, "passkey_required"
+
     from ..security.auth import (
         decrypt_totp_secret,
         verify_totp_code,
@@ -90,6 +105,8 @@ def _verify_console_2fa(
     code = (totp_code or "").strip().replace(" ", "")
     if not code:
         return False, "2fa_required"
+
+    # TOTP first (authenticator app)
     if getattr(user, "totp_enabled", False) and user.totp_secret_encrypted:
         try:
             secret = decrypt_totp_secret(user.totp_secret_encrypted)
@@ -97,10 +114,18 @@ def _verify_console_2fa(
                 return True, ""
         except Exception:
             pass
-    if consume_backup_code(session, int(user.id), code):
-        return True, ""
-    return False, "2fa_bad_code"
 
+    # Backup codes: optional and discouraged for console
+    if cons.allow_backup_codes():
+        if consume_backup_code(session, int(user.id), code):
+            return True, ""
+    else:
+        # If it looks like a backup code attempt, give a clear error
+        # (don't consume even if valid)
+        if len(code) >= 8 and not code.isdigit():
+            return False, "backup_not_allowed"
+        # Pure digits that failed TOTP: still "bad code", not backup
+    return False, "2fa_bad_code"
 
 @router.get("/{server_id}/console", response_class=HTMLResponse)
 async def console_page(
@@ -152,6 +177,9 @@ async def console_page(
             "grant_active": grant_ok,
             "grant_minutes": cons.grant_minutes(),
             "require_2fa_every_shell": cons.require_2fa_every_shell(),
+            "prefer_passkey": cons.prefer_passkey(),
+            "require_passkey": cons.require_passkey_if_enrolled(),
+            "allow_backup_codes": cons.allow_backup_codes(),
             "bind_ip": cons.bind_ip_enabled(),
             "bind_device": cons.bind_device_enabled(),
             "revalidate_sec": cons.revalidate_sec(),

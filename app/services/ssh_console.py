@@ -84,6 +84,21 @@ def require_2fa_every_shell() -> bool:
     return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL", False))
 
 
+def allow_backup_codes() -> bool:
+    """Backup codes are weak for shell step-up (paper/stolen codes). Default off."""
+    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES", False))
+
+
+def prefer_passkey() -> bool:
+    """UI + messaging prefer WebAuthn when the user has a passkey enrolled."""
+    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_PREFER_PASSKEY", True))
+
+
+def require_passkey_if_enrolled() -> bool:
+    """If true and user has passkeys, reject TOTP for console (passkey only)."""
+    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY", False))
+
+
 def bind_ip_enabled() -> bool:
     return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_BIND_IP", True))
 
@@ -94,8 +109,7 @@ def bind_device_enabled() -> bool:
 
 def revalidate_sec() -> int:
     """How often to re-check session/IP/device during an open shell (seconds)."""
-    return max(5, int(getattr(settings, "PIHERDER_SSH_CONSOLE_REVALIDATE_SEC", 15) or 15))
-
+    return max(5, int(getattr(settings, "PIHERDER_SSH_CONSOLE_REVALIDATE_SEC", 10) or 10))
 
 def require_enabled() -> None:
     if not console_enabled():

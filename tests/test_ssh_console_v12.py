@@ -210,3 +210,12 @@ def test_websocket_origin_allowed():
         WS({"host": "ph.example.com", "origin": "https://evil.example"})
     )
     assert not cons.websocket_origin_allowed(WS({"host": "ph.example.com"}))
+
+
+def test_backup_codes_disallowed_by_default():
+    assert cons.allow_backup_codes() is False
+    assert cons.prefer_passkey() is True
+
+
+def test_revalidate_default_is_tight():
+    assert cons.revalidate_sec() <= 15

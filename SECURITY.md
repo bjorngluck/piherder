@@ -80,7 +80,8 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
   - Ticket bound to **login `session_version`**, **client IP** (default on), and **console device cookie** (default on)
   - **Continuous revalidation** (~every 15s): session still valid, IP/device still match, user still operator+ — else PTY killed
   - Logout / password change / admin “sign out sessions” invalidates open shells within one revalidation interval
-  - **2FA step-up**: TOTP, backup, or **passkey**; optional every-shell 2FA; short grant for multi-shell on same host
+  - **2FA step-up (recommended: WebAuthn/passkey)**: passkey preferred in UI; TOTP app accepted; **backup codes rejected by default** (`PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES=false`) because they are offline recovery secrets, not a strong shell gate. Optional `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY=true` forces passkey when enrolled. Optional every-shell 2FA.
+  - Continuous revalidation of session / IP / device (~10s); **no resume** of closed shells
   - Concurrent + idle + max session limits; PEM never in browser; CSP blocks embedding
   - Residual risk: XSS on herder origin is still shell-equivalent; IP bind can break mobile networks (set `PIHERDER_SSH_CONSOLE_BIND_IP=false` only if needed)  
 

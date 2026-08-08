@@ -35,9 +35,12 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 | `PIHERDER_CSP_REPORT_ONLY` | **false** (default) — if true, send Report-Only CSP instead of enforcing |
 | `PIHERDER_SSH_CONSOLE` | **false** (default) — enable web SSH console (operator+ / 2FA; in-app only) |
 | `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL` | **false** — each New shell needs fresh TOTP/passkey (no grant reuse) |
+| `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES` | **false** — backup codes rejected for console step-up (prefer passkey/TOTP) |
+| `PIHERDER_SSH_CONSOLE_PREFER_PASSKEY` | **true** — UI promotes WebAuthn when enrolled |
+| `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY` | **false** — if true and user has passkeys, TOTP alone is rejected |
 | `PIHERDER_SSH_CONSOLE_BIND_IP` | **true** — ticket + live shell bound to client IP |
 | `PIHERDER_SSH_CONSOLE_BIND_DEVICE` | **true** — ticket bound to HttpOnly `console_device` cookie |
-| `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC` | **15** — how often open shells re-check session/IP/device |
+| `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC` | **10** — how often open shells re-check session/IP/device |
 
 ## Host paths
 

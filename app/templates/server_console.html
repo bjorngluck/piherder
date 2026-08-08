@@ -28,25 +28,25 @@
 </div>
 {% elif not has_2fa %}
 <div class="card p-5 mb-4 banner-error border border-border" role="alert">
-  Console requires PiHerder <strong>2FA</strong> (TOTP or passkey). Enroll under
-  <a href="/auth/account" class="text-primary hover:underline">Account</a>, then return here.
+  Console requires PiHerder <strong>2FA</strong> — <strong>passkey preferred</strong>, or authenticator TOTP.
+  Enroll under <a href="/auth/account" class="text-primary hover:underline">Account</a>, then return here.
+  {% if not allow_backup_codes %}<span class="block mt-1 text-xs">Backup codes are not accepted for the console.</span>{% endif %}
 </div>
 {% else %}
 
 {# Security notice #}
 <div class="card p-4 mb-3 border border-border bg-surface/50" data-testid="console-security-note">
-  <p class="text-sm text-text font-medium mb-1">Security</p>
+  <p class="text-sm text-text font-medium mb-1">Security — session cannot be stolen or resumed</p>
   <ul class="text-xs text-muted space-y-1 list-disc pl-4">
-    <li><strong class="text-text">In-app only</strong> — same-origin Origin; cannot be embedded (CSP).</li>
-    <li><strong class="text-text">No resume</strong> — each shell uses a single-use ticket; closing the tab ends the PTY forever.</li>
-    <li>Ticket bound to your <strong class="text-text">login session</strong>{% if bind_ip %}, <strong class="text-text">IP</strong>{% endif %}{% if bind_device %}, and <strong class="text-text">this browser</strong> (device cookie){% endif %} — re-checked about every {{ revalidate_sec }}s while open.</li>
-    <li>Logout, password change, or admin “sign out sessions” kills open shells within one revalidation interval.</li>
-    <li>Private key stays in PiHerder memory — never in the browser or on the WebSocket URL.</li>
-    <li>2FA step-up: <strong class="text-text">TOTP, backup code, or passkey</strong>{% if require_2fa_every_shell %} (every shell){% endif %}.</li>
+    <li><strong class="text-text">In-app only</strong> · same-origin · no embed (CSP).</li>
+    <li><strong class="text-text">No resume</strong> — single-use ticket; close tab = PTY gone forever.</li>
+    <li>Bound to <strong class="text-text">login session</strong>{% if bind_ip %}, <strong class="text-text">IP</strong>{% endif %}{% if bind_device %}, <strong class="text-text">this browser</strong>{% endif %} — re-validated every ~{{ revalidate_sec }}s.</li>
+    <li>Logout / password change / admin session revoke kills open shells quickly.</li>
+    <li><strong class="text-text">2FA step-up</strong>: prefer <strong class="text-text">passkey (WebAuthn)</strong>; TOTP app OK{% if allow_backup_codes %}; backup codes allowed{% else %}; <strong class="text-text">backup codes not accepted</strong>{% endif %}{% if require_2fa_every_shell %}; every shell{% endif %}.</li>
     {% if not require_2fa_every_shell %}
-    <li>After step-up, more shells on <em>this host</em> for ~{{ grant_minutes }} min without re-prompt (<strong class="text-text">Lock step-up</strong> forces re-auth).</li>
+    <li>Short grant (~{{ grant_minutes }} min) for extra shells on this host — use <strong class="text-text">Lock step-up</strong> anytime.</li>
     {% endif %}
-    <li>Idle ~{{ (idle_sec / 60)|int }} min · max session ~{{ (max_session_sec / 60)|int }} min · max <strong class="text-text">{{ max_shells }}</strong> shells.</li>
+    <li>PEM never leaves PiHerder · idle ~{{ (idle_sec / 60)|int }} min · max ~{{ (max_session_sec / 60)|int }} min · max {{ max_shells }} shells.</li>
   </ul>
 </div>
 
@@ -55,28 +55,41 @@
      {% if grant_active and not require_2fa_every_shell %}data-grant="1"{% endif %}>
   <p class="text-sm text-muted" id="console-gate-help">
     {% if require_2fa_every_shell %}
-    Policy: <strong class="text-text">2FA every shell</strong>. Enter a code or use a passkey for each New shell.
+    Policy: <strong class="text-text">2FA every shell</strong>. Prefer passkey; TOTP only if needed.
     {% elif grant_active %}
-    Step-up is active for this host (~{{ grant_minutes }} min). You can open shells without re-entering 2FA until it expires.
+    Step-up is active for this host (~{{ grant_minutes }} min). Open shells without re-entering 2FA until it expires.
+    {% elif has_passkeys and prefer_passkey %}
+    <strong class="text-text">Recommended: Use passkey</strong>, then New shell. Authenticator TOTP is secondary.
     {% else %}
-    Complete 2FA once (authenticator, backup code, or passkey), then open one or more shells.
+    Complete step-up with a passkey or authenticator code, then open shells.
+    {% if not allow_backup_codes %} Backup codes are not accepted here.{% endif %}
     {% endif %}
   </p>
   <div class="flex flex-wrap gap-2 items-end" id="console-2fa-row"
        {% if grant_active and not require_2fa_every_shell %}style="display:none"{% endif %}>
+    {% if has_passkeys %}
+    <button type="button" id="console-passkey"
+            class="btn {% if prefer_passkey %}btn-accent{% else %}btn-secondary{% endif %} min-h-11 text-sm"
+            data-testid="console-passkey">
+      {% if prefer_passkey %}Use passkey (recommended){% else %}Use passkey{% endif %}
+    </button>
+    {% endif %}
+    {% if not require_passkey or not has_passkeys %}
     <div class="flex-1 min-w-[12rem]">
-      <label class="block text-xs text-muted mb-1" for="console-totp">Authenticator or backup code</label>
+      <label class="block text-xs text-muted mb-1" for="console-totp">Authenticator code (TOTP)</label>
       <input id="console-totp" type="text" inputmode="numeric" autocomplete="one-time-code"
              class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono"
-             data-testid="console-totp" placeholder="123456">
+             data-testid="console-totp" placeholder="123456"
+             {% if require_passkey and has_passkeys %}disabled{% endif %}>
+      {% if not allow_backup_codes %}
+      <p class="text-[10px] text-muted mt-0.5">Backup codes are not accepted for the console.</p>
+      {% endif %}
     </div>
-    {% if has_passkeys %}
-    <button type="button" id="console-passkey" class="btn btn-secondary min-h-11 text-sm"
-            data-testid="console-passkey">Use passkey</button>
     {% endif %}
   </div>
   <div class="flex flex-wrap gap-2 items-center">
-    <button type="button" id="console-new-shell" class="btn btn-accent min-h-11 text-sm"
+    <button type="button" id="console-new-shell"
+            class="btn {% if has_passkeys and prefer_passkey %}btn-secondary{% else %}btn-accent{% endif %} min-h-11 text-sm"
             data-testid="console-new-shell">New shell</button>
     {% if not require_2fa_every_shell %}
     <button type="button" id="console-revoke-grant" class="btn btn-secondary min-h-11 text-sm"
@@ -322,8 +335,10 @@
     if (!data.ok) {
       var map = {
         enroll_2fa: 'Enroll 2FA on Account first.',
-        '2fa_required': 'Enter authenticator/backup code or use a passkey.',
-        '2fa_bad_code': 'Invalid code or passkey.',
+        '2fa_required': 'Enter authenticator code or use a passkey.',
+        '2fa_bad_code': 'Invalid authenticator code.',
+        backup_not_allowed: 'Backup codes are not accepted for the console — use a passkey or TOTP app.',
+        passkey_required: 'This account has passkeys — use Use passkey for the console.',
         disabled: 'Console disabled.',
         no_ssh: 'No SSH credentials for this host.',
         limit: 'Shell limit reached. Close a shell or wait.',
@@ -509,8 +524,8 @@
       } catch (e) {}
       grantActive = false;
       if (row2fa) row2fa.style.display = '';
-      if (helpEl) helpEl.textContent = 'Step-up locked. Enter authenticator code or passkey for the next shell.';
-      setStatus('Step-up revoked for this browser.');
+      if (helpEl) helpEl.textContent = 'Step-up locked. Prefer passkey, or enter authenticator TOTP for the next shell.';
+      setStatus('Step-up revoked — re-authenticate before the next shell.');
     });
   }
   if (totpIn) {
