@@ -278,9 +278,13 @@
     layoutWorkspace();
     var cur = open.find(function (h) { return h.id === activeId; });
     if (cur) {
-      nudgeFrame(cur.elFrame, 'activate');
-      setTimeout(function () { nudgeFrame(cur.elFrame, 'layout'); }, 100);
-      setTimeout(function () { nudgeFrame(cur.elFrame, 'refit'); }, 200);
+      // Order: make frame visible first, then tell it to resume shells + refit
+      // (must not resume while visibility:hidden — that burns the resume token)
+      try { cur.elFrame.focus(); } catch (e) {}
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'activate'); }, 30);
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'layout'); }, 120);
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'refit'); }, 250);
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'activate'); }, 450);
     }
   }
 
