@@ -178,7 +178,14 @@ def _remote_rsync_path(client, username: str) -> str:
 
 
 def _rsync_error_detail(rsync_stderr: str, rsync_path: str) -> str:
-    recent = (rsync_stderr or "")[-1500:].lower()
+    """Turn rsync stderr into a short UI message.
+
+    Prefer concrete file/path errors over the generic
+    ``rsync error: some files/attrs… (code 23)`` summary — that line alone is
+    useless because the real cause is always on earlier lines.
+    """
+    text = rsync_stderr or ""
+    recent = text[-2500:].lower()
     if "sudo" in recent and ("not found" in recent or "no such file" in recent):
         return (
             "sudo/rsync not available in non-interactive SSH session. "
@@ -198,8 +205,44 @@ def _rsync_error_detail(rsync_stderr: str, rsync_path: str) -> str:
         )
     if "sudo" in recent and ("password" in recent or "a terminal" in recent):
         return "sudo failed on remote. Allow passwordless sudo (NOPASSWD) for rsync for the SSH user."
-    if rsync_stderr.strip():
-        return rsync_stderr.strip().splitlines()[-1][:300]
+
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    # Drop the boilerplate "see previous errors (code N)" generator summary.
+    concrete: list[str] = []
+    for ln in lines:
+        low = ln.lower()
+        if "rsync error:" in low and (
+            "see previous" in low or "code 23" in low or "code 24" in low
+        ):
+            continue
+        if (
+            ln.startswith("rsync:")
+            or "input/output error" in low
+            or "i/o error" in low
+            or "vanished" in low
+            or "opendir" in low
+            or "readdir" in low
+            or "send_files failed" in low
+            or "failed to" in low
+        ):
+            concrete.append(ln)
+    if concrete:
+        # Keep the most recent distinct errors (often many files share one root cause).
+        uniq: list[str] = []
+        for ln in concrete:
+            if ln not in uniq:
+                uniq.append(ln)
+        joined = "; ".join(uniq[-4:])
+        # I/O errors are almost always host disk / mount issues, not SSH.
+        if "input/output error" in joined.lower() or "i/o error" in joined.lower():
+            return (
+                f"{joined[:420]} — host disk/filesystem I/O error on the source path "
+                "(check mount health, dmesg/SMART, fsck; not a PiHerder SSH issue)."
+            )[:500]
+        return joined[:500]
+
+    if text.strip():
+        return text.strip().splitlines()[-1][:300]
     return "rsync non-zero"
 
 
