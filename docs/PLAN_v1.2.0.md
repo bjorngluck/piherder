@@ -1,12 +1,50 @@
-# v1.2 — Big identity + webshell + gated demo
+# PiHerder v1.2.0 — big identity + webshell + gated demo
 
-**Status:** Planning draft (post–v1.1 QA) · **Approved** 2026-08  
+**Status:** **Active** — branch `v1.2.0-dev`  
+**Date opened:** 2026-08-08  
+**Git branch:** `v1.2.0-dev` (integration) · merge → `main` at freeze → tag `v1.2.0`  
+**Package / image version (at tag):** `1.2.0`  
+**Theme:** Big identity + webshell + gated demo — WebAuthn · SSO/OIDC · web SSH · `DEMO_MODE` public demo  
+**Baseline:** `v1.1.0` (elevate production — 2026-08-08)  
 **Mode:** Capacity-rich train — pull former **v1.3** items into **v1.2**  
-**Related:** [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md)
+**Related:** [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [ADMIN.md](ADMIN.md) · [API.md](API.md) · [SECURITY.md](../SECURITY.md)
+
+> **Big minor after 1.1.** Ship WebAuthn/passkeys, SSO/OIDC, webshell (flag-off by default), and a Cloudflare Access–gated demo product. Prefer **correct security bar** over half-gated surfaces. Keep `main` patchable for **v1.1.x** while this train runs on `v1.2.0-dev`.
 
 ---
 
-## 1. Decision locks (2026-08)
+## 0. Decision lock (train open)
+
+| Choice | Value |
+|--------|--------|
+| Integration branch | **`v1.2.0-dev`** |
+| Production line | **`main` @ `v1.1.0`** — hotfixes → **`v1.1.x`**, port into `v1.2.0-dev` |
+| Git tag (freeze) | **`v1.2.0`** (RCs: `1.2.0-rc.N` if needed) |
+| Image tags (freeze) | `1.2.0` · `1.2` · `latest` (multi-arch); keep `1.1` / `1.1.x` pins valid |
+| In-scope streams | **I** WebAuthn · **S** SSO/OIDC · **W** webshell · **D** demo platform · **B-retry** backup vanished-file retry · **Q** quality/freeze |
+| Out-of-focus | Multi-tenant SaaS · SAML · ACME-in-herder · session recording · passwordless-only passkeys · residual Cap unless I/S/W/D green |
+| Mode | Security-first · parallel foundations · no half-built auth surfaces |
+| Coverage | **≥ 55%** unit; focused tests for WebAuthn, OIDC, console ticket, demo mode |
+| E2E | Login local · SSO mock · passkey where Playwright allows · console against fixture · demo banner |
+| Semver | Additive minor; no silent contract breaks |
+| Version bump | `1.2.0` **at freeze only** |
+
+```text
+main @ v1.1.0 (+ v1.1.x patches)
+  └─ v1.2.0-dev → merge → main → tag v1.2.0 → Hub
+```
+
+| Rule | Practice |
+|------|----------|
+| Must → Should → Discover | Do not start Discover while Must is open |
+| Demo never holds prod keys | No decryptable path to production hosts |
+| Webshell flag default **off** | Ship complete or do not open the flag |
+| Prod critical bugs | **main** as **1.1.x** first |
+| Residual Cap | Pull only if streams I/S/W/D (and preferably B-retry) are green |
+
+---
+
+## 1. Product decision locks (2026-08)
 
 | Choice | Lock |
 |--------|------|
@@ -201,9 +239,9 @@ Map interactivity residuals, insights thin, templates git, HA polish, mail matri
 ## 5. Recommended delivery order (parallelizable)
 
 ```text
-Phase 0  Finish v1.1 QA → tag/merge as planned
+Phase 0  Finish v1.1 QA → tag/merge  ✅ done (v1.1.0)
     │
-Phase 1  Foundations (parallel)
+Phase 1  Foundations (parallel)  ← current
     ├─ D1/D2 demo mode + seed (unblocks marketing runbook early)
     ├─ I1–I3 WebAuthn 2FA
     └─ S1 design + OIDC library spike
@@ -213,7 +251,7 @@ Phase 2  Core ship
     ├─ W1–W6 webshell GA (flag off by default)
     └─ D3 CF Access demo deploy (internal team first)
     │
-Phase 3  Integrate + harden
+Phase 3  Integrate + tighten
     ├─ W3 step-up accepts passkeys
     ├─ Demo enables SSO login (demo IdP or CF Access already gate)
     ├─ Optional D5 sandbox host for terminal demo
@@ -259,10 +297,10 @@ Phase 4  Freeze
 
 ---
 
-## 8. Open points (resolve at kickoff, defaults lean)
+## 8. Kickoff leans (locked 2026-08-08)
 
-| # | Question | Default lean |
-|---|----------|--------------|
+| # | Question | Decision |
+|---|----------|----------|
 | 1 | Demo webshell on or off? | **Off** until sandbox host exists; UI shows “disabled in demo” |
 | 2 | Demo app auth after CF Access? | **Shared password + fixed admin** (locked); SSO/WebAuthn can still be *shown* as UI if seed supports, but not required for entry |
 | 3 | Seed hand-authored vs scrubbed export? | **Hand-authored fixtures** first; scrubber as later tool |
@@ -297,9 +335,13 @@ Phase 4  Freeze
 
 ---
 
-## 11. Immediate next steps (after plan accept)
+## 11. Immediate next steps
 
-1. Finish **v1.1** QA / freeze (do not parallelize risky merges into 1.1).  
-2. Open **`v1.2.0-dev`** branch + `PLAN_v1.2.0.md` from this document.  
-3. Spike week: OIDC library choice · WebAuthn library · xterm + WS ticket skeleton · demo seed cardinality sketch.  
-4. Provision VPS + CF Access early (even with stock 1.1 + seed) so marketing/Access flow is proven before feature complete.
+| # | Step | Status |
+|---|------|--------|
+| 1 | Finish **v1.1** QA / freeze | **Done** — `v1.1.0` tagged · Hub multi-arch published |
+| 2 | Open **`v1.2.0-dev`** + promote this plan | **Done** 2026-08-08 |
+| 3 | Spike week: OIDC library · WebAuthn library · xterm + WS ticket skeleton · demo seed cardinality | **Next** |
+| 4 | Provision VPS + CF Access early (even stock 1.1 + seed) so Access flow is proven | Ops (parallel) |
+
+**Phase 1 execution order (parallelizable):** **D1/D2** demo mode + seed · **I1–I3** WebAuthn 2FA · **S1** OIDC library spike.
