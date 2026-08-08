@@ -11,7 +11,7 @@ Optional **second-factor** authentication for user accounts:
 
 Plus an admin **force 2FA** policy that requires everyone to enrol **either** factor before using the fleet UI. Template secrets still use a **separate step-up** TOTP even after login 2FA.
 
-**Available from v1.2.0:** passkeys as a second factor (register / list / revoke on Account; login step-up).
+**Available from v1.2.0:** passkeys as a second factor (register / list / revoke on Account; login step-up). **SSO / OIDC** login uses the **same** PiHerder 2FA gates — see [SSO / OpenID Connect](sso-oidc.md).
 
 ## Why it exists
 
@@ -24,7 +24,7 @@ Password-only access to a fleet control plane is risky on shared or exposed URLs
 1. As a user: **Account** → enable TOTP **and/or** add a **passkey** → if using TOTP, store **backup codes** offline.  
 2. Optional **trusted device** (default **30 days**, from `TRUSTED_DEVICE_DAYS`) if you accept that trade-off — only on machines you control.  
 3. As admin: **Settings → Security policy → Force 2FA for all**.  
-4. Users without any second factor hit `/auth/force-2fa` after password login (password change-on-first still first if required), then **Set up 2FA on Account**.  
+4. Users without any second factor hit `/auth/force-2fa` after password **or SSO** login (password change-on-first still first if required), then **Set up 2FA on Account**.  
 5. For templates, enable **Require 2FA for template deploy & secrets** if operators should not deploy without TOTP.
 
 ---
@@ -39,7 +39,7 @@ Password-only access to a fleet control plane is risky on shared or exposed URLs
 
 1. Click **Add passkey** (optional nickname).  
 2. Complete the browser prompt (biometrics or security key).  
-3. At next login, after password, choose **Use passkey** (or still enter a TOTP/backup code if enrolled).
+3. At next login, after password **or SSO**, choose **Use passkey** (or still enter a TOTP/backup code if enrolled).
 
 | Requirement | Detail |
 |-------------|--------|
@@ -65,7 +65,7 @@ Password alone is **not** enough — this is a deliberate step-up so a stolen se
 
 ### Trusted devices
 
-On the 2FA login screen you may **trust this device** for N days (Settings / env default **30**). While trusted, that browser skips the TOTP prompt after password login.
+On the 2FA login screen you may **trust this device** for N days (Settings / env default **30**). While trusted, that browser skips the second-factor prompt after password **or SSO** login.
 
 - **Sign out does not clear trust** — you still need the password, but not the authenticator, until the cookie expires or you revoke it.  
 - Cookie is **per account** (`trusted_device_{user_id}`) so two logins on one browser do not overwrite each other.  
@@ -100,6 +100,7 @@ Rough production defaults (in-process; disabled when `PIHERDER_DISABLE_AUTH_RATE
 | Surface | Limit (approx.) |
 |---------|-----------------|
 | Password login | 10 attempts / 5 minutes / IP |
+| SSO login start | Same order of magnitude per IP |
 | 2FA code | 12 attempts / 5 minutes / IP |
 | Registration | 8 attempts / 10 minutes / IP |
 
@@ -109,9 +110,19 @@ Rough production defaults (in-process; disabled when `PIHERDER_DISABLE_AUTH_RATE
 
 | Setting | Effect |
 |---------|--------|
-| **Force 2FA for all** | Users without TOTP go to `/auth/force-2fa` before the fleet UI. Password change-on-first-login still runs first if required. |
+| **Force 2FA for all** | Users without TOTP **or** a passkey go to `/auth/force-2fa` before the fleet UI. Password change-on-first-login still runs first if required. Applies after **password and SSO** identity proof. |
 
 Stored in PostgreSQL (`appsetting`) — travels with DB dumps and self-backup.
+
+## SSO login and 2FA
+
+| Entry path | PiHerder 2FA |
+|------------|--------------|
+| Password | Existing step-up when TOTP/passkey enrolled |
+| **SSO (OIDC)** | **Same helpers** — IdP is first factor only; enrolled 2FA still required; Force 2FA enroll wall still applies |
+| Account link / unlink / remove password | Re-check 2FA when enrolled ([SSO page](sso-oidc.md)) |
+
+IdP multi-factor (if configured at Authentik/Keycloak/etc.) does **not** replace PiHerder TOTP or passkeys.
 
 ## Template step-up
 

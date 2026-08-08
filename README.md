@@ -29,7 +29,7 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 - **LAN Discovery** (opt-in nmap worker, devices, schedules, Hosts map overlay)
 - Network Maps (DNS fabric, logical/physical topology, service paths, runtime stack view groups)
 - PWA + Web Push notifications
-- RBAC, 2FA, audit trail, self-backup with full DR
+- RBAC, 2FA (TOTP + passkeys), optional SSO/OIDC (v1.2), audit trail, self-backup with full DR
 - Token REST API for automation (n8n, Home Assistant, etc.)
 
 ### Quick Start

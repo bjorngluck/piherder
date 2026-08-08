@@ -35,7 +35,7 @@ mkdocs build --strict
 | `docker/` | Host Docker browser, inventory, compose edit |
 | `service-templates/` | Deploy / from-host / secrets *(not named `templates/` — MkDocs reserves that)* |
 | `integrations/` | Kuma, Grafana, Pi-hole, NPM, certificates, Network maps, LAN discovery |
-| `account-security/` | RBAC, users, 2FA, PWA |
+| `account-security/` | RBAC, users, 2FA, SSO/OIDC, PWA |
 | `operations/` | Settings, env, DR, API, metrics, multi-worker |
 | `troubleshooting/` | Common failures |
 | `developers/` | Setup, architecture, schema, testing, publish |

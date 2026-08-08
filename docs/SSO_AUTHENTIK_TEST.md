@@ -1,7 +1,7 @@
 # Test Authentik against PiHerder OIDC (Stream S)
 
 **Status:** draft for local / lab smoke  
-**Related:** [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · `docker-compose.authentik.yml`
+**Related:** [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · operator wiki [SSO / OpenID Connect](../wiki/account-security/sso-oidc.md) · `docker-compose.authentik.yml`
 
 Short path: bring up a **throwaway Authentik**, create an OIDC app, point PiHerder Settings → SSO at it, exercise login / link / 2FA / unlink.
 

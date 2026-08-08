@@ -29,8 +29,8 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 
 | Variable | Purpose |
 |----------|---------|
-| `PIHERDER_HOSTNAME` | Caddy site hostname; must match cert SANs |
-| `PIHERDER_PUBLIC_URL` | Canonical origin (include `:8443` if mapped); HTTPS enables Secure cookies |
+| `PIHERDER_HOSTNAME` | Caddy site hostname; must match cert SANs; WebAuthn RP ID |
+| `PIHERDER_PUBLIC_URL` | Canonical origin (include `:8443` if mapped); HTTPS enables Secure cookies; **OIDC redirect** base `{PUBLIC_URL}/auth/oidc/callback` |
 
 ## Host paths
 

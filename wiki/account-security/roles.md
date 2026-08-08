@@ -22,13 +22,14 @@ Three roles, lowest → highest privilege:
 
 **Fleet mutate** means starting backups, OS/container patch and checks, Docker compose actions, template deploy, integration binds, cert deploy, bulk servers actions, etc.
 
-**Control plane (admin only):** force 2FA, app timezone, global update-check defaults, PiHerder self-backup run/restore/download/delete/schedule, stack Status, API tokens. Details: [Settings](../operations/settings.md) · [Self-backup](../operations/self-backup.md).
+**Control plane (admin only):** force 2FA, **SSO / OIDC** settings, app timezone, global update-check defaults, PiHerder self-backup run/restore/download/delete/schedule, stack Status, API tokens. Details: [Settings](../operations/settings.md) · [SSO](sso-oidc.md) · [Self-backup](../operations/self-backup.md).
 
 ## Viewer self-service (allowed writes)
 
 - Log out  
 - Edit account (profile, password, avatar)  
-- Manage own 2FA  
+- Manage own 2FA (TOTP / passkeys)  
+- Link / unlink own **SSO** identity (when SSO is enabled)  
 - First-login password change / force-2FA onboarding  
 - Dismiss notifications  
 - Own Web Push subscription + prefs  
@@ -40,8 +41,9 @@ Viewers cannot start jobs, change servers, open Users, or change security policy
 1. As admin, [create a user](users.md) with role **operator**.  
 2. Share one-time password carefully; they change password on first login.  
 3. Optional: enable [force 2FA](two-factor.md).  
-4. As operator, run a backup or update check — should work.  
-5. Confirm operator cannot open herder restore or API token create.
+4. Optional: [SSO](sso-oidc.md) so they can sign in with the IdP (auto-link by email or Account → Link).  
+5. As operator, run a backup or update check — should work.  
+6. Confirm operator cannot open herder restore, API token create, or SSO settings.
 
 Journey: [Operator scenarios — Journey G](../getting-started/operator-scenarios.md#journey-g).
 

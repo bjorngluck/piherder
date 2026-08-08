@@ -18,11 +18,16 @@ PiHerder has **no default password** and (in 1.0) **no email “forgot password�
 | Sole admin forgot password; 2FA still works | Host: **reset-password** |
 | Lost password **and** phone / 2FA | Host: **reset-access** (recommended) |
 | Password known; authenticator lost | Host: **clear-2fa** (or UI if another admin) |
+| SSO-only user (password removed); IdP down | Host: **reset-password** (re-enables local password) or **reset-access**; then sign in locally |
+| **Require SSO** hid password form; IdP down | Host recovery + admin disables **Require SSO** under Settings → SSO (or another admin session) |
 | Kick all browsers only | Host: **sign-out** or UI **Sign out sessions** |
 | Want a brand-new first admin (keep fleet data) | Host: **delete-user** on the last account → [Register](../getting-started/first-login.md) |
 | Full wipe | Self-backup restore or drop DB volume — [Self-backup](../operations/self-backup.md) |
 
 You need **shell access on the host** that runs `docker compose` (or equivalent) and a running **`web`** container.
+
+!!! tip "SSO tip"
+    Prefer keeping at least one **admin with a local password** even when SSO is enabled. See [SSO / OpenID Connect](../account-security/sso-oidc.md#recovery-if-idp-is-down).
 
 ---
 
