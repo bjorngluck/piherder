@@ -95,10 +95,27 @@
 <script src="/static/vendor/xterm/xterm.min.js"></script>
 <script src="/static/vendor/xterm/addon-fit.min.js"></script>
 <style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    /* Avoid document scroll fighting the keyboard in embed iframes */
+    overscroll-behavior: none;
+  }
   .ch {
     display: flex; flex-direction: column;
-    height: 100%; min-height: 0; flex: 1 1 auto;
-    background: #0b0f14; color: var(--color-text, #e6edf3);
+    height: 100%;
+    min-height: 0;
+    flex: 1 1 auto;
+    background: #0b0f14;
+    color: var(--color-text, #e6edf3);
+    box-sizing: border-box;
+    /* JS sets pixel height from visualViewport when keyboard opens */
+    position: relative;
+  }
+  .ch.is-kb-layout {
+    /* keyboard open: fill visual viewport only */
+    overflow: hidden;
   }
   .ch-font { display: inline-flex; align-items: center; gap: 0.15rem; }
   .ch-font-label { font-size: 0.7rem; font-family: ui-monospace, monospace; width: 1.4rem; text-align: center; color: var(--color-muted); }
@@ -800,17 +817,57 @@
     setTimeout(refitActive, 80);
   });
 
-  // Mobile keyboard: visualViewport shrinks — refit and mark class for CSS
-  if (window.visualViewport) {
-    var lastH = window.visualViewport.height;
-    window.visualViewport.addEventListener('resize', function () {
-      var h = window.visualViewport.height;
-      var keyboardish = h < (window.innerHeight * 0.75);
-      document.body.classList.toggle('console-kb-open', keyboardish);
-      lastH = h;
-      refitActive();
-    });
+  // Mobile keyboard: shrink the console chrome to visualViewport so bottom keys stay on screen
+  // (works in every host iframe, not only the first tab that was focused)
+  var chRoot = document.getElementById('console-host-app');
+
+  function layoutForViewport() {
+    var root = chRoot || document.getElementById('console-host-app');
+    if (!root) return;
+    var vv = window.visualViewport;
+    var h;
+    var top = 0;
+    if (vv && typeof vv.height === 'number' && vv.height > 0) {
+      h = Math.floor(vv.height);
+      top = Math.floor(vv.offsetTop || 0);
+    } else {
+      h = Math.floor(window.innerHeight || document.documentElement.clientHeight || 0);
+    }
+    if (h < 120) return;
+    var keyboardish = false;
+    try {
+      keyboardish = h < (window.innerHeight * 0.85);
+    } catch (e) {}
+    document.body.classList.toggle('console-kb-open', keyboardish);
+    root.classList.toggle('is-kb-layout', keyboardish);
+    // Pixel height + offset so toolbar sits above the soft keyboard in every iframe
+    root.style.height = h + 'px';
+    root.style.maxHeight = h + 'px';
+    root.style.minHeight = h + 'px';
+    if (top > 0) {
+      root.style.transform = 'translateY(' + top + 'px)';
+    } else {
+      root.style.transform = '';
+    }
+    // Also pin body so iframe content doesn't scroll under the keyboard
+    try {
+      document.documentElement.style.height = h + 'px';
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.height = h + 'px';
+      document.body.style.overflow = 'hidden';
+      document.body.style.margin = '0';
+    } catch (e2) {}
+    refitActive();
   }
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', layoutForViewport);
+    window.visualViewport.addEventListener('scroll', layoutForViewport);
+  }
+  window.addEventListener('resize', layoutForViewport);
+  // Initial layout
+  setTimeout(layoutForViewport, 0);
+  setTimeout(layoutForViewport, 200);
 
   function setErr(msg) {
     if (!errEl) return;
@@ -1066,7 +1123,7 @@
     if (data.grant_active && !requireEvery) {
       grantActive = true;
       if (row2fa) row2fa.style.display = 'none';
-      if (helpEl) helpEl.textContent = 'Step-up is active for this host. Open more shells without re-entering 2FA until the grant expires (~' + (data.grant_minutes || {{ grant_minutes }}) + ' min).';
+      if (helpEl) helpEl.textContent = 'Step-up active for all hosts (~' + (data.grant_minutes || {{ grant_minutes }}) + ' min).';
       if (totpIn) totpIn.value = '';
     }
     return data;
@@ -1120,7 +1177,7 @@
       if (ver.grant_active && !requireEvery) {
         grantActive = true;
         if (row2fa) row2fa.style.display = 'none';
-        if (helpEl) helpEl.textContent = 'Passkey step-up OK. You can open shells until the grant expires.';
+        if (helpEl) helpEl.textContent = 'Passkey OK — all hosts until grant expires.';
       }
       setStatus('Passkey OK — click New shell.');
     } catch (e) {
@@ -1386,9 +1443,18 @@
   window.addEventListener('message', function (ev) {
     if (ev.origin !== window.location.origin) return;
     if (!ev.data || ev.data.type !== 'piherder-console') return;
-    if (ev.data.action === 'refit') {
-      setTimeout(refitActive, 30);
-      setTimeout(refitActive, 120);
+    if (ev.data.action === 'refit' || ev.data.action === 'layout' || ev.data.action === 'activate') {
+      setTimeout(layoutForViewport, 20);
+      setTimeout(layoutForViewport, 120);
+      setTimeout(refitActive, 40);
+      setTimeout(refitActive, 180);
+    }
+  });
+  // When this iframe becomes visible again (host tab switch), re-layout
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') {
+      setTimeout(layoutForViewport, 30);
+      setTimeout(refitActive, 80);
     }
   });
   if (btnRevoke) {

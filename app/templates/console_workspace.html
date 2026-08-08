@@ -112,6 +112,10 @@
     pointer-events: auto;
     z-index: 1;
   }
+  /* Active frame must fill the workspace so keyboard layout has a real height */
+  .cw-frames, .cw-frame.is-active {
+    min-height: 0;
+  }
   .cw-empty {
     position: absolute; inset: 0; display: flex; flex-direction: column;
     align-items: center; justify-content: center; padding: 1.5rem; text-align: center;
@@ -200,6 +204,16 @@
     emptyEl.classList.toggle('is-hidden', open.length > 0);
   }
 
+  function nudgeFrame(frame, action) {
+    if (!frame || !frame.contentWindow) return;
+    try {
+      frame.contentWindow.postMessage(
+        { type: 'piherder-console', action: action || 'layout' },
+        window.location.origin
+      );
+    } catch (e) {}
+  }
+
   function activate(id) {
     activeId = id == null ? null : Number(id);
     open.forEach(function (h) {
@@ -208,15 +222,12 @@
       h.elFrame.classList.toggle('is-active', on);
     });
     setEmpty();
-    // nudge inner terminal to refit
+    // Active host iframe: re-layout for mobile keyboard + refit xterm
     var cur = open.find(function (h) { return h.id === activeId; });
-    if (cur && cur.elFrame.contentWindow) {
-      try {
-        cur.elFrame.contentWindow.postMessage(
-          { type: 'piherder-console', action: 'refit' },
-          window.location.origin
-        );
-      } catch (e) {}
+    if (cur) {
+      nudgeFrame(cur.elFrame, 'activate');
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'layout'); }, 80);
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'refit'); }, 160);
     }
   }
 

@@ -193,19 +193,26 @@ def mint_ticket(
 def mint_grant(
     *,
     user_id: int,
-    server_id: int,
+    server_id: int = 0,
     session_version: int = 0,
     client_ip: Optional[str] = None,
     device_id: Optional[str] = None,
 ) -> str:
-    """Short-lived grant after successful 2FA for this host (multi-shell without re-TOTP)."""
+    """Short-lived grant after successful 2FA — valid for **all hosts** (fleet-wide).
+
+    One passkey/TOTP step-up covers multi-host console until the grant expires.
+    ``server_id`` is recorded for audit only (not enforced on validation).
+    """
     require_enabled()
     payload: Dict[str, Any] = {
         "console_grant": True,
+        "fleet": 1,  # all hosts
         "sub": str(int(user_id)),
-        "sid": int(server_id),
         "sv": int(session_version),
     }
+    # Optional breadcrumb of last host that minted the grant (not checked)
+    if server_id:
+        payload["last_sid"] = int(server_id)
     if bind_ip_enabled() and client_ip:
         payload["iph"] = _hash_binding(normalize_ip(client_ip))
     if bind_device_enabled() and device_id:
@@ -220,11 +227,18 @@ def grant_valid(
     raw: Optional[str],
     *,
     user_id: int,
-    server_id: int,
+    server_id: int = 0,
     session_version: int,
     client_ip: Optional[str] = None,
     device_id: Optional[str] = None,
 ) -> bool:
+    """Return True if grant cookie allows opening a shell without re-2FA.
+
+    Fleet-wide: ``server_id`` is ignored (one step-up covers every host).
+    Legacy per-host grants (``sid`` only, no ``fleet``) still accepted for any host
+    so existing cookies keep working until they expire.
+    """
+    del server_id  # fleet-wide; keep param for call-site compatibility
     if require_2fa_every_shell():
         return False
     if not raw:
@@ -234,8 +248,6 @@ def grant_valid(
         return False
     try:
         if int(payload.get("sub")) != int(user_id):
-            return False
-        if int(payload.get("sid")) != int(server_id):
             return False
         if int(payload.get("sv", 0) or 0) != int(session_version):
             return False

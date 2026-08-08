@@ -80,7 +80,7 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
   - Ticket / resume bound to **login `session_version`**, **client IP** (default on; mobile resume may allow IP change if device cookie still matches), and **console device cookie** (default on)
   - **Continuous revalidation** (~every 10s while attached): session still valid, bindings still match, user still operator+ — else PTY killed
   - Logout / password change / admin “sign out sessions” invalidates open and parked shells within one revalidation / claim check
-  - **2FA step-up (recommended: WebAuthn/passkey)**: passkey preferred in UI; TOTP app accepted; **backup codes rejected by default** (`PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES=false`). Optional `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY=true` / every-shell 2FA
+  - **2FA step-up (recommended: WebAuthn/passkey)**: passkey preferred in UI; TOTP app accepted; **backup codes rejected by default** (`PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES=false`). Successful step-up issues a **fleet-wide** grant cookie (all hosts, ~10 min) unless every-shell 2FA is enabled. Optional `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY=true` / every-shell 2FA
   - Concurrent + idle + max session limits; PEM never in browser; CSP allows **same-origin** console iframe only (`frame-ancestors 'self'`)
   - UI: floating popup per host; multi-host workspace at `/console`; sticky Ctrl + common chords
   - Residual risk: XSS on herder origin is still shell-equivalent; IP bind can break mobile networks (set `PIHERDER_SSH_CONSOLE_BIND_IP=false` only if needed)  

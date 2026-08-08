@@ -45,7 +45,7 @@ Explicit close (shell **✕** or popup **✕**) still ends the session (`bye`). 
 - Popup = **one host**.  
 - **+ Hosts** (or open `/console?host=<id>`) → **host tabs**; switch anytime.  
 - Shell slots are **account-wide** (default **4** concurrent PTYs).  
-- Each host has its own short 2FA **grant** cookie.
+- One **fleet-wide** 2FA grant after passkey/TOTP covers **all hosts** until it expires (~10 min) or you tap **Lock**.
 
 ---
 
@@ -137,7 +137,7 @@ Default max **4** shells per user (`PIHERDER_SSH_CONSOLE_MAX_PER_USER`), shared 
 | `PIHERDER_SSH_CONSOLE_MAX_GLOBAL` | `20` | Instance-wide concurrent shells |
 | `PIHERDER_SSH_CONSOLE_SCROLLBACK` | `2000` | Default xterm scrollback lines |
 | `PIHERDER_SSH_CONSOLE_HOLD_SEC` | `0` | Max park after WS drop (`0` = idle/max only) |
-| `PIHERDER_SSH_CONSOLE_GRANT_MIN` | `10` | Multi-shell grant after 2FA (minutes) |
+| `PIHERDER_SSH_CONSOLE_GRANT_MIN` | `10` | Fleet-wide multi-host grant after 2FA (minutes) |
 
 Also: keep **CSP** on in production (`PIHERDER_CSP=true`).
 

@@ -113,12 +113,14 @@ def test_binding_still_valid():
     assert not ok and reason == "device_changed"
 
 
-def test_grant_valid_and_bound_to_host():
+def test_grant_is_fleet_wide():
+    """One 2FA step-up covers every host (server_id not enforced)."""
     g = cons.mint_grant(user_id=4, server_id=11, session_version=1)
     assert cons.grant_valid(g, user_id=4, server_id=11, session_version=1)
-    assert not cons.grant_valid(g, user_id=4, server_id=99, session_version=1)
+    assert cons.grant_valid(g, user_id=4, server_id=99, session_version=1)
     assert not cons.grant_valid(g, user_id=4, server_id=11, session_version=2)
     assert not cons.grant_valid(None, user_id=4, server_id=11, session_version=1)
+    assert not cons.grant_valid(g, user_id=9, server_id=11, session_version=1)
 
 
 def test_slot_limits(monkeypatch):
