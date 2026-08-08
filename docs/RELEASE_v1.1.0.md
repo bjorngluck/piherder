@@ -1,8 +1,8 @@
 # PiHerder v1.1.0
 
-**Status:** **Ready to tag** — freeze on `v1.1.0-dev` (QA + screenshot pack + version bump)  
+**Status:** **Tagged** (`v1.1.0`) — merge `v1.1.0-dev` → `main` when PR is green; Hub multi-arch at publish  
 **Date:** 2026-08-08  
-**Git branch:** `v1.1.0-dev` → merge `main` → tag `v1.1.0`  
+**Git tag:** `v1.1.0` (on `v1.1.0-dev` freeze tip)  
 **Package / image version:** `1.1.0`  
 **Baseline:** `v1.0.0` (first production — 2026-07-28)  
 **Theme:** **Elevate production** — certs · discovery · identity · operator UX · topology/maps · integrations/API  
