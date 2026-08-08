@@ -38,6 +38,16 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 | **Status** | Stack health: web, DB, Redis, Celery, scheduler, disk ([Status](status.md)) — admin |
 | **API** | Create / rotate / revoke instance Bearer tokens; **Try a token** smoke checks; OpenAPI `/docs` + ReDoc ([API tokens](api-tokens.md)) — admin |
 
+<figure class="ph-figure" markdown>
+  ![Settings Alerts](../assets/screenshots/settings-alerts.png)
+  <figcaption>Settings → Alerts — webhook + SMTP (test send, password recovery).</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![Settings API](../assets/screenshots/settings-api.png)
+  <figcaption>Settings → API — tokens, Try a token, OpenAPI / ReDoc links.</figcaption>
+</figure>
+
 ### Schedules (human-readable)
 
 Cron fields across Settings (cleanup, fleet defaults, PiHerder backup) and host feature schedules show a short English line under the expression (e.g. “Daily at 04:30”) plus common presets where a select is offered. The stored value remains standard 5-field cron in the app timezone.

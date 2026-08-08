@@ -1,6 +1,6 @@
 # PiHerder v1.1.0 — elevate production
 
-**Status:** **Active** — branch `v1.1.0-dev`  
+**Status:** **Freeze** — branch `v1.1.0-dev` · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md)  
 **Date opened:** 2026-07-29  
 **Git branch:** `v1.1.0-dev` (integration) · merge → `main` at freeze → tag `v1.1.0`  
 **Package / image version (at tag):** `1.1.0`  

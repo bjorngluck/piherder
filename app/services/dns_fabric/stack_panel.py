@@ -284,7 +284,12 @@ def _fleet_link_targets(
     )
     out: list[dict[str, Any]] = []
     for s in rows[: max(1, min(80, limit_hosts))]:
-        if s.id is None:
+        sid = getattr(s, "id", None)
+        if sid is None:
+            continue
+        # Skip non-Server rows (defensive: callers sometimes share exec mocks)
+        sname = getattr(s, "name", None)
+        if sname is None and not hasattr(s, "hostname"):
             continue
         inv = inv_svc.parse_inventory(s) or {}
         projects_out: list[dict[str, Any]] = []
@@ -309,9 +314,9 @@ def _fleet_link_targets(
             )
         out.append(
             {
-                "id": int(s.id),
-                "name": s.name or f"#{s.id}",
-                "is_current": int(s.id) == int(current_server_id),
+                "id": int(sid),
+                "name": (sname or f"#{sid}"),
+                "is_current": int(sid) == int(current_server_id),
                 "projects": projects_out[:30],
             }
         )

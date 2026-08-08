@@ -201,7 +201,7 @@ When discovery is wrong (e.g. OUI says printer but the box is a Pi), set **Devic
 
 Run **inventory** (or detailed/deep) so ports feed the classifier **and** Hosts map port expand; discovery alone often only yields MAC vendor when available.
 
-**Shipped (v1.1 map interactivity):** canned **kind icons** on Hosts map chips; lock a device for **open ports** on the map (progressive callout). Sticky port **roles** via the edit table. Custom icon pack remains roadmap — [map interactivity plan](../../docs/FEATURE_PLAN_MAP_INTERACTIVITY.md).
+**Shipped (v1.1 map interactivity):** canned **kind icons** on Hosts map chips; lock a device for **open ports** on the map (progressive callout). Sticky port **roles** via the edit table. Custom icon pack remains roadmap — [map interactivity plan](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_MAP_INTERACTIVITY.md).
 
 ---
 

@@ -34,6 +34,11 @@ Guided path: **Catalog → Certificates → First-cert setup** (`/certificates/s
 Targets show **in sync** when the last deploy fingerprint matches the vault (redeploy is a no-op unless you force), or **stale** after vault material changes. Failed deploy/verify can open **Notifications** (auto-resolve on success).
 
 <figure class="ph-figure" markdown>
+  ![Deploy-target wizard](../assets/screenshots/certificates-deploy-wizard.png)
+  <figcaption>Add deploy target wizard — layout, paths, sudoers, Simulate privileges.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
   ![Certificate detail](../assets/screenshots/certificates-detail.png)
   <figcaption>Certificate detail — deploy targets, edge card, top Deploy actions.</figcaption>
 </figure>

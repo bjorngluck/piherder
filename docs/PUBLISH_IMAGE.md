@@ -1,6 +1,6 @@
 # Publishing a PiHerder image (Docker Hub / GHCR)
 
-**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.0.0**.  
+**Status:** Docker Hub **live** — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) (public). Multi-arch **linux/amd64 + linux/arm64**. Production line **v1.1.0**.  
 **Related:** [ADMIN](https://piherder-docs.hacknow.info/operations/upgrades/) · [wiki publish page](https://piherder-docs.hacknow.info/developers/publish-image/) · live docs: https://piherder-docs.hacknow.info/
 
 Official compose pulls the published image:
@@ -8,7 +8,7 @@ Official compose pulls the published image:
 ```bash
 docker compose up -d
 # optional pin:
-# PIHERDER_IMAGE=bjorngluck/piherder:1.0.0 docker compose up -d
+# PIHERDER_IMAGE=bjorngluck/piherder:1.1.0 docker compose up -d
 ```
 
 **Dependency pins:** the image installs from committed `requirements.lock.txt` (`pip install --require-hashes`). Bump deps with `./scripts/refresh-lockfiles.sh` before a release build so Hub tags match the lockfile in the git tag.
@@ -60,8 +60,9 @@ echo "$GITHUB_TOKEN" | docker login ghcr.io -u bjorngluck --password-stdin
 
 | Tag | Meaning |
 |-----|---------|
-| `1.0.0` | Immutable release (match git tag `v1.0.0`) |
-| `1.0` | Rolling minor |
+| `1.1.0` | Immutable release (match git tag `v1.1.0`) |
+| `1.1` | Rolling minor |
+| `1.0` | Prior production minor (optional pin) |
 | `0.9.0` | Prior line (historical) |
 | `0.9` | Optional rolling minor |
 | `latest` | Current stable RC/release |
@@ -76,7 +77,7 @@ Arm64 matters for Raspberry Pi hosts running the herder itself.
 ```bash
 # From repo root, after docker login
 export IMAGE=bjorngluck/piherder
-export VERSION=1.0.0   # match release
+export VERSION=1.1.0   # match release
 
 docker buildx create --use --name piherder-builder --driver docker-container 2>/dev/null || true
 docker buildx use piherder-builder
@@ -87,7 +88,7 @@ docker buildx inspect --bootstrap
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
   -t "${IMAGE}:${VERSION}" \
-  -t "${IMAGE}:1.0" \
+  -t "${IMAGE}:1.1" \
   -t "${IMAGE}:latest" \
   --push \
   .
@@ -154,10 +155,14 @@ Add when account + token exist and first manual push has worked once.
 
 ---
 
-## v1.0.0 publish checklist (maintainer)
+## v1.1.0 publish checklist (maintainer)
 
-- [x] `APP_VERSION` / `pyproject.toml` = `1.0.0`
-- [x] [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) finalized (Date, Status **Tagged**)
-- [x] Unit pack green; `mkdocs build --strict`
-- [x] Multi-arch push: `1.0.0` / `1.0` / `latest`
-- [x] Git tag `v1.0.0` (optional GitHub Release notes in UI)
+- [x] `APP_VERSION` / `pyproject.toml` = `1.1.0`
+- [x] [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) finalized (Date, Status **Ready to tag** → **Tagged** at publish)
+- [ ] Unit pack green; `mkdocs build --strict`; E2E green on PR
+- [ ] Multi-arch push: `1.1.0` / `1.1` / `latest`
+- [ ] Git tag `v1.1.0` (optional GitHub Release notes in UI)
+
+### Prior: v1.0.0
+
+- [x] Tagged and published (`1.0.0` / `1.0` / `latest` at the time)

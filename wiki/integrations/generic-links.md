@@ -15,7 +15,12 @@ Use it when you want PiHerder to remember a URL for **Home Assistant**, **Frigat
 | Bind to fleet host / Docker → Services chips | Yes |
 | Full product control / create resources | **No** — prefer [API tokens](../operations/api-tokens.md) from n8n/HA |
 
-Deep Frigate / HA product surfaces (if ever) are **post–v1.1** — see plan stream **I** residual / v1.2 path.
+Deep Frigate / HA product surfaces (if ever) are **post–v1.1** — see plan stream **I** residual / [PLAN_v1.2.0](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.2.0.md).
+
+<figure class="ph-figure" markdown>
+  ![Generic URL integration](../assets/screenshots/integrations-generic.png)
+  <figcaption>Generic link — HA / Frigate / n8n / custom with health probe.</figcaption>
+</figure>
 
 ## Add a link
 

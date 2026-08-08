@@ -13,7 +13,7 @@ Diagnosis when a **server backup** job fails, stays pending, or never updates `l
 
 ## Vanished files / busy sources
 
-**v1.1.0 known issue** ([RELEASE_v1.1.0.md](../../docs/RELEASE_v1.1.0.md#known-issues-ship-with-awareness) **KI-rsync-vanished**).
+**v1.1.0 known issue** ([RELEASE_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md#known-issues-ship-with-awareness) **KI-rsync-vanished**).
 
 On a busy host, files under the backup source can **disappear or move while rsync is running**. Typical examples:
 
@@ -24,7 +24,7 @@ rsync then reports **code 24** (vanished files) and/or **code 23** (partial tran
 
 | Expectation in v1.1 | Later |
 |---------------------|--------|
-| Fail is **honest** — some files were not a consistent snapshot | **v1.2+**: explore softer handling + **retry** ([PLAN_v1.2.0.md](../../docs/PLAN_v1.2.0.md)) |
+| Fail is **honest** — some files were not a consistent snapshot | **v1.2+**: explore softer handling + **retry** ([PLAN_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.2.0.md)) |
 
 **What you can do now**
 
