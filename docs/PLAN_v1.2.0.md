@@ -204,7 +204,7 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 | **W4** Single-use ticket; idle/max session; concurrent caps | Must | **In progress** |
 | **W4b** Multi-shell UI: new / minimize / switch / close | Should | **In progress** |
 | **W5** Audit open/close + IP + duration | Must | **In progress** |
-| **W6** SECURITY.md + ADMIN + CSP/TLS bar | Must | SECURITY note landed; wiki/ADMIN pending |
+| **W6** SECURITY.md + ADMIN + **CSP** / TLS bar | Must | **CSP middleware landed** (default on); SECURITY updated; wiki/ADMIN polish pending |
 | **W7** Demo: disabled **or** sandbox-only host | Must decide before demo GA | Pending |
 | Session recording / dual-control root | Defer | — |
 

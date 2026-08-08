@@ -258,6 +258,14 @@ class SameOriginPostMiddleware(BaseHTTPMiddleware):
 app.add_middleware(ClientIpMiddleware)
 app.add_middleware(SameOriginPostMiddleware)
 
+# v1.2: CSP + baseline security headers (outermost among our custom stack so
+# they apply even when earlier middleware short-circuits… actually Starlette
+# runs last-added first on request, first-added last on response — add CSP
+# early so it runs late on the response and can still set headers.)
+from .security.headers import SecurityHeadersMiddleware
+
+app.add_middleware(SecurityHeadersMiddleware)
+
 # Optional CORS (opt-in allowlist). Default off — UI is same-origin; n8n/HA are server-side.
 # CORS is not an auth layer: /api/v1 still requires Bearer + scopes + IP allowlist.
 from .config import settings as _app_settings

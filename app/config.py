@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     # After 2FA, grant re-open of additional shells on the same host without re-TOTP
     PIHERDER_SSH_CONSOLE_GRANT_MIN: int = 10
 
+    # Content-Security-Policy (v1.2) — default on; Report-Only for staged rollouts
+    PIHERDER_CSP: bool = True
+    PIHERDER_CSP_REPORT_ONLY: bool = False
+
     class Config:
         env_file = ".env"
         extra = "ignore"
