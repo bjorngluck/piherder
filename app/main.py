@@ -11,6 +11,7 @@ from .models import Server, User
 from .routers import auth as auth_router
 from .routers import auth_oidc as auth_oidc_router
 from .routers import servers as servers_router
+from .routers import server_console as server_console_router
 from .routers import audit as audit_router
 from .routers import notifications as notifications_router
 from .routers import push as push_router
@@ -327,6 +328,7 @@ from .services import scheduler as sched
 app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
 app.include_router(auth_oidc_router.router, prefix="/auth", tags=["auth-oidc"])
 app.include_router(servers_router.router, prefix="/servers", tags=["servers"])
+app.include_router(server_console_router.router, prefix="/servers", tags=["console"])
 app.include_router(audit_router.router, prefix="", tags=["audit"])
 app.include_router(notifications_router.router, prefix="", tags=["notifications"])
 app.include_router(push_router.router, prefix="", tags=["push"])
