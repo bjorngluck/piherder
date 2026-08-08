@@ -109,11 +109,40 @@
                  class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11"
                  placeholder="groups">
         </div>
-        <div class="sm:col-span-2">
-          <label class="block text-xs text-muted mb-1">Role map (JSON: IdP group → admin|operator|viewer)</label>
-          <textarea name="oidc_role_map" rows="3"
-                    class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm"
-                    placeholder='{"piherder-admins":"admin","piherder-ops":"operator"}'>{{ cfg.oidc_role_map or '{}' }}</textarea>
+        <div class="sm:col-span-2 space-y-2" data-testid="oidc-role-map">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <label class="block text-xs text-muted mb-0.5">Group → role map</label>
+              <p class="text-[11px] text-muted">
+                Map IdP group names (from the claim path above) to PiHerder roles.
+                If a user matches several groups, the <strong class="text-text">highest</strong> role wins.
+              </p>
+            </div>
+            <button type="button" id="oidc-role-map-open"
+                    class="btn btn-secondary min-h-11 text-sm shrink-0"
+                    data-testid="oidc-role-map-add">
+              Add mapping…
+            </button>
+          </div>
+          {# Hidden JSON field submitted with the form; kept in sync by the UI script #}
+          <input type="hidden" name="oidc_role_map" id="oidc-role-map-json"
+                 value="{{ cfg.oidc_role_map or '{}' }}">
+          <div id="oidc-role-map-empty" class="text-sm text-muted border border-dashed border-border rounded-lg p-3 {% if oidc_role_map_rows %}hidden{% endif %}">
+            No group mappings yet. Users get the <strong class="text-text">default role</strong> below unless you add mappings.
+          </div>
+          <ul id="oidc-role-map-list" class="space-y-2 {% if not oidc_role_map_rows %}hidden{% endif %}"
+              data-testid="oidc-role-map-list">
+            {% for row in oidc_role_map_rows or [] %}
+            <li class="flex flex-wrap items-center gap-2 border border-border rounded-lg px-3 py-2"
+                data-group="{{ row.group }}" data-role="{{ row.role }}">
+              <span class="font-mono text-sm text-text flex-1 min-w-[8rem] truncate" title="{{ row.group }}">{{ row.group }}</span>
+              <span class="text-xs uppercase tracking-wide px-2 py-0.5 rounded border border-border
+                {% if row.role == 'admin' %}text-accent{% elif row.role == 'operator' %}text-info{% else %}text-muted{% endif %}">{{ row.role }}</span>
+              <button type="button" class="btn btn-danger text-xs min-h-9 px-2 oidc-role-map-remove"
+                      data-group="{{ row.group }}" aria-label="Remove {{ row.group }}">Remove</button>
+            </li>
+            {% endfor %}
+          </ul>
         </div>
         <div>
           <label class="block text-xs text-muted mb-1">Default role (no group match)</label>
@@ -155,6 +184,191 @@
       </label>
       <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save SSO settings</button>
     </form>
+
+    {# Add group → role mapping modal (outside the form so nested forms are not an issue) #}
+    <div id="oidc-role-map-modal"
+         class="hidden fixed inset-0 bg-black/70 items-center justify-center z-[60] p-3"
+         role="dialog" aria-modal="true" aria-labelledby="oidc-role-map-title"
+         data-testid="oidc-role-map-modal">
+      <div class="modal-content card p-5 sm:p-6 w-full max-w-md shadow-lg border border-border">
+        <h3 id="oidc-role-map-title" class="font-semibold text-text mb-1">Add group mapping</h3>
+        <p class="text-xs text-muted mb-4">
+          Enter the IdP group name exactly as it appears in the token claim, then choose the PiHerder role.
+        </p>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs text-muted mb-1" for="oidc-role-map-group">IdP group name</label>
+            <input id="oidc-role-map-group" type="text" maxlength="200" autocomplete="off"
+                   placeholder="e.g. piherder-admins"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11"
+                   data-testid="oidc-role-map-group">
+          </div>
+          <div>
+            <label class="block text-xs text-muted mb-1" for="oidc-role-map-role">PiHerder role</label>
+            <select id="oidc-role-map-role"
+                    class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11"
+                    data-testid="oidc-role-map-role">
+              <option value="viewer">viewer — read-only</option>
+              <option value="operator" selected>operator — run fleet jobs</option>
+              <option value="admin">admin — users &amp; settings</option>
+            </select>
+          </div>
+          <p id="oidc-role-map-modal-error" class="hidden text-sm text-danger" role="alert"></p>
+          <div class="flex flex-wrap gap-2 justify-end pt-1">
+            <button type="button" id="oidc-role-map-cancel" class="btn btn-secondary min-h-11 text-sm">Cancel</button>
+            <button type="button" id="oidc-role-map-confirm" class="btn btn-accent min-h-11 text-sm"
+                    data-testid="oidc-role-map-confirm">Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+    (function () {
+      var list = document.getElementById('oidc-role-map-list');
+      var empty = document.getElementById('oidc-role-map-empty');
+      var hidden = document.getElementById('oidc-role-map-json');
+      var openBtn = document.getElementById('oidc-role-map-open');
+      var modal = document.getElementById('oidc-role-map-modal');
+      var groupIn = document.getElementById('oidc-role-map-group');
+      var roleIn = document.getElementById('oidc-role-map-role');
+      var errEl = document.getElementById('oidc-role-map-modal-error');
+      var cancelBtn = document.getElementById('oidc-role-map-cancel');
+      var confirmBtn = document.getElementById('oidc-role-map-confirm');
+      if (!list || !hidden || !openBtn || !modal) return;
+
+      var ROLE_CLS = {
+        admin: 'text-accent',
+        operator: 'text-info',
+        viewer: 'text-muted'
+      };
+
+      function parseMap() {
+        try {
+          var raw = (hidden.value || '{}').trim() || '{}';
+          var data = JSON.parse(raw);
+          return (data && typeof data === 'object' && !Array.isArray(data)) ? data : {};
+        } catch (e) {
+          return {};
+        }
+      }
+
+      function writeMap(map) {
+        hidden.value = JSON.stringify(map);
+      }
+
+      function roleBadgeClass(role) {
+        return ROLE_CLS[role] || ROLE_CLS.viewer;
+      }
+
+      function syncEmpty() {
+        var has = list.querySelectorAll('li[data-group]').length > 0;
+        if (empty) empty.classList.toggle('hidden', has);
+        list.classList.toggle('hidden', !has);
+      }
+
+      function renderFromMap(map) {
+        list.innerHTML = '';
+        var keys = Object.keys(map).sort(function (a, b) {
+          return a.toLowerCase().localeCompare(b.toLowerCase());
+        });
+        keys.forEach(function (group) {
+          var role = String(map[group] || 'viewer').toLowerCase();
+          if (['admin', 'operator', 'viewer'].indexOf(role) < 0) role = 'viewer';
+          var li = document.createElement('li');
+          li.className = 'flex flex-wrap items-center gap-2 border border-border rounded-lg px-3 py-2';
+          li.setAttribute('data-group', group);
+          li.setAttribute('data-role', role);
+          li.innerHTML =
+            '<span class="font-mono text-sm text-text flex-1 min-w-[8rem] truncate"></span>' +
+            '<span class="text-xs uppercase tracking-wide px-2 py-0.5 rounded border border-border ' +
+              roleBadgeClass(role) + '"></span>' +
+            '<button type="button" class="btn btn-danger text-xs min-h-9 px-2 oidc-role-map-remove">Remove</button>';
+          li.querySelector('span.font-mono').textContent = group;
+          li.querySelector('span.font-mono').title = group;
+          li.querySelector('span.text-xs').textContent = role;
+          li.querySelector('button').setAttribute('data-group', group);
+          li.querySelector('button').setAttribute('aria-label', 'Remove ' + group);
+          list.appendChild(li);
+        });
+        syncEmpty();
+      }
+
+      function openModal() {
+        if (errEl) {
+          errEl.classList.add('hidden');
+          errEl.textContent = '';
+        }
+        if (groupIn) groupIn.value = '';
+        if (roleIn) roleIn.value = 'operator';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        if (groupIn) groupIn.focus();
+      }
+
+      function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+
+      function addMapping() {
+        var group = (groupIn && groupIn.value || '').trim();
+        var role = (roleIn && roleIn.value || 'viewer').toLowerCase();
+        if (!group) {
+          if (errEl) {
+            errEl.textContent = 'Enter an IdP group name.';
+            errEl.classList.remove('hidden');
+          }
+          if (groupIn) groupIn.focus();
+          return;
+        }
+        if (['admin', 'operator', 'viewer'].indexOf(role) < 0) role = 'viewer';
+        var map = parseMap();
+        // Case-insensitive replace of existing key
+        Object.keys(map).forEach(function (k) {
+          if (k.toLowerCase() === group.toLowerCase()) delete map[k];
+        });
+        map[group] = role;
+        writeMap(map);
+        renderFromMap(map);
+        closeModal();
+      }
+
+      openBtn.addEventListener('click', openModal);
+      if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+      if (confirmBtn) confirmBtn.addEventListener('click', addMapping);
+      modal.addEventListener('click', function (ev) {
+        if (ev.target === modal) closeModal();
+      });
+      document.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Escape' && !modal.classList.contains('hidden')) {
+          closeModal();
+        }
+      });
+      if (groupIn) {
+        groupIn.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            addMapping();
+          }
+        });
+      }
+      list.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('.oidc-role-map-remove');
+        if (!btn) return;
+        var group = btn.getAttribute('data-group') || '';
+        if (!group) return;
+        var map = parseMap();
+        Object.keys(map).forEach(function (k) {
+          if (k === group || k.toLowerCase() === group.toLowerCase()) delete map[k];
+        });
+        writeMap(map);
+        renderFromMap(map);
+      });
+
+      // Ensure empty state matches list on load
+      syncEmpty();
+    })();
+    </script>
   </div>
 
   <div class="card p-5 mb-4">

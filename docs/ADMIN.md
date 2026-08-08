@@ -142,6 +142,7 @@ Optional 2FA (when not forced): Account → enable TOTP and/or **passkeys**, bac
 |-------|-----------|
 | Protocol | OIDC authorization code + **PKCE**; confidential client |
 | Redirect URI | `{PIHERDER_PUBLIC_URL}/auth/oidc/callback` (shown in Settings) |
+| Role map UI | Settings: **Add mapping…** modal (IdP group name + role); not raw JSON |
 | Link paths | SSO login auto-link by verified email; **Account → Connected accounts** explicit link |
 | JIT | Unknown email → new user, role from group map (default **viewer**), password login off until set |
 | Password optional | Linked users may **remove password** (SSO-only); **unlink** requires a password (set in same flow if needed) |

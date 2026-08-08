@@ -54,6 +54,31 @@ def _oidc_redirect_uri() -> str:
     return oidc.public_redirect_uri()
 
 
+def _oidc_role_map_rows(cfg: dict) -> list[dict[str, str]]:
+    """Parse stored role map JSON into sorted rows for Settings UI."""
+    raw = (cfg or {}).get("oidc_role_map") or "{}"
+    if isinstance(raw, dict):
+        data = raw
+    else:
+        try:
+            data = json.loads(raw) if str(raw).strip() else {}
+        except json.JSONDecodeError:
+            data = {}
+    if not isinstance(data, dict):
+        return []
+    rows: list[dict[str, str]] = []
+    for k, v in data.items():
+        group = str(k).strip()
+        role = str(v).strip().lower()
+        if not group:
+            continue
+        if role not in ("admin", "operator", "viewer"):
+            role = "viewer"
+        rows.append({"group": group, "role": role})
+    rows.sort(key=lambda r: r["group"].lower())
+    return rows
+
+
 def _scopes_from_form(
     scope_read: Optional[str],
     scope_jobs: Optional[str],
@@ -419,6 +444,7 @@ async def settings_page(
             "data_cleanup_schedule_status": data_cleanup_schedule_status,
             "data_cleanup_next_run": data_cleanup_next_run,
             "oidc_redirect_uri": _oidc_redirect_uri(),
+            "oidc_role_map_rows": _oidc_role_map_rows(cfg),
         },
     )
 

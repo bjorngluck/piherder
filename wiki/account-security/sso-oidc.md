@@ -45,7 +45,7 @@ Many labs already have a central IdP. SSO reduces password sprawl while keeping 
 | **Client ID / secret** | Confidential client; secret stored **Fernet-encrypted** in DB (self-backup includes it) |
 | **Scopes** | Default `openid email profile` (+ groups scope if your IdP needs it) |
 | **Role claim path** | e.g. `groups` or `realm_access.roles` |
-| **Role map (JSON)** | `{"piherder-admins":"admin","piherder-ops":"operator"}` — highest privilege wins |
+| **Group → role map** | **Add mapping…** modal: type IdP group name, pick role (viewer / operator / admin), **Add**. List shows mappings with **Remove**. Highest privilege wins if several groups match. |
 | **Default role** | Used when no group matches (default **viewer**) |
 | **Sync roles on login** | Update role from claims on every SSO login (sole admin not demoted if it would leave zero admins) |
 | **Auto-link by email** | First SSO login links to an existing active user with the **same verified email** |
