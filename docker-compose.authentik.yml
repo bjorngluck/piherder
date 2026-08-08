@@ -1,0 +1,116 @@
+# Test Authentik IdP for PiHerder OIDC (Stream S) — NOT for production.
+#
+# Usage (from repo root, separate project name so it does not clash with PiHerder):
+#   cp .env.authentik.example .env.authentik   # optional; or export vars below
+#   docker compose -f docker-compose.authentik.yml --env-file .env.authentik up -d
+#
+# UI:        http://localhost:9000
+# Issuer:    http://localhost:9000/application/o/<app-slug>/
+# (HTTPS):   https://localhost:9443/... if you use the TLS port
+#
+# PiHerder callback (must match Settings + IdP redirect URI exactly):
+#   ${PIHERDER_PUBLIC_URL}/auth/oidc/callback
+#   e.g. http://localhost:8000/auth/oidc/callback
+#        https://piherder.example.com:8443/auth/oidc/callback
+#
+# Tear down:
+#   docker compose -f docker-compose.authentik.yml --env-file .env.authentik down -v
+
+name: piherder-authentik-test
+
+services:
+  postgresql:
+    image: docker.io/library/postgres:16-alpine
+    container_name: ph-ak-postgres
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      start_period: 20s
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ph_ak_db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: ${AUTHENTIK_PG_PASS:-changeme-ak-pg}
+      POSTGRES_USER: ${AUTHENTIK_PG_USER:-authentik}
+      POSTGRES_DB: ${AUTHENTIK_PG_DB:-authentik}
+
+  redis:
+    image: docker.io/library/redis:alpine
+    container_name: ph-ak-redis
+    command: --save 60 1 --loglevel warning
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      start_period: 10s
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    volumes:
+      - ph_ak_redis:/data
+
+  server:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server:2025.2.1}
+    container_name: ph-ak-server
+    restart: unless-stopped
+    command: server
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?Set AUTHENTIK_SECRET_KEY (long random string)}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      # Dev-friendly: allow http://localhost issuer (turn off for real TLS hosts)
+      AUTHENTIK_DISABLE_STARTUP_ANALYTICS: "true"
+      AUTHENTIK_AVATARS: none
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_PG_PASS:-changeme-ak-pg}
+      AUTHENTIK_REDIS__HOST: redis
+      # Bootstrap first admin on empty DB (Authentik 2024+)
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:-akadmin-change-me}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL:-akadmin@localhost.local}
+    volumes:
+      - ph_ak_media:/media
+      - ph_ak_templates:/templates
+    ports:
+      - "${AUTHENTIK_PORT_HTTP:-9000}:9000"
+      - "${AUTHENTIK_PORT_HTTPS:-9443}:9443"
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    image: ${AUTHENTIK_IMAGE:-ghcr.io/goauthentik/server:2025.2.1}
+    container_name: ph-ak-worker
+    restart: unless-stopped
+    command: worker
+    environment:
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?Set AUTHENTIK_SECRET_KEY (long random string)}
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+      AUTHENTIK_DISABLE_STARTUP_ANALYTICS: "true"
+      AUTHENTIK_AVATARS: none
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__USER: ${AUTHENTIK_PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__NAME: ${AUTHENTIK_PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${AUTHENTIK_PG_PASS:-changeme-ak-pg}
+      AUTHENTIK_REDIS__HOST: redis
+      AUTHENTIK_BOOTSTRAP_PASSWORD: ${AUTHENTIK_BOOTSTRAP_PASSWORD:-akadmin-change-me}
+      AUTHENTIK_BOOTSTRAP_EMAIL: ${AUTHENTIK_BOOTSTRAP_EMAIL:-akadmin@localhost.local}
+    user: root
+    volumes:
+      - ph_ak_media:/media
+      - ph_ak_templates:/templates
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgresql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  ph_ak_db:
+  ph_ak_redis:
+  ph_ak_media:
+  ph_ak_templates:

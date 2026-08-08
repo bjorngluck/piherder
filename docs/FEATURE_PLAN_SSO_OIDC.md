@@ -479,6 +479,8 @@ Coverage: contribute to Stream Q “focused tests for OIDC”.
 | SECURITY.md | Threat model, break-glass, password remove, force SSO |
 | Wiki | Short “Sign in with SSO” operator page |
 | PLAN_v1.2.0.md | S7–S9 + link to this plan |
+| [SSO_AUTHENTIK_TEST.md](SSO_AUTHENTIK_TEST.md) | Lab: Authentik compose + wire-up + test matrix |
+| `docker-compose.authentik.yml` | Throwaway Authentik stack for Stream S smoke |
 
 ---
 
