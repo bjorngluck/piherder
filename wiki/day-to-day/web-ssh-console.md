@@ -27,16 +27,18 @@ Server detail → **Console** opens a **floating popup** over the page — the t
 
 | Control | Does |
 |---------|------|
-| **Maximize** | Fills the browser (on mobile: expands from a bottom sheet ~72% → full screen) |
+| **Maximize** | Full screen + slim outer bar (hides + Hosts label on mobile max) |
 | **✕** | Close popup (ends shells on that host) |
 | **+ Hosts** | Multi-host workspace at `/console` |
 | **+ Shell** | New PTY (passkey/TOTP step-up if needed) |
-| **A− / A+** | Font size **8–28** (remembered in this browser) |
+| **Aa** | Font size **8–28** (only when you open this — more room by default) |
+| **···** | Extra keys (arrows, Tab, Esc, Line/Scr) |
 | **Ctrl** | Sticky Ctrl — next keyboard letter is Ctrl+letter |
-| **^C ^S ^X ^Q ^D** | Common chords (other combos: sticky Ctrl + key) |
-| **Select** (mobile) | Drag to highlight many words, then **Copy** |
-| **Copy / Paste** | Clipboard helpers |
+| **^C ^S ^X ^Q** | Common chords (others: sticky Ctrl + key) |
+| **Sel / Copy / Paste** | Selection and clipboard |
 | **App switch** | Shells **park on the server** until idle/max; return **auto-resumes** |
+
+Once a shell is connected, chrome **auto-compacts** so the terminal gets most of the screen. Tap **Aa** or **···** when you need tools/extra keys.
 
 Explicit close (shell **✕** or popup **✕**) still ends the session (`bye`). Switching apps or backgrounding the tab does **not**.
 
