@@ -535,7 +535,8 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **2FA** | Enable for admins (TOTP and/or passkeys); consider **Force 2FA** in Settings; revoke trusted devices if a device is lost |
 | **SSO** | Optional OIDC IdP; map groups carefully; keep break-glass local admin; see §3a |
 | **CSP (v1.2)** | Default on (`PIHERDER_CSP=true`). Self-hosted scripts only; console uses vendored xterm. Report-only: `PIHERDER_CSP_REPORT_ONLY=true`. See [SECURITY.md](../SECURITY.md). |
-| **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + 2FA; multi-shell; never PEM in browser |
+| **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + passkey-preferred 2FA; multi-shell; continuous session/IP/device revalidation; never PEM in browser. Wiki: [web-ssh-console](../wiki/day-to-day/web-ssh-console.md) |
+| **Backup vanished (B-retry)** | Auto-retry code 24 / vanished 23; soft-OK by default — `PIHERDER_BACKUP_VANISHED_*` |
 | **Metrics** | Set `METRICS_TOKEN` if `/metrics` is not private-network-only |
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |

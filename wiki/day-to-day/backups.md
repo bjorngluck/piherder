@@ -35,6 +35,10 @@ See [Self-backup & DR](../operations/self-backup.md) for the control plane.
 
 Full journey: [Operator scenarios — Journey B](../getting-started/operator-scenarios.md#journey-b).
 
+### Busy sources (vanished files)
+
+On Frigate/NVR-style trees, rsync may hit **code 24** (vanished files). From **v1.2**, PiHerder **retries** and can mark the source **soft-OK** instead of failing the whole job. Details: [Troubleshooting — vanished files](../troubleshooting/backups.md#vanished-files-busy-sources).
+
 ---
 
 ## Enable backups

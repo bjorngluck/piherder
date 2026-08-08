@@ -179,6 +179,7 @@ nav:
       - Users: account-security/users.md
       - 2FA & force 2FA: account-security/two-factor.md
       - SSO / OpenID Connect: account-security/sso-oidc.md
+      - Web SSH console: day-to-day/web-ssh-console.md
       - PWA & Web Push: account-security/pwa-push.md
   - Operations:
       - Environment reference: operations/env-reference.md

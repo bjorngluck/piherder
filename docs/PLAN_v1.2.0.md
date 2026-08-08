@@ -234,8 +234,8 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 
 | Item | Stance |
 |------|--------|
-| **B-retry** | Retry (and optional soft-success policy) when rsync reports **vanished files** / partial transfer on busy sources (e.g. Frigate NVR recordings moved/deleted mid-run). Carried from **v1.1 KI-rsync-vanished** — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md). | Should (high operator value) |
-| **B-policy** | Explore: treat code **24** as non-fatal when remaining tree OK; path excludes for high-churn media; clearer UI copy for “busy source”. | Discover → promote with **B-retry** |
+| **B-retry** | Retry (and optional soft-success policy) when rsync reports **vanished files** / partial transfer on busy sources (e.g. Frigate NVR recordings moved/deleted mid-run). Carried from **v1.1 KI-rsync-vanished** — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md). | Should | **Landed** — retry + soft-OK (env knobs) |
+| **B-policy** | Soft-OK on code **24** / vanished **23**; path excludes remain operator choice | Should | **Landed** with B-retry defaults |
 
 ### Capacity residual (not release-defining)
 
