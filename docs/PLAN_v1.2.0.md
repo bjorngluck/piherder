@@ -157,16 +157,16 @@ Pull former **v1.3** items into **v1.2**. Keep residual 1.1 polish out of this p
 
 ### Stream I — WebAuthn / passkeys (**was v1.2**)
 
-| Item | Stance |
-|------|--------|
-| **I1** Passkeys as **second factor** (coexist with TOTP + backup codes) | Must |
-| **I2** Register / list / revoke passkeys on Account | Must |
-| **I3** Login step-up: password → WebAuthn **or** TOTP | Must |
-| **I4** Policy: require 2FA for admin (passkey satisfies) | Should |
-| **I5** Passwordless (discoverable credentials only) | Defer post-1.2 unless free |
-| RP ID / HTTPS requirements documented (breaks on HTTP LAN — document) | Must |
+| Item | Stance | Status |
+|------|--------|--------|
+| **I1** Passkeys as **second factor** (coexist with TOTP + backup codes) | Must | **Landed** (2026-08-08) |
+| **I2** Register / list / revoke passkeys on Account | Must | **Landed** |
+| **I3** Login step-up: password → WebAuthn **or** TOTP | Must | **Landed** |
+| **I4** Policy: force 2FA satisfied by passkey (or TOTP) | Should | **Landed** |
+| **I5** Passwordless (discoverable credentials only) | Defer post-1.2 unless free | Deferred |
+| RP ID / HTTPS requirements documented (breaks on HTTP LAN — document) | Must | **Landed** (wiki + Account copy) |
 
-**Deps:** `webauthn` / py_webauthn or similar; store credential id + public key + sign count; no private key server-side.
+**Deps:** `webauthn` (py_webauthn) · `WebAuthnCredential` model · challenge JWT cookies · no private key server-side.
 
 ### Stream S — SSO / OIDC (**was v1.3 Z**)
 

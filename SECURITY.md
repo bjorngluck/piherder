@@ -36,7 +36,7 @@ We aim to acknowledge reports within a few days and will work with you on a fix 
 | `PIHERDER_MASTER_KEY` | Host `.env` only — never commit |
 | SSH private keys / optional passwords | Fernet-encrypted in DB |
 | User passwords | bcrypt + password policy (min 10, upper/lower/digit; soft max ~72 characters) |
-| 2FA secrets | Fernet-encrypted TOTP; hashed backup codes |
+| 2FA secrets | Fernet-encrypted TOTP; hashed backup codes; WebAuthn public keys only (passkeys, v1.2+) |
 | API tokens (`ph_…`) | Stored as hashes only; shown once at create/rotate; scopes + optional IP allowlist |
 | Sessions | JWT cookie (HS256 via **PyJWT** + cryptography); **HttpOnly**, **SameSite=Lax**, `path=/`, **Secure** when public URL is HTTPS |
 | Cross-origin browser POSTs | Same-origin middleware (Origin/Referer host match when present); Bearer `/api/v1` skipped |
@@ -66,7 +66,7 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
 
 - Use a unique strong `PIHERDER_MASTER_KEY` and `SECRET_KEY` (see [`.env.example`](.env.example) for the full env catalog). Web logs a **warning** if `SECRET_KEY` looks like a stock/dev default.  
 - Prefer SSH key auth; clear any stored SSH passwords after deploy.  
-- Enable 2FA for admin accounts; consider **Force 2FA** in Settings. Treat **trusted devices** as full session risk until revoked.  
+- Enable 2FA for admin accounts (TOTP and/or **passkeys**); consider **Force 2FA** in Settings. Treat **trusted devices** as full session risk until revoked. Passkeys need HTTPS + matching `PIHERDER_HOSTNAME` / `PIHERDER_PUBLIC_URL` (except localhost).  
 - Put PiHerder behind trusted TLS; restrict network access where possible. Set `PIHERDER_PUBLIC_URL=https://…` so session cookies get the **Secure** flag (or force `COOKIE_SECURE=true`).  
 - Set `METRICS_TOKEN` if `/metrics` is reachable beyond a private scrape network.  
 - Treat API tokens like passwords; revoke compromised tokens immediately.  

@@ -2,7 +2,16 @@
 
 ## What this is
 
-Optional **TOTP** two-factor authentication for user accounts, plus an admin **force 2FA** policy that requires everyone to enrol before using the fleet UI. Template secrets use a **separate step-up** TOTP even after login 2FA.
+Optional **second-factor** authentication for user accounts:
+
+| Factor | Notes |
+|--------|--------|
+| **TOTP** (authenticator app) | Google Authenticator, Aegis, 1Password, etc. + one-time **backup codes** |
+| **Passkeys** (WebAuthn) | Face ID / Touch ID / Windows Hello / security keys — **after password** (not passwordless yet) |
+
+Plus an admin **force 2FA** policy that requires everyone to enrol **either** factor before using the fleet UI. Template secrets still use a **separate step-up** TOTP even after login 2FA.
+
+**Available from v1.2.0:** passkeys as a second factor (register / list / revoke on Account; login step-up).
 
 ## Why it exists
 
@@ -12,17 +21,39 @@ Password-only access to a fleet control plane is risky on shared or exposed URLs
 
 ## End-to-end: protect the instance
 
-1. As a user: **Account** → enable TOTP → store **backup codes** offline.  
+1. As a user: **Account** → enable TOTP **and/or** add a **passkey** → if using TOTP, store **backup codes** offline.  
 2. Optional **trusted device** (default **30 days**, from `TRUSTED_DEVICE_DAYS`) if you accept that trade-off — only on machines you control.  
 3. As admin: **Settings → Security policy → Force 2FA for all**.  
-4. Users without TOTP hit `/auth/force-2fa` after password login (password change-on-first still first if required), then **Set up 2FA on Account** (jumps to the Account 2FA section).  
+4. Users without any second factor hit `/auth/force-2fa` after password login (password change-on-first still first if required), then **Set up 2FA on Account**.  
 5. For templates, enable **Require 2FA for template deploy & secrets** if operators should not deploy without TOTP.
 
 ---
 
 ## Optional per-user 2FA
 
-**Account** (`/auth/account#account-2fa`) — profile, password, avatar, enable TOTP, save **backup codes**, **trusted devices** (revocable), and push preferences.
+**Account** (`/auth/account`) — profile, password, avatar, **passkeys**, enable TOTP, save **backup codes**, **trusted devices** (revocable), and push preferences.
+
+### Passkeys (WebAuthn)
+
+**Account → Passkeys** (`#account-passkeys`):
+
+1. Click **Add passkey** (optional nickname).  
+2. Complete the browser prompt (biometrics or security key).  
+3. At next login, after password, choose **Use passkey** (or still enter a TOTP/backup code if enrolled).
+
+| Requirement | Detail |
+|-------------|--------|
+| **RP ID** | From `PIHERDER_HOSTNAME` (or host of `PIHERDER_PUBLIC_URL`) |
+| **Origin** | From `PIHERDER_PUBLIC_URL` (must match the URL in the browser bar) |
+| **HTTPS** | Required except `localhost` — LAN HTTP without matching RP/origin will fail registration |
+| **Limit** | Up to 10 passkeys per user |
+| **Revoke** | Password required to remove a passkey |
+
+Passkeys satisfy **force 2FA** the same way TOTP does. Passwordless (discoverable credential only, no password) is **not** enabled in v1.2.
+
+### Authenticator app (TOTP)
+
+**Account → Two-factor authentication** (`#account-2fa`).
 
 **Regenerate backup codes** (Account → Two-factor):
 

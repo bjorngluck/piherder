@@ -14,6 +14,7 @@ from ..models import (
     TotpBackupCode,
     TrustedDevice,
     User,
+    WebAuthnCredential,
 )
 from ..security.auth import get_password_hash, revoke_all_trusted_devices, user_session_version
 from .avatars import delete_avatar_files
@@ -29,7 +30,7 @@ def bump_session_version(session: Session, user: User) -> int:
 
 
 def clear_user_2fa(session: Session, user: User) -> None:
-    """Wipe TOTP secret, disable 2FA, delete backup codes (trusted devices separate)."""
+    """Wipe TOTP secret, passkeys, disable 2FA, delete backup codes (trusted devices separate)."""
     user.totp_enabled = False
     user.totp_secret_encrypted = None
     user.totp_confirmed_at = None
@@ -37,6 +38,10 @@ def clear_user_2fa(session: Session, user: User) -> None:
     session.add(user)
     uid = int(user.id)
     for row in session.exec(select(TotpBackupCode).where(TotpBackupCode.user_id == uid)).all():
+        session.delete(row)
+    for row in session.exec(
+        select(WebAuthnCredential).where(WebAuthnCredential.user_id == uid)
+    ).all():
         session.delete(row)
 
 
@@ -99,6 +104,10 @@ def detach_and_delete_user(session: Session, target: User) -> str:
     email = target.email
 
     for row in session.exec(select(TotpBackupCode).where(TotpBackupCode.user_id == uid)).all():
+        session.delete(row)
+    for row in session.exec(
+        select(WebAuthnCredential).where(WebAuthnCredential.user_id == uid)
+    ).all():
         session.delete(row)
     for row in session.exec(select(TrustedDevice).where(TrustedDevice.user_id == uid)).all():
         session.delete(row)
