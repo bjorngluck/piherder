@@ -4,7 +4,7 @@ Practical reference for operators and admins: roles, users, security policy, sch
 
 > **Prefer the user wiki** for day-to-day reading: repo [`wiki/`](../wiki/) built with MkDocs (`pip install -r requirements-docs.txt && mkdocs serve`). This file remains the long-form single-document reference and source material for the wiki.
 
-Related: [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](DECISION_IOS_PUSH.md) · [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md) · [SECURITY.md](../SECURITY.md)
+Related: [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [SSO_AUTHENTIK_TEST.md](SSO_AUTHENTIK_TEST.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](DECISION_IOS_PUSH.md) · [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md) · [SECURITY.md](../SECURITY.md)
 
 ---
 
@@ -24,7 +24,8 @@ Viewers may still:
 
 - Log out
 - Edit their account (profile, password, avatar)
-- Manage their own 2FA
+- Manage their own 2FA (TOTP / passkeys)
+- Link / unlink own SSO identity when OIDC is enabled (v1.2+)
 - Complete first-login password change and force-2FA onboarding
 - Dismiss / interact with **notifications**
 - Manage own **Web Push** subscription and preferences (`/api/push`, Account)
@@ -50,7 +51,7 @@ You cannot demote or delete the **last active admin**. Promote another user firs
 **Where:** avatar menu → **Users** (admin only), or Account → “Manage users & roles”.  
 **URL:** `/auth/users`
 
-Each user card shows **last login** (app timezone) and a link to that user’s **Audit trail** (`/audit?user_id=…`). Last login updates on successful password login, trusted-device skip of 2FA, or completed 2FA challenge.
+Each user card shows **last login** (app timezone) and a link to that user’s **Audit trail** (`/audit?user_id=…`). Last login updates on successful password login, **SSO login**, trusted-device skip of 2FA, or completed 2FA challenge.
 
 ### Create a user
 
@@ -124,13 +125,31 @@ Timezone, security policy, fleet defaults, PiHerder self-backup **run/restore/do
 
 | Setting | Effect |
 |---------|--------|
-| **Force 2FA for all** | Every user without TOTP is redirected to `/auth/force-2fa` before the fleet UI. Password change-on-first-login still runs first if required. |
+| **Force 2FA for all** | Every user without TOTP **or** a passkey is redirected to `/auth/force-2fa` before the fleet UI. Applies after **password and SSO** login. Password change-on-first-login still runs first if required. |
 
-Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, and self-backup schedule — restored with DB dumps and PiHerder self-backup (not a separate volume JSON file).
+Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, SSO config, and self-backup schedule — restored with DB dumps and PiHerder self-backup (not a separate volume JSON file).
 
-Optional 2FA (when not forced): Account → enable TOTP, backup codes, optional trusted device. Trusted-device rows show **type** (from UA), **last IP**, and **friendly rename** via **✎ Edit** (inline form; not always visible).
+Optional 2FA (when not forced): Account → enable TOTP and/or **passkeys**, backup codes, optional trusted device. Trusted-device rows show **type** (from UA), **last IP**, and **friendly rename** via **✎ Edit** (inline form; not always visible). Wiki: [2FA](../wiki/account-security/two-factor.md).
 
 **Email password recovery (v1.1 G1-lite):** when SMTP is enabled under **Settings → Alerts**, login shows **Forgot password?** — one-hour hashed token email; rate-limited; no open reset without SMTP. Admins can still OOB-reset from **Users**.
+
+### 3a. SSO / OpenID Connect (v1.2 Stream S)
+
+**Where:** **Settings → General → SSO / OpenID Connect**.  
+**Wiki:** [SSO / OpenID Connect](../wiki/account-security/sso-oidc.md) · lab: [SSO_AUTHENTIK_TEST.md](SSO_AUTHENTIK_TEST.md) · design: [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md).
+
+| Topic | Behaviour |
+|-------|-----------|
+| Protocol | OIDC authorization code + **PKCE**; confidential client |
+| Redirect URI | `{PIHERDER_PUBLIC_URL}/auth/oidc/callback` (shown in Settings) |
+| Link paths | SSO login auto-link by verified email; **Account → Connected accounts** explicit link |
+| JIT | Unknown email → new user, role from group map (default **viewer**), password login off until set |
+| Password optional | Linked users may **remove password** (SSO-only); **unlink** requires a password (set in same flow if needed) |
+| 2FA | Path-agnostic: enrolled TOTP/passkey still required after SSO; sensitive Account actions re-check 2FA |
+| Break-glass | Local password remains unless removed; optional **Require SSO** hides password form — keep at least one recoverable admin |
+| Secret storage | Client secret Fernet-encrypted in `appsetting`; included in herder self-backup |
+
+Audit: `sso_login`, `sso_login_failed`, `sso_link`, `sso_unlink`, `sso_user_provisioned`, `user_password_removed`, `user_password_set`.
 
 ### Pins / favourites & host jump (v1.1)
 
@@ -512,7 +531,8 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Master key** | Unique `PIHERDER_MASTER_KEY` offline + in `.env` — never compose defaults |
 | **SECRET_KEY** | Long random JWT signing key — web warns if value looks like a stock default |
 | **TLS / public URL** | `PIHERDER_PUBLIC_URL=https://…` so session cookies get **Secure** (or `COOKIE_SECURE=true`) |
-| **2FA** | Enable for admins; consider **Force 2FA** in Settings; revoke trusted devices if a device is lost |
+| **2FA** | Enable for admins (TOTP and/or passkeys); consider **Force 2FA** in Settings; revoke trusted devices if a device is lost |
+| **SSO** | Optional OIDC IdP; map groups carefully; keep break-glass local admin; see §3a |
 | **Metrics** | Set `METRICS_TOKEN` if `/metrics` is not private-network-only |
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
@@ -941,7 +961,7 @@ Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backu
 ## 9. Quick admin checklist
 
 1. Create operators/viewers from **Users**; share one-time invite.
-2. Optionally enable **Force 2FA** under Settings → General.
+2. Optionally enable **Force 2FA** under Settings → General; optionally configure **SSO** (§3a) after `PIHERDER_PUBLIC_URL` is correct.
 3. Per server: **Edit → Features** → enable what you need → **Edit → Schedules** for checks → only then consider apply schedules.
 4. Prefer “only if updates” on apply schedules; start with a quiet weekly window.
 5. Use **Jobs** + **Audit** when diagnosing stuck or failed work; use Docker **Force refresh** if inventory looks stale after host-side changes.

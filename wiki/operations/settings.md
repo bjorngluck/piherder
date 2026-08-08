@@ -2,7 +2,7 @@
 
 ## What this is
 
-**Settings** is the admin control plane for the **instance**: timezone, security policy, fleet update-check defaults, **stale data cleanup**, **Alerts** (webhook + SMTP), PiHerder self-backup, stack Status, and API tokens.
+**Settings** is the admin control plane for the **instance**: timezone, security policy, **SSO / OIDC**, fleet update-check defaults, **stale data cleanup**, **Alerts** (webhook + SMTP), PiHerder self-backup, stack Status, and API tokens.
 
 **Where:** top nav **Settings** → `/herder-backups` (tabs on one page; legacy path kept for bookmarks).
 
@@ -20,10 +20,11 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 1. **General** → set app **timezone** (Audit/Jobs clocks).  
 2. **General** → enable **force 2FA** if everyone should enrol.  
-3. **PiHerder backup** → run once + schedule; store archive + master key offline.  
-4. **Status** → Check now until green.  
-5. Optional **Alerts** (webhook + SMTP) for outbound notifications and password recovery.  
-6. Optional **API** tokens for n8n/HA only if needed.  
+3. Optional **General → SSO / OpenID Connect** when you have a BYO IdP — [SSO guide](../account-security/sso-oidc.md).  
+4. **PiHerder backup** → run once + schedule; store archive + master key offline.  
+5. **Status** → Check now until green.  
+6. Optional **Alerts** (webhook + SMTP) for outbound notifications and password recovery.  
+7. Optional **API** tokens for n8n/HA only if needed.  
 
 ---
 
@@ -31,7 +32,7 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 
 | Tab | Purpose |
 |-----|---------|
-| **General** | App timezone, security policy (force 2FA), and **Stale data cleanup** |
+| **General** | App timezone, security policy (force 2FA), **SSO / OIDC**, and **Stale data cleanup** |
 | **Alerts** | Outbound **webhook** + **SMTP** (alert mail, test send, forgot-password) — [details](alerts-email-webhooks.md) |
 | **Fleet defaults** | Global OS / container update-check defaults (optional apply to all hosts) |
 | **PiHerder backup** | Schedule, run, download, restore herder config ([Self-backup & DR](self-backup.md)) |
@@ -81,6 +82,7 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 | Is Redis/Celery healthy? | Settings → **Status** → Check now |
 | Nightly herder backup | Settings → **PiHerder backup** → schedule + path |
 | Force everyone onto 2FA | Settings → **General** → security policy |
+| Connect Authentik / Keycloak / Entra | Settings → **General** → SSO · [SSO / OIDC](../account-security/sso-oidc.md) |
 | Trim old Jobs / Audit | Settings → **General** → Stale data cleanup |
 | Times show SAST / local | Settings → **General** → timezone |
 | n8n / HA automation | Settings → **API** · [API](api-tokens.md) |
@@ -93,11 +95,18 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 |---------|--------|
 | Catalog (integrations, certs, templates, network) | Nav **Catalog** |
 | Users | Avatar → **Users** (admin) |
-| Account / 2FA / push | Avatar → **Account** |
+| Account / 2FA / SSO link / push | Avatar → **Account** |
 | Fleet services grid | Dashboard tile or `/services` |
+
+### General tab — SSO / OpenID Connect
+
+Admin-only. Enable a confidential OIDC client, paste issuer / client id / secret (Fernet in DB), map groups to roles, optional **Require SSO**. Redirect URI is shown on the card.
+
+Full operator guide: [SSO / OpenID Connect](../account-security/sso-oidc.md). Lab Authentik: [SSO_AUTHENTIK_TEST.md](https://github.com/bjorngluck/piherder/blob/main/docs/SSO_AUTHENTIK_TEST.md).
 
 ## Related
 
 - [Environment reference](env-reference.md) — secrets that stay in `.env` (includes LAN nmap fence / volume keys)  
+- [SSO / OpenID Connect](../account-security/sso-oidc.md)  
 - [Volumes](volumes.md)  
 - [Upgrades](upgrades.md)  

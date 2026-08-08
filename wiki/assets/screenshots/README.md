@@ -254,7 +254,9 @@ Use this order so related chrome is consistent across pages.
 9. **Ops** — Jobs, Backups (**cron_human**), Settings **Alerts** + **API** + status/stale  
 10. **Account** — 2FA + trusted devices; optional favourites  
 
-Next train (not 1.1 screenshot blockers): WebAuthn · SSO · webshell · demo mode — [PLAN_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.2.0.md) · [RELEASE_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md).
+Next train (not 1.1 screenshot blockers): WebAuthn · SSO · webshell · demo mode — [PLAN_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.2.0.md) · [SSO wiki](../../account-security/sso-oidc.md) · [RELEASE_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md).
+
+Suggested **v1.2** captures when ready: login SSO button; Settings → SSO card; Account → Connected accounts (link / unlink).
 
 ---
 

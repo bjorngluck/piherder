@@ -50,7 +50,8 @@ If you set `ALLOW_OPEN_REGISTRATION=true`, later self-registered accounts become
 | Step | Where |
 |------|--------|
 | Set display name / avatar | **Account** (full-width ops-hero + profile / security cards) |
-| Optional 2FA | **Account** → TOTP + backup codes — or [force 2FA for all](../account-security/two-factor.md). Regenerating backup codes needs password **and** a live 2FA code. Trusted devices show type, last IP, and optional rename. |
+| Optional 2FA | **Account** → TOTP + backup codes **and/or passkeys** — or [force 2FA for all](../account-security/two-factor.md). Regenerating backup codes needs password **and** a live 2FA code. Trusted devices show type, last IP, and optional rename. |
+| Optional SSO | Admin: **Settings → General → SSO** — [SSO / OpenID Connect](../account-security/sso-oidc.md). Users can link IdP from Account or auto-link by email on first SSO login. |
 | Push notifications | **Account** → Push (after [HTTPS / PWA](../account-security/pwa-push.md)) |
 | Timezone | **Settings → General** |
 | Pins (★) | After you have hosts/maps you care about, pin them — [Pins & host jump](../day-to-day/navigation-pins.md) |
@@ -62,10 +63,11 @@ If you set `ALLOW_OPEN_REGISTRATION=true`, later self-registered accounts become
 
 1. Create operators/viewers via **Users → Create user** (modal + one-time credentials); share invite passwords carefully.  
 2. Optionally enable **Force 2FA** under Settings → Security policy.  
-3. Per server: **Edit → Features** → then **Schedules** for checks → only then consider **apply** schedules. Remove a host later via **Edit → Remove**.  
-4. Prefer “only if updates” on apply schedules; start with a quiet weekly window.  
-5. For mobile push: trusted TLS + [PWA & Web Push](../account-security/pwa-push.md); open in-app alerts from the **bell**.  
-6. DR: Settings → PiHerder backup; keep `PIHERDER_MASTER_KEY` offline safe.
+3. Optionally configure **SSO / OIDC** (Settings → General) once TLS and public URL are stable — [SSO guide](../account-security/sso-oidc.md). Keep at least one break-glass local admin password.  
+4. Per server: **Edit → Features** → then **Schedules** for checks → only then consider **apply** schedules. Remove a host later via **Edit → Remove**.  
+5. Prefer “only if updates” on apply schedules; start with a quiet weekly window.  
+6. For mobile push: trusted TLS + [PWA & Web Push](../account-security/pwa-push.md); open in-app alerts from the **bell**.  
+7. DR: Settings → PiHerder backup; keep `PIHERDER_MASTER_KEY` offline safe.
 
 <figure class="ph-figure" markdown>
   ![Dashboard](../assets/screenshots/dashboard.png)
