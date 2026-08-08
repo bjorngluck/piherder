@@ -1352,16 +1352,26 @@
       try { ws.send(JSON.stringify(authMsg)); } catch (e) {}
       sh.connected = true;
       sh.reconnecting = false;
+      sh.paused = false;
       setStatus((opts.resuming ? 'Resumed: ' : 'Connected: ') + sh.label);
       updateToolbar();
-      try {
-        if (sh.fit) sh.fit.fit();
-        ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
-      } catch (e) {}
+      // Multiple fits: iframe may still be settling after host-tab switch
+      function fitSend() {
+        try {
+          if (sh.fit) sh.fit.fit();
+          if (sh.ws && sh.ws.readyState === 1) {
+            ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
+          }
+        } catch (e) {}
+      }
+      fitSend();
+      setTimeout(fitSend, 80);
+      setTimeout(fitSend, 250);
       if (isMobileUi() && !mobileSelectNudge) {
         mobileSelectNudge = true;
-        setStatus('Mobile tip: tap Select, then drag to highlight more than one word.');
       }
+      // Focus so keyboard works after host switch
+      try { sh.term.focus(); } catch (e2) {}
     };
 
     ws.onmessage = function (ev) {
@@ -1391,10 +1401,18 @@
         setTimeout(function () { if (shells.indexOf(sh) >= 0) destroyShell(sh); }, 300);
         return;
       }
-      // Unexpected drop (app switch / sleep): keep UI, try soft-resume
+      // Unexpected drop: keep UI. Only resume when THIS host tab is active —
+      // resuming while the iframe is visibility:hidden burns the resume token
+      // and leaves host 1 dead after switching to host 2 and back.
       if (sh.resumeId) {
-        sh.term.writeln('\r\n*** connection paused — will resume when you return ***');
-        scheduleResume(sh, 400);
+        sh.paused = true;
+        if (isActiveHostFrame()) {
+          sh.term.writeln('\r\n*** connection paused — resuming… ***');
+          scheduleResume(sh, 400);
+        } else {
+          // Stay parked on server until user clicks this host tab again
+          setStatus(sh.label + ' paused — switch back to this host to resume');
+        }
       } else {
         sh.term.writeln('\r\n*** session closed ***');
         setTimeout(function () { if (shells.indexOf(sh) >= 0) destroyShell(sh); }, 400);
@@ -1405,12 +1423,13 @@
       // onclose follows
     };
 
-    // Keepalive while tab is visible (helps proxies; hold covers background)
+    // Keepalive only while this host iframe is the active tab
     if (sh._pingTimer) {
       try { clearInterval(sh._pingTimer); } catch (e) {}
     }
     sh._pingTimer = setInterval(function () {
       if (!sh.ws || sh.ws.readyState !== 1) return;
+      if (!isActiveHostFrame()) return;
       if (document.visibilityState && document.visibilityState !== 'visible') return;
       try { sh.ws.send(JSON.stringify({ type: 'ping' })); } catch (e) {}
     }, 25000);
@@ -1430,6 +1449,11 @@
 
   function tryResumeShell(sh) {
     if (!sh || sh.userClosed || !sh.resumeId) return;
+    // Critical: never reclaim resume while this host iframe is hidden
+    if (!isActiveHostFrame()) {
+      sh.reconnecting = false;
+      return;
+    }
     if (sh.ws && (sh.ws.readyState === 0 || sh.ws.readyState === 1)) return;
     if (sh.reconnecting) return;
     sh.reconnecting = true;
@@ -1438,11 +1462,43 @@
   }
 
   function resumeAllShells() {
+    if (!isActiveHostFrame()) return;
     shells.forEach(function (sh) {
       if (sh.userClosed) return;
       if (sh.connected && sh.ws && sh.ws.readyState === 1) return;
       if (sh.resumeId) scheduleResume(sh, 200);
     });
+  }
+
+  /** Called when parent multi-host workspace switches to this host tab. */
+  function onHostTabActivate() {
+    syncFleetGrantFromStorage();
+    // Ensure a shell pane is shown
+    var live = shells.filter(function (s) { return !s.userClosed; });
+    if (live.length) {
+      var cur = live.find(function (s) { return s.id === activeId; });
+      if (!cur || cur.minimized) {
+        var pick = live.find(function (s) { return !s.minimized; }) || live[0];
+        if (pick) {
+          pick.minimized = false;
+          activate(pick.id);
+        }
+      } else {
+        activate(cur.id);
+      }
+    }
+    // Resume parked PTYs now that we're visible
+    resumeAllShells();
+    layoutForViewport();
+    setTimeout(refitAll, 50);
+    setTimeout(refitAll, 200);
+    setTimeout(function () {
+      refitAll();
+      var sh = activeShell();
+      if (sh && sh.term) {
+        try { sh.term.focus(); } catch (e) {}
+      }
+    }, 400);
   }
 
   async function openShellWithTicket(data) {
@@ -1610,7 +1666,13 @@
   window.addEventListener('message', function (ev) {
     if (ev.origin !== window.location.origin) return;
     if (!ev.data || ev.data.type !== 'piherder-console') return;
-    if (ev.data.action === 'refit' || ev.data.action === 'layout' || ev.data.action === 'activate') {
+    if (ev.data.action === 'activate') {
+      // Parent switched host tab TO this iframe — resume + show shell
+      onHostTabActivate();
+      return;
+    }
+    if (ev.data.action === 'refit' || ev.data.action === 'layout') {
+      if (!isActiveHostFrame()) return;
       syncFleetGrantFromStorage();
       setTimeout(layoutForViewport, 30);
       setTimeout(layoutForViewport, 150);
@@ -1618,17 +1680,14 @@
       setTimeout(refitActive, 200);
     }
     if (ev.data.action === 'compact') {
-      // Parent popup maximized → slim chrome
       setToolsOpen(false);
       setKeysExtraOpen(false);
       setChromeCompact(ev.data.on !== false);
     }
   });
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState === 'visible') {
-      syncFleetGrantFromStorage();
-      setTimeout(layoutForViewport, 40);
-      setTimeout(refitActive, 100);
+    if (document.visibilityState === 'visible' && isActiveHostFrame()) {
+      onHostTabActivate();
     }
   });
   if (btnRevoke) {
