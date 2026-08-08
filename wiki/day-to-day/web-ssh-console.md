@@ -27,28 +27,32 @@ Server detail → **Console** opens a **floating popup** over the page — the t
 
 | Control | Does |
 |---------|------|
-| **Maximize** | Full screen + slim outer bar (hides + Hosts label on mobile max) |
+| **Maximize** | Full screen + slim outer bar; on mobile expands from a short bottom sheet |
+| **Restore** | Back from maximize |
 | **✕** | Close popup (ends shells on that host) |
 | **+ Hosts** | Multi-host workspace at `/console` |
-| **+ Shell** | New PTY (passkey/TOTP step-up if needed) |
-| **Aa** | Font size **8–28** (only when you open this — more room by default) |
+| **+ Shell** | New PTY (passkey/TOTP if step-up needed) |
+| **Aa** | Font size **8–28** (hidden until tapped) |
 | **···** | Extra keys (arrows, Tab, Esc, Line/Scr) |
 | **Ctrl** | Sticky Ctrl — next keyboard letter is Ctrl+letter |
 | **^C ^S ^X ^Q** | Common chords (others: sticky Ctrl + key) |
-| **Sel / Copy / Paste** | Selection and clipboard |
+| **Sel / Copy / Paste** | Mobile select (drag either direction) + clipboard |
 | **App switch** | Shells **park on the server** until idle/max; return **auto-resumes** |
 
-Once a shell is connected, chrome **auto-compacts** so the terminal gets most of the screen. Tap **Aa** or **···** when you need tools/extra keys.
+Once a shell is connected, chrome **auto-compacts** so the terminal gets most of the screen. Tap **Aa** or **···** when you need tools or extra keys.
 
 Explicit close (shell **✕** or popup **✕**) still ends the session (`bye`). Switching apps or backgrounding the tab does **not**.
 
-### Multiple hosts
+### Multiple hosts (`/console`)
 
-- Popup = **one host**.  
-- **+ Hosts** (or open `/console?host=<id>`) → **host tabs**; switch anytime (inactive tabs stay connected).  
-- **+ Host** only opens hosts you pick — it does not re-open old hosts automatically.  
-- Shell slots are **account-wide** (default **4** concurrent PTYs).  
-- One **fleet-wide** 2FA grant after passkey/TOTP covers **all hosts** until it expires (~10 min) or you tap **Lock**. When the grant expires, passkey/TOTP appears again on the next **+ Shell**.
+| Behaviour | Detail |
+|-----------|--------|
+| Open from popup | **+ Hosts**, or go to `/console?host=<id>` |
+| Host tabs | Switch anytime — **inactive host tabs stay connected** (iframes stay alive; not `visibility:hidden`) |
+| **+ Host** | Opens only hosts you pick — does **not** auto-reopen every host from an earlier session |
+| Shell slots | **Account-wide** (default **4** concurrent PTYs across all hosts) |
+| 2FA grant | **Fleet-wide**: one passkey/TOTP covers **all hosts** until expiry (~10 min) or **Lock** / **Aa → Lock step-up** |
+| Grant expired | Next **+ Shell** re-shows Passkey/TOTP automatically (no need to hunt for Lock first) |
 
 ---
 
@@ -58,8 +62,9 @@ Explicit close (shell **✕** or popup **✕**) still ends the session (`bye`). 
 2. Enroll **passkey** (preferred) and/or TOTP on **Account**.  
 3. Host must already have SSH credentials (key preferred).  
 4. Server → **Console** → popup → step-up if asked → **+ Shell**.  
-5. Work; **Maximize** as needed; switch apps safely (soft resume).  
-6. **✕** shell or popup when finished.
+5. Optional: **+ Hosts** → open more machines; switch host tabs freely.  
+6. **Maximize** for more terminal; switch apps safely (soft resume).  
+7. **✕** shell or popup when finished.
 
 ---
 
@@ -72,11 +77,13 @@ Explicit close (shell **✕** or popup **✕**) still ends the session (`bye`). 
 | No ticket in URL | Ticket in the **first WebSocket message** only |
 | Single-use open ticket | Cannot mint a second WS with the same ticket |
 | **Soft resume** | Unexpected WS drop **parks** the SSH PTY (bound resume token); explicit **bye** destroys it |
+| Multi-host keep-alive | Inactive host tabs use opacity (not `visibility:hidden`) so WebSockets stay up while you work on another host |
 | Session binding | Login **`session_version`** — logout / password change / admin session revoke kills shells |
 | IP binding | Default on; resume may allow IP change if **device** cookie still matches (mobile networks) |
 | Device binding | HttpOnly **`console_device`** cookie |
 | Continuous revalidation | Every ~10s while attached |
-| 2FA step-up | **Passkey preferred**; TOTP app OK; **backup codes rejected by default** |
+| Fleet 2FA grant | One step-up for all hosts; UI re-prompts when the cookie expires |
+| 2FA methods | **Passkey preferred**; TOTP app OK; **backup codes rejected by default** |
 | CSP | Self-hosted scripts; xterm under `/static/vendor/xterm/` |
 | Limits | Concurrent + idle + max session; PEM never in browser |
 
@@ -89,7 +96,8 @@ When the browser suspends the tab or drops the WebSocket:
 1. Server **keeps the SSH session** (slot still counted).  
 2. Output while away is buffered (~256 KB).  
 3. On return, the client sends `{"type":"resume","resume":"…"}` and reattaches.  
-4. Still ends on **idle** / **max session** / explicit close / logout.
+4. Resume is **not** attempted while a multi-host iframe is the inactive tab (avoids burning the resume token).  
+5. Still ends on **idle** / **max session** / explicit close / logout.
 
 Optional hard cap on park window: `PIHERDER_SSH_CONSOLE_HOLD_SEC` (default **0** = until idle/max only).
 
@@ -103,7 +111,7 @@ Optional hard cap on park window: `PIHERDER_SSH_CONSOLE_HOLD_SEC` (default **0**
 
 ```bash
 PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY=true          # if passkeys enrolled, TOTP alone fails
-PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL=true  # re-2FA every New shell
+PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL=true  # re-2FA every New shell (no fleet grant)
 ```
 
 ---
@@ -115,7 +123,7 @@ PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL=true  # re-2FA every New shell
 | **+ Shell** | Another PTY tab (counts toward concurrent cap) |
 | **Shell tabs** | Switch between shells on this host |
 | **Close shell (✕)** | End that PTY only (`bye`) |
-| **Lock** | Clear short grant; next shell needs 2FA again |
+| **Lock** / **Aa → Lock step-up** | Clear fleet grant; next shell needs 2FA again |
 
 Default max **4** shells per user (`PIHERDER_SSH_CONSOLE_MAX_PER_USER`), shared across all hosts.
 
@@ -126,7 +134,7 @@ Default max **4** shells per user (`PIHERDER_SSH_CONSOLE_MAX_PER_USER`), shared 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `PIHERDER_SSH_CONSOLE` | `false` | Master enable |
-| `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL` | `false` | 2FA every New shell |
+| `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL` | `false` | 2FA every New shell (no fleet grant) |
 | `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES` | `false` | Allow backup codes for step-up |
 | `PIHERDER_SSH_CONSOLE_PREFER_PASSKEY` | `true` | UI promotes passkey |
 | `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY` | `false` | Passkey only if enrolled |
