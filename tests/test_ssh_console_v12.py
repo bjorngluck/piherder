@@ -219,3 +219,102 @@ def test_backup_codes_disallowed_by_default():
 
 def test_revalidate_default_is_tight():
     assert cons.revalidate_sec() <= 15
+
+
+def test_hold_park_claim_resume(monkeypatch):
+    """Detached PTY can be claimed once with matching bindings."""
+    monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE", True)
+    rid = cons.mint_resume_id()
+    # Fake channel/client
+    class Ch:
+        def close(self):
+            pass
+
+        def recv_ready(self):
+            return False
+
+        def exit_status_ready(self):
+            return False
+
+    class Cli:
+        def close(self):
+            pass
+
+    held = cons.HeldConsole(
+        resume_id=rid,
+        user_id=3,
+        server_id=9,
+        session_version=2,
+        ticket_payload={
+            "iph": cons._hash_binding(cons.normalize_ip("10.0.0.1")),
+            "did": cons._hash_binding("dev-token-aaaa"),
+        },
+        device_id="dev-token-aaaa",
+        client=Cli(),
+        channel=Ch(),
+        started_mono=cons.time.monotonic(),
+        last_activity_mono=cons.time.monotonic(),
+        held_at_mono=cons.time.monotonic(),
+        server_hostname="lab",
+    )
+    cons.park_console(held)
+    assert cons.held_count() == 1
+    got = cons.claim_resume(
+        rid,
+        user_id=3,
+        server_id=9,
+        session_version=2,
+        device_id="dev-token-aaaa",
+        client_ip="10.0.0.1",
+    )
+    assert got.resume_id == rid
+    assert cons.held_count() == 0
+    # second claim fails
+    with pytest.raises(cons.ConsoleDenied):
+        cons.claim_resume(
+            rid,
+            user_id=3,
+            server_id=9,
+            session_version=2,
+            device_id="dev-token-aaaa",
+            client_ip="10.0.0.1",
+        )
+
+
+def test_hold_rejects_wrong_user(monkeypatch):
+    monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE", True)
+
+    class Ch:
+        def close(self):
+            pass
+
+        def recv_ready(self):
+            return False
+
+        def exit_status_ready(self):
+            return False
+
+    class Cli:
+        def close(self):
+            pass
+
+    rid = cons.mint_resume_id()
+    held = cons.HeldConsole(
+        resume_id=rid,
+        user_id=1,
+        server_id=2,
+        session_version=0,
+        ticket_payload={},
+        device_id="d",
+        client=Cli(),
+        channel=Ch(),
+        started_mono=cons.time.monotonic(),
+        last_activity_mono=cons.time.monotonic(),
+        held_at_mono=cons.time.monotonic(),
+        server_hostname="h",
+    )
+    cons.park_console(held)
+    with pytest.raises(cons.ConsoleDenied, match="match"):
+        cons.claim_resume(
+            rid, user_id=99, server_id=2, session_version=0, device_id="d"
+        )

@@ -42,7 +42,7 @@ We aim to acknowledge reports within a few days and will work with you on a fix 
 | API tokens (`ph_…`) | Stored as hashes only; shown once at create/rotate; scopes + optional IP allowlist |
 | Sessions | JWT cookie (HS256 via **PyJWT** + cryptography); **HttpOnly**, **SameSite=Lax**, `path=/`, **Secure** when public URL is HTTPS |
 | Cross-origin browser POSTs | Same-origin middleware (Origin/Referer host match when present); Bearer `/api/v1` skipped |
-| **Content-Security-Policy (v1.2+)** | Default **on** (`PIHERDER_CSP=true`): `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`, form-action self, connect-src self + ws/wss (console). Inline script/style + `unsafe-eval` still allowed for legacy templates + Tailwind Play — **no third-party script CDNs**. Report-Only: `PIHERDER_CSP_REPORT_ONLY=true`. Also: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy`. |
+| **Content-Security-Policy (v1.2+)** | Default **on** (`PIHERDER_CSP=true`): `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'self'` (same-origin console modal only), `frame-src 'self'`, form-action self, connect-src self + ws/wss (console). Inline script/style + `unsafe-eval` still allowed for legacy templates + Tailwind Play — **no third-party script CDNs**. Report-Only: `PIHERDER_CSP_REPORT_ONLY=true`. Also: `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` (incl. `publickey-credentials-get=(self)` for passkeys in console iframe). |
 | Auth rate limits | Login / 2FA / register limited per IP (disabled only via `PIHERDER_DISABLE_AUTH_RATE_LIMIT` for E2E) |
 | Streams (SSE) | Docker logs/build, backup/OS progress require session; build stream is **operator+** |
 | Input hygiene | Risk-based validators on paths, hostnames, SSH users, cron, action allowlists (`app/services/input_validation.py`) |
@@ -75,14 +75,14 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
 - **Web SSH console** (v1.2+): default **off** (`PIHERDER_SSH_CONSOLE=false`). Designed as **in-app only** (not a public remote API):
   - **operator+ only** (viewer 403); session cookie required (no Bearer `/api/v1` console)
   - Ticket mint requires **same-site browser** Origin/Referer; rejects `Sec-Fetch-Site: cross-site`
-  - WebSocket requires **Origin == Host**; ticket in first WS message only (not query string)
-  - **No resume**: ticket is **single-use**; closed shells cannot reconnect with the same ticket
-  - Ticket bound to **login `session_version`**, **client IP** (default on), and **console device cookie** (default on)
-  - **Continuous revalidation** (~every 15s): session still valid, IP/device still match, user still operator+ — else PTY killed
-  - Logout / password change / admin “sign out sessions” invalidates open shells within one revalidation interval
-  - **2FA step-up (recommended: WebAuthn/passkey)**: passkey preferred in UI; TOTP app accepted; **backup codes rejected by default** (`PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES=false`) because they are offline recovery secrets, not a strong shell gate. Optional `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY=true` forces passkey when enrolled. Optional every-shell 2FA.
-  - Continuous revalidation of session / IP / device (~10s); **no resume** of closed shells
-  - Concurrent + idle + max session limits; PEM never in browser; CSP blocks embedding
+  - WebSocket requires **Origin == Host**; open-ticket in first WS message only (not query string)
+  - Open ticket is **single-use**; **soft resume** after unexpected WS drop parks the SSH PTY (bound resume token, same user/host/session/device) until idle/max (or `PIHERDER_SSH_CONSOLE_HOLD_SEC`); explicit close (`bye`) destroys the PTY
+  - Ticket / resume bound to **login `session_version`**, **client IP** (default on; mobile resume may allow IP change if device cookie still matches), and **console device cookie** (default on)
+  - **Continuous revalidation** (~every 10s while attached): session still valid, bindings still match, user still operator+ — else PTY killed
+  - Logout / password change / admin “sign out sessions” invalidates open and parked shells within one revalidation / claim check
+  - **2FA step-up (recommended: WebAuthn/passkey)**: passkey preferred in UI; TOTP app accepted; **backup codes rejected by default** (`PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES=false`). Optional `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY=true` / every-shell 2FA
+  - Concurrent + idle + max session limits; PEM never in browser; CSP allows **same-origin** console iframe only (`frame-ancestors 'self'`)
+  - UI: floating popup per host; multi-host workspace at `/console`; sticky Ctrl + common chords
   - Residual risk: XSS on herder origin is still shell-equivalent; IP bind can break mobile networks (set `PIHERDER_SSH_CONSOLE_BIND_IP=false` only if needed)  
 
 

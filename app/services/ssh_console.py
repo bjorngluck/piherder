@@ -6,12 +6,13 @@ Security model (high bar):
   • 2FA required to enroll step-up; short-lived **console grant** cookie per host
   • Each PTY opens with a **single-use** ticket bound to:
       user, server, session_version, client IP, console device id
-  • **No resume**: ticket is one-shot; closed WS cannot reconnect with the same ticket
+  • Ticket is single-use to open a PTY; **soft resume** after browser WebSocket drop
+    (app switch) parks the SSH session until idle/max timeout, then reconnects
   • **Continuous revalidation** while PTY is open (session / IP / device)
   • Concurrent shell caps · idle + max session · private key never leaves herder
 
 Browser flow:
-  2FA → grant cookie (~10 min, per host) → mint ticket → WebSocket PTY (auth msg)
+  2FA → grant → ticket → WebSocket PTY · on tab sleep: park → resume token reclaim
 """
 from __future__ import annotations
 
@@ -40,6 +41,8 @@ _lock = threading.Lock()
 _consumed_jtis: Set[str] = set()
 _live_by_user: Dict[int, int] = {}
 _live_global: int = 0
+# Parked PTYs after browser WebSocket drop (app switch / tab sleep) — resume until idle/max
+_held_sessions: Dict[str, "HeldConsole"] = {}
 
 
 class ConsoleDisabled(Exception):
@@ -67,11 +70,16 @@ def max_session_sec() -> int:
 
 
 def max_per_user() -> int:
-    return max(1, int(getattr(settings, "PIHERDER_SSH_CONSOLE_MAX_PER_USER", 2) or 2))
+    return max(1, int(getattr(settings, "PIHERDER_SSH_CONSOLE_MAX_PER_USER", 4) or 4))
 
 
 def max_global() -> int:
-    return max(1, int(getattr(settings, "PIHERDER_SSH_CONSOLE_MAX_GLOBAL", 10) or 10))
+    return max(1, int(getattr(settings, "PIHERDER_SSH_CONSOLE_MAX_GLOBAL", 20) or 20))
+
+
+def default_scrollback() -> int:
+    """Default xterm scrollback lines (client can raise within UI caps)."""
+    return max(500, min(50000, int(getattr(settings, "PIHERDER_SSH_CONSOLE_SCROLLBACK", 2000) or 2000)))
 
 
 def grant_minutes() -> int:
@@ -110,6 +118,19 @@ def bind_device_enabled() -> bool:
 def revalidate_sec() -> int:
     """How often to re-check session/IP/device during an open shell (seconds)."""
     return max(5, int(getattr(settings, "PIHERDER_SSH_CONSOLE_REVALIDATE_SEC", 10) or 10))
+
+
+def hold_sec() -> int:
+    """Max time to keep a detached PTY after WebSocket drop.
+
+    0 (default) = hold until idle_sec from last activity or max_session_sec from start.
+    Positive value caps the detached window (still also subject to idle/max).
+    """
+    raw = int(getattr(settings, "PIHERDER_SSH_CONSOLE_HOLD_SEC", 0) or 0)
+    if raw <= 0:
+        return 0
+    return max(30, raw)
+
 
 def require_enabled() -> None:
     if not console_enabled():
@@ -418,6 +439,227 @@ def reset_runtime_state_for_tests() -> None:
         _consumed_jtis.clear()
         _live_by_user.clear()
         _live_global = 0
+        # Close any parked SSH without requiring live clients in unit tests
+        for hid in list(_held_sessions.keys()):
+            h = _held_sessions.pop(hid, None)
+            if h:
+                h.dead = True
+                try:
+                    if h.channel is not None:
+                        h.channel.close()
+                except Exception:
+                    pass
+                try:
+                    if h.client is not None:
+                        h.client.close()
+                except Exception:
+                    pass
+
+
+# Output buffer while browser is backgrounded (replayed on resume)
+_HELD_BUF_MAX = 256 * 1024
+
+
+@dataclass
+class HeldConsole:
+    """SSH PTY parked after WebSocket drop — claimable via resume token."""
+
+    resume_id: str
+    user_id: int
+    server_id: int
+    session_version: int
+    ticket_payload: Dict[str, Any]
+    device_id: str
+    client: Any
+    channel: Any
+    started_mono: float
+    last_activity_mono: float
+    held_at_mono: float
+    server_hostname: str
+    out_buf: bytearray = field(default_factory=bytearray)
+    dead: bool = False
+
+    def append_out(self, data: bytes) -> None:
+        if not data:
+            return
+        self.out_buf.extend(data)
+        if len(self.out_buf) > _HELD_BUF_MAX:
+            # keep newest
+            self.out_buf = bytearray(self.out_buf[-_HELD_BUF_MAX:])
+
+    def take_out(self) -> bytes:
+        if not self.out_buf:
+            return b""
+        data = bytes(self.out_buf)
+        self.out_buf.clear()
+        return data
+
+
+def mint_resume_id() -> str:
+    return secrets.token_urlsafe(24)
+
+
+def park_console(held: HeldConsole) -> str:
+    """Store a detached PTY for resume. Slot stays acquired."""
+    with _lock:
+        # Replace any previous entry with same id
+        old = _held_sessions.get(held.resume_id)
+        if old and old is not held:
+            old.dead = True
+        _held_sessions[held.resume_id] = held
+    return held.resume_id
+
+
+def get_held(resume_id: str) -> Optional[HeldConsole]:
+    with _lock:
+        h = _held_sessions.get(resume_id or "")
+        if h and h.dead:
+            return None
+        return h
+
+
+def claim_resume(
+    resume_id: str,
+    *,
+    user_id: int,
+    server_id: int,
+    session_version: int,
+    device_id: Optional[str] = None,
+    client_ip: Optional[str] = None,
+) -> HeldConsole:
+    """
+    Take a parked PTY for a new WebSocket.
+
+    Bound to user / server / session_version / device (same bar as tickets).
+    IP re-checked if ticket payload carried an IP hash.
+    """
+    require_enabled()
+    rid = (resume_id or "").strip()
+    if not rid:
+        raise ConsoleDenied("Missing resume token")
+    with _lock:
+        held = _held_sessions.pop(rid, None)
+    if not held or held.dead:
+        raise ConsoleDenied("Console session expired or already resumed")
+    try:
+        if int(held.user_id) != int(user_id) or int(held.server_id) != int(server_id):
+            raise ConsoleDenied("Resume token does not match this host/session")
+        if int(held.session_version) != int(session_version):
+            raise ConsoleDenied("Login session changed — open a new shell")
+        if bind_device_enabled() and held.device_id:
+            if (device_id or "") != held.device_id:
+                # also allow hash match via ticket_payload
+                ok, reason = binding_still_valid(
+                    held.ticket_payload, client_ip=client_ip, device_id=device_id
+                )
+                if not ok and reason == "device_changed":
+                    raise ConsoleDenied("Resume bound to a different browser/device")
+        if bind_ip_enabled() and held.ticket_payload.get("iph"):
+            ok, reason = binding_still_valid(
+                held.ticket_payload, client_ip=client_ip, device_id=device_id
+            )
+            if not ok and reason == "ip_changed":
+                # Mobile networks often change IP while app is backgrounded —
+                # allow resume if device binding still matches when device bind is on.
+                if not (bind_device_enabled() and held.device_id and device_id == held.device_id):
+                    raise ConsoleDenied("Resume bound to a different network address")
+        # Expired by wall clocks?
+        now = time.monotonic()
+        if now - held.last_activity_mono > idle_sec():
+            raise ConsoleDenied("Console idle timeout while detached")
+        if now - held.started_mono > max_session_sec():
+            raise ConsoleDenied("Console max session while detached")
+        hs = hold_sec()
+        if hs and (now - held.held_at_mono > hs):
+            raise ConsoleDenied("Console hold window expired")
+    except ConsoleDenied:
+        # destroy SSH if claim failed
+        _destroy_held_resources(held, release_slot_user=held.user_id)
+        raise
+    return held
+
+
+def _destroy_held_resources(held: HeldConsole, *, release_slot_user: Optional[int]) -> None:
+    held.dead = True
+    try:
+        if held.channel is not None:
+            held.channel.close()
+    except Exception:
+        pass
+    try:
+        if held.client is not None:
+            held.client.close()
+    except Exception:
+        pass
+    if release_slot_user is not None:
+        try:
+            release_slot(int(release_slot_user))
+        except Exception:
+            pass
+
+
+def destroy_held(resume_id: str, *, reason: str = "") -> bool:
+    """Fully tear down a parked console (idle/max/bye). Releases slot."""
+    del reason  # for logging callers
+    with _lock:
+        held = _held_sessions.pop(resume_id or "", None)
+    if not held:
+        return False
+    _destroy_held_resources(held, release_slot_user=held.user_id)
+    return True
+
+
+def held_count() -> int:
+    with _lock:
+        return len(_held_sessions)
+
+
+def list_held_ids() -> list:
+    with _lock:
+        return list(_held_sessions.keys())
+
+
+def drain_held_channel(held: HeldConsole) -> bool:
+    """
+    Non-blocking drain of SSH → buffer. Returns False if channel died.
+    Call from hold-watch loop.
+    """
+    if held.dead or held.channel is None:
+        return False
+    try:
+        ch = held.channel
+        if ch.exit_status_ready() and not ch.recv_ready():
+            return False
+        progressed = False
+        while ch.recv_ready():
+            data = ch.recv(8192)
+            if not data:
+                return False
+            held.append_out(data)
+            held.last_activity_mono = time.monotonic()
+            progressed = True
+        while ch.recv_stderr_ready():
+            data = ch.recv_stderr(4096)
+            if data:
+                held.append_out(data)
+                held.last_activity_mono = time.monotonic()
+                progressed = True
+        del progressed
+        return True
+    except Exception:
+        return False
+
+
+def held_should_expire(held: HeldConsole) -> Optional[str]:
+    now = time.monotonic()
+    if now - held.last_activity_mono > idle_sec():
+        return "idle"
+    if now - held.started_mono > max_session_sec():
+        return "max"
+    hs = hold_sec()
+    if hs and (now - held.held_at_mono > hs):
+        return "hold"
+    return None
 
 
 @dataclass

@@ -41,11 +41,13 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 | `PIHERDER_SSH_CONSOLE_BIND_IP` | **true** — ticket + live shell bound to client IP |
 | `PIHERDER_SSH_CONSOLE_BIND_DEVICE` | **true** — ticket bound to HttpOnly `console_device` cookie |
 | `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC` | **10** — how often open shells re-check session/IP/device |
-| `PIHERDER_SSH_CONSOLE_TICKET_SEC` | **60** — single-use ticket TTL |
-| `PIHERDER_SSH_CONSOLE_IDLE_SEC` | **900** — idle disconnect |
-| `PIHERDER_SSH_CONSOLE_MAX_SEC` | **3600** — max shell length |
-| `PIHERDER_SSH_CONSOLE_MAX_PER_USER` | **2** — concurrent shells per user |
-| `PIHERDER_SSH_CONSOLE_MAX_GLOBAL` | **10** — concurrent shells instance-wide |
+| `PIHERDER_SSH_CONSOLE_TICKET_SEC` | **60** — single-use open-ticket TTL |
+| `PIHERDER_SSH_CONSOLE_IDLE_SEC` | **900** — idle disconnect (also ends parked shells) |
+| `PIHERDER_SSH_CONSOLE_MAX_SEC` | **3600** — max session length |
+| `PIHERDER_SSH_CONSOLE_MAX_PER_USER` | **4** — concurrent shells per user (all hosts) |
+| `PIHERDER_SSH_CONSOLE_MAX_GLOBAL` | **20** — concurrent shells instance-wide |
+| `PIHERDER_SSH_CONSOLE_SCROLLBACK` | **2000** — default browser terminal scrollback lines |
+| `PIHERDER_SSH_CONSOLE_HOLD_SEC` | **0** — after WebSocket drop, park PTY this many seconds (`0` = until idle/max only) |
 | `PIHERDER_SSH_CONSOLE_GRANT_MIN` | **10** — multi-shell grant after 2FA (minutes) |
 | `PIHERDER_BACKUP_VANISHED_RETRIES` | **1** — extra rsync attempts on vanished files |
 | `PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC` | **5** — delay before vanished retry |

@@ -198,14 +198,15 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 
 | Item | Stance | Status |
 |------|--------|--------|
-| **W1** Feature flag default **off** (`PIHERDER_SSH_CONSOLE`) | Must | **In progress** |
-| **W2** operator+ only; viewer 403 | Must | **In progress** |
-| **W3** Step-up 2FA before ticket; short grant for multi-shell on same host | Must | **In progress** (grant + session_version binding) |
-| **W4** Single-use ticket; idle/max session; concurrent caps | Must | **In progress** |
-| **W4b** Multi-shell UI: new / minimize / switch / close | Should | **In progress** |
-| **W5** Audit open/close + IP + duration | Must | **In progress** |
-| **W6** SECURITY.md + ADMIN + **CSP** / TLS bar | Must | **CSP middleware landed** (default on); SECURITY updated; wiki/ADMIN polish pending |
-| **W7** Demo: disabled **or** sandbox-only host | Must decide before demo GA | Pending |
+| **W1** Feature flag default **off** (`PIHERDER_SSH_CONSOLE`) | Must | **Landed** |
+| **W2** operator+ only; viewer 403 | Must | **Landed** |
+| **W3** Step-up 2FA before ticket; short grant for multi-shell on same host | Must | **Landed** (passkey preferred; backup codes off by default) |
+| **W4** Single-use open ticket; idle/max; concurrent caps | Must | **Landed** |
+| **W4a** Soft resume after WS drop (app switch) | Must | **Landed** (park PTY + resume token; `HOLD_SEC`) |
+| **W4b** Multi-shell UI + multi-host `/console` + popup | Should | **Landed** (popup chrome; host tabs; sticky Ctrl) |
+| **W5** Audit open/close + IP + duration | Must | **Landed** |
+| **W6** SECURITY.md + ADMIN + **CSP** / TLS bar | Must | **Landed** (same-origin iframe CSP; wiki env catalog) |
+| **W7** Demo: disabled **or** sandbox-only host | Must decide before demo GA | Pending (Stream D) |
 | Session recording / dual-control root | Defer | — |
 
 ### Stream D — Demo platform (**new product work**)

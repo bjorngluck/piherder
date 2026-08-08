@@ -91,8 +91,11 @@ class Settings(BaseSettings):
     # Hard max session length (seconds)
     PIHERDER_SSH_CONSOLE_MAX_SEC: int = 3600
     # Concurrent open consoles per user / whole instance (multi-shell tabs each count)
-    PIHERDER_SSH_CONSOLE_MAX_PER_USER: int = 2
-    PIHERDER_SSH_CONSOLE_MAX_GLOBAL: int = 10
+    # Concurrent PTY shells (account-wide, not per host) — multi-host needs headroom
+    PIHERDER_SSH_CONSOLE_MAX_PER_USER: int = 4
+    PIHERDER_SSH_CONSOLE_MAX_GLOBAL: int = 20
+    # Browser xterm scrollback (lines kept above viewport); client may raise further
+    PIHERDER_SSH_CONSOLE_SCROLLBACK: int = 2000
     # After 2FA, grant re-open of additional shells on the same host without re-TOTP
     PIHERDER_SSH_CONSOLE_GRANT_MIN: int = 10
     # If true, every New shell requires fresh 2FA (TOTP/passkey); grant cookie ignored
@@ -106,6 +109,9 @@ class Settings(BaseSettings):
     PIHERDER_SSH_CONSOLE_BIND_IP: bool = True
     PIHERDER_SSH_CONSOLE_BIND_DEVICE: bool = True
     PIHERDER_SSH_CONSOLE_REVALIDATE_SEC: int = 10
+    # After WebSocket drop (app switch / tab sleep), keep SSH PTY parked this long
+    # so the browser can resume. 0 = hold until idle/max session timeout.
+    PIHERDER_SSH_CONSOLE_HOLD_SEC: int = 0
 
     # Content-Security-Policy (v1.2) — default on; Report-Only for staged rollouts
     PIHERDER_CSP: bool = True
