@@ -681,6 +681,8 @@ async def logout():
         from ..services.ssh_console import CONSOLE_GRANT_COOKIE
 
         response.delete_cookie(CONSOLE_GRANT_COOKIE, **dk)
+        # Keep console_device cookie: next login on same browser rebinds cleanly;
+        # tickets still require a fresh session + 2FA and cannot be resumed.
     except Exception:
         pass
     return response

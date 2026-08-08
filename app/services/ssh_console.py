@@ -4,24 +4,24 @@ Security model (high bar):
   • Kill switch default OFF (PIHERDER_SSH_CONSOLE=false)
   • operator+ only; viewer never
   • 2FA required to enroll step-up; short-lived **console grant** cookie per host
-  • Each PTY opens with a **single-use** ticket bound to user, server, and session_version
-  • Concurrent shell caps (per user / global) — multi-tab shells each consume a slot
-  • Idle + max session disconnects
-  • Private key never leaves the herder process
+  • Each PTY opens with a **single-use** ticket bound to:
+      user, server, session_version, client IP, console device id
+  • **No resume**: ticket is one-shot; closed WS cannot reconnect with the same ticket
+  • **Continuous revalidation** while PTY is open (session / IP / device)
+  • Concurrent shell caps · idle + max session · private key never leaves herder
 
 Browser flow:
-  2FA → grant cookie (~10 min, per host) → mint ticket → WebSocket PTY
-  Additional shells on the same host reuse the grant without re-entering TOTP
-  until the grant expires (or session_version bumps / logout).
+  2FA → grant cookie (~10 min, per host) → mint ticket → WebSocket PTY (auth msg)
 """
 from __future__ import annotations
 
+import hashlib
 import secrets
 import threading
 import time
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Dict, Optional, Set, Tuple
+from typing import Any, Dict, Optional, Set, Tuple
 
 from ..config import settings
 from ..security.auth import (
@@ -32,6 +32,8 @@ from ..security.auth import (
 
 # Cookie name for short-lived post-2FA grant (HttpOnly)
 CONSOLE_GRANT_COOKIE = "console_grant"
+# Stable per-browser device binding for console (HttpOnly, not trusted-device 2FA skip)
+CONSOLE_DEVICE_COOKIE = "console_device"
 
 # In-process ticket jti consume set + live session counters (single web worker assumed)
 _lock = threading.Lock()
@@ -82,6 +84,19 @@ def require_2fa_every_shell() -> bool:
     return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL", False))
 
 
+def bind_ip_enabled() -> bool:
+    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_BIND_IP", True))
+
+
+def bind_device_enabled() -> bool:
+    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_BIND_DEVICE", True))
+
+
+def revalidate_sec() -> int:
+    """How often to re-check session/IP/device during an open shell (seconds)."""
+    return max(5, int(getattr(settings, "PIHERDER_SSH_CONSOLE_REVALIDATE_SEC", 15) or 15))
+
+
 def require_enabled() -> None:
     if not console_enabled():
         raise ConsoleDisabled(
@@ -89,32 +104,79 @@ def require_enabled() -> None:
         )
 
 
-def mint_ticket(*, user_id: int, server_id: int, session_version: int = 0) -> str:
-    """Return a short-lived JWT ticket (not yet consumed). Bound to session_version."""
+def _hash_binding(value: str) -> str:
+    """Short stable hash for IP / device (no raw PII in JWT if not needed)."""
+    raw = (value or "").strip().encode("utf-8")
+    return hashlib.sha256(raw).hexdigest()[:32]
+
+
+def normalize_ip(ip: Optional[str]) -> str:
+    return (ip or "").strip().split("%")[0]  # drop IPv6 zone id
+
+
+def ensure_device_id(existing: Optional[str]) -> str:
+    """Return existing console device id or mint a new one."""
+    cur = (existing or "").strip()
+    if len(cur) >= 16 and len(cur) <= 128:
+        return cur
+    return secrets.token_urlsafe(24)
+
+
+def mint_ticket(
+    *,
+    user_id: int,
+    server_id: int,
+    session_version: int = 0,
+    client_ip: Optional[str] = None,
+    device_id: Optional[str] = None,
+) -> str:
+    """
+    Short-lived single-use ticket.
+
+    Bound to session_version, and optionally IP + console device id so the
+    WebSocket cannot be opened (or continued) from another browser/network.
+    """
     require_enabled()
     jti = secrets.token_urlsafe(16)
+    payload: Dict[str, Any] = {
+        "console": True,
+        "sub": str(int(user_id)),
+        "sid": int(server_id),
+        "sv": int(session_version),
+        "jti": jti,
+    }
+    if bind_ip_enabled() and client_ip:
+        payload["iph"] = _hash_binding(normalize_ip(client_ip))
+    if bind_device_enabled() and device_id:
+        payload["did"] = _hash_binding(device_id)
     return create_access_token(
-        {
-            "console": True,
-            "sub": str(int(user_id)),
-            "sid": int(server_id),
-            "sv": int(session_version),
-            "jti": jti,
-        },
+        payload,
         expires_delta=timedelta(seconds=ticket_ttl_sec()),
     )
 
 
-def mint_grant(*, user_id: int, server_id: int, session_version: int = 0) -> str:
+def mint_grant(
+    *,
+    user_id: int,
+    server_id: int,
+    session_version: int = 0,
+    client_ip: Optional[str] = None,
+    device_id: Optional[str] = None,
+) -> str:
     """Short-lived grant after successful 2FA for this host (multi-shell without re-TOTP)."""
     require_enabled()
+    payload: Dict[str, Any] = {
+        "console_grant": True,
+        "sub": str(int(user_id)),
+        "sid": int(server_id),
+        "sv": int(session_version),
+    }
+    if bind_ip_enabled() and client_ip:
+        payload["iph"] = _hash_binding(normalize_ip(client_ip))
+    if bind_device_enabled() and device_id:
+        payload["did"] = _hash_binding(device_id)
     return create_access_token(
-        {
-            "console_grant": True,
-            "sub": str(int(user_id)),
-            "sid": int(server_id),
-            "sv": int(session_version),
-        },
+        payload,
         expires_delta=timedelta(minutes=grant_minutes()),
     )
 
@@ -125,6 +187,8 @@ def grant_valid(
     user_id: int,
     server_id: int,
     session_version: int,
+    client_ip: Optional[str] = None,
+    device_id: Optional[str] = None,
 ) -> bool:
     if require_2fa_every_shell():
         return False
@@ -140,6 +204,12 @@ def grant_valid(
             return False
         if int(payload.get("sv", 0) or 0) != int(session_version):
             return False
+        if bind_ip_enabled() and payload.get("iph"):
+            if _hash_binding(normalize_ip(client_ip)) != payload.get("iph"):
+                return False
+        if bind_device_enabled() and payload.get("did"):
+            if _hash_binding(device_id or "") != payload.get("did"):
+                return False
     except (TypeError, ValueError):
         return False
     return True
@@ -205,9 +275,13 @@ def consume_ticket(
     user_id: int,
     server_id: int,
     session_version: int = 0,
+    client_ip: Optional[str] = None,
+    device_id: Optional[str] = None,
 ) -> dict:
     """
-    Validate and single-use consume a ticket for this user+server+session_version.
+    Validate and **single-use consume** a ticket.
+
+    Once consumed, the ticket cannot open another WebSocket (no resume / reconnect).
     Returns payload. Raises ConsoleDenied on failure.
     """
     require_enabled()
@@ -224,16 +298,63 @@ def consume_ticket(
         raise ConsoleDenied("Console ticket does not match this session")
     if tsv != int(session_version):
         raise ConsoleDenied("Console ticket invalidated (session changed — sign in again)")
+    if bind_ip_enabled() and payload.get("iph"):
+        if _hash_binding(normalize_ip(client_ip)) != payload.get("iph"):
+            raise ConsoleDenied("Console ticket bound to a different network address")
+    if bind_device_enabled() and payload.get("did"):
+        if _hash_binding(device_id or "") != payload.get("did"):
+            raise ConsoleDenied("Console ticket bound to a different browser/device")
     jti = str(payload.get("jti") or "")
     if not jti:
         raise ConsoleDenied("Invalid console ticket")
     with _lock:
         if jti in _consumed_jtis:
-            raise ConsoleDenied("Console ticket already used")
+            raise ConsoleDenied("Console ticket already used (cannot resume)")
         if len(_consumed_jtis) > 5000:
             _consumed_jtis.clear()
         _consumed_jtis.add(jti)
     return payload
+
+
+def binding_still_valid(
+    ticket_payload: dict,
+    *,
+    client_ip: Optional[str],
+    device_id: Optional[str],
+) -> Tuple[bool, str]:
+    """Check IP/device still match ticket binding (for continuous revalidation)."""
+    if bind_ip_enabled() and ticket_payload.get("iph"):
+        if _hash_binding(normalize_ip(client_ip)) != ticket_payload.get("iph"):
+            return False, "ip_changed"
+    if bind_device_enabled() and ticket_payload.get("did"):
+        if _hash_binding(device_id or "") != ticket_payload.get("did"):
+            return False, "device_changed"
+    return True, ""
+
+
+def session_still_valid(
+    session,
+    *,
+    user_id: int,
+    expected_sv: int,
+) -> Tuple[bool, str]:
+    """
+    Re-load user and confirm session_version / active / operator+.
+
+    Call periodically during an open shell so logout, password change, admin
+    session revoke, or demotion kills the PTY immediately.
+    """
+    from ..models import User
+    from ..security.auth import role_at_least, ROLE_OPERATOR
+
+    user = session.get(User, int(user_id))
+    if not user or not user.is_active:
+        return False, "user_inactive"
+    if user_session_version(user) != int(expected_sv):
+        return False, "session_revoked"
+    if not role_at_least(user, ROLE_OPERATOR):
+        return False, "role_lost"
+    return True, ""
 
 
 def try_acquire_slot(user_id: int) -> None:

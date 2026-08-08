@@ -22,13 +22,33 @@ def test_console_disabled_by_default(monkeypatch):
 
 
 def test_mint_and_consume_ticket():
-    tok = cons.mint_ticket(user_id=3, server_id=9, session_version=2)
+    tok = cons.mint_ticket(
+        user_id=3,
+        server_id=9,
+        session_version=2,
+        client_ip="10.0.0.5",
+        device_id="dev-abc-1234567890",
+    )
     assert tok
-    payload = cons.consume_ticket(tok, user_id=3, server_id=9, session_version=2)
+    payload = cons.consume_ticket(
+        tok,
+        user_id=3,
+        server_id=9,
+        session_version=2,
+        client_ip="10.0.0.5",
+        device_id="dev-abc-1234567890",
+    )
     assert payload.get("console") is True
     assert int(payload["sid"]) == 9
-    with pytest.raises(cons.ConsoleDenied, match="already used"):
-        cons.consume_ticket(tok, user_id=3, server_id=9, session_version=2)
+    with pytest.raises(cons.ConsoleDenied, match="already used|cannot resume"):
+        cons.consume_ticket(
+            tok,
+            user_id=3,
+            server_id=9,
+            session_version=2,
+            client_ip="10.0.0.5",
+            device_id="dev-abc-1234567890",
+        )
 
 
 def test_consume_wrong_user():
@@ -41,6 +61,56 @@ def test_consume_session_version_mismatch():
     tok = cons.mint_ticket(user_id=1, server_id=2, session_version=5)
     with pytest.raises(cons.ConsoleDenied, match="session"):
         cons.consume_ticket(tok, user_id=1, server_id=2, session_version=6)
+
+
+def test_ticket_bound_to_ip_and_device(monkeypatch):
+    monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_BIND_IP", True)
+    monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_BIND_DEVICE", True)
+    tok = cons.mint_ticket(
+        user_id=1,
+        server_id=2,
+        session_version=1,
+        client_ip="192.168.1.10",
+        device_id="device-token-aaaa",
+    )
+    with pytest.raises(cons.ConsoleDenied, match="network"):
+        cons.consume_ticket(
+            tok,
+            user_id=1,
+            server_id=2,
+            session_version=1,
+            client_ip="10.0.0.1",
+            device_id="device-token-aaaa",
+        )
+    tok2 = cons.mint_ticket(
+        user_id=1,
+        server_id=2,
+        session_version=1,
+        client_ip="192.168.1.10",
+        device_id="device-token-aaaa",
+    )
+    with pytest.raises(cons.ConsoleDenied, match="browser|device"):
+        cons.consume_ticket(
+            tok2,
+            user_id=1,
+            server_id=2,
+            session_version=1,
+            client_ip="192.168.1.10",
+            device_id="other-device-bbbb",
+        )
+
+
+def test_binding_still_valid():
+    payload = {
+        "iph": cons._hash_binding(cons.normalize_ip("1.2.3.4")),
+        "did": cons._hash_binding("dev1"),
+    }
+    ok, _ = cons.binding_still_valid(payload, client_ip="1.2.3.4", device_id="dev1")
+    assert ok
+    ok, reason = cons.binding_still_valid(payload, client_ip="9.9.9.9", device_id="dev1")
+    assert not ok and reason == "ip_changed"
+    ok, reason = cons.binding_still_valid(payload, client_ip="1.2.3.4", device_id="x")
+    assert not ok and reason == "device_changed"
 
 
 def test_grant_valid_and_bound_to_host():
