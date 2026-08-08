@@ -78,6 +78,8 @@ Without a server record you have no place to store the encrypted SSH key, featur
 
 The wizard Connect step covers deploy / test / clear password. The full **SSH access** panel on the server page also has rotate key, least-priv scripts, and dependency re-check.
 
+Optional **Web SSH console** (browser terminal; flag off by default): [Web SSH console](web-ssh-console.md).
+
 | Action | What it does | Why |
 |--------|----------------|-----|
 | **Test connection** | Verifies key (or password) login, then refreshes **host dependency** probes when login succeeds | Proves the path before you queue jobs |

@@ -45,6 +45,10 @@ x-piherder-app-env: &piherder-app-env
   # Content-Security-Policy (v1.2) — default on; Report-Only for staged tighten
   PIHERDER_CSP: ${PIHERDER_CSP:-true}
   PIHERDER_CSP_REPORT_ONLY: ${PIHERDER_CSP_REPORT_ONLY:-false}
+  # B-retry: rsync vanished files on busy sources (Frigate/NVR)
+  PIHERDER_BACKUP_VANISHED_RETRIES: ${PIHERDER_BACKUP_VANISHED_RETRIES:-1}
+  PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC: ${PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC:-5}
+  PIHERDER_BACKUP_VANISHED_SOFT_OK: ${PIHERDER_BACKUP_VANISHED_SOFT_OK:-true}
   TZ: ${TZ:-Etc/UTC}
 
 # App image — **local build by default** (dev / RC testing on this host).

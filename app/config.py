@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     DATA_ROOT: str = "/data"  # avatars and other app data (mount volume in compose)
     AVATAR_MAX_BYTES: int = 2 * 1024 * 1024  # 2 MiB
 
+    # B-retry (v1.2): rsync vanished files / busy sources (KI-rsync-vanished)
+    # Extra attempts after code 24 (or 23 with "vanished" in stderr)
+    PIHERDER_BACKUP_VANISHED_RETRIES: int = 1
+    # Seconds to wait before a vanished-file retry
+    PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC: int = 5
+    # If still vanished after retries, treat source as success with warning (soft OK)
+    PIHERDER_BACKUP_VANISHED_SOFT_OK: bool = True
+
     # Registration: when False, public register is blocked once any user exists
     ALLOW_OPEN_REGISTRATION: bool = False
 

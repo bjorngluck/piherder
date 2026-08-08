@@ -32,7 +32,7 @@ Exit **23** means *some* files failed; volumes or other sources may still succee
 | --- | --- | --- |
 | `Input/output error` / `I/O error` on a path | Bad disk, failing mount, or ext4 **shutdown** after FS errors | `findmnt PATH`, `dmesg \| tail`, SMART (`smartctl -a`), unmount + `fsck`, remount or replace media |
 | `Permission denied` | sudo / ownership | Passwordless `sudo -n rsync`, or root SSH |
-| `vanished` (often code **24**; may surface as **23**) | Files deleted/moved while rsync ran — **common on Frigate/NVR and other busy media trees** | Re-run off-peak; split/exclude high-churn dirs. **v1.1 known issue** — soft-success + retry planned for **v1.2+** ([backups troubleshooting](backups.md#vanished-files-busy-sources) · [RELEASE_v1.1.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md#known-issues-ship-with-awareness)) |
+| `vanished` (often code **24**; may surface as **23**) | Files deleted/moved while rsync ran — **common on Frigate/NVR and other busy media trees** | **v1.2 B-retry:** automatic retry + optional **soft-OK** ([backups troubleshooting](backups.md#vanished-files-busy-sources)). Still split high-churn paths when you need a strict snapshot. |
 
 **Example (disk, not vanished):** a separate NVMe mount under the docker tree with ext4 **`shutdown`** and `ls` → I/O error must be repaired on the host before backups of that tree can succeed.
 
