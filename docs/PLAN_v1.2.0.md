@@ -326,7 +326,7 @@ Phase 4  Freeze
 | `docs/FEATURE_PLAN_SSO_OIDC.md` | S stream detail (**written** 2026-08-08 — link/unlink/password lifecycle) |
 | `docs/FEATURE_PLAN_WEBAUTHN.md` | I stream detail (or IAM plan addendum) |
 | Extend `FEATURE_PLAN_HOST_LIFECYCLE.md` P5 | W stream implementation notes |
-| `docs/FEATURE_PLAN_DEMO.md` or wiki `operations/demo-site.md` | D stream + CF runbook |
+| `docs/DEMO_SITE.md` (+ slim wiki blurb) | D stream + CF/VPS runbook (maintainer) |
 | `scripts/demo_seed/` + `docker-compose.demo.yml` | Reproducible demo |
 | WordPress | CTA + feature pages post-RC screenshots |
 

@@ -68,6 +68,8 @@
         An account with that email already exists. Sign in with your password and link SSO from Account.
         {% elif err == 'sso_inactive' %}
         This account is disabled.
+        {% elif err == 'captcha' %}
+        Human verification failed. Refresh and try again.
         {% else %}
         Invalid email or password.
         {% endif %}
@@ -109,6 +111,12 @@
         <input id="login-password" name="password" type="password" required autocomplete="current-password"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
       </div>
+
+      {% set _ts_key = turnstile_site_key if turnstile_site_key is defined else '' %}
+      {% if turnstile_on|default(false) and _ts_key %}
+      <div class="cf-turnstile" data-sitekey="{{ _ts_key }}" data-theme="auto" data-testid="turnstile-widget"></div>
+      <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+      {% endif %}
 
       <button type="submit" class="w-full mt-2 btn {% if oidc_enabled %}btn-secondary{% else %}btn-accent{% endif %} font-medium min-h-11">
         Log in

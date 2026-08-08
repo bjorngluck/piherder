@@ -192,6 +192,7 @@ nav:
       - Metrics & webhooks: operations/metrics-webhooks.md
       - Alerts (email & webhooks): operations/alerts-email-webhooks.md
       - API tokens: operations/api-tokens.md
+      - Public demo: operations/demo-site.md
   - Troubleshooting:
       - Overview: troubleshooting/index.md
       - Locked out / sole admin: troubleshooting/locked-out.md

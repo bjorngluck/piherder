@@ -117,6 +117,17 @@ class Settings(BaseSettings):
     PIHERDER_CSP: bool = True
     PIHERDER_CSP_REPORT_ONLY: bool = False
 
+    # Public demo sandbox (v1.2 Stream D) — default OFF. When true: banner, hard
+    # blocks on real onboard/API tokens/outbound, canned jobs (see demo.py).
+    PIHERDER_DEMO_MODE: bool = False
+    # Shared demo login (seed only; only meaningful when DEMO_MODE=1)
+    PIHERDER_DEMO_EMAIL: str = "demo@hacknow.info"
+    PIHERDER_DEMO_PASSWORD: str = "Piherder@1"
+
+    # Cloudflare Turnstile (bot protection on login) — empty = off
+    PIHERDER_TURNSTILE_SITE_KEY: Optional[str] = None
+    PIHERDER_TURNSTILE_SECRET_KEY: Optional[str] = None
+
     class Config:
         env_file = ".env"
         extra = "ignore"

@@ -732,6 +732,19 @@ def create_job_and_run(
     session.commit()
     session.refresh(job)
 
+    # Demo sandbox: finish immediately with canned success (no live SSH / Celery)
+    from ..demo import demo_mode
+
+    if demo_mode():
+        return _finish_demo_job(
+            session,
+            job,
+            user_id=user_id,
+            api_token_id=api_token_id,
+            api_token_name=api_token_name,
+            source_filter=source_filter,
+        )
+
     audit = None
     if job_type == "backup":
         src_label = source_filter or "all sources"
@@ -862,6 +875,16 @@ def enqueue_backup_for_server(
     session.commit()
     session.refresh(job)
 
+    from ..demo import demo_mode
+
+    if demo_mode():
+        return _finish_demo_job(
+            session,
+            job,
+            user_id=user_id,
+            source_filter=source_filter,
+        )
+
     src_label = source_filter or "all sources"
     record_backup_audit_event(
         session,
@@ -905,6 +928,81 @@ def enqueue_backup_for_server(
         _mark_job_terminal(job, msg, session, status="failed", record_audit=True)
         session.commit()
         raise RuntimeError(msg) from e
+    return job
+
+
+def _finish_demo_job(
+    session: Session,
+    job: Job,
+    *,
+    user_id: int | None = None,
+    api_token_id: int | None = None,
+    api_token_name: str | None = None,
+    source_filter: str | None = None,
+) -> Job:
+    """Mark job success with demo simulation (no outbound side effects)."""
+    msg = "Demo simulation — no live host action"
+    details: dict = {}
+    if job.details:
+        try:
+            details = json.loads(job.details) or {}
+            if not isinstance(details, dict):
+                details = {}
+        except Exception:
+            details = {}
+    lines = list(details.get("log_lines") or [])
+    lines.append(msg)
+    details["log_lines"] = lines[-20:]
+    details["current"] = "success"
+    details["status"] = "success"
+    details["summary"] = "Demo simulation"
+    details["done"] = True
+    details["demo"] = True
+    if source_filter:
+        details["source_filter"] = source_filter
+    job.status = "success"
+    job.finished_at = datetime.utcnow()
+    job.details = json.dumps(details)
+    session.add(job)
+
+    if job.job_type == "backup":
+        try:
+            record_backup_audit_event(
+                session,
+                server_id=job.server_id,
+                job_id=job.id,
+                phase="request",
+                user_id=user_id,
+                api_token_id=api_token_id,
+                api_token_name=api_token_name,
+                source_filter=source_filter,
+                message=f"Demo backup requested",
+            )
+            record_backup_audit_from_job(
+                session,
+                job,
+                "success",
+                message=msg,
+                output_snippet={"demo": True, "summary": "Demo simulation"},
+            )
+        except Exception:
+            logger.exception("[Jobs] demo backup audit failed job=%s", job.id)
+    else:
+        session.add(
+            make_audit_log(
+                user_id=user_id,
+                server_id=job.server_id,
+                api_token_id=api_token_id,
+                api_token_name=api_token_name,
+                action=job.job_type or "job",
+                status="success",
+                details=f"Job #{job.id} · Demo simulation",
+                finished_at=datetime.utcnow(),
+            )
+        )
+    session.commit()
+    session.refresh(job)
+    logger.info("[Jobs] Demo simulation finished job #%s type=%s", job.id, job.job_type)
     return job
 
 

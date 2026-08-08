@@ -23,6 +23,7 @@ from ..services import host_deps as host_deps_svc
 from ..services import ssh as ssh_service
 from ..services import ssh_onboarding
 from ..services.server_audit import record_server_audit
+from ..services.demo import http_403_if_demo, reject_if_demo
 from .server_common import server_redirect
 
 router = APIRouter()
@@ -160,6 +161,12 @@ async def wizard_get(
 
     Optional *hostname* / *name* query params prefill identity (e.g. LAN Discovery Promote).
     """
+    demo_block = reject_if_demo("wizard")
+    if demo_block:
+        return RedirectResponse(
+            f"/servers?error=demo&detail={demo_block[:120]}",
+            status_code=303,
+        )
     key = (step or "identity").strip().lower()
     if key not in STEP_KEYS:
         return RedirectResponse(wizard_path("identity"), status_code=303)
@@ -222,6 +229,12 @@ async def wizard_advanced_form(
     user: User = Depends(get_operator_user),
 ):
     """Classic single-page add form (secondary path)."""
+    demo_block = reject_if_demo("wizard")
+    if demo_block:
+        return RedirectResponse(
+            f"/servers?error=demo&detail={demo_block[:120]}",
+            status_code=303,
+        )
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="add_server.html",
@@ -243,6 +256,7 @@ async def wizard_identity_post(
     user: User = Depends(get_operator_user),
 ):
     """Step 1 — create server row (keys come in Trust step)."""
+    http_403_if_demo("wizard")
     sname = (name or "").strip()
     host = (hostname or "").strip()
     if not sname or not host:
@@ -295,6 +309,7 @@ async def wizard_trust_post(
     user: User = Depends(get_operator_user),
 ):
     """Step 2 — generate/upload key and optional bootstrap password."""
+    http_403_if_demo("wizard")
     server = _require_server(session, server_id)
     mode = (key_mode or "generate").strip().lower()
     priv_enc = None
@@ -363,6 +378,7 @@ async def wizard_continue_post(
     user: User = Depends(get_operator_user),
 ):
     """Advance a stub / guidance step without extra business logic."""
+    http_403_if_demo("wizard")
     del user
     server = _require_server(session, server_id)
     key = (step or "").strip().lower()
@@ -379,6 +395,7 @@ async def wizard_connect_test(
     user: User = Depends(get_operator_user),
 ):
     """Test SSH from Connect step; stay in wizard."""
+    http_403_if_demo("ssh_test")
     server = _require_server(session, server_id)
     result = await run_in_threadpool(ssh_onboarding.test_connection_detail, server)
     record_server_audit(
@@ -421,6 +438,7 @@ async def wizard_connect_deploy_key(
     user: User = Depends(get_operator_user),
 ):
     """Deploy public key from Connect step; stay in wizard."""
+    http_403_if_demo("ssh_deploy")
     server = _require_server(session, server_id)
     password_override = ssh_password.strip() if ssh_password and ssh_password.strip() else None
     result = await run_in_threadpool(

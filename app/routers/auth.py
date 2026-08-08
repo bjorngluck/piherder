@@ -117,6 +117,11 @@ def _set_auth_cookie(response: RedirectResponse, token: str):
 
 
 def _registration_allowed(session: Session) -> bool:
+    # Public demo sandbox: never allow open or first-user registration
+    from ..services.demo import demo_mode
+
+    if demo_mode():
+        return False
     if settings.ALLOW_OPEN_REGISTRATION:
         return True
     existing = session.exec(select(User)).first()
@@ -127,6 +132,7 @@ def _registration_allowed(session: Session) -> bool:
 async def login_page(request: Request, session: Session = Depends(get_session)):
     from ..services import alert_channels as alert_ch
     from ..services import oidc_svc as oidc
+    from ..services import turnstile as turnstile_svc
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -138,6 +144,8 @@ async def login_page(request: Request, session: Session = Depends(get_session)):
             "oidc_enabled": oidc.oidc_enabled(),
             "oidc_display_name": oidc.oidc_display_name(),
             "oidc_require_sso": oidc.oidc_require_sso(),
+            "turnstile_on": turnstile_svc.turnstile_enabled(),
+            "turnstile_site_key": turnstile_svc.turnstile_site_key(),
         },
     )
 
@@ -276,13 +284,23 @@ async def login(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    cf_turnstile_response: Optional[str] = Form(None, alias="cf-turnstile-response"),
 ):
     ip = _client_ip(request) or "unknown"
     if not rate_limit_auth(
         f"login:{ip}", max_attempts=LOGIN_RATE_MAX, window_seconds=LOGIN_RATE_WINDOW
     ):
         return RedirectResponse("/auth/login?error=rate", status_code=303)
+
+    from ..services import turnstile as turnstile_svc
+
+    if turnstile_svc.turnstile_enabled():
+        ok, _code = turnstile_svc.verify_turnstile_token(
+            cf_turnstile_response, remoteip=ip if ip != "unknown" else None
+        )
+        if not ok:
+            return RedirectResponse("/auth/login?error=captcha", status_code=303)
 
     user = authenticate_user(session, email, password)
     if not user:

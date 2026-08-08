@@ -1,0 +1,41 @@
+{# Demo sandbox — restore seed (admin only, DEMO_MODE) #}
+<div data-settings-panel="demo" class="settings-tab-panel {{ '' if tab == 'demo' else 'hidden' }}">
+  {% if request.query_params.get('demo_restored') %}
+  <div class="mb-4 p-3 banner-success border border-border text-sm rounded" role="status">
+    Demo fleet restored. Sign in again if your session was cleared with the wipe.
+  </div>
+  {% endif %}
+  {% if request.query_params.get('demo_error') %}
+  <div class="mb-4 p-3 banner-error border border-border text-sm rounded" role="alert">
+    {{ request.query_params.get('demo_error') }}
+  </div>
+  {% endif %}
+
+  <div class="card p-4 space-y-4 max-w-xl">
+    <div>
+      <h2 class="text-base font-semibold text-text">Restore demo seed</h2>
+      <p class="text-sm text-muted mt-1">
+        Wipes servers, jobs, integrations, and maps, then reloads the hand-authored synthetic fleet.
+        Shared login password is reset from <code class="text-xs">PIHERDER_DEMO_PASSWORD</code>.
+        Type <strong>RESET</strong> to confirm.
+      </p>
+    </div>
+    <form method="post" action="/herder-backups/demo-restore" class="space-y-3"
+          onsubmit="return confirm('Restore demo seed now? All demo fleet data will be replaced.');">
+      <div>
+        <label class="block text-sm mb-1 text-muted" for="demo-confirm">Confirm</label>
+        <input id="demo-confirm" name="confirm" type="text" autocomplete="off" required
+               placeholder="RESET"
+               class="w-full max-w-xs bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent"
+               data-testid="demo-restore-confirm">
+      </div>
+      <button type="submit" class="btn btn-accent text-sm min-h-10" data-testid="demo-restore-submit">
+        Restore seed
+      </button>
+    </form>
+    <p class="text-xs text-muted">
+      Nightly hard wipe (volumes) is still ops-side — see repo
+      <span class="font-mono">docs/DEMO_SITE.md</span>.
+    </p>
+  </div>
+</div>

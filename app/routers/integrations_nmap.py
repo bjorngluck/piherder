@@ -435,6 +435,9 @@ async def nmap_scan_now(
     port_list: Optional[str] = Form(None),
     port_mode: Optional[str] = Form(None),
 ):
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("nmap")
     integration = _require_nmap(session, integration_id)
     cfg = nmap_cfg.parse_nmap_config(integration)
     intensity = (intensity or INTENSITY_DISCOVERY).strip().lower()
@@ -535,6 +538,9 @@ async def nmap_device_deep_scan(
     return_to: str = Form(""),
     return_view: str = Form(""),
 ):
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("nmap")
     integration = _require_nmap(session, integration_id)
     device = session.get(NmapDevice, device_id)
     if not device or device.integration_id != integration.id:

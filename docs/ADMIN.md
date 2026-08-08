@@ -4,7 +4,13 @@ Practical reference for operators and admins: roles, users, security policy, sch
 
 > **Prefer the user wiki** for day-to-day reading: repo [`wiki/`](../wiki/) built with MkDocs (`pip install -r requirements-docs.txt && mkdocs serve`). This file remains the long-form single-document reference and source material for the wiki.
 
-Related: [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [SSO_AUTHENTIK_TEST.md](SSO_AUTHENTIK_TEST.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](DECISION_IOS_PUSH.md) · [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md) · [SECURITY.md](../SECURITY.md)
+Related: [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [SSO_AUTHENTIK_TEST.md](SSO_AUTHENTIK_TEST.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](DECISION_IOS_PUSH.md) · [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md) · [SECURITY.md](../SECURITY.md) · [DEMO_SITE.md](DEMO_SITE.md)
+
+---
+
+## Public demo (`PIHERDER_DEMO_MODE`)
+
+Gated demo at **https://piherder-demo.hacknow.info** (dedicated VPS + Docker Compose + Cloudflare Access). App behaviour: banner, blocked onboard/API tokens, canned jobs, auto-seed. **Maintainer runbook:** [DEMO_SITE.md](DEMO_SITE.md). User-facing blurb: [wiki/operations/demo-site.md](../wiki/operations/demo-site.md). Compose overlay: `docker-compose.demo.yml`. In-app restore: Settings → **Demo** (type `RESET`). Turnstile: `PIHERDER_TURNSTILE_*` on login.
 
 ---
 

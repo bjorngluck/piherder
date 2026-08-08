@@ -50,6 +50,12 @@ x-piherder-app-env: &piherder-app-env
   # Content-Security-Policy (v1.2) — default on; Report-Only for staged tighten
   PIHERDER_CSP: ${PIHERDER_CSP:-true}
   PIHERDER_CSP_REPORT_ONLY: ${PIHERDER_CSP_REPORT_ONLY:-false}
+  # Public demo sandbox (v1.2 Stream D) — leave false on real fleets
+  PIHERDER_DEMO_MODE: ${PIHERDER_DEMO_MODE:-false}
+  PIHERDER_DEMO_EMAIL: ${PIHERDER_DEMO_EMAIL:-demo@hacknow.info}
+  PIHERDER_DEMO_PASSWORD: ${PIHERDER_DEMO_PASSWORD:-Piherder@1}
+  PIHERDER_TURNSTILE_SITE_KEY: ${PIHERDER_TURNSTILE_SITE_KEY:-}
+  PIHERDER_TURNSTILE_SECRET_KEY: ${PIHERDER_TURNSTILE_SECRET_KEY:-}
   # B-retry: rsync vanished files on busy sources (Frigate/NVR)
   PIHERDER_BACKUP_VANISHED_RETRIES: ${PIHERDER_BACKUP_VANISHED_RETRIES:-1}
   PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC: ${PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC:-5}
