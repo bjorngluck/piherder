@@ -510,6 +510,14 @@ async def move_server(
 @router.get("/add", response_class=HTMLResponse)
 async def add_server_form(request: Request, user: User = Depends(get_current_user)):
     """Legacy URL — advanced single form (wizard primary is /servers/new)."""
+    from ..services.demo import reject_if_demo
+
+    demo_block = reject_if_demo("onboard")
+    if demo_block:
+        return RedirectResponse(
+            f"/servers?error=demo&detail={demo_block[:120]}",
+            status_code=303,
+        )
     # Viewer can open form but POST still hits create; match prior open GET.
     # Prefer operator for consistency with wizard.
     return templates_mod.templates.TemplateResponse(
@@ -531,6 +539,9 @@ async def add_server(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("onboard")
     priv_enc = None
     pub = None
     pw_enc = None

@@ -236,6 +236,12 @@
   <button type="button" role="tab" data-settings-tab="api"
           class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'api' else '' }}"
           aria-selected="{{ 'true' if tab == 'api' else 'false' }}">API</button>
+  {% if demo_mode_on|default(false) %}
+  <button type="button" role="tab" data-settings-tab="demo"
+          class="settings-tab-btn btn btn-secondary text-xs sm:text-sm min-h-10 {{ 'is-active' if tab == 'demo' else '' }}"
+          aria-selected="{{ 'true' if tab == 'demo' else 'false' }}"
+          data-testid="settings-tab-demo">Demo</button>
+  {% endif %}
   {% endif %}
 </nav>
 <style>
@@ -251,6 +257,9 @@
 {% include "partials/settings_status.html" %}
 {% include "partials/settings_backup.html" %}
 {% include "partials/settings_api.html" %}
+{% if demo_mode_on|default(false) and is_admin|default(false) %}
+{% include "partials/settings_demo.html" %}
+{% endif %}
 <script>
 (function () {
   var heroByTab = {};

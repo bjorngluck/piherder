@@ -52,6 +52,13 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 | `PIHERDER_BACKUP_VANISHED_RETRIES` | **1** — extra rsync attempts on vanished files |
 | `PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC` | **5** — delay before vanished retry |
 | `PIHERDER_BACKUP_VANISHED_SOFT_OK` | **true** — treat final vanished exit as soft success |
+| `PIHERDER_DEMO_MODE` | **false** (default) — demo sandbox (banner, hard blocks, canned jobs). Leave **false** on real fleets |
+| `PIHERDER_DEMO_EMAIL` | Demo shared admin email when seeding (demo mode only) |
+| `PIHERDER_DEMO_PASSWORD` | Demo shared admin password when seeding (demo mode only) |
+| `PIHERDER_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key (empty = widget off) |
+| `PIHERDER_TURNSTILE_SECRET_KEY` | Turnstile secret; required with site key for login verification |
+
+Public try-the-demo: [Public demo](demo-site.md). Maintainer VPS runbook (repo): [DEMO_SITE.md](https://github.com/bjorngluck/piherder/blob/main/docs/DEMO_SITE.md).
 
 ## Host paths
 

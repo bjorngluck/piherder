@@ -373,6 +373,18 @@
   </div>
   {% endif %}
 
+  {# Demo sandbox — non-dismissible (Stream D); show on auth pages too #}
+  {% if demo_mode is defined and demo_mode() %}
+  <div id="ph-demo-banner" class="border-b border-border bg-surface" role="status" data-testid="demo-banner">
+    <div class="max-w-5xl mx-auto px-4 py-2 text-sm text-center text-muted flex flex-wrap items-center justify-center gap-2">
+      <strong class="text-accent">{{ demo_banner() if demo_banner is defined else "Demo — shared account · data resets · some actions simulated" }}</strong>
+      {% if user and user.role is defined and (user.role or '')|lower == 'admin' %}
+      <a href="/herder-backups?tab=demo" class="text-xs text-accent hover:underline" data-testid="demo-restore-link">Restore seed</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   {% if user %}
   {# New GitHub release notice (dismissed per browser via localStorage) #}
   {% set _upd = get_update_notice() if get_update_notice is defined else none %}

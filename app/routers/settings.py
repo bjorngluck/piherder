@@ -41,7 +41,7 @@ from ..services import stale_data_cleanup as sdc
 
 router = APIRouter(tags=["settings"])
 
-_TABS = frozenset({"general", "fleet", "backup", "status", "api", "alerts"})
+_TABS = frozenset({"general", "fleet", "backup", "status", "api", "alerts", "demo"})
 
 
 def _form_on(value: Optional[str]) -> bool:
@@ -180,6 +180,8 @@ async def settings_page(
         except Exception:
             api_meta = None
 
+    from ..services.demo import demo_mode
+
     tab = (request.query_params.get("tab") or "general").strip().lower()
     if tab not in _TABS:
         tab = "general"
@@ -189,6 +191,9 @@ async def settings_page(
         tab = "general"
     # Instance DR + fleet/security policy writes are admin-only
     if tab in ("backup", "fleet", "alerts") and not is_admin:
+        tab = "general"
+    # Demo sandbox tab only when DEMO_MODE and admin
+    if tab == "demo" and (not is_admin or not demo_mode()):
         tab = "general"
     qp = request.query_params
     if (
@@ -205,6 +210,8 @@ async def settings_page(
         tab = "fleet"
     if qp.get("security_saved") or qp.get("data_cleanup_saved") or qp.get("data_cleanup_queued"):
         tab = "general"
+    if qp.get("demo_restored") or qp.get("demo_error"):
+        tab = "demo" if is_admin and demo_mode() else tab
     if qp.get("stack_checked"):
         tab = "status" if is_admin else tab
     if (
@@ -320,6 +327,15 @@ async def settings_page(
             "primary_label": "tokens",
             "primary_cls": "",
             "caption": f"{tz_iana} · API tokens",
+        },
+        "demo": {
+            "title": "Demo sandbox",
+            "sub": "Restore the shared synthetic fleet after invitees rearrange it.",
+            "viz": "orb",
+            "primary": "seed",
+            "primary_label": "demo",
+            "primary_cls": "",
+            "caption": "Public demo · shared admin",
         },
     }
     hero_tab = settings_hero_by_tab.get(tab) or settings_hero_by_tab["general"]
@@ -445,7 +461,49 @@ async def settings_page(
             "data_cleanup_next_run": data_cleanup_next_run,
             "oidc_redirect_uri": _oidc_redirect_uri(),
             "oidc_role_map_rows": _oidc_role_map_rows(cfg),
+            "demo_mode_on": demo_mode(),
         },
+    )
+
+
+@router.post("/herder-backups/demo-restore")
+async def demo_restore_seed(
+    confirm: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """Wipe fleet + re-seed (demo mode only). Confirm phrase: RESET."""
+    from ..services.demo import demo_mode
+    from ..services.demo_seed import seed_demo_fleet
+
+    if not demo_mode():
+        raise HTTPException(404, detail="Not a demo instance")
+    if (confirm or "").strip().upper() != "RESET":
+        return RedirectResponse(
+            _settings_url("demo", demo_error="Type RESET to confirm"),
+            status_code=303,
+        )
+    try:
+        summary = seed_demo_fleet(session, force=True)
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                action="demo_reset",
+                status="success",
+                details=f"In-app restore · servers={summary.get('servers')}",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        return RedirectResponse(
+            _settings_url("demo", demo_error=str(e)[:120]),
+            status_code=303,
+        )
+    return RedirectResponse(
+        _settings_url("demo", demo_restored="1"),
+        status_code=303,
     )
 
 
@@ -591,6 +649,17 @@ async def create_api_token_form(
     session: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import DemoBlocked, demo_message, reject_if_demo
+
+    if reject_if_demo("api_token"):
+        return RedirectResponse(
+            _settings_url(
+                "api",
+                error=demo_message("api_token")[:120],
+                api_panel="tokens",
+            ),
+            status_code=303,
+        )
     scopes = _scopes_from_form(
         scope_read,
         scope_jobs,
@@ -599,13 +668,19 @@ async def create_api_token_form(
         scope_feature_os,
         scope_feature_docker,
     )
-    row, plain = tok_svc.create_api_token(
-        session,
-        name=name,
-        created_by=user,
-        scopes=scopes,
-        allowed_cidrs=allowed_cidrs or None,
-    )
+    try:
+        row, plain = tok_svc.create_api_token(
+            session,
+            name=name,
+            created_by=user,
+            scopes=scopes,
+            allowed_cidrs=allowed_cidrs or None,
+        )
+    except DemoBlocked as e:
+        return RedirectResponse(
+            _settings_url("api", error=str(e.message)[:120], api_panel="tokens"),
+            status_code=303,
+        )
     try:
         session.add(
             make_audit_log(

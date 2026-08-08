@@ -275,6 +275,9 @@ def create_api_token(
     expires_at: datetime | None = None,
 ) -> tuple[ApiToken, str]:
     """Create token row; returns (row, plaintext once)."""
+    from .demo import raise_if_demo
+
+    raise_if_demo("api_token")
     plain = generate_plaintext_token()
     row = ApiToken(
         name=(name or "unnamed").strip()[:120] or "unnamed",

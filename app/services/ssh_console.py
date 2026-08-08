@@ -54,6 +54,11 @@ class ConsoleDenied(Exception):
 
 
 def console_enabled() -> bool:
+    # Demo sandbox never exposes webshell (W7) until optional sandbox host (D5)
+    from .demo import demo_mode
+
+    if demo_mode():
+        return False
     return bool(getattr(settings, "PIHERDER_SSH_CONSOLE", False))
 
 

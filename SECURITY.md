@@ -65,13 +65,28 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
 
 **Do not** `pip install -e ".[dev]"` for release/RC images without the lock — that re-resolves floating versions from PyPI.
 
+## Public demo sandbox (`PIHERDER_DEMO_MODE`)
+
+When `PIHERDER_DEMO_MODE=true` (e.g. **https://piherder-demo.hacknow.info** behind Cloudflare Access):
+
+| Risk | Control |
+|------|---------|
+| Shared admin abuse / data pollution | Access gate + optional Turnstile + rate limits + nightly / in-app seed reset |
+| API scrape / automation | Token create and Bearer auth **hard-blocked** |
+| Fake “I onboarded my Pi” | Wizard / SSH test / key deploy blocked |
+| Accidental lab access | No real keys in seed; console off; job mutations are canned; demo VPS isolated from home lab |
+| Origin bypass | Prefer CF Tunnel or firewall to CF IPs only |
+
+Demo must use **unique** Fernet/session secrets and never hold decryptable production host keys. Maintainer runbook: [docs/DEMO_SITE.md](docs/DEMO_SITE.md). User-facing note: [wiki/operations/demo-site.md](wiki/operations/demo-site.md).
+
 ## Operational recommendations
 
 - Use a unique strong `PIHERDER_MASTER_KEY` and `SECRET_KEY` (see [`.env.example`](.env.example) for the full env catalog). Web logs a **warning** if `SECRET_KEY` looks like a stock/dev default.  
 - Prefer SSH key auth; clear any stored SSH passwords after deploy.  
 - Enable 2FA for admin accounts (TOTP and/or **passkeys**); consider **Force 2FA** in Settings. Treat **trusted devices** as full session risk until revoked. Passkeys need HTTPS + matching `PIHERDER_HOSTNAME` / `PIHERDER_PUBLIC_URL` (except localhost).  
 - If using **SSO / OIDC** (v1.2+): keep at least one **break-glass local admin password**; map IdP groups carefully (default role is **viewer**); treat PiHerder 2FA as defense-in-depth after the IdP (SSO does not skip enrolled 2FA). See [wiki SSO](wiki/account-security/sso-oidc.md) · [FEATURE_PLAN_SSO_OIDC.md](docs/FEATURE_PLAN_SSO_OIDC.md).  
-- **CSP (v1.2+):** leave `PIHERDER_CSP=true` in production. Use `PIHERDER_CSP_REPORT_ONLY=true` only while validating a tighter policy. Console assets (xterm) are vendored under `/static/vendor/xterm/` so they need no CDN allowlist.  
+- **CSP (v1.2+):** leave `PIHERDER_CSP=true` in production. Use `PIHERDER_CSP_REPORT_ONLY=true` only while validating a tighter policy. Console assets (xterm) are vendored under `/static/vendor/xterm/` so they need no CDN allowlist. When Turnstile is configured, CSP allows `https://challenges.cloudflare.com` for script/frame/connect.  
+- **Turnstile (optional):** set both `PIHERDER_TURNSTILE_SITE_KEY` and `PIHERDER_TURNSTILE_SECRET_KEY` to require a challenge on `POST /auth/login`. Empty keys leave login unchanged (lab-friendly). Recommended on the public demo.  
 - **Web SSH console** (v1.2+): default **off** (`PIHERDER_SSH_CONSOLE=false`). Designed as **in-app only** (not a public remote API):
   - **operator+ only** (viewer 403); session cookie required (no Bearer `/api/v1` console)
   - Ticket mint requires **same-site browser** Origin/Referer; rejects `Sec-Fetch-Site: cross-site`

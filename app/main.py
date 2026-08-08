@@ -67,18 +67,33 @@ async def lifespan(app: FastAPI):
 
     # First boot: no default user. Empty DB → open /auth/register creates the admin;
     # registration then closes unless ALLOW_OPEN_REGISTRATION=true.
+    # Demo mode: auto-seed shared admin + synthetic fleet when empty.
     try:
+        from .services.demo import demo_mode
+        from .services.demo_seed import ensure_demo_seeded
+
         with Session(engine) as db:
-            existing = db.exec(select(User)).first()
-            if not existing:
-                print(
-                    "No users yet — open the UI and register the first admin account. "
-                    "Self-registration closes after that (unless ALLOW_OPEN_REGISTRATION=true)."
-                )
+            if demo_mode():
+                result = ensure_demo_seeded(db)
+                if result:
+                    print(f"Demo seed applied: {result}")
+                else:
+                    existing = db.exec(select(User)).first()
+                    print(
+                        f"Demo mode — fleet ready"
+                        + (f" (user: {existing.email})" if existing else "")
+                    )
             else:
-                print(f"Users present (example: {existing.email})")
+                existing = db.exec(select(User)).first()
+                if not existing:
+                    print(
+                        "No users yet — open the UI and register the first admin account. "
+                        "Self-registration closes after that (unless ALLOW_OPEN_REGISTRATION=true)."
+                    )
+                else:
+                    print(f"Users present (example: {existing.email})")
     except Exception as e:
-        logger.warning("User bootstrap check skipped: %s", e)
+        logger.warning("User bootstrap / demo seed skipped: %s", e)
 
     # Warn on insecure production defaults (dev compose still works)
     try:

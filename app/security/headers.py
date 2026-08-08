@@ -42,6 +42,12 @@ def _public_origin() -> Optional[str]:
     return None
 
 
+def _turnstile_on() -> bool:
+    site = (getattr(settings, "PIHERDER_TURNSTILE_SITE_KEY", None) or "").strip()
+    secret = (getattr(settings, "PIHERDER_TURNSTILE_SECRET_KEY", None) or "").strip()
+    return bool(site and secret)
+
+
 def build_csp() -> str:
     """Return the Content-Security-Policy value (no header name)."""
     # script-src: 'unsafe-inline' for template scripts; 'unsafe-eval' for Tailwind Play
@@ -55,6 +61,15 @@ def build_csp() -> str:
             connect.append("wss://" + origin[len("https://") :])
         elif origin.startswith("http://"):
             connect.append("ws://" + origin[len("http://") :])
+
+    script_src = ["'self'", "'unsafe-inline'", "'unsafe-eval'"]
+    frame_src = ["'self'"]
+    style_src = ["'self'", "'unsafe-inline'"]
+    # Cloudflare Turnstile widget (only when keys configured)
+    if _turnstile_on():
+        script_src.append("https://challenges.cloudflare.com")
+        frame_src.append("https://challenges.cloudflare.com")
+        connect.append("https://challenges.cloudflare.com")
 
     # de-dupe preserve order
     seen = set()
@@ -73,15 +88,15 @@ def build_csp() -> str:
         "object-src 'none'",
         "frame-ancestors 'self'",
         "form-action 'self'",
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-        "style-src 'self' 'unsafe-inline'",
+        "script-src " + " ".join(script_src),
+        "style-src " + " ".join(style_src),
         "img-src 'self' data: blob:",
         "font-src 'self' data:",
         "connect-src " + " ".join(connect_parts),
         "worker-src 'self'",
         "manifest-src 'self'",
         "media-src 'self'",
-        "frame-src 'self'",
+        "frame-src " + " ".join(frame_src),
     ]
     # Only upgrade on HTTPS public URL (avoid breaking plain http labs)
     if origin and origin.startswith("https://"):
