@@ -134,17 +134,21 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 
 ### Journey F — Disaster recovery for PiHerder itself {#journey-f}
 
-**Goal:** You can rebuild the control plane without losing fleet config.
+**Goal:** You can rebuild a **fully functional control plane** (keys, users, maps, integrations) after losing the herder host — and you know honestly what is **not** in that pack.
 
 | Step | Action | Why |
 |------|--------|-----|
 | 1 | Offline copy of `PIHERDER_MASTER_KEY` | Encrypted fields useless without it |
-| 2 | [Self-backup](../operations/self-backup.md) run once | Archive of DB config, users, keys, templates |
-| 3 | Schedule herder backup | Regular DR hygiene |
-| 4 | Know [Volumes](../operations/volumes.md) | What is in `piherder_backups` vs fleet `backups` |
-| 5 | Practice dry-run restore on a lab stack | Confidence before a real outage |
+| 2 | [Self-backup](../operations/self-backup.md) run once | Archive of control plane (not rsync trees) |
+| 3 | Read **Honest DR** scenarios on that page | Scenario A (min) vs C (comfort pack) |
+| 4 | Schedule herder backup | Regular DR hygiene |
+| 5 | Know [Volumes](../operations/volumes.md) | `piherder_backups` ≠ fleet `/backups` |
+| 6 | Optional: copy fleet backup disk + edge `./certs` | File DR + herder HTTPS without re-issue |
+| 7 | Practice dry-run restore on a lab stack **with the same master key** | Confidence before a real outage |
 
-**Done when:** Master key + at least one archive live **off** the herder host; restore dry-run understood.
+**Done when:** Master key + at least one archive live **off** the herder host; you can explain “control plane yes / host rsync no”; restore dry-run understood.
+
+**Not done when:** You only backed up the herder and expect Frigate recordings or every nmap XML to reappear — those are out of self-backup scope (see [Self-backup — not included](../operations/self-backup.md#not-included-by-design)).
 
 ---
 
