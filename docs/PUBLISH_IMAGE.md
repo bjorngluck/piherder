@@ -158,10 +158,11 @@ Add when account + token exist and first manual push has worked once.
 ## v1.1.0 publish checklist (maintainer)
 
 - [x] `APP_VERSION` / `pyproject.toml` = `1.1.0`
-- [x] [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) finalized (Date, Status **Ready to tag** → **Tagged** at publish)
-- [ ] Unit pack green; `mkdocs build --strict`; E2E green on PR
-- [ ] Multi-arch push: `1.1.0` / `1.1` / `latest`
-- [ ] Git tag `v1.1.0` (optional GitHub Release notes in UI)
+- [x] [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) finalized · Status **Tagged**
+- [x] Unit / Docs / E2E green (PR #1 + `main` merge)
+- [x] Multi-arch push: `1.1.0` / `1.1` / `latest` (amd64 + arm64) · digest `sha256:7256a9cea6ba403b33c28dd74d7176c3c6e890850419efd70e7b7fb02ad725c1`
+- [x] Git tag `v1.1.0`
+- [ ] Optional: GitHub Release UI notes
 
 ### Prior: v1.0.0
 
