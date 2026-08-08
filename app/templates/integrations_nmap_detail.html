@@ -7,7 +7,10 @@
 
 <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
   <div>
-    <h2 class="text-lg font-semibold tracking-tight text-text">{{ integration.name }}</h2>
+    <h2 class="text-lg font-semibold tracking-tight text-text feature-title-with-pin">
+      <span>{{ integration.name }}</span>
+      {% include "partials/pin_button.html" %}
+    </h2>
     <div class="text-xs text-muted mt-0.5">LAN discovery · nmap worker · opt-in scans only</div>
     <div class="flex flex-wrap gap-2 mt-2 text-xs">
       <span class="status-pill status-running">nmap</span>
@@ -18,7 +21,7 @@
       {% else %}<span class="status-pill feature-off">vuln pack empty</span>{% endif %}
     </div>
   </div>
-  <div class="flex flex-wrap gap-2">
+  <div class="flex flex-wrap gap-2 items-center">
     {% if can_mutate %}
     <form method="post" action="/integrations/{{ integration.id }}/poll">
       <button class="btn btn-secondary min-h-11" type="submit">Refresh status</button>
@@ -34,10 +37,12 @@
   {% if msg == 'device_mapped' %}Saved — name, device type, and map role updated.
   {% elif msg == 'device_known' %}Marked known (reviewed).
   {% elif msg == 'device_new' %}Marked new (back in inbox).
-  {% elif msg == 'device_ignored' %}Device ignored.
-  {% elif msg == 'device_restored' %}Device restored to known.
+  {% elif msg == 'device_ignored' %}Device hidden (ignored) — off maps and Hosts overlay.
+  {% elif msg == 'device_restored' %}Device unhidden → known.
   {% elif msg == 'device_linked' %}Linked to server.
   {% elif msg == 'device_unlinked' %}Unlinked → known.
+  {% elif msg == 'device_purged' %}Device purged permanently. A future scan may re-discover it as new.
+  {% elif msg == 'devices_purged_offline' %}Offline devices purged.
   {% else %}{{ msg }}{% endif %}{% if detail %} — {{ detail }}{% endif %}
 </div>
 {% endif %}
@@ -428,6 +433,7 @@
     <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.total if device_stats else device_rows|length }}</span><span class="nmap-stat-l">hosts</span></div>
     <div class="nmap-stat"><span class="nmap-stat-n text-accent">{{ device_stats.new if device_stats else 0 }}</span><span class="nmap-stat-l">new</span></div>
     <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.linked if device_stats else 0 }}</span><span class="nmap-stat-l">linked</span></div>
+    <div class="nmap-stat"><span class="nmap-stat-n {% if device_stats and device_stats.stale %}text-warning{% endif %}">{{ device_stats.stale if device_stats else 0 }}</span><span class="nmap-stat-l">offline</span></div>
     <div class="nmap-stat"><span class="nmap-stat-n">{{ device_stats.open_ports if device_stats else 0 }}</span><span class="nmap-stat-l">open ports</span></div>
     {% endif %}
   </div>
@@ -442,10 +448,13 @@
   {% if dview != 'map' %}
   <div class="nmap-filter-bar" role="search" aria-label="Filter devices" data-testid="nmap-devices-filter-bar">
     <div class="nmap-filters" role="group" aria-label="Filter by state">
-      <a href="?tab=devices" class="nmap-filter {% if not state_filter %}is-active{% endif %}">All</a>
-      {% for st, stlab in [('new','New'),('known','Known'),('linked','Linked'),('ignored','Ignored'),('stale','Offline')] %}
+      <a href="?tab=devices" class="nmap-filter {% if not state_filter %}is-active{% endif %}"
+         data-testid="nmap-filter-all">All{% if device_stats %} <span class="nmap-filter-n">{{ device_stats.total }}</span>{% endif %}</a>
+      {% for st, stlab in [('new','New'),('known','Known'),('linked','Linked'),('ignored','Hidden'),('stale','Offline')] %}
+      {% set stcount = device_stats.get(st, 0) if device_stats else 0 %}
       <a href="?tab=devices&state={{ st }}" class="nmap-filter {% if state_filter == st %}is-active{% endif %}"
-         title="{% if st == 'new' %}Unreviewed inbox{% elif st == 'known' %}Reviewed / acknowledged{% elif st == 'stale' %}Not seen recently (flagged offline — not auto-removed){% else %}{{ stlab }}{% endif %}">{{ stlab }}</a>
+         data-testid="nmap-filter-{{ st }}"
+         title="{% if st == 'new' %}Unreviewed inbox{% elif st == 'known' %}Reviewed / acknowledged{% elif st == 'ignored' %}Hidden from maps (Ignore) — still in DB{% elif st == 'stale' %}Not seen recently (offline flag — never auto-deleted; purge manually){% else %}{{ stlab }}{% endif %}">{{ stlab }}{% if device_stats %} <span class="nmap-filter-n">{{ stcount }}</span>{% endif %}</a>
       {% endfor %}
     </div>
     <div class="nmap-filter-search-wrap">
@@ -456,6 +465,20 @@
              data-testid="nmap-devices-search">
     </div>
   </div>
+  {% if can_mutate and device_stats and device_stats.stale and state_filter == 'stale' %}
+  <form method="post"
+        action="/integrations/{{ integration.id }}/nmap/devices/purge-offline"
+        class="mb-3 flex flex-wrap items-center gap-2"
+        data-testid="nmap-purge-offline-form"
+        onsubmit="return confirm('Permanently delete all offline devices? Future scans may re-discover them as new. This cannot be undone.');">
+    <button type="submit" class="btn btn-secondary text-xs min-h-9 text-danger border-danger"
+            data-testid="nmap-purge-offline-btn"
+            title="Remove offline rows only — never automatic">
+      Purge {{ device_stats.stale }} offline…
+    </button>
+    <span class="text-[11px] text-muted">Permanent delete · offline only · not auto</span>
+  </form>
+  {% endif %}
   {% else %}
   <div class="nmap-filter-bar nmap-map-toolbar" role="search" aria-label="Filter network map"
        data-testid="nmap-network-filter-bar">
@@ -485,7 +508,7 @@
   <div class="nmap-host-list-head">
     <span>Host</span>
     <span class="ph-only-sm-up">Services</span>
-    <span>State</span>
+    <span>Last seen · state</span>
   </div>
   <div class="nmap-host-list-body" id="nmap-host-list">
     {% for item in device_rows %}
@@ -494,7 +517,7 @@
     {% set dlab = item.label or d.display_name or d.hostname or d.ip_address %}
     <a href="?tab=devices{% if state_filter %}&state={{ state_filter }}{% endif %}&device={{ d.id }}"
        class="nmap-host-row {% if d.state == 'stale' %}nmap-host-row--stale{% endif %} {% if device and device.id == d.id %}is-active{% endif %}"
-       data-search="{{ (d.ip_address ~ ' ' ~ (d.display_name or '') ~ ' ' ~ (d.hostname or '') ~ ' ' ~ (d.mac_address or '') ~ ' ' ~ (d.mac_vendor or '') ~ ' ' ~ d.state ~ ' offline ' ~ (d.map_role or '') ~ ' ' ~ (prof.kind or '') ~ ' ' ~ (prof.label or ''))|lower }}">
+       data-search="{{ (d.ip_address ~ ' ' ~ (d.display_name or '') ~ ' ' ~ (d.hostname or '') ~ ' ' ~ (d.mac_address or '') ~ ' ' ~ (d.mac_vendor or '') ~ ' ' ~ d.state ~ ' offline hidden ignore ' ~ (item.last_seen_label or '') ~ ' ' ~ (d.map_role or '') ~ ' ' ~ (prof.kind or '') ~ ' ' ~ (prof.label or ''))|lower }}">
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-1.5 min-w-0">
           <span class="text-sm font-medium text-text truncate" title="{{ dlab }}">{{ dlab }}</span>
@@ -522,10 +545,15 @@
           <span class="text-[10px] text-muted">{{ item.open_ports or 0 }} open</span>
         {% endif %}
       </div>
-      <div>
+      <div class="nmap-host-meta text-right shrink-0">
+        <div class="nmap-last-seen text-[10px] text-muted tabular-nums"
+             data-testid="nmap-last-seen"
+             title="{{ item.last_seen_title or 'Last seen unknown' }}">
+          {{ item.last_seen_label or '—' }}
+        </div>
         <span class="nmap-state nmap-state--{{ d.state }}"
-              title="{% if d.state == 'stale' %}Not seen recently — flagged offline; never auto-deleted{% else %}{{ d.state }}{% endif %}">
-          {% if d.state == 'stale' %}offline{% else %}{{ d.state }}{% endif %}
+              title="{% if d.state == 'stale' %}Not seen recently — flagged offline; never auto-deleted — purge manually if unwanted{% elif d.state == 'ignored' %}Hidden from maps{% else %}{{ d.state }}{% endif %}">
+          {% if d.state == 'stale' %}offline{% elif d.state == 'ignored' %}hidden{% else %}{{ d.state }}{% endif %}
         </span>
       </div>
     </a>
@@ -827,7 +855,10 @@
         {% if s.enabled %}<span class="status-pill status-success">on</span>
         {% else %}<span class="status-pill feature-off">off</span>{% endif %}
         <span class="font-mono text-[11px] text-muted">
-          {% if s.cron %}{{ s.cron }}{% elif s.interval_hours %}every {{ s.interval_hours }}h{% else %}—{% endif %}
+          {% if s.cron %}
+          <span title="{{ s.cron }}">{{ s.cron | cron_human(get_app_timezone()) }}</span>
+          <span class="font-mono text-[10px] opacity-70">{{ s.cron }}</span>
+          {% elif s.interval_hours %}{{ s.interval_hours | interval_human }}{% else %}—{% endif %}
         </span>
         {% if opts.script_preset and opts.script_preset != 'none' %}
         <span class="status-pill status-running">{{ opts.script_preset }}</span>
@@ -900,14 +931,25 @@
             </select>
           </div>
           <div>
-            <label class="block text-xs text-muted mb-1" for="sch_cron">Cron (5 fields)</label>
+            <label class="block text-xs text-muted mb-1" for="sch_cron">Schedule (cron)</label>
+            <select class="input w-full text-sm mb-1" aria-label="Cron preset"
+                    onchange="var el=document.getElementById('sch_cron'); if(this.value){el.value=this.value;}">
+              <option value="">Custom / advanced cron…</option>
+              {% for val, lab in cron_presets %}
+              <option value="{{ val }}" {% if es and es.cron == val %}selected{% endif %}>{{ lab }}</option>
+              {% endfor %}
+            </select>
             <input id="sch_cron" name="cron" class="input w-full font-mono text-sm" placeholder="0 3 * * *"
                    value="{{ es.cron if es and es.cron else '' }}">
+            {% if es and es.cron %}
+            <p class="text-[10px] text-muted mt-1">{{ es.cron | cron_human(get_app_timezone()) }}</p>
+            {% endif %}
           </div>
           <div>
             <label class="block text-xs text-muted mb-1" for="sch_interval">Or interval hours</label>
             <input id="sch_interval" name="interval_hours" type="number" min="1" class="input w-full" placeholder="6"
                    value="{{ es.interval_hours if es and es.interval_hours else '' }}">
+            <p class="text-[10px] text-muted mt-1">Alternative to cron — e.g. 6 = every 6 hours</p>
           </div>
           <div class="sm:col-span-2">
             <label class="block text-xs text-muted mb-1" for="sch_use_syn">TCP scan type</label>

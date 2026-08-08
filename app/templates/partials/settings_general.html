@@ -77,10 +77,19 @@
       </label>
       <div class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
         <div>
-          <label class="block text-xs text-muted mb-1">Cron</label>
+          <label class="block text-xs text-muted mb-1">Schedule</label>
+          <select class="w-full sm:w-56 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 mb-1"
+                  aria-label="Cleanup schedule preset"
+                  onchange="var el=this.form.querySelector('[name=data_cleanup_cron]'); if(this.value&&el){el.value=this.value;}">
+            <option value="">Custom / advanced cron…</option>
+            {% for val, lab in cron_presets %}
+            <option value="{{ val }}" {% if (dc.cron or '30 4 * * *') == val %}selected{% endif %}>{{ lab }}</option>
+            {% endfor %}
+          </select>
           <input type="text" name="data_cleanup_cron" value="{{ dc.cron or '30 4 * * *' }}"
                  class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11"
                  placeholder="30 4 * * *">
+          <p class="text-[10px] text-muted mt-1">{{ (dc.cron or '30 4 * * *') | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}</p>
         </div>
       </div>
 

@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 
 from ...models import Integration, IntegrationBinding, Server
 from ...security.encryption import decrypt_str, encrypt_str
+from . import generic_url as gen
 from . import grafana as gf
 from . import npm as npm_mod
 from . import pihole as ph
@@ -22,6 +23,7 @@ TYPE_GRAFANA = "grafana"
 TYPE_PIHOLE = "pihole"
 TYPE_NPM = "npm"
 TYPE_NMAP = "nmap"  # LAN discovery — see FEATURE_PLAN_LAN_NMAP.md
+TYPE_GENERIC_URL = "generic_url"  # HA / Frigate / n8n / custom bookmarks (Int-gen)
 ROLE_SSH = "ssh_reachability"
 ROLE_SERVICE = "service"  # HTTP(s) / app / cert monitoring (Kuma)
 ROLE_DASHBOARD = "dashboard"  # Grafana dashboard deep link per server
@@ -30,6 +32,7 @@ ROLE_PIHOLE_HOST = "pihole_host"  # Pi-hole instance → fleet host / docker sco
 
 DEFAULT_PIHOLE_POLL_SEC = 120
 DEFAULT_NPM_POLL_SEC = 120
+DEFAULT_GENERIC_POLL_SEC = gen.DEFAULT_POLL_SEC
 
 # Grafana binding kinds (stored in external_meta_json.kind)
 GRAFANA_KIND_METRICS = "metrics"  # host node exporter / host metrics
@@ -411,6 +414,126 @@ def _set_qt(cfg: dict[str, Any], key: str, value: Optional[str], *, default: str
         cfg[key] = v
     else:
         cfg.pop(key, None)
+
+
+def generic_product(integration: Integration) -> str:
+    return gen.normalize_product(parse_config(integration.config_json).get("product"))
+
+
+def generic_health_path(integration: Integration) -> str:
+    cfg = parse_config(integration.config_json)
+    raw = cfg.get("health_path")
+    if raw is None or str(raw).strip() == "":
+        return gen.default_health_path(generic_product(integration))
+    return gen.normalize_path(str(raw))
+
+
+def generic_notes(integration: Integration) -> str:
+    return str(parse_config(integration.config_json).get("notes") or "").strip()
+
+
+def create_generic_url(
+    session: Session,
+    *,
+    name: str,
+    base_url: str,
+    product: str = "custom",
+    health_path: str = "",
+    notes: str = "",
+    api_key: str = "",
+    poll_interval_sec: int = DEFAULT_GENERIC_POLL_SEC,
+    tls_verify_flag: bool = True,
+    enabled: bool = True,
+) -> Integration:
+    """Create a generic URL entry (HA / Frigate / n8n / custom)."""
+    prod = gen.normalize_product(product)
+    base = gen.normalize_base_url(base_url)
+    path = gen.normalize_path(health_path) if (health_path or "").strip() else gen.default_health_path(prod)
+    iv = max(MIN_POLL_INTERVAL_SEC, min(MAX_POLL_INTERVAL_SEC, int(poll_interval_sec)))
+    now = datetime.utcnow()
+    cfg: dict[str, Any] = {
+        "poll_interval_sec": iv,
+        "tls_verify": bool(tls_verify_flag),
+        "product": prod,
+        "health_path": path,
+    }
+    note = (notes or "").strip()
+    if note:
+        cfg["notes"] = note[:2000]
+    display = (name or "").strip() or gen.default_name_for_product(prod)
+    row = Integration(
+        type=TYPE_GENERIC_URL,
+        name=display,
+        base_url=base,
+        enabled=enabled,
+        config_json=dump_config(cfg),
+        credentials_encrypted=encrypt_credentials((api_key or "").strip())
+        if (api_key or "").strip()
+        else None,
+        created_at=now,
+        updated_at=now,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
+
+
+def update_generic_url(
+    session: Session,
+    integration: Integration,
+    *,
+    name: Optional[str] = None,
+    base_url: Optional[str] = None,
+    product: Optional[str] = None,
+    health_path: Optional[str] = None,
+    notes: Optional[str] = None,
+    api_key: Optional[str] = None,
+    poll_interval_sec: Optional[int] = None,
+    tls_verify_flag: Optional[bool] = None,
+    enabled: Optional[bool] = None,
+    clear_token: bool = False,
+) -> Integration:
+    if integration.type != TYPE_GENERIC_URL:
+        raise ValueError("Not a generic URL integration")
+    if name is not None:
+        integration.name = name.strip() or integration.name
+    if base_url is not None and base_url.strip():
+        integration.base_url = gen.normalize_base_url(base_url)
+    if clear_token:
+        integration.credentials_encrypted = None
+    elif api_key is not None and api_key.strip():
+        integration.credentials_encrypted = encrypt_credentials(api_key.strip())
+    cfg = parse_config(integration.config_json)
+    if product is not None:
+        cfg["product"] = gen.normalize_product(product)
+    if health_path is not None:
+        p = (health_path or "").strip()
+        cfg["health_path"] = (
+            gen.normalize_path(p)
+            if p
+            else gen.default_health_path(cfg.get("product") or "custom")
+        )
+    if notes is not None:
+        n = notes.strip()
+        if n:
+            cfg["notes"] = n[:2000]
+        else:
+            cfg.pop("notes", None)
+    if poll_interval_sec is not None:
+        cfg["poll_interval_sec"] = max(
+            MIN_POLL_INTERVAL_SEC, min(MAX_POLL_INTERVAL_SEC, int(poll_interval_sec))
+        )
+    if tls_verify_flag is not None:
+        cfg["tls_verify"] = bool(tls_verify_flag)
+    if enabled is not None:
+        integration.enabled = bool(enabled)
+    integration.config_json = dump_config(cfg)
+    integration.updated_at = datetime.utcnow()
+    session.add(integration)
+    session.commit()
+    session.refresh(integration)
+    return integration
 
 
 def create_grafana(
@@ -1387,6 +1510,17 @@ def binding_open_url(
     *,
     server: Optional[Server] = None,
 ) -> str:
+    if integration.type == TYPE_GENERIC_URL:
+        meta = parse_binding_meta(binding)
+        override = (meta.get("url") or "").strip()
+        if override.startswith("http://") or override.startswith("https://"):
+            return override
+        path = (meta.get("path") or "").strip()
+        if not path:
+            eid = (binding.external_id or "").strip()
+            if eid and eid not in ("url", "root", "link", "generic"):
+                path = eid if eid.startswith("/") or eid.startswith("http") else f"/{eid}"
+        return gen.open_url(integration.base_url, path)
     if integration.type == TYPE_NPM:
         # Prefer open proxy hosts UI; id-specific deep links vary by NPM version
         return npm_mod.open_npm_url(integration.base_url, "/nginx/proxy")

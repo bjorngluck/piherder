@@ -4,6 +4,7 @@
 {% with catalog_section='dns', catalog_pulse=catalog_pulse %}
 {% include "partials/catalog_nav.html" %}
 {% endwith %}
+{% include "partials/device_kind_icons.html" %}
 
 {% set phys = physical if physical is defined else (view.physical if view is defined else {}) %}
 {% set svg = phys.svg if phys.svg is defined else {} %}
@@ -17,7 +18,10 @@
         <span class="text-muted">·</span>
         <a href="/dns/logical{% if focus_id %}?focus={{ focus_id }}{% endif %}#map" class="text-accent hover:underline">Path map</a>
       </div>
-      <h1 class="text-2xl font-semibold tracking-tight">Hosts map</h1>
+      <h1 class="text-2xl font-semibold tracking-tight feature-title-with-pin">
+        <span>Hosts map</span>
+        {% include "partials/pin_button.html" %}
+      </h1>
       <p class="text-sm text-muted mt-1 max-w-2xl">
         <strong class="text-text">Internet</strong> → router → <strong class="text-text">LAN fan</strong>
         (fleet on a circle; <strong class="text-text">Discovered</strong> expands the zone to include network devices);
@@ -91,7 +95,14 @@
         <header class="fabric-rack-head">
           <div class="flex items-start justify-between gap-2">
             <div>
-              <a href="{{ rack.href }}" class="fabric-rack-title">{{ rack.name }}</a>
+              <div class="flex items-center gap-1.5 min-w-0">
+                <svg class="ph-kind-icon ph-kind-icon--rack" aria-hidden="true" focusable="false"
+                     title="{{ rack.device_kind_label or rack.icon_kind or 'host' }}">
+                  <use href="#ph-kind-{{ rack.icon_kind or 'server' }}"
+                       xlink:href="#ph-kind-{{ rack.icon_kind or 'server' }}"/>
+                </svg>
+                <a href="{{ rack.href }}" class="fabric-rack-title">{{ rack.name }}</a>
+              </div>
               {% if rack.is_discovered %}
               <span class="fabric-badge fabric-badge--discovered">discovered</span>
               {% if rack.device_kind_label and rack.device_kind != 'unknown' %}
@@ -158,6 +169,10 @@
           <path d="M4 6h16M4 12h16M4 18h10"/>
         </svg>
       </button>
+      {# Pin Hosts map to header ★ (same feature key as title / Network hub) #}
+      <div class="fabric-map-pin" data-testid="hosts-map-toolbar-pin" title="Pin Hosts map">
+        {% include "partials/pin_button.html" %}
+      </div>
       {# Icon toggle only — count lives in footer stats + tooltip (avoids toolbar scroll) #}
       <label class="fabric-map-disc-toggle"
              title="{% if disc_n %}Discovered devices ({{ disc_n }}) — expand LAN rings{% else %}Show discovered LAN devices{% endif %}. Off = compact fleet fan.">
@@ -289,6 +304,7 @@
               <clipPath id="gw-clip-gateway" clipPathUnits="userSpaceOnUse">
                 <rect x="-66" y="-38" width="132" height="76" rx="10"/>
               </clipPath>
+              {% include "partials/device_kind_icons_symbols.html" %}
             </defs>
 
             {# LAN zone: compact (fleet fan) vs full (fleet + discovered).
@@ -337,6 +353,7 @@
                  {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
                  {% if n.href %}data-open-href="{{ n.href }}"{% endif %}
                  {% if n.open_label %}data-open-label="{{ n.open_label }}"{% endif %}>
+                <g class="fabric-mesh-node-pop">
                 {# Vector cloud = boundary. Status + “Internet” label both inside. #}
                 {% set cw = (n.rx or 78) * 2.15 %}
                 {% set ch = (n.ry or 48) * 2.05 %}
@@ -352,6 +369,7 @@
                 {% endif %}
                 <text x="{{ n.x }}" y="{{ n.y + 12 }}" text-anchor="middle"
                       class="fabric-mesh-label fabric-mesh-internet-label">{{ n.label }}</text>
+                </g>
               </g>
               {% if n.href %}</a>{% endif %}
               {% elif n.kind == 'gateway' %}
@@ -367,6 +385,7 @@
                  {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
                  {% if n.href %}data-open-href="{{ n.href }}"{% endif %}
                  {% if n.open_label %}data-open-label="{{ n.open_label }}"{% endif %}>
+                <g class="fabric-mesh-node-pop">
                 {% set gw_top = (n.sub_top or n.public_ip or 'public IP —')|string %}
                 {% set gw_bot = (n.sub_bottom or n.lan_ip or n.ip or n.sub or 'gateway —')|string %}
                 <g class="fabric-mesh-gw-body" transform="translate({{ n.x }}, {{ n.y }})">
@@ -387,6 +406,7 @@
                   <circle class="fabric-mesh-status fabric-mesh-status--{{ n.kuma.state }}" cx="54" cy="-28" r="4"/>
                   {% endif %}
                 </g>
+                </g>
               </g>
               {% if n.href %}</a>{% endif %}
               {% elif n.kind == 'lan' %}
@@ -403,11 +423,18 @@
               {% elif n.kind == 'host' %}
               {% set hhw = n.hw if n.hw is defined and n.hw else 62 %}
               {% set hhh = n.hh if n.hh is defined and n.hh else 30 %}
+              {% set ik = n.icon_kind or ('unknown' if n.is_discovered else 'server') %}
+              {% set icon_sz = 14 if n.is_discovered else 16 %}
               <a href="{{ n.href or '#' }}" data-open-href="{{ n.href or '' }}"
                  {% if n.is_discovered %}data-discovered-host="1"{% endif %}>
                 <g class="fabric-mesh-node fabric-mesh-node--host {% if n.npm_edge %}is-edge{% endif %} {% if n.is_cloud %}is-cloud{% endif %} {% if n.is_discovered %}is-discovered{% endif %}"
                    data-node-id="{{ n.node_id or ('host-' ~ n.server_id) }}"
+                   data-node-kind="host"
+                   data-icon-kind="{{ ik }}"
                    data-discovered="{{ '1' if n.is_discovered else '0' }}"
+                   {% if n.server_id %}data-server-id="{{ n.server_id }}"{% endif %}
+                   {% if n.discovery_id %}data-discovery-id="{{ n.discovery_id }}"{% endif %}
+                   {% if n.ports_summary_line %}data-ports-summary="{{ n.ports_summary_line }}"{% elif n.ports_summary %}data-ports-summary="{{ n.ports_count or 0 }} ports · {{ n.ports_summary }}"{% endif %}
                    data-open-href="{{ n.href or '' }}"
                    data-open-label="{{ n.open_label or 'Open host' }}"
                    {% if n.is_cloud or n.layout_dual %}
@@ -420,23 +447,41 @@
                    {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}
                    {% if n.path_ids %}data-path-ids="{% for pid in n.path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}
                    {% if n.npm_path_ids %}data-npm-path-ids="{% for pid in n.npm_path_ids %}{{ pid }}{% if not loop.last %},{% endif %}{% endfor %}"{% endif %}>
+                  {# Inner pop group: CSS scale on locked focus (outer g may dual-layout translate) #}
+                  <g class="fabric-mesh-node-pop">
                   <rect x="{{ n.x - hhw }}" y="{{ n.y - hhh }}" width="{{ hhw * 2 }}" height="{{ hhh * 2 }}"
                         rx="{% if n.is_discovered %}6{% else %}12{% endif %}"/>
+                  <use class="fabric-mesh-kind-icon"
+                       href="#ph-kind-{{ ik }}"
+                       xlink:href="#ph-kind-{{ ik }}"
+                       x="{{ n.x - icon_sz / 2 }}"
+                       y="{{ n.y - hhh + (3 if n.is_discovered else 5) }}"
+                       width="{{ icon_sz }}" height="{{ icon_sz }}"
+                       aria-hidden="true"/>
                   {% if n.is_discovered %}
-                  {# Compact chip: name + kind/IP #}
-                  <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label[:11] }}</text>
-                  <text x="{{ n.x }}" y="{{ n.y + 11 }}" text-anchor="middle" class="fabric-mesh-sub">
+                  {# Compact chip: name + kind/IP; ports hint when nmap found any #}
+                  <text x="{{ n.x }}" y="{{ n.y + 6 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label[:11] }}</text>
+                  {% if n.ports_count %}
+                  <text x="{{ n.x }}" y="{{ n.y + hhh - 4 }}" text-anchor="middle" class="fabric-mesh-sub fabric-mesh-tag--ports"
+                        title="Click to show discovered ports">{{ n.ports_count }}p · click</text>
+                  {% else %}
+                  <text x="{{ n.x }}" y="{{ n.y + hhh - 4 }}" text-anchor="middle" class="fabric-mesh-sub">
                     {% if n.device_kind_short and n.device_kind != 'unknown' %}{{ n.device_kind_short[:8] }}{% else %}{{ (n.ip or n.sub or '')[:11] }}{% endif %}
                   </text>
+                  {% endif %}
                   {% else %}
-                  <text x="{{ n.x }}" y="{{ n.y - 6 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label[:16] }}</text>
-                  <text x="{{ n.x }}" y="{{ n.y + 12 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or n.ip or '')[:20] }}</text>
+                  <text x="{{ n.x }}" y="{{ n.y + 4 }}" text-anchor="middle" class="fabric-mesh-label">{{ n.label[:16] }}</text>
+                  <text x="{{ n.x }}" y="{{ n.y + 18 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or n.ip or '')[:20] }}</text>
                   {% if n.npm_edge %}
-                  <text x="{{ n.x }}" y="{{ n.y + 24 }}" text-anchor="middle" class="fabric-mesh-tag">NPM</text>
+                  <text x="{{ n.x }}" y="{{ n.y + hhh - 4 }}" text-anchor="middle" class="fabric-mesh-tag">NPM</text>
                   {% elif n.is_cloud %}
-                  <text x="{{ n.x }}" y="{{ n.y + 24 }}" text-anchor="middle" class="fabric-mesh-tag">cloud</text>
+                  <text x="{{ n.x }}" y="{{ n.y + hhh - 4 }}" text-anchor="middle" class="fabric-mesh-tag">cloud</text>
+                  {% elif n.ports_count %}
+                  <text x="{{ n.x }}" y="{{ n.y + hhh - 4 }}" text-anchor="middle" class="fabric-mesh-tag fabric-mesh-tag--ports"
+                        title="Click host for a compact ports callout — expand for full fan">{{ n.ports_count }} ports · click</text>
                   {% endif %}
                   {% endif %}
+                  </g>
                 </g>
               </a>
               {% elif n.kind == 'more' %}
@@ -465,19 +510,25 @@
                    data-open-href="{{ n.href or '' }}"
                    {% if n.path_id is defined and n.path_id is not none %}data-path-id="{{ n.path_id }}"{% endif %}
                    {% if n.path_chain %}data-path-chain="{{ n.path_chain }}"{% endif %}>
-                  <rect x="{{ n.x - 70 }}" y="{{ n.y - 22 }}" width="140" height="44" rx="10"/>
-                  <text x="{{ n.x }}" y="{{ n.y - 2 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label[:22] }}</text>
-                  <text x="{{ n.x }}" y="{{ n.y + 14 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:20] }}</text>
+                  <g class="fabric-mesh-node-pop">
+                  {# Same centered layout as before; card taller only so icon sits above FQDN #}
+                  <rect x="{{ n.x - 70 }}" y="{{ n.y - 28 }}" width="140" height="56" rx="10"/>
+                  <use class="fabric-mesh-kind-icon fabric-mesh-kind-icon--app"
+                       href="#ph-kind-app" xlink:href="#ph-kind-app"
+                       x="{{ n.x - 8 }}" y="{{ n.y - 24 }}" width="14" height="14" aria-hidden="true"/>
+                  <text x="{{ n.x }}" y="{{ n.y + 2 }}" text-anchor="middle" class="fabric-mesh-label-sm">{{ n.label[:22] }}</text>
+                  <text x="{{ n.x }}" y="{{ n.y + 18 }}" text-anchor="middle" class="fabric-mesh-sub">{{ (n.sub or '')[:20] }}</text>
                   {% if n.sync_status == 'ok' %}
-                  <circle class="fabric-mesh-status fabric-mesh-status--ok" cx="{{ n.x + 58 }}" cy="{{ n.y - 14 }}" r="4"/>
+                  <circle class="fabric-mesh-status fabric-mesh-status--ok" cx="{{ n.x + 58 }}" cy="{{ n.y - 20 }}" r="4"/>
                   {% elif n.sync_status == 'partial' %}
-                  <circle class="fabric-mesh-status fabric-mesh-status--partial" cx="{{ n.x + 58 }}" cy="{{ n.y - 14 }}" r="4"/>
+                  <circle class="fabric-mesh-status fabric-mesh-status--partial" cx="{{ n.x + 58 }}" cy="{{ n.y - 20 }}" r="4"/>
                   {% elif n.sync_status == 'error' or n.sync_status == 'failed' %}
-                  <circle class="fabric-mesh-status fabric-mesh-status--error" cx="{{ n.x + 58 }}" cy="{{ n.y - 14 }}" r="4"/>
+                  <circle class="fabric-mesh-status fabric-mesh-status--error" cx="{{ n.x + 58 }}" cy="{{ n.y - 20 }}" r="4"/>
                   {% endif %}
                   {% if n.has_cert %}
-                  <circle class="fabric-mesh-status fabric-mesh-status--cert" cx="{{ n.x + 46 }}" cy="{{ n.y - 14 }}" r="3.5"/>
+                  <circle class="fabric-mesh-status fabric-mesh-status--cert" cx="{{ n.x + 46 }}" cy="{{ n.y - 20 }}" r="3.5"/>
                   {% endif %}
+                  </g>
                 </g>
               </a>
               {% endif %}
@@ -498,19 +549,25 @@
       {{ svg.app_count or 0 }} apps
       {% endif %}
       · pinch / scroll to zoom · drag to pan · double-click 1:1
-      · tap an <strong class="text-text">app path</strong> to expand runtime stack (edge → app → deps)
+      · <strong class="text-text">Host / discovered</strong> → compact callout · tap → ports on map · then By service for stacks
+      · <strong class="text-text">App path</strong> → containers + ports · tap container for its ports
       · solid = LAN · dashed = WAN / NPM · dashed-border = discovered · green = synced
     </p>
     <div class="fabric-callout-row mt-2 px-1">
       <p class="fabric-callout text-xs font-mono is-empty"
          data-fabric-callout
-         data-fabric-callout-empty="Tap a host or app path. Stack shows containers when a service path is focused."></p>
+         data-fabric-callout-empty="Tap a host or camera — compact callout, then ports on map. By service is a follow-on. App paths show containers."></p>
       <button type="button"
               class="btn btn-secondary text-xs min-h-9 px-2 hidden"
               data-fabric-stack-open
               data-fabric-stack-from-focus
-              title="Containers, ports, Kuma for the focused path"
-              onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){var u=this.getAttribute('data-stack-url');if(u)PiHerderStackPanel.open(u);}return false;">Stack</button>
+              title="Containers, dependency links, Kuma for the focused service path"
+              onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){var u=this.getAttribute('data-stack-url');if(u)PiHerderStackPanel.open(u);}return false;">Stack detail</button>
+      <button type="button"
+              class="btn btn-secondary text-xs min-h-9 px-2 hidden"
+              data-fabric-host-ports
+              title="Edit sticky roles / full port table"
+              onclick="event.preventDefault();event.stopPropagation();if(window.PiHerderStackPanel){var u=this.getAttribute('data-host-ports-url');if(u)PiHerderStackPanel.open(u);}return false;">Edit ports</button>
       <button type="button"
               class="btn btn-secondary text-xs min-h-9 px-2 hidden"
               data-fabric-copy-callout>Copy path</button>
@@ -527,8 +584,9 @@
 </div>
 
 {% include "partials/dns_stack_drawer.html" %}
-<script src="/static/js/fabric-mesh.js?v=20260725-map-chrome" defer></script>
-<script src="/static/js/fabric-stack-expand.js?v=20260723-compact-anchor" defer></script>
+<script src="/static/js/fabric-mesh.js?v=20260730-overlay-nocapture" defer></script>
+<script src="/static/js/fabric-stack-expand.js?v=20260730-container-ports" defer></script>
+<script src="/static/js/fabric-host-ports-expand.js?v=20260730-pointerdown" defer></script>
 <script>
 (function () {
   var STORAGE_KEY = 'piherder.hostsmap.showDiscovered';

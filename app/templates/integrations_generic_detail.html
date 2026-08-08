@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% with catalog_section='integrations' %}
+{% include "partials/catalog_nav.html" %}
+{% endwith %}
+
+<div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+  <div>
+    <h2 class="text-lg font-semibold tracking-tight text-text feature-title-with-pin">
+      <span>{{ integration.name }}</span>
+      {% include "partials/pin_button.html" %}
+    </h2>
+    <p class="text-xs text-muted font-mono mt-0.5">{{ integration.base_url }}</p>
+    <p class="text-xs text-muted mt-1">
+      <span class="status-pill status-running">{{ product_label }}</span>
+      · generic link (deep link + reachability)
+    </p>
+  </div>
+  <div class="flex flex-wrap gap-2 items-center">
+    <a href="{{ open_url }}" target="_blank" rel="noopener" class="btn btn-primary min-h-11">Open</a>
+    {% if can_mutate %}
+    <form method="post" action="/integrations/{{ integration.id }}/poll" class="inline"
+          data-wait-title="Probing link" data-wait-message="GET health path…">
+      <button type="submit" class="btn btn-secondary min-h-11">Poll</button>
+    </form>
+    <form method="post" action="/integrations/{{ integration.id }}/test" class="inline"
+          data-wait-title="Testing link" data-wait-message="Checking reachability…">
+      <button type="submit" class="btn btn-secondary min-h-11">Test</button>
+    </form>
+    <a href="/integrations/{{ integration.id }}/edit" class="btn btn-secondary min-h-11">Edit</a>
+    {% endif %}
+    <a href="/integrations" class="btn btn-secondary min-h-11">All integrations</a>
+  </div>
+</div>
+
+{% if msg == 'created' or msg == 'saved' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">Saved.</div>
+{% elif msg == 'test_ok' or msg == 'polled' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  {% if msg == 'test_ok' %}Test OK{% else %}Poll complete{% endif %}
+  {% if detail %} — {{ detail }}{% endif %}
+</div>
+{% elif msg == 'binding_saved' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">Host binding saved — shows on Services.</div>
+{% elif msg == 'binding_cleared' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">Binding removed.</div>
+{% endif %}
+{% if error %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  {% if error == 'test_failed' %}Test failed
+  {% elif error == 'poll_failed' %}Poll failed
+  {% elif error == 'poll_busy' %}Poll already running
+  {% elif error == 'invalid' %}Invalid
+  {% else %}Error{% endif %}
+  {% if detail %}— {{ detail }}{% endif %}
+</div>
+{% endif %}
+
+<div class="card p-4 mb-4">
+  <div class="flex flex-wrap gap-3 items-center text-sm">
+    {% if not integration.enabled %}
+    <span class="status-pill feature-off">disabled</span>
+    {% elif ok %}
+    <span class="status-pill status-success">reachable</span>
+    {% elif integration.last_error %}
+    <span class="status-pill status-failed">unreachable</span>
+    {% else %}
+    <span class="status-pill feature-off">never polled</span>
+    {% endif %}
+    <span class="text-muted">
+      health <code class="text-xs font-mono">{{ health_path }}</code>
+      · poll every {{ poll_interval_sec }}s
+      {% if status_code %}· last HTTP {{ status_code }}{% endif %}
+      {% if integration.last_polled_at %}· {{ integration.last_polled_at }}{% endif %}
+    </span>
+    {% if has_token %}
+    <span class="status-pill feature-off">bearer set</span>
+    {% endif %}
+  </div>
+  {% if notes %}
+  <p class="text-sm text-muted mt-2">{{ notes }}</p>
+  {% endif %}
+  {% if integration.last_error %}
+  <p class="text-xs text-danger mt-2">{{ integration.last_error }}</p>
+  {% endif %}
+  <p class="text-[11px] text-muted mt-3 max-w-2xl">
+    This is a <strong>bookmark + probe</strong>, not full product control.
+    Prefer automation via {{ ph_brand() }}
+    <a href="/herder-backups#api" class="underline">API tokens</a>
+    from n8n/HA. Deep Frigate/HA adapters may come later.
+  </p>
+</div>
+
+{# Bindings → fleet Services chips #}
+<div class="card p-4 sm:p-5 mb-6" id="generic-bind">
+  <h2 class="font-semibold text-text mb-1">Show on host Services</h2>
+  <p class="text-xs text-muted mb-4 max-w-2xl">
+    Bind this URL to a fleet host (or Docker project) so operators get an <strong>Open</strong>
+    chip on server Services and fleet Services — same surface as Kuma host services.
+  </p>
+
+  {% if bindings %}
+  <ul class="divide-y divide-border border border-border rounded mb-4">
+    {% for b in bindings %}
+    <li class="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+      <div>
+        <span class="font-medium text-text">{{ b.label }}</span>
+        <span class="text-muted text-xs ml-1">· {{ b.server_name }}</span>
+        {% if b.scope == 'docker' %}
+        <span class="text-muted text-xs">· {{ b.docker_project }}{% if b.docker_container %} / {{ b.docker_container }}{% endif %}</span>
+        {% else %}
+        <span class="text-muted text-xs">· host</span>
+        {% endif %}
+        {% if b.open_url %}
+        <a href="{{ b.open_url }}" target="_blank" rel="noopener" class="text-xs text-primary ml-2 underline">Open</a>
+        {% endif %}
+      </div>
+      {% if can_mutate %}
+      <form method="post" action="/integrations/{{ integration.id }}/generic/bind/{{ b.id }}/remove" class="inline">
+        <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2.5">Remove</button>
+      </form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="text-sm text-muted mb-4">No host bindings yet.</p>
+  {% endif %}
+
+  {% if can_mutate and servers %}
+  <form method="post" action="/integrations/{{ integration.id }}/generic/bind" class="space-y-3 max-w-xl">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-muted mb-1" for="server_id">Server</label>
+        <select id="server_id" name="server_id" required class="input w-full text-sm min-h-11">
+          {% for s in servers %}
+          <option value="{{ s.id }}">{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-muted mb-1" for="label">Chip label</label>
+        <input id="label" name="label" type="text" class="input w-full text-sm min-h-11"
+               placeholder="{{ integration.name }}" value="{{ integration.name }}">
+      </div>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-muted mb-1" for="path">Path override (optional)</label>
+      <input id="path" name="path" type="text" class="input w-full font-mono text-sm min-h-11"
+             placeholder="/ or full https://…">
+      <p class="text-[11px] text-muted mt-0.5">Blank = base URL. Relative paths join the base; absolute https:// overrides.</p>
+    </div>
+    <details class="border border-border rounded p-3">
+      <summary class="text-sm font-medium text-text cursor-pointer select-none">Docker scope (optional)</summary>
+      <p class="text-[11px] text-muted mt-1 mb-2">Leave empty for a host-level Services chip (HAOS, bare metal).</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-muted mb-1" for="docker_project">Compose project</label>
+          <input id="docker_project" name="docker_project" type="text" class="input w-full font-mono text-sm min-h-11"
+                 placeholder="project name">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-muted mb-1" for="docker_container">Container</label>
+          <input id="docker_container" name="docker_container" type="text" class="input w-full font-mono text-sm min-h-11"
+                 placeholder="service name">
+        </div>
+      </div>
+    </details>
+    <button type="submit" class="btn btn-primary min-h-11">Add binding</button>
+  </form>
+  {% elif can_mutate %}
+  <p class="text-sm text-muted">Add a fleet server first, then bind this link.</p>
+  {% endif %}
+</div>
+
+{% if can_mutate %}
+<div class="card p-4 border-danger/30">
+  <form method="post" action="/integrations/{{ integration.id }}/delete"
+        onsubmit="return confirm('Remove this link integration? Host bindings are deleted too.');">
+    <button type="submit" class="btn btn-secondary text-danger min-h-11">Delete integration</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

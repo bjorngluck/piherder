@@ -340,6 +340,9 @@ app.include_router(dns_router.router, prefix="", tags=["dns"])
 from .routers import about as about_router
 
 app.include_router(about_router.router, prefix="", tags=["about"])
+from .routers import favourites as favourites_router
+
+app.include_router(favourites_router.router, prefix="", tags=["favourites"])
 
 # Re-export schedule helpers used by lifespan and other routers
 schedule_backup_job = sched.schedule_backup_job

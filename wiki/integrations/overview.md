@@ -11,8 +11,8 @@ Each section shares:
 
 | Tab | Path | Purpose | Why it is separate |
 |-----|------|---------|---------------------|
-| **Integrations** | `/integrations` (default) | Connect Kuma, Grafana, Pi-hole, NPM, **LAN Discovery** | Vendor adapters + optional nmap |
-| **Certificates** | `/certificates` | TLS vault + service maps + SSH deploy | PEMs are sensitive and multi-consumer |
+| **Integrations** | `/integrations` (default) | Connect Kuma, Grafana, Pi-hole, NPM, **generic links**, **LAN Discovery** | Vendor adapters + bookmarks + optional nmap |
+| **Certificates** | `/certificates` | TLS vault + service maps + SSH deploy ([obtain PEMs with ACME](certificates-obtain-acme.md) if needed) | PEMs are sensitive and multi-consumer |
 | **Templates** | `/templates` | Service template catalog & deploy (**OOTB** / **Yours** badges) | Stack recipes, not product logins |
 | **Network** | `/dns` | Host DNS, service paths (**By path type** stats), Hosts/Path maps | Topology view of names and edges |
 
@@ -38,7 +38,7 @@ PiHerder stays the **fleet truth**; external tools enrich via adapters and deep 
 2. Connect each product under **Integrations** (test / poll).  
 3. Bind Kuma monitors → [Fleet Services](../day-to-day/dashboard-and-services.md).  
 4. Set host FQDNs + Network map LAN settings → [Network maps](dns-fabric.md).  
-5. Pull or upload certs → map deploy targets → [Certificates](certificates.md).  
+5. Pull, [obtain via ACME](certificates-obtain-acme.md), or upload certs → map deploy targets → [Certificates](certificates.md).  
 
 Journey: [Operator scenarios — Journey E](../getting-started/operator-scenarios.md#journey-e).
 
@@ -53,6 +53,7 @@ Journey: [Operator scenarios — Journey E](../getting-started/operator-scenario
 | [Pi-hole](pihole.md) | v6 multi-instance stats, local DNS/CNAME fan-out | Manage LAN DNS from the herder |
 | [LAN Discovery (nmap)](lan-discovery.md) | Opt-in CIDR scans, devices, map names/kinds, Hosts map overlay, schedules | Want an end-to-end LAN view without linking every host |
 | [Nginx Proxy Manager](npm.md) | Proxy hosts (read-only) + certificate pull | Inventory edge hosts and cert material |
+| [Generic links](generic-links.md) | HA / Frigate / n8n / custom URL + reachability + Services chips | Want a deep link without a full adapter |
 | [Certificates](certificates.md) | Encrypted store, PEM upload, deploy maps, NPM renew | Push TLS files to many consumers |
 | [Network maps](dns-fabric.md) | Host A + service paths; Hosts/Path maps; **runtime stack** expand + order | Visualise name → host → app → containers |
 

@@ -1,0 +1,214 @@
+{# Settings tab: Alerts — Wh-lite webhook + H-lite SMTP #}
+{% set wh = webhook_cfg or {} %}
+{% set sm = smtp_cfg or {} %}
+<div data-settings-panel="alerts" class="settings-tab-panel {{ '' if tab == 'alerts' else 'hidden' }}">
+  {% if not is_admin|default(false) %}
+  <div class="card p-5 mb-4">
+    <h2 class="font-semibold text-text mb-2">Alerts & delivery</h2>
+    <p class="text-sm text-muted">Webhook and SMTP configuration is <strong class="text-text">admin-only</strong>.</p>
+  </div>
+  {% else %}
+
+  <div class="card p-5 mb-4" id="alerts-webhook">
+    <div class="flex flex-wrap items-center gap-2 mb-2">
+      <h2 class="font-semibold text-text m-0">Outbound webhook</h2>
+      {% if wh.ui_enabled and wh.has_ui_url %}
+      <span class="status-pill status-success">Settings URL active</span>
+      {% elif wh.env_fallback %}
+      <span class="status-pill status-running" title="WEBHOOK_URL from environment">Env fallback</span>
+      {% else %}
+      <span class="status-pill feature-off">off</span>
+      {% endif %}
+    </div>
+    <p class="text-xs text-muted mb-3">
+      POST JSON to n8n, Signal bridge, Discord, etc. when alerts fire.
+      Fields: <code class="text-[10px]">message</code>, <code class="text-[10px]">event</code>,
+      <code class="text-[10px]">severity</code>, optional <code class="text-[10px]">number</code>/<code class="text-[10px]">recipients</code>.
+      {% if wh.env_fallback %}
+      <span class="block mt-1">Compose <code class="text-[10px]">WEBHOOK_URL</code> is in use because Settings has no URL (or is disabled). Saving a Settings URL + enable overrides env.</span>
+      {% endif %}
+    </p>
+    <form method="post" action="/herder-backups/alerts/webhook" class="space-y-3">
+      <label class="flex items-start gap-2 min-h-11 text-sm">
+        <input type="checkbox" name="webhook_enabled" value="1" class="mt-1"
+               {% if wh.ui_enabled %}checked{% endif %}>
+        <span><strong>Enable Settings webhook</strong>
+          <span class="block text-xs text-muted mt-0.5">When on and URL set, overrides env for all events below.</span>
+        </span>
+      </label>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="webhook_url">Webhook URL</label>
+        <input id="webhook_url" name="webhook_url" type="url" class="input w-full font-mono text-sm"
+               placeholder="https://n8n.example/webhook/…"
+               value="{{ wh.ui_url or '' }}">
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs text-muted mb-1" for="webhook_number">Number (optional)</label>
+          <input id="webhook_number" name="webhook_number" type="text" class="input w-full font-mono text-sm"
+                 value="{{ wh.number or '' }}" placeholder="+1…">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1" for="webhook_recipients">Recipients (optional)</label>
+          <input id="webhook_recipients" name="webhook_recipients" type="text" class="input w-full font-mono text-sm"
+                 value="{{ wh.recipients_raw or '' }}" placeholder='["+1…"] or comma list'>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="webhook_secret">Shared secret (optional)</label>
+        <input id="webhook_secret" name="webhook_secret" type="password" autocomplete="off"
+               class="input w-full font-mono text-sm"
+               placeholder="{% if wh.secret %}•••• saved — leave blank to keep{% else %}Bearer / X-PiHerder-Webhook-Secret{% endif %}">
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="webhook_min_severity">Min severity (notifications)</label>
+        <select id="webhook_min_severity" name="webhook_min_severity" class="input w-full text-sm max-w-xs">
+          {% for s in ['info', 'warning', 'critical'] %}
+          <option value="{{ s }}" {% if (wh.min_severity or 'warning') == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex flex-wrap gap-4 text-sm">
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="webhook_events_notifications" value="1"
+                 {% if wh.events_notifications %}checked{% endif %}> In-app notifications
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="webhook_events_jobs" value="1"
+                 {% if wh.events_jobs %}checked{% endif %}> Job summaries
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="webhook_events_backup" value="1"
+                 {% if wh.events_backup %}checked{% endif %}> Backup scripts
+        </label>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save webhook</button>
+        <button type="submit" formaction="/herder-backups/alerts/webhook/test"
+                class="btn btn-secondary min-h-11 text-sm"
+                data-wait-title="Testing webhook" data-wait-message="POST test payload…">Send test</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card p-5 mb-4" id="alerts-smtp">
+    <div class="flex flex-wrap items-center gap-2 mb-2">
+      <h2 class="font-semibold text-text m-0">Email (SMTP)</h2>
+      {% if sm.enabled and sm.host and sm.from_email %}
+      <span class="status-pill status-success">ready</span>
+      {% elif sm.enabled %}
+      <span class="status-pill status-failed" title="Need host and from email">incomplete</span>
+      {% else %}
+      <span class="status-pill feature-off">off</span>
+      {% endif %}
+      {% if sm.enabled and sm.host and sm.from_email and sm.password_reset_enabled %}
+      <span class="status-pill status-running">forgot password on</span>
+      {% endif %}
+    </div>
+    <p class="text-xs text-muted mb-3">
+      Optional outbound mail for alert digests and password recovery.
+      Password is stored encrypted (same master key as SSH/integration secrets).
+    </p>
+    <form method="post" action="/herder-backups/alerts/smtp" class="space-y-3">
+      <label class="flex items-start gap-2 min-h-11 text-sm">
+        <input type="checkbox" name="smtp_enabled" value="1" class="mt-1"
+               {% if sm.enabled %}checked{% endif %}>
+        <span><strong>Enable SMTP</strong></span>
+      </label>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="sm:col-span-2">
+          <label class="block text-xs text-muted mb-1" for="smtp_host">Host</label>
+          <input id="smtp_host" name="smtp_host" type="text" class="input w-full font-mono text-sm"
+                 value="{{ sm.host or '' }}" placeholder="smtp.example.com">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1" for="smtp_port">Port</label>
+          <input id="smtp_port" name="smtp_port" type="number" class="input w-full font-mono text-sm"
+                 value="{{ sm.port or 587 }}">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs text-muted mb-1" for="smtp_security">Security</label>
+        <select id="smtp_security" name="smtp_security" class="input w-full text-sm max-w-xs">
+          {% for s, lab in [('starttls', 'STARTTLS'), ('ssl', 'SSL/TLS'), ('none', 'None')] %}
+          <option value="{{ s }}" {% if (sm.security or 'starttls') == s %}selected{% endif %}>{{ lab }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs text-muted mb-1" for="smtp_username">Username</label>
+          <input id="smtp_username" name="smtp_username" type="text" autocomplete="off"
+                 class="input w-full font-mono text-sm" value="{{ sm.username or '' }}">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1" for="smtp_password">Password</label>
+          <input id="smtp_password" name="smtp_password" type="password" autocomplete="new-password"
+                 class="input w-full font-mono text-sm"
+                 placeholder="{% if sm.has_password %}•••• saved — leave blank to keep{% else %}{% endif %}">
+          {% if sm.has_password %}
+          <label class="flex items-center gap-2 text-xs text-muted mt-1">
+            <input type="checkbox" name="clear_smtp_password" value="1"> Clear saved password
+          </label>
+          {% endif %}
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs text-muted mb-1" for="smtp_from_email">From email</label>
+          <input id="smtp_from_email" name="smtp_from_email" type="email" class="input w-full font-mono text-sm"
+                 value="{{ sm.from_email or '' }}" placeholder="piherder@example.com">
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1" for="smtp_from_name">From name</label>
+          <input id="smtp_from_name" name="smtp_from_name" type="text" class="input w-full text-sm"
+                 value="{{ sm.from_name or 'PiHerder' }}">
+        </div>
+      </div>
+      <div class="border border-border rounded p-3 space-y-2">
+        <p class="text-sm font-medium text-text">Alert email</p>
+        <label class="flex items-start gap-2 text-sm">
+          <input type="checkbox" name="smtp_alert_enabled" value="1" class="mt-1"
+                 {% if sm.alert_enabled %}checked{% endif %}>
+          <span>Email new in-app notifications (same severities as webhook)</span>
+        </label>
+        <div>
+          <label class="block text-xs text-muted mb-1" for="smtp_alert_to">Alert recipients</label>
+          <input id="smtp_alert_to" name="smtp_alert_to" type="text" class="input w-full font-mono text-sm"
+                 value="{{ sm.alert_to or '' }}" placeholder="you@example.com, ops@…">
+          <p class="text-[11px] text-muted mt-0.5">Comma-separated. Empty → From address.</p>
+        </div>
+        <div>
+          <label class="block text-xs text-muted mb-1" for="smtp_alert_min_severity">Min severity</label>
+          <select id="smtp_alert_min_severity" name="smtp_alert_min_severity" class="input w-full text-sm max-w-xs">
+            {% for s in ['info', 'warning', 'critical'] %}
+            <option value="{{ s }}" {% if (sm.alert_min_severity or 'warning') == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <label class="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="smtp_password_reset_enabled" value="1" class="mt-1"
+               {% if sm.password_reset_enabled %}checked{% endif %}>
+        <span>
+          <strong>Allow “Forgot password” on login</strong>
+          <span class="block text-xs text-muted mt-0.5">Requires SMTP enabled + host + from. Tokens expire in 1 hour.</span>
+        </span>
+      </label>
+      <div class="flex flex-wrap gap-2 items-end">
+        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save SMTP</button>
+      </div>
+    </form>
+    <form method="post" action="/herder-backups/alerts/smtp/test" class="mt-3 flex flex-wrap gap-2 items-end">
+      <div class="flex-1 min-w-[12rem]">
+        <label class="block text-xs text-muted mb-1" for="smtp_test_to">Send test to</label>
+        <input id="smtp_test_to" name="to" type="email" required class="input w-full font-mono text-sm"
+               placeholder="you@example.com" value="{{ sm.alert_to or sm.from_email or '' }}">
+      </div>
+      <button type="submit" class="btn btn-secondary min-h-11 text-sm"
+              data-wait-title="Sending test email" data-wait-message="Connecting to SMTP…">Send test email</button>
+    </form>
+  </div>
+
+  {% endif %}
+</div>

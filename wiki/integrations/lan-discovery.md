@@ -199,9 +199,9 @@ Shown as a **kind badge** on Devices list, edit modal, Map cards, Hosts map chip
 
 When discovery is wrong (e.g. OUI says printer but the box is a Pi), set **Device type** in the edit modal. Override is sticky across rescans; the auto guess is still shown as “auto was …”. An asterisk on the kind badge means **operator override**.
 
-Run **inventory** (or detailed/deep) so ports feed the classifier; discovery alone often only yields MAC vendor when available.
+Run **inventory** (or detailed/deep) so ports feed the classifier **and** Hosts map port expand; discovery alone often only yields MAC vendor when available.
 
-**Roadmap:** icons / shapes on Hosts map by device kind; optional named labels for individual open services (ports) beyond host-level map name.
+**Shipped (v1.1 map interactivity):** canned **kind icons** on Hosts map chips; lock a device for **open ports** on the map (progressive callout). Sticky port **roles** via the edit table. Custom icon pack remains roadmap — [map interactivity plan](https://github.com/bjorngluck/piherder/blob/main/docs/FEATURE_PLAN_MAP_INTERACTIVITY.md).
 
 ---
 
@@ -249,8 +249,13 @@ Operators can mutate; viewers see read-only identity. Map view restores scroll a
 
 ### Devices → List view
 
-- Shared filter bar: All / New / Known / Linked / Ignored / **Offline** + search.
-- **Offline** = not seen recently (stale flag + warning colour). Devices are **never auto-deleted**; use **Ignore** or filter to hide noise.
+- Shared filter bar: All / New / Known / Linked / **Hidden** / **Offline** + counts + search (search also matches last-seen / hidden tokens).
+- Each row shows **Last seen** (relative; absolute in title) and state.
+- **Offline** = not seen recently (stale after ~14 days without `last_seen`; warning colour). Devices are **never auto-deleted**.
+- **Hide** (modal) = ignore — off Devices map and Hosts overlay; still in DB under **Hidden** (Unhide restores).
+- **Purge device** (modal) permanently removes the row + findings; a later scan may re-discover it as **new**. Unlink first if linked.
+- On the **Offline** filter, operators can **Purge N offline…** (bulk, confirm).
+- Pin the integration with **★** next to the LAN Discovery name for the header pin menu.
 - Click a row → same edit modal.
 - Empty states when filters hide every host.
 
@@ -293,6 +298,8 @@ One-line chrome at the top of the map (no horizontal scroll on typical phones):
 | **Full screen** (corners icon) | Expand map; Esc / icon again to exit. Hamburger exits fullscreen so the drawer is usable |
 
 Also: pinch / scroll-wheel zoom, drag to pan. Footer shows fleet · discovered counts and map legend (solid LAN, dashed WAN/NPM, dashed-border chips = discovered).
+
+**Ports on discovered chips:** after inventory (or deeper) scans, lock a discovered device on the Hosts map to open the same **progressive ports** flow as fleet hosts — compact callout → tap for ports-only list (nmap open ports) → **Edit** sticky roles when needed. No Server link required. Details: [Network maps — ports expand](dns-fabric.md#ports-on-the-hosts-map-progressive-expand).
 
 Full layout notes: [Network maps — LAN discovery](dns-fabric.md#lan-discovery-on-hosts-map).
 

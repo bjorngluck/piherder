@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% with catalog_section='integrations' %}
+{% include "partials/catalog_nav.html" %}
+{% endwith %}
+
+<div class="page-header mb-6">
+  <div>
+    <h1 class="text-3xl font-semibold tracking-tighter text-text">
+      {% if mode == 'edit' %}Edit link{% else %}Add link{% endif %}
+    </h1>
+    <p class="text-sm text-muted mt-1">
+      Bookmark <strong>Home Assistant</strong>, <strong>Frigate</strong>, <strong>n8n</strong>, or any URL.
+      Optional reachability probe — not a deep vendor API.
+    </p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{% if integration %}/integrations/{{ integration.id }}{% else %}/integrations{% endif %}"
+       class="btn btn-secondary min-h-11">Cancel</a>
+  </div>
+</div>
+
+{% if error %}
+<div class="mb-3 p-3 banner-error border border-border rounded text-sm">
+  {% if error == 'test_failed' %}Connection test failed{% elif error == 'invalid' %}Invalid input{% else %}Error{% endif %}
+  {% if detail %}— {{ detail }}{% endif %}
+</div>
+{% endif %}
+{% if request.query_params.get('msg') == 'test_ok' %}
+<div class="mb-3 p-3 banner-success border border-border rounded text-sm">
+  Test OK{% if request.query_params.get('detail') %} — {{ request.query_params.get('detail') }}{% endif %}
+</div>
+{% endif %}
+
+<div class="card p-5 max-w-xl">
+  <form method="post"
+        action="{% if mode == 'edit' %}/integrations/{{ integration.id }}/edit{% else %}/integrations/new/generic{% endif %}"
+        class="space-y-4"
+        id="generic-url-form">
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="product">Product</label>
+      <select id="product" name="product" class="input w-full text-sm">
+        {% for p in products %}
+        <option value="{{ p.value }}"
+                data-name="{{ p.default_name }}"
+                data-health="{{ p.health }}"
+                {% if form.product == p.value %}selected{% endif %}>{{ p.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="name">Display name</label>
+      <input id="name" name="name" type="text" required class="input w-full"
+             value="{{ form.name }}">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="base_url">Base URL</label>
+      <input id="base_url" name="base_url" type="url" required class="input w-full font-mono text-sm"
+             placeholder="https://homeassistant.local:8123"
+             value="{{ form.base_url }}">
+      <p class="text-[11px] text-muted mt-1">Must be reachable from {{ ph_brand() }} web and workers for Test / Poll.</p>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="health_path">
+        Health path <span class="text-muted font-normal">(optional probe)</span>
+      </label>
+      <input id="health_path" name="health_path" type="text" class="input w-full font-mono text-sm"
+             placeholder="/"
+             value="{{ form.health_path }}">
+      <p class="text-[11px] text-muted mt-1">
+        GET this path under the base URL (e.g. <code class="text-[10px]">/api/version</code>,
+        <code class="text-[10px]">/healthz</code>). 2xx/3xx (and 401/403) count as reachable.
+      </p>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="api_key">
+        Bearer token <span class="text-muted font-normal">(optional)</span>
+      </label>
+      <input id="api_key" name="api_key" type="password" autocomplete="off"
+             class="input w-full font-mono text-sm"
+             placeholder="{% if mode == 'edit' and has_token %}•••• saved — leave blank to keep{% else %}{% endif %}">
+      <p class="text-[11px] text-muted mt-1">Only used for the HTTP probe when the path needs auth. Stored encrypted.</p>
+      {% if mode == 'edit' and has_token %}
+      <label class="flex items-center gap-2 text-xs text-muted mt-2">
+        <input type="checkbox" name="clear_token" value="on">
+        Remove saved token
+      </label>
+      {% endif %}
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-text mb-1" for="notes">Notes</label>
+      <textarea id="notes" name="notes" rows="2" class="input w-full text-sm"
+                placeholder="Optional operator note">{{ form.notes or '' }}</textarea>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-medium text-text mb-1" for="poll_interval_sec">Poll interval (sec)</label>
+        <input id="poll_interval_sec" name="poll_interval_sec" type="number" min="30" max="900"
+               class="input w-full" value="{{ form.poll_interval_sec }}">
+      </div>
+      <div class="flex flex-col justify-end gap-2 pb-1">
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="tls_verify" value="on" {% if form.tls_verify %}checked{% endif %}>
+          Verify TLS certificates
+        </label>
+        <label class="flex items-center gap-2 text-sm">
+          <input type="checkbox" name="enabled" value="on" {% if form.enabled %}checked{% endif %}>
+          Enabled
+        </label>
+      </div>
+    </div>
+    {% if mode != 'edit' %}
+    <label class="flex items-start gap-2 text-xs text-muted">
+      <input type="checkbox" name="skip_test" value="on" class="mt-0.5">
+      <span>Save even if reachability test fails
+        <span class="block opacity-80">(use when the path needs auth from the herder network later)</span>
+      </span>
+    </label>
+    {% endif %}
+    <div class="flex flex-wrap gap-2 pt-2">
+      {% if mode != 'edit' %}
+      <button type="submit" name="test_only" value="1" class="btn btn-secondary min-h-11"
+              data-wait-title="Testing link" data-wait-message="GET health path…">Test only</button>
+      {% endif %}
+      <button type="submit" class="btn btn-primary min-h-11"
+              data-wait-title="{% if mode == 'edit' %}Saving{% else %}Adding link{% endif %}"
+              data-wait-message="{% if mode == 'edit' %}Updating…{% else %}Probing and saving…{% endif %}">
+        {% if mode == 'edit' %}Save{% else %}Save link{% endif %}
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  var sel = document.getElementById('product');
+  var nameEl = document.getElementById('name');
+  var healthEl = document.getElementById('health_path');
+  if (!sel || !nameEl || !healthEl) return;
+  var lastDefaults = {};
+  function currentOpt() {
+    return sel.options[sel.selectedIndex];
+  }
+  function syncDefaults(force) {
+    var opt = currentOpt();
+    if (!opt) return;
+    var dName = opt.getAttribute('data-name') || '';
+    var dHealth = opt.getAttribute('data-health') || '/';
+    if (force || !nameEl.value || nameEl.value === lastDefaults.name) {
+      nameEl.value = dName;
+    }
+    if (force || !healthEl.value || healthEl.value === lastDefaults.health) {
+      healthEl.value = dHealth;
+    }
+    lastDefaults = { name: dName, health: dHealth };
+  }
+  var init = currentOpt();
+  if (init) {
+    lastDefaults = {
+      name: init.getAttribute('data-name') || '',
+      health: init.getAttribute('data-health') || '/'
+    };
+  }
+  sel.addEventListener('change', function () { syncDefaults(false); });
+})();
+</script>
+{% endblock %}

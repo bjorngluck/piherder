@@ -25,6 +25,8 @@ These are the stories the rest of the wiki supports. Walk them on a lab host bef
 
 **Done when:** Server detail shows green-enough SSH/deps for enabled features; no password left stored if key auth works.
 
+**Optional polish:** pin the host Overview/Docker and Network **Hosts map** ([Pins & host jump](../day-to-day/navigation-pins.md)) so the ★ menu opens the map graph (`#map`).
+
 ---
 
 ### Journey B — Safe backup before you depend on it {#journey-b}
@@ -132,17 +134,21 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 
 ### Journey F — Disaster recovery for PiHerder itself {#journey-f}
 
-**Goal:** You can rebuild the control plane without losing fleet config.
+**Goal:** You can rebuild a **fully functional control plane** (keys, users, maps, integrations) after losing the herder host — and you know honestly what is **not** in that pack.
 
 | Step | Action | Why |
 |------|--------|-----|
 | 1 | Offline copy of `PIHERDER_MASTER_KEY` | Encrypted fields useless without it |
-| 2 | [Self-backup](../operations/self-backup.md) run once | Archive of DB config, users, keys, templates |
-| 3 | Schedule herder backup | Regular DR hygiene |
-| 4 | Know [Volumes](../operations/volumes.md) | What is in `piherder_backups` vs fleet `backups` |
-| 5 | Practice dry-run restore on a lab stack | Confidence before a real outage |
+| 2 | [Self-backup](../operations/self-backup.md) run once | Archive of control plane (not rsync trees) |
+| 3 | Read **Honest DR** scenarios on that page | Scenario A (min) vs C (comfort pack) |
+| 4 | Schedule herder backup | Regular DR hygiene |
+| 5 | Know [Volumes](../operations/volumes.md) | `piherder_backups` ≠ fleet `/backups` |
+| 6 | Optional: copy fleet backup disk + edge `./certs` | File DR + herder HTTPS without re-issue |
+| 7 | Practice dry-run restore on a lab stack **with the same master key** | Confidence before a real outage |
 
-**Done when:** Master key + at least one archive live **off** the herder host; restore dry-run understood.
+**Done when:** Master key + at least one archive live **off** the herder host; you can explain “control plane yes / host rsync no”; restore dry-run understood.
+
+**Not done when:** You only backed up the herder and expect Frigate recordings or every nmap XML to reappear — those are out of self-backup scope (see [Self-backup — not included](../operations/self-backup.md#not-included-by-design)).
 
 ---
 
@@ -170,7 +176,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 2 | [LAN Discovery](../integrations/lan-discovery.md) integration + CIDR(s) | Scope allowlist |
 | 3 | Overview → **Scan now** modal → Discovery, then Inventory (ports); detailed/deep needs **in-app** confirm | Trust before schedules; Cancel does not queue |
 | 4 | **Devices** → **List** or **Map** → edit modal: **map name**, **device type**, **gateway** if router, **Mark known** | Labels + kind + Router spine + inbox |
-| 5 | **Catalog → Network → Hosts map** — radar **Discovered**, **1:1** fit; clear focus when done | End-to-end view; **no** per-device link required |
+| 5 | **Catalog → Network → Hosts map** — radar **Discovered**, **1:1** fit; lock a host or cam for **ports** (tap callout → list); clear focus when done | End-to-end view + progressive ports; **no** per-device link required for discovered chips |
 | 5b | Optional: **server detail** — always-open **LAN discovery** card beside **Network path** → Edit device → Save/close returns to **that server** | Soft-embed without Integrations detour |
 | 6 | Optional: **Path map** — select **NPM** hub to light all proxied paths + connectors | Access picture for via-proxy names |
 | 7 | Link / promote only what you will manage | Discovery ≠ fleet member |
@@ -269,13 +275,15 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 |----------|-----|
 | `.env` keys | [Env reference](../operations/env-reference.md) |
 | Volume mounts | [Volumes](../operations/volumes.md) |
-| Settings tabs (backup, security, status, timezone, API) | [Settings](../operations/settings.md) |
+| Settings tabs (backup, security, Alerts, status, timezone, API) | [Settings](../operations/settings.md) |
 | Stack Status healthy? | [Status](../operations/status.md) |
 | Herder self-backup / restore (**admin only**) | [Self-backup](../operations/self-backup.md) · [Roles](../account-security/roles.md) |
 | Upgrade compose / image | [Upgrades](../operations/upgrades.md) |
 | More backup parallelism | [Multi-worker](../operations/multi-worker.md) |
-| Prometheus / webhook | [Metrics](../operations/metrics-webhooks.md) |
+| Prometheus / env webhook fallback | [Metrics](../operations/metrics-webhooks.md) |
+| Webhook + SMTP alerts / forgot password | [Alerts](../operations/alerts-email-webhooks.md) |
 | Token REST for n8n/HA | [API tokens](../operations/api-tokens.md) |
+| Generic HA / Frigate / n8n links | [Generic links](../integrations/generic-links.md) |
 
 ## When things go wrong
 

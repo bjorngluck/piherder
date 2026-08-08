@@ -74,9 +74,11 @@ def upsert_notification(
     session.commit()
     session.refresh(n)
 
-    # Bridge to legacy webhook for warning+
-    if severity in ("warning", "critical"):
-        _maybe_webhook(f"[{severity}] {title}" + (f": {body}" if body else ""))
+    # Bridge to webhook / email for warning+ (Wh-lite + H-lite)
+    if severity in ("warning", "critical", "info"):
+        msg = f"[{severity}] {title}" + (f": {body}" if body else "")
+        _maybe_webhook(msg, severity=severity, link_url=link_url)
+        _maybe_email(severity=severity, title=title, body=body, link_url=link_url)
 
     # Optional Web Push (only on *new* open rows — not fingerprint refreshes)
     _maybe_push(session, n)
@@ -178,19 +180,40 @@ def mark_read(session: Session, notification_id: int) -> bool:
     return True
 
 
-def _maybe_webhook(message: str) -> None:
-    if not settings.WEBHOOK_URL:
-        return
+def _maybe_webhook(
+    message: str,
+    *,
+    severity: str = "warning",
+    link_url: Optional[str] = None,
+) -> None:
     try:
-        import httpx
-        payload = {
-            "message": message,
-            "number": settings.WEBHOOK_NUMBER or "",
-            "recipients": json.loads(settings.WEBHOOK_RECIPIENTS or "[]"),
-        }
-        httpx.post(settings.WEBHOOK_URL, json=payload, timeout=8)
+        from . import alert_channels as ch
+
+        ch.send_webhook(
+            message,
+            event="notification",
+            severity=severity,
+            extra={"link_url": link_url or ""},
+        )
     except Exception as e:
-        logger.debug(f"Notification webhook failed: {e}")
+        logger.debug("Notification webhook failed: %s", e)
+
+
+def _maybe_email(
+    *,
+    severity: str,
+    title: str,
+    body: Optional[str] = None,
+    link_url: Optional[str] = None,
+) -> None:
+    try:
+        from . import alert_channels as ch
+
+        ch.maybe_email_notification(
+            severity=severity, title=title, body=body, link_url=link_url
+        )
+    except Exception as e:
+        logger.debug("Notification email failed: %s", e)
 
 
 def _maybe_push(session: Session, notification: Notification) -> None:
@@ -316,3 +339,108 @@ def notify_backup_failed(
 def resolve_backup_failed(session: Session, server_id: int) -> None:
     """Close open backup-failed alerts for this server (after a successful run)."""
     resolve_by_fingerprint(session, f"backup_failed:server:{int(server_id)}")
+
+
+# --- Certificate deploy / verify (service-level targets) ---
+
+
+def cert_deploy_failed_fingerprint(target_id: int) -> str:
+    return f"cert_deploy_failed:target:{int(target_id)}"
+
+
+def cert_verify_failed_fingerprint(target_id: int) -> str:
+    return f"cert_verify_failed:target:{int(target_id)}"
+
+
+def notify_cert_deploy_failed(
+    session: Session,
+    *,
+    target_id: int,
+    cert_id: int,
+    cert_name: str,
+    server_id: int | None,
+    server_name: str,
+    service_label: str,
+    message: str,
+) -> None:
+    """Open/refresh alert when SSH deploy to a service target fails."""
+    label = (service_label or "").strip() or f"target #{target_id}"
+    host = (server_name or "").strip() or (f"server #{server_id}" if server_id else "host")
+    upsert_notification(
+        session,
+        fingerprint=cert_deploy_failed_fingerprint(target_id),
+        type="cert_deploy_failed",
+        title=f"Cert deploy failed: {label}",
+        body=(
+            f"{cert_name} → {host}: {(message or 'deploy failed')[:320]}"
+        )[:400],
+        link_url=f"/certificates/{int(cert_id)}",
+        severity="critical",
+        server_id=server_id,
+        payload={
+            "target_id": int(target_id),
+            "cert_id": int(cert_id),
+            "kind": "deploy",
+        },
+    )
+
+
+def resolve_cert_deploy_failed(session: Session, target_id: int) -> None:
+    """Close deploy-failed alert after a successful follow-up deploy."""
+    resolve_by_fingerprint(session, cert_deploy_failed_fingerprint(target_id))
+
+
+def notify_cert_verify_failed(
+    session: Session,
+    *,
+    target_id: int,
+    cert_id: int,
+    cert_name: str,
+    server_id: int | None,
+    server_name: str,
+    service_label: str,
+    message: str,
+    status: str = "failed",
+) -> None:
+    """Open/refresh alert when host fingerprint or TLS URL probe fails.
+
+    *status* ``partial`` → warning (files OK, live TLS mismatch);
+    other failures → critical.
+    """
+    label = (service_label or "").strip() or f"target #{target_id}"
+    host = (server_name or "").strip() or (f"server #{server_id}" if server_id else "host")
+    sev = "warning" if (status or "") == "partial" else "critical"
+    title = (
+        f"Cert verify partial: {label}"
+        if sev == "warning"
+        else f"Cert verify failed: {label}"
+    )
+    upsert_notification(
+        session,
+        fingerprint=cert_verify_failed_fingerprint(target_id),
+        type="cert_verify_failed",
+        title=title,
+        body=(
+            f"{cert_name} → {host}: {(message or 'fingerprint/TLS check failed')[:320]}"
+        )[:400],
+        link_url=f"/certificates/{int(cert_id)}",
+        severity=sev,
+        server_id=server_id,
+        payload={
+            "target_id": int(target_id),
+            "cert_id": int(cert_id),
+            "kind": "verify",
+            "status": status,
+        },
+    )
+
+
+def resolve_cert_verify_failed(session: Session, target_id: int) -> None:
+    """Close verify-failed alert after fingerprint/TLS check succeeds."""
+    resolve_by_fingerprint(session, cert_verify_failed_fingerprint(target_id))
+
+
+def resolve_cert_target_alerts(session: Session, target_id: int) -> None:
+    """Resolve deploy + verify alerts for a target (e.g. target deleted)."""
+    resolve_cert_deploy_failed(session, target_id)
+    resolve_cert_verify_failed(session, target_id)

@@ -445,10 +445,10 @@ Unique partial index idea: one **open** row per `fingerprint` (or upsert by fing
 | Regenerate backup codes requires password **+** TOTP/backup code (modal) | **Done** (0.9 train) |
 | Hide app version when not signed in | **Done** (0.9 train) |
 | Unauthenticated `/` → login | **v1.0** ([PLAN_v1.0.0.md](PLAN_v1.0.0.md) F) |
-| User self-reset / admin OTP reset / clear 2FA | **Backlog** (G) — not 1.0 |
-| Email / SMTP notification channels | **Backlog** (H) post go-live |
-| SSO / OIDC + optional group→role map | **Discovery post-1.0** (Z) |
-| Trusted device type / last IP / rename | **Post-1.0** (AB) |
+| User self-reset / admin OTP reset / clear 2FA | **G2-lite admin OOB in 1.0**; **G1-lite email self-reset in v1.1** (SMTP) |
+| Email / SMTP notification channels | **H-lite + Wh-lite in v1.1** (Settings → Alerts); full matrix → v1.2 |
+| SSO / OIDC + optional group→role map | **→ v1.3 path** (Z); WebAuthn/passkeys → **v1.2** |
+| Trusted device type / last IP / rename | **AB shipped v1.1** (+ AB-polish edit control) |
 
 Keep a single service:
 

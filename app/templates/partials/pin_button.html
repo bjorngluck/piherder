@@ -1,0 +1,26 @@
+{# Compact star pin — app pages + integrations (icon only).
+   Expects: pin_kind, is_favourite, pin_label, pin_href
+   app_page: pin_page · integration: pin_integration_id
+#}
+{% if user is defined and user and pin_kind is defined %}
+<form method="post" action="/account/favourites/toggle"
+      class="host-pin-star pin-form"
+      data-testid="generic-pin-form">
+  <input type="hidden" name="kind" value="{{ pin_kind }}">
+  {% if pin_kind == 'app_page' %}
+  <input type="hidden" name="page" value="{{ pin_page }}">
+  {% elif pin_kind == 'integration' %}
+  <input type="hidden" name="integration_id" value="{{ pin_integration_id }}">
+  {% endif %}
+  {# Prefer canonical pin_href (Hosts/Path maps include #map). #}
+  <input type="hidden" name="next" value="{{ pin_href|default(request.url.path if request is defined else '/') }}">
+  <button type="submit"
+          class="host-pin-star-btn {% if is_favourite %}is-pinned{% endif %}"
+          data-testid="generic-pin-toggle"
+          title="{% if is_favourite %}Unpin {{ pin_label|default('this page') }}{% else %}Pin {{ pin_label|default('this page') }}{% endif %}"
+          aria-label="{% if is_favourite %}Unpin{% else %}Pin{% endif %} {{ pin_label|default('page') }}"
+          aria-pressed="{{ 'true' if is_favourite else 'false' }}">
+    <span aria-hidden="true">{% if is_favourite %}★{% else %}☆{% endif %}</span>
+  </button>
+</form>
+{% endif %}

@@ -21,8 +21,55 @@
             data-api-panel="docs" aria-selected="{{ 'true' if api_panel == 'docs' else 'false' }}">API reference</button>
     <button type="button" class="api-subnav-btn settings-tab-btn btn btn-secondary text-xs min-h-10 {{ 'is-active' if api_panel == 'catalog' else '' }}"
             data-api-panel="catalog" aria-selected="{{ 'true' if api_panel == 'catalog' else 'false' }}">Endpoint catalog</button>
-    <a href="/docs" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-10">OpenAPI /docs ↗</a>
+    <a href="/docs" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-10"
+       title="Swagger UI — Authorize with Bearer ph_…">OpenAPI /docs ↗</a>
+    <a href="/redoc" target="_blank" rel="noopener" class="btn btn-secondary text-xs min-h-10">ReDoc ↗</a>
   </nav>
+
+  {# Y — bearer test UX (paste secret once; never stored) #}
+  <div class="card p-4 mb-4" data-testid="api-bearer-try">
+    <h2 class="font-semibold text-text text-sm mb-1">Try a token</h2>
+    <p class="text-xs text-muted mb-3">
+      Paste a <code class="font-mono">ph_…</code> secret to validate scopes / IP allowlist against this instance.
+      The secret is sent only for this request (not saved). For interactive explore, open
+      <a href="/docs" class="text-accent hover:underline" target="_blank" rel="noopener">/docs</a>
+      → <strong class="text-text">Authorize</strong> → Bearer.
+    </p>
+    <form method="post" action="/herder-backups/api-tokens/test" class="flex flex-wrap gap-2 items-end"
+          data-testid="api-token-test-form">
+      <div class="flex-1 min-w-[12rem]">
+        <label class="block text-xs text-muted mb-1" for="api-test-token">Bearer secret</label>
+        <input id="api-test-token" type="password" name="token" required autocomplete="off"
+               placeholder="ph_…" class="w-full bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11"
+               data-testid="api-token-test-input">
+      </div>
+      <button type="submit" class="btn btn-primary min-h-11 text-sm" data-testid="api-token-test-btn">Test now</button>
+    </form>
+    {% set _tok = request.query_params.get('test_ok') if request is defined else none %}
+    {% if _tok is not none %}
+    <div class="mt-3 p-3 rounded border border-border text-sm {% if _tok == '1' %}banner-success{% else %}banner-error{% endif %}"
+         data-testid="api-token-test-result">
+      {% if _tok == '1' %}
+      <strong class="text-text">Valid</strong>
+      · {{ request.query_params.get('test_name') or 'token' }}
+      {% if request.query_params.get('test_scopes') %}
+      · scopes {{ request.query_params.get('test_scopes') }}
+      {% endif %}
+      {% else %}
+      <strong class="text-text">Rejected</strong>
+      — {{ request.query_params.get('test_detail') or 'check secret, revoke state, or IP allowlist' }}
+      {% endif %}
+    </div>
+    {% endif %}
+    <details class="mt-3">
+      <summary class="text-xs text-muted cursor-pointer">curl examples</summary>
+      <pre class="text-[11px] font-mono mt-2 p-2 bg-surface border border-border rounded overflow-x-auto"># Fleet (needs read)
+curl -sS -H "Authorization: Bearer ph_…" "{{ public_url|default('') }}/api/v1/servers" | head
+
+# OpenAPI schema
+curl -sS "{{ public_url|default('') }}/openapi.json" | head -c 200</pre>
+    </details>
+  </div>
 
   {# —— Tokens —— #}
   <div data-api-panel-body="tokens" class="api-subpanel {{ '' if api_panel == 'tokens' else 'hidden' }}" id="api-tokens">

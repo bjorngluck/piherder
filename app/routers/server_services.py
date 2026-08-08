@@ -87,6 +87,9 @@ async def server_services_page(
     except Exception:
         pass
 
+    from ..services.nav_shortcuts import host_feature_context
+
+    _nav = host_feature_context(session, int(user.id) if user else None, server, "services")
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="server_services.html",
@@ -102,5 +105,6 @@ async def server_services_page(
             "manage_integration_id": manage_id,
             "kuma_ssh": ssh,
             "hosts_map_url": hosts_map_url,
+            **_nav,
         },
     )

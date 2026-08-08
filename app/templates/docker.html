@@ -104,9 +104,22 @@
   {% set _dhealth = 'busy' if docker_shell|default(false) else ('warn' if _upd else 'ok') %}
   <section class="ops-hero ops-hero--docker is-{{ _dhealth }} mb-4">
     <div class="ops-hero-main">
-      <div class="ops-hero-kicker">
-        <a href="/servers/{{ server.id }}" class="text-accent hover:underline">{{ server.name }}</a>
-        · Docker
+      <div class="ops-hero-kicker host-kicker-line">
+        <span class="host-switcher-cluster">
+          <a href="/servers/{{ server.id }}" class="host-switcher-name-link"
+             data-testid="host-overview-link" title="Full server overview">{{ server.name }}</a>
+          {% if can_host_jump|default(false) %}
+          <button type="button" class="host-switcher-caret-btn" data-host-switch-open
+                  data-testid="host-switcher-open"
+                  title="Docker on another host (feature enabled only)"
+                  aria-label="Switch host for Docker">
+            <span aria-hidden="true">▾</span>
+          </button>
+          {% endif %}
+        </span>
+        <span class="host-kicker-sep">·</span>
+        <span>Docker</span>
+        {% include "partials/host_feature_nav.html" %}
       </div>
       <h1 class="ops-hero-title">Docker</h1>
       <p class="ops-hero-sub">
@@ -129,6 +142,7 @@
         <a href="/servers/{{ server.id }}/docker/new-project" class="btn btn-accent min-h-11 text-sm">+ New Service</a>
         <button type="button" onclick="showCleanupModal()" class="btn btn-secondary min-h-11 text-sm">Cleanup…</button>
       </div>
+      {% include "partials/host_switcher.html" %}
     </div>
     <div class="ops-hero-viz">
       <div class="docker-hero-viz" aria-hidden="true">

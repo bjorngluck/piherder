@@ -431,6 +431,8 @@ def test_physical_mesh_includes_discovered_hosts():
     assert disc.get("discovery_id") == 99
     assert disc.get("node_id") == "host-d-99"
     assert disc.get("device_kind") == "printer"
+    assert disc.get("icon_kind") == "printer"
+    assert fleet.get("icon_kind") == "server"  # fleet default canned icon
     # Compact discovered chip vs full fleet card
     assert disc.get("hw", 99) < fleet.get("hw", 0)
     assert disc.get("hh", 99) < fleet.get("hh", 0)
@@ -1177,7 +1179,8 @@ def test_physical_mesh_edges_meet_node_borders():
     rpi = next(n for n in svg["nodes"] if n["label"] == "RPI")
     lan = next(n for n in svg["nodes"] if n["kind"] == "lan")
     app = next(n for n in svg["nodes"] if n["kind"] == "app")
-    host_hw, host_hh = 62.0, 30.0
+    # Must match mesh_physical host half-size (icons + ports tag)
+    host_hw, host_hh = 62.0, 36.0
     lan_edges = [e for e in svg["edges"] if e.get("kind") == "lan"]
     assert lan_edges
 
@@ -1205,7 +1208,7 @@ def test_physical_mesh_edges_meet_node_borders():
     land = [e for e in svg["edges"] if e.get("kind") == "land" and e.get("path_id") == 1]
     assert land
     e = land[0]
-    app_hw, app_hh = 70.0, 22.0
+    app_hw, app_hh = 70.0, 28.0
     ends = [(e["x1"], e["y1"]), (e["x2"], e["y2"])]
 
     def near_app(x: float, y: float) -> bool:

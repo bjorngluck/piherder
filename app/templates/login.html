@@ -63,6 +63,10 @@
       <div class="mb-4 p-3 banner-success border border-border text-sm rounded" role="status">
         All your sessions were signed out. Sign in again to continue.
       </div>
+    {% elif request.query_params.get('msg') == 'password_reset' %}
+      <div class="mb-4 p-3 banner-success border border-border text-sm rounded" role="status">
+        Password updated. Sign in with your new password.
+      </div>
     {% endif %}
 
     <form method="post" action="/auth/login" class="space-y-4">
@@ -81,6 +85,12 @@
         Log in
       </button>
     </form>
+
+    {% if password_reset_available %}
+    <p class="mt-3 text-center text-sm">
+      <a href="/auth/forgot-password" class="text-primary hover:underline">Forgot password?</a>
+    </p>
+    {% endif %}
 
     <p class="mt-6 text-center text-sm text-muted">
       {% if registration_open %}

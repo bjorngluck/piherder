@@ -222,8 +222,17 @@
               <input type="checkbox" name="os_check_enabled" value="1" {% if server.os_check_enabled %}checked{% endif %}>
               Enable schedule
             </label>
+            <select class="w-full bg-surface border border-border px-2 py-2 rounded text-xs min-h-11 mb-1"
+                    aria-label="OS check preset"
+                    onchange="var el=this.form.querySelector('[name=os_check_schedule]'); if(this.value&&el){el.value=this.value;}">
+              <option value="">Custom / advanced…</option>
+              {% for val, lab in cron_presets %}
+              <option value="{{ val }}" {% if (server.os_check_schedule or '0 0 * * *') == val %}selected{% endif %}>{{ lab }}</option>
+              {% endfor %}
+            </select>
             <input type="text" name="os_check_schedule" value="{{ server.os_check_schedule or '0 0 * * *' }}" placeholder="0 0 * * *"
                    class="w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
+            <p class="text-[10px] text-muted m-0">{{ (server.os_check_schedule or '0 0 * * *') | cron_human(get_app_timezone()) }}</p>
             <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save OS check</button>
           </form>
         </div>
@@ -248,9 +257,18 @@
             {% else %}
             <p class="text-[10px] text-muted mb-0">Applies available supervisor → core → OS updates (no apt full-upgrade).</p>
             {% endif %}
+            <select class="w-full bg-surface border border-border px-2 py-2 rounded text-xs min-h-11 mb-1"
+                    aria-label="OS apply preset"
+                    onchange="var el=this.form.querySelector('[name=os_apply_schedule]'); if(this.value&&el){el.value=this.value;}">
+              <option value="">Custom / advanced…</option>
+              {% for val, lab in cron_presets %}
+              <option value="{{ val }}" {% if (server.os_apply_schedule or '30 3 * * 0') == val %}selected{% endif %}>{{ lab }}</option>
+              {% endfor %}
+            </select>
             <input type="text" name="os_apply_schedule" value="{{ server.os_apply_schedule or '30 3 * * 0' }}"
                    placeholder="30 3 * * 0"
                    class="w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
+            <p class="text-[10px] text-muted m-0">{{ (server.os_apply_schedule or '30 3 * * 0') | cron_human(get_app_timezone()) }}</p>
             <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save OS apply</button>
           </form>
         </div>
@@ -269,8 +287,17 @@
               <input type="checkbox" name="container_check_enabled" value="1" {% if server.container_check_enabled %}checked{% endif %}>
               Enable schedule
             </label>
+            <select class="w-full bg-surface border border-border px-2 py-2 rounded text-xs min-h-11 mb-1"
+                    aria-label="Container check preset"
+                    onchange="var el=this.form.querySelector('[name=container_check_schedule]'); if(this.value&&el){el.value=this.value;}">
+              <option value="">Custom / advanced…</option>
+              {% for val, lab in cron_presets %}
+              <option value="{{ val }}" {% if (server.container_check_schedule or '0 0 * * *') == val %}selected{% endif %}>{{ lab }}</option>
+              {% endfor %}
+            </select>
             <input type="text" name="container_check_schedule" value="{{ server.container_check_schedule or '0 0 * * *' }}" placeholder="0 0 * * *"
                    class="w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
+            <p class="text-[10px] text-muted m-0">{{ (server.container_check_schedule or '0 0 * * *') | cron_human(get_app_timezone()) }}</p>
             <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save container check</button>
           </form>
         </div>
@@ -287,9 +314,18 @@
                      {% if server.container_apply_only_if_updates or not server.container_apply_enabled %}checked{% endif %}>
               Only when last check found image updates
             </label>
+            <select class="w-full bg-surface border border-border px-2 py-2 rounded text-xs min-h-11 mb-1"
+                    aria-label="Container apply preset"
+                    onchange="var el=this.form.querySelector('[name=container_apply_schedule]'); if(this.value&&el){el.value=this.value;}">
+              <option value="">Custom / advanced…</option>
+              {% for val, lab in cron_presets %}
+              <option value="{{ val }}" {% if (server.container_apply_schedule or '0 4 * * 0') == val %}selected{% endif %}>{{ lab }}</option>
+              {% endfor %}
+            </select>
             <input type="text" name="container_apply_schedule" value="{{ server.container_apply_schedule or '0 4 * * 0' }}"
                    placeholder="0 4 * * 0"
                    class="w-full bg-surface border border-border px-2 py-2 rounded font-mono text-xs min-h-11">
+            <p class="text-[10px] text-muted m-0">{{ (server.container_apply_schedule or '0 4 * * 0') | cron_human(get_app_timezone()) }}</p>
             <button type="submit" class="btn btn-secondary min-h-11 text-xs">Save container apply</button>
           </form>
         </div>

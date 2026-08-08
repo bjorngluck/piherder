@@ -76,6 +76,29 @@ DEFAULTS: Dict[str, Any] = {
     "data_cleanup_audit_days": 30,
     "data_cleanup_nmap_enabled": False,
     "data_cleanup_nmap_days": 30,
+    # Cap Wh-lite — outbound webhook for alerts (env WEBHOOK_* is fallback)
+    "webhook_enabled": False,
+    "webhook_url": "",
+    "webhook_number": "",
+    "webhook_recipients": "",  # JSON list or comma-separated
+    "webhook_secret": "",  # optional Bearer / X-PiHerder-Webhook-Secret
+    "webhook_events_notifications": True,
+    "webhook_events_jobs": True,
+    "webhook_events_backup": True,
+    "webhook_min_severity": "warning",  # info|warning|critical
+    # Cap H-lite — SMTP (password Fernet in smtp_password_encrypted)
+    "smtp_enabled": False,
+    "smtp_host": "",
+    "smtp_port": 587,
+    "smtp_security": "starttls",  # none|starttls|ssl
+    "smtp_username": "",
+    "smtp_password_encrypted": "",
+    "smtp_from_email": "",
+    "smtp_from_name": "PiHerder",
+    "smtp_alert_to": "",  # comma-separated; empty → from_email
+    "smtp_alert_enabled": False,
+    "smtp_alert_min_severity": "warning",
+    "smtp_password_reset_enabled": True,
 }
 
 

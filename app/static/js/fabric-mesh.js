@@ -342,6 +342,7 @@
 
   function clearFocus(root) {
     root.classList.remove('is-focusing');
+    root.classList.remove('is-focus-locked');
     root._fabricFocusId = null;
     root._fabricActiveSet = null;
     focusableIn(root).forEach(function (el) {
@@ -364,6 +365,11 @@
       stackFocus.classList.add('hidden');
       stackFocus.removeAttribute('data-stack-url');
     }
+    var portsBtn = root.querySelector('[data-fabric-host-ports]');
+    if (portsBtn) {
+      portsBtn.classList.add('hidden');
+      portsBtn.removeAttribute('data-host-ports-url');
+    }
     var openLink = root.querySelector('[data-fabric-open-link]');
     if (openLink) {
       openLink.href = '#';
@@ -376,6 +382,11 @@
         window.PiHerderStackExpand.clear();
       }
     } catch (err) { /* optional */ }
+    try {
+      if (window.PiHerderHostPortsExpand && typeof window.PiHerderHostPortsExpand.clear === 'function') {
+        window.PiHerderHostPortsExpand.clear(root);
+      }
+    } catch (errHp) { /* optional */ }
   }
 
   function setStackFocusButton(root, focusId) {
@@ -395,18 +406,79 @@
     }
   }
 
+  /** M4 — Ports panel when a fleet host or discovered device is focused. */
+  function setHostPortsButton(root, focusId) {
+    var portsBtn = root.querySelector('[data-fabric-host-ports]');
+    if (!portsBtn) return;
+    var fid = focusId != null ? String(focusId) : '';
+    var serverId = '';
+    var discoveryId = '';
+    var portsSummary = '';
+    if (fid && fid.indexOf('n:') === 0) {
+      var node = root.querySelector(
+        '[data-node-id="' + fid.slice(2).replace(/"/g, '') + '"]'
+      );
+      // also try full id without strip for host-1 style
+      if (!node) {
+        node = root.querySelector(
+          '[data-node-id="' + fid.replace(/"/g, '') + '"]'
+        );
+      }
+      // focus ids are "n:host-3" — node-id is host-3
+      if (!node && fid.indexOf('n:') === 0) {
+        var nid = fid.slice(2);
+        node = root.querySelector(
+          '[data-node-id="' + nid.replace(/"/g, '') + '"]'
+        );
+      }
+      if (node) {
+        serverId = (node.getAttribute('data-server-id') || '').trim();
+        discoveryId = (node.getAttribute('data-discovery-id') || '').trim();
+        portsSummary = (node.getAttribute('data-ports-summary') || '').trim();
+      }
+    }
+    if (serverId && /^\d+$/.test(serverId)) {
+      portsBtn.setAttribute(
+        'data-host-ports-url',
+        '/dns/host-ports-panel?server_id=' + encodeURIComponent(serverId)
+      );
+      portsBtn.classList.remove('hidden');
+      portsBtn._portsSummary = portsSummary;
+    } else if (discoveryId && /^\d+$/.test(discoveryId)) {
+      portsBtn.setAttribute(
+        'data-host-ports-url',
+        '/dns/host-ports-panel?nmap_device_id=' + encodeURIComponent(discoveryId)
+      );
+      portsBtn.classList.remove('hidden');
+      portsBtn._portsSummary = portsSummary;
+    } else {
+      portsBtn.classList.add('hidden');
+      portsBtn.removeAttribute('data-host-ports-url');
+      portsBtn._portsSummary = '';
+    }
+    return portsSummary;
+  }
+
   function setCallout(root, text, openHref, openLabel) {
     var callout = root.querySelector('[data-fabric-callout]');
     var copyCallout = root.querySelector('[data-fabric-copy-callout]');
     var openLink = root.querySelector('[data-fabric-open-link]');
+    var portsSummary = setHostPortsButton(root, root._fabricFocusId);
     if (callout) {
-      if (text) {
-        callout.textContent = text;
+      var display = text || '';
+      if (display && portsSummary && display.indexOf(portsSummary) < 0) {
+        display = display + ' · ' + portsSummary;
+      } else if (!display && portsSummary) {
+        display = portsSummary;
+      }
+      if (display) {
+        callout.textContent = display;
         callout.classList.remove('is-empty');
       } else {
         callout.textContent = callout.getAttribute('data-fabric-callout-empty') || '';
         callout.classList.add('is-empty');
       }
+      text = display;
     }
     if (copyCallout) {
       if (text) {
@@ -419,6 +491,7 @@
     }
     // Stack only when focus is a mapped service path (set in focusPath)
     setStackFocusButton(root, root._fabricFocusId);
+    setHostPortsButton(root, root._fabricFocusId);
     if (openLink) {
       if (!openLink.getAttribute('data-default-label')) {
         openLink.setAttribute('data-default-label', openLink.textContent || 'Open host');
@@ -559,10 +632,36 @@
     var clearBtn = root.querySelector('[data-fabric-clear-focus]');
     if (clearBtn) clearBtn.classList.remove('hidden');
     raiseActiveToFront(root);
-    // P4 — path map stack expand (containers + confirmed edges)
+    // On-map expand only when focus is locked (click/tap) — not hover preview
+    var lockedExpand = root.classList.contains('is-focus-locked');
     try {
-      if (window.PiHerderStackExpand && typeof window.PiHerderStackExpand.show === 'function') {
-        window.PiHerderStackExpand.show(idStr);
+      if (!lockedExpand) {
+        if (window.PiHerderHostPortsExpand && window.PiHerderHostPortsExpand.clear) {
+          window.PiHerderHostPortsExpand.clear(root);
+        }
+        // keep existing path hover stack expand behaviour via StackExpand.show below only when locked
+        if (window.PiHerderStackExpand && window.PiHerderStackExpand.clear && isNodeFocusId(idStr)) {
+          window.PiHerderStackExpand.clear();
+        }
+        return;
+      }
+      if (isNodeFocusId(idStr)) {
+        if (window.PiHerderStackExpand && window.PiHerderStackExpand.clear) {
+          window.PiHerderStackExpand.clear();
+        }
+        if (
+          window.PiHerderHostPortsExpand &&
+          typeof window.PiHerderHostPortsExpand.showForFocus === 'function'
+        ) {
+          window.PiHerderHostPortsExpand.showForFocus(root, idStr);
+        }
+      } else {
+        if (window.PiHerderHostPortsExpand && window.PiHerderHostPortsExpand.clear) {
+          window.PiHerderHostPortsExpand.clear(root);
+        }
+        if (window.PiHerderStackExpand && typeof window.PiHerderStackExpand.show === 'function') {
+          window.PiHerderStackExpand.show(idStr);
+        }
       }
     } catch (err) { /* optional */ }
   }
@@ -627,6 +726,23 @@
   }
 
   /**
+   * On-canvas overlays (host ports / stack expand). Live inside the SVG so
+   * isInMesh is true, but clicks must reach their own handlers — capture-phase
+   * mesh focus must not stopPropagation (desktop bug: compact "Tap for ports"
+   * never fired; touch worked via touchend only).
+   */
+  function isMapOverlayInteract(el) {
+    return !!(
+      el &&
+      el.closest &&
+      el.closest(
+        '.fabric-host-ports-expand-layer, #fabric-host-ports-expand-layer, ' +
+          '.fabric-stack-expand-layer, #fabric-stack-expand-layer'
+      )
+    );
+  }
+
+  /**
    * Card/list controls only — NOT map nodes.
    * Map nodes are wrapped in <a href="…">; treating those as chrome
    * broke all path/host focus (regression).
@@ -649,6 +765,8 @@
     // Buttons on path cards / flow rows: do not resolve to the card for focus
     // (pointerup preventDefault would kill the following click on mobile).
     if (isFabricChrome(el)) return null;
+    // Overlay UI is not a path/host focus target
+    if (isMapOverlayInteract(el)) return null;
     return el.closest('[data-path-id], [data-path-ids], [data-node-id]');
   }
 
@@ -724,11 +842,18 @@
       return e.pointerType === 'mouse' || e.pointerType === 'pen' || e.pointerType === '';
     }
 
+    function setFocusLocked(on) {
+      // M2: CSS pop-out only when tap/click locked (not hover preview)
+      if (on) root.classList.add('is-focus-locked');
+      else root.classList.remove('is-focus-locked');
+    }
+
     function lockPath(pathId, chain, opts) {
       opts = opts || {};
       if (pathId == null || pathId === '') {
         locked = null;
         hoverId = null;
+        setFocusLocked(false);
         clearFocus(root);
         return;
       }
@@ -747,12 +872,14 @@
         locked = null;
         hoverId = null;
         lastLockAt = Date.now(); // suppress double-fire re-lock
+        setFocusLocked(false);
         clearFocus(root);
         return;
       }
       locked = id;
       hoverId = id;
       lastLockAt = Date.now();
+      setFocusLocked(true);
       focusPath(root, id, chain, true);
     }
 
@@ -761,6 +888,7 @@
       if (pathId == null || pathId === '') {
         if (hoverId != null) {
           hoverId = null;
+          setFocusLocked(false);
           clearFocus(root);
         }
         return;
@@ -768,6 +896,7 @@
       var id = String(pathId);
       if (hoverId === id && root._fabricFocusId === id) return;
       hoverId = id;
+      setFocusLocked(false);
       focusPath(root, id, chain, false);
     }
 
@@ -831,6 +960,13 @@
             'input, select, textarea, summary, label, button'
           )
         ) {
+          return;
+        }
+
+        // Host ports / stack expand overlays — leave click for their handlers
+        // (desktop mouse; touch already uses touchend on the overlay).
+        if (isMapOverlayInteract(e.target)) {
+          mouseDown = null;
           return;
         }
 
@@ -961,7 +1097,7 @@
         if (e.pointerType !== 'mouse' && e.pointerType !== 'pen' && e.pointerType !== '') {
           return;
         }
-        if (isFabricChrome(e.target)) {
+        if (isFabricChrome(e.target) || isMapOverlayInteract(e.target)) {
           mouseDown = null;
           return;
         }
@@ -1095,6 +1231,7 @@
     if (initial) {
       locked = String(initial);
       lastLockAt = Date.now();
+      setFocusLocked(true);
       focusPath(root, locked, null, true);
     }
   }
@@ -1624,6 +1761,12 @@
 
       viewport.addEventListener('pointerdown', function (e) {
         if (e.button !== 0 && e.pointerType === 'mouse') return;
+        // On-map ports / stack expand UI — do NOT setPointerCapture.
+        // Capture retargets click to the viewport so desktop mouse never
+        // reaches overlay handlers (touch still works via touchend).
+        if (isMapOverlayInteract(e.target)) {
+          return;
+        }
         pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
         try {
           viewport.setPointerCapture(e.pointerId);

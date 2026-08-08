@@ -147,6 +147,7 @@ nav:
       - Operator scenarios: getting-started/operator-scenarios.md
   - Day to day:
       - Dashboard & Services: day-to-day/dashboard-and-services.md
+      - Pins & host jump: day-to-day/navigation-pins.md
       - Add a server: day-to-day/add-server.md
       - HAOS hosts: day-to-day/haos-hosts.md
       - Backups & restore: day-to-day/backups.md
@@ -170,7 +171,9 @@ nav:
       - Network maps: integrations/dns-fabric.md
       - LAN Discovery (nmap): integrations/lan-discovery.md
       - Nginx Proxy Manager: integrations/npm.md
+      - Generic links (HA / Frigate / n8n): integrations/generic-links.md
       - Certificates: integrations/certificates.md
+      - Obtain a cert (ACME): integrations/certificates-obtain-acme.md
   - Account & security:
       - Roles (RBAC): account-security/roles.md
       - Users: account-security/users.md
@@ -185,6 +188,7 @@ nav:
       - Upgrades: operations/upgrades.md
       - Multi-worker Celery: operations/multi-worker.md
       - Metrics & webhooks: operations/metrics-webhooks.md
+      - Alerts (email & webhooks): operations/alerts-email-webhooks.md
       - API tokens: operations/api-tokens.md
   - Troubleshooting:
       - Overview: troubleshooting/index.md

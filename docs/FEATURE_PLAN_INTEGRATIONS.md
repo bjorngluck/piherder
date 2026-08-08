@@ -129,7 +129,7 @@ type, name, base_url, enabled, config_json (poll_interval, tls_verify), credenti
 | 7 Logos (discover + upload) | Done |
 | 8 Docs | Done (this update) |
 
-**Still H1 later / other adapters:** multi Pi-hole, NPM/HA generic URL entries.
+**Later residual:** multi Pi-hole polish if needed. **Generic URL entries (HA / Frigate / n8n / custom)** shipped in **v1.1** as thin links — see wiki `integrations/generic-links.md`.
 
 ---
 

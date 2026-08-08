@@ -187,8 +187,9 @@ def upgrade() -> None:
         conn.execute(
             text(
                 """
-                INSERT INTO topologycategory (key, label, sort_order, enabled, is_system)
-                SELECT :k, :l, :s, TRUE, TRUE
+                INSERT INTO topologycategory
+                    (key, label, sort_order, enabled, is_system, created_at, updated_at)
+                SELECT :k, :l, :s, TRUE, TRUE, NOW(), NOW()
                 WHERE NOT EXISTS (SELECT 1 FROM topologycategory WHERE key = :k)
                 """
             ),
@@ -210,8 +211,9 @@ def upgrade() -> None:
         conn.execute(
             text(
                 """
-                INSERT INTO topologytag (key, label, sort_order, enabled, is_system)
-                SELECT :k, :l, :s, TRUE, TRUE
+                INSERT INTO topologytag
+                    (key, label, sort_order, enabled, is_system, created_at, updated_at)
+                SELECT :k, :l, :s, TRUE, TRUE, NOW(), NOW()
                 WHERE NOT EXISTS (SELECT 1 FROM topologytag WHERE key = :k)
                 """
             ),

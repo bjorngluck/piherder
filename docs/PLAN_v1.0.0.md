@@ -388,4 +388,4 @@ Working table (maintainer). Mark each row: **OK** / **Fix** / **Public** / **N/A
 
 **Spot-check first (highest risk):** any POST without `Depends(get_*_user)`; SSE/stream GETs; metrics if token unset; wizard and bulk actions.
 
-**End of plan** — living document until freeze into `RELEASE_v1.0.0.md`.
+**End of plan** — frozen at tag into [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md). Active development: [PLAN_v1.1.0.md](PLAN_v1.1.0.md) on branch `v1.1.0-dev`.

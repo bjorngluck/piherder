@@ -50,9 +50,10 @@ If you set `ALLOW_OPEN_REGISTRATION=true`, later self-registered accounts become
 | Step | Where |
 |------|--------|
 | Set display name / avatar | **Account** (full-width ops-hero + profile / security cards) |
-| Optional 2FA | **Account** → TOTP + backup codes — or [force 2FA for all](../account-security/two-factor.md). Regenerating backup codes needs password **and** a live 2FA code. |
+| Optional 2FA | **Account** → TOTP + backup codes — or [force 2FA for all](../account-security/two-factor.md). Regenerating backup codes needs password **and** a live 2FA code. Trusted devices show type, last IP, and optional rename. |
 | Push notifications | **Account** → Push (after [HTTPS / PWA](../account-security/pwa-push.md)) |
 | Timezone | **Settings → General** |
+| Pins (★) | After you have hosts/maps you care about, pin them — [Pins & host jump](../day-to-day/navigation-pins.md) |
 | Version / About | Footer shows version only when signed in; **About** under avatar menu (anonymous chrome never shows the version string) |
 | Create operators/viewers | **Users** (admin) — after first admin, no public self-register |
 | Add first server | [Add a server](../day-to-day/add-server.md) |
