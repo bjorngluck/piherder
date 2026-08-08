@@ -82,9 +82,11 @@ class Settings(BaseSettings):
     PIHERDER_SSH_CONSOLE_IDLE_SEC: int = 900
     # Hard max session length (seconds)
     PIHERDER_SSH_CONSOLE_MAX_SEC: int = 3600
-    # Concurrent open consoles per user / whole instance
+    # Concurrent open consoles per user / whole instance (multi-shell tabs each count)
     PIHERDER_SSH_CONSOLE_MAX_PER_USER: int = 2
     PIHERDER_SSH_CONSOLE_MAX_GLOBAL: int = 10
+    # After 2FA, grant re-open of additional shells on the same host without re-TOTP
+    PIHERDER_SSH_CONSOLE_GRANT_MIN: int = 10
 
     class Config:
         env_file = ".env"

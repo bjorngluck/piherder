@@ -198,12 +198,13 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 
 | Item | Stance | Status |
 |------|--------|--------|
-| **W1** Feature flag default **off** (`PIHERDER_SSH_CONSOLE`) | Must | **In progress** (2026-08-08) |
+| **W1** Feature flag default **off** (`PIHERDER_SSH_CONSOLE`) | Must | **In progress** |
 | **W2** operator+ only; viewer 403 | Must | **In progress** |
-| **W3** Step-up 2FA (TOTP / backup) before ticket mint | Must | **In progress** (passkey step-up UI later if needed) |
-| **W4** Short-lived single-use ticket; idle timeout; max concurrent | Must | **In progress** |
+| **W3** Step-up 2FA before ticket; short grant for multi-shell on same host | Must | **In progress** (grant + session_version binding) |
+| **W4** Single-use ticket; idle/max session; concurrent caps | Must | **In progress** |
+| **W4b** Multi-shell UI: new / minimize / switch / close | Should | **In progress** |
 | **W5** Audit open/close + IP + duration | Must | **In progress** |
-| **W6** SECURITY.md + ADMIN + CSP/TLS bar | Must | Pending docs polish |
+| **W6** SECURITY.md + ADMIN + CSP/TLS bar | Must | SECURITY note landed; wiki/ADMIN pending |
 | **W7** Demo: disabled **or** sandbox-only host | Must decide before demo GA | Pending |
 | Session recording / dual-control root | Defer | — |
 
