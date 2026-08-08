@@ -130,6 +130,28 @@
     position: fixed; inset: 0; z-index: 90;
     width: 100vw; height: 100vh; height: 100dvh;
   }
+  /* Maximized workspace: thinner top bars */
+  .cw.is-max .cw-bar {
+    padding: 0.25rem 0.4rem;
+  }
+  .cw.is-max .cw-meta,
+  .cw.is-max .cw-back {
+    display: none;
+  }
+  .cw.is-max .cw-title { font-size: 0.8rem; }
+  .cw.is-max .cw-host-row {
+    padding: 0.2rem 0.35rem;
+  }
+  .cw.is-max .cw-host-tab {
+    min-height: 1.7rem;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.72rem;
+  }
+  .cw.is-max .cw-actions .btn {
+    min-height: 1.7rem;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.45rem;
+  }
   .cw-picker {
     position: fixed; inset: 0; z-index: 100;
     background: rgba(0,0,0,0.72);
@@ -382,7 +404,15 @@
     root.classList.toggle('is-max');
     var on = root.classList.contains('is-max');
     if (btnMax) btnMax.textContent = on ? 'Restore' : 'Maximize';
-    // refit active iframe terminal
+    // Slim chrome in every open host iframe
+    open.forEach(function (h) {
+      try {
+        h.elFrame.contentWindow.postMessage(
+          { type: 'piherder-console', action: 'compact', on: on },
+          window.location.origin
+        );
+      } catch (e) {}
+    });
     setTimeout(function () {
       if (activeId != null) activate(activeId);
     }, 80);
