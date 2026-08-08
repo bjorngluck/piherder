@@ -73,3 +73,13 @@ Anonymous visitors hitting `/` are redirected to **login** (no empty public dash
 ## Sole admin protection
 
 You cannot demote or delete the **last active admin**. Promote another user first.
+
+## Future: fine-grained roles (v1.3)
+
+v1.2 keeps **three global roles** only (plus OIDC group → those three roles). A later path (**AC-fg**, planned for **v1.3**) may add:
+
+- Per-**host** allowlists (operate only selected machines)  
+- Per-**feature** gates (e.g. backups yes, webshell no, certs read-only)  
+- Optional custom roles that SSO groups map into  
+
+Not multi-tenant SaaS isolation. Roadmap: [ROADMAP_ECOSYSTEM.md](https://github.com/bjorngluck/piherder/blob/main/docs/ROADMAP_ECOSYSTEM.md).

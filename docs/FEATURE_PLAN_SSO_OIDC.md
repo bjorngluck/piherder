@@ -20,7 +20,7 @@ Support real-world account lifecycle:
 4. **Unlink** SSO — and **require setting a password** when that would leave the user with no password login path  
 5. **2FA always when required** — password and SSO share the same PiHerder TOTP/passkey / Force 2FA gates; sensitive link/unlink/password-remove re-validate 2FA when enrolled
 
-**Non-goals (v1.2):** SAML · multi-tenant org isolation · passwordless-only IdP with no local recovery · social “Sign in with GitHub” as a product surface (generic OIDC covers it if the IdP does).
+**Non-goals (v1.2):** SAML · multi-tenant org isolation · **fine-grained / per-host / per-feature roles** (global viewer·operator·admin only; **AC-fg → v1.3**) · passwordless-only IdP with no local recovery · social “Sign in with GitHub” as a product surface (generic OIDC covers it if the IdP does).
 
 ---
 
