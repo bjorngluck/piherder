@@ -27,7 +27,9 @@ Journey: [Operator scenarios — Journey F](../getting-started/operator-scenario
 
 ---
 
-Archives: format **v2** `.tar.gz` under `./piherder_backups` → `/herder_backups`. Host dir must be writable by container user (uid 1000).
+Archives: format **v4** `.tar.gz` (v1–v3 still restore) under `./piherder_backups` → `/herder_backups`. Host dir must be writable by container user (uid 1000).
+
+Self-backup is a **JSON row snapshot + selected files**, not a raw PostgreSQL `pg_dump`. That is intentional (portable, selective, master-key aware).
 
 ## Included
 
@@ -35,12 +37,18 @@ Archives: format **v2** `.tar.gz` under `./piherder_backups` → `/herder_backup
 |---------|--------|
 | Servers | Encrypted SSH keys/passwords, schedules, inventory, flags |
 | Users | Hashes, roles, profile, encrypted TOTP |
+| **User favourites (pins)** | ★ menu pins — per user (format **v4**) |
+| **API tokens** | Hash + scopes/prefix only (plaintext never stored) — format **v4** |
 | TOTP backup codes + trusted devices | 2FA recovery state |
 | Docker compose versions | Multi-file history |
 | Push VAPID + subscriptions | Same master key on restore |
 | Notifications | Recent (capped) |
 | Integrations + bindings | Encrypted credentials |
-| Operational settings | Timezone, force 2FA, schedules (`appsetting`) |
+| Managed certs + deploy targets | Encrypted PEMs as stored |
+| DNS fabric / runtime edges / topology annotations | Maps + stack ownership |
+| **Port annotations** | Sticky port roles on maps |
+| **LAN discovery** | Schedules, devices, script results (format **v4**) |
+| Operational settings | Timezone, force 2FA, schedules (`herder_config` from `appsetting`) |
 | Avatars | Packed under `data/avatars/…` |
 | Service logos | Packed under `data/service_logos/…` (integration icons) |
 | Templates + stack deployments | Ciphertext secrets |
@@ -51,6 +59,8 @@ Archives: format **v2** `.tar.gz` under `./piherder_backups` → `/herder_backup
 | Content | Why |
 |---------|-----|
 | Jobs queue | Ephemeral |
+| Password-reset tokens | Short-lived; re-request after restore |
+| Nmap **scan run** history + XML under `DATA_ROOT/nmap` | Large / ephemeral; re-scan after restore |
 | Per-server rsync **files** | Different volume — see [Backups](../day-to-day/backups.md) |
 | External Kuma/Grafana instances | Only PiHerder-side config |
 
