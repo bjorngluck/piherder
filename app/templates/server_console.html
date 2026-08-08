@@ -10,18 +10,21 @@
       <h1 class="text-xl font-semibold text-text">Web SSH console</h1>
       <p class="text-sm text-muted font-mono">{{ server.ssh_username or '?' }}@{{ server.hostname or server.ip_address or 'host' }}:{{ server.ssh_port or 22 }}</p>
     </div>
+    <div class="text-xs text-muted max-w-sm text-right hidden sm:block">
+      Key stays on PiHerder · operator+ · 2FA step-up · max {{ max_shells }} shells
+    </div>
   </div>
 </section>
 
 {% if not console_enabled %}
 <div class="card p-5 mb-4 banner-error border border-border" role="alert">
   <strong>Console is disabled</strong> on this instance.
-  Set <code class="font-mono text-xs">PIHERDER_SSH_CONSOLE=true</code> in the environment and restart the web container.
+  Set <code class="font-mono text-xs">PIHERDER_SSH_CONSOLE=true</code> and restart web.
   Default is <strong>off</strong> for safety.
 </div>
 {% elif not has_ssh_cred %}
 <div class="card p-5 mb-4 banner-error border border-border" role="alert">
-  No SSH key or password stored for this host. Open <strong>SSH access</strong> on the server page to deploy a key first.
+  No SSH key or password stored for this host. Open <strong>SSH access</strong> on the server page first.
 </div>
 {% elif not has_2fa %}
 <div class="card p-5 mb-4 banner-error border border-border" role="alert">
@@ -30,64 +33,118 @@
 </div>
 {% else %}
 
-<div class="card p-4 mb-3 space-y-3" id="console-gate" data-testid="console-gate">
-  <p class="text-sm text-muted">
-    Step-up 2FA is required before the private key is used on the server.
-    The key is <strong class="text-text">never</strong> sent to your browser.
-    Idle disconnect ~{{ (idle_sec / 60)|int }} min · max session ~{{ (max_session_sec / 60)|int }} min · ticket {{ ticket_ttl }}s.
+{# Security notice #}
+<div class="card p-4 mb-3 border border-border bg-surface/50" data-testid="console-security-note">
+  <p class="text-sm text-text font-medium mb-1">Security</p>
+  <ul class="text-xs text-muted space-y-1 list-disc pl-4">
+    <li>Private key is decrypted only in PiHerder memory — <strong class="text-text">never</strong> sent to the browser.</li>
+    <li>Each shell needs a short-lived single-use ticket; logout or password change invalidates grants.</li>
+    <li>After 2FA, you may open more shells on <em>this host</em> for ~{{ grant_minutes }} min without re-entering a code.</li>
+    <li>Idle ~{{ (idle_sec / 60)|int }} min · max session ~{{ (max_session_sec / 60)|int }} min · up to <strong class="text-text">{{ max_shells }}</strong> concurrent shells for your account.</li>
+    <li>Treat XSS on this origin as shell access — prefer HTTPS; disconnect when done.</li>
+  </ul>
+</div>
+
+{# Step-up gate (hidden once grant active and shells open) #}
+<div class="card p-4 mb-3 space-y-3" id="console-gate" data-testid="console-gate"
+     {% if grant_active %}data-grant="1"{% endif %}>
+  <p class="text-sm text-muted" id="console-gate-help">
+    {% if grant_active %}
+    Step-up is active for this host (~{{ grant_minutes }} min). You can open shells without re-entering 2FA until it expires.
+    {% else %}
+    Enter authenticator or backup code once, then open one or more shells.
+    {% endif %}
   </p>
-  <div class="flex flex-wrap gap-2 items-end">
+  <div class="flex flex-wrap gap-2 items-end" id="console-2fa-row" {% if grant_active %}style="display:none"{% endif %}>
     <div class="flex-1 min-w-[12rem]">
       <label class="block text-xs text-muted mb-1" for="console-totp">Authenticator or backup code</label>
       <input id="console-totp" type="text" inputmode="numeric" autocomplete="one-time-code"
              class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono"
              data-testid="console-totp" placeholder="123456">
     </div>
-    <button type="button" id="console-connect" class="btn btn-accent min-h-11 text-sm"
-            data-testid="console-connect">Connect</button>
-    <button type="button" id="console-disconnect" class="btn btn-danger min-h-11 text-sm hidden"
-            data-testid="console-disconnect">Disconnect</button>
   </div>
-  <p id="console-status" class="text-xs text-muted" role="status"></p>
+  <div class="flex flex-wrap gap-2 items-center">
+    <button type="button" id="console-new-shell" class="btn btn-accent min-h-11 text-sm"
+            data-testid="console-new-shell">New shell</button>
+    <button type="button" id="console-revoke-grant" class="btn btn-secondary min-h-11 text-sm"
+            data-testid="console-revoke-grant" title="Require 2FA again for the next shell">
+      Lock step-up
+    </button>
+    <span id="console-status" class="text-xs text-muted" role="status"></span>
+  </div>
   <p id="console-error" class="hidden text-sm text-danger" role="alert"></p>
 </div>
 
-<div class="card p-0 overflow-hidden border border-border" style="background:#0b0f14;">
-  <div id="terminal" class="w-full" style="height: min(70vh, 560px);" data-testid="console-terminal"></div>
+{# Shell tabs + terminal panes #}
+<div class="card p-0 overflow-hidden border border-border" data-testid="console-workspace">
+  <div class="flex flex-wrap items-center gap-1 px-2 py-1.5 border-b border-border bg-surface"
+       id="console-tabs" role="tablist" aria-label="Shell sessions">
+    <span class="text-[10px] text-muted uppercase tracking-wide px-2 py-1" id="console-tab-empty">
+      No shells yet — click <strong class="text-text">New shell</strong>
+    </span>
+  </div>
+  <div id="console-panes" class="relative" style="background:#0b0f14; min-height: min(70vh, 560px);">
+    {# panes injected by JS #}
+  </div>
+  <div class="flex flex-wrap gap-2 px-3 py-2 border-t border-border bg-surface text-xs text-muted"
+       id="console-toolbar">
+    <button type="button" id="console-minimize" class="btn btn-secondary text-xs min-h-9 px-2" disabled
+            data-testid="console-minimize">Minimize active</button>
+    <button type="button" id="console-restore" class="btn btn-secondary text-xs min-h-9 px-2" disabled
+            data-testid="console-restore">Restore</button>
+    <button type="button" id="console-disconnect" class="btn btn-danger text-xs min-h-9 px-2" disabled
+            data-testid="console-disconnect">Close shell</button>
+    <span id="console-slot-info" class="ml-auto self-center">Slots free: {{ slots_remaining }} / {{ max_shells }}</span>
+  </div>
 </div>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<style>
+  .console-tab {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.35rem 0.65rem; border-radius: 0.375rem; font-size: 0.75rem;
+    border: 1px solid var(--color-border, #333); background: transparent; color: inherit;
+    min-height: 2rem; cursor: pointer;
+  }
+  .console-tab.is-active { border-color: var(--color-accent, #22c55e); background: rgba(34,197,94,0.08); }
+  .console-tab.is-minimized { opacity: 0.65; }
+  .console-tab .dot { width: 0.4rem; height: 0.4rem; border-radius: 999px; background: #22c55e; }
+  .console-tab.is-minimized .dot { background: #a3a3a3; }
+  .console-pane { display: none; height: min(70vh, 560px); padding: 0.25rem; }
+  .console-pane.is-active { display: block; }
+  .console-pane.is-minimized { display: none !important; }
+  .console-pane .xterm-host { height: 100%; width: 100%; }
+</style>
 <script>
 (function () {
   var serverId = {{ server.id }};
-  var termEl = document.getElementById('terminal');
-  var connectBtn = document.getElementById('console-connect');
-  var discBtn = document.getElementById('console-disconnect');
+  var maxShells = {{ max_shells|int }};
+  var grantActive = {{ 'true' if grant_active else 'false' }};
+  var tabsEl = document.getElementById('console-tabs');
+  var panesEl = document.getElementById('console-panes');
+  var tabEmpty = document.getElementById('console-tab-empty');
   var totpIn = document.getElementById('console-totp');
+  var row2fa = document.getElementById('console-2fa-row');
+  var helpEl = document.getElementById('console-gate-help');
   var statusEl = document.getElementById('console-status');
   var errEl = document.getElementById('console-error');
-  if (!termEl || !window.Terminal) {
-    if (statusEl) statusEl.textContent = 'xterm.js failed to load (CDN). Check network or vendor offline later.';
+  var slotInfo = document.getElementById('console-slot-info');
+  var btnNew = document.getElementById('console-new-shell');
+  var btnMin = document.getElementById('console-minimize');
+  var btnRest = document.getElementById('console-restore');
+  var btnClose = document.getElementById('console-disconnect');
+  var btnRevoke = document.getElementById('console-revoke-grant');
+
+  if (!window.Terminal) {
+    if (statusEl) statusEl.textContent = 'xterm.js failed to load (CDN).';
     return;
   }
 
-  var term = new Terminal({
-    cursorBlink: true,
-    fontSize: 14,
-    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    theme: { background: '#0b0f14', foreground: '#e6edf3' }
-  });
-  var fitAddon = (window.FitAddon && window.FitAddon.FitAddon)
-    ? new window.FitAddon.FitAddon()
-    : (window.FitAddon ? new window.FitAddon() : null);
-  if (fitAddon) term.loadAddon(fitAddon);
-  term.open(termEl);
-  if (fitAddon) try { fitAddon.fit(); } catch (e) {}
-
-  var ws = null;
-  var connected = false;
+  var shells = []; // { id, label, term, fit, ws, tab, pane, minimized, connected }
+  var activeId = null;
+  var nextN = 1;
 
   function setErr(msg) {
     if (!errEl) return;
@@ -95,106 +152,260 @@
     errEl.textContent = msg;
     errEl.classList.remove('hidden');
   }
-  function setStatus(msg) {
-    if (statusEl) statusEl.textContent = msg || '';
+  function setStatus(msg) { if (statusEl) statusEl.textContent = msg || ''; }
+
+  function FitCtor() {
+    if (window.FitAddon && window.FitAddon.FitAddon) return window.FitAddon.FitAddon;
+    if (typeof window.FitAddon === 'function') return window.FitAddon;
+    return null;
   }
 
-  function sendResize() {
-    if (!ws || ws.readyState !== 1 || !fitAddon) return;
+  function updateToolbar() {
+    var sh = shells.find(function (s) { return s.id === activeId; });
+    var anyMin = shells.some(function (s) { return s.minimized; });
+    if (btnMin) btnMin.disabled = !sh || sh.minimized || !sh.connected;
+    if (btnRest) btnRest.disabled = !anyMin;
+    if (btnClose) btnClose.disabled = !sh;
+    if (btnNew) btnNew.disabled = shells.length >= maxShells;
+    if (tabEmpty) tabEmpty.style.display = shells.length ? 'none' : '';
+    if (slotInfo) {
+      var free = Math.max(0, maxShells - shells.length);
+      slotInfo.textContent = 'Shells: ' + shells.length + ' / ' + maxShells + ' · free ' + free;
+    }
+  }
+
+  function activate(id) {
+    activeId = id;
+    shells.forEach(function (s) {
+      var on = s.id === id && !s.minimized;
+      s.tab.classList.toggle('is-active', s.id === id);
+      s.tab.classList.toggle('is-minimized', !!s.minimized);
+      s.pane.classList.toggle('is-active', on);
+      s.pane.classList.toggle('is-minimized', !!s.minimized);
+      if (on && s.fit) {
+        try { s.fit.fit(); s.ws && s.ws.readyState === 1 && s.ws.send(JSON.stringify({ type: 'resize', cols: s.term.cols, rows: s.term.rows })); } catch (e) {}
+      }
+    });
+    updateToolbar();
+  }
+
+  function destroyShell(sh) {
+    if (sh.ws) { try { sh.ws.close(); } catch (e) {} }
+    try { sh.term.dispose(); } catch (e) {}
+    if (sh.tab && sh.tab.parentNode) sh.tab.parentNode.removeChild(sh.tab);
+    if (sh.pane && sh.pane.parentNode) sh.pane.parentNode.removeChild(sh.pane);
+    shells = shells.filter(function (s) { return s.id !== sh.id; });
+    if (activeId === sh.id) {
+      var next = shells.find(function (s) { return !s.minimized; }) || shells[0];
+      activeId = next ? next.id : null;
+      if (next) activate(next.id);
+    }
+    updateToolbar();
+  }
+
+  function createShellUi(label) {
+    var id = 'sh-' + (nextN++);
+    var tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'console-tab';
+    tab.setAttribute('role', 'tab');
+    tab.innerHTML = '<span class="dot" aria-hidden="true"></span><span class="lab"></span>';
+    tab.querySelector('.lab').textContent = label;
+
+    var pane = document.createElement('div');
+    pane.className = 'console-pane';
+    pane.setAttribute('role', 'tabpanel');
+    var host = document.createElement('div');
+    host.className = 'xterm-host';
+    pane.appendChild(host);
+
+    tabsEl.appendChild(tab);
+    panesEl.appendChild(pane);
+
+    var term = new Terminal({
+      cursorBlink: true,
+      fontSize: 14,
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      theme: { background: '#0b0f14', foreground: '#e6edf3' }
+    });
+    var FC = FitCtor();
+    var fit = FC ? new FC() : null;
+    if (fit) term.loadAddon(fit);
+    term.open(host);
+    if (fit) try { fit.fit(); } catch (e) {}
+
+    var sh = {
+      id: id, label: label, term: term, fit: fit, ws: null,
+      tab: tab, pane: pane, minimized: false, connected: false
+    };
+    tab.addEventListener('click', function () {
+      if (sh.minimized) sh.minimized = false;
+      activate(id);
+    });
+    term.onData(function (data) {
+      // Only forward input for the active, non-minimized shell
+      if (sh.id !== activeId || sh.minimized) return;
+      if (sh.ws && sh.ws.readyState === 1) sh.ws.send(data);
+    });
+    shells.push(sh);
+    return sh;
+  }
+
+  async function mintTicket() {
+    var body = new URLSearchParams();
+    body.set('totp_code', (totpIn && totpIn.value) || '');
+    var res = await fetch('/servers/' + serverId + '/console/ticket', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+      credentials: 'same-origin'
+    });
+    var data = await res.json();
+    if (!data.ok) {
+      var map = {
+        enroll_2fa: 'Enroll 2FA on Account first.',
+        '2fa_required': 'Enter authenticator or backup code.',
+        '2fa_bad_code': 'Invalid code.',
+        disabled: 'Console disabled.',
+        no_ssh: 'No SSH credentials for this host.',
+        limit: 'Shell limit reached. Close a shell or wait.',
+        rate: 'Too many attempts. Wait and try again.',
+        denied: data.detail || 'Denied.'
+      };
+      throw new Error(map[data.error] || data.detail || ('Error: ' + (data.error || res.status)));
+    }
+    if (data.grant_active) {
+      grantActive = true;
+      if (row2fa) row2fa.style.display = 'none';
+      if (helpEl) helpEl.textContent = 'Step-up is active for this host. Open more shells without re-entering 2FA until the grant expires (~' + (data.grant_minutes || {{ grant_minutes }}) + ' min).';
+      if (totpIn) totpIn.value = '';
+    }
+    return data;
+  }
+
+  async function openShell() {
+    setErr('');
+    if (shells.length >= maxShells) {
+      setErr('Maximum of ' + maxShells + ' shells for your account.');
+      return;
+    }
+    setStatus('Minting ticket…');
+    var data;
     try {
-      fitAddon.fit();
-      ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
-    } catch (e) {}
+      data = await mintTicket();
+    } catch (e) {
+      setErr(String(e.message || e));
+      setStatus('');
+      if (row2fa) row2fa.style.display = '';
+      return;
+    }
+
+    var label = 'Shell ' + nextN;
+    var sh = createShellUi(label);
+    activate(sh.id);
+    setStatus('Connecting…');
+
+    var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    var url = proto + '//' + location.host + data.ws_path + '?ticket=' + encodeURIComponent(data.ticket);
+    var ws = new WebSocket(url);
+    ws.binaryType = 'arraybuffer';
+    sh.ws = ws;
+
+    ws.onopen = function () {
+      sh.connected = true;
+      setStatus('Connected: ' + sh.label + '. Minimize to keep it running while you open another.');
+      updateToolbar();
+      try {
+        if (sh.fit) sh.fit.fit();
+        ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
+      } catch (e) {}
+    };
+    ws.onmessage = function (ev) {
+      if (typeof ev.data === 'string') sh.term.write(ev.data);
+      else sh.term.write(new Uint8Array(ev.data));
+    };
+    ws.onclose = function () {
+      sh.connected = false;
+      sh.term.writeln('\r\n*** session closed ***');
+      setStatus(sh.label + ' closed.');
+      // remove after short delay if still in list
+      setTimeout(function () {
+        if (shells.indexOf(sh) >= 0) destroyShell(sh);
+      }, 400);
+    };
+    ws.onerror = function () {
+      setErr('WebSocket error on ' + sh.label);
+    };
+    updateToolbar();
+  }
+
+  function minimizeActive() {
+    var sh = shells.find(function (s) { return s.id === activeId; });
+    if (!sh || sh.minimized) return;
+    sh.minimized = true;
+    sh.tab.classList.add('is-minimized');
+    // switch to another non-minimized shell if any
+    var other = shells.find(function (s) { return s.id !== sh.id && !s.minimized; });
+    if (other) activate(other.id);
+    else {
+      activeId = sh.id;
+      sh.pane.classList.add('is-minimized');
+      sh.pane.classList.remove('is-active');
+      updateToolbar();
+    }
+    setStatus(sh.label + ' minimized — still connected. Open another shell or Restore.');
+  }
+
+  function restoreMinimized() {
+    var sh = shells.find(function (s) { return s.minimized; });
+    if (!sh) return;
+    sh.minimized = false;
+    activate(sh.id);
+    setStatus(sh.label + ' restored.');
+  }
+
+  function closeActive() {
+    var sh = shells.find(function (s) { return s.id === activeId; });
+    if (!sh) return;
+    if (sh.ws) { try { sh.ws.close(); } catch (e) {} }
+    destroyShell(sh);
+    setStatus('Shell closed.');
   }
 
   window.addEventListener('resize', function () {
-    if (connected) sendResize();
-    else if (fitAddon) try { fitAddon.fit(); } catch (e) {}
-  });
-
-  term.onData(function (data) {
-    if (ws && ws.readyState === 1) ws.send(data);
-  });
-
-  function disconnect() {
-    if (ws) {
-      try { ws.close(); } catch (e) {}
-      ws = null;
-    }
-    connected = false;
-    if (connectBtn) connectBtn.classList.remove('hidden');
-    if (discBtn) discBtn.classList.add('hidden');
-    setStatus('Disconnected.');
-  }
-
-  async function connect() {
-    setErr('');
-    setStatus('Verifying 2FA…');
-    var code = (totpIn && totpIn.value) || '';
+    var sh = shells.find(function (s) { return s.id === activeId && !s.minimized; });
+    if (!sh || !sh.fit) return;
     try {
-      var body = new URLSearchParams();
-      body.set('totp_code', code);
-      var res = await fetch('/servers/' + serverId + '/console/ticket', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-        credentials: 'same-origin'
-      });
-      var data = await res.json();
-      if (!data.ok) {
-        var map = {
-          enroll_2fa: 'Enroll 2FA on Account first.',
-          '2fa_required': 'Enter authenticator or backup code.',
-          '2fa_bad_code': 'Invalid code.',
-          disabled: 'Console disabled on this instance.',
-          no_ssh: 'No SSH credentials for this host.',
-          limit: 'Console session limit reached. Try later.',
-          denied: data.detail || 'Denied.'
-        };
-        setErr(map[data.error] || data.detail || ('Error: ' + (data.error || res.status)));
-        setStatus('');
-        return;
+      sh.fit.fit();
+      if (sh.ws && sh.ws.readyState === 1) {
+        sh.ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
       }
-      setStatus('Opening terminal…');
-      var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-      var url = proto + '//' + location.host + data.ws_path + '?ticket=' + encodeURIComponent(data.ticket);
-      ws = new WebSocket(url);
-      ws.binaryType = 'arraybuffer';
-      ws.onopen = function () {
-        connected = true;
-        if (connectBtn) connectBtn.classList.add('hidden');
-        if (discBtn) discBtn.classList.remove('hidden');
-        setStatus('Connected. Type to interact. Disconnect when finished.');
-        sendResize();
-      };
-      ws.onmessage = function (ev) {
-        if (typeof ev.data === 'string') {
-          term.write(ev.data);
-        } else {
-          term.write(new Uint8Array(ev.data));
-        }
-      };
-      ws.onclose = function () {
-        disconnect();
-        term.writeln('\r\n*** session closed ***');
-      };
-      ws.onerror = function () {
-        setErr('WebSocket error');
-        disconnect();
-      };
-    } catch (e) {
-      setErr(String(e));
-      setStatus('');
-    }
-  }
+    } catch (e) {}
+  });
 
-  if (connectBtn) connectBtn.addEventListener('click', connect);
-  if (discBtn) discBtn.addEventListener('click', disconnect);
-  if (totpIn) {
-    totpIn.addEventListener('keydown', function (ev) {
-      if (ev.key === 'Enter') { ev.preventDefault(); connect(); }
+  if (btnNew) btnNew.addEventListener('click', openShell);
+  if (btnMin) btnMin.addEventListener('click', minimizeActive);
+  if (btnRest) btnRest.addEventListener('click', restoreMinimized);
+  if (btnClose) btnClose.addEventListener('click', closeActive);
+  if (btnRevoke) {
+    btnRevoke.addEventListener('click', async function () {
+      try {
+        await fetch('/servers/' + serverId + '/console/grant/revoke', {
+          method: 'POST', credentials: 'same-origin'
+        });
+      } catch (e) {}
+      grantActive = false;
+      if (row2fa) row2fa.style.display = '';
+      if (helpEl) helpEl.textContent = 'Step-up locked. Enter authenticator code for the next shell.';
+      setStatus('Step-up revoked for this browser.');
     });
   }
+  if (totpIn) {
+    totpIn.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Enter') { ev.preventDefault(); openShell(); }
+    });
+  }
+  updateToolbar();
 })();
 </script>
 {% endif %}

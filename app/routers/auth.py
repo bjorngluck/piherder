@@ -671,11 +671,18 @@ async def logout():
 
     Does **not** clear trusted-device cookies — those are meant to skip 2FA on
     the next password login for this browser (until expiry or revoke).
+    Does clear console step-up grant so web SSH cannot ride a dead session.
     """
     response = RedirectResponse("/auth/login", status_code=303)
     dk = cookie_delete_kwargs()
     response.delete_cookie("access_token", **dk)
     response.delete_cookie(PENDING_COOKIE, **dk)
+    try:
+        from ..services.ssh_console import CONSOLE_GRANT_COOKIE
+
+        response.delete_cookie(CONSOLE_GRANT_COOKIE, **dk)
+    except Exception:
+        pass
     return response
 
 

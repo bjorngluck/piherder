@@ -1,17 +1,23 @@
 """Web SSH console — mint ticket + WebSocket PTY (v1.2 Stream W).
 
 Private keys stay server-side. Default kill switch: PIHERDER_SSH_CONSOLE=false.
+
+Security:
+  operator+ · 2FA step-up · short grant cookie per host · single-use tickets
+  bound to session_version · concurrent slot limits · idle/max session.
 """
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from datetime import datetime
+from types import SimpleNamespace
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlmodel import Session
 
 from .. import templates as templates_mod
@@ -22,6 +28,12 @@ from ..security.auth import (
     role_at_least,
     ROLE_OPERATOR,
     decode_token_payload,
+    user_session_version,
+    cookie_auth_kwargs,
+    cookie_delete_kwargs,
+    rate_limit_auth,
+    TWOFA_RATE_MAX,
+    TWOFA_RATE_WINDOW,
 )
 from ..services import ssh_console as cons
 from ..services import webauthn_svc as wa_svc
@@ -61,7 +73,7 @@ def _verify_console_2fa(
     *,
     totp_code: str,
 ) -> tuple[bool, str]:
-    """Console always requires enrolled 2FA + valid code (W3)."""
+    """Console always requires enrolled 2FA + valid code (W3) when grant missing."""
     if not wa_svc.user_has_2fa(session, user):
         return False, "enroll_2fa"
     from ..security.auth import (
@@ -92,16 +104,25 @@ async def console_page(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
-    """Console shell page (xterm). Ticket minted via POST before WS connect."""
+    """Console shell page (xterm multi-shell). Ticket minted via POST before WS connect."""
     server = session.get(Server, server_id)
     if not server:
         return RedirectResponse("/servers", status_code=303)
 
     enabled = cons.console_enabled()
     has_2fa = wa_svc.user_has_2fa(session, user)
-    has_key = bool(getattr(server, "ssh_private_key_encrypted", None) or getattr(server, "ssh_password_encrypted", None))
-    err = request.query_params.get("error") or ""
-    msg = request.query_params.get("msg") or ""
+    has_key = bool(
+        getattr(server, "ssh_private_key_encrypted", None)
+        or getattr(server, "ssh_password_encrypted", None)
+    )
+    sv = user_session_version(user)
+    grant_ok = cons.grant_valid(
+        request.cookies.get(cons.CONSOLE_GRANT_COOKIE),
+        user_id=int(user.id),
+        server_id=int(server_id),
+        session_version=sv,
+    )
+    remaining = cons.slots_remaining(int(user.id)) if enabled else 0
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -113,8 +134,10 @@ async def console_page(
             "console_enabled": enabled,
             "has_2fa": has_2fa,
             "has_ssh_cred": has_key,
-            "error": err,
-            "msg": msg,
+            "grant_active": grant_ok,
+            "grant_minutes": cons.grant_minutes(),
+            "max_shells": cons.max_per_user(),
+            "slots_remaining": remaining,
             "ticket_ttl": cons.ticket_ttl_sec(),
             "idle_sec": cons.idle_sec(),
             "max_session_sec": cons.max_session_sec(),
@@ -130,8 +153,14 @@ async def mint_console_ticket(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
-    """Mint single-use ticket after 2FA; returns JSON for the console page."""
-    from fastapi.responses import JSONResponse
+    """Mint single-use ticket; 2FA required unless a valid per-host grant cookie exists."""
+    ip = client_ip_from_request(request) or "unknown"
+    if not rate_limit_auth(
+        f"console-ticket:{ip}:{user.id}",
+        max_attempts=TWOFA_RATE_MAX,
+        window_seconds=TWOFA_RATE_WINDOW,
+    ):
+        return JSONResponse({"ok": False, "error": "rate"}, status_code=429)
 
     server = session.get(Server, server_id)
     if not server:
@@ -147,43 +176,87 @@ async def mint_console_ticket(
         or getattr(server, "ssh_password_encrypted", None)
     ):
         return JSONResponse(
-            {"ok": False, "error": "no_ssh", "detail": "No SSH key or password stored for this host"},
+            {
+                "ok": False,
+                "error": "no_ssh",
+                "detail": "No SSH key or password stored for this host",
+            },
             status_code=400,
         )
 
-    ok, err = _verify_console_2fa(session, user, totp_code=totp_code)
-    if not ok:
-        ip = client_ip_from_request(request) or ""
-        _audit(
-            session,
-            user_id=user.id,
-            server_id=server_id,
-            action="ssh_console_denied",
-            details=f"2FA failed ({err}) ip={ip}",
-            status="failed",
-        )
-        return JSONResponse({"ok": False, "error": err}, status_code=403)
+    sv = user_session_version(user)
+    grant_cookie = request.cookies.get(cons.CONSOLE_GRANT_COOKIE)
+    has_grant = cons.grant_valid(
+        grant_cookie,
+        user_id=int(user.id),
+        server_id=int(server_id),
+        session_version=sv,
+    )
+    set_grant = False
+
+    if not has_grant:
+        ok, err = _verify_console_2fa(session, user, totp_code=totp_code)
+        if not ok:
+            _audit(
+                session,
+                user_id=user.id,
+                server_id=server_id,
+                action="ssh_console_denied",
+                details=f"2FA failed ({err}) ip={ip}",
+                status="failed",
+            )
+            return JSONResponse({"ok": False, "error": err}, status_code=403)
+        set_grant = True
 
     try:
-        # Soft check slots before mint (real acquire on WS open)
-        g, by_u = cons.live_counts()
-        if g >= cons.max_global() or by_u.get(int(user.id), 0) >= cons.max_per_user():
+        if cons.slots_remaining(int(user.id)) <= 0:
             return JSONResponse({"ok": False, "error": "limit"}, status_code=429)
-        ticket = cons.mint_ticket(user_id=int(user.id), server_id=int(server_id))
+        ticket = cons.mint_ticket(
+            user_id=int(user.id),
+            server_id=int(server_id),
+            session_version=sv,
+        )
     except cons.ConsoleDisabled as e:
         return JSONResponse({"ok": False, "error": "disabled", "detail": str(e)}, status_code=403)
     except cons.ConsoleDenied as e:
         return JSONResponse({"ok": False, "error": "denied", "detail": str(e)}, status_code=403)
 
-    return JSONResponse(
-        {
-            "ok": True,
-            "ticket": ticket,
-            "ws_path": f"/servers/{server_id}/console/ws",
-            "idle_sec": cons.idle_sec(),
-            "max_session_sec": cons.max_session_sec(),
-        }
-    )
+    body = {
+        "ok": True,
+        "ticket": ticket,
+        "ws_path": f"/servers/{server_id}/console/ws",
+        "idle_sec": cons.idle_sec(),
+        "max_session_sec": cons.max_session_sec(),
+        "grant_active": True,
+        "grant_minutes": cons.grant_minutes(),
+        "slots_remaining": max(0, cons.slots_remaining(int(user.id)) - 1),
+        "max_shells": cons.max_per_user(),
+    }
+    response = JSONResponse(body)
+    if set_grant:
+        grant = cons.mint_grant(
+            user_id=int(user.id),
+            server_id=int(server_id),
+            session_version=sv,
+        )
+        response.set_cookie(
+            cons.CONSOLE_GRANT_COOKIE,
+            grant,
+            **cookie_auth_kwargs(max_age=cons.grant_minutes() * 60),
+        )
+    return response
+
+
+@router.post("/{server_id}/console/grant/revoke")
+async def revoke_console_grant(
+    server_id: int,
+    user: User = Depends(get_operator_user),
+):
+    """Drop the short-lived console grant (force re-2FA next shell)."""
+    del server_id, user
+    response = JSONResponse({"ok": True})
+    response.delete_cookie(cons.CONSOLE_GRANT_COOKIE, **cookie_delete_kwargs())
+    return response
 
 
 def _user_from_cookie(websocket: WebSocket, session: Session) -> Optional[User]:
@@ -197,10 +270,13 @@ def _user_from_cookie(websocket: WebSocket, session: Session) -> Optional[User]:
         return None
     try:
         uid = int(payload.get("sub"))
+        token_sv = int(payload.get("sv", 0) or 0)
     except (TypeError, ValueError):
         return None
     user = session.get(User, uid)
     if not user or not user.is_active:
+        return None
+    if token_sv != user_session_version(user):
         return None
     if not role_at_least(user, ROLE_OPERATOR):
         return None
@@ -216,9 +292,6 @@ async def console_websocket(websocket: WebSocket, server_id: int):
     Client → server: text (keystrokes) or JSON resize {"type":"resize","cols":N,"rows":M}
     Server → client: binary or text PTY output
     """
-    from types import SimpleNamespace
-    import json
-
     ticket = websocket.query_params.get("ticket") or ""
     await websocket.accept()
 
@@ -228,6 +301,7 @@ async def console_websocket(websocket: WebSocket, server_id: int):
     opened: Optional[datetime] = None
     slot_held = False
     server_snap = None
+    server_hostname = "?"
 
     with Session(engine) as session:
         user = _user_from_cookie(websocket, session)
@@ -239,8 +313,14 @@ async def console_websocket(websocket: WebSocket, server_id: int):
             await websocket.close(code=4404)
             return
 
+        sv = user_session_version(user)
         try:
-            cons.consume_ticket(ticket, user_id=int(user.id), server_id=int(server_id))
+            cons.consume_ticket(
+                ticket,
+                user_id=int(user.id),
+                server_id=int(server_id),
+                session_version=sv,
+            )
             cons.try_acquire_slot(int(user.id))
             slot_held = True
         except (cons.ConsoleDisabled, cons.ConsoleDenied) as e:
@@ -266,7 +346,6 @@ async def console_websocket(websocket: WebSocket, server_id: int):
             details=f"ip={ip or '?'} user={user.email}",
         )
         user_id = int(user.id)
-        # Detach-safe snapshot for SSH connect after session closes
         server_snap = SimpleNamespace(
             id=server.id,
             name=server.name,
@@ -277,7 +356,9 @@ async def console_websocket(websocket: WebSocket, server_id: int):
             ssh_private_key_encrypted=server.ssh_private_key_encrypted,
             ssh_password_encrypted=server.ssh_password_encrypted,
         )
-        server_hostname = server.hostname or getattr(server, "ip_address", None) or server.name
+        server_hostname = (
+            server.hostname or getattr(server, "ip_address", None) or server.name
+        )
 
     client = None
     channel = None
@@ -328,7 +409,9 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                             stop.set()
                             break
                         if now - started > cons.max_session_sec():
-                            await websocket.send_text("\r\n*** Session time limit ***\r\n")
+                            await websocket.send_text(
+                                "\r\n*** Session time limit ***\r\n"
+                            )
                             stop.set()
                             break
                         await asyncio.sleep(0.02)

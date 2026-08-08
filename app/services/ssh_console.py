@@ -1,9 +1,18 @@
-"""Web SSH console tickets and limits (v1.2 Stream W).
+"""Web SSH console tickets, grants, and limits (v1.2 Stream W).
 
-Browser never receives host PEM. Flow:
-  operator+ → (2FA step-up) → short-lived single-use ticket → WebSocket PTY.
+Security model (high bar):
+  • Kill switch default OFF (PIHERDER_SSH_CONSOLE=false)
+  • operator+ only; viewer never
+  • 2FA required to enroll step-up; short-lived **console grant** cookie per host
+  • Each PTY opens with a **single-use** ticket bound to user, server, and session_version
+  • Concurrent shell caps (per user / global) — multi-tab shells each consume a slot
+  • Idle + max session disconnects
+  • Private key never leaves the herder process
 
-Kill switch: PIHERDER_SSH_CONSOLE=false (default).
+Browser flow:
+  2FA → grant cookie (~10 min, per host) → mint ticket → WebSocket PTY
+  Additional shells on the same host reuse the grant without re-entering TOTP
+  until the grant expires (or session_version bumps / logout).
 """
 from __future__ import annotations
 
@@ -15,7 +24,14 @@ from datetime import timedelta
 from typing import Dict, Optional, Set, Tuple
 
 from ..config import settings
-from ..security.auth import create_access_token, decode_token_payload
+from ..security.auth import (
+    create_access_token,
+    decode_token_payload,
+    user_session_version,
+)
+
+# Cookie name for short-lived post-2FA grant (HttpOnly)
+CONSOLE_GRANT_COOKIE = "console_grant"
 
 # In-process ticket jti consume set + live session counters (single web worker assumed)
 _lock = threading.Lock()
@@ -56,6 +72,11 @@ def max_global() -> int:
     return max(1, int(getattr(settings, "PIHERDER_SSH_CONSOLE_MAX_GLOBAL", 10) or 10))
 
 
+def grant_minutes() -> int:
+    """How long a post-2FA console grant lasts (additional shells without re-TOTP)."""
+    return max(2, int(getattr(settings, "PIHERDER_SSH_CONSOLE_GRANT_MIN", 10) or 10))
+
+
 def require_enabled() -> None:
     if not console_enabled():
         raise ConsoleDisabled(
@@ -63,8 +84,8 @@ def require_enabled() -> None:
         )
 
 
-def mint_ticket(*, user_id: int, server_id: int) -> str:
-    """Return a short-lived JWT ticket (not yet consumed)."""
+def mint_ticket(*, user_id: int, server_id: int, session_version: int = 0) -> str:
+    """Return a short-lived JWT ticket (not yet consumed). Bound to session_version."""
     require_enabled()
     jti = secrets.token_urlsafe(16)
     return create_access_token(
@@ -72,15 +93,60 @@ def mint_ticket(*, user_id: int, server_id: int) -> str:
             "console": True,
             "sub": str(int(user_id)),
             "sid": int(server_id),
+            "sv": int(session_version),
             "jti": jti,
         },
         expires_delta=timedelta(seconds=ticket_ttl_sec()),
     )
 
 
-def consume_ticket(raw: str, *, user_id: int, server_id: int) -> dict:
+def mint_grant(*, user_id: int, server_id: int, session_version: int = 0) -> str:
+    """Short-lived grant after successful 2FA for this host (multi-shell without re-TOTP)."""
+    require_enabled()
+    return create_access_token(
+        {
+            "console_grant": True,
+            "sub": str(int(user_id)),
+            "sid": int(server_id),
+            "sv": int(session_version),
+        },
+        expires_delta=timedelta(minutes=grant_minutes()),
+    )
+
+
+def grant_valid(
+    raw: Optional[str],
+    *,
+    user_id: int,
+    server_id: int,
+    session_version: int,
+) -> bool:
+    if not raw:
+        return False
+    payload = decode_token_payload(raw)
+    if not payload or not payload.get("console_grant"):
+        return False
+    try:
+        if int(payload.get("sub")) != int(user_id):
+            return False
+        if int(payload.get("sid")) != int(server_id):
+            return False
+        if int(payload.get("sv", 0) or 0) != int(session_version):
+            return False
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def consume_ticket(
+    raw: str,
+    *,
+    user_id: int,
+    server_id: int,
+    session_version: int = 0,
+) -> dict:
     """
-    Validate and single-use consume a ticket for this user+server.
+    Validate and single-use consume a ticket for this user+server+session_version.
     Returns payload. Raises ConsoleDenied on failure.
     """
     require_enabled()
@@ -90,17 +156,19 @@ def consume_ticket(raw: str, *, user_id: int, server_id: int) -> dict:
     try:
         tid = int(payload.get("sub"))
         sid = int(payload.get("sid"))
+        tsv = int(payload.get("sv", 0) or 0)
     except (TypeError, ValueError):
         raise ConsoleDenied("Invalid console ticket")
     if tid != int(user_id) or sid != int(server_id):
         raise ConsoleDenied("Console ticket does not match this session")
+    if tsv != int(session_version):
+        raise ConsoleDenied("Console ticket invalidated (session changed — sign in again)")
     jti = str(payload.get("jti") or "")
     if not jti:
         raise ConsoleDenied("Invalid console ticket")
     with _lock:
         if jti in _consumed_jtis:
             raise ConsoleDenied("Console ticket already used")
-        # Soft bound memory: drop old markers occasionally
         if len(_consumed_jtis) > 5000:
             _consumed_jtis.clear()
         _consumed_jtis.add(jti)
@@ -138,6 +206,13 @@ def release_slot(user_id: int) -> None:
 def live_counts() -> Tuple[int, Dict[int, int]]:
     with _lock:
         return _live_global, dict(_live_by_user)
+
+
+def slots_remaining(user_id: int) -> int:
+    g, by_u = live_counts()
+    per = max_per_user() - by_u.get(int(user_id), 0)
+    glob = max_global() - g
+    return max(0, min(per, glob))
 
 
 def reset_runtime_state_for_tests() -> None:
