@@ -2,9 +2,14 @@
 
 Private keys stay server-side. Default kill switch: PIHERDER_SSH_CONSOLE=false.
 
-Security:
-  operator+ · 2FA step-up · short grant cookie per host · single-use tickets
-  bound to session_version · concurrent slot limits · idle/max session.
+**In-app only (anti-exploit):**
+  · Session cookie + operator+ (no Bearer API path)
+  · Ticket mint requires same-site browser Origin/Referer (blocks cross-site POST)
+  · WebSocket requires matching Origin and session cookie
+  · Ticket sent in first WS message (not query string — no log/Referer leak)
+  · 2FA step-up (TOTP, backup, or passkey) before grant/ticket
+  · CSP + frame-ancestors none (cannot embed console)
+  · Single-use tickets bound to session_version; concurrent + idle limits
 """
 from __future__ import annotations
 
@@ -123,6 +128,11 @@ async def console_page(
         session_version=sv,
     )
     remaining = cons.slots_remaining(int(user.id)) if enabled else 0
+    has_passkeys = False
+    try:
+        has_passkeys = wa_svc.has_passkeys(session, int(user.id))
+    except Exception:
+        has_passkeys = False
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -133,9 +143,11 @@ async def console_page(
             "server": server,
             "console_enabled": enabled,
             "has_2fa": has_2fa,
+            "has_passkeys": has_passkeys,
             "has_ssh_cred": has_key,
             "grant_active": grant_ok,
             "grant_minutes": cons.grant_minutes(),
+            "require_2fa_every_shell": cons.require_2fa_every_shell(),
             "max_shells": cons.max_per_user(),
             "slots_remaining": remaining,
             "ticket_ttl": cons.ticket_ttl_sec(),
@@ -143,6 +155,19 @@ async def console_page(
             "max_session_sec": cons.max_session_sec(),
         },
     )
+
+
+def _reject_cross_site(request: Request) -> Optional[JSONResponse]:
+    if not cons.same_site_browser_request(request):
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "cross_site",
+                "detail": "Console is only available from the PiHerder UI (same origin).",
+            },
+            status_code=403,
+        )
+    return None
 
 
 @router.post("/{server_id}/console/ticket")
@@ -153,7 +178,14 @@ async def mint_console_ticket(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
-    """Mint single-use ticket; 2FA required unless a valid per-host grant cookie exists."""
+    """Mint single-use ticket; 2FA required unless a valid per-host grant cookie exists.
+
+    Ticket is returned in JSON only — never put on the WebSocket URL (log/Referer leak).
+    """
+    blocked = _reject_cross_site(request)
+    if blocked:
+        return blocked
+
     ip = client_ip_from_request(request) or "unknown"
     if not rate_limit_auth(
         f"console-ticket:{ip}:{user.id}",
@@ -206,7 +238,7 @@ async def mint_console_ticket(
                 status="failed",
             )
             return JSONResponse({"ok": False, "error": err}, status_code=403)
-        set_grant = True
+        set_grant = not cons.require_2fa_every_shell()
 
     try:
         if cons.slots_remaining(int(user.id)) <= 0:
@@ -227,8 +259,9 @@ async def mint_console_ticket(
         "ws_path": f"/servers/{server_id}/console/ws",
         "idle_sec": cons.idle_sec(),
         "max_session_sec": cons.max_session_sec(),
-        "grant_active": True,
+        "grant_active": has_grant or set_grant,
         "grant_minutes": cons.grant_minutes(),
+        "require_2fa_every_shell": cons.require_2fa_every_shell(),
         "slots_remaining": max(0, cons.slots_remaining(int(user.id)) - 1),
         "max_shells": cons.max_per_user(),
     }
@@ -247,13 +280,124 @@ async def mint_console_ticket(
     return response
 
 
+@router.post("/{server_id}/console/webauthn/options")
+async def console_webauthn_options(
+    request: Request,
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """PublicKeyCredentialRequestOptions for console step-up (passkey)."""
+    blocked = _reject_cross_site(request)
+    if blocked:
+        return blocked
+    try:
+        cons.require_enabled()
+    except cons.ConsoleDisabled as e:
+        return JSONResponse({"ok": False, "error": "disabled", "detail": str(e)}, status_code=403)
+    try:
+        options_json, chal = wa_svc.authentication_options_json(session, user)
+    except Exception as e:
+        return JSONResponse(
+            {"ok": False, "error": "passkey_unavailable", "detail": str(e)[:120]},
+            status_code=400,
+        )
+    resp = JSONResponse({"ok": True, "options": json.loads(options_json)})
+    resp.set_cookie(
+        wa_svc.CHALLENGE_COOKIE_AUTH,
+        chal,
+        **cookie_auth_kwargs(max_age=wa_svc.CHALLENGE_MINUTES * 60),
+    )
+    return resp
+
+
+@router.post("/{server_id}/console/webauthn/verify")
+async def console_webauthn_verify(
+    request: Request,
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Verify passkey for console; sets grant cookie (unless every-shell 2FA)."""
+    blocked = _reject_cross_site(request)
+    if blocked:
+        return blocked
+    try:
+        cons.require_enabled()
+    except cons.ConsoleDisabled as e:
+        return JSONResponse({"ok": False, "error": "disabled", "detail": str(e)}, status_code=403)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "bad_json"}, status_code=400)
+    credential = body.get("credential") if isinstance(body, dict) else None
+    if not isinstance(credential, dict):
+        return JSONResponse({"ok": False, "error": "bad_credential"}, status_code=400)
+
+    chal = request.cookies.get(wa_svc.CHALLENGE_COOKIE_AUTH)
+    try:
+        wa_svc.verify_authentication(session, user, credential, chal)
+    except Exception as e:
+        ip = client_ip_from_request(request) or ""
+        _audit(
+            session,
+            user_id=user.id,
+            server_id=server_id,
+            action="ssh_console_denied",
+            details=f"passkey failed ip={ip} {str(e)[:80]}",
+            status="failed",
+        )
+        return JSONResponse({"ok": False, "error": "2fa_bad_code"}, status_code=403)
+
+    sv = user_session_version(user)
+    payload = {
+        "ok": True,
+        "grant_active": not cons.require_2fa_every_shell(),
+        "grant_minutes": cons.grant_minutes(),
+    }
+    # When every-shell 2FA is on, return a single-use ticket immediately after passkey
+    if cons.require_2fa_every_shell():
+        try:
+            if cons.slots_remaining(int(user.id)) <= 0:
+                return JSONResponse({"ok": False, "error": "limit"}, status_code=429)
+            payload["ticket"] = cons.mint_ticket(
+                user_id=int(user.id),
+                server_id=int(server_id),
+                session_version=sv,
+            )
+            payload["ws_path"] = f"/servers/{server_id}/console/ws"
+        except cons.ConsoleDenied as e:
+            return JSONResponse(
+                {"ok": False, "error": "denied", "detail": str(e)}, status_code=403
+            )
+    resp = JSONResponse(payload)
+    resp.delete_cookie(wa_svc.CHALLENGE_COOKIE_AUTH, **cookie_delete_kwargs())
+    if not cons.require_2fa_every_shell():
+        grant = cons.mint_grant(
+            user_id=int(user.id),
+            server_id=int(server_id),
+            session_version=sv,
+        )
+        resp.set_cookie(
+            cons.CONSOLE_GRANT_COOKIE,
+            grant,
+            **cookie_auth_kwargs(max_age=cons.grant_minutes() * 60),
+        )
+    return resp
+
+
 @router.post("/{server_id}/console/grant/revoke")
 async def revoke_console_grant(
+    request: Request,
     server_id: int,
     user: User = Depends(get_operator_user),
 ):
     """Drop the short-lived console grant (force re-2FA next shell)."""
     del server_id, user
+    blocked = _reject_cross_site(request)
+    if blocked:
+        return blocked
     response = JSONResponse({"ok": True})
     response.delete_cookie(cons.CONSOLE_GRANT_COOKIE, **cookie_delete_kwargs())
     return response
@@ -286,13 +430,18 @@ def _user_from_cookie(websocket: WebSocket, session: Session) -> Optional[User]:
 @router.websocket("/{server_id}/console/ws")
 async def console_websocket(websocket: WebSocket, server_id: int):
     """
-    WebSocket terminal bridge.
+    WebSocket terminal bridge (in-app only).
 
-    Query: ?ticket=...
-    Client → server: text (keystrokes) or JSON resize {"type":"resize","cols":N,"rows":M}
-    Server → client: binary or text PTY output
+    1. Origin must match Host (browser same-origin; no random WS clients)
+    2. Session cookie + operator+
+    3. First text message: ``{"type":"auth","ticket":"..."}`` (ticket never in URL)
+    4. Then binary/text PTY traffic; JSON resize control messages
     """
-    ticket = websocket.query_params.get("ticket") or ""
+    # Reject before accept when Origin is wrong (some clients never send Origin)
+    if not cons.websocket_origin_allowed(websocket):
+        await websocket.close(code=4403)
+        return
+
     await websocket.accept()
 
     user_id: Optional[int] = None
@@ -302,6 +451,35 @@ async def console_websocket(websocket: WebSocket, server_id: int):
     slot_held = False
     server_snap = None
     server_hostname = "?"
+
+    # --- auth handshake: wait for ticket in first message (not query string) ---
+    ticket = ""
+    try:
+        raw_msg = await asyncio.wait_for(websocket.receive(), timeout=15.0)
+    except (asyncio.TimeoutError, WebSocketDisconnect):
+        await websocket.close(code=4408)
+        return
+    if raw_msg.get("type") == "websocket.disconnect":
+        return
+    text = raw_msg.get("text")
+    if not text and raw_msg.get("bytes"):
+        try:
+            text = raw_msg["bytes"].decode("utf-8", errors="replace")
+        except Exception:
+            text = ""
+    try:
+        auth = json.loads(text or "")
+        if isinstance(auth, dict) and auth.get("type") == "auth":
+            ticket = str(auth.get("ticket") or "")
+    except Exception:
+        ticket = ""
+    if not ticket:
+        # Legacy fallback: query param (discouraged; will be removed)
+        ticket = websocket.query_params.get("ticket") or ""
+    if not ticket:
+        await websocket.send_text("\r\n*** Missing console ticket ***\r\n")
+        await websocket.close(code=4403)
+        return
 
     with Session(engine) as session:
         user = _user_from_cookie(websocket, session)
