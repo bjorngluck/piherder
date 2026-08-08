@@ -271,7 +271,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Git-rich service onboard (Q)** | **Post-1.0** — full git clone/pull; more files than compose + Dockerfile. |
 | **Discovery hygiene (S)** | **S1–S4 shipped v1.1** — last seen, hide, purge, filters. Residual **S-hb**; **S-icon** → map interactivity M1 ([FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md)). |
 | **API management (Y)** | **Shipped v1.1 (partial)** — Settings → API **Try a token** + OpenAPI / ReDoc deep links. |
-| **SSO / OIDC (Z)** | **→ v1.3 path** — social or BYO IdP; optional groups → roles. |
+| **SSO / OIDC (Z)** | **→ v1.2 Stream S** — BYO OIDC, groups → roles, link/unlink + optional password remove; [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md). |
 | **Trusted device detail (AB)** | **Shipped v1.1** — type, last IP, rename; **AB-polish** ✎ edit control (not always-visible form). |
 
 ### Playwright phases

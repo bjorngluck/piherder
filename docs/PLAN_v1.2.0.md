@@ -7,7 +7,7 @@
 **Theme:** Big identity + webshell + gated demo — WebAuthn · SSO/OIDC · web SSH · `DEMO_MODE` public demo  
 **Baseline:** `v1.1.0` (elevate production — 2026-08-08)  
 **Mode:** Capacity-rich train — pull former **v1.3** items into **v1.2**  
-**Related:** [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [ADMIN.md](ADMIN.md) · [API.md](API.md) · [SECURITY.md](../SECURITY.md)
+**Related:** [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [API.md](API.md) · [SECURITY.md](../SECURITY.md)
 
 > **Big minor after 1.1.** Ship WebAuthn/passkeys, SSO/OIDC, webshell (flag-off by default), and a Cloudflare Access–gated demo product. Prefer **correct security bar** over half-gated surfaces. Keep `main` patchable for **v1.1.x** while this train runs on `v1.2.0-dev`.
 
@@ -170,6 +170,8 @@ Pull former **v1.3** items into **v1.2**. Keep residual 1.1 polish out of this p
 
 ### Stream S — SSO / OIDC (**was v1.3 Z**)
 
+**Detail:** [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md)
+
 | Item | Stance |
 |------|--------|
 | **S1** OIDC authorization-code + PKCE; BYO IdP (Authentik, Keycloak, Authelia, Google Workspace, Entra) | Must |
@@ -177,7 +179,11 @@ Pull former **v1.3** items into **v1.2**. Keep residual 1.1 polish out of this p
 | **S3** JIT user provision + disable orphan policy | Must |
 | **S4** Local password login **remain** (air-gap / break-glass); config to force SSO for non-break-glass | Must |
 | **S5** Settings UI: issuer, client id/secret (Fernet), scopes, role claim mapping | Must |
-| **S6** Audit: `sso_login` / `sso_link` / failures | Must |
+| **S6** Audit: `sso_login` / `sso_link` / `sso_unlink` / failures | Must |
+| **S7** **Link both ways:** SSO login → local (email auto-link) **and** Account → SSO (explicit) | Must |
+| **S8** **Remove password** when ≥1 SSO link (SSO-only login) | Must |
+| **S9** **Unlink** SSO; if no password, **set password in same flow** before unlink completes | Must |
+| **S13** **2FA path-agnostic:** when 2FA is required (enrolled or Force 2FA), validate on SSO login and on link/unlink/remove-password — same gates as password | Must |
 | SAML | Defer |
 | Multi-tenant org isolation | Out of scope |
 
@@ -283,7 +289,7 @@ Phase 4  Freeze
 **Product 1.2**
 
 1. Operator can enroll a passkey and use it for 2FA step-up (including before console).  
-2. Operator can log in via OIDC; groups map to roles; local break-glass still works.  
+2. Operator can log in via OIDC (2FA when required); link both ways; groups map to roles; local break-glass still works.  
 3. Operator can open an in-browser SSH session to a managed host without downloading PEM; viewer cannot; flag can disable globally.  
 4. SECURITY/ADMIN document all three.
 
@@ -315,7 +321,7 @@ Phase 4  Freeze
 | Artifact | Purpose |
 |----------|---------|
 | `docs/PLAN_v1.2.0.md` | Train plan (promote this content) |
-| `docs/FEATURE_PLAN_SSO_OIDC.md` | S stream detail |
+| `docs/FEATURE_PLAN_SSO_OIDC.md` | S stream detail (**written** 2026-08-08 — link/unlink/password lifecycle) |
 | `docs/FEATURE_PLAN_WEBAUTHN.md` | I stream detail (or IAM plan addendum) |
 | Extend `FEATURE_PLAN_HOST_LIFECYCLE.md` P5 | W stream implementation notes |
 | `docs/FEATURE_PLAN_DEMO.md` or wiki `operations/demo-site.md` | D stream + CF runbook |
