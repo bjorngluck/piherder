@@ -1,0 +1,65 @@
+# Keep GitHub Release body in sync with docs/RELEASE_*.md on main.
+# Tag freeze tips often ship pre-merge Status wording; the public Release page
+# stores a separate notes body that does not auto-update when main moves.
+name: Sync release notes
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Git tag / release to update (e.g. v1.1.0)"
+        required: true
+        default: "v1.1.0"
+      notes_path:
+        description: "Path to release notes markdown"
+        required: true
+        default: "docs/RELEASE_v1.1.0.md"
+  push:
+    branches: [main]
+    paths:
+      - "docs/RELEASE_v1.1.0.md"
+      - ".github/workflows/sync-release-notes.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve tag and notes file
+        id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+            NOTES="${{ inputs.notes_path }}"
+          else
+            TAG="v1.1.0"
+            NOTES="docs/RELEASE_v1.1.0.md"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "notes=$NOTES" >> "$GITHUB_OUTPUT"
+          test -f "$NOTES"
+
+      - name: Update GitHub Release notes body
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.meta.outputs.tag }}"
+          NOTES="${{ steps.meta.outputs.notes }}"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "No GitHub Release for $TAG — skip (tag-only)."
+            exit 0
+          fi
+          gh release edit "$TAG" --notes-file "$NOTES"
+          echo "Updated release $TAG from $NOTES"
+          # Sanity: must not still look like freeze checklist
+          BODY="$(gh release view "$TAG" --json body -q .body)"
+          if echo "$BODY" | grep -q 'when PR is green'; then
+            echo "ERROR: release body still contains freeze wording" >&2
+            exit 1
+          fi
+          echo "$BODY" | head -12
