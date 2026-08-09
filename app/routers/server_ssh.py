@@ -9,6 +9,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from sqlmodel import Session, select
+from starlette.concurrency import run_in_threadpool
 
 from .. import templates as templates_mod
 from ..config import settings
