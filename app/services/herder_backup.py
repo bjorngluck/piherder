@@ -980,17 +980,23 @@ def restore_herder_backup(
         result["restored_integration_bindings"] = _upsert_rows(
             s, IntegrationBinding, payload.get("integration_bindings") or []
         )
+        # Jobs / nmap scan runs are never restored — clear FKs that would 500
+        nmap_schedules = payload.get("nmap_scan_schedules") or []
+        for row in nmap_schedules:
+            if isinstance(row, dict):
+                row["last_job_id"] = None
         result["restored_nmap_scan_schedules"] = _upsert_rows(
-            s, NmapScanSchedule, payload.get("nmap_scan_schedules") or []
+            s, NmapScanSchedule, nmap_schedules
         )
         s.flush()
-        result["restored_nmap_devices"] = _upsert_rows(
-            s, NmapDevice, payload.get("nmap_devices") or []
-        )
+        nmap_devices = payload.get("nmap_devices") or []
+        for row in nmap_devices:
+            if isinstance(row, dict):
+                row["last_run_id"] = None
+        result["restored_nmap_devices"] = _upsert_rows(s, NmapDevice, nmap_devices)
         s.flush()
-        result["restored_nmap_script_results"] = _upsert_rows(
-            s, NmapScriptResult, payload.get("nmap_script_results") or []
-        )
+        # Script results reference scan runs (not restored) — skip them on restore
+        result["restored_nmap_script_results"] = 0
 
         from ..models import ManagedCertificate, CertificateTarget
 

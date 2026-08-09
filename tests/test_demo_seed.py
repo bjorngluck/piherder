@@ -22,6 +22,7 @@ def session(tmp_path):
 
 
 def test_seed_creates_fleet(session, monkeypatch):
+    monkeypatch.setattr(seed, "demo_mode", lambda: True)
     monkeypatch.setattr(
         "app.services.app_settings.save_settings",
         lambda partial: partial,
@@ -62,6 +63,7 @@ def test_seed_creates_fleet(session, monkeypatch):
 
 
 def test_seed_idempotent_without_force(session, monkeypatch):
+    monkeypatch.setattr(seed, "demo_mode", lambda: True)
     monkeypatch.setattr("app.services.app_settings.save_settings", lambda p: p)
     monkeypatch.setattr("app.services.app_settings.load_settings", lambda: {})
     seed.seed_demo_fleet(session, force=True, password="x", email="a@b.c")
@@ -70,6 +72,12 @@ def test_seed_idempotent_without_force(session, monkeypatch):
     assert again["skipped"] is True
     n2 = len(list(session.exec(select(Server)).all()))
     assert n1 == n2 == 6
+
+
+def test_seed_refuses_without_demo_mode(session, monkeypatch):
+    monkeypatch.setattr(seed, "demo_mode", lambda: False)
+    with pytest.raises(RuntimeError, match="DEMO_MODE"):
+        seed.seed_demo_fleet(session, force=True, password="x", email="a@b.c")
 
 
 def test_ensure_demo_seeded_respects_flag(session, monkeypatch):
