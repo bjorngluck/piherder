@@ -27,6 +27,8 @@
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto {scheme}
 		header_up X-Forwarded-Host {host}
+		# Preserve Cloudflare visitor IP for Turnstile siteverify (do not invent)
+		header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
 	}
 	encode gzip
 }
@@ -40,6 +42,7 @@
 		header_up X-Forwarded-For {remote_host}
 		header_up X-Forwarded-Proto https
 		header_up X-Forwarded-Host {host}
+		header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
 	}
 
 	header {

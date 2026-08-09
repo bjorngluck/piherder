@@ -323,8 +323,10 @@ async def login(
     from ..services import turnstile as turnstile_svc
 
     if turnstile_svc.turnstile_enabled():
+        # Never pass Caddy XFF (CF edge). Only real visitor IP if CF sent it.
+        visitor = turnstile_svc.visitor_ip_for_turnstile(request)
         ok, _code = turnstile_svc.verify_turnstile_token(
-            cf_turnstile_response, remoteip=ip if ip != "unknown" else None
+            cf_turnstile_response, remoteip=visitor
         )
         if not ok:
             return RedirectResponse("/auth/login?error=captcha", status_code=303)
