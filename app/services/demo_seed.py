@@ -11,11 +11,15 @@ import os
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
+from sqlalchemy import text
 from sqlmodel import Session, select
 
 from ..models import (
+    ApiToken,
     AuditLog,
     CertificateTarget,
+    ContainerAnnotation,
+    ContainerAnnotationTag,
     DockerVersion,
     Integration,
     IntegrationBinding,
@@ -23,8 +27,14 @@ from ..models import (
     ManagedCertificate,
     NmapDevice,
     NmapScanRun,
+    NmapScanSchedule,
+    NmapScriptResult,
+    Notification,
     OidcIdentity,
     PasswordResetToken,
+    PortAnnotation,
+    PushPreference,
+    PushSubscription,
     RuntimeEdge,
     Server,
     ServiceDnsRecord,
@@ -33,6 +43,7 @@ from ..models import (
     TrustedDevice,
     User,
     UserFavourite,
+    VisualServiceStack,
     WebAuthnCredential,
 )
 from ..security.auth import get_password_hash
@@ -323,34 +334,94 @@ def _delete_all(session: Session, model) -> None:
     except Exception:
         session.rollback()
         logger.exception("wipe failed for %s", getattr(model, "__name__", model))
+        raise
+
+
+# Postgres tables wiped on --force (order irrelevant with CASCADE).
+# Leaves: alembic_version, appsetting, servicetemplate, pushvapidconfig, topology*.
+_PG_WIPE_TABLES = (
+    "nmapscriptresult",
+    "nmapdevice",
+    "nmapscanrun",
+    "nmapscanschedule",
+    "portannotation",
+    "containerannotationtag",
+    "containerannotation",
+    "visualservicestack",
+    "runtimeedge",
+    "servicednsrecord",
+    "certificatetarget",
+    "managedcertificate",
+    "integrationbinding",
+    "stackdeployment",
+    "dockerversion",
+    "notification",
+    "job",
+    "auditlog",
+    "pushsubscription",
+    "pushpreference",
+    "apitoken",
+    "userfavourite",
+    "totpbackupcode",
+    "trusteddevice",
+    "webauthncredential",
+    "oidcidentity",
+    "passwordresettoken",
+    "integration",
+    "server",
+    "user",  # quoted below — reserved word in PostgreSQL
+)
 
 
 def wipe_demo_fleet(session: Session) -> None:
-    """Remove seeded fleet rows (keeps Alembic; recreates demo user on next seed)."""
-    # Children before parents (Postgres FK-safe for tables we seed / typically use)
-    for model in (
-        RuntimeEdge,
-        ServiceDnsRecord,
-        IntegrationBinding,
-        CertificateTarget,
-        ManagedCertificate,
-        StackDeployment,
-        DockerVersion,
-        NmapDevice,
-        NmapScanRun,
-        Job,
-        AuditLog,
-        Integration,
-        Server,
-        UserFavourite,
-        TotpBackupCode,
-        TrustedDevice,
-        WebAuthnCredential,
-        OidcIdentity,
-        PasswordResetToken,
-    ):
-        _delete_all(session, model)
-    _delete_all(session, User)
+    """Remove fleet + users so re-seed is clean (FK-safe).
+
+    Postgres: TRUNCATE … CASCADE (handles notification, push, etc.).
+    SQLite / other: ordered ORM deletes (tests).
+    """
+    bind = session.get_bind()
+    dialect = (bind.dialect.name if bind is not None else "") or ""
+    if dialect == "postgresql":
+        # Quote identifiers; "user" is reserved in PostgreSQL
+        tables = ", ".join(f'"{t}"' for t in _PG_WIPE_TABLES)
+        session.execute(text(f"TRUNCATE TABLE {tables} RESTART IDENTITY CASCADE"))
+        session.commit()
+        session.expire_all()
+    else:
+        # Children before parents
+        for model in (
+            NmapScriptResult,
+            NmapDevice,
+            NmapScanRun,
+            NmapScanSchedule,
+            PortAnnotation,
+            ContainerAnnotationTag,
+            ContainerAnnotation,
+            VisualServiceStack,
+            RuntimeEdge,
+            ServiceDnsRecord,
+            CertificateTarget,
+            ManagedCertificate,
+            IntegrationBinding,
+            StackDeployment,
+            DockerVersion,
+            Notification,
+            Job,
+            AuditLog,
+            PushSubscription,
+            PushPreference,
+            ApiToken,
+            Integration,
+            Server,
+            UserFavourite,
+            TotpBackupCode,
+            TrustedDevice,
+            WebAuthnCredential,
+            OidcIdentity,
+            PasswordResetToken,
+            User,
+        ):
+            _delete_all(session, model)
     try:
         app_cfg.save_settings({SEED_MARKER_KEY: 0})
     except Exception:
@@ -419,18 +490,18 @@ def seed_demo_fleet(
     pw = (password or _env_password()).strip() or DEFAULT_DEMO_PASSWORD
     em = (email or _env_email()).strip() or DEFAULT_DEMO_EMAIL
 
-    existing_servers = list(session.exec(select(Server)).all())
-    if existing_servers and not force:
-        user = _ensure_demo_user(session, password=pw, email=em)
-        return {
-            "skipped": True,
-            "reason": "servers_exist",
-            "user_email": user.email,
-            "servers": len(existing_servers),
-        }
-
     if force:
         wipe_demo_fleet(session)
+    else:
+        existing_servers = list(session.exec(select(Server)).all())
+        if existing_servers:
+            user = _ensure_demo_user(session, password=pw, email=em)
+            return {
+                "skipped": True,
+                "reason": "servers_exist",
+                "user_email": user.email,
+                "servers": len(existing_servers),
+            }
 
     user = _ensure_demo_user(session, password=pw, email=em)
     _seed_settings()
