@@ -26,8 +26,8 @@
         <div>
           <label class="block text-xs text-muted mb-1">Scheduled runs</label>
           <select name="schedule_mode" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
-            <option value="config_only" {% if cfg.schedule_mode == "config_only" %}selected{% endif %}>Config only</option>
-            <option value="full" {% if cfg.schedule_mode == "full" %}selected{% endif %}>Full (incl audit)</option>
+            <option value="full" {% if cfg.schedule_mode != "config_only" %}selected{% endif %}>Full DR (entire DB via pg_dump)</option>
+            <option value="config_only" {% if cfg.schedule_mode == "config_only" %}selected{% endif %}>Config only (light JSON)</option>
           </select>
         </div>
         <div>
@@ -64,8 +64,8 @@
       <div class="flex-1 min-w-[10rem]">
         <label class="block text-xs text-muted mb-1">Run now</label>
         <select name="backup_mode" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
-          <option value="config_only">Config only (recommended)</option>
-          <option value="full">Full (config + recent audit)</option>
+          <option value="full" selected>Full DR (entire Postgres + files)</option>
+          <option value="config_only">Config only (light JSON, not full DR)</option>
         </select>
       </div>
       <button type="submit" class="btn btn-accent min-h-11">Run backup</button>

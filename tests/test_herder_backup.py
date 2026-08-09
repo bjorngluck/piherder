@@ -1,7 +1,9 @@
 """Unit tests for expanded PiHerder self-backup payload (no live DB required for helpers)."""
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
 
 from app.services import herder_backup as hb
@@ -10,6 +12,7 @@ from app.models import User, Server
 
 def test_backup_format_version():
     assert hb.BACKUP_FORMAT_VERSION == "5"
+    assert hb.FULL_BACKUP_FORMAT_VERSION == "6"
 
 
 def test_model_to_dict_excludes_relationships():
@@ -188,6 +191,37 @@ def test_jobs_for_restore_clears_celery():
     assert rows[0]["status"] == "cancelled"
     assert rows[1]["status"] == "success"
     assert rows[1]["celery_task_id"] is None
+
+
+def test_create_full_backup_uses_pg_dump(monkeypatch, tmp_path):
+    """Full mode must write database.dump, not rely on capped JSON alone."""
+    dump_bytes = b"PGDMP_FAKE" + b"\x00" * 200
+
+    def fake_pg_dump(dest):
+        Path(dest).write_bytes(dump_bytes)
+        return Path(dest)
+
+    monkeypatch.setattr(hb, "create_pg_dump", fake_pg_dump)
+    monkeypatch.setattr(hb, "_avatar_files", list)
+    monkeypatch.setattr(hb, "_service_logo_files", list)
+    monkeypatch.setattr(hb, "load_settings", lambda: {"keep": 5})
+    monkeypatch.setattr(hb, "prune_old_backups", lambda keep: None)
+    monkeypatch.setattr(hb, "HERDER_BACKUP_DIR", tmp_path)
+    monkeypatch.setattr(hb, "_ensure_dir", lambda: None)
+    monkeypatch.setattr(hb.settings, "HERDER_BACKUP_ROOT", str(tmp_path))
+
+    out = hb.create_herder_backup(include_audit=True, config_only=False)
+    assert out.exists()
+    import tarfile
+
+    with tarfile.open(out, "r:gz") as tar:
+        names = set(tar.getnames())
+        assert "database.dump" in names
+        assert "manifest.json" in names
+        man = json.loads(tar.extractfile("manifest.json").read())
+        assert man["kind"] == "pg_dump_full"
+        assert man["version"] == "6"
+        assert tar.extractfile("database.dump").read()[:5] == b"PGDMP"
 
 
 def test_service_logo_files(tmp_path, monkeypatch):

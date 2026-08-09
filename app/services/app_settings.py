@@ -36,7 +36,7 @@ LEGACY_DOT = ".herder-backup-config.json"
 
 DEFAULTS: Dict[str, Any] = {
     "keep": 10,
-    "schedule_mode": "config_only",
+    "schedule_mode": "full",
     "timezone": "UTC",
     "schedule_enabled": False,
     "schedule_cron": "0 3 * * *",
