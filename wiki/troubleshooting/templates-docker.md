@@ -54,7 +54,9 @@ Inventory must see `docker-compose.<name>.yml` next to the primary file in the s
 
 ## Step-up 2FA for secrets fails
 
-- User must have TOTP enabled.  
+- User must have a passkey and/or TOTP enrolled under Account.  
+- Passkey unlock: use **Use passkey** on the View secrets panel (same browser session).  
+- TOTP unlock: enter authenticator or backup code.  
 - “Require 2FA for template deploy” setting on?  
 - Unlock cookie expired (~10 min) — View secrets again.
 
