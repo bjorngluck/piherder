@@ -9,7 +9,7 @@ from app.models import User, Server
 
 
 def test_backup_format_version():
-    assert hb.BACKUP_FORMAT_VERSION == "4"
+    assert hb.BACKUP_FORMAT_VERSION == "5"
 
 
 def test_model_to_dict_excludes_relationships():
@@ -75,6 +75,26 @@ def test_build_payload_keys(monkeypatch):
     monkeypatch.setattr(hb, "_snapshot_push_subscriptions", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_push_preferences", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_notifications", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_jobs", lambda: [{"id": 1, "job_type": "backup", "status": "success"}])
+    monkeypatch.setattr(hb, "_snapshot_nmap_scan_runs", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_nmap_scan_schedules", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_nmap_devices", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_nmap_script_results", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_webauthn_credentials", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_managed_certificates", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_certificate_targets", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_service_templates", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_stack_deployments", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_service_dns_records", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_runtime_edges", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_topology_categories", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_topology_tags", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_visual_service_stacks", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_container_annotations", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_container_annotation_tags", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_port_annotations", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_user_favourites", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_api_tokens", lambda: [])
     monkeypatch.setattr(
         hb,
         "_snapshot_integrations",
@@ -106,9 +126,11 @@ def test_build_payload_keys(monkeypatch):
     )
 
     payload = hb._build_backup_payload(include_audit=False, config_only=True)
-    assert payload["manifest"]["version"] == "4"
-    assert "jobs" not in payload
-    assert "jobs" in payload["manifest"]["excludes"]
+    assert payload["manifest"]["version"] == "5"
+    assert "jobs" in payload
+    assert "jobs" in payload["manifest"]["includes"]
+    assert "nmap_scan_runs" in payload["manifest"]["includes"]
+    assert "jobs" not in payload["manifest"]["excludes"]
     assert "password_reset_tokens" in payload["manifest"]["excludes"]
     assert "integrations" in payload["manifest"]["includes"]
     assert "integration_bindings" in payload["manifest"]["includes"]
@@ -122,6 +144,7 @@ def test_build_payload_keys(monkeypatch):
         "users",
         "user_favourites",
         "api_tokens",
+        "jobs",
         "totp_backup_codes",
         "trusted_devices",
         "docker_versions",
@@ -139,6 +162,7 @@ def test_build_payload_keys(monkeypatch):
         "runtime_edges",
         "port_annotations",
         "nmap_scan_schedules",
+        "nmap_scan_runs",
         "nmap_devices",
         "nmap_script_results",
         "herder_config",
@@ -149,7 +173,21 @@ def test_build_payload_keys(monkeypatch):
     assert payload["users"][0]["hashed_password"] == "x"
     assert payload["integrations"][0]["type"] == "grafana"
     assert payload["integration_bindings"][0]["role"] == "dashboard"
+    assert payload["jobs"][0]["job_type"] == "backup"
     assert payload["herder_config"]["timezone"] == "UTC"
+
+
+def test_jobs_for_restore_clears_celery():
+    rows = hb._jobs_for_restore(
+        [
+            {"id": 1, "status": "running", "celery_task_id": "abc", "details": "{}"},
+            {"id": 2, "status": "success", "celery_task_id": "def", "details": "ok"},
+        ]
+    )
+    assert rows[0]["celery_task_id"] is None
+    assert rows[0]["status"] == "cancelled"
+    assert rows[1]["status"] == "success"
+    assert rows[1]["celery_task_id"] is None
 
 
 def test_service_logo_files(tmp_path, monkeypatch):
