@@ -373,7 +373,25 @@ def is_sole_admin(session: Session, user: User) -> bool:
 
 
 def _viewer_write_allowed(path: str) -> bool:
-    return any(path.startswith(p) for p in _VIEWER_WRITE_PREFIXES)
+    if any(path.startswith(p) for p in _VIEWER_WRITE_PREFIXES):
+        return True
+    # Public demo shared login is viewer: still allow canned job clicks + pins
+    # (mutations are simulated / personal; fleet config stays blocked by RBAC).
+    try:
+        from ..services.demo import demo_mode
+
+        if demo_mode():
+            import re
+
+            if re.match(r"^/servers/\d+/run(?:/|$)", path or ""):
+                return True
+            if re.match(r"^/jobs/\d+/cancel$", path or ""):
+                return True
+            if (path or "").startswith("/account/favourites"):
+                return True
+    except Exception:
+        pass
+    return False
 
 
 def _admin_only_path(path: str) -> bool:

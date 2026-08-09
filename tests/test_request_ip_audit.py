@@ -18,6 +18,20 @@ def test_extract_client_ip_prefers_xff():
     )
 
 
+def test_extract_client_ip_prefers_cf_connecting_ip_over_xff():
+    """Orange-cloud: Caddy XFF is CF edge; real visitor is CF-Connecting-IP."""
+    assert (
+        rip.extract_client_ip(
+            {
+                "CF-Connecting-IP": "203.0.113.50",
+                "X-Forwarded-For": "104.16.1.1",
+            },
+            "172.18.0.5",
+        )
+        == "203.0.113.50"
+    )
+
+
 def test_extract_client_ip_x_real_ip_and_peer():
     assert rip.extract_client_ip({"X-Real-IP": "198.51.100.2"}, "172.18.0.5") == "198.51.100.2"
     assert rip.extract_client_ip({}, "172.18.0.5") == "172.18.0.5"

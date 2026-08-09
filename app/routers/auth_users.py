@@ -35,6 +35,13 @@ from ..services.user_admin import (
 router = APIRouter()
 
 
+def _block_demo_user_admin() -> None:
+    """Public demo: shared admin must not manage users for other visitors."""
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("user_admin")
+
+
 def _client_ip(request: Request) -> Optional[str]:
     return client_ip_from_request(request)
 
@@ -131,6 +138,7 @@ async def users_admin_page(
     session: Session = Depends(get_session),
 ):
     """Admin-only multi-user RBAC management + create user."""
+    _block_demo_user_admin()
     return _users_page_response(
         request,
         session,
@@ -156,6 +164,7 @@ async def create_user(
     On success, re-renders the users page with a one-time credentials card
     (password is never put in the URL).
     """
+    _block_demo_user_admin()
     email = (email or "").strip().lower()
     display_name = (display_name or "").strip() or None
 
@@ -217,6 +226,7 @@ async def reset_user_password(
 
     Invalidates all sessions and trusted devices. Password shown once.
     """
+    _block_demo_user_admin()
     target = session.get(User, target_id)
     if not target:
         raise HTTPException(404)
@@ -258,6 +268,7 @@ async def clear_user_2fa(
     session: Session = Depends(get_session),
 ):
     """Admin removes 2FA so the user can re-enrol (lost authenticator)."""
+    _block_demo_user_admin()
     target = session.get(User, target_id)
     if not target:
         raise HTTPException(404)
@@ -289,6 +300,7 @@ async def reset_user_access(
 
     Cannot target self (use Account / clear-2FA + Account password, or another admin).
     """
+    _block_demo_user_admin()
     target = session.get(User, target_id)
     if not target:
         raise HTTPException(404)
@@ -332,6 +344,7 @@ async def sign_out_user_sessions(
     session: Session = Depends(get_session),
 ):
     """Force logout everywhere for a user (JWT session_version + trusted devices)."""
+    _block_demo_user_admin()
     target = session.get(User, target_id)
     if not target:
         raise HTTPException(404)
@@ -358,6 +371,7 @@ async def set_user_role(
     admin: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
+    _block_demo_user_admin()
     target = session.get(User, target_id)
     if not target:
         raise HTTPException(404)
@@ -395,6 +409,7 @@ async def delete_user(
     """Delete a user (admin only). Cannot delete self or the last admin."""
     from ..services.user_admin import detach_and_delete_user
 
+    _block_demo_user_admin()
     target = session.get(User, target_id)
     if not target:
         raise HTTPException(404)

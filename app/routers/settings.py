@@ -192,8 +192,8 @@ async def settings_page(
     # Instance DR + fleet/security policy writes are admin-only
     if tab in ("backup", "fleet", "alerts") and not is_admin:
         tab = "general"
-    # Demo sandbox tab only when DEMO_MODE and admin
-    if tab == "demo" and (not is_admin or not demo_mode()):
+    # Demo seed tab removed from UI (ops restore via CLI only)
+    if tab == "demo":
         tab = "general"
     qp = request.query_params
     if (
@@ -211,7 +211,7 @@ async def settings_page(
     if qp.get("security_saved") or qp.get("data_cleanup_saved") or qp.get("data_cleanup_queued"):
         tab = "general"
     if qp.get("demo_restored") or qp.get("demo_error"):
-        tab = "demo" if is_admin and demo_mode() else tab
+        tab = "general"
     if qp.get("stack_checked"):
         tab = "status" if is_admin else tab
     if (
@@ -472,39 +472,18 @@ async def demo_restore_seed(
     session: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
-    """Wipe fleet + re-seed (demo mode only). Confirm phrase: RESET."""
-    from ..services.demo import demo_mode
-    from ..services.demo_seed import seed_demo_fleet
+    """In-app seed restore is disabled (shared demo vandalism).
 
-    if not demo_mode():
-        raise HTTPException(404, detail="Not a demo instance")
-    if (confirm or "").strip().upper() != "RESET":
-        return RedirectResponse(
-            _settings_url("demo", demo_error="Type RESET to confirm"),
-            status_code=303,
-        )
-    try:
-        summary = seed_demo_fleet(session, force=True)
-        session.add(
-            make_audit_log(
-                user_id=user.id,
-                action="demo_reset",
-                status="success",
-                details=f"In-app restore · servers={summary.get('servers')}",
-                finished_at=datetime.utcnow(),
-            )
-        )
-        session.commit()
-    except Exception as e:
-        session.rollback()
-        return RedirectResponse(
-            _settings_url("demo", demo_error=str(e)[:120]),
-            status_code=303,
-        )
-    return RedirectResponse(
-        _settings_url("demo", demo_restored="1"),
-        status_code=303,
-    )
+    Operators re-seed on the VPS only::
+
+        docker compose exec web python scripts/demo_seed/seed.py --force
+    """
+    from ..services.demo import http_403_if_demo, demo_mode
+
+    # Always refuse in the browser — even if DEMO_MODE is on.
+    if demo_mode():
+        http_403_if_demo("seed_restore")
+    raise HTTPException(404, detail="Not a demo instance")
 
 
 @router.post("/herder-backups/status/check")
@@ -857,6 +836,9 @@ async def trigger_herder_backup(
     backup_mode: str = Form("config_only"),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
     mode = backup_mode if backup_mode in ("config_only", "full") else "config_only"
     include_audit = mode == "full"
     config_only = mode != "full"
@@ -904,6 +886,8 @@ async def restore_herder_backup(
     dry_run: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("herder_restore")
     tmp_path = None
     try:
         archive_to_use = archive
@@ -998,6 +982,8 @@ async def save_backup_schedule(
     schedule_cron: str = Form("0 3 * * *"),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     enabled = _form_on(schedule_enabled)
     cron = (schedule_cron or "").strip() or "0 3 * * *"
     if enabled:
@@ -1033,6 +1019,11 @@ async def save_security_policy(
     template_require_2fa: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+
+    # Shared demo: force-2FA would lock every visitor out of the shared account
+    http_403_if_demo("settings_security")
+    del user
     try:
         app_cfg.save_settings(
             {
@@ -1067,6 +1058,9 @@ async def save_oidc_settings(
     oidc_require_sso: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
     del user
     import json
 
@@ -1151,6 +1145,8 @@ async def save_alerts_webhook(
     webhook_events_backup: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     del user
     from ..services import alert_channels as alert_ch
 
@@ -1197,6 +1193,8 @@ async def test_alerts_webhook(
     webhook_events_backup: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     """Save form first (so test uses current fields), then POST a test payload."""
     del webhook_events_notifications, webhook_events_jobs, webhook_events_backup
     from ..services import alert_channels as alert_ch
@@ -1257,6 +1255,8 @@ async def save_alerts_smtp(
     smtp_password_reset_enabled: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     del user
     from ..services import alert_channels as alert_ch
 
@@ -1301,6 +1301,8 @@ async def test_alerts_smtp(
     to: str = Form(...),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     del user
     from ..services import alert_channels as alert_ch
 
@@ -1330,6 +1332,8 @@ async def save_data_cleanup_config(
     data_cleanup_nmap_days: int = Form(30),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     enabled = _form_on(data_cleanup_enabled)
     cron = (data_cleanup_cron or "").strip() or "30 4 * * *"
     if enabled:
@@ -1370,6 +1374,9 @@ async def run_data_cleanup_now(
     session: Session = Depends(get_session),
 ):
     """Queue stale_data_cleanup Job (live or dry-run)."""
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
     is_dry = dry_run in ("1", "on", "true", "yes")
     try:
         job = sdc.enqueue_stale_data_cleanup(
@@ -1409,6 +1416,8 @@ async def save_update_check_defaults(
     enable_backups: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     os_on = _form_on(os_check_global_enabled)
     cont_on = _form_on(container_check_global_enabled)
     jitter = _form_on(update_check_jitter)
@@ -1484,6 +1493,8 @@ async def save_timezone(
     timezone: str = Form("UTC"),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     try:
         app_cfg.set_app_timezone(timezone)
         sched, has = _scheduler()
@@ -1500,6 +1511,8 @@ async def delete_herder_backup(
     name: str = Form(...),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("herder_restore")
     deleted = False
     for root in hb.archive_dir_candidates():
         p = root / name

@@ -270,8 +270,62 @@ class SameOriginPostMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class DemoWriteGuardMiddleware(BaseHTTPMiddleware):
+    """Public demo: block mutating requests that would trash the shared sandbox.
+
+    Allowlist (see ``demo.demo_write_allowed``): login, canned job runs,
+    notifications, favourites. Everything else POST/PUT/PATCH/DELETE → 403
+    (connectors, DNS, certs, templates, settings, SSO, account sabotage, …).
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        from .services.demo import (
+            demo_mode,
+            demo_write_allowed,
+            demo_write_block_detail,
+        )
+
+        if not demo_mode():
+            return await call_next(request)
+        method = (request.method or "GET").upper()
+        path = request.url.path or "/"
+        if demo_write_allowed(method, path):
+            return await call_next(request)
+
+        detail = demo_write_block_detail()
+        accept = (request.headers.get("accept") or "").lower()
+        hx = (request.headers.get("hx-request") or "").lower() == "true"
+        if (
+            path.startswith("/api/")
+            or "application/json" in accept
+            or request.headers.get("content-type", "").startswith("application/json")
+        ):
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse(status_code=403, content={"detail": detail})
+        if hx:
+            from fastapi.responses import HTMLResponse
+
+            return HTMLResponse(
+                f'<div class="p-3 banner-warning border border-border rounded text-sm" role="alert">'
+                f"{detail}</div>",
+                status_code=403,
+            )
+        # Browser form POST — bounce home with banner query (base may ignore; 403 body ok)
+        from fastapi.responses import HTMLResponse
+
+        return HTMLResponse(
+            f"<!DOCTYPE html><html><head><meta charset=utf-8><title>Demo</title></head>"
+            f"<body style='font-family:system-ui;padding:2rem;max-width:36rem'>"
+            f"<h1>Demo sandbox</h1><p>{detail}</p>"
+            f"<p><a href='/'>Back to dashboard</a></p></body></html>",
+            status_code=403,
+        )
+
+
 app.add_middleware(ClientIpMiddleware)
 app.add_middleware(SameOriginPostMiddleware)
+app.add_middleware(DemoWriteGuardMiddleware)
 
 # v1.2: CSP + baseline security headers (outermost among our custom stack so
 # they apply even when earlier middleware short-circuits… actually Starlette
