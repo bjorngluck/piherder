@@ -177,6 +177,45 @@ def test_user_has_second_factor_security_helper():
     assert user_has_second_factor(session, user2) is False
 
 
+def test_templates_user_has_2fa_includes_passkeys():
+    """View-secrets / template deploy enrollment must count passkeys, not only TOTP."""
+    from app.routers import templates_common as tc
+
+    user = SimpleNamespace(id=5, totp_enabled=False, totp_secret_encrypted=None)
+    session = MagicMock()
+    # no passkeys
+    session.exec.return_value.all.return_value = []
+    assert tc._user_has_2fa(session, user) is False
+    # one passkey id
+    session.exec.return_value.all.return_value = [1]
+    assert tc._user_has_2fa(session, user) is True
+
+    totp_user = SimpleNamespace(id=6, totp_enabled=True, totp_secret_encrypted="enc")
+    session.exec.return_value.all.return_value = []
+    assert tc._user_has_2fa(session, totp_user) is True
+
+
+def test_oidc_stepup_accepts_account_stepup_cookie():
+    from app.security.auth import ACCOUNT_STEPUP_COOKIE, create_account_stepup_token
+    from app.services import oidc_svc as oidc
+
+    user = SimpleNamespace(id=3, totp_enabled=False, totp_secret_encrypted=None)
+    session = MagicMock()
+    # passkey-only
+    session.exec.return_value.all.return_value = [1]
+    req = MagicMock()
+    req.cookies = {ACCOUNT_STEPUP_COOKIE: create_account_stepup_token(3)}
+    ok, err = oidc.verify_stepup_2fa(session, user, request=req)
+    assert ok is True
+    assert err == ""
+
+    bare = MagicMock()
+    bare.cookies = {}
+    ok2, err2 = oidc.verify_stepup_2fa(session, user, request=bare)
+    assert ok2 is False
+    assert err2 == "use_passkey"
+
+
 def test_post_login_path_force_2fa_passkey(monkeypatch):
     from app.security import auth as auth_mod
 

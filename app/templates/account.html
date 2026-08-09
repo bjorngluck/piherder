@@ -84,6 +84,7 @@
   {% elif msg == 'passkey_added' %}Passkey registered. You can use it at login as a second factor.
   {% elif msg == 'passkey_revoked' %}Passkey removed.
   {% elif msg == 'passkey_renamed' %}Passkey name saved.
+  {% elif msg == 'stepup_ok' %}Passkey confirmed. You can complete sensitive Account actions for a few minutes without re-entering a code.
   {% elif msg == 'sso_linked' %}SSO account linked.
   {% elif msg == 'sso_unlinked' %}SSO account unlinked.
   {% elif msg == 'password_removed' %}Password removed. Sign in with SSO only.
@@ -122,6 +123,7 @@
   {% elif error == 'sso_not_found' %}SSO link not found.
   {% elif error == 'sso_link_conflict' %}That SSO identity is already linked to another account.
   {% elif error == '2fa_required' %}Authenticator or backup code required.
+  {% elif error == 'use_passkey' %}This account uses a passkey — confirm with passkey first (button on this page), then submit.
   {% elif error == 'use_change_password' %}Use Change password when a local password is already enabled.
   {% elif error == 'push_vapid' %}Web Push is not available on the server.
   {% elif error == 'push_no_device' %}No device subscribed yet — use “Enable on this device” first.
@@ -192,6 +194,20 @@
     {% endif %}
   </div>
 
+  {% if has_2fa and has_passkeys %}
+  <div class="card p-4 sm:p-5 space-y-2 account-card" id="account-stepup-box" data-testid="account-stepup-box">
+    <h2 class="font-semibold text-text text-sm">Step-up confirmation</h2>
+    {% if account_stepup_active %}
+    <p class="text-sm text-accent">Passkey step-up is active for ~{{ account_stepup_minutes }} minutes. Sensitive Account actions do not need a TOTP code until it expires.</p>
+    {% else %}
+    <p class="text-xs text-muted">Use a passkey instead of an authenticator code for SSO link/unlink and password remove/set.</p>
+    <button type="button" id="account-stepup-passkey" class="btn btn-accent text-sm min-h-11"
+            data-testid="account-stepup-passkey">Confirm with passkey</button>
+    <p id="account-stepup-err" class="hidden text-sm banner-error border border-border rounded p-2" role="alert"></p>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <!-- Password -->
   <div class="card p-5 sm:p-6 space-y-3 account-card">
     <h2 class="font-semibold text-text">Password</h2>
@@ -223,12 +239,16 @@
     <form method="post" action="/auth/account/password/remove" class="space-y-2 border-t border-border pt-3 mt-2"
           onsubmit="return confirm('Remove local password? You will sign in with SSO only until you set a password again.');">
       <p class="text-xs text-muted">Optional: remove password and use SSO only (keep a break-glass password if you can).</p>
-      {% if has_2fa %}
+      {% if has_2fa and account_stepup_active %}
+      <p class="text-xs text-muted">Passkey step-up active — submit to remove password.</p>
+      {% elif has_2fa and has_totp %}
       <div>
         <label class="block text-sm text-muted mb-1">Authenticator or backup code</label>
         <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" required>
       </div>
+      {% elif has_2fa and has_passkeys %}
+      <p class="text-xs text-muted">Confirm with <strong class="text-text">passkey</strong> (step-up card) first, then submit.</p>
       {% else %}
       <div>
         <label class="block text-sm text-muted mb-1">Current password</label>
@@ -256,12 +276,16 @@
         <input name="confirm_password" type="password" required minlength="10" autocomplete="new-password"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
       </div>
-      {% if has_2fa %}
+      {% if has_2fa and account_stepup_active %}
+      <p class="text-xs text-muted">Passkey step-up active — submit to set password.</p>
+      {% elif has_2fa and has_totp %}
       <div>
         <label class="block text-sm text-muted mb-1">Authenticator or backup code</label>
         <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" required>
       </div>
+      {% elif has_2fa and has_passkeys %}
+      <p class="text-xs text-muted">Confirm with passkey (step-up card) first, then submit.</p>
       {% endif %}
       <button type="submit" class="btn btn-accent min-h-11 text-sm">Set password</button>
     </form>
@@ -286,12 +310,16 @@
         <form method="post" action="/auth/oidc/unlink" class="space-y-2"
               onsubmit="return confirm('Unlink this SSO identity?');">
           <input type="hidden" name="identity_id" value="{{ idn.id }}">
-          {% if has_2fa %}
+          {% if has_2fa and account_stepup_active %}
+          <p class="text-xs text-muted">Using passkey step-up for this action.</p>
+          {% elif has_2fa and has_totp %}
           <div>
             <label class="block text-xs text-muted mb-1">Authenticator or backup code</label>
             <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
                    class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" required>
           </div>
+          {% elif has_2fa and has_passkeys %}
+          <p class="text-xs text-muted">Confirm with passkey (step-up card) first, then Unlink.</p>
           {% elif password_login_enabled %}
           <div>
             <label class="block text-xs text-muted mb-1">Current password</label>
@@ -319,12 +347,16 @@
     </ul>
     {% else %}
     <form method="post" action="/auth/oidc/link" class="space-y-3">
-      {% if has_2fa %}
+      {% if has_2fa and account_stepup_active %}
+      <p class="text-xs text-muted">Using passkey step-up for this action.</p>
+      {% elif has_2fa and has_totp %}
       <div>
         <label class="block text-sm text-muted mb-1">Authenticator or backup code</label>
         <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" required>
       </div>
+      {% elif has_2fa and has_passkeys %}
+      <p class="text-xs text-muted">Confirm with passkey (step-up card) first, then Link.</p>
       {% elif password_login_enabled %}
       <div>
         <label class="block text-sm text-muted mb-1">Current password</label>
@@ -338,6 +370,95 @@
     </form>
     {% endif %}
   </div>
+  {% endif %}
+  {% if has_passkeys and not account_stepup_active %}
+  <script>
+  (function () {
+    var btn = document.getElementById('account-stepup-passkey');
+    var errEl = document.getElementById('account-stepup-err');
+    if (!btn) return;
+    function b64urlToBuf(b64url) {
+      var pad = '='.repeat((4 - (b64url.length % 4)) % 4);
+      var b64 = (b64url + pad).replace(/-/g, '+').replace(/_/g, '/');
+      var str = atob(b64);
+      var buf = new ArrayBuffer(str.length);
+      var view = new Uint8Array(buf);
+      for (var i = 0; i < str.length; i++) view[i] = str.charCodeAt(i);
+      return buf;
+    }
+    function bufToB64url(buf) {
+      var bytes = new Uint8Array(buf);
+      var str = '';
+      for (var i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+      return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    }
+    function prepareRequestOptions(publicKey) {
+      var o = Object.assign({}, publicKey);
+      o.challenge = b64urlToBuf(publicKey.challenge);
+      if (publicKey.allowCredentials) {
+        o.allowCredentials = publicKey.allowCredentials.map(function (c) {
+          return Object.assign({}, c, { id: b64urlToBuf(c.id) });
+        });
+      }
+      return o;
+    }
+    function credentialToJSON(cred) {
+      var r = cred.response;
+      return {
+        id: cred.id,
+        rawId: bufToB64url(cred.rawId),
+        type: cred.type,
+        clientExtensionResults: cred.clientExtensionResults || {},
+        authenticatorAttachment: cred.authenticatorAttachment || null,
+        response: {
+          clientDataJSON: bufToB64url(r.clientDataJSON),
+          authenticatorData: bufToB64url(r.authenticatorData),
+          signature: bufToB64url(r.signature),
+          userHandle: r.userHandle ? bufToB64url(r.userHandle) : null,
+        },
+      };
+    }
+    function showErr(msg) {
+      if (!errEl) return;
+      errEl.textContent = msg || 'Passkey failed';
+      errEl.classList.remove('hidden');
+    }
+    btn.addEventListener('click', async function () {
+      if (errEl) { errEl.classList.add('hidden'); errEl.textContent = ''; }
+      if (!window.PublicKeyCredential) {
+        showErr('Passkeys not supported in this browser.');
+        return;
+      }
+      var prev = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Waiting for authenticator…';
+      try {
+        var optRes = await fetch('/auth/account/webauthn/stepup/options', {
+          method: 'POST', headers: { 'Accept': 'application/json' }, credentials: 'same-origin',
+        });
+        var optBody = await optRes.json();
+        if (!optBody.ok) throw new Error(optBody.error || 'Could not start passkey step-up');
+        var assertion = await navigator.credentials.get({
+          publicKey: prepareRequestOptions(optBody.publicKey),
+        });
+        if (!assertion) throw new Error('Passkey cancelled');
+        var verRes = await fetch('/auth/account/webauthn/stepup/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ credential: credentialToJSON(assertion) }),
+        });
+        var verBody = await verRes.json();
+        if (!verBody.ok) throw new Error(verBody.error || 'Passkey verification failed');
+        window.location.href = verBody.redirect || '/auth/account?msg=stepup_ok#account-stepup-box';
+      } catch (e) {
+        showErr((e && e.message) ? e.message : 'Passkey failed');
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    });
+  })();
+  </script>
   {% endif %}
   <script>
   (function () {

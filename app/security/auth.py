@@ -19,9 +19,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 PENDING_2FA_MINUTES = 10
 BACKUP_CODE_COUNT = 10
-# Step-up after TOTP: short-lived grant to view decrypted secrets in UI
+# Step-up after TOTP/passkey: short-lived grant to view decrypted secrets in UI
 SECRETS_UNLOCK_MINUTES = 10
 SECRETS_UNLOCK_COOKIE = "secrets_unlock"
+# Step-up for Account mutations (SSO link/unlink, password remove/set)
+ACCOUNT_STEPUP_MINUTES = 5
+ACCOUNT_STEPUP_COOKIE = "account_stepup"
 
 
 def cookie_secure() -> bool:
@@ -165,7 +168,7 @@ def create_pending_2fa_token(user_id: int) -> str:
 
 
 def create_secrets_unlock_token(user_id: int) -> str:
-    """Short-lived step-up after TOTP re-check; required to view secret cleartext."""
+    """Short-lived step-up after TOTP/passkey re-check; required to view secret cleartext."""
     return create_access_token(
         {"sub": str(user_id), "secrets_unlock": True},
         expires_delta=timedelta(minutes=SECRETS_UNLOCK_MINUTES),
@@ -181,6 +184,30 @@ def secrets_unlock_active(request: Request, user: User) -> bool:
         return False
     payload = decode_token_payload(raw)
     if not payload or not payload.get("secrets_unlock"):
+        return False
+    try:
+        return int(payload.get("sub")) == int(user.id)
+    except (TypeError, ValueError):
+        return False
+
+
+def create_account_stepup_token(user_id: int) -> str:
+    """Short-lived step-up for Account SSO / password-sensitive actions."""
+    return create_access_token(
+        {"sub": str(user_id), "account_stepup": True},
+        expires_delta=timedelta(minutes=ACCOUNT_STEPUP_MINUTES),
+    )
+
+
+def account_stepup_active(request: Request, user: User) -> bool:
+    """True if this browser has a valid Account step-up cookie for user."""
+    if not user or not getattr(user, "id", None):
+        return False
+    raw = request.cookies.get(ACCOUNT_STEPUP_COOKIE)
+    if not raw:
+        return False
+    payload = decode_token_payload(raw)
+    if not payload or not payload.get("account_stepup"):
         return False
     try:
         return int(payload.get("sub")) == int(user.id)

@@ -201,18 +201,28 @@ async def secrets_unlock(
     return_to: str = Form("/templates"),
 ):
     """
-    Step-up 2FA: re-enter TOTP (even if already used at login), then grant a short-lived
-    cookie that allows decrypting secrets from the DB for the UI.
+    Step-up 2FA: re-enter TOTP/backup (even if already used at login), then grant a
+    short-lived cookie that allows decrypting secrets from the DB for the UI.
+
+    Passkeys use ``/templates/secrets/webauthn/*`` instead of this form path.
     """
+    from ..services import webauthn_svc as wa_svc
+
     dest = _safe_return_to(return_to)
     ip = _client_ip(request) or "unknown"
     if not rate_limit_auth(f"secrets_unlock:{user.id}:{ip}", max_attempts=20, window_seconds=300):
         return _redirect(dest, unlock_error="Too many unlock attempts. Wait a few minutes.")
 
-    if not _user_has_2fa(user) or not getattr(user, "totp_secret_encrypted", None):
+    if not _user_has_2fa(session, user):
         return _redirect(
             dest,
             unlock_error="Enable 2FA under Account before viewing secrets.",
+        )
+
+    if not wa_svc.totp_active(user):
+        return _redirect(
+            dest,
+            unlock_error="Use a passkey to unlock secrets (no authenticator app on this account).",
         )
 
     code = (code or "").strip()
@@ -236,6 +246,98 @@ async def secrets_unlock(
     return response
 
 
+@router.post("/templates/secrets/webauthn/options")
+async def secrets_unlock_webauthn_options(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """JSON: PublicKeyCredentialRequestOptions for secrets step-up passkey."""
+    from fastapi.responses import JSONResponse
+
+    from ..security.auth import cookie_auth_kwargs
+    from ..services import webauthn_svc as wa_svc
+
+    ip = _client_ip(request) or "unknown"
+    if not rate_limit_auth(
+        f"secrets_unlock_wa:{user.id}:{ip}", max_attempts=20, window_seconds=300
+    ):
+        return JSONResponse({"ok": False, "error": "rate"}, status_code=429)
+
+    if not wa_svc.has_passkeys(session, int(user.id)):
+        return JSONResponse(
+            {"ok": False, "error": "No passkeys registered for this account"},
+            status_code=400,
+        )
+    try:
+        options_json, chal_token = wa_svc.authentication_options_json(session, user)
+    except wa_svc.WebAuthnConfigError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "options_failed"}, status_code=500)
+
+    body = json.loads(options_json)
+    resp = JSONResponse({"ok": True, "publicKey": body})
+    resp.set_cookie(
+        wa_svc.CHALLENGE_COOKIE_AUTH,
+        chal_token,
+        **cookie_auth_kwargs(max_age=60 * wa_svc.CHALLENGE_MINUTES),
+    )
+    return resp
+
+
+@router.post("/templates/secrets/webauthn/verify")
+async def secrets_unlock_webauthn_verify(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Verify passkey for secrets unlock; sets secrets_unlock cookie and returns redirect."""
+    from fastapi.responses import JSONResponse
+
+    from ..security.auth import cookie_delete_kwargs
+    from ..services import webauthn_svc as wa_svc
+
+    ip = _client_ip(request) or "unknown"
+    if not rate_limit_auth(
+        f"secrets_unlock_wa:{user.id}:{ip}", max_attempts=20, window_seconds=300
+    ):
+        return JSONResponse({"ok": False, "error": "rate"}, status_code=429)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "bad_json"}, status_code=400)
+
+    credential = body.get("credential") if isinstance(body, dict) else None
+    if not isinstance(credential, dict):
+        return JSONResponse({"ok": False, "error": "missing_credential"}, status_code=400)
+
+    return_to = ""
+    if isinstance(body, dict):
+        return_to = str(body.get("return_to") or "")
+    dest = _safe_return_to(return_to)
+
+    chal = request.cookies.get(wa_svc.CHALLENGE_COOKIE_AUTH)
+    try:
+        wa_svc.verify_authentication(session, user, credential, chal)
+    except wa_svc.WebAuthnVerifyError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "verify_failed"}, status_code=400)
+
+    _audit(
+        session,
+        user,
+        "template.secrets_unlock",
+        details=f"method=passkey return_to={dest[:200]}",
+    )
+    resp = JSONResponse({"ok": True, "redirect": dest})
+    resp.delete_cookie(wa_svc.CHALLENGE_COOKIE_AUTH, **cookie_delete_kwargs())
+    _set_secrets_unlock_cookie(resp, user)
+    return resp
+
+
 @router.post("/templates/secrets/lock")
 async def secrets_lock(
     request: Request,
@@ -257,7 +359,7 @@ async def template_new_form(
     error: Optional[str] = None,
 ):
     return _editor_response(
-        request, user, form=blank_editor_form(), is_new=True, error=error
+        request, session, user, form=blank_editor_form(), is_new=True, error=error
     )
 
 
@@ -336,6 +438,7 @@ async def template_from_host_pull(
         )
         return _editor_response(
             request,
+            session,
             user,
             form=result["form"],
             is_new=True,
@@ -368,11 +471,11 @@ async def template_create(
                 data, msgs = apply_harden_env_to_form(data, reveal_secrets=reveal)
             data["use_docker_secrets"] = False
             return _editor_response(
-                request, user, form=data, is_new=True, tool_messages=msgs, msg="Tool applied — review and Save."
+                request, session, user, form=data, is_new=True, tool_messages=msgs, msg="Tool applied — review and Save."
             )
         except TemplateError as e:
             return _editor_response(
-                request, user, form=data, is_new=True, error=str(e), status_code=400
+                request, session, user, form=data, is_new=True, error=str(e), status_code=400
             )
 
     try:
@@ -392,6 +495,7 @@ async def template_create(
     except TemplateError as e:
         return _editor_response(
             request,
+            session,
             user,
             form={**blank_editor_form(), **data},
             is_new=True,
@@ -420,6 +524,7 @@ async def template_edit_form(
     )
     return _editor_response(
         request,
+        session,
         user,
         form=form,
         is_new=False,
@@ -457,6 +562,7 @@ async def template_save_edit(
             data["use_docker_secrets"] = False
             return _editor_response(
                 request,
+                session,
                 user,
                 form=data,
                 is_new=False,
@@ -468,6 +574,7 @@ async def template_save_edit(
         except TemplateError as e:
             return _editor_response(
                 request,
+                session,
                 user,
                 form=data,
                 is_new=False,
@@ -513,6 +620,7 @@ async def template_save_edit(
     except TemplateError as e:
         return _editor_response(
             request,
+            session,
             user,
             form=data,
             is_new=False,
@@ -606,7 +714,7 @@ async def template_detail(
             "slug": slug,
             "has_secret_vars": has_secret_vars,
             "unlock_error": request.query_params.get("unlock_error"),
-            **_secrets_ui_context(request, user),
+            **_secrets_ui_context(request, session, user),
         },
     )
 

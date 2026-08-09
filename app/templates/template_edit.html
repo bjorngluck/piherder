@@ -280,26 +280,12 @@
     </p>
     {% else %}
     <div id="secrets-unlock-panel" class="border border-border rounded p-3 bg-surface {% if not error %}hidden{% endif %}">
-      {% if user_has_2fa %}
       <p class="text-xs text-muted mb-2">
-        Re-enter a 2FA code (step-up — required even if you already used 2FA at login) to load secret defaults.
+        Step-up 2FA (passkey or authenticator) — required even if you already used 2FA at login — to load secret defaults.
       </p>
-      <form method="post" action="/templates/secrets/unlock" class="flex flex-wrap gap-2 items-end">
-        <input type="hidden" name="return_to" value="{% if is_new %}/templates/new{% else %}/templates/{{ slug }}/edit{% endif %}">
-        <div class="flex-1 min-w-[10rem]">
-          <label class="text-xs block mb-1">2FA code</label>
-          <input name="code" type="text" required inputmode="numeric" autocomplete="one-time-code"
-                 class="w-full bg-surface border border-border p-2 rounded text-sm font-mono tracking-widest min-h-11"
-                 placeholder="123456">
-        </div>
-        <button type="submit" class="btn btn-accent text-sm min-h-11 px-4">Unlock &amp; show</button>
-      </form>
-      {% else %}
-      <p class="text-sm">
-        Enable <a href="/auth/account" class="text-accent underline">2FA under Account</a>, then use
-        <strong>View secrets</strong> and enter a code to see secret defaults.
-      </p>
-      {% endif %}
+      {% with return_to=("/templates/new" if is_new else ("/templates/" ~ slug ~ "/edit")) %}
+      {% include "partials/secrets_unlock_form.html" %}
+      {% endwith %}
     </div>
     <p class="text-xs text-muted mt-2">
       Without unlock, secret defaults stay empty/masked on save (previous values are preserved).
