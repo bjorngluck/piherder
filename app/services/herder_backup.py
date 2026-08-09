@@ -4,31 +4,32 @@ Herder self-backup service.
 Backs up PiHerder's own configuration as a compressed tar.gz on a host-mapped directory
 (JSON row snapshots + selected DATA_ROOT files — **not** a raw ``pg_dump``).
 
-Included (durable control-plane):
+Included (control-plane + operational history):
 
 - Servers (encrypted SSH keys/passwords, schedules, inventory cache, feature flags)
 - Users (password hashes, roles, 2FA secrets — never plaintext passwords)
-- TOTP backup codes + trusted devices + **user favourites (pins)**
+- TOTP backup codes + trusted devices + user favourites (pins)
 - API tokens (hash + scopes; plaintext never stored)
+- **Jobs** (history + status; celery ids cleared on restore)
 - Docker compose version history (multi-file)
 - Web Push: VAPID keys, subscriptions, preferences
 - In-app notifications
 - Integrations + bindings, certs + deploy targets
 - Templates + stack deployments, DNS fabric, runtime edges, topology annotations
 - Port annotations (map sticky roles)
-- LAN discovery schedules, devices, script results (not raw scan run history)
+- LAN discovery: schedules, **scan runs**, devices, script results
 - Herder settings (timezone, force_2FA, self-backup schedule, fleet check defaults)
 - Avatar files under DATA_ROOT + service logos
 - Optionally AuditLog (full mode)
 
-Not included (by design):
+Not included (still separate products / short-lived):
 
-- Job queue rows (ephemeral)
-- Password-reset tokens (short-lived)
-- Nmap scan **run** history / XML artifacts under DATA_ROOT/nmap
-- Per-server rsync file trees (separate product)
+- Password-reset tokens (short-lived, useless after restore)
+- Nmap raw XML artifacts under DATA_ROOT/nmap (paths may be stale)
+- Per-server rsync file trees (host backup product)
+- Raw Postgres ``pg_dump`` (this is JSON row snapshots)
 
-- "config only" (default) vs "full" (include audit trail).
+- "config only" vs "full" (full = + audit trail). Jobs/nmap runs are always included.
 - Scheduled via APScheduler or manual trigger.
 - Restore requires the same PIHERDER_MASTER_KEY for encrypted fields.
 """
@@ -52,6 +53,7 @@ from ..models import (
     User,
     UserFavourite,
     ApiToken,
+    Job,
     DockerVersion,
     TotpBackupCode,
     TrustedDevice,
@@ -65,6 +67,7 @@ from ..models import (
     ServiceTemplate,
     StackDeployment,
     NmapScanSchedule,
+    NmapScanRun,
     NmapDevice,
     NmapScriptResult,
 )
@@ -73,13 +76,18 @@ from .app_settings import load_settings
 logger = logging.getLogger(__name__)
 
 # Bump when payload shape gains tables (restore stays backward compatible)
-BACKUP_FORMAT_VERSION = "4"
+BACKUP_FORMAT_VERSION = "5"
+
+# Safety caps (full history preferred; avoid multi-GB JSON on huge fleets)
+_JOB_SNAPSHOT_LIMIT = 50_000
+_NMAP_RUN_SNAPSHOT_LIMIT = 10_000
 
 # Relationship / non-column keys to drop from model_dump
 _EXCLUDE_REL = {
     User: {"audit_logs", "totp_backup_codes", "trusted_devices", "webauthn_credentials"},
     Server: {"audit_logs", "jobs", "docker_versions"},
     DockerVersion: {"server"},
+    Job: {"server"},
     TotpBackupCode: {"user"},
     TrustedDevice: {"user"},
     WebAuthnCredential: {"user"},
@@ -308,8 +316,24 @@ def _snapshot_api_tokens() -> List[Dict[str, Any]]:
     return _snapshot_table(ApiToken)
 
 
+def _snapshot_jobs(limit: int = _JOB_SNAPSHOT_LIMIT) -> List[Dict[str, Any]]:
+    """All job rows (newest first, safety cap). Required for full DR of Jobs UI."""
+    with Session(engine) as s:
+        rows = s.exec(select(Job).order_by(Job.id.desc()).limit(limit)).all()
+        # restore prefers stable id order
+        rows = list(reversed(list(rows)))
+        return [_model_to_dict(r) for r in rows]
+
+
 def _snapshot_nmap_scan_schedules() -> List[Dict[str, Any]]:
     return _snapshot_table(NmapScanSchedule)
+
+
+def _snapshot_nmap_scan_runs(limit: int = _NMAP_RUN_SNAPSHOT_LIMIT) -> List[Dict[str, Any]]:
+    with Session(engine) as s:
+        rows = s.exec(select(NmapScanRun).order_by(NmapScanRun.id.desc()).limit(limit)).all()
+        rows = list(reversed(list(rows)))
+        return [_model_to_dict(r) for r in rows]
 
 
 def _snapshot_nmap_devices() -> List[Dict[str, Any]]:
@@ -318,6 +342,39 @@ def _snapshot_nmap_devices() -> List[Dict[str, Any]]:
 
 def _snapshot_nmap_script_results() -> List[Dict[str, Any]]:
     return _snapshot_table(NmapScriptResult)
+
+
+def _jobs_for_restore(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Clear live Celery linkage; in-flight rows become cancelled after restore."""
+    out: List[Dict[str, Any]] = []
+    for raw in rows or []:
+        if not isinstance(raw, dict):
+            continue
+        row = dict(raw)
+        row["celery_task_id"] = None
+        st = (row.get("status") or "").lower()
+        if st in ("pending", "running"):
+            row["status"] = "cancelled"
+            det = row.get("details")
+            note = "cancelled on herder restore (was in-flight)"
+            if isinstance(det, str) and det.strip().startswith("{"):
+                try:
+                    import json as _json
+
+                    d = _json.loads(det)
+                    if isinstance(d, dict):
+                        d["restore_note"] = note
+                        row["details"] = _json.dumps(d)
+                    else:
+                        row["details"] = note
+                except Exception:
+                    row["details"] = note
+            elif det:
+                row["details"] = f"{det} · {note}"
+            else:
+                row["details"] = note
+        out.append(row)
+    return out
 
 
 def _snapshot_audit(since_days: Optional[int] = None) -> List[Dict[str, Any]]:
@@ -400,7 +457,9 @@ def _build_backup_payload(
             "container_annotations",
             "container_annotation_tags",
             "port_annotations",
+            "jobs",
             "nmap_scan_schedules",
+            "nmap_scan_runs",
             "nmap_devices",
             "nmap_script_results",
             "herder_config",
@@ -409,12 +468,12 @@ def _build_backup_payload(
         ]
         + (["audit_logs"] if include_audit else []),
         "excludes": [
-            "jobs",
-            "password_reset_tokens",
-            "nmap_scan_runs",
+            "password_reset_tokens",  # short-lived; useless after restore
             "appsetting_raw",  # covered via herder_config JSON
+            "nmap_xml_artifacts",  # DATA_ROOT/nmap binaries; paths may be host-local
+            "rsync_trees",  # per-server backup product, not herder self-backup
         ],
-        "note": "Encrypted fields need the same PIHERDER_MASTER_KEY on restore.",
+        "note": "Encrypted fields need the same PIHERDER_MASTER_KEY on restore. Jobs + nmap scan runs included (v5+).",
     }
     data: Dict[str, Any] = {
         "manifest": manifest,
@@ -422,6 +481,7 @@ def _build_backup_payload(
         "users": _snapshot_users(),
         "user_favourites": _snapshot_user_favourites(),
         "api_tokens": _snapshot_api_tokens(),
+        "jobs": _snapshot_jobs(),
         "totp_backup_codes": _snapshot_totp_backup_codes(),
         "trusted_devices": _snapshot_trusted_devices(),
         "webauthn_credentials": _snapshot_webauthn_credentials(),
@@ -445,6 +505,7 @@ def _build_backup_payload(
         "container_annotation_tags": _snapshot_container_annotation_tags(),
         "port_annotations": _snapshot_port_annotations(),
         "nmap_scan_schedules": _snapshot_nmap_scan_schedules(),
+        "nmap_scan_runs": _snapshot_nmap_scan_runs(),
         "nmap_devices": _snapshot_nmap_devices(),
         "nmap_script_results": _snapshot_nmap_script_results(),
         "herder_config": load_settings(),
@@ -460,9 +521,9 @@ def create_herder_backup(
     include_audit: bool = False, config_only: bool = True, since_days: int = 90
 ) -> Path:
     """
-    Create a compressed backup of PiHerder config + IAM + push + avatars + logos.
+    Create a compressed backup of the herder control plane + jobs/nmap history.
 
-    include_audit=False + config_only=True is the recommended default.
+    Always includes jobs and nmap scan runs (v5+). ``full`` additionally includes audit.
     The resulting .tar.gz lives under HERDER_BACKUP_ROOT on the host (map the volume!).
     """
     global HERDER_BACKUP_DIR
@@ -836,15 +897,16 @@ def restore_herder_backup(
     archive_path: str, restore_audit: bool = False, dry_run: bool = False
 ) -> Dict[str, Any]:
     """
-    Careful restore from archive (format v1–v4).
+    Careful restore from archive (format v1–v5).
 
     - Users, favourites, API tokens, servers, docker versions, 2FA, trusted devices
+    - Jobs (v5+; older archives may omit)
     - Push, notifications, integrations, certs, templates, topology, nmap inventory
+    - Nmap scan runs + script results (v5+; older archives null last_run_id)
     - Encrypted fields travel as-is (master key must match)
     - Herder settings JSON merged into live config
     - Avatars + service logos extracted into DATA_ROOT
     - Audit optional append-only
-    - Jobs / password-reset tokens / nmap scan runs never restored
     """
     p = Path(archive_path)
     if not p.exists():
@@ -855,6 +917,7 @@ def restore_herder_backup(
         "restored_users": 0,
         "restored_user_favourites": 0,
         "restored_api_tokens": 0,
+        "restored_jobs": 0,
         "restored_docker_versions": 0,
         "restored_totp_codes": 0,
         "restored_trusted_devices": 0,
@@ -870,6 +933,7 @@ def restore_herder_backup(
         "restored_service_templates": 0,
         "restored_stack_deployments": 0,
         "restored_nmap_scan_schedules": 0,
+        "restored_nmap_scan_runs": 0,
         "restored_nmap_devices": 0,
         "restored_nmap_script_results": 0,
         "restored_avatars": 0,
@@ -928,9 +992,11 @@ def restore_herder_backup(
             payload.get("user_favourites") or []
         )
         result["would_restore_api_tokens"] = len(payload.get("api_tokens") or [])
+        result["would_restore_jobs"] = len(payload.get("jobs") or [])
         result["would_restore_nmap_scan_schedules"] = len(
             payload.get("nmap_scan_schedules") or []
         )
+        result["would_restore_nmap_scan_runs"] = len(payload.get("nmap_scan_runs") or [])
         result["would_restore_nmap_devices"] = len(payload.get("nmap_devices") or [])
         result["would_restore_nmap_script_results"] = len(
             payload.get("nmap_script_results") or []
@@ -969,6 +1035,11 @@ def restore_herder_backup(
         )
         s.flush()
 
+        # Jobs after servers (server_id FK); clear live Celery ids
+        jobs_rows = _jobs_for_restore(payload.get("jobs") or [])
+        result["restored_jobs"] = _upsert_rows(s, Job, jobs_rows)
+        s.flush()
+
         result["restored_user_favourites"] = _upsert_rows(
             s, UserFavourite, payload.get("user_favourites") or []
         )
@@ -980,23 +1051,53 @@ def restore_herder_backup(
         result["restored_integration_bindings"] = _upsert_rows(
             s, IntegrationBinding, payload.get("integration_bindings") or []
         )
-        # Jobs / nmap scan runs are never restored — clear FKs that would 500
+        s.flush()
+
+        # Nmap: schedules → runs → devices → script results (FK order)
         nmap_schedules = payload.get("nmap_scan_schedules") or []
-        for row in nmap_schedules:
-            if isinstance(row, dict):
-                row["last_job_id"] = None
+        # If archive has no jobs, drop last_job_id (v4 and older)
+        if not jobs_rows:
+            for row in nmap_schedules:
+                if isinstance(row, dict):
+                    row["last_job_id"] = None
         result["restored_nmap_scan_schedules"] = _upsert_rows(
             s, NmapScanSchedule, nmap_schedules
         )
         s.flush()
+
+        nmap_runs = payload.get("nmap_scan_runs") or []
+        # Drop job_id if job missing from this archive
+        job_ids = {r.get("id") for r in jobs_rows if isinstance(r, dict) and r.get("id") is not None}
+        for row in nmap_runs:
+            if isinstance(row, dict):
+                jid = row.get("job_id")
+                if jid is not None and jid not in job_ids:
+                    row["job_id"] = None
+        result["restored_nmap_scan_runs"] = _upsert_rows(s, NmapScanRun, nmap_runs)
+        s.flush()
+        run_ids = {
+            r.get("id") for r in nmap_runs if isinstance(r, dict) and r.get("id") is not None
+        }
+
         nmap_devices = payload.get("nmap_devices") or []
         for row in nmap_devices:
             if isinstance(row, dict):
-                row["last_run_id"] = None
+                rid = row.get("last_run_id")
+                if rid is not None and rid not in run_ids:
+                    row["last_run_id"] = None
         result["restored_nmap_devices"] = _upsert_rows(s, NmapDevice, nmap_devices)
         s.flush()
-        # Script results reference scan runs (not restored) — skip them on restore
-        result["restored_nmap_script_results"] = 0
+
+        nmap_scripts = payload.get("nmap_script_results") or []
+        for row in nmap_scripts:
+            if isinstance(row, dict):
+                rid = row.get("run_id")
+                if rid is not None and rid not in run_ids:
+                    row["run_id"] = None
+        result["restored_nmap_script_results"] = _upsert_rows(
+            s, NmapScriptResult, nmap_scripts
+        )
+        s.flush()
 
         from ..models import ManagedCertificate, CertificateTarget
 
