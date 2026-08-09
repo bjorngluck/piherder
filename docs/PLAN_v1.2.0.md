@@ -21,7 +21,7 @@
 | Production line | **`main` @ `v1.1.0`** — hotfixes → **`v1.1.x`**, port into `v1.2.0-dev` |
 | Git tag (freeze) | **`v1.2.0`** (RCs: `1.2.0-rc.N` if needed) |
 | Image tags (freeze) | `1.2.0` · `1.2` · `latest` (multi-arch); keep `1.1` / `1.1.x` pins valid |
-| In-scope streams | **I** WebAuthn · **S** SSO/OIDC · **W** webshell · **D** demo platform · **B-retry** backup vanished-file retry · **Q** quality/freeze |
+| In-scope streams | **I** WebAuthn · **S** SSO/OIDC · **W** webshell · **D** demo platform · **B-retry** backup vanished-file retry · **B-DR** herder self-backup full DB (`pg_dump`) · **Q** quality/freeze |
 | Out-of-focus | Multi-tenant SaaS · SAML · ACME-in-herder · session recording · passwordless-only passkeys · residual Cap unless I/S/W/D green |
 | Mode | Security-first · parallel foundations · no half-built auth surfaces |
 | Coverage | **≥ 55%** unit; focused tests for WebAuthn, OIDC, console ticket, demo mode |

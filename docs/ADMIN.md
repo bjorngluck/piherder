@@ -236,32 +236,40 @@ Per-server backup enable + cron on the server/backups UI. Enqueues **Celery** wo
 
 ### PiHerder self-backup
 
-**Settings → PiHerder backup** tab: manual run, schedule (config-only or full), restore. Separate from per-server rsync backups.
+**Settings → PiHerder backup** tab: manual run, schedule, restore. Separate from per-server rsync backups.  
+Volume: `./piherder_backups` → `/herder_backups` (writable by container uid **1000**). Image needs **`postgresql-client-16`** for Full DR (`pg_dump` / `pg_restore`).
 
-Archives are format **v2** compressed `.tar.gz` under the herder backups volume (`./piherder_backups` → `/herder_backups`). Host dir must be writable by the container user (uid 1000).
+#### Version matrix (DR honesty)
 
-| Included | Notes |
-|----------|--------|
-| **Servers** | All fields (encrypted SSH keys/passwords, schedules, inventory snapshot, feature flags) |
-| **Users** | Full rows: password **hashes**, roles, profile, encrypted TOTP secret |
-| **TOTP backup codes** + **trusted devices** | 2FA recovery / remember-device state |
-| **Docker compose versions** | Multi-file draft/history per project |
-| **Push VAPID** | Encrypted private key + public key (same `PIHERDER_MASTER_KEY` required on restore) |
-| **Push subscriptions + preferences** | Devices may still need re-permission if browser endpoint died |
-| **Notifications** | Recent open/dismissed alerts (capped) |
-| **Integrations + bindings** | Kuma / Grafana connectors, encrypted credentials, query templates (`config_json`), all bindings/mappings |
-| **Operational settings** | Timezone, force 2FA, self-backup schedule, fleet check defaults (from DB `appsetting`; restored back into DB) |
-| **Avatars** | Files under `DATA_ROOT/avatars` packed as `data/avatars/…` in the tar |
-| **Audit log** | Only in **full** mode (optional, capped) |
+| Line | “Full” archive | Sole DB disaster recovery? |
+|------|----------------|----------------------------|
+| **&lt; v1.2.0** (v1.0.x · **v1.1.x**) | JSON row snapshots only — **not** a full Postgres dump | **No** |
+| **≥ v1.2.0** | **`pg_dump -Fc` of entire DB** (`database.dump`) + `DATA_ROOT` files · format **v6** · `kind=pg_dump_full` | **Yes** (all tables) |
+| Any | **Config only** = light JSON control-plane pack | **No** (by design) |
 
-| Not included | Why |
-|--------------|-----|
-| **Jobs** queue | Ephemeral; re-run work as needed |
-| Per-server rsync backup **files** on `~/backup` | Different volume; use normal backup retention |
-| **Service logo files** under `DATA_ROOT/service_logos/` | Paths restored on bindings; re-fetch favicon or re-upload after DR |
-| **External products** (Kuma / Grafana instances) | Only PiHerder-side config is backed up |
+#### Limitations before v1.2.0 (list in release notes / operator DR)
 
-**Restore:** dry-run previews counts; apply upserts by id/email/endpoint. Encrypted fields only work with the **same master key**. After restore, web may need a restart so the scheduler picks up herder cron / VAPID from DB.
+Archives produced on **v1.0 / v1.1** (and any JSON-only “full” without `database.dump`) had these limits — **still true when restoring those files** on a newer image:
+
+| Limitation | Detail |
+|------------|--------|
+| **Not `pg_dump`** | Selective JSON of durable tables only |
+| **Jobs never backed up** | Job history not in archive; Jobs UI empty after wipe+restore from those files |
+| **Audit capped** | “Full” added audit only as a **capped** recent window (~thousands of rows), not unlimited history |
+| **Notifications capped** | Recent only |
+| **Nmap scan runs excluded** | Inventory/schedules yes; run history / XML no |
+| **No rsync trees / external product DBs** | Separate products |
+
+Operator docs: [wiki Self-backup & DR](../wiki/operations/self-backup.md).
+
+#### ≥ v1.2.0 modes
+
+| Mode | Contents | Restore |
+|------|----------|---------|
+| **Full DR** (default schedule) | Entire Postgres via **`pg_dump -Fc`** + avatars/logos | **`pg_restore`** of `database.dump` + extract `data/` |
+| **Config only** | Lightweight JSON control plane | Row upsert (legacy path) |
+
+**Master key:** encrypted fields always need the **same** `PIHERDER_MASTER_KEY`. Restart web/celery after restore so scheduler/VAPID pick up DB state.
 
 ---
 
