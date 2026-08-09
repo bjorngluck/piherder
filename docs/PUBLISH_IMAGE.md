@@ -161,7 +161,7 @@ Add when account + token exist and first manual push has worked once.
 - [x] `pyproject.toml` = `1.1.1`
 - [x] [RELEASE_v1.1.1.md](RELEASE_v1.1.1.md) finalized · Status **Tagged**
 - [x] Fix: `run_in_threadpool` import in `server_ssh.py`
-- [ ] Multi-arch push: `1.1.1` / `1.1` / `latest` (amd64 + arm64)
+- [x] Multi-arch push: `1.1.1` / `1.1` / `latest` (amd64 + arm64) · digest `sha256:5a769302e8285d997438740a469284c6fa51f507868515d2e00bb3cd14701349`
 - [x] Git tag `v1.1.1`
 
 ### Prior: v1.1.0
