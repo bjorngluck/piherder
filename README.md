@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v1.1.0-green.svg)](docs/RELEASE_v1.1.0.md)
+[![Release](https://img.shields.io/badge/release-v1.1.1-green.svg)](docs/RELEASE_v1.1.1.md)
 [![Docker Hub](https://img.shields.io/badge/docker-bjorngluck%2Fpiherder-blue.svg)](https://hub.docker.com/r/bjorngluck/piherder)
 [![Docs](https://img.shields.io/badge/docs-wiki-red.svg)](https://piherder-docs.hacknow.info/)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%231EAEDB?logo=githubsponsors&logoColor=fff&style=flat)](https://github.com/sponsors/bjorngluck)
@@ -55,7 +55,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Full docs & wiki: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
-- **Current production:** [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) (day-to-day operator improvements — certs · discovery · identity · UX · maps · API)
+- **Current production:** [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) (patch on 1.1 — SSH test / host dependency check); feature notes [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md)
 - **Active train:** [docs/PLAN_v1.2.0.md](docs/PLAN_v1.2.0.md) on `v1.2.0-dev` (WebAuthn · SSO · webshell · gated demo · backup retry)
 - Prior: [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · [docs/RELEASE_v0.9.0.md](docs/RELEASE_v0.9.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - Plan (1.1 archive): [docs/PLAN_v1.1.0.md](docs/PLAN_v1.1.0.md)
