@@ -12,7 +12,7 @@
 
   {% if template_require_2fa and not user_has_2fa and can_mutate %}
   <div class="banner-warning border rounded p-3 text-sm mb-4">
-    This instance requires 2FA for template deploy. Enable TOTP under
+    This instance requires 2FA for template deploy. Enable a passkey or TOTP under
     <a href="/auth/account" class="text-accent underline">Account</a> before confirming.
   </div>
   {% endif %}

@@ -293,28 +293,14 @@
 
     {% if can_mutate and dep.secrets_encrypted and not secrets_visible %}
     <div id="secrets-unlock-panel" class="border border-border rounded p-3 mb-3 bg-surface {% if not unlock_error %}hidden{% endif %}">
-      {% if user_has_2fa %}
       <p class="text-xs text-muted mb-2">
-        Secrets stay encrypted at rest. Enter a fresh authenticator code (even if you already
-        used 2FA at login) to decrypt values from {{ ph_brand() }} for this browser
+        Secrets stay encrypted at rest. Complete step-up 2FA (passkey or authenticator — even if you
+        already used 2FA at login) to decrypt values from {{ ph_brand() }} for this browser
         (~{{ secrets_unlock_minutes }} minutes).
       </p>
-      <form method="post" action="/templates/secrets/unlock" class="flex flex-wrap gap-2 items-end">
-        <input type="hidden" name="return_to" value="/templates/deployments/{{ dep.id }}">
-        <div class="flex-1 min-w-[10rem]">
-          <label class="text-xs block mb-1">2FA code</label>
-          <input name="code" type="text" required inputmode="numeric" autocomplete="one-time-code"
-                 class="w-full bg-surface border border-border p-2 rounded text-sm font-mono tracking-widest min-h-11"
-                 placeholder="123456">
-        </div>
-        <button type="submit" class="btn btn-accent text-sm min-h-11 px-4">Unlock &amp; show</button>
-      </form>
-      {% else %}
-      <p class="text-sm">
-        Enable <a href="/auth/account" class="text-accent underline">2FA under Account</a> first,
-        then use <strong>View secrets</strong> and enter a code. Values are then decrypted from the database.
-      </p>
-      {% endif %}
+      {% with return_to="/templates/deployments/" ~ dep.id %}
+      {% include "partials/secrets_unlock_form.html" %}
+      {% endwith %}
     </div>
     {% endif %}
 

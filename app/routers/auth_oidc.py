@@ -176,7 +176,11 @@ async def oidc_link_start_post(
     if not oidc.oidc_enabled():
         return RedirectResponse("/auth/account?error=sso_disabled", status_code=303)
     ok, err = oidc.verify_stepup_2fa(
-        session, user, password=current_password or None, totp_code=totp_code or None
+        session,
+        user,
+        password=current_password or None,
+        totp_code=totp_code or None,
+        request=request,
     )
     if not ok:
         return RedirectResponse(f"/auth/account?error={err or 'sso_2fa_link'}", status_code=303)
@@ -367,7 +371,11 @@ async def oidc_unlink(
         return RedirectResponse("/auth/account?error=sso_not_found", status_code=303)
 
     ok, err = oidc.verify_stepup_2fa(
-        session, user, password=current_password or None, totp_code=totp_code or None
+        session,
+        user,
+        password=current_password or None,
+        totp_code=totp_code or None,
+        request=request,
     )
     if not ok:
         return RedirectResponse(f"/auth/account?error={err or '2fa_required'}", status_code=303)
@@ -397,14 +405,17 @@ async def password_remove(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
-    del request
     if not oidc.has_oidc_link(session, int(user.id)):
         return RedirectResponse("/auth/account?error=sso_required", status_code=303)
     if not oidc.password_login_allowed(user):
         return RedirectResponse("/auth/account?msg=password_already_removed", status_code=303)
 
     ok, err = oidc.verify_stepup_2fa(
-        session, user, password=current_password or None, totp_code=totp_code or None
+        session,
+        user,
+        password=current_password or None,
+        totp_code=totp_code or None,
+        request=request,
     )
     if not ok:
         return RedirectResponse(f"/auth/account?error={err or '2fa_required'}", status_code=303)
@@ -428,7 +439,6 @@ async def password_set(
     session: Session = Depends(get_session),
 ):
     """Set password when password_login is disabled (SSO-only)."""
-    del request
     from ..services import password_policy as pwpol
     from ..services.user_admin import bump_session_version
     from ..security.auth import revoke_all_trusted_devices
@@ -442,7 +452,9 @@ async def password_set(
         return RedirectResponse("/auth/account?error=password_policy", status_code=303)
 
     if wa_svc.user_has_2fa(session, user):
-        ok, err = oidc.verify_stepup_2fa(session, user, totp_code=totp_code or None)
+        ok, err = oidc.verify_stepup_2fa(
+            session, user, totp_code=totp_code or None, request=request
+        )
         if not ok:
             return RedirectResponse(f"/auth/account?error={err or '2fa_required'}", status_code=303)
 

@@ -13,6 +13,10 @@ from ..security.auth import (
     authenticate_user,
     create_user_access_token,
     create_pending_2fa_token,
+    create_account_stepup_token,
+    account_stepup_active,
+    ACCOUNT_STEPUP_COOKIE,
+    ACCOUNT_STEPUP_MINUTES,
     get_password_hash,
     get_current_user,
     get_admin_user,
@@ -876,6 +880,10 @@ async def account_page(
             "oidc_identities": oidc_rows,
             "password_login_enabled": password_login_enabled,
             "has_2fa": has_2fa,
+            "has_totp": wa_svc.totp_active(user),
+            "has_passkeys": bool(passkeys),
+            "account_stepup_active": account_stepup_active(request, user),
+            "account_stepup_minutes": ACCOUNT_STEPUP_MINUTES,
         },
     )
 
@@ -1214,6 +1222,82 @@ async def webauthn_register_verify(
         }
     )
     resp.delete_cookie(wa_svc.CHALLENGE_COOKIE_REG, **cookie_delete_kwargs())
+    return resp
+
+
+@router.post("/account/webauthn/stepup/options")
+async def account_webauthn_stepup_options(
+    request: Request,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """PublicKeyCredentialRequestOptions for Account sensitive-action step-up."""
+    from fastapi.responses import JSONResponse
+    from ..services import webauthn_svc as wa_svc
+    import json as _json
+
+    if not wa_svc.has_passkeys(session, int(user.id)):
+        return JSONResponse(
+            {"ok": False, "error": "No passkeys registered for this account"},
+            status_code=400,
+        )
+    try:
+        options_json, chal_token = wa_svc.authentication_options_json(session, user)
+    except wa_svc.WebAuthnConfigError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "options_failed"}, status_code=500)
+
+    body = _json.loads(options_json)
+    resp = JSONResponse({"ok": True, "publicKey": body})
+    resp.set_cookie(
+        wa_svc.CHALLENGE_COOKIE_AUTH,
+        chal_token,
+        **cookie_auth_kwargs(max_age=60 * wa_svc.CHALLENGE_MINUTES),
+    )
+    return resp
+
+
+@router.post("/account/webauthn/stepup/verify")
+async def account_webauthn_stepup_verify(
+    request: Request,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Verify passkey and grant short-lived Account step-up cookie."""
+    from fastapi.responses import JSONResponse
+    from ..services import webauthn_svc as wa_svc
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "bad_json"}, status_code=400)
+    credential = body.get("credential") if isinstance(body, dict) else None
+    if not isinstance(credential, dict):
+        return JSONResponse({"ok": False, "error": "missing_credential"}, status_code=400)
+
+    chal = request.cookies.get(wa_svc.CHALLENGE_COOKIE_AUTH)
+    try:
+        wa_svc.verify_authentication(session, user, credential, chal)
+    except wa_svc.WebAuthnVerifyError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "verify_failed"}, status_code=400)
+
+    _audit(session, user.id, "user_account_stepup", "Passkey step-up for Account actions")
+    resp = JSONResponse(
+        {
+            "ok": True,
+            "redirect": "/auth/account?msg=stepup_ok#account-stepup-box",
+            "minutes": ACCOUNT_STEPUP_MINUTES,
+        }
+    )
+    resp.delete_cookie(wa_svc.CHALLENGE_COOKIE_AUTH, **cookie_delete_kwargs())
+    resp.set_cookie(
+        ACCOUNT_STEPUP_COOKIE,
+        create_account_stepup_token(user.id),
+        **cookie_auth_kwargs(max_age=ACCOUNT_STEPUP_MINUTES * 60),
+    )
     return resp
 
 

@@ -11,7 +11,10 @@ from app.config import settings
 from types import SimpleNamespace
 
 from app.security.auth import (
+    ACCOUNT_STEPUP_COOKIE,
+    account_stepup_active,
     create_access_token,
+    create_account_stepup_token,
     create_pending_2fa_token,
     create_secrets_unlock_token,
     create_user_access_token,
@@ -51,6 +54,26 @@ def test_secrets_unlock_claim():
     assert payload is not None
     assert payload["sub"] == "3"
     assert payload.get("secrets_unlock") is True
+
+
+def test_account_stepup_claim_and_cookie():
+    from unittest.mock import MagicMock
+
+    token = create_account_stepup_token(9)
+    payload = decode_token_payload(token)
+    assert payload is not None
+    assert payload["sub"] == "9"
+    assert payload.get("account_stepup") is True
+
+    user = SimpleNamespace(id=9)
+    other = SimpleNamespace(id=1)
+    req = MagicMock()
+    req.cookies = {ACCOUNT_STEPUP_COOKIE: token}
+    assert account_stepup_active(req, user) is True
+    assert account_stepup_active(req, other) is False
+    bare = MagicMock()
+    bare.cookies = {}
+    assert account_stepup_active(bare, user) is False
 
 
 def test_expired_token_rejected():

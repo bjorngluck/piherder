@@ -678,17 +678,19 @@ def verify_stepup_2fa(
     *,
     password: Optional[str] = None,
     totp_code: Optional[str] = None,
+    request=None,
 ) -> Tuple[bool, str]:
     """
     For sensitive Account SSO actions when 2FA is enrolled.
 
     Returns (ok, error_code).
-    - If user has 2FA: require valid TOTP/backup (passkey step-up is browser-only; TOTP/backup here).
-    - If password login enabled: also accept current password *in addition* when no 2FA? 
-      Spec: always validate 2FA when required. If no 2FA enrolled, require password when enabled.
+    - If user has 2FA: require valid TOTP/backup **or** a recent passkey Account step-up cookie.
+    - If no 2FA enrolled and password login enabled: require current password.
+    - SSO-only without 2FA: allow mutation (already in session).
     """
     from . import webauthn_svc as wa_svc
     from ..security.auth import (
+        account_stepup_active,
         verify_password,
         verify_totp_code,
         decrypt_totp_secret,
@@ -697,8 +699,12 @@ def verify_stepup_2fa(
 
     has_2fa = wa_svc.user_has_2fa(session, user)
     if has_2fa:
+        if request is not None and account_stepup_active(request, user):
+            return True, ""
         code = (totp_code or "").strip().replace(" ", "")
         if not code:
+            if wa_svc.has_passkeys(session, int(user.id)) and not wa_svc.totp_active(user):
+                return False, "use_passkey"
             return False, "2fa_required"
         # TOTP
         if getattr(user, "totp_enabled", False) and user.totp_secret_encrypted:
