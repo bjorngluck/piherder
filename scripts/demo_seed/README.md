@@ -6,6 +6,7 @@ Hand-authored synthetic fleet for **public demo** instances.
 |------|--------|
 | Hostname (prod demo) | `https://piherder-demo.hacknow.info` |
 | Shared login | `demo@hacknow.info` / `PIHERDER_DEMO_PASSWORD` (default `Piherder@1`) |
+| Shared role | **`viewer`** (production-like read UI; not admin) |
 | Flag | `PIHERDER_DEMO_MODE=true` |
 
 ## Docker Compose (local or VPS)
@@ -33,7 +34,15 @@ Same overlay and env as above. Set:
 - `PIHERDER_SSH_CONSOLE=false`
 - Unique `PIHERDER_MASTER_KEY` + `SECRET_KEY` (never lab keys)
 
-Empty Postgres triggers auto-seed on first web start. Re-seed anytime with `seed.py --force` or **Settings → Demo**.
+Empty Postgres triggers auto-seed on first web start. Re-seed **from the host only**:
+
+```bash
+docker compose exec web python scripts/demo_seed/seed.py --force
+```
+
+In-app **Settings → Demo** restore was removed (shared admin could wipe the fleet for everyone).
+Locked in `PIHERDER_DEMO_MODE`: password change/reset, 2FA, SSO, profile email, Users admin,
+SSO/alerts/security settings writes, herder restore/delete.
 
 Nightly: host cron calling force seed (or `reset.sh --wipe` if you want a full volume recreate).
 

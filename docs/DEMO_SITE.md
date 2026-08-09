@@ -32,7 +32,12 @@ Do **not** promise an ungated open demo: Access is the outer gate.
 | Jobs | Canned success (“Demo simulation”) — no live SSH |
 | nmap / cert edge | Live outbound blocked |
 | Webshell | Forced off |
-| Seed | Auto on empty DB; **Settings → Demo → Restore seed** (type `RESET`) |
+| Seed | Auto on empty DB; **ops CLI only** (no in-app restore — shared admin vandalism) |
+| Shared login role | **`viewer`** — same RBAC/menus as production viewers (not shared admin) |
+| Shared identity | Password / 2FA still **locked** on the shared user (one visitor must not lock others out) |
+| Account creation | **None** — no register / Users create / SSO JIT |
+| Fleet config | Blocked by normal viewer RBAC + demo write guard; **canned job runs** still allowed for the click-through |
+| Ops re-seed | CLI only (no in-app admin seed UI) |
 
 Never point demo at the home-lab network or reuse production `PIHERDER_MASTER_KEY`.
 
@@ -75,10 +80,12 @@ Prefer locking the VPS so only Cloudflare can hit `:443` (CF IP allowlist or `cl
 | Action | How |
 |--------|-----|
 | First boot | Empty Postgres + demo mode → auto-seed on web lifespan |
-| Easy (UI) | Admin → **Settings → Demo** → type `RESET` → Restore seed |
-| CLI | `docker compose exec web python scripts/demo_seed/seed.py --force` |
+| **UI restore** | **Removed** — shared admin must not wipe the fleet for everyone |
+| CLI (ops) | `docker compose exec web python scripts/demo_seed/seed.py --force` |
 | Hard wipe | `./scripts/demo_seed/reset.sh --wipe` (compose down -v, up, seed) |
 | Nightly | Host cron calling force seed or volume wipe + re-up |
+
+`POST /herder-backups/demo-restore` returns **403** in demo mode. Also blocked: password change/reset, 2FA, SSO login/link, Users admin, OIDC/alerts/security settings writes, herder restore/delete.
 
 RPO: **demo data is disposable**. Do not store real config on the demo instance.
 
@@ -98,6 +105,6 @@ Seed pack details: [scripts/demo_seed/README.md](../scripts/demo_seed/README.md)
 - [ ] Demo VPS isolated from home-lab network
 - [ ] Webshell off; registration off
 - [ ] Known shared password documented for ops only (or rotated + Access-only distribution)
-- [ ] Reset path tested (< 2 minutes in-app)
+- [ ] CLI re-seed tested; confirm Settings has **no** Demo restore tab
 
 Further: [SECURITY.md](../SECURITY.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md)

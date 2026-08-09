@@ -14,6 +14,11 @@ A **gated shared sandbox** where you can click through a synthetic fleet without
 - Banner: shared account · data may reset · some actions simulated
 - You **cannot** onboard real machines, use API tokens, or reach anyone’s home lab
 - Job actions succeed as demos only (no live SSH)
+- Shared login is a **viewer** (same role/menus as production read-only users)
+- **No new accounts** — use the shared demo credentials only
+- Password / 2FA on that shared user stay locked (cannot lock out other visitors)
+- Fleet config changes blocked like production viewers; **simulated jobs** still work for the tour
+- Seed restore is **operator-only** on the host (CLI), not in the app
 
 ## What this is not
 

@@ -137,17 +137,23 @@ async def login_page(request: Request, session: Session = Depends(get_session)):
     from ..services import alert_channels as alert_ch
     from ..services import oidc_svc as oidc
     from ..services import turnstile as turnstile_svc
+    from ..services.demo import demo_mode
 
+    is_demo = demo_mode()
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="login.html",
         context={
             "title": "Login",
-            "registration_open": _registration_allowed(session),
-            "password_reset_available": alert_ch.password_reset_available(),
-            "oidc_enabled": oidc.oidc_enabled(),
+            "registration_open": False if is_demo else _registration_allowed(session),
+            "demo_mode_on": is_demo,
+            # Shared demo: never offer forgot-password or SSO (vandalism / lockout)
+            "password_reset_available": (
+                False if is_demo else alert_ch.password_reset_available()
+            ),
+            "oidc_enabled": False if is_demo else oidc.oidc_enabled(),
             "oidc_display_name": oidc.oidc_display_name(),
-            "oidc_require_sso": oidc.oidc_require_sso(),
+            "oidc_require_sso": False if is_demo else oidc.oidc_require_sso(),
             "turnstile_on": turnstile_svc.turnstile_enabled(),
             "turnstile_site_key": turnstile_svc.turnstile_site_key(),
         },
@@ -168,7 +174,11 @@ def _public_base_url(request: Request) -> str:
 @router.get("/forgot-password", response_class=HTMLResponse)
 async def forgot_password_page(request: Request):
     from ..services import alert_channels as alert_ch
+    from ..services.demo import redirect_if_demo
 
+    blocked = redirect_if_demo("/auth/login")
+    if blocked:
+        return blocked
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="forgot_password.html",
@@ -189,7 +199,11 @@ async def forgot_password_submit(
 ):
     from ..services import alert_channels as alert_ch
     from ..services import password_reset as pwreset
+    from ..services.demo import redirect_if_demo
 
+    blocked = redirect_if_demo("/auth/login")
+    if blocked:
+        return blocked
     ip = _client_ip(request) or "unknown"
     if not rate_limit_auth(
         f"forgot:{ip}", max_attempts=5, window_seconds=LOGIN_RATE_WINDOW
@@ -222,6 +236,11 @@ async def forgot_password_submit(
 
 @router.get("/reset-password", response_class=HTMLResponse)
 async def reset_password_page(request: Request, token: str = ""):
+    from ..services.demo import redirect_if_demo
+
+    blocked = redirect_if_demo("/auth/login")
+    if blocked:
+        return blocked
     tok = (token or request.query_params.get("token") or "").strip()
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -245,7 +264,11 @@ async def reset_password_submit(
     from ..services import password_policy as pwpol
     from ..services import password_reset as pwreset
     from ..services.user_admin import bump_session_version
+    from ..services.demo import redirect_if_demo
 
+    blocked = redirect_if_demo("/auth/login")
+    if blocked:
+        return blocked
     ip = _client_ip(request) or "unknown"
     if not rate_limit_auth(
         f"reset:{ip}", max_attempts=10, window_seconds=LOGIN_RATE_WINDOW
@@ -577,7 +600,13 @@ async def two_factor_webauthn_verify(
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request, session: Session = Depends(get_session)):
     from ..services import password_policy as pwpol
+    from ..services.demo import demo_mode, redirect_if_demo
 
+    # Public demo: no self-signup UI — shared login only
+    if demo_mode():
+        blocked = redirect_if_demo("/auth/login", error="demo_no_register")
+        if blocked:
+            return blocked
     if not _registration_allowed(session):
         return templates_mod.templates.TemplateResponse(
             request=request,
@@ -610,6 +639,12 @@ async def register(
     session: Session = Depends(get_session)
 ):
     from ..services import password_policy as pwpol
+    from ..services.demo import demo_mode, redirect_if_demo
+
+    if demo_mode():
+        blocked = redirect_if_demo("/auth/login", error="demo_no_register")
+        if blocked:
+            return blocked
 
     ip = _client_ip(request) or "unknown"
     if not rate_limit_auth(
@@ -838,7 +873,9 @@ async def account_page(
 
     from ..services import password_policy as pwpol
     from ..services import oidc_svc as oidc
+    from ..services.demo import demo_mode
 
+    is_demo = demo_mode()
     oidc_rows = [oidc.identity_public_dict(r) for r in oidc.list_identities(session, int(user.id))]
     password_login_enabled = oidc.password_login_allowed(user)
 
@@ -875,9 +912,9 @@ async def account_page(
             "push_sent": push_sent,
             "account_pulse": account_pulse,
             "password_policy_text": pwpol.policy_rules_text(),
-            "oidc_enabled": oidc.oidc_enabled(),
+            "oidc_enabled": False if is_demo else oidc.oidc_enabled(),
             "oidc_display_name": oidc.oidc_display_name(),
-            "oidc_identities": oidc_rows,
+            "oidc_identities": [] if is_demo else oidc_rows,
             "password_login_enabled": password_login_enabled,
             "has_2fa": has_2fa,
             "has_totp": wa_svc.totp_active(user),
@@ -896,6 +933,13 @@ async def update_profile(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    from ..services.demo import redirect_if_demo
+
+    # Shared demo: email change locks everyone out of the known login
+    blocked = redirect_if_demo("/auth/account")
+    if blocked:
+        # Allow display_name-only updates? No — keep shared account fixed.
+        return blocked
     email = email.strip().lower()
     display_name = (display_name or "").strip() or None
     email_changed = email != user.email.lower()
@@ -927,6 +971,11 @@ async def change_password(
     session: Session = Depends(get_session),
 ):
     from ..services import password_policy as pwpol
+    from ..services.demo import redirect_if_demo
+
+    blocked = redirect_if_demo("/auth/account")
+    if blocked:
+        return blocked
 
     if not verify_password(current_password, user.hashed_password):
         return RedirectResponse("/auth/account?error=bad_password", status_code=303)
@@ -1018,11 +1067,21 @@ async def my_avatar(
 
 # --- 2FA management ---
 
+def _demo_account_block():
+    """Shared demo: password/2FA mutations would lock out other visitors."""
+    from ..services.demo import redirect_if_demo
+
+    return redirect_if_demo("/auth/account")
+
+
 @router.post("/account/2fa/start")
 async def two_factor_start(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    blocked = _demo_account_block()
+    if blocked:
+        return blocked
     if user.totp_enabled:
         return RedirectResponse("/auth/account?error=2fa_already", status_code=303)
     secret = generate_totp_secret()
@@ -1051,6 +1110,9 @@ async def two_factor_confirm(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    blocked = _demo_account_block()
+    if blocked:
+        return blocked
     secret = request.cookies.get("totp_setup_secret")
     if not secret and user.totp_secret_encrypted and not user.totp_enabled:
         try:
@@ -1088,6 +1150,9 @@ async def two_factor_disable(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    blocked = _demo_account_block()
+    if blocked:
+        return blocked
     if not verify_password(current_password, user.hashed_password):
         return RedirectResponse("/auth/account?error=bad_password", status_code=303)
     if user.totp_enabled and user.totp_secret_encrypted:
@@ -1120,6 +1185,9 @@ async def regenerate_backup_codes(
     session: Session = Depends(get_session),
 ):
     """Regenerate backup codes — requires current password + live 2FA (TOTP or unused backup)."""
+    blocked = _demo_account_block()
+    if blocked:
+        return blocked
     if not user.totp_enabled:
         return RedirectResponse("/auth/account?error=2fa_off", status_code=303)
     if not verify_password(current_password, user.hashed_password):
@@ -1158,8 +1226,10 @@ async def webauthn_register_options(
     """JSON: PublicKeyCredentialCreationOptions for adding a passkey."""
     from fastapi.responses import JSONResponse
     from ..services import webauthn_svc as wa_svc
+    from ..services.demo import http_403_if_demo
     import json as _json
 
+    http_403_if_demo("shared_account")
     try:
         options_json, chal_token = wa_svc.registration_options_json(session, user)
     except wa_svc.WebAuthnConfigError as e:
@@ -1186,7 +1256,9 @@ async def webauthn_register_verify(
     """JSON body: { credential, nickname? } — stores new passkey."""
     from fastapi.responses import JSONResponse
     from ..services import webauthn_svc as wa_svc
+    from ..services.demo import http_403_if_demo
 
+    http_403_if_demo("shared_account")
     try:
         body = await request.json()
     except Exception:
@@ -1308,6 +1380,9 @@ async def webauthn_revoke(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    blocked = _demo_account_block()
+    if blocked:
+        return blocked
     from ..services import webauthn_svc as wa_svc
 
     if not verify_password(current_password, user.hashed_password):

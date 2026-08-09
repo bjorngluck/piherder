@@ -124,7 +124,12 @@ def _finish_login(
 
 @router.get("/oidc/login")
 async def oidc_login_start(request: Request, session: Session = Depends(get_session)):
+    from ..services.demo import redirect_if_demo
+
     del session
+    blocked = redirect_if_demo("/auth/login")
+    if blocked:
+        return blocked
     ip = _client_ip(request)
     if not rate_limit_auth(
         f"oidc-login:{ip}", max_attempts=LOGIN_RATE_MAX, window_seconds=LOGIN_RATE_WINDOW
@@ -148,6 +153,11 @@ async def oidc_link_start(
     session: Session = Depends(get_session),
 ):
     """Account → Link SSO (local session → IdP)."""
+    from ..services.demo import redirect_if_demo
+
+    blocked = redirect_if_demo("/auth/account")
+    if blocked:
+        return blocked
     if not oidc.oidc_enabled():
         return RedirectResponse("/auth/account?error=sso_disabled", status_code=303)
     # 2FA gate when enrolled — require query ?confirmed=1 after form post is cleaner;
@@ -173,6 +183,11 @@ async def oidc_link_start_post(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    from ..services.demo import redirect_if_demo
+
+    blocked = redirect_if_demo("/auth/account")
+    if blocked:
+        return blocked
     if not oidc.oidc_enabled():
         return RedirectResponse("/auth/account?error=sso_disabled", status_code=303)
     ok, err = oidc.verify_stepup_2fa(
@@ -197,6 +212,11 @@ async def oidc_link_start_post(
 
 @router.get("/oidc/callback")
 async def oidc_callback(request: Request, session: Session = Depends(get_session)):
+    from ..services.demo import redirect_if_demo
+
+    blocked = redirect_if_demo("/auth/login")
+    if blocked:
+        return blocked
     ip = _client_ip(request)
     err = request.query_params.get("error")
     if err:
@@ -365,7 +385,11 @@ async def oidc_unlink(
 ):
     from ..models import OidcIdentity
     from ..services import password_policy as pwpol
+    from ..services.demo import redirect_if_demo
 
+    blocked = redirect_if_demo("/auth/account")
+    if blocked:
+        return blocked
     row = session.get(OidcIdentity, int(identity_id))
     if not row or int(row.user_id) != int(user.id):
         return RedirectResponse("/auth/account?error=sso_not_found", status_code=303)
@@ -405,6 +429,11 @@ async def password_remove(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    from ..services.demo import redirect_if_demo
+
+    blocked = redirect_if_demo("/auth/account")
+    if blocked:
+        return blocked
     if not oidc.has_oidc_link(session, int(user.id)):
         return RedirectResponse("/auth/account?error=sso_required", status_code=303)
     if not oidc.password_login_allowed(user):
@@ -442,7 +471,11 @@ async def password_set(
     from ..services import password_policy as pwpol
     from ..services.user_admin import bump_session_version
     from ..security.auth import revoke_all_trusted_devices
+    from ..services.demo import redirect_if_demo
 
+    blocked = redirect_if_demo("/auth/account")
+    if blocked:
+        return blocked
     if oidc.password_login_allowed(user):
         return RedirectResponse("/auth/account?error=use_change_password", status_code=303)
     if new_password != confirm_password:

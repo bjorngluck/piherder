@@ -70,6 +70,8 @@
         This account is disabled.
         {% elif err == 'captcha' %}
         Human verification failed. Refresh and try again.
+        {% elif err == 'demo_no_register' or err == 'demo_locked' %}
+        This is a shared demo — no new accounts. Sign in with the demo credentials.
         {% else %}
         Invalid email or password.
         {% endif %}
@@ -135,7 +137,9 @@
     {% endif %}
 
     <p class="mt-6 text-center text-sm text-muted">
-      {% if registration_open %}
+      {% if demo_mode_on|default(false) %}
+      Shared demo account only — new sign-ups are disabled.
+      {% elif registration_open %}
       First-time setup?
       <a href="/auth/register" class="text-primary hover:underline">Create admin account</a>
       {% else %}

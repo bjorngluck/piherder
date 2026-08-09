@@ -47,7 +47,8 @@ def test_seed_creates_fleet(session, monkeypatch):
 
     user = session.exec(select(User).where(User.email == "demo@test.local")).first()
     assert user is not None
-    assert user.role == "admin"
+    assert user.role == "viewer"
+    assert (user.display_name or "").lower().find("demo") >= 0
 
     jobs = list(session.exec(select(Job)).all())
     assert len(jobs) >= 5

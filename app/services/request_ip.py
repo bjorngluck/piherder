@@ -38,14 +38,21 @@ def extract_client_ip(
     headers: Mapping[str, Any] | None,
     peer_host: str | None,
 ) -> str:
-    """Resolve client IP for allowlists and audit.
+    """Resolve client IP for allowlists, audit, and Turnstile remoteip.
 
-    Preference (edge proxy should *set* these, not pass client-spoofed values):
-      1. X-Forwarded-For — first hop only
-      2. X-Real-IP
-      3. TCP peer (request.client.host)
+    Preference:
+      1. CF-Connecting-IP / True-Client-IP — real visitor when orange-clouded
+         (Caddy overwrites XFF with the Cloudflare edge address)
+      2. X-Forwarded-For — first hop only
+      3. X-Real-IP
+      4. TCP peer (request.client.host)
     """
     h = {str(k).lower(): str(v) for k, v in (headers or {}).items()}
+    # Cloudflare / some CDNs — must win over XFF when proxy overwrites XFF
+    for key in ("cf-connecting-ip", "true-client-ip"):
+        val = h.get(key)
+        if val:
+            return _normalize_ip_candidate(val.split(",")[0])
     xff = h.get("x-forwarded-for") or h.get("x-forwarded_for")
     if xff:
         return _normalize_ip_candidate(xff.split(",")[0])

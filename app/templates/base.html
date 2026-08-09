@@ -232,6 +232,7 @@
         {"label": "Sign out",     "href": "/auth/logout", "kind": "danger"}
       ] %}
       {% set _user_role = (user.role if user and user.role else 'viewer')|lower %}
+      {# Same as production: admin-only secondary links (demo shared login is viewer) #}
       {% if user and _user_role == 'admin' %}
         {% set secondary_items = [
           secondary_items[0],

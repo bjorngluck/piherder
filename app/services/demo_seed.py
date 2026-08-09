@@ -46,7 +46,9 @@ SEED_MARKER_KEY = "demo_seed_version"
 
 DEFAULT_DEMO_EMAIL = "demo@hacknow.info"
 DEFAULT_DEMO_PASSWORD = "Piherder@1"
-DEFAULT_DEMO_DISPLAY = "Demo Admin"
+# Shared public login is viewer — production-like read UI; ops re-seed via CLI only
+DEFAULT_DEMO_DISPLAY = "Demo Viewer"
+DEFAULT_DEMO_ROLE = "viewer"
 
 
 def _env_password() -> str:
@@ -359,10 +361,10 @@ def _ensure_demo_user(session: Session, *, password: str, email: str) -> User:
     user = session.exec(select(User).where(User.email == email)).first()
     if user:
         user.hashed_password = get_password_hash(password)
-        user.role = "admin"
+        user.role = DEFAULT_DEMO_ROLE
         user.is_active = True
         user.must_change_password = False
-        user.display_name = user.display_name or DEFAULT_DEMO_DISPLAY
+        user.display_name = DEFAULT_DEMO_DISPLAY
         user.totp_enabled = False
         user.totp_secret_encrypted = None
         session.add(user)
@@ -373,7 +375,7 @@ def _ensure_demo_user(session: Session, *, password: str, email: str) -> User:
     user = User(
         email=email,
         hashed_password=get_password_hash(password),
-        role="admin",
+        role=DEFAULT_DEMO_ROLE,
         is_active=True,
         must_change_password=False,
         display_name=DEFAULT_DEMO_DISPLAY,

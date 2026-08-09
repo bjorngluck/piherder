@@ -3,6 +3,7 @@
 {% block content %}
 {% set ap = account_pulse or {} %}
 {% set ah = ap.health if ap.health is defined else 'ok' %}
+{% set _demo = demo_mode() if demo_mode is defined else false %}
 <section class="ops-hero ops-hero--account is-{{ ah }} mb-4">
   <div class="ops-hero-main">
     <div class="ops-hero-kicker">Access</div>
@@ -123,6 +124,8 @@
   {% elif error == 'sso_not_found' %}SSO link not found.
   {% elif error == 'sso_link_conflict' %}That SSO identity is already linked to another account.
   {% elif error == '2fa_required' %}Authenticator or backup code required.
+  {% elif error == 'demo_locked' %}
+  Shared demo (viewer) — password and 2FA stay locked so one visitor cannot lock others out.
   {% elif error == 'use_passkey' %}This account uses a passkey — confirm with passkey first (button on this page), then submit.
   {% elif error == 'use_change_password' %}Use Change password when a local password is already enabled.
   {% elif error == 'push_vapid' %}Web Push is not available on the server.
@@ -208,9 +211,20 @@
   </div>
   {% endif %}
 
+  {% if _demo %}
+  <div class="mb-4 p-3 banner-success border border-border rounded text-sm" role="status" data-testid="demo-shared-account-note">
+    <strong>Shared demo account (viewer).</strong>
+    Same read-only role as production viewers — browse the fleet; jobs you run are simulated.
+    Password / 2FA changes stay locked so one visitor cannot lock others out of this login.
+  </div>
+  {% endif %}
+
   <!-- Password -->
   <div class="card p-5 sm:p-6 space-y-3 account-card">
     <h2 class="font-semibold text-text">Password</h2>
+    {% if _demo %}
+    <p class="text-sm text-muted">Password change is disabled on the shared demo login.</p>
+    {% else %}
     <p class="text-xs text-muted">{{ password_policy_text or 'At least 10 characters with upper, lower, and a digit. Use at most 72 Latin letters/digits.' }}</p>
     {% if password_login_enabled %}
     <form method="post" action="/auth/account/password" class="space-y-3" id="account-password-form">
@@ -291,6 +305,7 @@
     </form>
     {% endif %}
     <p class="text-xs text-muted">Self-hosted recovery: change password while logged in, or use <strong class="text-text">Forgot password</strong> on the sign-in page when an admin has enabled SMTP under Settings → Alerts. Admins can also reset access from Users.</p>
+    {% endif %}{# not _demo #}
   </div>
 
   <!-- Connected accounts (SSO) -->
@@ -492,6 +507,14 @@
   })();
   </script>
 
+  {% if _demo %}
+  <div class="card p-5 sm:p-6 space-y-3 account-card" data-testid="demo-2fa-locked">
+    <h2 class="font-semibold text-text">Passkeys &amp; 2FA</h2>
+    <p class="text-sm text-muted">
+      Disabled on the shared demo account so one visitor cannot lock others out of login.
+    </p>
+  </div>
+  {% else %}
   <!-- Passkeys (WebAuthn) -->
   <div class="card p-5 sm:p-6 space-y-4 account-card" id="account-passkeys">
     <h2 class="font-semibold text-text">Passkeys</h2>
@@ -831,7 +854,8 @@
   <style>
     .twofa-qr svg { width: 200px; height: 200px; display: block; }
   </style>
-  {% endif %}
+  {% endif %}{# pending_2fa_setup modal #}
+  {% endif %}{# not _demo — passkeys + 2FA #}
 
   <!-- Push notifications (Android + iOS Home Screen Web Push) -->
   <div class="card p-5 sm:p-6 space-y-4 account-card account-card--wide">

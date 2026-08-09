@@ -51,6 +51,50 @@ def test_raise_and_http_403(demo_on):
     assert he.value.status_code == 403
 
 
+def test_shared_sandbox_locks(demo_on):
+    assert "shared" in (demo_svc.reject_if_demo("shared_account") or "").lower()
+    assert "operator" in (demo_svc.reject_if_demo("seed_restore") or "").lower()
+    assert "user" in (demo_svc.reject_if_demo("user_admin") or "").lower()
+    assert "password reset" in (demo_svc.reject_if_demo("password_reset") or "").lower()
+    assert "sso" in (demo_svc.reject_if_demo("sso") or "").lower()
+    assert "settings" in (demo_svc.reject_if_demo("settings_write") or "").lower()
+    redir = demo_svc.redirect_if_demo("/auth/account")
+    assert redir is not None
+    assert redir.status_code == 303
+    assert "demo_locked" in (redir.headers.get("location") or "")
+    with pytest.raises(HTTPException) as he:
+        demo_svc.http_403_if_demo("seed_restore")
+    assert he.value.status_code == 403
+
+
+def test_demo_write_guard_allowlist(demo_on, monkeypatch):
+    # Safe methods always ok
+    assert demo_svc.demo_write_allowed("GET", "/integrations/new/pihole") is True
+    # Login / canned jobs / notifications
+    assert demo_svc.demo_write_allowed("POST", "/auth/login") is True
+    assert demo_svc.demo_write_allowed("POST", "/auth/2fa") is True
+    assert demo_svc.demo_write_allowed("POST", "/auth/2fa/webauthn/options") is True
+    assert demo_svc.demo_write_allowed("POST", "/servers/3/run/backup") is True
+    assert demo_svc.demo_write_allowed("POST", "/jobs/9/cancel") is True
+    assert demo_svc.demo_write_allowed("POST", "/notifications/1/dismiss") is True
+    assert demo_svc.demo_write_allowed("POST", "/account/favourites/toggle") is True
+    # Connectors / fleet config blocked
+    assert demo_svc.demo_write_allowed("POST", "/integrations/new/pihole") is False
+    assert demo_svc.demo_write_allowed("POST", "/integrations/new/generic") is False
+    assert demo_svc.demo_write_allowed("POST", "/integrations/5/edit") is False
+    assert demo_svc.demo_write_allowed("POST", "/dns/services") is False
+    assert demo_svc.demo_write_allowed("POST", "/templates/new") is False
+    assert demo_svc.demo_write_allowed("POST", "/certificates/upload") is False
+    assert demo_svc.demo_write_allowed("POST", "/auth/account/password") is False
+    assert demo_svc.demo_write_allowed("POST", "/herder-backups/oidc") is False
+    # No new accounts
+    assert demo_svc.demo_write_allowed("POST", "/auth/register") is False
+    assert demo_svc.demo_write_allowed("POST", "/auth/users/create") is False
+    # Off when not demo
+    monkeypatch.setattr(demo_svc.settings, "PIHERDER_DEMO_MODE", False)
+    assert demo_svc.demo_write_allowed("POST", "/integrations/new/pihole") is True
+
+
 def test_console_disabled_in_demo(demo_on, monkeypatch):
     monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE", True)
     assert cons.console_enabled() is False
