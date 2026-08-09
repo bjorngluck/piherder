@@ -1,37 +1,21 @@
 """
 Herder self-backup service.
 
-Backs up PiHerder's own configuration as a compressed tar.gz on a host-mapped directory
-(JSON row snapshots + selected DATA_ROOT files — **not** a raw ``pg_dump``).
+Two modes (archives under HERDER_BACKUP_ROOT):
 
-Included (control-plane + operational history):
+**Full (DR)** — complete Postgres ``pg_dump -Fc`` of **every table** + DATA_ROOT
+avatars/logos. This is the real disaster-recovery artifact (no row caps).
 
-- Servers (encrypted SSH keys/passwords, schedules, inventory cache, feature flags)
-- Users (password hashes, roles, 2FA secrets — never plaintext passwords)
-- TOTP backup codes + trusted devices + user favourites (pins)
-- API tokens (hash + scopes; plaintext never stored)
-- **Jobs** (history + status; celery ids cleared on restore)
-- Docker compose version history (multi-file)
-- Web Push: VAPID keys, subscriptions, preferences
-- In-app notifications
-- Integrations + bindings, certs + deploy targets
-- Templates + stack deployments, DNS fabric, runtime edges, topology annotations
-- Port annotations (map sticky roles)
-- LAN discovery: schedules, **scan runs**, devices, script results
-- Herder settings (timezone, force_2FA, self-backup schedule, fleet check defaults)
-- Avatar files under DATA_ROOT + service logos
-- Optionally AuditLog (full mode)
+**Config only** — lightweight JSON row snapshots of control-plane tables (no full
+audit dump, no pg_dump). Fine for quick config copy; not a substitute for full.
 
-Not included (still separate products / short-lived):
+Restore: full archives use ``pg_restore``; older/config-only JSON archives use
+row upsert (v1–v5). Same ``PIHERDER_MASTER_KEY`` required for Fernet fields.
 
-- Password-reset tokens (short-lived, useless after restore)
-- Nmap raw XML artifacts under DATA_ROOT/nmap (paths may be stale)
-- Per-server rsync file trees (host backup product)
-- Raw Postgres ``pg_dump`` (this is JSON row snapshots)
+Not included (separate products):
 
-- "config only" vs "full" (full = + audit trail). Jobs/nmap runs are always included.
-- Scheduled via APScheduler or manual trigger.
-- Restore requires the same PIHERDER_MASTER_KEY for encrypted fields.
+- Per-server rsync trees (host backups)
+- Nmap raw XML under DATA_ROOT/nmap (optional; paths host-local)
 """
 
 import json
@@ -39,10 +23,12 @@ import tarfile
 import tempfile
 import os
 import shutil
+import subprocess
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List, Type, Set
 import logging
+from urllib.parse import urlparse, unquote
 
 from ..config import settings
 from ..database import engine
@@ -75,12 +61,15 @@ from .app_settings import load_settings
 
 logger = logging.getLogger(__name__)
 
-# Bump when payload shape gains tables (restore stays backward compatible)
+# Config-only JSON payload version (full DR uses kind=pg_dump_full, version 6)
 BACKUP_FORMAT_VERSION = "5"
+FULL_BACKUP_FORMAT_VERSION = "6"
 
-# Safety caps (full history preferred; avoid multi-GB JSON on huge fleets)
+# Config-only JSON caps (full mode uses pg_dump — no caps)
 _JOB_SNAPSHOT_LIMIT = 50_000
 _NMAP_RUN_SNAPSHOT_LIMIT = 10_000
+_AUDIT_SNAPSHOT_LIMIT = 50_000
+_NOTIFICATION_SNAPSHOT_LIMIT = 50_000
 
 # Relationship / non-column keys to drop from model_dump
 _EXCLUDE_REL = {
@@ -224,12 +213,117 @@ def _snapshot_push_preferences() -> List[Dict[str, Any]]:
     return _snapshot_table(PushPreference)
 
 
-def _snapshot_notifications(limit: int = 2000) -> List[Dict[str, Any]]:
+def _snapshot_notifications(limit: int = _NOTIFICATION_SNAPSHOT_LIMIT) -> List[Dict[str, Any]]:
     with Session(engine) as s:
         rows = s.exec(
             select(Notification).order_by(Notification.created_at.desc()).limit(limit)
         ).all()
         return [_model_to_dict(r) for r in rows]
+
+
+def _database_url() -> str:
+    return (getattr(settings, "DATABASE_URL", None) or os.environ.get("DATABASE_URL") or "").strip()
+
+
+def _pg_dump_available() -> bool:
+    return bool(shutil.which("pg_dump") and shutil.which("pg_restore"))
+
+
+def _pg_env_and_uri() -> tuple[dict, str]:
+    """Env for libpq + connection URI for pg_dump/pg_restore."""
+    url = _database_url()
+    if not url:
+        raise RuntimeError("DATABASE_URL is not set")
+    env = os.environ.copy()
+    # libpq accepts postgresql://…; also set PGPASSWORD if present in URI
+    try:
+        parsed = urlparse(url)
+        if parsed.password:
+            env["PGPASSWORD"] = unquote(parsed.password)
+    except Exception:
+        pass
+    return env, url
+
+
+def create_pg_dump(dest: Path) -> Path:
+    """Write a custom-format (``-Fc``) dump of the entire database to *dest*."""
+    if not shutil.which("pg_dump"):
+        raise RuntimeError(
+            "pg_dump not found — install postgresql-client in the web image for full DR backups"
+        )
+    env, url = _pg_env_and_uri()
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "pg_dump",
+        "--format=custom",
+        "--no-owner",
+        "--no-acl",
+        "--file",
+        str(dest),
+        url,
+    ]
+    logger.info("Running pg_dump → %s", dest)
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    if proc.returncode != 0:
+        err = (proc.stderr or proc.stdout or "").strip()
+        raise RuntimeError(f"pg_dump failed (exit {proc.returncode}): {err[:500]}")
+    if not dest.is_file() or dest.stat().st_size < 100:
+        raise RuntimeError(f"pg_dump produced empty/missing file: {dest}")
+    return dest
+
+
+def restore_pg_dump(dump_path: Path) -> None:
+    """Restore a custom-format dump into DATABASE_URL (destructive --clean)."""
+    if not shutil.which("pg_restore"):
+        raise RuntimeError("pg_restore not found — install postgresql-client")
+    dump_path = Path(dump_path)
+    if not dump_path.is_file():
+        raise FileNotFoundError(dump_path)
+    env, url = _pg_env_and_uri()
+    # Drop other sessions so --clean can replace objects
+    try:
+        from sqlalchemy import text as sa_text
+
+        with Session(engine) as s:
+            s.execute(
+                sa_text(
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                    "WHERE datname = current_database() AND pid <> pg_backend_pid()"
+                )
+            )
+            s.commit()
+    except Exception as e:
+        logger.warning("Could not terminate other DB sessions before restore: %s", e)
+
+    cmd = [
+        "pg_restore",
+        "--clean",
+        "--if-exists",
+        "--no-owner",
+        "--no-acl",
+        "--dbname",
+        url,
+        str(dump_path),
+    ]
+    logger.info("Running pg_restore ← %s", dump_path)
+    proc = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    # pg_restore returns non-zero on some non-fatal errors; check stderr hard fails
+    if proc.returncode != 0:
+        err = (proc.stderr or proc.stdout or "").strip()
+        # Still often usable if tables restored — log and re-check
+        logger.error("pg_restore exit %s: %s", proc.returncode, err[:800])
+        # Fatal if empty
+        if "error:" in err.lower() and "FATAL" in err:
+            raise RuntimeError(f"pg_restore failed: {err[:500]}")
+        # Many "errors" are ignoreable with --clean; verify core table
+        with Session(engine) as s:
+            from sqlalchemy import text as sa_text
+
+            n = s.execute(sa_text('SELECT count(*) FROM "user"')).scalar()
+            if n is None:
+                raise RuntimeError(f"pg_restore failed and user table missing: {err[:500]}")
+        logger.warning("pg_restore completed with warnings (exit %s)", proc.returncode)
 
 
 def _snapshot_integrations() -> List[Dict[str, Any]]:
@@ -377,13 +471,16 @@ def _jobs_for_restore(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
-def _snapshot_audit(since_days: Optional[int] = None) -> List[Dict[str, Any]]:
+def _snapshot_audit(
+    since_days: Optional[int] = None, limit: int = _AUDIT_SNAPSHOT_LIMIT
+) -> List[Dict[str, Any]]:
+    """Config-only path only — full DR uses pg_dump (no cap)."""
     with Session(engine) as s:
         q = select(AuditLog).order_by(AuditLog.started_at.desc())
         if since_days:
             cutoff = datetime.utcnow() - timedelta(days=since_days)
             q = q.where(AuditLog.started_at >= cutoff)
-        rows = s.exec(q.limit(5000)).all()  # safety cap
+        rows = s.exec(q.limit(limit)).all()
         return [_model_to_dict(r) for r in rows]
 
 
@@ -517,14 +614,36 @@ def _build_backup_payload(
     return data
 
 
+def _add_data_files_to_tar(tar: tarfile.TarFile) -> int:
+    """Add avatars + service logos under data/. Returns file count."""
+    n = 0
+    data_root = Path(settings.DATA_ROOT or "/data")
+    for ap in _avatar_files():
+        try:
+            rel = ap.relative_to(data_root)
+        except ValueError:
+            rel = Path("avatars") / ap.name
+        tar.add(ap, arcname=str(Path("data") / rel))
+        n += 1
+    for lp in _service_logo_files():
+        try:
+            rel = lp.relative_to(data_root)
+        except ValueError:
+            rel = Path("service_logos") / lp.name
+        tar.add(lp, arcname=str(Path("data") / rel))
+        n += 1
+    return n
+
+
 def create_herder_backup(
     include_audit: bool = False, config_only: bool = True, since_days: int = 90
 ) -> Path:
     """
-    Create a compressed backup of the herder control plane + jobs/nmap history.
+    Create a compressed self-backup under HERDER_BACKUP_ROOT.
 
-    Always includes jobs and nmap scan runs (v5+). ``full`` additionally includes audit.
-    The resulting .tar.gz lives under HERDER_BACKUP_ROOT on the host (map the volume!).
+    - **config_only**: lightweight JSON row snapshots (not full DR).
+    - **full** (``config_only=False``): complete ``pg_dump -Fc`` of the whole DB
+      + DATA_ROOT files — real disaster recovery, no row caps.
     """
     global HERDER_BACKUP_DIR
     _ensure_dir()
@@ -532,45 +651,74 @@ def create_herder_backup(
     keep = int(cfg.get("keep", 10))
 
     ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-    suffix = "config-only" if config_only else ("full" if include_audit else "config")
+    is_full = not config_only
+    suffix = "config-only" if config_only else ("full" if include_audit or is_full else "config")
+    if is_full:
+        suffix = "full"
     filename = f"piherder-{ts}-{suffix}.tar.gz"
     out_path = HERDER_BACKUP_DIR / filename
 
-    data = _build_backup_payload(
-        include_audit=include_audit,
-        config_only=config_only,
-        since_days=since_days,
-    )
-
-    # Write JSON to a safe temp file (always /tmp), then add to tar with data files.
-    tmp_json_path = None
+    tmp_paths: List[Path] = []
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False, dir="/tmp"
-        ) as tf:
-            tmp_json_path = Path(tf.name)
-            json.dump(data, tf, indent=2, default=str)
-            tf.flush()
+        if is_full:
+            # ── Full DR: entire Postgres + data files ─────────────────────
+            dump_path = Path(tempfile.mkstemp(prefix="piherder-pg-", suffix=".dump")[1])
+            tmp_paths.append(dump_path)
+            create_pg_dump(dump_path)
 
-        def _write_tar(dest: Path) -> None:
-            with tarfile.open(dest, "w:gz") as tar:
-                tar.add(tmp_json_path, arcname="piherder-backup.json")
-                data_root = Path(settings.DATA_ROOT or "/data")
-                for ap in _avatar_files():
-                    try:
-                        rel = ap.relative_to(data_root)
-                    except ValueError:
-                        rel = Path("avatars") / ap.name
-                    tar.add(ap, arcname=str(Path("data") / rel))
-                for lp in _service_logo_files():
-                    try:
-                        rel = lp.relative_to(data_root)
-                    except ValueError:
-                        rel = Path("service_logos") / lp.name
-                    tar.add(lp, arcname=str(Path("data") / rel))
+            manifest = {
+                "created_at": datetime.utcnow().isoformat() + "Z",
+                "config_only": False,
+                "include_audit": True,  # whole DB includes audit
+                "version": FULL_BACKUP_FORMAT_VERSION,
+                "kind": "pg_dump_full",
+                "pg_dump_format": "custom",
+                "pg_dump_arcname": "database.dump",
+                "includes": ["database.dump", "data/avatars", "data/service_logos"],
+                "excludes": ["rsync_trees", "nmap_xml_artifacts"],
+                "note": (
+                    "Full DR archive: pg_dump -Fc of entire DATABASE_URL + DATA_ROOT files. "
+                    "Restore with herder restore or pg_restore. Same PIHERDER_MASTER_KEY required."
+                ),
+            }
+            man_path = Path(tempfile.mkstemp(prefix="piherder-man-", suffix=".json")[1])
+            tmp_paths.append(man_path)
+            man_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+
+            def _write_full_tar(dest: Path) -> None:
+                with tarfile.open(dest, "w:gz") as tar:
+                    tar.add(man_path, arcname="manifest.json")
+                    tar.add(dump_path, arcname="database.dump")
+                    # Keep a tiny pointer for older UI that expects JSON name
+                    tar.add(man_path, arcname="piherder-backup.json")
+                    _add_data_files_to_tar(tar)
+
+            write_fn = _write_full_tar
+        else:
+            # ── Config-only: JSON snapshots (lighter, not complete DR) ────
+            data = _build_backup_payload(
+                include_audit=include_audit,
+                config_only=True,
+                since_days=since_days,
+            )
+            data["manifest"]["kind"] = "json_config"
+            tmp_json_path = Path(
+                tempfile.mkstemp(prefix="piherder-json-", suffix=".json")[1]
+            )
+            tmp_paths.append(tmp_json_path)
+            tmp_json_path.write_text(
+                json.dumps(data, indent=2, default=str), encoding="utf-8"
+            )
+
+            def _write_json_tar(dest: Path) -> None:
+                with tarfile.open(dest, "w:gz") as tar:
+                    tar.add(tmp_json_path, arcname="piherder-backup.json")
+                    _add_data_files_to_tar(tar)
+
+            write_fn = _write_json_tar
 
         try:
-            _write_tar(out_path)
+            write_fn(out_path)
         except Exception as e:
             if (
                 isinstance(e, PermissionError)
@@ -587,9 +735,11 @@ def create_herder_backup(
                         continue
                     try:
                         out_path = fb_dir / filename
-                        _write_tar(out_path)
+                        write_fn(out_path)
                         HERDER_BACKUP_DIR = fb_dir
-                        logger.warning("Herder backup dir not writable, fell back to %s", out_path)
+                        logger.warning(
+                            "Herder backup dir not writable, fell back to %s", out_path
+                        )
                         wrote = True
                         break
                     except Exception as e2:
@@ -600,12 +750,15 @@ def create_herder_backup(
             else:
                 raise
 
-        logger.info(f"Herder backup created: {out_path}")
+        logger.info("Herder backup created: %s (full=%s)", out_path, is_full)
         prune_old_backups(keep)
         return out_path
     finally:
-        if tmp_json_path and tmp_json_path.exists():
-            tmp_json_path.unlink(missing_ok=True)
+        for p in tmp_paths:
+            try:
+                Path(p).unlink(missing_ok=True)
+            except Exception:
+                pass
 
 
 def list_backups() -> List[Dict[str, Any]]:
@@ -939,18 +1092,104 @@ def restore_herder_backup(
         "restored_avatars": 0,
         "restored_herder_config": False,
         "restored_audit": 0,
+        "restored_pg_dump": False,
         "dry_run": dry_run,
         "format_version": None,
+        "kind": None,
     }
 
+    # ── Full DR path: database.dump (pg_dump -Fc) ─────────────────────────
+    with tarfile.open(p, "r:gz") as tar:
+        names = set(tar.getnames())
+        has_pg = "database.dump" in names
+        man_member = None
+        if "manifest.json" in names:
+            man_member = tar.extractfile("manifest.json")
+        elif "piherder-backup.json" in names:
+            man_member = tar.extractfile("piherder-backup.json")
+        manifest: Dict[str, Any] = {}
+        if man_member:
+            try:
+                raw_man = json.loads(man_member.read())
+                # v6 full: whole file is manifest; v1–5: manifest nested
+                if isinstance(raw_man, dict) and (
+                    raw_man.get("kind") == "pg_dump_full" or "manifest" not in raw_man
+                ):
+                    if raw_man.get("kind") == "pg_dump_full" or raw_man.get("pg_dump_arcname"):
+                        manifest = raw_man
+                    elif "manifest" in raw_man:
+                        manifest = raw_man.get("manifest") or {}
+                    else:
+                        # ambiguous small JSON
+                        manifest = raw_man if "version" in raw_man else {}
+                elif isinstance(raw_man, dict):
+                    manifest = raw_man.get("manifest") or {}
+            except Exception:
+                manifest = {}
+        result["format_version"] = manifest.get("version")
+        result["kind"] = manifest.get("kind") or (
+            "pg_dump_full" if has_pg else "json_config"
+        )
+
+        if has_pg:
+            if dry_run:
+                dump_info = tar.getmember("database.dump")
+                result["would_restore_pg_dump"] = True
+                result["would_restore_pg_dump_bytes"] = dump_info.size
+                result["would_restore_avatars"] = sum(
+                    1
+                    for m in tar.getmembers()
+                    if m.isfile() and m.name.replace("\\", "/").startswith("data/")
+                )
+                return result
+
+            dump_tmp = Path(tempfile.mkstemp(prefix="piherder-restore-", suffix=".dump")[1])
+            try:
+                src = tar.extractfile("database.dump")
+                if not src:
+                    raise ValueError("database.dump missing in archive")
+                dump_tmp.write_bytes(src.read())
+                restore_pg_dump(dump_tmp)
+                result["restored_pg_dump"] = True
+            finally:
+                dump_tmp.unlink(missing_ok=True)
+
+            # DATA_ROOT files after DB
+            n_files = 0
+            data_root = Path(settings.DATA_ROOT or "/data")
+            for m in tar.getmembers():
+                name = m.name.replace("\\", "/")
+                if not m.isfile() or not name.startswith("data/"):
+                    continue
+                rel = name[len("data/") :]
+                if not rel or ".." in rel.split("/"):
+                    continue
+                dest = data_root / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                f = tar.extractfile(m)
+                if f:
+                    dest.write_bytes(f.read())
+                    n_files += 1
+            result["restored_avatars"] = n_files
+            logger.info("Full pg_dump restore complete from %s (%s data files)", p, n_files)
+            return result
+
+    # ── Legacy / config-only JSON path ────────────────────────────────────
     with tarfile.open(p, "r:gz") as tar:
         member = tar.extractfile("piherder-backup.json")
         if not member:
-            raise ValueError("Invalid herder backup (missing json)")
+            raise ValueError("Invalid herder backup (missing piherder-backup.json)")
         payload = json.loads(member.read())
+
+    # If the "json" was actually a v6 manifest only, fail clearly
+    if payload.get("kind") == "pg_dump_full" and "servers" not in payload:
+        raise ValueError(
+            "Archive looks like a full pg_dump backup but database.dump is missing"
+        )
 
     manifest = payload.get("manifest") or {}
     result["format_version"] = manifest.get("version")
+    result["kind"] = manifest.get("kind") or "json_config"
 
     if dry_run:
         result["would_restore_servers"] = len(payload.get("servers") or [])

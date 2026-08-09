@@ -8,6 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # System tools needed for parity with bash scripts (rsync for backups, ssh client, ping, dns utils)
+# postgresql-client-16 must match compose db (postgres:16) for full DR dumps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     rsync \
     openssh-client \
@@ -15,6 +16,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dnsutils \
     ca-certificates \
     curl \
+    gnupg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+         | gpg --dearmor -o /usr/share/keyrings/postgresql.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/postgresql.gpg] http://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" \
+         > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-client-16 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
