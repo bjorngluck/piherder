@@ -40,15 +40,13 @@ def extract_client_ip(
 ) -> str:
     """Resolve client IP for allowlists, audit, and Turnstile remoteip.
 
-    Preference:
-      1. CF-Connecting-IP / True-Client-IP — real visitor when orange-clouded
-         (Caddy overwrites XFF with the Cloudflare edge address)
+    Preference (Caddy sets XFF/X-Real-IP from CF-Connecting-IP when orange-clouded):
+      1. CF-Connecting-IP / True-Client-IP
       2. X-Forwarded-For — first hop only
       3. X-Real-IP
       4. TCP peer (request.client.host)
     """
     h = {str(k).lower(): str(v) for k, v in (headers or {}).items()}
-    # Cloudflare / some CDNs — must win over XFF when proxy overwrites XFF
     for key in ("cf-connecting-ip", "true-client-ip"):
         val = h.get(key)
         if val:

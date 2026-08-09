@@ -1,9 +1,12 @@
+import logging
 from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, Response
 from sqlmodel import Session, select
+
+logger = logging.getLogger(__name__)
 
 from ..database import get_session
 from ..models import User, TotpBackupCode
@@ -323,12 +326,29 @@ async def login(
     from ..services import turnstile as turnstile_svc
 
     if turnstile_svc.turnstile_enabled():
-        # Never pass Caddy XFF (CF edge). Only real visitor IP if CF sent it.
-        visitor = turnstile_svc.visitor_ip_for_turnstile(request)
-        ok, _code = turnstile_svc.verify_turnstile_token(
-            cf_turnstile_response, remoteip=visitor
+        # Token: Form alias + raw form (hyphenated names can be flaky)
+        token = (cf_turnstile_response or "").strip()
+        if not token:
+            try:
+                form = await request.form()
+                token = (
+                    str(form.get("cf-turnstile-response") or form.get("cf_turnstile_response") or "")
+                ).strip()
+            except Exception:
+                token = ""
+        # Always send visitor remoteip (Caddy sets XFF from CF-Connecting-IP when orange-clouded)
+        visitor = turnstile_svc.visitor_ip_for_turnstile(request) or (
+            ip if ip != "unknown" else None
         )
+        ok, code = turnstile_svc.verify_turnstile_token(token, remoteip=visitor)
         if not ok:
+            logger.warning(
+                "login captcha failed code=%s ip=%s visitor=%s token_len=%s",
+                code,
+                ip,
+                visitor,
+                len(token or ""),
+            )
             return RedirectResponse("/auth/login?error=captcha", status_code=303)
 
     user = authenticate_user(session, email, password)
