@@ -486,7 +486,18 @@ def seed_demo_fleet(
     password: Optional[str] = None,
     email: Optional[str] = None,
 ) -> dict[str, Any]:
-    """Populate synthetic fleet. Returns counts summary."""
+    """Populate synthetic fleet. Returns counts summary.
+
+    **Safety:** refuses to run (including ``force`` wipe) unless
+    ``PIHERDER_DEMO_MODE`` is true — never touch a production DB by accident.
+    """
+    if not demo_mode():
+        raise RuntimeError(
+            "Refusing demo seed: PIHERDER_DEMO_MODE is not enabled. "
+            "This protects production fleets from wipe/seed. "
+            "Only run on a dedicated demo instance with DEMO_MODE=true."
+        )
+
     pw = (password or _env_password()).strip() or DEFAULT_DEMO_PASSWORD
     em = (email or _env_email()).strip() or DEFAULT_DEMO_EMAIL
 

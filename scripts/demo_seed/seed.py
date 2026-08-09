@@ -39,7 +39,17 @@ def main() -> int:
     from sqlmodel import Session
 
     from app.database import engine
+    from app.services.demo import demo_mode
     from app.services.demo_seed import seed_demo_fleet
+
+    if not demo_mode():
+        print(
+            "ERROR: PIHERDER_DEMO_MODE is not enabled.\n"
+            "Refusing to seed/wipe — this protects production databases.\n"
+            "Run only on a demo VPS with PIHERDER_DEMO_MODE=true.",
+            file=sys.stderr,
+        )
+        return 2
 
     with Session(engine) as session:
         summary = seed_demo_fleet(
