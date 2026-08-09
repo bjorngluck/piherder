@@ -3,6 +3,10 @@
 # Trusted TLS: place fullchain.pem + privkey.pem in ./certs (mounted at /certs)
 # Hostname: set PIHERDER_HOSTNAME in .env (e.g. piherder.example.com)
 #
+# Client IP: when Cloudflare proxies (orange cloud), the TCP peer is a CF edge
+# address. Use CF-Connecting-IP as X-Real-IP / X-Forwarded-For so the app and
+# Turnstile siteverify see the real visitor. Direct (non-CF) traffic uses remote_host.
+#
 # Local dev without certs: use Caddyfile.dev (see docs/ADMIN.md)
 
 {
@@ -13,36 +17,57 @@
 	auto_https off
 }
 
-# HTTP — host :8888
+# Shared reverse_proxy snippet behaviour is duplicated for HTTP/HTTPS + CF vs direct.
+
+# HTTP — host :8888 (or :80 on demo)
 :80 {
-	# When Host matches public hostname, send browsers to HTTPS on host port 8443
 	@public host {$PIHERDER_HOSTNAME}
 	redir @public https://{$PIHERDER_HOSTNAME}:8443{uri} 308
 
-	# Pass real client IP for API token CIDR allowlists (backend uses these headers).
-	# Use remote_host (IP only) — not {remote} which can include :port.
-	# Overwrite headers (do not append client-supplied XFF) to avoid spoofing.
-	reverse_proxy web:8000 {
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
-		header_up X-Forwarded-Proto {scheme}
-		header_up X-Forwarded-Host {host}
-		# Preserve Cloudflare visitor IP for Turnstile siteverify (do not invent)
-		header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
+	# Cloudflare orange-cloud: visitor IP in CF-Connecting-IP
+	@from_cf header CF-Connecting-IP *
+	handle @from_cf {
+		reverse_proxy web:8000 {
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+			header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+		}
+	}
+	# Direct to origin (no CF header)
+	handle {
+		reverse_proxy web:8000 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+			header_up X-Forwarded-Host {host}
+		}
 	}
 	encode gzip
 }
 
-# HTTPS — host :8443 — volume-mounted trusted certificate
+# HTTPS — host :8443 (or :443 when published as such)
 {$PIHERDER_HOSTNAME}:443 {
 	tls /certs/fullchain.pem /certs/privkey.pem
 
-	reverse_proxy web:8000 {
-		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
-		header_up X-Forwarded-Proto https
-		header_up X-Forwarded-Host {host}
-		header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
+	@from_cf header CF-Connecting-IP *
+	handle @from_cf {
+		reverse_proxy web:8000 {
+			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
+			header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Host {host}
+		}
+	}
+	handle {
+		reverse_proxy web:8000 {
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto https
+			header_up X-Forwarded-Host {host}
+		}
 	}
 
 	header {

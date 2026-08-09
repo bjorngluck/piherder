@@ -8,12 +8,15 @@ Env (any pair works; first non-empty wins per field):
 * Site: ``PIHERDER_TURNSTILE_SITE_KEY`` or ``TURNSTILE_SITE_KEY``
 * Secret: ``PIHERDER_TURNSTILE_SECRET_KEY`` or ``TURNSTILE_SECRET``
   (Cloudflare Spin / dashboard recovery uses ``TURNSTILE_SECRET``)
+
+**remoteip is always sent** to siteverify. Caddy must put the real visitor in
+``CF-Connecting-IP`` / ``X-Forwarded-For`` (see root ``Caddyfile`` when orange-clouded).
 """
 from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -50,26 +53,52 @@ def turnstile_enabled() -> bool:
     return bool(turnstile_site_key() and turnstile_secret_key())
 
 
-def visitor_ip_for_turnstile(request) -> Optional[str]:
-    """Visitor IP safe to send as siteverify ``remoteip``.
+def _normalize_ip(raw: str) -> str:
+    s = (raw or "").strip()
+    if not s:
+        return ""
+    if s.startswith("["):
+        end = s.find("]")
+        if end > 0:
+            return s[1:end]
+    if s.count(":") == 1:
+        host, port = s.rsplit(":", 1)
+        if port.isdigit():
+            return host
+    return s
 
-    Only **CF-Connecting-IP** / **True-Client-IP**. Do **not** use X-Forwarded-For
-    from our Caddyfile — it is rewritten to the **Cloudflare edge** hop, which
-    causes siteverify ``invalid-input-response`` when orange-clouded.
+
+def visitor_ip_for_turnstile(request: Any) -> Optional[str]:
+    """Resolve visitor IP for siteverify ``remoteip`` (always required when verifying).
+
+    Order (must match Caddy when behind Cloudflare orange-cloud):
+
+    1. ``CF-Connecting-IP`` / ``True-Client-IP`` (Cloudflare / some CDNs)
+    2. ``X-Forwarded-For`` first hop (Caddy sets this to CF-Connecting-IP when present)
+    3. ``X-Real-IP``
+    4. TCP peer (``request.client.host``)
     """
     if request is None:
         return None
     try:
-        h = request.headers
+        h = {str(k).lower(): str(v) for k, v in dict(request.headers).items()}
     except Exception:
-        return None
+        h = {}
     for key in ("cf-connecting-ip", "true-client-ip"):
-        try:
-            val = (h.get(key) or "").strip()
-        except Exception:
-            val = ""
+        val = (h.get(key) or "").strip()
         if val:
-            return val.split(",")[0].strip() or None
+            return _normalize_ip(val.split(",")[0]) or None
+    xff = (h.get("x-forwarded-for") or "").strip()
+    if xff:
+        return _normalize_ip(xff.split(",")[0]) or None
+    xri = (h.get("x-real-ip") or "").strip()
+    if xri:
+        return _normalize_ip(xri) or None
+    try:
+        if getattr(request, "client", None) is not None and request.client.host:
+            return _normalize_ip(request.client.host) or None
+    except Exception:
+        pass
     return None
 
 
@@ -80,22 +109,23 @@ def verify_turnstile_token(
 ) -> tuple[bool, str]:
     """Return (ok, error_code). error_code is empty on success.
 
-    ``remoteip`` is optional. Prefer :func:`visitor_ip_for_turnstile` only.
-    Omitting remoteip is valid and safest when the visitor IP is unknown.
+    **Always** includes ``remoteip`` when verifying. Callers must pass the
+    visitor IP from :func:`visitor_ip_for_turnstile` (not omit).
     """
     if not turnstile_enabled():
         return True, ""
     tok = (token or "").strip()
     if not tok:
         return False, "missing-input-response"
+    rip = _normalize_ip(remoteip or "")
+    if not rip or rip.lower() == "unknown":
+        logger.warning("Turnstile: missing remoteip (token_len=%s)", len(tok))
+        return False, "missing-remoteip"
     data = {
         "secret": turnstile_secret_key(),
         "response": tok,
+        "remoteip": rip,
     }
-    # Optional — wrong IP (CF edge via Caddy XFF) breaks verification
-    rip = (remoteip or "").strip()
-    if rip and rip.lower() not in ("unknown", "127.0.0.1", "::1"):
-        data["remoteip"] = rip
     try:
         with httpx.Client(timeout=8.0) as client:
             r = client.post(VERIFY_URL, data=data)
@@ -112,7 +142,7 @@ def verify_turnstile_token(
         "Turnstile rejected: %s (all=%s remoteip=%s token_len=%s site_prefix=%s)",
         code,
         errs,
-        data.get("remoteip") or "(omitted)",
+        rip,
         len(tok),
         (turnstile_site_key() or "")[:12],
     )

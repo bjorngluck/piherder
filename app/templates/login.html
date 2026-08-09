@@ -116,7 +116,12 @@
 
       {% set _ts_key = turnstile_site_key if turnstile_site_key is defined else '' %}
       {% if turnstile_on|default(false) and _ts_key %}
-      <div class="cf-turnstile" data-sitekey="{{ _ts_key }}" data-theme="auto" data-testid="turnstile-widget"></div>
+      {# Explicit response field name for siteverify; widget fills this #}
+      <div class="cf-turnstile"
+           data-sitekey="{{ _ts_key }}"
+           data-theme="auto"
+           data-response-field-name="cf-turnstile-response"
+           data-testid="turnstile-widget"></div>
       <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
       {% endif %}
 
