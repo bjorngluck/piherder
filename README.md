@@ -29,7 +29,7 @@ Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyMan
 - **LAN Discovery** (opt-in nmap worker, devices, schedules, Hosts map overlay)
 - Network Maps (DNS fabric, logical/physical topology, service paths, runtime stack view groups)
 - PWA + Web Push notifications
-- RBAC, 2FA, audit trail, self-backup with full DR
+- RBAC, 2FA (TOTP + passkeys), optional SSO/OIDC (v1.2), audit trail, self-backup with full DR
 - Token REST API for automation (n8n, Home Assistant, etc.)
 
 ### Quick Start
@@ -55,8 +55,8 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Full docs & wiki: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
-- **Current production:** [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) (elevate production — certs · discovery · identity · UX · maps · API)
-- **Next train:** [docs/PLAN_v1.2.0.md](docs/PLAN_v1.2.0.md) (WebAuthn · SSO · webshell · gated demo · backup retry)
+- **Current production:** [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) (day-to-day operator improvements — certs · discovery · identity · UX · maps · API)
+- **Active train:** [docs/PLAN_v1.2.0.md](docs/PLAN_v1.2.0.md) on `v1.2.0-dev` (WebAuthn · SSO · webshell · gated demo · backup retry)
 - Prior: [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · [docs/RELEASE_v0.9.0.md](docs/RELEASE_v0.9.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - Plan (1.1 archive): [docs/PLAN_v1.1.0.md](docs/PLAN_v1.1.0.md)
 - API reference: [docs/API.md](docs/API.md)

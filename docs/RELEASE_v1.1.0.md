@@ -1,28 +1,28 @@
 # PiHerder v1.1.0
 
-**Status:** **Tagged** — elevate production release  
+**Status:** **Tagged** — current production release  
 **Date:** 2026-08-08  
 **Git tag:** `v1.1.0` (merged `v1.1.0-dev` → `main`)  
 **Package / image version:** `1.1.0`  
 **Baseline:** `v1.0.0` (first production — 2026-07-28)  
-**Theme:** **Elevate production** — certs · discovery · identity · operator UX · topology/maps · integrations/API  
+**Theme:** **Day-to-day operator improvements** — certificates · LAN discovery · identity & light alerts · schedules & pins · maps · generic links · API  
 
 **Plans:** [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · map [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md)  
-**Next train:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md) — **Active** on `v1.2.0-dev` (WebAuthn · SSO · webshell · gated demo · backup retry)  
+**Next development train:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md) on `v1.2.0-dev` (WebAuthn · SSO · webshell · gated demo · backup retry)  
 **Prior:** [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md)  
 **Roadmap:** [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [SPEC.md](../SPEC.md)  
 **Docs:** https://piherder-docs.hacknow.info/
 
 **Image:** [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder) — multi-arch `linux/amd64` + `linux/arm64`  
-**Tags:** `1.1.0` · `1.1` · `latest` (keep `1.0` / `1.0.x` pins valid)
+**Tags:** `1.1.0` · `1.1` · `latest` (older `1.0` / `1.0.x` pins remain valid)
 
 ---
 
 ## Why this release
 
-v1.0 established a production security bar. **v1.1** makes day-to-day operation sharper: certificate deploy is a real wizard, LAN discovery is manageable at scale, navigation stays out of your way, maps show ports and kinds at a glance, and light alert/mail channels land without waiting for full SSO.
+**v1.0.0** set the production security bar. **v1.1.0** is the follow-on minor for operators who already run that bar: certificate deploy becomes a guided wizard with verify, LAN discovery is manageable at scale, navigation and maps get out of your way, and light email/webhook alerts land without waiting for full SSO.
 
-No silent contract breaks. Additive minor. Same master key and upgrade path as 1.0.
+Additive minor only — no silent contract breaks. Same master key and upgrade path as 1.0.
 
 ---
 
@@ -79,7 +79,7 @@ No silent contract breaks. Additive minor. Same master key and upgrade path as 1
 - Stack panel **published ports** as `host→container` chips
 - Manual runtime edges can target **other host / project / container**
 
-**Map interactivity (M1–M4, elevated into 1.1)**
+**Map interactivity (shipped in 1.1)**
 
 | Theme | What you get |
 |-------|----------------|
@@ -119,7 +119,7 @@ Busy-source vanish behaviour remains a **known issue** (below).
 
 ## Verify (operator smoke)
 
-Use after upgrade; expand at freeze if needed.
+Use after upgrade.
 
 - [ ] Login / logout; 2FA path if enabled  
 - [ ] Account → Trusted devices: rename, revoke  
@@ -153,17 +153,15 @@ Accepted for **v1.1.0** — not tag blockers. Tracked for **v1.2** (or later) un
 3. Prefer backing up **stable** bind mounts (config, DB dumps) separately from high-churn recording directories when practical.  
 4. Distinguish from **I/O / mount** failures (`Input/output error`, ext4 `shutdown`) — those are host disk issues, not vanished-file churn.
 
-### Residual polish (capacity / non-blocking)
-
-Items that may remain imperfect at freeze without blocking the tag — promote into 1.1.x or 1.2 as QA dictates:
+### Deferred polish (not blocking this tag)
 
 | Area | Note |
 |------|------|
-| Cert multi-target **as Job** (**P-job**) | Not a ship gate for 1.1 |
-| Discovery worker **heartbeat** (**S-hb**) | Residual |
-| Custom map icon pack (**M5**) | Roadmap |
-| Screenshot pack recapture for new 1.1 surfaces | **Done** for freeze (wiki assets + new 1.1 shots) |
-| Version bump in `pyproject.toml` / image | **Done** → `1.1.0` (Hub multi-arch published) |
+| Cert multi-target deploy **as a Job** | Not required for 1.1; track for later |
+| Discovery worker heartbeat | Residual |
+| Custom map icon pack | Roadmap |
+| Screenshot pack for new 1.1 surfaces | Done for this release |
+| Package / image version | `1.1.0` published multi-arch on Hub |
 
 ---
 
@@ -189,7 +187,6 @@ Items that may remain imperfect at freeze without blocking the tag — promote i
 3. Pull the 1.1 image (or build from tag):
 
    ```bash
-   # after tag / Hub publish
    export PIHERDER_IMAGE=bjorngluck/piherder:1.1.0
    docker compose pull
    docker compose up -d
@@ -230,7 +227,7 @@ No operator data wipe. Encrypted secrets still require the **same** master key.
 ```bash
 git clone https://github.com/bjorngluck/piherder.git
 cd piherder
-git checkout v1.1.0   # after tag
+git checkout v1.1.0
 cp .env.example .env  # set PIHERDER_MASTER_KEY, SECRET_KEY, etc.
 export PIHERDER_IMAGE=bjorngluck/piherder:1.1.0
 docker compose up -d
@@ -241,79 +238,59 @@ Guide: [Install](https://piherder-docs.hacknow.info/getting-started/install/).
 
 ---
 
-## Quality bar (freeze)
+## Quality bar
 
 | Gate | Target |
 |------|--------|
 | Unit coverage | ≥ **55%** line on `app`; CI fail-under **55** |
 | E2E | Playwright on touched shells; no live lab SSH/nmap/NPM/HA in CI |
-| Docs | `mkdocs build --strict` at freeze |
-| Security | No relaxation of 1.0 cookie / authz / validation bars |
-
-*(Confirm coverage number and E2E green at PR approval.)*
+| Docs | `mkdocs build --strict` for wiki changes |
+| Security | No relaxation of the 1.0 cookie / authz / validation bars |
 
 ---
 
 ## Developer notes
 
-- Integration branch: **`v1.1.0-dev`**  
+- Shipped from integration branch **`v1.1.0-dev`** → `main` · tag `v1.1.0`  
 - Package version: `pyproject.toml` + `app.version_info` → **1.1.0**  
-
-- Publish: [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md)  
+- Publish checklist: [PUBLISH_IMAGE.md](PUBLISH_IMAGE.md)  
 - Map plan: [FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md)  
-- Notable code areas: `certificates` · `nmap` device ops · `nav_shortcuts` / favourites · `dns_fabric` ports + mesh JS · `integrations/generic_url` · `backup` error detail · Cap alerts/SMTP/reset  
+- Main code areas: certificates · nmap device ops · favourites / host jump · map ports + mesh · generic URL integrations · backup error detail · SMTP / webhook / password reset  
 
 ---
 
 ## Changelog summary
 
-Product work since `v1.0.0` is the elevation train on **`v1.1.0-dev`**.
-
-At tag:
+Product changes since `v1.0.0` landed on **`v1.1.0-dev`** and were tagged as **`v1.1.0`**.
 
 ```bash
 git log v1.0.0..v1.1.0 --oneline
 ```
 
-Plan history: [PLAN_v1.1.0.md](PLAN_v1.1.0.md) § changelog / decision log.
+Plan history: [PLAN_v1.1.0.md](PLAN_v1.1.0.md).
 
-### Theme map (for PR reviewers)
+### Feature areas (for reviewers)
 
-| Stream | Headline commits / themes (indicative) |
-|--------|----------------------------------------|
-| **A** Certs | deploy-target wizard, sudoers align, verify, alerts |
-| **B** Discovery | S1–S4 last-seen / hide / purge / filters |
-| **C + Cap** | trusted devices, webhook, SMTP, password reset |
-| **D** | cron_human, favourites, host jump |
-| **G + Map** | ports, cross-host edges, icons, pop-out, progressive ports, desktop click fix |
-| **I** | generic URL links, API try / ReDoc |
-| **Docs** | ACME education, RELEASE known issues, wiki troubleshooting |
-
----
-
-## Freeze checklist (PR approval)
-
-Copy into the merge PR and tick:
-
-- [ ] QA sign-off on must surfaces (certs, maps ports desktop+mobile, discovery, pins, alerts)  
-- [ ] Known issues reviewed (at least **KI-rsync-vanished**)  
-- [ ] Version → `1.1.0` in package + version_info  
-- [ ] Unit ≥55% · E2E green · `mkdocs build --strict`  
-- [ ] This document: Status → **Tagged**, date filled, smoke list confirmed  
-- [ ] Merge `v1.1.0-dev` → `main` · tag `v1.1.0` · Hub multi-arch publish  
-- [ ] ROADMAP + SECURITY supported versions  
-- [ ] Announce / WordPress notes as needed  
+| Area | What shipped |
+|------|----------------|
+| Certificates | Deploy-target wizard, sudoers align, verify, cert alerts |
+| LAN discovery | Last-seen, hide/unhide, purge offline, honest filter counts |
+| Identity & alerts | Trusted-device polish, webhook, SMTP, forgot-password |
+| Operator UX | Human-readable cron, favourites, host jump |
+| Maps | Port chips, icons, focus pop-out, progressive ports, desktop click fix |
+| Integrations & API | Generic URL links; try-token / ReDoc in Settings |
+| Docs | ACME education path; known-issue troubleshooting |
 
 ---
 
-## Residual / post-1.1
+## After v1.1.0
 
 | Item | Destination |
 |------|-------------|
-| WebAuthn · SSO · webshell · gated demo · backup **B-retry** | **v1.2** — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
+| WebAuthn · SSO · webshell · gated demo · backup retry | **v1.2** — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
 | ACME product issuance | ≥ **v1.3** under consideration |
 | Security / data-loss patches | **v1.1.x** on `main` as needed |
 
 ---
 
-*Promote Status to **Tagged** when git tag `v1.1.0` and Hub multi-arch publish complete.*
+*Released 2026-08-08 — git tag `v1.1.0` · Hub multi-arch `1.1.0` / `1.1` / `latest`.*
