@@ -191,6 +191,11 @@ async def lifespan(app: FastAPI):
 
 
 from .version_info import APP_VERSION as _APP_VERSION
+from .config import settings as _boot_settings
+
+# Public demo VPS: do not register interactive OpenAPI routes at all.
+# Runtime gate (middleware) still applies when DEMO_MODE is toggled after import.
+_demo_boot = bool(getattr(_boot_settings, "PIHERDER_DEMO_MODE", False))
 
 app = FastAPI(
     title="PiHerder",
@@ -201,6 +206,9 @@ app = FastAPI(
     ),
     version=_APP_VERSION,
     lifespan=lifespan,
+    docs_url=None if _demo_boot else "/docs",
+    redoc_url=None if _demo_boot else "/redoc",
+    openapi_url=None if _demo_boot else "/openapi.json",
     openapi_tags=[
         {
             "name": "api-v1",
@@ -270,6 +278,23 @@ class SameOriginPostMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class DemoOpenApiGateMiddleware(BaseHTTPMiddleware):
+    """Public demo: hide /openapi.json, /docs, /redoc (404).
+
+    Complements boot-time ``openapi_url=None`` so tests that flip DEMO_MODE after
+    import still get a hard gate without reloading the app.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        from .services.demo import is_openapi_docs_path, openapi_docs_disabled
+
+        if openapi_docs_disabled() and is_openapi_docs_path(request.url.path or "/"):
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        return await call_next(request)
+
+
 class DemoWriteGuardMiddleware(BaseHTTPMiddleware):
     """Public demo: block mutating requests that would trash the shared sandbox.
 
@@ -326,6 +351,7 @@ class DemoWriteGuardMiddleware(BaseHTTPMiddleware):
 app.add_middleware(ClientIpMiddleware)
 app.add_middleware(SameOriginPostMiddleware)
 app.add_middleware(DemoWriteGuardMiddleware)
+app.add_middleware(DemoOpenApiGateMiddleware)
 
 # v1.2: CSP + baseline security headers (outermost among our custom stack so
 # they apply even when earlier middleware short-circuits… actually Starlette
