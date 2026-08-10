@@ -65,11 +65,17 @@ def build_csp() -> str:
     script_src = ["'self'", "'unsafe-inline'", "'unsafe-eval'"]
     frame_src = ["'self'"]
     style_src = ["'self'", "'unsafe-inline'"]
-    # Cloudflare Turnstile widget (only when keys configured)
+    # Cloudflare Turnstile (managed challenge loads scripts/frames/workers/images)
+    worker_src = ["'self'"]
+    img_src = ["'self'", "data:", "blob:"]
     if _turnstile_on():
-        script_src.append("https://challenges.cloudflare.com")
-        frame_src.append("https://challenges.cloudflare.com")
-        connect.append("https://challenges.cloudflare.com")
+        cf = "https://challenges.cloudflare.com"
+        script_src.append(cf)
+        frame_src.append(cf)
+        connect.append(cf)
+        worker_src.extend([cf, "blob:"])
+        img_src.append(cf)
+        style_src.append(cf)
 
     # de-dupe preserve order
     seen = set()
@@ -90,10 +96,11 @@ def build_csp() -> str:
         "form-action 'self'",
         "script-src " + " ".join(script_src),
         "style-src " + " ".join(style_src),
-        "img-src 'self' data: blob:",
+        "img-src " + " ".join(img_src),
         "font-src 'self' data:",
         "connect-src " + " ".join(connect_parts),
-        "worker-src 'self'",
+        "worker-src " + " ".join(worker_src),
+        "child-src " + " ".join(worker_src),
         "manifest-src 'self'",
         "media-src 'self'",
         "frame-src " + " ".join(frame_src),
