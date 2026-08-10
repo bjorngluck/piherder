@@ -105,24 +105,29 @@
         }
         .ph-console-popup-title { font-size: 0.9rem; font-weight: 600; min-width: 0; }
         .ph-console-popup-actions { display: flex; flex-wrap: wrap; gap: 0.3rem; flex-shrink: 0; }
-        /* Maximized: thin chrome — more terminal pixels */
+        /* Maximized: thin chrome — more terminal pixels; keep + Hosts visible */
         .ph-console-popup.is-max .ph-console-popup-bar {
           padding: 0.2rem 0.4rem;
           min-height: 0;
         }
-        .ph-console-popup.is-max .ph-console-popup-title .ph-console-popup-label,
-        .ph-console-popup.is-max .ph-console-popup-extra {
+        .ph-console-popup.is-max .ph-console-popup-title .ph-console-popup-label {
           display: none;
         }
         .ph-console-popup.is-max .ph-console-popup-title {
           font-size: 0.75rem;
           font-weight: 500;
           opacity: 0.85;
+          max-width: 40%;
         }
-        .ph-console-popup.is-max .ph-console-popup-actions .btn {
+        .ph-console-popup.is-max .ph-console-popup-actions .btn,
+        .ph-console-popup.is-max .ph-console-popup-actions a.btn {
           min-height: 1.75rem;
           padding: 0.15rem 0.45rem;
           font-size: 0.7rem;
+        }
+        /* + Hosts must stay reachable when maximized (was hidden as .extra) */
+        .ph-console-popup.is-max .ph-console-popup-extra {
+          display: inline-flex !important;
         }
         .ph-console-popup-frame {
           flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #0b0f14;
@@ -227,6 +232,14 @@
           try { frame.focus(); } catch (e) {}
           setTimeout(refitFrame, 120);
         }
+        function phConfirm(message, opts) {
+          opts = opts || {};
+          if (window.PiHerderConfirm && typeof window.PiHerderConfirm.confirm === 'function') {
+            return window.PiHerderConfirm.confirm(message, opts);
+          }
+          return Promise.resolve(false);
+        }
+
         function closePopup() {
           if (!pop) return;
           if (frame) {
@@ -247,6 +260,27 @@
             pop.style.background = '';
           }
           if (btnMax) btnMax.textContent = 'Maximize';
+        }
+
+        function requestClosePopup() {
+          if (!pop || !pop.classList.contains('is-open')) return;
+          // If frame never loaded a console, close quietly
+          var hasFrame = !!(frame && frame.getAttribute('src'));
+          if (!hasFrame) {
+            closePopup();
+            return;
+          }
+          phConfirm(
+            'Close the console?\n\nOpen shells on this host will end.',
+            {
+              title: 'Close console',
+              confirmLabel: 'Close',
+              cancelLabel: 'Keep open',
+              danger: true
+            }
+          ).then(function (ok) {
+            if (ok) closePopup();
+          });
         }
         function postFrame(action, extra) {
           try {
@@ -293,20 +327,25 @@
           }
           openPopup();
         };
-        if (btnClose) btnClose.addEventListener('click', closePopup);
+        if (btnClose) btnClose.addEventListener('click', requestClosePopup);
         if (btnMax) btnMax.addEventListener('click', toggleMax);
         if (pop) {
           pop.addEventListener('click', function (ev) {
-            if (ev.target === pop) closePopup();
+            if (ev.target === pop) requestClosePopup();
           });
         }
         document.addEventListener('keydown', function (ev) {
-          if (ev.key === 'Escape' && pop && pop.classList.contains('is-open')) closePopup();
+          if (ev.key === 'Escape' && pop && pop.classList.contains('is-open')) {
+            // Don't steal Escape from in-app confirm modal
+            var cm = document.getElementById('ph-confirm-modal');
+            if (cm && !cm.classList.contains('hidden')) return;
+            requestClosePopup();
+          }
         });
         window.addEventListener('message', function (ev) {
           if (ev.origin !== window.location.origin) return;
           if (!ev.data || ev.data.type !== 'piherder-console') return;
-          if (ev.data.action === 'close') closePopup();
+          if (ev.data.action === 'close') requestClosePopup();
           if (ev.data.action === 'expand') toggleMax();
         });
       })();

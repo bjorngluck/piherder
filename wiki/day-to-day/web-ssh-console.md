@@ -23,32 +23,42 @@ Operators on a tablet or locked-down PC need a shell without exporting the herde
 
 ## How it opens
 
-Server detail → **Console** opens a **floating popup** over the page — the terminal itself (not a full-page help article).
+| From | Opens |
+|------|--------|
+| **Server detail → Console** | Floating **popup** over the page (terminal itself, not a help article) |
+| **Servers list → host ⋯ → Console** | Multi-host workspace at `/console?host=<id>` |
+| **Servers list → select hosts → Console** | Multi-host workspace at `/console?hosts=1,2,3` (SSH-ready hosts only) |
+| **Popup → + Hosts** | Same multi-host workspace |
 
 | Control | Does |
 |---------|------|
 | **Maximize** | Full screen + slim outer bar; on mobile expands from a short bottom sheet |
 | **Restore** | Back from maximize |
-| **✕** | Close popup (ends shells on that host) |
-| **+ Hosts** | Multi-host workspace at `/console` |
-| **+ Shell** | New PTY (passkey/TOTP if step-up needed) |
+| **✕** (popup) | Close popup (ends shells on that host) |
+| **+ Hosts** | Multi-host workspace at `/console` — **stays visible when maximized** |
+| **Passkey / TOTP** | Step-up first; **+ Shell / Lock / Aa** appear only after unlock |
+| **+ Shell** | New PTY (after step-up) |
+| Shell tab **×** | Close that shell only (multiple shells per host) |
 | **Aa** | Font size **8–28** (hidden until tapped) |
-| **···** | Extra keys (arrows, Tab, Esc, Line/Scr) |
+| Gate **···** | Show/hide status + slot count (saves vertical space) |
+| Key **···** | Extra keys: **^C ^S ^X ^Q ^D**, ← →, Line/Scr |
 | **Ctrl** | Sticky Ctrl — next keyboard letter is Ctrl+letter |
-| **^C ^S ^X ^Q** | Common chords (others: sticky Ctrl + key) |
+| **Tab / Esc / ↑ / ↓** | Primary soft keys (scroll horizontally on narrow screens) |
 | **Sel / Copy / Paste** | Mobile select (drag either direction) + clipboard |
+| Shell **✕** | Close the **active** shell |
 | **App switch** | Shells **park on the server** until idle/max; return **auto-resumes** |
 
-Once a shell is connected, chrome **auto-compacts** so the terminal gets most of the screen. Tap **Aa** or **···** when you need tools or extra keys.
+Chrome is a **single compact row** after unlock: `+ Shell`, shell tabs, `Aa`, optional Lock. Status is hidden by default (gate **···** to show). Soft-key strip stays one row and **scrolls sideways** on mobile.
 
-Explicit close (shell **✕** or popup **✕**) still ends the session (`bye`). Switching apps or backgrounding the tab does **not**.
+Typing **`exit`**, idle timeout, or session max **ends that shell** (no resume-retry spam). Explicit close (shell tab **×**, shell **✕**, or popup **✕**) still ends the session (`bye`). Switching apps or backgrounding the tab does **not** end the PTY.
 
 ### Multiple hosts (`/console`)
 
 | Behaviour | Detail |
 |-----------|--------|
-| Open from popup | **+ Hosts**, or go to `/console?host=<id>` |
-| Host tabs | Switch anytime — **inactive host tabs stay connected** (iframes stay alive; not `visibility:hidden`) |
+| Open | **Servers ⋯ → Console**, bulk **Console**, popup **+ Hosts**, `/console?host=<id>`, or `/console?hosts=1,2,3` |
+| Host tabs | Switch anytime — **inactive host tabs keep their shells** (iframes stay alive; not `visibility:hidden`). If the browser drops the WebSocket, the PTY is **parked** until you select that host again |
+| Close host / Exit / popup ✕ | **In-app confirm modal** (not browser `confirm()`); ends shells for that host |
 | **+ Host** | Opens only hosts you pick — does **not** auto-reopen every host from an earlier session |
 | Shell slots | **Account-wide** (default **4** concurrent PTYs across all hosts) |
 | 2FA grant | **Fleet-wide**: one passkey/TOTP covers **all hosts** until expiry (~10 min) or **Lock** / **Aa → Lock step-up** |
@@ -61,10 +71,14 @@ Explicit close (shell **✕** or popup **✕**) still ends the session (`bye`). 
 1. Set env (below) and recreate **web**.  
 2. Enroll **passkey** (preferred) and/or TOTP on **Account**.  
 3. Host must already have SSH credentials (key preferred).  
-4. Server → **Console** → popup → step-up if asked → **+ Shell**.  
-5. Optional: **+ Hosts** → open more machines; switch host tabs freely.  
-6. **Maximize** for more terminal; switch apps safely (soft resume).  
-7. **✕** shell or popup when finished.
+4. Open a console one of these ways:  
+   - **Server detail → Console** (popup), or  
+   - **Servers → host ⋯ → Console**, or  
+   - **Select hosts → Console** (multi-host workspace).  
+5. Step-up if asked → **+ Shell**.  
+6. Optional: add more hosts (**+ Host** / bulk select); switch host tabs freely — other hosts keep their shells.  
+7. **Maximize** for more terminal; switch apps safely (soft resume).  
+8. Close with in-app confirm: shell tab **×**, host tab **×**, popup **✕**, or workspace **Exit**.
 
 ---
 
@@ -76,7 +90,7 @@ Explicit close (shell **✕** or popup **✕**) still ends the session (`bye`). 
 | In-app only | Same-origin mint (Origin/Referer); cross-site rejected; CSP `frame-ancestors 'self'` / `frame-src 'self'` for same-origin popup iframe only |
 | No ticket in URL | Ticket in the **first WebSocket message** only |
 | Single-use open ticket | Cannot mint a second WS with the same ticket |
-| **Soft resume** | Unexpected WS drop **parks** the SSH PTY (bound resume token); explicit **bye** destroys it |
+| **Soft resume** | Unexpected WS drop **parks** the SSH PTY (bound resume token); **exit / idle / max / bye** send `ended` and the client closes that shell (no resume loop) |
 | Multi-host keep-alive | Inactive host tabs use opacity (not `visibility:hidden`) so WebSockets stay up while you work on another host |
 | Session binding | Login **`session_version`** — logout / password change / admin session revoke kills shells |
 | IP binding | Default on; resume may allow IP change if **device** cookie still matches (mobile networks) |

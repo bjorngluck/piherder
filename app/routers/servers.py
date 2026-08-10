@@ -133,6 +133,10 @@ async def list_servers(
         d["needs_attention"] = _needs_attention(row)
         d["has_os_updates"] = _has_os(row)
         d["has_container_updates"] = _has_cont(row)
+        d["has_ssh"] = bool(
+            getattr(row, "ssh_private_key_encrypted", None)
+            or getattr(row, "ssh_password_encrypted", None)
+        )
         # Phased-only (Ubuntu) — visibility, not attention
         phased = 0
         total_up = None
@@ -195,6 +199,10 @@ async def list_servers(
         logger.debug(f"[list_servers] Total render took {total:.2f}s")
 
     from ..security.auth import ROLE_OPERATOR, role_at_least
+    from ..services import ssh_console as cons_svc
+
+    is_operator = role_at_least(user, ROLE_OPERATOR)
+    console_on = cons_svc.console_enabled()
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -207,7 +215,10 @@ async def list_servers(
             "filter": filt,
             "filter_counts": filter_counts,
             # Wizard / bulk require operator+ (get_operator_user)
-            "can_add_server": role_at_least(user, ROLE_OPERATOR),
+            "can_add_server": is_operator,
+            "console_enabled": console_on,
+            # Operator+ and feature flag — Servers list kebab + multi-select Console
+            "can_console": is_operator and console_on,
         },
     )
 

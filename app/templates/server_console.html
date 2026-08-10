@@ -12,7 +12,7 @@
 <div class="ch-banner banner-error">Enroll 2FA on <a href="/auth/account" class="text-primary">Account</a> first.</div>
 {% else %}
 
-{# Slim chrome: primary actions always; font/extra keys behind toggles #}
+{# Slim chrome: 2FA first; tools only after step-up. Shell tabs live in the gate row. #}
 <div class="ch-gate" id="console-gate" data-testid="console-gate"
      {% if grant_active and not require_2fa_every_shell %}data-grant="1"{% endif %}>
   <div class="ch-gate-row" id="console-2fa-row"
@@ -27,17 +27,26 @@
            class="ch-totp font-mono" data-testid="console-totp" placeholder="TOTP"
            {% if require_passkey and has_passkeys %}disabled{% endif %}>
     {% endif %}
+    <span class="ch-2fa-hint text-muted">Step-up required</span>
   </div>
-  <div class="ch-gate-row ch-gate-main">
+  {# Hidden until 2FA / fleet grant — saves space before unlock #}
+  <div class="ch-gate-row ch-gate-main" id="console-main-row"
+       {% if not (grant_active and not require_2fa_every_shell) %}style="display:none"{% endif %}>
     <button type="button" id="console-new-shell"
-            class="btn btn-accent text-xs min-h-9 px-2" data-testid="console-new-shell">+ Shell</button>
+            class="btn btn-accent text-xs min-h-9 px-2 ch-btn-compact" data-testid="console-new-shell"
+            title="New shell">+ Shell</button>
+    <div class="ch-shell-tabs" id="console-tabs" role="tablist" aria-label="Shells">
+      <span class="ch-tab-empty" id="console-tab-empty">Tap <strong>+ Shell</strong></span>
+    </div>
+    <button type="button" id="console-tools-toggle" class="btn btn-secondary text-xs min-h-9 px-2 ch-btn-compact"
+            data-testid="console-tools-toggle" title="Font size and extras" aria-expanded="false">Aa</button>
     {% if not require_2fa_every_shell %}
-    <button type="button" id="console-revoke-grant" class="btn btn-secondary text-xs min-h-9 px-2 ch-hide-compact"
+    <button type="button" id="console-revoke-grant" class="btn btn-secondary text-xs min-h-9 px-2 ch-btn-compact ch-hide-compact"
             data-testid="console-revoke-grant" title="Require 2FA again">Lock</button>
     {% endif %}
-    <button type="button" id="console-tools-toggle" class="btn btn-secondary text-xs min-h-9 px-2"
-            data-testid="console-tools-toggle" title="Font size and extras" aria-expanded="false">Aa</button>
-    <span id="console-status" class="ch-status" role="status"></span>
+    <button type="button" id="console-chrome-toggle" class="btn btn-secondary text-xs min-h-9 px-2 ch-btn-compact ch-chrome-toggle"
+            data-testid="console-chrome-toggle" title="Show or hide status" aria-expanded="false">···</button>
+    <span id="console-status" class="ch-status ch-status-collapsible" role="status"></span>
     <span id="console-slot-info" class="ch-slots-inline ch-hide-compact"></span>
   </div>
   {# Font size / extras — hidden until Aa #}
@@ -58,32 +67,29 @@
 </div>
 
 <div id="console-workspace-shell" class="ch-workspace console-workspace-shell" data-testid="console-workspace">
-  <div class="ch-shell-tabs" id="console-tabs" role="tablist" aria-label="Shells">
-    <span class="ch-tab-empty" id="console-tab-empty">Tap <strong>+ Shell</strong></span>
-  </div>
   <div id="console-panes" class="ch-panes console-panes"></div>
-  {# Primary key strip (always) + optional extras #}
+  {# Primary: nav keys + clipboard. Chords live under ··· #}
   <div class="ch-keys-bar" id="console-keys-bar">
     <div class="ch-keys ch-keys-primary" id="console-keys" aria-label="Control keys">
       <button type="button" id="console-ctrl-mod" class="ch-key ch-key-wide" data-key="ctrl-mod"
               data-testid="console-ctrl-mod" title="Sticky Ctrl">Ctrl</button>
-      <button type="button" class="ch-key" data-key="ctrl-c" title="Ctrl+C">^C</button>
-      <button type="button" class="ch-key" data-key="ctrl-s" title="Ctrl+S">^S</button>
-      <button type="button" class="ch-key" data-key="ctrl-x" title="Ctrl+X">^X</button>
-      <button type="button" class="ch-key" data-key="ctrl-q" title="Ctrl+Q">^Q</button>
-      <button type="button" id="console-select-mode" class="ch-key ch-key-wide" data-testid="console-select-mode" title="Select text">Sel</button>
-      <button type="button" id="console-copy" class="ch-key ch-key-wide" disabled data-testid="console-copy">Copy</button>
-      <button type="button" id="console-paste" class="ch-key ch-key-wide" data-testid="console-paste">Paste</button>
-      <button type="button" id="console-disconnect" class="ch-key ch-key-danger" disabled data-testid="console-disconnect">✕</button>
-      <button type="button" id="console-keys-more" class="ch-key ch-key-wide" data-testid="console-keys-more"
-              title="More keys" aria-expanded="false">···</button>
-    </div>
-    <div class="ch-keys ch-keys-extra hidden" id="console-keys-extra" aria-label="More keys">
-      <button type="button" class="ch-key" data-key="ctrl-d" title="Ctrl+D">^D</button>
       <button type="button" class="ch-key" data-key="tab" title="Tab">Tab</button>
       <button type="button" class="ch-key" data-key="esc" title="Esc">Esc</button>
       <button type="button" class="ch-key" data-key="up" title="Up">↑</button>
       <button type="button" class="ch-key" data-key="down" title="Down">↓</button>
+      <button type="button" id="console-select-mode" class="ch-key ch-key-wide" data-testid="console-select-mode" title="Select text">Sel</button>
+      <button type="button" id="console-copy" class="ch-key ch-key-wide" disabled data-testid="console-copy">Copy</button>
+      <button type="button" id="console-paste" class="ch-key ch-key-wide" data-testid="console-paste">Paste</button>
+      <button type="button" id="console-disconnect" class="ch-key ch-key-danger" disabled data-testid="console-disconnect" title="Close active shell">✕</button>
+      <button type="button" id="console-keys-more" class="ch-key ch-key-wide" data-testid="console-keys-more"
+              title="More keys" aria-expanded="false">···</button>
+    </div>
+    <div class="ch-keys ch-keys-extra hidden" id="console-keys-extra" aria-label="More keys">
+      <button type="button" class="ch-key" data-key="ctrl-c" title="Ctrl+C">^C</button>
+      <button type="button" class="ch-key" data-key="ctrl-s" title="Ctrl+S">^S</button>
+      <button type="button" class="ch-key" data-key="ctrl-x" title="Ctrl+X">^X</button>
+      <button type="button" class="ch-key" data-key="ctrl-q" title="Ctrl+Q">^Q</button>
+      <button type="button" class="ch-key" data-key="ctrl-d" title="Ctrl+D">^D</button>
       <button type="button" class="ch-key" data-key="left" title="Left">←</button>
       <button type="button" class="ch-key" data-key="right" title="Right">→</button>
       <button type="button" id="console-select-line" class="ch-key" data-testid="console-select-line" title="Select line">Line</button>
@@ -133,17 +139,22 @@
   .ch-font-label { font-size: 0.7rem; font-family: ui-monospace, monospace; width: 1.4rem; text-align: center; color: var(--color-muted); }
   .ch-banner { margin: 0.5rem; padding: 0.75rem; border-radius: 0.4rem; }
   .ch-gate {
-    flex-shrink: 0; padding: 0.25rem 0.35rem;
+    flex-shrink: 0; padding: 0.2rem 0.3rem;
     border-bottom: 1px solid var(--color-border, #333);
     background: var(--color-surface, #12171e);
   }
-  .ch-gate-row { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
-  .ch-gate-main { gap: 0.25rem; }
+  .ch-gate-row {
+    display: flex; flex-wrap: nowrap; gap: 0.25rem; align-items: center;
+    min-width: 0;
+  }
+  .ch-gate-main { gap: 0.2rem; }
+  .ch-btn-compact { flex-shrink: 0; padding-left: 0.4rem !important; padding-right: 0.4rem !important; }
+  .ch-2fa-hint { font-size: 0.68rem; margin-left: 0.15rem; white-space: nowrap; }
   .ch-tools {
     display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center;
     padding: 0.25rem 0 0.1rem;
     border-top: 1px dashed var(--color-border, #333);
-    margin-top: 0.25rem;
+    margin-top: 0.2rem;
   }
   .ch-tools.hidden { display: none; }
   .ch-totp {
@@ -151,40 +162,57 @@
     border: 1px solid var(--color-border, #333); border-radius: 0.35rem;
     background: var(--color-bg, #0b0f14); color: inherit;
   }
-  .ch-status { font-size: 0.7rem; color: var(--color-muted); flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ch-status {
+    font-size: 0.65rem; color: var(--color-muted);
+    flex: 1 1 auto; min-width: 0; max-width: 10rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* Collapsed chrome: hide status/slots until ··· on the gate */
+  .ch.is-status-hidden .ch-status-collapsible,
+  .ch.is-status-hidden .ch-slots-inline { display: none !important; }
   .ch-err { margin: 0.25rem 0 0; }
   /* Compact / maximized: minimal chrome, max terminal */
   .ch.is-compact .ch-hide-compact { display: none !important; }
-  .ch.is-compact .ch-gate { padding: 0.15rem 0.3rem; }
-  .ch.is-compact .ch-shell-tabs { padding: 0.15rem 0.3rem; min-height: 0; }
-  .ch.is-compact .console-tab { min-height: 1.55rem; padding: 0.2rem 0.4rem; font-size: 0.68rem; }
-  .ch.is-compact .ch-keys { padding: 0.15rem 0.25rem; gap: 0.15rem; }
-  .ch.is-compact .ch-key { min-height: 1.65rem; min-width: 1.75rem; font-size: 0.65rem; }
+  .ch.is-compact .ch-gate { padding: 0.12rem 0.25rem; }
+  .ch.is-compact .console-tab { min-height: 1.5rem; padding: 0.15rem 0.3rem; font-size: 0.66rem; }
+  .ch.is-compact .ch-keys { padding: 0.12rem 0.2rem; gap: 0.12rem; }
+  .ch.is-compact .ch-key { min-height: 1.6rem; min-width: 1.65rem; font-size: 0.64rem; padding: 0.1rem 0.3rem; }
   .ch.is-compact .ch-tools { display: none !important; }
-  .ch.is-compact #console-tools-toggle.is-on + .ch-status { /* keep */ }
   .ch.is-compact.ch-tools-open .ch-tools { display: flex !important; }
+  .ch.is-compact .ch-2fa-hint { display: none; }
   .ch.is-kb-layout .ch-tools { display: none !important; }
   .ch.is-kb-layout .ch-keys-extra { display: none !important; }
   .ch-workspace {
     flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
     border: 0; border-radius: 0; overflow: hidden;
   }
+  /* Shell tabs sit in the main gate row (no second chrome line) */
   .ch-shell-tabs {
-    display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center;
-    padding: 0.3rem 0.4rem; border-bottom: 1px solid var(--color-border, #333);
-    background: var(--color-surface, #12171e); flex-shrink: 0;
+    display: flex; flex-wrap: nowrap; gap: 0.2rem; align-items: center;
+    flex: 1 1 auto; min-width: 0; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding: 0;
   }
-  .ch-tab-empty { font-size: 0.7rem; color: var(--color-muted); padding: 0.2rem 0.4rem; }
+  .ch-tab-empty { font-size: 0.68rem; color: var(--color-muted); padding: 0.15rem 0.3rem; white-space: nowrap; }
   .console-tab {
-    display: inline-flex; align-items: center; gap: 0.3rem;
-    padding: 0.3rem 0.55rem; border-radius: 0.35rem; font-size: 0.72rem;
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    padding: 0.25rem 0.35rem 0.25rem 0.45rem; border-radius: 0.35rem; font-size: 0.7rem;
     border: 1px solid var(--color-border, #333); background: transparent; color: inherit;
-    min-height: 1.85rem; cursor: pointer;
+    min-height: 1.75rem; cursor: pointer; flex-shrink: 0; white-space: nowrap;
   }
   .console-tab.is-active { border-color: var(--color-accent, #22c55e); background: rgba(34,197,94,0.1); }
   .console-tab.is-minimized { opacity: 0.6; }
-  .console-tab .dot { width: 0.35rem; height: 0.35rem; border-radius: 999px; background: #22c55e; }
+  .console-tab.is-paused { opacity: 0.85; }
+  .console-tab .dot { width: 0.35rem; height: 0.35rem; border-radius: 999px; background: #22c55e; flex-shrink: 0; }
   .console-tab.is-minimized .dot { background: #a3a3a3; }
+  .console-tab.is-paused .dot { background: #fbbf24; }
+  .console-tab .x {
+    opacity: 0.5; border: 0; background: transparent; color: inherit;
+    cursor: pointer; font-size: 0.95rem; line-height: 1; padding: 0 0.1rem 0 0.15rem;
+    margin: 0; min-width: 1rem;
+  }
+  .console-tab .x:hover { opacity: 1; color: #f87171; }
   .ch-panes {
     position: relative; flex: 1 1 auto; min-height: 0;
     background: #0b0f14;
@@ -204,13 +232,17 @@
     border-top: 1px solid var(--color-border, #333);
     background: var(--color-surface, #12171e);
   }
+  /* One horizontal row; scroll on narrow screens instead of wrapping tall */
   .ch-keys {
-    display: flex; flex-wrap: wrap; gap: 0.2rem;
-    padding: 0.25rem 0.35rem;
+    display: flex; flex-wrap: nowrap; gap: 0.18rem;
+    padding: 0.2rem 0.3rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
   }
   .ch-keys-extra {
     border-top: 1px solid var(--color-border, #333);
-    padding-top: 0.2rem;
+    flex-wrap: nowrap;
   }
   .ch-keys-extra.hidden { display: none; }
   .ch-key {
@@ -218,9 +250,10 @@
     font-size: 0.7rem; font-family: ui-monospace, monospace;
     border: 1px solid var(--color-border, #333); border-radius: 0.3rem;
     background: transparent; color: inherit; cursor: pointer;
+    flex-shrink: 0;
   }
   .ch-key:hover { border-color: var(--color-accent, #22c55e); }
-  .ch-key-wide { min-width: 2.6rem; }
+  .ch-key-wide { min-width: 2.5rem; }
   .ch-key-danger { color: #f87171; }
   .ch-key.is-on, #console-select-mode.is-on, #console-ctrl-mod.is-on {
     border-color: var(--color-accent, #22c55e);
@@ -234,7 +267,7 @@
   }
   .ch-ctrl-letters.hidden { display: none; }
   .ch-ctrl-letters .ch-key { min-width: 1.65rem; text-transform: lowercase; }
-  .ch-slots-inline { font-size: 0.65rem; color: var(--color-muted); margin-left: auto; }
+  .ch-slots-inline { font-size: 0.65rem; color: var(--color-muted); flex-shrink: 0; }
   .ch-select-hint {
     flex-shrink: 0; margin: 0; padding: 0.3rem 0.5rem;
     font-size: 0.68rem; color: var(--color-muted);
@@ -242,6 +275,10 @@
     background: rgba(34, 197, 94, 0.08);
   }
   .ch-select-hint.hidden { display: none; }
+  @media (min-width: 900px) {
+    .ch-status { max-width: 16rem; }
+    .ch-keys { flex-wrap: wrap; overflow-x: visible; }
+  }
   /* Select mode: drag selects text instead of scrolling / focusing textarea */
   .ch-panes.is-select-mode {
     touch-action: none;
@@ -303,9 +340,13 @@
   var btnKeysMore = document.getElementById('console-keys-more');
   var slotInfo2 = document.getElementById('console-slot-info-2');
   var btnRevoke2 = document.getElementById('console-revoke-grant-2');
+  var rowMain = document.getElementById('console-main-row');
+  var btnChromeToggle = document.getElementById('console-chrome-toggle');
   var chromeCompact = false;
   var toolsOpen = false;
   var keysExtraOpen = false;
+  var statusHidden = true; // default: hide status strip after unlock (more terminal)
+  var stepUpDone = !!(grantActive && !requireEvery);
   var popupMode = {{ 'true' if popup_mode else 'false' }};
   var scrollbackDefault = {{ (scrollback_default|default(2000))|int }};
   var windowMaxFallback = false;
@@ -825,13 +866,37 @@
     }
     if (ctrlLettersEl) ctrlLettersEl.classList.add('hidden');
     if (stickyCtrl) {
-      setStatus('Ctrl on — type a letter (or use ^C ^S ^X ^Q).');
+      setStatus('Ctrl on — type a letter, or open ··· for ^C ^S ^X ^Q.');
       try {
         var sh = activeShell();
         if (sh && sh.term) sh.term.focus();
       } catch (e) {}
     } else {
       setStatus('');
+    }
+  }
+
+  function setMainChromeVisible(on) {
+    if (rowMain) rowMain.style.display = on ? '' : 'none';
+  }
+
+  function updateGateVisibility() {
+    // Hide +Shell / Lock / Aa until step-up; re-show 2FA when grant lost
+    var unlocked = !!(grantActive || stepUpDone);
+    if (requireEvery) {
+      // Every shell needs 2FA input, but main tools appear after first success this page
+      if (row2fa) row2fa.style.display = '';
+      setMainChromeVisible(stepUpDone);
+    } else {
+      if (row2fa) row2fa.style.display = grantActive ? 'none' : '';
+      setMainChromeVisible(unlocked);
+    }
+    if (chRootEl) {
+      chRootEl.classList.toggle('is-status-hidden', statusHidden && unlocked);
+    }
+    if (btnChromeToggle) {
+      btnChromeToggle.classList.toggle('is-on', !statusHidden);
+      btnChromeToggle.setAttribute('aria-expanded', statusHidden ? 'false' : 'true');
     }
   }
 
@@ -931,8 +996,9 @@
   function markFleetGrant() {
     if (requireEvery) return;
     grantActive = true;
-    if (row2fa) row2fa.style.display = 'none';
+    stepUpDone = true;
     try { localStorage.setItem(GRANT_LS, String(Date.now())); } catch (e) {}
+    updateGateVisibility();
   }
 
   function syncFleetGrantFromStorage() {
@@ -943,7 +1009,8 @@
       var age = Date.now() - parseInt(t, 10);
       if (isNaN(age) || age > 15 * 60 * 1000) return;
       grantActive = true;
-      if (row2fa) row2fa.style.display = 'none';
+      stepUpDone = true;
+      updateGateVisibility();
     } catch (e) {}
   }
 
@@ -1065,6 +1132,10 @@
 
   function destroyShell(sh) {
     sh.userClosed = true;
+    sh._ending = true;
+    sh.terminalEnded = true;
+    sh.resumeId = null;
+    sh._wsGen = (sh._wsGen || 0) + 1;
     if (sh._pingTimer) {
       try { clearInterval(sh._pingTimer); } catch (e) {}
       sh._pingTimer = null;
@@ -1074,6 +1145,9 @@
       sh._resumeTimer = null;
     }
     if (sh.ws) {
+      try {
+        sh.ws.onopen = sh.ws.onmessage = sh.ws.onerror = sh.ws.onclose = null;
+      } catch (eH) {}
       try {
         if (sh.ws.readyState === 1) {
           sh.ws.send(JSON.stringify({ type: 'bye' }));
@@ -1100,7 +1174,10 @@
     tab.type = 'button';
     tab.className = 'console-tab';
     tab.setAttribute('role', 'tab');
-    tab.innerHTML = '<span class="dot" aria-hidden="true"></span><span class="lab"></span>';
+    tab.innerHTML =
+      '<span class="dot" aria-hidden="true"></span>' +
+      '<span class="lab"></span>' +
+      '<span class="x" title="Close shell" aria-label="Close shell">×</span>';
     tab.querySelector('.lab').textContent = label;
 
     var pane = document.createElement('div');
@@ -1136,9 +1213,16 @@
 
     var sh = {
       id: id, label: label, term: term, fit: fit, ws: null,
-      tab: tab, pane: pane, minimized: false, connected: false
+      tab: tab, pane: pane, minimized: false, connected: false,
+      terminalEnded: false, resumeFails: 0
     };
-    tab.addEventListener('click', function () {
+    tab.addEventListener('click', function (ev) {
+      if (ev.target && ev.target.classList && ev.target.classList.contains('x')) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        requestCloseShell(sh);
+        return;
+      }
       if (sh.minimized) sh.minimized = false;
       activate(id);
     });
@@ -1271,16 +1355,20 @@
       if (data.error === '2fa_required' || data.error === '2fa_bad_code' ||
           data.error === 'passkey_required' || data.error === 'enroll_2fa') {
         grantActive = false;
+        stepUpDone = requireEvery ? stepUpDone : false;
         try { localStorage.removeItem(GRANT_LS); } catch (e0) {}
-        if (row2fa) row2fa.style.display = '';
         setChromeCompact(false);
+        updateGateVisibility();
       }
       throw new Error(map[data.error] || data.detail || ('Error: ' + (data.error || res.status)));
     }
+    stepUpDone = true;
     if (data.grant_active && !requireEvery) {
       markFleetGrant();
       if (helpEl) helpEl.textContent = 'Step-up active for all hosts (~' + (data.grant_minutes || {{ grant_minutes }}) + ' min).';
       if (totpIn) totpIn.value = '';
+    } else {
+      updateGateVisibility();
     }
     return data;
   }
@@ -1326,6 +1414,8 @@
       if (!ver.ok) throw new Error(ver.detail || ver.error || 'Passkey verification failed');
       if (ver.ticket && ver.ws_path) {
         // every-shell policy: open immediately with returned ticket
+        stepUpDone = true;
+        updateGateVisibility();
         setStatus('Passkey OK — opening shell…');
         await openShellWithTicket(ver);
         return;
@@ -1333,6 +1423,9 @@
       if (ver.grant_active && !requireEvery) {
         markFleetGrant();
         if (helpEl) helpEl.textContent = 'Passkey OK — all hosts until grant expires.';
+      } else {
+        stepUpDone = true;
+        updateGateVisibility();
       }
       setStatus('Passkey OK — click + Shell (works on every host).');
     } catch (e) {
@@ -1350,28 +1443,82 @@
     return proto + '//' + location.host + (serverPath || ('/servers/' + serverId + '/console/ws'));
   }
 
+  function markShellPaused(sh) {
+    if (!sh) return;
+    sh.paused = true;
+    sh.connected = false;
+    if (sh.tab) sh.tab.classList.add('is-paused');
+    updateToolbar();
+  }
+
+  function markShellLive(sh) {
+    if (!sh) return;
+    sh.paused = false;
+    if (sh.tab) sh.tab.classList.remove('is-paused');
+  }
+
+  function endShellSession(sh, reason) {
+    // Terminal truly ended (exit, idle, max, resume fail) — no soft-resume
+    if (!sh || sh._ending || sh.userClosed) return;
+    sh._ending = true;
+    sh.terminalEnded = true;
+    sh.resumeId = null;
+    sh.reconnecting = false;
+    sh.connected = false;
+    if (sh._resumeTimer) {
+      try { clearTimeout(sh._resumeTimer); } catch (e) {}
+      sh._resumeTimer = null;
+    }
+    var note = reason || 'session closed';
+    try { if (sh.term) sh.term.writeln('\r\n*** ' + note + ' ***'); } catch (e2) {}
+    setStatus((sh.label || 'Shell') + ' closed');
+    setTimeout(function () { if (shells.indexOf(sh) >= 0) destroyShell(sh); }, 350);
+  }
+
   function attachShellSocket(sh, authMsg, opts) {
     opts = opts || {};
     var url = wsUrl(opts.ws_path);
+    // Close previous socket cleanly; its handlers must ignore events (generation guard)
+    var prev = sh.ws;
+    var gen = (sh._wsGen || 0) + 1;
+    sh._wsGen = gen;
+    if (prev) {
+      try { prev.onopen = prev.onmessage = prev.onerror = prev.onclose = null; } catch (e0) {}
+      try {
+        if (prev.readyState === 0 || prev.readyState === 1) prev.close();
+      } catch (e1) {}
+    }
     var ws = new WebSocket(url);
     ws.binaryType = 'arraybuffer';
     sh.ws = ws;
     sh.userClosed = false;
-    sh.resumeId = sh.resumeId || null;
-    sh.reconnecting = false;
+    // Keep resumeId across reconnects; only clear on true session end
+    if (!opts.resuming) {
+      sh.terminalEnded = false;
+    }
+    sh.reconnecting = !!opts.resuming;
+
+    function isCurrent() {
+      // Ignore stale sockets after a newer attachShellSocket / destroy
+      return sh.ws === ws && sh._wsGen === gen && !sh.userClosed && !sh._ending;
+    }
 
     ws.onopen = function () {
+      if (!isCurrent()) return;
       try { ws.send(JSON.stringify(authMsg)); } catch (e) {}
       sh.connected = true;
       sh.reconnecting = false;
-      sh.paused = false;
+      markShellLive(sh);
+      if (opts.resuming) sh.resumeFails = 0;
+      else sh.resumeFails = 0;
       setStatus((opts.resuming ? 'Resumed: ' : 'Connected: ') + sh.label);
       updateToolbar();
       // Multiple fits: iframe may still be settling after host-tab switch
       function fitSend() {
+        if (!isCurrent()) return;
         try {
           if (sh.fit) sh.fit.fit();
-          if (sh.ws && sh.ws.readyState === 1) {
+          if (sh.ws === ws && ws.readyState === 1) {
             ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
           }
         } catch (e) {}
@@ -1383,19 +1530,27 @@
         mobileSelectNudge = true;
       }
       // Focus so keyboard works after host switch
-      try { sh.term.focus(); } catch (e2) {}
+      try { if (isActiveHostFrame()) sh.term.focus(); } catch (e2) {}
     };
 
     ws.onmessage = function (ev) {
+      if (!isCurrent()) return;
       if (typeof ev.data === 'string') {
         var t = ev.data;
-        // Control plane from server (resume token / pong)
+        // Control plane from server (resume token / pong / session end)
         if (t.charAt(0) === '{' && t.indexOf('"ph_session"') >= 0) {
           try {
             var m = JSON.parse(t);
-            if (m && m.type === 'ph_session' && m.resume) {
-              sh.resumeId = m.resume;
-              return;
+            if (m && m.type === 'ph_session') {
+              if (m.ended) {
+                sh.terminalEnded = true;
+                sh.resumeId = null;
+                return;
+              }
+              if (m.resume) {
+                sh.resumeId = m.resume;
+                return;
+              }
             }
           } catch (e) {}
         }
@@ -1406,33 +1561,53 @@
     };
 
     ws.onclose = function () {
+      // Stale socket after reconnect/resume must never tear down a live shell
+      if (sh.ws !== ws || sh._wsGen !== gen) return;
       sh.connected = false;
       updateToolbar();
-      if (sh.userClosed) {
-        sh.term.writeln('\r\n*** session closed ***');
-        setTimeout(function () { if (shells.indexOf(sh) >= 0) destroyShell(sh); }, 300);
+      if (sh.userClosed || sh._ending) return;
+
+      // exit / idle / max / bye — server sent ended; close tab
+      if (sh.terminalEnded) {
+        endShellSession(sh, 'session ended');
         return;
       }
-      // Unexpected drop: keep UI. Only resume when THIS host tab is active —
-      // resuming while the iframe is visibility:hidden burns the resume token
-      // and leaves host 1 dead after switching to host 2 and back.
-      if (sh.resumeId) {
-        sh.paused = true;
+
+      // Never got a resume token (auth failed before open) — only end if this host is active
+      if (!sh.resumeId) {
         if (isActiveHostFrame()) {
-          sh.term.writeln('\r\n*** connection paused — resuming… ***');
-          scheduleResume(sh, 400);
+          endShellSession(sh, 'session closed');
         } else {
-          // Stay parked on server until user clicks this host tab again
-          setStatus(sh.label + ' paused — switch back to this host to resume');
+          markShellPaused(sh);
+          setStatus((sh.label || 'Shell') + ' disconnected — switch back to retry');
         }
+        return;
+      }
+
+      // Unexpected drop: park on server; keep shell tab alive on other hosts
+      markShellPaused(sh);
+      if (opts.resuming && isActiveHostFrame()) {
+        sh.resumeFails = (sh.resumeFails || 0) + 1;
+        if (sh.resumeFails >= 3) {
+          endShellSession(sh, 'resume failed — shell closed');
+          return;
+        }
+      }
+
+      if (isActiveHostFrame()) {
+        if ((sh.resumeFails || 0) < 1) {
+          try { sh.term.writeln('\r\n*** connection paused — resuming… ***'); } catch (e3) {}
+        }
+        scheduleResume(sh, opts.resuming ? 1200 : 400);
       } else {
-        sh.term.writeln('\r\n*** session closed ***');
-        setTimeout(function () { if (shells.indexOf(sh) >= 0) destroyShell(sh); }, 400);
+        // Do NOT resume while another host tab is active (burns the resume token).
+        // Soft-park stays on the server until this host tab is selected again.
+        setStatus(sh.label + ' parked — select this host to resume');
       }
     };
 
     ws.onerror = function () {
-      // onclose follows
+      // onclose follows; ignore if superseded
     };
 
     // Keepalive while WS is up (including background host tabs) so idle timer
@@ -1441,32 +1616,36 @@
       try { clearInterval(sh._pingTimer); } catch (e) {}
     }
     sh._pingTimer = setInterval(function () {
-      if (!sh.ws || sh.ws.readyState !== 1) return;
-      try { sh.ws.send(JSON.stringify({ type: 'ping' })); } catch (e) {}
-    }, 20000);
+      if (sh.ws !== ws || sh._wsGen !== gen) return;
+      if (!ws || ws.readyState !== 1) return;
+      try { ws.send(JSON.stringify({ type: 'ping' })); } catch (e) {}
+    }, 15000);
 
     updateToolbar();
   }
 
   function scheduleResume(sh, delayMs) {
-    if (!sh || sh.userClosed || !sh.resumeId) return;
+    if (!sh || sh.userClosed || sh.terminalEnded || sh._ending || !sh.resumeId) return;
     if (sh._resumeTimer) {
       try { clearTimeout(sh._resumeTimer); } catch (e) {}
     }
     sh._resumeTimer = setTimeout(function () {
+      sh._resumeTimer = null;
       tryResumeShell(sh);
     }, delayMs || 500);
   }
 
   function tryResumeShell(sh) {
-    if (!sh || sh.userClosed || !sh.resumeId) return;
-    // Critical: never reclaim resume while this host iframe is hidden
+    if (!sh || sh.userClosed || sh.terminalEnded || sh._ending || !sh.resumeId) return;
+    // Critical: never reclaim resume while this host iframe is inactive —
+    // that burns the single-use park token and kills host 1 when you open host 2.
     if (!isActiveHostFrame()) {
       sh.reconnecting = false;
+      markShellPaused(sh);
       return;
     }
     if (sh.ws && (sh.ws.readyState === 0 || sh.ws.readyState === 1)) return;
-    if (sh.reconnecting) return;
+    if (sh.reconnecting && sh.ws && sh.ws.readyState === 0) return;
     sh.reconnecting = true;
     setStatus('Resuming ' + sh.label + '…');
     attachShellSocket(sh, { type: 'resume', resume: sh.resumeId }, { resuming: true });
@@ -1475,8 +1654,14 @@
   function resumeAllShells() {
     if (!isActiveHostFrame()) return;
     shells.forEach(function (sh) {
-      if (sh.userClosed) return;
-      if (sh.connected && sh.ws && sh.ws.readyState === 1) return;
+      if (sh.userClosed || sh.terminalEnded || sh._ending) return;
+      if (sh.ws && sh.ws.readyState === 1) {
+        sh.connected = true;
+        markShellLive(sh);
+        return;
+      }
+      // Connecting already
+      if (sh.ws && sh.ws.readyState === 0) return;
       if (sh.resumeId) scheduleResume(sh, 200);
     });
   }
@@ -1485,7 +1670,7 @@
   function onHostTabActivate() {
     syncFleetGrantFromStorage();
     // Ensure a shell pane is shown and marked active
-    var live = shells.filter(function (s) { return !s.userClosed; });
+    var live = shells.filter(function (s) { return !s.userClosed && !s._ending; });
     if (live.length) {
       var cur = live.find(function (s) { return s.id === activeId && !s.minimized; });
       if (!cur) {
@@ -1499,11 +1684,14 @@
         activate(cur.id);
       }
     }
-    // Resume only if WS died while we were on another host
+    // Resume only if WS died while we were on another host (token still parked)
     resumeAllShells();
     // If still connected (opacity keep-alive worked), just refit + focus
     shells.forEach(function (sh) {
-      if (!sh.connected || !sh.ws || sh.ws.readyState !== 1) return;
+      if (sh.userClosed || sh._ending) return;
+      if (!sh.ws || sh.ws.readyState !== 1) return;
+      sh.connected = true;
+      markShellLive(sh);
       try {
         if (sh.fit) sh.fit.fit();
         sh.ws.send(JSON.stringify({ type: 'resize', cols: sh.term.cols, rows: sh.term.rows }));
@@ -1518,10 +1706,14 @@
       if (sh && sh.term) {
         try { sh.term.focus(); } catch (e) {}
       }
-      if (sh && sh.connected) {
+      if (sh && sh.connected && sh.ws && sh.ws.readyState === 1) {
         setStatus('Active: ' + sh.label);
       } else if (sh && sh.resumeId) {
         setStatus('Resuming ' + sh.label + '…');
+        // Second chance if first resume was blocked by timing
+        scheduleResume(sh, 100);
+      } else if (sh && !sh.connected) {
+        setStatus(sh.label + ' disconnected');
       }
     }, 400);
   }
@@ -1585,11 +1777,50 @@
     setStatus(sh.label + ' restored.');
   }
 
+  /** Prefer parent modal when embed so confirm isn't clipped inside iframe. */
+  function phConfirm(message, opts) {
+    opts = opts || {};
+    try {
+      if (window.parent && window.parent !== window &&
+          window.parent.PiHerderConfirm &&
+          typeof window.parent.PiHerderConfirm.confirm === 'function') {
+        return window.parent.PiHerderConfirm.confirm(message, opts);
+      }
+    } catch (e) {}
+    if (window.PiHerderConfirm && typeof window.PiHerderConfirm.confirm === 'function') {
+      return window.PiHerderConfirm.confirm(message, opts);
+    }
+    return Promise.resolve(false);
+  }
+
+  function requestCloseShell(sh, label) {
+    if (!sh) return Promise.resolve(false);
+    var name = label || sh.label || 'this shell';
+    if (!sh.connected && !sh.resumeId && !sh.paused) {
+      destroyShell(sh);
+      setStatus('Shell closed.');
+      return Promise.resolve(true);
+    }
+    return phConfirm(
+      'Close ' + name + '?\n\nThe remote session will end.',
+      {
+        title: 'Close shell',
+        confirmLabel: 'Close shell',
+        cancelLabel: 'Keep open',
+        danger: true
+      }
+    ).then(function (ok) {
+      if (!ok) return false;
+      destroyShell(sh);
+      setStatus('Shell closed.');
+      return true;
+    });
+  }
+
   function closeActive() {
     var sh = shells.find(function (s) { return s.id === activeId; });
     if (!sh) return;
-    destroyShell(sh);
-    setStatus('Shell closed.');
+    requestCloseShell(sh);
   }
 
   // App switch / tab sleep: resume shells when user returns
@@ -1727,10 +1958,18 @@
         });
       } catch (e) {}
       grantActive = false;
+      stepUpDone = false;
       try { localStorage.removeItem(GRANT_LS); } catch (e2) {}
-      if (row2fa) row2fa.style.display = '';
+      updateGateVisibility();
       if (helpEl) helpEl.textContent = 'Step-up locked. Prefer passkey, or enter authenticator TOTP for the next shell.';
       setStatus('Step-up revoked — re-authenticate before the next shell.');
+    });
+  }
+  if (btnChromeToggle) {
+    btnChromeToggle.addEventListener('click', function () {
+      statusHidden = !statusHidden;
+      updateGateVisibility();
+      setTimeout(refitActive, 40);
     });
   }
   if (totpIn) {
@@ -1739,6 +1978,7 @@
     });
   }
   setMaxLabels();
+  updateGateVisibility();
   updateToolbar();
 })();
 </script>
