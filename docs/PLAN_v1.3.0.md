@@ -1,15 +1,15 @@
-# PiHerder v1.3.0 — operator policy, scale UX, alerts depth
+# PiHerder v1.3.0 — operator policy, scale UX, multi-identity console, alerts depth
 
 **Status:** **Planning / backlog** — capture while **v1.2.0** finishes on `v1.2.0-dev`  
 **Date opened:** 2026-08-10  
 **Git branch (when train opens):** `v1.3.0-dev` (not opened yet)  
 **Package / image version (at tag):** `1.3.0`  
-**Theme:** Operator-configurable security policy · console knobs in-app · map/alert granularity · fleet-scale list UX (pagination + search)  
+**Theme:** Operator-configurable security policy · multi-identity console · optional command audit · console knobs · map/alert granularity · fleet-scale list UX  
 **Baseline:** `v1.2.0` (when tagged)  
 **Mode:** Planning only — do **not** start implementation streams until 1.2 freezes  
-**Related:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
+**Related:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
 
-> **Not the active train.** v1.2 is identity + webshell + gated demo. This document parks **operator policy and scale** work so 1.2 bug-capture stays focused. Promote streams when the 1.3 train opens.
+> **Not the active train.** v1.2 is identity + webshell + gated demo. This document parks **operator policy, multi-identity shell, and scale** work so 1.2 bug-capture stays focused. Promote streams when the 1.3 train opens.
 
 ---
 
@@ -19,8 +19,10 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 
 1. **Security policy they own** (password rules, 2FA/step-up) without rebuilding images  
 2. **Console policy they own** (timeouts, re-auth, concurrency) without only env vars  
-3. **Alerts they can tune** (severity + what fires on maps / channels)  
-4. **Lists that scale** (page size, filters, free-text / semantic search) when many servers and Docker services exist  
+3. **Least-privilege by default on the host** — manage with a constrained herder SSH user, open a **privileged** shell only when chosen (separate key/user)  
+4. **Deeper optional shell audit** — who ran what in the webshell (commands ± responses), with redaction for secrets  
+5. **Alerts they can tune** (severity + what fires on maps / channels)  
+6. **Lists that scale** (page size, filters, free-text / semantic search) when many servers and Docker services exist  
 
 **Carry-over from earlier plans (still in 1.3 path):** fine-grained roles (**AC-fg**), ACME-in-herder (under consideration), residual HA REST/path2, branding, k8s/bare — see §6 and [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
 
@@ -32,10 +34,12 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 |--------|--------|
 | Integration branch | **`v1.3.0-dev`** when 1.2 is on `main` |
 | Production line until then | **`main` @ 1.2.x** patches; this plan does not block 1.2 |
-| Theme streams (seed) | **P** password policy · **T** 2FA/step-up policy · **W-cfg** console config · **A** alerts/map severity · **L** list pagination + search · (+ **AC-fg** / residual as capacity) |
+| Theme streams (seed) | **P** password policy · **T** 2FA/step-up policy · **W-cfg** console config · **W-id** multi-identity console · **W-audit** command-level shell audit (discover) · **A** alerts/map severity · **L** list pagination + search · (+ **AC-fg** / residual as capacity) |
 | Policy storage | Prefer **app Settings** (DB) with env as override / bootstrap where it already exists |
+| Host SSH identities | At least **two** optional credentials per host: **fleet / least-priv** (default jobs + console) + **privileged** (break-glass console / elevated jobs later); separate Fernet keys |
+| Shell audit | **Opt-in**; default off or session-meta only (1.2); full command/response is **discover → promote** |
 | Semver | Additive minor; document migrations for defaults that change behaviour |
-| Out of focus for seed | Multi-tenant SaaS · SAML · full Elasticsearch · session recording |
+| Out of focus for seed | Multi-tenant SaaS · SAML · full Elasticsearch · **video / full PTY replay** dual-control console |
 
 ```text
 main @ v1.2.0 (+ v1.2.x)
@@ -101,6 +105,66 @@ main @ v1.2.0 (+ v1.2.x)
 
 ---
 
+### Stream **W-id** — Multi-identity host access (least-priv + privileged)
+
+**Today (1.2):** One SSH identity per server (`ssh_username` + one encrypted private key). Jobs and webshell both use that identity. Operators who want least-privilege fleet automation must either over-privilege the herder user or rekey manually outside the product.  
+**Wanted:** Model **multiple named identities** per host (start with two), pick which to use for **console** (and later optionally for specific job classes). **Discover** enrollment UX and sudo/capability notes during 1.3 design.
+
+| ID | Item | Notes |
+|----|------|--------|
+| W-id1 | Data model | e.g. `ServerSshIdentity` (or JSON list): `id`, `label`, `role` (`fleet` / `privileged` / custom), `username`, encrypted private key, optional public key fingerprint, `is_default_for_jobs`, `is_default_for_console`, enabled |
+| W-id2 | Migrate 1.x single key | Existing `ssh_username` + key → one **fleet** identity; UI remains simple for single-identity hosts |
+| W-id3 | Host edit / onboard UI | Add / rotate / remove identities; never show PEM in clear without step-up; separate upload per identity |
+| W-id4 | Console “Connect as…” | Ticket + UI picker: least-priv (default) vs privileged (extra confirm + stronger step-up / audit reason optional) |
+| W-id5 | Jobs vs console | Default: **all automated jobs** stay on fleet/least-priv identity only; privileged key **console-only** unless admin later opts a job type in (out of default Must) |
+| W-id6 | Test connection | Per-identity “test SSH”; show username + fingerprint in UI/audit, not key material |
+| W-id7 | Discovery notes | Document recommended host setup: `piherder` (or deploy user) with docker/rsync group, no password sudo; separate `piherder-admin` / root-capable key for break-glass; deploy public keys via existing SSH deploy path per identity |
+| W-id8 | RBAC | Who may open privileged console (admin only vs operator+); pairs with **AC-fg** later (“console elevated” feature gate) |
+| W-id9 | Demo | Seed only least-priv synthetic identity; privileged console still disabled under `DEMO_MODE` |
+
+**Product shape (sketch):**
+
+```text
+Host: lab-core
+  ├─ Identity "fleet"     user=piherder        key=…  ← jobs + default console
+  └─ Identity "elevated"  user=piherder-admin key=…  ← console only (opt-in)
+Console open → Connect as: [ fleet (default) ▾ | elevated ]
+```
+
+**Non-goals (W-id):** Password-based SSH; agent-based multi-user; automatic discovery of all local OS users on the host (optional later spike only); shared break-glass dual-control (two-person rule).
+
+**Depends on:** 1.2 webshell ticket path uses a single identity today — extend ticket payload with `identity_id`.
+
+---
+
+### Stream **W-audit** — Command-level webshell audit (discover → optional ship)
+
+**Today (1.2):** Audit rows for console open / close / grant / deny (+ client IP, duration, actor). Interactive **command capture** was intentionally **best-effort / not promised** ([FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5).  
+**Wanted:** **Discover** a lower level of auditing: record **commands issued** via webshell and **responses** (or summaries), with **optional redaction** when passwords/secrets appear. Opt-in per instance or per session.
+
+| ID | Item | Notes |
+|----|------|--------|
+| W-audit0 | **Discovery spike** | Capture options: (A) line-buffered PTY transcript server-side · (B) shell wrapper / `script` · (C) client-sent command events only (weak). Prefer **A** with size caps |
+| W-audit1 | Opt-in policy | Settings: off (default) · commands only · commands + truncated output · full session transcript (harder) |
+| W-audit2 | Storage | Append-only blob or chunked rows tied to `console_session_id`; retention + max bytes per session; herder self-backup implications |
+| W-audit3 | Redaction | Heuristics: password prompts (`password:`, `Password for`, sudo); patterns for tokens; optional “pause audit while typing password” control sequence; never claim perfect secrecy |
+| W-audit4 | UI | Session detail: timeline of commands; download/export for admins; viewer role cannot read transcripts |
+| W-audit5 | Integrity | Same encryption-at-rest bar as other secrets where feasible; audit **that** a transcript exists even if body purged |
+| W-audit6 | Legal / ops docs | Retention, who can view, “this may capture secrets typed at the prompt”, disable in demo |
+| W-audit7 | Non-goals clarity | **Not** video session recording; **not** dual-control approval; **not** perfect keystroke timing for forensics lab grade |
+
+**Discovery exit criteria:** Spike proves (or rejects) reliable-enough command boundary detection on interactive bash + redaction of common password prompts without multi-second lag; estimate storage for 1h active session; decide Must vs Cap for 1.3 freeze.
+
+**Security notes:**
+
+- Transcripts are high-sensitivity (may contain secrets despite redaction). Default **off**.  
+- Privileged-identity sessions (**W-id**) should force at least “commands only” or warn when audit is off.  
+- Demo mode: never persist real transcripts.
+
+**Depends on:** Stable 1.2 console WS path; **W-cfg** for retention knobs may share Settings surface.
+
+---
+
 ### Stream **A** — Map alert severity and granular alert options
 
 **Today:** Notifications have severity (`info` / `warning` / `critical`); webhook/SMTP min severity; some stack-health / cert verify alerts; map and inventory surfaces raise alerts with limited operator control over *which* map events and *how loud*.  
@@ -141,17 +205,19 @@ main @ v1.2.0 (+ v1.2.x)
 
 | Priority | Streams | Bar |
 |----------|---------|-----|
-| **Must** | **L** (at least Servers + Docker + discovery) · **P** or **T** (at least one policy stream fully usable) | Operator can run a large fleet without drowning and can set at least one security policy in UI |
-| **Should** | **P** + **T** · **W-cfg** · **A** | Password + 2FA policy + console knobs + alert severity depth |
-| **Discover / Cap** | **AC-fg** · ACME · branding · insights residual | Promote only if Must green |
+| **Must** | **L** (at least Servers + Docker + discovery) · **P** or **T** (at least one policy stream fully usable) · **W-id** core (fleet + privileged identity + console picker) | Scale lists + at least one security policy + least-priv/privileged connect-as |
+| **Should** | **P** + **T** · **W-cfg** · **A** · **W-audit** if spike green | Full policy set + console knobs + alerts + opt-in command audit |
+| **Discover / Cap** | **W-audit** spike · **AC-fg** · ACME · branding · insights residual | Promote only if Must green |
 
 Success criteria (draft):
 
 1. Admin can configure password policy; all password entry paths enforce it and show the same rules.  
 2. Admin can configure force-2FA / step-up windows for the catalogued sensitive actions (incl. console).  
 3. Console idle/max/concurrency/step-up knobs adjustable in Settings without editing compose for common cases.  
-4. Map/stack/cert-style alerts have documented severities and per-category tuning; channels respect filters.  
-5. Servers + Docker service lists support page size + free-text filter without loading unbounded HTML.
+4. Host can store **fleet** + **privileged** SSH identities (separate keys/users); console offers **Connect as…**; jobs stay on fleet by default.  
+5. *(If W-audit promoted)* Opt-in command (± response) audit with redaction heuristics and retention; default off; wiki warns about residual secret capture.  
+6. Map/stack/cert-style alerts have documented severities and per-category tuning; channels respect filters.  
+7. Servers + Docker service lists support page size + free-text filter without loading unbounded HTML.
 
 ---
 
@@ -160,10 +226,10 @@ Success criteria (draft):
 | Gate | Target |
 |------|--------|
 | Unit | Hold ≥ 55% (raise only if easy) |
-| Tests | Policy validate matrix · settings round-trip · list query unit tests · console limit apply |
-| E2E | Settings policy save · one large list page-size · console settings smoke if flag on |
-| Docs | ADMIN + wiki Security / Alerts / Console / list UX; `mkdocs build --strict` at freeze |
-| Security | Policy changes audited; no weakening of demo/prod gates by accident |
+| Tests | Policy validate matrix · settings round-trip · list query unit tests · console limit apply · multi-identity ticket + redaction unit tests |
+| E2E | Settings policy save · one large list page-size · connect-as privileged confirm · console settings smoke if flag on |
+| Docs | ADMIN + wiki Security / Alerts / Console (identities + audit) / list UX; `mkdocs build --strict` at freeze |
+| Security | Policy changes audited; privileged console extra step-up; transcripts access-controlled; demo never stores real shell transcripts |
 
 ---
 
@@ -173,8 +239,9 @@ Success criteria (draft):
 |-----------------|------------------|
 | WebAuthn + step-up helpers | **T** / **W-cfg** factor policy builds on the same paths |
 | SSO 2FA parity | **T** must not re-fork SSO vs password |
-| Webshell tickets + env knobs | **W-cfg** moves knobs into settings |
-| Demo mode IP scrub / OpenAPI gate | Keep demo safe when settings surfaces expand |
+| Webshell tickets + env knobs | **W-cfg** moves knobs into settings; **W-id** extends ticket with identity; **W-audit** taps the same WS stream |
+| Single-key server model | Migration baseline for **W-id** |
+| Demo mode IP scrub / OpenAPI gate | Keep demo safe when settings surfaces expand; no shell transcripts on demo |
 | Force 2FA + trusted devices | Baseline for **T** grace / skip rules |
 
 1.2 bugs and polish found during capture go on **1.2** (or 1.2.x), not this document, unless explicitly deferred here.
@@ -197,7 +264,9 @@ Success criteria (draft):
 - Multi-tenant SaaS / org isolation  
 - Replacing NPM with full ACME product as a 1.3 Must  
 - Vector/embedding “AI search” as a hard dependency  
-- Session recording / dual-control console  
+- **Video / full interactive session replay** and **dual-control** (two-person) console — still out; **W-audit** is opt-in command/transcript style only  
+- Guaranteeing redaction catches every secret typed at a shell  
+- Auto-enumerating all OS users on a host as “identities”  
 - Weakening public **demo** into a multi-user admin sandbox  
 
 ---
@@ -206,7 +275,8 @@ Success criteria (draft):
 
 | Date | Note |
 |------|------|
-| 2026-08-10 | Opened while finishing **v1.2** demo/ops. Seed streams from operator asks: **P** password policy · **T** 2FA/step-up policy · **W-cfg** console timeouts/limits/step-up · **A** map alert severity + granular alerts · **L** pagination + free-text/smart search across dense lists. |
+| 2026-08-10 | Opened while finishing **v1.2** demo/ops. Seed streams: **P** password policy · **T** 2FA/step-up policy · **W-cfg** console timeouts/limits/step-up · **A** map alert severity + granular alerts · **L** pagination + free-text/smart search. |
+| 2026-08-10 | Added **W-id** multi-identity host SSH (least-priv fleet user + privileged user, separate keys, Connect as…) and **W-audit** discover lower-level webshell audit (commands + responses, optional password redaction). |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
@@ -219,7 +289,9 @@ Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3�
 | 1 | Finish **v1.2.0** freeze / tag / Hub |
 | 2 | Open **`v1.3.0-dev`** + lock Must/Should from this seed |
 | 3 | Spike **L1** shared list component + **P1** settings schema (cheap wins first) |
-| 4 | Write short feature notes (or extend IAM plan) for **T** / **W-cfg** before coding |
+| 4 | Spike **W-id** model + console ticket identity field (no UI polish) |
+| 5 | Spike **W-audit0** PTY capture + redaction on a throwaway host; promote or Cap |
+| 6 | Write short feature notes (or extend host-lifecycle / IAM plans) for **T** / **W-cfg** / **W-id** / **W-audit** before coding |
 
 ---
 
