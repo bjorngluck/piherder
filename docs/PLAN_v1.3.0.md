@@ -1,15 +1,15 @@
-# PiHerder v1.3.0 — operator policy, scale UX, multi-identity console, alerts depth
+# PiHerder v1.3.0 — operator policy, scale UX, multi-identity console, alerts, insights
 
 **Status:** **Planning / backlog** — capture while **v1.2.0** finishes on `v1.2.0-dev`  
 **Date opened:** 2026-08-10  
 **Git branch (when train opens):** `v1.3.0-dev` (not opened yet)  
 **Package / image version (at tag):** `1.3.0`  
-**Theme:** Operator-configurable security policy · multi-identity console · optional command audit · console knobs · map/alert granularity · fleet-scale list UX  
+**Theme:** Operator-configurable security policy · multi-identity console · optional command audit · console knobs · map/alert granularity · fleet-scale list UX · thin-slice reporting / custom dashboards  
 **Baseline:** `v1.2.0` (when tagged)  
 **Mode:** Planning only — do **not** start implementation streams until 1.2 freezes  
 **Related:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
 
-> **Not the active train.** v1.2 is identity + webshell + gated demo. This document parks **operator policy, multi-identity shell, and scale** work so 1.2 bug-capture stays focused. Promote streams when the 1.3 train opens.
+> **Not the active train.** v1.2 is identity + webshell + gated demo. This document parks **operator policy, multi-identity shell, scale, and insights** work so 1.2 bug-capture stays focused. Promote streams when the 1.3 train opens.
 
 ---
 
@@ -23,6 +23,7 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 4. **Deeper optional shell audit** — who ran what in the webshell (commands ± responses), with redaction for secrets  
 5. **Alerts they can tune** (severity + what fires on maps / channels)  
 6. **Lists that scale** (page size, filters, free-text / semantic search) when many servers and Docker services exist  
+7. **At-a-glance reporting** — discovery + a **thin slice** of reporting / custom dashboarding (not a full BI product)
 
 **Carry-over from earlier plans (still in 1.3 path):** fine-grained roles (**AC-fg**), ACME-in-herder (under consideration), residual HA REST/path2, branding, k8s/bare — see §6 and [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
 
@@ -34,12 +35,13 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 |--------|--------|
 | Integration branch | **`v1.3.0-dev`** when 1.2 is on `main` |
 | Production line until then | **`main` @ 1.2.x** patches; this plan does not block 1.2 |
-| Theme streams (seed) | **P** password policy · **T** 2FA/step-up policy · **W-cfg** console config · **W-id** multi-identity console · **W-audit** command-level shell audit (discover) · **A** alerts/map severity · **L** list pagination + search · (+ **AC-fg** / residual as capacity) |
+| Theme streams (seed) | **P** · **T** · **W-cfg** · **W-id** · **W-audit** (discover) · **A** · **L** · **N** insights thin slice (discover → ship) · (+ **AC-fg** / residual as capacity) |
 | Policy storage | Prefer **app Settings** (DB) with env as override / bootstrap where it already exists |
 | Host SSH identities | At least **two** optional credentials per host: **fleet / least-priv** (default jobs + console) + **privileged** (break-glass console / elevated jobs later); separate Fernet keys |
 | Shell audit | **Opt-in**; default off or session-meta only (1.2); full command/response is **discover → promote** |
+| Insights | **Discover + thin slice only** — compose existing fleet signals; not a second Grafana |
 | Semver | Additive minor; document migrations for defaults that change behaviour |
-| Out of focus for seed | Multi-tenant SaaS · SAML · full Elasticsearch · **video / full PTY replay** dual-control console |
+| Out of focus for seed | Multi-tenant SaaS · SAML · full Elasticsearch · **video / full PTY replay** dual-control console · full custom BI / arbitrary SQL dashboards |
 
 ```text
 main @ v1.2.0 (+ v1.2.x)
@@ -201,13 +203,48 @@ Console open → Connect as: [ fleet (default) ▾ | elevated ]
 
 ---
 
+### Stream **N** — Insights: discovery + thin-slice reporting / custom dashboards
+
+**Today:** Dashboard / ops-hero pulses, Jobs, Audit, Alerts, per-host Overview, maps, and integration detail pages. No operator-owned **report layout** or savable **custom dashboard** of mixed widgets. Roadmap item **N** was “discovery + first thin slice post v1.0” ([ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md)).  
+**Wanted:** Run a short **discovery** (what operators actually want on one screen), then ship a **thin slice** — not Grafana-in-herder.
+
+| ID | Item | Notes |
+|----|------|--------|
+| N0 | **Discovery** | Interview / ops notes: top 5 “I open PiHerder to see…”. Inventory existing data sources (hosts online, job success rate, open alerts by severity, cert expiry, backup last-ok, docker unhealthy, nmap new devices, map down edges). Decide home vs dedicated **Reports** route |
+| N1 | Metric registry (thin) | Named, versioned metrics/cards: `id`, label, query or service call, refresh hint, RBAC (viewer-safe). Reuse existing services — no parallel warehouse |
+| N2 | Built-in “Fleet health” board | One default dashboard: 4–8 fixed widgets from the registry (counts + links into existing pages). Good enough for most single-operator labs |
+| N3 | Custom dashboard v1 | User (or admin) can **add / remove / reorder** widgets from the registry on **one** personal or instance board; persist layout JSON; no arbitrary SQL |
+| N4 | Time windows (optional Cap) | “Last 24h / 7d” on job/audit derived cards only where cheap; no long-term TSDB |
+| N5 | Export Cap | Optional CSV/PDF of a single summary card or board later — not Must |
+| N6 | Grafana coexistence | Keep deep metrics/graphs in Grafana; herder boards are **ops summary + navigation**, not timeseries product. Document “when to use which” |
+| N7 | Demo seed | Seed a pretty default board so the public demo shows the surface |
+
+**Product shape (sketch):**
+
+```text
+Reports / Dashboard (custom)
+  ├─ Widget: Hosts up/down          → /servers?status=…
+  ├─ Widget: Open alerts by severity → /notifications
+  ├─ Widget: Backups stale          → /servers?… or jobs
+  ├─ Widget: Certs expiring ≤30d    → certificates
+  └─ [ + Add widget ] from registry
+```
+
+**Discovery exit criteria:** Written one-pager of N0 findings; pick **N2 only** vs **N2+N3** for freeze; reject scope creep (custom PromQL, multi-page BI, embedding iframes of random apps as “widgets” without security review).
+
+**Non-goals (N):** Full Grafana replacement; arbitrary SQL / PromQL builder; multi-tenant shared gallery marketplace; real-time streaming charts; storing high-cardinality metrics history in Postgres forever.
+
+**Depends on:** Stable 1.x data already in DB; **L** helps if boards link into long lists; **A** severity taxonomy improves alert widgets.
+
+---
+
 ## 3. Ship bar (draft — finalise at train open)
 
 | Priority | Streams | Bar |
 |----------|---------|-----|
 | **Must** | **L** (at least Servers + Docker + discovery) · **P** or **T** (at least one policy stream fully usable) · **W-id** core (fleet + privileged identity + console picker) | Scale lists + at least one security policy + least-priv/privileged connect-as |
-| **Should** | **P** + **T** · **W-cfg** · **A** · **W-audit** if spike green | Full policy set + console knobs + alerts + opt-in command audit |
-| **Discover / Cap** | **W-audit** spike · **AC-fg** · ACME · branding · insights residual | Promote only if Must green |
+| **Should** | **P** + **T** · **W-cfg** · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) | Full policy set + console knobs + alerts + opt-in command audit + thin reporting surface |
+| **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-audit** spike · **AC-fg** · ACME · branding | Promote only if Must green |
 
 Success criteria (draft):
 
@@ -217,7 +254,8 @@ Success criteria (draft):
 4. Host can store **fleet** + **privileged** SSH identities (separate keys/users); console offers **Connect as…**; jobs stay on fleet by default.  
 5. *(If W-audit promoted)* Opt-in command (± response) audit with redaction heuristics and retention; default off; wiki warns about residual secret capture.  
 6. Map/stack/cert-style alerts have documented severities and per-category tuning; channels respect filters.  
-7. Servers + Docker service lists support page size + free-text filter without loading unbounded HTML.
+7. Servers + Docker service lists support page size + free-text filter without loading unbounded HTML.  
+8. *(If N promoted)* Operators have at least a **built-in fleet health board** of existing signals; optional **one** customisable layout from a fixed widget registry (no arbitrary queries).
 
 ---
 
@@ -228,8 +266,8 @@ Success criteria (draft):
 | Unit | Hold ≥ 55% (raise only if easy) |
 | Tests | Policy validate matrix · settings round-trip · list query unit tests · console limit apply · multi-identity ticket + redaction unit tests |
 | E2E | Settings policy save · one large list page-size · connect-as privileged confirm · console settings smoke if flag on |
-| Docs | ADMIN + wiki Security / Alerts / Console (identities + audit) / list UX; `mkdocs build --strict` at freeze |
-| Security | Policy changes audited; privileged console extra step-up; transcripts access-controlled; demo never stores real shell transcripts |
+| Docs | ADMIN + wiki Security / Alerts / Console (identities + audit) / list UX / Reports; `mkdocs build --strict` at freeze |
+| Security | Policy changes audited; privileged console extra step-up; transcripts access-controlled; demo never stores real shell transcripts; dashboard widgets respect RBAC |
 
 ---
 

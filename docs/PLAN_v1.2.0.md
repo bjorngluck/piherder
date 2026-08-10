@@ -340,6 +340,7 @@ Phase 4  Freeze
 - **Configurable password / 2FA-step-up / console timeout policy in Settings** — fixed code policy + env console knobs in 1.2; **→ v1.3** streams **P / T / W-cfg**  
 - **Multi-identity host SSH + command-level shell audit** — one key/user per host and session meta audit only in 1.2; **→ v1.3** streams **W-id / W-audit**  
 - **Map alert severity depth + app-wide pagination/search** — **→ v1.3** streams **A / L**  
+- **Insights / custom dashboards** — **→ v1.3** stream **N** (discover + thin slice only)  
 - SAML  
 - ACME-in-herder (still ≥1.3 consideration)  
 - Live anonymized mirror of production  
