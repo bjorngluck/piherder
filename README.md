@@ -9,7 +9,27 @@
 [![Release](https://img.shields.io/badge/release-v1.1.0-green.svg)](docs/RELEASE_v1.1.0.md)
 [![Docker Hub](https://img.shields.io/badge/docker-bjorngluck%2Fpiherder-blue.svg)](https://hub.docker.com/r/bjorngluck/piherder)
 [![Docs](https://img.shields.io/badge/docs-wiki-red.svg)](https://piherder-docs.hacknow.info/)
+[![Demo](https://img.shields.io/badge/demo-view--only-orange.svg)](https://piherder-demo.hacknow.info)
 [![Sponsor](https://img.shields.io/badge/Sponsor-%231EAEDB?logo=githubsponsors&logoColor=fff&style=flat)](https://github.com/sponsors/bjorngluck)
+
+### Public demo site (view-only)
+
+**PiHerder has a live public demo** so you can explore the UI before installing:
+
+**→ [https://piherder-demo.hacknow.info](https://piherder-demo.hacknow.info)**
+
+| | |
+|--|--|
+| **Host** | https://piherder-demo.hacknow.info |
+| **Username** | `demo@hacknow.info` |
+| **Password** | `PiHerder@123?_` |
+| **Access** | Shared **viewer** account (read-oriented menus; not admin) |
+
+No install required. Log in with the shared credentials above, click around the dashboard, hosts, jobs, maps, and integrations. There is **no path to your machines** — the fleet is synthetic, jobs are simulated, and real SSH / API tokens / onboarding are disabled.
+
+**Demo ≠ production pixel-for-pixel.** Some screens and “highlighted” features on the demo are **not 100% aligned** with a real self-hosted fleet. That is intentional: hosts, inventory, jobs, maps, and integrations are **seeded / simulated** so the sandbox is safe and disposable. Expect canned job results, static sample data, and occasional empty or simplified panels where a live deployment would talk to real Pis, Docker, or external services. Your own install against real hosts is the accurate product experience.
+
+Full limits and notes: **[Public demo (wiki)](https://piherder-docs.hacknow.info/operations/demo-site/)**. The shared password may rotate; **the live wiki page always has the current password**.
 
 ### Why PiHerder?
 
@@ -53,6 +73,7 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 ### Documentation
 
 - Full docs & wiki: [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/)
+- Public demo (view-only): [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) · [wiki credentials](https://piherder-docs.hacknow.info/operations/demo-site/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - **Current production:** [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) (day-to-day operator improvements — certs · discovery · identity · UX · maps · API)

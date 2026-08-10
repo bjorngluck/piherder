@@ -1,58 +1,37 @@
 #!/usr/bin/env bash
-# Hard demo reset: optional compose volume wipe + re-seed.
-# Prefer in-container re-seed for day-to-day; use --wipe for empty volumes.
+# Thin wrapper → scripts/demo-maintain.sh (preferred for VPS cron).
+#   ./scripts/demo_seed/reset.sh          # data-side force re-seed
+#   ./scripts/demo_seed/reset.sh --wipe   # volume wipe + redeploy + seed
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-cd "$ROOT"
+MAINT="$ROOT/scripts/demo-maintain.sh"
 
-WIPE=0
-COMPOSE=(docker compose -f docker-compose.yml -f docker-compose.demo.yml)
+if [[ ! -x "$MAINT" ]]; then
+  echo "missing $MAINT" >&2
+  exit 1
+fi
 
-usage() {
-  cat <<EOF
+case "${1:-}" in
+  --wipe)
+    exec "$MAINT" redeploy --wipe
+    ;;
+  -h|--help)
+    cat <<EOF
 Usage: $(basename "$0") [--wipe]
 
-  --wipe   docker compose down -v then up (destroys Postgres volume)
-  default  re-seed in running web container (force)
+  (default)  force re-seed (keeps volumes) — same as demo-maintain.sh data-reset
+  --wipe     compose down -v + up + seed — same as demo-maintain.sh redeploy --wipe
 
-Requires demo overlay (PIHERDER_DEMO_MODE) and a running web service for non-wipe.
+VPS schedule / logging: docs/DEMO_SITE.md § Cron · scripts/cron.d/piherder-demo.example
 EOF
-}
-
-for arg in "$@"; do
-  case "$arg" in
-    --wipe) WIPE=1 ;;
-    -h|--help) usage; exit 0 ;;
-    *) echo "Unknown arg: $arg" >&2; usage; exit 1 ;;
-  esac
-done
-
-if [[ "$WIPE" -eq 1 ]]; then
-  echo "==> Wipe volumes and restart demo stack"
-  "${COMPOSE[@]}" down -v
-  "${COMPOSE[@]}" up -d
-  echo "==> Waiting for web health..."
-  for i in $(seq 1 60); do
-    if "${COMPOSE[@]}" exec -T web curl -sf http://127.0.0.1:8000/health >/dev/null 2>&1; then
-      break
-    fi
-    sleep 2
-  done
-  # Lifespan auto-seeds when empty; force anyway for password refresh
-  "${COMPOSE[@]}" exec -T web python scripts/demo_seed/seed.py --force || \
-    "${COMPOSE[@]}" exec -T web python -m scripts.demo_seed.seed --force || true
-  echo "==> Done (wipe + seed)"
-  exit 0
-fi
-
-echo "==> Force re-seed in web container"
-if docker compose ps --status running 2>/dev/null | grep -q piherder-web; then
-  docker compose exec -T web python scripts/demo_seed/seed.py --force
-else
-  echo "web not running — starting with demo overlay..."
-  "${COMPOSE[@]}" up -d
-  sleep 5
-  "${COMPOSE[@]}" exec -T web python scripts/demo_seed/seed.py --force
-fi
-echo "==> Done"
+    exit 0
+    ;;
+  "")
+    exec "$MAINT" data-reset
+    ;;
+  *)
+    echo "Unknown arg: $1" >&2
+    exit 2
+    ;;
+esac

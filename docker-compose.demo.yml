@@ -18,7 +18,7 @@ services:
     environment:
       PIHERDER_DEMO_MODE: "true"
       PIHERDER_DEMO_EMAIL: ${PIHERDER_DEMO_EMAIL:-demo@hacknow.info}
-      PIHERDER_DEMO_PASSWORD: ${PIHERDER_DEMO_PASSWORD:-Piherder@1}
+      PIHERDER_DEMO_PASSWORD: ${PIHERDER_DEMO_PASSWORD:-PiHerder@123?_}
       PIHERDER_HOSTNAME: ${PIHERDER_HOSTNAME:-piherder-demo.hacknow.info}
       PIHERDER_PUBLIC_URL: ${PIHERDER_PUBLIC_URL:-https://piherder-demo.hacknow.info}
       ALLOW_OPEN_REGISTRATION: "false"

@@ -233,10 +233,11 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 
 ### Stream B — Backup reliability (from v1.1 known issues)
 
-| Item | Stance |
-|------|--------|
+| Item | Stance | Status |
+|------|--------|--------|
 | **B-retry** | Retry (and optional soft-success policy) when rsync reports **vanished files** / partial transfer on busy sources (e.g. Frigate NVR recordings moved/deleted mid-run). Carried from **v1.1 KI-rsync-vanished** — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md). | Should | **Landed** — retry + soft-OK (env knobs) |
 | **B-policy** | Soft-OK on code **24** / vanished **23**; path excludes remain operator choice | Should | **Landed** with B-retry defaults |
+| **B-DR** | **Herder self-backup Full = real DB DR.** Pre-**v1.2.0** “full” was JSON snapshots with **no jobs**, **capped audit**, no `pg_dump` — not sole DR (**KI-self-backup-not-full-db**). **v1.2.0** Full mode: **`pg_dump -Fc` entire Postgres** + `DATA_ROOT` files; restore via `pg_restore`. Config-only stays light JSON. Document limitations for **&lt; 1.2** in release notes + wiki. | Must | **Landed** on `v1.2.0-dev` (format **v6**) |
 
 ### Capacity residual (not release-defining)
 

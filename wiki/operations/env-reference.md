@@ -53,8 +53,8 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 | `PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC` | **5** — delay before vanished retry |
 | `PIHERDER_BACKUP_VANISHED_SOFT_OK` | **true** — treat final vanished exit as soft success |
 | `PIHERDER_DEMO_MODE` | **false** (default) — demo sandbox (banner, hard blocks, canned jobs). Leave **false** on real fleets |
-| `PIHERDER_DEMO_EMAIL` | Demo shared admin email when seeding (demo mode only) |
-| `PIHERDER_DEMO_PASSWORD` | Demo shared admin password when seeding (demo mode only) |
+| `PIHERDER_DEMO_EMAIL` | Shared demo login email when seeding (demo mode only; public demo uses `demo@hacknow.info`) |
+| `PIHERDER_DEMO_PASSWORD` | Shared demo login password when seeding (demo mode only). Public demo: keep in sync with [Public demo](demo-site.md) (password may rotate; wiki is source of truth) |
 | `PIHERDER_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key (empty = widget off) |
 | `PIHERDER_TURNSTILE_SECRET_KEY` | Turnstile secret; required with site key for login verification |
 
