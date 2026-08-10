@@ -75,6 +75,8 @@ Stack shape matches the normal compose services: web, db, redis, celery-worker (
 
 Prefer locking the VPS so only Cloudflare can hit `:443` (CF IP allowlist or `cloudflared` Tunnel). SSH only from admin IPs. No VPN/path into the home lab.
 
+**Host header:** Caddy serves only `PIHERDER_HOSTNAME` (demo: `piherder-demo.hacknow.info`). Other `Host` values and bare-IP requests get **421**. Set matching `PIHERDER_HOSTNAME` + `PIHERDER_PUBLIC_URL` in `.env` so CF cannot be used as an open proxy for arbitrary hostnames on this origin.
+
 ### Turnstile troubleshooting
 
 The **browser** widget talks to Cloudflare directly. Login still needs the **web container** to `POST https://challenges.cloudflare.com/turnstile/v0/siteverify` (with `remoteip`).
