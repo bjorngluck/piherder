@@ -3,6 +3,10 @@
 # Trusted TLS: place fullchain.pem + privkey.pem in ./certs (mounted at /certs)
 # Hostname: set PIHERDER_HOSTNAME in .env (e.g. piherder.example.com)
 #
+# Host header: only PIHERDER_HOSTNAME is served. Other Host / bare-IP requests
+# get 421 so opening origin to Cloudflare (or anyone) does not expose the app
+# under an alternate name.
+#
 # Client IP: when Cloudflare proxies (orange cloud), the TCP peer is a CF edge
 # address. Use CF-Connecting-IP as X-Real-IP / X-Forwarded-For so the app and
 # Turnstile siteverify see the real visitor. Direct (non-CF) traffic uses remote_host.
@@ -17,42 +21,28 @@
 	auto_https off
 }
 
-# Shared reverse_proxy snippet behaviour is duplicated for HTTP/HTTPS + CF vs direct.
-
 # HTTP — host :8888 (or :80 on demo)
-# Redirect target: PIHERDER_PUBLIC_URL when set (demo https://host, prod may include :8443).
-# Do NOT hardcode :8443 — demo publishes 443 and Cloudflare terminates on 443.
+# Only the configured public hostname is accepted (redirect to HTTPS public URL).
+# Everything else (IP, wrong Host, empty Host) → 421.
 :80 {
-	@public host {$PIHERDER_HOSTNAME}
-	redir @public {$PIHERDER_PUBLIC_URL}{uri} 308
-
-	# Cloudflare orange-cloud: visitor IP in CF-Connecting-IP
-	@from_cf header CF-Connecting-IP *
-	handle @from_cf {
-		reverse_proxy web:8000 {
-			header_up X-Real-IP {http.request.header.CF-Connecting-IP}
-			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
-			header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Forwarded-Host {host}
-		}
+	@allowed host {$PIHERDER_HOSTNAME}
+	handle @allowed {
+		redir {$PIHERDER_PUBLIC_URL}{uri} 308
 	}
-	# Direct to origin (no CF header)
 	handle {
-		reverse_proxy web:8000 {
-			header_up X-Real-IP {remote_host}
-			header_up X-Forwarded-For {remote_host}
-			header_up X-Forwarded-Proto {scheme}
-			header_up X-Forwarded-Host {host}
-		}
+		respond "Misdirected Request" 421
 	}
-	encode gzip
 }
 
-# HTTPS — host :8443 (or :443 when published as such)
+# HTTPS — only this hostname (Host + site address). Cert SANs must include it.
 {$PIHERDER_HOSTNAME}:443 {
 	tls /certs/fullchain.pem /certs/privkey.pem
 
+	# Belt-and-suspenders: refuse if Host is not exactly the site name
+	# (site address already scopes this block; explicit matcher documents intent)
+	@wrong_host not host {$PIHERDER_HOSTNAME}
+	abort @wrong_host
+
 	@from_cf header CF-Connecting-IP *
 	handle @from_cf {
 		reverse_proxy web:8000 {
@@ -60,7 +50,7 @@
 			header_up X-Forwarded-For {http.request.header.CF-Connecting-IP}
 			header_up CF-Connecting-IP {http.request.header.CF-Connecting-IP}
 			header_up X-Forwarded-Proto https
-			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Host {http.request.host}
 		}
 	}
 	handle {
@@ -68,7 +58,7 @@
 			header_up X-Real-IP {remote_host}
 			header_up X-Forwarded-For {remote_host}
 			header_up X-Forwarded-Proto https
-			header_up X-Forwarded-Host {host}
+			header_up X-Forwarded-Host {http.request.host}
 		}
 	}
 
@@ -78,4 +68,10 @@
 		Referrer-Policy "no-referrer-when-downgrade"
 	}
 	encode gzip
+}
+
+# Catch-all HTTPS: wrong Host / bare IP / unknown SNI → do not proxy to the app.
+# More specific {$PIHERDER_HOSTNAME}:443 wins when Host matches.
+:443 {
+	respond "Misdirected Request" 421
 }
