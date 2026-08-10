@@ -37,7 +37,7 @@ Design principles stay the same as SPEC:
 | **v1.1.0** | **Day-to-day operator improvements** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Tagged** 2026-08-08 — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · Hub `1.1.0` / `1.1` / `latest` |
 | **v1.1.x** | Production patches on `main` while 1.2 is in flight | Patch | As needed — port into `v1.2.0-dev` |
 | **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry | Post-1.1 minor | **Active** on `v1.2.0-dev` — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
-| **v1.3.0** | **Operator policy + scale UX** — configurable password/2FA/step-up · console knobs · map/alert severity · app-wide pagination & search · **AC-fg** · ACME (consideration) · residual | Post-1.2 minor | **Planning** — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (train not open) |
+| **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **AC-fg** · ACME (consideration) | Post-1.2 minor | **Planning** — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (train not open) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 

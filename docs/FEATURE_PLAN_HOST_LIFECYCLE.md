@@ -277,8 +277,9 @@ Fleet host SSH (key from Fernet decrypt in memory only)
 | Ticket | Short TTL (e.g. 60s mint → 30–60 min session); single use to open WS |
 | Limits | Max concurrent consoles per user/instance; idle disconnect |
 | Kill switch | `PIHERDER_SSH_CONSOLE=false` default until feature GA |
-| Audit | `ssh_console_open` / `close` + IP + duration; interactive command capture **best-effort only** (document limitation) |
+| Audit | `ssh_console_open` / `close` + IP + duration; interactive command capture **best-effort only** in P5/1.2 (document limitation) |
 | Threats | XSS → terminal; herder as jump host; shared sessions |
+| Identities | **One** SSH user/key per host in 1.2 |
 
 ### Acceptance criteria (P5)
 
@@ -291,7 +292,9 @@ Fleet host SSH (key from Fernet decrypt in memory only)
 
 ### Deferred / optional later
 
-- Session recording  
+- **Multi-identity host SSH** (least-priv fleet + privileged / break-glass key; **Connect as…**) — **→ v1.3 Stream W-id** ([PLAN_v1.3.0.md](PLAN_v1.3.0.md))  
+- **Opt-in command/response shell audit** + redaction — **→ v1.3 Stream W-audit** (discover first; not video replay)  
+- Video session recording / dual-control (two-person) console — still far horizon  
 - Shared break-glass “console as root” with dual control  
 
 ---

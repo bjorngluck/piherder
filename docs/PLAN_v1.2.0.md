@@ -338,12 +338,13 @@ Phase 4  Freeze
 - Multi-tenant SaaS / per-customer isolation  
 - **Fine-grained / per-host / per-feature roles (AC-fg)** — global viewer·operator·admin only in 1.2; **→ v1.3** ([PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md))  
 - **Configurable password / 2FA-step-up / console timeout policy in Settings** — fixed code policy + env console knobs in 1.2; **→ v1.3** streams **P / T / W-cfg**  
+- **Multi-identity host SSH + command-level shell audit** — one key/user per host and session meta audit only in 1.2; **→ v1.3** streams **W-id / W-audit**  
 - **Map alert severity depth + app-wide pagination/search** — **→ v1.3** streams **A / L**  
 - SAML  
 - ACME-in-herder (still ≥1.3 consideration)  
 - Live anonymized mirror of production  
 - Public ungated demo with shared password  
-- Session recording / dual-control console  
+- Video session recording / dual-control console (command transcripts are 1.3 **discover**, not 1.2)  
 
 **Planning capture (while 1.2 finishes):** [PLAN_v1.3.0.md](PLAN_v1.3.0.md) — do not implement on `v1.2.0-dev` unless pulled as an explicit exception.
 
