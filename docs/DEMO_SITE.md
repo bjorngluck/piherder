@@ -75,6 +75,19 @@ Stack shape matches the normal compose services: web, db, redis, celery-worker (
 
 Prefer locking the VPS so only Cloudflare can hit `:443` (CF IP allowlist or `cloudflared` Tunnel). SSH only from admin IPs. No VPN/path into the home lab.
 
+### Turnstile troubleshooting
+
+The **browser** widget talks to Cloudflare directly. Login still needs the **web container** to `POST https://challenges.cloudflare.com/turnstile/v0/siteverify` (with `remoteip`).
+
+| Login `code=` | Meaning | Fix |
+|---------------|---------|-----|
+| `verify-unreachable` | Container cannot reach siteverify (DNS / outbound 443 / hang) | From host: `docker compose exec web python -c "import httpx; r=httpx.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', data={'secret':'x','response':'y'}); print(r.status_code, r.text[:200])"` — expect **HTTP 400** + `invalid-input-secret`. If timeout/DNS fail: open outbound 443, fix Docker DNS (demo overlay sets `1.1.1.1` / `8.8.8.8`). |
+| `invalid-input-secret` | Wrong secret in env | Match `PIHERDER_TURNSTILE_SECRET_KEY` to dashboard secret for the same site key |
+| `missing-remoteip` | Proxy did not pass visitor IP | Caddy / CF: `CF-Connecting-IP` or first `X-Forwarded-For` hop |
+| `timeout-or-duplicate` / `invalid-input-response` | Stale or empty token | Complete the widget once, submit login once (do not spam refresh) |
+
+Logs: `docker compose logs web --tail=100 | grep -i turnstile`
+
 ## Seed & reset
 
 | Action | How |

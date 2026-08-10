@@ -69,9 +69,28 @@
         {% elif err == 'sso_inactive' %}
         This account is disabled.
         {% elif err == 'captcha' %}
-        Human verification failed{% if request.query_params.get('code') %}
-        (<code class="text-xs font-mono">{{ request.query_params.get('code') }}</code>){% endif %}.
+        {% set ccode = request.query_params.get('code') or '' %}
+        {% if ccode == 'verify-unreachable' %}
+        Human verification could not reach Cloudflare from this server
+        (<code class="text-xs font-mono">verify-unreachable</code>).
+        Ops: from the web container, test DNS/HTTPS to
+        <code class="text-xs font-mono">challenges.cloudflare.com</code>
+        (outbound 443). Try again once it is reachable.
+        {% elif ccode == 'invalid-input-secret' %}
+        Human verification is misconfigured
+        (<code class="text-xs font-mono">invalid-input-secret</code>).
+        Ops: set <code class="text-xs font-mono">PIHERDER_TURNSTILE_SECRET_KEY</code>
+        to the widget secret that matches the site key.
+        {% elif ccode == 'missing-remoteip' %}
+        Human verification failed
+        (<code class="text-xs font-mono">missing-remoteip</code>).
+        Ops: reverse proxy must pass the visitor IP
+        (<code class="text-xs font-mono">CF-Connecting-IP</code> / X-Forwarded-For).
+        {% else %}
+        Human verification failed{% if ccode %}
+        (<code class="text-xs font-mono">{{ ccode }}</code>){% endif %}.
         Complete the check, then sign in once — do not spam refresh.
+        {% endif %}
         {% elif err == 'demo_no_register' or err == 'demo_locked' %}
         This is a shared demo — no new accounts. Sign in with the demo credentials.
         {% else %}

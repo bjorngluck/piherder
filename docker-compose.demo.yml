@@ -7,6 +7,11 @@
 
 services:
   web:
+    # Reliable public resolvers for Turnstile siteverify (container → CF).
+    # Docker embedded DNS sometimes fails/hangs on small VPS images.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
     environment:
       PIHERDER_DEMO_MODE: "true"
       PIHERDER_DEMO_EMAIL: ${PIHERDER_DEMO_EMAIL:-demo@hacknow.info}
