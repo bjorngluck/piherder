@@ -102,6 +102,54 @@ def test_console_disabled_in_demo(demo_on, monkeypatch):
         cons.require_enabled()
 
 
+def test_audit_client_ip_scrubbed_in_demo(demo_on, monkeypatch):
+    """Shared demo must not store or show real visitor IPs in Audit."""
+    from datetime import datetime
+
+    from app.services import audit_write as aw
+    from app.services import request_ip as rip
+
+    # Storage: any real IP → redacted
+    assert (
+        demo_svc.scrub_audit_client_ip("203.0.113.50", for_display=False)
+        == demo_svc.DEMO_AUDIT_IP_PLACEHOLDER
+    )
+    # Display: public IPs scrubbed; seed/private lab IPs kept
+    assert (
+        demo_svc.scrub_audit_client_ip("203.0.113.50", for_display=True)
+        == demo_svc.DEMO_AUDIT_IP_PLACEHOLDER
+    )
+    assert demo_svc.scrub_audit_client_ip("10.42.0.99", for_display=True) == "10.42.0.99"
+    assert demo_svc.scrub_audit_client_ip(None, for_display=True) is None
+
+    tok = rip.set_request_client_ip("198.51.100.7")
+    try:
+        al = aw.make_audit_log(
+            action="user_login",
+            status="success",
+            user_id=1,
+            finished_at=datetime.utcnow(),
+        )
+        assert al.client_ip == demo_svc.DEMO_AUDIT_IP_PLACEHOLDER
+    finally:
+        rip.reset_request_client_ip(tok)
+
+    # Off demo: real IP kept
+    monkeypatch.setattr(demo_svc.settings, "PIHERDER_DEMO_MODE", False)
+    assert demo_svc.scrub_audit_client_ip("203.0.113.50") == "203.0.113.50"
+    tok = rip.set_request_client_ip("203.0.113.9")
+    try:
+        al = aw.make_audit_log(action="user_login", status="success")
+        assert al.client_ip == "203.0.113.9"
+    finally:
+        rip.reset_request_client_ip(tok)
+
+
+def test_audit_ip_passthrough_when_not_demo(demo_off):
+    assert demo_svc.scrub_audit_client_ip("1.2.3.4", for_display=True) == "1.2.3.4"
+    assert demo_svc.scrub_audit_client_ip("1.2.3.4", for_display=False) == "1.2.3.4"
+
+
 def test_create_api_token_blocked(demo_on, tmp_path):
     engine = create_engine(
         f"sqlite:///{tmp_path / 'tok.db'}",

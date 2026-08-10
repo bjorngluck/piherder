@@ -46,6 +46,7 @@ Access (if enabled) remains an optional outer gate for spam reduction — do not
 | Account creation | **None** — no register / Users create / SSO JIT |
 | Fleet config | Blocked by normal viewer RBAC + demo write guard; **canned job runs** still allowed for the click-through |
 | Ops re-seed | CLI only (no in-app admin seed UI) |
+| Audit client IP | Scrubbed to `redacted` on write + display (shared-account privacy). Seed/private lab IPs (`10.x`, `192.168.x`) may still show on canned rows. |
 
 Never point demo at the home-lab network or reuse production `PIHERDER_MASTER_KEY`.
 

@@ -232,6 +232,15 @@ async def audit_page(
                     if l.server_id
                     else None
                 )
+                # Public demo: never show real visitor IPs to other shared users
+                try:
+                    from ..services.demo import scrub_audit_client_ip
+
+                    d["client_ip"] = scrub_audit_client_ip(
+                        d.get("client_ip"), for_display=True
+                    )
+                except Exception:
+                    pass
                 return format_audit_entry(d)
 
             if hide_incomplete:

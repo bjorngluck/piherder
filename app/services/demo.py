@@ -8,6 +8,8 @@ When ``PIHERDER_DEMO_MODE=1``:
     templates, settings, shared-account sabotage) so one visitor cannot trash the
     sandbox for everyone. Safe allowlist: login, canned job runs, notifications,
     favourites.
+  • **Audit IP scrub**: real visitor client IPs are not stored or shown (``redacted``)
+    so the shared account does not leak other users' addresses.
 
 Never enable on a production herder that holds real keys.
 """
@@ -134,6 +136,42 @@ def demo_write_block_detail() -> str:
 def demo_mode() -> bool:
     """True when this instance is a public demo sandbox."""
     return bool(getattr(settings, "PIHERDER_DEMO_MODE", False))
+
+
+# Shared sandbox: never show real visitor IPs to other demo users (Audit trail).
+DEMO_AUDIT_IP_PLACEHOLDER = "redacted"
+
+
+def scrub_audit_client_ip(
+    ip: Optional[str],
+    *,
+    for_display: bool = False,
+) -> Optional[str]:
+    """Scrub client IPs for the public demo (shared account privacy).
+
+    Production: pass-through.
+    Demo storage: never persist a real remote address — store ``redacted``.
+    Demo display: show seed/private lab IPs (10/8, 192.168/16, 127/8, ::1) so
+    canned fleet rows stay realistic; replace anything else with ``redacted``.
+    """
+    if not demo_mode():
+        return ip
+    if ip is None:
+        return None
+    s = str(ip).strip()
+    if not s:
+        return None
+    s = s[:64]
+    if not for_display:
+        return DEMO_AUDIT_IP_PLACEHOLDER
+    if s == DEMO_AUDIT_IP_PLACEHOLDER:
+        return s
+    low = s.lower()
+    if low in ("::1", "localhost"):
+        return s
+    if s.startswith("10.") or s.startswith("192.168.") or s.startswith("127."):
+        return s
+    return DEMO_AUDIT_IP_PLACEHOLDER
 
 
 def demo_banner() -> str:

@@ -31,6 +31,7 @@ Some deployments also use **Cloudflare Access** as an outer email gate before th
 - Password / 2FA on the shared user stay locked (visitors cannot lock each other out)  
 - Fleet config changes blocked like production viewers; **simulated jobs** still work for the tour  
 - Data re-seeds on a schedule (and after operator maintenance) — treat everything as disposable  
+- **Audit client IPs are scrubbed** — login and other events still appear, but real visitor addresses are stored/shown as `redacted` (seeded lab IPs like `10.42.x` may remain). The shared account must not leak other people’s IPs.  
 
 !!! note "Demo screens are not always 100% aligned with a real fleet"
     Some screens and highlighted features on the demo **will not match a real self-hosted implementation pixel-for-pixel**. Hosts, inventory, jobs, maps, and integrations are **seeded or simulated** so the sandbox stays safe and disposable. You may see canned job results, static sample data, or simplified / empty panels where a live deploy would talk to real Pis, Docker, or external services. Treat the demo as a **UI tour** — your own install against real hosts is the accurate product experience.
