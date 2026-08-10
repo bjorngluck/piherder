@@ -37,7 +37,7 @@ Design principles stay the same as SPEC:
 | **v1.1.0** | **Day-to-day operator improvements** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Tagged** 2026-08-08 — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · Hub `1.1.0` / `1.1` / `latest` |
 | **v1.1.x** | Production patches on `main` while 1.2 is in flight | Patch | As needed — port into `v1.2.0-dev` |
 | **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry | Post-1.1 minor | **Active** on `v1.2.0-dev` — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
-| **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **AC-fg** · ACME (consideration) | Post-1.2 minor | **Planning** — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (train not open) |
+| **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights thin slice (N)** · **AC-fg** · ACME (consideration) | Post-1.2 minor | **Planning** — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (train not open) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -269,7 +269,7 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Cross-host feature jump (K)** | **Shipped v1.1** — Jump host on Overview / Docker / Backups / Services. |
 | **Quick editor scope (L)** | **Lean no** for `.env`/sidecars in quick editor; full editor only — document in UI. Open discussion only. |
 | **Template fleet deployment overview (M)** | **Post-1.0** — which hosts/services have a given template (beyond stack-level badge). |
-| **Insights / custom dashboards (N)** | **Discovery + first thin slice post v1.0** — reporting / custom dashboarding. |
+| **Insights / custom dashboards (N)** | **→ v1.3 Stream N** — discovery + thin slice: metric registry, built-in fleet health board, optional one custom layout; not Grafana-in-herder. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
 | **Git-rich service onboard (Q)** | **Post-1.0** — full git clone/pull; more files than compose + Dockerfile. |
 | **Discovery hygiene (S)** | **S1–S4 shipped v1.1** — last seen, hide, purge, filters. Residual **S-hb**; **S-icon** → map interactivity M1 ([FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md)). |
 | **API management (Y)** | **Shipped v1.1 (partial)** — Settings → API **Try a token** + OpenAPI / ReDoc deep links. |

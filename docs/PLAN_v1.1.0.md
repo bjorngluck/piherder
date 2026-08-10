@@ -248,6 +248,7 @@ Full planning capture: **[PLAN_v1.3.0.md](PLAN_v1.3.0.md)** (opened 2026-08-10; 
 | **Operator policy (P / T / W-cfg)** | Configurable password policy; 2FA force + step-up surfaces; in-app console timeouts / concurrency / step-up knobs |
 | **Console identity + audit (W-id / W-audit)** | Least-priv + privileged host SSH identities (Connect as…); discover opt-in command/response shell audit with redaction |
 | **Alerts + lists (A / L)** | Map/alert severity granularity; app-wide pagination, page size, free-text/smart search on dense lists |
+| **Insights (N)** | Discovery + thin-slice reporting / custom dashboarding (registry + built-in board; optional one custom layout) |
 | **Fine-grained roles / feature ACLs (AC-fg)** | Beyond global `viewer` / `operator` / `admin`: per-**host** access and/or per-**feature** gates (e.g. backups only, Docker yes / webshell no, certs, templates). UI + enforcement + optional OIDC group → custom role. **Not** multi-tenant SaaS. See [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) decision 2026-08-08. |
 | SSO / OIDC (**Z**) | **→ v1.2 Stream S** (in flight); residual polish only if any after 1.2 |
 | Web SSH (**HL-P5**) | **→ v1.2 Stream W** (in flight); residual after 1.2 if deferred |
