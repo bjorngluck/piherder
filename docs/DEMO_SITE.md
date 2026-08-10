@@ -36,7 +36,7 @@ Access (if enabled) remains an optional outer gate for spam reduction — do not
 |-----------|--------|
 | Banner | Non-dismissible “Demo — shared account · data resets · some actions simulated” |
 | Onboard | Add-server wizard / real SSH blocked |
-| API | Docs visible; token create + Bearer use **403** |
+| API | OpenAPI gated (``/openapi.json``, ``/docs``, ``/redoc`` → 404); token create + Bearer use **403** |
 | Jobs | Canned success (“Demo simulation”) — no live SSH |
 | nmap / cert edge | Live outbound blocked |
 | Webshell | Forced off |

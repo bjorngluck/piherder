@@ -150,6 +150,37 @@ def test_audit_ip_passthrough_when_not_demo(demo_off):
     assert demo_svc.scrub_audit_client_ip("1.2.3.4", for_display=False) == "1.2.3.4"
 
 
+def test_openapi_docs_paths_helper(demo_on, demo_off, monkeypatch):
+    assert demo_svc.is_openapi_docs_path("/openapi.json") is True
+    assert demo_svc.is_openapi_docs_path("/docs") is True
+    assert demo_svc.is_openapi_docs_path("/docs/") is True
+    assert demo_svc.is_openapi_docs_path("/redoc") is True
+    assert demo_svc.is_openapi_docs_path("/redoc/") is True
+    assert demo_svc.is_openapi_docs_path("/api/v1/health") is False
+    assert demo_svc.is_openapi_docs_path("/servers") is False
+    monkeypatch.setattr(demo_svc.settings, "PIHERDER_DEMO_MODE", True)
+    assert demo_svc.openapi_docs_disabled() is True
+    monkeypatch.setattr(demo_svc.settings, "PIHERDER_DEMO_MODE", False)
+    assert demo_svc.openapi_docs_disabled() is False
+
+
+def test_openapi_gated_when_demo_on(demo_on):
+    """Middleware 404s OpenAPI surface even if routes were registered at import."""
+    client = TestClient(app, raise_server_exceptions=False)
+    for path in ("/openapi.json", "/docs", "/redoc"):
+        r = client.get(path)
+        assert r.status_code == 404, path
+
+
+def test_openapi_available_when_demo_off(demo_off):
+    # Boot-time openapi_url is still set (tests import with DEMO_MODE default false).
+    client = TestClient(app, raise_server_exceptions=False)
+    r = client.get("/openapi.json")
+    assert r.status_code == 200
+    body = r.json()
+    assert "openapi" in body or "paths" in body
+
+
 def test_create_api_token_blocked(demo_on, tmp_path):
     engine = create_engine(
         f"sqlite:///{tmp_path / 'tok.db'}",

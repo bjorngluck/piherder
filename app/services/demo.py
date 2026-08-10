@@ -10,6 +10,8 @@ When ``PIHERDER_DEMO_MODE=1``:
     favourites.
   • **Audit IP scrub**: real visitor client IPs are not stored or shown (``redacted``)
     so the shared account does not leak other users' addresses.
+  • **OpenAPI gated**: ``/openapi.json``, ``/docs``, ``/redoc`` return 404 (API tokens
+    already unusable; no need to advertise the schema on a public sandbox).
 
 Never enable on a production herder that holds real keys.
 """
@@ -127,6 +129,31 @@ def demo_write_allowed(method: str, path: str) -> bool:
     if _RE_JOB_CANCEL.match(p):
         return True
     return False
+
+
+# FastAPI interactive API docs (unauthenticated by default)
+_OPENAPI_EXACT = frozenset({"/openapi.json", "/docs", "/redoc"})
+_OPENAPI_PREFIXES = ("/docs/", "/redoc/")
+
+
+def is_openapi_docs_path(path: str) -> bool:
+    """True for Swagger / ReDoc / OpenAPI schema routes."""
+    p = (path or "/").split("?", 1)[0]
+    if not p.startswith("/"):
+        p = "/" + p
+    if len(p) > 1 and p.endswith("/"):
+        p = p.rstrip("/")
+    if p in _OPENAPI_EXACT:
+        return True
+    for pref in _OPENAPI_PREFIXES:
+        if p.startswith(pref):
+            return True
+    return False
+
+
+def openapi_docs_disabled() -> bool:
+    """Public demo: hide OpenAPI surface (tokens already unusable)."""
+    return demo_mode()
 
 
 def demo_write_block_detail() -> str:
