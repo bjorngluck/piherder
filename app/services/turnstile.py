@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import time
 from typing import Any, Optional
 
 import httpx
@@ -25,6 +26,12 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+
+# Fail reasonably fast on broken outbound; real CF errors are usually <1s.
+_CONNECT_TIMEOUT = 5.0
+_READ_TIMEOUT = 8.0
+_MAX_ATTEMPTS = 2
+_RETRY_SLEEP = 0.35
 
 
 def _first_env(*names: str) -> str:
@@ -102,6 +109,25 @@ def visitor_ip_for_turnstile(request: Any) -> Optional[str]:
     return None
 
 
+def _is_transport_error(exc: BaseException) -> bool:
+    """True when we never got a usable HTTP response from Cloudflare."""
+    if isinstance(
+        exc,
+        (
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            httpx.NetworkError,
+            httpx.ProxyError,
+            httpx.UnsupportedProtocol,
+        ),
+    ):
+        return True
+    # DNS failures often wrap as ConnectError; keep broad for rare OSError subclasses
+    if isinstance(exc, OSError):
+        return True
+    return False
+
+
 def verify_turnstile_token(
     token: Optional[str],
     *,
@@ -111,6 +137,11 @@ def verify_turnstile_token(
 
     **Always** includes ``remoteip`` when verifying. Callers must pass the
     visitor IP from :func:`visitor_ip_for_turnstile` (not omit).
+
+    Cloudflare siteverify often returns **HTTP 400** with a JSON body
+    (``success: false`` + ``error-codes``) for bad secret/token — that is
+    **not** unreachable. Only connection/timeout failures map to
+    ``verify-unreachable``.
     """
     if not turnstile_enabled():
         return True, ""
@@ -126,24 +157,94 @@ def verify_turnstile_token(
         "response": tok,
         "remoteip": rip,
     }
-    try:
-        with httpx.Client(timeout=8.0) as client:
-            r = client.post(VERIFY_URL, data=data)
-            r.raise_for_status()
-            body = r.json()
-    except Exception as e:
-        logger.warning("Turnstile verify request failed: %s", e)
+    # Browser loading the widget does not prove the *container* can POST siteverify.
+    last_err: Optional[BaseException] = None
+    body: Optional[dict] = None
+    status: Optional[int] = None
+    timeout = httpx.Timeout(_READ_TIMEOUT, connect=_CONNECT_TIMEOUT)
+
+    for attempt in range(1, _MAX_ATTEMPTS + 1):
+        try:
+            with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+                r = client.post(VERIFY_URL, data=data)
+                status = r.status_code
+                try:
+                    parsed = r.json()
+                except Exception as je:
+                    # Got HTTP but not JSON — treat as transport-ish for retry
+                    last_err = je
+                    logger.warning(
+                        "Turnstile siteverify non-JSON status=%s attempt=%s/%s: %s",
+                        status,
+                        attempt,
+                        _MAX_ATTEMPTS,
+                        je,
+                    )
+                    if attempt < _MAX_ATTEMPTS:
+                        time.sleep(_RETRY_SLEEP * attempt)
+                    continue
+                if not isinstance(parsed, dict):
+                    last_err = ValueError(f"siteverify body type={type(parsed).__name__}")
+                    if attempt < _MAX_ATTEMPTS:
+                        time.sleep(_RETRY_SLEEP * attempt)
+                    continue
+                body = parsed
+                last_err = None
+                break
+        except Exception as e:
+            last_err = e
+            if _is_transport_error(e):
+                logger.warning(
+                    "Turnstile siteverify attempt %s/%s transport: %s: %s",
+                    attempt,
+                    _MAX_ATTEMPTS,
+                    type(e).__name__,
+                    e,
+                )
+                if attempt < _MAX_ATTEMPTS:
+                    time.sleep(_RETRY_SLEEP * attempt)
+                continue
+            # Unexpected exception — do not burn retries as "unreachable" forever
+            logger.warning(
+                "Turnstile siteverify attempt %s/%s error: %s: %s",
+                attempt,
+                _MAX_ATTEMPTS,
+                type(e).__name__,
+                e,
+            )
+            break
+
+    if body is None:
+        logger.error(
+            "Turnstile verify-unreachable after retries: %s: %s "
+            "(container must resolve+reach %s — check Docker DNS and outbound 443)",
+            type(last_err).__name__ if last_err else "no-body",
+            last_err,
+            VERIFY_URL,
+        )
         return False, "verify-unreachable"
+
     if body.get("success"):
         return True, ""
+
     errs = body.get("error-codes") or ["invalid-input-response"]
     code = errs[0] if errs else "invalid-input-response"
-    logger.warning(
-        "Turnstile rejected: %s (all=%s remoteip=%s token_len=%s site_prefix=%s)",
-        code,
-        errs,
-        rip,
-        len(tok),
-        (turnstile_site_key() or "")[:12],
-    )
+    # Operator-facing: invalid secret is a config bug, not a user captcha fail
+    if code == "invalid-input-secret":
+        logger.error(
+            "Turnstile invalid-input-secret (status=%s) — check "
+            "PIHERDER_TURNSTILE_SECRET_KEY matches dashboard secret for site %s…",
+            status,
+            (turnstile_site_key() or "")[:12],
+        )
+    else:
+        logger.warning(
+            "Turnstile rejected: %s (all=%s status=%s remoteip=%s token_len=%s site_prefix=%s)",
+            code,
+            errs,
+            status,
+            rip,
+            len(tok),
+            (turnstile_site_key() or "")[:12],
+        )
     return False, str(code)

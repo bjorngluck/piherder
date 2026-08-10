@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from fastapi import BackgroundTasks
 from sqlalchemy.pool import StaticPool
@@ -38,7 +39,7 @@ def test_turnstile_verify_success(monkeypatch):
     monkeypatch.setattr(ts.settings, "PIHERDER_TURNSTILE_SECRET_KEY", "secret")
 
     mock_resp = MagicMock()
-    mock_resp.raise_for_status = MagicMock()
+    mock_resp.status_code = 200
     mock_resp.json.return_value = {"success": True}
 
     with patch("app.services.turnstile.httpx.Client") as client_cls:
@@ -51,6 +52,45 @@ def test_turnstile_verify_success(monkeypatch):
     assert ok is True
     assert code == ""
     client.post.assert_called_once()
+
+
+def test_turnstile_http_400_with_json_is_not_unreachable(monkeypatch):
+    """CF returns HTTP 400 + JSON for invalid-input-secret — not a network outage."""
+    monkeypatch.setattr(ts.settings, "PIHERDER_TURNSTILE_SITE_KEY", "site")
+    monkeypatch.setattr(ts.settings, "PIHERDER_TURNSTILE_SECRET_KEY", "bad-secret")
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 400
+    mock_resp.json.return_value = {
+        "success": False,
+        "error-codes": ["invalid-input-secret"],
+    }
+
+    with patch("app.services.turnstile.httpx.Client") as client_cls:
+        client = MagicMock()
+        client.__enter__ = MagicMock(return_value=client)
+        client.__exit__ = MagicMock(return_value=False)
+        client.post.return_value = mock_resp
+        client_cls.return_value = client
+        ok, code = ts.verify_turnstile_token("tok", remoteip="1.2.3.4")
+    assert ok is False
+    assert code == "invalid-input-secret"
+
+
+def test_turnstile_transport_error_is_unreachable(monkeypatch):
+    monkeypatch.setattr(ts.settings, "PIHERDER_TURNSTILE_SITE_KEY", "site")
+    monkeypatch.setattr(ts.settings, "PIHERDER_TURNSTILE_SECRET_KEY", "secret")
+
+    with patch("app.services.turnstile.httpx.Client") as client_cls:
+        client = MagicMock()
+        client.__enter__ = MagicMock(return_value=client)
+        client.__exit__ = MagicMock(return_value=False)
+        client.post.side_effect = httpx.ConnectError("dns fail")
+        client_cls.return_value = client
+        with patch("app.services.turnstile.time.sleep"):
+            ok, code = ts.verify_turnstile_token("tok", remoteip="1.2.3.4")
+    assert ok is False
+    assert code == "verify-unreachable"
 
 
 def test_csp_includes_turnstile_when_on(monkeypatch):

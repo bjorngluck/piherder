@@ -340,7 +340,12 @@ async def login(
         visitor = turnstile_svc.visitor_ip_for_turnstile(request) or (
             ip if ip != "unknown" else None
         )
-        ok, code = turnstile_svc.verify_turnstile_token(token, remoteip=visitor)
+        # Sync httpx siteverify — keep off the event loop (timeouts can be multi-second)
+        from starlette.concurrency import run_in_threadpool
+
+        ok, code = await run_in_threadpool(
+            turnstile_svc.verify_turnstile_token, token, remoteip=visitor
+        )
         if not ok:
             logger.warning(
                 "login captcha failed code=%s ip=%s visitor=%s token_len=%s",
