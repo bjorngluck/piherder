@@ -81,7 +81,7 @@ The **browser** widget talks to Cloudflare directly. Login still needs the **web
 
 | Login `code=` | Meaning | Fix |
 |---------------|---------|-----|
-| `verify-unreachable` | Container cannot reach siteverify (DNS / outbound 443 / hang) | From host: `docker compose exec web python -c "import httpx; r=httpx.post('https://challenges.cloudflare.com/turnstile/v0/siteverify', data={'secret':'x','response':'y'}); print(r.status_code, r.text[:200])"` — expect **HTTP 400** + `invalid-input-secret`. If timeout/DNS fail: open outbound 443, fix Docker DNS (demo overlay sets `1.1.1.1` / `8.8.8.8`). |
+| `verify-unreachable` | Container cannot reach siteverify | Almost always **DNS inside the container** (`Temporary failure in name resolution`). Recreate `web` after `git pull` (demo overlay sets `dns: 1.1.1.1` / `8.8.8.8` — **must** `up -d --force-recreate`, not restart). Or set host `/etc/docker/daemon.json` → `"dns": ["1.1.1.1","8.8.8.8"]` and `systemctl restart docker`. Probe: `docker compose exec web python -c "import socket; print(socket.getaddrinfo('challenges.cloudflare.com',443))"` then siteverify POST — expect **HTTP 400** + `invalid-input-secret`. |
 | `invalid-input-secret` | Wrong secret in env | Match `PIHERDER_TURNSTILE_SECRET_KEY` to dashboard secret for the same site key |
 | `missing-remoteip` | Proxy did not pass visitor IP | Caddy / CF: `CF-Connecting-IP` or first `X-Forwarded-For` hop |
 | `timeout-or-duplicate` / `invalid-input-response` | Stale or empty token | Complete the widget once, submit login once (do not spam refresh) |
