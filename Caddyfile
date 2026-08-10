@@ -20,9 +20,11 @@
 # Shared reverse_proxy snippet behaviour is duplicated for HTTP/HTTPS + CF vs direct.
 
 # HTTP — host :8888 (or :80 on demo)
+# Redirect target: PIHERDER_PUBLIC_URL when set (demo https://host, prod may include :8443).
+# Do NOT hardcode :8443 — demo publishes 443 and Cloudflare terminates on 443.
 :80 {
 	@public host {$PIHERDER_HOSTNAME}
-	redir @public https://{$PIHERDER_HOSTNAME}:8443{uri} 308
+	redir @public {$PIHERDER_PUBLIC_URL}{uri} 308
 
 	# Cloudflare orange-cloud: visitor IP in CF-Connecting-IP
 	@from_cf header CF-Connecting-IP *

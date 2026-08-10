@@ -349,7 +349,11 @@ async def login(
                 visitor,
                 len(token or ""),
             )
-            return RedirectResponse("/auth/login?error=captcha", status_code=303)
+            # Surface code for operators (safe short codes, not secrets)
+            safe = "".join(c for c in (code or "failed") if c.isalnum() or c in "-_")[:48]
+            return RedirectResponse(
+                f"/auth/login?error=captcha&code={safe}", status_code=303
+            )
 
     user = authenticate_user(session, email, password)
     if not user:

@@ -230,6 +230,8 @@ services:
     environment:
       # Public hostname for the HTTPS site block (e.g. piherder.example.com)
       - PIHERDER_HOSTNAME=${PIHERDER_HOSTNAME:-localhost}
+      # Full public origin for HTTP→HTTPS redir (include :8443 only if that is the public port)
+      - PIHERDER_PUBLIC_URL=${PIHERDER_PUBLIC_URL:-https://${PIHERDER_HOSTNAME:-localhost}}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       # Trusted TLS: place fullchain.pem + privkey.pem here (see certs/README.md)
