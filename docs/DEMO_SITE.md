@@ -77,7 +77,15 @@ Prefer locking the VPS so only Cloudflare can hit `:443` (CF IP allowlist or `cl
 
 **Host header:** Caddy serves only `PIHERDER_HOSTNAME` (demo: `piherder-demo.hacknow.info`). Other `Host` values and bare-IP requests get **421**. Set matching `PIHERDER_HOSTNAME` + `PIHERDER_PUBLIC_URL` in `.env` so CF cannot be used as an open proxy for arbitrary hostnames on this origin.
 
-**Ports:** public origin should expose **only 443** (Caddy). Do not publish host `:80`, `:8000`, `:8443`, or `:8888` on the WAN. Use a compose ports override (`127.0.0.1:8000` for web, `443:443` for caddy). After `git pull`, **recreate** `caddy` so the bind-mounted `Caddyfile` matches the host file (`docker compose … up -d --force-recreate caddy`).
+**Ports:** use tracked overlay **`docker-compose.demo-ports.yml`** — public **443 only** (Caddy), web on `127.0.0.1:8000`. After `git pull`, recreate so mounts match:
+
+```bash
+git pull
+docker compose -f docker-compose.yml -f docker-compose.demo.yml \
+  -f docker-compose.demo-ports.yml up -d --force-recreate caddy web
+# optional intentional DOCKER-USER (CF in / DNS+CF HTTPS out):
+#   sudo WAN=eth0 COMPOSE_NET=172.18.0.0/16 ./scripts/demo-docker-user.sh
+```
 
 ### Turnstile troubleshooting
 
