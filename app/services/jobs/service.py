@@ -1022,6 +1022,16 @@ def _initial_job_details(queue_message: str, **extra) -> str:
         ip = get_request_client_ip()
         if ip:
             data["client_ip"] = ip
+    # Demo sandbox: do not snapshot real visitor IPs into job JSON either
+    if data.get("client_ip"):
+        try:
+            from ..demo import scrub_audit_client_ip
+
+            data["client_ip"] = scrub_audit_client_ip(
+                data.get("client_ip"), for_display=False
+            )
+        except Exception:
+            pass
     return json.dumps(data)
 
 
@@ -1233,7 +1243,7 @@ def _finish(audit_id: int, job_id: int, status: str, snippet: str, hostname: str
                 try:
                     jip = (json.loads(job.details or "{}") or {}).get("client_ip")
                     if jip:
-                        audit.client_ip = str(jip)[:64]
+                        audit.client_ip = resolve_client_ip(None, fallback=str(jip)[:64])
                 except Exception:
                     pass
             # Replace "Job #N started" with a scannable finished line for the audit list
