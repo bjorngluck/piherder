@@ -1,6 +1,9 @@
 # Demo sandbox overlay (v1.2 Stream D)
 # Usage (local or demo VPS):
 #   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+# Public VPS (443 only + loopback web):
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml \
+#     -f docker-compose.demo-ports.yml up -d
 #
 # Public hostname (production-of-demo):
 #   https://piherder-demo.hacknow.info

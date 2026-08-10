@@ -1,0 +1,22 @@
+# Demo VPS ports overlay (public origin behind Cloudflare).
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml \
+#     -f docker-compose.demo-ports.yml up -d
+#
+# External: ONLY host :443 → Caddy (CF Full/strict HTTPS to origin).
+# web stays on loopback; never publish 8000/5432/6379/8888/8443 on WAN.
+# Compose v2.24+ required for !override.
+
+services:
+  web:
+    ports: !override
+      - "127.0.0.1:8000:8000"
+    # Reliable resolvers for Turnstile siteverify (container → Cloudflare)
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+      - 9.9.9.9
+
+  caddy:
+    ports: !override
+      - "443:443"
