@@ -7,20 +7,28 @@
 | **URL** | https://piherder-demo.hacknow.info |
 | **Host** | Dedicated VPS (Docker Compose) — Hub/GHCR image or local build |
 | **Mode** | `PIHERDER_DEMO_MODE=true` |
-| **User-facing wiki** | [wiki/operations/demo-site.md](../wiki/operations/demo-site.md) (slim) |
+| **Shared login** | `demo@hacknow.info` / viewer role |
+| **Public password source of truth** | **[wiki/operations/demo-site.md](../wiki/operations/demo-site.md)** (live docs site) |
+| **User-facing wiki** | same page — credentials + limits for visitors |
 
-## Invitee path
+## Public visitor path
 
 ```text
-WordPress CTA → request access
-  → Cloudflare Access (email OTP / IdP)
-  → https://piherder-demo.hacknow.info
+README / wiki home → https://piherder-demo.hacknow.info
+  → optional Cloudflare Access (if still enabled)
   → optional Turnstile on login
-  → demo@… / shared password
-  → full clickable UI (banner + synthetic fleet)
+  → demo@hacknow.info / password published on the live wiki
+  → viewer UI (banner + synthetic fleet)
 ```
 
-Do **not** promise an ungated open demo: Access is the outer gate.
+**Password policy:** the shared password is intentionally public (view-only sandbox). When you rotate it:
+
+1. Set `PIHERDER_DEMO_PASSWORD` on the VPS `.env`
+2. Force re-seed: `./scripts/demo-maintain.sh data-reset` (or wait for cron)
+3. Update **`wiki/operations/demo-site.md`** (and README table if it still shows the old value) so the **live wiki** stays authoritative
+4. Deploy docs (MkDocs / Pages) before or with the seed so visitors are not stuck on a stale password
+
+Access (if enabled) remains an optional outer gate for spam reduction — do not treat the published password as a substitute for origin firewall / demo mode locks.
 
 ## What demo mode does
 
@@ -55,7 +63,7 @@ docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d --build
 | `PIHERDER_HOSTNAME` | `piherder-demo.hacknow.info` |
 | `PIHERDER_PUBLIC_URL` | `https://piherder-demo.hacknow.info` |
 | `PIHERDER_DEMO_EMAIL` | `demo@hacknow.info` |
-| `PIHERDER_DEMO_PASSWORD` | default `Piherder@1` (override/rotate as needed) |
+| `PIHERDER_DEMO_PASSWORD` | public shared password — keep in sync with [wiki demo page](../wiki/operations/demo-site.md) (current: `PiHerder@123?_`) |
 | `PIHERDER_SSH_CONSOLE` | `false` |
 | `ALLOW_OPEN_REGISTRATION` | `false` |
 | `PIHERDER_UPDATE_CHECK` | `false` (optional noise reduction) |
@@ -68,8 +76,8 @@ Stack shape matches the normal compose services: web, db, redis, celery-worker (
 ## Cloudflare
 
 1. DNS: `piherder-demo.hacknow.info` → orange-cloud to the VPS origin (or Tunnel CNAME).
-2. **Access** application on that hostname (allowlist + WordPress “request access” process).
-3. **Turnstile** widget for the login form (keys in app env).
+2. **Access** (optional outer gate) — email allowlist / OTP if you want spam reduction beyond the published viewer password; not required for the wiki CTA.
+3. **Turnstile** widget for the login form (keys in app env) — recommended.
 4. **Web Analytics** (optional, privacy-friendly) — prefer this over Google Analytics *inside* the app.
 5. WAF / bot fight as usual; rate limits on the origin still apply in-app.
 
@@ -107,8 +115,9 @@ Logs: `docker compose logs web --tail=100 | grep -i turnstile`
 | First boot | Empty Postgres + demo mode → auto-seed on web lifespan |
 | **UI restore** | **Removed** — shared admin must not wipe the fleet for everyone |
 | CLI (ops) | `docker compose exec web python scripts/demo_seed/seed.py --force` |
-| Hard wipe | `./scripts/demo_seed/reset.sh --wipe` (compose down -v, up, seed) |
-| Nightly | Host cron calling force seed or volume wipe + re-up |
+| Data reset | `./scripts/demo-maintain.sh data-reset` (or `./scripts/demo_seed/reset.sh`) |
+| Hard wipe | `./scripts/demo-maintain.sh redeploy --wipe` (down -v, up, seed) |
+| Clean redeploy | `./scripts/demo-maintain.sh redeploy` (pull + build + force-recreate + seed) |
 
 `POST /herder-backups/demo-restore` returns **403** in demo mode. Also blocked: password change/reset, 2FA, SSO login/link, Users admin, OIDC/alerts/security settings writes, herder restore/delete.
 
@@ -116,11 +125,41 @@ RPO: **demo data is disposable**. Do not store real config on the demo instance.
 
 Seed pack details: [scripts/demo_seed/README.md](../scripts/demo_seed/README.md).
 
-## WordPress
+### Cron (demo VPS — install yourself)
+
+Nothing in the app installs cron. On the **demo VPS only**, after `git pull`:
+
+```bash
+# once
+sudo mkdir -p /var/log/piherder-demo
+sudo chown "$USER:$USER" /var/log/piherder-demo
+
+# edit user + absolute repo path, then install
+sudo cp scripts/cron.d/piherder-demo.example /etc/cron.d/piherder-demo
+sudo chmod 644 /etc/cron.d/piherder-demo
+```
+
+| Schedule (UTC, example) | Command | Effect |
+|-------------------------|---------|--------|
+| `0 */6 * * *` | `demo-maintain.sh data-reset` | Force re-seed synthetic fleet (keeps Postgres volume) |
+| `15 5 * * *` | `demo-maintain.sh redeploy` | `git pull --ff-only`, build, force-recreate stack, force seed (05:15 UTC — quieter for US visitors) |
+
+Notes:
+
+- **Root is not required** if the cron user owns the clone and is in the `docker` group. Create `/var/log/piherder-demo` owned by that user (or log under the repo). Root only matters if you also re-apply iptables (`DEMO_REAPPLY_FW=1`).
+- Redeploy **refuses a dirty working tree** (won't `git pull` over local edits). Keep the VPS clone clean.
+- Optional daily volume wipe: append `--wipe` to the redeploy line (more downtime; empty DB then seed).
+- Optional after redeploy: `DEMO_REAPPLY_FW=1` + passwordless sudo for `scripts/demo-docker-user.sh` (usually unnecessary — host `DOCKER-USER` rules survive container recreate; re-run after reboot).
+- Flock lock: `/tmp/piherder-demo-maintain.lock` so 6h reset and daily redeploy cannot overlap.
+- Smoke-test once as the cron user before enabling:  
+  `./scripts/demo-maintain.sh data-reset` then check the log path.
+
+## WordPress / marketing
 
 - Marketing / SEO / screenshots stay on WordPress.
-- CTA: “Request demo access” → collect email → add to Cloudflare Access policy.
-- Do not iframe the live app (Access breaks embeds).
+- CTA: **“Try the demo”** → [https://piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) + link to wiki credentials ([Public demo](https://piherder-docs.hacknow.info/operations/demo-site/)).
+- If Access is enabled, keep a “request access” path for the outer gate; otherwise point straight at the shared viewer login.
+- Do not iframe the live app (Access / CSP / cookies often break embeds).
 
 ## Security checklist
 
@@ -129,7 +168,7 @@ Seed pack details: [scripts/demo_seed/README.md](../scripts/demo_seed/README.md)
 - [ ] Unique Fernet + session secrets
 - [ ] Demo VPS isolated from home-lab network
 - [ ] Webshell off; registration off
-- [ ] Known shared password documented for ops only (or rotated + Access-only distribution)
+- [ ] Shared password matches live wiki [demo-site](../wiki/operations/demo-site.md) + VPS `.env` + last force seed
 - [ ] CLI re-seed tested; confirm Settings has **no** Demo restore tab
 
 Further: [SECURITY.md](../SECURITY.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md)

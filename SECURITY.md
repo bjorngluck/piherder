@@ -67,17 +67,18 @@ Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki ro
 
 ## Public demo sandbox (`PIHERDER_DEMO_MODE`)
 
-When `PIHERDER_DEMO_MODE=true` (e.g. **https://piherder-demo.hacknow.info** behind Cloudflare Access):
+When `PIHERDER_DEMO_MODE=true` (e.g. **https://piherder-demo.hacknow.info**):
 
 | Risk | Control |
 |------|---------|
-| Shared admin abuse / data pollution | Access gate + optional Turnstile + rate limits + nightly / in-app seed reset |
+| Shared-account vandalism / data pollution | Shared login is **viewer-only** + demo write guard; optional Access/Turnstile; scheduled force re-seed (host cron) |
+| Published shared password | **Expected** for the public sandbox — not a secret. Rotate via `.env` + re-seed + update live wiki ([demo-site](wiki/operations/demo-site.md)) |
 | API scrape / automation | Token create and Bearer auth **hard-blocked** |
 | Fake “I onboarded my Pi” | Wizard / SSH test / key deploy blocked |
 | Accidental lab access | No real keys in seed; console off; job mutations are canned; demo VPS isolated from home lab |
 | Origin bypass | Prefer CF Tunnel or firewall to CF IPs only |
 
-Demo must use **unique** Fernet/session secrets and never hold decryptable production host keys. Maintainer runbook: [docs/DEMO_SITE.md](docs/DEMO_SITE.md). User-facing note: [wiki/operations/demo-site.md](wiki/operations/demo-site.md).
+Demo must use **unique** Fernet/session secrets and never hold decryptable production host keys. Maintainer runbook: [docs/DEMO_SITE.md](docs/DEMO_SITE.md). User-facing credentials: [wiki/operations/demo-site.md](wiki/operations/demo-site.md).
 
 ## Operational recommendations
 

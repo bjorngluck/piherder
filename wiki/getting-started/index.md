@@ -2,6 +2,9 @@
 
 This section takes you from **zero** to a **running PiHerder** with a first admin account and a clear idea of what to do next.
 
+!!! tip "Prefer a click-through first?"
+    The **[public demo](../operations/demo-site.md)** is a limited **view-only** sandbox ([piherder-demo.hacknow.info](https://piherder-demo.hacknow.info)) with a shared viewer login. Credentials and limits are on that page — password may rotate; the live wiki always has the current one.
+
 ## What you are setting up
 
 | Piece | Role |
