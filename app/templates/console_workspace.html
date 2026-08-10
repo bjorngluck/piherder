@@ -12,7 +12,8 @@
     <div class="cw-actions">
       <button type="button" id="cw-maximize" class="btn btn-secondary text-xs min-h-9 px-2"
               data-testid="cw-maximize" title="Fill the browser window">Maximize</button>
-      <a href="/servers" class="btn btn-secondary text-xs min-h-9 px-2 no-underline">Exit</a>
+      <button type="button" id="cw-exit" class="btn btn-secondary text-xs min-h-9 px-2"
+              data-testid="cw-exit" title="Leave console">Exit</button>
     </div>
   </header>
 
@@ -132,27 +133,29 @@
     position: fixed; inset: 0; z-index: 90;
     width: 100vw; height: 100vh; height: 100dvh;
   }
-  /* Maximized workspace: thinner top bars */
+  /* Maximized workspace: thinner top bars; keep + Host always visible */
   .cw.is-max .cw-bar {
-    padding: 0.25rem 0.4rem;
+    padding: 0.2rem 0.35rem;
   }
   .cw.is-max .cw-meta,
   .cw.is-max .cw-back {
     display: none;
   }
-  .cw.is-max .cw-title { font-size: 0.8rem; }
+  .cw.is-max .cw-title { font-size: 0.78rem; }
   .cw.is-max .cw-host-row {
-    padding: 0.2rem 0.35rem;
+    padding: 0.15rem 0.3rem;
   }
   .cw.is-max .cw-host-tab {
-    min-height: 1.7rem;
-    padding: 0.25rem 0.4rem;
-    font-size: 0.72rem;
-  }
-  .cw.is-max .cw-actions .btn {
-    min-height: 1.7rem;
+    min-height: 1.65rem;
+    padding: 0.2rem 0.35rem;
     font-size: 0.7rem;
-    padding: 0.15rem 0.45rem;
+  }
+  .cw.is-max .cw-actions .btn,
+  .cw.is-max .cw-add-host {
+    min-height: 1.65rem;
+    font-size: 0.7rem;
+    padding: 0.12rem 0.4rem;
+    display: inline-flex;
   }
   .cw-picker {
     position: fixed; inset: 0; z-index: 100;
@@ -185,6 +188,7 @@
 (function () {
   var HOSTS = {{ hosts_json|safe }};
   var initialId = {{ initial_host_id if initial_host_id is not none else 'null' }};
+  var initialIds = {{ (initial_host_ids if initial_host_ids is defined else [])|tojson }};
   var enabled = {{ 'true' if console_enabled else 'false' }};
   var LS_KEY = 'piherder.console.openHosts';
 
@@ -198,11 +202,22 @@
   var btnAdd = document.getElementById('cw-add-host');
   var btnEmptyAdd = document.getElementById('cw-empty-add');
   var btnMax = document.getElementById('cw-maximize');
+  var btnExit = document.getElementById('cw-exit');
   var btnPickerClose = document.getElementById('cw-picker-close');
 
   // open host tabs: { id, name, elTab, elFrame }
   var open = [];
   var activeId = null;
+
+  /** In-app confirm (never window.confirm). */
+  function phConfirm(message, opts) {
+    opts = opts || {};
+    if (window.PiHerderConfirm && typeof window.PiHerderConfirm.confirm === 'function') {
+      return window.PiHerderConfirm.confirm(message, opts);
+    }
+    // Markup missing (should not happen on base layout)
+    return Promise.resolve(false);
+  }
 
   function hostMeta(id) {
     id = Number(id);
@@ -319,6 +334,44 @@
     }
   }
 
+  function requestCloseHost(id) {
+    id = Number(id);
+    var h = open.find(function (x) { return x.id === id; });
+    if (!h) return;
+    phConfirm(
+      'Close console for ' + h.name + '?\n\nOpen shells on this host will end.',
+      {
+        title: 'Close host',
+        confirmLabel: 'Close host',
+        cancelLabel: 'Keep open',
+        danger: true
+      }
+    ).then(function (ok) {
+      if (ok) closeHost(id);
+    });
+  }
+
+  function requestExit() {
+    if (!open.length) {
+      window.location.href = '/servers';
+      return;
+    }
+    phConfirm(
+      'Leave the console?\n\nAll open host tabs and shells will end.',
+      {
+        title: 'Exit console',
+        confirmLabel: 'Exit',
+        cancelLabel: 'Stay',
+        danger: true
+      }
+    ).then(function (ok) {
+      if (!ok) return;
+      // Tear down iframes so PTYs get bye/close
+      open.slice().forEach(function (h) { closeHost(h.id); });
+      window.location.href = '/servers';
+    });
+  }
+
   function openHost(id, opts) {
     opts = opts || {};
     if (!enabled) return;
@@ -348,9 +401,7 @@
     tab.addEventListener('click', function (ev) {
       if (ev.target && ev.target.classList && ev.target.classList.contains('x')) {
         ev.stopPropagation();
-        if (confirm('Close console for ' + meta.name + '? Open shells on this host will end.')) {
-          closeHost(id);
-        }
+        requestCloseHost(id);
         return;
       }
       activate(id);
@@ -431,6 +482,7 @@
   if (btnEmptyAdd) btnEmptyAdd.addEventListener('click', showPicker);
   if (btnPickerClose) btnPickerClose.addEventListener('click', hidePicker);
   if (btnMax) btnMax.addEventListener('click', toggleMax);
+  if (btnExit) btnExit.addEventListener('click', requestExit);
   if (picker) {
     picker.addEventListener('click', function (ev) {
       if (ev.target === picker) hidePicker();
@@ -445,14 +497,27 @@
     }
   });
 
-  // Bootstrap: only open the host from the URL (?host=).
+  // Bootstrap from URL: ?host=1 and/or ?hosts=1,2,3 (Servers multi-select).
   // Do NOT auto-reopen every host from localStorage (that re-opened earlier hosts
   // when the user only wanted a new one). localStorage still remembers tabs the
   // user opens in this session via openHost/saveOpen.
   if (enabled) {
-    if (initialId) {
-      openHost(initialId, { activate: true });
+    var boot = [];
+    if (Array.isArray(initialIds) && initialIds.length) {
+      boot = initialIds.map(Number).filter(function (n) { return n > 0; });
+    } else if (initialId) {
+      boot = [Number(initialId)];
     }
+    // Dedupe while preserving order
+    var seenBoot = {};
+    boot = boot.filter(function (id) {
+      if (seenBoot[id]) return false;
+      seenBoot[id] = true;
+      return true;
+    });
+    boot.forEach(function (id, i) {
+      openHost(id, { activate: i === 0 });
+    });
   }
   setEmpty();
 })();

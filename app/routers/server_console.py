@@ -135,11 +135,15 @@ async def console_workspace(
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
     host: Optional[int] = None,
+    hosts: Optional[str] = None,
 ):
     """Multi-host Web SSH workspace — host tabs, each host keeps its shells alive.
 
-    Open from server detail: ``/console?host=<id>``. Use **+ Host** to add more.
-    Jump between hosts with the top host tabs (sessions stay open until you close the tab).
+    Open from:
+      · server detail / kebab: ``/console?host=<id>``
+      · multi-select on Servers: ``/console?hosts=1,2,3``
+    Use **+ Host** to add more. Jump between hosts with the top host tabs
+    (sessions stay open until you close the tab).
     """
     enabled = cons.console_enabled()
     # Host list for the picker (name + whether SSH creds exist)
@@ -147,38 +151,65 @@ async def console_workspace(
         rows = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
     except Exception:
         rows = list(session.exec(select(Server).order_by(Server.name)).all())
-    hosts = []
+    hosts_meta = []
+    by_id = {}
     for s in rows:
         has_key = bool(
             getattr(s, "ssh_private_key_encrypted", None)
             or getattr(s, "ssh_password_encrypted", None)
         )
-        hosts.append(
-            {
-                "id": int(s.id),
-                "name": s.name,
-                "host": s.hostname or s.ip_address or "",
-                "has_ssh": has_key,
-            }
-        )
-    initial = None
+        meta = {
+            "id": int(s.id),
+            "name": s.name,
+            "host": s.hostname or s.ip_address or "",
+            "has_ssh": has_key,
+        }
+        hosts_meta.append(meta)
+        by_id[int(s.id)] = meta
+
+    def _meta_for(sid: int) -> Optional[dict]:
+        if sid in by_id:
+            return by_id[sid]
+        s = session.get(Server, sid)
+        if not s:
+            return None
+        return {
+            "id": int(s.id),
+            "name": s.name,
+            "host": s.hostname or s.ip_address or "",
+            "has_ssh": bool(
+                getattr(s, "ssh_private_key_encrypted", None)
+                or getattr(s, "ssh_password_encrypted", None)
+            ),
+        }
+
+    # Bootstrap tabs: hosts=1,2,3 and/or single host=
+    initial_ids: list[int] = []
+    seen: set[int] = set()
+    if hosts:
+        for part in str(hosts).split(","):
+            part = part.strip()
+            if not part:
+                continue
+            try:
+                sid = int(part)
+            except (TypeError, ValueError):
+                continue
+            if sid <= 0 or sid in seen:
+                continue
+            if _meta_for(sid) is None:
+                continue
+            seen.add(sid)
+            initial_ids.append(sid)
     if host is not None:
-        for h in hosts:
-            if h["id"] == int(host):
-                initial = h
-                break
-        if initial is None and session.get(Server, int(host)):
-            # Host exists but list filter miss — still allow
-            s = session.get(Server, int(host))
-            initial = {
-                "id": int(s.id),
-                "name": s.name,
-                "host": s.hostname or s.ip_address or "",
-                "has_ssh": bool(
-                    getattr(s, "ssh_private_key_encrypted", None)
-                    or getattr(s, "ssh_password_encrypted", None)
-                ),
-            }
+        try:
+            sid = int(host)
+        except (TypeError, ValueError):
+            sid = 0
+        if sid > 0 and sid not in seen and _meta_for(sid) is not None:
+            # Single host= opens first so detail/kebab stays primary when mixed
+            initial_ids.insert(0, sid)
+            seen.add(sid)
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -187,8 +218,9 @@ async def console_workspace(
             "title": "Web SSH console",
             "user": user,
             "console_enabled": enabled,
-            "hosts_json": json.dumps(hosts),
-            "initial_host_id": int(initial["id"]) if initial else None,
+            "hosts_json": json.dumps(hosts_meta),
+            "initial_host_id": initial_ids[0] if initial_ids else None,
+            "initial_host_ids": initial_ids,
             "max_shells": cons.max_per_user(),
             "popup_mode": True,
             "console_app": True,
@@ -729,6 +761,18 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                     )
                 except (cons.ConsoleDisabled, cons.ConsoleDenied) as e:
                     await websocket.send_text(f"\r\n*** Resume failed: {e} ***\r\n")
+                    try:
+                        await websocket.send_text(
+                            json.dumps(
+                                {
+                                    "type": "ph_session",
+                                    "ended": True,
+                                    "reason": "resume_failed",
+                                }
+                            )
+                        )
+                    except Exception:
+                        pass
                     await websocket.close(code=4403)
                     return
                 # Slot already held from original open
@@ -1035,6 +1079,19 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                 server_id_i,
             )
         else:
+            # Tell client not to soft-resume (exit, idle, bye, max session, auth loss).
+            try:
+                await websocket.send_text(
+                    json.dumps(
+                        {
+                            "type": "ph_session",
+                            "ended": True,
+                            "reason": "closed" if intentional_close else "ended",
+                        }
+                    )
+                )
+            except Exception:
+                pass
             if channel is not None:
                 try:
                     channel.close()
