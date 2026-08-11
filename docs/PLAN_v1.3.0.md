@@ -293,7 +293,7 @@ Success criteria (draft):
 | **AC-fg** fine-grained roles | ROADMAP · PLAN_v1.1 §6 · PLAN_v1.2 §10 | Per-host / per-feature gates; design at train open |
 | **P-acme** ACME-in-herder | PLAN_v1.1 §6.1 | Under consideration — not a Must for this seed |
 | HA REST / path 2 | FEATURE_PLAN_HOME_ASSISTANT | Residual integration |
-| Full insights · branding · k8s/bare | ROADMAP H3 / quality | Far horizon unless capacity |
+| Full insights beyond thin slice · branding · k8s/bare | ROADMAP H3 / quality | **N** seeds thin slice; deep BI stays far horizon |
 
 ---
 
@@ -305,6 +305,7 @@ Success criteria (draft):
 - **Video / full interactive session replay** and **dual-control** (two-person) console — still out; **W-audit** is opt-in command/transcript style only  
 - Guaranteeing redaction catches every secret typed at a shell  
 - Auto-enumerating all OS users on a host as “identities”  
+- **Full custom BI** (arbitrary SQL/PromQL, multi-page analytics, Grafana replacement) — **N** is discover + thin slice only  
 - Weakening public **demo** into a multi-user admin sandbox  
 
 ---
@@ -315,6 +316,7 @@ Success criteria (draft):
 |------|------|
 | 2026-08-10 | Opened while finishing **v1.2** demo/ops. Seed streams: **P** password policy · **T** 2FA/step-up policy · **W-cfg** console timeouts/limits/step-up · **A** map alert severity + granular alerts · **L** pagination + free-text/smart search. |
 | 2026-08-10 | Added **W-id** multi-identity host SSH (least-priv fleet user + privileged user, separate keys, Connect as…) and **W-audit** discover lower-level webshell audit (commands + responses, optional password redaction). |
+| 2026-08-10 | Final seed item: **N** insights — discovery + thin-slice reporting / custom dashboarding (metric registry, built-in fleet board, optional one custom layout; not Grafana). Planning capture for 1.3 considered complete for operator-requested themes. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
@@ -329,7 +331,8 @@ Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3�
 | 3 | Spike **L1** shared list component + **P1** settings schema (cheap wins first) |
 | 4 | Spike **W-id** model + console ticket identity field (no UI polish) |
 | 5 | Spike **W-audit0** PTY capture + redaction on a throwaway host; promote or Cap |
-| 6 | Write short feature notes (or extend host-lifecycle / IAM plans) for **T** / **W-cfg** / **W-id** / **W-audit** before coding |
+| 6 | Run **N0** insights discovery (one-pager) → decide **N2** vs **N2+N3** for freeze |
+| 7 | Write short feature notes (or extend host-lifecycle / IAM plans) for **T** / **W-cfg** / **W-id** / **W-audit** / **N** before coding |
 
 ---
 

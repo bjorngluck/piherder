@@ -114,16 +114,17 @@ New env (name bikeshed: `PIHERDER_DEMO_MODE=1`):
 | Behaviour | Detail |
 |-----------|--------|
 | **Banner** | Persistent “Demo — shared account · data resets · some actions simulated” |
-| **Accounts** | **One shared login** (e.g. `demo` / published password) with **fixed `admin` role**. No operator/viewer demo users required. Password is only useful *after* Cloudflare Access. |
-| **Role ceiling** | Demo user **stays admin** for full UI tour, but **privilege-sensitive admin actions are blocked or no-op** where they would escape the sandbox (create live API tokens that work, open registration, change master secrets, etc.). |
+| **Accounts** | **One shared login** (`demo@…` / published password) with **fixed `viewer` role**. Password published on live wiki (may rotate). |
+| **Role ceiling** | Demo user **stays viewer**; **write guard** + demo hard blocks prevent sandbox vandalism (API tokens, real onboard, settings sabotage, account lockout, etc.). Canned job runs allowed. |
 | **Secrets** | No real PEM/SMTP/webhook credentials; placeholders; Fernet key unique to demo |
-| **Outbound** | Block or no-op: live SSH to external hosts, nmap scan start, cert apply to edge, webhook fire, mail send |
+| **Outbound** | Block or no-op: live SSH to external hosts (except optional **sandbox console** target), nmap scan start, cert apply to edge, webhook fire, mail send |
 | **Onboard / real resources** | **Hard block:** add-server wizard, SSH key deploy, “test connection” to non-seed hosts, enroll new devices that require network, bind new live integrations that call out. Seeded hosts remain **read/click** with **canned** job results only. |
-| **API** | **View yes, use no:** OpenAPI / ReDoc / Settings → API pages **visible** (docs, screenshots of key shape). **Create / use tokens disabled** (or tokens minted are inert / always 403). No `feature:*` job execution via API. |
+| **API** | Token create/use **403**. Interactive OpenAPI **gated** (`/docs`, `/redoc`, `/openapi.json` → 404). Human docs remain in repo/wiki. |
 | **Keys / credentials UI** | SSH key panels, cert vault labels, integration credential forms **visible** with **redacted / placeholder** values; copy/download of PEMs disabled; rotate/deploy no-op with clear toast. |
 | **Mutations (seeded fleet)** | Prefer **canned success** for demos of jobs (backup “ok”, docker restart “ok”) with audit rows so UI feels alive; destructive deletes either blocked or restored on next reset |
-| **Reset** | Cron/script: wipe DB volume → re-seed nightly (or on-demand); document RPO for demo chatter |
-| **Webshell** | **Off in demo by default**; optional later only on a **local sandbox** host, never implying real-device onboard |
+| **Reset** | **Live:** host cron via `scripts/demo-maintain.sh` + `scripts/cron.d/piherder-demo.example` (6h data-reset + daily redeploy) — **D4 done** on public demo VPS |
+| **Audit privacy** | Visitor **client IPs scrubbed** (`redacted`) on write + display so shared account does not leak others’ addresses |
+| **Webshell** | **Off today** (`demo_mode` forces console disabled). **D5 under consideration:** sandbox-only console for product tour (see §4 Stream D) |
 
 ### 3.3 Seed data strategy (“feels like my fleet, isn’t my fleet”)
 
@@ -207,21 +208,55 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 | **W4b** Multi-shell UI + multi-host `/console` + popup | Should | **Landed** (popup; host tabs keep WS; compact chrome; sticky Ctrl) |
 | **W5** Audit open/close + IP + duration | Must | **Landed** |
 | **W6** SECURITY.md + ADMIN + **CSP** / TLS bar | Must | **Landed** (same-origin iframe CSP; wiki env catalog) |
-| **W7** Demo: disabled **or** sandbox-only host | Must decide before demo GA | Pending (Stream D) |
+| **W7** Demo console policy | Must decide | **Today: off.** **Revisit:** sandbox-only on (**D5**) preferred over “always off” for GA if security bar holds |
 | Session recording / dual-control root | Defer | — |
 
 ### Stream D — Demo platform (**new product work**)
 
-| Item | Stance |
-|------|--------|
-| **D1** `PIHERDER_DEMO_MODE` behaviours (§3.2) | Must |
-| **D1a** Shared demo user + fixed admin; block real onboard | Must |
-| **D1b** API: docs/UI visible; token create/use disabled | Must |
-| **D1c** Keys/secrets UI redacted; no PEM download / live deploy | Must |
-| **D2** Seed pack + reset script + compose overlay `docker-compose.demo.yml` | Must |
-| **D3** Runbook: VPS + Cloudflare Access + shared password + WordPress CTA | Must (wiki/ADMIN) |
-| **D4** Nightly reset job (host cron or herder job) | Should |
-| **D5** Optional sandbox SSH target for webshell demos | Should if W ships in same tag |
+| Item | Stance | Status |
+|------|--------|--------|
+| **D1** `PIHERDER_DEMO_MODE` behaviours (§3.2, as evolved) | Must | **Landed** (banner, write guard, canned jobs, outbound blocks, IP scrub, OpenAPI gate) |
+| **D1a** Shared demo user + fixed **viewer**; block real onboard | Must | **Landed** (role + hard blocks; not admin) |
+| **D1b** API: token create/use disabled; OpenAPI gated | Must | **Landed** |
+| **D1c** Keys/secrets: no real PEMs / live deploy | Must | **Landed** (seed placeholders + demo blocks) |
+| **D2** Seed pack + reset script + compose overlay `docker-compose.demo.yml` | Must | **Landed** |
+| **D3** Runbook: VPS + password wiki + optional CF Access | Must | **Landed** ([DEMO_SITE.md](DEMO_SITE.md) · [wiki demo-site](../wiki/operations/demo-site.md)); WordPress CTA optional polish |
+| **D4** Scheduled reset (host cron) | Should | **Live** on public demo VPS (`demo-maintain` cron) — 2026-08 |
+| **D5** **Demo console** (sandbox-only webshell) | Should | **Open — under design** (see below); product interest confirmed mid-train |
+| Screenshots / marketing stills | Freeze polish | **Deferred until QA completes** (not mid-train) |
+
+#### D5 — Demo console design (draft)
+
+**Why:** Webshell is a flagship 1.2 surface; a clickable terminal on the public demo is better conversion than “disabled in demo” forever.
+
+**Hard rules (non-negotiable):**
+
+1. **Never** SSH to seed “lab-*.demo” rows as if they were real, or to any home-lab address.  
+2. **Never** put a decryptable production key in the demo DB.  
+3. Shared account must not become a free jump box (caps, idle kill, audit, abuse limits).  
+4. Prefer **one** disposable sandbox identity, not privileged multi-host fleet shell.
+
+**Options (pick one at implementation):**
+
+| Option | Idea | Pros | Cons |
+|--------|------|------|------|
+| **A. Sidecar SSH toy** | Compose service `demo-ssh` (sshd + fixed demo user/key only reachable from `web` network). Seed **one** host row that points only there. | Real xterm + Paramiko path; honest demo | Ops: image, updates, resource; shared users can abuse the toy |
+| **B. Canned PTY** | Console UI opens but stream is a scripted/local fake shell (no SSH) | No extra attack surface | Feels fake; diverges from production path |
+| **C. Loopback VM on VPS** | Small VM only on demo host | Closer to “real Pi” | Heavy ops; overkill for 1.2 |
+
+**Lean:** **A** for honesty of the product path. Tight concurrent/global caps; short idle; optional read-only shell (`rbash` / limited user); banner “sandbox host — not your fleet”.
+
+**RBAC conflict to solve:** Console is **operator+** today; demo user is **viewer**. Either:
+
+- **A1** Demo-only allowlist: `DEMO_MODE` + sandbox host id → allow **viewer** console (production RBAC unchanged), or  
+- **A2** Raise demo seed role to **operator** but keep write guard (broader UI than intended), or  
+- **A3** Separate “console demo” capability flag  
+
+**Prefer A1** (least privilege elsewhere).
+
+**2FA on demo:** Shared account has no real 2FA (and must not — visitors would lock each other). Console step-up needs a **demo exception**: e.g. skip 2FA when `DEMO_MODE` and target is sandbox-only, or use a fixed demo passkey story that cannot be enrolled by visitors. Document explicitly in SECURITY.
+
+**W7 when D5 ships:** Change `console_enabled()` so demo allows console **only** for the sandbox host id(s); all other hosts stay denied.
 
 ### Stream Q — Quality / freeze (same bar as 1.1, raised for new attack surface)
 
@@ -299,11 +334,12 @@ Phase 4  Freeze
 
 **Demo**
 
-5. Invitee passes Cloudflare Access → logs in with **shared demo password** (fixed admin) → full fleet UI (maps, docker, jobs, audit).  
-6. **Cannot** onboard a real host/device; **cannot** obtain a working API token; keys/docs are view-only / redacted.  
+5. Visitor logs in with **shared demo password** (fixed **viewer**) → full fleet UI (maps, docker, jobs, audit). Optional CF Access outer gate.  
+6. **Cannot** onboard a real host/device; **cannot** obtain a working API token; OpenAPI gated; keys view-only / redacted.  
 7. Live outbound actions cannot touch the home lab.  
-8. Nightly (or manual) reset restores known-good seed.  
-9. WordPress drives access requests; app origin never public without Access.
+8. Scheduled (and manual) reset restores known-good seed — **live on demo VPS**.  
+9. Wiki publishes credentials; marketing/WordPress optional; **screenshots updated when QA completes**.  
+10. *(If D5 ships)* Sandbox-only console openable from demo; non-sandbox hosts still denied.
 
 ---
 
@@ -311,12 +347,14 @@ Phase 4  Freeze
 
 | # | Question | Decision |
 |---|----------|----------|
-| 1 | Demo webshell on or off? | **Off** until sandbox host exists; UI shows “disabled in demo” |
-| 2 | Demo app auth after CF Access? | **Shared password + fixed admin** (locked); SSO/WebAuthn can still be *shown* as UI if seed supports, but not required for entry |
+| 1 | Demo webshell on or off? | **Today off.** **Revised 2026-08-10:** pursue **sandbox-only** demo console (**D5**, lean option A) if security bar holds; else stay off |
+| 2 | Demo app auth? | **Shared password + fixed viewer** (locked); CF Access optional outer gate |
 | 3 | Seed hand-authored vs scrubbed export? | **Hand-authored fixtures** first; scrubber as later tool |
 | 4 | Passwordless passkeys in 1.2? | **No** — 2FA only |
 | 5 | Force SSO when configured? | Optional setting; break-glass local admin always |
 | 6 | Tag shape | `v1.2.0` single big tag after freeze (RCs: `1.2.0-rc.N`) |
+| 7 | Screenshots | **After QA completes** (not mid-train) |
+| 8 | D4 demo cron | **Live** on public demo VPS (2026-08) |
 
 ---
 
@@ -330,7 +368,7 @@ Phase 4  Freeze
 | Extend `FEATURE_PLAN_HOST_LIFECYCLE.md` P5 | W stream implementation notes |
 | `docs/DEMO_SITE.md` (+ slim wiki blurb) | D stream + CF/VPS runbook (maintainer) |
 | `scripts/demo_seed/` + `docker-compose.demo.yml` | Reproducible demo |
-| WordPress | CTA + feature pages post-RC screenshots |
+| WordPress / marketing stills | CTA + screenshots **after QA completes** |
 
 ---
 
@@ -358,7 +396,9 @@ Phase 4  Freeze
 |---|------|--------|
 | 1 | Finish **v1.1** QA / freeze | **Done** — `v1.1.0` tagged · Hub multi-arch published |
 | 2 | Open **`v1.2.0-dev`** + promote this plan | **Done** 2026-08-08 |
-| 3 | Spike week: OIDC library · WebAuthn library · xterm + WS ticket skeleton · demo seed cardinality | **Next** |
-| 4 | Provision VPS + CF Access early (even stock 1.1 + seed) so Access flow is proven | Ops (parallel) |
+| 3 | Streams **I / S / W / B / D1–D4** product land | **Done** (S live multi-IdP = operator QA) |
+| 4 | Demo VPS + maintain cron | **Done** — **D4 live** |
+| 5 | **D5** demo console design spike (sidecar toy + viewer exception + no 2FA lockout) | **Next** if pursuing sandbox terminal |
+| 6 | Operator QA → screenshot refresh → freeze docs / RELEASE / tag / Hub | After QA |
 
-**Phase 1 execution order (parallelizable):** **D1/D2** demo mode + seed · **I1–I3** WebAuthn 2FA · **S1** OIDC library spike.
+**Feature-complete bar for freeze:** I + S + W + B + D1–D4 green; **D5** optional Should (ship or explicitly defer with “console off in demo” wiki note).
