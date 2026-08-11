@@ -728,17 +728,21 @@ async def console_websocket(websocket: WebSocket, server_id: int):
     last_activity = time.monotonic()
 
     def _ws_ip() -> str:
+        """Same client IP resolution as HTTP (CF-Connecting-IP / XFF / peer)."""
         try:
-            xff = websocket.headers.get("x-forwarded-for") or websocket.headers.get(
-                "x-real-ip"
-            )
-            if xff:
-                return xff.split(",")[0].strip()
+            from ..services.request_ip import extract_client_ip
+
+            peer = None
             if websocket.client:
-                return websocket.client.host or ""
+                peer = websocket.client.host
+            return extract_client_ip(dict(websocket.headers), peer) or ""
         except Exception:
-            pass
-        return ""
+            try:
+                if websocket.client:
+                    return websocket.client.host or ""
+            except Exception:
+                pass
+            return ""
 
     # --- auth handshake ---
     try:
