@@ -167,6 +167,30 @@ Console open → Connect as: [ fleet (default) ▾ | elevated ]
 
 ---
 
+### Stream **W-mux** — Host-side session multiplexer (`screen` / `tmux`) — **under consideration · low priority**
+
+**Today (1.2):** Web console is a **direct SSH PTY** (`invoke_shell`). Soft resume / Hide & keep parks the PTY on the **herder**, not on the host. GNU **`screen`** / **`tmux` are not started or reattached** by PiHerder (operators may type them manually if installed).
+
+**Wanted (later, optional):** Consider **defaulting console sessions into a host-side multiplexer** so work survives herder restart, long disconnects, and reconnect from another browser — durability **on the host**, independent of herder park.
+
+| ID | Item | Notes |
+|----|------|--------|
+| W-mux0 | **Stance** | **Under consideration · low priority** — not a 1.3 Must; do not start until W-cfg / W-id / core console ops are stable |
+| W-mux1 | Discovery | Prefer `tmux` vs `screen` (availability on Debian/RPi, non-interactive create/attach, naming) |
+| W-mux2 | Product options | Off (default today) · opt-in per host · opt-in global · “default on when binary present” |
+| W-mux3 | Session model | Named session per user/host (or per shell tab); clean detach on dock/close; reattach on next open |
+| W-mux4 | Fallback | If `screen`/`tmux` missing → plain PTY + clear UI note; never fail open of console entirely |
+| W-mux5 | Security / ops | Shared hosts: session isolation between operators; wipe on host remove; document residual processes if herder dies mid-session |
+| W-mux6 | Demo | Stay **simulated** — no host mux on public demo |
+
+**Why low priority:** Soft park already covers short app-switch UX. Host mux is extra complexity (binary detect, attach races, multi-operator isolation) for longer durability edge cases.
+
+**Non-goals (W-mux):** Replacing herder soft-park; recording inside `screen`; forcing package install on every fleet host without operator consent.
+
+**Depends on:** Mature 1.2+ console; optional synergy with **W-id** (mux only for fleet identity).
+
+---
+
 ### Stream **A** — Map alert severity and granular alert options
 
 **Today:** Notifications have severity (`info` / `warning` / `critical`); webhook/SMTP min severity; some stack-health / cert verify alerts; map and inventory surfaces raise alerts with limited operator control over *which* map events and *how loud*.  

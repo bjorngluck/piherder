@@ -8,6 +8,8 @@ Optional **in-browser SSH terminal** to a managed host. The private key stays on
 
 **Train:** v1.2 Stream **W** · security bar is intentionally high.
 
+**Not GNU `screen` / `tmux` by default.** Each console is a direct SSH PTY. Soft resume parks on the herder, not on the host. You can still run `screen`/`tmux` yourself if installed. Optional product default mux is a later, low-priority idea ([PLAN_v1.3.0 W-mux](https://github.com/bjorngluck/piherder/blob/v1.2.0-dev/docs/PLAN_v1.3.0.md)).
+
 ## Why it exists
 
 Operators on a tablet or locked-down PC need a shell without exporting the herder private key.
