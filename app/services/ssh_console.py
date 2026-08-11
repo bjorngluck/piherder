@@ -436,6 +436,8 @@ def session_still_valid(
 
     Call periodically during an open shell so logout, password change, admin
     session revoke, or demotion kills the PTY immediately.
+
+    Demo (D5): shared viewer is allowed (simulated console only).
     """
     from ..models import User
     from ..security.auth import role_at_least, ROLE_OPERATOR
@@ -445,6 +447,8 @@ def session_still_valid(
         return False, "user_inactive"
     if user_session_version(user) != int(expected_sv):
         return False, "session_revoked"
+    if is_demo_console():
+        return True, ""
     if not role_at_least(user, ROLE_OPERATOR):
         return False, "role_lost"
     return True, ""

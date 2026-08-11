@@ -21,6 +21,40 @@ def test_console_disabled_by_default(monkeypatch):
         cons.require_enabled()
 
 
+def test_session_still_valid_demo_allows_viewer(monkeypatch):
+    """D5: continuous revalidation must not kill shared demo viewer shells."""
+    from types import SimpleNamespace
+    from app.services import demo as demo_svc
+
+    monkeypatch.setattr(demo_svc.settings, "PIHERDER_DEMO_MODE", True)
+    user = SimpleNamespace(id=1, role="viewer", is_active=True, session_version=0)
+
+    class _S:
+        def get(self, _m, _id):
+            return user
+
+    ok, reason = cons.session_still_valid(_S(), user_id=1, expected_sv=0)
+    assert ok is True
+    assert reason == ""
+
+
+def test_session_still_valid_viewer_lost_outside_demo(monkeypatch):
+    from types import SimpleNamespace
+    from app.services import demo as demo_svc
+
+    monkeypatch.setattr(demo_svc.settings, "PIHERDER_DEMO_MODE", False)
+    monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE", True)
+    user = SimpleNamespace(id=1, role="viewer", is_active=True, session_version=0)
+
+    class _S:
+        def get(self, _m, _id):
+            return user
+
+    ok, reason = cons.session_still_valid(_S(), user_id=1, expected_sv=0)
+    assert ok is False
+    assert reason == "role_lost"
+
+
 def test_mint_and_consume_ticket():
     tok = cons.mint_ticket(
         user_id=3,
