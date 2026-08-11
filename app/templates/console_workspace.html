@@ -12,10 +12,19 @@
     <div class="cw-actions">
       <button type="button" id="cw-maximize" class="btn btn-secondary text-xs min-h-9 px-2"
               data-testid="cw-maximize" title="Fill the browser window">Maximize</button>
+      <button type="button" id="cw-hide-keep" class="btn btn-accent text-xs min-h-9 px-2"
+              data-testid="cw-hide-keep"
+              title="Leave console UI but keep shells soft-parked — reopen from ⌨ in the top bar">
+        Hide &amp; keep
+      </button>
       <button type="button" id="cw-exit" class="btn btn-secondary text-xs min-h-9 px-2"
-              data-testid="cw-exit" title="Leave console">Exit</button>
+              data-testid="cw-exit" title="End all shells and leave">Exit</button>
     </div>
   </header>
+  <p class="cw-dock-hint" id="cw-dock-hint">
+    <strong>Hide &amp; keep</strong> parks shells and returns to Servers — use <strong>⌨</strong> next to the alert bell to reopen.
+    Host tab <strong>×</strong> or <strong>Exit</strong> ends those sessions (frees shell slots).
+  </p>
 
   <div class="cw-host-row" role="tablist" aria-label="Hosts">
     <div id="cw-host-tabs" class="cw-host-tabs"></div>
@@ -77,6 +86,15 @@
   .cw-title { font-size: 0.95rem; color: var(--color-text, #e6edf3); }
   .cw-meta { font-size: 0.7rem; }
   .cw-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .cw-dock-hint {
+    margin: 0; padding: 0.35rem 0.65rem;
+    font-size: 0.72rem; line-height: 1.35;
+    color: var(--color-muted, #9ca3af);
+    background: var(--color-surface, #12171e);
+    border-bottom: 1px solid var(--color-border, #333);
+    flex-shrink: 0;
+  }
+  .cw.is-max .cw-dock-hint { display: none; }
   .cw-host-row {
     display: flex; align-items: center; gap: 0.35rem;
     padding: 0.35rem 0.5rem;
@@ -205,6 +223,7 @@
   var btnAdd = document.getElementById('cw-add-host');
   var btnEmptyAdd = document.getElementById('cw-empty-add');
   var btnMax = document.getElementById('cw-maximize');
+  var btnHideKeep = document.getElementById('cw-hide-keep');
   var btnExit = document.getElementById('cw-exit');
   var btnPickerClose = document.getElementById('cw-picker-close');
 
@@ -318,23 +337,40 @@
   window.addEventListener('resize', layoutWorkspace);
   setTimeout(layoutWorkspace, 50);
 
-  function closeHost(id) {
+  function endShellsInFrame(frame) {
+    // Ask iframe to bye + discard parked tokens (frees MAX_PER_USER slots)
+    nudgeFrame(frame, 'end-all');
+  }
+
+  function closeHost(id, opts) {
+    opts = opts || {};
     id = Number(id);
     var idx = open.findIndex(function (h) { return h.id === id; });
     if (idx < 0) return;
     var h = open[idx];
-    // unload iframe → ends PTYs for that host
-    try { h.elFrame.src = 'about:blank'; } catch (e) {}
-    if (h.elTab.parentNode) h.elTab.parentNode.removeChild(h.elTab);
-    if (h.elFrame.parentNode) h.elFrame.parentNode.removeChild(h.elFrame);
-    open.splice(idx, 1);
-    saveOpen();
-    if (activeId === id) {
-      var next = open[idx] || open[idx - 1] || open[0] || null;
-      activate(next ? next.id : null);
+    if (!opts.keepParked) {
+      // End shells properly — blanking alone only soft-parks and leaks slots
+      endShellsInFrame(h.elFrame);
     } else {
-      setEmpty();
+      // Hide & keep: soft-park for top-bar resume
+      nudgeFrame(h.elFrame, 'park-for-dock');
+      nudgeFrame(h.elFrame, 'persist-dock');
     }
+    // Brief delay so discard/bye can leave the iframe before unload
+    var unload = function () {
+      try { h.elFrame.src = 'about:blank'; } catch (e) {}
+      if (h.elTab.parentNode) h.elTab.parentNode.removeChild(h.elTab);
+      if (h.elFrame.parentNode) h.elFrame.parentNode.removeChild(h.elFrame);
+      open.splice(idx, 1);
+      saveOpen();
+      if (activeId === id) {
+        var next = open[idx] || open[idx - 1] || open[0] || null;
+        activate(next ? next.id : null);
+      } else {
+        setEmpty();
+      }
+    };
+    setTimeout(unload, opts.keepParked ? 120 : 180);
   }
 
   function requestCloseHost(id) {
@@ -342,7 +378,7 @@
     var h = open.find(function (x) { return x.id === id; });
     if (!h) return;
     phConfirm(
-      'Close console for ' + h.name + '?\n\nOpen shells on this host will end.',
+      'Close console for ' + h.name + '?\n\nOpen shells on this host will end and free shell slots.',
       {
         title: 'Close host',
         confirmLabel: 'Close host',
@@ -354,24 +390,48 @@
     });
   }
 
+  function hideAndKeep() {
+    // Soft-park every host, then go to Servers — ⌨ restores
+    open.slice().forEach(function (h) {
+      nudgeFrame(h.elFrame, 'park-for-dock');
+      nudgeFrame(h.elFrame, 'persist-dock');
+    });
+    setTimeout(function () {
+      try {
+        if (window.PiHerderConsoleDock && window.PiHerderConsoleDock.refresh) {
+          window.PiHerderConsoleDock.refresh();
+        }
+      } catch (e) {}
+      window.location.href = '/servers';
+    }, 200);
+  }
+
   function requestExit() {
     if (!open.length) {
       window.location.href = '/servers';
       return;
     }
     phConfirm(
-      'Leave the console?\n\nAll open host tabs and shells will end.',
+      'Leave the console?\n\nAll open host tabs and shells will end (slots freed).\n\nUse “Hide & keep” if you want to resume from the ⌨ icon later.',
       {
         title: 'Exit console',
-        confirmLabel: 'Exit',
+        confirmLabel: 'End all & exit',
         cancelLabel: 'Stay',
         danger: true
       }
     ).then(function (ok) {
       if (!ok) return;
-      // Tear down iframes so PTYs get bye/close
-      open.slice().forEach(function (h) { closeHost(h.id); });
-      window.location.href = '/servers';
+      open.slice().forEach(function (h) {
+        endShellsInFrame(h.elFrame);
+      });
+      setTimeout(function () {
+        open.slice().forEach(function (h) {
+          try { h.elFrame.src = 'about:blank'; } catch (e) {}
+        });
+        open = [];
+        saveOpen();
+        window.location.href = '/servers';
+      }, 220);
     });
   }
 
@@ -485,7 +545,17 @@
   if (btnEmptyAdd) btnEmptyAdd.addEventListener('click', showPicker);
   if (btnPickerClose) btnPickerClose.addEventListener('click', hidePicker);
   if (btnMax) btnMax.addEventListener('click', toggleMax);
+  if (btnHideKeep) btnHideKeep.addEventListener('click', hideAndKeep);
   if (btnExit) btnExit.addEventListener('click', requestExit);
+  // Phone Back → Hide & keep (park), not silent abandon with leaked slots
+  try {
+    history.pushState({ phMultiConsole: 1 }, '');
+  } catch (eHist) {}
+  window.addEventListener('popstate', function () {
+    if (open.length) {
+      hideAndKeep();
+    }
+  });
   if (picker) {
     picker.addEventListener('click', function (ev) {
       if (ev.target === picker) hidePicker();

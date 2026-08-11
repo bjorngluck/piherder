@@ -671,6 +671,48 @@ def destroy_held(resume_id: str, *, reason: str = "") -> bool:
     return True
 
 
+def discard_parked_for_user(
+    resume_id: str,
+    *,
+    user_id: int,
+    server_id: Optional[int] = None,
+) -> bool:
+    """Client-initiated discard of a parked PTY (close shell / host tab).
+
+    Releases the concurrent slot so new shells can open. Only the owning user
+    may discard; optional server_id must match when provided.
+    """
+    rid = (resume_id or "").strip()
+    if not rid:
+        return False
+    with _lock:
+        held = _held_sessions.get(rid)
+        if not held or held.dead:
+            _held_sessions.pop(rid, None)
+            return False
+        if int(held.user_id) != int(user_id):
+            return False
+        if server_id is not None and int(held.server_id) != int(server_id):
+            return False
+        held = _held_sessions.pop(rid, None)
+    if not held:
+        return False
+    _destroy_held_resources(held, release_slot_user=held.user_id)
+    return True
+
+
+def discard_all_parked_for_user(user_id: int) -> int:
+    """Tear down every parked console for a user. Returns count destroyed."""
+    uid = int(user_id)
+    with _lock:
+        ids = [rid for rid, h in _held_sessions.items() if h and int(h.user_id) == uid]
+    n = 0
+    for rid in ids:
+        if destroy_held(rid, reason="user_discard_all"):
+            n += 1
+    return n
+
+
 def held_count() -> int:
     with _lock:
         return len(_held_sessions)
