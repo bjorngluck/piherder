@@ -459,7 +459,8 @@
     frame.title = 'Console · ' + meta.name;
     frame.setAttribute('allow', 'publickey-credentials-get *');
     frame.setAttribute('referrerpolicy', 'same-origin');
-    frame.src = '/servers/' + id + '/console?embed=1';
+    // sk= cache-bust so soft-key JS updates are not stuck behind a cached iframe doc
+    frame.src = '/servers/' + id + '/console?embed=1&sk=18';
 
     tab.addEventListener('click', function (ev) {
       if (ev.target && ev.target.classList && ev.target.classList.contains('x')) {

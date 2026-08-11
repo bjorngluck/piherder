@@ -35,7 +35,7 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 |--------|--------|
 | Integration branch | **`v1.3.0-dev`** when 1.2 is on `main` |
 | Production line until then | **`main` @ 1.2.x** patches; this plan does not block 1.2 |
-| Theme streams (seed) | **P** · **T** · **W-cfg** · **W-id** · **W-audit** (discover) · **A** · **L** · **N** insights thin slice (discover → ship) · (+ **AC-fg** / residual as capacity) |
+| Theme streams (seed) | **P** · **T** · **W-cfg** · **W-id** · **W-audit** (discover) · **W-mux** screen/tmux (**under consideration · low priority**) · **A** · **L** · **N** · (+ **AC-fg** / residual as capacity) |
 | Policy storage | Prefer **app Settings** (DB) with env as override / bootstrap where it already exists |
 | Host SSH identities | At least **two** optional credentials per host: **fleet / least-priv** (default jobs + console) + **privileged** (break-glass console / elevated jobs later); separate Fernet keys |
 | Shell audit | **Opt-in**; default off or session-meta only (1.2); full command/response is **discover → promote** |
@@ -268,7 +268,7 @@ Reports / Dashboard (custom)
 |----------|---------|-----|
 | **Must** | **L** (at least Servers + Docker + discovery) · **P** or **T** (at least one policy stream fully usable) · **W-id** core (fleet + privileged identity + console picker) | Scale lists + at least one security policy + least-priv/privileged connect-as |
 | **Should** | **P** + **T** · **W-cfg** · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) | Full policy set + console knobs + alerts + opt-in command audit + thin reporting surface |
-| **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-audit** spike · **AC-fg** · ACME · branding | Promote only if Must green |
+| **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-audit** spike · **W-mux** (screen/tmux, low priority) · **AC-fg** · ACME · branding | Promote only if Must green |
 
 Success criteria (draft):
 
@@ -341,8 +341,12 @@ Success criteria (draft):
 | 2026-08-10 | Opened while finishing **v1.2** demo/ops. Seed streams: **P** password policy · **T** 2FA/step-up policy · **W-cfg** console timeouts/limits/step-up · **A** map alert severity + granular alerts · **L** pagination + free-text/smart search. |
 | 2026-08-10 | Added **W-id** multi-identity host SSH (least-priv fleet user + privileged user, separate keys, Connect as…) and **W-audit** discover lower-level webshell audit (commands + responses, optional password redaction). |
 | 2026-08-10 | Final seed item: **N** insights — discovery + thin-slice reporting / custom dashboarding (metric registry, built-in fleet board, optional one custom layout; not Grafana). Planning capture for 1.3 considered complete for operator-requested themes. |
+| 2026-08-11 | **W-mux**: optional host-side `screen`/`tmux` default for web console — **under consideration · low priority** (not 1.2; not a 1.3 Must). Soft park remains herder-side only today. |
+| 2026-08-11 | **Carry from 1.2:** **KI-console-mobile-soft-tab** — mobile soft-Tab / IME path-completion polish (desktop OK; parked in 1.2 RELEASE + wiki). Optional **W-cfg** / console UX Cap. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
+
+- **KI-console-mobile-soft-tab** — mobile browser soft Tab + IME fragment re-append after bash completion (workaround: Space → Backspace → Tab).
 
 ---
 

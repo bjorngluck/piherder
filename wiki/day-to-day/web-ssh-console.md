@@ -45,7 +45,7 @@ The [public demo](../operations/demo-site.md) enables Console for the shared **v
 | **+ Hosts** | Multi-host workspace at `/console` — **stays visible when maximized** |
 | **Passkey / TOTP** | Step-up first; **+ Shell / Lock / Aa** appear only after unlock |
 | **+ Shell** | New PTY (after step-up) |
-| **Tab** (soft key) | Sends a real Tab to the shell (completion). On mobile, holds focus on the terminal so completion works |
+| **Tab** (soft key) | Sends a real Tab to the shell (completion). Desktop soft Tab matches physical Tab. **Mobile:** best-effort — see [Known issues](#known-issues) |
 | Shell tab **×** | Close that shell only (multiple shells per host) |
 | **Aa** | Font size **8–28** (hidden until tapped) |
 | Gate **···** | Show/hide status + slot count (saves vertical space) |
@@ -71,6 +71,25 @@ Typing **`exit`**, idle timeout, or session max **ends that shell** (no resume-r
 | Shell slots | **Account-wide** (default **4** concurrent PTYs across all hosts) |
 | 2FA grant | **Fleet-wide**: one passkey/TOTP covers **all hosts** until expiry (~10 min) or **Lock** / **Aa → Lock step-up** |
 | Grant expired | Next **+ Shell** re-shows Passkey/TOTP automatically (no need to hunt for Lock first) |
+
+---
+
+## Known issues
+
+### KI-console-mobile-soft-tab (parked)
+
+**Status:** Known limitation · **parked** for post-1.2 polish (not blocking freeze).  
+**Surface:** Soft **Tab** key on **mobile browsers** (Android Chrome verified).  
+**Works:** Physical keyboard Tab; soft Tab on **desktop** Chrome/Linux; path completion depends on the **remote SSH user’s** home (e.g. least-priv `piherder` may have no `~/docker` while a privileged login does).
+
+| Symptom | Detail |
+|---------|--------|
+| Mid-word soft Tab | Mobile IME often holds the current token (thin caret on the word) until Space or similar commits it. Soft Tab can complete against a shorter line, or re-append the short fragment after bash expands a path (`cd do` → `cd docker/do`, or `…/pi` → `…/piherder/pi`). |
+| Workaround | Type a **Space** (fat cursor returns = token on the PTY), **Backspace** the space, then soft **Tab** — same as desktop completion. Or use a physical keyboard. |
+
+**Not a demo-shell bug:** public demo uses a simulated PTY with toy paths; self-hosted live SSH uses real bash completion for that host’s login user.
+
+**Follow-up (later):** further IME fragment suppression after soft Tab; optional product note in release notes. No CSS/IME mute experiments in tree — current code is soft-key v11 + composition tracking without blocking normal typing.
 
 ---
 
