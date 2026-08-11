@@ -339,6 +339,9 @@ async def console_page(
             device_id,
             **cookie_auth_kwargs(max_age=60 * 60 * 24 * 400),  # ~13 months
         )
+    # Soft-key / xterm JS must never be served stale from browser or proxy cache
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
     return response
 
 
@@ -1089,7 +1092,11 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                             park_on_exit = False
                             stop.set()
                             break
-                        await asyncio.sleep(0.02)
+                        # Faster poll while the user is typing so echo feels immediate
+                        if now - last_activity < 0.8:
+                            await asyncio.sleep(0.005)
+                        else:
+                            await asyncio.sleep(0.02)
                 except Exception as e:
                     logger.debug("console pump out: %s", e)
                     # WS likely dead — leave park_on_exit True so SSH is held
@@ -1118,7 +1125,11 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                 if "bytes" in message and message["bytes"] is not None:
                     data = message["bytes"]
                     last_activity = time.monotonic()
-                    await asyncio.to_thread(channel.send, data)
+                    # Prefer in-loop send for typing latency; channel is non-blocking.
+                    try:
+                        channel.send(data)
+                    except Exception:
+                        await asyncio.to_thread(channel.send, data)
                 elif "text" in message and message["text"] is not None:
                     text_in = message["text"]
                     last_activity = time.monotonic()
@@ -1152,9 +1163,34 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                                 park_on_exit = False
                                 stop.set()
                                 break
+                            # Explicit stdin (hex) — used for Tab/Esc/arrows so C0
+                            # bytes are never lost in text frames / proxies.
+                            if t == "stdin":
+                                hx = str(ctl.get("hex") or "").strip()
+                                raw = b""
+                                if hx:
+                                    try:
+                                        raw = bytes.fromhex(hx)
+                                    except ValueError:
+                                        raw = b""
+                                if not raw and ctl.get("data") is not None:
+                                    raw = str(ctl.get("data") or "").encode(
+                                        "utf-8", errors="replace"
+                                    )
+                                if raw:
+                                    try:
+                                        channel.send(raw)
+                                    except Exception:
+                                        await asyncio.to_thread(channel.send, raw)
+                                continue
+                            # Unknown JSON control — do not dump into the PTY
+                            continue
                         except Exception:
                             pass
-                    await asyncio.to_thread(channel.send, text_in)
+                    try:
+                        channel.send(text_in)
+                    except Exception:
+                        await asyncio.to_thread(channel.send, text_in)
         finally:
             stop.set()
             out_task.cancel()

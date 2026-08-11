@@ -209,6 +209,7 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 | **W5** Audit open/close + IP + duration | Must | **Landed** |
 | **W6** SECURITY.md + ADMIN + **CSP** / TLS bar | Must | **Landed** (same-origin iframe CSP; wiki env catalog) |
 | **W7** Demo console policy | Must | **Landed (D5)** — simulated shell only (no live SSH); viewer allowed in demo |
+| **W8** Mobile soft-Tab completion polish | Cap | **Parked** — **KI-console-mobile-soft-tab** (desktop Tab OK; mobile IME can re-append fragment after completion). Workaround in [wiki web-ssh-console](../wiki/day-to-day/web-ssh-console.md#known-issues). Not freeze-blocking. |
 | Session recording / dual-control root | Defer | — |
 
 ### Stream D — Demo platform (**new product work**)
