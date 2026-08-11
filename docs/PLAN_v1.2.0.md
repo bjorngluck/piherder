@@ -49,13 +49,14 @@ main @ v1.1.0 (+ v1.1.x patches)
 | Choice | Lock |
 |--------|------|
 | **Release shape** | **Big 1.2** — WebAuthn/passkeys + SSO/OIDC + webshell (web SSH) + public-facing **demo product** |
-| **Demo edge** | **Cloudflare Access gated** (invite / email OTP / IdP) |
-| **Demo app login** | **Shared demo password** (single known account) after Access — simple for invitees |
-| **Demo role cap** | **Fixed admin role only** for the shared demo user — no multi-role sandbox, no promote/demote other real admins |
+| **Demo edge** | Cloudflare Access **optional** (spam gate); app shared password always public via wiki |
+| **Demo app login** | **Shared demo password** (single known account) — simple for invitees |
+| **Demo role cap** | **Fixed `viewer`** for the shared demo user (not admin) — full read tour + canned job runs; write guard blocks sabotage |
 | **Demo fidelity** | **Fully functional *clickable* UI** with rich seeded fleet; mutations are **safe** (demo mode), not a live tunnel into the home lab |
 | **Hosting** | **Dedicated VPS** (compose stack), **not** the production PiHerder instance |
-| **Marketing** | WordPress site remains the story/SEO surface; **Request demo access** CTA → Cloudflare Access → `demo.<domain>` |
-| **Capacity** | Team has time — prefer **correct security bar** over shipping half-gated surfaces |
+| **Marketing** | WordPress story/SEO; wiki holds live password; **screenshots refresh at QA complete** (not a freeze blocker mid-train) |
+| **Capacity** | Prefer **correct security bar** over shipping half-gated surfaces |
+| **Demo console** | **Re-opened for 1.2** as optional **sandbox-only** surface (see **D5** / **W7**) — never real fleet hosts or home lab |
 
 **Explicit non-goals for demo**
 
