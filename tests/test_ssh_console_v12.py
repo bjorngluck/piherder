@@ -55,6 +55,60 @@ def test_session_still_valid_viewer_lost_outside_demo(monkeypatch):
     assert reason == "role_lost"
 
 
+def test_discard_parked_frees_slot(monkeypatch):
+    """Closing a shell must free concurrent slots even if only soft-parked."""
+    monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_MAX_PER_USER", 2)
+    monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE_MAX_GLOBAL", 10)
+    cons.reset_runtime_state_for_tests()
+
+    cons.try_acquire_slot(7)
+    cons.try_acquire_slot(7)
+    assert cons.slots_remaining(7) == 0
+
+    held = cons.HeldConsole(
+        resume_id="resume-tok-abc",
+        user_id=7,
+        server_id=3,
+        session_version=1,
+        ticket_payload={"console": True},
+        device_id="dev",
+        client=None,
+        channel=None,
+        started_mono=0.0,
+        last_activity_mono=0.0,
+        held_at_mono=0.0,
+        server_hostname="lab",
+    )
+    # Parked sessions keep the slot from the original WS open
+    cons.park_console(held)
+    # Still at cap until discard
+    assert cons.slots_remaining(7) == 0
+
+    ok = cons.discard_parked_for_user("resume-tok-abc", user_id=7, server_id=3)
+    assert ok is True
+    assert cons.slots_remaining(7) == 1
+
+    # Wrong user cannot free
+    cons.try_acquire_slot(7)
+    held2 = cons.HeldConsole(
+        resume_id="resume-tok-xyz",
+        user_id=7,
+        server_id=3,
+        session_version=1,
+        ticket_payload={},
+        device_id="dev",
+        client=None,
+        channel=None,
+        started_mono=0.0,
+        last_activity_mono=0.0,
+        held_at_mono=0.0,
+        server_hostname="lab",
+    )
+    cons.park_console(held2)
+    assert cons.discard_parked_for_user("resume-tok-xyz", user_id=99, server_id=3) is False
+    assert cons.discard_parked_for_user("resume-tok-xyz", user_id=7, server_id=3) is True
+
+
 def test_mint_and_consume_ticket():
     tok = cons.mint_ticket(
         user_id=3,

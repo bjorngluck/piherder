@@ -1217,10 +1217,31 @@
     updateToolbar();
   }
 
+  function discardParkedResume(resumeId) {
+    var rid = (resumeId || '').trim();
+    if (!rid) return;
+    try {
+      // keepalive so tab teardown still delivers the free-slot request
+      fetch('/servers/' + serverId + '/console/discard', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'PiHerderConsole'
+        },
+        body: JSON.stringify({ resume: rid }),
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
   function destroyShell(sh) {
+    // Capture park token BEFORE nulling — must free server slot or MAX_PER_USER leaks
+    var parkTok = sh.resumeId || null;
     sh.userClosed = true;
     sh._ending = true;
     sh.terminalEnded = true;
+    sh._dockPark = false;
     sh.resumeId = null;
     sh._wsGen = (sh._wsGen || 0) + 1;
     if (sh._pingTimer) {
@@ -1243,6 +1264,8 @@
       try { sh.ws.close(); } catch (e) {}
       sh.ws = null;
     }
+    // If the PTY was soft-parked (or bye raced with close), free the slot now
+    if (parkTok) discardParkedResume(parkTok);
     try { sh.term.dispose(); } catch (e) {}
     if (sh.tab && sh.tab.parentNode) sh.tab.parentNode.removeChild(sh.tab);
     if (sh.pane && sh.pane.parentNode) sh.pane.parentNode.removeChild(sh.pane);
@@ -1254,6 +1277,15 @@
     }
     updateToolbar();
     try { persistDockState(); } catch (eD) {}
+  }
+
+  /** End every shell on this host (host tab × / workspace Exit). Frees slots. */
+  function endAllShells() {
+    dockParkMode = false;
+    shells.slice().forEach(function (sh) {
+      try { destroyShell(sh); } catch (e) {}
+    });
+    try { persistDockState(); } catch (e2) {}
   }
 
   function createShellUi(label) {
@@ -2120,6 +2152,11 @@
       shells.forEach(function (sh) { if (sh) sh._dockPark = false; });
       resumeAllShells();
       setTimeout(refitActive, 80);
+      return;
+    }
+    if (ev.data.action === 'end-all') {
+      // Parent host tab closed or workspace Exit — free concurrent slots
+      endAllShells();
       return;
     }
     if (ev.data.action === 'park-for-dock') {

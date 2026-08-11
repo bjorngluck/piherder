@@ -642,6 +642,82 @@ async def revoke_console_grant(
     return response
 
 
+@router.post("/{server_id}/console/discard")
+async def discard_console_session(
+    request: Request,
+    server_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_console_user),
+):
+    """Destroy a soft-parked PTY and free its concurrent slot.
+
+    Called when the user closes a shell/host tab so parked sessions do not
+    exhaust ``MAX_PER_USER`` until idle timeout.
+    """
+    del session
+    blocked = _reject_cross_site(request)
+    if blocked:
+        return blocked
+    try:
+        cons.require_enabled()
+    except cons.ConsoleDisabled as e:
+        return JSONResponse(
+            {"ok": False, "error": "disabled", "detail": str(e)}, status_code=403
+        )
+
+    resume = ""
+    resumes: list[str] = []
+    try:
+        ctype = (request.headers.get("content-type") or "").lower()
+        if "application/json" in ctype:
+            body = await request.json()
+            if isinstance(body, dict):
+                resume = str(body.get("resume") or "").strip()
+                raw = body.get("resumes")
+                if isinstance(raw, list):
+                    resumes = [str(x).strip() for x in raw if str(x).strip()]
+        else:
+            form = await request.form()
+            resume = str(form.get("resume") or "").strip()
+            multi = form.getlist("resumes") if hasattr(form, "getlist") else []
+            resumes = [str(x).strip() for x in multi if str(x).strip()]
+    except Exception:
+        resume = ""
+        resumes = []
+
+    tokens = list(resumes)
+    if resume:
+        tokens.append(resume)
+    # de-dupe
+    seen: set[str] = set()
+    uniq: list[str] = []
+    for t in tokens:
+        if t not in seen:
+            seen.add(t)
+            uniq.append(t)
+
+    if not uniq:
+        return JSONResponse(
+            {"ok": False, "error": "missing_resume", "detail": "resume token required"},
+            status_code=400,
+        )
+
+    freed = 0
+    for tok in uniq:
+        if cons.discard_parked_for_user(
+            tok, user_id=int(user.id), server_id=int(server_id)
+        ):
+            freed += 1
+
+    return JSONResponse(
+        {
+            "ok": True,
+            "freed": freed,
+            "slots_remaining": cons.slots_remaining(int(user.id)),
+        }
+    )
+
+
 def _user_from_cookie(websocket: WebSocket, session: Session) -> Optional[User]:
     raw = websocket.cookies.get("access_token")
     if not raw:

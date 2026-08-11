@@ -38,8 +38,8 @@ The [public demo](../operations/demo-site.md) enables Console for the shared **v
 |---------|------|
 | **Maximize** | Full screen + slim outer bar; on mobile expands from a short bottom sheet |
 | **Restore** | Back from maximize |
-| **Hide & keep** | Hides the popup; shells **stay running** on this page. **⌨** appears next to the alert bell — tap to reopen. Phone **Back** does the same as Hide & keep |
-| **✕** (popup) | Ends shells on this host (confirm). Use this only when you are finished |
+| **Hide & keep** | Hides the console UI; shells stay available via **⌨** next to the alert bell. On the multi-host workspace this parks shells and returns to Servers. Phone **Back** does the same |
+| **✕** / host tab **×** / **Exit** | Ends shells and **frees concurrent shell slots** (important — abandoning tabs only soft-parked before and could hit “no more sessions”) |
 | **+ Hosts** | Multi-host workspace at `/console` — **stays visible when maximized** |
 | **Passkey / TOTP** | Step-up first; **+ Shell / Lock / Aa** appear only after unlock |
 | **+ Shell** | New PTY (after step-up) |
