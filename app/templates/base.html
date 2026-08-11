@@ -282,14 +282,32 @@
           </details>
         </div>
 
-        <!-- Docked web SSH console (W) — appears when shells are parked / docked -->
+        <!-- Docked web SSH console (W) — appears when shells are hidden / parked -->
         <div class="notif-bell-wrap console-dock-wrap hidden" id="console-dock-wrap" data-testid="console-dock-wrap">
           <button type="button" class="notif-bell console-dock-btn" id="console-dock-btn"
-                  title="Open docked console shells" aria-label="Docked console">
+                  title="Open hidden console shells" aria-label="Hidden console shells">
             <span class="notif-bell-icon" aria-hidden="true">⌨</span>
             <span id="console-dock-badge" class="notif-badge hidden">0</span>
           </button>
         </div>
+        <style>
+          .console-dock-wrap.console-dock-pulse .console-dock-btn {
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+            animation: ph-console-dock-pulse 0.9s ease 0s 3;
+          }
+          @keyframes ph-console-dock-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
+            70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+          }
+          .console-dock-btn {
+            position: relative;
+          }
+          /* Always show a bit of green accent when docked shells exist */
+          #console-dock-wrap:not(.hidden) .console-dock-btn {
+            outline: 1px solid rgba(34, 197, 94, 0.45);
+          }
+        </style>
 
         <!-- Notification bell -->
         <div class="notif-bell-wrap" id="notif-bell-wrap">
@@ -971,7 +989,8 @@
               badge.textContent = d.count > 99 ? '99+' : String(d.count);
               badge.classList.remove('hidden');
             }
-            btn.title = d.count + ' docked shell' + (d.count === 1 ? '' : 's') + ' — click to open';
+            btn.title = d.count + ' hidden shell' + (d.count === 1 ? '' : 's') + ' — tap to reopen';
+            btn.setAttribute('aria-label', d.count + ' hidden console shells');
           } else {
             wrap.classList.add('hidden');
             if (badge) badge.classList.add('hidden');
@@ -984,32 +1003,33 @@
             refresh();
             return;
           }
-          // Prefer reopening popup on the same server detail page
-          try {
-            window.dispatchEvent(new CustomEvent('piherder-console-expand', {
-              detail: { serverId: d.firstId }
-            }));
-          } catch (e) {}
-          // If no listener handled it (other pages), go multi-host workspace
           var ids = [];
           Object.keys(d.hosts).forEach(function (k) {
             var h = d.hosts[k];
             if (h && h.shells && h.shells.length) {
-              ids.push(h.id != null ? h.id : k);
+              ids.push(String(h.id != null ? h.id : k));
             }
           });
-          // Only navigate if we are not already on a console surface that expanded
           var path = window.location.pathname || '';
-          var onDetail = /^\/servers\/\d+\/?$/.test(path);
-          var onConsole = path.indexOf('/console') === 0 || /\/console/.test(path);
-          if (onDetail) {
-            // openPiHerderConsolePopup may exist on detail; if popup opened, stay
-            if (typeof window.openPiHerderConsolePopup === 'function') {
-              window.openPiHerderConsolePopup(d.firstId);
+          var detailMatch = path.match(/^\/servers\/(\d+)\/?$/);
+          var onConsole = path === '/console' || path.indexOf('/console?') === 0;
+
+          // Same host detail page → reopen popup (keep-alive iframe or resume)
+          if (detailMatch && typeof window.openPiHerderConsolePopup === 'function') {
+            var pageId = detailMatch[1];
+            if (ids.indexOf(pageId) >= 0 || String(d.firstId) === pageId) {
+              window.openPiHerderConsolePopup(pageId);
               return;
             }
           }
-          if (onConsole) return;
+          if (onConsole) {
+            try {
+              window.dispatchEvent(new CustomEvent('piherder-console-expand', {
+                detail: { serverId: d.firstId }
+              }));
+            } catch (e) {}
+            return;
+          }
           if (ids.length > 1) {
             window.location.href = '/console?hosts=' + encodeURIComponent(ids.join(','));
           } else {

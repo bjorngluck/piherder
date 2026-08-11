@@ -65,15 +65,22 @@
             <div class="ph-console-popup-actions">
               <button type="button" id="ph-console-popup-max" class="btn btn-secondary text-xs min-h-9 px-2"
                       title="Fill the browser">Maximize</button>
-              <button type="button" id="ph-console-popup-dock" class="btn btn-secondary text-xs min-h-9 px-2"
+              <button type="button" id="ph-console-popup-dock" class="btn btn-accent text-xs min-h-9 px-2"
                       data-testid="console-popup-dock"
-                      title="Hide console and keep shells (resume from the terminal icon in the top bar)">Dock</button>
+                      title="Hide console and keep shells running — reopen from ⌨ in the top bar">
+                Hide &amp; keep
+              </button>
               <a href="/console?host={{ server.id }}" class="btn btn-secondary text-xs min-h-9 px-2 no-underline ph-console-popup-extra"
                  title="Multi-host workspace">+ Hosts</a>
               <button type="button" id="ph-console-popup-close" class="btn btn-secondary text-xs min-h-9 px-2"
-                      data-testid="console-popup-close">✕</button>
+                      data-testid="console-popup-close" title="End all shells and close">✕</button>
             </div>
           </div>
+          <p class="ph-console-dock-hint" id="ph-console-dock-hint">
+            <strong>Hide &amp; keep</strong> tucks the terminal away (or use the phone <strong>Back</strong> key).
+            Look for <strong>⌨</strong> next to the alert bell to open it again — shells stay alive.
+            <strong>✕</strong> ends the session.
+          </p>
           <iframe id="ph-console-popup-frame" class="ph-console-popup-frame" title="SSH console"
                   allow="publickey-credentials-get *" referrerpolicy="same-origin"></iframe>
         </div>
@@ -135,7 +142,29 @@
         .ph-console-popup-frame {
           flex: 1 1 auto; min-height: 0; width: 100%; border: 0; background: #0b0f14;
         }
+        .ph-console-dock-hint {
+          margin: 0; padding: 0.35rem 0.65rem 0.45rem;
+          font-size: 0.72rem; line-height: 1.35;
+          color: var(--color-muted, #9ca3af);
+          background: var(--color-surface, #12171e);
+          border-bottom: 1px solid var(--color-border, #333);
+          flex-shrink: 0;
+        }
+        .ph-console-popup.is-max .ph-console-dock-hint { display: none; }
         body.ph-console-popup-open { overflow: hidden; overscroll-behavior: none; }
+        /* Brief toast after hide */
+        .ph-console-dock-toast {
+          position: fixed; left: 50%; bottom: 1.25rem; transform: translateX(-50%);
+          z-index: 90; max-width: min(92vw, 22rem);
+          padding: 0.65rem 0.9rem; border-radius: 0.55rem;
+          background: var(--color-surface, #1a2332);
+          border: 1px solid var(--color-accent, #22c55e);
+          color: var(--color-text, #e6edf3);
+          font-size: 0.85rem; line-height: 1.35;
+          box-shadow: 0 12px 28px rgba(0,0,0,0.45);
+          opacity: 0; pointer-events: none; transition: opacity 0.2s ease;
+        }
+        .ph-console-dock-toast.is-on { opacity: 1; pointer-events: auto; }
         /*
           Mobile: clearly short bottom sheet so Maximize is an obvious change.
           Geometry is also set in JS (inline styles) because mobile browsers
@@ -225,6 +254,33 @@
             }
           }
         }
+        var dockHistPushed = false;
+
+        function showDockToast() {
+          var t = document.getElementById('ph-console-dock-toast');
+          if (!t) {
+            t = document.createElement('div');
+            t.id = 'ph-console-dock-toast';
+            t.className = 'ph-console-dock-toast';
+            t.setAttribute('role', 'status');
+            document.body.appendChild(t);
+          }
+          t.innerHTML = 'Console <strong>hidden</strong> — tap <strong>⌨</strong> next to the bell to reopen. Shells stay running until you close them.';
+          t.classList.add('is-on');
+          clearTimeout(showDockToast._tm);
+          showDockToast._tm = setTimeout(function () {
+            t.classList.remove('is-on');
+          }, 4500);
+          // Pulse top-bar dock icon if present
+          try {
+            var wrap = document.getElementById('console-dock-wrap');
+            if (wrap) {
+              wrap.classList.add('console-dock-pulse');
+              setTimeout(function () { wrap.classList.remove('console-dock-pulse'); }, 2400);
+            }
+          } catch (e) {}
+        }
+
         function openPopup() {
           if (!pop || !frame) return;
           if (!frame.getAttribute('src')) frame.src = url;
@@ -236,18 +292,33 @@
           if (btnMax) btnMax.textContent = 'Maximize';
           try { frame.focus(); } catch (e) {}
           setTimeout(refitFrame, 120);
-          setTimeout(function () { postFrame('persist-dock'); }, 400);
+          // Resume any soft-parked shells (after navigation) or refit live ones
+          setTimeout(function () {
+            postFrame('resume-all');
+            postFrame('persist-dock');
+          }, 200);
+          setTimeout(function () { postFrame('resume-all'); }, 600);
+          // Mobile Back → Hide & keep (not leave the host page)
+          if (!dockHistPushed) {
+            try {
+              history.pushState({ phConsole: 1, serverId: serverId }, '');
+              dockHistPushed = true;
+            } catch (eH) {}
+          }
         }
 
-        /** Hide UI but keep iframe + soft-park shells for top-bar restore. */
+        /**
+         * Hide UI and keep shells.
+         * Same page: leave iframe WS connected (best UX).
+         * Tokens are persisted so a later navigation can soft-resume.
+         */
         function dockPopup() {
           if (!pop || !pop.classList.contains('is-open')) return;
-          postFrame('park-for-dock');
           postFrame('persist-dock');
           pop.classList.add('hidden');
           pop.classList.remove('is-open', 'is-max');
           document.body.classList.remove('ph-console-popup-open');
-          // Keep iframe src so resume tokens stay in the embed until navigation
+          // Keep iframe src — sessions stay attached while you browse this page
           if (btnMax) btnMax.textContent = 'Maximize';
           try {
             window.dispatchEvent(new CustomEvent('piherder-console-dock', { detail: { count: -1 } }));
@@ -259,7 +330,22 @@
               }
             } catch (e2) {}
           }, 80);
+          showDockToast();
         }
+
+        // Leaving the host page: park so tokens survive navigation
+        window.addEventListener('pagehide', function () {
+          if (frame && frame.getAttribute('src')) {
+            postFrame('park-for-dock');
+            postFrame('persist-dock');
+          }
+        });
+        window.addEventListener('popstate', function (ev) {
+          if (pop && pop.classList.contains('is-open')) {
+            dockPopup();
+            dockHistPushed = false;
+          }
+        });
         function phConfirm(message, opts) {
           opts = opts || {};
           if (window.PiHerderConfirm && typeof window.PiHerderConfirm.confirm === 'function') {
