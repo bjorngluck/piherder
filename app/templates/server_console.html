@@ -932,6 +932,8 @@
 
   var DOCK_KEY = 'piherder.console.dock';
   var serverName = {{ (server.name or server.hostname or ('#' ~ server.id))|tojson }};
+  /** When true, WS close parks for dock — do not auto-resume (that burns the park token). */
+  var dockParkMode = false;
 
   function persistDockState() {
     try {
@@ -1674,6 +1676,15 @@
 
       // Unexpected drop: park on server; keep shell tab alive on other hosts
       markShellPaused(sh);
+      try { persistDockState(); } catch (eP) {}
+
+      // Dock/hide: leave PTY parked — auto-resume would steal the single-use token
+      if (dockParkMode || sh._dockPark) {
+        setStatus(sh.label + ' parked for dock — open ⌨ in the top bar to resume');
+        try { sh.term.writeln('\r\n*** docked — open console from the top bar to resume ***'); } catch (eD) {}
+        return;
+      }
+
       if (opts.resuming && isActiveHostFrame()) {
         sh.resumeFails = (sh.resumeFails || 0) + 1;
         if (sh.resumeFails >= 3) {
@@ -1714,6 +1725,7 @@
 
   function scheduleResume(sh, delayMs) {
     if (!sh || sh.userClosed || sh.terminalEnded || sh._ending || !sh.resumeId) return;
+    if (dockParkMode || sh._dockPark) return;
     if (sh._resumeTimer) {
       try { clearTimeout(sh._resumeTimer); } catch (e) {}
     }
@@ -1725,6 +1737,7 @@
 
   function tryResumeShell(sh) {
     if (!sh || sh.userClosed || sh.terminalEnded || sh._ending || !sh.resumeId) return;
+    if (dockParkMode || sh._dockPark) return;
     // Critical: never reclaim resume while this host iframe is inactive —
     // that burns the single-use park token and kills host 1 when you open host 2.
     if (!isActiveHostFrame()) {
@@ -1741,7 +1754,11 @@
 
   function resumeAllShells() {
     if (!isActiveHostFrame()) return;
+    // Leaving dock mode — user opened the console again
+    dockParkMode = false;
     shells.forEach(function (sh) {
+      if (!sh) return;
+      sh._dockPark = false;
       if (sh.userClosed || sh.terminalEnded || sh._ending) return;
       if (sh.ws && sh.ws.readyState === 1) {
         sh.connected = true;
@@ -1927,7 +1944,8 @@
 
   window.addEventListener('resize', function () { refitActive(); });
 
-  // Auto-resume shells parked via top-bar dock (sessionStorage)
+  // Auto-resume shells parked via top-bar dock (sessionStorage).
+  // Resume only needs the park token + session cookie — not a fresh 2FA grant.
   (function tryRestoreDockedShells() {
     try {
       var raw = sessionStorage.getItem(DOCK_KEY);
@@ -1936,22 +1954,44 @@
       var host = dock && dock.hosts && dock.hosts[String(serverId)];
       if (!host || !host.shells || !host.shells.length) return;
       if (shells.length) return;
-      var unlocked = !!(grantActive || stepUpDone || {{ 'true' if demo_console|default(false) else 'false' }});
-      if (!unlocked && !grantActive) return;
-      host.shells.forEach(function (entry, idx) {
-        if (!entry || !entry.resume) return;
-        var sh = createShellUi(entry.label || ('Shell ' + (idx + 1)));
-        sh.resumeId = entry.resume;
-        activate(sh.id);
-        markShellPaused(sh);
-        scheduleResume(sh, 300 + idx * 200);
-      });
-      if (shells.length) {
-        setStatus('Restoring docked shell' + (shells.length > 1 ? 's' : '') + '…');
-        updateToolbar();
+      var demoSim = {{ 'true' if demo_console|default(false) else 'false' }};
+      // Need UI unlocked to show shell chrome; demo always unlocked
+      var unlocked = !!(grantActive || stepUpDone || demoSim);
+      if (!unlocked) {
+        // Still prepare shells after a short wait if grant cookie arrives with page
+        setTimeout(function () {
+          if (shells.length) return;
+          if (!(grantActive || stepUpDone || demoSim)) {
+            // Force main chrome so user can step-up, then resume after
+            stepUpDone = true;
+            updateGateVisibility();
+          }
+          _restoreDockEntries(host);
+        }, 400);
+        return;
       }
+      _restoreDockEntries(host);
     } catch (e) {}
   })();
+
+  function _restoreDockEntries(host) {
+    if (!host || !host.shells) return;
+    dockParkMode = false;
+    host.shells.forEach(function (entry, idx) {
+      if (!entry || !entry.resume) return;
+      var sh = createShellUi(entry.label || ('Shell ' + (idx + 1)));
+      sh.resumeId = entry.resume;
+      sh._dockPark = false;
+      activate(sh.id);
+      markShellPaused(sh);
+      scheduleResume(sh, 300 + idx * 250);
+    });
+    if (shells.length) {
+      setStatus('Restoring docked shell' + (shells.length > 1 ? 's' : '') + '…');
+      updateToolbar();
+      updateGateVisibility();
+    }
+  }
 
   if (btnNew) btnNew.addEventListener('click', openShell);
   if (btnMin) btnMin.addEventListener('click', minimizeActive);
@@ -2075,10 +2115,25 @@
     if (ev.data.action === 'persist-dock') {
       persistDockState();
     }
+    if (ev.data.action === 'resume-all') {
+      dockParkMode = false;
+      shells.forEach(function (sh) { if (sh) sh._dockPark = false; });
+      resumeAllShells();
+      setTimeout(refitActive, 80);
+      return;
+    }
     if (ev.data.action === 'park-for-dock') {
-      // Parent is docking — close WS so server parks PTY; keep shell tabs for resume
+      // Soft-park only when leaving the page is likely. Prefer keep-alive when
+      // parent only hides the popup (same document) — parent may skip this.
+      // If we do park: suppress auto-resume so the park token is not burned.
+      dockParkMode = true;
       shells.forEach(function (sh) {
         if (!sh || sh.userClosed || sh._ending) return;
+        sh._dockPark = true;
+        if (sh._resumeTimer) {
+          try { clearTimeout(sh._resumeTimer); } catch (eT) {}
+          sh._resumeTimer = null;
+        }
         try {
           if (sh.ws && sh.ws.readyState === 1) {
             // Do not send bye — unexpected close parks for soft resume
@@ -2086,8 +2141,18 @@
           }
         } catch (e) {}
       });
-      persistDockState();
+      // Persist after onclose has a chance to run
+      setTimeout(function () { persistDockState(); }, 50);
+      setTimeout(function () { persistDockState(); }, 250);
     }
+  });
+
+  // Leaving the page: ensure dock tokens are saved (WS will park on unload)
+  window.addEventListener('pagehide', function () {
+    try { persistDockState(); } catch (e) {}
+  });
+  window.addEventListener('beforeunload', function () {
+    try { persistDockState(); } catch (e) {}
   });
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible' && isActiveHostFrame()) {
