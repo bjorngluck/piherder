@@ -33,6 +33,7 @@ Some deployments also use **Cloudflare Access** as an outer email gate before th
 - Data re-seeds on a schedule (and after operator maintenance) — treat everything as disposable  
 - **Audit client IPs are scrubbed** — login and other events still appear, but real visitor addresses are stored/shown as `redacted` (seeded lab IPs like `10.42.x` may remain). The shared account must not leak other people’s IPs.  
 - **OpenAPI is off** — `/openapi.json`, `/docs`, and `/redoc` return 404 on the public demo (API tokens are disabled anyway). Use your own install for the interactive schema.  
+- **Web SSH console is off** on the public demo today. A **sandbox-only** terminal (disposable host on the demo VPS, not your fleet) is under consideration for the 1.2 release.  
 
 !!! note "Demo screens are not always 100% aligned with a real fleet"
     Some screens and highlighted features on the demo **will not match a real self-hosted implementation pixel-for-pixel**. Hosts, inventory, jobs, maps, and integrations are **seeded or simulated** so the sandbox stays safe and disposable. You may see canned job results, static sample data, or simplified / empty panels where a live deploy would talk to real Pis, Docker, or external services. Treat the demo as a **UI tour** — your own install against real hosts is the accurate product experience.
