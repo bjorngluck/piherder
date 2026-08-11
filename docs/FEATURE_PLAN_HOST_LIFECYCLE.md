@@ -294,6 +294,7 @@ Fleet host SSH (key from Fernet decrypt in memory only)
 
 - **Multi-identity host SSH** (least-priv fleet + privileged / break-glass key; **Connect as…**) — **→ v1.3 Stream W-id** ([PLAN_v1.3.0.md](PLAN_v1.3.0.md))  
 - **Opt-in command/response shell audit** + redaction — **→ v1.3 Stream W-audit** (discover first; not video replay)  
+- **Host-side `screen` / `tmux` for web console** (optional default attach) — **→ v1.3 Stream W-mux** · **under consideration · low priority** (today: plain `invoke_shell` + herder soft-park only)  
 - Video session recording / dual-control (two-person) console — still far horizon  
 - Shared break-glass “console as root” with dual control  
 
