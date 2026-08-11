@@ -78,7 +78,7 @@
     <div class="ch-keys ch-keys-primary" id="console-keys" aria-label="Control keys">
       <button type="button" id="console-ctrl-mod" class="ch-key ch-key-wide" data-key="ctrl-mod"
               data-testid="console-ctrl-mod" title="Sticky Ctrl">Ctrl</button>
-      <button type="button" class="ch-key" data-key="tab" title="Tab">Tab</button>
+      <button type="button" class="ch-key" data-key="tab" title="Tab (shell completion) — holds focus on the terminal">Tab</button>
       <button type="button" class="ch-key" data-key="esc" title="Esc">Esc</button>
       <button type="button" class="ch-key" data-key="up" title="Up">↑</button>
       <button type="button" class="ch-key" data-key="down" title="Down">↓</button>
@@ -912,7 +912,87 @@
       return;
     }
     try { sh.ws.send(seq); } catch (e) {}
-    try { sh.term.focus(); } catch (e2) {}
+    // Mobile: soft keys steal focus; re-focus xterm so the next keystroke /
+    // Tab completion stays on the PTY (critical for Tab autocomplete).
+    focusActiveTerm();
+  }
+
+  function focusActiveTerm() {
+    try {
+      var sh = activeShell();
+      if (sh && sh.term) {
+        sh.term.focus();
+        // iOS often needs a second tick after button pointerup
+        setTimeout(function () {
+          try { if (sh.term) sh.term.focus(); } catch (e2) {}
+        }, 30);
+      }
+    } catch (e) {}
+  }
+
+  var DOCK_KEY = 'piherder.console.dock';
+  var serverName = {{ (server.name or server.hostname or ('#' ~ server.id))|tojson }};
+
+  function persistDockState() {
+    try {
+      var shellsOut = [];
+      shells.forEach(function (sh) {
+        if (sh.userClosed || sh._ending || sh.terminalEnded) return;
+        if (!sh.resumeId && !(sh.ws && sh.ws.readyState === 1)) return;
+        shellsOut.push({
+          resume: sh.resumeId || null,
+          label: sh.label || 'Shell',
+          live: !!(sh.ws && sh.ws.readyState === 1)
+        });
+      });
+      var raw = sessionStorage.getItem(DOCK_KEY);
+      var dock = raw ? JSON.parse(raw) : { hosts: {} };
+      if (!dock || typeof dock !== 'object') dock = { hosts: {} };
+      if (!dock.hosts || typeof dock.hosts !== 'object') dock.hosts = {};
+      if (shellsOut.length) {
+        dock.hosts[String(serverId)] = {
+          id: serverId,
+          name: serverName,
+          shells: shellsOut,
+          at: Date.now()
+        };
+      } else {
+        delete dock.hosts[String(serverId)];
+      }
+      dock.at = Date.now();
+      sessionStorage.setItem(DOCK_KEY, JSON.stringify(dock));
+      var count = 0;
+      Object.keys(dock.hosts).forEach(function (k) {
+        var h = dock.hosts[k];
+        if (h && h.shells) count += h.shells.length;
+      });
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'piherder-console-dock',
+            action: 'update',
+            count: count,
+            serverId: serverId
+          }, window.location.origin);
+        }
+      } catch (e2) {}
+      try {
+        window.dispatchEvent(new CustomEvent('piherder-console-dock', { detail: { count: count } }));
+      } catch (e3) {}
+    } catch (e) {}
+  }
+
+  function clearThisHostDock() {
+    try {
+      var raw = sessionStorage.getItem(DOCK_KEY);
+      var dock = raw ? JSON.parse(raw) : null;
+      if (dock && dock.hosts) {
+        delete dock.hosts[String(serverId)];
+        dock.at = Date.now();
+        sessionStorage.setItem(DOCK_KEY, JSON.stringify(dock));
+      }
+      persistDockState();
+    } catch (e) {}
   }
 
   function sendCtrlLetter(letter) {
@@ -1171,6 +1251,7 @@
       if (next) activate(next.id);
     }
     updateToolbar();
+    try { persistDockState(); } catch (eD) {}
   }
 
   function createShellUi(label) {
@@ -1477,6 +1558,7 @@
     var note = reason || 'session closed';
     try { if (sh.term) sh.term.writeln('\r\n*** ' + note + ' ***'); } catch (e2) {}
     setStatus((sh.label || 'Shell') + ' closed');
+    try { persistDockState(); } catch (e3) {}
     setTimeout(function () { if (shells.indexOf(sh) >= 0) destroyShell(sh); }, 350);
   }
 
@@ -1554,6 +1636,7 @@
               }
               if (m.resume) {
                 sh.resumeId = m.resume;
+                persistDockState();
                 return;
               }
             }
@@ -1844,6 +1927,32 @@
 
   window.addEventListener('resize', function () { refitActive(); });
 
+  // Auto-resume shells parked via top-bar dock (sessionStorage)
+  (function tryRestoreDockedShells() {
+    try {
+      var raw = sessionStorage.getItem(DOCK_KEY);
+      if (!raw) return;
+      var dock = JSON.parse(raw);
+      var host = dock && dock.hosts && dock.hosts[String(serverId)];
+      if (!host || !host.shells || !host.shells.length) return;
+      if (shells.length) return;
+      var unlocked = !!(grantActive || stepUpDone || {{ 'true' if demo_console|default(false) else 'false' }});
+      if (!unlocked && !grantActive) return;
+      host.shells.forEach(function (entry, idx) {
+        if (!entry || !entry.resume) return;
+        var sh = createShellUi(entry.label || ('Shell ' + (idx + 1)));
+        sh.resumeId = entry.resume;
+        activate(sh.id);
+        markShellPaused(sh);
+        scheduleResume(sh, 300 + idx * 200);
+      });
+      if (shells.length) {
+        setStatus('Restoring docked shell' + (shells.length > 1 ? 's' : '') + '…');
+        updateToolbar();
+      }
+    } catch (e) {}
+  })();
+
   if (btnNew) btnNew.addEventListener('click', openShell);
   if (btnMin) btnMin.addEventListener('click', minimizeActive);
   if (btnRest) btnRest.addEventListener('click', restoreMinimized);
@@ -1880,19 +1989,6 @@
       applyScrollback(scrollSel.value);
     });
   }
-  // Extra keys live outside #console-keys — still handle clicks
-  if (keysExtra) {
-    keysExtra.addEventListener('click', function (ev) {
-      var btn = ev.target && ev.target.closest ? ev.target.closest('[data-key]') : null;
-      if (!btn) return;
-      var name = btn.getAttribute('data-key') || '';
-      var seq = KEY_MAP[name];
-      if (seq != null) {
-        sendControl(seq);
-        if (stickyCtrl) setStickyCtrl(false);
-      }
-    });
-  }
   if (btnClosePopup) {
     btnClosePopup.addEventListener('click', function () {
       // Hosts list is the multi-host workspace parent chrome; in iframe this is a no-op (use host tab ×)
@@ -1910,23 +2006,51 @@
     tab: '\t', esc: '\x1b',
     up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C'
   };
-  var keysBar = document.getElementById('console-keys');
-  if (keysBar) {
-    keysBar.addEventListener('click', function (ev) {
+
+  /**
+   * Soft keys on mobile: use pointerdown + preventDefault so the button does
+   * not steal focus from xterm (otherwise Tab never reaches bash completion).
+   */
+  function handleSoftKey(btn, ev) {
+    if (!btn) return;
+    var name = btn.getAttribute('data-key') || '';
+    if (name === 'ctrl-mod') {
+      if (ev) {
+        try { ev.preventDefault(); } catch (e) {}
+        try { ev.stopPropagation(); } catch (e2) {}
+      }
+      setStickyCtrl(!stickyCtrl);
+      focusActiveTerm();
+      return;
+    }
+    var seq = KEY_MAP[name];
+    if (seq == null) return;
+    if (ev) {
+      try { ev.preventDefault(); } catch (e3) {}
+      try { ev.stopPropagation(); } catch (e4) {}
+    }
+    sendControl(seq);
+    if (stickyCtrl) setStickyCtrl(false);
+  }
+
+  function bindSoftKeys(root) {
+    if (!root) return;
+    root.addEventListener('pointerdown', function (ev) {
       var btn = ev.target && ev.target.closest ? ev.target.closest('[data-key]') : null;
-      if (!btn) return;
-      var name = btn.getAttribute('data-key') || '';
-      if (name === 'ctrl-mod') {
-        setStickyCtrl(!stickyCtrl);
-        return;
-      }
-      var seq = KEY_MAP[name];
-      if (seq != null) {
-        sendControl(seq);
-        if (stickyCtrl) setStickyCtrl(false);
-      }
+      if (!btn || !root.contains(btn)) return;
+      // Only primary button / touch
+      if (ev.pointerType === 'mouse' && ev.button !== 0) return;
+      handleSoftKey(btn, ev);
+    }, { passive: false });
+    // Prevent click focus flash after pointerdown already handled
+    root.addEventListener('click', function (ev) {
+      var btn = ev.target && ev.target.closest ? ev.target.closest('[data-key]') : null;
+      if (!btn || !root.contains(btn)) return;
+      try { ev.preventDefault(); } catch (e) {}
     });
   }
+  bindSoftKeys(document.getElementById('console-keys'));
+  bindSoftKeys(keysExtra);
   window.addEventListener('message', function (ev) {
     if (ev.origin !== window.location.origin) return;
     if (!ev.data || ev.data.type !== 'piherder-console') return;
@@ -1947,6 +2071,22 @@
       setToolsOpen(false);
       setKeysExtraOpen(false);
       setChromeCompact(ev.data.on !== false);
+    }
+    if (ev.data.action === 'persist-dock') {
+      persistDockState();
+    }
+    if (ev.data.action === 'park-for-dock') {
+      // Parent is docking — close WS so server parks PTY; keep shell tabs for resume
+      shells.forEach(function (sh) {
+        if (!sh || sh.userClosed || sh._ending) return;
+        try {
+          if (sh.ws && sh.ws.readyState === 1) {
+            // Do not send bye — unexpected close parks for soft resume
+            sh.ws.close();
+          }
+        } catch (e) {}
+      });
+      persistDockState();
     }
   });
   document.addEventListener('visibilitychange', function () {

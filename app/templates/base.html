@@ -282,6 +282,15 @@
           </details>
         </div>
 
+        <!-- Docked web SSH console (W) — appears when shells are parked / docked -->
+        <div class="notif-bell-wrap console-dock-wrap hidden" id="console-dock-wrap" data-testid="console-dock-wrap">
+          <button type="button" class="notif-bell console-dock-btn" id="console-dock-btn"
+                  title="Open docked console shells" aria-label="Docked console">
+            <span class="notif-bell-icon" aria-hidden="true">⌨</span>
+            <span id="console-dock-badge" class="notif-badge hidden">0</span>
+          </button>
+        </div>
+
         <!-- Notification bell -->
         <div class="notif-bell-wrap" id="notif-bell-wrap">
           <a href="/notifications" class="notif-bell" id="notif-bell" title="Notifications" aria-label="Notifications">
@@ -923,6 +932,106 @@
       if (document.getElementById('fav-menu')) {
         refreshFavouritesMenu();
       }
+
+      // Docked console shells (top bar ⌨) — sessionStorage from console pages
+      (function consoleDock() {
+        var DOCK_KEY = 'piherder.console.dock';
+        var wrap = document.getElementById('console-dock-wrap');
+        var btn = document.getElementById('console-dock-btn');
+        var badge = document.getElementById('console-dock-badge');
+        if (!wrap || !btn) return;
+
+        function readDock() {
+          try {
+            var raw = sessionStorage.getItem(DOCK_KEY);
+            if (!raw) return { hosts: {}, count: 0, firstId: null };
+            var dock = JSON.parse(raw);
+            var hosts = (dock && dock.hosts) || {};
+            var count = 0;
+            var firstId = null;
+            Object.keys(hosts).forEach(function (k) {
+              var h = hosts[k];
+              if (!h || !h.shells || !h.shells.length) return;
+              // Drop stale park tokens older than 2h
+              if (h.at && Date.now() - h.at > 2 * 3600 * 1000) return;
+              count += h.shells.length;
+              if (firstId == null) firstId = h.id != null ? h.id : parseInt(k, 10);
+            });
+            return { hosts: hosts, count: count, firstId: firstId };
+          } catch (e) {
+            return { hosts: {}, count: 0, firstId: null };
+          }
+        }
+
+        function refresh() {
+          var d = readDock();
+          if (d.count > 0) {
+            wrap.classList.remove('hidden');
+            if (badge) {
+              badge.textContent = d.count > 99 ? '99+' : String(d.count);
+              badge.classList.remove('hidden');
+            }
+            btn.title = d.count + ' docked shell' + (d.count === 1 ? '' : 's') + ' — click to open';
+          } else {
+            wrap.classList.add('hidden');
+            if (badge) badge.classList.add('hidden');
+          }
+        }
+
+        function expand() {
+          var d = readDock();
+          if (!d.count || d.firstId == null) {
+            refresh();
+            return;
+          }
+          // Prefer reopening popup on the same server detail page
+          try {
+            window.dispatchEvent(new CustomEvent('piherder-console-expand', {
+              detail: { serverId: d.firstId }
+            }));
+          } catch (e) {}
+          // If no listener handled it (other pages), go multi-host workspace
+          var ids = [];
+          Object.keys(d.hosts).forEach(function (k) {
+            var h = d.hosts[k];
+            if (h && h.shells && h.shells.length) {
+              ids.push(h.id != null ? h.id : k);
+            }
+          });
+          // Only navigate if we are not already on a console surface that expanded
+          var path = window.location.pathname || '';
+          var onDetail = /^\/servers\/\d+\/?$/.test(path);
+          var onConsole = path.indexOf('/console') === 0 || /\/console/.test(path);
+          if (onDetail) {
+            // openPiHerderConsolePopup may exist on detail; if popup opened, stay
+            if (typeof window.openPiHerderConsolePopup === 'function') {
+              window.openPiHerderConsolePopup(d.firstId);
+              return;
+            }
+          }
+          if (onConsole) return;
+          if (ids.length > 1) {
+            window.location.href = '/console?hosts=' + encodeURIComponent(ids.join(','));
+          } else {
+            window.location.href = '/console?host=' + encodeURIComponent(String(d.firstId));
+          }
+        }
+
+        btn.addEventListener('click', function (ev) {
+          try { ev.preventDefault(); } catch (e) {}
+          expand();
+        });
+        window.addEventListener('piherder-console-dock', refresh);
+        window.addEventListener('storage', function (ev) {
+          if (ev.key === DOCK_KEY) refresh();
+        });
+        window.addEventListener('message', function (ev) {
+          if (ev.origin !== window.location.origin) return;
+          if (ev.data && ev.data.type === 'piherder-console-dock') refresh();
+        });
+        window.PiHerderConsoleDock = { refresh: refresh, expand: expand, read: readDock };
+        refresh();
+      })();
 
       // Notification badge poll
       function refreshNotifBadge() {

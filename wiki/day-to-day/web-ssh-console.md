@@ -38,10 +38,12 @@ The [public demo](../operations/demo-site.md) enables Console for the shared **v
 |---------|------|
 | **Maximize** | Full screen + slim outer bar; on mobile expands from a short bottom sheet |
 | **Restore** | Back from maximize |
-| **✕** (popup) | Close popup (ends shells on that host) |
+| **Dock** | Hide the popup and **keep shells soft-parked** — terminal icon (⌨) appears in the top bar next to the alert bell; click to reopen |
+| **✕** (popup) | Close popup (**ends** shells on that host) after confirm |
 | **+ Hosts** | Multi-host workspace at `/console` — **stays visible when maximized** |
 | **Passkey / TOTP** | Step-up first; **+ Shell / Lock / Aa** appear only after unlock |
 | **+ Shell** | New PTY (after step-up) |
+| **Tab** (soft key) | Sends a real Tab to the shell (completion). On mobile, holds focus on the terminal so completion works |
 | Shell tab **×** | Close that shell only (multiple shells per host) |
 | **Aa** | Font size **8–28** (hidden until tapped) |
 | Gate **···** | Show/hide status + slot count (saves vertical space) |
