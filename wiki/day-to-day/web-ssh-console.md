@@ -16,8 +16,12 @@ Operators on a tablet or locked-down PC need a shell without exporting the herde
 
 | Role | Console |
 |------|---------|
-| **viewer** | No |
+| **viewer** | No (except **public demo** — see below) |
 | **operator / admin** | Yes (when flag on + 2FA enrolled) |
+
+### Public demo (`PIHERDER_DEMO_MODE`)
+
+The [public demo](../operations/demo-site.md) enables Console for the shared **viewer** account as a **simulated** shell only: same xterm UI, **no live SSH**, no network, no real keys, no 2FA step-up. Banner text says *demo / simulated*. Your self-hosted install is unchanged (flag off by default; operator+ + 2FA when enabled).
 
 ---
 

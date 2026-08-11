@@ -54,12 +54,29 @@ class ConsoleDenied(Exception):
 
 
 def console_enabled() -> bool:
-    # Demo sandbox never exposes webshell (W7) until optional sandbox host (D5)
+    """Production: PIHERDER_SSH_CONSOLE flag. Demo (D5): always on (simulated only)."""
     from .demo import demo_mode
 
     if demo_mode():
-        return False
+        return True
     return bool(getattr(settings, "PIHERDER_SSH_CONSOLE", False))
+
+
+def is_demo_console() -> bool:
+    """True when console sessions must never open live SSH (public demo)."""
+    from .demo_console import is_simulated_console
+
+    return is_simulated_console()
+
+
+def demo_console_skip_2fa() -> bool:
+    """Shared demo account must not require 2FA (visitors cannot enroll/lock each other)."""
+    return is_demo_console()
+
+
+def demo_console_allow_viewer() -> bool:
+    """Demo console is available to the shared viewer role."""
+    return is_demo_console()
 
 
 def ticket_ttl_sec() -> int:
@@ -142,6 +159,30 @@ def require_enabled() -> None:
         raise ConsoleDisabled(
             "Web SSH console is disabled. Set PIHERDER_SSH_CONSOLE=true to enable."
         )
+
+
+def open_session_channel(server_snap: Any) -> tuple[Any, Any]:
+    """Open PTY channel for a host.
+
+    Demo mode: simulated shell (no network). Production: Paramiko SSH.
+    """
+    if is_demo_console():
+        from .demo_console import open_demo_shell
+
+        label = (
+            getattr(server_snap, "hostname", None)
+            or getattr(server_snap, "name", None)
+            or "demo-host"
+        )
+        user = getattr(server_snap, "ssh_username", None) or "demo"
+        return open_demo_shell(host_label=str(label), username=str(user))
+
+    from . import ssh as ssh_service
+
+    client = ssh_service.get_ssh_client(server_snap)
+    channel = client.invoke_shell(term="xterm-256color", width=120, height=40)
+    channel.settimeout(0.0)
+    return client, channel
 
 
 def _hash_binding(value: str) -> str:

@@ -39,7 +39,7 @@ Access (if enabled) remains an optional outer gate for spam reduction — do not
 | API | OpenAPI gated (``/openapi.json``, ``/docs``, ``/redoc`` → 404); token create + Bearer use **403** |
 | Jobs | Canned success (“Demo simulation”) — no live SSH |
 | nmap / cert edge | Live outbound blocked |
-| Webshell | **Forced off today** (`DEMO_MODE` hard gate). Optional **sandbox-only** console (**D5**) under design for 1.2 — never seed fleet / home lab hosts |
+| Webshell (**D5**) | **Simulated only** — xterm UI + in-process fake shell (no Paramiko / no TCP). Shared **viewer** may open Console. No live host access |
 | Seed | Auto on empty DB; **ops CLI only** (no in-app restore — shared admin vandalism) |
 | Scheduled reset (**D4**) | **Live** on public demo VPS — `demo-maintain` cron (see § Cron) |
 | Shared login role | **`viewer`** — same RBAC/menus as production viewers (not shared admin) |

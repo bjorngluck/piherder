@@ -47,11 +47,11 @@
     <div class="ops-hero-actions">
       <button type="button" onclick="showEditServerModal()" class="btn btn-secondary min-h-11 text-sm">Edit</button>
       <button type="button" onclick="showSshAccessModal()" class="btn btn-secondary min-h-11 text-sm" title="Deploy key, rotate, test connection">SSH access</button>
-      {% if console_enabled and is_operator %}
+      {% if console_enabled and (is_operator or demo_console|default(false)) %}
       <button type="button"
               class="btn btn-secondary min-h-11 text-sm inline-flex items-center"
               data-testid="open-console"
-              title="Open SSH console popup"
+              title="{% if demo_console|default(false) %}Open demo console (simulated){% else %}Open SSH console popup{% endif %}"
               onclick="openPiHerderConsolePopup({{ server.id }})">Console</button>
       {# Floating terminal popup (the console itself — not a full-page essay). #}
       <div id="ph-console-popup" class="ph-console-popup hidden" role="dialog" aria-modal="true"

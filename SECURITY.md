@@ -75,7 +75,7 @@ When `PIHERDER_DEMO_MODE=true` (e.g. **https://piherder-demo.hacknow.info**):
 | Published shared password | **Expected** for the public sandbox — not a secret. Rotate via `.env` + re-seed + update live wiki ([demo-site](wiki/operations/demo-site.md)) |
 | API scrape / automation | Token create and Bearer auth **hard-blocked** |
 | Fake “I onboarded my Pi” | Wizard / SSH test / key deploy blocked |
-| Accidental lab access | No real keys in seed; console off; job mutations are canned; demo VPS isolated from home lab |
+| Accidental lab access | No real keys in seed; **console is simulated only** (no Paramiko/TCP); job mutations are canned; demo VPS isolated from home lab |
 | Origin bypass | Prefer CF Tunnel or firewall to CF IPs only |
 
 Demo must use **unique** Fernet/session secrets and never hold decryptable production host keys. Maintainer runbook: [docs/DEMO_SITE.md](docs/DEMO_SITE.md). User-facing credentials: [wiki/operations/demo-site.md](wiki/operations/demo-site.md).

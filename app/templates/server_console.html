@@ -6,11 +6,16 @@
 
 {% if not console_enabled %}
 <div class="ch-banner banner-error">Console disabled.</div>
-{% elif not has_ssh_cred %}
+{% elif not has_ssh_cred and not demo_console|default(false) %}
 <div class="ch-banner banner-error">No SSH credentials on this host.</div>
-{% elif not has_2fa %}
+{% elif not has_2fa and not demo_console|default(false) %}
 <div class="ch-banner banner-error">Enroll 2FA on <a href="/auth/account" class="text-primary">Account</a> first.</div>
 {% else %}
+{% if demo_console|default(false) %}
+<div class="ch-banner banner-warning text-xs" data-testid="demo-console-banner">
+  <strong>Demo console</strong> — simulated shell only. No live SSH or network access.
+</div>
+{% endif %}
 
 {# Slim chrome: 2FA first; tools only after step-up. Shell tabs live in the gate row. #}
 <div class="ch-gate" id="console-gate" data-testid="console-gate"

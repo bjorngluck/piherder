@@ -494,6 +494,23 @@ def get_operator_user(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+def get_console_user(user: User = Depends(get_current_user)) -> User:
+    """Console routes: operator+ in production; any active user in DEMO_MODE (D5)."""
+    try:
+        from ..services.ssh_console import demo_console_allow_viewer
+
+        if demo_console_allow_viewer():
+            return user
+    except Exception:
+        pass
+    if not role_at_least(user, ROLE_OPERATOR):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operator or admin role required",
+        )
+    return user
+
+
 def get_optional_current_user(
     request: Request,
     token: str = Depends(oauth2_scheme),
