@@ -377,17 +377,21 @@ def _viewer_write_allowed(path: str) -> bool:
         return True
     # Public demo shared login is viewer: still allow canned job clicks + pins
     # (mutations are simulated / personal; fleet config stays blocked by RBAC).
+    # D5: simulated console ticket/grant POSTs (no live SSH).
     try:
         from ..services.demo import demo_mode
 
         if demo_mode():
             import re
 
-            if re.match(r"^/servers/\d+/run(?:/|$)", path or ""):
+            p = path or ""
+            if re.match(r"^/servers/\d+/run(?:/|$)", p):
                 return True
-            if re.match(r"^/jobs/\d+/cancel$", path or ""):
+            if re.match(r"^/jobs/\d+/cancel$", p):
                 return True
-            if (path or "").startswith("/account/favourites"):
+            if re.match(r"^/servers/\d+/console(?:/|$)", p):
+                return True
+            if p.startswith("/account/favourites"):
                 return True
     except Exception:
         pass

@@ -91,6 +91,22 @@ def test_viewer_write_allowlist():
     assert not _viewer_write_allowed("/dns/services")
     assert not _viewer_write_allowed("/servers/1/docker/container/restart")
     assert not _viewer_write_allowed("/servers/1/update")
+    # Console ticket POSTs are operator+ outside demo
+    assert not _viewer_write_allowed("/servers/1/console/ticket")
+
+
+def test_viewer_write_demo_console_and_jobs(monkeypatch):
+    """DEMO_MODE: shared viewer may POST canned jobs + simulated console tickets."""
+    from app.services import demo as demo_svc
+
+    monkeypatch.setattr(demo_svc.settings, "PIHERDER_DEMO_MODE", True)
+    assert _viewer_write_allowed("/servers/3/run/backup")
+    assert _viewer_write_allowed("/servers/3/console/ticket")
+    assert _viewer_write_allowed("/servers/3/console/grant/revoke")
+    assert _viewer_write_allowed("/jobs/9/cancel")
+    # Still no fleet config sabotage
+    assert not _viewer_write_allowed("/servers/1/update")
+    assert not _viewer_write_allowed("/dns/services")
 
 
 def test_admin_only_paths():
