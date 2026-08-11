@@ -28,6 +28,9 @@
       {% if not console_enabled %}
       <p class="text-danger"><strong>Console is disabled.</strong> Set <code>PIHERDER_SSH_CONSOLE=true</code> and restart web.</p>
       {% else %}
+      {% if demo_console|default(false) %}
+      <p class="text-warning text-sm mb-2" data-testid="demo-console-workspace-banner"><strong>Demo console</strong> — simulated only (no live SSH).</p>
+      {% endif %}
       <p class="text-text font-medium mb-2">No host open yet</p>
       <p class="text-sm text-muted mb-3">Click <strong class="text-text">+ Host</strong> or open Console from a server page.</p>
       <button type="button" class="btn btn-accent min-h-11" id="cw-empty-add">+ Host</button>

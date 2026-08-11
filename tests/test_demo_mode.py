@@ -95,11 +95,39 @@ def test_demo_write_guard_allowlist(demo_on, monkeypatch):
     assert demo_svc.demo_write_allowed("POST", "/integrations/new/pihole") is True
 
 
-def test_console_disabled_in_demo(demo_on, monkeypatch):
-    monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE", True)
-    assert cons.console_enabled() is False
-    with pytest.raises(cons.ConsoleDisabled):
-        cons.require_enabled()
+def test_console_simulated_in_demo(demo_on, monkeypatch):
+    """D5: demo enables console, but sessions never open live SSH."""
+    monkeypatch.setattr(cons.settings, "PIHERDER_SSH_CONSOLE", False)
+    assert cons.console_enabled() is True
+    assert cons.is_demo_console() is True
+    assert cons.demo_console_skip_2fa() is True
+    assert cons.demo_console_allow_viewer() is True
+    cons.require_enabled()  # must not raise
+    client, channel = cons.open_session_channel(
+        type("S", (), {"hostname": "lab-core.demo", "name": "lab-core", "ssh_username": "demo"})()
+    )
+    assert client is not None
+    assert channel is not None
+    # Banner / prompt available without network
+    assert channel.recv_ready()
+    out = channel.recv(4096).decode("utf-8", errors="replace")
+    assert "demo" in out.lower() or "simulated" in out.lower()
+    channel.send(b"whoami\n")
+    # Allow line processing
+    got = b""
+    for _ in range(20):
+        if channel.recv_ready():
+            got += channel.recv(4096)
+        if b"demo" in got:
+            break
+    assert b"demo" in got or channel.recv_ready() or got
+    channel.close()
+    client.close()
+
+
+def test_demo_write_allows_console_posts(demo_on):
+    assert demo_svc.demo_write_allowed("POST", "/servers/3/console/ticket") is True
+    assert demo_svc.demo_write_allowed("POST", "/servers/3/console/grant/revoke") is True
 
 
 def test_audit_client_ip_scrubbed_in_demo(demo_on, monkeypatch):

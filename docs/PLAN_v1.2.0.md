@@ -208,7 +208,7 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 | **W4b** Multi-shell UI + multi-host `/console` + popup | Should | **Landed** (popup; host tabs keep WS; compact chrome; sticky Ctrl) |
 | **W5** Audit open/close + IP + duration | Must | **Landed** |
 | **W6** SECURITY.md + ADMIN + **CSP** / TLS bar | Must | **Landed** (same-origin iframe CSP; wiki env catalog) |
-| **W7** Demo console policy | Must decide | **Today: off.** **Revisit:** sandbox-only on (**D5**) preferred over “always off” for GA if security bar holds |
+| **W7** Demo console policy | Must | **Landed (D5)** — simulated shell only (no live SSH); viewer allowed in demo |
 | Session recording / dual-control root | Defer | — |
 
 ### Stream D — Demo platform (**new product work**)
@@ -222,41 +222,24 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 | **D2** Seed pack + reset script + compose overlay `docker-compose.demo.yml` | Must | **Landed** |
 | **D3** Runbook: VPS + password wiki + optional CF Access | Must | **Landed** ([DEMO_SITE.md](DEMO_SITE.md) · [wiki demo-site](../wiki/operations/demo-site.md)); WordPress CTA optional polish |
 | **D4** Scheduled reset (host cron) | Should | **Live** on public demo VPS (`demo-maintain` cron) — 2026-08 |
-| **D5** **Demo console** (sandbox-only webshell) | Should | **Open — under design** (see below); product interest confirmed mid-train |
+| **D5** **Demo console** (simulated webshell) | Should | **Landed** — in-process shell only (`demo_console.py`); no network; skip 2FA; viewer OK |
 | Screenshots / marketing stills | Freeze polish | **Deferred until QA completes** (not mid-train) |
 
-#### D5 — Demo console design (draft)
+#### D5 — Demo console (shipped: simulated)
 
-**Why:** Webshell is a flagship 1.2 surface; a clickable terminal on the public demo is better conversion than “disabled in demo” forever.
+**Choice:** Option **B** — canned in-process PTY (`app/services/demo_console.py`). **No Paramiko, no TCP, no live host.**
 
-**Hard rules (non-negotiable):**
+| Rule | Implementation |
+|------|----------------|
+| Enable | `console_enabled()` is **True** when `DEMO_MODE` (independent of `PIHERDER_SSH_CONSOLE`) |
+| Channel | `open_session_channel()` → `open_demo_shell()` under demo; production still Paramiko |
+| RBAC | `get_console_user` / WS cookie allow **viewer** only when `is_demo_console()` |
+| 2FA | Skipped in demo (shared account must not enroll) |
+| Creds | No encrypted key required on seed hosts |
+| Abuse | Same concurrent / idle / max session caps; write guard allows console POSTs |
+| Banner | UI + terminal: “simulated · no live SSH” |
 
-1. **Never** SSH to seed “lab-*.demo” rows as if they were real, or to any home-lab address.  
-2. **Never** put a decryptable production key in the demo DB.  
-3. Shared account must not become a free jump box (caps, idle kill, audit, abuse limits).  
-4. Prefer **one** disposable sandbox identity, not privileged multi-host fleet shell.
-
-**Options (pick one at implementation):**
-
-| Option | Idea | Pros | Cons |
-|--------|------|------|------|
-| **A. Sidecar SSH toy** | Compose service `demo-ssh` (sshd + fixed demo user/key only reachable from `web` network). Seed **one** host row that points only there. | Real xterm + Paramiko path; honest demo | Ops: image, updates, resource; shared users can abuse the toy |
-| **B. Canned PTY** | Console UI opens but stream is a scripted/local fake shell (no SSH) | No extra attack surface | Feels fake; diverges from production path |
-| **C. Loopback VM on VPS** | Small VM only on demo host | Closer to “real Pi” | Heavy ops; overkill for 1.2 |
-
-**Lean:** **A** for honesty of the product path. Tight concurrent/global caps; short idle; optional read-only shell (`rbash` / limited user); banner “sandbox host — not your fleet”.
-
-**RBAC conflict to solve:** Console is **operator+** today; demo user is **viewer**. Either:
-
-- **A1** Demo-only allowlist: `DEMO_MODE` + sandbox host id → allow **viewer** console (production RBAC unchanged), or  
-- **A2** Raise demo seed role to **operator** but keep write guard (broader UI than intended), or  
-- **A3** Separate “console demo” capability flag  
-
-**Prefer A1** (least privilege elsewhere).
-
-**2FA on demo:** Shared account has no real 2FA (and must not — visitors would lock each other). Console step-up needs a **demo exception**: e.g. skip 2FA when `DEMO_MODE` and target is sandbox-only, or use a fixed demo passkey story that cannot be enrolled by visitors. Document explicitly in SECURITY.
-
-**W7 when D5 ships:** Change `console_enabled()` so demo allows console **only** for the sandbox host id(s); all other hosts stay denied.
+Sidecar SSH toy (option A) remains a possible later upgrade if a “real path” demo is needed; not required for 1.2.
 
 ### Stream Q — Quality / freeze (same bar as 1.1, raised for new attack surface)
 
@@ -398,7 +381,7 @@ Phase 4  Freeze
 | 2 | Open **`v1.2.0-dev`** + promote this plan | **Done** 2026-08-08 |
 | 3 | Streams **I / S / W / B / D1–D4** product land | **Done** (S live multi-IdP = operator QA) |
 | 4 | Demo VPS + maintain cron | **Done** — **D4 live** |
-| 5 | **D5** demo console design spike (sidecar toy + viewer exception + no 2FA lockout) | **Next** if pursuing sandbox terminal |
+| 5 | **D5** simulated demo console | **Done** — no live SSH |
 | 6 | Operator QA → screenshot refresh → freeze docs / RELEASE / tag / Hub | After QA |
 
-**Feature-complete bar for freeze:** I + S + W + B + D1–D4 green; **D5** optional Should (ship or explicitly defer with “console off in demo” wiki note).
+**Feature-complete bar for freeze:** I + S + W + B + D1–D5 green.

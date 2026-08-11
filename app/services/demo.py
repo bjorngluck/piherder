@@ -12,6 +12,7 @@ When ``PIHERDER_DEMO_MODE=1``:
     so the shared account does not leak other users' addresses.
   • **OpenAPI gated**: ``/openapi.json``, ``/docs``, ``/redoc`` return 404 (API tokens
     already unusable; no need to advertise the schema on a public sandbox).
+  • **Demo console (D5)**: simulated xterm shell only — never Paramiko / never live hosts.
 
 Never enable on a production herder that holds real keys.
 """
@@ -43,7 +44,10 @@ _ACTION_HINTS: dict[str, str] = {
     "cert_deploy": "Certificate deploy is disabled in the demo.",
     "webhook": "Outbound webhooks are disabled in the demo.",
     "mail": "Outbound email is disabled in the demo.",
-    "console": "Web SSH console is disabled in the demo.",
+    "console": (
+        "Demo console is simulated only (no live SSH). "
+        "Use your own install for real host shells."
+    ),
     "secrets_export": "Secret export is disabled in the demo.",
     "job": "Live host jobs are simulated in the demo.",
     # Shared-sandbox identity — one visitor must not lock out everyone else
@@ -101,6 +105,8 @@ _DEMO_WRITE_PREFIXES = (
 # Canned job runs — demo experience (no live SSH)
 _RE_SERVER_RUN = re.compile(r"^/servers/\d+/run(?:/|$)")
 _RE_JOB_CANCEL = re.compile(r"^/jobs/\d+/cancel$")
+# Simulated demo console (ticket / grant / webauthn paths — still no live SSH)
+_RE_SERVER_CONSOLE = re.compile(r"^/servers/\d+/console(?:/|$)")
 
 
 def demo_write_allowed(method: str, path: str) -> bool:
@@ -127,6 +133,8 @@ def demo_write_allowed(method: str, path: str) -> bool:
     if _RE_SERVER_RUN.match(p):
         return True
     if _RE_JOB_CANCEL.match(p):
+        return True
+    if _RE_SERVER_CONSOLE.match(p):
         return True
     return False
 

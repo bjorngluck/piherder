@@ -203,6 +203,9 @@ async def list_servers(
 
     is_operator = role_at_least(user, ROLE_OPERATOR)
     console_on = cons_svc.console_enabled()
+    demo_console = cons_svc.is_demo_console()
+    # Production: operator+. Demo D5: shared viewer may open simulated console.
+    can_console = console_on and (is_operator or demo_console)
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -217,8 +220,9 @@ async def list_servers(
             # Wizard / bulk require operator+ (get_operator_user)
             "can_add_server": is_operator,
             "console_enabled": console_on,
+            "demo_console": demo_console,
             # Operator+ and feature flag — Servers list kebab + multi-select Console
-            "can_console": is_operator and console_on,
+            "can_console": can_console,
         },
     )
 
@@ -877,6 +881,7 @@ async def server_detail(
             "title": server.name,
             "server": server_dict,
             "console_enabled": cons_svc.console_enabled(),
+            "demo_console": cons_svc.is_demo_console(),
             "is_operator": role_at_least(user, ROLE_OPERATOR),
             "dns_form": dns_form,
             "fabric_rack": fabric_rack,

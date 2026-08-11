@@ -29,7 +29,7 @@ from .. import templates as templates_mod
 from ..database import get_session, engine
 from ..models import Server, User
 from ..security.auth import (
-    get_operator_user,
+    get_console_user,
     role_at_least,
     ROLE_OPERATOR,
     decode_token_payload,
@@ -44,7 +44,6 @@ from ..services import ssh_console as cons
 from ..services import webauthn_svc as wa_svc
 from ..services.audit_write import make_audit_log
 from ..services.request_ip import client_ip_from_request
-from ..services import ssh as ssh_service
 
 router = APIRouter()
 # Top-level multi-host workspace (mounted without /servers prefix in main.py)
@@ -133,7 +132,7 @@ def _verify_console_2fa(
 async def console_workspace(
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
     host: Optional[int] = None,
     hosts: Optional[str] = None,
 ):
@@ -146,6 +145,7 @@ async def console_workspace(
     (sessions stay open until you close the tab).
     """
     enabled = cons.console_enabled()
+    demo_sim = cons.is_demo_console()
     # Host list for the picker (name + whether SSH creds exist)
     try:
         rows = list(session.exec(select(Server).order_by(Server.sort_order, Server.name)).all())
@@ -158,6 +158,9 @@ async def console_workspace(
             getattr(s, "ssh_private_key_encrypted", None)
             or getattr(s, "ssh_password_encrypted", None)
         )
+        # Demo D5: simulated shell — treat every seeded host as openable
+        if demo_sim:
+            has_key = True
         meta = {
             "id": int(s.id),
             "name": s.name,
@@ -173,14 +176,17 @@ async def console_workspace(
         s = session.get(Server, sid)
         if not s:
             return None
+        has_key = bool(
+            getattr(s, "ssh_private_key_encrypted", None)
+            or getattr(s, "ssh_password_encrypted", None)
+        )
+        if demo_sim:
+            has_key = True
         return {
             "id": int(s.id),
             "name": s.name,
             "host": s.hostname or s.ip_address or "",
-            "has_ssh": bool(
-                getattr(s, "ssh_private_key_encrypted", None)
-                or getattr(s, "ssh_password_encrypted", None)
-            ),
+            "has_ssh": has_key,
         }
 
     # Bootstrap tabs: hosts=1,2,3 and/or single host=
@@ -218,6 +224,7 @@ async def console_workspace(
             "title": "Web SSH console",
             "user": user,
             "console_enabled": enabled,
+            "demo_console": demo_sim,
             "hosts_json": json.dumps(hosts_meta),
             "initial_host_id": initial_ids[0] if initial_ids else None,
             "initial_host_ids": initial_ids,
@@ -233,7 +240,7 @@ async def console_page(
     request: Request,
     server_id: int,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
 ):
     """Per-host console (xterm). Prefer /console?host= for multi-host UX.
 
@@ -256,11 +263,16 @@ async def console_page(
         return RedirectResponse("/servers", status_code=303)
 
     enabled = cons.console_enabled()
+    demo_sim = cons.is_demo_console()
     has_2fa = wa_svc.user_has_2fa(session, user)
     has_key = bool(
         getattr(server, "ssh_private_key_encrypted", None)
         or getattr(server, "ssh_password_encrypted", None)
     )
+    if demo_sim:
+        # Simulated shell — no credentials or 2FA enrollment required
+        has_key = True
+        has_2fa = True
     sv = user_session_version(user)
     ip = client_ip_from_request(request) or ""
     device_id = cons.ensure_device_id(request.cookies.get(cons.CONSOLE_DEVICE_COOKIE))
@@ -272,11 +284,16 @@ async def console_page(
         client_ip=ip,
         device_id=device_id,
     )
+    if demo_sim:
+        # Skip step-up UI — fleet grant always considered active
+        grant_ok = True
     remaining = cons.slots_remaining(int(user.id)) if enabled else 0
     has_passkeys = False
     try:
         has_passkeys = wa_svc.has_passkeys(session, int(user.id))
     except Exception:
+        has_passkeys = False
+    if demo_sim:
         has_passkeys = False
 
     popup_mode = embed_mode or popup_q
@@ -289,14 +306,17 @@ async def console_page(
             "user": user,
             "server": server,
             "console_enabled": enabled,
+            "demo_console": demo_sim,
             "has_2fa": has_2fa,
             "has_passkeys": has_passkeys,
             "has_ssh_cred": has_key,
             "grant_active": grant_ok,
             "grant_minutes": cons.grant_minutes(),
-            "require_2fa_every_shell": cons.require_2fa_every_shell(),
+            "require_2fa_every_shell": (
+                False if demo_sim else cons.require_2fa_every_shell()
+            ),
             "prefer_passkey": cons.prefer_passkey(),
-            "require_passkey": cons.require_passkey_if_enrolled(),
+            "require_passkey": False if demo_sim else cons.require_passkey_if_enrolled(),
             "allow_backup_codes": cons.allow_backup_codes(),
             "bind_ip": cons.bind_ip_enabled(),
             "bind_device": cons.bind_device_enabled(),
@@ -341,12 +361,13 @@ async def mint_console_ticket(
     server_id: int,
     totp_code: str = Form(""),
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
 ):
     """Mint single-use ticket; 2FA required unless a valid **fleet** grant cookie exists.
 
     One step-up (passkey/TOTP) covers all hosts until the grant expires.
     Ticket is returned in JSON only — never put on the WebSocket URL (log/Referer leak).
+    Demo (D5): no 2FA, no SSH cred check — simulated shell only.
     """
     blocked = _reject_cross_site(request)
     if blocked:
@@ -369,7 +390,8 @@ async def mint_console_ticket(
     except cons.ConsoleDisabled as e:
         return JSONResponse({"ok": False, "error": "disabled", "detail": str(e)}, status_code=403)
 
-    if not (
+    demo_sim = cons.is_demo_console()
+    if not demo_sim and not (
         getattr(server, "ssh_private_key_encrypted", None)
         or getattr(server, "ssh_password_encrypted", None)
     ):
@@ -395,7 +417,10 @@ async def mint_console_ticket(
     )
     set_grant = False
 
-    if not has_grant:
+    if demo_sim:
+        has_grant = True
+        set_grant = True
+    elif not has_grant:
         ok, err = _verify_console_2fa(session, user, totp_code=totp_code)
         if not ok:
             _audit(
@@ -432,10 +457,13 @@ async def mint_console_ticket(
         "max_session_sec": cons.max_session_sec(),
         "grant_active": has_grant or set_grant,
         "grant_minutes": cons.grant_minutes(),
-        "require_2fa_every_shell": cons.require_2fa_every_shell(),
+        "require_2fa_every_shell": (
+            False if demo_sim else cons.require_2fa_every_shell()
+        ),
         "slots_remaining": max(0, cons.slots_remaining(int(user.id)) - 1),
         "max_shells": cons.max_per_user(),
         "no_resume": True,
+        "demo_console": demo_sim,
     }
     response = JSONResponse(body)
     if cons.bind_device_enabled():
@@ -465,12 +493,21 @@ async def console_webauthn_options(
     request: Request,
     server_id: int,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
 ):
     """PublicKeyCredentialRequestOptions for console step-up (passkey)."""
     blocked = _reject_cross_site(request)
     if blocked:
         return blocked
+    if cons.is_demo_console():
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "demo_console",
+                "detail": "Demo console does not use passkey step-up",
+            },
+            status_code=400,
+        )
     try:
         cons.require_enabled()
     except cons.ConsoleDisabled as e:
@@ -496,12 +533,21 @@ async def console_webauthn_verify(
     request: Request,
     server_id: int,
     session: Session = Depends(get_session),
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
 ):
     """Verify passkey for console; sets grant cookie (unless every-shell 2FA)."""
     blocked = _reject_cross_site(request)
     if blocked:
         return blocked
+    if cons.is_demo_console():
+        return JSONResponse(
+            {
+                "ok": False,
+                "error": "demo_console",
+                "detail": "Demo console does not use passkey step-up",
+            },
+            status_code=400,
+        )
     try:
         cons.require_enabled()
     except cons.ConsoleDisabled as e:
@@ -584,7 +630,7 @@ async def console_webauthn_verify(
 async def revoke_console_grant(
     request: Request,
     server_id: int,
-    user: User = Depends(get_operator_user),
+    user: User = Depends(get_console_user),
 ):
     """Drop the short-lived console grant (force re-2FA next shell)."""
     del server_id, user
@@ -615,6 +661,9 @@ def _user_from_cookie(websocket: WebSocket, session: Session) -> Optional[User]:
         return None
     if token_sv != user_session_version(user):
         return None
+    # Production: operator+. Demo D5: shared viewer may open simulated console.
+    if cons.is_demo_console():
+        return user
     if not role_at_least(user, ROLE_OPERATOR):
         return None
     return user
@@ -821,6 +870,7 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                     return
 
                 opened = datetime.utcnow()
+                demo_note = " demo_sim=1" if cons.is_demo_console() else ""
                 _audit(
                     session,
                     user_id=user.id,
@@ -829,6 +879,7 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                     details=(
                         f"ip={ip or '?'} user={user.email} "
                         f"bind_ip={cons.bind_ip_enabled()} bind_device={cons.bind_device_enabled()}"
+                        f"{demo_note}"
                     ),
                 )
                 server_snap = SimpleNamespace(
@@ -843,21 +894,26 @@ async def console_websocket(websocket: WebSocket, server_id: int):
                 )
 
         if not is_resume:
-            client = await asyncio.to_thread(ssh_service.get_ssh_client, server_snap)
-            channel = await asyncio.to_thread(
-                lambda: client.invoke_shell(term="xterm-256color", width=120, height=40)
+            # Production: Paramiko. Demo D5: in-process simulated shell (no TCP).
+            client, channel = await asyncio.to_thread(
+                cons.open_session_channel, server_snap
             )
-            channel.settimeout(0.0)
             started_mono = time.monotonic()
             last_activity = started_mono
             await websocket.send_text(
                 json.dumps({"type": "ph_session", "resume": resume_id, "resumed": False})
             )
-            await websocket.send_text(
-                f"\r\n*** PiHerder console → {server_hostname} "
-                f"(idle {cons.idle_sec()}s / max {cons.max_session_sec()}s · "
-                f"survives app switch) ***\r\n"
-            )
+            if cons.is_demo_console():
+                await websocket.send_text(
+                    f"\r\n*** Demo console (simulated) → {server_hostname} "
+                    f"— no live SSH · idle {cons.idle_sec()}s / max {cons.max_session_sec()}s ***\r\n"
+                )
+            else:
+                await websocket.send_text(
+                    f"\r\n*** PiHerder console → {server_hostname} "
+                    f"(idle {cons.idle_sec()}s / max {cons.max_session_sec()}s · "
+                    f"survives app switch) ***\r\n"
+                )
 
         stop = asyncio.Event()
         last_revalidate = time.monotonic()
