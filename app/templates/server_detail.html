@@ -65,6 +65,9 @@
             <div class="ph-console-popup-actions">
               <button type="button" id="ph-console-popup-max" class="btn btn-secondary text-xs min-h-9 px-2"
                       title="Fill the browser">Maximize</button>
+              <button type="button" id="ph-console-popup-dock" class="btn btn-secondary text-xs min-h-9 px-2"
+                      data-testid="console-popup-dock"
+                      title="Hide console and keep shells (resume from the terminal icon in the top bar)">Dock</button>
               <a href="/console?host={{ server.id }}" class="btn btn-secondary text-xs min-h-9 px-2 no-underline ph-console-popup-extra"
                  title="Multi-host workspace">+ Hosts</a>
               <button type="button" id="ph-console-popup-close" class="btn btn-secondary text-xs min-h-9 px-2"
@@ -160,8 +163,10 @@
         var panel = document.getElementById('ph-console-popup-panel');
         var frame = document.getElementById('ph-console-popup-frame');
         var btnMax = document.getElementById('ph-console-popup-max');
+        var btnDock = document.getElementById('ph-console-popup-dock');
         var btnClose = document.getElementById('ph-console-popup-close');
         var url = '/servers/' + serverId + '/console?embed=1';
+        var DOCK_KEY = 'piherder.console.dock';
 
         function viewportH() {
           try {
@@ -231,6 +236,29 @@
           if (btnMax) btnMax.textContent = 'Maximize';
           try { frame.focus(); } catch (e) {}
           setTimeout(refitFrame, 120);
+          setTimeout(function () { postFrame('persist-dock'); }, 400);
+        }
+
+        /** Hide UI but keep iframe + soft-park shells for top-bar restore. */
+        function dockPopup() {
+          if (!pop || !pop.classList.contains('is-open')) return;
+          postFrame('park-for-dock');
+          postFrame('persist-dock');
+          pop.classList.add('hidden');
+          pop.classList.remove('is-open', 'is-max');
+          document.body.classList.remove('ph-console-popup-open');
+          // Keep iframe src so resume tokens stay in the embed until navigation
+          if (btnMax) btnMax.textContent = 'Maximize';
+          try {
+            window.dispatchEvent(new CustomEvent('piherder-console-dock', { detail: { count: -1 } }));
+          } catch (e) {}
+          setTimeout(function () {
+            try {
+              if (window.PiHerderConsoleDock && window.PiHerderConsoleDock.refresh) {
+                window.PiHerderConsoleDock.refresh();
+              }
+            } catch (e2) {}
+          }, 80);
         }
         function phConfirm(message, opts) {
           opts = opts || {};
@@ -328,10 +356,11 @@
           openPopup();
         };
         if (btnClose) btnClose.addEventListener('click', requestClosePopup);
+        if (btnDock) btnDock.addEventListener('click', dockPopup);
         if (btnMax) btnMax.addEventListener('click', toggleMax);
         if (pop) {
           pop.addEventListener('click', function (ev) {
-            if (ev.target === pop) requestClosePopup();
+            if (ev.target === pop) dockPopup(); // backdrop: dock, don't kill
           });
         }
         document.addEventListener('keydown', function (ev) {
@@ -339,14 +368,29 @@
             // Don't steal Escape from in-app confirm modal
             var cm = document.getElementById('ph-confirm-modal');
             if (cm && !cm.classList.contains('hidden')) return;
-            requestClosePopup();
+            dockPopup(); // Escape docks rather than ending shells
           }
         });
         window.addEventListener('message', function (ev) {
           if (ev.origin !== window.location.origin) return;
+          if (ev.data && ev.data.type === 'piherder-console-dock') {
+            try {
+              if (window.PiHerderConsoleDock && window.PiHerderConsoleDock.refresh) {
+                window.PiHerderConsoleDock.refresh();
+              }
+            } catch (e) {}
+            return;
+          }
           if (!ev.data || ev.data.type !== 'piherder-console') return;
           if (ev.data.action === 'close') requestClosePopup();
           if (ev.data.action === 'expand') toggleMax();
+          if (ev.data.action === 'dock') dockPopup();
+        });
+        // Top-bar dock icon reopens this host's popup when already on detail page
+        window.addEventListener('piherder-console-expand', function (ev) {
+          var sid = ev && ev.detail && ev.detail.serverId;
+          if (sid != null && Number(sid) !== Number(serverId)) return;
+          openPopup();
         });
       })();
       </script>
