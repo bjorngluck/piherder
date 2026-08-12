@@ -1,10 +1,10 @@
 """HTTP security headers including Content-Security-Policy (v1.2).
 
-CSP is enabled by default. Existing UI uses many inline scripts/styles and
-vendored Tailwind Play (needs ``unsafe-eval``). Policy is intentionally
-**self-hosted** (no third-party script CDNs) so webshell/xterm stay under
-``'self'``. Tighten further (compiled Tailwind → drop unsafe-eval; nonces) when
-inline scripts shrink. connect-src does not allow wildcard ws:/wss:.
+CSP is enabled by default. Existing UI uses many inline scripts/styles
+(``unsafe-inline``). Tailwind is a **compiled** stylesheet (no Play, no
+``unsafe-eval``). Policy is intentionally **self-hosted** (no third-party
+script CDNs) so webshell/xterm stay under ``'self'``. Nonces / drop
+unsafe-inline are a later train. connect-src does not allow wildcard ws:/wss:.
 
 Env:
   PIHERDER_CSP=true|false          (default true)
@@ -51,8 +51,9 @@ def _turnstile_on() -> bool:
 
 def build_csp() -> str:
     """Return the Content-Security-Policy value (no header name)."""
-    # script-src: 'unsafe-inline' for template scripts; 'unsafe-eval' for Tailwind Play
+    # script-src: 'unsafe-inline' for template <script> blocks (nonces in a later train)
     # style-src: 'unsafe-inline' for theme/style attributes and xterm
+    # No 'unsafe-eval' — Tailwind is compiled CSS, not Play.
     # connect-src: same origin only. Modern browsers treat 'self' as covering
     # same-origin fetch + WebSocket. Do **not** allow bare ws:/wss: (any host).
     # When PIHERDER_PUBLIC_URL is set, also allow that origin + its ws/wss
@@ -66,7 +67,7 @@ def build_csp() -> str:
         elif origin.startswith("http://"):
             connect.append("ws://" + origin[len("http://") :])
 
-    script_src = ["'self'", "'unsafe-inline'", "'unsafe-eval'"]
+    script_src = ["'self'", "'unsafe-inline'"]
     frame_src = ["'self'"]
     style_src = ["'self'", "'unsafe-inline'"]
     # Cloudflare Turnstile (managed challenge loads scripts/frames/workers/images)

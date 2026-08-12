@@ -58,7 +58,7 @@ Feature requests are welcome and will be considered against the roadmap.
 2. Prefer small, focused PRs.
 3. Include a clear description of what and why; link related issues.
 4. Update tests and **documentation** where relevant (wiki + RELEASE notes for user-visible change).
-5. Run unit `pytest` locally or via CI. Playwright E2E: `./scripts/e2e-up.sh` then `pytest e2e -q` — see [e2e/README.md](e2e/README.md). For wiki edits run `mkdocs build --strict` when you can.
+5. Run unit `pytest` locally or via CI. Playwright E2E: `./scripts/e2e-up.sh` then `pytest e2e -q` — see [e2e/README.md](e2e/README.md). For wiki edits run `mkdocs build --strict` when you can. New Tailwind **utility** classes in templates: `bash scripts/build-tailwind.sh` and commit `app/static/css/tailwind.css`.
 6. Be responsive to review comments.
 
 ### Dependencies

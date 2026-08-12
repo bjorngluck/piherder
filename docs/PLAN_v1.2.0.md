@@ -261,6 +261,7 @@ Landed on `v1.2.0-dev` after the 2026-08 deep review. Not a new product surface.
 | **R11** SSH host-key pin (TOFU) + mismatch refuse | Must | **Landed** |
 | **R12** OIDC GET link no `?ok=1`; viewer no live Docker SSH; `Sec-Fetch-Site: cross-site` denied | Must | **Landed** |
 | **R13** Console JTI never wipe-all; Redis NX; refuse weak `SECRET_KEY` at boot | Must | **Landed** |
+| **R14** Compile Tailwind CSS; drop CSP `unsafe-eval` | Must | **Landed** |
 
 **S4 note:** Require SSO is now enforced in `POST /auth/login` (admins remain password break-glass).
 

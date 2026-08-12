@@ -1,0 +1,3 @@
+/* Compiled by scripts/build-tailwind.sh — utilities only (no Preflight).
+   Theme / component classes stay in themes.css and ops-*.css. */
+@tailwind utilities;

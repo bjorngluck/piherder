@@ -82,9 +82,9 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 
 ### Tech Stack
 
-FastAPI + SQLModel + PostgreSQL + Paramiko + cryptography (Fernet) + Jinja2 + Tailwind + HTMX + Alpine + APScheduler + Celery.
+FastAPI + SQLModel + PostgreSQL + Paramiko + cryptography (Fernet) + Jinja2 + compiled Tailwind + HTMX + Alpine + APScheduler + Celery.
 
-**Offline / air-gapped ready** — Once built, the container has no external CDN dependencies.
+**Offline / air-gapped ready** — Once built, the container has no external CDN dependencies. Tailwind utilities are compiled CSS (no Play / no eval).
 
 ### License
 

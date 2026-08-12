@@ -16,13 +16,8 @@
   <link rel="icon" href="/static/favicon.png?v=20260722c" type="image/png" sizes="32x32">
   <link rel="icon" href="/static/favicon.ico?v=20260722c" sizes="any">
 
-  <!-- Tailwind Play + HTMX + Alpine (always loaded for consistent nav + components across all pages) -->
-  <script src="/static/tailwind.js" onerror="console.warn('Tailwind Play not available — using built-in fallback styles')"></script>
-  <script>
-    if (typeof tailwind !== 'undefined') {
-      tailwind.config = { theme: { extend: {} } };
-    }
-  </script>
+  <!-- Compiled Tailwind utilities (no Play / no eval). Custom chrome stays in themes.css. -->
+  <link rel="stylesheet" href="/static/css/tailwind.css?v=20260812-compiled">
   <script src="/static/htmx.min.js"></script>
   <script defer src="/static/alpine.min.js"></script>
 

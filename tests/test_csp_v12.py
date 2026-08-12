@@ -12,8 +12,8 @@ def test_build_csp_core_directives(monkeypatch):
     assert "frame-ancestors 'self'" in csp
     assert "frame-src 'self'" in csp
     assert "script-src 'self'" in csp
-    assert "'unsafe-inline'" in csp  # legacy template scripts
-    assert "'unsafe-eval'" in csp  # Tailwind Play
+    assert "'unsafe-inline'" in csp  # legacy template scripts (1.3: nonces)
+    assert "'unsafe-eval'" not in csp  # Tailwind is compiled CSS, not Play
     assert "connect-src" in csp
     assert "wss://ph.example.com:8443" in csp
     # Wildcard WebSocket schemes would let XSS open a socket to anywhere
@@ -52,6 +52,19 @@ def test_security_headers_report_only(monkeypatch):
     h = hdr.security_headers_dict()
     assert "Content-Security-Policy-Report-Only" in h
     assert "Content-Security-Policy" not in h
+
+
+def test_compiled_tailwind_css_present():
+    from pathlib import Path
+
+    css = Path("app/static/css/tailwind.css")
+    assert css.is_file(), "run bash scripts/build-tailwind.sh and commit the CSS"
+    text = css.read_text(encoding="utf-8", errors="replace")
+    assert len(text) > 5000
+    assert ".flex{" in text or ".flex {" in text
+    assert ".hidden{" in text or ".hidden {" in text
+    # Preflight would reset body/buttons and fight themes.css
+    assert "*,:after,:before" not in text.replace(" ", "")
 
 
 def test_csp_can_disable(monkeypatch):
