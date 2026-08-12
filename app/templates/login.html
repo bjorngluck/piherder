@@ -56,6 +56,8 @@
         {% set err = request.query_params.get('error') %}
         {% if err == 'rate' %}
         Too many attempts. Wait a few minutes and try again.
+        {% elif err == 'sso_required' %}
+        This instance requires SSO. Use the SSO button, or ask an admin for break-glass access.
         {% elif err == 'sso_denied' %}
         SSO sign-in was cancelled or denied by the identity provider.
         {% elif err == 'sso_config' %}

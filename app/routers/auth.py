@@ -416,6 +416,11 @@ async def login(
             session.rollback()
         return RedirectResponse("/auth/login?error=invalid", status_code=303)
 
+    from ..services import oidc_svc as oidc_login
+
+    if oidc_login.oidc_require_sso() and user_role(user) != ROLE_ADMIN:
+        return RedirectResponse("/auth/login?error=sso_required", status_code=303)
+
     # 2FA path: TOTP and/or passkeys (skip when user must change password first)
     from ..services import webauthn_svc as wa_svc
 
