@@ -86,6 +86,18 @@ def test_build_stream_viewer_forbidden(client):
     assert r.status_code in (403, 404), r.status_code
 
 
+def test_build_stream_get_method_not_allowed_for_operator(client):
+    """Mutating GET is closed — operator must POST a project name."""
+    c, engine = client
+    with Session(engine) as session:
+        uid = _user(session, role="operator", email="op@authz.test").id
+    r = c.get(
+        "/servers/1/docker/build-stream?project=/tmp/x;id",
+        cookies=_cookie(uid),
+    )
+    assert r.status_code == 405, r.status_code
+
+
 def test_log_stream_viewer_allowed_auth_gate(client):
     """Viewers may open log SSE once authenticated (read-only); 404 without server."""
     c, engine = client
