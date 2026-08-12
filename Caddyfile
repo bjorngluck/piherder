@@ -64,7 +64,7 @@
 
 	header {
 		X-Content-Type-Options "nosniff"
-		X-Frame-Options "DENY"
+		X-Frame-Options "SAMEORIGIN"
 		Referrer-Policy "no-referrer-when-downgrade"
 	}
 	encode gzip

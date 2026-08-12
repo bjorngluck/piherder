@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     PIHERDER_MASTER_KEY: str
     DATABASE_URL: str = "postgresql://piherder:piherder@db:5432/piherder"
     SECRET_KEY: str = "dev-secret-change-in-prod"
+    # Lab only: allow boot with a weak/default SECRET_KEY. Never true in production.
+    PIHERDER_ALLOW_INSECURE: bool = False
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 

@@ -349,7 +349,7 @@ async def get_docker_logs(
     format: str = None,
     request: Request = None,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_operator_user)
 ):
 
     server = session.get(Server, server_id)
@@ -591,9 +591,9 @@ async def stream_container_logs(
     lines: int = 30,
     project_path: str = None,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_operator_user),
 ):
-    """SSE log stream — must require session (v1.0 AC2). Viewers may read if they can open Docker UI."""
+    """SSE log stream — operator+ (live SSH). Viewers use cached inventory, not a PTY."""
     _ = user
     server = session.get(Server, server_id)
     if not server:

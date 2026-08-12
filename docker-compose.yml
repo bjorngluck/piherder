@@ -3,7 +3,8 @@ x-piherder-app-env: &piherder-app-env
   PIHERDER_MASTER_KEY: ${PIHERDER_MASTER_KEY}
   # Web + main celery never consume queue nmap (see celery-worker-nmap).
   PIHERDER_NMAP_WORKER: "0"
-  SECRET_KEY: ${SECRET_KEY:-dev-secret-change-in-prod}
+  SECRET_KEY: ${SECRET_KEY:?set a long random SECRET_KEY in .env}
+  PIHERDER_ALLOW_INSECURE: ${PIHERDER_ALLOW_INSECURE:-false}
   DATABASE_URL: ${DATABASE_URL:-postgresql://piherder:piherder@db:5432/piherder}
   CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
   CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}

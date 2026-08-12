@@ -55,7 +55,10 @@ COMPOSE_BASENAMES = docker_versions.COMPOSE_BASENAMES
 def get_container_status(server: Server, name: str) -> Dict:
     """Get detailed status for one container."""
     client = get_ssh_client(server)
-    cmd = f'docker inspect --format "{{{{json .}}}}" {name}'
+    cname = normalize_container_ref(name)
+    if not cname:
+        return {"name": name, "state": "unknown", "running": False, "ports": []}
+    cmd = f'docker inspect --format "{{{{json .}}}}" {shlex.quote(cname)}'
     status, out, err = run_command(client, cmd, timeout=15)
     client.close()
 
@@ -1633,7 +1636,7 @@ def _list_compose_uncached(
             versions = []
             if not light:
                 try:
-                    ps_cmd = f'cd {proj_dir} && docker compose ps --format "{{{{json .}}}}" 2>/dev/null | head -20'
+                    ps_cmd = f'cd {shlex.quote(proj_dir)} && docker compose ps --format "{{{{json .}}}}" 2>/dev/null | head -20'
                     _, ps_out, _ = run_command(client, ps_cmd, timeout=15)
                     for line in ps_out.strip().splitlines():
                         if line:

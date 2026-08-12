@@ -670,7 +670,7 @@ async def server_detail(
     host_cleanup_script = ""
     # Option B ACL: share compose tree with least-priv user (guess owner from absolute path)
     _base = (server.docker_base_dir or "~/docker").strip()
-    _compose_owner = "bjorn"
+    _compose_owner = "pi"
     _compose_tree = _base
     if _base.startswith("/home/"):
         parts = _base.strip("/").split("/")

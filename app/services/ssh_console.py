@@ -22,7 +22,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from ..config import settings
 from ..security.auth import (
@@ -36,9 +36,9 @@ CONSOLE_GRANT_COOKIE = "console_grant"
 # Stable per-browser device binding for console (HttpOnly, not trusted-device 2FA skip)
 CONSOLE_DEVICE_COOKIE = "console_device"
 
-# In-process ticket jti consume set + live session counters (single web worker assumed)
+# In-process ticket jti consume map (jti → consumed_at) + live session counters
 _lock = threading.Lock()
-_consumed_jtis: Set[str] = set()
+_consumed_jtis: Dict[str, float] = {}
 _live_by_user: Dict[int, int] = {}
 _live_global: int = 0
 # Parked PTYs after browser WebSocket drop (app switch / tab sleep) — resume until idle/max
@@ -400,13 +400,36 @@ def consume_ticket(
     jti = str(payload.get("jti") or "")
     if not jti:
         raise ConsoleDenied("Invalid console ticket")
-    with _lock:
-        if jti in _consumed_jtis:
-            raise ConsoleDenied("Console ticket already used (cannot resume)")
-        if len(_consumed_jtis) > 5000:
-            _consumed_jtis.clear()
-        _consumed_jtis.add(jti)
+    if not _consume_jti(jti):
+        raise ConsoleDenied("Console ticket already used (cannot resume)")
     return payload
+
+
+def _consume_jti(jti: str) -> bool:
+    """First consume wins. Redis NX when available; never wipe the whole set."""
+    ttl = ticket_ttl_sec() + 120
+    now = time.time()
+    try:
+        from .server_job_lock import _get_redis
+
+        r = _get_redis()
+    except Exception:
+        r = None
+    if r is not None:
+        try:
+            ok = r.set(f"piherder:console:jti:{jti}", "1", nx=True, ex=int(ttl))
+            if not ok:
+                return False
+        except Exception:
+            r = None
+    with _lock:
+        stale = [k for k, ts in _consumed_jtis.items() if now - ts > ttl]
+        for k in stale:
+            _consumed_jtis.pop(k, None)
+        if jti in _consumed_jtis:
+            return False
+        _consumed_jtis[jti] = now
+    return True
 
 
 def binding_still_valid(

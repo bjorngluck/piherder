@@ -4,17 +4,25 @@ SSH service using paramiko.
 - Keypair generation
 - In-memory decrypt + connect (never store plaintext key on disk except very short-lived temp files for rsync)
 - Helpers matching legacy bash SSH_OPTS
+- Remote **host key** is pinned (TOFU on first success; later mismatch refuses)
 
 Onboarding (deploy key, rotate, least-priv user) lives in ``ssh_onboarding.py``.
 """
-import paramiko
-from io import StringIO
-from typing import Tuple
-import tempfile
+import base64
+import hashlib
+import logging
 import os
+import tempfile
 from contextlib import contextmanager
+from io import StringIO
+from typing import Optional, Tuple
+
+import paramiko
+
 from ..models import Server
 from ..security import encryption
+
+logger = logging.getLogger(__name__)
 
 
 SSH_OPTS = {
@@ -24,6 +32,105 @@ SSH_OPTS = {
 }
 
 LEGACY_SSH_OPTS_STR = "-o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15"
+
+
+class HostKeyMismatch(RuntimeError):
+    """Remote host key does not match the pin stored on the Server row."""
+
+    def __init__(self, hostname: str, expected_fp: str, seen_fp: str):
+        self.hostname = hostname
+        self.expected_fp = expected_fp
+        self.seen_fp = seen_fp
+        super().__init__(
+            f"SSH host key mismatch for {hostname}: pinned {expected_fp}, "
+            f"remote presented {seen_fp}. If you rebuilt the machine, reset the "
+            f"host key under SSH access."
+        )
+
+
+def host_key_fingerprint(key: paramiko.PKey) -> str:
+    """OpenSSH-style SHA256 fingerprint (no trailing '=')."""
+    digest = hashlib.sha256(key.asbytes()).digest()
+    return "SHA256:" + base64.b64encode(digest).decode("ascii").rstrip("=")
+
+
+class HostKeyPinPolicy(paramiko.MissingHostKeyPolicy):
+    """TOFU: first seen key is allowed (caller persists). Later: exact match only."""
+
+    def __init__(
+        self,
+        expected_type: Optional[str],
+        expected_b64: Optional[str],
+        expected_fp: Optional[str] = None,
+    ):
+        self.expected_type = (expected_type or "").strip() or None
+        self.expected_b64 = (expected_b64 or "").strip() or None
+        self.expected_fp = (expected_fp or "").strip() or None
+        self.seen_key: Optional[paramiko.PKey] = None
+
+    def missing_host_key(self, client, hostname, key):  # noqa: ANN001
+        self.seen_key = key
+        if not self.expected_b64:
+            return
+        same_type = not self.expected_type or key.get_name() == self.expected_type
+        if same_type and key.get_base64() == self.expected_b64:
+            return
+        raise HostKeyMismatch(
+            hostname or "host",
+            expected_fp=self.expected_fp
+            or f"{self.expected_type or 'ssh'} {self.expected_b64[:16]}…",
+            seen_fp=host_key_fingerprint(key),
+        )
+
+
+def persist_host_key_if_needed(server: Server, key: Optional[paramiko.PKey]) -> None:
+    """Store the first-seen host key on the Server row (TOFU)."""
+    if key is None or not getattr(server, "id", None):
+        return
+    if (getattr(server, "ssh_hostkey_b64", None) or "").strip():
+        return
+    try:
+        from sqlmodel import Session
+
+        from ..database import engine
+    except Exception:
+        return
+    fp = host_key_fingerprint(key)
+    typ = key.get_name()
+    b64 = key.get_base64()
+    try:
+        with Session(engine) as session:
+            row = session.get(Server, int(server.id))
+            if not row or (getattr(row, "ssh_hostkey_b64", None) or "").strip():
+                return
+            row.ssh_hostkey_type = typ
+            row.ssh_hostkey_b64 = b64
+            row.ssh_hostkey_fp = fp
+            session.add(row)
+            session.commit()
+        server.ssh_hostkey_type = typ
+        server.ssh_hostkey_b64 = b64
+        server.ssh_hostkey_fp = fp
+        logger.info("Pinned SSH host key for server %s (%s)", server.id, fp)
+    except Exception:
+        logger.warning("Could not persist SSH host key pin for server %s", server.id, exc_info=True)
+
+
+def clear_host_key_pin(server: Server) -> None:
+    """Forget the stored pin (operator reset after a rebuild)."""
+    server.ssh_hostkey_type = None
+    server.ssh_hostkey_b64 = None
+    server.ssh_hostkey_fp = None
+
+
+def attach_host_key_policy(client: paramiko.SSHClient, server: Server) -> HostKeyPinPolicy:
+    policy = HostKeyPinPolicy(
+        getattr(server, "ssh_hostkey_type", None),
+        getattr(server, "ssh_hostkey_b64", None),
+        getattr(server, "ssh_hostkey_fp", None),
+    )
+    client.set_missing_host_key_policy(policy)
+    return policy
 
 
 def expand_remote_path(path: str, username: str) -> str:
@@ -104,7 +211,7 @@ def _load_pkey(priv: str) -> paramiko.PKey:
 def get_ssh_client(server: Server) -> paramiko.SSHClient:
     """Create and connect an SSHClient. Caller must .close() or use context."""
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # accept-new equivalent in spirit
+    policy = attach_host_key_policy(client, server)
 
     pkey = None
     if server.ssh_private_key_encrypted:
@@ -124,7 +231,11 @@ def get_ssh_client(server: Server) -> paramiko.SSHClient:
             look_for_keys=False,
             allow_agent=False,
         )
+        persist_host_key_if_needed(server, policy.seen_key)
         return client
+    except HostKeyMismatch:
+        client.close()
+        raise
     except Exception as e:
         client.close()
         raise RuntimeError(f"SSH connect failed to {server.hostname}: {e}")

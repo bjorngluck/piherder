@@ -42,7 +42,7 @@ Without a server record you have no place to store the encrypted SSH key, featur
 **Save & exit** at any step after Identity leaves a partial host on the fleet; open the server or resume via  
 `/servers/new?step=connect&server_id=…` (or the next incomplete step).
 
-**Done when:** Test connection succeeds; dependency chips match enabled features; password bootstrap is gone.
+**Done when:** Test connection succeeds; dependency chips match enabled features; password bootstrap is gone. The first successful connect **pins** the SSH host key (shown under SSH access). A later key change is refused until you reset the pin.
 
 !!! tip "Advanced form"
     Prefer the wizard. For a one-shot form, use **Advanced form** on the wizard page (`/servers/new/advanced`) or legacy `/servers/add` — same create engine, no step chrome.

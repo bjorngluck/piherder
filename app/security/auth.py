@@ -817,6 +817,10 @@ def same_origin_request(request: Request) -> bool:
         except Exception:
             return ""
 
+    fetch_site = (request.headers.get("sec-fetch-site") or "").strip().lower()
+    if fetch_site == "cross-site":
+        return False
+
     origin = (request.headers.get("origin") or "").strip()
     if origin and origin.lower() not in ("null",):
         oh = _host_from_url(origin)

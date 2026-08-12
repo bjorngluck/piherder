@@ -34,6 +34,8 @@ def _ensure_test_env() -> str:
         os.environ["DATABASE_URL"] = (
             "postgresql://piherder:piherder@localhost:5432/piherder"
         )
+    if not (os.environ.get("SECRET_KEY") or "").strip():
+        os.environ["SECRET_KEY"] = "ci-unit-test-secret-key-not-for-production-use"
 
     # If Settings was already constructed (e.g. via --cov import order), patch it.
     try:

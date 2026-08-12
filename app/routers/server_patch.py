@@ -14,7 +14,7 @@ from starlette.concurrency import run_in_threadpool
 
 from ..database import get_session, engine
 from ..models import Server, AuditLog, Job, User
-from ..security.auth import get_current_user
+from ..security.auth import get_current_user, get_operator_user
 from ..services import jobs as job_service
 from ..services import os_patching
 from ..services import diagnostics as diag_svc
@@ -86,7 +86,7 @@ async def stream_os_patch_logs(
 async def get_server_diagnostics(
     server_id: int,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_operator_user),
     force: bool = False,
 ):
 
