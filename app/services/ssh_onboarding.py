@@ -494,7 +494,7 @@ def build_compose_tree_acl_script(
     read/write the compose tree (Pi OS / Ubuntu). Run as root on the target.
     """
     svc = re.sub(r"[^a-z0-9_-]", "", (service_user or "piherder").lower()) or "piherder"
-    owner = re.sub(r"[^a-z0-9_-]", "", (compose_owner or "bjorn").lower()) or "bjorn"
+    owner = re.sub(r"[^a-z0-9_-]", "", (compose_owner or "pi").lower()) or "pi"
     # compose_dir may be absolute or relative under owner's home
     if compose_dir.startswith("/"):
         tree = compose_dir.rstrip("/") or f"/home/{owner}/docker"
