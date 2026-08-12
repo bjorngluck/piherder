@@ -3,7 +3,11 @@ module.exports = {
   darkMode: "class",
   // Play used to JIT every class in the browser. Compiled CSS only includes
   // classes found here — plus a small safelist for JS-toggled utilities.
-  content: ["./app/templates/**/*.html", "./app/static/**/*.js"],
+  content: [
+    "./app/templates/**/*.html",
+    "./app/static/js/**/*.js",
+    "./app/static/sw.js",
+  ],
   // Do not emit Tailwind's base reset — it would fight themes.css / fallback.
   corePlugins: {
     preflight: false,

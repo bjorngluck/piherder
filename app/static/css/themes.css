@@ -1,3 +1,11 @@
+/* Play used to ship this via Preflight. Without it, `w-full` + padding
+   (main, cards) is wider than the viewport — mobile sideways pan. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   /* Light theme defaults (Raspberry Pi inspired)
      Page canvas is a cool grey so white cards / sections separate cleanly.
