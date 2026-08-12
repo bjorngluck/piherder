@@ -5,6 +5,7 @@ app/static/htmx.min.js
 app/static/alpine.min.js
 
 # Local runtime / secrets — never ship into public Hub images
+local/
 .env*
 *.pem
 id_rsa*

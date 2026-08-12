@@ -101,7 +101,7 @@ def connect_with_auth(
     password is also None and caller wants stored key (see get_ssh_client).
     """
     client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    policy = ssh_service.attach_host_key_policy(client, server)
 
     pkey = None
     if private_key_plain:
@@ -133,7 +133,11 @@ def connect_with_auth(
             look_for_keys=False,
             allow_agent=False,
         )
+        ssh_service.persist_host_key_if_needed(server, policy.seen_key)
         return client
+    except ssh_service.HostKeyMismatch:
+        client.close()
+        raise
     except Exception as e:
         client.close()
         raise RuntimeError(f"SSH connect failed to {host}: {e}") from e
@@ -161,6 +165,8 @@ def test_connection_detail(server: Server) -> OnboardingResult:
             ok=False,
             message=(err or out or f"Remote command failed (exit {status})")[:240],
         )
+    except ssh_service.HostKeyMismatch as e:
+        return OnboardingResult(ok=False, message=str(e)[:400])
     except Exception as e:
         return OnboardingResult(ok=False, message=str(e)[:240])
 

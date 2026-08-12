@@ -160,9 +160,9 @@ async def oidc_link_start(
         return blocked
     if not oidc.oidc_enabled():
         return RedirectResponse("/auth/account?error=sso_disabled", status_code=303)
-    # 2FA gate when enrolled — require query ?confirmed=1 after form post is cleaner;
-    # use POST form from Account instead for re-auth. GET still works if no 2FA.
-    if wa_svc.user_has_2fa(session, user) and request.query_params.get("ok") != "1":
+    # GET is start-only when the user has no 2FA. Enrolled users must POST
+    # (password / TOTP / passkey) — ``?ok=1`` is not a step-up.
+    if wa_svc.user_has_2fa(session, user):
         return RedirectResponse("/auth/account?error=sso_2fa_link", status_code=303)
     try:
         url, state_cookie = oidc.build_authorize_url(mode="link", user_id=int(user.id))

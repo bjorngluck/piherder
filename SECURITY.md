@@ -47,6 +47,9 @@ We aim to acknowledge reports within a few days and will work with you on a fix 
 | Streams (SSE) | Docker logs/build, backup/OS progress require session; build stream is **operator+** |
 | Input hygiene | Risk-based validators on paths, hostnames, SSH users, cron, action allowlists (`app/services/input_validation.py`) |
 | Transport | HTTPS via Caddy + operator-supplied PEMs recommended for production |
+| SSH host keys (v1.2+) | First successful connect **pins** the remote host key (TOFU). Later mismatch refuses. Reset under SSH access after a rebuild. |
+| Weak `SECRET_KEY` | Process **refuses to start** unless `PIHERDER_ALLOW_INSECURE=true` or `DEMO_MODE` (lab only). |
+| Live host SSH from UI | Docker logs / diagnostics / console / compose build: **operator+**. Viewers see cached inventory and job history, not a live PTY. |
 
 Further detail: [SPEC.md](SPEC.md) · [docs/ADMIN.md](docs/ADMIN.md) · [wiki roles](wiki/account-security/roles.md) · [PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md).
 
@@ -83,7 +86,8 @@ Demo must use **unique** Fernet/session secrets and never hold decryptable produ
 ## Operational recommendations
 
 - Use a unique strong `PIHERDER_MASTER_KEY` and `SECRET_KEY` (see [`.env.example`](.env.example) for the full env catalog). Web logs a **warning** if `SECRET_KEY` looks like a stock/dev default.  
-- Prefer SSH key auth; clear any stored SSH passwords after deploy.  
+- Prefer SSH key auth; clear any stored SSH passwords after deploy. After upgrade, **Test connection** once per host to pin the SSH host key; reset the pin only when you rebuilt the machine.  
+- Do not run with `PIHERDER_ALLOW_INSECURE=true` against a real fleet.  
 - Enable 2FA for admin accounts (TOTP and/or **passkeys**); consider **Force 2FA** in Settings. Treat **trusted devices** as full session risk until revoked. Passkeys need HTTPS + matching `PIHERDER_HOSTNAME` / `PIHERDER_PUBLIC_URL` (except localhost).  
 - If using **SSO / OIDC** (v1.2+): keep at least one **break-glass local admin password**; map IdP groups carefully (default role is **viewer**); treat PiHerder 2FA as defense-in-depth after the IdP (SSO does not skip enrolled 2FA). See [wiki SSO](wiki/account-security/sso-oidc.md) · [FEATURE_PLAN_SSO_OIDC.md](docs/FEATURE_PLAN_SSO_OIDC.md).  
 - **CSP (v1.2+):** leave `PIHERDER_CSP=true` in production. Use `PIHERDER_CSP_REPORT_ONLY=true` only while validating a tighter policy. Console assets (xterm) are vendored under `/static/vendor/xterm/` so they need no CDN allowlist. When Turnstile is configured, CSP allows `https://challenges.cloudflare.com` for script/frame/connect.  

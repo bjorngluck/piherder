@@ -16,7 +16,7 @@ from ..config import settings
 from ..database import get_session
 from ..models import Server, User
 from ..security import encryption
-from ..security.auth import get_current_user
+from ..security.auth import get_current_user, get_operator_user
 from ..services import host_deps as host_deps_svc
 from ..services import ssh as ssh_service
 from ..services import ssh_onboarding
@@ -29,7 +29,7 @@ logger = logging.getLogger("piherder.servers")
 def host_cleanup_script_for_server(server: Server) -> str:
     """Parameterized host cleanup shell for this server's SSH user / docker base."""
     _base = (server.docker_base_dir or "~/docker").strip()
-    _compose_owner = "bjorn"
+    _compose_owner = "pi"
     _compose_tree = _base
     if _base.startswith("/home/"):
         parts = _base.strip("/").split("/")
@@ -162,6 +162,42 @@ async def ssh_test_connection(
         server_redirect(server_id, error="ssh_fail", detail=result.message[:180]),
         status_code=303,
     )
+
+
+@router.post("/{server_id}/ssh/reset-host-key")
+async def ssh_reset_host_key(
+    server_id: int,
+    confirm_name: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Forget the pinned host key after a rebuild (next connect TOFU-pins again)."""
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("ssh_deploy")
+    server = session.get(Server, server_id)
+    if not server:
+        raise HTTPException(404)
+    expected = (server.name or "").strip()
+    if not expected or (confirm_name or "").strip() != expected:
+        return RedirectResponse(
+            server_redirect(server_id, error="ssh_fail", detail="Type the exact server name to reset the host key"),
+            status_code=303,
+        )
+    old_fp = server.ssh_hostkey_fp or ""
+    ssh_service.clear_host_key_pin(server)
+    session.add(server)
+    record_server_audit(
+        session,
+        server_id=server.id,
+        user_id=user.id,
+        action="server_ssh_hostkey_reset",
+        status="success",
+        message="SSH host key pin cleared",
+        details={"former_fp": old_fp[:128]},
+    )
+    session.commit()
+    return RedirectResponse(server_redirect(server_id, msg="ssh_hostkey_reset"), status_code=303)
 
 
 @router.post("/{server_id}/host-deps/check")

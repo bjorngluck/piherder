@@ -149,6 +149,10 @@ class Server(SQLModel, table=True):
     ssh_private_key_encrypted: Optional[str] = None  # Fernet ciphertext
     ssh_public_key: Optional[str] = None
     ssh_password_encrypted: Optional[str] = None  # optional fallback
+    # Pinned remote host key (TOFU on first connect; mismatch refuses)
+    ssh_hostkey_type: Optional[str] = Field(default=None, max_length=64)
+    ssh_hostkey_b64: Optional[str] = Field(default=None)
+    ssh_hostkey_fp: Optional[str] = Field(default=None, max_length=128)
 
     os_type: str = "debian"
     last_seen: Optional[datetime] = None

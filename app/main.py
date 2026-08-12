@@ -99,10 +99,21 @@ async def lifespan(app: FastAPI):
     try:
         from .config import settings as _cfg
 
-        if (_cfg.SECRET_KEY or "").strip() in ("", "dev-secret-change-in-prod"):
+        from .security.auth import is_weak_secret_key
+        from .services.demo import demo_mode as _demo_mode
+
+        _weak = is_weak_secret_key(getattr(_cfg, "SECRET_KEY", None))
+        _allow_insecure = bool(getattr(_cfg, "PIHERDER_ALLOW_INSECURE", False))
+        if _weak and not _allow_insecure and not _demo_mode():
+            raise SystemExit(
+                "SECRET_KEY is missing or a documented default. "
+                "Set a long random SECRET_KEY in .env, or "
+                "PIHERDER_ALLOW_INSECURE=true for a disposable lab only."
+            )
+        if _weak:
             print(
-                "WARNING: SECRET_KEY is the default/dev value — set a long random "
-                "SECRET_KEY in .env before production use."
+                "WARNING: SECRET_KEY is weak/default — PIHERDER_ALLOW_INSECURE "
+                "is on or DEMO_MODE is on. Do not use this instance for a real fleet."
             )
         if not (_cfg.METRICS_TOKEN or "").strip():
             print(

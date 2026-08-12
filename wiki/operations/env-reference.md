@@ -117,6 +117,7 @@ docker compose --profile nmap up -d celery-worker-nmap
 |----------|---------|
 | `ALLOW_OPEN_REGISTRATION` | Default `false`. Empty DB allows first admin via Register; then closed unless `true` (later open-reg users are **operator**) |
 | `COOKIE_SECURE` | Empty = auto (`Secure` when `PIHERDER_PUBLIC_URL` is `https://…`); `true`/`false` to force |
+| `PIHERDER_ALLOW_INSECURE` | Default `false`. If `true`, allow boot with a weak/default `SECRET_KEY` (lab only) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Session JWT lifetime (default 10080 = 7 days) |
 | `ALGORITHM` | JWT algorithm (default `HS256`) |
 | `TRUSTED_DEVICE_DAYS` | 2FA “trust this device” cookie age (default 30) |
