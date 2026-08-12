@@ -159,8 +159,23 @@ def test_audit_client_ip_scrubbed_in_demo(demo_on, monkeypatch):
             finished_at=datetime.utcnow(),
         )
         assert al.client_ip == demo_svc.DEMO_AUDIT_IP_PLACEHOLDER
+        al_body = aw.make_audit_log(
+            action="ssh_console_open",
+            status="success",
+            details="ip=198.51.100.7 user=demo@hacknow.info bind_ip=True demo_sim=1",
+        )
+        assert "198.51.100.7" not in (al_body.details or "")
+        assert "ip=redacted" in (al_body.details or "")
+        assert "demo@hacknow.info" in (al_body.details or "")
     finally:
         rip.reset_request_client_ip(tok)
+
+    leaked = "duration_sec=12 ip=203.0.113.88"
+    assert "203.0.113.88" not in (
+        demo_svc.scrub_audit_text(leaked, for_display=True) or ""
+    )
+    seed_body = "device=4 ip=10.42.0.10 job=9"
+    assert demo_svc.scrub_audit_text(seed_body, for_display=True) == seed_body
 
     # Off demo: real IP kept
     monkeypatch.setattr(demo_svc.settings, "PIHERDER_DEMO_MODE", False)

@@ -47,7 +47,7 @@ Access (if enabled) remains an optional outer gate for spam reduction — do not
 | Account creation | **None** — no register / Users create / SSO JIT |
 | Fleet config | Blocked by normal viewer RBAC + demo write guard; **canned job runs** still allowed for the click-through |
 | Ops re-seed | CLI only (no in-app admin seed UI) |
-| Audit client IP | Scrubbed to `redacted` on write + display (shared-account privacy). Seed/private lab IPs (`10.x`, `192.168.x`) may still show on canned rows. |
+| Audit client IP | Column **and details body** scrubbed to `redacted` on write + display (shared-account privacy). Console used to embed `ip=…` in the body — that is redacted too. Seed/private lab IPs (`10.x`, `192.168.x`) may still show on canned rows. |
 
 Never point demo at the home-lab network or reuse production `PIHERDER_MASTER_KEY`.
 
@@ -163,14 +163,45 @@ Notes:
 - If Access is enabled, keep a “request access” path for the outer gate; otherwise point straight at the shared viewer login.
 - Do not iframe the live app (Access / CSP / cookies often break embeds).
 
+## First 1.2 deploy on the VPS
+
+The public demo should track **`v1.2.0-dev`** until `v1.2.0` is tagged (Hub `latest` is still **1.1.0**). App code is **not** bind-mounted — you must **rebuild the image**.
+
+```bash
+# on the VPS clone
+git status                 # must be clean or demo-maintain refuses pull
+git fetch && git checkout v1.2.0-dev
+git pull --ff-only
+# preferred:
+./scripts/demo-maintain.sh redeploy
+# equivalent:
+# docker compose -f docker-compose.yml -f docker-compose.demo.yml \
+#   -f docker-compose.demo-ports.yml up -d --build --force-recreate
+```
+
+| Check | Why |
+|-------|-----|
+| Stay on **`v1.2.0-dev`** (or set `DEMO_GIT_BRANCH`) | Daily cron `git pull` follows whatever branch the clone is on. `main` is still 1.1. |
+| **Rebuild** (`--build` / `demo-maintain redeploy`) | Compiled Tailwind + 1.2 code live in the image |
+| **`--force-recreate`**, not `restart` | Overlay `dns:` for Turnstile only applies on recreate |
+| Do **not** `--wipe` unless you want a volume reset | Alembic (incl. `039_ssh_hostkey_pin`) runs on web start; seed is refreshed after recreate |
+| Keep **`PIHERDER_SSH_CONSOLE=false`** | Demo console is **simulated** via `DEMO_MODE` — do not enable live Paramiko |
+| Unique `PIHERDER_MASTER_KEY` / `SECRET_KEY` | Never reuse lab/prod keys. `DEMO_MODE` would allow a weak `SECRET_KEY` to boot — still use a real one |
+| `PIHERDER_PUBLIC_URL` / hostname / Turnstile | Unchanged; must match the live origin |
+| Cron still 6h `data-reset` + daily `redeploy` | Confirm `/etc/cron.d/piherder-demo` path + user after checkout |
+| After this deploy: open Console, then Audit | `ssh_console_open` details must show `ip=redacted`, not a visitor address |
+
+Skip `nmap` profile. No home-lab routes. After **QA sign-off + tag**, point the clone at `v1.2.0` / Hub `1.2.0` instead of building `dev`.
+
 ## Security checklist
 
 - [ ] Access app enforced (no public bypass policy left on)
 - [ ] Turnstile keys set on demo
-- [ ] Unique Fernet + session secrets
+- [ ] Unique Fernet + session secrets (not lab/prod)
 - [ ] Demo VPS isolated from home-lab network
-- [ ] Webshell off; registration off
+- [ ] Live SSH console **off**; simulated demo console only; registration off
 - [ ] Shared password matches live wiki [demo-site](../wiki/operations/demo-site.md) + VPS `.env` + last force seed
 - [ ] CLI re-seed tested; confirm Settings has **no** Demo restore tab
+- [ ] Audit visitor IPs (column **and** details body) show `redacted`
 
 Further: [SECURITY.md](../SECURITY.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md)

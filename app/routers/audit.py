@@ -233,11 +233,16 @@ async def audit_page(
                     else None
                 )
                 # Public demo: never show real visitor IPs to other shared users
+                # (column *and* details/snippet body — console writes ``ip=…``).
                 try:
-                    from ..services.demo import scrub_audit_client_ip
+                    from ..services.demo import scrub_audit_client_ip, scrub_audit_text
 
                     d["client_ip"] = scrub_audit_client_ip(
                         d.get("client_ip"), for_display=True
+                    )
+                    d["details"] = scrub_audit_text(d.get("details"), for_display=True)
+                    d["output_snippet"] = scrub_audit_text(
+                        d.get("output_snippet"), for_display=True
                     )
                 except Exception:
                     pass

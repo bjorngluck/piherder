@@ -31,7 +31,7 @@ Some deployments also use **Cloudflare Access** as an outer email gate before th
 - Password / 2FA on the shared user stay locked (visitors cannot lock each other out)  
 - Fleet config changes blocked like production viewers; **simulated jobs** still work for the tour  
 - Data re-seeds on a schedule (and after operator maintenance) — treat everything as disposable  
-- **Audit client IPs are scrubbed** — login and other events still appear, but real visitor addresses are stored/shown as `redacted` (seeded lab IPs like `10.42.x` may remain). The shared account must not leak other people’s IPs.  
+- **Audit client IPs are scrubbed** — login and other events still appear, but real visitor addresses are stored/shown as `redacted` (column **and** the details body, including console `ip=…`). Seeded lab IPs like `10.42.x` may remain. The shared account must not leak other people’s IPs.  
 - **OpenAPI is off** — `/openapi.json`, `/docs`, and `/redoc` return 404 on the public demo (API tokens are disabled anyway). Use your own install for the interactive schema.  
 - **Web SSH console is simulated** on the public demo — open **Console** from a host for a toy shell (help / ls / whoami). **No live SSH**, no network, no real keys. Your own install uses real Paramiko shells when `PIHERDER_SSH_CONSOLE=true`.  
 

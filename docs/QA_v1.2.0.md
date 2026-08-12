@@ -186,7 +186,7 @@ Run against [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) **o
 | 10.2 | Must | Cannot add a real server / deploy a key / create an API token. | ☐ |
 | 10.3 | Must | `/docs` · `/redoc` · `/openapi.json` → **404**. | ☐ |
 | 10.4 | Must | Console (if opened) is **simulated**. | ☐ |
-| 10.5 | Should | Audit IPs for visitor actions show `redacted`. | ☐ |
+| 10.5 | Should | Audit IPs for visitor actions show `redacted` (column **and** details body — console `ip=…`). | ☐ |
 | 10.6 | Should | Canned job click succeeds without touching a real host. | ☐ |
 
 ---
