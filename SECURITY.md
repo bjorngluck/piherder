@@ -104,6 +104,7 @@ Demo must use **unique** Fernet/session secrets and never hold decryptable produ
 
 
 - Put PiHerder behind trusted TLS; restrict network access where possible. Set `PIHERDER_PUBLIC_URL=https://…` so session cookies get the **Secure** flag (or force `COOKIE_SECURE=true`) and OIDC redirect URIs match.  
+- Do **not** publish the app port on the LAN. Stock compose binds `127.0.0.1:8000` only; use Caddy (`:8888` / `:8443`). Forwarded client IPs (`X-Forwarded-For` / `CF-Connecting-IP`) are honoured only when the TCP peer is in `PIHERDER_TRUSTED_PROXY_CIDRS` (Compose sets RFC1918 + loopback so Caddy is trusted).  
 - Set `METRICS_TOKEN` if `/metrics` is reachable beyond a private scrape network.  
 - Treat API tokens like passwords; revoke compromised tokens immediately.  
 - Leave `CORS_ORIGINS` empty unless a browser on another origin must call `/api/v1`; never use `*`. CORS is not a substitute for Bearer + scopes + IP allowlists.  

@@ -71,7 +71,7 @@ PIHERDER_IMAGE=bjorngluck/piherder:1.1.0 docker compose up -d
 |--------|-----|
 | With Caddy + certs | `https://your.host:8443` (or your `PIHERDER_PUBLIC_URL`) |
 | Caddy HTTP | `http://your.host:8888` |
-| Direct to web (no Caddy) | `http://localhost:8000` |
+| Direct to web (no Caddy) | `http://127.0.0.1:8000` (loopback only — not published on the LAN) |
 
 Continue: [First login](first-login.md) — **register the first admin** (no default password user).
 

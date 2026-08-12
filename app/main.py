@@ -109,6 +109,14 @@ async def lifespan(app: FastAPI):
                 "NOTE: METRICS_TOKEN is unset — GET /metrics is open on the app port. "
                 "Set a bearer token (or firewall) for production scrapes."
             )
+        _cidrs = (_cfg.PIHERDER_TRUSTED_PROXY_CIDRS or "").strip()
+        if _cidrs:
+            print(f"Trusted proxy CIDRs: {_cidrs}")
+        else:
+            print(
+                "NOTE: PIHERDER_TRUSTED_PROXY_CIDRS is empty — "
+                "X-Forwarded-For / CF-Connecting-IP are ignored (TCP peer only)."
+            )
     except Exception as e:
         logger.warning("Startup config checks skipped: %s", e)
 

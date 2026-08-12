@@ -74,6 +74,11 @@ class Settings(BaseSettings):
     # Never use * with API tokens. Backend still enforces Bearer + scopes + IP allowlist.
     CORS_ORIGINS: Optional[str] = None
 
+    # Trust CF-Connecting-IP / X-Forwarded-For / X-Real-IP only when the TCP peer
+    # is in this list (comma-separated CIDRs). Empty = never trust forwarded headers
+    # (use the TCP peer). Bundled Compose sets RFC1918 + loopback so Caddy is trusted.
+    PIHERDER_TRUSTED_PROXY_CIDRS: Optional[str] = None
+
     # GitHub release check for “new version available” banner / About page
     PIHERDER_UPDATE_CHECK: bool = True
     PIHERDER_UPDATE_CHECK_TTL_HOURS: int = 12
