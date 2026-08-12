@@ -38,44 +38,22 @@ RUN pip install --upgrade pip setuptools wheel && \
 COPY . .
 RUN pip install --no-deps -e .
 
-# Vendor frontend CDNs (Tailwind Play, HTMX, Alpine).
-# This step REQUIRES internet access on the build machine (or pre-vendored files
-# brought in via a previous stage or volume). We deliberately fail hard so that
-# broken images are never produced.
+# Vendor HTMX / Alpine / xterm (needs internet unless already in the context).
+# Tailwind is a committed compiled stylesheet — no Play / no cdn.tailwindcss.com.
 RUN mkdir -p app/static && bash scripts/vendor_cdns.sh
 
-# Remove any obviously invalid tailwind.js (e.g. Pi-hole block pages or truncated files)
-# that might have been copied or partially downloaded.
-RUN if [ -f app/static/tailwind.js ]; then \
-      size=$(stat -c%s app/static/tailwind.js 2>/dev/null || echo 0); \
-      if [ "$size" -lt 100000 ] || grep -qiE 'pi-hole|blocked|this file is copyright' app/static/tailwind.js 2>/dev/null; then \
-        echo "⚠️  Removing invalid tailwind.js (size=$size or looks like a block page)"; \
-        rm -f app/static/tailwind.js; \
-      fi; \
-    fi
-
-# Hard fail if the critical Tailwind Play script is missing or invalid.
-# This protects open-source users who build the image themselves.
-# (Pre-built images on Docker Hub will already contain the assets.)
-RUN if [ ! -f app/static/tailwind.js ]; then \
+# Hard fail if compiled Tailwind is missing (air-gapped builds still work when
+# app/static/css/tailwind.css is in the git tree).
+RUN if [ ! -f app/static/css/tailwind.css ]; then \
       echo ""; \
-      echo "ERROR: tailwind.js is missing after vendoring."; \
-      echo ""; \
-      echo "The build requires internet access to download frontend assets."; \
-      echo "Common causes and fixes:"; \
-      echo "  - Pi-hole or ad-blocker blocking cdn.tailwindcss.com"; \
-      echo "    → Whitelist the domain temporarily and rebuild."; \
-      echo "  - Building in an air-gapped / no-internet environment"; \
-      echo "    → Download the file on a machine that has internet:"; \
-      echo "      curl -L -o app/static/tailwind.js https://cdn.tailwindcss.com"; \
-      echo "    → Then either:"; \
-      echo "       a) Build with internet once, or"; \
-      echo "       b) Use a multi-stage Dockerfile / build context that includes the file."; \
-      echo ""; \
-      echo "HTMX and Alpine are also vendored but are less critical."; \
+      echo "ERROR: app/static/css/tailwind.css is missing."; \
+      echo "Compile it (needs Node or Docker) and commit the result:"; \
+      echo "  bash scripts/build-tailwind.sh"; \
       echo ""; \
       exit 1; \
-    fi
+    fi \
+    && test "$(stat -c%s app/static/css/tailwind.css)" -ge 5000 \
+    || { echo "ERROR: tailwind.css looks too small"; exit 1; }
 
 # Create non-root user (optional hardening)
 RUN useradd --create-home --shell /bin/bash piherder && \

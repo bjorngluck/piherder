@@ -1,24 +1,19 @@
 #!/usr/bin/env bash
 #
-# Vendor external CDNs into app/static/ for fully offline / air-gapped deployments.
+# Vendor HTMX / Alpine / xterm into app/static/ for offline / air-gapped images.
 #
-# - For local development: just run the script (the app has a good CSS fallback).
-# - For `docker build`: this step must succeed for Tailwind Play.
-#   The Dockerfile will fail hard if tailwind.js is missing/invalid after this script.
+# Tailwind is **compiled** (scripts/build-tailwind.sh → app/static/css/tailwind.css)
+# and committed. This script does **not** download Tailwind Play.
 #
-# This protects open-source users who build the image themselves.
-#
-# Run this manually for local development:
 #   bash scripts/vendor_cdns.sh
-#
-# The Dockerfile runs it automatically during image build.
+#   docker build runs this automatically
 #
 set -euo pipefail
 
 STATIC_DIR="app/static"
 mkdir -p "$STATIC_DIR"
 
-echo "==> Vendoring frontend CDNs for offline use..."
+echo "==> Vendoring frontend JS for offline use..."
 
 download() {
   local name="$1"
@@ -29,7 +24,6 @@ download() {
 
   local curl_opts="-fL --retry 3 --retry-delay 2 --max-time 30"
 
-  # Allow forcing insecure mode (useful for corporate proxies, bad CAs, etc.)
   if [[ "${VENDOR_INSECURE:-}" == "1" || "${VENDOR_CDN_INSECURE:-}" == "1" ]]; then
     curl_opts="$curl_opts -k"
     echo "    (using --insecure because VENDOR_INSECURE=1)"
@@ -40,9 +34,8 @@ download() {
     return 0
   fi
 
-  # If we didn't already try insecure, retry with -k as a last resort for cert problems
   if [[ "$curl_opts" != *"-k"* ]]; then
-    echo "    ! Normal download failed. Retrying once with --insecure (common with corporate proxies / SSL inspection)..."
+    echo "    ! Normal download failed. Retrying once with --insecure..."
     if curl -fL -k --retry 2 --max-time 30 -o "$dest" "$url" 2>/dev/null; then
       echo "    ✓ downloaded (with --insecure)"
       echo "    WARNING: Used --insecure. The file was retrieved without full certificate validation."
@@ -52,13 +45,8 @@ download() {
 
   echo "    ⚠️  FAILED to download $name. Removing partial file."
   rm -f "$dest"
-  return 0   # do not fail the whole build
+  return 0
 }
-
-# Tailwind Play CDN (provides JIT + allows the inline tailwind.config in base.html)
-download "Tailwind Play" \
-  "https://cdn.tailwindcss.com" \
-  "$STATIC_DIR/tailwind.js"
 
 # HTMX (exact version the templates were written against)
 download "HTMX 1.9.12" \
@@ -84,53 +72,15 @@ download "xterm addon-fit 0.10.0" \
 
 echo ""
 echo "==> Current vendored files:"
-ls -lh "$STATIC_DIR"/*.js 2>/dev/null || echo "  (none — will rely on fallback CSS)"
+ls -lh "$STATIC_DIR"/*.js 2>/dev/null || echo "  (none — HTMX/Alpine missing)"
 ls -lh "$STATIC_DIR/vendor/xterm/" 2>/dev/null || true
 
-# Post-download validation (especially important for Tailwind Play)
-if [[ -f "$STATIC_DIR/tailwind.js" ]]; then
-  size=$(stat -c%s "$STATIC_DIR/tailwind.js" 2>/dev/null || stat -f%z "$STATIC_DIR/tailwind.js" 2>/dev/null || echo 0)
-  is_bad=false
-
-  if [[ $size -lt 100000 ]]; then
-    echo "    ⚠️  tailwind.js looks too small ($size bytes). Probably blocked or incomplete."
-    is_bad=true
-  fi
-
-  if grep -qiE "pi-hole|blocked|this file is copyright|ad block" "$STATIC_DIR/tailwind.js" 2>/dev/null; then
-    echo "    ⚠️  tailwind.js was blocked by Pi-hole (or similar)!"
-    echo "       Whitelist 'cdn.tailwindcss.com' in Pi-hole, then re-run this script."
-    is_bad=true
-  fi
-
-  if ! grep -q "tailwind" "$STATIC_DIR/tailwind.js" 2>/dev/null; then
-    echo "    ⚠️  tailwind.js does not appear to be the real Play CDN."
-    is_bad=true
-  fi
-
-  if $is_bad; then
-    rm -f "$STATIC_DIR/tailwind.js"
-  else
-    echo "    ✓ tailwind.js looks valid ($size bytes)"
-  fi
+if [[ ! -f "$STATIC_DIR/css/tailwind.css" ]]; then
+  echo ""
+  echo "WARNING: app/static/css/tailwind.css is missing."
+  echo "Compile it with: bash scripts/build-tailwind.sh"
+  echo "docker build will fail without that committed file."
 fi
 
 echo ""
 echo "Done."
-
-if [[ ! -f "$STATIC_DIR/tailwind.js" ]]; then
-  echo ""
-  echo "Tailwind Play is missing."
-  echo ""
-  echo "For local development you can still run the app (strong CSS fallback exists)."
-  echo ""
-  echo "However, 'docker build' will now FAIL HARD if tailwind.js is missing."
-  echo "This is deliberate for open-source consumers who build the image themselves."
-  echo ""
-  echo "Common fixes:"
-  echo "  1. Whitelist 'cdn.tailwindcss.com' in Pi-hole (most common in this project)"
-  echo "  2. VENDOR_INSECURE=1 bash scripts/vendor_cdns.sh"
-  echo "  3. curl -kL -o app/static/tailwind.js https://cdn.tailwindcss.com"
-fi
-
-echo "For full JS features, re-run this script (or rebuild the image) with internet access."

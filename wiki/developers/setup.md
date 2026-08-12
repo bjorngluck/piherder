@@ -26,7 +26,13 @@ alembic upgrade head
 
 ## Frontend assets
 
-Build step vendors Tailwind/HTMX/Alpine. Offline image needs successful vendor at build time.
+**Tailwind** is compiled CSS (`app/static/css/tailwind.css`, committed). After adding new utility classes in templates or `app/static/js`:
+
+```bash
+bash scripts/build-tailwind.sh   # needs npx or Docker
+```
+
+**HTMX / Alpine / xterm** are vendored at image build:
 
 ```bash
 bash scripts/vendor_cdns.sh

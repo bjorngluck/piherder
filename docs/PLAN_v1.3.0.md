@@ -31,7 +31,7 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 
 | Item | Notes |
 |------|--------|
-| Compile Tailwind / nonce CSP | Drop `'unsafe-eval'` (**KI-csp-unsafe-eval**) |
+| Nonce / hash CSP | Drop `'unsafe-inline'` for scripts (eval already gone in 1.2 — compiled Tailwind) |
 | First-run UX | Hide Catalog / maps until first host + backup; Settings URL rename |
 | One job runtime | Collapse Celery / BackgroundTasks / thread pools; scheduler off the web process |
 
