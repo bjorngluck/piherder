@@ -30,6 +30,8 @@ x-piherder-app-env: &piherder-app-env
   METRICS_TOKEN: ${METRICS_TOKEN:-}
   METRICS_BACKUP_STALE_HOURS: ${METRICS_BACKUP_STALE_HOURS:-36}
   CORS_ORIGINS: ${CORS_ORIGINS:-}
+  # Trust XFF/CF only from Caddy on the compose network (not from :8000 clients)
+  PIHERDER_TRUSTED_PROXY_CIDRS: ${PIHERDER_TRUSTED_PROXY_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32,::1/128}
   PIHERDER_SERVER_LOCK_TTL: ${PIHERDER_SERVER_LOCK_TTL:-7200}
   PIHERDER_NMAP_VULN_ROOT: ${PIHERDER_NMAP_VULN_ROOT:-/var/lib/piherder/nmap-vuln}
   # Web SSH console (v1.2) — default off; set true to enable operator+ browser terminal
@@ -83,7 +85,8 @@ services:
     container_name: piherder-web
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
     ports:
-      - "8000:8000"
+      # Loopback only — do not publish the app port on the LAN. Use Caddy :8888/:8443.
+      - "127.0.0.1:8000:8000"
     environment:
       <<: *piherder-app-env
       # Edge cert apply (this instance → Caddy); defaults match mounts below

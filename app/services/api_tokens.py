@@ -255,14 +255,25 @@ def _normalize_ip_candidate(raw: str | None) -> str:
     return s
 
 
-def extract_client_ip(headers: dict | None, peer_host: str | None) -> str:
+def extract_client_ip(
+    headers: dict | None,
+    peer_host: str | None,
+    *,
+    trust_forwarded: bool | None = None,
+    trusted_cidrs: list[str] | None = None,
+) -> str:
     """Resolve client IP for API token allowlists (Caddy XFF / peer).
 
     Implementation lives in ``request_ip`` so audit logging uses the same rules.
     """
     from .request_ip import extract_client_ip as _extract
 
-    return _extract(headers, peer_host)
+    return _extract(
+        headers,
+        peer_host,
+        trust_forwarded=trust_forwarded,
+        trusted_cidrs=trusted_cidrs,
+    )
 
 
 def create_api_token(

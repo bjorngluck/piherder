@@ -83,12 +83,40 @@ def test_cidrs_normalize_and_match():
 
 
 def test_extract_client_ip():
-    assert tok.extract_client_ip({"X-Forwarded-For": "1.1.1.1, 2.2.2.2"}, "9.9.9.9") == "1.1.1.1"
-    assert tok.extract_client_ip({"X-Real-IP": "8.8.8.8"}, "9.9.9.9") == "8.8.8.8"
+    rfc = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+    # Untrusted public peer: ignore spoofed XFF
+    assert tok.extract_client_ip({"X-Forwarded-For": "1.1.1.1, 2.2.2.2"}, "9.9.9.9") == "9.9.9.9"
+    # Trusted compose peer: honor headers
+    assert (
+        tok.extract_client_ip(
+            {"X-Forwarded-For": "1.1.1.1, 2.2.2.2"},
+            "172.18.0.5",
+            trusted_cidrs=rfc,
+        )
+        == "1.1.1.1"
+    )
+    assert (
+        tok.extract_client_ip({"X-Real-IP": "8.8.8.8"}, "172.18.0.5", trusted_cidrs=rfc)
+        == "8.8.8.8"
+    )
     assert tok.extract_client_ip({}, "9.9.9.9") == "9.9.9.9"
     # Port stripped (Caddy {remote} vs {remote_host})
-    assert tok.extract_client_ip({"X-Real-IP": "10.0.0.5:44321"}, "9.9.9.9") == "10.0.0.5"
-    assert tok.extract_client_ip({"X-Forwarded-For": "[2001:db8::1]:9999"}, None) == "2001:db8::1"
+    assert (
+        tok.extract_client_ip(
+            {"X-Real-IP": "10.0.0.5:44321"},
+            "172.18.0.5",
+            trusted_cidrs=rfc,
+        )
+        == "10.0.0.5"
+    )
+    assert (
+        tok.extract_client_ip(
+            {"X-Forwarded-For": "[2001:db8::1]:9999"},
+            None,
+            trust_forwarded=True,
+        )
+        == "2001:db8::1"
+    )
 
 
 def test_token_public_dict_active():
