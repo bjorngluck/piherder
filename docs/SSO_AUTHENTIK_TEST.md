@@ -120,7 +120,7 @@ http://localhost:9000/application/o/piherder/
 | Sync roles on login | ✓ |
 | Auto-link by email | ✓ |
 | Require email verified | ✓ (Authentik usually sets this) |
-| Require SSO | leave **off** for first tests |
+| Require SSO | leave **off** for first tests. When you turn it on: password form hidden; **non-admins cannot POST /auth/login**; **admins stay password break-glass**. Missing `email_verified` is **not** verified. |
 
 Save.
 
@@ -142,6 +142,9 @@ Use two browsers or private windows when needed.
 | 8 | Account → **Unlink** with password | Link gone; password login works |
 | 9 | Wrong redirect URI | IdP error; PiHerder `sso_denied` / config error |
 | 10 | IdP stopped | SSO fails; local password break-glass still works |
+| 11 | **Require SSO** + operator password | Password form hidden; operator `POST /auth/login` **rejected** |
+| 12 | **Require SSO** + admin password | Admin **can** still sign in with password |
+| 13 | Auto-link with missing `email_verified` | Does **not** treat as verified (no silent link) |
 
 ---
 

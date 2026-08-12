@@ -38,7 +38,7 @@ Server detail → **Edit** → **Remove** tab → **Remove server…**
 | Server row + stored SSH credentials removed from DB | No SSH / remote changes by default |
 | Schedules unregistered; active jobs cancelled | Docker stacks, volumes, media untouched |
 | Compose drafts in PiHerder deleted | Host `piherder` user / sudoers / keys left as-is |
-| Herder-only children removed: cert deploy targets, map edges, visual stacks, template deployments, integration bindings, host pins | LAN Discovery **device** stays; its “linked server” is cleared |
+| Herder-only children removed: cert deploy targets, map edges, visual stacks, template deployments, integration bindings, host pins, container annotations / port notes | LAN Discovery **device** stays; its “linked server” is cleared |
 | DNS fabric cleanup for the host | Backup archives on the backup volume kept |
 | Jobs / audit / notifications **`server_id` nulled** (history **kept**, unlinked) | Automatic wipe of old Jobs/Audit by age (that is opt-in [Stale data cleanup](../operations/settings.md#stale-data-cleanup)) |
 

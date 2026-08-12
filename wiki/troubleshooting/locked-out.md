@@ -6,7 +6,7 @@ How to regain access when **no admin can sign in** — forgotten password, lost 
 
 ## Why it exists
 
-PiHerder has **no default password** and (in 1.0) **no email “forgot password”**. Admin recovery in the UI needs a working admin session. Host-side recovery is the out-of-band path for a clean install or sole-admin lockout.
+PiHerder has **no default password**. Email **Forgot password** exists when SMTP is configured; otherwise UI recovery needs a working admin session. Host-side recovery is the out-of-band path for a clean install or sole-admin lockout. **Require SSO** still allows **admin** password login (break-glass); non-admins are blocked.
 
 ---
 
@@ -19,7 +19,7 @@ PiHerder has **no default password** and (in 1.0) **no email “forgot password�
 | Lost password **and** phone / 2FA | Host: **reset-access** (recommended) |
 | Password known; authenticator lost | Host: **clear-2fa** (or UI if another admin) |
 | SSO-only user (password removed); IdP down | Host: **reset-password** (re-enables local password) or **reset-access**; then sign in locally |
-| **Require SSO** hid password form; IdP down | Host recovery + admin disables **Require SSO** under Settings → SSO (or another admin session) |
+| **Require SSO** hid password form; IdP down | **Admin password still works** (break-glass). Non-admins cannot use the password form. Or host recovery + disable **Require SSO**. |
 | Kick all browsers only | Host: **sign-out** or UI **Sign out sessions** |
 | Want a brand-new first admin (keep fleet data) | Host: **delete-user** on the last account → [Register](../getting-started/first-login.md) |
 | Full wipe | Self-backup restore or drop DB volume — [Self-backup](../operations/self-backup.md) |
@@ -145,7 +145,7 @@ Raw SQL is possible but error-prone (bcrypt must match the app). Prefer the CLI 
 ## What you cannot do
 
 - Read back the old password (one-way bcrypt)  
-- Recover without host/Docker (or a working admin session / future email reset)  
+- Recover without host/Docker, a working admin session, or **Forgot password** (SMTP + `PIHERDER_PUBLIC_URL`)  
 - Use this CLI without a running stack and `DATABASE_URL` pointing at the real database  
 
-Email self-service password reset is not available yet.
+Email **Forgot password** is available when SMTP is configured under Settings → Alerts. Links are built from `PIHERDER_PUBLIC_URL` only.

@@ -82,7 +82,8 @@ Optional **Web SSH console** (browser terminal; flag off by default): [Web SSH c
 
 | Action | What it does | Why |
 |--------|----------------|-----|
-| **Test connection** | Verifies key (or password) login, then refreshes **host dependency** probes when login succeeds | Proves the path before you queue jobs |
+| **Test connection** | Verifies key (or password) login, then refreshes **host dependency** probes when login succeeds. First success **pins** the SSH host key | Proves the path before you queue jobs |
+| **Reset host-key pin** | Clears the stored fingerprint after a **rebuild** (or a replaced machine at the same address) | Mismatch is **refused** until you reset; do not reset on a surprise change |
 | **Check dependencies** | Probes `rsync` / docker / apt for **enabled** features only | Failures become hints, not silent job fails later |
 | **Deploy key** | Installs public key into `authorized_keys`; verifies key-only login | Stops depending on passwords |
 | **Rotate key** | New keypair, deploy, swap only after verify succeeds | Safe rotation if a key may have leaked |

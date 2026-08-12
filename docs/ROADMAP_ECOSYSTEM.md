@@ -1,7 +1,7 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-08-10 (**v1.2.0** train open on `v1.2.0-dev` — [PLAN_v1.2.0.md](PLAN_v1.2.0.md); **v1.3.0** planning capture — [PLAN_v1.3.0.md](PLAN_v1.3.0.md); production **v1.1.0** — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md))  
+**Date:** 2026-07-12 · **Refreshed:** 2026-08-12 (**v1.2.0** freeze-complete on `v1.2.0-dev`, awaiting [QA](QA_v1.2.0.md) — [PLAN_v1.2.0.md](PLAN_v1.2.0.md); **v1.3.0** planning capture — [PLAN_v1.3.0.md](PLAN_v1.3.0.md); Hub production **v1.1.0** — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md))  
 **Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
@@ -36,7 +36,7 @@ Design principles stay the same as SPEC:
 | **v1.0.x** | Production patches (security / critical) | Patch | As needed |
 | **v1.1.0** | **Day-to-day operator improvements** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Tagged** 2026-08-08 — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · Hub `1.1.0` / `1.1` / `latest` |
 | **v1.1.x** | Production patches on `main` while 1.2 is in flight | Patch | As needed — port into `v1.2.0-dev` |
-| **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry | Post-1.1 minor | **Active** on `v1.2.0-dev` — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) |
+| **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry · full DB DR · security remediations | Post-1.1 minor | **Freeze complete** on `v1.2.0-dev` — awaiting [operator QA](QA_v1.2.0.md) — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) |
 | **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights thin slice (N)** · **AC-fg** · ACME (consideration) | Post-1.2 minor | **Planning** — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (train not open) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.

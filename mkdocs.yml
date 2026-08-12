@@ -188,6 +188,7 @@ nav:
       - Stack Status: operations/status.md
       - Self-backup & DR: operations/self-backup.md
       - Upgrades: operations/upgrades.md
+      - v1.2.0 QA / sign-off: operations/qa-v1.2.0.md
       - Multi-worker Celery: operations/multi-worker.md
       - Metrics & webhooks: operations/metrics-webhooks.md
       - Alerts (email & webhooks): operations/alerts-email-webhooks.md

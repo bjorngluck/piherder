@@ -66,3 +66,4 @@ Detailed “I want to…” tables and longer journeys: [Operator scenarios](ope
 | [README](https://github.com/bjorngluck/piherder/blob/main/README.md) | Project overview |
 | [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example) | Full env catalog |
 | [docs/ADMIN.md](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md) | Long-form admin reference (mirrored into this wiki) |
+| [v1.2.0 QA](../operations/qa-v1.2.0.md) | Freeze sign-off checklist (before Hub `1.2.0`) |

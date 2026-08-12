@@ -100,7 +100,7 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 
 ### General tab — SSO / OpenID Connect
 
-Admin-only. Enable a confidential OIDC client, paste issuer / client id / secret (Fernet in DB), map groups to roles, optional **Require SSO**. Redirect URI is shown on the card.
+Admin-only. Enable a confidential OIDC client, paste issuer / client id / secret (Fernet in DB), map groups to roles, optional **Require SSO** (hides the password form; **non-admins cannot password-login**; **admins stay break-glass**). Redirect URI is shown on the card.
 
 Full operator guide: [SSO / OpenID Connect](../account-security/sso-oidc.md). Lab Authentik: [SSO_AUTHENTIK_TEST.md](https://github.com/bjorngluck/piherder/blob/main/docs/SSO_AUTHENTIK_TEST.md).
 

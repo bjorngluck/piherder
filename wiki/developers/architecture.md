@@ -71,6 +71,9 @@ flowchart TB
 | Metrics | `app/services/metrics.py` |
 | Bulk server actions | `app/routers/servers.py` (`POST /servers/bulk`) |
 | Server SSH / patch sub-routers | `server_ssh.py`, `server_patch.py`, `server_common.py` (mounted under `/servers`) |
+| Trusted client IP | `app/services/request_ip.py` — honour XFF/CF only from `PIHERDER_TRUSTED_PROXY_CIDRS` |
+| SSH host-key pin (TOFU) | `app/services/ssh.py` (`HostKeyPinPolicy`) · columns `ssh_hostkey_*` · reset in `server_ssh.py` |
+| Weak `SECRET_KEY` | `app/main.py` — refuse boot unless `PIHERDER_ALLOW_INSECURE` / `DEMO_MODE` |
 | Docker UI | `server_docker.py` + `server_docker_compose.py` (thin; editor load in `compose_editor`) |
 | Theme / map / ops CSS | `themes.css`, `fabric.css` (mesh), `fabric-stack.css`, `dns-hub.css`, `ops.css`, `ops-auth.css`, `ops-pages.css` (`ph-dense-*` lists) |
 | Map / stack client | `fabric-mesh.js` (map open/closed + pan/zoom; `#map` / `preferMapOnLoad`) · `fabric-stack-panel.js` (stack drawer + one pointer reorder path) |
@@ -80,7 +83,7 @@ flowchart TB
 ## Frontend stack
 
 - **Server-rendered** Jinja2 + HTMX fragments + Alpine for small widgets  
-- Vendored Tailwind / HTMX / Alpine (no runtime CDN)  
+- **Compiled Tailwind** (`app/static/css/tailwind.css` via `scripts/build-tailwind.sh`) + vendored HTMX / Alpine (no runtime CDN, no Play, no `unsafe-eval`)  
 - Progressive enhancement vanilla JS for Network maps, job hold, push, compose editor  
 - Shared ops-hero grid contract (`ops.css`): full main content width; desktop title left · viz right (≥768px); mobile viz under title  
 - **One list markup per surface** — dense rows (`ph-dense-*`, nmap sched cards) reflow with CSS; avoid dual mobile-table + desktop-table DOM  

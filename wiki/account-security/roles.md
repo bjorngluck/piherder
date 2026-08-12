@@ -63,8 +63,9 @@ Journey: [Operator scenarios — Journey G](../getting-started/operator-scenario
 | Fleet UI read | Yes | Yes | Yes |
 | Fleet mutate (backup, Docker, DNS maps, certs, …) | **403** | Yes | Yes |
 | Docker log SSE | Yes (if signed in) | Yes | Yes |
-| Docker **build** SSE | **403** | Yes | Yes |
-| **Web SSH console** (flag on) | **403** | Yes + 2FA step-up | Yes + 2FA step-up |
+| Docker **build** SSE | **403** | Yes (POST, named project) | Yes |
+| Live host SSH (console / diagnostics / compose build) | **403** | Yes | Yes |
+| **Web SSH console** (flag on) | **403** (demo: simulated only) | Yes + 2FA step-up | Yes + 2FA step-up |
 | Users / API tokens / herder restore | No | No | Yes |
 | Account self-service | Yes | Yes | Yes |
 | REST `/api/v1` | Bearer token + scopes (not browser roles) | | |

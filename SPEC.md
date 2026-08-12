@@ -3,8 +3,8 @@
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
 > **Repository:** [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder)  
-> **Status:** **v1.0.0 production** — [RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](docs/PLAN_v1.0.0.md).  
-> **Last updated:** 2026-07-28 — Production path: ~~RC line~~ → ~~**v0.9.0** last pre-prod~~ → **v1.0.0 tagged** → **v1.1** residual.
+> **Status:** Historical phase checklist (v1.0 era). **Hub production:** [v1.1.0](docs/RELEASE_v1.1.0.md). **Next:** [v1.2.0 freeze](docs/RELEASE_v1.2.0.md) on `v1.2.0-dev` awaiting [QA](docs/QA_v1.2.0.md).  
+> **Last updated:** 2026-08-12 — do not treat this file as the 1.2 operator guide (use the wiki + RELEASE).
 
 This document is the canonical spec for PiHerder. Use it to track work in a [GitHub Project](https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects) — each unchecked item below maps cleanly to an issue or project card.
 
@@ -82,11 +82,11 @@ PiHerder is a self-hosted fleet manager for Raspberry Pi (and other Linux) clust
 | OS patching (apt sequence) | ✅ | Live log modal, upgrade XOR full-upgrade, phased-update awareness, reboot-required |
 | Diagnostics | ✅ | ping, DNS, system info |
 | Audit log + filtering | ✅ | |
-| PiHerder self-backup & restore | ✅ | v2 archives: servers, full users/2FA, compose versions, push VAPID+subs, notifications, herder config, avatars; optional audit; jobs excluded |
+| PiHerder self-backup & restore | ✅ | **v1.2 Full** = `pg_dump -Fc` entire DB + `DATA_ROOT`. Pre-1.2 “full” was JSON snapshots (jobs excluded, audit capped) |
 | HTTPS via Caddy | ✅ | Ports 8888/8443; trusted PEMs in `./certs` + `PIHERDER_HOSTNAME` (or `Caddyfile.dev` self-signed) |
 | PWA + Web Push (Android + iOS Home Screen) | ✅ | Manifest/SW; VAPID auto; Account prefs; iOS decision — [feature plan](docs/FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](docs/DECISION_IOS_PUSH.md) |
 | Pi-hole admin link | ✅ | Configurable `PIHOLE_URL` |
-| Offline-ready frontend | ✅ | Vendored Tailwind, HTMX, Alpine |
+| Offline-ready frontend | ✅ | Compiled Tailwind + vendored HTMX / Alpine (no Play CDN) |
 | Docker Compose project browser | ✅ | List, redeploy, build, logs; multi-file editor; **compose sets** (sub-views under one project) |
 | Docker inventory cache | ✅ | DB snapshot + background L1 refresh; Force refresh for full re-collect; compose set discovery |
 | Compose file editing + versioning | ✅ | Drafts, deploy, rollback; multi-file merge-on-save; set files as tabs |

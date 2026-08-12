@@ -10,6 +10,7 @@ Fixes when PiHerder **cannot log into a host**, key deploy fails, or enabled fea
 2. Firewall allows SSH from PiHerder host?  
 3. **Test connection** on SSH access panel.  
 4. Key deployed? Password only for bootstrap.  
+5. **Host-key mismatch?** After the first successful connect, PiHerder **pins** the remote SSH host key. A rebuild or a different machine at the same address is **refused** until you **reset the pin** on SSH access, then Test connection again.  
 
 ## Key deploy fails
 

@@ -49,9 +49,9 @@ Many labs already have a central IdP. SSO reduces password sprawl while keeping 
 | **Default role** | Used when no group matches (default **viewer**) |
 | **Sync roles on login** | Update role from claims on every SSO login (sole admin not demoted if it would leave zero admins) |
 | **Auto-link by email** | First SSO login links to an existing active user with the **same verified email** |
-| **Require email verified** | Prefer `email_verified` when the IdP sends it |
+| **Require email verified** | IdP must send `email_verified=true`. **Missing or false is not verified** (auto-link / require-verified fail closed). |
 | **Allowed email domains** | Optional allow-list (comma-separated) |
-| **Require SSO** | Hide password form on login (break-glass: disable this or recover via host CLI) |
+| **Require SSO** | Hide password form. **Non-admins cannot `POST /auth/login`**. **Admins stay password break-glass**. Disable this or use [host recovery](../troubleshooting/locked-out.md) if the IdP is down. |
 
 Redirect URI for the IdP is shown on the Settings card (same as above).
 
@@ -102,7 +102,7 @@ IdP MFA (if any) is **extra**, not a substitute for PiHerder TOTP/passkeys. Deta
 
 - SSO enabled → primary **Continue with {display name}** on `/auth/login`.  
 - **Require SSO** off → password form still shown.  
-- **Require SSO** on → password form hidden (use carefully).
+- **Require SSO** on → password form **hidden**; non-admin password POSTs are **rejected**; **admin password login still works**.
 
 ---
 

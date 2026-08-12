@@ -59,7 +59,7 @@ Passkeys satisfy **force 2FA** the same way TOTP does. Passwordless (discoverabl
 
 1. Click **Generate new codes…**  
 2. Confirm modal: **current password** + **authenticator code** (or one unused backup code).  
-3. On success, new codes are shown once; old unused codes are invalidated; trusted devices are revoked.
+3. On success, new codes are shown **once** (delivered via an HttpOnly flash cookie — **not** in the URL); old unused codes are invalidated; trusted devices are revoked.
 
 Password alone is **not** enough — this is a deliberate step-up so a stolen session password cannot mint recovery codes.
 

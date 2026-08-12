@@ -41,7 +41,7 @@ Admin-created accounts must set a personal password on first login (`/auth/force
 
 ### Locked out after first admin?
 
-There is no default password and no email reset in 1.0. If you forget the sole admin password (or lose 2FA), use host Docker recovery — [Locked out / sole admin](../troubleshooting/locked-out.md) — or create a second admin while you still can.
+There is no default password. **Forgot password** works when SMTP is configured ([Alerts](../operations/alerts-email-webhooks.md)); reset links use `PIHERDER_PUBLIC_URL` only. If you forget the sole admin password (or lose 2FA) and email is not set up, use host Docker recovery — [Locked out / sole admin](../troubleshooting/locked-out.md) — or create a second admin while you still can.
 
 If you set `ALLOW_OPEN_REGISTRATION=true`, later self-registered accounts become **operator** (not admin). Prefer leaving open registration **off** and creating viewers/operators under Users.
 

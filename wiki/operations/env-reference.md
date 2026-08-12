@@ -17,7 +17,7 @@ Compose injects matching keys into **web** and **celery-worker**. Caddy mainly n
 | Variable | Purpose |
 |----------|---------|
 | `PIHERDER_MASTER_KEY` | Fernet key — SSH keys, integration tokens, template secrets, VAPID private |
-| `SECRET_KEY` | Session / JWT signing — long random in production (not the compose default). Web **warns at startup** if the value looks weak/default |
+| `SECRET_KEY` | Session / JWT signing — long random in production (not the compose default). Web **refuses to start** if the value looks weak/default unless `PIHERDER_ALLOW_INSECURE=true` or `DEMO_MODE` (lab only) |
 
 Generate master key:
 
@@ -31,7 +31,7 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 |----------|---------|
 | `PIHERDER_HOSTNAME` | Caddy site hostname; must match cert SANs; WebAuthn RP ID |
 | `PIHERDER_PUBLIC_URL` | Canonical origin (include `:8443` if mapped); HTTPS enables Secure cookies; **OIDC redirect** base `{PUBLIC_URL}/auth/oidc/callback`; CSP `upgrade-insecure-requests` when https |
-| `PIHERDER_CSP` | **true** (default) — send Content-Security-Policy (self-hosted scripts; no third-party CDNs) |
+| `PIHERDER_CSP` | **true** (default) — send Content-Security-Policy. Scripts are **self-hosted** (compiled Tailwind, no Play CDN, **no `unsafe-eval`**). `connect-src` is `'self'` plus `PIHERDER_PUBLIC_URL` / its `wss:` — **no** wildcard `ws:`/`wss:`. Inline script/style still allowed (1.3 nonces). |
 | `PIHERDER_CSP_REPORT_ONLY` | **false** (default) — if true, send Report-Only CSP instead of enforcing |
 | `PIHERDER_SSH_CONSOLE` | **false** (default) — enable web SSH console (operator+ / 2FA; in-app only) |
 | `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL` | **false** — each New shell needs fresh TOTP/passkey (no grant reuse) |
@@ -155,4 +155,5 @@ docker compose --profile nmap up -d celery-worker-nmap
 - [Install — nmap worker](../getting-started/install.md#6-optional-lan-discovery-nmap-worker)  
 - [LAN Discovery](../integrations/lan-discovery.md)  
 - [Volumes](volumes.md)  
-- [ADMIN.md — production env](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md)
+- [ADMIN.md — production env](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md)  
+- [v1.2.0 QA / sign-off](qa-v1.2.0.md)
