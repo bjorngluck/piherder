@@ -1,11 +1,12 @@
 # PiHerder v1.2.0 — big identity + webshell + gated demo
 
-**Status:** **Active** — branch `v1.2.0-dev`  
-**Date opened:** 2026-08-08  
-**Git branch:** `v1.2.0-dev` (integration) · merge → `main` at freeze → tag `v1.2.0`  
+**Status:** **Freeze complete — awaiting operator QA** — branch `v1.2.0-dev`  
+**Date opened:** 2026-08-08 · **Freeze:** 2026-08-12  
+**Git branch:** `v1.2.0-dev` (integration) · merge → `main` after QA sign-off → tag `v1.2.0`  
 **Package / image version (at tag):** `1.2.0`  
 **Theme:** Big identity + webshell + gated demo — WebAuthn · SSO/OIDC · web SSH · `DEMO_MODE` public demo  
-**Baseline:** `v1.1.0` (current production — 2026-08-08)  
+**Baseline:** `v1.1.0` (current Hub / production until 1.2 is tagged — 2026-08-08)  
+**QA:** [QA_v1.2.0.md](QA_v1.2.0.md) · [wiki operator checklist](../wiki/operations/qa-v1.2.0.md)  
 **Mode:** Capacity-rich train — pull former **v1.3** items into **v1.2**  
 **Related:** [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [API.md](API.md) · [SECURITY.md](../SECURITY.md)
 
@@ -406,6 +407,6 @@ Phase 4  Freeze
 | 3 | Streams **I / S / W / B / D1–D4** product land | **Done** (S live multi-IdP = operator QA) |
 | 4 | Demo VPS + maintain cron | **Done** — **D4 live** |
 | 5 | **D5** simulated demo console | **Done** — no live SSH |
-| 6 | Operator QA → screenshot refresh → freeze docs / RELEASE / tag / Hub | After QA |
+| 6 | Operator QA → screenshot refresh → tag / Hub | **Now** — [QA_v1.2.0.md](QA_v1.2.0.md) |
 
-**Feature-complete bar for freeze:** I + S + W + B + D1–D5 green.
+**Feature-complete bar for freeze:** I + S + W + B + D1–D5 + **R1–R14** green. **Docs + QA list written.** Tag after operator sign-off.

@@ -46,7 +46,7 @@ Homelab hosts often run many stacks. SSHing into each machine for `docker compos
 | Multi-file compose edit | primary compose + override + `.env` + Dockerfile + **compose sets** |
 | **Compose sets** | Extra `docker-compose.<name>.yml` in the **same** project folder — see below |
 | Version history | Snapshots; rollback |
-| Build / redeploy | Build progress page streams over SSE (**operator+** session required); redeploy as Jobs |
+| Build / redeploy | **POST-only** SSE stream of `docker compose build` for a **named** project (**operator+**). Paths are quoted; there is no GET `/path` fallback. Redeploy as Jobs. |
 | Check updates vs Deploy | Pull-only vs pull+up as **Jobs** — [Updates](../day-to-day/updates-and-patching.md) |
 
 !!! note "Browser Back on Docker"

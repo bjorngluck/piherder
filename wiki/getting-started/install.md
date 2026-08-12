@@ -99,12 +99,13 @@ Ensure stock compose still publishes Postgres/Redis on **host loopback** (nmap w
 
 | Item | Why |
 |------|-----|
-| Strong `PIHERDER_MASTER_KEY` + `SECRET_KEY` | Encrypts fleet secrets / signs sessions — not compose defaults |
-| `PIHERDER_PUBLIC_URL=https://…` (or `COOKIE_SECURE=true`) | Session cookies get the `Secure` flag |
-| Prefer Caddy **8888/8443** over exposing app **:8000** | Correct client IP for audit + TLS termination |
+| Strong `PIHERDER_MASTER_KEY` + `SECRET_KEY` | Encrypts fleet secrets / signs sessions. Weak `SECRET_KEY` **refuses boot** unless `PIHERDER_ALLOW_INSECURE` (lab) |
+| `PIHERDER_PUBLIC_URL=https://…` (or `COOKIE_SECURE=true`) | Session cookies get the `Secure` flag; **password-reset links** and OIDC redirects use this origin only |
+| Prefer Caddy **8888/8443** — app **:8000** is loopback only | Correct client IP for audit + TLS termination (`PIHERDER_TRUSTED_PROXY_CIDRS`) |
 | `METRICS_TOKEN=…` if scrapers can reach `/metrics` | Empty token = open metrics on the app port |
 | Leave `ALLOW_OPEN_REGISTRATION=false` | Only first admin self-registers; others via Users |
-| Settings → PiHerder backup → run once | Offline archive + keep master key with it |
+| Settings → PiHerder backup → **Full DR** once | Offline archive + keep master key with it (1.2 Full = real `pg_dump`) |
+| After first **Test connection** | SSH host key is **pinned**; reset the pin only after a rebuild |
 
 Full env catalog: [Environment reference](../operations/env-reference.md).
 

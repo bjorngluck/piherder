@@ -139,14 +139,14 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | Step | Action | Why |
 |------|--------|-----|
 | 1 | Offline copy of `PIHERDER_MASTER_KEY` | Encrypted fields useless without it |
-| 2 | [Self-backup](../operations/self-backup.md) run once | Archive of control plane (not rsync trees) |
+| 2 | [Self-backup](../operations/self-backup.md) **Full DR** once (v1.2+ = `pg_dump`) | Entire herder DB + logos — not rsync trees. Pre-1.2 “full” was JSON only. |
 | 3 | Read **Honest DR** scenarios on that page | Scenario A (min) vs C (comfort pack) |
 | 4 | Schedule herder backup | Regular DR hygiene |
 | 5 | Know [Volumes](../operations/volumes.md) | `piherder_backups` ≠ fleet `/backups` |
 | 6 | Optional: copy fleet backup disk + edge `./certs` | File DR + herder HTTPS without re-issue |
 | 7 | Practice dry-run restore on a lab stack **with the same master key** | Confidence before a real outage |
 
-**Done when:** Master key + at least one archive live **off** the herder host; you can explain “control plane yes / host rsync no”; restore dry-run understood.
+**Done when:** Master key + at least one **Full** archive live **off** the herder host; you can explain “v1.2 Full = whole DB / host rsync no”; restore dry-run understood.
 
 **Not done when:** You only backed up the herder and expect Frigate recordings or every nmap XML to reappear — those are out of self-backup scope (see [Self-backup — not included](../operations/self-backup.md#not-included-by-design)).
 
@@ -163,6 +163,22 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 3 | Optional [force 2FA](../account-security/two-factor.md) | Policy for the whole instance |
 | 4 | Operator runs a backup/check | Confirms RBAC allows fleet mutate |
 | 5 | Confirm they cannot open herder restore | Control plane stays admin-only |
+| 6 | Optional: [SSO](../account-security/sso-oidc.md) + passkey | Same 2FA gates after IdP |
+
+---
+
+### Journey I — 1.2 identity + optional console {#journey-i}
+
+**Goal:** Harden sign-in (passkey / optional SSO) and decide whether web SSH is on.
+
+| Step | Action | Why |
+|------|--------|-----|
+| 1 | Account → **Add passkey** (+ TOTP still OK) | Second factor without an app-only story |
+| 2 | Optional Settings → **SSO** | BYO IdP; keep an admin password |
+| 3 | Leave `PIHERDER_SSH_CONSOLE=false` unless you need a browser shell | Default off; XSS on the herder origin is shell-equivalent when on |
+| 4 | If you enable it: operator + 2FA → Console → **+ Shell** | [Web SSH console](../day-to-day/web-ssh-console.md) |
+| 5 | **Test connection** pins the host key; reset only after a rebuild | TOFU — mismatch is refused |
+| 6 | Sign [v1.2 QA](../operations/qa-v1.2.0.md) before treating this as production | Hub `latest` is still 1.1 until tagged |
 
 ---
 
@@ -266,7 +282,9 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 |----------|-----|
 | Viewer / operator / admin | [Roles](../account-security/roles.md) |
 | Create users, roles | [Users](../account-security/users.md) |
-| TOTP, backup codes, force 2FA | [2FA](../account-security/two-factor.md) |
+| TOTP, passkeys, backup codes, force 2FA | [2FA](../account-security/two-factor.md) |
+| SSO / OpenID Connect | [SSO](../account-security/sso-oidc.md) |
+| In-browser SSH (flag off by default) | [Web SSH console](../day-to-day/web-ssh-console.md) |
 | Install PWA + Web Push | [PWA & push](../account-security/pwa-push.md) |
 
 ## Operations & DR
@@ -279,6 +297,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | Stack Status healthy? | [Status](../operations/status.md) |
 | Herder self-backup / restore (**admin only**) | [Self-backup](../operations/self-backup.md) · [Roles](../account-security/roles.md) |
 | Upgrade compose / image | [Upgrades](../operations/upgrades.md) |
+| **v1.2 freeze QA / sign-off** | [QA checklist](../operations/qa-v1.2.0.md) |
 | More backup parallelism | [Multi-worker](../operations/multi-worker.md) |
 | Prometheus / env webhook fallback | [Metrics](../operations/metrics-webhooks.md) |
 | Webhook + SMTP alerts / forgot password | [Alerts](../operations/alerts-email-webhooks.md) |
@@ -289,7 +308,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 
 | Scenario | Doc |
 |----------|-----|
-| SSH / rsync / docker group | [SSH troubleshooting](../troubleshooting/ssh-rsync.md) |
+| SSH / rsync / docker group / host-key pin | [SSH troubleshooting](../troubleshooting/ssh-rsync.md) |
 | Backup stuck | [Backup troubleshooting](../troubleshooting/backups.md) |
 | Push not arriving | [Push troubleshooting](../troubleshooting/push.md) |
 | Template / compose editor | [Templates troubleshooting](../troubleshooting/templates-docker.md) |

@@ -125,10 +125,10 @@ Typing **`exit`**, idle timeout, or session max **ends that shell** (no resume-r
 | Continuous revalidation | Every ~10s while attached |
 | Fleet 2FA grant | One step-up for all hosts; UI re-prompts when the cookie expires |
 | 2FA methods | **Passkey preferred**; TOTP app OK; **backup codes rejected by default** |
-| CSP | Self-hosted scripts; xterm under `/static/vendor/xterm/` |
+| CSP | Compiled Tailwind (no `unsafe-eval`); xterm under `/static/vendor/xterm/`; `connect-src` is `'self'` + public origin / its `wss:` only |
 | Limits | Concurrent + idle + max session; PEM never in browser |
 
-**Residual risk:** XSS on the PiHerder origin can act as the logged-in user. Prefer HTTPS; leave the flag off when unused.
+**Residual risk:** XSS on the PiHerder origin can act as the logged-in user — **and is shell-equivalent when this flag is on**. Prefer HTTPS; leave the flag off when unused. Host SSH uses the **pinned host key** (same TOFU as Test connection).
 
 ### Soft resume (app switch)
 
@@ -191,7 +191,7 @@ Default max **4** shells per user (`PIHERDER_SSH_CONSOLE_MAX_PER_USER`), shared 
 | `PIHERDER_SSH_CONSOLE_HOLD_SEC` | `0` | Max park after WS drop (`0` = idle/max only) |
 | `PIHERDER_SSH_CONSOLE_GRANT_MIN` | `10` | Fleet-wide multi-host grant after 2FA (minutes) |
 
-Also: keep **CSP** on in production (`PIHERDER_CSP=true`).
+Also: keep **CSP** on in production (`PIHERDER_CSP=true`). Tailwind is compiled CSS — no Play CDN / no `unsafe-eval`.
 
 ```bash
 # Enable console (example)

@@ -1,13 +1,108 @@
 # PiHerder v1.2.0
 
-**Status:** **In development** on `v1.2.0-dev` (not yet tagged)  
-**Theme:** Big identity + webshell + gated demo · backup reliability · **self-backup full DB DR**  
+**Status:** **Freeze complete — awaiting operator QA** on `v1.2.0-dev` (not yet tagged)  
+**Theme:** Identity + webshell + gated demo · backup reliability · self-backup full DB DR · security remediations  
 **Baseline:** [v1.1.0](RELEASE_v1.1.0.md)  
-**Plan:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md)
+**Plan:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md)  
+**Operator QA:** [QA_v1.2.0.md](QA_v1.2.0.md) · wiki [v1.2.0 QA / sign-off](../wiki/operations/qa-v1.2.0.md)
+
+Do **not** treat Hub `latest` as 1.2 until this document is marked **Tagged**. Published Hub remains **1.1.0** (`1.1` / `latest`).
 
 ---
 
-## Self-backup / disaster recovery (operators)
+## What’s in 1.2
+
+### Identity — passkeys (Stream I)
+
+| Item | Behaviour |
+|------|-----------|
+| Second factor | WebAuthn / passkeys **after password or SSO** — not passwordless |
+| Account | Register, nickname, list, revoke (password required to remove) |
+| Login | After identity: **Use passkey** or TOTP / backup code |
+| Force 2FA | Satisfied by a passkey **or** TOTP |
+| Requirements | HTTPS (except localhost) + matching `PIHERDER_HOSTNAME` / `PIHERDER_PUBLIC_URL` |
+| Limit | Up to 10 passkeys per user |
+
+Wiki: [2FA & force 2FA](../wiki/account-security/two-factor.md).
+
+### Identity — SSO / OIDC (Stream S)
+
+| Item | Behaviour |
+|------|-----------|
+| Protocol | Authorization code + **PKCE**; confidential client; BYO IdP |
+| Settings | Issuer, client id/secret (Fernet), scopes, group → role map, default **viewer** |
+| Provisioning | JIT new users; auto-link by **verified** email; Account → Connected accounts |
+| Password optional | Remove password after a link; unlink requires a password in the same flow |
+| 2FA | IdP is first factor only — enrolled TOTP/passkey still required |
+| **Require SSO** | Password form **hidden**. `POST /auth/login` **rejected for non-admins**. **Admins stay password break-glass**. |
+| `email_verified` | Missing or false is **not** treated as verified (auto-link / require-verified fail closed) |
+
+Wiki: [SSO / OpenID Connect](../wiki/account-security/sso-oidc.md). Lab: [SSO_AUTHENTIK_TEST.md](SSO_AUTHENTIK_TEST.md).
+
+### Web SSH console (Stream W)
+
+Optional in-browser terminal. **Default off** (`PIHERDER_SSH_CONSOLE=false`).
+
+| Control | Behaviour |
+|---------|-----------|
+| RBAC | **operator+** only (viewer **403** except public demo simulated shell) |
+| Step-up | Passkey preferred; TOTP accepted; **backup codes rejected** unless env allows |
+| Grant | Fleet-wide (~10 min) unless every-shell 2FA |
+| Tickets | Single-use; first WS message only (not query string); Redis NX |
+| Bindings | `session_version` + optional IP + device cookie; revalidate ~10s |
+| Resume | Unexpected WS drop parks the PTY; logout / password change destroys parked shells |
+| UI | Popup per host + multi-host `/console`; compact chrome; sticky Ctrl |
+| CSP | Same-origin iframe only; compiled Tailwind (no `unsafe-eval`); `connect-src` is `'self'` + public origin / its `wss:` (no wildcard `ws:`/`wss:`) |
+
+Wiki: [Web SSH console](../wiki/day-to-day/web-ssh-console.md).
+
+### Public demo (Stream D)
+
+`PIHERDER_DEMO_MODE` on a dedicated VPS — [wiki demo](../wiki/operations/demo-site.md) · [DEMO_SITE.md](DEMO_SITE.md).
+
+- Shared **viewer**; write guard; canned jobs; no real onboard / API tokens  
+- Console is **simulated** (no Paramiko / TCP)  
+- No in-app RESET (ops CLI / cron only)  
+- Audit visitor IPs stored as `redacted`  
+- Unique Fernet / session secrets — never production host keys  
+
+### Backup reliability (Stream B)
+
+| Item | Behaviour |
+|------|-----------|
+| **B-retry** | Auto-retry rsync vanish (code 24 / partial 23); optional **soft-OK** (`PIHERDER_BACKUP_VANISHED_*`) |
+| **B-DR** | Self-backup **Full** = `pg_dump -Fc` of entire Postgres + `DATA_ROOT` files (format **v6**). Config-only stays a light JSON pack. |
+
+Wiki: [Self-backup & DR](../wiki/operations/self-backup.md) · [vanished files](../wiki/troubleshooting/backups.md#vanished-files-busy-sources).
+
+---
+
+## Security remediations (Stream R)
+
+Landed after the 1.2 deep review. Not new product surfaces — they close holes that already existed.
+
+| ID | Change |
+|----|--------|
+| **R1** | App port **`127.0.0.1:8000`** only. `X-Forwarded-For` / `CF-Connecting-IP` honoured **only** when the TCP peer is in `PIHERDER_TRUSTED_PROXY_CIDRS`. Compose default trusts RFC1918 + loopback so bundled Caddy is trusted. |
+| **R2** | Email password-reset links are built from **`PIHERDER_PUBLIC_URL` only** (Host / `X-Forwarded-Host` ignored). |
+| **R3** | Compose **build** is **POST-only**, named project, `shlex.quote` paths — no raw `/path` GET fallback. |
+| **R4** | Logout **bumps `session_version`** (stolen JWTs die) and destroys parked consoles. |
+| **R5** | New 2FA backup codes travel in an **HttpOnly flash cookie**, not the query string. |
+| **R6** | User and server **delete graphs** cover 1.2 children (passkeys, OIDC links, pins, cert targets, map edges, …). History rows stay, unlinked. |
+| **R7** | New hosts default SSH user **`pi`**. Existing rows are **not** migrated. |
+| **R8** | **Require SSO** is enforced (see Stream S). |
+| **R9** | Herder archive download / restore paths are **confined** to the backup root. |
+| **R10** | Docs / wiki honesty pass (this train). |
+| **R11** | SSH **host-key pin (TOFU)**: first successful connect stores the key; later mismatch **refuses**. Reset under **SSH access** after a rebuild. |
+| **R12** | OIDC GET link has **no `?ok=1`**. Viewer cannot live-SSH. `Sec-Fetch-Site: cross-site` console mint denied. |
+| **R13** | Console JTI consume is **NX / never wipe-all**. Weak / default **`SECRET_KEY` refuses boot** unless `PIHERDER_ALLOW_INSECURE=true` or `DEMO_MODE`. |
+| **R14** | Tailwind is **compiled CSS** (`scripts/build-tailwind.sh`, committed `app/static/css/tailwind.css`). CSP **`unsafe-eval` removed**. |
+
+Honest residual (not freeze-blocking): template `<script>` still needs **`unsafe-inline`** (nonces in **1.3**). XSS on the herder origin is still **shell-equivalent** when the console flag is on. Trusted-device cookies **survive logout** by design. Sessions are 7-day JWTs. Roles remain three global roles (per-host ACL is 1.3).
+
+---
+
+## Self-backup / disaster recovery
 
 ### Upgrade note for anyone on **&lt; v1.2.0**
 
@@ -38,15 +133,20 @@ Image includes **`postgresql-client-16`** (matches compose `postgres:16`). Same 
 
 ---
 
-## Other 1.2 themes (summary — expand at freeze)
+## Upgrade from 1.1.x (when tagged)
 
-- WebAuthn / passkeys as second factor  
-- SSO / OIDC  
-- Web SSH console (flag default off)  
-- Gated public demo (`DEMO_MODE`, shared **viewer**, write guard)  
-- Backup vanished-file retry (B-retry)  
+Operator checklist: [wiki upgrades — 1.1 → 1.2](../wiki/operations/upgrades.md#11--12-when-tagged).
 
-Full freeze wording lands when the train tags.
+1. Take a **1.1** self-backup and keep it offline with `PIHERDER_MASTER_KEY`.  
+2. `git fetch --tags && git checkout v1.2.0` (or pull `bjorngluck/piherder:1.2.0`).  
+3. Confirm `.env` has a **long random `SECRET_KEY`** (web **will not boot** on the compose default unless `PIHERDER_ALLOW_INSECURE=true`).  
+4. `docker compose pull && docker compose up -d` — Alembic includes **`039_ssh_hostkey_pin`**.  
+5. Run **Settings → PiHerder backup → Full DR** once; copy the archive off-box; set schedule to **Full**.  
+6. **Test connection** once per host to **pin** the SSH host key.  
+7. Set `PIHERDER_PUBLIC_URL` if you use email password reset or SSO.  
+8. Hard-refresh the browser (compiled CSS is query-busted).  
+
+SSO / passkeys / console / demo mode are **opt-in** — they do not turn on by themselves.
 
 ---
 
@@ -54,18 +154,28 @@ Full freeze wording lands when the train tags.
 
 | ID | Topic | Notes |
 |----|--------|--------|
-| **KI-console-mobile-soft-tab** | Web console soft **Tab** on mobile | Desktop physical + soft Tab OK. On mobile browsers, soft Tab can leave IME mid-token or re-append the short fragment after bash path completion (`docker/do`, `piherder/pi`). **Workaround:** Space → Backspace → soft Tab, or use a physical keyboard. Path completion also depends on the **remote SSH user** home layout. Parked (not freeze-blocking). Wiki: [web-ssh-console § Known issues](../wiki/day-to-day/web-ssh-console.md#known-issues). |
-| **KI-ssh-hostkey-tofu** | SSH host keys | **Closed on `v1.2.0-dev`:** first connect pins; mismatch refuses; reset under SSH access. |
-| **KI-csp-unsafe-eval** | CSP | **Closed for eval:** Tailwind is compiled CSS (`scripts/build-tailwind.sh`). `unsafe-eval` removed. `unsafe-inline` remains for template scripts — 1.3 nonces. Residual: XSS on the herder origin is still shell-equivalent when console is enabled. |
+| **KI-console-mobile-soft-tab** | Web console soft **Tab** on mobile | Desktop physical + soft Tab OK. On mobile browsers, soft Tab can leave IME mid-token or re-append the short fragment after bash path completion (`docker/do`, `piherder/pi`). **Workaround:** Space → Backspace → soft Tab, or use a physical keyboard. Parked (not freeze-blocking). Wiki: [web-ssh-console § Known issues](../wiki/day-to-day/web-ssh-console.md#known-issues). |
+| **KI-csp-unsafe-inline** | CSP | **`unsafe-eval` closed** (compiled Tailwind). Inline script/style remain for template `<script>` / xterm — nonces in **v1.3**. Residual: XSS on the herder origin is still shell-equivalent when console is enabled. |
+| **KI-ssh-hostkey-tofu** | SSH host keys | **Closed:** first connect pins; mismatch refuses; reset under SSH access. |
 
-### Stream R — freeze remediations (landed on `v1.2.0-dev`)
+---
 
-Trusted-proxy client IP + loopback `:8000` · reset URLs from `PIHERDER_PUBLIC_URL` · POST-only quoted compose build · logout bumps `session_version` · backup codes out of the query string · user/server delete graphs · default SSH user `pi` · require-SSO + strict `email_verified` · confined herder archive paths.
+## What 1.2 is not
+
+These stay on [PLAN_v1.3.0.md](PLAN_v1.3.0.md) — **do not expect them in this tag**:
+
+- Per-host / per-feature roles  
+- Configurable password / 2FA / console timeouts in Settings  
+- Multi-identity host SSH + command-level shell audit  
+- CSP nonces (drop `unsafe-inline`)  
+- Passwordless passkeys · SAML · session recording  
 
 ---
 
 ## Related
 
 - [wiki/operations/self-backup.md](../wiki/operations/self-backup.md)  
-- [ADMIN.md](ADMIN.md) § PiHerder self-backup  
-- [PLAN_v1.2.0.md](PLAN_v1.2.0.md) stream **B-DR**  
+- [wiki/operations/qa-v1.2.0.md](../wiki/operations/qa-v1.2.0.md)  
+- [ADMIN.md](ADMIN.md)  
+- [SECURITY.md](../SECURITY.md)  
+- [PLAN_v1.2.0.md](PLAN_v1.2.0.md)  

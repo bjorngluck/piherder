@@ -96,7 +96,7 @@ Per-user actions on **Users** (production lockout recovery):
 | **Sign out sessions** | Invalidates all browser JWTs (`session_version` bump) + trusted devices only. |
 
 Audit actions: `admin_password_reset`, `admin_2fa_cleared`, `admin_access_reset`, `admin_sessions_revoked`.  
-Email self-service reset remains **post-1.0**. Wiki: [Users](../wiki/account-security/users.md#credential-recovery-admin).
+Email **Forgot password** (v1.1+) works when SMTP is configured; links use `PIHERDER_PUBLIC_URL` only. Wiki: [Users](../wiki/account-security/users.md#credential-recovery-admin).
 
 ### Sole-admin / host lockout recovery
 
@@ -153,7 +153,7 @@ Optional 2FA (when not forced): Account → enable TOTP and/or **passkeys**, bac
 | JIT | Unknown email → new user, role from group map (default **viewer**), password login off until set |
 | Password optional | Linked users may **remove password** (SSO-only); **unlink** requires a password (set in same flow if needed) |
 | 2FA | Path-agnostic: enrolled TOTP/passkey still required after SSO; sensitive Account actions re-check 2FA |
-| Break-glass | Local password remains unless removed; optional **Require SSO** hides password form — keep at least one recoverable admin |
+| Break-glass | Local password remains unless removed. **Require SSO** hides the password form and **rejects non-admin `POST /auth/login`**. **Admins stay password break-glass**. Keep at least one recoverable admin. Missing IdP `email_verified` is **not** treated as verified. |
 | Secret storage | Client secret Fernet-encrypted in `appsetting`; included in herder self-backup |
 
 Audit: `sso_login`, `sso_login_failed`, `sso_link`, `sso_unlink`, `sso_user_provisioned`, `user_password_removed`, `user_password_set`.
@@ -539,28 +539,31 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 
 ## 7. Production deployment
 
-### Production checklist (v1.0.0)
+### Production checklist (v1.2 freeze)
 
 | Item | Action |
 |------|--------|
 | **Master key** | Unique `PIHERDER_MASTER_KEY` offline + in `.env` — never compose defaults |
-| **SECRET_KEY** | Long random JWT signing key — web warns if value looks like a stock default |
+| **SECRET_KEY** | Long random JWT signing key — web **refuses to boot** if the value looks like a stock default (`PIHERDER_ALLOW_INSECURE` / `DEMO_MODE` only for labs) |
 | **TLS / public URL** | `PIHERDER_PUBLIC_URL=https://…` so session cookies get **Secure** (or `COOKIE_SECURE=true`) |
 | **2FA** | Enable for admins (TOTP and/or passkeys); consider **Force 2FA** in Settings; revoke trusted devices if a device is lost |
 | **SSO** | Optional OIDC IdP; map groups carefully; keep break-glass local admin; see §3a |
-| **CSP (v1.2)** | Default on (`PIHERDER_CSP=true`). Self-hosted scripts only; console uses vendored xterm. Report-only: `PIHERDER_CSP_REPORT_ONLY=true`. See [SECURITY.md](../SECURITY.md). |
+| **CSP (v1.2)** | Default on (`PIHERDER_CSP=true`). **Compiled Tailwind** (no Play / no `unsafe-eval`). `connect-src` is `'self'` + public origin / its `wss:` only. Console uses vendored xterm. Report-only: `PIHERDER_CSP_REPORT_ONLY=true`. See [SECURITY.md](../SECURITY.md). |
 | **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + passkey-preferred 2FA; floating popup + multi-host `/console` (host tabs stay connected); **fleet-wide** step-up grant (~10 min); soft resume after app switch; compact chrome (Aa / ···); continuous revalidation; never PEM in browser. Wiki: [web-ssh-console](../wiki/day-to-day/web-ssh-console.md) · env sample: [console-and-backup.env.example](console-and-backup.env.example) |
+| **SSH host keys** | First successful **Test connection** **pins** the remote key (TOFU). Mismatch refuses. Reset the pin under SSH access after a rebuild. New hosts default SSH user **`pi`** (existing rows unchanged). |
+| **App port** | Compose binds **`127.0.0.1:8000`** only. Honour `X-Forwarded-For` / `CF-Connecting-IP` only from `PIHERDER_TRUSTED_PROXY_CIDRS`. |
+| **Password-reset URLs** | Built from **`PIHERDER_PUBLIC_URL` only** (Host / `X-Forwarded-Host` ignored). |
 | **Backup vanished (B-retry)** | Auto-retry code 24 / vanished 23; soft-OK by default — `PIHERDER_BACKUP_VANISHED_*` |
 | **Metrics** | Set `METRICS_TOKEN` if `/metrics` is not private-network-only |
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
-| **Image pin** | Prefer `bjorngluck/piherder:1.0.0` (or `1.0` / `latest` after publish) |
+| **Image pin** | Prefer a tagged image: Hub **`1.1.0`** until 1.2 is tagged, then `1.2.0` / `1.2` / `latest` |
 
-Active ship plan: [PLAN_v1.0.0.md](PLAN_v1.0.0.md). Security model: [SECURITY.md](../SECURITY.md).
+Active ship plan: [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [QA_v1.2.0.md](QA_v1.2.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
-!!! note "At v1.0.0 freeze"
-    Operator docs target **v1.0.0** production. Recapture priority screenshots per [PLAN §8.2](PLAN_v1.0.0.md) / [wiki screenshots README](../wiki/assets/screenshots/README.md) before tag.
+!!! note "At v1.2.0 freeze"
+    Hub `latest` stays **1.1.0** until operator [QA](QA_v1.2.0.md) is signed. Recapture 1.2 screenshots (console, SSO, passkeys, Full DR) after QA if you have capacity.
 
 ### Environment variables
 

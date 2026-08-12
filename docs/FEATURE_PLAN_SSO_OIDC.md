@@ -154,10 +154,10 @@ Support real-world account lifecycle:
 
 ### S-I — Force SSO (instance setting)
 
-1. Settings → Authentication: **Require SSO** for non–break-glass users.  
-2. Login page: primary SSO button; password form hidden or only for break-glass emails / `is_break_glass` flag.  
-3. Break-glass local admin always can password-login (ops recovery).  
-4. Linked users without password: SSO only (expected).
+1. Settings → General → SSO: **Require SSO** for non–break-glass users.  
+2. Login page: primary SSO button; password form **hidden**.  
+3. `POST /auth/login` is **rejected for non-admins**. **Admins stay password break-glass** (ops recovery).  
+4. Linked users without password: SSO only (expected). Missing IdP `email_verified` is **not** treated as verified.
 
 ### S-J — IdP outage / misconfiguration
 

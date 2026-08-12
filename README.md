@@ -75,8 +75,8 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Public demo (view-only): [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) · [wiki credentials](https://piherder-docs.hacknow.info/operations/demo-site/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
-- **Current production:** [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) (day-to-day operator improvements — certs · discovery · identity · UX · maps · API)
-- **Active train:** `v1.2.0-dev` — WebAuthn · SSO · webshell · gated demo · full DB self-backup (not tagged yet)
+- **Current production (Hub):** [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) (day-to-day operator improvements — certs · discovery · identity · UX · maps · API)
+- **Next release:** `v1.2.0` — **feature-complete** on `v1.2.0-dev`, awaiting [operator QA](docs/QA_v1.2.0.md) (passkeys · SSO · webshell · gated demo · full DB self-backup · security remediations). Not tagged; Hub `latest` is still **1.1.0**. Notes: [RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md)
 - Prior: [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - API reference: [docs/API.md](docs/API.md)
 

@@ -85,7 +85,7 @@ Demo must use **unique** Fernet/session secrets and never hold decryptable produ
 
 ## Operational recommendations
 
-- Use a unique strong `PIHERDER_MASTER_KEY` and `SECRET_KEY` (see [`.env.example`](.env.example) for the full env catalog). Web logs a **warning** if `SECRET_KEY` looks like a stock/dev default.  
+- Use a unique strong `PIHERDER_MASTER_KEY` and `SECRET_KEY` (see [`.env.example`](.env.example) for the full env catalog). Web **refuses to start** if `SECRET_KEY` looks like a stock/dev default unless `PIHERDER_ALLOW_INSECURE=true` or `DEMO_MODE`.  
 - Prefer SSH key auth; clear any stored SSH passwords after deploy. After upgrade, **Test connection** once per host to pin the SSH host key; reset the pin only when you rebuilt the machine.  
 - Do not run with `PIHERDER_ALLOW_INSECURE=true` against a real fleet.  
 - Enable 2FA for admin accounts (TOTP and/or **passkeys**); consider **Force 2FA** in Settings. Treat **trusted devices** as full session risk until revoked. Passkeys need HTTPS + matching `PIHERDER_HOSTNAME` / `PIHERDER_PUBLIC_URL` (except localhost).  

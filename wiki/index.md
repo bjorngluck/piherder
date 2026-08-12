@@ -10,11 +10,11 @@
 
 | | |
 |---|---|
-| **Current release** | **[v1.1.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md)** — current production · day-to-day operator improvements |
+| **Current release** | **[v1.1.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md)** — current **Hub / production** · day-to-day operator improvements |
 | **Image** | `bjorngluck/piherder:1.1.0` · `1.1` · `latest` (multi-arch amd64 + arm64; `1.0` / `1.0.x` pins remain valid) |
 | **Release notes** | [RELEASE_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md) · prior [v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) |
-| **Known issue** | Busy-source rsync vanish (**KI-rsync-vanished**) — [troubleshooting](troubleshooting/backups.md#vanished-files-busy-sources) |
-| **Next train** | **v1.2.0** in development on `v1.2.0-dev` (WebAuthn · [SSO](account-security/sso-oidc.md) · webshell · demo · full DB self-backup). Not tagged; Hub `latest` is still **1.1.0**. |
+| **Known issue** | Busy-source rsync vanish on **1.1** (**KI-rsync-vanished**) — [troubleshooting](troubleshooting/backups.md#vanished-files-busy-sources). **1.2** retries + optional soft-OK. |
+| **Next release** | **v1.2.0** — **feature-complete** on `v1.2.0-dev` (passkeys · [SSO](account-security/sso-oidc.md) · [web SSH](day-to-day/web-ssh-console.md) · demo · full DB self-backup · security remediations). **Awaiting [operator QA](operations/qa-v1.2.0.md).** Not tagged; Hub `latest` is still **1.1.0**. |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **Public demo** | [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) — limited **viewer** sandbox · [credentials](operations/demo-site.md) |
@@ -147,7 +147,7 @@ Use this table when you already know the area; use [Operator scenarios](getting-
 | [Templates](service-templates/overview.md) | Catalog templates: deploy, from-host, secrets, drift |
 | [Integrations](integrations/overview.md) | Catalog products, certs, network maps |
 | [Account & security](account-security/roles.md) | RBAC, users, 2FA, PWA |
-| [Operations](operations/settings.md) | Settings, env, DR, metrics, API |
+| [Operations](operations/settings.md) | Settings, env, DR, metrics, API, [v1.2 QA](operations/qa-v1.2.0.md) |
 | [Public demo](operations/demo-site.md) | Shared view-only sandbox credentials + limits |
 | [Troubleshooting](troubleshooting/index.md) | Common failures and where to look |
 | [Developers](developers/index.md) | Code, tests, contributing |

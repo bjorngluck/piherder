@@ -23,7 +23,8 @@ PIHERDER_PUBLIC_URL=https://piherder.example.com:8443
 ```
 
 - **DNS:** point `PIHERDER_HOSTNAME` at the host (or your outer reverse proxy).  
-- **Ports (default compose):** HTTP `8888→80`, HTTPS `8443→443`.
+- **Ports (default compose):** HTTP `8888→80`, HTTPS `8443→443`. App `:8000` is **loopback only**.  
+- **`PIHERDER_PUBLIC_URL` is also** the only origin used for **email password-reset links** and the OIDC redirect base. Host / `X-Forwarded-Host` are ignored for those URLs.
 
 ## Volume-mounted certificates (recommended)
 
