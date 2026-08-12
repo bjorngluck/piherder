@@ -13,7 +13,24 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from ..models import AuditLog, DockerVersion, Job, Notification, Server
+from ..models import (
+    AuditLog,
+    CertificateTarget,
+    ContainerAnnotation,
+    ContainerAnnotationTag,
+    DockerVersion,
+    IntegrationBinding,
+    Job,
+    NmapDevice,
+    Notification,
+    PortAnnotation,
+    RuntimeEdge,
+    Server,
+    ServiceDnsRecord,
+    StackDeployment,
+    UserFavourite,
+    VisualServiceStack,
+)
 from . import jobs as job_service
 
 logger = logging.getLogger(__name__)
@@ -77,6 +94,88 @@ def _cancel_active_jobs(session: Session, server_id: int, user_id: int | None) -
     return n
 
 
+def _purge_server_children(session: Session, server_id: int, snapshot: dict[str, Any]) -> None:
+    """Delete or unlink herder-only rows that FK this server (no remote wipe)."""
+
+    def _count_delete(rows) -> int:
+        n = 0
+        for row in rows:
+            session.delete(row)
+            n += 1
+        return n
+
+    ann_ids = [
+        int(a.id)
+        for a in session.exec(
+            select(ContainerAnnotation).where(ContainerAnnotation.server_id == server_id)
+        ).all()
+        if getattr(a, "id", None)
+    ]
+    tags = 0
+    if ann_ids:
+        tags = _count_delete(
+            session.exec(
+                select(ContainerAnnotationTag).where(
+                    ContainerAnnotationTag.annotation_id.in_(ann_ids)
+                )
+            ).all()
+        )
+    snapshot["container_annotation_tags_removed"] = tags
+    snapshot["container_annotations_removed"] = _count_delete(
+        session.exec(
+            select(ContainerAnnotation).where(ContainerAnnotation.server_id == server_id)
+        ).all()
+    )
+    snapshot["visual_stacks_removed"] = _count_delete(
+        session.exec(
+            select(VisualServiceStack).where(VisualServiceStack.server_id == server_id)
+        ).all()
+    )
+    snapshot["certificate_targets_removed"] = _count_delete(
+        session.exec(
+            select(CertificateTarget).where(CertificateTarget.server_id == server_id)
+        ).all()
+    )
+    snapshot["runtime_edges_removed"] = _count_delete(
+        session.exec(
+            select(RuntimeEdge).where(
+                (RuntimeEdge.from_server_id == server_id)
+                | (RuntimeEdge.to_server_id == server_id)
+            )
+        ).all()
+    )
+    snapshot["favourites_removed"] = _count_delete(
+        session.exec(select(UserFavourite).where(UserFavourite.server_id == server_id)).all()
+    )
+    snapshot["dns_records_purged"] = _count_delete(
+        session.exec(
+            select(ServiceDnsRecord).where(
+                (ServiceDnsRecord.target_server_id == server_id)
+                | (ServiceDnsRecord.backend_server_id == server_id)
+            )
+        ).all()
+    )
+    snapshot["stack_deployments_removed"] = _count_delete(
+        session.exec(select(StackDeployment).where(StackDeployment.server_id == server_id)).all()
+    )
+    snapshot["integration_bindings_removed"] = _count_delete(
+        session.exec(
+            select(IntegrationBinding).where(IntegrationBinding.server_id == server_id)
+        ).all()
+    )
+    snapshot["port_annotations_removed"] = _count_delete(
+        session.exec(select(PortAnnotation).where(PortAnnotation.server_id == server_id)).all()
+    )
+    unlinked = 0
+    for dev in session.exec(
+        select(NmapDevice).where(NmapDevice.linked_server_id == server_id)
+    ).all():
+        dev.linked_server_id = None
+        session.add(dev)
+        unlinked += 1
+    snapshot["nmap_devices_unlinked"] = unlinked
+
+
 def delete_server_from_fleet(
     session: Session,
     server: Server,
@@ -127,6 +226,12 @@ def delete_server_from_fleet(
         select(DockerVersion).where(DockerVersion.server_id == server_id)
     ).all():
         session.delete(dv)
+
+    try:
+        _purge_server_children(session, server_id, snapshot)
+    except Exception as e:
+        logger.warning(f"[lifecycle] child purge for server {server_id}: {e}")
+        raise
 
     # DNS fabric rows that reference this host
     try:
