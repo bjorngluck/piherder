@@ -33,6 +33,23 @@ def test_model_to_dict_excludes_relationships():
     assert "totp_backup_codes" not in d
 
 
+def test_resolve_archive_rejects_traversal(tmp_path, monkeypatch):
+    root = tmp_path / "herder_backups"
+    root.mkdir()
+    good = root / "piherder-20260812-010000-full.tar.gz"
+    good.write_bytes(b"x")
+    monkeypatch.setattr(hb, "archive_dir_candidates", lambda: [root])
+
+    assert hb.resolve_archive_in_roots(name="piherder-20260812-010000-full.tar.gz") == good.resolve()
+    assert hb.resolve_archive_in_roots(name="../../etc/passwd") is None
+    assert hb.resolve_archive_in_roots(name="piherder-x.tar.gz") is None
+    assert hb.resolve_archive_in_roots(path=str(root / ".." / ".." / "etc" / "passwd")) is None
+    assert hb.resolve_archive_in_roots(path=str(good)) == good.resolve()
+    assert hb.is_safe_archive_basename("piherder-x.tgz")
+    assert not hb.is_safe_archive_basename("../piherder-x.tgz")
+    assert not hb.is_safe_archive_basename("notes.txt")
+
+
 def test_parse_dt():
     assert hb._parse_dt(None) is None
     dt = hb._parse_dt("2026-07-10T12:30:00Z")

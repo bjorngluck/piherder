@@ -905,6 +905,13 @@ async def restore_herder_backup(
 
         if not archive_to_use:
             raise ValueError("Provide a server path or upload a file")
+        resolved = hb.resolve_archive_in_roots(
+            path=archive_to_use,
+            allow_tmp_upload=True,
+        )
+        if resolved is None:
+            raise ValueError("Archive path is not a PiHerder backup under the backup directory")
+        archive_to_use = str(resolved)
 
         preview = _form_on(dry_run)
         res = hb.restore_herder_backup(
@@ -962,14 +969,8 @@ async def download_herder_backup(
     name: str = "",
     user: User = Depends(get_admin_user),
 ):
-    roots = list(hb.archive_dir_candidates())
-    if name:
-        p = next((r / name for r in roots if (r / name).exists()), None)
-        if p is None:
-            raise HTTPException(404)
-    else:
-        p = Path(path)
-    if not p.exists() or not any(str(p).startswith(str(r)) for r in roots):
+    p = hb.resolve_archive_in_roots(path=path, name=name)
+    if p is None:
         raise HTTPException(404)
     return FileResponse(p, filename=p.name)
 
