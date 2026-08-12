@@ -9,11 +9,16 @@ from ..models import (
     ApiToken,
     AuditLog,
     Notification,
+    OidcIdentity,
+    PasswordResetToken,
+    PortAnnotation,
     PushPreference,
     PushSubscription,
+    RuntimeEdge,
     TotpBackupCode,
     TrustedDevice,
     User,
+    UserFavourite,
     WebAuthnCredential,
 )
 from ..security.auth import get_password_hash, revoke_all_trusted_devices, user_session_version
@@ -93,9 +98,9 @@ def detach_and_delete_user(session: Session, target: User) -> str:
     with IntegrityError (seen as HTTP 500 on Users → Delete).
 
     Policy:
-      - 2FA codes, trusted devices, push subscriptions/prefs: **deleted**
+      - 2FA codes, passkeys, trusted devices, push, pins, OIDC links, reset tokens: **deleted**
       - Notifications, audit logs: **kept**, ``user_id`` set NULL
-      - API tokens: keep token, null ``created_by_user_id``
+      - API tokens / map edges / port notes: keep row, null creator user_id
       - Avatar files on disk: best-effort delete
 
     Returns the deleted email for audit messages.
@@ -115,6 +120,14 @@ def detach_and_delete_user(session: Session, target: User) -> str:
         session.delete(row)
     for row in session.exec(select(PushPreference).where(PushPreference.user_id == uid)).all():
         session.delete(row)
+    for row in session.exec(select(UserFavourite).where(UserFavourite.user_id == uid)).all():
+        session.delete(row)
+    for row in session.exec(select(OidcIdentity).where(OidcIdentity.user_id == uid)).all():
+        session.delete(row)
+    for row in session.exec(
+        select(PasswordResetToken).where(PasswordResetToken.user_id == uid)
+    ).all():
+        session.delete(row)
 
     for al in session.exec(select(AuditLog).where(AuditLog.user_id == uid)).all():
         al.user_id = None
@@ -125,6 +138,16 @@ def detach_and_delete_user(session: Session, target: User) -> str:
     for tok in session.exec(select(ApiToken).where(ApiToken.created_by_user_id == uid)).all():
         tok.created_by_user_id = None
         session.add(tok)
+    for edge in session.exec(
+        select(RuntimeEdge).where(RuntimeEdge.created_by_user_id == uid)
+    ).all():
+        edge.created_by_user_id = None
+        session.add(edge)
+    for pa in session.exec(
+        select(PortAnnotation).where(PortAnnotation.created_by_user_id == uid)
+    ).all():
+        pa.created_by_user_id = None
+        session.add(pa)
 
     session.delete(target)
     session.flush()
