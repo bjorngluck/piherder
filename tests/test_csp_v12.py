@@ -15,7 +15,12 @@ def test_build_csp_core_directives(monkeypatch):
     assert "'unsafe-inline'" in csp  # legacy template scripts
     assert "'unsafe-eval'" in csp  # Tailwind Play
     assert "connect-src" in csp
-    assert "wss:" in csp or "wss://ph.example.com:8443" in csp
+    assert "wss://ph.example.com:8443" in csp
+    # Wildcard WebSocket schemes would let XSS open a socket to anywhere
+    connect = [p for p in csp.split("; ") if p.startswith("connect-src ")][0]
+    tokens = connect.split()[1:]
+    assert "ws:" not in tokens
+    assert "wss:" not in tokens
     assert "upgrade-insecure-requests" in csp
     # No third-party CDNs
     assert "jsdelivr" not in csp
