@@ -164,14 +164,14 @@ async def login_page(request: Request, session: Session = Depends(get_session)):
 
 
 def _public_base_url(request: Request) -> str:
-    """Best-effort public origin for reset links (proxy-aware)."""
-    xf_proto = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip()
-    xf_host = (request.headers.get("x-forwarded-host") or "").split(",")[0].strip()
-    host = xf_host or request.headers.get("host") or request.url.netloc
-    scheme = xf_proto or request.url.scheme or "https"
-    if not host:
-        return str(request.base_url).rstrip("/")
-    return f"{scheme}://{host}".rstrip("/")
+    """Public origin for email reset links.
+
+    Uses ``PIHERDER_PUBLIC_URL`` only. Request Host / X-Forwarded-Host are
+    ignored so a direct hit on the app port cannot poison the link.
+    """
+    from ..services.password_reset import configured_public_origin
+
+    return configured_public_origin()
 
 
 @router.get("/forgot-password", response_class=HTMLResponse)
@@ -216,6 +216,11 @@ async def forgot_password_submit(
         return RedirectResponse(
             "/auth/forgot-password?error=disabled", status_code=303
         )
+    base_url = _public_base_url(request)
+    if not base_url:
+        return RedirectResponse(
+            "/auth/forgot-password?error=no_public_url", status_code=303
+        )
     # Rate limit per email too (enumeration-resistant generic response)
     rate_limit_auth(
         f"forgot-email:{(email or '').strip().lower()[:120]}",
@@ -225,7 +230,7 @@ async def forgot_password_submit(
     result = pwreset.request_reset_email(
         session,
         email,
-        base_url=_public_base_url(request),
+        base_url=base_url,
         request_ip=ip,
     )
     if not result.get("ok") and result.get("error") not in (None,):
