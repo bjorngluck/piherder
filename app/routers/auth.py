@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, File, UploadFile
@@ -15,6 +15,7 @@ from ..services.request_ip import client_ip_from_request
 from ..security.auth import (
     authenticate_user,
     create_user_access_token,
+    create_access_token,
     create_pending_2fa_token,
     create_account_stepup_token,
     account_stepup_active,
@@ -70,6 +71,40 @@ from .. import templates as templates_mod
 router = APIRouter()
 
 PENDING_COOKIE = "pending_2fa"
+BACKUP_CODES_COOKIE = "backup_codes_once"
+BACKUP_CODES_FLASH_MINUTES = 5
+
+
+def _set_backup_codes_flash(response: Response, user_id: int, codes: list[str]) -> None:
+    """HttpOnly one-shot cookie — never put recovery codes in a URL."""
+    token = create_access_token(
+        {"sub": str(user_id), "bc": True, "backup_codes": list(codes)},
+        expires_delta=timedelta(minutes=BACKUP_CODES_FLASH_MINUTES),
+    )
+    response.set_cookie(
+        BACKUP_CODES_COOKIE,
+        token,
+        **cookie_auth_kwargs(max_age=BACKUP_CODES_FLASH_MINUTES * 60),
+    )
+
+
+def _read_backup_codes_flash(request: Request, user: User) -> Optional[list[str]]:
+    raw = request.cookies.get(BACKUP_CODES_COOKIE)
+    if not raw:
+        return None
+    payload = decode_token_payload(raw)
+    if not payload or not payload.get("bc"):
+        return None
+    try:
+        if int(payload.get("sub")) != int(user.id):
+            return None
+    except (TypeError, ValueError):
+        return None
+    codes = payload.get("backup_codes") or []
+    if isinstance(codes, str):
+        codes = [c.strip() for c in codes.split(",") if c.strip()]
+    out = [str(c).strip() for c in codes if str(c).strip()]
+    return out[:20] or None
 
 
 def _set_trusted_device_cookie(response: Response, user_id: int, raw: str) -> None:
@@ -857,7 +892,7 @@ async def account_page(
             setup_qr_svg = None
             setup_qr_uri = None
     show_2fa_modal = pending_setup or msg == "2fa_setup"
-    backup_codes = request.query_params.get("backup_codes")
+    backup_codes_shown = _read_backup_codes_flash(request, user)
 
     from ..services import push as push_svc
 
@@ -943,7 +978,7 @@ async def account_page(
     oidc_rows = [oidc.identity_public_dict(r) for r in oidc.list_identities(session, int(user.id))]
     password_login_enabled = oidc.password_login_allowed(user)
 
-    return templates_mod.templates.TemplateResponse(
+    resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="account.html",
         context={
@@ -964,7 +999,7 @@ async def account_page(
             "setup_otpauth": setup_otpauth,
             "pending_2fa_setup": pending_setup,
             "show_2fa_modal": show_2fa_modal,
-            "backup_codes_shown": backup_codes.split(",") if backup_codes else None,
+            "backup_codes_shown": backup_codes_shown,
             "trusted_device_days": settings.TRUSTED_DEVICE_DAYS,
             "user_role": role,
             "is_admin": is_admin_user,
@@ -987,6 +1022,10 @@ async def account_page(
             "account_stepup_minutes": ACCOUNT_STEPUP_MINUTES,
         },
     )
+    # One-shot: codes were in the cookie; drop it so refresh does not re-show.
+    if backup_codes_shown:
+        resp.delete_cookie(BACKUP_CODES_COOKIE, **cookie_delete_kwargs())
+    return resp
 
 
 @router.post("/account/profile")
@@ -1199,9 +1238,10 @@ async def two_factor_confirm(
     _audit(session, user.id, "user_2fa_enabled", "TOTP 2FA enabled")
 
     response = RedirectResponse(
-        f"/auth/account?msg=2fa_enabled&backup_codes={','.join(codes)}",
+        "/auth/account?msg=2fa_enabled",
         status_code=303,
     )
+    _set_backup_codes_flash(response, int(user.id), codes)
     response.delete_cookie("totp_setup_secret")
     response.delete_cookie("totp_setup_qr")
     return response
@@ -1271,9 +1311,10 @@ async def regenerate_backup_codes(
     revoke_all_trusted_devices(session, user.id)
     _audit(session, user.id, "user_2fa_backup_regenerated", "Backup codes regenerated")
     response = RedirectResponse(
-        f"/auth/account?msg=backup_codes&backup_codes={','.join(codes)}",
+        "/auth/account?msg=backup_codes",
         status_code=303,
     )
+    _set_backup_codes_flash(response, int(user.id), codes)
     _clear_trusted_device_cookie(response, user.id)
     return response
 
