@@ -250,7 +250,7 @@ async def wizard_advanced_form(
 async def wizard_identity_post(
     name: str = Form(...),
     hostname: str = Form(...),
-    ssh_username: str = Form("bjorn"),
+    ssh_username: str = Form("pi"),
     ssh_port: int = Form(22),
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
@@ -273,7 +273,7 @@ async def wizard_identity_post(
     server = Server(
         name=sname,
         hostname=host,
-        ssh_username=(ssh_username or "bjorn").strip() or "bjorn",
+        ssh_username=(ssh_username or "pi").strip() or "pi",
         ssh_port=port,
         sort_order=next_sort,
         backup_enabled=True,

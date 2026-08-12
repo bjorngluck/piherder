@@ -546,7 +546,7 @@ async def add_server_form(request: Request, user: User = Depends(get_current_use
 async def add_server(
     name: str = Form(...),
     hostname: str = Form(...),
-    ssh_username: str = Form("bjorn"),
+    ssh_username: str = Form("pi"),
     ssh_port: int = Form(22),
     key_mode: str = Form("generate"),
     private_key: str = Form(""),

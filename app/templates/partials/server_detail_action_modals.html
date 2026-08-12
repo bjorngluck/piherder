@@ -803,9 +803,9 @@ function computeUsableSummary(drives) {
         </div>
         <p class="text-[10px] text-muted mt-1">
           <strong>dest_root</strong> = path *inside container* (recommend /backups).<br>
-          In docker-compose.yml: <code>- /home/bjorn/backup:/backups</code><br>
+          In docker-compose.yml: <code>- /mnt/backup:/backups</code><br>
           Set dest_root=/backups , folder_name=rpi5-2.example.com<br>
-          → files land on host at /home/bjorn/backup/rpi5-2.example.com/...
+          → files land on host at /mnt/backup/rpi5-2.example.com/...
         </p>
       </div>
 

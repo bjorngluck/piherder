@@ -30,7 +30,7 @@ Without a server record you have no place to store the encrypted SSH key, featur
   <figcaption>Add-host wizard — multi-step onboarding (Identity through Done). Connect: install key → test → clear password; Features explain HAOS / rsync.</figcaption>
 </figure>
 
-1. **Identity** — display name, hostname/IP, SSH user and port (creates the fleet row).  
+1. **Identity** — display name, hostname/IP, SSH user and port (creates the fleet row). Default user is **`pi`** (Raspberry Pi OS); type `ubuntu`, `root`, or your HAOS add-on user if different. Existing hosts are not changed.  
 2. **Trust** — generate a keypair (recommended), upload a key, or password-only (discouraged); optional **one-time password** only to bootstrap key deploy. Private material is encrypted at rest and never re-shown.  
 3. **Connect** — ordered path: **install public key** (copy / install script / Deploy) → **Test connection** → **Clear stored password** when key-only works.  
 4. **Privilege** — optional least-priv user on Pi OS / Ubuntu; **skip automated least-priv on HAOS** (wizard copy explains).  
@@ -113,7 +113,7 @@ Full checklist, System info, and update behaviour: **[HAOS hosts](haos-hosts.md)
 
 ### Docker base dir (Option B)
 
-If stacks live under another user’s home (e.g. `/home/bjorn/docker`):
+If stacks live under another user’s home (e.g. `/home/ubuntu/docker` while PiHerder logs in as `piherder`):
 
 1. Set **Docker base dir** to that **absolute** path (not `~/docker` after switching to the `piherder` user).  
 2. Run the **Option B ACL script** from SSH access so the service user can traverse the tree.

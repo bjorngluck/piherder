@@ -30,7 +30,7 @@ def expand_remote_path(path: str, username: str) -> str:
     """
     Expand a remote path that may use ``~`` for the SSH user's home.
 
-    Prefer absolute paths (e.g. ``/home/bjorn/docker``) when the SSH user is a
+    Prefer absolute paths (e.g. ``/home/pi/docker``) when the SSH user is a
     least-priv account that must manage stacks still owned under another home.
     """
     if path is None:

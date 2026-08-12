@@ -145,7 +145,7 @@ class Server(SQLModel, table=True):
     hostname: str
     ip_address: Optional[str] = None
     ssh_port: int = 22
-    ssh_username: str = "bjorn"
+    ssh_username: str = "pi"
     ssh_private_key_encrypted: Optional[str] = None  # Fernet ciphertext
     ssh_public_key: Optional[str] = None
     ssh_password_encrypted: Optional[str] = None  # optional fallback
@@ -160,7 +160,7 @@ class Server(SQLModel, table=True):
     container_patch_enabled: bool = False
 
     # Backup & container config (stored as JSON strings for simplicity in v1)
-    backup_paths: str = Field(default='["/home/bjorn/docker/", "/var/lib/docker/volumes/"]')
+    backup_paths: str = Field(default='["/home/pi/docker/", "/var/lib/docker/volumes/"]')
     docker_base_dir: str = "~/docker"
     excluded_projects: str = '["my-xmrig"]'
     retention_days: int = 7
@@ -237,9 +237,9 @@ class Server(SQLModel, table=True):
                 if data and isinstance(data[0], dict):
                     return [item.get("source", "") for item in data if item.get("source")]
                 return data
-            return ["/home/bjorn/docker/", "/var/lib/docker/volumes/"]
+            return ["/home/pi/docker/", "/var/lib/docker/volumes/"]
         except Exception:
-            return ["/home/bjorn/docker/", "/var/lib/docker/volumes/"]
+            return ["/home/pi/docker/", "/var/lib/docker/volumes/"]
 
     def get_backup_sources(self) -> List[dict]:
         """
@@ -267,12 +267,12 @@ class Server(SQLModel, table=True):
             if isinstance(data, list):
                 return [{"source": p, "dest_name": None, "enabled": True} for p in data if p]
             return [
-                {"source": "/home/bjorn/docker/", "dest_name": None, "enabled": True},
+                {"source": "/home/pi/docker/", "dest_name": None, "enabled": True},
                 {"source": "/var/lib/docker/volumes/", "dest_name": None, "enabled": True}
             ]
         except Exception:
             return [
-                {"source": "/home/bjorn/docker/", "dest_name": None, "enabled": True},
+                {"source": "/home/pi/docker/", "dest_name": None, "enabled": True},
                 {"source": "/var/lib/docker/volumes/", "dest_name": None, "enabled": True}
             ]
 

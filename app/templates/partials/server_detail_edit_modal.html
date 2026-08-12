@@ -58,13 +58,13 @@
         <div>
           <label class="block text-xs text-muted mb-1">Docker base dir (compose stacks)</label>
           <input name="docker_base_dir" value="{{ server.docker_base_dir or '~/docker' }}" autocomplete="off"
-                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11" placeholder="/home/bjorn/docker"
+                 class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11" placeholder="/home/pi/docker"
                  {% if is_haos %}disabled{% endif %}>
           <p class="text-[10px] text-muted mt-1">
             {% if is_haos %}
             Not used on HAOS (Supervisor manages containers).
             {% else %}
-            Prefer an <strong>absolute</strong> path when SSH user is least-priv (e.g. <code>/home/bjorn/docker</code>).
+            Prefer an <strong>absolute</strong> path when SSH user is least-priv (e.g. <code>/home/pi/docker</code>).
             <code>~/docker</code> expands to that SSH user’s home — wrong after switching to <code>piherder</code>.
             {% endif %}
           </p>
