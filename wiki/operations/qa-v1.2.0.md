@@ -199,7 +199,7 @@ Against [the public demo](demo-site.md) or a local `DEMO_MODE` overlay.
 | 10.2 | Must | Cannot add a host / deploy a key / create an API token. | |
 | 10.3 | Must | `/docs` `/redoc` `/openapi.json` → **404**. | |
 | 10.4 | Must | Console is **simulated**. | |
-| 10.5 | Should | Visitor audit IPs are `redacted`. | |
+| 10.5 | Should | Visitor audit IPs are `redacted` (column **and** details body). | |
 | 10.6 | Should | Canned job click does not touch a real host. | |
 
 ---

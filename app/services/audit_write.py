@@ -57,6 +57,13 @@ def make_audit_log(
     AuditLog directly from archived rows (which already include client_ip).
     """
     ip = resolve_client_ip(client_ip)
+    try:
+        from .demo import scrub_audit_text
+
+        details = scrub_audit_text(details, for_display=False)
+        output_snippet = scrub_audit_text(output_snippet, for_display=False)
+    except Exception:
+        pass
     # Drop unknown kwargs that SQLModel would reject (forward-compat)
     now = datetime.utcnow()
     return AuditLog(

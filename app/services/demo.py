@@ -18,6 +18,7 @@ Never enable on a production herder that holds real keys.
 """
 from __future__ import annotations
 
+import ipaddress
 import re
 from typing import Optional
 
@@ -207,6 +208,48 @@ def scrub_audit_client_ip(
     if s.startswith("10.") or s.startswith("192.168.") or s.startswith("127."):
         return s
     return DEMO_AUDIT_IP_PLACEHOLDER
+
+
+# Visitor IPs also land in free-text Audit *details* (e.g. console ``ip=203.0.113.1``).
+_IPV4_IN_TEXT_RE = re.compile(
+    r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b"
+)
+# Compressed or full IPv6 (validated with ipaddress before replace).
+_IPV6_IN_TEXT_RE = re.compile(
+    r"(?<![:.\w])(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}(?![:.\w])"
+)
+
+
+def _scrub_ip_match(raw: str, *, for_display: bool) -> str:
+    token = (raw or "").strip()
+    if not token or token in ("?", "unknown", DEMO_AUDIT_IP_PLACEHOLDER):
+        return raw
+    try:
+        ipaddress.ip_address(token)
+    except ValueError:
+        return raw
+    out = scrub_audit_client_ip(token, for_display=for_display)
+    return out if out is not None else DEMO_AUDIT_IP_PLACEHOLDER
+
+
+def scrub_audit_text(
+    text: Optional[str],
+    *,
+    for_display: bool = False,
+) -> Optional[str]:
+    """Redact visitor IPs embedded in audit details / snippets (demo only)."""
+    if not demo_mode() or text is None:
+        return text
+    s = str(text)
+    if not s:
+        return text
+
+    def repl(match: re.Match[str]) -> str:
+        return _scrub_ip_match(match.group(0), for_display=for_display)
+
+    s = _IPV4_IN_TEXT_RE.sub(repl, s)
+    s = _IPV6_IN_TEXT_RE.sub(repl, s)
+    return s
 
 
 def demo_banner() -> str:
