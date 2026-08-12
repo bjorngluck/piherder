@@ -40,28 +40,75 @@
 
 <script>
 const logEl = document.getElementById('build-log');
+const sid = {{ sid | tojson }};
 const params = new URLSearchParams({
   project: {{ project | tojson }},
   services: {{ (services|join(',')) | tojson }},
   no_cache: {{ no_cache | tojson }}
 });
-let es = new EventSource('/servers/{{ sid }}/docker/build-stream?' + params.toString());
+let aborted = false;
+const ac = (typeof AbortController !== 'undefined') ? new AbortController() : null;
 
-es.onopen = function() {
-  logEl.textContent += '[connected]\n';
+function appendLog(line) {
+  logEl.textContent += line + '\n';
   logEl.scrollTop = logEl.scrollHeight;
-};
-es.onmessage = function(e) {
-  logEl.textContent += e.data + '\n';
-  logEl.scrollTop = logEl.scrollHeight;
-};
-es.onerror = function() {
-  logEl.textContent += '\n[stream ended or error — build may still be running on host]\n';
-  try { es.close(); } catch (err) {}
-};
+}
+
+async function startBuildStream() {
+  let resp;
+  try {
+    resp = await fetch('/servers/' + sid + '/docker/build-stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'text/event-stream'
+      },
+      body: params.toString(),
+      credentials: 'same-origin',
+      signal: ac ? ac.signal : undefined
+    });
+  } catch (err) {
+    if (!aborted) appendLog('[stream error — build may still be running on host]');
+    return;
+  }
+  if (!resp.ok) {
+    appendLog('[error ' + resp.status + ' — build not started]');
+    return;
+  }
+  appendLog('[connected]');
+  const reader = resp.body && resp.body.getReader ? resp.body.getReader() : null;
+  if (!reader) {
+    appendLog('[browser cannot stream this response]');
+    return;
+  }
+  const decoder = new TextDecoder();
+  let buf = '';
+  while (true) {
+    let chunk;
+    try {
+      chunk = await reader.read();
+    } catch (err) {
+      if (!aborted) appendLog('[stream ended or error — build may still be running on host]');
+      return;
+    }
+    if (chunk.done) break;
+    buf += decoder.decode(chunk.value, {stream: true});
+    const parts = buf.split('\n\n');
+    buf = parts.pop() || '';
+    parts.forEach(function (block) {
+      block.split('\n').forEach(function (line) {
+        if (line.indexOf('data: ') === 0) appendLog(line.slice(6));
+      });
+    });
+  }
+  if (!aborted) appendLog('[stream ended — build may still be running on host]');
+}
+
+startBuildStream();
 document.querySelectorAll('[data-back-docker]').forEach(function(a) {
   a.addEventListener('click', function() {
-    try { if (es) es.close(); } catch (err) {}
+    aborted = true;
+    try { if (ac) ac.abort(); } catch (err) {}
   });
 });
 </script>
