@@ -179,7 +179,7 @@ Pull former **v1.3** items into **v1.2**. Keep residual 1.1 polish out of this p
 | **S1** OIDC authorization-code + PKCE; BYO IdP (Authentik, Keycloak, Authelia, Google Workspace, Entra) | Must | **Code complete** — operator live IdP QA pending |
 | **S2** Map IdP groups/claims → roles (`admin` / `operator` / `viewer`) | Must | **Code complete** (UI map modal) |
 | **S3** JIT user provision + disable orphan policy | Must | **Code complete** (soft orphan) |
-| **S4** Local password login **remain** (air-gap / break-glass); config to force SSO for non-break-glass | Must | **Code complete** |
+| **S4** Local password login **remain** (air-gap / break-glass); config to force SSO for non-break-glass | Must | **Landed (R8)** — non-admins blocked when Require SSO is on; admins stay password break-glass |
 | **S5** Settings UI: issuer, client id/secret (Fernet), scopes, role claim mapping | Must | **Code complete** |
 | **S6** Audit: `sso_login` / `sso_link` / `sso_unlink` / failures | Must | **Code complete** |
 | **S7** **Link both ways:** SSO login → local (email auto-link) **and** Account → SSO (explicit) | Must | **Code complete** |
@@ -241,6 +241,25 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 | Banner | UI + terminal: “simulated · no live SSH” |
 
 Sidecar SSH toy (option A) remains a possible later upgrade if a “real path” demo is needed; not required for 1.2.
+
+### Stream R — Review remediations (freeze security / honesty)
+
+Landed on `v1.2.0-dev` after the 2026-08 deep review. Not a new product surface.
+
+| Item | Stance | Status |
+|------|--------|--------|
+| **R1** Loopback `:8000` + `PIHERDER_TRUSTED_PROXY_CIDRS` | Must | **Landed** |
+| **R2** Password-reset URLs from `PIHERDER_PUBLIC_URL` only | Must | **Landed** |
+| **R3** Compose build POST-only; quote paths; no raw `/path` fallback | Must | **Landed** |
+| **R4** Logout bumps `session_version` + drops parked consoles | Must | **Landed** |
+| **R5** 2FA backup codes via HttpOnly flash cookie (not query string) | Must | **Landed** |
+| **R6** User/server delete graphs (pins, OIDC, certs, edges, …) | Must | **Landed** |
+| **R7** Default SSH user `pi` (new hosts only) | Should | **Landed** |
+| **R8** Enforce Require SSO; missing `email_verified` is not verified | Must | **Landed** |
+| **R9** Confine herder archive download/restore paths | Must | **Landed** |
+| **R10** README / wiki / upgrade / RELEASE honesty | Must | **Landed** |
+
+**S4 note:** Require SSO is now enforced in `POST /auth/login` (admins remain password break-glass).
 
 ### Stream Q — Quality / freeze (same bar as 1.1, raised for new attack surface)
 

@@ -27,6 +27,15 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 
 **Carry-over from earlier plans (still in 1.3 path):** fine-grained roles (**AC-fg**), ACME-in-herder (under consideration), residual HA REST/path2, branding, k8s/bare — see §6 and [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
 
+**Parked from the 1.2 review (do not start on `v1.2.0-dev`):**
+
+| Item | Notes |
+|------|--------|
+| SSH host-key pinning | **KI-ssh-hostkey-tofu** — replace `AutoAddPolicy` with stored pins + mismatch UI |
+| Compile Tailwind / nonce CSP | Drop `'unsafe-eval'` (**KI-csp-unsafe-eval**) |
+| First-run UX | Hide Catalog / maps until first host + backup; Settings URL rename |
+| One job runtime | Collapse Celery / BackgroundTasks / thread pools; scheduler off the web process |
+
 ---
 
 ## 1. Decision lock (planning defaults — revisit at train open)

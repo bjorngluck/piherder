@@ -2,7 +2,7 @@
 
 **Status:** **In development** on `v1.2.0-dev` (not yet tagged)  
 **Theme:** Big identity + webshell + gated demo · backup reliability · **self-backup full DB DR**  
-**Baseline:** [v1.1.0](RELEASE_v1.1.0.md) / [v1.1.1](RELEASE_v1.1.1.md)  
+**Baseline:** [v1.1.0](RELEASE_v1.1.0.md)  
 **Plan:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md)
 
 ---
@@ -55,6 +55,12 @@ Full freeze wording lands when the train tags.
 | ID | Topic | Notes |
 |----|--------|--------|
 | **KI-console-mobile-soft-tab** | Web console soft **Tab** on mobile | Desktop physical + soft Tab OK. On mobile browsers, soft Tab can leave IME mid-token or re-append the short fragment after bash path completion (`docker/do`, `piherder/pi`). **Workaround:** Space → Backspace → soft Tab, or use a physical keyboard. Path completion also depends on the **remote SSH user** home layout. Parked (not freeze-blocking). Wiki: [web-ssh-console § Known issues](../wiki/day-to-day/web-ssh-console.md#known-issues). |
+| **KI-ssh-hostkey-tofu** | SSH host keys | Every connect uses Paramiko `AutoAddPolicy` (accept-new). No pin / TOFU store. Parked for v1.3. |
+| **KI-csp-unsafe-eval** | CSP | Policy is on, but Tailwind Play still needs `script-src 'unsafe-inline' 'unsafe-eval'`. XSS on the herder origin remains shell-equivalent when console is enabled. |
+
+### Stream R — freeze remediations (landed on `v1.2.0-dev`)
+
+Trusted-proxy client IP + loopback `:8000` · reset URLs from `PIHERDER_PUBLIC_URL` · POST-only quoted compose build · logout bumps `session_version` · backup codes out of the query string · user/server delete graphs · default SSH user `pi` · require-SSO + strict `email_verified` · confined herder archive paths.
 
 ---
 
