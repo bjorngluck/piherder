@@ -1,6 +1,6 @@
 # PiHerder
 
-**Secure fleet management for Raspberry Pi clusters — backups, patching, containers, and control with zero plaintext secrets.**
+**Self-hosted control plane for the Pis and Linux boxes you already SSH into — backups, patching, Compose, and an audit trail. Secrets in the database are encrypted; the master key stays on your disk.**
 
 ![PiHerder Logo](app/static/images/piherder-logo.png)
 
@@ -21,11 +21,10 @@
 | | |
 |--|--|
 | **Host** | https://piherder-demo.hacknow.info |
-| **Username** | `demo@hacknow.info` |
-| **Password** | `PiHerder@123?_` |
 | **Access** | Shared **viewer** account (read-oriented menus; not admin) |
+| **Login** | Current username and password: **[wiki / Public demo](https://piherder-docs.hacknow.info/operations/demo-site/)** |
 
-No install required. Log in with the shared credentials above, click around the dashboard, hosts, jobs, maps, and integrations. There is **no path to your machines** — the fleet is synthetic, jobs are simulated, and real SSH / API tokens / onboarding are disabled.
+No install required. Log in with the shared credentials from the wiki, click around the dashboard, hosts, jobs, maps, and integrations. There is **no path to your machines** — the fleet is synthetic, jobs are simulated, and real SSH / API tokens / onboarding are disabled.
 
 **Demo ≠ production pixel-for-pixel.** Some screens and “highlighted” features on the demo are **not 100% aligned** with a real self-hosted fleet. That is intentional: hosts, inventory, jobs, maps, and integrations are **seeded / simulated** so the sandbox is safe and disposable. Expect canned job results, static sample data, and occasional empty or simplified panels where a live deployment would talk to real Pis, Docker, or external services. Your own install against real hosts is the accurate product experience.
 
@@ -35,7 +34,7 @@ Full limits and notes: **[Public demo (wiki)](https://piherder-docs.hacknow.info
 
 After 30+ years as an engineer, senior cybersecurity leader, tinkerer, hacker, and 3D designer/builder, I got tired of brittle bash scripts and manual processes across my Raspberry Pi clusters and homelab.
 
-PiHerder was born the same way many great tools are: **scripts that automate the boring stuff so I could focus on building and securing systems**. It replaces manual workflows with an auditable web UI while keeping secrets encrypted at rest and never storing plaintext.
+PiHerder was born the same way many great tools are: **scripts that automate the boring stuff so I could focus on building and securing systems**. It replaces manual workflows with an auditable web UI. Fleet secrets in the database are Fernet-encrypted; `PIHERDER_MASTER_KEY` stays in your host `.env`.
 
 Inspired by projects like [Nginx Proxy Manager](https://github.com/NginxProxyManager/nginx-proxy-manager) — simple, powerful, self-hosted tools that just make life easier.
 
@@ -77,9 +76,8 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
 - **Current production:** [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) (day-to-day operator improvements — certs · discovery · identity · UX · maps · API)
-- **Active train:** [docs/PLAN_v1.2.0.md](docs/PLAN_v1.2.0.md) on `v1.2.0-dev` (WebAuthn · SSO · webshell · gated demo · backup retry)
-- Prior: [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · [docs/RELEASE_v0.9.0.md](docs/RELEASE_v0.9.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
-- Plan (1.1 archive): [docs/PLAN_v1.1.0.md](docs/PLAN_v1.1.0.md)
+- **Active train:** `v1.2.0-dev` — WebAuthn · SSO · webshell · gated demo · full DB self-backup (not tagged yet)
+- Prior: [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
 - API reference: [docs/API.md](docs/API.md)
 
 ### Tech Stack

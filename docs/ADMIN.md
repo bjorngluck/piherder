@@ -10,7 +10,7 @@ Related: [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_IAM_2FA_U
 
 ## Public demo (`PIHERDER_DEMO_MODE`)
 
-Gated demo at **https://piherder-demo.hacknow.info** (dedicated VPS + Docker Compose + Cloudflare Access). App behaviour: banner, blocked onboard/API tokens, canned jobs, auto-seed. **Maintainer runbook:** [DEMO_SITE.md](DEMO_SITE.md). User-facing blurb: [wiki/operations/demo-site.md](../wiki/operations/demo-site.md). Compose overlay: `docker-compose.demo.yml`. In-app restore: Settings → **Demo** (type `RESET`). Turnstile: `PIHERDER_TURNSTILE_*` on login.
+Gated demo at **https://piherder-demo.hacknow.info** (dedicated VPS + Docker Compose + Cloudflare Access). App behaviour: banner, blocked onboard/API tokens, canned jobs, auto-seed. **Maintainer runbook:** [DEMO_SITE.md](DEMO_SITE.md). User-facing blurb: [wiki/operations/demo-site.md](../wiki/operations/demo-site.md). Compose overlay: `docker-compose.demo.yml`. Seed restore is **ops CLI only** (`scripts/demo-maintain.sh` / `demo_seed/reset.sh`) — there is no in-app RESET (shared-account vandalism). Turnstile: `PIHERDER_TURNSTILE_*` on login.
 
 ---
 
