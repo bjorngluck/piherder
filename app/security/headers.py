@@ -3,7 +3,8 @@
 CSP is enabled by default. Existing UI uses many inline scripts/styles and
 vendored Tailwind Play (needs ``unsafe-eval``). Policy is intentionally
 **self-hosted** (no third-party script CDNs) so webshell/xterm stay under
-``'self'``. Tighten further (nonces) in a later train when inline scripts shrink.
+``'self'``. Tighten further (compiled Tailwind → drop unsafe-eval; nonces) when
+inline scripts shrink. connect-src does not allow wildcard ws:/wss:.
 
 Env:
   PIHERDER_CSP=true|false          (default true)
@@ -52,8 +53,11 @@ def build_csp() -> str:
     """Return the Content-Security-Policy value (no header name)."""
     # script-src: 'unsafe-inline' for template scripts; 'unsafe-eval' for Tailwind Play
     # style-src: 'unsafe-inline' for theme/style attributes and xterm
-    # connect-src: same origin + WebSocket (console) + optional public origin
-    connect = ["'self'", "ws:", "wss:"]
+    # connect-src: same origin only. Modern browsers treat 'self' as covering
+    # same-origin fetch + WebSocket. Do **not** allow bare ws:/wss: (any host).
+    # When PIHERDER_PUBLIC_URL is set, also allow that origin + its ws/wss
+    # (Caddy :8443 vs app :8000, or CF orange-cloud).
+    connect = ["'self'"]
     origin = _public_origin()
     if origin:
         connect.append(origin)
