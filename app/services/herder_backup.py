@@ -19,6 +19,7 @@ Not included (separate products):
 """
 
 import json
+import re
 import tarfile
 import tempfile
 import os
@@ -109,6 +110,75 @@ def archive_dir_candidates() -> List[Path]:
         Path("/backups"),
         data / "herder_backups",
     ]
+
+
+_ARCHIVE_NAME_RE = re.compile(r"^piherder-.+\.(tar\.gz|tgz|tar)$", re.IGNORECASE)
+
+
+def is_safe_archive_basename(name: str) -> bool:
+    """True when *name* is a single archive filename (no slashes / ``..``)."""
+    raw = (name or "").strip()
+    if not raw or raw != Path(raw).name:
+        return False
+    if raw in (".", "..") or ".." in raw:
+        return False
+    return bool(_ARCHIVE_NAME_RE.match(raw))
+
+
+def _is_under_root(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except (ValueError, OSError):
+        return False
+
+
+def resolve_archive_in_roots(
+    *,
+    path: str = "",
+    name: str = "",
+    allow_tmp_upload: bool = False,
+) -> Optional[Path]:
+    """Resolve a self-backup archive that must live under a known root.
+
+    ``name=`` is a basename only (``piherder-*.tar.gz``). ``path=`` must
+    resolve inside ``archive_dir_candidates()`` (or a ``/tmp/.upload-*``
+    file from this request when *allow_tmp_upload*).
+    """
+    roots = [r for r in archive_dir_candidates() if r]
+    if name:
+        if not is_safe_archive_basename(name):
+            return None
+        for root in roots:
+            cand = (root / name)
+            try:
+                resolved = cand.resolve()
+            except OSError:
+                continue
+            if _is_under_root(resolved, root) and resolved.is_file():
+                return resolved
+        return None
+
+    raw = (path or "").strip()
+    if not raw:
+        return None
+    try:
+        p = Path(raw).resolve()
+    except OSError:
+        return None
+    if not p.is_file():
+        return None
+    if allow_tmp_upload:
+        try:
+            tmp = Path("/tmp").resolve()
+            if _is_under_root(p, tmp) and p.name.startswith(".upload-"):
+                return p
+        except OSError:
+            pass
+    for root in roots:
+        if _is_under_root(p, root):
+            return p
+    return None
 
 
 def _ensure_dir():
