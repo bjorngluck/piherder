@@ -491,8 +491,9 @@ def email_verified_ok(claims: dict, cfg: Optional[dict] = None) -> bool:
     if not cfg.get("oidc_require_email_verified", True):
         return True
     if "email_verified" not in claims:
-        # Some IdPs omit the claim — allow if email present (operator can tighten later)
-        return True
+        # Missing claim is not verified. Operators whose IdP omits the field
+        # can turn off oidc_require_email_verified.
+        return False
     return bool(claims.get("email_verified"))
 
 

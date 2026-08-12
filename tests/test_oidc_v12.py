@@ -58,8 +58,13 @@ def test_email_verified_ok():
     assert not oidc.email_verified_ok(
         {"email_verified": False}, {"oidc_require_email_verified": True}
     )
-    # claim omitted → allow
-    assert oidc.email_verified_ok({"email": "a@b.com"}, {"oidc_require_email_verified": True})
+    # claim omitted → not verified (operator can disable the require flag)
+    assert not oidc.email_verified_ok(
+        {"email": "a@b.com"}, {"oidc_require_email_verified": True}
+    )
+    assert oidc.email_verified_ok(
+        {"email": "a@b.com"}, {"oidc_require_email_verified": False}
+    )
 
 
 def test_find_user_existing_link(monkeypatch):
