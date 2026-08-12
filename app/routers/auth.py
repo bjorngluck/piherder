@@ -759,13 +759,41 @@ async def register(
 
 
 @router.get("/logout")
-async def logout():
-    """Clear session cookies and return to login.
+async def logout(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    """Invalidate the session JWT and return to login.
 
-    Does **not** clear trusted-device cookies — those are meant to skip 2FA on
-    the next password login for this browser (until expiry or revoke).
-    Does clear console step-up grant so web SSH cannot ride a dead session.
+    Bumps ``session_version`` so stolen cookies and live/parked consoles die
+    (console revalidate ~10s). Does **not** clear trusted-device cookies.
     """
+    raw = request.cookies.get("access_token") or ""
+    if raw.startswith("Bearer "):
+        raw = raw.split(" ", 1)[1]
+    payload = decode_token_payload(raw) if raw else None
+    if payload and not payload.get("2fa_pending") and payload.get("sub"):
+        try:
+            uid = int(payload["sub"])
+        except (TypeError, ValueError):
+            uid = 0
+        user = session.get(User, uid) if uid else None
+        if user:
+            try:
+                from ..services.user_admin import bump_session_version
+                from ..services.ssh_console import discard_all_parked_for_user
+
+                bump_session_version(session, user)
+                discard_all_parked_for_user(int(user.id))
+                session.commit()
+                _audit(session, user.id, "user_logout", "Session revoked")
+            except Exception:
+                logger.exception("logout session revoke failed")
+                try:
+                    session.rollback()
+                except Exception:
+                    pass
+
     response = RedirectResponse("/auth/login", status_code=303)
     dk = cookie_delete_kwargs()
     response.delete_cookie("access_token", **dk)
