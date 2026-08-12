@@ -1,3 +1,10 @@
-/* Compiled by scripts/build-tailwind.sh — utilities only (no Preflight).
-   Theme / component classes stay in themes.css and ops-*.css. */
+/* Compiled by scripts/build-tailwind.sh.
+   Full Preflight stays off (it would reset buttons/headings we style in themes.css).
+   Keep Play's layout model so w-full + padding does not overflow the viewport. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 @tailwind utilities;
