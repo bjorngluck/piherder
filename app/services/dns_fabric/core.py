@@ -988,6 +988,7 @@ def fanout_pihole_dns(
     ip: str = "",
     domain: str = "",
     target: str = "",
+    raw: str = "",
     scope: str = "all",
     source_id: int | None = None,
 ) -> list[dict[str, Any]]:
@@ -1034,7 +1035,7 @@ def fanout_pihole_dns(
                     if op == "add":
                         ph.add_dns_cname(sess, domain, target)
                     else:
-                        ph.delete_dns_cname(sess, domain, target)
+                        ph.delete_dns_cname(sess, domain, target, raw=raw or None)
                 item["ok"] = True
             finally:
                 ph.logout(sess)

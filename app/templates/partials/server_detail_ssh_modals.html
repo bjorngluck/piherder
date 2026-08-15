@@ -3,7 +3,7 @@
   <div class="modal-content card p-5 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold">SSH access — {{ server.name }}</h3>
-      <button type="button" onclick="hideSshAccessModal()" class="text-muted hover:text-text">✕</button>
+      <button type="button" onclick="hideSshAccessModal()" class="ph-icon-close" aria-label="Close">✕</button>
     </div>
     <p class="text-xs text-muted mb-3">
       <strong class="text-text font-mono">{{ server.ssh_username }}</strong>@{{ server.hostname }}:{{ server.ssh_port }}
