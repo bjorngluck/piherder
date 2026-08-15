@@ -209,6 +209,7 @@
                 data-kind="cname"
                 data-domain="{{ c.domain }}"
                 data-target="{{ c.target }}"
+                data-raw="{{ c.raw or '' }}"
                 data-label="{{ c.domain }} → {{ c.target }}">
           Remove
         </button>
@@ -581,6 +582,7 @@
   <input type="hidden" name="ip" id="ph-dns-rm-ip" value="">
   <input type="hidden" name="domain" id="ph-dns-rm-domain" value="">
   <input type="hidden" name="target" id="ph-dns-rm-target" value="">
+  <input type="hidden" name="raw" id="ph-dns-rm-raw" value="">
 </form>
 <script>
 (function () {
@@ -606,6 +608,8 @@
     document.getElementById('ph-dns-rm-ip').value = btn.getAttribute('data-ip') || '';
     document.getElementById('ph-dns-rm-domain').value = btn.getAttribute('data-domain') || '';
     document.getElementById('ph-dns-rm-target').value = btn.getAttribute('data-target') || '';
+    var rawEl = document.getElementById('ph-dns-rm-raw');
+    if (rawEl) rawEl.value = btn.getAttribute('data-raw') || '';
     var radios = modal.querySelectorAll('input[name="ph-dns-scope"]');
     radios.forEach(function (r) { r.checked = r.value === 'this'; });
     modal.classList.remove('hidden');

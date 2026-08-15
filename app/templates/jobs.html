@@ -157,7 +157,7 @@
        data-job-id="{{ j.id }}"
        title="Click for job details">
     <button type="button"
-            class="text-left w-full"
+            class="audit-event-hit"
             onclick="showJobDetailsModal(JOBS[{{ loop.index0 }}])">
       <div class="audit-event-top">
         <span class="status-pill {{ 'status-success' if sd == 'success' else 'status-failed' if sd == 'failed' else 'status-running' if sd in ('running','pending') else 'status-cancelled' }}">

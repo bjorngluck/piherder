@@ -242,6 +242,20 @@ body {
   color: var(--color-text);
 }
 
+/* Play used to reset form controls. Without it, bare <button>s (close ✕,
+   job-row hit targets) keep the UA grey chrome and hide the icon. */
+button {
+  font: inherit;
+  font-size: 100%;
+  line-height: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  background-image: none;
+  border: none;
+  border-radius: 0;
+}
 .card, .bg-surface {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -2131,7 +2145,8 @@ body.server-reorder-active #bulk-hint {
   margin: 0;
   display: inline-flex;
 }
-.source-icon-btn {
+.source-icon-btn,
+.ph-icon-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2142,13 +2157,31 @@ body.server-reorder-active #bulk-hint {
   border-radius: 6px;
   background: var(--color-surface);
   color: var(--color-text);
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   line-height: 1;
   cursor: pointer;
+  flex-shrink: 0;
 }
-.source-icon-btn:hover {
+.ph-icon-close {
+  color: var(--color-text);
+}
+.source-icon-btn:hover,
+.ph-icon-close:hover {
   background: var(--color-bg);
   border-color: var(--color-muted);
+  color: var(--color-text);
+}
+
+.ph-spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 2px solid var(--color-accent);
+  border-top-color: transparent;
+  animation: ph-spin 0.85s linear infinite;
+}
+@keyframes ph-spin {
+  to { transform: rotate(360deg); }
 }
 .source-icon-run {
   background: var(--color-accent);

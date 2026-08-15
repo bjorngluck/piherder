@@ -26,13 +26,13 @@
          fabric (network maps) · fabric-stack (runtime stack drawer)
          dns-hub (records modal) · ops (shell/filters) · ops-pages (feature pages)
        Query busts browser + older SW caches when tokens change. -->
-  <link rel="stylesheet" href="/static/css/themes.css?v=20260812-box">
+  <link rel="stylesheet" href="/static/css/themes.css?v=20260812-ui2">
   <link rel="stylesheet" href="/static/css/fabric.css?v=20260730-app-card-ports">
   <link rel="stylesheet" href="/static/css/fabric-stack.css?v=20260730-host-ports-m4">
   <link rel="stylesheet" href="/static/css/dns-hub.css?v=20260725-split">
   <link rel="stylesheet" href="/static/css/ops.css?v=20260725-split">
   <link rel="stylesheet" href="/static/css/ops-auth.css?v=20260718-order6">
-  <link rel="stylesheet" href="/static/css/ops-pages.css?v=20260725-cov-bind">
+  <link rel="stylesheet" href="/static/css/ops-pages.css?v=20260812-ui2">
 
   <!-- Apply saved theme ASAP (before paint) so the page doesn't flash light → dark -->
   <script>
@@ -464,9 +464,10 @@
        aria-live="polite"
        aria-busy="false"
        role="status">
-    <div class="card rounded-xl p-6 w-full max-w-sm mx-4 text-center">
+    <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center ph-modal-brand">
+      <div class="ph-detail-kicker mb-2">{{ ph_brand() }}</div>
       <div class="flex justify-center mb-3">
-        <div class="w-7 h-7 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+        <div class="ph-spinner" aria-hidden="true"></div>
       </div>
       <div class="font-medium" id="piherder-nav-loading-title">Loading…</div>
       <div class="text-xs text-muted mt-1" id="piherder-nav-loading-sub"></div>
@@ -511,7 +512,7 @@
        aria-modal="true" role="dialog" aria-labelledby="ph-wait-title" aria-busy="true">
     <div class="modal-content card p-6 w-full max-w-md mx-4 text-center ph-modal-brand">
       <div class="ph-detail-kicker mb-2">{{ ph_brand() }}</div>
-      <div class="mx-auto mb-4 h-10 w-10 rounded-full border-2 border-accent border-t-transparent animate-spin" aria-hidden="true"></div>
+      <div class="mx-auto mb-4 ph-spinner" aria-hidden="true"></div>
       <h3 id="ph-wait-title" class="ph-detail-title mb-2">Working…</h3>
       <p id="ph-wait-message" class="text-sm text-muted mb-0">Please wait…</p>
       <p class="text-[10px] text-muted mt-3 mb-0">This page will update when the operation finishes. Do not close or navigate away.</p>
