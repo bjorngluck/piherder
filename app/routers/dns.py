@@ -1383,6 +1383,47 @@ async def delete_service(
     return _redirect(msg=f"Removed {fqdn}")
 
 
+@router.post("/dns/services/{record_id}/link-project")
+async def link_service_project(
+    request: Request,
+    record_id: int,
+    docker_project: str = Form(...),
+    mark_direct: Optional[str] = Form("1"),
+    next: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_operator_user),
+):
+    """Persist compose project on a path so Hosts / Path maps show the container."""
+    row = fabric.get_service_record(session, record_id)
+    if not row:
+        raise HTTPException(404)
+    want_json = "application/json" in (request.headers.get("accept") or "").lower()
+    dest = _stack_next(next, service_id=str(record_id))
+    try:
+        row = fabric.link_service_project(
+            session,
+            row,
+            docker_project=docker_project,
+            user_id=user.id,
+            mark_direct=mark_direct not in ("0", "false", "off", ""),
+        )
+    except fabric.DnsFabricError as e:
+        if want_json:
+            return JSONResponse({"ok": False, "error": e.message}, status_code=400)
+        return _redirect(dest, error=e.message)
+    msg = f"Linked {row.fqdn} → {row.docker_project}"
+    if want_json:
+        return JSONResponse(
+            {
+                "ok": True,
+                "fqdn": row.fqdn,
+                "docker_project": row.docker_project,
+                "via_proxy": bool(row.via_proxy),
+            }
+        )
+    return _redirect(dest, msg=msg)
+
+
 @router.post("/dns/services/{record_id}/external")
 async def mark_external(
     record_id: int,

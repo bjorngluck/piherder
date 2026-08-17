@@ -1246,6 +1246,64 @@ def get_service_record(session: Session, record_id: int) -> ServiceDnsRecord | N
     return session.get(ServiceDnsRecord, record_id)
 
 
+def link_service_project(
+    session: Session,
+    row: ServiceDnsRecord,
+    *,
+    docker_project: str,
+    user_id: int | None = None,
+    mark_direct: bool = True,
+) -> ServiceDnsRecord:
+    """Persist compose project on a service path (operator association).
+
+    Used when auto-resolve cannot attach Docker — e.g. TLS on the container
+    published as the host FQDN, leftover NPM inventory, or a Kuma bind that
+    does not share tokens with the compose project name.
+
+    ``mark_direct`` retargets DNS at the backend host and clears via-NPM so
+    Hosts / Path maps treat the path as name → host → app.
+    """
+    proj = (docker_project or "").strip()
+    if not proj:
+        raise DnsFabricError("Compose project is required", "need_project")
+    if len(proj) > 200:
+        raise DnsFabricError("Compose project name is too long", "invalid_project")
+
+    backend = session.get(Server, row.backend_server_id)
+    if not backend:
+        raise DnsFabricError("Backend host not found", "not_found")
+
+    old_project = (row.docker_project or "").strip()
+    row.docker_project = proj
+    if not (row.label or "").strip():
+        row.label = proj
+    if mark_direct:
+        row.via_proxy = False
+        row.npm_hint = None
+        if backend.id is not None:
+            row.target_server_id = int(backend.id)
+        if is_host_identity_name(row.fqdn, backend):
+            row.record_type = "a"
+    row.updated_at = datetime.utcnow()
+    session.add(row)
+    session.add(
+        make_audit_log(
+            action="dns_service_link_project",
+            status="success",
+            user_id=user_id,
+            server_id=row.backend_server_id,
+            details=(
+                f"{row.fqdn} project={proj}"
+                + (f" (was {old_project})" if old_project and old_project != proj else "")
+                + (" · direct" if mark_direct else "")
+            ),
+        )
+    )
+    session.commit()
+    session.refresh(row)
+    return row
+
+
 def list_service_records(session: Session) -> list[ServiceDnsRecord]:
     return list(
         session.exec(select(ServiceDnsRecord).order_by(ServiceDnsRecord.fqdn)).all()
@@ -1537,6 +1595,45 @@ def certs_matching_fqdn(session: Session, fqdn: str) -> list[ManagedCertificate]
 PATH_KINDS = ("host", "app", "npm_host", "npm_app")
 
 
+def _hostname_from_urlish(value: str | None) -> str:
+    """Extract a hostname from a URL, ``host:port``, or bare FQDN."""
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+    if "://" in raw:
+        try:
+            from urllib.parse import urlparse
+
+            host = urlparse(raw).hostname or ""
+            return normalize_fqdn(host)
+        except Exception:
+            return ""
+    host = raw.split("/")[0].split(":")[0].strip()
+    return normalize_fqdn(host) if host and "." in host else ""
+
+
+def _binding_monitor_hosts(binding: Any) -> set[str]:
+    """Hostnames a Kuma (or similar) service bind is watching."""
+    hosts: set[str] = set()
+    for cand in (getattr(binding, "external_label", None), getattr(binding, "external_id", None)):
+        h = _hostname_from_urlish(str(cand) if cand else "")
+        if h:
+            hosts.add(h)
+    raw = getattr(binding, "external_meta_json", None) or ""
+    meta: Any = None
+    if raw:
+        try:
+            meta = json.loads(raw) if isinstance(raw, str) else raw
+        except Exception:
+            meta = None
+    if isinstance(meta, dict):
+        for key in ("url", "monitor_url", "hostname", "monitor_hostname"):
+            h = _hostname_from_urlish(str(meta.get(key) or ""))
+            if h:
+                hosts.add(h)
+    return hosts
+
+
 def _find_docker_container(
     session: Session, server_id: int, docker_project: str | None
 ) -> Optional[str]:
@@ -1624,6 +1721,12 @@ def resolve_app_layers(
         bp = (b.docker_project or "").lower()
         lab = (b.external_label or "").lower()
         cont = (b.docker_container or "").lower()
+        # Direct TLS on the container often uses the *host* FQDN (no app CNAME).
+        # Match the Kuma monitor URL/hostname to this path even when tokens
+        # are ``rpi5-4`` and the compose project is ``frigate``.
+        fq = normalize_fqdn(fqdn)
+        if fq and fq in _binding_monitor_hosts(b):
+            score += 50
         for t in tokens:
             tl = t.lower()
             if tl == bp or tl in bp or bp == tl:
@@ -1771,20 +1874,23 @@ def build_access_path(
     npm_fwd = None if host_identity else _find_npm_forward(
         session, name, project, backend.id if backend else None
     )
-    # NPM hop only when CNAME target is edge and (differs from backend OR npm publishes)
+    # NPM hop only when CNAME target is a *different* host (the edge).
+    # If DNS already lands on the backend (direct TLS on the container),
+    # leftover NPM proxy-host inventory must not keep the path as via-NPM.
     edge_differs = (
         not host_identity
         and target is not None
         and backend is not None
         and target.id != backend.id
     )
-    edge_is_proxy = False if host_identity else (bool(via_proxy) or edge_differs)
-    if not host_identity:
-        if npm_fwd and (edge_differs or via_proxy or (target and backend and target.id == backend.id and npm_fwd)):
+    if host_identity or (target is not None and backend is not None and target.id == backend.id):
+        edge_is_proxy = False
+        npm_fwd = None
+    else:
+        edge_is_proxy = bool(via_proxy) or edge_differs
+        if npm_fwd and (edge_differs or via_proxy):
             edge_is_proxy = True
         if not npm_fwd and not edge_differs and not via_proxy:
-            edge_is_proxy = False
-        if target and backend and target.id == backend.id and not npm_fwd:
             edge_is_proxy = False
 
     hops: list[dict[str, Any]] = []
