@@ -303,6 +303,86 @@ def test_build_access_path_host_direct_with_app_layers():
     assert "npm" not in kinds
 
 
+def test_build_access_path_direct_ignores_stale_npm():
+    """CNAME already on the backend host — leftover NPM inventory is not the edge."""
+    session = MagicMock()
+    host = SimpleNamespace(
+        id=4, name="RPI5-4", dns_name="rpi5-4.example.com", hostname="rpi5-4",
+        ip_address="192.168.86.40", dns_ip_override=None,
+    )
+    stale_npm = {
+        "forward_host": "192.168.86.40",
+        "forward_port": 8971,
+        "domain_names": ["frigate.example.com"],
+    }
+    with patch.object(fabric.core, "_servers_by_id", return_value={4: host}), patch.object(
+        fabric.core, "_find_npm_forward", return_value=stale_npm
+    ), patch.object(
+        fabric.core,
+        "resolve_app_layers",
+        return_value={
+            "docker_project": "frigate",
+            "docker_container": "frigate",
+            "source": "kuma",
+        },
+    ):
+        path = fabric.build_access_path(
+            session,
+            fqdn="frigate.example.com",
+            target_server_id=4,
+            backend_server_id=4,
+            via_proxy=True,
+            docker_project=None,
+        )
+    assert path["via_proxy"] is False
+    assert path["path_kind"] == "app"
+    kinds = [h["kind"] for h in path["hops"]]
+    assert "npm" not in kinds
+    assert kinds == ["name", "host", "service", "container"]
+
+
+def test_link_service_project_sets_docker_and_clears_proxy():
+    backend = SimpleNamespace(
+        id=4, name="RPI5-4", dns_name="rpi5-4.example.com",
+    )
+    row = SimpleNamespace(
+        fqdn="rpi5-4.example.com",
+        docker_project=None,
+        label=None,
+        via_proxy=True,
+        npm_hint="NPM leftover",
+        backend_server_id=4,
+        target_server_id=9,
+        record_type="cname",
+        updated_at=None,
+    )
+    session = MagicMock()
+    session.get.return_value = backend
+    with patch.object(fabric.core, "make_audit_log", return_value=SimpleNamespace()):
+        out = fabric.link_service_project(
+            session, row, docker_project="frigate", user_id=1, mark_direct=True
+        )
+    assert out.docker_project == "frigate"
+    assert out.label == "frigate"
+    assert out.via_proxy is False
+    assert out.npm_hint is None
+    assert out.target_server_id == 4
+    assert out.record_type == "a"
+    session.commit.assert_called()
+
+
+def test_hostname_from_urlish_and_binding_hosts():
+    assert fabric._hostname_from_urlish("https://rpi5-4.example.com:8971/") == "rpi5-4.example.com"
+    assert fabric._hostname_from_urlish("rpi5-4.example.com") == "rpi5-4.example.com"
+    assert fabric._hostname_from_urlish("frigate") == ""
+    b = SimpleNamespace(
+        external_label="Frigate",
+        external_id="12",
+        external_meta_json='{"url": "https://rpi5-4.example.com/", "hostname": ""}',
+    )
+    assert "rpi5-4.example.com" in fabric._binding_monitor_hosts(b)
+
+
 def test_build_path_mesh_from_hops():
     services = [
         {

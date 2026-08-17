@@ -80,6 +80,8 @@ name  →  [NPM]  →  host  →  [service/project]  →  [container]
 | **Service** | `grafana` | Compose project (Kuma / NPM / deploy) |
 | **Container** | `grafana` | Runtime container |
 
+A path only fans a container on the Hosts map when a **compose project is linked** (`ServiceDnsRecord.docker_project`), usually from Kuma / NPM / adopt — or explicitly from **Stack → Use this project**.
+
 ### Path kinds
 
 | Kind | UI label (hub stats) | Meaning |
@@ -339,6 +341,16 @@ Infrastructure nodes (Internet cloud, Router, LAN, NPM hub) use theme-aware fill
 5. **Host identity** — when the app name equals the host A name (Kuma host-level service, no Docker), use **Map host identity** (A only).  
 6. **Template deployments** — Service DNS card attaches an inferred plan (one FQDN field when needed).  
 7. **External DNS** — checklist on the hub for Cloudflare/etc. (not automated in 0.5.0).
+
+### Direct TLS (no NPM)
+
+When a container terminates TLS itself (e.g. Frigate on `rpi5-4.hacknow.info`) and the CNAME target is the **host** — not the NPM edge:
+
+1. Pi-hole CNAME (or host A) must point at the backend host FQDN. Leftover NPM proxy hosts in inventory are **not** treated as the path edge.  
+2. Bind the Kuma HTTP monitor to that host **and** the compose project / container (not “host service”). Prefer the monitor URL to be the published HTTPS name.  
+3. Open **Stack** on the path. If it says **no Docker project linked**, click the compose project (e.g. `frigate`) — that **persists** the association so Hosts / Path maps show the container satellite. Preview-only chips do not write the path.
+
+Without a linked project the Hosts map shows the host only; stack expand has nothing to fan.
 
 ---
 
