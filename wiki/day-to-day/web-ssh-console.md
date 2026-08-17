@@ -45,13 +45,12 @@ The [public demo](../operations/demo-site.md) enables Console for the shared **v
 | **+ Hosts** | Multi-host workspace at `/console` — **stays visible when maximized** |
 | **Passkey / TOTP** | Step-up first; **+ Shell / Lock / Aa** appear only after unlock |
 | **+ Shell** | New PTY (after step-up) |
-| **Tab** (soft key) | Sends a real Tab to the shell (completion). Desktop soft Tab matches physical Tab. **Mobile:** best-effort — see [Known issues](#known-issues) |
+| **Tab** (soft key) | Sends a real Tab to the shell (completion). Desktop physical + soft Tab match. **Mobile:** flushes the IME token, then Tab — see [Known issues](#known-issues) |
 | Shell tab **×** | Close that shell only (multiple shells per host) |
 | **Aa** | Font size **8–28** (hidden until tapped) |
 | Gate **···** | Show/hide status + slot count (saves vertical space) |
-| Key **···** | Extra keys: **^C ^S ^X ^Q ^D**, ← →, Line/Scr |
+| Soft-key row | One scrolling row: **Ctrl Tab Esc / \| - ~ ↑ ↓** · Sel/Copy/Paste/✕ · **^C ^S ^X ^Q ^D ← → Line Scr**. Swipe left/right for the rest. |
 | **Ctrl** | Sticky Ctrl — next keyboard letter is Ctrl+letter |
-| **Tab / Esc / ↑ / ↓** | Primary soft keys (scroll horizontally on narrow screens) |
 | **Sel / Copy / Paste** | Mobile select (drag either direction) + clipboard |
 | Shell **✕** | Close the **active** shell |
 | **App switch** | Shells **park on the server** until idle/max; return **auto-resumes** |
@@ -76,20 +75,20 @@ Typing **`exit`**, idle timeout, or session max **ends that shell** (no resume-r
 
 ## Known issues
 
-### KI-console-mobile-soft-tab (parked)
+### KI-console-mobile-soft-tab (improved in 1.2 QA)
 
-**Status:** Known limitation · **parked** for post-1.2 polish (not blocking freeze).  
-**Surface:** Soft **Tab** key on **mobile browsers** (Android Chrome verified).  
-**Works:** Physical keyboard Tab; soft Tab on **desktop** Chrome/Linux; path completion depends on the **remote SSH user’s** home (e.g. least-priv `piherder` may have no `~/docker` while a privileged login does).
+**Status:** Soft-key **v13** — PTY completion is correct; v13 hides the leftover IME overlay (`docker/doc` on screen while Enter already uses `docker/`).  
+**Surface:** Soft **Tab** key on **mobile browsers** (Android Chrome / iOS Safari).  
+**Works:** Physical keyboard Tab; soft Tab on **desktop**; mobile soft Tab flushes the IME token, rewrites `cd.do` / `cd .do`, drops a matching PTY echo, and **clears xterm’s composition overlay** so the line matches what Enter will run.
 
-| Symptom | Detail |
+| Symptom (residual) | Detail |
 |---------|--------|
-| Mid-word soft Tab | Mobile IME often holds the current token (thin caret on the word) until Space or similar commits it. Soft Tab can complete against a shorter line, or re-append the short fragment after bash expands a path (`cd do` → `cd docker/do`, or `…/pi` → `…/piherder/pi`). |
-| Workaround | Type a **Space** (fat cursor returns = token on the PTY), **Backspace** the space, then soft **Tab** — same as desktop completion. Or use a physical keyboard. |
+| Mid-word soft Tab | IME may still flash the short token for a moment. v13 should not leave `docker/doc` / `piherder/pih` stuck on screen. |
+| If the overlay still sticks | Type **Space** → **Backspace** → soft **Tab**, or use a physical keyboard. |
+
+Path completion still depends on the **remote SSH user’s** home (least-priv `piherder` may have no `~/docker`).
 
 **Not a demo-shell bug:** public demo uses a simulated PTY with toy paths; self-hosted live SSH uses real bash completion for that host’s login user.
-
-**Follow-up (later):** further IME fragment suppression after soft Tab; optional product note in release notes. No CSS/IME mute experiments in tree — current code is soft-key v11 + composition tracking without blocking normal typing.
 
 ---
 

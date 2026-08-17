@@ -73,48 +73,48 @@
 
 <div id="console-workspace-shell" class="ch-workspace console-workspace-shell" data-testid="console-workspace">
   <div id="console-panes" class="ch-panes console-panes"></div>
-  {# Primary: nav keys + clipboard. Chords live under ··· #}
-  <div class="ch-keys-bar" id="console-keys-bar" data-softkeys="v11">
+  {# One scrollable row: primary + path chars + former ··· extras #}
+  <div class="ch-keys-bar" id="console-keys-bar" data-softkeys="v15">
     <div class="ch-keys ch-keys-primary" id="console-keys" aria-label="Control keys">
       <button type="button" id="console-ctrl-mod" class="ch-key ch-key-wide" data-key="ctrl-mod" tabindex="-1"
               data-testid="console-ctrl-mod" title="Sticky Ctrl">Ctrl</button>
       <button type="button" id="console-soft-tab" class="ch-key" data-key="tab" tabindex="-1"
               data-testid="console-soft-tab" title="Tab (shell completion)">Tab</button>
       <button type="button" class="ch-key" data-key="esc" tabindex="-1" title="Esc">Esc</button>
-      <button type="button" class="ch-key" data-key="up" tabindex="-1" title="Up">↑</button>
-      <button type="button" class="ch-key" data-key="down" tabindex="-1" title="Down">↓</button>
+      <button type="button" class="ch-key" data-key="/" tabindex="-1" title="Slash">/</button>
+      <button type="button" class="ch-key" data-key="|" tabindex="-1" title="Pipe">|</button>
+      <button type="button" class="ch-key" data-key="-" tabindex="-1" title="Minus">-</button>
+      <button type="button" class="ch-key" data-key="~" tabindex="-1" title="Tilde">~</button>
+      <button type="button" class="ch-key ch-key-arrow" data-key="up" tabindex="-1" title="Up">▲</button>
+      <button type="button" class="ch-key ch-key-arrow" data-key="down" tabindex="-1" title="Down">▼</button>
       <button type="button" id="console-select-mode" class="ch-key ch-key-wide" tabindex="-1" data-testid="console-select-mode" title="Select text">Sel</button>
       <button type="button" id="console-copy" class="ch-key ch-key-wide" tabindex="-1" disabled data-testid="console-copy">Copy</button>
       <button type="button" id="console-paste" class="ch-key ch-key-wide" tabindex="-1" data-testid="console-paste">Paste</button>
       <button type="button" id="console-disconnect" class="ch-key ch-key-danger" tabindex="-1" disabled data-testid="console-disconnect" title="Close active shell">✕</button>
-      <button type="button" id="console-keys-more" class="ch-key ch-key-wide" tabindex="-1" data-testid="console-keys-more"
-              title="More keys" aria-expanded="false">···</button>
-    </div>
-    <div class="ch-keys ch-keys-extra hidden" id="console-keys-extra" aria-label="More keys">
       <button type="button" class="ch-key" data-key="ctrl-c" tabindex="-1" title="Ctrl+C">^C</button>
       <button type="button" class="ch-key" data-key="ctrl-s" tabindex="-1" title="Ctrl+S">^S</button>
       <button type="button" class="ch-key" data-key="ctrl-x" tabindex="-1" title="Ctrl+X">^X</button>
       <button type="button" class="ch-key" data-key="ctrl-q" tabindex="-1" title="Ctrl+Q">^Q</button>
       <button type="button" class="ch-key" data-key="ctrl-d" tabindex="-1" title="Ctrl+D">^D</button>
-      <button type="button" class="ch-key" data-key="left" tabindex="-1" title="Left">←</button>
-      <button type="button" class="ch-key" data-key="right" tabindex="-1" title="Right">→</button>
+      <button type="button" class="ch-key ch-key-arrow" data-key="left" tabindex="-1" title="Left">◀</button>
+      <button type="button" class="ch-key ch-key-arrow" data-key="right" tabindex="-1" title="Right">▶</button>
       <button type="button" id="console-select-line" class="ch-key" data-testid="console-select-line" title="Select line">Line</button>
       <button type="button" id="console-select-screen" class="ch-key" data-testid="console-select-screen" title="Select screen">Scr</button>
     </div>
+    <div class="ch-keys ch-keys-extra hidden" id="console-keys-extra" hidden aria-hidden="true"></div>
   </div>
   <script>
   /**
-   * Soft keys (v11)
-   * Symptom we fix: touch soft-Tab without preventDefault blurs the helper,
-   * Android cancels composition → "do" vanishes, PTY has only "cd ", Tab lists
-   * all folders. So: always preventDefault on pointerdown (keep focus), fire
-   * once; before Tab the main handler copies any helper-textarea word to the PTY.
+   * Soft keys (v15)
+   * Keep focus on pointerdown so Android does not cancel composition.
+   * Tab is handled in sendControl (flush token, hide IME overlay, drop echo).
    */
   (function () {
     var KEYS = {
       'ctrl-c': '\x03', 'ctrl-d': '\x04', 'ctrl-q': '\x11',
       'ctrl-s': '\x13', 'ctrl-x': '\x18',
       tab: '\t', esc: '\x1b',
+      '/': '/', '|': '|', '-': '-', '~': '~',
       up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C'
     };
     function fire(name) {
@@ -150,18 +150,18 @@
       if (name) fire(name);
     }
     function bindAll() {
-      var nodes = document.querySelectorAll('#console-keys [data-key], #console-keys-extra [data-key]');
+      var nodes = document.querySelectorAll('#console-keys [data-key]');
       for (var i = 0; i < nodes.length; i++) {
         var b = nodes[i];
-        if (b.getAttribute('data-ph-v11') === '1') continue;
-        b.setAttribute('data-ph-v11', '1');
+        if (b.getAttribute('data-ph-v15') === '1') continue;
+        b.setAttribute('data-ph-v15', '1');
         b.setAttribute('tabindex', '-1');
         b.addEventListener('pointerdown', onPointerDown, false);
         b.addEventListener('click', onClick, false);
       }
     }
     bindAll();
-    window.__phConsoleSoftKeyV = 11;
+    window.__phConsoleSoftKeyV = 15;
   })();
   </script>
   <div id="console-ctrl-letters" class="ch-ctrl-letters hidden" aria-hidden="true"></div>
@@ -183,6 +183,7 @@
 <link rel="stylesheet" href="/static/vendor/xterm/xterm.min.css">
 <script src="/static/vendor/xterm/xterm.min.js"></script>
 <script src="/static/vendor/xterm/addon-fit.min.js"></script>
+<script src="/static/js/console-soft-tab.js?v=20260817-v15"></script>
 <style>
   html, body {
     height: 100%;
@@ -249,7 +250,6 @@
   .ch.is-compact.ch-tools-open .ch-tools { display: flex !important; }
   .ch.is-compact .ch-2fa-hint { display: none; }
   .ch.is-kb-layout .ch-tools { display: none !important; }
-  .ch.is-kb-layout .ch-keys-extra { display: none !important; }
   .ch-workspace {
     flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
     border: 0; border-radius: 0; overflow: hidden;
@@ -300,19 +300,17 @@
     border-top: 1px solid var(--color-border, #333);
     background: var(--color-surface, #12171e);
   }
-  /* One horizontal row; scroll on narrow screens instead of wrapping tall */
+  /* One horizontal row — swipe / scroll for the rest of the keys */
   .ch-keys {
     display: flex; flex-wrap: nowrap; gap: 0.18rem;
     padding: 0.2rem 0.3rem;
     overflow-x: auto;
+    overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
     scrollbar-width: thin;
   }
-  .ch-keys-extra {
-    border-top: 1px solid var(--color-border, #333);
-    flex-wrap: nowrap;
-  }
-  .ch-keys-extra.hidden { display: none; }
+  .ch-keys-extra { display: none !important; }
   .ch-key {
     min-width: 2rem; min-height: 1.85rem; padding: 0.15rem 0.4rem;
     font-size: 0.7rem; font-family: ui-monospace, monospace;
@@ -320,6 +318,40 @@
     background: transparent; color: inherit; cursor: pointer;
     flex-shrink: 0;
     touch-action: manipulation;
+  }
+  /* Mobile: a bit larger than desktop, one scrolling row even when compact */
+  @media (max-width: 640px), (pointer: coarse) {
+    .ch-keys,
+    .ch.is-compact .ch-keys {
+      padding: 0.24rem 0.32rem;
+      gap: 0.2rem;
+    }
+    .ch-key,
+    .ch.is-compact .ch-key {
+      min-width: 2.2rem;
+      min-height: 2.05rem;
+      font-size: 0.78rem;
+      padding: 0.18rem 0.42rem;
+    }
+    .ch-key-wide,
+    .ch.is-compact .ch-key-wide { min-width: 2.75rem; }
+    .ch-key-arrow,
+    .ch.is-compact .ch-key-arrow {
+      font-size: 0.72rem;
+      line-height: 1;
+      font-family: system-ui, "Segoe UI Symbol", "Apple Symbols", sans-serif;
+    }
+  }
+  .ch-key-arrow {
+    font-family: system-ui, "Segoe UI Symbol", "Apple Symbols", sans-serif;
+    line-height: 1;
+  }
+  /* After soft Tab, leftover IME composition must not paint on the cursor. */
+  .xterm.ph-ime-muted .composition-view,
+  .xterm.ph-ime-muted .composition-view.active {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
   }
   .ch-key:hover { border-color: var(--color-accent, #22c55e); }
   .ch-key-wide { min-width: 2.5rem; }
@@ -346,7 +378,6 @@
   .ch-select-hint.hidden { display: none; }
   @media (min-width: 900px) {
     .ch-status { max-width: 16rem; }
-    .ch-keys { flex-wrap: wrap; overflow-x: visible; }
   }
   /* Select mode: drag selects text instead of scrolling / focusing textarea */
   .ch-panes.is-select-mode {
@@ -1039,25 +1070,74 @@
     }
   }
 
+  function hideImeOverlay(sh) {
+    var api = imeApi();
+    if (api && api.hideCompositionView) api.hideCompositionView(sh && sh.term);
+  }
+
+  function setImeOverlayMuted(sh, on) {
+    try {
+      var el = sh && sh.term && sh.term.element;
+      if (!el) return;
+      if (on) el.classList.add('ph-ime-muted');
+      else el.classList.remove('ph-ime-muted');
+    } catch (e) {}
+  }
+
   /**
-   * Track IME composition. Soft Tab uses this when the word is not yet on the PTY.
-   * Also maintain sh.lineBuf (what we already sent this line) so we never re-send
-   * "do" after it is already on the line (that produced "cd docker/do").
+   * Track IME composition. After Tab we hide xterm's composition overlay
+   * (visual ``docker/doc``) but still let compositionend reach xterm so it
+   * can clean up. onData drop keeps the leftover off the PTY.
    */
   function bindImeTracking(sh) {
     var ta = helperTextarea(sh.term);
     if (!ta || ta.__phImeBound) return;
     ta.__phImeBound = true;
     sh.imeText = '';
+    var ime = window.PhConsoleIme;
+    if (ime && ime.hardenTextarea) ime.hardenTextarea(ta);
+    ta.addEventListener('focus', function () {
+      if (ime && ime.hardenTextarea) ime.hardenTextarea(ta);
+    });
     ta.addEventListener('compositionstart', function () {
       sh.imeText = '';
     });
     ta.addEventListener('compositionupdate', function (ev) {
-      sh.imeText = (ev && ev.data != null) ? String(ev.data) : '';
+      var data = (ev && ev.data != null) ? String(ev.data) : '';
+      sh.imeText = data;
+      var api = imeApi();
+      if (
+        sh.skipImeOnce &&
+        Date.now() < (sh.skipImeUntil || 0) &&
+        api &&
+        api.compositionLooksLikeSkip &&
+        api.compositionLooksLikeSkip(sh.skipImeOnce, data)
+      ) {
+        hideImeOverlay(sh);
+      }
     });
-    ta.addEventListener('compositionend', function () {
+    ta.addEventListener('compositionend', function (ev) {
+      var held = (ev && ev.data != null) ? String(ev.data) : (sh.imeText || '');
       sh.imeText = '';
+      if (held) sh._lastImeCommit = held;
+      if (sh.skipImeOnce && Date.now() < (sh.skipImeUntil || 0)) {
+        try { ta.value = ''; } catch (e3) {}
+        hideImeOverlay(sh);
+      }
     });
+    ta.addEventListener('beforeinput', function (ev) {
+      if (!sh.skipImeOnce || Date.now() >= (sh.skipImeUntil || 0)) return;
+      var t = (ev && ev.inputType) || '';
+      var data = (ev && ev.data != null) ? String(ev.data) : '';
+      var api = imeApi();
+      var looks = api && api.compositionLooksLikeSkip
+        ? api.compositionLooksLikeSkip(sh.skipImeOnce, data)
+        : true;
+      if ((t.indexOf('insert') === 0 || t === 'insertCompositionText') && looks) {
+        try { ev.preventDefault(); } catch (e) {}
+        hideImeOverlay(sh);
+      }
+    }, true);
   }
 
   function trackLineBuf(sh, data) {
@@ -1078,60 +1158,88 @@
     }
   }
 
-  function lastPathFragment(buf) {
-    var m = (buf || '').match(/([A-Za-z0-9_-]+)$/);
-    return m ? m[1] : '';
+  function imeApi() {
+    return window.PhConsoleIme || null;
   }
 
   /** IME / helper word currently composing (may or may not be on the PTY yet). */
   function currentImeWord(sh) {
     if (!sh) return '';
-    var word = (sh.imeText || '').replace(/^\.+/, '');
-    if (!word) {
+    var api = imeApi();
+    var raw = sh.imeText || '';
+    if (!raw) {
       var ta = helperTextarea(sh.term);
       if (ta) {
-        try { word = (ta.value || '').replace(/^\.+/, ''); } catch (e) { word = ''; }
+        try { raw = ta.value || ''; } catch (e) { raw = ''; }
       }
     }
-    if (!word || !/^[A-Za-z0-9_/-]+$/.test(word)) return '';
-    return word;
+    if (!raw) raw = sh._lastImeCommit || '';
+    if (api && api.imeCompletionToken) return api.imeCompletionToken(raw);
+    var m = String(raw).match(/([A-Za-z0-9_./-]+)$/);
+    return m ? m[1] : '';
+  }
+
+  function rewriteLineBufOnPty(sh, next) {
+    var buf = sh.lineBuf || '';
+    if (!sh.ws || next === buf) return;
+    var rewind = '';
+    for (var i = 0; i < buf.length; i++) rewind += '\x7f';
+    sendToLivePty(rewind + next);
+    sh.lineBuf = next;
+  }
+
+  function syncLineBufFromTerm(sh) {
+    if (!sh || !sh.term) return;
+    var api = imeApi();
+    try {
+      var b = sh.term.buffer.active;
+      var line = b.getLine(b.baseY + b.cursorY);
+      if (!line) return;
+      var raw = line.translateToString(true);
+      var typed = api && api.typedFromScreenLine ? api.typedFromScreenLine(raw) : raw;
+      if (typed != null && typed.length <= 200) sh.lineBuf = typed;
+    } catch (e) {}
   }
 
   /**
-   * After soft Tab the OS IME often still holds the fragment ("do"/"pi") and
-   * re-appends it after bash completes → "docker/do", "piherder/pi".
-   * Word is already on the PTY (we sent it or onData did) — cancel IME and
-   * drop matching onData for a short window.
+   * After soft Tab the IME overlay still shows the short fragment at the new
+   * cursor (``docker/`` + overlay ``doc``). PTY is already correct — hide the
+   * overlay and drop a matching onData echo. Do not block compositionend or
+   * xterm never clears the view.
    */
   function finishImeAfterSoftTab(sh, fragment) {
     if (!sh) return;
     sh.imeText = '';
+    sh._lastImeCommit = '';
     if (fragment) {
       sh.skipImeOnce = fragment;
-      sh.skipImeUntil = Date.now() + 1500;
+      sh.skipImeState = { skip: fragment };
+      sh.skipImeUntil = Date.now() + 1800;
     }
+    hideImeOverlay(sh);
+    setImeOverlayMuted(sh, true);
     var ta = helperTextarea(sh.term);
+    if (ta) {
+      try { ta.value = ''; } catch (e) {}
+    }
+    [0, 40, 120, 280].forEach(function (ms) {
+      setTimeout(function () { hideImeOverlay(sh); }, ms);
+    });
+    setTimeout(function () { setImeOverlayMuted(sh, false); }, 380);
     if (!ta) return;
-    try { ta.value = ''; } catch (e) {}
-    // Safe to cancel composition now: fragment is already on the PTY.
+    var mobile = isMobileUi();
+    if (!mobile) return;
+    // End the current composition without a long readonly (that stuck the overlay).
     try {
-      var needFocus = (document.activeElement === ta);
       ta.blur();
-      if (needFocus) {
-        setTimeout(function () {
-          try { if (sh.term) sh.term.focus(); } catch (e2) {}
-        }, 0);
-      }
-    } catch (e3) {}
+      setTimeout(function () {
+        try { if (sh.term) sh.term.focus(); } catch (e4) {}
+        hideImeOverlay(sh);
+      }, 60);
+    } catch (e5) {}
   }
 
-  var lastPhysTabAt = 0;
-  function sendPhysicalTabOnce() {
-    var now = Date.now();
-    if (now - lastPhysTabAt < 50) return false;
-    lastPhysTabAt = now;
-    return sendToLivePty('\t');
-  }
+  var lastTabAt = 0;
 
   function sendControl(seq) {
     var sh = liveShell();
@@ -1139,23 +1247,44 @@
       setStatus('Open a shell first.');
       return false;
     }
-    // Soft Tab:
-    //  1) If IME word not yet on lineBuf, send it (like Space would commit it)
-    //  2) Send Tab
-    //  3) Kill residual IME so bash completion is not followed by re-append
+    // Soft / physical Tab:
+    //  1) Flush IME last token if it is not already on the line
+    //  2) Rewrite cd.do / cd .do (Gboard TLD)
+    //  3) Send Tab
+    //  4) Mute IME so bash completion is not followed by a re-append
     if (seq === '\t') {
+      var now = Date.now();
+      if (now - lastTabAt < 80) return false;
+      lastTabAt = now;
+      var api = imeApi();
       var word = currentImeWord(sh);
       var buf = sh.lineBuf || '';
-      var already = word && buf.length >= word.length && buf.slice(-word.length) === word;
+      var already = api && api.lineAlreadyHasToken
+        ? api.lineAlreadyHasToken(buf, word)
+        : (word && buf.slice(-word.length) === word);
+      var payload = '';
       if (word && !already) {
-        try {
-          sh.ws.send(word);
-          trackLineBuf(sh, word);
-        } catch (e) {}
+        payload += word;
+        trackLineBuf(sh, word);
       }
-      var frag = word || lastPathFragment(buf);
-      var ok = sendToLivePty('\t');
+      var next = sh.lineBuf || '';
+      if (api && api.normalizeMobileLine) next = api.normalizeMobileLine(next);
+      if (next !== (sh.lineBuf || '')) {
+        if (payload) {
+          // Word we just queued is part of lineBuf; rewrite includes it.
+          payload = '';
+        }
+        rewriteLineBufOnPty(sh, next);
+      }
+      payload += '\t';
+      var ok = sendToLivePty(payload);
+      var frag = word || (api && api.lastToken ? api.lastToken(sh.lineBuf || '') : '');
       finishImeAfterSoftTab(sh, frag);
+      if (isMobileUi()) {
+        setTimeout(function () { syncLineBufFromTerm(sh); }, 70);
+        setTimeout(function () { syncLineBufFromTerm(sh); }, 220);
+        setTimeout(function () { syncLineBufFromTerm(sh); }, 550);
+      }
       return ok;
     }
     return sendToLivePty(seq);
@@ -1420,7 +1549,7 @@
     // Compact when we have live shells (and no 2FA row) unless user forced tools open
     var live = shells.some(function (s) { return s.connected; });
     var need2fa = row2fa && row2fa.style.display !== 'none' && !grantActive;
-    if (live && !need2fa && !toolsOpen && !keysExtraOpen) {
+    if (live && !need2fa && !toolsOpen) {
       setChromeCompact(true);
     }
   }
@@ -1582,13 +1711,18 @@
     if (fit) term.loadAddon(fit);
     term.open(host);
     if (fit) try { fit.fit(); } catch (e) {}
+    try {
+      var ime = window.PhConsoleIme;
+      if (ime && ime.hardenTextarea) ime.hardenTextarea(helperTextarea(term));
+    } catch (eH) {}
     bindSelectHandlers(term);
 
     var sh = {
       id: id, label: label, term: term, fit: fit, ws: null,
       tab: tab, pane: pane, minimized: false, connected: false,
       terminalEnded: false, resumeFails: 0,
-      imeText: '', skipImeOnce: '', skipImeUntil: 0, lineBuf: ''
+      imeText: '', skipImeOnce: '', skipImeUntil: 0, skipImeState: null,
+      _lastImeCommit: '', lineBuf: ''
     };
     bindImeTracking(sh);
     try {
@@ -1610,13 +1744,14 @@
       if (!sh.ws || sh.ws.readyState !== 1) return;
       // After soft Tab: drop IME re-append of the same fragment ("do" after docker/)
       if (sh.skipImeOnce && Date.now() < (sh.skipImeUntil || 0)) {
-        var skip = sh.skipImeOnce;
-        if (data === skip || data === skip + ' ' || data === '.' + skip) {
-          return;
-        }
-        if (data.length === 1 && skip.charAt(0) === data) {
-          sh.skipImeOnce = skip.slice(1);
-          if (!sh.skipImeOnce) sh.skipImeUntil = 0;
+        var api = imeApi();
+        if (!sh.skipImeState) sh.skipImeState = { skip: sh.skipImeOnce };
+        var dropped = api && api.consumeImeEcho
+          ? api.consumeImeEcho(sh.skipImeState, data)
+          : (data === sh.skipImeOnce);
+        if (dropped) {
+          sh.skipImeOnce = (sh.skipImeState && sh.skipImeState.skip) || sh.skipImeOnce;
+          if (sh.skipImeState && !sh.skipImeState.skip) sh.skipImeUntil = 0;
           return;
         }
       }
@@ -1654,7 +1789,7 @@
       var mod = ev.ctrlKey || ev.metaKey;
       if (key === 'Tab' && !ev.ctrlKey && !ev.altKey && !ev.metaKey) {
         try { ev.preventDefault(); } catch (eTab) {}
-        if (!selectMode && sh.id === activeId && !sh.minimized) sendPhysicalTabOnce();
+        if (!selectMode && sh.id === activeId && !sh.minimized) sendControl('\t');
         return false;
       }
       if (mod && ev.shiftKey && (key === 'C' || key === 'c')) {
