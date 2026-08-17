@@ -100,7 +100,7 @@ Turn `PIHERDER_SSH_CONSOLE=true` only for this section.
 | 3.8 | Should | App-switch resumes; `exit` / ✕ frees the slot. | |
 | 3.9 | Should | 5th concurrent shell (default max 4) refused clearly. | |
 | 3.10 | Should | Cross-site mint (`Sec-Fetch-Site: cross-site`) denied. | |
-| 3.11 | Should | Desktop Tab OK. Mobile soft Tab may glitch — **KI-console-mobile-soft-tab** (Space → Backspace → Tab). | |
+| 3.11 | Should | Desktop Tab OK. Mobile soft Tab **v12**: `cd do` + Tab → `cd docker/` (no leftover `do`). Residual: Space → Backspace → Tab. | |
 | 3.12 | Should | Public demo console is **simulated**. | |
 
 See [Web SSH console](../day-to-day/web-ssh-console.md).
@@ -217,6 +217,7 @@ Against [the public demo](demo-site.md) or a local `DEMO_MODE` overlay.
 | 11.7 | Should | Network maps open. | |
 | 11.8 | Should | Bell + (HTTPS) Web Push toggle. | |
 | 11.9 | Should | Empty-DB first register still creates the only admin. | |
+| 11.10 | Should | **Direct TLS (no NPM):** container HTTPS on the **host FQDN**. Stack → **Use \<project\> for this path**. Hosts map shows the container; path is not via leftover NPM. Kuma bind on that Docker project. [Network maps](../integrations/dns-fabric.md#direct-tls-no-npm). | |
 
 ---
 
@@ -224,7 +225,7 @@ Against [the public demo](demo-site.md) or a local `DEMO_MODE` overlay.
 
 | Item | Stance |
 |------|--------|
-| [KI-console-mobile-soft-tab](../day-to-day/web-ssh-console.md#known-issues) | Parked; workaround documented |
+| [KI-console-mobile-soft-tab](../day-to-day/web-ssh-console.md#known-issues) | Improved in QA (v12); residual IME may remain |
 | CSP `unsafe-inline` | 1.3 nonces |
 | XSS on herder origin ≈ shell if console on | Leave the flag **off** when unused |
 | Trusted-device cookies survive logout | By design |

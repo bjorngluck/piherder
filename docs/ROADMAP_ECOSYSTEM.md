@@ -1,8 +1,8 @@
 # PiHerder ecosystem roadmap
 
 **Status:** Active  
-**Date:** 2026-07-12 · **Refreshed:** 2026-08-12 (**v1.2.0** freeze-complete on `v1.2.0-dev`, awaiting [QA](QA_v1.2.0.md) — [PLAN_v1.2.0.md](PLAN_v1.2.0.md); **v1.3.0** planning capture — [PLAN_v1.3.0.md](PLAN_v1.3.0.md); Hub production **v1.1.0** — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md))  
-**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)  
+**Date:** 2026-07-12 · **Refreshed:** 2026-08-17 (**v1.2.0** freeze-complete on `v1.2.0-dev`, awaiting [QA](QA_v1.2.0.md) — [PLAN_v1.2.0.md](PLAN_v1.2.0.md); **v1.3.0** planning — [PLAN_v1.3.0.md](PLAN_v1.3.0.md); **v1.4.0** service migration planning — [PLAN_v1.4.0.md](PLAN_v1.4.0.md); Hub production **v1.1.0** — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md))  
+**Related:** [SPEC.md](../SPEC.md) · [ADMIN.md](ADMIN.md) · [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.3.0.md](PLAN_v1.3.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) · [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · [RELEASE_v1.0.0.md](RELEASE_v1.0.0.md) · [PLAN_v1.0.0.md](PLAN_v1.0.0.md) · [FEATURE_PLAN_HOME_ASSISTANT.md](FEATURE_PLAN_HOME_ASSISTANT.md) · [FEATURE_PLAN_PIHOLE_NPM_CERTS.md](FEATURE_PLAN_PIHOLE_NPM_CERTS.md) · [FEATURE_PLAN_LAN_NMAP.md](FEATURE_PLAN_LAN_NMAP.md)  
 **License:** MIT open source (see [LICENSE](../LICENSE)).
 
 This document is the public multi-horizon roadmap for taking PiHerder from a production-ready **fleet manager** to the hub of a self-hosted **homelab / security ops** ecosystem (DNS, proxy, monitoring, smart home, media, automation).
@@ -37,7 +37,8 @@ Design principles stay the same as SPEC:
 | **v1.1.0** | **Day-to-day operator improvements** — certs · discovery · identity · operator UX · topology/maps · integrations/API | Post-1.0 minor | **Tagged** 2026-08-08 — [RELEASE_v1.1.0.md](RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) · Hub `1.1.0` / `1.1` / `latest` |
 | **v1.1.x** | Production patches on `main` while 1.2 is in flight | Patch | As needed — port into `v1.2.0-dev` |
 | **v1.2.0** | **Big train** — WebAuthn · SSO/OIDC · webshell · gated demo · backup retry · full DB DR · security remediations | Post-1.1 minor | **Freeze complete** on `v1.2.0-dev` — awaiting [operator QA](QA_v1.2.0.md) — [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) |
-| **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights thin slice (N)** · **AC-fg** · ACME (consideration) | Post-1.2 minor | **Planning** — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (train not open) |
+| **v1.3.0** | **Operator policy + scale UX** — password/2FA/step-up · multi-identity console · opt-in command audit · console knobs · map/alert severity · pagination & search · **insights thin slice (N)** · **host files thin slice (F)** · **AC-fg** · ACME (consideration) | Post-1.2 minor | **Planning** — [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (train not open) |
+| **v1.4.0** | **Service migration** — move a compose project host→host (stop, dataset copy, CNAME retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate) + **host lock** (HAOS refuse, Frigate/TPU-class) | Post-1.3 minor | **Planning** — [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) (train not open) |
 
 **Decision:** All fixes after `v0.3.0` shipped in **`v0.4.0`** (no intermediate `v0.3.1`). Historical bug list: [PLAN_v0.4.0.md](PLAN_v0.4.0.md) §2.
 
@@ -80,6 +81,8 @@ Design principles stay the same as SPEC:
 **Decision (2026-08-08):** **v1.2.0 train opened** on **`v1.2.0-dev`**. Streams **I** WebAuthn · **S** SSO/OIDC · **W** webshell · **D** demo platform · **B-retry** · **Q** quality. `main` stays patchable for **v1.1.x**. Package version stays `1.1.0` until freeze. See [PLAN_v1.2.0.md](PLAN_v1.2.0.md).
 
 **Decision (2026-08-08):** **Fine-grained roles / feature ACLs → v1.3 path** (not 1.2). Today RBAC is three global roles (`viewer` / `operator` / `admin`). Future work: per-host and/or per-feature access (e.g. backups only on selected hosts, Docker yes / webshell no, certs read-only). Complements SSO group→role mapping; does **not** require multi-tenant SaaS isolation. Explicitly out of v1.2 scope. See § Quality backlog · [PLAN_v1.1.0.md](PLAN_v1.1.0.md) §6 v1.3.
+
+**Decision (2026-08-17):** **Service migration → v1.4** (not 1.2, not 1.3). Stop-first compose-project move with herder-staged dataset copy, fabric CNAME retarget, both Pi-hole `restartdns`, dest start, TLS/Kuma validate, and per-project host lock (HAOS refuse; Frigate/TPU-class). Planning only. See [PLAN_v1.4.0.md](PLAN_v1.4.0.md).
 
 **Note:** Multi-arch image — [bjorngluck/piherder](https://hub.docker.com/r/bjorngluck/piherder). Production pins: `1.1.0` / `1.1` / `latest`.
 
@@ -270,6 +273,8 @@ Curated pack beyond the four stacks (Frigate, HA, n8n, media…) and DNS provide
 | **Quick editor scope (L)** | **Lean no** for `.env`/sidecars in quick editor; full editor only — document in UI. Open discussion only. |
 | **Template fleet deployment overview (M)** | **Post-1.0** — which hosts/services have a given template (beyond stack-level badge). |
 | **Insights / custom dashboards (N)** | **→ v1.3 Stream N** — discovery + thin slice: metric registry, built-in fleet health board, optional one custom layout; not Grafana-in-herder. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
+| **Host files (F)** | **→ v1.3 Stream F** — discovery + thin slice: confined SFTP list / download / upload under `docker_base_dir` (or home); not WinSCP, not `docker cp`, not console zmodem. [PLAN_v1.3.0.md](PLAN_v1.3.0.md). |
+| **Service migration (M)** | **→ v1.4 Stream M** — move one compose project host→host with dataset copy, fabric CNAME + both Pi-hole resolver restarts, TLS/Kuma validate, and per-project **host lock** (HAOS / hardware). Destructive wipe is a later sibling. [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md). |
 | **Web console host mux (`screen`/`tmux`)** | **Under consideration · low priority** — optional host-side multiplexer for durable reattach beyond herder soft-park. **→ v1.3 Stream W-mux** ([PLAN_v1.3.0.md](PLAN_v1.3.0.md)). Not in 1.2. |
 | **Git-rich service onboard (Q)** | **Post-1.0** — full git clone/pull; more files than compose + Dockerfile. |
 | **Discovery hygiene (S)** | **S1–S4 shipped v1.1** — last seen, hide, purge, filters. Residual **S-hb**; **S-icon** → map interactivity M1 ([FEATURE_PLAN_MAP_INTERACTIVITY.md](FEATURE_PLAN_MAP_INTERACTIVITY.md)). |
@@ -315,7 +320,7 @@ Docs screenshots stay **light + desktop** by default; a couple of showcase shots
 | **Nmap worker heartbeat on boot** | **Future (P2)** — touch scanner-online heartbeat when worker process starts, not only mid-scan |
 | **Richer topology** | Focused dep edges polish, force LAN/cloud overrides |
 | **External DNS providers** | Cloudflare (etc.) automation; until then external checklist remains |
-| **Service migrate / remove** | Move stack host↔host with DNS retarget; destructive remove with volume cleanup |
+| **Service migrate / remove** | **→ v1.4 Stream M** — move stack host↔host with dataset copy + DNS retarget + Pi-hole `restartdns` + TLS/Kuma validate; **host lock** for HAOS / hardware. Destructive remove with volume cleanup is a later Cap (**M-rm**). [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md) |
 
 **Design principle:** one **entity graph** (name, NPM, host, project, container, volume, dep edge, monitor bind, discovered device) — views are projections, not separate data models.
 

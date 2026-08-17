@@ -75,6 +75,21 @@ Wiki: [Web SSH console](../wiki/day-to-day/web-ssh-console.md).
 
 Wiki: [Self-backup & DR](../wiki/operations/self-backup.md) · [vanished files](../wiki/troubleshooting/backups.md#vanished-files-busy-sources).
 
+### Network maps — direct TLS (QA-period)
+
+Landed on `v1.2.0-dev` during operator QA. **Not** a `v1.1.1` Hub patch — stays on this train.
+
+When a container terminates TLS itself and DNS points at the **host** (not NPM), Hosts / Path maps can now keep docker project + container + Kuma together.
+
+| Item | Behaviour |
+|------|-----------|
+| Leftover NPM | If the CNAME/A target **is** the backend host, stale NPM proxy-host inventory is **not** treated as the path edge |
+| Kuma URL match | A service bind whose monitor URL is the published host FQDN attaches the compose project (e.g. Frigate on `rpi5-4.example.com`) |
+| **Use this project** | Stack panel **persists** `docker_project` on the path (preview chips no longer silently drop the link) and marks the path **direct** |
+| Hosts map | Linked project shows as an app satellite + stack fan; unlinked host-identity paths stay host-only |
+
+Wiki: [Network maps — Direct TLS](../wiki/integrations/dns-fabric.md#direct-tls-no-npm). QA: [11.10](QA_v1.2.0.md).
+
 ---
 
 ## Security remediations (Stream R)
@@ -154,7 +169,7 @@ SSO / passkeys / console / demo mode are **opt-in** — they do not turn on by t
 
 | ID | Topic | Notes |
 |----|--------|--------|
-| **KI-console-mobile-soft-tab** | Web console soft **Tab** on mobile | Desktop physical + soft Tab OK. On mobile browsers, soft Tab can leave IME mid-token or re-append the short fragment after bash path completion (`docker/do`, `piherder/pi`). **Workaround:** Space → Backspace → soft Tab, or use a physical keyboard. Parked (not freeze-blocking). Wiki: [web-ssh-console § Known issues](../wiki/day-to-day/web-ssh-console.md#known-issues). |
+| **KI-console-mobile-soft-tab** | Web console soft **Tab** on mobile | **Improved in 1.2 QA (v12):** flush IME last token, rewrite `cd.do` / `cd .do`, swallow compositionend, drop matching re-append after bash completes. Desktop unchanged. Residual exotic IMEs: Space → Backspace → Tab. Wiki: [web-ssh-console § Known issues](../wiki/day-to-day/web-ssh-console.md#known-issues). |
 | **KI-csp-unsafe-inline** | CSP | **`unsafe-eval` closed** (compiled Tailwind). Inline script/style remain for template `<script>` / xterm — nonces in **v1.3**. Residual: XSS on the herder origin is still shell-equivalent when console is enabled. |
 | **KI-ssh-hostkey-tofu** | SSH host keys | **Closed:** first connect pins; mismatch refuses; reset under SSH access. |
 

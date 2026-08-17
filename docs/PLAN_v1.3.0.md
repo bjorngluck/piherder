@@ -1,13 +1,13 @@
-# PiHerder v1.3.0 — operator policy, scale UX, multi-identity console, alerts, insights
+# PiHerder v1.3.0 — operator policy, scale UX, multi-identity console, alerts, insights, host files
 
 **Status:** **Planning / backlog** — capture while **v1.2.0** finishes on `v1.2.0-dev`  
 **Date opened:** 2026-08-10  
 **Git branch (when train opens):** `v1.3.0-dev` (not opened yet)  
 **Package / image version (at tag):** `1.3.0`  
-**Theme:** Operator-configurable security policy · multi-identity console · optional command audit · console knobs · map/alert granularity · fleet-scale list UX · thin-slice reporting / custom dashboards  
+**Theme:** Operator-configurable security policy · multi-identity console · optional command audit · console knobs · map/alert granularity · fleet-scale list UX · thin-slice reporting / custom dashboards · **host file transfer (discover + thin slice)**  
 **Baseline:** `v1.2.0` (when tagged)  
 **Mode:** Planning only — do **not** start implementation streams until 1.2 freezes  
-**Related:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
+**Related:** [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_HOST_LIFECYCLE.md](FEATURE_PLAN_HOST_LIFECYCLE.md) P5 · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [ADMIN.md](ADMIN.md) · [wiki/operations/alerts-email-webhooks.md](../wiki/operations/alerts-email-webhooks.md) · [SECURITY.md](../SECURITY.md)
 
 > **Not the active train.** v1.2 is identity + webshell + gated demo. This document parks **operator policy, multi-identity shell, scale, and insights** work so 1.2 bug-capture stays focused. Promote streams when the 1.3 train opens.
 
@@ -23,7 +23,8 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 4. **Deeper optional shell audit** — who ran what in the webshell (commands ± responses), with redaction for secrets  
 5. **Alerts they can tune** (severity + what fires on maps / channels)  
 6. **Lists that scale** (page size, filters, free-text / semantic search) when many servers and Docker services exist  
-7. **At-a-glance reporting** — discovery + a **thin slice** of reporting / custom dashboarding (not a full BI product)
+7. **At-a-glance reporting** — discovery + a **thin slice** of reporting / custom dashboarding (not a full BI product)  
+8. **Host file transfer** — discovery + a **thin slice** of upload/download over the existing SSH/SFTP identity (not WinSCP-in-herder)
 
 **Carry-over from earlier plans (still in 1.3 path):** fine-grained roles (**AC-fg**), ACME-in-herder (under consideration), residual HA REST/path2, branding, k8s/bare — see §6 and [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md).
 
@@ -43,11 +44,12 @@ After 1.2, operators who harden fleets and grow host/container counts need:
 |--------|--------|
 | Integration branch | **`v1.3.0-dev`** when 1.2 is on `main` |
 | Production line until then | **`main` @ 1.2.x** patches; this plan does not block 1.2 |
-| Theme streams (seed) | **P** · **T** · **W-cfg** · **W-id** · **W-audit** (discover) · **W-mux** screen/tmux (**under consideration · low priority**) · **A** · **L** · **N** · (+ **AC-fg** / residual as capacity) |
+| Theme streams (seed) | **P** · **T** · **W-cfg** · **W-id** · **W-audit** (discover) · **W-mux** screen/tmux (**under consideration · low priority**) · **A** · **L** · **N** · **F** host files (discover + thin slice) · (+ **AC-fg** / residual as capacity) |
 | Policy storage | Prefer **app Settings** (DB) with env as override / bootstrap where it already exists |
 | Host SSH identities | At least **two** optional credentials per host: **fleet / least-priv** (default jobs + console) + **privileged** (break-glass console / elevated jobs later); separate Fernet keys |
 | Shell audit | **Opt-in**; default off or session-meta only (1.2); full command/response is **discover → promote** |
 | Insights | **Discover + thin slice only** — compose existing fleet signals; not a second Grafana |
+| Host files | **Discover + thin slice only** — confined list / get / put under a jail; not a full remote file manager |
 | Semver | Additive minor; document migrations for defaults that change behaviour |
 | Out of focus for seed | Multi-tenant SaaS · SAML · full Elasticsearch · **video / full PTY replay** dual-control console · full custom BI / arbitrary SQL dashboards |
 
@@ -270,13 +272,81 @@ Reports / Dashboard (custom)
 
 ---
 
+### Stream **F** — Host files: discovery + thin-slice upload / download
+
+**Today:** PiHerder already moves bytes in **domain-specific** ways. There is **no** generic host file browser.
+
+| Layer | What exists | Limit |
+|-------|-------------|--------|
+| Browser → herder | Avatar (`POST /auth/account/avatar`, ~2 MiB image) · service logos (`POST /services/{id}/logo`, ~512 KiB) · template zip import · herder-backup restore (multipart, confined to backup roots) · SSH private-key upload at onboard · cert PEMs as **textarea paste** (not a file picker) | Typed + size-checked; not host paths |
+| Herder → browser | Herder archive download (`GET /herder-backups/download`, admin, confined) · avatars/logos/static `FileResponse` · host cleanup `.sh` · client-side textarea save · SSE streams (Docker logs, backup/patch progress) | Not “download a file from the Pi” |
+| Herder ↔ host (SFTP) | Compose / Dockerfile / project sidecars (`docker_management` / `docker_versions`: 512 KiB text, one-level subdir, tmp+rename) · template deploy `files_for_sftp` · cert deploy (direct SFTP or stage + `sudo install`) · from-host pull of relative config mounts | Text / PEM only; no directory UI |
+| Herder ↔ host (rsync) | Backup sources → dest root; restore is reverse rsync | Jobs, not a file picker |
+| Web console (1.2) | PTY only | No scp / zmodem / drag-drop |
+
+Reuse, do **not** fork: Paramiko `open_sftp` + tmp+rename (`docker_versions.write_project_files`) · `expand_remote_path` · `backup_path_policy` (deny prefixes, no `..`, allow list) · dest-card + `FEATURE_META` nav · avatar size-cap pattern · console RBAC (operator+, viewer 403, demo kill switch) · `.env` redaction in the compose editor (`env_file_ui`).
+
+**Wanted:** Operators who already use the webshell still drop to `scp` / FileZilla to drop a compose sidecar, a Frigate config, or pull a log. Run **discovery**, then ship a **thin slice** — confined list / get / put — not WinSCP-in-herder.
+
+| ID | Item | Notes |
+|----|------|--------|
+| F0 | **Discovery** (this capture) | Inventory above; pick jail, size cap, RBAC; decide Files dest-card vs Docker-only vs console accessory |
+| F1 | Shared confined SFTP helper | `list` / `stat` / `get` / `put` on one SSH session; resolve jail; reject `..`, NUL, symlink-escape; optional allow/deny prefixes (start from `backup_path_policy` + default OS denies) |
+| F2 | Host **Files** dest-card | `/servers/{id}/files` — breadcrumb + one-directory listing (name, type, size, mtime); **download one file**; **upload one file** into the current dir. Pin/jump via `FEATURE_META` (`files`) |
+| F3 | Default jail | **`docker_base_dir`** (expanded `~`) on Docker hosts; else SSH user home. Never `/`. HAOS: **out** of thin slice (no compose tree; document) |
+| F4 | Caps + streaming | Upload hard cap (lean **16 MiB**, Settings/env later); download **stream** (`StreamingResponse`), do not `read()` whole file into RAM; `Content-Disposition: attachment`; no inline execute |
+| F5 | RBAC / demo / audit | **operator+** for list/get/put; **viewer 403** (files are often secrets). Demo: disable or empty simulated tree. Audit `host_file_list` / `host_file_get` / `host_file_put` with **path + bytes + sha256**, never body |
+| F6 | Secret-ish names | Thin slice: treat like compose editor (operator, no extra step-up) **but** wiki-warn `.env` / keys / PEMs. Cap: step-up on download, or block `id_rsa` / `*.pem` / `.env` unless confirmed |
+| F7 | Identity | 1.2: same single fleet SSH user as jobs. **W-id:** Files stay on **fleet** identity; privileged identity is console-only unless later opted in |
+| F8 | Wiki + ADMIN | When to use Files vs Docker editor vs Backups vs cert deploy; least-priv “SFTP only sees what the user can”; demo off |
+
+**Product shape (thin slice):**
+
+```text
+Host: rpi5-4  →  dest card Files
+  Jail: /home/pi/docker
+  /home/pi/docker/frigate/
+    ├─ docker-compose.yml     4.2 KiB   [Download]
+    ├─ config.yml            18 KiB    [Download]
+    └─ [Upload file…]
+```
+
+**Discovery exit criteria:** Written decision on (1) jail = docker_base vs home vs per-host allow list; (2) **F2 only** vs F2 + mkdir/delete; (3) whether `.env` download needs step-up. Reject scope creep (full manager, `docker cp`, console zmodem) at freeze.
+
+**Security notes:**
+
+- Least-priv SSH already limits SFTP to that user’s rights — jail is defense-in-depth if the key is over-privileged.  
+- Resolve realpath on the host (or `stat` + refuse `S_ISLNK` that leaves the jail).  
+- Writes use tmp + rename; never overwrite via unguarded `open`.  
+- Same kill-switch family as console is acceptable (`PIHERDER_HOST_FILES=false` default until GA, or ride the console flag — decide at train open).  
+- Public demo must not expose real host trees.
+
+**Non-goals (F) / defer past this minor (or later 1.3 Cap):**
+
+| Defer | Why |
+|-------|-----|
+| Full file manager (rename, move, chmod/chown, multi-select, folder zip) | Product of its own; thin slice is get/put |
+| In-browser edit of arbitrary files | Compose / Dockerfile editor already exists; do not fork it |
+| Binary / image preview, media gallery | Download only |
+| Recursive tree + search | List one dir |
+| Console drag-drop / zmodem / `scp` from xterm | Separate from PTY; high XSS/DoS surface |
+| `docker cp` / named-volume browser | Different trust + path model |
+| Recursive upload / unzip-on-host | Zip-slip; confined-archive lessons from herder restore |
+| Custom map icon pack (**M5**) | Adjacent upload, different store (`DATA_ROOT`) |
+| Cert PEM file-picker | Nice polish on existing paste form — not this stream |
+| Git-rich onboard (**Q**) | Already post-1.0 |
+
+**Depends on:** Stable 1.2 SSH client + least-priv user; dest-card chrome; optional later **W-id** (fleet identity) and **T** (step-up on secret downloads).
+
+---
+
 ## 3. Ship bar (draft — finalise at train open)
 
 | Priority | Streams | Bar |
 |----------|---------|-----|
 | **Must** | **L** (at least Servers + Docker + discovery) · **P** or **T** (at least one policy stream fully usable) · **W-id** core (fleet + privileged identity + console picker) | Scale lists + at least one security policy + least-priv/privileged connect-as |
-| **Should** | **P** + **T** · **W-cfg** · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) | Full policy set + console knobs + alerts + opt-in command audit + thin reporting surface |
-| **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-audit** spike · **W-mux** (screen/tmux, low priority) · **AC-fg** · ACME · branding | Promote only if Must green |
+| **Should** | **P** + **T** · **W-cfg** · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) · **F2** host Files list/get/put if **F0** jail decision is signed | Full policy set + console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
+| **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-audit** spike · **W-mux** (screen/tmux, low priority) · **F0** files discovery · **F** mkdir/delete/step-up · **AC-fg** · ACME · branding | Promote only if Must green |
 
 Success criteria (draft):
 
@@ -287,7 +357,8 @@ Success criteria (draft):
 5. *(If W-audit promoted)* Opt-in command (± response) audit with redaction heuristics and retention; default off; wiki warns about residual secret capture.  
 6. Map/stack/cert-style alerts have documented severities and per-category tuning; channels respect filters.  
 7. Servers + Docker service lists support page size + free-text filter without loading unbounded HTML.  
-8. *(If N promoted)* Operators have at least a **built-in fleet health board** of existing signals; optional **one** customisable layout from a fixed widget registry (no arbitrary queries).
+8. *(If N promoted)* Operators have at least a **built-in fleet health board** of existing signals; optional **one** customisable layout from a fixed widget registry (no arbitrary queries).  
+9. *(If F promoted)* Operator can open **Files** on a Docker host, list the jail, download one file, upload one file; viewer cannot; path escape and oversize rejected; demo does not expose a real tree.
 
 ---
 
@@ -296,10 +367,10 @@ Success criteria (draft):
 | Gate | Target |
 |------|--------|
 | Unit | Hold ≥ 55% (raise only if easy) |
-| Tests | Policy validate matrix · settings round-trip · list query unit tests · console limit apply · multi-identity ticket + redaction unit tests |
+| Tests | Policy validate matrix · settings round-trip · list query unit tests · console limit apply · multi-identity ticket + redaction unit tests · **F** path-jail / symlink-escape / size-cap unit tests |
 | E2E | Settings policy save · one large list page-size · connect-as privileged confirm · console settings smoke if flag on |
-| Docs | ADMIN + wiki Security / Alerts / Console (identities + audit) / list UX / Reports; `mkdocs build --strict` at freeze |
-| Security | Policy changes audited; privileged console extra step-up; transcripts access-controlled; demo never stores real shell transcripts; dashboard widgets respect RBAC |
+| Docs | ADMIN + wiki Security / Alerts / Console (identities + audit) / list UX / Reports / **Host files**; `mkdocs build --strict` at freeze |
+| Security | Policy changes audited; privileged console extra step-up; transcripts access-controlled; demo never stores real shell transcripts; dashboard widgets respect RBAC; **Files** jailed + audited + viewer-denied; demo tree off |
 
 ---
 
@@ -310,7 +381,8 @@ Success criteria (draft):
 | WebAuthn + step-up helpers | **T** / **W-cfg** factor policy builds on the same paths |
 | SSO 2FA parity | **T** must not re-fork SSO vs password |
 | Webshell tickets + env knobs | **W-cfg** moves knobs into settings; **W-id** extends ticket with identity; **W-audit** taps the same WS stream |
-| Single-key server model | Migration baseline for **W-id** |
+| Single-key server model | Migration baseline for **W-id**; **F** uses that same fleet identity |
+| Paramiko SFTP (compose / certs / templates) | **F** extracts a confined helper — do not add a second SSH stack |
 | Demo mode IP scrub / OpenAPI gate | Keep demo safe when settings surfaces expand; no shell transcripts on demo |
 | Force 2FA + trusted devices | Baseline for **T** grace / skip rules |
 
@@ -326,6 +398,8 @@ Success criteria (draft):
 | **P-acme** ACME-in-herder | PLAN_v1.1 §6.1 | Under consideration — not a Must for this seed |
 | HA REST / path 2 | FEATURE_PLAN_HOME_ASSISTANT | Residual integration |
 | Full insights beyond thin slice · branding · k8s/bare | ROADMAP H3 / quality | **N** seeds thin slice; deep BI stays far horizon |
+| Host file manager beyond list/get/put | New 2026-08-16 | **F** seeds confined transfer; WinSCP / `docker cp` / zmodem stay deferred |
+| **Service migration** (host→host compose move) | New 2026-08-17 | **→ v1.4 Stream M** — not a 1.3 add. [PLAN_v1.4.0.md](PLAN_v1.4.0.md) |
 
 ---
 
@@ -338,6 +412,8 @@ Success criteria (draft):
 - Guaranteeing redaction catches every secret typed at a shell  
 - Auto-enumerating all OS users on a host as “identities”  
 - **Full custom BI** (arbitrary SQL/PromQL, multi-page analytics, Grafana replacement) — **N** is discover + thin slice only  
+- **Full remote file manager** (WinSCP clone, `docker cp`, console zmodem, unzip-on-host) — **F** is discover + confined list/get/put only  
+- **Service migration** (move a compose project host→host with dataset + DNS + TLS/Kuma) — **→ v1.4** ([PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md))  
 - Weakening public **demo** into a multi-user admin sandbox  
 
 ---
@@ -350,11 +426,13 @@ Success criteria (draft):
 | 2026-08-10 | Added **W-id** multi-identity host SSH (least-priv fleet user + privileged user, separate keys, Connect as…) and **W-audit** discover lower-level webshell audit (commands + responses, optional password redaction). |
 | 2026-08-10 | Final seed item: **N** insights — discovery + thin-slice reporting / custom dashboarding (metric registry, built-in fleet board, optional one custom layout; not Grafana). Planning capture for 1.3 considered complete for operator-requested themes. |
 | 2026-08-11 | **W-mux**: optional host-side `screen`/`tmux` default for web console — **under consideration · low priority** (not 1.2; not a 1.3 Must). Soft park remains herder-side only today. |
-| 2026-08-11 | **Carry from 1.2:** **KI-console-mobile-soft-tab** — mobile soft-Tab / IME path-completion polish (desktop OK; parked in 1.2 RELEASE + wiki). Optional **W-cfg** / console UX Cap. |
+| 2026-08-11 | **Carry from 1.2:** **KI-console-mobile-soft-tab** — mobile soft-Tab / IME path-completion polish (desktop OK). **v12** landed in 1.2 QA (flush + mute + drop echo); residual exotic IMEs only. |
+| 2026-08-16 | **F** host files — discovery + thin-slice upload/download (confined SFTP list/get/put under `docker_base_dir` / home). Not a 1.2 add; not 1.1.1. Inventory of existing avatar/logo/backup/compose/cert SFTP paths captured in-stream. |
+| 2026-08-17 | **Service migration** requested (stop → dataset copy → CNAME → both Pi-hole restartdns → dest start → TLS/Kuma · host lock for HAOS / Frigate TPU). Parked on **v1.4** — not this train. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
-- **KI-console-mobile-soft-tab** — mobile browser soft Tab + IME fragment re-append after bash completion (workaround: Space → Backspace → Tab).
+- **KI-console-mobile-soft-tab** — residual exotic-IME cases after 1.2 QA **v12** (main `cd do` → `docker/` path is in 1.2).
 
 ---
 
@@ -368,7 +446,10 @@ Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3�
 | 4 | Spike **W-id** model + console ticket identity field (no UI polish) |
 | 5 | Spike **W-audit0** PTY capture + redaction on a throwaway host; promote or Cap |
 | 6 | Run **N0** insights discovery (one-pager) → decide **N2** vs **N2+N3** for freeze |
-| 7 | Write short feature notes (or extend host-lifecycle / IAM plans) for **T** / **W-cfg** / **W-id** / **W-audit** / **N** before coding |
+| 7 | Run **F0** files discovery sign-off (jail + size + step-up) → decide **F2** vs F2+mkdir/delete for freeze |
+| 8 | Write short feature notes (or extend host-lifecycle / IAM plans) for **T** / **W-cfg** / **W-id** / **W-audit** / **N** / **F** before coding |
+
+Service migration stays on [PLAN_v1.4.0.md](PLAN_v1.4.0.md) — do not add it to this freeze.
 
 ---
 
