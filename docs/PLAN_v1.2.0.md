@@ -210,7 +210,7 @@ Browser (xterm.js) —WSS ticket→ PiHerder —Paramiko/asyncssh PTY→ host
 | **W5** Audit open/close + IP + duration | Must | **Landed** |
 | **W6** SECURITY.md + ADMIN + **CSP** / TLS bar | Must | **Landed** (same-origin iframe CSP; wiki env catalog) |
 | **W7** Demo console policy | Must | **Landed (D5)** — simulated shell only (no live SSH); viewer allowed in demo |
-| **W8** Mobile soft-Tab completion polish | Cap | **Parked** — **KI-console-mobile-soft-tab** (desktop Tab OK; mobile IME can re-append fragment after completion). Workaround in [wiki web-ssh-console](../wiki/day-to-day/web-ssh-console.md#known-issues). Not freeze-blocking. |
+| **W8** Mobile soft-Tab completion polish | Cap | **Improved in QA (v12)** — flush IME token + mute compositionend + drop re-append. Residual exotic IMEs still **KI-console-mobile-soft-tab**. [wiki](../wiki/day-to-day/web-ssh-console.md#known-issues). |
 | Session recording / dual-control root | Defer | — |
 
 ### Stream D — Demo platform (**new product work**)
@@ -388,6 +388,8 @@ Phase 4  Freeze
 - **Multi-identity host SSH + command-level shell audit** — one key/user per host and session meta audit only in 1.2; **→ v1.3** streams **W-id / W-audit**  
 - **Map alert severity depth + app-wide pagination/search** — **→ v1.3** streams **A / L**  
 - **Insights / custom dashboards** — **→ v1.3** stream **N** (discover + thin slice only)  
+- **Host file transfer** — **→ v1.3** stream **F** (discover + confined list/get/put; not 1.2)  
+- **Service migration** — **→ v1.4** stream **M** (compose host→host + host lock; not 1.2 / not 1.3) — [PLAN_v1.4.0.md](PLAN_v1.4.0.md)  
 - SAML  
 - ACME-in-herder (still ≥1.3 consideration)  
 - Live anonymized mirror of production  
@@ -407,6 +409,6 @@ Phase 4  Freeze
 | 3 | Streams **I / S / W / B / D1–D4** product land | **Done** (S live multi-IdP = operator QA) |
 | 4 | Demo VPS + maintain cron | **Done** — **D4 live** |
 | 5 | **D5** simulated demo console | **Done** — no live SSH |
-| 6 | Operator QA → screenshot refresh → tag / Hub | **Now** — [QA_v1.2.0.md](QA_v1.2.0.md) |
+| 6 | Operator QA → screenshot refresh → tag / Hub | **Now** — [QA_v1.2.0.md](QA_v1.2.0.md). QA-period map fix (direct TLS / link project) is in [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) — not a 1.1.1. |
 
 **Feature-complete bar for freeze:** I + S + W + B + D1–D5 + **R1–R14** green. **Docs + QA list written.** Tag after operator sign-off.

@@ -295,6 +295,8 @@ Fleet host SSH (key from Fernet decrypt in memory only)
 - **Multi-identity host SSH** (least-priv fleet + privileged / break-glass key; **Connect as…**) — **→ v1.3 Stream W-id** ([PLAN_v1.3.0.md](PLAN_v1.3.0.md))  
 - **Opt-in command/response shell audit** + redaction — **→ v1.3 Stream W-audit** (discover first; not video replay)  
 - **Host-side `screen` / `tmux` for web console** (optional default attach) — **→ v1.3 Stream W-mux** · **under consideration · low priority** (today: plain `invoke_shell` + herder soft-park only)  
+- **Host file transfer** (confined SFTP list / get / put) — **→ v1.3 Stream F** (discover + thin slice; not a full file manager)  
+- **Service migration** (compose project host→host + dataset + DNS + host lock) — **→ v1.4 Stream M** ([PLAN_v1.4.0.md](PLAN_v1.4.0.md) · [FEATURE_PLAN_SERVICE_MIGRATION.md](FEATURE_PLAN_SERVICE_MIGRATION.md))  
 - Video session recording / dual-control (two-person) console — still far horizon  
 - Shared break-glass “console as root” with dual control  
 
@@ -360,3 +362,5 @@ An operator can:
 |------|------|
 | 2026-07-17 | Initial plan; aligned with ROADMAP H2.75; operator agreement on order and security bar |
 | 2026-07-18 | P1 shipped in 0.6; P2 deferred at freeze then opened under [PLAN_v0.7.0.md](PLAN_v0.7.0.md) |
+| 2026-08-16 | Host file transfer parked on **v1.3 Stream F** |
+| 2026-08-17 | Service migration parked on **v1.4 Stream M** (not P1 bulk lifecycle) |

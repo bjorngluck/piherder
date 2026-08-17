@@ -95,7 +95,7 @@ Enable `PIHERDER_SSH_CONSOLE=true` only for this section, then decide whether pr
 | 3.8 | Should | App-switch / hide tab: shell **resumes** (soft park). Typing `exit` / ✕ ends the slot. | ☐ |
 | 3.9 | Should | Concurrent cap: 5th shell (default max 4) is refused clearly. | ☐ |
 | 3.10 | Should | Cross-site: request mint with `Sec-Fetch-Site: cross-site` is **denied**. | ☐ |
-| 3.11 | Should | Desktop Tab completion works. **Mobile soft Tab** may glitch — accept **KI-console-mobile-soft-tab** (workaround: Space → Backspace → Tab). | ☐ |
+| 3.11 | Should | Desktop Tab completion works. **Mobile soft Tab** (v12): `cd do` + Tab → `cd docker/` without a leftover `do`. Residual IME oddities: Space → Backspace → Tab. | ☐ |
 | 3.12 | Should | Public demo console is **simulated** (banner; `help` / `ls` only; no live SSH). | ☐ |
 
 ---
@@ -204,6 +204,7 @@ Run against [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) **o
 | 11.7 | Should | Network maps / Path map open. | ☐ |
 | 11.8 | Should | Notifications bell + (if HTTPS) Web Push toggle still works. | ☐ |
 | 11.9 | Should | First-register-on-empty-DB story unchanged on a throwaway compose project. | ☐ |
+| 11.10 | Should | **Direct TLS (no NPM):** a container that serves HTTPS on the **host FQDN** (e.g. Frigate on `rpi5-4…`). Stack → **Use \<project\> for this path**. Hosts map shows the app satellite + container; path is **not** via NPM even if NPM still lists the old proxy host. Kuma bind scoped to that Docker project. | ☐ |
 
 ---
 
@@ -211,7 +212,7 @@ Run against [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) **o
 
 | Item | Stance |
 |------|--------|
-| **KI-console-mobile-soft-tab** | Parked; workaround documented |
+| **KI-console-mobile-soft-tab** | Improved in QA (soft-key **v12**); residual IME may remain |
 | CSP `unsafe-inline` | 1.3 nonces |
 | XSS on herder origin ≈ shell if console on | Leave flag **off** when unused; prefer HTTPS + 2FA |
 | Trusted-device cookies survive logout | Documented |

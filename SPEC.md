@@ -346,7 +346,7 @@ Living detail: [docs/PLAN_v0.5.0.md](docs/PLAN_v0.5.0.md).
 - [x] **LAN discovery (nmap-class)** — opt-in LAN CIDR scan, network view, Hosts overlay, map identity + wiki screenshots — **v0.8.0 tagged** ([RELEASE_v0.8.0.md](docs/RELEASE_v0.8.0.md) · [FEATURE_PLAN_LAN_NMAP.md](docs/FEATURE_PLAN_LAN_NMAP.md)); operator chrome polish continues in [PLAN_v0.9.0.md](docs/PLAN_v0.9.0.md)
 - [ ] Cloudflare DNS automation from template hints / fabric
 - [ ] Pi-hole / NPM write paths beyond local DNS (proxy host CRUD, lists, etc.)
-- [ ] Service migrate host→host; destructive service remove
+- [ ] Service migrate host→host; destructive service remove — **→ v1.4 Stream M** ([docs/PLAN_v1.4.0.md](docs/PLAN_v1.4.0.md) · [docs/FEATURE_PLAN_SERVICE_MIGRATION.md](docs/FEATURE_PLAN_SERVICE_MIGRATION.md)); host lock (HAOS / hardware); destructive wipe later
 - [ ] Expanded curated pack (Frigate, HA, n8n, media, …)
 - [ ] Plugin hooks / event webhooks (`job.completed`, `server.added`, …) — prefer REST + n8n over code exec
 - [ ] Ansible inventory / cloud-init bootstrap for new Pis (overlaps H2.75 P4 imaging depth)
