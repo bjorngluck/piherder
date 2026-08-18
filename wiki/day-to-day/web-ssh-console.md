@@ -36,6 +36,11 @@ The [public demo](../operations/demo-site.md) enables Console for the shared **v
 | **Servers list → select hosts → Console** | Multi-host workspace at `/console?hosts=1,2,3` (SSH-ready hosts only) |
 | **Popup → + Hosts** | Same multi-host workspace |
 
+<figure class="ph-figure" markdown>
+  ![Web SSH console popup](../assets/screenshots/console-popup.png)
+  <figcaption>Server detail → Console — unlocked popup with + Shell and a live prompt.</figcaption>
+</figure>
+
 | Control | Does |
 |---------|------|
 | **Maximize** | Full screen + slim outer bar; on mobile expands from a short bottom sheet |

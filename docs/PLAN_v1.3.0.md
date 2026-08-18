@@ -91,6 +91,7 @@ main @ v1.2.0 (+ v1.2.x)
 | T3 | Factor policy | Allow TOTP / passkey / backup codes for **login** vs **step-up** (e.g. console: passkey preferred / required; backup codes never for shell) |
 | T4 | Alignment with SSO | Keep “IdP MFA does not replace herder 2FA” unless an explicit admin option; no silent skip |
 | T5 | Audit + break-glass | Policy changes audited; sole-admin / recover path documented when force-2FA + lost factors |
+| T6 | Account mutation step-up is factor-agnostic | **Carry [KI-account-stepup-factors](RELEASE_v1.2.0.md#known-issues-ship-with-awareness).** SSO unlink/link: any enrolled 2FA (passkey step-up, TOTP, backup code) — not TOTP-only when TOTP is present. Passkey revoke: same helper (any other 2FA or remaining passkey), not password-only. Password remains the fallback when no 2FA is enrolled. |
 
 **Non-goals (T):** Passwordless-only login day one (unless residual after 1.2); per-host 2FA (belongs with **AC-fg**).
 
@@ -429,10 +430,12 @@ Success criteria (draft):
 | 2026-08-11 | **Carry from 1.2:** **KI-console-mobile-soft-tab** — mobile soft-Tab / IME path-completion polish (desktop OK). **v12** landed in 1.2 QA (flush + mute + drop echo); residual exotic IMEs only. |
 | 2026-08-16 | **F** host files — discovery + thin-slice upload/download (confined SFTP list/get/put under `docker_base_dir` / home). Not a 1.2 add; not 1.1.1. Inventory of existing avatar/logo/backup/compose/cert SFTP paths captured in-stream. |
 | 2026-08-17 | **Service migration** requested (stop → dataset copy → CNAME → both Pi-hole restartdns → dest start → TLS/Kuma · host lock for HAOS / Frigate TPU). Parked on **v1.4** — not this train. |
+| 2026-08-18 | **T6 / KI-account-stepup-factors** from 1.2 QA: unlink TOTP-first; passkey revoke password-only. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
 - **KI-console-mobile-soft-tab** — residual exotic-IME cases after 1.2 QA **v12** (main `cd do` → `docker/` path is in 1.2).
+- **KI-account-stepup-factors** — Account SSO unlink + passkey revoke should accept any enrolled 2FA (Stream **T6**).
 
 ---
 

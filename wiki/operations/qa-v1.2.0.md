@@ -249,7 +249,8 @@ Against [the public demo](demo-site.md) or a local `DEMO_MODE` overlay.
 | Trusted-device cookies survive logout | By design |
 | 7-day session JWT | `ACCESS_TOKEN_EXPIRE_MINUTES` |
 | No per-host ACL | Planned for 1.3 |
-| Some screenshots still 1.1 | Refresh shortly (accepted for freeze; not a code blocker) |
+| Some screenshots still 1.1 | **Done** — 1.2 pack landed 2026-08-18 |
+| [KI-account-stepup-factors](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md#known-issues-ship-with-awareness) | Unlink TOTP-first; passkey revoke password-only → 1.3 |
 
 ---
 
@@ -268,8 +269,8 @@ Against [the public demo](demo-site.md) or a local `DEMO_MODE` overlay.
 | Demo | | 2026-08-18 | **Pass** |
 | Core fleet regression | | 2026-08-18 | **Pass** (not every item; accepted) |
 | Boot / install / upgrade | | 2026-08-18 | **Pass** |
-| Docs / wiki / screenshots | | | Screenshot refresh pending |
-| **Ready to tag `v1.2.0`** | | | **No** — screenshot refresh (non-blocker; say Yes when you want the tag) |
+| Docs / wiki / screenshots | | 2026-08-18 | **Pass** — 1.2 screenshot pack wired |
+| **Ready to tag `v1.2.0`** | | 2026-08-18 | **Yes** |
 
 [Home](../index.md#release-status) lists **v1.2.0** as current production. Hub tags: `1.2.0` / `1.2` / `latest`.
 
