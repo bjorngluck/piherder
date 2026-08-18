@@ -2059,23 +2059,22 @@ body.server-reorder-active #bulk-hint {
   align-items: flex-end;
 }
 @media (min-width: 768px) {
+  /* Two columns so Schedule's stacked boxes don't shove
+     Scheduled runs halfway down the card. */
   .settings-backup-fields {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: flex-end;
-    justify-content: flex-start;
-  }
-  .settings-backup-field--schedule {
-    flex: 0 1 18rem;
-  }
-  .settings-backup-field--mode {
-    flex: 0 1 18rem;
+    display: grid;
+    grid-template-columns: minmax(14rem, 20rem) minmax(14rem, 20rem);
+    align-items: start;
+    justify-content: start;
+    column-gap: 1rem;
+    row-gap: 0.75rem;
   }
   .settings-backup-field--keep {
-    flex: 0 0 7.5rem;
+    max-width: 7.5rem;
   }
   .settings-backup-field--save {
-    flex: 0 0 auto;
+    align-items: flex-start;
+    padding-top: 1.35rem; /* line up with Keep input under its label */
   }
 }
 .settings-backup-run {
