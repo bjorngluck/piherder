@@ -60,6 +60,12 @@
         This instance requires SSO. Use the SSO button, or ask an admin for break-glass access.
         {% elif err == 'sso_denied' %}
         SSO sign-in was cancelled or denied by the identity provider.
+        {% elif err == 'sso_token' %}
+        SSO completed at the identity provider, but PiHerder could not validate the identity token. Check Settings → SSO (Issuer URL must match the IdP; Authentik issuers usually end with a slash) and that this server can reach the IdP JWKS URL.
+        {% elif err == 'sso_email' %}
+        SSO did not provide a verified email. Enable the email scope on the IdP, or turn off “Require email verified” in Settings → SSO.
+        {% elif err == 'sso_domain' %}
+        That email domain is not allowed for SSO.
         {% elif err == 'sso_config' %}
         SSO is not configured correctly. Ask an administrator to check Settings → SSO.
         {% elif err == 'sso_state' %}

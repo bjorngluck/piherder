@@ -153,6 +153,7 @@ Use two browsers or private windows when needed.
 | Symptom | Fix |
 |---------|-----|
 | `redirect_uri` mismatch | Exact match including `http` vs `https` and port (`:8000` / `:8443`) |
+| Authentik auth OK, PiHerder “cancelled or denied” / `sso_token` | ID token `iss` includes a **trailing slash** (`…/application/o/piherder/`). PiHerder accepts both forms; older builds required an exact match after stripping the slash. Rebuild / update web if you still see `Invalid identity token`. |
 | Discovery fails | Issuer must match Authentik OpenID issuer; from PiHerder container, `localhost:9000` is **the PiHerder host’s** localhost only if Authentik is published on the host — usually OK when both are host-published ports |
 | Email auto-link skipped | Emails differ, or `email_verified` false and policy strict |
 | Groups empty → always viewer | Missing groups scope / mapping; check ID token claims in Authentik |

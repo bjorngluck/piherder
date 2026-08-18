@@ -50,6 +50,7 @@ _ACTION_LABELS = {
     "server_container_apply_schedule": "Container apply schedule",
     "backup_restore": "Backup restore",
     "user_role_changed": "User role changed",
+    "user_role_sync_skipped": "SSO role sync skipped",
     "user_created": "User created",
     "user_deleted": "User deleted",
     "admin_password_reset": "Admin password reset",
