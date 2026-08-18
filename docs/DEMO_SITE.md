@@ -165,12 +165,12 @@ Notes:
 
 ## First 1.2 deploy on the VPS
 
-The public demo should track **`v1.2.0-dev`** until `v1.2.0` is tagged (Hub `latest` is still **1.1.0**). App code is **not** bind-mounted — you must **rebuild the image**.
+The public demo should track **`v1.2.0`** (or `latest` after Hub publish). App code is **not** bind-mounted — you must **rebuild the image**.
 
 ```bash
 # on the VPS clone
 git status                 # must be clean or demo-maintain refuses pull
-git fetch && git checkout v1.2.0-dev
+git fetch && git checkout v1.2.0
 git pull --ff-only
 # preferred:
 ./scripts/demo-maintain.sh redeploy

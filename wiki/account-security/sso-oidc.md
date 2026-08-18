@@ -41,13 +41,13 @@ Many labs already have a central IdP. SSO reduces password sprawl while keeping 
 |-------|---------|
 | **Enable SSO** | Show login button; allow OIDC flow |
 | **Display name** | Button label (e.g. `Authentik`) |
-| **Issuer URL** | OIDC issuer (discovery at `{issuer}/.well-known/openid-configuration`) |
+| **Issuer URL** | OIDC issuer (discovery at `{issuer}/.well-known/openid-configuration`). Authentik usually ends with a slash (`…/application/o/<slug>/`); both forms are accepted. |
 | **Client ID / secret** | Confidential client; secret stored **Fernet-encrypted** in DB (self-backup includes it) |
 | **Scopes** | Default `openid email profile` (+ groups scope if your IdP needs it) |
 | **Role claim path** | e.g. `groups` or `realm_access.roles` |
 | **Group → role map** | **Add mapping…** modal: type IdP group name, pick role (viewer / operator / admin), **Add**. List shows mappings with **Remove**. Highest privilege wins if several groups match. |
 | **Default role** | Used when no group matches (default **viewer**) |
-| **Sync roles on login** | Update role from claims on every SSO login (sole admin not demoted if it would leave zero admins) |
+| **Sync roles on login** | Update role from claims on every SSO login (sole admin not demoted if it would leave zero admins; audit `user_role_sync_skipped`) |
 | **Auto-link by email** | First SSO login links to an existing active user with the **same verified email** |
 | **Require email verified** | IdP must send `email_verified=true`. **Missing or false is not verified** (auto-link / require-verified fail closed). |
 | **Allowed email domains** | Optional allow-list (comma-separated) |
@@ -114,6 +114,8 @@ IdP MFA (if any) is **extra**, not a substitute for PiHerder TOTP/passkeys. Deta
 | `sso_link` | Linked (email auto-link, explicit Account link, or JIT) |
 | `sso_unlink` | Unlinked |
 | `sso_user_provisioned` | JIT user created |
+| `user_role_changed` | Role updated from IdP groups |
+| `user_role_sync_skipped` | Sole admin would have been demoted; role left unchanged |
 | `user_password_removed` / `user_password_set` | Password lifecycle after SSO |
 
 Also emits `user_login` on successful SSO for last-login / history consistency.

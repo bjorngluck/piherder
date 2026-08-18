@@ -2,10 +2,10 @@
 
 ## What this is
 
-The **operator freeze checklist** for **PiHerder v1.2.0**. Code on `v1.2.0-dev` is feature-complete. Hub `latest` is still **1.1.0** until this list is signed and the tag is cut.
+The **operator freeze checklist** for **PiHerder v1.2.0**. This is the current production line. Use the list to sign off a fleet upgrade or a fresh 1.2 install.
 
-Maintainer copy (same tests + post-tag steps): [docs/QA_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/v1.2.0-dev/docs/QA_v1.2.0.md).  
-What shipped: [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/v1.2.0-dev/docs/RELEASE_v1.2.0.md).
+Maintainer copy (same tests + post-tag steps): [docs/QA_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/QA_v1.2.0.md).  
+What shipped: [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md).
 
 ## Why it exists
 
@@ -15,7 +15,7 @@ What shipped: [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/v1
 
 | | |
 |--|--|
-| **Instance** | Your rebuilt **1.2** stack — not the published `1.1.0` image |
+| **Instance** | Your rebuilt **1.2** stack (`v1.2.0` / image `1.2.0`) |
 | **Browsers** | One desktop **and** one phone (console + passkeys) |
 | **Accounts** | **admin**, **operator** (2FA enrolled), **viewer** |
 | **Hosts** | At least one real SSH host |
@@ -28,6 +28,8 @@ Legend: **Must** = ship blocker · **Should** = fix or accept · **Reg** = 1.1 b
 ---
 
 ## 0. Boot, install, upgrade
+
+**Operator sign-off:** 2026-08-18 — **Pass**.
 
 | # | Pri | Test | ☐ |
 |---|-----|------|---|
@@ -63,7 +65,7 @@ See [2FA & force 2FA](../account-security/two-factor.md).
 
 ## 2. SSO / OpenID Connect
 
-Mark the section **N/A** only if production will not enable SSO. Lab: [SSO_AUTHENTIK_TEST.md](https://github.com/bjorngluck/piherder/blob/v1.2.0-dev/docs/SSO_AUTHENTIK_TEST.md).
+Mark the section **N/A** only if production will not enable SSO. Lab: [SSO_AUTHENTIK_TEST.md](https://github.com/bjorngluck/piherder/blob/main/docs/SSO_AUTHENTIK_TEST.md).
 
 | # | Pri | Test | ☐ |
 |---|-----|------|---|
@@ -109,6 +111,8 @@ See [Web SSH console](../day-to-day/web-ssh-console.md).
 
 ## 4. Host SSH, host keys, default user
 
+**Operator sign-off:** 2026-08-18 — **Pass**.
+
 | # | Pri | Test | ☐ |
 |---|-----|------|---|
 | 4.1 | Must | New host default SSH user is **`pi`**. Existing hosts unchanged. | |
@@ -124,6 +128,8 @@ See [Add a server](../day-to-day/add-server.md).
 
 ## 5. Docker compose build
 
+**Operator sign-off:** 2026-08-18 — **Pass**.
+
 | # | Pri | Test | ☐ |
 |---|-----|------|---|
 | 5.1 | Must | Operator **Build** on a named project streams. | |
@@ -137,6 +143,8 @@ See [Docker](../docker/overview.md).
 
 ## 6. Sessions, logout, reset URLs
 
+**Operator sign-off:** 2026-08-18 — **Pass**.
+
 | # | Pri | Test | ☐ |
 |---|-----|------|---|
 | 6.1 | Must | Sign out logs out other tabs (`session_version`). | |
@@ -147,6 +155,8 @@ See [Docker](../docker/overview.md).
 ---
 
 ## 7. Delete graphs
+
+**Operator sign-off:** 2026-08-18 — **Pass** (partial coverage; accepted).
 
 | # | Pri | Test | ☐ |
 |---|-----|------|---|
@@ -160,6 +170,8 @@ See [Users](../account-security/users.md) · [Remove a server](../day-to-day/rem
 ---
 
 ## 8. Self-backup, archives, vanished rsync
+
+**Operator sign-off:** 2026-08-18 — **Pass**.
 
 | # | Pri | Test | ☐ |
 |---|-----|------|---|
@@ -176,6 +188,8 @@ See [Self-backup & DR](self-backup.md).
 
 ## 9. CSP / frontend
 
+**Operator sign-off:** 2026-08-18 — **Pass**.
+
 | # | Pri | Test | ☐ |
 |---|-----|------|---|
 | 9.1 | Must | CSP has **no** `unsafe-eval`. No bare `ws:` / `wss:` token in `connect-src`. | |
@@ -191,6 +205,8 @@ curl -sI https://YOUR_PUBLIC_URL/ | tr ',' '\n' | grep -i content-security
 
 ## 10. Public demo
 
+**Operator sign-off:** 2026-08-18 — **Pass**.
+
 Against [the public demo](demo-site.md) or a local `DEMO_MODE` overlay.
 
 | # | Pri | Test | ☐ |
@@ -205,6 +221,8 @@ Against [the public demo](demo-site.md) or a local `DEMO_MODE` overlay.
 ---
 
 ## 11. RBAC + core fleet
+
+**Operator sign-off:** 2026-08-18 — **Pass** (not every item fully validated; accepted).
 
 | # | Pri | Test | ☐ |
 |---|-----|------|---|
@@ -231,7 +249,7 @@ Against [the public demo](demo-site.md) or a local `DEMO_MODE` overlay.
 | Trusted-device cookies survive logout | By design |
 | 7-day session JWT | `ACCESS_TOKEN_EXPIRE_MINUTES` |
 | No per-host ACL | Planned for 1.3 |
-| Some screenshots still 1.1 | Refresh after QA (not a code blocker) |
+| Some screenshots still 1.1 | Refresh shortly (accepted for freeze; not a code blocker) |
 
 ---
 
@@ -239,19 +257,24 @@ Against [the public demo](demo-site.md) or a local `DEMO_MODE` overlay.
 
 | Gate | Name | Date | Result |
 |------|------|------|--------|
-| Identity (passkeys + SSO) | | | Pass / Fail / N/A |
-| Console | | | Pass / Fail / N/A (flag stays off) |
-| Host keys + deletes + sessions | | | Pass / Fail |
-| Self-backup Full DR | | | Pass / Fail |
-| Demo | | | Pass / Fail / N/A |
-| Core fleet regression | | | Pass / Fail |
-| Docs match the product | | | Pass / Fail |
-| **Ready to tag `v1.2.0`** | | | **Yes / No** |
+| Identity (passkeys + SSO) | | 2026-08-18 | **Pass** — SSO (Authentik) + 2FA / passkeys |
+| Console | | 2026-08-18 | **Pass** |
+| Sessions / logout / reset URLs | | 2026-08-18 | **Pass** |
+| Delete graphs | | 2026-08-18 | **Pass** (partial; accepted) |
+| Host keys + default user | | 2026-08-18 | **Pass** |
+| Docker compose build | | 2026-08-18 | **Pass** |
+| Self-backup Full DR | | 2026-08-18 | **Pass** |
+| CSP / frontend | | 2026-08-18 | **Pass** |
+| Demo | | 2026-08-18 | **Pass** |
+| Core fleet regression | | 2026-08-18 | **Pass** (not every item; accepted) |
+| Boot / install / upgrade | | 2026-08-18 | **Pass** |
+| Docs / wiki / screenshots | | | Screenshot refresh pending |
+| **Ready to tag `v1.2.0`** | | | **No** — screenshot refresh (non-blocker; say Yes when you want the tag) |
 
-When the last row is **Yes**, the maintainer tags, publishes Hub `1.2.0` / `1.2` / `latest`, and flips [Home](../index.md#release-status) to current production.
+[Home](../index.md#release-status) lists **v1.2.0** as current production. Hub tags: `1.2.0` / `1.2` / `latest`.
 
 ## Related
 
 - [Upgrades](upgrades.md)  
 - [Environment reference](env-reference.md)  
-- [SECURITY.md](https://github.com/bjorngluck/piherder/blob/v1.2.0-dev/SECURITY.md)  
+- [SECURITY.md](https://github.com/bjorngluck/piherder/blob/main/SECURITY.md)  

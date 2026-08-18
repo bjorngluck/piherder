@@ -4,7 +4,7 @@
 
 **Title:** `v1.2.0: passkeys, SSO, web SSH, gated demo, full-DB backup`
 
-**Base:** `main` · **Head:** `v1.2.0-dev` · **Tag:** `v1.2.0` (after operator QA sign-off)
+**Base:** `main` · **Head:** `v1.2.0-dev` · **Tag:** `v1.2.0`
 
 ---
 
@@ -12,7 +12,7 @@
 
 Second minor after production **v1.1.1**. Big identity + optional webshell + public demo, plus full-database self-backup and the Stream R security remediations.
 
-Package / Hub version stays **1.1.1** until QA is signed and we bump + tag. Do **not** retag `latest` from this PR as-is.
+Package version is **1.2.0**. README + wiki present this as current production. Merge, tag, and Hub `1.2.0` / `1.2` / `latest` remain the last ship steps.
 
 | Stream | Highlights |
 |--------|------------|
@@ -43,14 +43,14 @@ Full notes: [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · operator QA: [QA_v1.2.0.md
 - [ ] Fresh deploy: migrate `037`–`039` on empty + upgrade from `v1.1.1`
 
 ### Operator QA (sign-off — [QA_v1.2.0.md](QA_v1.2.0.md))
-- [ ] Boot / weak `SECRET_KEY` refuses / loopback `:8000` / compiled Tailwind
-- [ ] Passkeys + TOTP + backup codes not in URL
-- [ ] SSO happy path + require-SSO + admin break-glass (or N/A)
-- [ ] Console flag off / viewer 403 / operator PTY; mobile Tab + soft keys
-- [ ] New host SSH user `pi`; host-key pin + reset
-- [ ] Full DR archive contains `database.dump`
-- [ ] Demo: viewer banner, no real onboard, simulated console
-- [ ] Direct TLS map (11.10) + core fleet regression
+- [x] Boot / weak `SECRET_KEY` refuses / loopback `:8000` / compiled Tailwind
+- [x] Passkeys + TOTP + backup codes not in URL
+- [x] SSO happy path + require-SSO + admin break-glass (or N/A)
+- [x] Console flag off / viewer 403 / operator PTY; mobile Tab + soft keys
+- [x] New host SSH user `pi`; host-key pin + reset
+- [x] Full DR archive contains `database.dump`
+- [x] Demo: viewer banner, no real onboard, simulated console
+- [x] Direct TLS map (11.10) + core fleet regression (accepted; not every item fully validated)
 - [ ] Wiki screenshot refresh
 
 ## Out of scope (deferred)
@@ -64,8 +64,8 @@ Full notes: [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · operator QA: [QA_v1.2.0.md
 ## Merge checklist
 
 - [ ] Operator **Ready to tag `v1.2.0` = Yes**
-- [ ] Version bump `app/version_info.py` + `pyproject.toml` → **1.2.0**
-- [ ] Flip [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) + wiki Home to **Tagged / current production**
+- [x] Version bump `app/version_info.py` + `pyproject.toml` → **1.2.0**
+- [x] Flip [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) + wiki Home to **Tagged / current production**
 - [ ] Merge `v1.2.0-dev` → `main`
 - [ ] Tag **`v1.2.0`** · Hub `1.2.0` / `1.2` / `latest`
 - [ ] Keep `1.1` / `1.1.1` pins valid

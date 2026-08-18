@@ -178,7 +178,7 @@ Full detail: [HAOS hosts](../day-to-day/haos-hosts.md).
 | 3 | Leave `PIHERDER_SSH_CONSOLE=false` unless you need a browser shell | Default off; XSS on the herder origin is shell-equivalent when on |
 | 4 | If you enable it: operator + 2FA → Console → **+ Shell** | [Web SSH console](../day-to-day/web-ssh-console.md) |
 | 5 | **Test connection** pins the host key; reset only after a rebuild | TOFU — mismatch is refused |
-| 6 | Sign [v1.2 QA](../operations/qa-v1.2.0.md) before treating this as production | Hub `latest` is still 1.1 until tagged |
+| 6 | Smoke the [v1.2 QA](../operations/qa-v1.2.0.md) identity + console rows if you turn these on | Optional surfaces — they stay off until you enable them |
 
 ---
 

@@ -156,7 +156,7 @@ Optional 2FA (when not forced): Account → enable TOTP and/or **passkeys**, bac
 | Break-glass | Local password remains unless removed. **Require SSO** hides the password form and **rejects non-admin `POST /auth/login`**. **Admins stay password break-glass**. Keep at least one recoverable admin. Missing IdP `email_verified` is **not** treated as verified. |
 | Secret storage | Client secret Fernet-encrypted in `appsetting`; included in herder self-backup |
 
-Audit: `sso_login`, `sso_login_failed`, `sso_link`, `sso_unlink`, `sso_user_provisioned`, `user_password_removed`, `user_password_set`.
+Audit: `sso_login`, `sso_login_failed`, `sso_link`, `sso_unlink`, `sso_user_provisioned`, `user_role_changed`, `user_role_sync_skipped` (sole-admin demotion refused), `user_password_removed`, `user_password_set`.
 
 ### Pins / favourites & host jump (v1.1)
 
@@ -558,12 +558,9 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
-| **Image pin** | Prefer a tagged image: Hub **`1.1.0`** until 1.2 is tagged, then `1.2.0` / `1.2` / `latest` |
+| **Image pin** | Prefer a tagged image: Hub **`1.2.0`** / `1.2` / `latest` (`1.1.1` / `1.1` pins remain valid) |
 
-Active ship plan: [PLAN_v1.2.0.md](PLAN_v1.2.0.md) · [QA_v1.2.0.md](QA_v1.2.0.md). Security model: [SECURITY.md](../SECURITY.md).
-
-!!! note "At v1.2.0 freeze"
-    Hub `latest` stays **1.1.0** until operator [QA](QA_v1.2.0.md) is signed. Recapture 1.2 screenshots (console, SSO, passkeys, Full DR) after QA if you have capacity.
+Active ship plan: [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (planning). Current notes: [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [QA_v1.2.0.md](QA_v1.2.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 

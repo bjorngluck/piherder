@@ -17,12 +17,12 @@ Wireframe SVGs (`*.svg`) are legacy placeholders; wiki pages use real PNGs. You 
 | **v0.9.0** (tagged) | Operator recapture pack for 0.9 chrome — [RELEASE_v0.9.0.md](../../../docs/RELEASE_v0.9.0.md) |
 | **v1.0.0** (tagged) | Full pack in place (operator-confirmed) — [PLAN_v1.0.0.md §8.2](../../../docs/PLAN_v1.0.0.md) · [RELEASE_v1.0.0.md](../../../docs/RELEASE_v1.0.0.md) |
 | **v1.1.0** | **Freeze pack landed** (operator recapture + new 1.1 shots) — [RELEASE_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.1.0.md) |
-| **v1.2.0** | **After operator QA** — new shots for passkeys, SSO settings, console, Full DR. 1.1 pack remains valid until then. [QA](../../operations/qa-v1.2.0.md) · [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/v1.2.0-dev/docs/RELEASE_v1.2.0.md) |
+| **v1.2.0** | **Current production** — recapture passkeys, SSO settings, console, Full DR (operator pack in progress). [QA](../../operations/qa-v1.2.0.md) · [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) |
 
 **Owner:** operator fleet testing (not CI). Replace PNGs in this directory; captions note when a figure may lag. After dropping files: `mkdocs build --strict`.
 
-!!! tip "Production screenshots (v1.1)"
-    Capture from image/tag **`v1.1.0`** / rebuilt `v1.1.0-dev`: `docker compose build web && docker compose up -d web`.  
+!!! tip "Production screenshots (v1.2)"
+    Capture from image/tag **`v1.2.0`** / rebuilt `v1.2.0-dev`: `docker compose build web && docker compose up -d web`.  
     App code is **not** bind-mounted in prod compose — stale containers = stale chrome in PNGs.
 
 ---
