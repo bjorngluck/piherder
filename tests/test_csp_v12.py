@@ -27,6 +27,19 @@ def test_build_csp_core_directives(monkeypatch):
     assert "cdn." not in csp
 
 
+def test_openapi_ui_csp_allows_jsdelivr(monkeypatch):
+    monkeypatch.setattr(hdr.settings, "PIHERDER_PUBLIC_URL", "https://ph.example.com:8443")
+    assert hdr.is_openapi_ui_path("/docs")
+    assert hdr.is_openapi_ui_path("/redoc")
+    assert not hdr.is_openapi_ui_path("/openapi.json")
+    assert not hdr.is_openapi_ui_path("/auth/login")
+    docs = hdr.build_csp(for_openapi_ui=True)
+    assert "https://cdn.jsdelivr.net" in docs
+    assert "https://fonts.googleapis.com" in docs
+    app = hdr.build_csp(for_openapi_ui=False)
+    assert "jsdelivr" not in app
+
+
 def test_build_csp_http_lab_no_upgrade(monkeypatch):
     monkeypatch.setattr(hdr.settings, "PIHERDER_PUBLIC_URL", "http://localhost:8000")
     csp = hdr.build_csp()
