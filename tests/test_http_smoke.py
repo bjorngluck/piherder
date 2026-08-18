@@ -170,6 +170,8 @@ def test_settings_general_admin_200(smoke_client):
     body = r.text.lower()
     # Stale data cleanup card (stream R) or timezone / general chrome
     assert "timezone" in body or "stale" in body or "general" in body or "settings" in body
+    assert 'data-testid="settings-password-policy"' in r.text
+    assert 'data-testid="password-min-length"' in r.text
 
 
 def test_viewer_cannot_post_fleet_mutate(smoke_client):

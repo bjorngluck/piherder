@@ -68,15 +68,14 @@ Each user card shows **last login** (app timezone) and a link to that user’s *
 
 ### Password policy
 
-Enforced on register, account change, and admin create (`app/services/password_policy.py`):
+Enforced on register, account change, admin create/reset, and recover-admin. Defaults (also the seed if Settings is empty):
 
 - At least **10** characters
 - At least one **uppercase**, one **lowercase**, one **digit**
 - At most **72 UTF-8 bytes** (~72 Latin letters/digits; emoji/symbols count as more)
 - Special characters recommended by the strength meter, not hard-required
-- Forms show human-readable rules via `policy_rules_text()`
 
-Admin-configurable min length / character classes is **post-RC** (roadmap).
+**Available from v1.3:** change these under **Settings → General → Security policy**. Minimum length cannot go below **8**; maximum cannot exceed **72**. Forms always show the live rules text. Policy changes are audited (`password_policy_changed`).
 
 ### Roles and delete
 

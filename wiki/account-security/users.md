@@ -35,11 +35,13 @@ The page uses the shared **ops-hero** (role / 2FA coverage pulse). Each user car
 
 ### Password policy
 
+Default rules (unless an admin changes them):
+
 - ≥ **10** characters  
 - Upper + lower + digit  
 - At most **72 Latin letters/digits** (emoji/symbols count as more)  
 
-Configurable admin policy (custom min length / character classes) is not available yet.
+**Available from v1.3:** an admin can change min/max length and required character classes under **Settings → General → Security policy**. The floor is 8 characters; the ceiling is 72. Register, account, and this Create user form all show the same live rules.
 
 ## Roles and delete
 
