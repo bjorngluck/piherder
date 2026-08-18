@@ -83,3 +83,14 @@ templates.env.globals["app_version"] = _vi.get_app_version()
 templates.env.globals["github_url"] = _vi.GITHUB_URL
 templates.env.globals["docs_url"] = _vi.DOCS_URL
 templates.env.globals["get_update_notice"] = _app_update.get_update_notice
+
+# Demo sandbox banner (Stream D) — global so base.html always sees it
+from .services import demo as _demo_svc  # noqa: E402
+
+templates.env.globals["demo_mode"] = _demo_svc.demo_mode
+templates.env.globals["demo_banner"] = _demo_svc.demo_banner
+
+from .services import turnstile as _turnstile_svc  # noqa: E402
+
+templates.env.globals["turnstile_enabled"] = _turnstile_svc.turnstile_enabled
+templates.env.globals["turnstile_site_key"] = _turnstile_svc.turnstile_site_key

@@ -41,11 +41,42 @@ from ..services import stale_data_cleanup as sdc
 
 router = APIRouter(tags=["settings"])
 
-_TABS = frozenset({"general", "fleet", "backup", "status", "api", "alerts"})
+_TABS = frozenset({"general", "fleet", "backup", "status", "api", "alerts", "demo"})
 
 
 def _form_on(value: Optional[str]) -> bool:
     return value in ("1", "on", "true")
+
+
+def _oidc_redirect_uri() -> str:
+    from ..services import oidc_svc as oidc
+
+    return oidc.public_redirect_uri()
+
+
+def _oidc_role_map_rows(cfg: dict) -> list[dict[str, str]]:
+    """Parse stored role map JSON into sorted rows for Settings UI."""
+    raw = (cfg or {}).get("oidc_role_map") or "{}"
+    if isinstance(raw, dict):
+        data = raw
+    else:
+        try:
+            data = json.loads(raw) if str(raw).strip() else {}
+        except json.JSONDecodeError:
+            data = {}
+    if not isinstance(data, dict):
+        return []
+    rows: list[dict[str, str]] = []
+    for k, v in data.items():
+        group = str(k).strip()
+        role = str(v).strip().lower()
+        if not group:
+            continue
+        if role not in ("admin", "operator", "viewer"):
+            role = "viewer"
+        rows.append({"group": group, "role": role})
+    rows.sort(key=lambda r: r["group"].lower())
+    return rows
 
 
 def _scopes_from_form(
@@ -149,6 +180,8 @@ async def settings_page(
         except Exception:
             api_meta = None
 
+    from ..services.demo import demo_mode
+
     tab = (request.query_params.get("tab") or "general").strip().lower()
     if tab not in _TABS:
         tab = "general"
@@ -158,6 +191,9 @@ async def settings_page(
         tab = "general"
     # Instance DR + fleet/security policy writes are admin-only
     if tab in ("backup", "fleet", "alerts") and not is_admin:
+        tab = "general"
+    # Demo seed tab removed from UI (ops restore via CLI only)
+    if tab == "demo":
         tab = "general"
     qp = request.query_params
     if (
@@ -173,6 +209,8 @@ async def settings_page(
     if qp.get("update_checks_saved"):
         tab = "fleet"
     if qp.get("security_saved") or qp.get("data_cleanup_saved") or qp.get("data_cleanup_queued"):
+        tab = "general"
+    if qp.get("demo_restored") or qp.get("demo_error"):
         tab = "general"
     if qp.get("stack_checked"):
         tab = "status" if is_admin else tab
@@ -289,6 +327,15 @@ async def settings_page(
             "primary_label": "tokens",
             "primary_cls": "",
             "caption": f"{tz_iana} · API tokens",
+        },
+        "demo": {
+            "title": "Demo sandbox",
+            "sub": "Restore the shared synthetic fleet after invitees rearrange it.",
+            "viz": "orb",
+            "primary": "seed",
+            "primary_label": "demo",
+            "primary_cls": "",
+            "caption": "Public demo · shared admin",
         },
     }
     hero_tab = settings_hero_by_tab.get(tab) or settings_hero_by_tab["general"]
@@ -412,8 +459,31 @@ async def settings_page(
             "data_cleanup_preview": data_cleanup_preview,
             "data_cleanup_schedule_status": data_cleanup_schedule_status,
             "data_cleanup_next_run": data_cleanup_next_run,
+            "oidc_redirect_uri": _oidc_redirect_uri(),
+            "oidc_role_map_rows": _oidc_role_map_rows(cfg),
+            "demo_mode_on": demo_mode(),
         },
     )
+
+
+@router.post("/herder-backups/demo-restore")
+async def demo_restore_seed(
+    confirm: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_admin_user),
+):
+    """In-app seed restore is disabled (shared demo vandalism).
+
+    Operators re-seed on the VPS only::
+
+        docker compose exec web python scripts/demo_seed/seed.py --force
+    """
+    from ..services.demo import http_403_if_demo, demo_mode
+
+    # Always refuse in the browser — even if DEMO_MODE is on.
+    if demo_mode():
+        http_403_if_demo("seed_restore")
+    raise HTTPException(404, detail="Not a demo instance")
 
 
 @router.post("/herder-backups/status/check")
@@ -558,6 +628,17 @@ async def create_api_token_form(
     session: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import DemoBlocked, demo_message, reject_if_demo
+
+    if reject_if_demo("api_token"):
+        return RedirectResponse(
+            _settings_url(
+                "api",
+                error=demo_message("api_token")[:120],
+                api_panel="tokens",
+            ),
+            status_code=303,
+        )
     scopes = _scopes_from_form(
         scope_read,
         scope_jobs,
@@ -566,13 +647,19 @@ async def create_api_token_form(
         scope_feature_os,
         scope_feature_docker,
     )
-    row, plain = tok_svc.create_api_token(
-        session,
-        name=name,
-        created_by=user,
-        scopes=scopes,
-        allowed_cidrs=allowed_cidrs or None,
-    )
+    try:
+        row, plain = tok_svc.create_api_token(
+            session,
+            name=name,
+            created_by=user,
+            scopes=scopes,
+            allowed_cidrs=allowed_cidrs or None,
+        )
+    except DemoBlocked as e:
+        return RedirectResponse(
+            _settings_url("api", error=str(e.message)[:120], api_panel="tokens"),
+            status_code=303,
+        )
     try:
         session.add(
             make_audit_log(
@@ -749,6 +836,9 @@ async def trigger_herder_backup(
     backup_mode: str = Form("config_only"),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
     mode = backup_mode if backup_mode in ("config_only", "full") else "config_only"
     include_audit = mode == "full"
     config_only = mode != "full"
@@ -796,6 +886,8 @@ async def restore_herder_backup(
     dry_run: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("herder_restore")
     tmp_path = None
     try:
         archive_to_use = archive
@@ -813,6 +905,13 @@ async def restore_herder_backup(
 
         if not archive_to_use:
             raise ValueError("Provide a server path or upload a file")
+        resolved = hb.resolve_archive_in_roots(
+            path=archive_to_use,
+            allow_tmp_upload=True,
+        )
+        if resolved is None:
+            raise ValueError("Archive path is not a PiHerder backup under the backup directory")
+        archive_to_use = str(resolved)
 
         preview = _form_on(dry_run)
         res = hb.restore_herder_backup(
@@ -870,14 +969,8 @@ async def download_herder_backup(
     name: str = "",
     user: User = Depends(get_admin_user),
 ):
-    roots = list(hb.archive_dir_candidates())
-    if name:
-        p = next((r / name for r in roots if (r / name).exists()), None)
-        if p is None:
-            raise HTTPException(404)
-    else:
-        p = Path(path)
-    if not p.exists() or not any(str(p).startswith(str(r)) for r in roots):
+    p = hb.resolve_archive_in_roots(path=path, name=name)
+    if p is None:
         raise HTTPException(404)
     return FileResponse(p, filename=p.name)
 
@@ -890,6 +983,8 @@ async def save_backup_schedule(
     schedule_cron: str = Form("0 3 * * *"),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     enabled = _form_on(schedule_enabled)
     cron = (schedule_cron or "").strip() or "0 3 * * *"
     if enabled:
@@ -925,6 +1020,11 @@ async def save_security_policy(
     template_require_2fa: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+
+    # Shared demo: force-2FA would lock every visitor out of the shared account
+    http_403_if_demo("settings_security")
+    del user
     try:
         app_cfg.save_settings(
             {
@@ -941,6 +1041,98 @@ async def save_security_policy(
     )
 
 
+@router.post("/herder-backups/oidc")
+async def save_oidc_settings(
+    oidc_enabled: Optional[str] = Form(None),
+    oidc_display_name: str = Form("SSO"),
+    oidc_issuer: str = Form(""),
+    oidc_client_id: str = Form(""),
+    oidc_client_secret: str = Form(""),
+    oidc_scopes: str = Form("openid email profile"),
+    oidc_role_claim: str = Form("groups"),
+    oidc_role_map: str = Form("{}"),
+    oidc_default_role: str = Form("viewer"),
+    oidc_allowed_email_domains: str = Form(""),
+    oidc_sync_roles_on_login: Optional[str] = Form(None),
+    oidc_auto_link_by_email: Optional[str] = Form(None),
+    oidc_require_email_verified: Optional[str] = Form(None),
+    oidc_require_sso: Optional[str] = Form(None),
+    user: User = Depends(get_admin_user),
+):
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
+    del user
+    import json
+
+    from ..security.auth import normalize_role, VALID_ROLES
+    from ..services import oidc_svc as oidc
+
+    role_map_raw = (oidc_role_map or "{}").strip() or "{}"
+    try:
+        parsed = json.loads(role_map_raw)
+        if not isinstance(parsed, dict):
+            raise ValueError("role map must be a JSON object")
+        # normalize values
+        cleaned = {}
+        for k, v in parsed.items():
+            role = normalize_role(str(v))
+            if role not in VALID_ROLES:
+                raise ValueError(f"invalid role for {k}")
+            cleaned[str(k).strip()] = role
+        role_map_store = json.dumps(cleaned)
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", oidc_error=f"Role map: {e}"[:120]),
+            status_code=303,
+        )
+
+    default_role = normalize_role(oidc_default_role)
+    if default_role not in VALID_ROLES:
+        default_role = "viewer"
+
+    partial = {
+        "oidc_enabled": _form_on(oidc_enabled),
+        "oidc_display_name": (oidc_display_name or "SSO").strip()[:64] or "SSO",
+        "oidc_issuer": oidc.normalize_issuer(oidc_issuer)[:512],
+        "oidc_client_id": (oidc_client_id or "").strip()[:256],
+        "oidc_scopes": (oidc_scopes or "openid email profile").strip()[:256],
+        "oidc_role_claim": (oidc_role_claim or "groups").strip()[:128] or "groups",
+        "oidc_role_map": role_map_store,
+        "oidc_default_role": default_role,
+        "oidc_allowed_email_domains": (oidc_allowed_email_domains or "").strip()[:500],
+        "oidc_sync_roles_on_login": _form_on(oidc_sync_roles_on_login),
+        "oidc_auto_link_by_email": _form_on(oidc_auto_link_by_email),
+        "oidc_require_email_verified": _form_on(oidc_require_email_verified),
+        "oidc_require_sso": _form_on(oidc_require_sso),
+    }
+    secret = (oidc_client_secret or "").strip()
+    if secret:
+        try:
+            partial["oidc_client_secret_encrypted"] = oidc.set_client_secret_encrypted(secret)
+        except Exception as e:
+            return RedirectResponse(
+                _settings_url("general", oidc_error=f"Secret encrypt failed: {e}"[:120]),
+                status_code=303,
+            )
+    elif partial["oidc_enabled"] and not (
+        app_cfg.load_settings().get("oidc_client_secret_encrypted") or ""
+    ).strip():
+        return RedirectResponse(
+            _settings_url("general", oidc_error="Client secret is required when enabling SSO"),
+            status_code=303,
+        )
+
+    try:
+        app_cfg.save_settings(partial)
+        oidc.clear_discovery_cache()
+    except Exception as e:
+        return RedirectResponse(
+            _settings_url("general", oidc_error=str(e)[:120]), status_code=303
+        )
+    return RedirectResponse(_settings_url("general", oidc_saved="1"), status_code=303)
+
+
 @router.post("/herder-backups/alerts/webhook")
 async def save_alerts_webhook(
     webhook_enabled: Optional[str] = Form(None),
@@ -954,6 +1146,8 @@ async def save_alerts_webhook(
     webhook_events_backup: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     del user
     from ..services import alert_channels as alert_ch
 
@@ -1000,6 +1194,8 @@ async def test_alerts_webhook(
     webhook_events_backup: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     """Save form first (so test uses current fields), then POST a test payload."""
     del webhook_events_notifications, webhook_events_jobs, webhook_events_backup
     from ..services import alert_channels as alert_ch
@@ -1060,6 +1256,8 @@ async def save_alerts_smtp(
     smtp_password_reset_enabled: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     del user
     from ..services import alert_channels as alert_ch
 
@@ -1104,6 +1302,8 @@ async def test_alerts_smtp(
     to: str = Form(...),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     del user
     from ..services import alert_channels as alert_ch
 
@@ -1133,6 +1333,8 @@ async def save_data_cleanup_config(
     data_cleanup_nmap_days: int = Form(30),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     enabled = _form_on(data_cleanup_enabled)
     cron = (data_cleanup_cron or "").strip() or "30 4 * * *"
     if enabled:
@@ -1173,6 +1375,9 @@ async def run_data_cleanup_now(
     session: Session = Depends(get_session),
 ):
     """Queue stale_data_cleanup Job (live or dry-run)."""
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("settings_write")
     is_dry = dry_run in ("1", "on", "true", "yes")
     try:
         job = sdc.enqueue_stale_data_cleanup(
@@ -1212,6 +1417,8 @@ async def save_update_check_defaults(
     enable_backups: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     os_on = _form_on(os_check_global_enabled)
     cont_on = _form_on(container_check_global_enabled)
     jitter = _form_on(update_check_jitter)
@@ -1287,6 +1494,8 @@ async def save_timezone(
     timezone: str = Form("UTC"),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("settings_write")
     try:
         app_cfg.set_app_timezone(timezone)
         sched, has = _scheduler()
@@ -1303,6 +1512,8 @@ async def delete_herder_backup(
     name: str = Form(...),
     user: User = Depends(get_admin_user),
 ):
+    from ..services.demo import http_403_if_demo
+    http_403_if_demo("herder_restore")
     deleted = False
     for root in hb.archive_dir_candidates():
         p = root / name

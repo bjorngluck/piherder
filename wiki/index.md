@@ -10,16 +10,25 @@
 
 | | |
 |---|---|
-| **Current release** | **[v1.1.1](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md)** — current production · patch on 1.1 (SSH test / host deps) |
-| **Image** | `bjorngluck/piherder:1.1.1` · `1.1` · `latest` (multi-arch amd64 + arm64; `1.1.0` / `1.0.x` pins remain valid) |
-| **Release notes** | [RELEASE_v1.1.1.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md) · [v1.1.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md) · prior [v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) |
-| **Known issue** | Busy-source rsync vanish (**KI-rsync-vanished**) — [troubleshooting](troubleshooting/backups.md#vanished-files-busy-sources) |
-| **Next train** | [PLAN_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.2.0.md) (WebAuthn · [SSO](account-security/sso-oidc.md) · webshell · demo) on `v1.2.0-dev` |
+| **Current release** | **[v1.2.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md)** — current **Hub / production** · passkeys · [SSO](account-security/sso-oidc.md) · [web SSH](day-to-day/web-ssh-console.md) · demo · full DB self-backup · security remediations |
+| **Image** | `bjorngluck/piherder:1.2.0` · `1.2` · `latest` (multi-arch amd64 + arm64; `1.1.1` / `1.1` / `1.0.x` pins remain valid) |
+| **Release notes** | [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md) · [v1.1.1](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md) · [v1.1.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md) · prior [v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) |
+| **Known issues** | Console mobile Tab residual IME ([KI-console-mobile-soft-tab](day-to-day/web-ssh-console.md#known-issues)). Account unlink / passkey revoke step-up ([KI-account-stepup-factors](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md#known-issues-ship-with-awareness)). Busy-source rsync vanish retries — [troubleshooting](troubleshooting/backups.md#vanished-files-busy-sources). |
+| **Next release** | **v1.3.0** — planning (operator policy · host files · fine-grained roles). [PLAN_v1.3.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.3.0.md) |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
+| **Public demo** | [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) — limited **viewer** sandbox · [credentials](operations/demo-site.md) |
 | **License** | [MIT](https://github.com/bjorngluck/piherder/blob/main/LICENSE) (open source) |
 
 If something is unclear or wrong, open a [GitHub Issue](https://github.com/bjorngluck/piherder/issues).
+
+!!! tip "Public demo site (view-only)"
+    PiHerder has a **live public demo** — explore the UI without installing:
+
+    - **URL:** [https://piherder-demo.hacknow.info](https://piherder-demo.hacknow.info)  
+    - **Login:** `demo@hacknow.info` / `PiHerder@123?_` (shared **viewer** account)  
+    - **Details:** [Public demo](operations/demo-site.md) — password may rotate; **this wiki always has the latest**.  
+    - **Caveat:** some screens use **simulated hosts/data** and may not match a real fleet 100% (see that page).
 
 ---
 
@@ -56,6 +65,14 @@ Core fleet work (SSH, backups, patch, Docker) **never** requires Catalog integra
 ## Start here
 
 <div class="grid cards" markdown>
+
+-   :material-play-circle:{ .lg .middle } **Try the public demo**
+
+    ---
+
+    Limited **view-only** sandbox · synthetic fleet · shared login.
+
+    [:octicons-arrow-right-24: Open demo](https://piherder-demo.hacknow.info){ target="_blank" } · [Credentials](operations/demo-site.md)
 
 -   :material-rocket-launch:{ .lg .middle } **Install in ~15 minutes**
 
@@ -130,7 +147,8 @@ Use this table when you already know the area; use [Operator scenarios](getting-
 | [Templates](service-templates/overview.md) | Catalog templates: deploy, from-host, secrets, drift |
 | [Integrations](integrations/overview.md) | Catalog products, certs, network maps |
 | [Account & security](account-security/roles.md) | RBAC, users, 2FA, PWA |
-| [Operations](operations/settings.md) | Settings, env, DR, metrics, API |
+| [Operations](operations/settings.md) | Settings, env, DR, metrics, API, [v1.2 QA](operations/qa-v1.2.0.md) |
+| [Public demo](operations/demo-site.md) | Shared view-only sandbox credentials + limits |
 | [Troubleshooting](troubleshooting/index.md) | Common failures and where to look |
 | [Developers](developers/index.md) | Code, tests, contributing |
 
@@ -152,6 +170,7 @@ Use this table when you already know the area; use [Operator scenarios](getting-
 
 ## Quick links
 
+- **Public demo (view-only):** [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) · [login details](operations/demo-site.md)  
 - Interactive API (on your instance): **`/docs`** (OpenAPI, tag `api-v1`)  
 - Security policy: [SECURITY.md](https://github.com/bjorngluck/piherder/blob/main/SECURITY.md)  
 - Report issues: [GitHub Issues](https://github.com/bjorngluck/piherder/issues)  

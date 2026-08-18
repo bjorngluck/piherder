@@ -80,6 +80,35 @@ def test_parse_cname_entries():
     assert rows[0]["target"] == "target.local"
 
 
+def test_parse_cname_entries_keeps_ttl_raw():
+    data = {"config": {"dns": {"cnameRecords": ["alias.local,target.local,300"]}}}
+    rows = ph._parse_cname_entries(data)
+    assert rows[0]["domain"] == "alias.local"
+    assert rows[0]["target"] == "target.local"
+    assert rows[0]["raw"] == "alias.local,target.local,300"
+
+
+def test_delete_dns_cname_uses_ttl_raw():
+    sess = ph.PiholeSession(base_url="https://pi.example", sid="sid")
+    listed = {"config": {"dns": {"cnameRecords": ["alias.local,target.local,300"]}}}
+    calls = []
+
+    def fake_get(_sess, path, **_kw):
+        assert "cnameRecords" in path
+        return listed
+
+    def fake_request(_sess, method, path, **_kw):
+        calls.append((method, path))
+        r = MagicMock()
+        r.status_code = 204 if path.endswith("%2C300") else 404
+        r.text = ""
+        return r
+
+    with patch.object(ph, "_get_json", fake_get), patch.object(ph, "_request", fake_request):
+        ph.delete_dns_cname(sess, "alias.local", "target.local")
+    assert any(c[0] == "DELETE" and "%2C300" in c[1] for c in calls)
+
+
 def test_summarize_instances():
     s = ph.summarize_instances(
         [

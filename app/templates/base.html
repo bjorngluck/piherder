@@ -16,13 +16,8 @@
   <link rel="icon" href="/static/favicon.png?v=20260722c" type="image/png" sizes="32x32">
   <link rel="icon" href="/static/favicon.ico?v=20260722c" sizes="any">
 
-  <!-- Tailwind Play + HTMX + Alpine (always loaded for consistent nav + components across all pages) -->
-  <script src="/static/tailwind.js" onerror="console.warn('Tailwind Play not available — using built-in fallback styles')"></script>
-  <script>
-    if (typeof tailwind !== 'undefined') {
-      tailwind.config = { theme: { extend: {} } };
-    }
-  </script>
+  <!-- Compiled Tailwind utilities (no Play / no eval). Custom chrome stays in themes.css. -->
+  <link rel="stylesheet" href="/static/css/tailwind.css?v=20260812-box">
   <script src="/static/htmx.min.js"></script>
   <script defer src="/static/alpine.min.js"></script>
 
@@ -31,13 +26,13 @@
          fabric (network maps) · fabric-stack (runtime stack drawer)
          dns-hub (records modal) · ops (shell/filters) · ops-pages (feature pages)
        Query busts browser + older SW caches when tokens change. -->
-  <link rel="stylesheet" href="/static/css/themes.css?v=20260729-fav9">
+  <link rel="stylesheet" href="/static/css/themes.css?v=20260818-tz-align">
   <link rel="stylesheet" href="/static/css/fabric.css?v=20260730-app-card-ports">
   <link rel="stylesheet" href="/static/css/fabric-stack.css?v=20260730-host-ports-m4">
   <link rel="stylesheet" href="/static/css/dns-hub.css?v=20260725-split">
   <link rel="stylesheet" href="/static/css/ops.css?v=20260725-split">
   <link rel="stylesheet" href="/static/css/ops-auth.css?v=20260718-order6">
-  <link rel="stylesheet" href="/static/css/ops-pages.css?v=20260725-cov-bind">
+  <link rel="stylesheet" href="/static/css/ops-pages.css?v=20260812-ui2">
 
   <!-- Apply saved theme ASAP (before paint) so the page doesn't flash light → dark -->
   <script>
@@ -55,6 +50,8 @@
     /* Minimal robust fallback ONLY for layout/structure when Tailwind CDN fails.
        ALL color theming is var-driven ONLY via themes.css (no color rules here). */
     :root { color-scheme: light dark; }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { overflow-x: hidden; -webkit-text-size-adjust: 100%; }
     body { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; line-height: 1.5; margin: 0; overflow-x: hidden; }
     a { text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -146,7 +143,39 @@
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
-<body class="bg-bg{% if not user %} is-auth-chrome{% endif %}">
+<body class="bg-bg{% if not user %} is-auth-chrome{% endif %}{% if popup_mode %} is-console-popup{% endif %}{% if console_app %} is-console-app{% endif %}">
+  {# Console workspace / embed: hide fleet chrome; full-viewport terminal app. #}
+  <style>
+    body.is-console-popup .nav-header,
+    body.is-console-popup #mobile-menu-backdrop,
+    body.is-console-popup #mobile-menu-panel,
+    body.is-console-popup #ph-update-banner,
+    body.is-console-popup #pwa-install-banner,
+    body.is-console-popup > footer { display: none !important; }
+    body.is-console-popup main {
+      max-width: none !important;
+      width: 100% !important;
+      margin: 0 !important;
+      padding: 0.65rem 0.75rem 0.75rem !important;
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+    body.is-console-popup { overflow-x: hidden; }
+    /* Full-bleed console app (multi-host workspace + host iframe) */
+    html:has(body.is-console-app), body.is-console-app {
+      height: 100%;
+      overflow: hidden;
+    }
+    body.is-console-app main {
+      padding: 0 !important;
+      height: 100vh;
+      height: 100dvh;
+      min-height: 0 !important;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+  </style>
   <nav class="nav-header">
     <div class="nav-header-inner">
       <!-- Brand (left) — all sizing/spacing via CSS vars -->
@@ -200,6 +229,7 @@
         {"label": "Sign out",     "href": "/auth/logout", "kind": "danger"}
       ] %}
       {% set _user_role = (user.role if user and user.role else 'viewer')|lower %}
+      {# Same as production: admin-only secondary links (demo shared login is viewer) #}
       {% if user and _user_role == 'admin' %}
         {% set secondary_items = [
           secondary_items[0],
@@ -248,6 +278,33 @@
             </div>
           </details>
         </div>
+
+        <!-- Docked web SSH console (W) — appears when shells are hidden / parked -->
+        <div class="notif-bell-wrap console-dock-wrap hidden" id="console-dock-wrap" data-testid="console-dock-wrap">
+          <button type="button" class="notif-bell console-dock-btn" id="console-dock-btn"
+                  title="Open hidden console shells" aria-label="Hidden console shells">
+            <span class="notif-bell-icon" aria-hidden="true">⌨</span>
+            <span id="console-dock-badge" class="notif-badge hidden">0</span>
+          </button>
+        </div>
+        <style>
+          .console-dock-wrap.console-dock-pulse .console-dock-btn {
+            box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+            animation: ph-console-dock-pulse 0.9s ease 0s 3;
+          }
+          @keyframes ph-console-dock-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55); }
+            70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+          }
+          .console-dock-btn {
+            position: relative;
+          }
+          /* Always show a bit of green accent when docked shells exist */
+          #console-dock-wrap:not(.hidden) .console-dock-btn {
+            outline: 1px solid rgba(34, 197, 94, 0.45);
+          }
+        </style>
 
         <!-- Notification bell -->
         <div class="notif-bell-wrap" id="notif-bell-wrap">
@@ -341,6 +398,18 @@
   </div>
   {% endif %}
 
+  {# Demo sandbox — non-dismissible (Stream D); show on auth pages too #}
+  {% if demo_mode is defined and demo_mode() %}
+  <div id="ph-demo-banner" class="border-b border-border bg-surface" role="status" data-testid="demo-banner">
+    <div class="max-w-5xl mx-auto px-4 py-2 text-sm text-center text-muted flex flex-wrap items-center justify-center gap-2">
+      <strong class="text-accent">{{ demo_banner() if demo_banner is defined else "Demo — shared account · data resets · some actions simulated" }}</strong>
+      {% if user and user.role is defined and (user.role or '')|lower == 'admin' %}
+      <a href="/herder-backups?tab=demo" class="text-xs text-accent hover:underline" data-testid="demo-restore-link">Restore seed</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
   {% if user %}
   {# New GitHub release notice (dismissed per browser via localStorage) #}
   {% set _upd = get_update_notice() if get_update_notice is defined else none %}
@@ -395,9 +464,10 @@
        aria-live="polite"
        aria-busy="false"
        role="status">
-    <div class="card rounded-xl p-6 w-full max-w-sm mx-4 text-center">
+    <div class="modal-content card p-6 w-full max-w-sm mx-4 text-center ph-modal-brand">
+      <div class="ph-detail-kicker mb-2">{{ ph_brand() }}</div>
       <div class="flex justify-center mb-3">
-        <div class="w-7 h-7 border-2 border-accent border-t-transparent rounded-full animate-spin"></div>
+        <div class="ph-spinner" aria-hidden="true"></div>
       </div>
       <div class="font-medium" id="piherder-nav-loading-title">Loading…</div>
       <div class="text-xs text-muted mt-1" id="piherder-nav-loading-sub"></div>
@@ -442,7 +512,7 @@
        aria-modal="true" role="dialog" aria-labelledby="ph-wait-title" aria-busy="true">
     <div class="modal-content card p-6 w-full max-w-md mx-4 text-center ph-modal-brand">
       <div class="ph-detail-kicker mb-2">{{ ph_brand() }}</div>
-      <div class="mx-auto mb-4 h-10 w-10 rounded-full border-2 border-accent border-t-transparent animate-spin" aria-hidden="true"></div>
+      <div class="mx-auto mb-4 ph-spinner" aria-hidden="true"></div>
       <h3 id="ph-wait-title" class="ph-detail-title mb-2">Working…</h3>
       <p id="ph-wait-message" class="text-sm text-muted mb-0">Please wait…</p>
       <p class="text-[10px] text-muted mt-3 mb-0">This page will update when the operation finishes. Do not close or navigate away.</p>
@@ -878,6 +948,108 @@
       if (document.getElementById('fav-menu')) {
         refreshFavouritesMenu();
       }
+
+      // Docked console shells (top bar ⌨) — sessionStorage from console pages
+      (function consoleDock() {
+        var DOCK_KEY = 'piherder.console.dock';
+        var wrap = document.getElementById('console-dock-wrap');
+        var btn = document.getElementById('console-dock-btn');
+        var badge = document.getElementById('console-dock-badge');
+        if (!wrap || !btn) return;
+
+        function readDock() {
+          try {
+            var raw = sessionStorage.getItem(DOCK_KEY);
+            if (!raw) return { hosts: {}, count: 0, firstId: null };
+            var dock = JSON.parse(raw);
+            var hosts = (dock && dock.hosts) || {};
+            var count = 0;
+            var firstId = null;
+            Object.keys(hosts).forEach(function (k) {
+              var h = hosts[k];
+              if (!h || !h.shells || !h.shells.length) return;
+              // Drop stale park tokens older than 2h
+              if (h.at && Date.now() - h.at > 2 * 3600 * 1000) return;
+              count += h.shells.length;
+              if (firstId == null) firstId = h.id != null ? h.id : parseInt(k, 10);
+            });
+            return { hosts: hosts, count: count, firstId: firstId };
+          } catch (e) {
+            return { hosts: {}, count: 0, firstId: null };
+          }
+        }
+
+        function refresh() {
+          var d = readDock();
+          if (d.count > 0) {
+            wrap.classList.remove('hidden');
+            if (badge) {
+              badge.textContent = d.count > 99 ? '99+' : String(d.count);
+              badge.classList.remove('hidden');
+            }
+            btn.title = d.count + ' hidden shell' + (d.count === 1 ? '' : 's') + ' — tap to reopen';
+            btn.setAttribute('aria-label', d.count + ' hidden console shells');
+          } else {
+            wrap.classList.add('hidden');
+            if (badge) badge.classList.add('hidden');
+          }
+        }
+
+        function expand() {
+          var d = readDock();
+          if (!d.count || d.firstId == null) {
+            refresh();
+            return;
+          }
+          var ids = [];
+          Object.keys(d.hosts).forEach(function (k) {
+            var h = d.hosts[k];
+            if (h && h.shells && h.shells.length) {
+              ids.push(String(h.id != null ? h.id : k));
+            }
+          });
+          var path = window.location.pathname || '';
+          var detailMatch = path.match(/^\/servers\/(\d+)\/?$/);
+          var onConsole = path === '/console' || path.indexOf('/console?') === 0;
+
+          // Same host detail page → reopen popup (keep-alive iframe or resume)
+          if (detailMatch && typeof window.openPiHerderConsolePopup === 'function') {
+            var pageId = detailMatch[1];
+            if (ids.indexOf(pageId) >= 0 || String(d.firstId) === pageId) {
+              window.openPiHerderConsolePopup(pageId);
+              return;
+            }
+          }
+          if (onConsole) {
+            try {
+              window.dispatchEvent(new CustomEvent('piherder-console-expand', {
+                detail: { serverId: d.firstId }
+              }));
+            } catch (e) {}
+            return;
+          }
+          if (ids.length > 1) {
+            window.location.href = '/console?hosts=' + encodeURIComponent(ids.join(','));
+          } else {
+            window.location.href = '/console?host=' + encodeURIComponent(String(d.firstId));
+          }
+        }
+
+        btn.addEventListener('click', function (ev) {
+          try { ev.preventDefault(); } catch (e) {}
+          expand();
+        });
+        window.addEventListener('piherder-console-dock', refresh);
+        window.addEventListener('storage', function (ev) {
+          if (ev.key === DOCK_KEY) refresh();
+        });
+        window.addEventListener('message', function (ev) {
+          if (ev.origin !== window.location.origin) return;
+          if (ev.data && ev.data.type === 'piherder-console-dock') refresh();
+        });
+        window.PiHerderConsoleDock = { refresh: refresh, expand: expand, read: readDock };
+        refresh();
+      })();
 
       // Notification badge poll
       function refreshNotifBadge() {
@@ -1676,7 +1848,7 @@
 
   {# Shared confirm dialog — prefer this over browser confirm() / alert() #}
   <div id="ph-confirm-modal"
-       class="hidden fixed inset-0 z-[80] items-center justify-center p-4 bg-black/70"
+       class="hidden fixed inset-0 z-[120] items-center justify-center p-4 bg-black/70"
        role="dialog" aria-modal="true" aria-labelledby="ph-confirm-title" aria-describedby="ph-confirm-message">
     <div class="modal-content card p-5 w-full max-w-md shadow-lg border border-border"
          onclick="event.stopPropagation()">

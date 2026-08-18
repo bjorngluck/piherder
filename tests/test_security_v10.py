@@ -92,6 +92,11 @@ def test_same_origin_allows_missing_headers():
     assert same_origin_request(req) is True
 
 
+def test_same_origin_rejects_sec_fetch_cross_site():
+    req = _make_request({"sec-fetch-site": "cross-site"})
+    assert same_origin_request(req) is False
+
+
 def test_same_origin_middleware_blocks_cross_origin_post():
     from app.main import SameOriginPostMiddleware
 

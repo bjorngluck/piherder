@@ -51,8 +51,10 @@ Configurable admin policy (custom min length / character classes) is not availab
 | Removed with the account | Kept (unlinked) |
 |--------------------------|-----------------|
 | Password, profile, avatar files | **Audit** rows (`user_id` cleared) |
-| TOTP secret, backup codes, trusted devices | **Notifications** (`user_id` cleared) |
+| TOTP secret, backup codes, **passkeys**, trusted devices | **Notifications** (`user_id` cleared) |
 | Web Push subscriptions + push preferences | **API tokens** the user created (`created_by` cleared; token still works until revoked) |
+| **SSO / OIDC** identity links | **Map edges / port notes** they created (`created_by` cleared) |
+| Pins / favourites, unused password-reset tokens | |
 
 Delete fails closed if related rows cannot be detached (should not happen on a healthy DB).
 
@@ -75,7 +77,7 @@ If **no** admin can sign in, use host Docker recovery instead of this page:
 
 → **[Locked out / sole admin recovery](../troubleshooting/locked-out.md)** (`./scripts/recover-admin.sh` or `python -m app.cli.recover_admin`)
 
-Email “forgot password” self-service and SMTP invite mail are not available yet.
+**Forgot password** (email) is available when SMTP is configured under [Settings → Alerts](../operations/alerts-email-webhooks.md). Reset **links use `PIHERDER_PUBLIC_URL` only** (a spoofed `Host` header is ignored). SMTP invite mail on **Create user** is not available — copy the one-time password from the modal.
 
 ## Open registration
 

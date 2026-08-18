@@ -13,24 +13,37 @@ Diagnosis when a **server backup** job fails, stays pending, or never updates `l
 
 ## Vanished files / busy sources
 
-**v1.1.0 known issue** ([RELEASE_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md#known-issues-ship-with-awareness) **KI-rsync-vanished**).
+**v1.1.0 known issue** ([RELEASE_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md#known-issues-ship-with-awareness) **KI-rsync-vanished**). **v1.2.0** retries and can soft-OK vanished files (below).
 
 On a busy host, files under the backup source can **disappear or move while rsync is running**. Typical examples:
 
 - **Frigate** (and similar NVR/media stacks): recordings are written, indexed, rotated, or deleted continuously  
 - App caches, temp segments, or log rotation under a large docker tree  
 
-rsync then reports **code 24** (vanished files) and/or **code 23** (partial transfer). PiHerder marks that **source** failed even if much of the tree transferred and other sources (e.g. volumes) succeeded.
+rsync then reports **code 24** (vanished files) and/or **code 23** (partial transfer with “vanished” in the log).
 
-| Expectation in v1.1 | Later |
-|---------------------|--------|
-| Fail is **honest** — some files were not a consistent snapshot | **v1.2+**: explore softer handling + **retry** ([PLAN_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/PLAN_v1.2.0.md)) |
+### v1.2 B-retry (default behaviour)
 
-**What you can do now**
+| Step | What PiHerder does |
+|------|---------------------|
+| Detect | Exit **24**, or **23** with `vanished` in stderr |
+| Retry | Default **1** extra attempt after a short delay (`PIHERDER_BACKUP_VANISHED_RETRIES`) |
+| Soft success | If still vanished after retries: source is **soft-OK** (job can succeed) with a **warning** — not a hard fail (`PIHERDER_BACKUP_VANISHED_SOFT_OK=true`) |
 
-1. Re-run the job off-peak.  
-2. Split sources: back up stable config/DB paths separately from high-churn recording dirs (exclude or omit the busiest path if you do not need every frame in the herder backup).  
-3. If the error is **`Input/output error`** or a mount shows filesystem **`shutdown`**, fix the disk/mount first — that is not the vanished-file case (see [SSH/rsync](ssh-rsync.md#backups-rsync-code-23-partial-transfer)).
+Other failures (permission, I/O, real partial transfer without vanished) still **fail** the source.
+
+```bash
+# Defaults (compose / env)
+PIHERDER_BACKUP_VANISHED_RETRIES=1
+PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC=5
+PIHERDER_BACKUP_VANISHED_SOFT_OK=true   # set false for strict hard-fail on vanished
+```
+
+**Still recommended**
+
+1. Split sources: stable config/DB vs high-churn recording dirs.  
+2. Re-run off-peak when you need a tighter snapshot.  
+3. If the error is **`Input/output error`** or a mount shows filesystem **`shutdown`**, fix the disk/mount first — that is not vanished-file churn (see [SSH/rsync](ssh-rsync.md#backups-rsync-code-23-partial-transfer)).
 
 ## Stuck pending / waiting_for_server
 

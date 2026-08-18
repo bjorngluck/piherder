@@ -17,7 +17,7 @@ Compose injects matching keys into **web** and **celery-worker**. Caddy mainly n
 | Variable | Purpose |
 |----------|---------|
 | `PIHERDER_MASTER_KEY` | Fernet key — SSH keys, integration tokens, template secrets, VAPID private |
-| `SECRET_KEY` | Session / JWT signing — long random in production (not the compose default). Web **warns at startup** if the value looks weak/default |
+| `SECRET_KEY` | Session / JWT signing — long random in production (not the compose default). Web **refuses to start** if the value looks weak/default unless `PIHERDER_ALLOW_INSECURE=true` or `DEMO_MODE` (lab only) |
 
 Generate master key:
 
@@ -29,8 +29,36 @@ python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().
 
 | Variable | Purpose |
 |----------|---------|
-| `PIHERDER_HOSTNAME` | Caddy site hostname; must match cert SANs |
-| `PIHERDER_PUBLIC_URL` | Canonical origin (include `:8443` if mapped); HTTPS enables Secure cookies |
+| `PIHERDER_HOSTNAME` | Caddy site hostname; must match cert SANs; WebAuthn RP ID |
+| `PIHERDER_PUBLIC_URL` | Canonical origin (include `:8443` if mapped); HTTPS enables Secure cookies; **OIDC redirect** base `{PUBLIC_URL}/auth/oidc/callback`; CSP `upgrade-insecure-requests` when https |
+| `PIHERDER_CSP` | **true** (default) — send Content-Security-Policy. Scripts are **self-hosted** (compiled Tailwind, no Play CDN, **no `unsafe-eval`**). `connect-src` is `'self'` plus `PIHERDER_PUBLIC_URL` / its `wss:` — **no** wildcard `ws:`/`wss:`. Inline script/style still allowed (1.3 nonces). |
+| `PIHERDER_CSP_REPORT_ONLY` | **false** (default) — if true, send Report-Only CSP instead of enforcing |
+| `PIHERDER_SSH_CONSOLE` | **false** (default) — enable web SSH console (operator+ / 2FA; in-app only) |
+| `PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL` | **false** — each New shell needs fresh TOTP/passkey (no grant reuse) |
+| `PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES` | **false** — backup codes rejected for console step-up (prefer passkey/TOTP) |
+| `PIHERDER_SSH_CONSOLE_PREFER_PASSKEY` | **true** — UI promotes WebAuthn when enrolled |
+| `PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY` | **false** — if true and user has passkeys, TOTP alone is rejected |
+| `PIHERDER_SSH_CONSOLE_BIND_IP` | **true** — ticket + live shell bound to client IP |
+| `PIHERDER_SSH_CONSOLE_BIND_DEVICE` | **true** — ticket bound to HttpOnly `console_device` cookie |
+| `PIHERDER_SSH_CONSOLE_REVALIDATE_SEC` | **10** — how often open shells re-check session/IP/device |
+| `PIHERDER_SSH_CONSOLE_TICKET_SEC` | **60** — single-use open-ticket TTL |
+| `PIHERDER_SSH_CONSOLE_IDLE_SEC` | **900** — idle disconnect (also ends parked shells) |
+| `PIHERDER_SSH_CONSOLE_MAX_SEC` | **3600** — max session length |
+| `PIHERDER_SSH_CONSOLE_MAX_PER_USER` | **4** — concurrent shells per user (all hosts) |
+| `PIHERDER_SSH_CONSOLE_MAX_GLOBAL` | **20** — concurrent shells instance-wide |
+| `PIHERDER_SSH_CONSOLE_SCROLLBACK` | **2000** — default browser terminal scrollback lines |
+| `PIHERDER_SSH_CONSOLE_HOLD_SEC` | **0** — after WebSocket drop, park PTY this many seconds (`0` = until idle/max only) |
+| `PIHERDER_SSH_CONSOLE_GRANT_MIN` | **10** — fleet-wide multi-host grant after 2FA (minutes); covers all hosts until expiry or Lock |
+| `PIHERDER_BACKUP_VANISHED_RETRIES` | **1** — extra rsync attempts on vanished files |
+| `PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC` | **5** — delay before vanished retry |
+| `PIHERDER_BACKUP_VANISHED_SOFT_OK` | **true** — treat final vanished exit as soft success |
+| `PIHERDER_DEMO_MODE` | **false** (default) — demo sandbox (banner, hard blocks, canned jobs). Leave **false** on real fleets |
+| `PIHERDER_DEMO_EMAIL` | Shared demo login email when seeding (demo mode only; public demo uses `demo@hacknow.info`) |
+| `PIHERDER_DEMO_PASSWORD` | Shared demo login password when seeding (demo mode only). Public demo: keep in sync with [Public demo](demo-site.md) (password may rotate; wiki is source of truth) |
+| `PIHERDER_TURNSTILE_SITE_KEY` | Cloudflare Turnstile site key (empty = widget off) |
+| `PIHERDER_TURNSTILE_SECRET_KEY` | Turnstile secret; required with site key for login verification |
+
+Public try-the-demo: [Public demo](demo-site.md). Maintainer VPS runbook (repo): [DEMO_SITE.md](https://github.com/bjorngluck/piherder/blob/main/docs/DEMO_SITE.md).
 
 ## Host paths
 
@@ -89,6 +117,7 @@ docker compose --profile nmap up -d celery-worker-nmap
 |----------|---------|
 | `ALLOW_OPEN_REGISTRATION` | Default `false`. Empty DB allows first admin via Register; then closed unless `true` (later open-reg users are **operator**) |
 | `COOKIE_SECURE` | Empty = auto (`Secure` when `PIHERDER_PUBLIC_URL` is `https://…`); `true`/`false` to force |
+| `PIHERDER_ALLOW_INSECURE` | Default `false`. If `true`, allow boot with a weak/default `SECRET_KEY` (lab only) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | Session JWT lifetime (default 10080 = 7 days) |
 | `ALGORITHM` | JWT algorithm (default `HS256`) |
 | `TRUSTED_DEVICE_DAYS` | 2FA “trust this device” cookie age (default 30) |
@@ -102,6 +131,7 @@ docker compose --profile nmap up -d celery-worker-nmap
 | `METRICS_TOKEN` | Bearer for `GET /metrics` — **set in production** (empty = open scrape on app port) |
 | `METRICS_BACKUP_STALE_HOURS` | Stale backup gauge (default 36) |
 | `CORS_ORIGINS` | Exact browser origins for `/api/v1` (empty = off) |
+| `PIHERDER_TRUSTED_PROXY_CIDRS` | CIDRs whose TCP peer may supply `CF-Connecting-IP` / `X-Forwarded-For` / `X-Real-IP`. Empty = **never** trust those headers (peer only). Compose default: RFC1918 + loopback so bundled Caddy is trusted |
 | `WEBHOOK_URL` / `WEBHOOK_NUMBER` | Fallback outbound webhook (e.g. Signal via n8n) when Settings → Alerts has no URL — [Alerts](alerts-email-webhooks.md) |
 | `WEBHOOK_RECIPIENTS` | Optional JSON list of recipients for some webhook paths |
 | `VAPID_*` | Optional pin; auto-gen is default |
@@ -125,4 +155,5 @@ docker compose --profile nmap up -d celery-worker-nmap
 - [Install — nmap worker](../getting-started/install.md#6-optional-lan-discovery-nmap-worker)  
 - [LAN Discovery](../integrations/lan-discovery.md)  
 - [Volumes](volumes.md)  
-- [ADMIN.md — production env](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md)
+- [ADMIN.md — production env](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md)  
+- [v1.2.0 QA / sign-off](qa-v1.2.0.md)

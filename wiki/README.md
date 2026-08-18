@@ -3,7 +3,7 @@
 Markdown sources for the **MkDocs Material** documentation site.
 
 **Live site:** [https://piherder-docs.hacknow.info/](https://piherder-docs.hacknow.info/)  
-**Release notes:** [docs/RELEASE_v1.1.1.md](../docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.1.0.md](../docs/RELEASE_v1.1.0.md) · prior [docs/RELEASE_v1.0.0.md](../docs/RELEASE_v1.0.0.md)  
+**Release notes:** [docs/RELEASE_v1.2.0.md](../docs/RELEASE_v1.2.0.md) · [docs/RELEASE_v1.1.1.md](../docs/RELEASE_v1.1.1.md) · [docs/RELEASE_v1.1.0.md](../docs/RELEASE_v1.1.0.md) · prior [docs/RELEASE_v1.0.0.md](../docs/RELEASE_v1.0.0.md)  
 **Screenshots:** [assets/screenshots/README.md](assets/screenshots/README.md)
 
 Operator pages prefer: **What this is** → **Why** → **End-to-end** → reference detail. See [contributing-docs](developers/contributing-docs.md).
@@ -35,7 +35,8 @@ mkdocs build --strict
 | `docker/` | Host Docker browser, inventory, compose edit |
 | `service-templates/` | Deploy / from-host / secrets *(not named `templates/` — MkDocs reserves that)* |
 | `integrations/` | Kuma, Grafana, Pi-hole, NPM, certificates, Network maps, LAN discovery |
-| `account-security/` | RBAC, users, 2FA, PWA |
+| `account-security/` | RBAC, users, 2FA, SSO/OIDC, PWA |
+| `day-to-day/web-ssh-console.md` | Web SSH console (v1.2; flag-off) |
 | `operations/` | Settings, env, DR, API, metrics, multi-worker |
 | `troubleshooting/` | Common failures |
 | `developers/` | Setup, architecture, schema, testing, publish |

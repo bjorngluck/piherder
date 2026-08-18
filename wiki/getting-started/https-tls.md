@@ -23,7 +23,8 @@ PIHERDER_PUBLIC_URL=https://piherder.example.com:8443
 ```
 
 - **DNS:** point `PIHERDER_HOSTNAME` at the host (or your outer reverse proxy).  
-- **Ports (default compose):** HTTP `8888→80`, HTTPS `8443→443`.
+- **Ports (default compose):** HTTP `8888→80`, HTTPS `8443→443`. App `:8000` is **loopback only**.  
+- **`PIHERDER_PUBLIC_URL` is also** the only origin used for **email password-reset links** and the OIDC redirect base. Host / `X-Forwarded-Host` are ignored for those URLs.
 
 ## Volume-mounted certificates (recommended)
 
@@ -71,7 +72,7 @@ Also see the repo [`certs/README.md`](https://github.com/bjorngluck/piherder/blo
 You may terminate TLS at Nginx Proxy Manager (or similar) and reverse-proxy to `web:8000` or to Caddy. Keep:
 
 - A stable public origin in `PIHERDER_PUBLIC_URL`  
-- Correct `X-Forwarded-For` / client IP for [API token IP allowlists](../operations/api-tokens.md) **and** Audit trail source IP (PiHerder trusts the first XFF hop / X-Real-IP the same way)  
+- Correct `X-Forwarded-For` / client IP for [API token IP allowlists](../operations/api-tokens.md) **and** Audit trail source IP (PiHerder honours CF / XFF / X-Real-IP **only** when the TCP peer is in `PIHERDER_TRUSTED_PROXY_CIDRS`)  
 
 Bundled Caddy overwrites those headers with the true client — prefer it as the edge for accurate audit IPs.
 

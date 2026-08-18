@@ -1,0 +1,303 @@
+"""Public demo sandbox helpers (v1.2 Stream D).
+
+When ``PIHERDER_DEMO_MODE=1``:
+  • Persistent UI banner
+  • Hard blocks: real host onboard, usable API tokens, outbound nmap/SSH/certs/mail
+  • Job mutations become canned success (see jobs.service)
+  • **Write guard**: most POST/PUT/PATCH/DELETE blocked (connectors, DNS, certs,
+    templates, settings, shared-account sabotage) so one visitor cannot trash the
+    sandbox for everyone. Safe allowlist: login, canned job runs, notifications,
+    favourites.
+  • **Audit IP scrub**: real visitor client IPs are not stored or shown (``redacted``)
+    so the shared account does not leak other users' addresses.
+  • **OpenAPI gated**: ``/openapi.json``, ``/docs``, ``/redoc`` return 404 (API tokens
+    already unusable; no need to advertise the schema on a public sandbox).
+  • **Demo console (D5)**: simulated xterm shell only — never Paramiko / never live hosts.
+
+Never enable on a production herder that holds real keys.
+"""
+from __future__ import annotations
+
+import ipaddress
+import re
+from typing import Optional
+
+from fastapi import HTTPException
+from fastapi.responses import RedirectResponse
+
+from ..config import settings
+
+# Fixed copy — matches PLAN_v1.2.0 §3.2 (shared login is viewer)
+DEMO_BANNER = "Demo — shared viewer account · data resets · some actions simulated"
+
+_ACTION_HINTS: dict[str, str] = {
+    "register": (
+        "Account creation is disabled in the public demo. "
+        "Use the shared demo login only."
+    ),
+    "onboard": "Adding real hosts is disabled in the demo.",
+    "wizard": "Adding real hosts is disabled in the demo.",
+    "ssh_test": "Live SSH is disabled in the demo.",
+    "ssh_deploy": "SSH key deploy is disabled in the demo.",
+    "api_token": "API tokens cannot be created in the demo.",
+    "api_use": "API token authentication is disabled in the demo.",
+    "nmap": "Live network scans are disabled in the demo.",
+    "cert_deploy": "Certificate deploy is disabled in the demo.",
+    "webhook": "Outbound webhooks are disabled in the demo.",
+    "mail": "Outbound email is disabled in the demo.",
+    "console": (
+        "Demo console is simulated only (no live SSH). "
+        "Use your own install for real host shells."
+    ),
+    "secrets_export": "Secret export is disabled in the demo.",
+    "job": "Live host jobs are simulated in the demo.",
+    # Shared-sandbox identity — one visitor must not lock out everyone else
+    "shared_account": (
+        "This is a shared demo account. Password, 2FA, SSO link, and similar "
+        "account changes are disabled so one visitor cannot lock others out."
+    ),
+    "user_admin": "User administration is disabled in the public demo.",
+    "seed_restore": (
+        "Demo seed restore is operator-only (CLI on the VPS). "
+        "It is not available in the UI."
+    ),
+    "settings_security": (
+        "Security policy changes (force 2FA, etc.) are disabled in the public demo."
+    ),
+    "password_reset": (
+        "Password reset is disabled in the public demo (shared account)."
+    ),
+    "sso": "SSO sign-in and linking are disabled in the public demo.",
+    "settings_write": (
+        "Changing platform settings (SSO, alerts, backups, cleanup) is disabled "
+        "in the public demo."
+    ),
+    "herder_restore": "Instance restore/delete is disabled in the public demo.",
+    "connector": (
+        "Adding or changing connectors, DNS, certs, templates, and other fleet "
+        "config is disabled in the public demo (shared sandbox)."
+    ),
+    "write": (
+        "Changes are disabled in the public demo so one visitor cannot affect "
+        "everyone else. No new accounts, connectors, or config — browse the "
+        "seeded fleet; jobs are simulated."
+    ),
+}
+
+# --- Global write guard (middleware) -------------------------------------------------
+
+# Exact paths that may mutate state in demo mode
+_DEMO_WRITE_EXACT = frozenset(
+    {
+        "/auth/login",
+        "/auth/logout",
+        "/auth/2fa",
+    }
+)
+
+# Prefixes (path == p or path.startswith(p + "/"))
+_DEMO_WRITE_PREFIXES = (
+    "/auth/2fa/",  # login 2FA + webauthn (not /auth/account/2fa)
+    "/notifications/",
+    "/account/favourites",  # favourites toggle under /account/favourites
+    "/api/push/",  # personal push subscribe (optional UX)
+)
+
+# Canned job runs — demo experience (no live SSH)
+_RE_SERVER_RUN = re.compile(r"^/servers/\d+/run(?:/|$)")
+_RE_JOB_CANCEL = re.compile(r"^/jobs/\d+/cancel$")
+# Simulated demo console (ticket / grant / webauthn paths — still no live SSH)
+_RE_SERVER_CONSOLE = re.compile(r"^/servers/\d+/console(?:/|$)")
+
+
+def demo_write_allowed(method: str, path: str) -> bool:
+    """Return True if this request may mutate state when DEMO_MODE is on.
+
+    Safe methods always allowed. When not in demo mode, always True.
+    """
+    m = (method or "GET").upper()
+    if m in ("GET", "HEAD", "OPTIONS"):
+        return True
+    if not demo_mode():
+        return True
+    p = (path or "/").split("?", 1)[0]
+    if len(p) > 1 and p.endswith("/"):
+        p = p.rstrip("/")
+    if not p.startswith("/"):
+        p = "/" + p
+
+    if p in _DEMO_WRITE_EXACT:
+        return True
+    for pref in _DEMO_WRITE_PREFIXES:
+        if p == pref.rstrip("/") or p.startswith(pref):
+            return True
+    if _RE_SERVER_RUN.match(p):
+        return True
+    if _RE_JOB_CANCEL.match(p):
+        return True
+    if _RE_SERVER_CONSOLE.match(p):
+        return True
+    return False
+
+
+# FastAPI interactive API docs (unauthenticated by default)
+_OPENAPI_EXACT = frozenset({"/openapi.json", "/docs", "/redoc"})
+_OPENAPI_PREFIXES = ("/docs/", "/redoc/")
+
+
+def is_openapi_docs_path(path: str) -> bool:
+    """True for Swagger / ReDoc / OpenAPI schema routes."""
+    p = (path or "/").split("?", 1)[0]
+    if not p.startswith("/"):
+        p = "/" + p
+    if len(p) > 1 and p.endswith("/"):
+        p = p.rstrip("/")
+    if p in _OPENAPI_EXACT:
+        return True
+    for pref in _OPENAPI_PREFIXES:
+        if p.startswith(pref):
+            return True
+    return False
+
+
+def openapi_docs_disabled() -> bool:
+    """Public demo: hide OpenAPI surface (tokens already unusable)."""
+    return demo_mode()
+
+
+def demo_write_block_detail() -> str:
+    return demo_message("write")
+
+
+def demo_mode() -> bool:
+    """True when this instance is a public demo sandbox."""
+    return bool(getattr(settings, "PIHERDER_DEMO_MODE", False))
+
+
+# Shared sandbox: never show real visitor IPs to other demo users (Audit trail).
+DEMO_AUDIT_IP_PLACEHOLDER = "redacted"
+
+
+def scrub_audit_client_ip(
+    ip: Optional[str],
+    *,
+    for_display: bool = False,
+) -> Optional[str]:
+    """Scrub client IPs for the public demo (shared account privacy).
+
+    Production: pass-through.
+    Demo storage: never persist a real remote address — store ``redacted``.
+    Demo display: show seed/private lab IPs (10/8, 192.168/16, 127/8, ::1) so
+    canned fleet rows stay realistic; replace anything else with ``redacted``.
+    """
+    if not demo_mode():
+        return ip
+    if ip is None:
+        return None
+    s = str(ip).strip()
+    if not s:
+        return None
+    s = s[:64]
+    if not for_display:
+        return DEMO_AUDIT_IP_PLACEHOLDER
+    if s == DEMO_AUDIT_IP_PLACEHOLDER:
+        return s
+    low = s.lower()
+    if low in ("::1", "localhost"):
+        return s
+    if s.startswith("10.") or s.startswith("192.168.") or s.startswith("127."):
+        return s
+    return DEMO_AUDIT_IP_PLACEHOLDER
+
+
+# Visitor IPs also land in free-text Audit *details* (e.g. console ``ip=203.0.113.1``).
+_IPV4_IN_TEXT_RE = re.compile(
+    r"\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b"
+)
+# Compressed or full IPv6 (validated with ipaddress before replace).
+_IPV6_IN_TEXT_RE = re.compile(
+    r"(?<![:.\w])(?:[0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}(?![:.\w])"
+)
+
+
+def _scrub_ip_match(raw: str, *, for_display: bool) -> str:
+    token = (raw or "").strip()
+    if not token or token in ("?", "unknown", DEMO_AUDIT_IP_PLACEHOLDER):
+        return raw
+    try:
+        ipaddress.ip_address(token)
+    except ValueError:
+        return raw
+    out = scrub_audit_client_ip(token, for_display=for_display)
+    return out if out is not None else DEMO_AUDIT_IP_PLACEHOLDER
+
+
+def scrub_audit_text(
+    text: Optional[str],
+    *,
+    for_display: bool = False,
+) -> Optional[str]:
+    """Redact visitor IPs embedded in audit details / snippets (demo only)."""
+    if not demo_mode() or text is None:
+        return text
+    s = str(text)
+    if not s:
+        return text
+
+    def repl(match: re.Match[str]) -> str:
+        return _scrub_ip_match(match.group(0), for_display=for_display)
+
+    s = _IPV4_IN_TEXT_RE.sub(repl, s)
+    s = _IPV6_IN_TEXT_RE.sub(repl, s)
+    return s
+
+
+def demo_banner() -> str:
+    return DEMO_BANNER
+
+
+def demo_message(action: str = "") -> str:
+    """User-facing reason for a blocked or simulated action."""
+    key = (action or "").strip().lower()
+    hint = _ACTION_HINTS.get(key)
+    if hint:
+        return hint
+    return "This action is disabled in the demo."
+
+
+def reject_if_demo(action: str = "") -> Optional[str]:
+    """Return a user-facing block reason when demo mode is on, else None."""
+    if demo_mode():
+        return demo_message(action)
+    return None
+
+
+class DemoBlocked(Exception):
+    """Raised from services when an action must not proceed in demo mode."""
+
+    def __init__(self, action: str = ""):
+        self.action = (action or "").strip().lower()
+        self.message = demo_message(self.action)
+        super().__init__(self.message)
+
+
+def raise_if_demo(action: str = "") -> None:
+    """Raise DemoBlocked when demo mode is on."""
+    if demo_mode():
+        raise DemoBlocked(action)
+
+
+def http_403_if_demo(action: str = "") -> None:
+    """Raise HTTP 403 when demo mode is on (for routers)."""
+    msg = reject_if_demo(action)
+    if msg:
+        raise HTTPException(status_code=403, detail=msg)
+
+
+def redirect_if_demo(dest: str, *, error: str = "demo_locked") -> Optional[RedirectResponse]:
+    """HTML form posts: 303 away with ``?error=`` when demo mode is on."""
+    if not demo_mode():
+        return None
+    base = (dest or "/").strip() or "/"
+    sep = "&" if "?" in base else "?"
+    return RedirectResponse(f"{base}{sep}error={error}", status_code=303)

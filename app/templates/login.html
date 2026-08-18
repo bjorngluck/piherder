@@ -53,8 +53,54 @@
 
     {% if request.query_params.get('error') %}
       <div class="mb-4 p-3 banner-error border border-border text-sm rounded" role="alert">
-        {% if request.query_params.get('error') == 'rate' %}
+        {% set err = request.query_params.get('error') %}
+        {% if err == 'rate' %}
         Too many attempts. Wait a few minutes and try again.
+        {% elif err == 'sso_required' %}
+        This instance requires SSO. Use the SSO button, or ask an admin for break-glass access.
+        {% elif err == 'sso_denied' %}
+        SSO sign-in was cancelled or denied by the identity provider.
+        {% elif err == 'sso_token' %}
+        SSO completed at the identity provider, but PiHerder could not validate the identity token. Check Settings → SSO (Issuer URL must match the IdP; Authentik issuers usually end with a slash) and that this server can reach the IdP JWKS URL.
+        {% elif err == 'sso_email' %}
+        SSO did not provide a verified email. Enable the email scope on the IdP, or turn off “Require email verified” in Settings → SSO.
+        {% elif err == 'sso_domain' %}
+        That email domain is not allowed for SSO.
+        {% elif err == 'sso_config' %}
+        SSO is not configured correctly. Ask an administrator to check Settings → SSO.
+        {% elif err == 'sso_state' %}
+        SSO session expired. Try again.
+        {% elif err == 'sso_link_conflict' %}
+        That SSO identity is already linked to another account.
+        {% elif err == 'sso_email_conflict' %}
+        An account with that email already exists. Sign in with your password and link SSO from Account.
+        {% elif err == 'sso_inactive' %}
+        This account is disabled.
+        {% elif err == 'captcha' %}
+        {% set ccode = request.query_params.get('code') or '' %}
+        {% if ccode == 'verify-unreachable' %}
+        Human verification could not reach Cloudflare from this server
+        (<code class="text-xs font-mono">verify-unreachable</code>).
+        Ops: from the web container, test DNS/HTTPS to
+        <code class="text-xs font-mono">challenges.cloudflare.com</code>
+        (outbound 443). Try again once it is reachable.
+        {% elif ccode == 'invalid-input-secret' %}
+        Human verification is misconfigured
+        (<code class="text-xs font-mono">invalid-input-secret</code>).
+        Ops: set <code class="text-xs font-mono">PIHERDER_TURNSTILE_SECRET_KEY</code>
+        to the widget secret that matches the site key.
+        {% elif ccode == 'missing-remoteip' %}
+        Human verification failed
+        (<code class="text-xs font-mono">missing-remoteip</code>).
+        Ops: reverse proxy must pass the visitor IP
+        (<code class="text-xs font-mono">CF-Connecting-IP</code> / X-Forwarded-For).
+        {% else %}
+        Human verification failed{% if ccode %}
+        (<code class="text-xs font-mono">{{ ccode }}</code>){% endif %}.
+        Complete the check, then sign in once — do not spam refresh.
+        {% endif %}
+        {% elif err == 'demo_no_register' or err == 'demo_locked' %}
+        This is a shared demo — no new accounts. Sign in with the demo credentials.
         {% else %}
         Invalid email or password.
         {% endif %}
@@ -69,6 +115,22 @@
       </div>
     {% endif %}
 
+    {% if oidc_enabled %}
+    <a href="/auth/oidc/login"
+       class="w-full mb-4 btn btn-accent font-medium min-h-11 inline-flex items-center justify-center text-center no-underline"
+       data-testid="sso-login">
+      Continue with {{ oidc_display_name or 'SSO' }}
+    </a>
+    {% if not oidc_require_sso %}
+    <div class="flex items-center gap-3 mb-4 text-xs text-muted" aria-hidden="true">
+      <span class="flex-1 border-t border-border"></span>
+      <span>or password</span>
+      <span class="flex-1 border-t border-border"></span>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if not oidc_enabled or not oidc_require_sso %}
     <form method="post" action="/auth/login" class="space-y-4">
       <div>
         <label class="block text-sm mb-1 text-muted" for="login-email">Email</label>
@@ -81,7 +143,82 @@
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 focus:outline-none focus:border-accent">
       </div>
 
-      <button type="submit" class="w-full mt-2 btn btn-accent font-medium min-h-11">
+      {% set _ts_key = turnstile_site_key if turnstile_site_key is defined else '' %}
+      {% if turnstile_on|default(false) and _ts_key %}
+      {# Explicit render — avoid auto re-challenge loops; gate submit until token ready #}
+      <div id="cf-turnstile-mount" data-sitekey="{{ _ts_key }}" data-testid="turnstile-widget"></div>
+      <p id="cf-turnstile-status" class="text-xs text-muted mt-1">Loading human check…</p>
+      <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+      <script>
+      (function () {
+        var form = document.querySelector('form[action="/auth/login"]');
+        var mount = document.getElementById('cf-turnstile-mount');
+        var status = document.getElementById('cf-turnstile-status');
+        var btn = form && form.querySelector('button[type="submit"]');
+        var tokenReady = false;
+        var widgetId = null;
+        if (btn) { btn.disabled = true; btn.setAttribute('aria-disabled', 'true'); }
+        function setReady(ok, msg) {
+          tokenReady = !!ok;
+          if (btn) {
+            btn.disabled = !ok;
+            btn.setAttribute('aria-disabled', ok ? 'false' : 'true');
+          }
+          if (status) status.textContent = msg || (ok ? 'Check complete — you can sign in.' : 'Complete the human check.');
+        }
+        function boot() {
+          if (!window.turnstile || !mount) return;
+          var key = mount.getAttribute('data-sitekey');
+          if (!key) return;
+          try {
+            widgetId = window.turnstile.render(mount, {
+              sitekey: key,
+              theme: 'auto',
+              appearance: 'always',
+              'response-field-name': 'cf-turnstile-response',
+              callback: function () { setReady(true, 'Check complete — you can sign in.'); },
+              'expired-callback': function () {
+                setReady(false, 'Check expired — wait for a new one.');
+              },
+              'error-callback': function () {
+                setReady(false, 'Check failed to load — refresh once.');
+                return true; /* do not auto-retry forever */
+              },
+              'timeout-callback': function () {
+                setReady(false, 'Check timed out — refresh once.');
+              }
+            });
+            setReady(false, 'Complete the human check below.');
+          } catch (e) {
+            setReady(false, 'Could not start human check — refresh once.');
+          }
+        }
+        if (form) {
+          form.addEventListener('submit', function (ev) {
+            if (!tokenReady) {
+              ev.preventDefault();
+              if (status) status.textContent = 'Wait for the human check to finish.';
+              return false;
+            }
+          });
+        }
+        if (window.turnstile) boot();
+        else {
+          var n = 0;
+          var t = setInterval(function () {
+            n++;
+            if (window.turnstile) { clearInterval(t); boot(); }
+            else if (n > 50) {
+              clearInterval(t);
+              setReady(false, 'Human check script blocked or slow — check CSP / network, then refresh once.');
+            }
+          }, 100);
+        }
+      })();
+      </script>
+      {% endif %}
+
+      <button type="submit" class="w-full mt-2 btn {% if oidc_enabled %}btn-secondary{% else %}btn-accent{% endif %} font-medium min-h-11">
         Log in
       </button>
     </form>
@@ -91,9 +228,16 @@
       <a href="/auth/forgot-password" class="text-primary hover:underline">Forgot password?</a>
     </p>
     {% endif %}
+    {% else %}
+    <p class="text-sm text-muted text-center">
+      This instance requires SSO. Break-glass local login can be re-enabled by an administrator.
+    </p>
+    {% endif %}
 
     <p class="mt-6 text-center text-sm text-muted">
-      {% if registration_open %}
+      {% if demo_mode_on|default(false) %}
+      Shared demo account only — new sign-ups are disabled.
+      {% elif registration_open %}
       First-time setup?
       <a href="/auth/register" class="text-primary hover:underline">Create admin account</a>
       {% else %}

@@ -1,0 +1,41 @@
+# Demo sandbox overlay (v1.2 Stream D)
+# Usage (local or demo VPS):
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+# Public VPS (443 only + loopback web):
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml \
+#     -f docker-compose.demo-ports.yml up -d
+#
+# Public hostname (production-of-demo):
+#   https://piherder-demo.hacknow.info
+
+services:
+  web:
+    # Reliable public resolvers for Turnstile siteverify (container → CF).
+    # Docker embedded DNS sometimes fails/hangs on small VPS images.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    environment:
+      PIHERDER_DEMO_MODE: "true"
+      PIHERDER_DEMO_EMAIL: ${PIHERDER_DEMO_EMAIL:-demo@hacknow.info}
+      PIHERDER_DEMO_PASSWORD: ${PIHERDER_DEMO_PASSWORD:-PiHerder@123?_}
+      PIHERDER_HOSTNAME: ${PIHERDER_HOSTNAME:-piherder-demo.hacknow.info}
+      PIHERDER_PUBLIC_URL: ${PIHERDER_PUBLIC_URL:-https://piherder-demo.hacknow.info}
+      ALLOW_OPEN_REGISTRATION: "false"
+      PIHERDER_SSH_CONSOLE: "false"
+      PIHERDER_UPDATE_CHECK: "false"
+      # Cloudflare Turnstile (recommended on public demo) — leave empty to disable
+      PIHERDER_TURNSTILE_SITE_KEY: ${PIHERDER_TURNSTILE_SITE_KEY:-}
+      PIHERDER_TURNSTILE_SECRET_KEY: ${PIHERDER_TURNSTILE_SECRET_KEY:-}
+      # Demo secrets must be unique to this instance — never reuse lab keys
+      # SECRET_KEY / PIHERDER_MASTER_KEY still come from host .env
+
+  celery-worker:
+    environment:
+      PIHERDER_DEMO_MODE: "true"
+      PIHERDER_SSH_CONSOLE: "false"
+      PIHERDER_UPDATE_CHECK: "false"
+
+  # Optional: scale nmap worker to 0 on demo (no live scans)
+  # celery-worker-nmap:
+  #   profiles: ["nmap-off"]

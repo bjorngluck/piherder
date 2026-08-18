@@ -95,7 +95,8 @@ def test_clear_user_2fa_wipes_flags(monkeypatch):
     clear_user_2fa(_S(), u)
     assert u.totp_enabled is False
     assert u.totp_secret_encrypted is None
-    assert len(deleted) == 1
+    # TOTP backup codes + WebAuthn passkeys (one mocked row each)
+    assert len(deleted) == 2
 
 
 # --- sqlite integration -----------------------------------------------------

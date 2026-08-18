@@ -1,3 +1,11 @@
+/* Play used to ship this via Preflight. Without it, `w-full` + padding
+   (main, cards) is wider than the viewport — mobile sideways pan. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   /* Light theme defaults (Raspberry Pi inspired)
      Page canvas is a cool grey so white cards / sections separate cleanly.
@@ -234,6 +242,20 @@ body {
   color: var(--color-text);
 }
 
+/* Play used to reset form controls. Without it, bare <button>s (close ✕,
+   job-row hit targets) keep the UA grey chrome and hide the icon. */
+button {
+  font: inherit;
+  font-size: 100%;
+  line-height: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  background-image: none;
+  border: none;
+  border-radius: 0;
+}
 .card, .bg-surface {
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -2016,6 +2038,89 @@ body.server-reorder-active #bulk-hint {
   box-shadow: inset 3px 0 0 var(--color-warning, #e6a817);
 }
 
+/* Settings → General timezone: stack select + button (no min-width row squeeze). */
+.settings-tz-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+.settings-tz-form .btn {
+  align-self: flex-start;
+}
+
+/* Settings → PiHerder backup: left-aligned fields (do not stretch to card edge). */
+.settings-backup-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+.settings-backup-field {
+  min-width: 0;
+}
+.settings-backup-control {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.settings-backup-field--save {
+  display: flex;
+  align-items: flex-end;
+}
+@media (min-width: 768px) {
+  /* Two columns so Schedule's stacked boxes don't shove
+     Scheduled runs halfway down the card. */
+  .settings-backup-fields {
+    display: grid;
+    grid-template-columns: minmax(14rem, 20rem) minmax(14rem, 20rem);
+    align-items: start;
+    justify-content: start;
+    column-gap: 1rem;
+    row-gap: 0.75rem;
+  }
+  .settings-backup-field--keep {
+    max-width: 7.5rem;
+  }
+  .settings-backup-field--save {
+    align-items: flex-start;
+    padding-top: 1.35rem; /* line up with Keep input under its label */
+  }
+}
+.settings-backup-run {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: stretch;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.settings-backup-run-mode {
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .settings-backup-run {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: flex-start;
+    max-width: 32rem;
+  }
+  .settings-backup-run-mode {
+    flex: 1 1 auto;
+  }
+  .settings-backup-run .btn {
+    flex: 0 0 auto;
+  }
+}
+.settings-backup-restore-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
 /* Herder self-backup list (Settings) — compact rows, no table scroll */
 .herder-backup-list {
   max-height: none;
@@ -2123,7 +2228,8 @@ body.server-reorder-active #bulk-hint {
   margin: 0;
   display: inline-flex;
 }
-.source-icon-btn {
+.source-icon-btn,
+.ph-icon-close {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2134,13 +2240,31 @@ body.server-reorder-active #bulk-hint {
   border-radius: 6px;
   background: var(--color-surface);
   color: var(--color-text);
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   line-height: 1;
   cursor: pointer;
+  flex-shrink: 0;
 }
-.source-icon-btn:hover {
+.ph-icon-close {
+  color: var(--color-text);
+}
+.source-icon-btn:hover,
+.ph-icon-close:hover {
   background: var(--color-bg);
   border-color: var(--color-muted);
+  color: var(--color-text);
+}
+
+.ph-spinner {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  border: 2px solid var(--color-accent);
+  border-top-color: transparent;
+  animation: ph-spin 0.85s linear infinite;
+}
+@keyframes ph-spin {
+  to { transform: rotate(360deg); }
 }
 .source-icon-run {
   background: var(--color-accent);

@@ -5,7 +5,7 @@ import re
 from typing import Optional, Tuple
 
 # Keep in lockstep with pyproject.toml / FastAPI app.version / metrics APP_VERSION
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 
 GITHUB_OWNER = "bjorngluck"
 GITHUB_REPO = "piherder"
@@ -21,8 +21,9 @@ LICENSE_URL = f"{GITHUB_URL}/blob/main/LICENSE"
 
 # Short “why” for the About page (matches README tone)
 ABOUT_TAGLINE = (
-    "Secure fleet management for Raspberry Pi and Linux hosts — "
-    "backups, patching, containers, and control with zero plaintext secrets."
+    "Self-hosted control plane for Raspberry Pi and Linux hosts — "
+    "backups, patching, containers, and an audit trail. "
+    "Database secrets are encrypted; the master key stays on your disk."
 )
 
 ABOUT_STORY = (

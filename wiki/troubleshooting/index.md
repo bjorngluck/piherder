@@ -11,6 +11,8 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Symptom | Page |
 |---------|------|
 | SSH / key / deps / docker group | [SSH, rsync & dependencies](ssh-rsync.md) |
+| SSH “host key changed” / mismatch after rebuild | [SSH troubleshooting](ssh-rsync.md#cannot-connect) — reset the **pinned** key on SSH access, then Test connection |
+| Web container exits immediately / weak `SECRET_KEY` | Set a long random `SECRET_KEY`. 1.2 **refuses boot** on compose defaults unless `PIHERDER_ALLOW_INSECURE` ([env](../operations/env-reference.md)) |
 | HAOS: no `ha`, versions `?`, disk empty | [HAOS hosts](../day-to-day/haos-hosts.md) · System info **Refresh**; SSH add-on + `ha` on PATH; rsync for backups |
 | HAOS OS check says unsupported / apt | Set host profile **HAOS** or re-run check to auto-mark; rebuild web if image stale |
 | Backup failed / stuck pending | [Backups](backups.md) |
@@ -36,6 +38,7 @@ Most failures cluster around SSH path, Celery/backups, push TLS, or template/Doc
 | Cannot open Settings tabs / herder restore | [Roles](../account-security/roles.md) — control plane is **admin only** |
 | First boot asks to register / no default password | Expected — [First login](../getting-started/first-login.md) |
 | Sole admin forgot password / lost 2FA / locked out | [Locked out / sole admin recovery](locked-out.md) — host CLI `recover-admin` |
+| SSO / OIDC login fails or IdP down | [SSO / OpenID Connect](../account-security/sso-oidc.md) · [Locked out](locked-out.md) for break-glass |
 
 ## Always useful
 

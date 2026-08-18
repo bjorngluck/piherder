@@ -199,7 +199,7 @@ async def deployment_detail(
             "dns_plan": dns_plan,
             "dns_target_name": dns_target_name,
             "dns_suggest": dns_suggest,
-            **_secrets_ui_context(request, user),
+            **_secrets_ui_context(request, session, user),
         },
     )
 
@@ -220,8 +220,8 @@ async def deployment_redeploy(
     has_secret_fields = any(str(k).startswith("sec_") for k in form.keys())
     try:
         if has_secret_fields:
-            _check_secrets_unlocked(request, user)
-        _check_template_2fa(user)
+            _check_secrets_unlocked(request, session, user)
+        _check_template_2fa(session, user)
     except HTTPException as e:
         if request.headers.get("X-PiHerder-Async") == "1":
             return JSONResponse({"detail": e.detail}, status_code=e.status_code)
@@ -459,9 +459,9 @@ async def deployment_migrate_env(
 ):
     """Pull host .env secrets into PiHerder encrypted store (B — .env migrate UX)."""
     try:
-        _check_secrets_2fa(user)
+        _check_secrets_2fa(session, user)
         # Storing secrets requires account 2FA; step-up unlock optional but preferred
-        if _user_has_2fa(user) and not _secrets_revealed(request, user):
+        if _user_has_2fa(session, user) and not _secrets_revealed(request, user):
             # Allow migrate without unlock (import only into DB encrypted store)
             pass
     except HTTPException as e:
@@ -517,7 +517,7 @@ async def deployment_apply_last_known(
     if not server:
         raise HTTPException(404, "Server missing")
     try:
-        _check_template_2fa(user)
+        _check_template_2fa(session, user)
         result = apply_last_known_config(
             session, server=server, deployment=dep, deploy_now=True
         )
@@ -591,7 +591,7 @@ async def template_deploy_wizard(
             "preview": None,
             "selected_server_id": None,
             "form_values": _deploy_form_values(definition, request, user),
-            **_secrets_ui_context(request, user),
+            **_secrets_ui_context(request, session, user),
         },
     )
 
@@ -641,7 +641,7 @@ async def template_preview(
                 "preview": None,
                 "selected_server_id": server_id,
                 "form_values": safe_form_values,
-                **_secrets_ui_context(request, user),
+                **_secrets_ui_context(request, session, user),
             },
             status_code=400,
         )
@@ -681,7 +681,7 @@ async def template_preview(
             "form_values": prev["values_public"],
             "stash_json": json.dumps(stash),
             "deploy_now": bool(deploy_now),
-            **_secrets_ui_context(request, user),
+            **_secrets_ui_context(request, session, user),
         },
     )
 
@@ -699,7 +699,7 @@ async def template_confirm_deploy(
     from ..services import jobs as job_service
 
     try:
-        _check_template_2fa(user)
+        _check_template_2fa(session, user)
     except HTTPException as e:
         if request.headers.get("X-PiHerder-Async") == "1":
             return JSONResponse({"detail": e.detail}, status_code=e.status_code)

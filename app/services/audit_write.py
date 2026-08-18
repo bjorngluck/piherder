@@ -13,14 +13,27 @@ def resolve_client_ip(
     *,
     fallback: Optional[str] = None,
 ) -> Optional[str]:
-    """Prefer explicit IP, then request context, then fallback (e.g. job.details)."""
+    """Prefer explicit IP, then request context, then fallback (e.g. job.details).
+
+    In public demo mode, real visitor IPs are scrubbed to ``redacted`` so the
+    shared account cannot leak other users' addresses via Audit.
+    """
+    resolved: Optional[str] = None
     for candidate in (explicit, get_request_client_ip(), fallback):
         if candidate is None:
             continue
         s = str(candidate).strip()
         if s:
-            return s[:64]
-    return None
+            resolved = s[:64]
+            break
+    if resolved is None:
+        return None
+    try:
+        from .demo import scrub_audit_client_ip
+
+        return scrub_audit_client_ip(resolved, for_display=False)
+    except Exception:
+        return resolved
 
 
 def make_audit_log(
@@ -44,6 +57,13 @@ def make_audit_log(
     AuditLog directly from archived rows (which already include client_ip).
     """
     ip = resolve_client_ip(client_ip)
+    try:
+        from .demo import scrub_audit_text
+
+        details = scrub_audit_text(details, for_display=False)
+        output_snippet = scrub_audit_text(output_snippet, for_display=False)
+    except Exception:
+        pass
     # Drop unknown kwargs that SQLModel would reject (forward-compat)
     now = datetime.utcnow()
     return AuditLog(

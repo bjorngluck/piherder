@@ -111,41 +111,44 @@ def _template_require_2fa() -> bool:
     return bool(app_cfg.load_settings().get("template_require_2fa"))
 
 
-def _user_has_2fa(user: User) -> bool:
-    return bool(getattr(user, "totp_enabled", False))
+def _user_has_2fa(session: Session, user: User) -> bool:
+    """True when TOTP and/or at least one passkey is enrolled."""
+    from ..services import webauthn_svc as wa_svc
+
+    return wa_svc.user_has_2fa(session, user)
 
 
 def _secrets_revealed(request: Request, user: User) -> bool:
-    """Cleartext secrets only after step-up TOTP (not merely because 2FA is enabled)."""
+    """Cleartext secrets only after step-up 2FA (not merely because 2FA is enabled)."""
     return secrets_unlock_active(request, user)
 
 
-def _check_secrets_2fa(user: User) -> None:
-    """Account must have TOTP enabled before any secret cleartext / secret edit."""
-    if not _user_has_2fa(user):
+def _check_secrets_2fa(session: Session, user: User) -> None:
+    """Account must have a second factor before any secret cleartext / secret edit."""
+    if not _user_has_2fa(session, user):
         raise HTTPException(
             403,
-            "Viewing secrets requires 2FA. Enable TOTP under Account, then use View secrets.",
+            "Viewing secrets requires 2FA. Enable a passkey or TOTP under Account, then use View secrets.",
         )
 
 
-def _check_secrets_unlocked(request: Request, user: User) -> None:
-    """Require recent step-up unlock cookie (after TOTP re-entry)."""
-    _check_secrets_2fa(user)
+def _check_secrets_unlocked(request: Request, session: Session, user: User) -> None:
+    """Require recent step-up unlock cookie (after TOTP or passkey re-entry)."""
+    _check_secrets_2fa(session, user)
     if not _secrets_revealed(request, user):
         raise HTTPException(
             403,
-            "Enter your 2FA code under View secrets to unlock cleartext (expires after "
-            f"{SECRETS_UNLOCK_MINUTES} minutes).",
+            "Complete step-up 2FA under View secrets (passkey or authenticator code) to unlock "
+            f"cleartext (expires after {SECRETS_UNLOCK_MINUTES} minutes).",
         )
 
 
-def _check_template_2fa(user: User) -> None:
+def _check_template_2fa(session: Session, user: User) -> None:
     """Optional policy: require 2FA for template deploy / redeploy."""
-    if _template_require_2fa() and not _user_has_2fa(user):
+    if _template_require_2fa() and not _user_has_2fa(session, user):
         raise HTTPException(
             403,
-            "Template deploy requires 2FA (Settings → Security). Enable TOTP under Account, "
+            "Template deploy requires 2FA (Settings → Security). Enable a passkey or TOTP under Account, "
             "or turn off that policy.",
         )
 
@@ -172,7 +175,8 @@ def _client_ip(request: Request) -> Optional[str]:
     return client_ip_from_request(request)
 
 
-def _set_secrets_unlock_cookie(response: RedirectResponse, user: User) -> None:
+def _set_secrets_unlock_cookie(response, user: User) -> None:
+    """Set secrets unlock cookie on any Response (redirect or JSON)."""
     from ..security.auth import cookie_auth_kwargs
 
     token = create_secrets_unlock_token(user.id)
@@ -183,13 +187,24 @@ def _set_secrets_unlock_cookie(response: RedirectResponse, user: User) -> None:
     )
 
 
-def _clear_secrets_unlock_cookie(response: RedirectResponse) -> None:
+def _clear_secrets_unlock_cookie(response) -> None:
     response.delete_cookie(SECRETS_UNLOCK_COOKIE, path="/")
 
 
-def _secrets_ui_context(request: Request, user: User) -> dict:
+def _secrets_ui_context(request: Request, session: Session, user: User) -> dict:
+    from ..services import webauthn_svc as wa_svc
+
+    has_totp = wa_svc.totp_active(user)
+    has_pk = False
+    try:
+        if getattr(user, "id", None) is not None:
+            has_pk = wa_svc.has_passkeys(session, int(user.id))
+    except Exception:
+        has_pk = False
     return {
-        "user_has_2fa": _user_has_2fa(user),
+        "user_has_2fa": has_totp or has_pk,
+        "has_totp": has_totp,
+        "has_passkeys": has_pk,
         "secrets_revealed": _secrets_revealed(request, user),
         "secrets_unlock_minutes": SECRETS_UNLOCK_MINUTES,
     }
@@ -214,6 +229,7 @@ def _editor_from_form(form) -> dict:
 
 def _editor_response(
     request: Request,
+    session: Session,
     user: User,
     *,
     form: dict,
@@ -242,7 +258,7 @@ def _editor_response(
             "tool_messages": tool_messages or [],
             "template_id": template_id,
             "slug": slug,
-            **_secrets_ui_context(request, user),
+            **_secrets_ui_context(request, session, user),
         },
         status_code=status_code,
     )

@@ -36,4 +36,4 @@ Public contributors may open Issues and Pull Requests. **Only the project mainta
 
 ## Stack
 
-FastAPI · SQLModel · PostgreSQL · Paramiko · Fernet · Jinja2 · HTMX · Alpine · Tailwind (vendored) · APScheduler · Celery · Caddy
+FastAPI · SQLModel · PostgreSQL · Paramiko · Fernet · Jinja2 · HTMX · Alpine · **compiled Tailwind** · APScheduler · Celery · Caddy

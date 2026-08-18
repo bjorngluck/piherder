@@ -133,6 +133,10 @@ async def list_servers(
         d["needs_attention"] = _needs_attention(row)
         d["has_os_updates"] = _has_os(row)
         d["has_container_updates"] = _has_cont(row)
+        d["has_ssh"] = bool(
+            getattr(row, "ssh_private_key_encrypted", None)
+            or getattr(row, "ssh_password_encrypted", None)
+        )
         # Phased-only (Ubuntu) — visibility, not attention
         phased = 0
         total_up = None
@@ -195,6 +199,13 @@ async def list_servers(
         logger.debug(f"[list_servers] Total render took {total:.2f}s")
 
     from ..security.auth import ROLE_OPERATOR, role_at_least
+    from ..services import ssh_console as cons_svc
+
+    is_operator = role_at_least(user, ROLE_OPERATOR)
+    console_on = cons_svc.console_enabled()
+    demo_console = cons_svc.is_demo_console()
+    # Production: operator+. Demo D5: shared viewer may open simulated console.
+    can_console = console_on and (is_operator or demo_console)
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -207,7 +218,11 @@ async def list_servers(
             "filter": filt,
             "filter_counts": filter_counts,
             # Wizard / bulk require operator+ (get_operator_user)
-            "can_add_server": role_at_least(user, ROLE_OPERATOR),
+            "can_add_server": is_operator,
+            "console_enabled": console_on,
+            "demo_console": demo_console,
+            # Operator+ and feature flag — Servers list kebab + multi-select Console
+            "can_console": can_console,
         },
     )
 
@@ -510,6 +525,14 @@ async def move_server(
 @router.get("/add", response_class=HTMLResponse)
 async def add_server_form(request: Request, user: User = Depends(get_current_user)):
     """Legacy URL — advanced single form (wizard primary is /servers/new)."""
+    from ..services.demo import reject_if_demo
+
+    demo_block = reject_if_demo("onboard")
+    if demo_block:
+        return RedirectResponse(
+            f"/servers?error=demo&detail={demo_block[:120]}",
+            status_code=303,
+        )
     # Viewer can open form but POST still hits create; match prior open GET.
     # Prefer operator for consistency with wizard.
     return templates_mod.templates.TemplateResponse(
@@ -523,7 +546,7 @@ async def add_server_form(request: Request, user: User = Depends(get_current_use
 async def add_server(
     name: str = Form(...),
     hostname: str = Form(...),
-    ssh_username: str = Form("bjorn"),
+    ssh_username: str = Form("pi"),
     ssh_port: int = Form(22),
     key_mode: str = Form("generate"),
     private_key: str = Form(""),
@@ -531,6 +554,9 @@ async def add_server(
     session: Session = Depends(get_session),
     user: User = Depends(get_current_user),
 ):
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("onboard")
     priv_enc = None
     pub = None
     pw_enc = None
@@ -644,7 +670,7 @@ async def server_detail(
     host_cleanup_script = ""
     # Option B ACL: share compose tree with least-priv user (guess owner from absolute path)
     _base = (server.docker_base_dir or "~/docker").strip()
-    _compose_owner = "bjorn"
+    _compose_owner = "pi"
     _compose_tree = _base
     if _base.startswith("/home/"):
         parts = _base.strip("/").split("/")
@@ -844,6 +870,8 @@ async def server_detail(
         logger.debug("nmap discovery embed skip: %s", e)
 
     from ..services.nav_shortcuts import host_feature_context
+    from ..security.auth import role_at_least, ROLE_OPERATOR
+    from ..services import ssh_console as cons_svc
 
     _nav = host_feature_context(session, int(user.id) if user else None, server, "overview")
     return templates_mod.templates.TemplateResponse(
@@ -852,6 +880,9 @@ async def server_detail(
         context={
             "title": server.name,
             "server": server_dict,
+            "console_enabled": cons_svc.console_enabled(),
+            "demo_console": cons_svc.is_demo_console(),
+            "is_operator": role_at_least(user, ROLE_OPERATOR),
             "dns_form": dns_form,
             "fabric_rack": fabric_rack,
             "hosts_map_url": hosts_map_url,

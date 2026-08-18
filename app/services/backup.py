@@ -284,8 +284,47 @@ def _folder_exists_via_ssh(client, folder: str, username: str) -> bool:
         return True
     return _try_check(False)
 
+def _is_vanished_rsync_failure(rc: int, stderr: str = "") -> bool:
+    """True when rsync failed because source files disappeared mid-run (code 24 / busy tree).
+
+    Code 24 is the classic "vanished files" exit. Code 23 (partial transfer) is only
+    treated as vanished when stderr mentions vanished files — other 23s stay hard fails.
+    """
+    try:
+        code = int(rc)
+    except (TypeError, ValueError):
+        return False
+    if code == 24:
+        return True
+    if code == 23:
+        low = (stderr or "").lower()
+        return "vanished" in low
+    return False
+
+
+def _vanished_retry_count() -> int:
+    try:
+        return max(0, int(getattr(settings, "PIHERDER_BACKUP_VANISHED_RETRIES", 1) or 0))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _vanished_retry_delay_sec() -> float:
+    try:
+        return max(0.0, float(getattr(settings, "PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC", 5) or 0))
+    except (TypeError, ValueError):
+        return 5.0
+
+
+def _vanished_soft_ok_enabled() -> bool:
+    return bool(getattr(settings, "PIHERDER_BACKUP_VANISHED_SOFT_OK", True))
+
+
 def backup_source_ok(result: dict) -> bool:
     """True if a single source result is success or intentionally skipped."""
+    # Soft-OK after vanished retries (B-retry): tree largely transferred; busy media churn
+    if result.get("vanished_soft_ok"):
+        return True
     # Policy denials set both error + skipped — error wins
     if result.get("error"):
         return False
@@ -545,25 +584,117 @@ def run_backup(server: Server, user_id: int | None = None, sources_override: Opt
                                 continue
                             break
 
+                # B-retry: vanished files (busy NVR/media) — retry then optional soft-OK
+                max_vanished = _vanished_retry_count()
+                attempt = 0
+                while (
+                    rc != 0
+                    and _is_vanished_rsync_failure(rc, rsync_stderr)
+                    and attempt < max_vanished
+                ):
+                    attempt += 1
+                    delay = _vanished_retry_delay_sec()
+                    _set_progress(
+                        hostname,
+                        log_line=(
+                            f"Vanished files on {src} (rc={rc}); "
+                            f"retry {attempt}/{max_vanished} in {int(delay)}s…"
+                        ),
+                        force=True,
+                    )
+                    if delay > 0:
+                        time.sleep(delay)
+                    # Re-run the same path (local or remote) once more using last successful path shape
+                    if is_local:
+                        cmd = [*_RSYNC_SUDO, *rsync_base, src_rsync, str(dest) + "/"]
+                        proc = subprocess.Popen(
+                            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
+                        )
+                        _active_backup_procs[hostname] = proc
+                        rc = _wait_rsync_quiet(proc, src)
+                        try:
+                            rsync_stderr = (proc.stderr.read() or "") if proc.stderr else ""
+                        except Exception:
+                            rsync_stderr = ""
+                        _active_backup_procs.pop(hostname, None)
+                    else:
+                        with temp_key_file(priv) as key_path:
+                            ssh_cmd = _build_rsync_ssh_cmd(key_path)
+                            attempt_path = remote_rsync_path
+                            cmd = rsync_base + ["-e", ssh_cmd, "--rsync-path", attempt_path]
+                            cmd += [
+                                f"{username}@{server.hostname}:{src_rsync}",
+                                str(dest) + "/",
+                            ]
+                            proc = subprocess.Popen(
+                                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
+                            )
+                            _active_backup_procs[hostname] = proc
+                            rc = _wait_rsync_quiet(proc, src)
+                            try:
+                                rsync_stderr = (proc.stderr.read() or "") if proc.stderr else ""
+                            except Exception:
+                                rsync_stderr = ""
+                            _active_backup_procs.pop(hostname, None)
+
                 if rc == 0:
                     (dest / ".last_backup").touch()
                     # Total size on backup volume (not bytes transferred this run — rsync may skip unchanged files).
                     size = get_dir_size(dest)
+                    row = {
+                        "source": src,
+                        "dest": str(dest),
+                        "rc": rc,
+                        "size_bytes": size,
+                        "size_human": human_size(size),
+                    }
+                    if attempt > 0:
+                        row["vanished_retries"] = attempt
+                        row["warning"] = (
+                            f"Completed after {attempt} vanished-file retry(ies) (busy source)"
+                        )
+                    results.append(row)
+                    _set_progress(
+                        hostname,
+                        log_line=(
+                            f"Completed {src}"
+                            + (f" after {attempt} retry(ies)" if attempt else "")
+                        ),
+                    )
+                elif _is_vanished_rsync_failure(rc, rsync_stderr) and _vanished_soft_ok_enabled():
+                    # Soft success: much of the tree may have transferred; media churn remains
+                    (dest / ".last_backup").touch()
+                    size = get_dir_size(dest)
+                    warn = (
+                        f"Busy source: rsync rc={rc} (vanished files) after {attempt} retry(ies); "
+                        "treated as soft success. Prefer excluding high-churn paths if needed."
+                    )
                     results.append({
                         "source": src,
                         "dest": str(dest),
                         "rc": rc,
                         "size_bytes": size,
                         "size_human": human_size(size),
+                        "vanished_soft_ok": True,
+                        "vanished_retries": attempt,
+                        "warning": warn,
                     })
-                    _set_progress(hostname, log_line=f"Completed {src}")
+                    _set_progress(
+                        hostname,
+                        log_line=f"Soft-OK {src} (vanished/busy; rc={rc})",
+                        force=True,
+                    )
+                    logger.warning("[backup] %s %s", server.hostname, warn)
                 else:
                     error_detail = _rsync_error_detail(rsync_stderr, remote_rsync_path if not is_local else "sudo")
+                    if attempt > 0:
+                        error_detail = (
+                            f"{error_detail} (after {attempt} vanished-file retry(ies))"
+                        )
                     _set_progress(hostname, log_line=f"Failed {src}: {error_detail[:120]}", force=True)
                     results.append({"source": src, "rc": rc, "error": error_detail})
                     _send_webhook(f"Backup failed for {server.hostname}: rsync error on {src}")
                     _set_progress(hostname, log_line=f"Failed {src}")
-
             except Exception as e:
                 logger.error(f"[backup] Error on source {src}: {e}\n{traceback.format_exc()}")
                 results.append({"source": src, "error": str(e)})

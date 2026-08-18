@@ -91,3 +91,6 @@ acme-out/
 .acme-certbot-config/
 .acme-certbot-work/
 .acme-certbot-logs/
+
+# Local maintainer notes / secrets drafts (never commit)
+local/
