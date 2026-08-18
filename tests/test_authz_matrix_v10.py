@@ -86,8 +86,20 @@ def test_build_stream_viewer_forbidden(client):
     assert r.status_code in (403, 404), r.status_code
 
 
-def test_log_stream_viewer_allowed_auth_gate(client):
-    """Viewers may open log SSE once authenticated (read-only); 404 without server."""
+def test_build_stream_get_method_not_allowed_for_operator(client):
+    """Mutating GET is closed — operator must POST a project name."""
+    c, engine = client
+    with Session(engine) as session:
+        uid = _user(session, role="operator", email="op@authz.test").id
+    r = c.get(
+        "/servers/1/docker/build-stream?project=/tmp/x;id",
+        cookies=_cookie(uid),
+    )
+    assert r.status_code == 405, r.status_code
+
+
+def test_log_stream_viewer_forbidden(client):
+    """Live Docker logs open SSH — operator+ only."""
     c, engine = client
     with Session(engine) as session:
         uid = _user(session, role="viewer", email="viewer2@authz.test").id
@@ -95,8 +107,7 @@ def test_log_stream_viewer_allowed_auth_gate(client):
         "/servers/1/docker/logs/web/stream",
         cookies=_cookie(uid),
     )
-    assert r.status_code in (200, 404), r.status_code
-    assert r.status_code != 401
+    assert r.status_code in (403, 404), r.status_code
 
 
 # --- AC1: mutate requires login; viewer blocked on fleet --------------------

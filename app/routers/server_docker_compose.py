@@ -258,6 +258,14 @@ async def edit_compose(
             errors = []
 
     from ..security.auth import SECRETS_UNLOCK_MINUTES
+    from ..services import webauthn_svc as wa_svc
+
+    has_totp = wa_svc.totp_active(user)
+    has_pk = False
+    try:
+        has_pk = wa_svc.has_passkeys(session, int(user.id))
+    except Exception:
+        has_pk = False
 
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -278,7 +286,9 @@ async def edit_compose(
             "live_version": live_version,
             "editing_version_id": editing_version_id,
             "secrets_revealed": secrets_revealed,
-            "user_has_2fa": bool(getattr(user, "totp_enabled", False)),
+            "user_has_2fa": has_totp or has_pk,
+            "has_totp": has_totp,
+            "has_passkeys": has_pk,
             "secrets_unlock_minutes": SECRETS_UNLOCK_MINUTES,
             "unlock_error": request.query_params.get("unlock_error"),
             "template_deployment": (

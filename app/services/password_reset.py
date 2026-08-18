@@ -9,6 +9,8 @@ from typing import Optional
 
 from sqlmodel import Session, select
 
+from urllib.parse import urlparse
+
 from ..models import PasswordResetToken, User
 from . import alert_channels as ch
 
@@ -21,6 +23,28 @@ MAX_OPEN_PER_USER = 3
 
 def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def configured_public_origin(raw: Optional[str] = None) -> str:
+    """Return scheme://host[:port] from PIHERDER_PUBLIC_URL, or empty.
+
+    Password-reset emails must never take Host / X-Forwarded-Host from the
+    request — those are attacker-controlled on a direct app-port hit.
+    """
+    if raw is None:
+        try:
+            from ..config import settings
+
+            raw = getattr(settings, "PIHERDER_PUBLIC_URL", None)
+        except Exception:
+            raw = None
+    text = (raw or "").strip()
+    if not text:
+        return ""
+    parsed = urlparse(text)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return ""
+    return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
 
 
 def create_reset_token(

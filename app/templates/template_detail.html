@@ -58,28 +58,13 @@
 
     {% if can_mutate and has_secret_vars and not secrets_revealed %}
     <div id="secrets-unlock-panel" class="border border-border rounded p-3 mb-3 bg-surface {% if not unlock_error %}hidden{% endif %}">
-      {% if user_has_2fa %}
       <p class="text-xs text-muted mb-2">
-        Secret defaults stay masked even after login. Enter a fresh authenticator code
-        (step-up 2FA) to load cleartext from the database. Unlock lasts about
-        {{ secrets_unlock_minutes }} minutes.
+        Secret defaults stay masked even after login. Complete step-up 2FA (passkey or authenticator)
+        to load cleartext from the database. Unlock lasts about {{ secrets_unlock_minutes }} minutes.
       </p>
-      <form method="post" action="/templates/secrets/unlock" class="flex flex-wrap gap-2 items-end">
-        <input type="hidden" name="return_to" value="/templates/{{ slug }}">
-        <div class="flex-1 min-w-[10rem]">
-          <label class="text-xs block mb-1">2FA code</label>
-          <input name="code" type="text" required inputmode="numeric" autocomplete="one-time-code"
-                 class="w-full bg-surface border border-border p-2 rounded text-sm font-mono tracking-widest min-h-11"
-                 placeholder="123456">
-        </div>
-        <button type="submit" class="btn btn-accent text-sm min-h-11 px-4">Unlock &amp; show</button>
-      </form>
-      {% else %}
-      <p class="text-sm">
-        Enable <a href="/auth/account" class="text-accent underline">2FA under Account</a> first,
-        then use <strong>View secrets</strong> and enter a code to reveal cleartext.
-      </p>
-      {% endif %}
+      {% with return_to="/templates/" ~ slug %}
+      {% include "partials/secrets_unlock_form.html" %}
+      {% endwith %}
     </div>
     {% endif %}
 

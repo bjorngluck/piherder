@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="auth-stage" aria-label="Two-factor code">
+<section class="auth-stage" aria-label="Two-factor authentication">
   <div class="auth-stage-glow" aria-hidden="true"></div>
   <div class="auth-card card">
     <div class="auth-card-brand">
@@ -10,8 +10,12 @@
       </div>
       <div>
         <div class="header-brand-sub text-primary">Security</div>
-        <h1 class="auth-title">Two-factor code</h1>
-        <p class="auth-sub">Authenticator app or backup code</p>
+        <h1 class="auth-title">Two-factor authentication</h1>
+        <p class="auth-sub">
+          {% if has_passkey and has_totp %}Passkey, authenticator app, or backup code
+          {% elif has_passkey %}Use a registered passkey
+          {% else %}Authenticator app or backup code{% endif %}
+        </p>
       </div>
     </div>
 
@@ -19,35 +23,174 @@
     <div class="mb-4 p-3 banner-error border border-border text-sm rounded" role="alert">
       {% if error == 'invalid' %}Invalid code. Try again.
       {% elif error == 'rate' %}Too many attempts. Wait a few minutes.
+      {% elif error == 'use_passkey' %}This account uses a passkey — use the button below.
       {% else %}{{ error }}{% endif %}
     </div>
     {% endif %}
 
-    <form method="post" action="/auth/2fa" class="space-y-4">
+    <div id="wa-error" class="hidden mb-4 p-3 banner-error border border-border text-sm rounded" role="alert"></div>
+
+    {% if has_passkey %}
+    <div class="space-y-3 mb-4">
+      <button type="button" id="wa-login-btn"
+              class="w-full btn btn-accent font-medium min-h-11"
+              data-testid="passkey-login">
+        Use passkey
+      </button>
+      <p class="text-xs text-muted text-center">
+        Face ID, Touch ID, Windows Hello, or a security key
+      </p>
+    </div>
+    {% if has_totp %}
+    <div class="flex items-center gap-3 my-4 text-xs text-muted">
+      <div class="flex-1 border-t border-border"></div>
+      <span>or enter a code</span>
+      <div class="flex-1 border-t border-border"></div>
+    </div>
+    {% endif %}
+    {% endif %}
+
+    {% if has_totp %}
+    <form method="post" action="/auth/2fa" class="space-y-4" id="totp-2fa-form">
       <div>
         <label class="block text-sm mb-1 text-muted" for="totp-code">Code</label>
-        <input id="totp-code" name="code" type="text" required autofocus inputmode="numeric"
+        <input id="totp-code" name="code" type="text" {% if not has_passkey %}required autofocus{% endif %}
+               inputmode="numeric"
                autocomplete="one-time-code"
                class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 font-mono tracking-widest"
                placeholder="123456 or ABCD-EF01">
       </div>
       <label class="flex items-center gap-2 text-sm text-muted">
-        <input type="checkbox" name="trust_device" value="1">
+        <input type="checkbox" name="trust_device" value="1" id="trust-device-totp">
         Trust this device for {{ trusted_device_days|default(30) }} days
       </label>
       <p class="text-xs text-muted">
         Trusted devices skip the 2FA prompt until they expire or you revoke them under
-        Account → Trusted devices. Only enable on personal devices you control —
-        a stolen laptop with a trusted cookie can sign in without your authenticator.
+        Account → Trusted devices. Only enable on personal devices you control.
       </p>
       <button type="submit" class="w-full mt-2 btn btn-accent font-medium min-h-11">
         Verify
       </button>
     </form>
+    {% elif has_passkey %}
+    <label class="flex items-center gap-2 text-sm text-muted mb-2">
+      <input type="checkbox" id="trust-device-wa" value="1">
+      Trust this device for {{ trusted_device_days|default(30) }} days
+    </label>
+    <p class="text-xs text-muted">
+      Trusted devices skip the 2FA prompt until they expire or you revoke them under Account.
+    </p>
+    {% endif %}
 
     <p class="mt-6 text-center text-sm text-muted">
       <a href="/auth/login" class="text-primary hover:underline">Back to login</a>
     </p>
   </div>
 </section>
+
+{% if has_passkey %}
+<script>
+(function () {
+  const btn = document.getElementById('wa-login-btn');
+  const errEl = document.getElementById('wa-error');
+  if (!btn || !window.PublicKeyCredential) {
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Passkeys not supported in this browser';
+    }
+    return;
+  }
+
+  function showErr(msg) {
+    if (!errEl) return;
+    errEl.textContent = msg || 'Passkey failed';
+    errEl.classList.remove('hidden');
+  }
+
+  function b64urlToBuf(b64url) {
+    const pad = '='.repeat((4 - (b64url.length % 4)) % 4);
+    const b64 = (b64url + pad).replace(/-/g, '+').replace(/_/g, '/');
+    const str = atob(b64);
+    const buf = new ArrayBuffer(str.length);
+    const view = new Uint8Array(buf);
+    for (let i = 0; i < str.length; i++) view[i] = str.charCodeAt(i);
+    return buf;
+  }
+
+  function bufToB64url(buf) {
+    const bytes = new Uint8Array(buf);
+    let str = '';
+    for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+    return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function prepareRequestOptions(publicKey) {
+    const o = Object.assign({}, publicKey);
+    o.challenge = b64urlToBuf(publicKey.challenge);
+    if (publicKey.allowCredentials) {
+      o.allowCredentials = publicKey.allowCredentials.map(function (c) {
+        return Object.assign({}, c, { id: b64urlToBuf(c.id) });
+      });
+    }
+    return o;
+  }
+
+  function credentialToJSON(cred) {
+    const r = cred.response;
+    return {
+      id: cred.id,
+      rawId: bufToB64url(cred.rawId),
+      type: cred.type,
+      clientExtensionResults: cred.clientExtensionResults || {},
+      authenticatorAttachment: cred.authenticatorAttachment || null,
+      response: {
+        clientDataJSON: bufToB64url(r.clientDataJSON),
+        authenticatorData: bufToB64url(r.authenticatorData),
+        signature: bufToB64url(r.signature),
+        userHandle: r.userHandle ? bufToB64url(r.userHandle) : null,
+      },
+    };
+  }
+
+  btn.addEventListener('click', async function () {
+    errEl && errEl.classList.add('hidden');
+    btn.disabled = true;
+    const prev = btn.textContent;
+    btn.textContent = 'Waiting for authenticator…';
+    try {
+      const optRes = await fetch('/auth/2fa/webauthn/options', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin',
+      });
+      const optBody = await optRes.json();
+      if (!optBody.ok) throw new Error(optBody.error || 'Could not start passkey login');
+      const assertion = await navigator.credentials.get({
+        publicKey: prepareRequestOptions(optBody.publicKey),
+      });
+      if (!assertion) throw new Error('Passkey cancelled');
+      const trustEl = document.getElementById('trust-device-wa')
+        || document.getElementById('trust-device-totp');
+      const trust = trustEl && trustEl.checked;
+      const verRes = await fetch('/auth/2fa/webauthn/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          credential: credentialToJSON(assertion),
+          trust_device: trust ? '1' : '',
+        }),
+      });
+      const verBody = await verRes.json();
+      if (!verBody.ok) throw new Error(verBody.error || 'Passkey verification failed');
+      window.location.href = verBody.redirect || '/';
+    } catch (e) {
+      showErr((e && e.message) ? e.message : 'Passkey failed');
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

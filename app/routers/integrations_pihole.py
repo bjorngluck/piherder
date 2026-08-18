@@ -109,6 +109,7 @@ def _fanout_pihole_dns(
     ip: str = "",
     domain: str = "",
     target: str = "",
+    raw: str = "",
     scope: str = "all",
     source_id: int | None = None,
 ) -> list[dict]:
@@ -122,6 +123,7 @@ def _fanout_pihole_dns(
         ip=ip,
         domain=domain,
         target=target,
+        raw=raw,
         scope=scope,
         source_id=source_id,
     )
@@ -305,6 +307,7 @@ async def pihole_dns_cname(
     action: str = Form("add"),
     domain: str = Form(""),
     target: str = Form(""),
+    raw: str = Form(""),
     scope: str = Form("all"),
 ):
     integration = reg.get_integration(session, integration_id)
@@ -312,6 +315,7 @@ async def pihole_dns_cname(
         raise HTTPException(404)
     domain = (domain or "").strip()
     target = (target or "").strip()
+    raw = (raw or "").strip()
     if not domain or not target:
         return _redirect(
             f"/integrations/{integration_id}",
@@ -327,6 +331,7 @@ async def pihole_dns_cname(
         kind="cname",
         domain=domain,
         target=target,
+        raw=raw,
         scope=sc,
         source_id=integration_id,
     )

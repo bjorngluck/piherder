@@ -349,7 +349,7 @@ async def get_docker_logs(
     format: str = None,
     request: Request = None,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_operator_user)
 ):
 
     server = session.get(Server, server_id)
@@ -591,9 +591,9 @@ async def stream_container_logs(
     lines: int = 30,
     project_path: str = None,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_operator_user),
 ):
-    """SSE log stream — must require session (v1.0 AC2). Viewers may read if they can open Docker UI."""
+    """SSE log stream — operator+ (live SSH). Viewers use cached inventory, not a PTY."""
     _ = user
     server = session.get(Server, server_id)
     if not server:
@@ -660,38 +660,42 @@ async def build_progress(
 
 
 @router.get("/{server_id}/docker/build-stream")
+async def build_stream_get_blocked(
+    server_id: int,
+    user: User = Depends(get_operator_user),
+):
+    """Builds are POST-only (mutating GET was CSRF + unquoted path)."""
+    _ = (server_id, user)
+    raise HTTPException(
+        405,
+        detail="Use POST /docker/build-stream with a compose project name",
+    )
+
+
+@router.post("/{server_id}/docker/build-stream")
 async def build_stream(
     server_id: int,
-    project: str = None,
-    services: str = "",
-    no_cache: str = "false",
+    project: str = Form(...),
+    services: str = Form(""),
+    no_cache: str = Form("false"),
     session: Session = Depends(get_session),
     user: User = Depends(get_operator_user),
 ):
-    """SSE endpoint that runs docker compose build on the host and streams output.
-
-    v1.0 AC2: requires operator+ — unauthenticated build-via-SSE was a critical gap.
-    """
+    """SSE stream of ``docker compose build`` (operator+, POST, named project only)."""
     _ = user
     server = session.get(Server, server_id)
     if not server:
         raise HTTPException(404)
-    if not project:
-        raise HTTPException(400, detail="project is required")
 
-    # Resolve project name -> full path (same pattern as file-content, edit, etc.)
     try:
-        projects = docker_svc.list_compose_projects(server)
+        project_path = docker_svc.resolve_compose_project_path(server, project)
+    except ValueError as e:
+        msg = str(e)
+        if "not found" in msg:
+            raise HTTPException(404, detail="Project not found")
+        raise HTTPException(400, detail="Invalid project")
     except Exception as e:
         raise HTTPException(500, detail=f"Failed to inspect projects on host: {str(e)[:120]}")
-    proj = next((p for p in projects if p.get("name") == project), None)
-    if not proj:
-        if project.startswith("/"):
-            project_path = project  # allow direct path as fallback
-        else:
-            raise HTTPException(404, detail="Project not found")
-    else:
-        project_path = proj["path"]
 
     svc_list = [s.strip() for s in services.split(",") if s.strip()] if services else None
     no_cache_bool = str(no_cache).lower() in ("true", "1", "yes")

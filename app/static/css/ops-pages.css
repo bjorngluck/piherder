@@ -760,6 +760,19 @@ html.dark .ph-file-badge--config,
   font-size: 0.65rem;
   padding: 0.08rem 0.4rem;
 }
+/* Jobs wrap a hit-target <button> inside the card — do not use UA chrome */
+.audit-event-hit {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
 .action-pill {
   display: inline-flex;
   align-items: center;
@@ -935,6 +948,57 @@ html.dark .ph-file-badge--config,
 .wizard-step--done .wizard-step-num {
   background: color-mix(in srgb, var(--color-success, #16a34a) 85%, transparent);
   color: #fff;
+}
+
+/* Certificate deploy-target cards (do not use Tailwind theme-opacity classes) */
+.ph-cert-edge {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-accent);
+  border-radius: 12px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.ph-cert-edge:hover {
+  background: var(--color-bg);
+}
+.ph-cert-host {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--color-surface);
+}
+.ph-cert-host-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-bg) 65%, var(--color-surface));
+}
+.ph-cert-target {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+.ph-cert-host .ph-cert-target:first-child {
+  border-top: 0;
+}
+.ph-cert-target:hover {
+  background: var(--color-bg);
 }
 @media (max-width: 640px) {
   .wizard-step-label { display: none; }

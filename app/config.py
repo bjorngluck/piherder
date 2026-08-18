@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     PIHERDER_MASTER_KEY: str
     DATABASE_URL: str = "postgresql://piherder:piherder@db:5432/piherder"
     SECRET_KEY: str = "dev-secret-change-in-prod"
+    # Lab only: allow boot with a weak/default SECRET_KEY. Never true in production.
+    PIHERDER_ALLOW_INSECURE: bool = False
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
@@ -15,6 +17,14 @@ class Settings(BaseSettings):
     DEFAULT_DOCKER_BASE: str = "~/docker"
     DATA_ROOT: str = "/data"  # avatars and other app data (mount volume in compose)
     AVATAR_MAX_BYTES: int = 2 * 1024 * 1024  # 2 MiB
+
+    # B-retry (v1.2): rsync vanished files / busy sources (KI-rsync-vanished)
+    # Extra attempts after code 24 (or 23 with "vanished" in stderr)
+    PIHERDER_BACKUP_VANISHED_RETRIES: int = 1
+    # Seconds to wait before a vanished-file retry
+    PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC: int = 5
+    # If still vanished after retries, treat source as success with warning (soft OK)
+    PIHERDER_BACKUP_VANISHED_SOFT_OK: bool = True
 
     # Registration: when False, public register is blocked once any user exists
     ALLOW_OPEN_REGISTRATION: bool = False
@@ -66,6 +76,11 @@ class Settings(BaseSettings):
     # Never use * with API tokens. Backend still enforces Bearer + scopes + IP allowlist.
     CORS_ORIGINS: Optional[str] = None
 
+    # Trust CF-Connecting-IP / X-Forwarded-For / X-Real-IP only when the TCP peer
+    # is in this list (comma-separated CIDRs). Empty = never trust forwarded headers
+    # (use the TCP peer). Bundled Compose sets RFC1918 + loopback so Caddy is trusted.
+    PIHERDER_TRUSTED_PROXY_CIDRS: Optional[str] = None
+
     # GitHub release check for “new version available” banner / About page
     PIHERDER_UPDATE_CHECK: bool = True
     PIHERDER_UPDATE_CHECK_TTL_HOURS: int = 12
@@ -73,6 +88,52 @@ class Settings(BaseSettings):
     # LAN discovery (nmap worker) — vuln artefacts volume; empty pack = no Vulners
     PIHERDER_NMAP_VULN_ROOT: str = "/var/lib/piherder/nmap-vuln"
     PIHERDER_NMAP_TIMEOUT_SEC: int = 7200
+
+    # Web SSH console (v1.2 Stream W) — default OFF until operators opt in
+    PIHERDER_SSH_CONSOLE: bool = False
+    # Ticket TTL to open the WebSocket (seconds)
+    PIHERDER_SSH_CONSOLE_TICKET_SEC: int = 60
+    # Idle disconnect (seconds without client→host data)
+    PIHERDER_SSH_CONSOLE_IDLE_SEC: int = 900
+    # Hard max session length (seconds)
+    PIHERDER_SSH_CONSOLE_MAX_SEC: int = 3600
+    # Concurrent open consoles per user / whole instance (multi-shell tabs each count)
+    # Concurrent PTY shells (account-wide, not per host) — multi-host needs headroom
+    PIHERDER_SSH_CONSOLE_MAX_PER_USER: int = 4
+    PIHERDER_SSH_CONSOLE_MAX_GLOBAL: int = 20
+    # Browser xterm scrollback (lines kept above viewport); client may raise further
+    PIHERDER_SSH_CONSOLE_SCROLLBACK: int = 2000
+    # After 2FA, grant re-open of additional shells on the same host without re-TOTP
+    PIHERDER_SSH_CONSOLE_GRANT_MIN: int = 10
+    # If true, every New shell requires fresh 2FA (TOTP/passkey); grant cookie ignored
+    PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL: bool = False
+    # Console step-up: backup codes off by default (prefer passkey / TOTP app)
+    PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES: bool = False
+    PIHERDER_SSH_CONSOLE_PREFER_PASSKEY: bool = True
+    # If true and user has passkeys enrolled, only passkey opens the console (no TOTP)
+    PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY: bool = False
+    # Bind console tickets to client IP / console device cookie; re-check while open
+    PIHERDER_SSH_CONSOLE_BIND_IP: bool = True
+    PIHERDER_SSH_CONSOLE_BIND_DEVICE: bool = True
+    PIHERDER_SSH_CONSOLE_REVALIDATE_SEC: int = 10
+    # After WebSocket drop (app switch / tab sleep), keep SSH PTY parked this long
+    # so the browser can resume. 0 = hold until idle/max session timeout.
+    PIHERDER_SSH_CONSOLE_HOLD_SEC: int = 0
+
+    # Content-Security-Policy (v1.2) — default on; Report-Only for staged rollouts
+    PIHERDER_CSP: bool = True
+    PIHERDER_CSP_REPORT_ONLY: bool = False
+
+    # Public demo sandbox (v1.2 Stream D) — default OFF. When true: banner, hard
+    # blocks on real onboard/API tokens/outbound, canned jobs (see demo.py).
+    PIHERDER_DEMO_MODE: bool = False
+    # Shared demo login (seed only; only meaningful when DEMO_MODE=1)
+    PIHERDER_DEMO_EMAIL: str = "demo@hacknow.info"
+    PIHERDER_DEMO_PASSWORD: str = "Piherder@1"
+
+    # Cloudflare Turnstile (bot protection on login) — empty = off
+    PIHERDER_TURNSTILE_SITE_KEY: Optional[str] = None
+    PIHERDER_TURNSTILE_SECRET_KEY: Optional[str] = None
 
     class Config:
         env_file = ".env"

@@ -11,21 +11,21 @@
       <div>
         <div class="header-brand-sub text-primary">Security</div>
         <h1 class="auth-title">Two-factor required</h1>
-        <p class="auth-sub">Enable TOTP before using the fleet</p>
+        <p class="auth-sub">Enable a second factor before using the fleet</p>
       </div>
     </div>
 
     <p class="text-sm text-muted mb-4">
-      An administrator requires every account to enable app-based 2FA (TOTP) before using
-      the fleet. You can open Account to finish setup; all other pages stay locked until 2FA is on.
+      An administrator requires every account to enable two-factor authentication before using
+      the fleet — either an <strong class="text-text">authenticator app (TOTP)</strong> or a
+      <strong class="text-text">passkey</strong>. Open Account to finish setup; other pages stay locked until then.
     </p>
     <ol class="text-sm text-muted list-decimal pl-5 space-y-1.5 mb-6">
       <li>Open <strong class="text-text">Account</strong> (button below)</li>
-      <li>Under <strong class="text-text">Two-factor authentication</strong>, start setup and scan the QR with your authenticator app</li>
-      <li>Confirm with a code, then <strong class="text-text">save your backup codes</strong> offline</li>
+      <li>Add a <strong class="text-text">passkey</strong>, or enable <strong class="text-text">app-based 2FA</strong> (scan QR, confirm, save backup codes)</li>
       <li>Return to the dashboard — fleet access unlocks automatically</li>
     </ol>
-    <a href="/auth/account?msg=2fa_setup#account-2fa"
+    <a href="/auth/account#account-2fa"
        class="btn btn-accent w-full min-h-11 inline-flex items-center justify-center">
       Set up 2FA on Account
     </a>

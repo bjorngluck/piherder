@@ -19,9 +19,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 
 PENDING_2FA_MINUTES = 10
 BACKUP_CODE_COUNT = 10
-# Step-up after TOTP: short-lived grant to view decrypted secrets in UI
+# Step-up after TOTP/passkey: short-lived grant to view decrypted secrets in UI
 SECRETS_UNLOCK_MINUTES = 10
 SECRETS_UNLOCK_COOKIE = "secrets_unlock"
+# Step-up for Account mutations (SSO link/unlink, password remove/set)
+ACCOUNT_STEPUP_MINUTES = 5
+ACCOUNT_STEPUP_COOKIE = "account_stepup"
 
 
 def cookie_secure() -> bool:
@@ -165,7 +168,7 @@ def create_pending_2fa_token(user_id: int) -> str:
 
 
 def create_secrets_unlock_token(user_id: int) -> str:
-    """Short-lived step-up after TOTP re-check; required to view secret cleartext."""
+    """Short-lived step-up after TOTP/passkey re-check; required to view secret cleartext."""
     return create_access_token(
         {"sub": str(user_id), "secrets_unlock": True},
         expires_delta=timedelta(minutes=SECRETS_UNLOCK_MINUTES),
@@ -181,6 +184,30 @@ def secrets_unlock_active(request: Request, user: User) -> bool:
         return False
     payload = decode_token_payload(raw)
     if not payload or not payload.get("secrets_unlock"):
+        return False
+    try:
+        return int(payload.get("sub")) == int(user.id)
+    except (TypeError, ValueError):
+        return False
+
+
+def create_account_stepup_token(user_id: int) -> str:
+    """Short-lived step-up for Account SSO / password-sensitive actions."""
+    return create_access_token(
+        {"sub": str(user_id), "account_stepup": True},
+        expires_delta=timedelta(minutes=ACCOUNT_STEPUP_MINUTES),
+    )
+
+
+def account_stepup_active(request: Request, user: User) -> bool:
+    """True if this browser has a valid Account step-up cookie for user."""
+    if not user or not getattr(user, "id", None):
+        return False
+    raw = request.cookies.get(ACCOUNT_STEPUP_COOKIE)
+    if not raw:
+        return False
+    payload = decode_token_payload(raw)
+    if not payload or not payload.get("account_stepup"):
         return False
     try:
         return int(payload.get("sub")) == int(user.id)
@@ -267,6 +294,7 @@ _FORCE_2FA_ALLOW = (
     "/favicon.ico",
     "/health",
 )
+# Note: /auth/account/* (incl. webauthn register) is covered by "/auth/account" prefix match
 
 
 class OnboardingRedirect(Exception):
@@ -278,7 +306,7 @@ class OnboardingRedirect(Exception):
 
 
 def force_2fa_required() -> bool:
-    """Global policy: every user must enable TOTP before using the app."""
+    """Global policy: every user must enable a second factor before using the app."""
     try:
         from ..services.app_settings import force_2fa_enabled
         return force_2fa_enabled()
@@ -286,16 +314,34 @@ def force_2fa_required() -> bool:
         return False
 
 
+def user_has_second_factor(session: Session, user: User) -> bool:
+    """True when TOTP is enabled and/or at least one WebAuthn passkey is enrolled."""
+    if getattr(user, "totp_enabled", False) and getattr(user, "totp_secret_encrypted", None):
+        return True
+    try:
+        from ..services.webauthn_svc import has_passkeys
+
+        if getattr(user, "id", None) is not None:
+            return has_passkeys(session, int(user.id))
+    except Exception:
+        pass
+    return False
+
+
 def _path_allowed(path: str, prefixes: tuple[str, ...]) -> bool:
     return any(path == p or path.startswith(p.rstrip("/") + "/") or path.startswith(p) for p in prefixes)
 
 
-def post_login_path(user: User) -> str:
+def post_login_path(user: User, session: Optional[Session] = None) -> str:
     """Where to send the browser after a successful login / 2FA."""
     if getattr(user, "must_change_password", False):
         return "/auth/force-password"
-    if force_2fa_required() and not getattr(user, "totp_enabled", False):
-        return "/auth/force-2fa"
+    if force_2fa_required():
+        if session is not None:
+            if not user_has_second_factor(session, user):
+                return "/auth/force-2fa"
+        elif not getattr(user, "totp_enabled", False):
+            return "/auth/force-2fa"
     return "/"
 
 
@@ -327,7 +373,29 @@ def is_sole_admin(session: Session, user: User) -> bool:
 
 
 def _viewer_write_allowed(path: str) -> bool:
-    return any(path.startswith(p) for p in _VIEWER_WRITE_PREFIXES)
+    if any(path.startswith(p) for p in _VIEWER_WRITE_PREFIXES):
+        return True
+    # Public demo shared login is viewer: still allow canned job clicks + pins
+    # (mutations are simulated / personal; fleet config stays blocked by RBAC).
+    # D5: simulated console ticket/grant POSTs (no live SSH).
+    try:
+        from ..services.demo import demo_mode
+
+        if demo_mode():
+            import re
+
+            p = path or ""
+            if re.match(r"^/servers/\d+/run(?:/|$)", p):
+                return True
+            if re.match(r"^/jobs/\d+/cancel$", p):
+                return True
+            if re.match(r"^/servers/\d+/console(?:/|$)", p):
+                return True
+            if p.startswith("/account/favourites"):
+                return True
+    except Exception:
+        pass
+    return False
 
 
 def _admin_only_path(path: str) -> bool:
@@ -384,11 +452,11 @@ def get_current_user(
     ):
         raise OnboardingRedirect("/auth/force-password")
 
-    # Global force-2FA gate (after password is OK)
+    # Global force-2FA gate (after password is OK) — TOTP or passkey satisfies
     if (
         not getattr(user, "must_change_password", False)
         and force_2fa_required()
-        and not getattr(user, "totp_enabled", False)
+        and not user_has_second_factor(session, user)
         and not _path_allowed(path, _FORCE_2FA_ALLOW)
     ):
         raise OnboardingRedirect("/auth/force-2fa")
@@ -430,6 +498,23 @@ def get_operator_user(user: User = Depends(get_current_user)) -> User:
     return user
 
 
+def get_console_user(user: User = Depends(get_current_user)) -> User:
+    """Console routes: operator+ in production; any active user in DEMO_MODE (D5)."""
+    try:
+        from ..services.ssh_console import demo_console_allow_viewer
+
+        if demo_console_allow_viewer():
+            return user
+    except Exception:
+        pass
+    if not role_at_least(user, ROLE_OPERATOR):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Operator or admin role required",
+        )
+    return user
+
+
 def get_optional_current_user(
     request: Request,
     token: str = Depends(oauth2_scheme),
@@ -445,7 +530,12 @@ def get_optional_current_user(
 def authenticate_user(session: Session, email: str, password: str) -> Optional[User]:
     statement = select(User).where(User.email == email)
     user = session.exec(statement).first()
-    if not user or not verify_password(password, user.hashed_password):
+    if not user:
+        return None
+    # SSO-only accounts (password removed after OIDC link)
+    if not getattr(user, "password_login_enabled", True):
+        return None
+    if not verify_password(password, user.hashed_password):
         return None
     return user
 
@@ -726,6 +816,10 @@ def same_origin_request(request: Request) -> bool:
             return s.lower()
         except Exception:
             return ""
+
+    fetch_site = (request.headers.get("sec-fetch-site") or "").strip().lower()
+    if fetch_site == "cross-site":
+        return False
 
     origin = (request.headers.get("origin") or "").strip()
     if origin and origin.lower() not in ("null",):

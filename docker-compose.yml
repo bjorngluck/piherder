@@ -3,7 +3,8 @@ x-piherder-app-env: &piherder-app-env
   PIHERDER_MASTER_KEY: ${PIHERDER_MASTER_KEY}
   # Web + main celery never consume queue nmap (see celery-worker-nmap).
   PIHERDER_NMAP_WORKER: "0"
-  SECRET_KEY: ${SECRET_KEY:-dev-secret-change-in-prod}
+  SECRET_KEY: ${SECRET_KEY:?set a long random SECRET_KEY in .env}
+  PIHERDER_ALLOW_INSECURE: ${PIHERDER_ALLOW_INSECURE:-false}
   DATABASE_URL: ${DATABASE_URL:-postgresql://piherder:piherder@db:5432/piherder}
   CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/0}
   CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/0}
@@ -30,14 +31,47 @@ x-piherder-app-env: &piherder-app-env
   METRICS_TOKEN: ${METRICS_TOKEN:-}
   METRICS_BACKUP_STALE_HOURS: ${METRICS_BACKUP_STALE_HOURS:-36}
   CORS_ORIGINS: ${CORS_ORIGINS:-}
+  # Trust XFF/CF only from Caddy on the compose network (not from :8000 clients)
+  PIHERDER_TRUSTED_PROXY_CIDRS: ${PIHERDER_TRUSTED_PROXY_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32,::1/128}
   PIHERDER_SERVER_LOCK_TTL: ${PIHERDER_SERVER_LOCK_TTL:-7200}
   PIHERDER_NMAP_VULN_ROOT: ${PIHERDER_NMAP_VULN_ROOT:-/var/lib/piherder/nmap-vuln}
+  # Web SSH console (v1.2) — default off; set true to enable operator+ browser terminal
+  PIHERDER_SSH_CONSOLE: ${PIHERDER_SSH_CONSOLE:-false}
+  # true = re-prompt 2FA (TOTP/passkey) for every New shell (no multi-shell grant)
+  PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL: ${PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL:-false}
+  PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES: ${PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES:-false}
+  PIHERDER_SSH_CONSOLE_PREFER_PASSKEY: ${PIHERDER_SSH_CONSOLE_PREFER_PASSKEY:-true}
+  PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY: ${PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY:-false}
+  PIHERDER_SSH_CONSOLE_BIND_IP: ${PIHERDER_SSH_CONSOLE_BIND_IP:-true}
+  PIHERDER_SSH_CONSOLE_BIND_DEVICE: ${PIHERDER_SSH_CONSOLE_BIND_DEVICE:-true}
+  PIHERDER_SSH_CONSOLE_REVALIDATE_SEC: ${PIHERDER_SSH_CONSOLE_REVALIDATE_SEC:-10}
+  PIHERDER_SSH_CONSOLE_MAX_PER_USER: ${PIHERDER_SSH_CONSOLE_MAX_PER_USER:-4}
+  PIHERDER_SSH_CONSOLE_MAX_GLOBAL: ${PIHERDER_SSH_CONSOLE_MAX_GLOBAL:-20}
+  PIHERDER_SSH_CONSOLE_SCROLLBACK: ${PIHERDER_SSH_CONSOLE_SCROLLBACK:-2000}
+  # 0 = park detached shells until idle/max after app switch (soft resume)
+  PIHERDER_SSH_CONSOLE_HOLD_SEC: ${PIHERDER_SSH_CONSOLE_HOLD_SEC:-0}
+  # Content-Security-Policy (v1.2) — default on; Report-Only for staged tighten
+  PIHERDER_CSP: ${PIHERDER_CSP:-true}
+  PIHERDER_CSP_REPORT_ONLY: ${PIHERDER_CSP_REPORT_ONLY:-false}
+  # Public demo sandbox (v1.2 Stream D) — leave false on real fleets
+  PIHERDER_DEMO_MODE: ${PIHERDER_DEMO_MODE:-false}
+  PIHERDER_DEMO_EMAIL: ${PIHERDER_DEMO_EMAIL:-demo@hacknow.info}
+  PIHERDER_DEMO_PASSWORD: ${PIHERDER_DEMO_PASSWORD:-PiHerder@123?_}
+  # Prefer PIHERDER_*; TURNSTILE_* aliases match Cloudflare Spin / dashboard recovery
+  PIHERDER_TURNSTILE_SITE_KEY: ${PIHERDER_TURNSTILE_SITE_KEY:-${TURNSTILE_SITE_KEY:-}}
+  PIHERDER_TURNSTILE_SECRET_KEY: ${PIHERDER_TURNSTILE_SECRET_KEY:-${TURNSTILE_SECRET:-}}
+  TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-${PIHERDER_TURNSTILE_SITE_KEY:-}}
+  TURNSTILE_SECRET: ${TURNSTILE_SECRET:-${PIHERDER_TURNSTILE_SECRET_KEY:-}}
+  # B-retry: rsync vanished files on busy sources (Frigate/NVR)
+  PIHERDER_BACKUP_VANISHED_RETRIES: ${PIHERDER_BACKUP_VANISHED_RETRIES:-1}
+  PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC: ${PIHERDER_BACKUP_VANISHED_RETRY_DELAY_SEC:-5}
+  PIHERDER_BACKUP_VANISHED_SOFT_OK: ${PIHERDER_BACKUP_VANISHED_SOFT_OK:-true}
   TZ: ${TZ:-Etc/UTC}
 
 # App image — **local build by default** (dev / RC testing on this host).
 #   docker compose build web celery-worker && docker compose up -d
 # Production Hub pull (no rebuild):
-#   PIHERDER_IMAGE=bjorngluck/piherder:1.1.1 docker compose up -d --no-build
+#   PIHERDER_IMAGE=bjorngluck/piherder:1.2.0 docker compose up -d --no-build
 #   (or :latest after a published release)
 # Override tag name only: PIHERDER_IMAGE=piherder:dev docker compose build
 x-piherder-image: &piherder-image
@@ -52,7 +86,8 @@ services:
     container_name: piherder-web
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
     ports:
-      - "8000:8000"
+      # Loopback only — do not publish the app port on the LAN. Use Caddy :8888/:8443.
+      - "127.0.0.1:8000:8000"
     environment:
       <<: *piherder-app-env
       # Edge cert apply (this instance → Caddy); defaults match mounts below
@@ -199,6 +234,8 @@ services:
     environment:
       # Public hostname for the HTTPS site block (e.g. piherder.example.com)
       - PIHERDER_HOSTNAME=${PIHERDER_HOSTNAME:-localhost}
+      # Full public origin for HTTP→HTTPS redir (include :8443 only if that is the public port)
+      - PIHERDER_PUBLIC_URL=${PIHERDER_PUBLIC_URL:-https://${PIHERDER_HOSTNAME:-localhost}}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       # Trusted TLS: place fullchain.pem + privkey.pem here (see certs/README.md)

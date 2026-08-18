@@ -396,6 +396,29 @@ def encode_cname_path(domain: str, target: str) -> str:
     return quote(f"{(domain or '').strip()},{(target or '').strip()}", safe="")
 
 
+def _norm_dns_name(value: str) -> str:
+    return (value or "").strip().rstrip(".").lower()
+
+
+def resolve_cname_raw(
+    sess: PiholeSession, domain: str, target: str
+) -> Optional[str]:
+    """Exact Pi-hole config key (often ``domain,target,ttl``)."""
+    want_d = _norm_dns_name(domain)
+    want_t = _norm_dns_name(target)
+    if not want_d or not want_t:
+        return None
+    for row in list_dns_cnames(sess):
+        if _norm_dns_name(row.get("domain") or "") == want_d and _norm_dns_name(
+            row.get("target") or ""
+        ) == want_t:
+            raw = (row.get("raw") or "").strip()
+            if raw:
+                return raw
+            return f"{row.get('domain')},{row.get('target')}"
+    return None
+
+
 def add_dns_host(sess: PiholeSession, ip: str, domain: str) -> None:
     path = f"/config/dns/hosts/{encode_host_path(ip, domain)}"
     r = _request(sess, "PUT", path)
@@ -417,11 +440,47 @@ def add_dns_cname(sess: PiholeSession, domain: str, target: str) -> None:
         raise RuntimeError(f"add cname failed HTTP {r.status_code}: {r.text[:200]}")
 
 
-def delete_dns_cname(sess: PiholeSession, domain: str, target: str) -> None:
-    path = f"/config/dns/cnameRecords/{encode_cname_path(domain, target)}"
-    r = _request(sess, "DELETE", path)
-    if r.status_code >= 400 and r.status_code != 404:
-        raise RuntimeError(f"delete cname failed HTTP {r.status_code}: {r.text[:200]}")
+def delete_dns_cname(
+    sess: PiholeSession,
+    domain: str,
+    target: str,
+    *,
+    raw: Optional[str] = None,
+) -> None:
+    """Delete using the exact config item string FTL stored.
+
+    Keys are often ``domain,target`` or ``domain,target,ttl``. Deleting only
+    ``domain,target`` 404s and the record stays.
+    """
+    keys: list[str] = []
+    if (raw or "").strip():
+        keys.append(raw.strip())
+    looked = resolve_cname_raw(sess, domain, target)
+    if looked:
+        keys.append(looked)
+    d = (domain or "").strip()
+    t = (target or "").strip()
+    if d and t:
+        keys.append(f"{d},{t}")
+    seen: set[str] = set()
+    last_err = ""
+    tried = False
+    for key in keys:
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        tried = True
+        path = f"/config/dns/cnameRecords/{quote(key, safe='')}"
+        r = _request(sess, "DELETE", path)
+        if r.status_code < 400:
+            return
+        if r.status_code == 404:
+            continue
+        last_err = f"HTTP {r.status_code}: {r.text[:200]}"
+    if not tried:
+        raise RuntimeError("delete cname: empty domain/target")
+    if last_err:
+        raise RuntimeError(f"delete cname failed {last_err}")
 
 
 def run_action(

@@ -1,9 +1,12 @@
-from datetime import datetime
+import logging
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, Response
 from sqlmodel import Session, select
+
+logger = logging.getLogger(__name__)
 
 from ..database import get_session
 from ..models import User, TotpBackupCode
@@ -12,7 +15,12 @@ from ..services.request_ip import client_ip_from_request
 from ..security.auth import (
     authenticate_user,
     create_user_access_token,
+    create_access_token,
     create_pending_2fa_token,
+    create_account_stepup_token,
+    account_stepup_active,
+    ACCOUNT_STEPUP_COOKIE,
+    ACCOUNT_STEPUP_MINUTES,
     get_password_hash,
     get_current_user,
     get_admin_user,
@@ -63,6 +71,40 @@ from .. import templates as templates_mod
 router = APIRouter()
 
 PENDING_COOKIE = "pending_2fa"
+BACKUP_CODES_COOKIE = "backup_codes_once"
+BACKUP_CODES_FLASH_MINUTES = 5
+
+
+def _set_backup_codes_flash(response: Response, user_id: int, codes: list[str]) -> None:
+    """HttpOnly one-shot cookie — never put recovery codes in a URL."""
+    token = create_access_token(
+        {"sub": str(user_id), "bc": True, "backup_codes": list(codes)},
+        expires_delta=timedelta(minutes=BACKUP_CODES_FLASH_MINUTES),
+    )
+    response.set_cookie(
+        BACKUP_CODES_COOKIE,
+        token,
+        **cookie_auth_kwargs(max_age=BACKUP_CODES_FLASH_MINUTES * 60),
+    )
+
+
+def _read_backup_codes_flash(request: Request, user: User) -> Optional[list[str]]:
+    raw = request.cookies.get(BACKUP_CODES_COOKIE)
+    if not raw:
+        return None
+    payload = decode_token_payload(raw)
+    if not payload or not payload.get("bc"):
+        return None
+    try:
+        if int(payload.get("sub")) != int(user.id):
+            return None
+    except (TypeError, ValueError):
+        return None
+    codes = payload.get("backup_codes") or []
+    if isinstance(codes, str):
+        codes = [c.strip() for c in codes.split(",") if c.strip()]
+    out = [str(c).strip() for c in codes if str(c).strip()]
+    return out[:20] or None
 
 
 def _set_trusted_device_cookie(response: Response, user_id: int, raw: str) -> None:
@@ -117,6 +159,11 @@ def _set_auth_cookie(response: RedirectResponse, token: str):
 
 
 def _registration_allowed(session: Session) -> bool:
+    # Public demo sandbox: never allow open or first-user registration
+    from ..services.demo import demo_mode
+
+    if demo_mode():
+        return False
     if settings.ALLOW_OPEN_REGISTRATION:
         return True
     existing = session.exec(select(User)).first()
@@ -126,33 +173,50 @@ def _registration_allowed(session: Session) -> bool:
 @router.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, session: Session = Depends(get_session)):
     from ..services import alert_channels as alert_ch
+    from ..services import oidc_svc as oidc
+    from ..services import turnstile as turnstile_svc
+    from ..services.demo import demo_mode
 
+    is_demo = demo_mode()
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="login.html",
         context={
             "title": "Login",
-            "registration_open": _registration_allowed(session),
-            "password_reset_available": alert_ch.password_reset_available(),
+            "registration_open": False if is_demo else _registration_allowed(session),
+            "demo_mode_on": is_demo,
+            # Shared demo: never offer forgot-password or SSO (vandalism / lockout)
+            "password_reset_available": (
+                False if is_demo else alert_ch.password_reset_available()
+            ),
+            "oidc_enabled": False if is_demo else oidc.oidc_enabled(),
+            "oidc_display_name": oidc.oidc_display_name(),
+            "oidc_require_sso": False if is_demo else oidc.oidc_require_sso(),
+            "turnstile_on": turnstile_svc.turnstile_enabled(),
+            "turnstile_site_key": turnstile_svc.turnstile_site_key(),
         },
     )
 
 
 def _public_base_url(request: Request) -> str:
-    """Best-effort public origin for reset links (proxy-aware)."""
-    xf_proto = (request.headers.get("x-forwarded-proto") or "").split(",")[0].strip()
-    xf_host = (request.headers.get("x-forwarded-host") or "").split(",")[0].strip()
-    host = xf_host or request.headers.get("host") or request.url.netloc
-    scheme = xf_proto or request.url.scheme or "https"
-    if not host:
-        return str(request.base_url).rstrip("/")
-    return f"{scheme}://{host}".rstrip("/")
+    """Public origin for email reset links.
+
+    Uses ``PIHERDER_PUBLIC_URL`` only. Request Host / X-Forwarded-Host are
+    ignored so a direct hit on the app port cannot poison the link.
+    """
+    from ..services.password_reset import configured_public_origin
+
+    return configured_public_origin()
 
 
 @router.get("/forgot-password", response_class=HTMLResponse)
 async def forgot_password_page(request: Request):
     from ..services import alert_channels as alert_ch
+    from ..services.demo import redirect_if_demo
 
+    blocked = redirect_if_demo("/auth/login")
+    if blocked:
+        return blocked
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="forgot_password.html",
@@ -173,7 +237,11 @@ async def forgot_password_submit(
 ):
     from ..services import alert_channels as alert_ch
     from ..services import password_reset as pwreset
+    from ..services.demo import redirect_if_demo
 
+    blocked = redirect_if_demo("/auth/login")
+    if blocked:
+        return blocked
     ip = _client_ip(request) or "unknown"
     if not rate_limit_auth(
         f"forgot:{ip}", max_attempts=5, window_seconds=LOGIN_RATE_WINDOW
@@ -182,6 +250,11 @@ async def forgot_password_submit(
     if not alert_ch.password_reset_available():
         return RedirectResponse(
             "/auth/forgot-password?error=disabled", status_code=303
+        )
+    base_url = _public_base_url(request)
+    if not base_url:
+        return RedirectResponse(
+            "/auth/forgot-password?error=no_public_url", status_code=303
         )
     # Rate limit per email too (enumeration-resistant generic response)
     rate_limit_auth(
@@ -192,7 +265,7 @@ async def forgot_password_submit(
     result = pwreset.request_reset_email(
         session,
         email,
-        base_url=_public_base_url(request),
+        base_url=base_url,
         request_ip=ip,
     )
     if not result.get("ok") and result.get("error") not in (None,):
@@ -206,6 +279,11 @@ async def forgot_password_submit(
 
 @router.get("/reset-password", response_class=HTMLResponse)
 async def reset_password_page(request: Request, token: str = ""):
+    from ..services.demo import redirect_if_demo
+
+    blocked = redirect_if_demo("/auth/login")
+    if blocked:
+        return blocked
     tok = (token or request.query_params.get("token") or "").strip()
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -229,7 +307,11 @@ async def reset_password_submit(
     from ..services import password_policy as pwpol
     from ..services import password_reset as pwreset
     from ..services.user_admin import bump_session_version
+    from ..services.demo import redirect_if_demo
 
+    blocked = redirect_if_demo("/auth/login")
+    if blocked:
+        return blocked
     ip = _client_ip(request) or "unknown"
     if not rate_limit_auth(
         f"reset:{ip}", max_attempts=10, window_seconds=LOGIN_RATE_WINDOW
@@ -272,13 +354,51 @@ async def login(
     request: Request,
     email: str = Form(...),
     password: str = Form(...),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    cf_turnstile_response: Optional[str] = Form(None, alias="cf-turnstile-response"),
 ):
     ip = _client_ip(request) or "unknown"
     if not rate_limit_auth(
         f"login:{ip}", max_attempts=LOGIN_RATE_MAX, window_seconds=LOGIN_RATE_WINDOW
     ):
         return RedirectResponse("/auth/login?error=rate", status_code=303)
+
+    from ..services import turnstile as turnstile_svc
+
+    if turnstile_svc.turnstile_enabled():
+        # Token: Form alias + raw form (hyphenated names can be flaky)
+        token = (cf_turnstile_response or "").strip()
+        if not token:
+            try:
+                form = await request.form()
+                token = (
+                    str(form.get("cf-turnstile-response") or form.get("cf_turnstile_response") or "")
+                ).strip()
+            except Exception:
+                token = ""
+        # Always send visitor remoteip (Caddy sets XFF from CF-Connecting-IP when orange-clouded)
+        visitor = turnstile_svc.visitor_ip_for_turnstile(request) or (
+            ip if ip != "unknown" else None
+        )
+        # Sync httpx siteverify — keep off the event loop (timeouts can be multi-second)
+        from starlette.concurrency import run_in_threadpool
+
+        ok, code = await run_in_threadpool(
+            turnstile_svc.verify_turnstile_token, token, remoteip=visitor
+        )
+        if not ok:
+            logger.warning(
+                "login captcha failed code=%s ip=%s visitor=%s token_len=%s",
+                code,
+                ip,
+                visitor,
+                len(token or ""),
+            )
+            # Surface code for operators (safe short codes, not secrets)
+            safe = "".join(c for c in (code or "failed") if c.isalnum() or c in "-_")[:48]
+            return RedirectResponse(
+                f"/auth/login?error=captcha&code={safe}", status_code=303
+            )
 
     user = authenticate_user(session, email, password)
     if not user:
@@ -296,10 +416,16 @@ async def login(
             session.rollback()
         return RedirectResponse("/auth/login?error=invalid", status_code=303)
 
-    # 2FA path (skip when user must change password first — they re-login after)
+    from ..services import oidc_svc as oidc_login
+
+    if oidc_login.oidc_require_sso() and user_role(user) != ROLE_ADMIN:
+        return RedirectResponse("/auth/login?error=sso_required", status_code=303)
+
+    # 2FA path: TOTP and/or passkeys (skip when user must change password first)
+    from ..services import webauthn_svc as wa_svc
+
     if (
-        user.totp_enabled
-        and user.totp_secret_encrypted
+        wa_svc.user_requires_2fa_stepup(session, user)
         and not getattr(user, "must_change_password", False)
     ):
         raw_trusted = read_trusted_device_token(request.cookies, user.id)
@@ -307,7 +433,9 @@ async def login(
             _touch_last_login(session, user)
             _audit(session, user.id, "user_login", "Login (trusted device, 2FA skipped)")
             token = create_user_access_token(user)
-            response = RedirectResponse(url=post_login_path(user), status_code=303)
+            response = RedirectResponse(
+                url=post_login_path(user, session), status_code=303
+            )
             _set_auth_cookie(response, token)
             # Refresh browser cookie lifetime (and migrate legacy → per-user name)
             _set_trusted_device_cookie(response, user.id, raw_trusted)
@@ -325,15 +453,35 @@ async def login(
     _touch_last_login(session, user)
     _audit(session, user.id, "user_login", "Login")
     token = create_user_access_token(user)
-    response = RedirectResponse(url=post_login_path(user), status_code=303)
+    response = RedirectResponse(url=post_login_path(user, session), status_code=303)
     _set_auth_cookie(response, token)
     return response
 
 
-@router.get("/2fa", response_class=HTMLResponse)
-async def two_factor_page(request: Request):
+def _pending_2fa_user(request: Request, session: Session) -> Optional[User]:
     pending = request.cookies.get(PENDING_COOKIE)
-    if not pending or not decode_token_payload(pending):
+    payload = decode_token_payload(pending) if pending else None
+    if not payload or not payload.get("2fa_pending"):
+        return None
+    try:
+        user = session.get(User, int(payload["sub"]))
+    except (TypeError, ValueError):
+        return None
+    return user
+
+
+@router.get("/2fa", response_class=HTMLResponse)
+async def two_factor_page(
+    request: Request, session: Session = Depends(get_session)
+):
+    from ..services import webauthn_svc as wa_svc
+
+    user = _pending_2fa_user(request, session)
+    if not user:
+        return RedirectResponse("/auth/login", status_code=303)
+    has_totp = wa_svc.totp_active(user)
+    has_passkey = wa_svc.has_passkeys(session, int(user.id))
+    if not has_totp and not has_passkey:
         return RedirectResponse("/auth/login", status_code=303)
     return templates_mod.templates.TemplateResponse(
         request=request,
@@ -342,6 +490,8 @@ async def two_factor_page(request: Request):
             "title": "Two-factor authentication",
             "error": request.query_params.get("error"),
             "trusted_device_days": settings.TRUSTED_DEVICE_DAYS,
+            "has_totp": has_totp,
+            "has_passkey": has_passkey,
         },
     )
 
@@ -353,20 +503,21 @@ async def two_factor_submit(
     trust_device: Optional[str] = Form(None),
     session: Session = Depends(get_session),
 ):
+    from ..services import webauthn_svc as wa_svc
+
     ip = _client_ip(request) or "unknown"
     if not rate_limit_auth(
         f"2fa:{ip}", max_attempts=TWOFA_RATE_MAX, window_seconds=TWOFA_RATE_WINDOW
     ):
         return RedirectResponse("/auth/2fa?error=rate", status_code=303)
 
-    pending = request.cookies.get(PENDING_COOKIE)
-    payload = decode_token_payload(pending) if pending else None
-    if not payload or not payload.get("2fa_pending"):
+    user = _pending_2fa_user(request, session)
+    if not user:
         return RedirectResponse("/auth/login", status_code=303)
 
-    user = session.get(User, int(payload["sub"]))
-    if not user or not user.totp_enabled or not user.totp_secret_encrypted:
-        return RedirectResponse("/auth/login", status_code=303)
+    # TOTP / backup codes only on this form path (passkeys use /auth/2fa/webauthn/*)
+    if not wa_svc.totp_active(user):
+        return RedirectResponse("/auth/2fa?error=use_passkey", status_code=303)
 
     code = (code or "").strip()
     ok = False
@@ -398,7 +549,7 @@ async def two_factor_submit(
     _touch_last_login(session, user)
     _audit(session, user.id, "user_login", "Login (2FA verified)")
     token = create_user_access_token(user)
-    response = RedirectResponse(url=post_login_path(user), status_code=303)
+    response = RedirectResponse(url=post_login_path(user, session), status_code=303)
     _set_auth_cookie(response, token)
     response.delete_cookie(PENDING_COOKIE, **cookie_delete_kwargs())
 
@@ -415,10 +566,123 @@ async def two_factor_submit(
     return response
 
 
+@router.post("/2fa/webauthn/options")
+async def two_factor_webauthn_options(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    """JSON: PublicKeyCredentialRequestOptions for login passkey step-up."""
+    from fastapi.responses import JSONResponse
+    from ..services import webauthn_svc as wa_svc
+
+    ip = _client_ip(request) or "unknown"
+    if not rate_limit_auth(
+        f"2fa-wa:{ip}", max_attempts=TWOFA_RATE_MAX, window_seconds=TWOFA_RATE_WINDOW
+    ):
+        return JSONResponse({"ok": False, "error": "rate"}, status_code=429)
+
+    user = _pending_2fa_user(request, session)
+    if not user:
+        return JSONResponse({"ok": False, "error": "session"}, status_code=401)
+    try:
+        options_json, chal_token = wa_svc.authentication_options_json(session, user)
+    except wa_svc.WebAuthnConfigError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception as e:
+        return JSONResponse({"ok": False, "error": "options_failed"}, status_code=500)
+
+    import json as _json
+
+    body = _json.loads(options_json)
+    resp = JSONResponse({"ok": True, "publicKey": body})
+    resp.set_cookie(
+        wa_svc.CHALLENGE_COOKIE_AUTH,
+        chal_token,
+        **cookie_auth_kwargs(max_age=60 * wa_svc.CHALLENGE_MINUTES),
+    )
+    return resp
+
+
+@router.post("/2fa/webauthn/verify")
+async def two_factor_webauthn_verify(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    """JSON body: credential + optional trust_device — completes login on success."""
+    from fastapi.responses import JSONResponse
+    from ..services import webauthn_svc as wa_svc
+
+    ip = _client_ip(request) or "unknown"
+    if not rate_limit_auth(
+        f"2fa-wa:{ip}", max_attempts=TWOFA_RATE_MAX, window_seconds=TWOFA_RATE_WINDOW
+    ):
+        return JSONResponse({"ok": False, "error": "rate"}, status_code=429)
+
+    user = _pending_2fa_user(request, session)
+    if not user:
+        return JSONResponse({"ok": False, "error": "session"}, status_code=401)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "bad_json"}, status_code=400)
+
+    credential = body.get("credential") if isinstance(body, dict) else None
+    if not isinstance(credential, dict):
+        return JSONResponse({"ok": False, "error": "missing_credential"}, status_code=400)
+    trust_device = body.get("trust_device") if isinstance(body, dict) else None
+
+    chal = request.cookies.get(wa_svc.CHALLENGE_COOKIE_AUTH)
+    try:
+        wa_svc.verify_authentication(session, user, credential, chal)
+    except wa_svc.WebAuthnVerifyError as e:
+        try:
+            al = make_audit_log(
+                user_id=user.id,
+                action="user_login_failed",
+                status="failed",
+                details=f"Passkey 2FA failed: {e}",
+                finished_at=datetime.utcnow(),
+            )
+            session.add(al)
+            session.commit()
+        except Exception:
+            session.rollback()
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "verify_failed"}, status_code=400)
+
+    _touch_last_login(session, user)
+    _audit(session, user.id, "user_login", "Login (passkey 2FA verified)")
+    token = create_user_access_token(user)
+    redirect = post_login_path(user, session)
+    resp = JSONResponse({"ok": True, "redirect": redirect})
+    _set_auth_cookie(resp, token)
+    resp.delete_cookie(PENDING_COOKIE, **cookie_delete_kwargs())
+    resp.delete_cookie(wa_svc.CHALLENGE_COOKIE_AUTH, **cookie_delete_kwargs())
+    if trust_device in (True, 1, "1", "on", "true"):
+        raw, _dev, _created = ensure_trusted_device(
+            session,
+            user.id,
+            read_trusted_device_token(request.cookies, user.id),
+            label="Browser",
+            user_agent=request.headers.get("user-agent"),
+            ip=ip,
+        )
+        _set_trusted_device_cookie(resp, user.id, raw)
+    return resp
+
+
 @router.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request, session: Session = Depends(get_session)):
     from ..services import password_policy as pwpol
+    from ..services.demo import demo_mode, redirect_if_demo
 
+    # Public demo: no self-signup UI — shared login only
+    if demo_mode():
+        blocked = redirect_if_demo("/auth/login", error="demo_no_register")
+        if blocked:
+            return blocked
     if not _registration_allowed(session):
         return templates_mod.templates.TemplateResponse(
             request=request,
@@ -451,6 +715,12 @@ async def register(
     session: Session = Depends(get_session)
 ):
     from ..services import password_policy as pwpol
+    from ..services.demo import demo_mode, redirect_if_demo
+
+    if demo_mode():
+        blocked = redirect_if_demo("/auth/login", error="demo_no_register")
+        if blocked:
+            return blocked
 
     ip = _client_ip(request) or "unknown"
     if not rate_limit_auth(
@@ -529,16 +799,53 @@ async def register(
 
 
 @router.get("/logout")
-async def logout():
-    """Clear session cookies and return to login.
+async def logout(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    """Invalidate the session JWT and return to login.
 
-    Does **not** clear trusted-device cookies — those are meant to skip 2FA on
-    the next password login for this browser (until expiry or revoke).
+    Bumps ``session_version`` so stolen cookies and live/parked consoles die
+    (console revalidate ~10s). Does **not** clear trusted-device cookies.
     """
+    raw = request.cookies.get("access_token") or ""
+    if raw.startswith("Bearer "):
+        raw = raw.split(" ", 1)[1]
+    payload = decode_token_payload(raw) if raw else None
+    if payload and not payload.get("2fa_pending") and payload.get("sub"):
+        try:
+            uid = int(payload["sub"])
+        except (TypeError, ValueError):
+            uid = 0
+        user = session.get(User, uid) if uid else None
+        if user:
+            try:
+                from ..services.user_admin import bump_session_version
+                from ..services.ssh_console import discard_all_parked_for_user
+
+                bump_session_version(session, user)
+                discard_all_parked_for_user(int(user.id))
+                session.commit()
+                _audit(session, user.id, "user_logout", "Session revoked")
+            except Exception:
+                logger.exception("logout session revoke failed")
+                try:
+                    session.rollback()
+                except Exception:
+                    pass
+
     response = RedirectResponse("/auth/login", status_code=303)
     dk = cookie_delete_kwargs()
     response.delete_cookie("access_token", **dk)
     response.delete_cookie(PENDING_COOKIE, **dk)
+    try:
+        from ..services.ssh_console import CONSOLE_GRANT_COOKIE
+
+        response.delete_cookie(CONSOLE_GRANT_COOKIE, **dk)
+        # Keep console_device cookie: next login on same browser rebinds cleanly;
+        # tickets still require a fresh session + 2FA and cannot be resumed.
+    except Exception:
+        pass
     return response
 
 
@@ -553,8 +860,12 @@ async def account_page(
     push_sent = request.query_params.get("push_sent")
     devices = list_trusted_devices(session, user.id)
     from ..services.nav_shortcuts import trusted_device_public
+    from ..services import webauthn_svc as wa_svc
 
     device_rows = [trusted_device_public(d) for d in devices]
+    passkeys = wa_svc.list_credentials(session, int(user.id))
+    passkey_rows = [wa_svc.credential_public_dict(c) for c in passkeys]
+    has_2fa = wa_svc.user_has_2fa(session, user)
     backup_remaining = len(
         session.exec(
             select(TotpBackupCode).where(
@@ -586,7 +897,7 @@ async def account_page(
             setup_qr_svg = None
             setup_qr_uri = None
     show_2fa_modal = pending_setup or msg == "2fa_setup"
-    backup_codes = request.query_params.get("backup_codes")
+    backup_codes_shown = _read_backup_codes_flash(request, user)
 
     from ..services import push as push_svc
 
@@ -603,14 +914,15 @@ async def account_page(
     role = user_role(user)
     is_admin_user = role == ROLE_ADMIN
     n_devices = len(devices or [])
+    n_passkeys = len(passkeys or [])
     account_pulse = {
-        "health": "ok" if user.totp_enabled else ("warn" if not pending_setup else "busy"),
-        "primary": "on" if user.totp_enabled else ("…" if pending_setup else "off"),
+        "health": "ok" if has_2fa else ("warn" if not pending_setup else "busy"),
+        "primary": "on" if has_2fa else ("…" if pending_setup else "off"),
         "primary_label": "2fa",
         "bar": [
             {
-                "n": 1 if user.totp_enabled else 0.001,
-                "cls": "ops-bar--ok" if user.totp_enabled else "ops-bar--mute",
+                "n": 1 if has_2fa else 0.001,
+                "cls": "ops-bar--ok" if has_2fa else "ops-bar--mute",
                 "title": "2FA",
             },
             {
@@ -626,9 +938,14 @@ async def account_page(
         ],
         "line1": [
             {
-                "n": "on" if user.totp_enabled else "off",
+                "n": "on" if has_2fa else "off",
                 "l": "2fa",
-                "cls": "text-accent" if user.totp_enabled else "text-warning",
+                "cls": "text-accent" if has_2fa else "text-warning",
+            },
+            {
+                "n": n_passkeys if n_passkeys else "—",
+                "l": "passkeys",
+                "cls": "text-accent" if n_passkeys else "",
             },
             {
                 "n": backup_remaining if user.totp_enabled else "—",
@@ -659,8 +976,14 @@ async def account_page(
     }
 
     from ..services import password_policy as pwpol
+    from ..services import oidc_svc as oidc
+    from ..services.demo import demo_mode
 
-    return templates_mod.templates.TemplateResponse(
+    is_demo = demo_mode()
+    oidc_rows = [oidc.identity_public_dict(r) for r in oidc.list_identities(session, int(user.id))]
+    password_login_enabled = oidc.password_login_allowed(user)
+
+    resp = templates_mod.templates.TemplateResponse(
         request=request,
         name="account.html",
         context={
@@ -671,13 +994,17 @@ async def account_page(
             "devices": devices,
             "device_rows": device_rows,
             "backup_remaining": backup_remaining,
+            "passkeys": passkey_rows,
+            "passkey_count": n_passkeys,
+            "webauthn_rp_id": wa_svc.resolve_rp_id(),
+            "webauthn_origin": wa_svc.resolve_expected_origin(),
             "setup_qr_svg": setup_qr_svg,
             "setup_qr_uri": setup_qr_uri,
             "setup_secret": setup_secret,
             "setup_otpauth": setup_otpauth,
             "pending_2fa_setup": pending_setup,
             "show_2fa_modal": show_2fa_modal,
-            "backup_codes_shown": backup_codes.split(",") if backup_codes else None,
+            "backup_codes_shown": backup_codes_shown,
             "trusted_device_days": settings.TRUSTED_DEVICE_DAYS,
             "user_role": role,
             "is_admin": is_admin_user,
@@ -689,8 +1016,21 @@ async def account_page(
             "push_sent": push_sent,
             "account_pulse": account_pulse,
             "password_policy_text": pwpol.policy_rules_text(),
+            "oidc_enabled": False if is_demo else oidc.oidc_enabled(),
+            "oidc_display_name": oidc.oidc_display_name(),
+            "oidc_identities": [] if is_demo else oidc_rows,
+            "password_login_enabled": password_login_enabled,
+            "has_2fa": has_2fa,
+            "has_totp": wa_svc.totp_active(user),
+            "has_passkeys": bool(passkeys),
+            "account_stepup_active": account_stepup_active(request, user),
+            "account_stepup_minutes": ACCOUNT_STEPUP_MINUTES,
         },
     )
+    # One-shot: codes were in the cookie; drop it so refresh does not re-show.
+    if backup_codes_shown:
+        resp.delete_cookie(BACKUP_CODES_COOKIE, **cookie_delete_kwargs())
+    return resp
 
 
 @router.post("/account/profile")
@@ -701,6 +1041,13 @@ async def update_profile(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    from ..services.demo import redirect_if_demo
+
+    # Shared demo: email change locks everyone out of the known login
+    blocked = redirect_if_demo("/auth/account")
+    if blocked:
+        # Allow display_name-only updates? No — keep shared account fixed.
+        return blocked
     email = email.strip().lower()
     display_name = (display_name or "").strip() or None
     email_changed = email != user.email.lower()
@@ -732,6 +1079,11 @@ async def change_password(
     session: Session = Depends(get_session),
 ):
     from ..services import password_policy as pwpol
+    from ..services.demo import redirect_if_demo
+
+    blocked = redirect_if_demo("/auth/account")
+    if blocked:
+        return blocked
 
     if not verify_password(current_password, user.hashed_password):
         return RedirectResponse("/auth/account?error=bad_password", status_code=303)
@@ -823,11 +1175,21 @@ async def my_avatar(
 
 # --- 2FA management ---
 
+def _demo_account_block():
+    """Shared demo: password/2FA mutations would lock out other visitors."""
+    from ..services.demo import redirect_if_demo
+
+    return redirect_if_demo("/auth/account")
+
+
 @router.post("/account/2fa/start")
 async def two_factor_start(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    blocked = _demo_account_block()
+    if blocked:
+        return blocked
     if user.totp_enabled:
         return RedirectResponse("/auth/account?error=2fa_already", status_code=303)
     secret = generate_totp_secret()
@@ -856,6 +1218,9 @@ async def two_factor_confirm(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    blocked = _demo_account_block()
+    if blocked:
+        return blocked
     secret = request.cookies.get("totp_setup_secret")
     if not secret and user.totp_secret_encrypted and not user.totp_enabled:
         try:
@@ -878,9 +1243,10 @@ async def two_factor_confirm(
     _audit(session, user.id, "user_2fa_enabled", "TOTP 2FA enabled")
 
     response = RedirectResponse(
-        f"/auth/account?msg=2fa_enabled&backup_codes={','.join(codes)}",
+        "/auth/account?msg=2fa_enabled",
         status_code=303,
     )
+    _set_backup_codes_flash(response, int(user.id), codes)
     response.delete_cookie("totp_setup_secret")
     response.delete_cookie("totp_setup_qr")
     return response
@@ -893,6 +1259,9 @@ async def two_factor_disable(
     user: User = Depends(get_current_user),
     session: Session = Depends(get_session),
 ):
+    blocked = _demo_account_block()
+    if blocked:
+        return blocked
     if not verify_password(current_password, user.hashed_password):
         return RedirectResponse("/auth/account?error=bad_password", status_code=303)
     if user.totp_enabled and user.totp_secret_encrypted:
@@ -925,6 +1294,9 @@ async def regenerate_backup_codes(
     session: Session = Depends(get_session),
 ):
     """Regenerate backup codes — requires current password + live 2FA (TOTP or unused backup)."""
+    blocked = _demo_account_block()
+    if blocked:
+        return blocked
     if not user.totp_enabled:
         return RedirectResponse("/auth/account?error=2fa_off", status_code=303)
     if not verify_password(current_password, user.hashed_password):
@@ -944,11 +1316,221 @@ async def regenerate_backup_codes(
     revoke_all_trusted_devices(session, user.id)
     _audit(session, user.id, "user_2fa_backup_regenerated", "Backup codes regenerated")
     response = RedirectResponse(
-        f"/auth/account?msg=backup_codes&backup_codes={','.join(codes)}",
+        "/auth/account?msg=backup_codes",
         status_code=303,
     )
+    _set_backup_codes_flash(response, int(user.id), codes)
     _clear_trusted_device_cookie(response, user.id)
     return response
+
+
+# --- WebAuthn / passkeys (v1.2 Stream I) ---
+
+
+@router.post("/account/webauthn/register/options")
+async def webauthn_register_options(
+    request: Request,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """JSON: PublicKeyCredentialCreationOptions for adding a passkey."""
+    from fastapi.responses import JSONResponse
+    from ..services import webauthn_svc as wa_svc
+    from ..services.demo import http_403_if_demo
+    import json as _json
+
+    http_403_if_demo("shared_account")
+    try:
+        options_json, chal_token = wa_svc.registration_options_json(session, user)
+    except wa_svc.WebAuthnConfigError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "options_failed"}, status_code=500)
+
+    body = _json.loads(options_json)
+    resp = JSONResponse({"ok": True, "publicKey": body})
+    resp.set_cookie(
+        wa_svc.CHALLENGE_COOKIE_REG,
+        chal_token,
+        **cookie_auth_kwargs(max_age=60 * wa_svc.CHALLENGE_MINUTES),
+    )
+    return resp
+
+
+@router.post("/account/webauthn/register/verify")
+async def webauthn_register_verify(
+    request: Request,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """JSON body: { credential, nickname? } — stores new passkey."""
+    from fastapi.responses import JSONResponse
+    from ..services import webauthn_svc as wa_svc
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("shared_account")
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "bad_json"}, status_code=400)
+    credential = body.get("credential") if isinstance(body, dict) else None
+    nickname = (body.get("nickname") or "").strip() if isinstance(body, dict) else ""
+    if not isinstance(credential, dict):
+        return JSONResponse({"ok": False, "error": "missing_credential"}, status_code=400)
+
+    chal = request.cookies.get(wa_svc.CHALLENGE_COOKIE_REG)
+    try:
+        row = wa_svc.verify_registration(
+            session, user, credential, chal, nickname=nickname or None
+        )
+    except wa_svc.WebAuthnVerifyError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except wa_svc.WebAuthnConfigError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "verify_failed"}, status_code=400)
+
+    _audit(
+        session,
+        user.id,
+        "user_passkey_registered",
+        f"Passkey registered: {row.nickname or row.id}",
+    )
+    resp = JSONResponse(
+        {
+            "ok": True,
+            "credential": wa_svc.credential_public_dict(row),
+            "redirect": "/auth/account?msg=passkey_added#account-passkeys",
+        }
+    )
+    resp.delete_cookie(wa_svc.CHALLENGE_COOKIE_REG, **cookie_delete_kwargs())
+    return resp
+
+
+@router.post("/account/webauthn/stepup/options")
+async def account_webauthn_stepup_options(
+    request: Request,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """PublicKeyCredentialRequestOptions for Account sensitive-action step-up."""
+    from fastapi.responses import JSONResponse
+    from ..services import webauthn_svc as wa_svc
+    import json as _json
+
+    if not wa_svc.has_passkeys(session, int(user.id)):
+        return JSONResponse(
+            {"ok": False, "error": "No passkeys registered for this account"},
+            status_code=400,
+        )
+    try:
+        options_json, chal_token = wa_svc.authentication_options_json(session, user)
+    except wa_svc.WebAuthnConfigError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "options_failed"}, status_code=500)
+
+    body = _json.loads(options_json)
+    resp = JSONResponse({"ok": True, "publicKey": body})
+    resp.set_cookie(
+        wa_svc.CHALLENGE_COOKIE_AUTH,
+        chal_token,
+        **cookie_auth_kwargs(max_age=60 * wa_svc.CHALLENGE_MINUTES),
+    )
+    return resp
+
+
+@router.post("/account/webauthn/stepup/verify")
+async def account_webauthn_stepup_verify(
+    request: Request,
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    """Verify passkey and grant short-lived Account step-up cookie."""
+    from fastapi.responses import JSONResponse
+    from ..services import webauthn_svc as wa_svc
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "bad_json"}, status_code=400)
+    credential = body.get("credential") if isinstance(body, dict) else None
+    if not isinstance(credential, dict):
+        return JSONResponse({"ok": False, "error": "missing_credential"}, status_code=400)
+
+    chal = request.cookies.get(wa_svc.CHALLENGE_COOKIE_AUTH)
+    try:
+        wa_svc.verify_authentication(session, user, credential, chal)
+    except wa_svc.WebAuthnVerifyError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    except Exception:
+        return JSONResponse({"ok": False, "error": "verify_failed"}, status_code=400)
+
+    _audit(session, user.id, "user_account_stepup", "Passkey step-up for Account actions")
+    resp = JSONResponse(
+        {
+            "ok": True,
+            "redirect": "/auth/account?msg=stepup_ok#account-stepup-box",
+            "minutes": ACCOUNT_STEPUP_MINUTES,
+        }
+    )
+    resp.delete_cookie(wa_svc.CHALLENGE_COOKIE_AUTH, **cookie_delete_kwargs())
+    resp.set_cookie(
+        ACCOUNT_STEPUP_COOKIE,
+        create_account_stepup_token(user.id),
+        **cookie_auth_kwargs(max_age=ACCOUNT_STEPUP_MINUTES * 60),
+    )
+    return resp
+
+
+@router.post("/account/webauthn/{cred_id}/revoke")
+async def webauthn_revoke(
+    cred_id: int,
+    current_password: str = Form(...),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    blocked = _demo_account_block()
+    if blocked:
+        return blocked
+    from ..services import webauthn_svc as wa_svc
+
+    if not verify_password(current_password, user.hashed_password):
+        return RedirectResponse(
+            "/auth/account?error=bad_password#account-passkeys", status_code=303
+        )
+    row = wa_svc.get_credential(session, cred_id, int(user.id))
+    if not row:
+        return RedirectResponse(
+            "/auth/account?error=passkey_not_found#account-passkeys", status_code=303
+        )
+    label = row.nickname or str(row.id)
+    wa_svc.delete_credential(session, row)
+    _audit(session, user.id, "user_passkey_revoked", f"Passkey revoked: {label}")
+    return RedirectResponse(
+        "/auth/account?msg=passkey_revoked#account-passkeys", status_code=303
+    )
+
+
+@router.post("/account/webauthn/{cred_id}/rename")
+async def webauthn_rename(
+    cred_id: int,
+    nickname: str = Form(""),
+    user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    from ..services import webauthn_svc as wa_svc
+
+    row = wa_svc.get_credential(session, cred_id, int(user.id))
+    if not row:
+        return RedirectResponse(
+            "/auth/account?error=passkey_not_found#account-passkeys", status_code=303
+        )
+    wa_svc.rename_credential(session, row, nickname)
+    _audit(session, user.id, "user_passkey_renamed", f"Passkey renamed #{cred_id}")
+    return RedirectResponse(
+        "/auth/account?msg=passkey_renamed#account-passkeys", status_code=303
+    )
 
 
 @router.post("/account/trusted-devices/{device_id}/rename")
@@ -1005,11 +1587,12 @@ router.include_router(users_router)
 async def force_password_page(
     request: Request,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ):
     from ..services import password_policy as pwpol
 
     if not getattr(user, "must_change_password", False):
-        return RedirectResponse(post_login_path(user), status_code=303)
+        return RedirectResponse(post_login_path(user, session), status_code=303)
     return templates_mod.templates.TemplateResponse(
         request=request,
         name="force_password.html",
@@ -1033,7 +1616,7 @@ async def force_password_submit(
     from ..services import password_policy as pwpol
 
     if not getattr(user, "must_change_password", False):
-        return RedirectResponse(post_login_path(user), status_code=303)
+        return RedirectResponse(post_login_path(user, session), status_code=303)
     if new_password != confirm_password:
         return RedirectResponse("/auth/force-password?error=mismatch", status_code=303)
     ok, _err = pwpol.validate_password(new_password or "")
@@ -1051,7 +1634,7 @@ async def force_password_submit(
     revoke_all_trusted_devices(session, user.id)
     _audit(session, user.id, "user_password_changed", "First-login password set")
     # Re-issue cookie with current session_version (admin recovery may have bumped it)
-    response = RedirectResponse(post_login_path(user), status_code=303)
+    response = RedirectResponse(post_login_path(user, session), status_code=303)
     _set_auth_cookie(response, create_user_access_token(user))
     _clear_trusted_device_cookie(response, user.id)
     return response
@@ -1061,8 +1644,11 @@ async def force_password_submit(
 async def force_2fa_page(
     request: Request,
     user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ):
-    if not force_2fa_required() or user.totp_enabled:
+    from ..security.auth import user_has_second_factor
+
+    if not force_2fa_required() or user_has_second_factor(session, user):
         return RedirectResponse("/", status_code=303)
     return templates_mod.templates.TemplateResponse(
         request=request,

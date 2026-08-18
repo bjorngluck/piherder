@@ -136,6 +136,11 @@
             title="Only hosts with Docker management enabled">Patch containers</button>
     <button type="button" class="btn btn-accent min-h-11 text-sm" data-bulk-action="backup"
             title="Only hosts with backups enabled">Backup</button>
+    {% if can_console %}
+    <button type="button" class="btn btn-secondary min-h-11 text-sm" data-bulk-action="console"
+            data-testid="bulk-console"
+            title="Open multi-host console for selected hosts with SSH">Console</button>
+    {% endif %}
     <button type="button" class="btn btn-secondary min-h-11 text-sm" id="btn-bulk-clear">Clear</button>
   </div>
 </div>
@@ -169,6 +174,7 @@
        data-backup-enabled="{{ '1' if s.backup_enabled else '0' }}"
        data-os-enabled="{{ '1' if s.os_patch_enabled else '0' }}"
        data-container-enabled="{{ '1' if s.container_patch_enabled else '0' }}"
+       data-has-ssh="{{ '1' if s.get('has_ssh') else '0' }}"
        draggable="false">
     <label class="server-bulk-check flex items-center justify-center shrink-0 min-h-11 min-w-11 cursor-pointer"
            title="Select for bulk actions">
@@ -275,7 +281,7 @@
   <div class="modal-content card p-6 w-full max-w-md mx-4">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">Run OS Patch</h3>
-      <button type="button" id="os-patch-modal-close" class="text-muted" aria-label="Close">✕</button>
+      <button type="button" id="os-patch-modal-close" class="ph-icon-close" aria-label="Close">✕</button>
     </div>
     <p class="text-sm text-muted mb-3">Host: <strong id="os-patch-server-name" class="text-text">—</strong></p>
     <form method="post" action="" id="os-patch-form">
@@ -335,6 +341,7 @@
   var bulkToolbar = document.getElementById('bulk-toolbar');
   var bulkSelectAll = document.getElementById('bulk-select-all');
   var bulkCountEl = document.getElementById('bulk-selected-count');
+  var canConsole = {{ 'true' if can_console else 'false' }};
 
   function selectedServerRows() {
     if (!list) return [];
@@ -365,16 +372,20 @@
     var anyOs = rows.some(function (r) { return r.getAttribute('data-os-enabled') === '1'; });
     var anyDocker = rows.some(function (r) { return r.getAttribute('data-container-enabled') === '1'; });
     var anyBackup = rows.some(function (r) { return r.getAttribute('data-backup-enabled') === '1'; });
+    var anySsh = rows.some(function (r) { return r.getAttribute('data-has-ssh') === '1'; });
     document.querySelectorAll('[data-bulk-action]').forEach(function (btn) {
       var act = btn.getAttribute('data-bulk-action');
       var ok = true;
       if (act === 'check_os' || act === 'os_patch') ok = anyOs;
       else if (act === 'check_containers' || act === 'container_patch') ok = anyDocker;
       else if (act === 'backup') ok = anyBackup;
+      else if (act === 'console') ok = canConsole && anySsh;
       btn.disabled = n === 0 || !ok;
       btn.title = ok
         ? (btn.getAttribute('data-default-title') || btn.title || '')
-        : 'No selected hosts have this feature enabled';
+        : (act === 'console'
+          ? 'No selected hosts have SSH credentials'
+          : 'No selected hosts have this feature enabled');
     });
   }
 
@@ -394,23 +405,72 @@
     check_containers: 'Check container updates',
     container_patch: 'Patch containers',
     backup: 'Backup',
+    console: 'Open console',
   };
 
   function featureAttrForAction(act) {
     if (act === 'check_os' || act === 'os_patch') return 'data-os-enabled';
     if (act === 'check_containers' || act === 'container_patch') return 'data-container-enabled';
     if (act === 'backup') return 'data-backup-enabled';
+    if (act === 'console') return 'data-has-ssh';
     return null;
   }
 
+  async function openBulkConsole() {
+    if (!canConsole) return;
+    var rows = selectedServerRows();
+    var eligible = rows.filter(function (r) { return r.getAttribute('data-has-ssh') === '1'; });
+    var skipped = rows.length - eligible.length;
+    if (!eligible.length) {
+      if (window.PiHerderConfirm) {
+        await window.PiHerderConfirm.ask({
+          title: 'Console',
+          message: 'None of the selected hosts have SSH credentials. Add a key or password on the host first.',
+          confirmLabel: 'OK',
+          cancelLabel: 'Close',
+        });
+      }
+      return;
+    }
+    var names = eligible.map(function (r) {
+      return r.getAttribute('data-server-name') || r.getAttribute('data-server-id');
+    });
+    var ok = true;
+    if (window.PiHerderConfirm) {
+      ok = await window.PiHerderConfirm.ask({
+        title: 'Open console on ' + eligible.length + ' host' + (eligible.length === 1 ? '' : 's') + '?',
+        message: 'Will open: ' + names.slice(0, 10).join(', ')
+          + (names.length > 10 ? ' (+' + (names.length - 10) + ' more)' : '')
+          + (skipped ? '.\n' + skipped + ' host(s) without SSH will be skipped.' : '.')
+          + '\n\nEach host is a tab — step-up 2FA once, then + Shell per host.',
+        confirmLabel: 'Open console',
+        cancelLabel: 'Cancel',
+      });
+    }
+    if (!ok) return;
+    var ids = eligible.map(function (r) { return r.getAttribute('data-server-id'); });
+    window.location.href = '/console?hosts=' + encodeURIComponent(ids.join(','));
+  }
+
   async function runBulkAction(act) {
+    if (act === 'console') {
+      await openBulkConsole();
+      return;
+    }
     var rows = selectedServerRows();
     var feat = featureAttrForAction(act);
     var eligible = feat
       ? rows.filter(function (r) { return r.getAttribute(feat) === '1'; })
       : rows;
     if (!eligible.length) {
-      alert('No selected hosts are eligible for this action (feature disabled).');
+      if (window.PiHerderConfirm) {
+        await window.PiHerderConfirm.ask({
+          title: 'Bulk action',
+          message: 'No selected hosts are eligible for this action (feature disabled).',
+          confirmLabel: 'OK',
+          cancelLabel: 'Close',
+        });
+      }
       return;
     }
     var label = BULK_LABELS[act] || act;
@@ -683,10 +743,22 @@
     var backupOn = row.getAttribute('data-backup-enabled') === '1';
     var osOn = row.getAttribute('data-os-enabled') === '1';
     var contOn = row.getAttribute('data-container-enabled') === '1';
+    var hasSsh = row.getAttribute('data-has-ssh') === '1';
     var items = [
       { label: 'Open', href: '/servers/' + id, accent: true },
       { label: 'On hosts map', href: '/dns/physical?focus=n:host-' + id + '#map' },
     ];
+    if (canConsole) {
+      if (hasSsh) {
+        items.push({ label: 'Console', href: '/console?host=' + id, accent: true });
+      } else {
+        items.push({
+          label: 'Console (no SSH)',
+          disabled: true,
+          title: 'Add SSH key or password on this host first',
+        });
+      }
+    }
     if (backupOn) {
       items.push({ label: 'Backup now', backup: true, accent: true });
       items.push({ label: 'Backups', href: '/servers/' + id + '/backups' });
@@ -705,15 +777,26 @@
 
     listEl.innerHTML = '';
     items.forEach(function (item) {
-      var btn = document.createElement(item.href ? 'a' : 'button');
-      if (item.href) btn.href = item.href;
+      var btn = document.createElement(item.href && !item.disabled ? 'a' : 'button');
+      if (item.href && !item.disabled) btn.href = item.href;
       else btn.type = 'button';
+      if (item.disabled) {
+        btn.disabled = true;
+        btn.setAttribute('aria-disabled', 'true');
+      }
+      if (item.title) btn.title = item.title;
       btn.setAttribute('role', 'menuitem');
       btn.className = 'docker-popover-item'
         + (item.danger ? ' is-danger' : '')
-        + (item.accent ? ' is-accent' : '');
+        + (item.accent ? ' is-accent' : '')
+        + (item.disabled ? ' is-disabled opacity-50 cursor-not-allowed' : '');
       btn.textContent = item.label;
       btn.addEventListener('click', function (e) {
+        if (item.disabled) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         if (item.href) {
           hideServerMoreMenu();
           return;

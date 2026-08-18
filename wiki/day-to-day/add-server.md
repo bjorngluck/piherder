@@ -30,7 +30,7 @@ Without a server record you have no place to store the encrypted SSH key, featur
   <figcaption>Add-host wizard — multi-step onboarding (Identity through Done). Connect: install key → test → clear password; Features explain HAOS / rsync.</figcaption>
 </figure>
 
-1. **Identity** — display name, hostname/IP, SSH user and port (creates the fleet row).  
+1. **Identity** — display name, hostname/IP, SSH user and port (creates the fleet row). Default user is **`pi`** (Raspberry Pi OS); type `ubuntu`, `root`, or your HAOS add-on user if different. Existing hosts are not changed.  
 2. **Trust** — generate a keypair (recommended), upload a key, or password-only (discouraged); optional **one-time password** only to bootstrap key deploy. Private material is encrypted at rest and never re-shown.  
 3. **Connect** — ordered path: **install public key** (copy / install script / Deploy) → **Test connection** → **Clear stored password** when key-only works.  
 4. **Privilege** — optional least-priv user on Pi OS / Ubuntu; **skip automated least-priv on HAOS** (wizard copy explains).  
@@ -42,7 +42,7 @@ Without a server record you have no place to store the encrypted SSH key, featur
 **Save & exit** at any step after Identity leaves a partial host on the fleet; open the server or resume via  
 `/servers/new?step=connect&server_id=…` (or the next incomplete step).
 
-**Done when:** Test connection succeeds; dependency chips match enabled features; password bootstrap is gone.
+**Done when:** Test connection succeeds; dependency chips match enabled features; password bootstrap is gone. The first successful connect **pins** the SSH host key (shown under SSH access). A later key change is refused until you reset the pin.
 
 !!! tip "Advanced form"
     Prefer the wizard. For a one-shot form, use **Advanced form** on the wizard page (`/servers/new/advanced`) or legacy `/servers/add` — same create engine, no step chrome.
@@ -78,9 +78,12 @@ Without a server record you have no place to store the encrypted SSH key, featur
 
 The wizard Connect step covers deploy / test / clear password. The full **SSH access** panel on the server page also has rotate key, least-priv scripts, and dependency re-check.
 
+Optional **Web SSH console** (browser terminal; flag off by default): [Web SSH console](web-ssh-console.md).
+
 | Action | What it does | Why |
 |--------|----------------|-----|
-| **Test connection** | Verifies key (or password) login, then refreshes **host dependency** probes when login succeeds | Proves the path before you queue jobs |
+| **Test connection** | Verifies key (or password) login, then refreshes **host dependency** probes when login succeeds. First success **pins** the SSH host key | Proves the path before you queue jobs |
+| **Reset host-key pin** | Clears the stored fingerprint after a **rebuild** (or a replaced machine at the same address) | Mismatch is **refused** until you reset; do not reset on a surprise change |
 | **Check dependencies** | Probes `rsync` / docker / apt for **enabled** features only | Failures become hints, not silent job fails later |
 | **Deploy key** | Installs public key into `authorized_keys`; verifies key-only login | Stops depending on passwords |
 | **Rotate key** | New keypair, deploy, swap only after verify succeeds | Safe rotation if a key may have leaked |
@@ -111,7 +114,7 @@ Full checklist, System info, and update behaviour: **[HAOS hosts](haos-hosts.md)
 
 ### Docker base dir (Option B)
 
-If stacks live under another user’s home (e.g. `/home/bjorn/docker`):
+If stacks live under another user’s home (e.g. `/home/ubuntu/docker` while PiHerder logs in as `piherder`):
 
 1. Set **Docker base dir** to that **absolute** path (not `~/docker` after switching to the `piherder` user).  
 2. Run the **Option B ACL script** from SSH access so the service user can traverse the tree.

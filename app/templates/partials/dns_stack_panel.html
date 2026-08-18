@@ -14,9 +14,12 @@
         {% if p.fqdn %}<span class="font-mono text-sm">{{ p.fqdn }}</span>{% else %}{{ p.label }}{% endif %}
       </h2>
       <p class="text-xs text-muted mt-0.5">
-        {% if p.project %}
-        <span class="font-mono text-accent">{{ p.project }}</span>
+        {% if p.record_project %}
+        <span class="font-mono text-accent">{{ p.record_project }}</span>
         <span class="text-muted">· compose project</span>
+        {% elif p.project %}
+        <span class="font-mono text-warning">{{ p.project }}</span>
+        <span class="text-muted">· preview only</span>
         {% else %}
         <span class="text-warning">no Docker project linked</span>
         {% endif %}
@@ -133,20 +136,64 @@
     {% endif %}
   </div>
 
+  {% if p.service_id and p.project and not p.record_project and can_mutate %}
+  <div class="fabric-stack-empty mt-3">
+    <p class="text-sm text-text">
+      Previewing <span class="font-mono text-accent">{{ p.project }}</span> — not linked to this path yet.
+    </p>
+    <p class="text-xs text-muted mt-1 mb-2">
+      Link it so Hosts / Path maps show the container next to {{ p.server_name }}, and Kuma binds stay on this service.
+    </p>
+    <form method="post" action="/dns/services/{{ p.service_id }}/link-project"
+          class="flex flex-wrap gap-1.5 items-center" data-stack-ajax-form="1">
+      <input type="hidden" name="docker_project" value="{{ p.project }}">
+      <input type="hidden" name="mark_direct" value="1">
+      <input type="hidden" name="next" value="{{ p.next_url }}">
+      <button type="submit" class="btn btn-accent text-xs min-h-10 px-3">Use {{ p.project }} for this path</button>
+    </form>
+  </div>
+  {% endif %}
+
   {% if not p.project %}
   <div class="fabric-stack-empty mt-3">
     <p class="text-sm text-muted">
-      This path has no Docker project. Map a project on the service, or open Docker on the host.
+      This path has no Docker project linked, so the Hosts map cannot show the container.
     </p>
     {% if p.projects_available %}
-    <p class="text-xs text-muted mt-2 mb-1">Compose projects on {{ p.server_name }}:</p>
+    <p class="text-xs text-muted mt-2 mb-1">
+      {% if p.service_id and can_mutate %}
+      Link a compose project on {{ p.server_name }} (persists the association):
+      {% else %}
+      Compose projects on {{ p.server_name }}:
+      {% endif %}
+    </p>
     <div class="flex flex-wrap gap-1.5">
       {% for pname in p.projects_available %}
+      {% if p.service_id and can_mutate %}
+      <form method="post" action="/dns/services/{{ p.service_id }}/link-project"
+            class="inline" data-stack-ajax-form="1">
+        <input type="hidden" name="docker_project" value="{{ pname }}">
+        <input type="hidden" name="mark_direct" value="1">
+        <input type="hidden" name="next" value="{{ p.next_url }}">
+        <button type="submit" class="btn btn-accent text-xs min-h-10 px-3 font-mono"
+                title="Link {{ pname }} to this path and treat it as direct (not via NPM)">{{ pname }}</button>
+      </form>
+      {% else %}
       <button type="button"
               class="btn btn-secondary text-xs min-h-10 px-3 font-mono"
               data-stack-url="/dns/stack-panel?server_id={{ p.server_id }}&project={{ pname|urlencode }}">{{ pname }}</button>
+      {% endif %}
       {% endfor %}
     </div>
+    {% if p.service_id %}
+    <p class="text-[10px] text-muted mt-2">
+      Preview without linking:
+      {% for pname in p.projects_available %}
+      <button type="button" class="text-accent hover:underline font-mono"
+              data-stack-url="/dns/stack-panel?service_id={{ p.service_id }}&project={{ pname|urlencode }}">{{ pname }}</button>{% if not loop.last %} · {% endif %}
+      {% endfor %}
+    </p>
+    {% endif %}
     {% endif %}
   </div>
   {% elif not p.has_inventory %}
@@ -168,7 +215,7 @@
       {% for pname in p.projects_available %}
       <button type="button"
               class="btn btn-secondary text-xs min-h-10 px-3 font-mono"
-              data-stack-url="/dns/stack-panel?server_id={{ p.server_id }}&project={{ pname|urlencode }}">{{ pname }}</button>
+              data-stack-url="/dns/stack-panel?{% if p.service_id %}service_id={{ p.service_id }}&{% endif %}server_id={{ p.server_id }}&project={{ pname|urlencode }}">{{ pname }}</button>
       {% endfor %}
     </div>
     {% endif %}

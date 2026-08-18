@@ -29,12 +29,17 @@ class User(SQLModel, table=True):
     # Admin-created users must set their own password before using the app
     must_change_password: bool = False
 
+    # False after optional password remove when SSO is linked (v1.2 Stream S)
+    password_login_enabled: bool = True
+
     # Bumped to invalidate all session JWTs (admin recovery / password change)
     session_version: int = Field(default=0)
 
     audit_logs: List["AuditLog"] = Relationship(back_populates="user")
     totp_backup_codes: List["TotpBackupCode"] = Relationship(back_populates="user")
     trusted_devices: List["TrustedDevice"] = Relationship(back_populates="user")
+    webauthn_credentials: List["WebAuthnCredential"] = Relationship(back_populates="user")
+    oidc_identities: List["OidcIdentity"] = Relationship(back_populates="user")
 
 
 class TotpBackupCode(SQLModel, table=True):
@@ -59,6 +64,47 @@ class TrustedDevice(SQLModel, table=True):
     expires_at: datetime
 
     user: Optional[User] = Relationship(back_populates="trusted_devices")
+
+
+class WebAuthnCredential(SQLModel, table=True):
+    """Passkey / security-key credential (WebAuthn). Public key only — no private material."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    # base64url credential id (unique per RP)
+    credential_id: str = Field(unique=True, index=True, max_length=1024)
+    # base64url-encoded COSE public key
+    public_key: str = Field(max_length=4096)
+    sign_count: int = Field(default=0)
+    # JSON list of transport hints e.g. ["internal","usb"]
+    transports: Optional[str] = Field(default=None, max_length=256)
+    nickname: Optional[str] = Field(default=None, max_length=128)
+    aaguid: Optional[str] = Field(default=None, max_length=64)
+    backup_eligible: bool = False
+    backup_state: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_used_at: Optional[datetime] = None
+
+    user: Optional[User] = Relationship(back_populates="webauthn_credentials")
+
+
+class OidcIdentity(SQLModel, table=True):
+    """Linked OpenID Connect identity (v1.2 Stream S). No tokens stored."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    # Normalized issuer URL (no trailing slash)
+    issuer: str = Field(index=True, max_length=512)
+    # OIDC `sub` claim
+    subject: str = Field(index=True, max_length=512)
+    email_at_link: Optional[str] = Field(default=None, max_length=320)
+    display_name_at_link: Optional[str] = Field(default=None, max_length=256)
+    # Last login claims snapshot (no tokens); optional JSON
+    claims_json: Optional[str] = Field(default=None)
+    linked_at: datetime = Field(default_factory=datetime.utcnow)
+    last_login_at: Optional[datetime] = None
+
+    user: Optional[User] = Relationship(back_populates="oidc_identities")
 
 
 class PasswordResetToken(SQLModel, table=True):
@@ -99,10 +145,14 @@ class Server(SQLModel, table=True):
     hostname: str
     ip_address: Optional[str] = None
     ssh_port: int = 22
-    ssh_username: str = "bjorn"
+    ssh_username: str = "pi"
     ssh_private_key_encrypted: Optional[str] = None  # Fernet ciphertext
     ssh_public_key: Optional[str] = None
     ssh_password_encrypted: Optional[str] = None  # optional fallback
+    # Pinned remote host key (TOFU on first connect; mismatch refuses)
+    ssh_hostkey_type: Optional[str] = Field(default=None, max_length=64)
+    ssh_hostkey_b64: Optional[str] = Field(default=None)
+    ssh_hostkey_fp: Optional[str] = Field(default=None, max_length=128)
 
     os_type: str = "debian"
     last_seen: Optional[datetime] = None
@@ -114,7 +164,7 @@ class Server(SQLModel, table=True):
     container_patch_enabled: bool = False
 
     # Backup & container config (stored as JSON strings for simplicity in v1)
-    backup_paths: str = Field(default='["/home/bjorn/docker/", "/var/lib/docker/volumes/"]')
+    backup_paths: str = Field(default='["/home/pi/docker/", "/var/lib/docker/volumes/"]')
     docker_base_dir: str = "~/docker"
     excluded_projects: str = '["my-xmrig"]'
     retention_days: int = 7
@@ -191,9 +241,9 @@ class Server(SQLModel, table=True):
                 if data and isinstance(data[0], dict):
                     return [item.get("source", "") for item in data if item.get("source")]
                 return data
-            return ["/home/bjorn/docker/", "/var/lib/docker/volumes/"]
+            return ["/home/pi/docker/", "/var/lib/docker/volumes/"]
         except Exception:
-            return ["/home/bjorn/docker/", "/var/lib/docker/volumes/"]
+            return ["/home/pi/docker/", "/var/lib/docker/volumes/"]
 
     def get_backup_sources(self) -> List[dict]:
         """
@@ -221,12 +271,12 @@ class Server(SQLModel, table=True):
             if isinstance(data, list):
                 return [{"source": p, "dest_name": None, "enabled": True} for p in data if p]
             return [
-                {"source": "/home/bjorn/docker/", "dest_name": None, "enabled": True},
+                {"source": "/home/pi/docker/", "dest_name": None, "enabled": True},
                 {"source": "/var/lib/docker/volumes/", "dest_name": None, "enabled": True}
             ]
         except Exception:
             return [
-                {"source": "/home/bjorn/docker/", "dest_name": None, "enabled": True},
+                {"source": "/home/pi/docker/", "dest_name": None, "enabled": True},
                 {"source": "/var/lib/docker/volumes/", "dest_name": None, "enabled": True}
             ]
 

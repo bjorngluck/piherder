@@ -73,6 +73,14 @@ See [Docker overview — Compose sets](overview.md#compose-sets-same-folder-one-
 
 Check, Deploy, and whole-project lifecycle open the job holding modal (same pattern as OS/container patch). Follow progress under **Jobs** or **Audit** if you leave the page. Stack **mutations** (deploy, stop, start, restart, template apply) share one exclusive lane per host; stack **check** is exclusive with other checks.
 
+## Build
+
+**Build** from the Docker project menu streams `docker compose build` over SSE.
+
+- **operator+** only (viewer **403**)  
+- **POST** to `/servers/{id}/docker/build-stream` with the **compose project name** — GET and raw filesystem paths are rejected  
+- Remote command paths are `shlex.quote`d  
+
 ## New project wizard
 
 Creates a project directory under the Docker base dir and optional initial compose.

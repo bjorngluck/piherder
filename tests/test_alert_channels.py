@@ -75,3 +75,15 @@ def test_password_reset_token_roundtrip(session_factory=None):
     h2 = pr._hash_token("abc")
     assert h1 == h2
     assert h1 != pr._hash_token("abd")
+
+
+def test_configured_public_origin_from_explicit_url():
+    from app.services.password_reset import configured_public_origin
+
+    assert (
+        configured_public_origin("https://piherder.example.com:8443/extra")
+        == "https://piherder.example.com:8443"
+    )
+    assert configured_public_origin("") == ""
+    assert configured_public_origin("not-a-url") == ""
+    assert configured_public_origin("ftp://files.example") == ""

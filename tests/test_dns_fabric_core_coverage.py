@@ -812,6 +812,48 @@ def test_resolve_app_layers_and_find_container():
     assert fabric._find_docker_container(session, host.id, None) is None
 
 
+def test_resolve_app_layers_matches_kuma_monitor_url_to_host_fqdn():
+    """Host-identity TLS: monitor URL is the host FQDN, project is frigate."""
+    session, _ = _engine_session()
+    host = _server(session, name="RPI5-4", dns_name="rpi5-4.example.com", ip="192.168.86.40")
+    from app.services.integrations import registry as reg
+
+    integ = Integration(
+        type=reg.TYPE_UPTIME_KUMA,
+        name="Kuma",
+        base_url="https://kuma.example",
+        enabled=True,
+        config_json="{}",
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+    )
+    session.add(integ)
+    session.commit()
+    session.refresh(integ)
+    session.add(
+        IntegrationBinding(
+            integration_id=integ.id,
+            server_id=host.id,
+            role=reg.ROLE_SERVICE,
+            external_id="9",
+            external_label="Frigate",
+            docker_project="frigate",
+            docker_container="frigate",
+            external_meta_json='{"url": "https://rpi5-4.example.com:8971/"}',
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+    )
+    session.commit()
+
+    layers = fabric.resolve_app_layers(
+        session, host.id, fqdn="rpi5-4.example.com", docker_project=None
+    )
+    assert layers.get("docker_project") == "frigate"
+    assert layers.get("docker_container") == "frigate"
+    assert layers.get("source") == "kuma"
+
+
 def test_certs_matching_fqdn():
     session, _ = _engine_session()
     c1 = ManagedCertificate(

@@ -2,6 +2,9 @@
 
 This section takes you from **zero** to a **running PiHerder** with a first admin account and a clear idea of what to do next.
 
+!!! tip "Prefer a click-through first?"
+    The **[public demo](../operations/demo-site.md)** is a limited **view-only** sandbox ([piherder-demo.hacknow.info](https://piherder-demo.hacknow.info)) with a shared viewer login. Credentials and limits are on that page — password may rotate; the live wiki always has the current one.
+
 ## What you are setting up
 
 | Piece | Role |
@@ -63,3 +66,4 @@ Detailed “I want to…” tables and longer journeys: [Operator scenarios](ope
 | [README](https://github.com/bjorngluck/piherder/blob/main/README.md) | Project overview |
 | [`.env.example`](https://github.com/bjorngluck/piherder/blob/main/.env.example) | Full env catalog |
 | [docs/ADMIN.md](https://github.com/bjorngluck/piherder/blob/main/docs/ADMIN.md) | Long-form admin reference (mirrored into this wiki) |
+| [v1.2.0 QA](../operations/qa-v1.2.0.md) | Freeze sign-off checklist (before Hub `1.2.0`) |

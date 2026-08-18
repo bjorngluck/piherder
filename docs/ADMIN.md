@@ -4,7 +4,13 @@ Practical reference for operators and admins: roles, users, security policy, sch
 
 > **Prefer the user wiki** for day-to-day reading: repo [`wiki/`](../wiki/) built with MkDocs (`pip install -r requirements-docs.txt && mkdocs serve`). This file remains the long-form single-document reference and source material for the wiki.
 
-Related: [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](DECISION_IOS_PUSH.md) · [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md) · [SECURITY.md](../SECURITY.md)
+Related: [ROADMAP_ECOSYSTEM.md](ROADMAP_ECOSYSTEM.md) · [FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md](FEATURE_PLAN_IAM_2FA_UPDATES_NOTIFICATIONS.md) · [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md) · [SSO_AUTHENTIK_TEST.md](SSO_AUTHENTIK_TEST.md) · [FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md](FEATURE_PLAN_PWA_PUSH_NOTIFICATIONS.md) · [DECISION_IOS_PUSH.md](DECISION_IOS_PUSH.md) · [DECISION_PLAN_STABILISATION.md](DECISION_PLAN_STABILISATION.md) · [SECURITY.md](../SECURITY.md) · [DEMO_SITE.md](DEMO_SITE.md)
+
+---
+
+## Public demo (`PIHERDER_DEMO_MODE`)
+
+Gated demo at **https://piherder-demo.hacknow.info** (dedicated VPS + Docker Compose + Cloudflare Access). App behaviour: banner, blocked onboard/API tokens, canned jobs, auto-seed. **Maintainer runbook:** [DEMO_SITE.md](DEMO_SITE.md). User-facing blurb: [wiki/operations/demo-site.md](../wiki/operations/demo-site.md). Compose overlay: `docker-compose.demo.yml`. Seed restore is **ops CLI only** (`scripts/demo-maintain.sh` / `demo_seed/reset.sh`) — there is no in-app RESET (shared-account vandalism). Turnstile: `PIHERDER_TURNSTILE_*` on login.
 
 ---
 
@@ -24,7 +30,8 @@ Viewers may still:
 
 - Log out
 - Edit their account (profile, password, avatar)
-- Manage their own 2FA
+- Manage their own 2FA (TOTP / passkeys)
+- Link / unlink own SSO identity when OIDC is enabled (v1.2+)
 - Complete first-login password change and force-2FA onboarding
 - Dismiss / interact with **notifications**
 - Manage own **Web Push** subscription and preferences (`/api/push`, Account)
@@ -50,7 +57,7 @@ You cannot demote or delete the **last active admin**. Promote another user firs
 **Where:** avatar menu → **Users** (admin only), or Account → “Manage users & roles”.  
 **URL:** `/auth/users`
 
-Each user card shows **last login** (app timezone) and a link to that user’s **Audit trail** (`/audit?user_id=…`). Last login updates on successful password login, trusted-device skip of 2FA, or completed 2FA challenge.
+Each user card shows **last login** (app timezone) and a link to that user’s **Audit trail** (`/audit?user_id=…`). Last login updates on successful password login, **SSO login**, trusted-device skip of 2FA, or completed 2FA challenge.
 
 ### Create a user
 
@@ -89,7 +96,7 @@ Per-user actions on **Users** (production lockout recovery):
 | **Sign out sessions** | Invalidates all browser JWTs (`session_version` bump) + trusted devices only. |
 
 Audit actions: `admin_password_reset`, `admin_2fa_cleared`, `admin_access_reset`, `admin_sessions_revoked`.  
-Email self-service reset remains **post-1.0**. Wiki: [Users](../wiki/account-security/users.md#credential-recovery-admin).
+Email **Forgot password** (v1.1+) works when SMTP is configured; links use `PIHERDER_PUBLIC_URL` only. Wiki: [Users](../wiki/account-security/users.md#credential-recovery-admin).
 
 ### Sole-admin / host lockout recovery
 
@@ -124,13 +131,32 @@ Timezone, security policy, fleet defaults, PiHerder self-backup **run/restore/do
 
 | Setting | Effect |
 |---------|--------|
-| **Force 2FA for all** | Every user without TOTP is redirected to `/auth/force-2fa` before the fleet UI. Password change-on-first-login still runs first if required. |
+| **Force 2FA for all** | Every user without TOTP **or** a passkey is redirected to `/auth/force-2fa` before the fleet UI. Applies after **password and SSO** login. Password change-on-first-login still runs first if required. |
 
-Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, and self-backup schedule — restored with DB dumps and PiHerder self-backup (not a separate volume JSON file).
+Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, SSO config, and self-backup schedule — restored with DB dumps and PiHerder self-backup (not a separate volume JSON file).
 
-Optional 2FA (when not forced): Account → enable TOTP, backup codes, optional trusted device. Trusted-device rows show **type** (from UA), **last IP**, and **friendly rename** via **✎ Edit** (inline form; not always visible).
+Optional 2FA (when not forced): Account → enable TOTP and/or **passkeys**, backup codes, optional trusted device. Trusted-device rows show **type** (from UA), **last IP**, and **friendly rename** via **✎ Edit** (inline form; not always visible). Wiki: [2FA](../wiki/account-security/two-factor.md).
 
 **Email password recovery (v1.1 G1-lite):** when SMTP is enabled under **Settings → Alerts**, login shows **Forgot password?** — one-hour hashed token email; rate-limited; no open reset without SMTP. Admins can still OOB-reset from **Users**.
+
+### 3a. SSO / OpenID Connect (v1.2 Stream S)
+
+**Where:** **Settings → General → SSO / OpenID Connect**.  
+**Wiki:** [SSO / OpenID Connect](../wiki/account-security/sso-oidc.md) · lab: [SSO_AUTHENTIK_TEST.md](SSO_AUTHENTIK_TEST.md) · design: [FEATURE_PLAN_SSO_OIDC.md](FEATURE_PLAN_SSO_OIDC.md).
+
+| Topic | Behaviour |
+|-------|-----------|
+| Protocol | OIDC authorization code + **PKCE**; confidential client |
+| Redirect URI | `{PIHERDER_PUBLIC_URL}/auth/oidc/callback` (shown in Settings) |
+| Role map UI | Settings: **Add mapping…** modal (IdP group name + role); not raw JSON |
+| Link paths | SSO login auto-link by verified email; **Account → Connected accounts** explicit link |
+| JIT | Unknown email → new user, role from group map (default **viewer**), password login off until set |
+| Password optional | Linked users may **remove password** (SSO-only); **unlink** requires a password (set in same flow if needed) |
+| 2FA | Path-agnostic: enrolled TOTP/passkey still required after SSO; sensitive Account actions re-check 2FA |
+| Break-glass | Local password remains unless removed. **Require SSO** hides the password form and **rejects non-admin `POST /auth/login`**. **Admins stay password break-glass**. Keep at least one recoverable admin. Missing IdP `email_verified` is **not** treated as verified. |
+| Secret storage | Client secret Fernet-encrypted in `appsetting`; included in herder self-backup |
+
+Audit: `sso_login`, `sso_login_failed`, `sso_link`, `sso_unlink`, `sso_user_provisioned`, `user_role_changed`, `user_role_sync_skipped` (sole-admin demotion refused), `user_password_removed`, `user_password_set`.
 
 ### Pins / favourites & host jump (v1.1)
 
@@ -210,32 +236,40 @@ Per-server backup enable + cron on the server/backups UI. Enqueues **Celery** wo
 
 ### PiHerder self-backup
 
-**Settings → PiHerder backup** tab: manual run, schedule (config-only or full), restore. Separate from per-server rsync backups.
+**Settings → PiHerder backup** tab: manual run, schedule, restore. Separate from per-server rsync backups.  
+Volume: `./piherder_backups` → `/herder_backups` (writable by container uid **1000**). Image needs **`postgresql-client-16`** for Full DR (`pg_dump` / `pg_restore`).
 
-Archives are format **v2** compressed `.tar.gz` under the herder backups volume (`./piherder_backups` → `/herder_backups`). Host dir must be writable by the container user (uid 1000).
+#### Version matrix (DR honesty)
 
-| Included | Notes |
-|----------|--------|
-| **Servers** | All fields (encrypted SSH keys/passwords, schedules, inventory snapshot, feature flags) |
-| **Users** | Full rows: password **hashes**, roles, profile, encrypted TOTP secret |
-| **TOTP backup codes** + **trusted devices** | 2FA recovery / remember-device state |
-| **Docker compose versions** | Multi-file draft/history per project |
-| **Push VAPID** | Encrypted private key + public key (same `PIHERDER_MASTER_KEY` required on restore) |
-| **Push subscriptions + preferences** | Devices may still need re-permission if browser endpoint died |
-| **Notifications** | Recent open/dismissed alerts (capped) |
-| **Integrations + bindings** | Kuma / Grafana connectors, encrypted credentials, query templates (`config_json`), all bindings/mappings |
-| **Operational settings** | Timezone, force 2FA, self-backup schedule, fleet check defaults (from DB `appsetting`; restored back into DB) |
-| **Avatars** | Files under `DATA_ROOT/avatars` packed as `data/avatars/…` in the tar |
-| **Audit log** | Only in **full** mode (optional, capped) |
+| Line | “Full” archive | Sole DB disaster recovery? |
+|------|----------------|----------------------------|
+| **&lt; v1.2.0** (v1.0.x · **v1.1.x**) | JSON row snapshots only — **not** a full Postgres dump | **No** |
+| **≥ v1.2.0** | **`pg_dump -Fc` of entire DB** (`database.dump`) + `DATA_ROOT` files · format **v6** · `kind=pg_dump_full` | **Yes** (all tables) |
+| Any | **Config only** = light JSON control-plane pack | **No** (by design) |
 
-| Not included | Why |
-|--------------|-----|
-| **Jobs** queue | Ephemeral; re-run work as needed |
-| Per-server rsync backup **files** on `~/backup` | Different volume; use normal backup retention |
-| **Service logo files** under `DATA_ROOT/service_logos/` | Paths restored on bindings; re-fetch favicon or re-upload after DR |
-| **External products** (Kuma / Grafana instances) | Only PiHerder-side config is backed up |
+#### Limitations before v1.2.0 (list in release notes / operator DR)
 
-**Restore:** dry-run previews counts; apply upserts by id/email/endpoint. Encrypted fields only work with the **same master key**. After restore, web may need a restart so the scheduler picks up herder cron / VAPID from DB.
+Archives produced on **v1.0 / v1.1** (and any JSON-only “full” without `database.dump`) had these limits — **still true when restoring those files** on a newer image:
+
+| Limitation | Detail |
+|------------|--------|
+| **Not `pg_dump`** | Selective JSON of durable tables only |
+| **Jobs never backed up** | Job history not in archive; Jobs UI empty after wipe+restore from those files |
+| **Audit capped** | “Full” added audit only as a **capped** recent window (~thousands of rows), not unlimited history |
+| **Notifications capped** | Recent only |
+| **Nmap scan runs excluded** | Inventory/schedules yes; run history / XML no |
+| **No rsync trees / external product DBs** | Separate products |
+
+Operator docs: [wiki Self-backup & DR](../wiki/operations/self-backup.md).
+
+#### ≥ v1.2.0 modes
+
+| Mode | Contents | Restore |
+|------|----------|---------|
+| **Full DR** (default schedule) | Entire Postgres via **`pg_dump -Fc`** + avatars/logos | **`pg_restore`** of `database.dump` + extract `data/` |
+| **Config only** | Lightweight JSON control plane | Row upsert (legacy path) |
+
+**Master key:** encrypted fields always need the **same** `PIHERDER_MASTER_KEY`. Restart web/celery after restore so scheduler/VAPID pick up DB state.
 
 ---
 
@@ -505,24 +539,28 @@ Mount path full resolve + `du` run on **container expand** (detail row open):
 
 ## 7. Production deployment
 
-### Production checklist (v1.0.0)
+### Production checklist (v1.2 freeze)
 
 | Item | Action |
 |------|--------|
 | **Master key** | Unique `PIHERDER_MASTER_KEY` offline + in `.env` — never compose defaults |
-| **SECRET_KEY** | Long random JWT signing key — web warns if value looks like a stock default |
+| **SECRET_KEY** | Long random JWT signing key — web **refuses to boot** if the value looks like a stock default (`PIHERDER_ALLOW_INSECURE` / `DEMO_MODE` only for labs) |
 | **TLS / public URL** | `PIHERDER_PUBLIC_URL=https://…` so session cookies get **Secure** (or `COOKIE_SECURE=true`) |
-| **2FA** | Enable for admins; consider **Force 2FA** in Settings; revoke trusted devices if a device is lost |
+| **2FA** | Enable for admins (TOTP and/or passkeys); consider **Force 2FA** in Settings; revoke trusted devices if a device is lost |
+| **SSO** | Optional OIDC IdP; map groups carefully; keep break-glass local admin; see §3a |
+| **CSP (v1.2)** | Default on (`PIHERDER_CSP=true`). **Compiled Tailwind** (no Play / no `unsafe-eval`). `connect-src` is `'self'` + public origin / its `wss:` only. Console uses vendored xterm. Report-only: `PIHERDER_CSP_REPORT_ONLY=true`. See [SECURITY.md](../SECURITY.md). |
+| **Web SSH** | Default off (`PIHERDER_SSH_CONSOLE=false`); operator+ + passkey-preferred 2FA; floating popup + multi-host `/console` (host tabs stay connected); **fleet-wide** step-up grant (~10 min); soft resume after app switch; compact chrome (Aa / ···); continuous revalidation; never PEM in browser. Wiki: [web-ssh-console](../wiki/day-to-day/web-ssh-console.md) · env sample: [console-and-backup.env.example](console-and-backup.env.example) |
+| **SSH host keys** | First successful **Test connection** **pins** the remote key (TOFU). Mismatch refuses. Reset the pin under SSH access after a rebuild. New hosts default SSH user **`pi`** (existing rows unchanged). |
+| **App port** | Compose binds **`127.0.0.1:8000`** only. Honour `X-Forwarded-For` / `CF-Connecting-IP` only from `PIHERDER_TRUSTED_PROXY_CIDRS`. |
+| **Password-reset URLs** | Built from **`PIHERDER_PUBLIC_URL` only** (Host / `X-Forwarded-Host` ignored). |
+| **Backup vanished (B-retry)** | Auto-retry code 24 / vanished 23; soft-OK by default — `PIHERDER_BACKUP_VANISHED_*` |
 | **Metrics** | Set `METRICS_TOKEN` if `/metrics` is not private-network-only |
 | **Auth chrome** | Unauthenticated `/` redirects to login; version string only when signed in |
 | **Roles** | Viewer cannot mutate fleet; Docker **build** stream is operator+ — [wiki roles](../wiki/account-security/roles.md) |
 | **Self-backup** | Schedule + offline copy of archives before upgrades |
-| **Image pin** | Prefer `bjorngluck/piherder:1.0.0` (or `1.0` / `latest` after publish) |
+| **Image pin** | Prefer a tagged image: Hub **`1.2.0`** / `1.2` / `latest` (`1.1.1` / `1.1` pins remain valid) |
 
-Active ship plan: [PLAN_v1.0.0.md](PLAN_v1.0.0.md). Security model: [SECURITY.md](../SECURITY.md).
-
-!!! note "At v1.0.0 freeze"
-    Operator docs target **v1.0.0** production. Recapture priority screenshots per [PLAN §8.2](PLAN_v1.0.0.md) / [wiki screenshots README](../wiki/assets/screenshots/README.md) before tag.
+Active ship plan: [PLAN_v1.3.0.md](PLAN_v1.3.0.md) (planning). Current notes: [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · [QA_v1.2.0.md](QA_v1.2.0.md). Security model: [SECURITY.md](../SECURITY.md).
 
 ### Environment variables
 
@@ -941,7 +979,7 @@ Prefer least privilege: e.g. n8n backup token = `read` + `jobs` + `feature:backu
 ## 9. Quick admin checklist
 
 1. Create operators/viewers from **Users**; share one-time invite.
-2. Optionally enable **Force 2FA** under Settings → General.
+2. Optionally enable **Force 2FA** under Settings → General; optionally configure **SSO** (§3a) after `PIHERDER_PUBLIC_URL` is correct.
 3. Per server: **Edit → Features** → enable what you need → **Edit → Schedules** for checks → only then consider apply schedules.
 4. Prefer “only if updates” on apply schedules; start with a quiet weekly window.
 5. Use **Jobs** + **Audit** when diagnosing stuck or failed work; use Docker **Force refresh** if inventory looks stale after host-side changes.

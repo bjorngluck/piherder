@@ -407,6 +407,9 @@ async def certificate_apply_edge(
     force: Optional[str] = Form("on"),
 ):
     """Apply vault PEMs to this PiHerder instance (Caddy ./certs) and reload."""
+    from ..services.demo import http_403_if_demo
+
+    http_403_if_demo("cert_deploy")
     cert = cert_svc.get_certificate(session, cert_id)
     if not cert:
         raise HTTPException(404)

@@ -695,8 +695,11 @@ def enqueue_nmap_scan(
     *use_syn*: ``None`` inherits integration Prefer SYN; bool forces for this run.
     Curated options via kwargs or *scan_options* (see ``options.parse_scan_options``).
     """
+    from ..demo import raise_if_demo
     from ...celery_app import celery
     from .options import dump_scan_options, parse_scan_options
+
+    raise_if_demo("nmap")
 
     opts_in: dict[str, Any] = dict(scan_options or {})
     if script_preset is not None:

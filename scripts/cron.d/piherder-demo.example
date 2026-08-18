@@ -1,0 +1,24 @@
+# Example crontab fragment for the **demo VPS only**.
+# This file is not installed by the app — copy it yourself after editing paths.
+#
+#   sudo mkdir -p /var/log/piherder-demo
+#   sudo chown bjorn:bjorn /var/log/piherder-demo
+#   # edit user + REPO path in the lines below, then:
+#   sudo cp scripts/cron.d/piherder-demo.example /etc/cron.d/piherder-demo
+#   sudo chmod 644 /etc/cron.d/piherder-demo
+#
+# Prefer the deploy user who owns the git tree and is in the docker group.
+# Root is only needed if you set DEMO_REAPPLY_FW=1 (iptables DOCKER-USER).
+# cron.d requires a username field; paths must be absolute (no $VAR expansion).
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=""
+
+# Every 6 hours UTC: data-side force re-seed (no volume wipe)
+0 */6 * * * bjorn cd /home/bjorn/docker/piherder && ./scripts/demo-maintain.sh data-reset >>/var/log/piherder-demo/data-reset.log 2>&1
+
+# Daily 05:15 UTC: clean redeploy (git pull --ff-only + build + force-recreate + seed)
+# (US evening window quieter than late night / early morning East Coast)
+# For volume wipe too, append: --wipe
+15 5 * * * bjorn cd /home/bjorn/docker/piherder && ./scripts/demo-maintain.sh redeploy >>/var/log/piherder-demo/redeploy.log 2>&1

@@ -55,7 +55,10 @@ COMPOSE_BASENAMES = docker_versions.COMPOSE_BASENAMES
 def get_container_status(server: Server, name: str) -> Dict:
     """Get detailed status for one container."""
     client = get_ssh_client(server)
-    cmd = f'docker inspect --format "{{{{json .}}}}" {name}'
+    cname = normalize_container_ref(name)
+    if not cname:
+        return {"name": name, "state": "unknown", "running": False, "ports": []}
+    cmd = f'docker inspect --format "{{{{json .}}}}" {shlex.quote(cname)}'
     status, out, err = run_command(client, cmd, timeout=15)
     client.close()
 
@@ -487,16 +490,49 @@ def compose_action(server: Server, project_path: str, action: str, service: str 
             pass
 
 
+def compose_build_shell_cmd(
+    project_path: str,
+    services: List[str] | None = None,
+    no_cache: bool = False,
+) -> str:
+    """Quoted remote shell command for ``docker compose build``."""
+    cmd = f"cd {shlex.quote(project_path)} && docker compose build"
+    if no_cache:
+        cmd += " --no-cache"
+    if services:
+        cmd += " " + " ".join(shlex.quote(s) for s in services)
+    return cmd
+
+
+def resolve_compose_project_path(server: Server, project: str) -> str:
+    """Map a compose *name* (never a raw filesystem path) to the host path.
+
+    Rejects absolute paths, ``..``, and slashes so query/form values cannot
+    become ``cd /tmp; payload``.
+    """
+    name = (project or "").strip()
+    if (
+        not name
+        or name.startswith("/")
+        or ".." in name
+        or "/" in name
+        or "\\" in name
+        or "\x00" in name
+    ):
+        raise ValueError("invalid compose project name")
+    projects = list_compose_projects(server)
+    proj = next((p for p in projects if p.get("name") == name), None)
+    path = (proj or {}).get("path") if proj else None
+    if not path:
+        raise ValueError("compose project not found")
+    return str(path)
+
+
 def build_compose_services(server: Server, project_path: str, services: List[str] = None, no_cache: bool = False) -> Dict:
     """Build compose services. services=None means all buildable. Supports --no-cache."""
     client = get_ssh_client(server)
     try:
-        cmd = f"cd {project_path} && docker compose build"
-        if no_cache:
-            cmd += " --no-cache"
-        if services:
-            # only the selected
-            cmd += " " + " ".join(shlex.quote(s) for s in services)
+        cmd = compose_build_shell_cmd(project_path, services, no_cache)
         # run with longer timeout for builds
         status, out, err = run_command(client, cmd, timeout=600)
         return {
@@ -1600,7 +1636,7 @@ def _list_compose_uncached(
             versions = []
             if not light:
                 try:
-                    ps_cmd = f'cd {proj_dir} && docker compose ps --format "{{{{json .}}}}" 2>/dev/null | head -20'
+                    ps_cmd = f'cd {shlex.quote(proj_dir)} && docker compose ps --format "{{{{json .}}}}" 2>/dev/null | head -20'
                     _, ps_out, _ = run_command(client, ps_cmd, timeout=15)
                     for line in ps_out.strip().splitlines():
                         if line:
@@ -1800,11 +1836,7 @@ def stream_compose_build(server: Server, project_path: str, services: list = Non
     """Stream the output of docker compose build using SSE. Fresh SSH session for the build."""
     client = get_ssh_client(server)
     try:
-        cmd = f"cd {project_path} && docker compose build"
-        if no_cache:
-            cmd += " --no-cache"
-        if services:
-            cmd += " " + " ".join(shlex.quote(s) for s in services)
+        cmd = compose_build_shell_cmd(project_path, services, no_cache)
         stdin, stdout, stderr = client.exec_command(cmd, timeout=None)
         # combine stdout and stderr for build output
         for line in stdout:

@@ -9,7 +9,7 @@ The **supported** way to run PiHerder: Docker Compose stack (`web`, `db`, `redis
 One command brings up the whole control plane with migrations, workers for backups, and optional TLS termination. Other topologies (Kubernetes, bare metal) are **not** documented as supported.
 
 !!! tip "Production install"
-    Prefer a **tagged** image (`1.1.1` / `1.1` / `latest`). Release notes: [RELEASE_v1.1.1.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md).
+    Prefer a **tagged** image (`1.2.0` / `1.2` / `latest`). Release notes: [RELEASE_v1.2.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md).
 
 ---
 
@@ -20,7 +20,7 @@ One command brings up the whole control plane with migrations, workers for backu
 ```bash
 git clone https://github.com/bjorngluck/piherder.git
 cd piherder
-git checkout v1.1.1
+git checkout v1.2.0
 cp .env.example .env
 ```
 
@@ -62,7 +62,7 @@ Compose pulls multi-arch **`bjorngluck/piherder:latest`** from Docker Hub (`linu
 To pin a release tag:
 
 ```bash
-PIHERDER_IMAGE=bjorngluck/piherder:1.1.1 docker compose up -d
+PIHERDER_IMAGE=bjorngluck/piherder:1.2.0 docker compose up -d
 ```
 
 ### 5. Open the UI
@@ -71,7 +71,7 @@ PIHERDER_IMAGE=bjorngluck/piherder:1.1.1 docker compose up -d
 |--------|-----|
 | With Caddy + certs | `https://your.host:8443` (or your `PIHERDER_PUBLIC_URL`) |
 | Caddy HTTP | `http://your.host:8888` |
-| Direct to web (no Caddy) | `http://localhost:8000` |
+| Direct to web (no Caddy) | `http://127.0.0.1:8000` (loopback only — not published on the LAN) |
 
 Continue: [First login](first-login.md) — **register the first admin** (no default password user).
 
@@ -99,12 +99,13 @@ Ensure stock compose still publishes Postgres/Redis on **host loopback** (nmap w
 
 | Item | Why |
 |------|-----|
-| Strong `PIHERDER_MASTER_KEY` + `SECRET_KEY` | Encrypts fleet secrets / signs sessions — not compose defaults |
-| `PIHERDER_PUBLIC_URL=https://…` (or `COOKIE_SECURE=true`) | Session cookies get the `Secure` flag |
-| Prefer Caddy **8888/8443** over exposing app **:8000** | Correct client IP for audit + TLS termination |
+| Strong `PIHERDER_MASTER_KEY` + `SECRET_KEY` | Encrypts fleet secrets / signs sessions. Weak `SECRET_KEY` **refuses boot** unless `PIHERDER_ALLOW_INSECURE` (lab) |
+| `PIHERDER_PUBLIC_URL=https://…` (or `COOKIE_SECURE=true`) | Session cookies get the `Secure` flag; **password-reset links** and OIDC redirects use this origin only |
+| Prefer Caddy **8888/8443** — app **:8000** is loopback only | Correct client IP for audit + TLS termination (`PIHERDER_TRUSTED_PROXY_CIDRS`) |
 | `METRICS_TOKEN=…` if scrapers can reach `/metrics` | Empty token = open metrics on the app port |
 | Leave `ALLOW_OPEN_REGISTRATION=false` | Only first admin self-registers; others via Users |
-| Settings → PiHerder backup → run once | Offline archive + keep master key with it |
+| Settings → PiHerder backup → **Full DR** once | Offline archive + keep master key with it (1.2 Full = real `pg_dump`) |
+| After first **Test connection** | SSH host key is **pinned**; reset the pin only after a rebuild |
 
 Full env catalog: [Environment reference](../operations/env-reference.md).
 
@@ -146,7 +147,7 @@ To develop against local source, restore `build: .` for `web` / `celery-worker` 
 
 ```bash
 git fetch --tags
-git checkout v1.1.1    # or later 1.1.x
+git checkout v1.2.0    # or later 1.2.x
 docker compose pull
 docker compose up -d
 ```

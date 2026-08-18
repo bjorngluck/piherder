@@ -60,7 +60,7 @@
   <div class="modal-content card p-6 w-full max-w-md">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">{% if is_haos %}Update Home Assistant{% else %}Run OS Patch{% endif %}</h3>
-      <button onclick="hideOsPatchModal()" class="text-muted">✕</button>
+      <button type="button" onclick="hideOsPatchModal()" class="ph-icon-close" aria-label="Close">✕</button>
     </div>
     <form method="post" action="/servers/{{ server.id }}/run/os_patch" id="os-patch-form">
       {% if is_haos %}
@@ -572,7 +572,9 @@ function hideSystemInfoModal() {
 async function loadSystemInfoIntoModal(useCache = true) {
   const container = document.getElementById('sysinfo-content');
   if (!container) return;
-  container.innerHTML = '<div class="text-sm text-muted">Loading system info...</div>';
+  container.innerHTML = '<div class="flex flex-col items-center justify-center py-6 text-center">'
+    + '<div class="ph-spinner mb-3" aria-hidden="true"></div>'
+    + '<div class="text-sm text-muted">Loading system info…</div></div>';
 
   try {
     const url = useCache ? '/servers/{{ server.id }}/diagnostics' : '/servers/{{ server.id }}/diagnostics?force=1';
@@ -717,7 +719,7 @@ function computeUsableSummary(drives) {
   <div class="modal-content card p-6 w-full max-w-xl mx-4">
     <div class="flex justify-between mb-3">
       <h3 class="font-semibold">Configure Backups</h3>
-      <button onclick="hideBackupConfigModal()" class="text-muted">✕</button>
+      <button type="button" onclick="hideBackupConfigModal()" class="ph-icon-close" aria-label="Close">✕</button>
     </div>
 
     <form method="post" action="/servers/{{ server.id }}/backup-config">
@@ -803,9 +805,9 @@ function computeUsableSummary(drives) {
         </div>
         <p class="text-[10px] text-muted mt-1">
           <strong>dest_root</strong> = path *inside container* (recommend /backups).<br>
-          In docker-compose.yml: <code>- /home/bjorn/backup:/backups</code><br>
+          In docker-compose.yml: <code>- /mnt/backup:/backups</code><br>
           Set dest_root=/backups , folder_name=rpi5-2.example.com<br>
-          → files land on host at /home/bjorn/backup/rpi5-2.example.com/...
+          → files land on host at /mnt/backup/rpi5-2.example.com/...
         </p>
       </div>
 
@@ -885,7 +887,10 @@ function computeUsableSummary(drives) {
     </div>
 
     <div id="sysinfo-content">
-      <div class="text-sm text-muted">Loading...</div>
+      <div class="flex flex-col items-center justify-center py-6 text-center">
+        <div class="ph-spinner mb-3" aria-hidden="true"></div>
+        <div class="text-sm text-muted">Loading system info…</div>
+      </div>
     </div>
 
     <div class="mt-4 text-[10px] text-muted">

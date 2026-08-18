@@ -264,6 +264,10 @@ def resolve_stack_target(
         "path_kind": path_kind,
         "kuma_path_coverage": kuma_path,
         "stack_deployment_id": stack_deployment_id,
+        "record_project": ((getattr(rec, "docker_project", None) or "").strip() or None)
+        if rec
+        else None,
+        "via_proxy": bool(getattr(rec, "via_proxy", False)) if rec else False,
         "server_id": server.id,
         "server_name": server.name,
         "project": proj,
@@ -765,6 +769,8 @@ def build_stack_panel(
         "path_kind": resolved.get("path_kind"),
         "kuma_path_coverage": resolved.get("kuma_path_coverage"),
         "stack_deployment_id": resolved.get("stack_deployment_id"),
+        "record_project": resolved.get("record_project"),
+        "via_proxy": bool(resolved.get("via_proxy")),
         "server_id": server.id,
         "server_name": server.name,
         "project": proj,

@@ -235,26 +235,13 @@
         👁 View .env secrets
       </button>
     </div>
-    <div id="compose-secrets-unlock" class="hidden mt-3 pt-3 border-t border-border">
-      {% if user_has_2fa %}
-      <form method="post" action="/templates/secrets/unlock" class="flex flex-wrap gap-2 items-end"
-            data-wait-title="Unlocking secrets"
-            data-wait-message="Verifying 2FA…">
-        <input type="hidden" name="return_to"
-               value="/servers/{{ server.id }}/docker/compose/{{ project.name | urlencode }}/edit{% if active_file %}?file={{ active_file | urlencode }}{% endif %}">
-        <div class="flex-1 min-w-[10rem]">
-          <label class="text-xs block mb-1">2FA code</label>
-          <input name="code" type="text" required inputmode="numeric" autocomplete="one-time-code"
-                 class="w-full bg-surface border border-border p-2 rounded text-sm font-mono tracking-widest min-h-11"
-                 placeholder="123456">
-        </div>
-        <button type="submit" class="btn btn-accent text-sm min-h-11 px-4">Unlock (~{{ secrets_unlock_minutes }} min)</button>
-      </form>
-      {% else %}
-      <p class="text-sm">
-        Enable <a href="/auth/account" class="text-accent underline">2FA under Account</a> first, then unlock here.
+    <div id="compose-secrets-unlock" class="mt-3 pt-3 border-t border-border {% if not unlock_error %}hidden{% endif %}">
+      <p class="text-xs text-muted mb-2">
+        Step-up 2FA (passkey or authenticator) — required even if you already used 2FA at login.
       </p>
-      {% endif %}
+      {% with return_to="/servers/" ~ server.id ~ "/docker/compose/" ~ (project.name | urlencode) ~ "/edit" ~ (("?file=" ~ (active_file | urlencode)) if active_file else "") %}
+      {% include "partials/secrets_unlock_form.html" %}
+      {% endwith %}
     </div>
   </div>
   {% elif ns.has_env and secrets_revealed|default(false) %}

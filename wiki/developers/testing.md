@@ -32,7 +32,7 @@ Unit tests live under `tests/` — no live SSH required for the main suite. Defa
 
 | Module | What it locks |
 |--------|----------------|
-| `tests/test_security_v10.py` | Cookie kwargs, weak `SECRET_KEY`, same-origin POST middleware |
+| `tests/test_security_v10.py` | Cookie kwargs, weak `SECRET_KEY` (1.2: refuse-boot unless allow-insecure), same-origin POST middleware |
 | `tests/test_authz_matrix_v10.py` | Streams require login; viewer fleet mutate 403; build SSE operator+; admin users |
 | `tests/test_input_validation_v10.py` | `safe_path` / hostname / SSH user / cron / allowlists |
 | `tests/test_rbac.py` | Viewer write allowlist (incl. DNS/docker not self-service) |
@@ -88,4 +88,4 @@ CI covers unit + Playwright on fixtures. Live fleet validation (real SSH, HAOS, 
 1. Unit `pytest -q` green  
 2. **E2E** `pytest e2e -q` green (CI or local; rebuild e2e image if app templates changed)  
 3. Manual smoke on a live fleet: add-server wizard, HAOS check, from-host, template deploy, backup, metrics, API token  
-4. Release notes: [RELEASE_v1.1.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md)
+4. Release notes: [RELEASE_v1.2.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md)

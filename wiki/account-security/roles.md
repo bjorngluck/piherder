@@ -22,13 +22,14 @@ Three roles, lowest → highest privilege:
 
 **Fleet mutate** means starting backups, OS/container patch and checks, Docker compose actions, template deploy, integration binds, cert deploy, bulk servers actions, etc.
 
-**Control plane (admin only):** force 2FA, app timezone, global update-check defaults, PiHerder self-backup run/restore/download/delete/schedule, stack Status, API tokens. Details: [Settings](../operations/settings.md) · [Self-backup](../operations/self-backup.md).
+**Control plane (admin only):** force 2FA, **SSO / OIDC** settings, app timezone, global update-check defaults, PiHerder self-backup run/restore/download/delete/schedule, stack Status, API tokens. Details: [Settings](../operations/settings.md) · [SSO](sso-oidc.md) · [Self-backup](../operations/self-backup.md).
 
 ## Viewer self-service (allowed writes)
 
 - Log out  
 - Edit account (profile, password, avatar)  
-- Manage own 2FA  
+- Manage own 2FA (TOTP / passkeys)  
+- Link / unlink own **SSO** identity (when SSO is enabled)  
 - First-login password change / force-2FA onboarding  
 - Dismiss notifications  
 - Own Web Push subscription + prefs  
@@ -40,8 +41,9 @@ Viewers cannot start jobs, change servers, open Users, or change security policy
 1. As admin, [create a user](users.md) with role **operator**.  
 2. Share one-time password carefully; they change password on first login.  
 3. Optional: enable [force 2FA](two-factor.md).  
-4. As operator, run a backup or update check — should work.  
-5. Confirm operator cannot open herder restore or API token create.
+4. Optional: [SSO](sso-oidc.md) so they can sign in with the IdP (auto-link by email or Account → Link).  
+5. As operator, run a backup or update check — should work.  
+6. Confirm operator cannot open herder restore, API token create, or SSO settings.
 
 Journey: [Operator scenarios — Journey G](../getting-started/operator-scenarios.md#journey-g).
 
@@ -61,7 +63,9 @@ Journey: [Operator scenarios — Journey G](../getting-started/operator-scenario
 | Fleet UI read | Yes | Yes | Yes |
 | Fleet mutate (backup, Docker, DNS maps, certs, …) | **403** | Yes | Yes |
 | Docker log SSE | Yes (if signed in) | Yes | Yes |
-| Docker **build** SSE | **403** | Yes | Yes |
+| Docker **build** SSE | **403** | Yes (POST, named project) | Yes |
+| Live host SSH (console / diagnostics / compose build) | **403** | Yes | Yes |
+| **Web SSH console** (flag on) | **403** (demo: simulated only) | Yes + 2FA step-up | Yes + 2FA step-up |
 | Users / API tokens / herder restore | No | No | Yes |
 | Account self-service | Yes | Yes | Yes |
 | REST `/api/v1` | Bearer token + scopes (not browser roles) | | |
@@ -71,3 +75,13 @@ Anonymous visitors hitting `/` are redirected to **login** (no empty public dash
 ## Sole admin protection
 
 You cannot demote or delete the **last active admin**. Promote another user first.
+
+## Future: fine-grained roles (v1.3)
+
+v1.2 keeps **three global roles** only (plus OIDC group → those three roles). A later path (**AC-fg**, planned for **v1.3**) may add:
+
+- Per-**host** allowlists (operate only selected machines)  
+- Per-**feature** gates (e.g. backups yes, webshell no, certs read-only)  
+- Optional custom roles that SSO groups map into  
+
+Not multi-tenant SaaS isolation. Roadmap: [ROADMAP_ECOSYSTEM.md](https://github.com/bjorngluck/piherder/blob/main/docs/ROADMAP_ECOSYSTEM.md).

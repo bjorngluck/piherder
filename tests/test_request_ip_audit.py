@@ -11,20 +11,99 @@ from app.services.backup_audit import record_backup_audit_event
 from app.models import Job
 
 
+_COMPOSE_CIDRS = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1/32,::1/128"
+
+
 def test_extract_client_ip_prefers_xff():
     assert (
-        rip.extract_client_ip({"X-Forwarded-For": "203.0.113.9, 10.0.0.1"}, "172.18.0.5")
+        rip.extract_client_ip(
+            {"X-Forwarded-For": "203.0.113.9, 10.0.0.1"},
+            "172.18.0.5",
+            trusted_cidrs=_COMPOSE_CIDRS.split(","),
+        )
         == "203.0.113.9"
     )
 
 
+def test_extract_client_ip_prefers_cf_connecting_ip_over_xff():
+    """Orange-cloud: Caddy XFF is CF edge; real visitor is CF-Connecting-IP."""
+    assert (
+        rip.extract_client_ip(
+            {
+                "CF-Connecting-IP": "203.0.113.50",
+                "X-Forwarded-For": "104.16.1.1",
+            },
+            "172.18.0.5",
+            trusted_cidrs=_COMPOSE_CIDRS.split(","),
+        )
+        == "203.0.113.50"
+    )
+
+
 def test_extract_client_ip_x_real_ip_and_peer():
-    assert rip.extract_client_ip({"X-Real-IP": "198.51.100.2"}, "172.18.0.5") == "198.51.100.2"
+    assert (
+        rip.extract_client_ip(
+            {"X-Real-IP": "198.51.100.2"},
+            "172.18.0.5",
+            trusted_cidrs=_COMPOSE_CIDRS.split(","),
+        )
+        == "198.51.100.2"
+    )
     assert rip.extract_client_ip({}, "172.18.0.5") == "172.18.0.5"
-    assert rip.extract_client_ip({"X-Real-IP": "10.0.0.5:44321"}, None) == "10.0.0.5"
+    assert (
+        rip.extract_client_ip(
+            {"X-Real-IP": "10.0.0.5:44321"},
+            None,
+            trust_forwarded=True,
+        )
+        == "10.0.0.5"
+    )
 
 
-def test_client_ip_from_request_object():
+def test_extract_client_ip_ignores_spoofed_headers_from_untrusted_peer():
+    """Direct hit on the app port must not honor attacker XFF."""
+    assert (
+        rip.extract_client_ip(
+            {"X-Forwarded-For": "203.0.113.9", "CF-Connecting-IP": "198.51.100.1"},
+            "203.0.113.77",
+        )
+        == "203.0.113.77"
+    )
+    assert (
+        rip.extract_client_ip(
+            {"X-Forwarded-For": "203.0.113.9"},
+            "9.9.9.9",
+            trusted_cidrs=_COMPOSE_CIDRS.split(","),
+        )
+        == "9.9.9.9"
+    )
+
+
+def test_extract_client_ip_empty_cidrs_never_trusts_forwarded():
+    assert (
+        rip.extract_client_ip(
+            {"X-Forwarded-For": "1.2.3.4"},
+            "172.18.0.5",
+            trusted_cidrs=[],
+        )
+        == "172.18.0.5"
+    )
+
+
+def test_parse_trusted_proxy_cidrs_skips_junk():
+    nets = rip.parse_trusted_proxy_cidrs("172.16.0.0/12, not-a-cidr, 127.0.0.1/32")
+    assert len(nets) == 2
+    assert rip.peer_is_trusted_proxy("172.18.0.5", nets)
+    assert not rip.peer_is_trusted_proxy("8.8.8.8", nets)
+    assert not rip.peer_is_trusted_proxy("testclient", nets)
+
+
+def test_client_ip_from_request_object(monkeypatch):
+    monkeypatch.setattr(
+        rip,
+        "trusted_proxy_cidrs_from_settings",
+        lambda: rip.parse_trusted_proxy_cidrs(_COMPOSE_CIDRS),
+    )
     req = SimpleNamespace(
         headers={"x-forwarded-for": "1.2.3.4"},
         client=SimpleNamespace(host="172.18.0.2"),

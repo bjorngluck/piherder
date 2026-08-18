@@ -1,7 +1,9 @@
 """Unit tests for expanded PiHerder self-backup payload (no live DB required for helpers)."""
 from __future__ import annotations
 
+import json
 from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
 
 from app.services import herder_backup as hb
@@ -9,7 +11,8 @@ from app.models import User, Server
 
 
 def test_backup_format_version():
-    assert hb.BACKUP_FORMAT_VERSION == "4"
+    assert hb.BACKUP_FORMAT_VERSION == "5"
+    assert hb.FULL_BACKUP_FORMAT_VERSION == "6"
 
 
 def test_model_to_dict_excludes_relationships():
@@ -28,6 +31,23 @@ def test_model_to_dict_excludes_relationships():
     assert d["totp_secret_encrypted"] == "enc"
     assert "audit_logs" not in d
     assert "totp_backup_codes" not in d
+
+
+def test_resolve_archive_rejects_traversal(tmp_path, monkeypatch):
+    root = tmp_path / "herder_backups"
+    root.mkdir()
+    good = root / "piherder-20260812-010000-full.tar.gz"
+    good.write_bytes(b"x")
+    monkeypatch.setattr(hb, "archive_dir_candidates", lambda: [root])
+
+    assert hb.resolve_archive_in_roots(name="piherder-20260812-010000-full.tar.gz") == good.resolve()
+    assert hb.resolve_archive_in_roots(name="../../etc/passwd") is None
+    assert hb.resolve_archive_in_roots(name="piherder-x.tar.gz") is None
+    assert hb.resolve_archive_in_roots(path=str(root / ".." / ".." / "etc" / "passwd")) is None
+    assert hb.resolve_archive_in_roots(path=str(good)) == good.resolve()
+    assert hb.is_safe_archive_basename("piherder-x.tgz")
+    assert not hb.is_safe_archive_basename("../piherder-x.tgz")
+    assert not hb.is_safe_archive_basename("notes.txt")
 
 
 def test_parse_dt():
@@ -53,6 +73,44 @@ def test_clean_row_filters_unknown():
     assert isinstance(cleaned["created_at"], datetime)
 
 
+def _mock_empty_snapshots(monkeypatch) -> None:
+    """Stub every table snapshot so payload tests never open Postgres."""
+    for name in (
+        "_snapshot_servers",
+        "_snapshot_users",
+        "_snapshot_totp_backup_codes",
+        "_snapshot_trusted_devices",
+        "_snapshot_docker_versions",
+        "_snapshot_push_vapid",
+        "_snapshot_push_subscriptions",
+        "_snapshot_push_preferences",
+        "_snapshot_notifications",
+        "_snapshot_jobs",
+        "_snapshot_nmap_scan_runs",
+        "_snapshot_nmap_scan_schedules",
+        "_snapshot_nmap_devices",
+        "_snapshot_nmap_script_results",
+        "_snapshot_webauthn_credentials",
+        "_snapshot_managed_certificates",
+        "_snapshot_certificate_targets",
+        "_snapshot_service_templates",
+        "_snapshot_stack_deployments",
+        "_snapshot_service_dns_records",
+        "_snapshot_runtime_edges",
+        "_snapshot_topology_categories",
+        "_snapshot_topology_tags",
+        "_snapshot_visual_service_stacks",
+        "_snapshot_container_annotations",
+        "_snapshot_container_annotation_tags",
+        "_snapshot_port_annotations",
+        "_snapshot_user_favourites",
+        "_snapshot_api_tokens",
+        "_snapshot_integrations",
+        "_snapshot_integration_bindings",
+    ):
+        monkeypatch.setattr(hb, name, lambda: [])
+
+
 def test_build_payload_keys(monkeypatch):
     """Ensure expanded tables are always present in the archive JSON shape."""
     monkeypatch.setattr(hb, "_snapshot_servers", lambda: [{"id": 1, "name": "s"}])
@@ -75,6 +133,26 @@ def test_build_payload_keys(monkeypatch):
     monkeypatch.setattr(hb, "_snapshot_push_subscriptions", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_push_preferences", lambda: [])
     monkeypatch.setattr(hb, "_snapshot_notifications", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_jobs", lambda: [{"id": 1, "job_type": "backup", "status": "success"}])
+    monkeypatch.setattr(hb, "_snapshot_nmap_scan_runs", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_nmap_scan_schedules", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_nmap_devices", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_nmap_script_results", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_webauthn_credentials", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_managed_certificates", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_certificate_targets", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_service_templates", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_stack_deployments", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_service_dns_records", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_runtime_edges", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_topology_categories", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_topology_tags", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_visual_service_stacks", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_container_annotations", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_container_annotation_tags", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_port_annotations", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_user_favourites", lambda: [])
+    monkeypatch.setattr(hb, "_snapshot_api_tokens", lambda: [])
     monkeypatch.setattr(
         hb,
         "_snapshot_integrations",
@@ -106,9 +184,11 @@ def test_build_payload_keys(monkeypatch):
     )
 
     payload = hb._build_backup_payload(include_audit=False, config_only=True)
-    assert payload["manifest"]["version"] == "4"
-    assert "jobs" not in payload
-    assert "jobs" in payload["manifest"]["excludes"]
+    assert payload["manifest"]["version"] == "5"
+    assert "jobs" in payload
+    assert "jobs" in payload["manifest"]["includes"]
+    assert "nmap_scan_runs" in payload["manifest"]["includes"]
+    assert "jobs" not in payload["manifest"]["excludes"]
     assert "password_reset_tokens" in payload["manifest"]["excludes"]
     assert "integrations" in payload["manifest"]["includes"]
     assert "integration_bindings" in payload["manifest"]["includes"]
@@ -122,6 +202,7 @@ def test_build_payload_keys(monkeypatch):
         "users",
         "user_favourites",
         "api_tokens",
+        "jobs",
         "totp_backup_codes",
         "trusted_devices",
         "docker_versions",
@@ -139,6 +220,7 @@ def test_build_payload_keys(monkeypatch):
         "runtime_edges",
         "port_annotations",
         "nmap_scan_schedules",
+        "nmap_scan_runs",
         "nmap_devices",
         "nmap_script_results",
         "herder_config",
@@ -149,7 +231,52 @@ def test_build_payload_keys(monkeypatch):
     assert payload["users"][0]["hashed_password"] == "x"
     assert payload["integrations"][0]["type"] == "grafana"
     assert payload["integration_bindings"][0]["role"] == "dashboard"
+    assert payload["jobs"][0]["job_type"] == "backup"
     assert payload["herder_config"]["timezone"] == "UTC"
+
+
+def test_jobs_for_restore_clears_celery():
+    rows = hb._jobs_for_restore(
+        [
+            {"id": 1, "status": "running", "celery_task_id": "abc", "details": "{}"},
+            {"id": 2, "status": "success", "celery_task_id": "def", "details": "ok"},
+        ]
+    )
+    assert rows[0]["celery_task_id"] is None
+    assert rows[0]["status"] == "cancelled"
+    assert rows[1]["status"] == "success"
+    assert rows[1]["celery_task_id"] is None
+
+
+def test_create_full_backup_uses_pg_dump(monkeypatch, tmp_path):
+    """Full mode must write database.dump, not rely on capped JSON alone."""
+    dump_bytes = b"PGDMP_FAKE" + b"\x00" * 200
+
+    def fake_pg_dump(dest):
+        Path(dest).write_bytes(dump_bytes)
+        return Path(dest)
+
+    monkeypatch.setattr(hb, "create_pg_dump", fake_pg_dump)
+    monkeypatch.setattr(hb, "_avatar_files", list)
+    monkeypatch.setattr(hb, "_service_logo_files", list)
+    monkeypatch.setattr(hb, "load_settings", lambda: {"keep": 5})
+    monkeypatch.setattr(hb, "prune_old_backups", lambda keep: None)
+    monkeypatch.setattr(hb, "HERDER_BACKUP_DIR", tmp_path)
+    monkeypatch.setattr(hb, "_ensure_dir", lambda: None)
+    monkeypatch.setattr(hb.settings, "HERDER_BACKUP_ROOT", str(tmp_path))
+
+    out = hb.create_herder_backup(include_audit=True, config_only=False)
+    assert out.exists()
+    import tarfile
+
+    with tarfile.open(out, "r:gz") as tar:
+        names = set(tar.getnames())
+        assert "database.dump" in names
+        assert "manifest.json" in names
+        man = json.loads(tar.extractfile("manifest.json").read())
+        assert man["kind"] == "pg_dump_full"
+        assert man["version"] == "6"
+        assert tar.extractfile("database.dump").read()[:5] == b"PGDMP"
 
 
 def test_service_logo_files(tmp_path, monkeypatch):
@@ -166,15 +293,7 @@ def test_service_logo_files(tmp_path, monkeypatch):
 
 
 def test_build_payload_includes_audit_when_requested(monkeypatch):
-    monkeypatch.setattr(hb, "_snapshot_servers", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_users", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_totp_backup_codes", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_trusted_devices", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_docker_versions", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_push_vapid", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_push_subscriptions", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_push_preferences", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_notifications", lambda: [])
+    _mock_empty_snapshots(monkeypatch)
     monkeypatch.setattr("app.services.herder_backup.load_settings", lambda: {})
     monkeypatch.setattr(hb, "_snapshot_audit", lambda since_days=None: [{"id": 9}])
 

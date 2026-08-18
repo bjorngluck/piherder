@@ -92,6 +92,14 @@ def get_api_auth(
     session: Session = Depends(get_session),
     authorization: Optional[str] = Header(None),
 ) -> ApiAuth:
+    from ..services.demo import reject_if_demo
+
+    demo_block = reject_if_demo("api_use")
+    if demo_block:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=demo_block,
+        )
     raw = authorization or ""
     if raw.lower().startswith("bearer "):
         plain = raw.split(" ", 1)[1].strip()
@@ -471,13 +479,19 @@ def admin_create_token(
     session: Session = Depends(get_session),
     user: User = Depends(get_admin_user),
 ):
-    row, plain = tok_svc.create_api_token(
-        session,
-        name=body.name,
-        created_by=user,
-        scopes=body.scopes,
-        allowed_cidrs=body.allowed_cidrs,
-    )
+    from ..services.demo import DemoBlocked, http_403_if_demo
+
+    http_403_if_demo("api_token")
+    try:
+        row, plain = tok_svc.create_api_token(
+            session,
+            name=body.name,
+            created_by=user,
+            scopes=body.scopes,
+            allowed_cidrs=body.allowed_cidrs,
+        )
+    except DemoBlocked as e:
+        raise HTTPException(status_code=403, detail=e.message) from e
     return {
         "token": tok_svc.token_public_dict(row),
         "secret": plain,

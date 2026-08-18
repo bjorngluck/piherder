@@ -308,7 +308,7 @@ MAP_PRESETS: dict[str, dict[str, Any]] = {
             "sh -c 'cp /src/fullchain.pem /src/privkey.pem /data/ && "
             "chown 472:0 /data/fullchain.pem /data/privkey.pem && "
             "chmod 644 /data/fullchain.pem && chmod 600 /data/privkey.pem' && "
-            "cd /home/bjorn/docker/grafana && docker compose restart grafana"
+            "cd /home/pi/docker/grafana && docker compose restart grafana"
         ),
         "help": (
             "Writes PEMs to the SSH user’s home, then a one-shot container copies them into "

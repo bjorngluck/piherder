@@ -9,7 +9,9 @@ import os
 from .database import init_db, engine
 from .models import Server, User
 from .routers import auth as auth_router
+from .routers import auth_oidc as auth_oidc_router
 from .routers import servers as servers_router
+from .routers import server_console as server_console_router
 from .routers import audit as audit_router
 from .routers import notifications as notifications_router
 from .routers import push as push_router
@@ -65,32 +67,66 @@ async def lifespan(app: FastAPI):
 
     # First boot: no default user. Empty DB → open /auth/register creates the admin;
     # registration then closes unless ALLOW_OPEN_REGISTRATION=true.
+    # Demo mode: auto-seed shared admin + synthetic fleet when empty.
     try:
+        from .services.demo import demo_mode
+        from .services.demo_seed import ensure_demo_seeded
+
         with Session(engine) as db:
-            existing = db.exec(select(User)).first()
-            if not existing:
-                print(
-                    "No users yet — open the UI and register the first admin account. "
-                    "Self-registration closes after that (unless ALLOW_OPEN_REGISTRATION=true)."
-                )
+            if demo_mode():
+                result = ensure_demo_seeded(db)
+                if result:
+                    print(f"Demo seed applied: {result}")
+                else:
+                    existing = db.exec(select(User)).first()
+                    print(
+                        f"Demo mode — fleet ready"
+                        + (f" (user: {existing.email})" if existing else "")
+                    )
             else:
-                print(f"Users present (example: {existing.email})")
+                existing = db.exec(select(User)).first()
+                if not existing:
+                    print(
+                        "No users yet — open the UI and register the first admin account. "
+                        "Self-registration closes after that (unless ALLOW_OPEN_REGISTRATION=true)."
+                    )
+                else:
+                    print(f"Users present (example: {existing.email})")
     except Exception as e:
-        logger.warning("User bootstrap check skipped: %s", e)
+        logger.warning("User bootstrap / demo seed skipped: %s", e)
 
     # Warn on insecure production defaults (dev compose still works)
     try:
         from .config import settings as _cfg
 
-        if (_cfg.SECRET_KEY or "").strip() in ("", "dev-secret-change-in-prod"):
+        from .security.auth import is_weak_secret_key
+        from .services.demo import demo_mode as _demo_mode
+
+        _weak = is_weak_secret_key(getattr(_cfg, "SECRET_KEY", None))
+        _allow_insecure = bool(getattr(_cfg, "PIHERDER_ALLOW_INSECURE", False))
+        if _weak and not _allow_insecure and not _demo_mode():
+            raise SystemExit(
+                "SECRET_KEY is missing or a documented default. "
+                "Set a long random SECRET_KEY in .env, or "
+                "PIHERDER_ALLOW_INSECURE=true for a disposable lab only."
+            )
+        if _weak:
             print(
-                "WARNING: SECRET_KEY is the default/dev value — set a long random "
-                "SECRET_KEY in .env before production use."
+                "WARNING: SECRET_KEY is weak/default — PIHERDER_ALLOW_INSECURE "
+                "is on or DEMO_MODE is on. Do not use this instance for a real fleet."
             )
         if not (_cfg.METRICS_TOKEN or "").strip():
             print(
                 "NOTE: METRICS_TOKEN is unset — GET /metrics is open on the app port. "
                 "Set a bearer token (or firewall) for production scrapes."
+            )
+        _cidrs = (_cfg.PIHERDER_TRUSTED_PROXY_CIDRS or "").strip()
+        if _cidrs:
+            print(f"Trusted proxy CIDRs: {_cidrs}")
+        else:
+            print(
+                "NOTE: PIHERDER_TRUSTED_PROXY_CIDRS is empty — "
+                "X-Forwarded-For / CF-Connecting-IP are ignored (TCP peer only)."
             )
     except Exception as e:
         logger.warning("Startup config checks skipped: %s", e)
@@ -174,6 +210,11 @@ async def lifespan(app: FastAPI):
 
 
 from .version_info import APP_VERSION as _APP_VERSION
+from .config import settings as _boot_settings
+
+# Public demo VPS: do not register interactive OpenAPI routes at all.
+# Runtime gate (middleware) still applies when DEMO_MODE is toggled after import.
+_demo_boot = bool(getattr(_boot_settings, "PIHERDER_DEMO_MODE", False))
 
 app = FastAPI(
     title="PiHerder",
@@ -184,6 +225,9 @@ app = FastAPI(
     ),
     version=_APP_VERSION,
     lifespan=lifespan,
+    docs_url=None if _demo_boot else "/docs",
+    redoc_url=None if _demo_boot else "/redoc",
+    openapi_url=None if _demo_boot else "/openapi.json",
     openapi_tags=[
         {
             "name": "api-v1",
@@ -253,8 +297,88 @@ class SameOriginPostMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class DemoOpenApiGateMiddleware(BaseHTTPMiddleware):
+    """Public demo: hide /openapi.json, /docs, /redoc (404).
+
+    Complements boot-time ``openapi_url=None`` so tests that flip DEMO_MODE after
+    import still get a hard gate without reloading the app.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        from .services.demo import is_openapi_docs_path, openapi_docs_disabled
+
+        if openapi_docs_disabled() and is_openapi_docs_path(request.url.path or "/"):
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse(status_code=404, content={"detail": "Not Found"})
+        return await call_next(request)
+
+
+class DemoWriteGuardMiddleware(BaseHTTPMiddleware):
+    """Public demo: block mutating requests that would trash the shared sandbox.
+
+    Allowlist (see ``demo.demo_write_allowed``): login, canned job runs,
+    notifications, favourites. Everything else POST/PUT/PATCH/DELETE → 403
+    (connectors, DNS, certs, templates, settings, SSO, account sabotage, …).
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        from .services.demo import (
+            demo_mode,
+            demo_write_allowed,
+            demo_write_block_detail,
+        )
+
+        if not demo_mode():
+            return await call_next(request)
+        method = (request.method or "GET").upper()
+        path = request.url.path or "/"
+        if demo_write_allowed(method, path):
+            return await call_next(request)
+
+        detail = demo_write_block_detail()
+        accept = (request.headers.get("accept") or "").lower()
+        hx = (request.headers.get("hx-request") or "").lower() == "true"
+        if (
+            path.startswith("/api/")
+            or "application/json" in accept
+            or request.headers.get("content-type", "").startswith("application/json")
+        ):
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse(status_code=403, content={"detail": detail})
+        if hx:
+            from fastapi.responses import HTMLResponse
+
+            return HTMLResponse(
+                f'<div class="p-3 banner-warning border border-border rounded text-sm" role="alert">'
+                f"{detail}</div>",
+                status_code=403,
+            )
+        # Browser form POST — bounce home with banner query (base may ignore; 403 body ok)
+        from fastapi.responses import HTMLResponse
+
+        return HTMLResponse(
+            f"<!DOCTYPE html><html><head><meta charset=utf-8><title>Demo</title></head>"
+            f"<body style='font-family:system-ui;padding:2rem;max-width:36rem'>"
+            f"<h1>Demo sandbox</h1><p>{detail}</p>"
+            f"<p><a href='/'>Back to dashboard</a></p></body></html>",
+            status_code=403,
+        )
+
+
 app.add_middleware(ClientIpMiddleware)
 app.add_middleware(SameOriginPostMiddleware)
+app.add_middleware(DemoWriteGuardMiddleware)
+app.add_middleware(DemoOpenApiGateMiddleware)
+
+# v1.2: CSP + baseline security headers (outermost among our custom stack so
+# they apply even when earlier middleware short-circuits… actually Starlette
+# runs last-added first on request, first-added last on response — add CSP
+# early so it runs late on the response and can still set headers.)
+from .security.headers import SecurityHeadersMiddleware
+
+app.add_middleware(SecurityHeadersMiddleware)
 
 # Optional CORS (opt-in allowlist). Default off — UI is same-origin; n8n/HA are server-side.
 # CORS is not an auth layer: /api/v1 still requires Bearer + scopes + IP allowlist.
@@ -324,7 +448,10 @@ from .routers import settings as settings_router
 from .services import scheduler as sched
 
 app.include_router(auth_router.router, prefix="/auth", tags=["auth"])
+app.include_router(auth_oidc_router.router, prefix="/auth", tags=["auth-oidc"])
 app.include_router(servers_router.router, prefix="/servers", tags=["servers"])
+app.include_router(server_console_router.router, prefix="/servers", tags=["console"])
+app.include_router(server_console_router.workspace_router, tags=["console"])
 app.include_router(audit_router.router, prefix="", tags=["audit"])
 app.include_router(notifications_router.router, prefix="", tags=["notifications"])
 app.include_router(push_router.router, prefix="", tags=["push"])

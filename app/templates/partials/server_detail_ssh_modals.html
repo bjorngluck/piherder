@@ -3,13 +3,32 @@
   <div class="modal-content card p-5 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between mb-3">
       <h3 class="font-semibold">SSH access — {{ server.name }}</h3>
-      <button type="button" onclick="hideSshAccessModal()" class="text-muted hover:text-text">✕</button>
+      <button type="button" onclick="hideSshAccessModal()" class="ph-icon-close" aria-label="Close">✕</button>
     </div>
     <p class="text-xs text-muted mb-3">
       <strong class="text-text font-mono">{{ server.ssh_username }}</strong>@{{ server.hostname }}:{{ server.ssh_port }}
       · {% if server.has_ssh_key %}key stored{% else %}<span class="text-warning">no private key</span>{% endif %}
       · {% if server.has_ssh_password %}password stored{% else %}no password{% endif %}
     </p>
+    <div class="border border-border rounded p-3 mb-3 text-xs">
+      <div class="font-medium text-sm text-text mb-1">Pinned host key</div>
+      {% if server.ssh_hostkey_fp %}
+      <p class="font-mono break-all text-text">{{ server.ssh_hostkey_fp }}
+        {% if server.ssh_hostkey_type %}<span class="text-muted">({{ server.ssh_hostkey_type }})</span>{% endif %}
+      </p>
+      <p class="text-muted mt-1">First successful connect stored this fingerprint. A different key on the next connect is refused (MITM / rebuilt host).</p>
+      <form method="post" action="/servers/{{ server.id }}/ssh/reset-host-key" class="mt-2 flex flex-wrap gap-2 items-end"
+            data-confirm="Clear the pinned host key for {{ server.name }}? The next Test connection will trust whatever key answers."
+            data-confirm-title="Reset SSH host key">
+        <label class="text-muted">Type server name
+          <input name="confirm_name" class="block bg-surface border border-border px-2 py-1 rounded font-mono min-h-9 mt-0.5" placeholder="{{ server.name }}" autocomplete="off">
+        </label>
+        <button type="submit" class="btn btn-secondary min-h-9 text-xs">Reset pin</button>
+      </form>
+      {% else %}
+      <p class="text-muted">Not pinned yet. The next successful SSH connect stores the host key (trust on first use).</p>
+      {% endif %}
+    </div>
 
     <div class="border border-border rounded p-3 mb-3 space-y-2">
       <div class="text-sm font-medium">SSH username in {{ ph_brand() }}</div>

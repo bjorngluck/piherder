@@ -1,0 +1,599 @@
+{% extends "base.html" %}
+
+{% block content %}
+{# Multi-host Web SSH workspace — host tabs keep each host's shells alive in iframes. #}
+<div id="cw" class="cw" data-testid="console-workspace-app">
+  <header class="cw-bar">
+    <div class="cw-brand">
+      <a href="/servers" class="cw-back" title="Back to servers">← Servers</a>
+      <strong class="cw-title">Console</strong>
+      <span class="cw-meta text-muted">multi-host</span>
+    </div>
+    <div class="cw-actions">
+      <button type="button" id="cw-maximize" class="btn btn-secondary text-xs min-h-9 px-2"
+              data-testid="cw-maximize" title="Fill the browser window">Maximize</button>
+      <button type="button" id="cw-hide-keep" class="btn btn-accent text-xs min-h-9 px-2"
+              data-testid="cw-hide-keep"
+              title="Leave console UI but keep shells soft-parked — reopen from ⌨ in the top bar">
+        Hide &amp; keep
+      </button>
+      <button type="button" id="cw-exit" class="btn btn-secondary text-xs min-h-9 px-2"
+              data-testid="cw-exit" title="End all shells and leave">Exit</button>
+    </div>
+  </header>
+  <p class="cw-dock-hint" id="cw-dock-hint">
+    <strong>Hide &amp; keep</strong> parks shells and returns to Servers — use <strong>⌨</strong> next to the alert bell to reopen.
+    Host tab <strong>×</strong> or <strong>Exit</strong> ends those sessions (frees shell slots).
+  </p>
+
+  <div class="cw-host-row" role="tablist" aria-label="Hosts">
+    <div id="cw-host-tabs" class="cw-host-tabs"></div>
+    <button type="button" id="cw-add-host" class="cw-add-host btn btn-accent text-xs min-h-9 px-2"
+            data-testid="cw-add-host" title="Open another host in a new tab">+ Host</button>
+  </div>
+
+  <div id="cw-frames" class="cw-frames">
+    <div id="cw-empty" class="cw-empty">
+      {% if not console_enabled %}
+      <p class="text-danger"><strong>Console is disabled.</strong> Set <code>PIHERDER_SSH_CONSOLE=true</code> and restart web.</p>
+      {% else %}
+      {% if demo_console|default(false) %}
+      <p class="text-warning text-sm mb-2" data-testid="demo-console-workspace-banner"><strong>Demo console</strong> — simulated only (no live SSH).</p>
+      {% endif %}
+      <p class="text-text font-medium mb-2">No host open yet</p>
+      <p class="text-sm text-muted mb-3">Click <strong class="text-text">+ Host</strong> or open Console from a server page.</p>
+      <button type="button" class="btn btn-accent min-h-11" id="cw-empty-add">+ Host</button>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# Host picker modal #}
+<div id="cw-picker" class="cw-picker hidden" role="dialog" aria-modal="true" aria-label="Choose host">
+  <div class="cw-picker-panel card">
+    <div class="flex items-center justify-between gap-2 mb-3">
+      <h2 class="text-base font-semibold text-text m-0">Open host</h2>
+      <button type="button" id="cw-picker-close" class="btn btn-secondary text-xs min-h-9 px-2">Close</button>
+    </div>
+    <input type="search" id="cw-picker-q" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11 mb-3"
+           placeholder="Filter hosts…" autocomplete="off" data-testid="cw-picker-q">
+    <ul id="cw-picker-list" class="cw-picker-list"></ul>
+    <p class="text-[11px] text-muted mt-2 mb-0">Max {{ max_shells }} shells across all hosts.</p>
+  </div>
+</div>
+
+<style>
+  .cw {
+    display: flex; flex-direction: column;
+    height: 100%; min-height: 0; flex: 1 1 auto;
+    background: var(--color-bg, #0b0f14);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  .cw.is-kb {
+    /* soft keyboard: height set in px from visualViewport */
+  }
+  .cw-bar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 0.5rem; padding: 0.45rem 0.65rem;
+    border-bottom: 1px solid var(--color-border, #333);
+    background: var(--color-surface, #12171e);
+    flex-shrink: 0;
+  }
+  .cw-brand { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem 0.75rem; min-width: 0; }
+  .cw-back { color: var(--color-primary, #60a5fa); text-decoration: none; font-size: 0.8rem; }
+  .cw-back:hover { text-decoration: underline; }
+  .cw-title { font-size: 0.95rem; color: var(--color-text, #e6edf3); }
+  .cw-meta { font-size: 0.7rem; }
+  .cw-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .cw-dock-hint {
+    margin: 0; padding: 0.35rem 0.65rem;
+    font-size: 0.72rem; line-height: 1.35;
+    color: var(--color-muted, #9ca3af);
+    background: var(--color-surface, #12171e);
+    border-bottom: 1px solid var(--color-border, #333);
+    flex-shrink: 0;
+  }
+  .cw.is-max .cw-dock-hint { display: none; }
+  .cw-host-row {
+    display: flex; align-items: center; gap: 0.35rem;
+    padding: 0.35rem 0.5rem;
+    border-bottom: 1px solid var(--color-border, #333);
+    background: var(--color-surface, #12171e);
+    flex-shrink: 0; overflow-x: auto;
+  }
+  .cw-host-tabs { display: flex; flex-wrap: nowrap; gap: 0.3rem; flex: 1 1 auto; min-width: 0; }
+  .cw-host-tab {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.4rem 0.55rem; border-radius: 0.4rem; font-size: 0.8rem;
+    border: 1px solid var(--color-border, #333); background: transparent;
+    color: inherit; cursor: pointer; white-space: nowrap; min-height: 2.1rem;
+  }
+  .cw-host-tab.is-active {
+    border-color: var(--color-accent, #22c55e);
+    background: rgba(34, 197, 94, 0.1);
+  }
+  .cw-host-tab .x {
+    opacity: 0.55; border: 0; background: transparent; color: inherit;
+    cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.15rem;
+  }
+  .cw-host-tab .x:hover { opacity: 1; color: #f87171; }
+  .cw-add-host { flex-shrink: 0; }
+  .cw-frames {
+    position: relative; flex: 1 1 auto; min-height: 0;
+    background: #0b0f14;
+  }
+  /*
+    Inactive hosts stay in the layout with full size but inert.
+    Do NOT use visibility:hidden — mobile browsers freeze/kill WebSockets
+    in hidden iframes, so host 1 dies when you open host 2.
+    opacity:0 + pointer-events:none keeps the PTY alive.
+  */
+  .cw-frame {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    border: 0; background: #0b0f14;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 0;
+    /* Keep compositing layer but not interactive */
+  }
+  .cw-frame.is-active {
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 2;
+  }
+  .cw-frames, .cw-frame {
+    min-height: 0;
+  }
+  .cw-empty {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; padding: 1.5rem; text-align: center;
+  }
+  .cw-empty.is-hidden { display: none; }
+  .cw.is-max {
+    position: fixed; inset: 0; z-index: 90;
+    width: 100vw; height: 100vh; height: 100dvh;
+  }
+  /* Maximized workspace: thinner top bars; keep + Host always visible */
+  .cw.is-max .cw-bar {
+    padding: 0.2rem 0.35rem;
+  }
+  .cw.is-max .cw-meta,
+  .cw.is-max .cw-back {
+    display: none;
+  }
+  .cw.is-max .cw-title { font-size: 0.78rem; }
+  .cw.is-max .cw-host-row {
+    padding: 0.15rem 0.3rem;
+  }
+  .cw.is-max .cw-host-tab {
+    min-height: 1.65rem;
+    padding: 0.2rem 0.35rem;
+    font-size: 0.7rem;
+  }
+  .cw.is-max .cw-actions .btn,
+  .cw.is-max .cw-add-host {
+    min-height: 1.65rem;
+    font-size: 0.7rem;
+    padding: 0.12rem 0.4rem;
+    display: inline-flex;
+  }
+  .cw-picker {
+    position: fixed; inset: 0; z-index: 100;
+    background: rgba(0,0,0,0.72);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
+  }
+  .cw-picker.hidden { display: none; }
+  .cw-picker-panel {
+    width: 100%; max-width: 28rem; max-height: min(80vh, 560px);
+    overflow: auto; padding: 1rem 1.1rem;
+  }
+  .cw-picker-list { list-style: none; margin: 0; padding: 0; }
+  .cw-picker-list li { margin: 0; }
+  .cw-picker-list button {
+    width: 100%; text-align: left; padding: 0.65rem 0.75rem;
+    border: 1px solid var(--color-border, #333); border-radius: 0.4rem;
+    background: transparent; color: inherit; cursor: pointer; margin-bottom: 0.35rem;
+    min-height: 2.75rem;
+  }
+  .cw-picker-list button:hover { border-color: var(--color-accent, #22c55e); }
+  .cw-picker-list button:disabled { opacity: 0.45; cursor: not-allowed; }
+  .cw-picker-list .sub { display: block; font-size: 0.7rem; color: var(--color-muted, #9ca3af); font-family: ui-monospace, monospace; }
+  @media (max-width: 640px) {
+    .cw-meta { display: none; }
+  }
+</style>
+
+<script>
+(function () {
+  var HOSTS = {{ hosts_json|safe }};
+  var initialId = {{ initial_host_id if initial_host_id is not none else 'null' }};
+  var initialIds = {{ (initial_host_ids if initial_host_ids is defined else [])|tojson }};
+  var enabled = {{ 'true' if console_enabled else 'false' }};
+  var LS_KEY = 'piherder.console.openHosts';
+
+  var root = document.getElementById('cw');
+  var tabsEl = document.getElementById('cw-host-tabs');
+  var framesEl = document.getElementById('cw-frames');
+  var emptyEl = document.getElementById('cw-empty');
+  var picker = document.getElementById('cw-picker');
+  var pickerList = document.getElementById('cw-picker-list');
+  var pickerQ = document.getElementById('cw-picker-q');
+  var btnAdd = document.getElementById('cw-add-host');
+  var btnEmptyAdd = document.getElementById('cw-empty-add');
+  var btnMax = document.getElementById('cw-maximize');
+  var btnHideKeep = document.getElementById('cw-hide-keep');
+  var btnExit = document.getElementById('cw-exit');
+  var btnPickerClose = document.getElementById('cw-picker-close');
+
+  // open host tabs: { id, name, elTab, elFrame }
+  var open = [];
+  var activeId = null;
+
+  /** In-app confirm (never window.confirm). */
+  function phConfirm(message, opts) {
+    opts = opts || {};
+    if (window.PiHerderConfirm && typeof window.PiHerderConfirm.confirm === 'function') {
+      return window.PiHerderConfirm.confirm(message, opts);
+    }
+    // Markup missing (should not happen on base layout)
+    return Promise.resolve(false);
+  }
+
+  function hostMeta(id) {
+    id = Number(id);
+    for (var i = 0; i < HOSTS.length; i++) {
+      if (Number(HOSTS[i].id) === id) return HOSTS[i];
+    }
+    return null;
+  }
+
+  function saveOpen() {
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(open.map(function (h) { return h.id; })));
+    } catch (e) {}
+  }
+
+  function loadSavedIds() {
+    try {
+      var raw = JSON.parse(localStorage.getItem(LS_KEY) || '[]');
+      if (!Array.isArray(raw)) return [];
+      return raw.map(Number).filter(function (n) { return n > 0; });
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function setEmpty() {
+    if (!emptyEl) return;
+    emptyEl.classList.toggle('is-hidden', open.length > 0);
+  }
+
+  function nudgeFrame(frame, action) {
+    if (!frame || !frame.contentWindow) return;
+    try {
+      frame.contentWindow.postMessage(
+        { type: 'piherder-console', action: action || 'layout' },
+        window.location.origin
+      );
+    } catch (e) {}
+  }
+
+  function layoutWorkspace() {
+    var root = document.getElementById('cw');
+    if (!root) return;
+    var vv = window.visualViewport;
+    var winH = window.innerHeight || document.documentElement.clientHeight || 0;
+    var h = (vv && vv.height > 0) ? Math.floor(vv.height) : Math.floor(winH);
+    var top = (vv && vv.offsetTop) ? Math.floor(vv.offsetTop) : 0;
+    var kb = !!(vv && winH > 0 && (h / winH) < 0.88);
+    if (kb && h >= 120) {
+      root.classList.add('is-kb');
+      root.style.height = h + 'px';
+      root.style.maxHeight = h + 'px';
+      root.style.transform = top > 0 ? ('translateY(' + top + 'px)') : '';
+    } else {
+      root.classList.remove('is-kb');
+      root.style.height = '';
+      root.style.maxHeight = '';
+      root.style.transform = '';
+    }
+    var cur = open.find(function (h) { return h.id === activeId; });
+    if (cur) {
+      nudgeFrame(cur.elFrame, 'layout');
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'refit'); }, 60);
+    }
+  }
+
+  function activate(id) {
+    activeId = id == null ? null : Number(id);
+    open.forEach(function (h) {
+      var on = h.id === activeId;
+      h.elTab.classList.toggle('is-active', on);
+      h.elFrame.classList.toggle('is-active', on);
+      // Explicit active flag for iframe JS (more reliable than getComputedStyle)
+      try {
+        h.elFrame.dataset.hostActive = on ? '1' : '0';
+      } catch (e) {}
+    });
+    setEmpty();
+    layoutWorkspace();
+    var cur = open.find(function (h) { return h.id === activeId; });
+    if (cur) {
+      try { cur.elFrame.focus(); } catch (e) {}
+      // Tell iframe it is the active host — resume/refit/focus shell
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'activate'); }, 40);
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'layout'); }, 140);
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'refit'); }, 280);
+      setTimeout(function () { nudgeFrame(cur.elFrame, 'activate'); }, 500);
+    }
+  }
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', layoutWorkspace);
+    window.visualViewport.addEventListener('scroll', layoutWorkspace);
+  }
+  window.addEventListener('resize', layoutWorkspace);
+  setTimeout(layoutWorkspace, 50);
+
+  function endShellsInFrame(frame) {
+    // Ask iframe to bye + discard parked tokens (frees MAX_PER_USER slots)
+    nudgeFrame(frame, 'end-all');
+  }
+
+  function closeHost(id, opts) {
+    opts = opts || {};
+    id = Number(id);
+    var idx = open.findIndex(function (h) { return h.id === id; });
+    if (idx < 0) return;
+    var h = open[idx];
+    if (!opts.keepParked) {
+      // End shells properly — blanking alone only soft-parks and leaks slots
+      endShellsInFrame(h.elFrame);
+    } else {
+      // Hide & keep: soft-park for top-bar resume
+      nudgeFrame(h.elFrame, 'park-for-dock');
+      nudgeFrame(h.elFrame, 'persist-dock');
+    }
+    // Brief delay so discard/bye can leave the iframe before unload
+    var unload = function () {
+      try { h.elFrame.src = 'about:blank'; } catch (e) {}
+      if (h.elTab.parentNode) h.elTab.parentNode.removeChild(h.elTab);
+      if (h.elFrame.parentNode) h.elFrame.parentNode.removeChild(h.elFrame);
+      open.splice(idx, 1);
+      saveOpen();
+      if (activeId === id) {
+        var next = open[idx] || open[idx - 1] || open[0] || null;
+        activate(next ? next.id : null);
+      } else {
+        setEmpty();
+      }
+    };
+    setTimeout(unload, opts.keepParked ? 120 : 180);
+  }
+
+  function requestCloseHost(id) {
+    id = Number(id);
+    var h = open.find(function (x) { return x.id === id; });
+    if (!h) return;
+    phConfirm(
+      'Close console for ' + h.name + '?\n\nOpen shells on this host will end and free shell slots.',
+      {
+        title: 'Close host',
+        confirmLabel: 'Close host',
+        cancelLabel: 'Keep open',
+        danger: true
+      }
+    ).then(function (ok) {
+      if (ok) closeHost(id);
+    });
+  }
+
+  function hideAndKeep() {
+    // Soft-park every host, then go to Servers — ⌨ restores
+    open.slice().forEach(function (h) {
+      nudgeFrame(h.elFrame, 'park-for-dock');
+      nudgeFrame(h.elFrame, 'persist-dock');
+    });
+    setTimeout(function () {
+      try {
+        if (window.PiHerderConsoleDock && window.PiHerderConsoleDock.refresh) {
+          window.PiHerderConsoleDock.refresh();
+        }
+      } catch (e) {}
+      window.location.href = '/servers';
+    }, 200);
+  }
+
+  function requestExit() {
+    if (!open.length) {
+      window.location.href = '/servers';
+      return;
+    }
+    phConfirm(
+      'Leave the console?\n\nAll open host tabs and shells will end (slots freed).\n\nUse “Hide & keep” if you want to resume from the ⌨ icon later.',
+      {
+        title: 'Exit console',
+        confirmLabel: 'End all & exit',
+        cancelLabel: 'Stay',
+        danger: true
+      }
+    ).then(function (ok) {
+      if (!ok) return;
+      open.slice().forEach(function (h) {
+        endShellsInFrame(h.elFrame);
+      });
+      setTimeout(function () {
+        open.slice().forEach(function (h) {
+          try { h.elFrame.src = 'about:blank'; } catch (e) {}
+        });
+        open = [];
+        saveOpen();
+        window.location.href = '/servers';
+      }, 220);
+    });
+  }
+
+  function openHost(id, opts) {
+    opts = opts || {};
+    if (!enabled) return;
+    id = Number(id);
+    if (!id) return;
+    var existing = open.find(function (h) { return h.id === id; });
+    if (existing) {
+      activate(id);
+      return;
+    }
+    var meta = hostMeta(id) || { id: id, name: 'Host ' + id, host: '', has_ssh: true };
+    var tab = document.createElement('button');
+    tab.type = 'button';
+    tab.className = 'cw-host-tab';
+    tab.setAttribute('role', 'tab');
+    tab.setAttribute('data-host-id', String(id));
+    tab.innerHTML = '<span class="lab"></span><span class="x" title="Close host" aria-label="Close">×</span>';
+    tab.querySelector('.lab').textContent = meta.name;
+
+    var frame = document.createElement('iframe');
+    frame.className = 'cw-frame';
+    frame.title = 'Console · ' + meta.name;
+    frame.setAttribute('allow', 'publickey-credentials-get *');
+    frame.setAttribute('referrerpolicy', 'same-origin');
+    // sk= cache-bust so soft-key JS updates are not stuck behind a cached iframe doc
+    frame.src = '/servers/' + id + '/console?embed=1&sk=18';
+
+    tab.addEventListener('click', function (ev) {
+      if (ev.target && ev.target.classList && ev.target.classList.contains('x')) {
+        ev.stopPropagation();
+        requestCloseHost(id);
+        return;
+      }
+      activate(id);
+    });
+
+    tabsEl.appendChild(tab);
+    framesEl.appendChild(frame);
+    open.push({ id: id, name: meta.name, elTab: tab, elFrame: frame });
+    saveOpen();
+    if (opts.activate !== false) activate(id);
+  }
+
+  function showPicker() {
+    if (!picker || !enabled) return;
+    renderPicker('');
+    picker.classList.remove('hidden');
+    if (pickerQ) { pickerQ.value = ''; pickerQ.focus(); }
+  }
+  function hidePicker() {
+    if (picker) picker.classList.add('hidden');
+  }
+
+  function renderPicker(q) {
+    if (!pickerList) return;
+    q = (q || '').toLowerCase().trim();
+    pickerList.innerHTML = '';
+    var openIds = {};
+    open.forEach(function (h) { openIds[h.id] = true; });
+    var n = 0;
+    HOSTS.forEach(function (h) {
+      var hay = (h.name + ' ' + (h.host || '')).toLowerCase();
+      if (q && hay.indexOf(q) < 0) return;
+      n++;
+      var li = document.createElement('li');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      var already = !!openIds[h.id];
+      var noSsh = !h.has_ssh;
+      btn.disabled = noSsh;
+      btn.innerHTML = '<span class="lab"></span><span class="sub"></span>';
+      btn.querySelector('.lab').textContent =
+        h.name + (already ? ' (open)' : '') + (noSsh ? ' — no SSH key' : '');
+      btn.querySelector('.sub').textContent = h.host || '';
+      btn.addEventListener('click', function () {
+        openHost(h.id);
+        hidePicker();
+      });
+      li.appendChild(btn);
+      pickerList.appendChild(li);
+    });
+    if (!n) {
+      var empty = document.createElement('li');
+      empty.innerHTML = '<p class="text-sm text-muted">No matching hosts.</p>';
+      pickerList.appendChild(empty);
+    }
+  }
+
+  function toggleMax() {
+    if (!root) return;
+    root.classList.toggle('is-max');
+    var on = root.classList.contains('is-max');
+    if (btnMax) btnMax.textContent = on ? 'Restore' : 'Maximize';
+    // Slim chrome in every open host iframe
+    open.forEach(function (h) {
+      try {
+        h.elFrame.contentWindow.postMessage(
+          { type: 'piherder-console', action: 'compact', on: on },
+          window.location.origin
+        );
+      } catch (e) {}
+    });
+    setTimeout(function () {
+      if (activeId != null) activate(activeId);
+    }, 80);
+  }
+
+  if (btnAdd) btnAdd.addEventListener('click', showPicker);
+  if (btnEmptyAdd) btnEmptyAdd.addEventListener('click', showPicker);
+  if (btnPickerClose) btnPickerClose.addEventListener('click', hidePicker);
+  if (btnMax) btnMax.addEventListener('click', toggleMax);
+  if (btnHideKeep) btnHideKeep.addEventListener('click', hideAndKeep);
+  if (btnExit) btnExit.addEventListener('click', requestExit);
+  // Phone Back → Hide & keep (park), not silent abandon with leaked slots
+  try {
+    history.pushState({ phMultiConsole: 1 }, '');
+  } catch (eHist) {}
+  window.addEventListener('popstate', function () {
+    if (open.length) {
+      hideAndKeep();
+    }
+  });
+  if (picker) {
+    picker.addEventListener('click', function (ev) {
+      if (ev.target === picker) hidePicker();
+    });
+  }
+  if (pickerQ) {
+    pickerQ.addEventListener('input', function () { renderPicker(pickerQ.value); });
+  }
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape' && picker && !picker.classList.contains('hidden')) {
+      hidePicker();
+    }
+  });
+
+  // Bootstrap from URL: ?host=1 and/or ?hosts=1,2,3 (Servers multi-select).
+  // Do NOT auto-reopen every host from localStorage (that re-opened earlier hosts
+  // when the user only wanted a new one). localStorage still remembers tabs the
+  // user opens in this session via openHost/saveOpen.
+  if (enabled) {
+    var boot = [];
+    if (Array.isArray(initialIds) && initialIds.length) {
+      boot = initialIds.map(Number).filter(function (n) { return n > 0; });
+    } else if (initialId) {
+      boot = [Number(initialId)];
+    }
+    // Dedupe while preserving order
+    var seenBoot = {};
+    boot = boot.filter(function (id) {
+      if (seenBoot[id]) return false;
+      seenBoot[id] = true;
+      return true;
+    });
+    boot.forEach(function (id, i) {
+      openHost(id, { activate: i === 0 });
+    });
+  }
+  setEmpty();
+})();
+</script>
+{% endblock %}
