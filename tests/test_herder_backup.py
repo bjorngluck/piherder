@@ -73,6 +73,44 @@ def test_clean_row_filters_unknown():
     assert isinstance(cleaned["created_at"], datetime)
 
 
+def _mock_empty_snapshots(monkeypatch) -> None:
+    """Stub every table snapshot so payload tests never open Postgres."""
+    for name in (
+        "_snapshot_servers",
+        "_snapshot_users",
+        "_snapshot_totp_backup_codes",
+        "_snapshot_trusted_devices",
+        "_snapshot_docker_versions",
+        "_snapshot_push_vapid",
+        "_snapshot_push_subscriptions",
+        "_snapshot_push_preferences",
+        "_snapshot_notifications",
+        "_snapshot_jobs",
+        "_snapshot_nmap_scan_runs",
+        "_snapshot_nmap_scan_schedules",
+        "_snapshot_nmap_devices",
+        "_snapshot_nmap_script_results",
+        "_snapshot_webauthn_credentials",
+        "_snapshot_managed_certificates",
+        "_snapshot_certificate_targets",
+        "_snapshot_service_templates",
+        "_snapshot_stack_deployments",
+        "_snapshot_service_dns_records",
+        "_snapshot_runtime_edges",
+        "_snapshot_topology_categories",
+        "_snapshot_topology_tags",
+        "_snapshot_visual_service_stacks",
+        "_snapshot_container_annotations",
+        "_snapshot_container_annotation_tags",
+        "_snapshot_port_annotations",
+        "_snapshot_user_favourites",
+        "_snapshot_api_tokens",
+        "_snapshot_integrations",
+        "_snapshot_integration_bindings",
+    ):
+        monkeypatch.setattr(hb, name, lambda: [])
+
+
 def test_build_payload_keys(monkeypatch):
     """Ensure expanded tables are always present in the archive JSON shape."""
     monkeypatch.setattr(hb, "_snapshot_servers", lambda: [{"id": 1, "name": "s"}])
@@ -255,15 +293,7 @@ def test_service_logo_files(tmp_path, monkeypatch):
 
 
 def test_build_payload_includes_audit_when_requested(monkeypatch):
-    monkeypatch.setattr(hb, "_snapshot_servers", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_users", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_totp_backup_codes", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_trusted_devices", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_docker_versions", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_push_vapid", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_push_subscriptions", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_push_preferences", lambda: [])
-    monkeypatch.setattr(hb, "_snapshot_notifications", lambda: [])
+    _mock_empty_snapshots(monkeypatch)
     monkeypatch.setattr("app.services.herder_backup.load_settings", lambda: {})
     monkeypatch.setattr(hb, "_snapshot_audit", lambda since_days=None: [{"id": 9}])
 
