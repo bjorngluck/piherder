@@ -260,9 +260,10 @@
       <p class="text-xs text-muted">Passkey step-up active — submit to remove password.</p>
       {% elif has_2fa and has_totp %}
       <div>
-        <label class="block text-sm text-muted mb-1">Authenticator or backup code</label>
+        <label class="block text-sm text-muted mb-1">Authenticator or backup code{% if has_passkeys %} (or confirm with passkey first){% endif %}</label>
         <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
-               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" required>
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
+               {% if not has_passkeys %}required{% endif %}>
       </div>
       {% elif has_2fa and has_passkeys %}
       <p class="text-xs text-muted">Confirm with <strong class="text-text">passkey</strong> (step-up card) first, then submit.</p>
@@ -297,9 +298,10 @@
       <p class="text-xs text-muted">Passkey step-up active — submit to set password.</p>
       {% elif has_2fa and has_totp %}
       <div>
-        <label class="block text-sm text-muted mb-1">Authenticator or backup code</label>
+        <label class="block text-sm text-muted mb-1">Authenticator or backup code{% if has_passkeys %} (or confirm with passkey first){% endif %}</label>
         <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
-               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" required>
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
+               {% if not has_passkeys %}required{% endif %}>
       </div>
       {% elif has_2fa and has_passkeys %}
       <p class="text-xs text-muted">Confirm with passkey (step-up card) first, then submit.</p>
@@ -332,9 +334,10 @@
           <p class="text-xs text-muted">Using passkey step-up for this action.</p>
           {% elif has_2fa and has_totp %}
           <div>
-            <label class="block text-xs text-muted mb-1">Authenticator or backup code</label>
+            <label class="block text-xs text-muted mb-1">Authenticator or backup code{% if has_passkeys %} (or confirm with passkey first){% endif %}</label>
             <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
-                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" required>
+                   class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
+                   {% if not has_passkeys %}required{% endif %}>
           </div>
           {% elif has_2fa and has_passkeys %}
           <p class="text-xs text-muted">Confirm with passkey (step-up card) first, then Unlink.</p>
@@ -369,9 +372,10 @@
       <p class="text-xs text-muted">Using passkey step-up for this action.</p>
       {% elif has_2fa and has_totp %}
       <div>
-        <label class="block text-sm text-muted mb-1">Authenticator or backup code</label>
+        <label class="block text-sm text-muted mb-1">Authenticator or backup code{% if has_passkeys %} (or confirm with passkey first){% endif %}</label>
         <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
-               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11" required>
+               class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11"
+               {% if not has_passkeys %}required{% endif %}>
       </div>
       {% elif has_2fa and has_passkeys %}
       <p class="text-xs text-muted">Confirm with passkey (step-up card) first, then Link.</p>
@@ -550,13 +554,28 @@
           </div>
           <button type="submit" class="btn btn-secondary text-xs min-h-9 px-2">Rename</button>
         </form>
-        <form method="post" action="/auth/account/webauthn/{{ pk.id }}/revoke" class="flex flex-wrap gap-2 items-end"
+        <form method="post" action="/auth/account/webauthn/{{ pk.id }}/revoke" class="space-y-2"
               onsubmit="return confirm('Remove this passkey?');">
-          <div class="flex-1 min-w-[8rem]">
+          {% if has_2fa and account_stepup_active %}
+          <p class="text-[11px] text-muted">Using passkey step-up for this action.</p>
+          {% elif has_2fa %}
+          {% if has_totp %}
+          <div>
+            <label class="block text-[10px] text-muted mb-0.5">Authenticator or backup code{% if has_passkeys %} (or confirm with passkey above){% endif %}</label>
+            <input name="totp_code" type="text" inputmode="numeric" autocomplete="one-time-code"
+                   class="w-full bg-surface border border-border px-2 py-1.5 rounded text-sm min-h-9"
+                   {% if not has_passkeys %}required{% endif %}>
+          </div>
+          {% elif has_passkeys %}
+          <p class="text-[11px] text-muted">Confirm with <strong class="text-text">passkey</strong> (step-up card) first, then Revoke.</p>
+          {% endif %}
+          {% elif password_login_enabled %}
+          <div>
             <label class="block text-[10px] text-muted mb-0.5">Password to revoke</label>
             <input name="current_password" type="password" required autocomplete="current-password"
                    class="w-full bg-surface border border-border px-2 py-1.5 rounded text-sm min-h-9">
           </div>
+          {% endif %}
           <button type="submit" class="btn btn-danger text-xs min-h-9 px-2">Revoke</button>
         </form>
       </li>

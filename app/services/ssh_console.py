@@ -106,27 +106,56 @@ def default_scrollback() -> int:
 
 def grant_minutes() -> int:
     """How long a post-2FA console grant lasts (additional shells without re-TOTP)."""
-    return max(2, int(getattr(settings, "PIHERDER_SSH_CONSOLE_GRANT_MIN", 10) or 10))
+    import os
+
+    if "PIHERDER_SSH_CONSOLE_GRANT_MIN" in os.environ:
+        return max(2, int(getattr(settings, "PIHERDER_SSH_CONSOLE_GRANT_MIN", 10) or 10))
+    try:
+        from .account_stepup import stepup_minutes
+
+        return max(2, stepup_minutes("console"))
+    except Exception:
+        return max(2, int(getattr(settings, "PIHERDER_SSH_CONSOLE_GRANT_MIN", 10) or 10))
 
 
 def require_2fa_every_shell() -> bool:
     """If true, never skip 2FA via grant cookie (each New shell re-prompts)."""
-    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL", False))
+    try:
+        from .account_stepup import console_require_2fa_every_shell
+
+        return console_require_2fa_every_shell()
+    except Exception:
+        return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_REQUIRE_2FA_EVERY_SHELL", False))
 
 
 def allow_backup_codes() -> bool:
     """Backup codes are weak for shell step-up (paper/stolen codes). Default off."""
-    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES", False))
+    try:
+        from .account_stepup import console_allow_backup_codes
+
+        return console_allow_backup_codes()
+    except Exception:
+        return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_ALLOW_BACKUP_CODES", False))
 
 
 def prefer_passkey() -> bool:
     """UI + messaging prefer WebAuthn when the user has a passkey enrolled."""
-    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_PREFER_PASSKEY", True))
+    try:
+        from .account_stepup import console_prefer_passkey
+
+        return console_prefer_passkey()
+    except Exception:
+        return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_PREFER_PASSKEY", True))
 
 
 def require_passkey_if_enrolled() -> bool:
     """If true and user has passkeys, reject TOTP for console (passkey only)."""
-    return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY", False))
+    try:
+        from .account_stepup import console_require_passkey
+
+        return console_require_passkey()
+    except Exception:
+        return bool(getattr(settings, "PIHERDER_SSH_CONSOLE_REQUIRE_PASSKEY", False))
 
 
 def bind_ip_enabled() -> bool:

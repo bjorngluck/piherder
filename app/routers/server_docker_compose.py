@@ -257,7 +257,7 @@ async def edit_compose(
         except Exception:
             errors = []
 
-    from ..security.auth import SECRETS_UNLOCK_MINUTES
+    from ..security.auth import secrets_unlock_minutes
     from ..services import webauthn_svc as wa_svc
 
     has_totp = wa_svc.totp_active(user)
@@ -289,7 +289,7 @@ async def edit_compose(
             "user_has_2fa": has_totp or has_pk,
             "has_totp": has_totp,
             "has_passkeys": has_pk,
-            "secrets_unlock_minutes": SECRETS_UNLOCK_MINUTES,
+            "secrets_unlock_minutes": secrets_unlock_minutes(),
             "unlock_error": request.query_params.get("unlock_error"),
             "template_deployment": (
                 {

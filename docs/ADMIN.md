@@ -124,17 +124,23 @@ Timezone, security policy, fleet defaults, PiHerder self-backup **run/restore/do
 
 ---
 
-## 3. Security policy (force 2FA)
+## 3. Security policy (password + 2FA)
 
-**Where:** **Settings** (`/herder-backups?tab=general`) → **Security policy**.
+**Where:** **Settings** (`/herder-backups?tab=general`) → **Security policy**. **Available from v1.3.**
 
 | Setting | Effect |
 |---------|--------|
-| **Force 2FA for all** | Every user without TOTP **or** a passkey is redirected to `/auth/force-2fa` before the fleet UI. Applies after **password and SSO** login. Password change-on-first-login still runs first if required. |
+| **Password rules** | Min/max length (floor 8, ceiling 72), required character classes. Live text on register / account / admin / recover-admin. Audited. |
+| **Who must enrol 2FA** | Off · admins · operators+ · everyone. Replaces the old all-or-nothing checkbox. |
+| **Grace** | 0–60 days after the policy is turned on (home-lab). 0 = immediate wall. |
+| **Trusted device** | Login 2FA skip stays on by default (v1.2). Enrol-wall skip is **off** by default. |
+| **Step-up windows** | Minutes for Account actions, secrets view, and console grant. |
+| **Allowed factors** | Per surface (login / account / secrets / console) × TOTP / passkey / backup. Console env still wins when set. |
+| **IdP MFA satisfies login 2FA** | **Default off.** Fail closed if the `amr` (or configured) claim is missing. Never skips Account / secrets / console step-up. |
 
-Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, SSO config, and self-backup schedule — restored with DB dumps and PiHerder self-backup (not a separate volume JSON file).
+Stored in PostgreSQL (`appsetting` singleton) with timezone, fleet check defaults, SSO config, and self-backup schedule.
 
-Optional 2FA (when not forced): Account → enable TOTP and/or **passkeys**, backup codes, optional trusted device. Trusted-device rows show **type** (from UA), **last IP**, and **friendly rename** via **✎ Edit** (inline form; not always visible). Wiki: [2FA](../wiki/account-security/two-factor.md).
+Account mutations (SSO unlink, passkey revoke) accept **any enrolled 2FA**. Password is only required when no 2FA is enrolled. Wiki: [2FA](../wiki/account-security/two-factor.md). Lost factors: [locked out](../wiki/troubleshooting/locked-out.md) / `./scripts/recover-admin.sh`.
 
 **Email password recovery (v1.1 G1-lite):** when SMTP is enabled under **Settings → Alerts**, login shows **Forgot password?** — one-hour hashed token email; rate-limited; no open reset without SMTP. Admins can still OOB-reset from **Users**.
 

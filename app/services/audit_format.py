@@ -68,6 +68,8 @@ _ACTION_LABELS = {
     "user_passkey_registered": "Passkey registered",
     "user_passkey_revoked": "Passkey revoked",
     "user_passkey_renamed": "Passkey renamed",
+    "password_policy_changed": "Password policy changed",
+    "security_policy_changed": "Security policy changed",
     "user_password_removed": "Password removed",
     "user_password_set": "Password set",
     "sso_login": "SSO login",

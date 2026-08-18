@@ -249,7 +249,9 @@ async def settings_page(
     tok_revoked = int(api_token_counts.get("revoked") or 0)
     tok_all = int(api_token_counts.get("all") or 0)
     stack_overall = (stack_report or {}).get("overall") if stack_report else None
-    force_2fa = bool(cfg.get("force_2fa"))
+    from ..services import account_stepup as _step
+
+    force_2fa = _step.force_2fa_required()
     sched_on = schedule_status == "enabled"
     tz_info = app_cfg.describe_timezone(cfg.get("timezone") or "UTC")
     tz_short = tz_info.get("city") or (cfg.get("timezone") or "UTC").split("/")[-1]
@@ -1019,6 +1021,10 @@ async def save_backup_schedule(
 @router.post("/herder-backups/security")
 async def save_security_policy(
     force_2fa: Optional[str] = Form(None),
+    force_2fa_scope: str = Form("off"),
+    force_2fa_grace_days: int = Form(0),
+    force_2fa_trusted_skip_enroll: Optional[str] = Form(None),
+    login_trusted_skip_2fa: Optional[str] = Form(None),
     template_require_2fa: Optional[str] = Form(None),
     password_min_length: int = Form(10),
     password_max_length: int = Form(72),
@@ -1026,14 +1032,38 @@ async def save_security_policy(
     password_require_lower: Optional[str] = Form(None),
     password_require_digit: Optional[str] = Form(None),
     password_require_special: Optional[str] = Form(None),
+    stepup_account_minutes: int = Form(5),
+    stepup_secrets_minutes: int = Form(10),
+    stepup_console_minutes: int = Form(10),
+    factor_login_totp: Optional[str] = Form(None),
+    factor_login_passkey: Optional[str] = Form(None),
+    factor_login_backup: Optional[str] = Form(None),
+    factor_account_totp: Optional[str] = Form(None),
+    factor_account_passkey: Optional[str] = Form(None),
+    factor_account_backup: Optional[str] = Form(None),
+    factor_secrets_totp: Optional[str] = Form(None),
+    factor_secrets_passkey: Optional[str] = Form(None),
+    factor_secrets_backup: Optional[str] = Form(None),
+    factor_console_totp: Optional[str] = Form(None),
+    factor_console_passkey: Optional[str] = Form(None),
+    factor_console_backup: Optional[str] = Form(None),
+    console_require_2fa_every_shell: Optional[str] = Form(None),
+    console_allow_backup_codes: Optional[str] = Form(None),
+    console_prefer_passkey: Optional[str] = Form(None),
+    console_require_passkey: Optional[str] = Form(None),
+    oidc_idp_mfa_satisfies_login_2fa: Optional[str] = Form(None),
+    oidc_idp_mfa_claim: str = Form("amr"),
     user: User = Depends(get_admin_user),
     session: Session = Depends(get_session),
 ):
+    from ..services import account_stepup as step
     from ..services.demo import http_403_if_demo
 
     # Shared demo: force-2FA would lock every visitor out of the shared account
     http_403_if_demo("settings_security")
-    before = pwpol.policy_summary()
+    before_pw = pwpol.policy_summary()
+    prev = app_cfg.load_settings()
+    before_t = step.policy_audit_summary(prev)
     policy_keys = pwpol.settings_from_policy(
         {
             "password_min_length": password_min_length,
@@ -1044,29 +1074,87 @@ async def save_security_policy(
             "password_require_special": _form_on(password_require_special),
         }
     )
+    # Legacy checkbox still accepted if scope omitted
+    scope = (force_2fa_scope or "").strip().lower()
+    if scope not in step.FORCE_SCOPES:
+        scope = "all" if _form_on(force_2fa) else "off"
+    prev_scope = step.force_2fa_scope(prev)
+    grace_days = max(
+        step.GRACE_DAYS_MIN, min(step.GRACE_DAYS_MAX, int(force_2fa_grace_days or 0))
+    )
+    grace_since = str(prev.get("force_2fa_grace_since") or "").strip()
+    if scope == "off":
+        grace_since = ""
+    elif prev_scope == "off":
+        grace_since = datetime.utcnow().isoformat() + "Z"
+    claim = (oidc_idp_mfa_claim or "amr").strip()[:64] or "amr"
+
+    def _win(raw, default):
+        return max(step.WINDOW_MIN, min(step.WINDOW_MAX, int(raw if raw is not None else default)))
+
+    t_keys = {
+        "force_2fa": scope == "all",
+        "force_2fa_scope": scope,
+        "force_2fa_grace_days": grace_days,
+        "force_2fa_grace_since": grace_since,
+        "force_2fa_trusted_skip_enroll": _form_on(force_2fa_trusted_skip_enroll),
+        "login_trusted_skip_2fa": _form_on(login_trusted_skip_2fa),
+        "template_require_2fa": _form_on(template_require_2fa),
+        "stepup_account_minutes": _win(stepup_account_minutes, 5),
+        "stepup_secrets_minutes": _win(stepup_secrets_minutes, 10),
+        "stepup_console_minutes": _win(stepup_console_minutes, 10),
+        "factor_login_totp": _form_on(factor_login_totp),
+        "factor_login_passkey": _form_on(factor_login_passkey),
+        "factor_login_backup": _form_on(factor_login_backup),
+        "factor_account_totp": _form_on(factor_account_totp),
+        "factor_account_passkey": _form_on(factor_account_passkey),
+        "factor_account_backup": _form_on(factor_account_backup),
+        "factor_secrets_totp": _form_on(factor_secrets_totp),
+        "factor_secrets_passkey": _form_on(factor_secrets_passkey),
+        "factor_secrets_backup": _form_on(factor_secrets_backup),
+        "factor_console_totp": _form_on(factor_console_totp),
+        "factor_console_passkey": _form_on(factor_console_passkey),
+        "factor_console_backup": _form_on(factor_console_backup),
+        "console_require_2fa_every_shell": _form_on(console_require_2fa_every_shell),
+        "console_allow_backup_codes": _form_on(console_allow_backup_codes),
+        "console_prefer_passkey": _form_on(console_prefer_passkey),
+        "console_require_passkey": _form_on(console_require_passkey),
+        "oidc_idp_mfa_satisfies_login_2fa": _form_on(oidc_idp_mfa_satisfies_login_2fa),
+        "oidc_idp_mfa_claim": claim,
+    }
     try:
-        app_cfg.save_settings(
-            {
-                "force_2fa": _form_on(force_2fa),
-                "template_require_2fa": _form_on(template_require_2fa),
-                **policy_keys,
-            }
-        )
+        saved = app_cfg.save_settings({**t_keys, **policy_keys})
     except Exception as e:
         return RedirectResponse(
             _settings_url("general", error=str(e)[:120]), status_code=303
         )
-    after = pwpol.policy_summary()
-    if after != before:
+    after_pw = pwpol.policy_summary()
+    after_t = step.policy_audit_summary(saved)
+    bits = []
+    if after_pw != before_pw:
+        bits.append(f"password {before_pw} → {after_pw}")
+    if after_t != before_t:
+        bits.append(f"2fa {before_t} → {after_t}")
+    if bits:
         session.add(
             make_audit_log(
                 user_id=user.id,
-                action="password_policy_changed",
+                action="security_policy_changed",
                 status="success",
-                details=f"{before} → {after}",
+                details="; ".join(bits),
                 finished_at=datetime.utcnow(),
             )
         )
+        if after_pw != before_pw:
+            session.add(
+                make_audit_log(
+                    user_id=user.id,
+                    action="password_policy_changed",
+                    status="success",
+                    details=f"{before_pw} → {after_pw}",
+                    finished_at=datetime.utcnow(),
+                )
+            )
         session.commit()
     return RedirectResponse(
         _settings_url("general", security_saved="1"), status_code=303

@@ -494,6 +494,7 @@ Success criteria:
 | 2026-08-18 | **T6 / KI-account-stepup-factors** from 1.2 QA: unlink TOTP-first; passkey revoke password-only. |
 | 2026-08-18 | **Train opened** on `v1.3.0-dev`. Must/Should locked. Phase 1 current. Package version stays `1.2.0` until freeze. |
 | 2026-08-18 | **Slice 1 Deep signed.** Policy Must = **P + T1–T6**. Force-2FA grace **0–60** days (home-lab). Destructive-job step-up Cap. |
+| 2026-08-18 | **Slice 1 landed** on `v1.3.0-dev`: Settings password policy + force-2FA scope/grace + step-up windows + factor matrix + T6 any-factor mutations + T4 IdP MFA opt-in (fail closed). |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
@@ -508,9 +509,9 @@ Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3�
 |---|------|--------|
 | 1 | Finish **v1.2.0** freeze / tag / Hub | **Done** — `v1.2.0` tagged · Hub multi-arch published |
 | 2 | Open **`v1.3.0-dev`** + lock Must/Should | **Done** 2026-08-18 |
-| 3 | Spike **L1** shared list component + **P1** settings schema | **Next** (Phase 1) |
-| 4 | Spike **W-id** model + console ticket identity field (no UI polish) | Phase 1 (parallel) |
-| 5 | Land **T6** factor-agnostic account step-up | Phase 2 Must |
+| 3 | Slice 1 Deep **P + T1–T6** | **P landed** · T1–T6 this commit |
+| 4 | Spike **W-id** model + console ticket identity field (no UI polish) | After slice 1 |
+| 5 | Spike **L1** shared list chrome | After slice 1 |
 | 6 | Spike **W-audit0** PTY capture + redaction; promote or Cap | After W-id core |
 | 7 | Run **N0** insights discovery (one-pager) → **N2** | Phase 3 |
 | 8 | Run **F0** files sign-off → **F2** (flag off until ready) | Phase 3 |

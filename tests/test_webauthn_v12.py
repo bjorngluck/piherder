@@ -219,7 +219,9 @@ def test_oidc_stepup_accepts_account_stepup_cookie():
 def test_post_login_path_force_2fa_passkey(monkeypatch):
     from app.security import auth as auth_mod
 
-    monkeypatch.setattr(auth_mod, "force_2fa_required", lambda: True)
+    monkeypatch.setattr(
+        "app.services.account_stepup.force_2fa_applies", lambda *a, **k: True
+    )
     user = SimpleNamespace(id=1, must_change_password=False, totp_enabled=False)
     session = MagicMock()
     with patch.object(auth_mod, "user_has_second_factor", return_value=True):

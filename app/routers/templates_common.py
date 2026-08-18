@@ -17,6 +17,7 @@ from ..models import AuditLog, User
 from ..security.auth import (
     SECRETS_UNLOCK_COOKIE,
     SECRETS_UNLOCK_MINUTES,
+    secrets_unlock_minutes,
     consume_backup_code,
     create_secrets_unlock_token,
     decrypt_totp_secret,
@@ -139,7 +140,7 @@ def _check_secrets_unlocked(request: Request, session: Session, user: User) -> N
         raise HTTPException(
             403,
             "Complete step-up 2FA under View secrets (passkey or authenticator code) to unlock "
-            f"cleartext (expires after {SECRETS_UNLOCK_MINUTES} minutes).",
+            f"cleartext (expires after {secrets_unlock_minutes()} minutes).",
         )
 
 
@@ -183,7 +184,7 @@ def _set_secrets_unlock_cookie(response, user: User) -> None:
     response.set_cookie(
         SECRETS_UNLOCK_COOKIE,
         token,
-        **cookie_auth_kwargs(max_age=SECRETS_UNLOCK_MINUTES * 60),
+        **cookie_auth_kwargs(max_age=secrets_unlock_minutes() * 60),
     )
 
 
@@ -206,7 +207,7 @@ def _secrets_ui_context(request: Request, session: Session, user: User) -> dict:
         "has_totp": has_totp,
         "has_passkeys": has_pk,
         "secrets_revealed": _secrets_revealed(request, user),
-        "secrets_unlock_minutes": SECRETS_UNLOCK_MINUTES,
+        "secrets_unlock_minutes": secrets_unlock_minutes(),
     }
 
 
