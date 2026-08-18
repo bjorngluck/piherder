@@ -399,7 +399,7 @@ You will sign in with SSO only. You can set a password again anytime.
 1. Read claim path (`groups` array, or nested JSON path).  
 2. First matching map entry wins (document order) **or** highest privilege wins — **lock: highest privilege wins** among matched groups (`admin` > `operator` > `viewer`).  
 3. No match → `oidc_default_role` (viewer).  
-4. On login with sync on: update `user.role` if changed; audit `user_role_changed` (source=`oidc`).  
+4. On login with sync on: update `user.role` if changed; audit `user_role_changed` (source=`oidc`). Sole-admin demotion is skipped and audited as `user_role_sync_skipped`.  
 5. Local-only users (no link): role only via Users admin.
 
 **Break-glass:** optional seed/docs: first admin created at onboard is break-glass; not demoted by missing IdP groups when `oidc_protect_break_glass` (default true) — if set, skip role sync demotion for that user.

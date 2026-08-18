@@ -320,14 +320,21 @@ async def oidc_callback(request: Request, session: Session = Depends(get_session
                 session.add(ident)
             session.commit()
 
-        role_changed = oidc.maybe_sync_role(session, user, claims, cfg)
-        if role_changed:
+        sync_status, mapped_role = oidc.maybe_sync_role(session, user, claims, cfg)
+        if sync_status == "changed":
             session.commit()
             _audit(
                 session,
                 user.id,
                 "user_role_changed",
                 f"source=oidc role={user.role}",
+            )
+        elif sync_status == "skipped_sole_admin":
+            _audit(
+                session,
+                user.id,
+                "user_role_sync_skipped",
+                f"source=oidc reason=sole_admin kept=admin mapped={mapped_role}",
             )
 
         response = _finish_login(
@@ -348,16 +355,7 @@ async def oidc_callback(request: Request, session: Session = Depends(get_session
     except oidc.OidcFlowError as e:
         msg = str(e)[:200]
         _audit(session, None, "sso_login_failed", f"{msg} ip={ip}", status="failed")
-        # Map common messages to stable query codes
-        low = msg.lower()
-        if "already linked to another" in low:
-            code = "sso_link_conflict"
-        elif "already exists" in low:
-            code = "sso_email_conflict"
-        elif "disabled" in low:
-            code = "sso_inactive"
-        else:
-            code = "sso_denied"
+        code = oidc.map_oidc_flow_error(msg)
         dest = f"/auth/account?error={code}" if mode == "link" else f"/auth/login?error={code}"
         response = RedirectResponse(dest, status_code=303)
         _clear_oidc_state(response)

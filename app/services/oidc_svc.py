@@ -63,6 +63,55 @@ def normalize_issuer(issuer: str) -> str:
     return raw.rstrip("/")
 
 
+def accepted_jwt_issuers(
+    configured: str, discovery_issuer: Optional[str] = None
+) -> List[str]:
+    """Issuers we accept on the ID token ``iss`` claim.
+
+    Settings persist a slash-stripped issuer so identity rows stay stable.
+    Authentik (and some other IdPs) advertise a trailing slash on discovery
+    ``issuer`` and put that exact value in the ID token. PyJWT issuer check
+    is exact, so we accept both forms plus the discovery value.
+    """
+    seen: List[str] = []
+    for raw in (discovery_issuer, configured):
+        val = (raw or "").strip()
+        if not val:
+            continue
+        no_slash = val.rstrip("/")
+        candidates = (val, no_slash, f"{no_slash}/" if no_slash else "")
+        for cand in candidates:
+            if cand and cand not in seen:
+                seen.append(cand)
+    return seen
+
+
+def map_oidc_flow_error(message: str) -> str:
+    """Stable login/account ``?error=`` codes for OidcFlowError text."""
+    low = (message or "").lower()
+    if "already linked to another" in low:
+        return "sso_link_conflict"
+    if "already exists" in low:
+        return "sso_email_conflict"
+    if "disabled" in low:
+        return "sso_inactive"
+    if "email domain is not allowed" in low:
+        return "sso_domain"
+    if "email address is not verified" in low or "did not return an email" in low:
+        return "sso_email"
+    if (
+        "identity token" in low
+        or "nonce" in low
+        or "no identity" in low
+        or "did not return a subject" in low
+        or "rejected the login" in low
+        or "could not complete sign-in" in low
+        or "could not load user profile" in low
+    ):
+        return "sso_token"
+    return "sso_denied"
+
+
 def public_redirect_uri() -> str:
     base = (settings.PIHERDER_PUBLIC_URL or "").strip().rstrip("/")
     if not base:
@@ -429,8 +478,10 @@ def claims_from_tokens(token_response: dict, expected_nonce: Optional[str]) -> d
         try:
             claims = _decode_id_token(id_token, issuer=issuer, client_id=client_id)
         except Exception as e:
-            logger.warning("id_token validation failed: %s", e)
-            raise OidcFlowError("Invalid identity token from provider") from e
+            logger.warning("id_token validation failed: %s: %s", type(e).__name__, e)
+            raise OidcFlowError(
+                f"Invalid identity token from provider ({type(e).__name__})"
+            ) from e
         if expected_nonce and claims.get("nonce") and claims.get("nonce") != expected_nonce:
             raise OidcFlowError("Login state mismatch (nonce)")
     elif access_token:
@@ -453,12 +504,15 @@ def _decode_id_token(id_token: str, *, issuer: str, client_id: str) -> dict:
     algs = doc.get("id_token_signing_alg_values_supported") or ["RS256"]
     if isinstance(algs, str):
         algs = [algs]
+    allowed_iss = accepted_jwt_issuers(issuer, doc.get("issuer"))
+    if not allowed_iss:
+        raise OidcConfigError("OIDC issuer is not set")
     return jwt.decode(
         id_token,
         signing_key.key,
         algorithms=list(algs),
         audience=client_id,
-        issuer=issuer,
+        issuer=allowed_iss,
         options={"require": ["exp", "iat", "sub"]},
     )
 
@@ -635,24 +689,31 @@ def find_user_for_login(
     return user, "jit", None
 
 
-def maybe_sync_role(session: Session, user: User, claims: dict, cfg: Optional[dict] = None) -> bool:
+def maybe_sync_role(
+    session: Session, user: User, claims: dict, cfg: Optional[dict] = None
+) -> Tuple[str, str]:
+    """Apply group→role map on login.
+
+    Returns ``(status, mapped_role)``:
+    ``unchanged`` · ``changed`` · ``skipped_sole_admin``.
+    """
     cfg = cfg or oidc_settings()
-    if not cfg.get("oidc_sync_roles_on_login", True):
-        return False
-    new_role = map_role_from_claims(claims, cfg)
     old = normalize_role(getattr(user, "role", None))
+    if not cfg.get("oidc_sync_roles_on_login", True):
+        return "unchanged", old
+    new_role = map_role_from_claims(claims, cfg)
     if new_role == old:
-        return False
+        return "unchanged", old
     # Protect sole admin from demotion via missing groups
     if old == ROLE_ADMIN and new_role != ROLE_ADMIN:
         from ..security.auth import is_sole_admin
 
         if is_sole_admin(session, user):
             logger.info("Skipping OIDC role demotion for sole admin user_id=%s", user.id)
-            return False
+            return "skipped_sole_admin", new_role
     user.role = new_role
     session.add(user)
-    return True
+    return "changed", new_role
 
 
 def identity_public_dict(row: OidcIdentity) -> dict:

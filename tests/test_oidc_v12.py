@@ -4,6 +4,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import jwt
 import pytest
 
 from app.services import oidc_svc as oidc
@@ -14,6 +15,72 @@ from app.services import audit_format as af
 def test_normalize_issuer():
     assert oidc.normalize_issuer("https://idp.example.com/") == "https://idp.example.com"
     assert oidc.normalize_issuer("  https://a/b  ") == "https://a/b"
+
+
+def test_accepted_jwt_issuers_authentik_trailing_slash():
+    configured = "https://login.example/application/o/piherder"
+    advertised = "https://login.example/application/o/piherder/"
+    got = oidc.accepted_jwt_issuers(configured, advertised)
+    assert advertised in got
+    assert configured in got
+    # Settings strip the slash; ID token iss still matches
+    assert oidc.accepted_jwt_issuers(configured, None) == [
+        configured,
+        configured + "/",
+    ]
+
+
+def test_map_oidc_flow_error():
+    assert oidc.map_oidc_flow_error("Invalid identity token from provider (InvalidIssuerError)") == "sso_token"
+    assert oidc.map_oidc_flow_error("Email address is not verified at the identity provider") == "sso_email"
+    assert oidc.map_oidc_flow_error("Email domain is not allowed for SSO") == "sso_domain"
+    assert oidc.map_oidc_flow_error("This SSO identity is already linked to another account") == "sso_link_conflict"
+    assert oidc.map_oidc_flow_error("access denied") == "sso_denied"
+
+
+def test_decode_id_token_accepts_authentik_trailing_slash(monkeypatch):
+    """Regression: Authentik iss has a trailing slash; Settings store it stripped."""
+    import time
+
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pub = key.public_key()
+    advertised = "https://login.example/application/o/piherder/"
+    configured = "https://login.example/application/o/piherder"
+    now = int(time.time())
+    token = jwt.encode(
+        {
+            "iss": advertised,
+            "aud": "client-id",
+            "sub": "user-1",
+            "exp": now + 300,
+            "iat": now,
+        },
+        key,
+        algorithm="RS256",
+    )
+    monkeypatch.setattr(
+        oidc,
+        "fetch_discovery",
+        lambda iss: {
+            "jwks_uri": "https://login.example/jwks",
+            "issuer": advertised,
+            "id_token_signing_alg_values_supported": ["RS256"],
+        },
+    )
+
+    class _FakeJwk:
+        def __init__(self, *a, **k):
+            del a, k
+
+        def get_signing_key_from_jwt(self, _tok):
+            return SimpleNamespace(key=pub)
+
+    monkeypatch.setattr(oidc, "PyJWKClient", _FakeJwk)
+    claims = oidc._decode_id_token(token, issuer=configured, client_id="client-id")
+    assert claims["sub"] == "user-1"
+    assert claims["iss"] == advertised
 
 
 def test_map_role_highest_privilege():
@@ -163,11 +230,46 @@ def test_audit_labels_for_sso():
         "sso_link",
         "sso_unlink",
         "sso_user_provisioned",
+        "user_role_changed",
+        "user_role_sync_skipped",
         "user_password_removed",
         "user_password_set",
     ):
         assert af.action_label(key)
         assert af.action_label(key) != key or "_" not in key
+    assert af.action_label("user_role_sync_skipped") == "SSO role sync skipped"
+
+
+def test_maybe_sync_role_skips_sole_admin(monkeypatch):
+    user = SimpleNamespace(id=1, role="admin")
+    session = MagicMock()
+    cfg = {
+        "oidc_sync_roles_on_login": True,
+        "oidc_role_claim": "groups",
+        "oidc_role_map": {"viewers": "viewer"},
+        "oidc_default_role": "viewer",
+    }
+    monkeypatch.setattr("app.security.auth.is_sole_admin", lambda *_a, **_k: True)
+    status, mapped = oidc.maybe_sync_role(session, user, {"groups": ["viewers"]}, cfg)
+    assert status == "skipped_sole_admin"
+    assert mapped == "viewer"
+    assert user.role == "admin"
+
+
+def test_maybe_sync_role_demotes_when_not_sole(monkeypatch):
+    user = SimpleNamespace(id=1, role="admin")
+    session = MagicMock()
+    cfg = {
+        "oidc_sync_roles_on_login": True,
+        "oidc_role_claim": "groups",
+        "oidc_role_map": {"viewers": "viewer"},
+        "oidc_default_role": "viewer",
+    }
+    monkeypatch.setattr("app.security.auth.is_sole_admin", lambda *_a, **_k: False)
+    status, mapped = oidc.maybe_sync_role(session, user, {"groups": ["viewers"]}, cfg)
+    assert status == "changed"
+    assert mapped == "viewer"
+    assert user.role == "viewer"
 
 
 def test_state_token_roundtrip():
