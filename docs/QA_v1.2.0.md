@@ -236,7 +236,8 @@ Run against [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) **o
 | Trusted-device cookies survive logout | Documented |
 | 7-day session JWT | Documented (`ACCESS_TOKEN_EXPIRE_MINUTES`) |
 | No per-host ACL | 1.3 **AC-fg** |
-| Screenshots may still be 1.1 | Refresh shortly (accepted for freeze; not a code blocker) |
+| Screenshots may still be 1.1 | **Done** — 1.2 pack in `wiki/assets/screenshots/` (2026-08-18) |
+| **KI-account-stepup-factors** | Accepted — unlink TOTP-first; passkey revoke is password-only → v1.3 |
 
 ---
 
@@ -255,8 +256,8 @@ Run against [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) **o
 | Demo (D) | | 2026-08-18 | **Pass** |
 | Core fleet regression | | 2026-08-18 | **Pass** (not every item; accepted) |
 | Boot / install / upgrade | | 2026-08-18 | **Pass** |
-| Docs / wiki / screenshots | | | Screenshot refresh pending |
-| **Ready to tag `v1.2.0`** | | | **No** — screenshot refresh (non-blocker; say Yes when you want the tag) |
+| Docs / wiki / screenshots | | 2026-08-18 | **Pass** — 1.2 screenshot pack wired |
+| **Ready to tag `v1.2.0`** | | 2026-08-18 | **Yes** |
 
 ### After **Yes** (maintainer — not part of operator browsing)
 

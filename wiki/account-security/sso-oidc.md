@@ -31,6 +31,16 @@ Many labs already have a central IdP. SSO reduces password sprawl while keeping 
 5. Sign out → login page → **Continue with …**  
 6. Optionally **Account → Connected accounts** to link/unlink; optional **Remove password** after a good link.
 
+<figure class="ph-figure" markdown>
+  ![Settings SSO](../assets/screenshots/settings-sso.png)
+  <figcaption>Settings → General → SSO / OpenID Connect — issuer, client, group map, redirect URI.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
+  ![SSO login](../assets/screenshots/login-sso.png)
+  <figcaption>Sign in — Continue with Authentik (or your display name) plus the password form.</figcaption>
+</figure>
+
 ---
 
 ## Settings fields
@@ -68,6 +78,11 @@ Redirect URI for the IdP is shown on the Settings card (same as above).
 | **SSO → new user (JIT)** | No match → create user with role from map (or default), password login **off**, SSO linked |
 | **Local → SSO (explicit)** | Signed in → **Account → Connected accounts → Link …** (confirm password or 2FA when required) |
 
+<figure class="ph-figure" markdown>
+  ![Connected accounts](../assets/screenshots/account-sso.png)
+  <figcaption>Account → Connected accounts — linked issuer and unlink.</figcaption>
+</figure>
+
 Identity key is **`(issuer, subject)`**, not email alone. Email is only for soft match / display.
 
 ---
@@ -92,7 +107,7 @@ PiHerder does **not** skip its own 2FA because the IdP already authenticated you
 |-----------|-----------|
 | User has TOTP and/or passkey | After IdP callback → same **2FA step-up** as after password (or trusted device skip) |
 | Force 2FA; no factor enrolled | After identity proven → force-2FA enroll wall |
-| Link / unlink / remove password | Re-validate 2FA when enrolled (TOTP or backup code in the form) |
+| Link / unlink / remove password | Re-validate 2FA when enrolled. **v1.2:** unlink prefers TOTP / backup codes when TOTP is on; passkey step-up also works. Factor-agnostic step-up is **[KI-account-stepup-factors](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md#known-issues-ship-with-awareness)** → v1.3. |
 
 IdP MFA (if any) is **extra**, not a substitute for PiHerder TOTP/passkeys. Details: [2FA & force 2FA](two-factor.md).
 

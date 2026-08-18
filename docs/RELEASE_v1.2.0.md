@@ -169,12 +169,29 @@ SSO / passkeys / console / demo mode are **opt-in** — they do not turn on by t
 
 ---
 
+## QA-period fixes (landed on this tag)
+
+Operator QA on Authentik + this host. Not extra streams — they belong in **1.2.0**.
+
+| Fix | Detail |
+|-----|--------|
+| Authentik `iss` slash | ID token `iss` includes a trailing slash; Settings stored it stripped. Both forms accepted. |
+| Sole-admin role sync | Still not demoted. Audit **`user_role_sync_skipped`**. |
+| SSO error copy | Token/email failures are no longer shown as “cancelled or denied”. |
+| Account cards | Stray `<ul>` discs on Connected accounts / Passkeys (Preflight off). |
+| Settings layout | Self-backup schedule/run left-aligned; timezone stacks on mobile. |
+| OpenAPI UI | `/docs` and `/redoc` were blank under CSP; path-scoped CDN allow. |
+| Screenshots | 1.2 pack: login SSO, Settings SSO, Account SSO/passkeys, console popup, Full DR. |
+
+---
+
 ## Known issues (ship with awareness)
 
 | ID | Topic | Notes |
 |----|--------|--------|
-| **KI-console-mobile-soft-tab** | Web console soft **Tab** on mobile | **Improved in 1.2 QA (v12):** flush IME last token, rewrite `cd.do` / `cd .do`, swallow compositionend, drop matching re-append after bash completes. Desktop unchanged. Residual exotic IMEs: Space → Backspace → Tab. Wiki: [web-ssh-console § Known issues](../wiki/day-to-day/web-ssh-console.md#known-issues). |
-| **KI-csp-unsafe-inline** | CSP | **`unsafe-eval` closed** (compiled Tailwind). Inline script/style remain for template `<script>` / xterm — nonces in **v1.3**. Residual: XSS on the herder origin is still shell-equivalent when console is enabled. |
+| **KI-console-mobile-soft-tab** | Web console soft **Tab** on mobile | **Improved in 1.2 QA (v12):** flush IME last token, rewrite `cd.do` / `cd .do`, swallow compositionend, drop matching re-append after bash completes. Desktop unchanged. Residual exotic IMEs: Space → Backspace → Tab. Wiki: [web SSH](../wiki/day-to-day/web-ssh-console.md#known-issues). |
+| **KI-csp-unsafe-inline** | CSP | **`unsafe-eval` closed** (compiled Tailwind). Inline script/style remain for template `<script>` / xterm — nonces in **v1.3**. Residual: XSS on the herder origin is still shell-equivalent when console is enabled. `/docs` and `/redoc` allow jsDelivr + Google Fonts **only on those paths** so stock FastAPI Swagger/ReDoc can load. |
+| **KI-account-stepup-factors** | Account SSO unlink / passkey revoke | Unlink form prefers **TOTP or backup codes** when TOTP is enrolled (passkey works after Account step-up, or if TOTP is off). Passkey **Revoke** requires the **local password**, not TOTP/another passkey. **v1.3:** one step-up helper — any enrolled factor; password only when no 2FA. |
 | **KI-ssh-hostkey-tofu** | SSH host keys | **Closed:** first connect pins; mismatch refuses; reset under SSH access. |
 
 ---

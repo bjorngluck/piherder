@@ -40,6 +40,11 @@ The page uses the shared **ops-hero** (tab-aware title + pulse) plus Settings-st
 | **API** | Create / rotate / revoke instance Bearer tokens; **Try a token** smoke checks; OpenAPI `/docs` + ReDoc ([API tokens](api-tokens.md)) — admin |
 
 <figure class="ph-figure" markdown>
+  ![PiHerder self-backup](../assets/screenshots/settings-self-backup.png)
+  <figcaption>Settings → PiHerder backup — Full DR and archives.</figcaption>
+</figure>
+
+<figure class="ph-figure" markdown>
   ![Settings Alerts](../assets/screenshots/settings-alerts.png)
   <figcaption>Settings → Alerts — webhook + SMTP (test send, password recovery).</figcaption>
 </figure>
@@ -101,6 +106,11 @@ The hero shows a **timezone identity card** (not a city name jammed into the orb
 ### General tab — SSO / OpenID Connect
 
 Admin-only. Enable a confidential OIDC client, paste issuer / client id / secret (Fernet in DB), map groups to roles, optional **Require SSO** (hides the password form; **non-admins cannot password-login**; **admins stay break-glass**). Redirect URI is shown on the card.
+
+<figure class="ph-figure" markdown>
+  ![Settings SSO](../assets/screenshots/settings-sso.png)
+  <figcaption>Settings → General → SSO / OpenID Connect.</figcaption>
+</figure>
 
 Full operator guide: [SSO / OpenID Connect](../account-security/sso-oidc.md). Lab Authentik: [SSO_AUTHENTIK_TEST.md](https://github.com/bjorngluck/piherder/blob/main/docs/SSO_AUTHENTIK_TEST.md).
 

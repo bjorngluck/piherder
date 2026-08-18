@@ -51,7 +51,7 @@ Full notes: [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · operator QA: [QA_v1.2.0.md
 - [x] Full DR archive contains `database.dump`
 - [x] Demo: viewer banner, no real onboard, simulated console
 - [x] Direct TLS map (11.10) + core fleet regression (accepted; not every item fully validated)
-- [ ] Wiki screenshot refresh
+- [x] Wiki screenshot refresh
 
 ## Out of scope (deferred)
 
@@ -63,7 +63,7 @@ Full notes: [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) · operator QA: [QA_v1.2.0.md
 
 ## Merge checklist
 
-- [ ] Operator **Ready to tag `v1.2.0` = Yes**
+- [x] Operator **Ready to tag `v1.2.0` = Yes**
 - [x] Version bump `app/version_info.py` + `pyproject.toml` → **1.2.0**
 - [x] Flip [RELEASE_v1.2.0.md](RELEASE_v1.2.0.md) + wiki Home to **Tagged / current production**
 - [ ] Merge `v1.2.0-dev` → `main`

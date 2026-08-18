@@ -47,7 +47,12 @@ Password-only access to a fleet control plane is risky on shared or exposed URLs
 | **Origin** | From `PIHERDER_PUBLIC_URL` (must match the URL in the browser bar) |
 | **HTTPS** | Required except `localhost` — LAN HTTP without matching RP/origin will fail registration |
 | **Limit** | Up to 10 passkeys per user |
-| **Revoke** | Password required to remove a passkey |
+| **Revoke** | **v1.2:** local **password** required. TOTP / another passkey is **[KI-account-stepup-factors](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.2.0.md#known-issues-ship-with-awareness)** (v1.3). |
+
+<figure class="ph-figure" markdown>
+  ![Account passkeys](../assets/screenshots/account-passkeys.png)
+  <figcaption>Account → Passkeys — named credentials and Add passkey.</figcaption>
+</figure>
 
 Passkeys satisfy **force 2FA** the same way TOTP does. Passwordless (discoverable credential only, no password) is **not** enabled in v1.2.
 

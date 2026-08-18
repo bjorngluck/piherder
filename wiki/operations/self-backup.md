@@ -15,6 +15,11 @@ It is **not** a replacement for:
 
 Journey: [Operator scenarios — Journey F](../getting-started/operator-scenarios.md#journey-f).
 
+<figure class="ph-figure" markdown>
+  ![PiHerder self-backup](../assets/screenshots/settings-self-backup.png)
+  <figcaption>Settings → PiHerder backup — Full DR schedule, run now, and archives.</figcaption>
+</figure>
+
 ---
 
 ## Version matrix (read this before trusting an archive)
