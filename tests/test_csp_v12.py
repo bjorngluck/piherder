@@ -63,8 +63,12 @@ def test_compiled_tailwind_css_present():
     assert len(text) > 5000
     assert ".flex{" in text or ".flex {" in text
     assert ".hidden{" in text or ".hidden {" in text
-    # Preflight would reset body/buttons and fight themes.css
-    assert "*,:after,:before" not in text.replace(" ", "")
+    compact = text.replace(" ", "")
+    # Intentional box-sizing layer (Play layout model) — not full Preflight
+    assert "*,:after,:before{box-sizing:border-box}" in compact
+    # Full Tailwind Preflight would reset body/buttons and fight themes.css
+    assert "button,input" not in compact
+    assert "img,video{max-width:100%" not in compact
 
 
 def test_csp_can_disable(monkeypatch):

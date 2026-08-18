@@ -108,6 +108,7 @@ def test_csp_no_turnstile_when_off(monkeypatch):
 
 
 def test_force_reseed_wipes_and_rebuilds(tmp_path, monkeypatch):
+    monkeypatch.setattr(seed, "demo_mode", lambda: True)
     monkeypatch.setattr("app.services.app_settings.save_settings", lambda p: p)
     monkeypatch.setattr("app.services.app_settings.load_settings", lambda: {})
     engine = create_engine(
