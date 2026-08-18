@@ -2038,6 +2038,17 @@ body.server-reorder-active #bulk-hint {
   box-shadow: inset 3px 0 0 var(--color-warning, #e6a817);
 }
 
+/* Settings → General timezone: stack select + button (no min-width row squeeze). */
+.settings-tz-form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+.settings-tz-form .btn {
+  align-self: flex-start;
+}
+
 /* Settings → PiHerder backup: left-aligned fields (do not stretch to card edge). */
 .settings-backup-fields {
   display: flex;

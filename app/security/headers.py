@@ -49,7 +49,13 @@ def _turnstile_on() -> bool:
     return bool(site and secret)
 
 
-def build_csp() -> str:
+def is_openapi_ui_path(path: str) -> bool:
+    """Swagger UI / ReDoc HTML (not the JSON schema)."""
+    p = (path or "/").rstrip("/") or "/"
+    return p == "/docs" or p.startswith("/docs/") or p == "/redoc" or p.startswith("/redoc/")
+
+
+def build_csp(*, for_openapi_ui: bool = False) -> str:
     """Return the Content-Security-Policy value (no header name)."""
     # script-src: 'unsafe-inline' for template <script> blocks (nonces in a later train)
     # style-src: 'unsafe-inline' for theme/style attributes and xterm
@@ -73,6 +79,18 @@ def build_csp() -> str:
     # Cloudflare Turnstile (managed challenge loads scripts/frames/workers/images)
     worker_src = ["'self'"]
     img_src = ["'self'", "data:", "blob:"]
+    font_src = ["'self'", "data:"]
+    # FastAPI's stock /docs and /redoc load Swagger UI + ReDoc from jsDelivr
+    # (and ReDoc pulls Google Fonts). Global CSP stays self-hosted; only these
+    # two UI paths get the extra origins so the pages actually render.
+    if for_openapi_ui:
+        jd = "https://cdn.jsdelivr.net"
+        script_src.append(jd)
+        style_src.extend([jd, "https://fonts.googleapis.com"])
+        font_src.extend(["https://fonts.gstatic.com", "https://fonts.googleapis.com", jd])
+        img_src.extend([jd, "https://fastapi.tiangolo.com"])
+        if "blob:" not in worker_src:
+            worker_src.append("blob:")
     if _turnstile_on():
         cf = "https://challenges.cloudflare.com"
         script_src.append(cf)
@@ -102,7 +120,7 @@ def build_csp() -> str:
         "script-src " + " ".join(script_src),
         "style-src " + " ".join(style_src),
         "img-src " + " ".join(img_src),
-        "font-src 'self' data:",
+        "font-src " + " ".join(font_src),
         "connect-src " + " ".join(connect_parts),
         "worker-src " + " ".join(worker_src),
         "child-src " + " ".join(worker_src),
@@ -117,7 +135,7 @@ def build_csp() -> str:
     return "; ".join(directives) + ";"
 
 
-def security_headers_dict() -> dict[str, str]:
+def security_headers_dict(*, for_openapi_ui: bool = False) -> dict[str, str]:
     """All security headers applied to HTML/app responses."""
     headers = {
         "X-Content-Type-Options": "nosniff",
@@ -138,7 +156,7 @@ def security_headers_dict() -> dict[str, str]:
             if csp_report_only()
             else "Content-Security-Policy"
         )
-        headers[name] = build_csp()
+        headers[name] = build_csp(for_openapi_ui=for_openapi_ui)
     return headers
 
 
@@ -150,7 +168,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         path = request.url.path or ""
         # Skip CSP on pure static assets? Still useful; leave on.
         # Health/metrics keep headers (no harm).
-        for k, v in security_headers_dict().items():
+        for k, v in security_headers_dict(
+            for_openapi_ui=is_openapi_ui_path(path)
+        ).items():
             # Do not overwrite if an endpoint set a more specific CSP
             if k not in response.headers:
                 response.headers[k] = v

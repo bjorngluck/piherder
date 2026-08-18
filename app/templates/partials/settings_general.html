@@ -12,10 +12,10 @@
   {% else %}
   <div class="card p-5 mb-4">
     <h2 class="font-semibold text-text mb-3">Timezone</h2>
-    <form method="post" action="/herder-backups/timezone" class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
-      <div class="flex-1 min-w-[16rem]">
+    <form method="post" action="/herder-backups/timezone" class="settings-tz-form">
+      <div>
         <label class="block text-xs text-muted mb-1">Continent / City (IANA)</label>
-        <select name="timezone" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
+        <select name="timezone" class="settings-backup-control bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11">
           {% for tz in tz_choices %}
           <option value="{{ tz }}" {% if tz == current_tz %}selected{% endif %}>{{ tz }}</option>
           {% endfor %}
