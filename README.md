@@ -6,7 +6,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![Release](https://img.shields.io/badge/release-v1.1.0-green.svg)](docs/RELEASE_v1.1.0.md)
+[![Release](https://img.shields.io/badge/release-v1.1.1-green.svg)](docs/RELEASE_v1.1.1.md)
 [![Docker Hub](https://img.shields.io/badge/docker-bjorngluck%2Fpiherder-blue.svg)](https://hub.docker.com/r/bjorngluck/piherder)
 [![Docs](https://img.shields.io/badge/docs-wiki-red.svg)](https://piherder-docs.hacknow.info/)
 [![Demo](https://img.shields.io/badge/demo-view--only-orange.svg)](https://piherder-demo.hacknow.info)
@@ -75,9 +75,10 @@ If you find PiHerder useful, consider [sponsoring the project](https://github.co
 - Public demo (view-only): [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) · [wiki credentials](https://piherder-docs.hacknow.info/operations/demo-site/)
 - Admin guide: [docs/ADMIN.md](docs/ADMIN.md)
 - Ecosystem roadmap: [docs/ROADMAP_ECOSYSTEM.md](docs/ROADMAP_ECOSYSTEM.md)
-- **Current production (Hub):** [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) (day-to-day operator improvements — certs · discovery · identity · UX · maps · API)
-- **Next release:** `v1.2.0` — **feature-complete** on `v1.2.0-dev`, awaiting [operator QA](docs/QA_v1.2.0.md) (passkeys · SSO · webshell · gated demo · full DB self-backup · security remediations). Not tagged; Hub `latest` is still **1.1.0**. Notes: [RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md)
+- **Current production (Hub):** [docs/RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) (patch on 1.1 — SSH test / host deps); feature notes [docs/RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md)
+- **Next release:** `v1.2.0` — **feature-complete** on `v1.2.0-dev`, awaiting [operator QA](docs/QA_v1.2.0.md) (passkeys · SSO · webshell · gated demo · full DB self-backup · security remediations). Not tagged; Hub `latest` is still **1.1.1**. Notes: [RELEASE_v1.2.0.md](docs/RELEASE_v1.2.0.md)
 - Prior: [docs/RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md) · operator wiki [LAN Discovery](wiki/integrations/lan-discovery.md) · [HAOS hosts](wiki/day-to-day/haos-hosts.md)
+- Plan (1.1 archive): [docs/PLAN_v1.1.0.md](docs/PLAN_v1.1.0.md)
 - API reference: [docs/API.md](docs/API.md)
 
 ### Tech Stack

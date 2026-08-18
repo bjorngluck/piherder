@@ -10,11 +10,11 @@
 
 | | |
 |---|---|
-| **Current release** | **[v1.1.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md)** — current **Hub / production** · day-to-day operator improvements |
-| **Image** | `bjorngluck/piherder:1.1.0` · `1.1` · `latest` (multi-arch amd64 + arm64; `1.0` / `1.0.x` pins remain valid) |
-| **Release notes** | [RELEASE_v1.1.0.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md) · prior [v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) |
+| **Current release** | **[v1.1.1](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md)** — current **Hub / production** · patch on 1.1 (SSH test / host deps) |
+| **Image** | `bjorngluck/piherder:1.1.1` · `1.1` · `latest` (multi-arch amd64 + arm64; `1.1.0` / `1.0.x` pins remain valid) |
+| **Release notes** | [RELEASE_v1.1.1.md](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.1.md) · [v1.1.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.1.0.md) · prior [v1.0.0](https://github.com/bjorngluck/piherder/blob/main/docs/RELEASE_v1.0.0.md) |
 | **Known issue** | Busy-source rsync vanish on **1.1** (**KI-rsync-vanished**) — [troubleshooting](troubleshooting/backups.md#vanished-files-busy-sources). **1.2** retries + optional soft-OK. |
-| **Next release** | **v1.2.0** — **feature-complete** on `v1.2.0-dev` (passkeys · [SSO](account-security/sso-oidc.md) · [web SSH](day-to-day/web-ssh-console.md) · demo · full DB self-backup · security remediations). **Awaiting [operator QA](operations/qa-v1.2.0.md).** Not tagged; Hub `latest` is still **1.1.0**. |
+| **Next release** | **v1.2.0** — **feature-complete** on `v1.2.0-dev` (passkeys · [SSO](account-security/sso-oidc.md) · [web SSH](day-to-day/web-ssh-console.md) · demo · full DB self-backup · security remediations). **Awaiting [operator QA](operations/qa-v1.2.0.md).** Not tagged; Hub `latest` is still **1.1.1**. |
 | **Source** | [github.com/bjorngluck/piherder](https://github.com/bjorngluck/piherder) |
 | **Docs (this site)** | [piherder-docs.hacknow.info](https://piherder-docs.hacknow.info/) |
 | **Public demo** | [piherder-demo.hacknow.info](https://piherder-demo.hacknow.info) — limited **viewer** sandbox · [credentials](operations/demo-site.md) |

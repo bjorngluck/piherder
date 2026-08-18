@@ -4,7 +4,7 @@
 
 | Version | Support |
 |---------|---------|
-| **v1.1.x** | **Current production** line ([RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](docs/PLAN_v1.1.0.md)) |
+| **v1.1.x** | **Current production** line ([RELEASE_v1.1.1.md](docs/RELEASE_v1.1.1.md) · [RELEASE_v1.1.0.md](docs/RELEASE_v1.1.0.md) · [PLAN_v1.1.0.md](docs/PLAN_v1.1.0.md)) |
 | **v1.0.x** | Prior production; prefer upgrade to **v1.1.x** ([RELEASE_v1.0.0.md](docs/RELEASE_v1.0.0.md)) |
 | **`main`** | Development tip; security fixes land here first |
 | **v0.9.x and older** | Best-effort; prefer upgrade to latest production |
