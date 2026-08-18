@@ -48,6 +48,13 @@ DEFAULTS: Dict[str, Any] = {
     "force_2fa": False,
     # Require TOTP enabled to deploy templates / view deployment secrets
     "template_require_2fa": False,
+    # v1.3 Stream P — instance password policy (floors applied in password_policy)
+    "password_min_length": 10,
+    "password_max_length": 72,
+    "password_require_upper": True,
+    "password_require_lower": True,
+    "password_require_digit": True,
+    "password_require_special": False,
     # Suggest host/service FQDNs as {slug}.{dns_base_domain}
     "dns_base_domain": "",
     # Network map (hosts map): LAN topology + public edge

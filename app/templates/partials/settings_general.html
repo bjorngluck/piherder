@@ -31,7 +31,55 @@
     <p class="text-xs text-muted mb-3">
       Global account rules. Admin-created users always must set a new password on first login.
     </p>
-    <form method="post" action="/herder-backups/security" class="space-y-3">
+    <form method="post" action="/herder-backups/security" class="space-y-4" data-testid="settings-password-policy">
+      <fieldset class="space-y-3">
+        <legend class="text-sm font-medium text-text">Password rules</legend>
+        <p class="text-xs text-muted">
+          Applies to register, account change, admin create/reset, and recover-admin.
+          Minimum length cannot go below 8; maximum cannot exceed 72 (bcrypt).
+        </p>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Minimum length</span>
+            <input type="number" name="password_min_length" min="8" max="72"
+                   value="{{ cfg.password_min_length | default(10) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="password-min-length">
+          </label>
+          <label class="block text-sm">
+            <span class="block text-xs text-muted mb-1">Maximum length</span>
+            <input type="number" name="password_max_length" min="8" max="72"
+                   value="{{ cfg.password_max_length | default(72) }}"
+                   class="w-full bg-surface border border-border px-3 py-2 rounded text-sm font-mono min-h-11"
+                   data-testid="password-max-length">
+          </label>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-2">
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="checkbox" name="password_require_upper" value="1" class="mt-1"
+                   {% if cfg.password_require_upper is not defined or cfg.password_require_upper %}checked{% endif %}>
+            <span>Require an uppercase letter</span>
+          </label>
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="checkbox" name="password_require_lower" value="1" class="mt-1"
+                   {% if cfg.password_require_lower is not defined or cfg.password_require_lower %}checked{% endif %}>
+            <span>Require a lowercase letter</span>
+          </label>
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="checkbox" name="password_require_digit" value="1" class="mt-1"
+                   {% if cfg.password_require_digit is not defined or cfg.password_require_digit %}checked{% endif %}>
+            <span>Require a digit</span>
+          </label>
+          <label class="flex items-start gap-2 min-h-11 text-sm">
+            <input type="checkbox" name="password_require_special" value="1" class="mt-1"
+                   {% if cfg.password_require_special %}checked{% endif %}>
+            <span>Require a special character</span>
+          </label>
+        </div>
+        <p class="text-xs text-muted border border-border rounded p-2" data-testid="password-policy-preview">
+          {{ password_policy_text or '' }}
+        </p>
+      </fieldset>
       <label class="flex items-start gap-2 min-h-11 text-sm">
         <input type="checkbox" name="force_2fa" value="1" class="mt-1"
                {% if cfg.force_2fa %}checked{% endif %}>

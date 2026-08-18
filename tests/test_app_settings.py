@@ -112,6 +112,16 @@ def test_force_2fa_enabled(_memory_settings):
     assert cfg.force_2fa_enabled() is True
 
 
+def test_password_policy_defaults(_memory_settings):
+    loaded = cfg.load_settings()
+    assert loaded["password_min_length"] == 10
+    assert loaded["password_max_length"] == 72
+    assert loaded["password_require_upper"] is True
+    assert loaded["password_require_lower"] is True
+    assert loaded["password_require_digit"] is True
+    assert loaded["password_require_special"] is False
+
+
 def test_replace_settings_from_backup(_memory_settings):
     cfg.save_settings({"timezone": "UTC", "keep": 5})
     cfg.replace_settings({"timezone": "America/New_York", "force_2fa": True, "keep": 15})

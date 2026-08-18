@@ -24,6 +24,7 @@ from ..models import User
 from ..security.auth import ROLE_ADMIN, get_admin_user, get_current_user, user_role
 from ..services import api_tokens as tok_svc
 from ..services import app_settings as app_cfg
+from ..services import password_policy as pwpol
 from ..services import herder_backup as hb
 from ..services import stack_health as stack_svc
 from ..services import update_check_config as ucc
@@ -462,6 +463,7 @@ async def settings_page(
             "oidc_redirect_uri": _oidc_redirect_uri(),
             "oidc_role_map_rows": _oidc_role_map_rows(cfg),
             "demo_mode_on": demo_mode(),
+            "password_policy_text": pwpol.policy_rules_text(),
         },
     )
 
@@ -1018,24 +1020,54 @@ async def save_backup_schedule(
 async def save_security_policy(
     force_2fa: Optional[str] = Form(None),
     template_require_2fa: Optional[str] = Form(None),
+    password_min_length: int = Form(10),
+    password_max_length: int = Form(72),
+    password_require_upper: Optional[str] = Form(None),
+    password_require_lower: Optional[str] = Form(None),
+    password_require_digit: Optional[str] = Form(None),
+    password_require_special: Optional[str] = Form(None),
     user: User = Depends(get_admin_user),
+    session: Session = Depends(get_session),
 ):
     from ..services.demo import http_403_if_demo
 
     # Shared demo: force-2FA would lock every visitor out of the shared account
     http_403_if_demo("settings_security")
-    del user
+    before = pwpol.policy_summary()
+    policy_keys = pwpol.settings_from_policy(
+        {
+            "password_min_length": password_min_length,
+            "password_max_length": password_max_length,
+            "password_require_upper": _form_on(password_require_upper),
+            "password_require_lower": _form_on(password_require_lower),
+            "password_require_digit": _form_on(password_require_digit),
+            "password_require_special": _form_on(password_require_special),
+        }
+    )
     try:
         app_cfg.save_settings(
             {
                 "force_2fa": _form_on(force_2fa),
                 "template_require_2fa": _form_on(template_require_2fa),
+                **policy_keys,
             }
         )
     except Exception as e:
         return RedirectResponse(
             _settings_url("general", error=str(e)[:120]), status_code=303
         )
+    after = pwpol.policy_summary()
+    if after != before:
+        session.add(
+            make_audit_log(
+                user_id=user.id,
+                action="password_policy_changed",
+                status="success",
+                details=f"{before} → {after}",
+                finished_at=datetime.utcnow(),
+            )
+        )
+        session.commit()
     return RedirectResponse(
         _settings_url("general", security_saved="1"), status_code=303
     )

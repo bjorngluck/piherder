@@ -78,7 +78,7 @@ main @ v1.2.0 (+ v1.2.x patches)
 
 | # | Question | Decision |
 |---|----------|----------|
-| 1 | Which policy stream is Must? | **P** fully usable. **T6** (factor-agnostic account step-up) is also Must. Full **T1–T5** matrix is Should. |
+| 1 | Which policy stream is Must? | **Deep (signed 2026-08-18):** **P** + **T1–T6**. Force-2FA grace **0–60** days (home-lab). Destructive-job step-up stays Cap. Console *timeouts* stay slice 2. |
 | 2 | Host files kill switch | **`PIHERDER_HOST_FILES=false`** until **F2** is complete enough to turn on; demo stays off either way |
 | 3 | Files jail | **`docker_base_dir`** (expanded `~`) on Docker hosts; else SSH user home. Never `/`. HAOS out of thin slice |
 | 4 | Files thin-slice shape | **F2 only** — list / get / put. No mkdir / delete / rename this freeze |
@@ -147,7 +147,7 @@ Phase 4  Discover / Cap + freeze
 
 | ID | Item | Notes |
 |----|------|--------|
-| T1 | Policy matrix in Settings → Security | Force 2FA (all users / admins only / operators+ / off); grace period after enable; optional trusted-device skip rules |
+| T1 | Policy matrix in Settings → Security | Force 2FA (all users / admins only / operators+ / off); grace **0–60** days after enable (home-lab); optional trusted-device skip rules |
 | T2 | Step-up surfaces catalog | Document + configure: secrets view, sensitive account actions, console open, (optional) destructive jobs — each with re-auth window minutes |
 | T3 | Factor policy | Allow TOTP / passkey / backup codes for **login** vs **step-up** (e.g. console: passkey preferred / required; backup codes never for shell) |
 | T4 | Alignment with SSO | Keep “IdP MFA does not replace herder 2FA” unless an explicit admin option; no silent skip |
@@ -406,14 +406,14 @@ Host: rpi5-4  →  dest card Files
 
 | Priority | Streams | Bar |
 |----------|---------|-----|
-| **Must** | **L** (Servers + Docker + discovery) · **P** (password policy fully usable) · **T6** (factor-agnostic account step-up) · **W-id** core (fleet + privileged identity + console picker) | Scale lists + operator password policy + 1.2 KI close + least-priv/privileged connect-as |
-| **Should** | **T1–T5** · **W-cfg** · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) · **F2** host Files list/get/put (after **F0** sign-off) | Full policy set + console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
+| **Must** | **P** + **T1–T6** (slice 1 **Deep**) · **L** (Servers + Docker + discovery) · **W-id** core (fleet + privileged + Connect as…) | Operator-owned security policy (full) + scale lists + least-priv/privileged connect-as |
+| **Should** | **W-cfg** (timeouts/concurrency; factor knobs land with T3) · **A** · **W-audit** if spike green · **N2** built-in fleet board (after **N0**) · **F2** host Files list/get/put (after **F0** sign-off) | Console knobs + alerts + opt-in command audit + thin reporting + confined host file transfer |
 | **Discover / Cap** | **N0** discovery · **N3** custom layout · **W-audit** spike · **W-mux** (screen/tmux, low priority) · **F** mkdir/delete/step-up · **AC-fg** · ACME · branding · CSP nonces | Promote only if Must green |
 
 Success criteria:
 
 1. Admin can configure password policy; all password entry paths enforce it and show the same rules.  
-2. Account SSO unlink + passkey revoke accept **any enrolled 2FA** (**T6**). Broader force-2FA / step-up windows (**T1–T5**) are Should.  
+2. Account SSO unlink + passkey revoke accept **any enrolled 2FA** (**T6**). Admin can set force-2FA scope / grace **0–60** days / step-up windows / factor matrix / IdP-MFA opt-in (**T1–T5**, default fail-closed).  
 3. *(Should)* Console idle/max/concurrency/step-up knobs adjustable in Settings without editing compose for common cases.  
 4. Host can store **fleet** + **privileged** SSH identities (separate keys/users); console offers **Connect as…**; jobs stay on fleet by default.  
 5. *(If W-audit promoted)* Opt-in command (± response) audit with redaction heuristics and retention; default off; wiki warns about residual secret capture.  
@@ -493,6 +493,7 @@ Success criteria:
 | 2026-08-17 | **Service migration** requested (stop → dataset copy → CNAME → both Pi-hole restartdns → dest start → TLS/Kuma · host lock for HAOS / Frigate TPU). Parked on **v1.4** — not this train. |
 | 2026-08-18 | **T6 / KI-account-stepup-factors** from 1.2 QA: unlink TOTP-first; passkey revoke password-only. |
 | 2026-08-18 | **Train opened** on `v1.3.0-dev`. Must/Should locked. Phase 1 current. Package version stays `1.2.0` until freeze. |
+| 2026-08-18 | **Slice 1 Deep signed.** Policy Must = **P + T1–T6**. Force-2FA grace **0–60** days (home-lab). Destructive-job step-up Cap. |
 
 Add deferred 1.2 items here as one-line bullets when freeze decides “→ 1.3”.
 
