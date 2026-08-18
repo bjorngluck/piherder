@@ -9,10 +9,10 @@
         <input type="checkbox" name="schedule_enabled" value="1" {% if cfg.schedule_enabled %}checked{% endif %}>
         <span>Enable scheduled self-backups</span>
       </label>
-      <div class="flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-end">
-        <div>
+      <div class="settings-backup-fields">
+        <div class="settings-backup-field settings-backup-field--schedule">
           <label class="block text-xs text-muted mb-1">Schedule</label>
-          <select class="w-full sm:w-56 bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 mb-1"
+          <select class="settings-backup-control bg-surface border border-border px-3 py-2 rounded text-sm min-h-11 mb-1"
                   aria-label="Self-backup schedule preset"
                   onchange="var el=this.form.querySelector('[name=schedule_cron]'); if(this.value&&el){el.value=this.value;}">
             <option value="">Custom / advanced cron…</option>
@@ -20,21 +20,23 @@
             <option value="{{ val }}" {% if (cfg.schedule_cron or '0 3 * * *') == val %}selected{% endif %}>{{ lab }}</option>
             {% endfor %}
           </select>
-          <input type="text" name="schedule_cron" value="{{ cfg.schedule_cron or '0 3 * * *' }}" placeholder="0 3 * * *" class="w-full sm:w-40 bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
+          <input type="text" name="schedule_cron" value="{{ cfg.schedule_cron or '0 3 * * *' }}" placeholder="0 3 * * *" class="settings-backup-control bg-surface border border-border px-3 py-2 rounded font-mono text-sm min-h-11">
           <p class="text-[10px] text-muted mt-1">{{ (cfg.schedule_cron or '0 3 * * *') | cron_human(current_tz if current_tz is defined else get_app_timezone()) }}</p>
         </div>
-        <div>
+        <div class="settings-backup-field settings-backup-field--mode">
           <label class="block text-xs text-muted mb-1">Scheduled runs</label>
-          <select name="schedule_mode" class="w-full bg-surface border border-border px-3 py-2 rounded min-h-11">
+          <select name="schedule_mode" class="settings-backup-control bg-surface border border-border px-3 py-2 rounded min-h-11">
             <option value="full" {% if cfg.schedule_mode != "config_only" %}selected{% endif %}>Full DR (entire DB via pg_dump)</option>
             <option value="config_only" {% if cfg.schedule_mode == "config_only" %}selected{% endif %}>Config only (light JSON)</option>
           </select>
         </div>
-        <div>
+        <div class="settings-backup-field settings-backup-field--keep">
           <label class="block text-xs text-muted mb-1">Keep how many</label>
-          <input type="number" name="keep" value="{{ cfg.keep }}" min="1" max="100" class="w-full sm:w-24 bg-surface border border-border px-3 py-2 rounded min-h-11">
+          <input type="number" name="keep" value="{{ cfg.keep }}" min="1" max="100" class="settings-backup-control bg-surface border border-border px-3 py-2 rounded min-h-11">
         </div>
-        <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save schedule</button>
+        <div class="settings-backup-field settings-backup-field--save">
+          <button type="submit" class="btn btn-secondary min-h-11 text-sm">Save schedule</button>
+        </div>
       </div>
     </form>
     <p class="text-xs text-muted mt-3">
@@ -59,11 +61,10 @@
       </div>
     </div>
 
-    <form method="post" action="/herder-backups/run"
-          class="flex flex-col sm:flex-row flex-wrap gap-2 items-stretch sm:items-end text-sm mb-4 pb-4 border-b border-border">
-      <div class="flex-1 min-w-[10rem]">
+    <form method="post" action="/herder-backups/run" class="settings-backup-run text-sm">
+      <div class="settings-backup-run-mode">
         <label class="block text-xs text-muted mb-1">Run now</label>
-        <select name="backup_mode" class="w-full bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
+        <select name="backup_mode" class="settings-backup-control bg-surface border border-border px-3 py-2 rounded text-sm min-h-11">
           <option value="full" selected>Full DR (entire Postgres + files)</option>
           <option value="config_only">Config only (light JSON, not full DR)</option>
         </select>
@@ -136,7 +137,9 @@
         <label class="flex items-center gap-2 text-sm min-h-11">
           <input type="checkbox" name="dry_run" value="1" checked> Dry run (preview only)
         </label>
-        <button type="submit" class="btn btn-secondary min-h-11">Restore</button>
+        <div class="settings-backup-restore-actions">
+          <button type="submit" class="btn btn-secondary min-h-11">Restore</button>
+        </div>
         <p class="text-xs text-muted">
           Upserts servers (encrypted keys unchanged — <code>PIHERDER_MASTER_KEY</code> must match).
           Prefer <strong>Preview</strong> (👁) on a list item first.

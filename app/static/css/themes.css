@@ -2038,6 +2038,79 @@ body.server-reorder-active #bulk-hint {
   box-shadow: inset 3px 0 0 var(--color-warning, #e6a817);
 }
 
+/* Settings → PiHerder backup: left-aligned fields (do not stretch to card edge). */
+.settings-backup-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+.settings-backup-field {
+  min-width: 0;
+}
+.settings-backup-control {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.settings-backup-field--save {
+  display: flex;
+  align-items: flex-end;
+}
+@media (min-width: 768px) {
+  .settings-backup-fields {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: flex-start;
+  }
+  .settings-backup-field--schedule {
+    flex: 0 1 18rem;
+  }
+  .settings-backup-field--mode {
+    flex: 0 1 18rem;
+  }
+  .settings-backup-field--keep {
+    flex: 0 0 7.5rem;
+  }
+  .settings-backup-field--save {
+    flex: 0 0 auto;
+  }
+}
+.settings-backup-run {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: stretch;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.settings-backup-run-mode {
+  min-width: 0;
+}
+@media (min-width: 640px) {
+  .settings-backup-run {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: flex-start;
+    max-width: 32rem;
+  }
+  .settings-backup-run-mode {
+    flex: 1 1 auto;
+  }
+  .settings-backup-run .btn {
+    flex: 0 0 auto;
+  }
+}
+.settings-backup-restore-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
 /* Herder self-backup list (Settings) — compact rows, no table scroll */
 .herder-backup-list {
   max-height: none;
